@@ -1,3 +1,49 @@
+2005-04-17  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_vector.h (vector::operator==): Add missing
+	return value.
+	* include/bits/stl_bvector.h (vector<bool>): Add rvalue ref
+	constructor and operator=.
+	* include/bits/stl_deque.h (deque): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark deque as
+	rvalue ref aware.
+	* include/bits/stl_list.h (list): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark list as
+	rvalue ref aware.
+	* include/bits/stl_map.h (map): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark map as
+	rvalue ref aware.
+	* include/bits/stl_multimap.h (multimap): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark multimap as
+	rvalue ref aware.
+	* include/bits/stl_multiset.h (multiset): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark multiset as
+	rvalue ref aware.
+	* include/bits/stl_pair.h (pair): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark pair as
+	rvalue ref aware.
+	* include/bits/stl_set.h (set): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark set as
+	rvalue ref aware.
+	* testsuite/20_util/utility/pair/moveable.cc: New.
+	* testsuite/23_containers/deque/moveable.cc: Likewise.
+	* testsuite/23_containers/list/moveable.cc: Likewise.
+	* testsuite/23_containers/map/moveable.cc: Likewise.
+	* testsuite/23_containers/multimap/moveable.cc: Likewise.
+	* testsuite/23_containers/multiset/moveable.cc: Likewise.
+	* testsuite/23_containers/set/moveable.cc: Likewise.
+	* testsuite/performance/25_algorithms/unique.cc: Likewise.
+	* testsuite/testsuite_rvalref.h (rvalstruct): Simplify.
+	* testsuite/25_algorithms/unique/moveable.cc: Modify to use new
+	rvalstruct.
+
 2005-03-29  Christopher Jefferson  <chris@bubblescope.net>
 
 	* testsuite/25_algorithms/includes/1.cc: Add tests.

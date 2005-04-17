@@ -61,6 +61,8 @@
 #ifndef _PAIR_H
 #define _PAIR_H 1
 
+#include <bits/moveable.h>
+
 namespace std
 {
   /// pair holds two objects of arbitrary type.
@@ -88,6 +90,24 @@ namespace std
       template<class _U1, class _U2>
         pair(const pair<_U1, _U2>& __p)
 	: first(__p.first), second(__p.second) { }
+
+      /** Construct from rvalue reference. The effects to each element
+	  will depend on if, and how, they implement rvalue reference 
+	  symantics */
+      pair(__gnu_cxx::__rvalref<pair> __x)
+      : first(__gnu_cxx::__move(__x.__ref.first)),
+	second(__gnu_cxx::__move(__x.__ref.second)) { }
+
+      /** Copy from rvalue reference. The effects to each element will
+	  depend on if, and how, they implement rvalue reference 
+	  symantics */
+      pair&
+      operator=(__gnu_cxx::__rvalref<pair> __x)
+      { 
+	first = __gnu_cxx::__move(__x.__ref.first);
+	second = __gnu_cxx::__move(__x.__ref.second);
+	return *this;
+      }
     };
 
   /// Two pairs of the same type are equal iff their members are equal.
@@ -144,5 +164,12 @@ namespace std
     make_pair(_T1 __x, _T2 __y)
     { return pair<_T1, _T2>(__x, __y); }
 } // namespace std
+
+namespace __gnu_cxx
+{
+  template<typename _T1, typename _T2>
+    struct __is_moveable<std::pair<_T1, _T2> >
+    { static const bool value = true; };
+}
 
 #endif /* _PAIR_H */

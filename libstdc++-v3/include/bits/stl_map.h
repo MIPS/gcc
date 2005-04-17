@@ -62,6 +62,7 @@
 #define _MAP_H 1
 
 #include <bits/concept_check.h>
+#include <bits/moveable.h>
 
 namespace _GLIBCXX_STD
 {
@@ -160,6 +161,17 @@ namespace _GLIBCXX_STD
       : _M_t(__x._M_t) { }
 
       /**
+       * @brief %Map move constructor
+       * @param x A %map of identical element and allocator types
+       *
+       * The newly-constructed %map contains the exact contents of @a x.
+       * The contents of x are a valid, but unspecified map.
+       */
+      map(__gnu_cxx::__rvalref<map> __x)
+      : _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
+      {	this->swap(__x.__ref); }
+
+      /**
        *  @brief  Builds a %map from a range.
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
@@ -197,6 +209,20 @@ namespace _GLIBCXX_STD
       operator=(const map& __x)
       {
 	_M_t = __x._M_t;
+	return *this;
+      }
+
+      /**
+       *  @brief %Map move assignment operator.
+       *  @param x A %map of identical element and allocator types.
+       *
+       *  The contents of @a x are moved into this map (without copying).
+       *  @a x is a valid, but unspecified map.
+       */
+      map&
+      operator=(__gnu_cxx::__rvalref<map> __x)
+      { 
+	this->swap(__x.__ref); 
 	return *this;
       }
 
@@ -671,5 +697,12 @@ namespace _GLIBCXX_STD
     swap(map<_Key,_Tp,_Compare,_Alloc>& __x, map<_Key,_Tp,_Compare,_Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+namespace __gnu_cxx
+{
+  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+    struct __is_moveable<_GLIBCXX_STD::map<_Key, _Tp, _Compare,_Alloc> >
+    { static const bool value = true; };
+}
 
 #endif /* _MAP_H */

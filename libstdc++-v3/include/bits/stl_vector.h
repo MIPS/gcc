@@ -291,7 +291,10 @@ namespace _GLIBCXX_STD
        */
       vector&
       operator=(__gnu_cxx::__rvalref<vector> __x)
-      { this->swap(__x.__ref); }
+      { 
+        this->swap(__x.__ref); 
+        return *this;
+      }
 
       /**
        *  @brief  Assigns a given value to a %vector.

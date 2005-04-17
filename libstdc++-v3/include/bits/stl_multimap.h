@@ -62,6 +62,7 @@
 #define _MULTIMAP_H 1
 
 #include <bits/concept_check.h>
+#include <bits/moveable.h>
 
 namespace _GLIBCXX_STD
 {
@@ -175,6 +176,17 @@ namespace _GLIBCXX_STD
       : _M_t(__x._M_t) { }
 
       /**
+       * @brief %Multimap move constructor
+       * @param x A %Multimap of identical element and allocator types
+       *
+       * The newly-constructed %multimap contains the exact contents of @a x.
+       * The contents of x are a valid, but unspecified multimap.
+       */
+      multimap(__gnu_cxx::__rvalref<multimap> __x)
+      : _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
+      {	this->swap(__x.__ref); }
+
+      /**
        *  @brief  Builds a %multimap from a range.
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
@@ -212,6 +224,20 @@ namespace _GLIBCXX_STD
       operator=(const multimap& __x)
       {
 	_M_t = __x._M_t;
+	return *this;
+      }
+
+      /**
+       *  @brief %Multimap move assignment operator.
+       *  @param x A %multimap of identical element and allocator types.
+       *
+       *  The contents of @a x are moved into this multimap (without copying).
+       *  @a x is a valid, but unspecified multimap.
+       */
+      multimap&
+      operator=(__gnu_cxx::__rvalref<multimap> __x)
+      { 
+	this->swap(__x.__ref); 
 	return *this;
       }
 
@@ -652,5 +678,12 @@ namespace _GLIBCXX_STD
          multimap<_Key,_Tp,_Compare,_Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+namespace __gnu_cxx
+{
+  template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+    struct __is_moveable<_GLIBCXX_STD::multimap<_Key, _Tp, _Compare,_Alloc> >
+    { static const bool value = true; };
+}
 
 #endif /* _MULTIMAP_H */

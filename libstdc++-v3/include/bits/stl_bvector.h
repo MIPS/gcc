@@ -643,6 +643,10 @@ template<typename _Alloc>
       std::copy(__x.begin(), __x.end(), this->_M_impl._M_start);
     }
 
+    vector(__gnu_cxx::__rvalref<vector> __x)
+    : _Bvector_base<_Alloc>(__x.get_allocator())
+    { this->swap(__x.__ref); }
+
     // Check whether it's an integral type.  If so, it's not an iterator.
     template<class _Integer>
       void
@@ -683,6 +687,13 @@ template<typename _Alloc>
 	}
       std::copy(__x.begin(), __x.end(), begin());
       this->_M_impl._M_finish = begin() + difference_type(__x.size());
+      return *this;
+    }
+
+    vector&
+    operator=(__gnu_cxx::__rvalref<vector> __x)
+    { 
+      this->swap(__x.__ref); 
       return *this;
     }
 

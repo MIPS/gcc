@@ -62,6 +62,7 @@
 #define _LIST_H 1
 
 #include <bits/concept_check.h>
+#include <bits/moveable.h>
 
 namespace _GLIBCXX_STD
 {
@@ -482,6 +483,17 @@ namespace _GLIBCXX_STD
       { this->insert(begin(), __x.begin(), __x.end()); }
 
       /**
+       * @brief %List move constructor
+       * @param x A %list of identical element and allocator types
+       *
+       * The newly-constructed %list contains the exact contents of @a x.
+       * The contents of x are a valid, but unspecified list.
+       */
+      list(__gnu_cxx::__rvalref<list> __x)
+      : _Base(__x.__ref.get_allocator())
+      { this->swap(__x.__ref); }
+
+      /**
        *  @brief  Builds a %list from a range.
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
@@ -518,6 +530,20 @@ namespace _GLIBCXX_STD
        */
       list&
       operator=(const list& __x);
+
+      /**
+       *  @brief %List move assignment operator.
+       *  @param x A %list of identical element and allocator types.
+       *
+       *  The contents of @a x are moved into this list (without copying).
+       *  @a x is a valid, but unspecified list.
+       */
+      list&
+      operator=(__gnu_cxx::__rvalref<list> __x)
+      { 
+	this->swap(__x.__ref); 
+	return *this;
+      }
 
       /**
        *  @brief  Assigns a given value to a %list.
@@ -1214,6 +1240,13 @@ namespace _GLIBCXX_STD
     swap(list<_Tp, _Alloc>& __x, list<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+namespace __gnu_cxx
+{
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<_GLIBCXX_STD::list<_Tp, _Alloc> >
+    { static const bool value = true; };
+}
 
 #endif /* _LIST_H */
 

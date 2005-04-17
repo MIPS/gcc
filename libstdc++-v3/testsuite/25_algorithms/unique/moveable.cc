@@ -35,16 +35,19 @@ void test01()
 {
   bool test __attribute__((unused)) = true;
 
-  rvalstruct T1[] = {1, 4, 4, 6, 1, 2, 2, 3, 1, 6, 6, 6, 5, 7, 5, 4, 4};
-  rvalstruct T2[] = {1, 1, 1, 2, 2, 1, 1, 7, 6, 6, 7, 8, 8, 8, 8, 9, 9};
+  int intarray1[] = {1, 4, 4, 6, 1, 2, 2, 3, 1, 6, 6, 6, 5, 7, 5, 4, 4};
+  int intarray2[] = {1, 1, 1, 2, 2, 1, 1, 7, 6, 6, 7, 8, 8, 8, 8, 9, 9};
 
-  const int N = sizeof(T1) / sizeof(rvalstruct);
+  const int N = sizeof(intarray1) / sizeof(int);
 
+  rvalstruct T1[N];
+  rvalstruct T2[N];
+  
+  std::copy(intarray1,intarray1 + N, T1);
+  std::copy(intarray2,intarray2 + N, T2);
+  
   const int A1[] = {1, 4, 6, 1, 2, 3, 1, 6, 5, 7, 5, 4};
-
   const int B1[] = {1, 2, 1, 7, 6, 7, 8, 9};
-
-  rvalstruct::zero_counters();
 
   Container con(T1, T1 + N);
 
@@ -56,10 +59,6 @@ void test01()
   VERIFY(std::unique(con2.begin(), con2.end()).ptr - T2 == 8);
   for(int i = 0; i < 8; ++i)
     VERIFY(T2[i].val == B1[i]);
-
-  VERIFY(rvalstruct::empty_construct == 0 && 
-	 rvalstruct::copy_construct == 0 &&
-	 rvalstruct::copy_assign == 0);
 }
 
 

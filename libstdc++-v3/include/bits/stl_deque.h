@@ -64,6 +64,7 @@
 #include <bits/concept_check.h>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
+#include <bits/moveable.h>
 
 namespace _GLIBCXX_STD
 {
@@ -672,6 +673,18 @@ namespace _GLIBCXX_STD
 				    this->get_allocator()); }
 
       /**
+       * @brief %Deque move constructor
+       * @param x A %deque of identical element and allocator types
+       *
+       * The newly-constructed %deque contains the exact contents of @a x.
+       * The contents of x are a valid, but unspecified deque.
+       */
+      deque(__gnu_cxx::__rvalref<deque> __x)
+      : _Base(__x.__ref.get_allocator(), 0)
+      {	this->swap(__x.__ref); }
+
+
+      /**
        *  @brief  Builds a %deque from a range.
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
@@ -713,6 +726,20 @@ namespace _GLIBCXX_STD
        */
       deque&
       operator=(const deque& __x);
+
+      /**
+       *  @brief %Deque move assignment operator.
+       *  @param x A %deque of identical element and allocator types.
+       *
+       *  The contents of @a x are moved into this deque (without copying).
+       *  @a x is a valid, but unspecified deque.
+       */
+      deque&
+      operator=(__gnu_cxx::__rvalref<deque> __x)
+      { 
+	this->swap(__x.__ref); 
+	return *this;
+      }
 
       /**
        *  @brief  Assigns a given value to a %deque.
@@ -1506,5 +1533,12 @@ namespace _GLIBCXX_STD
     swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+namespace __gnu_cxx
+{
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<_GLIBCXX_STD::deque<_Tp, _Alloc> >
+    { static const bool value = true; };
+}
 
 #endif /* _DEQUE_H */

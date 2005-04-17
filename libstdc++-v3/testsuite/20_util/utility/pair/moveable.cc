@@ -1,6 +1,3 @@
-// -*- C++ -*-
-// Testing utilities for the rvalue reference.
-//
 // Copyright (C) 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -8,17 +5,17 @@
 // terms of the GNU General Public License as published by the
 // Free Software Foundation; either version 2, or (at your option)
 // any later version.
-//
+
 // This library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-//
+
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
-//
+
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
 // templates or use macros or inline functions from this file, or you compile
@@ -28,78 +25,49 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _GLIBCXX_TESTSUITE_RVALREF_H
-#define _GLIBCXX_TESTSUITE_RVALREF_H 1
+// This test tests the internal "moveable" extension
+// NOTE: This makes use of the fact that we know how moveable
+// is implemented on pair, and also vector. If the implementation 
+// changes this test may begin to fail.
 
+#include <vector>
+#include <utility>
 #include <testsuite_hooks.h>
 
-namespace __gnu_test
+bool test __attribute__((unused)) = true;
+
+void
+test1()
 {
-
-  class rvalstruct
-  {
-    rvalstruct(const rvalstruct&);
-    bool
-    operator=(const rvalstruct&);
-  public:
-    int val;
-    bool valid;
-
-    rvalstruct() : valid(false)
-    { }
-
-    rvalstruct&
-    operator=(int newval)
-    { 
-      val = newval; 
-      valid = true;
-    }
-
-    rvalstruct(__gnu_cxx::__rvalref<rvalstruct> in)
-    { 
-      VERIFY(in.__ref.valid == true);
-      val = in.__ref.val;
-      in.__ref.valid = false;
-      valid = true;
-    }
-
-    rvalstruct&
-    operator=(__gnu_cxx::__rvalref<rvalstruct> in)
-    { 
-      VERIFY(in.__ref.valid == true);
-      val = in.__ref.val;
-      in.__ref.valid = false;
-      valid = true;
-      return *this;
-    }
-  };
-
-  bool 
-  operator==(const rvalstruct& lhs, 
- 	     const rvalstruct& rhs)
-  { return lhs.val == rhs.val; }
-
-  bool
-  operator<(const rvalstruct& lhs, 
-	    const rvalstruct& rhs)
-  { return lhs.val < rhs.val; }
-
-  void
-  swap(rvalstruct& lhs, rvalstruct& rhs)
-  {  
-    VERIFY(lhs.valid && rhs.valid);
-    int temp = lhs.val;
-    lhs.val = rhs.val;
-    rhs.val = temp;
-  }
-
-}; // namespace __gnu_test
-
-namespace __gnu_cxx 
-{
-  template<>
-    struct __is_moveable<__gnu_test::rvalstruct>
-    { static const bool value = true; };
+  std::pair<int,int> a(1,1),b(2,2);
+  a=__gnu_cxx::__move(b);
+  VERIFY(a.first == 2 && a.second == 2 && b.first == 2 &&
+         b.second == 2);
+  std::pair<int,int> c(__gnu_cxx::__move(a));
+  VERIFY(c.first == 2 && c.second == 2 && a.first == 2 &&
+	 a.second == 2);
 }
 
-#endif // _GLIBCXX_TESTSUITE_TR1_H
+void
+test2()
+{
+  std::vector<int> v,w;
+  v.push_back(1);
+  w.push_back(2);
+  w.push_back(2);
+  std::pair<int, std::vector<int> > p = make_pair(1,v);
+  std::pair<int, std::vector<int> > q = make_pair(2,w);
+  p = __gnu_cxx::__move(q);
+  VERIFY(p.first == 2 && q.first == 2 &&
+	 p.second.size() == 2 && q.second.size() == 1);
+  std::pair<int, std::vector<int> > r(__gnu_cxx::__move(p));
+  VERIFY(r.first == 2 && p.first == 2 &&
+         r.second.size() == 2 && p.second.size() == 0);
+}
+
+int 
+main() 
+{
+  test1();
+  test2();
+}
