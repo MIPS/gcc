@@ -268,6 +268,7 @@ public:
     print ("-prepend TEXT", "print text before class declaration", 3);
     print ("-append CLASS", "print text after class declaration", 3);
     print ("-friend CLASS", "print text in class as friend declaration", 3);
+    print ("-nostdheaders", "don't emit headers for Object or Class", 3);
 
     os << std::endl;
 
@@ -435,7 +436,7 @@ public:
 	  }
         else if (arg == "-deprecation")
           handle_warning ("-Wdeprecated");
-        else if (arg[1] == 'f')
+        else if (arg[1] == 'f' && arg != "-friend")
 	  handle_feature (arg);
         else if (arg == "-verbose")
 	  comp->verbose = true;
@@ -535,6 +536,11 @@ public:
 	    cni_generator->add_action (cni_code_generator::CNI_PREPEND,
 				       action_class,
 				       get_arg_for (it, "-prepend"));
+	  }
+	else if (arg == "-nostdheaders")
+	  {
+	    need_cni_generator ("-nostdheaders");
+	    cni_generator->set_avoid_headers ();
 	  }
         else
 	  die_unrecognized ("option", arg);

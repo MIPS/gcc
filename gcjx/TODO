@@ -298,6 +298,13 @@ X gcjh has options to add text to the header in different places;
 
 Tree generation
 
+look at
+http://gcc.gnu.org/cgi-bin/cvsweb.cgi/gcc/gcc/java/class.c.diff?cvsroot=gcc&r1=1.222&r2=1.223
+
+
+when generating a CNI .h from a .java file, we could translate java to
+c++ directly.
+
 things to do in a merge:
 - start using fold_buildN()
 - handle -fno-show-column

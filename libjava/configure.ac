@@ -1074,6 +1074,7 @@ case "${which_gcj}" in
    built)
       GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
       GCJH='$(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh'
+      GCJX='$(MULTIBUILDTOP)../$(COMPPATH)/gcjx/gcjx'
       ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
    ;;
    cross)
@@ -1086,6 +1087,7 @@ case "${which_gcj}" in
       fi
       ZIP=jar
       GCJH='$(target_noncanonical)-gcjh'
+      GCJX='$(target_noncanonical)-gcjx'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
@@ -1093,11 +1095,13 @@ case "${which_gcj}" in
       ## found in the build tree.
       ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
       GCJH=gcjh
+      GCJX=gcjx
    ;;
 esac
 
 AC_SUBST(GCJH)
 AC_SUBST(ZIP)
+AC_SUBST(GCJX)
 
 # Create it, so that compile/link tests don't fail
 test -f libgcj.spec || touch libgcj.spec

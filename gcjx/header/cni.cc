@@ -26,7 +26,8 @@
 
 cni_code_generator::cni_code_generator (compiler *c, directory_cache &dirs)
   : code_generator (dirs),
-    comp (c)
+    comp (c),
+    std_headers_ok (true)
 {
 }
 
@@ -425,13 +426,17 @@ cni_code_generator::add_action (cni_code_generator::action what,
 void
 cni_code_generator::generate (model_class *klass)
 {
+  std::string cname = klass->get_fully_qualified_name ();
+
+  if (! std_headers_ok && (cname == "java.lang.Object"
+			   || cname == "java.lang.Class"))
+    return;
+
   std::string filename = directories.add (klass, ".h");
   std::ofstream out (filename.c_str ());
 
   if (global->get_compiler ()->verbose ())
     std::cout << " [writing " << filename << "]" << std::endl;
-
-  std::string cname = klass->get_fully_qualified_name ();
 
   action_map_type::const_iterator it = action_map.find (cname);
   bool found = it != action_map.end ();

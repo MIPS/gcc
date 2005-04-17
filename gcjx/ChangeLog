@@ -1,5 +1,15 @@
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
+	* main.cc (argument_parser::help_options): Document
+	-nostdheaders.
+	(argument_parser::parse_args): Handle -nostdheaders.
+	* header/cni.cc (cni_code_generator): Initialize new field.
+	(generate): Handle new field.
+	* header/cni.hh (cni_code_generator::std_headers_ok): New field.
+	(cni_code_generator::set_avoid_headers): New method.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
 	* main.cc: Don't use backquote.
 
 2005-03-29  Tom Tromey  <tromey@redhat.com>

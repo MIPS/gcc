@@ -33,6 +33,9 @@ details.  */
 /* Macro for possible unused arguments.  */
 #define MAYBE_UNUSED __attribute__((__unused__))
 
+#define _JV_NOT_OWNER 1
+#define _JV_INTERRUPTED 2
+
 /* Structure of the virtual table.  */
 struct _Jv_VTable
 {

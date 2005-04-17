@@ -1,3 +1,39 @@
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in, configure: Rebuilt.
+	* include/jvm.h (_JV_NOT_OWNER): New define.
+	(_JV_INTERRUPTED): Likewise.
+	* Makefile.am (JAVAC): Redefine.
+	(GCJH): Removed.
+	(ZIP): Removed.
+	(.class.h): Removed.
+	($(ordinary_nat_headers) $(xlib_nat_headers)): Removed.
+	(java/lang/ClassLoader.h): Removed.
+	(java/lang/Thread.h): Likewise.
+	(java/lang/String.h): Likewise.
+	(java/lang/reflect/Constructor.h): Likewise.
+	(java/lang/reflect/Field.h): Likewise.
+	(java/lang/reflect/Method.h): Likewise.
+	(java/lang/reflect/Proxy.h): Likewise.
+	(java/lang/reflect/Proxy$$ProxyData.h): Likewise.
+	(java/lang/reflect/Proxy$$ProxyType.h): Likewise.
+	(gnu/gcj/runtime/VMClassLoader.h): Likewise.
+	(java/io/ObjectInputStream$$GetField.h): Likewise.
+	(java/io/ObjectOutputStream$$PutField.h): Likewise.
+	(java/nio/DirectByteBufferImpl$$ReadWrite.h): Likewise.
+	(java/nio/channels/Pipe$$SinkChannel.h): Likewise.
+	(java/nio/channels/Pipe$$SourceChannel.h): Likewise.
+	(gnu/java/net/PlainSocketImpl$$SocketInputStream.h): Likewise.
+	(gnu/java/net/PlainSocketImpl$$SocketOutputStream.h): Likewise.
+	(gnu/java/nio/PipeImpl$$SinkChannelImpl.h): Likewise.
+	(gnu/java/nio/PipeImpl$$SourceChannelImpl.h): Likewise.
+	(java/lang/ConcreteProcess$$ProcessManager.h): Likewise.
+	(GCC_UNWIND_INCLUDE): Removed.
+	(target_noncanonical): Removed.
+	(HEADER_ARGS): New variable.
+	(.java.class): Don't print command.
+	* configure.ac (GCJX): New subst.
+
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
 	* include/verify.h (vfy_notify_verified): Removed.

@@ -54,6 +54,9 @@ protected:
   // An empty list that we use as needed.
   action_item_list empty_list;
 
+  // True if we should emit headers for Object and Class.
+  bool std_headers_ok;
+
   std::string cxxname (model_type *, bool = true);
   void update_modifiers (std::ostream &, modifier_t, modifier_t &);
   void add (model_type *, std::set<model_class *> &,
@@ -90,6 +93,11 @@ public:
   bool handles_class_p () const
   {
     return true;
+  }
+
+  void set_avoid_headers ()
+  {
+    std_headers_ok = false;
   }
 };
 
