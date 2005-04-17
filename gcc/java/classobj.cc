@@ -469,6 +469,44 @@ class_object_creator::fill_in_vtable (tree decl)
   make_decl_rtl (decl);
 }
 
+tree
+class_object_creator::compute_catch_classes ()
+{
+  std::map<model_class *, tree> *catch_map
+    = builtins->get_catch_map (klass->get ());
+  if (catch_map == NULL)
+    return NULL_TREE;
+
+  tree value_type
+    = build_array_type (type_catch_class,
+			build_index_type (build_int_cst (type_jint,
+							 catch_map->size ())));
+
+  tree result = NULL_TREE;
+  int index = 0;
+  for (std::map<model_class *, tree>::const_iterator i = catch_map->begin ();
+       i != catch_map->end ();
+       ++i, ++index)
+    {
+      record_creator inst (type_catch_class);
+      inst.set_field ("address", build_address_of ((*i).second));
+      inst.set_field ("classname",
+		      builtins->map_utf8const ((*i).first->get_fully_qualified_name ()));
+      tree one_value = inst.finish_record ();
+
+      result = tree_cons (build_int_cst (type_jint, index), one_value, result);
+    }
+  result = nreverse (result);
+
+  tree init = build_constructor (value_type, result);
+  // Also set these on the decl?
+  TREE_CONSTANT (init) = 1;
+  TREE_INVARIANT (init) = 1;
+  TREE_READONLY (init) = 1;
+
+  return make_decl (value_type, init);
+}
+
 void
 class_object_creator::create_class_instance (tree class_tree)
 {
@@ -546,7 +584,7 @@ class_object_creator::create_class_instance (tree class_tree)
   inst.set_field ("itable", table);
   inst.set_field ("itable_syms", syms);
 
-  inst.set_field ("catch_classes", null_pointer_node);  // FIXME
+  inst.set_field ("catch_classes", compute_catch_classes ());
 
   tree interfaces, interface_count;
   handle_interfaces (real_class, interfaces, interface_count);

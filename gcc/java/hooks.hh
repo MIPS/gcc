@@ -37,6 +37,7 @@ extern GTY (()) tree type_field;
 extern GTY (()) tree type_field_ptr;
 extern GTY (()) tree type_field_info_union;
 extern GTY (()) tree type_constants;
+extern GTY (()) tree type_catch_class;
 extern GTY (()) tree type_object;
 extern GTY (()) tree type_object_ptr;
 extern GTY (()) tree type_class;

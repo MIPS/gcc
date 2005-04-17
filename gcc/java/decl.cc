@@ -111,6 +111,9 @@ tree type_field_info_union;
 // Type of _Jv_Constants structure.
 tree type_constants;
 
+// Type of _Jv_CatchClass.
+tree type_catch_class;
+
 // Type of java.lang.Object, and type of pointer to it.
 tree type_object;
 tree type_object_ptr;
@@ -343,6 +346,17 @@ build_field_type ()
   push_field (type_field, field, "bsize", type_jushort);
   push_field (type_field, field, "info", type_field_info_union);
   layout_type (type_field);
+}
+
+static void
+build_catch_class_type ()
+{
+  tree field = NULL_TREE;
+  type_catch_class = make_node (RECORD_TYPE);
+  push_field (type_catch_class, field, "address",
+	      build_pointer_type (type_class_ptr));
+  push_field (type_catch_class, field, "classname", type_utf8const_ptr);
+  layout_type (type_catch_class);
 }
 
 static void
@@ -996,6 +1010,7 @@ gcjx::initialize_decls ()
   build_method_type ();
   build_field_type ();
   build_constant_type ();
+  build_catch_class_type ();
   build_object_type ();
   build_class_type ();
   build_class_union ();

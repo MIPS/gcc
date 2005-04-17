@@ -60,6 +60,13 @@ class tree_builtins : public aot_class_factory
   std::map<model_class *, tree> otable_map;
   std::map<model_class *, tree> itable_map;
 
+  // This maps a containing class to a sub-map, which maps exception
+  // classes to individual DECLs for _Jv_CatchClass.
+  typedef std::map<model_class *, std::map<model_class *, tree> >
+    catch_map_type;
+  catch_map_type catch_map;
+
+
   // Used when creating symbol names.
   int symbol_count;
 
@@ -143,6 +150,10 @@ public:
   tree get_atable_decl (model_class *);
   tree get_otable_decl (model_class *);
   tree get_itable_decl (model_class *);
+
+  tree map_catch_class (model_class *, model_class *);
+
+  std::map<model_class *, tree> *get_catch_map (model_class *);
 };
 
 #endif // GCC_JAVA_BUILTINS_HH

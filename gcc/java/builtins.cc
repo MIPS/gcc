@@ -598,6 +598,52 @@ tree_builtins::get_itable_decl (model_class *klass)
   return itable_map[klass];
 }
 
+tree
+tree_builtins::map_catch_class (model_class *current, model_class *caught)
+{
+  catch_map_type::iterator it = catch_map.find (current);
+  if (it != catch_map.end ())
+    {
+      std::map<model_class *, tree> &inner_map ((*it).second);
+      std::map<model_class *, tree>::iterator inner_it
+	= inner_map.find (caught);
+      if (inner_it != inner_map.end ())
+	return (*inner_it).second;
+
+      tree decl = build_decl (VAR_DECL, get_symbol (), type_class_ptr);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      rest_of_decl_compilation (decl, 1, 0);
+      pushdecl (decl);
+
+      inner_map[caught] = decl;
+      return decl;
+    }
+
+  std::map<model_class *, tree> inner_map;
+  // FIXME: duplicated code.
+  tree decl = build_decl (VAR_DECL, get_symbol (), type_class_ptr);
+  TREE_STATIC (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  pushdecl (decl);
+  rest_of_decl_compilation (decl, 1, 0);
+  inner_map[caught] = decl;
+  catch_map[current] = inner_map;
+
+  return decl;
+}
+
+std::map<model_class *, tree> *
+tree_builtins::get_catch_map (model_class *current)
+{
+  catch_map_type::iterator it = catch_map.find (current);
+  if (it == catch_map.end ())
+    return NULL;
+  return &(*it).second;
+}
+
 // FIXME: this whole method should probably migrate into the ABI or
 // into classobj.cc.  There's no need, I think, for it to be a generic
 // part of the builtins.

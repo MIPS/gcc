@@ -1,3 +1,21 @@
+2005-04-02  Tom Tromey  <tromey@redhat.com>
+
+	* hooks.hh (type_catch_class): Declare.
+	* decl.cc (build_catch_class_type): New function.
+	(initialize_decls): Call it.
+	(type_catch_class): New global.
+	* classobj.hh (class_object_creator::compute_catch_classes):
+	Declare.
+	* classobj.cc (compute_catch_classes): New method.
+	(create_class_instance): Use it.
+	* tree.cc (visit_catch): Use map_catch_class.
+	* builtins.cc (map_catch_class): New method.
+	(get_catch_map): Likewise.
+	* builtins.hh (tree_builtins::catch_map): New field.
+	(tree_builtins::catch_map_type): Declare.
+	(tree_builtins::map_catch_class): Declare.
+	(tree_builtins::get_catch_map): Likewise.
+
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc: Include util.h.
