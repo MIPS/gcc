@@ -1,5 +1,11 @@
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
+	* builtins.cc: Include util.h.
+	(hash_utf8): Use UTF8_GET.
+	* util.h (append_gpp_mangled_name): Wrap in 'extern "C"'.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
 	* util.h: Changed header guard names.
 	* treegen.hh: Changed header guard names.
 	* hooks.hh: Changed header guard names.

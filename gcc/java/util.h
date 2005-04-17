@@ -42,6 +42,13 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
    ? (((PTR)[-3]&0x0F) << 12) + (((PTR)[-2]&0x3F) << 6) + ((PTR)[-1]&0x3F) \
    : ((PTR)++, -1))
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 extern void append_gpp_mangled_name (const char *name, int len);
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GCC_JAVA_UTIL_H */

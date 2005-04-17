@@ -25,6 +25,7 @@
 // This include must come first.
 #include "java/glue.hh"
 #include "aot/mangle.hh"
+#include "java/util.h"
 
 tree_builtins::tree_builtins ()
   : aot_class_factory (),
@@ -442,9 +443,7 @@ tree_builtins::hash_utf8 (const char *s, int len)
   int hash = 0;
   while (ptr < limit)
     {
-      // FIXME
-      // int ch = UTF8_GET (ptr, limit);
-      int ch = *ptr++;
+      int ch = UTF8_GET (ptr, limit);
       /* Updated specification from
 	 http://www.javasoft.com/docs/books/jls/clarify.html. */
       hash = (31 * hash) + ch;
