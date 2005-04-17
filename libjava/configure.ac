@@ -1073,7 +1073,6 @@ fi
 case "${which_gcj}" in
    built)
       GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
-      GCJH='$(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh'
       GCJX='$(MULTIBUILDTOP)../$(COMPPATH)/gcjx/gcjx'
       ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
    ;;
@@ -1086,7 +1085,6 @@ case "${which_gcj}" in
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
       ZIP=jar
-      GCJH='$(target_noncanonical)-gcjh'
       GCJX='$(target_noncanonical)-gcjx'
    ;;
    path)
@@ -1094,12 +1092,10 @@ case "${which_gcj}" in
       ## In this case, gcj is found outside the build tree.  However, zip is
       ## found in the build tree.
       ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
-      GCJH=gcjh
       GCJX=gcjx
    ;;
 esac
 
-AC_SUBST(GCJH)
 AC_SUBST(ZIP)
 AC_SUBST(GCJX)
 

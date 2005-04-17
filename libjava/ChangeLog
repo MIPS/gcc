@@ -1,5 +1,11 @@
 2005-04-02  Tom Tromey  <tromey@redhat.com>
 
+	* Makefile.in, configure: Rebuilt.
+	* Makefile.am ($(gtk_jni_headers)): Use GCJX.
+	* configure.ac (GCJH): Removed.
+
+2005-04-02  Tom Tromey  <tromey@redhat.com>
+
 	PR libgcj/16032:
 	* java/lang/Class.h (Class): Added friend class.
 	* include/verify.h (vfy_is_15): Implement.

@@ -4383,7 +4383,6 @@ GCINCS = @GCINCS@
 GCJ = @GCJ@
 GCJDEPMODE = @GCJDEPMODE@
 GCJFLAGS = @GCJFLAGS@
-GCJH = @GCJH@
 GCJVERSION = @GCJVERSION@
 GCJX = @GCJX@
 GCLIBS = @GCLIBS@
@@ -24344,9 +24343,9 @@ jniinclude/gnu_java_awt_peer_gtk_GdkTextLayout.h: gnu/java/awt/peer/gtk/GdkTextL
 jniinclude/gnu_java_awt_peer_gtk_GdkFontPeer.h: gnu/java/awt/peer/gtk/GdkFontPeer.java
 
 $(gtk_jni_headers): %.h:
-	@input=`echo $@ | sed -e 's,jniinclude/,,' -e 's,_,.,g' -e 's,.h$$,,'`; \
-	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
-	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
+	@input=`echo $@ | sed -e 's,jniinclude/,,' -e 's,_,/,g' -e 's,.h$$,.class,'`; \
+	echo "$(GCJX) -o jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
+	$(GCJX) -o jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
 
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontPeer.h
