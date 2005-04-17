@@ -285,7 +285,7 @@ implementation of the logic in the model.
 header generation
 
 X must handle Miranda methods properly
-- must implement gcjh hacks for C++ keywords and method/field name
+X must implement gcjh hacks for C++ keywords and method/field name
   clash
 X must implement gcjh hack for field alignment
 X implement the write-to-temp file thing that bytecode uses?

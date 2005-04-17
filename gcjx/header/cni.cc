@@ -24,11 +24,126 @@
 
 #include <fstream>
 
+// Sorted list of C++ keywords.
+// FIXME: doesn't include some things that G++ might consider as
+// keywords.
+static const char *const keywords[] =
+{
+  "and",
+  "and_eq",
+  "asm",
+  "auto",
+  "bitand",
+  "bitor",
+  "bool",
+  "break",
+  "case",
+  "catch",
+  "char",
+  "class",
+  "compl",
+  "const",
+  "const_cast",
+  "continue",
+  "default",
+  "delete",
+  "do",
+  "double",
+  "dynamic_cast",
+  "else",
+  "enum",
+  "explicit",
+  "export",
+  "extern",
+  "false",
+  "float",
+  "for",
+  "friend",
+  "goto",
+  "if",
+  "inline",
+  "int",
+  "long",
+  "mutable",
+  "namespace",
+  "new",
+  "not",
+  "not_eq",
+  "operator",
+  "or",
+  "or_eq",
+  "private",
+  "protected",
+  "public",
+  "register",
+  "reinterpret_cast",
+  "return",
+  "short",
+  "signed",
+  "sizeof",
+  "static",
+  "static_cast",
+  "struct",
+  "switch",
+  "template",
+  "this",      
+  "throw",
+  "true",
+  "try",
+  "typedef",
+  "typeid",
+  "typename",
+  "typeof",
+  "union",
+  "unsigned",
+  "using",
+  "virtual",
+  "void",
+  "volatile",
+  "wchar_t",
+  "while",
+  "xor",
+  "xor_eq"
+};
+
+#define NUM_KEYWORDS  (sizeof (keywords) / sizeof (keywords[0]))
+
 cni_code_generator::cni_code_generator (compiler *c, directory_cache &dirs)
   : code_generator (dirs),
     comp (c),
     std_headers_ok (true)
 {
+}
+
+bool
+cni_code_generator::keyword_p (const std::string &name)
+{
+  // Strip '$'s off the end.
+  int i;
+  for (i = name.length () - 1; i >= 0 && name[i] == '$'; --i)
+    ;
+  std::string newname = name.substr (0, i + 1);
+
+  int low = 0;
+  int high = NUM_KEYWORDS;
+  int last = -1;
+
+  while (true)
+    {
+      int current = (low + high) / 2;
+      if (current == last)
+	break;
+      int cmp = newname.compare (keywords[current]);
+      if (cmp == 0)
+	return true;
+      else if (cmp > 0)
+	low = current;
+      else
+	high = current;
+      last = current;
+    }
+
+  return false;
 }
 
 void
@@ -329,7 +444,8 @@ cni_code_generator::write_method (std::ostream &out,
 				  model_method *meth,
 				  modifier_t &current_flags)
 {
-  if (meth->instance_initializer_p () || meth->static_initializer_p ())
+  if (meth->instance_initializer_p () || meth->static_initializer_p ()
+      || (meth->get_modifiers () & ACC_SYNTHETIC) != 0)
     return;
 
   modifier_t new_flags = meth->get_modifiers () & ACC_ACCESS;
@@ -351,14 +467,19 @@ cni_code_generator::write_method (std::ostream &out,
     {
       if (meth->static_p ())
 	out << "static ";
-      else if (! ((meth->get_modifiers () & (ACC_FINAL | ACC_PRIVATE)) != 0
-		  || ((meth->get_declaring_class ()->get_modifiers ()
-		       & ACC_FINAL) != 0)))
+      // Private methods don't get a vtable entry, but others do.
+      // Interestingly, this makes CNI less efficient than the Java
+      // C++ ABI in one case: calls to methods in a final class.
+      // FIXME: decisions like this should be handled in a single
+      // place, right now this logic is duplicated elsewhere.
+      else if ((meth->get_modifiers () & ACC_PRIVATE) == 0)
 	out << "virtual ";
       out << cxxname (meth->get_return_type ());
       if (! meth->get_return_type ()->reference_p ())
 	out << " ";
       out << meth->get_name ();
+      if (keyword_p (meth->get_name ()))
+	out << "$";
     }
   out << " (";
 
@@ -384,7 +505,8 @@ void
 cni_code_generator::write_field (std::ostream &out,
 				 model_field *field,
 				 modifier_t &current_flags,
-				 bool &is_first)
+				 bool &is_first,
+				 const std::set<std::string> &method_names)
 {
   modifier_t new_flags = field->get_modifiers () & ACC_ACCESS;
   update_modifiers (out, new_flags, current_flags);
@@ -404,7 +526,13 @@ cni_code_generator::write_field (std::ostream &out,
 	  << ")))) ";
     }
 
-  out << field->get_name () << ";" << std::endl;
+  out << field->get_name ();
+  if (method_names.find (field->get_name ()) != method_names.end ())
+    out << "__";
+  else if (keyword_p (field->get_name ()))
+    out << "$";
+
+  out << ";" << std::endl;
 }
 
 void
@@ -473,6 +601,7 @@ cni_code_generator::generate (model_class *klass)
 
   modifier_t current_flags = 0;
 
+  std::set<std::string> method_names;
   AllMethodsIterator end = klass->end_all_methods ();
   for (AllMethodsIterator i = klass->begin_all_methods ();
        i != end;
@@ -488,13 +617,14 @@ cni_code_generator::generate (model_class *klass)
 	  && ! (*i)->get_declaring_class ()->interface_p ())
 	continue;
       write_method (out, (*i).get (), current_flags);
+      method_names.insert ((*i)->get_name ());
     }
 
   bool first = true;
   for (std::list<ref_field>::const_iterator i = fields.begin ();
        i != fields.end ();
        ++i)
-    write_field (out, (*i).get (), current_flags, first);
+    write_field (out, (*i).get (), current_flags, first, method_names);
 
   // One final phony field.
   update_modifiers (out, modifier_t (ACC_PUBLIC), current_flags);

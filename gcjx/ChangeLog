@@ -1,3 +1,17 @@
+2005-03-30  Tom Tromey  <tromey@redhat.com>
+
+	* header/cni.hh (cni_code_generator::write_field): Updated.
+	(cni_code_generator::keyword_p): Declare.
+	* header/cni.cc (keywords): New global.
+	(NUM_KEYWORDS): New define.
+	(keyword_p): New method.
+	(generate): Compute method names.
+	(write_field): Added 'method_names' arguments.  Handle C++ keyword
+	clash.
+	(write_method): Handle C++ keyword clash.  Skip synthetic
+	methods.
+	* header/cni.cc (write_method): Mark more methods as virtual.
+
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/generate.hh (bytecode_generator::get_byte_count): New

@@ -57,6 +57,7 @@ protected:
   // True if we should emit headers for Object and Class.
   bool std_headers_ok;
 
+  bool keyword_p (const std::string &);
   std::string cxxname (model_type *, bool = true);
   void update_modifiers (std::ostream &, modifier_t, modifier_t &);
   void add (model_type *, std::set<model_class *> &,
@@ -66,7 +67,8 @@ protected:
 		       const method_iterator &, const method_iterator &,
 		       const std::list<ref_field> &);
   void write_method (std::ostream &, model_method *, modifier_t &);
-  void write_field (std::ostream &, model_field *, modifier_t &, bool &);
+  void write_field (std::ostream &, model_field *, modifier_t &, bool &,
+		    const std::set<std::string> &);
 
   void indent (std::ostream &, int);
   void open_package (std::ostream &, model_package *, model_package *, int &);
