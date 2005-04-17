@@ -992,6 +992,9 @@ real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
 {
   enum tree_code code = icode;
 
+  if (op0->decimal || (op1 && op1->decimal))
+    return decimal_real_arithmetic (r, icode, op0, op1);
+
   switch (code)
     {
     case PLUS_EXPR:

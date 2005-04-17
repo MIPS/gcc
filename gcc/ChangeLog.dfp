@@ -1,3 +1,16 @@
+2005-04-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* dfp.c (decimal_from_decnumber): New function.
+	(decimal_from_string): Call decimal_from_decnumber.
+	(encode_decimal32, encode_decimal64, encode_decimal128,
+	decimal_from_binary, decimal_do_compare): Remove FIXME
+	for fix up sign hack.
+	(decimal_real_convert): Formatting.
+	(decimal_do_add, decimal_do_multiply, decimal_do_divide,
+	decimal_do_fix_trunc, decimal_real_arithmetic): New functions.
+	* dfp.h (decimal_real_arithmetic): Prototype.
+	* real.c (real_arithmetic): Call decimal_real_arithmetic.
+
 2005-04-14  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* dfp.c (decimal_real_convert, decimal_round_for_format): Add

@@ -49,7 +49,9 @@ set libfuncs(quantize) quantize
 set libfuncs(samequantum) samequantum
 set libfuncs(power) powl
 set libfuncs(toSci) ???
+set libfuncs(tosci) ???
 set libfuncs(toEng) ???
+set libfuncs(toeng) ???
 set libfuncs(divideint) ???
 set libfuncs(rescale) ???
 set libfuncs(remainder) ???
@@ -57,6 +59,8 @@ set libfuncs(remaindernear) ???
 set libfuncs(normalize) ???
 set libfuncs(tointegral) ???
 set libfuncs(trim) ???
+set libfuncs(apply) ???
+
 
 # Run all of the tests listed in TESTCASES by invoking df-run-test on
 # each.  Skip tests that not included by the user invoking runtest
@@ -181,7 +185,7 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     } else {
 	puts $outfd "  d = [c-binary-expression $operation [c-operand $op1] [c-operand $op2]];"
     }
-    puts $outfd "  return (d == [c-operand $result]);"
+    puts $outfd "  return (!(d == [c-operand $result]));"
     puts $outfd [c-test-postamble $id]
     close $outfd
     return $filename

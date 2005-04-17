@@ -41,40 +41,46 @@ static decNumber dn2;
 static decNumber dn3;
 static decContext set;
 
-/* Create decimal encoded r from string. */
 static void
-decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
+decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
 {
-  memset (r, 0, sizeof(REAL_VALUE_TYPE));
+  memset (r, 0, sizeof (REAL_VALUE_TYPE));
+  decimal128FromNumber((decimal128 *)r->sig, dn, set);
 
-  decContextDefault(&set, DEC_INIT_DECIMAL128);
-  set.traps=0;
-  decNumberFromString(&dn, (char *)s, &set);
-
-  /* Really, it would be more efficient to store directly in decNumber
-     format, but that is impractical from data structure size. 
-     Encoding as a decimal128 is much more compact. */
-  decimal128FromNumber((decimal128 *)r->sig, &dn, &set);
-
-  if (decNumberIsNegative(&dn))
+  if (decNumberIsNegative (dn))
     r->sign = 1;
+
   r->cl = rvc_normal;
-  if (decNumberIsZero(&dn))
+  if (decNumberIsZero (dn))
     r->cl = rvc_zero;
-  if (decNumberIsNaN(&dn))
+  if (decNumberIsNaN (dn))
     r->cl = rvc_nan;
-  if (decNumberIsInfinite(&dn))
+  if (decNumberIsInfinite (dn))
     r->cl = rvc_inf;
   r->decimal = 1;
 }
 
-/* Wrapper to handle decimal strings too.  
-   FIXME:  Should be able to accomplish this with 
-   fmt->real_from_string(). */
+/* Create decimal encoded r from string. */
+static void
+decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
+{
+  decContextDefault(&set, DEC_INIT_DECIMAL128);
+  set.traps=0;
+
+  decNumberFromString(&dn, (char *)s, &set);
+
+  /* It would be more efficient to store directly in decNumber
+     format, but that is impractical from current data structure size. 
+     Encoding as a decimal128 is much more compact. */
+  decimal_from_decnumber (r, &dn, &set);
+}
+
+/* Wrapper to handle decimal strings too. */
 void
 decimal_real_from_string (REAL_VALUE_TYPE *r, const char *s, 
 			  enum machine_mode mode)
 {
+  /* FIXME: Not all platforms have these modes. */
   if (mode != SDmode && mode != DDmode && mode != TDmode)
     real_from_string (r, s);
   else
@@ -90,13 +96,6 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
   decimal128ToNumber((decimal128 *)r->sig, &dn);
-
-  /* Still in intermediate representation, so sign
-     is seperate from encoding. */
-  /* FIXME: This is WRONG place.  Should come through
-     REAL_NEGATE path. */
-  if (r->sign != decNumberIsNegative(&dn))
-    decNumberNegate(&dn);
 
   decimal32FromNumber(&d32, &dn, &set);
 
@@ -121,13 +120,6 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
   decimal128ToNumber((decimal128 *)r->sig, &dn);
-
-  /* Still in intermediate representation, so sign
-     is seperate from encoding. */
-  /* FIXME: This is WRONG place.  Should come through
-     REAL_NEGATE path. */
-  if (r->sign != decNumberIsNegative(&dn))
-    decNumberNegate(&dn);
 
   decimal64FromNumber(&d64, &dn, &set);
 
@@ -162,11 +154,6 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   /* Still in intermediate representation, so sign
      is seperate from encoding. */
 
-  /* FIXME: This is WRONG place.  Should come through
-     REAL_NEGATE path. */
-  if (r->sign != decimal128Sign(d128)) 
-    d128->bytes[0] ^= 1 << 7;  /* Flip high bit */
-
   if (FLOAT_WORDS_BIG_ENDIAN)
     {
       buf[0] = *(long *)&d128->bytes[0];
@@ -199,11 +186,7 @@ decimal_to_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from,
   decimal128 *d128;
   d128 = (decimal128 *)from->sig;
 
-  if (from->sign != decimal128Sign(d128))
-    d128->bytes[0] ^= 1 << 7;  /* Flip high bit */
-
   decimal128ToString(d128, string);
-  /* We convert to string then convert to decNumber then to decimal128. */
   real_from_string3 (to, string, mode);
 }
 
@@ -212,22 +195,9 @@ decimal_to_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from,
 static void
 decimal_from_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from)
 {
-  decimal128 *d128;
-  d128 = (decimal128 *)to->sig;
-
-  memset (to, 0, sizeof(REAL_VALUE_TYPE));
   /* We convert to string then convert to decNumber then to decimal128. */
   real_to_decimal (string, from, sizeof(string), 0, 1);
-
-  decContextDefault(&set, DEC_INIT_DECIMAL128);
-  set.traps=0;
-
-  decNumberFromString(&dn, string, &set);
-  decimal128FromNumber(d128, &dn, &set);
-  if (from->sign != decimal128Sign(d128)) 
-      d128->bytes[0] ^= 1 << 7;  /* Flip high bit */
-
-  to->decimal = 1;
+  decimal_from_string (to, string);
 }
 
 /* Helper function to real.c::do_compare to handle decimal internal 
@@ -255,25 +225,18 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
   /* Convert into decNumber form for comparison operation. */
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;  
-  decimal128ToNumber((decimal128 *)a->sig, &dn);
-  decimal128ToNumber((decimal128 *)b->sig, &dn2);
-
-  /* FIXME: The internal representation stores the real sign.
-     Remove this once real_arithmetic is fixed up for negate operation. */
-  if (a->sign != decNumberIsNegative(&dn))
-    decNumberNegate(&dn);
-  if (b->sign != decNumberIsNegative(&dn2))
-    decNumberNegate(&dn2);
+  decimal128ToNumber((decimal128 *)a->sig, &dn2);
+  decimal128ToNumber((decimal128 *)b->sig, &dn3);
 
   /* Finally, do the comparison. */
-  decNumberCompare (&dn3, &dn, &dn2, &set);
+  decNumberCompare (&dn, &dn2, &dn3, &set);
 
   /* Return the comparison result. */
   if (decNumberIsNaN(&dn))
     return nan_result;
-  else if (decNumberIsZero (&dn3))
+  else if (decNumberIsZero (&dn))
     return 0;
-  else if (decNumberIsNegative(&dn3))
+  else if (decNumberIsNegative(&dn))
     return -1;
   else 
     return 1;
@@ -306,7 +269,6 @@ decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
     gcc_unreachable();
 
   decimal128FromNumber((decimal128 *)r->sig, &dn, &set);
-  return;
 }
 
 /* Helper to real_convert, handling conversions between binary and decimal
@@ -323,7 +285,6 @@ decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
       decimal_to_binary (r, a, mode);
   else
       decimal_from_binary (r, a);
-  
 }
 
 /* Helper to print out internal representation of decimal floating types. */
@@ -342,4 +303,153 @@ void decimal_real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig,
      two more for suffix. */
   gcc_assert(buf_size >= 24);
   decimal128ToString (d128, str);
+}
+
+static bool
+decimal_do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
+		const REAL_VALUE_TYPE *op1, int subtract_p)
+{
+  decContextDefault(&set, DEC_INIT_DECIMAL128);
+  set.traps=0;
+  decimal128ToNumber((decimal128 *)op0->sig, &dn2);
+  decimal128ToNumber((decimal128 *)op1->sig, &dn3);
+
+  if (subtract_p)
+    decNumberSubtract (&dn, &dn2, &dn3, &set);
+  else 
+    decNumberAdd(&dn, &dn2, &dn3, &set);
+
+  decimal_from_decnumber (r, &dn, &set);
+
+  /* Return true, if inexact. */
+  return (set.status == DEC_Inexact);
+}
+
+static bool
+decimal_do_multiply (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
+		     const REAL_VALUE_TYPE *op1)
+{
+  decContextDefault(&set, DEC_INIT_DECIMAL128);
+  set.traps=0;
+  decimal128ToNumber((decimal128 *)op0->sig, &dn2);
+  decimal128ToNumber((decimal128 *)op1->sig, &dn3);
+
+  decNumberMultiply(&dn, &dn2, &dn3, &set);
+  decimal_from_decnumber (r, &dn, &set);
+
+  /* Return true, if inexact. */
+  return (set.status == DEC_Inexact);
+}
+
+static bool
+decimal_do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
+		   const REAL_VALUE_TYPE *op1)
+{
+  decContextDefault(&set, DEC_INIT_DECIMAL128);
+  set.traps=0;
+  decimal128ToNumber((decimal128 *)op0->sig, &dn2);
+  decimal128ToNumber((decimal128 *)op1->sig, &dn3);
+
+  decNumberDivide (&dn, &dn2, &dn3, &set);
+  decimal_from_decnumber (r, &dn, &set);
+
+  /* Return true, if inexact. */
+  return (set.status == DEC_Inexact);
+}
+
+static void
+decimal_do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
+{
+  /* Convert into decNumber form for comparison operation. */
+  decContextDefault(&set, DEC_INIT_DECIMAL128);
+  set.traps=0;
+  decimal128ToNumber((decimal128 *)a->sig, &dn);
+
+  decNumberToIntegralValue (&dn, &dn2, &set);
+  decimal_from_decnumber (r, &dn, &set);
+}
+
+/* Handle compile time arithmetic on decimal float internal 
+   representation types. */
+bool
+decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
+			 const REAL_VALUE_TYPE *op0,
+			 const REAL_VALUE_TYPE *op1)
+{
+  enum tree_code code = icode;
+  REAL_VALUE_TYPE a1;
+  REAL_VALUE_TYPE b1;
+
+  /* If either op is not a decimal, create a temporary decimal versions. */
+  if (!op0->decimal)
+    {
+      decimal_from_binary (&a1, op0);
+      op0 = &a1;
+    }
+  if (op1 && !op1->decimal)
+    {
+      decimal_from_binary (&b1, op1);
+      op1 = &b1;
+    }
+
+  switch (code)
+    {
+    case PLUS_EXPR:
+      return decimal_do_add (r, op0, op1, 0);
+
+    case MINUS_EXPR:
+      return decimal_do_add (r, op0, op1, 1);
+
+    case MULT_EXPR:
+      return decimal_do_multiply (r, op0, op1);
+
+    case RDIV_EXPR:
+      return decimal_do_divide (r, op0, op1);
+
+    case MIN_EXPR:
+      if (op1->cl == rvc_nan)
+        *r = *op1;
+      else if (real_compare (UNLT_EXPR, op0, op1))
+        *r = *op0;
+      else
+        *r = *op1;
+      break;
+
+    case MAX_EXPR:
+      if (op1->cl == rvc_nan)
+        *r = *op1;
+      else if (real_compare (LT_EXPR, op0, op1))
+        *r = *op1;
+      else
+        *r = *op0;
+      break;
+
+    case NEGATE_EXPR:
+      {
+	decimal128 *d128;
+	*r = *op0;
+	d128 = (decimal128 *)r->sig;
+	d128->bytes[0] ^= 1 << 7;  /* Flip high bit */
+	r->sign ^= 1; /* Keep in sync. */
+      }
+      break;
+
+    case ABS_EXPR:
+      {
+        decimal128 *d128;
+        *r = *op0;
+        d128 = (decimal128 *)r->sig;
+        d128->bytes[0] &= 0x7f;  /* Clear high bit */
+	r->sign = 0;
+      }
+      break;
+
+    case FIX_TRUNC_EXPR:
+      decimal_do_fix_trunc (r, op0);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+  return false;
 }

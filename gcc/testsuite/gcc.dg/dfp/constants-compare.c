@@ -31,7 +31,11 @@ int main()
   abort();
 
   /* Binary floating point introduces errors to decimal values. */
-  if (-.01 == -.01dd)
+  if (1.4 + 1.4 + 1.4 == 4.2)
+    abort();
+
+  /* But, this looks more like what one would expect. */
+  if (1.4dd + 1.4dd + 1.4dd != 4.2dd)
     abort();
 
   return 0;

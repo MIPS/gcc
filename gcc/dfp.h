@@ -41,6 +41,9 @@ void decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode,
 			   const REAL_VALUE_TYPE *a);
 void decimal_real_to_decimal (char *, const REAL_VALUE_TYPE *, size_t,
 			      size_t, int);
+bool
+decimal_real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
+			 const REAL_VALUE_TYPE *);
 
 #define ENCODE_DECIMAL_SINGLE encode_decimal32
 #define DECODE_DECIMAL_SINGLE decode_decimal32

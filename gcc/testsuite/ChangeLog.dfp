@@ -1,3 +1,13 @@
+2005-04-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.misc-tests/dectest.exp: Tests should return 0 on success.
+
+2005-04-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/constants-arith-1.c: New test.
+	* gcc.dg/dfp/constants-compare.c: Add tests showing errors
+	introduced in binary floats avoided by decimal floats.
+
 2005-04-15  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Add -msoft-float.
