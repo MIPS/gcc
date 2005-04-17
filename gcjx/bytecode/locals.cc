@@ -155,7 +155,9 @@ locals::update ()
       if (info.start->live_p ())
 	{
 	  info.end = info.end->update ();
-	  assert (info.end->live_p ());
+	  // NULL is ok here since that just means it is live through
+	  // the end of the bytecode.
+	  assert (info.end == NULL || info.end->live_p ());
 	  // Don't emit debug info for a zero-length range.
 	  if (info.start != info.end)
 	    ++valid;
@@ -185,8 +187,7 @@ locals::any_parameterized_p ()
 }
 
 int
-locals::emit (output_constant_pool *pool, bytecode_stream *out,
-	      bool types)
+locals::emit (output_constant_pool *pool, bytecode_stream *out, bool types)
 {
   int count = 0;
   for (std::list<debug_info>::iterator i = var_descriptions.begin ();
@@ -230,7 +231,8 @@ locals::emit (output_constant_pool *pool, bytecode_stream *out,
 	continue;
 
       out->put2 (info.start->get_pc ());
-      out->put2 (info.end->get_pc () - info.start->get_pc ());
+      int last = info.end ? info.end->get_pc () : gen->get_byte_count ();
+      out->put2 (last - info.start->get_pc ());
       out->put2 (pool->add_utf (info.variable->get_name ()));
       out->put2 (pool->add_utf (types ? t->get_signature ()
 				: t->get_descriptor ()));

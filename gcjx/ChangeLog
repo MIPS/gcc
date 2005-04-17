@@ -1,5 +1,12 @@
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.hh (bytecode_generator::get_byte_count): New
+	method.
+	* bytecode/locals.cc (update): Changed assertion.
+	(emit): Handle case where 'end' is NULL.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
 	* main.cc (argument_parser::help_options): Document
 	-nostdheaders.
 	(argument_parser::parse_args): Handle -nostdheaders.

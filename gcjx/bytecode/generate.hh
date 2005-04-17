@@ -386,6 +386,12 @@ public:
     return current_block;
   }
 
+  /// Return the number of bytes in the bytecode.
+  int get_byte_count () const
+  {
+    return bytecode_length;
+  }
+
 
   void visit_method (model_method *,
 		     const std::list<ref_variable_decl> &,
