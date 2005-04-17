@@ -132,7 +132,7 @@ static tree find_case_label_for_value (tree, tree);
 static bool phi_alternatives_equal (basic_block, edge, edge);
 static bool cleanup_forwarder_blocks (void);
 
-void
+static void
 init_empty_tree_cfg (void)
 {
   /* Initialize the basic block array.  */
