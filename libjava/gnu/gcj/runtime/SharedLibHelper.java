@@ -1,4 +1,4 @@
-/* Copyright (C) 2001, 2003, 2004  Free Software Foundation
+/* Copyright (C) 2001, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -7,18 +7,18 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 package gnu.gcj.runtime;
-import java.lang.ref.WeakReference;
-import java.net.URL;
-import java.net.MalformedURLException;
-import java.util.HashMap;
-import java.security.*;
+
 import gnu.gcj.Core;
-import java.util.Set;
-import java.util.Iterator;
-import java.util.HashSet;
-import java.util.HashMap;
-import java.nio.channels.FileChannel;
 import java.io.*;
+import java.lang.ref.WeakReference;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.channels.FileChannel;
+import java.security.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 
 public class SharedLibHelper
 {

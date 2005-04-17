@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2003, 2004  Free Software Foundation
+/* Copyright (C) 2000, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -15,13 +15,12 @@ import java.awt.image.DataBuffer;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageObserver;
 import java.awt.image.BufferedImage;
+import gnu.gcj.xlib.Drawable;
 import gnu.gcj.xlib.GC;
-import gnu.gcj.xlib.XImage;
-import gnu.gcj.xlib.Drawable;
-import gnu.gcj.xlib.Window;
-import gnu.gcj.xlib.Drawable;
 import gnu.gcj.xlib.Pixmap;
 import gnu.gcj.xlib.Visual;
+import gnu.gcj.xlib.Window;
+import gnu.gcj.xlib.XImage;
 import gnu.awt.j2d.DirectRasterGraphics;
 import gnu.awt.j2d.MappedRaster;
 

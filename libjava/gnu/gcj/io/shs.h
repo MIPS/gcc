@@ -49,6 +49,9 @@ typedef struct {
 #	undef PROTO
 #endif
 
+/* GCJ LOCAL: we always want prototypes.  */
+#define PROTO
+
 /* Used to remove arguments in function prototypes for non-ANSI C */
 #ifdef PROTO
 #	define OF(a) a
