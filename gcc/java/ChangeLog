@@ -1,5 +1,10 @@
 2005-04-02  Tom Tromey  <tromey@redhat.com>
 
+	* treegen.cc (generate): Don't let -1 line number slip through.
+	* tree.cc (annotate): Do nothing with negative line number.
+
+2005-04-02  Tom Tromey  <tromey@redhat.com>
+
 	* hooks.hh (type_catch_class): Declare.
 	* decl.cc (build_catch_class_type): New function.
 	(initialize_decls): Call it.

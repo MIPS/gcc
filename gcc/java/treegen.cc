@@ -74,6 +74,8 @@ tree_code_generator::generate (model_class *the_class)
       location_t gcc_loc;
       LOCATION_FILE (gcc_loc) = end_loc.get_file ();
       LOCATION_LINE (gcc_loc) = end_loc.get_line ();
+      if (LOCATION_LINE (gcc_loc) < 0)
+	LOCATION_LINE (gcc_loc) = 0;
       cfun->function_end_locus = gcc_loc;
 
       dump_function (TDI_original, method);

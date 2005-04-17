@@ -72,7 +72,8 @@ void
 tree_generator::annotate (tree val, model_element *element)
 {
   location where = element->get_location ();
-  annotate_with_file_line (val, where.get_file (), where.get_line ());
+  if (where.get_line () >= 0)
+    annotate_with_file_line (val, where.get_file (), where.get_line ());
 }
 
 tree
