@@ -376,6 +376,10 @@ public:
 		     const std::list<ref_variable_decl> &params,
 		     const ref_block &block)
   {
+    // Nothing to do for bytecode.
+    if (meth->get_declaring_class ()->from_class_p ())
+      return;
+
     if (current_class != NULL)
       {
 	// We might be called recursively in a single case.
@@ -491,8 +495,8 @@ public:
   void visit_bytecode_block (model_bytecode_block *,
 			     int, int, int, const uint8 *)
   {
-    // There's no easy way to prevent this from being called.  There's
-    // also nothing to do.
+    // Can't get here.
+    abort ();
   }
 
   void visit_break (model_break *stmt, const ref_stmt &actual)

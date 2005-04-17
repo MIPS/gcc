@@ -1,5 +1,12 @@
 2005-03-30  Tom Tromey  <tromey@redhat.com>
 
+	* defassign.cc (definite_assignment_visitor::visit_bytecode_block):
+	Just abort.
+	(definite_assignment_visitor::visit_method): Do nothing for
+	bytecode.
+
+2005-03-30  Tom Tromey  <tromey@redhat.com>
+
 	* header/cni.cc (write_field): Emit field value.
 	(generate): Change initialization of current_flags.
 	(write_method): Correctly handle constructors of
