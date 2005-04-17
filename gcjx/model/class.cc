@@ -1747,7 +1747,11 @@ model_class::resolve (resolution_scope *scope)
 			       "be a compile-time constant");
     }
 
-  bool found_clinit = create_clinit_method ();
+  bool found_clinit;
+  if (from_class_p ())
+    found_clinit = has_method_with_descriptor_p ("<clinit>", "()V");
+  else
+    found_clinit = create_clinit_method ();
 
   for (std::list<ref_method>::const_iterator i = methods.begin ();
        i != methods.end ();
@@ -1780,14 +1784,14 @@ model_class::resolve (resolution_scope *scope)
   // fields.
   if (! found_clinit)
     {
-      for (std::list< owner<model_field> >::const_iterator i
-	     = fields.begin ();
+      for (std::list< owner<model_field> >::const_iterator i = fields.begin ();
 	   i != fields.end ();
 	   ++i)
 	{
 	  if ((*i)->static_p () && (*i)->final_p ()
 	      && ! (*i)->has_initializer_p ())
-	    std::cerr << (*i)->error ("blank final field must be assigned");
+	    std::cerr << (*i)->error ("blank final field %1 must be assigned")
+	      % (*i).get ();
 	}
     }
 
