@@ -1,5 +1,13 @@
 2005-03-30  Tom Tromey  <tromey@redhat.com>
 
+	* header/cni.cc (write_field): Emit field value.
+	(generate): Change initialization of current_flags.
+	(write_method): Correctly handle constructors of
+	member classes.
+	(write_namespaces): Correctly handle member class names.
+
+2005-03-30  Tom Tromey  <tromey@redhat.com>
+
 	* header/cni.hh (cni_code_generator::write_field): Updated.
 	(cni_code_generator::keyword_p): Declare.
 	* header/cni.cc (keywords): New global.

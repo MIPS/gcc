@@ -369,7 +369,9 @@ cni_code_generator::write_namespaces (std::ostream &out,
 	}
 
       indent (out, indentation);
-      out << "class " << klass->get_name () << ";" << std::endl;
+      out << "class "
+	  << get_simple_name (split (klass->get_fully_qualified_name (), '.'))
+	  << ";" << std::endl;
     }
 
   move_to_package (out, current_package, base, indentation);
@@ -462,7 +464,11 @@ cni_code_generator::write_method (std::ostream &out,
 #endif
 
   if (meth->constructor_p ())
-    out << meth->get_declaring_class ()->get_name ();
+    {
+      std::string s
+	= meth->get_declaring_class ()->get_fully_qualified_name ();
+      out << get_simple_name (split (s, '.'));
+    }
   else
     {
       if (meth->static_p ())
@@ -512,12 +518,17 @@ cni_code_generator::write_field (std::ostream &out,
   update_modifiers (out, new_flags, current_flags);
 
   out << "  ";
+  model_type *ftype = field->type ();
   if (field->static_p ())
-    out << "static ";
-  out << cxxname (field->type ());
-  if (! field->type ()->reference_p ())
-    out << " ";
+    {
+      out << "static ";
+      if (field->constant_p () && ftype->integral_p ())
+	out << "const ";
+    }
 
+  out << cxxname (ftype);
+  if (! ftype->reference_p ())
+    out << " ";
   if (is_first && ! field->static_p ())
     {
       is_first = false;
@@ -531,6 +542,22 @@ cni_code_generator::write_field (std::ostream &out,
     out << "__";
   else if (keyword_p (field->get_name ()))
     out << "$";
+
+  if (field->static_p () && field->constant_p () && ftype->integral_p ())
+    {
+      if (ftype == primitive_long_type)
+	{
+	  jlong val = jlong (field->get_initializer ()->value ());
+	  out << " = " << val << "LL";
+	}
+      else
+	{
+	  model_primitive_base *bt
+	    = assert_cast<model_primitive_base *> (primitive_int_type);
+	  jint val = bt->convert (ftype, field->get_initializer ()->value ());
+	  out << " = " << val << "L";
+	}
+    }
 
   out << ";" << std::endl;
 }
@@ -599,7 +626,8 @@ cni_code_generator::generate (model_class *klass)
   out << std::endl;
   out << "{" << std::endl;
 
-  modifier_t current_flags = 0;
+  // This ensures that we change the access for the very first member.
+  modifier_t current_flags = ACC_ACCESS;
 
   std::set<std::string> method_names;
   AllMethodsIterator end = klass->end_all_methods ();
