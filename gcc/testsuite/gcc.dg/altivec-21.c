@@ -1,6 +1,7 @@
-/* APPLE LOCAL mainline 2005-04-14 */
+/* APPLE LOCAL begin mainline 2005-04-14 */
 /* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-maltivec" } */
+/* { dg-skip-if "" { "-m64" } { "" } } */
 
 #include <altivec.h>
 
@@ -10,9 +11,7 @@ typedef void (*pvecfunc) ();
 
 void foo(pvecfunc pvf) {
    vector int v = (vector int){1, 2, 3, 4};
-#ifndef __LP64__
    preansi (4, 4.0, v); /* { dg-error "AltiVec argument passed to unprototyped function" } */
    (*pvf)  (4, 4.0, v); /* { dg-error "AltiVec argument passed to unprototyped function" } */
-#endif /* __LP64__ */
 }
-/* APPLE LOCAL mainline 2005-04-14 */
+/* APPLE LOCAL end mainline 2005-04-14 */
