@@ -107,6 +107,7 @@ foo (int n)
 
 
   /* Test 3 - no target support for integer mult.  */
+  /* APPLE LOCAL mainline 2005-04-18 */
   /* This loop is vectorized on platforms that support vect_int_mult.  */
   for (i = 0; i < N; i++)
     {
@@ -134,6 +135,7 @@ foo (int n)
 
 
   /* Test 6 - condition in loop.  */
+  /* APPLE LOCAL mainline 2005-04-18 */
   /* This loop is vectorized on platformst that support vect_condition.  */
   for (i = 0; i < N; i++){
     a[i] = (b[i] > 0 ? b[i] : 0);

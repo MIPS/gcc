@@ -771,7 +771,7 @@ proc check_effective_target_vect_no_align { } {
     return $et_vect_no_align_saved
 }
 
-# APPLE LOCAL begin 3972875
+# APPLE LOCAL begin 3972875 mainline 2005-04-18
 # Return 1 if the target supports vector int multiplication, 0 otherwise.
 
 proc check_effective_target_vect_int_mult { } {
@@ -789,7 +789,7 @@ proc check_effective_target_vect_int_mult { } {
     verbose "check_effective_target_vect_int_mult: returning $et_vect_int_mult_saved" 2
     return $et_vect_int_mult_saved
 }
-# APPLE LOCAL end 3972875
+# APPLE LOCAL end 3972875 mainline 2005-04-18
   
 # Return 1 if the target matches the effective target 'arg', 0 otherwise.
 # This can be used with any check_* proc that takes no argument and

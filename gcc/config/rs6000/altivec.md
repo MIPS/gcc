@@ -474,7 +474,7 @@
   DONE;
 }")
 
-;; APPLE LOCAL begin 3972875
+;; APPLE LOCAL begin 3972875 mainline 2005-04-18 
 ;; 32 bit integer multiplication
 ;; A_high = Operand_0 & 0xFFFF0000 >> 16
 ;; A_low = Operand_0 & 0xFFFF
@@ -532,7 +532,7 @@
    
    DONE;
  }")
-;; APPLE LOCAL end 3972875 
+;; APPLE LOCAL end 3972875 mainline 2005-04-18
 
 ;; Fused multiply subtract 
 (define_insn "altivec_vnmsubfp"

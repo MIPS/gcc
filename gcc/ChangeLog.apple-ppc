@@ -1,3 +1,8 @@
+2005-04-18  Devang Patel  <dpatel@apple.com>
+
+	* config/rs6000/atlivec.md (mulv4si3): Update APPLE LOCAL markers to
+	reflect check-in on mainline.
+
 2005-04-15  Devang Patel  <dpatel@apple.com>
 
 	Radar 3972875

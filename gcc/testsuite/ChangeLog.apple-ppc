@@ -1,3 +1,11 @@
+2005-04-18  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-11.c: Update APPLE LOCAL markers to reflect
+	check-in on mainline.
+	* gcc.dg/vect/vect-11a.c: Same.
+	* gcc.dg/vect/vect-none.c: Same.
+	* lib/target-supports.exp (check_effective_target_vect_int_mult): Same.
+
 2005-04-15  Devang Patel  <dpatel@apple.com>
 
 	Radar 3972875
