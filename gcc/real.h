@@ -69,7 +69,7 @@ struct real_value GTY(())
    consecutive "w" slots.  Moreover, we've got to compute the number of "w"
    slots at preprocessor time, which means we can't use sizeof.  Guess.  */
 
-#define REAL_VALUE_TYPE_SIZE (SIGNIFICAND_BITS + 32 + 32)
+#define REAL_VALUE_TYPE_SIZE (SIGNIFICAND_BITS + 32)
 #define REAL_WIDTH \
   (REAL_VALUE_TYPE_SIZE/HOST_BITS_PER_WIDE_INT \
    + (REAL_VALUE_TYPE_SIZE%HOST_BITS_PER_WIDE_INT ? 1 : 0)) /* round up */

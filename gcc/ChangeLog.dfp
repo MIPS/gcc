@@ -1,3 +1,7 @@
+2005-04-19  Ben Elliston  <bje@au.ibm.com>
+
+	* real.h (REAL_VALUE_TYPE_SIZE): Revert changes from 2004-04-04.
+
 2005-04-18  Ben Elliston  <bje@au.ibm.com>
 
 	* config/dfp-bit.h (DFP_C_TYPE): New.
