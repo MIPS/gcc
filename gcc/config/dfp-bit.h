@@ -36,16 +36,19 @@
 
 #if WIDTH == 32
 #include "decimal32.h"
+#define DFP_C_TYPE	_Decimal32
 #define DFP_TYPE	decimal32
 #define TO_INTERNAL	decimal32ToNumber
 #define TO_ENCODED	decimal32FromNumber
 #elif WIDTH == 64
 #include "decimal64.h"
+#define DFP_C_TYPE	_Decimal64
 #define DFP_TYPE	decimal64
 #define TO_INTERNAL	decimal64ToNumber
 #define TO_ENCODED	decimal64FromNumber
 #elif WIDTH == 128
 #include "decimal128.h"
+#define DFP_C_TYPE	_Decimal128
 #define DFP_TYPE	decimal128
 #define TO_INTERNAL	decimal128ToNumber
 #define TO_ENCODED	decimal128FromNumber
@@ -93,48 +96,52 @@
 /* Prototypes.  */
 
 #if defined (L_mul_sd) || defined (L_mul_dd) || defined (L_mul_td)
-extern DFP_TYPE DFP_MULTIPLY (DFP_TYPE, DFP_TYPE);
+extern DFP_C_TYPE DFP_MULTIPLY (DFP_C_TYPE, DFP_C_TYPE);
+#endif
+
+#if defined (L_div_sd) || defined (L_div_dd) || defined (L_div_td)
+extern DFP_C_TYPE DFP_DIVIDE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_addsub_sd) || defined (L_addsub_dd) || defined (L_addsub_td)
-extern DFP_TYPE DFP_ADD (DFP_TYPE, DFP_TYPE);
-extern DFP_TYPE DFP_SUB (DFP_TYPE, DFP_TYPE);
+extern DFP_C_TYPE DFP_ADD (DFP_C_TYPE, DFP_C_TYPE);
+extern DFP_C_TYPE DFP_SUB (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if 0
 
 #if defined (L_plus_sd) || defined (L_plus_dd) || defined (L_plus_td)
-extern DFP_TYPE DFP_PLUS (DFP_TYPE);
+extern DFP_C_TYPE DFP_PLUS (DFP_C_TYPE);
 #endif
 
 #if defined (L_minus_sd) || defined (L_minus_dd) || defined (L_minus_td)
-extern DFP_TYPE DFP_MINUS (DFP_TYPE);
+extern DFP_C_TYPE DFP_MINUS (DFP_C_TYPE);
 #endif
 
 #endif /* 0 */
 
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
-extern int DFP_EQ (DFP_TYPE, DFP_TYPE);
+extern int DFP_EQ (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_ne_sd) || defined (L_ne_dd) || defined (L_ne_td)
-extern int DFP_NE (DFP_TYPE, DFP_TYPE);
+extern int DFP_NE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_lt_sd) || defined (L_lt_dd) || defined (L_lt_td)
-extern int DFP_LT (DFP_TYPE, DFP_TYPE);
+extern int DFP_LT (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_gt_sd) || defined (L_gt_dd) || defined (L_gt_td)
-extern int DFP_GT (DFP_TYPE, DFP_TYPE);
+extern int DFP_GT (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_le_sd) || defined (L_le_dd) || defined (L_le_td)
-extern int DFP_LE (DFP_TYPE, DFP_TYPE);
+extern int DFP_LE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_ge_sd) || defined (L_ge_dd) || defined (L_ge_td)
-extern int DFP_GE (DFP_TYPE, DFP_TYPE);
+extern int DFP_GE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #endif /* _DFPBIT_H */

@@ -1,3 +1,17 @@
+2005-04-18  Ben Elliston  <bje@au.ibm.com>
+
+	* config/dfp-bit.h (DFP_C_TYPE): New.
+	(DFP_MULTIPLY, DFP_ADD, DFP_SUB): Use DFP_C_TYPE for args and
+	reverse the sense of return values (truth = 0).
+	(DFP_PLUS, DFP_MINUS): Likewise.
+	(DFP_EQ, DFP_NE, DFP_LT, DFP_GT, DFP_LE, DFP_GE): Likewise.
+	* config/dfp-bit.c (dfp_unary_op): Overhaul implementation.
+	(dfp_binary_op): Likewise.
+	(dfp_compare_op): Likewise.
+	(DFP_ADD, DFP_SUB, DFP_MULTIPLY, DFP_DIVIDE): Likewise.
+	(DFP_PLUS, DFP_MINUS): Likewise.
+	(DFP_EQ, DFP_NE, DFP_LT, DFP_GT, DFP_LE, DFP_GE): Likewise.
+
 2005-04-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* dfp.c (decimal_from_decnumber): New function.

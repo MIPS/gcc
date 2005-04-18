@@ -40,6 +40,8 @@ Boston, MA 02111-1307, USA.  */
 /* The intended way to use this file is to make two copies, add `#define '
    to one copy, then compile both copies and add them to libgcc.a.  */
 
+#include <string.h>
+
 #include "tconfig.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -56,95 +58,111 @@ typedef decNumber* (*dfp_binary_func)
 
 /* Unary operations.  */
 
-static inline DFP_TYPE
-dfp_unary_op (dfp_unary_func op, DFP_TYPE arg)
+static inline DFP_C_TYPE
+dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
 {
+  DFP_C_TYPE result;
   decContext context;
-  decNumber a, result;
-  DFP_TYPE encoded_result;
+  decNumber arg1, res;
+  DFP_TYPE a, encoded_result;
+
+  memcpy (&a, &arg, sizeof (a));
 
   decContextDefault (&context, DEC_INIT_BASE);
-  context.digits = DECNUMDIGITS;
-  TO_INTERNAL (&arg, &a);
+  context.digits = 5; /* DECNUMDIGITS */
+  TO_INTERNAL (&a, &arg1);
 
   /* Perform the operation.  */
-  op (&result, &a, &context);
+  op (&res, &arg1, &context);
 
-  TO_ENCODED (&encoded_result, &result, &context);
-  return encoded_result;
+  TO_ENCODED (&encoded_result, &res, &context);
+  memcpy (&result, &encoded_result, sizeof (result));
+  return result;
 }
 
 /* Binary operations.  */
 
-static inline DFP_TYPE
-dfp_binary_op (dfp_binary_func op, DFP_TYPE arg_a, DFP_TYPE arg_b)
+static inline DFP_C_TYPE
+dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
+  DFP_C_TYPE result;
   decContext context;
-  decNumber a, b, result;
-  DFP_TYPE encoded_result;
+  decNumber arg1, arg2, res;
+  DFP_TYPE a, b, encoded_result;
+
+  memcpy (&a, &arg_a, sizeof (a));
+  memcpy (&b, &arg_b, sizeof (b));
 
   decContextDefault (&context, DEC_INIT_BASE);
-  context.digits = DECNUMDIGITS;
-  TO_INTERNAL (&arg_a, &a);
-  TO_INTERNAL (&arg_b, &b);
+  context.digits = 5; /* DECNUMDIGITS */
+  TO_INTERNAL (&a, &arg1);
+  TO_INTERNAL (&b, &arg2);
 
   /* Perform the operation.  */
-  op (&result, &a, &b, &context);
+  op (&res, &arg1, &arg2, &context);
 
-  TO_ENCODED (&encoded_result, &result, &context);
-  return encoded_result;
+  TO_ENCODED (&encoded_result, &res, &context);
+  memcpy (&result, &encoded_result, sizeof (result));
+  return result;
 }
 
 /* Comparison operations.  */
 
 static inline int
-dfp_compare_op (dfp_binary_func op, DFP_TYPE arg_a, DFP_TYPE arg_b)
+dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
+  DFP_TYPE a, b;
   decContext context;
-  decNumber a, b, result;
+  decNumber arg1, arg2, res;
+  int result;
+
+  memcpy (&a, &arg_a, sizeof (a));
+  memcpy (&b, &arg_b, sizeof (b));
 
   decContextDefault (&context, DEC_INIT_BASE);
-  context.digits = DECNUMDIGITS;
-  TO_INTERNAL (&arg_a, &a);
-  TO_INTERNAL (&arg_b, &b);
+  context.digits = 20; /* DECNUMDIGITS */
+  TO_INTERNAL (&a, &arg1);
+  TO_INTERNAL (&b, &arg2);
 
   /* Perform the comparison.  */
-  op (&result, &a, &b, &context);
+  op (&res, &arg1, &arg2, &context);
 
-  if (decNumberIsNegative (&result))
-    return -1;
-  else if (decNumberIsZero (&result))
-    return 0;
+  if (decNumberIsNegative (&res))
+    result = -1;
+  else if (decNumberIsZero (&res))
+    result = 0;
   else
-    return 1;
+    result = 1;
+
+  return result;
 }
 
 
 #if defined(L_addsub_sd) || defined(L_addsub_dd) || defined(L_addsub_td)
-DFP_TYPE
-DFP_ADD (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_C_TYPE
+DFP_ADD (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   return dfp_binary_op (decNumberAdd, arg_a, arg_b);
 }
 
-DFP_TYPE
-DFP_SUB (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_C_TYPE
+DFP_SUB (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   return dfp_binary_op (decNumberSubtract, arg_a, arg_b);
 }
 #endif /* L_addsub */
 
 #if defined(L_mul_sd) || defined(L_mul_dd) || defined(L_mul_td)
-DFP_TYPE
-DFP_MULTIPLY (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_C_TYPE
+DFP_MULTIPLY (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   return dfp_binary_op (decNumberMultiply, arg_a, arg_b);
 }
 #endif /* L_mul */
 
 #if defined(L_div_sd) || defined(L_div_dd) || defined(L_div_td)
-DFP_TYPE
-DFP_DIVIDE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_C_TYPE
+DFP_DIVIDE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   return dfp_binary_op (decNumberDivide, arg_a, arg_b);
 }
@@ -153,16 +171,16 @@ DFP_DIVIDE (DFP_TYPE arg_a, DFP_TYPE arg_b)
 #if 0
 
 #if defined(L_plus_sd) || defined(L_plus_dd) || defined(L_plus_td)
-DFP_TYPE
-DFP_PLUS (DFP_TYPE arg)
+DFP_C_TYPE
+DFP_PLUS (DFP_C_TYPE arg)
 {
   return dfp_unary_op (decNumberPlus, arg);
 }
 #endif /* L_plus */
 
 #if defined(L_minus_sd) || defined(L_minus_dd) || defined(L_minus_td)
-DFP_TYPE
-DFP_MINUS (DFP_TYPE arg)
+DFP_C_TYPE
+DFP_MINUS (DFP_C_TYPE arg)
 {
   return dfp_unary_op (decNumberMinus, arg);
 }
@@ -172,50 +190,50 @@ DFP_MINUS (DFP_TYPE arg)
 
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
 int
-DFP_EQ (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_EQ (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0);
+  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0);
 }
 #endif /* L_eq */
 
 #if defined (L_ne_sd) || defined (L_ne_dd) || defined (L_ne_td)
 int
-DFP_NE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_NE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) != 0);
+  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) != 0);
 }
 #endif /* L_ne */
 
 #if defined (L_lt_sd) || defined (L_lt_dd) || defined (L_lt_td)
 int
-DFP_LT (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_LT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1);
+  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1);
 }
 #endif /* L_lt */
 
 #if defined (L_gt_sd) || defined (L_gt_dd) || defined (L_gt_td)
 int
-DFP_GT (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_GT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1);
+  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1);
 }
 #endif
 
 #if defined (L_le_sd) || defined (L_le_dd) || defined (L_le_td)
 int
-DFP_LE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_LE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return ((dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1)
+  return !((dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1)
 	  || (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0));
 }
 #endif /* L_le */
 
 #if defined (L_ge_sd) || defined (L_ge_dd) || defined (L_ge_td)
 int
-DFP_GE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+DFP_GE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return ((dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1)
+  return !((dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1)
 	  || (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0));
 }
 #endif /* L_ge */
