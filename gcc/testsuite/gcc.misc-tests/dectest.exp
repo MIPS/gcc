@@ -185,7 +185,14 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     } else {
 	puts $outfd "  d = [c-binary-expression $operation [c-operand $op1] [c-operand $op2]];"
     }
-    puts $outfd "  return (!(d == [c-operand $result]));"
+
+    # Handle undefined results.
+    if {[string compare $result ?] != 0} {
+	puts $outfd "  return (!(d == [c-operand $result]));"
+    } else {
+	puts $outfd "  return 0;"
+    }
+
     puts $outfd [c-test-postamble $id]
     close $outfd
     return $filename
@@ -261,7 +268,9 @@ proc process-directive { line } {
 # Produce a C99-valid floating point literal.
 
 proc c-operand {operand} {
-    if {[string first . $operand] < 0} {
+    if {[string first . $operand] < 0 && \
+	    [string first E $operand] < 0 && \
+	    [string first e $operand] < 0} {
 	append operand .
     }
     return [append operand DF]
@@ -311,6 +320,12 @@ proc process-test-case { testcase line } {
     if ![is-supported-p] {
 	unsupported "$testfile ($id)"
 	return
+    }
+
+    if {[string compare $operand1 \#] == 0 || \
+	    [string compare $operand2 \#] == 0} {
+	unsupported "$testfile ($id), null reference"
+ 	return
     }
 
     # Construct a C program and then compile/execute it on the target.
