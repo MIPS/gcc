@@ -1,7 +1,7 @@
 /* APPLE LOCAL begin mainline 2005-04-14 */
 /* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-maltivec" } */
-/* { dg-skip-if "" { "-m64" } { "" } } */
+/* { dg-skip-if "" { powerpc*-*-* } { "-m64" } { "" } } */
 
 #include <altivec.h>
 
