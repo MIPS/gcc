@@ -822,6 +822,9 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* Copy basic block, scale profile accordingly.  Edges will be taken care of
+   later  */
+
 static basic_block
 copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 {
@@ -861,6 +864,111 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
   return id->copy_basic_block;
 }
 
+/* Copy edges from BB into it's copy constructed ealier, scale profile
+   accordingly.  Edges will be taken care of
+   later.  Assume aux pointers to point to the copies of each BB  */
+static void
+copy_edges_for_bb (inline_data *id, basic_block bb, int count_scale)
+{
+  basic_block new_bb = bb->aux;
+  edge_iterator ei;
+  edge old_edge;
+  tree_stmt_iterator tsi, tsi_copy, tsi_end;
+  tree caller_fndecl = id->caller;
+  struct function *caller_cfun = DECL_STRUCT_FUNCTION (caller_fndecl);
+
+  /* Use the indices from the original blocks to create edges for the
+     new ones.  */
+  FOR_EACH_EDGE (old_edge, ei, bb->succs)
+  {
+    edge new;
+
+    /* Ignore edges that reach ENTRY and EXIT blocks
+       The first non-ENTRY block will be spliced and handled specially;
+       RETURN_EXPRs have been discarded, and they have created their own
+       edges already (a side-effect of copying the callee body).
+       Abnormal edges (e.g. noreturn functions) should be redirected to
+       the next exit block.  */
+    if (old_edge->src->index != ENTRY_BLOCK
+	&& old_edge->dest->index != EXIT_BLOCK)
+      {
+	new = make_edge (new_bb, old_edge->dest->aux, old_edge->flags);
+	new->count = old_edge->count * count_scale / REG_BR_PROB_BASE;
+	new->probability = old_edge->probability;
+      }
+  }
+
+  tsi_end = tsi_last (bb->stmt_list);
+  for (tsi = tsi_start (bb->stmt_list),
+       tsi_copy = tsi_start (new_bb->stmt_list);
+       !tsi_end_p (tsi_copy); tsi_next (&tsi))
+    {
+      tree copy_stmt;
+      tree orig_stmt;
+
+      orig_stmt = tsi_stmt (tsi);
+      copy_stmt = tsi_stmt (tsi_copy);
+      update_stmt (copy_stmt);
+      /* Do this before the possible split_block.  */
+      tsi_next (&tsi_copy);
+
+      /* If this tree could throw an exception, there are two
+         cases where we need to add abnormal edge(s): the
+         tree wasn't in a region and there is a "current
+         region" in the caller; or the original tree had
+         EH edges.  In both cases split the block after the tree,
+         and add abnormal edge(s) as needed; we need both
+         those from the callee and the caller.
+         We check whether the copy can throw, because the const
+         propagation can change an INDIRECT_REF which throws
+         into a COMPONENT_REF which doesn't.  If the copy
+         can throw, the original could also throw.  */
+
+      if (tree_could_throw_p (copy_stmt)
+	  && ((lookup_stmt_eh_region_fn (DECL_STRUCT_FUNCTION (id->callee),
+					 orig_stmt) <= 0
+	       && get_eh_cur_region (caller_cfun) > 0)
+	      || (eh_dst
+		  && tree_could_throw_p (copy_stmt)
+		  && VARRAY_ACTIVE_SIZE (eh_dst) > 0)))
+	{
+	  unsigned int i;
+	  basic_block copied_call_bb = new_bb;
+	  if (tsi_stmt (tsi_end) != tsi_stmt (tsi))
+	    /* Note that bb's predecessor edges aren't necessarily
+	       right at this point; split_block doesn't care.  */
+	    {
+	      edge e = split_block (new_bb, copy_stmt);
+	      new_bb = e->dest;
+	    }
+
+	  /* If this tree doesn't have a region associated with it,
+	     and there is a "current region,"
+	     then associate this tree with the current region
+	     and add edges associated with this region.  */
+	  if (lookup_stmt_eh_region_fn (id->callee_cfun,
+					orig_stmt) <= 0
+	      && get_eh_cur_region (caller_cfun) > 0)
+	    {
+	      struct eh_status *saved_eh = cfun->eh;
+	      cfun->eh = caller_cfun->eh;
+	      add_stmt_to_eh_region (copy_stmt,
+				     get_eh_cur_region (caller_cfun));
+	      make_eh_edges (copy_stmt);
+	      cfun->eh = saved_eh;
+	    }
+
+	  /* If the original call that we're inlining had EH
+	     edges, attach EH edges with the same destination
+	     to this block.  */
+	  if (eh_dst)
+	    for (i = 0; i < VARRAY_ACTIVE_SIZE (eh_dst); i++)
+	      make_edge (copied_call_bb, VARRAY_BB (eh_dst, i),
+			 EDGE_EH | EDGE_ABNORMAL);
+	}
+    }
+}
+
 /* Make a copy of the body of FN so that it can be inserted inline in
    another function.  Walks FN via CFG, returns new fndecl.  */
 
@@ -882,17 +990,9 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
 	(struct function *)ggc_alloc_cleared (sizeof (struct function));
   struct control_flow_graph *new_cfg;
   basic_block bb;
-  edge old_edge;
-  varray_type new_bb_info;
-  int old_src_index;
-  int old_dest_index;
   tree new_fndecl;
   bool saving_or_cloning;
-  tree copy_stmt;
-  tree orig_stmt;
-  tree_stmt_iterator tsi, tsi_copy, tsi_end;
   int count_scale, frequency_scale;
-  int current_bb_index = 0;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (callee_cfun)->count)
     count_scale = (REG_BR_PROB_BASE * count
@@ -950,7 +1050,6 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
       VARRAY_BB_INIT (label_to_block_map, 
 		      VARRAY_SIZE (label_to_block_map_for_function (callee_cfun)),
 		      "label_to_block_map (copy_body)");
-      new_bb_info = basic_block_info;
       last_basic_block = n_basic_blocks = 0;
     }
   else	/* Else we're inlining normally.  */
@@ -963,9 +1062,6 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
       label_to_block_map = label_to_block_map_for_function (caller_cfun);
       last_basic_block = last_basic_block_for_function (caller_cfun);
       n_basic_blocks = n_basic_blocks_for_function (caller_cfun);
-      VARRAY_GENERIC_PTR_NOGC_INIT (new_bb_info,
-		    VARRAY_SIZE (basic_block_info_for_function (callee_cfun)),
-		    "temporary basic_block_info (copy_body)");
       new_cfun->last_label_uid = caller_cfun->last_label_uid;
     }
 
@@ -1000,128 +1096,19 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
     {
       basic_block copy = copy_bb (id, bb, frequency_scale, count_scale);
 
-      /* Number the blocks.  When we duplicate the edges of this
-	 funciton body, we need an easy way to map edges
-	 from the original body into our newly-copied body.  We could
-	 use a hashtable, but unique block indicies are much simpler.
-	 Alas, we cannot expect the blocks to arrive here with
-	 rational indicies.  */
-      /* Note this is a counter-intuitive side effect: making a copy
-	 of a function body will alter the basic-block indices of the
-	 copied body.  */
-      bb->index = copy->index = current_bb_index;
-      current_bb_index++;
-      /* If we're saving or cloning, we'll use the basic_block_info
-	 varray.  Otherwise, create a parallel varray here for edge
-	 creation.  */
-      if (!saving_or_cloning)
-	VARRAY_BB (new_bb_info, copy->index) = copy;
+      /* Use aux pointers to map the original blocks to copy.  */
+      gcc_assert (!bb->aux);
+      bb->aux = copy;
     }
 
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_EACH_BB_FN (bb, cfun_to_copy)
-    {
-      basic_block new_bb = VARRAY_BB (new_bb_info, bb->index);
-      edge_iterator ei;
-
-      /* Use the indices from the original blocks to create edges for the
-	 new ones.  */
-      old_src_index = bb->index;
-      FOR_EACH_EDGE (old_edge, ei, bb->succs)
-	{
-	  edge new;
-
-	  old_dest_index = old_edge->dest->index;
-	  /* Ignore edges that reach ENTRY and EXIT blocks
-	     (bb->index < 0).  The first non-ENTRY block will be spliced
-	     and handled specially; RETURN_EXPRs have been discarded,
-	     and they have created their own edges already (a
-	     side-effect of copying the callee body).  Abnormal edges
-	     (e.g. noreturn functions) should be redirected to the
-	     next exit block.  */
-	  if (old_src_index >= 0 && old_dest_index >= 0)
-	    {
-	      new = make_edge (new_bb,
-			       VARRAY_BB (new_bb_info, old_dest_index),
-			       old_edge->flags);
-	      new->count = old_edge->count * count_scale / REG_BR_PROB_BASE;
-	      new->probability = old_edge->probability;
-	    }
-	}
-
-      tsi_end = tsi_last (bb->stmt_list);
-      for (tsi = tsi_start (bb->stmt_list),
-	     tsi_copy = tsi_start (new_bb->stmt_list);
-	   !tsi_end_p (tsi_copy);
-	   tsi_next (&tsi))
-	{
-	  orig_stmt = tsi_stmt (tsi);
-	  copy_stmt = tsi_stmt (tsi_copy);
-	  update_stmt (copy_stmt);
-	  /* Do this before the possible split_block.  */
-	  tsi_next (&tsi_copy);
-
-	  /* If this tree could throw an exception, there are two
-	     cases where we need to add abnormal edge(s): the
-	     tree wasn't in a region and there is a "current
-	     region" in the caller; or the original tree had
-	     EH edges.  In both cases split the block after the tree,
-	     and add abnormal edge(s) as needed; we need both
-	     those from the callee and the caller.
-	     We check whether the copy can throw, because the const
-	     propagation can change an INDIRECT_REF which throws
-	     into a COMPONENT_REF which doesn't.  If the copy
-	     can throw, the original could also throw.  */
-
-	  if (tree_could_throw_p (copy_stmt)
-	      && ((lookup_stmt_eh_region_fn (
-			    DECL_STRUCT_FUNCTION (id->callee),
-			    orig_stmt) <= 0
-	      && get_eh_cur_region (caller_cfun) > 0)
-		|| (eh_dst
-		   && tree_could_throw_p (copy_stmt)
-		   && VARRAY_ACTIVE_SIZE (eh_dst) > 0)))
-	    {
-	      unsigned int i;
-	      basic_block copied_call_bb = new_bb;
-	      if (tsi_stmt (tsi_end) != tsi_stmt (tsi))
-		/* Note that bb's predecessor edges aren't necessarily
-		   right at this point; split_block doesn't care.  */
-		{
-		  edge e = split_block (new_bb, copy_stmt);
-		  new_bb = e->dest;
-		}
-
-	      /* If this tree doesn't have a region associated with it,
-		 and there is a "current region,"
-		 then associate this tree with the current region
-		 and add edges associated with this region.  */
-	      if (lookup_stmt_eh_region_fn (
-			    id->callee_cfun,
-			    orig_stmt) <= 0
-		  && get_eh_cur_region (caller_cfun) > 0)
-		{
-		  struct eh_status *saved_eh = cfun->eh;
-		  cfun->eh = caller_cfun->eh;
-		  add_stmt_to_eh_region (copy_stmt,
-					 get_eh_cur_region (caller_cfun));
-		  make_eh_edges (copy_stmt);
-		  cfun->eh = saved_eh;
-		}
-
-	      /* If the original call that we're inlining had EH
-		 edges, attach EH edges with the same destination
-		 to this block.  */
-	      if (eh_dst)
-	      for (i = 0; i < VARRAY_ACTIVE_SIZE (eh_dst); i++)
-	        make_edge (copied_call_bb, VARRAY_BB (eh_dst, i), 
-			    EDGE_EH | EDGE_ABNORMAL);
-	    }
-	}
-    }
+    copy_edges_for_bb (id, bb, count_scale);
+  FOR_EACH_BB_FN (bb, cfun_to_copy)
+    bb->aux = NULL;
   if (saving_or_cloning)
     {
-      edge new;
+      edge new, old_edge;
       basic_block bb1,bb2;
       edge e_step;
 
@@ -1151,8 +1138,6 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
       new->count = exit_count;
     }
   id->copy_basic_block = (basic_block)0;
-  if (!saving_or_cloning)
-    VARRAY_FREE (new_bb_info);
 
   DECL_SAVED_TREE (new_fndecl) = ENTRY_BLOCK_PTR->next_bb->stmt_list;
 

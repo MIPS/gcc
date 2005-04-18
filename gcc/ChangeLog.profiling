@@ -1,3 +1,10 @@
+2005-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (copy_bb): Break out from ....
+	(copy_edges_for_bb): Break out from ....
+	(copy_cfg): ... here; reorganize way old and new blocks are mapped
+	together.
+
 2005-04-16  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (remap_decl): Use inlining_p.
