@@ -246,7 +246,7 @@ linear_transform_loops (struct loops *loops)
   
   for (i = 1; i < loops->num; i++)
     {
-      unsigned int depth = 0;
+      unsigned int depth;
       varray_type datarefs;
       varray_type dependence_relations;
       struct loop *loop_nest = loops->parray[i];
@@ -273,17 +273,13 @@ linear_transform_loops (struct loops *loops)
            } */
       if (!loop_nest || !loop_nest->inner)
 	continue;
-      depth = 1;
       for (temp = loop_nest->inner; temp; temp = temp->inner)
-	{
-	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || !temp->single_exit)
-	    {
-	      problem = true;
-	      break;
-	    }
-	  depth ++;
-	}
+	/* If we have a sibling loop or multiple exit edges, jump ship.  */
+	if (temp->next || !temp->single_exit)
+	  {
+	    problem = true;
+	    break;
+	  }
       if (problem)
 	continue;
 
@@ -293,8 +289,7 @@ linear_transform_loops (struct loops *loops)
       VARRAY_GENERIC_PTR_INIT (dependence_relations, 10,
 			       "dependence_relations");
       
-  
-      compute_data_dependences_for_loop (depth, loop_nest, NULL_TREE, true, 
+      compute_data_dependences_for_loop (loop_nest, NULL_TREE, true,
 					 &datarefs, &dependence_relations);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -320,6 +315,7 @@ linear_transform_loops (struct loops *loops)
 	  fprintf (dump_file, "\n\n");
 	}
       /* Build the transformation matrix.  */
+      depth = loop_nest->level;
       trans = lambda_trans_matrix_new (depth, depth);
       lambda_matrix_id (LTM_MATRIX (trans), depth);
 

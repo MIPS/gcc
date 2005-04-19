@@ -178,7 +178,7 @@ FILE *vect_dump;
    to mark that it's uninitialized.  */
 enum verbosity_levels vect_verbosity_level = MAX_VERBOSITY_LEVEL;
 
-unsigned int loops_num;
+static unsigned int loops_num;
 
 
 /*************************************************************************

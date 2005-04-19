@@ -296,7 +296,6 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 /* vect_dump will be set to stderr or dump_file if exist.  */
 extern FILE *vect_dump;
 extern enum verbosity_levels vect_verbosity_level;
-extern unsigned int loops_num;
 
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */

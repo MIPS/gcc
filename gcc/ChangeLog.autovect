@@ -1,3 +1,20 @@
+2005-04-19  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-data-ref.c: Remove some declarations of static functions.
+	(compute_data_dependences_for_loop): Don't pass nb_loops as a 
+	parameter, deduce it from the computation of the loop_nest.
+	(analyze_all_data_dependences): Update uses of
+	compute_data_dependences_for_loop.
+	* tree-data-ref.h (compute_data_dependences_for_loop): Update
+	declaration.
+	* tree-loop-linear.c (linear_transform_loops): Update uses of
+	compute_data_dependences_for_loop.  The size of the matrices is
+	computed as loop_nest->level.
+	* tree-vect-analyze.c (vect_analyze_data_refs): Update uses of
+	compute_data_dependences_for_loop.
+	* tree-vectorizer.c (loops_num): Make it static.
+	* tree-vectorizer.h (loops_num): Remove the extern declaration.
+
 2005-04-19  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (base_object_differ_p): Rename (from 	

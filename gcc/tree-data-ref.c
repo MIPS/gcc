@@ -122,21 +122,11 @@ static struct datadep_stats
   int num_miv_unimplemented;
 } dependence_stats;
 
-static bool analyze_offset_expr (tree, struct loop *, tree, 
-				 tree *, tree *, tree *);
-static tree strip_conversion (tree);
 static tree object_analysis (tree, tree, bool, tree, struct data_reference **, 
 			     tree *, tree *, tree *, bool *, tree *);
-static tree address_analysis (tree, tree, bool, tree, struct data_reference *, 
-			      tree *, tree *, tree *, bool *);
 static struct data_reference * init_data_ref (tree, tree, tree, tree, bool, 
 				      tree, tree, tree, tree, bool, tree,
 				      struct ptr_info_def *);
-static struct data_reference * analyze_indirect_ref (tree, tree, bool);
-static struct data_reference * create_data_ref (tree, tree, bool, tree);
-static bool base_addr_differ_p (struct data_reference *,
-				struct data_reference *drb, bool *);
-static void analyze_offset (tree, tree *, tree *);
   
 /* This is the simplest data dependence test: determines whether the
    data references A and B access the same array/region.  Returns
@@ -3705,16 +3695,19 @@ find_data_references_in_loop (struct loop *loop, tree alignment,
    COMPUTE_SELF_AND_READ_READ_DEPENDENCES is TRUE.  */
 
 void
-compute_data_dependences_for_loop (unsigned nb_loops, 
-				   struct loop *loop,
+compute_data_dependences_for_loop (struct loop *loop,
 				   tree alignment,
 				   bool compute_self_and_read_read_dependences,
 				   varray_type *datarefs,
 				   varray_type *dependence_relations)
 {
-  unsigned int i;
+  unsigned int i, nb_loops;
   varray_type allrelations;
   struct loop *loop_nest = loop;
+
+  while (loop_nest && loop_nest->outer && loop_nest->outer->outer)
+    loop_nest = loop_nest->outer;
+  nb_loops = loop_nest->level;
 
   memset (&dependence_stats, 0, sizeof (dependence_stats));
 
@@ -3737,9 +3730,6 @@ compute_data_dependences_for_loop (unsigned nb_loops,
   VARRAY_GENERIC_PTR_INIT (allrelations, 1, "Data dependence relations");
   compute_all_dependences (*datarefs, &allrelations,
                            compute_self_and_read_read_dependences);
-
-  while (loop_nest && loop_nest->outer && loop_nest->outer->outer)
-    loop_nest = loop_nest->outer;
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (allrelations); i++)
     {
@@ -3836,7 +3826,7 @@ analyze_all_data_dependences (struct loops *loops)
 			   "dependence_relations");
 
   /* Compute DDs on the whole function.  */
-  compute_data_dependences_for_loop (loops->num, loops->parray[0], NULL_TREE,
+  compute_data_dependences_for_loop (loops->parray[0], NULL_TREE,
 				     false, &datarefs, &dependence_relations);
 
   if (dump_file)

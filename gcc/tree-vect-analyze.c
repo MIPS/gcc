@@ -1314,7 +1314,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vect_analyze_data_refs ===");
 
-  compute_data_dependences_for_loop (loops_num, loop,
+  compute_data_dependences_for_loop (loop,
 				     ssize_int (UNITS_PER_SIMD_WORD), false,
 				     &(LOOP_VINFO_DATAREFS (loop_vinfo)),
 				     &(LOOP_VINFO_DDRS (loop_vinfo)));

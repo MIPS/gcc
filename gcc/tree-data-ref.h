@@ -203,8 +203,7 @@ extern bool build_classic_dist_vector (struct data_dependence_relation *, int,
 				       int);
 
 extern void analyze_all_data_dependences (struct loops *);
-extern void compute_data_dependences_for_loop (unsigned, struct loop *, tree, 
-					       bool, 
+extern void compute_data_dependences_for_loop (struct loop *, tree, bool,
 					       varray_type *, varray_type *);
 extern struct data_reference *analyze_array (tree, tree, bool);
 
