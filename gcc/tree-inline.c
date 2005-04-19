@@ -143,11 +143,6 @@ typedef struct inline_data
      gimple form when we insert the inlined function.   It is not
      used when we are not dealing with gimple trees.  */
   tree_stmt_iterator original_tsi;
-  /* Iterator for walking over a copied function body.  When one
-     statement is rewritten in place (e.g. when a RETURN_EXPR becomes
-     a MODIFY followed by a GOTO), this iterator facilitates
-     modifications on the copied function body.  */
-  tree_stmt_iterator copy_tsi;
   /* Current BIND_EXPR.  */
   tree bind_expr;
   /* copy_body/copy_body_r use this to walk over the blocks of the
@@ -583,12 +578,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       else /* Else the RETURN_EXPR returns no value.  */
 	{
 	  edge new;
-	  /* Since we're not returning anything, just delete the
-	     RETURN_EXPR.  This is spooky, as we're altering a
-	     tree_stmt_iterator owned by our caller, who is using
-	     it to iterate through the statemetns of this
-	     block.  */
-	  tsi_delink (&id->copy_tsi);
+	  *tp = NULL;
 
 	  /* If we're working on CFGs, add an outgoing CFG edge to the
 	     return block.  */
@@ -828,39 +818,30 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 static basic_block
 copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 {
-  tree_stmt_iterator tsi;
+  block_stmt_iterator bsi, copy_bsi;
 
   /* create_basic_block() will append every new block to
      basic_block_info automatically.  */
-  id->copy_basic_block = create_basic_block (bb->stmt_list,
+  id->copy_basic_block = create_basic_block (NULL,
 					     (void *) 0,
 					     id->copy_basic_block);
   id->copy_basic_block->count = bb->count * count_scale / REG_BR_PROB_BASE;
   id->copy_basic_block->frequency = (bb->frequency
 				     * frequency_scale / REG_BR_PROB_BASE);
-  /* We could invoke walk_tree() and have it copy everything below
-     here, but RETURN_EXPR processing often requires tsi_delink(),
-     requiring access to the associated active tree_stmt_iterator.
-     Since the generic tree walk cannot pass down its own
-     tree_stmt_iterator, we run iteration from here, and pass our
-     own tree_stmt_iterator down.  See copy_body_r():RETURN_EXPR
-     processing for the rest of the story.  */
-  copy_statement_list (&id->copy_basic_block->stmt_list);
-  for (id->copy_tsi = tsi_start (id->copy_basic_block->stmt_list);
-       !tsi_end_p (id->copy_tsi); tsi_next (&id->copy_tsi))
+  copy_bsi = bsi_start (id->copy_basic_block);
+
+  for (bsi = bsi_start (bb);
+       !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      walk_tree (tsi_stmt_ptr (id->copy_tsi), copy_body_r, id, NULL);
-      /* A RETURN_EXPR that returns no value will be deleted;
-         detect this occurance and exit this loop early.  */
-      if (tsi_end_p (id->copy_tsi) && !id->versioning_p)
-	break;
+      tree stmt = bsi_stmt (bsi);
+
+      walk_tree (&stmt, copy_body_r, id, NULL);
+
+      /* RETURN_EXPR might be removed, this is signalled by making stmt pointer
+         NULL.  */
+      if (stmt)
+        bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
     }
-  tsi = tsi_start (id->copy_basic_block->stmt_list);
-  /* If non-empty block, fixup the statement->block uplinks.  */
-  if (!tsi_end_p (tsi))
-    set_bb_for_stmt (id->copy_basic_block->stmt_list, id->copy_basic_block);
-  /* Insure prompt crash if this is used out-of-context.  */
-  id->copy_tsi.container = NULL_TREE;
   return id->copy_basic_block;
 }
 
@@ -873,7 +854,7 @@ copy_edges_for_bb (inline_data *id, basic_block bb, int count_scale)
   basic_block new_bb = bb->aux;
   edge_iterator ei;
   edge old_edge;
-  tree_stmt_iterator tsi, tsi_copy, tsi_end;
+  block_stmt_iterator bsi, bsi_copy, bsi_end;
   tree caller_fndecl = id->caller;
   struct function *caller_cfun = DECL_STRUCT_FUNCTION (caller_fndecl);
 
@@ -898,19 +879,19 @@ copy_edges_for_bb (inline_data *id, basic_block bb, int count_scale)
       }
   }
 
-  tsi_end = tsi_last (bb->stmt_list);
-  for (tsi = tsi_start (bb->stmt_list),
-       tsi_copy = tsi_start (new_bb->stmt_list);
-       !tsi_end_p (tsi_copy); tsi_next (&tsi))
+  bsi_end = bsi_last (bb);
+  for (bsi = bsi_start (bb),
+       bsi_copy = bsi_start (new_bb);
+       !bsi_end_p (bsi_copy); bsi_next (&bsi))
     {
       tree copy_stmt;
       tree orig_stmt;
 
-      orig_stmt = tsi_stmt (tsi);
-      copy_stmt = tsi_stmt (tsi_copy);
+      orig_stmt = bsi_stmt (bsi);
+      copy_stmt = bsi_stmt (bsi_copy);
       update_stmt (copy_stmt);
       /* Do this before the possible split_block.  */
-      tsi_next (&tsi_copy);
+      bsi_next (&bsi_copy);
 
       /* If this tree could throw an exception, there are two
          cases where we need to add abnormal edge(s): the
@@ -934,7 +915,7 @@ copy_edges_for_bb (inline_data *id, basic_block bb, int count_scale)
 	{
 	  unsigned int i;
 	  basic_block copied_call_bb = new_bb;
-	  if (tsi_stmt (tsi_end) != tsi_stmt (tsi))
+	  if (bsi_stmt (bsi_end) != bsi_stmt (bsi))
 	    /* Note that bb's predecessor edges aren't necessarily
 	       right at this point; split_block doesn't care.  */
 	    {

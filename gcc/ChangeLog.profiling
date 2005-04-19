@@ -1,3 +1,16 @@
+2005-04-19  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (init_empty-tree_cfg): Do not clear basic_block_info size.
+	(build_tree_cfg): Bring mostly into sync with mainline.
+	(make_blocks): Likewise.
+	(create_bb): Likewise.
+	(tree_verify_flow_info): Likewise.
+	(tree_forwarder_block_p): Likewise.
+	* tree-inline.c (inline_data): Kill copy_tsi.
+	(copy_body_r): Set stmt to NULL if it should not be added.
+	(copy_bb): Revamp to use BSIs; simplify.
+	(copy_edges_for_bb): Use BSIs.
+
 2005-04-18  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (copy_bb): Break out from ....

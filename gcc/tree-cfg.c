@@ -151,9 +151,6 @@ init_empty_tree_cfg (void)
 
   create_block_annotation (ENTRY_BLOCK_PTR);
   create_block_annotation (EXIT_BLOCK_PTR);
-  
-  /* Adjust the size of the array.  */
-  VARRAY_GROW (basic_block_info, n_basic_blocks);
 }
 
 /*---------------------------------------------------------------------------
@@ -187,6 +184,9 @@ build_tree_cfg (tree *tp)
   /* Make sure there is always at least one block, even if it's empty.  */
   if (n_basic_blocks == 0)
     create_empty_bb (ENTRY_BLOCK_PTR);
+
+  /* Adjust the size of the array.  */
+  VARRAY_GROW (basic_block_info, n_basic_blocks);
 
   /* To speed up statement iterator walks, we first purge dead labels.  */
   cleanup_dead_labels ();
@@ -361,7 +361,6 @@ make_blocks (tree stmt_list)
   bool first_stmt_of_list = true;
   basic_block bb = ENTRY_BLOCK_PTR;
 
-  VARRAY_POP_ALL (basic_block_info);
   while (!tsi_end_p (i))
     {
       tree prev_stmt;
@@ -375,10 +374,7 @@ make_blocks (tree stmt_list)
       if (start_new_block || stmt_starts_bb_p (stmt, prev_stmt))
 	{
 	  if (!first_stmt_of_list)
-	    {
-	      stmt_list = tsi_split_statement_list_before (&i);
-	      TREE_CHAIN (prev_stmt) = stmt;
-	    }
+	    stmt_list = tsi_split_statement_list_before (&i);
 	  bb = create_basic_block (stmt_list, NULL, bb);
 	  start_new_block = false;
 	}
@@ -398,8 +394,6 @@ make_blocks (tree stmt_list)
       tsi_next (&i);
       first_stmt_of_list = false;
     }
-  if (VARRAY_ACTIVE_SIZE (basic_block_info) != (size_t) (last_basic_block))
-    error ("miscounted basic blocks");
 }
 
 
@@ -422,24 +416,21 @@ create_bb (void *h, void *e, basic_block after)
   bb->stmt_list = h ? h : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
-  if (after)
-    link_block (bb, after);
+  link_block (bb, after);
 
   /* Grow the basic block array if needed.  */
-  if ((size_t) last_basic_block >= VARRAY_SIZE (basic_block_info))
+  if ((size_t) last_basic_block == VARRAY_SIZE (basic_block_info))
     {
       size_t new_size = last_basic_block + (last_basic_block + 4) / 4;
       VARRAY_GROW (basic_block_info, new_size);
     }
 
-  n_basic_blocks++;
   /* Add the newly created block to the array.  */
-  if (VARRAY_ACTIVE_SIZE (basic_block_info) < (size_t) n_basic_blocks)
-    VARRAY_ACTIVE_SIZE (basic_block_info) = (size_t) n_basic_blocks;
   BASIC_BLOCK (last_basic_block) = bb;
 
   create_block_annotation (bb);
 
+  n_basic_blocks++;
   last_basic_block++;
 
   initialize_bb_rbi (bb);
@@ -3892,7 +3883,7 @@ tree_verify_flow_info (void)
 	  if (TREE_CODE (stmt) == LABEL_EXPR)
 	    {
 	      error ("Label %s in the middle of basic block %d\n",
-		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
+		     IDENTIFIER_POINTER (DECL_NAME (stmt)),
 		     bb->index);
 	      err = 1;
 	    }
@@ -4174,8 +4165,6 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 	{
 	case LABEL_EXPR:
 	  if (DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
-	    return false;
-	  if (FORCED_LABEL (LABEL_EXPR_LABEL (stmt)))
 	    return false;
 	  break;
 
