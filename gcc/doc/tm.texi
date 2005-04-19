@@ -9587,11 +9587,13 @@ many recent processors which implement a policy of ``relaxed,''
 and ia64.  The default is @code{false}.
 @end deftypefn
 
+@c APPLE LOCAL begin mainline 2005-04-14
 @deftypefn {Target Hook} const char *TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN (tree @var{typelist}, tree @var{funcdecl}, tree @var{val})
 If defined, this macro returns the diagnostic message when it is
 illegal to pass argument @var{val} to function @var{funcdecl}
 with prototype @var{typelist}.
 @end deftypefn
+@c APPLE LOCAL end mainline 2005-04-14
 
 @defmac TARGET_USE_JCR_SECTION
 This macro determines whether to use the JCR section to register Java
