@@ -1,3 +1,43 @@
+2005-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/20991
+	* g++.dg/opt/pr20991.C: New test.
+
+2005-04-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20050410-1.c: New test.
+
+2005-04-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/20739
+	* gcc.dg/tree-ssa/pr20739.c: New test.
+
+2005-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21025
+	* g++.dg/template/sizeof9.C: New test.
+
+2005-04-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/20927
+	* gcc.dg/pr20927.c: New test.
+
+2005-04-14  Alexandre Oliva  <aoliva@redhat.com>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR target/20126
+	* gcc.c-torture/execute/20050414-1.c: New.
+
+2005-04-13  Thomas Koenig  <Thomas.Koenig@online.de>
+
+        PR libfortran/20163
+        * gfortran.dg/open-options-blanks.f:  New test.
+
+2005-04-12  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/20917
+	* gcc.dg/20050409-1.c: New test.
+
 2005-04-10  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/warn/Wdtor1.C: Declare template in system header with

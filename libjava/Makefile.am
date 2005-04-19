@@ -232,9 +232,7 @@ BOOTCLASSPATH = $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir)'$(CLASSPATH_SEPARATOR)'
 libgij_la_SOURCES = gij.cc
 libgij_la_DEPENDENCIES = libgcj.la libgcj.spec
 ## See jv_convert_LDADD.
-libgij_la_LIBADD = -L$(here)/.libs libgcj.la \
-	external/sax/libsax-gcj.la \
-	external/w3c_dom/libw3c-gcj.la
+libgij_la_LIBADD = -L$(here)/.libs libgcj.la
 ## The mysterious backslash in the grep pattern is consumed by make.
 libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
@@ -254,7 +252,9 @@ libgcj0_convenience_la_SOURCES = prims.cc jni.cc exception.cc \
 	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
 libgcj0_convenience_la_LIBADD = \
 	gnu-xml.lo javax-imageio.lo \
-	javax-xml.lo gnu-java-beans.lo
+	javax-xml.lo gnu-java-beans.lo \
+	external/sax/libsax-gcj.la \
+	external/w3c_dom/libw3c-gcj.la
 
 noinst_LTLIBRARIES = libgcj0_convenience.la
 
@@ -687,7 +687,7 @@ gnu-xml.lo: $(gnu_xml_source_files)
 ## touched.
 	$(MAKE) classes.stamp
 	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-xml.lo \
-		`find gnu/xml -name '*.class' -print`
+		`find gnu/xml -name '*.class' -print | sort -r`
 
 ## Depend on the sources, even though we are going to compile the
 ## classes.
@@ -698,7 +698,7 @@ javax-imageio.lo: $(javax_imageio_source_files)
 ## touched.
 	$(MAKE) classes.stamp
 	$(LTGCJCOMPILE) -findirect-dispatch -c -o javax-imageio.lo \
-		`find javax/imageio -name '*.class' -print`
+		`find javax/imageio -name '*.class' -print | sort -r`
 
 ## Depend on the sources, even though we are going to compile the
 ## classes.
@@ -709,7 +709,7 @@ javax-xml.lo: $(javax_xml_source_files)
 ## touched.
 	$(MAKE) classes.stamp
 	$(LTGCJCOMPILE) -findirect-dispatch -c -o javax-xml.lo \
-		`find javax/xml -name '*.class' -print`
+		`find javax/xml -name '*.class' -print | sort -r`
 
 ## Depend on the sources, even though we are going to compile the
 ## classes.
@@ -720,7 +720,7 @@ gnu-java-beans.lo: $(gnu_java_beans_source_files)
 ## touched.
 	$(MAKE) classes.stamp
 	$(LTGCJCOMPILE) -findirect-dispatch -c -o gnu-java-beans.lo \
-		`find gnu/java/beans -name '*.class' -print`
+		`find gnu/java/beans -name '*.class' -print | sort -r`
 
 ## Depend on the sources, even though we are going to compile the
 ## classes.
@@ -731,7 +731,7 @@ gtk-awt-peer.lo: $(gtk_awt_peer_sources)
 ## touched.
 	$(MAKE) classes.stamp
 	$(LTGCJCOMPILE) -findirect-dispatch -fjni -c -o gtk-awt-peer.lo \
-		`find gnu/java/awt/peer/gtk -name '*.class' -print`
+		`find gnu/java/awt/peer/gtk -name '*.class' -print | sort -r`
 
 ## ################################################################
 
