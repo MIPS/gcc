@@ -1,3 +1,9 @@
+2005-04-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4056870
+	* obj-c++.dg/super-class-2.mm: New.
+	* objc.dg/super-class-4.m: New.
+
 2005-04-18  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/vect/vect-11.c: Update APPLE LOCAL markers to reflect

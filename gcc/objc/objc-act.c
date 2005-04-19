@@ -7366,14 +7366,27 @@ start_class (enum tree_code code, tree class_name, tree super_name,
   class = make_node (code);
   TYPE_LANG_SLOT_1 (class) = make_tree_vec (CLASS_LANG_SLOT_ELTS);
 
-  /* Check for existence of the super class, if one was specified.  */
+  /* APPLE LOCAL begin Objective-C */
+  /* Check for existence of the super class, if one was specified.  Note
+     that we must have seen an @interface, not just a @class.  If we
+     are looking at a @compatibility_alias, traverse it first.  */
+  /* APPLE LOCAL end Objective-C */
   if ((code == CLASS_INTERFACE_TYPE || code == CLASS_IMPLEMENTATION_TYPE)
-      && super_name && !objc_is_class_name (super_name))
+      /* APPLE LOCAL begin Objective-C */
+      && super_name)
     {
-      error ("cannot find interface declaration for %qs, superclass of %qs",
-	     IDENTIFIER_POINTER (super_name),
-	     IDENTIFIER_POINTER (class_name));
-      super_name = NULL_TREE;
+      tree super = objc_is_class_name (super_name);
+
+      if (!super || !lookup_interface (super))
+	{
+	  error ("cannot find interface declaration for %qs, superclass of %qs",
+		 IDENTIFIER_POINTER (super ? super : super_name),
+		 IDENTIFIER_POINTER (class_name));
+	  super_name = NULL_TREE;
+	}
+      else
+	super_name = super;
+      /* APPLE LOCAL end Objective-C */
     }
 
   CLASS_NAME (class) = class_name;
