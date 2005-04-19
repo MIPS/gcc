@@ -1,3 +1,13 @@
+2005-04-19  Jon Grimm  <jgrimm2@us.ibm.>
+
+	* gcc.misc-tests/dectest.exp (c-test-preamble): Include math.h.
+	(c-decimal-type): Return type based on precision directive.
+	(c-type-suffix): Return suffix for floating point ctype string.
+	(make-c-test): Emit commented out fsetround() for informational
+	purposes.
+	(c-operand): Output DEC_INFINITY instead of Infinity.
+	(c-operand): Emit float suffix based on operand type. 
+
 2005-04-18  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (make-c-test): Handle ? results.
@@ -6,7 +16,8 @@
 
 2005-04-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
-	* gcc.misc-tests/dectest.exp: Tests should return 0 on success.
+	* gcc.misc-tests/dectest.exp (make-c-test): Tests should 
+	return 0 on success.
 
 2005-04-16  Jon Grimm  <jgrimm2@us.ibm.com>
 

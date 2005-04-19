@@ -121,6 +121,7 @@ proc c-test-preamble { id } {
     append result "\n"
     append result "\#include <assert.h>\n"
     append result "\#include <fenv.h>\n"
+    append result "\#include <math.h>\n"
     append result "\n"
     append result "int main ()\n"
     append result "\{"
@@ -160,11 +161,35 @@ proc c-binary-expression {operation op1 op2} {
 }
 
 # Return the most appropriate C type (_Decimal32, etc) for this test.
-# Unconditionally return _Decimal32 for now.
 
-proc c-decimal-type {} {
-    return "_Decimal32"
+proc c-decimal-type { } {
+    global directives
+    if [catch {set precision $directives(precision)}] {
+	set precision "_Decimal128"
+    }  
+    if { $precision == 7 } {
+	set result "_Decimal32"
+    } elseif {$precision == 16} {
+	set result "_Decimal64"
+    } elseif {$precision == 34} {
+	set result "_Decimal128"
+    } else {
+	error "Unsupported precision"
+    }
+    return $result
 }
+
+proc c-type-suffix { ctype } {
+    switch $ctype {
+        "_Decimal32"   { return "df" }
+        "_Decimal64"   { return "dd" }
+        "_Decimal128"  { return "dl" }
+        "float"        { return "f" }
+	"long double"  { return "l" }
+    }
+    return ""
+}
+    
 
 # Create a C program file (named using ID) containing a test for a
 # binary OPERATION on OP1 and OP2 that expects RESULT and CONDITIONS.
@@ -177,8 +202,8 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     puts $outfd [c-test-preamble $id]
     puts $outfd "  [c-decimal-type] d;"
     puts $outfd ""
-    puts $outfd "  /* Set the rounding mode.  */"
-    # puts $outfd "  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);"
+    puts $outfd "/*  FIXME: Set the rounding mode.  */"
+    puts $outfd "/*  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);*/"
     puts $outfd ""
     if {[string compare $op2 NONE] == 0} {
 	puts $outfd "  d = [c-unary-expression $operation [c-operand $op1]];"
@@ -204,6 +229,10 @@ proc is-supported-p { } {
     global directives
     if [catch {c-rounding-mode $directives(rounding)}] {
 	# Unsupported rounding mode.
+	return false
+    }
+    if [catch {c-decimal-type}] {
+	# unsupported precision
 	return false
     }
     return true
@@ -268,12 +297,21 @@ proc process-directive { line } {
 # Produce a C99-valid floating point literal.
 
 proc c-operand {operand} {
+
+    if [string match "-Infinity" $operand] {
+	return "-DEC_INFINITY"
+    } 
+    if [string match "Infinity" $operand] {
+        return "DEC_INFINITY"
+    }
+
     if {[string first . $operand] < 0 && \
 	    [string first E $operand] < 0 && \
 	    [string first e $operand] < 0} {
 	append operand .
     }
-    return [append operand DF]
+    set suffix [c-type-suffix [c-decimal-type]]
+    return [append operand $suffix]
 }
 
 # Process an arithmetic test in LINE from TESTCASE.
