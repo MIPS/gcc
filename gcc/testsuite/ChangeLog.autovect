@@ -1,3 +1,12 @@
+2005-04-19  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-100.c: New test.
+	* gcc.dg/vect/vect-101.c: New test.
+	* gcc.dg/vect/vect-102.c: New test.
+	* gcc.dg/vect/vect-103.c: New test.
+	* gcc.dg/vect/vect-104.c: New test.
+	* gcc.dg/vect/vect-105.c: New test.
+
 2005-04-14  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/no_version/vect-95a.c: Move to gcc.dg/vect/.

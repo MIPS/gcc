@@ -32,8 +32,8 @@ struct data_reference
   /* A pointer to the ARRAY_REF node.  */
   tree ref;
 
-  /* The name of the array.  */
-  tree base_name;
+  /* The object.  */
+  tree base_object;
   
   /* A list of chrecs.  */
   varray_type access_fns;
@@ -44,25 +44,28 @@ struct data_reference
   /* True when the data reference is in RHS of a stmt.  */
   bool is_read;
 
-  /** {base_address + initial_offset} is the first location 
-      accessed by data-ref in the loop, and step is the stride of data-ref in 
-      the loop in bytes;
+ /** {base_address + offset + init} is the first location accessed by data-ref 
+      in the loop, and step is the stride of data-ref in the loop in bytes;
       e.g.:
     
                        Example 1                      Example 2
-      data-ref         a[j].b[i][j]                   a + 4B (a is int*)
+      data-ref         a[j].b[i][j]                   a + x + 16B (a is int*)
       
       base_address     &a                             a
-      initial_offset   j_0*D_j + i_0*D_i + C          4
+      offset           j_0*D_j + i_0*D_i + C_a        x
+      init             C_b                            16
       step             D_j                            4
 
-      base_name        a                              NULL
-      access_fn        <access_fns of indexes of b>   (0, +, 1)
+      base_object      a                              NULL
+      access_fn        <access_fns of indexes of b>   {16, +, 1}
 
+      Access function for the loop is relative to {base_address + offset}, or 
+      to base_object if it is not NULL.
   **/
-  /* The above base_address, offset and step.  */
+  /* The above base_address, offset, init and step.  */
   tree base_address;
-  tree initial_offset;
+  tree offset;
+  tree init;
   tree step;
 
   /* Aliasing information.  */
@@ -80,13 +83,14 @@ struct data_reference
 
 #define DR_STMT(DR)                (DR)->stmt
 #define DR_REF(DR)                 (DR)->ref
-#define DR_BASE_NAME(DR)           (DR)->base_name
+#define DR_BASE_OBJECT(DR)         (DR)->base_object
 #define DR_ACCESS_FNS(DR)          (DR)->access_fns
 #define DR_ACCESS_FN(DR, I)        VARRAY_TREE (DR_ACCESS_FNS (DR), I)
 #define DR_NUM_DIMENSIONS(DR)      VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
 #define DR_IS_READ(DR)             (DR)->is_read
 #define DR_BASE_ADDRESS(DR)        (DR)->base_address
-#define DR_INIT_OFFSET(DR)         (DR)->initial_offset
+#define DR_OFFSET(DR)              (DR)->offset
+#define DR_INIT(DR)                (DR)->init
 #define DR_STEP(DR)                (DR)->step
 #define DR_MEMTAG(DR)              (DR)->memtag
 #define DR_POINTSTO_INFO(DR)       (DR)->pointsto_info
@@ -190,8 +194,7 @@ struct data_dependence_relation
 
 
 
-extern tree find_data_references_in_loop (struct loop *, tree, bool,
-					  varray_type *);
+extern tree find_data_references_in_loop (struct loop *, tree, varray_type *);
 extern struct data_dependence_relation *initialize_data_dependence_relation 
 (struct data_reference *, struct data_reference *);
 extern void compute_affine_dependence (struct data_dependence_relation *);
@@ -201,7 +204,7 @@ extern bool build_classic_dist_vector (struct data_dependence_relation *, int,
 
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, tree, 
-					       bool, bool,
+					       bool, 
 					       varray_type *, varray_type *);
 extern struct data_reference *analyze_array (tree, tree, bool);
 
@@ -215,8 +218,6 @@ extern void dump_data_dependence_relation (FILE *,
 extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
-extern bool array_base_name_differ_p (struct data_reference *, 
-				      struct data_reference *, bool *);
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);

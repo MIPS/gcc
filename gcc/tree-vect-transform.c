@@ -203,9 +203,11 @@ vect_create_addr_base_for_vector_ref (tree stmt,
   tree new_temp;
   tree addr_base, addr_expr;
   tree dest, new_stmt;
-  tree base_offset = unshare_expr (DR_INIT_OFFSET (dr));
+  tree base_offset = unshare_expr (DR_OFFSET (dr));
+  tree init = unshare_expr (DR_INIT (dr));
 
   /* Create base_offset */
+  base_offset = size_binop (PLUS_EXPR, base_offset, init);
   dest = create_tmp_var (TREE_TYPE (base_offset), "base_off");
   add_referenced_tmp_var (dest);
   base_offset = force_gimple_operand (base_offset, &new_stmt, false, dest);  
@@ -2570,11 +2572,11 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
 static void
 vect_update_init_of_dr (struct data_reference *dr, tree niters)
 {
-  tree offset = DR_INIT_OFFSET (dr);
+  tree offset = DR_OFFSET (dr);
       
   niters = fold (build2 (MULT_EXPR, TREE_TYPE (niters), niters, DR_STEP (dr)));
   offset = fold (build2 (PLUS_EXPR, TREE_TYPE (offset), offset, niters));
-  DR_INIT_OFFSET (dr) = offset;
+  DR_OFFSET (dr) = offset;
 }
 
 

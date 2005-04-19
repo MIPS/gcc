@@ -616,9 +616,13 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
     }
 
   if (dist >= vectorization_factor)
-    /* Dependence distance does not create dependence, as far as vectorization
-       is concerned, in this case.  */
-    return false;
+    {
+      /* Dependence distance does not create dependence, as far as vectorization
+	 is concerned, in this case.  */
+      if (vect_print_dump_info (REPORT_DR_DETAILS, LOOP_LOC (loop_vinfo)))
+	fprintf (vect_dump, "dependence distance >= VF.");
+      return false;
+    }
   
   if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
 			    LOOP_LOC (loop_vinfo)))
@@ -1311,8 +1315,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
     fprintf (vect_dump, "=== vect_analyze_data_refs ===");
 
   compute_data_dependences_for_loop (loops_num, loop,
-				     ssize_int (UNITS_PER_SIMD_WORD), true,
-				     false,		
+				     ssize_int (UNITS_PER_SIMD_WORD), false,
 				     &(LOOP_VINFO_DATAREFS (loop_vinfo)),
 				     &(LOOP_VINFO_DDRS (loop_vinfo)));
 
@@ -1351,7 +1354,8 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
       STMT_VINFO_DATA_REF (stmt_info) = dr;
 
       /* Check that analysis of the data-ref succeeded.  */
-      if (!dr || !DR_BASE_ADDRESS (dr) || !DR_INIT_OFFSET (dr) || !DR_STEP (dr))
+      if (!dr || !DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr) || !DR_INIT (dr) 
+	  || !DR_STEP (dr))
 	{
 	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
 				    LOOP_LOC (loop_vinfo)))
