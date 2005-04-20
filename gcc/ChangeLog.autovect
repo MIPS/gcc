@@ -1,5 +1,10 @@
 2005-04-20  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* omega.h, omega.c: Write some documentation for functions, 
+	continue cleanup.
+
+2005-04-20  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* Makefile.in (OBJS-common): Add omega.o.
 	(omega.o): Update dependences.
 	* omega.h, omega.c: Rewrite some functions and variables names using
