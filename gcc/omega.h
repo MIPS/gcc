@@ -31,130 +31,83 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #ifdef SMALL_OMEGA_PROB
-#define maxVars 38
-#define maxGEQs 150
-#define maxEQs 27
+#define max_vars 38
+#define max_geqs 150
+#define max_eqs 27
 #else
-#define maxVars 128
-#define maxGEQs 256
-#define maxEQs 128
+#define max_vars 128
+#define max_geqs 256
+#define max_eqs 128
 #endif
 
-
-typedef int EqnKey;
-
-typedef struct _eqn
+typedef struct eqn
 {
-  EqnKey key;
+  int key;
   int touched;
   int color;
-  int coef[maxVars + 1];
-}
- *Eqn;
+  int coef[max_vars + 1];
+} *eqn;
 
 #define headerWords 3
 
 typedef struct _problem
 {
-  int _nVars, _numEQs, _numGEQs, _safeVars, _numSUBs;
+  int num_vars, num_eqs, num_geqs, safe_vars, num_subs;
   int hashVersion;
   int variablesInitialized;
   int variablesFreed;
-  int _var[maxVars + 2];
-  int forwardingAddress[maxVars + 2];
-  struct _eqn _GEQs[maxGEQs];
-  struct _eqn _EQs[maxEQs];
-  struct _eqn _SUBs[maxVars + 1];
+  int var[max_vars + 2];
+  int forwarding_address[max_vars + 2];
+  struct eqn geqs[max_geqs];
+  struct eqn eqs[max_eqs];
+  struct eqn subs[max_vars + 1];
 }
-Problem;
-
+omega_problem;
 
 extern char *(*current_getVarName) (unsigned int);	/* getVarName function */
 
 #define getVarName (*current_getVarName)
 
-
 #define UNKNOWN 2
 #define SIMPLIFY 3
-#define posInfinity (0x7ffffff)
-#define negInfinity (-0x7ffffff)
+#define pos_infinity (0x7ffffff)
+#define neg_infinity (-0x7ffffff)
 #define red 1
 #define black 0
 
-#define eqnncpy(e1,e2,s) {int *p00,*q00,*r00; p00 = (int *)(e1); q00 = (int *)(e2); r00 = &p00[headerWords+1+s]; while(p00 < r00) *p00++ = *q00++; }
-#define eqncpy(e1,e2) eqnncpy(e1,e2,nVars)
-#define eqnnzero(e,s) {int *p00,*r00; p00 = (int *)(e); r00 = &p00[headerWords+1+(s)]; while(p00 < r00) *p00++ = 0;}
-#define eqnzero(e) eqnnzero(e,nVars)
+extern void omega_initialize (void);
+extern void omega_initialize_problem (omega_problem *);
+extern void omega_initialize_variables (omega_problem *);
+extern int omega_solve_problem (omega_problem *, int);
 
-#define intDiv(a,b) ((a) > 0?(a)/(b):-((-(a)+(b)-1)/(b)))
-#define intMod(a,b) ((a)-(b)*intDiv(a,b))
-
-
-#define singleVarGEQ(e,nV) ((e).key != 0 && -maxVars <= (e).key && (e).key <= maxVars)
-
-
-extern void initializeOmega (void);
-
-extern void initializeProblem (Problem *);
-extern void initializeVariables (Problem *);
-extern void problemcpy (Problem *, Problem *);
-extern void printProblem (Problem *);
-extern void printRedEquations (Problem *);
-extern int countRedEquations (Problem *);
-extern void prettyPrintProblem (Problem *);
-extern int simplifyProblem (Problem *);
-extern int simplifyApproximate (Problem *);
-extern void unprotectVariable (Problem *, int var);
-extern void negateGEQ (Problem *, int);
-extern void convertEQtoGEQs (Problem *, int eq);
-
-
-/* set extra to 0 for normal use */
-extern void printEqn (Problem * p, Eqn e, int is_geq, int extra);
-extern void sprintEqn (char *str, Problem * p, Eqn e, int is_geq, int extra);
-
-/*
-   Return 1 if red equations constrain the set of possible solutions.
-   We assume that there are solutions to the black equations by themselves,
-   so if there is no solution to the combined problem, we return 1.
- */
-extern int hasRedEquations (Problem * problemPtr);
-
-extern int eliminateRedundant (Problem * problemPtr, bool expensive);
-extern void eliminateRed (Problem * problemPtr, bool eliminateAll);
-
-/* constrainVariableSign also unprotects var & simplifies the problem */
-extern int constrainVariableSign (Problem *, int color, int var, int sign);
-
-/* constrainVariableValue adds an EQ that makes variable var have
-   value "value", even if variable i has been substituted out */
-extern void
-constrainVariableValue (Problem * problemPtr, int color, int var, int value);
-
-extern int
-queryVariable (Problem *, int var, int *lowerBound, int *upperBound);
-
-extern int
-queryVariableSigns (Problem *, int, int, int, int, int, int, bool *, int *);
-
-extern int queryVariableBounds (Problem * problemPtr, int i, int *l, int *u);
-
-extern int solve (Problem * problemPtr, int desiredResult);
-
-extern void setOutputFile (FILE * file);
-     /* set "file" to the file to which the output of printProblem should go */
+extern void omega_copy_problem (omega_problem *, omega_problem *);
+extern void omega_print_problem (FILE *, omega_problem *);
+extern void omega_print_red_equations (FILE *, omega_problem *);
+extern int omega_count_red_equations (omega_problem *);
+extern void omega_pretty_print_problem (FILE *, omega_problem *);
+extern int omega_simplify_problem (omega_problem *);
+extern int omega_simplify_approximate (omega_problem *);
+extern void omega_unprotect_variable (omega_problem *, int var);
+extern void omega_negate_geq (omega_problem *, int);
+extern void omega_convert_eq_to_geqs (omega_problem *, int eq);
+extern void omega_print_eqn (FILE *, omega_problem *, eqn, int, int);
+extern void omega_sprint_eqn (char *, omega_problem *, eqn, int, int);
+extern int omega_check_if_single_var (eqn, int);
+extern bool omega_problem_has_red_equations (omega_problem *);
+extern int omega_eliminate_redundant (omega_problem *, bool);
+extern void omega_eliminate_red (omega_problem *, bool);
+extern int omega_constrain_variable_sign (omega_problem *, int, int, int);
+extern void omega_constrain_variable_value (omega_problem *, int, int, int);
+extern int omega_query_variable (omega_problem *, int, int *, int *);
+extern int omega_query_variable_signs (omega_problem *, int, int, int, int,
+				       int, int, bool *, int *);
+extern int omega_query_variable_bounds (omega_problem *, int, int *, int *);
 
 extern int reduceWithSubs;
 extern int verifySimplification;
 
-extern int omegaPrintResult;
- /* set to non-zero to have constrainVariableSign and simplifyProblem
-    print the resulting simplified problems */
+extern void (*whenReduced) (omega_problem *);
 
-extern int firstCheckForRedundantEquations;
-
-extern void (*whenReduced) (Problem *);
-
-extern void noProcedure (Problem *);
+extern void noProcedure (omega_problem *);
 
 #endif

@@ -921,6 +921,7 @@ C_OBJS = c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 OBJS-common = \
+ omega.o \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o tree-elim-check.o	   \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
  gimplify.o tree-pretty-print.o tree-into-ssa.o          \
@@ -1783,7 +1784,8 @@ gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
 tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) errors.h tree-inline.h diagnostic.h $(HASHTAB_H) \
    $(TM_H) coretypes.h
-omega.o : omega.c omega.h $(CONFIG_H) $(SYSTEM_H)
+omega.o : omega.c omega.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   errors.h $(GGC_H) $(TREE_H) diagnostic.h varray.h tree-pass.h 
 tree-chrec.o: tree-chrec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) tree-chrec.h tree-pass.h cfgloop.h $(TREE_FLOW.h)
 tree-scalar-evolution.o: tree-scalar-evolution.c $(CONFIG_H) $(SYSTEM_H) \
