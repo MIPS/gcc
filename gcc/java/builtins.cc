@@ -19,9 +19,6 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-// FIXME: see glue.hh for why this is lame.
-#define HACK_WANT_OUTPUT_H
-
 // This include must come first.
 #include "java/glue.hh"
 #include "aot/mangle.hh"

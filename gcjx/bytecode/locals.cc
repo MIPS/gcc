@@ -187,7 +187,7 @@ locals::any_parameterized_p ()
 }
 
 int
-locals::emit (output_constant_pool *pool, bytecode_stream *out, bool types)
+locals::emit (outgoing_constant_pool *pool, bytecode_stream *out, bool types)
 {
   int count = 0;
   for (std::list<debug_info>::iterator i = var_descriptions.begin ();

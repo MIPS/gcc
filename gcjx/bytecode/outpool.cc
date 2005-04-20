@@ -24,7 +24,7 @@
 #include "bytecode/outpool.hh"
 #include "bytecode/poolreader.hh"
 
-output_constant_pool::output_constant_pool (model_class *k, bytecode_stream &b)
+outgoing_constant_pool::outgoing_constant_pool (model_class *k, bytecode_stream &b)
   : capacity (1),
     offset (b.get_offset ()),
     finished (false),
@@ -36,14 +36,14 @@ output_constant_pool::output_constant_pool (model_class *k, bytecode_stream &b)
   bytes.put2 (0);
 }
 
-output_constant_pool::~output_constant_pool ()
+outgoing_constant_pool::~outgoing_constant_pool ()
 {
   if (fake_unit)
     delete fake_unit;
 }
 
 void
-output_constant_pool::finish ()
+outgoing_constant_pool::finish ()
 {
   bytes.put2_at (offset, capacity);
   finished = true;
@@ -51,7 +51,7 @@ output_constant_pool::finish ()
 
 template<typename T>
 int
-output_constant_pool::check (std::map<T, int> &the_map, T the_value)
+outgoing_constant_pool::check (std::map<T, int> &the_map, T the_value)
 {
   typename std::map<T, int>::iterator iter = the_map.find (the_value);
   if (iter != the_map.end ())
@@ -66,7 +66,7 @@ output_constant_pool::check (std::map<T, int> &the_map, T the_value)
 
 template<typename T>
 int
-output_constant_pool::check_qual (std::map<T, type_map_type> &the_map,
+outgoing_constant_pool::check_qual (std::map<T, type_map_type> &the_map,
 				  model_type *the_type, T the_value)
 {
   typename std::map<T, type_map_type>::iterator iter
@@ -78,7 +78,7 @@ output_constant_pool::check_qual (std::map<T, type_map_type> &the_map,
 }
 
 void
-output_constant_pool::increase_capacity (size_t amount)
+outgoing_constant_pool::increase_capacity (size_t amount)
 {
   capacity += amount;
   if (capacity > 65535)
@@ -86,7 +86,7 @@ output_constant_pool::increase_capacity (size_t amount)
 }
 
 int
-output_constant_pool::add_utf (const std::string &str)
+outgoing_constant_pool::add_utf (const std::string &str)
 {
   int index = check (utf_map, str);
   if (index < 0)
@@ -107,7 +107,7 @@ output_constant_pool::add_utf (const std::string &str)
 }
 
 int
-output_constant_pool::add_name_and_type (const std::string &name,
+outgoing_constant_pool::add_name_and_type (const std::string &name,
 					 const std::string &type)
 {
   int nindex = add_utf (name);
@@ -128,7 +128,7 @@ output_constant_pool::add_name_and_type (const std::string &name,
 }
 
 int
-output_constant_pool::add (model_type *type)
+outgoing_constant_pool::add (model_type *type)
 {
   assert (type != null_type);
   int index = check (type_map, type);
@@ -165,7 +165,7 @@ output_constant_pool::add (model_type *type)
 }
 
 void
-output_constant_pool::add_if_inner (model_type *t)
+outgoing_constant_pool::add_if_inner (model_type *t)
 {
   if (t->reference_p ())
     {
@@ -176,7 +176,7 @@ output_constant_pool::add_if_inner (model_type *t)
 }
 
 int
-output_constant_pool::add (model_type *qual, model_method *meth)
+outgoing_constant_pool::add (model_type *qual, model_method *meth)
 {
   int index = check_qual (method_map, qual, meth);
   if (index < 0)
@@ -206,7 +206,7 @@ output_constant_pool::add (model_type *qual, model_method *meth)
 }
 
 int
-output_constant_pool::add (model_type *qual, model_field *fld)
+outgoing_constant_pool::add (model_type *qual, model_field *fld)
 {
   int index = check_qual (field_map, qual, fld);
   if (index < 0)
@@ -231,7 +231,7 @@ output_constant_pool::add (model_type *qual, model_field *fld)
 }
 
 int
-output_constant_pool::add (jint val)
+outgoing_constant_pool::add (jint val)
 {
   int index = check (int_map, val);
   if (index < 0)
@@ -247,7 +247,7 @@ output_constant_pool::add (jint val)
 }
 
 int
-output_constant_pool::add (jlong val)
+outgoing_constant_pool::add (jlong val)
 {
   int index = check (long_map, val);
   if (index < 0)
@@ -266,7 +266,7 @@ output_constant_pool::add (jlong val)
 }
 
 int
-output_constant_pool::add (jfloat val)
+outgoing_constant_pool::add (jfloat val)
 {
   jint w = float_to_word (val);
   int index = check (float_map, w);
@@ -283,7 +283,7 @@ output_constant_pool::add (jfloat val)
 }
 
 int
-output_constant_pool::add (jdouble val)
+outgoing_constant_pool::add (jdouble val)
 {
   jint words[2];
   double_to_words (words, val);
@@ -306,7 +306,7 @@ output_constant_pool::add (jdouble val)
 }
 
 int
-output_constant_pool::add (const std::string &str)
+outgoing_constant_pool::add (const std::string &str)
 {
   int index = check (string_map, str);
   if (index < 0)
@@ -323,13 +323,13 @@ output_constant_pool::add (const std::string &str)
 }
 
 bool
-output_constant_pool::inner_classes_p ()
+outgoing_constant_pool::inner_classes_p ()
 {
   return ! nested_classes.empty ();
 }
 
 void
-output_constant_pool::write_inner_classes ()
+outgoing_constant_pool::write_inner_classes ()
 {
   // Here we freely use 'add', assuming that the entries have all been
   // added already.
@@ -356,13 +356,13 @@ output_constant_pool::write_inner_classes ()
 }
 
 int
-output_constant_pool::size ()
+outgoing_constant_pool::size ()
 {
   return 2 + 8 * nested_classes.size ();
 }
 
 void
-output_constant_pool::update_descriptor (std::map<std::string, model_class *> &desc_map,
+outgoing_constant_pool::update_descriptor (std::map<std::string, model_class *> &desc_map,
 					 model_type *t)
 {
   if (dynamic_cast<model_class *> (t) != NULL)
@@ -380,7 +380,7 @@ output_constant_pool::update_descriptor (std::map<std::string, model_class *> &d
 }
 
 void
-output_constant_pool::update_descriptor (std::map<std::string, model_class *> &desc_map,
+outgoing_constant_pool::update_descriptor (std::map<std::string, model_class *> &desc_map,
 					 model_method *meth)
 {
 
@@ -393,7 +393,7 @@ output_constant_pool::update_descriptor (std::map<std::string, model_class *> &d
 }
 
 model_unit_class *
-output_constant_pool::get_fake_compilation_unit (const location &where,
+outgoing_constant_pool::get_fake_compilation_unit (const location &where,
 						 model_class *declarer)
 {
   assert (finished);
@@ -444,7 +444,7 @@ output_constant_pool::get_fake_compilation_unit (const location &where,
 }
 
 std::string
-output_constant_pool::get_descriptor (model_type *type)
+outgoing_constant_pool::get_descriptor (model_type *type)
 {
   if (type->array_p () || type->primitive_p ()
       || type == primitive_void_type)

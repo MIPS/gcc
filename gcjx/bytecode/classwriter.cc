@@ -185,7 +185,7 @@ class_writer::write (directory_cache &dircache)
   writer.put2 (MINOR_1_4);
   writer.put2 (MAJOR_1_4);
 
-  pool = new output_constant_pool (the_class, writer);
+  pool = new outgoing_constant_pool (the_class, writer);
 
   int class_index = pool->add (the_class);
 

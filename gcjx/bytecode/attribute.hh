@@ -31,12 +31,12 @@ class bytecode_attribute
 protected:
 
   /// Constant pool.
-  output_constant_pool *pool;
+  outgoing_constant_pool *pool;
 
   /// Name of attribute.
   std::string name;
 
-  bytecode_attribute (output_constant_pool *, const std::string &);
+  bytecode_attribute (outgoing_constant_pool *, const std::string &);
 
 public:
 
@@ -57,7 +57,7 @@ class simple_name_attribute : public bytecode_attribute
 {
 public:
 
-  simple_name_attribute (output_constant_pool *p, const std::string &n)
+  simple_name_attribute (outgoing_constant_pool *p, const std::string &n)
     : bytecode_attribute (p, n)
   {
   }
@@ -78,7 +78,7 @@ class utf8_attribute : public bytecode_attribute
 
 public:
 
-  utf8_attribute (output_constant_pool *, const std::string &,
+  utf8_attribute (outgoing_constant_pool *, const std::string &,
 		  const std::string &);
 
   void emit (bytecode_stream &);
@@ -95,7 +95,7 @@ class inner_classes_attribute : public bytecode_attribute
 {
 public:
 
-  inner_classes_attribute (output_constant_pool *);
+  inner_classes_attribute (outgoing_constant_pool *);
 
   void emit (bytecode_stream &);
 
@@ -110,7 +110,7 @@ class exceptions_attribute : public bytecode_attribute
 
 public:
 
-  exceptions_attribute (output_constant_pool *,
+  exceptions_attribute (outgoing_constant_pool *,
 			const std::set<model_type *> &);
 
   void emit (bytecode_stream &);
@@ -129,7 +129,7 @@ class code_attribute : public bytecode_attribute
 
 public:
 
-  code_attribute (output_constant_pool *, bytecode_generator *);
+  code_attribute (outgoing_constant_pool *, bytecode_generator *);
 
   void emit (bytecode_stream &);
 
@@ -144,7 +144,7 @@ class field_value_attribute : public bytecode_attribute
 
 public:
 
-  field_value_attribute (output_constant_pool *, model_field *);
+  field_value_attribute (outgoing_constant_pool *, model_field *);
 
   void emit (bytecode_stream &);
 
@@ -166,7 +166,7 @@ class annotation_attribute : public bytecode_attribute
 
 public:
 
-  annotation_attribute (output_constant_pool *,
+  annotation_attribute (outgoing_constant_pool *,
 			const std::string &,
 			const std::list<model_annotation *> &);
 
@@ -189,7 +189,7 @@ class parameter_attribute : public bytecode_attribute
 
 public:
 
-  parameter_attribute (output_constant_pool *,
+  parameter_attribute (outgoing_constant_pool *,
 		       const std::string &,
 		       const std::list< std::list<model_annotation *> > &);
 
@@ -212,7 +212,7 @@ class annotation_default_attribute : public bytecode_attribute
 
 public:
 
-  annotation_default_attribute (output_constant_pool *, model_expression *);
+  annotation_default_attribute (outgoing_constant_pool *, model_expression *);
 
   void emit (bytecode_stream &);
 

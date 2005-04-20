@@ -1,3 +1,12 @@
+2005-04-20  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/outpool.hh (class outgoing_constant_pool): Renamed
+	from output_constant_pool.
+	* bytecode/attribute.cc, bytecode/attribute.hh,
+	bytecode/classwriter.cc, bytecode/classwriter.hh,
+	bytecode/generate.cc, bytecode/generate.hh, bytecode/locals.cc,
+	bytecode/locals.hh, bytecode/outpool.cc: Updated.
+
 2005-04-02  Tom Tromey  <tromey@redhat.com>
 
 	* model/class.cc (resolve): Put name of field in error.  Correctly

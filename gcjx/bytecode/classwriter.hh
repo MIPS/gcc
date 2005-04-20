@@ -38,7 +38,7 @@ class class_writer
   bytecode_stream writer;
 
   // The constant pool for this class.
-  output_constant_pool *pool;
+  outgoing_constant_pool *pool;
 
   // True if we're targeting 1.5.
   bool target_15;

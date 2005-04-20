@@ -59,15 +59,8 @@ extern "C"
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "options.h"
-#include "toplev.h"
-  // FIXME: This is just plain ugly.  GCC defines output_constant_pool
-  // as a function, but it is also a class in gcjx.  So we only
-  // include this conditionally.  The real fix is to wrap everything
-  // in gcjx in a namespace, and rename our local "gcjx" namespace to
-  // something else, probably "gcj".
-#ifdef HACK_WANT_OUTPUT_H
 #include "output.h"
-#endif
+#include "toplev.h"
 #include "except.h"
 #include "flags.h"
 #include "tree-inline.h"

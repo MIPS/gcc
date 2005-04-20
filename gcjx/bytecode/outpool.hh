@@ -30,7 +30,7 @@
 /// values that are added and will only add a given item once.  It
 /// automatically handles all the processing associated with inner
 /// classes.  When finished it can write itself to the output stream.
-class output_constant_pool
+class outgoing_constant_pool
 {
   // Number of elements in the pool.
   int capacity;
@@ -87,8 +87,8 @@ class output_constant_pool
 
 public:
 
-  output_constant_pool (model_class *, bytecode_stream &);
-  ~output_constant_pool ();
+  outgoing_constant_pool (model_class *, bytecode_stream &);
+  ~outgoing_constant_pool ();
 
   int add_utf (const std::string &);
   int add (model_type *);

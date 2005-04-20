@@ -1,3 +1,8 @@
+2005-04-20  Tom Tromey  <tromey@redhat.com>
+
+	* builtins.cc (HACK_WANT_OUTPUT_H): Don't define.
+	* glue.hh: Include output.h earlier, and unconditionally.
+
 2005-04-02  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc (lay_out_vtable): Compute class reference.

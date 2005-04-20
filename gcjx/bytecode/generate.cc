@@ -36,7 +36,7 @@ width_of_type (model_type *t)
 }
 
 bytecode_generator::bytecode_generator (model_method *m,
-					output_constant_pool *cp)
+					outgoing_constant_pool *cp)
   : method (m),
     cpool (cp),
     vars (this),

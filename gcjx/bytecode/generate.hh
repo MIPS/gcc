@@ -84,7 +84,7 @@ class bytecode_generator : public visitor
   model_method *method;
 
   // Constant pool we're generating.
-  output_constant_pool *cpool;
+  outgoing_constant_pool *cpool;
 
   typedef std::map< const model_stmt *,
 		    std::pair<bytecode_block *, bytecode_block *>
@@ -168,7 +168,7 @@ class bytecode_generator : public visitor
 
   public:
 
-    line_table_attribute (output_constant_pool *p, bytecode_generator *g)
+    line_table_attribute (outgoing_constant_pool *p, bytecode_generator *g)
       : bytecode_attribute (p, "LineNumberTable"),
 	gen (g)
     {
@@ -199,7 +199,7 @@ class bytecode_generator : public visitor
 
   public:
 
-    local_variable_table_attribute (output_constant_pool *p, locals *v,
+    local_variable_table_attribute (outgoing_constant_pool *p, locals *v,
 				    bool types)
       : bytecode_attribute (p, (types ? "LocalVariableTypeTable"
 				: "LocalVariableTable")),
@@ -362,7 +362,7 @@ class bytecode_generator : public visitor
 
 public:
 
-  bytecode_generator (model_method *, output_constant_pool *);
+  bytecode_generator (model_method *, outgoing_constant_pool *);
 
   virtual ~bytecode_generator ();
 

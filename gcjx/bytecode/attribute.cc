@@ -27,13 +27,13 @@
 #include "bytecode/generate.hh"
 
 static int emit_annotation_value (bytecode_stream *writer,
-				  output_constant_pool *pool,
+				  outgoing_constant_pool *pool,
 				  model_expression *expr);
 static int emit_annotation (bytecode_stream *writer,
-			    output_constant_pool *pool,
+			    outgoing_constant_pool *pool,
 			    model_annotation *anno);
 
-bytecode_attribute::bytecode_attribute (output_constant_pool *p,
+bytecode_attribute::bytecode_attribute (outgoing_constant_pool *p,
 					const std::string &n)
   : pool (p),
     name (n)
@@ -63,7 +63,7 @@ simple_name_attribute::emit (bytecode_stream &writer)
 
 
 
-utf8_attribute::utf8_attribute (output_constant_pool *p,
+utf8_attribute::utf8_attribute (outgoing_constant_pool *p,
 				const std::string &n,
 				const std::string &v)
   : bytecode_attribute (p, n),
@@ -82,7 +82,7 @@ utf8_attribute::emit (bytecode_stream &writer)
 
 
 
-inner_classes_attribute::inner_classes_attribute (output_constant_pool *p)
+inner_classes_attribute::inner_classes_attribute (outgoing_constant_pool *p)
   : bytecode_attribute (p, "InnerClasses")
 {
   assert (pool->inner_classes_p ());
@@ -103,7 +103,7 @@ inner_classes_attribute::size ()
 
 
 
-exceptions_attribute::exceptions_attribute (output_constant_pool *p,
+exceptions_attribute::exceptions_attribute (outgoing_constant_pool *p,
 					    const std::set<model_type *> &e)
   : bytecode_attribute (p, "Exceptions"),
     excs (e)
@@ -128,7 +128,7 @@ exceptions_attribute::emit (bytecode_stream &writer)
 
 
 
-code_attribute::code_attribute (output_constant_pool *p, bytecode_generator *g)
+code_attribute::code_attribute (outgoing_constant_pool *p, bytecode_generator *g)
   : bytecode_attribute (p, "Code"),
     gen (g)
 {
@@ -149,7 +149,7 @@ code_attribute::size ()
 
 
 
-field_value_attribute::field_value_attribute (output_constant_pool *p,
+field_value_attribute::field_value_attribute (outgoing_constant_pool *p,
 					      model_field *field)
   : bytecode_attribute (p, "ConstantValue"),
     index (-1)
@@ -189,7 +189,7 @@ field_value_attribute::emit (bytecode_stream &writer)
 
 template<typename T>
 static void
-emit_primitive (bytecode_stream *writer, output_constant_pool *pool,
+emit_primitive (bytecode_stream *writer, outgoing_constant_pool *pool,
 		model_type *type, T val)
 {
   int index = pool->add (val);
@@ -201,7 +201,7 @@ emit_primitive (bytecode_stream *writer, output_constant_pool *pool,
 }
 
 static int
-emit_annotation_value (bytecode_stream *writer, output_constant_pool *pool,
+emit_annotation_value (bytecode_stream *writer, outgoing_constant_pool *pool,
 		       model_expression *expr)
 {
   int result = 0;
@@ -319,7 +319,7 @@ emit_annotation_value (bytecode_stream *writer, output_constant_pool *pool,
 // Write an annotation and return the size.  If WRITER is NULL, don't
 // write, just compute the size and update the constant pool.
 static int
-emit_annotation (bytecode_stream *writer, output_constant_pool *pool,
+emit_annotation (bytecode_stream *writer, outgoing_constant_pool *pool,
 		 model_annotation *anno)
 {
   int result = 0;
@@ -349,7 +349,7 @@ emit_annotation (bytecode_stream *writer, output_constant_pool *pool,
   return result;
 }
 
-annotation_attribute::annotation_attribute (output_constant_pool *p,
+annotation_attribute::annotation_attribute (outgoing_constant_pool *p,
 					    const std::string &n,
 					    const std::list<model_annotation *> &as)
   : bytecode_attribute (p, n),
@@ -374,7 +374,7 @@ annotation_attribute::emit (bytecode_stream &writer)
     emit_annotation (&writer, pool, *i);
 }
 
-parameter_attribute::parameter_attribute (output_constant_pool *p,
+parameter_attribute::parameter_attribute (outgoing_constant_pool *p,
 					  const std::string &n,
 					  const std::list< std::list<model_annotation *> > &as)
   : bytecode_attribute (p, n),
@@ -415,7 +415,7 @@ parameter_attribute::emit (bytecode_stream &writer)
     }
 }
 
-annotation_default_attribute::annotation_default_attribute (output_constant_pool *p,
+annotation_default_attribute::annotation_default_attribute (outgoing_constant_pool *p,
 							    model_expression *e)
   : bytecode_attribute (p, "AnnotationDefault"),
     len (0),

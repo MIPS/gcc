@@ -25,7 +25,7 @@
 class bytecode_block;
 class bytecode_generator;
 class bytecode_stream;
-class output_constant_pool;
+class outgoing_constant_pool;
 
 /// This class is used to keep track of the local variable slots while
 /// generating code for a given method.
@@ -121,7 +121,7 @@ public:
   /// emitted.  The final argument is true if we are emitting a
   /// LocalVariableTypeTable, false if we are emitting a
   /// LocalVariableTable.
-  int emit (output_constant_pool *, bytecode_stream *, bool);
+  int emit (outgoing_constant_pool *, bytecode_stream *, bool);
 
   /// Return true if any local variable has a parameterized type (and
   /// thus a LocalVariableTypeTable is required).
