@@ -777,13 +777,13 @@ tree_simplify_using_condition_1 (tree cond, tree expr)
   /* Check whether COND ==> EXPR.  */
   notcond = invert_truthvalue (cond);
   e = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
-		   notcond, expr);
+		   notcond, te);
   if (nonzero_p (e))
     return e;
 
   /* Check whether COND ==> not EXPR.  */
   e = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
-		   cond, expr);
+		   cond, te);
   if (zero_p (e))
     return e;
 
