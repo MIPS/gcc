@@ -1,4 +1,4 @@
-/* APPLE LOCAL FILE 3972875 mainline 2005-04-18 */
+/* APPLE LOCAL file 3972875 mainline 2005-04-18 */
 /* { dg-require-effective-target vect_int } */
 /* { dg-require-effective-target vect_int_mult } */
 
