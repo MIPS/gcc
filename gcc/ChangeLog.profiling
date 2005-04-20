@@ -1,3 +1,14 @@
+2005-04-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-typeck.c (build_array_ref): Reenable MEM_REF
+	* gimple-low.c (force_gimple_operand_main): Renamed from
+	force_gimple_operand.
+	(force_gimple_operand): Retain SSA behavior.
+	(force_gimple_operand_nossa): New function.	
+	(lower_memref): Use it.
+	* tree-flow.h (force_gimple_operand_nossa): Add
+	force_gimple_operand_nossa.
+	
 2005-04-19  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfg.c (init_empty-tree_cfg): Do not clear basic_block_info size.

@@ -1896,9 +1896,7 @@ build_array_ref (tree array, tree index)
     {
       tree ar = default_conversion (array);
       tree type;
-#if 0
       tree res;
-#endif
       if (ar == error_mark_node)
 	return ar;
 
@@ -1906,7 +1904,6 @@ build_array_ref (tree array, tree index)
       gcc_assert (TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) != FUNCTION_TYPE);
       type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (ar)));
 
-#if 0
       /* If this type has no size, either we're screwed or we've issued an
 	 error, so it doesn't matter if we build a MEM_REF here or not.  */
       if (TYPE_SIZE_UNIT (type) 
@@ -1923,7 +1920,6 @@ build_array_ref (tree array, tree index)
 	  return res;
 	 }
       else
-#endif
 	return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, index, 0),
 				   "array indexing"); 
     }

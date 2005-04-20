@@ -818,6 +818,7 @@ extern bool expr_invariant_in_loop_p (struct loop *, tree);
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);
+tree force_gimple_operand_nossa (tree, tree *, bool, tree);
 
 #include "tree-flow-inline.h"
 
