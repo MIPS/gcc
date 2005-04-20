@@ -155,7 +155,8 @@ static void expand_operands (tree, tree, rtx, rtx*, rtx*,
 static rtx reduce_to_bit_field_precision (rtx, rtx, tree);
 static rtx do_store_flag (tree, rtx, enum machine_mode, int);
 #ifdef PUSH_ROUNDING
-static void emit_single_push_insn (enum machine_mode, rtx, tree);
+/* APPLE LOCAL radar 4087332 */
+static void emit_single_push_insn (enum machine_mode, rtx, tree, rtx);
 #endif
 static void do_tablejump (rtx, enum machine_mode, rtx, rtx, rtx);
 static rtx const_vector_from_tree (tree);
@@ -1084,7 +1085,8 @@ move_by_pieces_1 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
       else
 	{
 #ifdef PUSH_ROUNDING
-	  emit_single_push_insn (mode, from1, NULL);
+	  /* APPLE LOCAL radar 4087332 */
+	  emit_single_push_insn (mode, from1, NULL, NULL_RTX);
 #else
 	  gcc_unreachable ();
 #endif
@@ -3249,7 +3251,8 @@ push_block (rtx size, int extra, int below)
 /* Emit single push insn.  */
 
 static void
-emit_single_push_insn (enum machine_mode mode, rtx x, tree type)
+/* APPLE LOCAL radar 4087332 */
+emit_single_push_insn (enum machine_mode mode, rtx x, tree type, rtx args_so_far)
 {
   rtx dest_addr;
   unsigned rounded_size = PUSH_ROUNDING (GET_MODE_SIZE (mode));
@@ -3258,6 +3261,22 @@ emit_single_push_insn (enum machine_mode mode, rtx x, tree type)
   insn_operand_predicate_fn pred;
 
   stack_pointer_delta += PUSH_ROUNDING (GET_MODE_SIZE (mode));
+  /* APPLE LOCAL begin radar 4087332 */
+  if (args_so_far != NULL_RTX && GET_CODE (args_so_far) == CONST_INT)
+    {
+      int offset = INTVAL (args_so_far);
+      unsigned int unit_stack_boundary = cfun->preferred_stack_boundary / BITS_PER_UNIT;
+      if (!(offset % unit_stack_boundary) && (stack_pointer_delta % unit_stack_boundary))
+	{
+	  /* argument must be aligned on stack boundary, but it is not.
+	     align 'sp' before the push. */
+	  int delta = unit_stack_boundary - (stack_pointer_delta % unit_stack_boundary);	
+	  expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
+			       GEN_INT (-delta), stack_pointer_rtx, 1, OPTAB_DIRECT);
+	  stack_pointer_delta += delta;
+	}
+    }
+  /* APPLE LOCAL end radar 4087332 */
   /* If there is push pattern, use it.  Otherwise try old way of throwing
      MEM representing push operation to move expander.  */
   icode = push_optab->handlers[(int) mode].insn_code;
@@ -3586,7 +3605,8 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 
 #ifdef PUSH_ROUNDING
       if (args_addr == 0 && PUSH_ARGS)
-	emit_single_push_insn (mode, x, type);
+	/* APPLE LOCAL radar 4087332 */
+	emit_single_push_insn (mode, x, type, args_so_far);
       else
 #endif
 	{

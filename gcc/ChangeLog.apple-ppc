@@ -1,3 +1,7 @@
+2005-04-20 Fariborz Jahanian <fjahanian@apple.com>
+
+	* expr.c (emit_single_push_insn): Radar 4087332.
+
 2005-04-18  Devang Patel  <dpatel@apple.com>
 
 	* config/rs6000/atlivec.md (mulv4si3): Update APPLE LOCAL markers to
