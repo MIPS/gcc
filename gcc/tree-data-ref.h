@@ -23,6 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_TREE_DATA_REF_H
 
 #include "lambda.h"
+#include "omega.h"
+#include "polyhedron.h"
 
 struct data_reference
 {
@@ -177,6 +179,12 @@ struct data_dependence_relation
 
   /* The classic distance vector.  */
   lambda_vector dist_vect;
+
+  /* Representation of the dependence as a constraint system.  */
+  csys dependence_constraint_system;
+
+  /* Representation of the dependence as polyhedra.  */
+  polyhedron dependence_polyhedron;
 };
 
 #define DDR_A(DDR) DDR->a
@@ -191,6 +199,8 @@ struct data_dependence_relation
 #define DDR_SIZE_VECT(DDR) DDR->size_vect
 #define DDR_DIR_VECT(DDR) DDR->dir_vect
 #define DDR_DIST_VECT(DDR) DDR->dist_vect
+#define DDR_CSYS(DDR) DDR->dependence_constraint_system
+#define DDR_POLYHEDRON(DDR) DDR->dependence_polyhedron
 
 
 

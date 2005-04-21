@@ -763,7 +763,8 @@ DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
 C_PRETTY_PRINT_H = c-pretty-print.h $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
 SCEV_H = tree-scalar-evolution.h $(GGC_H) tree-chrec.h
 LAMBDA_H = lambda.h tree.h vec.h $(GGC_H)
-TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H)
+POLYHEDRON_H = polyhedron.h $(LAMBDA_H)
+TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H) $(POLYHEDRON_H)
 
 #
 # Now figure out from those variables how to compile and link.
@@ -921,7 +922,7 @@ C_OBJS = c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 OBJS-common = \
- omega.o \
+ omega.o polyhedron.o \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o tree-elim-check.o	   \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
  gimplify.o tree-pretty-print.o tree-into-ssa.o          \
@@ -1786,6 +1787,7 @@ tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TM_H) coretypes.h
 omega.o : omega.c omega.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) diagnostic.h varray.h tree-pass.h 
+polyhedron.o : polyhedron.c $(POLYHEDRON_H) $(CONFIG_H) $(SYSTEM_H)
 tree-chrec.o: tree-chrec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) tree-chrec.h tree-pass.h cfgloop.h $(TREE_FLOW.h)
 tree-scalar-evolution.o: tree-scalar-evolution.c $(CONFIG_H) $(SYSTEM_H) \

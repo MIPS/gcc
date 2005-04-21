@@ -194,18 +194,6 @@ lambda_matrix_delete_rows (lambda_matrix mat, int rows, int from, int to)
     mat[i] = NULL;
 }
 
-/* Swap rows R1 and R2 in matrix MAT.  */
-
-void
-lambda_matrix_row_exchange (lambda_matrix mat, int r1, int r2)
-{
-  lambda_vector row;
-
-  row = mat[r1];
-  mat[r1] = mat[r2];
-  mat[r2] = row;
-}
-
 /* Add a multiple of row R1 of matrix MAT with N columns to row R2:
    R2 = R2 + CONST1 * R1.  */
 

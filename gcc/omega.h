@@ -71,7 +71,6 @@ typedef struct omega_pb
   struct eqn subs[max_vars + 1];
 } *omega_pb;
 
-extern char *(*omega_current_get_var_name) (unsigned int);
 extern bool omega_reduce_with_subs;
 extern bool omega_verify_simplification;
 
@@ -170,45 +169,10 @@ single_var_geq (struct eqn e, int nv ATTRIBUTE_UNUSED)
   return (e.key != 0 && -max_vars <= e.key && e.key <= max_vars);
 }
 
-/* Delete inequality E from problem PB that has NV variables.  */
-
-static inline void
-omega_delete_geq (omega_pb pb, int e, int nv)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Deleting %d (last:%d): ", e, pb->num_geqs-1);
-      omega_print_geq (dump_file, pb, &pb->geqs[e]);
-      fprintf (dump_file, "\n");
-    }
-
-  if (e < pb->num_geqs-1)
-    omega_copy_eqn (&pb->geqs[e], &pb->geqs[pb->num_geqs - 1], nv);
-
-  pb->num_geqs--;
-}
-
-/* Delete extra inequality E from problem PB that has NV variables.  */
-
-static inline void
-omega_delete_geq_extra (omega_pb pb, int e, int nV)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Deleting %d: ",e);
-      omega_print_geq_extra (dump_file, pb, &pb->geqs[e]);
-      fprintf (dump_file, "\n");
-    }
-
-  if (e < pb->num_geqs-1)
-    omega_copy_eqn (&pb->geqs[e], &pb->geqs[pb->num_geqs - 1],(nV));
-  pb->num_geqs--;
-}
-
-
 #define cant_do_omega abort
 
-/* Initialize an Omega problem.  */
+/* Initialize P as an Omega problem with NVARS variables and
+   NPROT safe variables.  */
 
 static inline void
 init_problem (omega_pb p, unsigned nvars, unsigned nprot)

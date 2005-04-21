@@ -1,3 +1,39 @@
+2005-04-21  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (POLYHEDRON_H): New variable.
+	(TREE_DATA_REF_H): Depends on POLYHEDRON_H.
+	(OBJS-common): Depends on polyhedron.o.
+	(polyhedron.o): New rule.
+	* lambda-code.c (gcd): Moved to lambda.h.
+	(gcd_vector): Renamed lambda_vector_gcd, and moved to lambda.h.
+	(lambda_compute_target_space): Rename uses of gcd_vector.
+	* lambda-mat.c (lambda_matrix_row_exchange): Moved to lambda.h.
+	* lambda.h (lambda_matrix_row_exchange): Make it static inline.
+	(lambda_vector_div_const, lambda_vector_gcd, lambda_vector_normalize,
+	lambda_vector_scalar_product, lambda_vector_linear_combine_1, 
+	lambda_matrix_extend, lambda_matrix_exchange_columns, 
+	lambda_matrix_copy_columns, lambda_matrix_copy_c2v,
+	lambda_matrix_copy_v2c, lambda_vector_exchange): New functions.
+	* omega.c (wild_name): Allocate more elements.
+	(omega_eqn_is_red): Check bounds of printed variable, avoid the use
+	of omega_current_get_var_name.
+	(omega_delete_geq, omega_delete_geq_extra): Make static.
+	(omega_initialize): Initialize current variables names for
+	pretty printing.
+	* omega.h (omega_current_get_var_name): Remove declaration.
+	(omega_delete_geq, omega_delete_geq_extra): Moved to omega.c.
+	* polyhedron.c, polyhedron.h: New files.
+	* tree-data-ref.c (gcd): Moved to lambda.h.
+	(init_csys_eq_with_af, find_loops_surrounding, init_csys_for_ddr,
+	polyhedra_dependence_tester, omega_compute_classic_representations,
+	omega_dependence_tester): New.
+	(compute_affine_dependence): Insert entry point to the new 
+	dependence analyzers, but they are disabled for now.
+	* tree-data-ref.h: Depend on omega.h and polyhedron.h.
+	(data_dependence_relation): Add two fields:
+	dependence_constraint_system, and dependence_polyhedron.
+	(DDR_CSYS, DDR_POLYHEDRON): New.
+
 2005-04-20  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* omega.h, omega.c: Write some documentation for functions, 

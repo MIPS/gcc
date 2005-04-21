@@ -161,7 +161,6 @@ void lambda_matrix_add_mc (lambda_matrix, int, lambda_matrix, int,
 void lambda_matrix_mult (lambda_matrix, lambda_matrix, lambda_matrix,
 			 int, int, int);
 void lambda_matrix_delete_rows (lambda_matrix, int, int, int);
-void lambda_matrix_row_exchange (lambda_matrix, int, int);
 void lambda_matrix_row_add (lambda_matrix, int, int, int, int);
 void lambda_matrix_row_negate (lambda_matrix mat, int, int);
 void lambda_matrix_row_mc (lambda_matrix, int, int, int);
@@ -227,7 +226,18 @@ lambda_vector_new (int size)
   return ggc_alloc_cleared (size * sizeof(int));
 }
 
+/* Divide vector VEC1 of length SIZE by a constant CONST1,
+   and store the result in VEC2.  */
+ 
+static inline void
+lambda_vector_div_const (lambda_vector vec1, lambda_vector vec2,
+			 int size, int const1)
+{
+  int i;
 
+  for (i = 0; i < size; i++)
+    vec2[i] = vec1[i] / const1;
+}
 
 /* Multiply vector VEC1 of length SIZE by a constant CONST1,
    and store the result in VEC2.  */
@@ -378,8 +388,192 @@ print_lambda_vector (FILE * outfile, lambda_vector vector, int n)
   int i;
 
   for (i = 0; i < n; i++)
-    fprintf (outfile, "%3d ", vector[i]);
+    fprintf (outfile, "%4d ", vector[i]);
   fprintf (outfile, "\n");
 }
+
+/* Compute the greatest common divisor of two numbers using
+   Euclid's algorithm.  */
+
+static inline int 
+gcd (int a, int b)
+{
+  int x, y, z;
+
+  x = abs (a);
+  y = abs (b);
+
+  while (x > 0)
+    {
+      z = y % x;
+      y = x;
+      x = z;
+    }
+
+  return y;
+}
+
+/* Compute the greatest common divisor of a VECTOR of SIZE numbers.  */
+
+static inline int
+lambda_vector_gcd (lambda_vector vector, int size)
+{
+  int i;
+  int gcd1 = 0;
+
+  if (size > 0)
+    {
+      gcd1 = vector[0];
+      for (i = 1; i < size; i++)
+	gcd1 = gcd (gcd1, vector[i]);
+    }
+  return gcd1;
+}
+
+/* Divides all the coefficients of VECTOR by their greatest common
+   divisor.  VECTOR has SIZE elements.  */
+
+static inline void
+lambda_vector_normalize (lambda_vector vector, int size)
+{
+  int g = lambda_vector_gcd (vector, size);
+
+  if (g > 1)
+    lambda_vector_div_const (vector, vector, size, g);
+}
+
+/* Compute the scalar product VEC1 by VEC2.  Both vectors should have
+   the same SIZE.  */
+
+static inline int
+lambda_vector_scalar_product (lambda_vector vec1, lambda_vector vec2,
+			      int size)
+{
+  int i, res = 0;
+
+  for (i = 0; i < size; i++)
+    res += vec1[i] * vec2[i];
+
+  return res;
+}
+
+
+/* Compute RES as a linear combination of R1 and R2, such that
+   lambda_vector_scalar_product (A, RES, SIZE) == 0.  All vectors have
+   length SIZE.  */
+
+static inline void 
+lambda_vector_linear_combine_1 (lambda_vector r1,
+				lambda_vector r2,
+				lambda_vector a,
+				lambda_vector res,
+				int size)
+{
+  int lambda1 = lambda_vector_scalar_product (r2, a, size);
+  int lambda2 = lambda_vector_scalar_product (r1, a, size);
+  int g = gcd (lambda1, lambda2);
+
+  lambda_vector_add_mc (r1, lambda1 / g,
+			r2, - (lambda2 / g),
+			res, size);
+}
+
+/* Allocate a larger matrix NEW_M with NM lines and NN columns and
+   copy the content of the OM lines by ON columns OLD_M matrix.  */
+
+static inline void
+lambda_matrix_extend (lambda_matrix old_m, int om, int on, 
+		      lambda_matrix *new_m, int nm, int nn)
+{
+  if (om > nm || on > nn)
+    *new_m = old_m;
+
+  *new_m = lambda_matrix_new (nm, nn);
+  lambda_matrix_copy (old_m, *new_m, om, on);
+}
+
+/* Swap rows R1 and R2 in matrix MAT.  */
+
+static inline void
+lambda_matrix_row_exchange (lambda_matrix mat, int r1, int r2)
+{
+  lambda_vector row;
+
+  row = mat[r1];
+  mat[r1] = mat[r2];
+  mat[r2] = row;
+}
+
+/* Swap values contained in columns C1 and C2 of size SIZE in matrix
+   MAT.  */
+
+static inline void
+lambda_matrix_exchange_columns (lambda_matrix mat, int c1, int c2,
+				int size)
+{
+  int i, val;
+
+  for (i = 0; i < size; i++)
+    {
+      val = mat[i][c1];
+      mat[i][c1] = mat[i][c2];
+      mat[i][c2] = val;
+    }
+}
+
+/* Copy values contained in column C1 to column C2 of size SIZE in
+   matrix MAT.  */
+
+static inline void
+lambda_matrix_copy_columns (lambda_matrix mat, int c1, int c2,
+			    int size)
+{
+  int i;
+
+  for (i = 0; i < size; i++)
+    mat[i][c2] = mat[i][c1];
+}
+
+/* Copy values contained in column C of size SIZE from matrix MAT to
+   vector V.  */
+
+static inline void
+lambda_matrix_copy_c2v (lambda_matrix mat, int c, lambda_vector v,
+			int size)
+{
+  int i;
+
+  for (i = 0; i < size; i++)
+    v[i] = mat[i][c];
+}
+
+/* Copy values contained in vector V of size SIZE to column C of
+   matrix MAT.  */
+
+static inline void
+lambda_matrix_copy_v2c (lambda_vector v, lambda_matrix mat, int c,
+			int size)
+{
+  int i;
+
+  for (i = 0; i < size; i++)
+    mat[i][c] = v[i];
+}
+
+/* Swap the values contained in vectors V1 and V2 of size SIZE.  */
+
+static inline void
+lambda_vector_exchange (lambda_vector v1, lambda_vector v2, int size)
+{
+  int i, val;
+
+  for (i = 0; i < size; i++)
+    {
+      val = v1[i];
+      v1[i] = v2[i];
+      v2[i] = val;
+    }
+}
+
 #endif /* LAMBDA_H  */
 

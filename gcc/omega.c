@@ -84,7 +84,7 @@ static int doItAgain;
 static int conservative = 0;
 
 static int next_key;
-static char wild_name[200][20];
+static char wild_name[200][40];
 static int next_wild_card = 0;
 static int trace = 1;
 static int depth = 0;
@@ -188,10 +188,13 @@ omega_eqn_is_red (eqn e, int desired_result)
 static inline char *
 omega_variable_to_str (int i)
 {
-  if (i <= 0)
-    return wild_name[-i];
+  if (0 <= i && i < 20)
+    return wild_name[i];
 
-  return (*omega_current_get_var_name)(i);
+  if (-20 < i && i < 0)
+    return wild_name[40 - i];
+
+  gcc_unreachable ();
 }
 
 /* Do nothing function: used for default initializations.  */
@@ -950,6 +953,42 @@ omega_add_new_wild_card (omega_pb pb)
   omega_name_wild_card (pb, i);
   return i;
 }
+
+/* Delete inequality E from problem PB that has NV variables.  */
+
+static void
+omega_delete_geq (omega_pb pb, int e, int nv)
+{
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Deleting %d (last:%d): ", e, pb->num_geqs-1);
+      omega_print_geq (dump_file, pb, &pb->geqs[e]);
+      fprintf (dump_file, "\n");
+    }
+
+  if (e < pb->num_geqs-1)
+    omega_copy_eqn (&pb->geqs[e], &pb->geqs[pb->num_geqs - 1], nv);
+
+  pb->num_geqs--;
+}
+
+/* Delete extra inequality E from problem PB that has NV variables.  */
+
+static void
+omega_delete_geq_extra (omega_pb pb, int e, int nV)
+{
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Deleting %d: ",e);
+      omega_print_geq_extra (dump_file, pb, &pb->geqs[e]);
+      fprintf (dump_file, "\n");
+    }
+
+  if (e < pb->num_geqs-1)
+    omega_copy_eqn (&pb->geqs[e], &pb->geqs[pb->num_geqs - 1],(nV));
+  pb->num_geqs--;
+}
+
 
 /* Remove variable I from problem PB.  */
 
@@ -5080,7 +5119,6 @@ omega_constrain_variable_value (omega_pb pb,
       omega_copy_eqn (&pb->eqs[e], &pb->subs[k],
 		      pb->num_vars);
       pb->eqs[e].coef[0] -= value;
-
     }
   else
     {
@@ -5342,27 +5380,46 @@ omega_initialize (void)
     hash_master[i].touched = -1;
 
   sprintf (wild_name[0], "1");
-  sprintf (wild_name[1], "alpha");
-  sprintf (wild_name[2], "beta");
-  sprintf (wild_name[3], "gamma");
-  sprintf (wild_name[4], "delta");
-  sprintf (wild_name[5], "tau");
-  sprintf (wild_name[6], "sigma");
-  sprintf (wild_name[7], "chi");
-  sprintf (wild_name[8], "omega");
-  sprintf (wild_name[9], "pi");
-  sprintf (wild_name[10], "ni");
-  sprintf (wild_name[11], "Alpha");
-  sprintf (wild_name[12], "Beta");
-  sprintf (wild_name[13], "Gamma");
-  sprintf (wild_name[14], "Delta");
-  sprintf (wild_name[15], "Tau");
-  sprintf (wild_name[16], "Sigma");
-  sprintf (wild_name[17], "Chi");
-  sprintf (wild_name[18], "Omega");
-  sprintf (wild_name[19], "Pi");
+  sprintf (wild_name[1], "a");
+  sprintf (wild_name[2], "b");
+  sprintf (wild_name[3], "c");
+  sprintf (wild_name[4], "d");
+  sprintf (wild_name[5], "e");
+  sprintf (wild_name[6], "f");
+  sprintf (wild_name[7], "g");
+  sprintf (wild_name[8], "h");
+  sprintf (wild_name[9], "i");
+  sprintf (wild_name[10], "j");
+  sprintf (wild_name[11], "k");
+  sprintf (wild_name[12], "l");
+  sprintf (wild_name[13], "m");
+  sprintf (wild_name[14], "n");
+  sprintf (wild_name[15], "o");
+  sprintf (wild_name[16], "p");
+  sprintf (wild_name[17], "q");
+  sprintf (wild_name[18], "r");
+  sprintf (wild_name[19], "s");
+  sprintf (wild_name[20], "t");
+  sprintf (wild_name[40 - 1], "alpha");
+  sprintf (wild_name[40 - 2], "beta");
+  sprintf (wild_name[40 - 3], "gamma");
+  sprintf (wild_name[40 - 4], "delta");
+  sprintf (wild_name[40 - 5], "tau");
+  sprintf (wild_name[40 - 6], "sigma");
+  sprintf (wild_name[40 - 7], "chi");
+  sprintf (wild_name[40 - 8], "omega");
+  sprintf (wild_name[40 - 9], "pi");
+  sprintf (wild_name[40 - 10], "ni");
+  sprintf (wild_name[40 - 11], "Alpha");
+  sprintf (wild_name[40 - 12], "Beta");
+  sprintf (wild_name[40 - 13], "Gamma");
+  sprintf (wild_name[40 - 14], "Delta");
+  sprintf (wild_name[40 - 15], "Tau");
+  sprintf (wild_name[40 - 16], "Sigma");
+  sprintf (wild_name[40 - 17], "Chi");
+  sprintf (wild_name[40 - 18], "Omega");
+  sprintf (wild_name[40 - 19], "Pi");
 
   omega_initialized = true;
 }
-
 

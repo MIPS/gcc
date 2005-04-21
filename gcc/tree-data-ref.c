@@ -350,28 +350,6 @@ tree_fold_divides_p (tree type,
     (fold (build (MINUS_EXPR, type, a, tree_fold_gcd (a, b))));
 }
 
-/* Compute the greatest common denominator of two numbers using
-   Euclid's algorithm.  */
-
-static int 
-gcd (int a, int b)
-{
-  
-  int x, y, z;
-  
-  x = abs (a);
-  y = abs (b);
-
-  while (x>0)
-    {
-      z = y % x;
-      y = x;
-      x = z;
-    }
-
-  return (y);
-}
-
 /* Returns true iff A divides B.  */
 
 static inline bool 
@@ -3499,6 +3477,338 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
   return true;
 }
 
+/* Initializes an equation using the information contained in the ACCESS_FUN.
+   Returns true when the operation succeeded.
+
+   CY is the constraint system.
+   EQ is the number of the equation to be initialized.
+   OFFSET is used for shifting the variables names in the constraints.
+   ACCESS_FUN is expected to be an affine chrec.  */
+
+static bool
+init_csys_eq_with_af (csys cy, unsigned eq, 
+		      unsigned int offset, tree access_fun, 
+		      varray_type vloops)
+{
+  switch (TREE_CODE (access_fun))
+    {
+    case POLYNOMIAL_CHREC:
+      {
+	tree left = CHREC_LEFT (access_fun);
+	tree right = CHREC_RIGHT (access_fun);
+	int var = CHREC_VARIABLE (access_fun);
+	unsigned var_idx;
+
+	if (TREE_CODE (right) != INTEGER_CST)
+	  return false;
+
+	/* Find the index of the current variable VAR_IDX in the
+	   VLOOPS array.  */
+	for (var_idx = 0; var_idx < VARRAY_ACTIVE_SIZE (vloops); var_idx++)
+	  {
+	    struct loop *loop = VARRAY_GENERIC_PTR (vloops, var_idx);
+	    if (loop->num == var)
+	      break;
+	  }
+
+	CSYS_VEC (cy, eq, offset + var_idx) = int_cst_value (right);
+	if (offset != 0)
+	  CSYS_VEC (cy, eq, var_idx) += int_cst_value (right);
+
+	switch (TREE_CODE (left))
+	  {
+	  case POLYNOMIAL_CHREC:
+	    return init_csys_eq_with_af (cy, eq, offset, left, vloops);
+
+	  case INTEGER_CST:
+	    CSYS_CST (cy, eq) += int_cst_value (left);
+	    return true;
+
+	  default:
+	    return false;
+	  }
+      }
+
+    case INTEGER_CST:
+      CSYS_CST (cy, eq) += int_cst_value (access_fun);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/* Initialize VLOOPS with all the loops surrounding LOOP and inner to
+   STOP.  */
+
+static void
+find_loops_surrounding (struct loop *loop, struct loop *stop, 
+			varray_type *vloops)
+{
+  if (loop == stop
+      || loop == NULL
+      || loop->outer == NULL)
+    return;
+
+  VARRAY_PUSH_GENERIC_PTR (*vloops, loop);
+  find_loops_surrounding (loop->outer, stop, vloops);
+}
+
+/* Sets up the dependence constraint system for the data dependence
+   relation DDR.  Returns false when the constraint system cannot be
+   built, ie. when the test answers "don't know".  Returns true
+   otherwise, and when independence has been proved (using one of the
+   trivial dependence test), set MAYBE_DEPENDENT to false and the
+   DDR_CSYS is not initialized, otherwise set MAYBE_DEPENDENT to true.
+
+   Example: for setting up the dependence system corresponding to the
+   conflicting accesses 
+
+   loop_x
+     A[i] = ...
+     ... A[i+M]
+   endloop_x
+   
+   the following constraints come from the iteration domain: 
+
+   0 <= i <= N
+   0 <= i + di <= N
+
+   where di is the distance variable.  The conflicting elements
+   constraint inserted in the constraint system is:
+
+   i = i + di + M  
+
+   that gets simplified into 
+   
+   di + M = 0
+
+   Finally the constraint system initialized by the following function
+   looks like:
+
+   di + M = 0
+   0 <= i <= N
+   0 <= i + di <= N
+*/
+
+static bool
+init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
+{
+  unsigned i;
+  int si;
+  struct data_reference *dra = DDR_A (ddr);
+  struct data_reference *drb = DDR_B (ddr);
+  struct loop *loop_a, *loop_b, *common_loop;
+  varray_type vloops;
+  unsigned nb_eqs, nb_loops, dimension;
+  unsigned eq, ineq;
+  csys cy;
+
+  *maybe_dependent = true;
+
+  /* Compute the size of the constraint system.
+     nb_loops_in_nest = number of loops surrounding both references.
+     dimension = 2 * nb_loops_in_nest.
+     nb_eqs = nb_subscripts
+     nb_ineqs = nb_loops_in_nest
+  */
+  VARRAY_GENERIC_PTR_INIT (vloops, 3, "vloops");
+  loop_a = bb_for_stmt (DR_STMT (dra))->loop_father;
+  loop_b = bb_for_stmt (DR_STMT (dra))->loop_father;
+  common_loop = find_common_loop (loop_a, loop_b);
+
+  if (common_loop != loop_a || common_loop != loop_b)
+    {
+      find_loops_surrounding (loop_a, common_loop, &vloops);
+      find_loops_surrounding (loop_b, common_loop, &vloops);
+    }
+  find_loops_surrounding (common_loop, NULL, &vloops);
+
+  nb_eqs = DDR_NUM_SUBSCRIPTS (ddr);
+  nb_loops = VARRAY_ACTIVE_SIZE (vloops);
+  dimension = 2 * nb_loops;
+  cy = csys_new (dimension, nb_eqs, 4 * nb_loops + nb_eqs);
+
+  /* For each subscript, insert an equality for representing the
+     conflicts.  */
+  for (i = 0, eq = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
+    {
+      tree access_fun_a = DR_ACCESS_FN (dra, i);
+      tree access_fun_b = DR_ACCESS_FN (drb, i);
+
+      /* ZIV test.  */
+      if (ziv_subscript_p (access_fun_a, access_fun_b))
+	{
+	  tree difference = chrec_fold_minus (integer_type_node, access_fun_a,
+					      access_fun_b);
+	  if (TREE_CODE (difference) == INTEGER_CST
+	      && !integer_zerop (difference))
+	    {
+	      /* There is no dependence.  */
+	      DDR_ARE_DEPENDENT (ddr) = chrec_known;
+	      *maybe_dependent = false;
+	      varray_clear (vloops);
+	      return true;
+	    }
+	}
+
+      access_fun_b = chrec_fold_multiply (chrec_type (access_fun_b), 
+					  access_fun_b, integer_minus_one_node);
+      
+      if (!init_csys_eq_with_af (cy, eq, 0, access_fun_a, vloops) 
+	  || !init_csys_eq_with_af (cy, eq, nb_loops, access_fun_b, vloops))
+	{
+	  /* There is probably a dependence, but the system of
+	     constraints cannot be built: answer "don't know".  */
+	  varray_clear (vloops);
+	  return false;
+	}
+
+      /* GCD test.  */
+      if (!int_divides_p (lambda_vector_gcd (CSYS_VECTOR (cy, eq), dimension),
+			  CSYS_CST (cy, eq)))
+	{
+	  /* There is no dependence.  */
+	  DDR_ARE_DEPENDENT (ddr) = chrec_known;
+	  *maybe_dependent = false;
+	  varray_clear (vloops);
+	  return true;
+	}
+      
+      eq++;
+    }
+
+  /* The rest are inequalities.  */
+  for (si = eq; si < CSYS_NB_CONSTRAINTS (cy); si++)
+    CSYS_ELT (cy, si, 0) = 1;
+
+  /* Insert the constraints corresponding to the iteration domain:
+     i.e. the loops surrounding the references "loop_x" and the
+     distance variables "dx".  */
+  for (i = 0, ineq = eq; i < VARRAY_ACTIVE_SIZE (vloops); i++)
+    {
+      struct loop *loop = VARRAY_GENERIC_PTR (vloops, i);
+      tree nb_iters = get_number_of_iters_for_loop (loop->num);
+
+      /* 0 <= loop_x */
+      CSYS_VEC (cy, ineq, i) = 1;
+      ineq++;
+
+      /* 0 <= loop_x + dx */
+      CSYS_VEC (cy, ineq, i) = 1;
+      CSYS_VEC (cy, ineq, i + nb_loops) = 1;
+      ineq++;
+
+      if (nb_iters != NULL_TREE
+	  && TREE_CODE (nb_iters) == INTEGER_CST)
+	{
+	  int nbi = int_cst_value (nb_iters);
+
+	  /* loop_x <= nb_iters */
+	  CSYS_VEC (cy, ineq, i) = -1;
+	  CSYS_CST (cy, ineq) = nbi;
+	  ineq++;
+
+	  /* loop_x + dx <= nb_iters */
+	  CSYS_VEC (cy, ineq, i) = -1;
+	  CSYS_VEC (cy, ineq, i + nb_loops) = -1;
+	  CSYS_CST (cy, ineq) = nbi;
+	  ineq++;
+	}
+    }
+
+  DDR_CSYS (ddr) = cy;
+
+  varray_clear (vloops);
+  return true;
+}
+
+/* Construct the constraint system for DDR, then solve it by polyhedra
+   solver.  */
+
+static void
+polyhedra_dependence_tester (struct data_dependence_relation *ddr)
+{
+  /* Translate to generating system (gs) representation, then detect
+     dep/indep.  */
+
+  debug_csys (DDR_CSYS (ddr));
+  DDR_POLYHEDRON (ddr) = polyhedron_from_csys (DDR_CSYS (ddr));
+  debug_gsys (POLYH_GSYS (DDR_POLYHEDRON (ddr)));
+
+  dependence_stats.num_dependence_undetermined++;
+  finalize_ddr_dependent (ddr, chrec_dont_know);
+}
+
+/* */
+
+static void
+omega_compute_classic_representations (struct data_dependence_relation *ddr ATTRIBUTE_UNUSED)
+{
+  
+}
+
+/* Construct the constraint system for DDR, then solve it using the
+   OMEGA solver.  */
+
+static void
+omega_dependence_tester (struct data_dependence_relation *ddr)
+{
+  int res = 0;
+  omega_pb pb = (omega_pb) xmalloc (sizeof (struct omega_pb));
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "(omega_dependence_tester \n");
+      dump_data_dependence_relation (dump_file, ddr);
+    }
+
+  csys_to_omega (DDR_CSYS (ddr), pb);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    omega_pretty_print_problem (dump_file, pb);
+
+  res = omega_solve_problem (pb, omega_unknown);
+
+  {
+    int i = 0, lower_bound, upper_bound, dist;
+    bool dist_known = false;
+    int dd_lt = 2;
+    int dd_eq = 4;
+    int dd_gt = 8;
+    int dir;
+
+    dir = omega_query_variable_signs (pb, i, dd_lt, dd_eq, dd_gt,
+				      lower_bound, upper_bound,
+				      &dist_known, &dist);
+    fprintf (stderr, "dir = %d\n", dir);
+  }
+
+  if (res == 0)
+    {
+      /* When there is no solution to the dependence problem, there is
+	 no dependence.  */
+      finalize_ddr_dependent (ddr, chrec_known);
+      dependence_stats.num_dependence_independent++;
+    }
+  else if (res == 1)
+    {
+      /* FIXME: Extract the classic representations: distances and
+	 directions. */
+      omega_compute_classic_representations (ddr);
+      dependence_stats.num_dependence_dependent++;
+    }
+  else
+    {
+      dependence_stats.num_dependence_undetermined++;
+      finalize_ddr_dependent (ddr, chrec_dont_know);
+    }
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
+
+  free (pb);
+}
+
 /* This computes the affine dependence relation between A and B.
    CHREC_KNOWN is used for representing the independence between two
    accesses, while CHREC_DONT_KNOW is used for representing the unknown
@@ -3531,13 +3841,32 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 
       if (access_functions_are_affine_or_constant_p (dra)
 	  && access_functions_are_affine_or_constant_p (drb))
-	subscript_dependence_tester (ddr);
+	{
+	  if (0)
+	    {
+	      bool maybe_dependent;
+
+	      if (!init_csys_for_ddr (ddr, &maybe_dependent))
+		goto csys_dont_know;
+
+	      if (maybe_dependent)
+		{
+  		  if (0)
+		    polyhedra_dependence_tester (ddr);
+		  else
+		    omega_dependence_tester (ddr);
+		}
+	    }
+	  else
+	    subscript_dependence_tester (ddr);
+	}
       
       /* As a last case, if the dependence cannot be determined, or if
 	 the dependence is considered too difficult to determine, answer
 	 "don't know".  */
       else
 	{
+	csys_dont_know:;
 	  dependence_stats.num_dependence_undetermined++;
 	  
 	  if (dump_file && (dump_flags & TDF_DETAILS))
