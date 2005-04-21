@@ -1,3 +1,17 @@
+2005-04-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4080945
+	PR 20742
+	* params.def (PARAM_SCEV_MAX_EXPR_SIZE):  New.
+	* tree-chrec.c (params.h):  New include.
+	(chrec_fold_plus_1):  Avoid too deep recursion.
+	(reset_evolution_in_loop):  Use build2 not build.
+	(tree_contains_chrecs):  Add size argument.
+	* tree-chrec.h (tree_constains_chrecs):  Add size argument.
+	(tree_does_not_contain_chrecs):  Adjust call to it.
+	* tree-scalar-evolution.c (simple_iv):  Ditto.
+	* doc/invoke.texi (scev-max-expr-size):  Document.
+
 2005-04-11  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/i386/i386.h (TARGET_FPMATH_DEFAULT): New.
