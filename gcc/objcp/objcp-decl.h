@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Process the ObjC-specific declarations and variables for 
    the Objective-C++ compiler.
    Copyright (C) 2001, 2004 Free Software Foundation, Inc.
