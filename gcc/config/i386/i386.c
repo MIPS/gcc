@@ -1694,6 +1694,11 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
   flag_trapping_math = 0;
   /* APPLE LOCAL end pragma fenv */
 
+  /* APPLE LOCAL begin radar 4094534. */
+  /* The Darwin libraries never set errno, so we might as well
+     avoid calling them when that's the only reason we would.  */
+  flag_errno_math = 0;
+  /* APPLE LOCAL end radar 4094534. */
   /* The default values of these switches depend on the TARGET_64BIT
      that is not known at this moment.  Mark these values with 2 and
      let user the to override these.  In case there is no command line option
