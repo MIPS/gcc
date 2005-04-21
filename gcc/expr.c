@@ -3539,7 +3539,8 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       int not_stack;
       /* # bytes of start of argument
 	 that we must make space for but need not store.  */
-      int offset = partial % (PARM_BOUNDARY / BITS_PER_WORD);
+      /* APPLE LOCAL mainline 2005-04-21 */
+      int offset = partial % (PARM_BOUNDARY / BITS_PER_UNIT);
       int args_offset = INTVAL (args_so_far);
       int skip;
 
@@ -3556,9 +3557,12 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       if (args_addr == 0)
 	offset = 0;
 
+      /* APPLE LOCAL begin mainline 2005-04-21 */
       /* Now NOT_STACK gets the number of words that we don't need to
-	 allocate on the stack.  */
+	 allocate on the stack. Convert OFFSET to words too. */
       not_stack = (partial - offset) / UNITS_PER_WORD;
+      offset /= UNITS_PER_WORD;
+      /* APPLE LOCAL end mainline 2005-04-21 */
 
       /* If the partial register-part of the arg counts in its stack size,
 	 skip the part of stack space corresponding to the registers.
