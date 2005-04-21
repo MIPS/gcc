@@ -1,3 +1,8 @@
+2005-04-21  Devang Patel  <dpatel@apple.com>
+
+	Radar 4080840
+	* config/rs6000/darwin.h (ASM_OUTPUT_MAX_SKIP_ALIGN): New.
+
 2005-04-20  Mike Stump  <mrs@apple.com>
 
 	Radar 4077104

@@ -1,3 +1,8 @@
+2005-04-21  Devang Patel  <dpatel@apple.com>
+	
+	Radar 4080840
+	* gcc.apple/faling-loops-max-skip-3.c: New.
+
 2005-04-19  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4056870
