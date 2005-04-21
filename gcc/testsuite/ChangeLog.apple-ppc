@@ -1,4 +1,9 @@
 2005-04-21  Devang Patel  <dpatel@apple.com>
+
+	Radar 4058553
+	* gcc.apple/very-long-comment.c: New.
+
+2005-04-21  Devang Patel  <dpatel@apple.com>
 	
 	Radar 4080840
 	* gcc.apple/faling-loops-max-skip-3.c: New.
