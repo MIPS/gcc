@@ -1,3 +1,8 @@
+2005-04-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4077104
+	* parser.c (cp_parser_unary_expression): Handle -40(sp) in CW asms better.
+
 2005-04-20 Devang Patel <dpatel@apple.com>
 
 	Radar 4093536

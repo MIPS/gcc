@@ -6676,6 +6676,12 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       error ("array references not supported");
       break;
 
+    case NEGATE_EXPR:
+      strcat (buf, "-");
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+			    must_be_reg, must_not_be_reg);
+      break;
+
     default:
       /* Something is wrong, most likely a user error.  */
       error ("block assembly operand not recognized");

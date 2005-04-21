@@ -1,3 +1,8 @@
+2005-04-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4077104
+	* c-common.c (print_cw_asm_operand): Handle -40(sp) in C++ CW asms better.
+
 2005-04-20  Stuart Hastings  <stuart@apple.com>
 
 	* Radar 4067496

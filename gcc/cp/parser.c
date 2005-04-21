@@ -5032,6 +5032,13 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 	case CONVERT_EXPR:
 	case NEGATE_EXPR:
 	case TRUTH_NOT_EXPR:
+	  /* APPLE LOCAL begin CW asm blocks */
+	  if (inside_cw_asm_block && TREE_TYPE (cast_expression) == 0)
+	    {
+	      expression = build1 (unary_operator, NULL_TREE, cast_expression);
+	      break;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
 	  expression = finish_unary_op_expr (unary_operator, cast_expression);
 	  break;
 
@@ -16859,7 +16866,6 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
   keyword = token->keyword;
   switch (keyword)
     {
-    /* APPLE LOCAL begin CW asm blocks */
     case RID_SIZEOF:
       {
 	tree operand;
@@ -16870,7 +16876,6 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	postfix_expression = cxx_sizeof_or_alignof_type (operand, SIZEOF_EXPR, true);
 	break;
       }
-    /* APPLE LOCAL end CW asm blocks */
 
     default:
       {
