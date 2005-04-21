@@ -1,3 +1,13 @@
+2005-04-20 Devang Patel <dpatel@apple.com>
+
+	Radar 4093536
+	Undo PR libstdc++/10606 fix.
+        2005-02-18  Richard Henderson  <rth@redhat.com>
+
+        PR libstdc++/10606
+        * except.c (do_get_exception_ptr): New.
+        (expand_start_catch_block): Use it.
+
 2005-04-08  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4055183
