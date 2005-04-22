@@ -1,3 +1,11 @@
+2005-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport from mainline:
+	* gcc.dg/arm-vfp1.c: Remove -ffast-math.
+	
+	Backport from mainline:
+	* gcc.dg/arm-vfp1.c: New test.
+
 2005-04-11  Mark Mitchell  <mark@codesourcery.com>
 
 	* target-def.h (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
