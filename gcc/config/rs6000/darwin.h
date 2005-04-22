@@ -341,7 +341,7 @@ do {									\
     } while (0)
 
 
-/* APPLE LOCAL begin -falign-loops-max-skip  */
+/* APPLE LOCAL begin -falign-loops-max-skip mainline 2005-04-22  */
 #ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
 /* This is supported in cctools 465 and later.  The macro test
    above prevents using it in earlier build environments.  */
@@ -354,7 +354,7 @@ do {									\
         fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
     }
 #endif
-/* APPLE LOCAL end -falign-loops-max-skip  */
+/* APPLE LOCAL end -falign-loops-max-skip mainline 2005-04-22  */
 
 /* Generate insns to call the profiler.  */
 

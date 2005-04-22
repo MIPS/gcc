@@ -1,3 +1,8 @@
+2005-04-22  Devang Patel  <dpatel@apple.com>
+
+	* config/rs6000/darwin.h: Update APPLE LOCAL markers to reflect
+	FSF mainline check-in.
+
 2005-04-21  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3124235
