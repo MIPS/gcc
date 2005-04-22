@@ -1,5 +1,10 @@
 2005-04-21  Dale Johannesen  <dalej@apple.com>
 
+	* gcc.apple/opt-pragma-[1-5].c:  New.
+	g++.dg/ext/opt-pragma-[2-4].C:  New.
+
+2005-04-21  Dale Johannesen  <dalej@apple.com>
+
 	* g++.dg/4080945a.C: New.
 
 2005-04-21  Devang Patel  <dpatel@apple.com>
