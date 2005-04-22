@@ -1969,6 +1969,36 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
     }
   /* APPLE LOCAL end tweak default optimizations */
 }
+
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* Version of the above for use from #pragma optimization_level.
+   Do not reset things unless they're per-function.  */
+
+void
+reset_optimization_options (int level ATTRIBUTE_UNUSED, 
+			    int size ATTRIBUTE_UNUSED)
+{
+  if (DEFAULT_ABI == ABI_DARWIN)
+    {
+      /* Block reordering causes code bloat, and very little speedup */
+      flag_reorder_blocks = 0;
+      /* Multi-basic-block scheduling loses badly when the compiler
+         misguesses which blocks are going to be executed, more than
+	 it gains when it guesses correctly.  Its guesses for cases
+	 where interblock scheduling occurs (if-then-else's) are
+	 little better than random, so disable this unless requested. */
+      flag_schedule_interblock = 0;
+      /* The Darwin libraries never set errno, so we might as well
+	 avoid calling them when that's the only reason we would.  */
+      flag_errno_math = 0;
+      /* Trapping math is not needed by many users, and is expensive.
+	 C99 permits us to default it off and we do that.  It is
+	 turned on when <fenv.h> is included (see darwin_pragma_fenv
+	 in darwin-c.c).  */
+      flag_trapping_math = 0;
+    }
+}
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* Do anything needed at the start of the asm file.  */
 

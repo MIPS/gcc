@@ -5993,6 +5993,13 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 
   current_function_decl = pushdecl (decl1);
 
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  /* Build a mapping between this decl and the per-function options in
+     effect at this point.  */
+
+  record_func_cl_pf_opts_mapping (current_function_decl);
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
+
   push_scope ();
   declare_parm_level ();
 

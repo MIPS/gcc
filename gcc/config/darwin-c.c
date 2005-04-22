@@ -34,6 +34,11 @@ Boston, MA 02111-1307, USA.  */
 #include "prefix.h"
 /* APPLE LOCAL include options.h */
 #include "options.h"
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+#include "flags.h"
+#include "opts.h"
+#include "varray.h"
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* Pragmas.  */
 
@@ -305,7 +310,7 @@ darwin_pragma_reverse_bitfields (cpp_reader *pfile ATTRIBUTE_UNUSED)
   tree t;
 
   if (c_lex (&t) != CPP_NAME)
-    BAD ("malformed '#pragma options', ignoring");
+    BAD ("malformed '#pragma reverse_bitfields', ignoring");
   arg = IDENTIFIER_POINTER (t);
 
   if (!strcmp (arg, "on"))
@@ -318,6 +323,108 @@ darwin_pragma_reverse_bitfields (cpp_reader *pfile ATTRIBUTE_UNUSED)
     warning ("junk at end of '#pragma reverse_bitfields'");
 }
 /* APPLE LOCAL end pragma reverse_bitfields */
+
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+varray_type va_opt;
+
+static void
+push_opt_level (int level, int size)
+{
+  if (!va_opt)
+    VARRAY_INT_INIT (va_opt, 5, "va_opt");
+  VARRAY_PUSH_INT (va_opt, size << 16 | level);
+}
+
+static void
+pop_opt_level (void)
+{
+  int level;
+  if (!va_opt)
+    VARRAY_INT_INIT (va_opt, 5, "va_opt");
+  if (!VARRAY_ACTIVE_SIZE (va_opt))
+    {
+      warning ("optimization pragma stack underflow");
+      return;
+    }
+  level = VARRAY_TOP_INT (va_opt);
+  VARRAY_POP (va_opt);
+
+  optimize_size = level >> 16;
+  optimize = level & 0xffff;
+}
+
+void
+darwin_pragma_opt_level  (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  tree t;
+  enum cpp_ttype argtype = c_lex (&t);
+
+  if (argtype == CPP_NAME)
+    {
+      const char* arg = IDENTIFIER_POINTER (t);
+      if (strcmp (arg, "reset") != 0)
+	BAD ("malformed '#pragma optimization_level [GCC] {0|1|2|3|reset}', ignoring");
+      pop_opt_level ();
+    }
+  else if (argtype == CPP_NUMBER)
+    {
+      if (TREE_CODE (t) != INTEGER_CST
+	  || INT_CST_LT (t, integer_zero_node)
+	  || TREE_INT_CST_HIGH (t) != 0)
+	BAD ("malformed '#pragma optimization_level [GCC] {0|1|2|3|reset}', ignoring");
+
+      push_opt_level (optimize, optimize_size);
+      optimize = TREE_INT_CST_LOW (t);
+      if (optimize > 3)
+	optimize = 3;
+      optimize_size = 0;
+    }
+  else
+    BAD ("malformed '#pragma optimization_level [GCC] {0|1|2|3|reset}', ignoring");
+
+  set_flags_from_O (false);
+
+  /* This is expected to be defined in each target. */
+  reset_optimization_options (optimize, optimize_size);
+
+  if (c_lex (&t) != CPP_EOF)
+    warning ("junk at end of '#pragma optimization_level'");
+}
+
+void
+darwin_pragma_opt_size  (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  const char* arg;
+  tree t;
+
+  if (c_lex (&t) != CPP_NAME)
+    BAD ("malformed '#pragma optimize_for_size { on | off | reset}', ignoring");
+  arg = IDENTIFIER_POINTER (t);
+
+  if (!strcmp (arg, "on"))
+    {
+      push_opt_level (optimize, optimize_size);
+      optimize_size = 1;
+      optimize = 2;
+    }
+  else if (!strcmp (arg, "off"))
+    /* Not clear what this should do exactly.  CW does not do a pop so
+       we don't either.  */
+    optimize_size = 0;
+  else if (!strcmp (arg, "reset"))
+    pop_opt_level ();
+  else
+    BAD ("malformed '#pragma optimize_for_size { on | off | reset }', ignoring");
+
+  set_flags_from_O (false);
+
+  /* This is expected to be defined in each target. */
+  reset_optimization_options (optimize, optimize_size);
+
+  if (c_lex (&t) != CPP_EOF)
+    warning ("junk at end of '#pragma optimize_for_size'");
+}
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 static struct {
   size_t len;

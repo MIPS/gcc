@@ -276,7 +276,8 @@ typedef struct loop_mem_info
 {
   rtx mem;      /* The MEM itself.  */
   rtx reg;      /* Corresponding pseudo, if any.  */
-  int optimize; /* Nonzero if we can optimize access to this MEM.  */
+  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+  int optimizable; /* Nonzero if we can optimize access to this MEM.  */
 } loop_mem_info;
 
 
@@ -10581,7 +10582,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
 	  /* The modes of the two memory accesses are different.  If
 	     this happens, something tricky is going on, and we just
 	     don't optimize accesses to this MEM.  */
-	  loop_info->mems[i].optimize = 0;
+	  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	  loop_info->mems[i].optimizable = 0;
 
 	return 0;
       }
@@ -10604,7 +10606,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
      because we can't put it in a register.  We still store it in the
      table, though, so that if we see the same address later, but in a
      non-BLK mode, we'll not think we can optimize it at that point.  */
-  loop_info->mems[loop_info->mems_idx].optimize = (GET_MODE (m) != BLKmode);
+  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+  loop_info->mems[loop_info->mems_idx].optimizable = (GET_MODE (m) != BLKmode);
   loop_info->mems[loop_info->mems_idx].reg = NULL_RTX;
   ++loop_info->mems_idx;
 
@@ -10851,7 +10854,8 @@ load_mems (const struct loop *loop)
       if (MEM_VOLATILE_P (mem)
 	  || loop_invariant_p (loop, XEXP (mem, 0)) != 1)
 	/* There's no telling whether or not MEM is modified.  */
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
       /* Go through the MEMs written to in the loop to see if this
 	 one is aliased by one of them.  */
@@ -10864,7 +10868,8 @@ load_mems (const struct loop *loop)
 				    mem, rtx_varies_p))
 	    {
 	      /* MEM is indeed aliased by this store.  */
-	      loop_info->mems[i].optimize = 0;
+	      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	      loop_info->mems[i].optimizable = 0;
 	      break;
 	    }
 	  mem_list_entry = XEXP (mem_list_entry, 1);
@@ -10872,11 +10877,13 @@ load_mems (const struct loop *loop)
 
       if (flag_float_store && written
 	  && GET_MODE_CLASS (GET_MODE (mem)) == MODE_FLOAT)
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
       /* If this MEM is written to, we must be sure that there
 	 are no reads from another MEM that aliases this one.  */
-      if (loop_info->mems[i].optimize && written)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (loop_info->mems[i].optimizable && written)
 	{
 	  int j;
 
@@ -10892,7 +10899,8 @@ load_mems (const struct loop *loop)
 		  /* It's not safe to hoist loop_info->mems[i] out of
 		     the loop because writes to it might not be
 		     seen by reads from loop_info->mems[j].  */
-		  loop_info->mems[i].optimize = 0;
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+		  loop_info->mems[i].optimizable = 0;
 		  break;
 		}
 	    }
@@ -10901,9 +10909,11 @@ load_mems (const struct loop *loop)
       if (maybe_never && may_trap_p (mem))
 	/* We can't access the MEM outside the loop; it might
 	   cause a trap that wouldn't have happened otherwise.  */
-	loop_info->mems[i].optimize = 0;
+        /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
-      if (!loop_info->mems[i].optimize)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (!loop_info->mems[i].optimizable)
 	/* We thought we were going to lift this MEM out of the
 	   loop, but later discovered that we could not.  */
 	continue;
@@ -10966,7 +10976,8 @@ load_mems (const struct loop *loop)
 				      CALL_INSN_FUNCTION_USAGE (p)))
 		{
 		  cancel_changes (0);
-		  loop_info->mems[i].optimize = 0;
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+		  loop_info->mems[i].optimizable = 0;
 		  break;
 		}
 	      else
@@ -10980,11 +10991,13 @@ load_mems (const struct loop *loop)
 	    maybe_never = 1;
 	}
 
-      if (! loop_info->mems[i].optimize)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (! loop_info->mems[i].optimizable)
 	; /* We found we couldn't do the replacement, so do nothing.  */
       else if (! apply_change_group ())
 	/* We couldn't replace all occurrences of the MEM.  */
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
       else
 	{
 	  /* Load the memory immediately before LOOP->START, which is

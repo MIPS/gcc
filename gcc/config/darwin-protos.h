@@ -89,6 +89,10 @@ extern void darwin_pragma_unused (struct cpp_reader *);
 extern void darwin_pragma_fenv (struct cpp_reader *);
 /* APPLE LOCAL pragma reverse_bitfields */
 extern void darwin_pragma_reverse_bitfields (struct cpp_reader *);
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+extern void darwin_pragma_opt_level (struct cpp_reader *);
+extern void darwin_pragma_opt_size (struct cpp_reader *);
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 extern void darwin_pragma_pack (struct cpp_reader *);
@@ -169,6 +173,8 @@ extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+extern void reset_optimization_options (int, int);
 /* APPLE LOCAL C++ EH */
 extern void darwin_non_lazy_pcrel (FILE *file, rtx addr);
 

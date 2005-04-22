@@ -202,21 +202,8 @@ enum graph_dump_types graph_dump_format;
 
 const char *asm_file_name;
 
-/* Nonzero means do optimizations.  -O.
-   Particular numeric values stand for particular amounts of optimization;
-   thus, -O2 stores 2 here.  However, the optimizations beyond the basic
-   ones are not controlled directly by this variable.  Instead, they are
-   controlled by individual `flag_...' variables that are defaulted
-   based on this variable.  */
-
-int optimize = 0;
-
-/* Nonzero means optimize for size.  -Os.
-   The only valid values are zero and nonzero. When optimize_size is
-   nonzero, optimize defaults to 2, but certain individual code
-   bloating optimizations are disabled.  */
-
-int optimize_size = 0;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* The FUNCTION_DECL for the function currently being compiled,
    or 0 if between functions.  */
@@ -1454,11 +1441,23 @@ print_switch_values (FILE *file, int pos, int max,
 
   for (j = 0; j < cl_options_count; j++)
     {
-      if (!cl_options[j].flag_var
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+      if (!(cl_options[j].flag_var || cl_options[j].access_flag)
 	  || !(cl_options[j].flags & CL_REPORT))
 	continue;
 
-      if (cl_options[j].has_set_value)
+      if (cl_options[j].access_flag && !cl_options[j].has_set_value)
+	{
+	  if (!(cl_options[j].access_flag (0, 0)))
+	    continue;
+	}
+      else if (cl_options[j].access_flag && cl_options[j].has_set_value)
+	{
+	  if ((cl_options[j].access_flag (0, 0)) != cl_options[j].set_value)
+	    continue;
+	}
+      else if (cl_options[j].has_set_value)
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 	{
 	  if (*cl_options[j].flag_var != cl_options[j].set_value)
 	    continue;

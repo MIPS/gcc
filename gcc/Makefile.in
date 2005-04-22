@@ -1582,7 +1582,8 @@ options.h: optionlist $(srcdir)/opt-functions.awk $(srcdir)/opth-gen.awk
 	$(AWK) -f $(srcdir)/opt-functions.awk -f $(srcdir)/opth-gen.awk \
 	       < $< > $@
 
-options.o: options.c options.h opts.h intl.h
+# APPLE LOCAL optimization pragmas 3124235/3420242
+options.o: options.c options.h opts.h intl.h config.h system.h hwint.h coretypes.h
 
 dumpvers: dumpvers.c
 
@@ -1788,12 +1789,14 @@ tree-ssa-alias.o : tree-ssa-alias.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) tree-inline.h $(FLAGS_H) \
    function.h $(TIMEVAR_H) convert.h $(TM_H) coretypes.h \
    langhooks.h $(TREE_DUMP_H) tree-pass.h params.h
+# APPLE LOCAL begin optimization pragmas 3124235/3420242
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h $(FLAGS_H) \
    $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) toplev.h function.h \
    langhooks.h $(FLAGS_H) $(CGRAPH_H) tree-inline.h tree-mudflap.h $(GGC_H) \
-   $(CGRAPH_H) tree-pass.h
+   $(CGRAPH_H) tree-pass.h opts.h
+# APPLE LOCAL end optimization pragmas 3124235/3420242
 c-gimplify.o : c-gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h $(TREE_GIMPLE_H) varray.h $(FLAGS_H) \
    langhooks.h toplev.h rtl.h $(TREE_FLOW_H) langhooks-def.h \

@@ -2669,8 +2669,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 /* General flags.  */
 extern int flag_pic;
-extern int optimize;
-extern int flag_expensive_optimizations;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 extern int frame_pointer_needed;
 
 enum rs6000_builtins

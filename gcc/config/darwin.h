@@ -1252,6 +1252,16 @@ enum machopic_addr_class {
     c_register_pragma (0, "reverse_bitfields",			\
 			darwin_pragma_reverse_bitfields);	\
     /* APPLE LOCAL end pragma reverse_bitfields */		\
+    /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */\
+    c_register_pragma (0, "optimization_level",			\
+			darwin_pragma_opt_level);		\
+    c_register_pragma (0, "optimize_for_size",			\
+			darwin_pragma_opt_size);		\
+    c_register_pragma ("GCC", "optimization_level",		\
+			darwin_pragma_opt_level);		\
+    c_register_pragma ("GCC", "optimize_for_size",		\
+			darwin_pragma_opt_size);		\
+    /* APPLE LOCAL end optimization pragmas 3124235/3420242 */	\
     /* APPLE LOCAL begin too many changes confuse diff */	\
   } while (0)
 /* APPLE LOCAL end too many changes confuse diff */

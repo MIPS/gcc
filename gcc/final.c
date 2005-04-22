@@ -1335,7 +1335,8 @@ asm_insn_count (rtx body)
 
 void
 final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
-		      int optimize ATTRIBUTE_UNUSED)
+		    /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+		      int optimizing ATTRIBUTE_UNUSED)
 {
   block_depth = 0;
 
@@ -1502,7 +1503,8 @@ final_end_function (void)
    Prescanning is done only on certain machines.  */
 
 void
-final (rtx first, FILE *file, int optimize, int prescan)
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+final (rtx first, FILE *file, int optimizing, int prescan)
 {
   rtx insn;
   int max_uid = 0;
@@ -1544,7 +1546,8 @@ final (rtx first, FILE *file, int optimize, int prescan)
 #ifdef HAVE_cc0
       /* If CC tracking across branches is enabled, record the insn which
 	 jumps to each branch only reached from one place.  */
-      if (optimize && JUMP_P (insn))
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+      if (optimizing && JUMP_P (insn))
 	{
 	  rtx lab = JUMP_LABEL (insn);
 	  if (lab && LABEL_NUSES (lab) == 1)
@@ -1574,7 +1577,8 @@ final (rtx first, FILE *file, int optimize, int prescan)
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
 #endif /* HAVE_ATTR_length */
 
-      insn = final_scan_insn (insn, file, optimize, prescan, 0, &seen);
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+      insn = final_scan_insn (insn, file, optimizing, prescan, 0, &seen);
     }
 }
 
@@ -1671,7 +1675,8 @@ scan_ahead_for_unlikely_executed_note (rtx insn)
    first.  */
 
 rtx
-final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 		 int prescan, int nopeepholes ATTRIBUTE_UNUSED,
 		 int *seen)
 {
@@ -1884,7 +1889,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
       /* Disabled because some insns set cc_status in the C output code
 	 and NOTICE_UPDATE_CC alone can set incorrect status.  */
-      if (0 /* optimize && LABEL_NUSES (insn) == 1*/)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+      if (0 /* optimizing && LABEL_NUSES (insn) == 1*/)
 	{
 	  rtx jump = LABEL_REFS (insn);
 	  rtx barrier = prev_nonnote_insn (insn);
@@ -2232,7 +2238,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	   and the next statement should reexamine the variable
 	   to compute the condition codes.  */
 
-	if (optimize)
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+	if (optimizing)
 	  {
 	    if (set
 		&& GET_CODE (SET_DEST (set)) == CC0
@@ -2390,7 +2397,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef HAVE_peephole
 	/* Do machine-specific peephole optimizations if desired.  */
 
-	if (optimize && !flag_no_peephole && !nopeepholes)
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+	if (optimizing && !flag_no_peephole && !nopeepholes)
 	  {
 	    rtx next = peephole (insn);
 	    /* When peepholing, if there were notes within the peephole,
@@ -2401,7 +2409,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
-		  final_scan_insn (note, file, optimize, prescan, nopeepholes, seen);
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+		  final_scan_insn (note, file, optimizing, prescan, nopeepholes, seen);
 
 		/* In case this is prescan, put the notes
 		   in proper position for later rescan.  */

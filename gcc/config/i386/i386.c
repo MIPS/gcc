@@ -1711,6 +1711,43 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
   SUBTARGET_OPTIMIZATION_OPTIONS;
 #endif
 }
+
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* Version of the above for use from #pragma optimization_level.  Only
+   per-function flags are reset.  */
+
+void
+reset_optimization_options (int level, int size ATTRIBUTE_UNUSED)
+{
+  /* For -O2 and beyond, turn off -fschedule-insns by default.  It tends to
+     make the problem with not enough registers even worse.  */
+#ifdef INSN_SCHEDULING
+  if (level > 1)
+    flag_schedule_insns = 0;
+#endif
+
+  /* APPLE LOCAL begin pragma fenv */
+  /* Trapping math is not needed by many users, and is expensive.
+     C99 permits us to default it off and we do that.  It is
+     turned on when <fenv.h> is included (see darwin_pragma_fenv
+     in darwin-c.c).  */
+  flag_trapping_math = 0;
+  /* APPLE LOCAL end pragma fenv */
+
+  /* The default values of these switches depend on TARGET_64BIT
+     which was set earlier and not reset.  */
+  if (optimize >= 1)
+    {
+      if (TARGET_64BIT)
+	flag_omit_frame_pointer = 1;
+      else
+	flag_omit_frame_pointer = 0;
+    }
+#ifdef SUBTARGET_OPTIMIZATION_OPTIONS
+  SUBTARGET_OPTIMIZATION_OPTIONS;
+#endif
+}
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* Table of valid machine attributes.  */
 const struct attribute_spec ix86_attribute_table[] =

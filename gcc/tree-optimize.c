@@ -47,6 +47,8 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "cgraph.h"
 #include "graph.h"
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+#include "opts.h"
 
 
 /* Global variables used to communicate with passes.  */
@@ -618,6 +620,12 @@ tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *saved_node = NULL, *node;
+
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  /* Restore per-function optimization flags to what they were at
+     the time we saw the function definition.  */
+  restore_func_cl_pf_opts_mapping (fndecl);
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
   timevar_push (TV_EXPAND);
 

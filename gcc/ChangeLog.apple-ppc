@@ -1,5 +1,109 @@
 2005-04-21  Dale Johannesen  <dalej@apple.com>
 
+	Radar 3124235
+	* Makefile.in (options.o):  New dependencies.
+	(tree-optimize.o):  Ditto.
+	* c-decl.c (start_function):  Record perfunc flags.
+	* common.opt (falign-jumps, falign-labels, falign-loops):
+	Add PerFunc, VarUint, VarExists.
+	(fbranch-count-reg, fbranch-target-load-optimize,
+	fbranch-target-load-optimize2, fbtr-bb-exclusive, 
+	fcaller-saves, fcprop-registers, fcrossjumping,
+	fcse-follow-jumps, fcse-skip-blocks, fcx-limited-range,
+	fdefer-pop, fdelayed-branch, fdelete-null-pointer-checks,
+	fexpensive-optimizations, ffinite-math-only, ffloat-store,
+	fforce-addr, fforce-mem, ffunction-cse, fgcse, fgcse-lm,
+	fgcse-sm, fgcse-las, fgcse-after-reload, 
+	fguess-branch-probability, fif-conversion, fif-conversion2,
+	fivopts, floop-optimize, floop-optimize2, fmath-errno,
+	fmodulo-sched, fmove-loop-invariants, 
+	freschedule-modulo-scheduled-loops, fomit-frame-pointer,
+	foptimize-register-move, foptimize-sibling-calls, fpeel-loops,
+	fpeephole, fpeephole2, fprefetch-loop-arrays, fregmove,
+	frename-registers, freorder-blocks, freorder-blocks-and-partition,
+	frerun-cse-after-loop, frerun-loop-opt, frounding-math,
+	fsched-interblock, fsched-spec, fsched-spec-load, 
+	fsched-spec-load-dangerous, fsched2-use-superblocks,
+	fsched2-use-traces, fschedule-insns, fschedule-insns2,
+	fsignaling-nans, fsplit-ivs-in-unroller, 
+	fvariable-expansion-in-unroller, fstrength-reduce,
+	fthread-jumps, ftracer, ftrapping-math, ftrapv, ftree-ccp,
+	ftree-ch, ftree-combine-temps, ftree-copyrename, ftree-dce,
+	ftree-dominator-opts, ftree-dse, ftree-fre, ftree-loop-im,
+	ftree-loop-linear, ftree-loop-ivcanon, ftree-loop-memset,
+	ftree-loop-optimize, ftree-pre, ftree-sra, ftree-ter,
+	ftree-lrs, funroll-loops, funroll-all-loops, 
+	funsafe-math-optimizations, funswitch-loops, ftree-vectorize,
+	fweb, fwrapv): Add PerFunc.
+	(fsched-verbose):  Add Var, UInteger, PerFunc, VarUint.
+	(fsched-stalled-insns-dep):  Add PerFunc, VarUint.
+	(p): Add VarExists.
+	* final.c (asm_insn_count):  Replace "optimize" by "optimizing".
+	(final):  Ditto.
+	(final_scan_insn):  Ditto.
+	* flags.h (optimize, optimize_size):  Remove.
+	* haifa-sched.c (sched_verbose_param):  Remove.
+	(fix_sched_param):  Remove.
+	* loop.c (struct loop_mem_info): Replace "optimize" by "optimizable".
+	(insert_loop_mem, load_mems):  Adjust references.
+	* opt-functions.awk (flag_set_p):  New.
+	(switch_flags):  Add VarUint, PerFunc.
+	(var_ref):  Handle them.
+	(access_ref):  New.
+	* optc-gen.awk (END):  Substantial rewrite to handle PerFunc,
+	VarUint.
+	* opth-gen.awk (END):  Ditto.
+	* opts.c (hashtab.h):  New include.
+	(handle_option):  Use access_flag.
+	(set_flags_from_O):  New.
+	(decode_options):  Split out set_flags_from_O. Save
+	cl_pf_opts_cooked.
+	(common_handle_options):  Remove special cases for
+	align-functions, align-jumps, align-labels, 
+	align-loops, sched-verbose, sched-stalled-insns-dep.
+	Use access_flag.
+	(cl_perfunc_opts_hash_table, hash_cl_perfunc_opts,
+	cmp_cl_perfunc_opts, make_perfunc_opts, 
+	func_cl_pf_opts_mapping_hash_table, struct func_cl_pf_opts_mapping,
+	func_cl_pf_opts_mapping_hash, func_cl_pf_opts_mapping_eq,
+	record_func_cl_pf_opts_mapping, restore_func_cl_pf_opts_mapping, 
+	copy_func_cl_pf_opts_mapping):  New.
+	* opts.h (set_flags_from_O, record_func_cl_pf_opts_mapping,
+	restore_func_cl_pf_opts_mapping, copy_func_cl_pf_opts_mapping):  New.
+	(struct cl_option):  Add access_flag.
+	(CL_VARUINT, CL_PERFUNC):  New.
+	* toplev.c (optimize, optimize_size):  Remove.
+	(print_switch_values):  Use access_flag.
+	* toplev.h (flag_loop_optimize, flag_crossjumping, flag_if_conversion,
+	flag_if_conversion2, flag_peel_loops, flag_rerun_cse_after_loops,
+	flag_thread_jumps, flag_tracer, flag_unroll_loops, 
+	flag_unroll_all_loops, flag_unswitch_loops, flag_cprop_registers,
+	flag_loop_optimize2):  Remove.
+	* tree-optimize.c (opts.h):  New include.
+	(tree_rest_of_compilation):  Restore saved opts from definition.
+	* config/darwin-c.c (flags.h, opts.h, varray.h):  New includes.
+	(darwin_pragma_reverse_bitfields):  Fix obvious spelling bug.
+	(va_opt, push_opt_level, pop_opt_level, darwin_pragma_opt_level,
+	darwin_pragma_opt_size):  New.
+	* config/darwin-protos.h (darwin_pragma_opt_level,
+	darwin_pragma_opt_size, reset_optimization_options):  New.
+	* config/darwin.h (DARWIN_REGISTER_TARGET_PRAGMAS):
+	Add optimization_level, optimize_for_size.
+	* config/t-darwin (darwin-c.o):  New dependencies.
+	* config/i386/i386.c (reset_optimization_options):  New.
+	* config/rs6000/rs6000.c (reset_optimization_options):  New.
+	* config/rs6000/rs6000.h (optimize, flag_expensive_optimizations):  Remove.
+	* cp/Make-lang.in (cp/decl.o):  New dependency.
+	* cp/decl.c (opts.h):  New include.
+	(build_library_fn_1):  Record perfunc opts.
+	(start_preparsed_function): Propagate saved opts to existing forward decl.
+	(start_function):  Record perfunc opts.
+	* doc/extend.texi (pragma optimization_level, optimize_for_size):
+	Document.
+	* objc/objc-act.c (objc_start_function):  Record perfunc opts.
+
+2005-04-21  Dale Johannesen  <dalej@apple.com>
+
 	Radar 4080945
 	PR 20742
 	* params.def (PARAM_SCEV_MAX_EXPR_SIZE):  New.

@@ -51,6 +51,8 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "timevar.h"
 #include "tree-flow.h"
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+#include "opts.h"
 
 static tree grokparms (cp_parameter_declarator *, tree *);
 static const char *redeclaration_error_message (tree, tree);
@@ -3312,6 +3314,11 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
      external shared object.  */
   DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
   DECL_VISIBILITY_SPECIFIED (fn) = 1;
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  /* Build a mapping between this decl and the per-function options in
+     effect at this point.  */
+  record_func_cl_pf_opts_mapping (fn);
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
   return fn;
 }
 
@@ -10202,9 +10209,14 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	       parsing the body of the function.  */
 	    ;
 	  else
-	    /* Otherwise, OLDDECL is either a previous declaration of
-	       the same function or DECL1 itself.  */
-	    decl1 = olddecl;
+	    /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+	    {
+	      /* Otherwise, OLDDECL is either a previous declaration of
+		 the same function or DECL1 itself.  */
+	      copy_func_cl_pf_opts_mapping (decl1, olddecl);
+	      decl1 = olddecl;
+	    }
+	    /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 	}
       else
 	{
@@ -10393,6 +10405,12 @@ start_function (cp_decl_specifier_seq *declspecs,
   /* If #pragma weak was used, mark the decl weak now.  */
   if (global_scope_p (current_binding_level))
     maybe_apply_pragma_weak (decl1);
+
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  /* Build a mapping between this decl and the per-function options in
+     effect at this point.  */
+  record_func_cl_pf_opts_mapping (decl1);
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
   if (DECL_MAIN_P (decl1))
     /* main must return int.  grokfndecl should have corrected it

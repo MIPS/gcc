@@ -8403,6 +8403,11 @@ objc_start_function (tree name, tree type, tree attrs,
   TREE_STATIC (fndecl) = 1;
   retrofit_lang_decl (fndecl);
   cplus_decl_attributes (&fndecl, attrs, 0);
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  /* Build a mapping between this decl and the per-function options in
+     effect at this point.  */
+  record_func_cl_pf_opts_mapping (fndecl);
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
   struct c_label_context *nstack;
@@ -8422,6 +8427,11 @@ objc_start_function (tree name, tree type, tree attrs,
   DECL_EXTERNAL (fndecl) = 0;
   TREE_STATIC (fndecl) = 1;
   current_function_decl = pushdecl (fndecl);
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  /* Build a mapping between this decl and the per-function options in
+     effect at this point.  */
+  record_func_cl_pf_opts_mapping (fndecl);
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
   push_scope ();
   declare_parm_level ();
   DECL_RESULT (current_function_decl)
