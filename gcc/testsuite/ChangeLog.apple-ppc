@@ -1,3 +1,7 @@
+2005-04-22  Devang Patel  <dpatel@apple.com>
+
+	* gcc.apple/falign-loops-max-skip-3.c: Fix typo.
+
 2005-04-21  Dale Johannesen  <dalej@apple.com>
 
 	* gcc.apple/opt-pragma-[1-5].c:  New.
