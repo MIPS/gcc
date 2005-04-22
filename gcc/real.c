@@ -2230,6 +2230,8 @@ real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
   fmt = REAL_MODE_FORMAT (mode);
   gcc_assert (fmt);
 
+  if (fmt->b == 10)
+    return decimal_real_maxval (r, sign, mode);
   r->cl = rvc_normal;
   r->sign = sign;
   r->signalling = 0;

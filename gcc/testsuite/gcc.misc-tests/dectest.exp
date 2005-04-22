@@ -21,6 +21,7 @@
 # Contributed by Ben Elliston <bje@au.ibm.com>.
 
 # Override torture options for now (-O0 will do just fine).
+# Note: Using -O2 here will test constant folding. 
 set TORTURE_OPTIONS [list {-O0 -msoft-float}]
 
 # Load support procs (borrow these from c-torture).
@@ -299,10 +300,10 @@ proc process-directive { line } {
 proc c-operand {operand} {
 
     if [string match "-Infinity" $operand] {
-	return "-DEC_INFINITY"
+	return "-__builtin_infdf()"
     } 
     if [string match "Infinity" $operand] {
-        return "DEC_INFINITY"
+        return "__builtin_infdf()"
     }
 
     if {[string first . $operand] < 0 && \

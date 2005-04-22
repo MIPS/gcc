@@ -1,4 +1,10 @@
-2005-04-19  Jon Grimm  <jgrimm2@us.ibm.>
+2005-04-19  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/constants-arith-1.c (main): Add tests for infinities.
+	* gcc.misc-tests/dectest.exp (process-directive) : Output
+	__builtin_infdf() to represent DEC_INFINITY.
+
+2005-04-19  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (c-test-preamble): Include math.h.
 	(c-decimal-type): Return type based on precision directive.

@@ -8153,6 +8153,9 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_INF:
     case BUILT_IN_INFF:
     case BUILT_IN_INFL:
+    case BUILT_IN_INFDF:
+    case BUILT_IN_INFDD:
+    case BUILT_IN_INFDL:
       return fold_builtin_inf (type, true);
 
     case BUILT_IN_HUGE_VAL:

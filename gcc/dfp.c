@@ -40,15 +40,15 @@ static decNumber dn;
 static decNumber dn2;
 static decNumber dn3;
 static decContext set;
+static char string[256];
 
+/* Initialize a REAL_VALUE_TYPE (decimal encoded) from a decNumber. 
+   Can utilize status passed in via decContext parameter, if some
+   previous operation had interesting status. */
 static void
 decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
 {
   memset (r, 0, sizeof (REAL_VALUE_TYPE));
-  decimal128FromNumber((decimal128 *)r->sig, dn, set);
-
-  if (decNumberIsNegative (dn))
-    r->sign = 1;
 
   r->cl = rvc_normal;
   if (decNumberIsZero (dn))
@@ -57,7 +57,19 @@ decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
     r->cl = rvc_nan;
   if (decNumberIsInfinite (dn))
     r->cl = rvc_inf;
+  if (set->status & DEC_Overflow)
+    r->cl = rvc_inf;
+  if (decNumberIsNegative (dn))
+    r->sign = 1;
   r->decimal = 1;
+
+  if (r->cl != rvc_normal)
+    return;
+
+  decContextDefault (set, DEC_INIT_DECIMAL128);
+  set->traps = 0;
+
+  decimal128FromNumber((decimal128 *)r->sig, dn, set);
 }
 
 /* Create decimal encoded r from string. */
@@ -87,16 +99,48 @@ decimal_real_from_string (REAL_VALUE_TYPE *r, const char *s,
     decimal_from_string (r, s);
 }
 
+/* Initialize a decNumber from a GCC REAL_VALUE_TYPE. */
+static void
+decimal_to_decnumber (const REAL_VALUE_TYPE *r, decNumber *dn)
+{
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
+  switch (r->cl)
+    {
+    case rvc_zero:
+      decNumberZero (dn);
+    case rvc_inf:
+      decNumberFromString (dn, (char *)"Infinity", &set);
+      break;
+    case rvc_nan:
+      if (r->signalling)
+        decNumberFromString (dn, (char *)"snan", &set);
+      else
+        decNumberFromString (dn, (char *)"nan", &set);
+      break;
+    case rvc_normal:
+      gcc_assert (r->decimal);
+      decimal128ToNumber((decimal128 *)r->sig, dn);
+      break;
+    default:
+      gcc_unreachable();
+    }
+  /* Fix up sign bit. */
+  if (r->sign != decNumberIsNegative (dn))
+    decNumberNegate (dn);
+ 
+}
+
 void 
 encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  long *buf, const REAL_VALUE_TYPE *r)
 {
   decimal32 d32;
 
-  decContextDefault(&set, DEC_INIT_DECIMAL128);
-  set.traps=0;
-  decimal128ToNumber((decimal128 *)r->sig, &dn);
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
 
+  decimal_to_decnumber (r, &dn); 
   decimal32FromNumber(&d32, &dn, &set);
 
   buf[0] = *(long *)d32.bytes;
@@ -109,7 +153,6 @@ void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   /* FIXME: Do something. */
 }
 
-static char string[256];
 
 void 
 encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
@@ -117,10 +160,10 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 {
   decimal64 d64;
 
-  decContextDefault(&set, DEC_INIT_DECIMAL128);
-  set.traps=0;
-  decimal128ToNumber((decimal128 *)r->sig, &dn);
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
 
+  decimal_to_decnumber (r, &dn);
   decimal64FromNumber(&d64, &dn, &set);
 
   if (FLOAT_WORDS_BIG_ENDIAN)
@@ -147,26 +190,27 @@ void
 encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		   long *buf, const REAL_VALUE_TYPE *r)
 {
-  decimal128 *d128;
-  /* Already in decimal128 form. */
-  d128 = (decimal128 *)r->sig;
+  decimal128 d128;
 
-  /* Still in intermediate representation, so sign
-     is seperate from encoding. */
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
+
+  decimal_to_decnumber (r, &dn);
+  decimal128FromNumber (&d128, &dn, &set);
 
   if (FLOAT_WORDS_BIG_ENDIAN)
     {
-      buf[0] = *(long *)&d128->bytes[0];
-      buf[1] = *(long *)&d128->bytes[4];
-      buf[2] = *(long *)&d128->bytes[8];
-      buf[3] = *(long *)&d128->bytes[12];
+      buf[0] = *(long *)&d128.bytes[0];
+      buf[1] = *(long *)&d128.bytes[4];
+      buf[2] = *(long *)&d128.bytes[8];
+      buf[3] = *(long *)&d128.bytes[12];
     }
   else
     {
-      buf[0] = *(long *)&d128->bytes[12];
-      buf[1] = *(long *)&d128->bytes[8];
-      buf[2] = *(long *)&d128->bytes[4];
-      buf[3] = *(long *)&d128->bytes[0];
+      buf[0] = *(long *)&d128.bytes[12];
+      buf[1] = *(long *)&d128.bytes[8];
+      buf[2] = *(long *)&d128.bytes[4];
+      buf[3] = *(long *)&d128.bytes[0];
     }
 }
 
@@ -246,6 +290,13 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
 void
 decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
 {
+
+  /* Real encoding occurs later. */
+  if (r->cl != rvc_normal)
+    return;
+
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
   decimal128ToNumber((decimal128 *)r->sig, &dn);
 
   if (fmt == &decimal_quad_format)
@@ -256,19 +307,25 @@ decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
   else if (fmt == &decimal_single_format)
     {
       decimal32 d32;
+      decContextDefault (&set, DEC_INIT_DECIMAL32);
+      set.traps = 0;
+
       decimal32FromNumber (&d32, &dn, &set);
       decimal32ToNumber (&d32, &dn);
     }
   else if (fmt == &decimal_double_format)
     {
       decimal64 d64;
+      decContextDefault (&set, DEC_INIT_DECIMAL64);
+      set.traps = 0;
+
       decimal64FromNumber (&d64, &dn, &set);
       decimal64ToNumber (&d64, &dn);
     }
   else
     gcc_unreachable();
 
-  decimal128FromNumber((decimal128 *)r->sig, &dn, &set);
+  decimal_from_decnumber (r, &dn, &set);
 }
 
 /* Helper to real_convert, handling conversions between binary and decimal
@@ -309,10 +366,11 @@ static bool
 decimal_do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 		const REAL_VALUE_TYPE *op1, int subtract_p)
 {
+  decimal_to_decnumber(op0, &dn2);
+  decimal_to_decnumber(op1, &dn3);
+
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
-  decimal128ToNumber((decimal128 *)op0->sig, &dn2);
-  decimal128ToNumber((decimal128 *)op1->sig, &dn3);
 
   if (subtract_p)
     decNumberSubtract (&dn, &dn2, &dn3, &set);
@@ -322,39 +380,41 @@ decimal_do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
   decimal_from_decnumber (r, &dn, &set);
 
   /* Return true, if inexact. */
-  return (set.status == DEC_Inexact);
+  return (set.status & DEC_Inexact);
 }
 
 static bool
 decimal_do_multiply (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 		     const REAL_VALUE_TYPE *op1)
 {
+  decimal_to_decnumber(op0, &dn2);
+  decimal_to_decnumber(op1, &dn3);
+
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
-  decimal128ToNumber((decimal128 *)op0->sig, &dn2);
-  decimal128ToNumber((decimal128 *)op1->sig, &dn3);
 
   decNumberMultiply(&dn, &dn2, &dn3, &set);
   decimal_from_decnumber (r, &dn, &set);
 
   /* Return true, if inexact. */
-  return (set.status == DEC_Inexact);
+  return (set.status & DEC_Inexact);
 }
 
 static bool
 decimal_do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 		   const REAL_VALUE_TYPE *op1)
 {
+  decimal_to_decnumber(op0, &dn2);
+  decimal_to_decnumber(op1, &dn3);
+
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
-  decimal128ToNumber((decimal128 *)op0->sig, &dn2);
-  decimal128ToNumber((decimal128 *)op1->sig, &dn3);
 
   decNumberDivide (&dn, &dn2, &dn3, &set);
   decimal_from_decnumber (r, &dn, &set);
 
   /* Return true, if inexact. */
-  return (set.status == DEC_Inexact);
+  return (set.status & DEC_Inexact);
 }
 
 static void
@@ -453,3 +513,33 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
     }
   return false;
 }
+
+/* Fills R with the largest finite value representable in mode MODE.
+   If SIGN is nonzero, R is set to the most negative finite value.  */
+
+void
+decimal_real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
+{ 
+  char *max;
+
+  /* FIXME: These modes may not be defined on all platforms. */
+  switch (mode)
+    {
+    case SDmode:
+      max = (char *)"9.999999E96";
+      break;
+    case DDmode:
+      max = (char *)"9.999999999999999E384";
+      break;
+    case TDmode:
+      max = (char *)"9.999999999999999999999999999999999E6144";
+      break;
+    default:
+      gcc_unreachable();
+    }
+
+  decimal_from_string(r, max);
+  if (sign)
+    r->sig[0] |= 0x80000000;
+}
+

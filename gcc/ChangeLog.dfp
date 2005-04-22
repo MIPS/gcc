@@ -1,3 +1,17 @@
+2005-04-22  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* builtins.c (fold_builtin_1): Add builtins for dfp infinity.
+	* builtins.def: Add builtins for dfp infinity.
+	* dfp.c (decimal_from_decnumber): Handle non-number cases better.
+	(decimal_to_decnumber): New function.
+	(encode_decimal32, encode_decimal64, encode_decimal128, 
+	decimal_round_for_format, decimal_do_add, decimal_do_multiply,
+	decimal_do_divide): Use new decimal_to/from_decnumber utility
+	functions, so non-numeric values get accounted for.
+	(decimal_real_max_value): Return largest finite value for type.
+	* dfp.h (decimal_real_max_value): Prototype.
+	* real.c (real_max_value): Call helper for decimal floats.
+
 2005-04-19  Ben Elliston  <bje@au.ibm.com>
 
 	* real.h (REAL_VALUE_TYPE_SIZE): Revert changes from 2004-04-04.
