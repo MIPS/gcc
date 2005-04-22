@@ -1116,6 +1116,7 @@ machopic_select_section (tree exp, int reloc,
 {
   void (*base_function)(void);
   bool weak_p = DECL_P (exp) && DECL_WEAK (exp);
+  /* APPLE LOCAL begin mainline 2005-04-15 <radar 4078608> */
   static void (* const base_funs[][2])(void) = {
     { text_section, text_coal_section },
     { unlikely_text_section, text_unlikely_coal_section },
@@ -1123,6 +1124,7 @@ machopic_select_section (tree exp, int reloc,
     { const_data_section, const_data_coal_section },
     { data_section, data_coal_section }
   };
+  /* APPLE LOCAL end mainline 2005-04-15 <radar 4078608> */
 
   if (TREE_CODE (exp) == FUNCTION_DECL)
     base_function = base_funs[reloc][weak_p];
