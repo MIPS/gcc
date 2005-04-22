@@ -561,6 +561,14 @@ extern int flag_hosted;
 
 extern int warn_bad_function_cast;
 
+/* Warn when casting a pointer to an integer whose size is different. */
+
+extern int warn_pointer_to_int_cast;
+
+/* Warn when casting to a pointer from an integer of different size. */
+
+extern int warn_int_to_pointer_cast;
+
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 extern int warn_traditional;

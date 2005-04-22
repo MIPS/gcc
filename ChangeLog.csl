@@ -1,3 +1,22 @@
+2005-04-22  Michael Pogue  <michael.pogue@sun.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/c.opt (Wint-to-pointer-cast, Wpointer-to-int-cast): New
+	options.
+	* gcc/c-common.c (warn_pointer_to_int_cast,
+	warn_int_to_pointer_cast): New variables.
+	* gcc/c-common.h (warn_pointer_to_int_cast,
+	warn_int_to_pointer_cast): New declarations.
+	* gcc/c-opts.c (c_common_handle_option): Handle these options.
+	* gcc/c-typeck.c (build_c_cast): Check these options.
+	* gcc/doc/invoke.texi: Document these options.
+	* gcc/testsuite/gcc.dg/Wint-to-pointer-cast-1.c,
+	gcc/testsuite/gcc.dg/Wint-to-pointer-cast-2.c,
+	gcc/testsuite/gcc.dg/Wint-to-pointer-cast-3.c,
+	gcc/testsuite/gcc.dg/Wpointer-to-int-cast-1.c,
+	gcc/testsuite/gcc.dg/Wpointer-to-int-cast-2.c,
+	gcc/testsuite/gcc.dg/Wpointer-to-int-cast-3.c: New tests.
+
 2005-04-22  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/varasm.c (assemble_alias): Return early if

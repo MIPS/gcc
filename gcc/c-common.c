@@ -396,6 +396,14 @@ int flag_hosted = 1;
 
 int warn_bad_function_cast;
 
+/* Warn when casting a pointer to an integer whose size is different. */
+
+int warn_pointer_to_int_cast = 1;
+
+/* Warn when casting to a pointer from an integer of different size. */
+
+int warn_int_to_pointer_cast = 1;
+
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 int warn_traditional;

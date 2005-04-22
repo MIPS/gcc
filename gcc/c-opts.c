@@ -504,6 +504,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Silently ignore for now.  */
       break;
 
+    case OPT_Wint_to_pointer_cast:
+      warn_int_to_pointer_cast = value;
+      break;
+
     case OPT_Winvalid_offsetof:
       warn_invalid_offsetof = value;
       break;
@@ -581,6 +585,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wpointer_arith:
       warn_pointer_arith = value;
+      break;
+
+    case OPT_Wpointer_to_int_cast:
+      warn_pointer_to_int_cast = value;
       break;
 
     case OPT_Wprotocol:
