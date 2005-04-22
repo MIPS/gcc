@@ -184,6 +184,8 @@
 4078608: gcc.misc-tests/bprob-1.c compilation,  -fast  -fbranch-probabilities
 4078608: gcc.misc-tests/bprob-1.c compilation,  -fast  -ftree-based-profiling -fbranch-probabilities
 4078777: gcc.misc-tests/bprob-2.c execution,    -fast  -ftree-based-profiling -fprofile-arcs
+4096268: gcc.misc-tests/bprob-1.c execution,    -fast  -fbranch-probabilities
+4096268: gcc.misc-tests/bprob-1.c execution,    -fast  -ftree-based-profiling -fbranch-probabilities
 4078834: gcc.dg/pr18096-1.c stack frame too large (test for warnings, line 11)
 4078985: gcc.c-torture/compile/920617-1.c  -fast  (test for excess errors)
 4078985: gcc.c-torture/compile/991202-1.c  -fast  (test for excess errors)
