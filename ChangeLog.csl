@@ -1,3 +1,9 @@
+2005-04-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/varasm.c (assemble_alias): Return early if
+	TREE_ASM_WRITTEN (decl).
+	* gcc/testsuite/gcc.dg/weak/weak-13.c: New test.
+
 2005-04-06  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/c-decl.c (finish_decl): Apply pending #pragma weak
