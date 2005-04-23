@@ -143,6 +143,7 @@ model_invocation_base::find_method (resolution_scope *scope)
     {
       // Found it.
       method = *(applicable.begin ());
+      method->set_used ();
       return;
     }
 

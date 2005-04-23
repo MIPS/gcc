@@ -1,3 +1,8 @@
+2005-04-23  Tom Tromey  <tromey@redhat.com>
+
+	* model/invoke.cc (find_method): Call 'set_used' before early
+	return.
+
 2005-04-20  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/outpool.hh (class outgoing_constant_pool): Renamed
