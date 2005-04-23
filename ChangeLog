@@ -1,4 +1,13 @@
-2005-04-16  Paolo Bonzini  <bonzini@gnu.org>
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-04-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in (powerpc-*-darwin*): Add ${libgcj} to noconfigdirs.
+	* configure: Regenerated.
+
+2005-04-19  Paolo Bonzini  <bonzini@gnu.org>
 
 	* configure: Regenerate after change to config/acx.m4.
 

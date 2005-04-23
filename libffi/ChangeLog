@@ -1,3 +1,7 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
 2005-02-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* src/alpha/osf.S: Add .note.GNU-stack on Linux.
