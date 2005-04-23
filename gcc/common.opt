@@ -206,7 +206,7 @@ Common Report Var(align_functions,0)
 Align the start of functions
 
 falign-functions=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Var(align_functions) VarExists
 
 ; APPLE LOCAL begin optimization pragmas 3124235/3420242
 falign-jumps

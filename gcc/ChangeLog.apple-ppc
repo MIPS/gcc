@@ -1,3 +1,7 @@
+2005-04-22  Dale Johannesen   <dalej@apple.com>
+
+	* common.opt (falign-functions=):  Fix it.
+
 2005-04-22  Devang Patel  <dpatel@apple.com>
 
 	* config/rs6000/darwin.h: Update APPLE LOCAL markers to reflect
