@@ -96,13 +96,14 @@
 	* Merge from mainline tree-profiling-merge-20050402
 
 2005-03-29  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* ipa_static.h: Renamed ipa_static_address_not_taken_of_field to 
 	to ipa_static_field_does_not_clobber_p.
 	* ipa_static_vars_anal: Renamed 
 	ipa_static_address_not_taken_of_field to 
 	to ipa_static_field_does_not_clobber_p.  Fixed fast test to 
 	understand that it could not be applied to unions.
-       	* alias.c (nonoverlapping_memrefs_p): Renamed call.
+	* alias.c (nonoverlapping_memrefs_p): Renamed call.
 	* tree_ssa_alias.c (may_alias_p): Renamed call.
 
 2005-03-25  Jan Hubicka  <jh@suse.cz>
@@ -117,13 +118,13 @@
 
 2005-03-21  Razya Ladelsky  <razya@il.ibm.com>
 
-        * cgraphunit.c (cgraph_function_versioning): assign proper values to the 
-          TREE_DECL fields of the new version.
-        * gimplify.c (create_function_name): changed code to create a unique name 
-          for the versioned node.
-        * ipa_prop.c (constant_val_insert ): enable the insertion of the constant 
-          to the (versioned) function.
-          (ipcp_cval_equal_cvalues): fix float constant comparison.
+	* cgraphunit.c (cgraph_function_versioning): assign proper values
+	to the TREE_DECL fields of the new version.
+	* gimplify.c (create_function_name): changed code to create a unique
+	name for the versioned node.
+	* ipa_prop.c (constant_val_insert ): enable the insertion of the
+	constant to the (versioned) function.
+	(ipcp_cval_equal_cvalues): fix float constant comparison.
 
 2005-03-17  Jan Hubicka  <jh@suse.cz>
 
@@ -134,7 +135,7 @@
 	* cgraph.c (dump_cgraph_node): Fixed infinite loop in debugging code.
 	* ipa-static-vars-anal (static_execute): Added better debugging and
 	fixed bug that casused local information to computed wrong in the 
-        presence of certain inlining and recursive functions.
+	presence of certain inlining and recursive functions.
 
 2005-03-10  Daniel Berlin  <dberlin@dberlin.org>
 
@@ -142,6 +143,7 @@
 	here too, since we end up with them in various types of _REF's.
 
 2005-03-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-promote-statics.c (try-replace): Fixed missing CONST_DECL case.
 
 2005-03-05  Jan Hubicka  <jh@suse.cz>
@@ -174,8 +176,7 @@
 	(pass_all_early_optimizations): New pass.
 	(execute_free_cfg_annotations): Break out from ...
 	(execute_free_datastructures): here; do not mess up with stmts list;
-	free
-	dominance info.
+	free dominance info.
 	(pass_cfg_annotations): New pass.
 	(init_tree_optimization_passes): Add new passes.
 	(tree_early_local_passes): Temporarily disable TER.
@@ -200,7 +201,7 @@
 
 	* tree-inline.c (copy_body_r): add versioning case for handling
 	exceptions.
-        (inlining_p): new function to test if we're inlining.
+	(inlining_p): new function to test if we're inlining.
 
 2005-02-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
@@ -229,51 +230,51 @@
 
 2005-02-09  Razya Ladelsky  <razya@il.ibm.com>
 
- 	* ipa_prop.c: Change/add comments and adjust to GNU standards.
-        (hashtab.h, toplev.h, flags.h, debug.h, target.h, varray.h,
- 	tree-gimple.h): Remove dependency.
-        (ipa_node_create, ipcp_method_is_cloned, ipcp_method_set_orig_node,
-        ipcp_method_orig_node, ipa_cloned_create, ipcp_method_dont_insert_const,
+	* ipa_prop.c: Change/add comments and adjust to GNU standards.
+	(hashtab.h, toplev.h, flags.h, debug.h, target.h, varray.h,
+	tree-gimple.h): Remove dependency.
+	(ipa_node_create, ipcp_method_is_cloned, ipcp_method_set_orig_node,
+	ipcp_method_orig_node, ipa_cloned_create, ipcp_method_dont_insert_const,
 	ipa_cloned_create, ipcp_update_callgraph, ipcp_redirect, ipcp_propagate_stage
 	ipa_edges_create, ipcp_type_is_const, ipcp_asm_walk_tree_1, ipcp_after_propagate): New functions.
-        (ipcp_cs_get_first, ipcp_cs_get_next,
+	(ipcp_cs_get_first, ipcp_cs_get_next,
 	ipcp_cs_not_last): Remove functions.
-        (ipcp_stage1, ipcp_stage2, ipcp_stage3): Rename to -
-        (ipcp_init_stage, ipcp_iterate_stage, ipcp_insert_stage) Respectively.
-        (ipcp_method_dont_insert_const): Rename to (ipcp_method_dont_propagate).
-        (ipcp_method_compute_modify): check DECL_UNINLINABLE
-        instead of calling tree_inlinable_function_p to find out if a given
+	(ipcp_stage1, ipcp_stage2, ipcp_stage3): Rename to -
+	(ipcp_init_stage, ipcp_iterate_stage, ipcp_insert_stage) Respectively.
+	(ipcp_method_dont_insert_const): Rename to (ipcp_method_dont_propagate).
+	(ipcp_method_compute_modify): check DECL_UNINLINABLE
+	instead of calling tree_inlinable_function_p to find out if a given
 	function is inlinable.
-        (ipcp_driver): Update.
- 	* ipa_prop.h: Change Comment.
-        (struct ipa_node): Add new fields.
+	(ipcp_driver): Update.
+	* ipa_prop.h: Change Comment.
+	(struct ipa_node): Add new fields.
 	* cgraph.h:  (varray.h): New include.
 	(update_call_expr, cgraph_copy_node_for_versioning,
- 	cgraph_function_versioning): New declarations.
+	cgraph_function_versioning): New declarations.
 	* Makefile.in (CGRAPH_H): Add dependency to varray.h.
- 	* common.opt: Remove fipa-no-cloning flag.
+	* common.opt: Remove fipa-no-cloning flag.
 	* cgraphunit.c (cgraph_optimize):
 	Support for IPA constant propagation.
 	(update_call_expr, cgraph_copy_node_for_versioning,
 	cgraph_function_versioning): New functions to support versioning.
 	* integrate.c: (copy_decl_for_inlining): renamed and removed to tree-inline.c.
-        * integrate.h: (copy_decl_for_inlining): renamed and removed to tree-inline.h.
+	* integrate.h: (copy_decl_for_inlining): renamed and removed to tree-inline.h.
 	* gimplify.c: (create_function_name): New function.
 	* tree-gimple.h: (create_function_name): New declaration.
 	* tree-inline.c: (struct inline_data): New fields to support versioning.
 	(copy_arguments_for_versioning, copy_static_chain, function_versionable_p,
 	tree_function_versioning, replace_ref_tree):
 	New functions to support tree function versioning.
-        (copy_decl_for_inling): moved from integrate.c and renamed to copy_decl_for_dup.
+	(copy_decl_for_inling): moved from integrate.c and renamed to copy_decl_for_dup.
 	(remap_decl, copy_body_r, copy_tree_r, copy_cfg_body): Support function versioning.
-        (copy_cfg_body): a fix to the copying of the edge between the EXIT block and its 
-        predecessor in the case of saving_or_cloning.
+	(copy_cfg_body): a fix to the copying of the edge between the EXIT block and its 
+	predecessor in the case of saving_or_cloning.
 	* tree-inline.h: (tree_versionable_function_p,
 	tree_function_versioning): New declarations.
-        *langhooks.c: (lhd_tree_inlining_copy_res_decl_for_inlining): change call to 
+	*langhooks.c: (lhd_tree_inlining_copy_res_decl_for_inlining): change call to 
 	copy_decl_for_inlining.
-        * common.opt: (fipa-no-cloning): Remove fipa-no-cloning flag.
-        * doc/invoke.texi: (fipa-no-cloning): Same.
+	* common.opt: (fipa-no-cloning): Remove fipa-no-cloning flag.
+	* doc/invoke.texi: (fipa-no-cloning): Same.
 
 2005-02-03  Razya Ladelsky  <razya@il.ibm.com>
 
@@ -496,7 +497,8 @@
 
 2004-12-07  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
 
-	* ipa-static-vars-anal.c (get_asm_expr_operands): keep any function		with volatile asm from being marked const or pure.
+	* ipa-static-vars-anal.c (get_asm_expr_operands): keep any function
+	with volatile asm from being marked const or pure.
 	(static_execute): turn off pure if the function contains backedges.
 
 2004-12-07  Jan Hubicka  <jh@suse.cz>
@@ -545,28 +547,28 @@
 
 2004-12-02  Dale Johannesen  <dalej@apple.com>
 
-        * basic-block.h (scale_bbs_frequencies_int):  New declaration.
-        (scale_bbs_frequencies_gcov_type):  New declaration.
-        * cfgloopmanip.c (scale_bbs_frequencies):  Renamed to
-        scale_bbs_frequencies_int and moved to cfg.c.
-        (scale_loop_frequencies):  Adjust call to it.
-        (duplicate_loop_to_header_edge):  Adjust calls to it.
-        * cfg.c (RDIV): New (copied from cfgloopmanip.c).
-        (scale_bbs_frequencies_int):  Moved from cfgloopmanip.c.
-        (scale_bbs_frequencies_gcov_type):  New.
-        * tree-ssa-loop-ch.c (copy_loop_headers):  Propagate profiling info.
+	* basic-block.h (scale_bbs_frequencies_int):  New declaration.
+	(scale_bbs_frequencies_gcov_type):  New declaration.
+	* cfgloopmanip.c (scale_bbs_frequencies):  Renamed to
+	scale_bbs_frequencies_int and moved to cfg.c.
+	(scale_loop_frequencies):  Adjust call to it.
+	(duplicate_loop_to_header_edge):  Adjust calls to it.
+	* cfg.c (RDIV): New (copied from cfgloopmanip.c).
+	(scale_bbs_frequencies_int):  Moved from cfgloopmanip.c.
+	(scale_bbs_frequencies_gcov_type):  New.
+	* tree-ssa-loop-ch.c (copy_loop_headers):  Propagate profiling info.
 
 2004-12-05  Dale Johannesen  <dalej@apple.com>
 
-        * except.c (get_maybe_saved_eh_throw_stmt_table):  Remove.
-        * except.h (get_maybe_saved_eh_throw_stmt_table):  Remove.
-        * tree-eh.c (duplicate_stmt_eh_region_mapping):   Call
-        get_eh_throw_stmt_table instead of above.
-        * tree-inline.c (struct inline_data):  Add callee_cfun.
-        (copy_body_r):  Use it.
-        (copy_cfg_body):  Set and use it.
-        (clone_body):  Set it.
-        (save_body):  Set it.
+	* except.c (get_maybe_saved_eh_throw_stmt_table): Remove.
+	* except.h (get_maybe_saved_eh_throw_stmt_table): Remove.
+	* tree-eh.c (duplicate_stmt_eh_region_mapping): Call
+	get_eh_throw_stmt_table instead of above.
+	* tree-inline.c (struct inline_data): Add callee_cfun.
+	(copy_body_r): Use it.
+	(copy_cfg_body): Set and use it.
+	(clone_body): Set it.
+	(save_body): Set it.
 
 2004-12-05  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -609,7 +611,7 @@
 
 	Addition of const and pure function detection to ipa static as well as
 	detection of readonly static variables are removal of addressable bit 
-	from static varaiables.:
+	from static variables:
 	* ipa_static_vars_anal.c (bool has_proper_scope_for_analysis,
 	check_operand,check_tree,look_for_address_of,check_rhs_var,
 	check_lhs_var,get_asm_expr_operands,process_call_for_static_vars,
@@ -1631,11 +1633,11 @@
 
 2004-02-25  Stuart Hastings  <stuart@apple.com>
 
-	* gimple-low.c (expand_var_p) Remove redundant call.
+	* gimple-low.c (expand_var_p): Remove redundant call.
 	
 2004-02-25  Stuart Hastings  <stuart@apple.com>
 
-	* tree-optimize.c (execute_inline) New.
+	* tree-optimize.c (execute_inline): New.
 	Make inliner into a PASS, move after first gimplification step.
 	
 2004-02-22  Jan Hubicka  <jh@suse.cz>
@@ -1647,8 +1649,8 @@
 	* cfgexpand.c:  Include flags.h
 	(tree_expand_cfg): Do cleanup only when optimizing.
 	* tree-optimize.c (init_tree_optimization_passes): Always build cfg.
-	(tree_rest_of_compilation): Don't get into RTL when errorcount/sorrycount
-	is set.
+	(tree_rest_of_compilation): Don't get into RTL when
+	errorcount/sorrycount is set.
 
 2004-02-21  Jan Hubicka  <jh@suse.cz>
 
