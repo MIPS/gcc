@@ -1,3 +1,9 @@
+2005-04-23  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4097111
+	* opts.c (decode_options):  Move cl_pf_opts_cooked setup...
+	* toplev.c (process_options):  ...to here.
+
 2005-04-22  Dale Johannesen   <dalej@apple.com>
 
 	* common.opt (falign-functions=):  Fix it.

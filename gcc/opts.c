@@ -750,8 +750,6 @@ decode_options (unsigned int argc, const char **argv)
   if (optimize >= 2 && flag_tree_vectorize)
     flag_strict_aliasing = 1;
   /* APPLE LOCAL end AV 3846092 */
-  /* APPLE LOCAL optimization pragmas 3124235/3420242 */
-  cl_pf_opts_cooked = cl_pf_opts;
 }
 
 /* Handle target- and language-independent options.  Return zero to

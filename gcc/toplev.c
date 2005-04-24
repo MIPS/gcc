@@ -2089,6 +2089,9 @@ process_options (void)
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
   if (flag_cx_limited_range)
     flag_complex_method = 0;
+
+  /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+  cl_pf_opts_cooked = cl_pf_opts;
 }
 
 /* Initialize the compiler back end.  */
