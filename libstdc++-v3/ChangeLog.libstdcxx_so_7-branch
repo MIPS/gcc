@@ -1,3 +1,15 @@
+2005-04-25  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (count): Correct concept checks.
+	(search_n): Likewise.
+	* testsuite/25_algorithms/search_n/check_type.cc: New.
+
+2005-04-25  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h 
+	(random_access_iterator_wrapper::operator+): Move out of
+	class to external function, and add symmetric version.
+
 2005-04-17  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050417.

@@ -444,13 +444,6 @@ namespace __gnu_test
       return *this;
     }
 
-    random_access_iterator_wrapper
-    operator+(ptrdiff_t n) const
-    {
-      random_access_iterator_wrapper<T> tmp = *this;
-      return tmp += n;
-    }
-
     random_access_iterator_wrapper&
     operator-=(ptrdiff_t n)
     { return *this += -n; }
@@ -498,6 +491,16 @@ namespace __gnu_test
       return !(*this > in);
     }
    };
+
+  template<typename T>
+    random_access_iterator_wrapper<T>
+    operator+(random_access_iterator_wrapper<T> it, ptrdiff_t n)
+    { return it += n; }
+
+  template<typename T>
+    random_access_iterator_wrapper<T>
+    operator+(ptrdiff_t n, random_access_iterator_wrapper<T> it) 
+    { return it += n; }
 
 
   /** 
