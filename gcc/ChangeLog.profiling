@@ -1,3 +1,7 @@
+2005-04-26  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-inline.c: Fix various boring code style and white space issues.
+
 2005-04-25  Richard Henderson <rth@redhat.com>
 
 	* tree-eh.c (tree_can_throw_internal, tree_can_throw_external):
