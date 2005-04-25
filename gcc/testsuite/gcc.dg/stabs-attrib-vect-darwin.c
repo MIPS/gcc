@@ -1,4 +1,5 @@
-/* Test Attribute Vector associated with vector type stabs.  */
+/* APPLE LOCAL file mainline 2005-04-25  */
+/* Test Attribute Vector associated with vectory type stabs.  */
 /* { dg-do compile { target powerpc*-*-darwin* } } */
 /* { dg-options "-gstabs -fno-eliminate-unused-debug-types -faltivec" } */
 

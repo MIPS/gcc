@@ -1650,10 +1650,17 @@ dbxout_type (tree type, int full)
   tree main_variant;
   static int anonymous_type_number = 0;
 
+  /* APPLE LOCAL begin vector attribute mainline 2005-04-25  */
+  bool vector_type = false;
+
   if (TREE_CODE (type) == VECTOR_TYPE)
-    /* The frontend feeds us a representation for the vector as a struct
-       containing an array.  Pull out the array type.  */
-    type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
+    {
+      /* The frontend feeds us a representation for the vector as a struct
+	 containing an array.  Pull out the array type.  */
+      type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
+      vector_type = true;
+    }
+  /* APPLE LOCAL end vector attribute mainline 2005-04-25  */
 
   /* If there was an input error and we don't really have a type,
      avoid crashing and write something that is at least valid
@@ -1992,6 +1999,14 @@ dbxout_type (tree type, int full)
 	  dbxout_type (TYPE_DOMAIN (type), 0);
 	  break;
 	}
+
+      /* APPLE LOCAL begin vector attribute mainline 2005-04-25  */
+      if (vector_type)
+	{
+	  have_used_extensions = 1;
+	  stabstr_S ("@V;");
+	}
+      /* APPLE LOCAL end vector attribute mainline 2005-04-25  */
 
       /* Output "a" followed by a range type definition
 	 for the index type of the array

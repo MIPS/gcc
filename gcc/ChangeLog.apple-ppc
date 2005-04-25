@@ -1,3 +1,8 @@
+2005-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 3954848
+	* dbxout.c (dbxout_type): Emit attribute vector.
+
 2005-04-23  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4097111

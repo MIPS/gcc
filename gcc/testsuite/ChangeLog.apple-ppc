@@ -1,3 +1,8 @@
+2005-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 3954848
+	* gcc.dg/stabs-attrib-vector-darwin.c: New.
+
 2005-04-25  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4094385
