@@ -1,3 +1,8 @@
+2005-04-25  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4094385
+	* g++.dg/template/templ-deref-1.C: New.
+
 2005-04-22  Devang Patel  <dpatel@apple.com>
 
 	* gcc.apple/falign-loops-max-skip-3.c: Fix typo.

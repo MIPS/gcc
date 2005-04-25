@@ -2754,7 +2754,11 @@ finish_id_expression (tree id_expression,
 	}
       else if (is_overloaded_fn (decl))
 	{
-	  tree first_fn = OVL_CURRENT (decl);
+	  /* APPLE LOCAL begin C++ */
+	  tree first_fn = OVL_CURRENT (BASELINK_P (decl)
+				       ? BASELINK_FUNCTIONS (decl)
+				       : decl);
+	  /* APPLE LOCAL end C++ */
 
 	  if (TREE_CODE (first_fn) == TEMPLATE_DECL)
 	    first_fn = DECL_TEMPLATE_RESULT (first_fn);
