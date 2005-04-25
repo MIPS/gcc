@@ -954,7 +954,7 @@ tree_rest_of_compilation (tree fndecl)
   bitmap_obstack_release (NULL);
   
   /* Restore original body if still needed.  */
-  if (cfun->saved_tree)
+  if (cfun->saved_cfg)
     {
       DECL_SAVED_TREE (fndecl) = cfun->saved_tree;
       DECL_ARGUMENTS (fndecl) = cfun->saved_args;

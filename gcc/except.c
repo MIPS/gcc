@@ -877,6 +877,7 @@ duplicate_eh_region_1 (struct eh_region *o)
   
   n->region_number = o->region_number + cfun->eh->last_region_number;
   n->type = o->type;
+  gcc_assert (!o->aka);
   
   switch (n->type)
     {
@@ -944,7 +945,7 @@ duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
 }
 
 int
-duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
+duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels, int outer_region)
 {
   int ifun_last_region_number = ifun->eh->last_region_number;
   struct eh_region **n_array, *root, *cur;
@@ -965,27 +966,6 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
 	{
 	  tree newlabel = remap_decl_v ((void *)cur->tree_label, id);
 	  n_array[i]->tree_label = newlabel;
-	  /* If old label is not actually in the code anywhere, mark the
-	     new label similarly (its current uid will be -1).  This 
-	     prevents crashes later.  */
-	  if (label_to_block_fn (ifun, cur->tree_label) == 0)
-	    {
-	      int uid;
-	      LABEL_DECL_UID (newlabel) = uid = cfun->last_label_uid++;
-	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
-		{
-		  bool shared_map = (cfun->cfg->x_label_to_block_map) 
-				== (ifun->cfg->x_label_to_block_map);
-		  unsigned tmp_u = 3 * MAX (uid, 2);
-		  /* Force the multiply to happen before the divide.  */
-		  VARRAY_GROW (label_to_block_map, tmp_u / 2);
-		  /* We need this In case we realloc'd: */
-		  if (shared_map)
-		    ifun->cfg->x_label_to_block_map 
-			= cfun->cfg->x_label_to_block_map;
-		}
-	      VARRAY_BB (label_to_block_map, uid) = 0;
-	    }
 	}
       else
 	n_array[i]->tree_label = cur->tree_label;
@@ -999,10 +979,12 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
     }
   
   root = n_array[ifun->eh->region_tree->region_number];
-  cur = cfun->eh->cur_region;
-  if (cur)
+  gcc_assert (root->outer == NULL);
+  if (outer_region > 0)
     {
+      struct eh_region *cur = cfun->eh->region_array[outer_region];
       struct eh_region *p = cur->inner;
+
       if (p)
 	{
 	  while (p->next_peer)
@@ -1011,10 +993,9 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
 	}
       else
         cur->inner = root;
-      
-      for (i = 1; i <= ifun_last_region_number; ++i)
-	if (n_array[i] && n_array[i]->outer == NULL)
-	  n_array[i]->outer = cur;
+      root->outer = cur;
+      for (root = root->next_peer; root; root = root->next_peer)
+	root->outer = cur;
     }
   else
     {
@@ -3719,32 +3700,4 @@ get_eh_last_region_number (struct function *ifun)
     return -1;
   return ifun->eh->last_region_number;
 }
-
-/* Get the "current region" number.  -1 means "no current region."  */
-int
-get_eh_cur_region (struct function *ifun)
-{
-  if (ifun
-      && ifun->eh
-      && ifun->eh->cur_region)
-    return ifun->eh->cur_region->region_number;
-  else
-    return -1;
-}
-
-/* Set the "current region" in preparation for splicing in new
-   regions.  Useful when inlining a CALL_EXPR.  "-1" means
-   "no current region."  */
-void
-set_eh_cur_region (struct function *ifun, int region_nr)
-{
-  if (region_nr >= 0
-      && ifun
-      && ifun->eh
-      && ifun->eh->region_array)
-    ifun->eh->cur_region = ifun->eh->region_array[region_nr];
-  else
-    ifun->eh->cur_region = (struct eh_region *)0;
-}
-
 #include "gt-except.h"

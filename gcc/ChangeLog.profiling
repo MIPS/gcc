@@ -1,3 +1,51 @@
+2005-04-25  Richard Henderson <rth@redhat.com>
+
+	* tree-eh.c (tree_can_throw_internal, tree_can_throw_external):
+	Handle RESX expressions properly.
+
+2005-04-21  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (FOR_ALL_BB_FN): New macro.
+	* cfg.c (init_flow): Allocate the CFG.
+	* cgraphunit.c (cgraph_finalize_function): Modify checking of presence
+	of cfg.
+	* except.c (duplicate_eh_regions): New argument outer_region; simplify.
+	(get_eh_cur_region, set_eh_cur_region): Kill.
+	* except.h (duplicate_eh_regions): Update prototype.
+	(get_eh_cur_region, set_eh_cur_region): Kill.
+	* function.c (allocate_struct_function): Kill creation of CFG object.
+	* tree-cfg.c (init_empty_tree_cfg): Export.
+	(label_to_block_fn): Do not crash on dead label never inserted to the
+	stream.
+	(dump_function_to_file): Modify checking of CFG presence.
+	* tree-eh (duplicate_stmt_eh_region_mapping): Get it working after
+	regions has been copied.
+	* tree-flow.h (init_empty_tree_cfg): Declare.
+	* tree-inline.c (inline_data): Kill ret_label, ret_count, original_tsi,
+	bind_expr,
+	copy_basic_block, return_block, oic_basic_block fields; add block field.
+	(remap_decl): Work on block instead of bind_expr.
+	(copy_body_r): Likewise; do not modify CFG, work after duplicating eh
+	regions.
+	(copy_bb): Simplify and use local variables.
+	(copy_edges_for_bb): Rewrite handling of EH.
+	(copy_cfg_body): Do not create shadow CFG, allow inserting directly
+	into other's CFG, simplify.
+	(copy_body): Update call of copy_cfg_body.
+	(setup_one_parameter): Insert insns into basic block; simplify.
+	(initialize_inlined_parameters): Likewise; work on block instead of
+	bind_expr.
+	(inline_forbidden_p): Kill abort call.
+	(estimate_num_insns): Likewise.
+	(expand_call_inline): Simplify; do not create hords of unnecesary
+	datastructures.
+	(gimple_expand_calls_inline): Simplify.
+	(optimize_inline_calls): Push gimple context; simplify.
+	(declare_inline_vars): Work on block instead of bind_expr.
+	(tree_function_versioning): Kill abort; update for new interfaces.
+	(create_block_annotation): Kill.
+	* tree-optimize.c: Check presence of saved body by saved_cfg.
+
 2005-04-19  Daniel Berlin  <dberlin@dberlin.org>
 
 	* c-typeck.c (build_array_ref): Reenable MEM_REF

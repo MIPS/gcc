@@ -132,7 +132,7 @@ static tree find_case_label_for_value (tree, tree);
 static bool phi_alternatives_equal (basic_block, edge, edge);
 static bool cleanup_forwarder_blocks (void);
 
-static void
+void
 init_empty_tree_cfg (void)
 {
   /* Initialize the basic block array.  */
@@ -605,6 +605,8 @@ make_exit_edges (basic_block bb)
       make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
       break;
 
+    case RESX_EXPR:
+      break;
     default:
       gcc_unreachable ();
     }
@@ -830,6 +832,8 @@ label_to_block_fn (struct function *ifun, tree dest)
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
       uid = LABEL_DECL_UID (dest);
     }
+  if (VARRAY_SIZE (ifun->cfg->x_label_to_block_map) <= (unsigned int)uid)
+    return NULL;
   return VARRAY_BB (ifun->cfg->x_label_to_block_map, uid);
 }
 
@@ -5322,7 +5326,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	}
     }
 
-  if (basic_block_info)
+  if (cfun && cfun->cfg && basic_block_info)
     {
       /* Make a CFG based dump.  */
       check_bb_profile (ENTRY_BLOCK_PTR, file);
@@ -5662,7 +5666,9 @@ tree_purge_dead_eh_edges (basic_block bb)
   edge_iterator ei;
   tree stmt = last_stmt (bb);
 
-  if (stmt && tree_can_throw_internal (stmt))
+  if (stmt
+      && (tree_can_throw_internal (stmt)
+	  || TREE_CODE (stmt) == RESX_EXPR))
     return false;
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )

@@ -431,7 +431,7 @@ cgraph_finalize_function (tree decl, bool nested)
   notice_global_symbol (decl);
   node->decl = decl;
   node->local.finalized = true;
-  node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg->x_entry_block_ptr != NULL;
+  node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
   if (node->nested)
     lower_nested_functions (decl);
   gcc_assert (!node->nested);

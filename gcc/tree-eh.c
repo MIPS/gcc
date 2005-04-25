@@ -106,6 +106,7 @@ add_stmt_to_eh_region_fn (struct function *ifun, tree t, int num)
   void **slot;
 
   gcc_assert (num >= 0);
+  gcc_assert (TREE_CODE (t) != RESX_EXPR);
 
   n = ggc_alloc (sizeof (*n));
   n->stmt = t;
@@ -214,7 +215,7 @@ duplicate_stmt_eh_region_mapping (struct function *ifun,
       new->stmt = new_tree;
       new->region_nr = p->region_nr;
       if (adjust_number)
-	new->region_nr += get_eh_last_region_number (cfun);
+	new->region_nr += get_eh_last_region_number (cfun) - get_eh_last_region_number (ifun);
       slot = htab_find_slot (cfun_hash, (void *)new, INSERT);
       if (*slot)
 	abort ();
@@ -1945,7 +1946,12 @@ tree_could_throw_p (tree t)
 bool
 tree_can_throw_internal (tree stmt)
 {
-  int region_nr = lookup_stmt_eh_region (stmt);
+  int region_nr;
+
+  if (TREE_CODE (stmt) == RESX_EXPR)
+    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+  else
+    region_nr = lookup_stmt_eh_region (stmt);
   if (region_nr < 0)
     return false;
   return can_throw_internal_1 (region_nr);
@@ -1956,8 +1962,9 @@ tree_can_throw_external (tree stmt)
 {
   int region_nr = lookup_stmt_eh_region (stmt);
   if (region_nr < 0)
-    return false;
-  return can_throw_external_1 (region_nr);
+    return tree_could_throw_p (stmt);
+  else
+    return can_throw_external_1 (region_nr);
 }
 
 bool
