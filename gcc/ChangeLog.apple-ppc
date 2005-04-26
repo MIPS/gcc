@@ -1,3 +1,8 @@
+2005-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 4095956
+	* config/rs6000/darwin.h (REAL_LIBGCC_GCC): Use -lgcc_static.
+
 2005-04-26  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4096118
