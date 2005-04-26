@@ -1,5 +1,10 @@
 2005-04-25  Devang Patel  <dpatel@apple.com>
 
+	Radar 4095956
+	* config/darwin.h (REAL_LIBGCC_GCC): Use -lgcc_static.
+
+2005-04-25  Devang Patel  <dpatel@apple.com>
+
 	Radar 3954848
 	* dbxout.c (dbxout_type): Emit attribute vector.
 
