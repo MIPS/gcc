@@ -1,6 +1,81 @@
-2005-04-11  Geoffrey Keating  <geoffk@apple.com>
+2005-04-20  Release Manager
 
-	* gcc.dg/i386-darwin-fpmath.c: New.
+	* GCC 4.0.0 released.
+
+2005-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/20991
+	* g++.dg/opt/pr20991.C: New test.
+
+2005-04-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20050410-1.c: New test.
+
+2005-04-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/20739
+	* gcc.dg/tree-ssa/pr20739.c: New test.
+
+2005-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21025
+	* g++.dg/template/sizeof9.C: New test.
+
+2005-04-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/20927
+	* gcc.dg/pr20927.c: New test.
+
+2005-04-14  Alexandre Oliva  <aoliva@redhat.com>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR target/20126
+	* gcc.c-torture/execute/20050414-1.c: New.
+
+2005-04-13  Thomas Koenig  <Thomas.Koenig@online.de>
+
+        PR libfortran/20163
+        * gfortran.dg/open-options-blanks.f:  New test.
+
+2005-04-12  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/20917
+	* gcc.dg/20050409-1.c: New test.
+
+2005-04-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/warn/Wdtor1.C: Declare template in system header with
+	explicit C++ linkage.
+
+2005-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/20795
+	* g++.dg/abi/param2.C: New test.
+
+2005-04-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20905
+	* g++.dg/parse/cond2.C: New test.
+
+2005-04-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20145
+	* g++.dg/warn/Wdtor1.C: New test.
+
+2005-04-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/17229
+	* gfortran.dg/pr17229.f: New test.
+
+2005-04-07  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/tiny_1.f90: New test.
+	* gfortran.dg/tiny_2.f90: ditto.
+
+2005-04-07  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.dg/eor_1.f90:  Fix dg-do run line
+	* gfortran.dg/open_new.f90:  Fix dg-do run line
 
 2005-03-12  Geoffrey Keating  <geoffk@apple.com>
 

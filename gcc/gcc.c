@@ -1010,7 +1010,7 @@ static const struct compiler default_compilers[] =
           %{!fsyntax-only:%(invoke_as)}}}}}", 0, 1, 1},
    /* APPLE LOCAL end treat -fast same as -combine --dbj */
   {"-",
-   "%{!E:%e-E required when input is from standard input}\
+   "%{!E:%e-E or -x required when input is from standard input}\
     %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
   {".h", "@c-header", 0, 0, 0},
   {"@c-header",

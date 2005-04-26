@@ -1,3 +1,45 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21025
+	* typeck.c (cxx_sizeof_or_alignof_type): Check whether the type to
+	which sizeof/alignof is dependent, rather than just whether we are
+	processing_template_decl.
+	
+2005-04-14  Dale Johannesen  <dalej@apple.com>
+
+	* tree.c (cp_tree_equal):  Handle SSA_NAME.
+
+2005-04-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20905
+	* parser.c (cp_parser_type_specifier_seq): Add is_condition
+	parameter.
+	(cp_parser_new_type_id): Pass it.
+	(cp_parser_condition): Likewise.
+	(cp_parser_conversion_type_id): Likewise.
+	(cp_parser_type_id): Likewise.
+	(cp_parser_type_specifier_seq): In a condition, do not allow
+	invalid type-specifier combinations.
+	(cp_parser_exception_declaration): Adjust call to
+	cp_parser_type_specifier_seq. 
+
+	* cp-tree.def (TINST_LEVEL): Document TINST_IN_SYSTEM_HEADER_P.
+	* cp-tree.h (struct tinst_level): Add in_system_header_p.
+	(TINST_IN_SYSTEM_HEADER_P): New macro.
+	(make_tinst_level): Remove.
+	* pt.c (lookup_template_class): Preserve DECL_IN_SYSTEM_HEADER on
+	the instantiated class.
+	(push_tinst_level): Do not use make_tinst_level.  Set
+	TINST_IN_SYSTEM_HEADER_P.
+	(pop_tinst_level): Likewise.
+	(instantiate_class_template): Set in_system_header.
+	(instantiate_pending_templates): Likewise.
+	* tree.c (make_tinst_level): Remove.
+	
 2005-04-06  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* decl.c (start_decl): Apply pending #pragma weak regardless of

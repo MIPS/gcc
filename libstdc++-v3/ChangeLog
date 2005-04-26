@@ -1,3 +1,50 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-04-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/ext/bitmap_allocator/check_allocate_max_size.cpp: Add
+	explicit instantiations for systems without weak symbols.
+	* testsuite/ext/bitmap_allocator/check_deallocate_null.cc:
+	Likewise. 
+
+2005-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Set default for linux
+	and bsd to new_allocator.
+	* configure: Regenerate.
+
+2005-04-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/bitmap_allocator.h
+	(__gnu_cxx::free_list::_M_get_mutex): New.
+	(__gnu_cxx::free_list::_M_get_free_list): New.
+	(__gnu_cxx::free_list::_S_bfl_mutex): Remove.
+	(__gnu_cxx::free_list::_S_free_list): Remove.
+	* src/bitmap_allocator.cc: Same.
+	* config/linker-map.gnu: Remove free_list and mutex export.
+
+2005-04-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20909
+	* include/bits/locale_facets.tcc (num_put<>::_M_insert_float):
+	Don't even try to group numbers like 2e20, i.e., no decimal
+	point, scientific notation.
+	* testsuite/22_locale/num_put/put/char/20909.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/20909.cc: Likewise.
+
+2005-04-08  Danny Smith  <dannysmith@users.sourceforge.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+	    		
+	PR libstdc++/20806
+	* config/os/mingw32/os_defines.h: Define
+	_GLIBCXX_HAVE_DOS_BASED_FILESYSTEM.
+	* config/os/newlib/os_defines.h: Likewise, for __CYGWIN__.
+	* include/bits/fstream.tcc (basic_filebuf<>::showmanyc()):
+	Use it.
+	(basic_filebuf<>::xsgetn(_CharT*, streamsize)): Likewise.
+
 2005-04-06  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/cpu/s390/atomicity.h (__exchange_and_add): Add "memory"

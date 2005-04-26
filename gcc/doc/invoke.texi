@@ -3448,7 +3448,7 @@ inline functions declared in system headers.
 
 The compiler uses a variety of heuristics to determine whether or not
 to inline a function.  For example, the compiler takes into account
-the size of the function being inlined and the the amount of inlining
+the size of the function being inlined and the amount of inlining
 that has already been done in the current function.  Therefore,
 seemingly insignificant changes in the source program can cause the
 warnings produced by @option{-Winline} to appear or disappear.
@@ -3816,7 +3816,7 @@ conversion, to the file @file{@var{file}.18.ce2}.
 @opindex fdump-rtl-btl
 @opindex fdump-rtl-dbr
 @option{-dd} and @option{-fdump-rtl-btl} enable dumping after branch
-target load optimization, to to @file{@var{file}.31.btl}.  @option{-dd}
+target load optimization, to @file{@var{file}.31.btl}.  @option{-dd}
 and @option{-fdump-rtl-dbr} enable dumping after delayed branch
 scheduling, to @file{@var{file}.36.dbr}.
 
@@ -4469,7 +4469,7 @@ compilation time.
 -fif-conversion2 @gol
 -ftree-ccp @gol
 -ftree-dce @gol
--ftree-dom @gol
+-ftree-dominator-opts @gol
 -ftree-dse @gol
 -ftree-ter @gol
 -ftree-lrs @gol
@@ -4481,6 +4481,10 @@ compilation time.
 
 @option{-O} also turns on @option{-fomit-frame-pointer} on machines
 where doing so does not interfere with debugging.
+
+@option{-O} doesn't turn on @option{-ftree-sra} for the Ada compiler.
+This option must be explicitly specified on the command line to be
+enabled for the Ada compiler.
 
 @item -O2
 @opindex O2
@@ -5153,7 +5157,7 @@ performance and allow further loop optimizations to take place.
 
 @item -ftree-loop-im
 Perform loop invariant motion on trees.  This pass moves only invariants that
-would be hard to handle on rtl level (function calls, operations that expand to
+would be hard to handle at RTL level (function calls, operations that expand to
 nontrivial sequences of insns).  With @option{-funswitch-loops} it also moves
 operands of conditions that are invariant out of the loop, so that we can use
 just trivial invariantness analysis in loop unswitching.  The pass also includes
@@ -13247,7 +13251,7 @@ for creating and using precompiled headers.
 Any macros defined before the precompiled header is included must
 either be defined in the same way as when the precompiled header was
 generated, or must not affect the precompiled header, which usually
-means that the they don't appear in the precompiled header at all.
+means that they don't appear in the precompiled header at all.
 
 The @option{-D} option is one way to define a macro before a
 precompiled header is included; using a @code{#define} can also do it.
