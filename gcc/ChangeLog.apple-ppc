@@ -1,3 +1,8 @@
+2005-04-26  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4010496
+	* gcc/config/i386/x-darwin: Add -mdynamic-no-pic.
+
 2005-04-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 4095956
