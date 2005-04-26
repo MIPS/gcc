@@ -1088,10 +1088,10 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 	      && DECL_INITIAL (decl) != error_mark_node)))
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && indirect_data (sym_ref)
-      && ! TREE_PUBLIC (decl))
+  /* APPLE LOCAL begin mainline */
+  if (! TREE_PUBLIC (decl))
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_STATIC;
+  /* APPLE LOCAL end mainline */
 
   /* APPLE LOCAL begin fix OBJC codegen */
   if (TREE_CODE (decl) == VAR_DECL)
