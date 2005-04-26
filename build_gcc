@@ -71,7 +71,7 @@ VERS=`sed -n -e '/version_string/s/.*\"\([^ \"]*\)[ \"].*/\1/p' \
 MAJ_VERS=`echo $VERS | sed 's/\([0-9]*\.[0-9]*\)[.-].*/\1/'`
 
 # This is the default architecture for i386 configurations.
-I386_CPU="--with-arch=prescott"
+I386_CPU="--with-arch=pentium4 --with-tune=prescott"
 
 # Sniff to see if we can do ppc64 building.
 DARWIN_VERS=8

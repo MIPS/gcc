@@ -1,3 +1,9 @@
+2005-04-26  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4096118
+	* build_gcc: Default to --with-arch=pentium4 --with-tune=prescott.
+	* gcc/config/i386/darwin.h: Override OPTIONS_DEFAULT_SPECS.
+
 2005-04-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 4095956

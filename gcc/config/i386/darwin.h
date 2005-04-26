@@ -66,7 +66,14 @@ Boston, MA 02111-1307, USA.  */
   { "darwin_arch", "i386" },					\
   { "darwin_subarch", "i386" },
   /* APPLE LOCAL end mainline 2005-04-11 */
-   
+
+/* APPLE LOCAL begin 4078600 */
+/* Support for configure-time defaults of some command line options.  */
+#undef OPTION_DEFAULT_SPECS
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}"}, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}"}
+/* APPLE LOCAL end 4078600 */
 
 /* Use the following macro for any Darwin/x86-specific command-line option
    translation.  */
