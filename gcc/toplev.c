@@ -2090,8 +2090,9 @@ process_options (void)
   if (flag_cx_limited_range)
     flag_complex_method = 0;
 
-  /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
   cl_pf_opts_cooked = cl_pf_opts;
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 }
 
 /* Initialize the compiler back end.  */

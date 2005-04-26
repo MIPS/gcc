@@ -1,3 +1,4 @@
+/* APPLE LOCAL file */
 #include <stdio.h>
 /* Radar 3124235 */
 /* { dg-do compile { target "powerpc*-*-darwin*" } } */

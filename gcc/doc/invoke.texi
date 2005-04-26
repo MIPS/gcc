@@ -5432,7 +5432,7 @@ need be executed.
 @opindex falign-jump-max-skips
 Align branch targets to a power-of-two boundary, but do not skip more than
 @var{n} bytes to do so.
-@c APPLE LOCAL begin -falign-jumps-max-skip
+@c APPLE LOCAL end -falign-jumps-max-skip
 
 @option{-fno-align-jumps} and @option{-falign-jumps=1} are
 equivalent and mean that loops will not be aligned.

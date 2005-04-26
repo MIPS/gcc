@@ -205,9 +205,11 @@ falign-functions
 Common Report Var(align_functions,0)
 Align the start of functions
 
+; APPLE LOCAL begin 4096997
 falign-functions=
 Common RejectNegative Joined UInteger Var(align_functions) VarExists
 
+; APPLE LOCAL end 4096997
 ; APPLE LOCAL begin optimization pragmas 3124235/3420242
 falign-jumps
 Common Report Var(align_jumps,0) VarUint PerFunc
