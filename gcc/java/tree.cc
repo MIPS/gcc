@@ -189,6 +189,10 @@ tree_generator::visit_method (model_method *meth,
 tree
 tree_generator::build_jni_stub ()
 {
+  current_block = make_node (BLOCK);
+  BLOCK_SUPERCONTEXT (current_block) = method_tree;
+  DECL_INITIAL (method_tree) = current_block;
+
   DECL_ARTIFICIAL (method_tree) = 1;
   DECL_EXTERNAL (method_tree) = 0;
 
@@ -222,10 +226,13 @@ tree_generator::build_jni_stub ()
   TREE_TYPE (block) = TREE_TYPE (TREE_TYPE (method_tree));
 
   // Compute the local 'env' by calling _Jv_GetJNIEnvNewFrame.
-  tree klass = gcc_builtins->map_type (method->get_declaring_class ());
+  gcj_abi *abi = gcc_builtins->find_abi ();
+  tree klass
+    = abi->build_direct_class_reference (gcc_builtins, class_wrapper,
+					 class_wrapper->get ());
   tree body = build2 (MODIFY_EXPR, ptr_type_node, env_var,
 		      build3 (CALL_EXPR, ptr_type_node,
-			      build_address_of (builtin_Jv_GetJNIEnvNewFrame),
+			      builtin_Jv_GetJNIEnvNewFrame,
 			      build_tree_list (NULL_TREE, klass),
 			      NULL_TREE));
   TREE_SIDE_EFFECTS (body) = 1;
@@ -292,8 +299,7 @@ tree_generator::build_jni_stub ()
 			 meth_var, meth_var,
 			 build2 (MODIFY_EXPR, ptr_type_node, meth_var,
 				 build3 (CALL_EXPR, ptr_type_node,
-					 build_address_of
-					 (builtin_Jv_LookupJNIMethod),
+					 builtin_Jv_LookupJNIMethod,
 					 lookup_arg, NULL_TREE)));
 
   // Now we make the actual JNI call via the resulting function
@@ -315,7 +321,7 @@ tree_generator::build_jni_stub ()
 
   // Now free the environment we allocated.
   call = build3 (CALL_EXPR, ptr_type_node,
-		 build_address_of (builtin_Jv_JNI_PopSystemFrame),
+		 builtin_Jv_JNI_PopSystemFrame,
 		 build_tree_list (NULL_TREE, env_var),
 		 NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;

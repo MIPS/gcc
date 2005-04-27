@@ -1,5 +1,11 @@
 2005-04-18  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (build_jni_stub): Make a block and link it into the
+	method tree.  Don't take address of function decls.  Correctly
+	build reference to method's class.
+
+2005-04-18  Tom Tromey  <tromey@redhat.com>
+
 	* builtins.cc (lay_out_class): Don't lay out vtable for array
 	types.
 
