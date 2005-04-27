@@ -277,15 +277,6 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
 
   c = COND_EXPR_COND (stmt);
 
-  /* Create temp. for condition.  */
-  if (!is_gimple_condexpr (c))
-    {
-      tree new_stmt;
-      new_stmt = ifc_temp_var (TREE_TYPE (c), unshare_expr (c));
-      bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
-      c = TREE_OPERAND (new_stmt, 0);
-    }
-
   extract_true_false_edges_from_block (bb_for_stmt (stmt),
  				       &true_edge, &false_edge);
 
@@ -294,14 +285,6 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
   /* If 'c' is true then TRUE_EDGE is taken.  */
   add_to_dst_predicate_list (loop, true_edge->dest, cond,
 			     unshare_expr (c), bsi);
-
-  if (!is_gimple_reg(c) && is_gimple_condexpr (c))
-    {
-      tree new_stmt;
-      new_stmt = ifc_temp_var (TREE_TYPE (c), unshare_expr (c));
-      bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
-      c = TREE_OPERAND (new_stmt, 0);
-    }
 
   /* If 'c' is false then FALSE_EDGE is taken.  */
   c2 = invert_truthvalue (unshare_expr (c));
@@ -682,46 +665,64 @@ find_phi_replacement_condition (struct loop *loop,
 				basic_block bb, tree *cond,
                                 block_stmt_iterator *bsi)
 {
-  edge e;
-  basic_block p1 = NULL;
-  basic_block p2 = NULL;
-  basic_block true_bb = NULL; 
+  basic_block first_bb = NULL;
+  basic_block second_bb = NULL;
   tree tmp_cond;
-  edge_iterator ei;
 
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (p1 == NULL)
-	p1 = e->src;
-      else 
-	{
-	  gcc_assert (!p2);
-	  p2 = e->src;
-	}
-    }
+  gcc_assert (EDGE_COUNT (bb->preds) == 2);
+  first_bb = (EDGE_PRED (bb, 0))->src;
+  second_bb = (EDGE_PRED (bb, 1))->src;
 
-  /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
-  tmp_cond = p1->aux;
+  /* Use condition based on following criteria:
+     1)
+       S1: x = !c ? a : b;
+
+       S2: x = c ? b : a;
+
+       S2 is preferred over S1. Make 'b' first_bb and use its condition.
+
+     2) Do not make loop header first_bb.
+
+     3)
+       S1: x = !(c == d)? a : b;
+
+       S21: t1 = c == d;
+       S22: x = t1 ? b : a;
+
+       S3: x = (c == d) ? b : a;
+
+       S3 is preferred over S1 and S2*, Make 'b' first_bb and use 
+       its condition.  */
+
+  /* Select condition that is not TRUTH_NOT_EXPR.  */
+  tmp_cond = first_bb->aux;
   if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
     {
-      /* If p2 is loop->header than its aux field does not have useful
-	 info. Instead use !(cond) where cond is p1's aux field.  */
-      if (p2 == loop->header)
-	*cond = invert_truthvalue (unshare_expr (p1->aux));
+      basic_block tmp_bb;
+      tmp_bb = first_bb;
+      first_bb = second_bb;
+      second_bb = first_bb;
+    }
+
+  /* Check if FIRST_BB is loop header or not.  */
+  if (first_bb == loop->header) 
+    {
+      tmp_cond = second_bb->aux;
+      if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
+	{
+	  /* Select non loop header condition but do not switch basic blocks.  */
+	  *cond = invert_truthvalue (unshare_expr (tmp_cond));
+	}
       else
-	*cond  = p2->aux;
-      true_bb = p2;
+	{
+	  /* Select non loop header condition.  */
+	  first_bb = second_bb;
+	  *cond = first_bb->aux;
+	}
     }
   else
-    {
-      /* If p1 is loop->header than its aux field does not have useful
-	 info. Instead use !(cond) where cond is p2's aux field.  */
-      if (p1 == loop->header)
-	*cond = invert_truthvalue (unshare_expr (p2->aux));
-      else
-	*cond  = p1->aux;
-      true_bb = p1;
-    }
+    /* FIRST_BB is not loop header */
+    *cond = first_bb->aux;
 
   /* Create temp. for the condition. Vectorizer prefers to have gimple
      value as condition. Various targets use different means to communicate
@@ -739,7 +740,7 @@ find_phi_replacement_condition (struct loop *loop,
 
   gcc_assert (*cond);
 
-  return true_bb;
+  return first_bb;
 }
 
 
@@ -1138,6 +1139,7 @@ struct tree_opt_pass pass_if_conversion =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops | TODO_verify_stmts | TODO_verify_flow,	
+                                        /* todo_flags_finish */
   0					/* letter */
 };

@@ -35,21 +35,6 @@ details.  */
 #include <java/lang/Runtime.h>
 #include <java/util/HashSet.h>
 
-void
-java::lang::VMClassLoader::resolveClass (jclass klass)
-{
-  JvSynchronize sync (klass);
-  try
-    {
-      _Jv_Linker::wait_for_state (klass, JV_STATE_LINKED);
-    }
-  catch (java::lang::Throwable *x)
-    {
-      klass->set_state(JV_STATE_ERROR);
-      transformException(klass, x);
-    }
-}
-
 java::lang::Class *
 java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 					jstring name,
@@ -216,7 +201,7 @@ java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
       // It isn't clear from the spec, but this is what other
       // implementations do in practice.
       if (resolve)
-	_Jv_InitClass (klass);
+	resolveClass (klass);
       else
 	_Jv_Linker::wait_for_state (klass, JV_STATE_LOADING);
 

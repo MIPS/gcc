@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "target.h"
 #include "convert.h"
+#include "cgraph.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -887,7 +888,7 @@ add_method (tree type, tree method)
   tree overload;
   bool template_conv_p = false;
   bool conv_p;
-  VEC(tree) *method_vec;
+  VEC(tree,gc) *method_vec;
   bool complete_p;
   bool insert_p = false;
   tree current_fns;
@@ -909,7 +910,7 @@ add_method (tree type, tree method)
 	 allocate at least two (for constructors and destructors), and
 	 we're going to end up with an assignment operator at some
 	 point as well.  */
-      method_vec = VEC_alloc (tree, 8);
+      method_vec = VEC_alloc (tree, gc, 8);
       /* Create slots for constructors and destructors.  */
       VEC_quick_push (tree, method_vec, NULL_TREE);
       VEC_quick_push (tree, method_vec, NULL_TREE);
@@ -1052,7 +1053,7 @@ add_method (tree type, tree method)
     {
       /* We only expect to add few methods in the COMPLETE_P case, so
 	 just make room for one more method in that case.  */
-      if (VEC_reserve (tree, method_vec, complete_p ? 1 : -1))
+      if (VEC_reserve (tree, gc, method_vec, complete_p ? -1 : 1))
 	CLASSTYPE_METHOD_VEC (type) = method_vec;
       if (slot == VEC_length (tree, method_vec))
 	VEC_quick_push (tree, method_vec, overload);
@@ -1234,7 +1235,7 @@ check_bases (tree t,
 	 here because the case of virtual functions but non-virtual
 	 dtor is handled in finish_struct_1.  */
       if (warn_ecpp && ! TYPE_POLYMORPHIC_P (basetype))
-	warning ("base class %q#T has a non-virtual destructor", basetype);
+	warning (0, "base class %q#T has a non-virtual destructor", basetype);
 
       /* If the base class doesn't have copy constructors or
 	 assignment operators that take const references, then the
@@ -1548,7 +1549,7 @@ maybe_warn_about_overly_private_class (tree t)
 	  }
       if (!has_nonprivate_method) 
 	{
-	  warning ("all member functions in class %qT are private", t);
+	  warning (0, "all member functions in class %qT are private", t);
 	  return;
 	}
     }
@@ -1559,7 +1560,7 @@ maybe_warn_about_overly_private_class (tree t)
   fn = CLASSTYPE_DESTRUCTORS (t);
   if (fn && TREE_PRIVATE (fn))
     {
-      warning ("%q#T only defines a private destructor and has no friends",
+      warning (0, "%q#T only defines a private destructor and has no friends",
 	       t);
       return;
     }
@@ -1599,7 +1600,7 @@ maybe_warn_about_overly_private_class (tree t)
 
       if (nonprivate_ctor == 0)
 	{
-	  warning ("%q#T only defines private constructors and has no friends",
+	  warning (0, "%q#T only defines private constructors and has no friends",
                    t);
 	  return;
 	}
@@ -1663,7 +1664,7 @@ resort_type_method_vec (void* obj,
                         gt_pointer_operator new_value,
                         void* cookie)
 {
-  VEC(tree) *method_vec = (VEC(tree) *) obj;
+  VEC(tree,gc) *method_vec = (VEC(tree,gc) *) obj;
   int len = VEC_length (tree, method_vec);
   size_t slot;
   tree fn;
@@ -1695,7 +1696,7 @@ static void
 finish_struct_methods (tree t)
 {
   tree fn_fields;
-  VEC(tree) *method_vec;
+  VEC(tree,gc) *method_vec;
   int slot, len;
 
   method_vec = CLASSTYPE_METHOD_VEC (t);
@@ -1814,7 +1815,7 @@ typedef struct find_final_overrider_data_s {
   /* The candidate overriders.  */
   tree candidates;
   /* Path to most derived.  */
-  VEC (tree) *path;
+  VEC(tree,heap) *path;
 } find_final_overrider_data;
 
 /* Add the overrider along the current path to FFOD->CANDIDATES.
@@ -1873,7 +1874,7 @@ dfs_find_final_overrider_pre (tree binfo, void *data)
 
   if (binfo == ffod->declaring_base)
     dfs_find_final_overrider_1 (binfo, ffod, VEC_length (tree, ffod->path));
-  VEC_safe_push (tree, ffod->path, binfo);
+  VEC_safe_push (tree, heap, ffod->path, binfo);
 
   return NULL_TREE;
 }
@@ -1922,12 +1923,12 @@ find_final_overrider (tree derived, tree binfo, tree fn)
   ffod.fn = fn;
   ffod.declaring_base = binfo;
   ffod.candidates = NULL_TREE;
-  ffod.path = VEC_alloc (tree, 30);
+  ffod.path = VEC_alloc (tree, heap, 30);
 
   dfs_walk_all (derived, dfs_find_final_overrider_pre,
 		dfs_find_final_overrider_post, &ffod);
 
-  VEC_free (tree, ffod.path);
+  VEC_free (tree, heap, ffod.path);
   
   /* If there was no winner, issue an error message.  */
   if (!ffod.candidates || TREE_CHAIN (ffod.candidates))
@@ -1946,7 +1947,7 @@ find_final_overrider (tree derived, tree binfo, tree fn)
 static tree
 get_vcall_index (tree fn, tree type)
 {
-  VEC (tree_pair_s) *indices = CLASSTYPE_VCALL_INDICES (type);
+  VEC(tree_pair_s,gc) *indices = CLASSTYPE_VCALL_INDICES (type);
   tree_pair_p p;
   unsigned ix;
 
@@ -2350,7 +2351,7 @@ check_for_override (tree decl, tree ctype)
 void
 warn_hidden (tree t)
 {
-  VEC(tree) *method_vec = CLASSTYPE_METHOD_VEC (t);
+  VEC(tree,gc) *method_vec = CLASSTYPE_METHOD_VEC (t);
   tree fns;
   size_t i;
 
@@ -3035,16 +3036,16 @@ check_field_decls (tree t, tree *access_decls,
 	&& TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t)
 	&& !(TYPE_HAS_INIT_REF (t) && TYPE_HAS_ASSIGN_REF (t)))
     {
-      warning ("%q#T has pointer data members", t);
+      warning (0, "%q#T has pointer data members", t);
       
       if (! TYPE_HAS_INIT_REF (t))
 	{
-	  warning ("  but does not override %<%T(const %T&)%>", t, t);
+	  warning (0, "  but does not override %<%T(const %T&)%>", t, t);
 	  if (! TYPE_HAS_ASSIGN_REF (t))
-	    warning ("  or %<operator=(const %T&)%>", t);
+	    warning (0, "  or %<operator=(const %T&)%>", t);
 	}
       else if (! TYPE_HAS_ASSIGN_REF (t))
-	warning ("  but does not override %<operator=(const %T&)%>", t);
+	warning (0, "  but does not override %<operator=(const %T&)%>", t);
     }
 
 
@@ -3200,7 +3201,7 @@ walk_subobject_offsets (tree type,
       if (abi_version_at_least (2) && CLASSTYPE_VBASECLASSES (type))
 	{
 	  unsigned ix;
-	  VEC (tree) *vbases;
+	  VEC(tree,gc) *vbases;
 
 	  /* Iterate through the virtual base classes of TYPE.  In G++
 	     3.2, we included virtual bases in the direct base class
@@ -3477,7 +3478,7 @@ layout_empty_base (tree binfo, tree eoc, splay_tree offsets)
 	propagate_binfo_offsets
 	  (binfo, size_diffop (size_zero_node, BINFO_OFFSET (binfo)));
       else if (warn_abi)
-	warning ("offset of empty base %qT may not be ABI-compliant and may"
+	warning (0, "offset of empty base %qT may not be ABI-compliant and may"
 		 "change in a future version of GCC",
 		 BINFO_TYPE (binfo));
     }
@@ -3589,7 +3590,7 @@ build_base_field (record_layout_info rli, tree binfo,
 	      if (abi_version_at_least (2))
 		CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
 	      else if (warn_abi)
-		warning ("class %qT will be considered nearly empty in a "
+		warning (0, "class %qT will be considered nearly empty in a "
 			 "future version of GCC", t);
 	    }
 	}
@@ -3678,7 +3679,7 @@ check_methods (tree t)
 	{
 	  TYPE_POLYMORPHIC_P (t) = 1;
 	  if (DECL_PURE_VIRTUAL_P (x))
-	    VEC_safe_push (tree, CLASSTYPE_PURE_VIRTUALS (t), x);
+	    VEC_safe_push (tree, gc, CLASSTYPE_PURE_VIRTUALS (t), x);
 	}
       /* All user-declared destructors are non-trivial.  */
       if (DECL_DESTRUCTOR_P (x))
@@ -4202,7 +4203,7 @@ static void
 fixup_inline_methods (tree type)
 {
   tree method = TYPE_METHODS (type);
-  VEC (tree) *friends;
+  VEC(tree,gc) *friends;
   unsigned ix;
 
   if (method && TREE_CODE (method) == TREE_VEC)
@@ -4334,7 +4335,7 @@ layout_virtual_bases (record_layout_info rli, splay_tree offsets)
 					 CLASSTYPE_ALIGN (basetype)),
 			       bitsize_unit_node),
 		   BINFO_OFFSET (vbase))))
-	    warning ("offset of virtual base %qT is not ABI-compliant and "
+	    warning (0, "offset of virtual base %qT is not ABI-compliant and "
                      "may change in a future version of GCC",
 		     basetype);
 
@@ -4370,7 +4371,7 @@ static tree
 end_of_class (tree t, int include_virtuals_p)
 {
   tree result = size_zero_node;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
   tree binfo;
   tree base_binfo;
   tree offset;
@@ -4417,7 +4418,7 @@ static void
 warn_about_ambiguous_bases (tree t)
 {
   int i;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
   tree basetype;
   tree binfo;
   tree base_binfo;
@@ -4433,7 +4434,7 @@ warn_about_ambiguous_bases (tree t)
       basetype = BINFO_TYPE (base_binfo);
 
       if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
-	warning ("direct base %qT inaccessible in %qT due to ambiguity",
+	warning (0, "direct base %qT inaccessible in %qT due to ambiguity",
 		 basetype, t);
     }
 
@@ -4445,7 +4446,7 @@ warn_about_ambiguous_bases (tree t)
 	basetype = BINFO_TYPE (binfo);
 	
 	if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
-	  warning ("virtual base %qT inaccessible in %qT due to ambiguity",
+	  warning (0, "virtual base %qT inaccessible in %qT due to ambiguity",
 		   basetype, t);
       }
 }
@@ -4622,7 +4623,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	      else
 		{
 		  if (warn_abi && TREE_CODE (t) == UNION_TYPE)
-		    warning ("size assigned to %qT may not be "
+		    warning (0, "size assigned to %qT may not be "
 			     "ABI-compliant and may change in a future "
 			     "version of GCC", 
 			     t);
@@ -4661,7 +4662,7 @@ layout_class_type (tree t, tree *virtuals_p)
 		   && DECL_MODE (field) != TYPE_MODE (type))
 	    /* Versions of G++ before G++ 3.4 did not reset the
 	       DECL_MODE.  */
-	    warning ("the offset of %qD may not be ABI-compliant and may "
+	    warning (0, "the offset of %qD may not be ABI-compliant and may "
 		     "change in a future version of GCC", field);
 	}
       else
@@ -4754,7 +4755,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	  TYPE_SIZE (base_t) = bitsize_zero_node;
 	  TYPE_SIZE_UNIT (base_t) = size_zero_node;
 	  if (warn_abi && !integer_zerop (rli_size_unit_so_far (rli)))
-	    warning ("layout of classes derived from empty class %qT "
+	    warning (0, "layout of classes derived from empty class %qT "
 		     "may change in a future version of GCC",
 		     t);
 	}
@@ -5045,7 +5046,7 @@ finish_struct_1 (tree t)
 	      && (!TREE_PRIVATE (dtor) 
 		  || CLASSTYPE_FRIEND_CLASSES (t) 
 		  || DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))
-	warning ("%q#T has virtual functions but non-virtual destructor", 
+	warning (0, "%q#T has virtual functions but non-virtual destructor", 
 		 t);
     }
 
@@ -5129,7 +5130,7 @@ finish_struct (tree t, tree attributes)
       CLASSTYPE_PURE_VIRTUALS (t) = NULL;
       for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
 	if (DECL_PURE_VIRTUAL_P (x))
-	  VEC_safe_push (tree, CLASSTYPE_PURE_VIRTUALS (t), x);
+	  VEC_safe_push (tree, gc, CLASSTYPE_PURE_VIRTUALS (t), x);
       complete_vars (t);
     }
   else
@@ -7130,7 +7131,7 @@ build_vtbl_initializer (tree binfo,
   vtbl_init_data vid;
   unsigned ix;
   tree vbinfo;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
   
   /* Initialize VID.  */
   memset (&vid, 0, sizeof (vid));
@@ -7598,7 +7599,7 @@ add_vcall_offset (tree orig_fn, tree binfo, vtbl_init_data *vid)
      offset.  */
   if (vid->binfo == TYPE_BINFO (vid->derived))
     {
-      tree_pair_p elt = VEC_safe_push (tree_pair_s,
+      tree_pair_p elt = VEC_safe_push (tree_pair_s, gc,
 				       CLASSTYPE_VCALL_INDICES (vid->derived),
 				       NULL);
       elt->purpose = orig_fn;
@@ -7718,6 +7719,8 @@ cp_fold_obj_type_ref (tree ref, tree known_type)
   gcc_assert (tree_int_cst_equal (OBJ_TYPE_REF_TOKEN (ref),
 				  DECL_VINDEX (fndecl)));
 #endif
+
+  cgraph_node (fndecl)->local.vtable_method = true;
 
   return build_address (fndecl);
 }

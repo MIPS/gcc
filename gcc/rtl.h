@@ -90,8 +90,6 @@ enum rtx_class  {
 #define RTX_COMMUTATIVE_MASK (~2)
 #define RTX_COMMUTATIVE_RESULT (RTX_COMM_COMPARE & RTX_COMMUTATIVE_MASK)
 #define RTX_NON_COMMUTATIVE_RESULT (RTX_COMPARE & RTX_COMMUTATIVE_MASK)
-#define RTX_EXPR_FIRST (RTX_COMPARE)
-#define RTX_EXPR_LAST (RTX_UNARY)
 
 extern const unsigned char rtx_length[NUM_RTX_CODE];
 #define GET_RTX_LENGTH(CODE)		(rtx_length[(int) (CODE)])
@@ -581,19 +579,6 @@ extern void rtl_check_failed_flag (const char *, rtx, const char *,
 #define RTL_FLAG_CHECK8(NAME, RTX, C1, C2, C3, C4, C5, C6, C7, C8)	(RTX)
 #endif
 
-#define CLEAR_RTX_FLAGS(RTX)	\
-do {				\
-  rtx const _rtx = (RTX);	\
-  _rtx->jump = 0;		\
-  _rtx->call = 0;		\
-  _rtx->unchanging = 0;		\
-  _rtx->volatil = 0;		\
-  _rtx->in_struct = 0;		\
-  _rtx->used = 0;		\
-  _rtx->frame_related = 0;	\
-  _rtx->return_val = 0;		\
-} while (0)
-
 #define XINT(RTX, N)	(RTL_CHECK2 (RTX, N, 'i', 'n').rt_int)
 #define XSTR(RTX, N)	(RTL_CHECK2 (RTX, N, 's', 'S').rt_str)
 #define XEXP(RTX, N)	(RTL_CHECK2 (RTX, N, 'e', 'u').rt_rtx)
@@ -773,7 +758,6 @@ extern const char * const reg_note_name[];
 #define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 4, NOTE)
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 4, NOTE)
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
-#define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
 #define NOTE_VAR_LOCATION(INSN)	XCEXP (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
@@ -784,11 +768,6 @@ extern const char * const reg_note_name[];
 #define NOTE_INSN_BASIC_BLOCK_P(INSN)			\
   (GET_CODE (INSN) == NOTE				\
    && NOTE_LINE_NUMBER (INSN) == NOTE_INSN_BASIC_BLOCK)
-
-/* Algorithm and flags for prediction.  */
-#define NOTE_PREDICTION_ALG(INSN)   (XCINT(INSN, 4, NOTE)>>8)
-#define NOTE_PREDICTION_FLAGS(INSN) (XCINT(INSN, 4, NOTE)&0xff)
-#define NOTE_PREDICT(ALG,FLAGS)     ((ALG<<8)+(FLAGS))
 
 /* Variable declaration and the location of a variable.  */
 #define NOTE_VAR_LOCATION_DECL(INSN)	(XCTREE (XCEXP (INSN, 4, NOTE), \
@@ -933,7 +912,7 @@ enum label_kind
 #define INTVAL(RTX) XCWINT(RTX, 0, CONST_INT)
 
 /* For a CONST_DOUBLE:
-   For a DImode, there are two integers CONST_DOUBLE_LOW is the
+   For a VOIDmode, there are two integers CONST_DOUBLE_LOW is the
      low-order word and ..._HIGH the high-order.
    For a float, there is a REAL_VALUE_TYPE structure, and
      CONST_DOUBLE_REAL_VALUE(r) is a pointer to it.  */

@@ -77,10 +77,6 @@ Boston, MA 02111-1307, USA.  */
    the code that handles @code{static} data indirection.  */
 
 
-/* Nonzero if the user passes the -mone-byte-bool switch, which forces
-   sizeof(bool) to be 1. */
-const char *darwin_one_byte_bool = 0;
-
 int
 name_needs_quotes (const char *name)
 {
@@ -306,43 +302,40 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
   size_t namelen = strlen (name);
   machopic_indirection *p;
   void ** slot;
+  bool saw_star = false;
+  bool needs_quotes;
+  const char *suffix;
+  const char *prefix = user_label_prefix;
+  const char *quote = "";
   
-  /* Construct the name of the non-lazy pointer or stub.  */
-  if (stub_p)
+  if (name[0] == '*')
     {
-      int needs_quotes = name_needs_quotes (name);
-      buffer = alloca (strlen ("&L")
-		       + namelen
-		       + strlen (STUB_SUFFIX)
-		       + 2 /* possible quotes */
-		       + 1 /* '\0' */);
+      saw_star = true;
+      prefix = "";
+      ++name;
+      --namelen;
+    }
 
-      if (needs_quotes)
-	{
-	  if (name[0] == '*')
-	    sprintf (buffer, "&\"L%s" STUB_SUFFIX "\"", name + 1);
-	  else
-	    sprintf (buffer, "&\"L%s%s" STUB_SUFFIX "\"", user_label_prefix, 
-		     name);
-	}
-      else if (name[0] == '*')
-	sprintf (buffer, "&L%s" STUB_SUFFIX, name + 1);
-      else
-	sprintf (buffer, "&L%s%s" STUB_SUFFIX, user_label_prefix, name);
-    }
-  else
+  needs_quotes = name_needs_quotes (name);
+  if (needs_quotes)
     {
-      buffer = alloca (strlen ("&L")
-		       + strlen (user_label_prefix)
-		       + namelen
-		       + strlen (NON_LAZY_POINTER_SUFFIX)
-		       + 1 /* '\0' */);
-      if (name[0] == '*')
-	sprintf (buffer, "&L%s" NON_LAZY_POINTER_SUFFIX, name + 1);
-      else
-	sprintf (buffer, "&L%s%s" NON_LAZY_POINTER_SUFFIX, 
-		 user_label_prefix, name);
+      quote = "\"";
     }
+
+  if (stub_p)
+    suffix = STUB_SUFFIX;
+  else
+    suffix = NON_LAZY_POINTER_SUFFIX;
+
+  buffer = alloca (strlen ("&L")
+		   + strlen (prefix)
+		   + namelen
+		   + strlen (suffix)
+		   + 2 * strlen (quote)
+		   + 1 /* '\0' */);
+
+  /* Construct the name of the non-lazy pointer or stub.  */
+  sprintf (buffer, "&%sL%s%s%s%s", quote, prefix, name, suffix, quote);
 
   if (!machopic_indirections)
     machopic_indirections = htab_create_ggc (37, 
@@ -1238,7 +1231,7 @@ darwin_handle_weak_import_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL && TREE_CODE (*node) != VAR_DECL)
     {
-      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else
@@ -1265,8 +1258,7 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
     ? DECL_ASSEMBLER_NAME (decl)
     : DECL_NAME (decl);
 
-  const char *prefix = "_";
-  const int prefix_len = 1;
+  const char *prefix = user_label_prefix;
 
   const char *base = IDENTIFIER_POINTER (id);
   unsigned int base_len = IDENTIFIER_LENGTH (id);
@@ -1280,7 +1272,8 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
   if (! for_eh)
     suffix = ".eh1";
 
-  lab = xmalloc (prefix_len + base_len + strlen (suffix) + quotes_len + 1);
+  lab = xmalloc (strlen (prefix)
+		 + base_len + strlen (suffix) + quotes_len + 1);
   lab[0] = '\0';
 
   if (need_quotes)
@@ -1352,7 +1345,7 @@ darwin_assemble_visibility (tree decl, int vis)
       fputs ("\n", asm_out_file);
     }
   else
-    warning ("internal and protected visibility attributes not supported "
+    warning (0, "internal and protected visibility attributes not supported "
 	     "in this configuration; ignored");
 }
 
@@ -1396,14 +1389,5 @@ darwin_file_end (void)
     }
   fprintf (asm_out_file, "\t.subsections_via_symbols\n");
 }
-
-/* True, iff we're generating fast turn around debugging code.  When
-   true, we arrange for function prologues to start with 4 nops so
-   that gdb may insert code to redirect them, and for data to accessed
-   indirectly.  The runtime uses this indirection to forward
-   references for data to the original instance of that data.  */
-
-int darwin_fix_and_continue;
-const char *darwin_fix_and_continue_switch;
 
 #include "gt-darwin.h"

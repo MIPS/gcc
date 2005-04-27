@@ -483,121 +483,13 @@ extern enum cmodel sparc_cmodel;
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
 
+/* Option handling.  */
+
 #define OVERRIDE_OPTIONS  sparc_override_options ()
 
-/* Run-time compilation parameters selecting different hardware subsets.  */
-
-extern int target_flags;
-
-/* Nonzero if we should generate code to use the fpu.  */
-#define MASK_FPU 1
-#define TARGET_FPU (target_flags & MASK_FPU)
-
-/* Nonzero if we should assume that double pointers might be unaligned.
-   This can happen when linking gcc compiled code with other compilers,
-   because the ABI only guarantees 4 byte alignment.  */
-#define MASK_UNALIGNED_DOUBLES 4
-#define TARGET_UNALIGNED_DOUBLES (target_flags & MASK_UNALIGNED_DOUBLES)
-
-/* Nonzero means that we should generate code for a v8 sparc.  */
-#define MASK_V8 0x8
-#define TARGET_V8 (target_flags & MASK_V8)
-
-/* Nonzero means that we should generate code for a sparclite.
-   This enables the sparclite specific instructions, but does not affect
-   whether FPU instructions are emitted.  */
-#define MASK_SPARCLITE 0x10
-#define TARGET_SPARCLITE (target_flags & MASK_SPARCLITE)
-
-/* Nonzero if we're compiling for the sparclet.  */
-#define MASK_SPARCLET 0x20
-#define TARGET_SPARCLET (target_flags & MASK_SPARCLET)
-
-/* Nonzero if we're compiling for v9 sparc.
-   Note that v9's can run in 32 bit mode so this doesn't necessarily mean
-   the word size is 64.  */
-#define MASK_V9 0x40
-#define TARGET_V9 (target_flags & MASK_V9)
-
-/* Nonzero to generate code that uses the instructions deprecated in
-   the v9 architecture.  This option only applies to v9 systems.  */
-/* ??? This isn't user selectable yet.  It's used to enable such insns
-   on 32 bit v9 systems and for the moment they're permanently disabled
-   on 64 bit v9 systems.  */
-#define MASK_DEPRECATED_V8_INSNS 0x80
-#define TARGET_DEPRECATED_V8_INSNS (target_flags & MASK_DEPRECATED_V8_INSNS)
-
 /* Mask of all CPU selection flags.  */
 #define MASK_ISA \
 (MASK_V8 + MASK_SPARCLITE + MASK_SPARCLET + MASK_V9 + MASK_DEPRECATED_V8_INSNS)
-
-/* Nonzero means don't pass `-assert pure-text' to the linker.  */
-#define MASK_IMPURE_TEXT 0x100
-#define TARGET_IMPURE_TEXT (target_flags & MASK_IMPURE_TEXT)
-
-/* 0x200 is unused */
-
-/* Nonzero means use the registers that the SPARC ABI reserves for
-   application software.  This must be the default to coincide with the
-   setting in FIXED_REGISTERS.  */
-#define MASK_APP_REGS 0x400
-#define TARGET_APP_REGS (target_flags & MASK_APP_REGS)
-
-/* Option to select how quad word floating point is implemented.
-   When TARGET_HARD_QUAD is true, we use the hardware quad instructions.
-   Otherwise, we use the SPARC ABI quad library functions.  */
-#define MASK_HARD_QUAD 0x800
-#define TARGET_HARD_QUAD (target_flags & MASK_HARD_QUAD)
-
-/* Nonzero on little-endian machines.  */
-/* ??? Little endian support currently only exists for sparc86x-elf and
-   sparc64-elf configurations.  May eventually want to expand the support
-   to all targets, but for now it's kept local to only those two.  */
-#define MASK_LITTLE_ENDIAN 0x1000
-#define TARGET_LITTLE_ENDIAN (target_flags & MASK_LITTLE_ENDIAN)
-
-/* 0x2000, 0x4000 are unused */
-
-/* Nonzero if pointers are 64 bits.  */
-#define MASK_PTR64 0x8000
-#define TARGET_PTR64 (target_flags & MASK_PTR64)
-
-/* Nonzero if generating code to run in a 64 bit environment.
-   This is intended to only be used by TARGET_ARCH{32,64} as they are the
-   mechanism used to control compile time or run time selection.  */
-#define MASK_64BIT 0x10000
-#define TARGET_64BIT (target_flags & MASK_64BIT)
-
-/* 0x20000,0x40000 unused */
-
-/* Nonzero means use a stack bias of 2047.  Stack offsets are obtained by
-   adding 2047 to %sp.  This option is for v9 only and is the default.  */
-#define MASK_STACK_BIAS 0x80000
-#define TARGET_STACK_BIAS (target_flags & MASK_STACK_BIAS)
-
-/* 0x100000,0x200000 unused */
-
-/* Nonzero means -m{,no-}fpu was passed on the command line.  */
-#define MASK_FPU_SET 0x400000
-#define TARGET_FPU_SET (target_flags & MASK_FPU_SET)
-
-/* Use the UltraSPARC Visual Instruction Set extensions.  */
-#define MASK_VIS 0x1000000
-#define TARGET_VIS (target_flags & MASK_VIS)
-
-/* Compile for Solaris V8+.  32 bit Solaris preserves the high bits of
-   the current out and global registers and Linux 2.2+ as well.  */
-#define MASK_V8PLUS 0x2000000
-#define TARGET_V8PLUS (target_flags & MASK_V8PLUS)
-
-/* Force a the fastest alignment on structures to take advantage of
-   faster copies.  */
-#define MASK_FASTER_STRUCTS 0x4000000
-#define TARGET_FASTER_STRUCTS (target_flags & MASK_FASTER_STRUCTS)
-
-/* Use IEEE quad long double.  */
-#define MASK_LONG_DOUBLE_128 0x8000000
-#define TARGET_LONG_DOUBLE_128 (target_flags & MASK_LONG_DOUBLE_128)
 
 /* TARGET_HARD_MUL: Use hardware multiply instructions but not %y.
    TARGET_HARD_MUL32: Use hardware multiply instructions with rd %y
@@ -613,78 +505,10 @@ extern int target_flags;
   (TARGET_V8 || TARGET_SPARCLITE || TARGET_SPARCLET	\
    || TARGET_DEPRECATED_V8_INSNS || TARGET_V8PLUS)
 
-
-/* Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
-
-#define TARGET_SWITCHES  \
-  { {"fpu", MASK_FPU | MASK_FPU_SET,					\
-     N_("Use hardware fp") },						\
-    {"no-fpu", -MASK_FPU,						\
-     N_("Do not use hardware fp") },					\
-    {"no-fpu", MASK_FPU_SET,				NULL, },	\
-    {"hard-float", MASK_FPU | MASK_FPU_SET,				\
-     N_("Use hardware fp") },						\
-    {"soft-float", -MASK_FPU,						\
-     N_("Do not use hardware fp") },					\
-    {"soft-float", MASK_FPU_SET,			NULL },		\
-    {"unaligned-doubles", MASK_UNALIGNED_DOUBLES,			\
-     N_("Assume possible double misalignment") },			\
-    {"no-unaligned-doubles", -MASK_UNALIGNED_DOUBLES,			\
-     N_("Assume all doubles are aligned") },				\
-    {"impure-text", MASK_IMPURE_TEXT,					\
-     N_("Pass -assert pure-text to linker") }, 				\
-    {"no-impure-text", -MASK_IMPURE_TEXT,				\
-     N_("Do not pass -assert pure-text to linker") }, 			\
-    {"app-regs", MASK_APP_REGS,						\
-     N_("Use ABI reserved registers") },				\
-    {"no-app-regs", -MASK_APP_REGS,					\
-     N_("Do not use ABI reserved registers") }, 			\
-    {"hard-quad-float", MASK_HARD_QUAD,					\
-     N_("Use hardware quad fp instructions") }, 			\
-    {"soft-quad-float", -MASK_HARD_QUAD,				\
-     N_("Do not use hardware quad fp instructions") }, 			\
-    {"v8plus", MASK_V8PLUS,						\
-     N_("Compile for v8plus ABI") },					\
-    {"no-v8plus", -MASK_V8PLUS,						\
-     N_("Do not compile for v8plus ABI") }, 				\
-    {"vis", MASK_VIS,							\
-     N_("Utilize Visual Instruction Set") }, 				\
-    {"no-vis", -MASK_VIS,						\
-     N_("Do not utilize Visual Instruction Set") }, 			\
-    {"ptr64", MASK_PTR64,						\
-     N_("Pointers are 64-bit") }, 					\
-    {"ptr32", -MASK_PTR64,						\
-     N_("Pointers are 32-bit") }, 					\
-    {"32", -MASK_64BIT,							\
-     N_("Use 32-bit ABI") }, 						\
-    {"64", MASK_64BIT,							\
-     N_("Use 64-bit ABI") }, 						\
-    {"stack-bias", MASK_STACK_BIAS,					\
-     N_("Use stack bias") }, 						\
-    {"no-stack-bias", -MASK_STACK_BIAS,					\
-     N_("Do not use stack bias") }, 					\
-    {"faster-structs", MASK_FASTER_STRUCTS,				\
-     N_("Use structs on stronger alignment for double-word copies") }, 	\
-    {"no-faster-structs", -MASK_FASTER_STRUCTS,				\
-     N_("Do not use structs on stronger alignment for double-word copies") }, \
-    {"relax", 0,							\
-     N_("Optimize tail call instructions in assembler and linker") },	\
-    {"no-relax", 0,							\
-     N_("Do not optimize tail call instructions in assembler or linker") }, \
-    SUBTARGET_SWITCHES			\
-    { "", TARGET_DEFAULT, ""}}
-
 /* MASK_APP_REGS must always be the default because that's what
    FIXED_REGISTERS is set to and -ffixed- is processed before
    CONDITIONAL_REGISTER_USAGE is called (where we process -mno-app-regs).  */
 #define TARGET_DEFAULT (MASK_APP_REGS + MASK_FPU)
-
-/* This is meant to be redefined in target specific files.  */
-#define SUBTARGET_SWITCHES
 
 /* Processor type.
    These must match the values for the cpu attribute in sparc.md.  */
@@ -711,20 +535,6 @@ extern enum processor_type sparc_cpu;
 /* Recast the cpu class to be the cpu attribute.
    Every file includes us, but not every file includes insn-attr.h.  */
 #define sparc_cpu_attr ((enum attr_cpu) sparc_cpu)
-
-#define TARGET_OPTIONS \
-{								\
-  { "cpu=",  &sparc_select[1].string,				\
-    N_("Use features of and schedule code for given CPU"), 0},	\
-  { "tune=", &sparc_select[2].string,				\
-    N_("Schedule code for given CPU"), 0},			\
-  { "cmodel=", &sparc_cmodel_string,				\
-    N_("Use given SPARC code model"), 0},			\
-  SUBTARGET_OPTIONS 						\
-}
-
-/* This is meant to be redefined in target specific files.  */
-#define SUBTARGET_OPTIONS
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
    --with-cpu is ignored if -mcpu is specified.
@@ -1379,8 +1189,8 @@ extern char leaf_reg_remap[];
     : (C) == 'c' ? FPCC_REGS			\
     : NO_REGS))
 
-/* The letters I, J, K, L and M in a register constraint string
-   can be used to stand for particular ranges of immediate operands.
+/* The letters I, J, K, L, M, N, O, P in a register constraint string
+   can be used to stand for particular ranges of CONST_INTs.
    This macro defines what the ranges are.
    C is the letter, and VALUE is a constant value.
    Return 1 if VALUE is in the range specified by C.
@@ -1391,20 +1201,32 @@ extern char leaf_reg_remap[];
    `L' is used for the range of constants supported by the movcc insns.
    `M' is used for the range of constants supported by the movrcc insns.
    `N' is like K, but for constants wider than 32 bits.
-   `O' is used for the range which is just 4096.  */
+   `O' is used for the range which is just 4096.
+   `P' is free.  */
 
+/* Predicates for 10-bit, 11-bit and 13-bit signed constants.  */
 #define SPARC_SIMM10_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x200 < 0x400)
 #define SPARC_SIMM11_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x400 < 0x800)
 #define SPARC_SIMM13_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x1000 < 0x2000)
-/* 10 and 11 bit immediates are only used for a few specific insns.
+
+/* 10- and 11-bit immediates are only used for a few specific insns.
    SMALL_INT is used throughout the port so we continue to use it.  */
 #define SMALL_INT(X) (SPARC_SIMM13_P (INTVAL (X)))
-/* 13 bit immediate, considering only the low 32 bits */
-#define SMALL_INT32(X) (SPARC_SIMM13_P (trunc_int_for_mode \
-					(INTVAL (X), SImode)))
+
+/* Predicate for constants that can be loaded with a sethi instruction.
+   This is the general, 64-bit aware, bitwise version that ensures that
+   only constants whose representation fits in the mask
+
+     0x00000000fffffc00
+
+   are accepted.  It will reject, for example, negative SImode constants
+   on 64-bit hosts, so correct handling is to mask the value beforehand
+   according to the mode of the instruction.  */
 #define SPARC_SETHI_P(X) \
   (((unsigned HOST_WIDE_INT) (X) \
     & ((unsigned HOST_WIDE_INT) 0x3ff - GET_MODE_MASK (SImode) - 1)) == 0)
+
+/* Version of the above predicate for SImode constants and below.  */
 #define SPARC_SETHI32_P(X) \
   (SPARC_SETHI_P ((unsigned HOST_WIDE_INT) (X) & GET_MODE_MASK (SImode)))
 
@@ -1418,13 +1240,12 @@ extern char leaf_reg_remap[];
    : (C) == 'O' ? (VALUE) == 4096			\
    : 0)
 
-/* Similar, but for floating constants, and defining letters G and H.
+/* Similar, but for CONST_DOUBLEs, and defining letters G and H.
    Here VALUE is the CONST_DOUBLE rtx itself.  */
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
-  ((C) == 'G' ? fp_zero_operand (VALUE, GET_MODE (VALUE))	\
+  ((C) == 'G' ? const_zero_operand (VALUE, GET_MODE (VALUE))	\
    : (C) == 'H' ? arith_double_operand (VALUE, DImode)		\
-   : (C) == 'O' ? arith_double_4096_operand (VALUE, DImode)	\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -1447,7 +1268,7 @@ extern char leaf_reg_remap[];
        || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
 	   && ! TARGET_FPU)				\
        || (GET_MODE (X) == TFmode			\
-	   && ! fp_zero_operand (X, TFmode)))		\
+	   && ! const_zero_operand (X, TFmode)))	\
       ? NO_REGS						\
       : (!FP_REG_CLASS_P (CLASS)			\
          && GET_MODE_CLASS (GET_MODE (X)) == MODE_INT)	\
@@ -1798,7 +1619,7 @@ extern GTY(()) rtx sparc_compare_op1;
    case of a global register variable occupying more than one register
    we prefix the second and following registers with .gnu.part1. etc.  */
 
-extern char sparc_hard_reg_printed[8];
+extern GTY(()) char sparc_hard_reg_printed[8];
 
 #ifdef HAVE_AS_REGISTER_PSEUDO_OP
 #define ASM_DECLARE_REGISTER_GLOBAL(FILE, DECL, REGNO, NAME)		\
@@ -2638,59 +2459,6 @@ extern int sparc_indent_opcode;
 #endif
 #define TARGET_SUN_TLS TARGET_TLS
 #define TARGET_GNU_TLS 0
-
-/* Define the codes that are matched by predicates in sparc.c.  */
-
-#define PREDICATE_CODES							\
-{"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
-{"const1_operand", {CONST_INT}},					\
-{"fp_zero_operand", {CONST_DOUBLE}},					\
-{"fp_register_operand", {SUBREG, REG}},					\
-{"intreg_operand", {SUBREG, REG}},					\
-{"fcc_reg_operand", {REG}},						\
-{"fcc0_reg_operand", {REG}},						\
-{"icc_or_fcc_reg_operand", {REG}},					\
-{"call_operand", {MEM}},						\
-{"call_operand_address", {SYMBOL_REF, LABEL_REF, CONST, CONST_DOUBLE,	\
-	SUBREG, REG, PLUS, LO_SUM, CONST_INT}},				\
-{"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
-{"symbolic_memory_operand", {SUBREG, MEM}},				\
-{"label_ref_operand", {LABEL_REF}},					\
-{"sp64_medium_pic_operand", {CONST}},					\
-{"data_segment_operand", {SYMBOL_REF, PLUS, CONST}},			\
-{"text_segment_operand", {LABEL_REF, SYMBOL_REF, PLUS, CONST}},		\
-{"reg_or_nonsymb_mem_operand", {SUBREG, REG, MEM}},			\
-{"splittable_symbolic_memory_operand", {MEM}},				\
-{"splittable_immediate_memory_operand", {MEM}},				\
-{"eq_or_neq", {EQ, NE}},						\
-{"normal_comp_operator", {GE, GT, LE, LT, GTU, LEU}},			\
-{"noov_compare_op", {NE, EQ, GE, GT, LE, LT, GEU, GTU, LEU, LTU}},	\
-{"noov_compare64_op", {NE, EQ, GE, GT, LE, LT, GEU, GTU, LEU, LTU}},	\
-{"v9_regcmp_op", {EQ, NE, GE, LT, LE, GT}},				\
-{"extend_op", {SIGN_EXTEND, ZERO_EXTEND}},				\
-{"cc_arithop", {AND, IOR, XOR}},					\
-{"cc_arithopn", {AND, IOR}},						\
-{"arith_operand", {SUBREG, REG, CONST_INT}},				\
-{"arith_add_operand", {SUBREG, REG, CONST_INT}},			\
-{"arith11_operand", {SUBREG, REG, CONST_INT}},				\
-{"arith10_operand", {SUBREG, REG, CONST_INT}},				\
-{"arith_double_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
-{"arith_double_add_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
-{"arith11_double_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
-{"arith10_double_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
-{"small_int", {CONST_INT}},						\
-{"small_int_or_double", {CONST_INT, CONST_DOUBLE}},			\
-{"uns_small_int", {CONST_INT}},						\
-{"uns_arith_operand", {SUBREG, REG, CONST_INT}},			\
-{"clobbered_register", {REG}},						\
-{"input_operand", {SUBREG, REG, CONST_INT, MEM, CONST}},		\
-{"compare_operand", {SUBREG, REG, ZERO_EXTRACT}},			\
-{"const64_operand", {CONST_INT, CONST_DOUBLE}},				\
-{"const64_high_operand", {CONST_INT, CONST_DOUBLE}},			\
-{"tgd_symbolic_operand", {SYMBOL_REF}},					\
-{"tld_symbolic_operand", {SYMBOL_REF}},					\
-{"tie_symbolic_operand", {SYMBOL_REF}},					\
-{"tle_symbolic_operand", {SYMBOL_REF}},
 
 /* The number of Pmode words for the setjmp buffer.  */
 #define JMP_BUF_SIZE 12

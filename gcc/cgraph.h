@@ -79,6 +79,14 @@ struct cgraph_local_info GTY(())
   /* True when the function has been originally extern inline, but it is
      redefined now.  */
   bool redefined_extern_inline;
+
+  /* True if statics_read_for_function and
+     statics_written_for_function contain valid data.  */
+  bool for_functions_valid;
+
+  /* True if the function is going to be emitted in some other translation
+     unit, referenced from vtable.  */
+  bool vtable_method;
 };
 
 /* Information about the function that needs to be computed globally

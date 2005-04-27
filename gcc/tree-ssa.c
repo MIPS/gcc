@@ -493,7 +493,8 @@ err:
   internal_error ("verify_flow_sensitive_alias_info failed.");
 }
 
-DEF_VEC_MALLOC_P (bitmap);
+DEF_VEC_P (bitmap);
+DEF_VEC_ALLOC_P (bitmap,heap);
 
 /* Verify that all name tags have different points to sets.
    This algorithm takes advantage of the fact that every variable with the
@@ -512,8 +513,8 @@ verify_name_tags (void)
   size_t i;  
   size_t j;
   bitmap first, second;  
-  VEC (tree) *name_tag_reps = NULL;
-  VEC (bitmap) *pt_vars_for_reps = NULL;
+  VEC(tree,heap) *name_tag_reps = NULL;
+  VEC(bitmap,heap) *pt_vars_for_reps = NULL;
   bitmap type_aliases = BITMAP_ALLOC (NULL);
 
   /* First we compute the name tag representatives and their points-to sets.  */
@@ -539,8 +540,8 @@ verify_name_tags (void)
       if (pi->pt_vars == NULL)
 	continue;
 
-      VEC_safe_push (tree, name_tag_reps, ptr);
-      VEC_safe_push (bitmap, pt_vars_for_reps, pi->pt_vars);
+      VEC_safe_push (tree, heap, name_tag_reps, ptr);
+      VEC_safe_push (bitmap, heap, pt_vars_for_reps, pi->pt_vars);
 
       /* Verify that alias set of PTR's type tag is a superset of the
 	 alias set of PTR's name tag.  */
@@ -605,7 +606,10 @@ verify_name_tags (void)
 	}
     } 
 
-  VEC_free (bitmap, pt_vars_for_reps);
+  /* We do not have to free the bitmaps or trees in the vectors, as
+     they are not owned by us.  */
+  VEC_free (bitmap, heap, pt_vars_for_reps);
+  VEC_free (tree, heap, name_tag_reps);
   BITMAP_FREE (type_aliases);
   return;
   
@@ -639,6 +643,10 @@ verify_ssa (bool check_modified_stmt)
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
   bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
+
+  gcc_assert (!need_ssa_update_p ());
+
+  verify_stmts ();
 
   timevar_push (TV_TREE_SSA_VERIFY);
 
@@ -747,9 +755,7 @@ verify_ssa (bool check_modified_stmt)
 	    }
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
-	    {
-	      bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
-	    }
+	    bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
 	}
 
       bitmap_clear (names_defined_in_bb);
@@ -759,6 +765,7 @@ verify_ssa (bool check_modified_stmt)
   verify_alias_info ();
 
   free (definition_block);
+
   /* Restore the dominance information to its prior known state, so
      that we do not perturb the compiler's subsequent behavior.  */
   if (orig_dom_state == DOM_NONE)
@@ -831,6 +838,7 @@ delete_tree_ssa (void)
   addressable_vars = NULL;
   modified_noreturn_calls = NULL;
   aliases_computed_p = false;
+  gcc_assert (!need_ssa_update_p ());
 }
 
 
@@ -930,10 +938,7 @@ tree_ssa_useless_type_conversion (tree expr)
 bool
 stmt_references_memory_p (tree stmt)
 {
-  stmt_ann_t ann;
-
-  get_stmt_operands (stmt);
-  ann = stmt_ann (stmt);
+  stmt_ann_t ann = stmt_ann (stmt);
 
   if (ann->has_volatile_ops)
     return true;
@@ -1097,7 +1102,7 @@ warn_uninit (tree t, const char *msgid, void *data)
   locus = (context != NULL && EXPR_HAS_LOCATION (context)
 	   ? EXPR_LOCUS (context)
 	   : &DECL_SOURCE_LOCATION (var));
-  warning (msgid, locus, var);
+  warning (0, msgid, locus, var);
   TREE_NO_WARNING (var) = 1;
 }
    

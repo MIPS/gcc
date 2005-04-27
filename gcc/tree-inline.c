@@ -681,8 +681,12 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		   node = node->next_clone)
 		{
 		  edge = cgraph_edge (node, old_node);
+		  /*HACK!*/
+		  if (edge)
+		  {
 		  gcc_assert (edge);
 		  edge->call_expr = *tp;
+		  }
 		}
 	    }
 	  else
@@ -1461,7 +1465,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	 UNION_TYPE nodes, then it goes into infinite recursion on a
 	 structure containing a pointer to its own type.  If it doesn't,
 	 then the type node for S doesn't get adjusted properly when
-	 F is inlined, and we abort in find_function_data.
+	 F is inlined. 
 
 	 ??? This is likely no longer true, but it's too late in the 4.0
 	 cycle to try to find out.  This should be checked for 4.1.  */
@@ -1572,7 +1576,7 @@ inlinable_function_p (tree fn)
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	sorry (inline_forbidden_reason, fn, fn);
       else if (do_warning)
-	warning (inline_forbidden_reason, fn, fn);
+	warning (0, inline_forbidden_reason, fn, fn);
 
       inlinable = false;
     }
@@ -1840,7 +1844,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	break;
       }
     default:
-      /* Abort here se we know we don't miss any nodes.  */
       gcc_unreachable ();
     }
   return NULL;
@@ -2019,8 +2022,8 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 	       && strlen (reason)
 	       && !lookup_attribute ("noinline", DECL_ATTRIBUTES (fn)))
 	{
-	  warning ("%Jinlining failed in call to %qF: %s", fn, fn, reason);
-	  warning ("called from here");
+	  warning (0, "%Jinlining failed in call to %qF: %s", fn, fn, reason);
+	  warning (0, "called from here");
 	}
       goto egress;
     }

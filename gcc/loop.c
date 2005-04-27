@@ -424,7 +424,7 @@ struct loop_info
 #ifndef HAVE_prefetch
 #define HAVE_prefetch 0
 #define CODE_FOR_prefetch 0
-#define gen_prefetch(a,b,c) (abort(), NULL_RTX)
+#define gen_prefetch(a,b,c) (gcc_unreachable (), NULL_RTX)
 #endif
 
 /* Give up the prefetch optimizations once we exceed a given threshold.
@@ -3280,6 +3280,7 @@ find_and_verify_loops (rtx f, struct loops *loops)
 		    if (invert_jump (p, new_label, 1))
 		      {
 			rtx q, r;
+			bool only_notes;
 
 			/* If no suitable BARRIER was found, create a suitable
 			   one before TARGET.  Since TARGET is a fall through
@@ -3304,8 +3305,10 @@ find_and_verify_loops (rtx f, struct loops *loops)
 
 			/* Include the BARRIER after INSN and copy the
 			   block after LOC.  */
-			if (squeeze_notes (&new_label, &last_insn_to_move))
-			  abort ();
+			only_notes = squeeze_notes (&new_label,
+						    &last_insn_to_move);
+			gcc_assert (!only_notes);
+			
 			reorder_insns (new_label, last_insn_to_move, loc);
 
 			/* All those insns are now in TARGET_LOOP.  */
@@ -5071,7 +5074,7 @@ reg_dead_after_loop (const struct loop *loop, rtx reg)
   /* HACK: Must also search the loop fall through exit, create a label_ref
      here which points to the loop->end, and append the loop_number_exit_labels
      list to it.  */
-  label = gen_rtx_LABEL_REF (VOIDmode, loop->end);
+  label = gen_rtx_LABEL_REF (Pmode, loop->end);
   LABEL_NEXTREF (label) = loop->exit_labels;
 
   for (; label; label = LABEL_NEXTREF (label))
@@ -5488,6 +5491,15 @@ loop_givs_rescan (struct loop *loop, struct iv_class *bl, rtx *reg_map)
 	    loop_insn_emit_before (loop, 0, v->insn,
 				   gen_move_insn (*v->location,
 						  v->new_reg));
+	  else if (GET_CODE (*v->location) == PLUS
+		   && REG_P (XEXP (*v->location, 0))
+		   && CONSTANT_P (XEXP (*v->location, 1)))
+	    loop_insn_emit_before (loop, 0, v->insn,
+				   gen_move_insn (XEXP (*v->location, 0),
+						  gen_rtx_MINUS
+						  (GET_MODE (*v->location),
+						   v->new_reg,
+						   XEXP (*v->location, 1))));
 	  else
 	    {
 	      /* If it wasn't a reg, create a pseudo and use that.  */
@@ -7640,9 +7652,9 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
     case CONST_INT:
     case SYMBOL_REF:
     case CONST:
-      /* convert_modes aborts if we try to convert to or from CCmode, so just
+      /* convert_modes dies if we try to convert to or from CCmode, so just
          exclude that case.  It is very unlikely that a condition code value
-	 would be a useful iterator anyways.  convert_modes aborts if we try to
+	 would be a useful iterator anyways.  convert_modes dies if we try to
 	 convert a float mode to non-float or vice versa too.  */
       if (loop->level == 1
 	  && GET_MODE_CLASS (mode) == GET_MODE_CLASS (GET_MODE (dest_reg))

@@ -642,6 +642,7 @@ static void rs6000_file_start (void);
 static unsigned int rs6000_elf_section_type_flags (tree, const char *, int);
 static void rs6000_elf_asm_out_constructor (rtx, int);
 static void rs6000_elf_asm_out_destructor (rtx, int);
+static void rs6000_elf_end_indicate_exec_stack (void) ATTRIBUTE_UNUSED;
 static void rs6000_elf_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_elf_unique_section (tree, int);
 static void rs6000_elf_select_rtx_section (enum machine_mode, rtx,
@@ -1160,14 +1161,15 @@ rs6000_override_options (const char *default_cpu)
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
-	  POWERPC_BASE_MASK | MASK_POWERPC64},
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
 	 {"rios", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
 	 {"rios1", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
 	 {"rios2", PROCESSOR_RIOS2,
 	  MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
 	 {"rsc", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
 	 {"rsc1", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
-	 {"rs64a", PROCESSOR_RS64A, POWERPC_BASE_MASK | MASK_POWERPC64},
+	 {"rs64", PROCESSOR_RS64A,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64}
       };
 
   const size_t ptt_size = ARRAY_SIZE (processor_target_table);
@@ -1249,14 +1251,14 @@ rs6000_override_options (const char *default_cpu)
 	{
 	  target_flags &= ~MASK_MULTIPLE;
 	  if ((target_flags_explicit & MASK_MULTIPLE) != 0)
-	    warning ("-mmultiple is not supported on little endian systems");
+	    warning (0, "-mmultiple is not supported on little endian systems");
 	}
 
       if (TARGET_STRING)
 	{
 	  target_flags &= ~MASK_STRING;
 	  if ((target_flags_explicit & MASK_STRING) != 0)
-	    warning ("-mstring is not supported on little endian systems");
+	    warning (0, "-mstring is not supported on little endian systems");
 	}
     }
 
@@ -1310,9 +1312,8 @@ rs6000_override_options (const char *default_cpu)
   if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
     {
       rs6000_darwin64_abi = 1;
-      /* Setting to empty string is same as "-mone-byte-bool".  */
 #if TARGET_MACHO
-      darwin_one_byte_bool = "";
+      darwin_one_byte_bool = 1;
 #endif
       /* Default to natural alignment, for better performance.  */
       rs6000_alignment_flags = MASK_ALIGN_NATURAL;
@@ -1588,7 +1589,7 @@ rs6000_override_options (const char *default_cpu)
 	break;
 
       default:
-	abort ();
+	gcc_unreachable ();
       }
 }
 
@@ -1646,12 +1647,12 @@ rs6000_parse_abi_options (void)
   else if (! strcmp (rs6000_abi_string, "d64"))
     {
       rs6000_darwin64_abi = 1;
-      warning ("Using darwin64 ABI");
+      warning (0, "Using darwin64 ABI");
     }
   else if (! strcmp (rs6000_abi_string, "d32"))
     {
       rs6000_darwin64_abi = 0;
-      warning ("Using old darwin ABI");
+      warning (0, "Using old darwin ABI");
     }
 
   else if (! strcmp (rs6000_abi_string, "no-spe"))
@@ -1690,7 +1691,7 @@ rs6000_parse_alignment_option (void)
 	 useful for performance studies from time to time though, so
 	 don't disable it entirely.  */
       if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
-	warning ("-malign-power is not supported for 64-bit Darwin;"
+	warning (0, "-malign-power is not supported for 64-bit Darwin;"
 		 " it is incompatible with the installed C and C++ libraries");
       rs6000_alignment_flags = MASK_ALIGN_POWER;
     }
@@ -1848,8 +1849,11 @@ num_insns_constant_wide (HOST_WIDE_INT value)
 int
 num_insns_constant (rtx op, enum machine_mode mode)
 {
-  if (GET_CODE (op) == CONST_INT)
+  HOST_WIDE_INT low, high;
+  
+  switch (GET_CODE (op))
     {
+    case CONST_INT:
 #if HOST_BITS_PER_WIDE_INT == 64
       if ((INTVAL (op) >> 31) != 0 && (INTVAL (op) >> 31) != -1
 	  && mask64_operand (op, mode))
@@ -1857,65 +1861,57 @@ num_insns_constant (rtx op, enum machine_mode mode)
       else
 #endif
 	return num_insns_constant_wide (INTVAL (op));
+
+      case CONST_DOUBLE:
+	if (mode == SFmode)
+	  {
+	    long l;
+	    REAL_VALUE_TYPE rv;
+	    
+	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
+	    REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+	    return num_insns_constant_wide ((HOST_WIDE_INT) l);
+	  }
+
+	if (mode == VOIDmode || mode == DImode)
+	  {
+	    high = CONST_DOUBLE_HIGH (op);
+	    low  = CONST_DOUBLE_LOW (op);
+	  }
+	else
+	  {
+	    long l[2];
+	    REAL_VALUE_TYPE rv;
+	    
+	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
+	    REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
+	    high = l[WORDS_BIG_ENDIAN == 0];
+	    low  = l[WORDS_BIG_ENDIAN != 0];
+	  }
+
+	if (TARGET_32BIT)
+	  return (num_insns_constant_wide (low)
+		  + num_insns_constant_wide (high));
+	else
+	  {
+	    if ((high == 0 && low >= 0)
+		|| (high == -1 && low < 0))
+	      return num_insns_constant_wide (low);
+	    
+	    else if (mask64_operand (op, mode))
+	      return 2;
+	    
+	    else if (low == 0)
+	      return num_insns_constant_wide (high) + 1;
+	    
+	    else
+	      return (num_insns_constant_wide (high)
+		      + num_insns_constant_wide (low) + 1);
+	  }
+	
+    default:
+      gcc_unreachable ();
     }
-
-  else if (GET_CODE (op) == CONST_DOUBLE && mode == SFmode)
-    {
-      long l;
-      REAL_VALUE_TYPE rv;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
-      return num_insns_constant_wide ((HOST_WIDE_INT) l);
-    }
-
-  else if (GET_CODE (op) == CONST_DOUBLE)
-    {
-      HOST_WIDE_INT low;
-      HOST_WIDE_INT high;
-      long l[2];
-      REAL_VALUE_TYPE rv;
-      int endian = (WORDS_BIG_ENDIAN == 0);
-
-      if (mode == VOIDmode || mode == DImode)
-	{
-	  high = CONST_DOUBLE_HIGH (op);
-	  low  = CONST_DOUBLE_LOW (op);
-	}
-      else
-	{
-	  REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-	  REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
-	  high = l[endian];
-	  low  = l[1 - endian];
-	}
-
-      if (TARGET_32BIT)
-	return (num_insns_constant_wide (low)
-		+ num_insns_constant_wide (high));
-
-      else
-	{
-	  if (high == 0 && low >= 0)
-	    return num_insns_constant_wide (low);
-
-	  else if (high == -1 && low < 0)
-	    return num_insns_constant_wide (low);
-
-	  else if (mask64_operand (op, mode))
-	    return 2;
-
-	  else if (low == 0)
-	    return num_insns_constant_wide (high) + 1;
-
-	  else
-	    return (num_insns_constant_wide (high)
-		    + num_insns_constant_wide (low) + 1);
-	}
-    }
-
-  else
-    abort ();
 }
 
 /* Returns the constant for the splat instruction, if exists.  */
@@ -2005,66 +2001,61 @@ output_vec_const_move (rtx *operands)
     {
       if (zero_constant (vec, mode))
 	return "vxor %0,%0,%0";
-      else if (easy_vector_constant (vec, mode))
-	{
-	  operands[1] = GEN_INT (cst);
-	  switch (mode)
-	    {
-	    case V4SImode:
-	      if (EASY_VECTOR_15 (cst))
-		{
-		  operands[1] = GEN_INT (cst);
-		  return "vspltisw %0,%1";
-		}
-	      else if (EASY_VECTOR_15_ADD_SELF (cst))
-		return "#";
-	      cst = cst >> 16;
-	      /* Fall thru */
 
-	    case V8HImode:
-	      if (EASY_VECTOR_15 (cst))
-		{
-		  operands[1] = GEN_INT (cst);
-		  return "vspltish %0,%1";
-		}
-	      else if (EASY_VECTOR_15_ADD_SELF (cst))
-		return "#";
-	      cst = cst >> 8;
-	      /* Fall thru */
-
-	    case V16QImode:
-	      if (EASY_VECTOR_15 (cst))
-		{
-		  operands[1] = GEN_INT (cst);
-		  return "vspltisb %0,%1";
-		}
-	      else if (EASY_VECTOR_15_ADD_SELF (cst))
-		return "#";
-
-	    default:
-	      abort ();
-	    }
-	}
-      else
-	abort ();
-    }
-
-  if (TARGET_SPE)
-    {
-      /* Vector constant 0 is handled as a splitter of V2SI, and in the
-	 pattern of V1DI, V4HI, and V2SF.
-
-	 FIXME: We should probably return # and add post reload
-	 splitters for these, but this way is so easy ;-).  */
+      gcc_assert (easy_vector_constant (vec, mode));
+      
       operands[1] = GEN_INT (cst);
-      operands[2] = GEN_INT (cst2);
-      if (cst == cst2)
-	return "li %0,%1\n\tevmergelo %0,%0,%0";
-      else
-	return "li %0,%1\n\tevmergelo %0,%0,%0\n\tli %0,%2";
+      switch (mode)
+	{
+	case V4SImode:
+	  if (EASY_VECTOR_15 (cst))
+	    {
+	      operands[1] = GEN_INT (cst);
+	      return "vspltisw %0,%1";
+	    }
+	  else if (EASY_VECTOR_15_ADD_SELF (cst))
+	    return "#";
+	  cst = cst >> 16;
+	  /* Fall thru */
+
+	case V8HImode:
+	  if (EASY_VECTOR_15 (cst))
+	    {
+	      operands[1] = GEN_INT (cst);
+	      return "vspltish %0,%1";
+	    }
+	  else if (EASY_VECTOR_15_ADD_SELF (cst))
+	    return "#";
+	  cst = cst >> 8;
+	  /* Fall thru */
+
+	case V16QImode:
+	  if (EASY_VECTOR_15 (cst))
+	    {
+	      operands[1] = GEN_INT (cst);
+	      return "vspltisb %0,%1";
+	    }
+	  else if (EASY_VECTOR_15_ADD_SELF (cst))
+	    return "#";
+	  
+	default:
+	  gcc_unreachable ();
+	}
     }
 
-  abort ();
+  gcc_assert (TARGET_SPE);
+  
+  /* Vector constant 0 is handled as a splitter of V2SI, and in the
+     pattern of V1DI, V4HI, and V2SF.
+
+     FIXME: We should probably return # and add post reload
+     splitters for these, but this way is so easy ;-).  */
+  operands[1] = GEN_INT (cst);
+  operands[2] = GEN_INT (cst2);
+  if (cst == cst2)
+    return "li %0,%1\n\tevmergelo %0,%0,%0";
+  else
+    return "li %0,%1\n\tevmergelo %0,%0,%0\n\tli %0,%2";
 }
 
 int
@@ -2131,8 +2122,7 @@ build_mask64_2_operands (rtx in, rtx *out)
   unsigned HOST_WIDE_INT c, lsb, m1, m2;
   int shift;
 
-  if (GET_CODE (in) != CONST_INT)
-    abort ();
+  gcc_assert (GET_CODE (in) == CONST_INT);
 
   c = INTVAL (in);
   if (c & 1)
@@ -2188,7 +2178,7 @@ build_mask64_2_operands (rtx in, rtx *out)
 #else
   (void)in;
   (void)out;
-  abort ();
+  gcc_unreachable ();
 #endif
 }
 
@@ -2670,7 +2660,7 @@ rs6000_output_dwarf_dtprel (FILE *file, int size, rtx x)
       fputs (DOUBLE_INT_ASM_OP, file);
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   output_addr_const (file, x);
   fputs ("@dtprel+0x8000", file);
@@ -3283,17 +3273,18 @@ rs6000_emit_set_const (rtx dest, enum machine_mode mode,
   rtx result, insn, set;
   HOST_WIDE_INT c0, c1;
 
-  if (mode == QImode || mode == HImode)
+  switch (mode)
     {
+      case  QImode:
+    case HImode:
       if (dest == NULL)
 	dest = gen_reg_rtx (mode);
       emit_insn (gen_rtx_SET (VOIDmode, dest, source));
       return dest;
-    }
-  else if (mode == SImode)
-    {
+      
+    case SImode:
       result = no_new_pseudos ? dest : gen_reg_rtx (SImode);
-
+      
       emit_insn (gen_rtx_SET (VOIDmode, result,
 			      GEN_INT (INTVAL (source)
 				       & (~ (HOST_WIDE_INT) 0xffff))));
@@ -3301,16 +3292,17 @@ rs6000_emit_set_const (rtx dest, enum machine_mode mode,
 			      gen_rtx_IOR (SImode, result,
 					   GEN_INT (INTVAL (source) & 0xffff))));
       result = dest;
-    }
-  else if (mode == DImode)
-    {
-      if (GET_CODE (source) == CONST_INT)
+      break;
+
+    case DImode:
+      switch (GET_CODE (source))
 	{
+	case CONST_INT:
 	  c0 = INTVAL (source);
 	  c1 = -(c0 < 0);
-	}
-      else if (GET_CODE (source) == CONST_DOUBLE)
-	{
+	  break;
+	  
+	case CONST_DOUBLE:
 #if HOST_BITS_PER_WIDE_INT >= 64
 	  c0 = CONST_DOUBLE_LOW (source);
 	  c1 = -(c0 < 0);
@@ -3318,14 +3310,18 @@ rs6000_emit_set_const (rtx dest, enum machine_mode mode,
 	  c0 = CONST_DOUBLE_LOW (source);
 	  c1 = CONST_DOUBLE_HIGH (source);
 #endif
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
-      else
-	abort ();
 
       result = rs6000_emit_set_long_const (dest, c0, c1);
+      break;
+
+    default:
+      gcc_unreachable ();
     }
-  else
-    abort ();
 
   insn = get_last_insn ();
   set = single_set (insn);
@@ -3463,14 +3459,13 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	 to a CONST_INT.  */
       operands[1] = gen_int_mode (CONST_DOUBLE_LOW (operands[1]), mode);
     }
-  if (GET_CODE (operands[1]) == CONST_DOUBLE
-      && ! FLOAT_MODE_P (mode)
-      && ((CONST_DOUBLE_HIGH (operands[1]) == 0
-	   && CONST_DOUBLE_LOW (operands[1]) >= 0)
-	  || (CONST_DOUBLE_HIGH (operands[1]) == -1
-	      && CONST_DOUBLE_LOW (operands[1]) < 0)))
-    abort ();
-
+  gcc_assert (GET_CODE (operands[1]) != CONST_DOUBLE
+	      || FLOAT_MODE_P (mode)
+	      || ((CONST_DOUBLE_HIGH (operands[1]) != 0
+		   || CONST_DOUBLE_LOW (operands[1]) < 0)
+		  && (CONST_DOUBLE_HIGH (operands[1]) != -1
+		      || CONST_DOUBLE_LOW (operands[1]) >= 0)));
+  
   /* Check if GCC is setting up a block move that will end up using FP
      registers as temporaries.  We must make sure this is acceptable.  */
   if (GET_CODE (operands[0]) == MEM
@@ -3768,7 +3763,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Above, we may have called force_const_mem which may have returned
@@ -3856,7 +3851,7 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
       static bool warned_for_return_big_vectors = false;
       if (!warned_for_return_big_vectors)
 	{
-	  warning ("GCC vector returned by reference: "
+	  warning (0, "GCC vector returned by reference: "
 		   "non-standard ABI extension with no compatibility guarantee");
 	  warned_for_return_big_vectors = true;
 	}
@@ -4328,22 +4323,23 @@ spe_build_register_parallel (enum machine_mode mode, int gregno)
 {
   rtx r1, r3;
 
-  if (mode == DFmode)
+  switch (mode)
     {
+    case DFmode:
       r1 = gen_rtx_REG (DImode, gregno);
       r1 = gen_rtx_EXPR_LIST (VOIDmode, r1, const0_rtx);
       return gen_rtx_PARALLEL (mode, gen_rtvec (1, r1));
-    }
-  else if (mode == DCmode)
-    {
+
+    case DCmode:
       r1 = gen_rtx_REG (DImode, gregno);
       r1 = gen_rtx_EXPR_LIST (VOIDmode, r1, const0_rtx);
       r3 = gen_rtx_REG (DImode, gregno + 2);
       r3 = gen_rtx_EXPR_LIST (VOIDmode, r3, GEN_INT (8));
       return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r3));
+
+    default:
+      gcc_unreachable ();
     }
-  abort ();
-  return NULL_RTX;
 }
 
 /* Determine where to put a SIMD argument on the SPE.  */
@@ -4824,8 +4820,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    {
 	      /* Currently, we only ever need one reg here because complex
 		 doubles are split.  */
-	      if (cum->fregno != FP_ARG_MAX_REG || fmode != TFmode)
-		abort ();
+	      gcc_assert (cum->fregno == FP_ARG_MAX_REG && fmode == TFmode);
 
 	      /* Long double split over regs and memory.  */
 	      fmode = DFmode;
@@ -4951,16 +4946,14 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		   && align_words >= GP_ARG_NUM_REG))))
     {
       if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3) > FP_ARG_MAX_REG + 1)
-	ret = FP_ARG_MAX_REG + 1 - cum->fregno;
+	ret = (FP_ARG_MAX_REG + 1 - cum->fregno) * 8;
       else if (cum->nargs_prototype >= 0)
 	return 0;
     }
 
   if (align_words < GP_ARG_NUM_REG
       && GP_ARG_NUM_REG < align_words + rs6000_arg_size (mode, type))
-    ret = GP_ARG_NUM_REG - align_words;
-
-  ret *= (TARGET_32BIT ? 4 : 8);
+    ret = (GP_ARG_NUM_REG - align_words) * (TARGET_32BIT ? 4 : 8);
 
   if (ret != 0 && TARGET_DEBUG_ARG)
     fprintf (stderr, "rs6000_arg_partial_bytes: %d\n", ret);
@@ -5029,7 +5022,7 @@ rs6000_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 	fprintf (stderr, "function_arg_pass_by_reference: synthetic vector\n");
       if (!warned_for_pass_big_vectors)
 	{
-	  warning ("GCC vector passed by reference: "
+	  warning (0, "GCC vector passed by reference: "
 		   "non-standard ABI extension with no compatibility guarantee");
 	  warned_for_pass_big_vectors = true;
 	}
@@ -5062,8 +5055,7 @@ rs6000_move_block_from_reg (int regno, rtx x, int nregs)
       else
 	tem = replace_equiv_address (tem, XEXP (tem, 0));
 
-      if (tem == NULL_RTX)
-	abort ();
+      gcc_assert (tem);
 
       emit_move_insn (tem, gen_rtx_REG (reg_mode, regno + i));
     }
@@ -6107,8 +6099,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, const char *opcode,
   else
     cr6_form_int = TREE_INT_CST_LOW (cr6_form);
 
-  if (mode0 != mode1)
-    abort ();
+  gcc_assert (mode0 == mode1);
 
   /* If we have invalid arguments, bail out before generating bad rtl.  */
   if (arg0 == error_mark_node || arg1 == error_mark_node)
@@ -6857,8 +6848,7 @@ spe_expand_predicate_builtin (enum insn_code icode, tree arglist, rtx target)
   else
     form_int = TREE_INT_CST_LOW (form);
 
-  if (mode0 != mode1)
-    abort ();
+  gcc_assert (mode0 == mode1);
 
   if (arg0 == error_mark_node || arg1 == error_mark_node)
     return const0_rtx;
@@ -6959,8 +6949,7 @@ spe_expand_evsel_builtin (enum insn_code icode, tree arglist, rtx target)
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
 
-  if (mode0 != mode1)
-    abort ();
+  gcc_assert (mode0 == mode1);
 
   if (arg0 == error_mark_node || arg1 == error_mark_node
       || arg2 == error_mark_node || arg3 == error_mark_node)
@@ -7023,12 +7012,10 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       tree arg;
       rtx op, addr, pat;
 
-      if (!TARGET_ALTIVEC)
-	abort ();
+      gcc_assert (TARGET_ALTIVEC);
 
       arg = TREE_VALUE (arglist);
-      if (TREE_CODE (TREE_TYPE (arg)) != POINTER_TYPE)
-	abort ();
+      gcc_assert (TREE_CODE (TREE_TYPE (arg)) == POINTER_TYPE);
       op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
       addr = memory_address (mode, op);
       if (fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
@@ -7071,29 +7058,27 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	return ret;
     }
 
-  if (TARGET_ALTIVEC || TARGET_SPE)
-    {
-      /* Handle simple unary operations.  */
-      d = (struct builtin_description *) bdesc_1arg;
-      for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
-	if (d->code == fcode)
-	  return rs6000_expand_unop_builtin (d->icode, arglist, target);
+  gcc_assert (TARGET_ALTIVEC || TARGET_SPE);
+  
+  /* Handle simple unary operations.  */
+  d = (struct builtin_description *) bdesc_1arg;
+  for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
+    if (d->code == fcode)
+      return rs6000_expand_unop_builtin (d->icode, arglist, target);
+  
+  /* Handle simple binary operations.  */
+  d = (struct builtin_description *) bdesc_2arg;
+  for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
+    if (d->code == fcode)
+      return rs6000_expand_binop_builtin (d->icode, arglist, target);
 
-      /* Handle simple binary operations.  */
-      d = (struct builtin_description *) bdesc_2arg;
-      for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
-	if (d->code == fcode)
-	  return rs6000_expand_binop_builtin (d->icode, arglist, target);
-
-      /* Handle simple ternary operations.  */
-      d = (struct builtin_description *) bdesc_3arg;
-      for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
-	if (d->code == fcode)
-	  return rs6000_expand_ternop_builtin (d->icode, arglist, target);
-    }
-
-  abort ();
-  return NULL_RTX;
+  /* Handle simple ternary operations.  */
+  d = (struct builtin_description *) bdesc_3arg;
+  for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
+    if (d->code == fcode)
+      return rs6000_expand_ternop_builtin (d->icode, arglist, target);
+  
+  gcc_unreachable ();
 }
 
 static tree
@@ -7414,7 +7399,7 @@ spe_init_builtins (void)
 	  type = int_ftype_int_v2sf_v2sf;
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       def_builtin (d->mask, d->name, type, d->code);
@@ -7435,7 +7420,7 @@ spe_init_builtins (void)
 	  type = v2sf_ftype_4_v2sf;
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       def_builtin (d->mask, d->name, type, d->code);
@@ -7611,7 +7596,7 @@ altivec_init_builtins (void)
 	  type = int_ftype_int_v4sf_v4sf;
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       def_builtin (dp->mask, dp->name, type, dp->code);
@@ -7641,7 +7626,7 @@ altivec_init_builtins (void)
 	  type = v4sf_ftype_v4sf;
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       def_builtin (d->mask, d->name, type, d->code);
@@ -7887,7 +7872,7 @@ rs6000_common_init_builtins (void)
 	      type = v16qi_ftype_v16qi_v16qi_v16qi;
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
       else if (mode0 == mode1 && mode1 == mode2 && mode3 == V16QImode)
@@ -7907,7 +7892,7 @@ rs6000_common_init_builtins (void)
 	      type = v16qi_ftype_v16qi_v16qi_v16qi;
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
       else if (mode0 == V4SImode && mode1 == V16QImode && mode2 == V16QImode
@@ -7941,7 +7926,7 @@ rs6000_common_init_builtins (void)
 	type = v4sf_ftype_v4sf_v4sf_int;
 
       else
-	abort ();
+	gcc_unreachable ();
 
       def_builtin (d->mask, d->name, type, d->code);
     }
@@ -7987,7 +7972,7 @@ rs6000_common_init_builtins (void)
 	      type = int_ftype_int_int;
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
 
@@ -8054,9 +8039,10 @@ rs6000_common_init_builtins (void)
       else if (mode0 == V2SImode && mode1 == SImode && mode2 == QImode)
 	type = v2si_ftype_int_char;
 
-      /* int, x, x.  */
-      else if (mode0 == SImode)
+      else
 	{
+	  /* int, x, x.  */
+	  gcc_assert (mode0 == SImode);
 	  switch (mode1)
 	    {
 	    case V4SImode:
@@ -8072,12 +8058,9 @@ rs6000_common_init_builtins (void)
 	      type = int_ftype_v8hi_v8hi;
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
-
-      else
-	abort ();
 
       def_builtin (d->mask, d->name, type, d->code);
     }
@@ -8118,7 +8101,7 @@ rs6000_common_init_builtins (void)
       else if (mode0 == V2SImode && mode1 == QImode)
 	type = v2si_ftype_char;
       else
-	abort ();
+	gcc_unreachable ();
 
       def_builtin (d->mask, d->name, type, d->code);
     }
@@ -8141,11 +8124,21 @@ rs6000_init_libfuncs (void)
 	  set_conv_libfunc (ufix_optab, SImode, TFmode, "_quitrunc");
 	}
 
-      /* Standard AIX/Darwin/64-bit SVR4 quad floating point routines.  */
-      set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
-      set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
-      set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
-      set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
+      /* AIX/Darwin/64-bit Linux quad floating point routines.  */
+      if (!TARGET_XL_COMPAT)
+	{
+	  set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
+	  set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
+	  set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
+	  set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
+	}
+      else
+	{
+	  set_optab_libfunc (add_optab, TFmode, "_xlqadd");
+	  set_optab_libfunc (sub_optab, TFmode, "_xlqsub");
+	  set_optab_libfunc (smul_optab, TFmode, "_xlqmul");
+	  set_optab_libfunc (sdiv_optab, TFmode, "_xlqdiv");
+	}
     }
   else
     {
@@ -8201,9 +8194,8 @@ expand_block_clear (rtx operands[])
   if (! constp)
     return 0;
 
-  /* If this is not a fixed size alignment, abort */
-  if (GET_CODE (align_rtx) != CONST_INT)
-    abort ();
+  /* This must be a fixed size alignment  */
+  gcc_assert (GET_CODE (align_rtx) == CONST_INT);
   align = INTVAL (align_rtx) * BITS_PER_UNIT;
 
   /* Anything to clear? */
@@ -8299,9 +8291,8 @@ expand_block_move (rtx operands[])
   if (! constp)
     return 0;
 
-  /* If this is not a fixed size alignment, abort */
-  if (GET_CODE (align_rtx) != CONST_INT)
-    abort ();
+  /* This must be a fixed size alignment */
+  gcc_assert (GET_CODE (align_rtx) == CONST_INT);
   align = INTVAL (align_rtx) * BITS_PER_UNIT;
 
   /* Anything to move? */
@@ -8517,40 +8508,33 @@ rs6000_output_load_multiple (rtx operands[3])
 void
 validate_condition_mode (enum rtx_code code, enum machine_mode mode)
 {
-  if ((GET_RTX_CLASS (code) != RTX_COMPARE
-       && GET_RTX_CLASS (code) != RTX_COMM_COMPARE)
-      || GET_MODE_CLASS (mode) != MODE_CC)
-    abort ();
+  gcc_assert ((GET_RTX_CLASS (code) == RTX_COMPARE
+	       || GET_RTX_CLASS (code) == RTX_COMM_COMPARE)
+	      && GET_MODE_CLASS (mode) == MODE_CC);
 
   /* These don't make sense.  */
-  if ((code == GT || code == LT || code == GE || code == LE)
-      && mode == CCUNSmode)
-    abort ();
+  gcc_assert ((code != GT && code != LT && code != GE && code != LE)
+	      || mode != CCUNSmode);
 
-  if ((code == GTU || code == LTU || code == GEU || code == LEU)
-      && mode != CCUNSmode)
-    abort ();
+  gcc_assert ((code != GTU && code != LTU && code != GEU && code != LEU)
+	      || mode == CCUNSmode);
 
-  if (mode != CCFPmode
-      && (code == ORDERED || code == UNORDERED
-	  || code == UNEQ || code == LTGT
-	  || code == UNGT || code == UNLT
-	  || code == UNGE || code == UNLE))
-    abort ();
+  gcc_assert (mode == CCFPmode
+	      || (code != ORDERED && code != UNORDERED
+		  && code != UNEQ && code != LTGT
+		  && code != UNGT && code != UNLT
+		  && code != UNGE && code != UNLE));
 
   /* These should never be generated except for
      flag_finite_math_only.  */
-  if (mode == CCFPmode
-      && ! flag_finite_math_only
-      && (code == LE || code == GE
-	  || code == UNEQ || code == LTGT
-	  || code == UNGT || code == UNLT))
-    abort ();
+  gcc_assert (mode != CCFPmode
+	      || flag_finite_math_only
+	      || (code != LE && code != GE
+		  && code != UNEQ && code != LTGT
+		  && code != UNGT && code != UNLT));
 
   /* These are invalid; the information is not there.  */
-  if (mode == CCEQmode
-      && code != EQ && code != NE)
-    abort ();
+  gcc_assert (mode != CCEQmode || code == EQ || code == NE);
 }
 
 
@@ -8945,9 +8929,7 @@ ccr_bit (rtx op, int scc_p)
 
   reg = XEXP (op, 0);
 
-  if (GET_CODE (reg) != REG
-      || ! CR_REGNO_P (REGNO (reg)))
-    abort ();
+  gcc_assert (GET_CODE (reg) == REG && CR_REGNO_P (REGNO (reg)));
 
   cc_mode = GET_MODE (reg);
   cc_regnum = REGNO (reg);
@@ -8957,9 +8939,9 @@ ccr_bit (rtx op, int scc_p)
 
   /* When generating a sCOND operation, only positive conditions are
      allowed.  */
-  if (scc_p && code != EQ && code != GT && code != LT && code != UNORDERED
-      && code != GTU && code != LTU)
-    abort ();
+  gcc_assert (!scc_p
+	      || code == EQ || code == GT || code == LT || code == UNORDERED
+	      || code == GTU || code == LTU);
 
   switch (code)
     {
@@ -8984,7 +8966,7 @@ ccr_bit (rtx op, int scc_p)
       return scc_p ? base_bit + 3 : base_bit + 1;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -9032,8 +9014,7 @@ extract_MB (rtx op)
      from the left.  */
   if ((val & 0x80000000) == 0)
     {
-      if ((val & 0xffffffff) == 0)
-	abort ();
+      gcc_assert (val & 0xffffffff);
 
       i = 1;
       while (((val <<= 1) & 0x80000000) == 0)
@@ -9065,8 +9046,7 @@ extract_ME (rtx op)
      the right.  */
   if ((val & 1) == 0)
     {
-      if ((val & 0xffffffff) == 0)
-	abort ();
+      gcc_assert (val & 0xffffffff);
 
       i = 30;
       while (((val >>= 1) & 1) == 0)
@@ -9106,7 +9086,7 @@ rs6000_get_some_local_dynamic_name (void)
 			 rs6000_get_some_local_dynamic_name_1, 0))
       return cfun->machine->some_ld_name;
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Helper function for rs6000_get_some_local_dynamic_name.  */
@@ -9139,7 +9119,7 @@ rs6000_output_function_entry (FILE *file, const char *fname)
       switch (DEFAULT_ABI)
 	{
 	default:
-	  abort ();
+	  gcc_unreachable ();
 
 	case ABI_AIX:
 	  if (DOT_SYMBOLS)
@@ -9225,8 +9205,7 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'D':
       /* Like 'J' but get to the EQ bit.  */
-      if (GET_CODE (x) != REG)
-	abort ();
+      gcc_assert (GET_CODE (x) == REG);
 
       /* Bit 1 is EQ bit.  */
       i = 4 * (REGNO (x) - CR0_REGNO) + 2;
@@ -9518,15 +9497,13 @@ print_operand (FILE *file, rtx x, int code)
 	}
       while (uval != 0)
 	--i, uval >>= 1;
-      if (i < 0)
-	abort ();
+      gcc_assert (i >= 0);
       fprintf (file, "%d", i);
       return;
 
     case 't':
       /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
-      if (GET_CODE (x) != REG || GET_MODE (x) != CCmode)
-	abort ();
+      gcc_assert (GET_CODE (x) == REG && GET_MODE (x) == CCmode);
 
       /* Bit 3 is OV bit.  */
       i = 4 * (REGNO (x) - CR0_REGNO) + 3;
@@ -9607,7 +9584,7 @@ print_operand (FILE *file, rtx x, int code)
 	  fputs ("lge", file);  /* 5 */
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       break;
 
@@ -9640,9 +9617,8 @@ print_operand (FILE *file, rtx x, int code)
 	{
 	  val = CONST_DOUBLE_LOW (x);
 
-	  if (val == 0)
-	    abort ();
-	  else if (val < 0)
+	  gcc_assert (val);
+	  if (val < 0)
 	    --i;
 	  else
 	    for ( ; i < 64; i++)
@@ -9683,8 +9659,7 @@ print_operand (FILE *file, rtx x, int code)
 	 names.  If we are configured for System V (or the embedded ABI) on
 	 the PowerPC, do not emit the period, since those systems do not use
 	 TOCs and the like.  */
-      if (GET_CODE (x) != SYMBOL_REF)
-	abort ();
+      gcc_assert (GET_CODE (x) == SYMBOL_REF);
 
       /* Mark the decl as referenced so that cgraph will output the
 	 function.  */
@@ -9730,8 +9705,7 @@ print_operand (FILE *file, rtx x, int code)
       {
 	rtx tmp;
 
-	if (GET_CODE (x) != MEM)
-	  abort ();
+	gcc_assert (GET_CODE (x) == MEM);
 
 	tmp = XEXP (x, 0);
 
@@ -9749,8 +9723,7 @@ print_operand (FILE *file, rtx x, int code)
 	      {
 		int x;
 
-		if (GET_CODE (XEXP (tmp, 0)) != REG)
-		  abort ();
+		gcc_assert (GET_CODE (XEXP (tmp, 0)) == REG);
 
 		x = INTVAL (XEXP (tmp, 1));
 		fprintf (file, "%d(%s)", x, reg_names[REGNO (XEXP (tmp, 0))]);
@@ -9766,8 +9739,11 @@ print_operand (FILE *file, rtx x, int code)
 	  tmp = XEXP (tmp, 0);
 	if (GET_CODE (tmp) == REG)
 	  fprintf (file, "0,%s", reg_names[REGNO (tmp)]);
-	else if (GET_CODE (tmp) == PLUS && GET_CODE (XEXP (tmp, 1)) == REG)
+	else
 	  {
+	    gcc_assert (GET_CODE (tmp) == PLUS
+			&& GET_CODE (XEXP (tmp, 1)) == REG);
+	    
 	    if (REGNO (XEXP (tmp, 0)) == 0)
 	      fprintf (file, "%s,%s", reg_names[ REGNO (XEXP (tmp, 1)) ],
 		       reg_names[ REGNO (XEXP (tmp, 0)) ]);
@@ -9775,8 +9751,6 @@ print_operand (FILE *file, rtx x, int code)
 	      fprintf (file, "%s,%s", reg_names[ REGNO (XEXP (tmp, 0)) ],
 		       reg_names[ REGNO (XEXP (tmp, 1)) ]);
 	  }
-	else
-	  abort ();
 	break;
       }
 
@@ -9823,8 +9797,8 @@ print_operand_address (FILE *file, rtx x)
       if (small_data_operand (x, GET_MODE (x)))
 	fprintf (file, "@%s(%s)", SMALL_DATA_RELOC,
 		 reg_names[SMALL_DATA_REG]);
-      else if (TARGET_TOC)
-	abort ();
+      else
+	gcc_assert (!TARGET_TOC);
     }
   else if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == REG)
     {
@@ -9892,7 +9866,7 @@ print_operand_address (FILE *file, rtx x)
       fprintf (file, "(%s)", reg_names[REGNO (XEXP (x, 0))]);
     }
   else
-    abort ();
+    gcc_unreachable ();
 }
 
 /* Target hook for assembling integer objects.  The PowerPC version has
@@ -10048,52 +10022,78 @@ rs6000_generate_compare (enum rtx_code code)
       switch (code)
 	{
 	case EQ: case UNEQ: case NE: case LTGT:
-	  if (op_mode == SFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstsfeq_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpsfeq_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else if (op_mode == DFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstdfeq_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpdfeq_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else abort ();
+	  switch (op_mode)
+	    {
+	    case SFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstsfeq_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpsfeq_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+
+	    case DFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstdfeq_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpdfeq_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
 	  break;
+	  
 	case GT: case GTU: case UNGT: case UNGE: case GE: case GEU:
-	  if (op_mode == SFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstsfgt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpsfgt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else if (op_mode == DFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstdfgt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpdfgt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else abort ();
+	  switch (op_mode)
+	    {
+	    case SFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstsfgt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpsfgt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+	      
+	    case DFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstdfgt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpdfgt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
 	  break;
+	  
 	case LT: case LTU: case UNLT: case UNLE: case LE: case LEU:
-	  if (op_mode == SFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstsflt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpsflt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else if (op_mode == DFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstdflt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpdflt_gpr (compare_result, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else abort ();
+	  switch (op_mode)
+	    {
+	    case SFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstsflt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpsflt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+	      
+	    case DFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstdflt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpdflt_gpr (compare_result, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
 	  break;
         default:
-          abort ();
+          gcc_unreachable ();
 	}
 
       /* Synthesize LE and GE from LT/GT || EQ.  */
@@ -10107,25 +10107,33 @@ rs6000_generate_compare (enum rtx_code code)
 	    case GE: code = GT; break;
 	    case LEU: code = LT; break;
 	    case GEU: code = GT; break;
-	    default: abort ();
+	    default: gcc_unreachable ();
 	    }
 
 	  compare_result2 = gen_reg_rtx (CCFPmode);
 
 	  /* Do the EQ.  */
-	  if (op_mode == SFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstsfeq_gpr (compare_result2, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpsfeq_gpr (compare_result2, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else if (op_mode == DFmode)
-	    cmp = flag_unsafe_math_optimizations
-	      ? gen_tstdfeq_gpr (compare_result2, rs6000_compare_op0,
-				 rs6000_compare_op1)
-	      : gen_cmpdfeq_gpr (compare_result2, rs6000_compare_op0,
-				 rs6000_compare_op1);
-	  else abort ();
+	  switch (op_mode)
+	    {
+	    case SFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstsfeq_gpr (compare_result2, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpsfeq_gpr (compare_result2, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+
+	    case DFmode:
+	      cmp = flag_unsafe_math_optimizations
+		? gen_tstdfeq_gpr (compare_result2, rs6000_compare_op0,
+				   rs6000_compare_op1)
+		: gen_cmpdfeq_gpr (compare_result2, rs6000_compare_op0,
+				   rs6000_compare_op1);
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
 	  emit_insn (cmp);
 
 	  /* OR them together.  */
@@ -10196,7 +10204,7 @@ rs6000_generate_compare (enum rtx_code code)
 	case LTGT: or1 = LT;  or2 = GT;  break;
 	case UNGT: or1 = UNORDERED;  or2 = GT;  break;
 	case UNLT: or1 = UNORDERED;  or2 = LT;  break;
-	default:  abort ();
+	default:  gcc_unreachable ();
 	}
       validate_condition_mode (or1, comp_mode);
       validate_condition_mode (or2, comp_mode);
@@ -10237,8 +10245,7 @@ rs6000_emit_sCOND (enum rtx_code code, rtx result)
       PUT_MODE (condition_rtx, SImode);
       t = XEXP (condition_rtx, 0);
 
-      if (cond_code != NE && cond_code != EQ)
-	abort ();
+      gcc_assert (cond_code == NE || cond_code == EQ);
 
       if (cond_code == NE)
 	emit_insn (gen_e500_flip_gt_bit (t, t));
@@ -10341,13 +10348,20 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
     {
       /* The efscmp/tst* instructions twiddle bit 2, which maps nicely
 	 to the GT bit.  */
-      if (code == EQ)
-	/* Opposite of GT.  */
-	code = GT;
-      else if (code == NE)
-	code = UNLE;
-      else
-	abort ();
+      switch (code)
+	{
+	case EQ:
+	  /* Opposite of GT.  */
+	  code = GT;
+	  break;
+
+	case NE:
+	  code = UNLE;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
     }
 
   switch (code)
@@ -10371,7 +10385,7 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
     case UNGE: ccode = "nl"; break;
     case UNLE: ccode = "ng"; break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Maybe we have a guess as to how likely the branch is.
@@ -10431,9 +10445,8 @@ output_e500_flip_gt_bit (rtx dst, rtx src)
   static char string[64];
   int a, b;
 
-  if (GET_CODE (dst) != REG || ! CR_REGNO_P (REGNO (dst))
-      || GET_CODE (src) != REG || ! CR_REGNO_P (REGNO (src)))
-    abort ();
+  gcc_assert (GET_CODE (dst) == REG && CR_REGNO_P (REGNO (dst))
+	      && GET_CODE (src) == REG && CR_REGNO_P (REGNO (src)));
 
   /* GT bit.  */
   a = 4 * (REGNO (dst) - CR0_REGNO) + 1;
@@ -10507,13 +10520,8 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
   enum machine_mode dest_mode;
   enum machine_mode op_mode = GET_MODE (op1);
 
-#ifdef ENABLE_CHECKING
-  if (!TARGET_ALTIVEC)
-    abort ();
-
-  if (GET_MODE (op0) != GET_MODE (op1))
-    abort ();
-#endif
+  gcc_assert (TARGET_ALTIVEC);
+  gcc_assert (GET_MODE (op0) == GET_MODE (op1));
 
   /* Floating point vector compare instructions uses destination V4SImode.
      Move destination to appropriate mode later.  */
@@ -10549,8 +10557,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 						     dest_mode);
 
 	    nor_code = one_cmpl_optab->handlers[(int)dest_mode].insn_code;
-	    if (nor_code == CODE_FOR_nothing)
-	      abort ();
+	    gcc_assert (nor_code != CODE_FOR_nothing);
 	    emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
 
 	    if (dmode != dest_mode)
@@ -10572,16 +10579,27 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	    enum insn_code ior_code;
 	    enum rtx_code new_code;
 
-	    if (rcode == GE)
-	      new_code = GT;
-	    else if (rcode == GEU)
-	      new_code = GTU;
-	    else if (rcode == LE)
-	      new_code = LT;
-	    else if (rcode == LEU)
-	      new_code = LTU;
-	    else
-	      abort ();
+	    switch (rcode)
+	      {
+	      case  GE:
+		new_code = GT;
+		break;
+
+	      case GEU:
+		new_code = GTU;
+		break;
+
+	      case LE:
+		new_code = LT;
+		break;
+
+	      case LEU:
+		new_code = LTU;
+		break;
+
+	      default:
+		gcc_unreachable ();
+	      }
 
 	    c_rtx = rs6000_emit_vector_compare (new_code,
 						op0, op1, dest_mode);
@@ -10589,8 +10607,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 						 dest_mode);
 
 	    ior_code = ior_optab->handlers[(int)dest_mode].insn_code;
-	    if (ior_code == CODE_FOR_nothing)
-	      abort ();
+	    gcc_assert (ior_code != CODE_FOR_nothing);
 	    emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
 	    if (dmode != dest_mode)
 	      {
@@ -10602,15 +10619,14 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	  }
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       if (try_again)
 	{
 	  vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
-	  if (vec_cmp_insn == INSN_NOT_AVAILABLE)
-	    /* You only get two chances.  */
-	    abort ();
+	  /* You only get two chances.  */
+	  gcc_assert (vec_cmp_insn != INSN_NOT_AVAILABLE);
 	}
 
       if (swap_operands)
@@ -10622,12 +10638,10 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	}
     }
 
-  emit_insn (gen_rtx_fmt_ee (SET,
-			     VOIDmode,
-			     mask,
-			     gen_rtx_fmt_Ei (UNSPEC, dest_mode,
-					     gen_rtvec (2, op0, op1),
-					     vec_cmp_insn)));
+  emit_insn (gen_rtx_SET (VOIDmode, mask,
+			  gen_rtx_UNSPEC (dest_mode,
+					  gen_rtvec (2, op0, op1),
+					  vec_cmp_insn)));
   if (dmode != dest_mode)
     {
       rtx temp = gen_reg_rtx (dest_mode);
@@ -10678,10 +10692,10 @@ rs6000_emit_vector_select (rtx dest, rtx op1, rtx op2, rtx mask)
 
   /* For each vector element, select op1 when mask is 1 otherwise 
      select op2.  */
-  t = gen_rtx_fmt_ee (SET, VOIDmode, temp,
-		      gen_rtx_fmt_Ei (UNSPEC, dest_mode,
-				      gen_rtvec (3, op2, op1, mask),
-				      vsel_insn_index));
+  t = gen_rtx_SET (VOIDmode, temp,
+		   gen_rtx_UNSPEC (dest_mode,
+				   gen_rtvec (3, op2, op1, mask),
+				   vsel_insn_index));
   emit_insn (t);
   emit_move_insn (dest, temp);
   return;
@@ -10885,7 +10899,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   emit_insn (gen_rtx_SET (VOIDmode, dest,
@@ -10956,10 +10970,186 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   else
     target = emit_conditional_move (dest, c, op0, op1, mode,
 				    op1, op0, mode, 0);
-  if (target == NULL_RTX)
-    abort ();
+  gcc_assert (target);
   if (target != dest)
     emit_move_insn (dest, target);
+}
+
+/* Emit instructions to perform a load-reserved/store-conditional operation.
+   The operation performed is an atomic
+   (set M (CODE:MODE M OP))
+   If not NULL, BEFORE is atomically set to M before the operation, and
+   AFTER is set to M after the operation (that is, (CODE:MODE M OP)).
+   If SYNC_P then a memory barrier is emitted before the operation.  
+   Either OP or M may be wrapped in a NOT operation.  */
+
+void
+rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
+		  rtx m, rtx op, rtx before_param, rtx after_param,
+		  bool sync_p)
+{
+  enum machine_mode used_mode;
+  rtx the_op, set_before, set_after, set_atomic, cc_scratch, before, after;
+  rtx used_m;
+  rtvec vec;
+  HOST_WIDE_INT imask = GET_MODE_MASK (mode);
+  rtx shift = NULL_RTX;
+  
+  if (sync_p)
+    emit_insn (gen_memory_barrier ());
+  
+  if (GET_CODE (m) == NOT)
+    used_m = XEXP (m, 0);
+  else
+    used_m = m;
+
+  /* If this is smaller than SImode, we'll have to use SImode with
+     adjustments.  */
+  if (mode == QImode || mode == HImode)
+    {
+      rtx newop, oldop;
+
+      if (MEM_ALIGN (used_m) >= 32)
+	{
+	  int ishift = 0;
+	  if (BYTES_BIG_ENDIAN)
+	    ishift = GET_MODE_BITSIZE (SImode) - GET_MODE_BITSIZE (mode);
+	  
+	  shift = GEN_INT (ishift);
+	}
+      else
+	{
+	  rtx addrSI, aligned_addr;
+	  
+	  addrSI = force_reg (SImode, gen_lowpart_common (SImode,
+							  XEXP (used_m, 0)));
+	  shift = gen_reg_rtx (SImode);
+
+	  emit_insn (gen_rlwinm (shift, addrSI, GEN_INT (3),
+				 GEN_INT (0x18)));
+
+	  aligned_addr = expand_binop (Pmode, and_optab,
+				       XEXP (used_m, 0),
+				       GEN_INT (-4), NULL_RTX,
+				       1, OPTAB_LIB_WIDEN);
+	  used_m = change_address (used_m, SImode, aligned_addr);
+	  set_mem_align (used_m, 32);
+	  /* It's safe to keep the old alias set of USED_M, because
+	     the operation is atomic and only affects the original
+	     USED_M.  */
+	  if (GET_CODE (m) == NOT)
+	    m = gen_rtx_NOT (SImode, used_m);
+	  else
+	    m = used_m;
+	}
+
+      if (GET_CODE (op) == NOT)
+	{
+	  oldop = lowpart_subreg (SImode, XEXP (op, 0), mode);
+	  oldop = gen_rtx_NOT (SImode, oldop);
+	}
+      else
+	oldop = lowpart_subreg (SImode, op, mode);
+      switch (code)
+	{
+	case IOR:
+	case XOR:
+	  newop = expand_binop (SImode, and_optab,
+				oldop, GEN_INT (imask), NULL_RTX,
+				1, OPTAB_LIB_WIDEN);
+	  emit_insn (gen_ashlsi3 (newop, newop, shift));
+	  break;
+
+	case AND:
+	  newop = expand_binop (SImode, ior_optab,
+				oldop, GEN_INT (~imask), NULL_RTX,
+				1, OPTAB_LIB_WIDEN);
+	  emit_insn (gen_ashlsi3 (newop, newop, shift));
+	  break;
+
+	case PLUS:
+	  {
+	    rtx mask;
+	    
+	    newop = expand_binop (SImode, and_optab,
+				  oldop, GEN_INT (imask), NULL_RTX,
+				  1, OPTAB_LIB_WIDEN);
+	    emit_insn (gen_ashlsi3 (newop, newop, shift));
+
+	    mask = gen_reg_rtx (SImode);
+	    emit_move_insn (mask, GEN_INT (imask));
+	    emit_insn (gen_ashlsi3 (mask, mask, shift));
+
+	    newop = gen_rtx_AND (SImode, gen_rtx_PLUS (SImode, m, newop),
+				 mask);
+	    newop = gen_rtx_IOR (SImode, newop,
+				 gen_rtx_AND (SImode,
+					      gen_rtx_NOT (SImode, mask),
+					      m));
+	    break;
+	  }
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      op = newop;
+      used_mode = SImode;
+      before = gen_reg_rtx (used_mode);
+      after = gen_reg_rtx (used_mode);
+    }
+  else
+    {
+      used_mode = mode;
+      before = before_param;
+      after = after_param;
+
+      if (before == NULL_RTX)
+	before = gen_reg_rtx (used_mode);
+      if (after == NULL_RTX)
+	after = gen_reg_rtx (used_mode);
+    }
+  
+  if (code == PLUS && used_mode != mode)
+    the_op = op;  /* Computed above.  */
+  else if (GET_CODE (op) == NOT && GET_CODE (m) != NOT)
+    the_op = gen_rtx_fmt_ee (code, used_mode, op, m);
+  else
+    the_op = gen_rtx_fmt_ee (code, used_mode, m, op);
+
+  set_after = gen_rtx_SET (VOIDmode, after, the_op);
+  set_before = gen_rtx_SET (VOIDmode, before, used_m);
+  set_atomic = gen_rtx_SET (VOIDmode, used_m,
+			    gen_rtx_UNSPEC (used_mode, gen_rtvec (1, the_op),
+					    UNSPEC_SYNC_OP));
+  cc_scratch = gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (CCmode));
+
+  if (code == PLUS && used_mode != mode)
+    vec = gen_rtvec (5, set_after, set_before, set_atomic, cc_scratch,
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (SImode)));
+  else
+    vec = gen_rtvec (4, set_after, set_before, set_atomic, cc_scratch);
+  emit_insn (gen_rtx_PARALLEL (VOIDmode, vec));
+
+  /* Shift and mask the return values properly.  */
+  if (used_mode != mode && before_param)
+    {
+      emit_insn (gen_lshrsi3 (before, before, shift));
+      convert_move (before_param, before, 1);
+    }
+
+  if (used_mode != mode && after_param)
+    {
+      emit_insn (gen_lshrsi3 (after, after, shift));
+      convert_move (after_param, after, 1);
+    }
+
+  /* The previous sequence will end with a branch that's dependent on
+     the conditional store, so placing an isync will ensure that no
+     other instructions (especially, no load or store instructions)
+     can start before the atomic operation completes.  */
+  if (sync_p)
+    emit_insn (gen_isync ());
 }
 
 /* Emit instructions to move SRC to DST.  Called by splitters for
@@ -10992,8 +11182,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
     reg_mode = word_mode;
   reg_mode_size = GET_MODE_SIZE (reg_mode);
 
-  if (reg_mode_size * nregs != GET_MODE_SIZE (mode))
-    abort ();
+  gcc_assert (reg_mode_size * nregs == GET_MODE_SIZE (mode));
 
   if (REG_P (src) && REG_P (dst) && (REGNO (src) < REGNO (dst)))
     {
@@ -11084,8 +11273,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			   : gen_adddi3 (breg, breg, delta_rtx));
 	      dst = gen_rtx_MEM (mode, breg);
 	    }
-	  else if (! offsettable_memref_p (dst))
-	    abort ();
+	  else
+	    gcc_assert (offsettable_memref_p (dst));
 	}
 
       for (i = 0; i < nregs; i++)
@@ -11256,9 +11445,9 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
       /* Because the Darwin register save/restore routines only handle
 	 F14 .. F31 and V20 .. V31 as per the ABI, perform a consistency
 	 check and abort if there's something worng.  */
-      if (info_ptr->first_fp_reg_save < FIRST_SAVED_FP_REGNO
-	  || info_ptr->first_altivec_reg_save < FIRST_SAVED_ALTIVEC_REGNO)
-	abort ();
+      gcc_assert (info_ptr->first_fp_reg_save >= FIRST_SAVED_FP_REGNO
+		  && (info_ptr->first_altivec_reg_save
+		      >= FIRST_SAVED_ALTIVEC_REGNO));
     }
   return;
 }
@@ -11511,7 +11700,7 @@ rs6000_stack_info (void)
     {
     case ABI_NONE:
     default:
-      abort ();
+      gcc_unreachable ();
 
     case ABI_AIX:
     case ABI_DARWIN:
@@ -12061,8 +12250,10 @@ rs6000_emit_load_toc_table (int fromprolog)
       if (fromprolog)
 	rs6000_maybe_dead (insn);
     }
-  else if (DEFAULT_ABI == ABI_AIX)
+  else
     {
+      gcc_assert (DEFAULT_ABI == ABI_AIX);
+      
       if (TARGET_32BIT)
 	insn = emit_insn (gen_load_toc_aix_si (dest));
       else
@@ -12070,8 +12261,6 @@ rs6000_emit_load_toc_table (int fromprolog)
       if (fromprolog)
 	rs6000_maybe_dead (insn);
     }
-  else
-    abort ();
 }
 
 /* Emit instructions to restore the link register after determining where
@@ -12224,7 +12413,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
 
   if (INTVAL (todec) != -size)
     {
-      warning ("stack frame too large");
+      warning (0, "stack frame too large");
       emit_insn (gen_trap ());
       return;
     }
@@ -12261,7 +12450,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
 				    const0_rtx));
 	}
       else
-	warning ("stack limit expression is not supported");
+	warning (0, "stack limit expression is not supported");
     }
 
   if (copy_r12 || ! TARGET_UPDATE)
@@ -12354,9 +12543,11 @@ rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
 	    XEXP (SET_DEST (set), 0) = temp;
 	}
     }
-  else if (GET_CODE (real) == PARALLEL)
+  else
     {
       int i;
+
+      gcc_assert (GET_CODE (real) == PARALLEL);
       for (i = 0; i < XVECLEN (real, 0); i++)
 	if (GET_CODE (XVECEXP (real, 0, i)) == SET)
 	  {
@@ -12377,8 +12568,6 @@ rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
 	    RTX_FRAME_RELATED_P (set) = 1;
 	  }
     }
-  else
-    abort ();
 
   if (TARGET_SPE)
     real = spe_synthesize_frame_save (real);
@@ -12407,10 +12596,9 @@ spe_synthesize_frame_save (rtx real)
      This is so we can differentiate between 64-bit and 32-bit saves.
      Words cannot describe this nastiness.  */
 
-  if (GET_CODE (SET_DEST (real)) != MEM
-      || GET_CODE (XEXP (SET_DEST (real), 0)) != PLUS
-      || GET_CODE (SET_SRC (real)) != REG)
-    abort ();
+  gcc_assert (GET_CODE (SET_DEST (real)) == MEM
+	      && GET_CODE (XEXP (SET_DEST (real), 0)) == PLUS
+	      && GET_CODE (SET_SRC (real)) == REG);
 
   /* Transform:
        (set (mem (plus (reg x) (const y)))
@@ -12665,16 +12853,16 @@ rs6000_emit_prologue (void)
       /* The SAVE_WORLD and RESTORE_WORLD routines make a number of
 	 assumptions about the offsets of various bits of the stack
 	 frame.  Abort if things aren't what they should be.  */
-      if (info->gp_save_offset != -220
-	  || info->fp_save_offset != -144
-	  || info->lr_save_offset != 8
-	  || info->cr_save_offset != 4
-	  || !info->push_p
-	  || !info->lr_save_p
-	  || (current_function_calls_eh_return && info->ehrd_offset != -432)
-	  || (info->vrsave_save_offset != -224
-	      || info->altivec_save_offset != (-224 -16 -192)))
-	abort ();
+      gcc_assert (info->gp_save_offset == -220
+		  && info->fp_save_offset == -144
+		  && info->lr_save_offset == 8
+		  && info->cr_save_offset == 4
+		  && info->push_p
+		  && info->lr_save_p
+		  && (!current_function_calls_eh_return
+		       || info->ehrd_offset == -432)
+		  && info->vrsave_save_offset == -224
+		  && info->altivec_save_offset == (-224 -16 -192));
 
       treg = gen_rtx_REG (SImode, 11);
       emit_move_insn (treg, GEN_INT (-info->total_size));
@@ -13568,8 +13756,7 @@ rs6000_emit_epilogue (int sibcall)
 	  for (i = 0; i < 8; i++)
 	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
 	      count++;
-	  if (count == 0)
-	    abort ();
+	  gcc_assert (count);
 	}
 
       if (using_mfcr_multiple && count > 1)
@@ -13592,8 +13779,7 @@ rs6000_emit_epilogue (int sibcall)
 		ndx++;
 	      }
 	  emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
-	  if (ndx != count)
-	    abort ();
+	  gcc_assert (ndx == count);
 	}
       else
 	for (i = 0; i < 8; i++)
@@ -13828,7 +14014,7 @@ rs6000_output_function_epilogue (FILE *file,
       else if (! strcmp (language_string, "GNU Objective-C"))
 	i = 14;
       else
-	abort ();
+	gcc_unreachable ();
       fprintf (file, "%d,", i);
 
       /* 8 single bit fields: global linkage (not set for C extern linkage,
@@ -13881,12 +14067,20 @@ rs6000_output_function_epilogue (FILE *file,
 
 		      float_parms++;
 
-		      if (mode == SFmode)
-			bits = 0x2;
-		      else if (mode == DFmode || mode == TFmode)
-			bits = 0x3;
-		      else
-			abort ();
+		      switch (mode)
+			{
+			case SFmode:
+			  bits = 0x2;
+			  break;
+
+			case DFmode:
+			case TFmode:
+			  bits = 0x3;
+			  break;
+
+			default:
+			  gcc_unreachable ();
+			}
 
 		      /* If only one bit will fit, don't or in this entry.  */
 		      if (next_parm_info_bit > 0)
@@ -14200,7 +14394,7 @@ rs6000_hash_constant (rtx k)
       case '0':
 	break;
       default:
-	abort ();
+	gcc_unreachable ();
       }
 
   return result;
@@ -14272,8 +14466,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
   rtx base = x;
   int offset = 0;
 
-  if (TARGET_NO_TOC)
-    abort ();
+  gcc_assert (!TARGET_NO_TOC);
 
   /* When the linker won't eliminate them, don't output duplicate
      TOC entries (this happens on AIX if there is any kind of TOC,
@@ -14452,8 +14645,8 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	 For a 32-bit target, CONST_INT values are loaded and shifted
 	 entirely within `low' and can be stored in one TOC entry.  */
 
-      if (TARGET_64BIT && POINTER_SIZE < GET_MODE_BITSIZE (mode))
-	abort ();/* It would be easy to make this work, but it doesn't now.  */
+      /* It would be easy to make this work, but it doesn't now.  */
+      gcc_assert (!TARGET_64BIT || POINTER_SIZE >= GET_MODE_BITSIZE (mode));
 
       if (POINTER_SIZE > GET_MODE_BITSIZE (mode))
 	{
@@ -14505,21 +14698,30 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 
   if (GET_CODE (x) == CONST)
     {
-      if (GET_CODE (XEXP (x, 0)) != PLUS)
-	abort ();
+      gcc_assert (GET_CODE (XEXP (x, 0)) == PLUS);
 
       base = XEXP (XEXP (x, 0), 0);
       offset = INTVAL (XEXP (XEXP (x, 0), 1));
     }
 
-  if (GET_CODE (base) == SYMBOL_REF)
-    name = XSTR (base, 0);
-  else if (GET_CODE (base) == LABEL_REF)
-    ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (XEXP (base, 0)));
-  else if (GET_CODE (base) == CODE_LABEL)
-    ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (base));
-  else
-    abort ();
+  switch (GET_CODE (base))
+    {
+    case SYMBOL_REF:
+      name = XSTR (base, 0);
+      break;
+
+    case LABEL_REF:
+      ASM_GENERATE_INTERNAL_LABEL (buf, "L",
+				   CODE_LABEL_NUMBER (XEXP (base, 0)));
+      break;
+
+    case CODE_LABEL:
+      ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (base));
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
 
   real_name = (*targetm.strip_name_encoding) (name);
   if (TARGET_MINIMAL_TOC)
@@ -14737,13 +14939,13 @@ output_function_profiler (FILE *file, int labelno)
   switch (DEFAULT_ABI)
     {
     default:
-      abort ();
+      gcc_unreachable ();
 
     case ABI_V4:
       save_lr = 4;
       if (!TARGET_32BIT)
 	{
-	  warning ("no profiling of 64-bit code for this ABI");
+	  warning (0, "no profiling of 64-bit code for this ABI");
 	  return;
 	}
       ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
@@ -14797,8 +14999,7 @@ output_function_profiler (FILE *file, int labelno)
 	}
       else
 	{
-	  if (TARGET_32BIT)
-	    abort ();
+	  gcc_assert (!TARGET_32BIT);
 
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[0]);
 	  asm_fprintf (file, "\tstd %s,16(%s)\n", reg_names[0], reg_names[1]);
@@ -15716,7 +15917,7 @@ rs6000_trampoline_size (void)
   switch (DEFAULT_ABI)
     {
     default:
-      abort ();
+      gcc_unreachable ();
 
     case ABI_AIX:
       ret = (TARGET_32BIT) ? 12 : 24;
@@ -15745,7 +15946,7 @@ rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
   switch (DEFAULT_ABI)
     {
     default:
-      abort ();
+      gcc_unreachable ();
 
 /* Macros to shorten the code expansions below.  */
 #define MEM_DEREF(addr) gen_rtx_MEM (pmode, memory_address (pmode, addr))
@@ -15835,7 +16036,7 @@ rs6000_handle_altivec_attribute (tree *node,
     if (TARGET_64BIT)
       error ("use of %<long%> in AltiVec types is invalid for 64-bit code");
     else if (rs6000_warn_altivec_long)
-      warning ("use of %<long%> in AltiVec types is deprecated; use %<int%>");
+      warning (0, "use of %<long%> in AltiVec types is deprecated; use %<int%>");
     }
   else if (type == long_long_unsigned_type_node
            || type == long_long_integer_type_node)
@@ -15930,7 +16131,7 @@ rs6000_handle_longcall_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -16125,11 +16326,10 @@ find_addr_reg (rtx addr)
       else if (CONSTANT_P (XEXP (addr, 1)))
 	addr = XEXP (addr, 0);
       else
-	abort ();
+	gcc_unreachable ();
     }
-  if (GET_CODE (addr) == REG && REGNO (addr) != 0)
-    return addr;
-  abort ();
+  gcc_assert (GET_CODE (addr) == REG && REGNO (addr) != 0);
+  return addr;
 }
 
 void
@@ -16347,7 +16547,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
 
       label++;
-      local_label_0 = alloca (sizeof ("\"L0000000000$spb\""));
+      local_label_0 = alloca (sizeof ("\"L00000000000$spb\""));
       sprintf (local_label_0, "\"L%011d$spb\"", label);
 
       fprintf (file, "\tmflr r0\n");
@@ -16402,26 +16602,23 @@ rs6000_machopic_legitimize_pic_address (rtx orig, enum machine_mode mode,
 
   if (GET_CODE (orig) == CONST)
     {
+      rtx reg_temp;
+
       if (GET_CODE (XEXP (orig, 0)) == PLUS
 	  && XEXP (XEXP (orig, 0), 0) == pic_offset_table_rtx)
 	return orig;
 
-      if (GET_CODE (XEXP (orig, 0)) == PLUS)
-	{
-	  /* Use a different reg for the intermediate value, as
-	     it will be marked UNCHANGING.  */
-	  rtx reg_temp = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
-
-	  base =
-	    rs6000_machopic_legitimize_pic_address (XEXP (XEXP (orig, 0), 0),
-						    Pmode, reg_temp);
-	  offset =
-	    rs6000_machopic_legitimize_pic_address (XEXP (XEXP (orig, 0), 1),
-						    Pmode, reg);
-	}
-      else
-	abort ();
-
+      gcc_assert (GET_CODE (XEXP (orig, 0)) == PLUS);
+      
+      /* Use a different reg for the intermediate value, as
+	 it will be marked UNCHANGING.  */
+      reg_temp = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
+      base = rs6000_machopic_legitimize_pic_address (XEXP (XEXP (orig, 0), 0),
+						     Pmode, reg_temp);
+      offset =
+	rs6000_machopic_legitimize_pic_address (XEXP (XEXP (orig, 0), 1),
+						Pmode, reg);
+      
       if (GET_CODE (offset) == CONST_INT)
 	{
 	  if (SMALL_INT (offset))
@@ -16651,6 +16848,13 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       fprintf (file, "\t.previous\n");
     }
   ASM_OUTPUT_LABEL (file, name);
+}
+
+static void
+rs6000_elf_end_indicate_exec_stack (void)
+{
+  if (TARGET_32BIT)
+    file_end_indicate_exec_stack ();
 }
 #endif
 
@@ -17420,7 +17624,7 @@ rs6000_initial_elimination_offset (int from, int to)
   else if (from == RS6000_PIC_OFFSET_TABLE_REGNUM)
     offset = 0;
   else
-    abort ();
+    gcc_unreachable ();
 
   return offset;
 }
@@ -17493,10 +17697,8 @@ rs6000_dbx_register_number (unsigned int regno)
     return 612;
   /* SPE high reg number.  We get these values of regno from
      rs6000_dwarf_register_span.  */
-  if (regno >= 1200 && regno < 1232)
-    return regno;
-
-  abort ();
+  gcc_assert (regno >= 1200 && regno < 1232);
+  return regno;
 }
 
 /* target hook eh_return_filter_mode */

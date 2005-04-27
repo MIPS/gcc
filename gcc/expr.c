@@ -208,6 +208,30 @@ enum insn_code clrmem_optab[NUM_MACHINE_MODES];
 enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
+/* Synchronization primitives.  */
+enum insn_code sync_add_optab[NUM_MACHINE_MODES];
+enum insn_code sync_sub_optab[NUM_MACHINE_MODES];
+enum insn_code sync_ior_optab[NUM_MACHINE_MODES];
+enum insn_code sync_and_optab[NUM_MACHINE_MODES];
+enum insn_code sync_xor_optab[NUM_MACHINE_MODES];
+enum insn_code sync_nand_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_add_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_sub_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_ior_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_and_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_xor_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_nand_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_add_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_sub_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_ior_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_and_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_xor_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_nand_optab[NUM_MACHINE_MODES];
+enum insn_code sync_compare_and_swap[NUM_MACHINE_MODES];
+enum insn_code sync_compare_and_swap_cc[NUM_MACHINE_MODES];
+enum insn_code sync_lock_test_and_set[NUM_MACHINE_MODES];
+enum insn_code sync_lock_release[NUM_MACHINE_MODES];
+
 /* SLOW_UNALIGNED_ACCESS is nonzero if unaligned accesses are very slow.  */
 
 #ifndef SLOW_UNALIGNED_ACCESS
@@ -2996,8 +3020,8 @@ emit_move_multi_word (enum machine_mode mode, rtx x, rtx y)
       rtx ypart = operand_subword (y, i, 1, mode);
 
       /* If we can't get a part of Y, put Y into memory if it is a
-	 constant.  Otherwise, force it into a register.  If we still
-	 can't get a part of Y, abort.  */
+	 constant.  Otherwise, force it into a register.  Then we must
+	 be able to get a part of Y.  */
       if (ypart == 0 && CONSTANT_P (y))
 	{
 	  y = force_const_mem (mode, y);
@@ -3520,7 +3544,7 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       int not_stack;
       /* # bytes of start of argument
 	 that we must make space for but need not store.  */
-      int offset = partial % (PARM_BOUNDARY / BITS_PER_WORD);
+      int offset = partial % (PARM_BOUNDARY / BITS_PER_UNIT);
       int args_offset = INTVAL (args_so_far);
       int skip;
 
@@ -3538,8 +3562,9 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 	offset = 0;
 
       /* Now NOT_STACK gets the number of words that we don't need to
-	 allocate on the stack.  */
+	 allocate on the stack. Convert OFFSET to words too. */
       not_stack = (partial - offset) / UNITS_PER_WORD;
+      offset /= UNITS_PER_WORD;
 
       /* If the partial register-part of the arg counts in its stack size,
 	 skip the part of stack space corresponding to the registers.
@@ -4197,10 +4222,10 @@ store_expr (tree exp, rtx target, int call_param_p)
 	 but TARGET is not valid memory reference, TEMP will differ
 	 from TARGET although it is really the same location.  */
       && !(alt_rtl && rtx_equal_p (alt_rtl, target))
-      /* If there's nothing to copy, don't bother.  Don't call expr_size
-	 unless necessary, because some front-ends (C++) expr_size-hook
-	 aborts on objects that are not supposed to be bit-copied or
-	 bit-initialized.  */
+      /* If there's nothing to copy, don't bother.  Don't call
+	 expr_size unless necessary, because some front-ends (C++)
+	 expr_size-hook must not be given objects that are not
+	 supposed to be bit-copied or bit-initialized.  */
       && expr_size (exp) != const0_rtx)
     {
       if (GET_MODE (temp) != GET_MODE (target)
@@ -8322,8 +8347,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
         op2 = expand_expr (oprnd2, NULL_RTX, VOIDmode, 0);
         temp = expand_ternary_op (mode, this_optab, op0, op1, op2, 
 				  target, unsignedp);
-        if (temp == 0)
-          abort ();
+        gcc_assert (temp);
         return temp;
       }
 

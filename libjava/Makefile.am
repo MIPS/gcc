@@ -235,9 +235,7 @@ BOOTCLASSPATH = $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir)'$(CLASSPATH_SEPARATOR)'
 libgij_la_SOURCES = gij.cc
 libgij_la_DEPENDENCIES = libgcj.la libgcj.spec
 ## See jv_convert_LDADD.
-libgij_la_LIBADD = -L$(here)/.libs libgcj.la \
-	external/sax/libsax-gcj.la \
-	external/w3c_dom/libw3c-gcj.la
+libgij_la_LIBADD = -L$(here)/.libs libgcj.la
 ## The mysterious backslash in the grep pattern is consumed by make.
 libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
@@ -257,7 +255,9 @@ libgcj0_convenience_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
 	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
 libgcj0_convenience_la_LIBADD = \
 	gnu-xml.lo javax-imageio.lo \
-	javax-xml.lo gnu-java-beans.lo
+	javax-xml.lo gnu-java-beans.lo \
+	external/sax/libsax-gcj.la \
+	external/w3c_dom/libw3c-gcj.la
 
 noinst_LTLIBRARIES = libgcj0_convenience.la
 
@@ -1223,6 +1223,29 @@ gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
 gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
+gnu/javax/swing/text/html/parser/support/gnuStringIntMapper.java \
+gnu/javax/swing/text/html/parser/support/parameterDefaulter.java \
+gnu/javax/swing/text/html/parser/support/Parser.java \
+gnu/javax/swing/text/html/parser/support/textPreProcessor.java \
+gnu/javax/swing/text/html/parser/support/low/Buffer.java \
+gnu/javax/swing/text/html/parser/support/low/Constants.java \
+gnu/javax/swing/text/html/parser/support/low/Location.java \
+gnu/javax/swing/text/html/parser/support/low/node.java \
+gnu/javax/swing/text/html/parser/support/low/ParseException.java \
+gnu/javax/swing/text/html/parser/support/low/pattern.java \
+gnu/javax/swing/text/html/parser/support/low/Queue.java \
+gnu/javax/swing/text/html/parser/support/low/ReaderTokenizer.java \
+gnu/javax/swing/text/html/parser/support/low/Token.java \
+gnu/javax/swing/text/html/parser/gnuDTD.java \
+gnu/javax/swing/text/html/parser/HTML_401F.java \
+gnu/javax/swing/text/html/parser/htmlAttributeSet.java \
+gnu/javax/swing/text/html/parser/htmlValidator.java \
+gnu/javax/swing/text/html/parser/models/list.java \
+gnu/javax/swing/text/html/parser/models/node.java \
+gnu/javax/swing/text/html/parser/models/noTagModel.java \
+gnu/javax/swing/text/html/parser/models/PCDATAonly_model.java \
+gnu/javax/swing/text/html/parser/models/TableRowContentModel.java \
+gnu/javax/swing/text/html/parser/models/transformer.java \
 java/applet/Applet.java \
 java/applet/AppletStub.java \
 java/applet/AppletContext.java \
@@ -1670,6 +1693,28 @@ javax/swing/plaf/basic/BasicLookAndFeel.java \
 javax/swing/plaf/basic/BasicBorders.java \
 javax/swing/plaf/basic/BasicIconFactory.java \
 javax/swing/plaf/basic/ComboPopup.java \
+javax/swing/plaf/metal/MetalBorders.java \
+javax/swing/plaf/metal/MetalButtonUI.java \
+javax/swing/plaf/metal/MetalCheckBoxUI.java \
+javax/swing/plaf/metal/MetalComboBoxUI.java \
+javax/swing/plaf/metal/MetalDesktopIconUI.java \
+javax/swing/plaf/metal/MetalInternalFrameUI.java \
+javax/swing/plaf/metal/MetalLabelUI.java \
+javax/swing/plaf/metal/MetalPopupMenuSeparatorUI.java \
+javax/swing/plaf/metal/MetalProgressBarUI.java \
+javax/swing/plaf/metal/MetalRadioButtonUI.java \
+javax/swing/plaf/metal/MetalRootPaneUI.java \
+javax/swing/plaf/metal/MetalScrollBarUI.java \
+javax/swing/plaf/metal/MetalScrollPaneUI.java \
+javax/swing/plaf/metal/MetalSeparatorUI.java \
+javax/swing/plaf/metal/MetalSliderUI.java \
+javax/swing/plaf/metal/MetalSplitPaneUI.java \
+javax/swing/plaf/metal/MetalTabbedPaneUI.java \
+javax/swing/plaf/metal/MetalTextFieldUI.java \
+javax/swing/plaf/metal/MetalToggleButtonUI.java \
+javax/swing/plaf/metal/MetalToolBarUI.java \
+javax/swing/plaf/metal/MetalToolTipUI.java \
+javax/swing/plaf/metal/MetalTreeUI.java \
 javax/swing/plaf/BorderUIResource.java \
 javax/swing/plaf/UIResource.java \
 javax/swing/plaf/ButtonUI.java \
@@ -1847,6 +1892,7 @@ javax/swing/text/AbstractDocument.java \
 javax/swing/text/AttributeSet.java \
 javax/swing/text/BadLocationException.java \
 javax/swing/text/Caret.java \
+javax/swing/text/ChangedCharSetException.java \
 javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
@@ -1885,7 +1931,26 @@ javax/swing/text/Utilities.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/html/HTML.java \
+javax/swing/text/html/HTMLDocument.java \
+javax/swing/text/html/HTMLEditorKit.java \
+javax/swing/text/html/HTMLFrameHyperlinkEvent.java \
+javax/swing/text/html/parser/AttributeList.java \
+javax/swing/text/html/parser/ContentModel.java \
+javax/swing/text/html/parser/DTD.java \
+javax/swing/text/html/parser/DTDConstants.java \
+javax/swing/text/html/parser/DocumentParser.java \
+javax/swing/text/html/parser/Element.java \
+javax/swing/text/html/parser/Entity.java \
+javax/swing/text/html/parser/Parser.java \
 javax/swing/text/html/parser/ParserDelegator.java \
+javax/swing/text/html/parser/TagElement.java \
+javax/swing/text/rtf/ControlWordToken.java \
+javax/swing/text/rtf/RTFEditorKit.java \
+javax/swing/text/rtf/RTFParseException.java \
+javax/swing/text/rtf/RTFParser.java \
+javax/swing/text/rtf/RTFScanner.java \
+javax/swing/text/rtf/TextToken.java \
+javax/swing/text/rtf/Token.java \
 javax/swing/tree/TreeNode.java \
 javax/swing/tree/AbstractLayoutCache.java \
 javax/swing/tree/DefaultMutableTreeNode.java \
@@ -2684,6 +2749,63 @@ gnu/xml/dom/DomEvent.java \
 gnu/xml/dom/DomEntity.java \
 gnu/xml/dom/DomCDATASection.java \
 gnu/xml/dom/DomDOMException.java \
+gnu/xml/dom/html2/DomHTMLAnchorElement.java \
+gnu/xml/dom/html2/DomHTMLAppletElement.java \
+gnu/xml/dom/html2/DomHTMLAreaElement.java \
+gnu/xml/dom/html2/DomHTMLBaseElement.java \
+gnu/xml/dom/html2/DomHTMLBaseFontElement.java \
+gnu/xml/dom/html2/DomHTMLBodyElement.java \
+gnu/xml/dom/html2/DomHTMLBRElement.java \
+gnu/xml/dom/html2/DomHTMLButtonElement.java \
+gnu/xml/dom/html2/DomHTMLCollection.java \
+gnu/xml/dom/html2/DomHTMLDirectoryElement.java \
+gnu/xml/dom/html2/DomHTMLDivElement.java \
+gnu/xml/dom/html2/DomHTMLDListElement.java \
+gnu/xml/dom/html2/DomHTMLDocument.java \
+gnu/xml/dom/html2/DomHTMLElement.java \
+gnu/xml/dom/html2/DomHTMLFieldSetElement.java \
+gnu/xml/dom/html2/DomHTMLFontElement.java \
+gnu/xml/dom/html2/DomHTMLFormElement.java \
+gnu/xml/dom/html2/DomHTMLFrameElement.java \
+gnu/xml/dom/html2/DomHTMLFrameSetElement.java \
+gnu/xml/dom/html2/DomHTMLHeadElement.java \
+gnu/xml/dom/html2/DomHTMLHeadingElement.java \
+gnu/xml/dom/html2/DomHTMLHRElement.java \
+gnu/xml/dom/html2/DomHTMLHtmlElement.java \
+gnu/xml/dom/html2/DomHTMLIFrameElement.java \
+gnu/xml/dom/html2/DomHTMLImageElement.java \
+gnu/xml/dom/html2/DomHTMLImpl.java \
+gnu/xml/dom/html2/DomHTMLInputElement.java \
+gnu/xml/dom/html2/DomHTMLIsIndexElement.java \
+gnu/xml/dom/html2/DomHTMLLabelElement.java \
+gnu/xml/dom/html2/DomHTMLLegendElement.java \
+gnu/xml/dom/html2/DomHTMLLIElement.java \
+gnu/xml/dom/html2/DomHTMLLinkElement.java \
+gnu/xml/dom/html2/DomHTMLMapElement.java \
+gnu/xml/dom/html2/DomHTMLMenuElement.java \
+gnu/xml/dom/html2/DomHTMLMetaElement.java \
+gnu/xml/dom/html2/DomHTMLModElement.java \
+gnu/xml/dom/html2/DomHTMLObjectElement.java \
+gnu/xml/dom/html2/DomHTMLOListElement.java \
+gnu/xml/dom/html2/DomHTMLOptGroupElement.java \
+gnu/xml/dom/html2/DomHTMLOptionElement.java \
+gnu/xml/dom/html2/DomHTMLParagraphElement.java \
+gnu/xml/dom/html2/DomHTMLParamElement.java \
+gnu/xml/dom/html2/DomHTMLParser.java \
+gnu/xml/dom/html2/DomHTMLPreElement.java \
+gnu/xml/dom/html2/DomHTMLQuoteElement.java \
+gnu/xml/dom/html2/DomHTMLScriptElement.java \
+gnu/xml/dom/html2/DomHTMLSelectElement.java \
+gnu/xml/dom/html2/DomHTMLStyleElement.java \
+gnu/xml/dom/html2/DomHTMLTableCaptionElement.java \
+gnu/xml/dom/html2/DomHTMLTableCellElement.java \
+gnu/xml/dom/html2/DomHTMLTableColElement.java \
+gnu/xml/dom/html2/DomHTMLTableElement.java \
+gnu/xml/dom/html2/DomHTMLTableRowElement.java \
+gnu/xml/dom/html2/DomHTMLTableSectionElement.java \
+gnu/xml/dom/html2/DomHTMLTextAreaElement.java \
+gnu/xml/dom/html2/DomHTMLTitleElement.java \
+gnu/xml/dom/html2/DomHTMLUListElement.java \
 gnu/xml/transform/GenerateIdFunction.java \
 gnu/xml/transform/FormatNumberFunction.java \
 gnu/xml/transform/ValueOfNode.java \

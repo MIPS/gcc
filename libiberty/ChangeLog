@@ -1,3 +1,33 @@
+2005-04-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fopen_unlocked.c (unlock_stream): New.
+	Consolidate unlocking code into a helper function.
+
+	* functions.texi: Regenerate.
+
+2005-04-13  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* asprintf.c: Include config.h.
+	* basename.c: Likewise.
+	* fdmatch.c: Likewise.
+	* hex.c: Likewise.
+	* lbasename.c: Likewise.
+	* spaces.c: Likewise.
+	* xatexit.c:Likewise.
+	* configure.ac:  Do check declarations for basename, ffs, asprintf 
+	and vasprintf for real.
+	* configure: Regenerate.
+
+2005-04-13  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* argv.c (dupargv): Allocate space of argv[argc], not 
+	sizeof(char *) of that amount.  Cast result to char *.
+
+2005-04-12  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* regex.c (wcs_re_match_2_internal, byte_re_match_2_internal):
+	Replace not with negate. 
+
 2005-04-12  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* configure.ac: Check declarations for basename, ffs, asprintf,

@@ -1330,9 +1330,10 @@ operand_subword (rtx op, unsigned int offset, int validate_address, enum machine
   return simplify_gen_subreg (word_mode, op, mode, (offset * UNITS_PER_WORD));
 }
 
-/* Similar to `operand_subword', but never return 0.  If we can't extract
-   the required subword, put OP into a register and try again.  If that fails,
-   abort.  We always validate the address in this case.
+/* Similar to `operand_subword', but never return 0.  If we can't
+   extract the required subword, put OP into a register and try again.
+   The second attempt must succeed.  We always validate the address in
+   this case.
 
    MODE is the mode of OP, in case it is CONST_INT.  */
 
@@ -3266,7 +3267,7 @@ make_insn_raw (rtx pattern)
 	  || (GET_CODE (insn) == SET
 	      && SET_DEST (insn) == pc_rtx)))
     {
-      warning ("ICE: emit_insn used where emit_jump_insn needed:\n");
+      warning (0, "ICE: emit_insn used where emit_jump_insn needed:\n");
       debug_rtx (insn);
     }
 #endif

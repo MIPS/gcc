@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    0: TREE_NEGATED_INT (in INTEGER_CST).
       IDENTIFIER_MARKED (used by search routines).
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
-      STMT_EXPR_NO_SCOPE (in STMT_EXPR)
    1: C_DECLARED_LABEL_FLAG (in LABEL_DECL)
       STMT_IS_FULL_EXPR_P (in _STMT)
       STATEMENT_LIST_STMT_EXPR (in STATEMENT_LIST)
@@ -636,7 +635,7 @@ extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
 extern tree c_common_truthvalue_conversion (tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern tree c_sizeof_or_alignof_type (tree, enum tree_code, int);
+extern tree c_sizeof_or_alignof_type (tree, bool, int);
 extern tree c_alignof_expr (tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
@@ -649,8 +648,8 @@ extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
 extern bool c_determine_visibility (tree);
 
-#define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
-#define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
+#define c_sizeof(T)  c_sizeof_or_alignof_type (T, true, 1)
+#define c_alignof(T) c_sizeof_or_alignof_type (T, false, 1)
 
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
@@ -712,13 +711,6 @@ extern void finish_file	(void);
 /* EXPR_STMT accessor. This gives the expression associated with an
    expression statement.  */
 #define EXPR_STMT_EXPR(NODE)    TREE_OPERAND (EXPR_STMT_CHECK (NODE), 0)
-
-/* STMT_EXPR accessor.  */
-#define STMT_EXPR_STMT(NODE)    TREE_OPERAND (STMT_EXPR_CHECK (NODE), 0)
-
-/* Nonzero if this statement-expression does not have an associated scope.  */
-#define STMT_EXPR_NO_SCOPE(NODE) \
-   TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
 
 /* COMPOUND_LITERAL_EXPR accessors.  */
 #define COMPOUND_LITERAL_EXPR_DECL_STMT(NODE)		\
@@ -798,6 +790,8 @@ extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
 extern tree build_function_call (tree, tree);
 
+extern tree resolve_overloaded_builtin (tree, tree);
+
 extern tree finish_label_address_expr (tree);
 
 /* Same function prototype, but the C and C++ front ends have
@@ -860,6 +854,8 @@ extern void lvalue_error (enum lvalue_use);
 
 extern int complete_array_type (tree *, tree, bool);
 
+extern tree builtin_type_for_size (int, bool);
+
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, tree *, tree *);
@@ -916,7 +912,7 @@ extern void objc_continue_implementation (void);
 extern void objc_finish_implementation (void);
 extern void objc_set_visibility (int);
 extern void objc_set_method_type (enum tree_code);
-extern tree objc_build_method_signature (tree, tree, tree);
+extern tree objc_build_method_signature (tree, tree, tree, bool);
 extern void objc_add_method_declaration (tree);
 extern void objc_start_method_definition (tree);
 extern void objc_finish_method_definition (tree);

@@ -129,8 +129,8 @@ char *hot_section_end_label;
 
 char *cold_section_end_label;
  
-/* The following global variable indicates the seciton name to be used
-   for the current cold section, when partitiong hot and cold basic 
+/* The following global variable indicates the section name to be used
+   for the current cold section, when partitioning hot and cold basic 
    blocks into separate sections.  */
 
 char *unlikely_text_section_name;
@@ -470,7 +470,7 @@ named_section (tree decl, const char *name, int reloc)
   flags = targetm.section_type_flags (decl, name, reloc);
 
   /* Sanity check user variables for flag changes.  Non-user
-     section flag changes will abort in named_section_flags.
+     section flag changes will die in named_section_flags.
      However, don't complain if SECTION_OVERRIDE is set.
      We trust that the setter knows that it is safe to ignore
      the default flags for this decl.  */
@@ -943,7 +943,7 @@ make_decl_rtl (tree decl)
 	      error ("global register variable has initial value");
 	    }
 	  if (TREE_THIS_VOLATILE (decl))
-	    warning ("volatile register variables don%'t "
+	    warning (0, "volatile register variables don%'t "
 		     "work as you might wish");
 
 	  /* If the user specified one of the eliminables registers here,
@@ -1297,13 +1297,13 @@ assemble_start_function (tree decl, const char *fnname)
     }
 
   last_text_section = no_section;
-  in_section = no_section;
   resolve_unique_section (decl, 0, flag_function_sections);
 
   /* Switch to the correct text section for the start of the function.  */
 
   function_section (decl);
-  if (!hot_label_written)
+  if (flag_reorder_blocks_and_partition 
+      && !hot_label_written)
     ASM_OUTPUT_LABEL (asm_out_file, hot_section_label);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
@@ -1377,13 +1377,16 @@ assemble_end_function (tree decl, const char *fnname)
     }
   /* Output labels for end of hot/cold text sections (to be used by
      debug info.)  */
-  save_text_section = in_section;
-  unlikely_text_section ();
-  ASM_OUTPUT_LABEL (asm_out_file, cold_section_end_label);
-  text_section ();
-  ASM_OUTPUT_LABEL (asm_out_file, hot_section_end_label);
-  if (save_text_section == in_unlikely_executed_text)
-    unlikely_text_section ();
+  if (flag_reorder_blocks_and_partition)
+    {
+      save_text_section = in_section;
+      unlikely_text_section ();
+      ASM_OUTPUT_LABEL (asm_out_file, cold_section_end_label);
+      text_section ();
+      ASM_OUTPUT_LABEL (asm_out_file, hot_section_end_label);
+      if (save_text_section == in_unlikely_executed_text)
+	unlikely_text_section ();
+    }
 }
 
 /* Assemble code to leave SIZE bytes of zeros.  */
@@ -1672,7 +1675,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
      In particular, a.out format supports a maximum alignment of 4.  */
   if (align > MAX_OFILE_ALIGNMENT)
     {
-      warning ("%Jalignment of %qD is greater than maximum object "
+      warning (0, "%Jalignment of %qD is greater than maximum object "
                "file alignment.  Using %d", decl, decl,
 	       MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
@@ -1736,7 +1739,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
       if ((unsigned HOST_WIDE_INT) DECL_ALIGN_UNIT (decl) > rounded)
-	warning ("%Jrequested alignment for %qD is greater than "
+	warning (0, "%Jrequested alignment for %qD is greater than "
                  "implemented alignment of %d", decl, decl, rounded);
 #endif
 
@@ -1952,9 +1955,15 @@ mark_decl_referenced (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      /* Extern inline functions don't become needed when referenced.  */
-      if (!DECL_EXTERNAL (decl))
-        cgraph_mark_needed_node (cgraph_node (decl));
+      /* Extern inline functions don't become needed when referenced.
+	 If we know a method will be emitted in other TU and no new
+	 functions can be marked reachable, just use the external
+	 definition.  */
+      struct cgraph_node *node = cgraph_node (decl);
+      if (!DECL_EXTERNAL (decl)
+	  && (!node->local.vtable_method || !cgraph_global_info_ready
+	      || !node->local.finalized))
+	cgraph_mark_needed_node (node);
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
@@ -2167,8 +2176,8 @@ default_assemble_integer (rtx x ATTRIBUTE_UNUSED,
 
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
-   the constant, otherwise 0.  If FORCE is nonzero, abort if we can't output
-   the constant.  */
+   the constant, otherwise 0.  We must be able to output the constant,
+   if FORCE is nonzero.  */
 
 bool
 assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
@@ -2256,7 +2265,7 @@ assemble_real (REAL_VALUE_TYPE d, enum machine_mode mode, unsigned int align)
 /* Given an expression EXP with a constant value,
    reduce it to the sum of an assembler symbol and an integer.
    Store them both in the structure *VALUE.
-   Abort if EXP does not reduce.  */
+   EXP must be reducible.  */
 
 struct addr_const GTY(())
 {
@@ -2300,7 +2309,7 @@ decode_addr_const (tree exp, struct addr_const *value)
 
     case LABEL_DECL:
       x = gen_rtx_MEM (FUNCTION_MODE,
-		       gen_rtx_LABEL_REF (VOIDmode, force_label_rtx (target)));
+		       gen_rtx_LABEL_REF (Pmode, force_label_rtx (target)));
       break;
 
     case REAL_CST:
@@ -4302,7 +4311,7 @@ merge_weak (tree newdecl, tree olddecl)
 	 a weak symbol.  */
       else if (TREE_USED (olddecl)
 	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
-	warning ("%Jweak declaration of %qD after first use results "
+	warning (0, "%Jweak declaration of %qD after first use results "
                  "in unspecified behavior", newdecl, newdecl);
 
       if (SUPPORTS_WEAK)
@@ -4345,7 +4354,7 @@ declare_weak (tree decl)
 	weak_decls = tree_cons (NULL, decl, weak_decls);
     }
   else
-    warning ("%Jweak declaration of %qD not supported", decl, decl);
+    warning (0, "%Jweak declaration of %qD not supported", decl, decl);
 
   mark_weak (decl);
 }
@@ -4374,7 +4383,7 @@ weak_finish (void)
       ASM_WEAKEN_LABEL (asm_out_file, name);
 #else
 #ifdef ASM_OUTPUT_WEAK_ALIAS
-      warning ("only weak aliases are supported in this configuration");
+      warning (0, "only weak aliases are supported in this configuration");
       return;
 #endif
 #endif
@@ -4423,17 +4432,17 @@ globalize_decl (tree decl)
    of an alias.  This requires that the decl have been defined.  Aliases
    that precede their definition have to be queued for later processing.  */
 
-struct alias_pair GTY(())
+typedef struct alias_pair GTY(())
 {
   tree decl;
   tree target;
-};
-typedef struct alias_pair *alias_pair;
+} alias_pair;
 
 /* Define gc'd vector type.  */
-DEF_VEC_GC_P(alias_pair);
+DEF_VEC_O(alias_pair);
+DEF_VEC_ALLOC_O(alias_pair,gc);
 
-static GTY(()) VEC(alias_pair) *alias_pairs;
+static GTY(()) VEC(alias_pair,gc) *alias_pairs;
 
 /* Given an assembly name, find the decl it is associated with.  At the
    same time, mark it needed for cgraph.  */
@@ -4483,6 +4492,9 @@ find_decl_and_mark_needed (tree decl, tree target)
 static void
 do_assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
 {
+  if (TREE_ASM_WRITTEN (decl))
+    return;
+
   TREE_ASM_WRITTEN (decl) = 1;
   TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
 
@@ -4531,7 +4543,7 @@ void
 finish_aliases_1 (void)
 {
   unsigned i;
-  alias_pair p;
+  alias_pair *p;
 
   for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
     {
@@ -4555,12 +4567,12 @@ void
 finish_aliases_2 (void)
 {
   unsigned i;
-  alias_pair p;
+  alias_pair *p;
 
   for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
     do_assemble_alias (p->decl, p->target);
 
-  alias_pairs = NULL;
+  VEC_truncate (alias_pair, alias_pairs, 0);
 }
 
 /* Emit an assembler directive to make the symbol for DECL an alias to
@@ -4607,12 +4619,9 @@ assemble_alias (tree decl, tree target)
     do_assemble_alias (decl, target);
   else
     {
-      alias_pair p;
-
-      p = ggc_alloc (sizeof (struct alias_pair));
+      alias_pair *p = VEC_safe_push (alias_pair, gc, alias_pairs, NULL);
       p->decl = decl;
       p->target = target;
-      VEC_safe_push (alias_pair, alias_pairs, p);
     }
 }
 
@@ -4636,7 +4645,7 @@ default_assemble_visibility (tree decl, int vis)
   assemble_name (asm_out_file, name);
   fprintf (asm_out_file, "\n");
 #else
-  warning ("visibility attribute not supported in this configuration; ignored");
+  warning (0, "visibility attribute not supported in this configuration; ignored");
 #endif
 }
 

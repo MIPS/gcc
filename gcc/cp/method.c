@@ -544,7 +544,7 @@ do_build_copy_constructor (tree fndecl)
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
       tree binfo, base_binfo;
-      VEC (tree) *vbases;
+      VEC(tree,gc) *vbases;
 
       /* Initialize all the base-classes with the parameter converted
 	 to their type so that we get their copy constructor and not
@@ -1103,7 +1103,7 @@ lazily_declare_fn (special_function_kind sfk, tree type)
 	 TYPE_METHODS list, which cause the destructor to be emitted
 	 in an incorrect location in the vtable.  */ 
       if (warn_abi && DECL_VIRTUAL_P (fn))
-	warning ("vtable layout for class %qT may not be ABI-compliant"
+	warning (0, "vtable layout for class %qT may not be ABI-compliant"
 		 "and may change in a future version of GCC due to "
 		 "implicit virtual destructor",
 		 type);

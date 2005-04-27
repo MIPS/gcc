@@ -2705,7 +2705,7 @@ handle_structs_in_regs (enum machine_mode mode, tree type, int reg)
 {
   int size;
 
-  /* The MCore ABI defines that a structure whoes size is not a whole multiple
+  /* The MCore ABI defines that a structure whose size is not a whole multiple
      of bytes is passed packed into registers (or spilled onto the stack if
      not enough registers are available) with the last few bytes of the
      structure being packed, left-justified, into the last register/stack slot.
@@ -3059,7 +3059,7 @@ mcore_handle_naked_attribute (tree * node, tree name, tree args ATTRIBUTE_UNUSED
     }
   else
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }

@@ -146,7 +146,6 @@ vect_create_index_for_vector_ref (loop_vec_info loop_vinfo)
   create_iv (init, step, NULL_TREE, loop, &incr_bsi, insert_after,
 	&indx_before_incr, &indx_after_incr);
   incr = bsi_stmt (incr_bsi);
-  get_stmt_operands (incr);
   set_stmt_info (stmt_ann (incr), new_stmt_vec_info (incr, loop_vinfo));
 
   return indx_before_incr;
@@ -856,8 +855,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum machine_mode vec_mode;
   tree dummy;
   enum dr_alignment_support alignment_support_cheme;
-  v_may_def_optype v_may_defs;
-  int nv_may_defs, i;
+  ssa_op_iter iter;
+  tree def;
 
   /* Is vectorizable store? */
 
@@ -915,20 +914,16 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   *vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
 
-  /* Copy the V_MAY_DEFS representing the aliasing of the original array
-     element's definition to the vector's definition then update the
-     defining statement.  The original is being deleted so the same
-     SSA_NAMEs can be used.  */
-  copy_virtual_operands (*vec_stmt, stmt);
-  v_may_defs = STMT_V_MAY_DEF_OPS (*vec_stmt);
-  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
+  /* Mark all non-SSA variables in the statement for rewriting.  */
+  mark_new_vars_to_rename (*vec_stmt);
 	    
-  for (i = 0; i < nv_may_defs; i++)
-    {
-      tree ssa_name = V_MAY_DEF_RESULT (v_may_defs, i);
-      SSA_NAME_DEF_STMT (ssa_name) = *vec_stmt;
-    }
-
+  /* The new vectorized statement will have better aliasing
+     information, so some of the virtual definitions of the old
+     statement will likely disappear from the IL.  Mark them to have
+     their SSA form updated.  */
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
+    mark_sym_for_renaming (SSA_NAME_VAR (def));
+ 
   return true;
 }
 
@@ -1156,7 +1151,7 @@ vect_is_simple_cond (tree cond, loop_vec_info loop_vinfo)
 {
   tree lhs, rhs;
 
-  if (TREE_CODE_CLASS (TREE_CODE (cond)) != tcc_comparison)
+  if (!COMPARISON_CLASS_P (cond))
     return false;
 
   lhs = TREE_OPERAND (cond, 0);
@@ -1995,6 +1990,11 @@ vect_transform_loop (loop_vec_info loop_vinfo,
     }				/* BBs in loop */
 
   slpeel_make_loop_iterate_ntimes (loop, ratio);
+
+  /* The memory tags and pointers in vectorized statements need to
+     have their SSA forms updated.  FIXME, why can't this be delayed
+     until all the loops have been transformed?  */
+  update_ssa (TODO_update_ssa);
 
   if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS, LOOP_LOC (loop_vinfo)))
     fprintf (vect_dump, "LOOP VECTORIZED.");

@@ -942,7 +942,7 @@ static const struct compiler default_compilers[] =
 		cc1 %(cpp_unique_options) %(cc1_options)}}\
                 %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
   {"-",
-   "%{!E:%e-E required when input is from standard input}\
+   "%{!E:%e-E or -x required when input is from standard input}\
     %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
   {".h", "@c-header", 0, 0, 0},
   {"@c-header",
@@ -5994,6 +5994,11 @@ main (int argc, const char **argv)
   /* Perform host dependent initialization when needed.  */
   GCC_DRIVER_HOST_INITIALIZATION;
 #endif
+
+  /* Unlock the stdio streams.  */
+  unlock_stream (stdin);
+  unlock_stream (stdout);
+  unlock_stream (stderr);
 
   gcc_init_libintl ();
 

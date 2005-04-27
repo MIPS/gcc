@@ -286,6 +286,11 @@ compare_values (tree val1, tree val2)
   if (val1 == val2)
     return 0;
 
+  /* Below we rely on the fact that VAL1 and VAL2 are both pointers or
+     both integers.  */
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (val1))
+	      == POINTER_TYPE_P (TREE_TYPE (val2)));
+
   /* Do some limited symbolic comparisons.  */
   if (!POINTER_TYPE_P (TREE_TYPE (val1)))
     {
@@ -411,17 +416,17 @@ compare_values (tree val1, tree val2)
 	return 0;
       
       /* If VAL1 is a lower address than VAL2, return -1.  */
-      t = fold (build2 (LT_EXPR, TREE_TYPE (val1), val1, val2));
+      t = fold_binary (LT_EXPR, boolean_type_node, val1, val2);
       if (t == boolean_true_node)
 	return -1;
 
       /* If VAL1 is a higher address than VAL2, return +1.  */
-      t = fold (build2 (GT_EXPR, TREE_TYPE (val1), val1, val2));
+      t = fold_binary (GT_EXPR, boolean_type_node, val1, val2);
       if (t == boolean_true_node)
 	return 1;
 
       /* If VAL1 is different than VAL2, return +2.  */
-      t = fold (build2 (NE_EXPR, TREE_TYPE (val1), val1, val2));
+      t = fold_binary (NE_EXPR, boolean_type_node, val1, val2);
       if (t == boolean_true_node)
 	return 2;
 
@@ -476,7 +481,7 @@ extract_range_from_assert (value_range *vr_p, tree expr)
   var = ASSERT_EXPR_VAR (expr);
   cond = ASSERT_EXPR_COND (expr);
 
-  gcc_assert (TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison);
+  gcc_assert (COMPARISON_CLASS_P (cond));
 
   /* Find VAR in the ASSERT_EXPR conditional.  */
   limit = get_opposite_operand (cond, var);
@@ -830,6 +835,8 @@ extract_range_from_expr (value_range *vr, tree expr)
     extract_range_from_unary_expr (vr, expr);
   else if (expr_computes_nonzero (expr))
     set_value_range_to_nonnull (vr, TREE_TYPE (expr));
+  else if (TREE_CODE (expr) == INTEGER_CST)
+    set_value_range (vr, VR_RANGE, expr, expr);
   else
     set_value_range (vr, VR_VARYING, NULL_TREE, NULL_TREE);
 }
@@ -1221,7 +1228,7 @@ build_assert_expr_for (tree cond, tree v)
   gcc_assert (TREE_CODE (v) == SSA_NAME);
   n = duplicate_ssa_name (v, NULL_TREE);
 
-  if (TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison)
+  if (COMPARISON_CLASS_P (cond))
     {
       /* Build N = ASSERT_EXPR <V, COND>.  As a special case, if the
 	 conditional is an EQ_EXPR (V == Z), just build the assignment
@@ -1269,8 +1276,8 @@ build_assert_expr_for (tree cond, tree v)
 static inline bool
 fp_predicate (tree expr)
 {
-  return TREE_CODE_CLASS (TREE_CODE (expr)) == tcc_comparison
-         && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
+  return (COMPARISON_CLASS_P (expr)
+	  && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0))));
 }
 
 
@@ -1328,7 +1335,7 @@ has_assert_expr (tree op, tree cond)
       tree t1, t2;
 
       /* If COND is not a comparison predicate, something is wrong.  */
-      gcc_assert (TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison);
+      gcc_assert (COMPARISON_CLASS_P (cond));
 
       /* Note that we only need to compare against one of the operands
 	 of OTHER_COND.  
@@ -1429,7 +1436,6 @@ maybe_add_assert_expr (basic_block bb)
       ssa_op_iter i;
       
       stmt = bsi_stmt (si);
-      get_stmt_operands (stmt);
 
       /* Mark all the SSA names used by STMT in bitmap FOUND.  If STMT
 	 is inside the sub-graph of a conditional block, when we
@@ -1439,6 +1445,14 @@ maybe_add_assert_expr (basic_block bb)
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_USE)
 	{
 	  tree cond;
+
+	  /* If OP is used only once, namely in this STMT, don't
+	     bother inserting an ASSERT_EXPR for it.  Such an
+	     ASSERT_EXPR would do nothing but increase compile time.
+	     Experiments show that with this simple check, we can save
+	     more than 20% of ASSERT_EXPRs.  */
+	  if (has_single_use (op))
+	    continue;
 
 	  SET_BIT (found, SSA_NAME_VERSION (op));
 
@@ -1500,6 +1514,7 @@ maybe_add_assert_expr (basic_block bb)
       edge e;
       edge_iterator ei;
       tree op, cond;
+      basic_block son;
       
       cond = COND_EXPR_COND (last);
 
@@ -1554,6 +1569,17 @@ maybe_add_assert_expr (basic_block bb)
 
       /* Finally, mark all the COND_EXPR operands as found.  */
       SET_BIT (found, SSA_NAME_VERSION (op));
+
+      /* Recurse into the dominator children of BB that are not BB's
+	 immediate successors.  Note that we have already visited BB's
+	 other dominator children above.  */
+      for (son = first_dom_son (CDI_DOMINATORS, bb);
+	   son;
+	   son = next_dom_son (CDI_DOMINATORS, son))
+	{
+	  if (find_edge (bb, son) == NULL)
+	    added |= maybe_add_assert_expr (son);
+	}
     }
   else
     {

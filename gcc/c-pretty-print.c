@@ -1013,12 +1013,6 @@ pp_c_primary_expression (c_pretty_printer *pp, tree e)
       pp_c_right_paren (pp);
       break;
 
-    case STMT_EXPR:
-      pp_c_left_paren (pp);
-      pp_statement (pp, STMT_EXPR_STMT (e));
-      pp_c_right_paren (pp);
-      break;
-
     default:
       /* FIXME:  Make sure we won't get into an infinie loop.  */
       pp_c_left_paren (pp);
@@ -1223,11 +1217,6 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
       pp_identifier (pp, code == POSTINCREMENT_EXPR ? "++" : "--");
       break;
 
-    case ARROW_EXPR:
-      pp_postfix_expression (pp, TREE_OPERAND (e, 0));
-      pp_c_arrow (pp);
-      break;
-
     case ARRAY_REF:
       pp_postfix_expression (pp, TREE_OPERAND (e, 0));
       pp_c_left_bracket (pp);
@@ -1428,16 +1417,6 @@ pp_c_unary_expression (c_pretty_printer *pp, tree e)
       else if (code == TRUTH_NOT_EXPR)
 	pp_exclamation (pp);
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
-      break;
-
-    case SIZEOF_EXPR:
-    case ALIGNOF_EXPR:
-      pp_c_identifier (pp, code == SIZEOF_EXPR ? "sizeof" : "__alignof__");
-      pp_c_whitespace (pp);
-      if (TYPE_P (TREE_OPERAND (e, 0)))
-        pp_c_type_cast (pp, TREE_OPERAND (e, 0));
-      else
-	pp_unary_expression (pp, TREE_OPERAND (e, 0));
       break;
 
     case REALPART_EXPR:
@@ -1801,13 +1780,11 @@ pp_c_expression (c_pretty_printer *pp, tree e)
     case FIELD_DECL:
     case LABEL_DECL:
     case ERROR_MARK:
-    case STMT_EXPR:
       pp_primary_expression (pp, e);
       break;
 
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
-    case ARROW_EXPR:
     case ARRAY_REF:
     case CALL_EXPR:
     case COMPONENT_REF:
@@ -1837,8 +1814,6 @@ pp_c_expression (c_pretty_printer *pp, tree e)
     case TRUTH_NOT_EXPR:
     case PREINCREMENT_EXPR:
     case PREDECREMENT_EXPR:
-    case SIZEOF_EXPR:
-    case ALIGNOF_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       pp_c_unary_expression (pp, e);

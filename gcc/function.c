@@ -578,13 +578,13 @@ make_slot_available (struct temp_slot *temp)
    free_temp_slots.  Automatic variables for a block are allocated
    with this flag.  KEEP values of 2 or 3 were needed respectively
    for variables whose lifetime is controlled by CLEANUP_POINT_EXPRs
-   or for SAVE_EXPRs, but they are now unused and will abort.
+   or for SAVE_EXPRs, but they are now unused.
 
    TYPE is the type that will be used for the stack slot.  */
 
 rtx
-assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep,
-			    tree type)
+assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
+			    int keep, tree type)
 {
   unsigned int align;
   struct temp_slot *p, *best_p = 0, *selected = NULL, **pp;
@@ -815,7 +815,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       /* The size of the temporary may be too large to fit into an integer.  */
       /* ??? Not sure this should happen except for user silliness, so limit
 	 this to things that aren't compiler-generated temporaries.  The
-	 rest of the time we'll abort in assign_stack_temp_for_type.  */
+	 rest of the time we'll die in assign_stack_temp_for_type.  */
       if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
@@ -3601,7 +3601,7 @@ setjmp_vars_warning (tree block)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning ("%Jvariable %qD might be clobbered by %<longjmp%>"
+	warning (0, "%Jvariable %qD might be clobbered by %<longjmp%>"
 		 " or %<vfork%>",
 		 decl, decl);
     }
@@ -3622,7 +3622,7 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning ("%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
+      warning (0, "%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl, decl);
 }
 
@@ -4017,7 +4017,7 @@ init_function_start (tree subr)
      regardless of which calling convention we are using for it.  */
   if (warn_aggregate_return
       && AGGREGATE_TYPE_P (TREE_TYPE (DECL_RESULT (subr))))
-    warning ("function returns an aggregate");
+    warning (0, "function returns an aggregate");
 }
 
 /* Make sure all values used by the optimization passes have sane
@@ -4340,7 +4340,7 @@ do_warn_unused_parameter (tree fn)
        decl; decl = TREE_CHAIN (decl))
     if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
 	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
-      warning ("%Junused parameter %qD", decl, decl);
+      warning (0, "%Junused parameter %qD", decl, decl);
 }
 
 static GTY(()) rtx initial_trampoline;
@@ -4712,34 +4712,35 @@ emit_return_into_block (basic_block bb, rtx line_note)
 
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 
-/* These functions convert the epilogue into a variant that does not modify the
-   stack pointer.  This is used in cases where a function returns an object
-   whose size is not known until it is computed.  The called function leaves the
-   object on the stack, leaves the stack depressed, and returns a pointer to
-   the object.
+/* These functions convert the epilogue into a variant that does not
+   modify the stack pointer.  This is used in cases where a function
+   returns an object whose size is not known until it is computed.
+   The called function leaves the object on the stack, leaves the
+   stack depressed, and returns a pointer to the object.
 
-   What we need to do is track all modifications and references to the stack
-   pointer, deleting the modifications and changing the references to point to
-   the location the stack pointer would have pointed to had the modifications
-   taken place.
+   What we need to do is track all modifications and references to the
+   stack pointer, deleting the modifications and changing the
+   references to point to the location the stack pointer would have
+   pointed to had the modifications taken place.
 
-   These functions need to be portable so we need to make as few assumptions
-   about the epilogue as we can.  However, the epilogue basically contains
-   three things: instructions to reset the stack pointer, instructions to
-   reload registers, possibly including the frame pointer, and an
-   instruction to return to the caller.
+   These functions need to be portable so we need to make as few
+   assumptions about the epilogue as we can.  However, the epilogue
+   basically contains three things: instructions to reset the stack
+   pointer, instructions to reload registers, possibly including the
+   frame pointer, and an instruction to return to the caller.
 
-   If we can't be sure of what a relevant epilogue insn is doing, we abort.
-   We also make no attempt to validate the insns we make since if they are
-   invalid, we probably can't do anything valid.  The intent is that these
-   routines get "smarter" as more and more machines start to use them and
-   they try operating on different epilogues.
+   We must be sure of what a relevant epilogue insn is doing.  We also
+   make no attempt to validate the insns we make since if they are
+   invalid, we probably can't do anything valid.  The intent is that
+   these routines get "smarter" as more and more machines start to use
+   them and they try operating on different epilogues.
 
-   We use the following structure to track what the part of the epilogue that
-   we've already processed has done.  We keep two copies of the SP equivalence,
-   one for use during the insn we are processing and one for use in the next
-   insn.  The difference is because one part of a PARALLEL may adjust SP
-   and the other may use it.  */
+   We use the following structure to track what the part of the
+   epilogue that we've already processed has done.  We keep two copies
+   of the SP equivalence, one for use during the insn we are
+   processing and one for use in the next insn.  The difference is
+   because one part of a PARALLEL may adjust SP and the other may use
+   it.  */
 
 struct epi_info
 {
@@ -4957,7 +4958,7 @@ static void
 handle_epilogue_set (rtx set, struct epi_info *p)
 {
   /* First handle the case where we are setting SP.  Record what it is being
-     set from.  If unknown, abort.  */
+     set from, which we must be able to determine  */
   if (reg_set_p (stack_pointer_rtx, set))
     {
       gcc_assert (SET_DEST (set) == stack_pointer_rtx);
@@ -4992,14 +4993,14 @@ handle_epilogue_set (rtx set, struct epi_info *p)
       return;
     }
 
-  /* Next handle the case where we are setting SP's equivalent register.
-     If we already have a value to set it to, abort.  We could update, but
-     there seems little point in handling that case.  Note that we have
-     to allow for the case where we are setting the register set in
-     the previous part of a PARALLEL inside a single insn.  But use the
-     old offset for any updates within this insn.  We must allow for the case
-     where the register is being set in a different (usually wider) mode than
-     Pmode).  */
+  /* Next handle the case where we are setting SP's equivalent
+     register.  We must not already have a value to set it to.  We
+     could update, but there seems little point in handling that case.
+     Note that we have to allow for the case where we are setting the
+     register set in the previous part of a PARALLEL inside a single
+     insn.  But use the old offset for any updates within this insn.
+     We must allow for the case where the register is being set in a
+     different (usually wider) mode than Pmode).  */
   else if (p->new_sp_equiv_reg != 0 && reg_set_p (p->new_sp_equiv_reg, set))
     {
       gcc_assert (!p->equiv_reg_src

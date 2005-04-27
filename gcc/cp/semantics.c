@@ -139,10 +139,11 @@ typedef struct deferred_access GTY(())
   enum deferring_kind deferring_access_checks_kind;
   
 } deferred_access;
-DEF_VEC_GC_O (deferred_access);
+DEF_VEC_O (deferred_access);
+DEF_VEC_ALLOC_O (deferred_access,gc);
 
 /* Data for deferred access checking.  */
-static GTY(()) VEC (deferred_access) *deferred_access_stack;
+static GTY(()) VEC(deferred_access,gc) *deferred_access_stack;
 static GTY(()) unsigned deferred_access_no_check;
 
 /* Save the current deferred access states and start deferred
@@ -159,7 +160,7 @@ push_deferring_access_checks (deferring_kind deferring)
     {
       deferred_access *ptr;
 
-      ptr = VEC_safe_push (deferred_access, deferred_access_stack, NULL);
+      ptr = VEC_safe_push (deferred_access, gc, deferred_access_stack, NULL);
       ptr->deferred_access_checks = NULL_TREE;
       ptr->deferring_access_checks_kind = deferring;
     }
@@ -1833,8 +1834,16 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 				       ? LOOKUP_NONVIRTUAL : 0));
     }
   else if (is_overloaded_fn (fn))
-    /* A call to a namespace-scope function.  */
-    result = build_new_function_call (fn, args);
+    {
+      /* If the function is an overloaded builtin, resolve it.  */
+      if (TREE_CODE (fn) == FUNCTION_DECL
+	  && DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL)
+        result = resolve_overloaded_builtin (fn, args);
+
+      if (!result)
+	/* A call to a namespace-scope function.  */
+	result = build_new_function_call (fn, args);
+    }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
       if (args)
@@ -1851,6 +1860,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
        have an overloaded `operator ()'.  */
     result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
 			   /*overloaded_p=*/NULL);
+
   if (!result)
     /* A call where the function is unknown.  */
     result = build_function_call (fn, args);

@@ -1,3 +1,7 @@
+2005-04-27  Jan Hubicka  <jh@suse.cz>
+
+	* Merge form mainline.
+
 2005-04-26  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-inline.c: Fix various boring code style and white space issues.

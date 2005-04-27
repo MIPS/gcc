@@ -904,7 +904,7 @@ redirect_branch_edge (edge e, basic_block target)
 	  && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF
 	  && XEXP (XEXP (SET_SRC (tmp), 2), 0) == old_label)
 	{
-	  XEXP (SET_SRC (tmp), 2) = gen_rtx_LABEL_REF (VOIDmode,
+	  XEXP (SET_SRC (tmp), 2) = gen_rtx_LABEL_REF (Pmode,
 						       new_label);
 	  --LABEL_NUSES (old_label);
 	  ++LABEL_NUSES (new_label);
@@ -1065,7 +1065,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	  
 	  gcc_assert (found);
 	  
-	  VEC_safe_push (edge, bb->succs, e);
+	  VEC_safe_push (edge, gc, bb->succs, e);
 	  make_single_succ_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
 	}
     }
@@ -1165,7 +1165,7 @@ force_nonfallthru (edge e)
 
 /* Redirect edge even at the expense of creating new jump insn or
    basic block.  Return new basic block if created, NULL otherwise.
-   Abort if conversion is impossible.  */
+   Conversion must be possible.  */
 
 static basic_block
 rtl_redirect_edge_and_branch_force (edge e, basic_block target)
@@ -1277,7 +1277,7 @@ rtl_move_block_after (basic_block bb ATTRIBUTE_UNUSED,
 }
 
 /* Split a (typically critical) edge.  Return the new block.
-   Abort on abnormal edges.
+   The edge must not be abnormal.
 
    ??? The code generally expects to be called on critical edges.
    The case of a block ending in an unconditional jump to a
@@ -2455,34 +2455,18 @@ purge_dead_edges (basic_block bb)
    true if some edge has been eliminated.  */
 
 bool
-purge_all_dead_edges (int update_life_p)
+purge_all_dead_edges (void)
 {
   int purged = false;
-  sbitmap blocks = 0;
   basic_block bb;
-
-  if (update_life_p)
-    {
-      blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (blocks);
-    }
 
   FOR_EACH_BB (bb)
     {
       bool purged_here = purge_dead_edges (bb);
 
       purged |= purged_here;
-      if (purged_here && update_life_p)
-	SET_BIT (blocks, bb->index);
     }
 
-  if (update_life_p && purged)
-    update_life_info (blocks, UPDATE_LIFE_GLOBAL,
-		      PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-		      | PROP_KILL_DEAD_CODE);
-
-  if (update_life_p)
-    sbitmap_free (blocks);
   return purged;
 }
 
@@ -2711,7 +2695,8 @@ cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
 		  ? simplejump_p (BB_END (a)) : onlyjump_p (BB_END (a)))));
 }
 
-/* Merge block A and B, abort when it is not possible.  */
+/* Merge block A and B.  The blocks must be mergeable.  */
+
 static void
 cfg_layout_merge_blocks (basic_block a, basic_block b)
 {

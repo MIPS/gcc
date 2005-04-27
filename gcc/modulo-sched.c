@@ -105,8 +105,6 @@ typedef struct ps_insn *ps_insn_ptr;
 #define PS_STAGE_COUNT(ps) ((PS_MAX_CYCLE (ps) - PS_MIN_CYCLE (ps) \
 			     + 1 + (ps)->ii - 1) / (ps)->ii)
 
-#define CFG_HOOKS cfg_layout_rtl_cfg_hooks
-
 /* A single instruction in the partial schedule.  */
 struct ps_insn
 {
@@ -640,8 +638,7 @@ normalize_sched_times (partial_schedule_ptr ps)
       ddg_node_ptr u = &g->nodes[i];
       int normalized_time = SCHED_TIME (u) - amount;
 
-      if (normalized_time < 0)
-	abort ();
+      gcc_assert (normalized_time >= 0);
 
       SCHED_TIME (u) = normalized_time;
       SCHED_ROW (u) = normalized_time % ii;
@@ -1735,8 +1732,7 @@ check_nodes_order (int *node_order, int num_nodes)
     {
       int u = node_order[i];
 
-      if (u >= num_nodes || u < 0 || TEST_BIT (tmp, u))
-	abort ();
+      gcc_assert (u < num_nodes && u >= 0 && !TEST_BIT (tmp, u));
 
       SET_BIT (tmp, u);
     }

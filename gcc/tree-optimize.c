@@ -333,8 +333,9 @@ register_one_dump_file (struct tree_opt_pass *pass, bool ipa, int n)
     {
       flag_name = concat ("ipa-", pass->name, num, NULL);
       glob_name = concat ("ipa-", pass->name, NULL);
+      /* First IPA dump is cgraph that is dumped via separate channels.  */
       pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
-                                                TDF_IPA, n + 2, 0);
+                                                TDF_IPA, n + 1, 0);
     }
   else if (pass->properties_provided & PROP_trees)
     {
@@ -440,6 +441,10 @@ init_tree_optimization_passes (void)
   struct tree_opt_pass **p;
 
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &PASS))
+  /* Intraprocedural optimization passes.  */
+  p = &all_ipa_passes;
+  NEXT_PASS (pass_ipa_inline);
+  *p = NULL;
 
   /* All passes needed to lower the function into shape optimizers can operate
      on.  We need these to be separate from local optimization because C++ needs
@@ -515,9 +520,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_copy_prop);
   NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_merge_phi);
-  NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_recursion);
@@ -566,6 +571,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_rename_ssa_copies);
+  NEXT_PASS (pass_uncprop);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);
@@ -615,6 +621,7 @@ enum execute_pass_hook
   MODIFY_FUNCTION_HOOK,
   MODIFY_VARIABLE_HOOK
 };
+static unsigned int last_verified;
 
 static void
 execute_todo (struct tree_opt_pass *pass, unsigned int flags,
@@ -654,6 +661,14 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags,
       else
         print_rtl (dump_file, get_insns ());
 
+      /* Flush the file.  If verification fails, we won't be able to
+	 close the file before dieing.  */
+      fflush (dump_file);
+    }
+  if ((flags & TODO_dump_cgraph)
+      && dump_file && !current_function_decl)
+    {
+      dump_cgraph (dump_file);
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */
       fflush (dump_file);
@@ -1001,10 +1016,10 @@ tree_rest_of_compilation (tree fndecl)
 	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
 
 	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning ("%Jsize of return value of %qD is %u bytes",
+	    warning (0, "%Jsize of return value of %qD is %u bytes",
                      fndecl, fndecl, size_as_int);
 	  else
-	    warning ("%Jsize of return value of %qD is larger than %wd bytes",
+	    warning (0, "%Jsize of return value of %qD is larger than %wd bytes",
                      fndecl, fndecl, larger_than_size);
 	}
     }

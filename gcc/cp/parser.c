@@ -66,7 +66,8 @@ typedef struct cp_token GTY (())
 
 /* We use a stack of token pointer for saving token sets.  */
 typedef struct cp_token *cp_token_position;
-DEF_VEC_MALLOC_P (cp_token_position);
+DEF_VEC_P (cp_token_position);
+DEF_VEC_ALLOC_P (cp_token_position,heap);
 
 static const cp_token eof_token =
 {
@@ -104,7 +105,7 @@ typedef struct cp_lexer GTY (())
      called.  The top entry is the most recent position at which we
      began saving tokens.  If the stack is non-empty, we are saving
      tokens.  */
-  VEC (cp_token_position) *GTY ((skip)) saved_tokens;
+  VEC(cp_token_position,heap) *GTY ((skip)) saved_tokens;
 
   /* True if we should output debugging information.  */
   bool debugging_p;
@@ -260,7 +261,8 @@ cp_lexer_new_main (void)
   /* Initially we are not debugging.  */
   lexer->debugging_p = false;
 #endif /* ENABLE_CHECKING */
-  lexer->saved_tokens = VEC_alloc (cp_token_position, CP_SAVED_TOKEN_STACK);
+  lexer->saved_tokens = VEC_alloc (cp_token_position, heap,
+				   CP_SAVED_TOKEN_STACK);
 	 
   /* Create the buffer.  */
   alloc = CP_LEXER_BUFFER_SIZE;
@@ -314,7 +316,8 @@ cp_lexer_new_from_tokens (cp_token_cache *cache)
   lexer->next_token = first == last ? (cp_token *)&eof_token : first;
   lexer->last_token = last;
   
-  lexer->saved_tokens = VEC_alloc (cp_token_position, CP_SAVED_TOKEN_STACK);
+  lexer->saved_tokens = VEC_alloc (cp_token_position, heap,
+				   CP_SAVED_TOKEN_STACK);
 
 #ifdef ENABLE_CHECKING
   /* Initially we are not debugging.  */
@@ -332,7 +335,7 @@ cp_lexer_destroy (cp_lexer *lexer)
 {
   if (lexer->buffer)
     ggc_free (lexer->buffer);
-  VEC_free (cp_token_position, lexer->saved_tokens);
+  VEC_free (cp_token_position, heap, lexer->saved_tokens);
   ggc_free (lexer);
 }
 
@@ -621,7 +624,8 @@ cp_lexer_save_tokens (cp_lexer* lexer)
   if (cp_lexer_debugging_p (lexer))
     fprintf (cp_lexer_debug_stream, "cp_lexer: saving tokens\n");
 
-  VEC_safe_push (cp_token_position, lexer->saved_tokens, lexer->next_token);
+  VEC_safe_push (cp_token_position, heap,
+		 lexer->saved_tokens, lexer->next_token);
 }
 
 /* Commit to the portion of the token stream most recently saved.  */
@@ -1794,7 +1798,7 @@ static inline void
 cp_parser_warn_min_max (void)
 {
   if (warn_deprecated && !in_system_header)
-    warning ("minimum/maximum operators are deprecated");
+    warning (0, "minimum/maximum operators are deprecated");
 }
 
 /* If not parsing tentatively, issue a diagnostic of the form
@@ -5293,7 +5297,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
 	      && !in_system_header
 	      && !VOID_TYPE_P (type)
 	      && current_lang_name != lang_name_c)
-	    warning ("use of old-style cast");
+	    warning (0, "use of old-style cast");
 
 	  /* Only type conversions to integral or enumeration types
 	     can be used in constant-expressions.  */
@@ -8124,7 +8128,7 @@ cp_parser_template_declaration (cp_parser* parser, bool member_p)
       /* Consume the `export' token.  */
       cp_lexer_consume_token (parser->lexer);
       /* Warn that we do not support `export'.  */
-      warning ("keyword %<export%> not implemented, and will be ignored");
+      warning (0, "keyword %<export%> not implemented, and will be ignored");
     }
 
   cp_parser_template_declaration_after_export (parser, member_p);
@@ -9910,7 +9914,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 
  	  /* Warn about attributes. They are ignored.  */
  	  if (attributes)
-	    warning ("type attributes are honored only at type definition");
+	    warning (0, "type attributes are honored only at type definition");
 
 	  type = xref_tag (tag_type, identifier, ts,
 			   parser->num_template_parameter_lists);
@@ -10755,7 +10759,7 @@ cp_parser_init_declarator (cp_parser* parser,
      attributes -- but ignores them.  */
   if (cp_parser_allow_gnu_extensions_p (parser) && is_parenthesized_init)
     if (cp_parser_attributes_opt (parser))
-      warning ("attributes after parenthesized initializer ignored");
+      warning (0, "attributes after parenthesized initializer ignored");
 
   /* For an in-class declaration, use `grokfield' to create the
      declaration.  */
@@ -12032,7 +12036,7 @@ cp_parser_parameter_declaration (cp_parser *parser,
       if (!parser->default_arg_ok_p)
 	{
 	  if (!flag_pedantic_errors)
-	    warning ("deprecated use of default argument for parameter of non-function");
+	    warning (0, "deprecated use of default argument for parameter of non-function");
 	  else
 	    {
 	      error ("default arguments are only permitted for function parameters");

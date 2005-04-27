@@ -1,3 +1,57 @@
+2005-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (java/decl.o, java/resource.o): Depend on $(EXPR_H)
+	instead of just expr.h.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c (main): Unlock the stdio streams.
+	* jcf-dump.c (main): Likewise.
+	* jv-scan.c (main): Likewise.
+	* jvgenmain.c (main): Likewise.
+
+2005-04-23  DJ Delorie  <dj@redhat.com>
+
+	* class.c, decl.c, expr.c, jcf-io.c, jcf-parse.c, jv-scan.c,
+	parse.y: Adjust warning() callers.
+
+2005-04-21  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (Object fields): Change "Integer" to "Int" in example
+	contructor.
+
+2005-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi: Fix typos and bogus example.
+
+2005-04-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* except.c: Fix a comment typo.
+
+2005-04-19  Julian Brown  <julian@codesourcery.com>
+
+	* decl.c (finish_method): Revert patch from 2005-04-13 for breaking
+	indirect dispatch with PIC.
+
+2005-04-18  Andrew Haley  <aph@redhat.com>
+
+	* java-except.h (struct eh_range.handler): Remove unused field.
+	(handle_nested_ranges): Remove function declaration.
+	(sanity_check_exception_range): Add function declaration.	
+	* verify.c (verify_jvm_instructions): Remove call to
+	handle_nested_ranges.
+	* verify-glue.c (verify_jvm_instructions_new): Call
+	sanity_check_exception_range.
+	* except.c (link_handler, eh_range_freelist, link_handler,
+	handle_nested_ranges): Remove.
+	(add_handler): Rewrite.
+	(sanity_check_exception_range): New function.
+	(print_ranges): New function.
+
+2005-04-13  Julian Brown  <julian@codesourcery.com>
+
+	* decl.c (finish_method): Give methods once-only linkage.
+
 2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
 
 	* lang.opt: Refer to the GCC internals documentation instead of c.opt.

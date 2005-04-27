@@ -101,10 +101,6 @@ tree_ssa_unswitch_loops (struct loops *loops)
 	continue;
 
       changed |= tree_unswitch_single_loop (loops, loop, 0);
-#ifdef ENABLE_CHECKING
-      verify_dominators (CDI_DOMINATORS);
-      verify_loop_structure (loops);
-#endif
     }
 
   if (changed)
@@ -128,7 +124,6 @@ tree_may_unswitch_on (basic_block bb, struct loop *loop)
     return NULL_TREE;
 
   /* Condition must be invariant.  */
-  get_stmt_operands (stmt);
   uses = STMT_USE_OPS (stmt);
   for (i = 0; i < NUM_USES (uses); i++)
     {
@@ -260,6 +255,9 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
   nloop = tree_unswitch_loop (loops, loop, bbs[i], cond);
   if (!nloop)
     return changed;
+
+  /* Update the SSA form after unswitching.  */
+  update_ssa (TODO_update_ssa);
 
   /* Invoke itself on modified loops.  */
   tree_unswitch_single_loop (loops, nloop, num + 1);

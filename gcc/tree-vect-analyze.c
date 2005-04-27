@@ -54,7 +54,7 @@ static bool vect_determine_vectorization_factor (loop_vec_info);
 
 /* Utility functions for the analyses.  */
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
-static void vect_mark_relevant (varray_type *, tree);
+static void vect_mark_relevant (VEC(tree,heap) **, tree);
 static bool vect_stmt_relevant_p (tree, loop_vec_info);
 static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_analyze_data_ref_dependence
@@ -2061,7 +2061,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
    Mark STMT as "relevant for vectorization" and add it to WORKLIST.  */
 
 static void
-vect_mark_relevant (varray_type *worklist, tree stmt)
+vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt)
 {
   stmt_vec_info stmt_info;
 
@@ -2070,7 +2070,7 @@ vect_mark_relevant (varray_type *worklist, tree stmt)
 
   if (TREE_CODE (stmt) == PHI_NODE)
     {
-      VARRAY_PUSH_TREE (*worklist, stmt);
+      VEC_safe_push (tree, heap, *worklist, stmt);
       return;
     }
 
@@ -2094,7 +2094,7 @@ vect_mark_relevant (varray_type *worklist, tree stmt)
     }
 
   STMT_VINFO_RELEVANT_P (stmt_info) = 1;
-  VARRAY_PUSH_TREE (*worklist, stmt);
+  VEC_safe_push (tree, heap, *worklist, stmt);
 }
 
 
@@ -2126,16 +2126,30 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
     return true;
 
   /* changing memory.  */
-  if (TREE_CODE (stmt) != PHI_NODE)
+  if (TREE_CODE (stmt) == PHI_NODE)
     {
-      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-      v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-      if (v_may_defs || v_must_defs)
+      if (!is_gimple_reg (PHI_RESULT (stmt)))
+        return false;
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, PHI_RESULT (stmt))
 	{
-	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	    fprintf (vect_dump, "vec_stmt_relevant_p: stmt has vdefs.");
-	  return true;
+	  basic_block bb = bb_for_stmt (USE_STMT (use_p));
+	  if (!flow_bb_inside_loop_p (loop, bb))
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+		fprintf (vect_dump, "vec_stmt_relevant_p: used out of loop.");
+	      return true;
+	    }
 	}
+      return false;
+    }
+
+  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+  if (v_may_defs || v_must_defs)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	fprintf (vect_dump, "vec_stmt_relevant_p: stmt has vdefs.");
+      return true;
     }
 
   /* uses outside the loop.  */
@@ -2176,7 +2190,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
 static bool
 vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 {
-  varray_type worklist;
+  VEC(tree,heap) *worklist;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   unsigned int nbbs = loop->num_nodes;
@@ -2211,7 +2225,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	}
     }
 
-  VARRAY_TREE_INIT (worklist, 64, "work list");
+  worklist = VEC_alloc (tree, heap, 64);
 
   /* 1. Init worklist.  */
 
@@ -2239,10 +2253,9 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
   /* 2. Process_worklist */
 
-  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
+  while (VEC_length (tree, worklist) > 0)
     {
-      stmt = VARRAY_TOP_TREE (worklist);
-      VARRAY_POP (worklist);
+      stmt = VEC_pop (tree, worklist);
 
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	{
@@ -2267,7 +2280,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 		  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
 					    LOOP_LOC (loop_vinfo)))
 		    fprintf (vect_dump, "not vectorized: unsupported use in stmt.");
-		  varray_clear (worklist);
+		  VEC_free (tree, heap, worklist);
 		  return false;
 		}
 	      if (!def_stmt)
@@ -2304,7 +2317,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
                   if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
 					    LOOP_LOC (loop_vinfo)))
                     fprintf (vect_dump, "not vectorized: unsupported use in stmt.");
-                  varray_clear (worklist);
+		  VEC_free (tree, heap, worklist);
                   return false;
                 }
 
@@ -2324,7 +2337,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	}
     }				/* while worklist */
 
-  varray_clear (worklist);
+  VEC_free (tree, heap, worklist);
   return true;
 }
 

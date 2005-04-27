@@ -507,21 +507,7 @@ init_alias_info (void)
   if (aliases_computed_p)
     {
       unsigned i;
-      basic_block bb;
   
-     /* Make sure that every statement has a valid set of operands.
-	If a statement needs to be scanned for operands while we
-	compute aliases, it may get erroneous operands because all
-	the alias relations are not built at that point.
-	FIXME: This code will become obsolete when operands are not
-	lazily updated.  */
-      FOR_EACH_BB (bb)
-	{
-	  block_stmt_iterator si;
-	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	    get_stmt_operands (bsi_stmt (si));
-	}
-
       /* Similarly, clear the set of addressable variables.  In this
 	 case, we can just clear the set because addressability is
 	 only computed here.  */
@@ -672,7 +658,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	     statement.  Note that this will miss all the addresses taken
 	     in PHI nodes (those are discovered while following the use-def
 	     chains).  */
-	  get_stmt_operands (stmt);
 	  addr_taken = addresses_taken (stmt);
 	  if (addr_taken)
 	    EXECUTE_IF_SET_IN_BITMAP (addr_taken, 0, i, bi)
@@ -1959,7 +1944,7 @@ add_pointed_to_expr (struct alias_info *ai, tree ptr, tree expr)
 	}
 
       /* Neither operand is a pointer?  VAR can be pointing anywhere.
-	 FIXME: Shouldn't we abort here?  If we get here, we found
+	 FIXME: Shouldn't we asserting here?  If we get here, we found
 	 PTR = INT_CST + INT_CST, which should not be a valid pointer
 	 expression.  */
       if (!(POINTER_TYPE_P (TREE_TYPE (op0))
@@ -2772,9 +2757,10 @@ typedef struct fieldoff
 {
   tree field;
   HOST_WIDE_INT offset;  
-} *fieldoff_t;
+} fieldoff_s;
 
-DEF_VEC_MALLOC_P(fieldoff_t);
+DEF_VEC_O (fieldoff_s);
+DEF_VEC_ALLOC_O(fieldoff_s,heap);
 
 /* Return the position, in bits, of FIELD_DECL from the beginning of its
    structure. 
@@ -2796,71 +2782,52 @@ bitpos_of_field (const tree fdecl)
 /* Given a TYPE, and a vector of field offsets FIELDSTACK, push all the fields
    of TYPE onto fieldstack, recording their offsets along the way.
    OFFSET is used to keep track of the offset in this entire structure, rather
-   than just the immediately containing structure.  */
+   than just the immediately containing structure.  Returns the number
+   of fields pushed. */
 
-static void
-push_fields_onto_fieldstack (tree type, VEC(fieldoff_t) **fieldstack, 
+static int
+push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack, 
 			     HOST_WIDE_INT offset)
 {
-  fieldoff_t pair;
-  tree field = TYPE_FIELDS (type);
-  if (!field)
-    return;
-  if (var_can_have_subvars (field)
-      && TREE_CODE (field) == FIELD_DECL)
-    {
-      size_t before = VEC_length (fieldoff_t, *fieldstack);
-      /* Empty structures may have actual size, like in C++. So see if we
-	 actually end up pushing a field, and if not, if the size is nonzero,
-	 push the field onto the stack */
-      push_fields_onto_fieldstack (TREE_TYPE (field), fieldstack, offset);
-      if (before == VEC_length (fieldoff_t, *fieldstack)
-	  && DECL_SIZE (field)
-	  && !integer_zerop (DECL_SIZE (field)))
-	{
-	  pair = xmalloc (sizeof (struct fieldoff));
-	  pair->field = field;
-	  pair->offset = offset;
-	  VEC_safe_push (fieldoff_t, *fieldstack, pair);
-	}
-    }
-  else if (TREE_CODE (field) == FIELD_DECL)
-    {
-      pair = xmalloc (sizeof (struct fieldoff));
-      pair->field = field;
-      pair->offset = offset + bitpos_of_field (field);
-      VEC_safe_push (fieldoff_t, *fieldstack, pair);
-    }
-  for (field = TREE_CHAIN (field); field; field = TREE_CHAIN (field))
-    {
-      if (TREE_CODE (field) != FIELD_DECL)
-	continue;
-      if (var_can_have_subvars (field))
-	{
-	  size_t before = VEC_length (fieldoff_t, *fieldstack);
-	  push_fields_onto_fieldstack (TREE_TYPE (field), fieldstack, 
-				       offset + bitpos_of_field (field));
-      /* Empty structures may have actual size, like in C++. So see if we
-	 actually end up pushing a field, and if not, if the size is nonzero,
-	 push the field onto the stack */
-	  if (before == VEC_length (fieldoff_t, *fieldstack)
-	      && DECL_SIZE (field)
-	      && !integer_zerop (DECL_SIZE (field)))
-	    {
-	      pair = xmalloc (sizeof (struct fieldoff));
-	      pair->field = field;
-	      pair->offset = offset + bitpos_of_field (field);
-	      VEC_safe_push (fieldoff_t, *fieldstack, pair);
-	    }
-	}
-      else
-	{
-	  pair = xmalloc (sizeof (struct fieldoff));
-	  pair->field = field;
-	  pair->offset = offset + bitpos_of_field (field);
-	  VEC_safe_push (fieldoff_t, *fieldstack, pair);
-	}
-    }
+  tree field;
+  int count = 0;
+
+  /* Although there is nothing wrong per se with a structure whose
+     first field does not start at offset 0, there appeared to be an
+     Ada bug where the first field's offset was not zero, but the
+     field itself was at offset zero.  Make sure that doesn't
+     reoccur.  */
+  gcc_assert (!TYPE_FIELDS (type)
+	      || TREE_CODE (TYPE_FIELDS (type)) != FIELD_DECL
+	      || !bitpos_of_field (TYPE_FIELDS (type)));
+  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+    if (TREE_CODE (field) == FIELD_DECL)
+      {
+	bool push = false;
+      
+	if (!var_can_have_subvars (field))
+	  push = true;
+	else if (!(push_fields_onto_fieldstack
+		   (TREE_TYPE (field), fieldstack,
+		    offset + bitpos_of_field (field)))
+		 && DECL_SIZE (field)
+		 && !integer_zerop (DECL_SIZE (field)))
+	  /* Empty structures may have actual size, like in C++. So
+	     see if we didn't push any subfields and the size is
+	     nonzero, push the field onto the stack */
+	  push = true;
+	
+	if (push)
+	  {
+	    fieldoff_s *pair;
+
+	    pair = VEC_safe_push (fieldoff_s, heap, *fieldstack, NULL);
+	    pair->field = field;
+	    pair->offset = offset + bitpos_of_field (field);
+	    count++;
+	  }
+      }
+  return count;
 }
 
 
@@ -2903,22 +2870,21 @@ get_or_create_used_part_for (size_t uid)
   return up;
 }
 
-/* qsort comparison function for two fieldoff_t's PA and PB */
+/* qsort comparison function for two fieldoff's PA and PB */
 
 static int 
 fieldoff_compare (const void *pa, const void *pb)
 {
-  const fieldoff_t foa = *(fieldoff_t *)pa;
-  const fieldoff_t fob = *(fieldoff_t *)pb;
+  const fieldoff_s *foa = (const fieldoff_s *)pa;
+  const fieldoff_s *fob = (const fieldoff_s *)pb;
   HOST_WIDE_INT foasize, fobsize;
+  
   if (foa->offset != fob->offset)
     return foa->offset - fob->offset;
 
   foasize = TREE_INT_CST_LOW (DECL_SIZE (foa->field));
   fobsize = TREE_INT_CST_LOW (DECL_SIZE (fob->field));
-  if (foasize != fobsize)
-    return foasize - fobsize;
-  return 0;
+  return foasize - fobsize;
 }
 
 /* Given an aggregate VAR, create the subvariables that represent its
@@ -2927,7 +2893,7 @@ fieldoff_compare (const void *pa, const void *pb)
 static void
 create_overlap_variables_for (tree var)
 {
-  VEC(fieldoff_t) *fieldstack = NULL;
+  VEC(fieldoff_s,heap) *fieldstack = NULL;
   used_part_t up;
   size_t uid = var_ann (var)->uid;
 
@@ -2936,10 +2902,10 @@ create_overlap_variables_for (tree var)
 
   up = used_portions[uid];
   push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0);
-  if (VEC_length (fieldoff_t, fieldstack) != 0)
+  if (VEC_length (fieldoff_s, fieldstack) != 0)
     {
       subvar_t *subvars;
-      fieldoff_t fo;
+      fieldoff_s *fo;
       bool notokay = false;
       int fieldcount = 0;
       int i;
@@ -2956,7 +2922,7 @@ create_overlap_variables_for (tree var)
 	 currently don't.  Doing so would require some extra changes to
 	 tree-ssa-operands.c.  */
 
-      for (i = 0; VEC_iterate (fieldoff_t, fieldstack, i, fo); i++)
+      for (i = 0; VEC_iterate (fieldoff_s, fieldstack, i, fo); i++)
 	{
 	  if (!DECL_SIZE (fo->field) 
 	      || TREE_CODE (DECL_SIZE (fo->field)) != INTEGER_CST
@@ -2993,34 +2959,29 @@ create_overlap_variables_for (tree var)
 	  notokay = true;
 	}
       
-    
-      /* Cleanup after ourselves if we can't create overlap variables.  */
+      /* Bail out, if we can't create overlap variables.  */
       if (notokay)
 	{
-	  while (VEC_length (fieldoff_t, fieldstack) != 0)
-	    {
-	      fo = VEC_pop (fieldoff_t, fieldstack);
-	      free (fo);
-	    }
-	  VEC_free (fieldoff_t, fieldstack);
+	  VEC_free (fieldoff_s, heap, fieldstack);
 	  return;
 	}
+      
       /* Otherwise, create the variables.  */
       subvars = lookup_subvars_for_var (var);
       
-      qsort (VEC_address (fieldoff_t, fieldstack), 
-	     VEC_length (fieldoff_t, fieldstack), 
-	     sizeof (fieldoff_t),
+      qsort (VEC_address (fieldoff_s, fieldstack), 
+	     VEC_length (fieldoff_s, fieldstack), 
+	     sizeof (fieldoff_s),
 	     fieldoff_compare);
 
-      while (VEC_length (fieldoff_t, fieldstack) != 0)
+      for (i = VEC_length (fieldoff_s, fieldstack);
+	   VEC_iterate (fieldoff_s, fieldstack, --i, fo);)
 	{
 	  subvar_t sv;
 	  HOST_WIDE_INT fosize;
 	  var_ann_t ann;
 	  tree currfotype;
 
-	  fo = VEC_pop (fieldoff_t, fieldstack);	  
 	  fosize = TREE_INT_CST_LOW (DECL_SIZE (fo->field));
 	  currfotype = TREE_TYPE (fo->field);
 
@@ -3034,10 +2995,7 @@ create_overlap_variables_for (tree var)
 	      || (fo->offset == lastfooffset
 		  && fosize == lastfosize
 		  && currfotype == lastfotype))
-	    {
-	      free (fo);
-	      continue;
-	    }
+	    continue;
 	  sv = ggc_alloc (sizeof (struct subvar));
 	  sv->offset = fo->offset;
 	  sv->size = fosize;
@@ -3052,7 +3010,6 @@ create_overlap_variables_for (tree var)
 	      fprintf (dump_file, " size " HOST_WIDE_INT_PRINT_DEC,
 		       sv->size);
 	      fprintf (dump_file, "\n");
-	      
 	    }
 	  
 	  /* We need to copy the various flags from var to sv->var, so that
@@ -3078,7 +3035,6 @@ create_overlap_variables_for (tree var)
 	  lastfooffset = fo->offset;
 	  lastfosize = fosize;
 	  *subvars = sv;
-	  free (fo);
 	}
 
       /* Once we have created subvars, the original is no longer call
@@ -3089,10 +3045,9 @@ create_overlap_variables_for (tree var)
 	 marking subvars of global variables as call clobbered for us
 	 to start, since they are global as well.  */
       clear_call_clobbered (var);
-
     }
 
-  VEC_free (fieldoff_t, fieldstack);
+  VEC_free (fieldoff_s, heap, fieldstack);
 }
 
 

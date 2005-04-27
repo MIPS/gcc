@@ -151,7 +151,7 @@ mark_stmt_modified (tree t)
   if (ann == NULL)
     ann = create_stmt_ann (t);
   else if (noreturn_call_p (t))
-    VEC_safe_push (tree, modified_noreturn_calls, t);
+    VEC_safe_push (tree, gc, modified_noreturn_calls, t);
   ann->modified = 1;
 }
 
@@ -170,27 +170,6 @@ update_stmt_if_modified (tree t)
 {
   if (stmt_modified_p (t))
     update_stmt_operands (t);
-}
-
-static inline void 
-get_stmt_operands (tree stmt ATTRIBUTE_UNUSED)
-{
-#ifdef ENABLE_CHECKING
-  stmt_ann_t ann;
-                                                                                
-  /* The optimizers cannot handle statements that are nothing but a
-     _DECL.  This indicates a bug in the gimplifier.  */
-  gcc_assert (!SSA_VAR_P (stmt));
-                                                                                
-  /* Ignore error statements.  */
-  if (TREE_CODE (stmt) == ERROR_MARK)
-    return;
-                                                                                
-  ann = get_stmt_ann (stmt);
-  gcc_assert (!ann->modified);
-
-  return;
-#endif
 }
 
 /* Return true if T is marked as modified, false otherwise.  */
@@ -275,11 +254,8 @@ link_imm_use_stmt (ssa_imm_use_t *linknode, tree def, tree stmt)
 static inline void
 relink_imm_use (ssa_imm_use_t *node, ssa_imm_use_t *old)
 {
-#ifdef ENABLE_CHECKING
   /* The node one had better be in the same list.  */
-  if (*(old->use) != *(node->use))
-    abort ();
-#endif
+  gcc_assert (*(old->use) == *(node->use));
   node->prev = old->prev;
   node->next = old->next;
   if (old->prev)
@@ -289,7 +265,6 @@ relink_imm_use (ssa_imm_use_t *node, ssa_imm_use_t *old)
       /* Remove the old node from the list.  */
       old->prev = NULL;
     }
-
 }
 
 /* Relink ssa_imm_use node LINKNODE into the chain for OLD, with use occuring 

@@ -102,12 +102,15 @@ extern void foreach_reachable_handler (int, bool,
 
 extern void collect_eh_region_array (void);
 extern void expand_resx_expr (tree);
+extern void verify_eh_tree (struct function *);
+extern void dump_eh_tree (FILE *, struct function *);
 
 /* tree-eh.c */
 extern void add_stmt_to_eh_region_fn (struct function *, tree, int);
 extern bool remove_stmt_from_eh_region_fn (struct function *, tree);
 extern int lookup_stmt_eh_region_fn (struct function *, tree);
 extern int lookup_stmt_eh_region (tree);
+extern bool verify_eh_edges (tree);
 
 /* If non-NULL, this is a function that returns an expression to be
    executed if an unhandled exception is propagated out of a cleanup

@@ -86,31 +86,20 @@ do {									\
     if (MACHO_DYNAMIC_NO_PIC_P)						\
       {									\
         if (flag_pic)							\
-            warning ("-mdynamic-no-pic overrides -fpic or -fPIC");	\
+            warning (0, "-mdynamic-no-pic overrides -fpic or -fPIC");	\
         flag_pic = 0;							\
       }									\
     else if (flag_pic == 1)						\
       {									\
         /* Darwin doesn't support -fpic.  */				\
-        warning ("-fpic is not supported; -fPIC assumed");		\
+        warning (0, "-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
-      }									\
-									\
-    /* Handle -mfix-and-continue.  */					\
-    if (darwin_fix_and_continue_switch)					\
-      {									\
-	const char *base = darwin_fix_and_continue_switch;		\
-	while (base[-1] != 'm') base--;					\
-									\
-	if (*darwin_fix_and_continue_switch != '\0')			\
-	  error ("invalid option %qs", base);				\
-	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
   }									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
       target_flags |= MASK_POWERPC64;					\
-      warning ("-m64 requires PowerPC64 architecture, enabling");	\
+      warning (0, "-m64 requires PowerPC64 architecture, enabling");	\
     }									\
 } while(0)
 
@@ -294,6 +283,19 @@ do {									\
 
 /* Generate insns to call the profiler.  */
 
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+/* This is supported in cctools 465 and later.  The macro test
+   above prevents using it in earlier build environments.  */
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)           \
+   if ((LOG) != 0)                                             \
+     {                                                         \
+       if ((MAX_SKIP) == 0)                                    \
+         fprintf ((FILE), "\t.p2align %d\n", (LOG));           \
+       else                                                    \
+         fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
+     }
+#endif
+
 #define PROFILE_HOOK(LABEL)   output_profile_hook (LABEL)
 
 /* Function name to call to do profiling.  */
@@ -391,7 +393,6 @@ do {									\
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly
    choose to have sizeof(bool)==1 with the -mone-byte-bool switch. */
-extern const char *darwin_one_byte_bool;
 #define BOOL_TYPE_SIZE (darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE)
 
 #undef REGISTER_TARGET_PRAGMAS

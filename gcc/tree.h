@@ -158,8 +158,10 @@ extern const unsigned char tree_code_length[];
 
 extern const char *const tree_code_name[];
 
-/* A garbage collected vector of trees.  */
-DEF_VEC_GC_P(tree);
+/* A vectors of trees.  */
+DEF_VEC_P(tree);
+DEF_VEC_ALLOC_P(tree,gc);
+DEF_VEC_ALLOC_P(tree,heap);
 
 
 /* Classify which part of the compiler has defined a given builtin function.
@@ -441,7 +443,7 @@ struct tree_common GTY(())
 #define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
-   is accessed incorrectly. The macros abort with a fatal error.  */
+   is accessed incorrectly. The macros die with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 #define TREE_CHECK(T, CODE) __extension__				\
@@ -905,6 +907,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
    This is used in _DECL nodes and _REF nodes.
+   On a FUNCTION_DECL node, this means the function does not
+   return normally.  This is the same effect as setting
+   the attribute noreturn on the function in C.
 
    In a ..._TYPE node, means this type is volatile-qualified.
    But use TYPE_VOLATILE instead of this macro when the node is a type,
@@ -1864,13 +1869,13 @@ struct tree_binfo GTY (())
   tree vtable;
   tree virtuals;
   tree vptr_field;
-  VEC(tree) *base_accesses;
+  VEC(tree,gc) *base_accesses;
   tree inheritance;
 
   tree vtt_subvtt;
   tree vtt_vptr;
 
-  VEC(tree) base_binfos;
+  VEC(tree,none) base_binfos;
 };
 
 
@@ -2851,13 +2856,6 @@ extern void replace_ssa_name_symbol (tree, tree);
 extern void ssanames_print_statistics (void);
 #endif
 
-extern void mark_for_rewrite (tree);
-extern void unmark_all_for_rewrite (void);
-extern bool marked_for_rewrite_p (tree);
-extern bool any_marked_for_rewrite_p (void);
-extern struct bitmap_head_def *marked_ssa_names (void);
-
-
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
 
@@ -2923,6 +2921,7 @@ extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+extern tree build_fn_decl (const char *, tree); 
 #define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
 extern tree build_block (tree, tree, tree, tree, tree);
 #ifndef USE_MAPPED_LOCATION
@@ -3536,6 +3535,9 @@ extern void using_eh_for_cleanups (void);
    subexpressions are not changed.  */
 
 extern tree fold (tree);
+extern tree fold_unary (enum tree_code, tree, tree);
+extern tree fold_binary (enum tree_code, tree, tree, tree);
+extern tree fold_ternary (enum tree_code, tree, tree, tree, tree);
 extern tree fold_build1 (enum tree_code, tree, tree);
 extern tree fold_build2 (enum tree_code, tree, tree, tree);
 extern tree fold_build3 (enum tree_code, tree, tree, tree, tree);

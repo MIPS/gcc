@@ -66,18 +66,15 @@ struct histogram_value_t
 	  int int_start;	/* First value in interval.  */
 	  unsigned int steps;	/* Number of values in it.  */
 	} intvl;	/* Interval histogram data.  */
-      struct
-	{
-	  int may_be_other;	/* If the value may be non-positive or not 2^k.  */
-	} pow2;		/* Power of 2 histogram data.  */
     } hdata;		/* Profiled information specific data.  */
 };
 
 typedef struct histogram_value_t *histogram_value;
 
-DEF_VEC_MALLOC_P(histogram_value);
+DEF_VEC_P(histogram_value);
+DEF_VEC_ALLOC_P(histogram_value,heap);
 
-typedef VEC(histogram_value) *histogram_values;
+typedef VEC(histogram_value,heap) *histogram_values;
 
 /* Hooks registration.  */
 extern void rtl_register_value_prof_hooks (void);

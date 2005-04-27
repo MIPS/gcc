@@ -1,3 +1,91 @@
+2005-04-25  Paul Brook  <paul@codesourcery.com>
+	Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20879
+	* check.c (gfc_check_ichar_iachar): New function.
+	* instinsic.h (gfc_check_ichar_iachar): Add prototype.
+	* intrinsic.c (add_functions): Use it.
+	* primary.c (match_varspec, gfc_match_rvalue): Clear incorrect
+	character expression lengths.
+
+2005-04-24  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20059
+	* trans-common.c (translate_common): Cast offset and
+	common_segment->offset to type int for warning message.
+
+2005-04-23  DJ Delorie  <dj@redhat.com>
+
+	* trans-decl.c: Adjust warning() callers.
+
+2005-04-23  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-const.c (gfc_conv_mpfr_to_tree): Use hexadecimal string as
+	intermediate representation.  Fix typo in comment.
+
+2005-04-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* trans-const.c (gfc_conv_mpfr_to_tree): Remove unneeded computation;
+	simplify logic; Add a gcc_assert.
+
+2005-04-19  Steven G. Kargl  <kargls@comcast.net>
+
+	* trans-const.c (gfc_conv_mpz_to_tree): Fix comment.
+
+2005-04-19  Arnaud Desitter  <arnaud.desitter@ouce.ox.ac.uk>
+            Steven G. Kargl  <kargls@comcast.net>
+
+	* invoke.texi: Update -Waliasing description
+
+2005-04-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/16861
+	* resolve.c (resolve_variable): If e->symtree is not set, this
+	ought to be a FAILURE, and not a segfault.
+
+2005-04-17 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/17472
+	PR fortran/18209
+	PR fortran/18396
+	PR fortran/19467
+	PR fortran/19657
+	* fortran/trans-io.c (gfc_build_io_library_fndecls): Create
+	declaration for	st_set_nml_var and st_set_nml_var_dim. Remove
+	declarations of old namelist functions.
+	(build_dt): Simplified call to transfer_namelist_element.
+	(nml_get_addr_expr): Generates address expression for start of 
+	object data. New function.
+	(nml_full_name): Qualified name for derived type components. New 
+	function.
+	(transfer_namelist_element): Modified for calls to new functions 
+	and improved derived type handling.
+
+2005-04-17  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* scanner.c (gfc_next_char_literal): Reset truncation flag
+	for lines ending in a comment for both fixed and free form.
+	(load_line): Do not set truncated flag if only truncating
+	the EOL marker.
+
+2005-04-15  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR fortran/14569
+	* gfortran.h (gfc_linebuf): Add truncated field.
+	* parse.c (next_statement): Handle warning for truncated
+	lines.
+	* scanner.c (load_line): Return if line was truncated.
+	No longer warn for truncated lines.  Remove unused parameters.
+	(load_file): Store load_line return value to linebuf.
+	(gfc_error_recovery): Do not advance line at the end.
+
+2005-04-14  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.h (gfc_real_info): Add subnormal struct member.
+	* arith.c (gfc_arith_init_1): Set it.
+	(gfc_check_real_range): Use it.
+	* simplify.c (gfc_simplify_nearest): Fix nearest(0.,1.).
+
 2005-04-12  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* simplify.c: Fix a comment typo.
@@ -35,6 +123,8 @@
 
 	* match.c (match_arithmetic_if): Remove gfc_ prefix and correct
 	comment according to GNU coding style.
+	(gfc_match_if): Remove gfc_ prefix in call to
+	match_arithmetic_if.
 
 2005-04-08  Diego Novillo  <dnovillo@redhat.com>
 

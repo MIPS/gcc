@@ -950,6 +950,10 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
     }
 }
 
+/* For each expression in SET, translate the value handles through phi nodes
+   in PHIBLOCK using edge PHIBLOCK->PRED, and store the resulting
+   expressions in DEST.  */
+
 static void
 phi_translate_set (value_set_t dest, value_set_t set, basic_block pred,
 		   basic_block phiblock)
@@ -1108,7 +1112,8 @@ clean (value_set_t set)
     }
 }
 
-DEF_VEC_MALLOC_P (basic_block);
+DEF_VEC_P (basic_block);
+DEF_VEC_ALLOC_P (basic_block, heap);
 static sbitmap has_abnormal_preds;
 
 /* Compute the ANTIC set for BLOCK.
@@ -1158,15 +1163,15 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
      them.  */
   else
     {
-      VEC (basic_block) * worklist;
+      VEC(basic_block, heap) * worklist;
       edge e;
       size_t i;
       basic_block bprime, first;
       edge_iterator ei;
 
-      worklist = VEC_alloc (basic_block, 2);
+      worklist = VEC_alloc (basic_block, heap, EDGE_COUNT (block->succs));
       FOR_EACH_EDGE (e, ei, block->succs)
-	VEC_safe_push (basic_block, worklist, e->dest);
+	VEC_quick_push (basic_block, worklist, e->dest);
       first = VEC_index (basic_block, worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
 
@@ -1183,7 +1188,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 	      node = next;
 	    }
 	}
-      VEC_free (basic_block, worklist);
+      VEC_free (basic_block, heap, worklist);
     }
 
   /* Generate ANTIC_OUT - TMP_GEN.  */
@@ -1267,7 +1272,7 @@ compute_antic (void)
     fprintf (dump_file, "compute_antic required %d iterations\n", num_iterations);
 }
 
-static VEC(tree_on_heap) *inserted_exprs;
+static VEC(tree,heap) *inserted_exprs;
 /* Find a leader for an expression, or generate one using
    create_expression_by_pieces if it's ANTIC but
    complex.  
@@ -1282,9 +1287,8 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
 {
   tree genop = bitmap_find_leader (AVAIL_OUT (block), expr);
 
-  /* If it's still NULL, see if it is a complex expression, and if
-     so, generate it recursively, otherwise, abort, because it's
-     not really .  */
+  /* If it's still NULL, it must be a complex expression, so generate
+     it recursively.  */
   if (genop == NULL)
     {
       genop = VALUE_HANDLE_EXPR_SET (expr)->head->expr;
@@ -1304,7 +1308,7 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
    EXPR is the expression to insert (in value form)
    STMTS is a statement list to append the necessary insertions into.
 
-   This function will abort if we hit some value that shouldn't be
+   This function will die if we hit some value that shouldn't be
    ANTIC but is (IE there is no leader for it, or its components).
    This function may also generate expressions that are themselves
    partially or fully redundant.  Those that are will be either made
@@ -1315,96 +1319,94 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
 static tree
 create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 {
-  tree name = NULL_TREE;
-  tree newexpr = NULL_TREE;
+  tree temp, name;
+  tree folded, forced_stmts, newexpr;
   tree v;
-  
+  tree_stmt_iterator tsi;
+
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_binary:
     case tcc_comparison:
       {
-	tree_stmt_iterator tsi;
-	tree forced_stmts;
-	tree genop1, genop2;
-	tree temp;
-	tree folded;
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
-	genop1 = find_or_generate_expression (block, op1, stmts);
-	genop2 = find_or_generate_expression (block, op2, stmts);
-	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
-	add_referenced_tmp_var (temp);
-	
+	tree genop1 = find_or_generate_expression (block, op1, stmts);
+	tree genop2 = find_or_generate_expression (block, op2, stmts);
 	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
 			      genop1, genop2));
-	newexpr = force_gimple_operand (folded, &forced_stmts, false, NULL);
-	if (forced_stmts)
-	  {
-	    tsi = tsi_last (stmts);
-	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
-	  }
-	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
-			 temp, newexpr);
-	NECESSARY (newexpr) = 0;
-	name = make_ssa_name (temp, newexpr);
-	TREE_OPERAND (newexpr, 0) = name;
-	tsi = tsi_last (stmts);
-	tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
-	VEC_safe_push (tree_on_heap, inserted_exprs, newexpr);
-	pre_stats.insertions++;
 	break;
       }
+
     case tcc_unary:
       {
-	tree_stmt_iterator tsi;
-	tree forced_stmts;
-	tree genop1;
-	tree temp;
-	tree folded;
 	tree op1 = TREE_OPERAND (expr, 0);
-	genop1 = find_or_generate_expression (block, op1, stmts);
-	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
-	add_referenced_tmp_var (temp);
+	tree genop1 = find_or_generate_expression (block, op1, stmts);
 	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
 			      genop1));
-	newexpr = force_gimple_operand (folded, &forced_stmts, false, NULL);
-	if (forced_stmts)
-	  {
-	    tsi = tsi_last (stmts);
-	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
-	  }
-	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
-			 temp, newexpr);
-	name = make_ssa_name (temp, newexpr);
-	TREE_OPERAND (newexpr, 0) = name;
-	NECESSARY (newexpr) = 0;
-	tsi = tsi_last (stmts);
-	tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
-	VEC_safe_push (tree_on_heap, inserted_exprs, newexpr);
-	pre_stats.insertions++;
-
 	break;
       }
+
     default:
       gcc_unreachable ();
-      
     }
-  v = get_value_handle (expr);
-  vn_add (name, v, NULL);
 
-  /* The value may already exist in either NEW_SETS, or AVAIL_OUT, because
+  /* Force the generated expression to be a sequence of GIMPLE
+     statements.
+     We have to call unshare_expr because force_gimple_operand may
+     modify the tree we pass to it.  */
+  newexpr = force_gimple_operand (unshare_expr (folded), &forced_stmts, 
+                                  false, NULL);
+
+  /* If we have any intermediate expressions to the value sets, add them
+     to the value sets and chain them on in the instruction stream.  */
+  if (forced_stmts)
+    {
+      tsi = tsi_start (forced_stmts);
+      for (; !tsi_end_p (tsi); tsi_next (&tsi))
+	{
+	  tree stmt = tsi_stmt (tsi);
+	  tree forcedname = TREE_OPERAND (stmt, 0);
+	  tree forcedexpr = TREE_OPERAND (stmt, 1);
+	  tree val = vn_lookup_or_add (forcedexpr, NULL);
+	  vn_add (forcedname, val, NULL);
+	  bitmap_value_replace_in_set (NEW_SETS (block), forcedname);
+	  bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
+	}
+      tsi = tsi_last (stmts);
+      tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
+    }
+
+  /* Build and insert the assignment of the end result to the temporary
+     that we will return.  */
+  temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
+  add_referenced_tmp_var (temp);
+  newexpr = build (MODIFY_EXPR, TREE_TYPE (expr), temp, newexpr);
+  name = make_ssa_name (temp, newexpr);
+  TREE_OPERAND (newexpr, 0) = name;
+  NECESSARY (newexpr) = 0;
+  tsi = tsi_last (stmts);
+  tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
+  VEC_safe_push (tree, heap, inserted_exprs, newexpr);
+
+  /* Add a value handle to the temprorary.
+     The value may already exist in either NEW_SETS, or AVAIL_OUT, because
      we are creating the expression by pieces, and this particular piece of
      the expression may have been represented.  There is no harm in replacing
      here.  */
+  v = get_value_handle (expr);
+  vn_add (name, v, NULL);
   bitmap_value_replace_in_set (NEW_SETS (block), name); 
   bitmap_value_replace_in_set (AVAIL_OUT (block), name);
+
+  pre_stats.insertions++;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {				    
       fprintf (dump_file, "Inserted ");
       print_generic_expr (dump_file, newexpr, 0);
       fprintf (dump_file, " in predecessor %d\n", block->index);
     }
+
   return name;
 }
 
@@ -1499,7 +1501,7 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
   add_referenced_tmp_var (temp);
   temp = create_phi_node (temp, block);
   NECESSARY (temp) = 0; 
-  VEC_safe_push (tree_on_heap, inserted_exprs, temp);
+  VEC_safe_push (tree, heap, inserted_exprs, temp);
   FOR_EACH_EDGE (pred, ei, block->preds)
     add_phi_arg (temp, avail[pred->src->index], pred);
   
@@ -1817,7 +1819,7 @@ create_value_expr_from (tree expr, basic_block block,
 
       /* If OP is a constant that has overflowed, do not value number
 	 this expression.  */
-      if (TREE_CODE_CLASS (TREE_CODE (op)) == tcc_constant
+      if (CONSTANT_CLASS_P (op)
 	  && TREE_OVERFLOW (op))
 	{
 	  pool_free (pool, vexpr);
@@ -1825,7 +1827,7 @@ create_value_expr_from (tree expr, basic_block block,
 	}
 
       /* Recursively value-numberize reference ops */
-      if (TREE_CODE_CLASS (TREE_CODE (op)) == tcc_reference)
+      if (REFERENCE_CLASS_P (op))
 	{
 	  tree tempop = create_value_expr_from (op, block, vuses);
 	  op = tempop ? tempop : op;
@@ -1924,7 +1926,6 @@ compute_avail (void)
 
 	  stmt = bsi_stmt (bsi);
 	  ann = stmt_ann (stmt);
-	  get_stmt_operands (stmt);
 
 	  /* We are only interested in assignments of the form
 	     X_i = EXPR, where EXPR represents an "interesting"
@@ -1960,8 +1961,8 @@ compute_avail (void)
 		}
 	      else if (TREE_CODE (rhs) == SSA_NAME
 		       || is_gimple_min_invariant (rhs)
-		       || TREE_INVARIANT (rhs)
 		       || TREE_CODE (rhs) == ADDR_EXPR
+		       || TREE_INVARIANT (rhs)
 		       || DECL_P (rhs))
 		{
 		  /* Compute a value number for the RHS of the statement
@@ -2079,10 +2080,11 @@ eliminate (void)
    this may be a bit faster, and we may want critical edges kept split.  */
 
 /* If OP's defining statement has not already been determined to be necessary,
-   mark that statement necessary. and place it on the WORKLIST.  */ 
+   mark that statement necessary. Return the stmt, if it is newly
+   necessary.  */ 
 
-static inline void
-mark_operand_necessary (tree op, VEC(tree_on_heap) **worklist)
+static inline tree
+mark_operand_necessary (tree op)
 {
   tree stmt;
 
@@ -2093,10 +2095,10 @@ mark_operand_necessary (tree op, VEC(tree_on_heap) **worklist)
 
   if (NECESSARY (stmt)
       || IS_EMPTY_STMT (stmt))
-    return;
+    return NULL;
 
   NECESSARY (stmt) = 1;
-  VEC_safe_push (tree_on_heap, *worklist, stmt);
+  return stmt;
 }
 
 /* Because we don't follow exactly the standard PRE algorithm, and decide not
@@ -2107,18 +2109,19 @@ mark_operand_necessary (tree op, VEC(tree_on_heap) **worklist)
 static void
 remove_dead_inserted_code (void)
 {
-  VEC (tree_on_heap) *worklist = NULL;
+  VEC(tree,heap) *worklist = NULL;
   int i;
   tree t;
 
-  for (i = 0; VEC_iterate (tree_on_heap, inserted_exprs, i, t); i++)
+  worklist = VEC_alloc (tree, heap, VEC_length (tree, inserted_exprs));
+  for (i = 0; VEC_iterate (tree, inserted_exprs, i, t); i++)
     {
       if (NECESSARY (t))
-	VEC_safe_push (tree_on_heap, worklist, t);
+	VEC_quick_push (tree, worklist, t);
     }
-  while (VEC_length (tree_on_heap, worklist) > 0)
+  while (VEC_length (tree, worklist) > 0)
     {
-      t = VEC_pop (tree_on_heap, worklist);
+      t = VEC_pop (tree, worklist);
       if (TREE_CODE (t) == PHI_NODE)
 	{
 	  /* PHI nodes are somewhat special in that each PHI alternative has
@@ -2128,11 +2131,17 @@ remove_dead_inserted_code (void)
 	     predecessor block associated with each PHI alternative as
 	     necessary.  */
 	  int k;
+
+	  VEC_reserve (tree, heap, worklist, PHI_NUM_ARGS (t));
 	  for (k = 0; k < PHI_NUM_ARGS (t); k++)
             {
 	      tree arg = PHI_ARG_DEF (t, k);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		mark_operand_necessary (arg, &worklist);
+		{
+		  arg = mark_operand_necessary (arg);
+		  if (arg)
+		    VEC_quick_push (tree, worklist, arg);
+		}
 	    }
 	}
       else
@@ -2143,18 +2152,20 @@ remove_dead_inserted_code (void)
 	  ssa_op_iter iter;
 	  tree use;
 
-	  get_stmt_operands (t);
-
 	  /* The operands of V_MAY_DEF expressions are also needed as they
 	     represent potential definitions that may reach this
 	     statement (V_MAY_DEF operands allow us to follow def-def 
 	     links).  */
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, t, iter, SSA_OP_ALL_USES)
-	    mark_operand_necessary (use, &worklist);
+	    {
+	      tree n = mark_operand_necessary (use);
+	      if (n)
+		VEC_safe_push (tree, heap, worklist, n);
+	    }
 	}
     }
-  for (i = 0; VEC_iterate (tree_on_heap, inserted_exprs, i, t); i++)
+  for (i = 0; VEC_iterate (tree, inserted_exprs, i, t); i++)
     {
       if (!NECESSARY (t))
 	{
@@ -2175,7 +2186,7 @@ remove_dead_inserted_code (void)
 	    }
 	}
     }
-  VEC_free (tree_on_heap, worklist);
+  VEC_free (tree, heap, worklist);
 }
 /* Initialize data structures used by PRE.  */
 
@@ -2242,7 +2253,7 @@ fini_pre (bool do_fre)
   basic_block bb;
   unsigned int i;
 
-  VEC_free (tree_on_heap, inserted_exprs);
+  VEC_free (tree, heap, inserted_exprs);
   bitmap_obstack_release (&grand_bitmap_obstack);
   free_alloc_pool (value_set_pool);
   free_alloc_pool (bitmap_set_pool);

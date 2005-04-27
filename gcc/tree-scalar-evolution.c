@@ -1658,7 +1658,7 @@ interpret_condition_phi (struct loop *loop, tree condition_phi)
 }
 
 /* Interpret the right hand side of a modify_expr OPND1.  If we didn't
-   analyzed this node before, follow the definitions until ending
+   analyze this node before, follow the definitions until ending
    either on an analyzed modify_expr, or on a loop-phi-node.  On the
    return path, this function propagates evolutions (ala constant copy
    propagation).  OPND1 is not a GIMPLE expression because we could
@@ -2582,7 +2582,7 @@ simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
   if (TREE_CODE (*step) != INTEGER_CST)
     return false;
   *base = CHREC_LEFT (ev);
-  if (tree_contains_chrecs (*base)
+  if (tree_contains_chrecs (*base, NULL)
       || chrec_contains_symbols_defined_in_loop (*base, loop->num))
     return false;
 

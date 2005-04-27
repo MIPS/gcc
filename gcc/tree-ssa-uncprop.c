@@ -599,7 +599,9 @@ struct tree_opt_pass pass_uncprop =
 {
   "uncprop",				/* name */
   gate_uncprop,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_uncprop,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

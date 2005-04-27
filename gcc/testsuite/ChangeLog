@@ -1,3 +1,371 @@
+2005-04-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/21188
+	* g++.dg/opt/rtti2.C: New test.
+
+2005-04-25  Paul Brook  <paul@codesourcery.com>
+	Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20879
+	* gfortran.dg/ichar_1.f90: New file.
+
+2005-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/20991
+	* g++.dg/opt/pr20991.C: New test.
+
+	* gcc.dg/compat/struct-layout-1_generate.c: In arrays avoid types
+	where sizeof (type) < __alignof__ (type).
+	* gcc.dg/compat/struct-layout-1.h: Likewise.
+
+2005-04-24  Per Bothner  <per@bothner.com>
+	    Devang Patel  <dpatel@apple.com>
+
+	PR preprocessor/20907
+	* gcc.dg/cpp/very-long-comment.c: New test.
+
+2005-04-24  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20059
+	* gfortran.dg/common_5.f: New test.
+
+2005-04-23  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR middle-end/21082
+	* g++.dg/tree-ssa/pr21082.C: New testcase.
+
+2005-04-23  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/vect/vect-99.c: New test.
+
+2005-04-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/ltrans-4.c: Fix typo in dg-options.
+
+2005-04-22  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/uninit-5.c: Remove xfails.
+	* gcc.dg/tree-ssa/20030711-1.c:Reduce the number of
+	conditionals and loads.
+
+2005-04-22  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/20074
+	PR libfortran/20436
+	PR libfortran/21108
+	* gfortran.dg/nested_reshape.f90: new test
+	* gfortran.dg/reshape-alloc.f90: new test
+	* gfortran.dg/reshape.f90: new test
+
+2005-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/arm-vfp1.c: Remove -ffast-math.
+
+	* gcc.dg/arm-vfp1.c: New test.
+
+2005-04-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/21087
+	* g++.dg/lookup/builtin2.C: New test.
+
+2005-04-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/weak/weak-13.c: New test.
+
+2005-04-21  Geoffrey Keating  <geoffk@apple.com>
+
+	* lib/target-supports.exp (check_effective_target_sync_int_long):
+	Add powerpc*.
+
+2005-04-21  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.target/mips/branch-1.c: New test.
+
+2005-04-21  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-85.c: Don't xfail on alpha.
+	* gcc.dg/vect/vect-86.c: Likewise.
+	* gcc.dg/vect/vect-87.c: Likewise.
+	* gcc.dg/vect/vect-88.c: Likewise.
+
+2005-04-21  Devang Patel  <dpatel@apple.com>
+
+	PR optimization/20994
+	* gcc.dg/tree-ssa/ifc-3.c: New test.
+	
+2005-04-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/12913
+	* gcc.dg/c99-vla-jump-1.c, gcc.dg/c99-vla-jump-2.c,
+	gcc.dg/c99-vla-jump-3.c, gcc.dg/c99-vla-jump-4.c,
+	gcc.dg/c99-vla-jump-5.c: New tests.
+
+2005-04-19  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_int_mult): 
+	Fix typo in exists check.
+	(check_effective_target_sync_int_long): New.
+	* gcc.dg/ia64-sync-1.c: Enable for all effective-target sync_int_long.
+	* gcc.dg/ia64-sync-2.c: Likewise.
+	* gcc.dg/ia64-sync-3.c: Likewise.
+	* gcc.dg/ia64-sync-4.c: Likewise.
+
+2005-04-19  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/fold-xor-1.c: New test.
+	* gcc.dg/fold-xor-2.c: New test.
+
+2005-04-19  James E. Wilson  <wilson@specifixinc.com>
+
+	PR target/20670
+	* g++.dg/eh/fp-regs.C: New test.
+
+2005-04-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/Wint-to-pointer-cast-1.c,
+	gcc.dg/Wint-to-pointer-cast-2.c, gcc.dg/Wint-to-pointer-cast-3.c,
+	gcc.dg/Wpointer-to-int-cast-1.c, gcc.dg/Wpointer-to-int-cast-2.c,
+	gcc.dg/Wpointer-to-int-cast-3.c: New tests.
+
+2005-04-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/16861
+	* gfortran.dg/pr16861.f90: New test.
+
+2005-04-18  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/pr21085.c: New test.
+
+2005-04-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.target/mips/mips.exp: Minor formatting.  Call setup_mips_tests.
+	(setup_mips_tests, dg-mips-options): New procedures.
+	* gcc.target/mips/asm-1.c, gcc.target/mips/fix-vr4130-1.c,
+	* gcc.target/mips/fix-vr4130-2.c, gcc.target/mips/fix-vr4130-3.c
+	* gcc.target/mips/fix-vr4130-4.c, gcc.target/mips/mips-3d-1.c,
+	* gcc.target/mips/mips-3d-2.c, gcc.target/mips/mips-3d-3.c,
+	* gcc.target/mips/mips-3d-4.c, gcc.target/mips/mips-3d-5.c,
+	* gcc.target/mips/mips-3d-6.c, gcc.target/mips/mips-3d-7.c,
+	* gcc.target/mips/mips-3d-8.c, gcc.target/mips/mips-3d-9.c,
+	* gcc.target/mips/mips-3d-2.c, gcc.target/mips/mips-3d-3.c,
+	* gcc.target/mips/mips-ps-1.c, gcc.target/mips/mips-ps-2.c,
+	* gcc.target/mips/mips-ps-3.c, gcc.target/mips/mips-ps-4.c,
+	* gcc.target/mips/mips-ps-type.c, gcc.target/mips/sb1-1.c: Use
+	dg-mips-options instead of dg-options.  Remove now-redundant
+	preprocessor guards.
+	* gcc.dg/mips-args-1.c, gcc.dg/mips-args-2.c, gcc.dg/mips-args-3.c,
+	* gcc.dg/mips-movcc-1.c, gcc.dg/mips-movcc-2.c, gcc.dg/mips-movcc-3.c,
+	* gcc.dg/mips-nmadd-1.c, gcc.dg/mips-nmadd-2.c, gcc.dg/mips-rsqrt-1.c,
+	* gcc.dg/mips-rsqrt-2.c, gcc.dg/mips-rsqrt-3.c, gcc.dg/vr-mult-1.c,
+	* gcc.dg/vr-mult-2.c: Delete.
+	* gcc.target/mips/args-1.c, gcc.target/mips/args-2.c,
+	* gcc.target/mips/args-3.c, gcc.target/mips/movcc-1.c,
+	* gcc.target/mips/movcc-2.c, gcc.target/mips/movcc-3.c,
+	* gcc.target/mips/nmadd-1.c, gcc.target/mips/nmadd-2.c,
+	* gcc.target/mips/rsqrt-1.c, gcc.target/mips/rsqrt-2.c,
+	* gcc.target/mips/rsqrt-3.c, gcc.target/mips/vr-mult-1.c,
+	* gcc.target/mips/vr-mult-2.c: New tests, based on the old gcc.dg ones.
+
+2005-04-18  Laurent GUERBY  <laurent@guerby.net>
+
+	* ada/acats/run_all.sh: Use sync when executable not present.
+	
+2005-04-18  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-11.c: Require effective target vect_int_mult.
+	* gcc.dg/vect/vect-11a.c: New.
+	* gcc.dg/vect/vect-none.c: Update.
+	* lib/target-supports.exp (check_effective_target_vect_int_mult): New.
+
+2005-04-18  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR tree-optimization/20922
+	* gcc.dg/pr20922-1.c: New test.
+	* gcc.dg/pr20922-2.c: New test.
+	* gcc.dg/pr20922-3.c: New test.
+	* gcc.dg/pr20922-4.c: New test.
+	* gcc.dg/pr20922-5.c: New test.
+	* gcc.dg/pr20922-6.c: New test.
+
+2005-04-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20950
+	* gfortran.dg/pr20950.f: New test.
+
+2005-04-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19216
+	* gfortran.dg/pr19216.f: New test.
+
+2005-04-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/21001
+	* gcc.dg/tree-ssa/pr21001.c: New.
+
+2005-04-17  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21075
+	* gfortran.dg/reshape_rank7.f90: New test.
+
+2005-04-17 Paul Thomas <pault@gcc.gnu.org>
+
+	PR libfortran/12884 gfortran.dg/pr12884.f: New test
+	PR libfortran/17285 gfortran.dg/pr17285.f90: New test
+	PR libfortran/17472, 18396, 18209 gfortran.dg/pr17472.f: New test
+	PR libfortran/18122, 18591 gfortran.dg/pr18122.f90: New test
+	PR libfortran/18210 gfortran.dg/pr18210.f90: New test
+	PR libfortran/18392 gfortran.dg/pr18392.f90: New test
+	PR libfortran/19467 gfortran.dg/pr19467.f90: New test
+	PR libfortran/19657 gfortran.dg/pr19657.f90: New test
+	* gfortran.dg/namelist_1.f90: Correct comment (PUBLIC and PRIVATE wrong way round).
+	* gfortran.dg/namelist_2.f90: Variables with INTENT(IN) cannot be in namelists. New test
+	* gfortran.dg/namelist_3.f90: Pointers cannot be in namelists. New test
+	* gfortran.dg/namelist_11.f: Tests reals and qualifiers in namelist. New test
+	* gfortran.dg/namelist_12.f: Tests integers and qualifiers in namelist. New test
+	* gfortran.dg/namelist_13.f90: Tests derived types in namelist. New test
+	* gfortran.dg/namelist_14.f90: Tests trans-io.c namelist support. New test
+	* gfortran.dg/namelist_15.f90: Tests arrays of derived types in namelist. New test
+	* gfortran.dg/namelist_16.f90: Tests complex in namelist. New test
+	* gfortran.dg/namelist_17.f90: Tests logical in namelist. New test
+	* gfortran.dg/namelist_18.f90: Tests charcter delimiters in namelist. New test
+	* gfortran.dg/namelist_19.f90: Tests namelist errors. New test
+	* gfortran.dg/namelist_20.f90: Tests negative bounds for explicit arrays. New test
+
+2005-04-17  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* gfortran.dg/wtruncate.f: New testcase.
+	* gfortran.dg/wtruncate.f90: New testcase.
+
+2005-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21025
+	* typeck.c (cxx_sizeof_or_alignof_type): Check whether the type to
+	which sizeof/alignof is dependent, rather than just whether we are
+	processing_template_decl.
+	
+2005-04-15  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.fortran-torture/execute/intrinsic_spread.f90:
+	corrected typo where the wrong variables had been compared.
+
+2005-04-15  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/18495
+	* gfortran.fortran-torture/execute/intrinsic_spread.f90:
+	Test callee-allocated version of return array with a write
+	statement.
+	Test spread with a temporary with another write statement.
+
+2005-04-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/21031
+	* gcc.dg/tree-ssa/pr21031.c: New.
+
+2005-04-15  Uros Bizjak  <uros@kss-loka.si>
+
+	PR tree-optimization/21004
+	* gcc.dg/builtins-53.c: Include builtins-config.h.
+	Check floorf, ceilf, floorl and ceill transformations
+	only when HAVE_C99_RUNTIME is defined.
+	
+2005-04-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/20739
+	* gcc.dg/tree-ssa/pr20739.c: New test.
+
+2005-04-14  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/Foundation.framework/empty: New.
+	* gcc.dg/framework-2.c: New.
+
+2005-04-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/21021
+	* gcc.c-torture/compile/pr21021.c: New.
+
+2005-04-14  Janis Johnson  <janis187@us.ibm.com
+
+	PR testsuite/21010
+	* gcc.dg/vect/vect-ifcvt-1.c: Remove dg-do, add cleanup.
+	* gcc.dg/vect/vect-ifcvt-2.c: Ditto.
+	* gcc.dg/vect/vect-ifcvt-3.c: Ditto.
+	* gcc.dg/vect/vect-ifcvt-4.c: Ditto.
+	* gcc.dg/vect/vect-ifcvt-5.c: Ditto.
+	* gcc.dg/vect/vect-ifcvt-6.c: Ditto.
+	* gcc.dg/vect/vect-ifcvt-7.c: Ditto.
+	* gcc.dg/vect/vect-ifcvt-9.c: Ditto.
+
+2005-04-14  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_condition):
+	Add ia64, i?86, and x86_64.
+
+2005-04-14  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/underflow.f90: Use tiny(x)/huge(x).
+
+2005-04-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/20657
+	* gcc.dg/tree-ssa/pr20657.c: New.
+
+2005-04-14  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-53.c: Also check (int)trunc* and
+	(long long int)trunc*.
+
+2005-04-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/20927
+	* gcc.dg/pr20927.c: New test.
+
+2005-04-13  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/pr19683-1.c: Guard with #ifndef __mips16.
+	* gcc.target/mips/asm-1.c: Likewise.
+
+2005-04-13  Dale Johannesen  <dalej@apple.com>
+
+	* objc.dg/objc-fast-4.m:  New.
+
+2005-04-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.target/cris/torture/cris-torture.exp: New driver in new
+	directory.
+	* gcc.target/cris/torture/no-pro-epi-1.c: New test.
+
+2005-04-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/ucnid-[23456].c: XFAIL on AIX.
+	* gcc.dg/ppc-vector-memcpy.c: XFAIL on AIX and SPE.
+	* gcc.dg/ppc-vector-memset.c: XFAIL on AIX and SPE.
+
+2005-04-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/20913
+	* gcc.dg/tree-ssa/pr20913.c: New.
+
+	PR tree-optimization/20702
+	* gcc.dg/tree-ssa/pr20702.c: New.
+
+2005-04-13  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/13744
+	* g++.dg/inherit/local3.C: New test.
+
+2005-04-12  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20050412-1.c: New test.
+
+2005-04-13  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/19016
+	* gfortran.fortran-torture/execute/intrinsic_mmloc.f90:
+	Add tests with mask generated by expression.
+	* gfortran.fortran-torture/execute/intrinsic_mmval.f90:  Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_product.f90:  Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_sum.f90:  Likewise.
+
 2005-04-12  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	PR middle-end/20917

@@ -755,6 +755,13 @@ arm_init_libfuncs (void)
   set_optab_libfunc (udiv_optab, DImode, "__aeabi_uldivmod");
   set_optab_libfunc (sdiv_optab, SImode, "__aeabi_idivmod");
   set_optab_libfunc (udiv_optab, SImode, "__aeabi_uidivmod");
+
+  /* We don't have mod libcalls.  Fortunately gcc knows how to use the
+     divmod libcalls instead.  */
+  set_optab_libfunc (smod_optab, DImode, NULL);
+  set_optab_libfunc (umod_optab, DImode, NULL);
+  set_optab_libfunc (smod_optab, SImode, NULL);
+  set_optab_libfunc (umod_optab, SImode, NULL);
 }
 
 /* Fix up any incompatible options that the user has specified.
@@ -799,7 +806,7 @@ arm_override_options (void)
 		       a warning though, and we prefer the CPU over the
 		       architecture.  */
 		    if (insn_flags != 0 && (insn_flags ^ sel->flags))
-		      warning ("switch -mcpu=%s conflicts with -march= switch",
+		      warning (0, "switch -mcpu=%s conflicts with -march= switch",
 			       ptr->string);
 
 		    insn_flags = sel->flags;
@@ -918,19 +925,19 @@ arm_override_options (void)
      other command line choices.  */
   if (TARGET_INTERWORK && !(insn_flags & FL_THUMB))
     {
-      warning ("target CPU does not support interworking" );
+      warning (0, "target CPU does not support interworking" );
       target_flags &= ~ARM_FLAG_INTERWORK;
     }
 
   if (TARGET_THUMB && !(insn_flags & FL_THUMB))
     {
-      warning ("target CPU does not support THUMB instructions");
+      warning (0, "target CPU does not support THUMB instructions");
       target_flags &= ~ARM_FLAG_THUMB;
     }
 
   if (TARGET_APCS_FRAME && TARGET_THUMB)
     {
-      /* warning ("ignoring -mapcs-frame because -mthumb was used"); */
+      /* warning (0, "ignoring -mapcs-frame because -mthumb was used"); */
       target_flags &= ~ARM_FLAG_APCS_FRAME;
     }
 
@@ -938,17 +945,17 @@ arm_override_options (void)
      from here where no function is being compiled currently.  */
   if ((target_flags & (THUMB_FLAG_LEAF_BACKTRACE | THUMB_FLAG_BACKTRACE))
       && TARGET_ARM)
-    warning ("enabling backtrace support is only meaningful when compiling for the Thumb");
+    warning (0, "enabling backtrace support is only meaningful when compiling for the Thumb");
 
   if (TARGET_ARM && TARGET_CALLEE_INTERWORKING)
-    warning ("enabling callee interworking support is only meaningful when compiling for the Thumb");
+    warning (0, "enabling callee interworking support is only meaningful when compiling for the Thumb");
 
   if (TARGET_ARM && TARGET_CALLER_INTERWORKING)
-    warning ("enabling caller interworking support is only meaningful when compiling for the Thumb");
+    warning (0, "enabling caller interworking support is only meaningful when compiling for the Thumb");
 
   if (TARGET_APCS_STACK && !TARGET_APCS_FRAME)
     {
-      warning ("-mapcs-stack-check incompatible with -mno-apcs-frame");
+      warning (0, "-mapcs-stack-check incompatible with -mno-apcs-frame");
       target_flags |= ARM_FLAG_APCS_FRAME;
     }
 
@@ -959,7 +966,7 @@ arm_override_options (void)
     error ("-fpic and -mapcs-reent are incompatible");
 
   if (TARGET_APCS_REENT)
-    warning ("APCS reentrant code not supported.  Ignored");
+    warning (0, "APCS reentrant code not supported.  Ignored");
 
   /* If this target is normally configured to use APCS frames, warn if they
      are turned off and debugging is turned on.  */
@@ -967,7 +974,7 @@ arm_override_options (void)
       && write_symbols != NO_DEBUG
       && !TARGET_APCS_FRAME
       && (TARGET_DEFAULT & ARM_FLAG_APCS_FRAME))
-    warning ("-g with -mno-apcs-frame may not give sensible debugging");
+    warning (0, "-g with -mno-apcs-frame may not give sensible debugging");
 
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  */
@@ -975,7 +982,7 @@ arm_override_options (void)
     arm_pic_register = TARGET_APCS_STACK ? 9 : 10;
 
   if (TARGET_APCS_FLOAT)
-    warning ("passing floating point arguments in fp regs not yet supported");
+    warning (0, "passing floating point arguments in fp regs not yet supported");
 
   /* Initialize boolean versions of the flags, for use in the arm.md file.  */
   arm_arch3m = (insn_flags & FL_ARCH3M) != 0;
@@ -1134,7 +1141,7 @@ arm_override_options (void)
 	  || (ARM_DOUBLEWORD_ALIGN && size == 64))
 	arm_structure_size_boundary = size;
       else
-	warning ("structure size boundary can only be set to %s",
+	warning (0, "structure size boundary can only be set to %s",
 		 ARM_DOUBLEWORD_ALIGN ? "8, 32 or 64": "8 or 32");
     }
 
@@ -1143,7 +1150,7 @@ arm_override_options (void)
       int pic_register = decode_reg_name (arm_pic_register_string);
 
       if (!flag_pic)
-	warning ("-mpic-register= is useless without -fpic");
+	warning (0, "-mpic-register= is useless without -fpic");
 
       /* Prevent the user from choosing an obviously stupid PIC register.  */
       else if (pic_register < 0 || call_used_regs[pic_register]
@@ -2667,7 +2674,7 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2685,7 +2692,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
     {
       if (TREE_CODE (*node) != FUNCTION_DECL)
 	{
-	  warning ("%qs attribute only applies to functions",
+	  warning (0, "%qs attribute only applies to functions",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
@@ -2699,7 +2706,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	{
 	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	    {
-	      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+	      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
 	      *no_add_attrs = true;
 	    }
 	}
@@ -2726,7 +2733,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	    }
 	  else
 	    {
-	      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+	      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
 	    }
 	}
     }
@@ -11393,7 +11400,7 @@ arm_debugger_arg_offset (int value, rtx addr)
   if (value == 0)
     {
       debug_rtx (addr);
-      warning ("unable to compute real location of stacked parameter");
+      warning (0, "unable to compute real location of stacked parameter");
       value = 8; /* XXX magic hack */
     }
 
@@ -12687,7 +12694,7 @@ is_called_in_ARM_mode (tree func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     abort ();
 
-  /* Ignore the problem about functions whoes address is taken.  */
+  /* Ignore the problem about functions whose address is taken.  */
   if (TARGET_CALLEE_INTERWORKING && TREE_PUBLIC (func))
     return TRUE;
 

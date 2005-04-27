@@ -345,6 +345,12 @@ pp_cxx_primary_expression (cxx_pretty_printer *pp, tree t)
       pp_cxx_unqualified_id (pp, t);
       break;
 
+    case STMT_EXPR:
+      pp_cxx_left_paren (pp);
+      pp_cxx_statement (pp, STMT_EXPR_STMT (t));
+      pp_cxx_right_paren (pp);
+      break;
+
     default:
       pp_c_primary_expression (pp_c_base (pp), t);
       break;
@@ -490,6 +496,11 @@ pp_cxx_postfix_expression (cxx_pretty_printer *pp, tree t)
       pp_cxx_unqualified_id (pp, TREE_OPERAND (t, 2));
       break;
 
+    case ARROW_EXPR:
+      pp_cxx_postfix_expression (pp, TREE_OPERAND (t, 0));
+      pp_cxx_arrow (pp);
+      break;
+
     default:
       pp_c_postfix_expression (pp_c_base (pp), t);
       break;
@@ -615,6 +626,20 @@ pp_cxx_unary_expression (cxx_pretty_printer *pp, tree t)
       pp_cxx_delete_expression (pp, t);
       break;
       
+    case SIZEOF_EXPR:
+    case ALIGNOF_EXPR:
+      pp_cxx_identifier (pp, code == SIZEOF_EXPR ? "sizeof" : "__alignof__");
+      pp_cxx_whitespace (pp);
+      if (TYPE_P (TREE_OPERAND (t, 0)))
+	{
+	  pp_cxx_left_paren (pp);
+	  pp_cxx_type_id (pp, TREE_OPERAND (t, 0));
+	  pp_cxx_right_paren (pp);
+	}
+      else
+	pp_unary_expression (pp, TREE_OPERAND (t, 0));
+      break;
+
     default:
       pp_c_unary_expression (pp_c_base (pp), t);
       break;
@@ -844,6 +869,7 @@ pp_cxx_expression (cxx_pretty_printer *pp, tree t)
     case TEMPLATE_TYPE_PARM:
     case TEMPLATE_PARM_INDEX:
     case TEMPLATE_TEMPLATE_PARM:
+    case STMT_EXPR:
       pp_cxx_primary_expression (pp, t);
       break;
 
@@ -859,6 +885,7 @@ pp_cxx_expression (cxx_pretty_printer *pp, tree t)
     case TYPEID_EXPR:
     case PSEUDO_DTOR_EXPR:
     case AGGR_INIT_EXPR:
+    case ARROW_EXPR:
       pp_cxx_postfix_expression (pp, t);
       break;
 
@@ -870,6 +897,11 @@ pp_cxx_expression (cxx_pretty_printer *pp, tree t)
     case DELETE_EXPR:
     case VEC_DELETE_EXPR:
       pp_cxx_delete_expression (pp, t);
+      break;
+
+    case SIZEOF_EXPR:
+    case ALIGNOF_EXPR:
+      pp_cxx_unary_expression (pp, t);
       break;
 
     case CAST_EXPR:
@@ -1559,7 +1591,7 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
       pp_cxx_right_paren (pp);
       pp_indentation (pp) += 3;
       pp_needs_newline (pp) = true;
-      pp_statement (pp, SWITCH_STMT_BODY (t));
+      pp_cxx_statement (pp, SWITCH_STMT_BODY (t));
       pp_newline_and_indent (pp, -3);
       break;
 
@@ -1575,7 +1607,7 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
       pp_expression (pp, WHILE_COND (t));
       pp_cxx_right_paren (pp);
       pp_newline_and_indent (pp, 3);
-      pp_statement (pp, WHILE_BODY (t));
+      pp_cxx_statement (pp, WHILE_BODY (t));
       pp_indentation (pp) -= 3;
       pp_needs_newline (pp) = true;
       break;
@@ -1583,7 +1615,7 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
     case DO_STMT:
       pp_cxx_identifier (pp, "do");
       pp_newline_and_indent (pp, 3);
-      pp_statement (pp, DO_BODY (t));
+      pp_cxx_statement (pp, DO_BODY (t));
       pp_newline_and_indent (pp, -3);
       pp_cxx_identifier (pp, "while");
       pp_space (pp);
@@ -1599,7 +1631,7 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
       pp_space (pp);
       pp_cxx_left_paren (pp);
       if (FOR_INIT_STMT (t))
-        pp_statement (pp, FOR_INIT_STMT (t));
+        pp_cxx_statement (pp, FOR_INIT_STMT (t));
       else
         pp_cxx_semicolon (pp);
       pp_needs_newline (pp) = false;
@@ -1613,7 +1645,7 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
 	pp_expression (pp, FOR_EXPR (t));
       pp_cxx_right_paren (pp);
       pp_newline_and_indent (pp, 3);
-      pp_statement (pp, FOR_BODY (t));
+      pp_cxx_statement (pp, FOR_BODY (t));
       pp_indentation (pp) -= 3;
       pp_needs_newline (pp) = true;
       break;

@@ -150,7 +150,8 @@ extern void ix86_expand_branch (enum rtx_code, rtx);
 extern int ix86_expand_setcc (enum rtx_code, rtx);
 extern int ix86_expand_int_movcc (rtx[]);
 extern int ix86_expand_fp_movcc (rtx[]);
-extern void ix86_split_sse_movcc (rtx[]);
+extern bool ix86_expand_fp_vcond (rtx[]);
+extern bool ix86_expand_int_vcond (rtx[], bool);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
@@ -186,6 +187,8 @@ extern int ix86_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);
 extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					 enum machine_mode, int);
+extern bool ix86_cannot_change_mode_class (enum machine_mode,
+					   enum machine_mode, enum reg_class);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern void emit_i387_cw_initialization (rtx, rtx, int);

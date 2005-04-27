@@ -144,22 +144,19 @@ public class DocumentParser
   /**
    * This field is used to access the identically named
    * methods of the outer class.
-   * This is package-private to avoid an accessor method.
    */
-  DocumentParser parser = this;
+  private DocumentParser parser = this;
 
   /**
    * The callback.
-   * This is package-private to avoid an accessor method.
    */
-  HTMLEditorKit.ParserCallback callBack;
+  private HTMLEditorKit.ParserCallback callBack;
 
   /**
    * The reference to the working class of HTML parser that is
    * actually used to parse the document.
-   * This is package-private to avoid an accessor method.
    */
-  gnuParser gnu;
+  private gnuParser gnu;
 
   /**
    * Creates a new parser that uses the given DTD to access data on the

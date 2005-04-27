@@ -310,7 +310,7 @@ override_options (void)
   /* Unicos/Mk doesn't have shared libraries.  */
   if (TARGET_ABI_UNICOSMK && flag_pic)
     {
-      warning ("-f%s ignored for Unicos/Mk (not supported)",
+      warning (0, "-f%s ignored for Unicos/Mk (not supported)",
 	       (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
     }
@@ -334,7 +334,7 @@ override_options (void)
   if (TARGET_IEEE)
     {
       if (TARGET_ABI_UNICOSMK)
-	warning ("-mieee not supported on Unicos/Mk");
+	warning (0, "-mieee not supported on Unicos/Mk");
       else
 	{
 	  alpha_tp = ALPHA_TP_INSN;
@@ -345,7 +345,7 @@ override_options (void)
   if (TARGET_IEEE_WITH_INEXACT)
     {
       if (TARGET_ABI_UNICOSMK)
-	warning ("-mieee-with-inexact not supported on Unicos/Mk");
+	warning (0, "-mieee-with-inexact not supported on Unicos/Mk");
       else
 	{
 	  alpha_tp = ALPHA_TP_INSN;
@@ -424,14 +424,14 @@ override_options (void)
 
   if (TARGET_ABI_UNICOSMK && alpha_fptm != ALPHA_FPTM_N)
     {
-      warning ("trap mode not supported on Unicos/Mk");
+      warning (0, "trap mode not supported on Unicos/Mk");
       alpha_fptm = ALPHA_FPTM_N;
     }
 
   if ((alpha_fptm == ALPHA_FPTM_SU || alpha_fptm == ALPHA_FPTM_SUI)
       && alpha_tp != ALPHA_TP_INSN && alpha_cpu != PROCESSOR_EV6)
     {
-      warning ("fp software completion requires -mtrap-precision=i");
+      warning (0, "fp software completion requires -mtrap-precision=i");
       alpha_tp = ALPHA_TP_INSN;
     }
 
@@ -447,16 +447,16 @@ override_options (void)
     {
       if (alpha_fprm == ALPHA_FPRM_MINF || alpha_fprm == ALPHA_FPRM_DYN)
 	{
-	  warning ("rounding mode not supported for VAX floats");
+	  warning (0, "rounding mode not supported for VAX floats");
 	  alpha_fprm = ALPHA_FPRM_NORM;
 	}
       if (alpha_fptm == ALPHA_FPTM_SUI)
 	{
-	  warning ("trap mode not supported for VAX floats");
+	  warning (0, "trap mode not supported for VAX floats");
 	  alpha_fptm = ALPHA_FPTM_SU;
 	}
       if (target_flags_explicit & MASK_LONG_DOUBLE_128)
-	warning ("128-bit long double not supported for VAX floats");
+	warning (0, "128-bit long double not supported for VAX floats");
       target_flags &= ~MASK_LONG_DOUBLE_128;
     }
 
@@ -484,7 +484,7 @@ override_options (void)
 	lat = alpha_mlat_string[1] - '0';
 	if (lat <= 0 || lat > 3 || cache_latency[alpha_tune][lat-1] == -1)
 	  {
-	    warning ("L%d cache latency unknown for %s",
+	    warning (0, "L%d cache latency unknown for %s",
 		     lat, alpha_cpu_name[alpha_tune]);
 	    lat = 3;
 	  }
@@ -499,7 +499,7 @@ override_options (void)
       }
     else
       {
-	warning ("bad value %qs for -mmemory-latency", alpha_mlat_string);
+	warning (0, "bad value %qs for -mmemory-latency", alpha_mlat_string);
 	lat = 3;
       }
 
@@ -4469,6 +4469,64 @@ alpha_expand_builtin_vector_binop (rtx (*gen) (rtx, rtx, rtx),
 
   emit_insn ((*gen) (op0, op1, op2));
 }
+
+/* Expand an an atomic fetch-and-operate pattern.  CODE is the binary operation
+   to perform.  MEM is the memory on which to operate.  VAL is the second 
+   operand of the binary operator.  BEFORE and AFTER are optional locations to
+   return the value of MEM either before of after the operation.  SCRATCH is
+   a scratch register.  */
+
+void
+alpha_split_atomic_op (enum rtx_code code, rtx mem, rtx val,
+		       rtx before, rtx after, rtx scratch)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx label, cond, x;
+  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+
+  emit_insn (gen_memory_barrier ());
+
+  label = gen_label_rtx ();
+  emit_label (label);
+  label = gen_rtx_LABEL_REF (DImode, label);
+
+  if (before == NULL)
+    before = scratch;
+
+  if (mode == SImode)
+    emit_insn (gen_load_locked_si (before, mem));
+  else if (mode == DImode)
+    emit_insn (gen_load_locked_di (before, mem));
+  else
+    gcc_unreachable ();
+
+  if (code == NOT)
+    {
+      x = gen_rtx_NOT (mode, before);
+      x = gen_rtx_AND (mode, x, val);
+    }
+  else
+    x = gen_rtx_fmt_ee (code, mode, before, val);
+
+  if (after)
+    emit_insn (gen_rtx_SET (VOIDmode, after, copy_rtx (x)));
+  emit_insn (gen_rtx_SET (VOIDmode, scratch, x));
+
+  cond = gen_rtx_REG (DImode, REGNO (scratch));
+  if (mode == SImode)
+    emit_insn (gen_store_conditional_si (cond, mem, scratch));
+  else if (mode == DImode)
+    emit_insn (gen_store_conditional_di (cond, mem, scratch));
+  else
+    gcc_unreachable ();
+
+  x = gen_rtx_EQ (DImode, cond, const0_rtx);
+  x = gen_rtx_IF_THEN_ELSE (VOIDmode, x, label, pc_rtx);
+  x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_BR_PROB, very_unlikely, NULL_RTX);
+
+  emit_insn (gen_memory_barrier ());
+}
 
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
@@ -5582,6 +5640,7 @@ alpha_build_builtin_va_list (void)
   return record;
 }
 
+#if TARGET_ABI_OSF
 /* Helper function for alpha_stdarg_optimize_hook.  Skip over casts
    and constant additions.  */
 
@@ -5685,17 +5744,16 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, tree lhs, tree rhs)
 
       arg1 = va_list_skip_additions (PHI_ARG_DEF (offset, 0));
       arg2 = va_list_skip_additions (PHI_ARG_DEF (offset, 1));
-      if (TREE_CODE (arg1) != COMPONENT_REF)
+      if (TREE_CODE (arg2) != MINUS_EXPR && TREE_CODE (arg2) != PLUS_EXPR)
 	{
 	  tree tem = arg1;
-
 	  arg1 = arg2;
 	  arg2 = tem;
-	}
 
-      if ((TREE_CODE (arg2) != MINUS_EXPR
-	   && TREE_CODE (arg2) != PLUS_EXPR)
-	  || !host_integerp (TREE_OPERAND (arg2, 1), 0))
+	  if (TREE_CODE (arg2) != MINUS_EXPR && TREE_CODE (arg2) != PLUS_EXPR)
+	    goto escapes;
+	}
+      if (!host_integerp (TREE_OPERAND (arg2, 1), 0))
 	goto escapes;
 
       sub = tree_low_cst (TREE_OPERAND (arg2, 1), 0);
@@ -5705,8 +5763,13 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, tree lhs, tree rhs)
 	goto escapes;
 
       arg2 = va_list_skip_additions (TREE_OPERAND (arg2, 0));
-      if (arg1 != arg2
-	  || TREE_CODE (arg1) != COMPONENT_REF
+      if (arg1 != arg2)
+	goto escapes;
+
+      if (TREE_CODE (arg1) == SSA_NAME)
+	arg1 = va_list_skip_additions (arg1);
+
+      if (TREE_CODE (arg1) != COMPONENT_REF
 	  || TREE_OPERAND (arg1, 1) != va_list_gpr_counter_field
 	  || get_base_address (arg1) != base)
 	goto escapes;
@@ -5727,27 +5790,30 @@ escapes:
   si->va_list_escapes = true;
   return false;
 }
+#endif
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
 
 static void
-alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum,
-			      enum machine_mode mode ATTRIBUTE_UNUSED,
-			      tree type ATTRIBUTE_UNUSED,
-			      int *pretend_size, int no_rtl)
+alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
+			      tree type, int *pretend_size, int no_rtl)
 {
+  CUMULATIVE_ARGS cum = *pcum;
+
+  /* Skip the current argument.  */
+  FUNCTION_ARG_ADVANCE (cum, mode, type, 1);
+
 #if TARGET_ABI_UNICOSMK
   /* On Unicos/Mk, the standard subroutine __T3E_MISMATCH stores all register
      arguments on the stack. Unfortunately, it doesn't always store the first
      one (i.e. the one that arrives in $16 or $f16). This is not a problem
      with stdargs as we always have at least one named argument there.  */
-  int num_reg_words = pcum->num_reg_words;
-  if (num_reg_words < 6)
+  if (cum.num_reg_words < 6)
     {
       if (!no_rtl)
 	{
-	  emit_insn (gen_umk_mismatch_args (GEN_INT (num_reg_words + 1)));
+	  emit_insn (gen_umk_mismatch_args (GEN_INT (cum.num_reg_words)));
 	  emit_insn (gen_arg_home_umk ());
 	}
       *pretend_size = 0;
@@ -5759,7 +5825,7 @@ alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum,
      This is not only because we won't need the space, but because AP
      includes the current_pretend_args_size and we don't want to mess up
      any ap-relative addresses already made.  */
-  if (pcum->num_args < 6)
+  if (cum.num_args < 6)
     {
       if (!no_rtl)
 	{
@@ -5780,28 +5846,42 @@ alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum,
      not the most efficient way to implement varargs with just one register
      class, but it isn't worth doing anything more efficient in this rare
      case.  */
-  CUMULATIVE_ARGS cum = *pcum;
-
   if (cum >= 6)
     return;
 
   if (!no_rtl)
     {
-      int set = get_varargs_alias_set ();
+      int count, set = get_varargs_alias_set ();
       rtx tmp;
 
-      tmp = gen_rtx_MEM (BLKmode,
-		         plus_constant (virtual_incoming_args_rtx,
-				        (cum + 6) * UNITS_PER_WORD));
-      set_mem_alias_set (tmp, set);
-      move_block_from_reg (16 + cum, tmp, 6 - cum);
+      count = cfun->va_list_gpr_size / UNITS_PER_WORD;
+      if (count > 6 - cum)
+	count = 6 - cum;
 
-      tmp = gen_rtx_MEM (BLKmode,
-		         plus_constant (virtual_incoming_args_rtx,
-				        cum * UNITS_PER_WORD));
-      set_mem_alias_set (tmp, set);
-      move_block_from_reg (16 + (TARGET_FPREGS ? 32 : 0) + cum, tmp,
-			   6 - cum);
+      /* Detect whether integer registers or floating-point registers
+	 are needed by the detected va_arg statements.  See above for
+	 how these values are computed.  Note that the "escape" value
+	 is VA_LIST_MAX_FPR_SIZE, which is 255, which has both of 
+	 these bits set.  */
+      gcc_assert ((VA_LIST_MAX_FPR_SIZE & 3) == 3);
+
+      if (cfun->va_list_fpr_size & 1)
+	{
+	  tmp = gen_rtx_MEM (BLKmode,
+			     plus_constant (virtual_incoming_args_rtx,
+					    (cum + 6) * UNITS_PER_WORD));
+	  set_mem_alias_set (tmp, set);
+	  move_block_from_reg (16 + cum, tmp, count);
+	}
+
+      if (cfun->va_list_fpr_size & 2)
+	{
+	  tmp = gen_rtx_MEM (BLKmode,
+			     plus_constant (virtual_incoming_args_rtx,
+					    cum * UNITS_PER_WORD));
+	  set_mem_alias_set (tmp, set);
+	  move_block_from_reg (16 + cum + TARGET_FPREGS*32, tmp, count);
+	}
      }
   *pretend_size = 12 * UNITS_PER_WORD;
 #endif
@@ -5831,7 +5911,7 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
      integer argument register; that futzes with pretend_args_size,
      which changes the meaning of AP.  */
 
-  if (NUM_ARGS <= 6)
+  if (NUM_ARGS < 6)
     offset = TARGET_ABI_OPEN_VMS ? UNITS_PER_WORD : 6 * UNITS_PER_WORD;
   else
     offset = -6 * UNITS_PER_WORD + current_function_pretend_args_size;
@@ -8457,21 +8537,22 @@ alphaev4_insn_pipe (rtx insn)
   switch (get_attr_type (insn))
     {
     case TYPE_ILD:
+    case TYPE_LDSYM:
     case TYPE_FLD:
+    case TYPE_LD_L:
       return EV4_IBX;
 
-    case TYPE_LDSYM:
     case TYPE_IADD:
     case TYPE_ILOG:
     case TYPE_ICMOV:
     case TYPE_ICMP:
-    case TYPE_IST:
     case TYPE_FST:
     case TYPE_SHIFT:
     case TYPE_IMUL:
     case TYPE_FBR:
       return EV4_IB0;
 
+    case TYPE_IST:
     case TYPE_MISC:
     case TYPE_IBR:
     case TYPE_JSR:
@@ -8481,6 +8562,8 @@ alphaev4_insn_pipe (rtx insn)
     case TYPE_FADD:
     case TYPE_FDIV:
     case TYPE_FMUL:
+    case TYPE_ST_C:
+    case TYPE_MB:
       return EV4_IB1;
 
     default:
@@ -8513,6 +8596,9 @@ alphaev5_insn_pipe (rtx insn)
     case TYPE_IMUL:
     case TYPE_MISC:
     case TYPE_MVI:
+    case TYPE_LD_L:
+    case TYPE_ST_C:
+    case TYPE_MB:
       return EV5_E0;
 
     case TYPE_IBR:
@@ -10301,6 +10387,8 @@ alpha_init_libfuncs (void)
 #define TARGET_ASM_OUTPUT_MI_THUNK alpha_output_mi_thunk_osf
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#undef TARGET_STDARG_OPTIMIZE_HOOK
+#define TARGET_STDARG_OPTIMIZE_HOOK alpha_stdarg_optimize_hook
 #endif
 
 #undef TARGET_RTX_COSTS
@@ -10353,9 +10441,6 @@ alpha_init_libfuncs (void)
   (TARGET_DEFAULT | TARGET_CPU_DEFAULT | TARGET_DEFAULT_EXPLICIT_RELOCS)
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION alpha_handle_option
-
-#undef TARGET_STDARG_OPTIMIZE_HOOK
-#define TARGET_STDARG_OPTIMIZE_HOOK alpha_stdarg_optimize_hook
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

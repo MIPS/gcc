@@ -1,3 +1,152 @@
+2005-04-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/21188
+	* rtti.c (ifnonnull): Cast the zero comparison operand
+	to the correct type.
+
+2005-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/20991
+	* class.c: Include cgraph.h.
+	(cp_fold_obj_type_ref): Set node->local.vtable_method.
+	* Make-lang.in (cgraph.o): Depend on $(CGRAPH_H).
+
+2005-04-12  Markus F.X.J. Oberhumer  <markus@oberhumer.com>
+
+	* mangle.c (write_builtin_type): Handle integer types which are
+	not one of the shared integer type nodes and emit a "vendor
+	extended builtin type" with an encoding in the form of "u5int96".
+
+2005-04-24  Ian Lance Taylor  <ian@airs.com>
+
+	* cp-tree.def (USING_STMT): Change class to tcc_statement.
+	(TRY_BLOCK, EH_SPEC_BLOCK, HANDLER, CLEANUP_STMT): Likewise.
+	(IF_STMT, FOR_STMT, WHILE_STMT, DO_STMT): Likewise.
+	(BREAK_STMT, CONTINUE_STMT, SWITCH_STMT): Likewise.
+
+2005-04-23  DJ Delorie  <dj@redhat.com>
+
+	* call.c, class.c, cvt.c, decl.c, decl2.c, except.c, friend.c,
+	init.c, lex.c, mangle.c, method.c, name-lookup.c, parser.c,
+	repo.c, rtti.c, tree.c, typeck.c, typeck2.c: Adjust warning()
+	callers.
+
+2005-04-22  Per Bothner  <per@bothner.com>
+
+	* decl.c (make_rtl_for_nonlocal_decl): Don't try get_fileinfo if
+        input_filename is NULL, as it is for (say) __PRETTY_FUNCTION__.
+
+2005-04-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/21087
+	* name-lookup.c (push_overloaded_decl): Do not overload with
+	non-duplicate anticipated built-in.
+
+2005-04-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h (THROW_NAME, AUTO_VTABLE_NAME, AUTO_TEMP_FORMAT,
+	VTABLE_BASE, VTABLE_NAME_PREFIX, STATIC_NAME_FORMAT): Remove.
+
+2005-04-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h: Adjust for new VEC API.
+	Define VEC(tree_pair_s,gc).
+	(struct save_scope): Adjust.
+	(struct lang_type_class): Adjust.
+	(unemitted_tinfo_decls): Adjust.
+	* class.c (add_method, resort_type_method_vec,
+	finish_struct_methods, struct find_final_overrider_data,
+	dfs_find_final_overrider_pre, find_final_overrider,
+	get_vcall_index, warn_hidden, walk_subobject_offsets,
+	check_methods, fixup_inline_methods, end_of_class,
+	warn_about_ambiguous_bases, finish_struct, build_vtbl_initializer,
+	add_vcall_offset): Adjust.
+	* decl.c (xref_basetypes, finish_method): Adjust.
+	* decl2.c (check_classfn): Adjust.
+	* init.c (sort_mem_initializers, push_base_cleanups): Adjust.
+	* method.c (do_build_copy_constructor): Adjust.
+	* name-lookup.c (new_class_binding, store_binding, 
+	store_bindings, store_class_bindings): Adjust.
+	* name-lookup.h: Define VEC(cxx_saved_binding,gc),
+	VEC(cp_class_binding,gc).
+	(struct cp_binding_level): Adjust.
+	* parser.c: Define VEC(cp_token_position,heap).
+	(struct cp_lexer): Adjust.
+	(cp_lexer_new_main, cp_lexer_new_from_tokens, cp_lexer_destroy,
+	cp_lexer_save_tokens): Adjust.
+	* pt.c (retrieve_specialization,
+	check_explicit_specialization): Adjust.
+	* rtti.c (unemitted_tinfo_decls): Adjust.
+	(init_rtti_processing, get_tinfo_decl, get_pseudo_ti_init,
+	get_pseudo_ti_desc): Adjust.
+	* search.c (dfs_access_in_type, lookup_conversion_operator,
+	lookup_fnfields_1, dfs_walk_once, dfs_walk_once_accessible,
+	dfs_get_pure_virtuals, lookup_conversions_r, binfo_for_vbase): Adjust.
+	* semantics.c: Define VEC(deferred_access,gc).
+	(push_deferring_access_checks): Adjust.
+	* typeck2.c (abstract_virtuals_error): Adjust.
+
+2005-04-20  Ian Lance Taylor  <ian@airs.com>
+
+	* cp-tree.def: Add STMT_EXPR.
+	* cp-tree.h (STMT_EXPR_NO_SCOPE): Define.
+	(STMT_EXPR_STMT): Define.
+	* cxx-pretty-print.c (pp_cxx_primary_expression): Handle
+	STMT_EXPR.
+	(pp_cxx_expression): Likewise.
+	(pp_cxx_statement): Call pp_cxx_statement, not pp_statement.
+	* dump.c (cp_dump_tree): Handle STMT_EXPR.
+
+2005-04-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* decl.c (expand_static_init): Call build2 and build3 instead
+	of build.
+
+	* cp-tree.h (VPTR_NAME, VPTR_NAME_P): Remove.
+
+2005-04-17  Ian Lance Taylor  <ian@airs.com>
+
+	* cp-tree.def: Add SIZEOF_EXPR, ARROW_EXPR and ALIGNOF_EXPR.
+	* cxx-pretty-print.c (pp_cxx_postfix_expression): Handle
+	ARROW_EXPR.
+	(pp_cxx_unary_expression): Handle SIZEOF_EXPR and ALIGNOF_EXPR.
+	(pp_cxx_expression): Handle ARROW_EXPR, SIZEOF_EXPR, and
+	ALIGNOF_EXPR.
+	* typeck.c (cxx_sizeof_or_alignof_type): Update call to
+	c_sizeof_or_alignof_type for change in parameter type.
+
+2005-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21025
+	* typeck.c (cxx_sizeof_or_alignof_type): Check whether the type to
+	which sizeof/alignof is dependent, rather than just whether we are
+	processing_template_decl.
+	
+2005-04-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h (LOOKUP_GLOBAL): Remove.
+	(LOOKUP_ONLYCONVERTING, DIRECT_BIND, LOOKUP_NO_CONVERSION,
+	LOOKUP_DESTRUCTOR, LOOKUP_NO_TEMP_BIND, LOOKUP_PREFER_TYPES,
+	LOOKUP_PREFER_NAMESPACES, LOOKUP_CONSTRUCTOR_CALLABLE): Adjust
+	their values.
+
+2005-04-15  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14311
+	* semantics.c (finish_call_expr): Call resolve_overloaded_builtin.
+
+2005-04-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h (lang_type_class): Remove redefined.  Move
+	java_interface into where redefined was.  Increment the width
+	of dummy.
+	(TYPE_REDEFINED): Remove.
+
+2005-04-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h (SET_TMPL_ARG, ENUM_TI_TEMPLATE, ENUM_TI_ARGS,
+	CLASSTYPE_TEMPLATE_LEVEL): Remove.
+
 2005-04-11  Mark Mitchell  <mark@codesourcery.com>
 
 	* decl2.c (determine_visibility): Don't use export_class_data.
@@ -278,6 +427,10 @@
 	PR c++/20333
 	* parser.c (cp_parser_postfix_expression) <case RID_TYPENAME>:
 	Check the return value of cp_parser_nested_name_specifier.
+
+2005-03-18  Dale Johannesen <dalej@apple.com>
+
+	* cp/tree.c (cp_tree_equal):  Handle SSA_NAME.
 
 2005-03-18  Paolo Carlini  <pcarlini@suse.de>
 

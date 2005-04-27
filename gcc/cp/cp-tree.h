@@ -47,6 +47,7 @@ struct diagnostic_context;
       KOENIG_LOOKUP_P (in CALL_EXPR)
       STATEMENT_LIST_NO_SCOPE (in STATEMENT_LIST).
       EXPR_STMT_STMT_EXPR_RESULT (in EXPR_STMT)
+      STMT_EXPR_NO_SCOPE (in STMT_EXPR)
       BIND_EXPR_TRY_BLOCK (in BIND_EXPR)
       TYPENAME_IS_ENUM_P (in TYPENAME_TYPE)
       REFERENCE_REF_P (in INDIRECT_EXPR)
@@ -261,6 +262,10 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 /* Marks the result of a statement expression.  */
 #define EXPR_STMT_STMT_EXPR_RESULT(NODE) \
   TREE_LANG_FLAG_0 (EXPR_STMT_CHECK (NODE))
+
+/* Nonzero if this statement-expression does not have an associated scope.  */
+#define STMT_EXPR_NO_SCOPE(NODE) \
+   TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
 
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, in the usual
    sense of `same'.  */
@@ -651,7 +656,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 struct saved_scope GTY(())
 {
-  VEC(cxx_saved_binding) *old_bindings;
+  VEC(cxx_saved_binding,gc) *old_bindings;
   tree old_namespace;
   tree decl_ns_list;
   tree class_name;
@@ -967,7 +972,8 @@ typedef struct tree_pair_s GTY (())
   tree value;
 } tree_pair_s;
 typedef tree_pair_s *tree_pair_p;
-DEF_VEC_GC_O (tree_pair_s);
+DEF_VEC_O (tree_pair_s);
+DEF_VEC_ALLOC_O (tree_pair_s,gc);
 
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
@@ -1027,7 +1033,7 @@ struct lang_type_class GTY(())
   unsigned diamond_shaped : 1;
   unsigned repeated_base : 1;
   unsigned being_defined : 1;
-  unsigned redefined : 1;
+  unsigned java_interface : 1;
   unsigned debug_requested : 1;
   unsigned fields_readonly : 1;
   
@@ -1043,7 +1049,6 @@ struct lang_type_class GTY(())
   unsigned has_complex_init_ref : 1;
   unsigned has_complex_assign_ref : 1;
   unsigned non_aggregate : 1;
-  unsigned java_interface : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1052,18 +1057,18 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 11;
+  unsigned dummy : 12;
 
   tree primary_base;
-  VEC (tree_pair_s) *vcall_indices;
+  VEC(tree_pair_s,gc) *vcall_indices;
   tree vtables;
   tree typeinfo_var;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
   binding_table nested_udts;
   tree as_base;
-  VEC (tree) *pure_virtuals;
+  VEC(tree,gc) *pure_virtuals;
   tree friend_classes;
-  VEC (tree) * GTY((reorder ("resort_type_method_vec"))) methods;
+  VEC(tree,gc) * GTY((reorder ("resort_type_method_vec"))) methods;
   tree key_method;
   tree decl_list;
   tree template_info;
@@ -1186,9 +1191,6 @@ struct lang_type GTY(())
 /* Nonzero means that this type is being defined.  I.e., the left brace
    starting the definition of this type has been seen.  */
 #define TYPE_BEING_DEFINED(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->being_defined)
-/* Nonzero means that this type has been redefined.  In this case, if
-   convenient, don't reprocess any methods that appear in its redefinition.  */
-#define TYPE_REDEFINED(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->redefined)
 
 /* Mark bits for repeated base checks.  */
 #define TYPE_MARKED_P(NODE) TREE_LANG_FLAG_6 (TYPE_CHECK (NODE))
@@ -2141,11 +2143,6 @@ struct lang_decl GTY(())
 #define TMPL_ARG(ARGS, LEVEL, IDX)				\
   (TREE_VEC_ELT (TMPL_ARGS_LEVEL (ARGS, LEVEL), IDX))
 
-/* Set the IDXth element in the LEVELth level of ARGS to VAL.  This
-   macro does not work with single-level argument vectors.  */
-#define SET_TMPL_ARG(ARGS, LEVEL, IDX, VAL)			\
-  (TREE_VEC_ELT (TREE_VEC_ELT ((ARGS), (LEVEL) - 1), (IDX)) = (VAL))
-
 /* Given a single level of template arguments in NODE, return the
    number of arguments.  */
 #define NUM_TMPL_ARGS(NODE)				\
@@ -2187,10 +2184,6 @@ struct lang_decl GTY(())
 #define DECL_TI_ARGS(NODE)          TI_ARGS (DECL_TEMPLATE_INFO (NODE))
 #define CLASSTYPE_TI_TEMPLATE(NODE) TI_TEMPLATE (CLASSTYPE_TEMPLATE_INFO (NODE))
 #define CLASSTYPE_TI_ARGS(NODE)     TI_ARGS (CLASSTYPE_TEMPLATE_INFO (NODE))
-#define ENUM_TI_TEMPLATE(NODE)			\
-  TI_TEMPLATE (ENUM_TEMPLATE_INFO (NODE))
-#define ENUM_TI_ARGS(NODE)			\
-  TI_ARGS (ENUM_TEMPLATE_INFO (NODE))
 
 /* For a template instantiation TYPE, returns the TYPE corresponding
    to the primary template.  Otherwise returns TYPE itself.  */
@@ -2763,9 +2756,6 @@ struct lang_decl GTY(())
 /* Returns nonzero if NODE is a primary template.  */
 #define PRIMARY_TEMPLATE_P(NODE) (DECL_PRIMARY_TEMPLATE (NODE) == (NODE))
 
-#define CLASSTYPE_TEMPLATE_LEVEL(NODE) \
-  (TREE_INT_CST_LOW (TREE_PURPOSE (CLASSTYPE_TI_TEMPLATE (NODE))))
-
 /* Indicates whether or not (and how) a template was expanded for this
    FUNCTION_DECL or VAR_DECL.
      0=normal declaration, e.g. int min (int, int);
@@ -2955,6 +2945,9 @@ struct lang_decl GTY(())
 #define SWITCH_STMT_COND(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 0)
 #define SWITCH_STMT_BODY(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 1)
 #define SWITCH_STMT_TYPE(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 2)
+
+/* STMT_EXPR accessor.  */
+#define STMT_EXPR_STMT(NODE)    TREE_OPERAND (STMT_EXPR_CHECK (NODE), 0)
 
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {
@@ -3157,17 +3150,10 @@ extern GTY(()) varray_type local_classes;
 
 #define JOINER '$'
 
-#define VPTR_NAME "$v"
-#define THROW_NAME "$eh_throw"
-#define AUTO_VTABLE_NAME "__vtbl$me__"
 #define AUTO_TEMP_NAME "_$tmp_"
-#define AUTO_TEMP_FORMAT "_$tmp_%d"
-#define VTABLE_BASE "$vb"
-#define VTABLE_NAME_PREFIX "__vt_"
 #define VFIELD_BASE "$vf"
 #define VFIELD_NAME "_vptr$"
 #define VFIELD_NAME_FORMAT "_vptr$%s"
-#define STATIC_NAME_FORMAT "_%s$%s"
 #define ANON_AGGRNAME_FORMAT "$_%d"
 
 #else /* NO_DOLLAR_IN_LABEL */
@@ -3176,36 +3162,21 @@ extern GTY(()) varray_type local_classes;
 
 #define JOINER '.'
 
-#define VPTR_NAME ".v"
-#define THROW_NAME ".eh_throw"
-#define AUTO_VTABLE_NAME "__vtbl.me__"
 #define AUTO_TEMP_NAME "_.tmp_"
-#define AUTO_TEMP_FORMAT "_.tmp_%d"
-#define VTABLE_BASE ".vb"
-#define VTABLE_NAME_PREFIX "__vt_"
 #define VFIELD_BASE ".vf"
 #define VFIELD_NAME "_vptr."
 #define VFIELD_NAME_FORMAT "_vptr.%s"
-#define STATIC_NAME_FORMAT "_%s.%s"
 
 #define ANON_AGGRNAME_FORMAT "._%d"
 
 #else /* NO_DOT_IN_LABEL */
 
-#define VPTR_NAME "__vptr"
-#define VPTR_NAME_P(ID_NODE) \
-  (!strncmp (IDENTIFIER_POINTER (ID_NODE), VPTR_NAME, sizeof (VPTR_NAME) - 1))
-#define THROW_NAME "__eh_throw"
 #define IN_CHARGE_NAME "__in_chrg"
-#define AUTO_VTABLE_NAME "__vtbl_me__"
 #define AUTO_TEMP_NAME "__tmp_"
 #define TEMP_NAME_P(ID_NODE) \
   (!strncmp (IDENTIFIER_POINTER (ID_NODE), AUTO_TEMP_NAME, \
 	     sizeof (AUTO_TEMP_NAME) - 1))
-#define AUTO_TEMP_FORMAT "__tmp_%d"
-#define VTABLE_BASE "__vtb"
 #define VTABLE_NAME "__vt_"
-#define VTABLE_NAME_PREFIX "__vt_"
 #define VTABLE_NAME_P(ID_NODE) \
   (!strncmp (IDENTIFIER_POINTER (ID_NODE), VTABLE_NAME, \
 	     sizeof (VTABLE_NAME) - 1))
@@ -3215,7 +3186,6 @@ extern GTY(()) varray_type local_classes;
   (!strncmp (IDENTIFIER_POINTER (ID_NODE), VFIELD_NAME, \
 	    sizeof (VFIELD_NAME) - 1))
 #define VFIELD_NAME_FORMAT "__vptr_%s"
-#define STATIC_NAME_FORMAT "__static_%s_%s"
 
 #define ANON_AGGRNAME_PREFIX "__anon_"
 #define ANON_AGGRNAME_P(ID_NODE) \
@@ -3235,9 +3205,6 @@ extern GTY(()) varray_type local_classes;
 #define VTABLE_PFN_NAME		"__pfn"
 
 #if !defined(NO_DOLLAR_IN_LABEL) || !defined(NO_DOT_IN_LABEL)
-
-#define VPTR_NAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == JOINER \
-			      && IDENTIFIER_POINTER (ID_NODE)[1] == 'v')
 
 #define VTABLE_NAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[1] == 'v' \
   && IDENTIFIER_POINTER (ID_NODE)[2] == 't' \
@@ -3288,8 +3255,6 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
      matching the arguments is found.
    LOOKUP_NORMAL is just a combination of these two.
    LOOKUP_NONVIRTUAL means make a direct call to the member function found
-   LOOKUP_GLOBAL means search through the space of overloaded functions,
-     as well as the space of member functions.
    LOOKUP_ONLYCONVERTING means that non-conversion constructors are not tried.
    DIRECT_BIND means that if a temporary is created, it should be created so
      that it lives as long as the current variable bindings; otherwise it
@@ -3313,16 +3278,15 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define LOOKUP_COMPLAIN (1 << 1)
 #define LOOKUP_NORMAL (LOOKUP_PROTECT | LOOKUP_COMPLAIN)
 #define LOOKUP_NONVIRTUAL (1 << 2)
-#define LOOKUP_GLOBAL (1 << 3)
-#define LOOKUP_ONLYCONVERTING (1 << 4)
-#define DIRECT_BIND (1 << 5)
-#define LOOKUP_NO_CONVERSION (1 << 6)
-#define LOOKUP_DESTRUCTOR (1 << 7)
-#define LOOKUP_NO_TEMP_BIND (1 << 8)
-#define LOOKUP_PREFER_TYPES (1 << 9)
-#define LOOKUP_PREFER_NAMESPACES (1 << 10)
+#define LOOKUP_ONLYCONVERTING (1 << 3)
+#define DIRECT_BIND (1 << 4)
+#define LOOKUP_NO_CONVERSION (1 << 5)
+#define LOOKUP_DESTRUCTOR (1 << 6)
+#define LOOKUP_NO_TEMP_BIND (1 << 7)
+#define LOOKUP_PREFER_TYPES (1 << 8)
+#define LOOKUP_PREFER_NAMESPACES (1 << 9)
 #define LOOKUP_PREFER_BOTH (LOOKUP_PREFER_TYPES | LOOKUP_PREFER_NAMESPACES)
-#define LOOKUP_CONSTRUCTOR_CALLABLE (1 << 11)
+#define LOOKUP_CONSTRUCTOR_CALLABLE (1 << 10)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -4041,7 +4005,7 @@ extern void finish_repo (void);
 
 /* in rtti.c */
 /* A vector of all tinfo decls that haven't been emitted yet.  */
-extern GTY(()) VEC(tree) *unemitted_tinfo_decls;
+extern GTY(()) VEC(tree,gc) *unemitted_tinfo_decls;
 
 extern void init_rtti_processing (void);
 extern tree build_typeid (tree);

@@ -1,3 +1,26 @@
+2005-04-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libffi-dg.exp (libffi-dg-test-1): In regsub use,
+	have Tcl8.3-compatible intermediate variable.
+
+2005-04-18  Simon Posnjak <simon.posnjak@siol.net> 
+	    Hans-Peter Nilsson  <hp@axis.com>
+
+	* Makefile.am: Add CRIS support.
+	* configure.ac: Likewise.
+	* Makefile.in, configure, testsuite/Makefile.in,
+	include/Makefile.in: Regenerate.
+	* src/cris: New directory.
+	* src/cris/ffi.c, src/cris/sysv.S, src/cris/ffitarget.h: New files.
+	* src/prep_cif.c (ffi_prep_cif): Wrap in #ifndef __CRIS__.
+
+	* testsuite/lib/libffi-dg.exp (libffi-dg-test-1): Replace \n with
+	\r?\n in output tests.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
 2005-03-30  Hans Boehm  <Hans.Boehm@hp.com>
 
 	* src/ia64/ffitarget.h (ffi_arg): Use long long instead of DI.

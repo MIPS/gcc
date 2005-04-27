@@ -1097,47 +1097,72 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
     {
       struct goto_queue_node *q, *qe;
       tree return_val = NULL;
-      int return_index;
-      tree *labels;
+      int return_index, index;
+      struct
+      {
+	struct goto_queue_node *q;
+	tree label;
+      } *labels;
 
       if (tf->dest_array)
 	return_index = VARRAY_ACTIVE_SIZE (tf->dest_array);
       else
 	return_index = 0;
-      labels = xcalloc (sizeof (tree), return_index + 1);
+      labels = xcalloc (sizeof (*labels), return_index + 1);
 
       q = tf->goto_queue;
       qe = q + tf->goto_queue_active;
       for (; q < qe; q++)
 	{
-	  int index = q->index < 0 ? return_index : q->index;
-	  tree lab = labels[index];
-	  bool build_p = false;
+	  index = q->index < 0 ? return_index : q->index;
 
-	  if (!lab)
-	    {
-	      labels[index] = lab = create_artificial_label ();
-	      build_p = true;
-	    }
+	  if (!labels[index].q)
+	    labels[index].q = q;
+	}
+
+      for (index = 0; index < return_index + 1; index++)
+	{
+	  tree lab;
+
+	  q = labels[index].q;
+	  if (! q)
+	    continue;
+
+	  lab = labels[index].label = create_artificial_label ();
 
 	  if (index == return_index)
 	    do_return_redirection (q, lab, NULL, &return_val);
 	  else
 	    do_goto_redirection (q, lab, NULL);
 
-	  if (build_p)
-	    {
-	      x = build1 (LABEL_EXPR, void_type_node, lab);
-	      append_to_statement_list (x, &new_stmt);
+	  x = build1 (LABEL_EXPR, void_type_node, lab);
+	  append_to_statement_list (x, &new_stmt);
 
-	      x = lower_try_finally_dup_block (finally, state);
-	      lower_eh_constructs_1 (state, &x);
-	      append_to_statement_list (x, &new_stmt);
+	  x = lower_try_finally_dup_block (finally, state);
+	  lower_eh_constructs_1 (state, &x);
+	  append_to_statement_list (x, &new_stmt);
 
-	      append_to_statement_list (q->cont_stmt, &new_stmt);
-	      maybe_record_in_goto_queue (state, q->cont_stmt);
-	    }
+	  append_to_statement_list (q->cont_stmt, &new_stmt);
+	  maybe_record_in_goto_queue (state, q->cont_stmt);
 	}
+
+      for (q = tf->goto_queue; q < qe; q++)
+	{
+	  tree lab;
+
+	  index = q->index < 0 ? return_index : q->index;
+
+	  if (labels[index].q == q)
+	    continue;
+
+	  lab = labels[index].label;
+
+	  if (index == return_index)
+	    do_return_redirection (q, lab, NULL, &return_val);
+	  else
+	    do_goto_redirection (q, lab, NULL);
+	}
+	
       replace_goto_queue (tf);
       free (labels);
     }
@@ -1251,7 +1276,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   q = tf->goto_queue;
   qe = q + tf->goto_queue_active;
   j = last_case_index + tf->may_return;
-  last_case_index += nlabels;
   for (; q < qe; ++q)
     {
       tree mod;
@@ -1274,20 +1298,37 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
       case_index = j + q->index;
       if (!TREE_VEC_ELT (case_label_vec, case_index))
-	{
-	  last_case = build (CASE_LABEL_EXPR, void_type_node,
-			     build_int_cst (NULL_TREE, switch_id), NULL,
-			     create_artificial_label ());
-	  TREE_VEC_ELT (case_label_vec, case_index) = last_case;
+	TREE_VEC_ELT (case_label_vec, case_index)
+	  = build (CASE_LABEL_EXPR, void_type_node,
+		   build_int_cst (NULL_TREE, switch_id), NULL,
+		   /* We store the cont_stmt in the
+		      CASE_LABEL, so that we can recover it
+		      in the loop below.  We don't create
+		      the new label while walking the
+		      goto_queue because pointers don't
+		      offer a stable order.  */
+		   q->cont_stmt);
+    }
+  for (j = last_case_index; j < last_case_index + nlabels; j++)
+    {
+      tree label;
+      tree cont_stmt;
 
-	  x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
-	  append_to_statement_list (x, &switch_body);
-	  append_to_statement_list (q->cont_stmt, &switch_body);
-	  maybe_record_in_goto_queue (state, q->cont_stmt);
-	}
+      last_case = TREE_VEC_ELT (case_label_vec, j);
+
+      gcc_assert (last_case);
+
+      cont_stmt = CASE_LABEL (last_case);
+
+      label = create_artificial_label ();
+      CASE_LABEL (last_case) = label;
+
+      x = build (LABEL_EXPR, void_type_node, label);
+      append_to_statement_list (x, &switch_body);
+      append_to_statement_list (cont_stmt, &switch_body);
+      maybe_record_in_goto_queue (state, cont_stmt);
     }
   replace_goto_queue (tf);
-  last_case_index += nlabels;
 
   /* Make sure that the last case is the default label, as one is required.
      Then sort the labels, which is also required in GIMPLE.  */
@@ -1763,14 +1804,99 @@ make_eh_edges (tree stmt)
     }
 
   foreach_reachable_handler (region_nr, is_resx, make_eh_edge, stmt);
-  /* If a MUST_NOT_THROW region contains a call that throws, and we
-     inline it, we will need the terminate call, so make sure we
-     don't remove it, even though it can't be reached if we don't
-     do the inline.  */
-  if (!is_resx && eh_region_must_not_throw_p (region_nr))
-    make_eh_edge (eh_region_must_not_throw_p (region_nr), stmt);
 }
 
+static bool mark_eh_edge_found_error;
+
+/* Mark edge make_eh_edge would create for given region by setting it aux
+   field, output error if something goes wrong.  */
+static void
+mark_eh_edge (struct eh_region *region, void *data)
+{
+  tree stmt, lab;
+  basic_block src, dst;
+  edge e;
+
+  stmt = data;
+  lab = get_eh_region_tree_label (region);
+
+  src = bb_for_stmt (stmt);
+  dst = label_to_block (lab);
+
+  e = find_edge (src, dst);
+  if (!e)
+    {
+      error ("EH edge %i->%i is missing %i %i.", src->index, dst->index, src, dst);
+      mark_eh_edge_found_error = true;
+    }
+  else if (!(e->flags & EDGE_EH))
+    {
+      error ("EH edge %i->%i miss EH flag.", src->index, dst->index);
+      mark_eh_edge_found_error = true;
+    }
+  else if (e->aux)
+    {
+      /* ??? might not be mistake.  */
+      error ("EH edge %i->%i has duplicated regions.", src->index, dst->index);
+      mark_eh_edge_found_error = true;
+    }
+  else
+    e->aux = (void *)1;
+}
+
+/* Verify that BB containing stmt as last stmt has precisely the edges
+   make_eh_edges would create.  */
+bool
+verify_eh_edges (tree stmt)
+{
+  int region_nr;
+  bool is_resx;
+  basic_block bb = bb_for_stmt (stmt);
+  edge_iterator ei;
+  edge e;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    gcc_assert (!e->aux);
+  mark_eh_edge_found_error = false;
+  if (TREE_CODE (stmt) == RESX_EXPR)
+    {
+      region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+      is_resx = true;
+    }
+  else
+    {
+      region_nr = lookup_stmt_eh_region (stmt);
+      if (region_nr < 0)
+	{
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    if (e->flags & EDGE_EH)
+	      {
+		error ("BB %i can not throw but has EH edges", bb->index);
+		return true;
+	      }
+	   return false;
+	}
+      if (!tree_could_throw_p (stmt))
+	{
+	  error ("BB %i last statement has incorrectly set region", bb->index);
+	  return true;
+	}
+      is_resx = false;
+    }
+
+  foreach_reachable_handler (region_nr, is_resx, mark_eh_edge, stmt);
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      if ((e->flags & EDGE_EH) && !e->aux)
+	{
+	  error ("Unnecesary EH edge %i->%i", bb->index, e->dest->index);
+	  mark_eh_edge_found_error = true;
+	  return true;
+	}
+      e->aux = NULL;
+    }
+  return mark_eh_edge_found_error;
+}
 
 
 /* Return true if the expr can trap, as in dereferencing an invalid pointer

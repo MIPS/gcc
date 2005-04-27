@@ -51,8 +51,6 @@ Boston, MA 02111-1307, USA.  */
    The routines in this file are concerned with creating this operand cache 
    from a stmt tree.
 
-   get_stmt_operands() in the primary entry point. 
-
    The operand tree is the parsed by the various get_* routines which look 
    through the stmt tree for the occurrence of operands which may be of 
    interest, and calls are made to the append_* routines whenever one is 
@@ -82,7 +80,7 @@ Boston, MA 02111-1307, USA.  */
 */
 
 
-/* Flags to describe operand properties in get_stmt_operands and helpers.  */
+/* Flags to describe operand properties in helpers.  */
 
 /* By default, operands are loaded.  */
 #define opf_none	0
@@ -522,9 +520,7 @@ finalize_ssa_uses (use_optype *old_ops_p, tree stmt)
   {
     unsigned x;
     /* If the pointer to the operand is the statement itself, something is
-       wrong.  It means that we are pointing to a local variable (the 
-       initial call to get_stmt_operands does not pass a pointer to a 
-       statement).  */
+       wrong.  It means that we are pointing to a local variable.  */
     for (x = 0; x < num; x++)
       gcc_assert (*(VARRAY_TREE_PTR (build_uses, x)) != stmt);
   }
@@ -1090,7 +1086,7 @@ parse_ssa_operands (tree stmt)
 
     default:
       /* Notice that if get_expr_operands tries to use &STMT as the operand
-	 pointer (which may only happen for USE operands), we will abort in
+	 pointer (which may only happen for USE operands), we will fail in
 	 append_use.  This default will handle statements like empty
 	 statements, or CALL_EXPRs that may appear on the RHS of a statement
 	 or as statements themselves.  */
@@ -1221,9 +1217,7 @@ swap_tree_operands (tree *exp0, tree *exp1)
   *exp1 = op0;
 }
 
-/* Get the operands of statement STMT.  Note that repeated calls to
-   get_stmt_operands for the same statement will do nothing until the
-   statement is marked modified by a call to mark_stmt_modified().  */
+/* Get the operands of statement STMT.  */
 
 void
 update_stmt_operands (tree stmt)
@@ -1231,8 +1225,7 @@ update_stmt_operands (tree stmt)
   stmt_ann_t ann;
   stmt_operands_t old_operands;
 
-  /* If get_stmt_operands is called before SSA is initialized, dont
-  do anything.  */
+  /* Don't do anything if we are called before SSA is initialized.  */
   if (build_defs == NULL)
     return;
   /* The optimizers cannot handle statements that are nothing but a
@@ -1251,9 +1244,7 @@ update_stmt_operands (tree stmt)
   build_ssa_operands (stmt, ann, &old_operands, &(ann->operands));
   free_ssa_operands (&old_operands);
 
-  /* Clear the modified bit for STMT.  Subsequent calls to
-     get_stmt_operands for this statement will do nothing until the
-     statement is marked modified by a call to mark_stmt_modified().  */
+  /* Clear the modified bit for STMT.  */
   ann->modified = 0;
 
   timevar_pop (TV_TREE_OPS);
@@ -1696,7 +1687,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   /* Everything else *should* have been folded elsewhere, but users
      are smarter than we in finding ways to write invalid code.  We
-     cannot just abort here.  If we were absolutely certain that we
+     cannot just assert here.  If we were absolutely certain that we
      do handle all valid cases, then we could just do nothing here.
      That seems optimistic, so attempt to do something logical... */
   else if ((TREE_CODE (ptr) == PLUS_EXPR || TREE_CODE (ptr) == MINUS_EXPR)
@@ -2329,29 +2320,6 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
   ann->operands.vuse_ops = finalize_ssa_vuses (&(tmp.vuse_ops), NULL);
 }
 
-
-
-/* Issue immediate use error for VAR to debug file F.  */
-static void 
-verify_abort (FILE *f, ssa_imm_use_t *var)
-{
-  tree stmt;
-  stmt = var->stmt;
-  if (stmt)
-    {
-      if (stmt_modified_p(stmt))
-	{
-	  fprintf (f, " STMT MODIFIED. - <%p> ", (void *)stmt);
-	  print_generic_stmt (f, stmt, TDF_SLIM);
-	}
-    }
-  fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)var, 
-	   (void *)var->use);
-  print_generic_expr (f, USE_FROM_PTR (var), TDF_SLIM);
-  fprintf(f, "\n");
-}
-
-
 /* Scan the immediate_use list for VAR making sure its linked properly.
    return RTUE iof there is a problem.  */
 
@@ -2378,31 +2346,18 @@ verify_imm_links (FILE *f, tree var)
   for (ptr = list->next; ptr != list; )
     {
       if (prev != ptr->prev)
-        {
-	  verify_abort (f, ptr);
-	  return true;
-	}
-
+	goto error;
+      
       if (ptr->use == NULL)
-        {
-	  verify_abort (f, ptr); 	/* 2 roots, or SAFE guard node.  */
-	  return true;
-	}
-      else
-	if (*(ptr->use) != var)
-	  {
-	    verify_abort (f, ptr);
-	    return true;
-	  }
+	goto error; /* 2 roots, or SAFE guard node.  */
+      else if (*(ptr->use) != var)
+	goto error;
 
       prev = ptr;
       ptr = ptr->next;
       /* Avoid infinite loops.  */
       if (count++ > 30000)
-	{
-	  verify_abort (f, ptr);
-	  return true;
-	}
+	goto error;
     }
 
   /* Verify list in the other direction.  */
@@ -2410,26 +2365,29 @@ verify_imm_links (FILE *f, tree var)
   for (ptr = list->prev; ptr != list; )
     {
       if (prev != ptr->next)
-	{
-	  verify_abort (f, ptr);
-	  return true;
-	}
+	goto error;
       prev = ptr;
       ptr = ptr->prev;
       if (count-- < 0)
-	{
-	  verify_abort (f, ptr);
-	  return true;
-	}
+	goto error;
     }
 
   if (count != 0)
-    {
-      verify_abort (f, ptr);
-      return true;
-    }
+    goto error;
 
   return false;
+
+ error:
+  if (ptr->stmt && stmt_modified_p (ptr->stmt))
+    {
+      fprintf (f, " STMT MODIFIED. - <%p> ", (void *)ptr->stmt);
+      print_generic_stmt (f, ptr->stmt, TDF_SLIM);
+    }
+  fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)ptr, 
+	   (void *)ptr->use);
+  print_generic_expr (f, USE_FROM_PTR (ptr), TDF_SLIM);
+  fprintf(f, "\n");
+  return true;
 }
 
 

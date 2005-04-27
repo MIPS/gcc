@@ -9283,7 +9283,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 
 #ifdef ENABLE_CHECKING
       /* Otherwise this is a generic code; we should just lists all of
-	 these explicitly.  Aborting means we forgot one.  */
+	 these explicitly.  We forgot one.  */
       gcc_unreachable ();
 #else
       /* In a release build, we want to degrade gracefully: better to
@@ -10583,7 +10583,7 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
      trees (in the case of java, they simply have no block tree, in some other
      languages).  For these functions, there is nothing we can really do to
      output correct debug info for inlined functions in all cases.  Rather
-     than abort, we'll just produce deficient debug info now, in that we will
+     than die, we'll just produce deficient debug info now, in that we will
      have variables without a proper abstract origin.  In the future, when all
      functions are lowered, we should re-add a gcc_assert (origin_die)
      here.  */
@@ -11615,8 +11615,13 @@ gen_variable_die (tree decl, dw_die_ref context_die)
      copy decls and set the DECL_ABSTRACT flag on them instead of
      sharing them.
 
-     ??? Duplicated blocks have been rewritten to use .debug_ranges.  */
-  else if (old_die && TREE_STATIC (decl)
+     ??? Duplicated blocks have been rewritten to use .debug_ranges.
+
+     ??? The declare_in_namespace support causes us to get two DIEs for one
+     variable, both of which are declarations.  We want to avoid considering
+     one to be a specification, so we must test that this DIE is not a
+     declaration.  */
+  else if (old_die && TREE_STATIC (decl) && ! declaration
 	   && get_AT_flag (old_die, DW_AT_declaration) == 1)
     {
       /* This is a definition of a C++ class level static.  */
@@ -11999,7 +12004,7 @@ gen_member_die (tree type, dw_die_ref context_die)
   /* First output info about the base classes.  */
   if (binfo)
     {
-      VEC (tree) *accesses = BINFO_BASE_ACCESSES (binfo);
+      VEC(tree,gc) *accesses = BINFO_BASE_ACCESSES (binfo);
       int i;
       tree base;
 
@@ -12535,7 +12540,7 @@ is_redundant_typedef (tree decl)
   return 0;
 }
 
-/* Returns the DIE for decl or aborts.  */
+/* Returns the DIE for decl.  A DIE will always be returned.  */
 
 static dw_die_ref
 force_decl_die (tree decl)
@@ -12588,8 +12593,7 @@ force_decl_die (tree decl)
 	  gcc_unreachable ();
 	}
 
-      /* See if we can find the die for this deci now.
-	 If not then abort.  */
+      /* We should be able to find the DIE now.  */
       if (!decl_die)
 	decl_die = lookup_decl_die (decl);
       gcc_assert (decl_die);
@@ -12598,7 +12602,7 @@ force_decl_die (tree decl)
   return decl_die;
 }
 
-/* Returns the DIE for decl or aborts.  */
+/* Returns the DIE for TYPE.  A DIE is always returned.  */
 
 static dw_die_ref
 force_type_die (tree type)

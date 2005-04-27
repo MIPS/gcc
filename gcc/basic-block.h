@@ -145,7 +145,8 @@ struct edge_def GTY(())
 };
 
 typedef struct edge_def *edge;
-DEF_VEC_GC_P(edge);
+DEF_VEC_P(edge);
+DEF_VEC_ALLOC_P(edge,gc);
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -220,8 +221,8 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   tree stmt_list;
 
   /* The edges into and out of the block.  */
-  VEC(edge) *preds;
-  VEC(edge) *succs;
+  VEC(edge,gc) *preds;
+  VEC(edge,gc) *succs;
 
   /* The registers that are live on entry to this block.  */
   bitmap GTY ((skip (""))) global_live_at_start;
@@ -396,7 +397,7 @@ struct control_flow_graph GTY(())
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
   (VARRAY_BB (basic_block_info_for_function(FN), (N)))
 
-/* Defines for texual backward source compatibility.  */
+/* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
 #define EXIT_BLOCK_PTR		(cfun->cfg->x_exit_block_ptr)
 #define basic_block_info	(cfun->cfg->x_basic_block_info)
@@ -656,10 +657,10 @@ single_pred (basic_block bb)
 
 typedef struct {
   unsigned index;
-  VEC(edge) **container;
+  VEC(edge,gc) **container;
 } edge_iterator;
 
-static inline VEC(edge) *
+static inline VEC(edge,gc) *
 ei_container (edge_iterator i)
 {
   gcc_assert (i.container);
@@ -671,7 +672,7 @@ ei_container (edge_iterator i)
 
 /* Return an iterator pointing to the start of an edge vector.  */
 static inline edge_iterator
-ei_start_1 (VEC(edge) **ev)
+ei_start_1 (VEC(edge,gc) **ev)
 {
   edge_iterator i;
 
@@ -684,7 +685,7 @@ ei_start_1 (VEC(edge) **ev)
 /* Return an iterator pointing to the last element of an edge
    vector.  */
 static inline edge_iterator
-ei_last_1 (VEC(edge) **ev)
+ei_last_1 (VEC(edge,gc) **ev)
 {
   edge_iterator i;
 
@@ -786,9 +787,8 @@ enum update_life_extent
 #define PROP_ALLOW_CFG_CHANGES	32	/* Allow the CFG to be changed
 					   by dead code removal.  */
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
-#define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
-#define PROP_SCAN_DEAD_STORES	256	/* Scan for dead code.  */
-#define PROP_ASM_SCAN		512	/* Internal flag used within flow.c
+#define PROP_SCAN_DEAD_STORES	128	/* Scan for dead code.  */
+#define PROP_ASM_SCAN		256	/* Internal flag used within flow.c
 					   to flag analysis of asms.  */
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
@@ -867,7 +867,7 @@ extern int delete_noop_moves (void);
 extern basic_block force_nonfallthru (edge);
 extern rtx block_label (basic_block);
 extern bool forwarder_block_p (basic_block);
-extern bool purge_all_dead_edges (int);
+extern bool purge_all_dead_edges (void);
 extern bool purge_dead_edges (basic_block);
 extern void find_many_sub_basic_blocks (sbitmap);
 extern void rtl_make_eh_edge (sbitmap, basic_block, rtx);

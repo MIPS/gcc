@@ -886,7 +886,7 @@ combine_instructions (rtx f, unsigned int nregs)
 
   EXECUTE_IF_SET_IN_SBITMAP (refresh_blocks, 0, i,
 			     BASIC_BLOCK (i)->flags |= BB_DIRTY);
-  new_direct_jump_p |= purge_all_dead_edges (0);
+  new_direct_jump_p |= purge_all_dead_edges ();
   delete_noop_moves ();
 
   update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
@@ -1527,7 +1527,7 @@ cant_combine_insn_p (rtx insn)
   /* Never combine loads and stores involving hard regs that are likely
      to be spilled.  The register allocator can usually handle such
      reg-reg moves by tying.  If we allow the combiner to make
-     substitutions of likely-spilled regs, we may abort in reload.
+     substitutions of likely-spilled regs, reload might die.
      As an exception, we allow combinations involving fixed regs; these are
      not available to the register allocator so there's no risk involved.  */
 
@@ -2096,8 +2096,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       || (i1 != 0 && FIND_REG_INC_NOTE (i1, NULL_RTX) != 0
 	  && (n_occurrences + added_sets_1 + (added_sets_2 && ! i1_feeds_i3)
 	      > 1))
-      /* Fail if we tried to make a new register (we used to abort, but there's
-	 really no reason to).  */
+      /* Fail if we tried to make a new register.  */
       || max_reg_num () != maxreg
       /* Fail if we couldn't do something and have a CLOBBER.  */
       || GET_CODE (newpat) == CLOBBER

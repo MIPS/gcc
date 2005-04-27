@@ -221,13 +221,15 @@ Objective-C and Objective-C++ Dialects}.
 -Wformat-security  -Wformat-y2k @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Wimport  -Wno-import  -Winit-self  -Winline @gol
+-Wno-int-to-pointer-cast @gol
 -Wno-invalid-offsetof  -Winvalid-pch @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
 -Wno-multichar  -Wnonnull  -Wpacked  -Wpadded @gol
--Wparentheses  -Wpointer-arith  -Wredundant-decls @gol
+-Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
+-Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
 -Wsign-compare  -Wstrict-aliasing -Wstrict-aliasing=2 @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
@@ -3159,7 +3161,7 @@ inline functions declared in system headers.
 
 The compiler uses a variety of heuristics to determine whether or not
 to inline a function.  For example, the compiler takes into account
-the size of the function being inlined and the the amount of inlining
+the size of the function being inlined and the amount of inlining
 that has already been done in the current function.  Therefore,
 seemingly insignificant changes in the source program can cause the
 warnings produced by @option{-Winline} to appear or disappear.
@@ -3178,6 +3180,16 @@ warning about it.
 
 The restrictions on @samp{offsetof} may be relaxed in a future version
 of the C++ standard.
+
+@item -Wno-int-to-pointer-cast @r{(C only)}
+@opindex Wno-int-to-pointer-cast
+Suppress warnings from casts to pointer type of an integer of a
+different size.
+
+@item -Wno-pointer-to-int-cast @r{(C only)}
+@opindex Wno-pointer-to-int-cast
+Suppress warnings from casts from a pointer to an integer type of a
+different size.
 
 @item -Winvalid-pch
 @opindex Winvalid-pch
@@ -3520,7 +3532,7 @@ conversion, to the file @file{@var{file}.18.ce2}.
 @opindex fdump-rtl-btl
 @opindex fdump-rtl-dbr
 @option{-dd} and @option{-fdump-rtl-btl} enable dumping after branch
-target load optimization, to to @file{@var{file}.31.btl}.  @option{-dd}
+target load optimization, to @file{@var{file}.31.btl}.  @option{-dd}
 and @option{-fdump-rtl-dbr} enable dumping after delayed branch
 scheduling, to @file{@var{file}.36.dbr}.
 
@@ -4173,7 +4185,7 @@ compilation time.
 -fif-conversion2 @gol
 -ftree-ccp @gol
 -ftree-dce @gol
--ftree-dom @gol
+-ftree-dominator-opts @gol
 -ftree-dse @gol
 -ftree-ter @gol
 -ftree-lrs @gol
@@ -4816,7 +4828,7 @@ performance and allow further loop optimizations to take place.
 
 @item -ftree-loop-im
 Perform loop invariant motion on trees.  This pass moves only invariants that
-would be hard to handle on rtl level (function calls, operations that expand to
+would be hard to handle at RTL level (function calls, operations that expand to
 nontrivial sequences of insns).  With @option{-funswitch-loops} it also moves
 operands of conditions that are invariant out of the loop, so that we can use
 just trivial invariantness analysis in loop unswitching.  The pass also includes
@@ -5668,6 +5680,10 @@ If number of candidates in the set is smaller than this value,
 we always try to remove unnecessary ivs from the set during its
 optimization when a new iv is added to the set.
 
+@item scev-max-expr-size
+Bound on size of expressions used in the scalar evolutions analyzer.
+Large expressions slow the analyzer.
+
 @item max-iterations-to-track
 
 The maximum number of iterations of a loop the brute force algorithm
@@ -5810,6 +5826,18 @@ is 10000.
 Small integer constants can use a shared data structure, reducing the
 compiler's memory usage and increasing its speed.  This sets the maximum
 value of a shared integer constant's.  The default value is 256.
+
+@item min-virtual-mappings
+Specifies the minimum number of virtual mappings in the incremental
+SSA updater that should be registered to trigger the virtual mappings
+heuristic defined by virtual-mappings-ratio.  The default value is
+100.
+
+@item virtual-mappings-ratio
+If the number of virtual mappings is virtual-mappings-ratio bigger
+than the number of virtual symbols to be updated, then the incremental
+SSA updater switches to a full update for those symbols.  The default
+ratio is 3.
 
 @end table
 @end table
@@ -7251,7 +7279,7 @@ by default.
 Don't generate extra code to prevent speculative loads from occurring.
 
 @item -mlow-64k
-@opindex
+@opindex mlow-64k
 When enabled, the compiler is free to take advantage of the knowledge that
 the entire program fits into the low 64k of memory.
 
@@ -10549,7 +10577,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{860}, @samp{970}, @samp{8540}, @samp{common}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
 @samp{power4}, @samp{power5}, @samp{powerpc}, @samp{powerpc64},
-@samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
+@samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
 generated under this option will run on any POWER or PowerPC processor.
@@ -11456,7 +11484,7 @@ These @samp{-m} options are supported on the SPARC:
 @opindex mapp-regs
 Specify @option{-mapp-regs} to generate output using the global registers
 2 through 4, which the SPARC SVR4 ABI reserves for applications.  This
-is the default.
+is the default, except on Solaris.
 
 To be fully SVR4 ABI compliant at the cost of some performance loss,
 specify @option{-mno-app-regs}.  You should compile libraries and system
@@ -12799,7 +12827,7 @@ for creating and using precompiled headers.
 Any macros defined before the precompiled header is included must
 either be defined in the same way as when the precompiled header was
 generated, or must not affect the precompiled header, which usually
-means that the they don't appear in the precompiled header at all.
+means that they don't appear in the precompiled header at all.
 
 The @option{-D} option is one way to define a macro before a
 precompiled header is included; using a @code{#define} can also do it.
