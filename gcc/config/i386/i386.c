@@ -1736,13 +1736,10 @@ reset_optimization_options (int level, int size ATTRIBUTE_UNUSED)
 
   /* The default values of these switches depend on TARGET_64BIT
      which was set earlier and not reset.  */
-  if (optimize >= 1)
-    {
-      if (TARGET_64BIT)
-	flag_omit_frame_pointer = 1;
-      else
-	flag_omit_frame_pointer = 0;
-    }
+  /* This is Darwin specific, see SUBTARGET_OVERRIDE_OPTIONS.  */
+  if (optimize > 0 || optimize_size)
+    flag_omit_frame_pointer = 1;
+
 #ifdef SUBTARGET_OPTIMIZATION_OPTIONS
   SUBTARGET_OPTIMIZATION_OPTIONS;
 #endif
@@ -10756,6 +10753,10 @@ ix86_split_long_move (rtx operands[])
   if (push && GET_CODE (operands[1]) == MEM
       && reg_overlap_mentioned_p (stack_pointer_rtx, operands[1]))
     {
+      /* APPLE LOCAL begin 4099768 */
+      if (nparts == 3 && TARGET_128BIT_LONG_DOUBLE && mode == XFmode)
+	part[1][2] = adjust_address (part[1][2], SImode, 4);
+      /* APPLE LOCAL end 4099768 */
       if (nparts == 3)
 	part[1][1] = change_address (part[1][1], GET_MODE (part[1][1]),
 				     XEXP (part[1][2], 0));

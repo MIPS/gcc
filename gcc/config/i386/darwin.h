@@ -209,7 +209,7 @@ extern void darwin_x86_file_end (void);
 /* APPLE LOCAL end SSE stack alignment */
 
 /* APPLE LOCAL begin fix-and-continue x86 */
-#undef SUBTARGET_OVERRIDE_OPTIONS				\
+#undef SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS				\
   do {								\
     /* Handle -mfix-and-continue.  */				\
@@ -222,6 +222,11 @@ extern void darwin_x86_file_end (void);
 	  error ("invalid option %qs", base);			\
 	darwin_fix_and_continue = (base[0] != 'n');		\
       }								\
+    /* APPLE LOCAL begin 4096578 */			        \
+    if (flag_omit_frame_pointer == 2				\
+	&& (optimize > 0 || optimize_size))			\
+      flag_omit_frame_pointer = 1;				\
+    /* APPLE LOCAL end 4096578 */			        \
   } while (0)
 
 /* True, iff we're generating fast turn around debugging code.  When

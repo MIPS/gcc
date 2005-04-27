@@ -1,3 +1,16 @@
+2005-04-26  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4099768
+	* config/i386/i386.c (ix86_split_long_mode):  Adjust
+	stack offsets for 128-bit long doubles correctly.
+
+2005-04-26  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4096578
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Default omit-frame-pointer on with optimization.
+	* config/i386/i386.c (reset_optimization_options):  Ditto.
+
 2005-04-26  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4010496
@@ -19,6 +32,7 @@
 	Radar 4095956
 	* config/darwin.h (REAL_LIBGCC_GCC): Use -lgcc_static.
 
+>>>>>>> 1.1.4.50
 2005-04-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 3954848
