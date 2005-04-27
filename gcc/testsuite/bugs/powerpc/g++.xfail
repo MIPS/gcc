@@ -105,3 +105,4 @@
 4097506: g++.dg/ext/opt-pragma-3.C scan-assembler-times b "L_printf 4
 4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times b "L_printf 2
 4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times bl "L_printf 2
+4099260: g++.old-deja/g++.brendan/new3.C execution test
