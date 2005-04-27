@@ -617,6 +617,8 @@ cni_code_generator::generate (model_class *klass)
   out << "class " << cxxname (klass, false);
   if (klass->get_superclass ())
     out << " : public ::" << cxxname (klass->get_superclass (), false);
+  else
+    out << " : public ::java::lang::Object";
   out << std::endl;
   out << "{" << std::endl;
 
@@ -656,7 +658,11 @@ cni_code_generator::generate (model_class *klass)
 
   out << "  static ::java::lang::Class class$;" << std::endl;
 
-  out << "};" << std::endl
+  out << "}";
+  if (klass->interface_p ())
+    out << " __attribute__ ((__java_interface__))";
+
+  out << ";" << std::endl
       << std::endl;
 
   emit_actions (out, CNI_APPEND, actions);

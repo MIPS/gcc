@@ -1,3 +1,8 @@
+2005-04-17  Tom Tromey  <tromey@redhat.com>
+
+	* header/cni.cc (generate): Superclass of interface is Object.
+	Emit attribute for java interface.
+
 2005-04-23  Tom Tromey  <tromey@redhat.com>
 
 	* model/invoke.cc (find_method): Call 'set_used' before early
