@@ -758,7 +758,11 @@ tree_builtins::lay_out_class (model_class *klass)
 	}
     }
 
-  lay_out_vtable (klass);
+  // Laying out an array's vtable here is incorrect, since we don't
+  // plan to write out the vtable.  FIXME: really we should only lay
+  // out a vtable when we write the C++ ABI class itself...?
+  if (! klass->array_p ())
+    lay_out_vtable (klass);
 
   layout_type (klass_record);
   return klass_tree;
