@@ -1,3 +1,10 @@
+2005-04-27  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.c (target_thread_pointer): Default to TP_SOFT.
+	(arm_override_options, arm_load_tp): Remove -mtp=linux support.
+	* config/arm/arm.h (TARGET_LINUX_TP): Delete.
+	(enum arm_tp_type): Remove TP_LINUX.
+
 2005-04-26  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.md (thumb_mulsi3): Use two-operand assembly form.

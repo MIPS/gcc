@@ -301,7 +301,6 @@ extern GTY(()) rtx aof_pic_label;
 
 #define TARGET_HARD_TP			(target_thread_pointer == TP_CP15)
 #define TARGET_SOFT_TP			(target_thread_pointer == TP_SOFT)
-#define TARGET_LINUX_TP			(target_thread_pointer == TP_LINUX)
 
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
@@ -511,8 +510,7 @@ extern enum arm_abi_type arm_abi;
 /* Which thread pointer access sequence to use.  */
 enum arm_tp_type {
   TP_SOFT,
-  TP_CP15,
-  TP_LINUX
+  TP_CP15
 };
 
 extern enum arm_tp_type target_thread_pointer;

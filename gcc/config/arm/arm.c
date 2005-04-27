@@ -402,7 +402,7 @@ const char * target_abi_name = NULL;
 /* Set by the -mtp=... option.  */
 const char * target_thread_switch = NULL;
 
-enum arm_tp_type target_thread_pointer;
+enum arm_tp_type target_thread_pointer = TP_SOFT;
 
 /* Used to parse -mstructure_size_boundary command line option.  */
 const char * structure_size_string = NULL;
@@ -1149,20 +1149,12 @@ arm_override_options (void)
       && (tune_flags & FL_MODE32) == 0)
     flag_schedule_insns = flag_schedule_insns_after_reload = 0;
 
-  /* Default to the appropriate thread pointer access method.  */
-  if (arm_abi == ARM_ABI_AAPCS_LINUX)
-    target_thread_pointer = TP_LINUX;
-  else
-    target_thread_pointer = TP_SOFT;
-
   if (target_thread_switch)
     {
       if (strcmp (target_thread_switch, "soft") == 0)
 	target_thread_pointer = TP_SOFT;
       else if (strcmp (target_thread_switch, "cp15") == 0)
 	target_thread_pointer = TP_CP15;
-      else if (strcmp (target_thread_switch, "linux") == 0)
-	target_thread_pointer = TP_LINUX;
       else
 	error ("invalid thread pointer option: -mtp=%s", target_thread_switch);
     }
@@ -3708,18 +3700,6 @@ arm_load_tp (rtx target)
 	target = gen_reg_rtx (SImode);
       
       emit_insn (gen_load_tp_hard (target));
-    }
-  else if (TARGET_LINUX_TP)
-    {
-      rtx tp;
-
-      /* Can return in any reg.  */
-      if (!target)
-	target = gen_reg_rtx (SImode);
-
-      tp = gen_rtx_MEM (Pmode, gen_int_mode (0xffff0ffc, Pmode));
-      RTX_UNCHANGING_P (tp) = 1;
-      emit_move_insn (target, tp);
     }
   else
     {
