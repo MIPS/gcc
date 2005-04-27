@@ -245,7 +245,8 @@ jni_code_generator::write_field (std::ostream &out, const std::string &cname,
       || ! field->type ()->primitive_p ())
     return;
 
-  out << "#undef " << cname << "_" << field->get_name ()
+  out << "#undef " << cname << "_" << field->get_name () << std::endl
+      << "#define " << cname << "_" << field->get_name ()
       << " " << field->get_initializer ()->string_value ()
       << std::endl;
 }
