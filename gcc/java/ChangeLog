@@ -1,3 +1,10 @@
+2005-04-26  Tom Tromey  <tromey@redhat.com>
+
+	* treegen.cc (generate): Clear DECL_EXTERNAL.
+	* tree.cc (visit_method): Clear DECL_EXTERNAL.
+	(build_jni_stub): Don't bother setting DECL_EXTERNAL.
+	* builtins.cc (add): Always set DECL_EXTERNAL.
+
 2005-04-18  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (build_jni_stub): Make a block and link it into the

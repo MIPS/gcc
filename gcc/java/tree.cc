@@ -121,6 +121,9 @@ tree_generator::visit_method (model_method *meth,
   gcc_builtins->lay_out_class (meth->get_declaring_class ());
   method_tree = gcc_builtins->map_method (meth);
 
+  if (block || flag_jni)
+    DECL_EXTERNAL (method_tree) = 0;
+
   if (block)
     {
       assert (this_tree == NULL_TREE);
@@ -177,7 +180,6 @@ tree_generator::visit_method (model_method *meth,
       else
 	{
 	  // For CNI (old ABI) just generate an external reference.
-	  DECL_EXTERNAL (method_tree) = 1;
 	}
     }
 
@@ -194,7 +196,6 @@ tree_generator::build_jni_stub ()
   DECL_INITIAL (method_tree) = current_block;
 
   DECL_ARTIFICIAL (method_tree) = 1;
-  DECL_EXTERNAL (method_tree) = 0;
 
   tree env_var = build_decl (VAR_DECL, get_identifier ("env"), ptr_type_node);
   DECL_CONTEXT (env_var) = method_tree;

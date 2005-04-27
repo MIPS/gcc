@@ -94,6 +94,7 @@ tree_code_generator::generate (model_class *the_class)
 	continue;
 
       tree field = builtins->map_field ((*i).get ());
+      DECL_EXTERNAL (field) = 0;
       cgraph_varpool_finalize_decl (field);
     }
 

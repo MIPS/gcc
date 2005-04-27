@@ -151,9 +151,10 @@ tree_builtins::add (tree context, model_method *meth)
       || meth->static_p ()
       || meth->final_p ())
     DECL_INLINE (result) = 1;
-  if (meth->native_p ())
-    DECL_EXTERNAL (result) = 1;
-  // FIXME: if we're not compiling this method, set DECL_EXTERNAL.
+
+  // We mark all methods as external, but then we clear this bit when
+  // we actually compile the method in question.
+  DECL_EXTERNAL (result) = 1;
 
   methodmap[meth] = result;
 }
@@ -186,7 +187,9 @@ tree_builtins::add (tree context, model_field *field)
     }
   else
     {
-      DECL_EXTERNAL (result) = 1;	// FIXME unless we're compiling it...
+      // We clear this later if we compile the field's declaring
+      // class.
+      DECL_EXTERNAL (result) = 1;
       pushdecl (result);
     }
 
