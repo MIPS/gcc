@@ -1,3 +1,9 @@
+2005-04-26  Tom Tromey  <tromey@redhat.com>
+
+	* aot/mangle.cc (update): Create separate entry for pointer type.
+	(update_array): Likewise.
+	(update): Emit pending characters at end if needed.
+
 2005-04-18  Tom Tromey  <tromey@redhat.com>
 
 	* header/jni.cc (write_field): Actually emit #define.

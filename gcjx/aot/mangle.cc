@@ -200,6 +200,10 @@ mangler::update (const std::string &name)
 	}
     }
 
+  // Emit any characters we recognized.
+  for (int i = 0; i < state; ++i)
+    output << search[i];
+
   std::string s = output.str ();
   char buf[20];
   sprintf (buf, "%d", s.length ());
@@ -246,6 +250,7 @@ mangler::update_array (model_array_type *t)
 	  result += "6JArrayI";
 	  update (t->element_type (), true);
 	  result += "E";
+	  insert (t, false);
 	  insert (t, true);
 	}
     }
@@ -265,6 +270,7 @@ mangler::update (model_type *t, bool is_pointer)
   else
     {
       bool enter = false;
+      bool enter_pointer = false;
       if (is_pointer)
 	{
 	  int n = find_compression (t, true);
@@ -274,7 +280,7 @@ mangler::update (model_type *t, bool is_pointer)
 	      return;
 	    }
 	  result += "P";
-	  enter = true;
+	  enter_pointer = true;
 	}
       int n = find_compression (t, false);
       if (n >= 0)
@@ -294,7 +300,9 @@ mangler::update (model_type *t, bool is_pointer)
 	}
 
       if (enter)
-	insert (t, is_pointer);
+	insert (t, false);
+      if (enter_pointer)
+	insert (t, true);
     }
 }
 

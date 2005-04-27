@@ -298,6 +298,10 @@ X gcjh has options to add text to the header in different places;
 
 Tree generation
 
+put _Jv_ThrowNoSuchMethodError into vtable for abstract methods
+could pass in method and class name too...
+
+
 look at
 http://gcc.gnu.org/cgi-bin/cvsweb.cgi/gcc/gcc/java/class.c.diff?cvsroot=gcc&r1=1.222&r2=1.223
 
