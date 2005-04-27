@@ -663,7 +663,13 @@ tree_builtins::lay_out_vtable (model_class *mklass)
        i != vtable.end ();
        ++i)
     {
-      TREE_VEC_ELT (vtable_tree, index) = build_address_of (map_method (*i));
+      tree meth;
+      // FIXME: consider using _Jv_ThrowNoSuchMethodError.
+      if ((*i)->abstract_p ())
+	meth = null_pointer_node;
+      else
+	meth = build_address_of (map_method (*i));
+      TREE_VEC_ELT (vtable_tree, index) = meth;
       ++index;
     }
 

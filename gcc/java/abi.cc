@@ -267,6 +267,9 @@ cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
 tree
 cxx_abi::get_vtable (tree_builtins *builtins, model_class *klass)
 {
+  // An interface doesn't have a vtable.
+  if (klass->interface_p ())
+    return null_pointer_node;
   return build_address_of (builtins->get_vtable_decl (klass));
 }
 
