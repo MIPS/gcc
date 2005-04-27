@@ -32,7 +32,6 @@
 	Radar 4095956
 	* config/darwin.h (REAL_LIBGCC_GCC): Use -lgcc_static.
 
->>>>>>> 1.1.4.50
 2005-04-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 3954848
