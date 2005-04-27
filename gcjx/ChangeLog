@@ -1,3 +1,7 @@
+2005-04-18  Tom Tromey  <tromey@redhat.com>
+
+	* header/jni.cc (generate): Only write native methods.
+
 2005-04-17  Tom Tromey  <tromey@redhat.com>
 
 	* header/cni.cc (generate): Superclass of interface is Object.

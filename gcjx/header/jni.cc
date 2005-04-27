@@ -320,6 +320,8 @@ jni_code_generator::generate (model_class *klass)
        i != methods.end ();
        ++i)
     {
+      if (((*i)->get_modifiers () & ACC_NATIVE) == 0)
+	continue;
       std::string name = (*i)->get_name ();
       if (name_map.find (name) != name_map.end ())
 	write_method (out, (*i).get (), cname, name_map[name]);
