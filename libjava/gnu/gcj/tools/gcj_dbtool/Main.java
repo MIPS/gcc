@@ -245,7 +245,7 @@ public class Main
 	if (classfile.getName().endsWith(".class"))
 	  {
 	    InputStream str = jar.getInputStream(classfile);
-	    long length = classfile.getSize();
+	    int length = (int) classfile.getSize();
 	    if (length == -1)
 	      throw new EOFException();
 

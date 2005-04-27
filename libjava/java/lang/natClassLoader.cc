@@ -148,8 +148,9 @@ _Jv_RegisterClassHookDefault (jclass klass)
   // data references via the appropriate class loader, so the kludge
   // that required this check has gone.
   // If the class is already registered, don't re-register it.
-  jclass check_class = klass->next;
-  while (check_class != NULL)
+  for (jclass check_class = loaded_classes[hash];
+       check_class != NULL;
+       check_class = check_class->next)
     {
       if (check_class == klass)
 	{
