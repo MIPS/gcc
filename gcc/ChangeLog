@@ -1,3 +1,175 @@
+2005-04-28  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config.gcc: Obsolete c4x-* and tic4x-*.
+
+2005-04-28  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-typeck.c (build_compound_expr): Correct logic in last change.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21159
+	* c-typeck.c (build_compound_expr): Don't warn for left-hand side
+	being a compound expression whose right-hand side is cast to void.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21213
+	* c-decl.c (finish_struct): Don't dereference NULL TYPE_FIELDS of
+	transparent union.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/20740
+	* c-format.c (init_dynamic_asm_fprintf_info): Give errors, not
+	assertion failures, if __gcc_host_wide_int__ is not properly
+	defined.
+	(init_dynamic_diag_info): Give errors, not assertion failures, if
+	location_t, tree or __gcc_host_wide_int__ are not properly
+	defined.
+
+2005-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* collect2.c, gcc.c, gcov-dump.c, gcov.c, gen-protos.c,
+	gensupport.c, protoize.c, toplev.c: Replace calls to
+	`unlock_stream' with `unlock_std_streams'.
+
+2005-04-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi (Blackfin Options): Avoid empty @opindex line.
+
+2005-04-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR bootstrap/21215
+	* doc/install.texi: Document correct assembler and linker to use
+	on i?86-*-solaris2.10.
+
+2005-04-25  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/21173
+	
+	* tree-ssa-pre.c (create_expression_by_pieces): Call unshare_expr
+	on things we pass to force_gimple_operand.  Don't try to special
+	case min_invariants.
+
+2005-04-25  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin-modes.def: New file.
+	* config/bfin/bfin-protos.h: New file.
+	* config/bfin/bfin.c: New file.
+	* config/bfin/bfin.h: New file.
+	* config/bfin/bfin.md: New file.
+	* config/bfin/crti.s: New file.
+	* config/bfin/crtn.s: New file.
+	* config/bfin/elf.h: New file.
+	* config/bfin/lib1funcs.asm: New file.
+	* config/bfin/predicates.md: New file.
+	* config/bfin/t-bfin: New file.
+	* config/bfin/t-bfin-elf: New file.
+	* doc/extend.texi (exception_handler, kspisusp, nesting, nmi_handler):
+	Document new attributes.
+	(interrupt, interrupt_handler, saveall): Update documentation for
+	these attributes.
+	* doc/install.texi (Specific): Add entry for the Blackfin.
+	* doc/invoke.texi (Blackfin Options): New section.
+	* doc/md.texi (Blackfin family): New section to document constraints.
+	* config.gcc: Add bfin*-* and bfin*-elf configurations.
+
+2005-04-25  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config.gcc (avr-*-*): Remove redundant "case".
+
+2005-04-25  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	PR target/17822
+	* config/avr/t-avr (AR_FOR_TARGET,RANLIB_FOR_TARGET): Remove.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR/17092
+	* configure.ac (gcc_UNLOCKED_FUNCS): New.
+	(AC_CHECK_FUNCS, AC_CHECK_DECLS): Check for gcc_UNLOCKED_FUNCS.
+	* system.h (putchar, getc, getchar, clearerr, feof, fileno,
+	fflush, fgetc, fgets, ferror, fread): Redefine to the associated
+	_unlocked function.
+	(fwrite_unlocked): Fix prototype.
+	
+	* configure, config.in: Regenerate.
+
+	* system.h (fopen, fdopen, freopen): Define these to the unlocked
+	libiberty functions.
+
+	* collect2.c (main): Unlock the stdio streams.
+	* gcc.c (main): Likewise.
+	* gcov-dump.c (main): Likewise.
+	* gcov.c (main): Likewise.
+	* gen-protos.c (main): Likewise.
+	* gensupport.c (init_md_reader_args_cb): Likewise.
+	* protoize.c (main): Likewise.
+	* toplev.c (general_init): Likewise.
+
+2005-04-24  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/21163
+	* simplify-rtx.c (simplify_binary_operation) <IOR>: Check
+	for SCALAR_INT_MODE_P instead of not MODE_CC before returning
+	constm1_rtx.
+	<XOR, AND, LSHIFTRT, UMIN>: Use CONST0_RTX.
+	<UDIV, UMOD>: Use CONST0_RTX and CONST1_RTX.
+	<DIV, MOD>: Likewise.
+
+2005-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/20991
+	* cgraph.h (cgraph_local_info): Add vtable_method field.
+	* varasm.c (mark_decl_referenced): If cgraph_global_info_ready
+	and node is vtable_method, finalized and not reachable, don't do
+	anything.
+
+	Revert:
+	2005-04-18  Jakub Jelinek  <jakub@redhat.com>
+	* tree-ssa-ccp.c (fold_stmt): Don't optimize OBJ_TYPE_REFs if that
+	would result in an already finalized unreachable node becoming
+	reachable while cgraph_global_info_ready.
+
+2005-04-24  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	PR target/17824
+	* config/c4x/c4x.h (ASM_PROG, LD_PROG): Remove.
+
+2005-04-24  Richard Henderson  <rth@redhat.com>
+
+        PR target/21101
+	* config/i386/i386.h (CANNOT_CHANGE_MODE_CLASS): Move guts to ...
+	* config/i386/i386.c (ix86_cannot_change_mode_class): ... here.
+	Deny modes smaller than 4 bytes.
+	* config/i386/i386-protos.h: Update.
+
+2005-04-24  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config.gcc (h8300-*-rtems*): Add h8300-*-rtemscoff*.
+	Switch h8300-*-rtems* to ELF.
+
+2005-04-23  Richard Henderson  <rth@redhat.com>
+
+	* simplify-rtx.c (simplify_binary_operation): Fix second instance
+	later in the same function.
+
+	PR rtl-opt/21102
+	* simplify-rtx.c (simplify_binary_operation): Fix mode check before
+	performing some integral scalar simplifications.
+
+2005-04-23  Richard Henderson  <rth@redhat.com>
+
+	PR target/21100
+	* config/i386/mmx.md (push<MMXMODE>1): Fix predicate thinko.
+
+2005-04-23  Richard Henderson  <rth@redhat.com>
+
+	PR target/21099
+	* config/i386/i386.c (ix86_split_to_parts): Use proper mode when
+	simplifying CONST_VECTOR.
+
 2005-04-22  James E Wilson  <wilson@specifixinc.com>
 
 	PR c++/20805

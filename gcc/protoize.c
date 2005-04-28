@@ -4398,6 +4398,9 @@ main (int argc, char **const argv)
   signal (SIGCHLD, SIG_DFL);
 #endif
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   cwd_buffer = getpwd ();

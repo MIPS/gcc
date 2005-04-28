@@ -347,6 +347,9 @@ main (int argc, char **argv)
 {
   int argno;
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   argno = process_args (argc, argv);

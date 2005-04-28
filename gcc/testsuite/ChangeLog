@@ -1,3 +1,74 @@
+2005-04-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/20865
+	* gfortran.dg/pr20865.f90: New test.
+
+2005-04-28  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/void-cast-2.c: New test.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21159
+	* gcc.dg/void-cast-1.c: New test.
+
+2005-04-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20950
+	* gfortran.dg/pr20950.f: New test.
+
+2005-04-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/21177
+	* gfortran.dg/pr21177.f90: New test.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21213
+	* gcc.dg/transparent-union-3.c: New test.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/20740
+	* gcc.dg/format/asm_fprintf-2.c, gcc.dg/format/asm_fprintf-3.c,
+	gcc.dg/format/asm_fprintf-4.c, gcc.dg/format/asm_fprintf-5.c,
+	gcc.dg/format/gcc_diag-2.c, gcc.dg/format/gcc_diag-3.c,
+	gcc.dg/format/gcc_diag-4.c, gcc.dg/format/gcc_diag-5.c,
+	gcc.dg/format/gcc_diag-6.c, gcc.dg/format/gcc_diag-7.c ,
+	gcc.dg/format/gcc_diag-8.c, gcc.dg/format/gcc_diag-9.c: New tests.
+
+2005-04-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/21087
+	* g++.dg/lookup/builtin2.C: New test.
+
+2005-04-25  Paul Brook  <paul@codesourcery.com>
+	Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20879
+	* gfortran.dg/ichar_1.f90: New file.
+
+2005-04-24  Per Bothner  <per@bothner.com>
+	    Devang Patel  <dpatel@apple.com>
+
+	PR preprocessor/20907
+	* gcc.dg/cpp/very-long-comment.c: New test.
+
+2005-04-24  Laurent GUERBY  <laurent@guerby.net>
+
+	* ada/acats/run_all.sh: Use sync when executable not present.
+	
+2005-04-24  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20059
+	* gfortran.dg/common_5.f: New test.
+
+2005-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/struct-layout-1_generate.c: In arrays avoid types
+	where sizeof (type) < __alignof__ (type).
+	* gcc.dg/compat/struct-layout-1.h: Likewise.
+
 2005-04-23  Richard Guenther  <rguenth@gcc.gnu.org>
 
 	PR gfortran/14569
@@ -51,8 +122,8 @@
 
 2005-04-13  Thomas Koenig  <Thomas.Koenig@online.de>
 
-        PR libfortran/20163
-        * gfortran.dg/open-options-blanks.f:  New test.
+	PR libfortran/20163
+	* gfortran.dg/open-options-blanks.f:  New test.
 
 2005-04-12  Ulrich Weigand  <uweigand@de.ibm.com>
 

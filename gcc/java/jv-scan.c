@@ -146,6 +146,9 @@ main (int argc, char **argv)
   /* Default for output */
   out = stdout;
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   /* Process options first.  We use getopt_long and not

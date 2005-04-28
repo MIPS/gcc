@@ -1,3 +1,96 @@
+2005-04-28  Paolo Carlini  <pcarlini@suse.de>
+	    Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/21244 (cont)
+	* include/bits/cpp_type_traits.h (struct __traitor): Convert
+	to bool the values.
+	* include/bits/stl_algo.h: Convert _S_threshold to int.
+	* include/bits/stl_bvector.h: Revert previous change, convert
+	_S_word_bit to int.
+	* include/debug/formatter.h: Convert __max_parameters to
+	size_t.
+	* include/ext/mt_allocator.h: Likewise for _S_chunk_size.
+	* include/ext/pool_allocator.h: Likewise for _S_max_bytes and
+	_S_align.
+	* include/ext/rope: Likewise for _S_alloc_granularity; convert
+	_S_max_rope_depth to int.
+	* include/ext/ropeimpl.h: Convert _S_path_cache_len to int;
+	_S_max_rope_depth to int; _S_copy_max to size_t.
+
+2005-04-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/user.cfg.in: Update to doxygen-1.4.2.
+	* docs/doxygen/doxygroups.cc: Update namespace comments.
+
+2005-04-27  Dominik Strasser  <dominik.strasser@infineon.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21244
+	* include/bits/stl_bvector.h: Change the anonymous enum
+	at namespace scope to _S_word_bit_enum.
+	* testsuite/23_containers/vector/bool/21244.cc: New.
+
+2005-04-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (has_trivial_copy, has_trivial_assign,
+	has_nothrow_copy, has_nothrow_assign): Adjust according to the
+	resolution of TR1 issue 3.21.
+	* testsuite/testsuite_tr1.h (test_copy_property,
+	test_assign_property): Remove.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_nothrow_assign/has_nothrow_assign.cc: Adjust.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_nothrow_copy/has_nothrow_copy.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_trivial_assign/has_trivial_assign.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_trivial_copy/has_trivial_copy.cc: Likewise.
+
+2005-04-26  Jones Desougi  <jones@ingate.com>
+
+	PR libstdc++/21131
+	* linkage.m4: Fix comments.
+
+2005-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21035
+	* include/bits/basic_string.h (compare): Adjust the documentation
+	to match the implementation and the standard.
+
+2005-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20914
+	* include/bits/locale_facets.tcc (__int_to_char(_CharT*, _ValueT,
+	const _CharT*, ios_base::fmtflags, bool)): Don't deal with numeric
+	base or sign here, instead...
+	(_M_insert_int(_OutIter, ios_base&, _CharT, _ValueT)): ... here,
+	after adding the grouping. This fixes the bug and also allows to
+	clean-up the code dealing with integer types.
+	(_M_group_int(const char*, size_t, _CharT, ios_base&, _CharT*,
+	_CharT*, int&)): Simplify, remove bits dealing with numeric base.
+	(__int_to_char(_CharT*, unsigned long, const _CharT*,
+	ios_base::fmtflags), __int_to_char(_CharT*, unsigned long long,
+	const _CharT*, ios_base::fmtflags)): Remove hackish fix for
+	libstdc++/15565.
+	(__int_to_char(_CharT*, long, const _CharT*, ios_base::fmtflags),
+	__int_to_char(_CharT*, long long, const _CharT*, ios_base::fmtflags)):
+	Simplify, don't pass the sign.
+	(_M_insert_float(_OutIter, ios_base&, _CharT, char, _ValueT)):
+	Deal with a sign at the beginning of __cs; robustify the grouping	
+	check.
+	* testsuite/22_locale/num_put/put/char/20914.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/20914.cc: Likewise.
+
+2005-04-25  Earl Chew  <earl_chew@agilent.com>
+	    Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_tree.h (_Rb_tree<>::_M_insert): Don't leak
+	memory if _M_key_compare throws.
+
+2005-04-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 35.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.
