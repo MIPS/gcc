@@ -1501,6 +1501,11 @@ rest_of_clean_state (void)
 static void
 rest_of_compilation (void)
 {
+  /* APPLE LOCAL begin radar 4095567 */
+#ifdef TARGET_386
+  unsigned int save_PREFERRED_STACK_BOUNDARY = 0;
+#endif
+  /* APPLE LOCAL end radar 4095567 */
   /* If we're emitting a nested function, make sure its parent gets
      emitted as well.  Doing otherwise confuses debug info.  */
   {
@@ -1669,6 +1674,20 @@ rest_of_compilation (void)
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
+  /* APPLE LOCAL begin radar 4095567 */
+#ifdef TARGET_386
+  if ((optimize > 0 || optimize_size)
+       && current_function_is_leaf
+       && PREFERRED_STACK_BOUNDARY >= 128
+       && !DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector)
+    {
+      save_PREFERRED_STACK_BOUNDARY = PREFERRED_STACK_BOUNDARY;
+      PREFERRED_STACK_BOUNDARY = 32;
+      cfun->stack_alignment_needed = STACK_BOUNDARY;
+      cfun->preferred_stack_boundary = STACK_BOUNDARY;
+    }
+#endif
+  /* APPLE LOCAL end radar 4095567 */
 
   if (rest_of_handle_old_regalloc ())
     goto exit_rest_of_compilation;
@@ -1754,6 +1773,16 @@ rest_of_compilation (void)
 
  exit_rest_of_compilation:
 
+  /* APPLE LOCAL begin radar 4095567 */
+#ifdef TARGET_386
+  if (save_PREFERRED_STACK_BOUNDARY > 0)
+    {
+      PREFERRED_STACK_BOUNDARY = save_PREFERRED_STACK_BOUNDARY;
+      cfun->stack_alignment_needed = STACK_BOUNDARY;
+      cfun->preferred_stack_boundary = STACK_BOUNDARY;
+    }
+#endif
+  /* APPLE LOCAL end radar 4095567 */
   rest_of_clean_state ();
 }
 
