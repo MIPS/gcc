@@ -939,7 +939,7 @@ Trap for signed overflow in addition, subtraction and multiplication
 ; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ftree-based-profiling
-Common Report Var(flag_tree_based_profiling) 
+Common Report Var(flag_tree_based_profiling)
 Use tree-ssa based implementation of profiling
 
 ; APPLE LOCAL begin optimization pragmas 3124235/3420242

@@ -201,49 +201,49 @@ print "const struct cl_option cl_options[] =\n{"
 for (i = 0; i < n_opts; i++)
 	back_chain[i] = "N_OPTS";
 
-for (i = 0; i < n_opts; i++) {
-	# Combine the flags of identical switches.  Switches
-	# appear many times if they are handled by many front
-	# ends, for example.
-	while( i + 1 != n_opts && opts[i] == opts[i + 1] ) {
-		flags[i + 1] = flags[i] " " flags[i + 1];
-		i++;
-	}
-
-	len = length (opts[i]);
-	enum = "OPT_" opts[i]
-	if (opts[i] == "finline-limit=")
-		enum = enum "eq"
-	gsub ("[^A-Za-z0-9]", "_", enum)
-
-	# If this switch takes joined arguments, back-chain all
-	# subsequent switches to it for which it is a prefix.  If
-	# a later switch S is a longer prefix of a switch T, T
-	# will be back-chained to S in a later iteration of this
-	# for() loop, which is what we want.
-	if (flags[i] ~ "Joined") {
-		for (j = i + 1; j < n_opts; j++) {
-			if (substr (opts[j], 1, len) != opts[i])
-				break;
-			back_chain[j] = enum;
+	for (i = 0; i < n_opts; i++) {
+		# Combine the flags of identical switches.  Switches
+		# appear many times if they are handled by many front
+		# ends, for example.
+		while( i + 1 != n_opts && opts[i] == opts[i + 1] ) {
+			flags[i + 1] = flags[i] " " flags[i + 1];
+			i++;
 		}
-	}
 
-	s = substr("                                  ", length (opts[i]))
-	if (i + 1 == n_opts)
-		comma = ""
+		len = length (opts[i]);
+		enum = "OPT_" opts[i]
+		if (opts[i] == "finline-limit=")
+			enum = enum "eq"
+		gsub ("[^A-Za-z0-9]", "_", enum)
 
-	if (help[i] == "")
-		hlp = "0"
-	else
-		hlp = "N_(" quote help[i] quote ")";
+		# If this switch takes joined arguments, back-chain all
+		# subsequent switches to it for which it is a prefix.  If
+		# a later switch S is a longer prefix of a switch T, T
+		# will be back-chained to S in a later iteration of this
+		# for() loop, which is what we want.
+		if (flags[i] ~ "Joined") {
+			for (j = i + 1; j < n_opts; j++) {
+				if (substr (opts[j], 1, len) != opts[i])
+					break;
+				back_chain[j] = enum;
+			}
+		}
+
+		s = substr("                                  ", length (opts[i]))
+		if (i + 1 == n_opts)
+			comma = ""
+
+		if (help[i] == "")
+			hlp = "0"
+		else
+			hlp = "N_(" quote help[i] quote ")";
 
 # APPLE LOCAL begin optimization pragmas 3124235/3420242
-	printf("  { %c-%s%c,\n    %s,\n    %s, %u, %s, %s, %s, %s }%s\n",
-		quote, opts[i], quote, hlp, back_chain[i], len,
-		switch_flags(flags[i]),
-		var_ref(flags[i]), access_ref(flags[i]),
-		var_set(flags[i]), comma)
+		printf("  { %c-%s%c,\n    %s,\n    %s, %u, %s, %s, %s, %s }%s\n",
+			quote, opts[i], quote, hlp, back_chain[i], len,
+			switch_flags(flags[i]),
+			var_ref(flags[i]), access_ref(flags[i]),
+			var_set(flags[i]), comma)
 # APPLE LOCAL end optimization pragmas 3124235/3420242
 }
 
