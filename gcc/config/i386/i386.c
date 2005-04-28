@@ -1736,10 +1736,13 @@ reset_optimization_options (int level, int size ATTRIBUTE_UNUSED)
 
   /* The default values of these switches depend on TARGET_64BIT
      which was set earlier and not reset.  */
-  /* This is Darwin specific, see SUBTARGET_OVERRIDE_OPTIONS.  */
-  if (optimize > 0 || optimize_size)
-    flag_omit_frame_pointer = 1;
-
+  if (optimize >= 1)
+    {
+      if (TARGET_64BIT)
+        flag_omit_frame_pointer = 1;
+      else
+        flag_omit_frame_pointer = 0;
+    }
 #ifdef SUBTARGET_OPTIMIZATION_OPTIONS
   SUBTARGET_OPTIMIZATION_OPTIONS;
 #endif

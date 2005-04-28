@@ -222,11 +222,6 @@ extern void darwin_x86_file_end (void);
 	  error ("invalid option %qs", base);			\
 	darwin_fix_and_continue = (base[0] != 'n');		\
       }								\
-    /* APPLE LOCAL begin 4096578 */			        \
-    if (flag_omit_frame_pointer == 2				\
-	&& (optimize > 0 || optimize_size))			\
-      flag_omit_frame_pointer = 1;				\
-    /* APPLE LOCAL end 4096578 */			        \
   } while (0)
 
 /* True, iff we're generating fast turn around debugging code.  When

@@ -1,5 +1,12 @@
 2005-04-26  Dale Johannesen  <dalej@apple.com>
 
+	Radar 4101973
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Back out patch for 4096578.
+	* config/i386/i386.c (reset_optimization_options):  Ditto.
+
+2005-04-26  Dale Johannesen  <dalej@apple.com>
+
 	Radar 4099768
 	* config/i386/i386.c (ix86_split_long_mode):  Adjust
 	stack offsets for 128-bit long doubles correctly.
