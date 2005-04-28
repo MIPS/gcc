@@ -327,6 +327,7 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
   size_t namelen = strlen (name);
   machopic_indirection *p;
   void ** slot;
+  /* APPLE LOCAL begin mainline */
   bool saw_star = false;
   bool needs_quotes;
   const char *suffix;
@@ -361,6 +362,7 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 
   /* Construct the name of the non-lazy pointer or stub.  */
   sprintf (buffer, "&%sL%s%s%s%s", quote, prefix, name, suffix, quote);
+  /* APPLE LOCAL end mainline */
 
   if (!machopic_indirections)
     machopic_indirections = htab_create_ggc (37, 
@@ -1512,7 +1514,9 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
     ? DECL_ASSEMBLER_NAME (decl)
     : DECL_NAME (decl);
 
+  /* APPLE LOCAL begin mainline */
   const char *prefix = user_label_prefix;
+  /* APPLE LOCAL end mainline */
 
   const char *base = IDENTIFIER_POINTER (id);
   unsigned int base_len = IDENTIFIER_LENGTH (id);
@@ -1526,8 +1530,10 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
   if (! for_eh)
     suffix = ".eh1";
 
+  /* APPLE LOCAL begin mainline */
   lab = xmalloc (strlen (prefix)
 		 + base_len + strlen (suffix) + quotes_len + 1);
+  /* APPLE LOCAL end mainline */
   lab[0] = '\0';
 
   if (need_quotes)
