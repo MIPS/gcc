@@ -995,12 +995,13 @@ identified as source files.  (APPLE ONLY)
 
 @c APPLE LOCAL begin fat builds
 @item -arch @var{arch}
-Compile for the specified target architecture @var{arch}.  The allowable
-values are @samp{i386} and @samp{ppc}.  Multiple options work, and
-direct the compiler to produce ``fat'' binaries including object code
-for each architecture specified with @option{-arch}.  This option only
-works if assembler and libraries are available for each architecture
-specified.  (APPLE ONLY)
+Compile for the specified target architecture @var{arch}.  The
+allowable values are @samp{i386}, @samp{ppc} and @samp{ppc64}.
+Multiple options work, and direct the compiler to produce
+``universal'' binaries including object code for each architecture
+specified with @option{-arch}.  This option only works if assembler
+and libraries are available for each architecture specified.  (APPLE
+ONLY)
 @opindex arch
 @c APPLE LOCAL end fat builds
 
@@ -7791,9 +7792,11 @@ Like @option{-sim}, but pass linker options to locate initialized data at
 These options are defined for all architectures running the Darwin operating
 system.
 
-FSF GCC on Darwin does not create ``fat'' object files; it will create
+@c APPLE LOCAL universal
+FSF GCC on Darwin does not create ``universal'' object files; it will create
 an object file for the single architecture that it was built to
-target.  Apple's GCC on Darwin does create ``fat'' files if multiple
+@c APPLE LOCAL universal
+target.  Apple's GCC on Darwin does create ``universal'' files if multiple
 @option{-arch} options are used; it does so by running the compiler or
 linker multiple times and joining the results together with
 @file{lipo}.
