@@ -1,3 +1,7 @@
+2005-04-29  J"orn Rennecke <joern.rennecke@st.com>
+
+	* gcc.dg/20021029-1.c: For sh64*-*-*, add -mpt-fixed.
+
 2005-04-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20755
