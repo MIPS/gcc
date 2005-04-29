@@ -3887,16 +3887,18 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		   && TREE_CODE (ttl) != FUNCTION_TYPE)
 	    {
 	      /* APPLE LOCAL begin 4086969 */
-	      if (warn_discard_qual
-		  && (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl)))
-		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
-					"qualifiers from pointer target type"),
-				     N_("assignment discards qualifiers "
-					"from pointer target type"),
-				     N_("initialization discards qualifiers "
-					"from pointer target type"),
-				     N_("return discards qualifiers from "
-					"pointer target type"));
+	      if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
+		{
+		  if (warn_discard_qual)
+		    WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
+					    "qualifiers from pointer target type"),
+					 N_("assignment discards qualifiers "
+					    "from pointer target type"),
+					 N_("initialization discards qualifiers "
+					    "from pointer target type"),
+					 N_("return discards qualifiers from "
+					    "pointer target type"));
+		}
 	      /* APPLE LOCAL end 4086969 */
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */

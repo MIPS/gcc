@@ -1,6 +1,11 @@
 2005-04-28  Devang Patel  <dpatel@apple.com>
 
 	Radar 4086969
+	* c-typeck.c (convert_for_assignment): Fix warn_discard_qual.
+
+2005-04-28  Devang Patel  <dpatel@apple.com>
+
+	Radar 4086969
 	* c-typeck.c (convert_for_assignment): Check warn_discard_qual.
 	* c.opt (Wdiscard-qual): New.
 	* doc/invoke.texi: Dcoument -Wdiscard-qual.
