@@ -1,3 +1,7 @@
+2005-04-29  J"orn Rennecke <joern.rennecke@st.com>
+
+	* jump.c: Merge from mainline version 1.260.
+
 2005-04-12  J"orn Rennecke <joern.rennecke@st.com>
 
 	PR rtl-optimization/20969:
