@@ -7,8 +7,12 @@
 
 2005-04-28  Dale Johannesen  <dalej@apple.com>
 
+	Radar 4101687
+	* i386.c (legitimize_address):  Canonicalize shifts correctly.
+
+2005-04-28  Dale Johannesen  <dalej@apple.com>
+
 	Radar 4100712 (PR 21173, Dan Berlin's patch)
-	
 	* tree-ssa-pre.c (create_expression_by_pieces): Call unshare_expr
 	on things we pass to force_gimple_operand.  Don't try to special
 	case min_invariants.

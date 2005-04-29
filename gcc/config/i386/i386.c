@@ -5984,7 +5984,8 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   /* Canonicalize shifts by 0, 1, 2, 3 into multiply */
   if (GET_CODE (x) == ASHIFT
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && (log = (unsigned) exact_log2 (INTVAL (XEXP (x, 1)))) < 4)
+      /* APPLE LOCAL 4101687 */
+      && (log = INTVAL (XEXP (x, 1))) < 4)
     {
       changed = 1;
       x = gen_rtx_MULT (Pmode, force_reg (Pmode, XEXP (x, 0)),
@@ -5997,7 +5998,8 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
 
       if (GET_CODE (XEXP (x, 0)) == ASHIFT
 	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && (log = (unsigned) exact_log2 (INTVAL (XEXP (XEXP (x, 0), 1)))) < 4)
+          /* APPLE LOCAL 4101687 */
+	  && (log = INTVAL (XEXP (XEXP (x, 0), 1))) < 4)
 	{
 	  changed = 1;
 	  XEXP (x, 0) = gen_rtx_MULT (Pmode,
@@ -6007,7 +6009,8 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
 
       if (GET_CODE (XEXP (x, 1)) == ASHIFT
 	  && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT
-	  && (log = (unsigned) exact_log2 (INTVAL (XEXP (XEXP (x, 1), 1)))) < 4)
+          /* APPLE LOCAL 4101687 */
+	  && (log = INTVAL (XEXP (XEXP (x, 1), 1))) < 4)
 	{
 	  changed = 1;
 	  XEXP (x, 1) = gen_rtx_MULT (Pmode,
