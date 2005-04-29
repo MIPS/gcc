@@ -1,3 +1,12 @@
+2005-04-28  Tom Tromey  <tromey@redhat.com>
+
+	* header/cni.cc (generate): Use aot class' vtable layout.
+	(write_include): New method.
+	(write_includes): Use it.  Added 'vtable' argument.
+	* header/cni.hh (cni_code_generator::factory): New field.
+	(cni_code_generator::write_include): Declare.
+	(cni_code_generator::write_includes): Updated.
+
 2005-04-26  Tom Tromey  <tromey@redhat.com>
 
 	* aot/mangle.cc (update): Create separate entry for pointer type.

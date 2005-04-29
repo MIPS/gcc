@@ -24,6 +24,7 @@
 
 #include "codegen.hh"
 #include "directory.hh"
+#include "aot/aotfactory.hh"
 
 class cni_code_generator : public code_generator
 {
@@ -41,7 +42,7 @@ public:
 protected:
 
   // Handy typedefs.
-  typedef std::list<model_method *>::const_iterator method_iterator;
+  typedef std::list<ref_method>::const_iterator method_iterator;
   typedef std::list< std::pair<action, std::string> > action_item_list;
   typedef std::map<std::string, action_item_list> action_map_type;
 
@@ -57,14 +58,20 @@ protected:
   // True if we should emit headers for Object and Class.
   bool std_headers_ok;
 
+  // We use an AOT class factory to lay out the vtable for us.
+  aot_class_factory factory;
+
+
   bool keyword_p (const std::string &);
   std::string cxxname (model_type *, bool = true);
   void update_modifiers (std::ostream &, modifier_t, modifier_t &);
   void add (model_type *, std::set<model_class *> &,
 	    bool &, model_package *, model_package *,
 	    model_package *, model_class *);
+  void write_include (std::ostream &, model_class *);
   void write_includes (std::ostream &, model_class *,
 		       const method_iterator &, const method_iterator &,
+		       const std::vector<model_method *> &,
 		       const std::list<ref_field> &);
   void write_method (std::ostream &, model_method *, modifier_t &);
   void write_field (std::ostream &, model_field *, modifier_t &, bool &,

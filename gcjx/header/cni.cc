@@ -21,6 +21,7 @@
 
 #include "typedefs.hh"
 #include "header/cni.hh"
+#include "aot/aotclass.hh"
 
 #include <fstream>
 
@@ -379,10 +380,24 @@ cni_code_generator::write_namespaces (std::ostream &out,
 }
 
 void
+cni_code_generator::write_include (std::ostream &out, model_class *klass)
+{
+  std::string cname = klass->get_fully_qualified_name ();
+  // Ugly...
+  for (unsigned int i = 0; i < cname.length (); ++i)
+    {
+      if (cname[i] == '.')
+	cname[i] = '/';
+    }
+  out << "#include <" << cname << ".h>" << std::endl;
+}
+
+void
 cni_code_generator::write_includes (std::ostream &out,
 				    model_class *klass,
 				    const method_iterator &methods_begin,
 				    const method_iterator &methods_end,
+				    const std::vector<model_method *> &vtable,
 				    const std::list<ref_field> &fields)
 {
   // These classes are chosen since they are already in 'compiler' and
@@ -400,21 +415,32 @@ cni_code_generator::write_includes (std::ostream &out,
   add (klass, class_set, array_seen, lang_package,
        util_package, io_package, super);
 
-  if (super)
-    {
-      std::string cname = super->get_fully_qualified_name ();
-      // Ugly...
-      for (unsigned int i = 0; i < cname.length (); ++i)
-	{
-	  if (cname[i] == '.')
-	    cname[i] = '/';
-	}
-      out << "#include <" << cname
-	  << ".h>" << std::endl;
-    }
+  write_include (out, super ? super : comp->java_lang_Object ());
 
+  // Add all our methods.
   for (method_iterator i = methods_begin; i != methods_end; ++i)
     {
+      add ((*i)->get_return_type (), class_set, array_seen,
+	   lang_package, util_package, io_package, super);
+
+      std::list<ref_variable_decl> parms = (*i)->get_parameters ();
+      for (std::list<ref_variable_decl>::const_iterator j = parms.begin ();
+	   j != parms.end ();
+	   ++j)
+	add ((*j)->type (), class_set, array_seen,
+	     lang_package, util_package, io_package, super);
+    }
+
+  // Add information from Miranda methods.
+  for (std::vector<model_method *>::const_iterator i = vtable.begin ();
+       i != vtable.end ();
+       ++i)
+    {
+      if ((*i)->get_declaring_class () != klass
+	  && ! (*i)->get_declaring_class ()->interface_p ())
+	continue;
+
+      // Ugly duplication here...
       add ((*i)->get_return_type (), class_set, array_seen,
 	   lang_package, util_package, io_package, super);
 
@@ -607,9 +633,18 @@ cni_code_generator::generate (model_class *klass)
       << "#define " << cname << std::endl
       << std::endl;
 
+  // Get fields for future use.
   std::list<ref_field> fields = klass->get_fields ();
-  std::list<model_method *> methods = klass->get_sorted_methods ();
-  write_includes (out, klass, methods.begin (), methods.end (), fields);
+
+  // We share the vtable layout code with the runtime.  This ensures
+  // that the C++ compiler sees the same layout as gcj.
+  aot_class *aotk = factory.get_class (klass);
+  std::vector<model_method *> methods (aotk->get_vtable ());
+
+  // Emit all needed #includes and namespace declarations.
+  std::list<ref_method> local_methods = klass->get_methods ();
+  write_includes (out, klass, local_methods.begin (), local_methods.end (),
+		  methods, fields);
   out << std::endl;
 
   emit_actions (out, CNI_PREPEND, actions);
@@ -626,8 +661,9 @@ cni_code_generator::generate (model_class *klass)
   modifier_t current_flags = ACC_ACCESS;
 
   std::set<std::string> method_names;
-  AllMethodsIterator end = klass->end_all_methods ();
-  for (AllMethodsIterator i = klass->begin_all_methods ();
+  std::set<model_method *> method_set;
+  std::vector<model_method *>::const_iterator end = methods.end ();
+  for (std::vector<model_method *>::const_iterator i = methods.begin ();
        i != end;
        ++i)
     {
@@ -640,8 +676,20 @@ cni_code_generator::generate (model_class *klass)
       if ((*i)->get_declaring_class () != klass
 	  && ! (*i)->get_declaring_class ()->interface_p ())
 	continue;
-      write_method (out, (*i).get (), current_flags);
+      write_method (out, *i, current_flags);
       method_names.insert ((*i)->get_name ());
+      method_set.insert (*i);
+    }
+
+  // We have to make another pass to write out methods that don't
+  // appear in the vtable.
+  for (std::list<ref_method>::const_iterator i = local_methods.begin ();
+       i != local_methods.end ();
+       ++i)
+    {
+      if (method_set.find ((*i).get ()) == method_set.end ()
+	  && ! (*i)->static_initializer_p ())
+	write_method (out, (*i).get (), current_flags);
     }
 
   bool first = true;
