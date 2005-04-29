@@ -1,3 +1,7 @@
+2005-04-29  Caroline Tice  <ctice@apple.com>
+
+	* struct-reorg.c (make_new_vars_1): Fix typo in call to strlen.
+
 2005-04-12  Caroline Tice  <ctice@apple.com>
 
         * c-decl.c (diagnose_mismatched_decls): Update cgraph information
