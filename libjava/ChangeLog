@@ -1,6 +1,11 @@
 2005-04-27  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/natClassLoader.cc (_Jv_RegisterClassHookDefault):
+	Remove redundant update.
+
+2005-04-27  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_RegisterClassHookDefault):
 	Handle 'next' as version number.
 
 2005-04-12  Aaron Luchko  <aluchko@redhat.com>

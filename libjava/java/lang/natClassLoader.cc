@@ -171,8 +171,6 @@ _Jv_RegisterClassHookDefault (jclass klass)
 	      throw new java::lang::VirtualMachineError (str);
 	    }
 	}
-
-      check_class = check_class->next;
     }
 
   // FIXME: this is really bogus!
