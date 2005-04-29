@@ -292,7 +292,7 @@ static hashval_t ehl_hash (const void *);
 static int ehl_eq (const void *, const void *);
 static void add_ehl_entry (rtx, struct eh_region *);
 static void remove_exception_handler_label (rtx);
-void remove_eh_handler (struct eh_region *);
+static void remove_eh_handler (struct eh_region *);
 static int for_each_eh_label_1 (void **, void *);
 
 /* The return value of reachable_next_level.  */
@@ -570,15 +570,6 @@ set_eh_region_tree_label (struct eh_region *region, tree lab)
 {
   region->tree_label = lab;
 }
-
-struct eh_region *
-eh_region_must_not_throw_p (int region)
-{
-  if (cfun->eh->region_array[region]->type == ERT_MUST_NOT_THROW)
-    return cfun->eh->region_array[region];
-  else
-   return 0;
-}
 
 void
 expand_resx_expr (tree exp)
@@ -586,8 +577,7 @@ expand_resx_expr (tree exp)
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region *reg = cfun->eh->region_array[region_nr];
 
-  if (reg->resume)
-    abort ();
+  gcc_assert (!reg->resume);
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -943,8 +933,11 @@ duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
     n->next_peer = n_array[o->next_peer->region_number];
 }
 
+/* Duplicate the EH regions of IFUN into current function, root the tree in
+   OUTER_REGION and remap labels using MAP callback.  */
 int
-duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels, int outer_region)
+duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
+		      void *data, int outer_region)
 {
   int ifun_last_region_number = ifun->eh->last_region_number;
   struct eh_region **n_array, *root, *cur;
@@ -961,13 +954,13 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels, int oute
       if (!cur || cur->region_number != i)
 	continue;
       n_array[i] = duplicate_eh_region_1 (cur);
-      if (dup_labels && cur->tree_label)
+      if (cur->tree_label)
 	{
-	  tree newlabel = remap_decl_v ((void *)cur->tree_label, id);
+	  tree newlabel = map (cur->tree_label, data);
 	  n_array[i]->tree_label = newlabel;
 	}
       else
-	n_array[i]->tree_label = cur->tree_label;
+	n_array[i]->tree_label = NULL;
     }
   for (i = 1; i <= ifun_last_region_number; ++i)
     {
@@ -992,9 +985,9 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels, int oute
 	}
       else
         cur->inner = root;
-      root->outer = cur;
-      for (root = root->next_peer; root; root = root->next_peer)
-	root->outer = cur;
+      for (i = 1; i <= ifun_last_region_number; ++i)
+	if (n_array[i] && n_array[i]->outer == NULL)
+	  n_array[i]->outer = cur;
     }
   else
     {
@@ -2074,7 +2067,7 @@ remove_exception_handler_label (rtx label)
 
 /* Splice REGION from the region tree etc.  */
 
-void
+static void
 remove_eh_handler (struct eh_region *region)
 {
   struct eh_region **pp, **pp_start, *p, *outer, *inner;
@@ -2087,8 +2080,7 @@ remove_eh_handler (struct eh_region *region)
      list of alternate numbers by which we are known.  */
 
   outer = region->outer;
-  if (cfun->eh->region_array)
-    cfun->eh->region_array[region->region_number] = outer;
+  cfun->eh->region_array[region->region_number] = outer;
   if (region->aka)
     {
       unsigned i;
@@ -2161,9 +2153,6 @@ remove_eh_handler (struct eh_region *region)
 	    remove_eh_handler (try);
 	}
     }
-
-  if (region->region_number == cfun->eh->last_region_number)
-    cfun->eh->last_region_number-- ;
 }
 
 /* LABEL heads a basic block that is about to be deleted.  If this

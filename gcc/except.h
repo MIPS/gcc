@@ -81,7 +81,8 @@ extern void expand_eh_return (void);
 extern rtx expand_builtin_extend_pointer (tree);
 extern rtx get_exception_pointer (struct function *);
 extern rtx get_exception_filter (struct function *);
-extern int duplicate_eh_regions (struct function *, void *, bool, int);
+typedef tree (*duplicate_eh_regions_map) (tree, void *);
+extern int duplicate_eh_regions (struct function *, duplicate_eh_regions_map, void *, int);
 
 extern void sjlj_emit_function_exit_after (rtx);
 
@@ -169,7 +170,6 @@ struct throw_stmt_node GTY(())
   int region_nr;
 };
 
-void remove_eh_handler (struct eh_region *);
 extern void set_eh_throw_stmt_table (struct function *, void *);
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern int get_eh_last_region_number (struct function *);

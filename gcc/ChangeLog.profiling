@@ -1,3 +1,13 @@
+2005-04-30  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (remove_eh_handler): Make static.
+	(eh_region_must_not_throw_p): Kill.
+	(expand_resx_expr): Assertize.
+	(duplicate_eh_regions): Accept callback as parameter; comment.
+	* except.h (duplicate_eh_regions): New function.
+	(remap_decl_v): Kill.
+	(copy_cfg_body): Update call of duplicate_eh_regions.
+
 2005-04-27  Jan Hubicka  <jh@suse.cz>
 
 	* Merge form mainline.

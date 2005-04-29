@@ -262,13 +262,6 @@ remap_decl (tree decl, inline_data *id)
   return unshare_expr ((tree) n->value);
 }
 
-/* External access for remap_decl ().  */
-tree
-remap_decl_v (tree decl, void *id)
-{
-  return remap_decl (decl, (inline_data *) id);
-}
-
 static tree
 remap_type (tree type, inline_data *id)
 {
@@ -995,7 +988,7 @@ copy_cfg_body (inline_data * id, gcov_type count, int frequency,
     {
       if (saving_or_cloning)
         init_eh_for_function ();
-      duplicate_eh_regions (cfun_to_copy, id, true, id->eh_region);
+      duplicate_eh_regions (cfun_to_copy, (duplicate_eh_regions_map)remap_decl, id, id->eh_region);
     }
   /* Use aux pointers to map the original blocks to copy.  */
   FOR_EACH_BB_FN (bb, cfun_to_copy)
