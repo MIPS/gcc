@@ -1429,7 +1429,7 @@ make_new_vars_1 (tree orig_decl, struct data_structure *struct_data)
 	  /* Make sure there isn't anything else that already has that 
 	     name.  */
       
-	  new_len = strlen (new_name + 5);
+	  new_len = strlen (new_name) + 5;
 	  tmp_name = (char *) xmalloc (new_len * sizeof (char));
 	  sprintf (tmp_name, "%s", new_name);
 
