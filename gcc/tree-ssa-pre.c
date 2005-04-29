@@ -1330,8 +1330,10 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	
 	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
 			      genop1, genop2));
+	/* APPLE LOCAL begin 4100712 FSF 4.0 branch */
 	newexpr = force_gimple_operand (unshare_expr (folded), 
 					&forced_stmts, false, NULL);
+	/* APPLE LOCAL end 4100712 FSF 4.0 branch */
 	if (forced_stmts)
 	  {
 	    tsi = tsi_start (forced_stmts);
@@ -1373,8 +1375,10 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	add_referenced_tmp_var (temp);
 	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
 			      genop1));
+	/* APPLE LOCAL begin 4100712 FSF 4.0 branch */
 	newexpr = force_gimple_operand (unshare_expr (folded), 
 					&forced_stmts, false, NULL);
+	/* APPLE LOCAL end 4100712 FSF 4.0 branch */
 	if (forced_stmts)
 	  {
 	    tsi = tsi_start (forced_stmts);
