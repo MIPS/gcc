@@ -1,3 +1,9 @@
+2005-04-25  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4100712
+	* gcc.c-torture/execute/pr21173.c: New.
+	* gcc.apple/4100712.c:  New.
+
 2005-04-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 3954848
