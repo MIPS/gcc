@@ -616,6 +616,5 @@ class_object_creator::create_class_instance (tree class_tree)
   result = builtins->map_class_object (klass->get ());
   DECL_INITIAL (result) = init;
   rest_of_decl_compilation (result, 1, 0);
-
-  result = build1 (ADDR_EXPR, type_class_ptr, result);
+  make_decl_rtl (result);
 }

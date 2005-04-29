@@ -452,34 +452,14 @@ register_classes (tree classes)
   if (TARGET_USE_JCR_SECTION)
     {
 #ifdef JCR_SECTION_NAME
-      int len = list_length (classes) + 1;
-      tree type = build_array_type (type_class_ptr,
-				    build_index_type (build_int_cst (type_jint,
-								     len)));
-      tree result = build_decl (VAR_DECL, get_identifier ("_jcr_list"), type);
-      DECL_SECTION_NAME (result) = build_string (strlen (JCR_SECTION_NAME),
-						 JCR_SECTION_NAME);
-
-      tree cons = NULL_TREE;
-      int i = 0;
+      named_section_flags (JCR_SECTION_NAME, SECTION_WRITE);
+      assemble_align (POINTER_SIZE);
       for (tree iter = classes; iter != NULL_TREE; iter = TREE_CHAIN (iter))
 	{
-	  // Destructively modify the purpose field.
-	  TREE_PURPOSE (iter) = build_int_cst (type_jint, i);
-	  ++i;
+	  mark_decl_referenced (TREE_VALUE (iter));
+	  assemble_integer (XEXP (DECL_RTL (TREE_VALUE (iter)), 0),
+			    POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 	}
-
-      classes = chainon (classes,
-			 tree_cons (build_int_cst (type_jint, i),
-				    null_pointer_node,
-				    NULL_TREE));
-
-      DECL_INITIAL (result) = build_constructor (type, classes);
-      TREE_STATIC (result) = 1;
-      DECL_ARTIFICIAL (result) = 1;
-      DECL_IGNORED_P (result) = 1;
-
-      rest_of_decl_compilation (result, 1, 0);
 #else
       // A target has defined TARGET_USE_JCR_SECTION, but doesn't have
       // a JCR_SECTION_NAME.

@@ -1,3 +1,10 @@
+2005-04-28  Tom Tromey  <tromey@redhat.com>
+
+	* glue.hh: Include rtl.h.
+	* classobj.cc (create_class_instance): Call make_decl_rtl.  Don't
+	take address of result.
+	* driver.cc (register_classes): Taken from gcj.
+
 2005-04-26  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc (lay_out_vtable): Handle abstract methods.
