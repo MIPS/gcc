@@ -3813,7 +3813,9 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 					 N_("return makes qualified function "
 					    "pointer from unqualified"));
 		}
-	      else if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
+	      /* APPLE LOCAL begin 4086969 */
+	      else if (warn_discard_qual
+		       && (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl)))
 		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
 					"qualifiers from pointer target type"),
 				     N_("assignment discards qualifiers "
@@ -3822,6 +3824,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 					"from pointer target type"),
 				     N_("return discards qualifiers from "
 					"pointer target type"));
+	      /* APPLE LOCAL end 4086969 */
 	    }
 
 	  if (pedantic && !DECL_IN_SYSTEM_HEADER (fundecl))
@@ -3883,7 +3886,9 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	  else if (TREE_CODE (ttr) != FUNCTION_TYPE
 		   && TREE_CODE (ttl) != FUNCTION_TYPE)
 	    {
-	      if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
+	      /* APPLE LOCAL begin 4086969 */
+	      if (warn_discard_qual
+		  && (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl)))
 		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
 					"qualifiers from pointer target type"),
 				     N_("assignment discards qualifiers "
@@ -3892,6 +3897,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 					"from pointer target type"),
 				     N_("return discards qualifiers from "
 					"pointer target type"));
+	      /* APPLE LOCAL end 4086969 */
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
 	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)

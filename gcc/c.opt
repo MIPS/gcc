@@ -218,6 +218,12 @@ Wdeprecated
 C++ ObjC++ Var(warn_deprecated) Init(1)
 Warn about deprecated compiler features
 
+; APPLE LOCAL begin 4086969
+Wdiscard-qual
+C ObjC Var(warn_discard_qual) Init(1)
+Warn about discarded qualifiers
+; APPLE LOCAL end 4086969
+
 Wdiv-by-zero
 C ObjC Var(warn_div_by_zero) Init(1)
 Warn about compile-time integer division by zero

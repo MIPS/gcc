@@ -1,3 +1,10 @@
+2005-04-28  Devang Patel  <dpatel@apple.com>
+
+	Radar 4086969
+	* c-typeck.c (convert_for_assignment): Check warn_discard_qual.
+	* c.opt (Wdiscard-qual): New.
+	* doc/invoke.texi: Dcoument -Wdiscard-qual.
+
 2005-04-28  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4100712 (PR 21173, Dan Berlin's patch)
