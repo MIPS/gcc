@@ -1385,11 +1385,12 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree value = pop (type_object_ptr);
 	    jint index = get2u (bytes, pc);
-	    tree klass = find_class (cpool->get_class (index));
+	    tree klass = build_class_ref (cpool->get_class (index));
 
 	    insn = build3 (CALL_EXPR, klass,
 			   builtin_Jv_CheckCast,
-			   build_tree_list (NULL_TREE, value),
+			   tree_cons (NULL_TREE, klass,
+				      build_tree_list (NULL_TREE, value)),
 			   NULL_TREE);
 	    TREE_SIDE_EFFECTS (insn) = 1;
 	  }

@@ -1805,11 +1805,13 @@ tree_generator::visit_cast (model_cast *elt,
     {
       // Reference types.  We only need to emit a cast check if the
       // types are known to be incompatible.
-      if (dest_type->assignable_from_p (expr->type ()))
+      if (! dest_type->assignable_from_p (expr->type ()))
 	{
 	  current = build3 (CALL_EXPR, gcc_builtins->map_type (dest_type),
 			    builtin_Jv_CheckCast,
-			    build_tree_list (NULL_TREE, expr_tree),
+			    tree_cons (NULL_TREE,
+				       build_class_ref (dest_type, elt),
+				       build_tree_list (NULL_TREE, expr_tree)),
 			    NULL_TREE);
 	  TREE_SIDE_EFFECTS (current) = 1;
 	}

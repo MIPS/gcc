@@ -1,5 +1,11 @@
 2005-04-28  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (visit_bytecode_block) <op_checkcast>: Correctly handle
+	_Jv_CheckCast.
+	* tree.cc (visit_cast): Correctly handle _Jv_CheckCast.
+
+2005-04-28  Tom Tromey  <tromey@redhat.com>
+
 	* glue.hh: Include rtl.h.
 	* classobj.cc (create_class_instance): Call make_decl_rtl.  Don't
 	take address of result.
