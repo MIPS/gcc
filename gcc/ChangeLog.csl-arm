@@ -1,5 +1,10 @@
 2005-04-30  Paul Brook  <paul@codesourcery.com>
 
+	* combine.c (distribute_notes): Don't put REG_EQUAL notes on deleted
+	insns.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
 	* combine.c (distribute_notes): Don't put notes on temporary insns.
 
 2005-04-27  Daniel Jacobowitz  <dan@codesourcery.com>

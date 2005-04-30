@@ -12502,6 +12502,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 	     seem worth the trouble.  */
 
 	  if (from_insn == i3
+	      && PATTERN(i3) != pc_rtx
 	      && (XEXP (note, 0) == 0 || CONSTANT_P (XEXP (note, 0))))
 	    place = i3;
 	  break;
