@@ -1,5 +1,14 @@
 2005-04-30  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/bpabi.h (RENAME_LIBRARY_SET): Always use .thumb_set in
+	thumb mode.
+	* config/arm/ieee754-df.S: Use __INTERWORKING_STUBS__.
+	* config/arm/ieee754-sf.S: Ditto.
+	* config/arm/lib1funcs.asm: Define and use __INTERWORKING_STUBS__.
+	(FUNC_ALIAS): New macro.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
 	* combine.c (distribute_notes): Don't put REG_EQUAL notes on deleted
 	insns.
 

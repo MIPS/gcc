@@ -80,7 +80,7 @@ ARM_FUNC_START aeabi_drsub
 ARM_FUNC_ALIAS aeabi_dsub subdf3
 	@ flip sign bit of second arg
 	eor	yh, yh, #0x80000000
-#if defined(__thumb__) && !defined(__THUMB_INTERWORK__)
+#if defined(__INTERWORKING_STUBS__)
 	b	1f			@ Skip Thumb-code prologue
 #endif
 
