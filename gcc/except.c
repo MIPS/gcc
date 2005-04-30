@@ -74,8 +74,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "cgraph.h"
-#include "tree-inline.h"
-#include "tree-flow.h"
 #include "diagnostic.h"
 
 /* Provide defaults for stuff that may not be defined when using
@@ -265,9 +263,6 @@ static tree lookup_type_for_runtime (tree);
 
 static void remove_unreachable_regions (rtx);
 
-static struct eh_region *duplicate_eh_region_1 (struct eh_region *);
-static void duplicate_eh_region_2 (struct eh_region *,
-				   struct eh_region **);
 static int ttypes_filter_eq (const void *, const void *);
 static hashval_t ttypes_filter_hash (const void *);
 static int ehspec_filter_eq (const void *, const void *);
@@ -1011,7 +1006,6 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   
   return i;
 }
-
 
 static int
 t2r_eq (const void *pentry, const void *pdata)
@@ -2433,8 +2427,12 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
       /* Here we end our search, since no exceptions may propagate.
 	 If we've touched down at some landing pad previous, then the
 	 explicit function call we generated may be used.  Otherwise
-	 the call is made by the runtime.  */
-      if (info && info->saw_any_handlers)
+	 the call is made by the runtime. 
+
+	 Be conservative before inlining since new subregions may be
+	 introduced.  fixup_cfg pass takes care of removing unnecesary
+	 EH edges later on.  */
+      if ((info && info->saw_any_handlers) || !cfun->after_inlining)
 	{
 	  add_reachable_handler (info, region, region);
 	  return RNL_CAUGHT;
@@ -2663,77 +2661,12 @@ can_throw_external (rtx insn)
   return can_throw_external_1 (INTVAL (XEXP (note, 0)));
 }
 
-/* A function used to throw (we thought) and now we know better.
-   It is possible that functions that call this one have already built
-   CFGs and EH region info that is now wrong.  Fix these up here. */
-
-static void
-change_to_nothrow (tree funcdecl)
-{
-  struct cgraph_node *node = cgraph_node (funcdecl);
-  struct cgraph_edge *cge;
-  struct function *ifun;
-  tree call, caller_decl;
-  basic_block bb;
-
-  for (cge = node->callers; cge; cge = cge->next_caller)
-    {
-      call = cge->call_expr;
-      caller_decl = cge->caller->decl;
-      ifun = DECL_STRUCT_FUNCTION (caller_decl);
-      if (!TREE_ASM_WRITTEN (caller_decl)
-	  && ifun && (ifun->cfg || ifun->eh))
-        {
-	  push_cfun (ifun);
-
-	  /* FIXME: This part is currently slow, as there is no
-		    pointer up to the bb node.  */
-	  FOR_EACH_BB (bb)
-	    {
-	      block_stmt_iterator bsi = bsi_last (bb);
-	      tree stmt;
-
-	      if (bsi_end_p (bsi))
-		continue;
-
-	      stmt = bsi_stmt (bsi);
-	      if (stmt 
-		  && (stmt == call 
-		      || (TREE_CODE (stmt) == MODIFY_EXPR
-			  && TREE_OPERAND (stmt, 1) == call)
-		      || (TREE_CODE (stmt) == RETURN_EXPR
-			  && TREE_OPERAND (stmt, 0)
-			  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
-			  && TREE_OPERAND (TREE_OPERAND (stmt, 0), 1) == call)))
-		{
-		  /* found it. */
-		  edge_iterator ei;
-		  edge e;
-
-		  for (ei = ei_start (bb->succs);
-		       (e = ei_safe_edge (ei)); )
-		    {
-		      if (e->flags & EDGE_EH)
-			remove_edge (e);
-		      else
-		      ei_next (&ei);
-		    }
-
-		  remove_stmt_from_eh_region_fn (ifun, stmt);
-		  break;
-		}
-	    }
-	  pop_cfun ();
-	}
-    }
-}
 /* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
 
 void
 set_nothrow_function_flags (void)
 {
   rtx insn;
-  bool old_nothrow = TREE_NOTHROW (current_function_decl);
 
   TREE_NOTHROW (current_function_decl) = 1;
 
@@ -2772,12 +2705,6 @@ set_nothrow_function_flags (void)
 	    return;
 	  }
       }
-  if (!old_nothrow && TREE_NOTHROW (current_function_decl))
-    {
-      /* Function used to throw (we thought) and now we know better.
-	 Fixup matters for this function.  */
-      change_to_nothrow (current_function_decl);
-    }
 }
 
 

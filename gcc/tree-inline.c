@@ -2281,11 +2281,6 @@ optimize_inline_calls (tree fn)
      and this will cause great distress in verify_cgraph_node(), so we
      do that first.  */
   fold_cond_expr_cond ();
-  cleanup_tree_cfg ();
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-  verify_stmts ();
-#endif
 }
 
 /* FN is a function that has a complete body, and CLONE is a function whose

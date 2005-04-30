@@ -234,6 +234,49 @@ static struct tree_opt_pass pass_free_datastructures =
   0					/* letter */
 };
 
+/* Pass: fixup_cfg - IPA passes or compilation of earlier functions might've
+   changed some properties - such as marged functions nothrow.  Remove now
+   redundant edges and basic blocks.  */
+
+static void
+execute_fixup_cfg (void)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  if (cfun->eh)
+    FOR_EACH_BB (bb)
+      {
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  {
+	    tree stmt = bsi_stmt (bsi);
+	    if (!tree_could_throw_p (stmt) && lookup_stmt_eh_region (stmt))
+	      remove_stmt_from_eh_region (stmt);
+	  }
+	tree_purge_dead_eh_edges (bb);
+      }
+    
+  cleanup_tree_cfg ();
+}
+
+static struct tree_opt_pass pass_fixup_cfg =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  execute_fixup_cfg,			/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};
 /* Pass: free cfg annotations.  */
 
 static void
@@ -494,7 +537,7 @@ init_tree_optimization_passes (void)
 
   /* Passes done after the intraprocedural passes.  */
   p = &all_passes;
-  NEXT_PASS (pass_cleanup_cfg);
+  NEXT_PASS (pass_fixup_cfg); 
   NEXT_PASS (pass_init_datastructures);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_return);
@@ -935,6 +978,7 @@ tree_rest_of_compilation (tree fndecl)
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
   cfun->x_dont_save_pending_sizes_p = 1;
+  cfun->after_inlining = true;
 
   /* We might need the body of this function so that we can expand
      it inline somewhere else.  This means not lowering some constructs

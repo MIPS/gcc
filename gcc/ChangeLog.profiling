@@ -1,5 +1,19 @@
 2005-04-30  Jan Hubicka  <jh@suse.cz>
 
+	* excpept.c: No longer inline tree-inlie.h and tree-flow.h.
+	(reachable_next_level): Be conservative before inlining.
+	(change_to_nothrow): Kill.
+	(set_nothrow_function_flags): Do not use change_to_nothrow.
+	* function.h (struct function): Add field after_inlining.
+	* tree-inline.c (optimize_inline_calls): Kill cleanup_tree_cfg call
+	and CFG verification.
+	* tree-optimize.c (execute_fixup_cfg): New function.
+	(pass_fixup_cfg): New pass.(init_tree_optimize_passes): Replace
+	cleanup_cfg pass by fixup_cfg after inlining.
+	(tree_rest_of_compilation): Set after_inlining to true.
+
+2005-04-30  Jan Hubicka  <jh@suse.cz>
+
 	* except.c (remove_eh_handler): Make static.
 	(eh_region_must_not_throw_p): Kill.
 	(expand_resx_expr): Assertize.
