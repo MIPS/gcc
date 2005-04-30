@@ -1,3 +1,7 @@
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
+	* combine.c (distribute_notes): Don't put notes on temporary insns.
+
 2005-04-27  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* config/arm/arm.c (target_thread_pointer): Default to TP_SOFT.

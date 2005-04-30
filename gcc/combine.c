@@ -12576,7 +12576,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 	  /* If the insn previously containing this note still exists,
 	     put it back where it was.  Otherwise move it to the previous
 	     insn.  Adjust the corresponding REG_LIBCALL note.  */
-	  if (GET_CODE (from_insn) != NOTE)
+	  if (GET_CODE (from_insn) != NOTE && PATTERN (from_insn) != pc_rtx)
 	    place = from_insn;
 	  else
 	    {
@@ -12596,7 +12596,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 
 	case REG_LIBCALL:
 	  /* This is handled similarly to REG_RETVAL.  */
-	  if (GET_CODE (from_insn) != NOTE)
+	  if (GET_CODE (from_insn) != NOTE && PATTERN (from_insn) != pc_rtx)
 	    place = from_insn;
 	  else
 	    {
@@ -12702,6 +12702,8 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 
 			  distribute_notes (old_notes, tem, tem, NULL_RTX);
 			  distribute_links (LOG_LINKS (tem));
+			  if (REG_NOTES (tem))
+			    abort ();
 
 			  PUT_CODE (tem, NOTE);
 			  NOTE_LINE_NUMBER (tem) = NOTE_INSN_DELETED;
