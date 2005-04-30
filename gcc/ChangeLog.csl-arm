@@ -1,5 +1,10 @@
 2005-04-30  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/bpabi.h (TARGET_DEFAULT): Define.
+	* config/arm/linux-eabi.h (SUBTARGET_CPU_DEFAULT): Define.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/bpabi.h (RENAME_LIBRARY_SET): Always use .thumb_set in
 	thumb mode.
 	* config/arm/ieee754-df.S: Use __INTERWORKING_STUBS__.
