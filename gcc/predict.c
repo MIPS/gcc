@@ -232,6 +232,8 @@ void
 tree_predict_edge (edge e, enum br_predictor predictor, int probability)
 {
   struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
+  if (!flag_guess_branch_prob)
+     return;
 
   i->next = bb_ann (e->src)->predictions;
   bb_ann (e->src)->predictions = i;
@@ -1903,11 +1905,16 @@ choose_function_section (void)
 		    UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
 }
 
+static bool
+gate_estiamte_probability (void)
+{
+  return flag_guess_branch_prob;
+}
 
 struct tree_opt_pass pass_profile = 
 {
   "profile",				/* name */
-  NULL,					/* gate */
+  gate_estiamte_probability,		/* gate */
   NULL, NULL,				/* IPA analysis */
   tree_estimate_probability,		/* execute */
   NULL, NULL,				/* IPA modification */
