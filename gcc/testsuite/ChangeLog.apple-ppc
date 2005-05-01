@@ -1,3 +1,8 @@
+2005-05-01  Jon Ziegler  <jonz@apple.com>
+
+	Radar 4101687
+	* gcc.apple/4101687.c: clean up
+
 2005-04-29  dale Johannesen  <dalej@apple.com>
 
 	Radar 4101687
