@@ -1931,6 +1931,7 @@ aliases_everything_p (rtx mem)
   return 0;
 }
 
+/*#define AGRESSIVE_ALIASING 1*/
 /* Return true if we can determine that the fields referenced cannot
    overlap for any pair of objects.  */
 

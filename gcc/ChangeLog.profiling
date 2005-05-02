@@ -1,3 +1,8 @@
+2005-05-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c: Put back code removed by Jan that was on branch,
+	and is in mainline.
+
 2005-04-30  Jan Hubicka  <jh@suse.cz>
 
 	* excpept.c: No longer inline tree-inlie.h and tree-flow.h.

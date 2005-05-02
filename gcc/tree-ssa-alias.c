@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "convert.h"
 #include "params.h"
+#include "ipa-static.h"
 #include "vec.h"
 
 /* 'true' after aliases have been computed (see compute_may_aliases).  */
@@ -130,6 +131,8 @@ struct alias_stats_d
   unsigned int simple_resolved;
   unsigned int tbaa_queries;
   unsigned int tbaa_resolved;
+  unsigned int structnoaddress_queries;
+  unsigned int structnoaddress_resolved;
 };
 
 
@@ -139,7 +142,7 @@ static struct alias_stats_d alias_stats;
 /* Local functions.  */
 static void compute_flow_insensitive_aliasing (struct alias_info *);
 static void dump_alias_stats (FILE *);
-static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
+static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT, bool);
 static tree create_memory_tag (tree type, bool is_type_tag);
 static tree get_tmt_for (tree, struct alias_info *);
 static tree get_nmt_for (tree);
@@ -484,7 +487,6 @@ count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
 
   gcc_assert (*num_uses_p >= *num_derefs_p);
 }
-
 
 /* Initialize the data structures used for alias analysis.  */
 
@@ -987,12 +989,8 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 			 || bitmap_bit_p (ai->written_vars, v_ann->uid);
 	  if (!tag_stored_p && !var_stored_p)
 	    continue;
-
-	  if ((unmodifiable_var_p (tag) && !unmodifiable_var_p (var))
-	      || (unmodifiable_var_p (var) && !unmodifiable_var_p (tag)))
-	    continue;
-
-	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set))
+	     
+	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set, false))
 	    {
 	      subvar_t svars;
 	      size_t num_tag_refs, num_var_refs;
@@ -1073,7 +1071,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	  sbitmap may_aliases2 = p_map2->may_aliases;
 
 	  /* If the pointers may not point to each other, do nothing.  */
-	  if (!may_alias_p (p_map1->var, p_map1->set, tag2, p_map2->set))
+	  if (!may_alias_p (p_map1->var, p_map1->set, tag2, p_map2->set, true))
 	    continue;
 
 	  /* The two pointers may alias each other.  If they already have
@@ -1679,7 +1677,8 @@ maybe_create_global_var (struct alias_info *ai)
 
 static bool
 may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
-	     tree var, HOST_WIDE_INT var_alias_set)
+	     tree var, HOST_WIDE_INT var_alias_set,
+	     bool alias_set_only ATTRIBUTE_UNUSED)
 {
   tree mem;
   var_ann_t m_ann;
@@ -1690,6 +1689,26 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
   /* By convention, a variable cannot alias itself.  */
   mem = var_ann (ptr)->type_mem_tag;
   if (mem == var)
+    {
+      alias_stats.alias_noalias++;
+      alias_stats.simple_resolved++;
+      return false;
+    }
+  
+  /* If -fargument-noalias-global is >1, pointer arguments may
+     not point to global variables.  */
+  if (flag_argument_noalias > 1 && is_global_var (var)
+      && TREE_CODE (ptr) == PARM_DECL)
+    {
+      alias_stats.alias_noalias++;
+      alias_stats.simple_resolved++;
+      return false;
+    }
+
+  /* If either MEM or VAR is a read-only global and the other one
+     isn't, then PTR cannot point to VAR.  */
+  if ((unmodifiable_var_p (mem) && !unmodifiable_var_p (var))
+      || (unmodifiable_var_p (var) && !unmodifiable_var_p (mem)))
     {
       alias_stats.alias_noalias++;
       alias_stats.simple_resolved++;
@@ -1726,6 +1745,73 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       alias_stats.tbaa_resolved++;
       return false;
     }
+
+  /* If var is a record or union type, ptr cannot point into var
+     unless there is some operation explicit address operation in the
+     program that can reference a field of the ptr's dereferenced
+     type.  This also assumes that the types of both var and ptr are
+     contained within the compilation unit, and that there is no fancy
+     addressing arithmetic associated with any of the types
+     involved.  */
+
+  {
+    tree ptr_type = TREE_TYPE (ptr);
+    tree var_type = TREE_TYPE (var);
+
+     /* The star count is -1 if the type at the end of the pointer_to 
+        chain is not a record or union type. */ 
+    if ((!alias_set_only) &&
+	ipa_static_star_count_of_interesting_type (var_type) >= 0)
+      {
+ 	int ptr_star_count = 0;
+	/* Ipa_static_star_count_of_interesting_type is a little to
+	   restrictive for the pointer type, need to allow pointers to
+	   primitive types as long as those types cannot be pointers
+	   to everything.  */
+ 	/* Strip the *'s off.  */ 
+ 	while (POINTER_TYPE_P (ptr_type))
+ 	  {
+ 	    ptr_type = TREE_TYPE (ptr_type);
+ 	    ptr_star_count++;
+ 	  }
+
+ 	/* There does not appear to be a better test to see if the 
+ 	   pointer type was one of the pointer to everything 
+ 	   types.  */
+ 	if (TREE_CODE (ptr_type) == CHAR_TYPE
+ 	    && TREE_CODE (ptr_type) == VOID_TYPE)
+ 	  ptr_star_count = -1;
+
+ 	if (ptr_star_count > 0)
+ 	  {
+/* 	    fprintf(stderr, "calling address_not_taken_of_field\n   var = "); */
+/* 	    print_generic_expr (stderr, var_type, 0); */
+/* 	    fprintf(stderr, "\n   ptr = "); */
+/* 	    print_generic_expr (stderr, TREE_TYPE (TREE_TYPE (ptr)), 0); */
+/* 	    fprintf(stderr, "\n"); */
+
+ 	    alias_stats.structnoaddress_queries++;
+ 	    if (ipa_static_field_does_not_clobber_p (var_type,
+ 						       TREE_TYPE (TREE_TYPE (ptr))))
+ 	      {
+/* 		fprintf(stderr, "success\n"); */
+ 		alias_stats.structnoaddress_resolved++;
+ 		alias_stats.alias_noalias++;
+ 		return false;
+ 	      }
+ 	  }
+ 	else if (ptr_star_count == 0)
+ 	  {
+	    /* If ptr_type was not really a pointer to type, it cannot 
+ 	       alias.  */ 
+ 	    alias_stats.structnoaddress_queries++;
+ 	    alias_stats.structnoaddress_resolved++;
+ 	    alias_stats.alias_noalias++;
+ 	    return false;
+ 	  }
+      }
+  }
+
   alias_stats.alias_mayalias++;
   return true;
 }
@@ -2296,9 +2382,11 @@ get_tmt_for (tree ptr, struct alias_info *ai)
   for (i = 0, tag = NULL_TREE; i < ai->num_pointers; i++)
     {
       struct alias_map_d *curr = ai->pointers[i];
-      if (tag_set == curr->set)
+      tree curr_tag = var_ann (curr->var)->type_mem_tag;
+      if (tag_set == curr->set
+	  && TYPE_READONLY (tag_type) == TYPE_READONLY (TREE_TYPE (curr_tag)))
 	{
-	  tag = var_ann (curr->var)->type_mem_tag;
+	  tag = curr_tag;
 	  break;
 	}
     }
@@ -2332,6 +2420,10 @@ get_tmt_for (tree ptr, struct alias_info *ai)
   /* Make sure that the type tag has the same alias set as the
      pointed-to type.  */
   gcc_assert (tag_set == get_alias_set (tag));
+
+  /* If PTR's pointed-to type is read-only, then TAG's type must also
+     be read-only.  */
+  gcc_assert (TYPE_READONLY (tag_type) == TYPE_READONLY (TREE_TYPE (tag)));
 
   return tag;
 }
@@ -2381,6 +2473,10 @@ dump_alias_stats (FILE *file)
 	   alias_stats.tbaa_queries);
   fprintf (file, "Total TBAA resolved:\t%u\n",
 	   alias_stats.tbaa_resolved);
+  fprintf (file, "Total non-addressable structure type queries:\t%u\n",
+	   alias_stats.structnoaddress_queries);
+  fprintf (file, "Total non-addressable structure type resolved:\t%u\n",
+	   alias_stats.structnoaddress_resolved);
 }
   
 
@@ -2681,6 +2777,7 @@ add_type_alias (tree ptr, tree var)
   varray_type aliases;
   tree tag;
   var_ann_t ann = var_ann (ptr);
+  subvar_t svars;
 
   if (ann->type_mem_tag == NULL_TREE)
     {
@@ -2725,7 +2822,18 @@ found_tag:
      for PTR's type tag.  */
   gcc_assert (var_ann (var)->type_mem_tag == NOT_A_TAG);
   tag = ann->type_mem_tag;
-  add_may_alias (tag, var);
+
+  /* If VAR has subvars, add the subvars to the tag instead of the
+     actual var.  */
+  if (var_can_have_subvars (var)
+      && (svars = get_subvars_for_var (var)))
+    {
+      subvar_t sv;      
+      for (sv = svars; sv; sv = sv->next)
+	add_may_alias (tag, sv->var);
+    }
+  else
+    add_may_alias (tag, var);
 
   /* TAG and its set of aliases need to be marked for renaming.  */
   mark_sym_for_renaming (tag);
