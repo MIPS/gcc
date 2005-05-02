@@ -1,3 +1,13 @@
+2005-05-02  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4102133  (PR 21293, Zdenek's patch)
+	* tree-cfg.c (find_taken_edge_cond_expr): Use zero_p instead of
+        integer_zerop.
+        * tree-gimple.c (is_gimple_min_invariant): Consider overflowed
+        constants invariant.
+        * fortran/trans-intrinsic.c (gfc_conv_intrinsic_ishft): Convert
+        the argument of the shift to the unsigned type.
+
 2005-04-28  Devang Patel  <dpatel@apple.com>
 
 	Radar 4086969

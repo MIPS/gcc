@@ -180,7 +180,8 @@ is_gimple_min_invariant (tree t)
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
-      return !TREE_OVERFLOW (t);
+      /* APPLE LOCAL mainline 4102133 */
+      return true;
 
     default:
       return false;

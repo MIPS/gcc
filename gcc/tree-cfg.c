@@ -2248,16 +2248,10 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
-  /* Otherwise, try to determine which branch of the if() will be taken.
-     If VAL is a constant but it can't be reduced to a 0 or a 1, then
-     we don't really know which edge will be taken at runtime.  This
-     may happen when comparing addresses (e.g., if (&var1 == 4)).  */
-  if (integer_nonzerop (val))
-    return true_edge;
-  else if (integer_zerop (val))
-    return false_edge;
-
-  gcc_unreachable ();
+  /* APPLE LOCAL begin mainline 4102133 */
+  gcc_assert (TREE_CODE (val) == INTEGER_CST);
+  return (zero_p (val) ? false_edge : true_edge);
+  /* APPLE LOCAL end mainline 4102133 */
 }
 
 
