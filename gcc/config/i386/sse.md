@@ -937,23 +937,26 @@
   [(set_attr "type" "ssemov")
    (set_attr "mode" "V4SF,V2SF,V2SF")])
 
+; APPLE LOCAL begin radar 4099352
 (define_insn "sse_movlhps"
-  [(set (match_operand:V4SF 0 "nonimmediate_operand"     "=x,x,o")
+  [(set (match_operand:V4SF 0 "nonimmediate_operand"     "=x,x,x,o")
 	(vec_select:V4SF
 	  (vec_concat:V8SF
-	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,0,0")
-	    (match_operand:V4SF 2 "nonimmediate_operand" " x,m,x"))
+	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,0,0,0")
+	    (match_operand:V4SF 2 "vector_move_operand" " C,x,m,x"))
 	  (parallel [(const_int 0)
 		     (const_int 1)
 		     (const_int 4)
 		     (const_int 5)])))]
   "TARGET_SSE && ix86_binary_operator_ok (UNKNOWN, V4SFmode, operands)"
   "@
+   xorps\t%0, %0
    movlhps\t{%2, %0|%0, %2}
    movhps\t{%2, %0|%0, %2}
    movlps\t{%2, %H0|%H0, %2}"
   [(set_attr "type" "ssemov")
-   (set_attr "mode" "V4SF,V2SF,V2SF")])
+   (set_attr "mode" "V4SF,V4SF,V2SF,V2SF")])
+; APPLE LOCAL end radar 4099352
 
 (define_insn "sse_unpckhps"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
