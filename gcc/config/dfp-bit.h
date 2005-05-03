@@ -21,11 +21,13 @@
 #ifndef _DFPBIT_H
 #define _DFPBIT_H
 
-#include "decNumber.h"
-
 /* Depending on WIDTH, define a number of macros:
 
-   DFP_TYPE: name of the arguments to the libgcc functions;
+   DFP_C_TYPE: type of the arguments to the libgcc functions;
+	(eg _Decimal32)
+
+   DFP_TYPE: the corresponding (encoded) IEEE754R type;
+	(eg decimal32)
    
    TO_INTERNAL: the name of the decNumber function to convert an
    encoded value into the decNumber internal representation;
@@ -56,7 +58,7 @@
 #error invalid decimal float word width
 #endif
 
-/* FIXME: how about unary + and - ? */
+#include "decNumber.h"
 
 #if WIDTH == 32
 #define DFP_ADD		__addsd3
@@ -107,18 +109,6 @@ extern DFP_C_TYPE DFP_DIVIDE (DFP_C_TYPE, DFP_C_TYPE);
 extern DFP_C_TYPE DFP_ADD (DFP_C_TYPE, DFP_C_TYPE);
 extern DFP_C_TYPE DFP_SUB (DFP_C_TYPE, DFP_C_TYPE);
 #endif
-
-#if 0
-
-#if defined (L_plus_sd) || defined (L_plus_dd) || defined (L_plus_td)
-extern DFP_C_TYPE DFP_PLUS (DFP_C_TYPE);
-#endif
-
-#if defined (L_minus_sd) || defined (L_minus_dd) || defined (L_minus_td)
-extern DFP_C_TYPE DFP_MINUS (DFP_C_TYPE);
-#endif
-
-#endif /* 0 */
 
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
 extern int DFP_EQ (DFP_C_TYPE, DFP_C_TYPE);

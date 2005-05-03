@@ -1,6 +1,9 @@
 2005-05-03  Ben Elliston  <bje@au.ibm.com>
 
-	* DEV-PHASE: Update.
+	* config/dfp-bit.h: Include "decNumber.h" after including the
+	appropriate "decimal<n>.h" header, based on the value of WIDTH.
+	Update comments about DFP_TYPE and DFP_C_TYPE macros.
+	(DFP_PLUS, DFP_MINUS): Remove these unused runtime routines.
 
 2005-04-22  Jon Grimm  <jgrimm2@us.ibm.com>
 
