@@ -1,3 +1,9 @@
+2005-05-03  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp (libfuncs): Use `unknown' for unknown
+	function names rather than `???', so as to invoke linker errors
+	that are easier to recognise than syntax errors.
+
 2005-04-19  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.dg/dfp/constants-arith-1.c (main): Add tests for infinities.

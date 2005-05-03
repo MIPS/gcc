@@ -49,18 +49,18 @@ set libfuncs(min) fminl
 set libfuncs(quantize) quantize
 set libfuncs(samequantum) samequantum
 set libfuncs(power) powl
-set libfuncs(toSci) ???
-set libfuncs(tosci) ???
-set libfuncs(toEng) ???
-set libfuncs(toeng) ???
-set libfuncs(divideint) ???
-set libfuncs(rescale) ???
-set libfuncs(remainder) ???
-set libfuncs(remaindernear) ???
-set libfuncs(normalize) ???
-set libfuncs(tointegral) ???
-set libfuncs(trim) ???
-set libfuncs(apply) ???
+set libfuncs(toSci) unknown
+set libfuncs(tosci) unknown
+set libfuncs(toEng) unknown
+set libfuncs(toeng) unknown
+set libfuncs(divideint) unknown
+set libfuncs(rescale) unknown
+set libfuncs(remainder) unknown
+set libfuncs(remaindernear) unknown
+set libfuncs(normalize) unknown
+set libfuncs(tointegral) unknown
+set libfuncs(trim) unknown
+set libfuncs(apply) unknown
 
 
 # Run all of the tests listed in TESTCASES by invoking df-run-test on
