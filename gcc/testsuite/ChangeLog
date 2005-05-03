@@ -1,5 +1,11 @@
 2005-05-04  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.c-torture/execute/builtins/vsprintf-chk.c (test2): Avoid
+	accessing s3 past end of the array.
+	* gcc.c-torture/execute/builtins/sprintf-chk.c (test2): Likewise.
+	* gcc.c-torture/execute/builtins/vsnprintf-chk.c (test2): Likewise.
+	* gcc.c-torture/execute/builtins/snprintf-chk.c (test2): Likewise.
+
 	PR tree-optimization/20742
 	* gcc.c-torture/compile/20050423-1.c: New test.
 

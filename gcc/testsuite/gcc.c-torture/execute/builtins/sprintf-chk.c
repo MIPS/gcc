@@ -91,7 +91,7 @@ test2 (void)
      - source length is not known, but destination is.  */
   chk_calls = 0;
   sprintf (a.buf1 + 2, "%s", s3 + 3);
-  sprintf (r, "%s%c", s3 + 4, s3[3]);
+  sprintf (r, "%s%c", s3 + 3, s3[3]);
   r = l1 == 1 ? __builtin_alloca (4) : &a.buf2[7];
   sprintf (r, "%c %s", s2[2], s2 + 4);
   sprintf (r + 2, s3 + 3);

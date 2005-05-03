@@ -205,7 +205,7 @@ test2 (void)
      - length is not known, but destination is.  */
   chk_calls = 0;
   test2_sub (0, s3 + 3);
-  test2_sub (1, s3 + 4, s3[3]);
+  test2_sub (1, s3 + 3, s3[3]);
   test2_sub (2, s2[2], s2 + 4);
   test2_sub (3);
   test2_sub (4);

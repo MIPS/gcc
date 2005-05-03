@@ -108,7 +108,7 @@ test2 (void)
      - length is not known, but destination is.  */
   chk_calls = 0;
   snprintf (a.buf1 + 2, l1, "%s", s3 + 3);
-  snprintf (r, l1 + 4, "%s%c", s3 + 4, s3[3]);
+  snprintf (r, l1 + 4, "%s%c", s3 + 3, s3[3]);
   r = l1 == 1 ? __builtin_alloca (4) : &a.buf2[7];
   snprintf (r, strlen (s2) - 2, "%c %s", s2[2], s2 + 4);
   snprintf (r + 2, l1, s3 + 3);
