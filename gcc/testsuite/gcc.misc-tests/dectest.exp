@@ -180,6 +180,19 @@ proc c-decimal-type { } {
     return $result
 }
 
+# Return the size of the most appropriate C type, in bytes.
+
+proc c-sizeof-decimal-type { } {
+    switch [c-decimal-type] {
+	"_Decimal32"    { return 4 }
+	"_Decimal64"    { return 8 }
+	"_Decimal128"   { return 16 }
+    }
+    error "Unsupported precision"
+}
+
+# Return the right literal suffix for CTYPE.
+
 proc c-type-suffix { ctype } {
     switch $ctype {
         "_Decimal32"   { return "df" }
@@ -190,7 +203,17 @@ proc c-type-suffix { ctype } {
     }
     return ""
 }
-    
+
+# Return a string that declares a C union containing the decimal type
+# and an unsigned char array of the right size.
+
+proc c-union-decl { } {
+    append result "  union {\n"
+    append result "    [c-decimal-type] d;\n"
+    append result "    unsigned char bytes\[[c-sizeof-decimal-type]\];\n"
+    append result "  } u;"
+    return $result
+}
 
 # Create a C program file (named using ID) containing a test for a
 # binary OPERATION on OP1 and OP2 that expects RESULT and CONDITIONS.
@@ -201,20 +224,20 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     set outfd [open $filename w]
 
     puts $outfd [c-test-preamble $id]
-    puts $outfd "  [c-decimal-type] d;"
+    puts $outfd [c-union-decl]
     puts $outfd ""
     puts $outfd "/*  FIXME: Set the rounding mode.  */"
     puts $outfd "/*  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);*/"
     puts $outfd ""
     if {[string compare $op2 NONE] == 0} {
-	puts $outfd "  d = [c-unary-expression $operation [c-operand $op1]];"
+	puts $outfd "  u.d = [c-unary-expression $operation [c-operand $op1]];"
     } else {
-	puts $outfd "  d = [c-binary-expression $operation [c-operand $op1] [c-operand $op2]];"
+	puts $outfd "  u.d = [c-binary-expression $operation [c-operand $op1] [c-operand $op2]];"
     }
 
     # Handle undefined results.
     if {[string compare $result ?] != 0} {
-	puts $outfd "  return (!(d == [c-operand $result]));"
+	puts $outfd "  return (!(u.d == [c-operand $result]));"
     } else {
 	puts $outfd "  return 0;"
     }
