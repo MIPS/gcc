@@ -1,3 +1,97 @@
+2005-05-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/16888
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Clear reg names
+	for unavailable registers.
+
+2005-05-03  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* doc/passes.texi: Document vectorization pass.
+
+2005-05-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/15698
+	* c-tree.h (C_DECL_BUILTIN_PROTOTYPE): New.
+	* c-decl.c (current_function_prototype_built_in,
+	current_function_prototype_arg_types): New.
+	(merge_decls): Keep source location of prototype followed by
+	nonprototype declaration.  Update C_DECL_BUILTIN_PROTOTYPE.
+	(builtin_function): Set C_DECL_BUILTIN_PROTOTYPE.
+	(start_function): Always set current_function_prototype_locus,
+	current_function_prototype_built_in and
+	current_function_prototype_arg_types.  Check for external
+	prototype whether or not visible for external function and set
+	current_function_prototype_arg_types accordingly.
+	(store_parm_decls_oldstyle): Use
+	current_function_prototype_arg_types for checking old-style
+	definition against prototype.  Give warnings only if
+	current_function_prototype_built_in).
+
+2005-05-02  Janis Johnson  <janis187@us.ibm.com>
+
+	PR 19985
+	* gcov-io.h: Declare gcov external functions hidden.
+
+2005-05-01  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Specific): Omit dots in the @anchors names
+	for i?86-*-sco3.2v5*, i?86-*-solaris2.10, and sparc-sun-solaris2.7.
+	Omit underscores for x86_64-*-* and the "all ELF targets" entry.
+
+2005-05-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR bootstrap/20633
+	* config/freebsd-spec.h (FBSD_CPP_SPEC): Add %(cpp_arch).
+
+2005-05-01  Michael Matz  <matz@suse.de>
+
+	PR c++/19542
+	* c-common.c (c_common_nodes_and_builtins): Create global null_node.
+	(warn_strict_null_sentinel): Define.
+	(check_function_sentinel): Check for null_node as valid sentinel too.
+	* c-common.h (c_tree_index): Added CTI_NULL.
+	(null_node) Define global_tree[CTI_NULL].
+	(warn_strict_null_sentinel): Declare.
+	* c-opts.c: (c_common_handle_option): Handle -Wstrict-null-sentinel.
+	* c.opt: (Wstrict-null-sentinel): New C++ option.
+	* doc/invoke.texi (C++ Options): Document -Wstrict-null-sentinel.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/bpabi.h (RENAME_LIBRARY_SET): Always use .thumb_set in
+	thumb mode.
+	* config/arm/ieee754-df.S: Use __INTERWORKING_STUBS__.
+	* config/arm/ieee754-sf.S: Ditto.
+	* config/arm/lib1funcs.asm: Define and use __INTERWORKING_STUBS__.
+	(FUNC_ALIAS): Use .thumb_set for thumb routines.
+
+2005-04-29  Michael Matz  <matz@suse.de>
+
+	* config/i386/i386.md (movmemsi): Also active when
+	TARGET_INLINE_ALL_STRINGOPS.
+
+2005-04-29  Michael Matz  <matz@suse.de>
+
+	PR rtl-optimization/21144
+	* postreload.c (reload_cse_move2add): Check for VOIDmode.
+
+2005-04-29  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/21098
+	* config/rs6000/rs6000.c (rs6000_elf_end_indicate_exec_stack): New.
+	* config/rs6000/linux64.h (TARGET_ASM_FILE_END): Use the above.
+
+2005-04-28  James E Wilson  <wilson@specifixinc.com>
+
+	* doc/install.texi: Update -enable-languages info.  Correct path to
+	html docs.
+
+2005-04-19  Andrew Haley  <aph@redhat.com>
+	
+	PR java/21022
+	* dbxout.c (dbxout_type_fields): Check DECL_IGNORED_P before
+	looking at a field's bitpos.
+
 2005-04-28  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* config.gcc: Obsolete c4x-* and tic4x-*.

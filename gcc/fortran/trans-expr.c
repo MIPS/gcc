@@ -115,14 +115,15 @@ gfc_make_safe_expr (gfc_se * se)
 }
 
 
-/* Return an expression which determines if a dummy parameter is present.  */
+/* Return an expression which determines if a dummy parameter is present.
+   Also used for arguments to procedures with multiple entry points.  */
 
 tree
 gfc_conv_expr_present (gfc_symbol * sym)
 {
   tree decl;
 
-  gcc_assert (sym->attr.dummy && sym->attr.optional);
+  gcc_assert (sym->attr.dummy);
 
   decl = gfc_get_symbol_decl (sym);
   if (TREE_CODE (decl) != PARM_DECL)
@@ -308,11 +309,43 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
     }
   else
     {
+      tree se_expr = NULL_TREE;
+
       se->expr = gfc_get_symbol_decl (sym);
 
+      /* Special case for assigning the return value of a function.
+	 Self recursive functions must have an explicit return value.  */
+      if (se->expr == current_function_decl && sym->attr.function
+	  && (sym->result == sym))
+	se_expr = gfc_get_fake_result_decl (sym);
+
+      /* Similarly for alternate entry points.  */
+      else if (sym->attr.function && sym->attr.entry
+	       && (sym->result == sym)
+	       && sym->ns->proc_name->backend_decl == current_function_decl)
+	{
+	  gfc_entry_list *el = NULL;
+
+	  for (el = sym->ns->entries; el; el = el->next)
+	    if (sym == el->sym)
+	      {
+		se_expr = gfc_get_fake_result_decl (sym);
+		break;
+	      }
+	}
+
+      else if (sym->attr.result
+	       && sym->ns->proc_name->backend_decl == current_function_decl
+	       && sym->ns->proc_name->attr.entry_master
+	       && !gfc_return_by_reference (sym->ns->proc_name))
+	se_expr = gfc_get_fake_result_decl (sym);
+
+      if (se_expr)
+	se->expr = se_expr;
+
       /* Procedure actual arguments.  */
-      if (sym->attr.flavor == FL_PROCEDURE
-	  && se->expr != current_function_decl)
+      else if (sym->attr.flavor == FL_PROCEDURE
+	       && se->expr != current_function_decl)
 	{
 	  gcc_assert (se->want_pointer);
 	  if (!sym->attr.dummy)
@@ -321,14 +354,6 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      se->expr = gfc_build_addr_expr (NULL, se->expr);
 	    }
 	  return;
-	}
-
-      /* Special case for assigning the return value of a function.
-         Self recursive functions must have an explicit return value.  */
-      if (se->expr == current_function_decl && sym->attr.function
-	  && (sym->result == sym))
-	{
-	  se->expr = gfc_get_fake_result_decl (sym);
 	}
 
       /* Dereference scalar dummy variables.  */
