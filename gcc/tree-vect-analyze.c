@@ -788,20 +788,40 @@ static void
 vect_update_misalignment_for_peel (struct data_reference *dr,
                                    struct data_reference *dr_peel, int npeel)
 {
+  unsigned int i;
   int drsize;
+  varray_type datarefs;
 
   if (known_alignment_for_access_p (dr)
       && DR_MISALIGNMENT (dr) == DR_MISALIGNMENT (dr_peel))
-    DR_MISALIGNMENT (dr) = 0;
-  else if (known_alignment_for_access_p (dr)
-           && known_alignment_for_access_p (dr_peel))
+    {
+      DR_MISALIGNMENT (dr) = 0;
+      return;
+    }
+
+  /* It can be assumed that the data refs with the same alignment as dr0
+     are aligned in the vector loop.  */
+  datarefs = STMT_VINFO_SAME_ALIGN_REFS (vinfo_for_stmt (DR_STMT (dr_peel)));
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+    {
+      struct data_reference *current_dr = VARRAY_GENERIC_PTR (datarefs, i);
+      if (current_dr != dr)
+        continue;
+      gcc_assert (DR_MISALIGNMENT (current_dr) == DR_MISALIGNMENT (dr_peel));
+      DR_MISALIGNMENT (dr) = 0;
+      return;
+    }
+
+  if (known_alignment_for_access_p (dr)
+      && known_alignment_for_access_p (dr_peel))
     {  
       drsize = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
       DR_MISALIGNMENT (dr) += npeel * drsize;
       DR_MISALIGNMENT (dr) %= UNITS_PER_SIMD_WORD;
+      return;
     }
-  else
-    DR_MISALIGNMENT (dr) = -1;
+  /* The alignment of dr after the peeling is not known. */
+  DR_MISALIGNMENT (dr) = -1;
 }
 
 
@@ -1017,16 +1037,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
           npeel = LOOP_VINFO_VECT_FACTOR (loop_vinfo) - mis;
         }
 
-      /* It can be assumed that the data refs with the same alignment as dr0
-         are aligned in the vector loop.  */
-      datarefs = STMT_VINFO_SAME_ALIGN_REFS (vinfo_for_stmt (DR_STMT (dr0)));
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
-        {
-          struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
-          gcc_assert (DR_MISALIGNMENT (dr) == DR_MISALIGNMENT (dr0));
-          DR_MISALIGNMENT (dr) = 0;
-        }
-
       /* Ensure that all data refs can be vectorized after the peel.  */
       datarefs = loop_datarefs;
       for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
@@ -1078,18 +1088,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	  gcc_assert (stat);
 #endif
           return stat;
-        }
-      else
-        {
-          /* Peeling cannot be done so restore the misalignment of the data refs
-             that had the same misalignment as dr0.  */
-          datarefs =
-              STMT_VINFO_SAME_ALIGN_REFS (vinfo_for_stmt (DR_STMT (dr0)));
-          for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
-            {
-              struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
-              DR_MISALIGNMENT (dr) = DR_MISALIGNMENT (dr0);
-            }
         }
     }
 

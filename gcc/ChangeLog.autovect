@@ -1,3 +1,11 @@
+2005-05-03  Leehod Baruch  <leehod@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_enhance_data_refs_alignment): Remove 
+	the misalign update of datarefs with the same alignment, and the 
+	restore of the misalignment if the peeling fails.
+	(vect_update_misalignment_for_peel) : Add special care for 
+	datarefs with the same alignment.
+
 2005-04-21  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* Makefile.in (POLYHEDRON_H): New variable.
