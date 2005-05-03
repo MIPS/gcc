@@ -74,6 +74,8 @@ Boston, MA 02111-1307, USA.  */
 #include "libfuncs.h"
 #include "hashtab.h"
 #include "langhooks-def.h"
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+#include "opts.h"
 
 #define OBJC_VOID_AT_END	void_list_node
 

@@ -48,6 +48,8 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "cgraph.h"
 #include "tree-gimple.h"
+/* APPLE LOCAL inline intrinsics with -Os 4037817 */
+#include "params.h"
 
 /* APPLE LOCAL begin pascal strings */
 #include "../../libcpp/internal.h"

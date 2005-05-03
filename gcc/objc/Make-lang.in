@@ -83,13 +83,13 @@ objc/objc-parse.o : objc/objc-parse.c \
    toplev.h $(GGC_H) input.h flags.h output.h langhooks.h $(C_COMMON_H) \
    $(C_PRAGMA_H)
 
-# APPLE LOCAL begin Radar 4015820
+# APPLE LOCAL begin Radar 4015820, 3124235
 objc/objc-act.o : objc/objc-act.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) $(TM_P_H) \
    $(EXPR_H) $(TARGET_H) $(C_TREE_H) diagnostic.h toplev.h flags.h \
-   objc/objc-act.h input.h function.h output.h debug.h langhooks.h \
+   objc/objc-act.h input.h function.h output.h debug.h langhooks.h opts.h \
    $(LANGHOOKS_DEF_H) $(HASHTAB_H) c-pragma.h gt-objc-objc-act.h tree-gimple.h
-# APPLE LOCAL end Radar 4015820
+# APPLE LOCAL end Radar 4015820, 3124235
 
 objc.srcextra: objc/objc-parse.c objc/objc-parse.y
 	-cp -p $^ $(srcdir)/objc

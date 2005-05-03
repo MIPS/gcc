@@ -29,6 +29,8 @@ extern const char *machopic_mcount_stub_name (void);
 
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_picsymbol_stub1_section (void);
+/* APPLE LOCAL dynamic-no-pic */
+extern void machopic_picsymbol_stub2_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_symbol_stub1_section (void);
 /* APPLE LOCAL deep branch prediction */

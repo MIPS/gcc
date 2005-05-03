@@ -1,3 +1,12 @@
+2005-05-03  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4104248
+	* objc/objc-act.c:  Include opts.h.
+	* objc/Make-lang.in (objc-act.o):  Ditto.
+	* config/darwin-protos.h (machopic_picsymbol_stub2_section):  New.
+	* config/i386/i386.c:  Include params.h.
+	* config/i386/i386.md (movqi_1):  Handle ESI/EDI destination.
+
 2005-05-02  Mike Stump  <mrs@apple.com>
 
 	* Radar 4099000
