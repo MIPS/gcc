@@ -1,3 +1,12 @@
+2005-05-03  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport from mainline:
+	2004-12-02  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/18759
+	* config/i386/i386.c (override_options): If -fomit-frame-pointer has
+	already been specified, ignore the -momit-leaf-frame-pointer option.
+
 2005-04-22  Michael Pogue  <michael.pogue@sun.com>
             Joseph S. Myers  <joseph@codesourcery.com>
 
