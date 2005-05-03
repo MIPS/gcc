@@ -1,3 +1,11 @@
+2005-05-02  Mike Stump  <mrs@apple.com>
+
+	* Radar 4099000
+	* config/i386/lib1funcs.asm: Add ___i686.get_pc_thunk.<reg> to
+	libgcc.
+	* config/i386/t-darwin: Add.
+	* config.gcc: Add i386/t-darwin.
+
 2005-05-02  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4102133  (PR 21293, Zdenek's patch)
