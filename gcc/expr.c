@@ -208,6 +208,30 @@ enum insn_code clrmem_optab[NUM_MACHINE_MODES];
 enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
+/* Synchronization primitives.  */
+enum insn_code sync_add_optab[NUM_MACHINE_MODES];
+enum insn_code sync_sub_optab[NUM_MACHINE_MODES];
+enum insn_code sync_ior_optab[NUM_MACHINE_MODES];
+enum insn_code sync_and_optab[NUM_MACHINE_MODES];
+enum insn_code sync_xor_optab[NUM_MACHINE_MODES];
+enum insn_code sync_nand_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_add_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_sub_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_ior_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_and_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_xor_optab[NUM_MACHINE_MODES];
+enum insn_code sync_old_nand_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_add_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_sub_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_ior_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_and_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_xor_optab[NUM_MACHINE_MODES];
+enum insn_code sync_new_nand_optab[NUM_MACHINE_MODES];
+enum insn_code sync_compare_and_swap[NUM_MACHINE_MODES];
+enum insn_code sync_compare_and_swap_cc[NUM_MACHINE_MODES];
+enum insn_code sync_lock_test_and_set[NUM_MACHINE_MODES];
+enum insn_code sync_lock_release[NUM_MACHINE_MODES];
+
 /* SLOW_UNALIGNED_ACCESS is nonzero if unaligned accesses are very slow.  */
 
 #ifndef SLOW_UNALIGNED_ACCESS
@@ -2626,7 +2650,7 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
 	 the original object if it spans an even number of hard regs.
 	 This special case is important for SCmode on 64-bit platforms
 	 where the natural size of floating-point regs is 32-bit.  */
-      || (GET_CODE (cplx) == REG
+      || (REG_P (cplx)
 	  && REGNO (cplx) < FIRST_PSEUDO_REGISTER
 	  && hard_regno_nregs[REGNO (cplx)][cmode] % 2 == 0)
       /* For MEMs we always try to make a "subreg", that is to adjust
@@ -2686,7 +2710,7 @@ read_complex_part (rtx cplx, bool imag_p)
 	 the original object if it spans an even number of hard regs.
 	 This special case is important for SCmode on 64-bit platforms
 	 where the natural size of floating-point regs is 32-bit.  */
-      || (GET_CODE (cplx) == REG
+      || (REG_P (cplx)
 	  && REGNO (cplx) < FIRST_PSEUDO_REGISTER
 	  && hard_regno_nregs[REGNO (cplx)][cmode] % 2 == 0)
       /* For MEMs we always try to make a "subreg", that is to adjust
@@ -2996,8 +3020,8 @@ emit_move_multi_word (enum machine_mode mode, rtx x, rtx y)
       rtx ypart = operand_subword (y, i, 1, mode);
 
       /* If we can't get a part of Y, put Y into memory if it is a
-	 constant.  Otherwise, force it into a register.  If we still
-	 can't get a part of Y, abort.  */
+	 constant.  Otherwise, force it into a register.  Then we must
+	 be able to get a part of Y.  */
       if (ypart == 0 && CONSTANT_P (y))
 	{
 	  y = force_const_mem (mode, y);
@@ -3520,7 +3544,7 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       int not_stack;
       /* # bytes of start of argument
 	 that we must make space for but need not store.  */
-      int offset = partial % (PARM_BOUNDARY / BITS_PER_WORD);
+      int offset = partial % (PARM_BOUNDARY / BITS_PER_UNIT);
       int args_offset = INTVAL (args_so_far);
       int skip;
 
@@ -3538,8 +3562,9 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 	offset = 0;
 
       /* Now NOT_STACK gets the number of words that we don't need to
-	 allocate on the stack.  */
+	 allocate on the stack. Convert OFFSET to words too. */
       not_stack = (partial - offset) / UNITS_PER_WORD;
+      offset /= UNITS_PER_WORD;
 
       /* If the partial register-part of the arg counts in its stack size,
 	 skip the part of stack space corresponding to the registers.
@@ -4197,10 +4222,10 @@ store_expr (tree exp, rtx target, int call_param_p)
 	 but TARGET is not valid memory reference, TEMP will differ
 	 from TARGET although it is really the same location.  */
       && !(alt_rtl && rtx_equal_p (alt_rtl, target))
-      /* If there's nothing to copy, don't bother.  Don't call expr_size
-	 unless necessary, because some front-ends (C++) expr_size-hook
-	 aborts on objects that are not supposed to be bit-copied or
-	 bit-initialized.  */
+      /* If there's nothing to copy, don't bother.  Don't call
+	 expr_size unless necessary, because some front-ends (C++)
+	 expr_size-hook must not be given objects that are not
+	 supposed to be bit-copied or bit-initialized.  */
       && expr_size (exp) != const0_rtx)
     {
       if (GET_MODE (temp) != GET_MODE (target)
@@ -4522,7 +4547,6 @@ count_type_elements (tree type)
 
     case VOID_TYPE:
     case METHOD_TYPE:
-    case FILE_TYPE:
     case FUNCTION_TYPE:
     case LANG_TYPE:
     default:
@@ -4759,9 +4783,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		
 		if (BYTES_BIG_ENDIAN)
 		  value
-		    = fold (build2 (LSHIFT_EXPR, type, value,
-				    build_int_cst (NULL_TREE,
-						   BITS_PER_WORD - bitsize)));
+		   = fold_build2 (LSHIFT_EXPR, type, value,
+				   build_int_cst (NULL_TREE,
+						  BITS_PER_WORD - bitsize));
 		bitsize = BITS_PER_WORD;
 		mode = word_mode;
 	      }
@@ -4962,8 +4986,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		    /* Assign value to element index.  */
 		    position
 		      = convert (ssizetype,
-				 fold (build2 (MINUS_EXPR, TREE_TYPE (index),
-					       index, TYPE_MIN_VALUE (domain))));
+				 fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+					      index, TYPE_MIN_VALUE (domain)));
 		    position = size_binop (MULT_EXPR, position,
 					   convert (ssizetype,
 						    TYPE_SIZE_UNIT (elttype)));
@@ -5005,10 +5029,10 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		
 		if (minelt)
 		  index = fold_convert (ssizetype,
-					fold (build2 (MINUS_EXPR,
-						      TREE_TYPE (index),
-						      index,
-						      TYPE_MIN_VALUE (domain))));
+					fold_build2 (MINUS_EXPR,
+						     TREE_TYPE (index),
+						     index,
+						     TYPE_MIN_VALUE (domain)));
 		
 		position = size_binop (MULT_EXPR, index,
 				       convert (ssizetype,
@@ -5461,8 +5485,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	       index, then convert to sizetype and multiply by the size of
 	       the array element.  */
 	    if (! integer_zerop (low_bound))
-	      index = fold (build2 (MINUS_EXPR, TREE_TYPE (index),
-				    index, low_bound));
+	      index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+				   index, low_bound);
 
 	    offset = size_binop (PLUS_EXPR, offset,
 			         size_binop (MULT_EXPR,
@@ -6189,7 +6213,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	  /* If the DECL isn't in memory, then the DECL wasn't properly
 	     marked TREE_ADDRESSABLE, which will be either a front-end
 	     or a tree optimizer bug.  */
-	  gcc_assert (GET_CODE (result) == MEM);
+	  gcc_assert (MEM_P (result));
 	  result = XEXP (result, 0);
 
 	  /* ??? Is this needed anymore?  */
@@ -8317,8 +8341,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
         op2 = expand_expr (oprnd2, NULL_RTX, VOIDmode, 0);
         temp = expand_ternary_op (mode, this_optab, op0, op1, op2, 
 				  target, unsignedp);
-        if (temp == 0)
-          abort ();
+        gcc_assert (temp);
         return temp;
       }
 
@@ -8948,9 +8971,9 @@ try_tablejump (tree index_type, tree index_expr, tree minval, tree range,
   if (! HAVE_tablejump)
     return 0;
 
-  index_expr = fold (build2 (MINUS_EXPR, index_type,
-			     convert (index_type, index_expr),
-			     convert (index_type, minval)));
+  index_expr = fold_build2 (MINUS_EXPR, index_type,
+			    convert (index_type, index_expr),
+			    convert (index_type, minval));
   index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
   do_pending_stack_adjust ();
 

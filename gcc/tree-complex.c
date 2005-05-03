@@ -84,7 +84,7 @@ update_complex_assignment (block_stmt_iterator *bsi, tree r, tree i)
   
   type = TREE_TYPE (TREE_OPERAND (stmt, 1));
   TREE_OPERAND (stmt, 1) = build (COMPLEX_EXPR, type, r, i);
-  modify_stmt (stmt);
+  mark_stmt_modified (stmt);
 }
 
 /* Expand complex addition to scalars:
@@ -136,7 +136,7 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
 
   TREE_OPERAND (stmt, 1)
     = build3 (CALL_EXPR, type, build_fold_addr_expr (fn), args, NULL);
-  modify_stmt (stmt);
+  update_stmt (stmt);
 }
 
 /* Expand complex multiplication to scalars:
@@ -439,7 +439,7 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
       gcc_unreachable ();
     }
 
-  modify_stmt (stmt);
+  mark_stmt_modified (stmt);
 }
 
 /* Process one statement.  If we identify a complex operation, expand it.  */
@@ -561,6 +561,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     default:
       gcc_unreachable ();
     }
+  update_stmt_if_modified (stmt);
 }
 
 /* Build a constant of type TYPE, made of VALUE's bits replicated
@@ -631,8 +632,13 @@ tree_vec_extract (block_stmt_iterator *bsi, tree type,
 {
   if (bitpos)
     return gimplify_build3 (bsi, BIT_FIELD_REF, type, t, bitsize, bitpos);
-  else
+
+  /* Build a conversion; VIEW_CONVERT_EXPR is very expensive unless T will
+     anyway be stored in memory, so prefer NOP_EXPR.  */
+  else if (TYPE_MODE (type) == BLKmode)
     return gimplify_build1 (bsi, VIEW_CONVERT_EXPR, type, t);
+  else
+    return gimplify_build1 (bsi, NOP_EXPR, type, t);
 }
 
 static tree
@@ -782,7 +788,7 @@ expand_vector_parallel (block_stmt_iterator *bsi, elem_op_func f, tree type,
       result = f (bsi, compute_type, a, b, NULL_TREE, NULL_TREE, code);
     }
 
-  return build1 (VIEW_CONVERT_EXPR, type, result);
+  return result;
 }
 
 /* Expand a vector operation to scalars; for integer types we can use
@@ -809,6 +815,60 @@ expand_vector_addition (block_stmt_iterator *bsi,
 				    a, b, code);
 }
 
+static tree
+expand_vector_operation (block_stmt_iterator *bsi, tree type, tree compute_type,
+			 tree rhs, enum tree_code code)
+{
+  enum machine_mode compute_mode = TYPE_MODE (compute_type);
+
+  /* If the compute mode is not a vector mode (hence we are not decomposing
+     a BLKmode vector to smaller, hardware-supported vectors), we may want
+     to expand the operations in parallel.  */
+  if (GET_MODE_CLASS (compute_mode) != MODE_VECTOR_INT
+      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_FLOAT)
+    switch (code)
+      {
+      case PLUS_EXPR:
+      case MINUS_EXPR:
+        if (!TYPE_TRAP_SIGNED (type))
+          return expand_vector_addition (bsi, do_binop, do_plus_minus, type,
+		      		         TREE_OPERAND (rhs, 0),
+					 TREE_OPERAND (rhs, 1), code);
+	break;
+
+      case NEGATE_EXPR:
+        if (!TYPE_TRAP_SIGNED (type))
+          return expand_vector_addition (bsi, do_unop, do_negate, type,
+		      		         TREE_OPERAND (rhs, 0),
+					 NULL_TREE, code);
+	break;
+
+      case BIT_AND_EXPR:
+      case BIT_IOR_EXPR:
+      case BIT_XOR_EXPR:
+        return expand_vector_parallel (bsi, do_binop, type,
+		      		       TREE_OPERAND (rhs, 0),
+				       TREE_OPERAND (rhs, 1), code);
+
+      case BIT_NOT_EXPR:
+        return expand_vector_parallel (bsi, do_unop, type,
+		      		       TREE_OPERAND (rhs, 0),
+				       NULL_TREE, code);
+
+      default:
+	break;
+      }
+
+  if (TREE_CODE_CLASS (code) == tcc_unary)
+    return expand_vector_piecewise (bsi, do_unop, type, compute_type,
+				    TREE_OPERAND (rhs, 0),
+				    NULL_TREE, code);
+  else
+    return expand_vector_piecewise (bsi, do_binop, type, compute_type,
+				    TREE_OPERAND (rhs, 0),
+				    TREE_OPERAND (rhs, 1), code);
+}
+
 /* Return a type for the widest vector mode whose components are of mode
    INNER_MODE, or NULL_TREE if none is found.  */
 static tree
@@ -840,7 +900,7 @@ static void
 expand_vector_operations_1 (block_stmt_iterator *bsi)
 {
   tree stmt = bsi_stmt (*bsi);
-  tree *p_rhs, rhs, type, compute_type;
+  tree *p_lhs, *p_rhs, lhs, rhs, type, compute_type;
   enum tree_code code;
   enum machine_mode compute_mode;
   optab op;
@@ -855,7 +915,9 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
       /* FALLTHRU */
 
     case MODIFY_EXPR:
+      p_lhs = &TREE_OPERAND (stmt, 0);
       p_rhs = &TREE_OPERAND (stmt, 1);
+      lhs = *p_lhs;
       rhs = *p_rhs;
       break;
 
@@ -896,86 +958,49 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
         compute_type = vector_compute_type;
     }
 
-  compute_mode = TYPE_MODE (compute_type);
-
   /* If we are breaking a BLKmode vector into smaller pieces,
      type_for_widest_vector_mode has already looked into the optab,
      so skip these checks.  */
   if (compute_type == type)
     {
+      compute_mode = TYPE_MODE (compute_type);
       if ((GET_MODE_CLASS (compute_mode) == MODE_VECTOR_INT
 	   || GET_MODE_CLASS (compute_mode) == MODE_VECTOR_FLOAT)
           && op != NULL
 	  && op->handlers[compute_mode].insn_code != CODE_FOR_nothing)
 	return;
       else
-	{
-	  /* There is no operation in hardware, so fall back to scalars.  */
-	  compute_type = TREE_TYPE (type);
-	  compute_mode = TYPE_MODE (compute_type);
-	}
+	/* There is no operation in hardware, so fall back to scalars.  */
+	compute_type = TREE_TYPE (type);
     }
 
-  /* If the compute mode is not a vector mode (hence we are decomposing
-     a BLKmode vector to smaller, hardware-supported vectors), we may
-     want to expand the operations in parallel.  */
-  if (GET_MODE_CLASS (compute_mode) != MODE_VECTOR_INT
-      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_FLOAT)
-    switch (code)
-      {
-      case PLUS_EXPR:
-      case MINUS_EXPR:
-        if (TYPE_TRAP_SIGNED (type))
-	  break;
-
-        *p_rhs = expand_vector_addition (bsi, do_binop, do_plus_minus, type,
-		      		         TREE_OPERAND (rhs, 0),
-				         TREE_OPERAND (rhs, 1), code);
-	modify_stmt (bsi_stmt (*bsi));
-        return;
-
-      case NEGATE_EXPR:
-        if (TYPE_TRAP_SIGNED (type))
-	  break;
-
-        *p_rhs = expand_vector_addition (bsi, do_unop, do_negate, type,
-		      		         TREE_OPERAND (rhs, 0),
-					 NULL_TREE, code);
-	modify_stmt (bsi_stmt (*bsi));
-        return;
-
-      case BIT_AND_EXPR:
-      case BIT_IOR_EXPR:
-      case BIT_XOR_EXPR:
-        *p_rhs = expand_vector_parallel (bsi, do_binop, type,
-		      		         TREE_OPERAND (rhs, 0),
-				         TREE_OPERAND (rhs, 1), code);
-	modify_stmt (bsi_stmt (*bsi));
-        return;
-
-      case BIT_NOT_EXPR:
-        *p_rhs = expand_vector_parallel (bsi, do_unop, type,
-		      		         TREE_OPERAND (rhs, 0),
-					 NULL_TREE, code);
-	modify_stmt (bsi_stmt (*bsi));
-        return;
-
-      default:
-	break;
-      }
-
-  if (TREE_CODE_CLASS (code) == tcc_unary)
-    *p_rhs = expand_vector_piecewise (bsi, do_unop, type, compute_type,
-				      TREE_OPERAND (rhs, 0),
-				      NULL_TREE, code);
+  rhs = expand_vector_operation (bsi, type, compute_type, rhs, code);
+  if (lang_hooks.types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
+    *p_rhs = rhs;
   else
-    *p_rhs = expand_vector_piecewise (bsi, do_binop, type, compute_type,
-				      TREE_OPERAND (rhs, 0),
-				      TREE_OPERAND (rhs, 1), code);
+    {
+      /* Build a conversion; VIEW_CONVERT_EXPR is very expensive unless T will
+         be stored in memory anyway, so prefer NOP_EXPR.  We should also try
+	 performing the VIEW_CONVERT_EXPR on the left side of the
+	 assignment.  */
+      if (TYPE_MODE (TREE_TYPE (rhs)) == BLKmode)
+        *p_rhs = gimplify_build1 (bsi, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), rhs);
+      else
+	*p_rhs = gimplify_build1 (bsi, NOP_EXPR, TREE_TYPE (lhs), rhs);
+    }
 
-  modify_stmt (bsi_stmt (*bsi));
+  mark_stmt_modified (bsi_stmt (*bsi));
 }
 
+/* Use this to lower vector operations introduced by the vectorizer,
+   if it may need the bit-twiddling tricks implemented in this file.  */
+
+static bool
+gate_expand_vector_operations (void)
+{
+  return flag_tree_vectorize != 0;
+}
+
 static void
 expand_vector_operations (void)
 {
@@ -985,7 +1010,10 @@ expand_vector_operations (void)
   FOR_EACH_BB (bb)
     {
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	expand_vector_operations_1 (&bsi);
+	{
+	  expand_vector_operations_1 (&bsi);
+	  update_stmt_if_modified (bsi_stmt (bsi));
+	}
     }
 }
 
@@ -1011,8 +1039,8 @@ tree_lower_operations (void)
 
 struct tree_opt_pass pass_lower_vector_ssa = 
 {
-  "vector",				/* name */
-  NULL,					/* gate */
+  "veclower",				/* name */
+  gate_expand_vector_operations,	/* gate */
   expand_vector_operations,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -1022,7 +1050,7 @@ struct tree_opt_pass pass_lower_vector_ssa =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_rename_vars	/* todo_flags_finish */
+  TODO_dump_func | TODO_update_ssa	/* todo_flags_finish */
     | TODO_ggc_collect | TODO_verify_ssa
     | TODO_verify_stmts | TODO_verify_flow,
   0					/* letter */

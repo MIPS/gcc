@@ -51,8 +51,10 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.StringTokenizer;
+import gnu.gcj.runtime.BootClassLoader;
 
 /**
  * java.lang.VMClassLoader is a package-private helper for VMs to implement
@@ -82,6 +84,21 @@ final class VMClassLoader
 
   static final HashMap definedPackages = new HashMap();
 
+  // This is a helper for handling java.endorsed.dirs.  It is null
+  // until we've initialized the system, at which point it is created.
+  static BootClassLoader bootLoader;
+
+  // This keeps track of shared libraries we've already tried to load.
+  private static HashSet tried_libraries;
+
+  // Holds one of the LIB_* constants; used to determine how shared
+  // library loads are done.
+  private static int lib_control;
+
+  private static final int LIB_FULL = 0;
+  private static final int LIB_CACHE = 1;
+  private static final int LIB_NEVER = 2;
+
   /**
    * Helper to define a class using a string of bytes. This assumes that
    * the security checks have already been performed, if necessary.
@@ -108,26 +125,11 @@ final class VMClassLoader
    *
    * @param c the class to resolve
    */
-  static final native void resolveClass(Class clazz);
-
-  static final void transformException(Class clazz, Throwable x)
+  static final void resolveClass(Class clazz)
   {
-    LinkageError e;
-    if (x instanceof LinkageError)
-      e = (LinkageError) x;
-    else if (x instanceof ClassNotFoundException)
-      {
-	e = new NoClassDefFoundError("while resolving class: "
-				     + clazz.getName());
-	e.initCause (x);
-      }
-    else
-      {
-	e = new LinkageError ("unexpected exception during linking: "
-			      + clazz.getName());
-	e.initCause (x);
-      }
-    throw e;
+    // There doesn't seem to be a need for this to do anything.
+    // Testing reveals that the JDK doesn't seem to do anything here,
+    // either.
   }
 
   /**
@@ -153,6 +155,8 @@ final class VMClassLoader
    */
   static URL getResource(String name)
   {
+    if (bootLoader != null)
+      return bootLoader.bootGetResource(name);
     return null;
   }
 
@@ -168,6 +172,8 @@ final class VMClassLoader
    */
   static Enumeration getResources(String name) throws IOException
   {
+    if (bootLoader != null)
+      return bootLoader.bootGetResources(name);
     return EmptyEnumeration.getInstance();
   }
 
@@ -287,6 +293,32 @@ final class VMClassLoader
 
   static native ClassLoader getSystemClassLoaderInternal();
 
+  static native void initBootLoader(String libdir);
+
+  static void initialize(String libdir)
+  {
+    initBootLoader(libdir);
+
+    String p
+      = System.getProperty ("gnu.gcj.runtime.VMClassLoader.library_control",
+			    "");
+    if ("never".equals(p))
+      lib_control = LIB_NEVER;
+    else if ("cache".equals(p))
+      lib_control = LIB_CACHE;
+    else if ("full".equals(p))
+      lib_control = LIB_FULL;
+    else
+      lib_control = LIB_CACHE;
+
+    tried_libraries = new HashSet();
+  }
+
+  /**
+   * Possibly load a .so and search it for classes.
+   */
+  static native Class nativeFindClass(String name);
+
   static ClassLoader getSystemClassLoader()
   {
     // This method is called as the initialization of systemClassLoader,
@@ -310,6 +342,7 @@ final class VMClassLoader
 			       + loader, ex);
 	  }
       }
+
     return default_sys;
   }
 }

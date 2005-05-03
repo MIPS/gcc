@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -106,11 +107,6 @@ Boston, MA 02111-1307, USA.  */
 rtx mmix_compare_op0;
 rtx mmix_compare_op1;
 
-/* We ignore some options with arguments.  They are passed to the linker,
-   but also ends up here because they start with "-m".  We tell the driver
-   to store them in a variable we don't inspect.  */
-const char *mmix_cc1_ignored_option;
-
 /* Declarations of locals.  */
 
 /* Intermediate for insn output.  */
@@ -208,6 +204,8 @@ static bool mmix_pass_by_reference (const CUMULATIVE_ARGS *,
 #define TARGET_PASS_BY_REFERENCE mmix_pass_by_reference
 #undef TARGET_CALLEE_COPIES
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -226,7 +224,7 @@ mmix_override_options (void)
      labels.  */
   if (flag_pic)
     {
-      warning ("-f%s not supported: ignored", (flag_pic > 1) ? "PIC" : "pic");
+      warning (0, "-f%s not supported: ignored", (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
     }
 }
@@ -1302,11 +1300,10 @@ mmix_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	return true;
 
       case 8:
-	if (GET_CODE (x) == CONST_DOUBLE)
-	  /* We don't get here anymore for CONST_DOUBLE, because DImode
-	     isn't expressed as CONST_DOUBLE, and DFmode is handled
-	     elsewhere.  */
-	  abort ();
+	/* We don't get here anymore for CONST_DOUBLE, because DImode
+	   isn't expressed as CONST_DOUBLE, and DFmode is handled
+	   elsewhere.  */
+	gcc_assert (GET_CODE (x) != CONST_DOUBLE);
 	assemble_integer_with_op ("\tOCTA\t", x);
 	return true;
       }

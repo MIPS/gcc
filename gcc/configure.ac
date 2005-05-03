@@ -393,8 +393,9 @@ AC_ARG_ENABLE(checking,
 [  --enable-checking[=LIST]
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
-			  Categories are: assert,fold,gc,gcac,misc,
-			  rtlflag,rtl,tree,valgrind,release,yes,all;],
+			  Categories are: yes,no,all,none,release.
+			  Flags are: assert,fold,gc,gcac,misc,
+			  rtlflag,rtl,runtime,tree,valgrind.],
 [ac_checking_flags="${enableval}"],[
 # Determine the default checks.
 if test x$is_release = x ; then
@@ -404,37 +405,50 @@ else
 fi])
 ac_assert_checking=1
 ac_checking=
-ac_tree_checking=
-ac_rtl_checking=
-ac_rtlflag_checking=
+ac_fold_checking=
 ac_gc_checking=
 ac_gc_always_collect=
-ac_fold_checking=
+ac_rtl_checking=
+ac_rtlflag_checking=
+ac_runtime_checking=1
+ac_tree_checking=
+ac_valgrind_checking=
 IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
 for check in $ac_checking_flags
 do
 	case $check in
+	# these set all the flags to specific states
 	yes)		ac_assert_checking=1 ; ac_checking=1 ;
-			ac_tree_checking=1 ; ac_gc_checking=1 ;
-			ac_rtlflag_checking=1 ;;
-	no)		ac_assert_checking= ; ac_checking= ;
-			ac_tree_checking= ; ac_rtl_checking= ;
-			ac_rtlflag_checking= ; ac_gc_checking= ;
-			ac_gc_always_collect= ; ac_fold_checking= ;;
+			ac_fold_checking= ; ac_gc_checking=1 ;
+			ac_gc_always_collect= ; ac_rtl_checking= ;
+			ac_rtlflag_checking=1 ; ac_runtime_chacking=1 ;
+			ac_tree_checking=1 ; ac_valgrind_checking= ;;
+	no|none)	ac_assert_checking= ; ac_checking= ;
+			ac_fold_checking= ; ac_gc_checking= ;
+			ac_gc_always_collect= ; ac_rtl_checking= ;
+			ac_rtlflag_checking= ; ac_runtime_chacking= ;
+			ac_tree_checking= ; ac_valgrind_checking= ;;
 	all)		ac_assert_checking=1 ; ac_checking=1 ;
-			ac_tree_checking=1 ; ac_rtl_checking=1 ;
-			ac_rtlflag_checking=1 ; ac_gc_checking=1 ;
-			ac_gc_always_collect=1 ; ac_fold_checking=1 ;;
-        release)	ac_assert_checking=1 ;;
+			ac_fold_checking=1 ; ac_gc_checking=1 ;
+			ac_gc_always_collect=1 ; ac_rtl_checking=1 ;
+			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
+			ac_tree_checking=1 ; ac_valgrind_checking= ;;
+	release)	ac_assert_checking=1 ; ac_checking= ;
+			ac_fold_checking= ; ac_gc_checking= ;
+			ac_gc_always_collect= ; ac_rtl_checking= ;
+			ac_rtlflag_checking= ; ac_runtime_checking=1 ;
+			ac_tree_checking= ; ac_valgrind_checking= ;;
+	# these enable particular checks
 	assert) 	ac_assert_checking=1 ;;
 	fold)		ac_fold_checking=1 ;;
 	gc)		ac_gc_checking=1 ;;
 	gcac)		ac_gc_always_collect=1 ;;
 	misc)		ac_checking=1 ;;
-	rtlflag)	ac_rtlflag_checking=1 ;;
 	rtl)		ac_rtl_checking=1 ;;
+	rtlflag)	ac_rtlflag_checking=1 ;;
+	runtime)	ac_runtime_checking=1 ;;
 	tree)		ac_tree_checking=1 ;;
-	valgrind)	ac_checking_valgrind=1 ;;
+	valgrind)	ac_valgrind_checking=1 ;;
 	*)	AC_MSG_ERROR(unknown check category $check) ;;
 	esac
 done
@@ -451,6 +465,10 @@ AC_SUBST(nocommon_flag)
 if test x$ac_assert_checking != x ; then
   AC_DEFINE(ENABLE_ASSERT_CHECKING, 1,
 [Define if you want assertions enabled.  This is a cheap check.])
+fi
+if test x$ac_runtime_checking != x ; then
+  AC_DEFINE(ENABLE_RUNTIME_CHECKING, 1,
+[Define if you want runtime assertions enabled.  This is a cheap check.])
 fi
 if test x$ac_tree_checking != x ; then
   AC_DEFINE(ENABLE_TREE_CHECKING, 1,
@@ -498,7 +516,7 @@ dnl # an if statement.  This was the source of very frustrating bugs
 dnl # in converting to autoconf 2.5x!
 AC_CHECK_HEADER(valgrind.h, have_valgrind_h=yes, have_valgrind_h=no)
 
-if test x$ac_checking_valgrind != x ; then
+if test x$ac_valgrind_checking != x ; then
   # It is certainly possible that there's valgrind but no valgrind.h.
   # GCC relies on making annotations so we must have both.
   AC_MSG_CHECKING(for VALGRIND_DISCARD in <valgrind/memcheck.h>)
@@ -959,11 +977,15 @@ fi
 dnl Disabled until we have a complete test for buggy enum bitfields.
 dnl gcc_AC_C_ENUM_BF_UNSIGNED
 
+define(gcc_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
+  ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked dnl
+  fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked dnl
+  fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
+  putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
-	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
-	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo \
-        scandir alphasort gettimeofday mbstowcs wcswidth mmap mincore \
-        setlocale)
+	sysconf strsignal getrusage nl_langinfo scandir alphasort \
+	gettimeofday mbstowcs wcswidth mmap mincore setlocale \
+	gcc_UNLOCKED_FUNCS)
 
 if test x$ac_cv_func_mbstowcs = xyes; then
   AC_CACHE_CHECK(whether mbstowcs works, gcc_cv_func_mbstowcs_works,
@@ -1030,10 +1052,9 @@ AM_LANGINFO_CODESET
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
-gcc_AC_CHECK_DECLS(getenv atol sbrk abort atof getcwd getwd \
-	strsignal putc_unlocked fputs_unlocked fwrite_unlocked \
-        fprintf_unlocked strstr errno snprintf vasprintf \
-	malloc realloc calloc free basename getopt clock getpagesize, , ,[
+gcc_AC_CHECK_DECLS(getenv atol sbrk abort atof getcwd getwd strsignal \
+	strstr errno snprintf vsnprintf vasprintf malloc realloc calloc \
+	free basename getopt clock getpagesize gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
 #include "system.h"])
 
@@ -3003,6 +3024,23 @@ EOF
     ;;
 esac
 
+AC_CACHE_CHECK(linker --sysroot support,
+  gcc_cv_ld_sysroot,
+  [gcc_cv_ld_sysroot=no
+  if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 ; then
+        gcc_cv_ld_sysroot = yes
+      fi
+  elif test x$gcc_cv_ld != x; then 
+    if $gcc_cv_ld --help 2>/dev/null | grep sysroot > /dev/null; then
+      gcc_cv_ld_sysroot=yes
+    fi
+  fi])
+if test x"$gcc_cv_ld_sysroot" = xyes; then
+  AC_DEFINE(HAVE_LD_SYSROOT, 1,
+  [Define if your linker supports --sysroot.])
+fi	  
+
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
@@ -3324,8 +3362,6 @@ AC_SUBST(cxx_target_objs)
 AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)
-
-TL_AC_GNU_MAKE_GCC_LIB_PATH
 
 # Echo link setup.
 if test x${build} = x${host} ; then

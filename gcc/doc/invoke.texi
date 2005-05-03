@@ -185,10 +185,10 @@ in the following sections.
 -fno-default-inline  -fvisibility-inlines-hidden @gol
 -Wabi  -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
--Weffc++  -Wno-deprecated @gol
+-Weffc++  -Wno-deprecated  -Wstrict-null-sentinel @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
 -Woverloaded-virtual  -Wno-pmf-conversions @gol
--Wsign-promo  -Wsynth}
+-Wsign-promo}
 
 @item Objective-C and Objective-C++ Language Options
 @xref{Objective-C and Objective-C++ Dialect Options,,Options Controlling
@@ -221,13 +221,15 @@ Objective-C and Objective-C++ Dialects}.
 -Wformat-security  -Wformat-y2k @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Wimport  -Wno-import  -Winit-self  -Winline @gol
+-Wno-int-to-pointer-cast @gol
 -Wno-invalid-offsetof  -Winvalid-pch @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
 -Wno-multichar  -Wnonnull  -Wpacked  -Wpadded @gol
--Wparentheses  -Wpointer-arith  -Wredundant-decls @gol
+-Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
+-Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
 -Wsign-compare  -Wstrict-aliasing -Wstrict-aliasing=2 @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
@@ -269,6 +271,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-salias @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
 -ftree-vectorizer-verbose=@var{n} @gol
+-fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -288,7 +291,7 @@ Objective-C and Objective-C++ Dialects}.
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
 -fcaller-saves  -fcprop-registers  -fcse-follow-jumps @gol
--fcse-follow-jumps  -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
+-fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
@@ -323,7 +326,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
--ftree-salias @gol
+-ftree-salias -fweb @gol
+-ftree-copy-prop -ftree-store-ccp -ftree-store-copy-prop @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -400,6 +404,11 @@ Objective-C and Objective-C++ Dialects}.
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu}  -msize  -minit-stack=@var{n}  -mno-interrupts @gol
 -mcall-prologues  -mno-tablejump  -mtiny-stack  -mint8}
+
+@emph{Blackfin Options}
+@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer -mcsync @gol
+-mno-csync -mlow-64k -mno-low64k -mid-shared-library @gol
+-mno-id-shared-library -mshared-library-id=@var{n} @gol}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -1732,6 +1741,14 @@ to filter out those warnings.
 @opindex Wno-deprecated
 Do not warn about usage of deprecated features.  @xref{Deprecated Features}.
 
+@item -Wstrict-null-sentinel @r{(C++ only)}
+@opindex Wstrict-null-sentinel
+Warn also about the use of an uncasted @code{NULL} as sentinel.  When
+compiling only with GCC this is a valid sentinel, as @code{NULL} is defined
+to @code{__null}.  Although it is a null pointer constant not a null pointer,
+it is guaranteed to of the same size as a pointer.  But this use is
+not portable across different compilers.
+
 @item -Wno-non-template-friend @r{(C++ only)}
 @opindex Wno-non-template-friend
 Disable warnings when non-templatized friend functions are declared
@@ -1793,13 +1810,6 @@ Warn when overload resolution chooses a promotion from unsigned or
 enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ would try to preserve
 unsignedness, but the standard mandates the current behavior.
-
-@item -Wsynth @r{(C++ only)}
-@opindex Wsynth
-@cindex warning for synthesized methods
-@cindex synthesized methods, warning
-Warn when G++'s synthesis behavior does not match that of cfront.  For
-instance:
 
 @smallexample
 struct A @{
@@ -3159,7 +3169,7 @@ inline functions declared in system headers.
 
 The compiler uses a variety of heuristics to determine whether or not
 to inline a function.  For example, the compiler takes into account
-the size of the function being inlined and the the amount of inlining
+the size of the function being inlined and the amount of inlining
 that has already been done in the current function.  Therefore,
 seemingly insignificant changes in the source program can cause the
 warnings produced by @option{-Winline} to appear or disappear.
@@ -3178,6 +3188,16 @@ warning about it.
 
 The restrictions on @samp{offsetof} may be relaxed in a future version
 of the C++ standard.
+
+@item -Wno-int-to-pointer-cast @r{(C only)}
+@opindex Wno-int-to-pointer-cast
+Suppress warnings from casts to pointer type of an integer of a
+different size.
+
+@item -Wno-pointer-to-int-cast @r{(C only)}
+@opindex Wno-pointer-to-int-cast
+Suppress warnings from casts from a pointer to an integer type of a
+different size.
 
 @item -Winvalid-pch
 @opindex Winvalid-pch
@@ -3520,7 +3540,7 @@ conversion, to the file @file{@var{file}.18.ce2}.
 @opindex fdump-rtl-btl
 @opindex fdump-rtl-dbr
 @option{-dd} and @option{-fdump-rtl-btl} enable dumping after branch
-target load optimization, to to @file{@var{file}.31.btl}.  @option{-dd}
+target load optimization, to @file{@var{file}.31.btl}.  @option{-dd}
 and @option{-fdump-rtl-dbr} enable dumping after delayed branch
 scheduling, to @file{@var{file}.36.dbr}.
 
@@ -3881,6 +3901,11 @@ appending @file{.alias} to the source file name.
 Dump each function after CCP@.  The file name is made by appending
 @file{.ccp} to the source file name.
 
+@item storeccp
+@opindex fdump-tree-storeccp
+Dump each function after STORE-CCP.  The file name is made by appending
+@file{.storeccp} to the source file name.
+
 @item pre
 @opindex fdump-tree-pre
 Dump trees after partial redundancy elimination.  The file name is made
@@ -3890,6 +3915,16 @@ by appending @file{.pre} to the source file name.
 @opindex fdump-tree-fre
 Dump trees after full redundancy elimination.  The file name is made
 by appending @file{.fre} to the source file name.
+
+@item copyprop
+@opindex fdump-tree-copyprop
+Dump trees after copy propagation.  The file name is made
+by appending @file{.copyprop} to the source file name.
+
+@item store_copyprop
+@opindex fdump-tree-store_copyprop
+Dump trees after store copy-propagation.  The file name is made
+by appending @file{.store_copyprop} to the source file name.
 
 @item dce
 @opindex fdump-tree-dce
@@ -4158,10 +4193,10 @@ compilation time.
 -fif-conversion2 @gol
 -ftree-ccp @gol
 -ftree-dce @gol
--ftree-dom @gol
+-ftree-dominator-opts @gol
 -ftree-dse @gol
 -ftree-ter @gol
--ftree-live_range_split @gol
+-ftree-lrs @gol
 -ftree-sra @gol
 -ftree-copyrename @gol
 -ftree-fre @gol
@@ -4747,6 +4782,17 @@ that are computed on all paths leading to the redundant computation.
 This analysis faster than PRE, though it exposes fewer redundancies.
 This flag is enabled by default at @option{-O} and higher.
 
+@item -ftree-copy-prop
+Perform copy propagation on trees.  This pass eliminates unnecessary
+copy operations.  This flag is enabled by default at @option{-O} and
+higher.
+
+@item -ftree-store-copy-prop
+Perform copy propagation of memory loads and stores.  This pass
+eliminates unnecessary copy operations in memory references
+(structures, global variables, arrays, etc).  This flag is enabled by
+default at @option{-O2} and higher.
+
 @item -ftree-salias
 Perform structural alias analysis on trees.  This flag
 is enabled by default at @option{-O} and higher.
@@ -4756,8 +4802,15 @@ Perform forward store motion  on trees.  This flag is
 enabled by default at @option{-O} and higher.
 
 @item -ftree-ccp
-Perform sparse conditional constant propagation (CCP) on trees.  This flag
-is enabled by default at @option{-O} and higher.
+Perform sparse conditional constant propagation (CCP) on trees.  This
+pass only operates on local scalar variables and is enabled by default
+at @option{-O} and higher.
+
+@item -ftree-store-ccp
+Perform sparse conditional constant propagation (CCP) on trees.  This
+pass operates on both local scalar variables and memory stores and
+loads (global variables, structures, arrays, etc).  This flag is
+enabled by default at @option{-O2} and higher.
 
 @item -ftree-dce
 Perform dead code elimination (DCE) on trees.  This flag is enabled by
@@ -4781,15 +4834,15 @@ at @option{-O} and higher.
 Perform linear loop transformations on tree.  This flag can improve cache
 performance and allow further loop optimizations to take place.
 
-@item -ftree-lim
-Perform loop invariant motion on trees.  This pass moves only invartiants that
-would be hard to handle on rtl level (function calls, operations that expand to
+@item -ftree-loop-im
+Perform loop invariant motion on trees.  This pass moves only invariants that
+would be hard to handle at RTL level (function calls, operations that expand to
 nontrivial sequences of insns).  With @option{-funswitch-loops} it also moves
 operands of conditions that are invariant out of the loop, so that we can use
 just trivial invariantness analysis in loop unswitching.  The pass also includes
 store motion.
 
-@item -fivcanon
+@item -ftree-loop-ivcanon
 Create a canonical counter for number of iterations in the loop for that
 determining number of iterations requires complicated analysis.  Later
 optimizations then may determine the number easily.  Useful especially
@@ -5447,6 +5500,11 @@ In each case, the @var{value} is an integer.  The allowable choices for
 @var{name} are given in the following table:
 
 @table @gcctabopt
+@item salias-max-implicit-fields
+The maximum number of fields in a variable without direct
+structure accesses for which structure aliasing will consider trying 
+to track each field.  The default is 5
+
 @item sra-max-structure-size
 The maximum structure size, in bytes, at which the scalar replacement
 of aggregates (SRA) optimization will perform block copies.  The
@@ -5630,6 +5688,10 @@ If number of candidates in the set is smaller than this value,
 we always try to remove unnecessary ivs from the set during its
 optimization when a new iv is added to the set.
 
+@item scev-max-expr-size
+Bound on size of expressions used in the scalar evolutions analyzer.
+Large expressions slow the analyzer.
+
 @item max-iterations-to-track
 
 The maximum number of iterations of a loop the brute force algorithm
@@ -5772,6 +5834,18 @@ is 10000.
 Small integer constants can use a shared data structure, reducing the
 compiler's memory usage and increasing its speed.  This sets the maximum
 value of a shared integer constant's.  The default value is 256.
+
+@item min-virtual-mappings
+Specifies the minimum number of virtual mappings in the incremental
+SSA updater that should be registered to trigger the virtual mappings
+heuristic defined by virtual-mappings-ratio.  The default value is
+100.
+
+@item virtual-mappings-ratio
+If the number of virtual mappings is virtual-mappings-ratio bigger
+than the number of virtual symbols to be updated, then the incremental
+SSA updater switches to a full update for those symbols.  The default
+ratio is 3.
 
 @end table
 @end table
@@ -6737,6 +6811,7 @@ that macro, which enables you to change the defaults.
 * ARC Options::
 * ARM Options::
 * AVR Options::
+* Blackfin Options::
 * CRIS Options::
 * Darwin Options::
 * DEC Alpha Options::
@@ -7188,6 +7263,57 @@ comply to the C standards, but it will provide you with smaller code
 size.
 @end table
 
+@node Blackfin Options
+@subsection Blackfin Options
+@cindex Blackfin Options
+
+@table @gcctabopt
+@item -momit-leaf-frame-pointer
+@opindex momit-leaf-frame-pointer
+Don't keep the frame pointer in a register for leaf functions.  This
+avoids the instructions to save, set up and restore frame pointers and
+makes an extra register available in leaf functions.  The option
+@option{-fomit-frame-pointer} removes the frame pointer for all functions
+which might make debugging harder.
+
+@item -mcsync
+@opindex mcsync
+When enabled, the compiler will ensure that the generated code does not
+contain speculative loads after jump instructions.  This option is enabled
+by default.
+
+@item -mno-csync
+@opindex mno-csync
+Don't generate extra code to prevent speculative loads from occurring.
+
+@item -mlow-64k
+@opindex mlow-64k
+When enabled, the compiler is free to take advantage of the knowledge that
+the entire program fits into the low 64k of memory.
+
+@item -mno-low-64k
+@opindex mno-low-64k
+Assume that the program is arbitrarily large.  This is the default.
+
+@item -mid-shared-library
+@opindex mid-shared-library
+Generate code that supports shared libraries via the library ID method.
+This allows for execute in place and shared libraries in an environment
+without virtual memory management.  This option implies @option{-fPIC}.
+
+@item -mno-id-shared-library
+@opindex mno-id-shared-library
+Generate code that doesn't assume ID based shared libraries are being used.
+This is the default.
+
+@item -mshared-library-id=n
+@opindex mshared-library-id
+Specified the identification number of the ID based shared library being
+compiled.  Specifying a value of 0 will generate more compact code, specifying
+other values will force the allocation of that number to the current
+library but is no more space or time efficient than omitting this option.
+@end table
+
 @node CRIS Options
 @subsection CRIS Options
 @cindex CRIS Options
@@ -7351,7 +7477,7 @@ The subtype of the file created (like @samp{ppc7400} or @samp{ppc970} or
 that GCC is targetting, like @option{-mcpu} or @option{-march}.  The
 @option{-force_cpusubtype_ALL} option can be used to override this.
 
-The Darwin tools vary in their behaviour when presented with an ISA
+The Darwin tools vary in their behavior when presented with an ISA
 mismatch.  The assembler, @file{as}, will only permit instructions to
 be used that are valid for the subtype of the file it is generating,
 so you cannot put 64-bit instructions in an @samp{ppc750} object file.
@@ -9786,7 +9912,7 @@ This option is only meaningful in conjunction with @option{-membedded-data}.
 @opindex msplit-addresses
 @opindex mno-split-addresses
 Enable (disable) use of the @code{%hi()} and @code{%lo()} assembler
-relocation operators.  This option has been superceded by
+relocation operators.  This option has been superseded by
 @option{-mexplicit-relocs} but is retained for backwards compatibility.
 
 @item -mexplicit-relocs
@@ -10459,7 +10585,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{860}, @samp{970}, @samp{8540}, @samp{common}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
 @samp{power4}, @samp{power5}, @samp{powerpc}, @samp{powerpc64},
-@samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
+@samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
 generated under this option will run on any POWER or PowerPC processor.
@@ -11366,7 +11492,7 @@ These @samp{-m} options are supported on the SPARC:
 @opindex mapp-regs
 Specify @option{-mapp-regs} to generate output using the global registers
 2 through 4, which the SPARC SVR4 ABI reserves for applications.  This
-is the default.
+is the default, except on Solaris.
 
 To be fully SVR4 ABI compliant at the cost of some performance loss,
 specify @option{-mno-app-regs}.  You should compile libraries and system
@@ -11553,7 +11679,7 @@ on SPARC-V9 processors in 64-bit environments:
 @item -mlittle-endian
 @opindex mlittle-endian
 Generate code for a processor running in little-endian mode.  It is only
-available for a few configurations and most notably not on Solaris.
+available for a few configurations and most notably not on Solaris and Linux.
 
 @item -m32
 @itemx -m64
@@ -12709,7 +12835,7 @@ for creating and using precompiled headers.
 Any macros defined before the precompiled header is included must
 either be defined in the same way as when the precompiled header was
 generated, or must not affect the precompiled header, which usually
-means that the they don't appear in the precompiled header at all.
+means that they don't appear in the precompiled header at all.
 
 The @option{-D} option is one way to define a macro before a
 precompiled header is included; using a @code{#define} can also do it.

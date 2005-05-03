@@ -452,6 +452,7 @@ parse_format_list (void)
   /* Get the next format item */
  format_item:
   t = format_lex ();
+ format_item_1:
   switch (t)
     {
     case FMT_POSINT:
@@ -564,6 +565,7 @@ parse_format_list (void)
 
     case FMT_COLON:
       get_fnode (&head, &tail, FMT_COLON);
+      tail->repeat = 1;
       goto optional_comma;
 
     case FMT_SLASH:
@@ -852,8 +854,8 @@ parse_format_list (void)
       goto finished;
 
     default:
-      error = "Missing comma in format";
-      goto finished;
+      /* Assume a missing comma, this is a GNU extension */
+      goto format_item_1;
     }
 
   /* Optional comma is a weird between state where we've just finished

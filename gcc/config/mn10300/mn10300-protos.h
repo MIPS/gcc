@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler. Matsushita MN10300 series
-   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GCC.
@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 extern void mn10300_va_start (tree, rtx);
 #endif /* TREE_CODE */
 
+extern void mn10300_override_options (void);
 extern struct rtx_def *legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx legitimize_pic_address (rtx, rtx);
 extern int legitimate_pic_operand_p (rtx);

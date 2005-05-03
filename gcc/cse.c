@@ -1234,7 +1234,24 @@ insert_regs (rtx x, struct table_elt *classp, int modified)
 	      if (REG_P (classp->exp)
 		  && GET_MODE (classp->exp) == GET_MODE (x))
 		{
-		  make_regs_eqv (regno, REGNO (classp->exp));
+		  unsigned c_regno = REGNO (classp->exp);
+
+		  gcc_assert (REGNO_QTY_VALID_P (c_regno));
+
+		  /* Suppose that 5 is hard reg and 100 and 101 are
+		     pseudos.  Consider
+
+		     (set (reg:si 100) (reg:si 5))
+		     (set (reg:si 5) (reg:si 100))
+		     (set (reg:di 101) (reg:di 5))
+
+		     We would now set REG_QTY (101) = REG_QTY (5), but the
+		     entry for 5 is in SImode.  When we use this later in
+		     copy propagation, we get the register in wrong mode.  */
+		  if (qty_table[REG_QTY (c_regno)].mode != GET_MODE (x))
+		    continue;
+
+		  make_regs_eqv (regno, c_regno);
 		  return 1;
 		}
 
@@ -3791,7 +3808,7 @@ fold_rtx (rtx x, rtx insn)
 
 	    /* It's not safe to substitute the operand of a conversion
 	       operator with a constant, as the conversion's identity
-	       depends upon the mode of it's operand.  This optimization
+	       depends upon the mode of its operand.  This optimization
 	       is handled by the call to simplify_unary_operation.  */
 	    if (GET_RTX_CLASS (code) == RTX_UNARY
 		&& GET_MODE (replacements[j]) != mode_arg0
@@ -4342,47 +4359,6 @@ equiv_constant (rtx x)
     }
 
   return 0;
-}
-
-/* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a fixed-point
-   number, return an rtx (MEM, SUBREG, or CONST_INT) that refers to the
-   least-significant part of X.
-   MODE specifies how big a part of X to return.
-
-   If the requested operation cannot be done, 0 is returned.
-
-   This is similar to gen_lowpart_general in emit-rtl.c.  */
-
-rtx
-gen_lowpart_if_possible (enum machine_mode mode, rtx x)
-{
-  rtx result = gen_lowpart_common (mode, x);
-
-  if (result)
-    return result;
-  else if (MEM_P (x))
-    {
-      /* This is the only other case we handle.  */
-      int offset = 0;
-      rtx new;
-
-      if (WORDS_BIG_ENDIAN)
-	offset = (MAX (GET_MODE_SIZE (GET_MODE (x)), UNITS_PER_WORD)
-		  - MAX (GET_MODE_SIZE (mode), UNITS_PER_WORD));
-      if (BYTES_BIG_ENDIAN)
-	/* Adjust the address so that the address-after-the-data is
-	   unchanged.  */
-	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode))
-		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (x))));
-
-      new = adjust_address_nv (x, mode, offset);
-      if (! memory_address_p (mode, XEXP (new, 0)))
-	return 0;
-
-      return new;
-    }
-  else
-    return 0;
 }
 
 /* Given INSN, a jump insn, PATH_TAKEN indicates if we are following the "taken"
@@ -5558,9 +5534,10 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	  else if (constant_pool_entries_cost
 		   && CONSTANT_P (trial)
-		   /* Reject cases that will abort in decode_rtx_const.
-		      On the alpha when simplifying a switch, we get
-		      (const (truncate (minus (label_ref) (label_ref)))).  */
+		   /* Reject cases that will cause decode_rtx_const to
+		      die.  On the alpha when simplifying a switch, we
+		      get (const (truncate (minus (label_ref)
+		      (label_ref)))).  */
 		   && ! (GET_CODE (trial) == CONST
 			 && GET_CODE (XEXP (trial, 0)) == TRUNCATE)
 		   /* Likewise on IA-64, except without the truncate.  */

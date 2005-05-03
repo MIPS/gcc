@@ -1,5 +1,5 @@
 /* Data references and dependences detectors. 
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -176,6 +176,8 @@ extern bool array_base_name_differ_p (struct data_reference *,
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);
+extern void compute_subscript_distance (struct data_dependence_relation *);
+extern bool build_classic_dist_vector (struct data_dependence_relation *, int, int);
 
 
 

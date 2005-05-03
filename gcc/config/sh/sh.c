@@ -1278,7 +1278,7 @@ output_movedouble (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
 static void
 print_slot (rtx insn)
 {
-  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 0, 1, NULL);
+  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 1, NULL);
 
   INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
 }
@@ -7185,7 +7185,7 @@ sh_handle_interrupt_handler_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -7206,21 +7206,21 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (!pragma_interrupt)
     {
       /* The sp_switch attribute only has meaning for interrupt functions.  */
-      warning ("%qs attribute only applies to interrupt functions",
+      warning (0, "%qs attribute only applies to interrupt functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
     {
       /* The argument must be a constant string.  */
-      warning ("%qs attribute argument not a string constant",
+      warning (0, "%qs attribute argument not a string constant",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -7241,21 +7241,21 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (!pragma_interrupt)
     {
       /* The trap_exit attribute only has meaning for interrupt functions.  */
-      warning ("%qs attribute only applies to interrupt functions",
+      warning (0, "%qs attribute only applies to interrupt functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
     {
       /* The argument must be a constant integer.  */
-      warning ("%qs attribute argument not an integer constant",
+      warning (0, "%qs attribute argument not an integer constant",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -9869,7 +9869,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     dbr_schedule (insns, dump_file);
   shorten_branches (insns);
   final_start_function (insns, file, 1);
-  final (insns, file, 1, 0);
+  final (insns, file, 1);
   final_end_function ();
 
   if (optimize > 0 && flag_schedule_insns_after_reload)

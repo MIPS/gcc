@@ -98,6 +98,14 @@ static int enum_overflow;
 
 static location_t current_function_prototype_locus;
 
+/* Whether this prototype was built-in.  */
+
+static bool current_function_prototype_built_in;
+
+/* The argument type information of this prototype.  */
+
+static tree current_function_prototype_arg_types;
+
 /* The argument information structure for the function currently being
    defined.  */
 
@@ -527,9 +535,9 @@ c_finish_incomplete_decl (tree decl)
 	  && !DECL_EXTERNAL (decl)
 	  && TYPE_DOMAIN (type) == 0)
 	{
-	  warning ("%Jarray %qD assumed to have one element", decl, decl);
+	  warning (0, "%Jarray %qD assumed to have one element", decl, decl);
 
-	  complete_array_type (type, NULL_TREE, 1);
+	  complete_array_type (&TREE_TYPE (decl), NULL_TREE, true);
 
 	  layout_decl (decl, 0);
 	}
@@ -673,6 +681,8 @@ pop_scope (void)
   bool functionbody = scope->function_body;
   bool keep = functionbody || scope->keep || scope->bindings;
 
+  c_end_vm_scope (scope->depth);
+
   /* If appropriate, create a BLOCK to record the decls for the life
      of this function.  */
   block = 0;
@@ -730,9 +740,9 @@ pop_scope (void)
 	  else if (!TREE_USED (p) && warn_unused_label)
 	    {
 	      if (DECL_INITIAL (p))
-		warning ("%Jlabel %qD defined but not used", p, p);
+		warning (0, "%Jlabel %qD defined but not used", p, p);
 	      else
-		warning ("%Jlabel %qD declared but not defined", p, p);
+		warning (0, "%Jlabel %qD declared but not defined", p, p);
 	    }
 	  /* Labels go in BLOCK_VARS.  */
 	  TREE_CHAIN (p) = BLOCK_VARS (block);
@@ -781,7 +791,7 @@ pop_scope (void)
 	      && !DECL_ARTIFICIAL (p)
 	      && scope != file_scope
 	      && scope != external_scope) 
-	    warning ("%Junused variable %qD", p, p);
+	    warning (0, "%Junused variable %qD", p, p);
 
 	  if (b->inner_comp)
 	    {
@@ -1043,8 +1053,7 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
   tree newargs, oldargs;
   int i;
 
-  /* ??? Elsewhere TYPE_MAIN_VARIANT is not used in this context.  */
-#define END_OF_ARGLIST(t) (TYPE_MAIN_VARIANT (t) == void_type_node)
+#define END_OF_ARGLIST(t) ((t) == void_type_node)
 
   oldargs = TYPE_ACTUAL_ARG_TYPES (oldtype);
   newargs = TYPE_ARG_TYPES (newtype);
@@ -1052,8 +1061,8 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 
   for (;;)
     {
-      tree oldargtype = TREE_VALUE (oldargs);
-      tree newargtype = TREE_VALUE (newargs);
+      tree oldargtype = TYPE_MAIN_VARIANT (TREE_VALUE (oldargs));
+      tree newargtype = TYPE_MAIN_VARIANT (TREE_VALUE (newargs));
 
       if (END_OF_ARGLIST (oldargtype) && END_OF_ARGLIST (newargtype))
 	break;
@@ -1090,7 +1099,7 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 
   /* If we get here, no errors were found, but do issue a warning
      for this poor-style construct.  */
-  warning ("%Jprototype for %qD follows non-prototype definition",
+  warning (0, "%Jprototype for %qD follows non-prototype definition",
 	   newdecl, newdecl);
   return true;
 #undef END_OF_ARGLIST
@@ -1151,10 +1160,10 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  locate_old_decl (olddecl, error);
 	}
       else if (TREE_PUBLIC (newdecl))
-	warning ("%Jbuilt-in function %qD declared as non-function",
+	warning (0, "%Jbuilt-in function %qD declared as non-function",
 		 newdecl, newdecl);
       else if (warn_shadow)
-	warning ("%Jdeclaration of %qD shadows a built-in function",
+	warning (0, "%Jdeclaration of %qD shadows a built-in function",
 		 newdecl, newdecl);
       return false;
     }
@@ -1184,7 +1193,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	      /* If types don't match for a built-in, throw away the
 		 built-in.  No point in calling locate_old_decl here, it
 		 won't print anything.  */
-	      warning ("%Jconflicting types for built-in function %qD",
+	      warning (0, "%Jconflicting types for built-in function %qD",
 		       newdecl, newdecl);
 	      return false;
 	    }
@@ -1270,7 +1279,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		  && !TYPE_ARG_TYPES (TREE_TYPE (newdecl)))))
 	{
 	  if (warn_shadow)
-	    warning ("%Jdeclaration of %qD shadows a built-in function",
+	    warning (0, "%Jdeclaration of %qD shadows a built-in function",
 		     newdecl, newdecl);
 	  /* Discard the old built-in function.  */
 	  return false;
@@ -1367,7 +1376,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    }
 	  else if (warn_traditional)
 	    {
-	      warning ("%Jnon-static declaration of %qD follows "
+	      warning (0, "%Jnon-static declaration of %qD follows "
 		       "static declaration", newdecl, newdecl);
 	      warned = true;
 	    }
@@ -1420,7 +1429,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		}
 	      else if (warn_traditional)
 		{
-		  warning ("%Jnon-static declaration of %qD follows "
+		  warning (0, "%Jnon-static declaration of %qD follows "
 			   "static declaration", newdecl, newdecl);
 		  warned = true;
 		}
@@ -1469,7 +1478,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   if (DECL_VISIBILITY_SPECIFIED (newdecl) && DECL_VISIBILITY_SPECIFIED (olddecl)
       && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
-      warning ("%Jredeclaration of %qD with different visibility "
+      warning (0, "%Jredeclaration of %qD with different visibility "
 	       "(old visibility preserved)", newdecl, newdecl);
       warned = true;
     }
@@ -1480,14 +1489,14 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       if (DECL_DECLARED_INLINE_P (newdecl)
 	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning ("%Jinline declaration of %qD follows "
+	  warning (0, "%Jinline declaration of %qD follows "
 		   "declaration with attribute noinline", newdecl, newdecl);
 	  warned = true;
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning ("%Jdeclaration of %qD with attribute noinline follows "
+	  warning (0, "%Jdeclaration of %qD with attribute noinline follows "
 		   "inline declaration ", newdecl, newdecl);
 	  warned = true;
 	}
@@ -1502,13 +1511,13 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	{
 	  if (TREE_USED (olddecl))
 	    {
-	      warning ("%J%qD declared inline after being called",
+	      warning (0, "%J%qD declared inline after being called",
 		       olddecl, olddecl);
 	      warned = true;
 	    }
 	  else if (DECL_INITIAL (olddecl))
 	    {
-	      warning ("%J%qD declared inline after its definition",
+	      warning (0, "%J%qD declared inline after its definition",
 		       olddecl, olddecl);
 	      warned = true;
 	    }
@@ -1552,13 +1561,13 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && !(TREE_CODE (newdecl) == PARM_DECL
 	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl)))
     {
-      warning ("%Jredundant redeclaration of %qD", newdecl, newdecl);
+      warning (0, "%Jredundant redeclaration of %qD", newdecl, newdecl);
       warned = true;
     }
 
   /* Report location of previous decl/defn in a consistent manner.  */
   if (warned || pedwarned)
-    locate_old_decl (olddecl, pedwarned ? pedwarn : warning);
+    locate_old_decl (olddecl, pedwarned ? pedwarn : warning0);
 
   return retval;
 }
@@ -1573,6 +1582,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 {
   int new_is_definition = (TREE_CODE (newdecl) == FUNCTION_DECL
 			   && DECL_INITIAL (newdecl) != 0);
+  int new_is_prototype = (TREE_CODE (newdecl) == FUNCTION_DECL
+			  && TYPE_ARG_TYPES (TREE_TYPE (newdecl)) != 0);
+  int old_is_prototype = (TREE_CODE (olddecl) == FUNCTION_DECL
+			  && TYPE_ARG_TYPES (TREE_TYPE (olddecl)) != 0);
 
   /* For real parm decl following a forward decl, rechain the old decl
      in its new location and clear TREE_ASM_WRITTEN (it's not a
@@ -1646,8 +1659,12 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   if (TREE_DEPRECATED (newdecl))
     TREE_DEPRECATED (olddecl) = 1;
 
-  /* Keep source location of definition rather than declaration.  */
-  if (DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
+  /* Keep source location of definition rather than declaration and of
+     prototype rather than non-prototype unless that prototype is
+     built-in.  */
+  if ((DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
+      || (old_is_prototype && !new_is_prototype
+	  && !C_DECL_BUILTIN_PROTOTYPE (olddecl)))
     DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
 
   /* Merge the unused-warning information.  */
@@ -1763,6 +1780,11 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  DECL_BUILT_IN_CLASS (newdecl) = DECL_BUILT_IN_CLASS (olddecl);
 	  DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
 	  C_DECL_DECLARED_BUILTIN (newdecl) = 1;
+	  if (new_is_prototype)
+	    C_DECL_BUILTIN_PROTOTYPE (newdecl) = 0;
+	  else
+	    C_DECL_BUILTIN_PROTOTYPE (newdecl)
+	      = C_DECL_BUILTIN_PROTOTYPE (olddecl);
 	}
 
       /* Also preserve various other info from the definition.  */
@@ -1864,28 +1886,28 @@ warn_if_shadowing (tree new_decl)
 
 	if (old_decl == error_mark_node)
 	  {
-	    warning ("%Jdeclaration of %qD shadows previous non-variable",
+	    warning (0, "%Jdeclaration of %qD shadows previous non-variable",
 		     new_decl, new_decl);
 	    break;
 	  }
 	else if (TREE_CODE (old_decl) == PARM_DECL)
-	  warning ("%Jdeclaration of %qD shadows a parameter",
+	  warning (0, "%Jdeclaration of %qD shadows a parameter",
 		   new_decl, new_decl);
 	else if (DECL_FILE_SCOPE_P (old_decl))
-	  warning ("%Jdeclaration of %qD shadows a global declaration",
+	  warning (0, "%Jdeclaration of %qD shadows a global declaration",
 		   new_decl, new_decl);
 	else if (TREE_CODE (old_decl) == FUNCTION_DECL
 		 && DECL_BUILT_IN (old_decl))
 	  {
-	    warning ("%Jdeclaration of %qD shadows a built-in function",
+	    warning (0, "%Jdeclaration of %qD shadows a built-in function",
 		     new_decl, new_decl);
 	    break;
 	  }
 	else
-	  warning ("%Jdeclaration of %qD shadows a previous local",
+	  warning (0, "%Jdeclaration of %qD shadows a previous local",
 		   new_decl, new_decl);
 
-	warning ("%Jshadowed declaration is here", old_decl);
+	warning (0, "%Jshadowed declaration is here", old_decl);
 
 	break;
       }
@@ -1984,6 +2006,12 @@ pushdecl (tree x)
 	  || DECL_INITIAL (x) || !DECL_EXTERNAL (x)))
     DECL_CONTEXT (x) = current_function_decl;
 
+  /* If this is of variably modified type, prevent jumping into its
+     scope.  */
+  if ((TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == TYPE_DECL)
+      && variably_modified_type_p (TREE_TYPE (x), NULL_TREE))
+    c_begin_vm_scope (scope->depth);
+
   /* Anonymous decls are just inserted in the scope.  */
   if (!name)
     {
@@ -2039,7 +2067,7 @@ pushdecl (tree x)
       if (warn_nested_externs
 	  && scope != file_scope
 	  && !DECL_IN_SYSTEM_HEADER (x))
-	warning ("nested extern declaration of %qD", x);
+	warning (0, "nested extern declaration of %qD", x);
 
       while (b && !B_IN_EXTERNAL_SCOPE (b))
 	{
@@ -2194,7 +2222,7 @@ implicit_decl_warning (tree id, tree olddecl)
   switch (mesg_implicit_function_declaration)
     {
     case 0: return;
-    case 1: diag = warning; break;
+    case 1: diag = warning0; break;
     case 2: diag = error;   break;
     default: gcc_unreachable ();
     }
@@ -2260,7 +2288,7 @@ implicitly_declare (tree functionid)
 						      (TREE_TYPE (decl)));
 	      if (!comptypes (newtype, TREE_TYPE (decl)))
 		{
-		  warning ("incompatible implicit declaration of built-in"
+		  warning (0, "incompatible implicit declaration of built-in"
 			   " function %qD", decl);
 		  newtype = TREE_TYPE (decl);
 		}
@@ -2440,6 +2468,7 @@ define_label (location_t location, tree name)
      if there is a containing function with a declared label with
      the same name.  */
   tree label = I_LABEL_DECL (name);
+  struct c_label_list *nlist_se, *nlist_vm;
 
   if (label
       && ((DECL_CONTEXT (label) == current_function_decl
@@ -2456,6 +2485,11 @@ define_label (location_t location, tree name)
       /* The label has been used or declared already in this function,
 	 but not defined.  Update its location to point to this
 	 definition.  */
+      if (C_DECL_UNDEFINABLE_STMT_EXPR (label))
+	error ("%Jjump into statement expression", label);
+      if (C_DECL_UNDEFINABLE_VM (label))
+	error ("%Jjump into scope of identifier with variably modified type",
+	       label);
       DECL_SOURCE_LOCATION (label) = location;
     }
   else
@@ -2469,8 +2503,18 @@ define_label (location_t location, tree name)
     }
 
   if (warn_traditional && !in_system_header && lookup_name (name))
-    warning ("%Htraditional C lacks a separate namespace for labels, "
+    warning (0, "%Htraditional C lacks a separate namespace for labels, "
              "identifier %qE conflicts", &location, name);
+
+  nlist_se = XOBNEW (&parser_obstack, struct c_label_list);
+  nlist_se->next = label_context_stack_se->labels_def;
+  nlist_se->label = label;
+  label_context_stack_se->labels_def = nlist_se;
+
+  nlist_vm = XOBNEW (&parser_obstack, struct c_label_list);
+  nlist_vm->next = label_context_stack_vm->labels_def;
+  nlist_vm->label = label;
+  label_context_stack_vm->labels_def = nlist_vm;
 
   /* Mark label as having been defined.  */
   DECL_INITIAL (label) = error_mark_node;
@@ -2683,6 +2727,7 @@ builtin_function (const char *name, tree type, int function_code,
   DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
   DECL_BUILT_IN_CLASS (decl) = cl;
   DECL_FUNCTION_CODE (decl) = function_code;
+  C_DECL_BUILTIN_PROTOTYPE (decl) = (TYPE_ARG_TYPES (type) != 0);
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
 
@@ -2821,13 +2866,13 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
 
   if (!warned && !in_system_header && declspecs->storage_class != csc_none)
     {
-      warning ("useless storage class specifier in empty declaration");
+      warning (0, "useless storage class specifier in empty declaration");
       warned = 2;
     }
 
   if (!warned && !in_system_header && declspecs->thread_p)
     {
-      warning ("useless %<__thread%> in empty declaration");
+      warning (0, "useless %<__thread%> in empty declaration");
       warned = 2;
     }
 
@@ -2835,7 +2880,7 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
 				       || declspecs->volatile_p
 				       || declspecs->restrict_p))
     {
-      warning ("useless type qualifier in empty declaration");
+      warning (0, "useless type qualifier in empty declaration");
       warned = 2;
     }
 
@@ -2914,7 +2959,7 @@ build_array_declarator (tree expr, struct c_declspecs *quals, bool static_p,
 	pedwarn ("ISO C90 does not support %<[*]%> array declarators");
     }
   if (vla_unspec_p)
-    warning ("GCC does not yet properly implement %<[*]%> array declarators");
+    warning (0, "GCC does not yet properly implement %<[*]%> array declarators");
   return declarator;
 }
 
@@ -2992,7 +3037,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 
   if (warn_main > 0 && TREE_CODE (decl) != FUNCTION_DECL
       && MAIN_NAME_P (DECL_NAME (decl)))
-    warning ("%J%qD is usually a function", decl, decl);
+    warning (0, "%J%qD is usually a function", decl, decl);
 
   if (initialized)
     /* Is it valid for this decl to have an initializer at all?
@@ -3113,7 +3158,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
-    warning ("%Jinline function %qD given attribute noinline", decl, decl);
+    warning (0, "%Jinline function %qD given attribute noinline", decl, decl);
 
   /* Add this decl to the current scope.
      TEM may equal DECL or it may be a previous decl of the same name.  */
@@ -3168,14 +3213,15 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
       && TYPE_DOMAIN (type) == 0
       && TREE_CODE (decl) != TYPE_DECL)
     {
-      int do_default
+      bool do_default
 	= (TREE_STATIC (decl)
 	   /* Even if pedantic, an external linkage array
 	      may have incomplete type at first.  */
 	   ? pedantic && !TREE_PUBLIC (decl)
 	   : !DECL_EXTERNAL (decl));
       int failure
-	= complete_array_type (type, DECL_INITIAL (decl), do_default);
+	= complete_array_type (&TREE_TYPE (decl), DECL_INITIAL (decl),
+			       do_default);
 
       /* Get the completed type made by complete_array_type.  */
       type = TREE_TYPE (decl);
@@ -3196,13 +3242,11 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  else if (!pedantic && TREE_STATIC (decl) && !TREE_PUBLIC (decl))
 	    DECL_EXTERNAL (decl) = 1;
 	}
-
-      /* TYPE_MAX_VALUE is always one less than the number of elements
-	 in the array, because we start counting at zero.  Therefore,
-	 warn only if the value is less than zero.  */
-      else if (pedantic && TYPE_DOMAIN (type) != 0
-	       && tree_int_cst_sgn (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) < 0)
+      else if (failure == 3)
 	error ("%Jzero or negative size array %qD", decl, decl);
+
+      if (DECL_INITIAL (decl))
+	TREE_TYPE (DECL_INITIAL (decl)) = type;
 
       layout_decl (decl, 0);
     }
@@ -3256,8 +3300,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     }
 
   /* If #pragma weak was used, mark the decl weak now.  */
-  if (current_scope == file_scope)
-    maybe_apply_pragma_weak (decl);
+  maybe_apply_pragma_weak (decl);
 
   /* If this is a variable definition, determine its ELF visibility.  */
   if (TREE_CODE (decl) == VAR_DECL 
@@ -3286,7 +3329,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	      && TREE_CODE (decl) == VAR_DECL
 	      && !C_DECL_REGISTER (decl)
 	      && !TREE_STATIC (decl))
-	    warning ("%Jignoring asm-specifier for non-static local "
+	    warning (0, "%Jignoring asm-specifier for non-static local "
 		     "variable %qD", decl, decl);
 	  else if (C_DECL_REGISTER (decl))
 	    change_decl_assembler_name (decl, get_identifier (asmspec));
@@ -3491,17 +3534,19 @@ build_compound_literal (tree type, tree init)
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
     {
-      int failure = complete_array_type (type, DECL_INITIAL (decl), 1);
-      
+      int failure = complete_array_type (&TREE_TYPE (decl),
+					 DECL_INITIAL (decl), true);
       gcc_assert (!failure);
+
+      type = TREE_TYPE (decl);
+      TREE_TYPE (DECL_INITIAL (decl)) = type;
     }
 
-  type = TREE_TYPE (decl);
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
     return error_mark_node;
 
   stmt = build_stmt (DECL_EXPR, decl);
-  complit = build1 (COMPOUND_LITERAL_EXPR, TREE_TYPE (decl), stmt);
+  complit = build1 (COMPOUND_LITERAL_EXPR, type, stmt);
   TREE_SIDE_EFFECTS (complit) = 1;
 
   layout_decl (decl, 0);
@@ -3525,73 +3570,6 @@ build_compound_literal (tree type, tree init)
     }
 
   return complit;
-}
-
-/* Make TYPE a complete type based on INITIAL_VALUE.
-   Return 0 if successful, 1 if INITIAL_VALUE can't be deciphered,
-   2 if there was no information (in which case assume 1 if DO_DEFAULT).  */
-
-int
-complete_array_type (tree type, tree initial_value, int do_default)
-{
-  tree maxindex = NULL_TREE;
-  int value = 0;
-
-  if (initial_value)
-    {
-      /* Note MAXINDEX  is really the maximum index,
-	 one less than the size.  */
-      if (TREE_CODE (initial_value) == STRING_CST)
-	{
-	  int eltsize
-	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
-	  maxindex = build_int_cst (NULL_TREE,
-				    (TREE_STRING_LENGTH (initial_value)
-				     / eltsize) - 1);
-	}
-      else if (TREE_CODE (initial_value) == CONSTRUCTOR)
-	{
-	  tree elts = CONSTRUCTOR_ELTS (initial_value);
-	  maxindex = build_int_cst (NULL_TREE, -1);
-	  for (; elts; elts = TREE_CHAIN (elts))
-	    {
-	      if (TREE_PURPOSE (elts))
-		maxindex = TREE_PURPOSE (elts);
-	      else
-		maxindex = fold (build2 (PLUS_EXPR, integer_type_node,
-					 maxindex, integer_one_node));
-	    }
-	}
-      else
-	{
-	  /* Make an error message unless that happened already.  */
-	  if (initial_value != error_mark_node)
-	    value = 1;
-
-	  /* Prevent further error messages.  */
-	  maxindex = build_int_cst (NULL_TREE, 0);
-	}
-    }
-
-  if (!maxindex)
-    {
-      if (do_default)
-	maxindex = build_int_cst (NULL_TREE, 0);
-      value = 2;
-    }
-
-  if (maxindex)
-    {
-      TYPE_DOMAIN (type) = build_index_type (maxindex);
-      
-      gcc_assert (TREE_TYPE (maxindex));
-    }
-
-  /* Lay out the type now that we can get the real answer.  */
-
-  layout_type (type);
-
-  return value;
 }
 
 /* Determine whether TYPE is a structure with a flexible array member,
@@ -3696,7 +3674,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
       if (!lt
           || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
 	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
-	warning ("%qs is narrower than values of its type", name);
+	warning (0, "%qs is narrower than values of its type", name);
     }
 }
 
@@ -3914,7 +3892,7 @@ grokdeclarator (const struct c_declarator *declarator,
     {
       /* 'extern' with initialization is invalid if not at file scope.  */
       if (current_scope == file_scope)
-	warning ("%qs initialized and declared %<extern%>", name);
+	warning (0, "%qs initialized and declared %<extern%>", name);
       else
 	error ("%qs has both %<extern%> and initializer", name);
     }
@@ -4227,7 +4205,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		if (VOID_TYPE_P (type) && really_funcdef)
 		  pedwarn ("function definition has qualified void return type");
 		else if (warn_return_type)
-		  warning ("type qualifiers ignored on function return type");
+		  warning (0, "type qualifiers ignored on function return type");
 		
 		type = c_build_qualified_type (type, type_quals);
 	      }
@@ -4388,7 +4366,7 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    /* We don't yet implement attributes in this context.  */
 	    if (array_ptr_attrs != NULL_TREE)
-	      warning ("attributes in parameter array declarator ignored");
+	      warning (0, "attributes in parameter array declarator ignored");
 
 	    size_varies = 0;
 	  }
@@ -4492,7 +4470,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	   that the function does not return.  */
 	if ((type_quals & TYPE_QUAL_VOLATILE)
 	    && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl))))
-	  warning ("%<noreturn%> function returns non-void value");
+	  warning (0, "%<noreturn%> function returns non-void value");
 
 	/* Every function declaration is an external reference
 	   (DECL_EXTERNAL) except for those which are not at file
@@ -4670,7 +4648,7 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
 
   if (warn_strict_prototypes && arg_types == 0 && !funcdef_flag
       && !in_system_header)
-    warning ("function declaration isn%'t a prototype");
+    warning (0, "function declaration isn%'t a prototype");
 
   if (arg_types == error_mark_node)
     return 0;  /* don't set TYPE_ARG_TYPES in this case */
@@ -4723,10 +4701,10 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
 	      else if (VOID_TYPE_P (type))
 		{
 		  if (DECL_NAME (parm))
-		    warning ("%Jparameter %u (%qD) has void type",
+		    warning (0, "%Jparameter %u (%qD) has void type",
 			     parm, parmno, parm);
 		  else
-		    warning ("%Jparameter %u has void type",
+		    warning (0, "%Jparameter %u has void type",
 			     parm, parmno);
 		}
 	    }
@@ -4861,16 +4839,16 @@ get_parm_info (bool ellipsis)
 	    {
 	      if (b->id)
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
-		warning ("%<%s %E%> declared inside parameter list",
+		warning (0, "%<%s %E%> declared inside parameter list",
 			 keyword, b->id);
 	      else
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
-		warning ("anonymous %s declared inside parameter list",
+		warning (0, "anonymous %s declared inside parameter list",
 			 keyword);
 
 	      if (!explained_incomplete_types)
 		{
-		  warning ("its scope is only this definition or declaration,"
+		  warning (0, "its scope is only this definition or declaration,"
 			   " which is probably not what you want");
 		  explained_incomplete_types = true;
 		}
@@ -5373,10 +5351,10 @@ finish_struct (tree t, tree fieldlist, tree attributes)
      make it one, warn and turn off the flag.  */
   if (TREE_CODE (t) == UNION_TYPE
       && TYPE_TRANSPARENT_UNION (t)
-      && TYPE_MODE (t) != DECL_MODE (TYPE_FIELDS (t)))
+      && (!TYPE_FIELDS (t) || TYPE_MODE (t) != DECL_MODE (TYPE_FIELDS (t))))
     {
       TYPE_TRANSPARENT_UNION (t) = 0;
-      warning ("union cannot be made transparent");
+      warning (0, "union cannot be made transparent");
     }
 
   /* If this structure or union completes the type of any previous
@@ -5517,7 +5495,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       tem = c_common_type_for_size (precision, unsign);
       if (tem == NULL)
 	{
-	  warning ("enumeration values exceed range of largest integer");
+	  warning (0, "enumeration values exceed range of largest integer");
 	  tem = long_long_integer_type_node;
 	}
     }
@@ -5697,6 +5675,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 {
   tree decl1, old_decl;
   tree restype, resdecl;
+  struct c_label_context_se *nstack_se;
+  struct c_label_context_vm *nstack_vm;
 
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
@@ -5704,6 +5684,19 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   warn_about_return_type = 0;
   current_extern_inline = 0;
   c_switch_stack = NULL;
+
+  nstack_se = XOBNEW (&parser_obstack, struct c_label_context_se);
+  nstack_se->labels_def = NULL;
+  nstack_se->labels_used = NULL;
+  nstack_se->next = label_context_stack_se;
+  label_context_stack_se = nstack_se;
+
+  nstack_vm = XOBNEW (&parser_obstack, struct c_label_context_vm);
+  nstack_vm->labels_def = NULL;
+  nstack_vm->labels_used = NULL;
+  nstack_vm->scope = 0;
+  nstack_vm->next = label_context_stack_vm;
+  label_context_stack_vm = nstack_vm;
 
   /* Indicate no valid break/continue context by setting these variables
      to some non-null, non-label value.  We'll notice and emit the proper
@@ -5722,7 +5715,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl1)))
-    warning ("%Jinline function %qD given attribute noinline", decl1, decl1);
+    warning (0, "%Jinline function %qD given attribute noinline", decl1, decl1);
 
   announce_function (decl1);
 
@@ -5745,46 +5738,91 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If this definition isn't a prototype and we had a prototype declaration
      before, copy the arg type info from that prototype.  */
   old_decl = lookup_name_in_scope (DECL_NAME (decl1), current_scope);
-  if (old_decl != 0 && TREE_CODE (TREE_TYPE (old_decl)) == FUNCTION_TYPE
-      && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
-		    TREE_TYPE (TREE_TYPE (old_decl)))
-      && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)
+  current_function_prototype_locus = UNKNOWN_LOCATION;
+  current_function_prototype_built_in = false;
+  current_function_prototype_arg_types = NULL_TREE;
+  if (TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)
     {
-      TREE_TYPE (decl1) = composite_type (TREE_TYPE (old_decl),
-					  TREE_TYPE (decl1));
-      current_function_prototype_locus = DECL_SOURCE_LOCATION (old_decl);
+      if (old_decl != 0 && TREE_CODE (TREE_TYPE (old_decl)) == FUNCTION_TYPE
+	  && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
+			TREE_TYPE (TREE_TYPE (old_decl))))
+	{
+	  TREE_TYPE (decl1) = composite_type (TREE_TYPE (old_decl),
+					      TREE_TYPE (decl1));
+	  current_function_prototype_locus = DECL_SOURCE_LOCATION (old_decl);
+	  current_function_prototype_built_in
+	    = C_DECL_BUILTIN_PROTOTYPE (old_decl);
+	  current_function_prototype_arg_types
+	    = TYPE_ARG_TYPES (TREE_TYPE (decl1));
+	}
+      if (TREE_PUBLIC (decl1))
+	{
+	  /* If there is an external prototype declaration of this
+	     function, record its location but do not copy information
+	     to this decl.  This may be an invisible declaration
+	     (built-in or in a scope which has finished) or simply
+	     have more refined argument types than any declaration
+	     found above.  */
+	  struct c_binding *b;
+	  for (b = I_SYMBOL_BINDING (DECL_NAME (decl1)); b; b = b->shadowed)
+	    if (B_IN_SCOPE (b, external_scope))
+	      break;
+	  if (b)
+	    {
+	      tree ext_decl, ext_type;
+	      ext_decl = b->decl;
+	      ext_type = b->type ? b->type : TREE_TYPE (ext_decl);
+	      if (TREE_CODE (ext_type) == FUNCTION_TYPE
+		  && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
+				TREE_TYPE (ext_type)))
+		{
+		  current_function_prototype_locus
+		    = DECL_SOURCE_LOCATION (ext_decl);
+		  current_function_prototype_built_in
+		    = C_DECL_BUILTIN_PROTOTYPE (ext_decl);
+		  current_function_prototype_arg_types
+		    = TYPE_ARG_TYPES (ext_type);
+		}
+	    }
+	}
     }
 
   /* Optionally warn of old-fashioned def with no previous prototype.  */
   if (warn_strict_prototypes
+      && old_decl != error_mark_node
       && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0
       && C_DECL_ISNT_PROTOTYPE (old_decl))
-    warning ("function declaration isn%'t a prototype");
+    warning (0, "function declaration isn%'t a prototype");
   /* Optionally warn of any global def with no previous prototype.  */
   else if (warn_missing_prototypes
+	   && old_decl != error_mark_node
 	   && TREE_PUBLIC (decl1)
 	   && !MAIN_NAME_P (DECL_NAME (decl1))
 	   && C_DECL_ISNT_PROTOTYPE (old_decl))
-    warning ("%Jno previous prototype for %qD", decl1, decl1);
+    warning (0, "%Jno previous prototype for %qD", decl1, decl1);
   /* Optionally warn of any def with no previous prototype
      if the function has already been used.  */
   else if (warn_missing_prototypes
-	   && old_decl != 0 && TREE_USED (old_decl)
+	   && old_decl != 0
+	   && old_decl != error_mark_node
+	   && TREE_USED (old_decl)
 	   && TYPE_ARG_TYPES (TREE_TYPE (old_decl)) == 0)
-    warning ("%J%qD was used with no prototype before its definition",
+    warning (0, "%J%qD was used with no prototype before its definition",
 	     decl1, decl1);
   /* Optionally warn of any global def with no previous declaration.  */
   else if (warn_missing_declarations
 	   && TREE_PUBLIC (decl1)
 	   && old_decl == 0
 	   && !MAIN_NAME_P (DECL_NAME (decl1)))
-    warning ("%Jno previous declaration for %qD", decl1, decl1);
+    warning (0, "%Jno previous declaration for %qD", decl1, decl1);
   /* Optionally warn of any def with no previous declaration
      if the function has already been used.  */
   else if (warn_missing_declarations
-	   && old_decl != 0 && TREE_USED (old_decl)
+	   && old_decl != 0
+	   && old_decl != error_mark_node
+	   && TREE_USED (old_decl)
 	   && C_DECL_IMPLICIT (old_decl))
-    warning ("%J%qD was used with no declaration before its definition",
+    warning (0, "%J%qD was used with no declaration before its definition",
 	     decl1, decl1);
 
   /* This is a definition, not a reference.
@@ -5922,7 +5960,7 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
      its parameter list).  */
   else if (warn_traditional && !in_system_header && !current_function_scope
 	   && arg_info->types != error_mark_node)
-    warning ("%Jtraditional C rejects ISO C style function definitions",
+    warning (0, "%Jtraditional C rejects ISO C style function definitions",
 	     fndecl);
 
   /* Now make all the parameter declarations visible in the function body.
@@ -5974,7 +6012,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 #endif
 
   if (warn_old_style_definition && !in_system_header)
-    warning ("%Jold-style function definition", fndecl);
+    warning (0, "%Jold-style function definition", fndecl);
 
   /* Match each formal parameter name with its declaration.  Save each
      decl in the appropriate TREE_PURPOSE slot of the parmids chain.  */
@@ -6023,7 +6061,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	  if (flag_isoc99)
 	    pedwarn ("%Jtype of %qD defaults to %<int%>", decl, decl);
 	  else if (extra_warnings)
-	    warning ("%Jtype of %qD defaults to %<int%>", decl, decl);
+	    warning (0, "%Jtype of %qD defaults to %<int%>", decl, decl);
 	}
 
       TREE_PURPOSE (parm) = decl;
@@ -6086,11 +6124,11 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
      set the DECL_ARG_TYPE of each argument according to
      the type previously specified, and report any mismatches.  */
 
-  if (TYPE_ARG_TYPES (TREE_TYPE (fndecl)))
+  if (current_function_prototype_arg_types)
     {
       tree type;
       for (parm = DECL_ARGUMENTS (fndecl),
-	     type = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+	     type = current_function_prototype_arg_types;
 	   parm || (type && (TYPE_MAIN_VARIANT (TREE_VALUE (type))
 			     != void_type_node));
 	   parm = TREE_CHAIN (parm), type = TREE_CHAIN (type))
@@ -6098,9 +6136,15 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	  if (parm == 0 || type == 0
 	      || TYPE_MAIN_VARIANT (TREE_VALUE (type)) == void_type_node)
 	    {
-	      error ("number of arguments doesn%'t match prototype");
-	      error ("%Hprototype declaration",
-		     &current_function_prototype_locus);
+	      if (current_function_prototype_built_in)
+		warning (0, "number of arguments doesn%'t match "
+			 "built-in prototype");
+	      else
+		{
+		  error ("number of arguments doesn%'t match prototype");
+		  error ("%Hprototype declaration",
+			 &current_function_prototype_locus);
+		}
 	      break;
 	    }
 	  /* Type for passing arg must be consistent with that
@@ -6127,17 +6171,33 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 
 		  if (pedantic)
 		    {
-		      pedwarn ("promoted argument %qD "
-			       "doesn%'t match prototype", parm);
-		      pedwarn ("%Hprototype declaration",
-			       &current_function_prototype_locus);
+		      /* ??? Is it possible to get here with a
+			 built-in prototype or will it always have
+			 been diagnosed as conflicting with an
+			 old-style definition and discarded?  */
+		      if (current_function_prototype_built_in)
+			warning (0, "promoted argument %qD "
+				 "doesn%'t match built-in prototype", parm);
+		      else
+			{
+			  pedwarn ("promoted argument %qD "
+				   "doesn%'t match prototype", parm);
+			  pedwarn ("%Hprototype declaration",
+				   &current_function_prototype_locus);
+			}
 		    }
 		}
 	      else
 		{
-		  error ("argument %qD doesn%'t match prototype", parm);
-		  error ("%Hprototype declaration",
-			 &current_function_prototype_locus);
+		  if (current_function_prototype_built_in)
+		    warning (0, "argument %qD doesn%'t match "
+			     "built-in prototype", parm);
+		  else
+		    {
+		      error ("argument %qD doesn%'t match prototype", parm);
+		      error ("%Hprototype declaration",
+			     &current_function_prototype_locus);
+		    }
 		}
 	    }
 	}
@@ -6280,6 +6340,9 @@ finish_function (void)
 {
   tree fndecl = current_function_decl;
 
+  label_context_stack_se = label_context_stack_se->next;
+  label_context_stack_vm = label_context_stack_vm->next;
+
   if (TREE_CODE (fndecl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))
     {
@@ -6316,12 +6379,18 @@ finish_function (void)
 	  if (flag_isoc99)
 	    {
 	      tree stmt = c_finish_return (integer_zero_node);
+#ifdef USE_MAPPED_LOCATION
+	      /* Hack.  We don't want the middle-end to warn that this return
+		 is unreachable, so we mark its location as special.  Using
+		 UNKNOWN_LOCATION has the problem that it gets clobbered in
+		 annotate_one_with_locus.  A cleaner solution might be to
+		 ensure ! should_carry_locus_p (stmt), but that needs a flag.
+	      */
+	      SET_EXPR_LOCATION (stmt, BUILTINS_LOCATION);
+#else
 	      /* Hack.  We don't want the middle-end to warn that this
 		 return is unreachable, so put the statement on the
 		 special line 0.  */
-#ifdef USE_MAPPED_LOCATION
-	      SET_EXPR_LOCATION (stmt, UNKNOWN_LOCATION);
-#else
 	      annotate_with_file_line (stmt, input_filename, 0);
 #endif
 	    }
@@ -6337,7 +6406,7 @@ finish_function (void)
   if (warn_return_type
       && TREE_CODE (TREE_TYPE (TREE_TYPE (fndecl))) != VOID_TYPE
       && !current_function_returns_value && !current_function_returns_null
-      /* Don't complain if we abort.  */
+      /* Don't complain if we are no-return.  */
       && !current_function_returns_abnormally
       /* Don't warn for main().  */
       && !MAIN_NAME_P (DECL_NAME (fndecl))
@@ -6346,14 +6415,14 @@ finish_function (void)
       /* Normally, with -Wreturn-type, flow will complain.  Unless we're an
 	 inline function, as we might never be compiled separately.  */
       && DECL_INLINE (fndecl))
-    warning ("no return statement in function returning non-void");
+    warning (0, "no return statement in function returning non-void");
 
   /* With just -Wextra, complain only if function returns both with
      and without a value.  */
   if (extra_warnings
       && current_function_returns_value
       && current_function_returns_null)
-    warning ("this function may return with or without a value");
+    warning (0, "this function may return with or without a value");
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
@@ -7183,7 +7252,7 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
 	      && C_IS_RESERVED_WORD (scspec));
   i = C_RID_CODE (scspec);
   if (extra_warnings && specs->non_sc_seen_p)
-    warning ("%qE is not at beginning of declaration", scspec);
+    warning (0, "%qE is not at beginning of declaration", scspec);
   switch (i)
     {
     case RID_INLINE:

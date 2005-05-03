@@ -64,6 +64,9 @@ int in_sizeof;
 /* The level of nesting inside "typeof".  */
 int in_typeof;
 
+struct c_label_context_se *label_context_stack_se;
+struct c_label_context_vm *label_context_stack_vm;
+
 /* Nonzero if we've already printed a "missing braces around initializer"
    message within this initializer.  */
 static int missing_braces_mentioned;
@@ -341,7 +344,7 @@ composite_type (tree t1, tree t2)
 	/* If both args specify argument types, we must merge the two
 	   lists, argument by argument.  */
 	/* Tell global_bindings_p to return false so that variable_size
-	   doesn't abort on VLAs in parameter types.  */
+	   doesn't die on VLAs in parameter types.  */
 	c_override_global_bindings_to_false = true;
 
 	len = list_length (p1);
@@ -1084,7 +1087,7 @@ function_types_compatible_p (tree f1, tree f2)
 	return 0;
       /* If one of these types comes from a non-prototype fn definition,
 	 compare that with the other type's arglist.
-	 If they don't match, ask for a warning (but no error).  */
+	 If they don't match, ask for a warning (0, but no error).  */
       if (TYPE_ACTUAL_ARG_TYPES (f1)
 	  && 1 != type_lists_compatible_p (args2, TYPE_ACTUAL_ARG_TYPES (f1)))
 	val = 2;
@@ -1662,7 +1665,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	      return error_mark_node;
 	    }
 	  if (VOID_TYPE_P (t) && skip_evaluation == 0)
-	    warning ("dereferencing %<void *%> pointer");
+	    warning (0, "dereferencing %<void *%> pointer");
 
 	  /* We *must* set TREE_READONLY when dereferencing a pointer to const,
 	     so that we get the proper error message if the result is used
@@ -1737,7 +1740,7 @@ build_array_ref (tree array, tree index)
      char[array].  */
   if (warn_char_subscripts && !swapped
       && TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node)
-    warning ("array subscript has type %<char%>");
+    warning (0, "array subscript has type %<char%>");
 
   /* Apply default promotions *after* noticing character types.  */
   index = default_conversion (index);
@@ -1995,6 +1998,14 @@ build_function_call (tree function, tree params)
   /* Convert anything with function type to a pointer-to-function.  */
   if (TREE_CODE (function) == FUNCTION_DECL)
     {
+      /* Implement type-directed function overloading for builtins.
+	 resolve_overloaded_builtin and targetm.resolve_overloaded_builtin
+	 handle all the type checking.  The result is a complete expression
+	 that implements this function call.  */
+      tem = resolve_overloaded_builtin (function, params);
+      if (tem)
+	return tem;
+
       name = DECL_NAME (function);
 
       /* Differs from default_conversion by not setting TREE_ADDRESSABLE
@@ -2049,7 +2060,7 @@ build_function_call (tree function, tree params)
       /* This situation leads to run-time undefined behavior.  We can't,
 	 therefore, simply error unless we can prove that all possible
 	 executions of the program must execute the code.  */
-      warning ("function called through a non-compatible type");
+      warning (0, "function called through a non-compatible type");
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
@@ -2194,32 +2205,32 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 
 		  if (INTEGRAL_TYPE_P (type)
 		      && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
-		    warning ("passing argument %d of %qE as integer "
+		    warning (0, "passing argument %d of %qE as integer "
 			     "rather than floating due to prototype",
 			     argnum, rname);
 		  if (INTEGRAL_TYPE_P (type)
 		      && TREE_CODE (TREE_TYPE (val)) == COMPLEX_TYPE)
-		    warning ("passing argument %d of %qE as integer "
+		    warning (0, "passing argument %d of %qE as integer "
 			     "rather than complex due to prototype",
 			     argnum, rname);
 		  else if (TREE_CODE (type) == COMPLEX_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
-		    warning ("passing argument %d of %qE as complex "
+		    warning (0, "passing argument %d of %qE as complex "
 			     "rather than floating due to prototype",
 			     argnum, rname);
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && INTEGRAL_TYPE_P (TREE_TYPE (val)))
-		    warning ("passing argument %d of %qE as floating "
+		    warning (0, "passing argument %d of %qE as floating "
 			     "rather than integer due to prototype",
 			     argnum, rname);
 		  else if (TREE_CODE (type) == COMPLEX_TYPE
 			   && INTEGRAL_TYPE_P (TREE_TYPE (val)))
-		    warning ("passing argument %d of %qE as complex "
+		    warning (0, "passing argument %d of %qE as complex "
 			     "rather than integer due to prototype",
 			     argnum, rname);
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == COMPLEX_TYPE)
-		    warning ("passing argument %d of %qE as floating "
+		    warning (0, "passing argument %d of %qE as floating "
 			     "rather than complex due to prototype",
 			     argnum, rname);
 		  /* ??? At some point, messages should be written about
@@ -2232,7 +2243,7 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 			 since without a prototype it would be `double'.  */
 		      if (formal_prec == TYPE_PRECISION (float_type_node)
 			  && type != dfloat32_type_node)
-			warning ("passing argument %d of %qE as %<float%> "
+			warning (0, "passing argument %d of %qE as %<float%> "
 				 "rather than %<double%> due to prototype",
 				 argnum, rname);
 
@@ -2278,7 +2289,7 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 			   and the actual arg is that enum type.  */
 			;
 		      else if (formal_prec != TYPE_PRECISION (type1))
-			warning ("passing argument %d of %qE with different "
+			warning (0, "passing argument %d of %qE with different "
 				 "width due to prototype", argnum, rname);
 		      else if (TYPE_UNSIGNED (type) == TYPE_UNSIGNED (type1))
 			;
@@ -2300,10 +2311,10 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 			       && TYPE_UNSIGNED (TREE_TYPE (val)))
 			;
 		      else if (TYPE_UNSIGNED (type))
-			warning ("passing argument %d of %qE as unsigned "
+			warning (0, "passing argument %d of %qE as unsigned "
 				 "due to prototype", argnum, rname);
 		      else
-			warning ("passing argument %d of %qE as signed "
+			warning (0, "passing argument %d of %qE as signed "
 				 "due to prototype", argnum, rname);
 		    }
 		}
@@ -2376,14 +2387,14 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 	{
 	  if (code1 == PLUS_EXPR || code1 == MINUS_EXPR
 	      || code2 == PLUS_EXPR || code2 == MINUS_EXPR)
-	    warning ("suggest parentheses around + or - inside shift");
+	    warning (0, "suggest parentheses around + or - inside shift");
 	}
 
       if (code == TRUTH_ORIF_EXPR)
 	{
 	  if (code1 == TRUTH_ANDIF_EXPR
 	      || code2 == TRUTH_ANDIF_EXPR)
-	    warning ("suggest parentheses around && within ||");
+	    warning (0, "suggest parentheses around && within ||");
 	}
 
       if (code == BIT_IOR_EXPR)
@@ -2392,11 +2403,11 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 	      || code1 == PLUS_EXPR || code1 == MINUS_EXPR
 	      || code2 == BIT_AND_EXPR || code2 == BIT_XOR_EXPR
 	      || code2 == PLUS_EXPR || code2 == MINUS_EXPR)
-	    warning ("suggest parentheses around arithmetic in operand of |");
+	    warning (0, "suggest parentheses around arithmetic in operand of |");
 	  /* Check cases like x|y==z */
 	  if (TREE_CODE_CLASS (code1) == tcc_comparison
 	      || TREE_CODE_CLASS (code2) == tcc_comparison)
-	    warning ("suggest parentheses around comparison in operand of |");
+	    warning (0, "suggest parentheses around comparison in operand of |");
 	}
 
       if (code == BIT_XOR_EXPR)
@@ -2405,28 +2416,28 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 	      || code1 == PLUS_EXPR || code1 == MINUS_EXPR
 	      || code2 == BIT_AND_EXPR
 	      || code2 == PLUS_EXPR || code2 == MINUS_EXPR)
-	    warning ("suggest parentheses around arithmetic in operand of ^");
+	    warning (0, "suggest parentheses around arithmetic in operand of ^");
 	  /* Check cases like x^y==z */
 	  if (TREE_CODE_CLASS (code1) == tcc_comparison
 	      || TREE_CODE_CLASS (code2) == tcc_comparison)
-	    warning ("suggest parentheses around comparison in operand of ^");
+	    warning (0, "suggest parentheses around comparison in operand of ^");
 	}
 
       if (code == BIT_AND_EXPR)
 	{
 	  if (code1 == PLUS_EXPR || code1 == MINUS_EXPR
 	      || code2 == PLUS_EXPR || code2 == MINUS_EXPR)
-	    warning ("suggest parentheses around + or - in operand of &");
+	    warning (0, "suggest parentheses around + or - in operand of &");
 	  /* Check cases like x&y==z */
 	  if (TREE_CODE_CLASS (code1) == tcc_comparison
 	      || TREE_CODE_CLASS (code2) == tcc_comparison)
-	    warning ("suggest parentheses around comparison in operand of &");
+	    warning (0, "suggest parentheses around comparison in operand of &");
 	}
       /* Similarly, check for cases like 1<=i<=10 that are probably errors.  */
       if (TREE_CODE_CLASS (code) == tcc_comparison
 	  && (TREE_CODE_CLASS (code1) == tcc_comparison
 	      || TREE_CODE_CLASS (code2) == tcc_comparison))
-	warning ("comparisons like X<=Y<=Z do not have their mathematical meaning");
+	warning (0, "comparisons like X<=Y<=Z do not have their mathematical meaning");
 
     }
 
@@ -3039,7 +3050,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 		       || (unsigned_op1 && tree_expr_nonnegative_p (op2)))
 		/* OK */;
 	      else
-		warning ("signed and unsigned type in conditional expression");
+		warning (0, "signed and unsigned type in conditional expression");
 	    }
 	}
     }
@@ -3144,10 +3155,18 @@ build_compound_expr (tree expr1, tree expr2)
       /* The left-hand operand of a comma expression is like an expression
          statement: with -Wextra or -Wunused, we should warn if it doesn't have
 	 any side-effects, unless it was explicitly cast to (void).  */
-      if (warn_unused_value
-           && !(TREE_CODE (expr1) == CONVERT_EXPR
-                && VOID_TYPE_P (TREE_TYPE (expr1))))
-        warning ("left-hand operand of comma expression has no effect");
+      if (warn_unused_value)
+	{
+	  if (VOID_TYPE_P (TREE_TYPE (expr1))
+	      && TREE_CODE (expr1) == CONVERT_EXPR)
+	    ; /* (void) a, b */
+	  else if (VOID_TYPE_P (TREE_TYPE (expr1))
+		   && TREE_CODE (expr1) == COMPOUND_EXPR
+		   && TREE_CODE (TREE_OPERAND (expr1, 1)) == CONVERT_EXPR)
+	    ; /* (void) a, (void) b, c */
+	  else
+	    warning (0, "left-hand operand of comma expression has no effect");
+	}
     }
 
   /* With -Wunused, we should also warn if the left-hand operand does have
@@ -3274,12 +3293,12 @@ build_c_cast (tree type, tree expr)
 		 && TREE_CODE (in_otype) == POINTER_TYPE);
 
 	  if (added)
-	    warning ("cast adds new qualifiers to function type");
+	    warning (0, "cast adds new qualifiers to function type");
 
 	  if (discarded)
 	    /* There are qualifiers present in IN_OTYPE that are not
 	       present in IN_TYPE.  */
-	    warning ("cast discards qualifiers from pointer target type");
+	    warning (0, "cast discards qualifiers from pointer target type");
 	}
 
       /* Warn about possible alignment problems.  */
@@ -3294,26 +3313,28 @@ build_c_cast (tree type, tree expr)
 		|| TREE_CODE (TREE_TYPE (otype)) == RECORD_TYPE)
 	       && TYPE_MODE (TREE_TYPE (otype)) == VOIDmode)
 	  && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (otype)))
-	warning ("cast increases required alignment of target type");
+	warning (0, "cast increases required alignment of target type");
 
-      if (TREE_CODE (type) == INTEGER_TYPE
+      if (warn_pointer_to_int_cast
+	  && TREE_CODE (type) == INTEGER_TYPE
 	  && TREE_CODE (otype) == POINTER_TYPE
 	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype)
 	  && !TREE_CONSTANT (value))
-	warning ("cast from pointer to integer of different size");
+	warning (0, "cast from pointer to integer of different size");
 
       if (warn_bad_function_cast
 	  && TREE_CODE (value) == CALL_EXPR
 	  && TREE_CODE (type) != TREE_CODE (otype))
-	warning ("cast from function call of type %qT to non-matching "
+	warning (0, "cast from function call of type %qT to non-matching "
 		 "type %qT", otype, type);
 
-      if (TREE_CODE (type) == POINTER_TYPE
+      if (warn_int_to_pointer_cast
+	  && TREE_CODE (type) == POINTER_TYPE
 	  && TREE_CODE (otype) == INTEGER_TYPE
 	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype)
 	  /* Don't warn about converting any constant.  */
 	  && !TREE_CONSTANT (value))
-	warning ("cast to pointer from integer of different size");
+	warning (0, "cast to pointer from integer of different size");
 
       if (TREE_CODE (type) == POINTER_TYPE
 	  && TREE_CODE (otype) == POINTER_TYPE
@@ -3325,17 +3346,17 @@ build_c_cast (tree type, tree expr)
 	  /* Casting the address of a decl to non void pointer. Warn
 	     if the cast breaks type based aliasing.  */
 	  if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
-	    warning ("type-punning to incomplete type might break strict-aliasing rules");
+	    warning (0, "type-punning to incomplete type might break strict-aliasing rules");
 	  else
 	    {
 	      HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
 	      HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
 
 	      if (!alias_sets_conflict_p (set1, set2))
-		warning ("dereferencing type-punned pointer will break strict-aliasing rules");
+		warning (0, "dereferencing type-punned pointer will break strict-aliasing rules");
 	      else if (warn_strict_aliasing > 1
 		       && !alias_sets_might_conflict_p (set1, set2))
-		warning ("dereferencing type-punned pointer might break strict-aliasing rules");
+		warning (0, "dereferencing type-punned pointer might break strict-aliasing rules");
 	    }
 	}
 
@@ -3541,7 +3562,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	pedwarn (AR, parmnum, rname);		\
 	break;					\
       case ic_argpass_nonproto:			\
-	warning (AR, parmnum, rname);		\
+	warning (0, AR, parmnum, rname);		\
 	break;					\
       case ic_assign:				\
 	pedwarn (AS);				\
@@ -3984,7 +4005,7 @@ store_init_value (tree decl, tree init)
 
   if (warn_traditional && !in_system_header
       && AGGREGATE_TYPE_P (TREE_TYPE (decl)) && !TREE_STATIC (decl))
-    warning ("traditional C rejects automatic aggregate initialization");
+    warning (0, "traditional C rejects automatic aggregate initialization");
 
   DECL_INITIAL (decl) = value;
 
@@ -4178,10 +4199,10 @@ warning_init (const char *msgid)
 {
   char *ofwhat;
 
-  warning ("%s", _(msgid));
+  warning (0, "%s", _(msgid));
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
-    warning ("(near initialization for %qs)", ofwhat);
+    warning (0, "(near initialization for %qs)", ofwhat);
 }
 
 /* If TYPE is an array type and EXPR is a parenthesized string
@@ -5052,7 +5073,7 @@ pop_init_level (int implicit)
 
 	  /* We have already issued an error message for the existence
 	     of a flexible array member not at the end of the structure.
-	     Discard the initializer so that we do not abort later.  */
+	     Discard the initializer so that we do not die later.  */
 	  if (TREE_CHAIN (constructor_fields) != NULL_TREE)
 	    constructor_type = NULL_TREE;
 	}
@@ -6220,7 +6241,7 @@ process_init_element (struct c_expr value)
 	  if (warn_traditional && !in_system_header && !constructor_designated
 	      && !(value.value && (integer_zerop (value.value)
 				   || real_zerop (value.value))))
-	    warning ("traditional C rejects initialization of unions");
+	    warning (0, "traditional C rejects initialization of unions");
 
 	  /* Accept a string constant to initialize a subarray.  */
 	  if (value.value != 0
@@ -6524,6 +6545,41 @@ c_finish_goto_label (tree label)
   if (!decl)
     return NULL_TREE;
 
+  if (C_DECL_UNJUMPABLE_STMT_EXPR (decl))
+    {
+      error ("jump into statement expression");
+      return NULL_TREE;
+    }
+
+  if (C_DECL_UNJUMPABLE_VM (decl))
+    {
+      error ("jump into scope of identifier with variably modified type");
+      return NULL_TREE;
+    }
+
+  if (!C_DECL_UNDEFINABLE_STMT_EXPR (decl))
+    {
+      /* No jump from outside this statement expression context, so
+	 record that there is a jump from within this context.  */
+      struct c_label_list *nlist;
+      nlist = XOBNEW (&parser_obstack, struct c_label_list);
+      nlist->next = label_context_stack_se->labels_used;
+      nlist->label = decl;
+      label_context_stack_se->labels_used = nlist;
+    }
+
+  if (!C_DECL_UNDEFINABLE_VM (decl))
+    {
+      /* No jump from outside this context context of identifiers with
+	 variably modified type, so record that there is a jump from
+	 within this context.  */
+      struct c_label_list *nlist;
+      nlist = XOBNEW (&parser_obstack, struct c_label_list);
+      nlist->next = label_context_stack_vm->labels_used;
+      nlist->label = decl;
+      label_context_stack_vm->labels_used = nlist;
+    }
+
   TREE_USED (decl) = 1;
   return add_stmt (build1 (GOTO_EXPR, void_type_node, decl));
 }
@@ -6548,7 +6604,7 @@ c_finish_return (tree retval)
   tree valtype = TREE_TYPE (TREE_TYPE (current_function_decl));
 
   if (TREE_THIS_VOLATILE (current_function_decl))
-    warning ("function declared %<noreturn%> has a %<return%> statement");
+    warning (0, "function declared %<noreturn%> has a %<return%> statement");
 
   if (!retval)
     {
@@ -6619,7 +6675,7 @@ c_finish_return (tree retval)
 		  && !DECL_EXTERNAL (inner)
 		  && !TREE_STATIC (inner)
 		  && DECL_CONTEXT (inner) == current_function_decl)
-		warning ("function returns address of local variable");
+		warning (0, "function returns address of local variable");
 	      break;
 
 	    default:
@@ -6636,8 +6692,8 @@ c_finish_return (tree retval)
 }
 
 struct c_switch {
-  /* The SWITCH_STMT being built.  */
-  tree switch_stmt;
+  /* The SWITCH_EXPR being built.  */
+  tree switch_expr;
 
   /* The original type of the testing expression, i.e. before the
      default conversion is applied.  */
@@ -6649,6 +6705,16 @@ struct c_switch {
      label.  We need a tree, rather than simply a hash table, because
      of the GNU case range extension.  */
   splay_tree cases;
+
+  /* Number of nested statement expressions within this switch
+     statement; if nonzero, case and default labels may not
+     appear.  */
+  unsigned int blocked_stmt_expr;
+
+  /* Scope of outermost declarations of identifiers with variably
+     modified type within this switch statement; if nonzero, case and
+     default labels may not appear.  */
+  unsigned int blocked_vm;
 
   /* The next node on the stack.  */
   struct c_switch *next;
@@ -6663,7 +6729,7 @@ struct c_switch {
 struct c_switch *c_switch_stack;
 
 /* Start a C switch statement, testing expression EXP.  Return the new
-   SWITCH_STMT.  */
+   SWITCH_EXPR.  */
 
 tree
 c_start_case (tree exp)
@@ -6691,7 +6757,7 @@ c_start_case (tree exp)
 	  if (warn_traditional && !in_system_header
 	      && (type == long_integer_type_node
 		  || type == long_unsigned_type_node))
-	    warning ("%<long%> switch expression not converted to "
+	    warning (0, "%<long%> switch expression not converted to "
 		     "%<int%> in ISO C");
 
 	  exp = default_conversion (exp);
@@ -6699,15 +6765,17 @@ c_start_case (tree exp)
 	}
     }
 
-  /* Add this new SWITCH_STMT to the stack.  */
+  /* Add this new SWITCH_EXPR to the stack.  */
   cs = XNEW (struct c_switch);
-  cs->switch_stmt = build_stmt (SWITCH_STMT, exp, NULL_TREE, orig_type);
+  cs->switch_expr = build3 (SWITCH_EXPR, orig_type, exp, NULL_TREE, NULL_TREE);
   cs->orig_type = orig_type;
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
+  cs->blocked_stmt_expr = 0;
+  cs->blocked_vm = 0;
   cs->next = c_switch_stack;
   c_switch_stack = cs;
 
-  return add_stmt (cs->switch_stmt);
+  return add_stmt (cs->switch_expr);
 }
 
 /* Process a case label.  */
@@ -6717,14 +6785,33 @@ do_case (tree low_value, tree high_value)
 {
   tree label = NULL_TREE;
 
-  if (c_switch_stack)
+  if (c_switch_stack && !c_switch_stack->blocked_stmt_expr
+      && !c_switch_stack->blocked_vm)
     {
       label = c_add_case_label (c_switch_stack->cases,
-				SWITCH_STMT_COND (c_switch_stack->switch_stmt),
+				SWITCH_COND (c_switch_stack->switch_expr),
 				c_switch_stack->orig_type,
 				low_value, high_value);
       if (label == error_mark_node)
 	label = NULL_TREE;
+    }
+  else if (c_switch_stack && c_switch_stack->blocked_stmt_expr)
+    {
+      if (low_value)
+	error ("case label in statement expression not containing "
+	       "enclosing switch statement");
+      else
+	error ("%<default%> label in statement expression not containing "
+	       "enclosing switch statement");
+    }
+  else if (c_switch_stack && c_switch_stack->blocked_vm)
+    {
+      if (low_value)
+	error ("case label in scope of identifier with variably modified "
+	       "type not containing enclosing switch statement");
+      else
+	error ("%<default%> label in scope of identifier with variably "
+	       "modified type not containing enclosing switch statement");
     }
   else if (low_value)
     error ("case label not within a switch statement");
@@ -6740,11 +6827,23 @@ void
 c_finish_case (tree body)
 {
   struct c_switch *cs = c_switch_stack;
+  location_t switch_location;
 
-  SWITCH_STMT_BODY (cs->switch_stmt) = body;
+  SWITCH_BODY (cs->switch_expr) = body;
+
+  /* We must not be within a statement expression nested in the switch
+     at this point; we might, however, be within the scope of an
+     identifier with variably modified type nested in the switch.  */
+  gcc_assert (!cs->blocked_stmt_expr);
 
   /* Emit warnings as needed.  */
-  c_do_switch_warnings (cs->cases, cs->switch_stmt);
+  if (EXPR_HAS_LOCATION (cs->switch_expr))
+    switch_location = EXPR_LOCATION (cs->switch_expr);
+  else
+    switch_location = input_location;
+  c_do_switch_warnings (cs->cases, switch_location,
+			TREE_TYPE (cs->switch_expr),
+			SWITCH_COND (cs->switch_expr));
 
   /* Pop the stack.  */
   c_switch_stack = cs->next;
@@ -6793,7 +6892,7 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
     found:
 
       if (COND_EXPR_ELSE (inner_if))
-	 warning ("%Hsuggest explicit braces to avoid ambiguous %<else%>",
+	 warning (0, "%Hsuggest explicit braces to avoid ambiguous %<else%>",
 		  &if_locus);
     }
 
@@ -6803,7 +6902,7 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
       if (TREE_CODE (then_block) == NOP_EXPR && !TREE_TYPE (then_block))
 	{
 	  if (!else_block)
-	    warning ("%Hempty body in an if-statement",
+	    warning (0, "%Hempty body in an if-statement",
 		     EXPR_LOCUS (then_block));
 	  then_block = alloc_stmt_list ();
 	}
@@ -6811,7 +6910,7 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
 	  && TREE_CODE (else_block) == NOP_EXPR
 	  && !TREE_TYPE (else_block))
 	{
-	  warning ("%Hempty body in an else-statement",
+	  warning (0, "%Hempty body in an else-statement",
 		   EXPR_LOCUS (else_block));
 	  else_block = alloc_stmt_list ();
 	}
@@ -6942,7 +7041,7 @@ emit_side_effect_warnings (tree expr)
   else if (!TREE_SIDE_EFFECTS (expr))
     {
       if (!VOID_TYPE_P (TREE_TYPE (expr)) && !TREE_NO_WARNING (expr))
-	warning ("%Hstatement with no effect",
+	warning (0, "%Hstatement with no effect",
 		 EXPR_HAS_LOCATION (expr) ? EXPR_LOCUS (expr) : &input_location);
     }
   else if (warn_unused_value)
@@ -7009,12 +7108,30 @@ tree
 c_begin_stmt_expr (void)
 {
   tree ret;
+  struct c_label_context_se *nstack;
+  struct c_label_list *glist;
 
   /* We must force a BLOCK for this level so that, if it is not expanded
      later, there is a way to turn off the entire subtree of blocks that
      are contained in it.  */
   keep_next_level ();
   ret = c_begin_compound_stmt (true);
+  if (c_switch_stack)
+    {
+      c_switch_stack->blocked_stmt_expr++;
+      gcc_assert (c_switch_stack->blocked_stmt_expr != 0);
+    }
+  for (glist = label_context_stack_se->labels_used;
+       glist != NULL;
+       glist = glist->next)
+    {
+      C_DECL_UNDEFINABLE_STMT_EXPR (glist->label) = 1;
+    }
+  nstack = XOBNEW (&parser_obstack, struct c_label_context_se);
+  nstack->labels_def = NULL;
+  nstack->labels_used = NULL;
+  nstack->next = label_context_stack_se;
+  label_context_stack_se = nstack;
 
   /* Mark the current statement list as belonging to a statement list.  */
   STATEMENT_LIST_STMT_EXPR (ret) = 1;
@@ -7027,8 +7144,37 @@ c_finish_stmt_expr (tree body)
 {
   tree last, type, tmp, val;
   tree *last_p;
+  struct c_label_list *dlist, *glist, *glist_prev = NULL;
 
   body = c_end_compound_stmt (body, true);
+  if (c_switch_stack)
+    {
+      gcc_assert (c_switch_stack->blocked_stmt_expr != 0);
+      c_switch_stack->blocked_stmt_expr--;
+    }
+  /* It is no longer possible to jump to labels defined within this
+     statement expression.  */
+  for (dlist = label_context_stack_se->labels_def;
+       dlist != NULL;
+       dlist = dlist->next)
+    {
+      C_DECL_UNJUMPABLE_STMT_EXPR (dlist->label) = 1;
+    }
+  /* It is again possible to define labels with a goto just outside
+     this statement expression.  */
+  for (glist = label_context_stack_se->next->labels_used;
+       glist != NULL;
+       glist = glist->next)
+    {
+      C_DECL_UNDEFINABLE_STMT_EXPR (glist->label) = 0;
+      glist_prev = glist;
+    }
+  if (glist_prev != NULL)
+    glist_prev->next = label_context_stack_se->labels_used;
+  else
+    label_context_stack_se->next->labels_used
+      = label_context_stack_se->labels_used;
+  label_context_stack_se = label_context_stack_se->next;
 
   /* Locate the last statement in BODY.  See c_end_compound_stmt
      about always returning a BIND_EXPR.  */
@@ -7098,6 +7244,75 @@ c_finish_stmt_expr (tree body)
   SET_EXPR_LOCUS (*last_p, EXPR_LOCUS (last));
 
   return build4 (TARGET_EXPR, type, tmp, body, NULL_TREE, NULL_TREE);
+}
+
+/* Begin the scope of an identifier of variably modified type, scope
+   number SCOPE.  Jumping from outside this scope to inside it is not
+   permitted.  */
+
+void
+c_begin_vm_scope (unsigned int scope)
+{
+  struct c_label_context_vm *nstack;
+  struct c_label_list *glist;
+
+  gcc_assert (scope > 0);
+  if (c_switch_stack && !c_switch_stack->blocked_vm)
+    c_switch_stack->blocked_vm = scope;
+  for (glist = label_context_stack_vm->labels_used;
+       glist != NULL;
+       glist = glist->next)
+    {
+      C_DECL_UNDEFINABLE_VM (glist->label) = 1;
+    }
+  nstack = XOBNEW (&parser_obstack, struct c_label_context_vm);
+  nstack->labels_def = NULL;
+  nstack->labels_used = NULL;
+  nstack->scope = scope;
+  nstack->next = label_context_stack_vm;
+  label_context_stack_vm = nstack;
+}
+
+/* End a scope which may contain identifiers of variably modified
+   type, scope number SCOPE.  */
+
+void
+c_end_vm_scope (unsigned int scope)
+{
+  if (label_context_stack_vm == NULL)
+    return;
+  if (c_switch_stack && c_switch_stack->blocked_vm == scope)
+    c_switch_stack->blocked_vm = 0;
+  /* We may have a number of nested scopes of identifiers with
+     variably modified type, all at this depth.  Pop each in turn.  */
+  while (label_context_stack_vm->scope == scope)
+    {
+      struct c_label_list *dlist, *glist, *glist_prev = NULL;
+
+      /* It is no longer possible to jump to labels defined within this
+	 scope.  */
+      for (dlist = label_context_stack_vm->labels_def;
+	   dlist != NULL;
+	   dlist = dlist->next)
+	{
+	  C_DECL_UNJUMPABLE_VM (dlist->label) = 1;
+	}
+      /* It is again possible to define labels with a goto just outside
+	 this scope.  */
+      for (glist = label_context_stack_vm->next->labels_used;
+	   glist != NULL;
+	   glist = glist->next)
+	{
+	  C_DECL_UNDEFINABLE_VM (glist->label) = 0;
+	  glist_prev = glist;
+	}
+      if (glist_prev != NULL)
+	glist_prev->next = label_context_stack_vm->labels_used;
+      else
+	label_context_stack_vm->next->labels_used
+	  = label_context_stack_vm->labels_used;
+      label_context_stack_vm = label_context_stack_vm->next;
+    }
 }
 
 /* Begin and end compound statements.  This is as simple as pushing
@@ -7294,7 +7509,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       /* Floating point division by zero is a legitimate way to obtain
 	 infinities and NaNs.  */
       if (warn_div_by_zero && skip_evaluation == 0 && integer_zerop (op1))
-	warning ("division by zero");
+	warning (0, "division by zero");
 
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
 	   || code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
@@ -7333,7 +7548,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case TRUNC_MOD_EXPR:
     case FLOOR_MOD_EXPR:
       if (warn_div_by_zero && skip_evaluation == 0 && integer_zerop (op1))
-	warning ("division by zero");
+	warning (0, "division by zero");
 
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
@@ -7378,14 +7593,14 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  if (TREE_CODE (op1) == INTEGER_CST && skip_evaluation == 0)
 	    {
 	      if (tree_int_cst_sgn (op1) < 0)
-		warning ("right shift count is negative");
+		warning (0, "right shift count is negative");
 	      else
 		{
 		  if (!integer_zerop (op1))
 		    short_shift = 1;
 
 		  if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
-		    warning ("right shift count >= width of type");
+		    warning (0, "right shift count >= width of type");
 		}
 	    }
 
@@ -7406,10 +7621,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  if (TREE_CODE (op1) == INTEGER_CST && skip_evaluation == 0)
 	    {
 	      if (tree_int_cst_sgn (op1) < 0)
-		warning ("left shift count is negative");
+		warning (0, "left shift count is negative");
 
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
-		warning ("left shift count >= width of type");
+		warning (0, "left shift count >= width of type");
 	    }
 
 	  /* Use the type of the value to be shifted.  */
@@ -7426,7 +7641,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case EQ_EXPR:
     case NE_EXPR:
       if (warn_float_equal && (code0 == REAL_TYPE || code1 == REAL_TYPE))
-	warning ("comparing floating point with == or != is unsafe");
+	warning (0, "comparing floating point with == or != is unsafe");
       /* Result of comparison is always int,
 	 but don't convert the args to int!  */
       build_type = integer_type_node;
@@ -7743,7 +7958,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			    c_common_signed_type (result_type)))
 		    /* OK */;
 		  else
-		    warning ("comparison between signed and unsigned");
+		    warning (0, "comparison between signed and unsigned");
 		}
 
 	      /* Warn if two unsigned values are being compared in a size
@@ -7789,7 +8004,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			{
 			  mask = (~(HOST_WIDE_INT) 0) << bits;
 			  if ((mask & constant) != mask)
-			    warning ("comparison of promoted ~unsigned with constant");
+			    warning (0, "comparison of promoted ~unsigned with constant");
 			}
 		    }
 		  else if (unsignedp0 && unsignedp1
@@ -7797,7 +8012,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			       < TYPE_PRECISION (result_type))
 			   && (TYPE_PRECISION (TREE_TYPE (primop1))
 			       < TYPE_PRECISION (result_type)))
-		    warning ("comparison of promoted ~unsigned with unsigned");
+		    warning (0, "comparison of promoted ~unsigned with unsigned");
 		}
 	    }
 	}

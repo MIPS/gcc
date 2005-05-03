@@ -243,8 +243,9 @@ void
 linear_transform_loops (struct loops *loops)
 {
   unsigned int i;
+  VEC(tree,heap) *oldivs = NULL;
+  VEC(tree,heap) *invariants = NULL;
   
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
@@ -252,8 +253,6 @@ linear_transform_loops (struct loops *loops)
       varray_type dependence_relations;
       struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
-      VEC (tree) *oldivs = NULL;
-      VEC (tree) *invariants = NULL;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
@@ -274,6 +273,8 @@ linear_transform_loops (struct loops *loops)
            } */
       if (!loop_nest || !loop_nest->inner)
 	continue;
+      VEC_truncate (tree, oldivs, 0);
+      VEC_truncate (tree, invariants, 0);
       depth = 1;
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
@@ -366,16 +367,11 @@ linear_transform_loops (struct loops *loops)
 				       after, trans);
       if (dump_file)
 	fprintf (dump_file, "Successfully transformed loop.\n");
-      oldivs = NULL;
-      invariants = NULL;
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
-  free_df ();
+  VEC_free (tree, heap, oldivs);
+  VEC_free (tree, heap, invariants);
   scev_reset ();
-  rewrite_into_ssa (false);
-  rewrite_into_loop_closed_ssa (NULL);
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
+  rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa_full_phi);
 }

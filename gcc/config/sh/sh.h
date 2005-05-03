@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -751,7 +751,7 @@ do {									\
 	 here we have a working libgcov, so just assume that we have.  */\
       if (profile_flag)							\
 	{								\
-	  warning ("Profiling is not supported on this target.");	\
+	  warning (0, "Profiling is not supported on this target.");	\
 	  profile_flag = profile_arc_flag = 0;				\
 	}								\
     }									\
@@ -3355,7 +3355,7 @@ extern int rtx_equal_function_value_matters;
   {"fpscr_operand", {REG}},						\
   {"fpul_operand", {REG}},						\
   {"general_extend_operand", {SUBREG, REG, MEM, TRUNCATE}},		\
-  {"general_movsrc_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE, MEM}}, \
+  {"general_movsrc_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE, MEM, CONST }}, \
   {"general_movdst_operand", {SUBREG, REG, MEM}},			\
   {"unaligned_load_operand", {MEM}},					\
   {"greater_comparison_operator", {GT,GE,GTU,GEU}},			\

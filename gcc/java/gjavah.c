@@ -2388,6 +2388,9 @@ main (int argc, char** argv)
   int emit_dependencies = 0, suppress_output = 0;
   int opt;
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   if (argc <= 1)

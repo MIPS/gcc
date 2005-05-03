@@ -493,8 +493,7 @@ eliminate_phi (edge e, elim_graph g)
 
   gcc_assert (VARRAY_ACTIVE_SIZE (g->const_copies) == 0);
 
-  /* Abnormal edges already have everything coalesced, or the coalescer
-     would have aborted.  */
+  /* Abnormal edges already have everything coalesced.  */
   if (e->flags & EDGE_ABNORMAL)
     return;
 
@@ -1885,7 +1884,6 @@ rewrite_trees (var_map map, tree *values)
 	  stmt_ann_t ann;
 	  ssa_op_iter iter;
 
-	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
 	  changed = false;
 
@@ -1928,8 +1926,6 @@ rewrite_trees (var_map map, tree *values)
 		      && (DEF_FROM_PTR (def_p) == USE_OP (uses, 0)))
 		    remove = 1;
 		}
-	      if (changed & !remove)
-		modify_stmt (stmt);
 	    }
 
 	  /* Remove any stmts marked for removal.  */
@@ -2370,6 +2366,9 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 	}
     }
 
+  /* we no longer maintain the SSA operand cache at this point.  */
+  fini_ssa_operands ();
+
   /* If any copies were inserted on edges, analyze and insert them now.  */
   perform_edge_inserts (dump_file);
 
@@ -2457,7 +2456,6 @@ insert_backedge_copies (void)
 		    bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 		  else
 		    bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-		  modify_stmt (stmt);
 		  SET_PHI_ARG_DEF (phi, i, name);
 		}
 	    }
@@ -2508,15 +2506,13 @@ rewrite_out_of_ssa (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
-  /* Do some cleanups which reduce the amount of data the
-     tree->rtl expanders deal with.  */
-  cfg_remove_useless_stmts ();
-
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
 
   /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
   discover_nonconstant_array_refs ();
+
+  in_ssa_p = false;
 }
 
 

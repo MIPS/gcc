@@ -1,3 +1,42 @@
+2005-04-27  Andris Pavenis  <pavenis@latnet.lv>
+
+	* files.c: Include io.h for DJGPP to get prototype of setmode.
+
+2005-04-19  Per Bothner  <per@bothner.com>
+
+	PR preprocessor/20907
+	* line-map.c (linemap_line_start): Fix bug when we need to increse
+	column_bits but can re-use the current line_map.
+
+2005-04-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* system.h (fopen, fdopen, freopen): Define these to the unlocked
+	libiberty functions.
+
+2005-04-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.ac (libcpp_UNLOCKED_FUNCS): New.
+	(AC_CHECK_FUNCS, AC_CHECK_DECLS): Check for libcpp_UNLOCKED_FUNCS.
+	* system.h (putchar, getc, getchar, clearerr, feof, fileno,
+	fflush, fgetc, fgets, ferror, fread): Redefine to the associated
+	_unlocked function.
+	(fwrite_unlocked): Fix prototype.
+	
+	* configure, config.in: Regenerate.
+
+2005-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/19475
+	* macro.c (create_iso_definition): For < ISO C99, don't
+	pedwarn if there is no whitespace between macro name and its
+	replacement, but the replacement starts with a basic character
+	set character.
+
+2005-03-28  Andreas Jaeger  <aj@suse.de>
+
+	* lex.c (warn_about_normalization): Cast field width to int to
+	avoid warning.
+
 2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* configure.ac: Consistently use solaris2.1[0-9]* instead of

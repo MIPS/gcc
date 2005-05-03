@@ -38,6 +38,7 @@ extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
 							     unsigned int);
 extern HOST_WIDE_INT thumb_compute_initial_elimination_offset (unsigned int,
 							       unsigned int);
+extern unsigned int arm_dbx_register_number (unsigned int);
 
 #ifdef TREE_CODE
 extern int arm_return_in_memory (tree);
@@ -90,6 +91,7 @@ extern rtx arm_gen_return_addr_mask (void);
 extern void arm_reload_in_hi (rtx *);
 extern void arm_reload_out_hi (rtx *);
 extern int arm_const_double_inline_cost (rtx);
+extern bool arm_const_double_by_parts (rtx);
 extern const char *fp_immediate_constant (rtx);
 extern const char *output_call (rtx *);
 extern const char *output_call_mem (rtx *);
@@ -99,7 +101,6 @@ extern const char *output_mov_long_double_arm_from_arm (rtx *);
 extern const char *output_mov_double_fpa_from_arm (rtx *);
 extern const char *output_mov_double_arm_from_fpa (rtx *);
 extern const char *output_move_double (rtx *);
-extern const char *output_mov_immediate (rtx *);
 extern const char *output_add_immediate (rtx *);
 extern const char *arithmetic_instr (rtx, int);
 extern void output_ascii_pseudo_op (FILE *, const unsigned char *, int);
@@ -120,6 +121,8 @@ extern int arm_eliminable_register (rtx);
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void arm_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
+extern bool arm_pad_arg_upward (enum machine_mode, tree);
+extern bool arm_pad_reg_upward (enum machine_mode, tree, int);
 extern bool arm_needs_doubleword_align (enum machine_mode, tree);
 extern rtx arm_function_value(tree, tree);
 #endif

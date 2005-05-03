@@ -565,7 +565,7 @@ poplevel (int keep, int reverse, int functionbody)
 	  && ! TREE_USED (decl)
 	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-	warning ("%Junused variable %qD", decl, decl);
+	warning (0, "%Junused variable %qD", decl, decl);
 
   /* Remove declarations for all the DECLs in this level.  */
   for (link = decls; link; link = TREE_CHAIN (link))
@@ -1055,17 +1055,17 @@ duplicate_decls (tree newdecl, tree olddecl)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning ("%Jfunction %qD redeclared as inline", newdecl, newdecl);
-	  warning ("%Jprevious declaration of %qD with attribute noinline",
+	  warning (0, "%Jfunction %qD redeclared as inline", newdecl, newdecl);
+	  warning (0, "%Jprevious declaration of %qD with attribute noinline",
                    olddecl, olddecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning ("%Jfunction %qD redeclared with attribute noinline",
+	  warning (0, "%Jfunction %qD redeclared with attribute noinline",
 		   newdecl, newdecl);
-	  warning ("%Jprevious declaration of %qD was inline",
+	  warning (0, "%Jprevious declaration of %qD was inline",
 		   olddecl, olddecl);
 	}
     }
@@ -1086,7 +1086,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  if (! TREE_PUBLIC (newdecl))
 	    {
 	      if (warn_shadow)
-                warning ("shadowing %s function %q#D",
+                warning (0, "shadowing %s function %q#D",
                          DECL_BUILT_IN (olddecl) ? "built-in" : "library",
                          olddecl);
 	      /* Discard the old built-in function.  */
@@ -1095,7 +1095,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  /* If the built-in is not ansi, then programs can override
 	     it even globally without an error.  */
 	  else if (! DECL_BUILT_IN (olddecl))
-	    warning ("library function %q#D redeclared as non-function %q#D",
+	    warning (0, "library function %q#D redeclared as non-function %q#D",
                      olddecl, newdecl);
 	  else
 	    {
@@ -1152,12 +1152,12 @@ duplicate_decls (tree newdecl, tree olddecl)
 
 	      if (TREE_PUBLIC (newdecl))
 		{
-		  warning ("new declaration %q#D", newdecl);
-		  warning ("ambiguates built-in declaration %q#D",
+		  warning (0, "new declaration %q#D", newdecl);
+		  warning (0, "ambiguates built-in declaration %q#D",
                            olddecl);
 		}
 	      else if (warn_shadow)
-		warning ("shadowing %s function %q#D",
+		warning (0, "shadowing %s function %q#D",
                          DECL_BUILT_IN (olddecl) ? "built-in" : "library",
                          olddecl);
 	    }
@@ -1363,7 +1363,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  /* Prototype decl follows defn w/o prototype.  */
 	  cp_warning_at ("prototype for %q#D", newdecl);
-	  warning ("%Jfollows non-prototype definition here", olddecl);
+	  warning (0, "%Jfollows non-prototype definition here", olddecl);
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
 	       && DECL_LANGUAGE (newdecl) != DECL_LANGUAGE (olddecl))
@@ -1418,8 +1418,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      && ! DECL_DECLARED_INLINE_P (olddecl)
 	      && TREE_ADDRESSABLE (olddecl) && warn_inline)
 	    {
-	      warning ("%q#D was used before it was declared inline", newdecl);
-	      warning ("%Jprevious non-inline declaration here", olddecl);
+	      warning (0, "%q#D was used before it was declared inline", newdecl);
+	      warning (0, "%Jprevious non-inline declaration here", olddecl);
 	    }
 	}
     }
@@ -1471,7 +1471,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  /* Don't warn about friends, let add_friend take care of it.  */
 	  && ! (DECL_FRIEND_P (newdecl) || DECL_FRIEND_P (olddecl)))
 	{
-	  warning ("redundant redeclaration of %qD in same scope", newdecl);
+	  warning (0, "redundant redeclaration of %qD in same scope", newdecl);
 	  cp_warning_at ("previous declaration of %qD", olddecl);
 	}
     }
@@ -1806,9 +1806,9 @@ duplicate_decls (tree newdecl, tree olddecl)
       && DECL_VISIBILITY_SPECIFIED (newdecl)
       && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
-      warning ("%J%qD: visibility attribute ignored because it",
+      warning (0, "%J%qD: visibility attribute ignored because it",
 	       newdecl, newdecl);
-      warning ("%Jconflicts with previous declaration here", olddecl);
+      warning (0, "%Jconflicts with previous declaration here", olddecl);
     }
   /* Choose the declaration which specified visibility.  */
   if (DECL_VISIBILITY_SPECIFIED (olddecl))
@@ -2369,9 +2369,16 @@ void
 pop_switch (void)
 {
   struct cp_switch *cs = switch_stack;
+  location_t switch_location;
 
   /* Emit warnings as needed.  */
-  c_do_switch_warnings (cs->cases, cs->switch_stmt);
+  if (EXPR_HAS_LOCATION (cs->switch_stmt))
+    switch_location = EXPR_LOCATION (cs->switch_stmt);
+  else
+    switch_location = input_location;
+  c_do_switch_warnings (cs->cases, switch_location,
+			SWITCH_STMT_TYPE (cs->switch_stmt),
+			SWITCH_STMT_COND (cs->switch_stmt));
 
   splay_tree_delete (cs->cases);
   switch_stack = switch_stack->next;
@@ -3638,7 +3645,7 @@ start_decl (const cp_declarator *declarator,
     {
       if (! toplevel_bindings_p ()
 	  && DECL_EXTERNAL (decl))
-	warning ("declaration of %q#D has %<extern%> and is initialized",
+	warning (0, "declaration of %q#D has %<extern%> and is initialized",
                  decl);
       DECL_EXTERNAL (decl) = 0;
       if (toplevel_bindings_p ())
@@ -3654,14 +3661,13 @@ start_decl (const cp_declarator *declarator,
   cplus_decl_attributes (&decl, attributes, 0);
 
   /* If #pragma weak was used, mark the decl weak now.  */
-  if (global_scope_p (current_binding_level))
-    maybe_apply_pragma_weak (decl);
+  maybe_apply_pragma_weak (decl);
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
-    warning ("%Jinline function %qD given attribute noinline", decl, decl);
+    warning (0, "%Jinline function %qD given attribute noinline", decl, decl);
 
   if (context && COMPLETE_TYPE_P (complete_type (context)))
     {
@@ -3913,7 +3919,8 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	 But let's leave it here to ease the eventual merge.  */
       int do_default = !DECL_EXTERNAL (decl);
       tree initializer = init ? init : DECL_INITIAL (decl);
-      int failure = complete_array_type (type, initializer, do_default);
+      int failure = cp_complete_array_type (&TREE_TYPE (decl), initializer,
+					    do_default);
 
       if (failure == 1)
 	error ("initializer fails to determine size of %qD", decl);
@@ -4045,7 +4052,7 @@ maybe_commonize_var (tree decl)
 	      cp_warning_at ("sorry: semantics of inline function static "
                              "data %q#D are wrong (you'll wind up "
                              "with multiple copies)", decl);
-	      warning ("%J  you can work around this by removing "
+	      warning (0, "%J  you can work around this by removing "
                        "the initializer",
 		       decl);
 	    }
@@ -4359,7 +4366,7 @@ reshape_init (tree type, tree *initp)
       if (brace_enclosed_p)
 	error ("too many initializers for %qT", type);
       else if (warn_missing_braces && !string_init_p)
-	warning ("missing braces around initializer");
+	warning (0, "missing braces around initializer");
     }
 
   return new_init;
@@ -4499,7 +4506,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 		  && DECL_INITIAL (decl)
 		  && TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
 		  && PAREN_STRING_LITERAL_P (DECL_INITIAL (decl)))
-		warning ("array %qD initialized by parenthesized string literal %qE",
+		warning (0, "array %qD initialized by parenthesized string literal %qE",
 			 decl, DECL_INITIAL (decl));
 	      init = NULL;
 	    }
@@ -4536,6 +4543,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 {
   int toplev = toplevel_bindings_p ();
   int defer_p;
+  const char *filename;
 
   /* Set the DECL_ASSEMBLER_NAME for the object.  */
   if (asmspec)
@@ -4585,17 +4593,19 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 
   /* We try to defer namespace-scope static constants so that they are
      not emitted into the object file unnecessarily.  */
+  filename = input_filename;
   if (!DECL_VIRTUAL_P (decl)
       && TREE_READONLY (decl)
       && DECL_INITIAL (decl) != NULL_TREE
       && DECL_INITIAL (decl) != error_mark_node
+      && filename != NULL
       && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl))
       && toplev
       && !TREE_PUBLIC (decl))
     {
       /* Fool with the linkage of static consts according to #pragma
 	 interface.  */
-      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
+      struct c_fileinfo *finfo = get_fileinfo (lbasename (filename));
       if (!finfo->interface_unknown && !TREE_PUBLIC (decl))
 	{
 	  TREE_PUBLIC (decl) = 1;
@@ -4773,7 +4783,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  && IS_AGGR_TYPE (type) && DECL_NAME (decl))
 	{
 	  if (TREE_TYPE (DECL_NAME (decl)) && TREE_TYPE (decl) != type)
-	    warning ("shadowing previous type declaration of %q#D", decl);
+	    warning (0, "shadowing previous type declaration of %q#D", decl);
 	  set_identifier_type_value (DECL_NAME (decl), decl);
 	}
 
@@ -4988,6 +4998,7 @@ get_atexit_node (void)
   tree fn_type;
   tree fn_ptr_type;
   const char *name;
+  bool use_aeabi_atexit;
 
   if (atexit_node)
     return atexit_node;
@@ -5001,6 +5012,7 @@ get_atexit_node (void)
 	 We build up the argument types and then then function type
 	 itself.  */
 
+      use_aeabi_atexit = targetm.cxx.use_aeabi_atexit ();
       /* First, build the pointer-to-function type for the first
 	 argument.  */
       arg_types = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -5008,12 +5020,23 @@ get_atexit_node (void)
       fn_ptr_type = build_pointer_type (fn_type);
       /* Then, build the rest of the argument types.  */
       arg_types = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-      arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
-      arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
+      if (use_aeabi_atexit)
+	{
+	  arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
+	  arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
+	}
+      else
+	{
+	  arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
+	  arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
+	}
       /* And the final __cxa_atexit type.  */
       fn_type = build_function_type (integer_type_node, arg_types);
       fn_ptr_type = build_pointer_type (fn_type);
-      name = "__cxa_atexit";
+      if (use_aeabi_atexit)
+	name = "__aeabi_atexit";
+      else
+	name = "__cxa_atexit";
     }
   else
     {
@@ -5174,8 +5197,16 @@ register_dtor_fn (tree decl)
       args = tree_cons (NULL_TREE,
 			build_unary_op (ADDR_EXPR, get_dso_handle_node (), 0),
 			NULL_TREE);
-      args = tree_cons (NULL_TREE, null_pointer_node, args);
-      args = tree_cons (NULL_TREE, cleanup, args);
+      if (targetm.cxx.use_aeabi_atexit ())
+	{
+	  args = tree_cons (NULL_TREE, cleanup, args);
+	  args = tree_cons (NULL_TREE, null_pointer_node, args);
+	}
+      else
+	{
+	  args = tree_cons (NULL_TREE, null_pointer_node, args);
+	  args = tree_cons (NULL_TREE, cleanup, args);
+	}
     }
   else
     args = tree_cons (NULL_TREE, cleanup, NULL_TREE);
@@ -5285,15 +5316,15 @@ expand_static_init (tree decl, tree init)
 	  flag = TARGET_EXPR_SLOT (begin);
 
 	  TARGET_EXPR_CLEANUP (begin)
-	    = build (COND_EXPR, void_type_node, flag,
-		     void_zero_node,
-		     build_call (abort_fn, guard_addr_list));
+	    = build3 (COND_EXPR, void_type_node, flag,
+		      void_zero_node,
+		      build_call (abort_fn, guard_addr_list));
 	  CLEANUP_EH_ONLY (begin) = 1;
 
 	  /* Do the initialization itself.  */
 	  init = add_stmt_to_compound (begin, init);
 	  init = add_stmt_to_compound
-	    (init, build (MODIFY_EXPR, void_type_node, flag, boolean_true_node));
+	    (init, build2 (MODIFY_EXPR, void_type_node, flag, boolean_true_node));
 	  init = add_stmt_to_compound
 	    (init, build_call (release_fn, guard_addr_list));
 	}
@@ -5331,102 +5362,41 @@ expand_static_init (tree decl, tree init)
    3 if the initializer list is empty (in pedantic mode). */
 
 int
-complete_array_type (tree type, tree initial_value, int do_default)
+cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 {
-  tree maxindex = NULL_TREE;
-  int value = 0;
+  int failure;
+  tree type, elt_type;
 
   if (initial_value)
     {
       /* An array of character type can be initialized from a
 	 brace-enclosed string constant.  */
-      if (char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (type)))
+      if (char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (*ptype)))
 	  && TREE_CODE (initial_value) == CONSTRUCTOR
 	  && CONSTRUCTOR_ELTS (initial_value)
 	  && (TREE_CODE (TREE_VALUE (CONSTRUCTOR_ELTS (initial_value)))
 	      == STRING_CST)
 	  && TREE_CHAIN (CONSTRUCTOR_ELTS (initial_value)) == NULL_TREE)
 	initial_value = TREE_VALUE (CONSTRUCTOR_ELTS (initial_value));
-
-      /* Note MAXINDEX is really the maximum index, one less than the
-	 size.  */
-      if (TREE_CODE (initial_value) == STRING_CST)
-	{
-	  int eltsize
-	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
-	  maxindex = build_int_cst (NULL_TREE,
-				    (TREE_STRING_LENGTH (initial_value)
-				     / eltsize) - 1);
-	}
-      else if (TREE_CODE (initial_value) == CONSTRUCTOR)
-	{
-	  tree elts = CONSTRUCTOR_ELTS (initial_value);
-
-	  maxindex = ssize_int (-1);
-	  for (; elts; elts = TREE_CHAIN (elts))
-	    {
-	      if (TREE_PURPOSE (elts))
-		maxindex = TREE_PURPOSE (elts);
-	      else
-		maxindex = size_binop (PLUS_EXPR, maxindex, ssize_int (1));
-	    }
-
-	  if (pedantic && tree_int_cst_equal (maxindex, ssize_int (-1)))
-	    value = 3;
-	}
-      else
-	{
-	  /* Make an error message unless that happened already.  */
-	  if (initial_value != error_mark_node)
-	    value = 1;
-	  else
-	    initial_value = NULL_TREE;
-
-	  /* Prevent further error messages.  */
-	  maxindex = build_int_cst (NULL_TREE, 0);
-	}
     }
 
-  if (!maxindex)
+  failure = complete_array_type (ptype, initial_value, do_default);
+
+  /* We can create the array before the element type is complete, which
+     means that we didn't have these two bits set in the original type
+     either.  In completing the type, we are expected to propagate these
+     bits.  See also complete_type which does the same thing for arrays
+     of fixed size.  */
+  type = *ptype;
+  if (TYPE_DOMAIN (type))
     {
-      if (do_default)
-	maxindex = build_int_cst (NULL_TREE, 0);
-      value = 2;
-    }
-
-  if (maxindex)
-    {
-      tree itype;
-      tree domain;
-      tree elt_type;
-
-      domain = build_index_type (maxindex);
-      TYPE_DOMAIN (type) = domain;
-
-      if (initial_value)
-        itype = TREE_TYPE (initial_value);
-      else
-	itype = NULL;
-      if (itype && !TYPE_DOMAIN (itype))
-	TYPE_DOMAIN (itype) = domain;
-      /* The type of the main variant should never be used for arrays
-	 of different sizes.  It should only ever be completed with the
-	 size of the array.  */
-      if (! TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)))
-	TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)) = domain;
-
       elt_type = TREE_TYPE (type);
-      TYPE_NEEDS_CONSTRUCTING (type)
-	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (elt_type));
+      TYPE_NEEDS_CONSTRUCTING (type) = TYPE_NEEDS_CONSTRUCTING (elt_type);
       TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (elt_type));
+	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (elt_type);
     }
 
-  /* Lay out the type now that we can get the real answer.  */
-
-  layout_type (type);
-
-  return value;
+  return failure;
 }
 
 /* Return zero if something is declared to be a member of type
@@ -5936,7 +5906,7 @@ grokvardecl (tree type,
 		     no linkage can only be used to declare extern "C"
 		     entities.  Since it's not always an error in the
 		     ISO C++ 90 Standard, we only issue a warning.  */
-		  warning ("non-local variable %q#D uses anonymous type",
+		  warning (0, "non-local variable %q#D uses anonymous type",
 			   decl);
 		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
 		    cp_warning_at ("%q#D does not refer to the unqualified "
@@ -5945,7 +5915,7 @@ grokvardecl (tree type,
 		}
 	    }
 	  else
-	    warning ("non-local variable %q#D uses local type %qT", decl, t);
+	    warning (0, "non-local variable %q#D uses local type %qT", decl, t);
 	}
     }
   else
@@ -6779,7 +6749,7 @@ grokdeclarator (const cp_declarator *declarator,
       else if (pedantic || ! is_main)
 	pedwarn ("ISO C++ forbids declaration of %qs with no type", name);
       else if (warn_return_type)
-	warning ("ISO C++ forbids declaration of %qs with no type", name);
+	warning (0, "ISO C++ forbids declaration of %qs with no type", name);
 
       type = integer_type_node;
     }
@@ -7064,7 +7034,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  /* It's common practice (and completely valid) to have a const
 	     be initialized and declared extern.  */
 	  if (!(type_quals & TYPE_QUAL_CONST))
-	    warning ("%qs initialized and declared %<extern%>", name);
+	    warning (0, "%qs initialized and declared %<extern%>", name);
 	}
       else
 	error ("%qs has both %<extern%> and initializer", name);
@@ -7119,17 +7089,13 @@ grokdeclarator (const cp_declarator *declarator,
 
   /* Determine the type of the entity declared by recurring on the
      declarator.  */
-  for (;
-       declarator && declarator->kind != cdk_id;
-       declarator = declarator->declarator)
+  for (; declarator; declarator = declarator->declarator)
     {
       const cp_declarator *inner_declarator;
       tree attrs;
 
       if (type == error_mark_node)
 	return error_mark_node;
-
-      inner_declarator = declarator->declarator;
 
       attrs = declarator->attributes;
       if (attrs)
@@ -7147,6 +7113,11 @@ grokdeclarator (const cp_declarator *declarator,
 					    chainon (returned_attrs, attrs),
 					    attr_flags);
 	}
+
+      if (declarator->kind == cdk_id)
+	break;
+
+      inner_declarator = declarator->declarator;
 
       switch (declarator->kind)
 	{
@@ -8003,7 +7974,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  {
 	    /* Friends are treated specially.  */
 	    if (ctype == current_class_type)
-	      warning ("member functions are implicitly friends of their class");
+	      warning (0, "member functions are implicitly friends of their class");
  	    else if (decl && DECL_NAME (decl))
 	      {
 		if (template_class_depth (current_class_type) == 0)
@@ -8827,7 +8798,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 		what = "a base class";
 
 	      if (what && warn_conversion)
-		warning ("conversion to %s%s will never use a type "
+		warning (0, "conversion to %s%s will never use a type "
                          "conversion operator",
 			 ref ? "a reference to " : "", what);
 	    }
@@ -8919,13 +8890,13 @@ grok_op_properties (tree decl, int friendp, bool complain)
 		  if (TREE_CODE (ret) != REFERENCE_TYPE
 		      || !same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ret)),
 				       arg))
-		    warning ("prefix %qD should return %qT", decl,
+		    warning (0, "prefix %qD should return %qT", decl,
                              build_reference_type (arg));
 		}
 	      else
 		{
 		  if (!same_type_p (TYPE_MAIN_VARIANT (ret), arg))
-		    warning ("postfix %qD should return %qT", decl, arg);
+		    warning (0, "postfix %qD should return %qT", decl, arg);
 		}
 	    }
 	}
@@ -8954,7 +8925,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 	      && (operator_code == TRUTH_ANDIF_EXPR
 		  || operator_code == TRUTH_ORIF_EXPR
 		  || operator_code == COMPOUND_EXPR))
-	    warning ("user-defined %qD always evaluates both arguments",
+	    warning (0, "user-defined %qD always evaluates both arguments",
                      decl);
 	}
 
@@ -8968,7 +8939,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 	      || operator_code == MULT_EXPR
 	      || operator_code == TRUNC_MOD_EXPR)
 	  && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == REFERENCE_TYPE)
-	warning ("%qD should return by value", decl);
+	warning (0, "%qD should return by value", decl);
 
       /* [over.oper]/8 */
       for (; argtypes && argtypes != void_list_node;
@@ -9393,7 +9364,7 @@ xref_basetypes (tree ref, tree base_list)
 
   if (max_bases)
     {
-      BINFO_BASE_ACCESSES (binfo) = VEC_alloc (tree, max_bases);
+      BINFO_BASE_ACCESSES (binfo) = VEC_alloc (tree, gc, max_bases);
       /* An aggregate cannot have baseclasses.  */
       CLASSTYPE_NON_AGGREGATE (ref) = 1;
 
@@ -9409,7 +9380,7 @@ xref_basetypes (tree ref, tree base_list)
 
   if (max_vbases)
     {
-      CLASSTYPE_VBASECLASSES (ref) = VEC_alloc (tree, max_vbases);
+      CLASSTYPE_VBASECLASSES (ref) = VEC_alloc (tree, gc, max_vbases);
 
       if (TYPE_FOR_JAVA (ref))
 	error ("Java class %qT cannot have virtual bases", ref);
@@ -9956,7 +9927,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && lookup_attribute ("noinline", attrs))
-    warning ("%Jinline function %qD given attribute noinline", decl1, decl1);
+    warning (0, "%Jinline function %qD given attribute noinline", decl1, decl1);
 
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl1))
     /* This is a constructor, we must ensure that any default args
@@ -9993,7 +9964,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   if (warn_ecpp
       && DECL_OVERLOADED_OPERATOR_P (decl1) == NOP_EXPR
       && TREE_CODE (TREE_TYPE (fntype)) == VOID_TYPE)
-    warning ("%<operator=%> should return a reference to %<*this%>");
+    warning (0, "%<operator=%> should return a reference to %<*this%>");
 
   /* Make the init_value nonzero so pushdecl knows this is not tentative.
      error_mark_node is replaced below (in poplevel) with the BLOCK.  */
@@ -10726,7 +10697,7 @@ finish_function (int flags)
       /* Structor return values (if any) are set by the compiler.  */
       && !DECL_CONSTRUCTOR_P (fndecl)
       && !DECL_DESTRUCTOR_P (fndecl))
-    warning ("no return statement in function returning non-void");
+    warning (0, "no return statement in function returning non-void");
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
@@ -10919,7 +10890,7 @@ finish_method (tree decl)
      for String.cc in libg++.  */
   if (DECL_FRIEND_P (fndecl))
     {
-      VEC_safe_push (tree, CLASSTYPE_INLINE_FRIENDS (current_class_type),
+      VEC_safe_push (tree, gc, CLASSTYPE_INLINE_FRIENDS (current_class_type),
 		     fndecl);
       decl = void_type_node;
     }

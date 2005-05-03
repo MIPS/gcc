@@ -58,7 +58,13 @@
 ;; UNSPEC Usage:
 ;; 0 PLT reference from call expansion: operand 0 is the address,
 ;;   the mode is VOIDmode.  Always wrapped in CONST.
+;; 1 Stack frame deallocation barrier.
+;; 2 The address of the global offset table as a source operand.
 
+(define_constants
+  [(CRIS_UNSPEC_PLT 0)
+   (CRIS_UNSPEC_FRAME_DEALLOC 1)
+   (CRIS_UNSPEC_GOT 2)])
 
 ;; Register numbers.
 (define_constants
@@ -119,6 +125,11 @@
 
 (define_attr "cc" "none,clobber,normal" (const_string "normal"))
 
+;; At the moment, this attribute is just used to help bb-reorder do its
+;; work; the default 0 doesn't help it.  Many insns have other lengths,
+;; though none are shorter.
+(define_attr "length" "" (const_int 2))
+
 ;; A branch or return has one delay-slot.  The instruction in the
 ;; delay-slot is always executed, independent of whether the branch is
 ;; taken or not.  Note that besides setting "slottable" to "has_slot",
@@ -129,6 +140,10 @@
 
 (define_delay (eq_attr "slottable" "has_slot")
   [(eq_attr "slottable" "yes") (nil) (nil)])
+
+;; Operand and operator predicates.
+
+(include "predicates.md")
 
 ;; Test insns.
 
@@ -1057,21 +1072,33 @@
 	}
       return \"move.d %1,%0\";
 
-      case 8:
-	/* FIXME: Try and split this into pieces GCC makes better code of,
-	   than this multi-insn pattern.  Synopsis: wrap the GOT-relative
-	   symbol into an unspec, and when PIC, recognize the unspec
-	   everywhere a symbol is normally recognized.  (The PIC register
-	   should be recognized by GCC as pic_offset_table_rtx when needed
-	   and similar for PC.)  Each component can then be optimized with
-	   the rest of the code; it should be possible to have a constant
-	   term added on an unspec.  Don't forget to add a REG_EQUAL (or
-	   is it REG_EQUIV) note to the destination.  It might not be
-	   worth it.  Measure.
+    case 8:
+      /* FIXME: Try and split this into pieces GCC makes better code of,
+	 than this multi-insn pattern.  Synopsis: wrap the GOT-relative
+	 symbol into an unspec, and when PIC, recognize the unspec
+	 everywhere a symbol is normally recognized.  (The PIC register
+	 should be recognized by GCC as pic_offset_table_rtx when needed
+	 and similar for PC.)  Each component can then be optimized with
+	 the rest of the code; it should be possible to have a constant
+	 term added on an unspec.  Don't forget to add a REG_EQUAL (or
+	 is it REG_EQUIV) note to the destination.  It might not be
+	 worth it.  Measure.
 
-	   Note that the 'v' modifier makes PLT references be output as
-	   sym:PLT rather than [rPIC+sym:GOTPLT].  */
-	return \"move.d %v1,%0\;add.d %P1,%0\";
+	 Note that the 'v' modifier makes PLT references be output as
+	 sym:PLT rather than [rPIC+sym:GOTPLT].  */
+      if (GET_CODE (operands[1]) == UNSPEC
+	  && XINT (operands[1], 1) == CRIS_UNSPEC_GOT)
+	{
+	  /* We clobber cc0 rather than set it to GOT.  Should not
+             matter, though.  */
+	  CC_STATUS_INIT;
+	  if (REGNO (operands[0]) != PIC_OFFSET_TABLE_REGNUM)
+	    abort ();
+
+	  return \"move.d $pc,%0\;sub.d .:GOTOFF,%0\";
+	}
+
+      return \"move.d %v1,%0\;add.d %P1,%0\";
 
     default:
       return \"BOGUS: %1 to %0\";
@@ -1376,6 +1403,33 @@
    move %1,%0
    move %1,%0"
   [(set_attr "slottable" "yes,yes,yes,yes,yes,no,no,no,yes,yes,yes,no,yes,no")])
+
+;; Note that the memory layout of the registers is the reverse of that
+;; of the standard patterns "load_multiple" and "store_multiple".
+(define_insn "*cris_load_multiple"
+  [(match_parallel 0 "cris_load_multiple_op"
+		   [(set (match_operand:SI 1 "register_operand" "=r,r")
+			 (match_operand:SI 2 "memory_operand" "Q,m"))])]
+  ""
+  "movem %O0,%o0"
+  [(set_attr "cc" "none")
+   (set_attr "slottable" "yes,no")
+   ;; Not true, but setting the length to 0 causes return sequences (ret
+   ;; movem) to have the cost they had when (return) included the movem
+   ;; and reduces the performance penalty taken for needing to emit an
+   ;; epilogue (in turn copied by bb-reorder) instead of return patterns.
+   ;; FIXME: temporary change until all insn lengths are correctly
+   ;; described.  FIXME: have better target control over bb-reorder.
+   (set_attr "length" "0")])
+
+(define_insn "*cris_store_multiple"
+  [(match_parallel 0 "cris_store_multiple_op"
+		   [(set (match_operand:SI 2 "memory_operand" "=Q,m")
+			 (match_operand:SI 1 "register_operand" "r,r"))])]
+  ""
+  "movem %o0,%O0"
+  [(set_attr "cc" "none")
+   (set_attr "slottable" "yes,no")])
 
 
 ;; Sign- and zero-extend insns with standard names.
@@ -3462,69 +3516,42 @@
   "jump %0")
 
 ;; Return insn.  Used whenever the epilogue is very simple; if it is only
-;; a single ret or jump [sp+] or a contiguous sequence of movem:able saved
-;; registers.  No allocated stack space is allowed.
+;; a single ret or jump [sp+].  No allocated stack space or saved
+;; registers are allowed.
 ;; Note that for this pattern, although named, it is ok to check the
 ;; context of the insn in the test, not only compiler switches.
 
-(define_insn "return"
+(define_expand "return"
   [(return)]
   "cris_simple_epilogue ()"
-  "*
+  "cris_expand_return (cris_return_address_on_stack ()); DONE;")
+
+(define_insn "*return_expanded"
+  [(return)]
+  ""
 {
-  int i;
-
-  /* Just needs to hold a 'movem [sp+],rN'.  */
-  char rd[sizeof (\"movem [$sp+],$r99\")];
-
-  *rd = 0;
-
-  /* Start from the last call-saved register.  We know that we have a
-     simple epilogue, so we just have to find the last register in the
-     movem sequence.  */
-  for (i = 8; i >= 0; i--)
-    if (regs_ever_live[i]
-	|| (i == PIC_OFFSET_TABLE_REGNUM
-	    && current_function_uses_pic_offset_table))
-      break;
-
-  if (i >= 0)
-    sprintf (rd, \"movem [$sp+],$%s\", reg_names [i]);
-
-  if (regs_ever_live[CRIS_SRP_REGNUM]
-      || cris_return_address_on_stack ())
-    {
-      if (*rd)
-	output_asm_insn (rd, operands);
-      return \"jump [$sp+]\";
-    }
-
-  if (*rd)
-    {
-      output_asm_insn (\"reT\", operands);
-      output_asm_insn (rd, operands);
-      return \"\";
-    }
-
-  return \"ret%#\";
-}"
+  return cris_return_address_on_stack_for_return ()
+    ? "jump [$sp+]" : "ret%#";
+}
   [(set (attr "slottable")
-	(if_then_else
-	 (ne (symbol_ref
-	      "(regs_ever_live[CRIS_SRP_REGNUM]
-	        || cris_return_address_on_stack ())")
-	     (const_int 0))
-	 (const_string "no")	     ; If jump then not slottable.
-	 (if_then_else
-	  (ne (symbol_ref
-	       "(regs_ever_live[0]
-		 || (flag_pic != 0 && regs_ever_live[1])
-		 || (PIC_OFFSET_TABLE_REGNUM == 0
-		     && cris_cfun_uses_pic_table ()))")
-	      (const_int 0))
-	  (const_string "no") ; ret+movem [sp+],rx: slot already filled.
-	  (const_string "has_slot")))) ; If ret then need to fill a slot.
-   (set_attr "cc" "none")])
+ 	(if_then_else
+ 	 (ne (symbol_ref
+	      "(cris_return_address_on_stack_for_return ())")
+ 	     (const_int 0))
+ 	 (const_string "no")
+	 (const_string "has_slot")))])
+
+(define_expand "prologue"
+  [(const_int 0)]
+  "TARGET_PROLOGUE_EPILOGUE"
+  "cris_expand_prologue (); DONE;")
+
+;; Note that the (return) from the expander itself is always the last
+;; insn in the epilogue.
+(define_expand "epilogue"
+  [(const_int 0)]
+  "TARGET_PROLOGUE_EPILOGUE"
+  "cris_expand_epilogue (); DONE;")
 
 ;; Conditional branches.
 
@@ -3891,8 +3918,7 @@
 (define_expand "call"
   [(parallel [(call (match_operand:QI 0 "cris_mem_call_operand" "")
 		    (match_operand 1 "general_operand" ""))
-	      ;; 16 is the srp (can't use the symbolic name here)
-	      (clobber (reg:SI 16))])]
+	      (clobber (reg:SI CRIS_SRP_REGNUM))])]
   ""
   "
 {
@@ -3922,9 +3948,10 @@
 	       for the symbol cause bad recombinatorial effects?  */
 	    op0 = force_reg (Pmode,
 			     gen_rtx_CONST
-			     (VOIDmode,
+			     (Pmode,
 			      gen_rtx_UNSPEC (VOIDmode,
-					      gen_rtvec (1, op0), 0)));
+					      gen_rtvec (1, op0),
+					      CRIS_UNSPEC_PLT)));
 	  else
 	    abort ();
 
@@ -3940,7 +3967,7 @@
   [(call (mem:QI (match_operand:SI
 		  0 "cris_general_operand_or_plt_symbol" "r,Q>,g,S"))
 	 (match_operand 1 "" ""))
-   (clobber (reg:SI 16))] ;; 16 is the srp (can't use symbolic name)
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "! TARGET_AVOID_GOTPLT"
   "jsr %0")
 
@@ -3950,7 +3977,7 @@
   [(call (mem:QI (match_operand:SI
 		  0 "cris_general_operand_or_plt_symbol" "r,Q>,g"))
 	 (match_operand 1 "" ""))
-   (clobber (reg:SI 16))] ;; 16 is the srp (can't use symbolic name)
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "TARGET_AVOID_GOTPLT"
   "jsr %0")
 
@@ -3958,8 +3985,7 @@
   [(parallel [(set (match_operand 0 "" "")
 		   (call (match_operand:QI 1 "cris_mem_call_operand" "")
 			 (match_operand 2 "" "")))
-	      ;; 16 is the srp (can't use symbolic name)
-	      (clobber (reg:SI 16))])]
+	      (clobber (reg:SI CRIS_SRP_REGNUM))])]
   ""
   "
 {
@@ -3987,9 +4013,10 @@
 	       for the symbol cause bad recombinatorial effects?  */
 	    op1 = force_reg (Pmode,
 			     gen_rtx_CONST
-			     (VOIDmode,
+			     (Pmode,
 			      gen_rtx_UNSPEC (VOIDmode,
-					      gen_rtvec (1, op1), 0)));
+					      gen_rtvec (1, op1),
+					      CRIS_UNSPEC_PLT)));
 	  else
 	    abort ();
 
@@ -4009,7 +4036,7 @@
 	(call (mem:QI (match_operand:SI
 		       1 "cris_general_operand_or_plt_symbol" "r,Q>,g,S"))
 	      (match_operand 2 "" "")))
-   (clobber (reg:SI 16))]
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "! TARGET_AVOID_GOTPLT"
   "Jsr %1"
   [(set_attr "cc" "clobber")])
@@ -4021,7 +4048,7 @@
 	(call (mem:QI (match_operand:SI
 		       1 "cris_general_operand_or_plt_symbol" "r,Q>,g"))
 	      (match_operand 2 "" "")))
-   (clobber (reg:SI 16))]
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "TARGET_AVOID_GOTPLT"
   "Jsr %1"
   [(set_attr "cc" "clobber")])
@@ -4035,6 +4062,20 @@
   "nop"
   [(set_attr "cc" "none")])
 
+;; We need to stop accesses to the stack after the memory is
+;; deallocated.  Unfortunately, reorg doesn't look at naked clobbers,
+;; e.g. (insn ... (clobber (mem:BLK (stack_pointer_rtx)))) and we don't
+;; want to use a naked (unspec_volatile) as that would stop any
+;; scheduling in the epilogue.  Hence we model it as a "real" insn that
+;; sets the memory in an unspecified manner.  FIXME: Unfortunately it
+;; still has the effect of an unspec_volatile.
+(define_insn "cris_frame_deallocated_barrier"
+  [(set (mem:BLK (reg:SI CRIS_SP_REGNUM))
+	(unspec:BLK [(const_int 0)] CRIS_UNSPEC_FRAME_DEALLOC))]
+  ""
+  ""
+  [(set_attr "length" "0")])
+
 ;; We expand on casesi so we can use "bound" and "add offset fetched from
 ;; a table to pc" (adds.w [pc+%0.w],pc).
 

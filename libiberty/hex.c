@@ -18,6 +18,9 @@ not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include <stdio.h>  /* for EOF */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include "libiberty.h"
 #include "safe-ctype.h" /* for HOST_CHARSET_ASCII */
 
@@ -153,7 +156,7 @@ unsigned char _hex_value[_hex_array_size];
 #endif /* not ASCII */
 
 void
-hex_init ()
+hex_init (void)
 {
 #ifndef HEX_TABLE_INITIALIZED
   int i;

@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -389,18 +389,19 @@ allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
       int regno = REGNO (ivs->entries[i].pseudo);
       rtx x = ALLOCATE_INITIAL_VALUE (ivs->entries[i].hard_reg);
 
-      if (x == NULL_RTX || REG_N_SETS (REGNO (ivs->entries[i].pseudo)) > 1)
-	; /* Do nothing.  */
-      else if (MEM_P (x))
-	reg_equiv_memory_loc[regno] = x;
-      else if (REG_P (x))
+      if (x && REG_N_SETS (REGNO (ivs->entries[i].pseudo)) <= 1)
 	{
-	  reg_renumber[regno] = REGNO (x);
-	  /* Poke the regno right into regno_reg_rtx
-	     so that even fixed regs are accepted.  */
-	  REGNO (ivs->entries[i].pseudo) = REGNO (x);
+	  if (MEM_P (x))
+	    reg_equiv_memory_loc[regno] = x;
+	  else
+	    {
+	      gcc_assert (REG_P (x));
+	      reg_renumber[regno] = REGNO (x);
+	      /* Poke the regno right into regno_reg_rtx so that even
+	     	 fixed regs are accepted.  */
+	      REGNO (ivs->entries[i].pseudo) = REGNO (x);
+	    }
 	}
-      else abort ();
     }
 #endif
 }

@@ -1,5 +1,5 @@
 /* Definitions for transformations based on profile information for values.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,14 +38,25 @@ enum hist_type
   ((enum hist_type) ((COUNTER) - GCOV_FIRST_VALUE_COUNTER))
 
 /* The value to measure.  */
-/* The void *'s are either rtx or tree, depending on which IR is in use.  */
-struct histogram_value_t GTY(())
+struct histogram_value_t
 {
-  PTR GTY ((skip (""))) value;		/* The value to profile.  */
-  enum machine_mode mode;		/* And its mode.  */
-  PTR GTY ((skip (""))) seq;		/* Insns required to count the
-					   profiled value.  */
-  PTR GTY ((skip (""))) insn;		/* Insn before that to measure.  */
+  union 
+    {
+      struct
+	{
+	  rtx value;		/* The value to profile.  */
+	  rtx seq;		/* Insns required to count the profiled value.  */
+	  rtx insn;		/* Insn before that to measure.  */
+	  enum machine_mode mode;	        /* Mode of value to profile.  */
+	} rtl;
+      struct
+	{
+	  tree value;		/* The value to profile.  */
+	  tree stmt;		/* Insn containing the value.  */
+	  gcov_type *counters;		        /* Pointer to first counter.  */
+	  struct histogram_value_t *next;		/* Linked list pointer.  */
+	} tree;
+    } hvalue;
   enum hist_type type;			/* Type of information to measure.  */
   unsigned n_counters;			/* Number of required counters.  */
   union
@@ -53,22 +64,17 @@ struct histogram_value_t GTY(())
       struct
 	{
 	  int int_start;	/* First value in interval.  */
-	  int steps;		/* Number of values in it.  */
-	  int may_be_less;	/* May the value be below?  */
-	  int may_be_more;	/* Or above.  */
+	  unsigned int steps;	/* Number of values in it.  */
 	} intvl;	/* Interval histogram data.  */
-      struct
-	{
-	  int may_be_other;	/* If the value may be non-positive or not 2^k.  */
-	} pow2;		/* Power of 2 histogram data.  */
     } hdata;		/* Profiled information specific data.  */
 };
 
 typedef struct histogram_value_t *histogram_value;
 
-DEF_VEC_GC_P(histogram_value);
+DEF_VEC_P(histogram_value);
+DEF_VEC_ALLOC_P(histogram_value,heap);
 
-typedef VEC(histogram_value) *histogram_values;
+typedef VEC(histogram_value,heap) *histogram_values;
 
 /* Hooks registration.  */
 extern void rtl_register_value_prof_hooks (void);

@@ -1,5 +1,5 @@
 /* Configuration file for Symbian OS on ARM processors.
-   Copyright (C) 2004
+   Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC   
 
@@ -87,3 +87,15 @@
       builtin_define ("__symbian__");		\
     }						\
   while (false)
+
+/* On SymbianOS, these sections are not writable, so we use "a",
+   rather than "aw", for the section attributes.  */
+#undef ARM_EABI_CTORS_SECTION_OP
+#define ARM_EABI_CTORS_SECTION_OP \
+  "\t.section\t.init_array,\"a\",%init_array"
+#undef ARM_EABI_DTORS_SECTION_OP
+#define ARM_EABI_DTORS_SECTION_OP \
+  "\t.section\t.fini_array,\"a\",%fini_array"
+
+/* SymbianOS cannot merge entities with vague linkage at runtime.  */
+#define TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P false

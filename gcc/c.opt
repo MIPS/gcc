@@ -18,6 +18,7 @@
 ; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 ; 02111-1307, USA.
 
+; See the GCC internals manual for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -57,7 +58,7 @@ C ObjC C++ ObjC++ Undocumented
 
 F
 C ObjC C++ ObjC++ Joined Separate
--F <dir>	Add <dir> to the end of the main framework include path  
+-F <dir>	Add <dir> to the end of the main framework include path
 
 H
 C ObjC C++ ObjC++
@@ -225,6 +226,10 @@ Wimport
 C ObjC C++ ObjC++
 Deprecated.  This switch has no effect.
 
+Wint-to-pointer-cast
+C ObjC Var(warn_int_to_pointer_cast) Init(1)
+Warn when there is a cast to a pointer from an integer of a different size
+
 Winvalid-offsetof
 C++ ObjC++ Var(warn_invalid_offsetof) Init(1)
 Warn about invalid uses of the \"offsetof\" macro
@@ -313,6 +318,10 @@ Wpointer-arith
 C ObjC C++ ObjC++ Var(warn_pointer_arith)
 Warn about function pointer arithmetic
 
+Wpointer-to-int-cast
+C ObjC Var(warn_pointer_to_int_cast) Init(1)
+Warn when a pointer is cast to an integer of a different size
+
 Wprotocol
 ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
@@ -344,6 +353,10 @@ Warn about signed-unsigned comparisons
 Wsign-promo
 C++ ObjC++ Var(warn_sign_promo)
 Warn when overload promotes from unsigned to signed
+
+Wstrict-null-sentinel
+C++ ObjC++
+Warn about uncasted NULL used as sentinel
 
 Wstrict-prototypes
 C ObjC Var(warn_strict_prototypes)
@@ -467,7 +480,7 @@ C ObjC C++ ObjC++ Joined RejectNegative
 
 finput-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
--finput-charset=<cset>      Specify the default character set for source files.
+-finput-charset=<cset>	Specify the default character set for source files.
 
 
 fexternal-templates
@@ -606,9 +619,6 @@ fshort-wchar
 C ObjC C++ ObjC++
 Force the underlying type for \"wchar_t\" to be \"unsigned short\"
 
-fshow-column
-C ObjC C++ ObjC++
-
 fsigned-bitfields
 C ObjC C++ ObjC++
 When \"signed\" or \"unsigned\" is not given make the bitfield signed
@@ -655,7 +665,7 @@ C++ ObjC++
 Use __cxa_atexit to register destructors
 
 fvisibility-inlines-hidden
-C++
+C++ ObjC++
 Marks all inlined methods as having hidden visibility
 
 fvtable-gc

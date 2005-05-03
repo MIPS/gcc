@@ -525,7 +525,7 @@ extern int arm_ld_sched;
 extern int thumb_code;
 
 /* Nonzero if this chip is a StrongARM.  */
-extern int arm_is_strong;
+extern int arm_tune_strongarm;
 
 /* Nonzero if this chip is a Cirrus variant.  */
 extern int arm_arch_cirrus;
@@ -536,11 +536,11 @@ extern int arm_arch_iwmmxt;
 /* Nonzero if this chip is an XScale.  */
 extern int arm_arch_xscale;
 
-/* Nonzero if tuning for XScale  */
+/* Nonzero if tuning for XScale.  */
 extern int arm_tune_xscale;
 
-/* Nonzero if this chip is an ARM6 or an ARM7.  */
-extern int arm_is_6_or_7;
+/* Nonzero if tuning for stores via the write buffer.  */
+extern int arm_tune_wbuf;
 
 /* Nonzero if we should define __THUMB_INTERWORK__ in the
    preprocessor.
@@ -607,9 +607,10 @@ extern int arm_cpp_interwork;
     }
 
 #define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
-  if (GET_MODE_CLASS (MODE) == MODE_INT		\
-      && GET_MODE_SIZE (MODE) < 4)      	\
-    (MODE) = SImode;				\
+  if ((GET_MODE_CLASS (MODE) == MODE_INT		\
+       || GET_MODE_CLASS (MODE) == MODE_COMPLEX_INT)    \
+      && GET_MODE_SIZE (MODE) < 4)                      \
+    (MODE) = SImode;				        \
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -925,7 +926,9 @@ extern const char * structure_size_string;
      _interwork_r11_call_via_rN().  Making the register global	\
      is an easy way of ensuring that it remains valid for all	\
      calls.  */							\
-  if (TARGET_APCS_FRAME || TARGET_CALLER_INTERWORKING)		\
+  if (TARGET_APCS_FRAME || TARGET_CALLER_INTERWORKING		\
+      || (target_flags & (THUMB_FLAG_LEAF_BACKTRACE		\
+			  | THUMB_FLAG_BACKTRACE)))		\
     {								\
       fixed_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;		\
       call_used_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;	\
@@ -1032,6 +1035,8 @@ extern const char * structure_size_string;
 /* ARM floating pointer registers.  */
 #define FIRST_FPA_REGNUM 	16
 #define LAST_FPA_REGNUM  	23
+#define IS_FPA_REGNUM(REGNUM) \
+  (((REGNUM) >= FIRST_FPA_REGNUM) && ((REGNUM) <= LAST_FPA_REGNUM))
 
 #define FIRST_IWMMXT_GR_REGNUM	43
 #define LAST_IWMMXT_GR_REGNUM	46
@@ -1063,6 +1068,8 @@ extern const char * structure_size_string;
 /* Intel Wireless MMX Technology registers add 16 + 4 more.  */
 /* VFP adds 32 + 1 more.  */
 #define FIRST_PSEUDO_REGISTER   96
+
+#define DBX_REGISTER_NUMBER(REGNO) arm_dbx_register_number (REGNO)
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms may be accessed
@@ -1319,7 +1326,9 @@ enum reg_class
    'Uq' is an address valid for ldrsb.  */
 
 #define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)				\
-  (((C) == 'D') ? (GET_CODE (OP) == CONST_DOUBLE			\
+  (((C) == 'D') ? ((GET_CODE (OP) == CONST_DOUBLE			\
+		    || GET_CODE (OP) == CONST_INT			\
+		    || GET_CODE (OP) == CONST_VECTOR)			\
 		   && (((STR)[1] == 'a'					\
 			&& arm_const_double_inline_cost (OP) == 2)	\
 		       || ((STR)[1] == 'b'				\
@@ -1708,14 +1717,15 @@ typedef struct machine_function GTY(())
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
   /* Labels for per-function Thumb call-via stubs.  One per potential calling
-     register.  We can never call via SP, LR or PC.  */
-  rtx call_via[13];
+     register.  We can never call via LR or PC.  We can call via SP if a
+     trampoline happens to be on the top of the stack.  */
+  rtx call_via[14];
 }
 machine_function;
 
 /* As in the machine_function, a global set of call-via labels, for code 
    that is in text_section().  */
-extern GTY(()) rtx thumb_call_via_label[13];
+extern GTY(()) rtx thumb_call_via_label[14];
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the
@@ -1753,6 +1763,17 @@ typedef struct
    indeed make it pass in the stack if necessary).  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   arm_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
+
+#define FUNCTION_ARG_PADDING(MODE, TYPE) \
+  (arm_pad_arg_upward (MODE, TYPE) ? upward : downward)
+
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+  (arm_pad_reg_upward (MODE, TYPE, FIRST) ? upward : downward)
+
+/* For AAPCS, padding should never be below the argument. For other ABIs,
+ * mimic the default.  */
+#define PAD_VARARGS_DOWN \
+  ((TARGET_AAPCS_BASED) ? 0 : BYTES_BIG_ENDIAN)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -1965,6 +1986,16 @@ typedef struct
 /* Alignment required for a trampoline in bits.  */
 #define TRAMPOLINE_ALIGNMENT  32
 
+/* Call __clear_cache after setting up the trampoline unless this is a nop.  */
+#ifdef CLEAR_INSN_CACHE
+#define ARM_EMIT_TRAMPOLINE_CACHE_CLEAR(TRAMP)				\
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
+		     0, VOIDmode, 2, TRAMP, Pmode,			\
+		     plus_constant (TRAMP, TRAMPOLINE_SIZE), Pmode);
+#else
+#define ARM_EMIT_TRAMPOLINE_CACHE_CLEAR(TRAMP) do {} while (0)
+#endif
+
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
@@ -1979,6 +2010,7 @@ typedef struct
 			       plus_constant (TRAMP,			\
 					      TARGET_ARM ? 12 : 20)),	\
 		  FNADDR);						\
+  ARM_EMIT_TRAMPOLINE_CACHE_CLEAR (TRAMP);				\
 }
 #endif
 
@@ -2100,6 +2132,58 @@ typedef struct
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
    arm_asm_output_labelref (FILE, NAME)
+
+/* The EABI specifies that constructors should go in .init_array.
+   Other targets use .ctors for compatibility.  */
+#ifndef ARM_EABI_CTORS_SECTION_OP
+#define ARM_EABI_CTORS_SECTION_OP \
+  "\t.section\t.init_array,\"aw\",%init_array"
+#endif
+#ifndef ARM_EABI_DTORS_SECTION_OP
+#define ARM_EABI_DTORS_SECTION_OP \
+  "\t.section\t.fini_array,\"aw\",%fini_array"
+#endif
+#define ARM_CTORS_SECTION_OP \
+  "\t.section\t.ctors,\"aw\",%progbits"
+#define ARM_DTORS_SECTION_OP \
+  "\t.section\t.dtors,\"aw\",%progbits"
+
+/* Define CTORS_SECTION_ASM_OP.  */
+#undef CTORS_SECTION_ASM_OP
+#undef DTORS_SECTION_ASM_OP
+#ifndef IN_LIBGCC2
+# define CTORS_SECTION_ASM_OP \
+   (TARGET_AAPCS_BASED ? ARM_EABI_CTORS_SECTION_OP : ARM_CTORS_SECTION_OP)
+# define DTORS_SECTION_ASM_OP \
+   (TARGET_AAPCS_BASED ? ARM_EABI_DTORS_SECTION_OP : ARM_DTORS_SECTION_OP)
+#else /* !defined (IN_LIBGCC2) */
+/* In libgcc, CTORS_SECTION_ASM_OP must be a compile-time constant,
+   so we cannot use the definition above.  */
+# ifdef __ARM_EABI__
+/* The .ctors section is not part of the EABI, so we do not define
+   CTORS_SECTION_ASM_OP when in libgcc; that prevents crtstuff
+   from trying to use it.  We do define it when doing normal
+   compilation, as .init_array can be used instead of .ctors.  */
+/* There is no need to emit begin or end markers when using
+   init_array; the dynamic linker will compute the size of the
+   array itself based on special symbols created by the static
+   linker.  However, we do need to arrange to set up
+   exception-handling here.  */
+#   define CTOR_LIST_BEGIN asm (ARM_EABI_CTORS_SECTION_OP)
+#   define CTOR_LIST_END /* empty */
+#   define DTOR_LIST_BEGIN asm (ARM_EABI_DTORS_SECTION_OP)
+#   define DTOR_LIST_END /* empty */
+# else /* !defined (__ARM_EABI__) */
+#   define CTORS_SECTION_ASM_OP ARM_CTORS_SECTION_OP
+#   define DTORS_SECTION_ASM_OP ARM_DTORS_SECTION_OP
+# endif /* !defined (__ARM_EABI__) */
+#endif /* !defined (IN_LIBCC2) */
+
+/* True if the operating system can merge entities with vague linkage
+   (e.g., symbols in COMDAT group) during dynamic linking.  */
+#ifndef TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P
+#define TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P true
+#endif
 
 /* Set the short-call flag for any function compiled in the current
    compilation unit.  We skip this for functions with the section
@@ -2540,7 +2624,7 @@ extern int making_const_table;
 	  }								\
 									\
 	  default:							\
-	    abort();							\
+	    gcc_unreachable ();						\
 	}								\
     }									\
   else if (GET_CODE (X) == PRE_INC || GET_CODE (X) == POST_INC		\
@@ -2548,8 +2632,7 @@ extern int making_const_table;
     {									\
       extern enum machine_mode output_memory_reference_mode;		\
 									\
-      if (GET_CODE (XEXP (X, 0)) != REG)				\
-	abort ();							\
+      gcc_assert (GET_CODE (XEXP (X, 0)) == REG);			\
 									\
       if (GET_CODE (X) == PRE_DEC || GET_CODE (X) == PRE_INC)		\
 	asm_fprintf (STREAM, "[%r, #%s%d]!",				\
@@ -2593,8 +2676,7 @@ extern int making_const_table;
     asm_fprintf (STREAM, "%r!", REGNO (XEXP (X, 0)));	\
   else if (GET_CODE (X) == PLUS)			\
     {							\
-      if (GET_CODE (XEXP (X, 0)) != REG)		\
-        abort ();					\
+      gcc_assert (GET_CODE (XEXP (X, 0)) == REG);	\
       if (GET_CODE (XEXP (X, 1)) == CONST_INT)		\
 	asm_fprintf (STREAM, "[%r, #%wd]", 		\
 		     REGNO (XEXP (X, 0)),		\

@@ -109,25 +109,31 @@ the GNU Fortran 95 compiler. You can find in this manual how to invoke
 
 @ifset DEVELOPMENT
 @emph{Warning:} This document, and the compiler it describes, are still
-under development.  While efforts are made too keep it up-to-date it might
+under development.  While efforts are made to keep it up-to-date, it might
 not accurately reflect the status of the most recent @command{gfortran}.
 @end ifset
 
+@comment
+@comment  When you add a new menu item, please keep the right hand
+@comment  aligned to the same column.  Do not use tabs.  This provides
+@comment  better formatting.
+@comment
 @menu
-* Copying::         GNU General Public License says
-                    how you can copy and share GNU Fortran.
+* Copying::              GNU General Public License says
+                         how you can copy and share GNU Fortran.
 * GNU Free Documentation License::
-		    How you can copy and share this manual.
-* Funding::         How to help assure continued work for free software.
-* Getting Started:: What you should know about @command{gfortran}.
-* GFORTRAN and GCC::	    You can compile Fortran, C, or other programs.
-* GFORTRAN and G77::     Why we choose to start from scratch.
+		         How you can copy and share this manual.
+* Funding::              How to help assure continued work for free software.
+* Getting Started::      What you should know about @command{gfortran}.
+* GFORTRAN and GCC::     You can compile Fortran, C, or other programs.
+* GFORTRAN and G77::     Why we chose to start from scratch.
 * Invoking GFORTRAN::    Command options supported by @command{gfortran}.
-* Project Status::  Status of @command{gfortran}, Roadmap, proposed extensions.
-* Contributing::    Helping you can help.
-* Standards::	    Standards supported by @command{gfortran}
-* Extensions::      Language extensions implemented by @command{gfortran}
-* Index::	    Index of this documentation.
+* Project Status::       Status of @command{gfortran}, roadmap, proposed extensions.
+* Contributing::         How you can help.
+* Standards::	         Standards supported by @command{gfortran}
+* Extensions::           Language extensions implemented by @command{gfortran}
+* Intrinsic Procedures:: Intrinsic procedures supported by @command{gfortran}
+* Index::                Index of this documentation.
 @end menu
 
 
@@ -369,7 +375,6 @@ because it was expected to be easier to maintain code we
 develop ourselves than to do a major overhaul of @command{g77} first,
 and then build a Fortran 95 compiler out of it.
 
-
 @include invoke.texi
 
 @c ---------------------------------------------------------------------
@@ -454,7 +459,6 @@ Usable with bugs:
 
 @itemize @minus
 @item Formatted sequential ('T' edit descriptor, and others)
-@item Namelist (can read a namelist that it writes, but not free-form)
 @end itemize
 
 Not recommended:
@@ -569,9 +573,6 @@ Set precision for fp units that support it (i387).
 Variables for setting fp rounding mode.
 
 @item
-Support old style namelists ending in $end or &end.
-
-@item
 Variable to fill uninitialized variables with a user-defined bit
 pattern.
 
@@ -622,6 +623,7 @@ meaning.
 @menu
 * Old-style kind specifications::
 * Old-style variable initialization::
+* Extensions to namelist::
 @end menu
 
 @node Old-style kind specifications
@@ -670,6 +672,55 @@ Examples of standard conforming code equivalent to the above example, are:
       DATA i,j,x /1,2,3*0.,1./
 @end smallexample
 
+@node Extensions to namelist
+@section Extensions to namelist
+@cindex Namelist
+
+@command{gfortran} fully supports the fortran95 standard for namelist io
+including array qualifiers, substrings and fully qualified derived types.
+The output from a namelist write is compatible with namelist read.  The
+output has all names in upper case and indentation to column 1 after the
+namelist name.  Two extensions are permitted:
+
+Old-style use of $ instead of &
+@smallexample
+$MYNML
+ X(:)%Y(2) = 1.0 2.0 3.0
+ CH(1:4) = "abcd"
+$END
+@end smallexample
+
+It should be noticed that the default terminator is / rather than &END.
+
+Querying of the namelist when inputting from stdin. After at least
+one space, entering ? sends to stdout the namelist name and the names of
+the variables in the namelist:
+@smallexample
+?
+
+&mynml
+ x
+ x%y
+ ch
+&end
+@end smallexample
+
+Entering =? outputs the namelist to stdout, as if WRITE (*,NML = mynml)
+had been called:
+@smallexample
+=?
+
+&MYNML
+ X(1)%Y=  0.000000    ,  1.000000    ,  0.000000    ,
+ X(2)%Y=  0.000000    ,  2.000000    ,  0.000000    ,
+ X(3)%Y=  0.000000    ,  3.000000    ,  0.000000    ,
+ CH=abcd,  /
+@end smallexample
+
+To aid this dialog, when input is from stdin, errors produce send their
+messages to stderr and execution continues, even if IOSTAT is set.
+
+@include intrinsic.texi
 @c ---------------------------------------------------------------------
 @c Contributing
 @c ---------------------------------------------------------------------

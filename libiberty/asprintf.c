@@ -19,14 +19,13 @@ License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include "ansidecl.h"
 #include "libiberty.h"
 
-#ifdef ANSI_PROTOTYPES
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 /*
 
@@ -45,7 +44,7 @@ not be allocated, minus one is returned and @code{NULL} is stored in
 */
 
 int
-asprintf VPARAMS ((char **buf, const char *fmt, ...))
+asprintf (char **buf, const char *fmt, ...)
 {
   int status;
   VA_OPEN (ap, fmt);

@@ -1,6 +1,8 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1999, 2000, 2002, 2003, 2004  Free Software Foundation, Inc.
+
+/* Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Mumit Khan <khan@xraylith.wisc.edu>.
 
 This file is part of GCC.
@@ -71,7 +73,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef _LIBOBJC
 
 /* This is necessary to prevent windef.h (included from windows.h) from
-   defining it's own BOOL as a typedef.  */
+   defining its own BOOL as a typedef.  */
 #ifndef __OBJC__
 #define __OBJC__
 #endif

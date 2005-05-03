@@ -1,5 +1,5 @@
 /* Basic error reporting routines.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -30,7 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_ERRORS_H
 #define GCC_ERRORS_H
 
-extern void warning (const char *, ...);
+extern void warning (int, const char *, ...);
 extern void error (const char *, ...);
 extern void fatal (const char *, ...) ATTRIBUTE_NORETURN;
 extern void internal_error (const char *, ...) ATTRIBUTE_NORETURN;

@@ -320,7 +320,6 @@ bool
 cxx_init (void)
 {
   static const enum tree_code stmt_codes[] = {
-    c_common_stmt_codes,
     cp_stmt_codes
   };
 
@@ -347,11 +346,6 @@ cxx_init (void)
   class_type_node = ridpointers[(int) RID_CLASS];
 
   cxx_init_decl_processing ();
-
-  /* Create the built-in __null node.  It is important that this is
-     not shared.  */
-  null_node = make_node (INTEGER_CST);
-  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
 
   /* The fact that G++ uses COMDAT for many entities (inline
      functions, template instantiations, virtual tables, etc.) mean
@@ -433,7 +427,7 @@ parse_strconst_pragma (const char* name, int opt)
     {
       result = x;
       if (c_lex (&x) != CPP_EOF)
-	warning ("junk at end of #pragma %s", name);
+	warning (0, "junk at end of #pragma %s", name);
       return result;
     }
 
@@ -527,7 +521,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
 	 cookie (if any) of the filename, but this requires completing the
 	 --enable-mapped-location project first.  See PR 17577.  */
       if (cpp_included (parse_in, filename))
-	warning ("#pragma implementation for %qs appears after "
+	warning (0, "#pragma implementation for %qs appears after "
 		 "file is included", filename);
 #endif
     }
@@ -552,7 +546,7 @@ handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree x;
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of #pragma GCC java_exceptions");
+    warning (0, "junk at end of #pragma GCC java_exceptions");
 
   choose_personality_routine (lang_java);
 }

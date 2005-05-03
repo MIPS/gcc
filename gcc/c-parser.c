@@ -242,9 +242,6 @@ c_parse_init (void)
 /* A keyword.  */
 #define CPP_KEYWORD ((enum cpp_ttype) (N_TTYPES + 1))
 
-/* The number of token types, including C-specific ones.  */
-#define N_C_TTYPES ((int) (CPP_KEYWORD + 1))
-
 /* More information about the type of a CPP_NAME token.  */
 typedef enum c_id_kind {
   /* An ordinary identifier.  */
@@ -3256,7 +3253,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
       location_t loc = c_parser_peek_token (parser)->location;
       if (c_parser_next_token_is (parser, CPP_EOF))
 	{
-	  parser->error = true;
+	  c_parser_error (parser, "expected declaration or statement");
 	  return;
 	}
       if (c_parser_next_token_is_keyword (parser, RID_CASE)
@@ -3894,7 +3891,7 @@ c_parser_asm_statement (c_parser *parser)
   else if (c_parser_next_token_is_keyword (parser, RID_CONST)
 	   || c_parser_next_token_is_keyword (parser, RID_RESTRICT))
     {
-      warning ("%E qualifier ignored on asm",
+      warning (0, "%E qualifier ignored on asm",
 	       c_parser_peek_token (parser)->value);
       quals = NULL_TREE;
       c_parser_consume_token (parser);
@@ -4549,7 +4546,7 @@ c_parser_unary_expression (c_parser *parser)
     case CPP_PLUS:
       c_parser_consume_token (parser);
       if (!c_dialect_objc () && warn_traditional && !in_system_header)
-	warning ("traditional C rejects the unary plus operator");
+	warning (0, "traditional C rejects the unary plus operator");
       ret.value
 	= build_unary_op (CONVERT_EXPR,
 			  c_parser_cast_expression (parser, NULL).value, 0);
@@ -5811,6 +5808,8 @@ c_parser_objc_method_decl (c_parser *parser)
   tree type = NULL_TREE;
   tree sel;
   tree parms = NULL_TREE;
+  bool ellipsis = false;
+
   if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
     {
       c_parser_consume_token (parser);
@@ -5825,7 +5824,6 @@ c_parser_objc_method_decl (c_parser *parser)
     {
       tree tsel = sel;
       tree list = NULL_TREE;
-      bool ellipsis;
       while (true)
 	{
 	  tree atype = NULL_TREE, id, keyworddecl;
@@ -5855,7 +5853,6 @@ c_parser_objc_method_decl (c_parser *parser)
 	 method parameters follow the C syntax, and may include '...'
 	 to denote a variable number of arguments.  */
       parms = make_node (TREE_LIST);
-      ellipsis = false;
       while (c_parser_next_token_is (parser, CPP_COMMA))
 	{
 	  struct c_parm *parm;
@@ -5872,10 +5869,9 @@ c_parser_objc_method_decl (c_parser *parser)
 	  parms = chainon (parms,
 			   build_tree_list (NULL_TREE, grokparm (parm)));
 	}
-      TREE_OVERFLOW (parms) = ellipsis;
       sel = list;
     }
-  return objc_build_method_signature (type, sel, parms);
+  return objc_build_method_signature (type, sel, parms, ellipsis);
 }
 
 /* Parse an objc-type-name.

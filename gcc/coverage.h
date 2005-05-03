@@ -47,4 +47,6 @@ extern gcov_type *get_coverage_counts (unsigned /*counter*/,
 				       unsigned /*expected*/,
 				       const struct gcov_ctr_summary **);
 
+extern tree get_gcov_type (void);
+
 #endif

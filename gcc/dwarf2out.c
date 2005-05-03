@@ -184,7 +184,7 @@ static GTY(()) varray_type incomplete_types;
    of declaration scopes at the current scope and containing
    scopes.  This table is used to find the proper place to
    define type declaration DIE's.  */
-static GTY(()) varray_type decl_scope_table;
+static GTY(()) VEC(tree,gc) *decl_scope_table;
 
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
@@ -253,6 +253,11 @@ typedef struct dw_fde_struct GTY(())
   const char *dw_fde_begin;
   const char *dw_fde_current_label;
   const char *dw_fde_end;
+  const char *dw_fde_hot_section_label;
+  const char *dw_fde_hot_section_end_label;
+  const char *dw_fde_unlikely_section_label;
+  const char *dw_fde_unlikely_section_end_label;
+  bool dw_fde_switched_sections;
   dw_cfi_ref dw_fde_cfi;
   unsigned funcdef_number;
   unsigned all_throwers_are_sibcalls : 1;
@@ -1477,7 +1482,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
   src = SET_SRC (expr);
   dest = SET_DEST (expr);
 
-  if (GET_CODE (src) == REG)
+  if (REG_P (src))
     {
       rtx rsi = reg_saved_in (src);
       if (rsi)
@@ -2273,17 +2278,57 @@ output_call_frame_info (int for_eh)
 	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
 					   sym_ref,
 					   "FDE initial location");
-	  dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
-				fde->dw_fde_end, fde->dw_fde_begin,
-				"FDE address range");
+	  if (fde->dw_fde_switched_sections)
+	    {
+	      rtx sym_ref2 = gen_rtx_SYMBOL_REF (Pmode, 
+				      fde->dw_fde_unlikely_section_label);
+	      rtx sym_ref3= gen_rtx_SYMBOL_REF (Pmode, 
+				      fde->dw_fde_hot_section_label);
+	      SYMBOL_REF_FLAGS (sym_ref2) |= SYMBOL_FLAG_LOCAL;
+	      SYMBOL_REF_FLAGS (sym_ref3) |= SYMBOL_FLAG_LOCAL;
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref3,
+					       "FDE initial location");
+	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
+				    fde->dw_fde_hot_section_end_label,
+				    fde->dw_fde_hot_section_label,
+				    "FDE address range");
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref2,
+					       "FDE initial location");
+	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
+				    fde->dw_fde_unlikely_section_end_label,
+				    fde->dw_fde_unlikely_section_label,
+				    "FDE address range");
+	    }
+	  else
+	    dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
+				  fde->dw_fde_end, fde->dw_fde_begin,
+				  "FDE address range");
 	}
       else
 	{
 	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, fde->dw_fde_begin,
 			       "FDE initial location");
-	  dw2_asm_output_delta (DWARF2_ADDR_SIZE,
-				fde->dw_fde_end, fde->dw_fde_begin,
-				"FDE address range");
+	  if (fde->dw_fde_switched_sections)
+	    {
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE,
+				   fde->dw_fde_hot_section_label,
+				   "FDE initial location");
+	      dw2_asm_output_delta (DWARF2_ADDR_SIZE,
+				    fde->dw_fde_hot_section_end_label,
+				    fde->dw_fde_hot_section_label,
+				    "FDE address range");
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE,
+				   fde->dw_fde_unlikely_section_label,
+				   "FDE initial location");
+	      dw2_asm_output_delta (DWARF2_ADDR_SIZE, 
+				    fde->dw_fde_unlikely_section_end_label,
+				    fde->dw_fde_unlikely_section_label,
+				    "FDE address range");
+	    }
+	  else
+	    dw2_asm_output_delta (DWARF2_ADDR_SIZE,
+				  fde->dw_fde_end, fde->dw_fde_begin,
+				  "FDE address range");
 	}
 
       if (augmentation[0])
@@ -2409,6 +2454,11 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde->decl = current_function_decl;
   fde->dw_fde_begin = dup_label;
   fde->dw_fde_current_label = NULL;
+  fde->dw_fde_hot_section_label = NULL;
+  fde->dw_fde_hot_section_end_label = NULL;
+  fde->dw_fde_unlikely_section_label = NULL;
+  fde->dw_fde_unlikely_section_end_label = NULL;
+  fde->dw_fde_switched_sections = false;
   fde->dw_fde_end = NULL;
   fde->dw_fde_cfi = NULL;
   fde->funcdef_number = current_function_funcdef_no;
@@ -2468,7 +2518,12 @@ void
 dwarf2out_frame_finish (void)
 {
   /* Output call frame information.  */
-  if (write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+  if (write_symbols == DWARF2_DEBUG
+      || write_symbols == VMS_AND_DWARF2_DEBUG
+#ifdef DWARF2_FRAME_INFO
+      || DWARF2_FRAME_INFO
+#endif
+      )
     output_call_frame_info (0);
 
 #ifndef TARGET_UNWIND_INFO
@@ -3413,6 +3468,7 @@ static void dwarf2out_imported_module_or_decl (tree, tree);
 static void dwarf2out_abstract_function (tree);
 static void dwarf2out_var_location (rtx);
 static void dwarf2out_begin_function (tree);
+static void dwarf2out_switch_text_section (void);
 
 /* The debug hooks structure.  */
 
@@ -3445,6 +3501,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   debug_nothing_rtx,		/* label */
   debug_nothing_int,		/* handle_pch */
   dwarf2out_var_location,
+  dwarf2out_switch_text_section,
   1                             /* start_end_main_source_file */
 };
 #endif
@@ -3646,6 +3703,7 @@ struct var_loc_node GTY ((chain_next ("%h.next")))
 {
   rtx GTY (()) var_loc_note;
   const char * GTY (()) label;
+  const char * GTY (()) section_label;
   struct var_loc_node * GTY (()) next;
 };
 
@@ -4064,6 +4122,9 @@ static int maybe_emit_file (int);
 #ifndef TEXT_SECTION_LABEL
 #define TEXT_SECTION_LABEL		"Ltext"
 #endif
+#ifndef COLD_TEXT_SECTION_LABEL
+#define COLD_TEXT_SECTION_LABEL         "Ltext_cold"
+#endif
 #ifndef DEBUG_LINE_SECTION_LABEL
 #define DEBUG_LINE_SECTION_LABEL	"Ldebug_line"
 #endif
@@ -4091,6 +4152,8 @@ static int maybe_emit_file (int);
 
 static char text_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char text_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char cold_text_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char cold_end_label[MAX_ARTIFICIAL_LABEL_BYTES]; 
 static char abbrev_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char debug_info_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char debug_line_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -4100,6 +4163,9 @@ static char ranges_section_label[2 * MAX_ARTIFICIAL_LABEL_BYTES];
 
 #ifndef TEXT_END_LABEL
 #define TEXT_END_LABEL		"Letext"
+#endif
+#ifndef COLD_END_LABEL
+#define COLD_END_LABEL          "Letext_cold"
 #endif
 #ifndef BLOCK_BEGIN_LABEL
 #define BLOCK_BEGIN_LABEL	"LBB"
@@ -6737,6 +6803,23 @@ add_loc_descr_to_loc_list (dw_loc_list_ref *list_head, dw_loc_descr_ref descr,
   *d = new_loc_list (descr, begin, end, section, 0);
 }
 
+static void
+dwarf2out_switch_text_section (void)
+{
+  dw_fde_ref fde;
+
+  if (!cfun)
+    internal_error ("Attempt to switch text sections without any code.");
+
+  fde = &fde_table[fde_table_in_use - 1];
+  fde->dw_fde_switched_sections = true;
+  fde->dw_fde_hot_section_label = cfun->hot_section_label;
+  fde->dw_fde_hot_section_end_label = cfun->hot_section_end_label;
+  fde->dw_fde_unlikely_section_label = cfun->cold_section_label;
+  fde->dw_fde_unlikely_section_end_label = cfun->cold_section_end_label;
+  separate_line_info_table_in_use++;
+}
+
 /* Output the location list given to us.  */
 
 static void
@@ -7165,6 +7248,13 @@ output_aranges (void)
   dw2_asm_output_addr (DWARF2_ADDR_SIZE, text_section_label, "Address");
   dw2_asm_output_delta (DWARF2_ADDR_SIZE, text_end_label,
 			text_section_label, "Length");
+  if (flag_reorder_blocks_and_partition)
+    {
+      dw2_asm_output_addr (DWARF2_ADDR_SIZE, cold_text_section_label, 
+			   "Address");
+      dw2_asm_output_delta (DWARF2_ADDR_SIZE, cold_end_label,
+			    cold_text_section_label, "Length");
+    }
 
   for (i = 0; i < arange_table_in_use; i++)
     {
@@ -7643,7 +7733,14 @@ output_line_info (void)
      a series of state machine operations.  */
   current_file = 1;
   current_line = 1;
-  strcpy (prev_line_label, text_section_label);
+
+  if (cfun
+      && (last_text_section == in_unlikely_executed_text
+	  || (last_text_section == in_named
+	      && last_text_section_name == cfun->unlikely_text_section_name)))
+    strcpy (prev_line_label, cfun->cold_section_label);
+  else
+    strcpy (prev_line_label, text_section_label);
   for (lt_index = 1; lt_index < line_info_table_in_use; ++lt_index)
     {
       dw_line_info_ref line_info = &line_info_table[lt_index];
@@ -8016,7 +8113,6 @@ is_base_type (tree type)
     case METHOD_TYPE:
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-    case FILE_TYPE:
     case OFFSET_TYPE:
     case LANG_TYPE:
     case VECTOR_TYPE:
@@ -9187,7 +9283,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 
 #ifdef ENABLE_CHECKING
       /* Otherwise this is a generic code; we should just lists all of
-	 these explicitly.  Aborting means we forgot one.  */
+	 these explicitly.  We forgot one.  */
       gcc_unreachable ();
 #else
       /* In a release build, we want to degrade gracefully: better to
@@ -9697,6 +9793,53 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 
 }
 
+/* Generate an RTL constant from a decl initializer INIT with decl type TYPE,
+   for use in a later add_const_value_attribute call.  */
+
+static rtx
+rtl_for_decl_init (tree init, tree type)
+{
+  rtx rtl = NULL_RTX;
+
+  /* If a variable is initialized with a string constant without embedded
+     zeros, build CONST_STRING.  */
+  if (TREE_CODE (init) == STRING_CST && TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree enttype = TREE_TYPE (type);
+      tree domain = TYPE_DOMAIN (type);
+      enum machine_mode mode = TYPE_MODE (enttype);
+
+      if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE_SIZE (mode) == 1
+	  && domain
+	  && integer_zerop (TYPE_MIN_VALUE (domain))
+	  && compare_tree_int (TYPE_MAX_VALUE (domain),
+			       TREE_STRING_LENGTH (init) - 1) == 0
+	  && ((size_t) TREE_STRING_LENGTH (init)
+	      == strlen (TREE_STRING_POINTER (init)) + 1))
+	rtl = gen_rtx_CONST_STRING (VOIDmode,
+				    ggc_strdup (TREE_STRING_POINTER (init)));
+    }
+  /* If the initializer is something that we know will expand into an
+     immediate RTL constant, expand it now.  Expanding anything else
+     tends to produce unresolved symbols; see debug/5770 and c++/6381.  */
+  /* Aggregate, vector, and complex types may contain constructors that may
+     result in code being generated when expand_expr is called, so we can't
+     handle them here.  Integer and float are useful and safe types to handle
+     here.  */
+  else if ((INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type))
+	   && initializer_constant_valid_p (init, type) == null_pointer_node)
+    {
+      rtl = expand_expr (init, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+
+      /* If expand_expr returns a MEM, it wasn't immediate.  */
+      gcc_assert (!rtl || !MEM_P (rtl));
+    }
+
+  return rtl;
+}
+
+/* Generate RTL for the variable DECL to represent its location.  */
+
 static rtx
 rtl_for_decl_location (tree decl)
 {
@@ -9892,40 +10035,7 @@ rtl_for_decl_location (tree decl)
      and will have been substituted directly into all expressions that use it.
      C does not have such a concept, but C++ and other languages do.  */
   else if (TREE_CODE (decl) == VAR_DECL && DECL_INITIAL (decl))
-    {
-      /* If a variable is initialized with a string constant without embedded
-	 zeros, build CONST_STRING.  */
-      if (TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
-	  && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-	{
-	  tree arrtype = TREE_TYPE (decl);
-	  tree enttype = TREE_TYPE (arrtype);
-	  tree domain = TYPE_DOMAIN (arrtype);
-	  tree init = DECL_INITIAL (decl);
-	  enum machine_mode mode = TYPE_MODE (enttype);
-
-	  if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE_SIZE (mode) == 1
-	      && domain
-	      && integer_zerop (TYPE_MIN_VALUE (domain))
-	      && compare_tree_int (TYPE_MAX_VALUE (domain),
-				   TREE_STRING_LENGTH (init) - 1) == 0
-	      && ((size_t) TREE_STRING_LENGTH (init)
-		  == strlen (TREE_STRING_POINTER (init)) + 1))
-	    rtl = gen_rtx_CONST_STRING (VOIDmode,
-					ggc_strdup (TREE_STRING_POINTER (init)));
-	}
-      /* If the initializer is something that we know will expand into an
-	 immediate RTL constant, expand it now.  Expanding anything else
-	 tends to produce unresolved symbols; see debug/5770 and c++/6381.  */
-      else if (TREE_CODE (DECL_INITIAL (decl)) == INTEGER_CST
-	       || TREE_CODE (DECL_INITIAL (decl)) == REAL_CST)
-	{
-	  rtl = expand_expr (DECL_INITIAL (decl), NULL_RTX, VOIDmode,
-			     EXPAND_INITIALIZER);
-	  /* If expand_expr returns a MEM, it wasn't immediate.  */
-	  gcc_assert (!rtl || !MEM_P (rtl));
-	}
-    }
+    rtl = rtl_for_decl_init (DECL_INITIAL (decl), TREE_TYPE (decl));
 
   if (rtl)
     rtl = targetm.delegitimize_address (rtl);
@@ -10002,7 +10112,6 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       dw_loc_list_ref list;
       rtx varloc;
 
-
       /* We need to figure out what section we should use as the base
 	 for the address ranges where a given location is valid.
 	 1. If this particular DECL has a section associated with it,
@@ -10024,6 +10133,12 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	  tree sectree = DECL_SECTION_NAME (current_function_decl);
 	  secname = TREE_STRING_POINTER (sectree);
 	}
+      else if (cfun
+	       && (last_text_section == in_unlikely_executed_text
+		   || (last_text_section == in_named
+		       && last_text_section_name == 
+		       cfun->unlikely_text_section_name)))
+	secname = cfun->cold_section_label;
       else
 	secname = text_section_label;
 
@@ -10123,27 +10238,16 @@ tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
 {
   tree init = DECL_INITIAL (decl);
   tree type = TREE_TYPE (decl);
+  rtx rtl;
 
-  if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init
-      && initializer_constant_valid_p (init, type) == null_pointer_node)
+  if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init)
     /* OK */;
   else
     return;
 
-  switch (TREE_CODE (type))
-    {
-    case INTEGER_TYPE:
-      if (host_integerp (init, 0))
-	add_AT_unsigned (var_die, DW_AT_const_value,
-			 tree_low_cst (init, 0));
-      else
-	add_AT_long_long (var_die, DW_AT_const_value,
-			  TREE_INT_CST_HIGH (init),
-			  TREE_INT_CST_LOW (init));
-      break;
-
-    default:;
-    }
+  rtl = rtl_for_decl_init (init, type);
+  if (rtl)
+    add_const_value_attribute (var_die, rtl);
 }
 
 /* Generate a DW_AT_name attribute given some string value to be included as
@@ -10466,11 +10570,7 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
       if (TYPE_P (fn))
 	fn = TYPE_STUB_DECL (fn);
       
-      /* TYPE_STUB_DECL may have given us a NULL, which decl_function_context
-	 won't like.  */
-      if (fn)	
-	fn = decl_function_context (fn);
-
+      fn = decl_function_context (fn);
       if (fn)
 	dwarf2out_abstract_function (fn);
     }
@@ -10484,7 +10584,7 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
      trees (in the case of java, they simply have no block tree, in some other
      languages).  For these functions, there is nothing we can really do to
      output correct debug info for inlined functions in all cases.  Rather
-     than abort, we'll just produce deficient debug info now, in that we will
+     than die, we'll just produce deficient debug info now, in that we will
      have variables without a proper abstract origin.  In the future, when all
      functions are lowered, we should re-add a gcc_assert (origin_die)
      here.  */
@@ -10567,7 +10667,7 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
 static void
 push_decl_scope (tree scope)
 {
-  VARRAY_PUSH_TREE (decl_scope_table, scope);
+  VEC_safe_push (tree, gc, decl_scope_table, scope);
 }
 
 /* Pop a declaration scope.  */
@@ -10575,9 +10675,7 @@ push_decl_scope (tree scope)
 static inline void
 pop_decl_scope (void)
 {
-  gcc_assert (VARRAY_ACTIVE_SIZE (decl_scope_table) > 0);
-
-  VARRAY_POP (decl_scope_table);
+  VEC_pop (tree, decl_scope_table);
 }
 
 /* Return the DIE for the scope that immediately contains this type.
@@ -10620,8 +10718,8 @@ scope_die_for (tree t, dw_die_ref context_die)
       /* For types, we can just look up the appropriate DIE.  But
 	 first we check to see if we're in the middle of emitting it
 	 so we know where the new DIE should go.  */
-      for (i = VARRAY_ACTIVE_SIZE (decl_scope_table) - 1; i >= 0; --i)
-	if (VARRAY_TREE (decl_scope_table, i) == containing_scope)
+      for (i = VEC_length (tree, decl_scope_table) - 1; i >= 0; --i)
+	if (VEC_index (tree, decl_scope_table, i) == containing_scope)
 	  break;
 
       if (i < 0)
@@ -11120,13 +11218,27 @@ gen_type_die_for_member (tree type, tree member, dw_die_ref context_die)
   if (TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (type))
       && ! lookup_decl_die (member))
     {
+      dw_die_ref type_die;
       gcc_assert (!decl_ultimate_origin (member));
 
       push_decl_scope (type);
+      type_die = lookup_type_die (type);
       if (TREE_CODE (member) == FUNCTION_DECL)
-	gen_subprogram_die (member, lookup_type_die (type));
+	gen_subprogram_die (member, type_die);
+      else if (TREE_CODE (member) == FIELD_DECL)
+	{
+	  /* Ignore the nameless fields that are used to skip bits but handle
+	     C++ anonymous unions and structs.  */
+	  if (DECL_NAME (member) != NULL_TREE
+	      || TREE_CODE (TREE_TYPE (member)) == UNION_TYPE
+	      || TREE_CODE (TREE_TYPE (member)) == RECORD_TYPE)
+	    {
+	      gen_type_die (member_declared_type (member), type_die);
+	      gen_field_die (member, type_die);
+	    }
+	}
       else
-	gen_variable_die (member, lookup_type_die (type));
+	gen_variable_die (member, type_die);
 
       pop_decl_scope ();
     }
@@ -11330,15 +11442,33 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       if (!old_die || !get_AT (old_die, DW_AT_inline))
 	equate_decl_number_to_die (decl, subr_die);
 
-      ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_BEGIN_LABEL,
-				   current_function_funcdef_no);
-      add_AT_lbl_id (subr_die, DW_AT_low_pc, label_id);
-      ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
-				   current_function_funcdef_no);
-      add_AT_lbl_id (subr_die, DW_AT_high_pc, label_id);
+      if (!flag_reorder_blocks_and_partition)
+	{
+	  ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_BEGIN_LABEL,
+				       current_function_funcdef_no);
+	  add_AT_lbl_id (subr_die, DW_AT_low_pc, label_id);
+	  ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
+				       current_function_funcdef_no);
+	  add_AT_lbl_id (subr_die, DW_AT_high_pc, label_id);
+	  
+	  add_pubname (decl, subr_die);
+	  add_arange (decl, subr_die);
+	}
+      else
+	{  /* Do nothing for now; maybe need to duplicate die, one for
+	      hot section and ond for cold section, then use the hot/cold
+	      section begin/end labels to generate the aranges...  */
+	  /*
+	    add_AT_lbl_id (subr_die, DW_AT_low_pc, hot_section_label);
+	    add_AT_lbl_id (subr_die, DW_AT_high_pc, hot_section_end_label);
+	    add_AT_lbl_id (subr_die, DW_AT_lo_user, unlikely_section_label);
+	    add_AT_lbl_id (subr_die, DW_AT_hi_user, cold_section_end_label);
 
-      add_pubname (decl, subr_die);
-      add_arange (decl, subr_die);
+	    add_pubname (decl, subr_die);
+	    add_arange (decl, subr_die);
+	    add_arange (decl, subr_die);
+	   */
+	}
 
 #ifdef MIPS_DEBUGGING_INFO
       /* Add a reference to the FDE for this routine.  */
@@ -11484,8 +11614,13 @@ gen_variable_die (tree decl, dw_die_ref context_die)
      copy decls and set the DECL_ABSTRACT flag on them instead of
      sharing them.
 
-     ??? Duplicated blocks have been rewritten to use .debug_ranges.  */
-  else if (old_die && TREE_STATIC (decl)
+     ??? Duplicated blocks have been rewritten to use .debug_ranges.
+
+     ??? The declare_in_namespace support causes us to get two DIEs for one
+     variable, both of which are declarations.  We want to avoid considering
+     one to be a specification, so we must test that this DIE is not a
+     declaration.  */
+  else if (old_die && TREE_STATIC (decl) && ! declaration
 	   && get_AT_flag (old_die, DW_AT_declaration) == 1)
     {
       /* This is a definition of a C++ class level static.  */
@@ -11579,41 +11714,49 @@ gen_label_die (tree decl, dw_die_ref context_die)
     }
 }
 
+/* A helper function for gen_lexical_block_die and gen_inlined_subroutine_die.
+   Add low_pc and high_pc attributes to the DIE for a block STMT.  */
+
+static inline void
+add_high_low_attributes (tree stmt, dw_die_ref die)
+{
+  char label[MAX_ARTIFICIAL_LABEL_BYTES];
+
+  if (BLOCK_FRAGMENT_CHAIN (stmt))
+    {
+      tree chain;
+
+      add_AT_range_list (die, DW_AT_ranges, add_ranges (stmt));
+
+      chain = BLOCK_FRAGMENT_CHAIN (stmt);
+      do
+	{
+	  add_ranges (chain);
+	  chain = BLOCK_FRAGMENT_CHAIN (chain);
+	}
+      while (chain);
+      add_ranges (NULL);
+    }
+  else
+    {
+      ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
+				   BLOCK_NUMBER (stmt));
+      add_AT_lbl_id (die, DW_AT_low_pc, label);
+      ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_END_LABEL,
+				   BLOCK_NUMBER (stmt));
+      add_AT_lbl_id (die, DW_AT_high_pc, label);
+    }
+}
+
 /* Generate a DIE for a lexical block.  */
 
 static void
 gen_lexical_block_die (tree stmt, dw_die_ref context_die, int depth)
 {
   dw_die_ref stmt_die = new_die (DW_TAG_lexical_block, context_die, stmt);
-  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
   if (! BLOCK_ABSTRACT (stmt))
-    {
-      if (BLOCK_FRAGMENT_CHAIN (stmt))
-	{
-	  tree chain;
-
-	  add_AT_range_list (stmt_die, DW_AT_ranges, add_ranges (stmt));
-
-	  chain = BLOCK_FRAGMENT_CHAIN (stmt);
-	  do
-	    {
-	      add_ranges (chain);
-	      chain = BLOCK_FRAGMENT_CHAIN (chain);
-	    }
-	  while (chain);
-	  add_ranges (NULL);
-	}
-      else
-	{
-	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
-				       BLOCK_NUMBER (stmt));
-	  add_AT_lbl_id (stmt_die, DW_AT_low_pc, label);
-	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_END_LABEL,
-				       BLOCK_NUMBER (stmt));
-	  add_AT_lbl_id (stmt_die, DW_AT_high_pc, label);
-	}
-    }
+    add_high_low_attributes (stmt, stmt_die);
 
   decls_for_scope (stmt, stmt_die, depth);
 }
@@ -11635,15 +11778,10 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die, int depth)
     {
       dw_die_ref subr_die
 	= new_die (DW_TAG_inlined_subroutine, context_die, stmt);
-      char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
       add_abstract_origin_attribute (subr_die, decl);
-      ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
-				   BLOCK_NUMBER (stmt));
-      add_AT_lbl_id (subr_die, DW_AT_low_pc, label);
-      ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_END_LABEL,
-				   BLOCK_NUMBER (stmt));
-      add_AT_lbl_id (subr_die, DW_AT_high_pc, label);
+      add_high_low_attributes (stmt, subr_die);
+
       decls_for_scope (stmt, subr_die, depth);
       current_function_has_inlines = 1;
     }
@@ -11865,7 +12003,7 @@ gen_member_die (tree type, dw_die_ref context_die)
   /* First output info about the base classes.  */
   if (binfo)
     {
-      VEC (tree) *accesses = BINFO_BASE_ACCESSES (binfo);
+      VEC(tree,gc) *accesses = BINFO_BASE_ACCESSES (binfo);
       int i;
       tree base;
 
@@ -12108,12 +12246,6 @@ gen_type_die (tree type, dw_die_ref context_die)
       /* Now output a DIE to represent this pointer-to-data-member type
 	 itself.  */
       gen_ptr_to_mbr_type_die (type, context_die);
-      break;
-
-    case FILE_TYPE:
-      gen_type_die (TREE_TYPE (type), context_die);
-      /* No way to represent these in Dwarf yet!  */
-      gcc_unreachable ();
       break;
 
     case FUNCTION_TYPE:
@@ -12407,7 +12539,7 @@ is_redundant_typedef (tree decl)
   return 0;
 }
 
-/* Returns the DIE for decl or aborts.  */
+/* Returns the DIE for decl.  A DIE will always be returned.  */
 
 static dw_die_ref
 force_decl_die (tree decl)
@@ -12460,8 +12592,7 @@ force_decl_die (tree decl)
 	  gcc_unreachable ();
 	}
 
-      /* See if we can find the die for this deci now.
-	 If not then abort.  */
+      /* We should be able to find the DIE now.  */
       if (!decl_die)
 	decl_die = lookup_decl_die (decl);
       gcc_assert (decl_die);
@@ -12470,7 +12601,7 @@ force_decl_die (tree decl)
   return decl_die;
 }
 
-/* Returns the DIE for decl or aborts.  */
+/* Returns the DIE for TYPE.  A DIE is always returned.  */
 
 static dw_die_ref
 force_type_die (tree type)
@@ -12818,7 +12949,29 @@ dwarf2out_imported_module_or_decl (tree decl, tree context)
   if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
     at_import_die = force_type_die (TREE_TYPE (decl));
   else
-    at_import_die = force_decl_die (decl);
+    {
+      at_import_die = lookup_decl_die (decl);
+      if (!at_import_die)
+	{
+	  /* If we're trying to avoid duplicate debug info, we may not have
+	     emitted the member decl for this field.  Emit it now.  */
+	  if (TREE_CODE (decl) == FIELD_DECL)
+	    {
+	      tree type = DECL_CONTEXT (decl);
+	      dw_die_ref type_context_die;
+
+	      if (TYPE_CONTEXT (type))
+		if (TYPE_P (TYPE_CONTEXT (type)))
+		  type_context_die = force_type_die (TYPE_CONTEXT (type));
+	      else
+		type_context_die = force_decl_die (TYPE_CONTEXT (type));
+	      else
+		type_context_die = comp_unit_die;
+	      gen_type_die_for_member (type, decl, type_context_die);
+	    }
+	  at_import_die = force_decl_die (decl);
+	}
+    }
 
   /* OK, now we have DIEs for decl as well as scope. Emit imported die.  */
   if (TREE_CODE (decl) == NAMESPACE_DECL)
@@ -12955,7 +13108,7 @@ static void
 dwarf2out_begin_block (unsigned int line ATTRIBUTE_UNUSED,
 		       unsigned int blocknum)
 {
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
   ASM_OUTPUT_DEBUG_LABEL (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
 }
 
@@ -12965,7 +13118,7 @@ dwarf2out_begin_block (unsigned int line ATTRIBUTE_UNUSED,
 static void
 dwarf2out_end_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int blocknum)
 {
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
   ASM_OUTPUT_DEBUG_LABEL (asm_out_file, BLOCK_END_LABEL, blocknum);
 }
 
@@ -13106,6 +13259,14 @@ dwarf2out_var_location (rtx loc_note)
   newloc->var_loc_note = loc_note;
   newloc->next = NULL;
 
+  if (cfun
+      && (last_text_section == in_unlikely_executed_text
+	  || (last_text_section == in_named
+	      && last_text_section_name == cfun->unlikely_text_section_name)))
+    newloc->section_label = cfun->cold_section_label;
+  else
+    newloc->section_label = text_section_label;
+
   last_insn = loc_note;
   last_label = newloc->label;
   decl = NOTE_VAR_LOCATION_DECL (loc_note);
@@ -13136,7 +13297,7 @@ dwarf2out_source_line (unsigned int line, const char *filename)
   if (debug_info_level >= DINFO_LEVEL_NORMAL
       && line != 0)
     {
-      function_section (current_function_decl);
+      current_function_section (current_function_decl);
 
       /* If requested, emit something human-readable.  */
       if (flag_debug_asm)
@@ -13307,7 +13468,7 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 				    decl_loc_table_eq, NULL);
 
   /* Allocate the initial hunk of the decl_scope_table.  */
-  VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");
+  decl_scope_table = VEC_alloc (tree, gc, 256);
 
   /* Allocate the initial hunk of the abbrev_die_table.  */
   abbrev_die_table = ggc_alloc_cleared (ABBREV_DIE_TABLE_INCREMENT
@@ -13340,6 +13501,9 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,
 			       DEBUG_ABBREV_SECTION_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (text_section_label, TEXT_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (cold_text_section_label, 
+			       COLD_TEXT_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (cold_end_label, COLD_END_LABEL, 0);
 
   ASM_GENERATE_INTERNAL_LABEL (debug_info_section_label,
 			       DEBUG_INFO_SECTION_LABEL, 0);
@@ -13364,6 +13528,11 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 
   text_section ();
   ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
+  if (flag_reorder_blocks_and_partition)
+    {
+      unlikely_text_section ();
+      ASM_OUTPUT_LABEL (asm_out_file, cold_text_section_label);
+    }
 }
 
 /* A helper function for dwarf2out_finish called through
@@ -13695,6 +13864,11 @@ dwarf2out_finish (const char *filename)
   /* Output a terminator label for the .text section.  */
   text_section ();
   targetm.asm_out.internal_label (asm_out_file, TEXT_END_LABEL, 0);
+  if (flag_reorder_blocks_and_partition)
+    {
+      unlikely_text_section ();
+      targetm.asm_out.internal_label (asm_out_file, COLD_END_LABEL, 0);
+    }
 
   /* Output the source line correspondence table.  We must do this
      even if there is no line information.  Otherwise, on an empty

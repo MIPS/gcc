@@ -37,92 +37,102 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 
 static void tree_ssa_phiopt (void);
-static bool conditional_replacement (basic_block, basic_block, basic_block,
+static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, tree, tree, tree);
-static bool value_replacement (basic_block, basic_block, basic_block,
+static bool value_replacement (basic_block, basic_block,
 			       edge, edge, tree, tree, tree);
-static bool minmax_replacement (basic_block, basic_block, basic_block,
+static bool minmax_replacement (basic_block, basic_block,
 				edge, edge, tree, tree, tree);
-static bool abs_replacement (basic_block, basic_block, basic_block,
+static bool abs_replacement (basic_block, basic_block,
 			     edge, edge, tree, tree, tree);
-static void replace_phi_edge_with_variable (basic_block, basic_block, edge,
-					    tree, tree);
+static void replace_phi_edge_with_variable (basic_block, edge, tree, tree);
 static basic_block *blocks_in_phiopt_order (void);
 
-/* This pass eliminates PHI nodes which can be trivially implemented as
-   an assignment from a conditional expression.  i.e. if we have something
-   like:
+/* This pass tries to replaces an if-then-else block with an
+   assignment.  We have four kinds of transformations.  Some of these
+   transformations are also performed by the ifcvt RTL optimizer.
+
+   Conditional Replacement
+   -----------------------
+
+   This transformation, implemented in conditional_replacement,
+   replaces
 
      bb0:
       if (cond) goto bb2; else goto bb1;
      bb1:
      bb2:
-      x = PHI (0 (bb1), 1 (bb0)
+      x = PHI <0 (bb1), 1 (bb0), ...>;
 
-   We can rewrite that as:
-
-     bb0:
-     bb1:
-     bb2:
-      x = cond;
-
-   bb1 will become unreachable and bb0 and bb2 will almost always
-   be merged into a single block.  This occurs often due to gimplification
-    of conditionals.
-
-   Also done is the following optimization:
+   with
 
      bb0:
-      if (a != b) goto bb2; else goto bb1;
-     bb1:
-     bb2:
-      x = PHI (a (bb1), b (bb0))
-
-   We can rewrite that as:
-
-     bb0:
-     bb1:
-     bb2:
-      x = b;
-
-   This can sometimes occur as a result of other optimizations.  A
-   similar transformation is done by the ifcvt RTL optimizer.
-
-   This pass also eliminates PHI nodes which are really absolute
-   values.  i.e. if we have something like:
-
-     bb0:
-      if (a >= 0) goto bb2; else goto bb1;
-     bb1:
-      x = -a;
-     bb2:
-      x = PHI (x (bb1), a (bb0));
-
-   We can rewrite that as:
-
-     bb0:
-     bb1:
-     bb2:
-      x = ABS_EXPR< a >;
-
-   Similarly,
-
-     bb0:
-      if (a <= b) goto bb2; else goto bb1;
-     bb1:
+      x' = cond;
       goto bb2;
      bb2:
-      x = PHI (b (bb1), a (bb0));
+      x = PHI <x' (bb0), ...>;
 
-   Becomes
+   We remove bb1 as it becomes unreachable.  This occurs often due to
+   gimplification of conditionals.
 
-     x = MIN_EXPR (a, b)
+   Value Replacement
+   -----------------
 
-   And the same transformation for MAX_EXPR.
+   This transformation, implemented in value_replacement, replaces
 
-   bb1 will become unreachable and bb0 and bb2 will almost always be merged
-   into a single block.  Similar transformations are done by the ifcvt
-   RTL optimizer.  */
+     bb0:
+       if (a != b) goto bb2; else goto bb1;
+     bb1:
+     bb2:
+       x = PHI <a (bb1), b (bb0), ...>;
+
+   with
+
+     bb0:
+     bb2:
+       x = PHI <b (bb0), ...>;
+
+   This opportunity can sometimes occur as a result of other
+   optimizations.
+
+   ABS Replacement
+   ---------------
+
+   This transformation, implemented in abs_replacement, replaces
+
+     bb0:
+       if (a >= 0) goto bb2; else goto bb1;
+     bb1:
+       x = -a;
+     bb2:
+       x = PHI <x (bb1), a (bb0), ...>;
+
+   with
+
+     bb0:
+       x' = ABS_EXPR< a >;
+     bb2:
+       x = PHI <x' (bb0), ...>;
+
+   MIN/MAX Replacement
+   -------------------
+
+   This transformation, minmax_replacement replaces
+
+     bb0:
+       if (a <= b) goto bb2; else goto bb1;
+     bb1:
+     bb2:
+       x = PHI <b (bb1), a (bb0), ...>;
+
+   with
+
+     bb0:
+       x' = MIN_EXPR (a, b)
+     bb2:
+       x = PHI <x' (bb0), ...>;
+
+   A similar transformation is done for MAX_EXPR.  */
 
 static void
 tree_ssa_phiopt (void)
@@ -191,11 +201,12 @@ tree_ssa_phiopt (void)
       e1 = EDGE_SUCC (bb1, 0);
 
       /* Make sure that bb1 is just a fall through.  */
-      if (!single_succ_p (bb1) > 1
+      if (!single_succ_p (bb1)
 	  || (e1->flags & EDGE_FALLTHRU) == 0)
         continue;
 
-      /* Also make that bb1 only have one pred and it is bb.  */
+      /* Also make sure that bb1 only have one predecessor and that it
+	 is bb.  */
       if (!single_pred_p (bb1)
           || single_pred (bb1) != bb)
 	continue;
@@ -211,19 +222,19 @@ tree_ssa_phiopt (void)
       arg0 = PHI_ARG_DEF_TREE (phi, e1->dest_idx);
       arg1 = PHI_ARG_DEF_TREE (phi, e2->dest_idx);
 
-      /* We know something is wrong if we cannot find the edges in the PHI
+      /* Something is wrong if we cannot find the arguments in the PHI
 	 node.  */
       gcc_assert (arg0 != NULL && arg1 != NULL);
 
       /* Do the replacement of conditional if it can be done.  */
-      if (conditional_replacement (bb, bb1, bb2, e1, e2, phi, arg0, arg1))
+      if (conditional_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	;
-      else if (value_replacement (bb, bb1, bb2, e1, e2, phi, arg0, arg1))
+      else if (value_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	;
-      else if (abs_replacement (bb, bb1, bb2, e1, e2, phi, arg0, arg1))
+      else if (abs_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	;
       else
-	minmax_replacement (bb, bb1, bb2, e1, e2, phi, arg0, arg1);
+	minmax_replacement (bb, bb1, e1, e2, phi, arg0, arg1);
     }
 
   free (bb_order);
@@ -301,19 +312,20 @@ empty_block_p (basic_block bb)
   return true;
 }
 
-/* Replace PHI node element whoes edge is E in block BB with variable NEW.
+/* Replace PHI node element whose edge is E in block BB with variable NEW.
    Remove the edge from COND_BLOCK which does not lead to BB (COND_BLOCK
    is known to have two edges, one of which must reach BB).  */
 
 static void
-replace_phi_edge_with_variable (basic_block cond_block, basic_block bb,
+replace_phi_edge_with_variable (basic_block cond_block,
 				edge e, tree phi, tree new)
 {
+  basic_block bb = bb_for_stmt (phi);
   basic_block block_to_remove;
   block_stmt_iterator bsi;
 
   /* Change the PHI argument to new.  */
-  PHI_ARG_DEF_TREE (phi, e->dest_idx) = new;
+  SET_USE (PHI_ARG_DEF_PTR (phi, e->dest_idx), new);
 
   /* Remove the empty basic block.  */
   if (EDGE_SUCC (cond_block, 0)->dest == bb)
@@ -352,7 +364,7 @@ replace_phi_edge_with_variable (basic_block cond_block, basic_block bb,
 
 static bool
 conditional_replacement (basic_block cond_bb, basic_block middle_bb,
-			 basic_block phi_bb, edge e0, edge e1, tree phi,
+			 edge e0, edge e1, tree phi,
 			 tree arg0, tree arg1)
 {
   tree result;
@@ -484,7 +496,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 
   SSA_NAME_DEF_STMT (new_var1) = new;
 
-  replace_phi_edge_with_variable (cond_bb, phi_bb, e1, phi, new_var1);
+  replace_phi_edge_with_variable (cond_bb, e1, phi, new_var1);
 
   /* Note that we optimized this PHI.  */
   return true;
@@ -498,7 +510,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 
 static bool
 value_replacement (basic_block cond_bb, basic_block middle_bb,
-		   basic_block phi_bb, edge e0, edge e1, tree phi,
+		   edge e0, edge e1, tree phi,
 		   tree arg0, tree arg1)
 {
   tree cond;
@@ -560,7 +572,7 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
       else
 	arg = arg1;
 
-      replace_phi_edge_with_variable (cond_bb, phi_bb, e1, phi, arg);
+      replace_phi_edge_with_variable (cond_bb, e1, phi, arg);
 
       /* Note that we optimized this PHI.  */
       return true;
@@ -576,7 +588,7 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 
 static bool
 minmax_replacement (basic_block cond_bb, basic_block middle_bb,
-		    basic_block phi_bb, edge e0, edge e1, tree phi,
+		    edge e0, edge e1, tree phi,
 		    tree arg0, tree arg1)
 {
   tree result, type;
@@ -815,7 +827,7 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
   bsi = bsi_last (cond_bb);
   bsi_insert_before (&bsi, new, BSI_NEW_STMT);
 
-  replace_phi_edge_with_variable (cond_bb, phi_bb, e1, phi, result);
+  replace_phi_edge_with_variable (cond_bb, e1, phi, result);
   return true;
 }
 
@@ -827,7 +839,7 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 
 static bool
 abs_replacement (basic_block cond_bb, basic_block middle_bb,
-		 basic_block phi_bb, edge e0 ATTRIBUTE_UNUSED, edge e1,
+		 edge e0 ATTRIBUTE_UNUSED, edge e1,
 		 tree phi, tree arg0, tree arg1)
 {
   tree result;
@@ -936,7 +948,7 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
     }
 
   SSA_NAME_DEF_STMT (result) = new;
-  replace_phi_edge_with_variable (cond_bb, phi_bb, e1, phi, result);
+  replace_phi_edge_with_variable (cond_bb, e1, phi, result);
 
   /* Note that we optimized this PHI.  */
   return true;
@@ -964,8 +976,12 @@ struct tree_opt_pass pass_phiopt =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
-    | TODO_verify_ssa | TODO_rename_vars
-    | TODO_verify_flow | TODO_verify_stmts,
+  TODO_cleanup_cfg
+    | TODO_dump_func
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_update_ssa
+    | TODO_verify_flow
+    | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
 };

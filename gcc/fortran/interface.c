@@ -41,7 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Generic interfaces:
      The generic name points to a linked list of symbols.  Each symbol
-     has an explicit interface.  Each explicit interface has it's own
+     has an explicit interface.  Each explicit interface has its own
      namespace containing the arguments.  Module procedures are symbols in
      which the interface is added later when the module procedure is parsed.
 
@@ -763,7 +763,7 @@ operator_correspondence (gfc_formal_arglist * f1, gfc_formal_arglist * f2)
 
 
 /* Perform the correspondence test in rule 2 of section 14.1.2.3.
-   Returns zero if no argument is found that satisifes rule 2, nonzero
+   Returns zero if no argument is found that satisfies rule 2, nonzero
    otherwise.
 
    This test is also not symmetric in f1 and f2 and must be called
@@ -1096,7 +1096,7 @@ compare_parameter (gfc_symbol * formal, gfc_expr * actual,
       return compare_interfaces (formal, actual->symtree->n.sym, 0);
     }
 
-  if (actual->expr_type != EXPR_NULL
+  if ((actual->expr_type != EXPR_NULL || actual->ts.type != BT_UNKNOWN)
       && !gfc_compare_types (&formal->ts, &actual->ts))
     return 0;
 

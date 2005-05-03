@@ -1698,7 +1698,7 @@ mips_legitimize_tls_address (rtx loc)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return dest;
@@ -3973,7 +3973,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = lang_hooks.truthvalue_conversion (off);
+      t = build (NE_EXPR, boolean_type_node, off,
+		 build_int_cst (TREE_TYPE (off), 0));
       addr = build (COND_EXPR, ptr_type_node, t, NULL, NULL);
 
       /* [5] Emit code for: off -= rsize.  We do this as a form of
@@ -4349,7 +4350,7 @@ override_options (void)
 
   /* Deprecate -mint64. Remove after 4.0 branches.  */
   if (TARGET_INT64)
-    warning ("-mint64 is a deprecated option");
+    warning (0, "-mint64 is a deprecated option");
 
   if (TARGET_INT64 && !TARGET_LONG64)
     error ("unsupported combination: %s", "-mint64 -mlong32");
@@ -4403,7 +4404,7 @@ override_options (void)
 	target_flags &= ~MASK_BRANCHLIKELY;
     }
   if (TARGET_BRANCHLIKELY && !ISA_HAS_BRANCHLIKELY)
-    warning ("generation of Branch Likely instructions enabled, but not supported by architecture");
+    warning (0, "generation of Branch Likely instructions enabled, but not supported by architecture");
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
@@ -4420,7 +4421,7 @@ override_options (void)
     {
       flag_pic = 1;
       if (mips_section_threshold > 0)
-	warning ("-G is incompatible with PIC code which is the default");
+	warning (0, "-G is incompatible with PIC code which is the default");
     }
 
   /* mips_split_addresses is a half-way house between explicit
@@ -6275,8 +6276,18 @@ mips_set_frame_expr (rtx frame_pattern)
 static rtx
 mips_frame_set (rtx mem, rtx reg)
 {
-  rtx set = gen_rtx_SET (VOIDmode, mem, reg);
+  rtx set;
+
+  /* If we're saving the return address register and the dwarf return
+     address column differs from the hard register number, adjust the
+     note reg to refer to the former.  */
+  if (REGNO (reg) == GP_REG_FIRST + 31
+      && DWARF_FRAME_RETURN_COLUMN != GP_REG_FIRST + 31)
+    reg = gen_rtx_REG (GET_MODE (reg), DWARF_FRAME_RETURN_COLUMN);
+
+  set = gen_rtx_SET (VOIDmode, mem, reg);
   RTX_FRAME_RELATED_P (set) = 1;
+
   return set;
 }
 
@@ -6718,7 +6729,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     mips16_lay_out_constants ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   /* Clean up the vars set above.  Note that final_end_function resets
@@ -7977,11 +7988,7 @@ dump_constants (struct mips16_constant *constants, rtx insn)
   emit_barrier_after (insn);
 }
 
-/* Return the length of instruction INSN.
-
-   ??? MIPS16 switch tables go in .text, but we don't define
-   JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
-   compute their lengths correctly.  */
+/* Return the length of instruction INSN.  */
 
 static int
 mips16_insn_length (rtx insn)
@@ -8982,7 +8989,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -9001,7 +9008,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -9208,7 +9215,7 @@ mips_parse_cpu (const char *cpu_string)
   for (s = cpu_string; *s != 0; s++)
     if (ISUPPER (*s))
       {
-	warning ("the cpu name must be lower case");
+	warning (0, "the cpu name must be lower case");
 	break;
       }
 

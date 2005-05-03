@@ -66,7 +66,8 @@ typedef struct cp_token GTY (())
 
 /* We use a stack of token pointer for saving token sets.  */
 typedef struct cp_token *cp_token_position;
-DEF_VEC_MALLOC_P (cp_token_position);
+DEF_VEC_P (cp_token_position);
+DEF_VEC_ALLOC_P (cp_token_position,heap);
 
 static const cp_token eof_token =
 {
@@ -104,7 +105,7 @@ typedef struct cp_lexer GTY (())
      called.  The top entry is the most recent position at which we
      began saving tokens.  If the stack is non-empty, we are saving
      tokens.  */
-  VEC (cp_token_position) *GTY ((skip)) saved_tokens;
+  VEC(cp_token_position,heap) *GTY ((skip)) saved_tokens;
 
   /* True if we should output debugging information.  */
   bool debugging_p;
@@ -260,7 +261,8 @@ cp_lexer_new_main (void)
   /* Initially we are not debugging.  */
   lexer->debugging_p = false;
 #endif /* ENABLE_CHECKING */
-  lexer->saved_tokens = VEC_alloc (cp_token_position, CP_SAVED_TOKEN_STACK);
+  lexer->saved_tokens = VEC_alloc (cp_token_position, heap,
+				   CP_SAVED_TOKEN_STACK);
 	 
   /* Create the buffer.  */
   alloc = CP_LEXER_BUFFER_SIZE;
@@ -314,7 +316,8 @@ cp_lexer_new_from_tokens (cp_token_cache *cache)
   lexer->next_token = first == last ? (cp_token *)&eof_token : first;
   lexer->last_token = last;
   
-  lexer->saved_tokens = VEC_alloc (cp_token_position, CP_SAVED_TOKEN_STACK);
+  lexer->saved_tokens = VEC_alloc (cp_token_position, heap,
+				   CP_SAVED_TOKEN_STACK);
 
 #ifdef ENABLE_CHECKING
   /* Initially we are not debugging.  */
@@ -332,7 +335,7 @@ cp_lexer_destroy (cp_lexer *lexer)
 {
   if (lexer->buffer)
     ggc_free (lexer->buffer);
-  VEC_free (cp_token_position, lexer->saved_tokens);
+  VEC_free (cp_token_position, heap, lexer->saved_tokens);
   ggc_free (lexer);
 }
 
@@ -621,7 +624,8 @@ cp_lexer_save_tokens (cp_lexer* lexer)
   if (cp_lexer_debugging_p (lexer))
     fprintf (cp_lexer_debug_stream, "cp_lexer: saving tokens\n");
 
-  VEC_safe_push (cp_token_position, lexer->saved_tokens, lexer->next_token);
+  VEC_safe_push (cp_token_position, heap,
+		 lexer->saved_tokens, lexer->next_token);
 }
 
 /* Commit to the portion of the token stream most recently saved.  */
@@ -1510,7 +1514,7 @@ static tree cp_parser_declarator_id
 static tree cp_parser_type_id
   (cp_parser *);
 static void cp_parser_type_specifier_seq
-  (cp_parser *, cp_decl_specifier_seq *);
+  (cp_parser *, bool, cp_decl_specifier_seq *);
 static cp_parameter_declarator *cp_parser_parameter_declaration_clause
   (cp_parser *);
 static cp_parameter_declarator *cp_parser_parameter_declaration_list
@@ -1794,7 +1798,7 @@ static inline void
 cp_parser_warn_min_max (void)
 {
   if (warn_deprecated && !in_system_header)
-    warning ("minimum/maximum operators are deprecated");
+    warning (0, "minimum/maximum operators are deprecated");
 }
 
 /* If not parsing tentatively, issue a diagnostic of the form
@@ -4973,7 +4977,8 @@ cp_parser_new_type_id (cp_parser* parser, tree *nelts)
   parser->type_definition_forbidden_message
     = "types may not be defined in a new-type-id";
   /* Parse the type-specifier-seq.  */
-  cp_parser_type_specifier_seq (parser, &type_specifier_seq);
+  cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
+				&type_specifier_seq);
   /* Restore the old message.  */
   parser->type_definition_forbidden_message = saved_message;
   /* Parse the new-declarator.  */
@@ -5292,7 +5297,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
 	      && !in_system_header
 	      && !VOID_TYPE_P (type)
 	      && current_lang_name != lang_name_c)
-	    warning ("use of old-style cast");
+	    warning (0, "use of old-style cast");
 
 	  /* Only type conversions to integral or enumeration types
 	     can be used in constant-expressions.  */
@@ -6305,7 +6310,8 @@ cp_parser_condition (cp_parser* parser)
   parser->type_definition_forbidden_message
     = "types may not be defined in conditions";
   /* Parse the type-specifier-seq.  */
-  cp_parser_type_specifier_seq (parser, &type_specifiers);
+  cp_parser_type_specifier_seq (parser, /*is_condition==*/true,
+				&type_specifiers);
   /* Restore the saved message.  */
   parser->type_definition_forbidden_message = saved_message;
   /* If all is well, we might be looking at a declaration.  */
@@ -7564,7 +7570,8 @@ cp_parser_conversion_type_id (cp_parser* parser)
   /* Parse the attributes.  */
   attributes = cp_parser_attributes_opt (parser);
   /* Parse the type-specifiers.  */
-  cp_parser_type_specifier_seq (parser, &type_specifiers);
+  cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
+				&type_specifiers);
   /* If that didn't work, stop.  */
   if (type_specifiers.type == error_mark_node)
     return error_mark_node;
@@ -8121,7 +8128,7 @@ cp_parser_template_declaration (cp_parser* parser, bool member_p)
       /* Consume the `export' token.  */
       cp_lexer_consume_token (parser->lexer);
       /* Warn that we do not support `export'.  */
-      warning ("keyword %<export%> not implemented, and will be ignored");
+      warning (0, "keyword %<export%> not implemented, and will be ignored");
     }
 
   cp_parser_template_declaration_after_export (parser, member_p);
@@ -8731,6 +8738,8 @@ cp_parser_template_name (cp_parser* parser,
     ;
   else
     {
+      tree fn = NULL_TREE;
+
       /* The standard does not explicitly indicate whether a name that
 	 names a set of overloaded declarations, some of which are
 	 templates, is a template-name.  However, such a name should
@@ -8738,16 +8747,13 @@ cp_parser_template_name (cp_parser* parser,
 	 template-id for the overloaded templates.  */
       fns = BASELINK_P (decl) ? BASELINK_FUNCTIONS (decl) : decl;
       if (TREE_CODE (fns) == OVERLOAD)
-	{
-	  tree fn;
+	for (fn = fns; fn; fn = OVL_NEXT (fn))
+	  if (TREE_CODE (OVL_CURRENT (fn)) == TEMPLATE_DECL)
+	    break;
 
-	  for (fn = fns; fn; fn = OVL_NEXT (fn))
-	    if (TREE_CODE (OVL_CURRENT (fn)) == TEMPLATE_DECL)
-	      break;
-	}
-      else
+      if (!fn)
 	{
-	  /* Otherwise, the name does not name a template.  */
+	  /* The name does not name a template.  */
 	  cp_parser_error (parser, "expected template-name");
 	  return error_mark_node;
 	}
@@ -9908,7 +9914,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 
  	  /* Warn about attributes. They are ignored.  */
  	  if (attributes)
-	    warning ("type attributes are honored only at type definition");
+	    warning (0, "type attributes are honored only at type definition");
 
 	  type = xref_tag (tag_type, identifier, ts,
 			   parser->num_template_parameter_lists);
@@ -10753,7 +10759,7 @@ cp_parser_init_declarator (cp_parser* parser,
      attributes -- but ignores them.  */
   if (cp_parser_allow_gnu_extensions_p (parser) && is_parenthesized_init)
     if (cp_parser_attributes_opt (parser))
-      warning ("attributes after parenthesized initializer ignored");
+      warning (0, "attributes after parenthesized initializer ignored");
 
   /* For an in-class declaration, use `grokfield' to create the
      declaration.  */
@@ -11504,7 +11510,8 @@ cp_parser_type_id (cp_parser* parser)
   cp_declarator *abstract_declarator;
 
   /* Parse the type-specifier-seq.  */
-  cp_parser_type_specifier_seq (parser, &type_specifier_seq);
+  cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
+				&type_specifier_seq);
   if (type_specifier_seq.type == error_mark_node)
     return error_mark_node;
 
@@ -11532,13 +11539,18 @@ cp_parser_type_id (cp_parser* parser)
    type-specifier-seq:
      attributes type-specifier-seq [opt]
 
+   If IS_CONDITION is true, we are at the start of a "condition",
+   e.g., we've just seen "if (".
+
    Sets *TYPE_SPECIFIER_SEQ to represent the sequence.  */
 
 static void
 cp_parser_type_specifier_seq (cp_parser* parser,
+			      bool is_condition,
 			      cp_decl_specifier_seq *type_specifier_seq)
 {
   bool seen_type_specifier = false;
+  cp_parser_flags flags = CP_PARSER_FLAGS_OPTIONAL;
 
   /* Clear the TYPE_SPECIFIER_SEQ.  */
   clear_decl_specs (type_specifier_seq);
@@ -11547,6 +11559,7 @@ cp_parser_type_specifier_seq (cp_parser* parser,
   while (true)
     {
       tree type_specifier;
+      bool is_cv_qualifier;
 
       /* Check for attributes first.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_ATTRIBUTE))
@@ -11559,25 +11572,45 @@ cp_parser_type_specifier_seq (cp_parser* parser,
 
       /* Look for the type-specifier.  */
       type_specifier = cp_parser_type_specifier (parser,
-						 CP_PARSER_FLAGS_OPTIONAL,
+						 flags,
 						 type_specifier_seq,
 						 /*is_declaration=*/false,
 						 NULL,
-						 NULL);
-      /* If the first type-specifier could not be found, this is not a
-	 type-specifier-seq at all.  */
-      if (!seen_type_specifier && !type_specifier)
+						 &is_cv_qualifier);
+      if (!type_specifier)
 	{
-	  cp_parser_error (parser, "expected type-specifier");
-	  type_specifier_seq->type = error_mark_node;
-	  return;
+	  /* If the first type-specifier could not be found, this is not a
+	     type-specifier-seq at all.  */
+	  if (!seen_type_specifier)
+	    {
+	      cp_parser_error (parser, "expected type-specifier");
+	      type_specifier_seq->type = error_mark_node;
+	      return;
+	    }
+	  /* If subsequent type-specifiers could not be found, the
+	     type-specifier-seq is complete.  */
+	  break;
 	}
-      /* If subsequent type-specifiers could not be found, the
-	 type-specifier-seq is complete.  */
-      else if (seen_type_specifier && !type_specifier)
-	break;
 
       seen_type_specifier = true;
+      /* The standard says that a condition can be:
+
+            type-specifier-seq declarator = assignment-expression
+      
+	 However, given:
+
+	   struct S {};
+	   if (int S = ...)
+
+         we should treat the "S" as a declarator, not as a
+         type-specifier.  The standard doesn't say that explicitly for
+         type-specifier-seq, but it does say that for
+         decl-specifier-seq in an ordinary declaration.  Perhaps it
+         would be clearer just to allow a decl-specifier-seq here, and
+         then add a semantic restriction that if any decl-specifiers
+         that are not type-specifiers appear, the program is invalid.  */
+      if (is_condition && !is_cv_qualifier)
+	flags |= CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES; 
     }
 
   return;
@@ -12003,7 +12036,7 @@ cp_parser_parameter_declaration (cp_parser *parser,
       if (!parser->default_arg_ok_p)
 	{
 	  if (!flag_pedantic_errors)
-	    warning ("deprecated use of default argument for parameter of non-function");
+	    warning (0, "deprecated use of default argument for parameter of non-function");
 	  else
 	    {
 	      error ("default arguments are only permitted for function parameters");
@@ -13831,7 +13864,8 @@ cp_parser_exception_declaration (cp_parser* parser)
     = "types may not be defined in exception-declarations";
 
   /* Parse the type-specifier-seq.  */
-  cp_parser_type_specifier_seq (parser, &type_specifiers);
+  cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
+				&type_specifiers);
   /* If it's a `)', then there is no declarator.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN))
     declarator = NULL;

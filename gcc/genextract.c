@@ -1,5 +1,6 @@
 /* Generate code from machine description to extract operands from insn as rtl.
-   Copyright (C) 1987, 1991, 1992, 1993, 1997, 1998, 1999, 2000, 2003, 2004
+   Copyright (C) 1987, 1991, 1992, 1993, 1997, 1998, 1999, 2000, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -475,9 +476,9 @@ from the machine description file `md'.  */\n\n");
       printf ("      break;\n\n");
     }
 
-  /* This should never be reached.  Note that we would also reach this abort
-   if we tried to extract something whose INSN_CODE was a DEFINE_EXPAND or
-   DEFINE_SPLIT, but that is correct.  */
+  /* This should never be reached.  Note that we would also reach here
+     if we tried to extract something whose INSN_CODE was a
+     DEFINE_EXPAND or DEFINE_SPLIT, but that is correct.  */
   printf ("    default:\n      gcc_unreachable ();\n");
 
   printf ("    }\n}\n");

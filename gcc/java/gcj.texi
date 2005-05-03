@@ -949,16 +949,26 @@ be retrieved at runtime using the @code{java.lang.System.getProperty}
 method.
 
 @item -ms=@var{number}
-This sets the initial heap size.
+Equivalent to @code{-Xms}.
 
 @item -mx=@var{number}
-This sets the maximum heap size.
+Equivalent to @code{-Xmx}.
 
 @item -X
 @itemx -X@var{argument}
 Supplying @code{-X} by itself will cause @code{gij} to list all the
-supported @code{-X} options.  Currently there are none.  Unrecognized
-@code{-X} options are ignored, for compatibility with other runtimes.
+supported @code{-X} options.  Currently these options are supported:
+
+@table @gcctabopt
+@item -Xms@var{size}
+Set the initial heap size.
+
+@item -Xmx@var{size}
+Set the maximum heap size.
+@end table
+
+Unrecognized @code{-X} options are ignored, for compatibility with
+other runtimes.
 
 @item -jar
 This indicates that the name passed to @code{gij} should be interpreted
@@ -971,6 +981,9 @@ Print help, then exit.
 @item --showversion
 Print version number and continue.
 
+@item --fullversion
+Print detailed version information, then exit.
+
 @item --version
 Print version number, then exit.
 
@@ -978,6 +991,12 @@ Print version number, then exit.
 @itemx -verbose:class
 Each time a class is initialized, print a short message on standard error.
 @end table
+
+@code{gij} also recognizes and ignores the following options, for
+compatibility with existing application launch scripts:
+@code{-client}, @code{-server}, @code{-hotspot}, @code{-jrockit},
+@code{-agentlib}, @code{-agentpath}, @code{-debug}, @code{-d32},
+@code{-d64}, @code{-javaagent} and @code{-noclassgc}.
 
 @c man end
 
@@ -990,9 +1009,9 @@ Each time a class is initialized, print a short message on standard error.
 @c man begin SYNOPSIS gcj-dbtool
 gcj-dbtool @option{OPTION} @var{DBFILE} [@option{MORE}] @dots{}
 
-gcj-dbtool [@option{-n}] [@option{-a}] [@option{-f}]
-  [@option{-t}] [@option{-l}] [@option{-p}]
-  [@option{-v}] [@option{--version}] [@option{--help}]
+gcj-dbtool [@option{-0}] [@option{-}] [@option{-n}] [@option{-a}] [@option{-f}]
+  [@option{-t}] [@option{-l}] [@option{-p} [@var{LIBDIR}]]
+  [@option{-v}] [@option{-m}] [@option{--version}] [@option{--help}]
 
 @c man end
 @c man begin SEEALSO gij
@@ -1037,6 +1056,18 @@ corresponding shared library.  The @option{-a} option will verify
 that @var{LIB} exists before adding it to the database; @option{-f}
 skips this check.
 
+@item [@option{-}][@option{-0}] -m @var{DBFILE} @var{DBFILE},[@var{DBFILE}]
+Merge a number of databases.  The output database overwrites any
+existing database.  To add databases into an existing database,
+include the destination in the list of sources.
+
+If @option{-} or @option{-0} are used, the list of files to read is
+taken from standard input instead of the command line.  For
+@option{-0}, Input filenames are terminated by a null character
+instead of by whitespace.  Useful when arguments might contain white
+space.  The GNU find -print0 option produces input suitable for this
+mode.
+
 @item -t @var{DBFILE}
 Test a database.
 
@@ -1045,7 +1076,9 @@ List the contents of a database.
 
 @item -p
 Print the name of the default database.  If there is no default
-database, this prints a blank line.
+database, this prints a blank line.  If @var{LIBDIR} is specified, use
+it instead of the default library directory component of the database
+name.
 
 @item --help
 Print a help message, then exit.
@@ -1248,6 +1281,7 @@ alternative to the standard JNI (Java Native Interface).
 * Objects and Classes::         C++ and Java classes.
 * Class Initialization::        How objects are initialized.
 * Object allocation::           How to create Java objects in C++.
+* Memory allocation::           How to allocate and free memory.
 * Arrays::                      Dealing with Java arrays in C++.
 * Methods::                     Java methods in C++.
 * Strings::                     Information about Java Strings.
@@ -1512,7 +1546,7 @@ management, but this is invisible to the application, and the
 reference to the object points to the dispatch table pointer.)
 
 The fields are laid out in the same order, alignment, and size as in
-C++.  Specifically, 8-bite and 16-bit native types (@code{byte},
+C++.  Specifically, 8-bit and 16-bit native types (@code{byte},
 @code{short}, @code{char}, and @code{boolean}) are @emph{not} widened
 to 32 bits.  Note that the Java VM does extend 8-bit and 16-bit types
 to 32 bits when on the VM stack or temporary registers.
@@ -1525,8 +1559,8 @@ way.  For example, given the following Java class:
 public class Int
 @{
   public int i;
-  public Integer (int i) @{ this.i = i; @}
-  public static zero = new Integer(0);
+  public Int (int i) @{ this.i = i; @}
+  public static Int zero = new Int(0);
 @}
 @end example
 
@@ -1596,7 +1630,7 @@ it is safe to leave it out).
 
 Accessing a static field also requires the class of the
 field to be initialized.  The Java compiler will generate code
-to call @code{Jv_InitClass} before getting or setting the field.
+to call @code{JvInitClass} before getting or setting the field.
 However, the C++ compiler will not generate this extra code,
 so it is your responsibility to make sure the class is
 initialized before you access a static field from C++.
@@ -1627,6 +1661,27 @@ using standard C++ overload resolution rules.
 java::util::Hashtable *ht = new java::util::Hashtable(120);
 @end example
 
+
+@node Memory allocation
+@section Memory allocation
+
+When allocating memory in @acronym{CNI} methods it is best to handle
+out-of-memory conditions by throwing a Java exception.  These
+functions are provided for that purpose:
+
+@deftypefun void* JvMalloc (jsize @var{size})
+Calls malloc.  Throws @code{java.lang.OutOfMemoryError} if allocation
+fails.
+@end deftypefun
+
+@deftypefun void* JvRealloc (void* @var{ptr}, jsize @var{size})
+Calls realloc.  Throws @code{java.lang.OutOfMemoryError} if
+reallocation fails.
+@end deftypefun
+
+@deftypefun void JvFree (void* @var{ptr})
+Calls free.
+@end deftypefun
 
 @node Arrays
 @section Arrays
@@ -2478,32 +2533,18 @@ try to load a class @code{java.net.[impl.prefix]DatagramSocketImpl} instead of
 the normal @code{java.net.PlainDatagramSocketImpl}.
 
 @item gnu.gcj.progname
-The name that was used to invoked the program.
-
-@item gnu.gcj.runtime.NameFinder.demangle
-Whether names in a stack trace should be demangled.  Defaults to @code{true}.
-
-@item gnu.gcj.runtime.NameFinder.sanitize
-Whether calls to initialize exceptions and starting the runtime system
-should be removed from the stack trace.  Only done when names are
-demangled.  Defaults to @code{true}.
-
-@item gnu.gcj.runtime.NameFinder.remove_unknown
-Whether calls to unknown functions (class and method names are unknown)
-should be removed from the stack trace.  Only done when the stack is
-sanitized.  Ignored if this means no stack trace information would be
-available anymore.  Defaults to @code{true}.
-
-@item gnu.gcj.runtime.NameFinder.remove_interpreter
-Whether runtime interpreter calls (methods in the @code{_Jv_InterpMethod} class
-and functions starting with @samp{ffi_}) should be removed from the stack
-trace.  Only done when the stack is sanitized.  Defaults to @code{true}.
-
+The class or binary name that was used to invoke the program. This will be
+the name of the "main" class in the case where the @code{gij} front end is
+used, or the program binary name in the case where an application is compiled 
+to a native binary.
 
 @item gnu.gcj.runtime.NameFinder.use_addr2line
-Whether an external process (@command{addr2line} or @command{addr2name.awk})
-should be used as fallback to convert the addresses to function names when
-the runtime is unable to do it through @code{dladdr}.
+Whether an external process, @command{addr2line}, should be used to determine
+line number information when tracing the stack. Setting this to @code{false} 
+may suppress line numbers when printing stack traces and when using
+the java.util.logging infrastructure. However, performance may improve
+significantly for applications that print stack traces or make logging calls
+frequently.
 
 @item gnu.gcj.runtime.VMClassLoader.library_control
 This controls how shared libraries are automatically loaded by the
@@ -2512,6 +2553,15 @@ search is done for each requested class.  If this property is set to
 @samp{cache} (the default), then any failed lookups are cached and not
 tried again.  If this property is set to @samp{never}, then lookups
 are never done.  For more information, @xref{Extensions}.
+
+@item gnu.gcj.runtime.endorsed.dirs
+This is like the standard @code{java.endorsed.dirs}, property, but
+specifies some extra directories which are searched after the standard
+endorsed directories.  This is primarily useful for telling
+@code{libgcj} about additional libraries which are ordinarily
+incorporated into the JDK, and which should be loaded by the bootstrap
+class loader, but which are not yet part of @code{libgcj} itself for
+some reason.
 
 @item gnu.gcj.jit.compiler
 @c FIXME we should probably have a whole node on this...

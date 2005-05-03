@@ -158,8 +158,10 @@ extern const unsigned char tree_code_length[];
 
 extern const char *const tree_code_name[];
 
-/* A garbage collected vector of trees.  */
-DEF_VEC_GC_P(tree);
+/* A vectors of trees.  */
+DEF_VEC_P(tree);
+DEF_VEC_ALLOC_P(tree,gc);
+DEF_VEC_ALLOC_P(tree,heap);
 
 
 /* Classify which part of the compiler has defined a given builtin function.
@@ -441,7 +443,7 @@ struct tree_common GTY(())
 #define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
-   is accessed incorrectly. The macros abort with a fatal error.  */
+   is accessed incorrectly. The macros die with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 #define TREE_CHECK(T, CODE) __extension__				\
@@ -720,17 +722,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	     == TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
     (EXP) = TREE_OPERAND (EXP, 0)
 
-/* Like STRIP_NOPS, but don't alter the TREE_TYPE main variant either.  */
-
-#define STRIP_MAIN_TYPE_NOPS(EXP)					\
-  while ((TREE_CODE (EXP) == NOP_EXPR					\
-	  || TREE_CODE (EXP) == CONVERT_EXPR				\
-	  || TREE_CODE (EXP) == NON_LVALUE_EXPR)			\
-	 && TREE_OPERAND (EXP, 0) != error_mark_node			\
-	 && (TYPE_MAIN_VARIANT (TREE_TYPE (EXP))			\
-	     == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (EXP, 0)))))	\
-    (EXP) = TREE_OPERAND (EXP, 0)
-
 /* Like STRIP_NOPS, but don't alter the TREE_TYPE either.  */
 
 #define STRIP_TYPE_NOPS(EXP) \
@@ -916,6 +907,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
    This is used in _DECL nodes and _REF nodes.
+   On a FUNCTION_DECL node, this means the function does not
+   return normally.  This is the same effect as setting
+   the attribute noreturn on the function in C.
 
    In a ..._TYPE node, means this type is volatile-qualified.
    But use TYPE_VOLATILE instead of this macro when the node is a type,
@@ -1294,6 +1288,10 @@ struct tree_vec GTY(())
 #define OBJ_TYPE_REF_OBJECT(NODE) TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 1)
 #define OBJ_TYPE_REF_TOKEN(NODE)  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 2)
 
+/* ASSERT_EXPR accessors.  */
+#define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
+#define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
+
 struct tree_exp GTY(())
 {
   struct tree_common common;
@@ -1340,13 +1338,33 @@ struct tree_exp GTY(())
 #define SSA_NAME_VALUE(N) \
    SSA_NAME_CHECK (N)->ssa_name.value_handle
 
+/* Range information for SSA_NAMEs.  */
+#define SSA_NAME_VALUE_RANGE(N) \
+    SSA_NAME_CHECK (N)->ssa_name.value_range
+
 /* Auxiliary pass-specific data.  */
 #define SSA_NAME_AUX(N) \
    SSA_NAME_CHECK (N)->ssa_name.aux
 
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
+struct value_range_def;
 #endif
+
+
+
+/* Immediate use linking structure.  This structure is used for maintaining
+   a doubly linked list of uses of an SSA_NAME.  */
+typedef struct ssa_imm_use_d GTY(())
+{
+  struct ssa_imm_use_d* GTY((skip(""))) prev;
+  struct ssa_imm_use_d* GTY((skip(""))) next;
+  tree GTY((skip(""))) stmt;
+  tree *GTY((skip(""))) use;
+} ssa_imm_use_t;
+
+/* Return the immediate_use information for an SSA_NAME. */
+#define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
 
 struct tree_ssa_name GTY(())
 {
@@ -1368,11 +1386,24 @@ struct tree_ssa_name GTY(())
      as well.  */
   tree value_handle;
 
+  /* Value range information.  */
+  struct value_range_def *value_range;
+
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;
+
+  /* Immediate uses list for this SSA_NAME.  */
+  struct ssa_imm_use_d imm_uses;
 };
 
 /* In a PHI_NODE node.  */
+
+/* These 2 macros should be considered off limits for use by developers.  If 
+   you wish to access the use or def fields of a PHI_NODE in the SSA 
+   optimizers, use the accessor macros found in tree-ssa-operands.h.  
+   These two macros are to be used only by those accessor macros, and other 
+   select places where we *absolutely* must take the address of the tree.  */
+
 #define PHI_RESULT_TREE(NODE)		PHI_NODE_CHECK (NODE)->phi.result
 #define PHI_ARG_DEF_TREE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).def
 
@@ -1381,21 +1412,19 @@ struct tree_ssa_name GTY(())
    the link to the next PHI is in PHI_CHAIN.  */
 #define PHI_CHAIN(NODE)		TREE_CHAIN (PHI_NODE_CHECK (NODE))
 
-/* Nonzero if the PHI node was rewritten by a previous pass through the
-   SSA renamer.  */
-#define PHI_REWRITTEN(NODE)		PHI_NODE_CHECK (NODE)->phi.rewritten
 #define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
 #define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
-#define PHI_DF(NODE)			PHI_NODE_CHECK (NODE)->phi.df
-
-struct edge_def;
+#define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
 
 struct phi_arg_d GTY(())
 {
+  /* imm_use MUST be the first element in struct because we do some
+     pointer arithmetic with it.  See phi_arg_index_from_use.  */
+  struct ssa_imm_use_d imm_use;
   tree def;
   bool nonzero;
 };
@@ -1407,16 +1436,11 @@ struct tree_phi_node GTY(())
   int num_args;
   int capacity;
 
-  /* Nonzero if the PHI node was rewritten by a previous pass through the
-     SSA renamer.  */
-  int rewritten;
-
   /* Basic block to that the phi node belongs.  */
   struct basic_block_def *bb;
 
-  /* Dataflow information.  */
-  struct dataflow_d *df;
-
+  /* Arguments of the PHI node.  These are maintained in the same
+     order as predecessor edge vector BB->PREDS.  */
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
 };
 
@@ -1836,13 +1860,13 @@ struct tree_binfo GTY (())
   tree vtable;
   tree virtuals;
   tree vptr_field;
-  VEC(tree) *base_accesses;
+  VEC(tree,gc) *base_accesses;
   tree inheritance;
 
   tree vtt_subvtt;
   tree vtt_vptr;
 
-  VEC(tree) base_binfos;
+  VEC(tree,none) base_binfos;
 };
 
 
@@ -2595,6 +2619,8 @@ enum tree_index
   TI_PID_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
+  TI_VA_LIST_GPR_COUNTER_FIELD,
+  TI_VA_LIST_FPR_COUNTER_FIELD,
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
 
@@ -2668,6 +2694,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define pid_type_node                   global_trees[TI_PID_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
+#define va_list_gpr_counter_field	global_trees[TI_VA_LIST_GPR_COUNTER_FIELD]
+#define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
 
@@ -2816,6 +2844,7 @@ extern void init_ssanames (void);
 extern void fini_ssanames (void);
 extern tree make_ssa_name (tree, tree);
 extern tree duplicate_ssa_name (tree, tree);
+extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern void release_ssa_name (tree);
 extern void release_defs (tree);
 extern void replace_ssa_name_symbol (tree, tree);
@@ -2823,13 +2852,6 @@ extern void replace_ssa_name_symbol (tree, tree);
 #ifdef GATHER_STATISTICS
 extern void ssanames_print_statistics (void);
 #endif
-
-extern void mark_for_rewrite (tree);
-extern void unmark_all_for_rewrite (void);
-extern bool marked_for_rewrite_p (tree);
-extern bool any_marked_for_rewrite_p (void);
-extern struct bitmap_head_def *marked_ssa_names (void);
-
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
@@ -2896,8 +2918,9 @@ extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+extern tree build_fn_decl (const char *, tree); 
 #define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
-extern tree build_block (tree, tree, tree, tree, tree);
+extern tree build_block (tree, tree, tree, tree);
 #ifndef USE_MAPPED_LOCATION
 extern void annotate_with_file_line (tree, const char *, int);
 extern void annotate_with_locus (tree, location_t);
@@ -3475,8 +3498,6 @@ extern GTY(()) const char * current_function_func_begin_label;
 extern unsigned crc32_string (unsigned, const char *);
 extern void clean_symbol_name (char *);
 extern tree get_file_function_name_long (const char *);
-extern tree get_set_constructor_bits (tree, char *, int);
-extern tree get_set_constructor_bytes (tree, unsigned char *, int);
 extern tree get_callee_fndecl (tree);
 extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
@@ -3510,6 +3531,9 @@ extern void using_eh_for_cleanups (void);
    subexpressions are not changed.  */
 
 extern tree fold (tree);
+extern tree fold_unary (enum tree_code, tree, tree);
+extern tree fold_binary (enum tree_code, tree, tree, tree);
+extern tree fold_ternary (enum tree_code, tree, tree, tree, tree);
 extern tree fold_build1 (enum tree_code, tree, tree);
 extern tree fold_build2 (enum tree_code, tree, tree, tree);
 extern tree fold_build3 (enum tree_code, tree, tree, tree, tree);
@@ -3911,6 +3935,7 @@ enum tree_dump_index
 #define TDF_TREE	(1 << 9)	/* is a tree dump */
 #define TDF_RTL		(1 << 10)	/* is a RTL dump */
 #define TDF_IPA		(1 << 11)	/* is an IPA dump */
+#define TDF_STMTADDR	(1 << 12)	/* Address of stmt.  */
 
 typedef struct dump_info *dump_info_p;
 

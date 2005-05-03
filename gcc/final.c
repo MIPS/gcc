@@ -136,7 +136,7 @@ static const char *last_filename;
 extern int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
-   This means that inconsistencies are the user's fault, so don't abort.
+   This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
 rtx this_is_asm_operands;
 
@@ -788,7 +788,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
       label_align = xrealloc (label_align,
 			      n_labels * sizeof (struct label_alignment));
 
-      /* Range of labels grows monotonically in the function.  Abort here
+      /* Range of labels grows monotonically in the function.  Failing here
          means that the initialization of array got lost.  */
       gcc_assert (n_old_labels <= n_labels);
 
@@ -953,8 +953,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      if (min_align > LABEL_TO_ALIGNMENT (lab))
 		min_align = LABEL_TO_ALIGNMENT (lab);
 	    }
-	  XEXP (pat, 2) = gen_rtx_LABEL_REF (VOIDmode, min_lab);
-	  XEXP (pat, 3) = gen_rtx_LABEL_REF (VOIDmode, max_lab);
+	  XEXP (pat, 2) = gen_rtx_LABEL_REF (Pmode, min_lab);
+	  XEXP (pat, 3) = gen_rtx_LABEL_REF (Pmode, max_lab);
 	  insn_shuid = INSN_SHUID (insn);
 	  rel = INSN_SHUID (XEXP (XEXP (pat, 0), 0));
 	  memset (&flags, 0, sizeof (flags));
@@ -1426,7 +1426,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
       assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
     }
 
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
 
 #if defined(ASM_OUTPUT_REG_PUSH)
   if (sval && svrtx != NULL_RTX && REG_P (svrtx))
@@ -1491,18 +1491,10 @@ final_end_function (void)
 }
 
 /* Output assembler code for some insns: all or part of a function.
-   For description of args, see `final_start_function', above.
-
-   PRESCAN is 1 if we are not really outputting,
-     just scanning as if we were outputting.
-   Prescanning deletes and rearranges insns just like ordinary output.
-   PRESCAN is -2 if we are outputting after having prescanned.
-   In this case, don't try to delete or rearrange insns
-   because that has already been done.
-   Prescanning is done only on certain machines.  */
+   For description of args, see `final_start_function', above.  */
 
 void
-final (rtx first, FILE *file, int optimize, int prescan)
+final (rtx first, FILE *file, int optimize)
 {
   rtx insn;
   int max_uid = 0;
@@ -1574,7 +1566,7 @@ final (rtx first, FILE *file, int optimize, int prescan)
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
 #endif /* HAVE_ATTR_length */
 
-      insn = final_scan_insn (insn, file, optimize, prescan, 0, &seen);
+      insn = final_scan_insn (insn, file, optimize, 0, &seen);
     }
 }
 
@@ -1627,35 +1619,6 @@ output_alternate_entry_point (FILE *file, rtx insn)
     }
 }
 
-/* Return boolean indicating if there is a NOTE_INSN_UNLIKELY_EXECUTED_CODE
-   note in the instruction chain (going forward) between the current
-   instruction, and the next 'executable' instruction.  */
-
-bool
-scan_ahead_for_unlikely_executed_note (rtx insn)
-{
-  rtx temp;
-  int bb_note_count = 0;
-
-  for (temp = insn; temp; temp = NEXT_INSN (temp))
-    {
-      if (NOTE_P (temp)
-	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
-	return true;
-      if (NOTE_P (temp)
-	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_BASIC_BLOCK)
-	{
-	  bb_note_count++;
-	  if (bb_note_count > 1)
-	    return false;
-	}
-      if (INSN_P (temp))
-	return false;
-    }
-  
-  return false;
-}
-
 /* The final scan for one insn, INSN.
    Args are same as in `final', except that INSN
    is the insn being scanned.
@@ -1672,8 +1635,7 @@ scan_ahead_for_unlikely_executed_note (rtx insn)
 
 rtx
 final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
-		 int prescan, int nopeepholes ATTRIBUTE_UNUSED,
-		 int *seen)
+		 int nopeepholes ATTRIBUTE_UNUSED, int *seen)
 {
 #ifdef HAVE_cc0
   rtx set;
@@ -1690,9 +1652,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
   switch (GET_CODE (insn))
     {
     case NOTE:
-      if (prescan > 0)
-	break;
-
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
@@ -1703,30 +1662,27 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_EXPECTED_VALUE:
 	  break;
 
-	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
+	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	  
 	  /* The presence of this note indicates that this basic block
 	     belongs in the "cold" section of the .o file.  If we are
 	     not already writing to the cold section we need to change
 	     to it.  */
-	  
-	  unlikely_text_section ();
+
+	  if (last_text_section == in_text)
+	    {
+	      (*debug_hooks->switch_text_section) ();
+	      unlikely_text_section ();
+	    }
+	  else
+	    {
+	      (*debug_hooks->switch_text_section) ();
+	      text_section ();
+	    }
 	  break;
 	  
 	case NOTE_INSN_BASIC_BLOCK:
 	  
-	  /* If we are performing the optimization that partitions
-	     basic blocks into hot & cold sections of the .o file,
-	     then at the start of each new basic block, before
-	     beginning to write code for the basic block, we need to
-	     check to see whether the basic block belongs in the hot
-	     or cold section of the .o file, and change the section we
-	     are writing to appropriately.  */
-	  
-	  if (flag_reorder_blocks_and_partition
-	      && !scan_ahead_for_unlikely_executed_note (insn))
-	    function_section (current_function_decl);
-
 #ifdef TARGET_UNWIND_INFO
 	  targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
@@ -1904,30 +1860,9 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    }
 	}
 #endif
-      if (prescan > 0)
-	break;
 
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
-
-      /* If we are doing the optimization that partitions hot & cold
-	 basic blocks into separate sections of the .o file, we need
-	 to ensure the jump table ends up in the correct section...  */
-      
-      if (flag_reorder_blocks_and_partition
-	  && targetm.have_named_sections)
-	{
-	  rtx tmp_table, tmp_label;
-	  if (LABEL_P (insn)
-	      && tablejump_p (NEXT_INSN (insn), &tmp_label, &tmp_table))
-	    {
-	      /* Do nothing; Do NOT change the current section.  */
-	    }
-	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
-	    unlikely_text_section ();
-	  else if (in_unlikely_text_section ())
-	    function_section (current_function_decl);
-	}
 
       if (app_on)
 	{
@@ -1966,7 +1901,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		  ASM_OUTPUT_ALIGN (file, log_align);
 		}
 	      else
-		function_section (current_function_decl);
+		current_function_section (current_function_decl);
 
 #ifdef ASM_OUTPUT_CASE_LABEL
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
@@ -2022,13 +1957,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    int vlen, idx;
 #endif
 
-	    if (prescan > 0)
-	      break;
-
 	    if (! JUMP_TABLES_IN_TEXT_SECTION)
 	      targetm.asm_out.function_rodata_section (current_function_decl);
 	    else
-	      function_section (current_function_decl);
+	      current_function_section (current_function_decl);
 
 	    if (app_on)
 	      {
@@ -2086,7 +2018,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #endif
 #endif
 
-	    function_section (current_function_decl);
+	    current_function_section (current_function_decl);
 
 	    break;
 	  }
@@ -2103,8 +2035,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
-	    if (prescan > 0)
-	      break;
 
 	    if (string[0])
 	      {
@@ -2127,12 +2057,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
-	    if (prescan > 0)
-	      break;
 
 	    /* Get out the operand values.  */
 	    string = decode_asm_operands (body, ops, NULL, NULL, NULL);
-	    /* Inhibit aborts on what would otherwise be compiler bugs.  */
+	    /* Inhibit dieing on what would otherwise be compiler bugs.  */
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
 
@@ -2155,7 +2083,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    break;
 	  }
 
-	if (prescan <= 0 && app_on)
+	if (app_on)
 	  {
 	    fputs (ASM_APP_OFF, file);
 	    app_on = 0;
@@ -2166,8 +2094,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    /* A delayed-branch sequence */
 	    int i;
 
-	    if (prescan > 0)
-	      break;
 	    final_sequence = body;
 
 	    /* Record the delay slots' frame information before the branch.
@@ -2183,7 +2109,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	       thought unnecessary.  If that happens, cancel this sequence
 	       and cause that insn to be restored.  */
 
-	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, prescan, 1, seen);
+	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, 1, seen);
 	    if (next != XVECEXP (body, 0, 1))
 	      {
 		final_sequence = 0;
@@ -2197,7 +2123,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		/* We loop in case any instruction in a delay slot gets
 		   split.  */
 		do
-		  insn = final_scan_insn (insn, file, 0, prescan, 1, seen);
+		  insn = final_scan_insn (insn, file, 0, 1, seen);
 		while (insn != next);
 	      }
 #ifdef DBR_OUTPUT_SEQEND
@@ -2280,10 +2206,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    && SET_DEST (body) == pc_rtx
 	    && GET_CODE (SET_SRC (body)) == IF_THEN_ELSE
 	    && COMPARISON_P (XEXP (SET_SRC (body), 0))
-	    && XEXP (XEXP (SET_SRC (body), 0), 0) == cc0_rtx
-	    /* This is done during prescan; it is not done again
-	       in final scan when prescan has been done.  */
-	    && prescan >= 0)
+	    && XEXP (XEXP (SET_SRC (body), 0), 0) == cc0_rtx)
 	  {
 	    /* This function may alter the contents of its argument
 	       and clear some of the cc_status.flags bits.
@@ -2387,10 +2310,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
-		  final_scan_insn (note, file, optimize, prescan, nopeepholes, seen);
+		  final_scan_insn (note, file, optimize, nopeepholes, seen);
 
-		/* In case this is prescan, put the notes
-		   in proper position for later rescan.  */
+		/* Put the notes in the proper position for a later
+		   rescan.  For example, the SH target can do this
+		   when generating a far jump in a delayed branch
+		   sequence.  */
 		note = NEXT_INSN (insn);
 		PREV_INSN (note) = prev;
 		NEXT_INSN (prev) = note;
@@ -2502,9 +2427,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    return new;
 	  }
-
-	if (prescan > 0)
-	  break;
 
 #ifdef TARGET_UNWIND_INFO
 	/* ??? This will put the directives in the wrong place if
@@ -2625,11 +2547,10 @@ alter_subreg (rtx *xp)
 
       if (new != 0)
 	*xp = new;
-      else
+      else if (REG_P (y))
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
 	  unsigned int regno = subreg_regno (x);
-	  gcc_assert (REG_P (y));
 	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, SUBREG_BYTE (x));
 	}
     }
@@ -3214,8 +3135,7 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
   if (x && GET_CODE (x) == SUBREG)
     x = alter_subreg (&x);
 
-  /* If X is a pseudo-register, abort now rather than writing trash to the
-     assembler file.  */
+  /* X must not be a pseudo reg.  */
   gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   PRINT_OPERAND (asm_out_file, x, code);

@@ -2724,7 +2724,7 @@ add_presence_absence (unit_set_el_t dest_list,
 			}
 		      else
 			warning
-			  ("unit `%s' excludes and requires presence of `%s'",
+			  (0, "unit `%s' excludes and requires presence of `%s'",
 			   dst->unit_decl->name, unit->name);
 		    }
 		}
@@ -2744,7 +2744,7 @@ add_presence_absence (unit_set_el_t dest_list,
 		      }
 		    else
 		      warning
-			("unit `%s' requires absence and presence of `%s'",
+			(0, "unit `%s' requires absence and presence of `%s'",
 			 dst->unit_decl->name, unit->name);
 		  }
 	    if (no_error_flag)
@@ -2826,7 +2826,7 @@ process_decls (void)
 		error ("repeated declaration of automaton `%s'",
 		       DECL_AUTOMATON (decl)->name);
 	      else
-		warning ("repeated declaration of automaton `%s'",
+		warning (0, "repeated declaration of automaton `%s'",
 			 DECL_AUTOMATON (decl)->name);
 	    }
 	}
@@ -2946,7 +2946,7 @@ process_decls (void)
 			   DECL_BYPASS (decl)->in_insn_name);
 		      else
 			warning
-			  ("the same bypass `%s - %s' is already defined",
+			  (0, "the same bypass `%s - %s' is already defined",
 			   DECL_BYPASS (decl)->out_insn_name,
 			   DECL_BYPASS (decl)->in_insn_name);
 		    }
@@ -3056,7 +3056,7 @@ check_automaton_usage (void)
 	  if (!w_flag)
 	    error ("automaton `%s' is not used", DECL_AUTOMATON (decl)->name);
 	  else
-	    warning ("automaton `%s' is not used",
+	    warning (0, "automaton `%s' is not used",
 		     DECL_AUTOMATON (decl)->name);
 	}
     }
@@ -3170,14 +3170,14 @@ check_usage (void)
 	  if (!w_flag)
 	    error ("unit `%s' is not used", DECL_UNIT (decl)->name);
 	  else
-	    warning ("unit `%s' is not used", DECL_UNIT (decl)->name);
+	    warning (0, "unit `%s' is not used", DECL_UNIT (decl)->name);
 	}
       else if (decl->mode == dm_reserv && !DECL_RESERV (decl)->reserv_is_used)
 	{
 	  if (!w_flag)
 	    error ("reservation `%s' is not used", DECL_RESERV (decl)->name);
 	  else
-	    warning ("reservation `%s' is not used", DECL_RESERV (decl)->name);
+	    warning (0, "reservation `%s' is not used", DECL_RESERV (decl)->name);
 	}
     }
 }
@@ -6120,15 +6120,19 @@ copy_equiv_class (vla_ptr_t *to, const vla_ptr_t *from)
 static int
 first_cycle_unit_presence (state_t state, int unit_num)
 {
-  int presence_p;
+  alt_state_t alt_state;
 
   if (state->component_states == NULL)
-    presence_p = test_unit_reserv (state->reservs, 0, unit_num);
+    return test_unit_reserv (state->reservs, 0, unit_num);
   else
-    presence_p
-      = test_unit_reserv (state->component_states->state->reservs,
-			  0, unit_num);
-  return presence_p;
+    {
+      for (alt_state = state->component_states;
+	   alt_state != NULL;
+	   alt_state = alt_state->next_sorted_alt_state)
+	if (test_unit_reserv (alt_state->state->reservs, 0, unit_num))
+	  return true;
+    }
+  return false;
 }
 
 /* The function returns nonzero value if STATE is not equivalent to
@@ -9814,7 +9818,7 @@ check_automata_insn_issues (void)
 			   reserv_ainsn->insn_reserv_decl->name);
 		  else
 		    warning
-		      ("Automaton `%s': Insn `%s' will never be issued",
+		      (0, "Automaton `%s': Insn `%s' will never be issued",
 		       automaton->corresponding_automaton_decl->name,
 		       reserv_ainsn->insn_reserv_decl->name);
 		}
@@ -9824,7 +9828,7 @@ check_automata_insn_issues (void)
 		    error ("Insn `%s' will never be issued",
 			   reserv_ainsn->insn_reserv_decl->name);
 		  else
-		    warning ("Insn `%s' will never be issued",
+		    warning (0, "Insn `%s' will never be issued",
 			     reserv_ainsn->insn_reserv_decl->name);
 		}
 	  }

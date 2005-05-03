@@ -138,6 +138,15 @@ FC="$GFORTRAN"
 AC_PROG_FC(gfortran)
 FCFLAGS="$FCFLAGS -Wall -fno-repack-arrays -fno-underscoring"
 
+# extra LD Flags which are required for targets
+case "${host}" in
+  *-darwin*)
+    # Darwin needs -single_module when linking libgfortran
+    extra_ldflags_libgfortran=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libgfortran)
+
 AC_SYS_LARGEFILE
 AC_FUNC_MMAP
 AC_TYPE_OFF_T
@@ -157,7 +166,7 @@ AC_CHECK_MEMBERS([struct stat.st_rdev])
 AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 
 # Check for library functions.
-AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf)
+AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time)
 

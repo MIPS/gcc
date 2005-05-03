@@ -1,5 +1,5 @@
 /* Darwin support needed only by C/C++ frontends.
-   Copyright (C) 2001, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Pragmas.  */
 
-#define BAD(msgid) do { warning (msgid); return; } while (0)
+#define BAD(msgid) do { warning (0, msgid); return; } while (0)
 
 static bool using_frameworks = false;
 
@@ -111,7 +111,7 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
     BAD ("malformed '#pragma options', ignoring");
 
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of '#pragma options'");
+    warning (0, "junk at end of '#pragma options'");
 
   arg = IDENTIFIER_POINTER (t);
   if (!strcmp (arg, "mac68k"))
@@ -121,7 +121,7 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
   else if (!strcmp (arg, "reset"))
     pop_field_alignment ();
   else
-    warning ("malformed '#pragma options align={mac68k|power|reset}', ignoring");
+    warning (0, "malformed '#pragma options align={mac68k|power|reset}', ignoring");
 }
 
 /* #pragma unused ([var {, var}*]) */
@@ -154,7 +154,7 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
     BAD ("missing ')' after '#pragma unused', ignoring");
 
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of '#pragma unused'");
+    warning (0, "junk at end of '#pragma unused'");
 }
 
 static struct {
@@ -270,6 +270,26 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
   strncpy (&frname[frname_len], ".framework/", strlen (".framework/"));
   frname_len += strlen (".framework/");
 
+  if (fast_dir == 0)
+    {
+      frname[frname_len-1] = 0;
+      if (stat (frname, &st) == 0)
+	{
+	  /* As soon as we find the first instance of the framework,
+	     we stop and never use any later instance of that
+	     framework.  */
+	  add_framework (fname, fname_len, dir);
+	}
+      else
+	{
+	  /* If we can't find the parent directory, no point looking
+	     further.  */
+	  free (frname);
+	  return 0;
+	}
+      frname[frname_len-1] = '/';
+    }
+
   /* Append framework_header_dirs and header file name */
   for (i = 0; framework_header_dirs[i].dirName; i++)
     {
@@ -280,11 +300,7 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
 	      &fname[fname_len]);
 
       if (stat (frname, &st) == 0)
-	{
-	  if (fast_dir == 0)
-	    add_framework (fname, fname_len, dir);
-	  return frname;
-	}
+	return frname;
     }
 
   free (frname);
@@ -364,7 +380,7 @@ find_subframework_file (const char *fname, const char *pname)
 	  if (fast_dir != &subframe_dir)
 	    {
 	      if (fast_dir)
-		warning ("subframework include %s conflicts with framework include",
+		warning (0, "subframework include %s conflicts with framework include",
 			 fname);
 	      else
 		add_framework (fname, fname_len, &subframe_dir);

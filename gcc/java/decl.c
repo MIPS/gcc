@@ -104,6 +104,9 @@ static int uniq;
 
 static GTY(()) tree pending_local_decls;
 
+/* The decl for "_Jv_ResolvePoolEntry".  */
+tree soft_resolvepoolentry_node;
+
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
 int binding_depth = 0;
 int is_class_level = 0;
@@ -999,8 +1002,7 @@ java_init_decl_processing (void)
 
   endlink = end_params_node = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
 
-  t = tree_cons (NULL_TREE, class_ptr_type,
-		 tree_cons (NULL_TREE, int_type_node, endlink));
+  t = tree_cons (NULL_TREE, class_ptr_type, endlink);
   alloc_object_node = builtin_function ("_Jv_AllocObject",
 					build_function_type (ptr_type_node, t),
 					0, NOT_BUILT_IN, NULL, NULL_TREE);
@@ -1016,33 +1018,41 @@ java_init_decl_processing (void)
 					  build_function_type (void_type_node,
 							       t),
 					  0, NOT_BUILT_IN, NULL, NULL_TREE);
-
+  t = tree_cons (NULL_TREE, class_ptr_type,
+		 tree_cons (NULL_TREE, int_type_node, endlink));
+  soft_resolvepoolentry_node 
+    = builtin_function ("_Jv_ResolvePoolEntry", 
+			build_function_type (ptr_type_node, t),
+			0,NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_PURE (soft_resolvepoolentry_node) = 1;
   throw_node = builtin_function ("_Jv_Throw",
-				 build_function_type (ptr_type_node, t),
+				 build_function_type (void_type_node, t),
 				 0, NOT_BUILT_IN, NULL, NULL_TREE);
   /* Mark throw_nodes as `noreturn' functions with side effects.  */
   TREE_THIS_VOLATILE (throw_node) = 1;
   TREE_SIDE_EFFECTS (throw_node) = 1;
 
-  t = build_function_type (int_type_node, endlink);
+  t = build_function_type (void_type_node, tree_cons (NULL_TREE, ptr_type_node,
+						      endlink));
   soft_monitorenter_node 
     = builtin_function ("_Jv_MonitorEnter", t, 0, NOT_BUILT_IN,
 			NULL, NULL_TREE);
   soft_monitorexit_node 
     = builtin_function ("_Jv_MonitorExit", t, 0, NOT_BUILT_IN,
 			NULL, NULL_TREE);
-  
-  t = tree_cons (NULL_TREE, int_type_node, 
+
+  t = tree_cons (NULL_TREE, ptr_type_node, 
 		 tree_cons (NULL_TREE, int_type_node, endlink));
   soft_newarray_node
       = builtin_function ("_Jv_NewPrimArray",
-			  build_function_type(ptr_type_node, t),
+			  build_function_type (ptr_type_node, t),
 			  0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (soft_newarray_node) = 1;
 
   t = tree_cons (NULL_TREE, int_type_node,
 		 tree_cons (NULL_TREE, class_ptr_type,
-			    tree_cons (NULL_TREE, object_ptr_type_node, endlink)));
+			    tree_cons (NULL_TREE, object_ptr_type_node,
+				       endlink)));
   soft_anewarray_node
       = builtin_function ("_Jv_NewObjectArray",
 			  build_function_type (ptr_type_node, t),
@@ -1128,9 +1138,11 @@ java_init_decl_processing (void)
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
   soft_jnipopsystemframe_node
     = builtin_function ("_Jv_JNI_PopSystemFrame",
-			build_function_type (ptr_type_node, t),
+			build_function_type (void_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
 
+  t = tree_cons (NULL_TREE, int_type_node,
+		 tree_cons (NULL_TREE, int_type_node, endlink));
   soft_idiv_node
     = builtin_function ("_Jv_divI",
 			build_function_type (int_type_node, t),
@@ -1141,6 +1153,8 @@ java_init_decl_processing (void)
 			build_function_type (int_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
 
+  t = tree_cons (NULL_TREE, long_type_node,
+		 tree_cons (NULL_TREE, long_type_node, endlink));
   soft_ldiv_node
     = builtin_function ("_Jv_divJ",
 			build_function_type (long_type_node, t),
@@ -1341,7 +1355,7 @@ pushdecl (tree x)
 		warnstring = "declaration of %qs shadows global declaration";
 
 	      if (warnstring)
-		warning (warnstring, IDENTIFIER_POINTER (name));
+		warning (0, warnstring, IDENTIFIER_POINTER (name));
 	    }
 #endif
 
@@ -1644,7 +1658,7 @@ poplevel (int keep, int reverse, int functionbody)
 	      define_label (input_location, DECL_NAME (label));
 	    }
 	  else if (warn_unused[UNUSED_LABEL] && !TREE_USED (label))
-	    warning ("%Jlabel '%D' defined but not used", label, label);
+	    warning (0, "%Jlabel '%D' defined but not used", label, label);
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
 	  /* Put the labels into the "variables" of the
@@ -1772,7 +1786,7 @@ force_poplevels (int start_pc)
   while (current_binding_level->start_pc > start_pc)
     {
       if (pedantic && current_binding_level->start_pc > start_pc)
-	warning ("%JIn %D: overlapped variable and exception ranges at %d",
+	warning (0, "%JIn %D: overlapped variable and exception ranges at %d",
                  current_function_decl, current_function_decl,
 		 current_binding_level->start_pc);
       poplevel (1, 0, 0);
@@ -1836,7 +1850,7 @@ give_name_to_locals (JCF *jcf)
 	  DECL_NAME (decl) = name;
 	  SET_DECL_ASSEMBLER_NAME (decl, name);
 	  if (TREE_CODE (decl) != PARM_DECL || TREE_TYPE (decl) != type)
-	    warning ("bad type in parameter debug info");
+	    warning (0, "bad type in parameter debug info");
 	}
       else
 	{
@@ -1845,7 +1859,7 @@ give_name_to_locals (JCF *jcf)
 	  tree decl = build_decl (VAR_DECL, name, type);
 	  if (end_pc > DECL_CODE_LENGTH (current_function_decl))
 	    {
-	      warning ("%Jbad PC range for debug info for local '%D'",
+	      warning (0, "%Jbad PC range for debug info for local '%D'",
                        decl, decl);
 	      end_pc = DECL_CODE_LENGTH (current_function_decl);
 	    }

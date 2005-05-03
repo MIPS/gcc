@@ -1,5 +1,5 @@
 ;; Cirrus EP9312 "Maverick" ARM floating point co-processor description.
-;; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;; Contributed by Red Hat.
 ;; Written by Aldy Hernandez (aldyh@redhat.com)
 
@@ -377,9 +377,10 @@
   switch (which_alternative)
     {
     case 0:
+      return \"#\";
     case 1:
     case 2:
-      return (output_move_double (operands));
+      return output_move_double (operands);
 
     case 3: return \"cfmv64lr%?\\t%V0, %Q1\;cfmv64hr%?\\t%V0, %R1\";
     case 4: return \"cfmvr64l%?\\t%Q0, %V1\;cfmvr64h%?\\t%R0, %V1\";
@@ -390,7 +391,7 @@
     /* Shifting by 0 will just copy %1 into %0.  */
     case 7: return \"cfsh64%?\\t%V0, %V1, #0\";
 
-    default: abort ();
+    default: gcc_unreachable ();
     }
   }"
   [(set_attr "length"         "  8,   8,     8,   8,     8,     4,     4,     4")
@@ -460,13 +461,14 @@
     {
     case 0: return \"ldm%?ia\\t%m1, %M0\\t%@ double\";
     case 1: return \"stm%?ia\\t%m0, %M1\\t%@ double\";
-    case 2: case 3: case 4: return output_move_double (operands);
+    case 2: return \"#\";
+    case 3: case 4: return output_move_double (operands);
     case 5: return \"cfcpyd%?\\t%V0, %V1\";
     case 6: return \"cfldrd%?\\t%V0, %1\";
     case 7: return \"cfmvdlr\\t%V0, %Q1\;cfmvdhr%?\\t%V0, %R1\";
     case 8: return \"cfmvrdl%?\\t%Q0, %V1\;cfmvrdh%?\\t%R0, %V1\";
     case 9: return \"cfstrd%?\\t%V1, %0\";
-    default: abort ();
+    default: gcc_unreachable ();
     }
   }"
   [(set_attr "type"           "load1,store2,  *,store2,load1,     *,  load1,   *,     *,store2")

@@ -31,13 +31,10 @@ typedef struct def_operand_ptr GTY(())
 } def_operand_p;
 
 /* This represents a pointer to a USE operand.  */
-typedef struct use_operand_ptr GTY(())
-{
-  tree * GTY((skip(""))) use;
-} use_operand_p;
+typedef ssa_imm_use_t *use_operand_p;
 
+#define NULL_USE_OPERAND_P 		NULL
 extern def_operand_p NULL_DEF_OPERAND_P;
-extern use_operand_p NULL_USE_OPERAND_P;
 
 /* This represents the DEF operands of a stmt.  */
 typedef struct def_optype_d GTY(())
@@ -48,20 +45,24 @@ typedef struct def_optype_d GTY(())
 
 typedef def_optype_t *def_optype;
 
+/* Operand type which uses a pointer to a tree ihn an immediate use.  */
+typedef ssa_imm_use_t use_operand_type_t;
+
 /* This represents the USE operands of a stmt.  */
 typedef struct use_optype_d GTY(())
 {
   unsigned num_uses; 
-  struct use_operand_ptr GTY((length("%h.num_uses"))) uses[1];
+  struct ssa_imm_use_d GTY((length("%h.num_uses"))) uses[1];
 } use_optype_t;
 
 typedef use_optype_t *use_optype;
 
-/* Operand type which stores a def and a use tree.  */
+/* Operand type which stores a def a use, and an immediate use.  */
 typedef struct v_def_use_operand_type GTY(())
 {
   tree def;
   tree use;
+  ssa_imm_use_t imm_use;
 } v_def_use_operand_type_t;
 
 /* This represents the MAY_DEFS for a stmt.  */
@@ -74,11 +75,18 @@ typedef struct v_may_def_optype_d GTY(())
 
 typedef v_may_def_optype_t *v_may_def_optype;
 
+/* Operand type which stores a tree and an immeidate_use.  */
+typedef struct vuse_operand_type GTY(())
+{
+  tree use;
+  ssa_imm_use_t imm_use;
+} vuse_operand_type_t;
+
 /* This represents the VUSEs for a stmt.  */
 typedef struct vuse_optype_d GTY(()) 
 {
   unsigned num_vuses; 
-  tree GTY((length ("%h.num_vuses"))) vuses[1];
+  struct vuse_operand_type GTY((length ("%h.num_vuses"))) vuses[1];
 } vuse_optype_t;
 
 typedef vuse_optype_t *vuse_optype;
@@ -92,7 +100,7 @@ typedef struct v_must_def_optype_d GTY(())
 
 typedef v_must_def_optype_t *v_must_def_optype;
 
-/* This represents the operand cache fora stmt.  */
+/* This represents the operand cache for a stmt.  */
 typedef struct stmt_operands_d GTY(())
 {
   /* Statement operands.  */
@@ -109,9 +117,10 @@ typedef stmt_operands_t *stmt_operands_p;
 
 #define USE_FROM_PTR(OP)	get_use_from_ptr (OP)
 #define DEF_FROM_PTR(OP)	get_def_from_ptr (OP)
-#define SET_USE(OP, V)		((*((OP).use)) = (V))
+#define SET_USE(OP, V)		set_ssa_use_from_ptr (OP, V)
 #define SET_DEF(OP, V)		((*((OP).def)) = (V))
 
+#define USE_STMT(OP)		(OP)->stmt
 
 #define USE_OPS(ANN)		get_use_ops (ANN)
 #define STMT_USE_OPS(STMT)	get_use_ops (stmt_ann (STMT))
@@ -178,13 +187,21 @@ typedef stmt_operands_t *stmt_operands_p;
 				PHI_ARG_DEF ((PHI), (E)->dest_idx)
 #define PHI_ARG_DEF_PTR_FROM_EDGE(PHI, E)				\
 				PHI_ARG_DEF_PTR ((PHI), (E)->dest_idx)
+#define PHI_ARG_INDEX_FROM_USE(USE)   phi_arg_index_from_use (USE)
 
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
-extern void get_stmt_operands (tree);
+extern void update_stmt_operands (tree);
+extern bool verify_imm_links (FILE *f, tree var);
+
 extern void copy_virtual_operands (tree, tree);
 extern void create_ssa_artficial_load_stmt (stmt_operands_p, tree);
+
+extern void dump_immediate_uses (FILE *file);
+extern void dump_immediate_uses_for (FILE *file, tree var);
+extern void debug_immediate_uses (void);
+extern void debug_immediate_uses_for (tree var);
 
 extern bool ssa_call_clobbered_cache_valid;
 extern bool ssa_ro_call_cache_valid;
@@ -274,4 +291,11 @@ typedef struct ssa_operand_iterator_d
        !op_iter_done (&(ITER));					\
        op_iter_next_mustdef (&(KILLVAR), &(DEFVAR), &(ITER)))
 
+/* This macro executes a loop over the V_{MUST,MAY}_DEF of STMT.  The def
+   and kill for each V_{MUST,MAY}_DEF is returned in DEFVAR and KILLVAR. 
+   ITER is an ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND(DEFVAR, KILLVAR, STMT, ITER)\
+  for (op_iter_init_must_and_may_def (&(ITER), STMT, &(KILLVAR), &(DEFVAR));\
+       !op_iter_done (&(ITER));					\
+       op_iter_next_must_and_may_def (&(KILLVAR), &(DEFVAR), &(ITER)))
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

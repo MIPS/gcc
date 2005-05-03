@@ -213,6 +213,13 @@ AC_ARG_ENABLE(libgcj-multifile,
 esac],[enable_libgcj_multifile=no])
 AM_CONDITIONAL(ONESTEP, test "$enable_libgcj_multifile" = yes)
 
+AC_ARG_WITH(java-home,
+  AS_HELP_STRING([--with-java-home=DIRECTORY],
+                 [value of java.home system property]),
+		 [JAVA_HOME="${withval}"], [JAVA_HOME=""])
+AM_CONDITIONAL(JAVA_HOME_SET, test ! -z "$JAVA_HOME")
+AC_SUBST(JAVA_HOME)
+
 # What is the native OS API for MinGW?
 AC_ARG_WITH(win32-nlsapi,
   AS_HELP_STRING([--with-win32-nlsapi=ansi or unicows or unicode],
@@ -449,10 +456,10 @@ test -d java/lang || mkdir java/lang
 AC_CONFIG_LINKS(java/lang/ConcreteProcess.java:java/lang/${PLATFORM}Process.java)
 AC_CONFIG_LINKS(java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc)
 
-# Likewise for natInetAddress.cc and natNetworkInterface.cc.
+# Likewise for natInetAddress.cc and natVMNetworkInterface.cc.
 test -d java/net || mkdir java/net
 AC_CONFIG_LINKS(java/net/natInetAddress.cc:java/net/natInetAddress${PLATFORMNET}.cc)
-AC_CONFIG_LINKS(java/net/natNetworkInterface.cc:java/net/natNetworkInterface${PLATFORMNET}.cc)
+AC_CONFIG_LINKS(java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc)
 
 # Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.cc.
 test -d gnu/java || mkdir gnu/java
@@ -1067,8 +1074,8 @@ fi
 case "${which_gcj}" in
    built)
       GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
-      GCJH='$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
-      ZIP='$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
+      GCJH='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
    ;;
    cross)
       if test "x${with_newlib}" = "xyes"; then
@@ -1078,14 +1085,14 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      ZIP=jar
+      ZIP='$(target_noncanonical)-fastjar'
       GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
       ## In this case, gcj is found outside the build tree.  However, zip is
       ## found in the build tree.
-      ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
       GCJH=gcjh
    ;;
 esac
@@ -1195,6 +1202,9 @@ gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([[^ ]]*\).*$/\1/p'`
 GCJVERSION=$gcjversion
 AC_SUBST(GCJVERSION)
 AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
+
+AC_DEFINE(JV_VERSION, "1.4.2", [Compatibility version string])
+AC_DEFINE(JV_API_VERSION, "1.4", [API compatibility version string])
 
 TL_AC_GXX_INCLUDE_DIR
 
@@ -1399,6 +1409,12 @@ case " $CONFIG_FILES " in
    ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
    ;;
 esac
+for ac_multi_file in $CONFIG_FILES; do
+  case $ac_multi_file in
+  */Makefile)
+    grep "^MULTI[[^ ]]* =" Makefile >> "$ac_multi_file" ;;
+  esac
+done
 ],
 srcdir=${srcdir}
 host=${host}

@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "tree-pass.h"
 #include "flags.h"
+#include "real.h"
 
 /* TODO:  Support for predicated code motion.  I.e.
 
@@ -219,8 +220,6 @@ movement_possibility (tree stmt)
     {
       /* If we perform unswitching, force the operands of the invariant
 	 condition to be moved out of the loop.  */
-      get_stmt_operands (stmt);
-
       return MOVE_POSSIBLE;
     }
 
@@ -229,8 +228,6 @@ movement_possibility (tree stmt)
 
   if (stmt_ends_bb_p (stmt))
     return MOVE_IMPOSSIBLE;
-
-  get_stmt_operands (stmt);
 
   if (stmt_ann (stmt)->has_volatile_ops)
     return MOVE_IMPOSSIBLE;
@@ -436,6 +433,7 @@ stmt_cost (tree stmt)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
+    case RDIV_EXPR:
       /* Division and multiplication are usually expensive.  */
       cost += 20;
       break;
@@ -561,7 +559,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 {
   enum move_pos pos;
   block_stmt_iterator bsi;
-  tree stmt;
+  tree stmt, rhs;
   bool maybe_never = ALWAYS_EXECUTED_IN (bb) == NULL;
   struct loop *outermost = ALWAYS_EXECUTED_IN (bb);
 
@@ -585,6 +583,46 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	      outermost = NULL;
 	    }
 	  continue;
+	}
+
+      /* If divisor is invariant, convert a/b to a*(1/b), allowing reciprocal
+	 to be hoisted out of loop, saving expensive divide.  */
+      if (pos == MOVE_POSSIBLE
+	  && (rhs = TREE_OPERAND (stmt, 1)) != NULL
+	  && TREE_CODE (rhs) == RDIV_EXPR
+	  && flag_unsafe_math_optimizations
+	  && outermost_invariant_loop_expr (TREE_OPERAND (rhs, 1),
+					    loop_containing_stmt (stmt)) != NULL
+	  && outermost_invariant_loop_expr (rhs,
+					    loop_containing_stmt (stmt)) == NULL)
+	{
+	  tree lhs, stmt1, stmt2, var, name;
+
+	  lhs = TREE_OPERAND (stmt, 0);
+
+	  /* stmt must be MODIFY_EXPR.  */
+	  var = create_tmp_var (TREE_TYPE (rhs), "reciptmp");
+	  add_referenced_tmp_var (var);
+
+	  stmt1 = build2 (MODIFY_EXPR, void_type_node, var,
+			  build2 (RDIV_EXPR, TREE_TYPE (rhs),
+				  build_real (TREE_TYPE (rhs), dconst1),
+				  TREE_OPERAND (rhs, 1)));
+	  name = make_ssa_name (var, stmt1);
+	  TREE_OPERAND (stmt1, 0) = name;
+	  stmt2 = build2 (MODIFY_EXPR, void_type_node, lhs,
+			  build2 (MULT_EXPR, TREE_TYPE (rhs),
+				  name, TREE_OPERAND (rhs, 0)));
+
+	  /* Replace division stmt with reciprocal and multiply stmts.
+	     The multiply stmt is not invariant, so update iterator
+	     and avoid rescanning.  */
+	  bsi_replace (&bsi, stmt1, true);
+	  bsi_insert_after (&bsi, stmt2, BSI_NEW_STMT);
+	  SSA_NAME_DEF_STMT (lhs) = stmt2;
+
+	  /* Continue processing with invariant reciprocal statment.  */
+	  stmt = stmt1;
 	}
 
       stmt_ann (stmt)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
@@ -719,15 +757,8 @@ move_computations (void)
   fini_walk_dominator_tree (&walk_data);
 
   loop_commit_inserts ();
-  rewrite_into_ssa (false);
-  if (!bitmap_empty_p (vars_to_rename))
-    {
-      /* The rewrite of ssa names may cause violation of loop closed ssa
-	 form invariants.  TODO -- avoid these rewrites completely.
-	 Information in virtual phi nodes is sufficient for it.  */
-      rewrite_into_loop_closed_ssa (NULL);
-    }
-  bitmap_clear (vars_to_rename);
+  if (need_ssa_update_p ())
+    rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 }
 
 /* Checks whether the statement defining variable *INDEX can be hoisted
@@ -970,12 +1001,13 @@ single_reachable_address (struct loop *loop, tree stmt,
   tree *queue = xmalloc (sizeof (tree) * max_uid);
   sbitmap seen = sbitmap_alloc (max_uid);
   unsigned in_queue = 1;
-  dataflow_t df;
-  unsigned i, n;
+  unsigned i;
   struct sra_data sra_data;
   tree call;
   tree val;
   ssa_op_iter iter;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
 
   sbitmap_zero (seen);
 
@@ -1033,22 +1065,40 @@ single_reachable_address (struct loop *loop, tree stmt,
 	}
 
       /* Find uses of virtual names.  */
-      df = get_immediate_uses (stmt);
-      n = num_immediate_uses (df);
+      if (TREE_CODE (stmt) == PHI_NODE)
+        {
+	  if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (stmt))))
+	    FOR_EACH_IMM_USE_FAST (use_p, imm_iter, PHI_RESULT (stmt))
+	      {	      
+		tree imm_stmt = USE_STMT (use_p);
 
-      for (i = 0; i < n; i++)
-	{
-	  stmt = immediate_use (df, i);
+		if (TEST_BIT (seen, get_stmt_uid (imm_stmt)))
+		  continue;
 
-	  if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
-	    continue;
+		if (!flow_bb_inside_loop_p (loop, bb_for_stmt (imm_stmt)))
+		  continue;
 
-	  if (TEST_BIT (seen, get_stmt_uid (stmt)))
-	    continue;
-	  SET_BIT (seen, get_stmt_uid (stmt));
+		SET_BIT (seen, get_stmt_uid (imm_stmt));
 
-	  queue[in_queue++] = stmt;
+		queue[in_queue++] = imm_stmt;
+	      }
 	}
+      else
+	FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+	  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, val)
+	    {
+	      tree imm_stmt = USE_STMT (use_p);
+
+	      if (TEST_BIT (seen, get_stmt_uid (imm_stmt)))
+		continue;
+
+	      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (imm_stmt)))
+		continue;
+
+	      SET_BIT (seen, get_stmt_uid (imm_stmt));
+
+	      queue[in_queue++] = imm_stmt;
+	    }
     }
 
   free (queue);
@@ -1076,13 +1126,10 @@ rewrite_mem_refs (tree tmp_var, struct mem_ref *mem_refs)
   for (; mem_refs; mem_refs = mem_refs->next)
     {
       FOR_EACH_SSA_TREE_OPERAND (var, mem_refs->stmt, iter, SSA_OP_ALL_VIRTUALS)
-	{
-	  var = SSA_NAME_VAR (var);
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-	}
+	mark_sym_for_renaming (SSA_NAME_VAR (var));
 
       *mem_refs->ref = tmp_var;
-      modify_stmt (mem_refs->stmt);
+      update_stmt (mem_refs->stmt);
     }
 }
 
@@ -1336,8 +1383,6 @@ determine_lsm (struct loops *loops)
 	stmt_ann (bsi_stmt (bsi))->uid = max_stmt_uid++;
     }
 
-  compute_immediate_uses (TDFA_USE_VOPS, NULL);
-
   /* Pass the loops from the outermost.  For each virtual operand loop phi node
      check whether all the references inside the loop correspond to a single
      address, and if so, move them.  */
@@ -1357,7 +1402,6 @@ determine_lsm (struct loops *loops)
 	  loop = loop->outer;
 	  if (loop == loops->tree_root)
 	    {
-	      free_df ();
 	      loop_commit_inserts ();
 	      return;
 	    }

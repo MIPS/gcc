@@ -220,8 +220,8 @@ thunk_adjust (tree ptr, bool this_adjusting,
 {
   if (this_adjusting)
     /* Adjust the pointer by the constant.  */
-    ptr = fold (build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
-			ssize_int (fixed_offset)));
+    ptr = fold_build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
+		       ssize_int (fixed_offset));
 
   /* If there's a virtual offset, look up that value in the vtable and
      adjust the pointer again.  */
@@ -242,13 +242,13 @@ thunk_adjust (tree ptr, bool this_adjusting,
       /* Get the offset itself.  */
       vtable = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (vtable)), vtable);
       /* Adjust the `this' pointer.  */
-      ptr = fold (build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr, vtable));
+      ptr = fold_build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr, vtable);
     }
   
   if (!this_adjusting)
     /* Adjust the pointer by the constant.  */
-    ptr = fold (build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
-			ssize_int (fixed_offset)));
+    ptr = fold_build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
+		       ssize_int (fixed_offset));
 
   return ptr;
 }
@@ -470,10 +470,27 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	finish_expr_stmt (t);
       else
 	{
-	  t = force_target_expr (TREE_TYPE (t), t);
 	  if (!this_adjusting)
-	    t = thunk_adjust (t, /*this_adjusting=*/0,
-			      fixed_offset, virtual_offset);
+	    {
+	      tree cond = NULL_TREE;
+
+	      if (TREE_CODE (TREE_TYPE (t)) == POINTER_TYPE)
+		{
+		  /* If the return type is a pointer, we need to
+		     protect against NULL.  We know there will be an
+		     adjustment, because that's why we're emitting a
+		     thunk.  */
+		  t = save_expr (t);
+		  cond = cp_convert (boolean_type_node, t);
+		}
+	      
+	      t = thunk_adjust (t, /*this_adjusting=*/0,
+				fixed_offset, virtual_offset);
+	      if (cond)
+		t = build3 (COND_EXPR, TREE_TYPE (t), cond, t,
+			    cp_convert (TREE_TYPE (t), integer_zero_node));
+	    }
+	  t = force_target_expr (TREE_TYPE (t), t);
 	  finish_return_stmt (t);
 	}
 
@@ -520,7 +537,7 @@ do_build_copy_constructor (tree fndecl)
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
       tree binfo, base_binfo;
-      VEC (tree) *vbases;
+      VEC(tree,gc) *vbases;
 
       /* Initialize all the base-classes with the parameter converted
 	 to their type so that we get their copy constructor and not
@@ -1079,7 +1096,7 @@ lazily_declare_fn (special_function_kind sfk, tree type)
 	 TYPE_METHODS list, which cause the destructor to be emitted
 	 in an incorrect location in the vtable.  */ 
       if (warn_abi && DECL_VIRTUAL_P (fn))
-	warning ("vtable layout for class %qT may not be ABI-compliant"
+	warning (0, "vtable layout for class %qT may not be ABI-compliant"
 		 "and may change in a future version of GCC due to "
 		 "implicit virtual destructor",
 		 type);

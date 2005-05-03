@@ -150,7 +150,8 @@ extern void ix86_expand_branch (enum rtx_code, rtx);
 extern int ix86_expand_setcc (enum rtx_code, rtx);
 extern int ix86_expand_int_movcc (rtx[]);
 extern int ix86_expand_fp_movcc (rtx[]);
-extern void ix86_split_sse_movcc (rtx[]);
+extern bool ix86_expand_fp_vcond (rtx[]);
+extern bool ix86_expand_int_vcond (rtx[], bool);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
@@ -186,6 +187,8 @@ extern int ix86_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);
 extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					 enum machine_mode, int);
+extern bool ix86_cannot_change_mode_class (enum machine_mode,
+					   enum machine_mode, enum reg_class);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern void emit_i387_cw_initialization (rtx, rtx, int);
@@ -204,7 +207,7 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
-extern rtx ix86_function_value (tree);
+extern rtx ix86_function_value (tree, tree);
 #endif
 
 #endif
@@ -216,6 +219,7 @@ extern int ix86_data_alignment (tree, int);
 extern int ix86_local_alignment (tree, int);
 extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
+extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *); 
 
 extern unsigned int i386_pe_section_type_flags (tree, const char *, int);
 extern void i386_pe_asm_named_section (const char *, unsigned int, tree);
@@ -233,7 +237,7 @@ extern int i386_pe_dllexport_name_p (const char *);
 extern int i386_pe_dllimport_name_p (const char *);
 extern void i386_pe_unique_section (tree, int);
 extern void i386_pe_declare_function_type (FILE *, const char *, int);
-extern void i386_pe_record_external_function (const char *);
+extern void i386_pe_record_external_function (tree, const char *);
 extern void i386_pe_record_exported_symbol (const char *, int);
 extern void i386_pe_asm_file_end (FILE *);
 extern void i386_pe_encode_section_info (tree, rtx, int);

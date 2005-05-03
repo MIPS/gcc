@@ -883,7 +883,8 @@ public abstract class JTextComponent extends JComponent
     return getUI().getEditorKit(this).getActions();
   }
     
-  private Document doc;
+  // This is package-private to avoid an accessor method.
+  Document doc;
   private Caret caret;
   private Highlighter highlighter;
   private Color caretColor;
@@ -894,11 +895,30 @@ public abstract class JTextComponent extends JComponent
   private Insets margin;
   private boolean dragEnabled;
 
+  /** Issues repaint request on document changes. */
+  private DocumentListener repaintListener;
+
   /**
    * Creates a new <code>JTextComponent</code> instance.
    */
   public JTextComponent()
   {
+    repaintListener = new DocumentListener()
+      {
+	public void changedUpdate(DocumentEvent ev)
+	{
+	  repaint();
+	}
+	public void insertUpdate(DocumentEvent ev)
+	{
+	  repaint();
+	}
+	public void removeUpdate(DocumentEvent ev)
+	{
+	  repaint();
+	}
+      };
+
     Keymap defkeymap = getKeymap(DEFAULT_KEYMAP);
     boolean creatingKeymap = false;
     if (defkeymap == null)
@@ -932,6 +952,13 @@ public abstract class JTextComponent extends JComponent
   {
     Document oldDoc = doc;
     doc = newDoc;
+
+    // setup document listener
+    if (oldDoc != null)
+      oldDoc.removeDocumentListener(repaintListener);
+    if (newDoc != null)
+      newDoc.addDocumentListener(repaintListener);
+
     firePropertyChange("document", oldDoc, newDoc);
     revalidate();
     repaint();
@@ -1465,6 +1492,11 @@ public abstract class JTextComponent extends JComponent
   public void setDragEnabled(boolean enabled)
   {
     dragEnabled = enabled;
+  }
+
+  public int viewToModel(Point pt)
+  {
+    return getUI().viewToModel(this, pt);
   }
 
   public void copy()

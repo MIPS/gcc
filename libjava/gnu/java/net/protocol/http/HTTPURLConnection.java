@@ -40,19 +40,21 @@ package gnu.java.net.protocol.http;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.cert.Certificate;
-import java.util.Date;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.HostnameVerifier;
@@ -93,6 +95,7 @@ public class HTTPURLConnection
 
   private Response response;
   private ByteArrayInputStream responseSink;
+  private ByteArrayInputStream errorSink;
 
   private HandshakeCompletedEvent handshakeEvent;
 
@@ -280,11 +283,32 @@ public class HTTPURLConnection
                 file = location.substring(end);
                 retry = true;
               }
-            // Otherwise this is not an HTTP redirect, can't follow
+	    else if (location.length() > 0)
+	      {
+		// Malformed absolute URI, treat as file part of URI
+		if (location.charAt(0) == '/')
+		  {
+		    // Absolute path
+		    file = location;
+		  }
+		else
+		  {
+		    // Relative path
+		    int lsi = file.lastIndexOf('/');
+		    file = (lsi == -1) ? "/" : file.substring(0, lsi + 1);
+		    file += location;
+		  }
+		retry = true;
+	      }
           }
         else
           {
             responseSink = new ByteArrayInputStream(reader.toByteArray ());
+            if (response.getCode() == 404)
+              {
+                errorSink = responseSink;
+                throw new FileNotFoundException(url.toString());
+              }
           }
       }
     while (retry);
@@ -452,6 +476,11 @@ public class HTTPURLConnection
         throw new ProtocolException("doInput is false");
       }
     return responseSink;
+  }
+
+  public InputStream getErrorStream()
+  {
+    return errorSink;
   }
 
   public Map getHeaderFields()

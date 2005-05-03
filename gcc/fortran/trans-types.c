@@ -187,10 +187,10 @@ gfc_init_kinds (void)
 
   /* Choose the default integer kind.  We choose 4 unless the user
      directs us otherwise.  */
-  if (gfc_option.i8)
+  if (gfc_option.flag_default_integer)
     {
       if (!saw_i8)
-	fatal_error ("integer kind=8 not available for -i8 option");
+	fatal_error ("integer kind=8 not available for -fdefault-integer-8 option");
       gfc_default_integer_kind = 8;
     }
   else if (saw_i4)
@@ -199,10 +199,10 @@ gfc_init_kinds (void)
     gfc_default_integer_kind = gfc_integer_kinds[i_index - 1].kind;
 
   /* Choose the default real kind.  Again, we choose 4 when possible.  */
-  if (gfc_option.r8)
+  if (gfc_option.flag_default_real)
     {
       if (!saw_r8)
-	fatal_error ("real kind=8 not available for -r8 option");
+	fatal_error ("real kind=8 not available for -fdefault-real-8 option");
       gfc_default_real_kind = 8;
     }
   else if (saw_r4)
@@ -210,9 +210,16 @@ gfc_init_kinds (void)
   else
     gfc_default_real_kind = gfc_real_kinds[0].kind;
 
-  /* Choose the default double kind.  If -r8 is specified, we use kind=16,
-     if it's available, otherwise we do not change anything.  */
-  if (gfc_option.r8 && saw_r16)
+  /* Choose the default double kind.  If -fdefault-real and -fdefault-double 
+     are specified, we use kind=8, if it's available.  If -fdefault-real is
+     specified without -fdefault-double, we use kind=16, if it's available.
+     Otherwise we do not change anything.  */
+  if (gfc_option.flag_default_double && !gfc_option.flag_default_real)
+    fatal_error ("Use of -fdefault-double-8 requires -fdefault-real-8");
+
+  if (gfc_option.flag_default_real && gfc_option.flag_default_double && saw_r8)
+    gfc_default_double_kind = 8;
+  else if (gfc_option.flag_default_real && saw_r16)
     gfc_default_double_kind = 16;
   else if (saw_r4 && saw_r8)
     gfc_default_double_kind = 8;
@@ -1462,6 +1469,50 @@ gfc_return_by_reference (gfc_symbol * sym)
   return 0;
 }
 
+static tree
+gfc_get_mixed_entry_union (gfc_namespace *ns)
+{
+  tree type;
+  tree decl;
+  tree fieldlist;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_entry_list *el, *el2;
+
+  gcc_assert (ns->proc_name->attr.mixed_entry_master);
+  gcc_assert (memcmp (ns->proc_name->name, "master.", 7) == 0);
+
+  snprintf (name, GFC_MAX_SYMBOL_LEN, "munion.%s", ns->proc_name->name + 7);
+
+  /* Build the type node.  */
+  type = make_node (UNION_TYPE);
+
+  TYPE_NAME (type) = get_identifier (name);
+  fieldlist = NULL;
+
+  for (el = ns->entries; el; el = el->next)
+    {
+      /* Search for duplicates.  */
+      for (el2 = ns->entries; el2 != el; el2 = el2->next)
+	if (el2->sym->result == el->sym->result)
+	  break;
+
+      if (el == el2)
+	{
+	  decl = build_decl (FIELD_DECL,
+			     get_identifier (el->sym->result->name),
+			     gfc_sym_type (el->sym->result));
+	  DECL_CONTEXT (decl) = type;
+	  fieldlist = chainon (fieldlist, decl);
+	}
+    }
+
+  /* Finish off the type.  */
+  TYPE_FIELDS (type) = fieldlist;
+
+  gfc_finish_type (type);
+  return type;
+}
+
 tree
 gfc_get_function_type (gfc_symbol * sym)
 {
@@ -1564,6 +1615,8 @@ gfc_get_function_type (gfc_symbol * sym)
     type = integer_type_node;
   else if (!sym->attr.function || gfc_return_by_reference (sym))
     type = void_type_node;
+  else if (sym->attr.mixed_entry_master)
+    type = gfc_get_mixed_entry_union (sym->ns);
   else
     type = gfc_sym_type (sym);
 

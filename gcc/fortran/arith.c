@@ -259,6 +259,14 @@ gfc_arith_init_1 (void)
       mpfr_init (real_info->tiny);
       mpfr_set (real_info->tiny, b, GFC_RND_MODE);
 
+      /* subnormal (x) = b**(emin - digit + 1) */
+      mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
+      mpfr_pow_si (b, b, real_info->min_exponent - real_info->digits + 1,
+		   GFC_RND_MODE);
+
+      mpfr_init (real_info->subnormal);
+      mpfr_set (real_info->subnormal, b, GFC_RND_MODE);
+
       /* epsilon(x) = b**(1-p) */
       mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
       mpfr_pow_si (b, b, 1 - real_info->digits, GFC_RND_MODE);
@@ -374,7 +382,7 @@ gfc_check_real_range (mpfr_t p, int kind)
     retval = ARITH_OK;
   else if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
       retval = ARITH_OVERFLOW;
-  else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+  else if (mpfr_cmp (q, gfc_real_kinds[i].subnormal) < 0)
     retval = ARITH_UNDERFLOW;
   else
     retval = ARITH_OK;
@@ -552,21 +560,27 @@ gfc_range_check (gfc_expr * e)
 static arith
 check_result (arith rc, gfc_expr * x, gfc_expr * r, gfc_expr ** rp)
 {
-  if (rc != ARITH_OK)
-    gfc_free_expr (r);
-  else
+  arith val = rc;
+
+  if (val == ARITH_UNDERFLOW)
     {
-      if (rc == ARITH_UNDERFLOW && gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &x->where);
-
-      if (rc == ARITH_ASYMMETRIC)
-	gfc_warning ("%s at %L", gfc_arith_error (rc), &x->where);
-
-      rc = ARITH_OK;
-      *rp = r;
+      if (gfc_option.warn_underflow)
+	gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
     }
 
-  return rc;
+  if (val == ARITH_ASYMMETRIC)
+    {
+      gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
+    }
+
+  if (val != ARITH_OK)
+    gfc_free_expr (r);
+  else
+    *rp = r;
+
+  return val;
 }
 
 

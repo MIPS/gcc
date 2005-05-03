@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for HP PA-RISC
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -79,7 +79,7 @@ Boston, MA 02111-1307, USA.  */
 		builtin_define ("_INCLUDE_XOPEN_SOURCE_500");		\
 	      }								\
 	    else if (flag_isoc94 || flag_isoc99 || c_dialect_cxx ())	\
-	      warning ("-munix=98 option required for C89 "		\
+	      warning (0, "-munix=98 option required for C89 "		\
 		       "Amendment 1 features.\n");			\
 	  }								\
 	if (TARGET_SIO)							\
@@ -92,12 +92,6 @@ Boston, MA 02111-1307, USA.  */
 	  }								\
     }									\
   while (0)
-
-#undef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS						\
-  { "unix=",			&pa_unix_string,			\
-    N_("Specify UNIX standard for predefines and linking.\n"		\
-       "Supported values are 93 and 95."), 0}
 
 #undef CPP_SPEC
 #define CPP_SPEC \

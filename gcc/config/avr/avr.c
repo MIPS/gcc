@@ -380,8 +380,7 @@ avr_naked_function_p (tree func)
 {
   tree a;
 
-  if (TREE_CODE (func) != FUNCTION_DECL)
-    abort ();
+  gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
   
   a = lookup_attribute ("naked", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
@@ -552,7 +551,7 @@ out_adj_frame_ptr (FILE *file, int adj)
       if (TARGET_TINY_STACK)
 	{
 	  if (adj < -63 || adj > 63)
-	    warning ("large frame pointer change (%d) with -mtiny-stack", adj);
+	    warning (0, "large frame pointer change (%d) with -mtiny-stack", adj);
 
 	  /* The high byte (r29) doesn't change - prefer "subi" (1 cycle)
 	     over "sbiw" (2 cycles, same size).  */
@@ -1030,7 +1029,7 @@ ptrreg_to_str (int regno)
     case REG_Y: return "Y";
     case REG_Z: return "Z";
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return NULL;
 }
@@ -1062,7 +1061,7 @@ cond_string (enum rtx_code code)
     case LTU:
       return "lo";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -4670,14 +4669,14 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	{
 	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
 	    {
-	      warning ("only initialized variables can be placed into "
+	      warning (0, "only initialized variables can be placed into "
 		       "program memory area");
 	      *no_add_attrs = true;
 	    }
 	}
       else
 	{
-	  warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+	  warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
     }
@@ -4696,7 +4695,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -4713,7 +4712,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning ("`%s' appears to be a misspelled interrupt handler",
+              warning (0, "`%s' appears to be a misspelled interrupt handler",
                        func_name);
             }
         }
@@ -4721,7 +4720,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning ("`%s' appears to be a misspelled signal handler",
+              warning (0, "`%s' appears to be a misspelled signal handler",
                        func_name);
             }
         }
@@ -4790,7 +4789,7 @@ avr_section_type_flags (tree decl, const char *name, int reloc)
 	  && DECL_INITIAL (decl) == NULL_TREE)
 	flags |= SECTION_BSS;  /* @nobits */
       else
-	warning ("only uninitialized variables can be placed in the "
+	warning (0, "only uninitialized variables can be placed in the "
 		 ".noinit section");
     }
 
@@ -5534,7 +5533,7 @@ avr_normalize_condition (RTX_CODE condition)
     case LEU:
       return LTU;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 

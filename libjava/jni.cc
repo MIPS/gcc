@@ -46,6 +46,7 @@ details.  */
 #include <java/nio/DirectByteBufferImpl$ReadWrite.h>
 #include <java/util/IdentityHashMap.h>
 #include <gnu/gcj/RawData.h>
+#include <java/lang/ClassNotFoundException.h>
 
 #include <gcj/method.h>
 #include <gcj/field.h>
@@ -1199,11 +1200,11 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
       char s[len + 1];
       for (int i = 0; i <= len; ++i)
 	s[i] = (sig[i] == '/') ? '.' : sig[i];
-      jclass field_class = _Jv_FindClassFromSignature ((char *) s, NULL);
-
-      // FIXME: what if field_class == NULL?
-
       java::lang::ClassLoader *loader = clazz->getClassLoaderInternal ();
+      jclass field_class = _Jv_FindClassFromSignature ((char *) s, loader);
+      if (! field_class)
+	throw new java::lang::ClassNotFoundException(JvNewStringUTF(s));
+
       while (clazz != NULL)
 	{
 	  // We acquire the class lock so that fields aren't resolved
@@ -1846,7 +1847,6 @@ natrehash ()
       nathash =
 	(JNINativeMethod *) _Jv_AllocBytes (nathash_size
 					    * sizeof (JNINativeMethod));
-      memset (nathash, 0, nathash_size * sizeof (JNINativeMethod));
     }
   else
     {
@@ -1856,7 +1856,6 @@ natrehash ()
       nathash =
 	(JNINativeMethod *) _Jv_AllocBytes (nathash_size
 					    * sizeof (JNINativeMethod));
-      memset (nathash, 0, nathash_size * sizeof (JNINativeMethod));
 
       for (int i = 0; i < savesize; ++i)
 	{

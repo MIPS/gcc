@@ -1,5 +1,5 @@
 /* Definitions of C specific functions for GNU compiler.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com>
 
 This file is part of GCC.
@@ -49,7 +49,7 @@ ia64_hpux_handle_builtin_pragma (cpp_reader *pfile ATTRIBUTE_UNUSED)
 	type = c_lex (&x);
     }
   if (type != CPP_EOF)
-    warning ("malformed #pragma builtin");
+    warning (0, "malformed #pragma builtin");
 }
 
 /* List of standard math functions which do not set matherr by default

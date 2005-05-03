@@ -1,3 +1,4 @@
+extern void abort(void);
 extern int inside_main;
 
 typedef __SIZE_TYPE__ size_t;
@@ -6,7 +7,7 @@ char *
 strncat (char *s1, const char *s2, size_t n)
 {
   char *dest = s1;
-  char c;
+  char c = '\0';
 #ifdef __OPTIMIZE__
   if (inside_main)
     abort();

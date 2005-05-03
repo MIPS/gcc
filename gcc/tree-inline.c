@@ -117,11 +117,6 @@ typedef struct inline_data
 
 /* Prototypes.  */
 
-/* The approximate number of instructions per statement.  This number
-   need not be particularly accurate; it is used only to make
-   decisions about when a function is too big to inline.  */
-#define INSNS_PER_STMT (10)
-
 static tree copy_body_r (tree *, int *, void *);
 static tree copy_body (inline_data *);
 static tree expand_call_inline (tree *, int *, void *);
@@ -172,6 +167,11 @@ remap_decl (tree decl, inline_data *id)
       /* Make a copy of the variable or label.  */
       tree t = copy_decl_for_inlining (decl, fn, VARRAY_TREE (id->fns, 0));
 
+      /* Remember it, so that if we encounter this local entity again
+	 we can reuse this copy.  Do this early because remap_type may
+	 need this decl for TYPE_STUB_DECL.  */
+      insert_decl_map (id, decl, t);
+
       /* Remap types, if necessary.  */
       TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
       if (TREE_CODE (t) == TYPE_DECL)
@@ -214,9 +214,6 @@ remap_decl (tree decl, inline_data *id)
 	}
 #endif
 
-      /* Remember it, so that if we encounter this local entity
-	 again we can reuse this copy.  */
-      insert_decl_map (id, decl, t);
       return t;
     }
 
@@ -285,6 +282,9 @@ remap_type (tree type, inline_data *id)
       TYPE_NEXT_VARIANT (new) = NULL;
     }
 
+  if (TYPE_STUB_DECL (type))
+    TYPE_STUB_DECL (new) = remap_decl (TYPE_STUB_DECL (type), id);
+
   /* Lazily create pointer and reference types.  */
   TYPE_POINTER_TO (new) = NULL;
   TYPE_REFERENCE_TO (new) = NULL;
@@ -321,7 +321,6 @@ remap_type (tree type, inline_data *id)
       walk_tree (&TYPE_FIELDS (new), copy_body_r, id, NULL);
       break;
 
-    case FILE_TYPE:
     case OFFSET_TYPE:
     default:
       /* Shouldn't have been thought variable sized.  */
@@ -517,7 +516,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 
   /* If this is a constant, we have to copy the node iff the type will be
      remapped.  copy_tree_r will not copy a constant.  */
-  else if (TREE_CODE_CLASS (TREE_CODE (*tp)) == tcc_constant)
+  else if (CONSTANT_CLASS_P (*tp))
     {
       tree new_type = remap_type (TREE_TYPE (*tp), id);
 
@@ -1013,6 +1012,17 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 		   "it uses non-local goto");
 	    return node;
 
+	  case BUILT_IN_RETURN:
+	  case BUILT_IN_APPLY_ARGS:
+	    /* If a __builtin_apply_args caller would be inlined,
+	       it would be saving arguments of the function it has
+	       been inlined into.  Similarly __builtin_return would
+	       return from the function the inline has been inlined into.  */
+	    inline_forbidden_reason
+	      = N_("%Jfunction %qF can never be inlined because "
+		   "it uses __builtin_return or __builtin_apply_args");
+	    return node;
+
 	  default:
 	    break;
 	  }
@@ -1059,7 +1069,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	 UNION_TYPE nodes, then it goes into infinite recursion on a
 	 structure containing a pointer to its own type.  If it doesn't,
 	 then the type node for S doesn't get adjusted properly when
-	 F is inlined, and we abort in find_function_data.
+	 F is inlined. 
 
 	 ??? This is likely no longer true, but it's too late in the 4.0
 	 cycle to try to find out.  This should be checked for 4.1.  */
@@ -1153,7 +1163,7 @@ inlinable_function_p (tree fn)
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	sorry (inline_forbidden_reason, fn, fn);
       else if (do_warning)
-	warning (inline_forbidden_reason, fn, fn);
+	warning (0, inline_forbidden_reason, fn, fn);
 
       inlinable = false;
     }
@@ -1403,15 +1413,23 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	      break;
 	    }
 
-	arg = TREE_OPERAND (x, 1);
-	for (arg = TREE_OPERAND (x, 1); arg; arg = TREE_CHAIN (arg))
-	  *count += estimate_move_cost (TREE_TYPE (TREE_VALUE (arg)));
+	/* Our cost must be kept in sync with cgraph_estimate_size_after_inlining
+	   that does use function declaration to figure out the arguments.  */
+	if (!decl)
+	  {
+	    for (arg = TREE_OPERAND (x, 1); arg; arg = TREE_CHAIN (arg))
+	      *count += estimate_move_cost (TREE_TYPE (TREE_VALUE (arg)));
+	  }
+	else
+	  {
+	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
+	      *count += estimate_move_cost (TREE_TYPE (arg));
+	  }
 
 	*count += PARAM_VALUE (PARAM_INLINE_CALL_COST);
 	break;
       }
     default:
-      /* Abort here se we know we don't miss any nodes.  */
       gcc_unreachable ();
     }
   return NULL;
@@ -1553,8 +1571,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	       && strlen (reason)
 	       && !lookup_attribute ("noinline", DECL_ATTRIBUTES (fn)))
 	{
-	  warning ("%Jinlining failed in call to %qF: %s", fn, fn, reason);
-	  warning ("called from here");
+	  warning (0, "%Jinlining failed in call to %qF: %s", fn, fn, reason);
+	  warning (0, "called from here");
 	}
       goto egress;
     }
@@ -1668,7 +1686,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	&& return_slot_addr == NULL_TREE
 	&& block_may_fallthru (copy))
       {
-	warning ("control may reach end of non-void function %qD being inlined",
+	warning (0, "control may reach end of non-void function %qD being inlined",
 		 fn);
 	TREE_NO_WARNING (fn) = 1;
       }
