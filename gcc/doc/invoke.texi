@@ -251,6 +251,7 @@ in the following sections.
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
+-fdwarf2-indirect-strings @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report @gol
@@ -3128,6 +3129,14 @@ change the debug level for DWARF2.
 Compress DWARF2 debugging information by eliminating duplicated
 information about each symbol.  This option only makes sense when
 generating DWARF2 debugging information with @option{-gdwarf-2}.
+
+@item -fdwarf2-indirect-strings
+@opindex fdwarf2-indirect-strings
+Enable use of @code{DW_FORM_strp} for strings in DWARF2 debugging
+information.  This is on by default.  To output strings using
+@code{DW_FORM_string} only, use
+@option{-fno-dwarf2-indirect-strings}.  This option only makes sense
+when generating DWARF2 debugging information with @option{-gdwarf-2}.
 
 @cindex @command{prof}
 @item -p

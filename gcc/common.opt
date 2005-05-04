@@ -302,6 +302,10 @@ fdump-unnumbered
 Common
 Suppress output of instruction numbers and line number notes in debugging dumps
 
+fdwarf2-indirect-strings
+Common
+Enable use of indirect strings in DWARF2 debug info
+
 feliminate-dwarf2-dups
 Common
 Perform DWARF2 duplicate elimination

@@ -968,6 +968,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_dump_unnumbered = value;
       break;
 
+    case OPT_fdwarf2_indirect_strings:
+      flag_dwarf2_indirect_strings = value;
+      break;
+
     case OPT_feliminate_dwarf2_dups:
       flag_eliminate_dwarf2_dups = value;
       break;

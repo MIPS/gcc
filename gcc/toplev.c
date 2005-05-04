@@ -388,6 +388,10 @@ int flag_eliminate_dwarf2_dups = 0;
 
 int flag_eliminate_unused_debug_types = 1;
 
+/* Nonzero means we should use DWARF2 indirect strings when appropriate. */
+
+int flag_dwarf2_indirect_strings = 1;
+
 /* Nonzero means emit debugging information only for symbols which are used.  */
 int flag_debug_only_used_symbols = 0;
 

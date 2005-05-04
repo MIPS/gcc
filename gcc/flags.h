@@ -698,6 +698,10 @@ extern int flag_eliminate_dwarf2_dups;
 
 extern int flag_eliminate_unused_debug_types;
 
+/* Nonzero means we should use DWARF2 indirect strings when appropriate. */
+
+extern int flag_dwarf2_indirect_strings;
+
 /* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
 extern int flag_detailed_statistics;

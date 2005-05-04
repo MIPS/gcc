@@ -4659,6 +4659,9 @@ AT_string_form (dw_attr_ref a)
       if (node->form)
 	return node->form;
 
+      if (!flag_dwarf2_indirect_strings)
+	return DW_FORM_string;
+
       len = strlen (node->str) + 1;
 
       /* If the string is shorter or equal to the size of the reference, it is

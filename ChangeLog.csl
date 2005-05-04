@@ -1,3 +1,16 @@
+2005-05-05  Michael Pogue  <michael.pogue@sun.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/common.opt (-fdwarf2-indirect-strings): New option.
+	* gcc/doc/invoke.texi (-fdwarf2-indirect-strings): Document.
+	* gcc/flags.h (flag_dwarf2_indirect_strings): New.
+	* gcc/toplev.c (flag_dwarf2_indirect_strings): New.
+	* gcc/opts.c (common_handle_option): Handle
+	-fdwarf2-indirect-strings.
+	* gcc/dwarf2out.c (AT_string_form): Check
+	flag_dwarf2_indirect_strings.
+	* gcc/testsuite/gcc.dg/debug/dwarf2/dwarf-strp-1.c: New test.
+
 2005-05-03  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport from mainline:
