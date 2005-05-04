@@ -444,6 +444,8 @@
 (include "shmedia.md")
 (include "sh4.md")
 
+(include "predicates.md")
+
 ;; Definitions for filling delay slots
 
 (define_attr "needs_delay_slot" "yes,no" (const_string "no"))
@@ -1906,7 +1908,7 @@
   [(pc)]
   "
 {
-  const char *name = \"__sdivsi3\";
+  const char *name = sh_divsi3_libfunc;
   enum sh_function_kind kind = SFUNC_GOT;
   rtx sym;
 
@@ -1993,7 +1995,7 @@
   /* Emit the move of the address to a pseudo outside of the libcall.  */
   if (TARGET_HARD_SH4 && TARGET_SH2E)
     {
-      function_symbol (operands[3], \"__sdivsi3_i4\", SFUNC_STATIC);
+      function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_STATIC);
       if (TARGET_FPU_SINGLE)
 	last = gen_divsi3_i4_single (operands[0], operands[3]);
       else
@@ -2102,11 +2104,11 @@
 	  emit_move_insn (gen_rtx_REG (Pmode, R20_REG), tab_base);
 	}
       if (TARGET_FPU_ANY && TARGET_SH1)
-	function_symbol (operands[3], \"__sdivsi3_i4\", SFUNC_STATIC);
+	function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_STATIC);
       else if (TARGET_DIVIDE_CALL2)
 	function_symbol (operands[3], \"__sdivsi3_2\", SFUNC_STATIC);
       else
-	function_symbol (operands[3], \"__sdivsi3_1\", SFUNC_GOT);
+	function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_GOT);
 
       if (TARGET_SHMEDIA)
 	last = ((TARGET_DIVIDE_CALL2 ? gen_divsi3_media_2 : gen_divsi3_i1_media)
@@ -2118,7 +2120,7 @@
     }
   else
     {
-      function_symbol (operands[3], \"__sdivsi3\", SFUNC_GOT);
+      function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_GOT);
       last = gen_divsi3_i1 (operands[0], operands[3]);
     }
   first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
@@ -6470,11 +6472,69 @@ label:
   "")
 
 (define_expand "reload_insi"
-  [(parallel [(set (match_operand:SF 0 "register_operand" "=y")
-		   (match_operand:SF 1 "immediate_operand" "FQ"))
+  [(parallel [(set (match_operand:SI 0 "fpul_operand" "=y")
+		   (match_operand:SI 1 "immediate_operand" "i"))
 	      (clobber (match_operand:SI 2 "register_operand" "=&z"))])]
   "TARGET_SH1"
   "")
+
+(define_expand "ptabs"
+  [(set (match_operand 0 "" "=b") (match_operand 1 "" "r"))]
+  "TARGET_SHMEDIA"
+  "
+{
+  if (!TARGET_PT_FIXED)
+    {
+      rtx eq = operands[1];
+
+      /* ??? For canonical RTL we really should remove any CONST from EQ
+	 before wrapping it in the AND, and finally wrap the EQ into a
+	 const if is constant.  However, for reload we must expose the
+	 input register or symbolic constant, and we can't have
+	 different insn structures outside of the operands for different
+	 alternatives of the same pattern.  */
+      eq = gen_rtx_EQ (SImode, gen_rtx_AND (Pmode, eq, GEN_INT (3)),
+		       GEN_INT (3));
+      operands[1]
+	= (gen_rtx_IF_THEN_ELSE
+	    (PDImode,
+	     eq,
+	     gen_rtx_MEM (PDImode, operands[1]),
+	     gen_rtx_fmt_e (TARGET_SHMEDIA32 ? SIGN_EXTEND : TRUNCATE,
+			    PDImode, operands[1])));
+    }
+}")
+
+;; expanded by ptabs expander.
+(define_insn "*extendsipdi_media"
+  [(set (match_operand:PDI 0 "target_reg_operand" "=b,b");
+	(if_then_else:PDI (eq (and:SI (match_operand:SI 1 "target_operand"
+							  "r,Csy")
+				      (const_int 3))
+			      (const_int 3))
+			  (mem:PDI (match_dup 1))
+			  (sign_extend:PDI (match_dup 1))))]
+  "TARGET_SHMEDIA && !TARGET_PT_FIXED"
+  "@
+	ptabs	%1, %0
+	pt	%1, %0"
+  [(set_attr "type"   "ptabs_media,pt_media")
+   (set_attr "length" "4,*")])
+
+(define_insn "*truncdipdi_media"
+  [(set (match_operand:PDI 0 "target_reg_operand" "=b,b");
+	(if_then_else:PDI (eq (and:DI (match_operand:DI 1 "target_operand"
+							  "r,Csy")
+				      (const_int 3))
+			      (const_int 3))
+			  (mem:PDI (match_dup 1))
+			  (truncate:PDI (match_dup 1))))]
+  "TARGET_SHMEDIA && !TARGET_PT_FIXED"
+  "@
+	ptabs	%1, %0
+	pt	%1, %0"
+  [(set_attr "type"   "ptabs_media,pt_media")
+   (set_attr "length" "4,*")])
 
 (define_insn "*movsi_y"
   [(set (match_operand:SI 0 "register_operand" "=y,y")
@@ -7361,43 +7421,7 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
-      operands[0] = XEXP (operands[0], 0);
-      if (flag_pic && GET_CODE (operands[0]) == SYMBOL_REF)
-	{
-	  if (! SYMBOL_REF_LOCAL_P (operands[0]))
-	    {
-	      rtx reg = gen_reg_rtx (Pmode);
-
-	      emit_insn (gen_symGOTPLT2reg (reg, operands[0]));
-	      operands[0] = reg;
-	    }
-	  else
-	    {
-	      operands[0] = gen_sym2PIC (operands[0]);
-	      PUT_MODE (operands[0], Pmode);
-	    }
-	}
-      if (TARGET_SHMEDIA64)
-	{
-	  if (GET_MODE (operands[0]) == SImode)
-	    {
-	      if (GET_CODE (operands[0]) == REG)
-		operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
-	      else if (GET_CODE (operands[0]) == SUBREG)
-		{
-		  operands[0] = SUBREG_REG (operands[0]);
-		  if (GET_MODE (operands[0]) != DImode)
-		    operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
-		}
-	      else
-		{
-		  operands[0] = shallow_copy_rtx (operands[0]);
-		  PUT_MODE (operands[0], DImode);
-		}
-	    }
-	}
-      if (! target_reg_operand (operands[0], Pmode))
-	operands[0] = copy_to_mode_reg (Pmode, operands[0]);
+      operands[0] = shmedia_prepare_call_address (operands[0], 0);
       emit_call_insn (gen_call_media (operands[0], operands[1]));
       DONE;
     }
@@ -7579,43 +7603,7 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
-      operands[1] = XEXP (operands[1], 0);
-      if (flag_pic && GET_CODE (operands[1]) == SYMBOL_REF)
-	{
-	  if (! SYMBOL_REF_LOCAL_P (operands[1]))
-	    {
-	      rtx reg = gen_reg_rtx (Pmode);
-
-	      emit_insn (gen_symGOTPLT2reg (reg, operands[1]));
-	      operands[1] = reg;
-	    }
-	  else
-	    {
-	      operands[1] = gen_sym2PIC (operands[1]);
-	      PUT_MODE (operands[1], Pmode);
-	    }
-	}
-      if (TARGET_SHMEDIA64)
-	{
-	  if (GET_MODE (operands[1]) == SImode)
-	    {
-	      if (GET_CODE (operands[1]) == REG)
-		operands[1] = gen_rtx_SUBREG (DImode, operands[1], 0);
-	      else if (GET_CODE (operands[1]) == SUBREG)
-		{
-		  operands[1] = SUBREG_REG (operands[1]);
-		  if (GET_MODE (operands[1]) != DImode)
-		    operands[1] = gen_rtx_SUBREG (DImode, operands[1], 0);
-		}
-	      else
-		{
-		  operands[1] = shallow_copy_rtx (operands[1]);
-		  PUT_MODE (operands[1], DImode);
-		}
-	    }
-	}
-      if (! target_reg_operand (operands[1], Pmode))
-	operands[1] = copy_to_mode_reg (Pmode, operands[1]);
+      operands[1] = shmedia_prepare_call_address (operands[1], 0);
       emit_call_insn (gen_call_value_media (operands[0], operands[1],
 					    operands[2]));
       DONE;
@@ -7801,50 +7789,7 @@ label:
 {
   if (TARGET_SHMEDIA)
     {
-      operands[0] = XEXP (operands[0], 0);
-      if (flag_pic && GET_CODE (operands[0]) == SYMBOL_REF)
-	{
-	  if (! SYMBOL_REF_LOCAL_P (operands[0]))
-	    {
-	      rtx reg = gen_reg_rtx (Pmode);
-
-	      /* We must not use GOTPLT for sibcalls, because PIC_REG
-		 must be restored before the PLT code gets to run.  */
-	      emit_insn (gen_symGOT2reg (reg, operands[0]));
-	      operands[0] = reg;
-	    }
-	  else
-	    {
-	      operands[0] = gen_sym2PIC (operands[0]);
-	      PUT_MODE (operands[0], Pmode);
-	    }
-	}
-      if (TARGET_SHMEDIA64)
-	{
-	  if (GET_MODE (operands[0]) == SImode)
-	    {
-	      if (GET_CODE (operands[0]) == REG)
-		operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
-	      else if (GET_CODE (operands[0]) == SUBREG)
-		{
-		  operands[0] = SUBREG_REG (operands[0]);
-		  if (GET_MODE (operands[0]) != DImode)
-		    operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
-		}
-	      else
-		{
-		  operands[0] = shallow_copy_rtx (operands[0]);
-		  PUT_MODE (operands[0], DImode);
-		}
-	    }
-	  if (! target_reg_operand (operands[0], DImode))
-	    operands[0] = copy_to_mode_reg (DImode, operands[0]);
-	}
-      else
-	{
-	  if (! target_reg_operand (operands[0], SImode))
-	    operands[0] = copy_to_mode_reg (SImode, operands[0]);
-	}
+      operands[0] = shmedia_prepare_call_address (operands[0], 1);
       emit_call_insn (gen_sibcall_media (operands[0], operands[1]));
       DONE;
     }

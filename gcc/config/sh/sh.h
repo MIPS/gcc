@@ -180,6 +180,8 @@ extern int target_flags;
 #define HARD_SH2A_BIT	(1<<17)
 #define HARD_SH2A_DOUBLE_BIT	(1<<18)
 #define INDEXED_ADDRESS_BIT (1<<19)
+#define PT_FIXED_BIT	(1<<21)
+#define INVALID_SYMBOLS_BIT (1<<25)
 #define ADJUST_UNROLL_BIT (1<<20)
 
 /* Nonzero if this is an ELF target - compile time only */
@@ -337,7 +339,10 @@ extern int target_flags;
 #define TARGET_DIVIDE_INV_CALL (sh_div_strategy == SH_DIV_INV_CALL)
 #define TARGET_DIVIDE_INV_CALL2 (sh_div_strategy == SH_DIV_INV_CALL2)
 
+/* Target macros pertaining to SHmedia architecture bugs.  */
 #define TARGET_ALLOW_INDEXED_ADDRESS (target_flags & INDEXED_ADDRESS_BIT)
+#define TARGET_PT_FIXED (target_flags & PT_FIXED_BIT)
+#define TARGET_INVALID_SYMBOLS (target_flags & INVALID_SYMBOLS_BIT)
 
 #define TARGET_ADJUST_UNROLL (target_flags & ADJUST_UNROLL_BIT)
 
@@ -441,6 +446,14 @@ extern int target_flags;
 
 #if !defined(SUPPORT_SH5_32MEDIA_NOFPU) && !defined (SUPPORT_SH5_COMPACT_NOFPU)
 #define TARGET_SWITCHES_SH5_32MEDIA_NOFPU
+#endif
+
+#if defined(TARGET_SWITCHES_SH5_32MEDIA) && defined(TARGET_SWITCHES_SH5_32MEDIA_NOFPU)
+#define TARGET_SWITCH_SH5_32_ANY_EXTRA
+#endif
+
+#if defined(TARGET_SWITCH_SH5_32_ANY_EXTRA) && !defined(SUPPORT_SH5_64MEDIA) && !defined(SUPPORT_SH5_64MEDIA_NOFPU)
+#define TARGET_SWITCH_SH5_MEDIA_ANY_EXTRA
 #endif
 
 /* Reset all target-selection flags.  */
@@ -563,6 +576,22 @@ extern int target_flags;
   {"5-compact-nofpu", SELECT_SH5_COMPACT_NOFPU, "Generate FPU-less SHcompact code" },
 #endif
 
+#ifndef TARGET_SWITCH_SH5_32_ANY_EXTRA
+#define TARGET_SWITCH_SH5_32_ANY_EXTRA \
+  {"indexed-addressing", INDEXED_ADDRESS_BIT, "Enable the use of the indexed addressing mode for SHmedia32/SHcompact"}, \
+  {"no-indexed-addressing", -INDEXED_ADDRESS_BIT, "Disable the use of the indexed addressing mode for SHmedia32/SHcompact"},
+#endif
+
+#ifndef TARGET_SWITCH_SH5_MEDIA_ANY_EXTRA
+#define TARGET_SWITCH_SH5_MEDIA_ANY_EXTRA \
+  {"pt-fixed",	PT_FIXED_BIT, "Assume pt* instructions won't trap"}, \
+  {"no-pt-fixed", -PT_FIXED_BIT, "Assume pt* instructions may trap"}, \
+  {"invalid-symbols",INVALID_SYMBOLS_BIT, "Assume symbols might be invalid"}, \
+  {"no-invalid-symbols",-INVALID_SYMBOLS_BIT, "Assume symbols won't be invalid"}, \
+  {"adjust-unroll", ADJUST_UNROLL_BIT, "Throttle unrolling to avoid thrashing target registers unless the unroll benefit outweighs this"}, \
+  {"no-adjust-unroll", -ADJUST_UNROLL_BIT, "Don't throttle unrolling"},
+#endif
+
 #define TARGET_SWITCHES \
 { TARGET_SWITCH_SH1 \
   TARGET_SWITCH_SH2 \
@@ -603,10 +632,8 @@ extern int target_flags;
   {"relax",	RELAX_BIT, "Shorten address references during linking" }, \
   {"space", 	SPACE_BIT, "Deprecated. Use -Os instead" },		\
   {"usermode",	USERMODE_BIT, "Generate library function call to invalidate instruction cache entries after fixing trampoline" }, \
-  {"indexed-addressing", INDEXED_ADDRESS_BIT, "Enable the use of the indexed addressing mode for SHmedia32"}, \
-  {"no-indexed-addressing", -INDEXED_ADDRESS_BIT, "Disable the use of the indexed addressing mode for SHmedia32"}, \
-  {"adjust-unroll", ADJUST_UNROLL_BIT, "Throttle unrolling to avoid thrashing target registers unless the unroll benefit outweighs this"}, \
-  {"no-adjust-unroll", -ADJUST_UNROLL_BIT, "Don't throttle unrolling"},	\
+  TARGET_SWITCH_SH5_32_ANY_EXTRA \
+  TARGET_SWITCH_SH5_MEDIA_ANY_EXTRA \
   SUBTARGET_SWITCHES                            			\
   {"",   	TARGET_DEFAULT, "" }					\
 }
@@ -637,6 +664,8 @@ extern int target_flags;
     N_("Cost to assume for gettr insn"), 0 }, \
   { "div=", &sh_div_str, \
     N_("division strategy, one of: call, call2, fp, inv, inv:minlat, inv20u, inv20l, inv:call, inv:call2, inv:fp"), 0 }, \
+  { "divsi3_libfunc=", &sh_divsi3_libfunc, \
+    N_("Specify name for 32 bit signed division function"), 0 }, \
   { "cut2-workaround", &cut2_workaround_str, \
     N_("Enable SH5 cut2 workaround"), "\1" }, \
   SUBTARGET_OPTIONS \
@@ -902,7 +931,7 @@ do {									\
 	 --with-newlib --with-headers.  But there is no way to check	\
 	 here we have a working libgcov, so just assume that we have.  */\
       if (profile_flag)							\
-      warning ("Profiling is still experimental for this target.");	\
+	warning ("Profiling is still experimental for this target.");	\
     }									\
   else									\
     {									\
@@ -910,6 +939,19 @@ do {									\
        targetm.asm_out.aligned_op.di = NULL;				\
        targetm.asm_out.unaligned_op.di = NULL;				\
     }									\
+  if (sh_divsi3_libfunc[0])						\
+    ; /* User supplied - leave it alone.  */				\
+  else if (TARGET_HARD_SH4 && TARGET_SH2E)				\
+    sh_divsi3_libfunc = "__sdivsi3_i4";					\
+  else if (TARGET_SH5)							\
+    {									\
+      if (TARGET_FPU_ANY && TARGET_SH1)					\
+	sh_divsi3_libfunc = "__sdivsi3_i4";				\
+      else								\
+	sh_divsi3_libfunc = "__sdivsi3_1";				\
+    }									\
+  else									\
+    sh_divsi3_libfunc = "__sdivsi3";					\
   if (TARGET_FMOVD)							\
     reg_class_from_letter['e' - 'a'] = NO_REGS;				\
 									\
@@ -932,7 +974,8 @@ do {									\
       flag_omit_frame_pointer = 0;					\
    }									\
 									\
-  if (flag_pic && ! TARGET_PREFERGOT)					\
+  if ((flag_pic && ! TARGET_PREFERGOT)					\
+      || (TARGET_SHMEDIA && !TARGET_PT_FIXED))				\
     flag_no_function_cse = 1;						\
 									\
   if (SMALL_REGISTER_CLASSES)						\
@@ -1449,7 +1492,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    : XD_REGISTER_P (REGNO) \
    ? (MODE) == DFmode \
    : TARGET_REGISTER_P (REGNO) \
-   ? ((MODE) == DImode || (MODE) == SImode) \
+   ? ((MODE) == DImode || (MODE) == SImode || (MODE) == PDImode) \
    : (REGNO) == PR_REG ? (MODE) == SImode \
    : (REGNO) == FPSCR_REG ? (MODE) == PSImode \
    : 1)
@@ -1775,30 +1818,11 @@ extern enum reg_class reg_class_from_letter[];
    unused CONST_INT constraint letters: LO
    unused EXTRA_CONSTRAINT letters: D T U Y */
 
-#if 1 /* check that the transition went well.  */
-#define CONSTRAINT_LEN(C,STR) \
-  (((C) == 'L' || (C) == 'O' || (C) == 'D' || (C) == 'T' || (C) == 'U' \
-    || (C) == 'Y' \
-    || ((C) == 'I' \
-        && (((STR)[1] != '0' && (STR)[1] != '1' && (STR)[1] != '2') \
-	    || (STR)[2] < '0' || (STR)[2] > '9')) \
-    || ((C) == 'B' && ((STR)[1] != 's' || (STR)[2] != 'c')) \
-    || ((C) == 'J' && ((STR)[1] != '1' || (STR)[2] != '6')) \
-    || ((C) == 'K' && ((STR)[1] != '0' || (STR)[2] != '8')) \
-    || ((C) == 'P' && ((STR)[1] != '2' || (STR)[2] != '7'))) \
-   ? -1 \
-   : ((C) == 'A' || (C) == 'B' || (C) == 'C' \
-      || (C) == 'I' || (C) == 'J' || (C) == 'K' || (C) == 'P' \
-      || (C) == 'R' || (C) == 'S') \
-   ? 3 \
-   : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
-#else
 #define CONSTRAINT_LEN(C,STR) \
   (((C) == 'A' || (C) == 'B' || (C) == 'C' \
     || (C) == 'I' || (C) == 'J' || (C) == 'K' || (C) == 'P' \
     || (C) == 'R' || (C) == 'S') \
    ? 3 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
-#endif
 
 /* The letters I, J, K, L and M in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -1883,7 +1907,7 @@ extern enum reg_class reg_class_from_letter[];
    ? GENERAL_REGS \
    : (CLASS)) \
 
-#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,X) \
+#define SECONDARY_INOUT_RELOAD_CLASS(CLASS,MODE,X,ELSE) \
   ((((REGCLASS_HAS_FP_REG (CLASS) 					\
       && (GET_CODE (X) == REG						\
       && (GENERAL_OR_AP_REGISTER_P (REGNO (X))				\
@@ -1904,18 +1928,21 @@ extern enum reg_class reg_class_from_letter[];
 		  || REGNO (X) == T_REG					\
 		  || system_reg_operand (X, VOIDmode)))))		\
    ? GENERAL_REGS							\
-   : ((CLASS) == TARGET_REGS						\
-      || (TARGET_SHMEDIA && (CLASS) == SIBCALL_REGS))			\
-   ? ((target_operand ((X), (MODE))					\
-       && ! target_reg_operand ((X), (MODE)))				\
-      ? NO_REGS : GENERAL_REGS)						\
+   : (((CLASS) == TARGET_REGS						\
+       || (TARGET_SHMEDIA && (CLASS) == SIBCALL_REGS))			\
+      && !EXTRA_CONSTRAINT_Csy (X)					\
+      && (GET_CODE (X) != REG || ! GENERAL_REGISTER_P (REGNO (X))))	\
+   ? GENERAL_REGS							\
    : (((CLASS) == MAC_REGS || (CLASS) == PR_REGS)			\
       && GET_CODE (X) == REG && ! GENERAL_REGISTER_P (REGNO (X))	\
       && (CLASS) != REGNO_REG_CLASS (REGNO (X)))			\
    ? GENERAL_REGS							\
    : ((CLASS) != GENERAL_REGS && GET_CODE (X) == REG			\
       && TARGET_REGISTER_P (REGNO (X)))					\
-   ? GENERAL_REGS : NO_REGS)
+   ? GENERAL_REGS : (ELSE))
+
+#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,X) \
+ SECONDARY_INOUT_RELOAD_CLASS(CLASS,MODE,X,NO_REGS)
 
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,X)  \
   ((REGCLASS_HAS_FP_REG (CLASS) 					\
@@ -1950,7 +1977,7 @@ extern enum reg_class reg_class_from_letter[];
    : (TARGET_SHMEDIA && (CLASS) == GENERAL_REGS				\
       && (GET_CODE (X) == LABEL_REF || PIC_DIRECT_ADDR_P (X)))		\
    ? TARGET_REGS							\
-   : SECONDARY_OUTPUT_RELOAD_CLASS((CLASS),(MODE),(X)))
+   : SECONDARY_INOUT_RELOAD_CLASS((CLASS),(MODE),(X), NO_REGS))
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
@@ -2388,10 +2415,19 @@ struct sh_args {
 
 #define FUNCTION_PROFILER(STREAM,LABELNO)			\
 {								\
-	fprintf((STREAM), "\t.align\t2\n");			\
-	fprintf((STREAM), "\ttrapa\t#33\n");			\
- 	fprintf((STREAM), "\t.align\t2\n");			\
-	asm_fprintf((STREAM), "\t.long\t%LLP%d\n", (LABELNO));	\
+  if (TARGET_SHMEDIA)						\
+    {								\
+      fprintf((STREAM), "\tmovi\t33,r0\n");			\
+      fprintf((STREAM), "\ttrapa\tr0\n");			\
+      asm_fprintf((STREAM), "\t.long\t%LLP%d\n", (LABELNO));	\
+    }								\
+  else								\
+    {								\
+      fprintf((STREAM), "\t.align\t2\n");			\
+      fprintf((STREAM), "\ttrapa\t#33\n");			\
+      fprintf((STREAM), "\t.align\t2\n");			\
+      asm_fprintf((STREAM), "\t.long\t%LLP%d\n", (LABELNO));	\
+    }								\
 }
 
 /* Define this macro if the code for function profiling should come
@@ -3720,6 +3756,7 @@ extern struct rtx_def *sp_switch;
 extern const char *sh_multcost_str;
 extern const char *sh_gettrcost_str;
 extern const char *sh_div_str;
+extern const char *sh_divsi3_libfunc;
 extern const char *cut2_workaround_str;
 
 /* FIXME: middle-end support for highpart optimizations is missing.  */

@@ -1,3 +1,41 @@
+2005-05-04  J"orn Rennecke <joern.rennecke@st.com>
+
+	* config/sh/sh-modes.def (PDImode): Add.
+	* config/sh/sh-protos.h (shmedia_prepare_call_address): Declare.
+	* config/sh/sh.c (print_operand): Handle IF_THEN_ELSE.
+	(target_reg_operand): Allow PDImode.
+	(sh_register_move_cost): If neither sh_gettrcost_str nor
+	TARGET_PT_FIXED is set, assume gettr costs 100.
+	(shmedia_prepare_call_address): New function.
+	(sh_gettrcost_str): Initialize to empty string.
+	(sh_divsi3_libfunc): New variable.
+	* config/sh/sh.h (PT_FIXED_BIT, TARGET_INVALID_SYMBOLS): Define.
+	(TARGET_SWITCH_SH5_32_ANY_EXTRA): Likewise.
+	(TARGET_SWITCH_SH5_MEDIA_ANY_EXTRA): Likewise.
+	(TARGET_SWITCHES): Use TARGET_SWITCH_SH5_32_ANY_EXTRA and
+	TARGET_SWITCH_SH5_MEDIA_ANY_EXTRA.
+	(TARGET_OPTIONS): Add -mdivsi3_libfunc.
+	(OVERRIDE_OPTIONS): Set sh_divsi3_libfunc if it hasn't been set
+	by the user.
+	Also set flag_no_function_cse for (TARGET_SHMEDIA && !TARGET_PT_FIXED).
+	(HARD_REGNO_MODE_OK): Allow TARGET_REGS in PDImode.
+	(CONSTRAINT_LEN): Remove debug version.
+	(SECONDARY_INOUT_RELOAD_CLASS:) Break out of
+	(SECONDARY_OUTPUT_RELOAD_CLASS).  Use EXTRA_CONSTRAINT_Csy for check
+	if a target register needs a secondary reload through GENERAL_REGS.
+	(SECONDARY_INPUT_RELOAD_CLASS): Use SECONDARY_INOUT_RELOAD_CLASS.
+	(sh_divsi3_libfunc): Declare.
+	(FUNCTION_PROFILER): Provide SHMEDIA version.
+	* config/sh/sh.md (predicates.md): Include.
+	(divsi_inv_call_combine, divsi3): Use sh_divsi3_libfunc.
+	(reload_insi): Fix predicates and constraints.
+	(ptabs): New expander.
+	(*extendsipdi_media, *truncdipdi_media): New insns.
+	(call, call_value, sibcall): Use shmedia_prepare_call_address.
+	* doc/invoke.texi (-multcost, -mdiv): Document new SH options.
+	(-mdivsi3_libfunc, -madjust-unroll, -mindexed-addressing): Likewise.
+	(-mgettrcost, -mpt-fixed, -minvalid-symbols): Likewise.
+
 2005-04-29  J"orn Rennecke <joern.rennecke@st.com>
 
 	* jump.c: Merge from mainline version 1.260.

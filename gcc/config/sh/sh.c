@@ -766,6 +766,10 @@ print_operand (FILE *stream, rtx x, int code)
 	     but, because Pmode is SImode, the address ends up with a
 	     subreg:SI of the DImode register.  Maybe reload should be
 	     fixed so as to apply alter_subreg to such loads?  */
+	case IF_THEN_ELSE:
+	  gcc_assert (trapping_target_operand (x, VOIDmode));
+	  x = XEXP (XEXP (x, 2), 0);
+	  goto default_output;
 	case SUBREG:
 	  if (SUBREG_BYTE (x) != 0
 	      || GET_CODE (SUBREG_REG (x)) != REG)
@@ -8055,8 +8059,9 @@ logical_operator (rtx op, enum machine_mode mode)
 int
 target_reg_operand (rtx op, enum machine_mode mode)
 {
-  if ((mode != VOIDmode && mode != Pmode)
-      || GET_MODE (op) != Pmode)
+  if (mode == VOIDmode
+     ? GET_MODE (op) != Pmode && GET_MODE (op) != PDImode
+     : mode != GET_MODE (op))
     return 0;
 
   if (GET_CODE (op) == SUBREG)
@@ -10034,9 +10039,14 @@ sh_register_move_cost (enum machine_mode mode,
     return 20;
 
   /* ??? ptabs faults on (value & 0x3) == 0x3  */
-  if (*sh_gettrcost_str
-      && ((dstclass) == TARGET_REGS && REGCLASS_HAS_GENERAL_REG (srcclass)))
-    return atoi (sh_gettrcost_str);
+  if (TARGET_SHMEDIA
+      && ((srcclass) == TARGET_REGS || (srcclass) == SIBCALL_REGS))
+    {
+      if (*sh_gettrcost_str)
+	return atoi (sh_gettrcost_str);
+      else if (!TARGET_PT_FIXED)
+	return 100;
+    }
 
   if ((srcclass == FPSCR_REGS && ! REGCLASS_HAS_GENERAL_REG (dstclass))
       || (dstclass == FPSCR_REGS && ! REGCLASS_HAS_GENERAL_REG (srcclass)))
@@ -11142,9 +11152,58 @@ sh_contains_memref_p (rtx insn)
   return for_each_rtx (&PATTERN (insn), &sh_contains_memref_p_1, NULL);
 }
 
+/* FNADDR is the MEM expression from a call expander.  Return an address
+   to use in an SHmedia insn pattern.  */
+rtx
+shmedia_prepare_call_address (rtx fnaddr, int is_sibcall)
+{
+  int is_sym;
+
+  fnaddr = XEXP (fnaddr, 0);
+  is_sym = GET_CODE (fnaddr) == SYMBOL_REF;
+  if (flag_pic && is_sym)
+    {
+      if (! SYMBOL_REF_LOCAL_P (fnaddr))
+	{
+	  rtx reg = gen_reg_rtx (Pmode);
+
+	  /* We must not use GOTPLT for sibcalls, because PIC_REG
+	     must be restored before the PLT code gets to run.  */
+	  if (is_sibcall)
+	    emit_insn (gen_symGOT2reg (reg, fnaddr));
+	  else
+	    emit_insn (gen_symGOTPLT2reg (reg, fnaddr));
+	  fnaddr = reg;
+	}
+      else
+	{
+	  fnaddr = gen_sym2PIC (fnaddr);
+	  PUT_MODE (fnaddr, Pmode);
+	}
+    }
+  /* If ptabs might trap, make this visible to the rest of the compiler.
+     We generally assume that symbols pertain to valid locations, but
+     it is possible to generate invalid symbols with asm or linker tricks.
+     In a list of functions where each returns its sucessor, an invalid
+     symbol might denote an empty list.  */
+  if (!TARGET_PT_FIXED
+      && (!is_sym || TARGET_INVALID_SYMBOLS)
+      && (!REG_P (fnaddr) || ! TARGET_REGISTER_P (REGNO (fnaddr))))
+    {
+      rtx tr = gen_reg_rtx (PDImode);
+
+      emit_insn (gen_ptabs (tr, fnaddr));
+      fnaddr = tr;
+    }
+  else if (! target_reg_operand (fnaddr, Pmode))
+    fnaddr = copy_to_mode_reg (Pmode, fnaddr);
+  return fnaddr;
+}
+
 const char *sh_multcost_str = "";
-const char *sh_gettrcost_str = "100";
+const char *sh_gettrcost_str = "";
 const char *sh_div_str = "";
+const char *sh_divsi3_libfunc = "";
 const char *cut2_workaround_str = "";
 enum sh_divide_strategy_e sh_div_strategy = SH_DIV_CALL;
 
