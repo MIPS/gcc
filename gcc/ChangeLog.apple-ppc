@@ -1,3 +1,8 @@
+2005-05-04  Stuart Hastings  <stuart@apple.com>
+
+	* Radar 4078600
+	* gcc/stor-layout.c(compute_record_mode): Remove flag_pic from "8-byte struct hack" test.
+
 2005-05-03  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4104248

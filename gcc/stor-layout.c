@@ -1390,8 +1390,7 @@ compute_record_mode (tree type)
      struct-return methods and attempts to use floats in kernel code.
      This should probably become a generic macro similar to
      MEMBER_TYPE_FORCES_BLK above.  */
-  if (! (mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1) == DImode
-	     && flag_pic))
+  if (mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1) != DImode)
 #endif
   /* APPLE LOCAL end */
   TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
