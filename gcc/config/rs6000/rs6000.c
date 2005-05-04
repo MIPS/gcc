@@ -16056,8 +16056,9 @@ rs6000_emit_prologue (void)
      used in this function, and do the corresponding magic in the
      epilogue.  */
 
+  /* APPLE LOCAL begin radar 4105210 */
   if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && !WORLD_SAVE_P (info) && info->vrsave_mask != 0)
+      && info->vrsave_mask != 0)
     {
       rtx reg, mem, vrsave;
       int offset;
@@ -16072,19 +16073,23 @@ rs6000_emit_prologue (void)
       else
 	emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
 
-      /* Save VRSAVE.  */
-      offset = info->vrsave_save_offset + sp_offset;
-      mem
-	= gen_rtx_MEM (SImode,
-		       gen_rtx_PLUS (Pmode, frame_reg_rtx, GEN_INT (offset)));
-      set_mem_alias_set (mem, rs6000_sr_alias_set);
-      insn = emit_move_insn (mem, reg);
+      if (!WORLD_SAVE_P (info))
+	{
+          /* Save VRSAVE.  */
+          offset = info->vrsave_save_offset + sp_offset;
+          mem
+	    = gen_rtx_MEM (SImode,
+		           gen_rtx_PLUS (Pmode, frame_reg_rtx, GEN_INT (offset)));
+          set_mem_alias_set (mem, rs6000_sr_alias_set);
+          insn = emit_move_insn (mem, reg);
+        }
 
       /* Include the registers in the mask.  */
       emit_insn (gen_iorsi3 (reg, reg, GEN_INT ((int) info->vrsave_mask)));
 
       insn = emit_insn (generate_set_vrsave (reg, info, 0));
     }
+  /* APPLE LOCAL end radar 4105210 */
 
   /* If we use the link register, get it into r0.  */
   if (!WORLD_SAVE_P (info) && info->lr_save_p)
