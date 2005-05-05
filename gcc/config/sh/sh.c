@@ -11205,7 +11205,7 @@ const char *sh_gettrcost_str = "";
 const char *sh_div_str = "";
 const char *sh_divsi3_libfunc = "";
 const char *cut2_workaround_str = "";
-enum sh_divide_strategy_e sh_div_strategy = SH_DIV_CALL;
+enum sh_divide_strategy_e sh_div_strategy = SH_DIV_STRATEGY_DEFAULT;
 
 /* This defines the storage for the variable part of a -mboard= option.
    It is only required when using the sh-superh-elf target */

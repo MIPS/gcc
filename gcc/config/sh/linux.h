@@ -105,3 +105,10 @@ Boston, MA 02111-1307, USA.  */
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(REGNO) \
   ((! TARGET_SH5 && (REGNO) == 16) ? 16 : SH_DBX_REGISTER_NUMBER (REGNO))
+
+/* Since libgcc is compiled with -fpic for this target, we can't use
+   __sdivsi3_1 as the division strategy for -O0 and -Os.  */
+#undef SH_DIV_STRATEGY_DEFAULT
+#define SH_DIV_STRATEGY_DEFAULT SH_DIV_CALL2
+#undef SH_DIV_STR_FOR_SIZE
+#define SH_DIV_STR_FOR_SIZE "call2"

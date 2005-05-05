@@ -791,6 +791,10 @@ extern int target_flags;
 %(subtarget_link_emul_suffix) \
 %{mrelax:-relax} %(subtarget_link_spec)"
 
+#ifndef SH_DIV_STR_FOR_SIZE
+#define SH_DIV_STR_FOR_SIZE "call"
+#endif
+
 #define DRIVER_SELF_SPECS "%{m2a:%{ml:%eSH2a does not support little-endian}}"
 #define OPTIMIZATION_OPTIONS(LEVEL,SIZE)				\
 do {									\
@@ -803,7 +807,7 @@ do {									\
   if (SIZE)								\
     {									\
       target_flags |= SPACE_BIT;					\
-      sh_div_str = "call";						\
+      sh_div_str = SH_DIV_STR_FOR_SIZE ;				\
     }									\
   /* We can't meaningfully test TARGET_SHMEDIA here, because -m options	\
      haven't been parsed yet, hence we';d read only the default.	\
@@ -840,6 +844,10 @@ enum sh_divide_strategy_e {
 };
 
 extern enum sh_divide_strategy_e sh_div_strategy;
+
+#ifndef SH_DIV_STRATEGY_DEFAULT
+#define SH_DIV_STRATEGY_DEFAULT SH_DIV_CALL
+#endif
 
 #define OVERRIDE_OPTIONS 						\
 do {									\

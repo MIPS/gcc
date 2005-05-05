@@ -1,3 +1,16 @@
+2005-05-04  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_div_strategy): Initialize with
+	SH_DIV_STRATEGY_DEFAULT.
+	* config/sh/sh.c (SH_DIV_STR_FOR_SIZE): Define.
+	(SH_DIV_STRATEGY_DEFAULT): Likewise.
+	(OPTIMIZATION_OPTIONS): Set sh_div_str to SH_DIV_STR_FOR_SIZE
+	when optimized for size.
+	* config/sh/linux.h (SH_DIV_STRATEGY_DEFAULT): Redefine.
+	(SH_DIV_STR_FOR_SIZE): Likewise.
+	* config/sh/netbsd-elf.h (SH_DIV_STRATEGY_DEFAULT): Likewise.
+	(SH_DIV_STR_FOR_SIZE): Likewise.
+
 2005-05-04  J"orn Rennecke <joern.rennecke@st.com>
 
 	PR middle-end/20371:
