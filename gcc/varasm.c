@@ -4276,18 +4276,47 @@ mark_weak (tree decl)
     SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
 }
 
+/* APPLE LOCAL begin 4095052 */
+/* We put the NEWDECL on the weak_decls list at some point.
+   Replace it with the OLDDECL.  */
+
+void
+replace_weak (tree newdecl, tree olddecl)
+{
+  if (SUPPORTS_WEAK)
+    {
+      tree wd;
+
+      for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
+	if (TREE_VALUE (wd) == newdecl)
+	  {
+	    TREE_VALUE (wd) = olddecl;
+	    break;
+	  }
+      /* We may not find the entry on the list.  If NEWDECL is a
+	 weak alias, then we will have already called
+	 globalize_decl to remove the entry; in that case, we do
+	 not need to do anything.  */
+    }
+}
+/* APPLE LOCAL end 4095052 */
+
 /* Merge weak status between NEWDECL and OLDDECL.  */
 
 void
 merge_weak (tree newdecl, tree olddecl)
 {
+  /* APPLE LOCAL begin 4095052 */
   if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
-    return;
+    {
+      /* Replace newdecl in weak_decls list.  */
+      replace_weak (newdecl, olddecl);
+      return;
+    }
+/* APPLE LOCAL end 4095052 */
 
   if (DECL_WEAK (newdecl))
     {
-      tree wd;
-
       /* NEWDECL is weak, but OLDDECL is not.  */
 
       /* If we already output the OLDDECL, we're in trouble; we can't
@@ -4306,21 +4335,10 @@ merge_weak (tree newdecl, tree olddecl)
 	warning ("%Jweak declaration of %qD after first use results "
                  "in unspecified behavior", newdecl, newdecl);
 
-      if (SUPPORTS_WEAK)
-	{
-	  /* We put the NEWDECL on the weak_decls list at some point.
-	     Replace it with the OLDDECL.  */
-	  for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
-	    if (TREE_VALUE (wd) == newdecl)
-	      {
-		TREE_VALUE (wd) = olddecl;
-		break;
-	      }
-	  /* We may not find the entry on the list.  If NEWDECL is a
-	     weak alias, then we will have already called
-	     globalize_decl to remove the entry; in that case, we do
-	     not need to do anything.  */
-	}
+      /* APPLE LOCAL begin 4095052 */
+      /* Replace newdecl in weak_decls list.  */
+      replace_weak (newdecl, olddecl);
+      /* APPLE LOCAL end 4095052 */
 
       /* Make the OLDDECL weak; it's OLDDECL that we'll be keeping.  */
       mark_weak (olddecl);
