@@ -423,6 +423,7 @@
 	* doc/tree-ssa.texi: Add MEM_REF to gimple grammar.
 
 2005-01-22  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* alias.c : Fixed typos in header comment.
 
 	* alias.c (nonoverlapping_memrefs_p): Added code to use
@@ -456,7 +457,7 @@
 	* alias.c: Fixed header comment.
 	* c-common.c: (handle_free_attribure) 
 	New function to handle "free" attribute. 
-	* c=decl.c (merge_decls): Process "free" attribute.
+	* c-decl.c (merge_decls): Process "free" attribute.
 	* calls.c (flags_from_decl_or_type): process "free" attribute.
 	* ipa-static-vars-anal.c (unique_type_id_for, 
 	ipa_static_star_count_of_interesting_type, ipa_static_type_contained_p,
@@ -473,22 +474,21 @@
 	look_for_address_of, check_call, scan_for_static_refs, ipa_init, 
 	analyze_function, static_execute): Fixed to perform type escape 
 	analysis.
-	* ipa-static-vars-anal.c (convert_UIDs_in_bitmap, propagate_bits): 
-	Fixed typo.
-	* ipa-static-vars-anal.c (searchc_env): Added missing cast.
-	* ipa-static-vars-anal.c (get_base_var): Moved from tree-gimple.c.
-	* ipa-static-vars-anal.c (check_call): Renamed from 
-	process_call_for_static_vars.
-	* ipa-static-vars-anal.c (analyze_variable): Added debugging.
-	* ipa-static-vars-anal.c (static_execute): Removed debugging.
-	* tree-dfa.c (create_stmt_ann) Fixed typo.
-	* tree.c (build4_stat) Fixed typo.
+	(convert_UIDs_in_bitmap, propagate_bits): Fixed typo.
+	(searchc_env): Added missing cast.
+	(get_base_var): Moved from tree-gimple.c.
+	(check_call): Renamed from process_call_for_static_vars.
+	(analyze_variable): Added debugging.
+	(static_execute): Removed debugging.
+	* tree-dfa.c (create_stmt_ann): Fixed typo.
+	* tree.c (build4_stat): Fixed typo.
 	* tree-inline-flow.h: Fixed typo.
 	* tree-ssa-alias.c (may_alias_p): Improvements to aliasing based on 
 	type escape analysis.
 	* tree.h: added free attribute. 
 
-2005-01-18  Daniel Berlin  <dberlin@dberlin.org> (committed by Kenneth Zadeck <zadeck@naturalbridge.com>)
+2005-01-18  Daniel Berlin  <dberlin@dberlin.org>
+	    (committed by Kenneth Zadeck <zadeck@naturalbridge.com>)
 
 	* c-typeck.c (build_array_ref): Build a MEM_REF instead of
 	an indirect_ref if we can.
