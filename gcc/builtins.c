@@ -9208,8 +9208,10 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
       if (! fn)
 	return 0;
 
-      return expand_expr (build_function_call_expr (fn, arglist),
-			  target, mode, EXPAND_NORMAL);
+      fn = build_function_call_expr (fn, arglist);
+      if (TREE_CODE (fn) == CALL_EXPR)
+	CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+      return expand_expr (fn, target, mode, EXPAND_NORMAL);
     }
   else if (fcode == BUILT_IN_MEMSET_CHK)
     return 0;
@@ -9252,11 +9254,13 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	     normal __memcpy_chk.  */
 	  if (readonly_data_expr (src))
 	    {
-	      tree const fn = built_in_decls[BUILT_IN_MEMCPY_CHK];
+	      tree fn = built_in_decls[BUILT_IN_MEMCPY_CHK];
 	      if (!fn)
 		return 0;
-	      return expand_expr (build_function_call_expr (fn, arglist),
-				  target, mode, EXPAND_NORMAL);
+	      fn = build_function_call_expr (fn, arglist);
+	      if (TREE_CODE (fn) == CALL_EXPR)
+		CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+	      return expand_expr (fn, target, mode, EXPAND_NORMAL);
 	    }
 	}
       return 0;

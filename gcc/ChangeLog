@@ -1,3 +1,8 @@
+2005-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (expand_builtin_memory_chk): Copy CALL_EXPR_TAILCALL from
+	EXP to the new CALL_EXPRs.
+
 2005-05-05  Ralf Corsepius  <ralf.corsepius@rtems.org>
 
 	* config.gcc (hppa1.1-*-rtems*): Obsolete.
