@@ -3524,7 +3524,7 @@ cp_parser_unqualified_id (cp_parser* parser,
       /* APPLE LOCAL begin CW asm blocks C++ */
     case CPP_NUMBER:
       {
-	if (flag_cw_asm_blocks
+	if (flag_cw_asm_blocks && inside_cw_asm_block
 	    && TREE_CODE (token->value) == INTEGER_CST)
 	  {
 	    char buf[60];
