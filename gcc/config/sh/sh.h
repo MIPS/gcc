@@ -3291,10 +3291,26 @@ struct sh_args {
 }
 
 #define ASM_OUTPUT_REG_PUSH(file, v) \
-  fprintf ((file), "\tmov.l\tr%d,@-r15\n", (v));
+{							\
+  if (TARGET_SHMEDIA)					\
+    {							\
+      fprintf ((file), "\taddi.l\tr15,-8,r15\n");	\
+      fprintf ((file), "\tst.q\tr15,0,r%d\n", (v));	\
+    }							\
+  else							\
+    fprintf ((file), "\tmov.l\tr%d,@-r15\n", (v));	\
+}
 
 #define ASM_OUTPUT_REG_POP(file, v) \
-  fprintf ((file), "\tmov.l\t@r15+,r%d\n", (v));
+{							\
+  if (TARGET_SHMEDIA)					\
+    {							\
+      fprintf ((file), "\tld.q\tr15,0,r%d\n", (v));	\
+      fprintf ((file), "\taddi.l\tr15,8,r15\n");	\
+    }							\
+  else							\
+    fprintf ((file), "\tmov.l\t@r15+,r%d\n", (v));	\
+}
 
 /* DBX register number for a given compiler register number.  */
 /* GDB has FPUL at 23 and FP0 at 25, so we must add one to all FP registers

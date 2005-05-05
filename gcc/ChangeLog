@@ -1,3 +1,8 @@
+2005-05-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (ASM_OUTPUT_REG_PUSH): Provide SHMEDIA version.
+	(ASM_OUTPUT_REG_POP): Likewise.
+
 2005-05-05  J"orn Rennecke  <joern.rennecke@st.com>
 	    Kaz Kojima  <kkojima@gcc.gnu.org>
 
