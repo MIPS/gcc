@@ -34,7 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 
 /*
-The main idea is to promote some static variables from memory to ssa
+The main idea is to promote some static variables from memory to SSA
 registers.  This transformation is only applied to those static
 variables for which the effects of subroutine calls can be understood.
 Such infomation is provided by functions in cgraphunit.c.
@@ -57,7 +57,7 @@ The minimal live range path has a lot of problems:
 
 1) live variables and upwards exposed uses must be first comuputed.
 2) new machiney must be invented to prevent code motion algorithms
-from floating a use of the suragate register across a register
+from floating a use of the surrogate register across a register
 function call that clobbers the variable, but was not in any minimal
 live range at the time of this analysis.
 
@@ -131,6 +131,7 @@ static tree *static_map;
 
 
 /* Return true if the asm STMT clobbers memory.  */
+
 static bool
 asm_clobbers_mem (tree stmt)
 {
@@ -144,6 +145,7 @@ asm_clobbers_mem (tree stmt)
 
 /* Return a INPUT_BITMAP for the asm inputs and OUTPUT_BITMAP for the
    asm outputs of static variables written by the asm STMT.  */
+
 static void
 get_asm_read_and_write (bitmap input_bitmap, bitmap output_bitmap, tree stmt) 
 {
@@ -200,8 +202,9 @@ get_asm_read_and_write (bitmap input_bitmap, bitmap output_bitmap, tree stmt)
 }
 
 /* Generate a series of loads from the static variables pointed to by
-   b1 && b2 or just b1 (if b2 is NULL) and insert them after
-   bsi).  */
+   B1 && B2 or just B1 (if B2 is NULL) and insert them after
+   BSI).  */
+
 static void
 gen_loads (bitmap b1, bitmap b2, block_stmt_iterator *bsi) 
 {
@@ -234,8 +237,9 @@ gen_loads (bitmap b1, bitmap b2, block_stmt_iterator *bsi)
 }
 
 /* Generate a series of stores to the static variables pointed to by
-   b1 && b2 or just b1 (if b2 is NULL) and insert them before
-   bsi).  */
+   B1 && B2 or just B1 (if B2 is NULL) and insert them before
+   BSI).  */
+
 static void
 gen_stores (bitmap b1, bitmap b2, block_stmt_iterator *bsi) 
 {
@@ -258,7 +262,6 @@ gen_stores (bitmap b1, bitmap b2, block_stmt_iterator *bsi)
 	tree dest = referenced_var (index);
 	tree stmt = build (MODIFY_EXPR, TREE_TYPE (src), dest, src);
 	append_to_statement_list (stmt, &list);
-/* 	fprintf(stderr, "    generating store for var=%s\n", get_name(dest)); */
       }
 
   if (list)
@@ -284,6 +287,7 @@ try_replace_operand(tree * tptr)
 }
 
 /* Walk an expression TPTR replacing all of the static references.  */
+
 static void
 try_replace (tree *tptr) 
 {
@@ -328,12 +332,10 @@ try_replace_call_operands (tree call_expr)
 /* Generate loads and stores and replace all the static references in
    function FN using statement iterator SI. This form is used when
    there is not info available about the caller.  */
+
 static void 
 gen_dumb_call (tree fn, block_stmt_iterator si) 
 {
-
-/*   fprintf(stderr, "    promoting dumb call\n"); */
-
   gen_stores (local_written, NULL, &si);
   try_replace (&TREE_OPERAND (fn, 0));
   try_replace_call_operands (fn);
@@ -343,6 +345,7 @@ gen_dumb_call (tree fn, block_stmt_iterator si)
 
 /* Generate loads and stores and replace all the static references in
    function FN using statement iterator SI.  */
+
 static void 
 try_replace_call (tree fn, block_stmt_iterator si)
 {
@@ -382,7 +385,8 @@ try_replace_call (tree fn, block_stmt_iterator si)
 
 
 /* Walk the entire function looking uses or stores to global variables
-and changing them to use ssa shadow registers.  */ 
+   and changing them to use ssa shadow registers.  */ 
+
 static void
 walk_function (void)
 {
@@ -402,7 +406,6 @@ walk_function (void)
 	  case RETURN_EXPR:
 	    /* Store all of the local_written registers back to memory
 	       before returning. */
-/* 	    fprintf(stderr, "    promoting return\n"); */
 	    gen_stores (local_written, NULL, &si);
 	    break;
 
@@ -492,9 +495,6 @@ walk_function (void)
       }
 }
 
-static int max_funct = -1;
-static int current_funct = 0;
-
 /* Main entry point for the promotion of statics to ssa regsisters. */
 
 static void
@@ -504,22 +504,6 @@ execute_promote_statics (void)
   bitmap_iterator bi;
   bitmap tb = ipa_get_statics_read_local (current_function_decl);
 
-  if (0) 
-    {
-      if (max_funct == -1)
-	{
-	  FILE *ok_statics_file = fopen("/home/zadeck/ok_promote", "r");
-	  char line[100];
-	  fgets(line, sizeof(line), ok_statics_file);
-	  sscanf(line, "%d", &max_funct);
-	}
-      current_funct++;
-      if (current_funct > max_funct)
-	return;
-      else
-	fprintf(stderr, "promoting in %s\n",
-		lang_hooks.decl_printable_name (current_function_decl, 2));
-    }
 
   /* There are some options that cause this pass to run even if file
      at a time is not set.  */
@@ -544,8 +528,8 @@ execute_promote_statics (void)
   bitmap_ior (local_all, local_read, local_written);
 
   if (dump_file)
-    fprintf(dump_file, "promoting in %s\n", 
-	    lang_hooks.decl_printable_name (current_function_decl, 2)); 
+    fprintf (dump_file, "promoting in %s\n", 
+	     lang_hooks.decl_printable_name (current_function_decl, 2)); 
 
   EXECUTE_IF_SET_IN_BITMAP (local_all, 0, index, bi) 
       {
@@ -575,10 +559,10 @@ execute_promote_statics (void)
 				       tmp, svar), 
 				ENTRY_BLOCK_PTR);
 	    if (dump_file) 
-	      fprintf(dump_file, "  var=%s, read=%d,write=%d\n", 
-		      get_name(svar), 
-		      bitmap_bit_p(local_read, index),  
-		      bitmap_bit_p(local_written, index)); 
+	      fprintf (dump_file, "  var=%s, read=%d,write=%d\n", 
+		       get_name (svar), 
+		       bitmap_bit_p (local_read, index),  
+		       bitmap_bit_p (local_written, index)); 
 	  }
 	else 
 	  {
@@ -604,7 +588,7 @@ execute_promote_statics (void)
 static bool
 gate_promote_statics (void)
 {
-  return flag_unit_at_a_time != 0 && 0;
+  return flag_unit_at_a_time != 0;
 }
 
 struct tree_opt_pass pass_promote_statics = 
@@ -618,7 +602,7 @@ struct tree_opt_pass pass_promote_statics =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg ,                    	/* properties_required */
+  PROP_cfg,                    		/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
