@@ -1,3 +1,15 @@
+2005-05-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gimple-low.c (lower_memref): Use force_gimple_operand, call
+	update_stmt if we are in SSA.
+	* gimplify.c: Remove force_gimple_operand_nossa.
+	(force_gimple_operand): Use in_ssa_p to determine
+	whether to create ssa names or not.
+	* tree-flow.h (force_gimple_operand_nossa): Remove.
+	* tree-optimize.c (init_tree_optimization_passes): Move
+	pass_lower_memref.
+	* tree-ssa-alias.c (count_ptr_derefs): MEM_REF is a dereference.
+
 2005-05-01  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-alias.c: Put back code removed by Jan that was on branch,

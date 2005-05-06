@@ -400,7 +400,8 @@ count_ptr_derefs (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
 {
   struct count_ptr_d *count_p = (struct count_ptr_d *) data;
 
-  if (INDIRECT_REF_P (*tp) && TREE_OPERAND (*tp, 0) == count_p->ptr)
+  if ((INDIRECT_REF_P (*tp) && TREE_OPERAND (*tp, 0) == count_p->ptr)
+      || (TREE_CODE (*tp) == MEM_REF && MEM_REF_SYMBOL (*tp) == count_p->ptr))
     count_p->count++;
 
   return NULL_TREE;

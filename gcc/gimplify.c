@@ -4683,13 +4683,11 @@ gimplify_function_tree (tree fndecl)
 /* Expands EXPR to list of gimple statements STMTS.  If SIMPLE is true,
    force the result to be either ssa_name or an invariant, otherwise
    just force it to be a rhs expression.  If VAR is not NULL, make the
-   base variable of the final destination be VAR if suitable.
-   If MAKE_SSA is true, make the build expressions use SSA names,
-   otherwise, do not.  */
+   base variable of the final destination be VAR if suitable. */
 
-static tree
-force_gimple_operand_main (tree expr, tree *stmts, bool simple, tree var,
-			   bool make_ssa)
+tree
+force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
+
 {
   tree t;
   enum gimplify_status ret;
@@ -4703,7 +4701,7 @@ force_gimple_operand_main (tree expr, tree *stmts, bool simple, tree var,
   gimple_test_f = simple ? is_gimple_val : is_gimple_reg_rhs;
 
   push_gimplify_context ();
-  gimplify_ctxp->into_ssa = make_ssa;
+  gimplify_ctxp->into_ssa = in_ssa_p;
 
   if (var)
     expr = build (MODIFY_EXPR, TREE_TYPE (var), var, expr);
@@ -4721,18 +4719,6 @@ force_gimple_operand_main (tree expr, tree *stmts, bool simple, tree var,
   pop_gimplify_context (NULL);
 
   return expr;
-}
-
-tree
-force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
-{
-  return force_gimple_operand_main (expr, stmts, simple, var, true);
-}
-
-tree
-force_gimple_operand_nossa (tree expr, tree *stmts, bool simple, tree var)
-{
-  return force_gimple_operand_main (expr, stmts, simple, var, false);
 }
 
 /* Invokes force_gimple_operand for EXPR with parameters SIMPLE_P and VAR.  If

@@ -693,7 +693,7 @@ lower_memref (tree *tp,
 		     MEM_REF_SYMBOL (*tp), with);
       
 
-      with = force_gimple_operand_nossa (with, &stmts, false, NULL_TREE);
+      with = force_gimple_operand (with, &stmts, false, NULL_TREE);
       if (stmts)
 	bsi_insert_before (bsip, stmts, BSI_SAME_STMT);
       
@@ -702,7 +702,7 @@ lower_memref (tree *tp,
       TREE_SIDE_EFFECTS (indirect) = TREE_SIDE_EFFECTS (*tp);
       TREE_THIS_VOLATILE (indirect) = TREE_THIS_VOLATILE (*tp);
       
-      indirect = force_gimple_operand_nossa (indirect, &stmts, false, 
+      indirect = force_gimple_operand (indirect, &stmts, false, 
 					     NULL_TREE);
       if (stmts)
 	bsi_insert_before (bsip, stmts, BSI_SAME_STMT);
@@ -730,6 +730,8 @@ lower_memrefs (void)
 	tree stmt = bsi_stmt (bsi);
 	visited_nodes = pointer_set_create ();
 	walk_tree (&stmt,  lower_memref, (void *)&bsi, visited_nodes);
+	if (in_ssa_p)
+	  update_stmt (stmt);
 	pointer_set_destroy (visited_nodes);
 		   
       }
