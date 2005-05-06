@@ -323,6 +323,7 @@ static void rs6000_file_start (void);
 static unsigned int rs6000_elf_section_type_flags (tree, const char *, int);
 static void rs6000_elf_asm_out_constructor (rtx, int);
 static void rs6000_elf_asm_out_destructor (rtx, int);
+static void rs6000_elf_end_indicate_exec_stack (void) ATTRIBUTE_UNUSED;
 static void rs6000_elf_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_elf_unique_section (tree, int);
 static void rs6000_elf_select_rtx_section (enum machine_mode, rtx,
@@ -757,9 +758,8 @@ rs6000_override_options (const char *default_cpu)
     set_masks &= ~MASK_ALTIVEC;
 #endif
 
-  /* Don't override these by the processor default if given explicitly.  */
-  set_masks &= ~(target_flags_explicit
-		 & (MASK_MULTIPLE | MASK_STRING | MASK_SOFT_FLOAT));
+  /* Don't override by the processor default if given explicitly.  */
+  set_masks &= ~target_flags_explicit;
 
   /* Identify the processor type.  */
   rs6000_select[0].string = default_cpu;
@@ -3011,13 +3011,9 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		rs6000_emit_move (got, gsym, Pmode);
 	      else
 		{
-		  char buf[30];
-		  static int tls_got_labelno = 0;
-		  rtx tempLR, lab, tmp3, mem;
+		  rtx tempLR, tmp3, mem;
 		  rtx first, last;
 
-		  ASM_GENERATE_INTERNAL_LABEL (buf, "LTLS", tls_got_labelno++);
-		  lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 		  tempLR = gen_reg_rtx (Pmode);
 		  tmp1 = gen_reg_rtx (Pmode);
 		  tmp2 = gen_reg_rtx (Pmode);
@@ -3025,8 +3021,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		  mem = gen_rtx_MEM (Pmode, tmp1);
 		  RTX_UNCHANGING_P (mem) = 1;
 
-		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, lab,
-							     gsym));
+		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, gsym));
 		  emit_move_insn (tmp1, tempLR);
 		  emit_move_insn (tmp2, mem);
 		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
@@ -7716,11 +7711,21 @@ rs6000_init_libfuncs (void)
 	  set_conv_libfunc (ufix_optab, SImode, TFmode, "_quitrunc");
 	}
 
-      /* Standard AIX/Darwin/64-bit SVR4 quad floating point routines.  */
-      set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
-      set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
-      set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
-      set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
+      /* AIX/Darwin/64-bit Linux quad floating point routines.  */
+      if (!TARGET_XL_COMPAT)
+	{
+	  set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
+	  set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
+	  set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
+	  set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
+	}
+      else
+	{
+	  set_optab_libfunc (add_optab, TFmode, "_xlqadd");
+	  set_optab_libfunc (sub_optab, TFmode, "_xlqsub");
+	  set_optab_libfunc (smul_optab, TFmode, "_xlqmul");
+	  set_optab_libfunc (sdiv_optab, TFmode, "_xlqdiv");
+	}
     }
   else
     {
@@ -11493,11 +11498,10 @@ rs6000_emit_load_toc_table (int fromprolog)
       rtx temp0 = (fromprolog
 		   ? gen_rtx_REG (Pmode, 0)
 		   : gen_reg_rtx (Pmode));
-      rtx symF;
 
       if (fromprolog)
 	{
-	  rtx symL;
+	  rtx symF, symL;
 
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
 	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
@@ -11515,14 +11519,9 @@ rs6000_emit_load_toc_table (int fromprolog)
       else
 	{
 	  rtx tocsym;
-	  static int reload_toc_labelno = 0;
 
 	  tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
-
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCG", reload_toc_labelno++);
-	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-
-	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, symF, tocsym));
+	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, tocsym));
 	  emit_move_insn (dest, tempLR);
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
@@ -15817,6 +15816,13 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       fprintf (file, "\t.previous\n");
     }
   ASM_OUTPUT_LABEL (file, name);
+}
+
+static void
+rs6000_elf_end_indicate_exec_stack (void)
+{
+  if (TARGET_32BIT)
+    file_end_indicate_exec_stack ();
 }
 #endif
 

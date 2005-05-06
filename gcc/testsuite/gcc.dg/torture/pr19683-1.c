@@ -6,7 +6,6 @@
 extern void abort (void);
 extern void exit (int);
 
-#ifndef __mips16
 #define REPEAT10(X, Y)					\
   X(Y##0); X(Y##1); X(Y##2); X(Y##3); X(Y##4);		\
   X(Y##5); X(Y##6); X(Y##7); X(Y##8); X(Y##9)
@@ -41,10 +40,3 @@ main (void)
     abort ();
   exit (0);
 }
-#else
-int
-main (void)
-{
-  exit (0);
-}
-#endif

@@ -1,3 +1,116 @@
+2005-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2004-12-21  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/19034
+	* tree.c (cp_tree_equal): Handle OVERLOAD.
+
+2005-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert:
+	2005-05-01  Mark Mitchell  <mark@codesourcery.com>
+	* typeck.c (unary_complex_lvalue): In a template, always refuse
+	simplifications.
+
+2005-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-02-22  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/19991
+	* init.c (decl_constant_value): Iterate if the value of a decl
+	is itself a constant.
+
+2005-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+        2004-12-22  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/18464
+	* call.c (build_this): In templates, do not bother with
+	build_unary_op.
+	* typeck.c (unary_complex_lvalue): In a template, always refuse
+	simplifications.
+
+2005-04-25  Roger Sayle  <roger@eyesopen.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20995
+	Partial backport from mainline.
+	2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+	* tree.c (fold_if_not_in_template): New function.
+	* cp-tree.h (fold_if_not_in_template): Prototype here.
+	* call.c (build_conditional_expr): Use fold_if_not_in_template.
+	* typeck.c (build_binary_op): Likewise.
+
+2005-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21025
+	* typeck.c (cxx_sizeof_or_alignof_type): Check whether the type to
+	which sizeof/alignof is dependent, rather than just whether we are
+	processing_template_decl.
+	
+2005-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/19312
+	* tree.c (stabilize_init): Don't bother trying to stabilize
+	something with no side-effects.
+
+2005-04-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20679
+	* parser.c (cp_parser_template_name): Fix thinko.
+
+2005-04-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/18644
+	* call.c (build_new_op): Remove check for -Wsynth.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20147
+	* semantics.c (finish_stmt_expr_expr): Return immediately
+	if error_operand_p (expr).
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20240
+	* decl.c (decls_match): Compare context of VAR_DECL.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20333
+	* parser.c (cp_parser_postfix_expression) <case RID_TYPENAME>:
+	Check the return value of cp_parser_nested_name_specifier.
+
+2005-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20142
+	* init.c (build_vec_init): When determining whether or not the
+	element type has an asignment operator, look through all array
+	dimensions. 
+
+2005-03-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19311
+	* init.c (build_offset_ref): Don't build non-dependent SCOPE_REF.
+	* pt.c (build_non_dependent_expr): Don't build NON_DEPENDENT_EXPR
+	for OFFSET_TYPE.
+	* typeck.c (build_x_unary_op): Don't build non-dependent SCOPE_REF.
+	Also set PTRMEM_OK_P for NON_DEPENDENT_EXPR.
+	(build_unary_op): Handle building ADDR_EXPR of OFFSET_REF inside
+	template.
+
+2005-03-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* name-lookup.c (push_overloaded_decl): Don't error if the new
+	decl matches the old one.
+	* decl.c (redeclaration_error_message): Likewise.
+
+2005-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/20175
+	* decl.c (reshape_init): Don't warn about missing braces if STRING_CST
+	initializes a char/wchar_t array.
+
 2005-02-09  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR c++/18838
