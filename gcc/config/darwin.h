@@ -702,6 +702,10 @@ do {					\
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
+	   /* APPLE LOCAL begin Objective-C++ 4105386 */		     \
+	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
+	   /* APPLE LOCAL end Objective-C++ 4105386 */			     \
 	   /* APPLE LOCAL begin Objective-C++ */			\
 	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))		\
 	     fprintf (FILE, "\"%s\"", &xname[1]);			\
