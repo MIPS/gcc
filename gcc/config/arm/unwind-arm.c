@@ -380,6 +380,13 @@ get_eit_entry (_Unwind_Control_Block *ucbp, _uw return_address)
   const __EIT_entry * eitp;
   int nrec;
   
+  /* The return address is the address of the instruction following the
+     call instruction (plus one in thumb mode).  If this was the last
+     instruction in the function the address will lie in the following
+     function.  Subtract 2 from the address so that it points within the call
+     instruction itself.  */
+  return_address -= 2;
+
   if (__gnu_Unwind_Find_exidx)
     {
       eitp = (const __EIT_entry *) __gnu_Unwind_Find_exidx (return_address,

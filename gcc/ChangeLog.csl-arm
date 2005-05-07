@@ -1,4 +1,9 @@
-2005-01-05  Paul Brook  <paul@codesourcery.com>
+2005-05-06  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/unwind-arm.c (get_eit_entry): Adjust address to throwing
+	call, not following instruction.
+
+2005-05-01  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.h (ARM_EMIT_TRAMPOLINE_CACHE_CLEAR): Define.
 	(INITIALIZE_TRAMPOLINE): Use it.
