@@ -1,3 +1,7 @@
+2005-05-08  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/linux.h (FUNCTION_PROFILER): Provide SHMEDIA version.
+
 2005-05-05  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/sh.h (ASM_OUTPUT_REG_PUSH): Provide SHMEDIA version.
