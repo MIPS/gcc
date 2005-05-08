@@ -66,7 +66,7 @@ struct ipcp_modify
 {
   bool mod;
 };
-struct ipcp_replace_map
+struct ipa_replace_map
 {
   tree old_tree;
   tree new_tree;

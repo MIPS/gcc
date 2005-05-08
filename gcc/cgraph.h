@@ -302,7 +302,7 @@ void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
 void cgraph_mark_inline_edge (struct cgraph_edge *);
 bool cgraph_default_inline_p (struct cgraph_node *);
 
-void update_call_expr (struct cgraph_node *, varray_type);
+void update_call_expr (struct cgraph_node *);
 struct cgraph_node *cgraph_copy_node_for_versioning (struct cgraph_node *,
                                                      tree, varray_type);
 struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,

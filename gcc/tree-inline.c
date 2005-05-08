@@ -2665,8 +2665,7 @@ copy_decl_for_dup (tree decl, tree from_fn, tree to_fn, bool versioning)
       if (TREE_CODE (copy) == LABEL_DECL)
 	{
 	  TREE_ADDRESSABLE (copy) = 0;
-	  if (!versioning)
-	    LABEL_DECL_UID (copy) = -1;
+	  LABEL_DECL_UID (copy) = -1;
 	}
     }
 
@@ -2821,7 +2820,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
   inline_data id;
   tree p, new_fndecl;
   unsigned i;
-  struct ipcp_replace_map *replace_info;
+  struct ipa_replace_map *replace_info;
   basic_block old_entry_block;
 
   gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL
@@ -2830,6 +2829,9 @@ tree_function_versioning (tree old_decl, tree new_decl,
   old_version_node = cgraph_node (old_decl);
   new_version_node = cgraph_node (new_decl);
 
+  allocate_struct_function (new_decl);
+  cfun->function_end_locus = DECL_SOURCE_LOCATION (new_decl);
+  
   /* FIXME: For the moment debug information for the new
      version is not supported.  */
   DECL_ARTIFICIAL (new_decl) = 1;
@@ -2865,35 +2867,26 @@ tree_function_versioning (tree old_decl, tree new_decl,
   /* Copy the function's static chain. */
   p = DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl;
   if (p)
-    {
-      DECL_STRUCT_FUNCTION (new_decl)->static_chain_decl =
-	copy_static_chain (DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl,
-			   &id);
-    }
-
+    DECL_STRUCT_FUNCTION (new_decl)->static_chain_decl = 
+      copy_static_chain (DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl,
+			 &id);  
   /* Copy the function's arguments. */
   if (DECL_ARGUMENTS (old_decl) != NULL_TREE)
-    {
-      DECL_ARGUMENTS (new_decl) =
-	copy_arguments_for_versioning (DECL_ARGUMENTS (old_decl), &id);
-     }
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (tree_map); i++)
-    {
-      replace_info = VARRAY_GENERIC_PTR (tree_map, i);
-      if (replace_info->replace_p && !replace_info->ref_p)
-	insert_decl_map (&id, replace_info->old_tree, replace_info->new_tree);
-      else if (replace_info->replace_p && replace_info->ref_p)
-	id.ipa_info = tree_map;
-    }
-
+    DECL_ARGUMENTS (new_decl) =
+      copy_arguments_for_versioning (DECL_ARGUMENTS (old_decl), &id);
+  if (tree_map) 
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (tree_map); i++)
+      {
+        replace_info = VARRAY_GENERIC_PTR (tree_map, i);
+        if (replace_info->replace_p && !replace_info->ref_p)
+          insert_decl_map (&id, replace_info->old_tree, replace_info->new_tree);
+        else if (replace_info->replace_p && replace_info->ref_p)
+          id.ipa_info =tree_ map;
+      }
   if (DECL_STRUCT_FUNCTION (old_decl)->unexpanded_var_list != NULL_TREE)
-    {
-      DECL_STRUCT_FUNCTION (new_decl)->unexpanded_var_list =
-	copy_local_vars (DECL_STRUCT_FUNCTION (old_decl)->unexpanded_var_list,
-			 &id);
-    }
-
+    DECL_STRUCT_FUNCTION (new_decl)->unexpanded_var_list =
+      copy_local_vars (DECL_STRUCT_FUNCTION (old_decl)->unexpanded_var_list,
+		       &id);
   /* Copy the Function's body. */
   old_entry_block = ENTRY_BLOCK_PTR_FOR_FUNCTION
 		      (DECL_STRUCT_FUNCTION (old_decl));
@@ -2940,7 +2933,7 @@ replace_ref_tree (inline_data *id, tree* tp)
 
       for (i = 0; i < VARRAY_ACTIVE_SIZE (id->ipa_info); i++)
 	{
-	  struct ipcp_replace_map *replace_info;
+	  struct ipa_replace_map *replace_info;
 	  replace_info = VARRAY_GENERIC_PTR (id->ipa_info, i);
 
 	  if (replace_info->replace_p && replace_info->ref_p)

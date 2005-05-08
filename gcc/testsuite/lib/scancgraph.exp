@@ -49,7 +49,7 @@ proc scan-ipa-dump-times { args } {
     upvar 2 name testcase
 
     # This must match the rule in gcc-dg.exp.
-    set output_file "[glob [file tail $testcase].i02.[lindex $args 2]]"
+    set output_file "[glob [file tail $testcase].i??.[lindex $args 2]]"
 
     set fd [open $output_file r]
     set text [read $fd]

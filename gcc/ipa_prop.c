@@ -446,7 +446,7 @@ static void
 ipcp_callsite_compute_param (ipcp_callsite cs)
 {
   tree callTree;
-  tree arg, cst_decl;
+  tree arg, cst_decl, arg_type, formal_type;
   int arg_num;
   int i;
   ipcp_method mt;
@@ -476,31 +476,67 @@ ipcp_callsite_compute_param (ipcp_callsite cs)
 	}
       else if (TREE_CODE (TREE_VALUE (arg)) == INTEGER_CST)
 	{
-	  ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_INT);
-	  ipcp_callsite_param_set_info_type_int (cs, arg_num,
-					     &TREE_INT_CST (TREE_VALUE (arg)));
+          arg_type = TREE_TYPE (TREE_VALUE (arg));
+          formal_type =  TREE_TYPE (ipcp_method_get_tree (cs->callee, arg_num));
+          if (TYPE_NAME (arg_type) == TYPE_NAME (formal_type)
+	      && TYPE_CONTEXT (arg_type) == TYPE_CONTEXT (formal_type) 
+	      && attribute_list_equal (TYPE_ATTRIBUTES (arg_type),
+				       TYPE_ATTRIBUTES (formal_type)))
+            {
+              ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_INT);
+              ipcp_callsite_param_set_info_type_int (cs, arg_num,
+						     &TREE_INT_CST (TREE_VALUE (arg)));
+            }	  
+	  else
+	    ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
   	}
       else if (TREE_CODE (TREE_VALUE (arg)) == REAL_CST)
-        {
-          ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_FLOAT);
-	  ipcp_callsite_param_set_info_type_float (cs, arg_num,
-					     TREE_REAL_CST_PTR (TREE_VALUE (arg)));
- 				
+        { 
+          arg_type = TREE_TYPE (TREE_VALUE (arg));
+          formal_type =  TREE_TYPE (ipcp_method_get_tree (cs->callee, arg_num));
+          if (TYPE_NAME (arg_type) == TYPE_NAME (formal_type)
+	      && TYPE_CONTEXT (arg_type) == TYPE_CONTEXT (formal_type)
+	      && attribute_list_equal (TYPE_ATTRIBUTES (arg_type),
+				       TYPE_ATTRIBUTES (formal_type)))
+            {
+              ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_FLOAT);
+              ipcp_callsite_param_set_info_type_float (cs, arg_num,
+                                                       TREE_REAL_CST_PTR (TREE_VALUE (arg)));
+            }
+          else
+	    ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
+	  
 	}
-      else if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR)
+      else if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR 
+	       && TREE_CODE (TREE_OPERAND (TREE_VALUE (arg), 0)) == CONST_DECL)
 	{ 
-	  if( TREE_CODE (TREE_OPERAND (TREE_VALUE (arg), 0)) == CONST_DECL )
+	  cst_decl = TREE_OPERAND (TREE_VALUE (arg), 0);
+	  arg_type = TREE_TYPE (DECL_INITIAL (cst_decl));
+	  formal_type =  TREE_TYPE (TREE_TYPE (ipcp_method_get_tree (cs->callee, arg_num)));
+	  if (TREE_CODE (DECL_INITIAL (cst_decl)) == INTEGER_CST)
 	    {
-	      cst_decl = TREE_OPERAND (TREE_VALUE (arg), 0);
-	      if (TREE_CODE (DECL_INITIAL (cst_decl)) == INTEGER_CST)
+	      if (TYPE_NAME (arg_type) == TYPE_NAME (formal_type)
+		  && TYPE_CONTEXT (arg_type) == TYPE_CONTEXT (formal_type)
+		  && attribute_list_equal (TYPE_ATTRIBUTES (arg_type),
+					   TYPE_ATTRIBUTES (formal_type)))
+		
 		{
 		  ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_INT_REF);
 		  ipcp_callsite_param_set_info_type_int (cs, arg_num,
-						      &TREE_INT_CST (DECL_INITIAL (cst_decl)));
+							 &TREE_INT_CST (DECL_INITIAL (cst_decl)));
+		  
 		}
-	      else if (TREE_CODE (DECL_INITIAL (cst_decl)) == REAL_CST)
+	      else
+		ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
+	    }
+	  else if (TREE_CODE (DECL_INITIAL (cst_decl)) == REAL_CST)
+	    {
+	      if (TYPE_NAME (arg_type) == TYPE_NAME (formal_type)
+		  && TYPE_CONTEXT (arg_type) == TYPE_CONTEXT (formal_type)
+		  && attribute_list_equal (TYPE_ATTRIBUTES (arg_type),
+					   TYPE_ATTRIBUTES (formal_type)))
+		
 		{
-		  cst_decl =  TREE_OPERAND (TREE_VALUE (arg), 0);
 		  ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_FLOAT_REF);
 		  ipcp_callsite_param_set_info_type_float (cs, arg_num,
 							   TREE_REAL_CST_PTR (DECL_INITIAL (cst_decl)));  
@@ -835,7 +871,7 @@ ipcp_modify_walk_tree (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (TREE_CODE(TREE_OPERAND (t, 0)) == PARM_DECL)
 	{
 	  i = ipcp_method_tree_map (mt, TREE_OPERAND (t, 0));
-          ipcp_method_modify_set (mt, i, true);
+	  ipcp_method_modify_set (mt, i, true);
 	}     
       break;
     case ADDR_EXPR:
@@ -845,7 +881,7 @@ ipcp_modify_walk_tree (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       if( TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL )
         {
 	  i = ipcp_method_tree_map (mt, TREE_OPERAND (t, 0));
-          ipcp_method_modify_set (mt, i, true);
+	  ipcp_method_modify_set (mt, i, true);
         }
       break;
     case ASM_EXPR:  
@@ -1027,15 +1063,15 @@ constant_val_insert (tree fn, tree parm1, tree val)
 }
 
 static tree 
-build_const_val (union info *cvalue, enum Cvalue_type type)
+build_const_val (union info *cvalue, enum Cvalue_type type, tree tree_type)
 {
   tree const_val;
  
   if (type == CONST_VALUE_INT ||  type ==  CONST_VALUE_INT_REF)
-    const_val = build_int_cst_wide (NULL_TREE, cvalue->int_value.low, 
-				    cvalue->int_value.high);  
+    const_val = build_int_cst_wide (tree_type, cvalue->int_value.low,
+                                    cvalue->int_value.high);
   else if (type == CONST_VALUE_FLOAT || type == CONST_VALUE_FLOAT_REF)
-    const_val = build_real ( float_type_node, cvalue->float_value);
+    const_val = build_real (tree_type, cvalue->float_value);
   else
     abort (); 
   return const_val;
@@ -1056,13 +1092,7 @@ ipcp_propagate_const (ipcp_method mt, int param, union info *cvalue,
              cgraph_node_name (mt));
   fndecl = mt->decl;
   parm_tree = ipcp_method_get_tree (mt, param);
-  if (type == CONST_VALUE_INT)
-    const_val = build_int_cst_wide (NULL_TREE, cvalue->int_value.low, 
-				    cvalue->int_value.high);  
-  else if (type == CONST_VALUE_FLOAT)
-    const_val = build_real ( TREE_TYPE (parm_tree), cvalue->float_value);
-  else
-    abort ();
+  const_val = build_const_val (cvalue, type, TREE_TYPE (parm_tree));
   if (parm_tree != NULL)
     if(fndecl != NULL)
       constant_val_insert (fndecl, parm_tree, const_val);   
@@ -1182,21 +1212,21 @@ ipcp_propagate_stage (void)
  
 }
 
-/* Builds and initializes ipcp_replace_map struct 
+/* Builds and initializes ipa_replace_map struct 
    according to type. This struct is read by versioning, which 
    operates according to the flags sent.  */
-static struct ipcp_replace_map*
+static struct ipa_replace_map*
 ipcp_replace_map_create (enum Cvalue_type type, tree parm_tree, 
 			 union info *cvalue)
 {
-  struct ipcp_replace_map* replace_map;
+  struct ipa_replace_map* replace_map;
   tree const_val;
 
-  replace_map = xcalloc (1, sizeof (struct ipcp_replace_map));  
+  replace_map = xcalloc (1, sizeof (struct ipa_replace_map));  
   gcc_assert (ipcp_type_is_const (type));
   if (type == CONST_VALUE_INT_REF || type == CONST_VALUE_FLOAT_REF)
     {
-      const_val = build_const_val (cvalue, type);
+      const_val = build_const_val (cvalue, type, TREE_TYPE (TREE_TYPE (parm_tree)));
       replace_map->old_tree = parm_tree;
       replace_map->new_tree = const_val;
       replace_map->replace_p = true;
@@ -1204,7 +1234,7 @@ ipcp_replace_map_create (enum Cvalue_type type, tree parm_tree,
     }
   else if (TREE_READONLY (parm_tree) && !TREE_ADDRESSABLE (parm_tree))
     {
-      const_val = build_const_val (cvalue, type);
+      const_val = build_const_val (cvalue, type, TREE_TYPE (parm_tree));
       replace_map->old_tree = parm_tree;
       replace_map->new_tree = const_val;
       replace_map->replace_p = true;
@@ -1235,7 +1265,7 @@ ipcp_insert_stage (void)
   int node_callers, count;
   tree parm_tree;
   enum Cvalue_type type;
-  struct ipcp_replace_map *replace_param;
+  struct ipa_replace_map *replace_param;
   
   for (node = cgraph_nodes; node; node = node->next)
     {  
@@ -1508,7 +1538,8 @@ ipcp_method_cval_print (FILE *f)
       for(i = 0; i < count; i++)
         {
           if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) 
-              == CONST_VALUE_INT) 
+              == CONST_VALUE_INT || ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i))
+              == CONST_VALUE_INT_REF) 
             {
               fprintf (f, " param [%d]: ", i);
               fprintf (f, "type is CONST_INT ");
@@ -1518,7 +1549,8 @@ ipcp_method_cval_print (FILE *f)
                        cvalue->high, cvalue->low);
             }
           else if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) 
-              == CONST_VALUE_FLOAT)
+              == CONST_VALUE_FLOAT || ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i))
+              == CONST_VALUE_FLOAT_REF)
 	    { 
 	      char string[100];
               REAL_VALUE_TYPE d;

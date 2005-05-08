@@ -1383,30 +1383,16 @@ init_cgraph (void)
 /* Update the CALL_EXPR in NEW_VERSION node callers edges.  */
 
 void
-update_call_expr (struct cgraph_node *new_version, 
-  		  varray_type redirect_callers)
+update_call_expr (struct cgraph_node *new_version) 
 {
   struct cgraph_edge *e;
-  unsigned i;
   
   if (new_version == NULL)
     abort ();
-  
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirect_callers); i++)
-    {
-      e = VARRAY_GENERIC_PTR (redirect_callers, i);
-      
-      /* Update the call expr on the edges
-	 to the new version. */ 
-       TREE_OPERAND (TREE_OPERAND (e->call_expr, 0), 0) = new_version->decl;
-    }
   for (e = new_version->callers; e; e = e->next_caller)
-    { 
-      /* Update the call expr on the edges
-          of recursive calls. */
-      if (e->caller == new_version)
-	TREE_OPERAND (TREE_OPERAND (e->call_expr, 0), 0) = new_version->decl;            
-    }           
+    /* Update the call expr on the edges
+       to be calling the new version. */
+    TREE_OPERAND (TREE_OPERAND (e->call_expr, 0), 0) = new_version->decl;
 }
  
 
@@ -1458,17 +1444,15 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
        if (!next_callee)
 	 break;
      }
-   for (i = 0; i < VARRAY_ACTIVE_SIZE (redirect_callers); i++) 
-     {
-       e = VARRAY_GENERIC_PTR (redirect_callers, i); 
-       /* Redirect calls to the old version node
-	  to point to it's new version.  */ 
-       cgraph_redirect_edge_callee (e, new_version);
-     }
-   
-   allocate_struct_function (new_decl);
-   cfun->function_end_locus = DECL_SOURCE_LOCATION (new_decl);
-   
+   if (redirect_callers)
+     for (i = 0; i < VARRAY_ACTIVE_SIZE (redirect_callers); i++) 
+       {
+         e = VARRAY_GENERIC_PTR (redirect_callers, i); 
+	 /* Redirect calls to the old version node
+	    to point to it's new version.  */ 
+         cgraph_redirect_edge_callee (e, new_version);
+       }
+ 
    return new_version;
  }
 
@@ -1512,7 +1496,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   tree_function_versioning (old_decl, new_decl, tree_map);
   /* Update the call_expr on the edges
      to the new version node. */
-  update_call_expr (new_version_node, redirect_callers);
+  update_call_expr (new_version_node);
   DECL_EXTERNAL (new_version_node->decl) = 0;
   DECL_ONE_ONLY (new_version_node->decl) = 0;  
   TREE_PUBLIC (new_version_node->decl) = 0;

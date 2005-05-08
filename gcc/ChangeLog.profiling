@@ -1,3 +1,31 @@
+2005-05-08  Razya Ladelsky  <razya@il.ibm.com>
+
+	* ipa_prop.h (ipcp_replcae_map): Rename to ipa_replace_map.
+	* ipa_prop.c (ipcp_callsite_compute_param): Add check to make
+	sure the constant sent in the callsite and the formal parameter
+	of the callee are of the same type.
+	(build_const_val): Add another parameter, the type of the constant
+	that should be built.
+	(ipcp_propagate_const, ipcp_replace_map_create): Call build_const_val
+	with type parameter.
+	(ipcp_method_cval_print): Add support for reference to constants
+	formal parameters (as in fortran).
+	(ipcp_replace_map_create): Use ipa_replace_map instead of
+	ipcp_replcae_map.
+	(ipcp_insert_stage): Same.
+	* tree-inline.c (copy_decl_for_dup): Clear the LABEL_DECL_UID also
+	for the case of versioning.
+	(tree_function_versioning): Use ipa_replace_map instead of
+	ipcp_replcae_map.  Add allocation of the struct functin for the new
+	version (removed from cgraph_copy_node_for_versioning).
+	(replace_ref_tree): Use ipa_replace_map instead of ipcp_replcae_map.
+	* cgraph.h (update_call_expr): Remove a parameter.
+	* cgraphunit.c (update_call_expr): Remove a parameter, some cleanups.
+	(cgraph_copy_node_for_versioning): Remove the allocation of struct
+	function.
+	(cgraph_function_versioning): Use the modified update_call_expr.
+	* testsuite/lib/scancgraph.exp : Scan all ipa files.
+
 2005-05-06  Daniel Berlin  <dberlin@dberlin.org>
 
 	* gimple-low.c (lower_memref): Use force_gimple_operand, call
