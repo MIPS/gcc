@@ -2881,7 +2881,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
         if (replace_info->replace_p && !replace_info->ref_p)
           insert_decl_map (&id, replace_info->old_tree, replace_info->new_tree);
         else if (replace_info->replace_p && replace_info->ref_p)
-          id.ipa_info =tree_ map;
+          id.ipa_info = tree_map;
       }
   if (DECL_STRUCT_FUNCTION (old_decl)->unexpanded_var_list != NULL_TREE)
     DECL_STRUCT_FUNCTION (new_decl)->unexpanded_var_list =
