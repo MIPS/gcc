@@ -1,3 +1,9 @@
+2005-05-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/fixinc/inclhack.def (stdio_stdarg_h, stdio_va_list): Bypass
+	on *-*-solaris2.1[0-9]*, not just *-*-solaris2.1[0-9].
+	* gcc/fixinc/fixincl.x: Regenerate.
+
 2005-05-05  Michael Pogue  <michael.pogue@sun.com>
             Joseph S. Myers  <joseph@codesourcery.com>
 
