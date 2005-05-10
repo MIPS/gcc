@@ -1,3 +1,8 @@
+2005-05-10  Ben Elliston  <bje@au.ibm.com>
+
+	* config/t-linux (D32PBIT, D64PBIT, D128PBIT): Define.
+	(dfp32-bit.c, dfp64-bit.c, dfp128-bit.c): New targets.
+
 2005-05-03  Ben Elliston  <bje@au.ibm.com>
 
 	* config/dfp-bit.h: Include "decNumber.h" after including the
