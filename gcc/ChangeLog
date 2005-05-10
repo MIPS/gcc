@@ -1,3 +1,61 @@
+2005-05-09  Grigory Tolstolytkin  <gtolstolytkin@ru.mvista.com>
+
+	Backport from mainline
+	2004-02-12  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Don't kill previous
+	MEM_VOLATILE in REF.
+
+2005-05-10  Ben Elliston  <bje@au.ibm.com>
+
+	PR debug/16676
+	* dwarf2out.c (dwarf2out_decl): Always set context_die to NULL,
+	even when debug_info_level is DINFO_LEVEL_TERSE.
+
+2005-05-08  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (m68hc11_z_replacement): Use emit_insn_after
+	when adding the save Z instruction so that it is part of the good BB.
+	(reg_or_some_mem_operand): Do not allow the 68HC12 address indirect
+	addressing mode as it is not supported by bset and bclr.
+	(m68hc11_gen_movhi): Fix invalid generation of indexed indirect
+	addressing with movw.
+	(m68hc11_gen_movqi): Use pula and pulb instead of lda and ldb for
+	68HC12.
+	* config/m68hc11/m68hc11.md ("movhi_const0"): Use this pattern only
+	for 68HC11.
+	("*movhi_68hc12"): Handle movhi_const0.
+	("*subhi3", "subqi3"): Use general_operand for operand 1.
+	("*subhi3_zext"): Likewise.
+
+2005-05-08  Stephane Carrez  <stcarrez@nerim.fr>
+
+	PR target/19051
+	* config/m68hc11/m68hc11.md ("mulqi3"): Use general_operand for operand
+	1 and fix constraints.
+	("mulqihi3"): Use general_operand for operand 2.
+
+2005-05-08  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/21416
+	* config/mips/mips.c (mips_emit_compare): Don't reverse UNGE and UNGT
+	comparisons.
+	* config/mips/mips.md (sungt_df, sunge_df, sungt_sf, sunge_sf): New
+	patterns.
+
+2005-05-08  Stephane Carrez  <stcarrez@nerim.fr>
+
+	PR target/16925
+	* config/m68hc11/m68hc11.c (m68hc11_gen_highpart): Handle split of
+	64-bit constants on 64-bit hosts.
+	(m68hc11_split_logical): Simplify.
+	(m68hc11_split_move): Likewise.
+
+2005-05-06  Bruce Korb  <bkorb@gnu.org>
+            Joseph S. Myers <joseph@codesourcery.com>
+
+	* fixinc/inclhack.def: Correct backslashes
+	* fixinc/fixincl.x: regen
+
 2005-05-06  Jakub Jelinek  <jakub@redhat.com>
 
 	Revert:

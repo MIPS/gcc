@@ -1,3 +1,15 @@
+2005-05-10  Ben Elliston  <bje@au.ibm.com>
+
+	PR debug/16676
+	* gcc.dg/debug/pr16676.c: New test.
+
+2005-05-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21427
+	* g++.dg/inherit/covariant13.C: New.
+	Backport 2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+	* g++.dg/inherit/covariant12.C: New.
+
 2005-05-04  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:
