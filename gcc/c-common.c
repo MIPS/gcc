@@ -3078,9 +3078,16 @@ c_common_nodes_and_builtins (void)
   record_builtin_type (RID_DOUBLE, NULL, double_type_node);
   record_builtin_type (RID_MAX, "long double", long_double_type_node);
 
-  record_builtin_type (RID_DFLOAT32, NULL, dfloat32_type_node);
-  record_builtin_type (RID_DFLOAT64, NULL, dfloat64_type_node);
-  record_builtin_type (RID_DFLOAT128, NULL, dfloat128_type_node);
+  /* Only supported decimal floating point extension if the target
+     actually supports underlying modes. */
+  if (targetm.scalar_mode_supported_p (SDmode) 
+      && targetm.scalar_mode_supported_p (DDmode)
+      && targetm.scalar_mode_supported_p (TDmode))
+    {
+      record_builtin_type (RID_DFLOAT32, NULL, dfloat32_type_node);
+      record_builtin_type (RID_DFLOAT64, NULL, dfloat64_type_node);
+      record_builtin_type (RID_DFLOAT128, NULL, dfloat128_type_node);
+    }
 
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
 					 get_identifier ("complex int"),

@@ -76,6 +76,13 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 #define SCALAR_FLOAT_MODE_P(MODE)		\
   (GET_MODE_CLASS (MODE) == MODE_FLOAT)
 
+/* Nonzero if MODE is one of the 3 decimal float modes.  We have 
+   purposefully not created a new class, but there are still
+   times where it is useful to check whether one of the decimal
+   float modes. */
+#define DECIMAL_FLOAT_MODE_P(MODE)              \
+  (mode == SDmode || mode == DDmode || mode == TDmode)
+
 /* Get the size in bytes and bits of an object of mode MODE.  */
 
 extern CONST_MODE_SIZE unsigned char mode_size[NUM_MACHINE_MODES];

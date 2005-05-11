@@ -1,3 +1,18 @@
+2005-05-11  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* c-common.c (c_common_nodes_and_builtins): Only
+	register dfp C type names, if target supports.
+	* machmode.def: Add dfp modes.
+	* machmode.h (DECIMAL_FLOAT_MODE_P): Add.
+	* targhooks.c (default_scalar_mode_supported_p): Default
+	decimal float modes as unsupported.
+	* config/i386/i386-modes.def: Remove dfp modes.
+	* config/i386/i386.c (ix86_scalar_mode_supported_p): Add and
+	support dfp modes.
+	* config/rs6000/rs6000-modes.def: Remove dfp modes.
+	* config/rs6000/rs6000.c: (rs6000_scalar_mode_supported_p): Add
+	and support dfp modes.
+
 2005-05-10  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* config/t-linux (D32PBIT, D64PBIT, D128PBIT): Comment out 

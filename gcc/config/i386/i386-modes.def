@@ -77,9 +77,3 @@ VECTOR_MODE (FLOAT, SF, 8);   /*                 V8SF */
 
 /* The symbol Pmode stands for one of the above machine modes (usually SImode).
    The tm.h file specifies which one.  It is not a distinct mode.  */
-
-/* Decimal floating point.  */
-FLOAT_MODE (SD, 4, decimal_single_format);
-FLOAT_MODE (DD, 8, decimal_double_format);
-FLOAT_MODE (TD, 16, decimal_quad_format);
-

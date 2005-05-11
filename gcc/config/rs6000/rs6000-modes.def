@@ -23,11 +23,6 @@
    adjust this in rs6000_override_options.  */
 FLOAT_MODE (TF, 16, ieee_quad_format);
 
-/* Decimal floating point.  */
-FLOAT_MODE (SD, 4, decimal_single_format);
-FLOAT_MODE (DD, 8, decimal_double_format);
-FLOAT_MODE (TD, 16, decimal_quad_format);
-
 /* PSImode is used for the XER register.  The XER register
    is not used for anything; perhaps it should be deleted,
    except that that would change register numbers.  */
