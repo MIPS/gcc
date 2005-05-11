@@ -2269,7 +2269,7 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 				       && (TREE_TYPE (val)
 					   != dfloat32_type_node))))
 			warning (0, "passing argument %d of %qE as %qT "
-				 "rather than due to prototype",
+				 "rather than %qT due to prototype",
 				 argnum, rname, type, TREE_TYPE (val));
 
 		    }
