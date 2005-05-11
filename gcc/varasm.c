@@ -4317,6 +4317,8 @@ merge_weak (tree newdecl, tree olddecl)
 
   if (DECL_WEAK (newdecl))
     {
+      /* APPLE LOCAL 4095052 */
+      /* Remove 'wd'.  */
       /* NEWDECL is weak, but OLDDECL is not.  */
 
       /* If we already output the OLDDECL, we're in trouble; we can't
