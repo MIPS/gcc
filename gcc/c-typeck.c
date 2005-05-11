@@ -2268,10 +2268,10 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 				   || (type == dfloat64_type_node
 				       && (TREE_TYPE (val)
 					   != dfloat32_type_node))))
-			warning ("passing argument %d of %qE as %qT "
-				 "rather than %qT due to prototype",
+			warning (0, "passing argument %d of %qE as %qT "
+				 "rather than due to prototype",
 				 argnum, rname, type, TREE_TYPE (val));
-		      
+
 		    }
 		  /* Detect integer changing in width or signedness.
 		     These warnings are only activated with
