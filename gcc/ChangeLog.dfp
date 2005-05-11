@@ -1,3 +1,7 @@
+2005-05-11  Jon Grimm <jgrimm2@us.ibm.com>
+
+	* c-typeck.c (c_common_type): Fix typo.
+
 2005-05-11  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* c-common.c (c_common_nodes_and_builtins): Only

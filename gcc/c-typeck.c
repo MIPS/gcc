@@ -565,7 +565,7 @@ c_common_type (tree t1, tree t2)
   if (code2 == REAL_TYPE && code1 != REAL_TYPE)
     return t2;
 
-  /* If both are real and either are decimal floating piont types, use
+  /* If both are real and either are decimal floating point types, use
      the decimal floating point type with the greater precision. */
 
   if (code1 == REAL_TYPE && code2 == REAL_TYPE)
