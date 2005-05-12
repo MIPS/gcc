@@ -277,7 +277,7 @@ namespace std
 		     ios_base::iostate& __err, string& __xtrc) const
     {
       typedef char_traits<_CharT>			__traits_type;
-      typedef typename numpunct<_CharT>::__cache_type	__cache_type;
+      typedef __numpunct_cache<_CharT>                  __cache_type;
       __use_cache<__cache_type> __uc;
       const locale& __loc = __io._M_getloc();
       const __cache_type* __lc = __uc(__loc);
@@ -440,6 +440,20 @@ namespace std
       return __beg;
     }
 
+  template<typename _ValueT>
+    struct __to_unsigned_type
+    { typedef _ValueT __type; };
+
+  template<>
+    struct __to_unsigned_type<long>
+    { typedef unsigned long __type; };
+
+#ifdef _GLIBCXX_USE_LONG_LONG
+  template<>
+    struct __to_unsigned_type<long long>
+    { typedef unsigned long long __type; };
+#endif
+
   template<typename _CharT, typename _InIter>
     template<typename _ValueT>
       _InIter
@@ -447,8 +461,9 @@ namespace std
       _M_extract_int(_InIter __beg, _InIter __end, ios_base& __io,
 		     ios_base::iostate& __err, _ValueT& __v) const
       {
-        typedef char_traits<_CharT>			__traits_type;
-	typedef typename numpunct<_CharT>::__cache_type __cache_type;
+        typedef char_traits<_CharT>			     __traits_type;
+	typedef typename __to_unsigned_type<_ValueT>::__type __unsigned_type;
+	typedef __numpunct_cache<_CharT>                     __cache_type;
 	__use_cache<__cache_type> __uc;
 	const locale& __loc = __io._M_getloc();
 	const __cache_type* __lc = __uc(__loc);
@@ -536,103 +551,56 @@ namespace std
 	  __found_grouping.reserve(32);
 	int __sep_pos = 0;
 	bool __overflow = false;
-	_ValueT __result = 0;
+	const __unsigned_type __max = __negative ?
+	  -numeric_limits<_ValueT>::min() : numeric_limits<_ValueT>::max();
+	const __unsigned_type __smax = __max / __base;
+	__unsigned_type __result = 0;
 	const char_type* __q;
 	const char_type* __lit_zero = __lit + __num_base::_S_izero;
-	if (__negative)
+	while (!__testeof)
 	  {
-	    const _ValueT __min = numeric_limits<_ValueT>::min() / __base;
-	    while (!__testeof)
+	    // According to 22.2.2.1.2, p8-9, first look for thousands_sep
+	    // and decimal_point.
+	    if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
 	      {
-		// According to 22.2.2.1.2, p8-9, first look for thousands_sep
-		// and decimal_point.
-		if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
+		// NB: Thousands separator at the beginning of a string
+		// is a no-no, as is two consecutive thousands separators.
+		if (__sep_pos)
 		  {
-		    // NB: Thousands separator at the beginning of a string
-		    // is a no-no, as is two consecutive thousands separators.
-		    if (__sep_pos)
-		      {
-			__found_grouping += static_cast<char>(__sep_pos);
-			__sep_pos = 0;
-		      }
-		    else
-		      {
-			__err |= ios_base::failbit;
-			break;
-		      }
-		  }
-		else if (__c == __lc->_M_decimal_point)
-		  break;
-		else if ((__q = __traits_type::find(__lit_zero, __len, __c)))
-		  {
-		    int __digit = __q - __lit_zero;
-		    if (__digit > 15)
-		      __digit -= 6;
-		    if (__result < __min)
-		      __overflow = true;
-		    else
-		      {
-			const _ValueT __new_result = (__result * __base
-						      - __digit);
-			__overflow |= __new_result > __result;
-			__result = __new_result;
-			++__sep_pos;
-		      }
+		    __found_grouping += static_cast<char>(__sep_pos);
+		    __sep_pos = 0;
 		  }
 		else
-		  // Not a valid input item.
-		  break;
-
-		if (++__beg != __end)
-		  __c = *__beg;
-		else
-		  __testeof = true;
+		  {
+		    __err |= ios_base::failbit;
+		    break;
+		  }
 	      }
-	  }
-	else
-	  {
-	    const _ValueT __max = numeric_limits<_ValueT>::max() / __base;
-	    while (!__testeof)
+	    else if (__c == __lc->_M_decimal_point)
+	      break;
+	    else if ((__q = __traits_type::find(__lit_zero, __len, __c)))
 	      {
-		if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
-		  {
-		    if (__sep_pos)
-		      {
-			__found_grouping += static_cast<char>(__sep_pos);
-			__sep_pos = 0;
-		      }
-		    else
-		      {
-			__err |= ios_base::failbit;
-			break;
-		      }
-		  }
-		else if (__c == __lc->_M_decimal_point)
-		  break;
-		else if ((__q = __traits_type::find(__lit_zero, __len, __c)))
-		  {
-		    int __digit = __q - __lit_zero;
-		    if (__digit > 15)
-		      __digit -= 6;
-		    if (__result > __max)
-		      __overflow = true;
-		    else
-		      {
-			const _ValueT __new_result = (__result * __base
-						      + __digit);
-			__overflow |= __new_result < __result;
-			__result = __new_result;
-			++__sep_pos;
-		      }
-		  }
+		int __digit = __q - __lit_zero;
+		if (__digit > 15)
+		  __digit -= 6;
+		if (__result > __smax)
+		  __overflow = true;
 		else
-		  break;
-
-		if (++__beg != __end)
-		  __c = *__beg;
-		else
-		  __testeof = true;
+		  {
+		    __result *= __base;
+		    __overflow |= __result > __max - __digit;
+		    __result += __digit;
+		    ++__sep_pos;
+		  }
 	      }
+	    else
+	      // Not a valid input item.	      
+	      break;
+	    
+	    if (++__beg != __end)
+	      __c = *__beg;
+	    else
+	      __testeof = true;
 	  }
 
 	// Digit grouping is checked. If grouping and found_grouping don't
@@ -650,7 +618,7 @@ namespace std
 
 	if (!(__err & ios_base::failbit) && !__overflow
 	    && (__sep_pos || __found_zero || __found_grouping.size()))
-	  __v = __result;
+	  __v = __negative ? -__result : __result;
 	else
 	  __err |= ios_base::failbit;
 
@@ -682,7 +650,7 @@ namespace std
       else
         {
 	  // Parse bool values as alphanumeric.
-	  typedef typename numpunct<_CharT>::__cache_type __cache_type;
+	  typedef __numpunct_cache<_CharT>              __cache_type;
 	  __use_cache<__cache_type> __uc;
 	  const locale& __loc = __io._M_getloc();
 	  const __cache_type* __lc = __uc(__loc);
@@ -947,7 +915,7 @@ namespace std
       _M_insert_int(_OutIter __s, ios_base& __io, _CharT __fill,
 		    _ValueT __v) const
       {
-	typedef typename numpunct<_CharT>::__cache_type	__cache_type;
+	typedef __numpunct_cache<_CharT>	        __cache_type;
 	__use_cache<__cache_type> __uc;
 	const locale& __loc = __io._M_getloc();
 	const __cache_type* __lc = __uc(__loc);
@@ -1070,7 +1038,7 @@ namespace std
       _M_insert_float(_OutIter __s, ios_base& __io, _CharT __fill, char __mod,
 		       _ValueT __v) const
       {
-	typedef typename numpunct<_CharT>::__cache_type	__cache_type;
+	typedef __numpunct_cache<_CharT>                __cache_type;
 	__use_cache<__cache_type> __uc;
 	const locale& __loc = __io._M_getloc();
 	const __cache_type* __lc = __uc(__loc);
@@ -1197,7 +1165,7 @@ namespace std
         }
       else
         {
-	  typedef typename numpunct<_CharT>::__cache_type __cache_type;
+	  typedef __numpunct_cache<_CharT>              __cache_type;
 	  __use_cache<__cache_type> __uc;
 	  const locale& __loc = __io._M_getloc();
 	  const __cache_type* __lc = __uc(__loc);
@@ -1291,8 +1259,7 @@ namespace std
 	typedef char_traits<_CharT>			  __traits_type;
 	typedef typename string_type::size_type	          size_type;	
 	typedef money_base::part			  part;
-	typedef moneypunct<_CharT, _Intl>		  __moneypunct_type;
-	typedef typename __moneypunct_type::__cache_type  __cache_type;
+	typedef __moneypunct_cache<_CharT, _Intl>         __cache_type;
 	
 	const locale& __loc = __io._M_getloc();
 	const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
@@ -1550,8 +1517,7 @@ namespace std
       {
 	typedef typename string_type::size_type	          size_type;
 	typedef money_base::part                          part;
-	typedef moneypunct<_CharT, _Intl>                 __moneypunct_type;
-	typedef typename __moneypunct_type::__cache_type  __cache_type;
+	typedef __moneypunct_cache<_CharT, _Intl>         __cache_type;
       
 	const locale& __loc = __io._M_getloc();
 	const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
@@ -1567,7 +1533,7 @@ namespace std
 	money_base::pattern __p;
 	const char_type* __sign;
 	size_type __sign_size;
-	if (*__beg != __lit[money_base::_S_minus])
+	if (!(*__beg == __lit[money_base::_S_minus]))
 	  {
 	    __p = __lc->_M_pos_format;
 	    __sign = __lc->_M_positive_sign;
@@ -2052,7 +2018,7 @@ namespace std
 	    for (size_t __i3 = 0; __i3 < __nmatches;)
 	      {
 		__name = __names[__matches[__i3]];
-		if (__name[__pos] != *__beg)
+		if (!(__name[__pos] == *__beg))
 		  __matches[__i3] = __matches[--__nmatches];
 		else
 		  ++__i3;

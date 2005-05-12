@@ -1,3 +1,7 @@
+2005-05-12  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20050512.
+
 2005-04-25  Christopher Jefferson  <chris@bubblescope.net>
 
 	* include/bits/stl_algo.h (count): Correct concept checks.

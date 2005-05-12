@@ -145,7 +145,7 @@ namespace _GLIBCXX_STD
    *  memory and size allocation.  Subscripting ( @c [] ) access is
    *  also provided as with C-style arrays.
   */
-  template<typename _Tp, typename _Alloc = allocator<_Tp> >
+  template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
     class vector : protected _Vector_base<_Tp, _Alloc>
     {
       // Concept requirements.
@@ -792,8 +792,8 @@ namespace _GLIBCXX_STD
         _M_initialize_dispatch(_InputIterator __first, _InputIterator __last,
 			       __false_type)
         {
-	  typedef typename iterator_traits<_InputIterator>::iterator_category
-	    _IterCategory;
+	  typedef typename std::iterator_traits<_InputIterator>::
+	    iterator_category _IterCategory;
 	  _M_range_initialize(__first, __last, _IterCategory());
 	}
 
@@ -801,7 +801,7 @@ namespace _GLIBCXX_STD
       template<typename _InputIterator>
         void
         _M_range_initialize(_InputIterator __first,
-			    _InputIterator __last, input_iterator_tag)
+			    _InputIterator __last, std::input_iterator_tag)
         {
 	  for (; __first != __last; ++__first)
 	    push_back(*__first);
@@ -811,7 +811,7 @@ namespace _GLIBCXX_STD
       template<typename _ForwardIterator>
         void
         _M_range_initialize(_ForwardIterator __first,
-			    _ForwardIterator __last, forward_iterator_tag)
+			    _ForwardIterator __last, std::forward_iterator_tag)
         {
 	  const size_type __n = std::distance(__first, __last);
 	  this->_M_impl._M_start = this->_M_allocate(__n);
@@ -841,8 +841,8 @@ namespace _GLIBCXX_STD
         _M_assign_dispatch(_InputIterator __first, _InputIterator __last,
 			   __false_type)
         {
-	  typedef typename iterator_traits<_InputIterator>::iterator_category
-	    _IterCategory;
+	  typedef typename std::iterator_traits<_InputIterator>::
+	    iterator_category _IterCategory;
 	  _M_assign_aux(__first, __last, _IterCategory());
 	}
 
@@ -850,13 +850,13 @@ namespace _GLIBCXX_STD
       template<typename _InputIterator>
         void
         _M_assign_aux(_InputIterator __first, _InputIterator __last,
-		      input_iterator_tag);
+		      std::input_iterator_tag);
 
       // Called by the second assign_dispatch above
       template<typename _ForwardIterator>
         void
         _M_assign_aux(_ForwardIterator __first, _ForwardIterator __last,
-		      forward_iterator_tag);
+		      std::forward_iterator_tag);
 
       // Called by assign(n,t), and the range assign when it turns out
       // to be the same thing.
@@ -882,8 +882,8 @@ namespace _GLIBCXX_STD
         _M_insert_dispatch(iterator __pos, _InputIterator __first,
 			   _InputIterator __last, __false_type)
         {
-	  typedef typename iterator_traits<_InputIterator>::iterator_category
-	    _IterCategory;
+	  typedef typename std::iterator_traits<_InputIterator>::
+	    iterator_category _IterCategory;
 	  _M_range_insert(__pos, __first, __last, _IterCategory());
 	}
 
@@ -891,13 +891,13 @@ namespace _GLIBCXX_STD
       template<typename _InputIterator>
         void
         _M_range_insert(iterator __pos, _InputIterator __first,
-			_InputIterator __last, input_iterator_tag);
+			_InputIterator __last, std::input_iterator_tag);
 
       // Called by the second insert_dispatch above
       template<typename _ForwardIterator>
         void
         _M_range_insert(iterator __pos, _ForwardIterator __first,
-			_ForwardIterator __last, forward_iterator_tag);
+			_ForwardIterator __last, std::forward_iterator_tag);
 
       // Called by insert(p,n,x), and the range insert when it turns out to be
       // the same thing.
