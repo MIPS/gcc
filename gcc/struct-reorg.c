@@ -543,27 +543,76 @@ verify_data_structure (struct data_structure *ds)
       abort ();
 }
 
+static tree
+find_field_offset (tree exp)
+{
+  tree result = NULL_TREE;
+
+  while (1)
+    {
+      switch (TREE_CODE (exp))
+	{
+	case BIT_FIELD_REF: 
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	  break;
+	case COMPONENT_REF:
+	  result = component_ref_field_offset (exp);
+	  break;
+	default:
+	  goto done;
+	}
+      exp = TREE_OPERAND (exp, 0);
+    }
+  
+ done:
+  return result;
+}
+
 /* Record STMT as the access site of the filed with INDEX of DS data
    structure.  OP is the COMPONENT_REF is access to the field in STMT.  */
 static void
 add_field_access_site (struct data_structure *ds, HOST_WIDE_INT bit_pos,
 		       HOST_WIDE_INT bit_size, tree stmt, tree op, 
 		       sbitmap fields, basic_block bb, 
-		       struct function *context)
+		       struct function *context, tree offsetr)
 {
   int i;
   struct access_site *as;
+  tree field_offset_t = NULL_TREE;
+  HOST_WIDE_INT field_offset = 0;
+
+  if (offsetr)
+    {
+      field_offset_t = find_field_offset (op);
+      if (field_offset_t)
+	field_offset = tree_low_cst (field_offset_t, 0);
+    }
 
   for (i = 0; i < ds->num_fields; i++)
     {
       HOST_WIDE_INT f_bit_pos;
       tree f_bit_pos_t = bit_position (ds->fields[i].decl);
+      bool found_field;
 
       if (! host_integerp (f_bit_pos_t, 0))
 	continue;
 
       f_bit_pos = tree_low_cst (f_bit_pos_t, 0);
-      if (f_bit_pos >= bit_pos && f_bit_pos < (bit_pos + bit_size))
+
+      if (!offsetr 
+	  && (f_bit_pos >= bit_pos && f_bit_pos < (bit_pos + bit_size)))
+	found_field = true;
+      else if (offsetr
+	       && (f_bit_pos == (8 * field_offset) + bit_pos))
+	found_field = true;
+      else
+	found_field = false;
+
+      /* if (f_bit_pos >= bit_pos && f_bit_pos < (bit_pos + bit_size)) */
+      if (found_field)
 	{
 	  as = (struct access_site *)xcalloc (1, sizeof (struct access_site));
 	  as->stmt = stmt;
@@ -612,12 +661,14 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
   if (! struct_var)
     return 0;
 
-
   if (TREE_CODE (struct_var) == VAR_DECL)
     struct_type = TREE_TYPE (struct_var);
   else if (TREE_CODE (struct_var) == INDIRECT_REF
 	   || TREE_CODE (struct_var) == MEM_REF)
     struct_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (struct_var, 0)));
+
+  if (struct_type && (TREE_CODE (struct_type) == ARRAY_TYPE))
+    struct_type = TREE_TYPE (struct_type);
 
   if (! struct_type || ! similar_struct_decls_p (ds->decl, struct_type))
     {
@@ -630,6 +681,7 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
 
   /* In case of a varaible size field access, invalidate the structure
      for the optimization*/
+  /*
   if ( offsetr)
     {
       ds->unresolved_field_access = true;
@@ -638,10 +690,11 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
       else
         return bitsize / BITS_PER_UNIT;
     }  
-
+  */
 
   /* Add a field access site here.  */
-  add_field_access_site (ds, bitpos, bitsize, stmt, op, fields, bb, context);
+  add_field_access_site (ds, bitpos, bitsize, stmt, op, fields, bb, context,
+			 offsetr);
 
   /* Access to fields of the relevant struct so the distance is 0.  */ 
   return 0; 
@@ -1389,11 +1442,15 @@ make_new_vars_1 (tree orig_decl, struct data_structure *struct_data)
   struct struct_tree_list *new_types = struct_data->new_types;
   struct struct_tree_list *current;
   bool pointer_type_p = false;
+  bool array_type_p = false;
   tree pointer_type;
+  tree array_type;
   int i;
 
   if (POINTER_TYPE_P (TREE_TYPE (orig_decl)))
     pointer_type_p = true;
+  else if (TREE_CODE (TREE_TYPE (orig_decl)) == ARRAY_TYPE)
+    array_type_p = true;
 
   /* For each new type...  */
 
@@ -1450,6 +1507,12 @@ make_new_vars_1 (tree orig_decl, struct data_structure *struct_data)
 	{
 	  pointer_type = build_pointer_type (new_type);
 	  TREE_TYPE (new_decl) = pointer_type;
+	}
+      else if (array_type_p)
+	{
+	  array_type = build_array_type (new_type, 
+					 TYPE_DOMAIN (TREE_TYPE (orig_decl)));
+	  TREE_TYPE (new_decl) = array_type;
 	}
       else
 	TREE_TYPE (new_decl) = new_type;
@@ -3285,8 +3348,10 @@ update_field_accesses (struct struct_list *data_struct_list,
 		block_stmt_iterator bsi;
 		bool is_indirect_ref = false;
 		bool is_mem_ref = false;
+		bool is_array_ref = false;
 		bool field_access_found = false;
 		tree mem_ref_index = NULL_TREE;
+		tree array_ref_index = NULL_TREE;
 		int arg_position;
 		
 		new_stmt_list = NULL_TREE;
@@ -3359,6 +3424,11 @@ update_field_accesses (struct struct_list *data_struct_list,
 		    is_mem_ref = true;
 		    mem_ref_index = TREE_OPERAND (arg0, 1);
 		  }
+		else if (TREE_CODE (arg0) == ARRAY_REF)
+		  {
+		    is_array_ref = true;
+		    array_ref_index = TREE_OPERAND (arg0, 1);
+		  }
 		
 		if ((strcmp (IDENTIFIER_POINTER (DECL_NAME (arg1)),
 			     IDENTIFIER_POINTER (DECL_NAME (cur_field.decl))) != 0)
@@ -3384,6 +3454,9 @@ update_field_accesses (struct struct_list *data_struct_list,
 			    tree var_type = TREE_TYPE (current->data);
 			    
 			    while (POINTER_TYPE_P (var_type))
+			      var_type = TREE_TYPE (var_type);
+
+			    if (TREE_CODE (var_type) == ARRAY_TYPE)
 			      var_type = TREE_TYPE (var_type);
 			    
 			    if (similar_struct_decls_p (var_type, new_mapping->decl))
@@ -3440,6 +3513,14 @@ update_field_accesses (struct struct_list *data_struct_list,
 							    (lang_hooks.optimize.build_array_ref 
 							     (old_var, mem_ref_index),
 							     field_identifier));
+					else if (is_array_ref)
+					  new_stmt = build (MODIFY_EXPR,
+							    save_type,
+							    new_var,
+							    lang_hooks.optimize.build_field_reference
+							    (lang_hooks.optimize.build_array_ref
+							     (old_var, array_ref_index),
+							     field_identifier));
 					else
 					  new_stmt = build (MODIFY_EXPR,
 							    save_type,
@@ -3462,6 +3543,11 @@ update_field_accesses (struct struct_list *data_struct_list,
 					else if (is_mem_ref)
 					  new_access = lang_hooks.optimize.build_field_reference
 					    (lang_hooks.optimize.build_array_ref (old_var, mem_ref_index),
+					     field_identifier);
+					else if (is_array_ref)
+					  new_access = lang_hooks.optimize.build_field_reference
+
+					    (lang_hooks.optimize.build_array_ref (old_var, array_ref_index),
 					     field_identifier);
 					else
 					  new_access = lang_hooks.optimize.build_field_reference
@@ -4037,7 +4123,7 @@ check_field_order (struct data_structure *ds)
 {
   bool different_order = false;
   int i;
-  HOST_WIDE_INT prev_f_bit_pos;
+  HOST_WIDE_INT prev_f_bit_pos = 0;
   tree f_bit_pos_t;
 
   if (!ds->struct_clustering->fields_order)
@@ -4171,7 +4257,7 @@ struct_passed_to_external_function (tree decl)
 }
 
 static void
-do_peel (struct struct_list *data_struct_list, bitmap passed_types,
+do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	 bitmap escaped_types)
 {
   int sub_type_count = 0;
@@ -4726,7 +4812,7 @@ printout_field_reordering_hints (struct data_structure *ds, FILE *outfile)
 
 /* Perform data structure peeling.  */
 void
-peel_structs (void)
+reorg_structs (void)
 {
   struct struct_list *data_struct_list = NULL;
   struct struct_list *current_struct;
@@ -4820,7 +4906,7 @@ peel_structs (void)
   
   collect_malloc_data ();
 
-  do_peel (data_struct_list, passed_types, escaped_types);
+  do_reorg (data_struct_list, passed_types, escaped_types);
 
   /* Free up the memory allocated for the CRR_DS.  */
 

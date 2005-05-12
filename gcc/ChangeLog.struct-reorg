@@ -1,3 +1,30 @@
+2005-05-12  Caroline Tice  <ctice@apple.com>
+
+	* c-lang.c (LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION) Change
+	peel_structs to reorg_structs.
+	* cgraph.h (peel_structs) Change function name to reorg_structs.
+	* cgraphunit.c (record_call_1) Change flag_peel_structs to 
+	flag_reorg_structs.
+	(cgraph_optimize): Likewise.
+	* common.opt (fpeel-structs): Remove; Add freorg-structs.
+	* flags.h (flag_peel_structs): Replace with flag_reorg_structs.
+	* opts.c (common_handle_options): Replace OPT_fpeel_structs with
+	OPT_reorg_structs.
+	* struct-reorg.c (find_field_offset): New function.
+	(add_field_access_site): Add new parameter, offsetr; Modify to
+	correctly find f_bit_pos when using a static array (non-malloc'd,
+	when offsetr is non-null).
+	(get_stmt_accessed_fields_1): Add code to deal with struct_type
+	of ARRAY_TYPE; comment out code that returns if offsetr is non-null;
+	add offsetr as argument to add_field_access_site.
+	(make_new_vars_1):  Add code to correctly deal with ARRAY_TYPE.
+	(update_field_accesses): Add code to correctly update accesses to
+	static arrays (ARRAY_REF).
+	(check_field_order): Initialize prev_f_bit_pos.
+	(do_peel): Change name to do_reorg.
+	(peel_structs): Change name to reorg_structs; change call to do_peel
+	into call to do_reorg.
+
 2005-04-29  Caroline Tice  <ctice@apple.com>
 
 	* struct-reorg.c (make_new_vars_1): Fix typo in call to strlen.

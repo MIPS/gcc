@@ -247,8 +247,9 @@ extern int flag_remove_unreachable_functions;
 /* Nonzero if we should track variables.  */
 extern int flag_var_tracking;
 
-/* Nonzero if we should perform struct peeling optimization.  */
-extern int flag_peel_structs;
+/* Nonzero if we should perform data struct layout reorganization 
+   optimizations.  */
+extern int flag_reorg_structs;
 
 /* True if flag_speculative_prefetching was set by user.  Used to suppress
    warning message in case flag was set by -fprofile-{generate,use}.  */

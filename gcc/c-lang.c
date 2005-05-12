@@ -62,7 +62,7 @@ enum c_language_kind c_language = clk_c;
 #undef  LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES
 #define LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES decl_attributes
 #undef  LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION
-#define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION peel_structs
+#define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION reorg_structs
 
 
 /* Each front end provides its own lang hook initializer.  */

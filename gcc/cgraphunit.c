@@ -498,7 +498,7 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 		    }
 		}
 	      else if (TREE_CODE (arg1) == CALL_EXPR
-		       && flag_peel_structs)
+		       && flag_reorg_structs)
 		{
 		  tree decl = get_callee_fndecl (arg1);
 		  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
@@ -1277,7 +1277,7 @@ cgraph_optimize (void)
 
   ipa_passes ();
 
-  if (flag_peel_structs)
+  if (flag_reorg_structs)
     lang_hooks.optimize.structure_reorg_optimization ();
 
   bitmap_obstack_release (NULL);

@@ -584,10 +584,6 @@ fpeel-loops
 Common Report Var(flag_peel_loops)
 Perform loop peeling
 
-fpeel-structs
-Common Report Var(flag_peel_structs)
-Perform structure peeling
-
 fpeephole
 Common Report Var(flag_no_peephole,0)
 Enable machine specific peephole optimizations
@@ -654,6 +650,10 @@ Enables a register move optimization
 frename-registers
 Common Report Var(flag_rename_registers)
 Perform a register renaming optimization pass
+
+freorg-structs
+Common Report Var(flag_reorg_structs)
+Perform data struct layout reorganization optimizations
 
 freorder-blocks
 Common Report Var(flag_reorder_blocks)
