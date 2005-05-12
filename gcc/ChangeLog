@@ -1,3 +1,141 @@
+2005-05-11  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR tree-optimization/21085
+	* fold-const (fold): Don't change X % -C to X % C if C has
+	overflowed.
+
+2005-05-11  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* fold-const.c (fold_indirect_ref_1): Avoid removing
+	NOP_EXPRs with type qualifiers like const.
+
+2005-05-11  Richard Henderson  <rth@redhat.com>
+
+        PR c/21502
+        * c-decl.c (finish_decl): Propagate the completed array type of
+        a global variable into the binding.
+
+2005-05-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (mem_min_alignment): Do not rely
+	on MEM_ALIGN if TARGET_UNALIGNED_DOUBLES.
+
+2005-05-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21342
+	* c-decl.c (pushdecl): When there is a declaration in the current
+	scope and the declarations are external linkage, check for
+	compatibility with the type in the external scope and update the
+	type in the external scope with the composite type information.
+	Do not form a composite type of the new type and the visible type
+	if they are incompatible.
+
+2005-05-10  Michael Matz  <matz@suse.de>
+
+	from trunk:
+	2005-04-28  James E Wilson  <wilson@specifixinc.com>
+
+	* config/i386/i386.h (HI_REGISTER_NAMES): Fix typos in comment.
+	(ADDITIONAL_REGISTER_NAMES): Delete obsolete mmx register entries.
+
+2005-05-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR other/21052
+	* doc/extend.texi (Type Attributes): Correct example syntax.
+
+2005-05-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21160
+	* doc/invoke.texi (-Wuninitialized): Update documentation.
+
+2005-05-09  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/21397
+	* arm.c (ARM_OPT_SET_CPU, ARM_OPT_SET_ARCH, ARM_OPT_SET_TUNE): Define.
+	(arm_override_options): Use them instead of manifest constants.  Don't
+	allow -march to override the -mtune setting.
+
+2005-05-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.c (ia64_override_options): Don't set
+	ia64_flag_var_tracking and clear flag_var_tracking here...
+	(ia64_file_start): ... but here.
+
+2005-05-08  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (m68hc11_z_replacement): Use emit_insn_after
+	when adding the save Z instruction so that it is part of the good BB.
+	(reg_or_some_mem_operand): Do not allow the 68HC12 address indirect
+	addressing mode as it is not supported by bset and bclr.
+	(m68hc11_gen_movhi): Fix invalid generation of indexed indirect
+	addressing with movw.
+	(m68hc11_gen_movqi): Use pula and pulb instead of lda and ldb for
+	68HC12.
+	* config/m68hc11/m68hc11.md ("movhi_const0"): Use this pattern only
+	for 68HC11.
+	("*movhi_68hc12"): Handle movhi_const0.
+	("*subhi3", "subqi3"): Use general_operand for operand 1.
+	("*subhi3_zext"): Likewise.
+
+2005-05-08  Stephane Carrez  <stcarrez@nerim.fr>
+
+	PR target/19051
+	* config/m68hc11/m68hc11.md ("mulqi3"): Use general_operand for operand
+	1 and fix constraints.
+	("mulqihi3"): Use general_operand for operand 2.
+
+2005-05-08  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/21416
+	* config/mips/mips.c (mips_emit_compare): Don't reverse UNGE and UNGT
+	comparisons.
+	* config/mips/mips.md (swapped_fcond): New code macro and attribute.
+	(sgt_<mode>, sge_<mode>): Generalize to all members of swapped_fcond,
+	including sunge_<mode> and sungt_<mode>.
+
+2005-05-08  Stephane Carrez  <stcarrez@nerim.fr>
+
+	PR target/16925
+	* config/m68hc11/m68hc11.c (m68hc11_gen_highpart): Handle split of
+	64-bit constants on 64-bit hosts.
+	(m68hc11_split_logical): Simplify.
+	(m68hc11_split_move): Likewise.
+
+2005-05-07  Anthony Green  <green@redhat.com>
+
+        PR bootstrap/21403
+        * configure.ac (STMP_FIXPROTO): Fix [ ] consumption problem in
+        x$STMP_FIXPROTO test.
+        * configure: Rebuilt.
+
+2005-05-07  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/pa/pa-hpux11.h (TARGET_OS_CPP_BUILTINS): Do not define
+	inappropriate feature test macros if flag_iso.
+
+2005-05-07  Richard Henderson  <rth@redhat.com>
+
+        PR target/21412
+        * config/rs6000/rs6000.c (rs6000_emit_move): Look for tls addresses
+        with constant offsets.
+
+2005-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/21330
+	* loop-unswitch.c (may_unswitch_on): Set *cinsn only when
+	returning non-NULL.
+	(unswitch_single_loop): Clear cinsn when retrying.
+
+	PR c++/20961
+	* varasm.c (merge_weak): Remove NEWDECL from WEAK_DECLS chain
+	if both NEWDECL and OLDDECL are already weak.
+
+2005-05-05  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/21380
+	* tree-ssa-threadupdate.c (thread_through_all_blocks): Do not
+	thread through a block with no preds.
+
 2005-05-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtins.c (expand_builtin_memory_chk): Copy CALL_EXPR_TAILCALL from
