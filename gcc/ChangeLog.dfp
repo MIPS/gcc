@@ -1,3 +1,11 @@
+2005-05-12  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* builtin-types.def: Add BUILTIN_FNs needed for dfp versions 
+	of isinf.
+	* builtins.c (fold_builtin_1): Channel dfp isinf builtins to 
+	common function.
+	* builtins.def: Add dfp isinf builtins.
+
 2005-05-11  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* c-typeck.c (convert_arguments): The arguments to warning
