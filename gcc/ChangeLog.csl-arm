@@ -1,3 +1,9 @@
+2005-05-13  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline:
+	* config/arm/arm.md (negsf2, negdf2): Permit these expands when
+	compiling for VFP.
+
 2005-05-06  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/unwind-arm.c (get_eit_entry): Adjust address to throwing
