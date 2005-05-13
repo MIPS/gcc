@@ -141,6 +141,7 @@ struct malloc_call_data
   tree malloc_size;      /* Tree for "<constant>",  the rhs assigned to T3. */
   tree malloc_type;      /* Decl for "(struct_type *)" from cast statement. */
   tree num_elts;         /* Needed for "calloc" calls.                      */
+  tree ptr_var;          /* Needed for "realloc" calls.                     */
 };
 
 /* List of data for all malloc calls in the program.  */
@@ -1954,8 +1955,10 @@ collect_malloc_data (void)
       tree arg1;
       tree arg2;
       tree num_elts = NULL_TREE;
+      tree ptr_var = NULL_TREE;
       bool is_malloc = false;
       bool is_calloc = false;
+      bool is_realloc = false;
 
       if (TREE_CODE (stmt) != MODIFY_EXPR)
 	fatal_error ("Call to malloc not part of an assignment.");
@@ -1991,8 +1994,11 @@ collect_malloc_data (void)
       else if (strcmp (IDENTIFIER_POINTER (DECL_NAME (malloc_fn_decl)),
 		       "calloc") == 0)
 	is_calloc = true;
+      else if (strcmp (IDENTIFIER_POINTER (DECL_NAME (malloc_fn_decl)),
+		       "realloc") == 0)
+	is_realloc = true;
 
-      if (!is_malloc && !is_calloc)
+      if (!is_malloc && !is_calloc && !is_realloc)
 	fatal_error ("Unidentified version of MALLOC used.");
       
       if (TREE_CODE (tmp) == CALL_EXPR)
@@ -2001,9 +2007,16 @@ collect_malloc_data (void)
 	  arg1 = TREE_VALUE (tmp);  /* Arguments are in a TREE_LIST.  */
 	  if (is_malloc)
 	    size_var = arg1;
-	  else
+	  else if (is_calloc)
 	    {
 	      num_elts = arg1;
+	      tmp = TREE_CHAIN (tmp);
+	      arg2 = TREE_VALUE (tmp);
+	      size_var = arg2;
+	    }
+	  else if (is_realloc)
+	    {
+	      ptr_var = arg1;
 	      tmp = TREE_CHAIN (tmp);
 	      arg2 = TREE_VALUE (tmp);
 	      size_var = arg2;
@@ -2030,6 +2043,7 @@ collect_malloc_data (void)
 	  cur_malloc->malloc_list[idx].malloc_type = NULL_TREE;
 	  cur_malloc->malloc_list[idx].final_lhs = NULL_TREE;
 	  cur_malloc->malloc_list[idx].num_elts = num_elts;
+	  cur_malloc->malloc_list[idx].ptr_var = ptr_var;
 	  cur_malloc->num_calls++;
 	}
       else
@@ -2052,6 +2066,7 @@ collect_malloc_data (void)
 	  malloc_node->malloc_list[0].malloc_type = NULL_TREE;
 	  malloc_node->malloc_list[0].final_lhs = NULL_TREE;
 	  malloc_node->malloc_list[0].num_elts = num_elts;
+	  malloc_node->malloc_list[0].ptr_var = ptr_var;
 
 	  malloc_node->next = malloc_data_list;
 	  malloc_data_list = malloc_node;
@@ -2420,6 +2435,7 @@ create_new_mallocs (struct struct_list *data_struct_list,
 	      
 	      if (strcmp (fn_name,  "malloc") != 0
 		  && strcmp (fn_name, "calloc") != 0
+		  && strcmp (fn_name, "realloc") != 0
 		  && strcmp (fn_name, "xmalloc") != 0)
 		fatal_error ("Expected malloc or calloc function");
 	      
@@ -2509,6 +2525,34 @@ create_new_mallocs (struct struct_list *data_struct_list,
 				  arg_list = tree_cons (NULL_TREE, 
 					      cur_malloc->malloc_list[i].num_elts,
 							arg_list);
+				else if (cur_malloc->malloc_list[i].ptr_var)
+				  {
+				    struct new_var_data *tmp_var;
+				    struct struct_tree_list *tmp_var_2;
+				    tree new_ptr_var = NULL_TREE;
+				    for (tmp_var = new_vars; tmp_var; 
+					 tmp_var = tmp_var->next)
+				      if (tmp_var->orig_var == 
+					  cur_malloc->malloc_list[i].ptr_var)
+					{
+					  for (tmp_var_2 = tmp_var->new_vars;
+					       tmp_var_2 && !new_ptr_var; 
+					       tmp_var_2 = tmp_var_2->next)
+					    {
+					      tree t = tmp_var_2->data;
+					      tree tmp_type = TREE_TYPE (t);
+					      while (POINTER_TYPE_P (tmp_type))
+						tmp_type = TREE_TYPE (tmp_type);
+					      if (similar_struct_decls_p (
+								tmp_type,
+								new_struct_type))
+						new_ptr_var = t;
+					    }
+					}
+				    arg_list = tree_cons (NULL_TREE,
+							  new_ptr_var,
+							  arg_list);
+				  }
 
 				call_expr =  build3 (CALL_EXPR,
 						     TREE_TYPE 
@@ -4225,6 +4269,8 @@ struct_passed_to_external_function (tree decl)
 	  && (strcmp (IDENTIFIER_POINTER (DECL_NAME (c_node->decl)),
 		      "xmalloc") != 0)
 	  && (strcmp (IDENTIFIER_POINTER (DECL_NAME (c_node->decl)),
+		      "realloc") != 0)
+	  && (strcmp (IDENTIFIER_POINTER (DECL_NAME (c_node->decl)),
 		      "calloc") != 0))
 	{
 	  tree call_site;
@@ -4588,6 +4634,10 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
   for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
     {
       tree fn_decl = c_node->decl;
+
+      if (strcmp (IDENTIFIER_POINTER (DECL_NAME (fn_decl)), "realloc")
+	  == 0)
+	continue;
 
       /* If function is non-static, check arguments at each place it is
 	 called.  */

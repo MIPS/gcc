@@ -507,6 +507,7 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 			(DECL_NAME (decl));
 		      if ((strcmp (fn_name, "malloc") == 0)
 			  || (strcmp (fn_name, "calloc") == 0)
+			  || (strcmp (fn_name, "realloc") == 0)
 			  || (strcmp (fn_name, "xmalloc") == 0))
 			{
 			  add_call_to_malloc_list (t);

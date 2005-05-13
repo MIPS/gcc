@@ -1,3 +1,14 @@
+2005-05-13  Caroline Tice  <ctice@apple.com>
+
+	* cgraphunit.c (record_call_1): Add 'realloc' to list of malloc 
+	functions.
+	* struct-reorg.c (struct malloc_call_data): Add field ptr_var, for
+	realloc calls.
+	(collect_malloc_data): Add code to collect data for calls to realloc.
+	(create_new_mallocs): Add code to update calls to realloc.
+	(struct_passed_to_external_function): Check for calls to realloc.
+	(perform_escape_analysis): Likewise.
+
 2005-05-12  Caroline Tice  <ctice@apple.com>
 
 	* c-lang.c (LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION) Change
