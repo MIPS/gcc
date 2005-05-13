@@ -1,3 +1,8 @@
+2005-05-13  Ben Elliston  <bje@au.ibm.com>
+
+	* machmode.h (DECIMAL_FLOAT_MODE_P): Change "mode" to "MODE"
+	throughout this macro to match with the macro's argument.
+
 2005-05-12  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* builtin-types.def: Add BUILTIN_FNs needed for dfp versions 

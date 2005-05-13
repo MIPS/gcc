@@ -80,8 +80,8 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
    purposefully not created a new class, but there are still
    times where it is useful to check whether one of the decimal
    float modes. */
-#define DECIMAL_FLOAT_MODE_P(MODE)              \
-  (mode == SDmode || mode == DDmode || mode == TDmode)
+#define DECIMAL_FLOAT_MODE_P(MODE)		\
+  (MODE == SDmode || MODE == DDmode || MODE == TDmode)
 
 /* Get the size in bytes and bits of an object of mode MODE.  */
 
