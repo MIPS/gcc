@@ -1,3 +1,9 @@
+2005-05-12  Dale Johannesen <dalej@apple.com>
+            Stuart Hastings <stuart@apple.com>
+
+        * stor-layout.c (compute_record_mode):  Put back 8-byte struct
+        "hack", merged with FSF and 64-bit ABI changes.
+
 2005-04-04  Devang Patel  <dpatel@apple.com>
 
 	* Radar 4095052
