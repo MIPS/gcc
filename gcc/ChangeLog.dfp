@@ -1,5 +1,12 @@
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
+	* builtins.c (fold_builtin_1): Rename builtins to match C
+	extension names.
+	* builtins.def: Rename macro names for dfp inf/nan builtins
+	to match C extension names.
+
+2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
 	* builtins.c (fold_builtin_1): Channel dfp isnan builtins
 	to common fold function.
 	* builtins.def (BUILT_IN_ISNANDF, BUILT_IN_ISNANDD,
