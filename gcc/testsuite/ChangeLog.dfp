@@ -1,7 +1,11 @@
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
+	* gcc.dg/dfp/inf-1.c (main): Add tests for dfp finite builtins.
+
+2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
 	* gcc.dg/dfp/inf-1.c (main): Builtins renamed to match C extension.
-	* gcc.dg/dfp/nan-1.c (main): Builtings renamed to match C extension.
+	* gcc.dg/dfp/nan-1.c (main): Builtins renamed to match C extension.
 
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 

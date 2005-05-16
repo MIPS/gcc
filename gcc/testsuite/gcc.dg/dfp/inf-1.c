@@ -46,5 +46,20 @@ int main()
   if (!__builtin_isinfd64(__builtin_infd128()))
     abort();
 
+  if (__builtin_finited32(9999999.E90DF + 1.E90df))
+    abort();
+
+  if (__builtin_finited64(__builtin_infd32() * 4))
+    abort();
+
+  if (!__builtin_finited128(9.999999E90DL - 1.E90dd))
+    abort();
+
+  if (__builtin_finited128(__builtin_infd32() *__builtin_infd128()))
+    abort();
+
+  if (__builtin_finited32(__builtin_nand32("")))
+    abort();
+    
   return 0;
 }

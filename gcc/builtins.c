@@ -8774,6 +8774,9 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_FINITE:
     case BUILT_IN_FINITEF:
     case BUILT_IN_FINITEL:
+    case BUILT_IN_FINITED32:
+    case BUILT_IN_FINITED64:
+    case BUILT_IN_FINITED128:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_FINITE);
 
     case BUILT_IN_ISINF:

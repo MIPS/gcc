@@ -1,5 +1,12 @@
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
+	* builtins.c (fold_builtin_1): Channel dfp finite builtins
+	to common fold function.
+	* builtins.def (BUILT_IN_FINITED32, BUILT_IN_FINITED64,
+	BUILT_IN_FINITED128): Add dfp finite builtins.
+
+2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
 	* builtins.c (fold_builtin_1): Rename builtins to match C
 	extension names.
 	* builtins.def: Rename macro names for dfp inf/nan builtins
