@@ -40,6 +40,7 @@ set operators(multiply) {*}
 set operators(subtract) {-}
 set operators(minus) {-}
 set operators(plus) {+}
+set operators(apply) {/* apply */}
 
 # Operations imlemented by the library.
 set libfuncs(abs) fabsl
@@ -60,7 +61,6 @@ set libfuncs(remaindernear) unknown
 set libfuncs(normalize) unknown
 set libfuncs(tointegral) unknown
 set libfuncs(trim) unknown
-set libfuncs(apply) unknown
 
 
 # Run all of the tests listed in TESTCASES by invoking df-run-test on
@@ -215,6 +215,14 @@ proc c-union-decl { } {
     return $result
 }
 
+proc hex-constant-p {value} {
+    return {[string index $value 0] == "\#"}
+}
+
+proc frob-hex-constant {value} {
+    return [regsub $ [regsub \# $value 0x] U]
+}
+
 # Create a C program file (named using ID) containing a test for a
 # binary OPERATION on OP1 and OP2 that expects RESULT and CONDITIONS.
 
@@ -226,18 +234,27 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     puts $outfd [c-test-preamble $id]
     puts $outfd [c-union-decl]
     puts $outfd ""
-    puts $outfd "/*  FIXME: Set the rounding mode.  */"
-    puts $outfd "/*  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);*/"
+    puts $outfd "  /*  FIXME: Set the rounding mode.  */"
+    puts $outfd "  /*assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);*/"
     puts $outfd ""
     if {[string compare $op2 NONE] == 0} {
-	puts $outfd "  u.d = [c-unary-expression $operation [c-operand $op1]];"
+	if {[string index $op1 0] == "\#"} {
+	    puts $outfd "  *(unsigned*) u.bytes = [frob-hex-constant $op1];"
+	} else {
+	    puts $outfd "  u.d = [c-unary-expression $operation [c-operand $op1]];"
+	}
     } else {
 	puts $outfd "  u.d = [c-binary-expression $operation [c-operand $op1] [c-operand $op2]];"
     }
 
     # Handle undefined results.
     if {[string compare $result ?] != 0} {
-	puts $outfd "  return (!(u.d == [c-operand $result]));"
+	if {[string index $result 0] == "\#"} {
+	    # Handle hex comparisons.
+	    puts $outfd "  return !(*(unsigned*) u.bytes == [frob-hex-constant $result]);"
+	} else {
+	    puts $outfd "  return !(u.d == [c-operand $result]);"
+	}
     } else {
 	puts $outfd "  return 0;"
     }
@@ -403,5 +420,7 @@ if [catch {set testdir $env(DECTEST)}] {
     # If $DECTEST is unset, skip this test driver altogether.
     return
 }
+
+note "Using tests in $testdir"
 dfp-run-tests [lsort [glob -nocomplain $testdir/*.decTest]]
 unset testdir

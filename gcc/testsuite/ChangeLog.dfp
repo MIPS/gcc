@@ -1,5 +1,16 @@
 2005-05-16  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.misc-tests/dectest.exp: Note the location of the tests when
+	runtest(1) is invoked.
+
+	* gcc.misc-tests/dectest.exp (libfuncs): Move `apply' from here ..
+	(operators): .. to here.
+	(hex-constant-p): New proc.
+	(frob-hex-constant): Likewise.
+	(make-c-test): Use these new procs.
+
+2005-05-16  Ben Elliston  <bje@au.ibm.com>
+
 	* gcc.dg/debug/dwarf2/dwarf-float.c: New test.
 	* gcc.dg/debug/dwarf2/dwarf-dfp.c: Likewise.
 
