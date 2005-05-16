@@ -8787,6 +8787,9 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_ISNAN:
     case BUILT_IN_ISNANF:
     case BUILT_IN_ISNANL:
+    case BUILT_IN_ISNANDF:
+    case BUILT_IN_ISNANDD:
+    case BUILT_IN_ISNANDL:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_ISNAN);
 
     case BUILT_IN_ISGREATER:

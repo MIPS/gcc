@@ -1,4 +1,11 @@
-2005-05-16  Jon Grimm     <jgrimm2@us.ibm.com>
+2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* builtins.c (fold_builtin_1): Channel dfp isnan builtins
+	to common fold function.
+	* builtins.def (BUILT_IN_ISNANDF, BUILT_IN_ISNANDD,
+	BUILT_IN_ISNANDL): Add builtins for dfp isnans.
+
+2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* builtin-types.h: Add function types for NaN builtins.
 	* builtins.c (fold_builtin_1): Channel dfp NaN builtins to 

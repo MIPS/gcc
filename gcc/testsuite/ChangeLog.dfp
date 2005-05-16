@@ -1,5 +1,9 @@
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
+	* gcc.dg/dfp/inf-1.c: Add tests for dfp isnan builtins.
+
+2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
 	* gcc.dg/dfp/constants-arith-1.c: Split inf functions into
 	their own new testcase.
 	* gcc.dg/dfp/inf-1.c: New testcase.
