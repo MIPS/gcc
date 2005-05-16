@@ -8660,6 +8660,9 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_NAN:
     case BUILT_IN_NANF:
     case BUILT_IN_NANL:
+    case BUILT_IN_NANDF:
+    case BUILT_IN_NANDD:
+    case BUILT_IN_NANDL:
       return fold_builtin_nan (arglist, type, true);
 
     case BUILT_IN_NANS:

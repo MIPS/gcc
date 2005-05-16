@@ -1,3 +1,11 @@
+2005-05-16  Jon Grimm     <jgrimm2@us.ibm.com>
+
+	* builtin-types.h: Add function types for NaN builtins.
+	* builtins.c (fold_builtin_1): Channel dfp NaN builtins to 
+	common fold function.
+	* builtins.def (BUILT_IN_NANDF, BUILT_IN_NANDDD,
+	BUILT_IN_NANDL): Add builtins for dfp NaNs.
+
 2005-05-16  Ben Elliston  <bje@au.ibm.com>
 
 	* dwarf2out.c (base_type_die): Emit a DW_ATE_decimal_float
