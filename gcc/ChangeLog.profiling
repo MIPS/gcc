@@ -1,3 +1,46 @@
+2005-05-15  Olga Golovanevsky  <olga@il.ibm.com>
+
+        * ipa_prop.c (ipa_callsite_param_set_info_type_int): Renamed 
+	from ipcp_callsite_param_set_info_type_int.
+        (ipa_callsite_param_map_create): Renamed from
+        ipcp_callsite_param_map_create.
+        (ipa_callsite_tree): Renamed from ipcp_callsite_tree.
+        (ipa_callsite_caller): Renamed from ipcp_callsite_caller.
+        (ipa_callsite_compute_param): Renamed from
+        ipcp_callsite_compute_param.
+        (ipa_callsite_compute_count): Renamed from
+        ipcp_callsite_compute_count.
+        (ipa_method_formal_count): Renamed from ipcp_method_formal_count.
+        (ipa_method_formal_count_set): Renamed from
+        ipcp_method_formal_count_set.
+        (ipa_method_is_modified): Renamed from ipcp_method_is_modified.
+        (ipa_method_get_tree): Renamed from ipcp_method_get_tree.
+        (ipa_method_tree_map_create): Renamed
+        from ipcp_method_tree_map_create.
+        (ipa_method_modify_create): Renamed from ipcp_method_modify_create.
+        (ipa_method_modify_set): Renamed from ipcp_method_modify_set.
+        (ipa_method_tree_map): Renamed from ipcp_method_tree_map.
+        (ipa_method_compute_tree_map): Renamed from
+        ipcp_method_compute_tree_map.
+        (ipa_method_formal_compute_count): Reanamed from
+        ipcp_method_formal_compute_count.
+        (ipa_modify_walk_tree): Renamed from ipcp_modify_walk_tree.
+        (ipa_modify_walk_tree_1): Renamed from ipcp_modify_walk_tree_1.
+        (ipa_method_modify_init): Renamed from ipcp_method_modify_init.
+        (ipa_method_compute_modify): Renamed from ipcp_method_compute_modify.
+        (ipa_jf_get_info_type): Renamed from ipcp_jf_get_info_type.
+        (ipa_free): Renamed from ipcp_free.
+        (ipa_method_tree_print): Renamed from ipcp_method_tree_print.
+        (ipa_method_modify_print): Renamed from ipcp_method_modify_print.
+        * ipa_prop.h (ipa_jump_func): Renamed from ipcp_jump_func.
+        (ipa_tree_map): Renamed from ipcp_tree_map.
+        (ipa_modify): Renamed from ipcp_modified.
+        (ipa_arg_num): Renamed from ipcp_arg_num in ipa_node.
+        (ipa_param_tree): Renamed from ipcp_param_tree in ipa_node.
+        (ipa_mod): Renamed from ipcp_mod in ipa_node.
+        (ipa_param_num): Renamed from ipcp_param_num.
+        (ipa_param_map): Renamed from ipcp_param_map.
+
 2005-05-08  Razya Ladelsky  <razya@il.ibm.com>
 
 	* ipa_prop.h (ipcp_replcae_map): Rename to ipa_replace_map.

@@ -48,7 +48,7 @@ union info{
   unsigned int formal_id;
   REAL_VALUE_TYPE float_value;
 }; 
-struct ipcp_jump_func
+struct ipa_jump_func
 {
   enum Jfunc_type type; 
   union info info_type;
@@ -58,11 +58,11 @@ struct ipcp_formal
   enum Cvalue_type cvalue_type;
   union info cvalue;
 }; 
-struct ipcp_tree_map
+struct ipa_tree_map
 {
   tree param_tree;
 };
-struct ipcp_modify
+struct ipa_modify
 {
   bool mod;
 };
@@ -78,13 +78,13 @@ struct ipa_node
   /* Number of formal parameters of this method.  When set to 0,
    this method's parameters would not be analyzed by the different 
    stages of IPA CP.  */
-  int ipcp_arg_num;
+  int ipa_arg_num;
   /* Array of cvals.  */
   struct ipcp_formal* GTY ((skip (""))) ipcp_cval;
   /* Mapping each parameter to its PARM_DECL tree.  */
-  struct ipcp_tree_map* GTY ((skip (""))) ipcp_param_tree;
+  struct ipa_tree_map* GTY ((skip (""))) ipa_param_tree;
   /* Indicating which parameter is modified in its method.  */
-  struct ipcp_modify* GTY ((skip (""))) ipcp_mod;
+  struct ipa_modify* GTY ((skip (""))) ipa_mod;
    /* Only for cloned nodes this field would not be NULL, 
   it points to the node that IPA cp cloned from.  */ 
   struct cgraph_node *ipcp_orig_node;
@@ -95,9 +95,9 @@ struct ipa_edge
   /* Number of actual arguments in this callsite.  When set to 0,
    this callsite's parameters would not be analyzed by the different 
    stages of IPA CP.  */
-  int ipcp_param_num;
+  int ipa_param_num;
   /* Array of the callsite's jump function of each parameter.  */
-  struct ipcp_jump_func* GTY ((skip (""))) ipcp_param_map; 
+  struct ipa_jump_func* GTY ((skip (""))) ipcp_param_map; 
 };
 void ipcp_driver (void);
 
