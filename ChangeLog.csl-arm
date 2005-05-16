@@ -1,3 +1,8 @@
+2005-05-16  Julian Brown  <julian@codesourcery.com>
+
+	* libiberty/pex-win32.c (maybe_duplicate_handle): New function.
+	(pexec): Don't call DuplicateHandle if GetStdHandle returns NULL.
+
 2005-05-15  Zack Weinberg  <zack@codesourcery.com>
 
 	Merge from mainline:
