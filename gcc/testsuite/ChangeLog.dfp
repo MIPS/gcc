@@ -1,5 +1,11 @@
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
+	* gcc.dg/dfp/constants-compare.c (main): Add tests for
+	builtins isgreater, isgreaterequal, isless, islessequal,
+	islessgreater, isunordered.
+
+2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
+
 	* gcc.dg/dfp/inf-1.c (main): Add tests for dfp finite builtins.
 
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>

@@ -38,5 +38,36 @@ int main()
   if (1.4dd + 1.4dd + 1.4dd != 4.2dd)
     abort();
 
+  /* Test use gcc builtins for comparisons. */
+  if (__builtin_isless(-2.0dl,-2.0dl))
+    abort();
+
+  if (__builtin_isgreaterequal(-2.0dl,.01dl))
+    abort();
+
+  if (!(__builtin_islessequal(-2.0dl, -2.0dd)))
+    abort();
+
+  if (!(__builtin_isgreater(2.0dl, -2.0dd)))
+    abort();
+
+  if (__builtin_islessequal(2.0df, __builtin_nand64("")))
+    abort();
+
+  if (__builtin_islessgreater(2.0dd, __builtin_nand64("")))
+    abort();
+
+  if (!__builtin_islessgreater(2.0dd, -2.0dd))
+    abort();
+
+  if (!__builtin_islessgreater(-3.0dd, 2.0dd))
+    abort();
+
+  if (__builtin_isunordered(1.1df, 0.003dd))
+    abort();
+
+  if (!__builtin_isunordered(-3.1df, __builtin_nand32("")))
+    abort();
+
   return 0;
 }
