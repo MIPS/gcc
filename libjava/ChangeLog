@@ -1,3 +1,50 @@
+2005-05-16  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/net/protocol/http/Headers.java (parse): Include final
+	character of line.
+
+2005-05-16  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21606:
+	* java/net/URI.java (unquote): Handle lower-case letters as well.
+
+2005-05-16  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	PR libgcj/20504
+	gnu/regexp/RE.java: Add support for quoting constructs.
+
+2005-05-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21519:
+	* testsuite/libjava.compile/pr21519.java: New file.
+	* testsuite/libjava.compile/pr21519.no-link: New file.
+
+2005-05-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/21557
+	* java/lang/natObject.cc (_Jv_MonitorEnter): Save and clear thread
+	interrupt status flag if _Jv_CondWait is interrupted.
+
+2005-05-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* include/jvm.h (gcj::verifyClasses): Declare.
+	* link.cc (gcj::verbose_class_flag): Moved.
+	* prims.cc (gcj::verifyClasses): Define here.
+	(gcj::verbose_class_flag): Move definition here.
+	(_Jv_Linker::wait_for_state): Don't call verify_class
+	if gcj::verifyClasses is not set.
+	* gij.cc (main): Set gcj::verifyClasses when '-noverify' is given.
+
+2005-05-13  Aaron Luchko  <aluchko@redhat.com>
+
+	* gij.cc (main): Recognize '-verify', '-noverify', and
+	'-verifyremote'
+
+2005-05-13  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/runtime/SystemClassLoader.java (init): Handle empty
+	element in path.
+
 2005-05-09  David Daney  <ddaney@avtrex.com>
 
 	* java/util/BitSet.java (get(int, int)): Fix breakage when
