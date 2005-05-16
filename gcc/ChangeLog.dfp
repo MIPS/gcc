@@ -1,3 +1,8 @@
+2005-05-16  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2out.c (base_type_die): Emit a DW_ATE_decimal_float
+	encoding value when the type has a decimal float mode.
+
 2005-05-13  Ben Elliston  <bje@au.ibm.com>
 
 	* machmode.h (DECIMAL_FLOAT_MODE_P): Change "mode" to "MODE"
