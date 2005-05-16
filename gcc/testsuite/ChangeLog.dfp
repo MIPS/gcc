@@ -1,7 +1,12 @@
-2005-05-12  Jon Grimm     <jgrimm2@us.ibm.com>
+2005-05-16  Ben Elliston  <bje@au.ibm.com>
 
-	* gcc.dg/dfp/constants-arith-1.c (main): Add tests for
-	isinfdf, isinfdd, and isinfdl builtins.
+	* gcc.dg/debug/dwarf2/dwarf-float.c: New test.
+	* gcc.dg/debug/dwarf2/dwarf-dfp.c: Likewise.
+
+2005-05-12  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/constants-arith-1.c (main): Add tests for isinfdf,
+	isinfdd and isinfdl builtins.
 
 2005-05-04  Ben Elliston  <bje@au.ibm.com>
 
