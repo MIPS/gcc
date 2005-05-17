@@ -1,3 +1,10 @@
+2005-05-17  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2.h (enum dwarf_type): Rename DW_ATE_decimal_float to
+	DW_ATE_GNU_decimal float and move it into the user-defined
+	encoding space.
+	* dwarf2out.c (base_type_die): Use the new enumeration.
+
 2005-05-16  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* builtins.c (fold_builtin_1): Channel dfp finite builtins

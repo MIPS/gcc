@@ -8025,7 +8025,7 @@ base_type_die (tree type)
 
     case REAL_TYPE:
       if (DECIMAL_FLOAT_MODE_P (TYPE_MODE (type)))
-	encoding = DW_ATE_decimal_float;
+	encoding = DW_ATE_GNU_decimal_float;
       else
 	encoding = DW_ATE_float;
       break;

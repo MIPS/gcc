@@ -547,8 +547,6 @@ enum dwarf_type
     DW_ATE_unsigned_char = 0x8,
     /* DWARF 3.  */
     DW_ATE_imaginary_float = 0x9,
-    /* Pending DWARF committee approval.  */
-    DW_ATE_decimal_float = 0xa,
     /* HP extensions.  */
     DW_ATE_HP_float80            = 0x80, /* Floating-point (80 bit).  */
     DW_ATE_HP_complex_float80    = 0x81, /* Complex floating-point (80 bit).  */
@@ -556,7 +554,9 @@ enum dwarf_type
     DW_ATE_HP_complex_float128   = 0x83, /* Complex floating-point (128 bit).  */
     DW_ATE_HP_floathpintel       = 0x84, /* Floating-point (82 bit IA64).  */
     DW_ATE_HP_imaginary_float80  = 0x85,
-    DW_ATE_HP_imaginary_float128 = 0x86
+    DW_ATE_HP_imaginary_float128 = 0x86,
+    /* GNU extensions.  */
+    DW_ATE_GNU_decimal_float     = 0x87  /* Pending DWARF working group.  */
   };
 
 #define	DW_ATE_lo_user 0x80
