@@ -1,3 +1,7 @@
+check to see if:
+  public static void main(String... args)
+will be picked up by 'java klass'
+
 make sure we don't resolve too many classes
 see email around Mar 28 2005 on the gcj list
 
@@ -298,9 +302,13 @@ X gcjh has options to add text to the header in different places;
 
 Tree generation
 
+should we use PLACEHOLDER_EXPR when dealing with array types?
+
 put _Jv_ThrowNoSuchMethodError into vtable for abstract methods
 could pass in method and class name too...
 
+is there a way to emit 'import' statements into the debug info?
+this would let gdb do a better job of name lookup
 
 look at
 http://gcc.gnu.org/cgi-bin/cvsweb.cgi/gcc/gcc/java/class.c.diff?cvsroot=gcc&r1=1.222&r2=1.223
@@ -567,6 +575,8 @@ http://www-124.ibm.com/pipermail/jikes/2004-February/002679.html
 
 
 - find a way to run FindBugs from inside the compiler
+  writing a separate "back end" to do warning checks based on some
+  kind of xml descriptor would be possible and easy
 
 ================================================================
 

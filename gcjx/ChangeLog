@@ -1,3 +1,8 @@
+2005-05-16  Tom Tromey  <tromey@redhat.com>
+
+	* defassign.cc (class definite_assignment_visitor): Removed some
+	old comments.
+
 2005-05-07  Tom Tromey  <tromey@redhat.com>
 
 	* verify.h (GLOM): Removed.

@@ -1383,7 +1383,6 @@ public:
 			       const std::list<ref_expression> &exprs)
   {
     assert (constructor);
-    // FIXME: check constraints here
     visit (exprs);
   }
 
@@ -1392,7 +1391,6 @@ public:
 			      const std::list<ref_expression> &exprs)
   {
     assert (constructor);
-    // FIXME: before a this() call, all our fields must be DU.
     visit (exprs);
 
     // Any fields declared in this class will have been set by the
