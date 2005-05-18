@@ -69,6 +69,8 @@ class locals
   // Number of variables that survived updating.
   int valid;
 
+  int request (bool);
+
 public:
 
   locals (bytecode_generator *g)
@@ -90,6 +92,12 @@ public:
   // argument, it is used for synthetic variables.  These must be
   // managed more explicitly.
   int request (model_variable_decl *);
+
+  // Request a new slot for a wide variable.  The variable is assumed
+  // to be synthetic and must be explicitly managed.  That is, removal
+  // must be handled via the special remove() method for synthetic
+  // variables.
+  int request ();
 
   // Find the index of an existing local.
   int get_index (model_variable_decl *);

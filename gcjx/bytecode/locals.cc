@@ -35,17 +35,14 @@ locals::push_scope (const model_stmt *newscope)
 }
 
 int
-locals::request (model_variable_decl *decl)
+locals::request (bool is_wide)
 {
-  assert (decl == NULL || vars.find (decl) == vars.end ());
-  int n;
-  int delta = 0;
-  if (wide_p (decl ? decl->type () : NULL))
-    delta = 1;
+  int delta = is_wide ? 1 : 0;
 
   // This loop is written a little strangely so that it will always
   // terminate with N == MAX if we didn't find a large enough empty
   // space.
+  int n;
   for (n = 0; n < max; ++n)
     {
       if (! used[n] && (n + delta < max && ! used[n + delta]))
@@ -60,6 +57,15 @@ locals::request (model_variable_decl *decl)
   used[n] = true;
   used[n + delta] = true;
 
+  return n;
+}
+
+int
+locals::request (model_variable_decl *decl)
+{
+  assert (decl == NULL || vars.find (decl) == vars.end ());
+  int n = request (decl ? wide_p (decl->type ()) : false);
+
   if (decl)
     {
       debug_info info;
@@ -71,6 +77,12 @@ locals::request (model_variable_decl *decl)
       vars[decl] = info;
     }
   return n;
+}
+
+int
+locals::request ()
+{
+  return request (true);
 }
 
 int

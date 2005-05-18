@@ -399,7 +399,7 @@ bytecode_generator::visit_method (model_method *meth,
 
   if (! meth->static_p ())
     {
-      this_index = vars.request (NULL);
+      this_index = vars.request ((model_variable_decl *) NULL);
       // This must always be true.
       assert (! this_index);
     }
@@ -899,7 +899,7 @@ bytecode_generator::visit_return (model_return *rtn,
       // assign to it, then reload it before the return.
       if (! finally_stack.empty ())
 	{
-	  tmpvar = vars.request (NULL);
+	  tmpvar = vars.request ();
 	  emit_store (expr->type (), tmpvar);
 	}
     }
