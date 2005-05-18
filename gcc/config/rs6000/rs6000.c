@@ -2378,6 +2378,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       return SPE_CONST_OFFSET_OK (offset);
 
     case DFmode:
+    case DDmode:
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
 
@@ -3556,6 +3557,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
     case DFmode:
     case SFmode:
+    case DDmode:
+    case SDmode:
       if (CONSTANT_P (operands[1])
 	  && ! easy_fp_constant (operands[1], mode))
 	operands[1] = force_const_mem (mode, operands[1]);
@@ -4232,13 +4235,14 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else if (DEFAULT_ABI == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
-	  && (mode == SFmode || mode == DFmode))
+	  && (mode == SFmode || mode == DFmode
+	      || mode == SDmode || mode == DDmode))
 	{
 	  if (cum->fregno <= FP_ARG_V4_MAX_REG)
 	    cum->fregno++;
 	  else
 	    {
-	      if (mode == DFmode)
+	      if (mode == DFmode || mode == DDmode)
 		cum->words += cum->words & 1;
 	      cum->words += rs6000_arg_size (mode, type);
 	    }
@@ -4762,7 +4766,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else if (abi == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
-	  && (mode == SFmode || mode == DFmode))
+	  && (mode == SFmode || mode == DFmode
+	      || mode == SDmode || mode == DDmode))
 	{
 	  if (cum->fregno <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
@@ -5355,14 +5360,15 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   align = 1;
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS
-      && (TYPE_MODE (type) == SFmode || TYPE_MODE (type) == DFmode))
+      && (TYPE_MODE (type) == SFmode || TYPE_MODE (type) == DFmode
+	  || TYPE_MODE (type) == SDmode || TYPE_MODE (type) == DDmode))
     {
       /* FP args go in FP registers, if present.  */
       reg = fpr;
       n_reg = 1;
       sav_ofs = 8*4;
       sav_scale = 8;
-      if (TYPE_MODE (type) == DFmode)
+      if (TYPE_MODE (type) == DFmode || TYPE_MODE (type) == DDmode)
 	align = 8;
     }
   else

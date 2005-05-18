@@ -1,3 +1,25 @@
+2005-05-18  David Edelsohn  <dje@watson.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_legitimate_offset_address_p):
+	Handle DDmode.
+	(rs6000_emit_move): Handle SDmode and DDmode.
+	(function_arg_advance): Likewise.
+	(function_arg): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+
+2005-05-18  Ben Elliston  <bje@au.ibm.com>
+
+	* dfp.c (decimal_real_from_string): Use DECIMAL_FLOAT_MODE_P.
+
+	* config/rs6000/predicates.md (easy_fp_constant): Revert this
+	change for now:
+
+	2005-04-13  Jon Grimm  <jgrimm2@us.ibm.com>
+
+		* config/predicates.md (easy_fp_constant): Decimal float
+		types are easy (for now).
+
 2005-05-17  Ben Elliston  <bje@au.ibm.com>
 
 	* dwarf2.h (enum dwarf_type): Rename DW_ATE_decimal_float to

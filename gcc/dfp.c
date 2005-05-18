@@ -93,7 +93,7 @@ decimal_real_from_string (REAL_VALUE_TYPE *r, const char *s,
 			  enum machine_mode mode)
 {
   /* FIXME: Not all platforms have these modes. */
-  if (mode != SDmode && mode != DDmode && mode != TDmode)
+  if (!DECIMAL_FLOAT_MODE_P (mode))
     real_from_string (r, s);
   else
     decimal_from_string (r, s);
