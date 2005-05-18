@@ -1,3 +1,8 @@
+2005-05-07  Tom Tromey  <tromey@redhat.com>
+
+	* verify.h (GLOM): Removed.
+	(VFY_PRIMITIVE_CLASS): Likewise.
+
 2005-04-30  Tom Tromey  <tromey@redhat.com>
 
 	* aot/aotclass.cc (get_descriptor): New helper function.

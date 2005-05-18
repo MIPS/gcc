@@ -383,10 +383,6 @@ inline void vfy_hand_off_flags (vfy_method *method, unsigned char *flags)
   method->block->set_flags (flags);
 }
 
-#define GLOM(name, stuff) name ## stuff
-#define VFY_PRIMITIVE_CLASS(name) \
-  vfy_get_primitive_type ((int) (GLOM (primitive_, GLOM (name, _type))))
-
 #define JV_CONSTANT_Class CONSTANT_Class
 #define JV_CONSTANT_ResolvedClass CONSTANT_ResolvedClass
 #define JV_CONSTANT_String CONSTANT_String
