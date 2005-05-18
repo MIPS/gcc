@@ -1,3 +1,61 @@
+2005-05-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/20954
+	* gfortran.dg/pr20954.f: New test.
+
+2005-05-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/compat/struct-layout-1_generate.c (iterative_hash):
+	Remove little-endian optimizations. 
+
+2005-05-17  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* gcc.dg/compat/generate-random.c: Do not include
+	libiberty.h.
+	* gcc.dg/compat/generate-random_r.c: Likewise.
+
+2005-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21454
+	* g++.dg/opt/const4.C: New test.
+
+	PR tree-optimization/21610
+	* gcc.c-torture/compile/20050516-1.c: New test.
+
+	PR fortran/15080
+	* gfortran.fortran-torture/execute/forall_3.f90: Remove comment
+	about the test failing.
+	* gfortran.fortran-torture/execute/where_7.f90: New test.
+	* gfortran.fortran-torture/execute/where_8.f90: New test.
+
+2005-05-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/compat/generate-random.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise.
+	* gcc.dg/compat/generate-random_r.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise.
+	* gcc.dg/compat/struct-layout-1.exp: Do not link with libiberty.
+	* gcc.dg/compat/struct-layout-1_generate.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise. 
+	(hashtab.h): Do not include.
+	(getopt.h): Likewise.
+	(stddef.h): Include.
+	(hashval_t): Define.
+	(struct entry): Add "next" field.
+	(HASH_SIZE): New macro.
+	(hash_table): New variable.
+	(switchfiles): Do not use xmalloc.
+	(mix): New macro.
+	(iterative_hash): New function.
+	(hasht): Remove.
+	(e_exists): New function.
+	(e_insert): Likewise.
+	(output): Use, instead of libiberty hashtable functions.
+	(main): Do not use getopt.  Do not call htab_create.
+	
 2005-05-16  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	PR libstdc++/21526
