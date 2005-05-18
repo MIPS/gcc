@@ -42,14 +42,17 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.Image;
+import java.awt.Transparency;
 import java.awt.ImageCapabilities;
 
 /** STUBS ONLY */
 public abstract class VolatileImage extends Image
+  implements Transparency
 {
   public static final int IMAGE_OK = 0;
   public static final int IMAGE_RESTORED = 1;
   public static final int IMAGE_INCOMPATIBLE = 2;
+  protected int transparency;
   public VolatileImage()
   {
   }
@@ -71,4 +74,8 @@ public abstract class VolatileImage extends Image
   public abstract int validate(GraphicsConfiguration gc);
   public abstract boolean contentsLost();
   public abstract ImageCapabilities getCapabilities();
+  public int getTransparency()
+  {
+    return transparency;
+  }
 } // class VolatileImage
