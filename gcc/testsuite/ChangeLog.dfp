@@ -1,4 +1,8 @@
-2005-05-17  Jon Grimm  <jgrimm2@us.ibm.com>
+2005-05-18  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/conversions-4.c: New test.
+
+2005-05-18  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.dg/dfp/conversions-2.c: New test.
 	* gcc.dg/dfp/conversions-3.c: New test.
