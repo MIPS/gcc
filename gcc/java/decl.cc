@@ -597,8 +597,7 @@ initialize_builtin_functions ()
   // I wonder why this isn't created by GCC itself.
   void_list_node = build_tree_list (NULL_TREE, void_type_node);
 
-  tree t = tree_cons (NULL_TREE, type_class_ptr,
-		      tree_cons (NULL_TREE, type_jint, void_list_node));
+  tree t = tree_cons (NULL_TREE, type_class_ptr, void_list_node);
   builtin_Jv_AllocObject
     = gcjx::builtin_function ("_Jv_AllocObject",
 			      build_function_type (ptr_type_node, t),
