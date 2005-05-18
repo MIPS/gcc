@@ -228,6 +228,11 @@ gcc_java_cxxflags = -I$(srcdir) -I. -I$(srcdir)/../gcjx -I../gcjx \
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) $(gcc_java_cxxflags) -c -o $@ $<
 
+java/driver.o: java/driver.cc
+	$(CXX) $(CXXFLAGS) \
+	  -DLIBGCJ_ZIP_FILE='"$(datadir)/java/libgcj-$(version).jar"' \
+	  $(gcc_java_cxxflags) -c -o $@ $<
+
 java/boehm.o: java/boehm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(TREE_H) toplev.h
 java/jvgenmain.o: java/jvgenmain.c $(CONFIG_H) $(SYSTEM_H) \

@@ -353,10 +353,18 @@ gcjx::post_options (const char **filename_ptr)
   assert (*filename_ptr);
   arguments->filename = *filename_ptr;
 
+  // FIXME: GCC_EXEC_PREFIX handling.
+
   // Compute the class path.
   std::list<class_factory *> facs;
   if (arguments->bootclasspath != NULL)
     add_cp (facs, split (arguments->bootclasspath, ':'));
+  else
+    {
+      std::list<std::string> bc;
+      bc.push_back (LIBGCJ_ZIP_FILE);
+      add_cp (facs, bc);
+    }
   if (arguments->classpath != NULL)
     add_cp (facs, split (arguments->classpath, ':'));
   add_cp (facs, arguments->dash_i_args);
