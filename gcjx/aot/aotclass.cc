@@ -157,12 +157,21 @@ aot_class::add_class (const std::string &s)
   return add_item (e);
 }
 
+// FIXME: this should either be a method on model_type or a generally
+// available helper function -- it is also used in gcc/java.
+static std::string
+get_descriptor (model_type *t)
+{
+  // Why do we do this?
+  return join (split (t->get_descriptor (), '/'), '.');
+}
+
 int
 aot_class::add (model_class *k)
 {
   pool_entry e;
   e.tag = CONSTANT_Class;
-  e.value = k->get_descriptor ();
+  e.value = get_descriptor (k);
   return add_item (e);
 }
 
