@@ -588,7 +588,7 @@ extern struct sparc_cpu_select sparc_select[];
 #define MIN_UNITS_PER_WORD	4
 #endif
 
-#define UNITS_PER_SIMD_WORD	(TARGET_VIS ? 8 : 0)
+#define UNITS_PER_SIMD_WORD	(TARGET_VIS ? 8 : UNITS_PER_WORD)
 
 /* Now define the sizes of the C data types.  */
 
@@ -906,9 +906,6 @@ extern int sparc_mode_class[];
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
 
-/* SPARC pc isn't overloaded on a register that the compiler knows about.  */
-/* #define PC_REGNUM  */
-
 /* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM 14
 
@@ -1008,11 +1005,12 @@ extern int sparc_mode_class[];
    because reg_class_subunion[GENERAL_REGS][FP_REGS] will yield FP_REGS,
    because FP_REGS > GENERAL_REGS.
 
-   It is also important that one class contain all the general and all the
-   fp regs.  Otherwise when spilling a DFmode reg, it may be from EXTRA_FP_REGS
-   but find_reloads() may use class GENERAL_OR_FP_REGS. This will cause
-   allocate_reload_reg() to bypass it causing an abort because the compiler
-   thinks it doesn't have a spill reg when in fact it does.
+   It is also important that one class contain all the general and all
+   the fp regs.  Otherwise when spilling a DFmode reg, it may be from
+   EXTRA_FP_REGS but find_reloads() may use class
+   GENERAL_OR_FP_REGS. This will cause allocate_reload_reg() to die
+   because the compiler thinks it doesn't have a spill reg when in
+   fact it does.
 
    v9 also has 4 floating point condition code registers.  Since we don't
    have a class that is the union of FPCC_REGS with either of the others,
@@ -1374,15 +1372,11 @@ extern char leaf_reg_remap[];
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
    of the first local allocated.  */
-/* This allows space for one TFmode floating point value.  */
+/* This allows space for one TFmode floating point value, which is used
+   by SECONDARY_MEMORY_NEEDED_RTX.  */
 #define STARTING_FRAME_OFFSET \
   (TARGET_ARCH64 ? -16 \
    : (-SPARC_STACK_ALIGN (LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT)))
-
-/* If we generate an insn to push BYTES bytes,
-   this says how many the stack pointer really advances by.
-   On SPARC, don't define this because there are no push insns.  */
-/*  #define PUSH_ROUNDING(BYTES) */
 
 /* Offset of first parameter from the argument pointer register value.
    !v9: This is 64 for the ins and locals, plus 4 for the struct-return reg

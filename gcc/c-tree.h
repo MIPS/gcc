@@ -89,6 +89,11 @@ struct lang_type GTY(())
 #define C_DECL_DECLARED_BUILTIN(EXP)		\
   DECL_LANG_FLAG_3 (FUNCTION_DECL_CHECK (EXP))
 
+/* For FUNCTION_DECLs, evaluates true if the decl is built-in, has a
+   built-in prototype and does not have a non-built-in prototype.  */
+#define C_DECL_BUILTIN_PROTOTYPE(EXP)		\
+  DECL_LANG_FLAG_6 (FUNCTION_DECL_CHECK (EXP))
+
 /* Record whether a decl was declared register.  This is strictly a
    front-end flag, whereas DECL_REGISTER is used for code generation;
    they may differ for structures with volatile fields.  */
@@ -526,6 +531,7 @@ extern tree build_external_ref (tree, int, location_t);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);
+extern struct c_expr parser_build_unary_op (enum tree_code, struct c_expr);
 extern struct c_expr parser_build_binary_op (enum tree_code, struct c_expr,
 					     struct c_expr);
 extern tree build_conditional_expr (tree, tree, tree);

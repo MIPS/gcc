@@ -546,7 +546,7 @@ add_decl_to_level (tree decl, cxx_scope *b)
 	     && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
 	    || (TREE_CODE (decl) == FUNCTION_DECL
 		&& (!TREE_PUBLIC (decl) || DECL_DECLARED_INLINE_P (decl))))
-	  VARRAY_PUSH_TREE (b->static_decls, decl);
+	  VEC_safe_push (tree, gc, b->static_decls, decl);
     }
 }
 
@@ -1264,11 +1264,11 @@ begin_scope (scope_kind kind, tree entity)
 
     case sk_namespace:
       NAMESPACE_LEVEL (entity) = scope;
-      VARRAY_TREE_INIT (scope->static_decls,
-                        DECL_NAME (entity) == std_identifier
-                        || DECL_NAME (entity) == global_scope_name
-                        ? 200 : 10,
-                        "Static declarations");
+      scope->static_decls =
+	VEC_alloc (tree, gc,
+		   DECL_NAME (entity) == std_identifier
+		   || DECL_NAME (entity) == global_scope_name
+		   ? 200 : 10);
       break;
 
     default:
@@ -4701,7 +4701,7 @@ pushtag (tree name, tree type, tag_scope scope)
 	  if (TYPE_CONTEXT (type)
 	      && TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL
 	      && !processing_template_decl)
-	    VARRAY_PUSH_TREE (local_classes, type);
+	    VEC_safe_push (tree, gc, local_classes, type);
         }
       if (b->kind == sk_class
 	  && !COMPLETE_TYPE_P (current_class_type))
@@ -4864,7 +4864,7 @@ push_to_top_level (void)
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
-  VARRAY_TREE_INIT (current_lang_base, 10, "current_lang_base");
+  current_lang_base = VEC_alloc (tree, gc, 10);
   current_lang_name = lang_name_cplusplus;
   current_namespace = global_namespace;
   timevar_pop (TV_NAME_LOOKUP);

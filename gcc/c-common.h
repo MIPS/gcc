@@ -159,6 +159,8 @@ enum c_tree_index
     
     CTI_VOID_ZERO,
 
+    CTI_NULL,
+
     CTI_MAX
 };
 
@@ -202,6 +204,9 @@ struct c_common_identifier GTY(())
 
 /* A node for `((void) 0)'.  */
 #define void_zero_node                  c_global_trees[CTI_VOID_ZERO]
+
+/* The node for C++ `__null'.  */
+#define null_node                       c_global_trees[CTI_NULL]
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
 
@@ -570,6 +575,12 @@ extern int flag_threadsafe_statics;
 
 extern int warn_implicit;
 
+/* Warn about using __null (as NULL in C++) as sentinel.  For code compiled
+   with GCC this doesn't matter as __null is guaranteed to have the right
+   size.  */
+
+extern int warn_strict_null_sentinel;
+
 /* Maximum template instantiation depth.  This limit is rather
    arbitrary, but it exists to limit the time it takes to notice
    infinite template instantiations.  */
@@ -708,10 +719,6 @@ extern void finish_file	(void);
 #define STATEMENT_LIST_HAS_LABEL(NODE) \
   TREE_LANG_FLAG_3 (STATEMENT_LIST_CHECK (NODE))
 
-/* EXPR_STMT accessor. This gives the expression associated with an
-   expression statement.  */
-#define EXPR_STMT_EXPR(NODE)    TREE_OPERAND (EXPR_STMT_CHECK (NODE), 0)
-
 /* COMPOUND_LITERAL_EXPR accessors.  */
 #define COMPOUND_LITERAL_EXPR_DECL_STMT(NODE)		\
   TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
@@ -727,23 +734,6 @@ enum c_tree_code {
 };
 
 #undef DEFTREECODE
-
-#define c_common_stmt_codes				\
-   EXPR_STMT
-
-/* TRUE if a code represents a statement.  The front end init
-   langhook should take care of initialization of this array.  */
-extern bool statement_code_p[MAX_TREE_CODES];
-
-#define STATEMENT_CODE_P(CODE) statement_code_p[(int) (CODE)]
-
-#define INIT_STATEMENT_CODES(STMT_CODES)			\
-  do {								\
-    unsigned int i;						\
-    memset (&statement_code_p, 0, sizeof (statement_code_p));	\
-    for (i = 0; i < ARRAY_SIZE (STMT_CODES); i++)		\
-      statement_code_p[STMT_CODES[i]] = true;			\
-  } while (0)
 
 extern int stmts_are_full_exprs_p (void);
 extern int anon_aggr_type_p (tree);

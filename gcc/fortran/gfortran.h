@@ -431,6 +431,9 @@ typedef struct
   /* Set if this is the master function for a procedure with multiple
      entry points.  */
   unsigned entry_master:1;
+  /* Set if this is the master function for a function with multiple
+     entry points where characteristics of the entry points differ.  */
+  unsigned mixed_entry_master:1;
 
   /* Set if a function must always be referenced by an explicit interface.  */
   unsigned always_explicit:1;
@@ -817,7 +820,7 @@ typedef struct gfc_namespace
 
   gfc_charlen *cl_list;
 
-  int save_all, seen_save;
+  int save_all, seen_save, seen_implicit_none;
 
   /* Normally we don't need to refcount namespaces.  However when we read
      a module containing a function with multiple entry points, this
@@ -842,7 +845,7 @@ typedef struct gfc_gsymbol
 {
   BBT_HEADER(gfc_gsymbol);
 
-  char name[GFC_MAX_SYMBOL_LEN+1];
+  const char *name;
   enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
         GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
 
@@ -1416,6 +1419,7 @@ typedef struct
   int flag_no_backend;
   int flag_pack_derived;
   int flag_repack_arrays;
+  int flag_f2c;
 
   int q_kind;
 

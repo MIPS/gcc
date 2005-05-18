@@ -64,6 +64,10 @@ static void parse_version (void);
 /* Used when computing the ABI version.  */
 #define GCJ_BINARYCOMPAT_ADDITION 5
 
+/* Used when defining a class that should be loaded by the bootstrap
+   loader.  */
+#define GCJ_BOOTSTRAP_LOADER_ADDITION 1
+
 /* The version of the BC ABI that we generate.  At the moment we are
    compatible with what shipped in GCC 4.0.  This must be kept in sync
    with parse_version(), libgcj, and reality (if the BC format
@@ -103,6 +107,9 @@ static int uniq;
    debug information, but we have not reached their starting (byte) PC yet. */
 
 static GTY(()) tree pending_local_decls;
+
+/* The decl for "_Jv_ResolvePoolEntry".  */
+tree soft_resolvepoolentry_node;
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
 int binding_depth = 0;
@@ -617,6 +624,8 @@ parse_version (void)
      probably always require strict matching for ordinary ABI.  */
   if (flag_indirect_dispatch)
     abi_version = GCJ_CURRENT_BC_ABI_VERSION;
+  if (flag_bootstrap_classes)
+    abi_version += GCJ_BOOTSTRAP_LOADER_ADDITION;
 
   gcj_abi_version = build_int_cstu (ptr_type_node, abi_version);
 }
@@ -1015,7 +1024,13 @@ java_init_decl_processing (void)
 					  build_function_type (void_type_node,
 							       t),
 					  0, NOT_BUILT_IN, NULL, NULL_TREE);
-
+  t = tree_cons (NULL_TREE, class_ptr_type,
+		 tree_cons (NULL_TREE, int_type_node, endlink));
+  soft_resolvepoolentry_node 
+    = builtin_function ("_Jv_ResolvePoolEntry", 
+			build_function_type (ptr_type_node, t),
+			0,NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_PURE (soft_resolvepoolentry_node) = 1;
   throw_node = builtin_function ("_Jv_Throw",
 				 build_function_type (void_type_node, t),
 				 0, NOT_BUILT_IN, NULL, NULL_TREE);

@@ -82,13 +82,13 @@ fix = {
 
 	#if defined(__FD_ZERO) && !defined(__GLIBC__)
 	#undef __FD_ZERO
-	# define __FD_ZERO(fdsetp) \\
-	  do { \\
-	    int __d0, __d1; \\
-		__asm__ __volatile__("cld ; rep ; stosl" \\
-        	: "=&c" (__d0), "=&D" (__d1) \\
-        	: "a" (0), "0" (__FDSET_LONGS), \\
-		  "1" ((__fd_set *) (fdsetp)) :"memory"); \\
+	# define __FD_ZERO(fdsetp) \
+	  do { \
+	    int __d0, __d1; \
+	        __asm__ __volatile__("cld ; rep ; stosl" \
+	        : "=&c" (__d0), "=&D" (__d1) \
+	        : "a" (0), "0" (__FDSET_LONGS), \
+	          "1" ((__fd_set *) (fdsetp)) :"memory"); \
 	  } while (0)
 	#endif
 
@@ -2715,7 +2715,7 @@ fix = {
      * On Solaris 10, this fix is unncessary; <stdio.h> includes
      * <iso/stdio_iso.h>, which includes <sys/va_list.h>.
       */
-    mach     = '*-*-solaris2.1[0-9]';
+    mach     = '*-*-solaris2.1[0-9]*';
     not_machine = true;
 
     c_fix     = wrap;
@@ -2747,7 +2747,7 @@ fix = {
      * <stdio.h> is guarded appropriately by the _XPG4 feature macro; 
      * there is therefore no need for this fix there.
      */
-    mach = '*-*-solaris2.1[0-9]';
+    mach = '*-*-solaris2.1[0-9]*';
     not_machine = true;
 
     /*

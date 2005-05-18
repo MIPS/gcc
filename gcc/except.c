@@ -234,7 +234,7 @@ struct eh_status GTY(())
   int built_landing_pads;
   int last_region_number;
 
-  varray_type ttype_data;
+  VEC(tree,gc) *ttype_data;
   varray_type ehspec_data;
   varray_type action_record_data;
 
@@ -572,7 +572,6 @@ expand_resx_expr (tree exp)
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region *reg = cfun->eh->region_array[region_nr];
 
-  gcc_assert (!reg->resume);
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -858,40 +857,18 @@ static struct eh_region *
 duplicate_eh_region_1 (struct eh_region *o)
 {
   struct eh_region *n = ggc_alloc_cleared (sizeof (struct eh_region));
+
+  *n = *o;
   
   n->region_number = o->region_number + cfun->eh->last_region_number;
-  n->type = o->type;
   gcc_assert (!o->aka);
-  
-  switch (n->type)
-    {
-    case ERT_CLEANUP:
-    case ERT_MUST_NOT_THROW:
-      break;
-      
-    case ERT_TRY:
-      break;
-      
-    case ERT_CATCH:
-      n->u.catch.type_list = o->u.catch.type_list;
-      break;
-      
-    case ERT_ALLOWED_EXCEPTIONS:
-      n->u.allowed.type_list = o->u.allowed.type_list;
-      break;
-      
-    case ERT_THROW:
-      n->u.throw.type = o->u.throw.type;
-      
-    default:
-      abort ();
-    }
   
   return n;
 }
 
 static void
-duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
+duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array,
+		       struct eh_region *prev_try)
 {
   struct eh_region *n = n_array[o->region_number];
   
@@ -914,6 +891,8 @@ duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
     case ERT_CLEANUP:
       if (o->u.cleanup.prev_try)
 	n->u.cleanup.prev_try = n_array[o->u.cleanup.prev_try->region_number];
+      else
+        n->u.cleanup.prev_try = prev_try;
       break;
       
     default:
@@ -935,7 +914,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 		      void *data, int outer_region)
 {
   int ifun_last_region_number = ifun->eh->last_region_number;
-  struct eh_region **n_array, *root, *cur;
+  struct eh_region **n_array, *root, *cur, *prev_try;
   int i;
   
   if (ifun_last_region_number == 0 || !ifun->eh->region_tree)
@@ -943,6 +922,15 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   
   n_array = xcalloc (ifun_last_region_number + 1, sizeof (*n_array));
   
+  /* Search for the containing ERT_TRY region to fix up
+     the prev_try short-cuts for ERT_CLEANUP regions.  */
+  prev_try = NULL;
+  if (outer_region > 0)
+    for (prev_try = cfun->eh->region_array[outer_region];
+         prev_try && prev_try->type != ERT_TRY;
+	 prev_try = prev_try->outer)
+      ;
+
   for (i = 1; i <= ifun_last_region_number; ++i)
     {
       cur = ifun->eh->region_array[i];
@@ -962,7 +950,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
       cur = ifun->eh->region_array[i];
       if (!cur || cur->region_number != i)
 	continue;
-      duplicate_eh_region_2 (cur, n_array);
+      duplicate_eh_region_2 (cur, n_array, prev_try);
     }
   
   root = n_array[ifun->eh->region_tree->region_number];
@@ -1122,10 +1110,10 @@ add_ttypes_entry (htab_t ttypes_hash, tree type)
 
       n = xmalloc (sizeof (*n));
       n->t = type;
-      n->filter = VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data) + 1;
+      n->filter = VEC_length (tree, cfun->eh->ttype_data) + 1;
       *slot = n;
 
-      VARRAY_PUSH_TREE (cfun->eh->ttype_data, type);
+      VEC_safe_push (tree, gc, cfun->eh->ttype_data, type);
     }
 
   return n->filter;
@@ -1175,7 +1163,7 @@ assign_filter_values (void)
   int i;
   htab_t ttypes, ehspec;
 
-  VARRAY_TREE_INIT (cfun->eh->ttype_data, 16, "ttype_data");
+  cfun->eh->ttype_data = VEC_alloc (tree, gc, 16);
   VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
 
   ttypes = htab_create (31, ttypes_filter_hash, ttypes_filter_eq, free);
@@ -2429,9 +2417,10 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	 explicit function call we generated may be used.  Otherwise
 	 the call is made by the runtime. 
 
-	 Be conservative before inlining since new subregions may be
-	 introduced.  fixup_cfg pass takes care of removing unnecesary
-	 EH edges later on.  */
+         Before inlining, do not perform this optimization.  We may
+	 inline a subroutine that contains handlers, and that will
+	 change the value of saw_any_handlers.  */
+
       if ((info && info->saw_any_handlers) || !cfun->after_inlining)
 	{
 	  add_reachable_handler (info, region, region);
@@ -3417,7 +3406,7 @@ output_function_exception_table (void)
   targetm.asm_out.exception_section ();
 #endif
 
-  have_tt_data = (VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data) > 0
+  have_tt_data = (VEC_length (tree, cfun->eh->ttype_data) > 0
 		  || VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data) > 0);
 
   /* Indicate the format of the @TType entries.  */
@@ -3480,7 +3469,7 @@ output_function_exception_table (void)
       after_disp = (1 + size_of_uleb128 (call_site_len)
 		    + call_site_len
 		    + VARRAY_ACTIVE_SIZE (cfun->eh->action_record_data)
-		    + (VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data)
+		    + (VEC_length (tree, cfun->eh->ttype_data)
 		       * tt_format_size));
 
       disp = after_disp;
@@ -3542,10 +3531,10 @@ output_function_exception_table (void)
   if (have_tt_data)
     assemble_align (tt_format_size * BITS_PER_UNIT);
 
-  i = VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data);
+  i = VEC_length (tree, cfun->eh->ttype_data);
   while (i-- > 0)
     {
-      tree type = VARRAY_TREE (cfun->eh->ttype_data, i);
+      tree type = VEC_index (tree, cfun->eh->ttype_data, i);
       rtx value;
 
       if (type == NULL_TREE)
@@ -3597,23 +3586,15 @@ output_function_exception_table (void)
 }
 
 void
-set_eh_throw_stmt_table (struct function *fun, void *table)
+set_eh_throw_stmt_table (struct function *fun, struct htab *table)
 {
-  fun->eh->throw_stmt_table = (htab_t)table;
+  fun->eh->throw_stmt_table = table;
 }
 
 htab_t
 get_eh_throw_stmt_table (struct function *fun)
 {
   return fun->eh->throw_stmt_table;
-}
-
-int
-get_eh_last_region_number (struct function *ifun)
-{
-  if (!ifun || !ifun->eh)
-    return -1;
-  return ifun->eh->last_region_number;
 }
 
 /* Dump EH information to OUT.  */

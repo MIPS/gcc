@@ -171,8 +171,6 @@ NATIVE_TRUE = @NATIVE_TRUE@
 NEEDS_DATA_START_FALSE = @NEEDS_DATA_START_FALSE@
 NEEDS_DATA_START_TRUE = @NEEDS_DATA_START_TRUE@
 OBJEXT = @OBJEXT@
-ONESTEP_FALSE = @ONESTEP_FALSE@
-ONESTEP_TRUE = @ONESTEP_TRUE@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -314,7 +312,7 @@ AM_GCJFLAGS = \
 BUILT_SOURCES = classes.stamp
 noinst_LTLIBRARIES = libsax-gcj.la
 libsax_gcj_la_SOURCES = sax.jar
-libsax_gcj_la_GCJFLAGS = -findirect-dispatch $(AM_GCJFLAGS)
+libsax_gcj_la_GCJFLAGS = -findirect-dispatch -fbootstrap-classes $(AM_GCJFLAGS)
 source_files = \
 org/xml/sax/SAXNotSupportedException.java \
 org/xml/sax/helpers/NamespaceSupport.java \

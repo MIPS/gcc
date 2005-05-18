@@ -166,8 +166,6 @@ NATIVE_TRUE = @NATIVE_TRUE@
 NEEDS_DATA_START_FALSE = @NEEDS_DATA_START_FALSE@
 NEEDS_DATA_START_TRUE = @NEEDS_DATA_START_TRUE@
 OBJEXT = @OBJEXT@
-ONESTEP_FALSE = @ONESTEP_FALSE@
-ONESTEP_TRUE = @ONESTEP_TRUE@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -300,7 +298,7 @@ AUTOMAKE_OPTIONS = foreign
 # May be used by various substitution variables.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 tool_include_dir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)/include
-tool_include__HEADERS = jni.h jawt.h jawt_md.h jvmpi.h
+tool_include__HEADERS = jni.h jni_md.h jawt.h jawt_md.h jvmpi.h
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 

@@ -176,7 +176,6 @@ struct function GTY(())
 
   /* Saved tree and arguments during tree optimization.  Used later for
      inlining */
-  tree saved_tree;
   tree saved_args;
   tree saved_static_chain_decl;
 
@@ -354,6 +353,20 @@ struct function GTY(())
 
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
+
+  /* Assembly labels for the hot and cold text sections, to
+     be used by debugger functions for determining the size of text
+     sections.  */
+
+  const char *hot_section_label;
+  const char *cold_section_label;
+  const char *hot_section_end_label;
+  const char *cold_section_end_label;
+
+  /* String to be used for name of cold text sections, via
+     targetm.asm_out.named_section.  */
+
+  const char *unlikely_text_section_name;
 
   /* Collected bit flags.  */
 

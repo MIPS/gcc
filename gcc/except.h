@@ -170,7 +170,5 @@ struct throw_stmt_node GTY(())
   int region_nr;
 };
 
-extern void set_eh_throw_stmt_table (struct function *, void *);
 extern struct htab *get_eh_throw_stmt_table (struct function *);
-extern int get_eh_last_region_number (struct function *);
-extern struct eh_region * eh_region_must_not_throw_p (int);
+extern void set_eh_throw_stmt_table (struct function *, struct htab *);

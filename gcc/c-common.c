@@ -191,11 +191,6 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 */
 
 tree c_global_trees[CTI_MAX];
-
-/* TRUE if a code represents a statement.  The front end init
-   langhook should take care of initialization of this array.  */
-
-bool statement_code_p[MAX_TREE_CODES];
 
 /* Switches common to the C front ends.  */
 
@@ -283,6 +278,12 @@ int warn_unknown_pragmas; /* Tri state variable.  */
    (*printf, *scanf, strftime, strfmon, etc.).  */
 
 int warn_format;
+
+/* Warn about using __null (as NULL in C++) as sentinel.  For code compiled
+   with GCC this doesn't matter as __null is guaranteed to have the right
+   size.  */
+
+int warn_strict_null_sentinel;
 
 /* Zero means that faster, ...NonNil variants of objc_msgSend...
    calls will be used in ObjC; passing nil receivers to such calls
@@ -2464,12 +2465,12 @@ c_common_truthvalue_conversion (tree expr)
 	 two objects.  */
       if (TREE_TYPE (TREE_OPERAND (expr, 0))
 	  == TREE_TYPE (TREE_OPERAND (expr, 1)))
-	return build_binary_op (NE_EXPR, TREE_OPERAND (expr, 0),
-				TREE_OPERAND (expr, 1), 1);
-      return build_binary_op (NE_EXPR, TREE_OPERAND (expr, 0),
-			      fold (build1 (NOP_EXPR,
-					    TREE_TYPE (TREE_OPERAND (expr, 0)),
-					    TREE_OPERAND (expr, 1))), 1);
+	return fold_build2 (NE_EXPR, truthvalue_type_node,
+			    TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
+      return fold_build2 (NE_EXPR, truthvalue_type_node,
+			  TREE_OPERAND (expr, 0),
+			  fold_convert (TREE_TYPE (TREE_OPERAND (expr, 0)),
+					TREE_OPERAND (expr, 1)));
 
     case BIT_AND_EXPR:
       if (integer_onep (TREE_OPERAND (expr, 1))
@@ -3282,6 +3283,11 @@ c_common_nodes_and_builtins (void)
     mudflap_init ();
 
   main_identifier_node = get_identifier ("main");
+
+  /* Create the built-in __null node.  It is important that this is
+     not shared.  */
+  null_node = make_node (INTEGER_CST);
+  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
 }
 
 /* Look up the function in built_in_decls that corresponds to DECL
@@ -5156,8 +5162,15 @@ check_function_sentinel (tree attrs, tree params)
 	    }
 
 	  /* Validate the sentinel.  */
-	  if (!POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (sentinel)))
-	      || !integer_zerop (TREE_VALUE (sentinel)))
+	  if ((!POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (sentinel)))
+	       || !integer_zerop (TREE_VALUE (sentinel)))
+	      /* Although __null (in C++) is only an integer we allow it
+		 nevertheless, as we are guaranteed that it's exactly
+		 as wide as a pointer, and we don't want to force
+		 users to cast the NULL they have written there.
+		 We warn with -Wstrict-null-sentinel, though.  */
+              && (warn_strict_null_sentinel
+		  || null_node != TREE_VALUE (sentinel)))
 	    warning (0, "missing sentinel in function call");
 	}
     }
@@ -5983,6 +5996,20 @@ tree
 resolve_overloaded_builtin (tree function, tree params)
 {
   enum built_in_function orig_code = DECL_FUNCTION_CODE (function);
+  switch (DECL_BUILT_IN_CLASS (function))
+    {
+    case BUILT_IN_NORMAL:
+      break;
+    case BUILT_IN_MD:
+      if (targetm.resolve_overloaded_builtin)
+        return targetm.resolve_overloaded_builtin (function, params);
+      else
+        return NULL_TREE;
+    default:
+      return NULL_TREE;
+    }
+    
+  /* Handle BUILT_IN_NORMAL here.  */
   switch (orig_code)
     {
     case BUILT_IN_FETCH_AND_ADD_N:
@@ -6021,7 +6048,7 @@ resolve_overloaded_builtin (tree function, tree params)
       }
 
     default:
-      return NULL;
+      return NULL_TREE;
     }
 }
 

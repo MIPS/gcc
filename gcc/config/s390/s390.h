@@ -253,12 +253,6 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 #define FRAME_REG_P(X)		(REG_P (X) && FRAME_REGNO_P (REGNO (X)))
 #define ACCESS_REG_P(X)		(REG_P (X) && ACCESS_REGNO_P (REGNO (X)))
 
-#define SIBCALL_REGNUM 1
-#define BASE_REGNUM 13
-#define RETURN_REGNUM 14
-#define CC_REGNUM 33
-#define TP_REGNUM 36
-
 /* Set up fixed registers and calling convention:
 
    GPRs 0-5 are always call-clobbered,
@@ -491,7 +485,8 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)                          \
   s390_const_ok_for_constraint_p ((VALUE), (C), (STR))
 
-#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE, C, STR)  1
+#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE, C, STR)			\
+  s390_const_double_ok_for_constraint_p ((VALUE), (C), (STR))
 
 #define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
   s390_extra_constraint_str ((OP), (C), (STR))

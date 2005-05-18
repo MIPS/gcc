@@ -742,6 +742,25 @@ ei_safe_edge (edge_iterator i)
   return !ei_end_p (i) ? ei_edge (i) : NULL;
 }
 
+/* Return 1 if we should continue to iterate.  Return 0 otherwise.
+   *Edge P is set to the next edge if we are to continue to iterate
+   and NULL otherwise.  */
+
+static inline bool
+ei_cond (edge_iterator ei, edge *p)
+{
+  if (!ei_end_p (ei))
+    {
+      *p = ei_edge (ei);
+      return 1;
+    }
+  else
+    {
+      *p = NULL;
+      return 0;
+    }
+}
+
 /* This macro serves as a convenient way to iterate each edge in a
    vector of predecessor or successor edges.  It must not be used when
    an element might be removed during the traversal, otherwise
@@ -757,9 +776,9 @@ ei_safe_edge (edge_iterator i)
      }
 */
 
-#define FOR_EACH_EDGE(EDGE,ITER,EDGE_VEC) \
-  for ((EDGE) = NULL, (ITER) = ei_start ((EDGE_VEC)); \
-       ((EDGE) = ei_safe_edge ((ITER))); \
+#define FOR_EACH_EDGE(EDGE,ITER,EDGE_VEC)	\
+  for ((ITER) = ei_start ((EDGE_VEC));		\
+       ei_cond ((ITER), &(EDGE));		\
        ei_next (&(ITER)))
 
 struct edge_list * create_edge_list (void);
@@ -790,6 +809,8 @@ enum update_life_extent
 #define PROP_SCAN_DEAD_STORES	128	/* Scan for dead code.  */
 #define PROP_ASM_SCAN		256	/* Internal flag used within flow.c
 					   to flag analysis of asms.  */
+#define PROP_DEAD_INSN		1024	/* Internal flag used within flow.c
+					   to flag analysis of dead insn.  */
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \

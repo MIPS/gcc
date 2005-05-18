@@ -347,9 +347,9 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 #endif
 
   if (code == IDENTIFIER_NODE)
-    t = ggc_alloc_zone_stat (length, &tree_id_zone PASS_MEM_STAT);
+    t = ggc_alloc_zone_pass_stat (length, &tree_id_zone);
   else
-    t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+    t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -433,7 +433,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
   gcc_assert (code != STATEMENT_LIST);
 
   length = tree_size (node);
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -518,7 +518,7 @@ tree
 build_int_cst_type (tree type, HOST_WIDE_INT low)
 {
   unsigned HOST_WIDE_INT val = (unsigned HOST_WIDE_INT) low;
-  unsigned HOST_WIDE_INT hi;
+  unsigned HOST_WIDE_INT hi, mask;
   unsigned bits;
   bool signed_p;
   bool negative;
@@ -538,10 +538,12 @@ build_int_cst_type (tree type, HOST_WIDE_INT low)
       negative = ((val >> (bits - 1)) & 1) != 0;
 
       /* Mask out the bits outside of the precision of the constant.  */
+      mask = (((unsigned HOST_WIDE_INT) 2) << (bits - 1)) - 1;
+
       if (signed_p && negative)
-	val = val | ((~(unsigned HOST_WIDE_INT) 0) << bits);
+	val |= ~mask;
       else
-	val = val & ~((~(unsigned HOST_WIDE_INT) 0) << bits);
+	val &= mask;
     }
 
   /* Determine the high bits.  */
@@ -556,7 +558,8 @@ build_int_cst_type (tree type, HOST_WIDE_INT low)
       else
 	{
 	  bits -= HOST_BITS_PER_WIDE_INT;
-	  hi = hi & ~((~(unsigned HOST_WIDE_INT) 0) << bits);
+	  mask = (((unsigned HOST_WIDE_INT) 2) << (bits - 1)) - 1;
+	  hi &= mask;
 	}
     }
 
@@ -918,7 +921,7 @@ make_tree_binfo_stat (unsigned base_binfos MEM_STAT_DECL)
   tree_node_sizes[(int) binfo_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, offsetof (struct tree_binfo, base_binfos));
 
@@ -943,7 +946,7 @@ make_tree_vec_stat (int len MEM_STAT_DECL)
   tree_node_sizes[(int) vec_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -1415,8 +1418,7 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
 {
   tree node;
 
-  node = ggc_alloc_zone_stat (sizeof (struct tree_list),
-			      &tree_zone PASS_MEM_STAT);
+  node = ggc_alloc_zone_pass_stat (sizeof (struct tree_list), &tree_zone);
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -2509,7 +2511,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 1);
 
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, sizeof (struct tree_common));
 
@@ -2830,8 +2832,7 @@ build_fn_decl (const char *name, tree type)
    compiled.  This information is used for outputting debugging info.  */
 
 tree
-build_block (tree vars, tree tags ATTRIBUTE_UNUSED, tree subblocks,
-	     tree supercontext, tree chain)
+build_block (tree vars, tree subblocks, tree supercontext, tree chain)
 {
   tree block = make_node (BLOCK);
 
@@ -5971,6 +5972,7 @@ build_vector_type (tree innertype, int nunits)
   return make_vector_type (innertype, nunits, VOIDmode);
 }
 
+/* Build RESX_EXPR with given REGION_NUMBER.  */
 tree
 build_resx (int region_number)
 {

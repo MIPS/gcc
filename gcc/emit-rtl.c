@@ -1580,8 +1580,8 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		 index, then convert to sizetype and multiply by the size of
 		 the array element.  */
 	      if (! integer_zerop (low_bound))
-		index = fold (build2 (MINUS_EXPR, TREE_TYPE (index),
-				      index, low_bound));
+		index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+				     index, low_bound);
 
 	      off_tree = size_binop (PLUS_EXPR,
 				     size_binop (MULT_EXPR, convert (sizetype,
@@ -2698,7 +2698,7 @@ get_first_nonnote_insn (void)
 	  continue;
       else
 	{
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    insn = XVECEXP (PATTERN (insn), 0, 0);
 	}
@@ -2724,7 +2724,7 @@ get_last_nonnote_insn (void)
 	  continue;
       else
 	{
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    insn = XVECEXP (PATTERN (insn), 0,
 			    XVECLEN (PATTERN (insn), 0) - 1);

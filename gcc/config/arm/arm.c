@@ -73,6 +73,7 @@ static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
 static int const_ok_for_op (HOST_WIDE_INT, enum rtx_code);
 static rtx emit_sfm (int, int);
+static int arm_size_return_regs (void);
 #ifndef AOF_ASSEMBLER
 static bool arm_assemble_integer (rtx, unsigned int, int);
 #endif
@@ -144,6 +145,9 @@ static void emit_constant_insn (rtx cond, rtx pattern);
 static int arm_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 
+#ifdef OBJECT_FORMAT_ELF
+static void arm_elf_asm_constructor (rtx, int);
+#endif
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
 #endif
@@ -165,6 +169,8 @@ static bool arm_pass_by_reference (CUMULATIVE_ARGS *,
 static bool arm_promote_prototypes (tree);
 static bool arm_default_short_enums (void);
 static bool arm_align_anon_bitfield (void);
+static bool arm_return_in_msb (tree);
+static bool arm_must_pass_in_stack (enum machine_mode, tree);
 
 static tree arm_cxx_guard_type (void);
 static bool arm_cxx_guard_mask_bit (void);
@@ -174,7 +180,9 @@ static bool arm_cxx_cdtor_returns_this (void);
 static bool arm_cxx_key_method_may_be_inline (void);
 static void arm_cxx_determine_class_data_visibility (tree);
 static bool arm_cxx_class_data_always_comdat (void);
+static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
+static bool arm_handle_option (size_t, const char *, int);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
 /* Initialize the GCC target structure.  */
@@ -214,6 +222,11 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
 #undef  TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE arm_output_function_epilogue
+
+#undef  TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | MASK_SCHED_PROLOG)
+#undef  TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION arm_handle_option
 
 #undef  TARGET_COMP_TYPE_ATTRIBUTES
 #define TARGET_COMP_TYPE_ATTRIBUTES arm_comp_type_attributes
@@ -308,12 +321,21 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 #undef TARGET_CXX_KEY_METHOD_MAY_BE_INLINE
 #define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE arm_cxx_key_method_may_be_inline
 
+#undef TARGET_CXX_USE_AEABI_ATEXIT
+#define TARGET_CXX_USE_AEABI_ATEXIT arm_cxx_use_aeabi_atexit
+
 #undef TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
 #define TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY \
   arm_cxx_determine_class_data_visibility
 
 #undef TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT
 #define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT arm_cxx_class_data_always_comdat
+
+#undef TARGET_RETURN_IN_MSB
+#define TARGET_RETURN_IN_MSB arm_return_in_msb
+
+#undef TARGET_MUST_PASS_IN_STACK
+#define TARGET_MUST_PASS_IN_STACK arm_must_pass_in_stack
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -353,22 +375,19 @@ enum float_abi_type arm_float_abi;
 enum arm_abi_type arm_abi;
 
 /* Set by the -mfpu=... option.  */
-const char * target_fpu_name = NULL;
+static const char * target_fpu_name = NULL;
 
 /* Set by the -mfpe=... option.  */
-const char * target_fpe_name = NULL;
+static const char * target_fpe_name = NULL;
 
 /* Set by the -mfloat-abi=... option.  */
-const char * target_float_abi_name = NULL;
-
-/* Set by the legacy -mhard-float and -msoft-float options.  */
-const char * target_float_switch = NULL;
+static const char * target_float_abi_name = NULL;
 
 /* Set by the -mabi=... option.  */
-const char * target_abi_name = NULL;
+static const char * target_abi_name = NULL;
 
 /* Used to parse -mstructure_size_boundary command line option.  */
-const char * structure_size_string = NULL;
+static const char * structure_size_string = NULL;
 int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 
 /* Used for Thumb call_via trampolines.  */
@@ -479,7 +498,7 @@ int arm_cpp_interwork = 0;
 enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
-const char * arm_pic_register_string = NULL;
+static const char * arm_pic_register_string = NULL;
 int arm_pic_register = INVALID_REGNUM;
 
 /* Set to 1 when a return insn is output, this means that the epilogue
@@ -559,11 +578,18 @@ static const struct processors all_architectures[] =
   {NULL, arm_none, NULL, 0 , NULL}
 };
 
+struct arm_cpu_select
+{
+  const char *              string;
+  const char *              name;
+  const struct processors * processors;
+};
+
 /* This is a magic structure.  The 'string' field is magically filled in
    with a pointer to the value specified by the user on the command line
    assuming that the user has specified such a value.  */
 
-struct arm_cpu_select arm_select[] =
+static struct arm_cpu_select arm_select[] =
 {
   /* string	  name            processors  */
   { NULL,	"-mcpu=",	all_cores  },
@@ -571,6 +597,10 @@ struct arm_cpu_select arm_select[] =
   { NULL,	"-mtune=",	all_cores }
 };
 
+/* Defines representing the indexes into the above table.  */
+#define ARM_OPT_SET_CPU 0
+#define ARM_OPT_SET_ARCH 1
+#define ARM_OPT_SET_TUNE 2
 
 /* The name of the proprocessor macro to define for this architecture.  */
 
@@ -764,12 +794,70 @@ arm_init_libfuncs (void)
   set_optab_libfunc (umod_optab, SImode, NULL);
 }
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+arm_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_mabi_:
+      target_abi_name = arg;
+      return true;
+
+    case OPT_march_:
+      arm_select[1].string = arg;
+      return true;
+
+    case OPT_mcpu_:
+      arm_select[0].string = arg;
+      return true;
+
+    case OPT_mfloat_abi_:
+      target_float_abi_name = arg;
+      return true;
+
+    case OPT_mfp_:
+    case OPT_mfpe_:
+      target_fpe_name = arg;
+      return true;
+
+    case OPT_mfpu_:
+      target_fpu_name = arg;
+      return true;
+
+    case OPT_mhard_float:
+      target_float_abi_name = "hard";
+      return true;
+
+    case OPT_mpic_register_:
+      arm_pic_register_string = arg;
+      return true;
+
+    case OPT_msoft_float:
+      target_float_abi_name = "soft";
+      return true;
+
+    case OPT_mstructure_size_boundary_:
+      structure_size_string = arg;
+      return true;
+
+    case OPT_mtune_:
+      arm_select[2].string = arg;
+      return true;
+
+    default:
+      return true;
+    }
+}
+
 /* Fix up any incompatible options that the user has specified.
    This has now turned into a maze.  */
 void
 arm_override_options (void)
 {
   unsigned i;
+  enum processor_type target_arch_cpu = arm_none;
 
   /* Set up the flags based on the cpu/architecture selected by the user.  */
   for (i = ARRAY_SIZE (arm_select); i--;)
@@ -784,22 +872,25 @@ arm_override_options (void)
             if (streq (ptr->string, sel->name))
               {
 		/* Set the architecture define.  */
-		if (i != 2)
+		if (i != ARM_OPT_SET_TUNE)
 		  sprintf (arm_arch_name, "__ARM_ARCH_%s__", sel->arch);
 
 		/* Determine the processor core for which we should
 		   tune code-generation.  */
 		if (/* -mcpu= is a sensible default.  */
-		    i == 0
-		    /* If -march= is used, and -mcpu= has not been used,
-		       assume that we should tune for a representative
-		       CPU from that architecture.  */
-		    || i == 1
+		    i == ARM_OPT_SET_CPU
 		    /* -mtune= overrides -mcpu= and -march=.  */
-		    || i == 2)
+		    || i == ARM_OPT_SET_TUNE)
 		  arm_tune = (enum processor_type) (sel - ptr->processors);
 
-		if (i != 2)
+		/* Remember the CPU associated with this architecture.
+		   If no other option is used to set the CPU type,
+		   we'll use this to guess the most suitable tuning
+		   options.  */
+		if (i == ARM_OPT_SET_ARCH)
+		  target_arch_cpu = sel->core;
+		
+		if (i != ARM_OPT_SET_TUNE)
 		  {
 		    /* If we have been given an architecture and a processor
 		       make sure that they are compatible.  We only generate
@@ -819,6 +910,10 @@ arm_override_options (void)
             error ("bad value (%s) for %s switch", ptr->string, ptr->name);
         }
     }
+
+  /* Guess the tuning options from the architecture if necessary.  */
+  if (arm_tune == arm_none)
+    arm_tune = target_arch_cpu;
 
   /* If the user did not specify a processor, choose one for them.  */
   if (insn_flags == 0)
@@ -897,10 +992,8 @@ arm_override_options (void)
 		      }
 		  }
 
-	      if (best_fit == NULL)
-		abort ();
-	      else
-		sel = best_fit;
+	      gcc_assert (best_fit);
+	      sel = best_fit;
 	    }
 
 	  insn_flags = sel->flags;
@@ -912,8 +1005,7 @@ arm_override_options (void)
 
   /* The processor for which we should tune should now have been
      chosen.  */
-  if (arm_tune == arm_none)
-    abort ();
+  gcc_assert (arm_tune != arm_none);
 
   tune_flags = all_cores[(int)arm_tune].flags;
   if (optimize_size)
@@ -926,25 +1018,24 @@ arm_override_options (void)
   if (TARGET_INTERWORK && !(insn_flags & FL_THUMB))
     {
       warning (0, "target CPU does not support interworking" );
-      target_flags &= ~ARM_FLAG_INTERWORK;
+      target_flags &= ~MASK_INTERWORK;
     }
 
   if (TARGET_THUMB && !(insn_flags & FL_THUMB))
     {
       warning (0, "target CPU does not support THUMB instructions");
-      target_flags &= ~ARM_FLAG_THUMB;
+      target_flags &= ~MASK_THUMB;
     }
 
   if (TARGET_APCS_FRAME && TARGET_THUMB)
     {
       /* warning (0, "ignoring -mapcs-frame because -mthumb was used"); */
-      target_flags &= ~ARM_FLAG_APCS_FRAME;
+      target_flags &= ~MASK_APCS_FRAME;
     }
 
   /* TARGET_BACKTRACE calls leaf_function_p, which causes a crash if done
      from here where no function is being compiled currently.  */
-  if ((target_flags & (THUMB_FLAG_LEAF_BACKTRACE | THUMB_FLAG_BACKTRACE))
-      && TARGET_ARM)
+  if ((TARGET_TPCS_FRAME || TARGET_TPCS_LEAF_FRAME) && TARGET_ARM)
     warning (0, "enabling backtrace support is only meaningful when compiling for the Thumb");
 
   if (TARGET_ARM && TARGET_CALLEE_INTERWORKING)
@@ -956,11 +1047,11 @@ arm_override_options (void)
   if (TARGET_APCS_STACK && !TARGET_APCS_FRAME)
     {
       warning (0, "-mapcs-stack-check incompatible with -mno-apcs-frame");
-      target_flags |= ARM_FLAG_APCS_FRAME;
+      target_flags |= MASK_APCS_FRAME;
     }
 
   if (TARGET_POKE_FUNCTION_NAME)
-    target_flags |= ARM_FLAG_APCS_FRAME;
+    target_flags |= MASK_APCS_FRAME;
 
   if (TARGET_APCS_REENT && flag_pic)
     error ("-fpic and -mapcs-reent are incompatible");
@@ -973,7 +1064,7 @@ arm_override_options (void)
   if (TARGET_ARM
       && write_symbols != NO_DEBUG
       && !TARGET_APCS_FRAME
-      && (TARGET_DEFAULT & ARM_FLAG_APCS_FRAME))
+      && (TARGET_DEFAULT & MASK_APCS_FRAME))
     warning (0, "-g with -mno-apcs-frame may not give sensible debugging");
 
   /* If stack checking is disabled, we can use r10 as the PIC register,
@@ -1010,7 +1101,7 @@ arm_override_options (void)
     arm_cpp_interwork = 1;
 
   if (arm_arch5)
-    target_flags &= ~ARM_FLAG_INTERWORK;
+    target_flags &= ~MASK_INTERWORK;
 
   if (target_abi_name)
     {
@@ -1084,8 +1175,7 @@ arm_override_options (void)
       else
 	arm_fpu_tune = arm_fpu_arch;
       arm_fp_model = fp_model_for_fpu[arm_fpu_arch];
-      if (arm_fp_model == ARM_FP_MODEL_UNKNOWN)
-	abort ();
+      gcc_assert (arm_fp_model != ARM_FP_MODEL_UNKNOWN);
     }
 
   if (target_float_abi_name != NULL)
@@ -1102,14 +1192,6 @@ arm_override_options (void)
       if (i == ARRAY_SIZE (all_float_abis))
 	error ("invalid floating point abi: -mfloat-abi=%s",
 	       target_float_abi_name);
-    }
-  else if (target_float_switch)
-    {
-      /* This is a bit of a hack to avoid needing target flags for these.  */
-      if (target_float_switch[0] == 'h')
-	arm_float_abi = ARM_FLOAT_ABI_HARD;
-      else
-	arm_float_abi = ARM_FLOAT_ABI_SOFT;
     }
   else
     arm_float_abi = TARGET_DEFAULT_FLOAT_ABI;
@@ -1276,8 +1358,7 @@ arm_compute_func_type (void)
   tree a;
   tree attr;
 
-  if (TREE_CODE (current_function_decl) != FUNCTION_DECL)
-    abort ();
+  gcc_assert (TREE_CODE (current_function_decl) == FUNCTION_DECL);
 
   /* Decide if the current function is volatile.  Such functions
      never return, and many memory cycles can be saved by not storing
@@ -1385,13 +1466,14 @@ use_return_insn (int iscond, rtx sibling)
       if (!call_used_regs[3])
 	return 0;
 
-      /* ... that it isn't being used for a return value (always true
-	 until we implement return-in-regs), or for a tail-call
-	 argument ...  */
+      /* ... that it isn't being used for a return value ... */
+      if (arm_size_return_regs () >= (4 * UNITS_PER_WORD))
+	return 0;
+
+      /* ... or for a tail-call argument ...  */
       if (sibling)
 	{
-	  if (GET_CODE (sibling) != CALL_INSN)
-	    abort ();
+	  gcc_assert (GET_CODE (sibling) == CALL_INSN);
 
 	  if (find_regno_fusage (sibling, USE, 3))
 	    return 0;
@@ -1452,8 +1534,8 @@ use_return_insn (int iscond, rtx sibling)
 int
 const_ok_for_arm (HOST_WIDE_INT i)
 {
-  unsigned HOST_WIDE_INT mask = ~(unsigned HOST_WIDE_INT)0xFF;
-
+  int lowbit;
+  
   /* For machines with >32 bit HOST_WIDE_INT, the bits above bit 31 must
      be all zero, or all one.  */
   if ((i & ~(unsigned HOST_WIDE_INT) 0xffffffff) != 0
@@ -1462,19 +1544,24 @@ const_ok_for_arm (HOST_WIDE_INT i)
 	      & ~(unsigned HOST_WIDE_INT) 0xffffffff)))
     return FALSE;
 
-  /* Fast return for 0 and powers of 2 */
-  if ((i & (i - 1)) == 0)
+  i &= (unsigned HOST_WIDE_INT) 0xffffffff;
+  
+  /* Fast return for 0 and small values.  We must do this for zero, since
+     the code below can't handle that one case.  */
+  if ((i & ~(unsigned HOST_WIDE_INT) 0xff) == 0)
     return TRUE;
 
-  do
-    {
-      if ((i & mask & (unsigned HOST_WIDE_INT) 0xffffffff) == 0)
-        return TRUE;
-      mask =
-	  (mask << 2) | ((mask & (unsigned HOST_WIDE_INT) 0xffffffff)
-			  >> (32 - 2)) | ~(unsigned HOST_WIDE_INT) 0xffffffff;
-    }
-  while (mask != ~(unsigned HOST_WIDE_INT) 0xFF);
+  /* Get the number of trailing zeros, rounded down to the nearest even
+     number.  */
+  lowbit = (ffs ((int) i) - 1) & ~1;
+
+  if ((i & ~(((unsigned HOST_WIDE_INT) 0xff) << lowbit)) == 0)
+    return TRUE;
+  else if (lowbit <= 4
+	   && ((i & ~0xc000003f) == 0
+	       || (i & ~0xf000000f) == 0
+	       || (i & ~0xfc000003) == 0))
+    return TRUE;
 
   return FALSE;
 }
@@ -1500,7 +1587,7 @@ const_ok_for_op (HOST_WIDE_INT i, enum rtx_code code)
       return const_ok_for_arm (ARM_SIGN_EXTEND (~i));
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1700,17 +1787,15 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 				gen_rtx_SET (VOIDmode, target, source));
 	  return 1;
 	}
-      if (remainder == 0xffffffff)
-	{
-	  if (generate)
-	    emit_constant_insn (cond,
-				gen_rtx_SET (VOIDmode, target,
-					     gen_rtx_NOT (mode, source)));
-	  return 1;
-	}
-
-      /* We don't know how to handle this yet below.  */
-      abort ();
+      
+      /* We don't know how to handle other cases yet.  */
+      gcc_assert (remainder == 0xffffffff);
+      
+      if (generate)
+	emit_constant_insn (cond,
+			    gen_rtx_SET (VOIDmode, target,
+					 gen_rtx_NOT (mode, source)));
+      return 1;
 
     case MINUS:
       /* We treat MINUS as (val - source), since (source - val) is always
@@ -1737,7 +1822,7 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* If we can do it in one insn get out quickly.  */
@@ -1828,6 +1913,41 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 				      gen_ashrsi3 (target, new_src,
 						   GEN_INT (set_sign_bit_copies - 1)));
 		}
+	      return 2;
+	    }
+	}
+
+      /* See if we can calculate the value as the difference between two
+	 valid immediates.  */
+      if (clear_sign_bit_copies + clear_zero_bit_copies <= 16)
+	{
+	  int topshift = clear_sign_bit_copies & ~1;
+
+	  temp1 = ARM_SIGN_EXTEND ((remainder + (0x00800000 >> topshift))
+				   & (0xff000000 >> topshift));
+
+	  /* If temp1 is zero, then that means the 9 most significant
+	     bits of remainder were 1 and we've caused it to overflow.
+	     When topshift is 0 we don't need to do anything since we
+	     can borrow from 'bit 32'.  */
+	  if (temp1 == 0 && topshift != 0)
+	    temp1 = 0x80000000 >> (topshift - 1);
+
+	  temp2 = ARM_SIGN_EXTEND (temp1 - remainder);
+	  
+	  if (const_ok_for_arm (temp2))
+	    {
+	      if (generate)
+		{
+		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
+		  emit_constant_insn (cond,
+				      gen_rtx_SET (VOIDmode, new_src,
+						   GEN_INT (temp1)));
+		  emit_constant_insn (cond,
+				      gen_addsi3 (target, new_src,
+						  GEN_INT (-temp2)));
+		}
+
 	      return 2;
 	    }
 	}
@@ -2282,7 +2402,7 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return code;
@@ -2298,11 +2418,23 @@ arm_function_value(tree type, tree func ATTRIBUTE_UNUSED)
   int unsignedp ATTRIBUTE_UNUSED;
   rtx r ATTRIBUTE_UNUSED;
 
-
   mode = TYPE_MODE (type);
   /* Promote integer types.  */
   if (INTEGRAL_TYPE_P (type))
     PROMOTE_FUNCTION_MODE (mode, unsignedp, type);
+
+  /* Promotes small structs returned in a register to full-word size
+     for big-endian AAPCS.  */
+  if (arm_return_in_msb (type))
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      if (size % UNITS_PER_WORD != 0)
+	{
+	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
+	  mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+	}
+    }
+  
   return LIBCALL_VALUE(mode);
 }
 
@@ -2338,6 +2470,7 @@ arm_return_in_memory (tree type)
   HOST_WIDE_INT size;
 
   if (!AGGREGATE_TYPE_P (type) &&
+      (TREE_CODE (type) != VECTOR_TYPE) &&
       !(TARGET_AAPCS_BASED && TREE_CODE (type) == COMPLEX_TYPE))
     /* All simple types are returned in registers.
        For AAPCS, complex types are treated the same as aggregates.  */
@@ -2351,6 +2484,11 @@ arm_return_in_memory (tree type)
 	 larger than a word (or are variable size).  */
       return (size < 0 || size > UNITS_PER_WORD);
     }
+
+  /* To maximize backwards compatibility with previous versions of gcc,
+     return vectors up to 4 words in registers.  */
+  if (TREE_CODE (type) == VECTOR_TYPE)
+    return (size < 0 || size > (4 * UNITS_PER_WORD));
 
   /* For the arm-wince targets we choose to be compatible with Microsoft's
      ARM and Thumb compilers, which always return aggregates in memory.  */
@@ -3010,10 +3148,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if (reg == 0)
 	{
-	  if (no_new_pseudos)
-	    abort ();
-	  else
-	    reg = gen_reg_rtx (Pmode);
+	  gcc_assert (!no_new_pseudos);
+	  reg = gen_reg_rtx (Pmode);
 
 	  subregs = 1;
 	}
@@ -3064,20 +3200,15 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if (reg == 0)
 	{
-	  if (no_new_pseudos)
-	    abort ();
-	  else
-	    reg = gen_reg_rtx (Pmode);
+	  gcc_assert (!no_new_pseudos);
+	  reg = gen_reg_rtx (Pmode);
 	}
 
-      if (GET_CODE (XEXP (orig, 0)) == PLUS)
-	{
-	  base = legitimize_pic_address (XEXP (XEXP (orig, 0), 0), Pmode, reg);
-	  offset = legitimize_pic_address (XEXP (XEXP (orig, 0), 1), Pmode,
-					   base == reg ? 0 : reg);
-	}
-      else
-	abort ();
+      gcc_assert (GET_CODE (XEXP (orig, 0)) == PLUS);
+      
+      base = legitimize_pic_address (XEXP (XEXP (orig, 0), 0), Pmode, reg);
+      offset = legitimize_pic_address (XEXP (XEXP (orig, 0), 1), Pmode,
+				       base == reg ? 0 : reg);
 
       if (GET_CODE (offset) == CONST_INT)
 	{
@@ -3085,10 +3216,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	     test the index for the appropriate mode.  */
 	  if (!arm_legitimate_index_p (mode, offset, SET, 0))
 	    {
-	      if (!no_new_pseudos)
-		offset = force_reg (Pmode, offset);
-	      else
-		abort ();
+	      gcc_assert (!no_new_pseudos);
+	      offset = force_reg (Pmode, offset);
 	    }
 
 	  if (GET_CODE (offset) == CONST_INT)
@@ -3161,7 +3290,7 @@ thumb_find_work_register (unsigned long pushed_regs_mask)
 
   /* Something went wrong - thumb_compute_save_reg_mask()
      should have arranged for a suitable register to be pushed.  */
-  abort ();
+  gcc_unreachable ();
 }
 
 
@@ -3178,8 +3307,7 @@ arm_load_pic_register (unsigned int scratch)
   if (current_function_uses_pic_offset_table == 0 || TARGET_SINGLE_PIC_BASE)
     return;
 
-  if (!flag_pic)
-    abort ();
+  gcc_assert (flag_pic);
 
   l1 = gen_label_rtx ();
 
@@ -3993,7 +4121,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 
     case MULT:
       /* This should have been handled by the CPU specific routines.  */
-      abort ();
+      gcc_unreachable ();
 
     case TRUNCATE:
       if (arm_arch3m && mode == SImode
@@ -4054,9 +4182,9 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	    return 1;
 
 	default:
-	  break;
+	  gcc_unreachable ();
 	}
-      abort ();
+      gcc_unreachable ();
 
     case CONST_INT:
       if (const_ok_for_arm (INTVAL (x)))
@@ -4901,6 +5029,17 @@ vfp_secondary_reload_class (enum machine_mode mode, rtx x)
   return GENERAL_REGS;
 }
 
+/* Values which must be returned in the most-significant end of the return
+   register.  */
+
+static bool
+arm_return_in_msb (tree valtype)
+{
+  return (TARGET_AAPCS_BASED
+          && BYTES_BIG_ENDIAN
+          && (AGGREGATE_TYPE_P (valtype)
+              || TREE_CODE (valtype) == COMPLEX_TYPE));
+}
 
 /* Returns TRUE if INSN is an "LDR REG, ADDR" instruction.
    Use by the Cirrus Maverick code which has to workaround
@@ -4943,7 +5082,7 @@ arm_cirrus_insn_p (rtx insn)
 {
   enum attr_cirrus attr;
 
-  /* get_attr aborts on USE and CLOBBER.  */
+  /* get_attr cannot accept USE or CLOBBER.  */
   if (!insn
       || GET_CODE (insn) != INSN
       || GET_CODE (PATTERN (insn)) == USE
@@ -5015,10 +5154,11 @@ cirrus_reorg (rtx first)
 	  /* Get Arm register number for ldr insn.  */
 	  if (GET_CODE (lhs) == REG)
 	    arm_regno = REGNO (lhs);
-	  else if (GET_CODE (rhs) == REG)
-	    arm_regno = REGNO (rhs);
 	  else
-	    abort ();
+	    {
+	      gcc_assert (GET_CODE (rhs) == REG);
+	      arm_regno = REGNO (rhs);
+	    }
 
 	  /* Next insn.  */
 	  first = next_nonnote_insn (first);
@@ -5044,7 +5184,7 @@ cirrus_reorg (rtx first)
 	}
     }
 
-  /* get_attr aborts on USE and CLOBBER.  */
+  /* get_attr cannot accept USE or CLOBBER.  */
   if (!first
       || GET_CODE (first) != INSN
       || GET_CODE (PATTERN (first)) == USE
@@ -5136,16 +5276,19 @@ minmax_code (rtx x)
 {
   enum rtx_code code = GET_CODE (x);
 
-  if (code == SMAX)
-    return GE;
-  else if (code == SMIN)
-    return LE;
-  else if (code == UMIN)
-    return LEU;
-  else if (code == UMAX)
-    return GEU;
-
-  abort ();
+  switch (code)
+    {
+    case SMAX:
+      return GE;
+    case SMIN:
+      return LE;
+    case UMIN:
+      return LEU;
+    case UMAX:
+      return GEU;
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Return 1 if memory locations are adjacent.  */
@@ -5225,8 +5368,7 @@ load_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
 
   /* Can only handle 2, 3, or 4 insns at present,
      though could be easily extended if required.  */
-  if (nops < 2 || nops > 4)
-    abort ();
+  gcc_assert (nops >= 2 && nops <= 4);
 
   /* Loop over the operands and check that the memory references are
      suitable (i.e. immediate offsets from the same base register).  At
@@ -5241,8 +5383,7 @@ load_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
       if (GET_CODE (operands[nops + i]) == SUBREG)
 	operands[nops + i] = alter_subreg (operands + (nops + i));
 
-      if (GET_CODE (operands[nops + i]) != MEM)
-	abort ();
+      gcc_assert (GET_CODE (operands[nops + i]) == MEM);
 
       /* Don't reorder volatile memory references; it doesn't seem worth
 	 looking for the case where the order is ok anyway.  */
@@ -5426,7 +5567,7 @@ emit_ldm_seq (rtx *operands, int nops)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   sprintf (buf + strlen (buf), "%s%s, {%s%s", REGISTER_PREFIX,
@@ -5454,8 +5595,7 @@ store_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
 
   /* Can only handle 2, 3, or 4 insns at present, though could be easily
      extended if required.  */
-  if (nops < 2 || nops > 4)
-    abort ();
+  gcc_assert (nops >= 2 && nops <= 4);
 
   /* Loop over the operands and check that the memory references are
      suitable (i.e. immediate offsets from the same base register).  At
@@ -5470,8 +5610,7 @@ store_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
       if (GET_CODE (operands[nops + i]) == SUBREG)
 	operands[nops + i] = alter_subreg (operands + (nops + i));
 
-      if (GET_CODE (operands[nops + i]) != MEM)
-	abort ();
+      gcc_assert (GET_CODE (operands[nops + i]) == MEM);
 
       /* Don't reorder volatile memory references; it doesn't seem worth
 	 looking for the case where the order is ok anyway.  */
@@ -5603,7 +5742,7 @@ emit_stm_seq (rtx *operands, int nops)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   sprintf (buf + strlen (buf), "%s%s, {%s%s", REGISTER_PREFIX,
@@ -5854,21 +5993,18 @@ arm_gen_movmemqi (rtx *operands)
       emit_move_insn (mem, sreg);
       in_words_to_go--;
 
-      if (in_words_to_go)	/* Sanity check */
-	abort ();
+      gcc_assert (!in_words_to_go);	/* Sanity check */
     }
 
   if (in_words_to_go)
     {
-      if (in_words_to_go < 0)
-	abort ();
+      gcc_assert (in_words_to_go > 0);
 
       mem = adjust_automodify_address (srcbase, SImode, src, srcoffset);
       part_bytes_reg = copy_to_mode_reg (SImode, mem);
     }
 
-  if (last_bytes && part_bytes_reg == NULL)
-    abort ();
+  gcc_assert (!last_bytes || part_bytes_reg);
 
   if (BYTES_BIG_ENDIAN && last_bytes)
     {
@@ -5997,78 +6133,108 @@ arm_select_dominance_cc_mode (rtx x, rtx y, HOST_WIDE_INT cond_or)
   switch (cond1)
     {
     case EQ:
-      if (cond2 == EQ || cond_or == DOM_CC_X_AND_Y)
+      if (cond_or == DOM_CC_X_AND_Y)
 	return CC_DEQmode;
 
       switch (cond2)
 	{
+	case EQ: return CC_DEQmode;
 	case LE: return CC_DLEmode;
 	case LEU: return CC_DLEUmode;
 	case GE: return CC_DGEmode;
 	case GEU: return CC_DGEUmode;
-	default: break;
+	default: gcc_unreachable ();
 	}
 
-      break;
-
     case LT:
-      if (cond2 == LT || cond_or == DOM_CC_X_AND_Y)
+      if (cond_or == DOM_CC_X_AND_Y)
 	return CC_DLTmode;
-      if (cond2 == LE)
-	return CC_DLEmode;
-      if (cond2 == NE)
-	return CC_DNEmode;
-      break;
+      
+      switch (cond2)
+	{
+	case  LT:
+	    return CC_DLTmode;
+	case LE:
+	  return CC_DLEmode;
+	case NE:
+	  return CC_DNEmode;
+	default:
+	  gcc_unreachable ();
+	}
 
     case GT:
-      if (cond2 == GT || cond_or == DOM_CC_X_AND_Y)
+      if (cond_or == DOM_CC_X_AND_Y)
 	return CC_DGTmode;
-      if (cond2 == GE)
-	return CC_DGEmode;
-      if (cond2 == NE)
-	return CC_DNEmode;
-      break;
+
+      switch (cond2)
+	{
+	case GT:
+	  return CC_DGTmode;
+	case GE:
+	  return CC_DGEmode;
+	case NE:
+	  return CC_DNEmode;
+	default:
+	  gcc_unreachable ();
+	}
 
     case LTU:
-      if (cond2 == LTU || cond_or == DOM_CC_X_AND_Y)
+      if (cond_or == DOM_CC_X_AND_Y)
 	return CC_DLTUmode;
-      if (cond2 == LEU)
-	return CC_DLEUmode;
-      if (cond2 == NE)
-	return CC_DNEmode;
-      break;
+
+      switch (cond2)
+	{
+	case LTU:
+	  return CC_DLTUmode;
+	case LEU:
+	  return CC_DLEUmode;
+	case NE:
+	  return CC_DNEmode;
+	default:
+	  gcc_unreachable ();
+	}
 
     case GTU:
-      if (cond2 == GTU || cond_or == DOM_CC_X_AND_Y)
+      if (cond_or == DOM_CC_X_AND_Y)
 	return CC_DGTUmode;
-      if (cond2 == GEU)
-	return CC_DGEUmode;
-      if (cond2 == NE)
-	return CC_DNEmode;
-      break;
+      
+      switch (cond2)
+	{
+	case GTU:
+	  return CC_DGTUmode;
+	case GEU:
+	  return CC_DGEUmode;
+	case NE:
+	  return CC_DNEmode;
+	default:
+	  gcc_unreachable ();
+	}
 
     /* The remaining cases only occur when both comparisons are the
        same.  */
     case NE:
+      gcc_assert (cond1 == cond2);
       return CC_DNEmode;
 
     case LE:
+      gcc_assert (cond1 == cond2);
       return CC_DLEmode;
 
     case GE:
+      gcc_assert (cond1 == cond2);
       return CC_DGEmode;
 
     case LEU:
+      gcc_assert (cond1 == cond2);
       return CC_DLEUmode;
 
     case GEU:
+      gcc_assert (cond1 == cond2);
       return CC_DGEUmode;
 
     default:
-      break;
+      gcc_unreachable ();
     }
-
-  abort ();
 }
 
 enum machine_mode
@@ -6101,7 +6267,7 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	  return CCFPEmode;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -6288,8 +6454,7 @@ arm_reload_in_hi (rtx *operands)
 	     ^ (HOST_WIDE_INT) 0x80000000)
 	    - (HOST_WIDE_INT) 0x80000000);
 
-      if (hi + lo != offset)
-	abort ();
+      gcc_assert (hi + lo == offset);
 
       if (hi != 0)
 	{
@@ -6435,8 +6600,7 @@ arm_reload_out_hi (rtx *operands)
 	     ^ (HOST_WIDE_INT) 0x80000000)
 	    - (HOST_WIDE_INT) 0x80000000);
 
-      if (hi + lo != offset)
-	abort ();
+      gcc_assert (hi + lo == offset);
 
       if (hi != 0)
 	{
@@ -6499,6 +6663,59 @@ arm_reload_out_hi (rtx *operands)
 			    gen_lowpart (QImode, scratch)));
     }
 }
+
+/* Return true if a type must be passed in memory. For AAPCS, small aggregates
+   (padded to the size of a word) should be passed in a register.  */
+
+static bool
+arm_must_pass_in_stack (enum machine_mode mode, tree type)
+{
+  if (TARGET_AAPCS_BASED)
+    return must_pass_in_stack_var_size (mode, type);
+  else
+    return must_pass_in_stack_var_size_or_pad (mode, type);
+}
+
+
+/* For use by FUNCTION_ARG_PADDING (MODE, TYPE).
+   Return true if an argument passed on the stack should be padded upwards,
+   i.e. if the least-significant byte has useful data.  */
+
+bool
+arm_pad_arg_upward (enum machine_mode mode, tree type)
+{
+  if (!TARGET_AAPCS_BASED)
+    return DEFAULT_FUNCTION_ARG_PADDING(mode, type);
+
+  if (type && BYTES_BIG_ENDIAN && INTEGRAL_TYPE_P (type))
+    return false;
+
+  return true;
+}
+
+
+/* Similarly, for use by BLOCK_REG_PADDING (MODE, TYPE, FIRST).
+   For non-AAPCS, return !BYTES_BIG_ENDIAN if the least significant
+   byte of the register has useful data, and return the opposite if the
+   most significant byte does.
+   For AAPCS, small aggregates and small complex types are always padded
+   upwards.  */
+
+bool
+arm_pad_reg_upward (enum machine_mode mode ATTRIBUTE_UNUSED,
+                    tree type, int first ATTRIBUTE_UNUSED)
+{
+  if (TARGET_AAPCS_BASED
+      && BYTES_BIG_ENDIAN
+      && (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
+      && int_size_in_bytes (type) <= 4)
+    return true;
+
+  /* Otherwise, use default padding.  */
+  return !BYTES_BIG_ENDIAN;
+}
+
+
 
 /* Print a symbolic form of X to the debug file, F.  */
 static void
@@ -6733,10 +6950,8 @@ static Mnode *
 move_minipool_fix_forward_ref (Mnode *mp, Mnode *max_mp,
 			       HOST_WIDE_INT max_address)
 {
-  /* This should never be true and the code below assumes these are
-     different.  */
-  if (mp == max_mp)
-    abort ();
+  /* The code below assumes these are different.  */
+  gcc_assert (mp != max_mp);
 
   if (max_mp == NULL)
     {
@@ -6908,10 +7123,8 @@ move_minipool_fix_backward_ref (Mnode *mp, Mnode *min_mp,
 {
   HOST_WIDE_INT offset;
 
-  /* This should never be true, and the code below assumes these are
-     different.  */
-  if (mp == min_mp)
-    abort ();
+  /* The code below assumes these are different.  */
+  gcc_assert (mp != min_mp);
 
   if (min_mp == NULL)
     {
@@ -7191,8 +7404,7 @@ dump_minipool (rtx scan)
 
 #endif
 	    default:
-	      abort ();
-	      break;
+	      gcc_unreachable ();
 	    }
 	}
 
@@ -7264,8 +7476,7 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 
       /* This code shouldn't have been called if there was a natural barrier
 	 within range.  */
-      if (GET_CODE (from) == BARRIER)
-	abort ();
+      gcc_assert (GET_CODE (from) != BARRIER);
 
       /* Count the length of this insn.  */
       count += get_attr_length (from);
@@ -7370,10 +7581,9 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
   fix->minipool = NULL;
 
   /* If an insn doesn't have a range defined for it, then it isn't
-     expecting to be reworked by this code.  Better to abort now than
+     expecting to be reworked by this code.  Better to stop now than
      to generate duff assembly code.  */
-  if (fix->forwards == 0 && fix->backwards == 0)
-    abort ();
+  gcc_assert (fix->forwards || fix->backwards);
 
   /* With AAPCS/iWMMXt enabled, the pool is aligned to an 8-byte boundary.
      So there might be an empty word before the start of the pool.
@@ -7556,8 +7766,7 @@ arm_reorg (void)
   /* The first insn must always be a note, or the code below won't
      scan it properly.  */
   insn = get_insns ();
-  if (GET_CODE (insn) != NOTE)
-    abort ();
+  gcc_assert (GET_CODE (insn) == NOTE);
 
   /* Scan all the insns and record the operands that will need fixing.  */
   for (insn = next_nonnote_insn (insn); insn; insn = next_nonnote_insn (insn))
@@ -7651,8 +7860,7 @@ arm_reorg (void)
 	  /* The last item on the list of fixes must be a barrier, so
 	     we can never run off the end of the list of fixes without
 	     last_barrier being set.  */
-	  if (ftmp == NULL)
-	    abort ();
+	  gcc_assert (ftmp);
 
 	  max_address = minipool_vector_head->max_address;
 	  /* Check that there isn't another fix that is in range that
@@ -7722,7 +7930,7 @@ fp_immediate_constant (rtx x)
     if (REAL_VALUES_EQUAL (r, values_fp[i]))
       return strings_fp[i];
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* As for fp_immediate_constant, but value is passed directly, not in rtx.  */
@@ -7738,7 +7946,7 @@ fp_const_from_val (REAL_VALUE_TYPE *r)
     if (REAL_VALUES_EQUAL (*r, values_fp[i]))
       return strings_fp[i];
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Output the operands of a LDM/STM instruction to STREAM.
@@ -7816,8 +8024,7 @@ vfp_output_fstmx (rtx * operands)
   strcpy (pattern, "fstmfdx\t%m0!, {%P1");
   p = strlen (pattern);
 
-  if (GET_CODE (operands[1]) != REG)
-    abort ();
+  gcc_assert (GET_CODE (operands[1]) == REG);
 
   base = (REGNO (operands[1]) - FIRST_VFP_REGNUM) / 2;
   for (i = 1; i < XVECLEN (operands[2], 0); i++)
@@ -7911,8 +8118,7 @@ vfp_emit_fstmx (int base_reg, int count)
 const char *
 output_call (rtx *operands)
 {
-  if (arm_arch5)
-    abort ();		/* Patterns should call blx <reg> directly.  */
+  gcc_assert (!arm_arch5); /* Patterns should call blx <reg> directly.  */
 
   /* Handle calls to lr using ip (which may be clobbered in subr anyway).  */
   if (REGNO (operands[0]) == LR_REGNUM)
@@ -7977,8 +8183,7 @@ output_mov_long_double_fpa_from_arm (rtx *operands)
   int arm_reg0 = REGNO (operands[1]);
   rtx ops[3];
 
-  if (arm_reg0 == IP_REGNUM)
-    abort ();
+  gcc_assert (arm_reg0 != IP_REGNUM);
 
   ops[0] = gen_rtx_REG (SImode, arm_reg0);
   ops[1] = gen_rtx_REG (SImode, 1 + arm_reg0);
@@ -7999,8 +8204,7 @@ output_mov_long_double_arm_from_fpa (rtx *operands)
   int arm_reg0 = REGNO (operands[0]);
   rtx ops[3];
 
-  if (arm_reg0 == IP_REGNUM)
-    abort ();
+  gcc_assert (arm_reg0 != IP_REGNUM);
 
   ops[0] = gen_rtx_REG (SImode, arm_reg0);
   ops[1] = gen_rtx_REG (SImode, 1 + arm_reg0);
@@ -8055,8 +8259,7 @@ output_mov_double_fpa_from_arm (rtx *operands)
   int arm_reg0 = REGNO (operands[1]);
   rtx ops[2];
 
-  if (arm_reg0 == IP_REGNUM)
-    abort ();
+  gcc_assert (arm_reg0 != IP_REGNUM);
 
   ops[0] = gen_rtx_REG (SImode, arm_reg0);
   ops[1] = gen_rtx_REG (SImode, 1 + arm_reg0);
@@ -8074,8 +8277,7 @@ output_mov_double_arm_from_fpa (rtx *operands)
   int arm_reg0 = REGNO (operands[0]);
   rtx ops[2];
 
-  if (arm_reg0 == IP_REGNUM)
-    abort ();
+  gcc_assert (arm_reg0 != IP_REGNUM);
 
   ops[0] = gen_rtx_REG (SImode, arm_reg0);
   ops[1] = gen_rtx_REG (SImode, 1 + arm_reg0);
@@ -8100,160 +8302,152 @@ output_move_double (rtx *operands)
 
       otherops[0] = gen_rtx_REG (SImode, 1 + reg0);
 
-      if (code1 == MEM)
+      gcc_assert (code1 == MEM);  /* Constraints should ensure this.  */
+
+      switch (GET_CODE (XEXP (operands[1], 0)))
 	{
-	  switch (GET_CODE (XEXP (operands[1], 0)))
+	case REG:
+	  output_asm_insn ("ldm%?ia\t%m1, %M0", operands);
+	  break;
+	  
+	case PRE_INC:
+	  gcc_assert (TARGET_LDRD);
+	  output_asm_insn ("ldr%?d\t%0, [%m1, #8]!", operands);
+	  break;
+	  
+	case PRE_DEC:
+	  output_asm_insn ("ldm%?db\t%m1!, %M0", operands);
+	  break;
+	  
+	case POST_INC:
+	  output_asm_insn ("ldm%?ia\t%m1!, %M0", operands);
+	  break;
+	  
+	case POST_DEC:
+	  gcc_assert (TARGET_LDRD);
+	  output_asm_insn ("ldr%?d\t%0, [%m1], #-8", operands);
+	  break;
+	  
+	case PRE_MODIFY:
+	case POST_MODIFY:
+	  otherops[0] = operands[0];
+	  otherops[1] = XEXP (XEXP (XEXP (operands[1], 0), 1), 0);
+	  otherops[2] = XEXP (XEXP (XEXP (operands[1], 0), 1), 1);
+	  
+	  if (GET_CODE (XEXP (operands[1], 0)) == PRE_MODIFY)
 	    {
-	    case REG:
-	      output_asm_insn ("ldm%?ia\t%m1, %M0", operands);
-	      break;
-
-  	    case PRE_INC:
-	      if (!TARGET_LDRD)
-		abort (); /* Should never happen now.  */
-	      output_asm_insn ("ldr%?d\t%0, [%m1, #8]!", operands);
-	      break;
-
-	    case PRE_DEC:
-	      output_asm_insn ("ldm%?db\t%m1!, %M0", operands);
-	      break;
-
-	    case POST_INC:
-	      output_asm_insn ("ldm%?ia\t%m1!, %M0", operands);
-	      break;
-
-	    case POST_DEC:
-	      if (!TARGET_LDRD)
-		abort (); /* Should never happen now.  */
-	      output_asm_insn ("ldr%?d\t%0, [%m1], #-8", operands);
-	      break;
-
-	    case PRE_MODIFY:
-	    case POST_MODIFY:
-	      otherops[0] = operands[0];
-	      otherops[1] = XEXP (XEXP (XEXP (operands[1], 0), 1), 0);
-	      otherops[2] = XEXP (XEXP (XEXP (operands[1], 0), 1), 1);
-
-	      if (GET_CODE (XEXP (operands[1], 0)) == PRE_MODIFY)
+	      if (reg_overlap_mentioned_p (otherops[0], otherops[2]))
 		{
-		  if (reg_overlap_mentioned_p (otherops[0], otherops[2]))
-		    {
-		      /* Registers overlap so split out the increment.  */
-		      output_asm_insn ("add%?\t%1, %1, %2", otherops);
-		      output_asm_insn ("ldr%?d\t%0, [%1] @split", otherops);
-		    }
-		  else
-		    output_asm_insn ("ldr%?d\t%0, [%1, %2]!", otherops);
+		  /* Registers overlap so split out the increment.  */
+		  output_asm_insn ("add%?\t%1, %1, %2", otherops);
+		  output_asm_insn ("ldr%?d\t%0, [%1] @split", otherops);
 		}
 	      else
+		output_asm_insn ("ldr%?d\t%0, [%1, %2]!", otherops);
+	    }
+	  else
+	    {
+	      /* We only allow constant increments, so this is safe.  */
+	      output_asm_insn ("ldr%?d\t%0, [%1], %2", otherops);
+	    }
+	  break;
+	  
+	case LABEL_REF:
+	case CONST:
+	  output_asm_insn ("adr%?\t%0, %1", operands);
+	  output_asm_insn ("ldm%?ia\t%0, %M0", operands);
+	  break;
+	  
+	default:
+	  if (arm_add_operand (XEXP (XEXP (operands[1], 0), 1),
+			       GET_MODE (XEXP (XEXP (operands[1], 0), 1))))
+	    {
+	      otherops[0] = operands[0];
+	      otherops[1] = XEXP (XEXP (operands[1], 0), 0);
+	      otherops[2] = XEXP (XEXP (operands[1], 0), 1);
+	      
+	      if (GET_CODE (XEXP (operands[1], 0)) == PLUS)
 		{
-		  /* We only allow constant increments, so this is safe.  */
-		  output_asm_insn ("ldr%?d\t%0, [%1], %2", otherops);
-		}
-	      break;
-
-	    case LABEL_REF:
-	    case CONST:
-	      output_asm_insn ("adr%?\t%0, %1", operands);
-	      output_asm_insn ("ldm%?ia\t%0, %M0", operands);
-	      break;
-
-	    default:
-	      if (arm_add_operand (XEXP (XEXP (operands[1], 0), 1),
-				   GET_MODE (XEXP (XEXP (operands[1], 0), 1))))
-		{
-		  otherops[0] = operands[0];
-		  otherops[1] = XEXP (XEXP (operands[1], 0), 0);
-		  otherops[2] = XEXP (XEXP (operands[1], 0), 1);
-
-		  if (GET_CODE (XEXP (operands[1], 0)) == PLUS)
+		  if (GET_CODE (otherops[2]) == CONST_INT)
 		    {
-		      if (GET_CODE (otherops[2]) == CONST_INT)
+		      switch ((int) INTVAL (otherops[2]))
 			{
-			  switch ((int) INTVAL (otherops[2]))
-			    {
-			    case -8:
-			      output_asm_insn ("ldm%?db\t%1, %M0", otherops);
-			      return "";
-			    case -4:
-			      output_asm_insn ("ldm%?da\t%1, %M0", otherops);
-			      return "";
-			    case 4:
-			      output_asm_insn ("ldm%?ib\t%1, %M0", otherops);
-			      return "";
-			    }
+			case -8:
+			  output_asm_insn ("ldm%?db\t%1, %M0", otherops);
+			  return "";
+			case -4:
+			  output_asm_insn ("ldm%?da\t%1, %M0", otherops);
+			  return "";
+			case 4:
+			  output_asm_insn ("ldm%?ib\t%1, %M0", otherops);
+			  return "";
 			}
-		      if (TARGET_LDRD
-			  && (GET_CODE (otherops[2]) == REG
-			      || (GET_CODE (otherops[2]) == CONST_INT
-				  && INTVAL (otherops[2]) > -256
-				  && INTVAL (otherops[2]) < 256)))
+		    }
+		  if (TARGET_LDRD
+		      && (GET_CODE (otherops[2]) == REG
+			  || (GET_CODE (otherops[2]) == CONST_INT
+			      && INTVAL (otherops[2]) > -256
+			      && INTVAL (otherops[2]) < 256)))
+		    {
+		      if (reg_overlap_mentioned_p (otherops[0],
+						   otherops[2]))
 			{
-			  if (reg_overlap_mentioned_p (otherops[0],
-						       otherops[2]))
-			    {
-			      /* Swap base and index registers over to
-				 avoid a conflict.  */
-			      otherops[1] = XEXP (XEXP (operands[1], 0), 1);
-			      otherops[2] = XEXP (XEXP (operands[1], 0), 0);
-
-			    }
-			  /* If both registers conflict, it will usually
-			     have been fixed by a splitter.  */
-			  if (reg_overlap_mentioned_p (otherops[0],
-							otherops[2]))
-			    {
-			      output_asm_insn ("add%?\t%1, %1, %2", otherops);
-			      output_asm_insn ("ldr%?d\t%0, [%1]",
-					       otherops);
-			      return "";
-			    }
-			  else
-			    {
-			      output_asm_insn ("ldr%?d\t%0, [%1, %2]",
-					       otherops);
-			      return "";
-			    }
+			  /* Swap base and index registers over to
+			     avoid a conflict.  */
+			  otherops[1] = XEXP (XEXP (operands[1], 0), 1);
+			  otherops[2] = XEXP (XEXP (operands[1], 0), 0);
+			  
 			}
-		      if (GET_CODE (otherops[2]) == CONST_INT)
+		      /* If both registers conflict, it will usually
+			 have been fixed by a splitter.  */
+		      if (reg_overlap_mentioned_p (otherops[0], otherops[2]))
 			{
-			  if (!(const_ok_for_arm (INTVAL (otherops[2]))))
-			    output_asm_insn ("sub%?\t%0, %1, #%n2", otherops);
-			  else
-			    output_asm_insn ("add%?\t%0, %1, %2", otherops);
+			  output_asm_insn ("add%?\t%1, %1, %2", otherops);
+			  output_asm_insn ("ldr%?d\t%0, [%1]",
+					   otherops);
 			}
+		      else
+			output_asm_insn ("ldr%?d\t%0, [%1, %2]", otherops);
+		      return "";
+		    }
+		  
+		  if (GET_CODE (otherops[2]) == CONST_INT)
+		    {
+		      if (!(const_ok_for_arm (INTVAL (otherops[2]))))
+			output_asm_insn ("sub%?\t%0, %1, #%n2", otherops);
 		      else
 			output_asm_insn ("add%?\t%0, %1, %2", otherops);
 		    }
 		  else
-		    output_asm_insn ("sub%?\t%0, %1, %2", otherops);
+		    output_asm_insn ("add%?\t%0, %1, %2", otherops);
+		}
+	      else
+		output_asm_insn ("sub%?\t%0, %1, %2", otherops);
 
-		  return "ldm%?ia\t%0, %M0";
-                }
-              else
-                {
-		  otherops[1] = adjust_address (operands[1], SImode, 4);
-		  /* Take care of overlapping base/data reg.  */
-		  if (reg_mentioned_p (operands[0], operands[1]))
-		    {
-		      output_asm_insn ("ldr%?\t%0, %1", otherops);
-		      output_asm_insn ("ldr%?\t%0, %1", operands);
-		    }
-		  else
-		    {
-		      output_asm_insn ("ldr%?\t%0, %1", operands);
-		      output_asm_insn ("ldr%?\t%0, %1", otherops);
-		    }
+	      return "ldm%?ia\t%0, %M0";
+	    }
+	  else
+	    {
+	      otherops[1] = adjust_address (operands[1], SImode, 4);
+	      /* Take care of overlapping base/data reg.  */
+	      if (reg_mentioned_p (operands[0], operands[1]))
+		{
+		  output_asm_insn ("ldr%?\t%0, %1", otherops);
+		  output_asm_insn ("ldr%?\t%0, %1", operands);
+		}
+	      else
+		{
+		  output_asm_insn ("ldr%?\t%0, %1", operands);
+		  output_asm_insn ("ldr%?\t%0, %1", otherops);
 		}
 	    }
 	}
-      else
-	abort ();  /* Constraints should prevent this.  */
     }
-  else if (code0 == MEM && code1 == REG)
+  else
     {
-      if (REGNO (operands[1]) == IP_REGNUM)
-	abort ();
+      /* Constraints should ensure this.  */
+      gcc_assert (code0 == MEM && code1 == REG);
+      gcc_assert (REGNO (operands[1]) != IP_REGNUM);
 
       switch (GET_CODE (XEXP (operands[0], 0)))
         {
@@ -8262,8 +8456,7 @@ output_move_double (rtx *operands)
 	  break;
 
         case PRE_INC:
-	  if (!TARGET_LDRD)
-	    abort (); /* Should never happen now.  */
+	  gcc_assert (TARGET_LDRD);
 	  output_asm_insn ("str%?d\t%1, [%m0, #8]!", operands);
 	  break;
 
@@ -8276,8 +8469,7 @@ output_move_double (rtx *operands)
 	  break;
 
         case POST_DEC:
-	  if (!TARGET_LDRD)
-	    abort (); /* Should never happen now.  */
+	  gcc_assert (TARGET_LDRD);
 	  output_asm_insn ("str%?d\t%1, [%m0], #-8", operands);
 	  break;
 
@@ -8332,9 +8524,6 @@ output_move_double (rtx *operands)
 	  output_asm_insn ("str%?\t%1, %0", otherops);
 	}
     }
-  else
-    /* Constraints should prevent this.  */
-    abort ();
 
   return "";
 }
@@ -8427,7 +8616,7 @@ arithmetic_instr (rtx op, int shift_first_arg)
       return "and";
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -8442,12 +8631,20 @@ shift_op (rtx op, HOST_WIDE_INT *amountp)
   const char * mnem;
   enum rtx_code code = GET_CODE (op);
 
-  if (GET_CODE (XEXP (op, 1)) == REG || GET_CODE (XEXP (op, 1)) == SUBREG)
-    *amountp = -1;
-  else if (GET_CODE (XEXP (op, 1)) == CONST_INT)
-    *amountp = INTVAL (XEXP (op, 1));
-  else
-    abort ();
+  switch (GET_CODE (XEXP (op, 1)))
+    {
+    case REG:
+    case SUBREG:
+      *amountp = -1;
+      break;
+
+    case CONST_INT:
+      *amountp = INTVAL (XEXP (op, 1));
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
 
   switch (code)
     {
@@ -8464,8 +8661,7 @@ shift_op (rtx op, HOST_WIDE_INT *amountp)
       break;
 
     case ROTATE:
-      if (*amountp == -1)
-	abort ();
+      gcc_assert (*amountp != -1);
       *amountp = 32 - *amountp;
 
       /* Fall through.  */
@@ -8477,14 +8673,12 @@ shift_op (rtx op, HOST_WIDE_INT *amountp)
     case MULT:
       /* We never have to worry about the amount being other than a
 	 power of 2, since this case can never be reloaded from a reg.  */
-      if (*amountp != -1)
-	*amountp = int_log2 (*amountp);
-      else
-	abort ();
+      gcc_assert (*amountp != -1);
+      *amountp = int_log2 (*amountp);
       return "asl";
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (*amountp != -1)
@@ -8523,8 +8717,7 @@ int_log2 (HOST_WIDE_INT power)
 
   while ((((HOST_WIDE_INT) 1 << shift) & power) == 0)
     {
-      if (shift > 31)
-	abort ();
+      gcc_assert (shift <= 31);
       shift++;
     }
 
@@ -8867,8 +9060,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
       return "";
     }
 
-  if (current_function_calls_alloca && !really_return)
-    abort ();
+  gcc_assert (!current_function_calls_alloca || really_return);
 
   sprintf (conditional, "%%?%%%c0", reverse ? 'D' : 'd');
 
@@ -8903,11 +9095,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 	      live_regs_mask |=   (1 << SP_REGNUM);
 	    }
 	  else
-	    {
-	      if (! IS_INTERRUPT (func_type)
-		  && ! TARGET_REALLY_IWMMXT)
-		abort ();
-	    }
+	    gcc_assert (IS_INTERRUPT (func_type) || TARGET_REALLY_IWMMXT);
 	}
 
       /* On some ARM architectures it is faster to use LDR rather than
@@ -8942,8 +9130,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 
 	      offsets = arm_get_frame_offsets ();
 	      stack_adjust = offsets->outgoing_args - offsets->saved_regs;
-	      if (stack_adjust != 0 && stack_adjust != 4)
-		abort ();
+	      gcc_assert (stack_adjust == 0 || stack_adjust == 4);
 
 	      if (stack_adjust && arm_arch5)
 		sprintf (instr, "ldm%sib\t%%|sp, {", conditional);
@@ -9092,8 +9279,7 @@ arm_output_function_prologue (FILE *f, HOST_WIDE_INT frame_size)
     }
 
   /* Sanity check.  */
-  if (arm_ccfsm_state || arm_target_insn)
-    abort ();
+  gcc_assert (!arm_ccfsm_state && !arm_target_insn);
 
   func_type = arm_current_func_type ();
 
@@ -9186,11 +9372,9 @@ arm_output_epilogue (rtx sibling)
       return "";
     }
 
-  if (current_function_calls_eh_return
-      && ! really_return)
-    /* If we are throwing an exception, then we really must
-       be doing a return,  so we can't tail-call.  */
-    abort ();
+  /* If we are throwing an exception, then we really must be doing a
+     return, so we can't tail-call.  */
+  gcc_assert (!current_function_calls_eh_return || really_return);
 
   offsets = arm_get_frame_offsets ();
   saved_regs_mask = arm_compute_save_reg_mask ();
@@ -9311,8 +9495,7 @@ arm_output_epilogue (rtx sibling)
 	 frame generation actually contains the old stack pointer.  So a
 	 quick way to unwind the stack is just pop the IP register directly
 	 into the stack pointer.  */
-      if ((saved_regs_mask & (1 << IP_REGNUM)) == 0)
-	abort ();
+      gcc_assert (saved_regs_mask & (1 << IP_REGNUM));
       saved_regs_mask &= ~ (1 << IP_REGNUM);
       saved_regs_mask |=   (1 << SP_REGNUM);
 
@@ -9532,11 +9715,10 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       /* We need to take into account any stack-frame rounding.  */
       offsets = arm_get_frame_offsets ();
 
-      if (use_return_insn (FALSE, NULL)
-	  && return_used_this_function
-	  && offsets->saved_regs != offsets->outgoing_args
-	  && !frame_pointer_needed)
-	abort ();
+      gcc_assert (!use_return_insn (FALSE, NULL)
+		  || !return_used_this_function
+		  || offsets->saved_regs == offsets->outgoing_args
+		  || frame_pointer_needed);
 
       /* Reset the ARM-specific per-function variables.  */
       after_arm_reorg = 0;
@@ -9562,8 +9744,7 @@ emit_multi_reg_push (unsigned long mask)
     if (mask & (1 << i))
       num_regs++;
 
-  if (num_regs == 0 || num_regs > 16)
-    abort ();
+  gcc_assert (num_regs && num_regs <= 16);
 
   /* We don't record the PC in the dwarf frame information.  */
   num_dwarf_regs = num_regs;
@@ -9671,6 +9852,20 @@ emit_multi_reg_push (unsigned long mask)
   REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
 				       REG_NOTES (par));
   return par;
+}
+
+/* Calculate the size of the return value that is passed in registers.  */
+static int
+arm_size_return_regs (void)
+{
+  enum machine_mode mode;
+
+  if (current_function_return_rtx != 0)
+    mode = GET_MODE (current_function_return_rtx);
+  else
+    mode = DECL_MODE (DECL_RESULT (current_function_decl));
+
+  return GET_MODE_SIZE (mode);
 }
 
 static rtx
@@ -9890,8 +10085,7 @@ arm_get_frame_offsets (void)
       /* Ensure SP remains doubleword aligned.  */
       if (offsets->outgoing_args & 7)
 	offsets->outgoing_args += 4;
-      if (offsets->outgoing_args & 7)
-	abort ();
+      gcc_assert (!(offsets->outgoing_args & 7));
     }
 
   return offsets;
@@ -9941,9 +10135,9 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	  return offsets->outgoing_args - (offsets->saved_args + 4);
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
-      break;
+      gcc_unreachable ();
 
     case FRAME_POINTER_REGNUM:
       switch (to)
@@ -9963,9 +10157,9 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	  return offsets->outgoing_args - offsets->soft_frame;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
-      break;
+      gcc_unreachable ();
 
     default:
       /* You cannot eliminate from the stack pointer.
@@ -9973,7 +10167,7 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	 pointer to the stack pointer, but this will never
 	 happen, since if a stack frame is not needed the
 	 hard frame pointer will never be used.  */
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -10022,7 +10216,7 @@ arm_expand_prologue (void)
 	     stack decrement per function, and this is not it.  If
 	     this instruction is labeled as being part of the frame
 	     creation sequence then dwarf2out_frame_debug_expr will
-	     abort when it encounters the assignment of IP to FP
+	     die when it encounters the assignment of IP to FP
 	     later on, since the use of SP here establishes SP as
 	     the CFA register and not IP.
 
@@ -10289,7 +10483,7 @@ arm_expand_prologue (void)
   /* If we are profiling, make sure no instructions are scheduled before
      the call to mcount.  Similarly if the user has requested no
      scheduling in the prolog.  */
-  if (current_function_profile || TARGET_NO_SCHED_PRO)
+  if (current_function_profile || !TARGET_SCHED_PROLOG)
     emit_insn (gen_blockage ());
 
   /* If the link register is being kept alive, with the return address in it,
@@ -10532,8 +10726,8 @@ arm_print_operand (FILE *stream, rtx x, int code)
     case 'X':			/* Cirrus register in D mode.  */
     case 'Y':			/* Cirrus register in FX mode.  */
     case 'Z':			/* Cirrus register in DX mode.  */
-      if (GET_CODE (x) != REG || REGNO_REG_CLASS (REGNO (x)) != CIRRUS_REGS)
-	abort ();
+      gcc_assert (GET_CODE (x) == REG
+		  && REGNO_REG_CLASS (REGNO (x)) == CIRRUS_REGS);
 
       fprintf (stream, "mv%s%s",
 	       code == 'W' ? "f"
@@ -10638,21 +10832,26 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	  return;
 	}
 
-      if (GET_CODE (x) == REG)
-	asm_fprintf (stream, "%r", REGNO (x));
-      else if (GET_CODE (x) == MEM)
+      switch (GET_CODE (x))
 	{
+	case REG:
+	  asm_fprintf (stream, "%r", REGNO (x));
+	  break;
+
+	case MEM:
 	  output_memory_reference_mode = GET_MODE (x);
 	  output_address (XEXP (x, 0));
-	}
-      else if (GET_CODE (x) == CONST_DOUBLE)
-	fprintf (stream, "#%s", fp_immediate_constant (x));
-      else if (GET_CODE (x) == NEG)
-	abort (); /* This should never happen now.  */
-      else
-	{
+	  break;
+
+	case CONST_DOUBLE:
+	  fprintf (stream, "#%s", fp_immediate_constant (x));
+	  break;
+
+	default:
+	  gcc_assert (GET_CODE (x) != NEG);
 	  fputc ('#', stream);
 	  output_addr_const (stream, x);
+	  break;
 	}
     }
 }
@@ -10690,8 +10889,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
     {
       int i, units;
 
-      if (GET_CODE (x) != CONST_VECTOR)
-	abort ();
+      gcc_assert (GET_CODE (x) == CONST_VECTOR);
 
       units = CONST_VECTOR_NUNITS (x);
 
@@ -10701,7 +10899,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	case V4HImode: size = 2; break;
 	case V8QImode: size = 1; break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       for (i = 0; i < units; i++)
@@ -10717,6 +10915,26 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
     }
 
   return default_assemble_integer (x, size, aligned_p);
+}
+
+
+/* Add a function to the list of static constructors.  */
+
+static void
+arm_elf_asm_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
+{
+  if (!TARGET_AAPCS_BASED)
+    {
+      default_named_section_asm_out_constructor (symbol, priority);
+      return;
+    }
+
+  /* Put these in the .init_array section, using a special relocation.  */
+  ctors_section ();
+  assemble_align (POINTER_SIZE);
+  fputs ("\t.word\t", asm_out_file);
+  output_addr_const (asm_out_file, symbol);
+  fputs ("(target1)\n", asm_out_file);
 }
 #endif
 
@@ -10779,8 +10997,7 @@ get_arm_condition_code (rtx comparison)
     case CC_DLTUmode: code = ARM_CC;
 
     dominance:
-      if (comp_code != EQ && comp_code != NE)
-	abort ();
+      gcc_assert (comp_code == EQ || comp_code == NE);
 
       if (comp_code == EQ)
 	return ARM_INVERSE_CONDITION_CODE (code);
@@ -10793,7 +11010,7 @@ get_arm_condition_code (rtx comparison)
 	case EQ: return ARM_EQ;
 	case GE: return ARM_PL;
 	case LT: return ARM_MI;
-	default: abort ();
+	default: gcc_unreachable ();
 	}
 
     case CC_Zmode:
@@ -10801,7 +11018,7 @@ get_arm_condition_code (rtx comparison)
 	{
 	case NE: return ARM_NE;
 	case EQ: return ARM_EQ;
-	default: abort ();
+	default: gcc_unreachable ();
 	}
 
     case CC_Nmode:
@@ -10809,7 +11026,7 @@ get_arm_condition_code (rtx comparison)
 	{
 	case NE: return ARM_MI;
 	case EQ: return ARM_PL;
-	default: abort ();
+	default: gcc_unreachable ();
 	}
 
     case CCFPEmode:
@@ -10834,7 +11051,7 @@ get_arm_condition_code (rtx comparison)
 	  /* UNEQ and LTGT do not have a representation.  */
 	case UNEQ: /* Fall through.  */
 	case LTGT: /* Fall through.  */
-	default: abort ();
+	default: gcc_unreachable ();
 	}
 
     case CC_SWPmode:
@@ -10850,7 +11067,7 @@ get_arm_condition_code (rtx comparison)
 	case GTU: return ARM_CC;
 	case LEU: return ARM_CS;
 	case LTU: return ARM_HI;
-	default: abort ();
+	default: gcc_unreachable ();
 	}
 
     case CC_Cmode:
@@ -10858,7 +11075,7 @@ get_arm_condition_code (rtx comparison)
       {
       case LTU: return ARM_CS;
       case GEU: return ARM_CC;
-      default: abort ();
+      default: gcc_unreachable ();
       }
 
     case CCmode:
@@ -10874,13 +11091,11 @@ get_arm_condition_code (rtx comparison)
 	case GTU: return ARM_HI;
 	case LEU: return ARM_LS;
 	case LTU: return ARM_CC;
-	default: abort ();
+	default: gcc_unreachable ();
 	}
 
-    default: abort ();
+    default: gcc_unreachable ();
     }
-
-  abort ();
 }
 
 void
@@ -10958,8 +11173,7 @@ arm_final_prescan_insn (rtx insn)
 	return;
     }
 
-  if (arm_ccfsm_state != 0 && !reverse)
-    abort ();
+  gcc_assert (!arm_ccfsm_state || reverse);
   if (GET_CODE (insn) != JUMP_INSN)
     return;
 
@@ -11007,7 +11221,7 @@ arm_final_prescan_insn (rtx insn)
 	  then_not_else = FALSE;
         }
       else
-	abort ();
+	gcc_unreachable ();
 
       /* See how many insns this branch skips, and what kind of insns.  If all
 	 insns are okay, and the label or unconditional branch to the same
@@ -11174,14 +11388,16 @@ arm_final_prescan_insn (rtx insn)
 	{
 	  if ((!seeking_return) && (arm_ccfsm_state == 1 || reverse))
 	    arm_target_label = CODE_LABEL_NUMBER (label);
-	  else if (seeking_return || arm_ccfsm_state == 2)
+	  else
 	    {
+	      gcc_assert (seeking_return || arm_ccfsm_state == 2);
+	      
 	      while (this_insn && GET_CODE (PATTERN (this_insn)) == USE)
 	        {
 		  this_insn = next_nonnote_insn (this_insn);
-		  if (this_insn && (GET_CODE (this_insn) == BARRIER
-				    || GET_CODE (this_insn) == CODE_LABEL))
-		    abort ();
+		  gcc_assert (!this_insn
+			      || (GET_CODE (this_insn) != BARRIER
+				  && GET_CODE (this_insn) != CODE_LABEL));
 	        }
 	      if (!this_insn)
 	        {
@@ -11193,12 +11409,9 @@ arm_final_prescan_insn (rtx insn)
 	        }
 	      arm_target_insn = this_insn;
 	    }
-	  else
-	    abort ();
 	  if (jump_clobbers)
 	    {
-	      if (reverse)
-		abort ();
+	      gcc_assert (!reverse);
 	      arm_current_cc =
 		  get_arm_condition_code (XEXP (XEXP (XEXP (SET_SRC (body),
 							    0), 0), 1));
@@ -11778,7 +11991,7 @@ arm_init_iwmmxt_builtins (void)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       def_mbuiltin (d->mask, d->name, type, d->code);
@@ -11924,10 +12137,7 @@ arm_expand_binop_builtin (enum insn_code icode,
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
 
-  /* In case the insn wants input operands in modes different from
-     the result, abort.  */
-  if (GET_MODE (op0) != mode0 || GET_MODE (op1) != mode1)
-    abort ();
+  gcc_assert (GET_MODE (op0) == mode0 && GET_MODE (op1) == mode1);
 
   if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
     op0 = copy_to_mode_reg (mode0, op0);
@@ -12234,8 +12444,7 @@ thumb_pushpop (FILE *f, unsigned long mask, int push, int *cfa_offset,
   int lo_mask = mask & 0xFF;
   int pushed_words = 0;
 
-  if (mask == 0)
-    abort ();
+  gcc_assert (mask);
 
   if (lo_mask == 0 && !push && (mask & (1 << PC_REGNUM)))
     {
@@ -12691,8 +12900,7 @@ thumb_far_jump_used_p (void)
 int
 is_called_in_ARM_mode (tree func)
 {
-  if (TREE_CODE (func) != FUNCTION_DECL)
-    abort ();
+  gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
 
   /* Ignore the problem about functions whose address is taken.  */
   if (TARGET_CALLEE_INTERWORKING && TREE_PUBLIC (func))
@@ -12714,7 +12922,6 @@ thumb_unexpanded_epilogue (void)
   int high_regs_pushed = 0;
   int had_to_push_lr;
   int size;
-  int mode;
 
   if (return_used_this_function)
     return "";
@@ -12729,13 +12936,7 @@ thumb_unexpanded_epilogue (void)
      This is more reliable that examining regs_ever_live[] because that
      will be set if the register is ever used in the function, not just if
      the register is used to hold a return value.  */
-
-  if (current_function_return_rtx != 0)
-    mode = GET_MODE (current_function_return_rtx);
-  else
-    mode = DECL_MODE (DECL_RESULT (current_function_decl));
-
-  size = GET_MODE_SIZE (mode);
+  size = arm_size_return_regs ();
 
   /* The prolog may have pushed some high registers to use as
      work registers.  e.g. the testsuite file:
@@ -12936,7 +13137,7 @@ thumb_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	  return offsets->saved_regs - offsets->saved_args;
 
 	default:
-	  abort();
+	  gcc_unreachable ();
 	}
       break;
 
@@ -12951,12 +13152,12 @@ thumb_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	  return offsets->saved_regs - offsets->soft_frame;
 
 	default:
-	  abort();
+	  gcc_unreachable ();
 	}
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -13096,7 +13297,7 @@ thumb_expand_prologue (void)
 				  hard_frame_pointer_rtx));
     }
 
-  if (current_function_profile || TARGET_NO_SCHED_PRO)
+  if (current_function_profile || !TARGET_SCHED_PROLOG)
     emit_insn (gen_blockage ());
 
   cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
@@ -13145,7 +13346,7 @@ thumb_expand_epilogue (void)
      the stack adjustment will not be deleted.  */
   emit_insn (gen_prologue_use (stack_pointer_rtx));
 
-  if (current_function_profile || TARGET_NO_SCHED_PRO)
+  if (current_function_profile || !TARGET_SCHED_PROLOG)
     emit_insn (gen_blockage ());
 
   /* Emit a clobber for each insn that will be restored in the epilogue,
@@ -13174,10 +13375,9 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
     {
       const char * name;
 
-      if (GET_CODE (DECL_RTL (current_function_decl)) != MEM)
-	abort ();
-      if (GET_CODE (XEXP (DECL_RTL (current_function_decl), 0)) != SYMBOL_REF)
-	abort ();
+      gcc_assert (GET_CODE (DECL_RTL (current_function_decl)) == MEM);
+      gcc_assert (GET_CODE (XEXP (DECL_RTL (current_function_decl), 0))
+		  == SYMBOL_REF);
       name = XSTR  (XEXP (DECL_RTL (current_function_decl), 0), 0);
 
       /* Generate code sequence to switch us into Thumb mode.  */
@@ -13406,11 +13606,8 @@ thumb_load_double_from_address (rtx *operands)
   rtx arg1;
   rtx arg2;
 
-  if (GET_CODE (operands[0]) != REG)
-    abort ();
-
-  if (GET_CODE (operands[1]) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (operands[0]) == REG);
+  gcc_assert (GET_CODE (operands[1]) == MEM);
 
   /* Get the memory address.  */
   addr = XEXP (operands[1], 0);
@@ -13452,8 +13649,7 @@ thumb_load_double_from_address (rtx *operands)
       else
 	base = arg1, offset = arg2;
 
-      if (GET_CODE (base) != REG)
-	abort ();
+      gcc_assert (GET_CODE (base) == REG);
 
       /* Catch the case of <address> = <reg> + <reg> */
       if (GET_CODE (offset) == REG)
@@ -13510,8 +13706,7 @@ thumb_load_double_from_address (rtx *operands)
       break;
 
     default:
-      abort ();
-      break;
+      gcc_unreachable ();
     }
 
   return "";
@@ -13560,7 +13755,7 @@ thumb_output_move_mem_multiple (int n, rtx *operands)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return "";
@@ -13658,7 +13853,7 @@ thumb_reload_out_hi (rtx *operands)
 void
 thumb_reload_in_hi (rtx *operands ATTRIBUTE_UNUSED)
 {
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Return the length of a function name prefix
@@ -14038,15 +14233,14 @@ arm_emit_vector_const (FILE *file, rtx x)
   int i;
   const char * pattern;
 
-  if (GET_CODE (x) != CONST_VECTOR)
-    abort ();
+  gcc_assert (GET_CODE (x) == CONST_VECTOR);
 
   switch (GET_MODE (x))
     {
     case V2SImode: pattern = "%08x"; break;
     case V4HImode: pattern = "%04x"; break;
     case V8QImode: pattern = "%02x"; break;
-    default:       abort ();
+    default:       gcc_unreachable ();
     }
 
   fprintf (file, "0x");
@@ -14354,6 +14548,17 @@ arm_cxx_class_data_always_comdat (void)
   return !TARGET_AAPCS_BASED;
 }
 
+
+/* The EABI says __aeabi_atexit should be used to register static
+   destructors.  */
+
+static bool
+arm_cxx_use_aeabi_atexit (void)
+{
+  return TARGET_AAPCS_BASED;
+}
+
+
 void
 arm_set_return_address (rtx source, rtx scratch)
 {
@@ -14491,6 +14696,6 @@ arm_dbx_register_number (unsigned int regno)
   if (IS_IWMMXT_REGNUM (regno))
     return 112 + regno - FIRST_IWMMXT_REGNUM;
 
-  abort ();
+  gcc_unreachable ();
 }
 

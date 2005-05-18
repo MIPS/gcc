@@ -1366,13 +1366,13 @@ struct value_range_def;
 
 /* Immediate use linking structure.  This structure is used for maintaining
    a doubly linked list of uses of an SSA_NAME.  */
-typedef struct ssa_imm_use_d GTY(())
+typedef struct ssa_use_operand_d GTY(())
 {
-  struct ssa_imm_use_d* GTY((skip(""))) prev;
-  struct ssa_imm_use_d* GTY((skip(""))) next;
+  struct ssa_use_operand_d* GTY((skip(""))) prev;
+  struct ssa_use_operand_d* GTY((skip(""))) next;
   tree GTY((skip(""))) stmt;
   tree *GTY((skip(""))) use;
-} ssa_imm_use_t;
+} ssa_use_operand_t;
 
 /* Return the immediate_use information for an SSA_NAME. */
 #define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
@@ -1404,7 +1404,7 @@ struct tree_ssa_name GTY(())
   PTR GTY((skip)) aux;
 
   /* Immediate uses list for this SSA_NAME.  */
-  struct ssa_imm_use_d imm_uses;
+  struct ssa_use_operand_d imm_uses;
 };
 
 /* In a PHI_NODE node.  */
@@ -1431,11 +1431,11 @@ struct tree_ssa_name GTY(())
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
 #define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
 
-struct edge_def;
-
 struct phi_arg_d GTY(())
 {
-  struct ssa_imm_use_d imm_use;	/* imm_use MUST be first element in struct.  */
+  /* imm_use MUST be the first element in struct because we do some
+     pointer arithmetic with it.  See phi_arg_index_from_use.  */
+  struct ssa_use_operand_d imm_use;
   tree def;
   bool nonzero;
 };
@@ -1450,6 +1450,8 @@ struct tree_phi_node GTY(())
   /* Basic block to that the phi node belongs.  */
   struct basic_block_def *bb;
 
+  /* Arguments of the PHI node.  These are maintained in the same
+     order as predecessor edge vector BB->PREDS.  */
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
 };
 
@@ -2923,7 +2925,7 @@ extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
 extern tree build_fn_decl (const char *, tree); 
 #define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
-extern tree build_block (tree, tree, tree, tree, tree);
+extern tree build_block (tree, tree, tree, tree);
 #ifndef USE_MAPPED_LOCATION
 extern void annotate_with_file_line (tree, const char *, int);
 extern void annotate_with_locus (tree, location_t);
@@ -3161,6 +3163,9 @@ typedef struct record_layout_info_s
   tree pending_statics;
   /* Bits remaining in the current alignment group */
   int remaining_in_alignment;
+  /* True if prev_field was packed and we haven't found any non-packed
+     fields that we have put in the same alignment group.  */
+  int prev_packed;
   /* True if we've seen a packed field that didn't have normal
      alignment anyway.  */
   int packed_maybe_necessary;
@@ -3817,7 +3822,6 @@ extern void sort_case_labels (tree);
 /* In tree-eh.c */
 void duplicate_stmt_eh_region_mapping (struct function *, 
 			    struct function *, tree, tree, bool);
-void lower_eh_constructs (void);
 
 /* If KIND=='I', return a suitable global initializer (constructor) name.
    If KIND=='D', return a suitable global clean-up (destructor) name.  */

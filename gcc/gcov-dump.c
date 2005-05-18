@@ -1,5 +1,5 @@
 /* Dump a gcov file, for debugging use.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Nathan Sidwell <nathan@codesourcery.com>
 
 Gcov is free software; you can redistribute it and/or modify
@@ -78,9 +78,7 @@ main (int argc ATTRIBUTE_UNUSED, char **argv)
   int opt;
 
   /* Unlock the stdio streams.  */
-  unlock_stream (stdin);
-  unlock_stream (stdout);
-  unlock_stream (stderr);
+  unlock_std_streams ();
 
   while ((opt = getopt_long (argc, argv, "hlpv", options, NULL)) != -1)
     {

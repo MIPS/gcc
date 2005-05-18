@@ -518,7 +518,6 @@ enum cp_tree_index
     CPTI_LANG_NAME_JAVA,
 
     CPTI_EMPTY_EXCEPT_SPEC,
-    CPTI_NULL,
     CPTI_JCLASS,
     CPTI_TERMINATE,
     CPTI_CALL_UNEXPECTED,
@@ -614,9 +613,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 /* Exception specifier used for throw().  */
 #define empty_except_spec               cp_global_trees[CPTI_EMPTY_EXCEPT_SPEC]
 
-/* The node for `__null'.  */
-#define null_node                       cp_global_trees[CPTI_NULL]
-
 /* If non-NULL, a POINTER_TYPE equivalent to (java::lang::Class*).  */
 #define jclass_node                     cp_global_trees[CPTI_JCLASS]
 
@@ -663,7 +659,7 @@ struct saved_scope GTY(())
   tree class_type;
   tree access_specifier;
   tree function_decl;
-  varray_type lang_base;
+  VEC(tree,gc) *lang_base;
   tree lang_name;
   tree template_parms;
   struct cp_binding_level *x_previous_class_level;
@@ -754,7 +750,7 @@ struct language_function GTY(())
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
   struct cp_binding_level *bindings;
-  varray_type x_local_names;
+  VEC(tree,gc) *x_local_names;
 };
 
 /* The current C++-specific per-function global variables.  */
@@ -847,12 +843,11 @@ enum cplus_tree_code {
 };
 #undef DEFTREECODE
 
-#define cp_stmt_codes					\
-   CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,	\
-   EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN,	\
-   IF_STMT,		CLEANUP_STMT,	FOR_STMT,	\
-   WHILE_STMT,		DO_STMT,	BREAK_STMT,	\
-   CONTINUE_STMT,	SWITCH_STMT
+/* TRUE if a tree code represents a statement.  */
+extern bool statement_code_p[MAX_TREE_CODES];
+
+#define STATEMENT_CODE_P(CODE) statement_code_p[(int) (CODE)]
+
 enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Macros to make error reporting functions' lives easier.  */
@@ -2949,6 +2944,10 @@ struct lang_decl GTY(())
 /* STMT_EXPR accessor.  */
 #define STMT_EXPR_STMT(NODE)    TREE_OPERAND (STMT_EXPR_CHECK (NODE), 0)
 
+/* EXPR_STMT accessor. This gives the expression associated with an
+   expression statement.  */
+#define EXPR_STMT_EXPR(NODE)    TREE_OPERAND (EXPR_STMT_CHECK (NODE), 0)
+
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {
   none_type = 0, /* Not a tag type.  */
@@ -3132,7 +3131,7 @@ extern int current_class_depth;
 
 /* An array of all local classes present in this translation unit, in
    declaration order.  */
-extern GTY(()) varray_type local_classes;
+extern GTY(()) VEC(tree,gc) *local_classes;
 
 /* Here's where we control how name mangling takes place.  */
 

@@ -922,8 +922,9 @@ set_nb_iterations_in_loop (struct loop *loop,
      count of the loop in order to be compatible with the other
      nb_iter computations in loop-iv.  This also allows the
      representation of nb_iters that are equal to MAX_INT.  */
-  if ((TREE_CODE (res) == INTEGER_CST && TREE_INT_CST_LOW (res) == 0)
-      || TREE_OVERFLOW (res))
+  if (TREE_CODE (res) == INTEGER_CST
+      && (TREE_INT_CST_LOW (res) == 0
+	  || TREE_OVERFLOW (res)))
     res = chrec_dont_know;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1012,7 +1013,7 @@ get_loop_exit_condition (struct loop *loop)
 
 static void 
 get_exit_conditions_rec (struct loop *loop, 
-			 varray_type *exit_conditions)
+			 VEC(tree,heap) **exit_conditions)
 {
   if (!loop)
     return;
@@ -1026,7 +1027,7 @@ get_exit_conditions_rec (struct loop *loop,
       tree loop_condition = get_loop_exit_condition (loop);
       
       if (loop_condition)
-	VARRAY_PUSH_TREE (*exit_conditions, loop_condition);
+	VEC_safe_push (tree, heap, *exit_conditions, loop_condition);
     }
 }
 
@@ -1035,7 +1036,7 @@ get_exit_conditions_rec (struct loop *loop,
 
 static void
 select_loops_exit_conditions (struct loops *loops, 
-			      varray_type *exit_conditions)
+			      VEC(tree,heap) **exit_conditions)
 {
   struct loop *function_body = loops->parray[0];
   
@@ -2274,16 +2275,16 @@ end:
    from the EXIT_CONDITIONS array.  */
 
 static void 
-number_of_iterations_for_all_loops (varray_type exit_conditions)
+number_of_iterations_for_all_loops (VEC(tree,heap) **exit_conditions)
 {
   unsigned int i;
   unsigned nb_chrec_dont_know_loops = 0;
   unsigned nb_static_loops = 0;
+  tree cond;
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
+  for (i = 0; VEC_iterate (tree, *exit_conditions, i, cond); i++)
     {
-      tree res = number_of_iterations_in_loop 
-	(loop_containing_stmt (VARRAY_TREE (exit_conditions, i)));
+      tree res = number_of_iterations_in_loop (loop_containing_stmt (cond));
       if (chrec_contains_undetermined (res))
 	nb_chrec_dont_know_loops++;
       else
@@ -2426,20 +2427,21 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
    index.  This allows the parallelization of the loop.  */
 
 static void 
-analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
+analyze_scalar_evolution_for_all_loop_phi_nodes (VEC(tree,heap) **exit_conditions)
 {
   unsigned int i;
   struct chrec_stats stats;
+  tree cond;
   
   reset_chrecs_counters (&stats);
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
+  for (i = 0; VEC_iterate (tree, *exit_conditions, i, cond); i++)
     {
       struct loop *loop;
       basic_block bb;
       tree phi, chrec;
       
-      loop = loop_containing_stmt (VARRAY_TREE (exit_conditions, i));
+      loop = loop_containing_stmt (cond);
       bb = loop->header;
       
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
@@ -2547,10 +2549,13 @@ scev_reset (void)
 }
 
 /* Checks whether OP behaves as a simple affine iv of LOOP in STMT and returns
-   its BASE and STEP if possible.  */
+   its BASE and STEP if possible.  If ALLOW_NONCONSTANT_STEP is true, we
+   want STEP to be invariant in LOOP.  Otherwise we require it to be an
+   integer constant.  */
 
 bool
-simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
+simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step,
+	   bool allow_nonconstant_step)
 {
   basic_block bb = bb_for_stmt (stmt);
   tree type, ev;
@@ -2579,8 +2584,15 @@ simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
     return false;
 
   *step = CHREC_RIGHT (ev);
-  if (TREE_CODE (*step) != INTEGER_CST)
+  if (allow_nonconstant_step)
+    {
+      if (tree_contains_chrecs (*step, NULL)
+	  || chrec_contains_symbols_defined_in_loop (*step, loop->num))
+	return false;
+    }
+  else if (TREE_CODE (*step) != INTEGER_CST)
     return false;
+
   *base = CHREC_LEFT (ev);
   if (tree_contains_chrecs (*base, NULL)
       || chrec_contains_symbols_defined_in_loop (*base, loop->num))
@@ -2594,16 +2606,16 @@ simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
 void
 scev_analysis (void)
 {
-  varray_type exit_conditions;
+  VEC(tree,heap) *exit_conditions;
   
-  VARRAY_GENERIC_PTR_INIT (exit_conditions, 37, "exit_conditions");
+  exit_conditions = VEC_alloc (tree, heap, 37);
   select_loops_exit_conditions (current_loops, &exit_conditions);
 
   if (dump_file && (dump_flags & TDF_STATS))
-    analyze_scalar_evolution_for_all_loop_phi_nodes (exit_conditions);
+    analyze_scalar_evolution_for_all_loop_phi_nodes (&exit_conditions);
   
-  number_of_iterations_for_all_loops (exit_conditions);
-  VARRAY_CLEAR (exit_conditions);
+  number_of_iterations_for_all_loops (&exit_conditions);
+  VEC_free (tree, heap, exit_conditions);
 }
 
 /* Finalize the scalar evolution analysis.  */

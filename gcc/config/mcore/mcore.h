@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Motorola M*CORE Processor.
-   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -885,7 +885,7 @@ switch_to_section (enum in_section section, tree decl)		\
       case in_data: data_section (); break;			\
       case in_named: named_section (decl, NULL, 0); break;	\
       SUBTARGET_SWITCH_SECTIONS      				\
-      default: abort (); break;					\
+      default: gcc_unreachable (); 				\
     }								\
 }
 

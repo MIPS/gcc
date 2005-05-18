@@ -421,12 +421,12 @@ do
 	yes)		ac_assert_checking=1 ; ac_checking=1 ;
 			ac_fold_checking= ; ac_gc_checking=1 ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
-			ac_rtlflag_checking=1 ; ac_runtime_chacking=1 ;
+			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
 			ac_tree_checking=1 ; ac_valgrind_checking= ;;
 	no|none)	ac_assert_checking= ; ac_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
-			ac_rtlflag_checking= ; ac_runtime_chacking= ;
+			ac_rtlflag_checking= ; ac_runtime_checking= ;
 			ac_tree_checking= ; ac_valgrind_checking= ;;
 	all)		ac_assert_checking=1 ; ac_checking=1 ;
 			ac_fold_checking=1 ; ac_gc_checking=1 ;
@@ -466,6 +466,7 @@ if test x$ac_assert_checking != x ; then
   AC_DEFINE(ENABLE_ASSERT_CHECKING, 1,
 [Define if you want assertions enabled.  This is a cheap check.])
 fi
+GCC_TARGET_TEMPLATE(ENABLE_RUNTIME_CHECKING)
 if test x$ac_runtime_checking != x ; then
   AC_DEFINE(ENABLE_RUNTIME_CHECKING, 1,
 [Define if you want runtime assertions enabled.  This is a cheap check.])
@@ -893,7 +894,7 @@ AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
 
 # These tests can't be done till we know if we have limits.h.
 gcc_AC_C_CHAR_BIT
-AC_C_BIGENDIAN_CROSS
+AC_C_BIGENDIAN
 
 # --------
 # UNSORTED
@@ -1402,7 +1403,7 @@ host_xm_file="auto-host.h ansidecl.h ${host_xm_file}"
 build_xm_file="${build_auto} ansidecl.h ${build_xm_file}"
 # We don't want ansidecl.h in target files, write code there in ISO/GNU C.
 # put this back in temporarily.
-xm_file="ansidecl.h ${xm_file}"
+xm_file="auto-host.h ansidecl.h ${xm_file}"
 
 # --------
 # UNSORTED
@@ -1693,7 +1694,7 @@ then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	if [ "x$STMP_FIXPROTO" != x ] ; then
+	if test "x$STMP_FIXPROTO" != x; then
 	  STMP_FIXPROTO=stmp-install-fixproto
 	fi
     fi
@@ -2103,8 +2104,12 @@ changequote(,)dnl
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p'`
+	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
+    ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
+    ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
+    ld_vers_patch=`expr "$ld_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
     if test 0"$ld_date" -lt 20020404; then
       if test -n "$ld_date"; then
 	# If there was date string, but was earlier than 2002-04-04, fail
@@ -2113,9 +2118,6 @@ changequote(,)dnl
 	# If there was no date string nor ld version number, something is wrong
 	gcc_cv_ld_hidden=no
       else
-	ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
-	ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
-	ld_vers_patch=`expr "$ld_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
 	test -z "$ld_vers_patch" && ld_vers_patch=0
 	if test "$ld_vers_major" -lt 2; then
 	  gcc_cv_ld_hidden=no
@@ -2140,6 +2142,7 @@ changequote([,])dnl
 fi])
 libgcc_visibility=no
 AC_SUBST(libgcc_visibility)
+GCC_TARGET_TEMPLATE([HAVE_GAS_HIDDEN])
 if test $gcc_cv_as_hidden = yes && test $gcc_cv_ld_hidden = yes; then
   libgcc_visibility=yes
   AC_DEFINE(HAVE_GAS_HIDDEN, 1,
@@ -2256,18 +2259,35 @@ AC_DEFINE_UNQUOTED(HAVE_GAS_SHF_MERGE,
 [Define 0/1 if your assembler supports marking sections with SHF_MERGE flag.])
 
 gcc_GAS_CHECK_FEATURE(COMDAT group support, gcc_cv_as_comdat_group,
- [elf,2,15,91], [--fatal-warnings],
+ [elf,2,16,0], [--fatal-warnings],
  [.section .text,"axG",@progbits,.foo,comdat])
 if test $gcc_cv_as_comdat_group = yes; then
   gcc_cv_as_comdat_group_percent=no
 else
  gcc_GAS_CHECK_FEATURE(COMDAT group support, gcc_cv_as_comdat_group_percent,
-   [elf,2,15,91], [--fatal-warnings],
+   [elf,2,16,0], [--fatal-warnings],
    [.section .text,"axG",%progbits,.foo,comdat])
 fi
-AC_DEFINE_UNQUOTED(HAVE_GAS_COMDAT_GROUP,
+if test $in_tree_ld != yes && test x"$ld_vers" != x; then
+  comdat_group=yes
+  if test 0"$ld_date" -lt 20050308; then
+    if test -n "$ld_date"; then
+      # If there was date string, but was earlier than 2005-03-08, fail
+      comdat_group=no
+    elif test "$ld_vers_major" -lt 2; then
+      comdat_group=no
+    elif test "$ld_vers_major" -eq 2 -a "$ld_vers_minor" -lt 16; then
+      comdat_group=no
+    fi
+  fi
+  if test $comdat_group = no; then
+    gcc_cv_as_comdat_group=no
+    gcc_cv_as_comdat_group_percent=no
+  fi
+fi
+AC_DEFINE_UNQUOTED(HAVE_COMDAT_GROUP,
   [`if test $gcc_cv_as_comdat_group = yes || test $gcc_cv_as_comdat_group_percent = yes; then echo 1; else echo 0; fi`],
-[Define 0/1 if your assembler supports COMDAT group.])
+[Define 0/1 if your assembler and linker support COMDAT groups.])
 
 # Thread-local storage - the check is heavily parametrized.
 conftest_s=
@@ -2768,7 +2788,8 @@ foo:	nop
 
   powerpc*-*-*)
     case $target in
-      *-*-aix*) conftest_s='	.csect .text[[PR]]
+      *-*-aix*) conftest_s='	.machine "pwr5"
+	.csect .text[[PR]]
 	mfcr 3,128';;
       *-*-darwin*)
 	gcc_GAS_CHECK_FEATURE([.machine directive support],
@@ -2791,6 +2812,22 @@ foo:	nop
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_MFCRF, 1,
 	  [Define if your assembler supports mfcr field.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr5"
+	.csect .text[[PR]]
+	popcntb 3,3';;
+      *) conftest_s='	.machine power5
+	.text
+	popcntb 3,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([popcntb support],
+      gcc_cv_as_powerpc_popcntb, [2,17,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_POPCNTB, 1,
+	  [Define if your assembler supports popcntb field.])])
+
     ;;
 
   mips*-*-*)
@@ -2934,6 +2971,7 @@ elif test x$gcc_cv_ld != x; then
 		gcc_cv_ld_eh_frame_hdr=yes
 	fi
 fi
+GCC_TARGET_TEMPLATE([HAVE_LD_EH_FRAME_HDR])
 if test x"$gcc_cv_ld_eh_frame_hdr" = xyes; then
 	AC_DEFINE(HAVE_LD_EH_FRAME_HDR, 1,
 [Define if your linker supports --eh-frame-hdr option.])
@@ -3023,6 +3061,23 @@ EOF
     fi
     ;;
 esac
+
+AC_CACHE_CHECK(linker --sysroot support,
+  gcc_cv_ld_sysroot,
+  [gcc_cv_ld_sysroot=no
+  if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 ; then
+        gcc_cv_ld_sysroot=yes
+      fi
+  elif test x$gcc_cv_ld != x; then 
+    if $gcc_cv_ld --help 2>/dev/null | grep sysroot > /dev/null; then
+      gcc_cv_ld_sysroot=yes
+    fi
+  fi])
+if test x"$gcc_cv_ld_sysroot" = xyes; then
+  AC_DEFINE(HAVE_LD_SYSROOT, 1,
+  [Define if your linker supports --sysroot.])
+fi	  
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then

@@ -241,13 +241,6 @@ static GTY(()) int scope_labelno;
 
 static GTY(()) int dbxout_source_line_counter;
 
-/* Nonzero if we have actually used any of the GDB extensions
-   to the debugging format.  The idea is that we use them for the
-   first time only if there's a strong reason, but once we have done that,
-   we use them whenever convenient.  */
-
-static GTY(()) int have_used_extensions = 0;
-
 /* Number for the next N_SOL filename stabs label.  The number 0 is reserved
    for the N_SO filename stabs label.  */
 
@@ -939,10 +932,11 @@ dbxout_function_end (tree decl)
   if (flag_reorder_blocks_and_partition)
     {
       dbxout_begin_empty_stabs (N_FUN);
-      dbxout_stab_value_label_diff (hot_section_end_label, hot_section_label);
+      dbxout_stab_value_label_diff (cfun->hot_section_end_label, 
+				    cfun->hot_section_label);
       dbxout_begin_empty_stabs (N_FUN);
-      dbxout_stab_value_label_diff (cold_section_end_label, 
-				    unlikely_section_label);
+      dbxout_stab_value_label_diff (cfun->cold_section_end_label, 
+				    cfun->cold_section_label);
     }
   else
     {
@@ -1429,7 +1423,6 @@ dbxout_type_fields (tree type)
 	      && (TREE_PRIVATE (tem) || TREE_PROTECTED (tem)
 		  || TREE_CODE (tem) != FIELD_DECL))
 	    {
-	      have_used_extensions = 1;
 	      stabstr_C ('/');
 	      stabstr_C (DECL_ACCESSIBILITY_CHAR (tem));
 	    }
@@ -1444,7 +1437,6 @@ dbxout_type_fields (tree type)
 		{
 		  tree name = DECL_ASSEMBLER_NAME (tem);
 
-		  have_used_extensions = 1;
 		  stabstr_C (':');
 		  stabstr_I (name);
 		  stabstr_C (';');
@@ -1652,11 +1644,15 @@ dbxout_type (tree type, int full)
   tree tem;
   tree main_variant;
   static int anonymous_type_number = 0;
+  bool vector_type = false;
 
   if (TREE_CODE (type) == VECTOR_TYPE)
-    /* The frontend feeds us a representation for the vector as a struct
-       containing an array.  Pull out the array type.  */
-    type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
+    {
+      /* The frontend feeds us a representation for the vector as a struct
+	 containing an array.  Pull out the array type.  */
+      type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
+      vector_type = true;
+    }
 
   /* If there was an input error and we don't really have a type,
      avoid crashing and write something that is at least valid
@@ -1855,7 +1851,6 @@ dbxout_type (tree type, int full)
 	  if (use_gnu_debug_info_extensions
 	      && TYPE_PRECISION (type) != TYPE_PRECISION (integer_type_node))
 	    {
-	      have_used_extensions = 1;
 	      stabstr_S ("@s");
 	      stabstr_D (TYPE_PRECISION (type));
 	      stabstr_C (';');
@@ -1872,7 +1867,6 @@ dbxout_type (tree type, int full)
 	  if (use_gnu_debug_info_extensions
 	      && TYPE_PRECISION (type) != TYPE_PRECISION (integer_type_node))
 	    {
-	      have_used_extensions = 1;
 	      stabstr_S ("@s");
 	      stabstr_D (TYPE_PRECISION (type));
 	      stabstr_C (';');
@@ -1919,7 +1913,6 @@ dbxout_type (tree type, int full)
     case CHAR_TYPE:
       if (use_gnu_debug_info_extensions)
 	{
-	  have_used_extensions = 1;
 	  stabstr_S ("@s");
 	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
 	  stabstr_S (";-20;");
@@ -1937,7 +1930,6 @@ dbxout_type (tree type, int full)
     case BOOLEAN_TYPE:
       if (use_gnu_debug_info_extensions)
 	{
-	  have_used_extensions = 1;
 	  stabstr_S ("@s");
 	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
 	  stabstr_S (";-16;");
@@ -1983,13 +1975,15 @@ dbxout_type (tree type, int full)
       /* Make arrays of packed bits look like bitstrings for chill.  */
       if (TYPE_PACKED (type) && use_gnu_debug_info_extensions)
 	{
-	  have_used_extensions = 1;
 	  stabstr_S ("@s");
 	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
 	  stabstr_S (";@S;S");
 	  dbxout_type (TYPE_DOMAIN (type), 0);
 	  break;
 	}
+
+      if (use_gnu_debug_info_extensions && vector_type)
+	stabstr_S ("@V;");
 
       /* Output "a" followed by a range type definition
 	 for the index type of the array
@@ -1999,7 +1993,6 @@ dbxout_type (tree type, int full)
 	 different from an array of characters.  */
       if (TYPE_STRING_FLAG (type) && use_gnu_debug_info_extensions)
 	{
-	  have_used_extensions = 1;
 	  stabstr_S ("@S;");
 	}
       tem = TYPE_DOMAIN (type);
@@ -2069,7 +2062,6 @@ dbxout_type (tree type, int full)
 	      {
 		if (BINFO_N_BASE_BINFOS (binfo))
 		  {
-		    have_used_extensions = 1;
 		    stabstr_C ('!');
 		    stabstr_U (BINFO_N_BASE_BINFOS (binfo));
 		    stabstr_C (',');
@@ -2082,7 +2074,6 @@ dbxout_type (tree type, int full)
 
 		if (use_gnu_debug_info_extensions)
 		  {
-		    have_used_extensions = 1;
 		    stabstr_C (BINFO_VIRTUAL_P (child) ? '1' : '0');
 		    stabstr_C (access == access_public_node ? '2' :
 				   access == access_protected_node
@@ -2127,7 +2118,6 @@ dbxout_type (tree type, int full)
       dbxout_type_fields (type);
       if (use_gnu_debug_info_extensions && TYPE_METHODS (type) != NULL_TREE)
 	{
-	  have_used_extensions = 1;
 	  dbxout_type_methods (type);
 	}
 
@@ -2137,7 +2127,6 @@ dbxout_type (tree type, int full)
 	  /* Avoid the ~ if we don't really need it--it confuses dbx.  */
 	  && TYPE_VFIELD (type))
 	{
-	  have_used_extensions = 1;
 
 	  /* We need to write out info about what field this class
 	     uses as its "main" vtable pointer field, because if this
@@ -2168,7 +2157,6 @@ dbxout_type (tree type, int full)
       if (use_gnu_debug_info_extensions
 	  && TYPE_PRECISION (type) != TYPE_PRECISION (integer_type_node))
 	{
-	  have_used_extensions = 1;
 	  stabstr_S ("@s");
 	  stabstr_D (TYPE_PRECISION (type));
 	  stabstr_C (';');
@@ -2204,7 +2192,6 @@ dbxout_type (tree type, int full)
     case METHOD_TYPE:
       if (use_gnu_debug_info_extensions)
 	{
-	  have_used_extensions = 1;
 	  stabstr_C ('#');
 
 	  /* Write the argument types out longhand.  */
@@ -2222,7 +2209,6 @@ dbxout_type (tree type, int full)
     case OFFSET_TYPE:
       if (use_gnu_debug_info_extensions)
 	{
-	  have_used_extensions = 1;
 	  stabstr_C ('@');
 	  dbxout_type (TYPE_OFFSET_BASETYPE (type), 0);
 	  stabstr_C (',');
@@ -2236,7 +2222,6 @@ dbxout_type (tree type, int full)
     case REFERENCE_TYPE:
       if (use_gnu_debug_info_extensions)
 	{
-	  have_used_extensions = 1;
 	  stabstr_C ('&');
 	}
       else
@@ -2512,7 +2497,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 		 || TREE_CODE (type) == UNION_TYPE
 		 || TREE_CODE (type) == QUAL_UNION_TYPE)
 		&& TYPE_NAME (type) == decl
-		&& !(use_gnu_debug_info_extensions && have_used_extensions)
+		&& !use_gnu_debug_info_extensions
 		&& !TREE_ASM_WRITTEN (TYPE_NAME (type))
 		/* Distinguish the implicit typedefs of C++
 		   from explicit ones that might be found in C.  */
@@ -2538,11 +2523,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 
 	    dbxout_begin_complex_stabs ();
 
-	    /* Output leading class/struct qualifiers.
-	       ??? why not set have_used_extensions here ... because
-	       then the test of it below would always be true, I
-	       guess.  But it's not clear to me why we shouldn't do
-	       that always in extended mode.  */
+	    /* Output leading class/struct qualifiers.  */
 	    if (use_gnu_debug_info_extensions)
 	      dbxout_class_name_qualifiers (decl);
 
@@ -2559,7 +2540,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 		   from explicit ones that might be found in C.  */
 		&& DECL_ARTIFICIAL (decl))
 	      {
-		if (use_gnu_debug_info_extensions && have_used_extensions)
+		if (use_gnu_debug_info_extensions)
 		  {
 		    stabstr_C ('T');
 		    TREE_ASM_WRITTEN (TYPE_NAME (type)) = 1;

@@ -418,7 +418,7 @@ maybe_begin_member_template_processing (tree decl)
   ++inline_parm_levels_used;
 }
 
-/* Undo the effects of begin_member_template_processing.  */
+/* Undo the effects of maybe_begin_member_template_processing.  */
 
 void 
 maybe_end_member_template_processing (void)
@@ -12505,10 +12505,7 @@ build_non_dependent_expr (tree expr)
      types.  */
   inner_expr = (TREE_CODE (expr) == ADDR_EXPR ? 
 		TREE_OPERAND (expr, 0) : expr);
-  if (TREE_CODE (inner_expr) == OVERLOAD 
-      || TREE_CODE (inner_expr) == FUNCTION_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR
+  if (is_overloaded_fn (inner_expr)
       || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
   /* There is no need to return a proxy for a variable.  */

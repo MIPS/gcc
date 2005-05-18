@@ -1,3 +1,25 @@
+2005-05-15  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* fixlib.c (load_file_data): Use XRESIZVEC in lieu of xrealloc.
+	* server.c (load_data): Likewise.
+	(run_shell): Use XCNEW (char) in lieu of xcalloc (1, 1).
+	* fixincl.c: #include <sys/wait.h>
+	(run_compiles): Use XCNEWVEC instead of xcalloc.
+	(fix_with_system, start_fixer): Use XNEWVEC instead of xmalloc.
+	* fixfixes.c (FIX_PROC_HEAD, main): Likewise.
+
+2005-05-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* inclhack.def (stdio_stdarg_h, stdio_va_list): Bypass on
+	*-*-solaris2.1[0-9]*, not just *-*-solaris2.1[0-9].
+	* fixincl.x: Regenerate.
+
+2005-05-06  Bruce Korb  <bkorb@gnu.org>
+	Joseph S. Myers <joseph@codesourcery.com>
+
+	* fixinc/inclhack.def: Correct backslashes
+	* fixinc/fixincl.x: regen
+
 2005-04-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* system.h (fopen, fdopen, freopen): Define these to the unlocked

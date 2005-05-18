@@ -84,19 +84,10 @@ struct_ptr_hash (const void *a)
 static void
 record_stmt_eh_region (struct eh_region *region, tree t)
 {
-  struct throw_stmt_node *n;
-  void **slot;
-
   if (!region)
     return;
 
-  n = ggc_alloc (sizeof (*n));
-  n->stmt = t;
-  n->region_nr = get_eh_region_number (region);
-
-  slot = htab_find_slot ((htab_t) get_eh_throw_stmt_table (cfun), n, INSERT);
-  gcc_assert (!*slot);
-  *slot = n;
+  add_stmt_to_eh_region (t, get_eh_region_number (region));
 }
 
 void
@@ -112,9 +103,20 @@ add_stmt_to_eh_region_fn (struct function *ifun, tree t, int num)
   n->stmt = t;
   n->region_nr = num;
 
-  slot = htab_find_slot ((htab_t) get_eh_throw_stmt_table (ifun), n, INSERT);
+  if (!get_eh_throw_stmt_table (ifun))
+    set_eh_throw_stmt_table (ifun, htab_create_ggc (31, struct_ptr_hash,
+						    struct_ptr_eq,
+						    ggc_free));
+
+  slot = htab_find_slot (get_eh_throw_stmt_table (ifun), n, INSERT);
   gcc_assert (!*slot);
   *slot = n;
+  /* ??? For the benefit of calls.c, converting all this to rtl,
+     we need to record the call expression, not just the outer
+     modify statement.  */
+  if (TREE_CODE (t) == MODIFY_EXPR
+      && (t = get_call_expr_in (t)))
+    add_stmt_to_eh_region_fn (ifun, t, num);
 }
 
 void
@@ -129,15 +131,21 @@ remove_stmt_from_eh_region_fn (struct function *ifun, tree t)
   struct throw_stmt_node dummy;
   void **slot;
 
-  if (!(htab_t) get_eh_throw_stmt_table (ifun))
+  if (!get_eh_throw_stmt_table (ifun))
     return false;
 
   dummy.stmt = t;
-  slot = htab_find_slot ((htab_t) get_eh_throw_stmt_table (ifun), &dummy,
+  slot = htab_find_slot (get_eh_throw_stmt_table (ifun), &dummy,
                         NO_INSERT);
   if (slot)
     {
-      htab_clear_slot ((htab_t) get_eh_throw_stmt_table (ifun), slot);
+      htab_clear_slot (get_eh_throw_stmt_table (ifun), slot);
+      /* ??? For the benefit of calls.c, converting all this to rtl,
+	 we need to record the call expression, not just the outer
+	 modify statement.  */
+      if (TREE_CODE (t) == MODIFY_EXPR
+	  && (t = get_call_expr_in (t)))
+	remove_stmt_from_eh_region_fn (ifun, t);
       return true;
     }
   else
@@ -155,11 +163,11 @@ lookup_stmt_eh_region_fn (struct function *ifun, tree t)
 {
   struct throw_stmt_node *p, n;
 
-  if (!(htab_t) get_eh_throw_stmt_table (ifun))
+  if (!get_eh_throw_stmt_table (ifun))
     return -2;
 
   n.stmt = t;
-  p = htab_find ((htab_t) get_eh_throw_stmt_table (ifun), &n);
+  p = htab_find (get_eh_throw_stmt_table (ifun), &n);
 
   return (p ? p->region_nr : -1);
 }
@@ -172,55 +180,6 @@ lookup_stmt_eh_region (tree t)
   if (!cfun)
     return -1;
   return lookup_stmt_eh_region_fn (cfun, t);
-}
-
-
-/* While duplicating the tree for ifun, check if old_tree was mapped
-   to an EH region in ifun.  If yes, create a mapping from new_tree to
-   the corresponding duplicate EH region in cfun.  The duplicate
-   region doesn't exist yet; it will be created later, once this
-   duplicate function tree is complete.  */
-
-void
-duplicate_stmt_eh_region_mapping (struct function *ifun, 
-				  struct function *cfun,
-				  tree old_tree, 
-				  tree new_tree,
-				  bool adjust_number)
-{
-  struct throw_stmt_node *p, old, *new;
-  htab_t cfun_hash, ifun_hash;
-  void **slot;
-  
-  ifun_hash = (htab_t)get_eh_throw_stmt_table (ifun);
-  if (!ifun_hash)
-    return;
-  
-  old.stmt = old_tree;
-  p = (struct throw_stmt_node *)htab_find (ifun_hash, &old);
-  
-  if (p)
-    {
-      cfun_hash = (htab_t)get_eh_throw_stmt_table (cfun);
-      
-      if (!cfun_hash)
-	{
-	  cfun_hash = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq, ggc_free);
-	  set_eh_throw_stmt_table (cfun, (void *)cfun_hash);
-	}
-      
-      /* old_tree was mapped to some EH region; create a similar
-	 mapping for new_tree.  */
-      new = (struct throw_stmt_node *)ggc_alloc (sizeof (*new));
-      new->stmt = new_tree;
-      new->region_nr = p->region_nr;
-      if (adjust_number)
-	new->region_nr += get_eh_last_region_number (cfun) - get_eh_last_region_number (ifun);
-      slot = htab_find_slot (cfun_hash, (void *)new, INSERT);
-      if (*slot)
-	abort ();
-      *slot = (void *)new;
-    }
 }
 
 
@@ -364,7 +323,7 @@ struct leh_tf_state
   size_t goto_queue_active;
 
   /* The set of unique labels seen as entries in the goto queue.  */
-  varray_type dest_array;
+  VEC(tree,heap) *dest_array;
 
   /* A label to be added at the end of the completed transformed
      sequence.  It will be set if may_fallthru was true *at one time*,
@@ -545,18 +504,18 @@ maybe_record_in_goto_queue (struct leh_state *state, tree stmt)
 
 	if (! tf->dest_array)
 	  {
-	    VARRAY_TREE_INIT (tf->dest_array, 10, "dest_array");
-	    VARRAY_PUSH_TREE (tf->dest_array, lab);
+	    tf->dest_array = VEC_alloc (tree, heap, 10);
+	    VEC_quick_push (tree, tf->dest_array, lab);
 	    index = 0;
 	  }
 	else
 	  {
-	    int n = VARRAY_ACTIVE_SIZE (tf->dest_array);
+	    int n = VEC_length (tree, tf->dest_array);
 	    for (index = 0; index < n; ++index)
-	      if (VARRAY_TREE (tf->dest_array, index) == lab)
+	      if (VEC_index (tree, tf->dest_array, index) == lab)
 		break;
 	    if (index == n)
-	      VARRAY_PUSH_TREE (tf->dest_array, lab);
+	      VEC_safe_push (tree, heap, tf->dest_array, lab);
 	  }
       }
       break;
@@ -1040,7 +999,7 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
 	do_goto_redirection (q, finally_label, NULL);
       replace_goto_queue (tf);
 
-      if (VARRAY_TREE (tf->dest_array, 0) == tf->fallthru_label)
+      if (VEC_index (tree, tf->dest_array, 0) == tf->fallthru_label)
 	{
 	  /* Reachable by goto to fallthru label only.  Redirect it
 	     to the new label (already created, sadly), and do not
@@ -1104,10 +1063,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	tree label;
       } *labels;
 
-      if (tf->dest_array)
-	return_index = VARRAY_ACTIVE_SIZE (tf->dest_array);
-      else
-	return_index = 0;
+      return_index = VEC_length (tree, tf->dest_array);
       labels = xcalloc (sizeof (*labels), return_index + 1);
 
       q = tf->goto_queue;
@@ -1196,10 +1152,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   lower_eh_constructs_1 (state, &finally);
 
   /* Prepare for switch statement generation.  */
-  if (tf->dest_array)
-    nlabels = VARRAY_ACTIVE_SIZE (tf->dest_array);
-  else
-    nlabels = 0;
+  nlabels = VEC_length (tree, tf->dest_array);
   return_index = nlabels;
   eh_index = return_index + tf->may_return;
   fallthru_index = eh_index + tf->may_throw;
@@ -1433,10 +1386,7 @@ lower_try_finally (struct leh_state *state, tree *tp)
      how many destinations are reached by the finally block.  Use this to
      determine how we process the finally block itself.  */
 
-  if (this_tf.dest_array)
-    ndests = VARRAY_ACTIVE_SIZE (this_tf.dest_array);
-  else
-    ndests = 0;
+  ndests = VEC_length (tree, this_tf.dest_array);
   ndests += this_tf.may_fallthru;
   ndests += this_tf.may_return;
   ndests += this_tf.may_throw;
@@ -1468,6 +1418,7 @@ lower_try_finally (struct leh_state *state, tree *tp)
       append_to_statement_list (x, tp);
     }
 
+  VEC_free (tree, heap, this_tf.dest_array);
   if (this_tf.goto_queue)
     free (this_tf.goto_queue);
 }
@@ -1662,17 +1613,8 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
       /* Look for things that can throw exceptions, and record them.  */
       if (state->cur_region && tree_could_throw_p (t))
 	{
-	  tree op;
-
 	  record_stmt_eh_region (state->cur_region, t);
 	  note_eh_region_may_contain_throw (state->cur_region);
-
-	  /* ??? For the benefit of calls.c, converting all this to rtl,
-	     we need to record the call expression, not just the outer
-	     modify statement.  */
-	  op = get_call_expr_in (t);
-	  if (op)
-	    record_stmt_eh_region (state->cur_region, op);
 	}
       break;
 
@@ -1726,16 +1668,13 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
     }
 }
 
-void
+static void
 lower_eh_constructs (void)
 {
   struct leh_state null_state;
   tree *tp = &DECL_SAVED_TREE (current_function_decl);
 
   finally_tree = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
-  set_eh_throw_stmt_table (cfun, (void *) htab_create_ggc (31, struct_ptr_hash,
-							   struct_ptr_eq,
-							   ggc_free));
 
   collect_finally_tree (*tp, NULL);
 
@@ -1753,7 +1692,7 @@ struct tree_opt_pass pass_lower_eh =
   NULL,					/* gate */
   NULL, NULL,				/* IPA analysis */
   lower_eh_constructs,			/* execute */
-  NULL, NULL,				/* IPA modification */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1959,7 +1898,6 @@ tree_could_trap_p (tree expr)
 
       return !in_array_bounds_p (expr);
 
-    case MEM_REF:
     case INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:
@@ -2086,19 +2024,44 @@ tree_can_throw_internal (tree stmt)
 bool
 tree_can_throw_external (tree stmt)
 {
-  int region_nr = lookup_stmt_eh_region (stmt);
+  int region_nr;
+
+  if (TREE_CODE (stmt) == RESX_EXPR)
+    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+  else
+    region_nr = lookup_stmt_eh_region (stmt);
   if (region_nr < 0)
     return tree_could_throw_p (stmt);
   else
     return can_throw_external_1 (region_nr);
 }
 
-bool
-maybe_clean_eh_stmt (tree stmt)
+/* Given a statement OLD_STMT and a new statement NEW_STMT that has replaced
+   OLD_STMT in the function, remove OLD_STMT from the EH table and put NEW_STMT
+   in the table if it should be in there.  Return TRUE if a replacement was
+   done that my require an EH edge purge.  */
+
+bool 
+maybe_clean_or_replace_eh_stmt (tree old_stmt, tree new_stmt) 
 {
-  if (!tree_could_throw_p (stmt))
-    if (remove_stmt_from_eh_region (stmt))
-      return true;
+  int region_nr = lookup_stmt_eh_region (old_stmt);
+
+  if (region_nr >= 0)
+    {
+      bool new_stmt_could_throw = tree_could_throw_p (new_stmt);
+
+      if (new_stmt == old_stmt && new_stmt_could_throw)
+	return false;
+
+      remove_stmt_from_eh_region (old_stmt);
+      if (new_stmt_could_throw)
+	{
+	  add_stmt_to_eh_region (new_stmt, region_nr);
+	  return false;
+	}
+      else
+	return true;
+    }
+
   return false;
 }
-

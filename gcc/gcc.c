@@ -328,7 +328,6 @@ static int default_arg (const char *, int);
 static void set_multilib_dir (void);
 static void print_multilib_info (void);
 static void perror_with_name (const char *);
-static void pfatal_pexecute (const char *, const char *) ATTRIBUTE_NORETURN;
 static void notice (const char *, ...) ATTRIBUTE_PRINTF_1;
 static void display_help (void);
 static void add_preprocessor_option (const char *, int);
@@ -460,6 +459,8 @@ or with constant text in a single argument.
  %l     process LINK_SPEC as a spec.
  %L     process LIB_SPEC as a spec.
  %G     process LIBGCC_SPEC as a spec.
+ %R     Output the concatenation of target_system_root and
+        target_sysroot_suffix.
  %S     process STARTFILE_SPEC as a spec.  A capital S is actually used here.
  %E     process ENDFILE_SPEC as a spec.  A capital E is actually used here.
  %C     process CPP_SPEC as a spec.
@@ -701,6 +702,10 @@ proper position among the other output files.  */
 # define STARTFILE_PREFIX_SPEC ""
 #endif
 
+#ifndef SYSROOT_SPEC
+# define SYSROOT_SPEC "--sysroot=%R"
+#endif
+
 #ifndef SYSROOT_SUFFIX_SPEC
 # define SYSROOT_SUFFIX_SPEC ""
 #endif
@@ -728,6 +733,7 @@ static const char *linker_name_spec = LINKER_NAME;
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
+static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
 
@@ -1532,6 +1538,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix_1",	&md_startfile_prefix_1),
   INIT_STATIC_SPEC ("startfile_prefix_spec",	&startfile_prefix_spec),
+  INIT_STATIC_SPEC ("sysroot_spec",             &sysroot_spec),
   INIT_STATIC_SPEC ("sysroot_suffix_spec",	&sysroot_suffix_spec),
   INIT_STATIC_SPEC ("sysroot_hdrs_suffix_spec",	&sysroot_hdrs_suffix_spec),
 };
@@ -3934,16 +3941,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  infiles[n_infiles].language = "*";
 	  infiles[n_infiles++].name = argv[++i];
 	}
+      /* Xassembler and Xpreprocessor were already handled in the first argv
+	 scan, so all we need to do here is ignore them and their argument.  */
       else if (strcmp (argv[i], "-Xassembler") == 0)
-	{
-	  infiles[n_infiles].language = "*";
-	  infiles[n_infiles++].name = argv[++i];
-	}
+	i++;
       else if (strcmp (argv[i], "-Xpreprocessor") == 0)
-	{
-	  infiles[n_infiles].language = "*";
-	  infiles[n_infiles++].name = argv[++i];
-	}
+	i++;
       else if (strcmp (argv[i], "-l") == 0)
 	{ /* POSIX allows separation of -l and the lib arg;
 	     canonicalize by concatenating -l with its arg */
@@ -5996,9 +5999,7 @@ main (int argc, const char **argv)
 #endif
 
   /* Unlock the stdio streams.  */
-  unlock_stream (stdin);
-  unlock_stream (stdout);
-  unlock_stream (stderr);
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 
@@ -6149,6 +6150,19 @@ main (int argc, const char **argv)
       else if (argbuf_index == 1)
         target_sysroot_suffix = xstrdup (argbuf[argbuf_index -1]);
     }
+
+#ifdef HAVE_LD_SYSROOT
+  /* Pass the --sysroot option to the linker, if it supports that.  If
+     there is a sysroot_suffix_spec, it has already been processed by
+     this point, so target_system_root really is the system root we
+     should be using.  */
+  if (target_system_root)
+    {
+      obstack_grow (&obstack, "%(sysroot_spec) ", strlen ("%(sysroot_spec) "));
+      obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+      set_spec ("link", obstack_finish (&obstack));
+    }
+#endif
 
   /* Process sysroot_hdrs_suffix_spec.  */
   if (*sysroot_hdrs_suffix_spec != 0
@@ -6689,24 +6703,6 @@ static void
 perror_with_name (const char *name)
 {
   error ("%s: %s", name, xstrerror (errno));
-}
-
-static void
-pfatal_pexecute (const char *errmsg_fmt, const char *errmsg_arg)
-{
-  if (errmsg_arg)
-    {
-      int save_errno = errno;
-
-      /* Space for trailing '\0' is in %s.  */
-      char *msg = xmalloc (strlen (errmsg_fmt) + strlen (errmsg_arg));
-      sprintf (msg, errmsg_fmt, errmsg_arg);
-      errmsg_fmt = msg;
-
-      errno = save_errno;
-    }
-
-  pfatal_with_name (errmsg_fmt);
 }
 
 /* Output an error message and exit.  */

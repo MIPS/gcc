@@ -1,6 +1,6 @@
 /* gen-protos.c - massages a list of prototypes, for use by fixproto.
    Copyright (C) 1993, 1994, 1995, 1996, 1998,
-   1999, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -140,9 +140,7 @@ main (int argc ATTRIBUTE_UNUSED, char **argv)
   progname = &argv[0][i];
 
   /* Unlock the stdio streams.  */
-  unlock_stream (stdin);
-  unlock_stream (stdout);
-  unlock_stream (stderr);
+  unlock_std_streams ();
 
   INIT_SSTRING (&linebuf);
 

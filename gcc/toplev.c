@@ -1360,7 +1360,7 @@ print_switch_values (FILE *file, int pos, int max,
 
   for (j = 0; j < cl_options_count; j++)
     if ((cl_options[j].flags & CL_REPORT)
-	&& option_enabled (&cl_options[j]) > 0)
+	&& option_enabled (j) > 0)
       pos = print_single_switch (file, pos, max, indent, sep, term,
 				 "", cl_options[j].opt_text);
 
@@ -1619,9 +1619,7 @@ general_init (const char *argv0)
   hex_init ();
 
   /* Unlock the stdio streams.  */
-  unlock_stream (stdin);
-  unlock_stream (stdout);
-  unlock_stream (stderr);
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 

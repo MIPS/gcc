@@ -471,6 +471,9 @@ cgraph_finalize_function (tree decl, bool nested)
     do_warn_unused_parameter (decl);
 }
 
+/* Used only while constructing the callgraph.  */
+static basic_block current_basic_block;
+
 void
 cgraph_lower_function (struct cgraph_node *node)
 {
@@ -479,9 +482,6 @@ cgraph_lower_function (struct cgraph_node *node)
   tree_lowering_passes (node->decl);
   node->lowered = true;
 }
-
-/* Used only while constructing the callgraph.  */
-static basic_block current_basic_block;
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
 static tree
@@ -578,20 +578,17 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
      the tree ignoring duplicates.  */
   visited_nodes = pointer_set_create ();
   current_basic_block = NULL;
-
   if (TREE_CODE (body) == FUNCTION_DECL)
     {
       struct function *this_cfun = DECL_STRUCT_FUNCTION (body);
-      basic_block this_block;
+      block_stmt_iterator bsi;
       tree step;
 
       /* Reach the trees by walking over the CFG, and note the 
 	 enclosing basic-blocks in the call edges.  */
-      FOR_EACH_BB_FN (this_block, this_cfun)
-	{
-	  current_basic_block = this_block;
-	  walk_tree (&this_block->stmt_list, record_call_1, node, visited_nodes);
-	}
+      FOR_EACH_BB_FN (current_basic_block, this_cfun)
+        for (bsi = bsi_start (current_basic_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	  walk_tree (bsi_stmt_ptr (bsi), record_call_1, node, visited_nodes);
       current_basic_block = NULL;
 
       /* Walk over any private statics that may take addresses of functions.  */
@@ -675,9 +672,9 @@ verify_cgraph_node (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
   struct cgraph_node *main_clone;
-  tree decl = node->decl;
-  struct function *this_cfun = DECL_STRUCT_FUNCTION (decl);
+  struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
   basic_block this_block;
+  block_stmt_iterator bsi;
 
   timevar_push (TV_CGRAPH_VERIFY);
   error_found = false;
@@ -737,7 +734,7 @@ verify_cgraph_node (struct cgraph_node *node)
       && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl)
       && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
-      if (this_cfun->cfg->x_entry_block_ptr)
+      if (this_cfun->cfg)
 	{
 	  /* The nodes we're interested in are never shared, so walk
 	     the tree ignoring duplicates.  */
@@ -745,9 +742,8 @@ verify_cgraph_node (struct cgraph_node *node)
 	  /* Reach the trees by walking over the CFG, and note the
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
-	    {
-	      walk_tree (&this_block->stmt_list, verify_cgraph_node_1, node, visited_nodes);
-	    }
+	    for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	      walk_tree (bsi_stmt_ptr (bsi), verify_cgraph_node_1, node, visited_nodes);
 	  pointer_set_destroy (visited_nodes);
 	  visited_nodes = NULL;
 	}

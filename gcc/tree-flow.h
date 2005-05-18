@@ -122,10 +122,6 @@ struct tree_ann_common_d GTY(())
   /* Annotation type.  */
   enum tree_ann_type type;
 
- /* Auxiliary info specific to a pass.  At all times, this
-    should either point to valid data or be NULL.  */
-  PTR GTY ((skip (""))) aux;
-
   /* The value handle for this expression.  Used by GVN-PRE.  */
   tree GTY((skip)) value_handle;
 };
@@ -270,9 +266,9 @@ struct var_ann_d GTY(())
 
 typedef struct immediate_use_iterator_d
 {
-  ssa_imm_use_t *imm_use;
-  ssa_imm_use_t *end_p;
-  ssa_imm_use_t iter_node;
+  ssa_use_operand_t *imm_use;
+  ssa_use_operand_t *end_p;
+  ssa_use_operand_t iter_node;
 } imm_use_iterator;
 
 
@@ -321,7 +317,7 @@ struct stmt_ann_d GTY(())
   basic_block GTY ((skip (""))) bb;
 
   /* Operand cache for stmt.  */
-  struct stmt_operands_d operands;
+  struct stmt_operands_d GTY ((skip (""))) operands;
 
   /* Set of variables that have had their address taken in the statement.  */
   bitmap addresses_taken;
@@ -330,6 +326,10 @@ struct stmt_ann_d GTY(())
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
   unsigned int uid;
+
+ /* Auxiliary info specific to a pass.  At all times, this
+    should either point to valid data or be NULL.  */
+  PTR GTY ((skip (""))) aux;
 
   /* Linked list of histograms for value-based profiling.  This is really a
      struct histogram_value*.  We use void* to avoid having to export that
@@ -368,10 +368,6 @@ static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
 static inline bool is_label_stmt (tree);
-static inline v_may_def_optype get_v_may_def_ops (stmt_ann_t);
-static inline vuse_optype get_vuse_ops (stmt_ann_t);
-static inline use_optype get_use_ops (stmt_ann_t);
-static inline def_optype get_def_ops (stmt_ann_t);
 static inline bitmap addresses_taken (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
@@ -416,16 +412,16 @@ static inline void set_phi_nodes (basic_block, tree);
 			      Global declarations
 ---------------------------------------------------------------------------*/
 /* Array of all variables referenced in the function.  */
-extern GTY(()) varray_type referenced_vars;
+extern GTY(()) VEC(tree,gc) *referenced_vars;
 
-#define num_referenced_vars VARRAY_ACTIVE_SIZE (referenced_vars)
-#define referenced_var(i) VARRAY_TREE (referenced_vars, i)
+#define num_referenced_vars VEC_length (tree, referenced_vars)
+#define referenced_var(i) VEC_index (tree, referenced_vars, i)
 
 /* Array of all SSA_NAMEs used in the function.  */
-extern GTY(()) varray_type ssa_names;
+extern GTY(()) VEC(tree,gc) *ssa_names;
 
-#define num_ssa_names VARRAY_ACTIVE_SIZE (ssa_names)
-#define ssa_name(i) VARRAY_TREE (ssa_names, i)
+#define num_ssa_names (VEC_length (tree, ssa_names))
+#define ssa_name(i) (VEC_index (tree, ssa_names, (i)))
 
 /* Artificial variable used to model the effects of function calls.  */
 extern GTY(()) tree global_var;
@@ -557,8 +553,8 @@ extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree);
 extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
-extern void fold_cond_expr_cond (void);
 extern void init_empty_tree_cfg (void);
+extern void fold_cond_expr_cond (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -712,7 +708,7 @@ bool empty_block_p (basic_block);
 void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
-void tree_unroll_loops_completely (struct loops *);
+void tree_unroll_loops_completely (struct loops *, bool);
 void tree_ssa_iv_optimize (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
@@ -770,7 +766,7 @@ extern bool tree_can_throw_external (tree);
 extern int lookup_stmt_eh_region (tree);
 extern void add_stmt_to_eh_region (tree, int);
 extern bool remove_stmt_from_eh_region (tree);
-extern bool maybe_clean_eh_stmt (tree);
+extern bool maybe_clean_or_replace_eh_stmt (tree, tree);
 
 /* In tree-ssa-pre.c  */
 void add_to_value (tree, tree);
@@ -781,10 +777,10 @@ void print_value_expressions (FILE *, tree);
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
 tree get_value_handle (tree);
-hashval_t vn_compute (tree, hashval_t, vuse_optype);
-tree vn_lookup_or_add (tree, vuse_optype);
-void vn_add (tree, tree, vuse_optype);
-tree vn_lookup (tree, vuse_optype);
+hashval_t vn_compute (tree, hashval_t, tree);
+tree vn_lookup_or_add (tree, tree);
+void vn_add (tree, tree, tree);
+tree vn_lookup (tree, tree);
 void vn_init (void);
 void vn_delete (void);
 

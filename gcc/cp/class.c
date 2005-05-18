@@ -80,7 +80,7 @@ typedef struct vtbl_init_data_s
   tree vbase;
   /* The functions in vbase for which we have already provided vcall
      offsets.  */
-  varray_type fns;
+  VEC(tree,gc) *fns;
   /* The vtable index of the next vcall or vbase offset.  */
   tree index;
   /* Nonzero if we are building the initializer for the primary
@@ -104,7 +104,7 @@ static class_stack_node_t current_class_stack;
 
 /* An array of all local classes present in this translation unit, in
    declaration order.  */
-varray_type local_classes;
+VEC(tree,gc) *local_classes;
 
 static tree get_vfield_name (tree);
 static void finish_struct_anon (tree);
@@ -5324,7 +5324,7 @@ init_class_processing (void)
   current_class_stack_size = 10;
   current_class_stack 
     = xmalloc (current_class_stack_size * sizeof (struct class_stack_node));
-  VARRAY_TREE_INIT (local_classes, 8, "local_classes");
+  local_classes = VEC_alloc (tree, gc, 8);
 
   ridpointers[(int) RID_PUBLIC] = access_public_node;
   ridpointers[(int) RID_PRIVATE] = access_private_node;
@@ -5523,7 +5523,7 @@ pop_nested_class (void)
 int
 current_lang_depth (void)
 {
-  return VARRAY_ACTIVE_SIZE (current_lang_base);
+  return VEC_length (tree, current_lang_base);
 }
 
 /* Set global variables CURRENT_LANG_NAME to appropriate value
@@ -5532,7 +5532,7 @@ current_lang_depth (void)
 void
 push_lang_context (tree name)
 {
-  VARRAY_PUSH_TREE (current_lang_base, current_lang_name);
+  VEC_safe_push (tree, gc, current_lang_base, current_lang_name);
 
   if (name == lang_name_cplusplus)
     {
@@ -5567,8 +5567,7 @@ push_lang_context (tree name)
 void
 pop_lang_context (void)
 {
-  current_lang_name = VARRAY_TOP_TREE (current_lang_base);
-  VARRAY_POP (current_lang_base);
+  current_lang_name = VEC_pop (tree, current_lang_base);
 }
 
 /* Type instantiation routines.  */
@@ -7151,7 +7150,7 @@ build_vtbl_initializer (tree binfo,
   /* Create an array for keeping track of the functions we've
      processed.  When we see multiple functions with the same
      signature, we share the vcall offsets.  */
-  VARRAY_TREE_INIT (vid.fns, 32, "fns");
+  vid.fns = VEC_alloc (tree, gc, 32);
   /* Add the vcall and vbase offset entries.  */
   build_vcall_and_vbase_vtbl_entries (binfo, &vid);
   
@@ -7576,16 +7575,14 @@ add_vcall_offset (tree orig_fn, tree binfo, vtbl_init_data *vid)
 {
   size_t i;
   tree vcall_offset;
+  tree derived_entry;
 
   /* If there is already an entry for a function with the same
      signature as FN, then we do not need a second vcall offset.
      Check the list of functions already present in the derived
      class vtable.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (vid->fns); ++i) 
+  for (i = 0; VEC_iterate (tree, vid->fns, i, derived_entry); ++i) 
     {
-      tree derived_entry;
-
-      derived_entry = VARRAY_TREE (vid->fns, i);
       if (same_signature_p (derived_entry, orig_fn)
 	  /* We only use one vcall offset for virtual destructors,
 	     even though there are two virtual table entries.  */
@@ -7612,7 +7609,7 @@ add_vcall_offset (tree orig_fn, tree binfo, vtbl_init_data *vid)
 			   ssize_int (TARGET_VTABLE_DATA_ENTRY_DISTANCE));
 
   /* Keep track of this function.  */
-  VARRAY_PUSH_TREE (vid->fns, orig_fn);
+  VEC_safe_push (tree, gc, vid->fns, orig_fn);
 
   if (vid->generate_vcall_entries)
     {

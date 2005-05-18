@@ -1761,30 +1761,6 @@ shift_return_value (enum machine_mode mode, bool left_p, rtx value)
   return true;
 }
 
-/* Remove all REG_EQUIV notes found in the insn chain.  */
-
-static void
-purge_reg_equiv_notes (void)
-{
-  rtx insn;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      while (1)
-	{
-	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
-	  if (note)
-	    {
-	      /* Remove the note and keep looking at the notes for
-		 this insn.  */
-	      remove_note (insn, note);
-	      continue;
-	    }
-	  break;
-	}
-    }
-}
-
 /* Generate all the code for a function call
    and return an rtx for its value.
    Store the value in TARGET (specified as an rtx) if convenient.
@@ -1929,8 +1905,8 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
-  if (warn_aggregate_return && AGGREGATE_TYPE_P (TREE_TYPE (exp)))
-    warning (0, "function call has aggregate value");
+  if (AGGREGATE_TYPE_P (TREE_TYPE (exp)))
+    warning (OPT_Waggregate_return, "function call has aggregate value");
 
   /* If the result of a pure or const function call is ignored (or void),
      and none of its arguments are volatile, we can avoid expanding the
@@ -2192,8 +2168,11 @@ expand_call (tree exp, rtx target, int ignore)
          the argument areas are shared.  */
       || (fndecl && decl_function_context (fndecl) == current_function_decl)
       /* If this function requires more stack slots than the current
-	 function, we cannot change it into a sibling call.  */
-      || args_size.constant > current_function_args_size
+	 function, we cannot change it into a sibling call.
+	 current_function_pretend_args_size is not part of the
+	 stack allocated by our caller.  */
+      || args_size.constant > (current_function_args_size
+			       - current_function_pretend_args_size)
       /* If the callee pops its own arguments, then it must pop exactly
 	 the same number of arguments as the current function.  */
       || (RETURN_POPS_ARGS (fndecl, funtype, args_size.constant)
@@ -3042,16 +3021,40 @@ expand_call (tree exp, rtx target, int ignore)
    this function's incoming arguments.
 
    At the start of RTL generation we know the only REG_EQUIV notes
-   in the rtl chain are those for incoming arguments, so we can safely
-   flush any REG_EQUIV note.
+   in the rtl chain are those for incoming arguments, so we can look
+   for REG_EQUIV notes between the start of the function and the
+   NOTE_INSN_FUNCTION_BEG.
 
    This is (slight) overkill.  We could keep track of the highest
    argument we clobber and be more selective in removing notes, but it
    does not seem to be worth the effort.  */
+
 void
 fixup_tail_calls (void)
 {
-  purge_reg_equiv_notes ();
+  rtx insn;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      /* There are never REG_EQUIV notes for the incoming arguments
+	 after the NOTE_INSN_FUNCTION_BEG note, so stop if we see it.  */
+      if (NOTE_P (insn)
+	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
+	break;
+
+      while (1)
+	{
+	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
+	  if (note)
+	    {
+	      /* Remove the note and keep looking at the notes for
+		 this insn.  */
+	      remove_note (insn, note);
+	      continue;
+	    }
+	  break;
+	}
+    }
 }
 
 /* Traverse an argument list in VALUES and expand all complex

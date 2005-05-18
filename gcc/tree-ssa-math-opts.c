@@ -149,7 +149,9 @@ struct tree_opt_pass pass_cse_reciprocals =
 {
   "recip",				/* name */
   gate_cse_reciprocals,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_cse_reciprocals,		/* execute */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

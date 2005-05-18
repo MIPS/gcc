@@ -1076,13 +1076,21 @@ largest value that @code{BITS_PER_WORD} can have at run-time.
 @end defmac
 
 @defmac UNITS_PER_WORD
-Number of storage units in a word; normally 4.
+Number of storage units in a word; normally the size of a general-purpose
+register, a power of two from 1 or 8.
 @end defmac
 
 @defmac MIN_UNITS_PER_WORD
 Minimum number of units in a word.  If this is undefined, the default is
 @code{UNITS_PER_WORD}.  Otherwise, it is the constant value that is the
 smallest value that @code{UNITS_PER_WORD} can have at run-time.
+@end defmac
+
+@defmac UNITS_PER_SIMD_WORD
+Number of units in the vectors that the vectorizer can produce.
+The default is equal to @code{UNITS_PER_WORD}, because the vectorizer
+can do some transformations even in absence of specialized @acronym{SIMD}
+hardware.
 @end defmac
 
 @defmac POINTER_SIZE
@@ -6011,6 +6019,22 @@ finalization code.  If not defined, GCC will assume such a section does
 not exist.
 @end defmac
 
+@defmac INIT_ARRAY_SECTION_ASM_OP
+If defined, a C expression whose value is a string, including spacing,
+containing the assembler operation to identify the following data as
+part of the @code{.init_array} (or equivalent) section.  If not
+defined, GCC will assume such a section does not exist.  Do not define
+both this macro and @code{INIT_SECTION_ASM_OP}.
+@end defmac
+ 
+@defmac FINI_ARRAY_SECTION_ASM_OP
+If defined, a C expression whose value is a string, including spacing,
+containing the assembler operation to identify the following data as
+part of the @code{.fini_array} (or equivalent) section.  If not
+defined, GCC will assume such a section does not exist.  Do not define
+both this macro and @code{FINI_SECTION_ASM_OP}.
+@end defmac
+
 @defmac CRT_CALL_STATIC_FUNCTION (@var{section_op}, @var{function})
 If defined, an ASM statement that switches to a different section
 via @var{section_op}, calls @var{function}, and switches back to
@@ -8735,6 +8759,12 @@ classes whose virtual table will be emitted in only one translation
 unit will not be COMDAT.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CXX_USE_AEABI_ATEXIT (void)
+This hook returns true if @code{__aeabi_atexit} (as defined by the ARM EABI)
+should be used to register static destructors when @option{-fuse-cxa-atexit}
+is in effect.  The default is to return false to use @code{__cxa_atexit}.
+@end deftypefn
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous
@@ -9457,6 +9487,18 @@ convenient, and have mode @var{mode} if that is convenient.
 @var{exp}'s operands.  @var{ignore} is nonzero if the value is to be
 ignored.  This function should return the result of the call to the
 built-in function.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_RESOLVE_OVERLOADED_BUILTIN (tree @var{fndecl}, tree @var{arglist})
+
+Select a replacement for a machine specific built-in function that
+was set up by @samp{TARGET_INIT_BUILTINS}.  This is done
+@emph{before} regular type checking, and so allows the target to
+implement a crude form of function overloading.  @var{fndecl} is the
+declaration of the built-in function.  @var{arglist} is the list of
+arguments passed to the built-in function.  The result is a
+complete expression that implements the operation, usually
+another @code{CALL_EXPR}.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{fndecl}, tree @var{arglist}, bool @var{ignore})

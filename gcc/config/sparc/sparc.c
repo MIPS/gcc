@@ -318,8 +318,7 @@ static int set_extends (rtx);
 static void emit_pic_helper (void);
 static void load_pic_register (bool);
 static int save_or_restore_regs (int, int, rtx, int, int);
-static void emit_save_regs (void);
-static void emit_restore_regs (void);
+static void emit_save_or_restore_regs (int);
 static void sparc_asm_function_prologue (FILE *, HOST_WIDE_INT);
 static void sparc_asm_function_epilogue (FILE *, HOST_WIDE_INT);
 #ifdef OBJECT_FORMAT_ELF
@@ -818,12 +817,8 @@ fp_sethi_p (rtx op)
       long i;
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      if (REAL_VALUES_EQUAL (r, dconst0) &&
-	  ! REAL_VALUE_MINUS_ZERO (r))
-	return 0;
       REAL_VALUE_TO_TARGET_SINGLE (r, i);
-      if (SPARC_SETHI_P (i))
-	return 1;
+      return !SPARC_SIMM13_P (i) && SPARC_SETHI_P (i);
     }
 
   return 0;
@@ -842,12 +837,8 @@ fp_mov_p (rtx op)
       long i;
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      if (REAL_VALUES_EQUAL (r, dconst0) &&
-	  ! REAL_VALUE_MINUS_ZERO (r))
-	return 0;
       REAL_VALUE_TO_TARGET_SINGLE (r, i);
-      if (SPARC_SIMM13_P (i))
-	return 1;
+      return SPARC_SIMM13_P (i);
     }
 
   return 0;
@@ -869,13 +860,8 @@ fp_high_losum_p (rtx op)
       long i;
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      if (REAL_VALUES_EQUAL (r, dconst0) &&
-	  ! REAL_VALUE_MINUS_ZERO (r))
-	return 0;
       REAL_VALUE_TO_TARGET_SINGLE (r, i);
-      if (! SPARC_SETHI_P (i)
-          && ! SPARC_SIMM13_P (i))
-	return 1;
+      return !SPARC_SIMM13_P (i) && !SPARC_SETHI_P (i);
     }
 
   return 0;
@@ -1145,7 +1131,7 @@ sparc_emit_set_const64 (rtx op0 ATTRIBUTE_UNUSED, rtx op1 ATTRIBUTE_UNUSED)
 /* These avoid problems when cross compiling.  If we do not
    go through all this hair then the optimizer will see
    invalid REG_EQUAL notes or in some cases none at all.  */
-static void sparc_emit_set_safe_HIGH64 (rtx, HOST_WIDE_INT);
+static rtx gen_safe_HIGH64 (rtx, HOST_WIDE_INT);
 static rtx gen_safe_SET64 (rtx, HOST_WIDE_INT);
 static rtx gen_safe_OR64 (rtx, HOST_WIDE_INT);
 static rtx gen_safe_XOR64 (rtx, HOST_WIDE_INT);
@@ -1155,10 +1141,10 @@ static rtx gen_safe_XOR64 (rtx, HOST_WIDE_INT);
    Unfortunately this leads to many missed optimizations
    during CSE.  We mask out the non-HIGH bits, and matches
    a plain movdi, to alleviate this problem.  */
-static void
-sparc_emit_set_safe_HIGH64 (rtx dest, HOST_WIDE_INT val)
+static rtx
+gen_safe_HIGH64 (rtx dest, HOST_WIDE_INT val)
 {
-  emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (val & ~(HOST_WIDE_INT)0x3ff)));
+  return gen_rtx_SET (VOIDmode, dest, GEN_INT (val & ~(HOST_WIDE_INT)0x3ff));
 }
 
 static rtx
@@ -1201,7 +1187,7 @@ sparc_emit_set_const64_quick1 (rtx op0, rtx temp,
   else
     high_bits = low_bits;
 
-  sparc_emit_set_safe_HIGH64 (temp, high_bits);
+  emit_insn (gen_safe_HIGH64 (temp, high_bits));
   if (!is_neg)
     {
       emit_insn (gen_rtx_SET (VOIDmode, op0,
@@ -1240,7 +1226,7 @@ sparc_emit_set_const64_quick2 (rtx op0, rtx temp,
 
   if ((high_bits & 0xfffffc00) != 0)
     {
-      sparc_emit_set_safe_HIGH64 (temp, high_bits);
+      emit_insn (gen_safe_HIGH64 (temp, high_bits));
       if ((high_bits & ~0xfffffc00) != 0)
 	emit_insn (gen_rtx_SET (VOIDmode, op0,
 				gen_safe_OR64 (temp, (high_bits & 0x3ff))));
@@ -1284,7 +1270,7 @@ sparc_emit_set_const64_longway (rtx op0, rtx temp,
 
   if ((high_bits & 0xfffffc00) != 0)
     {
-      sparc_emit_set_safe_HIGH64 (temp, high_bits);
+      emit_insn (gen_safe_HIGH64 (temp, high_bits));
       if ((high_bits & ~0xfffffc00) != 0)
 	emit_insn (gen_rtx_SET (VOIDmode,
 				sub_temp,
@@ -1308,7 +1294,7 @@ sparc_emit_set_const64_longway (rtx op0, rtx temp,
 			      gen_rtx_ASHIFT (DImode, sub_temp,
 					      GEN_INT (32))));
 
-      sparc_emit_set_safe_HIGH64 (temp2, low_bits);
+      emit_insn (gen_safe_HIGH64 (temp2, low_bits));
       if ((low_bits & ~0xfffffc00) != 0)
 	{
 	  emit_insn (gen_rtx_SET (VOIDmode, temp3,
@@ -1597,7 +1583,7 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
       gcc_assert (SPARC_SETHI_P (focus_bits));
       gcc_assert (lowest_bit_set != 10);
 
-      sparc_emit_set_safe_HIGH64 (temp, focus_bits);
+      emit_insn (gen_safe_HIGH64 (temp, focus_bits));
 
       /* If lowest_bit_set == 10 then a sethi alone could have done it.  */
       if (lowest_bit_set < 10)
@@ -3206,7 +3192,8 @@ mem_min_alignment (rtx mem, int desired)
     return 0;
 
   /* Obviously...  */
-  if (MEM_ALIGN (mem) / BITS_PER_UNIT >= (unsigned)desired)
+  if (!TARGET_UNALIGNED_DOUBLES
+      && MEM_ALIGN (mem) / BITS_PER_UNIT >= (unsigned)desired)
     return 1;
 
   /* ??? The rest of the function predates MEM_ALIGN so
@@ -3520,10 +3507,9 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function_p)
 
   /* Make sure nothing can clobber our register windows.
      If a SAVE must be done, or there is a stack-local variable,
-     the register window area must be allocated.
-     ??? For v8 we apparently need an additional 8 bytes of reserved space.  */
+     the register window area must be allocated.  */
   if (! leaf_function_p || size > 0)
-    actual_fsize += (16 * UNITS_PER_WORD) + (TARGET_ARCH64 ? 0 : 8);
+    actual_fsize += FIRST_PARM_OFFSET (current_function_decl);
 
   return SPARC_STACK_ALIGN (actual_fsize);
 }
@@ -3635,14 +3621,14 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
 /* Emit code to save call-saved registers.  */
 
 static void
-emit_save_regs (void)
+emit_save_or_restore_regs (int action)
 {
   HOST_WIDE_INT offset;
   rtx base;
 
   offset = frame_base_offset - apparent_fsize;
 
-  if (offset < -4096 || offset + num_gfregs * 4 > 4096)
+  if (offset < -4096 || offset + num_gfregs * 4 > 4095)
     {
       /* ??? This might be optimized a little as %g1 might already have a
 	 value close enough that a single add insn will do.  */
@@ -3660,34 +3646,8 @@ emit_save_regs (void)
   else
     base = frame_base_reg;
 
-  offset = save_or_restore_regs (0, 8, base, offset, SORR_SAVE);
-  save_or_restore_regs (32, TARGET_V9 ? 96 : 64, base, offset, SORR_SAVE);
-}
-
-/* Emit code to restore call-saved registers.  */
-
-static void
-emit_restore_regs (void)
-{
-  HOST_WIDE_INT offset;
-  rtx base;
-
-  offset = frame_base_offset - apparent_fsize;
-
-  if (offset < -4096 || offset + num_gfregs * 4 > 4096 - 8 /*double*/)
-    {
-      base = gen_rtx_REG (Pmode, 1);
-      emit_move_insn (base, GEN_INT (offset));
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      base,
-			      gen_rtx_PLUS (Pmode, frame_base_reg, base)));
-      offset = 0;
-    }
-  else
-    base = frame_base_reg;
-
-  offset = save_or_restore_regs (0, 8, base, offset, SORR_RESTORE);
-  save_or_restore_regs (32, TARGET_V9 ? 96 : 64, base, offset, SORR_RESTORE);
+  offset = save_or_restore_regs (0, 8, base, offset, action);
+  save_or_restore_regs (32, TARGET_V9 ? 96 : 64, base, offset, action);
 }
 
 /* Generate a save_register_window insn.  */
@@ -3826,9 +3786,8 @@ sparc_expand_prologue (void)
         RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, i)) = 1;
     }
 
-  /* Call-saved registers are saved just above the outgoing argument area.  */
   if (num_gfregs)
-    emit_save_regs ();
+    emit_save_or_restore_regs (SORR_SAVE);
 
   /* Load the PIC register if needed.  */
   if (flag_pic && current_function_uses_pic_offset_table)
@@ -3836,12 +3795,7 @@ sparc_expand_prologue (void)
 }
  
 /* This function generates the assembly code for function entry, which boils
-   down to emitting the necessary .register directives.
-
-   ??? Historical cruft: "On SPARC, move-double insns between fpu and cpu need
-   an 8-byte block of memory.  If any fpu reg is used in the function, we
-   allocate such a block here, at the bottom of the frame, just in case it's
-   needed."  Could this explain the -8 in emit_restore_regs?  */
+   down to emitting the necessary .register directives.  */
 
 static void
 sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
@@ -3859,7 +3813,7 @@ void
 sparc_expand_epilogue (void)
 {
   if (num_gfregs)
-    emit_restore_regs ();
+    emit_save_or_restore_regs (SORR_RESTORE);
 
   if (actual_fsize == 0)
     /* do nothing.  */ ;

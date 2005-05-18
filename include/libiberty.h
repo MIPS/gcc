@@ -21,8 +21,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.
+   Foundation, Inc., 51 Franklin Street - Fifth Floor,
+   Boston, MA 02110-1301, USA.
    
    Written by Cygnus Support, 1994.
 
@@ -53,6 +53,12 @@ extern "C" {
    unchanged.  If the stream is NULL do nothing.  */
 
 extern void unlock_stream (FILE *);
+
+/* If the OS supports it, ensure that the standard I/O streams, stdin,
+   stdout and stderr are setup to avoid any multi-threaded locking.
+   Otherwise do nothing.  */
+
+extern void unlock_std_streams (void);
 
 /* Open and return a FILE pointer.  If the OS supports it, ensure that
    the stream is setup to avoid any multi-threaded locking.  Otherwise
@@ -91,7 +97,10 @@ extern char **dupargv (char **) ATTRIBUTE_MALLOC;
 #if defined (__GNU_LIBRARY__ ) || defined (__linux__) || defined (__FreeBSD__) || defined (__OpenBSD__) || defined(__NetBSD__) || defined (__CYGWIN__) || defined (__CYGWIN32__) || defined (__MINGW32__) || defined (HAVE_DECL_BASENAME)
 extern char *basename (const char *);
 #else
-extern char *basename ();
+/* Do not allow basename to be used if there is no prototype seen.  We
+   either need to use the above prototype or have one from
+   autoconf which would result in HAVE_DECL_BASENAME being set.  */
+#define basename basename_cannot_be_used_without_a_prototype
 #endif
 #endif
 

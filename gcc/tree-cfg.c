@@ -212,6 +212,10 @@ build_tree_cfg (tree *tp)
       }
   }
 
+#ifdef ENABLE_CHECKING
+  verify_stmts ();
+#endif
+
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
     dump_tree_cfg (dump_file, dump_flags);
@@ -388,7 +392,7 @@ make_blocks (tree stmt_list)
 
       /* If STMT is a basic block terminator, set START_NEW_BLOCK for the
 	 next iteration.  */
-      if (stmt_ends_bb_p (stmt) || lookup_stmt_eh_region (stmt) > 0)
+      if (stmt_ends_bb_p (stmt))
 	start_new_block = true;
 
       tsi_next (&i);
@@ -421,7 +425,7 @@ create_bb (void *h, void *e, basic_block after)
   /* Grow the basic block array if needed.  */
   if ((size_t) last_basic_block == VARRAY_SIZE (basic_block_info))
     {
-      size_t new_size = last_basic_block + (last_basic_block + 4) / 4;
+      size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
       VARRAY_GROW (basic_block_info, new_size);
     }
 
@@ -489,7 +493,7 @@ make_edges (void)
 	    make_ctrl_stmt_edges (bb);
 
 	  /* Edges for statements that sometimes alter flow control.  */
-	  if (is_ctrl_altering_stmt (last) || lookup_stmt_eh_region (last) > 0)
+	  if (is_ctrl_altering_stmt (last))
 	    make_exit_edges (bb);
 	}
 
@@ -1987,7 +1991,6 @@ remove_bb (basic_block bb)
         {
 	  release_defs (stmt);
 
-	  set_bb_for_stmt (stmt, NULL);
 	  bsi_remove (&i);
 	}
 
@@ -2782,7 +2785,6 @@ delete_tree_cfg_annotations (void)
   basic_block bb;
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
-  free_dominance_info (CDI_DOMINATORS);
 
   label_to_block_map = NULL;
   FOR_EACH_BB (bb)
@@ -3025,6 +3027,7 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 	add_stmt_to_eh_region (stmt, eh_region);
     }
 
+  delink_stmt_imm_use (orig_stmt);
   *bsi_stmt_ptr (*bsi) = stmt;
   mark_stmt_modified (stmt);
   update_modified_stmts (stmt);
@@ -3753,6 +3756,13 @@ tree_verify_flow_info (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
+	  if (bb_for_stmt (stmt) != bb)
+	    {
+	      debug_generic_stmt (stmt);
+	      error ("bb_for_stmt is invalid\n");
+	      err = 1;
+	    }
+
 	  if (found_ctrl_stmt)
 	    {
 	      error ("Control flow in the middle of basic block %d\n",
@@ -3766,7 +3776,7 @@ tree_verify_flow_info (void)
 	  if (TREE_CODE (stmt) == LABEL_EXPR)
 	    {
 	      error ("Label %s in the middle of basic block %d\n",
-		     IDENTIFIER_POINTER (DECL_NAME (stmt)),
+		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
 	    }
@@ -4042,7 +4052,7 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 
   /* Now walk through the statements backward.  We can ignore labels,
      anything else means this is not a forwarder block.  */
-  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
  
@@ -4863,6 +4873,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   edge exit_copy;
   basic_block *doms;
   edge redirected;
+  int total_freq, entry_freq;
 
   if (!can_copy_bbs_p (region, n_region))
     return false;
@@ -4909,12 +4920,24 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   gcc_assert (!need_ssa_update_p ());
 
-  /* Record blocks outside the region that are duplicated by something
+  /* Record blocks outside the region that are dominated by something
      inside.  */
   doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
 
+  total_freq = entry->dest->frequency;
+  entry_freq = EDGE_FREQUENCY (entry);
+  /* Fix up corner cases, to avoid division by zero or creation of negative
+     frequencies.  */
+  if (total_freq == 0)
+    total_freq = 1;
+  else if (entry_freq > total_freq)
+    entry_freq = total_freq;
+
   copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
+  scale_bbs_frequencies_int (region, n_region, total_freq - entry_freq,
+			     total_freq);
+  scale_bbs_frequencies_int (region_copy, n_region, entry_freq, total_freq);
 
   if (copying_header)
     {
@@ -5154,9 +5177,7 @@ static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
-  if (!bsi_end_p (bsi))
-    return get_call_expr_in (bsi_stmt (bsi)) != NULL;
-  return false;
+  return get_call_expr_in (bsi_stmt (bsi)) != NULL;
 }
 
 
@@ -5186,14 +5207,6 @@ need_fake_edge_p (tree t)
      figured out from the RTL in mark_constant_function, and
      the counter incrementation code from -fprofile-arcs
      leads to different results from -fbranch-probabilities.  */
-
-  /* FIXME The previous comment is wrong in many ways.  We now allow
-     PURE functions to have loops so if the fake edge is because of
-     this, PURE would need to be checked.  Also, we do the analysis
-     earlier than we used to as well as there are also functions which
-     were marked in the source. Currently we mark these function in
-     ipa-static-vars-analysis. */
-
   call = get_call_expr_in (t);
   if (call
       && !(call_expr_flags (call) & ECF_NORETURN))
@@ -5332,9 +5345,7 @@ tree_purge_dead_eh_edges (basic_block bb)
   edge_iterator ei;
   tree stmt = last_stmt (bb);
 
-  if (stmt
-      && (tree_can_throw_internal (stmt)
-	  || TREE_CODE (stmt) == RESX_EXPR))
+  if (stmt && tree_can_throw_internal (stmt))
     return false;
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
@@ -5394,7 +5405,7 @@ tree_execute_on_growing_pred (edge e)
 {
   basic_block bb = e->dest;
 
-  if (bb_ann (bb) && phi_nodes (bb))
+  if (phi_nodes (bb))
     reserve_phi_args_for_new_edge (bb);
 }
 
@@ -5426,6 +5437,11 @@ tree_lv_adjust_loop_header_phi (basic_block first, basic_block second,
 				basic_block new_head, edge e)
 {
   tree phi1, phi2;
+  edge e2 = find_edge (new_head, second);
+
+  /* Because NEW_HEAD has been created by splitting SECOND's incoming
+     edge, we should always have an edge from NEW_HEAD to SECOND.  */
+  gcc_assert (e2 != NULL);
 
   /* Browse all 'second' basic block phi nodes and add phi args to
      edge 'e' for 'first' head. PHI args are always in correct order.  */
@@ -5434,13 +5450,8 @@ tree_lv_adjust_loop_header_phi (basic_block first, basic_block second,
        phi2 && phi1; 
        phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
     {
-      edge e2 = find_edge (new_head, second);
-
-      if (e2)
-	{
-	  tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
-	  add_phi_arg (phi1, def, e);
-	}
+      tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
+      add_phi_arg (phi1, def, e);
     }
 }
 
@@ -5635,14 +5646,6 @@ execute_warn_function_return (void)
   edge e;
   edge_iterator ei;
 
-  if (warn_missing_noreturn
-      && !TREE_THIS_VOLATILE (cfun->decl)
-      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
-      && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
-    warning (0, "%Jfunction might be possible candidate for "
-	     "attribute %<noreturn%>",
-	     cfun->decl);
-
   /* If we have a path to EXIT, then we do return.  */
   if (TREE_THIS_VOLATILE (cfun->decl)
       && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0)
@@ -5737,6 +5740,39 @@ struct tree_opt_pass pass_warn_function_return =
   NULL, NULL,				/* IPA analysis */
   execute_warn_function_return,		/* execute */
   NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Emit noreturn warnings.  */
+
+static void
+execute_warn_function_noreturn (void)
+{
+  if (warn_missing_noreturn
+      && !TREE_THIS_VOLATILE (cfun->decl)
+      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
+      && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
+    warning (0, "%Jfunction might be possible candidate for "
+	     "attribute %<noreturn%>",
+	     cfun->decl);
+}
+
+struct tree_opt_pass pass_warn_function_noreturn =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  execute_warn_function_noreturn,	/* execute */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

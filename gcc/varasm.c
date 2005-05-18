@@ -101,40 +101,6 @@ tree last_assemble_variable_decl;
 
 bool first_function_block_is_cold;
 
-/* The following global variable indicates the label name to be put at
-   the start of the first cold section within each function, when
-   partitioning basic blocks into hot and cold sections.  Used for
-   debug info.  */
-
-char *unlikely_section_label;
-
-/* The following global variable indicates the label name to be put at
-   the start of the first hot section within each function, when
-   partitioning basic blocks into hot and cold sections.  Used for
-   debug info.  */
-
-char *hot_section_label;
-
-/* The following global variable indicates the label name to be put at
-   the end of the last hot section within each function, when
-   partitioning basic blocks into hot and cold sections.  Used for
-   debug info.  */
-
-char *hot_section_end_label;
-
-/* The following global variable indicates the label name to be put at
-   the end of the last cold section within each function, when
-   partitioning basic blocks into hot and cold sections.  Used for 
-   debug info.*/
-
-char *cold_section_end_label;
- 
-/* The following global variable indicates the section name to be used
-   for the current cold section, when partitioning hot and cold basic 
-   blocks into separate sections.  */
-
-char *unlikely_text_section_name;
-
 /* We give all constants their own alias set.  Perhaps redundant with
    MEM_READONLY_P, but pre-dates it.  */
 
@@ -211,28 +177,25 @@ static void
 initialize_cold_section_name (void)
 {
   const char *name;
-  int len;
+  const char *stripped_name;
+  char *buffer;
 
-  if (! unlikely_text_section_name)
+  gcc_assert (cfun && current_function_decl);
+  if (cfun->unlikely_text_section_name)
+    return;
+
+  if (flag_function_sections && DECL_SECTION_NAME (current_function_decl))
     {
-      if (DECL_SECTION_NAME (current_function_decl)
-	  && (strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME
-					   (current_function_decl)),
-		      HOT_TEXT_SECTION_NAME) != 0)
-	  && (strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME
-					   (current_function_decl)),
-		      UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
-	{
-	  name = TREE_STRING_POINTER (DECL_SECTION_NAME 
-				                   (current_function_decl));
-	  len = strlen (name);
-	  unlikely_text_section_name = xmalloc (len + 10);
-	  sprintf (unlikely_text_section_name, "%s%s", name, "_unlikely");
-	}
-      else
-	unlikely_text_section_name = 
-	                      xstrdup (UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+      name = alloca (TREE_STRING_LENGTH (DECL_SECTION_NAME
+					 (current_function_decl)));
+      strcpy ((char *) name, TREE_STRING_POINTER (DECL_SECTION_NAME 
+					 (current_function_decl)));
+      stripped_name = targetm.strip_name_encoding (name);
+      buffer = ACONCAT ((stripped_name, "_unlikely", NULL));
+      cfun->unlikely_text_section_name = ggc_strdup (buffer);
     }
+  else
+    cfun->unlikely_text_section_name =  UNLIKELY_EXECUTED_TEXT_SECTION_NAME;
 }
 
 /* Tell assembler to switch to text section.  */
@@ -253,14 +216,25 @@ text_section (void)
 void
 unlikely_text_section (void)
 {
-  if (! unlikely_text_section_name)
-    initialize_cold_section_name ();
-
-  if ((in_section != in_unlikely_executed_text)
-      &&  (in_section != in_named 
-	   || strcmp (in_named_name, unlikely_text_section_name) != 0))
+  if (cfun)
     {
-      named_section (NULL_TREE, unlikely_text_section_name, 0);
+      if (!cfun->unlikely_text_section_name)
+	initialize_cold_section_name ();
+
+      if (flag_function_sections
+	  || ((in_section != in_unlikely_executed_text)
+	      &&  (in_section != in_named 
+		   || (strcmp (in_named_name, cfun->unlikely_text_section_name) 
+		       != 0))))
+	{
+	  named_section (NULL_TREE, cfun->unlikely_text_section_name, 0);
+	  in_section = in_unlikely_executed_text;
+	  last_text_section = in_unlikely_executed_text;
+	}
+    }
+  else
+    {
+      named_section (NULL_TREE, UNLIKELY_EXECUTED_TEXT_SECTION_NAME, 0);
       in_section = in_unlikely_executed_text;
       last_text_section = in_unlikely_executed_text;
     }
@@ -315,10 +289,21 @@ in_unlikely_text_section (void)
 {
   bool ret_val;
 
-  ret_val = ((in_section == in_unlikely_executed_text)
-	     || (in_section == in_named
-		 && unlikely_text_section_name
-		 && strcmp (in_named_name, unlikely_text_section_name) == 0));
+  if (cfun)
+    {
+      ret_val = ((in_section == in_unlikely_executed_text)
+		 || (in_section == in_named
+		     && cfun->unlikely_text_section_name
+		     && strcmp (in_named_name, 
+				cfun->unlikely_text_section_name) == 0));
+    }
+  else
+    {
+      ret_val = ((in_section == in_unlikely_executed_text)
+		 || (in_section == in_named
+		     && strcmp (in_named_name,
+				UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0));
+    }
 
   return ret_val;
 }
@@ -463,9 +448,9 @@ named_section (tree decl, const char *name, int reloc)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
   if (strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0
-      && !unlikely_text_section_name)
-      unlikely_text_section_name =
-	xstrdup (UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+      && cfun
+      && ! cfun->unlikely_text_section_name)
+    cfun->unlikely_text_section_name = UNLIKELY_EXECUTED_TEXT_SECTION_NAME;
 
   flags = targetm.section_type_flags (decl, name, reloc);
 
@@ -574,16 +559,17 @@ asm_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 void
 function_section (tree decl)
 {
-  bool unlikely = false;
+  int reloc = 0;
     
   if (first_function_block_is_cold)
-    unlikely = true;
+    reloc = 1;
   
 #ifdef USE_SELECT_SECTION_FOR_FUNCTIONS
-  targetm.asm_out.select_section (decl, unlikely, DECL_ALIGN (decl));
+  targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
 #else
   if (decl != NULL_TREE
-      && DECL_SECTION_NAME (decl) != NULL_TREE)
+      && DECL_SECTION_NAME (decl) != NULL_TREE
+      && targetm.have_named_sections)
     named_section (decl, (char *) 0, 0);
   else
     text_section ();
@@ -594,16 +580,20 @@ void
 current_function_section (tree decl)
 {
 #ifdef USE_SELECT_SECTION_FOR_FUNCTIONS
-  bool unlikely = (in_unlikely_text_section () 
-		   || (last_text_section == in_unlikely_executed_text));
-  
-  targetm.asm_out.select_section (decl, unlikely, DECL_ALIGN (decl));
+  int reloc = 0; 
+
+  if (in_unlikely_text_section () 
+      || last_text_section == in_unlikely_executed_text)
+    reloc = 1;
+ 
+  targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
 #else
   if (last_text_section == in_unlikely_executed_text)
     unlikely_text_section ();
   else if (last_text_section == in_text)
     text_section ();
-  else if (last_text_section == in_named)
+  else if (last_text_section == in_named
+	   && targetm.have_named_sections)
     named_section (NULL_TREE, last_text_section_name, 0);
   else
     function_section (decl);
@@ -619,8 +609,19 @@ default_function_rodata_section (tree decl)
     {
       const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
+      if (DECL_ONE_ONLY (decl) && HAVE_COMDAT_GROUP)
+        {
+	  size_t len = strlen (name) + 3;
+	  char* rname = alloca (len);
+         
+	  strcpy (rname, ".rodata");
+	  strcat (rname, name + 5); 
+          named_section_real (rname, SECTION_LINKONCE, decl);
+	  return;
+	}
       /* For .gnu.linkonce.t.foo we want to use .gnu.linkonce.r.foo.  */
-      if (DECL_ONE_ONLY (decl) && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
+      else if (DECL_ONE_ONLY (decl)
+	       && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
 	{
 	  size_t len = strlen (name) + 1;
 	  char *rname = alloca (len);
@@ -1224,18 +1225,31 @@ void
 assemble_start_function (tree decl, const char *fnname)
 {
   int align;
+  char tmp_label[100];
   bool hot_label_written = false;
 
-  unlikely_text_section_name = NULL;
-  
+  cfun->unlikely_text_section_name = NULL;
+ 
   first_function_block_is_cold = false;
-  hot_section_label = reconcat (hot_section_label, fnname, ".hot_section", NULL);
-  unlikely_section_label = reconcat (unlikely_section_label, 
-				     fnname, ".unlikely_section", NULL);
-  hot_section_end_label = reconcat (hot_section_end_label,
-				    fnname, ".end", NULL);
-  cold_section_end_label = reconcat (cold_section_end_label,
-				    fnname, ".end.cold", NULL);
+  if (flag_reorder_blocks_and_partition)
+    {
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "HOTB", const_labelno);
+      cfun->hot_section_label = ggc_strdup (tmp_label);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "COLDB", const_labelno);
+      cfun->cold_section_label = ggc_strdup (tmp_label);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "HOTE", const_labelno);
+      cfun->hot_section_end_label = ggc_strdup (tmp_label);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "COLDE", const_labelno);
+      cfun->cold_section_end_label = ggc_strdup (tmp_label);
+      const_labelno++;
+    }
+  else
+    {
+      cfun->hot_section_label = NULL;
+      cfun->cold_section_label = NULL;
+      cfun->hot_section_end_label = NULL;
+      cfun->cold_section_end_label = NULL;
+    }
 
   /* The following code does not need preprocessing in the assembler.  */
 
@@ -1243,6 +1257,8 @@ assemble_start_function (tree decl, const char *fnname)
 
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
+
+  resolve_unique_section (decl, 0, flag_function_sections);
 
   /* Make sure the not and cold text (code) sections are properly
      aligned.  This is necessary here in the case where the function
@@ -1253,7 +1269,7 @@ assemble_start_function (tree decl, const char *fnname)
     {
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
-      ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
+      ASM_OUTPUT_LABEL (asm_out_file, cfun->cold_section_label);
       if (BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
 	{
 	  /* Since the function starts with a cold section, we need to
@@ -1261,7 +1277,7 @@ assemble_start_function (tree decl, const char *fnname)
 	     section label.  */
 	  text_section ();
 	  assemble_align (FUNCTION_BOUNDARY);
-	  ASM_OUTPUT_LABEL (asm_out_file, hot_section_label);
+	  ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
 	  hot_label_written = true;
 	  first_function_block_is_cold = true;
 	}
@@ -1291,20 +1307,19 @@ assemble_start_function (tree decl, const char *fnname)
 	s[i] = (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)))[i];
       s[len] = '\0';
       
-      if (unlikely_text_section_name 
-	  && (strcmp (s, unlikely_text_section_name) == 0))
+      if (cfun->unlikely_text_section_name 
+	  && (strcmp (s, cfun->unlikely_text_section_name) == 0))
 	first_function_block_is_cold = true;
     }
 
   last_text_section = no_section;
-  resolve_unique_section (decl, 0, flag_function_sections);
 
   /* Switch to the correct text section for the start of the function.  */
 
   function_section (decl);
   if (flag_reorder_blocks_and_partition 
       && !hot_label_written)
-    ASM_OUTPUT_LABEL (asm_out_file, hot_section_label);
+    ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
@@ -1366,7 +1381,6 @@ assemble_start_function (tree decl, const char *fnname)
 void
 assemble_end_function (tree decl, const char *fnname)
 {
-  enum in_section save_text_section;
 #ifdef ASM_DECLARE_FUNCTION_SIZE
   ASM_DECLARE_FUNCTION_SIZE (asm_out_file, fnname, decl);
 #endif
@@ -1379,11 +1393,16 @@ assemble_end_function (tree decl, const char *fnname)
      debug info.)  */
   if (flag_reorder_blocks_and_partition)
     {
+      enum in_section save_text_section;
+
       save_text_section = in_section;
       unlikely_text_section ();
-      ASM_OUTPUT_LABEL (asm_out_file, cold_section_end_label);
-      text_section ();
-      ASM_OUTPUT_LABEL (asm_out_file, hot_section_end_label);
+      ASM_OUTPUT_LABEL (asm_out_file, cfun->cold_section_end_label);
+      if (first_function_block_is_cold)
+	text_section ();
+      else
+	function_section (decl);
+      ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_end_label);
       if (save_text_section == in_unlikely_executed_text)
 	unlikely_text_section ();
     }
@@ -2342,6 +2361,11 @@ struct constant_descriptor_tree GTY(())
 
   /* The value of the constant.  */
   tree value;
+
+  /* Hash of value.  Computing the hash from value each time
+     hashfn is called can't work properly, as that means recursive
+     use of the hash table during hash table expansion.  */
+  hashval_t hash;
 };
 
 static GTY((param_is (struct constant_descriptor_tree)))
@@ -2355,7 +2379,7 @@ static void maybe_output_constant_def_contents (struct constant_descriptor_tree 
 static hashval_t
 const_desc_hash (const void *ptr)
 {
-  return const_hash_1 (((struct constant_descriptor_tree *)ptr)->value);
+  return ((struct constant_descriptor_tree *)ptr)->hash;
 }
 
 static hashval_t
@@ -2455,8 +2479,11 @@ const_hash_1 (const tree exp)
 static int
 const_desc_eq (const void *p1, const void *p2)
 {
-  return compare_constant (((struct constant_descriptor_tree *)p1)->value,
-			   ((struct constant_descriptor_tree *)p2)->value);
+  const struct constant_descriptor_tree *c1 = p1;
+  const struct constant_descriptor_tree *c2 = p2;
+  if (c1->hash != c2->hash)
+    return 0;
+  return compare_constant (c1->value, c2->value);
 }
 
 /* Compare t1 and t2, and return 1 only if they are known to result in
@@ -2726,12 +2753,14 @@ output_constant_def (tree exp, int defer)
   /* Look up EXP in the table of constant descriptors.  If we didn't find
      it, create a new one.  */
   key.value = exp;
-  loc = htab_find_slot (const_desc_htab, &key, INSERT);
+  key.hash = const_hash_1 (exp);
+  loc = htab_find_slot_with_hash (const_desc_htab, &key, key.hash, INSERT);
 
   desc = *loc;
   if (desc == 0)
     {
       desc = build_constant_desc (exp);
+      desc->hash = key.hash;
       *loc = desc;
     }
 
@@ -2834,7 +2863,8 @@ lookup_constant_def (tree exp)
   struct constant_descriptor_tree key;
 
   key.value = exp;
-  desc = htab_find (const_desc_htab, &key);
+  key.hash = const_hash_1 (exp);
+  desc = htab_find_with_hash (const_desc_htab, &key, key.hash);
 
   return (desc ? desc->rtl : NULL_RTX);
 }
@@ -4290,7 +4320,21 @@ void
 merge_weak (tree newdecl, tree olddecl)
 {
   if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
-    return;
+    {
+      if (DECL_WEAK (newdecl) && SUPPORTS_WEAK)
+        {
+          tree *pwd;
+          /* We put the NEWDECL on the weak_decls list at some point
+             and OLDDECL as well.  Keep just OLDDECL on the list.  */
+	  for (pwd = &weak_decls; *pwd; pwd = &TREE_CHAIN (*pwd))
+	    if (TREE_VALUE (*pwd) == newdecl)
+	      {
+	        *pwd = TREE_CHAIN (*pwd);
+		break;
+	      }
+        }
+      return;
+    }
 
   if (DECL_WEAK (newdecl))
     {
@@ -4780,9 +4824,15 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
     flags = SECTION_CODE;
   else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
-  else if (unlikely_text_section_name
-	   && strcmp (name, unlikely_text_section_name) == 0)
+  else if (current_function_decl
+	   && cfun
+	   && cfun->unlikely_text_section_name
+	   && strcmp (name, cfun->unlikely_text_section_name) == 0)
     flags = SECTION_CODE;
+  else if (!decl 
+	   && (!current_function_decl || !cfun)
+	   && strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0)
+    flags = SECTION_CODE; 
   else
     flags = SECTION_WRITE;
 
@@ -4847,7 +4897,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
      abbreviated form to switch back to it -- unless this section is
      part of a COMDAT groups, in which case GAS requires the full
      declaration every time.  */
-  if (!(HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+  if (!(HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
       && ! named_section_first_declaration (name))
     {
       fprintf (asm_out_file, "\t.section\t%s\n", name);
@@ -4868,7 +4918,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
     *f++ = 'S';
   if (flags & SECTION_TLS)
     *f++ = 'T';
-  if (HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+  if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
     *f++ = 'G';
   *f = '\0';
 
@@ -4895,7 +4945,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
 
       if (flags & SECTION_ENTSIZE)
 	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
-      if (HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+      if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
 	fprintf (asm_out_file, ",%s,comdat", 
 		 lang_hooks.decls.comdat_group (decl));
     }
@@ -5207,7 +5257,8 @@ default_unique_section (tree decl, int reloc)
 void
 default_unique_section_1 (tree decl, int reloc, int shlib)
 {
-  bool one_only = DECL_ONE_ONLY (decl);
+  /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
+  bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
   const char *prefix, *name;
   size_t nlen, plen;
   char *string;

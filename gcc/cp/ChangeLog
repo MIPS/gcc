@@ -1,3 +1,132 @@
+2005-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21454
+	* decl.c (maybe_deduce_size_from_array_init): Call
+	cp_apply_type_quals_to_decl after completing array type.
+
+2005-05-16  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (build_library_fn_1): Move setting TREE_NOTHROW ...
+	(build_library_fn): ... here.
+
+2005-05-12  Ian Lance Taylor  <ian@airs.com>
+
+	* cp-tree.h (cp_stmt_codes): Don't define.
+	(statement_code_p): Declare.
+	(STATEMENT_CODE_P): Define.
+	* lex.c (statement_code_p): Define.
+	(cxx_init): Use actual codes in stmt_codes initializer, not
+	cp_stmt_codes macro.  Initialize statement_code_p directly, rather
+	than using INIT_STATEMENT_CODES.
+
+2005-05-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* typeck.c (build_unary_op): Do not resort to address arithmetic
+	when taking the address of a COMPONENT_REF.
+	
+2005-05-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c (vtbl_init_data_s): Change the type of fns to
+	VEC(tree,gc)*.
+	(build_vtbl_initializer, add_vcall_offset, add_vcall_offset):
+	Use VEC instead of VARRAY.
+
+2005-05-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* mangle.c: Remove a reference to the MIPS -mint64 option.
+
+2005-05-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* decl.c (wrapup_globals_for_namespace): Use VEC instead of
+	VARRAY.
+	* name-lookup.c (add_decl_to_level, begin_scope): Likewise.
+	* name-lookup.h (cp_binding_level): Change the type of
+	static_decls to VEC(tree,gc)*.
+
+	* mangle.c (globals): Change the type of substitutions to
+	VEC(tree,gc)*.
+	(dump_substitution_candidates, add_substitution,
+	find_substitution, finish_mangling, init_mangle): Use VEC
+	instead of VARRAY.
+
+2005-05-06  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* decl2.c (spew_debug): Remove.
+
+	* decl2.c (ssdf_decls, start_static_storage_duration_function,
+	generate_ctor_or_dtor_function): Use VEC instead of VARRAY.
+
+	* decl2.c (pending_statics, note_vague_linkage_var,
+	cp_finish_file): Use VEC instead of VARRAY.
+	(pending_statics_used): Remove.
+
+2005-05-05  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* decl2.c (deferred_fns, note_vague_linkage_fn,
+	cp_finish_file): Use VEC instead of VARRAY.
+
+2005-05-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21352
+	* pt.c (build_non_dependent_expr): Use is_overloaded_fn.
+
+2005-05-05  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* pt.c: Fix a comment typo.
+
+2005-05-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h (language_function): Change the type of
+	x_local_names to VEC.
+	* decl.c (push_local_name): Adjust uses of local_names.
+
+2005-05-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* friend.c, lex.c, mangle.c, repo.c: Update copyright.
+
+2005-05-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c (local_classes, init_class_processing): Use VEC
+	instead of VARRAY.
+	* cp-tree.h (local_classes): Likewise.
+	* mangle.c (discriminator_for_local_entity): Likewise.
+	* name-lookup.c (pushtag): Likewise.
+
+	* class.c (current_lang_depth, push_lang_context,
+	pop_lang_context): Use VEC instead of VARRAY.
+	* cp-tree.h (saved_scope): Use VEC for lang_base instead of
+	VARRAY.
+	* name-lookup.c (push_to_top_level): Use VEC instead of
+	VARRAY.
+
+2005-05-02  Paolo Bonzini  <bonzini@gnu.org>
+
+        * semantics.c (finish_call_expr): Call resolve_overloaded_builtin
+        for BUILT_IN_MD built-ins.
+
+2005-05-02  Michael Matz  <matz@suse.de>
+
+	PR c++/19542
+	* cp-tree.h (cp_tree_index): Remove CPTI_NULL, to be defined in C
+	common frontend.
+	(null_node): Remove.
+	* lex.c (cxx_init): Move null_node initialisation to C common frontend.
+
+2005-04-25  Ian Lance Taylor  <ian@airs.com>
+
+	* cp-tree.def: Add EXPR_STMT.
+	* cp-tree.h (cp_stmt_codes): Add EXPR_STMT.
+	(EXPR_STMT_EXPR): Define.
+	* cp-gimplify.c: Include "flags.h".
+	(gimplify_expr_stmt): New static function.
+	(cp_gimplify_expr): Handle EXPR_STMT.
+	* cxx-pretty-print.c (pp_cxx_statement): Use pp_cxx_expression
+	rather than pp_expression.
+	(pp_cxx_statement): Handle EXPR_STMT.
+	* dump.c (cp_dump_tree): Handle EXPR_STMT.
+	* lex.c (cxx_init): Don't use c_common_stmt_codes in stmt_codes
+	initializer.
+
 2005-04-25  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR C++/21188

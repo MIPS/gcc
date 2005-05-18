@@ -82,7 +82,7 @@ gfc_unit *current_unit = NULL;
 static int sf_seen_eor = 0;
 static int eor_condition = 0;
 
-char scratch[SCRATCH_SIZE] = { };
+char scratch[SCRATCH_SIZE];
 static char *line_buffer = NULL;
 
 static unit_advance advance_status;
@@ -90,7 +90,7 @@ static unit_advance advance_status;
 static st_option advance_opt[] = {
   {"yes", ADVANCE_YES},
   {"no", ADVANCE_NO},
-  {NULL}
+  {NULL, 0}
 };
 
 
@@ -168,7 +168,7 @@ read_sf (int *length)
     {
       if (is_internal_unit())
         {
-	  /* readlen may be modified inside salloc_r if 
+	  /* readlen may be modified inside salloc_r if
 	     is_internal_unit() is true.  */
           readlen = 1;
         }
@@ -226,7 +226,7 @@ read_sf (int *length)
    file, advancing the current position.  We return a pointer to a
    buffer containing the bytes.  We return NULL on end of record or
    end of file.
-  
+
    If the read is short, then it is because the current record does not
    have enough data to satisfy the read request and the file was
    opened with PAD=YES.  The caller must assume tailing spaces for
@@ -683,7 +683,7 @@ formatted_transfer (bt type, void *p, int len)
            else // FMT==T
              {
                 consume_data_flag = 0 ;
-                pos = f->u.n - 1; 
+                pos = f->u.n - 1;
              }
 
            if (pos < 0 || pos >= current_unit->recl )
@@ -1122,12 +1122,12 @@ data_transfer_init (int read_flag)
 	generate_error (ERROR_OS, NULL);
     }
 
-  /* Overwriting an existing sequential file ? 
+  /* Overwriting an existing sequential file ?
      it is always safe to truncate the file on the first write */
-  if (g.mode == WRITING 
-      && current_unit->flags.access == ACCESS_SEQUENTIAL 
+  if (g.mode == WRITING
+      && current_unit->flags.access == ACCESS_SEQUENTIAL
       && current_unit->current_record == 0)
-        struncate(current_unit->s); 
+        struncate(current_unit->s);
 
   current_unit->mode = g.mode;
 
@@ -1205,7 +1205,7 @@ data_transfer_init (int read_flag)
 #define MAX_READ 4096
 
 static void
-next_record_r (int done)
+next_record_r (void)
 {
   int rlength, length;
   gfc_offset new;
@@ -1227,7 +1227,7 @@ next_record_r (int done)
 	{
 	  new = file_position (current_unit->s) + current_unit->bytes_left;
 
-	  /* Direct access files do not generate END conditions, 
+	  /* Direct access files do not generate END conditions,
 	     only I/O errors.  */
 	  if (sseek (current_unit->s, new) == FAILURE)
 	    generate_error (ERROR_OS, NULL);
@@ -1255,7 +1255,7 @@ next_record_r (int done)
     case FORMATTED_SEQUENTIAL:
       length = 1;
       /* sf_read has already terminated input because of an '\n'  */
-      if (sf_seen_eor) 
+      if (sf_seen_eor)
 	{
 	  sf_seen_eor=0;
 	  break;
@@ -1296,7 +1296,7 @@ next_record_r (int done)
 /* Position to the next record in write mode.  */
 
 static void
-next_record_w (int done)
+next_record_w (void)
 {
   gfc_offset c, m;
   int length;
@@ -1371,7 +1371,7 @@ next_record_w (int done)
         }
 
       if (sfree (current_unit->s) == FAILURE)
- 	goto io_error;
+	goto io_error;
 
       break;
 
@@ -1395,9 +1395,9 @@ next_record (int done)
   current_unit->read_bad = 0;
 
   if (g.mode == READING)
-    next_record_r (done);
+    next_record_r ();
   else
-    next_record_w (done);
+    next_record_w ();
 
   /* keep position up to date for INQUIRE */
   current_unit->flags.position = POSITION_ASIS;
@@ -1482,7 +1482,9 @@ finalize_transfer (void)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (bt type, void *dest, int len)
+iolength_transfer (bt type   __attribute__ ((unused)),
+		   void *dest __attribute__ ((unused)),
+		   int len)
 {
   if (ioparm.iolength != NULL)
     *ioparm.iolength += len;
@@ -1627,6 +1629,11 @@ st_write_done (void)
 /* Receives the scalar information for namelist objects and stores it
    in a linked list of namelist_info types.  */
 
+extern void st_set_nml_var (void * ,char * ,
+			    GFC_INTEGER_4 ,gfc_charlen_type ,GFC_INTEGER_4);
+export_proto(st_set_nml_var);
+
+
 void
 st_set_nml_var (void * var_addr, char * var_name, GFC_INTEGER_4 len,
 		gfc_charlen_type string_length, GFC_INTEGER_4 dtype)
@@ -1674,6 +1681,9 @@ st_set_nml_var (void * var_addr, char * var_name, GFC_INTEGER_4 len,
 }
 
 /* Store the dimensional information for the namelist object.  */
+extern void st_set_nml_var_dim (GFC_INTEGER_4, GFC_INTEGER_4,
+				GFC_INTEGER_4 ,GFC_INTEGER_4);
+export_proto(st_set_nml_var_dim);
 
 void
 st_set_nml_var_dim (GFC_INTEGER_4 n_dim, GFC_INTEGER_4 stride,
@@ -1690,12 +1700,3 @@ st_set_nml_var_dim (GFC_INTEGER_4 n_dim, GFC_INTEGER_4 stride,
   nml->dim[n].lbound = (ssize_t)lbound;
   nml->dim[n].ubound = (ssize_t)ubound;
 }
-
-extern void st_set_nml_var (void * ,char * ,
-			    GFC_INTEGER_4 ,gfc_charlen_type ,GFC_INTEGER_4);
-export_proto(st_set_nml_var);
-
-extern void st_set_nml_var_dim (GFC_INTEGER_4, GFC_INTEGER_4,
-				GFC_INTEGER_4 ,GFC_INTEGER_4);
-export_proto(st_set_nml_var_dim);
-

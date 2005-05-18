@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -312,6 +312,10 @@ init_cp_pragma (void)
   c_register_pragma ("GCC", "java_exceptions", handle_pragma_java_exceptions);
 }
 
+/* TRUE if a code represents a statement.  */
+
+bool statement_code_p[MAX_TREE_CODES];
+
 /* Initialize the C++ front end.  This function is very sensitive to
    the exact order that things are done here.  It would be nice if the
    initialization done by this routine were moved to its subroutines,
@@ -319,12 +323,18 @@ init_cp_pragma (void)
 bool
 cxx_init (void)
 {
+  unsigned int i;
   static const enum tree_code stmt_codes[] = {
-    c_common_stmt_codes,
-    cp_stmt_codes
+   CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,
+   EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN,
+   IF_STMT,		CLEANUP_STMT,	FOR_STMT,
+   WHILE_STMT,		DO_STMT,	BREAK_STMT,
+   CONTINUE_STMT,	SWITCH_STMT,	EXPR_STMT
   };
 
-  INIT_STATEMENT_CODES (stmt_codes);
+  memset (&statement_code_p, 0, sizeof (statement_code_p));
+  for (i = 0; i < ARRAY_SIZE (stmt_codes); i++)
+    statement_code_p[stmt_codes[i]] = true;
 
   /* We cannot just assign to input_filename because it has already
      been initialized and will be used later as an N_BINCL for stabs+
@@ -347,11 +357,6 @@ cxx_init (void)
   class_type_node = ridpointers[(int) RID_CLASS];
 
   cxx_init_decl_processing ();
-
-  /* Create the built-in __null node.  It is important that this is
-     not shared.  */
-  null_node = make_node (INTEGER_CST);
-  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
 
   /* The fact that G++ uses COMDAT for many entities (inline
      functions, template instantiations, virtual tables, etc.) mean

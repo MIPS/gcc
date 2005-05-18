@@ -1,5 +1,6 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
    This file is part of GCC.
@@ -39,11 +40,8 @@
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
 
-/* Darwin switches.  */
-/* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
-#define MASK_MACHO_DYNAMIC_NO_PIC 0x00800000
-
-#define TARGET_DYNAMIC_NO_PIC	(target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
+/* Translate config/rs6000/darwin.opt to config/darwin.h.  */
+#define TARGET_DYNAMIC_NO_PIC (TARGET_MACHO_DYNAMIC_NO_PIC)
 
 /* Handle #pragma weak and #pragma pack.  */
 #define HANDLE_SYSV_PRAGMA 1
@@ -62,25 +60,13 @@
   while (0)
 
 
-/*  */
-#undef	SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES						\
-  { "64",     MASK_64BIT | MASK_POWERPC64, \
-        N_("Generate 64-bit code") }, \
-  { "32",     - (MASK_64BIT | MASK_POWERPC64), \
-        N_("Generate 32-bit code") }, \
-  {"dynamic-no-pic",	MASK_MACHO_DYNAMIC_NO_PIC,			\
-      N_("Generate code suitable for executables (NOT shared libs)")},	\
-  {"no-dynamic-no-pic",	-MASK_MACHO_DYNAMIC_NO_PIC, ""},
-
-
 /* The Darwin ABI always includes AltiVec, can't be (validly) turned
    off.  */
 
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
   rs6000_altivec_abi = 1;						\
-  rs6000_altivec_vrsave = 1;						\
+  TARGET_ALTIVEC_VRSAVE = 1;						\
   if (DEFAULT_ABI == ABI_DARWIN)					\
   {									\
     if (MACHO_DYNAMIC_NO_PIC_P)						\

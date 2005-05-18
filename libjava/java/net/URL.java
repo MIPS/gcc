@@ -125,7 +125,7 @@ import java.util.StringTokenizer;
 public final class URL implements Serializable
 {
   private static final String DEFAULT_SEARCH_PATH =
-    "org.metastatic.jessie|gnu.java.net.protocol|gnu.inet";
+    "gnu.java.net.protocol|gnu.inet";
 
   // Cached System ClassLoader
   private static ClassLoader systemClassLoader;
@@ -430,7 +430,8 @@ public final class URL implements Serializable
 	authority = context.authority;
       }
     else // Protocol NOT specified in spec. and no context available.
-      throw new MalformedURLException("Absolute URL required with null context");
+      throw new MalformedURLException("Absolute URL required with null"
+				      + " context: " + spec);
 
     protocol = protocol.trim();
 

@@ -105,14 +105,14 @@ endif
 
 if GTK_AWT
 cond_gtk_ltlibrary = lib-gnu-java-awt-peer-gtk.la
-cond_gtk_jawt_ltlibrary = libjawt.la
+cond_gtk_gcjawt_ltlibrary = libgcjawt.la
 else
 cond_gtk_ltlibrary =
-cond_gtk_jawt_ltlibrary =
+cond_gtk_gcjawt_ltlibrary =
 endif
 
 toolexeclib_LTLIBRARIES = libgcj.la libgij.la \
-    $(cond_gtk_ltlibrary) $(cond_gtk_jawt_ltlibrary) $(cond_xlib_ltlibrary)
+    $(cond_gtk_ltlibrary) $(cond_gtk_gcjawt_ltlibrary) $(cond_xlib_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -204,7 +204,7 @@ AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
 	-fclasspath= -fbootclasspath=$(BOOTCLASSPATH) \
 	--encoding=UTF-8 \
-	-Wno-deprecated
+	-Wno-deprecated -fbootstrap-classes
 
 if USING_GCC
 AM_CFLAGS = @LIBGCJ_CFLAGS@ $(WARNINGS)
@@ -228,6 +228,72 @@ BOOTCLASSPATH = $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir)'$(CLASSPATH_SEPARATOR)'
 
 ## ################################################################
 
+# Files for which we build .lo files
+all_native_compiled_source_files = \
+    $(java_source_files) \
+    $(built_java_source_files) \
+    $(xlib_java_source_files)
+
+# Files for which we build .class files
+# It *must* begin with $(all_native_compiled_source_files)
+all_java_source_files = \
+    $(all_native_compiled_source_files) \
+    $(gtk_awt_peer_source_files) \
+    $(gnu_xml_source_files) \
+    $(javax_imageio_source_files) \
+    $(javax_xml_source_files) \
+    $(gnu_java_beans_source_files) \
+    gnu/gcj/tools/gcj_dbtool/Main.java
+
+EXTRA_DIST = $(all_java_source_files)
+
+# Build dependencies between java, class and lo files.  They are included
+# below, together with automatically-generated dependencies between Java
+# files.
+#
+# Dependencies from Java to .class files
+# --------------------------------------
+# Each directory's filelist file depends on the corresponding Java source files.
+# The stamp file depends on the filelist (using a `Static Pattern Rule').
+# Each class file depends on the its directory's .stamp file.  This reflects
+# the fact that 1) all classfiles are compiled in one go when the .stamp file
+# is built and 2) anything which depends on a particular .class file must wait
+# until its directory is processed and the .stamp file is created.
+#
+# Dependencies from Java to .lo files
+# -----------------------------------
+# As above, each directory's filelist file depends on the corresponding Java
+# source files, and the stamp file depends on the filelist.  For native
+# compilation, the lo file depends on the stamp file (also using a `Static
+# Pattern Rule').  So, when one Java file changes, the filelist file is
+# updated, the stamp file rule builds the .class files, and the .lo file rule
+# recompiles to native code.
+Makefile.deps: $(srcdir)/Makefile.in
+	@: $(call write_entries_to_file,$(all_java_source_files),files.tmplist)
+	echo 's,^\(.*\)/\([^/]*\)\.java$$,\1.list: \0\' > tmpsed
+	echo '\1/\2.class: \1.stamp,' >> tmpsed
+	sed -ftmpsed files.tmplist > Makefile.deps
+	rm files.tmplist tmpsed
+
+all_native_compiled_dirs = $(sort $(patsubst %/, %, $(dir $(all_native_compiled_source_files))))
+all_java_dirs = $(sort $(patsubst %/, %, $(dir $(all_java_source_files))))
+all_java_lo_files = $(all_native_compiled_dirs:=.lo)
+all_java_deps_files = $(all_java_dirs:=.deps)
+all_java_stamp_files = $(all_java_dirs:=.stamp)
+all_java_filelist_files = $(all_java_dirs:=.list)
+
+# In the future these may be defined manually, if we decide to split libgcj.so
+# into multiple shared libraries.  For now, everything but xlib goes into
+# all_libgcj_lo_files
+all_xlib_lo_files = gnu/gcj/xlib.lo gnu/awt/xlib.lo
+all_libgcj_lo_files = $(filter-out $(all_xlib_lo_files), $(all_java_lo_files))
+
+# Include automatically generated dependencies between Java source files.
+-include Makefile.deps $(all_java_deps_files)
+
+all_property_files = $(property_files) \
+    java/util/logging/logging.properties
+
 ##
 ## How to build libgcj.a and libgcj.jar
 ##
@@ -246,22 +312,21 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 # subsections in the linker, such as Alpha and MIPS.
 libgcj0_convenience_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
-	$(nat_source_files) $(math_c_source_files) $(java_source_files) \
-	$(built_java_source_files) \
+	$(nat_source_files) $(math_c_source_files) \
 	$(BOEHMGC_SRC) $(NOGC_SRC) \
 	$(BACKTRACE_SRC) \
 	$(POSIX_PLATFORM_SRC) $(WIN32_PLATFORM_SRC) $(ECOS_PLATFORM_SRC) \
 	$(DARWIN_CRT_SRC) \
 	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
 libgcj0_convenience_la_LIBADD = \
+	$(all_libgcj_lo_files) \
 	gnu-xml.lo javax-imageio.lo \
 	javax-xml.lo gnu-java-beans.lo \
 	external/sax/libsax-gcj.la \
 	external/w3c_dom/libw3c-gcj.la
+libgcj0_convenience_la_DEPENDENCIES = $(libgcj0_convenience_la_LIBADD)
 
 noinst_LTLIBRARIES = libgcj0_convenience.la
-
-libgcj_la_SOURCES =
 
 ## Objects from C++ sources in subdirs.
 nat_files = $(nat_source_files:.cc=.lo)
@@ -344,7 +409,7 @@ jni/gtk-peer/gtk_jawt.c \
 jni/classpath/native_state.c
 
 ## Java sources for Gtk peers.
-gtk_awt_peer_sources = \
+gtk_awt_peer_source_files = \
 gnu/java/awt/peer/gtk/GdkTextLayout.java \
 gnu/java/awt/peer/gtk/GdkFontMetrics.java \
 gnu/java/awt/peer/gtk/GdkFontPeer.java \
@@ -387,12 +452,13 @@ gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 gnu/java/awt/peer/gtk/GtkTextComponentPeer.java	\
 gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
+gnu/java/awt/peer/gtk/GtkVolatileImage.java \
 gnu/java/awt/peer/gtk/GtkWindowPeer.java \
 gnu/java/awt/peer/gtk/GThreadMutex.java \
 gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 
-gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
+gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_source_files)))
 
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h: gnu/java/awt/peer/gtk/GdkGraphics.java
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h: gnu/java/awt/peer/gtk/GdkGraphics2D.java
@@ -500,20 +566,19 @@ lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
 lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
 
-libjawt_la_SOURCES = jawt.c
-libjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
+libgcjawt_la_SOURCES = jawt.c
+libgcjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
 ## See jv_convert_LDADD.
-libjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
-libjawt_la_LDFLAGS = \
+libgcjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
+libgcjawt_la_LDFLAGS = \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
 	$(LIBGCJ_LD_SYMBOLIC)
-libjawt_la_LINK = $(LIBLINK)
+libgcjawt_la_LINK = $(LIBLINK)
 
-lib_gnu_awt_xlib_la_SOURCES = \
-	$(xlib_java_source_files) \
-	$(xlib_nat_source_files)
-lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-$(gcc_version).jar libgcj.la libgcj.spec
-lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
+lib_gnu_awt_xlib_la_SOURCES = $(xlib_nat_source_files)
+lib_gnu_awt_xlib_la_LIBADD = $(all_xlib_lo_files)
+lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-$(gcc_version).jar libgcj.la libgcj.spec \
+	$(lib_gnu_awt_xlib_la_LIBADD)
 ## We require libstdc++-v3 to be in the same build tree.
 lib_gnu_awt_xlib_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -527,21 +592,6 @@ lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
-all_java_source_files = \
-    $(java_source_files) \
-    $(built_java_source_files) \
-    $(gtk_awt_peer_sources) \
-    $(xlib_java_source_files) \
-    $(gnu_xml_source_files) \
-    $(javax_imageio_source_files) \
-    $(javax_xml_source_files) \
-    $(gnu_java_beans_source_files)
-
-all_java_class_files = $(all_java_source_files:.java=.class)
-
-all_property_files = $(property_files) \
-    java/util/logging/logging.properties
-
 ## Build property files into the library.
 property_files = \
 gnu/regexp/MessagesBundle.properties \
@@ -553,32 +603,24 @@ propertyo_files = $(property_files:.properties=.properties.lo)
 %.properties.lo: %.properties
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
 
-if ONESTEP
+# Compile one directory in one go.  If the files have to be compiled with the
+# binary compatibility ABI, only make the .class here -- the .lo is made
+# elsewhere in this Makefile.
 
-# Compile all classfiles in one go.
+%.list:
+	@: $(shell $(mkinstalldirs) $(basename $@))
+	@: $(call write_entries_to_file,$^,$@)
 
-classes.stamp: $(all_java_source_files) gnu/gcj/tools/gcj_dbtool/Main.java
-	@echo Compiling Java sourcefiles...
-	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) @libgcj.sourcelist
-	echo > classes.stamp
-# This next rule seems backward, but reflects the fact that 1) all
-# classfiles are compiled in one go when classes.stamp is built and 2)
-# anything which depends on a particular .class file must wait until
-# this file is built.
-$(all_java_class_files) gnu/gcj/tools/gcj_dbtool/Main.class: classes.stamp
+$(all_java_lo_files): %.lo: %.stamp
+	$(LTGCJCOMPILE) -o $@ -c @${<:.stamp=.list}
 
-else # !ONESTEP
+$(all_java_stamp_files): %.stamp: %.list
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) \
+		-MD -MF ${@:.stamp=.deps} @$<
+	echo timestamp > $@
 
-# Compile each classfile individually.
-
-.java.class:
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) $<
-
-classes.stamp: $(all_java_class_files) $(all_property_files)
-	echo > classes.stamp
-
-endif
+classes.stamp: $(all_property_files) $(all_java_stamp_files)
+	echo timestamp > classes.stamp
 
 libgcj-$(gcc_version).jar: classes.stamp
 	-@rm -f libgcj-$(gcc_version).jar
@@ -604,7 +646,9 @@ libgcj-$(gcc_version).jar: classes.stamp
 	  $(ZIP) -ufM0E@ $@; \
 	done
 
-CLEANFILES = libgcj-$(gcc_version).jar classes.stamp
+CLEANFILES = libgcj-$(gcc_version).jar classes.stamp $(all_java_stamp_files) \
+	$(all_java_deps_files) $(all_java_filelist_files)
+DISTCLEANFILES = Makefile.deps native.dirs bytecompile.dirs
 
 mostlyclean-local:
 ## Use libtool rm to remove each libtool object
@@ -627,16 +671,10 @@ clean-nat:
 
 SUFFIXES = .class .java .h .properties
 
-$(javao_files) $(xlib_javao_files): %.lo: %.java
-	$(LTGCJCOMPILE) -o $@ -c $<
-
 ## Pass the list of object files to libtool in a temporary file to
 ## avoid tripping platform command line length limits.
-libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
-	@echo Creating list of files to link...
-	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS),libgcj.objectlist)
-	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
-	$(libgcj_la_LIBADD) \
+libgcj.la: $(libgcj_la_DEPENDENCIES)
+	$(libgcj_la_LINK) $(libgcj_la_LIBADD) \
 	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
@@ -699,7 +737,7 @@ gnu-java-beans.lo: $(gnu_java_beans_source_files)
 
 ## Depend on the sources, even though we are going to compile the
 ## classes.
-gtk-awt-peer.lo: $(gtk_awt_peer_sources)
+gtk-awt-peer.lo: $(gtk_awt_peer_source_files)
 ## FIXME: this is ugly.  We want to make sure the .class files have
 ## been built, but we don't want a real dependency on them as this
 ## would cause our target to be rebuilt whenever any .java file is
@@ -2930,6 +2968,7 @@ java/lang/StackTraceElement.java \
 java/lang/StrictMath.java \
 java/lang/String.java \
 java/lang/StringBuffer.java \
+java/lang/StringBuilder.java \
 java/lang/StringIndexOutOfBoundsException.java \
 java/lang/System.java \
 java/lang/Thread.java \
@@ -3122,6 +3161,7 @@ java/util/regex/PatternSyntaxException.java
 ordinary_java_source_files = $(core_java_source_files) \
 gnu/classpath/ServiceFactory.java \
 gnu/classpath/ServiceProviderLoadingAction.java \
+gnu/classpath/SystemProperties.java \
 gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
 gnu/gcj/RawDataManaged.java \
@@ -3346,6 +3386,7 @@ gnu/java/net/protocol/http/event/ConnectionEvent.java \
 gnu/java/net/protocol/http/event/ConnectionListener.java \
 gnu/java/net/protocol/http/event/RequestEvent.java \
 gnu/java/net/protocol/http/event/RequestListener.java \
+gnu/java/net/protocol/https/Handler.java \
 gnu/java/net/protocol/jar/Connection.java \
 gnu/java/net/protocol/jar/Handler.java \
 gnu/java/nio/ChannelInputStream.java \
@@ -3553,6 +3594,7 @@ java/net/URLStreamHandler.java \
 java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
+java/net/VMNetworkInterface.java \
 java/nio/Buffer.java \
 java/nio/BufferOverflowException.java \
 java/nio/BufferUnderflowException.java \
@@ -3884,6 +3926,7 @@ math_c_source_files = \
 
 ## This lists all the C++ source files in subdirectories.
 nat_source_files = \
+gnu/classpath/natSystemProperties.cc \
 gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
@@ -3921,6 +3964,7 @@ java/lang/natObject.cc \
 java/lang/natRuntime.cc	\
 java/lang/natString.cc \
 java/lang/natStringBuffer.cc \
+java/lang/natStringBuilder.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natVMClassLoader.cc \
@@ -3932,7 +3976,7 @@ java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
 java/lang/reflect/natProxy.cc \
-java/net/natNetworkInterface.cc \
+java/net/natVMNetworkInterface.cc \
 java/net/natInetAddress.cc \
 java/nio/channels/natChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \

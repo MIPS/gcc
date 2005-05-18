@@ -357,7 +357,6 @@ static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
 static int mips_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode mode,
 				   tree, bool);
 static bool mips_valid_pointer_mode (enum machine_mode);
-static bool mips_scalar_mode_supported_p (enum machine_mode);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -696,10 +695,15 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS32 */
   { "4kc", PROCESSOR_4KC, 32 },
-  { "4kp", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4km", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4kp", PROCESSOR_4KP, 32 },
 
   /* MIPS32 Release 2 */
   { "m4k", PROCESSOR_M4K, 33 },
+  { "24k", PROCESSOR_24K, 33 },
+  { "24kc", PROCESSOR_24K, 33 },  /* 24K  no FPU */
+  { "24kf", PROCESSOR_24K, 33 },  /* 24K 1:2 FPU */
+  { "24kx", PROCESSOR_24KX, 33 }, /* 24K 1:1 FPU */
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
@@ -819,9 +823,6 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
-
-#undef TARGET_SCALAR_MODE_SUPPORTED_P
-#define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
@@ -1698,7 +1699,7 @@ mips_legitimize_tls_address (rtx loc)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return dest;
@@ -2806,8 +2807,6 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
       switch (*code)
 	{
 	case NE:
-	case UNGE:
-	case UNGT:
 	case LTGT:
 	case ORDERED:
 	  cmp_code = reverse_condition_maybe_unordered (*code);
@@ -4336,24 +4335,11 @@ override_options (void)
 
   if ((target_flags_explicit & MASK_LONG64) == 0)
     {
-      if (TARGET_INT64)
-	target_flags |= MASK_LONG64;
-      /* If no type size setting options (-mlong64,-mint64,-mlong32)
-	 were used, then set the type sizes.  In the EABI in 64 bit mode,
-	 longs and pointers are 64 bits.  Likewise for the SGI Irix6 N64
-	 ABI.  */
-      else if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
+      if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
 	target_flags |= MASK_LONG64;
       else
 	target_flags &= ~MASK_LONG64;
     }
-
-  /* Deprecate -mint64. Remove after 4.0 branches.  */
-  if (TARGET_INT64)
-    warning (0, "-mint64 is a deprecated option");
-
-  if (TARGET_INT64 && !TARGET_LONG64)
-    error ("unsupported combination: %s", "-mint64 -mlong32");
 
   if (MIPS_MARCH_CONTROLS_SOFT_FLOAT
       && (target_flags_explicit & MASK_SOFT_FLOAT) == 0)
@@ -7298,44 +7284,8 @@ mips_valid_pointer_mode (enum machine_mode mode)
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
 
-/* Define this so that we can deal with a testcase like:
-
-   char foo __attribute__ ((mode (SI)));
-
-   then compiled with -mabi=64 and -mint64. We have no
-   32-bit type at that point and so the default case
-   always fails.  */
-
-static bool
-mips_scalar_mode_supported_p (enum machine_mode mode)
-{
-  switch (mode)
-    {
-    case QImode:
-    case HImode:
-    case SImode:
-    case DImode:
-      return true;
-
-      /* Handled via optabs.c.  */
-    case TImode:
-      return TARGET_64BIT;
-
-    case SFmode:
-    case DFmode:
-      return true;
-
-      /* LONG_DOUBLE_TYPE_SIZE is 128 for TARGET_NEWABI only.  */
-    case TFmode:
-      return TARGET_NEWABI;
-
-    default:
-      return false;
-    }
-}
-
-
 /* Target hook for vector_mode_supported_p.  */
+
 static bool
 mips_vector_mode_supported_p (enum machine_mode mode)
 {

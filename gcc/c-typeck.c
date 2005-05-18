@@ -1353,10 +1353,18 @@ decl_constant_value (tree decl)
 static tree
 decl_constant_value_for_broken_optimization (tree decl)
 {
+  tree ret;
+
   if (pedantic || DECL_MODE (decl) == BLKmode)
     return decl;
-  else
-    return decl_constant_value (decl);
+
+  ret = decl_constant_value (decl);
+  /* Avoid unwanted tree sharing between the initializer and current
+     function's body where the tree can be modified e.g. by the
+     gimplifier.  */
+  if (ret != decl && TREE_STATIC (decl))
+    ret = unshare_expr (ret);
+  return ret;
 }
 
 
@@ -2103,12 +2111,13 @@ build_function_call (tree function, tree params)
   /* Convert anything with function type to a pointer-to-function.  */
   if (TREE_CODE (function) == FUNCTION_DECL)
     {
-      if (DECL_BUILT_IN_CLASS (function) == BUILT_IN_NORMAL)
-	{
-	  tem = resolve_overloaded_builtin (function, params);
-	  if (tem)
-	    return tem;
-	}
+      /* Implement type-directed function overloading for builtins.
+	 resolve_overloaded_builtin and targetm.resolve_overloaded_builtin
+	 handle all the type checking.  The result is a complete expression
+	 that implements this function call.  */
+      tem = resolve_overloaded_builtin (function, params);
+      if (tem)
+	return tem;
 
       name = DECL_NAME (function);
 
@@ -2443,11 +2452,27 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
   return nreverse (result);
 }
 
-/* This is the entry point used by the parser
-   for binary operators in the input.
-   In addition to constructing the expression,
-   we check for operands that were written with other binary operators
-   in a way that is likely to confuse the user.  */
+/* This is the entry point used by the parser to build unary operators
+   in the input.  CODE, a tree_code, specifies the unary operator, and
+   ARG is the operand.  For unary plus, the C parser currently uses
+   CONVERT_EXPR for code.  */
+
+struct c_expr
+parser_build_unary_op (enum tree_code code, struct c_expr arg)
+{
+  struct c_expr result;
+
+  result.original_code = ERROR_MARK;
+  result.value = build_unary_op (code, arg.value, 0);
+  overflow_warning (result.value);
+  return result;
+}
+
+/* This is the entry point used by the parser to build binary operators
+   in the input.  CODE, a tree_code, specifies the binary operator, and
+   ARG1 and ARG2 are the operands.  In addition to constructing the
+   expression, we check for operands that were written with other binary
+   operators in a way that is likely to confuse the user.  */
 
 struct c_expr
 parser_build_binary_op (enum tree_code code, struct c_expr arg1,
@@ -3228,10 +3253,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   if (result_type != TREE_TYPE (op2))
     op2 = convert_and_check (result_type, op2);
 
-  if (TREE_CODE (ifexp) == INTEGER_CST)
-    return non_lvalue (integer_zerop (ifexp) ? op2 : op1);
-
-  return fold (build3 (COND_EXPR, result_type, ifexp, op1, op2));
+  return fold_build3 (COND_EXPR, result_type, ifexp, op1, op2);
 }
 
 /* Return a compound expression that performs two expressions and
@@ -3248,10 +3270,18 @@ build_compound_expr (tree expr1, tree expr2)
       /* The left-hand operand of a comma expression is like an expression
          statement: with -Wextra or -Wunused, we should warn if it doesn't have
 	 any side-effects, unless it was explicitly cast to (void).  */
-      if (warn_unused_value
-           && !(TREE_CODE (expr1) == CONVERT_EXPR
-                && VOID_TYPE_P (TREE_TYPE (expr1))))
-        warning (0, "left-hand operand of comma expression has no effect");
+      if (warn_unused_value)
+	{
+	  if (VOID_TYPE_P (TREE_TYPE (expr1))
+	      && TREE_CODE (expr1) == CONVERT_EXPR)
+	    ; /* (void) a, b */
+	  else if (VOID_TYPE_P (TREE_TYPE (expr1))
+		   && TREE_CODE (expr1) == COMPOUND_EXPR
+		   && TREE_CODE (TREE_OPERAND (expr1, 1)) == CONVERT_EXPR)
+	    ; /* (void) a, (void) b, c */
+	  else
+	    warning (0, "left-hand operand of comma expression has no effect");
+	}
     }
 
   /* With -Wunused, we should also warn if the left-hand operand does have

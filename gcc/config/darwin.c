@@ -55,12 +55,12 @@ Boston, MA 02111-1307, USA.  */
    running program and replace existing functions and methods of that
    translation unit with with versions of those functions and methods
    from the newly compiled translation unit.  The new functions access
-   the existing static data from the old translation unit, if the data
-   existed in the unit to be replaced, and from the new translation
-   unit, for new data.
+   the existing static symbols from the old translation unit, if the
+   symbol existed in the unit to be replaced, and from the new
+   translation unit, otherwise.
 
    The changes are to insert 5 nops at the beginning of all functions
-   and to use indirection to get at static duration data.  The 5 nops
+   and to use indirection to get at static symbols.  The 5 nops
    are required by consumers of the generated code.  Currently, gdb
    uses this to patch in a jump to the overriding function, this
    allows all uses of the old name to forward to the replacement,
@@ -68,13 +68,13 @@ Boston, MA 02111-1307, USA.  */
    rs6000_emit_prologue for the code that handles the nop insertions.
  
    The added indirection allows gdb to redirect accesses to static
-   duration data from the newly loaded translation unit to the
-   existing data, if any.  @code{static} data is special and is
-   handled by setting the second word in the .non_lazy_symbol_pointer
-   data structure to the address of the data.  See indirect_data for
-   the code that handles the extra indirection, and
-   machopic_output_indirection and its use of MACHO_SYMBOL_STATIC for
-   the code that handles @code{static} data indirection.  */
+   symbols from the newly loaded translation unit to the existing
+   symbol, if any.  @code{static} symbols are special and are handled by
+   setting the second word in the .non_lazy_symbol_pointer data
+   structure to symbol.  See indirect_data for the code that handles
+   the extra indirection, and machopic_output_indirection and its use
+   of MACHO_SYMBOL_STATIC for the code that handles @code{static}
+   symbol indirection.  */
 
 
 int
@@ -191,8 +191,8 @@ void
 machopic_define_symbol (rtx mem)
 {
   rtx sym_ref;
-  if (GET_CODE (mem) != MEM)
-    abort ();
+  
+  gcc_assert (GET_CODE (mem) == MEM);
   sym_ref = XEXP (mem, 0);
   SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 }
@@ -203,8 +203,7 @@ const char *
 machopic_function_base_name (void)
 {
   /* if dynamic-no-pic is on, we should not get here */
-  if (MACHO_DYNAMIC_NO_PIC_P)
-    abort ();
+  gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
 
   if (function_base == NULL)
     function_base =
@@ -237,8 +236,7 @@ machopic_output_function_base_name (FILE *file)
   const char *current_name;
 
   /* If dynamic-no-pic is on, we should not get here.  */
-  if (MACHO_DYNAMIC_NO_PIC_P)
-    abort ();
+  gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
   current_name =
     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
   if (function_base_func_name != current_name)
@@ -425,7 +423,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
  	  emit_insn (gen_macho_low (reg, reg, orig));
 #else
 	   /* some other cpu -- writeme!  */
-	   abort ();
+	   gcc_unreachable ();
 #endif
 	   return reg;
 	}
@@ -440,8 +438,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	  rtx hi_sum_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
 
-	  if (reg == NULL)
-	    abort ();
+	  gcc_assert (reg);
 
 	  emit_insn (gen_rtx_SET (Pmode, hi_sum_reg,
 			      gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
@@ -452,7 +449,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	  orig = reg;
 #else
 #if defined (HAVE_lo_sum)
-	  if (reg == 0) abort ();
+	  gcc_assert (reg);
 
 	  emit_insn (gen_rtx_SET (VOIDmode, reg,
 				  gen_rtx_HIGH (Pmode, offset)));
@@ -602,10 +599,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	{
 	  if (reg == 0)
 	    {
-	      if (reload_in_progress)
-		abort ();
-	      else
-		reg = gen_reg_rtx (Pmode);
+	      gcc_assert (!reload_in_progress);
+	      reg = gen_reg_rtx (Pmode);
 	    }
 
 #ifdef HAVE_lo_sum
@@ -624,7 +619,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other platform that can use dynamic-no-pic  */
-	      abort ();
+	      gcc_unreachable ();
 #endif
 	      pic_ref = reg;
 	    }
@@ -717,10 +712,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      if (reg == 0)
 		{
-		  if (reload_in_progress)
-		    abort ();
-		  else
-		    reg = gen_reg_rtx (Pmode);
+		  gcc_assert (!reload_in_progress);
+		  reg = gen_reg_rtx (Pmode);
 		}
 
 	      hi_sum_reg = reg;
@@ -911,7 +904,7 @@ machopic_output_indirection (void **slot, void *data)
 	 the non-lazy symbol pointer data structure when they are
 	 defined.  This allows the runtime to rebind newer instances
 	 of the translation unit with the original instance of the
-	 data.  */
+	 symbol.  */
 
       if ((SYMBOL_REF_FLAGS (symbol) & MACHO_SYMBOL_STATIC)
 	  && machopic_symbol_defined_p (symbol))
@@ -987,9 +980,7 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 	      && DECL_INITIAL (decl) != error_mark_node)))
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && indirect_data (sym_ref)
-      && ! TREE_PUBLIC (decl))
+  if (! TREE_PUBLIC (decl))
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_STATIC;
 }
 
@@ -1317,8 +1308,7 @@ darwin_non_lazy_pcrel (FILE *file, rtx addr)
 {
   const char *nlp_name;
 
-  if (GET_CODE (addr) != SYMBOL_REF)
-    abort ();
+  gcc_assert (GET_CODE (addr) == SYMBOL_REF);
 
   nlp_name = machopic_indirection_name (addr, /*stub_p=*/false);
   fputs ("\t.long\t", file);

@@ -1,5 +1,5 @@
 /* String.java -- immutable character sequences; the object of string literals
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -398,6 +398,18 @@ public final class String implements Serializable, Comparable, CharSequence
   }
 
   /**
+   * Creates a new String using the character sequence represented by
+   * the StringBuilder. Subsequent changes to buf do not affect the String.
+   *
+   * @param buffer StringBuilder to copy
+   * @throws NullPointerException if buffer is null
+   */
+  public String(StringBuilder buffer)
+  {
+    this(buffer.value, 0, buffer.count);
+  }
+
+  /**
    * Special constructor which can share an array when safe to do so.
    *
    * @param data the characters to copy
@@ -664,7 +676,7 @@ public final class String implements Serializable, Comparable, CharSequence
    * Predicate which determines if this String contains the given prefix,
    * beginning comparison at toffset. The result is false if toffset is
    * negative or greater than this.length(), otherwise it is the same as
-   * <code>this.subString(toffset).startsWith(prefix)</code>.
+   * <code>this.substring(toffset).startsWith(prefix)</code>.
    *
    * @param prefix String to compare
    * @param toffset offset for this String where comparison starts

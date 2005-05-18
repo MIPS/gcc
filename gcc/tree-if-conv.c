@@ -241,13 +241,6 @@ tree_if_convert_stmt (struct loop *  loop, tree t, tree cond,
 	 program.  */
       break;
 
-    case GOTO_EXPR:
-      /* Unconditional goto */
-      add_to_predicate_list (bb_for_stmt (TREE_OPERAND (t, 1)), cond);
-      bsi_remove (bsi);
-      cond = NULL_TREE;
-      break;
-
     case COND_EXPR:
       /* Update destination blocks' predicate list and remove this
 	 condition expression.  */
@@ -401,7 +394,7 @@ if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
 /* Return true, iff STMT is if-convertible.
    Statement is if-convertible if,
    - It is if-convertible MODIFY_EXPR
-   - IT is LABEL_EXPR, GOTO_EXPR or COND_EXPR.
+   - IT is LABEL_EXPR or COND_EXPR.
    STMT is inside block BB, which is inside loop LOOP.  */
 
 static bool
@@ -418,7 +411,6 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
 	return false;
       break;
 
-    case GOTO_EXPR:
     case COND_EXPR:
       break;
 
@@ -701,7 +693,7 @@ find_phi_replacement_condition (struct loop *loop,
       basic_block tmp_bb;
       tmp_bb = first_bb;
       first_bb = second_bb;
-      second_bb = first_bb;
+      second_bb = tmp_bb;
     }
 
   /* Check if FIRST_BB is loop header or not.  */
@@ -799,9 +791,7 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
   /* Make new statement definition of the original phi result.  */
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
 
-  /* Set basic block and insert using iterator.  */
-  set_bb_for_stmt (new_stmt, bb);
-
+  /* Insert using iterator.  */
   bsi_insert_after (bsi, new_stmt, BSI_SAME_STMT);
   bsi_next (bsi);
 

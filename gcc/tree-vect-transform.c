@@ -720,6 +720,32 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 }
 
 
+/* Function vect_min_worthwhile_factor.
+
+   For a loop where we could vectorize the operation indicated by CODE,
+   return the minimum vectorization factor that makes it worthwhile
+   to use generic vectors.  */
+static int
+vect_min_worthwhile_factor (enum tree_code code)
+{
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case NEGATE_EXPR:
+      return 4;
+
+    case BIT_AND_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_NOT_EXPR:
+      return 2;
+
+    default:
+      return INT_MAX;
+    }
+}
+
 /* Function vectorizable_operation.
 
    Check if STMT performs a binary or unary operation that can be vectorized. 
@@ -789,6 +815,16 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     {
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	fprintf (vect_dump, "op not supported by target.");
+      return false;
+    }
+
+  /* Worthwhile without SIMD support?  */
+  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
+      && LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	 < vect_min_worthwhile_factor (code))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	fprintf (vect_dump, "not worthwhile without SIMD support.");
       return false;
     }
 
@@ -1463,13 +1499,12 @@ update_vuses_to_preheader (tree stmt, struct loop *loop)
 {
   basic_block header_bb = loop->header;
   edge preheader_e = loop_preheader_edge (loop);
-  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-  int nvuses = NUM_VUSES (vuses);
-  int i;
+  ssa_op_iter iter;
+  use_operand_p use_p;
 
-  for (i = 0; i < nvuses; i++)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VUSE)
     {
-      tree ssa_name = VUSE_OP (vuses, i);
+      tree ssa_name = USE_FROM_PTR (use_p);
       tree def_stmt = SSA_NAME_DEF_STMT (ssa_name);
       tree name_var = SSA_NAME_VAR (ssa_name);
       basic_block bb = bb_for_stmt (def_stmt);
@@ -1488,8 +1523,7 @@ update_vuses_to_preheader (tree stmt, struct loop *loop)
 	    {
 	      if (SSA_NAME_VAR (PHI_RESULT (phi)) == name_var)
 		{
-		  SET_VUSE_OP (vuses, i, 
-			       PHI_ARG_DEF (phi, preheader_e->dest_idx));
+		  SET_USE (use_p, PHI_ARG_DEF (phi, preheader_e->dest_idx));
 		  updated = true;
 		  break;
 		}

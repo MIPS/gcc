@@ -209,6 +209,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
+#include "target.h"
 
 
 /* Possible lattice values.  */
@@ -457,9 +458,7 @@ likely_value (tree stmt)
   if (!do_store_ccp
       && (ann->makes_aliased_stores
 	  || ann->makes_aliased_loads
-	  || NUM_VUSES (VUSE_OPS (ann)) > 0
-	  || NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0
-	  || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0))
+	  || !ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)))
     return VARYING;
 
 
@@ -495,8 +494,8 @@ likely_value (tree stmt)
     }
 
   if (found_constant
-      || NUM_USES (USE_OPS (ann)) == 0
-      || NUM_VUSES (VUSE_OPS (ann)) == 0)
+      || ZERO_SSA_OPERANDS (stmt, SSA_OP_USE)
+      || ZERO_SSA_OPERANDS (stmt, SSA_OP_VUSE))
     return CONSTANT;
 
   return UNDEFINED;
@@ -934,17 +933,18 @@ ccp_fold (tree stmt)
 	       == FUNCTION_DECL)
 	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
     {
-      use_optype uses = STMT_USE_OPS (stmt);
-      if (NUM_USES (uses) != 0)
+      if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
 	{
-	  tree *orig;
+	  tree *orig, var;
 	  tree fndecl, arglist;
-	  size_t i;
+	  size_t i = 0;
+	  ssa_op_iter iter;
+	  use_operand_p var_p;
 
 	  /* Preserve the original values of every operand.  */
-	  orig = xmalloc (sizeof (tree) * NUM_USES (uses));
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    orig[i] = USE_OP (uses, i);
+	  orig = xmalloc (sizeof (tree) *  NUM_SSA_OPERANDS (stmt, SSA_OP_USE));
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
+	    orig[i++] = var;
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL, const_val);
@@ -953,8 +953,9 @@ ccp_fold (tree stmt)
 	  retval = fold_builtin (fndecl, arglist, false);
 
 	  /* Restore operands to their original form.  */
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    SET_USE_OP (uses, i, orig[i]);
+	  i = 0;
+	  FOR_EACH_SSA_USE_OPERAND (var_p, stmt, iter, SSA_OP_USE)
+	    SET_USE (var_p, orig[i++]);
 	  free (orig);
 	}
     }
@@ -970,6 +971,127 @@ ccp_fold (tree stmt)
 }
 
 
+/* Return the tree representing the element referenced by T if T is an
+   ARRAY_REF or COMPONENT_REF into constant aggregates.  Return
+   NULL_TREE otherwise.  */
+
+static tree
+fold_const_aggregate_ref (tree t)
+{
+  prop_value_t *value;
+  tree base, ctor, idx, field, elt;
+
+  switch (TREE_CODE (t))
+    {
+    case ARRAY_REF:
+      /* Get a CONSTRUCTOR.  If BASE is a VAR_DECL, get its
+	 DECL_INITIAL.  If BASE is a nested reference into another
+	 ARRAY_REF or COMPONENT_REF, make a recursive call to resolve
+	 the inner reference.  */
+      base = TREE_OPERAND (t, 0);
+      switch (TREE_CODE (base))
+	{
+	case VAR_DECL:
+	  if (!TREE_READONLY (base)
+	      || TREE_CODE (TREE_TYPE (base)) != ARRAY_TYPE
+	      || !targetm.binds_local_p (base))
+	    return NULL_TREE;
+
+	  ctor = DECL_INITIAL (base);
+	  break;
+
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	  ctor = fold_const_aggregate_ref (base);
+	  break;
+
+	default:
+	  return NULL_TREE;
+	}
+
+      if (ctor == NULL_TREE
+	  || TREE_CODE (ctor) != CONSTRUCTOR
+	  || !TREE_STATIC (ctor))
+	return NULL_TREE;
+
+      /* Get the index.  If we have an SSA_NAME, try to resolve it
+	 with the current lattice value for the SSA_NAME.  */
+      idx = TREE_OPERAND (t, 1);
+      switch (TREE_CODE (idx))
+	{
+	case SSA_NAME:
+	  if ((value = get_value (idx, true))
+	      && value->lattice_val == CONSTANT
+	      && TREE_CODE (value->value) == INTEGER_CST)
+	    idx = value->value;
+	  else
+	    return NULL_TREE;
+	  break;
+
+	case INTEGER_CST:
+	  break;
+
+	default:
+	  return NULL_TREE;
+	}
+
+      /* Whoo-hoo!  I'll fold ya baby.  Yeah!  */
+      for (elt = CONSTRUCTOR_ELTS (ctor);
+	   (elt && !tree_int_cst_equal (TREE_PURPOSE (elt), idx));
+	   elt = TREE_CHAIN (elt))
+	;
+
+      if (elt)
+	return TREE_VALUE (elt);
+      break;
+
+    case COMPONENT_REF:
+      /* Get a CONSTRUCTOR.  If BASE is a VAR_DECL, get its
+	 DECL_INITIAL.  If BASE is a nested reference into another
+	 ARRAY_REF or COMPONENT_REF, make a recursive call to resolve
+	 the inner reference.  */
+      base = TREE_OPERAND (t, 0);
+      switch (TREE_CODE (base))
+	{
+	case VAR_DECL:
+	  if (!TREE_READONLY (base)
+	      || TREE_CODE (TREE_TYPE (base)) != RECORD_TYPE
+	      || !targetm.binds_local_p (base))
+	    return NULL_TREE;
+
+	  ctor = DECL_INITIAL (base);
+	  break;
+
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	  ctor = fold_const_aggregate_ref (base);
+	  break;
+
+	default:
+	  return NULL_TREE;
+	}
+
+      if (ctor == NULL_TREE
+	  || TREE_CODE (ctor) != CONSTRUCTOR
+	  || !TREE_STATIC (ctor))
+	return NULL_TREE;
+
+      field = TREE_OPERAND (t, 1);
+
+      for (elt = CONSTRUCTOR_ELTS (ctor); elt; elt = TREE_CHAIN (elt))
+	if (TREE_PURPOSE (elt) == field
+	    /* FIXME: Handle bit-fields.  */
+	    && ! DECL_BIT_FIELD (TREE_PURPOSE (elt)))
+	  return TREE_VALUE (elt);
+      break;
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+  
 /* Evaluate statement STMT.  */
 
 static prop_value_t
@@ -989,10 +1111,13 @@ evaluate_stmt (tree stmt)
      bother folding the statement.  */
   else if (likelyvalue == VARYING)
     simplified = get_rhs (stmt);
-  /* Otherwise the statement is likely to have an UNDEFINED value and
-     there will be nothing to do.  */
+  /* If the statement is an ARRAY_REF or COMPONENT_REF into constant
+     aggregates, extract the referenced constant.  Otherwise the
+     statement is likely to have an UNDEFINED value, and there will be
+     nothing to do.  Note that fold_const_aggregate_ref returns
+     NULL_TREE if the first case does not match.  */
   else
-    simplified = NULL_TREE;
+    simplified = fold_const_aggregate_ref (get_rhs (stmt));
 
   if (simplified && is_gimple_min_invariant (simplified))
     {
@@ -1188,9 +1313,6 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
 static enum ssa_prop_result
 ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 {
-  stmt_ann_t ann;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
   tree def;
   ssa_op_iter iter;
 
@@ -1201,10 +1323,6 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
       fprintf (dump_file, "\n");
     }
 
-  ann = stmt_ann (stmt);
-
-  v_must_defs = V_MUST_DEF_OPS (ann);
-  v_may_defs = V_MAY_DEF_OPS (ann);
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       /* If the statement is an assignment that produces a single
@@ -1596,7 +1714,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
      substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
      are sometimes added.  */
   base = fold (base);
-  STRIP_NOPS (base);
+  STRIP_TYPE_NOPS (base);
   TREE_OPERAND (expr, 0) = base;
 
   /* One possibility is that the address reduces to a string constant.  */
@@ -2210,17 +2328,18 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
   tmp = get_initialized_tmp_var (expr, &stmts, NULL);
   pop_gimplify_context (NULL);
 
-  /* The replacement can expose previously unreferenced variables.  */
-  for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
-    {
-      find_new_referenced_vars (tsi_stmt_ptr (ti));
-      mark_new_vars_to_rename (tsi_stmt (ti));
-    }
-
   if (EXPR_HAS_LOCATION (stmt))
     annotate_all_with_locus (&stmts, EXPR_LOCATION (stmt));
 
-  bsi_insert_before (si_p, stmts, BSI_SAME_STMT);
+  /* The replacement can expose previously unreferenced variables.  */
+  for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
+    {
+      tree new_stmt = tsi_stmt (ti);
+      find_new_referenced_vars (tsi_stmt_ptr (ti));
+      bsi_insert_before (si_p, new_stmt, BSI_NEW_STMT);
+      mark_new_vars_to_rename (bsi_stmt (*si_p));
+      bsi_next (si_p);
+    }
 
   return tmp;
 }
@@ -2240,6 +2359,7 @@ execute_fold_all_builtins (void)
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
 	  tree *stmtp = bsi_stmt_ptr (i);
+	  tree old_stmt = *stmtp;
 	  tree call = get_rhs (*stmtp);
 	  tree callee, result;
 
@@ -2281,7 +2401,7 @@ execute_fold_all_builtins (void)
 		}
 	    }
 	  update_stmt (*stmtp);
-	  if (maybe_clean_eh_stmt (*stmtp)
+	  if (maybe_clean_or_replace_eh_stmt (old_stmt, *stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;
 

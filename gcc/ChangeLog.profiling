@@ -1,3 +1,7 @@
+2005-05-18  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20050517)
+
 2005-05-15  Olga Golovanevsky  <olga@il.ibm.com>
 
         * ipa_prop.c (ipa_callsite_param_set_info_type_int): Renamed 

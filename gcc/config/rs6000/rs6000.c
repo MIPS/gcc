@@ -130,11 +130,6 @@ static GTY(()) bool rs6000_always_hint;
 /* Schedule instructions for group formation.  */
 static GTY(()) bool rs6000_sched_groups;
 
-/* Support adjust_priority scheduler hook
-   and -mprioritize-restricted-insns= option.  */
-const char *rs6000_sched_restricted_insns_priority_str;
-int rs6000_sched_restricted_insns_priority;
-
 /* Support for -msched-costly-dep option.  */
 const char *rs6000_sched_costly_dep_str;
 enum rs6000_dependence_cost rs6000_sched_costly_dep;
@@ -147,41 +142,19 @@ enum rs6000_nop_insertion rs6000_sched_insert_nops;
 static GTY(()) tree altivec_builtin_mask_for_load;
 
 /* Size of long double */
-const char *rs6000_long_double_size_string;
 int rs6000_long_double_type_size;
 
 /* Whether -mabi=altivec has appeared */
 int rs6000_altivec_abi;
 
-/* Whether VRSAVE instructions should be generated.  */
-int rs6000_altivec_vrsave;
-
-/* String from -mvrsave= option.  */
-const char *rs6000_altivec_vrsave_string;
-
 /* Nonzero if we want SPE ABI extensions.  */
 int rs6000_spe_abi;
-
-/* Whether isel instructions should be generated.  */
-int rs6000_isel;
-
-/* Whether SPE simd instructions should be generated.  */
-int rs6000_spe;
 
 /* Nonzero if floating point operations are done in the GPRs.  */
 int rs6000_float_gprs = 0;
 
 /* Nonzero if we want Darwin's struct-by-value-in-regs ABI.  */
 int rs6000_darwin64_abi;
-
-/* String from -mfloat-gprs=.  */
-const char *rs6000_float_gprs_string;
-
-/* String from -misel=.  */
-const char *rs6000_isel_string;
-
-/* String from -mspe=.  */
-const char *rs6000_spe_string;
 
 /* Set to nonzero once AIX common-mode calls have been defined.  */
 static GTY(()) int common_mode_defined;
@@ -216,9 +189,6 @@ const char *rs6000_tls_size_string;
 /* ABI enumeration available for subtarget to use.  */
 enum rs6000_abi rs6000_current_abi;
 
-/* ABI string from -mabi= option.  */
-const char *rs6000_abi_string;
-
 /* Whether to use variant of AIX ABI for PowerPC64 Linux.  */
 int dot_symbols;
 
@@ -230,31 +200,10 @@ int rs6000_debug_arg;		/* debug argument handling */
 /* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
 
-/* Opaque types.  */
-static GTY(()) tree opaque_V2SI_type_node;
-static GTY(()) tree opaque_V2SF_type_node;
-static GTY(()) tree opaque_p_V2SI_type_node;
-static GTY(()) tree V16QI_type_node;
-static GTY(()) tree V2SI_type_node;
-static GTY(()) tree V2SF_type_node;
-static GTY(()) tree V4HI_type_node;
-static GTY(()) tree V4SI_type_node;
-static GTY(()) tree V4SF_type_node;
-static GTY(()) tree V8HI_type_node;
-static GTY(()) tree unsigned_V16QI_type_node;
-static GTY(()) tree unsigned_V8HI_type_node;
-static GTY(()) tree unsigned_V4SI_type_node;
-static GTY(()) tree bool_char_type_node;	/* __bool char */
-static GTY(()) tree bool_short_type_node;	/* __bool short */
-static GTY(()) tree bool_int_type_node;		/* __bool int */
-static GTY(()) tree pixel_type_node;		/* __pixel */
-static GTY(()) tree bool_V16QI_type_node;	/* __vector __bool char */
-static GTY(()) tree bool_V8HI_type_node;	/* __vector __bool short */
-static GTY(()) tree bool_V4SI_type_node;	/* __vector __bool int */
-static GTY(()) tree pixel_V8HI_type_node;	/* __vector __pixel */
+/* Built in types.  */
 
-int rs6000_warn_altivec_long = 1;		/* On by default. */
-const char *rs6000_warn_altivec_long_switch;
+tree rs6000_builtin_types[RS6000_BTI_MAX];
+tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
 const char *rs6000_traceback_name;
 static enum {
@@ -271,18 +220,20 @@ char toc_label_name[10];
 /* Alias set for saves and restores from the rs6000 stack.  */
 static GTY(()) int rs6000_sr_alias_set;
 
-/* Call distance, overridden by -mlongcall and #pragma longcall(1).
-   The only place that looks at this is rs6000_set_default_type_attributes;
-   everywhere else should rely on the presence or absence of a longcall
-   attribute on the function declaration.  Exception: init_cumulative_args
-   looks at it too, for libcalls.  */
-int rs6000_default_long_calls;
-const char *rs6000_longcall_switch;
-
 /* Control alignment for fields within structures.  */
 /* String from -malign-XXXXX.  */
-const char *rs6000_alignment_string;
 int rs6000_alignment_flags;
+
+/* True for any options that were explicitly set.  */
+struct {
+  bool aix_struct_ret;		/* True if -maix-struct-ret was used.  */
+  bool alignment;		/* True if -malign- was used.  */
+  bool abi;			/* True if -mabi= was used.  */
+  bool spe;			/* True if -mspe= was used.  */
+  bool float_gprs;		/* True if -mfloat-gprs= was used.  */
+  bool isel;			/* True if -misel was used. */
+  bool long_double;	        /* True if -mlong-double- was used.  */
+} rs6000_explicit_options;
 
 struct builtin_description
 {
@@ -686,6 +637,7 @@ static void rs6000_sched_finish (FILE *, int);
 static int rs6000_use_sched_lookahead (void);
 static tree rs6000_builtin_mask_for_load (void);
 
+static void def_builtin (int, const char *, tree, int);
 static void rs6000_init_builtins (void);
 static rtx rs6000_expand_unop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_binop_builtin (enum insn_code, tree, rtx);
@@ -717,18 +669,16 @@ static rtx altivec_expand_predicate_builtin (enum insn_code,
 					     const char *, tree, rtx);
 static rtx altivec_expand_lv_builtin (enum insn_code, tree, rtx);
 static rtx altivec_expand_stv_builtin (enum insn_code, tree);
-static void rs6000_parse_abi_options (void);
-static void rs6000_parse_alignment_option (void);
+static bool rs6000_handle_option (size_t, const char *, int);
 static void rs6000_parse_tls_size_option (void);
 static void rs6000_parse_yes_no_option (const char *, const char *, int *);
-static void rs6000_parse_float_gprs_option (void);
 static int first_altivec_reg_to_save (void);
 static unsigned int compute_vrsave_mask (void);
 static void compute_save_world_info (rs6000_stack_t *info_ptr);
 static void is_altivec_return_reg (rtx, void *);
 static rtx generate_set_vrsave (rtx, rs6000_stack_t *, int);
 int easy_vector_constant (rtx, enum machine_mode);
-static bool is_ev64_opaque_type (tree);
+static bool rs6000_is_opaque_type (tree);
 static rtx rs6000_dwarf_register_span (rtx);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
 static rtx rs6000_tls_get_addr (void);
@@ -962,7 +912,7 @@ static const char alt_reg_names[][8] =
 #define TARGET_ADDRESS_COST hook_int_rtx_0
 
 #undef TARGET_VECTOR_OPAQUE_P
-#define TARGET_VECTOR_OPAQUE_P is_ev64_opaque_type
+#define TARGET_VECTOR_OPAQUE_P rs6000_is_opaque_type
 
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN rs6000_dwarf_register_span
@@ -1008,6 +958,13 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
 #define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN invalid_arg_for_unprototyped_fn
+
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION rs6000_handle_option
+
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS \
+  (TARGET_DEFAULT | MASK_SCHED_PROLOG)
 
 /* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
    The PowerPC architecture requires only weak consistency among
@@ -1158,7 +1115,8 @@ rs6000_override_options (const char *default_cpu)
 	 {"power4", PROCESSOR_POWER4,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
 	 {"power5", PROCESSOR_POWER5,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
+	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
+	  | MASK_MFCRF | MASK_POPCNTB},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -1288,24 +1246,14 @@ rs6000_override_options (const char *default_cpu)
 	       rs6000_traceback_name);
     }
 
-  /* Set size of long double */
-  rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
-  if (rs6000_long_double_size_string)
-    {
-      char *tail;
-      int size = strtol (rs6000_long_double_size_string, &tail, 10);
-      if (*tail != '\0' || (size != 64 && size != 128))
-	error ("Unknown switch -mlong-double-%s",
-	       rs6000_long_double_size_string);
-      else
-	rs6000_long_double_type_size = size;
-    }
+  if (!rs6000_explicit_options.long_double)
+    rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
 
   /* Set Altivec ABI as default for powerpc64 linux.  */
   if (TARGET_ELF && TARGET_64BIT)
     {
       rs6000_altivec_abi = 1;
-      rs6000_altivec_vrsave = 1;
+      TARGET_ALTIVEC_VRSAVE = 1;
     }
 
   /* Set the Darwin64 ABI as default for 64-bit Darwin.  */
@@ -1318,21 +1266,6 @@ rs6000_override_options (const char *default_cpu)
       /* Default to natural alignment, for better performance.  */
       rs6000_alignment_flags = MASK_ALIGN_NATURAL;
     }
-
-  /* Handle -mabi= options.  */
-  rs6000_parse_abi_options ();
-
-  /* Handle -malign-XXXXX option.  */
-  rs6000_parse_alignment_option ();
-
-  rs6000_parse_float_gprs_option ();
-
-  /* Handle generic -mFOO=YES/NO options.  */
-  rs6000_parse_yes_no_option ("vrsave", rs6000_altivec_vrsave_string,
-			      &rs6000_altivec_vrsave);
-  rs6000_parse_yes_no_option ("isel", rs6000_isel_string,
-			      &rs6000_isel);
-  rs6000_parse_yes_no_option ("spe", rs6000_spe_string, &rs6000_spe);
 
   /* Handle -mtls-size option.  */
   rs6000_parse_tls_size_option ();
@@ -1356,26 +1289,21 @@ rs6000_override_options (const char *default_cpu)
 	 MASK_STRING above when optimizing for size.  */
       if ((target_flags & MASK_STRING) != 0)
 	target_flags = target_flags & ~MASK_STRING;
-
-      /* No SPE means 64-bit long doubles, even if an E500.  */
-      if (rs6000_spe_string != 0
-	  && !strcmp (rs6000_spe_string, "no"))
-	rs6000_long_double_type_size = 64;
     }
   else if (rs6000_select[1].string != NULL)
     {
       /* For the powerpc-eabispe configuration, we set all these by
 	 default, so let's unset them if we manually set another
 	 CPU that is not the E500.  */
-      if (rs6000_abi_string == 0)
+      if (!rs6000_explicit_options.abi)
 	rs6000_spe_abi = 0;
-      if (rs6000_spe_string == 0)
+      if (!rs6000_explicit_options.spe)
 	rs6000_spe = 0;
-      if (rs6000_float_gprs_string == 0)
+      if (!rs6000_explicit_options.float_gprs)
 	rs6000_float_gprs = 0;
-      if (rs6000_isel_string == 0)
+      if (!rs6000_explicit_options.isel)
 	rs6000_isel = 0;
-      if (rs6000_long_double_size_string == 0)
+      if (!rs6000_explicit_options.long_double)
 	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
     }
 
@@ -1384,43 +1312,13 @@ rs6000_override_options (const char *default_cpu)
   rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
 			 || rs6000_cpu == PROCESSOR_POWER5);
 
-  /* Handle -m(no-)longcall option.  This is a bit of a cheap hack,
-     using TARGET_OPTIONS to handle a toggle switch, but we're out of
-     bits in target_flags so TARGET_SWITCHES cannot be used.
-     Assumption here is that rs6000_longcall_switch points into the
-     text of the complete option, rather than being a copy, so we can
-     scan back for the presence or absence of the no- modifier.  */
-  if (rs6000_longcall_switch)
-    {
-      const char *base = rs6000_longcall_switch;
-      while (base[-1] != 'm') base--;
-
-      if (*rs6000_longcall_switch != '\0')
-	error ("invalid option %qs", base);
-      rs6000_default_long_calls = (base[0] != 'n');
-    }
-
-  /* Handle -m(no-)warn-altivec-long similarly.  */
-  if (rs6000_warn_altivec_long_switch)
-    {
-      const char *base = rs6000_warn_altivec_long_switch;
-      while (base[-1] != 'm') base--;
-
-      if (*rs6000_warn_altivec_long_switch != '\0')
-	error ("invalid option %qs", base);
-      rs6000_warn_altivec_long = (base[0] != 'n');
-    }
-
-  /* Handle -mprioritize-restricted-insns option.  */
   rs6000_sched_restricted_insns_priority
     = (rs6000_sched_groups ? 1 : 0);
-  if (rs6000_sched_restricted_insns_priority_str)
-    rs6000_sched_restricted_insns_priority =
-      atoi (rs6000_sched_restricted_insns_priority_str);
 
   /* Handle -msched-costly-dep option.  */
   rs6000_sched_costly_dep
     = (rs6000_sched_groups ? store_to_load_dep_costly : no_dep_costly);
+
   if (rs6000_sched_costly_dep_str)
     {
       if (! strcmp (rs6000_sched_costly_dep_str, "no"))
@@ -1438,6 +1336,7 @@ rs6000_override_options (const char *default_cpu)
   /* Handle -minsert-sched-nops option.  */
   rs6000_sched_insert_nops
     = (rs6000_sched_groups ? sched_finish_regroup_exact : sched_finish_none);
+
   if (rs6000_sched_insert_nops_str)
     {
       if (! strcmp (rs6000_sched_insert_nops_str, "no"))
@@ -1457,16 +1356,11 @@ rs6000_override_options (const char *default_cpu)
     memcpy (rs6000_reg_names, alt_reg_names, sizeof (rs6000_reg_names));
 #endif
 
-  /* Set TARGET_AIX_STRUCT_RET last, after the ABI is determined.
+  /* Set aix_struct_return last, after the ABI is determined.
      If -maix-struct-return or -msvr4-struct-return was explicitly
      used, don't override with the ABI default.  */
-  if ((target_flags_explicit & MASK_AIX_STRUCT_RET) == 0)
-    {
-      if (DEFAULT_ABI == ABI_V4 && !DRAFT_V4_STRUCT_RET)
-	target_flags = (target_flags & ~MASK_AIX_STRUCT_RET);
-      else
-	target_flags |= MASK_AIX_STRUCT_RET;
-    }
+  if (!rs6000_explicit_options.aix_struct_ret)
+    aix_struct_return = (DEFAULT_ABI != ABI_V4 || DRAFT_V4_STRUCT_RET);
 
   if (TARGET_LONG_DOUBLE_128
       && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN))
@@ -1621,87 +1515,6 @@ rs6000_parse_yes_no_option (const char *name, const char *value, int *flag)
     error ("unknown -m%s= option specified: '%s'", name, value);
 }
 
-/* Handle -mabi= options.  */
-static void
-rs6000_parse_abi_options (void)
-{
-  if (rs6000_abi_string == 0)
-    return;
-  else if (! strcmp (rs6000_abi_string, "altivec"))
-    {
-      rs6000_altivec_abi = 1;
-      rs6000_spe_abi = 0;
-    }
-  else if (! strcmp (rs6000_abi_string, "no-altivec"))
-    rs6000_altivec_abi = 0;
-  else if (! strcmp (rs6000_abi_string, "spe"))
-    {
-      rs6000_spe_abi = 1;
-      rs6000_altivec_abi = 0;
-      if (!TARGET_SPE_ABI)
-	error ("not configured for ABI: '%s'", rs6000_abi_string);
-    }
-
-  /* These are here for testing during development only, do not
-     document in the manual please.  */
-  else if (! strcmp (rs6000_abi_string, "d64"))
-    {
-      rs6000_darwin64_abi = 1;
-      warning (0, "Using darwin64 ABI");
-    }
-  else if (! strcmp (rs6000_abi_string, "d32"))
-    {
-      rs6000_darwin64_abi = 0;
-      warning (0, "Using old darwin ABI");
-    }
-
-  else if (! strcmp (rs6000_abi_string, "no-spe"))
-    rs6000_spe_abi = 0;
-  else
-    error ("unknown ABI specified: '%s'", rs6000_abi_string);
-}
-
-/* Handle -mfloat-gprs= options.  */
-static void
-rs6000_parse_float_gprs_option (void)
-{
-  if (rs6000_float_gprs_string == 0)
-    return;
-  else if (! strcmp (rs6000_float_gprs_string, "yes")
-	   || ! strcmp (rs6000_float_gprs_string, "single"))
-    rs6000_float_gprs = 1;
-  else if (! strcmp (rs6000_float_gprs_string, "double"))
-    rs6000_float_gprs = 2;
-  else if (! strcmp (rs6000_float_gprs_string, "no"))
-    rs6000_float_gprs = 0;
-  else
-    error ("invalid option for -mfloat-gprs");
-}
-
-/* Handle -malign-XXXXXX options.  */
-static void
-rs6000_parse_alignment_option (void)
-{
-  if (rs6000_alignment_string == 0)
-    return;
-  else if (! strcmp (rs6000_alignment_string, "power"))
-    {
-      /* On 64-bit Darwin, power alignment is ABI-incompatible with
-	 some C library functions, so warn about it. The flag may be
-	 useful for performance studies from time to time though, so
-	 don't disable it entirely.  */
-      if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
-	warning (0, "-malign-power is not supported for 64-bit Darwin;"
-		 " it is incompatible with the installed C and C++ libraries");
-      rs6000_alignment_flags = MASK_ALIGN_POWER;
-    }
-  else if (! strcmp (rs6000_alignment_string, "natural"))
-    rs6000_alignment_flags = MASK_ALIGN_NATURAL;
-  else
-    error ("unknown -malign-XXXXX option specified: '%s'",
-	   rs6000_alignment_string);
-}
-
 /* Validate and record the size specified with the -mtls-size option.  */
 
 static void
@@ -1722,6 +1535,273 @@ rs6000_parse_tls_size_option (void)
 void
 optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 {
+}
+
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+rs6000_handle_option (size_t code, const char *arg, int value)
+{
+  switch (code)
+    {
+    case OPT_mno_power:
+      target_flags &= ~(MASK_POWER | MASK_POWER2
+			| MASK_MULTIPLE | MASK_STRING);
+      target_flags_explicit |= (MASK_POWER | MASK_POWER2
+				| MASK_MULTIPLE | MASK_STRING);
+      break;
+    case OPT_mno_powerpc:
+      target_flags &= ~(MASK_POWERPC | MASK_PPC_GPOPT
+			| MASK_PPC_GFXOPT | MASK_POWERPC64);
+      target_flags_explicit |= (MASK_POWERPC | MASK_PPC_GPOPT
+				| MASK_PPC_GFXOPT | MASK_POWERPC64);
+      break;
+    case OPT_mfull_toc:
+      target_flags &= ~(MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
+			| MASK_NO_SUM_IN_TOC);
+      target_flags_explicit |= (MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
+				| MASK_NO_SUM_IN_TOC);
+#ifdef TARGET_USES_SYSV4_OPT
+      /* Note, V.4 no longer uses a normal TOC, so make -mfull-toc, be
+	 just the same as -mminimal-toc.  */
+      target_flags |= MASK_MINIMAL_TOC;
+      target_flags_explicit |= MASK_MINIMAL_TOC;
+#endif
+      break;
+
+#ifdef TARGET_USES_SYSV4_OPT
+    case OPT_mtoc:
+      /* Make -mtoc behave like -mminimal-toc.  */
+      target_flags |= MASK_MINIMAL_TOC;
+      target_flags_explicit |= MASK_MINIMAL_TOC;
+      break;
+#endif
+
+#ifdef TARGET_USES_AIX64_OPT
+    case OPT_maix64:
+#else
+    case OPT_m64:
+#endif
+      target_flags |= MASK_POWERPC64 | MASK_POWERPC | MASK_PPC_GFXOPT;
+      target_flags_explicit |= MASK_POWERPC64 | MASK_POWERPC
+	| MASK_PPC_GFXOPT;
+      break;
+
+#ifdef TARGET_USES_AIX64_OPT
+    case OPT_maix32:
+#else
+    case OPT_m32:
+#endif
+      target_flags &= ~MASK_POWERPC64;
+      target_flags_explicit |= MASK_POWERPC64;
+      break;
+
+    case OPT_minsert_sched_nops_:
+      rs6000_sched_insert_nops_str = arg;
+      break;
+
+    case OPT_mminimal_toc:
+      if (value == 1)
+	{
+	  target_flags &= ~(MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
+	  target_flags_explicit |= (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
+	}
+      break;
+
+    case OPT_mpower:
+      if (value == 1)
+	{
+	  target_flags |= (MASK_MULTIPLE | MASK_STRING);
+	  target_flags_explicit |= (MASK_MULTIPLE | MASK_STRING);
+	}
+      break;
+
+    case OPT_mpower2:
+      if (value == 1)
+	{
+	  target_flags |= (MASK_POWER | MASK_MULTIPLE | MASK_STRING);
+	  target_flags_explicit |= (MASK_POWER | MASK_MULTIPLE | MASK_STRING);
+	}
+      break;
+
+    case OPT_mpowerpc_gpopt:
+    case OPT_mpowerpc_gfxopt:
+      if (value == 1)
+	{
+	  target_flags |= MASK_POWERPC;
+	  target_flags_explicit |= MASK_POWERPC;
+	}
+      break;
+
+    case OPT_maix_struct_return:
+    case OPT_msvr4_struct_return:
+      rs6000_explicit_options.aix_struct_ret = true;
+      break;
+
+    case OPT_mvrsave_:
+      rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));
+      break;
+
+    case OPT_misel_:
+      rs6000_explicit_options.isel = true;
+      rs6000_parse_yes_no_option ("isel", arg, &(rs6000_isel));
+      break;
+
+    case OPT_mspe_:
+      rs6000_explicit_options.spe = true;
+      rs6000_parse_yes_no_option ("spe", arg, &(rs6000_spe));
+      /* No SPE means 64-bit long doubles, even if an E500.  */
+      if (!rs6000_spe)
+	rs6000_long_double_type_size = 64;
+      break;
+
+    case OPT_mdebug_:
+      rs6000_debug_name = arg;
+      break;
+
+#ifdef TARGET_USES_SYSV4_OPT
+    case OPT_mcall_:
+      rs6000_abi_name = arg;
+      break;
+
+    case OPT_msdata_:
+      rs6000_sdata_name = arg;
+      break;
+
+    case OPT_mtls_size_:
+      rs6000_tls_size_string = arg;
+      break;
+
+    case OPT_mrelocatable:
+      if (value == 1)
+	{
+	  target_flags |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
+	  target_flags_explicit |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
+	}
+      break;
+
+    case OPT_mrelocatable_lib:
+      if (value == 1)
+	{
+	  target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
+	    | MASK_NO_FP_IN_TOC;
+	  target_flags_explicit |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
+	    | MASK_NO_FP_IN_TOC;
+	}
+      else
+	{
+	  target_flags &= ~MASK_RELOCATABLE;
+	  target_flags_explicit |= MASK_RELOCATABLE;
+	}
+      break;
+#endif
+
+    case OPT_mabi_:
+      rs6000_explicit_options.abi = true;
+      if (!strcmp (arg, "altivec"))
+	{
+	  rs6000_altivec_abi = 1;
+	  rs6000_spe_abi = 0;
+	}
+      else if (! strcmp (arg, "no-altivec"))
+	rs6000_altivec_abi = 0;
+      else if (! strcmp (arg, "spe"))
+	{
+	  rs6000_spe_abi = 1;
+	  rs6000_altivec_abi = 0;
+	  if (!TARGET_SPE_ABI)
+	    error ("not configured for ABI: '%s'", arg);
+	}
+      else if (! strcmp (arg, "no-spe"))
+	rs6000_spe_abi = 0;
+
+      /* These are here for testing during development only, do not
+	 document in the manual please.  */
+      else if (! strcmp (arg, "d64"))
+	{
+	  rs6000_darwin64_abi = 1;
+	  warning (0, "Using darwin64 ABI");
+	}
+      else if (! strcmp (arg, "d32"))
+	{
+	  rs6000_darwin64_abi = 0;
+	  warning (0, "Using old darwin ABI");
+	}
+
+      else
+	{
+	  error ("unknown ABI specified: '%s'", arg);
+	  return false;
+	}
+      break;
+
+    case OPT_mcpu_:
+      rs6000_select[1].string = arg;
+      break;
+
+    case OPT_mtune_:
+      rs6000_select[2].string = arg;
+      break;
+
+    case OPT_mtraceback_:
+      rs6000_traceback_name = arg;
+      break;
+
+    case OPT_mfloat_gprs_:
+      rs6000_explicit_options.float_gprs = true;
+      if (! strcmp (arg, "yes") || ! strcmp (arg, "single"))
+	rs6000_float_gprs = 1;
+      else if (! strcmp (arg, "double"))
+	rs6000_float_gprs = 2;
+      else if (! strcmp (arg, "no"))
+	rs6000_float_gprs = 0;
+      else
+	{
+	  error ("invalid option for -mfloat-gprs: '%s'", arg);
+	  return false;
+	}
+      break;
+
+    case OPT_mlong_double_:
+      rs6000_explicit_options.long_double = true;
+      rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+      if (value != 64 && value != 128)
+	{
+	  error ("Unknown switch -mlong-double-%s", arg);
+	  rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+	  return false;
+	}
+      else
+	rs6000_long_double_type_size = value;
+      break;
+
+    case OPT_msched_costly_dep_:
+      rs6000_sched_costly_dep_str = arg;
+      break;
+
+    case OPT_malign_:
+      rs6000_explicit_options.alignment = true;
+      if (! strcmp (arg, "power"))
+	{
+	  /* On 64-bit Darwin, power alignment is ABI-incompatible with
+	     some C library functions, so warn about it. The flag may be
+	     useful for performance studies from time to time though, so
+	     don't disable it entirely.  */
+	  if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
+	    warning (0, "-malign-power is not supported for 64-bit Darwin;"
+		     " it is incompatible with the installed C and C++ libraries");
+	  rs6000_alignment_flags = MASK_ALIGN_POWER;
+	}
+      else if (! strcmp (arg, "natural"))
+	rs6000_alignment_flags = MASK_ALIGN_NATURAL;
+      else
+	{
+	  error ("unknown -malign-XXXXX option specified: '%s'", arg);
+	  return false;
+	}
+      break;
+    }
+  return true;
 }
 
 /* Do anything needed at the start of the asm file.  */
@@ -3519,11 +3599,29 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   /* Recognize the case where operand[1] is a reference to thread-local
      data and load its address to a register.  */
-  if (GET_CODE (operands[1]) == SYMBOL_REF)
+  if (rs6000_tls_referenced_p (operands[1]))
     {
-      enum tls_model model = SYMBOL_REF_TLS_MODEL (operands[1]);
-      if (model != 0)
-	operands[1] = rs6000_legitimize_tls_address (operands[1], model);
+      enum tls_model model;
+      rtx tmp = operands[1];
+      rtx addend = NULL;
+
+      if (GET_CODE (tmp) == CONST && GET_CODE (XEXP (tmp, 0)) == PLUS)
+	{
+          addend = XEXP (XEXP (tmp, 0), 1);
+	  tmp = XEXP (XEXP (tmp, 0), 0);
+	}
+
+      gcc_assert (GET_CODE (tmp) == SYMBOL_REF);
+      model = SYMBOL_REF_TLS_MODEL (tmp);
+      gcc_assert (model != 0);
+
+      tmp = rs6000_legitimize_tls_address (tmp, model);
+      if (addend)
+	{
+	  tmp = gen_rtx_PLUS (mode, tmp, addend);
+	  tmp = force_operand (tmp, operands[0]);
+	}
+      operands[1] = tmp;
     }
 
   /* Handle the case where reload calls us with an invalid address.  */
@@ -3798,7 +3896,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
    returned in memory.  The Darwin ABI does the same.  The SVR4 ABI
    specifies that structures <= 8 bytes are returned in r3/r4, but a
    draft put them in memory, and GCC used to implement the draft
-   instead of the final standard.  Therefore, TARGET_AIX_STRUCT_RET
+   instead of the final standard.  Therefore, aix_struct_return
    controls this instead of DEFAULT_ABI; V.4 targets needing backward
    compatibility can change DRAFT_V4_STRUCT_RET to override the
    default, and -m switches get the final word.  See
@@ -3834,7 +3932,7 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
     }
 
   if (AGGREGATE_TYPE_P (type)
-      && (TARGET_AIX_STRUCT_RET
+      && (aix_struct_return
 	  || (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8))
     return true;
 
@@ -5478,12 +5576,19 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
 /* Builtins.  */
 
-#define def_builtin(MASK, NAME, TYPE, CODE)				\
-do {									\
-  if ((MASK) & target_flags)						\
-    lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-				 NULL, NULL_TREE);			\
-} while (0)
+static void
+def_builtin (int mask, const char *name, tree type, int code)
+{
+  if (mask & target_flags)
+    {
+      if (rs6000_builtin_decls[code])
+	abort ();
+
+      rs6000_builtin_decls[code] =
+        lang_hooks.builtin_function (name, type, code, BUILT_IN_MD,
+				     NULL, NULL_TREE);
+    }
+}
 
 /* Simple ternary operations: VECd = foo (VECa, VECb, VECc).  */
 
@@ -5512,6 +5617,22 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v8hi, "__builtin_altivec_vsldoi_8hi", ALTIVEC_BUILTIN_VSLDOI_8HI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v4si, "__builtin_altivec_vsldoi_4si", ALTIVEC_BUILTIN_VSLDOI_4SI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v4sf, "__builtin_altivec_vsldoi_4sf", ALTIVEC_BUILTIN_VSLDOI_4SF },
+
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_madd", ALTIVEC_BUILTIN_VEC_MADD },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_madds", ALTIVEC_BUILTIN_VEC_MADDS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mladd", ALTIVEC_BUILTIN_VEC_MLADD },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mradds", ALTIVEC_BUILTIN_VEC_MRADDS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_msum", ALTIVEC_BUILTIN_VEC_MSUM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmsumshm", ALTIVEC_BUILTIN_VEC_VMSUMSHM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmsumuhm", ALTIVEC_BUILTIN_VEC_VMSUMUHM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmsummbm", ALTIVEC_BUILTIN_VEC_VMSUMMBM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmsumubm", ALTIVEC_BUILTIN_VEC_VMSUMUBM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_msums", ALTIVEC_BUILTIN_VEC_MSUMS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmsumshs", ALTIVEC_BUILTIN_VEC_VMSUMSHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmsumuhs", ALTIVEC_BUILTIN_VEC_VMSUMUHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_nmsub", ALTIVEC_BUILTIN_VEC_NMSUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_perm", ALTIVEC_BUILTIN_VEC_PERM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sel", ALTIVEC_BUILTIN_VEC_SEL },
 };
 
 /* DST operations: void foo (void *, const int, const char).  */
@@ -5521,7 +5642,12 @@ static const struct builtin_description bdesc_dst[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_dst, "__builtin_altivec_dst", ALTIVEC_BUILTIN_DST },
   { MASK_ALTIVEC, CODE_FOR_altivec_dstt, "__builtin_altivec_dstt", ALTIVEC_BUILTIN_DSTT },
   { MASK_ALTIVEC, CODE_FOR_altivec_dstst, "__builtin_altivec_dstst", ALTIVEC_BUILTIN_DSTST },
-  { MASK_ALTIVEC, CODE_FOR_altivec_dststt, "__builtin_altivec_dststt", ALTIVEC_BUILTIN_DSTSTT }
+  { MASK_ALTIVEC, CODE_FOR_altivec_dststt, "__builtin_altivec_dststt", ALTIVEC_BUILTIN_DSTSTT },
+
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_dst", ALTIVEC_BUILTIN_VEC_DST },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_dstt", ALTIVEC_BUILTIN_VEC_DSTT },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_dstst", ALTIVEC_BUILTIN_VEC_DSTST },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_dststt", ALTIVEC_BUILTIN_VEC_DSTSTT }
 };
 
 /* Simple binary operations: VECc = foo (VECa, VECb).  */
@@ -5641,6 +5767,134 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vsum2sws, "__builtin_altivec_vsum2sws", ALTIVEC_BUILTIN_VSUM2SWS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsumsws, "__builtin_altivec_vsumsws", ALTIVEC_BUILTIN_VSUMSWS },
   { MASK_ALTIVEC, CODE_FOR_xorv4si3, "__builtin_altivec_vxor", ALTIVEC_BUILTIN_VXOR },
+
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_add", ALTIVEC_BUILTIN_VEC_ADD },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddfp", ALTIVEC_BUILTIN_VEC_VADDFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduwm", ALTIVEC_BUILTIN_VEC_VADDUWM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduhm", ALTIVEC_BUILTIN_VEC_VADDUHM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddubm", ALTIVEC_BUILTIN_VEC_VADDUBM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_addc", ALTIVEC_BUILTIN_VEC_ADDC },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_adds", ALTIVEC_BUILTIN_VEC_ADDS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddsws", ALTIVEC_BUILTIN_VEC_VADDSWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduws", ALTIVEC_BUILTIN_VEC_VADDUWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddshs", ALTIVEC_BUILTIN_VEC_VADDSHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduhs", ALTIVEC_BUILTIN_VEC_VADDUHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddsbs", ALTIVEC_BUILTIN_VEC_VADDSBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddubs", ALTIVEC_BUILTIN_VEC_VADDUBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_and", ALTIVEC_BUILTIN_VEC_AND },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_andc", ALTIVEC_BUILTIN_VEC_ANDC },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_avg", ALTIVEC_BUILTIN_VEC_AVG },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgsw", ALTIVEC_BUILTIN_VEC_VAVGSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavguw", ALTIVEC_BUILTIN_VEC_VAVGUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgsh", ALTIVEC_BUILTIN_VEC_VAVGSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavguh", ALTIVEC_BUILTIN_VEC_VAVGUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgsb", ALTIVEC_BUILTIN_VEC_VAVGSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgub", ALTIVEC_BUILTIN_VEC_VAVGUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpb", ALTIVEC_BUILTIN_VEC_CMPB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpeq", ALTIVEC_BUILTIN_VEC_CMPEQ },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpeqfp", ALTIVEC_BUILTIN_VEC_VCMPEQFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpequw", ALTIVEC_BUILTIN_VEC_VCMPEQUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpequh", ALTIVEC_BUILTIN_VEC_VCMPEQUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpequb", ALTIVEC_BUILTIN_VEC_VCMPEQUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpge", ALTIVEC_BUILTIN_VEC_CMPGE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpgt", ALTIVEC_BUILTIN_VEC_CMPGT },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtfp", ALTIVEC_BUILTIN_VEC_VCMPGTFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtsw", ALTIVEC_BUILTIN_VEC_VCMPGTSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtuw", ALTIVEC_BUILTIN_VEC_VCMPGTUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtsh", ALTIVEC_BUILTIN_VEC_VCMPGTSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtuh", ALTIVEC_BUILTIN_VEC_VCMPGTUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtsb", ALTIVEC_BUILTIN_VEC_VCMPGTSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtub", ALTIVEC_BUILTIN_VEC_VCMPGTUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmple", ALTIVEC_BUILTIN_VEC_CMPLE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmplt", ALTIVEC_BUILTIN_VEC_CMPLT },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_max", ALTIVEC_BUILTIN_VEC_MAX },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxfp", ALTIVEC_BUILTIN_VEC_VMAXFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsw", ALTIVEC_BUILTIN_VEC_VMAXSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxuw", ALTIVEC_BUILTIN_VEC_VMAXUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsh", ALTIVEC_BUILTIN_VEC_VMAXSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxuh", ALTIVEC_BUILTIN_VEC_VMAXUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsb", ALTIVEC_BUILTIN_VEC_VMAXSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxub", ALTIVEC_BUILTIN_VEC_VMAXUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mergeh", ALTIVEC_BUILTIN_VEC_MERGEH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrghw", ALTIVEC_BUILTIN_VEC_VMRGHW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrghh", ALTIVEC_BUILTIN_VEC_VMRGHH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrghb", ALTIVEC_BUILTIN_VEC_VMRGHB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mergel", ALTIVEC_BUILTIN_VEC_MERGEL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglw", ALTIVEC_BUILTIN_VEC_VMRGLW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglh", ALTIVEC_BUILTIN_VEC_VMRGLH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglb", ALTIVEC_BUILTIN_VEC_VMRGLB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_min", ALTIVEC_BUILTIN_VEC_MIN },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminfp", ALTIVEC_BUILTIN_VEC_VMINFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsw", ALTIVEC_BUILTIN_VEC_VMINSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminuw", ALTIVEC_BUILTIN_VEC_VMINUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsh", ALTIVEC_BUILTIN_VEC_VMINSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminuh", ALTIVEC_BUILTIN_VEC_VMINUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsb", ALTIVEC_BUILTIN_VEC_VMINSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminub", ALTIVEC_BUILTIN_VEC_VMINUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mule", ALTIVEC_BUILTIN_VEC_MULE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmuleub", ALTIVEC_BUILTIN_VEC_VMULEUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulesb", ALTIVEC_BUILTIN_VEC_VMULESB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmuleuh", ALTIVEC_BUILTIN_VEC_VMULEUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulesh", ALTIVEC_BUILTIN_VEC_VMULESH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mulo", ALTIVEC_BUILTIN_VEC_MULO },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulosh", ALTIVEC_BUILTIN_VEC_VMULOSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulouh", ALTIVEC_BUILTIN_VEC_VMULOUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulosb", ALTIVEC_BUILTIN_VEC_VMULOSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmuloub", ALTIVEC_BUILTIN_VEC_VMULOUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_nor", ALTIVEC_BUILTIN_VEC_NOR },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_or", ALTIVEC_BUILTIN_VEC_OR },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_pack", ALTIVEC_BUILTIN_VEC_PACK },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuwum", ALTIVEC_BUILTIN_VEC_VPKUWUM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuhum", ALTIVEC_BUILTIN_VEC_VPKUHUM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_packpx", ALTIVEC_BUILTIN_VEC_PACKPX },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_packs", ALTIVEC_BUILTIN_VEC_PACKS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkswss", ALTIVEC_BUILTIN_VEC_VPKSWSS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuwus", ALTIVEC_BUILTIN_VEC_VPKUWUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkshss", ALTIVEC_BUILTIN_VEC_VPKSHSS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuhus", ALTIVEC_BUILTIN_VEC_VPKUHUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_packsu", ALTIVEC_BUILTIN_VEC_PACKSU },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkswus", ALTIVEC_BUILTIN_VEC_VPKSWUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkshus", ALTIVEC_BUILTIN_VEC_VPKSHUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_rl", ALTIVEC_BUILTIN_VEC_RL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vrlw", ALTIVEC_BUILTIN_VEC_VRLW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vrlh", ALTIVEC_BUILTIN_VEC_VRLH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vrlb", ALTIVEC_BUILTIN_VEC_VRLB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sl", ALTIVEC_BUILTIN_VEC_SL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vslw", ALTIVEC_BUILTIN_VEC_VSLW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vslh", ALTIVEC_BUILTIN_VEC_VSLH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vslb", ALTIVEC_BUILTIN_VEC_VSLB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sll", ALTIVEC_BUILTIN_VEC_SLL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_slo", ALTIVEC_BUILTIN_VEC_SLO },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sr", ALTIVEC_BUILTIN_VEC_SR },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrw", ALTIVEC_BUILTIN_VEC_VSRW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrh", ALTIVEC_BUILTIN_VEC_VSRH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrb", ALTIVEC_BUILTIN_VEC_VSRB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sra", ALTIVEC_BUILTIN_VEC_SRA },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsraw", ALTIVEC_BUILTIN_VEC_VSRAW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrah", ALTIVEC_BUILTIN_VEC_VSRAH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrab", ALTIVEC_BUILTIN_VEC_VSRAB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_srl", ALTIVEC_BUILTIN_VEC_SRL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sro", ALTIVEC_BUILTIN_VEC_SRO },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sub", ALTIVEC_BUILTIN_VEC_SUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubfp", ALTIVEC_BUILTIN_VEC_VSUBFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuwm", ALTIVEC_BUILTIN_VEC_VSUBUWM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuhm", ALTIVEC_BUILTIN_VEC_VSUBUHM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsububm", ALTIVEC_BUILTIN_VEC_VSUBUBM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_subc", ALTIVEC_BUILTIN_VEC_SUBC },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_subs", ALTIVEC_BUILTIN_VEC_SUBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubsws", ALTIVEC_BUILTIN_VEC_VSUBSWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuws", ALTIVEC_BUILTIN_VEC_VSUBUWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubshs", ALTIVEC_BUILTIN_VEC_VSUBSHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuhs", ALTIVEC_BUILTIN_VEC_VSUBUHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubsbs", ALTIVEC_BUILTIN_VEC_VSUBSBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsububs", ALTIVEC_BUILTIN_VEC_VSUBUBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sum4s", ALTIVEC_BUILTIN_VEC_SUM4S },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsum4shs", ALTIVEC_BUILTIN_VEC_VSUM4SHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsum4sbs", ALTIVEC_BUILTIN_VEC_VSUM4SBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsum4ubs", ALTIVEC_BUILTIN_VEC_VSUM4UBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sum2s", ALTIVEC_BUILTIN_VEC_SUM2S },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sums", ALTIVEC_BUILTIN_VEC_SUMS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_xor", ALTIVEC_BUILTIN_VEC_XOR },
 
   /* Place holder, leave as first spe builtin.  */
   { 0, CODE_FOR_spe_evaddw, "__builtin_spe_evaddw", SPE_BUILTIN_EVADDW },
@@ -5784,7 +6038,7 @@ static struct builtin_description bdesc_2arg[] =
   { 0, CODE_FOR_spe_brinc, "__builtin_spe_brinc", SPE_BUILTIN_BRINC },
 
   /* Place-holder.  Leave as last binary SPE builtin.  */
-  { 0, CODE_FOR_xorv2si3, "__builtin_spe_evxor", SPE_BUILTIN_EVXOR },
+  { 0, CODE_FOR_xorv2si3, "__builtin_spe_evxor", SPE_BUILTIN_EVXOR }
 };
 
 /* AltiVec predicates.  */
@@ -5812,7 +6066,11 @@ static const struct builtin_description_predicates bdesc_altivec_preds[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v8hi, "*vcmpequh.", "__builtin_altivec_vcmpequh_p", ALTIVEC_BUILTIN_VCMPEQUH_P },
   { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpequb.", "__builtin_altivec_vcmpequb_p", ALTIVEC_BUILTIN_VCMPEQUB_P },
   { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtsb.", "__builtin_altivec_vcmpgtsb_p", ALTIVEC_BUILTIN_VCMPGTSB_P },
-  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtub.", "__builtin_altivec_vcmpgtub_p", ALTIVEC_BUILTIN_VCMPGTUB_P }
+  { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtub.", "__builtin_altivec_vcmpgtub_p", ALTIVEC_BUILTIN_VCMPGTUB_P },
+
+  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpeq_p", ALTIVEC_BUILTIN_VCMPEQ_P },
+  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpgt_p", ALTIVEC_BUILTIN_VCMPGT_P },
+  { MASK_ALTIVEC, 0, NULL, "__builtin_vec_vcmpge_p", ALTIVEC_BUILTIN_VCMPGE_P }
 };
 
 /* SPE predicates.  */
@@ -5887,6 +6145,26 @@ static struct builtin_description bdesc_1arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vupklpx, "__builtin_altivec_vupklpx", ALTIVEC_BUILTIN_VUPKLPX },
   { MASK_ALTIVEC, CODE_FOR_altivec_vupklsh, "__builtin_altivec_vupklsh", ALTIVEC_BUILTIN_VUPKLSH },
 
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abs", ALTIVEC_BUILTIN_VEC_ABS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abss", ALTIVEC_BUILTIN_VEC_ABSS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_ceil", ALTIVEC_BUILTIN_VEC_CEIL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_expte", ALTIVEC_BUILTIN_VEC_EXPTE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_floor", ALTIVEC_BUILTIN_VEC_FLOOR },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_loge", ALTIVEC_BUILTIN_VEC_LOGE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mtvscr", ALTIVEC_BUILTIN_VEC_MTVSCR },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_re", ALTIVEC_BUILTIN_VEC_RE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_round", ALTIVEC_BUILTIN_VEC_ROUND },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_rsqrte", ALTIVEC_BUILTIN_VEC_RSQRTE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_trunc", ALTIVEC_BUILTIN_VEC_TRUNC },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_unpackh", ALTIVEC_BUILTIN_VEC_UNPACKH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vupkhsh", ALTIVEC_BUILTIN_VEC_VUPKHSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vupkhpx", ALTIVEC_BUILTIN_VEC_VUPKHPX },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vupkhsb", ALTIVEC_BUILTIN_VEC_VUPKHSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_unpackl", ALTIVEC_BUILTIN_VEC_UNPACKL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vupklpx", ALTIVEC_BUILTIN_VEC_VUPKLPX },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vupklsh", ALTIVEC_BUILTIN_VEC_VUPKLSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vupklsb", ALTIVEC_BUILTIN_VEC_VUPKLSB },
+
   /* The SPE unary builtins must start with SPE_BUILTIN_EVABS and
      end with SPE_BUILTIN_EVSUBFUSIAAW.  */
   { 0, CODE_FOR_spe_evabs, "__builtin_spe_evabs", SPE_BUILTIN_EVABS },
@@ -5919,7 +6197,7 @@ static struct builtin_description bdesc_1arg[] =
   { 0, CODE_FOR_spe_evsubfumiaaw, "__builtin_spe_evsubfumiaaw", SPE_BUILTIN_EVSUBFUMIAAW },
 
   /* Place-holder.  Leave as last unary SPE builtin.  */
-  { 0, CODE_FOR_spe_evsubfusiaaw, "__builtin_spe_evsubfusiaaw", SPE_BUILTIN_EVSUBFUSIAAW },
+  { 0, CODE_FOR_spe_evsubfusiaaw, "__builtin_spe_evsubfusiaaw", SPE_BUILTIN_EVSUBFUSIAAW }
 };
 
 static rtx
@@ -6515,6 +6793,14 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   enum machine_mode tmode, mode0;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
 
+  if (fcode >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+      && fcode <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
+    {
+      *expandedp = true;
+      error ("unresolved overload for Altivec builtin %qE", fndecl);
+      return const0_rtx;
+    }
+
   target = altivec_expand_ld_builtin (exp, target, expandedp);
   if (*expandedp)
     return target;
@@ -6602,16 +6888,6 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
 
       emit_insn (gen_altivec_dss (op0));
       return NULL_RTX;
-
-    case ALTIVEC_BUILTIN_COMPILETIME_ERROR:
-      arg0 = TREE_VALUE (arglist);
-      while (TREE_CODE (arg0) == NOP_EXPR || TREE_CODE (arg0) == ADDR_EXPR
-	     || TREE_CODE (arg0) == ARRAY_REF)
-	arg0 = TREE_OPERAND (arg0, 0);
-      error ("invalid parameter combination for %qs AltiVec intrinsic",
-	     TREE_STRING_POINTER (arg0));
-
-      return const0_rtx;
     }
 
   /* Expand abs* operations.  */
@@ -6897,7 +7173,7 @@ spe_expand_predicate_builtin (enum insn_code icode, tree arglist, rtx target)
     case 0:
       /* We need to get to the OV bit, which is the ORDERED bit.  We
 	 could generate (ordered:SI (reg:CC xx) (const_int 0)), but
-	 that's ugly and will trigger a validate_condition_mode abort.
+	 that's ugly and will make validate_condition_mode die.
 	 So let's just use another pattern.  */
       emit_insn (gen_move_from_CR_ov_bit (target, scratch));
       return target;
@@ -7107,6 +7383,7 @@ rs6000_init_builtins (void)
   opaque_V2SF_type_node = build_opaque_vector_type (float_type_node, 2);
   opaque_V2SI_type_node = build_opaque_vector_type (intSI_type_node, 2);
   opaque_p_V2SI_type_node = build_pointer_type (opaque_V2SI_type_node);
+  opaque_V4SI_type_node = copy_node (V4SI_type_node);
 
   /* The 'vector bool ...' types must be kept distinct from 'vector unsigned ...'
      types, especially in C++ land.  Similarly, 'vector pixel' is distinct from
@@ -7116,6 +7393,17 @@ rs6000_init_builtins (void)
   bool_short_type_node = build_distinct_type_copy (unsigned_intHI_type_node);
   bool_int_type_node = build_distinct_type_copy (unsigned_intSI_type_node);
   pixel_type_node = build_distinct_type_copy (unsigned_intHI_type_node);
+
+  long_integer_type_internal_node = long_integer_type_node;
+  long_unsigned_type_internal_node = long_unsigned_type_node;
+  intQI_type_internal_node = intQI_type_node;
+  uintQI_type_internal_node = unsigned_intQI_type_node;
+  intHI_type_internal_node = intHI_type_node;
+  uintHI_type_internal_node = unsigned_intHI_type_node;
+  intSI_type_internal_node = intSI_type_node;
+  uintSI_type_internal_node = unsigned_intSI_type_node;
+  float_type_internal_node = float_type_node;
+  void_type_internal_node = void_type_node;
 
   (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
 					    get_identifier ("__bool char"),
@@ -7447,6 +7735,21 @@ altivec_init_builtins (void)
 
   tree pcvoid_type_node = build_pointer_type (build_qualified_type (void_type_node, TYPE_QUAL_CONST));
 
+  tree int_ftype_opaque
+    = build_function_type_list (integer_type_node,
+				opaque_V4SI_type_node, NULL_TREE);
+
+  tree opaque_ftype_opaque_int
+    = build_function_type_list (opaque_V4SI_type_node,
+				opaque_V4SI_type_node, integer_type_node, NULL_TREE);
+  tree opaque_ftype_opaque_opaque_int
+    = build_function_type_list (opaque_V4SI_type_node,
+				opaque_V4SI_type_node, opaque_V4SI_type_node,
+				integer_type_node, NULL_TREE);
+  tree int_ftype_int_opaque_opaque
+    = build_function_type_list (integer_type_node,
+                                integer_type_node, opaque_V4SI_type_node,
+                                opaque_V4SI_type_node, NULL_TREE);
   tree int_ftype_int_v4si_v4si
     = build_function_type_list (integer_type_node,
 				integer_type_node, V4SI_type_node,
@@ -7480,6 +7783,9 @@ altivec_init_builtins (void)
   tree void_ftype_int
     = build_function_type_list (void_type_node, integer_type_node, NULL_TREE);
 
+  tree opaque_ftype_long_pcvoid
+    = build_function_type_list (opaque_V4SI_type_node,
+				long_integer_type_node, pcvoid_type_node, NULL_TREE);
   tree v16qi_ftype_long_pcvoid
     = build_function_type_list (V16QI_type_node,
 				long_integer_type_node, pcvoid_type_node, NULL_TREE);
@@ -7490,6 +7796,10 @@ altivec_init_builtins (void)
     = build_function_type_list (V4SI_type_node,
 				long_integer_type_node, pcvoid_type_node, NULL_TREE);
 
+  tree void_ftype_opaque_long_pvoid
+    = build_function_type_list (void_type_node,
+				opaque_V4SI_type_node, long_integer_type_node,
+				pvoid_type_node, NULL_TREE);
   tree void_ftype_v4si_long_pvoid
     = build_function_type_list (void_type_node,
 				V4SI_type_node, long_integer_type_node,
@@ -7526,9 +7836,6 @@ altivec_init_builtins (void)
     = build_function_type_list (void_type_node,
 				pcvoid_type_node, integer_type_node,
 				integer_type_node, NULL_TREE);
-  tree int_ftype_pcchar
-    = build_function_type_list (integer_type_node,
-				pcchar_type_node, NULL_TREE);
 
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4sf", v4sf_ftype_pcfloat,
 	       ALTIVEC_BUILTIN_LD_INTERNAL_4sf);
@@ -7562,10 +7869,33 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvxl", void_ftype_v4si_long_pvoid, ALTIVEC_BUILTIN_STVXL);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvebx", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVEBX);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvehx", void_ftype_v8hi_long_pvoid, ALTIVEC_BUILTIN_STVEHX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_ld", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LD);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_lde", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LDE);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_ldl", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LDL);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvsl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVSL);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvsr", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVSR);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvebx", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEBX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvehx", v8hi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEHX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvewx", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEWX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_st", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_ST);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_ste", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STE);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_stl", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STL);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_stvewx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEWX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_stvebx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEBX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_stvehx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEHX);
 
-  /* See altivec.h for usage of "__builtin_altivec_compiletime_error".  */
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_compiletime_error", int_ftype_pcchar,
-	       ALTIVEC_BUILTIN_COMPILETIME_ERROR);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_step", int_ftype_opaque, ALTIVEC_BUILTIN_VEC_STEP);
+
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_sld", opaque_ftype_opaque_opaque_int, ALTIVEC_BUILTIN_VEC_SLD);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_splat", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_SPLAT);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_vspltw", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTW);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_vsplth", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTH);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_vspltb", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTB);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_ctf", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTF);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_vcfsx", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VCFSX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_vcfux", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VCFUX);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_cts", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTS);
+  def_builtin (MASK_ALTIVEC, "__builtin_vec_ctu", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTU);
 
   /* Add the DST variants.  */
   d = (struct builtin_description *) bdesc_dst;
@@ -7578,11 +7908,19 @@ altivec_init_builtins (void)
     {
       enum machine_mode mode1;
       tree type;
+      bool is_overloaded = dp->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+			   && dp->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
 
-      mode1 = insn_data[dp->icode].operand[1].mode;
+      if (is_overloaded)
+	mode1 = VOIDmode;
+      else
+	mode1 = insn_data[dp->icode].operand[1].mode;
 
       switch (mode1)
 	{
+	case VOIDmode:
+	  type = int_ftype_int_opaque_opaque;
+	  break;
 	case V4SImode:
 	  type = int_ftype_int_v4si_v4si;
 	  break;
@@ -7698,6 +8036,10 @@ rs6000_common_init_builtins (void)
 				integer_type_node, integer_type_node,
 				NULL_TREE);
 
+  tree opaque_ftype_opaque
+    = build_function_type_list (opaque_V4SI_type_node,
+				opaque_V4SI_type_node, NULL_TREE);
+
   tree v2si_ftype_v2si
     = build_function_type_list (opaque_V2SI_type_node,
 				opaque_V2SI_type_node, NULL_TREE);
@@ -7732,6 +8074,9 @@ rs6000_common_init_builtins (void)
 				integer_type_node, integer_type_node,
 				NULL_TREE);
 
+  tree opaque_ftype_opaque_opaque
+    = build_function_type_list (opaque_V4SI_type_node,
+                                opaque_V4SI_type_node, opaque_V4SI_type_node, NULL_TREE);
   tree v4si_ftype_v4si_v4si
     = build_function_type_list (V4SI_type_node,
 				V4SI_type_node, V4SI_type_node, NULL_TREE);
@@ -7769,6 +8114,10 @@ rs6000_common_init_builtins (void)
   tree v4sf_ftype_v4sf_v4sf
     = build_function_type_list (V4SF_type_node,
 				V4SF_type_node, V4SF_type_node, NULL_TREE);
+  tree opaque_ftype_opaque_opaque_opaque
+    = build_function_type_list (opaque_V4SI_type_node,
+                                opaque_V4SI_type_node, opaque_V4SI_type_node,
+                                opaque_V4SI_type_node, NULL_TREE);
   tree v4sf_ftype_v4sf_v4sf_v4si
     = build_function_type_list (V4SF_type_node,
 				V4SF_type_node, V4SF_type_node,
@@ -7842,23 +8191,37 @@ rs6000_common_init_builtins (void)
   d = (struct builtin_description *) bdesc_3arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_3arg); i++, d++)
     {
-
       enum machine_mode mode0, mode1, mode2, mode3;
       tree type;
+      bool is_overloaded = d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+			   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
 
-      if (d->name == 0 || d->icode == CODE_FOR_nothing)
-	continue;
+      if (is_overloaded)
+	{
+          mode0 = VOIDmode;
+          mode1 = VOIDmode;
+          mode2 = VOIDmode;
+          mode3 = VOIDmode;
+	}
+      else
+	{
+          if (d->name == 0 || d->icode == CODE_FOR_nothing)
+	    continue;
 
-      mode0 = insn_data[d->icode].operand[0].mode;
-      mode1 = insn_data[d->icode].operand[1].mode;
-      mode2 = insn_data[d->icode].operand[2].mode;
-      mode3 = insn_data[d->icode].operand[3].mode;
-
+          mode0 = insn_data[d->icode].operand[0].mode;
+          mode1 = insn_data[d->icode].operand[1].mode;
+          mode2 = insn_data[d->icode].operand[2].mode;
+          mode3 = insn_data[d->icode].operand[3].mode;
+	}
+      
       /* When all four are of the same mode.  */
       if (mode0 == mode1 && mode1 == mode2 && mode2 == mode3)
 	{
 	  switch (mode0)
 	    {
+	    case VOIDmode:
+	      type = opaque_ftype_opaque_opaque_opaque;
+	      break;
 	    case V4SImode:
 	      type = v4si_ftype_v4si_v4si_v4si;
 	      break;
@@ -7937,19 +8300,33 @@ rs6000_common_init_builtins (void)
     {
       enum machine_mode mode0, mode1, mode2;
       tree type;
+      bool is_overloaded = d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+			   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
 
-      if (d->name == 0 || d->icode == CODE_FOR_nothing)
-	continue;
+      if (is_overloaded)
+	{
+	  mode0 = VOIDmode;
+	  mode1 = VOIDmode;
+	  mode2 = VOIDmode;
+	}
+      else
+	{ 
+          if (d->name == 0 || d->icode == CODE_FOR_nothing)
+	    continue;
 
-      mode0 = insn_data[d->icode].operand[0].mode;
-      mode1 = insn_data[d->icode].operand[1].mode;
-      mode2 = insn_data[d->icode].operand[2].mode;
+          mode0 = insn_data[d->icode].operand[0].mode;
+          mode1 = insn_data[d->icode].operand[1].mode;
+          mode2 = insn_data[d->icode].operand[2].mode;
+	}
 
       /* When all three operands are of the same mode.  */
       if (mode0 == mode1 && mode1 == mode2)
 	{
 	  switch (mode0)
 	    {
+	    case VOIDmode:
+	      type = opaque_ftype_opaque_opaque;
+	      break;
 	    case V4SFmode:
 	      type = v4sf_ftype_v4sf_v4sf;
 	      break;
@@ -8071,12 +8448,22 @@ rs6000_common_init_builtins (void)
     {
       enum machine_mode mode0, mode1;
       tree type;
+      bool is_overloaded = d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
+			   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST;
 
-      if (d->name == 0 || d->icode == CODE_FOR_nothing)
-	continue;
-
-      mode0 = insn_data[d->icode].operand[0].mode;
-      mode1 = insn_data[d->icode].operand[1].mode;
+      if (is_overloaded)
+        {
+          mode0 = VOIDmode;
+          mode1 = VOIDmode;
+        }
+      else
+        {
+          if (d->name == 0 || d->icode == CODE_FOR_nothing)
+	    continue;
+      
+          mode0 = insn_data[d->icode].operand[0].mode;
+          mode1 = insn_data[d->icode].operand[1].mode;
+        }
 
       if (mode0 == V4SImode && mode1 == QImode)
 	type = v4si_ftype_int;
@@ -8084,6 +8471,8 @@ rs6000_common_init_builtins (void)
 	type = v8hi_ftype_int;
       else if (mode0 == V16QImode && mode1 == QImode)
 	type = v16qi_ftype_int;
+      else if (mode0 == VOIDmode && mode1 == VOIDmode)
+	type = opaque_ftype_opaque;
       else if (mode0 == V4SFmode && mode1 == V4SFmode)
 	type = v4sf_ftype_v4sf;
       else if (mode0 == V8HImode && mode1 == V16QImode)
@@ -11444,7 +11833,7 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
 
       /* Because the Darwin register save/restore routines only handle
 	 F14 .. F31 and V20 .. V31 as per the ABI, perform a consistency
-	 check and abort if there's something worng.  */
+	 check.  */
       gcc_assert (info_ptr->first_fp_reg_save >= FIRST_SAVED_FP_REGNO
 		  && (info_ptr->first_altivec_reg_save
 		      >= FIRST_SAVED_ALTIVEC_REGNO));
@@ -12852,7 +13241,7 @@ rs6000_emit_prologue (void)
 
       /* The SAVE_WORLD and RESTORE_WORLD routines make a number of
 	 assumptions about the offsets of various bits of the stack
-	 frame.  Abort if things aren't what they should be.  */
+	 frame.  */
       gcc_assert (info->gp_save_offset == -220
 		  && info->fp_save_offset == -144
 		  && info->lr_save_offset == 8
@@ -12997,7 +13386,7 @@ rs6000_emit_prologue (void)
      epilogue.  */
 
   if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && !WORLD_SAVE_P (info) && info->vrsave_mask != 0)
+      && info->vrsave_mask != 0)
     {
       rtx reg, mem, vrsave;
       int offset;
@@ -13012,13 +13401,16 @@ rs6000_emit_prologue (void)
       else
 	emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
 
-      /* Save VRSAVE.  */
-      offset = info->vrsave_save_offset + sp_offset;
-      mem
-	= gen_rtx_MEM (SImode,
-		       gen_rtx_PLUS (Pmode, frame_reg_rtx, GEN_INT (offset)));
-      set_mem_alias_set (mem, rs6000_sr_alias_set);
-      insn = emit_move_insn (mem, reg);
+      if (!WORLD_SAVE_P (info))
+	{
+          /* Save VRSAVE.  */
+          offset = info->vrsave_save_offset + sp_offset;
+          mem
+	    = gen_rtx_MEM (SImode,
+		           gen_rtx_PLUS (Pmode, frame_reg_rtx, GEN_INT (offset)));
+          set_mem_alias_set (mem, rs6000_sr_alias_set);
+          insn = emit_move_insn (mem, reg);
+	}
 
       /* Include the registers in the mask.  */
       emit_insn (gen_iorsi3 (reg, reg, GEN_INT ((int) info->vrsave_mask)));
@@ -14268,7 +14660,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 #endif
 
   /* gen_sibcall expects reload to convert scratch pseudo to LR so we must
-     generate sibcall RTL explicitly to avoid constraint abort.  */
+     generate sibcall RTL explicitly.  */
   insn = emit_call_insn (
 	   gen_rtx_PARALLEL (VOIDmode,
 	     gen_rtvec (4,
@@ -14883,6 +15275,10 @@ rs6000_gen_section_name (char **buf, const char *filename,
 void
 output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 {
+  /* Non-standard profiling for kernels, which just saves LR then calls
+     _mcount without worrying about arg saves.  The idea is to change
+     the function prologue as little as possible as it isn't easy to
+     account for arg save/restore code added just for _mcount.  */
   if (TARGET_PROFILE_KERNEL)
     return;
 
@@ -17629,15 +18025,15 @@ rs6000_initial_elimination_offset (int from, int to)
   return offset;
 }
 
-/* Return true if TYPE is of type __ev64_opaque__.  */
+/* Return true if TYPE is a SPE or AltiVec opaque type.  */
 
 static bool
-is_ev64_opaque_type (tree type)
+rs6000_is_opaque_type (tree type)
 {
-  return (TARGET_SPE
-	  && (type == opaque_V2SI_type_node
+  return (type == opaque_V2SI_type_node
 	      || type == opaque_V2SF_type_node
-	      || type == opaque_p_V2SI_type_node));
+	      || type == opaque_p_V2SI_type_node
+	      || type == opaque_V4SI_type_node);
 }
 
 static rtx

@@ -316,6 +316,14 @@ handle_option (const char **argv, unsigned int lang_mask)
   /* We've recognized this switch.  */
   result = 1;
 
+  /* Check to see if the option is disabled for this configuration.  */
+  if (option->flags & CL_DISABLED)
+    {
+      error ("command line option %qs"
+	     " is not supported by this configuration", opt);
+      goto done;
+    }
+
   /* Sort out any argument the switch takes.  */
   if (option->flags & CL_JOINED)
     {
@@ -679,6 +687,15 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
+
+  if (flag_reorder_blocks_and_partition
+      && !targetm.have_named_sections)
+    {
+      inform 
+       ("-freorder-blocks-and-partition does not work on this architecture.");
+      flag_reorder_blocks_and_partition = 0;
+      flag_reorder_blocks = 1;
+    }
 }
 
 /* Handle target- and language-independent options.  Return zero to
@@ -808,6 +825,10 @@ common_handle_option (size_t scode, const char *arg, int value)
 	  = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
 	return 0;
+      break;
+
+    case OPT_fdiagnostics_show_option:
+      global_dc->show_option_requested = true;
       break;
 
     case OPT_fdump_:
@@ -1402,8 +1423,9 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
    a simple on-off switch.  */
 
 int
-option_enabled (const struct cl_option *option)
+option_enabled (int opt_idx)
 {
+  const struct cl_option *option = &(cl_options[opt_idx]);
   if (option->flag_var)
     switch (option->var_cond)
       {

@@ -109,12 +109,15 @@ m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
-AC_SUBST(CFLAGS)
-
 # Add -Wall if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  CFLAGS="$CFLAGS -Wall"
+  AM_FCFLAGS="-Wall"
+  ## We like to use C99 routines when available.  This makes sure that
+  ## __STDC_VERSION__ is set such that libc includes make them available.
+  AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
 fi
+AC_SUBST(AM_FCFLAGS)
+AC_SUBST(AM_CFLAGS)
 
 # Find other programs we need.
 AC_CHECK_TOOL(AS, as)
@@ -166,7 +169,7 @@ AC_CHECK_MEMBERS([struct stat.st_rdev])
 AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 
 # Check for library functions.
-AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf)
+AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time)
 

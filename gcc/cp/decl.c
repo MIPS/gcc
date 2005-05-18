@@ -786,9 +786,9 @@ int
 wrapup_globals_for_namespace (tree namespace, void* data)
 {
   struct cp_binding_level *level = NAMESPACE_LEVEL (namespace);
-  varray_type statics = level->static_decls;
-  tree *vec = &VARRAY_TREE (statics, 0);
-  int len = VARRAY_ACTIVE_SIZE (statics);
+  VEC(tree,gc) *statics = level->static_decls;
+  tree *vec = VEC_address (tree, statics);
+  int len = VEC_length (tree, statics);
   int last_time = (data != 0);
 
   if (last_time)
@@ -832,15 +832,13 @@ push_local_name (tree decl)
   tree t, name;
 
   timevar_push (TV_NAME_LOOKUP);
-  if (!local_names)
-    VARRAY_TREE_INIT (local_names, 8, "local_names");
 
   name = DECL_NAME (decl);
 
-  nelts = VARRAY_ACTIVE_SIZE (local_names);
+  nelts = VEC_length (tree, local_names);
   for (i = 0; i < nelts; i++)
     {
-      t = VARRAY_TREE (local_names, i);
+      t = VEC_index (tree, local_names, i);
       if (DECL_NAME (t) == name)
 	{
 	  if (!DECL_LANG_SPECIFIC (decl))
@@ -851,13 +849,13 @@ push_local_name (tree decl)
 	  else
 	    DECL_DISCRIMINATOR (decl) = 1;
 
-	  VARRAY_TREE (local_names, i) = decl;
+	  VEC_replace (tree, local_names, i, decl);
 	  timevar_pop (TV_NAME_LOOKUP);
 	  return;
 	}
     }
 
-  VARRAY_PUSH_TREE (local_names, decl);
+  VEC_safe_push (tree, gc, local_names, decl);
   timevar_pop (TV_NAME_LOOKUP);
 }
 
@@ -3223,7 +3221,6 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
   DECL_EXTERNAL (fn) = 1;
   TREE_PUBLIC (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
-  TREE_NOTHROW (fn) = 1;
   SET_OVERLOADED_OPERATOR_CODE (fn, operator_code);
   SET_DECL_LANGUAGE (fn, lang_c);
   /* Runtime library routines are, by definition, available in an
@@ -3240,7 +3237,9 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
 tree
 build_library_fn (tree name, tree type)
 {
-  return build_library_fn_1 (name, ERROR_MARK, type);
+  tree fn = build_library_fn_1 (name, ERROR_MARK, type);
+  TREE_NOTHROW (fn) = 1;
+  return fn;
 }
 
 /* Returns the _DECL for a library function with C++ linkage.  */
@@ -3939,6 +3938,8 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 
       if (failure == 3)
 	error ("zero-size array %qD", decl);
+
+      cp_apply_type_quals_to_decl (cp_type_quals (TREE_TYPE (decl)), decl);
 
       layout_decl (decl, 0);
     }
@@ -4998,6 +4999,7 @@ get_atexit_node (void)
   tree fn_type;
   tree fn_ptr_type;
   const char *name;
+  bool use_aeabi_atexit;
 
   if (atexit_node)
     return atexit_node;
@@ -5011,6 +5013,7 @@ get_atexit_node (void)
 	 We build up the argument types and then then function type
 	 itself.  */
 
+      use_aeabi_atexit = targetm.cxx.use_aeabi_atexit ();
       /* First, build the pointer-to-function type for the first
 	 argument.  */
       arg_types = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -5018,12 +5021,23 @@ get_atexit_node (void)
       fn_ptr_type = build_pointer_type (fn_type);
       /* Then, build the rest of the argument types.  */
       arg_types = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-      arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
-      arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
+      if (use_aeabi_atexit)
+	{
+	  arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
+	  arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
+	}
+      else
+	{
+	  arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
+	  arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
+	}
       /* And the final __cxa_atexit type.  */
       fn_type = build_function_type (integer_type_node, arg_types);
       fn_ptr_type = build_pointer_type (fn_type);
-      name = "__cxa_atexit";
+      if (use_aeabi_atexit)
+	name = "__aeabi_atexit";
+      else
+	name = "__cxa_atexit";
     }
   else
     {
@@ -5184,8 +5198,16 @@ register_dtor_fn (tree decl)
       args = tree_cons (NULL_TREE,
 			build_unary_op (ADDR_EXPR, get_dso_handle_node (), 0),
 			NULL_TREE);
-      args = tree_cons (NULL_TREE, null_pointer_node, args);
-      args = tree_cons (NULL_TREE, cleanup, args);
+      if (targetm.cxx.use_aeabi_atexit ())
+	{
+	  args = tree_cons (NULL_TREE, cleanup, args);
+	  args = tree_cons (NULL_TREE, null_pointer_node, args);
+	}
+      else
+	{
+	  args = tree_cons (NULL_TREE, null_pointer_node, args);
+	  args = tree_cons (NULL_TREE, cleanup, args);
+	}
     }
   else
     args = tree_cons (NULL_TREE, cleanup, NULL_TREE);

@@ -1,5 +1,6 @@
-/* Configuration for GCC for Renesas M32R running Linux-based GNU systems.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+/* Definitions of target machine for GNU compiler, for Blackfin.
+   Copyright (C) 2005 Free Software Foundation, Inc.
+   Contributed by Analog Devices.
 
    This file is part of GCC.
 
@@ -18,9 +19,7 @@
    Free Software Foundation, 59 Temple Place - Suite 330, Boston,
    MA 02111-1307, USA.  */
 
-#include <m32r/xm-m32r.h>
-#include <xm-linux.h>
+/* PDImode for the 40 bit accumulators.  */
+PARTIAL_INT_MODE (DI);
 
-/* Doubles are stored in memory with the high order word first.
-   This matters when cross-compiling.  */
-#undef HOST_WORDS_BIG_ENDIAN
+VECTOR_MODE (INT, HI, 2); /* V2HI */

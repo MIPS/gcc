@@ -124,8 +124,8 @@ struct expr_hash_elt
   /* The expression (rhs) we want to record.  */
   tree rhs;
 
-  /* The annotation if this element corresponds to a statement.  */
-  stmt_ann_t ann;
+  /* The stmt pointer if this element corresponds to a statement.  */
+  tree stmt;
 
   /* The hash value for RHS/ann.  */
   hashval_t hash;
@@ -486,7 +486,7 @@ tree_ssa_dominator_optimize (void)
 
 	 This must be done before we iterate as we might have a
 	 reference to an SSA_NAME which was removed by the call to
-	 rewrite_ssa_into_ssa.
+	 update_ssa.
 
 	 Long term we will be able to let everything in SSA_NAME_VALUE
 	 persist.  However, for now, we know this is the safe thing to do.  */
@@ -677,36 +677,26 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       else
 	{
 	  /* Copy the operands.  */
-	  stmt_ann_t ann = stmt_ann (stmt);
-	  use_optype uses = USE_OPS (ann);
-	  vuse_optype vuses = VUSE_OPS (ann);
-	  tree *uses_copy = xmalloc (NUM_USES (uses) * sizeof (tree));
-	  tree *vuses_copy = xmalloc (NUM_VUSES (vuses) * sizeof (tree));
-	  unsigned int i;
+	  tree *copy;
+	  ssa_op_iter iter;
+	  use_operand_p use_p;
+	  unsigned int num, i = 0;
 
-	  /* Make a copy of the uses into USES_COPY, then cprop into
-	     the use operands.  */
-	  for (i = 0; i < NUM_USES (uses); i++)
+	  num = NUM_SSA_OPERANDS (stmt, (SSA_OP_USE | SSA_OP_VUSE));
+	  copy = xcalloc (num, sizeof (tree));
+
+	  /* Make a copy of the uses & vuses into USES_COPY, then cprop into
+	     the operands.  */
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VUSE)
 	    {
 	      tree tmp = NULL;
+	      tree use = USE_FROM_PTR (use_p);
 
-	      uses_copy[i] = USE_OP (uses, i);
-	      if (TREE_CODE (USE_OP (uses, i)) == SSA_NAME)
-		tmp = SSA_NAME_VALUE (USE_OP (uses, i));
+	      copy[i++] = use;
+	      if (TREE_CODE (use) == SSA_NAME)
+		tmp = SSA_NAME_VALUE (use);
 	      if (tmp && TREE_CODE (tmp) != VALUE_HANDLE)
-		SET_USE_OP (uses, i, tmp);
-	    }
-
-	  /* Similarly for virtual uses.  */
-	  for (i = 0; i < NUM_VUSES (vuses); i++)
-	    {
-	      tree tmp = NULL;
-
-	      vuses_copy[i] = VUSE_OP (vuses, i);
-	      if (TREE_CODE (VUSE_OP (vuses, i)) == SSA_NAME)
-		tmp = SSA_NAME_VALUE (VUSE_OP (vuses, i));
-	      if (tmp && TREE_CODE (tmp) != VALUE_HANDLE)
-		SET_VUSE_OP (vuses, i, tmp);
+		SET_USE (use_p, tmp);
 	    }
 
 	  /* Try to fold/lookup the new expression.  Inserting the
@@ -717,15 +707,13 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      && !is_gimple_min_invariant (cached_lhs))
 	    cached_lhs = lookup_avail_expr (stmt, false);
 
+
 	  /* Restore the statement's original uses/defs.  */
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    SET_USE_OP (uses, i, uses_copy[i]);
+	  i = 0;
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VUSE)
+	    SET_USE (use_p, copy[i++]);
 
-	  for (i = 0; i < NUM_VUSES (vuses); i++)
-	    SET_VUSE_OP (vuses, i, vuses_copy[i]);
-
-	  free (uses_copy);
-	  free (vuses_copy);
+	  free (copy);
 	}
 
       /* Record the context sensitive equivalence if we were able
@@ -887,32 +875,32 @@ initialize_hash_element (tree expr, tree lhs, struct expr_hash_elt *element)
      we want to record the expression the statement evaluates.  */
   if (COMPARISON_CLASS_P (expr) || TREE_CODE (expr) == TRUTH_NOT_EXPR)
     {
-      element->ann = NULL;
+      element->stmt = NULL;
       element->rhs = expr;
     }
   else if (TREE_CODE (expr) == COND_EXPR)
     {
-      element->ann = stmt_ann (expr);
+      element->stmt = expr;
       element->rhs = COND_EXPR_COND (expr);
     }
   else if (TREE_CODE (expr) == SWITCH_EXPR)
     {
-      element->ann = stmt_ann (expr);
+      element->stmt = expr;
       element->rhs = SWITCH_COND (expr);
     }
   else if (TREE_CODE (expr) == RETURN_EXPR && TREE_OPERAND (expr, 0))
     {
-      element->ann = stmt_ann (expr);
+      element->stmt = expr;
       element->rhs = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
     }
   else if (TREE_CODE (expr) == GOTO_EXPR)
     {
-      element->ann = stmt_ann (expr);
+      element->stmt = expr;
       element->rhs = GOTO_DESTINATION (expr);
     }
   else
     {
-      element->ann = stmt_ann (expr);
+      element->stmt = expr;
       element->rhs = TREE_OPERAND (expr, 1);
     }
 
@@ -998,18 +986,6 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	
     {
       thread_across_edge (walk_data, single_succ_edge (bb));
-    }
-  else if ((last = last_stmt (bb))
-	   && TREE_CODE (last) == GOTO_EXPR
-	   && TREE_CODE (TREE_OPERAND (last, 0)) == SSA_NAME)
-    {
-      edge_iterator ei;
-      edge e;
-
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  thread_across_edge (walk_data, e);
-	}
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR
@@ -2610,7 +2586,6 @@ static bool
 eliminate_redundant_computations (struct dom_walk_data *walk_data,
 				  tree stmt, stmt_ann_t ann)
 {
-  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
   tree *expr_p, def = NULL_TREE;
   bool insert = true;
   tree cached_lhs;
@@ -2625,7 +2600,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       || ! def
       || TREE_CODE (def) != SSA_NAME
       || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-      || NUM_V_MAY_DEFS (v_may_defs) != 0
+      || !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF)
       /* Do not record equivalences for increments of ivs.  This would create
 	 overlapping live ranges for a very questionable gain.  */
       || simple_iv_increment_p (stmt))
@@ -2806,7 +2781,7 @@ record_equivalences_from_stmt (tree stmt,
 	  /* Build a new statement with the RHS and LHS exchanged.  */
 	  new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
 
-	  create_ssa_artficial_load_stmt (&(ann->operands), new);
+	  create_ssa_artficial_load_stmt (new, stmt);
 
 	  /* Finally enter the statement into the available expression
 	     table.  */
@@ -2973,11 +2948,11 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
 	       block_stmt_iterator si)
 {
   stmt_ann_t ann;
-  tree stmt;
+  tree stmt, old_stmt;
   bool may_optimize_p;
   bool may_have_exposed_new_symbols = false;
 
-  stmt = bsi_stmt (si);
+  old_stmt = stmt = bsi_stmt (si);
 
   update_stmt_if_modified (stmt);
   ann = stmt_ann (stmt);
@@ -3082,7 +3057,7 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
 
       /* If we simplified a statement in such a way as to be shown that it
 	 cannot trap, update the eh information and the cfg to match.  */
-      if (maybe_clean_eh_stmt (stmt))
+      if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 	{
 	  bitmap_set_bit (need_eh_cleanup, bb->index);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3393,11 +3368,11 @@ vrp_eq (const void *p1, const void *p2)
 static hashval_t
 avail_expr_hash (const void *p)
 {
-  stmt_ann_t ann = ((struct expr_hash_elt *)p)->ann;
+  tree stmt = ((struct expr_hash_elt *)p)->stmt;
   tree rhs = ((struct expr_hash_elt *)p)->rhs;
+  tree vuse;
+  ssa_op_iter iter;
   hashval_t val = 0;
-  size_t i;
-  vuse_optype vuses;
 
   /* iterative_hash_expr knows how to deal with any expression and
      deals with commutative operators as well, so just use it instead
@@ -3407,16 +3382,15 @@ avail_expr_hash (const void *p)
   /* If the hash table entry is not associated with a statement, then we
      can just hash the expression and not worry about virtual operands
      and such.  */
-  if (!ann)
+  if (!stmt || !stmt_ann (stmt))
     return val;
 
   /* Add the SSA version numbers of every vuse operand.  This is important
      because compound variables like arrays are not renamed in the
      operands.  Rather, the rename is done on the virtual variable
      representing all the elements of the array.  */
-  vuses = VUSE_OPS (ann);
-  for (i = 0; i < NUM_VUSES (vuses); i++)
-    val = iterative_hash_expr (VUSE_OP (vuses, i), val);
+  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VUSE)
+    val = iterative_hash_expr (vuse, val);
 
   return val;
 }
@@ -3430,13 +3404,13 @@ real_avail_expr_hash (const void *p)
 static int
 avail_expr_eq (const void *p1, const void *p2)
 {
-  stmt_ann_t ann1 = ((struct expr_hash_elt *)p1)->ann;
+  tree stmt1 = ((struct expr_hash_elt *)p1)->stmt;
   tree rhs1 = ((struct expr_hash_elt *)p1)->rhs;
-  stmt_ann_t ann2 = ((struct expr_hash_elt *)p2)->ann;
+  tree stmt2 = ((struct expr_hash_elt *)p2)->stmt;
   tree rhs2 = ((struct expr_hash_elt *)p2)->rhs;
 
   /* If they are the same physical expression, return true.  */
-  if (rhs1 == rhs2 && ann1 == ann2)
+  if (rhs1 == rhs2 && stmt1 == stmt2)
     return true;
 
   /* If their codes are not equal, then quit now.  */
@@ -3449,36 +3423,10 @@ avail_expr_eq (const void *p1, const void *p2)
        || lang_hooks.types_compatible_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2)))
       && operand_equal_p (rhs1, rhs2, OEP_PURE_SAME))
     {
-      vuse_optype ops1 = NULL;
-      vuse_optype ops2 = NULL;
-      size_t num_ops1 = 0;
-      size_t num_ops2 = 0;
-      size_t i;
-
-      if (ann1)
-	{
-	  ops1 = VUSE_OPS (ann1);
-	  num_ops1 = NUM_VUSES (ops1);
-	}
-
-      if (ann2)
-	{
-	  ops2 = VUSE_OPS (ann2);
-	  num_ops2 = NUM_VUSES (ops2);
-	}
-
-      /* If the number of virtual uses is different, then we consider
-	 them not equal.  */
-      if (num_ops1 != num_ops2)
-	return false;
-
-      for (i = 0; i < num_ops1; i++)
-	if (VUSE_OP (ops1, i) != VUSE_OP (ops2, i))
-	  return false;
-
-      gcc_assert (((struct expr_hash_elt *)p1)->hash
+      bool ret = compare_ssa_operands_equal (stmt1, stmt2, SSA_OP_VUSE);
+      gcc_assert (!ret || ((struct expr_hash_elt *)p1)->hash
 		  == ((struct expr_hash_elt *)p2)->hash);
-      return true;
+      return ret;
     }
 
   return false;
