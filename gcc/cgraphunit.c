@@ -1404,7 +1404,7 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
   				 tree new_decl, varray_type redirect_callers)
  {
    struct cgraph_node *new_version;
-   struct cgraph_edge *e;
+   struct cgraph_edge *e, *new_e;
    struct cgraph_edge *next_callee;
    unsigned i;
    
@@ -1419,12 +1419,15 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
    new_version->rtl = new_version->rtl;
    new_version->reachable = true;
    new_version->static_vars_info = old_version->static_vars_info;
+   new_version->count = old_version->count;
  
    /* Clone the old node callees.  Recursive calls are
       also cloned.  */
    for (e = old_version->callees;e; e=e->next_callee)
-     cgraph_clone_edge (e, new_version, e->call_expr, REG_BR_PROB_BASE, e->loop_nest);
-   
+     {
+       new_e = cgraph_clone_edge (e, new_version, e->call_expr, 0, e->loop_nest);
+       new_e->count = e->count;
+     }
    /* Fix recursive calls. 
       If old_version has a recursive call after the 
       previous cloning the new version will have an edge

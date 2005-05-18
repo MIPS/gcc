@@ -1,3 +1,23 @@
+2005-05-05  Razya Ladelsky  <razya@il.ibm.com>
+
+	* cgraphunit.c (cgraph_copy_node_for_versioning): Copy the count 
+	from original node to the versioned node. Copy the count for copied
+	cgraph edge.
+	* ipa_prop.h (struct ipa_node): Add count scale.
+	* ipa_prop.c (ipcp_method_get_scale, ipcp_method_get_scale, 
+	ipcp_update_profiling, ipcp_update_bb_counts, 
+	ipcp_update_edges_counts, ipcp_method_compute_scale): New functions 
+	to support the update of profiling.
+	(ipcp_method_scale_print, ipcp_profile_print, 
+	ipcp_profile_mt_count_print, ipcp_profile_cs_count_print,
+	ipcp_profile_bb_print, ipcp_profile_edge_print): New functions for 
+	printing of profile information.
+	(ipcp_insert_stage): Call ipcp_update_profiling() and 
+	ipcp_profile_print().
+	(ipcp_init_stage): Call ipcp_method_compute_scale().
+	(ipcp_structures_print): Call ipcp_method_scale_print().
+	
+
 2005-05-18  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20050517)

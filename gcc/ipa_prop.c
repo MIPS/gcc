@@ -201,6 +201,8 @@ static void ipa_method_modify_init (ipa_method);
 static void ipa_method_compute_modify (ipa_method);
 
 /* ipcp_method interface.  */
+static inline gcov_type ipcp_method_get_scale (ipa_method);
+static inline void ipcp_method_set_scale (ipa_method, gcov_type);
 static inline bool ipcp_method_is_cloned (ipa_method);
 static inline void ipcp_method_set_orig_node (ipa_method, ipa_method);
 static inline ipa_method ipcp_method_orig_node (ipa_method);
@@ -216,6 +218,7 @@ static void ipcp_cval_compute (struct ipcp_formal *, ipa_method,
 static bool ipcp_cval_changed (struct ipcp_formal *, struct ipcp_formal *);
 static bool ipcp_type_is_const (enum Cvalue_type);
 static void ipcp_method_cval_init (ipa_method);
+static void ipcp_method_compute_scale (ipa_method);
 
 /* jump function interface.  */
 static inline enum Jfunc_type get_type (struct ipa_jump_func *);
@@ -239,6 +242,9 @@ static bool ipcp_after_propagate (void);
 static void ipcp_propagate_stage (void);
 static void ipcp_insert_stage (void);
 static void ipcp_update_callgraph (void);
+static void ipcp_update_profiling (void);
+static void ipcp_update_bb_counts (ipa_method, gcov_type);
+static void ipcp_update_edges_counts (ipa_method, gcov_type);
 static bool ipcp_redirect (ipa_callsite);
 static void ipa_free (void);
 static void ipa_nodes_create (void);
@@ -257,6 +263,13 @@ static void ipcp_method_cval_print (FILE *);
 static void ipa_method_tree_print (FILE *); 
 static void ipa_method_modify_print (FILE *);
 static void ipcp_callsite_param_print (FILE *f);
+/* Profile prints.  */
+static void ipcp_method_scale_print (FILE *);
+static void ipcp_profile_print (FILE *);
+static void ipcp_profile_mt_count_print (FILE *);
+static void ipcp_profile_cs_count_print (FILE *);
+static void ipcp_profile_bb_print (FILE *);
+static void ipcp_profile_edge_print (FILE *);
 
 /* ipa_methodlist interface.  */
 
@@ -563,6 +576,20 @@ ipa_node_create (ipa_method node)
    node->aux = xcalloc (1, sizeof (struct ipa_node));
 }
 
+/* Get scale for MT.  */
+static inline gcov_type
+ipcp_method_get_scale (ipa_method mt)
+{
+  return ((struct ipa_node *)mt->aux)->count_scale;
+}
+
+/* Set Count as scale for MT.  */
+static inline void
+ipcp_method_set_scale (ipa_method node, gcov_type count)
+{
+  ((struct ipa_node *)node->aux)->count_scale = count;
+}
+
 /* Returns true if node is a cloned/versioned node.  */
 static inline bool
 ipcp_method_is_cloned (ipa_method node)
@@ -856,6 +883,24 @@ ipcp_method_cval_init (ipa_method mt)
     }
 }
 
+/* Compute the proper scale for Node.  */
+static void
+ipcp_method_compute_scale (ipa_method node)
+{
+   gcov_type sum;
+   ipa_callsite cs;
+
+   sum = 0;
+   /* Compute sum of all counts of callers. */
+   for (cs = node->callers; cs != NULL;
+        cs = cs->next_caller)
+          sum += cs->count;
+      if (node->count == 0)
+        ipcp_method_set_scale (node, 0);
+      else
+        ipcp_method_set_scale (node, sum * REG_BR_PROB_BASE / node->count);
+}
+
 /* Called by walk_tree. In the case a paramer 
    is modified within the method,the appropriate entry is 
    updated in the ipa_mod array.  */
@@ -1115,7 +1160,8 @@ ipcp_init_stage (void)
       ipa_method_formal_compute_count (node);
       ipa_method_compute_tree_map (node);
       ipcp_method_cval_init (node);   
-      ipa_method_compute_modify (node);  
+      ipa_method_compute_modify (node); 
+      ipcp_method_compute_scale (node); 
     }
   for (node = cgraph_nodes; node; node = node->next)
     {
@@ -1330,6 +1376,7 @@ ipcp_insert_stage (void)
 	}
     }
   ipcp_update_callgraph ();
+  ipcp_update_profiling ();
 }
 
 /* Allocate and initialize ipa_node structure for all
@@ -1406,8 +1453,18 @@ ipcp_driver (void)
       fprintf (dump_file, "\nIPA structures after propagation:\n");
       ipcp_structures_print (dump_file);      
     }
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nProfiling info before insert stage:\n");
+      ipcp_profile_print (dump_file);
+    }
   /* 3. Insert the constants found to the functions.  */
   ipcp_insert_stage ();
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nProfiling info after insert stage:\n");
+      ipcp_profile_print (dump_file);
+    }
   /* Free all IPCP structures.  */
   ipa_free (); 
   ipa_nodes_free ();
@@ -1519,9 +1576,160 @@ static void
 ipcp_structures_print (FILE *f)
 {
   ipcp_method_cval_print (f);
+  ipcp_method_scale_print (f);
   ipa_method_tree_print (f);
   ipa_method_modify_print (f);
   ipcp_callsite_param_print (f);
+}
+
+/* Print profile info for all methods.  */
+static void
+ipcp_profile_print (FILE *f)
+{
+  fprintf (f, "\nNODE COUNTS :\n");
+  ipcp_profile_mt_count_print (f);
+  fprintf (f, "\nCS COUNTS stage:\n");
+  ipcp_profile_cs_count_print (f);
+  fprintf (f, "\nBB COUNTS and FREQUENCIES :\n");
+  ipcp_profile_bb_print (f);
+  fprintf (f, "\nCFG EDGES COUNTS and PROBABILITIES :\n");
+  ipcp_profile_edge_print (f);
+}
+
+/* Prints count scale data structures.  */
+static void
+ipcp_method_scale_print (FILE *f)
+{
+  ipa_method node;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      fprintf (f, "printing scale for %s: ", cgraph_node_name (node));
+      fprintf (f, "value is  "HOST_WIDE_INT_PRINT_DEC
+	       "  \n",
+	       ipcp_method_get_scale (node));
+    }
+}
+
+/* Print counts of all cgraph nodes.  */
+static void
+ipcp_profile_mt_count_print (FILE *f)
+{
+  ipa_method node;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      fprintf (f, "method %s: ", cgraph_node_name (node));
+      fprintf (f, "count is  "HOST_WIDE_INT_PRINT_DEC
+                       "  \n",
+                        node->count);
+    }
+}
+
+/* Print counts of all cgraph edgess.  */
+static void
+ipcp_profile_cs_count_print (FILE *f)
+{
+  ipa_method node;
+  ipa_callsite cs;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      for (cs = node->callees; cs; cs = cs->next_callee)
+	{
+	  fprintf (f, "%s -> %s ", cgraph_node_name (cs->caller),
+		   cgraph_node_name (cs->callee));
+	  fprintf (f, "count is  " HOST_WIDE_INT_PRINT_DEC "  \n", cs->count);
+	}
+    }
+}
+
+/* Print all counts and probabilities of cfg edges of all methods.  */
+static void
+ipcp_profile_edge_print (FILE *f)
+{
+  ipa_method node;
+  basic_block bb;
+  edge_iterator ei;
+  edge e;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      fprintf (f, "method %s: \n", cgraph_node_name (node));
+      if (DECL_SAVED_TREE (node->decl))
+	{
+	  bb =
+	    ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
+	  fprintf (f, "ENTRY: ");
+	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
+		   " %d\n", bb->count, bb->frequency);
+
+	  if (bb->succs)
+	    FOR_EACH_EDGE (e, ei, bb->succs)
+	    {
+	      if (e->dest ==
+		  EXIT_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION
+					       (node->decl)))
+		fprintf (f, "edge ENTRY -> EXIT,  Count");
+	      else
+		fprintf (f, "edge ENTRY -> %d,  Count", e->dest->index);
+	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
+		       " Prob %d\n", e->count, e->probability);
+	    }
+	  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
+	  {
+	    fprintf (f, "bb[%d]: ", bb->index);
+	    fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
+		     " %d\n", bb->count, bb->frequency);
+	    FOR_EACH_EDGE (e, ei, bb->succs)
+	    {
+	      if (e->dest ==
+		  EXIT_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION
+					       (node->decl)))
+		fprintf (f, "edge %d -> EXIT,  Count", e->src->index);
+	      else
+		fprintf (f, "edge %d -> %d,  Count", e->src->index,
+			 e->dest->index);
+	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC " Prob %d\n", e->count,
+		       e->probability);
+	    }
+	  }
+	}
+    }
+}
+
+/* Print counts and frequencies for all basic blocks of all methods.  */
+static void
+ipcp_profile_bb_print (FILE *f)
+{
+  basic_block bb;
+  ipa_method node;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      fprintf (f, "method %s: \n", cgraph_node_name (node));
+      if (DECL_SAVED_TREE (node->decl))
+	{
+	  bb =
+	    ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
+	  fprintf (f, "ENTRY: Count");
+	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
+		   " Frquency  %d\n", bb->count, bb->frequency);
+
+	  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
+	    {
+	      fprintf (f, "bb[%d]: Count", bb->index);
+	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
+		       " Frequency %d\n", bb->count, bb->frequency);
+	    }
+	  bb =
+	    EXIT_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
+	  fprintf (f, "EXIT: Count");
+	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
+		   " Frequency %d\n", bb->count, bb->frequency);
+
+	}
+    }
 }
 
 /* Prints ipcp_cval data structures.  */
@@ -1735,6 +1943,62 @@ ipcp_redirect (ipa_callsite cs)
     }
   
   return false;
+}
+
+/* Update profiling info for versioned methods and the
+   methods they were versioned from.  */
+static void
+ipcp_update_profiling (void)
+{
+  ipa_method node, orig_node;
+  gcov_type scale, scale_complement;
+  ipa_callsite cs;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      if (ipcp_method_is_cloned (node))
+	{
+	  orig_node = ipcp_method_orig_node (node);
+	  scale = ipcp_method_get_scale (orig_node);
+	  node->count =
+	    orig_node->count * scale / REG_BR_PROB_BASE;
+	  scale_complement =
+	    REG_BR_PROB_BASE - scale;
+	  orig_node->count =
+	    orig_node->count * scale_complement / REG_BR_PROB_BASE;
+	  for (cs = node->callees; cs; cs = cs->next_callee)
+	    cs->count = cs->count * scale / REG_BR_PROB_BASE;
+	  for (cs = orig_node->callees; cs; cs = cs->next_callee)
+	    cs->count = cs->count * scale_complement / REG_BR_PROB_BASE;
+	  ipcp_update_bb_counts (node, scale);
+	  ipcp_update_bb_counts (orig_node, scale_complement);
+	  ipcp_update_edges_counts (node, scale);
+	  ipcp_update_edges_counts (orig_node, scale_complement);
+	}
+    }
+}
+
+/* Update all cfg basic blocks in NODE according to SCALE.  */
+static void
+ipcp_update_bb_counts (ipa_method node, gcov_type scale)
+{
+  basic_block bb;
+
+  FOR_ALL_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
+    bb->count = bb->count * scale / REG_BR_PROB_BASE ;
+}
+
+/* Update all cfg edges in NODE according to SCALE.  */
+static void
+ipcp_update_edges_counts (ipa_method node, gcov_type scale)
+{
+  basic_block bb;
+  edge_iterator ei;
+  edge e;
+
+  FOR_ALL_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
+    FOR_EACH_EDGE (e, ei, bb->succs)
+      e->count = e->count * scale / REG_BR_PROB_BASE ; 
 }
 
 static bool

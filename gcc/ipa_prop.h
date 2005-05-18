@@ -88,6 +88,7 @@ struct ipa_node
    /* Only for cloned nodes this field would not be NULL, 
   it points to the node that IPA cp cloned from.  */ 
   struct cgraph_node *ipcp_orig_node;
+  gcov_type count_scale;
 };
 
 struct ipa_edge
