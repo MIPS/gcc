@@ -889,12 +889,30 @@ bytecode_generator::visit_return (model_return *rtn,
 {
   note_line (rtn);
 
+  int tmpvar = -1;
   if (expr)
     {
       push_expr_target push (this, ON_STACK);
       expr->visit (this);
+
+      // If there are cleanups to call, make a temporary variable and
+      // assign to it, then reload it before the return.
+      if (! finally_stack.empty ())
+	{
+	  tmpvar = vars.request (NULL);
+	  emit_store (expr->type (), tmpvar);
+	}
     }
+
   call_cleanups (NULL);
+
+  if (tmpvar != -1)
+    {
+      assert (expr);
+      emit_load (expr->type (), tmpvar);
+      vars.remove (tmpvar);
+    }
+
   if (! expr)
     emit (op_return);
   else

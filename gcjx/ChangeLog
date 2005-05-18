@@ -1,5 +1,10 @@
 2005-05-16  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (visit_return): If there are cleanups, save
+	result expression in local variable.
+
+2005-05-16  Tom Tromey  <tromey@redhat.com>
+
 	* defassign.cc (class definite_assignment_visitor): Removed some
 	old comments.
 

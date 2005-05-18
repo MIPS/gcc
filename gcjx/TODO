@@ -13,12 +13,7 @@ on a class.  this is lame, we should mark the class static
 in a static context
 
 the bug in PR 19810 makes for weird bytecode output from gcjx
-it is incorrect due to stack size differences
-- in bytecode_generator::visit_return, make a new temporary local when
-  there is a finally handler
-- store the result there
-- load the result when generating the 'return'
-- the return might be dead code...
+we are failing to eliminate some dead code
 
 gcjx also fails on PR 19629, though differently
 it creates the anonymous constructor incorrectly
