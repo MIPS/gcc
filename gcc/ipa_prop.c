@@ -1607,7 +1607,7 @@ ipcp_method_scale_print (FILE *f)
       fprintf (f, "printing scale for %s: ", cgraph_node_name (node));
       fprintf (f, "value is  "HOST_WIDE_INT_PRINT_DEC
 	       "  \n",
-	       ipcp_method_get_scale (node));
+	       (HOST_WIDE_INT)ipcp_method_get_scale (node));
     }
 }
 
@@ -1622,7 +1622,7 @@ ipcp_profile_mt_count_print (FILE *f)
       fprintf (f, "method %s: ", cgraph_node_name (node));
       fprintf (f, "count is  "HOST_WIDE_INT_PRINT_DEC
                        "  \n",
-                        node->count);
+                        (HOST_WIDE_INT)node->count);
     }
 }
 
@@ -1639,7 +1639,7 @@ ipcp_profile_cs_count_print (FILE *f)
 	{
 	  fprintf (f, "%s -> %s ", cgraph_node_name (cs->caller),
 		   cgraph_node_name (cs->callee));
-	  fprintf (f, "count is  " HOST_WIDE_INT_PRINT_DEC "  \n", cs->count);
+	  fprintf (f, "count is  " HOST_WIDE_INT_PRINT_DEC "  \n", (HOST_WIDE_INT)cs->count);
 	}
     }
 }
@@ -1662,7 +1662,7 @@ ipcp_profile_edge_print (FILE *f)
 	    ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
 	  fprintf (f, "ENTRY: ");
 	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		   " %d\n", bb->count, bb->frequency);
+		   " %d\n", (HOST_WIDE_INT)bb->count, bb->frequency);
 
 	  if (bb->succs)
 	    FOR_EACH_EDGE (e, ei, bb->succs)
@@ -1674,13 +1674,13 @@ ipcp_profile_edge_print (FILE *f)
 	      else
 		fprintf (f, "edge ENTRY -> %d,  Count", e->dest->index);
 	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		       " Prob %d\n", e->count, e->probability);
+		       " Prob %d\n", (HOST_WIDE_INT)e->count, e->probability);
 	    }
 	  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
 	  {
 	    fprintf (f, "bb[%d]: ", bb->index);
 	    fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		     " %d\n", bb->count, bb->frequency);
+		     " %d\n", (HOST_WIDE_INT)bb->count, bb->frequency);
 	    FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
 	      if (e->dest ==
@@ -1690,7 +1690,7 @@ ipcp_profile_edge_print (FILE *f)
 	      else
 		fprintf (f, "edge %d -> %d,  Count", e->src->index,
 			 e->dest->index);
-	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC " Prob %d\n", e->count,
+	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC " Prob %d\n", (HOST_WIDE_INT)e->count,
 		       e->probability);
 	    }
 	  }
@@ -1714,19 +1714,19 @@ ipcp_profile_bb_print (FILE *f)
 	    ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
 	  fprintf (f, "ENTRY: Count");
 	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		   " Frquency  %d\n", bb->count, bb->frequency);
+		   " Frquency  %d\n", (HOST_WIDE_INT)bb->count, bb->frequency);
 
 	  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
 	    {
 	      fprintf (f, "bb[%d]: Count", bb->index);
 	      fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		       " Frequency %d\n", bb->count, bb->frequency);
+		       " Frequency %d\n", (HOST_WIDE_INT)bb->count, bb->frequency);
 	    }
 	  bb =
 	    EXIT_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
 	  fprintf (f, "EXIT: Count");
 	  fprintf (f, " " HOST_WIDE_INT_PRINT_DEC
-		   " Frequency %d\n", bb->count, bb->frequency);
+		   " Frequency %d\n", (HOST_WIDE_INT)bb->count, bb->frequency);
 
 	}
     }
@@ -1756,7 +1756,7 @@ ipcp_method_cval_print (FILE *f)
               cvalue = &(ipcp_cval_get_cvalue (ipcp_method_cval (node, i))->int_value);
               fprintf (f, "value is  "HOST_WIDE_INT_PRINT_DEC
                        " "HOST_WIDE_INT_PRINT_DEC" \n", 
-                       cvalue->high, cvalue->low);
+                       (HOST_WIDE_INT)cvalue->high,(HOST_WIDE_INT) cvalue->low);
             }
           else if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) 
               == CONST_VALUE_FLOAT || ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i))
@@ -1865,7 +1865,7 @@ ipcp_callsite_param_print (FILE *f)
                   fprintf (f, "CONST INT : ");
                   fprintf (f, " "HOST_WIDE_INT_PRINT_DEC
                            " "HOST_WIDE_INT_PRINT_DEC" \n", 
-                           info_type_int->high, info_type_int->low);
+                           (HOST_WIDE_INT)info_type_int->high, (HOST_WIDE_INT)info_type_int->low);
                 }
               else if (type == CONST_IPATYPE_FLOAT)
 		{

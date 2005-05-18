@@ -1,3 +1,7 @@
+2005-05-18  Jan Hubicka  <jh@suse.cz>
+
+	* ipa_prop.c: Fix warnings in new dumping code.
+
 2005-05-05  Razya Ladelsky  <razya@il.ibm.com>
 
 	* cgraphunit.c (cgraph_copy_node_for_versioning): Copy the count 
