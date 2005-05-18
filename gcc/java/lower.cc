@@ -1088,8 +1088,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	    for (int i = low; i < high; ++i)
 	      {
-		tree label = build0 (LABEL_DECL, NULL_TREE);
-		DECL_CONTEXT (label) = current_block;
+		tree label = build_label ();
 
 		int where = base_pc + get4 (bytes, pc);
 		tree case_label = build3 (CASE_LABEL_EXPR, NULL_TREE,
@@ -1100,8 +1099,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 				TSI_CONTINUE_LINKING);
 	      }
 
-	    tree label = build0 (LABEL_DECL, NULL_TREE);
-	    DECL_CONTEXT (label) = current_block;
+	    tree label = build_label ();
 	    tree def_label = build3 (CASE_LABEL_EXPR, void_type_node,
 				     NULL_TREE, NULL_TREE, label);
 	    tsi_link_after (&out, def_label, TSI_CONTINUE_LINKING);
@@ -1134,8 +1132,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 		int match = get4 (bytes, pc);
 		int dest = base_pc + get4 (bytes, pc);
 
-		tree label = build0 (LABEL_DECL, NULL_TREE);
-		DECL_CONTEXT (label) = current_block;
+		tree label = build_label ();
 
 		tree case_label = build3 (CASE_LABEL_EXPR, void_type_node,
 					  build_int (match), NULL_TREE,
@@ -1146,8 +1143,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 				TSI_CONTINUE_LINKING);
 	      }
 
-	    tree label = build0 (LABEL_DECL, NULL_TREE);
-	    DECL_CONTEXT (label) = current_block;
+	    tree label = build_label ();
 
 	    tree def_label = build3 (CASE_LABEL_EXPR, void_type_node,
 				     NULL_TREE, NULL_TREE, label);
@@ -1716,6 +1712,7 @@ tree_generator::find_label (int pc)
       labels[pc] = build_decl (LABEL_DECL, get_identifier (buf), NULL_TREE);
       DECL_CONTEXT (labels[pc]) = method_tree;
       DECL_IGNORED_P (labels[pc]) = 1;
+      DECL_ARTIFICIAL (labels[pc]) = 1;
     }
   return labels[pc];
 }

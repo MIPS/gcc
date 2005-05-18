@@ -132,6 +132,7 @@ class tree_generator : public visitor
   tree build_mod (tree, tree, tree);
   tree build_array_reference (tree, tree, tree, bool = true);
   tree build_exception_object_ref (tree);
+  tree build_label ();
 
   void stringbuffer_append (model_expression *, tree &, model_class *,
 			    tree = NULL_TREE);

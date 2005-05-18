@@ -110,6 +110,15 @@ tree_generator::wrap_label (tree label_decl, model_element *request)
   return result;
 }
 
+tree
+tree_generator::build_label ()
+{
+  tree result = build0 (LABEL_DECL, NULL_TREE);
+  DECL_CONTEXT (result) = current_block;
+  DECL_ARTIFICIAL (result) = 1;
+  return result;
+}
+
 
 
 void
@@ -533,10 +542,8 @@ tree_generator::visit_do (model_do *dstmt,
 			  const ref_stmt &body)
 {
   // Some labels which we'll use later.
-  tree test = build0 (LABEL_DECL, NULL_TREE);
-  DECL_CONTEXT (test) = current_block;
-  tree done = build0 (LABEL_DECL, NULL_TREE);
-  DECL_CONTEXT (done) = current_block;
+  tree test = build_label ();
+  tree done = build_label ();
   target_map[dstmt] = std::make_pair (test, done);
 
   // Generate code for the expression and the body.
@@ -590,10 +597,8 @@ tree_generator::visit_for_enhanced (model_for_enhanced *fstmt,
 				    const ref_expression &container,
 				    const ref_variable_decl &var)
 {
-  tree update_tree = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (update_tree) = current_block;
-  tree done_tree = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (done_tree) = current_block;
+  tree update_tree = build_label ();
+  tree done_tree = build_label ();
   target_map[fstmt] = std::make_pair (update_tree, done_tree);
 
   // Push a new block around the loop.
@@ -755,10 +760,8 @@ tree_generator::visit_for (model_for *fstmt,
 			   const ref_stmt &update,
 			   const ref_stmt &body)
 {
-  tree update_tree = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (update_tree) = current_block;
-  tree done_tree = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (done_tree) = current_block;
+  tree update_tree = build_label ();
+  tree done_tree = build_label ();
   target_map[fstmt] = std::make_pair (update_tree, done_tree);
 
   save_tree saver (current_block, make_node (BLOCK));
@@ -843,6 +846,8 @@ tree_generator::visit_label (model_label *label, const ref_stmt &stmt)
   // analysis time, so we compute it here.
   if (label->get_break_target () == NULL)
     {
+      // Note that we don't use build_label() here since this is not
+      // an artificial label.
       tree brk = build0 (LABEL_DECL, NULL_TREE);
       DECL_CONTEXT (brk) = current_block;
       target_map[label] = std::make_pair (NULL_TREE, brk);
@@ -886,8 +891,7 @@ tree_generator::visit_switch (model_switch *swstmt,
   expr->visit (this);
   tree expr_tree = current;
 
-  tree done = build0 (LABEL_DECL, NULL_TREE);
-  DECL_CONTEXT (done) = current_block;
+  tree done = build_label ();
   target_map[swstmt] = std::make_pair (NULL_TREE, done);
 
   tree body_tree = alloc_stmt_list ();
@@ -900,8 +904,7 @@ tree_generator::visit_switch (model_switch *swstmt,
     {
       if ((*i).get () == def)
 	{
-	  tree label = build0 (LABEL_DECL, NULL_TREE);
-	  DECL_CONTEXT (label) = current_block;
+	  tree label = build_label ();
 
 	  tree case_label = build3 (CASE_LABEL_EXPR, NULL_TREE, NULL_TREE,
 				    NULL_TREE, label);
@@ -940,8 +943,7 @@ tree_generator::visit_switch_block (model_switch_block *swblock,
        i != labels.end ();
        ++i)
     {
-      tree label = build0 (LABEL_DECL, NULL_TREE);
-      DECL_CONTEXT (label) = current_block;
+      tree label = build_label ();
 
       jint value = jint (intb->convert ((*i)->type (), (*i)->value ()));
       tree new_label = build3 (CASE_LABEL_EXPR, NULL_TREE, build_int (value),
@@ -1086,10 +1088,8 @@ tree_generator::visit_while (model_while *wstmt,
 			     const ref_expression &cond,
 			     const ref_stmt &body)
 {
-  tree again = build0 (LABEL_DECL, NULL_TREE);
-  DECL_CONTEXT (again) = current_block;
-  tree done = build0 (LABEL_DECL, NULL_TREE);
-  DECL_CONTEXT (done) = current_block;
+  tree again = build_label ();
+  tree done = build_label ();
   target_map[wstmt] = std::make_pair (again, done);
 
   // Create the body of the loop: first the 'again' label, then the
