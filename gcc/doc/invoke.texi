@@ -368,6 +368,7 @@ in the following sections.
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis @gol
+-minteger-std-ldd  -mno-integer-std-ldd @gol
 -mcypress  -mf930  -mf934 @gol
 -msparclite  -msupersparc  -mv8
 -threads -pthreads}
@@ -6397,6 +6398,15 @@ mode for all SPARC-V9 processors.
 @opindex mno-vis
 With @option{-mvis}, GCC generates code that takes advantage of the UltraSPARC
 Visual Instruction Set extensions.  The default is @option{-mno-vis}.
+
+@item -minteger-std-ldd
+@itemx -mno-integer-std-ldd
+@opindex minteger-std-ldd
+@opindex mno-integer-std-ldd
+With @option{-mno-integer-std-ldd}, GCC does not use the @code{ldd}
+and @code{std} instructions for integer operands in 32-bit mode.  This
+is for use with legacy code using 64-bit quantities which are not
+64-bit aligned.  The default is @option{-minteger-std-ldd}.
 @end table
 
 These @samp{-m} options are supported in addition to the above

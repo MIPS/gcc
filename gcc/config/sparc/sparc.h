@@ -517,6 +517,10 @@ extern int target_flags;
 #define MASK_LONG_DOUBLE_128 0x8000000
 #define TARGET_LONG_DOUBLE_128 (target_flags & MASK_LONG_DOUBLE_128)
 
+/* Do not use integer ldd and std.  */
+#define MASK_NO_INTEGER_LDD_STD 0x10000000
+#define TARGET_INTEGER_LDD_STD (!(target_flags & MASK_NO_INTEGER_LDD_STD))
+
 /* TARGET_HARD_MUL: Use hardware multiply instructions but not %y.
    TARGET_HARD_MUL32: Use hardware multiply instructions with rd %y
    to get high 32 bits.  False in V8+ or V9 because multiply stores
@@ -577,7 +581,11 @@ extern int target_flags;
      N_("Utilize Visual Instruction Set") }, 				\
     {"no-vis", -MASK_VIS,						\
      N_("Do not utilize Visual Instruction Set") }, 			\
-    /* ??? These are deprecated, coerced to -mcpu=.  Delete in 2.9.  */ \
+    {"integer-ldd-std", -MASK_NO_INTEGER_LDD_STD,			\
+     N_("Utilize integer ldd and std") },				\
+    {"no-integer-ldd-std", MASK_NO_INTEGER_LDD_STD,			\
+     N_("Do not utilize integer ldd and std") },			\
+    /* ??? These are deprecated, coerced to -mcpu=.  Delete in 2.9.  */	\
     {"cypress", 0,							\
      N_("Optimize for Cypress processors") }, 				\
     {"sparclite", 0,							\

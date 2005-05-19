@@ -1,5 +1,21 @@
 2005-05-19  Joseph S. Myers  <joseph@codesourcery.com>
 
+	* gcc/config/sparc/sparc.h (MASK_NO_INTEGER_LDD_STD,
+	TARGET_INTEGER_LDD_STD): New.
+	(TARGET_SWITCHES): Define -mno-integer-ldd-std option.
+	* gcc/doc/invoke.texi (-mno-integer-std-ldd): Document.
+	* gcc/config/sparc/sparc.c (save_regs, restore_regs,
+	sparc_splitdi_legitimate, sparc_flat_save_restore): Check
+	TARGET_INTEGER_LDD_STD.
+	* gcc/config/sparc/sparc.md (movdi_insn_sp32_v9, movdi_insn_sp32):
+	Disable unless TARGET_INTEGER_LDD_STD.
+	(movdi_insn_sp32_v9_nolddstd, movdi_insn_sp32_nolddstd): New
+	patterns if !TARGET_INTEGER_LDD_STD.
+	(define_peephole2): Disable use of widen_memory_access unless
+	TARGET_INTEGER_LDD_STD.
+
+2005-05-19  Joseph S. Myers  <joseph@codesourcery.com>
+
 	* gcc/common.opt (fjump-tables): New.
 	* gcc/doc/invoke.texi (-fno-jump-tables): Document.
 	* gcc/flags.h (flag_jump_tables): New.
