@@ -1,3 +1,10 @@
+2005-05-19  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* cpp-builtin.c (builtin_define_decfloat_constants):
+	Add __DEC_EVAL_METHOD__.
+	* defaults.h (TARGET_DEC_EVAL_METHOD): Add hook and default
+	value.
+
 2005-05-18  David Edelsohn  <dje@watson.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
 

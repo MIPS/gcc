@@ -290,6 +290,9 @@ builtin_define_decfloat_constants (void)
   builtin_define_with_value ("__DEC64_DEN__", "0.000000000000001E-383DD", 0);
   builtin_define_with_value ("__DEC128_DEN__", 
 			     "0.000000000000000000000000000000001E-6143DL", 0);
+
+  builtin_define_with_int_value ("__DEC_EVAL_METHOD__",
+                                 TARGET_DEC_EVAL_METHOD);
 }
 
 /* Define __GNUC__, __GNUC_MINOR__ and __GNUC_PATCHLEVEL__.  */

@@ -698,6 +698,10 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define TARGET_FLT_EVAL_METHOD 0
 #endif
 
+#ifndef TARGET_DEC_EVAL_METHOD
+#define TARGET_DEC_EVAL_METHOD 2
+#endif
+
 #ifndef HOT_TEXT_SECTION_NAME
 #define HOT_TEXT_SECTION_NAME ".text.hot"
 #endif
