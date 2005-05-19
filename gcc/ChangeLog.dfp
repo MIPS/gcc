@@ -12,14 +12,6 @@
 
 	* dfp.c (decimal_real_from_string): Use DECIMAL_FLOAT_MODE_P.
 
-	* config/rs6000/predicates.md (easy_fp_constant): Revert this
-	change for now:
-
-	2005-04-13  Jon Grimm  <jgrimm2@us.ibm.com>
-
-		* config/predicates.md (easy_fp_constant): Decimal float
-		types are easy (for now).
-
 2005-05-17  Ben Elliston  <bje@au.ibm.com>
 
 	* dwarf2.h (enum dwarf_type): Rename DW_ATE_decimal_float to

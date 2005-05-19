@@ -187,6 +187,10 @@
       && mode != DImode)
     return 1;
 
+  /* All decimal floats are currently soft.   Consider them easy. */
+  if (mode == DDmode || mode == SDmode || mode == TDmode)
+    return 1;
+
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
   if (flag_pic && DEFAULT_ABI == ABI_V4)
     return 0;
