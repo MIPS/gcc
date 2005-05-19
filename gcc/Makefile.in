@@ -2037,6 +2037,11 @@ simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 cgraph.o : cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h toplev.h $(FLAGS_H) $(GGC_H)  $(TARGET_H) $(CGRAPH_H) gt-cgraph.h \
    output.h intl.h tree-inline.h $(TREE_FLOW_H)
+cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_H) langhooks.h tree-inline.h toplev.h $(FLAGS_H) $(GGC_H) \
+   $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h function.h $(TREE_GIMPLE_H) \
+   $(TREE_FLOW_H) tree-pass.h $(C_COMMON_H) debug.h $(DIAGNOSTIC_H) \
+   $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) ipa_prop.h cfgloop.h
 ipa_prop.o : ipa_prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    langhooks.h $(GGC_H) target.h $(CGRAPH_H) output.h ipa_prop.h tree-iterator.h \
    tree-inline.h function.h tree-flow.h real.h $(TM_H)
