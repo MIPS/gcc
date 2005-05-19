@@ -1,3 +1,21 @@
+2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21127
+	* gfortran.dg/reshape-complex.f90:  New test.
+
+2005-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21495
+	* g++.dg/parse/extern1.C: New test.
+	* g++.dg/tls/diag-2.C: Adjust expected error message wording.
+
+2005-05-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/c99-math.h: New.
+	* gcc.dg/c99-math-float-1.c: New test.
+	* gcc.dg/c99-math-double-1.c: Likewise.
+	* gcc.dg/c99-math-long-double-1.c: Likewise.
+
 2005-05-18  Feng Wang  <fengwang@nudt.edu.cn>
 
 	PR fortran/20954
