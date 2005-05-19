@@ -1,6 +1,12 @@
+2005-05-19  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/conversions-5.c: Fix typos.
+	* gcc.dg/dfp/conversions-6.c: New test.
+	* gcc.dg/dfp/conversions-7.c: New test.
+
 2005-05-18  Jon Grimm  <jgrimm2@us.ibm.com>
 
-	* gcc.dg/dfp/conversions-5.c: New Test
+	* gcc.dg/dfp/conversions-5.c: New test.
 
 2005-05-18  Jon Grimm  <jgrimm2@us.ibm.com>
 
