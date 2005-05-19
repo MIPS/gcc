@@ -1079,6 +1079,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_instrument_function_entry_exit = value;
       break;
 
+    case OPT_fjump_tables:
+      flag_jump_tables = value;
+      break;
+
     case OPT_fkeep_inline_functions:
       flag_keep_inline_functions =value;
       break;

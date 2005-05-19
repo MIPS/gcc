@@ -492,6 +492,10 @@ extern int flag_pie;
 
 extern int flag_shlib;
 
+/* Nonzero if we may use jump tables for switch statements.  */
+
+extern int flag_jump_tables;
+
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
 

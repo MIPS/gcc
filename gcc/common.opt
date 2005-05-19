@@ -412,6 +412,10 @@ finstrument-functions
 Common
 Instrument function entry and exit with profiling calls
 
+fjump-tables
+Common
+Use jump tables for sufficiently large switch statements
+
 fkeep-inline-functions
 Common
 Generate code for functions even if they are fully inlined

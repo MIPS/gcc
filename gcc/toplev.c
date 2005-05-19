@@ -781,6 +781,10 @@ int flag_pie;
 
 int flag_shlib;
 
+/* Nonzero if we may use jump tables for switch statements.  */
+
+int flag_jump_tables = 1;
+
 /* Set to the default thread-local storage (tls) model to use.  */
 
 enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;

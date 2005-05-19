@@ -5524,6 +5524,7 @@ expand_end_case_type (tree orig_index, tree orig_type)
 #ifndef ASM_OUTPUT_ADDR_DIFF_ELT
 	       || flag_pic
 #endif
+	       || !flag_jump_tables
 	       || TREE_CONSTANT (index_expr))
 	{
 	  index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
