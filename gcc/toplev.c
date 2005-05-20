@@ -785,6 +785,10 @@ int flag_shlib;
 
 int flag_jump_tables = 1;
 
+/* Nonzero if we may use constant pools.  */
+
+int flag_constant_pools = 1;
+
 /* Set to the default thread-local storage (tls) model to use.  */
 
 enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;

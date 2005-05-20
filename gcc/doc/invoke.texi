@@ -672,7 +672,7 @@ in the following sections.
 -finhibit-size-directive  -finstrument-functions @gol
 -fno-common  -fno-ident @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE @gol
--fno-jump-tables @gol
+-fno-jump-tables  -fno-constant-pools @gol
 -freg-struct-return  -fshared-data  -fshort-enums @gol
 -fshort-double  -fshort-wchar @gol
 -fverbose-asm  -fpack-struct  -fstack-check @gol
@@ -11112,6 +11112,16 @@ more efficient than other code generation strategies.  This option is
 of use in conjunction with @option{-fpic} or @option{-fPIC} for
 building code which forms part of a dynamic linker and cannot
 reference the address of a jump table.
+
+@item -fno-constant-pools
+@opindex fno-constant-pools
+Do not put constants other than user-declared constant variables in
+pools in read-only memory even if this requires constants to be built
+up in registers and spilled to the stack.  This option is of use in
+conjunction with @option{-fpic} or @option{-fPIC} for building code
+which forms part of a dynamic linker and cannot reference the address
+of a constant pool.  It may not work reliably for all code or on all
+targets.
 
 @item -ffixed-@var{reg}
 @opindex ffixed

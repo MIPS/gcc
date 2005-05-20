@@ -496,6 +496,10 @@ extern int flag_shlib;
 
 extern int flag_jump_tables;
 
+/* Nonzero if we may use constant pools.  */
+
+extern int flag_constant_pools;
+
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
 

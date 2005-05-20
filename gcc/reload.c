@@ -3130,6 +3130,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 			&& reg_renumber[REGNO (operand)] < 0))
 		  win = 1;
 		if (CONSTANT_P (operand)
+		    && flag_constant_pools
 		    /* force_const_mem does not accept HIGH.  */
 		    && GET_CODE (operand) != HIGH)
 		  badop = 0;
@@ -3194,7 +3195,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 			    || (reg_equiv_address[REGNO (operand)] != 0))))
 		  win = 1;
 		/* force_const_mem does not accept HIGH.  */
-		if ((CONSTANT_P (operand) && GET_CODE (operand) != HIGH)
+		if ((CONSTANT_P (operand) && flag_constant_pools
+		     && GET_CODE (operand) != HIGH)
 		    || GET_CODE (operand) == MEM)
 		  badop = 0;
 		constmemok = 1;
@@ -3314,7 +3316,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 			/* If we didn't already win, we can reload
 			   constants via force_const_mem, and other
 			   MEMs by reloading the address like for 'o'.  */
-			if ((CONSTANT_P (operand) && GET_CODE (operand) != HIGH)
+			if ((CONSTANT_P (operand) && flag_constant_pools
+			     && GET_CODE (operand) != HIGH)
 			    || GET_CODE (operand) == MEM)
 			  badop = 0;
 			constmemok = 1;
@@ -3391,6 +3394,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		 precisely the same as in the code below that calls
 		 force_const_mem.  */
 	      if (CONSTANT_P (operand)
+		  && flag_constant_pools
 		  /* force_const_mem does not accept HIGH.  */
 		  && GET_CODE (operand) != HIGH
 		  && ((PREFERRED_RELOAD_CLASS (operand,
@@ -3773,6 +3777,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
   for (i = 0; i < noperands; i++)
     if (! goal_alternative_win[i]
 	&& CONSTANT_P (recog_data.operand[i])
+	&& flag_constant_pools
 	/* force_const_mem does not accept HIGH.  */
 	&& GET_CODE (recog_data.operand[i]) != HIGH
 	&& ((PREFERRED_RELOAD_CLASS (recog_data.operand[i],

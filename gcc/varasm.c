@@ -2937,7 +2937,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   unsigned int align;
 
   /* If we're not allowed to drop X into the constant pool, don't.  */
-  if ((*targetm.cannot_force_const_mem) (x))
+  if (!flag_constant_pools || (*targetm.cannot_force_const_mem) (x))
     return NULL_RTX;
 
   /* Compute hash code of X.  Search the descriptors for that hash code

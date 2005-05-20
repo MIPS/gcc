@@ -938,6 +938,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_cse_skip_blocks = value;
       break;
 
+    case OPT_fconstant_pools:
+      flag_constant_pools = value;
+      break;
+
     case OPT_fdata_sections:
       flag_data_sections = value;
       break;

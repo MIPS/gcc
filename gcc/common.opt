@@ -262,6 +262,10 @@ fcommon
 Common
 Do not put uninitialized globals in the common section
 
+fconstant-pools
+Common
+Put constants in pools in read-only memory if convenient
+
 fcprop-registers
 Common
 Perform a register copy-propagation optimization pass
