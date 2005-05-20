@@ -27,12 +27,15 @@ using __gnu_test::forward_iterator_wrapper;
 
 typedef test_container<int, forward_iterator_wrapper> Container; 
 
+bool equal1(int val) { return val == 1; }
+bool equal0(int val) { return val == 0; }
+
 void
 test1()
 {
   int array[1];
   Container con(array, array);
-  VERIFY(std::remove(con.begin(), con.end(), 1).ptr == array);
+  VERIFY(std::remove_if(con.begin(), con.end(), equal1).ptr == array);
 }
 
 void
@@ -40,8 +43,8 @@ test2()
 {
   int array[] = {1};
   Container con(array, array + 1);
-  VERIFY(std::remove(con.begin(), con.end(), 0).ptr == array + 1);
-  VERIFY(std::remove(con.begin(), con.end(), 1).ptr == array);
+  VERIFY(std::remove_if(con.begin(), con.end(), equal0).ptr == array + 1);
+  VERIFY(std::remove_if(con.begin(), con.end(), equal1).ptr == array);
 }
 
 void
@@ -49,7 +52,7 @@ test3()
 {
   int array[] = {0, 1, 0, 1, 0, 0, 1, 1};
   Container con(array, array + 8);
-  VERIFY(std::remove(con.begin(), con.end(), 1).ptr == array + 4);
+  VERIFY(std::remove_if(con.begin(), con.end(), equal1).ptr == array + 4);
   VERIFY(array[0] == 0 && array[1] == 0 && array[2] == 0 &&
          array[3] == 0);
 }

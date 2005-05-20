@@ -103,7 +103,7 @@ namespace std
 
   // Heap-manipulation functions: push_heap, pop_heap, make_heap, sort_heap.
 
-  template<typename _RandomAccessIterator, typename _Distance, typename _Tp,
+  template<typename _Tp, typename _RandomAccessIterator, typename _Distance, 
 	    typename _Compare>
     void
     __push_heap(_RandomAccessIterator __first, _Distance __holeIndex,
@@ -113,11 +113,11 @@ namespace std
       while (__holeIndex > __topIndex
 	     && __comp(*(__first + __parent), __value))
 	{
-	  *(__first + __holeIndex) = *(__first + __parent);
+	  *(__first + __holeIndex) = __gnu_cxx::__move(*(__first + __parent));
 	  __holeIndex = __parent;
 	  __parent = (__holeIndex - 1) / 2;
 	}
-      *(__first + __holeIndex) = __value;
+      *(__first + __holeIndex) = __gnu_cxx::__move(__value);
     }
 
   /**
@@ -147,8 +147,10 @@ namespace std
       __glibcxx_requires_valid_range(__first, __last);
       __glibcxx_requires_heap_pred(__first, __last - 1, __comp);
 
-      std::__push_heap(__first, _DistanceType((__last - __first) - 1),
-		       _DistanceType(0), _ValueType(*(__last - 1)), __comp);
+      std::__push_heap<_ValueType>(__first, 
+      				   _DistanceType((__last - __first) - 1),
+		                   _DistanceType(0), 
+		                   __gnu_cxx::__move(*(__last - 1)), __comp);
     }
 
   /**
@@ -175,13 +177,15 @@ namespace std
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
       __glibcxx_requires_valid_range(__first, __last);
 
-      std::__push_heap(__first, _DistanceType((__last - __first) - 1),
-		       _DistanceType(0), _ValueType(*(__last - 1)),
-                       __gnu_cxx::__ops::less());
+      std::__push_heap<_ValueType>(__first, 
+      				   _DistanceType((__last - __first) - 1),
+		       		   _DistanceType(0),
+		       		   __gnu_cxx::__move(*(__last - 1)),
+		       		   __gnu_cxx::__ops::less());
     }
 
-  template<typename _RandomAccessIterator, typename _Distance,
-	   typename _Tp, typename _Compare>
+  template<typename _Tp, typename _RandomAccessIterator, typename _Distance,
+	   typename _Compare>
     void
     __adjust_heap(_RandomAccessIterator __first, _Distance __holeIndex,
 		  _Distance __len, _Tp __value, _Compare __comp)
@@ -193,28 +197,35 @@ namespace std
 	  if (__comp(*(__first + __secondChild),
 		     *(__first + (__secondChild - 1))))
 	    __secondChild--;
-	  *(__first + __holeIndex) = *(__first + __secondChild);
+	  *(__first + __holeIndex) = __gnu_cxx::__move(*(__first +
+	  						 __secondChild));
 	  __holeIndex = __secondChild;
 	  __secondChild = 2 * (__secondChild + 1);
 	}
       if (__secondChild == __len)
 	{
-	  *(__first + __holeIndex) = *(__first + (__secondChild - 1));
+	  *(__first + __holeIndex) = __gnu_cxx::__move(*(__first +
+	  						 (__secondChild - 1)));
 	  __holeIndex = __secondChild - 1;
 	}
-      std::__push_heap(__first, __holeIndex, __topIndex, __value, __comp);
+      std::__push_heap<_Tp>(__first, __holeIndex, __topIndex, 
+      			    __gnu_cxx::__move(__value), __comp);
     }
 
-  template<typename _RandomAccessIterator, typename _Tp, typename _Compare>
+  template<typename _RandomAccessIterator, typename _Compare>
     inline void
     __pop_heap(_RandomAccessIterator __first, _RandomAccessIterator __last,
-	       _RandomAccessIterator __result, _Tp __value, _Compare __comp)
+	       _RandomAccessIterator __result, _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIterator>::difference_type
 	_Distance;
-      *__result = *__first;
-      std::__adjust_heap(__first, _Distance(0), _Distance(__last - __first),
-			 __value, __comp);
+      typedef typename iterator_traits<_RandomAccessIterator>::value_type
+	_ValueType;
+      _ValueType __value(__gnu_cxx::__move(*__result));  
+      *__result = __gnu_cxx::__move(*__first);
+      std::__adjust_heap<_ValueType>(__first, _Distance(0), 
+      			             _Distance(__last - __first), 
+      			             __gnu_cxx::__move(__value), __comp);
     }
 
   /**
@@ -241,8 +252,7 @@ namespace std
 
       typedef typename iterator_traits<_RandomAccessIterator>::value_type
 	_ValueType;
-      std::__pop_heap(__first, __last - 1, __last - 1,
-		      _ValueType(*(__last - 1)), __comp);
+      std::__pop_heap(__first, __last - 1, __last - 1, __comp);
     }
 
   /**
@@ -268,8 +278,8 @@ namespace std
       __glibcxx_requires_valid_range(__first, __last);
       __glibcxx_requires_heap(__first, __last);
 
-      std::__pop_heap(__first, __last - 1, __last - 1,
-		      _ValueType(*(__last - 1)), __gnu_cxx::__ops::less());
+      std::__pop_heap(__first, __last - 1, __last - 1, 
+      		      __gnu_cxx::__ops::less());
     }
 
   /**
@@ -304,8 +314,10 @@ namespace std
       _DistanceType __parent = (__len - 2) / 2;
       while (true)
 	{
-	  std::__adjust_heap(__first, __parent, __len,
-			     _ValueType(*(__first + __parent)), __comp);
+	  std::__adjust_heap<_ValueType>(__first, __parent, __len,
+					 __gnu_cxx::__move(*(__first +
+					 		     __parent)),
+					 __comp);
 	  if (__parent == 0)
 	    return;
 	  __parent--;

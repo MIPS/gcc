@@ -16,20 +16,27 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 25.2.4 Swap Ranges
+// 25.2.9 Reverse
 
 // { dg-do compile }
+
+#undef _GLIBCXX_CONCEPT_CHECKS
 
 #include <algorithm>
 #include <testsuite_iterators.h>
 
-using __gnu_test::forward_iterator_wrapper;
+using __gnu_test::bidirectional_iterator_wrapper;
 
-struct X {
+class X { 
+X();
+X(const X&);
+void operator=(const X&);
 };
 
 void
-test1(forward_iterator_wrapper<X>& begin,
-      forward_iterator_wrapper<X>& end, 
-      forward_iterator_wrapper<X>& begin2)
-{ std::swap_ranges(begin, end, begin2); }
+swap(X&, X&) { }
+
+void
+test1(bidirectional_iterator_wrapper<X>& begin,
+      bidirectional_iterator_wrapper<X>& end)
+{ std::reverse(begin, end); }

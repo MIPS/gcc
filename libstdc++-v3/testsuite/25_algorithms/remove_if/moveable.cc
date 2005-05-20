@@ -16,13 +16,11 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 25.2.8 [lib.alg.unique] Unique
+// 25.2.4 remove
 
 #undef _GLIBCXX_CONCEPT_CHECKS
 
-#include <vector>
 #include <algorithm>
-#include <functional>
 #include <testsuite_hooks.h>
 #include <testsuite_iterators.h>
 #include <testsuite_rvalref.h>
@@ -31,41 +29,37 @@ using __gnu_test::test_container;
 using __gnu_test::forward_iterator_wrapper;
 using __gnu_test::rvalstruct;
 
-typedef test_container<rvalstruct, forward_iterator_wrapper> Container;
+typedef test_container<rvalstruct, forward_iterator_wrapper> Container; 
 
-void test01()
+bool equal1(rvalstruct& in) { return in.val == 1; }
+bool equal0(rvalstruct& in) { return in.val == 0; }
+
+void
+test1()
 {
-  bool test __attribute__((unused)) = true;
-
-  int intarray1[] = {1, 4, 4, 6, 1, 2, 2, 3, 1, 6, 6, 6, 5, 7, 5, 4, 4};
-  int intarray2[] = {1, 1, 1, 2, 2, 1, 1, 7, 6, 6, 7, 8, 8, 8, 8, 9, 9};
-
-  const int N = sizeof(intarray1) / sizeof(int);
-
-  rvalstruct T1[N];
-  rvalstruct T2[N];
-  
-  std::copy(intarray1,intarray1 + N, T1);
-  std::copy(intarray2,intarray2 + N, T2);
-  
-  const int A1[] = {1, 4, 6, 1, 2, 3, 1, 6, 5, 7, 5, 4};
-  const int B1[] = {1, 2, 1, 7, 6, 7, 8, 9};
-
-  Container con(T1, T1 + N);
-
-  VERIFY(std::unique(con.begin(), con.end()).ptr - T1 == 12);
-  for(int i = 0; i < 12; ++i)
-    VERIFY(T1[i].val == A1[i]);
-
-  Container con2(T2, T2 + N);
-  VERIFY(std::unique(con2.begin(), con2.end()).ptr - T2 == 8);
-  for(int i = 0; i < 8; ++i)
-    VERIFY(T2[i].val == B1[i]);
+  int intarray[] = {1};
+  rvalstruct array[1];
+  std::copy(intarray, intarray + 1, array);
+  Container con(array, array + 1);
+  VERIFY(std::remove_if(con.begin(), con.end(), equal0).ptr == array + 1);
+  VERIFY(std::remove_if(con.begin(), con.end(), equal1).ptr == array);
 }
 
-
-int main()
+void
+test2()
 {
-  test01();
-  return 0;
+  int intarray[] = {0, 1, 0, 1, 0, 0, 1, 1};
+  rvalstruct array[8];
+  std::copy(intarray, intarray + 8, array);
+  Container con(array, array + 8);
+  VERIFY(std::remove_if(con.begin(), con.end(), equal1).ptr == array + 4);
+  VERIFY(array[0] == 0 && array[1] == 0 && array[2] == 0 &&
+         array[3] == 0);
+}
+
+int
+main()
+{
+  test1();
+  test2();
 }

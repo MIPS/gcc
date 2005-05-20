@@ -1035,10 +1035,17 @@ namespace std
       __glibcxx_requires_valid_range(__first, __last);
 
       __first = std::find(__first, __last, __value);
-      _ForwardIterator __i = __first;
-      return __first == __last ? __first
-			       : std::remove_copy(++__i, __last,
-						  __first, __value);
+      if(__first == __last)
+        return __first;
+      _ForwardIterator __result = __first;
+      ++__first;
+      for( ; __first != __last; ++__first)
+        if(!(*__first == __value))
+          {
+            *__result = __gnu_cxx::__move(*__first);
+            ++__result;
+          }
+      return __result;
     }
 
   /**
@@ -1071,9 +1078,17 @@ namespace std
 
       __first = std::find_if(__first, __last, __pred);
       _ForwardIterator __i = __first;
-      return __first == __last ? __first
-			       : std::remove_copy_if(++__i, __last,
-						     __first, __pred);
+      if(__first == __last)
+        return __first;
+      _ForwardIterator __result = __first;
+      ++__first;
+      for( ; __first != __last; ++__first)
+        if(!__pred(*__first))
+          {
+            *__result = __gnu_cxx::__move(*__first);
+            ++__result;
+          }
+      return __result;
     }
 
   /**
@@ -1402,7 +1417,7 @@ namespace std
       _ForwardIterator __first2 = __middle;
       do
 	{
-	  swap(*__first, *__first2);
+	  std::iter_swap(__first, __first2);
 	  ++__first;
 	  ++__first2;
 	  if (__first == __middle)
@@ -1414,7 +1429,7 @@ namespace std
 
       while (__first2 != __last)
 	{
-	  swap(*__first, *__first2);
+	  std::iter_swap(__first, __first2);
 	  ++__first;
 	  ++__first2;
 	  if (__first == __middle)
@@ -1448,7 +1463,7 @@ namespace std
 
       while (__first != __middle && __middle != __last)
 	{
-	  swap(*__first, *--__last);
+	  std::iter_swap(__first, --__last);
 	  ++__first;
 	}
 
@@ -1496,7 +1511,7 @@ namespace std
 
       for (_Distance __i = 0; __i < __d; __i++)
 	{
-	  const _ValueType __tmp = *__first;
+	  _ValueType __tmp(__gnu_cxx::__move(*__first));
 	  _RandomAccessIterator __p = __first;
 
 	  if (__k < __l)
@@ -1505,11 +1520,11 @@ namespace std
 		{
 		  if (__p > __first + __l)
 		    {
-		      *__p = *(__p - __l);
+		      *__p = __gnu_cxx::__move(*(__p - __l));
 		      __p -= __l;
 		    }
 
-		  *__p = *(__p + __k);
+		  *__p = __gnu_cxx::__move(*(__p + __k));
 		  __p += __k;
 		}
 	    }
@@ -1519,15 +1534,15 @@ namespace std
 		{
 		  if (__p < __last - __k)
 		    {
-		      *__p = *(__p + __k);
+		      *__p = __gnu_cxx::__move(*(__p + __k));
 		      __p += __k;
 		    }
-		  *__p = * (__p - __l);
+		  *__p = __gnu_cxx::__move(*(__p - __l));
 		  __p -= __l;
 		}
 	    }
 
-	  *__p = __tmp;
+	  *__p = __gnu_cxx::__move(__tmp);
 	  ++__first;
 	}
     }
@@ -1676,7 +1691,7 @@ namespace std
       while (++__next != __last)
 	if (__pred(*__next))
 	  {
-	    swap(*__first, *__next);
+	    std::iter_swap(__first, __next);
 	    ++__first;
 	  }
 
@@ -2048,7 +2063,7 @@ namespace std
       std::make_heap(__first, __middle, __comp);
       for (_RandomAccessIterator __i = __middle; __i < __last; ++__i)
 	if (__comp(*__i, *__first))
-	  std::__pop_heap(__first, __middle, __i, _ValueType(*__i), __comp);
+	  std::__pop_heap(__first, __middle, __i, __comp);
       std::sort_heap(__first, __middle, __comp);
     }
 

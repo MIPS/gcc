@@ -20,13 +20,21 @@
 
 // { dg-do compile }
 
+#undef _GLIBCXX_CONCEPT_CHECKS
+
 #include <algorithm>
 #include <testsuite_iterators.h>
 
 using __gnu_test::forward_iterator_wrapper;
 
-struct X {
+class X { 
+X();
+X(const X&);
+void operator=(const X&);
 };
+
+void
+swap(X&, X&) { }
 
 void
 test1(forward_iterator_wrapper<X>& begin,

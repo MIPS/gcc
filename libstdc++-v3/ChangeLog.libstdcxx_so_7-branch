@@ -1,3 +1,42 @@
+2005-20-05  Chris Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (remove, remove_if): Make rvalref aware.
+	(__rotate(,,,forward_iterator_tag)): Make rvalref aware and convert 
+	swap to iter_swap.
+	(__rotate(,,,bidirectional_iterator_tag)): Likewise.
+	(__rotate(,,,random_access_iterator_tag)): Make rvalref aware.
+	(__partition(,,,forward_iterator_tag)): Convert swap to iter_swap.
+	(partial_sort) : Remove parameter from __pop_heap.
+	* include/bits/stl_heap.h (__push_heap): Rearrange order of template
+	parameters, make rvalref aware.
+	(push_heap(,,_Compare)): Make rvalref aware.
+	(push_heap(,)): Likewise.
+	(__adjust_heap): Rearrange order of template parameters, make rvalref
+	aware.
+	(__pop_heap): Remove unnecessary parameter, make rvalref aware.
+	(pop_heap(,)): Remove parameter from __pop_heap.
+	(pop_heap(,,_Compare)): Likewise.
+	(make_heap): Make rvalref aware.
+	* testsuite/25_algorithms/heap.cc: Move to...
+	* testsuite/25_algorithms/heap/heap.cc: ...here.
+	* testsuite/25_algorithms/partition.cc: Move to...
+	* testsuite/25_algorithms/partition/partition.cc: ...here.
+	* testsuite/25_algorithms/heap/moveable.cc: New.
+	* testsuite/25_algorithms/partition/moveable.cc: New.
+	* testsuite/25_algorithms/remove/moveable.cc: New.
+	* testsuite/25_algorithms/remove_if/1.cc: Test correct function!
+	* testsuite/25_algorithms/remove_if/moveable.cc: New.
+	* testsuite/25_algorithms/reverse/moveable.cc: New.
+	* testsuite/25_algorithms/rotate/moveable.cc: New.
+	* testsuite/25_algorithms/swap_ranges/check_type.cc: Alter to pass
+	concept checks.
+	* testsuite/25_algorithms/swap_ranges/moveable.cc: New.
+	* testsuite/25_algorithms/unique/moveable.cc: Disable concept checks.
+	* testsuite/testsuite_rvalref.h (rvalstruct): Provide way to enable 
+	copy constructor.
+	(rvalstruct::rvalstruct(int)): New.
+	(rvalstruct::operator=(int)): Add extra check.
+
 2005-05-12  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050512.
