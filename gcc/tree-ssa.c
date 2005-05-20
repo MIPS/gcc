@@ -822,10 +822,12 @@ delete_tree_ssa (void)
     {
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
-	  /*release_defs (bsi_stmt (bsi));*/
-          memset (&stmt_ann(bsi_stmt (bsi))->operands, 0, sizeof (struct stmt_operands_d));
-          stmt_ann(bsi_stmt (bsi))->addresses_taken = 0;
-	  /*update_stmt (bsi_stmt (bsi));*/
+	  tree stmt = bsi_stmt (bsi);
+	  stmt_ann_t ann = get_stmt_ann (stmt);
+
+	  free_ssa_operands (&ann->operands);
+          ann->addresses_taken = 0;
+	  mark_stmt_modified (stmt);
 	}
       set_phi_nodes (bb, NULL);
     }

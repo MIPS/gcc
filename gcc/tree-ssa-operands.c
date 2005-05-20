@@ -1003,14 +1003,6 @@ free_ssa_operands (stmt_operands_p ops)
   ops->maydef_ops = NULL;
   ops->mustdef_ops = NULL;
   ops->vuse_ops = NULL;
-#if 0
-  while (ops->memory.next != NULL)
-    {
-      operand_memory_p tmp = ops->memory.next;
-      ops->memory.next = tmp->next;
-      ggc_free (tmp);
-    }
-#endif
 }
 
 

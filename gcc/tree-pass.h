@@ -180,7 +180,6 @@ extern void ipa_analyze_variable (struct cgraph_varpool_node *vnode);
 extern void ipa_modify_function (struct cgraph_node *node);
 extern void ipa_modify_variable (struct cgraph_varpool_node *vnode);
 extern void ipa_passes (void);
-extern void tree_early_local_passes (tree decl);
 extern void tree_lowering_passes (tree decl);
 
 extern struct tree_opt_pass pass_mudflap_1;

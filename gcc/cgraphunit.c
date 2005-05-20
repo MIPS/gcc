@@ -827,8 +827,6 @@ cgraph_analyze_function (struct cgraph_node *node)
   current_function_decl = decl;
 
   cgraph_lower_function (node);
-  if (flag_unit_at_a_time)
-    tree_early_local_passes (decl);
 
   node->count = ENTRY_BLOCK_PTR->count;
 
@@ -1030,8 +1028,6 @@ cgraph_expand_function (struct cgraph_node *node)
   /* Must have a CFG here at this point.  */
   gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl)));
 
-  if (!flag_unit_at_a_time)
-    tree_early_local_passes (decl);
   /* Generate RTL for the body of DECL.  */
   lang_hooks.callgraph.expand_function (decl);
 
@@ -1352,7 +1348,6 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   if (cgraph_global_info_ready)
     {
       tree_lowering_passes (decl);
-      tree_early_local_passes (decl);
       tree_rest_of_compilation (decl);
     }
   else

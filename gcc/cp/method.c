@@ -510,7 +510,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       /* ??? We really ought to find way not hooking into backend directly.  */
       tree_lowering_passes (thunk_fndecl);
-      tree_early_local_passes (thunk_fndecl);
       expand_body (thunk_fndecl);
     }
 

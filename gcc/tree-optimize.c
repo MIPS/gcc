@@ -56,7 +56,7 @@ int dump_flags;
 bool in_gimple_form;
 
 /* The root of the compilation pass tree, once constructed.  */
-static struct tree_opt_pass *all_passes, *all_lowering_passes, *all_early_local_passes, *all_ipa_passes;
+static struct tree_opt_pass *all_passes, *all_lowering_passes, *all_ipa_passes;
 
 
 /* Do cleanup_cfg explicitely for first time.  */
@@ -469,8 +469,8 @@ init_tree_optimization_passes (void)
   *p = NULL;
 
   /* All passes needed to lower the function into shape optimizers can operate
-     on.  We need these to be separate from local optimization because C++ needs
-     to go into lowered form earlier to perfrom template instantiation.  */
+     on.  These passes are performed before interprocedural passes, unlike rest
+     of local passes (all_passes).  */
   p = &all_lowering_passes;
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
@@ -479,14 +479,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_build_cfg); 
   NEXT_PASS (pass_pre_expand);
   NEXT_PASS (pass_warn_function_return);
-  *p = NULL;
-
-  /* Optimizations passes run before the intraprocedural passes are done.
-     We simply do subset of local passes done later (those likely helping IPA
-     a most all gated by the flag_early_optimizations).  We do cleanup_cfg
-     unconditionally as it always reduce memory footprint and save compilation
-     time.  */
-  p = &all_early_local_passes;
   NEXT_PASS (pass_tree_profile); 
   NEXT_PASS (pass_cleanup_cfg);
   NEXT_PASS (pass_all_early_optimizations);
@@ -635,10 +627,6 @@ init_tree_optimization_passes (void)
 #undef NEXT_PASS
 
   register_dump_files (all_lowering_passes, false, 0);
-  register_dump_files (all_early_local_passes, false, PROP_gimple_any
-					  | PROP_gimple_lcf
-					  | PROP_gimple_leh
-					  | PROP_cfg);
   register_dump_files (all_passes, false, PROP_gimple_any
 					  | PROP_gimple_lcf
 					  | PROP_gimple_leh
@@ -863,32 +851,15 @@ void
 tree_lowering_passes (tree fn)
 {
   tree saved_current_function_decl = current_function_decl;
-
-  current_function_decl = fn;
-  push_cfun (DECL_STRUCT_FUNCTION (fn));
-  tree_register_cfg_hooks ();
-  bitmap_obstack_initialize (NULL);
-  execute_pass_list (all_lowering_passes, EXECUTE_HOOK, NULL, NULL);
-  free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
-  current_function_decl = saved_current_function_decl;
-  bitmap_obstack_release (NULL);
-  pop_cfun ();
-}
-
-void
-tree_early_local_passes (tree fn)
-{
-  tree saved_current_function_decl = current_function_decl;
   int saved_flag_tree_ter = flag_tree_ter;
 
   /* Leaving GIMPLE in out-of-ssa pass does no good.  */
   flag_tree_ter = 0;
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
-  bitmap_obstack_initialize (NULL);
   tree_register_cfg_hooks ();
-  execute_pass_list (all_early_local_passes, EXECUTE_HOOK, NULL, NULL);
+  bitmap_obstack_initialize (NULL);
+  execute_pass_list (all_lowering_passes, EXECUTE_HOOK, NULL, NULL);
 #ifndef ENABLE_CHECKING
   verify_stmts ();
   verify_flow_info ();
@@ -1002,16 +973,6 @@ tree_rest_of_compilation (tree fndecl)
   tree_register_cfg_hooks ();
   /* Perform all tree transforms and optimizations.  */
   ipa_modify_function (cgraph_node (fndecl));
-  {
-    basic_block bb;
-    block_stmt_iterator bsi;
-    FOR_EACH_BB (bb)
-      {
-	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	  update_stmt (bsi_stmt (bsi));
-	set_phi_nodes (bb, NULL);
-      }
-  }
 
   execute_pass_list (all_passes, EXECUTE_HOOK, NULL, NULL);
   

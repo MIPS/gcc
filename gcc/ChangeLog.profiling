@@ -1,3 +1,19 @@
+2005-05-20  Jan Hubicka  <jh@suse.cz>
+
+	* cgrapunit.c (cgraph_analyze_function): Kill early local passes.
+	(cgraph_expand_function): Likewise.
+	(cgraph_build_static_cdtor): Likewise.
+	* tree-optimize.c (all_early_local_passes): Likewise.
+	(init_tree_optimization_passes): Merge early local passes and lowering
+	passes.
+	(tree_early_local_passes): Kill.
+	(tree_rest_of_compilation): Do not modify all stmts.
+	* tree-pass.h (tree_early_local_passes): Kill.
+	* tree-ssa-operands.c (free_ssa_operands): Kill #if 0.
+	* tree-ssa.c (delete_tree_ssa): Cleanup.
+
+	* cp/method.c (use_thunk): Don't do early local passes.
+
 2005-05-18  Jan Hubicka  <jh@suse.cz>
 
 	* ipa_prop.c: Fix warnings in new dumping code.
