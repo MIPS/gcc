@@ -3400,6 +3400,9 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	  if (TARGET_ARCH32 && !optimize
 	      && (mode == DFmode || mode == DImode))
 	    return 0;
+	  if (TARGET_ARCH32 && !TARGET_INTEGER_LDD_STD
+	      && mode == DImode)
+	    return 0;
 	}
       else if (USE_AS_OFFSETABLE_LO10
 	       && GET_CODE (rs1) == LO_SUM
@@ -4140,8 +4143,7 @@ save_regs (FILE *file, int low, int high, const char *base,
 	{
 	  if (regs_ever_live[i] && ! call_used_regs[i])
 	    {
-	      if (TARGET_INTEGER_LDD_STD
-		  && regs_ever_live[i+1] && ! call_used_regs[i+1])
+	      if (regs_ever_live[i+1] && ! call_used_regs[i+1])
 		{
 		  fprintf (file, "\tstd\t%s, [%s+%d]\n",
 			   reg_names[i], base, offset + 4 * n_regs);
@@ -4204,8 +4206,7 @@ restore_regs (FILE *file, int low, int high, const char *base,
       for (i = low; i < high; i += 2)
 	{
 	  if (regs_ever_live[i] && ! call_used_regs[i])
-	    if (TARGET_INTEGER_LDD_STD
-		&& regs_ever_live[i+1] && ! call_used_regs[i+1])
+	    if (regs_ever_live[i+1] && ! call_used_regs[i+1])
 	      fprintf (file, "\tldd\t[%s+%d], %s\n",
 		       base, offset + 4 * n_regs, reg_names[i]),
 	      n_regs += 2;
@@ -7766,8 +7767,7 @@ sparc_flat_save_restore (FILE *file, const char *base_reg, int offset,
 	{
 	  if ((gmask & (1L << regno)) != 0)
 	    {
-	      if (TARGET_INTEGER_LDD_STD
-		  && (regno & 0x1) == 0 && ((gmask & (1L << (regno+1))) != 0))
+	      if ((regno & 0x1) == 0 && ((gmask & (1L << (regno+1))) != 0))
 		{
 		  /* We can save two registers in a row.  If we're not at a
 		     double word boundary, move to one.
