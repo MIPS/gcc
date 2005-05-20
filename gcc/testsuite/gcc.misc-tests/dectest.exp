@@ -340,10 +340,10 @@ proc process-directive { line } {
 proc c-operand {operand} {
 
     if [string match "-Infinity" $operand] {
-	return "-__builtin_infdf()"
+	return "-__builtin_infd32()"
     } 
     if [string match "Infinity" $operand] {
-        return "__builtin_infdf()"
+        return "__builtin_infd32()"
     }
 
     if {[string first . $operand] < 0 && \
