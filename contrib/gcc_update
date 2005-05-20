@@ -238,8 +238,7 @@ else
 fi
 
 chat "Updating CVS tree"
-
-$GCC_CVS -q ${silent+-Q} update ${1+"$@"}
+$GCC_CVS -q ${silent+-Q} update -r csl-arm-branch ${1+"$@"}
 if [ $? -ne 0 ]; then
     (touch_files_reexec)
     echo "CVS update of full tree failed." >&2

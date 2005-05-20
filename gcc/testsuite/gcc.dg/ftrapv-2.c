@@ -10,7 +10,6 @@
 /* { dg-options "-ftrapv" } */
 
 extern void abort(void);
-extern long labs(long);
 
 int __attribute__((noinline))
 iabsv(int a)
@@ -45,7 +44,7 @@ inegv(int a)
 long __attribute__((noinline))
 labsv(long a)
 {
-  return labs(a);
+  return abs(a);
 }
 
 long __attribute__((noinline))
