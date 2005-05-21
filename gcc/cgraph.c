@@ -637,6 +637,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     {
       fprintf (f, "%s/%i ", cgraph_node_name (edge->caller),
 	       edge->caller->uid);
+      if (edge->count)
+	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
+		 (HOST_WIDEST_INT)edge->count);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
       if (edge->count)

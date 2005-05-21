@@ -174,7 +174,7 @@ static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_call_1 (tree *, int *, void *);
 static void cgraph_analyze_function (struct cgraph_node *node);
-static void cgraph_create_edges (struct cgraph_node *, tree);
+static void cgraph_create_edges (struct cgraph_node *node, tree body);
 
 /* Records tree nodes seen in cgraph_create_edges.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -577,7 +577,7 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
   visited_nodes = pointer_set_create ();
-  current_basic_block = NULL;
+  gcc_assert (current_basic_block == NULL);
   if (TREE_CODE (body) == FUNCTION_DECL)
     {
       struct function *this_cfun = DECL_STRUCT_FUNCTION (body);

@@ -1705,7 +1705,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
    Return the simplified expression, or NULL if nothing could be done.  */
 
-tree
+static tree
 maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 {
   tree t;
@@ -2312,6 +2312,32 @@ fold_stmt (tree *stmt_p)
   return changed;
 }
 
+/* Perform the minimal folding on statement STMT.  Only operations like
+   *&x created by constant propagation are handled.  The statement cannot
+   be replaced with a new one.  */
+
+bool
+fold_stmt_inplace (tree stmt)
+{
+  tree old_stmt = stmt, rhs, new_rhs;
+  bool changed = false;
+
+  walk_tree (&stmt, fold_stmt_r, &changed, NULL);
+  gcc_assert (stmt == old_stmt);
+
+  rhs = get_rhs (stmt);
+  if (!rhs || rhs == stmt)
+    return changed;
+
+  new_rhs = fold (rhs);
+  if (new_rhs == rhs)
+    return changed;
+
+  changed |= set_rhs (&stmt, new_rhs);
+  gcc_assert (stmt == old_stmt);
+
+  return changed;
+}
 
 /* Convert EXPR into a GIMPLE value suitable for substitution on the
    RHS of an assignment.  Insert the necessary statements before

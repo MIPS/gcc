@@ -555,7 +555,7 @@ struct edge_list
   edge *index_to_edge;
 };
 
-/* The base value for branch probability notes.  */
+/* The base value for branch probability notes and edge probabilities.  */
 #define REG_BR_PROB_BASE  10000
 
 /* This is the value which indicates no edge is present.  */

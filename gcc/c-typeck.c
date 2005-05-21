@@ -638,7 +638,9 @@ c_common_type (tree t1, tree t2)
 }
 
 /* Wrapper around c_common_type that is used by c-common.c.  ENUMERAL_TYPEs
-   are allowed here and are converted to their compatible integer types.  */
+   are allowed here and are converted to their compatible integer types.
+   BOOLEAN_TYPEs are allowed here and return either boolean_type_node or
+   preferably a non-Boolean type as the common type.  */
 tree
 common_type (tree t1, tree t2)
 {
@@ -646,6 +648,18 @@ common_type (tree t1, tree t2)
     t1 = c_common_type_for_size (TYPE_PRECISION (t1), 1);
   if (TREE_CODE (t2) == ENUMERAL_TYPE)
     t2 = c_common_type_for_size (TYPE_PRECISION (t2), 1);
+
+  /* If both types are BOOLEAN_TYPE, then return boolean_type_node.  */
+  if (TREE_CODE (t1) == BOOLEAN_TYPE
+      && TREE_CODE (t2) == BOOLEAN_TYPE)
+    return boolean_type_node;
+
+  /* If either type is BOOLEAN_TYPE, then return the other.  */
+  if (TREE_CODE (t1) == BOOLEAN_TYPE)
+    return t2;
+  if (TREE_CODE (t2) == BOOLEAN_TYPE)
+    return t1;
+
   return c_common_type (t1, t2);
 }
 
@@ -2133,6 +2147,10 @@ build_function_call (tree function, tree params)
   else
     function = default_conversion (function);
 
+  /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
+     expressions, like those used for ObjC messenger dispatches.  */
+  function = objc_rewrite_function_call (function, params);
+
   fntype = TREE_TYPE (function);
 
   if (TREE_CODE (fntype) == ERROR_MARK)
@@ -3610,6 +3628,14 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 				   NULL_TREE, NULL_TREE, 0);
   if (TREE_CODE (newrhs) == ERROR_MARK)
     return error_mark_node;
+
+  /* Emit ObjC write barrier, if necessary.  */
+  if (c_dialect_objc () && flag_objc_gc)
+    {
+      result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+      if (result)
+	return result;
+    }
 
   /* Scan operands.  */
 

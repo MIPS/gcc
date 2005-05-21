@@ -555,6 +555,7 @@ extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
 extern void init_empty_tree_cfg (void);
 extern void fold_cond_expr_cond (void);
+extern void replace_uses_by (tree, tree);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -642,7 +643,7 @@ void set_current_def (tree, tree);
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
-tree maybe_fold_stmt_indirect (tree, tree, tree);
+bool fold_stmt_inplace (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
@@ -738,6 +739,7 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
 void set_ref_original (tree, tree);
+tree expand_simple_operations (tree);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */

@@ -216,7 +216,7 @@ static struct tree_opt_pass pass_free_datastructures =
 };
 
 /* Pass: fixup_cfg - IPA passes or compilation of earlier functions might've
-   changed some properties - such as marged functions nothrow.  Remove now
+   changed some properties - such as marked functions nothrow.  Remove now
    redundant edges and basic blocks.  */
 
 static void
@@ -613,6 +613,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_copy_prop);
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
+  NEXT_PASS (pass_scev_cprop);
   NEXT_PASS (pass_record_bounds);
   NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_iv_canon);
@@ -626,7 +627,7 @@ init_tree_optimization_passes (void)
 
 #undef NEXT_PASS
 
-  register_dump_files (all_lowering_passes, false, 0);
+  register_dump_files (all_lowering_passes, false, PROP_gimple_any);
   register_dump_files (all_passes, false, PROP_gimple_any
 					  | PROP_gimple_lcf
 					  | PROP_gimple_leh

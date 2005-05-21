@@ -1624,8 +1624,12 @@ determine_visibility (tree decl)
 	       && DECL_DECLARED_INLINE_P (decl)
 	       && visibility_options.inlines_hidden)
 	{
-	  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
-	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  /* Don't change it if it has been set explicitly by user.  */
+	  if (!DECL_VISIBILITY_SPECIFIED (decl))
+	    {
+	      DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	    }
 	}
       else if (CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
 	{
@@ -2600,6 +2604,15 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
   /* We emit the function lazily, to avoid generating empty
      global constructors and destructors.  */
   body = NULL_TREE;
+
+  /* For Objective-C++, we may need to initialize metadata found in this module.
+     This must be done _before_ any other static initializations.  */
+  if (c_dialect_objc () && (priority == DEFAULT_INIT_PRIORITY)
+      && constructor_p && objc_static_init_needed_p ())
+    {
+      body = start_objects (function_key, priority);
+      static_ctors = objc_generate_static_init_call (static_ctors);
+    }
 
   /* Call the static storage duration function with appropriate
      arguments.  */
