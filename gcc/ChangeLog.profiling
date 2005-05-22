@@ -1,3 +1,19 @@
+2005-05-22  Olga Golovanevsky  <olga@il.ibm.com>
+	
+	* ipa_prop.c: Deleted.
+	* ipa_prop.h: Deleted.
+	* ipa-prop.c: New file. It contains all ipa_ functions
+	that were in ipa_prop.c. They are non-static now.
+	* ipa-prop.h: New file, renamed form ipa_prop.h. Declarations
+	of all ipa_ functions from ipa-prop.c are added.
+	* ipcp.c: Contains all ipcp_ functions that were in ipa_prop.c
+	* Makefile.in (ipa-prop.c, ipa-prop.h): Renamed from ipa_prop.c,
+	ipa_prop.h.
+	(ipcp.o): New target. Added to OBJS-archive.
+	(ipcp.c): Added to GTFILES.
+	* cgraphunit.c: Includes ipa-prop.h instead of ipa_prop.h
+	* tree-inline.c: Similar to cgraphunit.c.
+
 2005-05-20  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20050519)

@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "debug.h"
 #include "pointer-set.h"
-#include "ipa_prop.h"
+#include "ipa-prop.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */

@@ -163,7 +163,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "intl.h"
 #include "function.h"
-#include "ipa_prop.h"
+#include "ipa-prop.h"
 #include "tree-gimple.h"
 #include "output.h"
 #include "tree-pass.h"
