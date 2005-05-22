@@ -1,3 +1,8 @@
+2005-05-22  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (define_builtin): Accept new flags parameter.
+	(initialize_builtins): Mark the builtins const and nothrow accordingly.
+
 2005-05-22  Olga Golovanevsky  <olga@il.ibm.com>
 	
 	* ipa_prop.c: Deleted.
