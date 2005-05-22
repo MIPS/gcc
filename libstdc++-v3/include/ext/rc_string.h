@@ -135,7 +135,7 @@ namespace __gnu_cxx
 	size_type		_M_capacity;
 	_Atomic_word		_M_refcount;
 
-	typedef typename _Alloc::template rebind<char>::other _Raw_bytes_alloc;
+	typedef typename _Alloc::template rebind<size_type>::other _Raw_alloc;
 
  	_CharT*
 	_M_refdata()
@@ -404,9 +404,12 @@ namespace __gnu_cxx
 	__capacity = 2 * __old_capacity;
 
       // NB: Need an array of char_type[__capacity], plus a terminating
-      // null char_type() element, plus enough for the _Rep data structure.
+      // null char_type() element, plus enough for the _Rep data structure,
+      // plus sizeof(size_type) - 1 to upper round to a size multiple
+      // of sizeof(size_type).
       // Whew. Seemingly so needy, yet so elemental.
-      size_type __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
+      size_type __size = ((__capacity + 1) * sizeof(_CharT) + sizeof(_Rep)
+			  + sizeof(size_type) - 1);
 
       const size_type __adj_size = __size + __malloc_header_size;
       if (__adj_size > __pagesize && __capacity > __old_capacity)
@@ -416,12 +419,14 @@ namespace __gnu_cxx
 	  // Never allocate a string bigger than _S_max_size.
 	  if (__capacity > _S_max_size)
 	    __capacity = _S_max_size;
-	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
+	  __size = ((__capacity + 1) * sizeof(_CharT) + sizeof(_Rep)
+		    + sizeof(size_type) - 1);
 	}
 
       // NB: Might throw, but no worries about a leak, mate: _Rep()
       // does not throw.
-      void* __place = _Raw_bytes_alloc(__alloc).allocate(__size);
+      void* __place = _Raw_alloc(__alloc).allocate(__size
+						   / sizeof(size_type));
       _Rep *__p = new (__place) _Rep;
       __p->_M_capacity = __capacity;
       return __p;
@@ -432,9 +437,10 @@ namespace __gnu_cxx
     __rc_string<_CharT, _Traits, _Alloc>::_Rep::
     _M_destroy(const _Alloc& __a) throw ()
     {
-      const size_type __size = sizeof(_Rep) +
-	                       (_M_capacity + 1) * sizeof(_CharT);
-      _Raw_bytes_alloc(__a).deallocate(reinterpret_cast<char*>(this), __size);
+      const size_type __size = ((_M_capacity + 1) * sizeof(_CharT)
+				+ sizeof(_Rep) + sizeof(size_type) - 1);
+      _Raw_alloc(__a).deallocate(reinterpret_cast<size_type*>(this),
+				 __size / sizeof(size_type));
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>

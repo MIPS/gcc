@@ -95,7 +95,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_SGIAssignableConcept<_Tp>)
 
-      const _Tp __tmp = __a;
+      _Tp __tmp = __a;
       __a = __b;
       __b = __tmp;
     }
@@ -112,7 +112,7 @@ namespace std
         {
           typedef typename iterator_traits<_ForwardIterator1>::value_type
             _ValueType1;
-          const _ValueType1 __tmp = *__a;
+          _ValueType1 __tmp = *__a;
           *__a = *__b;
           *__b = __tmp; 
 	}
