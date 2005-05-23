@@ -1,3 +1,7 @@
+2005-05-23  Ira Rosen  <irar@il.ibm.com>
+
+	* gfortran.dg/vect/vect-4.f90: Only one unaligned access.
+
 2005-04-19  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/vect-100.c: New test.
