@@ -17,6 +17,7 @@ int main1 (int off)
   struct tmp *pp = &sb[off];
   int i, ib[N];
 
+  /* Not vectorizable: pp may alias ib.  */
   for (i = 0; i < N; i++)
       pp->ia[i] = ib[i];
 
@@ -37,6 +38,4 @@ int main (void)
   return main1 (8);
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_align } } } */
-/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 1 "vect" { xfail vect_no_align } } } */
-/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */

@@ -1,3 +1,8 @@
+2005-05-24  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (base_object_differ_p): Fix parameters of get_alias_set.
+	(base_addr_differ_p): Likewise.
+
 2005-05-03  Leehod Baruch  <leehod@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_enhance_data_refs_alignment): Remove 

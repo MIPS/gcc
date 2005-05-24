@@ -1,5 +1,15 @@
 2005-05-23  Ira Rosen  <irar@il.ibm.com>
 
+	* gcc.dg/vect/vect-100.c: Fail to vectorize because of aliasing.
+	* gcc.dg/vect/vect-77v.c, gcc.dg/vect/vect-78.c, 
+	gcc.dg/vect/vect-96v.c, gcc.dg/vect/no_version/pr20122.c,
+	gcc.dg/vect/no_version/vect-43.c, gcc.dg/vect/no_version/vect-75.c,
+	gcc.dg/vect/no_version/vect-76.c, gcc.dg/vect/no_version/vect-77.c,
+	gcc.dg/vect/no_version/vect-78.c, gcc.dg/vect/no_version/vect-96.c:
+	Likewise.
+
+2005-05-23  Ira Rosen  <irar@il.ibm.com>
+
 	* gfortran.dg/vect/vect-4.f90: Only one unaligned access.
 
 2005-04-19  Ira Rosen  <irar@il.ibm.com>

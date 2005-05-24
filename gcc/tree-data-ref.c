@@ -193,10 +193,10 @@ base_object_differ_p (struct data_reference *a,
   /* In case one of the bases is a pointer (a[i] and (*p)[i]), we check with the
      help of alias analysis that p is not pointing to a.  */
   if ((TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == INDIRECT_REF 
-       && !alias_sets_conflict_p (get_alias_set (TREE_OPERAND (base_b, 0)),
+       && !alias_sets_conflict_p (get_alias_set (base_b),
 				  get_alias_set (base_a)))
       || (TREE_CODE (base_b) == VAR_DECL && TREE_CODE (base_a) == INDIRECT_REF 
-	  && !alias_sets_conflict_p (get_alias_set (TREE_OPERAND (base_a, 0)),
+	  && !alias_sets_conflict_p (get_alias_set (base_a),
 				     get_alias_set (base_b))))
     {
       *differ_p = true;
@@ -206,8 +206,8 @@ base_object_differ_p (struct data_reference *a,
   /* If the bases are pointers ((*q)[i] and (*p)[i]), we check with the
      help of alias analysis they don't point to the same bases.  */
   if (TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == INDIRECT_REF 
-      && !alias_sets_conflict_p (get_alias_set (TREE_OPERAND (base_b, 0)),
-				 get_alias_set (TREE_OPERAND (base_a, 0))))
+      && !alias_sets_conflict_p (get_alias_set (base_b),
+				 get_alias_set (base_a)))
     {
       *differ_p = true;
       return true;
@@ -234,15 +234,15 @@ base_object_differ_p (struct data_reference *a,
        && (TREE_CODE (base_b) == COMPONENT_REF
            && (TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
 	       || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
-		   && !alias_sets_conflict_p (get_alias_set (TREE_OPERAND (
-						  TREE_OPERAND (base_b, 0), 0)),
+		   && !alias_sets_conflict_p (get_alias_set (
+						  TREE_OPERAND (base_b, 0)),
 					      get_alias_set (base_a))))))
       || (TREE_CODE (base_b) == VAR_DECL
        && (TREE_CODE (base_a) == COMPONENT_REF
            && (TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
 	       || (TREE_CODE (TREE_OPERAND (base_a, 0)) == INDIRECT_REF
-		   && !alias_sets_conflict_p (get_alias_set (TREE_OPERAND (
-						  TREE_OPERAND (base_a, 0), 0)),
+		   && !alias_sets_conflict_p (get_alias_set (
+						  TREE_OPERAND (base_a, 0)),
 					      get_alias_set (base_b)))))))
     {
       *differ_p = true;
@@ -315,10 +315,8 @@ base_addr_differ_p (struct data_reference *dra,
     }
 
   /* Apply alias analysis.  */
-  alias_set_a = (TREE_CODE (addr_a) == ADDR_EXPR) ? 
-    get_alias_set (TREE_OPERAND (addr_a, 0)) : get_alias_set (addr_a);
-  alias_set_b = (TREE_CODE (addr_b) == ADDR_EXPR) ? 
-    get_alias_set (TREE_OPERAND (addr_b, 0)) : get_alias_set (addr_b);
+  alias_set_a = get_alias_set (build_fold_indirect_ref (addr_a));
+  alias_set_b = get_alias_set (build_fold_indirect_ref (addr_b));
 
   if (!alias_sets_conflict_p (alias_set_a, alias_set_b))
     {

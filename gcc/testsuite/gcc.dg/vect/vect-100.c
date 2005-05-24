@@ -18,8 +18,10 @@ static int b[N] = {2,3,4,5,6,7,8,9,0};
 int main1 () {
   int i;
   struct extraction *p;
+  
   p = (struct extraction *) malloc (sizeof (struct extraction));
 
+  /* Not vectorizable: p may alias a and/or b.  */
   for (i = 0; i < N; i++)
     {
       p->a[i] = a[i];
@@ -43,5 +45,5 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
 

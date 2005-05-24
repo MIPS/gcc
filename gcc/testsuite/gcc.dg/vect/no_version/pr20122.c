@@ -9,6 +9,7 @@ static void VecBug(ashort Kernel[8][24]) __attribute__((noinline));
 static void VecBug(ashort Kernel[8][24]);
 
 /* Doesn't occur of only inner-loop. */
+/* Not vectorizable: Kernel may alias Kernshort.  */
 static void VecBug(ashort Kernel[8][24])
 {
   int k,i;
@@ -34,5 +35,5 @@ int main (int argc, char **argv)
 }
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 
