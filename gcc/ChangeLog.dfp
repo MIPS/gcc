@@ -1,3 +1,8 @@
+2005-05-24  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* dfp.c (decimal_real_from_string): Remove now untrue FIXME comment.
+	(decimal_to_decnumber): Missing break statement.
+
 2005-05-24  Ben Elliston  <bje@au.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_move): Handle TDmode.
