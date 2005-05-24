@@ -188,7 +188,7 @@
     return 1;
 
   /* All decimal floats are currently soft.   Consider them easy. */
-  if (mode == DDmode || mode == SDmode || mode == TDmode)
+  if (DECIMAL_FLOAT_MODE_P (mode))
     return 1;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */

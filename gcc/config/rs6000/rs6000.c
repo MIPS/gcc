@@ -3551,6 +3551,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	operands[1] = force_const_mem (mode, operands[1]);
       break;
 
+    case TDmode:
     case TFmode:
       rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
