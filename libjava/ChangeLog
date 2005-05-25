@@ -1,3 +1,28 @@
+2005-05-14  Chris Burdess  <dog@gnu.org>
+
+	* gnu/xml/dom/ls/SAXEventSink.java: Ignore XML entities in start/
+	end entity callbacks.
+
+2005-05-24  Gary Benson  <gbenson@redhat.com>
+
+	PR libgcj/21736:
+	* java/text/MessageFormat.java (MessageFormatElement.setLocale):
+	Handle DateFormat.DEFAULT case correctly.
+
+2005-05-21  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21703:
+	* java/lang/ref/natReference.cc (find_slot): Handle case where
+	table has no NULL entries.
+	* java/lang/natString.cc (_Jv_StringFindSlot): Handle case where
+	table has no NULL entries.
+
+2005-05-20  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21637:
+	* gnu/java/net/protocol/jar/Connection.java (getInputStream):
+	Throw FileNotFoundException if jar entry not found.
+
 2005-05-07  Matthias Klose  <doko@debian.org>
 
 	* gnu/java/awt/peer/gtk/GtkVolatileImage.java: Add imports.

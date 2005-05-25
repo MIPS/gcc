@@ -1,4 +1,4 @@
-2005-05-13  Andrew Haley  <aph@redhat.com>
+2005-05-25  Andrew Haley  <aph@redhat.com>
 
 	* include/private/gcconfig.h (HBLKSIZE): Define to 4096 on
 	powerpc64-linux.

@@ -1,3 +1,40 @@
+2005-05-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* reload1.c (verify_initial_elim_offsets): Return boolean status
+	instead of aborting.
+	(reload): Adapt verify_initial_elim_offsets call site.  Restart
+	main loop if some initial elimination offsets changed.
+
+2005-05-24  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	* config/m32r/m32r.c (m32r_expand_block_move):  Return 0 if
+	nothing was done.
+	* config/m32r/m32r.md (movmemsi):  If m32r_expand_block_move did
+	nothing then FAIL.
+	* config/m32r/m32r/m32r-protos.h  (m32r_expand_block_move): Update
+	prototype.
+
+2005-05-23  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_optimize_prologue): Don't replace an insn
+	saving less registers than the replacement.
+
+2005-05-23  Jan Beulich  <jbeulich@novell.com>
+
+	* gthr-posix.h (__gthread_recursive_mutex_init_function): Add
+	missing return statement.
+
+2005-05-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/21331
+	PR tree-opt/21293
+	Backport from the mainline:
+	2005-03-14  Zdenek Dvorak  <dvorakz@suse.cz>
+	* tree-cfg.c (find_taken_edge_cond_expr): Use zero_p instead of
+	integer_zerop.
+	* tree-gimple.c (is_gimple_min_invariant): Consider overflowed
+	constants invariant.
+
 2005-05-19  Richard Henderson  <rth@redhat.com>
 
 	PR target/21390
