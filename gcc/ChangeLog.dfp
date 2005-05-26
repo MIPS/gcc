@@ -1,3 +1,15 @@
+2005-05-26  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* dfp.c (decimal_do_fix_trunc): New.
+	(decimal_real_to_integer): New.
+	(decimal_real_to_integer2): New.
+	* dfp.h: Add prototypes for new dfp.c functions.
+	* real.c (do_fix_trunc): Call dfp helper.
+	(real_identical): Make decimal not identical to binary floats,
+	for now at least.
+	(real_to_integer): Call dfp helper.
+	(real_to_integer2): Call dfp helper.
+
 2005-05-24  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* dfp.c (decimal_real_from_string): Remove now untrue FIXME comment.

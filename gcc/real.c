@@ -971,6 +971,11 @@ do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
       break;
 
     case rvc_normal:
+      if (r->decimal)
+	{
+	  decimal_do_fix_trunc (r, a);
+	  return;
+	}
       if (REAL_EXP (r) <= 0)
 	get_zero (r, r->sign);
       else if (REAL_EXP (r) < SIGNIFICAND_BITS)
@@ -1198,6 +1203,8 @@ real_identical (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b)
       return true;
 
     case rvc_normal:
+      if (a->decimal != b->decimal)
+        return false;
       if (REAL_EXP (a) != REAL_EXP (b))
 	return false;
       break;
@@ -1280,6 +1287,9 @@ real_to_integer (const REAL_VALUE_TYPE *r)
       return i;
 
     case rvc_normal:
+      if (r->decimal)
+	return decimal_real_to_integer (r);
+
       if (REAL_EXP (r) <= 0)
 	goto underflow;
       /* Only force overflow for unsigned overflow.  Signed overflow is
@@ -1341,6 +1351,12 @@ real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
       break;
 
     case rvc_normal:
+      if (r->decimal)
+	{ 
+	  decimal_real_to_integer2 (plow, phigh, r);
+	  return;
+	}
+	
       exp = REAL_EXP (r);
       if (exp <= 0)
 	goto underflow;

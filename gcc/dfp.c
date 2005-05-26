@@ -417,20 +417,64 @@ decimal_do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
   return (set.status & DEC_Inexact);
 }
 
-static void
+/* Helper to do_fix_trunc. */
+void
 decimal_do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
 {
-  /* Convert into decNumber form for comparison operation. */
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
-  decimal128ToNumber((decimal128 *)a->sig, &dn);
+  set.round = DEC_ROUND_DOWN;
+  decimal128ToNumber((decimal128 *)a->sig, &dn2);
 
   decNumberToIntegralValue (&dn, &dn2, &set);
   decimal_from_decnumber (r, &dn, &set);
 }
 
-/* Handle compile time arithmetic on decimal float internal 
-   representation types. */
+/* Helper to real_to_integer. */
+HOST_WIDE_INT
+decimal_real_to_integer (const REAL_VALUE_TYPE *r)
+{
+  REAL_VALUE_TYPE to;
+
+  decContextDefault(&set, DEC_INIT_DECIMAL128);
+  set.traps=0;
+  set.round = DEC_ROUND_DOWN;
+  decimal128ToNumber((decimal128 *)r->sig, &dn);
+
+  decNumberToIntegralValue (&dn2, &dn, &set);
+  decNumberZero (&dn3);
+  decNumberRescale (&dn, &dn2, &dn3, &set);
+
+  /* Convert to REAL_VALUE_TYPE and call appropriate
+     conversion function. */
+  decNumberToString(&dn, string);
+  real_from_string (&to, string);
+  return real_to_integer (&to);
+}
+
+
+void
+decimal_real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
+			  const REAL_VALUE_TYPE *r)
+{
+  REAL_VALUE_TYPE to;
+
+  decContextDefault(&set, DEC_INIT_DECIMAL128);
+  set.traps=0;
+  set.round = DEC_ROUND_DOWN;
+  decimal128ToNumber((decimal128 *)r->sig, &dn);
+
+  decNumberToIntegralValue (&dn2, &dn, &set);
+  decNumberZero (&dn3);
+  decNumberRescale (&dn, &dn2, &dn3, &set);
+
+  /* Conver to REAL_VALUE_TYPE and call appropriate conversion
+     function. */
+  decNumberToString(&dn, string);
+  real_from_string (&to, string);
+  real_to_integer2 (plow, phigh, &to);
+}
+
 bool
 decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
 			 const REAL_VALUE_TYPE *op0,
