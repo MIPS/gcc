@@ -1,3 +1,10 @@
+2005-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* include/std/std_limits.h (numeric_limits<float>::has_denorm):
+	Add required cast.
+	(numeric_limits<double>::has_denorm): Likewise.
+	(numeric_limits<long double>::has_denorm): Likewise.
+
 2005-05-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libstdc++/16678
