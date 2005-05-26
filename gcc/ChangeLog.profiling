@@ -1,3 +1,21 @@
+2005-05-25  Razya Ladelsky  <razya@il.ibm.com>
+
+        * ipcp.c (ipcp_int2ipcp_int, ipcp_get_int): remove redundant functions.
+        (ipcp_asm_walk_tree, ipcp_asm_walk_tree_1): Remove redundant function.
+        (ipa_modify_walk_tree_1): Remove redundant function.
+        (ipa_modify_walk_tree) : Changed to ipa_method_modify_stmt().
+        Changed ipcp_method to struct_cgraph_node *
+        Changed ipcp_callsite to struct_cgraph_edge *
+        Changed references of cgraph_node aux field to uses of IPA_NODE_REF.
+        * ipa-prop.h (IPA_NODE_REF, IPA_EDGE_REF): New definitions.
+        (ipa_method, ipa_callsite) : typedefs removed.
+        Changed ipcp_method to struct_cgraph_node *
+        Changed ipcp_callsite to struct_cgraph_edge *
+        * ipa-prop.c : Changed ipcp_method to struct_cgraph_node *
+        Changed ipcp_callsite to struct_cgraph_edge *
+        Changed references of cgraph_edge aux field to uses of IPA_EDGE_REF.
+
+
 2005-05-22  Jan Hubicka  <jh@suse.cz>
 
 	* builtins.c (define_builtin): Accept new flags parameter.
