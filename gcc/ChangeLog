@@ -1,3 +1,75 @@
+2005-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/21716
+	* reg-stack.c (swap_rtx_condition): Don't crash if %ax user was not
+	found in the basic block and last insn in the basic block is not
+	INSN_P.  Remove explicit unspec numbers that are no longer valid
+	from comments.
+
+2005-05-25  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/21709
+	* fold-const.c (const_binop): Check for division by zero during
+	complex division.
+
+2005-05-24  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	* config/m32r/m32r.c (m32r_expand_block_move):  Return 0 if
+	nothing was done.
+	* config/m32r/m32r.md (movmemsi):  If m32r_expand_block_move did
+	nothing then FAIL.
+	* config/m32r/m32r/m32r-protos.h  (m32r_expand_block_move): Update
+	prototype.
+
+2005-05-23  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* unroll.c (loop_iterations): Remove common term from initial
+	and final value only if it is loop invariant.
+
+2005-05-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Mark as 3.4.5.
+
+2005-05-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Restore pre-release marker.
+
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2005-05-11  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert:
+	2005-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+	Backport from mainline
+	2004-02-12  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+	* function.c (fixup_var_refs): Save volatile_ok and set to 1.
+	* expr.c (emit_block_move_via_movstr): Save and restore
+	volatile_ok.
+	2005-05-09  Grigory Tolstolytkin  <gtolstolytkin@ru.mvista.com>
+	Backport from mainline
+	2004-02-12  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Don't kill previous
+	MEM_VOLATILE in REF.
+
+2005-05-11  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2out.c: Revert my 2005-05-10 patch.
+
+2005-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2004-02-12  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+	* function.c (fixup_var_refs): Save volatile_ok and set to 1.
+	* expr.c (emit_block_move_via_movstr): Save and restore
+	volatile_ok.
+
+2005-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (sse_mov?fcc* splitters): Add mode to
+	IF_THEN_ELSE, remove mode from MATCH_OPERATOR.  Fix a typo.
+
 2005-05-09  Grigory Tolstolytkin  <gtolstolytkin@ru.mvista.com>
 
 	Backport from mainline

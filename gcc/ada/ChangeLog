@@ -1,3 +1,7 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
 2005-02-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.in (gnatlib-shared-default): Disallow dlopening of
