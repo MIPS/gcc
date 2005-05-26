@@ -1,3 +1,8 @@
+2005-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/16678
+	* include/bits/locale_facets.tcc: Fix for -Werror.
+
 2005-05-19  Release Manager
 
 	* GCC 3.4.4 released.

@@ -368,7 +368,7 @@ namespace std
 	      else
 		break;
 	    }
-          else if (__q = __traits_type::find(__lit_zero, 10, __c))
+          else if ((__q = __traits_type::find(__lit_zero, 10, __c)))
 	    {
 	      __xtrc += __num_base::_S_atoms_in[__q - __lit];
 	      __found_mantissa = true;
@@ -535,7 +535,7 @@ namespace std
 		  }
 		else if (__c == __lc->_M_decimal_point)
 		  break;
-		else if (__q = __traits_type::find(__lit_zero, __len, __c))
+		else if ((__q = __traits_type::find(__lit_zero, __len, __c)))
 		  {
 		    int __digit = __q - __lit_zero;
 		    if (__digit > 15)
@@ -578,7 +578,7 @@ namespace std
 		  }
 		else if (__c == __lc->_M_decimal_point)
 		  break;
-		else if (__q = __traits_type::find(__lit_zero, __len, __c))
+		else if ((__q = __traits_type::find(__lit_zero, __len, __c)))
 		  {
 		    int __digit = __q - __lit_zero;
 		    if (__digit > 15)
@@ -1112,7 +1112,7 @@ namespace std
       const _CharT __cdec = __ctype.widen('.');
       const _CharT __dec = __lc->_M_decimal_point;
       const _CharT* __p;
-      if (__p = char_traits<_CharT>::find(__ws, __len, __cdec))
+      if ((__p = char_traits<_CharT>::find(__ws, __len, __cdec)))
 	__ws[__p - __ws] = __dec;
 
       // Add grouping, if necessary.
@@ -1347,7 +1347,7 @@ namespace std
 		// Extract digits, remove and stash away the
 		// grouping of found thousands separators.
 		for (; __beg != __end; ++__beg)
-		  if (__q = __traits_type::find(__lit_zero, 10, *__beg))
+		  if ((__q = __traits_type::find(__lit_zero, 10, *__beg)))
 		    {
 		      __res += money_base::_S_atoms[__q - __lit];
 		      ++__n;
