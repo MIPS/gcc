@@ -1,3 +1,18 @@
+2005-05-25  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-62.c: Update comment. Check that we don't
+	vectorize the second loop cause we chose not to.
+	* gcc.dg/vect/no_version/vect-91.c: Duplicate of vect-71.c. Changed to 
+	check a different functionality.
+	* gcc.dg/vect/vect-reduc-1.c: Remove include of stdio.h.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-3.c: Likewise.
+	* gcc.dg/vect/vect-reduc-4.c: Likewise. Remove option
+	-fno-tree-vect-loop-version.
+	* gcc.dg/vect/vect-reduc-5.c: Likewise.
+	* gcc.dg/vect/vect-reduc-6.c: Remove include of stdio.h. Change
+	effective_target to vect_float.
+
 2005-05-23  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/vect-100.c: Fail to vectorize because of aliasing.

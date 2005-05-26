@@ -1,3 +1,23 @@
+2005-05-25  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Fix 80
+	columns overflow.
+	(vect_analyze_operations): Check RELEVANT_P stmts and LIVE_P stmts
+	separately. Call vectorizable_live_operation. Check if vectorization
+	is needed.
+	(vect_enhance_data_refs_alignment): New line after declarations.
+	(vect_stmt_relevant_p): Remove redundant comment.
+	(vect_mark_stmts_to_be_vectorized): Add comments. Move invariant
+	computation out of the loop.
+	(vect_can_advance_ivs_p): Fix print format.
+	(vect_analyze_loop): Fix comment.
+	* tree-vect-transform (vectorizable_assignment): Remove handling of
+	LIVE_P case (factored out to vectorizable_live_operation).
+	(vectorizable_live_operation): New.
+	(vect_transform_stmt): Handle RELEVANT_P stmts and LIVE_P stmts
+	separately. Call vectorizable_live_operation.
+	* tree-vectorizer.h (vectorizable_live_operation): New declaration.
+
 2005-05-24  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (base_object_differ_p): Fix parameters of get_alias_set.

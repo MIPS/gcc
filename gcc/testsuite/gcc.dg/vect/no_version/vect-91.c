@@ -3,26 +3,20 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16
+#define N 256
 
-/* unaligned load.  */
+/* The alignment of A is unknown. Yet we do know that both the
+   read access and write access have the same alignment. Peeling
+   to align on of the accesses will align the other.  */
 
-int main1 ()
+int
+main1 (int * pa)
 {
   int i;
-  unsigned ia[N];
-  unsigned ib[N+1] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2};
 
-  for (i = 2; i < N+1; i++)
+  for (i = 0; i < N; i++)
     {
-      ia[ib[i]] = 0;
-    }
-
-  /* check results:  */
-  for (i = 2; i < N+1; i++)
-    {
-      if (ia[ib[i]] != 0)
-        abort();
+      pa[i] = pa[i] + 1;
     }
 
   return 0;
@@ -30,10 +24,27 @@ int main1 ()
 
 int main (void)
 {
+  int i;
+  int a[N];
+
   check_vect ();
 
-  return main1 ();
+  for (i = 0; i < N; i++)
+    a[i] = i;
+
+  main1 (a);
+
+  /* check results:  */
+  for (i = 0; i < N; i++)
+    {
+      if (a[i] != i + 1)
+        abort ();
+    }
+
+  return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { xfail *-*-* } } } */
-
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

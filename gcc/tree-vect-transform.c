@@ -1355,22 +1355,6 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
 
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (dt != vect_invariant_def)
-        {
-          /* FORNOW: not yet supported.  */
-          if (vect_print_dump_info (REPORT_DETAILS, LOOP_LOC (loop_vinfo)))
-            fprintf (vect_dump, "value used after loop.");
-          return false;
-        }
-      else
-        {
-	  if (vect_print_dump_info (REPORT_DETAILS, LOOP_LOC (loop_vinfo)))
-            fprintf (vect_dump, "invariant value used after loop.");
-        }
-    }
-
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = assignment_vec_info_type;
@@ -1396,6 +1380,7 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   
   return true;
 }
+
 
 /* Function vectorizable_operation.
 
@@ -1863,6 +1848,63 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 }
 
 
+/* Function vectorizable_live_operation.
+
+   STMT computes a value that is used outside the loop. Check if 
+   it can be supported.  */
+
+bool
+vectorizable_live_operation (tree stmt, 
+			     block_stmt_iterator *bsi ATTRIBUTE_UNUSED, 
+			     tree *vec_stmt ATTRIBUTE_UNUSED)
+{
+  tree operation;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  int i;
+  enum tree_code code;
+  int op_type;
+  tree op;
+  tree def, def_stmt;
+  enum vect_def_type dt;
+
+  if (!STMT_VINFO_LIVE_P (stmt_info))
+    return false;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+ 
+  if (TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+    return false;
+  
+  operation = TREE_OPERAND (stmt, 1);
+  code = TREE_CODE (operation);
+
+  op_type = TREE_CODE_LENGTH (code);
+
+  /* FORNOW: support only if all uses are invariant. This means
+     that the scalar operations can remain in place, unvectorized.
+     The original last scalar value that they compute will be used.  */
+
+  for (i = 0; i < op_type; i++)
+    {
+      op = TREE_OPERAND (operation, i);
+      if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
+        {
+          if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+            fprintf (vect_dump, "use not simple.");
+          return false;
+        }
+
+      if (dt != vect_invariant_def && dt != vect_constant_def)
+	return false;
+    }
+
+  /* No transformation is required for the cases we currently support.  */
+  return true;
+}
+
+
 /* Function vect_is_simple_cond.
   
    Input:
@@ -2034,51 +2076,71 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   bool done;
 
-  switch (STMT_VINFO_TYPE (stmt_info))
+  if (STMT_VINFO_RELEVANT_P (stmt_info))
     {
-    case target_reduc_pattern_vec_info_type:
-      done = vectorizable_target_reduction_pattern (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
-      break;
+      switch (STMT_VINFO_TYPE (stmt_info))
+      {
+      case op_vec_info_type:
+	done = vectorizable_operation (stmt, bsi, &vec_stmt);
+	gcc_assert (done);
+	break;
 
-    case reduc_vec_info_type:
-      done = vectorizable_reduction (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
-      break;
+      case assignment_vec_info_type:
+	done = vectorizable_assignment (stmt, bsi, &vec_stmt);
+	gcc_assert (done);
+	break;
 
-    case op_vec_info_type:
-      done = vectorizable_operation (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
-      break;
+      case load_vec_info_type:
+	done = vectorizable_load (stmt, bsi, &vec_stmt);
+	gcc_assert (done);
+	break;
 
-    case assignment_vec_info_type:
-      done = vectorizable_assignment (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
-      break;
+      case store_vec_info_type:
+	done = vectorizable_store (stmt, bsi, &vec_stmt);
+	gcc_assert (done);
+	is_store = true;
+	break;
 
-    case load_vec_info_type:
-      done = vectorizable_load (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
-      break;
+      case select_vec_info_type:
+	if (!vectorizable_select (stmt, bsi, &vec_stmt))
+	  abort ();
+	break;
 
-    case store_vec_info_type:
-      done = vectorizable_store (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
-      is_store = true;
-      break;
+      default:
+	if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	  fprintf (vect_dump, "stmt not supported.");
+	gcc_unreachable ();
+      }
 
-    case select_vec_info_type:
-      if (!vectorizable_select (stmt, bsi, &vec_stmt))
-	abort ();
-      break;
-
-    default:
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-        fprintf (vect_dump, "stmt not supported.");
-      gcc_unreachable ();
+      STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
     }
 
-  STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
+  vec_stmt = NULL_TREE;
+  if (STMT_VINFO_LIVE_P (stmt_info))
+    {
+      switch (STMT_VINFO_TYPE (stmt_info))
+      {
+      case target_reduc_pattern_vec_info_type:
+        done = vectorizable_target_reduction_pattern (stmt, bsi, &vec_stmt);
+        gcc_assert (done);
+        break;
+
+      case reduc_vec_info_type:
+        done = vectorizable_reduction (stmt, bsi, &vec_stmt);
+        gcc_assert (done);
+        break;
+
+      default:
+        done = vectorizable_live_operation (stmt, bsi, &vec_stmt);
+        gcc_assert (done);
+      }
+
+      if (vec_stmt)
+        {
+          gcc_assert (!STMT_VINFO_VEC_STMT (stmt_info));
+          STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
+        } 
+    }
 
   return is_store;
 }

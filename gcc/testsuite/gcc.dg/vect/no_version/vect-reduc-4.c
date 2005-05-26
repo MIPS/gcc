@@ -1,8 +1,7 @@
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -maltivec -fdump-tree-vect-stats -ftrapv -fno-tree-vect-loop-version" } */
+/* { dg-options "-O2 -ftree-vectorize -maltivec -fdump-tree-vect-stats -ftrapv" } */
 
 #include <stdarg.h>
-#include <stdio.h>
 #include "tree-vect.h"
 
 #define N 16

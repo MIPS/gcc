@@ -1,11 +1,10 @@
 /* { dg-do run { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec -ffast-math -fno-tree-vect-loop-version" } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec -ffast-math" } */
 
 /* need -funsafe-math-optimizations to vectorize the summation.
    also need -ffinite-math-only to create the min/max expr.  */
 
 #include <stdarg.h>
-#include <stdio.h>
 #include "tree-vect.h"
 
 #define N 16

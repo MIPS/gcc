@@ -361,6 +361,7 @@ extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_select (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_target_reduction_pattern 
   (tree, block_stmt_iterator *, tree *);
