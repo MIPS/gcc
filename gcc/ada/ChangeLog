@@ -1,3 +1,9 @@
+2005-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* ada/Make-lang.in (ada/treeprs.ads, ada/einfo.h, ada/sinfo.h,
+	ada/nmake.adb, ada/nmake.ads): Use unique subdirectories of
+	ada/bldtools to avoid make -jN failures.
+
 2005-05-19  Release Manager
 
 	* GCC 3.4.4 released.
