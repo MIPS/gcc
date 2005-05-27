@@ -566,25 +566,7 @@ objc_mark_locals_volatile (void *enclosing_blk)
        scope = scope->outer)
     {
       for (b = scope->bindings; b; b = b->prev)
-	{
-	  tree decl = b->decl;
-
-	  /* Do not mess with variables that are 'static' or (already)
-	     'volatile'.  */
-	  if (!TREE_THIS_VOLATILE (decl) && !TREE_STATIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL))
-	    {
-	      TREE_TYPE (decl)
-		= build_qualified_type (TREE_TYPE (decl),
-					(TYPE_QUALS (TREE_TYPE (decl))
-					 | TYPE_QUAL_VOLATILE));
-	      TREE_THIS_VOLATILE (decl) = 1;
-	      TREE_SIDE_EFFECTS (decl) = 1;
-	      DECL_REGISTER (decl) = 0;
-	      C_DECL_REGISTER (decl) = 0;
-	    }
-	}
+	objc_volatilize_decl (b->decl);
 
       /* Do not climb up past the current function.  */
       if (scope->function_body)
@@ -1172,9 +1154,9 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       else if (TREE_PUBLIC (newdecl))
 	warning (0, "%Jbuilt-in function %qD declared as non-function",
 		 newdecl, newdecl);
-      else if (warn_shadow)
-	warning (0, "%Jdeclaration of %qD shadows a built-in function",
-		 newdecl, newdecl);
+      else
+	warning (OPT_Wshadow, "%Jdeclaration of %qD shadows "
+		 "a built-in function", newdecl, newdecl);
       return false;
     }
 
@@ -1288,9 +1270,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	      || (DECL_INITIAL (newdecl)
 		  && !TYPE_ARG_TYPES (TREE_TYPE (newdecl)))))
 	{
-	  if (warn_shadow)
-	    warning (0, "%Jdeclaration of %qD shadows a built-in function",
-		     newdecl, newdecl);
+	  warning (OPT_Wshadow, "%Jdeclaration of %qD shadows "
+		   "a built-in function", newdecl, newdecl);
 	  /* Discard the old built-in function.  */
 	  return false;
 	}
@@ -1499,15 +1480,15 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       if (DECL_DECLARED_INLINE_P (newdecl)
 	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (0, "%Jinline declaration of %qD follows "
+	  warning (OPT_Wattributes, "%Jinline declaration of %qD follows "
 		   "declaration with attribute noinline", newdecl, newdecl);
 	  warned = true;
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (0, "%Jdeclaration of %qD with attribute noinline follows "
-		   "inline declaration ", newdecl, newdecl);
+	  warning (OPT_Wattributes, "%Jdeclaration of %qD with attribute "
+		   "noinline follows inline declaration ", newdecl, newdecl);
 	  warned = true;
 	}
 
@@ -2562,9 +2543,9 @@ define_label (location_t location, tree name)
 	    /*invisible=*/false, /*nested=*/false);
     }
 
-  if (warn_traditional && !in_system_header && lookup_name (name))
-    warning (0, "%Htraditional C lacks a separate namespace for labels, "
-             "identifier %qE conflicts", &location, name);
+  if (!in_system_header && lookup_name (name))
+    warning (OPT_Wtraditional, "%Htraditional C lacks a separate namespace "
+             "for labels, identifier %qE conflicts", &location, name);
 
   nlist_se = XOBNEW (&parser_obstack, struct c_label_list);
   nlist_se->next = label_context_stack_se->labels_def;
@@ -3218,7 +3199,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
-    warning (0, "%Jinline function %qD given attribute noinline", decl, decl);
+    warning (OPT_Wattributes, "%Jinline function %qD given attribute noinline",
+	     decl, decl);
 
   /* Add this decl to the current scope.
      TEM may equal DECL or it may be a previous decl of the same name.  */
@@ -4290,8 +4272,9 @@ grokdeclarator (const struct c_declarator *declarator,
 		   them for noreturn functions.  */
 		if (VOID_TYPE_P (type) && really_funcdef)
 		  pedwarn ("function definition has qualified void return type");
-		else if (warn_return_type)
-		  warning (0, "type qualifiers ignored on function return type");
+		else
+		  warning (OPT_Wreturn_type,
+			   "type qualifiers ignored on function return type");
 		
 		type = c_build_qualified_type (type, type_quals);
 	      }
@@ -4452,7 +4435,8 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    /* We don't yet implement attributes in this context.  */
 	    if (array_ptr_attrs != NULL_TREE)
-	      warning (0, "attributes in parameter array declarator ignored");
+	      warning (OPT_Wattributes,
+		       "attributes in parameter array declarator ignored");
 
 	    size_varies = 0;
 	  }
@@ -5801,7 +5785,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl1)))
-    warning (0, "%Jinline function %qD given attribute noinline", decl1, decl1);
+    warning (OPT_Wattributes, "%Jinline function %qD given attribute noinline",
+	     decl1, decl1);
 
   announce_function (decl1);
 
@@ -6098,7 +6083,8 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 #endif
 
   if (!in_system_header)
-    warning (OPT_Wold_style_definition, "%Jold-style function definition", fndecl);
+    warning (OPT_Wold_style_definition, "%Jold-style function definition",
+	     fndecl);
 
   /* Match each formal parameter name with its declaration.  Save each
      decl in the appropriate TREE_PURPOSE slot of the parmids chain.  */

@@ -425,22 +425,7 @@ objc_mark_locals_volatile (void *enclosing_blk)
       tree decl;
 
       for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
-        {
-	  /* Do not mess with variables that are 'static' or (already)
-	     'volatile'.  */
-	  if (!TREE_THIS_VOLATILE (decl) && !TREE_STATIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL))
-	    {
-	      TREE_TYPE (decl)
-		= build_qualified_type (TREE_TYPE (decl),
-					(TYPE_QUALS (TREE_TYPE (decl))
-					 | TYPE_QUAL_VOLATILE));
-	      TREE_THIS_VOLATILE (decl) = 1;
-	      TREE_SIDE_EFFECTS (decl) = 1;
-	      DECL_REGISTER (decl) = 0;
-	    }
-	}
+	objc_volatilize_decl (decl);
 
       /* Do not climb up past the current function.  */
       if (scope->kind == sk_function_parms)
@@ -1066,17 +1051,18 @@ duplicate_decls (tree newdecl, tree olddecl)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (0, "%Jfunction %qD redeclared as inline", newdecl, newdecl);
-	  warning (0, "%Jprevious declaration of %qD with attribute noinline",
-                   olddecl, olddecl);
+	  warning (OPT_Wattributes, "%Jfunction %qD redeclared as inline",
+		   newdecl, newdecl);
+	  warning (OPT_Wattributes, "%Jprevious declaration of %qD "
+		   "with attribute noinline", olddecl, olddecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (0, "%Jfunction %qD redeclared with attribute noinline",
-		   newdecl, newdecl);
-	  warning (0, "%Jprevious declaration of %qD was inline",
+	  warning (OPT_Wattributes, "%Jfunction %qD redeclared with "
+		   "attribute noinline", newdecl, newdecl);
+	  warning (OPT_Wattributes, "%Jprevious declaration of %qD was inline",
 		   olddecl, olddecl);
 	}
     }
@@ -1817,9 +1803,10 @@ duplicate_decls (tree newdecl, tree olddecl)
       && DECL_VISIBILITY_SPECIFIED (newdecl)
       && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
-      warning (0, "%J%qD: visibility attribute ignored because it",
-	       newdecl, newdecl);
-      warning (0, "%Jconflicts with previous declaration here", olddecl);
+      warning (OPT_Wattributes, "%J%qD: visibility attribute ignored "
+	       "because it", newdecl, newdecl);
+      warning (OPT_Wattributes, "%Jconflicts with previous "
+	       "declaration here", olddecl);
     }
   /* Choose the declaration which specified visibility.  */
   if (DECL_VISIBILITY_SPECIFIED (olddecl))

@@ -284,12 +284,11 @@ proc obj-c++_init { args } {
 #
 
 proc obj-c++_target_compile { source dest type options } {
-    global tmpdir
-    global srcdir
+    global tmpdir;
     global gpp_compile_options
     global gluefile wrap_flags
-    global ALWAYS_OBJCXXFLAGS
-    global OBJCXX_UNDER_TEST
+    global ALWAYS_OBJCXXFLAGS;
+    global OBJCXX_UNDER_TEST;
 
     lappend options "libs=-lobjc"
 

@@ -1,3 +1,41 @@
+2005-05-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/21686
+	* semantics.c (finish_id_expression): Fix quoting in error message.
+
+2005-05-25  DJ Delorie  <dj@redhat.com>
+
+	* decl.c (duplicate_decls): Move warning control from if() to
+	warning(OPT_*).
+	* name-lookup.c (parse_using_directive): Likewise.
+	* parser.c (cp_parser_elaborated_type_specifier): Likewise.
+	(cp_parser_init_declarator): Likewise.
+	* tree.c (handle_com_interface_attribute): Likewise.
+
+2005-05-24  Ziemowit Laski  <zlaski@apple.com>
+
+	* class.c (layout_class_type): Do not issue C++ ABI warnings
+	for ObjC structs.
+	* decl.c (objc_mark_locals_volatile): Streamline by calling
+	objc_volatilize_decl().
+	* parser.c (cp_parser_objc_message_expression): Allow simple
+	type specifiers (instead of merely type names) as message
+	receivers.
+	* pt.c (template_args_equal): Do not call objc_comptypes().
+	* typeck.c (composite_pointer_type): If both pointers are
+	ObjC-esque, arbitrarily choose the first; do not call
+	objc_comptypes().
+	(comptypes): Do not call objc_comptypes().
+	(convert_for_assignment): Call objc_compare_types().
+	(comp_ptr_ttypes_real): Call objc_type_quals_match() before
+	concluding that types do not match.
+
+2005-05-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/21645
+	* optimize.c (update_cloned_parm): Copy the TYPE also from the
+	original one.
+
 2005-05-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/21495
@@ -21,7 +59,8 @@
 	* decl2.c (determine_visibility): Don't set visibility to
 	hidden if it has been set explicitly by user.
 
-2005-05-17  Mike Stump  <mrs@apple.com>
+2005-05-17  Ziemowit Laski  <zlaski@apple.com>
+	    Mike Stump  <mrs@apple.com>
 
 	Yet more Objective-C++...
 	

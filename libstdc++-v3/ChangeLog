@@ -1,3 +1,217 @@
+2005-05-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_Rep::_M_set_length_and_sharable):
+	Use, consistently, traits_type::assign.
+
+2005-05-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/cpu/alpha/atomicity.h: Use the builtins for
+	atomic memory operations.
+	* config/cpu/powerpc/atomicity.h: Likewise.
+	* config/cpu/ia64/atomicity.h: Do not include ia64intrin.h.
+
+2005-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/25_algorithms/equal.cc: Move to...
+	* testsuite/25_algorithms/equal: ... here.
+	* testsuite/25_algorithms/lower_bound.cc: Move to...
+	* testsuite/25_algorithms/lower_bound: ... here.
+
+2005-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+        Port from libstdcxx_so_7-branch:
+	2005-20-05  Chris Jefferson  <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/heap.cc: Move to...
+	* testsuite/25_algorithms/heap/heap.cc: ...here.
+	* testsuite/25_algorithms/partition.cc: Move to...
+	* testsuite/25_algorithms/partition/partition.cc: ...here.
+
+	2005-03-29  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/includes/1.cc: Add tests.
+	* testsuite/25_algorithms/search/1.cc: Likewise.
+	* testsuite/25_algorithms/unique_copy/1.cc: Likewise.
+	* testsuite/25_algorithms/swap_ranges/1.cc: New.
+	* testsuite/25_algorithms/swap_ranges/check_type.cc: New.
+	* testsuite/25_algorithms/rotate.cc: Move to...
+	* testsuite/25_algorithms/rotate/rotate.cc: ... here.
+	* testsuite/25_algorithms/rotate/1.cc: New.
+	* testsuite/25_algorithms/rotate/check_type.cc: New.
+	* testsuite/25_algorithms/search_n/iterator.cc: Fix typo.
+
+	2005-03-14  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (replace_copy, replace_copy_if):
+	Don't assume that __new_value and *__first are convertible to
+	each other.	
+
+	* testsuite/25_algorithms/find/1.cc: New.
+	* testsuite/25_algorithms/find/check_type.cc: New.
+	* testsuite/25_algorithms/find_if/1.cc: New.
+	* testsuite/25_algorithms/find_if/check_type.cc: New.
+	* testsuite/25_algorithms/replace/1.cc: New.
+	* testsuite/25_algorithms/replace/check_type.cc: New.
+	* testsuite/25_algorithms/replace_if/1.cc: New.
+	* testsuite/25_algorithms/replace_if/check_type.cc: New.
+	* testsuite/25_algorithms/replace_copy/1.cc: New.
+	* testsuite/25_algorithms/replace_copy/check_type.cc: New.
+	* testsuite/25_algorithms/replace_copy_if/1.cc: New.
+	* testsuite/25_algorithms/replace_copy_if/check_type.cc: New.
+	* testsuite/25_algorithms/remove/1.cc: New.
+	* testsuite/25_algorithms/remove/check_type.cc: New.
+	* testsuite/25_algorithms/remove_if/1.cc: New.
+	* testsuite/25_algorithms/remove_if/check_type.cc: New.
+	* testsuite/25_algorithms/count/1.cc: New.
+	* testsuite/25_algorithms/count/check_type.cc: New.
+	* testsuite/25_algorithms/count_if/1.cc: New.
+	* testsuite/25_algorithms/count_if/check_type.cc: New.
+
+	2005-02-27  Christopher Jefferson  <chris@bubblescope.net>
+        	    Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/is_heap/check_type.cc: New.
+	
+	2005-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/is_heap/1.cc: New.
+
+	2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/ext/median.cc: New.
+	* testsuite/25_algorithms/adjacent_find/1.cc: New.
+	* testsuite/25_algorithms/adjacent_find/check_type.cc: New.
+	* testsuite/25_algorithms/search/1.cc: New.
+	* testsuite/25_algorithms/search/check_type.cc: New.
+	* testsuite/25_algorithms/unique_copy/1.cc: New.
+	* testsuite/25_algorithms/unique_copy/check_type.cc: New.
+	* testsuite/25_algorithms/partial_sort/1.cc: New.
+	* testsuite/25_algorithms/partial_sort/check_type.cc: New.
+	* testsuite/25_algorithms/partial_sort_copy/1.cc: New.
+	* testsuite/25_algorithms/partial_sort_copy/check_type.cc: New.
+	* testsuite/25_algorithms/lower_bound/1.cc: New.
+	* testsuite/25_algorithms/lower_bound/check_type.cc: New.
+	* testsuite/25_algorithms/upper_bound/1.cc: New.
+	* testsuite/25_algorithms/upper_bound/check_type.cc: New.
+	* testsuite/25_algorithms/merge/1.cc: New.
+	* testsuite/25_algorithms/merge/check_type.cc: New.
+	* testsuite/25_algorithms/inplace_merge/1.cc: New.
+	* testsuite/25_algorithms/inplace_merge/check_type.cc: New.
+	* testsuite/25_algorithms/stable_sort/1.cc: New.
+	* testsuite/25_algorithms/stable_sort/check_type.cc: New.
+	* testsuite/25_algorithms/nth_element/1.cc: New.
+	* testsuite/25_algorithms/nth_element/check_type.cc: New.
+	* testsuite/25_algorithms/equal_range/1.cc: New.
+	* testsuite/25_algorithms/equal_range/check_type.cc: New.
+	* testsuite/25_algorithms/binary_search/1.cc: New.
+	* testsuite/25_algorithms/binary_search/check_type.cc: New.
+	* testsuite/25_algorithms/includes/1.cc: New.
+	* testsuite/25_algorithms/includes/check_type.cc: New.
+	* testsuite/25_algorithms/set_union/1.cc: New.
+	* testsuite/25_algorithms/set_union/check_type.cc: New.
+	* testsuite/25_algorithms/set_intersection/1.cc: New.
+	* testsuite/25_algorithms/set_intersection/check_type.cc: New.
+	* testsuite/25_algorithms/set_difference/1.cc: New.
+	* testsuite/25_algorithms/set_difference/check_type.cc: New.
+	* testsuite/25_algorithms/set_symmetric_difference/1.cc: New.
+	* testsuite/25_algorithms/set_symmetric_difference/check_type.cc: New.	
+	* testsuite/25_algorithms/min_element/1.cc: New.
+	* testsuite/25_algorithms/min_element/check_type.cc: New.
+	* testsuite/25_algorithms/max_element/1.cc: New.
+	* testsuite/25_algorithms/max_element/check_type.cc: New.
+	* testsuite/25_algorithms/prev_permutation/1.cc: New.
+	* testsuite/25_algorithms/prev_permutation/check_type.cc: New.
+	* testsuite/25_algorithms/next_permutation/1.cc: New.
+	* testsuite/25_algorithms/next_permutation/check_type.cc: New.
+	* testsuite/25_algorithms/find_first_of/1.cc: New.
+	* testsuite/25_algorithms/find_first_of/check_type.cc: New.
+	* testsuite/25_algorithms/find_end/1.cc: New.
+	* testsuite/25_algorithms/find_end/check_type.cc: New.
+	* testsuite/25_algorithms/equal/check_type.cc: Insert iterator type.
+	* testsuite/25_algorithms/lexicographical_compare/check_type.cc:
+	Likewise.
+
+	2005-01-10  Christopher Jefferson <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/lexicographical_compare/check_type.cc: New.
+	* testsuite/25_algorithms/lexicographical_compare/1.cc: Likewise.
+	* testsuite/25_algorithms/mismatch/check_type.cc: Likewise.
+	* testsuite/25_algorithms/mismatch/1.cc: Likewise.
+	* testsuite/25_algorithms/equal/check_type.cc: New.
+	* testsuite/25_algorithms/equal/1.cc: New.
+
+2005-05-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/allocator.h: Change ___glibcxx_base_allocator to
+	__glibcxx_base_allocator.
+	* config/allocator/bitmap_allocator_base.h: Same.
+	* config/allocator/malloc_allocator_base.h: Same.
+	* config/allocator/mt_allocator_base.h: Same.
+	* config/allocator/new_allocator_base.h: Same.
+	* config/allocator/pool_allocator_base.h: Same.
+
+2005-05-24  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/debug/string (class basic_string): Add missing
+	default template arguments; provide typedefs for char
+	and wchar_t.
+	(operator[]): Allow s[s.size()] in debug mode, but not
+	pedantic mode.
+
+2005-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	Port from libstdcxx_so_7-branch:
+	2005-04-25  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (count): Correct concept checks.
+	(search_n) : Likewise.
+	* testsuite/25_algorithms/search_n/check_type.cc: New.
+
+	* testsuite/testsuite_iterators.h
+	(random_access_iterator_wrapper::operator+): Move out of
+	class to external function, and add symmetric version.
+
+	2005-03-14  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h (WritableObject::WritableObject):
+	Add const.
+	
+	2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h (random_access_iterator_wrapper::
+	operator--): Fix typo.
+	(OutputContainer::OutputContainer): Correct zeroing array.
+	(WritableObject::operator==): Fix typo.
+        (WritableObject::operator=): make operator= templated 
+	to allow differing types to be assigned.
+	(WritableObject::operator++): Fix checking if iterator is
+	written to multiple times.
+	(random_access_iterator_wrapper::operator+): Add const.
+	(random_access_iterator_wrapper::operator-): Likewise.
+	(random_access_iterator_wrapper::operator[]): Add dereference.
+
+2005-05-23  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/debug.html: Explain that _GLIBXX_DEBUG_PEDANTIC
+	had to be defined for pedantic mode in 3.4 and 4.0.0.
+
+2005-05-20  Jan Beulich  <jbeulich@novell.com>
+
+	* libmath/stubs.c: Also implement fabsf/fabsl if not present in the
+	system libraries.
+
+2005-05-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (__rotate<_RandomAccessIterator>):
+	Don't qualify __tmp as const, _ValueType is not necessarily
+	Assignable.
+	* include/bits/stl_algobase.h (swap, __iter_swap<false>):
+	Likewise, as an harmless extension.
+
+2005-05-19  Richard Henderson  <rth@redhat.com>
+
+	* libsupc++/unwind-cxx.h: Revert gcc_unreachable change.
+
 2005-05-19  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* include/bits/basic_string.h (operator[]): Allow s[s.size()] in

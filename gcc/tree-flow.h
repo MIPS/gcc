@@ -314,7 +314,7 @@ struct stmt_ann_d GTY(())
   unsigned makes_clobbering_call : 1;
 
   /* Basic block that contains this statement.  */
-  basic_block GTY ((skip (""))) bb;
+  basic_block bb;
 
   /* Operand cache for stmt.  */
   struct stmt_operands_d GTY ((skip (""))) operands;
@@ -390,9 +390,6 @@ struct bb_ann_d GTY(())
 {
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
-
-  /* Nonzero if this block contains an escape point (see is_escape_site).  */
-  unsigned has_escape_site : 1;
 
   /* Nonzero if one or more incoming edges to this block should be threaded
      to an outgoing edge of this block.  */

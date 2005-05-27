@@ -801,9 +801,6 @@ v9_regcmp_p (enum rtx_code code)
 	  || code == LE || code == GT);
 }
 
-
-/* Operand constraints.  */
-
 /* Nonzero if OP is a floating point constant which can
    be loaded into an integer register using a single
    sethi instruction.  */
@@ -867,19 +864,148 @@ fp_high_losum_p (rtx op)
   return 0;
 }
 
-/* If OP is a SYMBOL_REF of a thread-local symbol, return its TLS mode,
-   otherwise return 0.  */
+/* Expand a move instruction.  Return true if all work is done.  */
 
-int
-tls_symbolic_operand (rtx op)
+bool
+sparc_expand_move (enum machine_mode mode, rtx *operands)
 {
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-  return SYMBOL_REF_TLS_MODEL (op);
+  /* Handle sets of MEM first.  */
+  if (GET_CODE (operands[0]) == MEM)
+    {
+      /* 0 is a register (or a pair of registers) on SPARC.  */
+      if (register_or_zero_operand (operands[1], mode))
+	return false;
+
+      if (!reload_in_progress)
+	{
+	  operands[0] = validize_mem (operands[0]);
+	  operands[1] = force_reg (mode, operands[1]);
+	}
+    }
+
+  /* Fixup TLS cases.  */
+  if (TARGET_HAVE_TLS
+      && CONSTANT_P (operands[1])
+      && GET_CODE (operands[1]) != HIGH
+      && sparc_tls_referenced_p (operands [1]))
+    {
+      rtx sym = operands[1];
+      rtx addend = NULL;
+
+      if (GET_CODE (sym) == CONST && GET_CODE (XEXP (sym, 0)) == PLUS)
+	{
+	  addend = XEXP (XEXP (sym, 0), 1);
+	  sym = XEXP (XEXP (sym, 0), 0);
+	}
+
+      gcc_assert (SPARC_SYMBOL_REF_TLS_P (sym));
+
+      sym = legitimize_tls_address (sym);
+      if (addend)
+	{
+	  sym = gen_rtx_PLUS (mode, sym, addend);
+	  sym = force_operand (sym, operands[0]);
+	}
+      operands[1] = sym;
+    }
+ 
+  /* Fixup PIC cases.  */
+  if (flag_pic && CONSTANT_P (operands[1]))
+    {
+      if (pic_address_needs_scratch (operands[1]))
+	operands[1] = legitimize_pic_address (operands[1], mode, 0);
+
+      if (GET_CODE (operands[1]) == LABEL_REF && mode == SImode)
+	{
+	  emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
+	  return true;
+	}
+
+      if (GET_CODE (operands[1]) == LABEL_REF && mode == DImode)
+	{
+	  gcc_assert (TARGET_ARCH64);
+	  emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
+	  return true;
+	}
+
+      if (symbolic_operand (operands[1], mode))
+	{
+	  operands[1] = legitimize_pic_address (operands[1],
+						mode,
+						(reload_in_progress ?
+						 operands[0] :
+						 NULL_RTX));
+	  return false;
+	}
+    }
+
+  /* If we are trying to toss an integer constant into FP registers,
+     or loading a FP or vector constant, force it into memory.  */
+  if (CONSTANT_P (operands[1])
+      && REG_P (operands[0])
+      && (SPARC_FP_REG_P (REGNO (operands[0]))
+	  || SCALAR_FLOAT_MODE_P (mode)
+	  || VECTOR_MODE_P (mode)))
+    {
+      /* emit_group_store will send such bogosity to us when it is
+         not storing directly into memory.  So fix this up to avoid
+         crashes in output_constant_pool.  */
+      if (operands [1] == const0_rtx)
+	operands[1] = CONST0_RTX (mode);
+
+      /* We can clear FP registers if TARGET_VIS, and always other regs.  */
+      if ((TARGET_VIS || REGNO (operands[0]) < SPARC_FIRST_FP_REG)
+	  && const_zero_operand (operands[1], mode))
+	return false;
+
+      if (REGNO (operands[0]) < SPARC_FIRST_FP_REG
+	  /* We are able to build any SF constant in integer registers
+	     with at most 2 instructions.  */
+	  && (mode == SFmode
+	      /* And any DF constant in integer registers.  */
+	      || (mode == DFmode
+		  && (reload_completed || reload_in_progress))))
+	return false;
+
+      operands[1] = force_const_mem (mode, operands[1]);
+      if (!reload_in_progress)
+	operands[1] = validize_mem (operands[1]);
+      return false;
+    }
+
+  /* Accept non-constants and valid constants unmodified.  */
+  if (!CONSTANT_P (operands[1])
+      || GET_CODE (operands[1]) == HIGH
+      || input_operand (operands[1], mode))
+    return false;
+
+  switch (mode)
+    {
+    case QImode:
+      /* All QImode constants require only one insn, so proceed.  */
+      break;
+
+    case HImode:
+    case SImode:
+      sparc_emit_set_const32 (operands[0], operands[1]);
+      return true;
+
+    case DImode:
+      /* input_operand should have filtered out 32-bit mode.  */
+      sparc_emit_set_const64 (operands[0], operands[1]);
+      return true;
+    
+    default:
+      gcc_unreachable ();
+    }
+
+  return false;
 }
-
-/* We know it can't be done in one insn when we get here,
-   the movsi expander guarantees this.  */
+
+/* Load OP1, a 32-bit constant, into OP0, a register.
+   We know it can't be done in one insn when we get
+   here, the move expander guarantees this.  */
+
 void
 sparc_emit_set_const32 (rtx op0, rtx op1)
 {
@@ -918,13 +1044,13 @@ sparc_emit_set_const32 (rtx op0, rtx op1)
     }
 }
 
-
 /* Load OP1, a symbolic 64-bit constant, into OP0, a DImode register.
    If TEMP is nonzero, we are forbidden to use any other scratch
    registers.  Otherwise, we are allowed to generate them as needed.
 
    Note that TEMP may have TImode if the code model is TARGET_CM_MEDANY
    or TARGET_CM_EMBMEDANY (see the reload_indi and reload_outdi patterns).  */
+
 void
 sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp)
 {
@@ -1488,14 +1614,9 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
   rtx temp = 0;
 
   /* Sanity check that we know what we are working with.  */
-  gcc_assert (TARGET_ARCH64);
-
-  if (GET_CODE (op0) != SUBREG)
-    {
-      gcc_assert (GET_CODE (op0) == REG
-		  && (REGNO (op0) < SPARC_FIRST_FP_REG
-	      	      || REGNO (op0) > SPARC_LAST_V9_FP_REG));
-    }
+  gcc_assert (TARGET_ARCH64
+	      && (GET_CODE (op0) == SUBREG
+		  || (REG_P (op0) && ! SPARC_FP_REG_P (REGNO (op0)))));
 
   if (reload_in_progress || reload_completed)
     temp = op0;
@@ -2615,7 +2736,7 @@ legitimate_constant_p (rtx x)
       /* Offsets of TLS symbols are never valid.
 	 Discourage CSE from creating them.  */
       if (GET_CODE (inner) == PLUS
-	  && tls_symbolic_operand (XEXP (inner, 0)))
+	  && SPARC_SYMBOL_REF_TLS_P (XEXP (inner, 0)))
 	return false;
       break;
 
@@ -2626,9 +2747,16 @@ legitimate_constant_p (rtx x)
       /* Floating point constants are generally not ok.
 	 The only exception is 0.0 in VIS.  */
       if (TARGET_VIS
-	  && (GET_MODE (x) == SFmode
-	      || GET_MODE (x) == DFmode
-	      || GET_MODE (x) == TFmode)
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (x))
+	  && const_zero_operand (x, GET_MODE (x)))
+	return true;
+
+      return false;
+
+    case CONST_VECTOR:
+      /* Vector constants are generally not ok.
+	 The only exception is 0 in VIS.  */
+      if (TARGET_VIS
 	  && const_zero_operand (x, GET_MODE (x)))
 	return true;
 
@@ -2675,10 +2803,10 @@ legitimate_pic_operand_p (rtx x)
 {
   if (pic_address_needs_scratch (x))
     return false;
-  if (tls_symbolic_operand (x)
+  if (SPARC_SYMBOL_REF_TLS_P (x)
       || (GET_CODE (x) == CONST
 	  && GET_CODE (XEXP (x, 0)) == PLUS
-	  && tls_symbolic_operand (XEXP (XEXP (x, 0), 0))))
+	  && SPARC_SYMBOL_REF_TLS_P (XEXP (XEXP (x, 0), 0))))
     return false;
   return true;
 }
@@ -2716,7 +2844,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	   && GET_CODE (rs2) != SUBREG
 	   && GET_CODE (rs2) != LO_SUM
 	   && GET_CODE (rs2) != MEM
-	   && !tls_symbolic_operand (rs2)
+	   && ! SPARC_SYMBOL_REF_TLS_P (rs2)
 	   && (! symbolic_operand (rs2, VOIDmode) || mode == Pmode)
 	   && (GET_CODE (rs2) != CONST_INT || SMALL_INT (rs2)))
 	  || ((REG_P (rs1)
@@ -2756,7 +2884,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	  rs2 = NULL;
 	  imm1 = XEXP (rs1, 1);
 	  rs1 = XEXP (rs1, 0);
-	  if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
+	  if (! CONSTANT_P (imm1) || SPARC_SYMBOL_REF_TLS_P (rs1))
 	    return 0;
 	}
     }
@@ -2765,7 +2893,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       rs1 = XEXP (addr, 0);
       imm1 = XEXP (addr, 1);
 
-      if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
+      if (! CONSTANT_P (imm1) || SPARC_SYMBOL_REF_TLS_P (rs1))
 	return 0;
 
       /* We can't allow TFmode in 32-bit mode, because an offset greater
@@ -2814,6 +2942,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 /* Construct the SYMBOL_REF for the tls_get_offset function.  */
 
 static GTY(()) rtx sparc_tls_symbol;
+
 static rtx
 sparc_tls_get_addr (void)
 {
@@ -2840,6 +2969,24 @@ sparc_tls_got (void)
   return temp;
 }
 
+/* Return 1 if *X is a thread-local symbol.  */
+
+static int
+sparc_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
+{
+  return SPARC_SYMBOL_REF_TLS_P (*x);
+}
+
+/* Return 1 if X contains a thread-local symbol.  */
+
+bool
+sparc_tls_referenced_p (rtx x)
+{
+  if (!TARGET_HAVE_TLS)
+    return false;
+
+  return for_each_rtx (&x, &sparc_tls_symbol_ref_1, 0);
+}
 
 /* ADDR contains a thread-local SYMBOL_REF.  Generate code to compute
    this (thread-local) address.  */
@@ -3007,15 +3154,15 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 	     won't get confused into thinking that these two instructions
 	     are loading in the true address of the symbol.  If in the
 	     future a PIC rtx exists, that should be used instead.  */
-	  if (Pmode == SImode)
-	    {
-	      emit_insn (gen_movsi_high_pic (temp_reg, orig));
-	      emit_insn (gen_movsi_lo_sum_pic (temp_reg, temp_reg, orig));
-	    }
-	  else
+	  if (TARGET_ARCH64)
 	    {
 	      emit_insn (gen_movdi_high_pic (temp_reg, orig));
 	      emit_insn (gen_movdi_lo_sum_pic (temp_reg, temp_reg, orig));
+	    }
+	  else
+	    {
+	      emit_insn (gen_movsi_high_pic (temp_reg, orig));
+	      emit_insn (gen_movsi_lo_sum_pic (temp_reg, temp_reg, orig));
 	    }
 	  address = temp_reg;
 	}
@@ -3102,7 +3249,7 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   if (x != orig_x && legitimate_address_p (mode, x, FALSE))
     return x;
 
-  if (tls_symbolic_operand (x))
+  if (SPARC_SYMBOL_REF_TLS_P (x))
     x = legitimize_tls_address (x);
   else if (flag_pic)
     x = legitimize_pic_address (x, mode, 0);
@@ -5805,7 +5952,7 @@ sparc_emit_float_lib_cmp (rtx x, rtx y, enum rtx_code comparison)
       if (GET_CODE (x) != MEM)
 	{
 	  slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot0, x));
+	  emit_move_insn (slot0, x);
 	}
       else
 	slot0 = x;
@@ -5813,7 +5960,7 @@ sparc_emit_float_lib_cmp (rtx x, rtx y, enum rtx_code comparison)
       if (GET_CODE (y) != MEM)
 	{
 	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot1, y));
+	  emit_move_insn (slot1, y);
 	}
       else
 	slot1 = y;

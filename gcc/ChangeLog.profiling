@@ -1,3 +1,7 @@
+2005-05-27  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20050525)
+
 2005-05-25  Razya Ladelsky  <razya@il.ibm.com>
 
         * ipcp.c (ipcp_int2ipcp_int, ipcp_get_int): remove redundant functions.

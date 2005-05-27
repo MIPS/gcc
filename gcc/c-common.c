@@ -948,8 +948,9 @@ unsigned_conversion_warning (tree result, tree operand)
       if (!int_fits_type_p (operand, c_common_signed_type (type)))
 	/* This detects cases like converting -129 or 256 to unsigned char.  */
 	warning (0, "large integer implicitly truncated to unsigned type");
-      else if (warn_conversion)
-	warning (0, "negative integer implicitly converted to unsigned type");
+      else
+	warning (OPT_Wconversion,
+		 "negative integer implicitly converted to unsigned type");
     }
 }
 
@@ -2473,8 +2474,9 @@ c_common_truthvalue_conversion (tree expr)
       break;
 
     case MODIFY_EXPR:
-      if (warn_parentheses && !TREE_NO_WARNING (expr))
-	warning (0, "suggest parentheses around assignment used as truth value");
+      if (!TREE_NO_WARNING (expr))
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around assignment used as truth value");
       break;
 
     default:
@@ -3728,8 +3730,9 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
     return;
 
   default_node = splay_tree_lookup (cases, (splay_tree_key) NULL);
-  if (warn_switch_default && !default_node)
-    warning (0, "%Hswitch missing default case", &switch_location);
+  if (!default_node)
+    warning (OPT_Wswitch_default, "%Hswitch missing default case",
+	     &switch_location);
 
   /* If the switch expression was an enumerated type, check that
      exactly all enumeration literals are covered by the cases.
@@ -3959,7 +3962,7 @@ handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
      that changes what the typedef is typing.  */
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -3978,7 +3981,7 @@ handle_nocommon_attribute (tree *node, tree name,
     DECL_COMMON (*node) = 0;
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -3996,7 +3999,7 @@ handle_common_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     DECL_COMMON (*node) = 1;
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4023,7 +4026,7 @@ handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 			     TYPE_READONLY (TREE_TYPE (type)), 1));
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4042,7 +4045,7 @@ handle_noinline_attribute (tree *node, tree name,
     DECL_UNINLINABLE (*node) = 1;
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4065,7 +4068,7 @@ handle_always_inline_attribute (tree *node, tree name,
     }
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4089,7 +4092,7 @@ handle_used_attribute (tree *pnode, tree name, tree ARG_UNUSED (args),
     }
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4115,7 +4118,7 @@ handle_unused_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 	TREE_USED (decl) = 1;
       else
 	{
-	  warning (0, "%qE attribute ignored", name);
+	  warning (OPT_Wattributes, "%qE attribute ignored", name);
 	  *no_add_attrs = true;
 	}
     }
@@ -4149,7 +4152,7 @@ handle_const_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 			     TREE_THIS_VOLATILE (TREE_TYPE (type))));
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4193,7 +4196,7 @@ handle_transparent_union_attribute (tree *node, tree name,
     DECL_TRANSPARENT_UNION (decl) = 1;
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4221,7 +4224,7 @@ handle_constructor_attribute (tree *node, tree name,
     }
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4249,7 +4252,7 @@ handle_destructor_attribute (tree *node, tree name,
     }
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4268,7 +4271,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
   *no_add_attrs = true;
 
   if (TREE_CODE (TREE_VALUE (args)) != IDENTIFIER_NODE)
-    warning (0, "%qE attribute ignored", name);
+    warning (OPT_Wattributes, "%qE attribute ignored", name);
   else
     {
       int j;
@@ -4326,9 +4329,10 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	case MODE_VECTOR_INT:
 	case MODE_VECTOR_FLOAT:
-	  warning (0, "specifying vector types with __attribute__ ((mode)) "
-		   "is deprecated");
-	  warning (0, "use __attribute__ ((vector_size)) instead");
+	  warning (OPT_Wattributes, "specifying vector types with "
+		   "__attribute__ ((mode)) is deprecated");
+	  warning (OPT_Wattributes,
+		   "use __attribute__ ((vector_size)) instead");
 	  valid_mode = vector_mode_valid_p (mode);
 	  break;
 
@@ -4593,7 +4597,7 @@ handle_alias_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4617,13 +4621,14 @@ handle_visibility_attribute (tree *node, tree name, tree args,
     {
       if (TREE_CODE (*node) != RECORD_TYPE && TREE_CODE (*node) != UNION_TYPE)
        {
-         warning (0, "%qE attribute ignored on non-class types", name);
+         warning (OPT_Wattributes, "%qE attribute ignored on non-class types",
+		  name);
          return NULL_TREE;
        }
     }
   else if (decl_function_context (decl) != 0 || !TREE_PUBLIC (decl))
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       return NULL_TREE;
     }
 
@@ -4641,7 +4646,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
         return NULL_TREE;
       if (TREE_CODE (decl) == IDENTIFIER_NODE)
 	{
-	   warning (0, "%qE attribute ignored on types",
+	   warning (OPT_Wattributes, "%qE attribute ignored on types",
 		    name);
 	   return NULL_TREE;
 	}
@@ -4715,7 +4720,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
 
   if (!DECL_THREAD_LOCAL (decl))
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
   else
@@ -4782,7 +4787,7 @@ handle_malloc_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     DECL_IS_MALLOC (*node) = 1;
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4819,7 +4824,7 @@ handle_returns_twice_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     DECL_IS_RETURNS_TWICE (*node) = 1;
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4865,7 +4870,7 @@ handle_pure_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   /* ??? TODO: Support types.  */
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -4933,9 +4938,9 @@ handle_deprecated_attribute (tree *node, tree name,
 	    what = DECL_NAME (TYPE_NAME (type));
 	}
       if (what)
-	warning (0, "%qE attribute ignored for %qE", name, what);
+	warning (OPT_Wattributes, "%qE attribute ignored for %qE", name, what);
       else
-	warning (0, "%qE attribute ignored", name);
+	warning (OPT_Wattributes, "%qE attribute ignored", name);
     }
 
   return NULL_TREE;
@@ -4959,7 +4964,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 
   if (!host_integerp (size, 1))
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       return NULL_TREE;
     }
 
@@ -5237,7 +5242,7 @@ handle_nothrow_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   /* ??? TODO: Support types.  */
   else
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -5260,7 +5265,7 @@ handle_cleanup_attribute (tree *node, tree name, tree args,
      we'd be missing too much, since we do have attribute constructor.  */
   if (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl))
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -5299,7 +5304,7 @@ handle_warn_unused_result_attribute (tree *node, tree name,
   /* Ignore the attribute for functions not returning any value.  */
   if (VOID_TYPE_P (TREE_TYPE (*node)))
     {
-      warning (0, "%qE attribute ignored", name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -5316,7 +5321,8 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 
   if (!params)
     {
-      warning (0, "%qE attribute requires prototypes with named arguments", name);
+      warning (OPT_Wattributes,
+	       "%qE attribute requires prototypes with named arguments", name);
       *no_add_attrs = true;
     }
   else
@@ -5326,7 +5332,8 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 
       if (VOID_TYPE_P (TREE_VALUE (params)))
         {
-	  warning (0, "%qE attribute only applies to variadic functions", name);
+	  warning (OPT_Wattributes,
+		   "%qE attribute only applies to variadic functions", name);
 	  *no_add_attrs = true;
 	}
     }

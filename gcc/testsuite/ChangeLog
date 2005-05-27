@@ -1,3 +1,138 @@
+2005-05-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/tree-ssa/stdarg-2.c: Add tests for s390*-*-linux* targets.
+	* gcc.dg/tree-ssa/stdarg-3.c: Likewise.
+	* gcc.dg/tree-ssa/stdarg-4.c: Likewise.
+	* gcc.dg/tree-ssa/stdarg-5.c: Likewise.
+
+2005-05-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20050524-1.c: New test.
+
+2005-05-25  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-prof/inliner-1.c: New.
+
+2005-05-25  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/tree-prof: New directory.
+	* gcc.dg/tree-prof/tree-prof.exp: New.
+
+2005-05-25  DJ Delorie  <dj@redhat.com>
+
+	* gcc.dg/Wattributes-1.c: New.
+	* gcc.dg/Wattributes-2.c: New.
+	* gcc.dg/Wattributes-3.c: New.
+
+20005-05-24  Janis Johnson  <janis187@us.ibm.com>
+
+	PR tree-optimization/19833
+	* gcc.dg/uninit-4.c: Remove xfail.
+	* gcc.dg/uninit-9.c: Ditto.
+
+2005-05-24  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/bitfield-[1-5].mm: New.
+	* obj-c++.dg/class-protocol-1.mm: New.
+	* obj-c++.dg/comp-types-1[0-1].mm: New.
+	* obj-c++.dg/comp-types-[2-9].mm: New.
+	* obj-c++.dg/encode-[4-8].mm: New.
+	* obj-c++.dg/layout-1.mm: New.
+	* obj-c++.dg/method-1[0-9].mm: New.
+	* obj-c++.dg/method-2[0-1].mm: New.
+	* obj-c++.dg/method-[8-9].mm: New.
+	* obj-c++.dg/objc-gc-3.mm: New.
+	* obj-c++.dg/try-catch-10.mm: New.
+	* objc.dg/bitfield-5.m: New.
+	* objc.dg/comp-types-10.m: New.
+	* objc.dg/comp-types-9.m: New.
+	* objc.dg/layout-1.m: New.
+	* objc.dg/objc-gc-4.m: New.
+	* objc.dg/try-catch-9.m: New.
+	* objc.dg/class-protocol-1.m: Tweak diagnostics.
+	* objc.dg/comp-types-1.m: Likewise.
+	* objc.dg/comp-types-[5-6].m: Likewise.
+	* objc.dg/method-9.m: Likewise.
+
+2005-05-24  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-vec-merge.c: Make test usable on GNU/Linux targets
+	and on hardware without VMX support.
+
+	* gcc.dg/altivec-vec-merge.c: Renamed from ppc-vec-merge.c.
+
+	* gcc.dg/ppc64-abi-2.c: Remove code that is now invalid.
+
+	* lib/profopt.exp (dg-final-generate, dg-final-use,
+	profopt-final-code, profopt-get-options): New.
+	(profopt-execute): Process test directives.
+
+	* lib/gcc-dg.exp (cleanup-ipa-dump): New.
+	(cleanup-coverage-files, cleanup-repo-files, cleanup-rtl-dump,
+	cleanup-tree-dump, cleanup-saved-temps): Update comments.
+
+2005-05-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/21645
+	* g++.dg/init/ctor5.C: New test.
+
+2005-05-24  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-none.c: Split into vect-106.c, vect-107.c,
+	vect-108.c, vect-109.c, vect-110.c, vect-111.c, vect-112.c,
+	vect-113.c, vect-114.c.
+
+2005-05-23  Adam Nemet  <anemet@lnxw.com>
+
+	* gcc.dg/const-elim-1.c: Remove xfails.
+
+2005-05-23  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/pr21638.c: New test.
+	* gcc.c-torture/compile/20050520-1.c: New test.
+
+2005-05-23  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Fix m32r target selector to
+	be a proper triple, ie: m32r*-*-*.
+	* g++.old-deja/g++.jason/thunk3.C: Likewise.
+
+2004-05-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/21331
+	PR tree-opt/21293
+	* gcc.c-torture/compile/pr21293.c: New test.
+	* gcc.c-torture/execute/pr21331.c: New test.
+
+2004-05-20  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/other/stdarg3.C: Spell "hpux*" correctly.
+
+2005-05-20  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++-dg.exp: Add.
+	* obj-c++.exp: Add.
+	* obj-c++.dg/dg.exp: Add.
+
+2005-05-20  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	* g++.old-deja/g++.jason/thunk3.C: XFAIL on m32r*-*.
+	* gcc.c-torture/execute/20020720-1.x: Add xfail for m32r*-*.
+
+2005-05-20  Bjoern Haase <bjoern.m.haase@web.de>
+	
+	* gcc.c-torture/execute/20020720-1.x: Add xfail for avr-*-*.
+
+2004-05-19  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/other/stdarg3.C: Only use -mlp64 for hpux.
+
+2005-05-19  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-21.c: Use dg-error only for ilp32.
+
+	* gcc.dg/vect/vect-dv-2.c: Remove dg-do directive.
+
 2005-05-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/21495

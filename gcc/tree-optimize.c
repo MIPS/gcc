@@ -896,7 +896,7 @@ ipa_modify_variable (struct cgraph_varpool_node *vnode)
 void
 ipa_passes (void)
 {
-   execute_pass_list (all_ipa_passes, EXECUTE_HOOK, NULL, NULL);
+  execute_pass_list (all_ipa_passes, EXECUTE_HOOK, NULL, NULL);
 }
 
 

@@ -1,3 +1,17 @@
+2005-05-22  Peter Wainwright  <prw@ceiriog1.demon.co.uk>
+
+	PR libfortran/21376
+	* io/write.c (output_float): Rework logic to avoid call to log10
+	with argument equal to zero.
+
+2005-05-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac: Check for trunc and truncf in libm.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* intrinsics/c99_functions.c (trunc, truncf): New functions.
+	* c99_protos.h (trunc, truncf): Declare them.
+
 2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/21127
