@@ -2160,7 +2160,7 @@ c_parser_direct_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
      which is resolved in the direction of treating it as a typedef
      name.  If a close parenthesis follows, it is also an empty
      parameter list, as the syntax does not permit empty abstract
-     declarators.  Otherwise, it is a parenthesised declarator (in
+     declarators.  Otherwise, it is a parenthesized declarator (in
      which case the analysis may be repeated inside it, recursively).
 
      ??? There is an ambiguity in a parameter declaration "int
@@ -2170,7 +2170,7 @@ c_parser_direct_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
      documenting.  At present we follow an accident of the old
      parser's implementation, whereby the first parameter must have
      some declaration specifiers other than just attributes.  Thus as
-     a parameter declaration it is treated as a parenthesised
+     a parameter declaration it is treated as a parenthesized
      parameter named x, and as an abstract declarator it is
      rejected.
 
@@ -4513,66 +4513,46 @@ c_parser_unary_expression (c_parser *parser)
 {
   int ext;
   struct c_expr ret;
-  ret.original_code = ERROR_MARK;
   switch (c_parser_peek_token (parser)->type)
     {
     case CPP_PLUS_PLUS:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (PREINCREMENT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (PREINCREMENT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_MINUS_MINUS:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (PREDECREMENT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (PREDECREMENT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_AND:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (ADDR_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (ADDR_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_MULT:
       c_parser_consume_token (parser);
       ret.value
 	= build_indirect_ref (c_parser_cast_expression (parser, NULL).value,
 			      "unary *");
+      ret.original_code = ERROR_MARK;
       return ret;
     case CPP_PLUS:
       c_parser_consume_token (parser);
-      if (!c_dialect_objc () && warn_traditional && !in_system_header)
-	warning (0, "traditional C rejects the unary plus operator");
-      ret.value
-	= build_unary_op (CONVERT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      if (!c_dialect_objc () && !in_system_header)
+	warning (OPT_Wtraditional,
+		 "traditional C rejects the unary plus operator");
+      return parser_build_unary_op (CONVERT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_MINUS:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (NEGATE_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (NEGATE_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_COMPL:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (BIT_NOT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (BIT_NOT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_NOT:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (TRUTH_NOT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (TRUTH_NOT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_AND_AND:
       /* Refer to the address of a label as a pointer.  */
       c_parser_consume_token (parser);
@@ -4581,14 +4561,14 @@ c_parser_unary_expression (c_parser *parser)
 	  ret.value = finish_label_address_expr
 	    (c_parser_peek_token (parser)->value);
 	  c_parser_consume_token (parser);
-	  return ret;
 	}
       else
 	{
 	  c_parser_error (parser, "expected identifier");
 	  ret.value = error_mark_node;
-	  return ret;
 	}
+	ret.original_code = ERROR_MARK;
+	return ret;
     case CPP_KEYWORD:
       switch (c_parser_peek_token (parser)->keyword)
 	{
@@ -4604,18 +4584,14 @@ c_parser_unary_expression (c_parser *parser)
 	  return ret;
 	case RID_REALPART:
 	  c_parser_consume_token (parser);
-	  ret.value
-	    = build_unary_op (REALPART_EXPR,
-			      c_parser_cast_expression (parser, NULL).value,
-			      0);
-	  return ret;
+	  return parser_build_unary_op (REALPART_EXPR,
+					c_parser_cast_expression (parser,
+								  NULL));
 	case RID_IMAGPART:
 	  c_parser_consume_token (parser);
-	  ret.value
-	    = build_unary_op (IMAGPART_EXPR,
-			      c_parser_cast_expression (parser, NULL).value,
-			      0);
-	  return ret;
+	  return parser_build_unary_op (IMAGPART_EXPR,
+					c_parser_cast_expression (parser,
+								  NULL));
 	default:
 	  return c_parser_postfix_expression (parser);
 	}
@@ -5367,7 +5343,7 @@ c_parser_expr_list (c_parser *parser)
 
    "@interface identifier (" must start "@interface identifier (
    identifier ) ...": objc-methodprotolist in the first production may
-   not start with a parenthesised identifier as a declarator of a data
+   not start with a parenthesized identifier as a declarator of a data
    definition with no declaration specifiers if the objc-superclass,
    objc-protocol-refs and objc-class-instance-variables are omitted.  */
 

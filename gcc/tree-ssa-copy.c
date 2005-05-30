@@ -360,9 +360,7 @@ stmt_may_generate_copy (tree stmt)
   /* If we are not doing store copy-prop, statements with loads and/or
      stores will never generate a useful copy.  */
   if (!do_store_copy_prop
-      && (NUM_VUSES (VUSE_OPS (ann)) > 0
-	  || NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0
-	  || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0))
+      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return false;
 
   /* Otherwise, the only statements that generate useful copies are
@@ -596,27 +594,18 @@ copy_prop_visit_cond_stmt (tree stmt, edge *taken_edge_p)
 {
   enum ssa_prop_result retval;
   tree cond;
-  use_optype uses;
 
   cond = COND_EXPR_COND (stmt);
-  uses = STMT_USE_OPS (stmt);
   retval = SSA_PROP_VARYING;
 
   /* The only conditionals that we may be able to compute statically
-     are predicates involving at least one SSA_NAME.  */
+     are predicates involving two SSA_NAMEs.  */
   if (COMPARISON_CLASS_P (cond)
-      && NUM_USES (uses) >= 1)
+      && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
+      && TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME)
     {
-      unsigned i;
-      tree *orig;
-
-      /* Save the original operands.  */
-      orig = xmalloc (sizeof (tree) * NUM_USES (uses));
-      for (i = 0; i < NUM_USES (uses); i++)
-	{
-	  orig[i] = USE_OP (uses, i);
-	  SET_USE_OP (uses, i, get_last_copy_of (USE_OP (uses, i)));
-	}
+      tree op0 = get_last_copy_of (TREE_OPERAND (cond, 0));
+      tree op1 = get_last_copy_of (TREE_OPERAND (cond, 1));
 
       /* See if we can determine the predicate's value.  */
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -626,21 +615,20 @@ copy_prop_visit_cond_stmt (tree stmt, edge *taken_edge_p)
 	  print_generic_stmt (dump_file, cond, 0);
 	}
 
-      /* We can fold COND only and get a useful result only when we
-	 have the same SSA_NAME on both sides of a comparison
-	 operator.  */
-      if (TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-	  && TREE_OPERAND (cond, 0) == TREE_OPERAND (cond, 1))
+      /* We can fold COND and get a useful result only when we have
+	 the same SSA_NAME on both sides of a comparison operator.  */
+      if (op0 == op1)
 	{
-	  *taken_edge_p = find_taken_edge (bb_for_stmt (stmt), fold (cond));
-	  if (*taken_edge_p)
-	    retval = SSA_PROP_INTERESTING;
+	  tree folded_cond = fold_binary (TREE_CODE (cond), boolean_type_node,
+					  op0, op1);
+	  if (folded_cond)
+	    {
+	      basic_block bb = bb_for_stmt (stmt);
+	      *taken_edge_p = find_taken_edge (bb, folded_cond);
+	      if (*taken_edge_p)
+		retval = SSA_PROP_INTERESTING;
+	    }
 	}
-
-      /* Restore the original operands.  */
-      for (i = 0; i < NUM_USES (uses); i++)
-	SET_USE_OP (uses, i, orig[i]);
-      free (orig);
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS) && *taken_edge_p)

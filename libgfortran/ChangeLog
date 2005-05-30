@@ -1,3 +1,323 @@
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20006
+	* io/format.c (parse_format_list): Set repeat count of $ format
+	node to 1.
+	* io/transfer.c (read_sf): Add g.seen_dollar to the test
+	concerning advancing I/O.
+	(data_transfer_init): Likewise.
+	(finalize_transfer): Likewise.
+	
+2005-05-27  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* runtime/in_pack_generic.c:  Adjust copyright years.
+	(in_pack_generic):  Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+	* runtime/in_unpack_generic.c:  Adjust copyright years.
+	(in_unpack_generic):  Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+
+2005-05-26  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/17283
+	* intrinsics/unpack_generic.c:  Fix name of routine
+	on top.  Update copyright years.
+	(unpack1):  Remove const from return array descriptor.
+	rs:  New variable, for calculating return sizes.
+	Populate return array descriptor if ret->data is NULL.
+
+2005-05-22  Peter Wainwright  <prw@ceiriog1.demon.co.uk>
+
+	PR libfortran/21376
+	* io/write.c (output_float): Rework logic to avoid call to log10
+	with argument equal to zero.
+
+2005-05-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac: Check for trunc and truncf in libm.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* intrinsics/c99_functions.c (trunc, truncf): New functions.
+	* c99_protos.h (trunc, truncf): Declare them.
+
+2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21127
+	* Makefile.am:  Really commit.
+	* Makefile.in:  Really commit.
+
+2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21127
+	* Makefile.am:  Add generated/reshape_c4.c and
+	generated/reshape_c8.c.
+	* Makefile.in:  Regenerated.
+	* m4/iparm.m4:  Define rtype_ccode to be c4 or c8 for
+	complex types, 4 or 8 otherwise.
+	* m4/reshape.m4:  Use rtype_ccode instead of rtype_kind
+	in function name.
+	* generated/reshape_c4.c: New file.
+	* generated/reshape_c8.c: New file.
+
+2005-05-16  Andreas Jaeger  <aj@suse.de>
+
+	* configure.ac: Add additional warning flags.
+	* configure: Regenerate.
+
+	* io/write.c (calculate_G_format): Remove unused parameter.
+	(output_float): Remove unused parameter.
+	(write_float): Change callers.
+	(nml_write_obj): Avoid signed warning.
+	Make variable const to support -Wwrite-strings.
+
+	* io/unix.c (fd_alloc, mmap_open, mmap_sfree, mem_sfree,
+	mem_truncate): Mark argument as unused.
+
+	* io/unit.c (get_unit): Mark argument as unused.
+	(init_units): Avoid warning about signed comparision.
+
+	* io/transfer.c (next_record_r): Remove unused parameter.
+	(next_record_w): Remove unused parameter.
+	(next_record): Change callers.
+	(iolength_transfer): Mark arguments as unused.
+
+	* io/open.c: Add initializer.
+
+	* io/list_read.c (read_character): Mark argument as unused.
+	(nml_match_name): Add const to make compile with -Wwrite-strings.
+
+	* io/format.c: Add initializer.
+
+2005-05-15  Andreas Jaeger  <aj@suse.de>
+
+	* m4/eoshift1.m4: Initialize variables to avoid warnings.
+	* m4/eoshift3.m4: Initialize variables to avoid warnings.
+	* generated/eoshift1_4.c, generated/eoshift1_8.c,
+	generated/eoshift3_4.c, generated/eoshift3_8.c: Regenerated.
+
+	* intrinsics/spread_generic.c (spread): Initialize variables to
+	avoid warnings.
+
+	* intrinsics/eoshift0.c (eoshift0): Initialize variables to avoid
+	warnings.
+	* intrinsics/eoshift2.c (eoshift2): Initialize variables to avoid
+	warnings.
+
+	* io/list_read.c (nml_get_obj_data): Initialize variables to avoid
+	warnings.
+
+	* intrinsics/pack_generic.c (pack): Remove unneeded calculation.
+
+	* m4/matmull.m4 (matmul_): Remove unneeded calculations, fix
+	pointer cast to avoid warning.
+	* generated/matmul_l4.c: Regenerated.
+	* generated/matmul_l8.c: Regenerated.
+
+	* Makefile.am: Remove AM_CFLAGS here.
+	* configure.ac: Define AM_CFLAGS and AM_FCFLAGS so that warnings
+	are set.  Set additionally -Wstrict-prototypes for CFLAGS.
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+	* intrinsics/system_clock.c (system_clock_4, system_clock_8): Add
+	missing returns, reformat a bit.
+
+	* io/write.c (nml_write_obj): Use %d again - and cast to int,
+	st_sprintf does not handle %ld.
+
+	* io/unit.c (is_internal_unit): Add void as parameter list.
+
+	* io/transfer.c: Move prototype declarations before the functions.
+
+	* runtime/normalize.c (almostone_r4, almostone_r8): Fix parameter
+	list.
+
+	* intrinsics/random.c (KISS_DEFAULT_SEED): Remove extra semicolon.
+
+	* io/transfer.c: Do not use empty initializers for global objects.
+	Add missing initializers.
+
+	* io/lock.c: Do not use empty initializers for global objects.
+
+	* io/close.c: Add missing initializers.
+
+	* runtime/environ.c: Add missing initializers. Do not use empty
+	initializers for global object.
+	(init_string): Mark argument as unused.
+
+	* runtime/main.c (cleanup): Fix parameter list.
+
+	* io/io.h: Fix parameter lists.
+
+	* m4/transpose.m4, m4/matmul.m4: Fix pointer cast to avoid
+	warning.
+
+	* generated/transpose_c4.c, generated/transpose_c8.c,
+	generated/transpose_i4.c, generated/transpose_i8.c,
+	generated/matmul_c4.c, generated/matmul_c8.c,
+	generated/matmul_i4.c, generated/matmul_i8.c,
+	generated/matmul_r4.c, generated/matmul_r8.c: Regenerated.
+
+	* io/write.c (nml_write_obj): Fix 64-bit problem.
+
+	* io/list_read.c (nml_get_obj_data): Add missing braces around
+	initializer to avoid warnings.
+
+	* intrinsics/etime.c (etime_sub): Remove unused variable.
+
+	* intrinsics/chdir.c, intrinsics/getlog.c, intrinsics/link.c,
+	intrinsics/symlnk.c, intrinsics/perror.c: Include <string.h> for
+	prototypes.
+
+	* runtime/string.c (compare0): Remove unused variable.
+	* io/unit.c (init_units): Remove unused variables.
+	* intrinsics/getcwd.c (getcwd_i4_sub): Remove unused variable.
+	* intrinsics/unlink.c (unlink_i4_sub): Remove unused variable.
+	* intrinsics/stat.c (stat_i4_sub, fstat_i8_sub, fstat_i4_sub,
+	stat_i8_sub): Remove unused variable.
+
+2005-05-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21324
+	* runtime/memory.c:  Don't define GFC_CLEAR_MEMORY (it's a
+	performance hog).
+	* io/open.c (new_unit): Zero freshly allocated memory for
+	unit structure.
+	* io/unit.c (init_units):  Zero freshly allocated memory for
+	STDIN, STDOUT and STDERR.
+	* io/unix.c (open_internal):  Zero freshly allocated memory
+	for unix_stream.
+	(fd_to_stream):  Likewise.
+
+2005-05-11  Bud Davis  <bdavis@gfortran.org>
+
+	PR fortran/19478
+	* io/unix.c (fd_truncate): update positions when ftruncate
+	fails (like writing to /dev/null).
+
+2005-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21471
+	* open.c (new_unit): Take care of the case where POSITION_APPEND
+	is specified (sseek to the end, and set u>-endfile).
+
+2005-05-10  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20178
+	* Makefile.am (gfor_specific_src): Add 'intrinsics/f2c_intrinsics.F90'
+	to dependencies.
+	* Makefile.in: Regenerate.
+	* intrinsics/f2c_specific.F90: New file.
+
+2005-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20788
+	* io/unix.c (fd_to_stream): Add an avoid_mmap argument indicating
+	we don't we to mmap this stream. Use fd_open instead of mmap_open
+	in that case.
+	(open_external): Call fd_to_stream with avoid_mmap = 0.
+	(input_stream): Call fd_to_stream with avoid_mmap = 1.
+	(output_stream): Likewise.
+	(error_stream): Likewise.
+
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-05-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19155
+	* io/read.c (read_f): Accept 'e', 'E', 'd' and 'D' as first
+	non-blank characters of a real number.
+
+2005-05-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21354
+	* m4/cshift1.m4: Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+	* m4/eoshift1.m4: Likewise.
+	* m4/eoshift3.m4: Likewise.
+	* m4/ifunction.m4: Likewise.
+	* m4/in_pack.m4: Likewise.
+	* m4/in_unpack.m4: Likewise.
+	* intrinsics/cshift0.c: Likewise.
+	* intrinsics/eoshift0.c: Likewise.
+	* intrinsics/eoshift2.c: Likewise.
+	* intrinsics/random.c: Likewise.
+	* intrinsics/spread_generic.c: Likewise.
+	* intrinsics/stat.c: Likewise.
+	* generated/all_l4.c: Regenerated.
+	* generated/all_l8.c: Regenerated.
+	* generated/any_l4.c: Regenerated.
+	* generated/any_l8.c: Regenerated.
+	* generated/count_4_l4.c: Regenerated.
+	* generated/count_4_l8.c: Regenerated.
+	* generated/count_8_l4.c: Regenerated.
+	* generated/count_8_l8.c: Regenerated.
+	* generated/cshift1_4.c: Regenerated.
+	* generated/cshift1_8.c: Regenerated.
+	* generated/eoshift1_4.c: Regenerated.
+	* generated/eoshift1_8.c: Regenerated.
+	* generated/eoshift3_4.c: Regenerated.
+	* generated/eoshift3_8.c: Regenerated.
+	* generated/in_pack_i4.c: Regenerated.
+	* generated/in_pack_i8.c: Regenerated.
+	* generated/in_unpack_i4.c: Regenerated.
+	* generated/in_unpack_i8.c: Regenerated.
+	* generated/maxloc0_4_i4.c: Regenerated.
+	* generated/maxloc0_4_i8.c: Regenerated.
+	* generated/maxloc0_4_r4.c: Regenerated.
+	* generated/maxloc0_4_r8.c: Regenerated.
+	* generated/maxloc0_8_i4.c: Regenerated.
+	* generated/maxloc0_8_i8.c: Regenerated.
+	* generated/maxloc0_8_r4.c: Regenerated.
+	* generated/maxloc0_8_r8.c: Regenerated.
+	* generated/maxloc1_4_i4.c: Regenerated.
+	* generated/maxloc1_4_i8.c: Regenerated.
+	* generated/maxloc1_4_r4.c: Regenerated.
+	* generated/maxloc1_4_r8.c: Regenerated.
+	* generated/maxloc1_8_i4.c: Regenerated.
+	* generated/maxloc1_8_i8.c: Regenerated.
+	* generated/maxloc1_8_r4.c: Regenerated.
+	* generated/maxloc1_8_r8.c: Regenerated.
+	* generated/maxval_i4.c: Regenerated.
+	* generated/maxval_i8.c: Regenerated.
+	* generated/maxval_r4.c: Regenerated.
+	* generated/maxval_r8.c: Regenerated.
+	* generated/minloc0_4_i4.c: Regenerated.
+	* generated/minloc0_4_i8.c: Regenerated.
+	* generated/minloc0_4_r4.c: Regenerated.
+	* generated/minloc0_4_r8.c: Regenerated.
+	* generated/minloc0_8_i4.c: Regenerated.
+	* generated/minloc0_8_i8.c: Regenerated.
+	* generated/minloc0_8_r4.c: Regenerated.
+	* generated/minloc0_8_r8.c: Regenerated.
+	* generated/minloc1_4_i4.c: Regenerated.
+	* generated/minloc1_4_i8.c: Regenerated.
+	* generated/minloc1_4_r4.c: Regenerated.
+	* generated/minloc1_4_r8.c: Regenerated.
+	* generated/minloc1_8_i4.c: Regenerated.
+	* generated/minloc1_8_i8.c: Regenerated.
+	* generated/minloc1_8_r4.c: Regenerated.
+	* generated/minloc1_8_r8.c: Regenerated.
+	* generated/minval_i4.c: Regenerated.
+	* generated/minval_i8.c: Regenerated.
+	* generated/minval_r4.c: Regenerated.
+	* generated/minval_r8.c: Regenerated.
+	* generated/product_c4.c: Regenerated.
+	* generated/product_c8.c: Regenerated.
+	* generated/product_i4.c: Regenerated.
+	* generated/product_i8.c: Regenerated.
+	* generated/product_r4.c: Regenerated.
+	* generated/product_r8.c: Regenerated.
+	* generated/sum_c4.c: Regenerated.
+	* generated/sum_c8.c: Regenerated.
+	* generated/sum_i4.c: Regenerated.
+	* generated/sum_i8.c: Regenerated.
+	* generated/sum_r4.c: Regenerated.
+	* generated/sum_r8.c: Regenerated.
+
 2005-04-30  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/18958
@@ -38,7 +358,7 @@
 	from WRITING to READING.
 
 2005-04-22  Paul Thomas  <pault@gcc.gnu.org>
-	    Jerry DeLisle  <jvdelisle@verizon.net> 
+	    Jerry DeLisle  <jvdelisle@verizon.net>
 
 	* io/write.c (nml_write_obj): Provide 1 more byte for ext_name.
 	* io/list_read.c (nml_get_obj_data): Put extra brackets in get_mem
@@ -214,7 +534,7 @@
 	environment variables we want to be positive.
 	(init_integer): Function to allow negative environment
 	variables (e.g. for GFORTRAN_STDIN_UNIT).
-	
+
 2005-04-10  Thomas Koenig <Thomas.Koenig@online.de>
 
 	PR libfortran/17992
@@ -325,7 +645,7 @@
 2005-04-09  Thomas Koenig <Thomas.Koenig@online.de>
 
 	PR libfortran/20163
-	* runtime/string.c (compare0): Use fstrlen() to 
+	* runtime/string.c (compare0): Use fstrlen() to
 	strip trailing blanks from option string.
 
 2005-04-09  Andrew Pinski  <pinskia@physics.uc.edu>

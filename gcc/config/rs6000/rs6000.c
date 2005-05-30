@@ -130,11 +130,6 @@ static GTY(()) bool rs6000_always_hint;
 /* Schedule instructions for group formation.  */
 static GTY(()) bool rs6000_sched_groups;
 
-/* Support adjust_priority scheduler hook
-   and -mprioritize-restricted-insns= option.  */
-const char *rs6000_sched_restricted_insns_priority_str;
-int rs6000_sched_restricted_insns_priority;
-
 /* Support for -msched-costly-dep option.  */
 const char *rs6000_sched_costly_dep_str;
 enum rs6000_dependence_cost rs6000_sched_costly_dep;
@@ -147,41 +142,19 @@ enum rs6000_nop_insertion rs6000_sched_insert_nops;
 static GTY(()) tree altivec_builtin_mask_for_load;
 
 /* Size of long double */
-const char *rs6000_long_double_size_string;
 int rs6000_long_double_type_size;
 
 /* Whether -mabi=altivec has appeared */
 int rs6000_altivec_abi;
 
-/* Whether VRSAVE instructions should be generated.  */
-int rs6000_altivec_vrsave;
-
-/* String from -mvrsave= option.  */
-const char *rs6000_altivec_vrsave_string;
-
 /* Nonzero if we want SPE ABI extensions.  */
 int rs6000_spe_abi;
-
-/* Whether isel instructions should be generated.  */
-int rs6000_isel;
-
-/* Whether SPE simd instructions should be generated.  */
-int rs6000_spe;
 
 /* Nonzero if floating point operations are done in the GPRs.  */
 int rs6000_float_gprs = 0;
 
 /* Nonzero if we want Darwin's struct-by-value-in-regs ABI.  */
 int rs6000_darwin64_abi;
-
-/* String from -mfloat-gprs=.  */
-const char *rs6000_float_gprs_string;
-
-/* String from -misel=.  */
-const char *rs6000_isel_string;
-
-/* String from -mspe=.  */
-const char *rs6000_spe_string;
 
 /* Set to nonzero once AIX common-mode calls have been defined.  */
 static GTY(()) int common_mode_defined;
@@ -216,9 +189,6 @@ const char *rs6000_tls_size_string;
 /* ABI enumeration available for subtarget to use.  */
 enum rs6000_abi rs6000_current_abi;
 
-/* ABI string from -mabi= option.  */
-const char *rs6000_abi_string;
-
 /* Whether to use variant of AIX ABI for PowerPC64 Linux.  */
 int dot_symbols;
 
@@ -235,9 +205,6 @@ bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
 tree rs6000_builtin_types[RS6000_BTI_MAX];
 tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
-int rs6000_warn_altivec_long = 1;		/* On by default. */
-const char *rs6000_warn_altivec_long_switch;
-
 const char *rs6000_traceback_name;
 static enum {
   traceback_default = 0,
@@ -253,18 +220,20 @@ char toc_label_name[10];
 /* Alias set for saves and restores from the rs6000 stack.  */
 static GTY(()) int rs6000_sr_alias_set;
 
-/* Call distance, overridden by -mlongcall and #pragma longcall(1).
-   The only place that looks at this is rs6000_set_default_type_attributes;
-   everywhere else should rely on the presence or absence of a longcall
-   attribute on the function declaration.  Exception: init_cumulative_args
-   looks at it too, for libcalls.  */
-int rs6000_default_long_calls;
-const char *rs6000_longcall_switch;
-
 /* Control alignment for fields within structures.  */
 /* String from -malign-XXXXX.  */
-const char *rs6000_alignment_string;
 int rs6000_alignment_flags;
+
+/* True for any options that were explicitly set.  */
+struct {
+  bool aix_struct_ret;		/* True if -maix-struct-ret was used.  */
+  bool alignment;		/* True if -malign- was used.  */
+  bool abi;			/* True if -mabi= was used.  */
+  bool spe;			/* True if -mspe= was used.  */
+  bool float_gprs;		/* True if -mfloat-gprs= was used.  */
+  bool isel;			/* True if -misel was used. */
+  bool long_double;	        /* True if -mlong-double- was used.  */
+} rs6000_explicit_options;
 
 struct builtin_description
 {
@@ -700,11 +669,9 @@ static rtx altivec_expand_predicate_builtin (enum insn_code,
 					     const char *, tree, rtx);
 static rtx altivec_expand_lv_builtin (enum insn_code, tree, rtx);
 static rtx altivec_expand_stv_builtin (enum insn_code, tree);
-static void rs6000_parse_abi_options (void);
-static void rs6000_parse_alignment_option (void);
+static bool rs6000_handle_option (size_t, const char *, int);
 static void rs6000_parse_tls_size_option (void);
 static void rs6000_parse_yes_no_option (const char *, const char *, int *);
-static void rs6000_parse_float_gprs_option (void);
 static int first_altivec_reg_to_save (void);
 static unsigned int compute_vrsave_mask (void);
 static void compute_save_world_info (rs6000_stack_t *info_ptr);
@@ -996,6 +963,13 @@ static const char alt_reg_names[][8] =
 #undef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
 #define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN invalid_arg_for_unprototyped_fn
 
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION rs6000_handle_option
+
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS \
+  (TARGET_DEFAULT | MASK_SCHED_PROLOG)
+
 /* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
    The PowerPC architecture requires only weak consistency among
    processors--that is, memory accesses between processors need not be
@@ -1145,7 +1119,8 @@ rs6000_override_options (const char *default_cpu)
 	 {"power4", PROCESSOR_POWER4,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
 	 {"power5", PROCESSOR_POWER5,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
+	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
+	  | MASK_MFCRF | MASK_POPCNTB},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -1275,24 +1250,14 @@ rs6000_override_options (const char *default_cpu)
 	       rs6000_traceback_name);
     }
 
-  /* Set size of long double */
-  rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
-  if (rs6000_long_double_size_string)
-    {
-      char *tail;
-      int size = strtol (rs6000_long_double_size_string, &tail, 10);
-      if (*tail != '\0' || (size != 64 && size != 128))
-	error ("Unknown switch -mlong-double-%s",
-	       rs6000_long_double_size_string);
-      else
-	rs6000_long_double_type_size = size;
-    }
+  if (!rs6000_explicit_options.long_double)
+    rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
 
   /* Set Altivec ABI as default for powerpc64 linux.  */
   if (TARGET_ELF && TARGET_64BIT)
     {
       rs6000_altivec_abi = 1;
-      rs6000_altivec_vrsave = 1;
+      TARGET_ALTIVEC_VRSAVE = 1;
     }
 
   /* Set the Darwin64 ABI as default for 64-bit Darwin.  */
@@ -1305,21 +1270,6 @@ rs6000_override_options (const char *default_cpu)
       /* Default to natural alignment, for better performance.  */
       rs6000_alignment_flags = MASK_ALIGN_NATURAL;
     }
-
-  /* Handle -mabi= options.  */
-  rs6000_parse_abi_options ();
-
-  /* Handle -malign-XXXXX option.  */
-  rs6000_parse_alignment_option ();
-
-  rs6000_parse_float_gprs_option ();
-
-  /* Handle generic -mFOO=YES/NO options.  */
-  rs6000_parse_yes_no_option ("vrsave", rs6000_altivec_vrsave_string,
-			      &rs6000_altivec_vrsave);
-  rs6000_parse_yes_no_option ("isel", rs6000_isel_string,
-			      &rs6000_isel);
-  rs6000_parse_yes_no_option ("spe", rs6000_spe_string, &rs6000_spe);
 
   /* Handle -mtls-size option.  */
   rs6000_parse_tls_size_option ();
@@ -1343,26 +1293,21 @@ rs6000_override_options (const char *default_cpu)
 	 MASK_STRING above when optimizing for size.  */
       if ((target_flags & MASK_STRING) != 0)
 	target_flags = target_flags & ~MASK_STRING;
-
-      /* No SPE means 64-bit long doubles, even if an E500.  */
-      if (rs6000_spe_string != 0
-	  && !strcmp (rs6000_spe_string, "no"))
-	rs6000_long_double_type_size = 64;
     }
   else if (rs6000_select[1].string != NULL)
     {
       /* For the powerpc-eabispe configuration, we set all these by
 	 default, so let's unset them if we manually set another
 	 CPU that is not the E500.  */
-      if (rs6000_abi_string == 0)
+      if (!rs6000_explicit_options.abi)
 	rs6000_spe_abi = 0;
-      if (rs6000_spe_string == 0)
+      if (!rs6000_explicit_options.spe)
 	rs6000_spe = 0;
-      if (rs6000_float_gprs_string == 0)
+      if (!rs6000_explicit_options.float_gprs)
 	rs6000_float_gprs = 0;
-      if (rs6000_isel_string == 0)
+      if (!rs6000_explicit_options.isel)
 	rs6000_isel = 0;
-      if (rs6000_long_double_size_string == 0)
+      if (!rs6000_explicit_options.long_double)
 	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
     }
 
@@ -1371,43 +1316,13 @@ rs6000_override_options (const char *default_cpu)
   rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
 			 || rs6000_cpu == PROCESSOR_POWER5);
 
-  /* Handle -m(no-)longcall option.  This is a bit of a cheap hack,
-     using TARGET_OPTIONS to handle a toggle switch, but we're out of
-     bits in target_flags so TARGET_SWITCHES cannot be used.
-     Assumption here is that rs6000_longcall_switch points into the
-     text of the complete option, rather than being a copy, so we can
-     scan back for the presence or absence of the no- modifier.  */
-  if (rs6000_longcall_switch)
-    {
-      const char *base = rs6000_longcall_switch;
-      while (base[-1] != 'm') base--;
-
-      if (*rs6000_longcall_switch != '\0')
-	error ("invalid option %qs", base);
-      rs6000_default_long_calls = (base[0] != 'n');
-    }
-
-  /* Handle -m(no-)warn-altivec-long similarly.  */
-  if (rs6000_warn_altivec_long_switch)
-    {
-      const char *base = rs6000_warn_altivec_long_switch;
-      while (base[-1] != 'm') base--;
-
-      if (*rs6000_warn_altivec_long_switch != '\0')
-	error ("invalid option %qs", base);
-      rs6000_warn_altivec_long = (base[0] != 'n');
-    }
-
-  /* Handle -mprioritize-restricted-insns option.  */
   rs6000_sched_restricted_insns_priority
     = (rs6000_sched_groups ? 1 : 0);
-  if (rs6000_sched_restricted_insns_priority_str)
-    rs6000_sched_restricted_insns_priority =
-      atoi (rs6000_sched_restricted_insns_priority_str);
 
   /* Handle -msched-costly-dep option.  */
   rs6000_sched_costly_dep
     = (rs6000_sched_groups ? store_to_load_dep_costly : no_dep_costly);
+
   if (rs6000_sched_costly_dep_str)
     {
       if (! strcmp (rs6000_sched_costly_dep_str, "no"))
@@ -1425,6 +1340,7 @@ rs6000_override_options (const char *default_cpu)
   /* Handle -minsert-sched-nops option.  */
   rs6000_sched_insert_nops
     = (rs6000_sched_groups ? sched_finish_regroup_exact : sched_finish_none);
+
   if (rs6000_sched_insert_nops_str)
     {
       if (! strcmp (rs6000_sched_insert_nops_str, "no"))
@@ -1444,16 +1360,11 @@ rs6000_override_options (const char *default_cpu)
     memcpy (rs6000_reg_names, alt_reg_names, sizeof (rs6000_reg_names));
 #endif
 
-  /* Set TARGET_AIX_STRUCT_RET last, after the ABI is determined.
+  /* Set aix_struct_return last, after the ABI is determined.
      If -maix-struct-return or -msvr4-struct-return was explicitly
      used, don't override with the ABI default.  */
-  if ((target_flags_explicit & MASK_AIX_STRUCT_RET) == 0)
-    {
-      if (DEFAULT_ABI == ABI_V4 && !DRAFT_V4_STRUCT_RET)
-	target_flags = (target_flags & ~MASK_AIX_STRUCT_RET);
-      else
-	target_flags |= MASK_AIX_STRUCT_RET;
-    }
+  if (!rs6000_explicit_options.aix_struct_ret)
+    aix_struct_return = (DEFAULT_ABI != ABI_V4 || DRAFT_V4_STRUCT_RET);
 
   if (TARGET_LONG_DOUBLE_128
       && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN))
@@ -1608,87 +1519,6 @@ rs6000_parse_yes_no_option (const char *name, const char *value, int *flag)
     error ("unknown -m%s= option specified: '%s'", name, value);
 }
 
-/* Handle -mabi= options.  */
-static void
-rs6000_parse_abi_options (void)
-{
-  if (rs6000_abi_string == 0)
-    return;
-  else if (! strcmp (rs6000_abi_string, "altivec"))
-    {
-      rs6000_altivec_abi = 1;
-      rs6000_spe_abi = 0;
-    }
-  else if (! strcmp (rs6000_abi_string, "no-altivec"))
-    rs6000_altivec_abi = 0;
-  else if (! strcmp (rs6000_abi_string, "spe"))
-    {
-      rs6000_spe_abi = 1;
-      rs6000_altivec_abi = 0;
-      if (!TARGET_SPE_ABI)
-	error ("not configured for ABI: '%s'", rs6000_abi_string);
-    }
-
-  /* These are here for testing during development only, do not
-     document in the manual please.  */
-  else if (! strcmp (rs6000_abi_string, "d64"))
-    {
-      rs6000_darwin64_abi = 1;
-      warning (0, "Using darwin64 ABI");
-    }
-  else if (! strcmp (rs6000_abi_string, "d32"))
-    {
-      rs6000_darwin64_abi = 0;
-      warning (0, "Using old darwin ABI");
-    }
-
-  else if (! strcmp (rs6000_abi_string, "no-spe"))
-    rs6000_spe_abi = 0;
-  else
-    error ("unknown ABI specified: '%s'", rs6000_abi_string);
-}
-
-/* Handle -mfloat-gprs= options.  */
-static void
-rs6000_parse_float_gprs_option (void)
-{
-  if (rs6000_float_gprs_string == 0)
-    return;
-  else if (! strcmp (rs6000_float_gprs_string, "yes")
-	   || ! strcmp (rs6000_float_gprs_string, "single"))
-    rs6000_float_gprs = 1;
-  else if (! strcmp (rs6000_float_gprs_string, "double"))
-    rs6000_float_gprs = 2;
-  else if (! strcmp (rs6000_float_gprs_string, "no"))
-    rs6000_float_gprs = 0;
-  else
-    error ("invalid option for -mfloat-gprs");
-}
-
-/* Handle -malign-XXXXXX options.  */
-static void
-rs6000_parse_alignment_option (void)
-{
-  if (rs6000_alignment_string == 0)
-    return;
-  else if (! strcmp (rs6000_alignment_string, "power"))
-    {
-      /* On 64-bit Darwin, power alignment is ABI-incompatible with
-	 some C library functions, so warn about it. The flag may be
-	 useful for performance studies from time to time though, so
-	 don't disable it entirely.  */
-      if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
-	warning (0, "-malign-power is not supported for 64-bit Darwin;"
-		 " it is incompatible with the installed C and C++ libraries");
-      rs6000_alignment_flags = MASK_ALIGN_POWER;
-    }
-  else if (! strcmp (rs6000_alignment_string, "natural"))
-    rs6000_alignment_flags = MASK_ALIGN_NATURAL;
-  else
-    error ("unknown -malign-XXXXX option specified: '%s'",
-	   rs6000_alignment_string);
-}
-
 /* Validate and record the size specified with the -mtls-size option.  */
 
 static void
@@ -1709,6 +1539,273 @@ rs6000_parse_tls_size_option (void)
 void
 optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 {
+}
+
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+rs6000_handle_option (size_t code, const char *arg, int value)
+{
+  switch (code)
+    {
+    case OPT_mno_power:
+      target_flags &= ~(MASK_POWER | MASK_POWER2
+			| MASK_MULTIPLE | MASK_STRING);
+      target_flags_explicit |= (MASK_POWER | MASK_POWER2
+				| MASK_MULTIPLE | MASK_STRING);
+      break;
+    case OPT_mno_powerpc:
+      target_flags &= ~(MASK_POWERPC | MASK_PPC_GPOPT
+			| MASK_PPC_GFXOPT | MASK_POWERPC64);
+      target_flags_explicit |= (MASK_POWERPC | MASK_PPC_GPOPT
+				| MASK_PPC_GFXOPT | MASK_POWERPC64);
+      break;
+    case OPT_mfull_toc:
+      target_flags &= ~(MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
+			| MASK_NO_SUM_IN_TOC);
+      target_flags_explicit |= (MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
+				| MASK_NO_SUM_IN_TOC);
+#ifdef TARGET_USES_SYSV4_OPT
+      /* Note, V.4 no longer uses a normal TOC, so make -mfull-toc, be
+	 just the same as -mminimal-toc.  */
+      target_flags |= MASK_MINIMAL_TOC;
+      target_flags_explicit |= MASK_MINIMAL_TOC;
+#endif
+      break;
+
+#ifdef TARGET_USES_SYSV4_OPT
+    case OPT_mtoc:
+      /* Make -mtoc behave like -mminimal-toc.  */
+      target_flags |= MASK_MINIMAL_TOC;
+      target_flags_explicit |= MASK_MINIMAL_TOC;
+      break;
+#endif
+
+#ifdef TARGET_USES_AIX64_OPT
+    case OPT_maix64:
+#else
+    case OPT_m64:
+#endif
+      target_flags |= MASK_POWERPC64 | MASK_POWERPC | MASK_PPC_GFXOPT;
+      target_flags_explicit |= MASK_POWERPC64 | MASK_POWERPC
+	| MASK_PPC_GFXOPT;
+      break;
+
+#ifdef TARGET_USES_AIX64_OPT
+    case OPT_maix32:
+#else
+    case OPT_m32:
+#endif
+      target_flags &= ~MASK_POWERPC64;
+      target_flags_explicit |= MASK_POWERPC64;
+      break;
+
+    case OPT_minsert_sched_nops_:
+      rs6000_sched_insert_nops_str = arg;
+      break;
+
+    case OPT_mminimal_toc:
+      if (value == 1)
+	{
+	  target_flags &= ~(MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
+	  target_flags_explicit |= (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
+	}
+      break;
+
+    case OPT_mpower:
+      if (value == 1)
+	{
+	  target_flags |= (MASK_MULTIPLE | MASK_STRING);
+	  target_flags_explicit |= (MASK_MULTIPLE | MASK_STRING);
+	}
+      break;
+
+    case OPT_mpower2:
+      if (value == 1)
+	{
+	  target_flags |= (MASK_POWER | MASK_MULTIPLE | MASK_STRING);
+	  target_flags_explicit |= (MASK_POWER | MASK_MULTIPLE | MASK_STRING);
+	}
+      break;
+
+    case OPT_mpowerpc_gpopt:
+    case OPT_mpowerpc_gfxopt:
+      if (value == 1)
+	{
+	  target_flags |= MASK_POWERPC;
+	  target_flags_explicit |= MASK_POWERPC;
+	}
+      break;
+
+    case OPT_maix_struct_return:
+    case OPT_msvr4_struct_return:
+      rs6000_explicit_options.aix_struct_ret = true;
+      break;
+
+    case OPT_mvrsave_:
+      rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));
+      break;
+
+    case OPT_misel_:
+      rs6000_explicit_options.isel = true;
+      rs6000_parse_yes_no_option ("isel", arg, &(rs6000_isel));
+      break;
+
+    case OPT_mspe_:
+      rs6000_explicit_options.spe = true;
+      rs6000_parse_yes_no_option ("spe", arg, &(rs6000_spe));
+      /* No SPE means 64-bit long doubles, even if an E500.  */
+      if (!rs6000_spe)
+	rs6000_long_double_type_size = 64;
+      break;
+
+    case OPT_mdebug_:
+      rs6000_debug_name = arg;
+      break;
+
+#ifdef TARGET_USES_SYSV4_OPT
+    case OPT_mcall_:
+      rs6000_abi_name = arg;
+      break;
+
+    case OPT_msdata_:
+      rs6000_sdata_name = arg;
+      break;
+
+    case OPT_mtls_size_:
+      rs6000_tls_size_string = arg;
+      break;
+
+    case OPT_mrelocatable:
+      if (value == 1)
+	{
+	  target_flags |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
+	  target_flags_explicit |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
+	}
+      break;
+
+    case OPT_mrelocatable_lib:
+      if (value == 1)
+	{
+	  target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
+	    | MASK_NO_FP_IN_TOC;
+	  target_flags_explicit |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
+	    | MASK_NO_FP_IN_TOC;
+	}
+      else
+	{
+	  target_flags &= ~MASK_RELOCATABLE;
+	  target_flags_explicit |= MASK_RELOCATABLE;
+	}
+      break;
+#endif
+
+    case OPT_mabi_:
+      rs6000_explicit_options.abi = true;
+      if (!strcmp (arg, "altivec"))
+	{
+	  rs6000_altivec_abi = 1;
+	  rs6000_spe_abi = 0;
+	}
+      else if (! strcmp (arg, "no-altivec"))
+	rs6000_altivec_abi = 0;
+      else if (! strcmp (arg, "spe"))
+	{
+	  rs6000_spe_abi = 1;
+	  rs6000_altivec_abi = 0;
+	  if (!TARGET_SPE_ABI)
+	    error ("not configured for ABI: '%s'", arg);
+	}
+      else if (! strcmp (arg, "no-spe"))
+	rs6000_spe_abi = 0;
+
+      /* These are here for testing during development only, do not
+	 document in the manual please.  */
+      else if (! strcmp (arg, "d64"))
+	{
+	  rs6000_darwin64_abi = 1;
+	  warning (0, "Using darwin64 ABI");
+	}
+      else if (! strcmp (arg, "d32"))
+	{
+	  rs6000_darwin64_abi = 0;
+	  warning (0, "Using old darwin ABI");
+	}
+
+      else
+	{
+	  error ("unknown ABI specified: '%s'", arg);
+	  return false;
+	}
+      break;
+
+    case OPT_mcpu_:
+      rs6000_select[1].string = arg;
+      break;
+
+    case OPT_mtune_:
+      rs6000_select[2].string = arg;
+      break;
+
+    case OPT_mtraceback_:
+      rs6000_traceback_name = arg;
+      break;
+
+    case OPT_mfloat_gprs_:
+      rs6000_explicit_options.float_gprs = true;
+      if (! strcmp (arg, "yes") || ! strcmp (arg, "single"))
+	rs6000_float_gprs = 1;
+      else if (! strcmp (arg, "double"))
+	rs6000_float_gprs = 2;
+      else if (! strcmp (arg, "no"))
+	rs6000_float_gprs = 0;
+      else
+	{
+	  error ("invalid option for -mfloat-gprs: '%s'", arg);
+	  return false;
+	}
+      break;
+
+    case OPT_mlong_double_:
+      rs6000_explicit_options.long_double = true;
+      rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+      if (value != 64 && value != 128)
+	{
+	  error ("Unknown switch -mlong-double-%s", arg);
+	  rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+	  return false;
+	}
+      else
+	rs6000_long_double_type_size = value;
+      break;
+
+    case OPT_msched_costly_dep_:
+      rs6000_sched_costly_dep_str = arg;
+      break;
+
+    case OPT_malign_:
+      rs6000_explicit_options.alignment = true;
+      if (! strcmp (arg, "power"))
+	{
+	  /* On 64-bit Darwin, power alignment is ABI-incompatible with
+	     some C library functions, so warn about it. The flag may be
+	     useful for performance studies from time to time though, so
+	     don't disable it entirely.  */
+	  if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
+	    warning (0, "-malign-power is not supported for 64-bit Darwin;"
+		     " it is incompatible with the installed C and C++ libraries");
+	  rs6000_alignment_flags = MASK_ALIGN_POWER;
+	}
+      else if (! strcmp (arg, "natural"))
+	rs6000_alignment_flags = MASK_ALIGN_NATURAL;
+      else
+	{
+	  error ("unknown -malign-XXXXX option specified: '%s'", arg);
+	  return false;
+	}
+      break;
+    }
+  return true;
 }
 
 /* Do anything needed at the start of the asm file.  */
@@ -3507,11 +3604,29 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   /* Recognize the case where operand[1] is a reference to thread-local
      data and load its address to a register.  */
-  if (GET_CODE (operands[1]) == SYMBOL_REF)
+  if (rs6000_tls_referenced_p (operands[1]))
     {
-      enum tls_model model = SYMBOL_REF_TLS_MODEL (operands[1]);
-      if (model != 0)
-	operands[1] = rs6000_legitimize_tls_address (operands[1], model);
+      enum tls_model model;
+      rtx tmp = operands[1];
+      rtx addend = NULL;
+
+      if (GET_CODE (tmp) == CONST && GET_CODE (XEXP (tmp, 0)) == PLUS)
+	{
+          addend = XEXP (XEXP (tmp, 0), 1);
+	  tmp = XEXP (XEXP (tmp, 0), 0);
+	}
+
+      gcc_assert (GET_CODE (tmp) == SYMBOL_REF);
+      model = SYMBOL_REF_TLS_MODEL (tmp);
+      gcc_assert (model != 0);
+
+      tmp = rs6000_legitimize_tls_address (tmp, model);
+      if (addend)
+	{
+	  tmp = gen_rtx_PLUS (mode, tmp, addend);
+	  tmp = force_operand (tmp, operands[0]);
+	}
+      operands[1] = tmp;
     }
 
   /* Handle the case where reload calls us with an invalid address.  */
@@ -3789,7 +3904,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
    returned in memory.  The Darwin ABI does the same.  The SVR4 ABI
    specifies that structures <= 8 bytes are returned in r3/r4, but a
    draft put them in memory, and GCC used to implement the draft
-   instead of the final standard.  Therefore, TARGET_AIX_STRUCT_RET
+   instead of the final standard.  Therefore, aix_struct_return
    controls this instead of DEFAULT_ABI; V.4 targets needing backward
    compatibility can change DRAFT_V4_STRUCT_RET to override the
    default, and -m switches get the final word.  See
@@ -3825,7 +3940,7 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
     }
 
   if (AGGREGATE_TYPE_P (type)
-      && (TARGET_AIX_STRUCT_RET
+      && (aix_struct_return
 	  || (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8))
     return true;
 
@@ -7069,7 +7184,7 @@ spe_expand_predicate_builtin (enum insn_code icode, tree arglist, rtx target)
     case 0:
       /* We need to get to the OV bit, which is the ORDERED bit.  We
 	 could generate (ordered:SI (reg:CC xx) (const_int 0)), but
-	 that's ugly and will trigger a validate_condition_mode abort.
+	 that's ugly and will make validate_condition_mode die.
 	 So let's just use another pattern.  */
       emit_insn (gen_move_from_CR_ov_bit (target, scratch));
       return target;
@@ -11729,7 +11844,7 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
 
       /* Because the Darwin register save/restore routines only handle
 	 F14 .. F31 and V20 .. V31 as per the ABI, perform a consistency
-	 check and abort if there's something worng.  */
+	 check.  */
       gcc_assert (info_ptr->first_fp_reg_save >= FIRST_SAVED_FP_REGNO
 		  && (info_ptr->first_altivec_reg_save
 		      >= FIRST_SAVED_ALTIVEC_REGNO));
@@ -13137,7 +13252,7 @@ rs6000_emit_prologue (void)
 
       /* The SAVE_WORLD and RESTORE_WORLD routines make a number of
 	 assumptions about the offsets of various bits of the stack
-	 frame.  Abort if things aren't what they should be.  */
+	 frame.  */
       gcc_assert (info->gp_save_offset == -220
 		  && info->fp_save_offset == -144
 		  && info->lr_save_offset == 8
@@ -13282,7 +13397,7 @@ rs6000_emit_prologue (void)
      epilogue.  */
 
   if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && !WORLD_SAVE_P (info) && info->vrsave_mask != 0)
+      && info->vrsave_mask != 0)
     {
       rtx reg, mem, vrsave;
       int offset;
@@ -13297,13 +13412,16 @@ rs6000_emit_prologue (void)
       else
 	emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
 
-      /* Save VRSAVE.  */
-      offset = info->vrsave_save_offset + sp_offset;
-      mem
-	= gen_rtx_MEM (SImode,
-		       gen_rtx_PLUS (Pmode, frame_reg_rtx, GEN_INT (offset)));
-      set_mem_alias_set (mem, rs6000_sr_alias_set);
-      insn = emit_move_insn (mem, reg);
+      if (!WORLD_SAVE_P (info))
+	{
+          /* Save VRSAVE.  */
+          offset = info->vrsave_save_offset + sp_offset;
+          mem
+	    = gen_rtx_MEM (SImode,
+		           gen_rtx_PLUS (Pmode, frame_reg_rtx, GEN_INT (offset)));
+          set_mem_alias_set (mem, rs6000_sr_alias_set);
+          insn = emit_move_insn (mem, reg);
+	}
 
       /* Include the registers in the mask.  */
       emit_insn (gen_iorsi3 (reg, reg, GEN_INT ((int) info->vrsave_mask)));
@@ -14553,7 +14671,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 #endif
 
   /* gen_sibcall expects reload to convert scratch pseudo to LR so we must
-     generate sibcall RTL explicitly to avoid constraint abort.  */
+     generate sibcall RTL explicitly.  */
   insn = emit_call_insn (
 	   gen_rtx_PARALLEL (VOIDmode,
 	     gen_rtvec (4,
@@ -15168,6 +15286,10 @@ rs6000_gen_section_name (char **buf, const char *filename,
 void
 output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 {
+  /* Non-standard profiling for kernels, which just saves LR then calls
+     _mcount without worrying about arg saves.  The idea is to change
+     the function prologue as little as possible as it isn't easy to
+     account for arg save/restore code added just for _mcount.  */
   if (TARGET_PROFILE_KERNEL)
     return;
 
@@ -16009,7 +16131,7 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
    between the insns.
 
    The function estimates the group boundaries that the processor will form as
-   folllows:  It keeps track of how many vacant issue slots are available after
+   follows:  It keeps track of how many vacant issue slots are available after
    each insn.  A subsequent insn will start a new group if one of the following
    4 cases applies:
    - no more vacant issue slots remain in the current dispatch group.
@@ -16416,7 +16538,7 @@ rs6000_handle_longcall_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }

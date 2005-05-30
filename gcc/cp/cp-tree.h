@@ -59,6 +59,7 @@ struct diagnostic_context;
       ICS_ELLIPSIS_FLAG (in _CONV)
       DECL_INITIALIZED_P (in VAR_DECL)
       TYPENAME_IS_CLASS_P (in TYPENAME_TYPE)
+      STMT_IS_FULL_EXPR_P (in _STMT)
    2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -258,6 +259,11 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
   TREE_LANG_FLAG_0 (STATEMENT_LIST_CHECK (NODE))
 #define STATEMENT_LIST_TRY_BLOCK(NODE) \
   TREE_LANG_FLAG_2 (STATEMENT_LIST_CHECK (NODE))
+
+/* Nonzero if this statement should be considered a full-expression,
+   i.e., if temporaries created during this statement should have
+   their destructors run at the end of this statement.  */
+#define STMT_IS_FULL_EXPR_P(NODE) TREE_LANG_FLAG_1 ((NODE))
 
 /* Marks the result of a statement expression.  */
 #define EXPR_STMT_STMT_EXPR_RESULT(NODE) \
@@ -750,7 +756,7 @@ struct language_function GTY(())
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
   struct cp_binding_level *bindings;
-  varray_type x_local_names;
+  VEC(tree,gc) *x_local_names;
 };
 
 /* The current C++-specific per-function global variables.  */
@@ -843,12 +849,11 @@ enum cplus_tree_code {
 };
 #undef DEFTREECODE
 
-#define cp_stmt_codes					\
-   CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,	\
-   EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN,	\
-   IF_STMT,		CLEANUP_STMT,	FOR_STMT,	\
-   WHILE_STMT,		DO_STMT,	BREAK_STMT,	\
-   CONTINUE_STMT,	SWITCH_STMT,	EXPR_STMT
+/* TRUE if a tree code represents a statement.  */
+extern bool statement_code_p[MAX_TREE_CODES];
+
+#define STATEMENT_CODE_P(CODE) statement_code_p[(int) (CODE)]
+
 enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Macros to make error reporting functions' lives easier.  */
@@ -3924,6 +3929,7 @@ extern void synthesize_method (tree);
 extern tree implicitly_declare_fn (special_function_kind, tree, bool);
 extern tree lazily_declare_fn (special_function_kind, tree);
 extern tree skip_artificial_parms_for (tree, tree);
+extern tree make_alias_for (tree, tree);
 
 /* In optimize.c */
 extern bool maybe_clone_body (tree);
@@ -4063,7 +4069,9 @@ extern tree get_deferred_access_checks		(void);
 extern void pop_to_parent_deferring_access_checks	(void);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
+extern int stmts_are_full_exprs_p		(void);
 extern void init_cp_semantics                   (void);
+extern tree do_poplevel				(tree);
 extern void add_decl_expr			(tree);
 extern tree finish_expr_stmt                    (tree);
 extern tree begin_if_stmt                       (void);
@@ -4329,6 +4337,16 @@ extern tree mangle_ref_init_variable            (tree);
 
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
+
+/* In cp/cp-objcp-common.c.  */
+
+extern HOST_WIDE_INT cxx_get_alias_set (tree);
+extern bool cxx_warn_unused_global_decl (tree);
+extern tree cp_expr_size (tree);
+extern size_t cp_tree_size (enum tree_code);
+extern bool cp_var_mod_type_p (tree, tree);
+extern void cxx_initialize_diagnostics (struct diagnostic_context *);
+extern int cxx_types_compatible_p (tree, tree);
 
 /* in cp-gimplify.c */
 extern int cp_gimplify_expr		        (tree *, tree *, tree *);

@@ -115,10 +115,6 @@ GLIBCXX_HOSTED_TRUE = @GLIBCXX_HOSTED_TRUE@
 GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
 GLIBCXX_TEST_ABI_FALSE = @GLIBCXX_TEST_ABI_FALSE@
 GLIBCXX_TEST_ABI_TRUE = @GLIBCXX_TEST_ABI_TRUE@
-GLIBCXX_TEST_THREAD_FALSE = @GLIBCXX_TEST_THREAD_FALSE@
-GLIBCXX_TEST_THREAD_TRUE = @GLIBCXX_TEST_THREAD_TRUE@
-GLIBCXX_TEST_WCHAR_T_FALSE = @GLIBCXX_TEST_WCHAR_T_FALSE@
-GLIBCXX_TEST_WCHAR_T_TRUE = @GLIBCXX_TEST_WCHAR_T_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -542,6 +538,7 @@ debug_headers = \
 	${debug_srcdir}/debug.h \
 	${debug_srcdir}/deque \
 	${debug_srcdir}/formatter.h \
+	${debug_srcdir}/functions.h \
 	${debug_srcdir}/hash_map \
 	${debug_srcdir}/hash_map.h \
 	${debug_srcdir}/hash_multimap.h \
@@ -550,6 +547,7 @@ debug_headers = \
 	${debug_srcdir}/hash_set.h \
 	${debug_srcdir}/list \
 	${debug_srcdir}/map \
+	${debug_srcdir}/macros.h \
 	${debug_srcdir}/map.h \
 	${debug_srcdir}/multimap.h \
 	${debug_srcdir}/multiset.h \

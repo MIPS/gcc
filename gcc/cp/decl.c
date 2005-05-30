@@ -419,19 +419,17 @@ objc_mark_locals_volatile (void *enclosing_blk)
   struct cp_binding_level *scope;
 
   for (scope = current_binding_level;
-       scope && scope != enclosing_blk && scope->kind == sk_block;
+       scope && scope != enclosing_blk;
        scope = scope->level_chain)
     {
       tree decl;
 
       for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
-        {
-	  if (TREE_CODE (decl) == VAR_DECL)
-	    {
-              DECL_REGISTER (decl) = 0;
-              TREE_THIS_VOLATILE (decl) = 1;
-	    }
-        }
+	objc_volatilize_decl (decl);
+
+      /* Do not climb up past the current function.  */
+      if (scope->kind == sk_function_parms)
+	break;
     }
 }
 
@@ -786,9 +784,9 @@ int
 wrapup_globals_for_namespace (tree namespace, void* data)
 {
   struct cp_binding_level *level = NAMESPACE_LEVEL (namespace);
-  varray_type statics = level->static_decls;
-  tree *vec = &VARRAY_TREE (statics, 0);
-  int len = VARRAY_ACTIVE_SIZE (statics);
+  VEC(tree,gc) *statics = level->static_decls;
+  tree *vec = VEC_address (tree, statics);
+  int len = VEC_length (tree, statics);
   int last_time = (data != 0);
 
   if (last_time)
@@ -832,15 +830,13 @@ push_local_name (tree decl)
   tree t, name;
 
   timevar_push (TV_NAME_LOOKUP);
-  if (!local_names)
-    VARRAY_TREE_INIT (local_names, 8, "local_names");
 
   name = DECL_NAME (decl);
 
-  nelts = VARRAY_ACTIVE_SIZE (local_names);
+  nelts = VEC_length (tree, local_names);
   for (i = 0; i < nelts; i++)
     {
-      t = VARRAY_TREE (local_names, i);
+      t = VEC_index (tree, local_names, i);
       if (DECL_NAME (t) == name)
 	{
 	  if (!DECL_LANG_SPECIFIC (decl))
@@ -851,13 +847,13 @@ push_local_name (tree decl)
 	  else
 	    DECL_DISCRIMINATOR (decl) = 1;
 
-	  VARRAY_TREE (local_names, i) = decl;
+	  VEC_replace (tree, local_names, i, decl);
 	  timevar_pop (TV_NAME_LOOKUP);
 	  return;
 	}
     }
 
-  VARRAY_PUSH_TREE (local_names, decl);
+  VEC_safe_push (tree, gc, local_names, decl);
   timevar_pop (TV_NAME_LOOKUP);
 }
 
@@ -1055,17 +1051,18 @@ duplicate_decls (tree newdecl, tree olddecl)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (0, "%Jfunction %qD redeclared as inline", newdecl, newdecl);
-	  warning (0, "%Jprevious declaration of %qD with attribute noinline",
-                   olddecl, olddecl);
+	  warning (OPT_Wattributes, "%Jfunction %qD redeclared as inline",
+		   newdecl, newdecl);
+	  warning (OPT_Wattributes, "%Jprevious declaration of %qD "
+		   "with attribute noinline", olddecl, olddecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (0, "%Jfunction %qD redeclared with attribute noinline",
-		   newdecl, newdecl);
-	  warning (0, "%Jprevious declaration of %qD was inline",
+	  warning (OPT_Wattributes, "%Jfunction %qD redeclared with "
+		   "attribute noinline", newdecl, newdecl);
+	  warning (OPT_Wattributes, "%Jprevious declaration of %qD was inline",
 		   olddecl, olddecl);
 	}
     }
@@ -1806,9 +1803,10 @@ duplicate_decls (tree newdecl, tree olddecl)
       && DECL_VISIBILITY_SPECIFIED (newdecl)
       && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
-      warning (0, "%J%qD: visibility attribute ignored because it",
-	       newdecl, newdecl);
-      warning (0, "%Jconflicts with previous declaration here", olddecl);
+      warning (OPT_Wattributes, "%J%qD: visibility attribute ignored "
+	       "because it", newdecl, newdecl);
+      warning (OPT_Wattributes, "%Jconflicts with previous "
+	       "declaration here", olddecl);
     }
   /* Choose the declaration which specified visibility.  */
   if (DECL_VISIBILITY_SPECIFIED (olddecl))
@@ -3223,7 +3221,6 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
   DECL_EXTERNAL (fn) = 1;
   TREE_PUBLIC (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
-  TREE_NOTHROW (fn) = 1;
   SET_OVERLOADED_OPERATOR_CODE (fn, operator_code);
   SET_DECL_LANGUAGE (fn, lang_c);
   /* Runtime library routines are, by definition, available in an
@@ -3240,7 +3237,9 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
 tree
 build_library_fn (tree name, tree type)
 {
-  return build_library_fn_1 (name, ERROR_MARK, type);
+  tree fn = build_library_fn_1 (name, ERROR_MARK, type);
+  TREE_NOTHROW (fn) = 1;
+  return fn;
 }
 
 /* Returns the _DECL for a library function with C++ linkage.  */
@@ -3939,6 +3938,8 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 
       if (failure == 3)
 	error ("zero-size array %qD", decl);
+
+      cp_apply_type_quals_to_decl (cp_type_quals (TREE_TYPE (decl)), decl);
 
       layout_decl (decl, 0);
     }
@@ -6988,30 +6989,7 @@ grokdeclarator (const cp_declarator *declarator,
       else
 	{
 	  if (decl_context == FIELD)
-	    {
-	      tree tmp = NULL_TREE;
-	      int op = 0;
-
-	      if (declarator)
-		{
-		  /* Avoid trying to get an operand off an identifier node.  */
-		  if (declarator->kind != cdk_id)
-		    tmp = declarator->declarator->u.id.unqualified_name;
-		  else
-		    tmp = declarator->u.id.unqualified_name;
-		  op = IDENTIFIER_OPNAME_P (tmp);
-		  if (IDENTIFIER_TYPENAME_P (tmp))
-		    {
-		      if (is_typename_at_global_scope (tmp))
-			name = IDENTIFIER_POINTER (tmp);
-		      else
-			name = "<invalid operator>";
-		    }
-		}
-	      error ("storage class specified for %s %qs",
-		     op ? "member operator" : "field",
-		     name);
-	    }
+	    error ("storage class specified for %qs", name);
 	  else
 	    {
 	      if (decl_context == PARM || decl_context == CATCHPARM)
@@ -8608,7 +8586,7 @@ ambi_op_p (enum tree_code code)
 {
   return (code == INDIRECT_REF
 	  || code == ADDR_EXPR
-	  || code == CONVERT_EXPR
+	  || code == UNARY_PLUS_EXPR
 	  || code == NEGATE_EXPR
 	  || code == PREINCREMENT_EXPR
 	  || code == PREDECREMENT_EXPR);
@@ -8828,7 +8806,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 		  operator_code = BIT_AND_EXPR;
 		  break;
 
-		case CONVERT_EXPR:
+		case UNARY_PLUS_EXPR:
 		  operator_code = PLUS_EXPR;
 		  break;
 

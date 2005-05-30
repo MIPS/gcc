@@ -78,7 +78,9 @@ static void free_edge (edge);
 void
 init_flow (void)
 {
-
+  if (!cfun->cfg)
+    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
+  n_edges = 0;
   ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
   EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
@@ -471,14 +473,14 @@ check_bb_profile (basic_block bb, FILE * file)
 void
 dump_flow_info (FILE *file)
 {
-  int i;
   basic_block bb;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
   if (reg_n_info && !reload_completed)
     {
-      fprintf (file, "%d registers.\n", max_regno);
-      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+      unsigned int i, max = max_reg_num ();
+      fprintf (file, "%d registers.\n", max);
+      for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
 	if (REG_N_REFS (i))
 	  {
 	    enum reg_class class, altclass;

@@ -191,8 +191,6 @@ enum cmodel {
   CM_EMBMEDANY
 };
 
-/* Value of -mcmodel specified by user.  */
-extern const char *sparc_cmodel_string;
 /* One of CM_FOO.  */
 extern enum cmodel sparc_cmodel;
 
@@ -906,9 +904,6 @@ extern int sparc_mode_class[];
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
 
-/* SPARC pc isn't overloaded on a register that the compiler knows about.  */
-/* #define PC_REGNUM  */
-
 /* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM 14
 
@@ -1375,15 +1370,11 @@ extern char leaf_reg_remap[];
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
    of the first local allocated.  */
-/* This allows space for one TFmode floating point value.  */
+/* This allows space for one TFmode floating point value, which is used
+   by SECONDARY_MEMORY_NEEDED_RTX.  */
 #define STARTING_FRAME_OFFSET \
   (TARGET_ARCH64 ? -16 \
    : (-SPARC_STACK_ALIGN (LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT)))
-
-/* If we generate an insn to push BYTES bytes,
-   this says how many the stack pointer really advances by.
-   On SPARC, don't define this because there are no push insns.  */
-/*  #define PUSH_ROUNDING(BYTES) */
 
 /* Offset of first parameter from the argument pointer register value.
    !v9: This is 64 for the ins and locals, plus 4 for the struct-return reg
@@ -2364,6 +2355,9 @@ extern int sparc_indent_opcode;
 #define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
   sparc_output_dwarf_dtprel (FILE, SIZE, X)
 #endif
+
+#define SPARC_SYMBOL_REF_TLS_P(RTX) \
+  (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '#' || (CHAR) == '*' || (CHAR) == '('		\

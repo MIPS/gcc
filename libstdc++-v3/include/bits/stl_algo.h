@@ -1,6 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -413,9 +413,8 @@ namespace std
     {
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-      __glibcxx_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIterator>::value_type >)
-      __glibcxx_function_requires(_EqualityComparableConcept<_Tp>)
+      __glibcxx_function_requires(_EqualOpConcept<
+	typename iterator_traits<_InputIterator>::value_type, _Tp>)
       __glibcxx_requires_valid_range(__first, __last);
       typename iterator_traits<_InputIterator>::difference_type __n = 0;
       for ( ; __first != __last; ++__first)
@@ -627,9 +626,8 @@ namespace std
     {
       // concept requirements
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
-      __glibcxx_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_ForwardIterator>::value_type>)
-      __glibcxx_function_requires(_EqualityComparableConcept<_Tp>)
+      __glibcxx_function_requires(_EqualOpConcept<
+	typename iterator_traits<_ForwardIterator>::value_type, _Tp>)
       __glibcxx_requires_valid_range(__first, __last);
 
       if (__count <= 0)
@@ -918,7 +916,10 @@ namespace std
       __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first, ++__result)
-	*__result = *__first == __old_value ? __new_value : *__first;
+	if (*__first == __old_value)
+	  *__result = __new_value;
+	else
+	  *__result = *__first;
       return __result;
     }
 
@@ -952,7 +953,10 @@ namespace std
       __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first, ++__result)
-	*__result = __pred(*__first) ? __new_value : *__first;
+	if (__pred(*__first))
+	  *__result = __new_value;
+	else
+	  *__result = *__first;
       return __result;
     }
 
@@ -1637,7 +1641,7 @@ namespace std
 
       for (_Distance __i = 0; __i < __d; __i++)
 	{
-	  const _ValueType __tmp = *__first;
+	  _ValueType __tmp = *__first;
 	  _RandomAccessIterator __p = __first;
 
 	  if (__k < __l)

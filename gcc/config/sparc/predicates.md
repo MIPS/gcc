@@ -65,8 +65,24 @@
 ;; The first test avoids emitting sethi to load zero for example.
 (define_predicate "const_high_operand"
   (and (match_code "const_int")
-       (and (match_test "INTVAL (op) & ~(HOST_WIDE_INT)0x3ff")
+       (and (not (match_operand 0 "small_int_operand"))
             (match_test "SPARC_SETHI_P (INTVAL (op) & GET_MODE_MASK (mode))"))))
+
+;; Return true if OP is a constant whose 1's complement can be loaded by the
+;; sethi instruction.
+(define_predicate "const_compl_high_operand"
+  (and (match_code "const_int")
+       (and (not (match_operand 0 "small_int_operand"))
+            (match_test "SPARC_SETHI_P (~INTVAL (op) & GET_MODE_MASK (mode))"))))
+
+;; Return true if OP is a FP constant that needs to be loaded by the sethi/losum
+;; pair of instructions.
+(define_predicate "fp_const_high_losum_operand"
+  (match_operand 0 "const_double_operand")
+{
+  gcc_assert (mode == SFmode);
+  return fp_high_losum_p (op);
+})
 
 
 ;; Predicates for symbolic constants.
@@ -104,22 +120,22 @@
 ;; Return true if OP is a symbolic operand for the TLS Global Dynamic model.
 (define_predicate "tgd_symbolic_operand"
   (and (match_code "symbol_ref")
-       (match_test "tls_symbolic_operand (op) == TLS_MODEL_GLOBAL_DYNAMIC")))
+       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_GLOBAL_DYNAMIC")))
 
 ;; Return true if OP is a symbolic operand for the TLS Local Dynamic model.
 (define_predicate "tld_symbolic_operand"
   (and (match_code "symbol_ref")
-       (match_test "tls_symbolic_operand (op) == TLS_MODEL_LOCAL_DYNAMIC")))
+       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_LOCAL_DYNAMIC")))
 
 ;; Return true if OP is a symbolic operand for the TLS Initial Exec model.
 (define_predicate "tie_symbolic_operand"
   (and (match_code "symbol_ref")
-       (match_test "tls_symbolic_operand (op) == TLS_MODEL_INITIAL_EXEC")))
+       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_INITIAL_EXEC")))
 
 ;; Return true if OP is a symbolic operand for the TLS Local Exec model.
 (define_predicate "tle_symbolic_operand"
   (and (match_code "symbol_ref")
-       (match_test "tls_symbolic_operand (op) == TLS_MODEL_LOCAL_EXEC")))
+       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_LOCAL_EXEC")))
 
 ;; Return true if the operand is an argument used in generating PIC references
 ;; in either the medium/low or embedded medium/anywhere code models on V9.
@@ -364,8 +380,10 @@
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return false;
 
+  mclass = GET_MODE_CLASS (mode);
+
   /* Allow any 1-instruction integer constant.  */
-  if (GET_MODE_CLASS (mode) == MODE_INT
+  if (mclass == MODE_INT
       && (small_int_operand (op, mode) || const_high_operand (op, mode)))
     return true;
 
@@ -376,16 +394,14 @@
       && (GET_CODE (op) == CONST_DOUBLE || GET_CODE (op) == CONST_INT))
     return true;
 
-  if (register_operand (op, mode))
-    return true;
-
-  mclass = GET_MODE_CLASS (mode);
   if ((mclass == MODE_FLOAT && GET_CODE (op) == CONST_DOUBLE)
       || (mclass == MODE_VECTOR_INT && GET_CODE (op) == CONST_VECTOR))
     return true;
 
-  /* If this is a SUBREG, look inside so that we handle
-     paradoxical ones.  */
+  if (register_operand (op, mode))
+    return true;
+
+  /* If this is a SUBREG, look inside so that we handle paradoxical ones.  */
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
 

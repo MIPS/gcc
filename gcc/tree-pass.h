@@ -126,7 +126,7 @@ struct dump_file_info
    chains for virtuals (e.g., DCE).  */
 #define TODO_update_ssa_no_phi		(1 << 8)
 
-/* Insert PHI nodes everywhere they are needed.  No prunning of the
+/* Insert PHI nodes everywhere they are needed.  No pruning of the
    IDF is done.  This is used by passes that need the PHI nodes for
    O_j even if it means that some arguments will come from the default
    definition of O_j's symbol (e.g., pass_linear_transform).
@@ -155,6 +155,7 @@ struct dump_file_info
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
 
 extern void ipa_passes (void);
+extern void tree_lowering_passes (tree decl);
 
 extern struct tree_opt_pass pass_mudflap_1;
 extern struct tree_opt_pass pass_mudflap_2;
@@ -172,6 +173,7 @@ extern struct tree_opt_pass pass_loop_init;
 extern struct tree_opt_pass pass_lim;
 extern struct tree_opt_pass pass_unswitch;
 extern struct tree_opt_pass pass_iv_canon;
+extern struct tree_opt_pass pass_scev_cprop;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
@@ -196,7 +198,9 @@ extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_stdarg;
 extern struct tree_opt_pass pass_early_warn_uninitialized;
 extern struct tree_opt_pass pass_late_warn_uninitialized;
+extern struct tree_opt_pass pass_cse_reciprocals;
 extern struct tree_opt_pass pass_warn_function_return;
+extern struct tree_opt_pass pass_warn_function_noreturn;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
 extern struct tree_opt_pass pass_redundant_phi;

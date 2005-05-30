@@ -170,14 +170,18 @@ default_eh_frame_section (void)
 #endif
 }
 
+DEF_VEC_P(rtx);
+DEF_VEC_ALLOC_P(rtx,gc);
+
 /* Array of RTXes referenced by the debugging information, which therefore
    must be kept around forever.  */
-static GTY(()) varray_type used_rtx_varray;
+static GTY(()) VEC(rtx,gc) *used_rtx_array;
 
 /* A pointer to the base of a list of incomplete types which might be
-   completed at some later time.  incomplete_types_list needs to be a VARRAY
-   because we want to tell the garbage collector about it.  */
-static GTY(()) varray_type incomplete_types;
+   completed at some later time.  incomplete_types_list needs to be a
+   VEC(tree,gc) because we want to tell the garbage collector about
+   it.  */
+static GTY(()) VEC(tree,gc) *incomplete_types;
 
 /* A pointer to the base of a table of references to declaration
    scopes.  This table is a display which tracks the nesting
@@ -2074,6 +2078,7 @@ output_call_frame_info (int for_eh)
   int fde_encoding = DW_EH_PE_absptr;
   int per_encoding = DW_EH_PE_absptr;
   int lsda_encoding = DW_EH_PE_absptr;
+  int return_reg;
 
   /* Don't emit a CIE if there won't be any FDEs.  */
   if (fde_table_in_use == 0)
@@ -2212,10 +2217,11 @@ output_call_frame_info (int for_eh)
   dw2_asm_output_data_sleb128 (DWARF_CIE_DATA_ALIGNMENT,
 			       "CIE Data Alignment Factor");
 
+  return_reg = DWARF2_FRAME_REG_OUT (DWARF_FRAME_RETURN_COLUMN, for_eh);
   if (DW_CIE_VERSION == 1)
-    dw2_asm_output_data (1, DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+    dw2_asm_output_data (1, return_reg, "CIE RA Column");
   else
-    dw2_asm_output_data_uleb128 (DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+    dw2_asm_output_data_uleb128 (return_reg, "CIE RA Column");
 
   if (augmentation[0])
     {
@@ -6808,8 +6814,7 @@ dwarf2out_switch_text_section (void)
 {
   dw_fde_ref fde;
 
-  if (!cfun)
-    internal_error ("Attempt to switch text sections without any code.");
+  gcc_assert (cfun);
 
   fde = &fde_table[fde_table_in_use - 1];
   fde->dw_fde_switched_sections = true;
@@ -8680,7 +8685,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
       mem_loc_result = new_loc_descr (DW_OP_addr, 0, 0);
       mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_addr;
       mem_loc_result->dw_loc_oprnd1.v.val_addr = rtl;
-      VARRAY_PUSH_RTX (used_rtx_varray, rtl);
+      VEC_safe_push (rtx, gc, used_rtx_array, rtl);
       break;
 
     case PRE_MODIFY:
@@ -9772,7 +9777,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
     case LABEL_REF:
     case CONST:
       add_AT_addr (die, DW_AT_const_value, rtl);
-      VARRAY_PUSH_RTX (used_rtx_varray, rtl);
+      VEC_safe_push (rtx, gc, used_rtx_array, rtl);
       break;
 
     case PLUS:
@@ -10660,7 +10665,7 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
     {
       add_AT_addr (die, DW_AT_VMS_rtnbeg_pd_address,
 		   XEXP (DECL_RTL (decl), 0));
-      VARRAY_PUSH_RTX (used_rtx_varray, XEXP (DECL_RTL (decl), 0));
+      VEC_safe_push (tree, gc, used_rtx_array, XEXP (DECL_RTL (decl), 0));
     }
 #endif
 }
@@ -10978,8 +10983,8 @@ retry_incomplete_types (void)
 {
   int i;
 
-  for (i = VARRAY_ACTIVE_SIZE (incomplete_types) - 1; i >= 0; i--)
-    gen_type_die (VARRAY_TREE (incomplete_types, i), comp_unit_die);
+  for (i = VEC_length (tree, incomplete_types) - 1; i >= 0; i--)
+    gen_type_die (VEC_index (tree, incomplete_types, i), comp_unit_die);
 }
 
 /* Generate a DIE to represent an inlined instance of an enumeration type.  */
@@ -12125,7 +12130,7 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die)
       /* We don't need to do this for function-local types.  */
       if (TYPE_STUB_DECL (type)
 	  && ! decl_function_context (TYPE_STUB_DECL (type)))
-	VARRAY_PUSH_TREE (incomplete_types, type);
+	VEC_safe_push (tree, gc, incomplete_types, type);
     }
 }
 
@@ -13187,6 +13192,14 @@ lookup_filename (const char *file_name)
   VARRAY_PUSH_CHAR_PTR (file_table, save_file_name);
   VARRAY_PUSH_UINT (file_table_emitted, 0);
 
+  /* If the assembler is emitting the file table, and we aren't eliminating
+     unused debug types, then we must emit .file here.  If we are eliminating
+     unused debug types, then this will be done by the maybe_emit_file call in
+     prune_unused_types_walk_attribs.  */
+
+  if (DWARF2_ASM_LINE_DEBUG_INFO && ! flag_eliminate_unused_debug_types)
+    maybe_emit_file (i);
+
   return i;
 }
 
@@ -13496,9 +13509,9 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
      in this value in dwarf2out_finish.  */
   comp_unit_die = gen_compile_unit_die (NULL);
 
-  VARRAY_TREE_INIT (incomplete_types, 64, "incomplete_types");
+  incomplete_types = VEC_alloc (tree, gc, 64);
 
-  VARRAY_RTX_INIT (used_rtx_varray, 32, "used_rtx_varray");
+  used_rtx_array = VEC_alloc (rtx, gc, 32);
 
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,

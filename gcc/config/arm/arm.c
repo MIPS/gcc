@@ -73,6 +73,7 @@ static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
 static int const_ok_for_op (HOST_WIDE_INT, enum rtx_code);
 static rtx emit_sfm (int, int);
+static int arm_size_return_regs (void);
 #ifndef AOF_ASSEMBLER
 static bool arm_assemble_integer (rtx, unsigned int, int);
 #endif
@@ -181,6 +182,7 @@ static void arm_cxx_determine_class_data_visibility (tree);
 static bool arm_cxx_class_data_always_comdat (void);
 static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
+static bool arm_handle_option (size_t, const char *, int);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
 /* Initialize the GCC target structure.  */
@@ -220,6 +222,11 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
 #undef  TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE arm_output_function_epilogue
+
+#undef  TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | MASK_SCHED_PROLOG)
+#undef  TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION arm_handle_option
 
 #undef  TARGET_COMP_TYPE_ATTRIBUTES
 #define TARGET_COMP_TYPE_ATTRIBUTES arm_comp_type_attributes
@@ -367,23 +374,7 @@ enum float_abi_type arm_float_abi;
 /* Which ABI to use.  */
 enum arm_abi_type arm_abi;
 
-/* Set by the -mfpu=... option.  */
-const char * target_fpu_name = NULL;
-
-/* Set by the -mfpe=... option.  */
-const char * target_fpe_name = NULL;
-
-/* Set by the -mfloat-abi=... option.  */
-const char * target_float_abi_name = NULL;
-
-/* Set by the legacy -mhard-float and -msoft-float options.  */
-const char * target_float_switch = NULL;
-
-/* Set by the -mabi=... option.  */
-const char * target_abi_name = NULL;
-
 /* Used to parse -mstructure_size_boundary command line option.  */
-const char * structure_size_string = NULL;
 int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 
 /* Used for Thumb call_via trampolines.  */
@@ -494,7 +485,6 @@ int arm_cpp_interwork = 0;
 enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
-const char * arm_pic_register_string = NULL;
 int arm_pic_register = INVALID_REGNUM;
 
 /* Set to 1 when a return insn is output, this means that the epilogue
@@ -574,11 +564,18 @@ static const struct processors all_architectures[] =
   {NULL, arm_none, NULL, 0 , NULL}
 };
 
+struct arm_cpu_select
+{
+  const char *              string;
+  const char *              name;
+  const struct processors * processors;
+};
+
 /* This is a magic structure.  The 'string' field is magically filled in
    with a pointer to the value specified by the user on the command line
    assuming that the user has specified such a value.  */
 
-struct arm_cpu_select arm_select[] =
+static struct arm_cpu_select arm_select[] =
 {
   /* string	  name            processors  */
   { NULL,	"-mcpu=",	all_cores  },
@@ -586,6 +583,10 @@ struct arm_cpu_select arm_select[] =
   { NULL,	"-mtune=",	all_cores }
 };
 
+/* Defines representing the indexes into the above table.  */
+#define ARM_OPT_SET_CPU 0
+#define ARM_OPT_SET_ARCH 1
+#define ARM_OPT_SET_TUNE 2
 
 /* The name of the proprocessor macro to define for this architecture.  */
 
@@ -779,12 +780,45 @@ arm_init_libfuncs (void)
   set_optab_libfunc (umod_optab, SImode, NULL);
 }
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+arm_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_march_:
+      arm_select[1].string = arg;
+      return true;
+
+    case OPT_mcpu_:
+      arm_select[0].string = arg;
+      return true;
+
+    case OPT_mhard_float:
+      target_float_abi_name = "hard";
+      return true;
+
+    case OPT_msoft_float:
+      target_float_abi_name = "soft";
+      return true;
+
+    case OPT_mtune_:
+      arm_select[2].string = arg;
+      return true;
+
+    default:
+      return true;
+    }
+}
+
 /* Fix up any incompatible options that the user has specified.
    This has now turned into a maze.  */
 void
 arm_override_options (void)
 {
   unsigned i;
+  enum processor_type target_arch_cpu = arm_none;
 
   /* Set up the flags based on the cpu/architecture selected by the user.  */
   for (i = ARRAY_SIZE (arm_select); i--;)
@@ -799,22 +833,25 @@ arm_override_options (void)
             if (streq (ptr->string, sel->name))
               {
 		/* Set the architecture define.  */
-		if (i != 2)
+		if (i != ARM_OPT_SET_TUNE)
 		  sprintf (arm_arch_name, "__ARM_ARCH_%s__", sel->arch);
 
 		/* Determine the processor core for which we should
 		   tune code-generation.  */
 		if (/* -mcpu= is a sensible default.  */
-		    i == 0
-		    /* If -march= is used, and -mcpu= has not been used,
-		       assume that we should tune for a representative
-		       CPU from that architecture.  */
-		    || i == 1
+		    i == ARM_OPT_SET_CPU
 		    /* -mtune= overrides -mcpu= and -march=.  */
-		    || i == 2)
+		    || i == ARM_OPT_SET_TUNE)
 		  arm_tune = (enum processor_type) (sel - ptr->processors);
 
-		if (i != 2)
+		/* Remember the CPU associated with this architecture.
+		   If no other option is used to set the CPU type,
+		   we'll use this to guess the most suitable tuning
+		   options.  */
+		if (i == ARM_OPT_SET_ARCH)
+		  target_arch_cpu = sel->core;
+		
+		if (i != ARM_OPT_SET_TUNE)
 		  {
 		    /* If we have been given an architecture and a processor
 		       make sure that they are compatible.  We only generate
@@ -834,6 +871,10 @@ arm_override_options (void)
             error ("bad value (%s) for %s switch", ptr->string, ptr->name);
         }
     }
+
+  /* Guess the tuning options from the architecture if necessary.  */
+  if (arm_tune == arm_none)
+    arm_tune = target_arch_cpu;
 
   /* If the user did not specify a processor, choose one for them.  */
   if (insn_flags == 0)
@@ -938,25 +979,24 @@ arm_override_options (void)
   if (TARGET_INTERWORK && !(insn_flags & FL_THUMB))
     {
       warning (0, "target CPU does not support interworking" );
-      target_flags &= ~ARM_FLAG_INTERWORK;
+      target_flags &= ~MASK_INTERWORK;
     }
 
   if (TARGET_THUMB && !(insn_flags & FL_THUMB))
     {
       warning (0, "target CPU does not support THUMB instructions");
-      target_flags &= ~ARM_FLAG_THUMB;
+      target_flags &= ~MASK_THUMB;
     }
 
   if (TARGET_APCS_FRAME && TARGET_THUMB)
     {
       /* warning (0, "ignoring -mapcs-frame because -mthumb was used"); */
-      target_flags &= ~ARM_FLAG_APCS_FRAME;
+      target_flags &= ~MASK_APCS_FRAME;
     }
 
   /* TARGET_BACKTRACE calls leaf_function_p, which causes a crash if done
      from here where no function is being compiled currently.  */
-  if ((target_flags & (THUMB_FLAG_LEAF_BACKTRACE | THUMB_FLAG_BACKTRACE))
-      && TARGET_ARM)
+  if ((TARGET_TPCS_FRAME || TARGET_TPCS_LEAF_FRAME) && TARGET_ARM)
     warning (0, "enabling backtrace support is only meaningful when compiling for the Thumb");
 
   if (TARGET_ARM && TARGET_CALLEE_INTERWORKING)
@@ -968,11 +1008,11 @@ arm_override_options (void)
   if (TARGET_APCS_STACK && !TARGET_APCS_FRAME)
     {
       warning (0, "-mapcs-stack-check incompatible with -mno-apcs-frame");
-      target_flags |= ARM_FLAG_APCS_FRAME;
+      target_flags |= MASK_APCS_FRAME;
     }
 
   if (TARGET_POKE_FUNCTION_NAME)
-    target_flags |= ARM_FLAG_APCS_FRAME;
+    target_flags |= MASK_APCS_FRAME;
 
   if (TARGET_APCS_REENT && flag_pic)
     error ("-fpic and -mapcs-reent are incompatible");
@@ -985,7 +1025,7 @@ arm_override_options (void)
   if (TARGET_ARM
       && write_symbols != NO_DEBUG
       && !TARGET_APCS_FRAME
-      && (TARGET_DEFAULT & ARM_FLAG_APCS_FRAME))
+      && (TARGET_DEFAULT & MASK_APCS_FRAME))
     warning (0, "-g with -mno-apcs-frame may not give sensible debugging");
 
   /* If stack checking is disabled, we can use r10 as the PIC register,
@@ -1022,7 +1062,7 @@ arm_override_options (void)
     arm_cpp_interwork = 1;
 
   if (arm_arch5)
-    target_flags &= ~ARM_FLAG_INTERWORK;
+    target_flags &= ~MASK_INTERWORK;
 
   if (target_abi_name)
     {
@@ -1113,14 +1153,6 @@ arm_override_options (void)
       if (i == ARRAY_SIZE (all_float_abis))
 	error ("invalid floating point abi: -mfloat-abi=%s",
 	       target_float_abi_name);
-    }
-  else if (target_float_switch)
-    {
-      /* This is a bit of a hack to avoid needing target flags for these.  */
-      if (target_float_switch[0] == 'h')
-	arm_float_abi = ARM_FLOAT_ABI_HARD;
-      else
-	arm_float_abi = ARM_FLOAT_ABI_SOFT;
     }
   else
     arm_float_abi = TARGET_DEFAULT_FLOAT_ABI;
@@ -1395,9 +1427,11 @@ use_return_insn (int iscond, rtx sibling)
       if (!call_used_regs[3])
 	return 0;
 
-      /* ... that it isn't being used for a return value (always true
-	 until we implement return-in-regs), or for a tail-call
-	 argument ...  */
+      /* ... that it isn't being used for a return value ... */
+      if (arm_size_return_regs () >= (4 * UNITS_PER_WORD))
+	return 0;
+
+      /* ... or for a tail-call argument ...  */
       if (sibling)
 	{
 	  gcc_assert (GET_CODE (sibling) == CALL_INSN);
@@ -1461,8 +1495,8 @@ use_return_insn (int iscond, rtx sibling)
 int
 const_ok_for_arm (HOST_WIDE_INT i)
 {
-  unsigned HOST_WIDE_INT mask = ~(unsigned HOST_WIDE_INT)0xFF;
-
+  int lowbit;
+  
   /* For machines with >32 bit HOST_WIDE_INT, the bits above bit 31 must
      be all zero, or all one.  */
   if ((i & ~(unsigned HOST_WIDE_INT) 0xffffffff) != 0
@@ -1471,19 +1505,24 @@ const_ok_for_arm (HOST_WIDE_INT i)
 	      & ~(unsigned HOST_WIDE_INT) 0xffffffff)))
     return FALSE;
 
-  /* Fast return for 0 and powers of 2 */
-  if ((i & (i - 1)) == 0)
+  i &= (unsigned HOST_WIDE_INT) 0xffffffff;
+  
+  /* Fast return for 0 and small values.  We must do this for zero, since
+     the code below can't handle that one case.  */
+  if ((i & ~(unsigned HOST_WIDE_INT) 0xff) == 0)
     return TRUE;
 
-  do
-    {
-      if ((i & mask & (unsigned HOST_WIDE_INT) 0xffffffff) == 0)
-        return TRUE;
-      mask =
-	  (mask << 2) | ((mask & (unsigned HOST_WIDE_INT) 0xffffffff)
-			  >> (32 - 2)) | ~(unsigned HOST_WIDE_INT) 0xffffffff;
-    }
-  while (mask != ~(unsigned HOST_WIDE_INT) 0xFF);
+  /* Get the number of trailing zeros, rounded down to the nearest even
+     number.  */
+  lowbit = (ffs ((int) i) - 1) & ~1;
+
+  if ((i & ~(((unsigned HOST_WIDE_INT) 0xff) << lowbit)) == 0)
+    return TRUE;
+  else if (lowbit <= 4
+	   && ((i & ~0xc000003f) == 0
+	       || (i & ~0xf000000f) == 0
+	       || (i & ~0xfc000003) == 0))
+    return TRUE;
 
   return FALSE;
 }
@@ -1835,6 +1874,41 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 				      gen_ashrsi3 (target, new_src,
 						   GEN_INT (set_sign_bit_copies - 1)));
 		}
+	      return 2;
+	    }
+	}
+
+      /* See if we can calculate the value as the difference between two
+	 valid immediates.  */
+      if (clear_sign_bit_copies + clear_zero_bit_copies <= 16)
+	{
+	  int topshift = clear_sign_bit_copies & ~1;
+
+	  temp1 = ARM_SIGN_EXTEND ((remainder + (0x00800000 >> topshift))
+				   & (0xff000000 >> topshift));
+
+	  /* If temp1 is zero, then that means the 9 most significant
+	     bits of remainder were 1 and we've caused it to overflow.
+	     When topshift is 0 we don't need to do anything since we
+	     can borrow from 'bit 32'.  */
+	  if (temp1 == 0 && topshift != 0)
+	    temp1 = 0x80000000 >> (topshift - 1);
+
+	  temp2 = ARM_SIGN_EXTEND (temp1 - remainder);
+	  
+	  if (const_ok_for_arm (temp2))
+	    {
+	      if (generate)
+		{
+		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
+		  emit_constant_insn (cond,
+				      gen_rtx_SET (VOIDmode, new_src,
+						   GEN_INT (temp1)));
+		  emit_constant_insn (cond,
+				      gen_addsi3 (target, new_src,
+						  GEN_INT (-temp2)));
+		}
+
 	      return 2;
 	    }
 	}
@@ -2357,6 +2431,7 @@ arm_return_in_memory (tree type)
   HOST_WIDE_INT size;
 
   if (!AGGREGATE_TYPE_P (type) &&
+      (TREE_CODE (type) != VECTOR_TYPE) &&
       !(TARGET_AAPCS_BASED && TREE_CODE (type) == COMPLEX_TYPE))
     /* All simple types are returned in registers.
        For AAPCS, complex types are treated the same as aggregates.  */
@@ -2370,6 +2445,11 @@ arm_return_in_memory (tree type)
 	 larger than a word (or are variable size).  */
       return (size < 0 || size > UNITS_PER_WORD);
     }
+
+  /* To maximize backwards compatibility with previous versions of gcc,
+     return vectors up to 4 words in registers.  */
+  if (TREE_CODE (type) == VECTOR_TYPE)
+    return (size < 0 || size > (4 * UNITS_PER_WORD));
 
   /* For the arm-wince targets we choose to be compatible with Microsoft's
      ARM and Thumb compilers, which always return aggregates in memory.  */
@@ -2693,7 +2773,7 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2711,7 +2791,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
     {
       if (TREE_CODE (*node) != FUNCTION_DECL)
 	{
-	  warning (0, "%qs attribute only applies to functions",
+	  warning (OPT_Wattributes, "%qs attribute only applies to functions",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
@@ -2725,7 +2805,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	{
 	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	    {
-	      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qs attribute ignored",
+		       IDENTIFIER_POINTER (name));
 	      *no_add_attrs = true;
 	    }
 	}
@@ -2752,7 +2833,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	    }
 	  else
 	    {
-	      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qs attribute ignored",
+		       IDENTIFIER_POINTER (name));
 	    }
 	}
     }
@@ -6894,7 +6976,7 @@ add_minipool_forward_ref (Mfix *fix)
   /* If this fix's address is greater than the address of the first
      entry, then we can't put the fix in this pool.  We subtract the
      size of the current fix to ensure that if the table is fully
-     packed we still have enough room to insert this value by suffling
+     packed we still have enough room to insert this value by shuffling
      the other fixes forwards.  */
   if (minipool_vector_head &&
       fix->address >= minipool_vector_head->max_address - fix->fix_size)
@@ -9735,6 +9817,20 @@ emit_multi_reg_push (unsigned long mask)
   return par;
 }
 
+/* Calculate the size of the return value that is passed in registers.  */
+static int
+arm_size_return_regs (void)
+{
+  enum machine_mode mode;
+
+  if (current_function_return_rtx != 0)
+    mode = GET_MODE (current_function_return_rtx);
+  else
+    mode = DECL_MODE (DECL_RESULT (current_function_decl));
+
+  return GET_MODE_SIZE (mode);
+}
+
 static rtx
 emit_sfm (int base_reg, int count)
 {
@@ -10350,7 +10446,7 @@ arm_expand_prologue (void)
   /* If we are profiling, make sure no instructions are scheduled before
      the call to mcount.  Similarly if the user has requested no
      scheduling in the prolog.  */
-  if (current_function_profile || TARGET_NO_SCHED_PRO)
+  if (current_function_profile || !TARGET_SCHED_PROLOG)
     emit_insn (gen_blockage ());
 
   /* If the link register is being kept alive, with the return address in it,
@@ -12789,7 +12885,6 @@ thumb_unexpanded_epilogue (void)
   int high_regs_pushed = 0;
   int had_to_push_lr;
   int size;
-  int mode;
 
   if (return_used_this_function)
     return "";
@@ -12804,13 +12899,7 @@ thumb_unexpanded_epilogue (void)
      This is more reliable that examining regs_ever_live[] because that
      will be set if the register is ever used in the function, not just if
      the register is used to hold a return value.  */
-
-  if (current_function_return_rtx != 0)
-    mode = GET_MODE (current_function_return_rtx);
-  else
-    mode = DECL_MODE (DECL_RESULT (current_function_decl));
-
-  size = GET_MODE_SIZE (mode);
+  size = arm_size_return_regs ();
 
   /* The prolog may have pushed some high registers to use as
      work registers.  e.g. the testsuite file:
@@ -13171,7 +13260,7 @@ thumb_expand_prologue (void)
 				  hard_frame_pointer_rtx));
     }
 
-  if (current_function_profile || TARGET_NO_SCHED_PRO)
+  if (current_function_profile || !TARGET_SCHED_PROLOG)
     emit_insn (gen_blockage ());
 
   cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
@@ -13220,7 +13309,7 @@ thumb_expand_epilogue (void)
      the stack adjustment will not be deleted.  */
   emit_insn (gen_prologue_use (stack_pointer_rtx));
 
-  if (current_function_profile || TARGET_NO_SCHED_PRO)
+  if (current_function_profile || !TARGET_SCHED_PROLOG)
     emit_insn (gen_blockage ());
 
   /* Emit a clobber for each insn that will be restored in the epilogue,
@@ -13403,7 +13492,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       asm_fprintf (f, "\tmov\t%r, %r\t\t%@ Backtrace structure created\n",
 		   ARM_HARD_FRAME_POINTER_REGNUM, work_register);
     }
-  /* Optimisation:  If we are not pushing any low registers but we are going
+  /* Optimization:  If we are not pushing any low registers but we are going
      to push some high registers then delay our first push.  This will just
      be a push of LR and we can combine it with the push of the first high
      register.  */
@@ -14347,7 +14436,7 @@ arm_cxx_guard_type (void)
 }
 
 
-/* The EABI says test the least significan bit of a guard variable.  */
+/* The EABI says test the least significant bit of a guard variable.  */
 
 static bool
 arm_cxx_guard_mask_bit (void)

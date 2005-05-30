@@ -230,7 +230,7 @@ typedef struct
   GFC_INTEGER_4 rec;
   GFC_INTEGER_4 *nextrec, *size;
 
-  GFC_INTEGER_4 recl_in; 
+  GFC_INTEGER_4 recl_in;
   GFC_INTEGER_4 *recl_out;
 
   GFC_INTEGER_4 *iolength;
@@ -343,7 +343,7 @@ typedef struct
   unit_blank blank_status;
   enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
   int scale_factor;
-  jmp_buf eof_jump;  
+  jmp_buf eof_jump;
 }
 global_t;
 
@@ -597,13 +597,13 @@ internal_proto(list_formatted_read);
 extern void finish_list_read (void);
 internal_proto(finish_list_read);
 
-extern void init_at_eol();
+extern void init_at_eol (void);
 internal_proto(init_at_eol);
 
-extern void namelist_read();
+extern void namelist_read (void);
 internal_proto(namelist_read);
 
-extern void namelist_write();
+extern void namelist_write (void);
 internal_proto(namelist_write);
 
 /* write.c */

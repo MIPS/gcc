@@ -1,5 +1,5 @@
 /* NetBSD/arm a.out version.
-   Copyright (C) 1993, 1994, 1997, 1998, 2003, 2004
+   Copyright (C) 1993, 1994, 1997, 1998, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Mark Brinicombe (amb@physig.ph.kcl.ac.uk)
 
@@ -36,7 +36,7 @@
 #define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm6
 
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT (MASK_APCS_FRAME)
 
 /* Some defines for CPP.
    arm32 is the NetBSD port name, so we always define arm32 and __arm32__.  */
@@ -58,7 +58,7 @@
 %(cpp_cpu_arch) %(cpp_float) %(cpp_endian) %(netbsd_cpp_spec) \
 "
 
-/* Because TARGET_DEFAULT sets ARM_FLAG_SOFT_FLOAT */
+/* Because TARGET_DEFAULT sets MASK_SOFT_FLOAT */
 #undef CPP_FLOAT_DEFAULT_SPEC
 #define CPP_FLOAT_DEFAULT_SPEC "-D__SOFTFP__"
 

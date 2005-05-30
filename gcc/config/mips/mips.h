@@ -34,8 +34,11 @@ Boston, MA 02111-1307, USA.  */
 enum processor_type {
   PROCESSOR_DEFAULT,
   PROCESSOR_4KC,
+  PROCESSOR_4KP,
   PROCESSOR_5KC,
   PROCESSOR_20KC,
+  PROCESSOR_24K,
+  PROCESSOR_24KX,
   PROCESSOR_M4K,
   PROCESSOR_R3000,
   PROCESSOR_R3900,
@@ -102,7 +105,6 @@ extern enum processor_type mips_tune;   /* which cpu to schedule for */
 extern int mips_isa;			/* architectural level */
 extern int mips_abi;			/* which ABI to use */
 extern int mips16_hard_float;		/* mips16 without -msoft-float */
-extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
@@ -668,6 +670,11 @@ extern const struct mips_cpu_info *mips_tune_info;
                                  && (ISA_MIPS32R2                      \
                                      ))
 
+/* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
+#define ISA_HAS_EXT_INS         (!TARGET_MIPS16                        \
+                                 && (ISA_MIPS32R2                      \
+                                     ))
+
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
    and "addiu $4,$4,1".  */
@@ -970,7 +977,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
-#define INT_TYPE_SIZE (TARGET_INT64 ? 64 : 32)
+#define INT_TYPE_SIZE 32
 #define LONG_TYPE_SIZE (TARGET_LONG64 ? 64 : 32)
 #define LONG_LONG_TYPE_SIZE 64
 

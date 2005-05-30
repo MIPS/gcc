@@ -152,7 +152,6 @@ extern int target_flags;
 extern enum alpha_trap_precision alpha_tp;
 extern enum alpha_fp_rounding_mode alpha_fprm;
 extern enum alpha_fp_trap_mode alpha_fptm;
-extern int alpha_tls_size;
 
 /* Invert the easy way to make options work.  */
 #define TARGET_FP	(!TARGET_SOFT_FP)
@@ -1369,7 +1368,7 @@ do {						\
 /* This is how to output an element of a case-vector that is absolute.
    (Alpha does not use such vectors, but we must define this macro anyway.)  */
 
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) abort ()
+#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) gcc_unreachable ()
 
 /* This is how to output an element of a case-vector that is relative.  */
 

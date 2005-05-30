@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -329,7 +330,8 @@ fd_flush (unix_stream * s)
  * to come next. */
 
 static void
-fd_alloc (unix_stream * s, gfc_offset where, int *len)
+fd_alloc (unix_stream * s, gfc_offset where,
+	  int *len __attribute__ ((unused)))
 {
   char *new_buffer;
   int n, read_len;
@@ -515,13 +517,15 @@ fd_truncate (unix_stream * s)
 
 #ifdef HAVE_FTRUNCATE
   if (ftruncate (s->fd, s->logical_offset))
-    return FAILURE;
 #else
 #ifdef HAVE_CHSIZE
   if (chsize (s->fd, s->logical_offset))
-    return FAILURE;
 #endif
 #endif
+    {
+      s->physical_offset = s->file_length = 0;
+      return FAILURE;
+    }
 
   s->physical_offset = s->file_length = s->logical_offset;
 
@@ -604,7 +608,8 @@ mmap_flush (unix_stream * s)
  * guaranteed to be mappable. */
 
 static try
-mmap_alloc (unix_stream * s, gfc_offset where, int *len)
+mmap_alloc (unix_stream * s, gfc_offset where,
+	    int *len __attribute__ ((unused)))
 {
   gfc_offset offset;
   int length;
@@ -709,7 +714,7 @@ mmap_close (unix_stream * s)
 
 
 static try
-mmap_sfree (unix_stream * s)
+mmap_sfree (unix_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
@@ -719,7 +724,7 @@ mmap_sfree (unix_stream * s)
  * mmap()-ed, we fall back to the file descriptor functions. */
 
 static try
-mmap_open (unix_stream * s)
+mmap_open (unix_stream * s __attribute__ ((unused)))
 {
   char *p;
   int i;
@@ -825,7 +830,7 @@ mem_seek (unix_stream * s, gfc_offset offset)
 
 
 static int
-mem_truncate (unix_stream * s)
+mem_truncate (unix_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
@@ -841,7 +846,7 @@ mem_close (unix_stream * s)
 
 
 static try
-mem_sfree (unix_stream * s)
+mem_sfree (unix_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
@@ -870,6 +875,7 @@ open_internal (char *base, int length)
   unix_stream *s;
 
   s = get_mem (sizeof (unix_stream));
+  memset (s, '\0', sizeof (unix_stream));
 
   s->buffer = base;
   s->buffer_offset = 0;
@@ -892,12 +898,13 @@ open_internal (char *base, int length)
  * around it. */
 
 static stream *
-fd_to_stream (int fd, int prot)
+fd_to_stream (int fd, int prot, int avoid_mmap)
 {
   struct stat statbuf;
   unix_stream *s;
 
   s = get_mem (sizeof (unix_stream));
+  memset (s, '\0', sizeof (unix_stream));
 
   s->fd = fd;
   s->buffer_offset = 0;
@@ -911,7 +918,10 @@ fd_to_stream (int fd, int prot)
   s->file_length = S_ISREG (statbuf.st_mode) ? statbuf.st_size : -1;
 
 #if HAVE_MMAP
-  mmap_open (s);
+  if (avoid_mmap)
+    fd_open (s);
+  else
+    mmap_open (s);
 #else
   fd_open (s);
 #endif
@@ -1153,7 +1163,7 @@ open_external (unit_flags *flags)
       internal_error ("open_external(): Bad action");
     }
 
-  return fd_to_stream (fd, prot);
+  return fd_to_stream (fd, prot, 0);
 }
 
 
@@ -1163,7 +1173,7 @@ open_external (unit_flags *flags)
 stream *
 input_stream (void)
 {
-  return fd_to_stream (STDIN_FILENO, PROT_READ);
+  return fd_to_stream (STDIN_FILENO, PROT_READ, 1);
 }
 
 
@@ -1173,7 +1183,7 @@ input_stream (void)
 stream *
 output_stream (void)
 {
-  return fd_to_stream (STDOUT_FILENO, PROT_WRITE);
+  return fd_to_stream (STDOUT_FILENO, PROT_WRITE, 1);
 }
 
 
@@ -1183,7 +1193,7 @@ output_stream (void)
 stream *
 error_stream (void)
 {
-  return fd_to_stream (STDERR_FILENO, PROT_WRITE);
+  return fd_to_stream (STDERR_FILENO, PROT_WRITE, 1);
 }
 
 /* init_error_stream()-- Return a pointer to the error stream.  This

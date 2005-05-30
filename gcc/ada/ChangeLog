@@ -1,3 +1,14 @@
+2005-05-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cal.c, decl.c, init.c, raise.c, trans.c, utils2.c: Fix
+	comment typos.
+	* gnat_rm.texi, gnat_ugn.texi: Fix typos.
+
+2005-05-16  Nathanael Nerode <neroden@gcc.gnu.org>
+
+	PR ada/20270
+	* Makefile.in: Make TGT_LIB behave correctly.
+
 2005-04-23  DJ Delorie  <dj@redhat.com>
 
 	* misc.c: Adjust warning() callers.

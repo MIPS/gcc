@@ -1,3 +1,40 @@
+2005-05-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ansidecl.h: Add ATTRIBUTE_FPTR_PRINTF.
+
+2005-05-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* libiberty.h: (snprintf) [!HAVE_DECL_SNPRINTF]: Declare if
+	needed.
+	(vsnprintf) [!HAVE_DECL_VSNPRINTF]: Declare if needed.
+
+2005-05-25  Richard Henderson  <rth@redhat.com>
+
+	* demangle.h (DEMANGLE_COMPONENT_HIDDEN_ALIAS): New.
+
+2005-05-24  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* libiberty.h (ACONCAT): Properly cast value of alloca().
+
+	* ansidecl.h (ATTRIBUTE_UNUSED_LABEL): Don't define if
+	__cplusplus.
+
+2005-05-12  Steve Ellcey  <sje@cup.hp.com>
+
+	libiberty.h: Do not define empty basename prototype.
+
+2005-05-10  Nick Clifton  <nickc@redhat.com>
+
+	* Update the address and phone number of the FSF organization in
+	the GPL notices in the following files:
+	COPYING, ansidecl.h, bfdlink.h, bout.h, demangle.h, dis-asm.h,
+	dyn-string.h, fibheap.h, filenames.h, floatformat.h,
+	fnmatch.h, gdbm.h, getopt.h, hashtab.h, hp-symtab.h, ieee.h,
+	libiberty.h, md5.h, oasys.h, objalloc.h, obstack.h, os9k.h,
+	partition.h, progress.h, safe-ctype.h, sort.h, splay-tree.h,
+	symcat.h, ternary.h, xregex2.h, xtensa-config.h,
+	xtensa-isa-internal.h, xtensa-isa.h
+
 2005-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* libiberty.h (unlock_std_streams): New.
@@ -40,7 +77,7 @@
 2005-03-28  Mark Mitchell <mark@codesourcery.com>
 
 	* libiberty.h (ffs): Declare, if necessary.
-	
+
 2005-03-27  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* xregex2.h (_RE_ARGS): Remove definition and uses.
@@ -150,9 +187,9 @@
 	* hashtab.h (struct htab): Add size_prime_index.
 
 2004-04-13  Jeff Law  <law@redhat.com>
- 
+
 	* hashtab.h (htab_remove_elt_with_hash): Prototype new function.
- 
+
 2004-03-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* hashtab.h, splay-tree.h: Use new shorter form of GTY markers.

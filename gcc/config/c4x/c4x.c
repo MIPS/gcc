@@ -153,7 +153,6 @@ enum machine_mode c4x_caller_save_map[FIRST_PSEUDO_REGISTER] =
 rtx c4x_compare_op0;
 rtx c4x_compare_op1;
 
-int c4x_rpts_cycles = 0;	/* Max. cycles for RPTS.  */
 int c4x_cpu_version = 40;	/* CPU version C30/31/32/33/40/44.  */
 
 /* Pragma definitions.  */
@@ -290,10 +289,6 @@ c4x_handle_option (size_t code, const char *arg, int value)
 	  return true;
 	}
       return false;
-
-    case OPT_mrpts_:
-      c4x_rpts_cycles = value;
-      return true;
 
     default:
       return true;
@@ -4486,7 +4481,7 @@ c4x_handle_fntype_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }

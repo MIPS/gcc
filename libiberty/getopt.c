@@ -21,7 +21,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301,
    USA.  */
 
 /* This tells Alpha OSF/1 not to define a getopt prototype in <stdio.h>.
@@ -212,8 +212,16 @@ static char *posixly_correct;
 /* Avoid depending on library functions or files
    whose names are inconsistent.  */
 
-#ifndef getenv
-extern char *getenv ();
+#if HAVE_STDLIB_H && HAVE_DECL_GETENV
+#  include <stdlib.h>
+#elif !defined(getenv)
+#  ifdef __cplusplus
+extern "C" {
+#  endif /* __cplusplus */
+extern char *getenv (const char *);
+#  ifdef __cplusplus
+}
+#  endif /* __cplusplus */
 #endif
 
 static char *
@@ -325,7 +333,7 @@ exchange (char **argv)
     {
       /* We must extend the array.  The user plays games with us and
 	 presents new arguments.  */
-      char *new_str = malloc (top + 1);
+      char *new_str = (char *) malloc (top + 1);
       if (new_str == NULL)
 	nonoption_flags_len = nonoption_flags_max_len = 0;
       else

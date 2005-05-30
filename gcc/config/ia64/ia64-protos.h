@@ -37,6 +37,7 @@ extern int ia64_produce_address_p (rtx);
 extern bool ia64_const_ok_for_letter_p (HOST_WIDE_INT, char);
 extern bool ia64_const_double_ok_for_letter_p (rtx, char);
 extern bool ia64_extra_constraint (rtx, char);
+extern bool ia64_legitimate_constant_p (rtx);
 
 extern rtx ia64_expand_move (rtx, rtx);
 extern int ia64_move_ok (rtx, rtx);
@@ -51,13 +52,14 @@ extern bool ia64_expand_vecint_minmax (enum rtx_code, enum machine_mode, rtx[]);
 extern void ia64_expand_call (rtx, rtx, rtx, int);
 extern void ia64_split_call (rtx, rtx, rtx, rtx, rtx, int, int);
 extern void ia64_reload_gp (void);
+extern void ia64_expand_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx);
 
 extern HOST_WIDE_INT ia64_initial_elimination_offset (int, int);
 extern void ia64_expand_prologue (void);
 extern void ia64_expand_epilogue (int);
 
 extern int ia64_direct_return (void);
-extern void ia64_expand_load_address (rtx, rtx);
+extern bool ia64_expand_load_address (rtx, rtx);
 extern int ia64_hard_regno_rename_ok (int, int);
 
 extern void ia64_initialize_trampoline (rtx, rtx, rtx);

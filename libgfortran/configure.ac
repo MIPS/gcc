@@ -109,12 +109,15 @@ m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
-AC_SUBST(CFLAGS)
-
 # Add -Wall if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  CFLAGS="$CFLAGS -Wall"
+  AM_FCFLAGS="-Wall"
+  ## We like to use C99 routines when available.  This makes sure that
+  ## __STDC_VERSION__ is set such that libc includes make them available.
+  AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
 fi
+AC_SUBST(AM_FCFLAGS)
+AC_SUBST(AM_CFLAGS)
 
 # Find other programs we need.
 AC_CHECK_TOOL(AS, as)
@@ -203,6 +206,8 @@ AC_CHECK_LIB([m],[sinhf],[AC_DEFINE([HAVE_SINHF],[1],[libm includes sinhf])])
 AC_CHECK_LIB([m],[sqrtf],[AC_DEFINE([HAVE_SQRTF],[1],[libm includes sqrtf])])
 AC_CHECK_LIB([m],[tanf],[AC_DEFINE([HAVE_TANF],[1],[libm includes tanf])])
 AC_CHECK_LIB([m],[tanhf],[AC_DEFINE([HAVE_TANHF],[1],[libm includes tanhf])])
+AC_CHECK_LIB([m],[trunc],[AC_DEFINE([HAVE_TRUNC],[1],[libm includes trunc])])
+AC_CHECK_LIB([m],[truncf],[AC_DEFINE([HAVE_TRUNCF],[1],[libm includes truncf])])
 AC_CHECK_LIB([m],[erf],[AC_DEFINE([HAVE_ERF],[1],[libm includes erf])])
 AC_CHECK_LIB([m],[erfc],[AC_DEFINE([HAVE_ERFC],[1],[libm includes erfc])])
 AC_CHECK_LIB([m],[erfcf],[AC_DEFINE([HAVE_ERFCF],[1],[libm includes erfcf])])

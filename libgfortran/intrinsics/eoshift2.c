@@ -1,5 +1,5 @@
 /* Generic implementation of the EOSHIFT intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -45,28 +45,34 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
 	  int shift, const gfc_array_char *bound, int which)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
   /* b.* indicates the bound array.  */
-  index_type bstride[GFC_MAX_DIMENSIONS - 1];
+  index_type bstride[GFC_MAX_DIMENSIONS];
   index_type bstride0;
   const char *bptr;
 
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
   index_type size;
   index_type len;
   index_type n;
+
+  /* The compiler cannot figure out that these are set, initialize
+     them to avoid warnings.  */
+  len = 0;
+  soffset = 0;
+  roffset = 0;
 
   size = GFC_DESCRIPTOR_SIZE (ret);
 
@@ -267,4 +273,3 @@ eoshift2_8 (gfc_array_char *ret, const gfc_array_char *array,
 {
   eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
 }
-

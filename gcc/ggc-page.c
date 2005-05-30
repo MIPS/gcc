@@ -75,7 +75,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define USING_MALLOC_PAGE_GROUPS
 #endif
 
-/* Stategy:
+/* Strategy:
 
    This garbage-collecting allocator allocates objects on one of a set
    of pages.  Each page can allocate objects of a single size only;
@@ -1202,6 +1202,9 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
   /* Keep track of how many bytes are being allocated.  This
      information is used in deciding when to collect.  */
   G.allocated += object_size;
+
+  /* For timevar statistics.  */
+  timevar_ggc_mem_total += object_size;
 
 #ifdef GATHER_STATISTICS
   {

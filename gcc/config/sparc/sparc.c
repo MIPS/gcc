@@ -318,8 +318,7 @@ static int set_extends (rtx);
 static void emit_pic_helper (void);
 static void load_pic_register (bool);
 static int save_or_restore_regs (int, int, rtx, int, int);
-static void emit_save_regs (void);
-static void emit_restore_regs (void);
+static void emit_save_or_restore_regs (int);
 static void sparc_asm_function_prologue (FILE *, HOST_WIDE_INT);
 static void sparc_asm_function_epilogue (FILE *, HOST_WIDE_INT);
 #ifdef OBJECT_FORMAT_ELF
@@ -370,9 +369,6 @@ const struct attribute_spec sparc_attribute_table[];
 #endif
 
 /* Option handling.  */
-
-/* Code model option as passed by user.  */
-const char *sparc_cmodel_string;
 
 /* Parsed value.  */
 enum cmodel sparc_cmodel;
@@ -540,10 +536,6 @@ sparc_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
 
     case OPT_mtune_:
       sparc_select[2].string = arg;
-      break;
-
-    case OPT_mcmodel_:
-      sparc_cmodel_string = arg;
       break;
     }
 
@@ -802,9 +794,6 @@ v9_regcmp_p (enum rtx_code code)
 	  || code == LE || code == GT);
 }
 
-
-/* Operand constraints.  */
-
 /* Nonzero if OP is a floating point constant which can
    be loaded into an integer register using a single
    sethi instruction.  */
@@ -818,12 +807,8 @@ fp_sethi_p (rtx op)
       long i;
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      if (REAL_VALUES_EQUAL (r, dconst0) &&
-	  ! REAL_VALUE_MINUS_ZERO (r))
-	return 0;
       REAL_VALUE_TO_TARGET_SINGLE (r, i);
-      if (SPARC_SETHI_P (i))
-	return 1;
+      return !SPARC_SIMM13_P (i) && SPARC_SETHI_P (i);
     }
 
   return 0;
@@ -842,12 +827,8 @@ fp_mov_p (rtx op)
       long i;
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      if (REAL_VALUES_EQUAL (r, dconst0) &&
-	  ! REAL_VALUE_MINUS_ZERO (r))
-	return 0;
       REAL_VALUE_TO_TARGET_SINGLE (r, i);
-      if (SPARC_SIMM13_P (i))
-	return 1;
+      return SPARC_SIMM13_P (i);
     }
 
   return 0;
@@ -869,31 +850,155 @@ fp_high_losum_p (rtx op)
       long i;
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      if (REAL_VALUES_EQUAL (r, dconst0) &&
-	  ! REAL_VALUE_MINUS_ZERO (r))
-	return 0;
       REAL_VALUE_TO_TARGET_SINGLE (r, i);
-      if (! SPARC_SETHI_P (i)
-          && ! SPARC_SIMM13_P (i))
-	return 1;
+      return !SPARC_SIMM13_P (i) && !SPARC_SETHI_P (i);
     }
 
   return 0;
 }
 
-/* If OP is a SYMBOL_REF of a thread-local symbol, return its TLS mode,
-   otherwise return 0.  */
+/* Expand a move instruction.  Return true if all work is done.  */
 
-int
-tls_symbolic_operand (rtx op)
+bool
+sparc_expand_move (enum machine_mode mode, rtx *operands)
 {
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-  return SYMBOL_REF_TLS_MODEL (op);
+  /* Handle sets of MEM first.  */
+  if (GET_CODE (operands[0]) == MEM)
+    {
+      /* 0 is a register (or a pair of registers) on SPARC.  */
+      if (register_or_zero_operand (operands[1], mode))
+	return false;
+
+      if (!reload_in_progress)
+	{
+	  operands[0] = validize_mem (operands[0]);
+	  operands[1] = force_reg (mode, operands[1]);
+	}
+    }
+
+  /* Fixup TLS cases.  */
+  if (TARGET_HAVE_TLS
+      && CONSTANT_P (operands[1])
+      && GET_CODE (operands[1]) != HIGH
+      && sparc_tls_referenced_p (operands [1]))
+    {
+      rtx sym = operands[1];
+      rtx addend = NULL;
+
+      if (GET_CODE (sym) == CONST && GET_CODE (XEXP (sym, 0)) == PLUS)
+	{
+	  addend = XEXP (XEXP (sym, 0), 1);
+	  sym = XEXP (XEXP (sym, 0), 0);
+	}
+
+      gcc_assert (SPARC_SYMBOL_REF_TLS_P (sym));
+
+      sym = legitimize_tls_address (sym);
+      if (addend)
+	{
+	  sym = gen_rtx_PLUS (mode, sym, addend);
+	  sym = force_operand (sym, operands[0]);
+	}
+      operands[1] = sym;
+    }
+ 
+  /* Fixup PIC cases.  */
+  if (flag_pic && CONSTANT_P (operands[1]))
+    {
+      if (pic_address_needs_scratch (operands[1]))
+	operands[1] = legitimize_pic_address (operands[1], mode, 0);
+
+      if (GET_CODE (operands[1]) == LABEL_REF && mode == SImode)
+	{
+	  emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
+	  return true;
+	}
+
+      if (GET_CODE (operands[1]) == LABEL_REF && mode == DImode)
+	{
+	  gcc_assert (TARGET_ARCH64);
+	  emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
+	  return true;
+	}
+
+      if (symbolic_operand (operands[1], mode))
+	{
+	  operands[1] = legitimize_pic_address (operands[1],
+						mode,
+						(reload_in_progress ?
+						 operands[0] :
+						 NULL_RTX));
+	  return false;
+	}
+    }
+
+  /* If we are trying to toss an integer constant into FP registers,
+     or loading a FP or vector constant, force it into memory.  */
+  if (CONSTANT_P (operands[1])
+      && REG_P (operands[0])
+      && (SPARC_FP_REG_P (REGNO (operands[0]))
+	  || SCALAR_FLOAT_MODE_P (mode)
+	  || VECTOR_MODE_P (mode)))
+    {
+      /* emit_group_store will send such bogosity to us when it is
+         not storing directly into memory.  So fix this up to avoid
+         crashes in output_constant_pool.  */
+      if (operands [1] == const0_rtx)
+	operands[1] = CONST0_RTX (mode);
+
+      /* We can clear FP registers if TARGET_VIS, and always other regs.  */
+      if ((TARGET_VIS || REGNO (operands[0]) < SPARC_FIRST_FP_REG)
+	  && const_zero_operand (operands[1], mode))
+	return false;
+
+      if (REGNO (operands[0]) < SPARC_FIRST_FP_REG
+	  /* We are able to build any SF constant in integer registers
+	     with at most 2 instructions.  */
+	  && (mode == SFmode
+	      /* And any DF constant in integer registers.  */
+	      || (mode == DFmode
+		  && (reload_completed || reload_in_progress))))
+	return false;
+
+      operands[1] = force_const_mem (mode, operands[1]);
+      if (!reload_in_progress)
+	operands[1] = validize_mem (operands[1]);
+      return false;
+    }
+
+  /* Accept non-constants and valid constants unmodified.  */
+  if (!CONSTANT_P (operands[1])
+      || GET_CODE (operands[1]) == HIGH
+      || input_operand (operands[1], mode))
+    return false;
+
+  switch (mode)
+    {
+    case QImode:
+      /* All QImode constants require only one insn, so proceed.  */
+      break;
+
+    case HImode:
+    case SImode:
+      sparc_emit_set_const32 (operands[0], operands[1]);
+      return true;
+
+    case DImode:
+      /* input_operand should have filtered out 32-bit mode.  */
+      sparc_emit_set_const64 (operands[0], operands[1]);
+      return true;
+    
+    default:
+      gcc_unreachable ();
+    }
+
+  return false;
 }
-
-/* We know it can't be done in one insn when we get here,
-   the movsi expander guarantees this.  */
+
+/* Load OP1, a 32-bit constant, into OP0, a register.
+   We know it can't be done in one insn when we get
+   here, the move expander guarantees this.  */
+
 void
 sparc_emit_set_const32 (rtx op0, rtx op1)
 {
@@ -932,13 +1037,13 @@ sparc_emit_set_const32 (rtx op0, rtx op1)
     }
 }
 
-
 /* Load OP1, a symbolic 64-bit constant, into OP0, a DImode register.
    If TEMP is nonzero, we are forbidden to use any other scratch
    registers.  Otherwise, we are allowed to generate them as needed.
 
    Note that TEMP may have TImode if the code model is TARGET_CM_MEDANY
    or TARGET_CM_EMBMEDANY (see the reload_indi and reload_outdi patterns).  */
+
 void
 sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp)
 {
@@ -1145,7 +1250,7 @@ sparc_emit_set_const64 (rtx op0 ATTRIBUTE_UNUSED, rtx op1 ATTRIBUTE_UNUSED)
 /* These avoid problems when cross compiling.  If we do not
    go through all this hair then the optimizer will see
    invalid REG_EQUAL notes or in some cases none at all.  */
-static void sparc_emit_set_safe_HIGH64 (rtx, HOST_WIDE_INT);
+static rtx gen_safe_HIGH64 (rtx, HOST_WIDE_INT);
 static rtx gen_safe_SET64 (rtx, HOST_WIDE_INT);
 static rtx gen_safe_OR64 (rtx, HOST_WIDE_INT);
 static rtx gen_safe_XOR64 (rtx, HOST_WIDE_INT);
@@ -1155,10 +1260,10 @@ static rtx gen_safe_XOR64 (rtx, HOST_WIDE_INT);
    Unfortunately this leads to many missed optimizations
    during CSE.  We mask out the non-HIGH bits, and matches
    a plain movdi, to alleviate this problem.  */
-static void
-sparc_emit_set_safe_HIGH64 (rtx dest, HOST_WIDE_INT val)
+static rtx
+gen_safe_HIGH64 (rtx dest, HOST_WIDE_INT val)
 {
-  emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (val & ~(HOST_WIDE_INT)0x3ff)));
+  return gen_rtx_SET (VOIDmode, dest, GEN_INT (val & ~(HOST_WIDE_INT)0x3ff));
 }
 
 static rtx
@@ -1201,7 +1306,7 @@ sparc_emit_set_const64_quick1 (rtx op0, rtx temp,
   else
     high_bits = low_bits;
 
-  sparc_emit_set_safe_HIGH64 (temp, high_bits);
+  emit_insn (gen_safe_HIGH64 (temp, high_bits));
   if (!is_neg)
     {
       emit_insn (gen_rtx_SET (VOIDmode, op0,
@@ -1240,7 +1345,7 @@ sparc_emit_set_const64_quick2 (rtx op0, rtx temp,
 
   if ((high_bits & 0xfffffc00) != 0)
     {
-      sparc_emit_set_safe_HIGH64 (temp, high_bits);
+      emit_insn (gen_safe_HIGH64 (temp, high_bits));
       if ((high_bits & ~0xfffffc00) != 0)
 	emit_insn (gen_rtx_SET (VOIDmode, op0,
 				gen_safe_OR64 (temp, (high_bits & 0x3ff))));
@@ -1284,7 +1389,7 @@ sparc_emit_set_const64_longway (rtx op0, rtx temp,
 
   if ((high_bits & 0xfffffc00) != 0)
     {
-      sparc_emit_set_safe_HIGH64 (temp, high_bits);
+      emit_insn (gen_safe_HIGH64 (temp, high_bits));
       if ((high_bits & ~0xfffffc00) != 0)
 	emit_insn (gen_rtx_SET (VOIDmode,
 				sub_temp,
@@ -1308,7 +1413,7 @@ sparc_emit_set_const64_longway (rtx op0, rtx temp,
 			      gen_rtx_ASHIFT (DImode, sub_temp,
 					      GEN_INT (32))));
 
-      sparc_emit_set_safe_HIGH64 (temp2, low_bits);
+      emit_insn (gen_safe_HIGH64 (temp2, low_bits));
       if ((low_bits & ~0xfffffc00) != 0)
 	{
 	  emit_insn (gen_rtx_SET (VOIDmode, temp3,
@@ -1502,14 +1607,9 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
   rtx temp = 0;
 
   /* Sanity check that we know what we are working with.  */
-  gcc_assert (TARGET_ARCH64);
-
-  if (GET_CODE (op0) != SUBREG)
-    {
-      gcc_assert (GET_CODE (op0) == REG
-		  && (REGNO (op0) < SPARC_FIRST_FP_REG
-	      	      || REGNO (op0) > SPARC_LAST_V9_FP_REG));
-    }
+  gcc_assert (TARGET_ARCH64
+	      && (GET_CODE (op0) == SUBREG
+		  || (REG_P (op0) && ! SPARC_FP_REG_P (REGNO (op0)))));
 
   if (reload_in_progress || reload_completed)
     temp = op0;
@@ -1597,7 +1697,7 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
       gcc_assert (SPARC_SETHI_P (focus_bits));
       gcc_assert (lowest_bit_set != 10);
 
-      sparc_emit_set_safe_HIGH64 (temp, focus_bits);
+      emit_insn (gen_safe_HIGH64 (temp, focus_bits));
 
       /* If lowest_bit_set == 10 then a sethi alone could have done it.  */
       if (lowest_bit_set < 10)
@@ -2629,7 +2729,7 @@ legitimate_constant_p (rtx x)
       /* Offsets of TLS symbols are never valid.
 	 Discourage CSE from creating them.  */
       if (GET_CODE (inner) == PLUS
-	  && tls_symbolic_operand (XEXP (inner, 0)))
+	  && SPARC_SYMBOL_REF_TLS_P (XEXP (inner, 0)))
 	return false;
       break;
 
@@ -2640,9 +2740,16 @@ legitimate_constant_p (rtx x)
       /* Floating point constants are generally not ok.
 	 The only exception is 0.0 in VIS.  */
       if (TARGET_VIS
-	  && (GET_MODE (x) == SFmode
-	      || GET_MODE (x) == DFmode
-	      || GET_MODE (x) == TFmode)
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (x))
+	  && const_zero_operand (x, GET_MODE (x)))
+	return true;
+
+      return false;
+
+    case CONST_VECTOR:
+      /* Vector constants are generally not ok.
+	 The only exception is 0 in VIS.  */
+      if (TARGET_VIS
 	  && const_zero_operand (x, GET_MODE (x)))
 	return true;
 
@@ -2689,10 +2796,10 @@ legitimate_pic_operand_p (rtx x)
 {
   if (pic_address_needs_scratch (x))
     return false;
-  if (tls_symbolic_operand (x)
+  if (SPARC_SYMBOL_REF_TLS_P (x)
       || (GET_CODE (x) == CONST
 	  && GET_CODE (XEXP (x, 0)) == PLUS
-	  && tls_symbolic_operand (XEXP (XEXP (x, 0), 0))))
+	  && SPARC_SYMBOL_REF_TLS_P (XEXP (XEXP (x, 0), 0))))
     return false;
   return true;
 }
@@ -2730,7 +2837,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	   && GET_CODE (rs2) != SUBREG
 	   && GET_CODE (rs2) != LO_SUM
 	   && GET_CODE (rs2) != MEM
-	   && !tls_symbolic_operand (rs2)
+	   && ! SPARC_SYMBOL_REF_TLS_P (rs2)
 	   && (! symbolic_operand (rs2, VOIDmode) || mode == Pmode)
 	   && (GET_CODE (rs2) != CONST_INT || SMALL_INT (rs2)))
 	  || ((REG_P (rs1)
@@ -2770,7 +2877,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	  rs2 = NULL;
 	  imm1 = XEXP (rs1, 1);
 	  rs1 = XEXP (rs1, 0);
-	  if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
+	  if (! CONSTANT_P (imm1) || SPARC_SYMBOL_REF_TLS_P (rs1))
 	    return 0;
 	}
     }
@@ -2779,7 +2886,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       rs1 = XEXP (addr, 0);
       imm1 = XEXP (addr, 1);
 
-      if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
+      if (! CONSTANT_P (imm1) || SPARC_SYMBOL_REF_TLS_P (rs1))
 	return 0;
 
       /* We can't allow TFmode in 32-bit mode, because an offset greater
@@ -2828,6 +2935,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 /* Construct the SYMBOL_REF for the tls_get_offset function.  */
 
 static GTY(()) rtx sparc_tls_symbol;
+
 static rtx
 sparc_tls_get_addr (void)
 {
@@ -2854,6 +2962,24 @@ sparc_tls_got (void)
   return temp;
 }
 
+/* Return 1 if *X is a thread-local symbol.  */
+
+static int
+sparc_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
+{
+  return SPARC_SYMBOL_REF_TLS_P (*x);
+}
+
+/* Return 1 if X contains a thread-local symbol.  */
+
+bool
+sparc_tls_referenced_p (rtx x)
+{
+  if (!TARGET_HAVE_TLS)
+    return false;
+
+  return for_each_rtx (&x, &sparc_tls_symbol_ref_1, 0);
+}
 
 /* ADDR contains a thread-local SYMBOL_REF.  Generate code to compute
    this (thread-local) address.  */
@@ -3021,15 +3147,15 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 	     won't get confused into thinking that these two instructions
 	     are loading in the true address of the symbol.  If in the
 	     future a PIC rtx exists, that should be used instead.  */
-	  if (Pmode == SImode)
-	    {
-	      emit_insn (gen_movsi_high_pic (temp_reg, orig));
-	      emit_insn (gen_movsi_lo_sum_pic (temp_reg, temp_reg, orig));
-	    }
-	  else
+	  if (TARGET_ARCH64)
 	    {
 	      emit_insn (gen_movdi_high_pic (temp_reg, orig));
 	      emit_insn (gen_movdi_lo_sum_pic (temp_reg, temp_reg, orig));
+	    }
+	  else
+	    {
+	      emit_insn (gen_movsi_high_pic (temp_reg, orig));
+	      emit_insn (gen_movsi_lo_sum_pic (temp_reg, temp_reg, orig));
 	    }
 	  address = temp_reg;
 	}
@@ -3116,7 +3242,7 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   if (x != orig_x && legitimate_address_p (mode, x, FALSE))
     return x;
 
-  if (tls_symbolic_operand (x))
+  if (SPARC_SYMBOL_REF_TLS_P (x))
     x = legitimize_tls_address (x);
   else if (flag_pic)
     x = legitimize_pic_address (x, mode, 0);
@@ -3206,7 +3332,8 @@ mem_min_alignment (rtx mem, int desired)
     return 0;
 
   /* Obviously...  */
-  if (MEM_ALIGN (mem) / BITS_PER_UNIT >= (unsigned)desired)
+  if (!TARGET_UNALIGNED_DOUBLES
+      && MEM_ALIGN (mem) / BITS_PER_UNIT >= (unsigned)desired)
     return 1;
 
   /* ??? The rest of the function predates MEM_ALIGN so
@@ -3520,10 +3647,9 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function_p)
 
   /* Make sure nothing can clobber our register windows.
      If a SAVE must be done, or there is a stack-local variable,
-     the register window area must be allocated.
-     ??? For v8 we apparently need an additional 8 bytes of reserved space.  */
+     the register window area must be allocated.  */
   if (! leaf_function_p || size > 0)
-    actual_fsize += (16 * UNITS_PER_WORD) + (TARGET_ARCH64 ? 0 : 8);
+    actual_fsize += FIRST_PARM_OFFSET (current_function_decl);
 
   return SPARC_STACK_ALIGN (actual_fsize);
 }
@@ -3635,14 +3761,14 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
 /* Emit code to save call-saved registers.  */
 
 static void
-emit_save_regs (void)
+emit_save_or_restore_regs (int action)
 {
   HOST_WIDE_INT offset;
   rtx base;
 
   offset = frame_base_offset - apparent_fsize;
 
-  if (offset < -4096 || offset + num_gfregs * 4 > 4096)
+  if (offset < -4096 || offset + num_gfregs * 4 > 4095)
     {
       /* ??? This might be optimized a little as %g1 might already have a
 	 value close enough that a single add insn will do.  */
@@ -3660,34 +3786,8 @@ emit_save_regs (void)
   else
     base = frame_base_reg;
 
-  offset = save_or_restore_regs (0, 8, base, offset, SORR_SAVE);
-  save_or_restore_regs (32, TARGET_V9 ? 96 : 64, base, offset, SORR_SAVE);
-}
-
-/* Emit code to restore call-saved registers.  */
-
-static void
-emit_restore_regs (void)
-{
-  HOST_WIDE_INT offset;
-  rtx base;
-
-  offset = frame_base_offset - apparent_fsize;
-
-  if (offset < -4096 || offset + num_gfregs * 4 > 4096 - 8 /*double*/)
-    {
-      base = gen_rtx_REG (Pmode, 1);
-      emit_move_insn (base, GEN_INT (offset));
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      base,
-			      gen_rtx_PLUS (Pmode, frame_base_reg, base)));
-      offset = 0;
-    }
-  else
-    base = frame_base_reg;
-
-  offset = save_or_restore_regs (0, 8, base, offset, SORR_RESTORE);
-  save_or_restore_regs (32, TARGET_V9 ? 96 : 64, base, offset, SORR_RESTORE);
+  offset = save_or_restore_regs (0, 8, base, offset, action);
+  save_or_restore_regs (32, TARGET_V9 ? 96 : 64, base, offset, action);
 }
 
 /* Generate a save_register_window insn.  */
@@ -3826,9 +3926,8 @@ sparc_expand_prologue (void)
         RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, i)) = 1;
     }
 
-  /* Call-saved registers are saved just above the outgoing argument area.  */
   if (num_gfregs)
-    emit_save_regs ();
+    emit_save_or_restore_regs (SORR_SAVE);
 
   /* Load the PIC register if needed.  */
   if (flag_pic && current_function_uses_pic_offset_table)
@@ -3836,12 +3935,7 @@ sparc_expand_prologue (void)
 }
  
 /* This function generates the assembly code for function entry, which boils
-   down to emitting the necessary .register directives.
-
-   ??? Historical cruft: "On SPARC, move-double insns between fpu and cpu need
-   an 8-byte block of memory.  If any fpu reg is used in the function, we
-   allocate such a block here, at the bottom of the frame, just in case it's
-   needed."  Could this explain the -8 in emit_restore_regs?  */
+   down to emitting the necessary .register directives.  */
 
 static void
 sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
@@ -3859,7 +3953,7 @@ void
 sparc_expand_epilogue (void)
 {
   if (num_gfregs)
-    emit_restore_regs ();
+    emit_save_or_restore_regs (SORR_RESTORE);
 
   if (actual_fsize == 0)
     /* do nothing.  */ ;
@@ -5851,7 +5945,7 @@ sparc_emit_float_lib_cmp (rtx x, rtx y, enum rtx_code comparison)
       if (GET_CODE (x) != MEM)
 	{
 	  slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot0, x));
+	  emit_move_insn (slot0, x);
 	}
       else
 	slot0 = x;
@@ -5859,7 +5953,7 @@ sparc_emit_float_lib_cmp (rtx x, rtx y, enum rtx_code comparison)
       if (GET_CODE (y) != MEM)
 	{
 	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot1, y));
+	  emit_move_insn (slot1, y);
 	}
       else
 	slot1 = y;
@@ -7745,7 +7839,7 @@ sparc_vis_init_builtins (void)
 }
 
 /* Handle TARGET_EXPAND_BUILTIN target hook.
-   Expand builtin functions for sparc instrinsics.  */
+   Expand builtin functions for sparc intrinsics.  */
 
 static rtx
 sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,

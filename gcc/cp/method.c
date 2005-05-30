@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
+#include "tree-pass.h"
 
 /* Various flags to control the mangling process.  */
 
@@ -257,16 +258,10 @@ static GTY (()) int thunk_labelno;
 
 /* Create a static alias to function.  */
 
-static tree
-make_alias_for_thunk (tree function)
+tree
+make_alias_for (tree function, tree newid)
 {
-  tree alias;
-  char buf[256];
-
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LTHUNK", thunk_labelno);
-  thunk_labelno++;
-  alias = build_decl (FUNCTION_DECL, get_identifier (buf),
-		      TREE_TYPE (function));
+  tree alias = build_decl (FUNCTION_DECL, newid, TREE_TYPE (function));
   DECL_LANG_SPECIFIC (alias) = DECL_LANG_SPECIFIC (function);
   cxx_dup_lang_specific_decl (alias);
   DECL_CONTEXT (alias) = NULL;
@@ -295,8 +290,23 @@ make_alias_for_thunk (tree function)
   TREE_USED (alias) = 1;
   SET_DECL_ASSEMBLER_NAME (alias, DECL_NAME (alias));
   TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (alias)) = 1;
+  return alias;
+}
+
+static tree
+make_alias_for_thunk (tree function)
+{
+  tree alias;
+  char buf[256];
+
+  ASM_GENERATE_INTERNAL_LABEL (buf, "LTHUNK", thunk_labelno);
+  thunk_labelno++;
+
+  alias = make_alias_for (function, get_identifier (buf));
+
   if (!flag_syntax_only)
     assemble_alias (alias, DECL_ASSEMBLER_NAME (function));
+
   return alias;
 }
 
@@ -504,7 +514,9 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       /* Re-enable access control.  */
       pop_deferring_access_checks ();
 
-      expand_body (finish_function (0));
+      thunk_fndecl = finish_function (0);
+      tree_lowering_passes (thunk_fndecl);
+      expand_body (thunk_fndecl);
     }
 
   pop_from_top_level ();
@@ -956,6 +968,19 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   tree raises = empty_except_spec;
   tree rhs_parm_type = NULL_TREE;
   tree name;
+  HOST_WIDE_INT saved_processing_template_decl;
+
+  /* Because we create declarations for implictly declared functions
+     lazily, we may be creating the declaration for a member of TYPE
+     while in some completely different context.  However, TYPE will
+     never be a dependent class (because we never want to do lookups
+     for implicitly defined functions in a dependent class).
+     Furthermore, we must set PROCESSING_TEMPLATE_DECL to zero here
+     because we only create clones for constructors and destructors
+     when not in a template.  */
+  gcc_assert (!dependent_type_p (type));
+  saved_processing_template_decl = processing_template_decl;
+  processing_template_decl = 0;
 
   type = TYPE_MAIN_VARIANT (type);
 
@@ -1053,6 +1078,9 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   DECL_DECLARED_INLINE_P (fn) = 1;
   DECL_INLINE (fn) = 1;
   gcc_assert (!TREE_USED (fn));
+
+  /* Restore PROCESSING_TEMPLATE_DECL.  */
+  processing_template_decl = saved_processing_template_decl;
 
   return fn;
 }

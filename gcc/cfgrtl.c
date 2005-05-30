@@ -1190,7 +1190,7 @@ rtl_tidy_fallthru_edge (edge e)
 
   /* ??? In a late-running flow pass, other folks may have deleted basic
      blocks by nopping out blocks, leaving multiple BARRIERs between here
-     and the target label. They ought to be chastized and fixed.
+     and the target label. They ought to be chastised and fixed.
 
      We can also wind up with a sequence of undeletable labels between
      one block and the next.
@@ -2428,9 +2428,12 @@ purge_dead_edges (basic_block bb)
   if (!found)
     return purged;
 
+  /* Remove all but the fake and fallthru edges.  The fake edge may be
+     the only successor for this block in the case of noreturn
+     calls.  */
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
-      if (!(e->flags & EDGE_FALLTHRU))
+      if (!(e->flags & (EDGE_FALLTHRU | EDGE_FAKE)))
 	{
 	  bb->flags |= BB_DIRTY;
 	  remove_edge (e);

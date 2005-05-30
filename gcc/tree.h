@@ -1355,13 +1355,13 @@ struct value_range_def;
 
 /* Immediate use linking structure.  This structure is used for maintaining
    a doubly linked list of uses of an SSA_NAME.  */
-typedef struct ssa_imm_use_d GTY(())
+typedef struct ssa_use_operand_d GTY(())
 {
-  struct ssa_imm_use_d* GTY((skip(""))) prev;
-  struct ssa_imm_use_d* GTY((skip(""))) next;
+  struct ssa_use_operand_d* GTY((skip(""))) prev;
+  struct ssa_use_operand_d* GTY((skip(""))) next;
   tree GTY((skip(""))) stmt;
   tree *GTY((skip(""))) use;
-} ssa_imm_use_t;
+} ssa_use_operand_t;
 
 /* Return the immediate_use information for an SSA_NAME. */
 #define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
@@ -1393,7 +1393,7 @@ struct tree_ssa_name GTY(())
   PTR GTY((skip)) aux;
 
   /* Immediate uses list for this SSA_NAME.  */
-  struct ssa_imm_use_d imm_uses;
+  struct ssa_use_operand_d imm_uses;
 };
 
 /* In a PHI_NODE node.  */
@@ -1424,7 +1424,7 @@ struct phi_arg_d GTY(())
 {
   /* imm_use MUST be the first element in struct because we do some
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
-  struct ssa_imm_use_d imm_use;
+  struct ssa_use_operand_d imm_use;
   tree def;
   bool nonzero;
 };
@@ -2952,6 +2952,7 @@ extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
+extern tree build_resx (int);
 extern tree array_type_nelts (tree);
 extern bool in_array_bounds_p (tree);
 
@@ -2967,6 +2968,7 @@ extern int host_integerp (tree, int);
 extern HOST_WIDE_INT tree_low_cst (tree, int);
 extern int tree_int_cst_msb (tree);
 extern int tree_int_cst_sgn (tree);
+extern int tree_int_cst_sign_bit (tree);
 extern int tree_expr_nonnegative_p (tree);
 extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
@@ -3157,6 +3159,9 @@ typedef struct record_layout_info_s
   tree pending_statics;
   /* Bits remaining in the current alignment group */
   int remaining_in_alignment;
+  /* True if prev_field was packed and we haven't found any non-packed
+     fields that we have put in the same alignment group.  */
+  int prev_packed;
   /* True if we've seen a packed field that didn't have normal
      alignment anyway.  */
   int packed_maybe_necessary;
@@ -3661,7 +3666,7 @@ extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
 extern tree tree_fold_gcd (tree, tree);
-extern tree build_addr (tree);
+extern tree build_addr (tree, tree);
 
 extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
@@ -3984,9 +3989,6 @@ extern int tree_node_sizes[];
    be restricted.  False if we are not in gimple form and folding is not
    restricted to creating gimple expressions.  */
 extern bool in_gimple_form;
-
-/* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (void);
 
 /* In tree-gimple.c.  */
 extern tree get_base_address (tree t);

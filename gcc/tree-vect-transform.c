@@ -231,7 +231,7 @@ vect_create_addr_base_for_vector_ref (tree stmt,
 
 /* Function vect_align_data_ref.
 
-   Handle mislignment of a memory accesses.
+   Handle misalignment of a memory accesses.
 
    FORNOW: Can't handle misaligned accesses. 
    Make sure that the dataref is aligned.  */
@@ -350,16 +350,13 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   tag = STMT_VINFO_MEMTAG (stmt_info);
   gcc_assert (tag);
 
-  /* If the memory tag of the original reference was not a type tag or
-     if the pointed-to type of VECT_PTR has an alias set number
-     different than TAG's, then we need to create a new type tag for
-     VECT_PTR and add TAG to its alias set.  */
-  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG
-      || get_alias_set (tag) != get_alias_set (TREE_TYPE (vect_ptr_type)))
-    add_type_alias (vect_ptr, tag);
+  /* If tag is a variable (and NOT_A_TAG) than a new type alias
+     tag must be created with tag added to its may alias list.  */
+  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+    new_type_alias (vect_ptr, tag);
   else
     var_ann (vect_ptr)->type_mem_tag = tag;
-  
+
   var_ann (vect_ptr)->subvars = STMT_VINFO_SUBVARS (stmt_info);
 
   /** (3) Calculate the initial address the vector-pointer, and set
@@ -815,7 +812,12 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     {
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	fprintf (vect_dump, "op not supported by target.");
-      return false;
+      if (GET_MODE_SIZE (vec_mode) != UNITS_PER_WORD
+          || LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	     < vect_min_worthwhile_factor (code))
+        return false;
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	fprintf (vect_dump, "proceeding using word mode.");
     }
 
   /* Worthwhile without SIMD support?  */
@@ -891,8 +893,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum machine_mode vec_mode;
   tree dummy;
   enum dr_alignment_support alignment_support_cheme;
-  ssa_op_iter iter;
   tree def;
+  ssa_op_iter iter;
 
   /* Is vectorizable store? */
 
@@ -950,16 +952,22 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   *vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
 
-  /* Mark all non-SSA variables in the statement for rewriting.  */
-  mark_new_vars_to_rename (*vec_stmt);
-	    
-  /* The new vectorized statement will have better aliasing
-     information, so some of the virtual definitions of the old
-     statement will likely disappear from the IL.  Mark them to have
-     their SSA form updated.  */
+  /* Copy the V_MAY_DEFS representing the aliasing of the original array
+     element's definition to the vector's definition then update the
+     defining statement.  The original is being deleted so the same
+     SSA_NAMEs can be used.  */
+  copy_virtual_operands (*vec_stmt, stmt);
+
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
-    mark_sym_for_renaming (SSA_NAME_VAR (def));
- 
+    {
+      SSA_NAME_DEF_STMT (def) = *vec_stmt;
+
+      /* If this virtual def has a use outside the loop and a loop peel is performed
+         then the def may be renamed by the peel.  Mark it for renaming so the
+         later use will also be renamed.  */
+      mark_sym_for_renaming (SSA_NAME_VAR (def));
+    }
+
   return true;
 }
 
@@ -1499,13 +1507,12 @@ update_vuses_to_preheader (tree stmt, struct loop *loop)
 {
   basic_block header_bb = loop->header;
   edge preheader_e = loop_preheader_edge (loop);
-  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-  int nvuses = NUM_VUSES (vuses);
-  int i;
+  ssa_op_iter iter;
+  use_operand_p use_p;
 
-  for (i = 0; i < nvuses; i++)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VUSE)
     {
-      tree ssa_name = VUSE_OP (vuses, i);
+      tree ssa_name = USE_FROM_PTR (use_p);
       tree def_stmt = SSA_NAME_DEF_STMT (ssa_name);
       tree name_var = SSA_NAME_VAR (ssa_name);
       basic_block bb = bb_for_stmt (def_stmt);
@@ -1524,8 +1531,7 @@ update_vuses_to_preheader (tree stmt, struct loop *loop)
 	    {
 	      if (SSA_NAME_VAR (PHI_RESULT (phi)) == name_var)
 		{
-		  SET_VUSE_OP (vuses, i, 
-			       PHI_ARG_DEF (phi, preheader_e->dest_idx));
+		  SET_USE (use_p, PHI_ARG_DEF (phi, preheader_e->dest_idx));
 		  updated = true;
 		  break;
 		}

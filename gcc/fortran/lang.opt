@@ -1,5 +1,5 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -88,6 +88,10 @@ Allow dollar signs in entity names
 fdump-parse-tree
 F95
 Display the code tree after parsing.
+
+ff2c
+F95
+Use f2c calling convention.
 
 ffixed-form
 F95

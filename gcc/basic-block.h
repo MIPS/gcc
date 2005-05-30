@@ -183,7 +183,7 @@ struct loop;
 struct loops;
 
 /* Declared in tree-flow.h.  */
-struct bb_ann_d;
+struct edge_prediction;
 
 /* A basic block is a sequence of instructions with only entry and
    only one exit.  If any one of the instructions are executed, they
@@ -246,8 +246,11 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * rbi;
 
-  /* Annotations used at the tree level.  */
-  struct bb_ann_d *tree_annotations;
+  /* Chain of PHI nodes for this block.  */
+  tree phi_nodes;
+
+  /* A list of predictions.  */
+  struct edge_prediction *predictions;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -444,6 +447,9 @@ extern bool rediscover_loops_after_threading;
 #define FOR_ALL_BB(BB) \
   for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
 
+#define FOR_ALL_BB_FN(BB, FN) \
+  for (BB = ENTRY_BLOCK_PTR_FOR_FUNCTION (FN); BB; BB = BB->next_bb)
+
 /* Special labels found during CFG build.  */
 
 extern GTY(()) rtx label_value_list;
@@ -551,6 +557,9 @@ struct edge_list
   int num_edges;
   edge *index_to_edge;
 };
+
+/* The base value for branch probability notes and edge probabilities.  */
+#define REG_BR_PROB_BASE  10000
 
 /* This is the value which indicates no edge is present.  */
 #define EDGE_INDEX_NO_EDGE	-1
@@ -803,6 +812,8 @@ enum update_life_extent
 #define PROP_SCAN_DEAD_STORES	128	/* Scan for dead code.  */
 #define PROP_ASM_SCAN		256	/* Internal flag used within flow.c
 					   to flag analysis of asms.  */
+#define PROP_DEAD_INSN		1024	/* Internal flag used within flow.c
+					   to flag analysis of dead insn.  */
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \

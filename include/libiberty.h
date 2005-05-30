@@ -21,8 +21,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.
+   Foundation, Inc., 51 Franklin Street - Fifth Floor,
+   Boston, MA 02110-1301, USA.
    
    Written by Cygnus Support, 1994.
 
@@ -97,7 +97,10 @@ extern char **dupargv (char **) ATTRIBUTE_MALLOC;
 #if defined (__GNU_LIBRARY__ ) || defined (__linux__) || defined (__FreeBSD__) || defined (__OpenBSD__) || defined(__NetBSD__) || defined (__CYGWIN__) || defined (__CYGWIN32__) || defined (__MINGW32__) || defined (HAVE_DECL_BASENAME)
 extern char *basename (const char *);
 #else
-extern char *basename ();
+/* Do not allow basename to be used if there is no prototype seen.  We
+   either need to use the above prototype or have one from
+   autoconf which would result in HAVE_DECL_BASENAME being set.  */
+#define basename basename_cannot_be_used_without_a_prototype
 #endif
 #endif
 
@@ -153,7 +156,7 @@ extern char *libiberty_concat_ptr;
    strings.  Allocates memory using alloca.  The arguments are
    evaluated twice!  */
 #define ACONCAT(ACONCAT_PARAMS) \
-  (libiberty_concat_ptr = alloca (concat_length ACONCAT_PARAMS + 1), \
+  (libiberty_concat_ptr = (char *) alloca (concat_length ACONCAT_PARAMS + 1), \
    concat_copy2 ACONCAT_PARAMS)
 
 /* Check whether two file descriptors refer to the same file.  */
@@ -526,6 +529,16 @@ extern int asprintf (char **, const char *, ...) ATTRIBUTE_PRINTF_2;
 
 extern int vasprintf (char **, const char *, va_list)
   ATTRIBUTE_PRINTF(2,0);
+#endif
+
+#if defined(HAVE_DECL_SNPRINTF) && !HAVE_DECL_SNPRINTF
+/* Like sprintf but prints at most N characters.  */
+extern int snprintf (char *, size_t, const char *, ...) ATTRIBUTE_PRINTF_3;
+#endif
+
+#if defined(HAVE_DECL_VSNPRINTF) && !HAVE_DECL_VSNPRINTF
+/* Like vsprintf but prints at most N characters.  */
+extern int vsnprintf (char *, size_t, const char *, va_list);
 #endif
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))

@@ -503,6 +503,13 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       return build_type_attribute_variant (result_type, attributes);
     }
 
+  if (c_dialect_objc () && TREE_CODE (t1) == POINTER_TYPE
+      && TREE_CODE (t2) == POINTER_TYPE)
+    {
+      if (objc_compare_types (t1, t2, -3, NULL_TREE))
+	return t1;
+    }
+
   /* [expr.eq] permits the application of a pointer conversion to
      bring the pointers to a common type.  */
   if (TREE_CODE (t1) == POINTER_TYPE && TREE_CODE (t2) == POINTER_TYPE
@@ -998,11 +1005,6 @@ comptypes (tree t1, tree t2, int strict)
       else if ((strict & COMPARE_DERIVED) && DERIVED_FROM_P (t2, t1))
 	break;
       
-      /* We may be dealing with Objective-C instances.  */
-      if (TREE_CODE (t1) == RECORD_TYPE
-	  && objc_comptypes (t1, t2, 0) > 0)
-	break;
-
       return false;
 
     case OFFSET_TYPE:
@@ -1849,6 +1851,10 @@ finish_class_member_access_expr (tree object, tree name)
   if (object == error_mark_node || name == error_mark_node)
     return error_mark_node;
 
+  /* If OBJECT is an ObjC class instance, we must obey ObjC access rules.  */
+  if (!objc_is_public (object, name))
+    return error_mark_node;
+
   object_type = TREE_TYPE (object);
 
   if (processing_template_decl)
@@ -2340,14 +2346,23 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  gcc_unreachable ();
 	}
 
-      /* Convert down to the right base before using the instance.  First
-         use the type...  */
+      /* Convert down to the right base before using the instance.  A
+	 special case is that in a pointer to member of class C, C may
+	 be incomplete.  In that case, the function will of course be
+	 a member of C, and no conversion is required.  In fact,
+	 lookup_base will fail in that case, because incomplete
+	 classes do not have BINFOs.  */ 
       basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (fntype));
-      basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
-			      basetype, ba_check, NULL);
-      instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 1);
-      if (instance_ptr == error_mark_node)
-	return error_mark_node;
+      if (!same_type_ignoring_top_level_qualifiers_p 
+	  (basetype, TREE_TYPE (TREE_TYPE (instance_ptr))))
+	{
+	  basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
+				  basetype, ba_check, NULL);
+	  instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 
+					  1);
+	  if (instance_ptr == error_mark_node)
+	    return error_mark_node;
+	}
       /* ...and then the delta in the PMF.  */
       instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
 			     instance_ptr, delta);
@@ -2394,6 +2409,10 @@ build_function_call (tree function, tree params)
   tree name = NULL_TREE;
   int is_method;
   tree original = function;
+
+  /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
+     expressions, like those used for ObjC messenger dispatches.  */
+  function = objc_rewrite_function_call (function, params);
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs, since FUNCTION is used in non-lvalue context.  */
@@ -3682,13 +3701,12 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
   switch (code)
     {
-    /* CONVERT_EXPR stands for unary plus in this context.  */
-    case CONVERT_EXPR:
+    case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
       {
 	int flags = WANT_ARITH | WANT_ENUM;
 	/* Unary plus (but not unary minus) is allowed on pointers.  */
-	if (code == CONVERT_EXPR)
+	if (code == UNARY_PLUS_EXPR)
 	  flags |= WANT_POINTER;
 	arg = build_expr_type_conversion (flags, arg, true);
 	if (!arg)
@@ -4107,15 +4125,10 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  }
 	else
 	  {
+	    tree object = TREE_OPERAND (arg, 0);
 	    tree field = TREE_OPERAND (arg, 1);
-	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
-	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
-				      decl_type_context (field),
-				      ba_check, NULL);
-	    
-	    rval = build_base_path (PLUS_EXPR, rval, binfo, 1);
-
-	    TREE_OPERAND (arg, 0) = build_indirect_ref (rval, NULL);
+	    gcc_assert (same_type_ignoring_top_level_qualifiers_p
+			(TREE_TYPE (object), decl_type_context (field)));
 	    addr = build_address (arg);
 	  }
 
@@ -5446,6 +5459,14 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (newrhs == error_mark_node)
     return error_mark_node;
 
+  if (c_dialect_objc () && flag_objc_gc)
+    {
+      result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+
+      if (result)
+	return result;
+    }
+
   result = build2 (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
 		   lhstype, lhs, newrhs);
 
@@ -5510,7 +5531,6 @@ get_delta_difference (tree from, tree to,
 		      bool c_cast_p)
 {
   tree binfo;
-  tree virt_binfo;
   base_kind kind;
   tree result;
 
@@ -5519,36 +5539,14 @@ get_delta_difference (tree from, tree to,
   binfo = lookup_base (to, from, c_cast_p ? ba_unique : ba_check, &kind);
   if (kind == bk_inaccessible || kind == bk_ambig)
     error ("   in pointer to member function conversion");
-  else if (!binfo)
+  else if (binfo)
     {
-      if (!allow_inverse_p)
-	{
-	  error_not_base_type (from, to);
-	  error ("   in pointer to member conversion");
-	}
-      else
-	{
-	  binfo = lookup_base (from, to, c_cast_p ? ba_unique : ba_check, 
-			       &kind);
-	  if (binfo)
-	    {
-	      virt_binfo = binfo_from_vbase (binfo);
-	      if (virt_binfo)
-		/* This is a reinterpret cast, we choose to do nothing.  */
-		warning (0, "pointer to member cast via virtual base %qT",
-			 BINFO_TYPE (virt_binfo));
-	      else
-		result = size_diffop (size_zero_node, BINFO_OFFSET (binfo));
-	    }
-	}
-    }
-  else
-    {
-      virt_binfo = binfo_from_vbase (binfo);
-      if (!virt_binfo)
+      if (kind != bk_via_virtual)
 	result = BINFO_OFFSET (binfo);
       else
 	{
+	  tree virt_binfo = binfo_from_vbase (binfo);
+	  
 	  /* This is a reinterpret cast, we choose to do nothing.  */
 	  if (allow_inverse_p)
 	    warning (0, "pointer to member cast via virtual base %qT",
@@ -5556,6 +5554,30 @@ get_delta_difference (tree from, tree to,
 	  else
 	    error ("pointer to member conversion via virtual base %qT",
 		   BINFO_TYPE (virt_binfo));
+	}
+    }
+  else if (same_type_ignoring_top_level_qualifiers_p (from, to))
+    /* Pointer to member of incomplete class is permitted*/;
+  else if (!allow_inverse_p)
+    {
+      error_not_base_type (from, to);
+      error ("   in pointer to member conversion");
+    }
+  else
+    {
+      binfo = lookup_base (from, to, c_cast_p ? ba_unique : ba_check, &kind);
+      if (binfo)
+	{
+	  if (kind != bk_via_virtual)
+	    result = size_diffop (size_zero_node, BINFO_OFFSET (binfo));
+	  else
+	    {
+	      /* This is a reinterpret cast, we choose to do nothing.  */
+	      tree virt_binfo = binfo_from_vbase (binfo);
+	  
+	      warning (0, "pointer to member cast via virtual base %qT",
+		       BINFO_TYPE (virt_binfo));
+	    }
 	}
     }
 
@@ -5819,7 +5841,33 @@ convert_for_assignment (tree type, tree rhs,
   /* Simplify the RHS if possible.  */
   if (TREE_CODE (rhs) == CONST_DECL)
     rhs = DECL_INITIAL (rhs);
-  
+
+  if (c_dialect_objc ())
+    {
+      int parmno;
+      tree rname = fndecl;
+
+      if (!strcmp (errtype, "assignment"))
+	parmno = -1;
+      else if (!strcmp (errtype, "initialization"))
+	parmno = -2;
+      else
+	{
+	  tree selector = objc_message_selector ();
+
+	  parmno = parmnum;
+
+	  if (selector && parmno > 1)
+	    {
+	      rname = selector;
+	      parmno -= 1;
+	    }
+	}
+
+      if (objc_compare_types (type, rhstype, parmno, rname))
+	return convert (type, rhs);
+    }
+
   /* [expr.ass]
 
      The expression is implicitly converted (clause _conv_) to the
@@ -6244,10 +6292,15 @@ comp_ptr_ttypes_real (tree to, tree from, int constp)
 	 so the usual checks are not appropriate.  */
       if (TREE_CODE (to) != FUNCTION_TYPE && TREE_CODE (to) != METHOD_TYPE)
 	{
-	  if (!at_least_as_qualified_p (to, from))
+	  /* In Objective-C++, some types may have been 'volatilized' by
+	     the compiler for EH; when comparing them here, the volatile
+	     qualification must be ignored.  */
+	  bool objc_quals_match = objc_type_quals_match (to, from);
+
+	  if (!at_least_as_qualified_p (to, from) && !objc_quals_match)
 	    return 0;
 
-	  if (!at_least_as_qualified_p (from, to))
+	  if (!at_least_as_qualified_p (from, to) && !objc_quals_match)
 	    {
 	      if (constp == 0)
 		return 0;

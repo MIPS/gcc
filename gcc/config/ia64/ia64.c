@@ -98,10 +98,6 @@ static const char * const ia64_local_reg_names[80] =
 static const char * const ia64_output_reg_names[8] =
 { "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7" };
 
-/* Determines whether we use adds, addl, or movl to generate our
-   TLS immediate offsets.  */
-int ia64_tls_size = 22;
-
 /* Which cpu are we scheduling for.  */
 enum processor_type ia64_tune = PROCESSOR_ITANIUM2;
 
@@ -163,7 +159,6 @@ static int ia64_first_cycle_multipass_dfa_lookahead_guard (rtx);
 static int ia64_dfa_new_cycle (FILE *, int, rtx, int, int, int *);
 static rtx gen_tls_get_addr (void);
 static rtx gen_thread_pointer (void);
-static rtx ia64_expand_tls_address (enum tls_model, rtx, rtx);
 static int find_gr_spill (int);
 static int next_scratch_gr_reg (void);
 static void mark_reg_gr_used_mask (rtx, void *);
@@ -264,7 +259,7 @@ static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 static bool ia64_vector_mode_supported_p (enum machine_mode mode);
-
+static bool ia64_cannot_force_const_mem (rtx);
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -424,6 +419,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION ia64_handle_option
 
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM ia64_cannot_force_const_mem
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 typedef enum
@@ -482,7 +480,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      warning (0, "invalid argument of %qs attribute",
+      warning (OPT_Wattributes, "invalid argument of %qs attribute",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -514,7 +512,8 @@ ia64_handle_model_attribute (tree *node, tree name, tree args,
       break;
 
     default:
-      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
       break;
     }
@@ -616,8 +615,7 @@ ia64_extra_constraint (rtx value, char c)
 
     case 'T':
       /* Symbol ref to small-address-area.  */
-      return (GET_CODE (value) == SYMBOL_REF
-	      && SYMBOL_REF_SMALL_ADDR_P (value));
+      return small_addr_symbolic_operand (value, VOIDmode);
 
     case 'U':
       /* Vector zero.  */
@@ -693,12 +691,64 @@ ia64_depz_field_mask (rtx rop, rtx rshift)
   return exact_log2 (op + 1);
 }
 
+/* Return the TLS model to use for ADDR.  */
+
+static enum tls_model
+tls_symbolic_operand_type (rtx addr)
+{
+  enum tls_model tls_kind = 0;
+
+  if (GET_CODE (addr) == CONST)
+    {
+      if (GET_CODE (XEXP (addr, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF)
+        tls_kind = SYMBOL_REF_TLS_MODEL (XEXP (XEXP (addr, 0), 0));
+    }
+  else if (GET_CODE (addr) == SYMBOL_REF)
+    tls_kind = SYMBOL_REF_TLS_MODEL (addr);
+
+  return tls_kind;
+}
+
+/* Return true if X is a constant that is valid for some immediate
+   field in an instruction.  */
+
+bool
+ia64_legitimate_constant_p (rtx x)
+{
+  switch (GET_CODE (x))
+    {
+    case CONST_INT:
+    case LABEL_REF:
+      return true;
+
+    case CONST_DOUBLE:
+      if (GET_MODE (x) == VOIDmode)
+	return true;
+      return CONST_DOUBLE_OK_FOR_G (x);
+
+    case CONST:
+    case SYMBOL_REF:
+      return tls_symbolic_operand_type (x) == 0;
+
+    default:
+      return false;
+    }
+}
+
+/* Don't allow TLS addresses to get spilled to memory.  */
+
+static bool
+ia64_cannot_force_const_mem (rtx x)
+{
+  return tls_symbolic_operand_type (x) != 0;
+}
+
 /* Expand a symbolic constant load.  */
 
-void
+bool
 ia64_expand_load_address (rtx dest, rtx src)
 {
-  gcc_assert (GET_CODE (src) != SYMBOL_REF || !SYMBOL_REF_TLS_MODEL (src));
   gcc_assert (GET_CODE (dest) == REG);
 
   /* ILP32 mode still loads 64-bits of data from the GOT.  This avoids
@@ -706,57 +756,59 @@ ia64_expand_load_address (rtx dest, rtx src)
      computation below are also more natural to compute as 64-bit quantities.
      If we've been given an SImode destination register, change it.  */
   if (GET_MODE (dest) != Pmode)
-    dest = gen_rtx_REG (Pmode, REGNO (dest));
+    dest = gen_rtx_REG_offset (dest, Pmode, REGNO (dest), 0);
 
-  if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_SMALL_ADDR_P (src))
-    {
-      emit_insn (gen_rtx_SET (VOIDmode, dest, src));
-      return;
-    }
-  else if (TARGET_AUTO_PIC)
-    {
-      emit_insn (gen_load_gprel64 (dest, src));
-      return;
-    }
+  if (TARGET_NO_PIC)
+    return false;
+  if (small_addr_symbolic_operand (src, VOIDmode))
+    return false;
+
+  if (TARGET_AUTO_PIC)
+    emit_insn (gen_load_gprel64 (dest, src));
   else if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (src))
-    {
-      emit_insn (gen_load_fptr (dest, src));
-      return;
-    }
+    emit_insn (gen_load_fptr (dest, src));
   else if (sdata_symbolic_operand (src, VOIDmode))
-    {
-      emit_insn (gen_load_gprel (dest, src));
-      return;
-    }
-
-  if (GET_CODE (src) == CONST
-      && GET_CODE (XEXP (src, 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (src, 0), 1)) == CONST_INT
-      && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x3fff) != 0)
-    {
-      rtx sym = XEXP (XEXP (src, 0), 0);
-      HOST_WIDE_INT ofs, hi, lo;
-
-      /* Split the offset into a sign extended 14-bit low part
-	 and a complementary high part.  */
-      ofs = INTVAL (XEXP (XEXP (src, 0), 1));
-      lo = ((ofs & 0x3fff) ^ 0x2000) - 0x2000;
-      hi = ofs - lo;
-
-      ia64_expand_load_address (dest, plus_constant (sym, hi));
-      emit_insn (gen_adddi3 (dest, dest, GEN_INT (lo)));
-    }
+    emit_insn (gen_load_gprel (dest, src));
   else
     {
+      HOST_WIDE_INT addend = 0;
       rtx tmp;
+
+      /* We did split constant offsets in ia64_expand_move, and we did try
+	 to keep them split in move_operand, but we also allowed reload to
+	 rematerialize arbitrary constants rather than spill the value to
+	 the stack and reload it.  So we have to be prepared here to split
+	 them apart again.  */
+      if (GET_CODE (src) == CONST)
+	{
+	  HOST_WIDE_INT hi, lo;
+
+	  hi = INTVAL (XEXP (XEXP (src, 0), 1));
+	  lo = ((hi & 0x3fff) ^ 0x2000) - 0x2000;
+	  hi = hi - lo;
+
+	  if (lo != 0)
+	    {
+	      addend = lo;
+	      src = plus_constant (XEXP (XEXP (src, 0), 0), hi);
+	    }
+	}
 
       tmp = gen_rtx_HIGH (Pmode, src);
       tmp = gen_rtx_PLUS (Pmode, tmp, pic_offset_table_rtx);
       emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
 
-      tmp = gen_rtx_LO_SUM (GET_MODE (dest), dest, src);
+      tmp = gen_rtx_LO_SUM (Pmode, dest, src);
       emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+
+      if (addend)
+	{
+	  tmp = gen_rtx_PLUS (Pmode, dest, GEN_INT (addend));
+	  emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+	}
     }
+
+  return true;
 }
 
 static GTY(()) rtx gen_tls_tga;
@@ -778,10 +830,15 @@ gen_thread_pointer (void)
 }
 
 static rtx
-ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
+ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1,
+			 HOST_WIDE_INT addend)
 {
   rtx tga_op1, tga_op2, tga_ret, tga_eqv, tmp, insns;
-  rtx orig_op0 = op0;
+  rtx orig_op0 = op0, orig_op1 = op1;
+  HOST_WIDE_INT addend_lo, addend_hi;
+
+  addend_lo = ((addend & 0x3fff) ^ 0x2000) - 0x2000;
+  addend_hi = addend - addend_lo;
 
   switch (tls_kind)
     {
@@ -789,12 +846,10 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
       start_sequence ();
 
       tga_op1 = gen_reg_rtx (Pmode);
-      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
-      tga_op1 = gen_const_mem (Pmode, tga_op1);
+      emit_insn (gen_load_dtpmod (tga_op1, op1));
 
       tga_op2 = gen_reg_rtx (Pmode);
-      emit_insn (gen_load_ltoff_dtprel (tga_op2, op1));
-      tga_op2 = gen_const_mem (Pmode, tga_op2);
+      emit_insn (gen_load_dtprel (tga_op2, op1));
 
       tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
 					 LCT_CONST, Pmode, 2, tga_op1,
@@ -816,8 +871,7 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
       start_sequence ();
 
       tga_op1 = gen_reg_rtx (Pmode);
-      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
-      tga_op1 = gen_const_mem (Pmode, tga_op1);
+      emit_insn (gen_load_dtpmod (tga_op1, op1));
 
       tga_op2 = const0_rtx;
 
@@ -841,14 +895,15 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
 	  emit_insn (gen_adddi3 (op0, tmp, op0));
 	}
       else
-	emit_insn (gen_add_dtprel (op0, tmp, op1));
+	emit_insn (gen_add_dtprel (op0, op1, tmp));
       break;
 
     case TLS_MODEL_INITIAL_EXEC:
+      op1 = plus_constant (op1, addend_hi);
+      addend = addend_lo;
+
       tmp = gen_reg_rtx (Pmode);
-      emit_insn (gen_load_ltoff_tprel (tmp, op1));
-      tmp = gen_const_mem (Pmode, tmp);
-      tmp = force_reg (Pmode, tmp);
+      emit_insn (gen_load_tprel (tmp, op1));
 
       if (!register_operand (op0, Pmode))
 	op0 = gen_reg_rtx (Pmode);
@@ -858,19 +913,25 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
     case TLS_MODEL_LOCAL_EXEC:
       if (!register_operand (op0, Pmode))
 	op0 = gen_reg_rtx (Pmode);
+
+      op1 = orig_op1;
+      addend = 0;
       if (TARGET_TLS64)
 	{
 	  emit_insn (gen_load_tprel (op0, op1));
-	  emit_insn (gen_adddi3 (op0, gen_thread_pointer (), op0));
+	  emit_insn (gen_adddi3 (op0, op0, gen_thread_pointer ()));
 	}
       else
-	emit_insn (gen_add_tprel (op0, gen_thread_pointer (), op1));
+	emit_insn (gen_add_tprel (op0, op1, gen_thread_pointer ()));
       break;
 
     default:
       gcc_unreachable ();
     }
 
+  if (addend)
+    op0 = expand_simple_binop (Pmode, PLUS, op0, GEN_INT (addend),
+			       orig_op0, 1, OPTAB_DIRECT);
   if (orig_op0 == op0)
     return NULL_RTX;
   if (GET_MODE (orig_op0) == Pmode)
@@ -888,15 +949,60 @@ ia64_expand_move (rtx op0, rtx op1)
 
   if ((mode == Pmode || mode == ptr_mode) && symbolic_operand (op1, VOIDmode))
     {
+      HOST_WIDE_INT addend = 0;
       enum tls_model tls_kind;
-      if (GET_CODE (op1) == SYMBOL_REF
-	  && (tls_kind = SYMBOL_REF_TLS_MODEL (op1)))
-	return ia64_expand_tls_address (tls_kind, op0, op1);
+      rtx sym = op1;
 
-      if (!TARGET_NO_PIC && reload_completed)
+      if (GET_CODE (op1) == CONST
+	  && GET_CODE (XEXP (op1, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (op1, 0), 1)) == CONST_INT)
 	{
-	  ia64_expand_load_address (op0, op1);
-	  return NULL_RTX;
+	  addend = INTVAL (XEXP (XEXP (op1, 0), 1));
+	  sym = XEXP (XEXP (op1, 0), 0);
+	}
+
+      tls_kind = tls_symbolic_operand_type (sym);
+      if (tls_kind)
+	return ia64_expand_tls_address (tls_kind, op0, sym, addend);
+
+      if (any_offset_symbol_operand (sym, mode))
+	addend = 0;
+      else if (aligned_offset_symbol_operand (sym, mode))
+	{
+	  HOST_WIDE_INT addend_lo, addend_hi;
+	      
+	  addend_lo = ((addend & 0x3fff) ^ 0x2000) - 0x2000;
+	  addend_hi = addend - addend_lo;
+
+	  if (addend_lo != 0)
+	    {
+	      op1 = plus_constant (sym, addend_hi);
+	      addend = addend_lo;
+	    }
+	  else
+	    addend = 0;
+	}
+      else
+	op1 = sym;
+
+      if (reload_completed)
+	{
+	  /* We really should have taken care of this offset earlier.  */
+	  gcc_assert (addend == 0);
+	  if (ia64_expand_load_address (op0, op1))
+	    return NULL_RTX;
+	}
+
+      if (addend)
+	{
+	  rtx subtarget = no_new_pseudos ? op0 : gen_reg_rtx (mode);
+
+	  emit_insn (gen_rtx_SET (VOIDmode, subtarget, op1));
+
+	  op1 = expand_simple_binop (mode, PLUS, subtarget,
+				     GEN_INT (addend), op0, 1, OPTAB_DIRECT);
+	  if (op0 == op1)
+	    return NULL_RTX;
 	}
     }
 
@@ -1662,12 +1768,124 @@ ia64_split_call (rtx retval, rtx addr, rtx retaddr, rtx scratch_r,
   if ((!TARGET_CONST_GP || is_desc) && !noreturn_p && !sibcall_p)
     ia64_reload_gp ();
 }
+
+/* Expand an atomic operation.  We want to perform MEM <CODE>= VAL atomically.
+
+   This differs from the generic code in that we know about the zero-extending
+   properties of cmpxchg, and the zero-extending requirements of ar.ccv.  We
+   also know that ld.acq+cmpxchg.rel equals a full barrier.
+
+   The loop we want to generate looks like
+
+	cmp_reg = mem;
+      label:
+        old_reg = cmp_reg;
+	new_reg = cmp_reg op val;
+	cmp_reg = compare-and-swap(mem, old_reg, new_reg)
+	if (cmp_reg != old_reg)
+	  goto label;
+
+   Note that we only do the plain load from memory once.  Subsequent
+   iterations use the value loaded by the compare-and-swap pattern.  */
+
+void
+ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
+		       rtx old_dst, rtx new_dst)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx old_reg, new_reg, cmp_reg, ar_ccv, label;
+  enum insn_code icode;
+
+  /* Special case for using fetchadd.  */
+  if ((mode == SImode || mode == DImode) && fetchadd_operand (val, mode))
+    {
+      if (!old_dst)
+        old_dst = gen_reg_rtx (mode);
+
+      emit_insn (gen_memory_barrier ());
+
+      if (mode == SImode)
+	icode = CODE_FOR_fetchadd_acq_si;
+      else
+	icode = CODE_FOR_fetchadd_acq_di;
+      emit_insn (GEN_FCN (icode) (old_dst, mem, val));
+
+      if (new_dst)
+	{
+	  new_reg = expand_simple_binop (mode, PLUS, old_dst, val, new_dst,
+					 true, OPTAB_WIDEN);
+	  if (new_reg != new_dst)
+	    emit_move_insn (new_dst, new_reg);
+	}
+      return;
+    }
+
+  /* Because of the volatile mem read, we get an ld.acq, which is the
+     front half of the full barrier.  The end half is the cmpxchg.rel.  */
+  gcc_assert (MEM_VOLATILE_P (mem));
+
+  old_reg = gen_reg_rtx (DImode);
+  cmp_reg = gen_reg_rtx (DImode);
+  label = gen_label_rtx ();
+
+  if (mode != DImode)
+    {
+      val = simplify_gen_subreg (DImode, val, mode, 0);
+      emit_insn (gen_extend_insn (cmp_reg, mem, DImode, mode, 1));
+    }
+  else
+    emit_move_insn (cmp_reg, mem);
+
+  emit_label (label);
+
+  ar_ccv = gen_rtx_REG (DImode, AR_CCV_REGNUM);
+  emit_move_insn (old_reg, cmp_reg);
+  emit_move_insn (ar_ccv, cmp_reg);
+
+  if (old_dst)
+    emit_move_insn (old_dst, gen_lowpart (mode, cmp_reg));
+
+  new_reg = cmp_reg;
+  if (code == NOT)
+    {
+      new_reg = expand_simple_unop (DImode, NOT, new_reg, NULL_RTX, true);
+      code = AND;
+    }
+  new_reg = expand_simple_binop (DImode, code, new_reg, val, NULL_RTX,
+				 true, OPTAB_DIRECT);
+
+  if (mode != DImode)
+    new_reg = gen_lowpart (mode, new_reg);
+  if (new_dst)
+    emit_move_insn (new_dst, new_reg);
+
+  switch (mode)
+    {
+    case QImode:  icode = CODE_FOR_cmpxchg_rel_qi;  break;
+    case HImode:  icode = CODE_FOR_cmpxchg_rel_hi;  break;
+    case SImode:  icode = CODE_FOR_cmpxchg_rel_si;  break;
+    case DImode:  icode = CODE_FOR_cmpxchg_rel_di;  break;
+    default:
+      gcc_unreachable ();
+    }
+
+  emit_insn (GEN_FCN (icode) (cmp_reg, mem, ar_ccv, new_reg));
+
+  emit_cmp_and_jump_insns (cmp_reg, old_reg, EQ, NULL, DImode, true, label);
+}
 
 /* Begin the assembly file.  */
 
 static void
 ia64_file_start (void)
 {
+  /* Variable tracking should be run after all optimizations which change order
+     of insns.  It also needs a valid CFG.  This can't be done in
+     ia64_override_options, because flag_var_tracking is finalized after
+     that.  */
+  ia64_flag_var_tracking = flag_var_tracking;
+  flag_var_tracking = 0;
+
   default_file_start ();
   emit_safe_across_calls ();
 }
@@ -4600,7 +4818,7 @@ fix_range (const char *const_str)
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
-ia64_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+ia64_handle_option (size_t code, const char *arg, int value)
 {
   switch (code)
     {
@@ -4609,15 +4827,9 @@ ia64_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
       return true;
 
     case OPT_mtls_size_:
-      {
-	char *end;
-	unsigned long tmp = strtoul (arg, &end, 10);
-	if (*end || (tmp != 14 && tmp != 22 && tmp != 64))
-	  error ("bad value %<%s%> for -mtls-size= switch", arg);
-	else
-	  ia64_tls_size = tmp;
-	return true;
-      }
+      if (value != 14 && value != 22 && value != 64)
+	error ("bad value %<%s%> for -mtls-size= switch", arg);
+      return true;
 
     case OPT_mtune_:
       {
@@ -4669,11 +4881,6 @@ ia64_override_options (void)
 
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
-
-  /* Variable tracking should be run after all optimizations which change order
-     of insns.  It also needs a valid CFG.  */
-  ia64_flag_var_tracking = flag_var_tracking;
-  flag_var_tracking = 0;
 
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 

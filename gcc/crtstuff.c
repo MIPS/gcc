@@ -1,7 +1,7 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
    Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GCC.
@@ -51,14 +51,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    This file must be compiled with gcc.  */
 
-/* It is incorrect to include config.h here, because this file is being
-   compiled for the target, and hence definitions concerning only the host
-   do not apply.  */
-
+/* Target machine header files require this define. */
 #define IN_LIBGCC2
 
-/* We include auto-host.h here to get HAVE_GAS_HIDDEN.  This is
-   supposedly valid even though this is a "target" file.  */
+/* FIXME: Including auto-host is incorrect, but until we have
+   identified the set of defines that need to go into auto-target.h,
+   this will have to do.  */
 #include "auto-host.h"
 #include "tconfig.h"
 #include "tsystem.h"

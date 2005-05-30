@@ -299,6 +299,9 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
   edge e = make_edge (rd->dup_block, rd->outgoing_edge->dest, EDGE_FALLTHRU);
   tree phi;
 
+  e->probability = REG_BR_PROB_BASE;
+  e->count = rd->dup_block->count;
+
   /* If there are any PHI nodes at the destination of the outgoing edge
      from the duplicate block, then we will need to add a new argument
      to them.  The argument should have the same value as the argument
@@ -648,8 +651,8 @@ redirect_edges (void **slot, void *data)
    the appropriate duplicate of BB.
 
    BB and its duplicates will have assignments to the same set of
-   SSA_NAMEs.  Right now, we just call into rewrite_ssa_into_ssa
-   to update the SSA graph for those names.
+   SSA_NAMEs.  Right now, we just call into update_ssa to update the
+   SSA graph for those names.
 
    We are also going to experiment with a true incremental update
    scheme for the duplicated resources.  One of the interesting
@@ -802,21 +805,20 @@ thread_block (basic_block bb)
    Returns true if one or more edges were threaded, false otherwise.  */
 
 bool
-thread_through_all_blocks (void)
+thread_through_all_blocks (bitmap threaded_blocks)
 {
-  basic_block bb;
   bool retval = false;
+  unsigned int i;
+  bitmap_iterator bi;
 
   rediscover_loops_after_threading = false;
 
-  FOR_EACH_BB (bb)
+  EXECUTE_IF_SET_IN_BITMAP (threaded_blocks, 0, i, bi)
     {
-      if (bb_ann (bb)->incoming_edge_threaded)
-	{
-	  retval |= thread_block (bb);
-	  bb_ann (bb)->incoming_edge_threaded = false;
-	  
-	}
+      basic_block bb = BASIC_BLOCK (i);
+
+      if (EDGE_COUNT (bb->preds) > 0)
+	retval |= thread_block (bb);
     }
 
   return retval;

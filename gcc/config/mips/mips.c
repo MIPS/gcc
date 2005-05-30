@@ -357,7 +357,6 @@ static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
 static int mips_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode mode,
 				   tree, bool);
 static bool mips_valid_pointer_mode (enum machine_mode);
-static bool mips_scalar_mode_supported_p (enum machine_mode);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -556,14 +555,8 @@ int mips_abi = MIPS_ABI_DEFAULT;
    should arrange to call mips32 hard floating point code.  */
 int mips16_hard_float;
 
-/* The arguments passed to -march and -mtune.  */
-static const char *mips_arch_string;
-static const char *mips_tune_string;
-
 /* The architecture selected by -mipsN.  */
 static const struct mips_cpu_info *mips_isa_info;
-
-const char *mips_cache_flush_func = CACHE_FLUSH_FUNC;
 
 /* If TRUE, we split addresses into their high and low parts in the RTL.  */
 int mips_split_addresses;
@@ -696,10 +689,15 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS32 */
   { "4kc", PROCESSOR_4KC, 32 },
-  { "4kp", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4km", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4kp", PROCESSOR_4KP, 32 },
 
   /* MIPS32 Release 2 */
   { "m4k", PROCESSOR_M4K, 33 },
+  { "24k", PROCESSOR_24K, 33 },
+  { "24kc", PROCESSOR_24K, 33 },  /* 24K  no FPU */
+  { "24kf", PROCESSOR_24K, 33 },  /* 24K 1:2 FPU */
+  { "24kx", PROCESSOR_24KX, 33 }, /* 24K 1:1 FPU */
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
@@ -819,9 +817,6 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
-
-#undef TARGET_SCALAR_MODE_SUPPORTED_P
-#define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
@@ -2806,8 +2801,6 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
       switch (*code)
 	{
 	case NE:
-	case UNGE:
-	case UNGT:
 	case LTGT:
 	case ORDERED:
 	  cmp_code = reverse_condition_maybe_unordered (*code);
@@ -4049,7 +4042,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
    left-side instructions (lwl, swl, ldl, sdl).
 
    *RIGHT is a QImode reference to the opposite end of the field and
-   can be used in the parterning right-side instruction.  */
+   can be used in the patterning right-side instruction.  */
 
 static bool
 mips_get_unaligned_mem (rtx *op, unsigned int width, int bitpos,
@@ -4165,7 +4158,39 @@ mips_expand_unaligned_store (rtx dest, rtx src, unsigned int width, int bitpos)
     }
   return true;
 }
-
+
+/* Return true if (zero_extract OP SIZE POSITION) can be used as the
+   source of an "ext" instruction or the destination of an "ins"
+   instruction.  OP must be a register operand and the following
+   conditions must hold:
+
+     0 <= POSITION < GET_MODE_BITSIZE (GET_MODE (op))
+     0 < SIZE <= GET_MODE_BITSIZE (GET_MODE (op))
+     0 < POSITION + SIZE <= GET_MODE_BITSIZE (GET_MODE (op))
+
+   Also reject lengths equal to a word as they are better handled
+   by the move patterns.  */
+
+bool
+mips_use_ins_ext_p (rtx op, rtx size, rtx position)
+{
+  HOST_WIDE_INT len, pos;
+
+  if (!ISA_HAS_EXT_INS
+      || !register_operand (op, VOIDmode)
+      || GET_MODE_BITSIZE (GET_MODE (op)) > BITS_PER_WORD)
+    return false;
+
+  len = INTVAL (size);
+  pos = INTVAL (position);
+  
+  if (len <= 0 || len >= GET_MODE_BITSIZE (GET_MODE (op)) 
+      || pos < 0 || pos + len > GET_MODE_BITSIZE (GET_MODE (op)))
+    return false;
+
+  return true;
+}
+
 /* Set up globals to generate code for the ISA or processor
    described by INFO.  */
 
@@ -4216,20 +4241,12 @@ mips_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
       return true;
 
     case OPT_march_:
-      mips_arch_string = arg;
-      return mips_parse_cpu (arg) != 0;
-
     case OPT_mtune_:
-      mips_tune_string = arg;
       return mips_parse_cpu (arg) != 0;
 
     case OPT_mips:
       mips_isa_info = mips_parse_cpu (ACONCAT (("mips", arg, NULL)));
       return mips_isa_info != 0;
-
-    case OPT_mflush_func_:
-      mips_cache_flush_func = arg;
-      return true;
 
     case OPT_mno_flush_func:
       mips_cache_flush_func = NULL;
@@ -4336,24 +4353,11 @@ override_options (void)
 
   if ((target_flags_explicit & MASK_LONG64) == 0)
     {
-      if (TARGET_INT64)
-	target_flags |= MASK_LONG64;
-      /* If no type size setting options (-mlong64,-mint64,-mlong32)
-	 were used, then set the type sizes.  In the EABI in 64 bit mode,
-	 longs and pointers are 64 bits.  Likewise for the SGI Irix6 N64
-	 ABI.  */
-      else if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
+      if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
 	target_flags |= MASK_LONG64;
       else
 	target_flags &= ~MASK_LONG64;
     }
-
-  /* Deprecate -mint64. Remove after 4.0 branches.  */
-  if (TARGET_INT64)
-    warning (0, "-mint64 is a deprecated option");
-
-  if (TARGET_INT64 && !TARGET_LONG64)
-    error ("unsupported combination: %s", "-mint64 -mlong32");
 
   if (MIPS_MARCH_CONTROLS_SOFT_FLOAT
       && (target_flags_explicit & MASK_SOFT_FLOAT) == 0)
@@ -5623,7 +5627,7 @@ mips_declare_object_name (FILE *stream, const char *name,
       ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
     }
 
-  mips_declare_object (stream, name, "", ":\n", 0);
+  mips_declare_object (stream, name, "", ":\n");
 }
 
 /* Implement ASM_FINISH_DECLARE_OBJECT.  This is generic ELF stuff.  */
@@ -7298,44 +7302,8 @@ mips_valid_pointer_mode (enum machine_mode mode)
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
 
-/* Define this so that we can deal with a testcase like:
-
-   char foo __attribute__ ((mode (SI)));
-
-   then compiled with -mabi=64 and -mint64. We have no
-   32-bit type at that point and so the default case
-   always fails.  */
-
-static bool
-mips_scalar_mode_supported_p (enum machine_mode mode)
-{
-  switch (mode)
-    {
-    case QImode:
-    case HImode:
-    case SImode:
-    case DImode:
-      return true;
-
-      /* Handled via optabs.c.  */
-    case TImode:
-      return TARGET_64BIT;
-
-    case SFmode:
-    case DFmode:
-      return true;
-
-      /* LONG_DOUBLE_TYPE_SIZE is 128 for TARGET_NEWABI only.  */
-    case TFmode:
-      return TARGET_NEWABI;
-
-    default:
-      return false;
-    }
-}
-
-
 /* Target hook for vector_mode_supported_p.  */
+
 static bool
 mips_vector_mode_supported_p (enum machine_mode mode)
 {

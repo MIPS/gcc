@@ -86,19 +86,11 @@ static tree get_guard_bits (tree);
 /* A list of static class variables.  This is needed, because a
    static class variable can be declared inside the class without
    an initializer, and then initialized, statically, outside the class.  */
-static GTY(()) varray_type pending_statics;
-#define pending_statics_used \
-  (pending_statics ? pending_statics->elements_used : 0)
+static GTY(()) VEC(tree,gc) *pending_statics;
 
 /* A list of functions which were declared inline, but which we
    may need to emit outline anyway.  */
-static GTY(()) varray_type deferred_fns;
-#define deferred_fns_used \
-  (deferred_fns ? deferred_fns->elements_used : 0)
-
-/* Flag used when debugging spew.c */
-
-extern int spew_debug;
+static GTY(()) VEC(tree,gc) *deferred_fns;
 
 /* Nonzero if we're done parsing and into end-of-file activities.  */
 
@@ -732,9 +724,7 @@ note_vague_linkage_fn (tree decl)
     {
       DECL_DEFERRED_FN (decl) = 1;
       DECL_DEFER_OUTPUT (decl) = 1;
-      if (!deferred_fns)
-	VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
-      VARRAY_PUSH_TREE (deferred_fns, decl);
+      VEC_safe_push (tree, gc, deferred_fns, decl);
     }
 }
 
@@ -743,9 +733,7 @@ note_vague_linkage_fn (tree decl)
 static void
 note_vague_linkage_var (tree var)
 {
-  if (!pending_statics)
-    VARRAY_TREE_INIT (pending_statics, 32, "pending_statics");
-  VARRAY_PUSH_TREE (pending_statics, var);
+  VEC_safe_push (tree, gc, pending_statics, var);
 }
 
 /* We have just processed the DECL, which is a static data member.
@@ -1636,8 +1624,12 @@ determine_visibility (tree decl)
 	       && DECL_DECLARED_INLINE_P (decl)
 	       && visibility_options.inlines_hidden)
 	{
-	  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
-	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  /* Don't change it if it has been set explicitly by user.  */
+	  if (!DECL_VISIBILITY_SPECIFIED (decl))
+	    {
+	      DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	    }
 	}
       else if (CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
 	{
@@ -2175,7 +2167,7 @@ static GTY(()) tree ssdf_decl;
 
 /* All the static storage duration functions created in this
    translation unit.  */
-static GTY(()) varray_type ssdf_decls;
+static GTY(()) VEC(tree,gc) *ssdf_decls;
 
 /* A map from priority levels to information about that priority
    level.  There may be many such levels, so efficient lookup is
@@ -2223,7 +2215,7 @@ start_static_storage_duration_function (unsigned count)
      static constructors and destructors.  */
   if (!ssdf_decls)
     {
-      VARRAY_TREE_INIT (ssdf_decls, 32, "ssdf_decls");
+      ssdf_decls = VEC_alloc (tree, gc, 32);
 
       /* Take this opportunity to initialize the map from priority
 	 numbers to information about that priority level.  */
@@ -2239,7 +2231,7 @@ start_static_storage_duration_function (unsigned count)
       get_priority_info (DEFAULT_INIT_PRIORITY);
     }
 
-  VARRAY_PUSH_TREE (ssdf_decls, ssdf_decl);
+  VEC_safe_push (tree, gc, ssdf_decls, ssdf_decl);
 
   /* Create the argument list.  */
   initialize_p_decl = cp_build_parm_decl
@@ -2613,28 +2605,34 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
      global constructors and destructors.  */
   body = NULL_TREE;
 
+  /* For Objective-C++, we may need to initialize metadata found in this module.
+     This must be done _before_ any other static initializations.  */
+  if (c_dialect_objc () && (priority == DEFAULT_INIT_PRIORITY)
+      && constructor_p && objc_static_init_needed_p ())
+    {
+      body = start_objects (function_key, priority);
+      static_ctors = objc_generate_static_init_call (static_ctors);
+    }
+
   /* Call the static storage duration function with appropriate
      arguments.  */
-  if (ssdf_decls)
-    for (i = 0; i < ssdf_decls->elements_used; ++i) 
-      {
-	fndecl = VARRAY_TREE (ssdf_decls, i);
+  for (i = 0; VEC_iterate (tree, ssdf_decls, i, fndecl); ++i) 
+    {
+      /* Calls to pure or const functions will expand to nothing.  */
+      if (! (flags_from_decl_or_type (fndecl) & (ECF_CONST | ECF_PURE)))
+	{
+	  if (! body)
+	    body = start_objects (function_key, priority);
 
-	/* Calls to pure or const functions will expand to nothing.  */
-	if (! (flags_from_decl_or_type (fndecl) & (ECF_CONST | ECF_PURE)))
-	  {
-	    if (! body)
-	      body = start_objects (function_key, priority);
-
-	    arguments = tree_cons (NULL_TREE,
-				   build_int_cst (NULL_TREE, priority), 
-				   NULL_TREE);
-	    arguments = tree_cons (NULL_TREE,
-				   build_int_cst (NULL_TREE, constructor_p),
-				   arguments);
-	    finish_expr_stmt (build_function_call (fndecl, arguments));
-	  }
-      }
+	  arguments = tree_cons (NULL_TREE,
+				 build_int_cst (NULL_TREE, priority), 
+				 NULL_TREE);
+	  arguments = tree_cons (NULL_TREE,
+				 build_int_cst (NULL_TREE, constructor_p),
+				 arguments);
+	  finish_expr_stmt (build_function_call (fndecl, arguments));
+	}
+    }
 
   /* If we're generating code for the DEFAULT_INIT_PRIORITY, throw in
      calls to any functions marked with attributes indicating that
@@ -2733,6 +2731,50 @@ cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   return NULL;
 }
 
+/* Java requires that we be able to reference a local address for a
+   method, and not be confused by PLT entries.  If hidden aliases are
+   supported, emit one for each java function that we've emitted.  */
+
+static void
+build_java_method_aliases (void)
+{
+  struct cgraph_node *node;
+
+#ifndef HAVE_GAS_HIDDEN
+  return;
+#endif
+
+  for (node = cgraph_nodes; node ; node = node->next)
+    {
+      tree fndecl = node->decl;
+
+      if (TREE_ASM_WRITTEN (fndecl)
+	  && DECL_CONTEXT (fndecl)
+	  && TYPE_P (DECL_CONTEXT (fndecl))
+	  && TYPE_FOR_JAVA (DECL_CONTEXT (fndecl))
+	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
+	{
+	  /* Mangle the name in a predictable way; we need to reference
+	     this from a java compiled object file.  */
+	  tree oid, nid, alias;
+	  const char *oname;
+	  char *nname;
+
+	  oid = DECL_ASSEMBLER_NAME (fndecl);
+	  oname = IDENTIFIER_POINTER (oid);
+	  gcc_assert (oname[0] == '_' && oname[1] == 'Z');
+	  nname = ACONCAT (("_ZGA", oname+2, NULL));
+	  nid = get_identifier (nname);
+
+	  alias = make_alias_for (fndecl, nid);
+	  TREE_PUBLIC (alias) = 1;
+	  DECL_VISIBILITY (alias) = VISIBILITY_HIDDEN;
+
+	  assemble_alias (alias, oid);
+	}
+    }
+}
+
 /* This routine is called from the last rule in yyparse ().
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -2747,6 +2789,7 @@ cp_finish_file (void)
   location_t locus;
   unsigned ssdf_count = 0;
   int retries = 0;
+  tree decl;
 
   locus = input_location;
   at_eof = 1;
@@ -2789,6 +2832,7 @@ cp_finish_file (void)
   do 
     {
       tree t;
+      tree decl;
 
       reconsider = false;
 
@@ -2910,10 +2954,8 @@ cp_finish_file (void)
       /* Go through the set of inline functions whose bodies have not
 	 been emitted yet.  If out-of-line copies of these functions
 	 are required, emit them.  */
-      for (i = 0; i < deferred_fns_used; ++i)
+      for (i = 0; VEC_iterate (tree, deferred_fns, i, decl); ++i)
 	{
-	  tree decl = VARRAY_TREE (deferred_fns, i);
-
 	  /* Does it need synthesizing?  */
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
 	      && (! DECL_REALLY_EXTERN (decl) || DECL_INLINE (decl)))
@@ -2977,9 +3019,8 @@ cp_finish_file (void)
 	reconsider = true;
 
       /* Static data members are just like namespace-scope globals.  */
-      for (i = 0; i < pending_statics_used; ++i) 
+      for (i = 0; VEC_iterate (tree, pending_statics, i, decl); ++i) 
 	{
-	  tree decl = VARRAY_TREE (pending_statics, i);
 	  if (var_finalized_p (decl) || DECL_REALLY_EXTERN (decl))
 	    continue;
 	  import_export_decl (decl);
@@ -2988,9 +3029,9 @@ cp_finish_file (void)
 	  if (DECL_NOT_REALLY_EXTERN (decl) && decl_needed_p (decl))
 	    DECL_EXTERNAL (decl) = 0;
 	}
-      if (pending_statics
-	  && wrapup_global_declarations (&VARRAY_TREE (pending_statics, 0),
-					 pending_statics_used))
+      if (VEC_length (tree, pending_statics) != 0
+	  && wrapup_global_declarations (VEC_address (tree, pending_statics),
+					 VEC_length (tree, pending_statics)))
 	reconsider = true;
 
       retries++;
@@ -2998,10 +3039,8 @@ cp_finish_file (void)
   while (reconsider);
 
   /* All used inline functions must have a definition at this point.  */
-  for (i = 0; i < deferred_fns_used; ++i)
+  for (i = 0; VEC_iterate (tree, deferred_fns, i, decl); ++i)
     {
-      tree decl = VARRAY_TREE (deferred_fns, i);
-
       if (/* Check online inline functions that were actually used.  */
 	  TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
 	  /* But not defined.  */
@@ -3063,9 +3102,12 @@ cp_finish_file (void)
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */
   walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
-  if (pending_statics)
-    check_global_declarations (&VARRAY_TREE (pending_statics, 0),
-			       pending_statics_used);
+  if (VEC_length (tree, pending_statics) != 0)
+    check_global_declarations (VEC_address (tree, pending_statics),
+			       VEC_length (tree, pending_statics));
+
+  /* Generate hidden aliases for Java.  */
+  build_java_method_aliases ();
 
   finish_repo ();
 

@@ -198,7 +198,8 @@ namespace std
 	{ 
 	  this->_M_set_sharable();  // One reference.
 	  this->_M_length = __n;
-	  this->_M_refdata()[__n] = _S_terminal; // grrr. (per 21.3.4)
+	  traits_type::assign(this->_M_refdata()[__n], _S_terminal);
+	  // grrr. (per 21.3.4)
 	  // You cannot leave those LWG people alone for a second.
 	}
 
@@ -695,7 +696,10 @@ namespace std
       reference
       operator[](size_type __pos)
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos < size());
+        // allow pos == size() as v3 extension:
+	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+        // but be strict in pedantic mode:
+	_GLIBCXX_DEBUG_PEDASSERT(__pos < size());
 	_M_leak();
 	return _M_data()[__pos];
       }

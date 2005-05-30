@@ -1,3 +1,76 @@
+2005-05-27  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-05-26  Chris Demetriou  <cgd@broadcom.com>
+
+	* MAINTAINERS (Write After Approval): Remove self.
+
+2005-05-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (stage[+id+]-start): Iterate over target module as well.
+	(Dependencies): Consider target modules for bootstrap dependencies.
+	Make target bootstrap modules depend on each stage's gcc.
+	* Makefile.in: Regenerate.
+
+2005-05-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (configure-gcc): Depend on binutils having been built.
+	(all-gcc): No need to do it here.
+	* Makefile.in: Regenerate.
+
+2005-05-19  Paul Brook  <paul@codesourcery.com>
+
+	* configure.in: Rewrite misleading error message when requested 
+	language cannot be built.
+	* configure: Regenerate.
+
+2005-05-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* ylwrap: Import from Automake 1.9.5.
+
+2005-05-13  David Ung  <davidu@mips.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* libtool.m4 (AC_LIBTOOL_SYS_MAX_CMD_LEN): Use quotes on
+	lt_cv_sys_max_cmd_len for now.
+	
+2005-05-09  Stan Cox  <scox@redhat.com>
+
+	* MAINTAINERS: Remove self, add Nick Clifton as iq2000 maintainer.
+
+2005-05-08  Matt Kraai  <kraai@ftbfs.org>
+
+	* README.SCO: Update the URL.
+
+2005-05-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* ltconfig: Define file_list_spec.  Pass file_list_spec and
+	with_gnu_ld to libtool.
+	* ltcf-c.sh (aix[45]): Define file_list_spec.
+	* ltcf-cxx.sh (aix[45]): Same.
+	* ltcf-gcj.sh (aix[45]): Same.
+	* ltmain.sh: If command exceeds max_cmd_len and file_list_spec
+	exists, write list of input files to temporary file.
+
+2005-05-04  Mike Stump  <mrs@apple.com>
+
+	* configure.in: Always pass --target to target configures as
+	otherwise rebuilds that do --recheck will fail.
+	* confiugure: Rebuilt.
+
+2005-05-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (POSTSTAGE1_HOST_EXPORTS): Rename from
+	STAGE_HOST_EXPORTS.
+	(configure, all): Add bootstrap support.
+	(Host modules, target modules): Pass post-stage1 flags and exports.
+	(Top-level bootstrap): Remove bootstrap rules, expanded elsewhere.
+	* Makefile.in: Regenerate.
+
 2005-04-29  Paolo Bonzini  <bonzini@gnu.org>
 
 	* configure: Regenerate.

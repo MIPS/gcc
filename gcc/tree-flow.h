@@ -121,10 +121,6 @@ struct tree_ann_common_d GTY(())
   /* Annotation type.  */
   enum tree_ann_type type;
 
- /* Auxiliary info specific to a pass.  At all times, this
-    should either point to valid data or be NULL.  */
-  PTR GTY ((skip (""))) aux;
-
   /* The value handle for this expression.  Used by GVN-PRE.  */
   tree GTY((skip)) value_handle;
 };
@@ -264,9 +260,9 @@ struct var_ann_d GTY(())
 
 typedef struct immediate_use_iterator_d
 {
-  ssa_imm_use_t *imm_use;
-  ssa_imm_use_t *end_p;
-  ssa_imm_use_t iter_node;
+  ssa_use_operand_t *imm_use;
+  ssa_use_operand_t *end_p;
+  ssa_use_operand_t iter_node;
 } imm_use_iterator;
 
 
@@ -312,10 +308,10 @@ struct stmt_ann_d GTY(())
   unsigned makes_clobbering_call : 1;
 
   /* Basic block that contains this statement.  */
-  basic_block GTY ((skip (""))) bb;
+  basic_block bb;
 
   /* Operand cache for stmt.  */
-  struct stmt_operands_d operands;
+  struct stmt_operands_d GTY ((skip (""))) operands;
 
   /* Set of variables that have had their address taken in the statement.  */
   bitmap addresses_taken;
@@ -324,6 +320,10 @@ struct stmt_ann_d GTY(())
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
   unsigned int uid;
+
+ /* Auxiliary info specific to a pass.  At all times, this
+    should either point to valid data or be NULL.  */
+  PTR GTY ((skip (""))) aux;
 
   /* Linked list of histograms for value-based profiling.  This is really a
      struct histogram_value*.  We use void* to avoid having to export that
@@ -362,10 +362,6 @@ static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
 static inline bool is_label_stmt (tree);
-static inline v_may_def_optype get_v_may_def_ops (stmt_ann_t);
-static inline vuse_optype get_vuse_ops (stmt_ann_t);
-static inline use_optype get_use_ops (stmt_ann_t);
-static inline def_optype get_def_ops (stmt_ann_t);
 static inline bitmap addresses_taken (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
@@ -381,28 +377,7 @@ struct edge_prediction GTY((chain_next ("%h.next")))
   int probability;
 };
 
-/*---------------------------------------------------------------------------
-		  Block annotations stored in basic_block.tree_annotations
----------------------------------------------------------------------------*/
-struct bb_ann_d GTY(())
-{
-  /* Chain of PHI nodes for this block.  */
-  tree phi_nodes;
-
-  /* Nonzero if this block contains an escape point (see is_escape_site).  */
-  unsigned has_escape_site : 1;
-
-  /* Nonzero if one or more incoming edges to this block should be threaded
-     to an outgoing edge of this block.  */
-  unsigned incoming_edge_threaded : 1;
-
-  struct edge_prediction *predictions;
-};
-
-typedef struct bb_ann_d *bb_ann_t;
-
 /* Accessors for basic block annotations.  */
-static inline bb_ann_t bb_ann (basic_block);
 static inline tree phi_nodes (basic_block);
 static inline void set_phi_nodes (basic_block, tree);
 
@@ -410,10 +385,10 @@ static inline void set_phi_nodes (basic_block, tree);
 			      Global declarations
 ---------------------------------------------------------------------------*/
 /* Array of all variables referenced in the function.  */
-extern GTY(()) varray_type referenced_vars;
+extern GTY(()) VEC(tree,gc) *referenced_vars;
 
-#define num_referenced_vars VARRAY_ACTIVE_SIZE (referenced_vars)
-#define referenced_var(i) VARRAY_TREE (referenced_vars, i)
+#define num_referenced_vars VEC_length (tree, referenced_vars)
+#define referenced_var(i) VEC_index (tree, referenced_vars, i)
 
 /* Array of all SSA_NAMEs used in the function.  */
 extern GTY(()) VEC(tree,gc) *ssa_names;
@@ -514,8 +489,6 @@ extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
-extern bool cleanup_tree_cfg (void);
-extern void cleanup_tree_cfg_loop (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
@@ -545,6 +518,15 @@ extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree);
 extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
+extern void init_empty_tree_cfg (void);
+extern void fold_cond_expr_cond (void);
+extern void replace_uses_by (tree, tree);
+extern void start_recording_case_labels (void);
+extern void end_recording_case_labels (void);
+
+/* In tree-cfgcleanup.c  */
+extern bool cleanup_tree_cfg (void);
+extern void cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -588,6 +570,7 @@ extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
+extern void new_type_alias (tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline bool ref_contains_array_ref (tree);
@@ -632,6 +615,7 @@ void set_current_def (tree, tree);
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
+bool fold_stmt_inplace (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
@@ -697,7 +681,7 @@ bool empty_block_p (basic_block);
 void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
-void tree_unroll_loops_completely (struct loops *);
+void tree_unroll_loops_completely (struct loops *, bool);
 void tree_ssa_iv_optimize (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
@@ -726,6 +710,7 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int *, int);
 struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
+tree expand_simple_operations (tree);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
@@ -754,7 +739,7 @@ extern bool tree_can_throw_external (tree);
 extern int lookup_stmt_eh_region (tree);
 extern void add_stmt_to_eh_region (tree, int);
 extern bool remove_stmt_from_eh_region (tree);
-extern bool maybe_clean_eh_stmt (tree);
+extern bool maybe_clean_or_replace_eh_stmt (tree, tree);
 
 /* In tree-ssa-pre.c  */
 void add_to_value (tree, tree);
@@ -765,10 +750,10 @@ void print_value_expressions (FILE *, tree);
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
 tree get_value_handle (tree);
-hashval_t vn_compute (tree, hashval_t, vuse_optype);
-tree vn_lookup_or_add (tree, vuse_optype);
-void vn_add (tree, tree, vuse_optype);
-tree vn_lookup (tree, vuse_optype);
+hashval_t vn_compute (tree, hashval_t, tree);
+tree vn_lookup_or_add (tree, tree);
+void vn_add (tree, tree, tree);
+tree vn_lookup (tree, tree);
 void vn_init (void);
 void vn_delete (void);
 
@@ -783,6 +768,9 @@ extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
 extern bool expr_invariant_in_loop_p (struct loop *, tree);
+
+/* In tree-ssa-threadupdate.c.  */
+extern bool thread_through_all_blocks (bitmap);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, tree *, bool, tree);

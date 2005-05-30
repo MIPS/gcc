@@ -226,7 +226,7 @@ make_phi_node (tree var, int len)
 
   for (i = 0; i < capacity; i++)
     {
-      ssa_imm_use_t * imm;
+      use_operand_p  imm;
       imm = &(PHI_ARG_IMM_USE_NODE (phi, i));
       imm->use = &(PHI_ARG_DEF_TREE (phi, i));
       imm->prev = NULL;
@@ -247,7 +247,7 @@ release_phi_node (tree phi)
 
   for (x = 0; x < PHI_NUM_ARGS (phi); x++)
     {
-      ssa_imm_use_t * imm;
+      use_operand_p  imm;
       imm = &(PHI_ARG_IMM_USE_NODE (phi, x));
       delink_imm_use (imm);
     }
@@ -282,7 +282,7 @@ resize_phi_node (tree *phi, int len)
 
   for (i = 0; i < PHI_NUM_ARGS (new_phi); i++)
     {
-      ssa_imm_use_t *imm, *old_imm;
+      use_operand_p imm, old_imm;
       imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
       old_imm = &(PHI_ARG_IMM_USE_NODE (*phi, i));
       imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
@@ -293,7 +293,7 @@ resize_phi_node (tree *phi, int len)
 
   for (i = PHI_NUM_ARGS (new_phi); i < len; i++)
     {
-      ssa_imm_use_t * imm;
+      use_operand_p imm;
       imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
       imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
       imm->prev = NULL;
@@ -314,7 +314,7 @@ reserve_phi_args_for_new_edge (basic_block bb)
   int len = EDGE_COUNT (bb->preds);
   int cap = ideal_phi_node_len (len + 4);
 
-  for (loc = &(bb_ann (bb)->phi_nodes);
+  for (loc = &(bb->phi_nodes);
        *loc;
        loc = &PHI_CHAIN (*loc))
     {
@@ -354,7 +354,7 @@ create_phi_node (tree var, basic_block bb)
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   PHI_CHAIN (phi) = phi_nodes (bb);
-  bb_ann (bb)->phi_nodes = phi;
+  bb->phi_nodes = phi;
 
   /* Associate BB to the PHI node.  */
   set_bb_for_stmt (phi, bb);
@@ -450,7 +450,7 @@ remove_phi_node (tree phi, tree prev)
     }
   else
     {
-      for (loc = &(bb_ann (bb_for_stmt (phi))->phi_nodes);
+      for (loc = &(bb_for_stmt (phi)->phi_nodes);
 	   *loc != phi;
 	   loc = &PHI_CHAIN (*loc))
 	;

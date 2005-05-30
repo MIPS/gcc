@@ -9489,6 +9489,18 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_RESOLVE_OVERLOADED_BUILTIN (tree @var{fndecl}, tree @var{arglist})
+
+Select a replacement for a machine specific built-in function that
+was set up by @samp{TARGET_INIT_BUILTINS}.  This is done
+@emph{before} regular type checking, and so allows the target to
+implement a crude form of function overloading.  @var{fndecl} is the
+declaration of the built-in function.  @var{arglist} is the list of
+arguments passed to the built-in function.  The result is a
+complete expression that implements the operation, usually
+another @code{CALL_EXPR}.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{fndecl}, tree @var{arglist}, bool @var{ignore})
 
 Fold a call to a machine specific built-in function that was set up by
@@ -9497,6 +9509,17 @@ built-in function.  @var{arglist} is the list of arguments passed to
 the built-in function.  The result is another tree containing a
 simplified expression for the call's result.  If @var{ignore} is true
 the value will be ignored.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_INSN_VALID_WITHIN_DOLOOP (rtx @var{insn})
+
+Take an instruction in @var{insn} and return true if it is valid within a
+low-overhead loop.
+
+Many targets use special registers for low-overhead looping. This function
+should return false for any instruction that clobbers these. 
+By default, the RTL loop optimizer does not use a present doloop pattern for
+loops containing function calls or branch on table instructions.  
 @end deftypefn
 
 @defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})

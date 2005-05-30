@@ -791,7 +791,8 @@ determine_base_object (tree expr)
       if (TREE_CODE (base) == INDIRECT_REF)
 	return determine_base_object (TREE_OPERAND (base, 0));
 
-      return fold (build1 (ADDR_EXPR, ptr_type_node, base));
+      return fold_convert (ptr_type_node,
+		           build_fold_addr_expr (base));
 
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -804,9 +805,9 @@ determine_base_object (tree expr)
       if (!op0)
 	return (code == PLUS_EXPR
 		? op1
-		: fold (build1 (NEGATE_EXPR, ptr_type_node, op1)));
+		: fold_build1 (NEGATE_EXPR, ptr_type_node, op1));
 
-      return fold (build (code, ptr_type_node, op0, op1));
+      return fold_build2 (code, ptr_type_node, op0, op1);
 
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -992,6 +993,7 @@ find_bivs (struct ivopts_data *data)
 	continue;
 
       base = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
+      base = expand_simple_operations (base);
       if (contains_abnormal_ssa_name_p (base)
 	  || contains_abnormal_ssa_name_p (step))
 	continue;
@@ -1062,6 +1064,7 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
 
   if (!simple_iv (loop, stmt, TREE_OPERAND (stmt, 1), base, step, true))
     return false;
+  *base = expand_simple_operations (*base);
 
   if (contains_abnormal_ssa_name_p (*base)
       || contains_abnormal_ssa_name_p (*step))
@@ -1524,7 +1527,7 @@ build_addr_strip_iref (tree obj)
       obj = fold_convert (type, TREE_OPERAND (obj, 0));
     }
   else
-    obj = build_addr (obj);
+    obj = build_addr (obj, current_function_decl);
 
   return obj;
 }
@@ -1578,25 +1581,13 @@ fail:
 static void
 find_invariants_stmt (struct ivopts_data *data, tree stmt)
 {
-  use_optype uses = NULL;
-  unsigned i, n;
+  ssa_op_iter iter;
+  use_operand_p use_p;
   tree op;
 
-  if (TREE_CODE (stmt) == PHI_NODE)
-    n = PHI_NUM_ARGS (stmt);
-  else
+  FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, iter, SSA_OP_USE)
     {
-      uses = STMT_USE_OPS (stmt);
-      n = NUM_USES (uses);
-    }
-
-  for (i = 0; i < n; i++)
-    {
-      if (TREE_CODE (stmt) == PHI_NODE)
-	op = PHI_ARG_DEF (stmt, i);
-      else
-	op = USE_OP (uses, i);
-
+      op = USE_FROM_PTR (use_p);
       record_invariant (data, op, false);
     }
 }
@@ -1608,8 +1599,8 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 {
   struct iv *iv;
   tree op, lhs, rhs;
-  use_optype uses = NULL;
-  unsigned i, n;
+  ssa_op_iter iter;
+  use_operand_p use_p;
 
   find_invariants_stmt (data, stmt);
 
@@ -1677,20 +1668,9 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 	return;
     }
 
-  if (TREE_CODE (stmt) == PHI_NODE)
-    n = PHI_NUM_ARGS (stmt);
-  else
+  FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, iter, SSA_OP_USE)
     {
-      uses = STMT_USE_OPS (stmt);
-      n = NUM_USES (uses);
-    }
-
-  for (i = 0; i < n; i++)
-    {
-      if (TREE_CODE (stmt) == PHI_NODE)
-	op = PHI_ARG_DEF (stmt, i);
-      else
-	op = USE_OP (uses, i);
+      op = USE_FROM_PTR (use_p);
 
       if (TREE_CODE (op) != SSA_NAME)
 	continue;
@@ -1906,7 +1886,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
     TREE_OPERAND (expr, 1) = op1;
 
   /* Inside address, we might strip the top level component references,
-     thus changing type of the expresion.  Handling of ADDR_EXPR
+     thus changing type of the expression.  Handling of ADDR_EXPR
      will fix that.  */
   expr = fold_convert (orig_type, expr);
 
@@ -2559,7 +2539,7 @@ var_at_stmt (struct loop *loop, struct iv_cand *cand, tree stmt)
 /* Return the most significant (sign) bit of T.  Similar to tree_int_cst_msb,
    but the bit is determined from TYPE_PRECISION, not MODE_BITSIZE.  */
 
-static int
+int
 tree_int_cst_sign_bit (tree t)
 {
   unsigned bitno = TYPE_PRECISION (TREE_TYPE (t)) - 1;
@@ -5439,7 +5419,6 @@ rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
     }
 
   TREE_OPERAND (copy, 0) = new_name;
-  update_stmt (copy);
   bsi_insert_before (bsi, copy, BSI_SAME_STMT);
   with = new_name;
 
@@ -5577,22 +5556,11 @@ protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
 static void
 protect_loop_closed_ssa_form (edge exit, tree stmt)
 {
-  use_optype uses;
-  vuse_optype vuses;
-  v_may_def_optype v_may_defs;
-  unsigned i;
+  ssa_op_iter iter;
+  use_operand_p use_p;
 
-  uses = STMT_USE_OPS (stmt);
-  for (i = 0; i < NUM_USES (uses); i++)
-    protect_loop_closed_ssa_form_use (exit, USE_OP_PTR (uses, i));
-
-  vuses = STMT_VUSE_OPS (stmt);
-  for (i = 0; i < NUM_VUSES (vuses); i++)
-    protect_loop_closed_ssa_form_use (exit, VUSE_OP_PTR (vuses, i));
-
-  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-    protect_loop_closed_ssa_form_use (exit, V_MAY_DEF_OP_PTR (v_may_defs, i));
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
+    protect_loop_closed_ssa_form_use (exit, use_p);
 }
 
 /* STMTS compute a value of a phi argument OP on EXIT of a loop.  Arrange things

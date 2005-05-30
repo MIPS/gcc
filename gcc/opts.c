@@ -315,6 +315,14 @@ handle_option (const char **argv, unsigned int lang_mask)
   /* We've recognized this switch.  */
   result = 1;
 
+  /* Check to see if the option is disabled for this configuration.  */
+  if (option->flags & CL_DISABLED)
+    {
+      error ("command line option %qs"
+	     " is not supported by this configuration", opt);
+      goto done;
+    }
+
   /* Sort out any argument the switch takes.  */
   if (option->flags & CL_JOINED)
     {
@@ -371,24 +379,30 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (option->flag_var)
-    switch (option->var_cond)
+    switch (option->var_type)
       {
       case CLVC_BOOLEAN:
-	*option->flag_var = value;
+	*(int *) option->flag_var = value;
 	break;
 
       case CLVC_EQUAL:
-	*option->flag_var = value ? option->var_value : !option->var_value;
+	*(int *) option->flag_var = (value
+				     ? option->var_value
+				     : !option->var_value);
 	break;
 
       case CLVC_BIT_CLEAR:
       case CLVC_BIT_SET:
-	if ((value != 0) == (option->var_cond == CLVC_BIT_SET))
-	  *option->flag_var |= option->var_value;
+	if ((value != 0) == (option->var_type == CLVC_BIT_SET))
+	  *(int *) option->flag_var |= option->var_value;
 	else
-	  *option->flag_var &= ~option->var_value;
+	  *(int *) option->flag_var &= ~option->var_value;
 	if (option->flag_var == &target_flags)
 	  target_flags_explicit |= option->var_value;
+	break;
+
+      case CLVC_STRING:
+	*(const char **) option->flag_var = arg;
 	break;
       }
   
@@ -660,7 +674,8 @@ decode_options (unsigned int argc, const char **argv)
 	 this to `2' if -Wall is used, so we can avoid giving out
 	 lots of errors for people who don't realize what -Wall does.  */
       if (warn_uninitialized == 1)
-	warning (0, "-Wuninitialized is not supported without -O");
+	warning (OPT_Wuninitialized,
+		 "-Wuninitialized is not supported without -O");
     }
 
   if (flag_really_no_inline == 2)
@@ -818,6 +833,10 @@ common_handle_option (size_t scode, const char *arg, int value)
 	return 0;
       break;
 
+    case OPT_fdiagnostics_show_option:
+      global_dc->show_option_requested = true;
+      break;
+
     case OPT_fdump_:
       if (!dump_switch_p (arg))
 	return 0;
@@ -908,7 +927,7 @@ common_handle_option (size_t scode, const char *arg, int value)
         else if (!strcmp(arg, "protected"))
           default_visibility = VISIBILITY_PROTECTED;
         else
-          error ("unrecognised visibility value \"%s\"", arg);
+          error ("unrecognized visibility value \"%s\"", arg);
       }
       break;
 
@@ -1400,22 +1419,26 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
    a simple on-off switch.  */
 
 int
-option_enabled (const struct cl_option *option)
+option_enabled (int opt_idx)
 {
+  const struct cl_option *option = &(cl_options[opt_idx]);
   if (option->flag_var)
-    switch (option->var_cond)
+    switch (option->var_type)
       {
       case CLVC_BOOLEAN:
-	return *option->flag_var != 0;
+	return *(int *) option->flag_var != 0;
 
       case CLVC_EQUAL:
-	return *option->flag_var == option->var_value;
+	return *(int *) option->flag_var == option->var_value;
 
       case CLVC_BIT_CLEAR:
-	return (*option->flag_var & option->var_value) == 0;
+	return (*(int *) option->flag_var & option->var_value) == 0;
 
       case CLVC_BIT_SET:
-	return (*option->flag_var & option->var_value) != 0;
+	return (*(int *) option->flag_var & option->var_value) != 0;
+
+      case CLVC_STRING:
+	break;
       }
   return -1;
 }

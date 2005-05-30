@@ -56,7 +56,7 @@ i386 port		Richard Henderson	rth@redhat.com
 i860 port		Jason Eckhardt		jle@rice.edu
 ia64 port		Jim Wilson		wilson@specifixinc.com
 ip2k port		Denis Chertykov		denisc@overta.ru
-iq2000 port		Stan Cox		scox@redhat.com
+iq2000 port		Nick Clifton		nickc@redhat.com
 m32r port		Nick Clifton		nickc@redhat.com
 m68hc11 port		Stephane Carrez		stcarrez@nerim.fr
 m68k port (?)		Jeff Law		law@redhat.com
@@ -183,8 +183,12 @@ middle-end		Roger Sayle		roger@eyesopen.com
 tree-ssa		Diego Novillo		dnovillo@redhat.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE, points-to		Daniel Berlin		dberlin@dberlin.org
+code sinking		Daniel Berlin		dberlin@dberlin.org
 mudflap			Frank Ch. Eigler	fche@redhat.com
 tree browser/unparser	Sebastian Pop		pop@cri.ensmp.fr
+scev, data dependence   Daniel Berlin		dberlin@dberlin.org
+scev, data dependence	Sebastian Pop		pop@cri.ensmp.fr
+linear loop transforms	Daniel Berlin		dberlin@dberlin.org
 profile feedback	Jan Hubicka		jh@suse.cz
 type-safe vectors	Nathan Sidwell		nathan@codesourcery.com
 
@@ -224,7 +228,6 @@ Christian Cornelssen				ccorn@cs.tu-berlin.de
 François-Xavier Coudert				coudert@clipper.ens.fr
 David Daney					ddaney@avtrex.com
 Bud Davis					bdavis9659@comcast.net
-Chris Demetriou					cgd@broadcom.com
 Zdenek Dvorak					dvorakz@suse.cz
 Steve Ellcey					sje@cup.hp.com
 Mohan Embar					gnustuff@thisiscool.com
@@ -273,6 +276,7 @@ Gabor Loki					loki@inf.u-szeged.hu
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 HJ Lu						hjl@lucon.org
+Ziga Mahkovec					ziga.mahkovec@klika.si
 Ranjit Mathew					rmathew@hotmail.com
 Michael Matz					matz@suse.de
 Greg McGary					gkm@gnu.org
@@ -314,6 +318,7 @@ Jeff Sturm					jsturm@gcc.gnu.org
 Kresten Krab Thorup				krab@gcc.gnu.org
 Caroline Tice					ctice@apple.com
 Michael Tiemann					tiemann@redhat.com
+David Ung					davidu@mips.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
 Feng Wang					fengwang@nudt.edu.cn

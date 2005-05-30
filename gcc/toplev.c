@@ -403,11 +403,6 @@ static const struct
 target_options[] = TARGET_OPTIONS;
 #endif
 
-/* Nonzero means warn about function definitions that default the return type
-   or that use a null return and have a return-type other than void.  */
-
-int warn_return_type;
-
 /* Output files for assembler code (real compiler output)
    and debugging dumps.  */
 
@@ -1360,7 +1355,7 @@ print_switch_values (FILE *file, int pos, int max,
 
   for (j = 0; j < cl_options_count; j++)
     if ((cl_options[j].flags & CL_REPORT)
-	&& option_enabled (&cl_options[j]) > 0)
+	&& option_enabled (j) > 0)
       pos = print_single_switch (file, pos, max, indent, sep, term,
 				 "", cl_options[j].opt_text);
 

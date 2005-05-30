@@ -15,8 +15,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+not, write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /*
 
@@ -36,7 +36,7 @@ multi-threaded locking.  Otherwise do nothing.
 
 @end deftypefn
 
-@deftypefn Extension FILE * fopen_unlocked (const char *@var{path}, const char * @var{mode})
+@deftypefn Extension {FILE *} fopen_unlocked (const char *@var{path}, const char * @var{mode})
 
 Opens and returns a @code{FILE} pointer via @code{fopen}.  If the
 operating system supports it, ensure that the stream is setup to avoid
@@ -45,7 +45,7 @@ unchanged.
 
 @end deftypefn
 
-@deftypefn Extension FILE * fdopen_unlocked (int @var{fildes}, const char * @var{mode})
+@deftypefn Extension {FILE *} fdopen_unlocked (int @var{fildes}, const char * @var{mode})
 
 Opens and returns a @code{FILE} pointer via @code{fdopen}.  If the
 operating system supports it, ensure that the stream is setup to avoid
@@ -54,7 +54,7 @@ unchanged.
 
 @end deftypefn
 
-@deftypefn Extension FILE * freopen_unlocked (const char * @var{path}, const char * @var{mode}, FILE * @var{stream})
+@deftypefn Extension {FILE *} freopen_unlocked (const char * @var{path}, const char * @var{mode}, FILE * @var{stream})
 
 Opens and returns a @code{FILE} pointer via @code{freopen}.  If the
 operating system supports it, ensure that the stream is setup to avoid

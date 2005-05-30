@@ -787,15 +787,11 @@ struct ix86_frame
   bool save_regs_using_mov;
 };
 
-/* Code model option as passed by user.  */
-static const char *ix86_cmodel_string;
-/* Parsed value.  */
+/* Code model option.  */
 enum cmodel ix86_cmodel;
 /* Asm dialect.  */
-static const char *ix86_asm_string;
 enum asm_dialect ix86_asm_dialect = ASM_ATT;
 /* TLS dialext.  */
-static const char *ix86_tls_dialect_string;
 enum tls_dialect ix86_tls_dialect = TLS_DIALECT_GNU;
 
 /* Which unit we are generating floating point math for.  */
@@ -806,40 +802,17 @@ enum processor_type ix86_tune;
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
 
-/* Strings to hold which cpu and instruction set architecture  to use.  */
-const char *ix86_tune_string;		/* for -mtune=<xxx> */
-const char *ix86_arch_string;		/* for -march=<xxx> */
-static const char *ix86_fpmath_string;	/* for -mfpmath=<xxx> */
-
-/* # of registers to use to pass arguments.  */
-static const char *ix86_regparm_string;
-
 /* true if sse prefetch instruction is not NOOP.  */
 int x86_prefetch_sse;
 
 /* ix86_regparm_string as a number */
 static int ix86_regparm;
 
-/* Alignment to use for loops and jumps:  */
-
-/* Power of two alignment for loops.  */
-static const char *ix86_align_loops_string;
-
-/* Power of two alignment for non-loop jumps.  */
-static const char *ix86_align_jumps_string;
-
-/* Power of two alignment for stack boundary in bytes.  */
-static const char *ix86_preferred_stack_boundary_string;
-
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
 
 /* Values 1-5: see jump.c */
 int ix86_branch_cost;
-static const char *ix86_branch_cost_string;
-
-/* Power of two alignment for functions.  */
-static const char *ix86_align_funcs_string;
 
 /* Prefix built by ASM_GENERATE_INTERNAL_LABEL.  */
 char internal_label_prefix[16];
@@ -1111,7 +1084,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
-ix86_handle_option (size_t code, const char *arg, int value)
+ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
 {
   switch (code)
     {
@@ -1123,52 +1096,12 @@ ix86_handle_option (size_t code, const char *arg, int value)
 	}
       return true;
 
-    case OPT_malign_functions_:
-      ix86_align_funcs_string = arg;
-      return true;
-
-    case OPT_malign_jumps_:
-      ix86_align_jumps_string = arg;
-      return true;
-
-    case OPT_malign_loops_:
-      ix86_align_loops_string = arg;
-      return true;
-
-    case OPT_march_:
-      ix86_arch_string = arg;
-      return true;
-
-    case OPT_masm_:
-      ix86_asm_string = arg;
-      return true;
-
-    case OPT_mbranch_cost_:
-      ix86_branch_cost_string = arg;
-      return true;
-
-    case OPT_mcmodel_:
-      ix86_cmodel_string = arg;
-      return true;
-
-    case OPT_mfpmath_:
-      ix86_fpmath_string = arg;
-      return true;
-
     case OPT_mmmx:
       if (!value)
 	{
 	  target_flags &= ~(MASK_3DNOW | MASK_3DNOW_A);
 	  target_flags_explicit |= MASK_3DNOW | MASK_3DNOW_A;
 	}
-      return true;
-
-    case OPT_mpreferred_stack_boundary_:
-      ix86_preferred_stack_boundary_string = arg;
-      return true;
-
-    case OPT_mregparm_:
-      ix86_regparm_string = arg;
       return true;
 
     case OPT_msse:
@@ -1185,14 +1118,6 @@ ix86_handle_option (size_t code, const char *arg, int value)
 	  target_flags &= ~MASK_SSE3;
 	  target_flags_explicit |= MASK_SSE3;
 	}
-      return true;
-
-    case OPT_mtls_dialect_:
-      ix86_tls_dialect_string = arg;
-      return true;
-
-    case OPT_mtune_:
-      ix86_tune_string = arg;
       return true;
 
     default:
@@ -1590,7 +1515,7 @@ override_options (void)
     target_flags &= ~MASK_NO_FANCY_MATH_387;
 
   /* Likewise, if the target doesn't have a 387, or we've specified
-     software floating point, don't use 387 inline instrinsics.  */
+     software floating point, don't use 387 inline intrinsics.  */
   if (!TARGET_80387)
     target_flags |= MASK_NO_FANCY_MATH_387;
 
@@ -1819,7 +1744,7 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1847,7 +1772,8 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
 
   if (TARGET_64BIT)
     {
-      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -1865,7 +1791,7 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1876,13 +1802,14 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
       cst = TREE_VALUE (args);
       if (TREE_CODE (cst) != INTEGER_CST)
 	{
-	  warning (0, "%qs attribute requires an integer constant argument",
+	  warning (OPT_Wattributes,
+		   "%qs attribute requires an integer constant argument",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
       else if (compare_tree_int (cst, REGPARM_MAX) > 0)
 	{
-	  warning (0, "argument to %qs attribute larger than %d",
+	  warning (OPT_Wattributes, "argument to %qs attribute larger than %d",
 		   IDENTIFIER_POINTER (name), REGPARM_MAX);
 	  *no_add_attrs = true;
 	}
@@ -1924,7 +1851,7 @@ ix86_comp_type_attributes (tree type1, tree type2)
   return 1;
 }
 
-/* Return the regparm value for a fuctio with the indicated TYPE and DECL.
+/* Return the regparm value for a function with the indicated TYPE and DECL.
    DECL may be NULL when calling function indirectly
    or considering a libcall.  */
 
@@ -5906,9 +5833,10 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   /* Canonicalize shifts by 0, 1, 2, 3 into multiply */
   if (GET_CODE (x) == ASHIFT
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && (log = (unsigned) exact_log2 (INTVAL (XEXP (x, 1)))) < 4)
+      && (unsigned HOST_WIDE_INT) INTVAL (XEXP (x, 1)) < 4)
     {
       changed = 1;
+      log = INTVAL (XEXP (x, 1));
       x = gen_rtx_MULT (Pmode, force_reg (Pmode, XEXP (x, 0)),
 			GEN_INT (1 << log));
     }
@@ -5919,9 +5847,10 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
 
       if (GET_CODE (XEXP (x, 0)) == ASHIFT
 	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && (log = (unsigned) exact_log2 (INTVAL (XEXP (XEXP (x, 0), 1)))) < 4)
+	  && (unsigned HOST_WIDE_INT) INTVAL (XEXP (XEXP (x, 0), 1)) < 4)
 	{
 	  changed = 1;
+	  log = INTVAL (XEXP (XEXP (x, 0), 1));
 	  XEXP (x, 0) = gen_rtx_MULT (Pmode,
 				      force_reg (Pmode, XEXP (XEXP (x, 0), 0)),
 				      GEN_INT (1 << log));
@@ -5929,9 +5858,10 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
 
       if (GET_CODE (XEXP (x, 1)) == ASHIFT
 	  && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT
-	  && (log = (unsigned) exact_log2 (INTVAL (XEXP (XEXP (x, 1), 1)))) < 4)
+	  && (unsigned HOST_WIDE_INT) INTVAL (XEXP (XEXP (x, 1), 1)) < 4)
 	{
 	  changed = 1;
+	  log = INTVAL (XEXP (XEXP (x, 1), 1));
 	  XEXP (x, 1) = gen_rtx_MULT (Pmode,
 				      force_reg (Pmode, XEXP (XEXP (x, 1), 0)),
 				      GEN_INT (1 << log));
@@ -11286,9 +11216,20 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
     src = replace_equiv_address_nv (src, srcreg);
 
   /* When optimizing for size emit simple rep ; movsb instruction for
-     counts not divisible by 4.  */
+     counts not divisible by 4, except when (movsl;)*(movsw;)?(movsb;)?
+     sequence is shorter than mov{b,l} $count, %{ecx,cl}; rep; movsb.
+     Sice of (movsl;)*(movsw;)?(movsb;)? sequence is
+     count / 4 + (count & 3), the other sequence is either 4 or 7 bytes,
+     but we don't know whether upper 24 (resp. 56) bits of %ecx will be
+     known to be zero or not.  The rep; movsb sequence causes higher
+     register pressure though, so take that into account.  */
 
-  if ((!optimize || optimize_size) && (count == 0 || (count & 0x03)))
+  if ((!optimize || optimize_size)
+      && (count == 0
+	  || ((count & 0x03)
+	      && (!optimize_size
+		  || count > 5 * 4
+		  || (count & 3) + count / 4 > 6))))
     {
       emit_insn (gen_cld ());
       countreg = ix86_zero_extend_to_Pmode (count_exp);
@@ -11314,19 +11255,36 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
       emit_insn (gen_cld ());
       if (count & ~(size - 1))
 	{
-	  countreg = copy_to_mode_reg (counter_mode,
-				       GEN_INT ((count >> (size == 4 ? 2 : 3))
-						& (TARGET_64BIT ? -1 : 0x3fffffff)));
-	  countreg = ix86_zero_extend_to_Pmode (countreg);
+	  if ((TARGET_SINGLE_STRINGOP || optimize_size) && count < 5 * 4)
+	    {
+	      enum machine_mode movs_mode = size == 4 ? SImode : DImode;
 
-	  destexp = gen_rtx_ASHIFT (Pmode, countreg,
-				    GEN_INT (size == 4 ? 2 : 3));
-	  srcexp = gen_rtx_PLUS (Pmode, destexp, srcreg);
-	  destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
+	      while (offset < (count & ~(size - 1)))
+		{
+		  srcmem = adjust_automodify_address_nv (src, movs_mode,
+							 srcreg, offset);
+		  dstmem = adjust_automodify_address_nv (dst, movs_mode,
+							 destreg, offset);
+		  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
+		  offset += size;
+		}
+	    }
+	  else
+	    {
+	      countreg = GEN_INT ((count >> (size == 4 ? 2 : 3))
+				  & (TARGET_64BIT ? -1 : 0x3fffffff));
+	      countreg = copy_to_mode_reg (counter_mode, countreg);
+	      countreg = ix86_zero_extend_to_Pmode (countreg);
 
-	  emit_insn (gen_rep_mov (destreg, dst, srcreg, src,
-				  countreg, destexp, srcexp));
-	  offset = count & ~(size - 1);
+	      destexp = gen_rtx_ASHIFT (Pmode, countreg,
+					GEN_INT (size == 4 ? 2 : 3));
+	      srcexp = gen_rtx_PLUS (Pmode, destexp, srcreg);
+	      destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
+
+	      emit_insn (gen_rep_mov (destreg, dst, srcreg, src,
+				      countreg, destexp, srcexp));
+	      offset = count & ~(size - 1);
+	    }
 	}
       if (size == 8 && (count & 0x04))
 	{
@@ -15311,7 +15269,7 @@ ix86_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
   if (from == to)
     return false;
 
-  /* x87 registers can't do subreg at all, as all values are reformated
+  /* x87 registers can't do subreg at all, as all values are reformatted
      to extended precision.  */
   if (MAYBE_FLOAT_CLASS_P (class))
     return true;
@@ -16027,7 +15985,8 @@ ix86_handle_struct_attribute (tree *node, tree name,
   if (!(type && (TREE_CODE (*type) == RECORD_TYPE
 		 || TREE_CODE (*type) == UNION_TYPE)))
     {
-      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -16036,7 +15995,7 @@ ix86_handle_struct_attribute (tree *node, tree name,
 	   || ((is_attribute_p ("gcc_struct", name)
 		&& lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
     {
-      warning (0, "%qs incompatible attribute ignored",
+      warning (OPT_Wattributes, "%qs incompatible attribute ignored",
                IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -17023,32 +16982,35 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 	  break;
 
 	case 1:
-	  /* tmp = op0 = A B C D */
+	  /* tmp = target = A B C D */
 	  tmp = copy_to_reg (target);
-
-	  /* op0 = C C D D */
+	  /* target = A A B B */
 	  emit_insn (gen_sse_unpcklps (target, target, target));
-
-	  /* op0 = C C D X */
+	  /* target = X A B B */
 	  ix86_expand_vector_set (false, target, val, 0);
-
-	  /* op0 = A B X D  */
+	  /* target = A X C D  */
 	  emit_insn (gen_sse_shufps_1 (target, target, tmp,
 				       GEN_INT (1), GEN_INT (0),
 				       GEN_INT (2+4), GEN_INT (3+4)));
 	  return;
 
 	case 2:
+	  /* tmp = target = A B C D */
 	  tmp = copy_to_reg (target);
-	  ix86_expand_vector_set (false, target, val, 0);
+	  /* tmp = X B C D */
+	  ix86_expand_vector_set (false, tmp, val, 0);
+	  /* target = A B X D */
 	  emit_insn (gen_sse_shufps_1 (target, target, tmp,
 				       GEN_INT (0), GEN_INT (1),
 				       GEN_INT (0+4), GEN_INT (3+4)));
 	  return;
 
 	case 3:
+	  /* tmp = target = A B C D */
 	  tmp = copy_to_reg (target);
-	  ix86_expand_vector_set (false, target, val, 0);
+	  /* tmp = X B C D */
+	  ix86_expand_vector_set (false, tmp, val, 0);
+	  /* target = A B X D */
 	  emit_insn (gen_sse_shufps_1 (target, target, tmp,
 				       GEN_INT (0), GEN_INT (1),
 				       GEN_INT (2+4), GEN_INT (0+4)));

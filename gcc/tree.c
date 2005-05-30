@@ -2536,13 +2536,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
     TREE_SIDE_EFFECTS (t) = 1;
   else switch (code)
     {
-    case INIT_EXPR:
-    case MODIFY_EXPR:
     case VA_ARG_EXPR:
-    case PREDECREMENT_EXPR:
-    case PREINCREMENT_EXPR:
-    case POSTDECREMENT_EXPR:
-    case POSTINCREMENT_EXPR:
       /* All of these have side-effects, no matter what their
 	 operands are.  */
       TREE_SIDE_EFFECTS (t) = 1;
@@ -3276,7 +3270,8 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	}
       if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
 	{
-	  warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qs attribute ignored",
+		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
 
@@ -5991,6 +5986,16 @@ build_vector_type (tree innertype, int nunits)
   return make_vector_type (innertype, nunits, VOIDmode);
 }
 
+/* Build RESX_EXPR with given REGION_NUMBER.  */
+tree
+build_resx (int region_number)
+{
+  tree t;
+  t = build1 (RESX_EXPR, void_type_node,
+	      build_int_cst (NULL_TREE, region_number));
+  return t;
+}
+
 /* Given an initializer INIT, return TRUE if INIT is zero or some
    aggregate of zeros.  Otherwise return FALSE.  */
 bool
@@ -6614,7 +6619,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	case SSA_NAME:
 	case FIELD_DECL:
 	case RESULT_DECL:
-	  /* None of thse have subtrees other than those already walked
+	  /* None of these have subtrees other than those already walked
 	     above.  */
 	  break;
 

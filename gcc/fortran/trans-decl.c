@@ -537,7 +537,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
     {
       if (GFC_TYPE_ARRAY_LBOUND (type, dim) == NULL_TREE)
         GFC_TYPE_ARRAY_LBOUND (type, dim) = create_index_var ("lbound", nest);
-      /* Don't try to use the unkown bound for assumed shape arrays.  */
+      /* Don't try to use the unknown bound for assumed shape arrays.  */
       if (GFC_TYPE_ARRAY_UBOUND (type, dim) == NULL_TREE
           && (sym->as->type != AS_ASSUMED_SIZE
               || dim < GFC_TYPE_ARRAY_RANK (type) - 1))
@@ -901,7 +901,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   gfc_expr e;
   gfc_intrinsic_sym *isym;
   gfc_expr argexpr;
-  char s[GFC_MAX_SYMBOL_LEN];
+  char s[GFC_MAX_SYMBOL_LEN + 13]; /* "f2c_specific" and '\0'.  */
   tree name;
   tree mangled_name;
 
@@ -937,7 +937,18 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	  gcc_assert (isym->formal->next->next == NULL);
 	  isym->resolve.f2 (&e, &argexpr, NULL);
 	}
-      sprintf (s, "specific%s", e.value.function.name);
+
+      if (gfc_option.flag_f2c
+	  && ((e.ts.type == BT_REAL && e.ts.kind == gfc_default_real_kind)
+	      || e.ts.type == BT_COMPLEX))
+	{
+	  /* Specific which needs a different implementation if f2c
+	     calling conventions are used.  */
+	  sprintf (s, "f2c_specific%s", e.value.function.name);
+	}
+      else
+	sprintf (s, "specific%s", e.value.function.name);
+
       name = get_identifier (s);
       mangled_name = name;
     }
@@ -2030,7 +2041,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	    fnbody = gfc_trans_dummy_character (proc_sym->ts.cl, fnbody);
 	}
       else
-	gfc_todo_error ("Deferred non-array return by reference");
+	gcc_assert (gfc_option.flag_f2c
+		    && proc_sym->ts.type == BT_COMPLEX);
     }
 
   for (sym = proc_sym->tlink; sym != proc_sym; sym = sym->tlink)

@@ -601,6 +601,58 @@ proc check_alpha_max_hw_available { } {
     return $alpha_max_hw_available_saved
 }
 
+# Returns true iff the FUNCTION is available on the target system.
+# (This is essentially a Tcl implementation of Autoconf's
+# AC_CHECK_FUNC.)
+
+proc check_function_available { function } {
+    set var "${function}_available_saved"
+    global $var
+    global tool
+
+    if {![info exists $var]} {
+	# Assume it exists.
+	set $var 1
+	# Check to make sure.
+	set src "function[pid].c"
+	set exe "function[pid].exe"
+
+	set f [open $src "w"]
+	puts $f "int main () { $function (); }"
+	close $f
+
+	set lines [${tool}_target_compile $src $exe executable ""]
+	file delete $src
+	file delete $exe
+
+	if {![string match "" $lines]} then {
+	    set $var 0
+	    verbose -log "$function is not available"
+	} else {
+	    verbose -log "$function is available"
+	}
+    }
+
+    eval return \$$var
+}
+
+# Returns true iff "fork" is available on the target system.
+
+proc check_fork_available {} {
+    return [check_function_available "fork"]
+}
+
+# Returns true iff "mkfifo" is available on the target system.
+
+proc check_mkfifo_available {} {
+    if {[istarget *-*-cygwin*]} {
+       # Cygwin has mkfifo, but support is incomplete.
+       return 0
+     }
+
+    return [check_function_available "mkfifo"]
+}
+
 # Return 1 if we're generating 32-bit code using default options, 0
 # otherwise.
 #
@@ -696,6 +748,43 @@ proc check_effective_target_vect_int { } {
 
     verbose "check_effective_target_vect_int: returning $et_vect_int_saved" 2
     return $et_vect_int_saved
+}
+
+# Return 1 is this is an arm target using 32-bit instructions
+proc check_effective_target_arm32 { } {
+    global et_arm32_saved
+    global et_arm32_target_name
+    global compiler_flags
+
+    if { ![info exists et_arm32_target_name] } {
+	set et_arm32_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_arm32_target_name } {
+	verbose "check_effective_target_arm32: `$et_arm32_target_name' `$current_target'" 2
+	set et_arm32_target_name $current_target
+	if { [info exists et_arm32_saved] } {
+	    verbose "check_effective_target_arm32: removing cached result" 2
+	    unset et_arm32_saved
+	}
+    }
+
+    if [info exists et_arm32_saved] {
+	verbose "check-effective_target_arm32: using cached result" 2
+    } else {
+	set et_arm32_saved 0
+	if { [istarget arm-*-*]
+	      || [istarget strongarm*-*-*]
+	      || [istarget xscale-*-*] } {
+	    if ![string match "*-mthumb *" $compiler_flags] {
+		set et_arm32_saved 1
+	    }
+	}
+    }
+    verbose "check_effective_target_arm32: returning $et_arm32_saved" 2
+    return $et_arm32_saved
 }
 
 # Return 1 if the target supports hardware vector shift operation.
@@ -866,7 +955,9 @@ proc check_effective_target_vect_int_mult { } {
 	verbose "check_effective_target_vect_int_mult: using cached result" 2
     } else {
 	set et_vect_int_mult_saved 0
-	if { [istarget powerpc*-*-*] } {
+	if { [istarget powerpc*-*-*]
+	     || [istarget i?86-*-*]
+	     || [istarget x86_64-*-*] } {
 	   set et_vect_int_mult_saved 1
 	}
     }

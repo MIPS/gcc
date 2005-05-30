@@ -16,8 +16,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "pex-common.h"
 
@@ -89,7 +89,7 @@ pex_init (int flags, const char *pname, const char *tempbase)
 
   ret = pex_init_common (flags, pname, tempbase, funcs);
 
-  ret->sysdep = xmalloc (sizeof (struct pex_msdos));
+  ret->sysdep = XNEW (struct pex_msdos);
   for (i = 0; i < PEX_MSDOS_FILE_COUNT; ++i)
     ret->files[i] = NULL;
   ret->statuses = NULL;
@@ -210,7 +210,7 @@ pex_msdos_exec_child (struct pex_obj *obj, int flags, const char *executable,
       outfile = ms->files[outindex];
     }
 
-  scmd = xmalloc (strlen (program)
+  scmd = XNEWVEC (char, strlen (program)
 		  + ((flags & PEXECUTE_SEARCH) != 0 ? 4 : 0)
 		  + strlen (rf)
 		  + strlen (infile)
@@ -269,7 +269,7 @@ pex_msdos_exec_child (struct pex_obj *obj, int flags, const char *executable,
   /* Save the exit status for later.  When we are called, obj->count
      is the number of children which have executed before this
      one.  */
-  ms->statuses = xrealloc (ms->statuses, (obj->count + 1) * sizeof (int));
+  ms->statuses = XRESIZEVEC(int, ms->statuses, obj->count + 1);
   ms->statuses[obj->count] = status;
 
   return obj->count;

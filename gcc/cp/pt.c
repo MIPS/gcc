@@ -34,7 +34,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "pointer-set.h"
 #include "flags.h"
+#include "c-common.h"
 #include "cp-tree.h"
+#include "cp-objcp-common.h"
 #include "tree-inline.h"
 #include "decl.h"
 #include "output.h"
@@ -418,7 +420,7 @@ maybe_begin_member_template_processing (tree decl)
   ++inline_parm_levels_used;
 }
 
-/* Undo the effects of begin_member_template_processing.  */
+/* Undo the effects of maybe_begin_member_template_processing.  */
 
 void 
 maybe_end_member_template_processing (void)
@@ -3223,10 +3225,9 @@ redeclare_class_template (tree type, tree parms)
   if (TREE_VEC_LENGTH (parms) != TREE_VEC_LENGTH (tmpl_parms))
     {
       cp_error_at ("previous declaration %qD", tmpl);
-      error ("used %d template parameter%s instead of %d",
-		TREE_VEC_LENGTH (tmpl_parms), 
-		TREE_VEC_LENGTH (tmpl_parms) == 1 ? "" : "s",
-		TREE_VEC_LENGTH (parms));
+      error ("used %d template parameter(s) instead of %d",
+	     TREE_VEC_LENGTH (tmpl_parms), 
+	     TREE_VEC_LENGTH (parms));
       return;
     }
 
@@ -7783,7 +7784,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case TRUTH_NOT_EXPR:
     case BIT_NOT_EXPR:
     case ADDR_EXPR:
-    case CONVERT_EXPR:      /* Unary + */
+    case UNARY_PLUS_EXPR:      /* Unary + */
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
     case ARROW_EXPR:
@@ -8464,7 +8465,7 @@ tsubst_copy_and_build (tree t,
     case BIT_NOT_EXPR:
     case ABS_EXPR:
     case TRUTH_NOT_EXPR:
-    case CONVERT_EXPR:  /* Unary + */
+    case UNARY_PLUS_EXPR:  /* Unary + */
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       return build_x_unary_op (TREE_CODE (t), RECUR (TREE_OPERAND (t, 0)));
@@ -8880,6 +8881,14 @@ tsubst_copy_and_build (tree t,
       return t;
 
     default:
+      /* Handle Objective-C++ constructs, if appropriate.  */
+      {
+	tree subst
+	  = objcp_tsubst_copy_and_build (t, args, complain,
+					 in_decl, /*function_p=*/false);
+	if (subst)
+	  return subst;
+      }
       return tsubst_copy (t, args, complain, in_decl);
     }
 
@@ -12505,10 +12514,7 @@ build_non_dependent_expr (tree expr)
      types.  */
   inner_expr = (TREE_CODE (expr) == ADDR_EXPR ? 
 		TREE_OPERAND (expr, 0) : expr);
-  if (TREE_CODE (inner_expr) == OVERLOAD 
-      || TREE_CODE (inner_expr) == FUNCTION_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR
+  if (is_overloaded_fn (inner_expr)
       || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
   /* There is no need to return a proxy for a variable.  */

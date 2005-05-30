@@ -25,7 +25,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 */
 
 /* This file implements a few interface functions which are provided
@@ -130,18 +130,18 @@ cplus_demangle_fill_component (struct demangle_component *p,
 
 int
 cplus_demangle_fill_builtin_type (struct demangle_component *p,
-                                  const char *typename)
+                                  const char *type_name)
 {
   int len;
   unsigned int i;
 
-  if (p == NULL || typename == NULL)
+  if (p == NULL || type_name == NULL)
     return 0;
-  len = strlen (typename);
+  len = strlen (type_name);
   for (i = 0; i < D_BUILTIN_TYPE_COUNT; ++i)
     {
       if (len == cplus_demangle_builtin_types[i].len
-	  && strcmp (typename, cplus_demangle_builtin_types[i].name) == 0)
+	  && strcmp (type_name, cplus_demangle_builtin_types[i].name) == 0)
 	{
 	  p->type = DEMANGLE_COMPONENT_BUILTIN_TYPE;
 	  p->u.s_builtin.type = &cplus_demangle_builtin_types[i];

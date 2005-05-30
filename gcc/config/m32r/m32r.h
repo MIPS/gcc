@@ -209,10 +209,6 @@
 #define TARGET_CPU_DEFAULT 0
 #endif
 
-/* Cache-flush support.  */
-extern const char * m32r_cache_flush_func;
-extern int m32r_cache_flush_trap;
-
 /* Code Models
 
    Code models are used to select between two choices of two separate
@@ -907,7 +903,7 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
       else if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)	\
 	(OFFSET) = size - current_function_pretend_args_size;			\
       else									\
-	abort ();								\
+	gcc_unreachable ();								\
     }										\
   while (0)
 

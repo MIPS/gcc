@@ -2098,6 +2098,9 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
   use_operand_p kill_p;
   ssa_op_iter iter;
 
+  if (!ssa_operands_active ())
+    return;
+
   FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
     {
       pp_string (buffer, "#   ");
@@ -2338,8 +2341,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
 
   dump_bb_header (buffer, bb, indent, flags);
 
-  if (bb_ann (bb))
-    dump_phi_nodes (buffer, bb, indent, flags);
+  dump_phi_nodes (buffer, bb, indent, flags);
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {

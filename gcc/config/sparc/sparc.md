@@ -68,13 +68,12 @@
    (UNSPECV_SAVEW		6)
   ])
 
-(define_mode_macro P [(SI "Pmode == SImode") (DI "Pmode == DImode")])
-
 ;; The upper 32 fp regs on the v9 can't hold SFmode values.  To deal with this
 ;; a second register class, EXTRA_FP_REGS, exists for the v9 chip.  The name
 ;; is a bit of a misnomer as it covers all 64 fp regs.  The corresponding
 ;; constraint letter is 'e'.  To avoid any confusion, 'e' is used instead of
 ;; 'f' for all DF/TFmode values, including those that are specific to the v8.
+
 
 ;; Attribute for cpu type.
 ;; These must match the values for enum processor_type in sparc.h.
@@ -300,6 +299,7 @@
 (define_delay (eq_attr "type" "return")
   [(eq_attr "eligible_for_return_delay" "true") (nil) (nil)])
 
+
 ;; Include SPARC DFA schedulers
 
 (include "cypress.md")
@@ -308,6 +308,7 @@
 (include "sparclet.md")
 (include "ultra1_2.md")
 (include "ultra3.md")
+
 
 ;; Operand and operator predicates.
 
@@ -328,8 +329,6 @@
 ;; We start with the DEFINE_EXPANDs, then the DEFINE_INSNs to match
 ;; the patterns.  Finally, we have the DEFINE_SPLITs for some of the scc
 ;; insns that actually require more than one machine instruction.
-
-;; Put cmpsi first among compare insns so it matches two CONST_INT operands.
 
 (define_expand "cmpsi"
   [(set (reg:CC 100)
@@ -855,7 +854,7 @@
 
 ;; The SEQ and SNE patterns are special because they can be done
 ;; without any branching and do not involve a COMPARE.  We want
-;; them to always use the splitz below so the results can be
+;; them to always use the splits below so the results can be
 ;; scheduled.
 
 (define_insn_and_split "*snesi_zero"
@@ -1694,7 +1693,10 @@
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "reg")])
-
+
+
+(define_mode_macro P [(SI "Pmode == SImode") (DI "Pmode == DImode")])
+
 ;; Load in operand 0 the (absolute) address of operand 1, which is a symbolic
 ;; value subject to a PC-relative relocation.  Operand 2 is a helper function
 ;; that adds the PC value at the call point to operand 0.
@@ -1716,58 +1718,17 @@
 	(if_then_else (eq_attr "delayed_branch" "true")
 		      (const_int 3)
 		      (const_int 4)))])
-
-;; Move instructions
+
+
+;; Integer move instructions
 
 (define_expand "movqi"
-  [(set (match_operand:QI 0 "general_operand" "")
+  [(set (match_operand:QI 0 "nonimmediate_operand" "")
 	(match_operand:QI 1 "general_operand" ""))]
   ""
 {
-  /* Working with CONST_INTs is easier, so convert
-     a double if needed.  */
-  if (GET_CODE (operands[1]) == CONST_DOUBLE)
-    operands[1] = gen_int_mode (CONST_DOUBLE_LOW (operands[1]), QImode);
-
-  /* Handle sets of MEM first.  */
-  if (GET_CODE (operands[0]) == MEM)
-    {
-      if (register_or_zero_operand (operands[1], QImode))
-	goto movqi_is_ok;
-
-      if (! reload_in_progress)
-	{
-	  operands[0] = validize_mem (operands[0]);
-	  operands[1] = force_reg (QImode, operands[1]);
-	}
-    }
-
-  /* Fixup TLS cases.  */
-  if (tls_symbolic_operand (operands [1]))
-    operands[1] = legitimize_tls_address (operands[1]);
-
-  /* Fixup PIC cases.  */
-  if (flag_pic)
-    {
-      if (CONSTANT_P (operands[1])
-	  && pic_address_needs_scratch (operands[1]))
-	operands[1] = legitimize_pic_address (operands[1], QImode, 0);
-
-      if (symbolic_operand (operands[1], QImode))
-	{
-	  operands[1] = legitimize_pic_address (operands[1],
-						QImode,
-						(reload_in_progress ?
-						 operands[0] :
-						 NULL_RTX));
-	  goto movqi_is_ok;
-	}
-    }
-
-  /* All QI constants require only one insn, so proceed.  */
-
- movqi_is_ok:
-  ;
+  if (sparc_expand_move (QImode, operands))
+    DONE;
 })
 
 (define_insn "*movqi_insn"
@@ -1783,69 +1744,13 @@
    (set_attr "us3load_type" "*,3cycle,*")])
 
 (define_expand "movhi"
-  [(set (match_operand:HI 0 "general_operand" "")
+  [(set (match_operand:HI 0 "nonimmediate_operand" "")
 	(match_operand:HI 1 "general_operand" ""))]
   ""
 {
-  /* Working with CONST_INTs is easier, so convert
-     a double if needed.  */
-  if (GET_CODE (operands[1]) == CONST_DOUBLE)
-    operands[1] = gen_int_mode (CONST_DOUBLE_LOW (operands[1]), HImode);
-
-  /* Handle sets of MEM first.  */
-  if (GET_CODE (operands[0]) == MEM)
-    {
-      if (register_or_zero_operand (operands[1], HImode))
-	goto movhi_is_ok;
-
-      if (! reload_in_progress)
-	{
-	  operands[0] = validize_mem (operands[0]);
-	  operands[1] = force_reg (HImode, operands[1]);
-	}
-    }
-
-  /* Fixup TLS cases.  */
-  if (tls_symbolic_operand (operands [1]))
-    operands[1] = legitimize_tls_address (operands[1]);
-
-  /* Fixup PIC cases.  */
-  if (flag_pic)
-    {
-      if (CONSTANT_P (operands[1])
-	  && pic_address_needs_scratch (operands[1]))
-	operands[1] = legitimize_pic_address (operands[1], HImode, 0);
-
-      if (symbolic_operand (operands[1], HImode))
-	{
-	  operands[1] = legitimize_pic_address (operands[1],
-						HImode,
-						(reload_in_progress ?
-						 operands[0] :
-						 NULL_RTX));
-	  goto movhi_is_ok;
-	}
-    }
-
-  /* This makes sure we will not get rematched due to splittage.  */
-  if (! CONSTANT_P (operands[1]) || input_operand (operands[1], HImode))
-    ;
-  else if (CONSTANT_P (operands[1])
-	   && GET_CODE (operands[1]) != HIGH
-	   && GET_CODE (operands[1]) != LO_SUM)
-    {
-      sparc_emit_set_const32 (operands[0], operands[1]);
-      DONE;
-    }
- movhi_is_ok:
-  ;
+  if (sparc_expand_move (HImode, operands))
+    DONE;
 })
-
-(define_insn "*movhi_const64_special"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(match_operand:HI 1 "const_high_operand" "K"))]
-  "TARGET_ARCH64"
-  "sethi\t%%hi(%a1), %0")
 
 (define_insn "*movhi_insn"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,r,m")
@@ -1869,104 +1774,29 @@
   "or\t%1, %2, %0")
 
 (define_expand "movsi"
-  [(set (match_operand:SI 0 "general_operand" "")
+  [(set (match_operand:SI 0 "nonimmediate_operand" "")
 	(match_operand:SI 1 "general_operand" ""))]
   ""
 {
-  /* Working with CONST_INTs is easier, so convert
-     a double if needed.  */
-  if (GET_CODE (operands[1]) == CONST_DOUBLE)
-    operands[1] = gen_int_mode (CONST_DOUBLE_LOW (operands[1]), SImode);
-
-  /* Handle sets of MEM first.  */
-  if (GET_CODE (operands[0]) == MEM)
-    {
-      if (register_or_zero_operand (operands[1], SImode))
-	goto movsi_is_ok;
-
-      if (! reload_in_progress)
-	{
-	  operands[0] = validize_mem (operands[0]);
-	  operands[1] = force_reg (SImode, operands[1]);
-	}
-    }
-
-  /* Fixup TLS cases.  */
-  if (tls_symbolic_operand (operands [1]))
-    operands[1] = legitimize_tls_address (operands[1]);
-
-  /* Fixup PIC cases.  */
-  if (flag_pic)
-    {
-      if (CONSTANT_P (operands[1])
-	  && pic_address_needs_scratch (operands[1]))
-	operands[1] = legitimize_pic_address (operands[1], SImode, 0);
-
-      if (GET_CODE (operands[1]) == LABEL_REF)
-	{
-	  /* shit */
-	  emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
-	  DONE;
-	}
-
-      if (symbolic_operand (operands[1], SImode))
-	{
-	  operands[1] = legitimize_pic_address (operands[1],
-						SImode,
-						(reload_in_progress ?
-						 operands[0] :
-						 NULL_RTX));
-	  goto movsi_is_ok;
-	}
-    }
-
-  /* If we are trying to toss an integer constant into the
-     FPU registers, force it into memory.  */
-  if (GET_CODE (operands[0]) == REG
-      && REGNO (operands[0]) >= SPARC_FIRST_FP_REG
-      && REGNO (operands[0]) <= SPARC_LAST_V9_FP_REG
-      && CONSTANT_P (operands[1]))
-    operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
-						 operands[1]));
-
-  /* This makes sure we will not get rematched due to splittage.  */
-  if (! CONSTANT_P (operands[1]) || input_operand (operands[1], SImode))
-    ;
-  else if (CONSTANT_P (operands[1])
-	   && GET_CODE (operands[1]) != HIGH
-	   && GET_CODE (operands[1]) != LO_SUM)
-    {
-      sparc_emit_set_const32 (operands[0], operands[1]);
-      DONE;
-    }
- movsi_is_ok:
-  ;
+  if (sparc_expand_move (SImode, operands))
+    DONE;
 })
 
-;; This is needed to show CSE exactly which bits are set
-;; in a 64-bit register by sethi instructions.
-(define_insn "*movsi_const64_special"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(match_operand:SI 1 "const_high_operand" "K"))]
-  "TARGET_ARCH64"
-  "sethi\t%%hi(%a1), %0")
-
 (define_insn "*movsi_insn"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,f,r,r,r,f,m,m,d")
-	(match_operand:SI 1 "input_operand"   "rI,!f,K,J,m,!m,rJ,!f,J"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,m,!f,!f,!m,d")
+	(match_operand:SI 1 "input_operand"   "rI,K,m,rJ,f,m,f,J"))]
   "(register_operand (operands[0], SImode)
     || register_or_zero_operand (operands[1], SImode))"
   "@
    mov\t%1, %0
-   fmovs\t%1, %0
    sethi\t%%hi(%a1), %0
-   clr\t%0
-   ld\t%1, %0
    ld\t%1, %0
    st\t%r1, %0
+   fmovs\t%1, %0
+   ld\t%1, %0
    st\t%1, %0
    fzeros\t%0"
-  [(set_attr "type" "*,fpmove,*,*,load,fpload,store,fpstore,fga")])
+  [(set_attr "type" "*,*,load,store,fpmove,fpload,fpstore,fga")])
 
 (define_insn "*movsi_lo_sum"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -2038,90 +1868,12 @@
   "or\t%1, %%lo(%a3-(%a2-.)), %0")
 
 (define_expand "movdi"
-  [(set (match_operand:DI 0 "general_operand" "")
+  [(set (match_operand:DI 0 "nonimmediate_operand" "")
 	(match_operand:DI 1 "general_operand" ""))]
   ""
 {
-  /* Working with CONST_INTs is easier, so convert
-     a double if needed.  */
-  if (GET_CODE (operands[1]) == CONST_DOUBLE
-#if HOST_BITS_PER_WIDE_INT == 32
-      && ((CONST_DOUBLE_HIGH (operands[1]) == 0
-	   && (CONST_DOUBLE_LOW (operands[1]) & 0x80000000) == 0)
-	  || (CONST_DOUBLE_HIGH (operands[1]) == (HOST_WIDE_INT) 0xffffffff
-	      && (CONST_DOUBLE_LOW (operands[1]) & 0x80000000) != 0))
-#endif
-      )
-    operands[1] = gen_int_mode (CONST_DOUBLE_LOW (operands[1]), DImode);
-
-  /* Handle MEM cases first.  */
-  if (GET_CODE (operands[0]) == MEM)
-    {
-      /* If it's a REG, we can always do it.
-	 The const zero case is more complex, on v9
-	 we can always perform it.  */
-      if (register_operand (operands[1], DImode)
-	  || (TARGET_V9
-              && (operands[1] == const0_rtx)))
-        goto movdi_is_ok;
-
-      if (! reload_in_progress)
-	{
-	  operands[0] = validize_mem (operands[0]);
-	  operands[1] = force_reg (DImode, operands[1]);
-	}
-    }
-
-  /* Fixup TLS cases.  */
-  if (tls_symbolic_operand (operands [1]))
-    operands[1] = legitimize_tls_address (operands[1]);
-
-  if (flag_pic)
-    {
-      if (CONSTANT_P (operands[1])
-	  && pic_address_needs_scratch (operands[1]))
-	operands[1] = legitimize_pic_address (operands[1], DImode, 0);
-
-      if (GET_CODE (operands[1]) == LABEL_REF)
-        {
-          gcc_assert (TARGET_ARCH64);
-          emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
-          DONE;
-        }
-
-      if (symbolic_operand (operands[1], DImode))
-	{
-	  operands[1] = legitimize_pic_address (operands[1],
-						DImode,
-						(reload_in_progress ?
-						 operands[0] :
-						 NULL_RTX));
-	  goto movdi_is_ok;
-	}
-    }
-
-  /* If we are trying to toss an integer constant into the
-     FPU registers, force it into memory.  */
-  if (GET_CODE (operands[0]) == REG
-      && REGNO (operands[0]) >= SPARC_FIRST_FP_REG
-      && REGNO (operands[0]) <= SPARC_LAST_V9_FP_REG
-      && CONSTANT_P (operands[1]))
-    operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
-						 operands[1]));
-
-  /* This makes sure we will not get rematched due to splittage.  */
-  if (! CONSTANT_P (operands[1]) || input_operand (operands[1], DImode))
-    ;
-  else if (TARGET_ARCH64
-           && GET_CODE (operands[1]) != HIGH
-           && GET_CODE (operands[1]) != LO_SUM)
-    {
-      sparc_emit_set_const64 (operands[0], operands[1]);
-      DONE;
-    }
-
- movdi_is_ok:
-  ;
+  if (sparc_expand_move (DImode, operands))
+    DONE;
 })
 
 ;; Be careful, fmovd does not exist when !v9.
@@ -2136,13 +1888,39 @@
 ;;      (reg:DI 2 %g2))
 ;;
 
+(define_insn "*movdi_insn_sp32"
+  [(set (match_operand:DI 0 "nonimmediate_operand"
+				"=o,T,U,o,r,r,r,?T,?f,?f,?o,?f")
+        (match_operand:DI 1 "input_operand"
+				" J,U,T,r,o,i,r, f, T, o, f, f"))]
+  "! TARGET_V9
+   && (register_operand (operands[0], DImode)
+       || register_or_zero_operand (operands[1], DImode))"
+  "@
+   #
+   std\t%1, %0
+   ldd\t%1, %0
+   #
+   #
+   #
+   #
+   std\t%1, %0
+   ldd\t%1, %0
+   #
+   #
+   #"
+  [(set_attr "type" "store,store,load,*,*,*,*,fpstore,fpload,*,*,*")
+   (set_attr "length" "2,*,*,2,2,2,2,*,*,2,2,2")])
+
 (define_insn "*movdi_insn_sp32_v9"
   [(set (match_operand:DI 0 "nonimmediate_operand"
 					"=T,o,T,U,o,r,r,r,?T,?f,?f,?o,?e,?e,?W")
         (match_operand:DI 1 "input_operand"
 					" J,J,U,T,r,o,i,r, f, T, o, f, e, W, e"))]
-  "! TARGET_ARCH64 && TARGET_V9
-   && (GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM)"
+  "! TARGET_ARCH64
+   && TARGET_V9
+   && (register_operand (operands[0], DImode)
+       || register_or_zero_operand (operands[1], DImode))"
   "@
    stx\t%%g0, %0
    #
@@ -2163,78 +1941,23 @@
    (set_attr "length" "*,2,*,*,2,2,2,2,*,*,2,2,*,*,*")
    (set_attr "fptype" "*,*,*,*,*,*,*,*,*,*,*,*,double,*,*")])
 
-(define_insn "*movdi_insn_sp32"
-  [(set (match_operand:DI 0 "nonimmediate_operand"
-				"=o,T,U,o,r,r,r,?T,?f,?f,?o,?f")
-        (match_operand:DI 1 "input_operand"
-				" J,U,T,r,o,i,r, f, T, o, f, f"))]
-  "! TARGET_ARCH64
-   && (register_operand (operands[0], DImode)
-       || register_operand (operands[1], DImode))"
-  "@
-   #
-   std\t%1, %0
-   ldd\t%1, %0
-   #
-   #
-   #
-   #
-   std\t%1, %0
-   ldd\t%1, %0
-   #
-   #
-   #"
-  [(set_attr "type" "store,store,load,*,*,*,*,fpstore,fpload,*,*,*")
-   (set_attr "length" "2,*,*,2,2,2,2,*,*,2,2,2")])
-
-;; This is needed to show CSE exactly which bits are set
-;; in a 64-bit register by sethi instructions.
-(define_insn "*movdi_const64_special"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(match_operand:DI 1 "const_high_operand" "N"))]
-  "TARGET_ARCH64"
-  "sethi\t%%hi(%a1), %0")
-
-(define_insn "*movdi_insn_sp64_novis"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,m,?e,?e,?W")
-        (match_operand:DI 1 "input_operand"   "rI,N,J,m,rJ,e,W,e"))]
-  "TARGET_ARCH64 && ! TARGET_VIS
+(define_insn "*movdi_insn_sp64"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,m,?e,?e,?W,b")
+        (match_operand:DI 1 "input_operand"   "rI,N,m,rJ,e,W,e,J"))]
+  "TARGET_ARCH64
    && (register_operand (operands[0], DImode)
        || register_or_zero_operand (operands[1], DImode))"
   "@
    mov\t%1, %0
    sethi\t%%hi(%a1), %0
-   clr\t%0
-   ldx\t%1, %0
-   stx\t%r1, %0
-   fmovd\t%1, %0
-   ldd\t%1, %0
-   std\t%1, %0"
-  [(set_attr "type" "*,*,*,load,store,fpmove,fpload,fpstore")
-   (set_attr "fptype" "*,*,*,*,*,double,*,*")])
-
-;; We don't define V1SI because SI should work just fine.
-(define_mode_macro V64 [DF V2SI V4HI V8QI])
-(define_mode_macro V32 [SF V2HI V4QI])
-
-(define_insn "*movdi_insn_sp64_vis"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,m,?e,?e,?W,b")
-        (match_operand:DI 1 "input_operand"   "rI,N,J,m,rJ,e,W,e,J"))]
-  "TARGET_ARCH64 && TARGET_VIS &&
-   (register_operand (operands[0], DImode)
-    || register_or_zero_operand (operands[1], DImode))"
-  "@
-   mov\t%1, %0
-   sethi\t%%hi(%a1), %0
-   clr\t%0
    ldx\t%1, %0
    stx\t%r1, %0
    fmovd\t%1, %0
    ldd\t%1, %0
    std\t%1, %0
    fzero\t%0"
-  [(set_attr "type" "*,*,*,load,store,fpmove,fpload,fpstore,fga")
-   (set_attr "fptype" "*,*,*,*,*,double,*,*,double")])
+  [(set_attr "type" "*,*,load,store,fpmove,fpload,fpstore,fga")
+   (set_attr "fptype" "*,*,*,*,double,*,*,double")])
 
 (define_expand "movdi_pic_label_ref"
   [(set (match_dup 3) (high:DI
@@ -2451,7 +2174,9 @@
 
   /* Slick... but this trick loses if this subreg constant part
      can be done in one insn.  */
-  if (low == high && (low & 0x3ff) != 0 && low + 0x1000 >= 0x2000)
+  if (low == high
+      && ! SPARC_SETHI32_P (high)
+      && ! SPARC_SIMM13_P (high))
     emit_insn (gen_movsi (gen_lowpart (SImode, operands[0]),
 			  gen_highpart (SImode, operands[0])));
   else
@@ -2576,7 +2301,7 @@
 
 (define_split
   [(set (match_operand:DI 0 "memory_operand" "")
-        (const_int 0))]
+        (match_operand:DI 1 "const_zero_operand" ""))]
   "reload_completed
    && (! TARGET_V9
        || (! TARGET_ARCH64
@@ -2588,16 +2313,29 @@
   emit_insn (gen_movsi (adjust_address (operands[0], SImode, 4), const0_rtx));
   DONE;
 })
-
-;; Floating point move insns
 
-(define_insn "*movsf_insn_novis"
-  [(set (match_operand:SF 0 "nonimmediate_operand" "=f,*r,*r,*r,*r,*r,f,m,m")
-	(match_operand:SF 1 "input_operand"         "f,G,Q,*rR,S,m,m,f,*rG"))]
-  "(TARGET_FPU && ! TARGET_VIS)
-   && (register_operand (operands[0], SFmode)
-       || register_operand (operands[1], SFmode)
-       || const_zero_operand (operands[1], SFmode))"
+
+;; Floating point and vector move instructions
+
+;; We don't define V1SI because SI should work just fine.
+(define_mode_macro V32 [SF V2HI V4QI])
+
+;; Yes, you guessed it right, the former movsf expander.
+(define_expand "mov<V32:mode>"
+  [(set (match_operand:V32 0 "nonimmediate_operand" "")
+	(match_operand:V32 1 "general_operand" ""))]
+  "<V32:MODE>mode == SFmode || TARGET_VIS"
+{
+  if (sparc_expand_move (<V32:MODE>mode, operands))
+    DONE;
+})
+
+(define_insn "*movsf_insn"
+  [(set (match_operand:V32 0 "nonimmediate_operand" "=d,f,*r,*r,*r,f,*r,m,m")
+	(match_operand:V32 1 "input_operand"        "GY,f,*rRY,Q,S,m,m,f,*rGY"))]
+  "TARGET_FPU
+   && (register_operand (operands[0], <V32:MODE>mode)
+       || register_or_zero_operand (operands[1], <V32:MODE>mode))"
 {
   if (GET_CODE (operands[1]) == CONST_DOUBLE
       && (which_alternative == 2
@@ -2615,90 +2353,42 @@
   switch (which_alternative)
     {
     case 0:
-      return "fmovs\t%1, %0";
-    case 1:
-      return "clr\t%0";
-    case 2:
-      return "sethi\t%%hi(%a1), %0";
-    case 3:
-      return "mov\t%1, %0";
-    case 4:
-      return "#";
-    case 5:
-    case 6:
-      return "ld\t%1, %0";
-    case 7:
-    case 8:
-      return "st\t%r1, %0";
-    default:
-      gcc_unreachable ();
-    }
-}
-  [(set_attr "type" "fpmove,*,*,*,*,load,fpload,fpstore,store")])
-
-(define_insn "*movsf_insn_vis"
-  [(set (match_operand:V32 0 "nonimmediate_operand" "=f,f,*r,*r,*r,*r,*r,f,m,m")
-	(match_operand:V32 1 "input_operand"         "f,GY,GY,Q,*rR,S,m,m,f,*rGY"))]
-  "(TARGET_FPU && TARGET_VIS)
-   && (register_operand (operands[0], <V32:MODE>mode)
-       || register_operand (operands[1], <V32:MODE>mode)
-       || const_zero_operand (operands[1], <V32:MODE>mode))"
-{
-  if (GET_CODE (operands[1]) == CONST_DOUBLE
-      && (which_alternative == 3
-          || which_alternative == 4
-          || which_alternative == 5))
-    {
-      REAL_VALUE_TYPE r;
-      long i;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
-      REAL_VALUE_TO_TARGET_SINGLE (r, i);
-      operands[1] = GEN_INT (i);
-    }
-
-  switch (which_alternative)
-    {
-    case 0:
-      return "fmovs\t%1, %0";
-    case 1:
       return "fzeros\t%0";
+    case 1:
+      return "fmovs\t%1, %0";
     case 2:
-      return "clr\t%0";
+      return "mov\t%1, %0";
     case 3:
       return "sethi\t%%hi(%a1), %0";
     case 4:
-      return "mov\t%1, %0";
-    case 5:
       return "#";
+    case 5:
     case 6:
-    case 7:
       return "ld\t%1, %0";
+    case 7:
     case 8:
-    case 9:
       return "st\t%r1, %0";
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "fpmove,fga,*,*,*,*,load,fpload,fpstore,store")])
+  [(set_attr "type" "fga,fpmove,*,*,*,fpload,load,fpstore,store")])
 
 ;; Exactly the same as above, except that all `f' cases are deleted.
 ;; This is necessary to prevent reload from ever trying to use a `f' reg
 ;; when -mno-fpu.
 
-(define_insn "*movsf_no_f_insn"
-  [(set (match_operand:SF 0 "nonimmediate_operand" "=r,r,r,r,r,m")
-	(match_operand:SF 1 "input_operand"    "G,Q,rR,S,m,rG"))]
+(define_insn "*movsf_insn_no_fpu"
+  [(set (match_operand:SF 0 "nonimmediate_operand" "=r,r,r,r,m")
+	(match_operand:SF 1 "input_operand"    "rR,Q,S,m,rG"))]
   "! TARGET_FPU
    && (register_operand (operands[0], SFmode)
-       || register_operand (operands[1], SFmode)
-       || const_zero_operand (operands[1], SFmode))"
+       || register_or_zero_operand (operands[1], SFmode))"
 {
   if (GET_CODE (operands[1]) == CONST_DOUBLE
-      && (which_alternative == 1
-          || which_alternative == 2
-          || which_alternative == 3))
+      && (which_alternative == 0
+          || which_alternative == 1
+          || which_alternative == 2))
     {
       REAL_VALUE_TYPE r;
       long i;
@@ -2711,30 +2401,28 @@
   switch (which_alternative)
     {
     case 0:
-      return "clr\t%0";
+      return "mov\t%1, %0";
     case 1:
       return "sethi\t%%hi(%a1), %0";
     case 2:
-      return "mov\t%1, %0";
-    case 3:
       return "#";
-    case 4:
+    case 3:
       return "ld\t%1, %0";
-    case 5:
+    case 4:
       return "st\t%r1, %0";
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "*,*,*,*,load,store")])
+  [(set_attr "type" "*,*,*,load,store")])
 
 ;; The following 3 patterns build SFmode constants in integer registers.
 
 (define_insn "*movsf_lo_sum"
   [(set (match_operand:SF 0 "register_operand" "=r")
         (lo_sum:SF (match_operand:SF 1 "register_operand" "r")
-                   (match_operand:SF 2 "const_double_operand" "S")))]
-  "fp_high_losum_p (operands[2])"
+                   (match_operand:SF 2 "fp_const_high_losum_operand" "S")))]
+  ""
 {
   REAL_VALUE_TYPE r;
   long i;
@@ -2747,8 +2435,8 @@
 
 (define_insn "*movsf_high"
   [(set (match_operand:SF 0 "register_operand" "=r")
-        (high:SF (match_operand:SF 1 "const_double_operand" "S")))]
-  "fp_high_losum_p (operands[1])"
+        (high:SF (match_operand:SF 1 "fp_const_high_losum_operand" "S")))]
+  ""
 {
   REAL_VALUE_TYPE r;
   long i;
@@ -2761,139 +2449,21 @@
 
 (define_split
   [(set (match_operand:SF 0 "register_operand" "")
-        (match_operand:SF 1 "const_double_operand" ""))]
-  "fp_high_losum_p (operands[1])
-   && (GET_CODE (operands[0]) == REG
-       && REGNO (operands[0]) < 32)"
+        (match_operand:SF 1 "fp_const_high_losum_operand" ""))]
+  "REG_P (operands[0]) && REGNO (operands[0]) < 32"
   [(set (match_dup 0) (high:SF (match_dup 1)))
    (set (match_dup 0) (lo_sum:SF (match_dup 0) (match_dup 1)))])
 
-;; Yes, you guessed it right, the former movsf expander.
-(define_expand "mov<V32:mode>"
-  [(set (match_operand:V32 0 "general_operand" "")
-	(match_operand:V32 1 "general_operand" ""))]
-  "<V32:MODE>mode == SFmode || TARGET_VIS"
-{
-  /* Force constants into memory.  */
-  if (GET_CODE (operands[0]) == REG && CONSTANT_P (operands[1]))
-    {
-      /* emit_group_store will send such bogosity to us when it is
-         not storing directly into memory.  So fix this up to avoid
-         crashes in output_constant_pool.  */
-      if (operands [1] == const0_rtx)
-        operands[1] = CONST0_RTX (<V32:MODE>mode);
-
-      if ((TARGET_VIS || REGNO (operands[0]) < 32)
-	  && const_zero_operand (operands[1], <V32:MODE>mode))
-	goto movsf_is_ok;
-
-      /* We are able to build any SF constant in integer registers
-	 with at most 2 instructions.  */
-      if (REGNO (operands[0]) < 32
-	  && <V32:MODE>mode == SFmode)
-	goto movsf_is_ok;
-
-      operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
-                                                   operands[1]));
-    }
-
-  /* Handle sets of MEM first.  */
-  if (GET_CODE (operands[0]) == MEM)
-    {
-      if (register_operand (operands[1], <V32:MODE>mode)
-	  || const_zero_operand (operands[1], <V32:MODE>mode))
-	goto movsf_is_ok;
-
-      if (! reload_in_progress)
-	{
-	  operands[0] = validize_mem (operands[0]);
-	  operands[1] = force_reg (<V32:MODE>mode, operands[1]);
-	}
-    }
-
-  /* Fixup PIC cases.  */
-  if (flag_pic)
-    {
-      if (CONSTANT_P (operands[1])
-	  && pic_address_needs_scratch (operands[1]))
-	operands[1] = legitimize_pic_address (operands[1], <V32:MODE>mode, 0);
-
-      if (symbolic_operand (operands[1], <V32:MODE>mode))
-	{
-	  operands[1] = legitimize_pic_address (operands[1],
-						<V32:MODE>mode,
-						(reload_in_progress ?
-						 operands[0] :
-						 NULL_RTX));
-	}
-    }
-
- movsf_is_ok:
-  ;
-})
+(define_mode_macro V64 [DF V2SI V4HI V8QI])
 
 ;; Yes, you again guessed it right, the former movdf expander.
 (define_expand "mov<V64:mode>"
-  [(set (match_operand:V64 0 "general_operand" "")
+  [(set (match_operand:V64 0 "nonimmediate_operand" "")
 	(match_operand:V64 1 "general_operand" ""))]
   "<V64:MODE>mode == DFmode || TARGET_VIS"
 {
-  /* Force constants into memory.  */
-  if (GET_CODE (operands[0]) == REG && CONSTANT_P (operands[1]))
-    {
-      /* emit_group_store will send such bogosity to us when it is
-         not storing directly into memory.  So fix this up to avoid
-         crashes in output_constant_pool.  */
-      if (operands [1] == const0_rtx)
-        operands[1] = CONST0_RTX (<V64:MODE>mode);
-
-      if ((TARGET_VIS || REGNO (operands[0]) < 32)
-	  && const_zero_operand (operands[1], <V64:MODE>mode))
-	goto movdf_is_ok;
-
-      /* We are able to build any DF constant in integer registers.  */
-      if (REGNO (operands[0]) < 32
-	  && <V64:MODE>mode == DFmode
-	  && (reload_completed || reload_in_progress))
-	goto movdf_is_ok;
-
-      operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
-                                                   operands[1]));
-    }
-
-  /* Handle MEM cases first.  */
-  if (GET_CODE (operands[0]) == MEM)
-    {
-      if (register_operand (operands[1], <V64:MODE>mode)
-	  || const_zero_operand (operands[1], <V64:MODE>mode))
-	goto movdf_is_ok;
-
-      if (! reload_in_progress)
-	{
-	  operands[0] = validize_mem (operands[0]);
-	  operands[1] = force_reg (<V64:MODE>mode, operands[1]);
-	}
-    }
-
-  /* Fixup PIC cases.  */
-  if (flag_pic)
-    {
-      if (CONSTANT_P (operands[1])
-	  && pic_address_needs_scratch (operands[1]))
-	operands[1] = legitimize_pic_address (operands[1], <V64:MODE>mode, 0);
-
-      if (symbolic_operand (operands[1], <V64:MODE>mode))
-	{
-	  operands[1] = legitimize_pic_address (operands[1],
-						<V64:MODE>mode,
-						(reload_in_progress ?
-						 operands[0] :
-						 NULL_RTX));
-	}
-    }
-
- movdf_is_ok:
-  ;
+  if (sparc_expand_move (<V64:MODE>mode, operands))
+    DONE;
 })
 
 ;; Be careful, fmovd does not exist when !v9.
@@ -2903,8 +2473,7 @@
   "TARGET_FPU
    && ! TARGET_V9
    && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode)
-       || const_zero_operand (operands[1], DFmode))"
+       || register_or_zero_operand (operands[1], DFmode))"
   "@
   ldd\t%1, %0
   std\t%1, %0
@@ -2919,15 +2488,13 @@
  [(set_attr "type" "fpload,fpstore,load,store,*,*,*,*,*,*")
   (set_attr "length" "*,*,*,*,2,2,2,2,2,2")])
 
-(define_insn "*movdf_no_e_insn_sp32"
+(define_insn "*movdf_insn_sp32_no_fpu"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=U,T,o,r,o")
 	(match_operand:DF 1 "input_operand"    "T,U,G,ro,r"))]
   "! TARGET_FPU
    && ! TARGET_V9
-   && ! TARGET_ARCH64
    && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode)
-       || const_zero_operand (operands[1], DFmode))"
+       || register_or_zero_operand (operands[1], DFmode))"
   "@
   ldd\t%1, %0
   std\t%1, %0
@@ -2937,61 +2504,15 @@
   [(set_attr "type" "load,store,*,*,*")
    (set_attr "length" "*,*,2,2,2")])
 
-(define_insn "*movdf_no_e_insn_v9_sp32"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=U,T,T,r,o")
-	(match_operand:DF 1 "input_operand"    "T,U,G,ro,rG"))]
-  "! TARGET_FPU
-   && TARGET_V9
-   && ! TARGET_ARCH64
-   && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode)
-       || const_zero_operand (operands[1], DFmode))"
-  "@
-  ldd\t%1, %0
-  std\t%1, %0
-  stx\t%r1, %0
-  #
-  #"
-  [(set_attr "type" "load,store,store,*,*")
-   (set_attr "length" "*,*,*,2,2")])
-
-;; We have available v9 double floats but not 64-bit
-;; integer registers and no VIS.
-(define_insn "*movdf_insn_v9only_novis"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=e,e,T,W,U,T,f,*r,o")
-        (match_operand:DF 1 "input_operand"    "e,W#F,G,e,T,U,o#F,*roF,*rGf"))]
-  "TARGET_FPU
-   && TARGET_V9
-   && ! TARGET_VIS
-   && ! TARGET_ARCH64
-   && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode)
-       || const_zero_operand (operands[1], DFmode))"
-  "@
-  fmovd\t%1, %0
-  ldd\t%1, %0
-  stx\t%r1, %0
-  std\t%1, %0
-  ldd\t%1, %0
-  std\t%1, %0
-  #
-  #
-  #"
-  [(set_attr "type" "fpmove,load,store,store,load,store,*,*,*")
-   (set_attr "length" "*,*,*,*,*,*,2,2,2")
-   (set_attr "fptype" "double,*,*,*,*,*,*,*,*")])
-
-;; We have available v9 double floats but not 64-bit
-;; integer registers but we have VIS.
-(define_insn "*movdf_insn_v9only_vis"
-  [(set (match_operand:V64 0 "nonimmediate_operand" "=e,e,e,T,W,U,T,f,*r,o")
+;; We have available v9 double floats but not 64-bit integer registers.
+(define_insn "*movdf_insn_sp32_v9"
+  [(set (match_operand:V64 0 "nonimmediate_operand" "=b,e,e,T,W,U,T,f,*r,o")
         (match_operand:V64 1 "input_operand" "GY,e,W#F,GY,e,T,U,o#F,*roGYF,*rGYf"))]
   "TARGET_FPU
-   && TARGET_VIS
+   && TARGET_V9
    && ! TARGET_ARCH64
    && (register_operand (operands[0], <V64:MODE>mode)
-       || register_operand (operands[1], <V64:MODE>mode)
-       || const_zero_operand (operands[1], <V64:MODE>mode))"
+       || register_or_zero_operand (operands[1], <V64:MODE>mode))"
   "@
   fzero\t%0
   fmovd\t%1, %0
@@ -3007,40 +2528,31 @@
    (set_attr "length" "*,*,*,*,*,*,*,2,2,2")
    (set_attr "fptype" "double,double,*,*,*,*,*,*,*,*")])
 
-;; We have available both v9 double floats and 64-bit
-;; integer registers. No VIS though.
-(define_insn "*movdf_insn_sp64_novis"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=e,e,W,*r,*r,m,*r")
-        (match_operand:DF 1 "input_operand"    "e,W#F,e,*rG,m,*rG,F"))]
-  "TARGET_FPU
-   && ! TARGET_VIS
-   && TARGET_ARCH64
+(define_insn "*movdf_insn_sp32_v9_no_fpu"
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=U,T,T,r,o")
+	(match_operand:DF 1 "input_operand"    "T,U,G,ro,rG"))]
+  "! TARGET_FPU
+   && TARGET_V9
+   && ! TARGET_ARCH64
    && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode)
-       || const_zero_operand (operands[1], DFmode))"
+       || register_or_zero_operand (operands[1], DFmode))"
   "@
-  fmovd\t%1, %0
   ldd\t%1, %0
   std\t%1, %0
-  mov\t%r1, %0
-  ldx\t%1, %0
   stx\t%r1, %0
+  #
   #"
-  [(set_attr "type" "fpmove,load,store,*,load,store,*")
-   (set_attr "length" "*,*,*,*,*,*,2")
-   (set_attr "fptype" "double,*,*,*,*,*,*")])
+  [(set_attr "type" "load,store,store,*,*")
+   (set_attr "length" "*,*,*,2,2")])
 
-;; We have available both v9 double floats and 64-bit
-;; integer registers. And we have VIS.
-(define_insn "*movdf_insn_sp64_vis"
-  [(set (match_operand:V64 0 "nonimmediate_operand" "=e,e,e,W,*r,*r,m,*r")
+;; We have available both v9 double floats and 64-bit integer registers.
+(define_insn "*movdf_insn_sp64"
+  [(set (match_operand:V64 0 "nonimmediate_operand" "=b,e,e,W,*r,*r,m,*r")
         (match_operand:V64 1 "input_operand"    "GY,e,W#F,e,*rGY,m,*rGY,F"))]
   "TARGET_FPU
-   && TARGET_VIS
    && TARGET_ARCH64
    && (register_operand (operands[0], <V64:MODE>mode)
-       || register_operand (operands[1], <V64:MODE>mode)
-       || const_zero_operand (operands[1], <V64:MODE>mode))"
+       || register_or_zero_operand (operands[1], <V64:MODE>mode))"
   "@
   fzero\t%0
   fmovd\t%1, %0
@@ -3054,14 +2566,13 @@
    (set_attr "length" "*,*,*,*,*,*,*,2")
    (set_attr "fptype" "double,double,*,*,*,*,*,*")])
 
-(define_insn "*movdf_no_e_insn_sp64"
+(define_insn "*movdf_insn_sp64_no_fpu"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=r,r,m")
         (match_operand:DF 1 "input_operand"    "r,m,rG"))]
   "! TARGET_FPU
    && TARGET_ARCH64
    && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode)
-       || const_zero_operand (operands[1], DFmode))"
+       || register_or_zero_operand (operands[1], DFmode))"
   "@
   mov\t%1, %0
   ldx\t%1, %0
@@ -3290,86 +2801,21 @@
 })
 
 (define_expand "movtf"
-  [(set (match_operand:TF 0 "general_operand" "")
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
 	(match_operand:TF 1 "general_operand" ""))]
   ""
 {
-  /* Force TFmode constants into memory.  */
-  if (GET_CODE (operands[0]) == REG
-      && CONSTANT_P (operands[1]))
-    {
-      /* emit_group_store will send such bogosity to us when it is
-         not storing directly into memory.  So fix this up to avoid
-         crashes in output_constant_pool.  */
-      if (operands [1] == const0_rtx)
-        operands[1] = CONST0_RTX (TFmode);
-
-      if (TARGET_VIS && const_zero_operand (operands[1], TFmode))
-	goto movtf_is_ok;
-
-      operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
-                                                   operands[1]));
-    }
-
-  /* Handle MEM cases first, note that only v9 guarantees
-     full 16-byte alignment for quads.  */
-  if (GET_CODE (operands[0]) == MEM)
-    {
-      if (register_operand (operands[1], TFmode)
-	  || const_zero_operand (operands[1], TFmode))
-	goto movtf_is_ok;
-
-      if (! reload_in_progress)
-	{
-	  operands[0] = validize_mem (operands[0]);
-	  operands[1] = force_reg (TFmode, operands[1]);
-	}
-    }
-
-  /* Fixup PIC cases.  */
-  if (flag_pic)
-    {
-      if (CONSTANT_P (operands[1])
-	  && pic_address_needs_scratch (operands[1]))
-	operands[1] = legitimize_pic_address (operands[1], TFmode, 0);
-
-      if (symbolic_operand (operands[1], TFmode))
-	{
-	  operands[1] = legitimize_pic_address (operands[1],
-						TFmode,
-						(reload_in_progress ?
-						 operands[0] :
-						 NULL_RTX));
-	}
-    }
-
- movtf_is_ok:
-  ;
+  if (sparc_expand_move (TFmode, operands))
+    DONE;
 })
 
-;; Be careful, fmovq and {st,ld}{x,q} do not exist when !arch64 so
-;; we must split them all.  :-(
 (define_insn "*movtf_insn_sp32"
-  [(set (match_operand:TF 0 "nonimmediate_operand" "=e,o,U,r")
-	(match_operand:TF 1 "input_operand"    "oe,GeUr,o,roG"))]
+  [(set (match_operand:TF 0 "nonimmediate_operand" "=b,e,o,U,r")
+	(match_operand:TF 1 "input_operand"    "G,oe,GeUr,o,roG"))]
   "TARGET_FPU
-   && ! TARGET_VIS
    && ! TARGET_ARCH64
    && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
-  "#"
-  [(set_attr "length" "4")])
-
-(define_insn "*movtf_insn_vis_sp32"
-  [(set (match_operand:TF 0 "nonimmediate_operand" "=e,o,U,r")
-	(match_operand:TF 1 "input_operand"    "Goe,GeUr,o,roG"))]
-  "TARGET_FPU
-   && TARGET_VIS
-   && ! TARGET_ARCH64
-   && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
+       || register_or_zero_operand (operands[1], TFmode))"
   "#"
   [(set_attr "length" "4")])
 
@@ -3377,94 +2823,52 @@
 ;; This is necessary to prevent reload from ever trying to use a `e' reg
 ;; when -mno-fpu.
 
-(define_insn "*movtf_no_e_insn_sp32"
+(define_insn "*movtf_insn_sp32_no_fpu"
   [(set (match_operand:TF 0 "nonimmediate_operand" "=o,U,o,r,o")
 	(match_operand:TF 1 "input_operand"    "G,o,U,roG,r"))]
   "! TARGET_FPU
    && ! TARGET_ARCH64
    && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
+       || register_or_zero_operand (operands[1], TFmode))"
   "#"
   [(set_attr "length" "4")])
 
-;; Now handle the float reg cases directly when arch64,
-;; hard_quad, and proper reg number alignment are all true.
-(define_insn "*movtf_insn_hq_sp64"
-  [(set (match_operand:TF 0 "nonimmediate_operand" "=e,e,m,o,r")
-        (match_operand:TF 1 "input_operand"    "e,m,e,Gr,roG"))]
-  "TARGET_FPU
-   && ! TARGET_VIS
-   && TARGET_ARCH64
-   && TARGET_HARD_QUAD
-   && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
-  "@
-  fmovq\t%1, %0
-  ldq\t%1, %0
-  stq\t%1, %0
-  #
-  #"
-  [(set_attr "type" "fpmove,fpload,fpstore,*,*")
-   (set_attr "length" "*,*,*,2,2")])
-
-(define_insn "*movtf_insn_hq_vis_sp64"
-  [(set (match_operand:TF 0 "nonimmediate_operand" "=e,e,m,eo,r,o")
-        (match_operand:TF 1 "input_operand"    "e,m,e,G,roG,r"))]
-  "TARGET_FPU
-   && TARGET_VIS
-   && TARGET_ARCH64
-   && TARGET_HARD_QUAD
-   && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
-  "@
-  fmovq\t%1, %0
-  ldq\t%1, %0
-  stq\t%1, %0
-  #
-  #
-  #"
-  [(set_attr "type" "fpmove,fpload,fpstore,*,*,*")
-   (set_attr "length" "*,*,*,2,2,2")])
-
-;; Now we allow the integer register cases even when
-;; only arch64 is true.
 (define_insn "*movtf_insn_sp64"
-  [(set (match_operand:TF 0 "nonimmediate_operand" "=e,o,r")
-        (match_operand:TF 1 "input_operand"    "oe,Ger,orG"))]
+  [(set (match_operand:TF 0 "nonimmediate_operand" "=b,e,o,r")
+        (match_operand:TF 1 "input_operand"    "G,oe,Ger,roG"))]
   "TARGET_FPU
-   && ! TARGET_VIS
    && TARGET_ARCH64
    && ! TARGET_HARD_QUAD
    && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
+       || register_or_zero_operand (operands[1], TFmode))"
   "#"
   [(set_attr "length" "2")])
 
-(define_insn "*movtf_insn_vis_sp64"
-  [(set (match_operand:TF 0 "nonimmediate_operand" "=e,o,r")
-        (match_operand:TF 1 "input_operand"    "Goe,Ger,orG"))]
+(define_insn "*movtf_insn_sp64_hq"
+  [(set (match_operand:TF 0 "nonimmediate_operand" "=b,e,e,m,o,r")
+        (match_operand:TF 1 "input_operand"    "G,e,m,e,rG,roG"))]
   "TARGET_FPU
-   && TARGET_VIS
    && TARGET_ARCH64
-   && ! TARGET_HARD_QUAD
+   && TARGET_HARD_QUAD
    && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
-  "#"
-  [(set_attr "length" "2")])
+       || register_or_zero_operand (operands[1], TFmode))"
+  "@
+  #
+  fmovq\t%1, %0
+  ldq\t%1, %0
+  stq\t%1, %0
+  #
+  #"
+  [(set_attr "type" "*,fpmove,fpload,fpstore,*,*")
+   (set_attr "length" "2,*,*,*,2,2")])
 
-(define_insn "*movtf_no_e_insn_sp64"
+(define_insn "*movtf_insn_sp64_no_fpu"
   [(set (match_operand:TF 0 "nonimmediate_operand" "=r,o")
         (match_operand:TF 1 "input_operand"    "orG,rG"))]
   "! TARGET_FPU
    && TARGET_ARCH64
    && (register_operand (operands[0], TFmode)
-       || register_operand (operands[1], TFmode)
-       || const_zero_operand (operands[1], TFmode))"
+       || register_or_zero_operand (operands[1], TFmode))"
   "#"
   [(set_attr "length" "2")])
 
@@ -3585,8 +2989,9 @@
 			gen_df_reg (set_src, 1)));
   DONE;
 })
-
-;; SPARC V9 conditional move instructions.
+
+
+;; SPARC-V9 conditional move instructions.
 
 ;; We can handle larger constants here for some flavors, but for now we keep
 ;; it simple and only allow those constants supported by all flavors.
@@ -4077,7 +3482,7 @@
   [(set_attr "length" "2")])
 
 
-;;- zero extension instructions
+;; Zero-extension instructions
 
 ;; These patterns originally accepted general_operands, however, slightly
 ;; better code is generated by only accepting register_operands, and then
@@ -4192,7 +3597,6 @@
   "lduh\t%1, %0"
   [(set_attr "type" "load")
    (set_attr "us3load_type" "3cycle")])
-
 
 ;; ??? Write truncdisi pattern using sra?
 
@@ -4357,7 +3761,8 @@
   "andcc\t%1, 0xff, %0"
   [(set_attr "type" "compare")])
 
-;;- sign extension instructions
+
+;; Sign-extension instructions
 
 ;; These patterns originally accepted general_operands, however, slightly
 ;; better code is generated by only accepting register_operands, and then
@@ -4542,7 +3947,8 @@
   ldsw\t%1, %0"
   [(set_attr "type" "shift,sload")
    (set_attr "us3load_type" "*,3cycle")])
-
+
+
 ;; Special pattern for optimizing bit-field compares.  This is needed
 ;; because combine uses this as a canonical form.
 
@@ -4579,7 +3985,8 @@
   return "andcc\t%0, %1, %%g0";
 }
   [(set_attr "type" "compare")])
-
+
+
 ;; Conversions between float, double and long double.
 
 (define_insn "extendsfdf2"
@@ -4659,7 +4066,8 @@
   "TARGET_FPU && TARGET_HARD_QUAD"
   "fqtod\t%1, %0"
   [(set_attr "type" "fp")])
-
+
+
 ;; Conversion between fixed point and floating point.
 
 (define_insn "floatsisf2"
@@ -4833,7 +4241,8 @@
   "TARGET_FPU && TARGET_ARCH64 && ! TARGET_HARD_QUAD"
   "emit_tfmode_cvt (UNSIGNED_FIX, operands); DONE;")
 
-;; Integer Addition/Subtraction.
+
+;; Integer addition/subtraction instructions.
 
 (define_expand "adddi3"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5179,8 +4588,9 @@
   "TARGET_ARCH64"
   "subcc\t%1, %2, %0"
   [(set_attr "type" "compare")])
-
-;; Integer Multiply/Divide.
+
+
+;; Integer multiply/divide instructions.
 
 ;; The 32 bit multiply/divide instructions are deprecated on v9, but at
 ;; least in UltraSPARC I, II and IIi it is a win tick-wise.
@@ -5844,8 +5254,10 @@
   "TARGET_SPARCLET"
   "umacd\t%1, %2, %L0"
   [(set_attr "type" "imul")])
-
-;;- Boolean instructions
+
+
+;; Boolean instructions.
+
 ;; We define DImode `and' so with DImode `not' we can get
 ;; DImode `andn'.  Other combinations are possible.
 
@@ -5896,9 +5308,9 @@
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
 	(and:SI (match_operand:SI 1 "register_operand" "")
-		(match_operand:SI 2 "const_int_operand" "")))
+		(match_operand:SI 2 "const_compl_high_operand" "")))
    (clobber (match_operand:SI 3 "register_operand" ""))]
-  "!SMALL_INT (operands[2]) && (INTVAL (operands[2]) & 0x3ff) == 0x3ff"
+  ""
   [(set (match_dup 3) (match_dup 4))
    (set (match_dup 0) (and:SI (not:SI (match_dup 3)) (match_dup 1)))]
 {
@@ -5997,9 +5409,9 @@
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
 	(ior:SI (match_operand:SI 1 "register_operand" "")
-		(match_operand:SI 2 "const_int_operand" "")))
+		(match_operand:SI 2 "const_compl_high_operand" "")))
    (clobber (match_operand:SI 3 "register_operand" ""))]
-  "!SMALL_INT (operands[2]) && (INTVAL (operands[2]) & 0x3ff) == 0x3ff"
+  ""
   [(set (match_dup 3) (match_dup 4))
    (set (match_dup 0) (ior:SI (not:SI (match_dup 3)) (match_dup 1)))]
 {
@@ -6098,9 +5510,9 @@
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
 	(xor:SI (match_operand:SI 1 "register_operand" "")
-		(match_operand:SI 2 "const_int_operand" "")))
+		(match_operand:SI 2 "const_compl_high_operand" "")))
    (clobber (match_operand:SI 3 "register_operand" ""))]
-   "!SMALL_INT (operands[2]) && (INTVAL (operands[2]) & 0x3ff) == 0x3ff"
+   ""
   [(set (match_dup 3) (match_dup 4))
    (set (match_dup 0) (not:SI (xor:SI (match_dup 3) (match_dup 1))))]
 {
@@ -6110,9 +5522,9 @@
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
 	(not:SI (xor:SI (match_operand:SI 1 "register_operand" "")
-			(match_operand:SI 2 "const_int_operand" ""))))
+			(match_operand:SI 2 "const_compl_high_operand" ""))))
    (clobber (match_operand:SI 3 "register_operand" ""))]
-  "!SMALL_INT (operands[2]) && (INTVAL (operands[2]) & 0x3ff) == 0x3ff"
+  ""
   [(set (match_dup 3) (match_dup 4))
    (set (match_dup 0) (xor:SI (match_dup 3) (match_dup 1)))]
 {
@@ -6543,7 +5955,8 @@
   "TARGET_ARCH64"
   "orcc\t%1, 0, %0"
    [(set_attr "type" "compare")])
-
+
+
 ;; Floating point arithmetic instructions.
 
 (define_expand "addtf3"
@@ -6903,8 +6316,9 @@
   "TARGET_FPU"
   "fsqrts\t%1, %0"
   [(set_attr "type" "fpsqrts")])
-
-;;- arithmetic shift instructions
+
+
+;; Arithmetic shift instructions.
 
 (define_insn "ashlsi3"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -7202,8 +6616,10 @@
   return "srlx\t%1, %2, %0";
 }
   [(set_attr "type" "shift")])
-
-;; Unconditional and other jump instructions
+
+
+;; Unconditional and other jump instructions.
+
 (define_insn "jump"
   [(set (pc) (label_ref (match_operand 0 "" "")))]
   ""
@@ -7246,7 +6662,9 @@
   "jmp\t%a0%#"
   [(set_attr "type" "uncond_branch")])
 
-;;- jump to subroutine
+
+;; Jump to subroutine instructions.
+
 (define_expand "call"
   ;; Note that this expression is not used for generating RTL.
   ;; All the RTL is generated explicitly below.
@@ -7505,7 +6923,8 @@
   DONE;
 })
 
-;;- tail calls
+;;  Tail call instructions.
+
 (define_expand "sibcall"
   [(parallel [(call (match_operand 0 "call_operand" "") (const_int 0))
 	      (return)])]
@@ -7553,13 +6972,8 @@
   "* return output_sibcall(insn, operands[1]);"
   [(set_attr "type" "sibcall")])
 
-(define_expand "sibcall_epilogue"
-  [(return)]
-  ""
-{
-  sparc_expand_epilogue ();
-  DONE;
-})
+
+;; Special instructions.
 
 (define_expand "prologue"
   [(const_int 0)]
@@ -7591,6 +7005,14 @@
   ""
 {
   sparc_expand_epilogue ();
+})
+
+(define_expand "sibcall_epilogue"
+  [(return)]
+  ""
+{
+  sparc_expand_epilogue ();
+  DONE;
 })
 
 (define_expand "return"
@@ -7862,8 +7284,8 @@
   { return TARGET_V9 ? "flush\t%f0" : "iflush\t%f0"; }
   [(set_attr "type" "iflush")])
 
-
-;; find first set.
+
+;; Find first set instructions.
 
 ;; The scan instruction searches from the most significant bit while ffs
 ;; searches from the least significant bit.  The bit index and treatment of
@@ -8059,6 +7481,9 @@
 		   (compare:CCX (match_dup 1) (const_int 0)))])]
   "")
 
+
+;; Prefetch instructions.
+
 ;; ??? UltraSPARC-III note: A memory operation loading into the floating point register
 ;; ??? file, if it hits the prefetch cache, has a chance to dual-issue with other memory
 ;; ??? operations.  With DFA we might be able to model this, but it requires a lot of
@@ -8125,7 +7550,10 @@
   return prefetch_instr [read_or_write][locality == 0 ? 0 : 1];
 }
   [(set_attr "type" "load")])
-
+
+
+;; Trap instructions.
+
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 5))]
   ""
@@ -8161,7 +7589,9 @@
   "t%C0\t%%xcc, %1"
   [(set_attr "type" "trap")])
 
-;; TLS support
+
+;; TLS support instructions.
+
 (define_insn "tgd_hi22"
   [(set (match_operand:SI 0 "register_operand" "=r")
         (high:SI (unspec:SI [(match_operand 1 "tgd_symbolic_operand" "")]
@@ -8724,6 +8154,7 @@
   "stx\t%0, [%1 + %2], %%tldo_add(%3)"
   [(set_attr "type" "store")])
 
+
 ;; Vector instructions.
 
 (define_insn "addv2si3"
@@ -8932,7 +8363,7 @@
    (set_attr "fptype" "double")])
 
 ;; Using faligndata only makes sense after an alignaddr since the choice of
-;; bytes to take out of each operand is dependant on the results of the last
+;; bytes to take out of each operand is dependent on the results of the last
 ;; alignaddr.
 (define_insn "faligndata<V64I:mode>_vis"
   [(set (match_operand:V64I 0 "register_operand" "=e")

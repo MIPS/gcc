@@ -181,7 +181,7 @@ calculate_exp (int d)
           for Gw.dEe, n' ' means e+2 blanks  */
 
 static fnode *
-calculate_G_format (fnode *f, double value, int len, int *num_blank)
+calculate_G_format (fnode *f, double value, int *num_blank)
 {
   int e = f->u.real.e;
   int d = f->u.real.d;
@@ -271,9 +271,9 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
 /* Output a real number according to its format which is FMT_G free.  */
 
 static void
-output_float (fnode *f, double value, int len)
+output_float (fnode *f, double value)
 {
-  /* This must be large enough to accurately hold any value.  */ 
+  /* This must be large enough to accurately hold any value.  */
   char buffer[32];
   char *out;
   char *digits;
@@ -296,6 +296,7 @@ output_float (fnode *f, double value, int len)
   int nblanks;
   int i;
   sign_t sign;
+  double abslog;
 
   ft = f->format;
   w = f->u.real.w;
@@ -320,11 +321,13 @@ output_float (fnode *f, double value, int len)
     edigits = 2;
   else
     {
-      edigits = 1 + (int) log10 (fabs(log10 (value)));
-      if (edigits < 2)
+      abslog = fabs(log10 (value));
+      if (abslog < 100)
 	edigits = 2;
+      else
+        edigits = 1 + (int) log10 (abslog);
     }
-  
+
   if (ft == FMT_F || ft == FMT_EN
       || ((ft == FMT_D || ft == FMT_E) && g.scale_factor != 0))
     {
@@ -344,7 +347,7 @@ output_float (fnode *f, double value, int len)
     }
 
   sprintf (buffer, "%+-#31.*e", ndigits - 1, value);
-  
+
   /* Check the resulting string has punctuation in the correct places.  */
   if (buffer[2] != '.' || buffer[ndigits + 2] != 'e')
       internal_error ("printf is broken");
@@ -514,7 +517,7 @@ output_float (fnode *f, double value, int len)
       edigits = 1;
       for (i = abs (e); i >= 10; i /= 10)
 	edigits++;
-      
+
       if (f->u.real.e < 0)
 	{
 	  /* Width not specified.  Must be no more than 3 digits.  */
@@ -562,7 +565,7 @@ output_float (fnode *f, double value, int len)
   nblanks = w - (nbefore + nzero + nafter + edigits + 1);
   if (sign != SIGN_NONE)
     nblanks--;
-  
+
   /* Check the value fits in the specified field width.  */
   if (nblanks < 0 || edigits == -1)
     {
@@ -640,7 +643,7 @@ output_float (fnode *f, double value, int len)
       ndigits -= i;
       out += nafter;
     }
-  
+
   /* Output the exponent.  */
   if (expchar)
     {
@@ -707,22 +710,22 @@ write_float (fnode *f, const char *source, int len)
 	    }
 
 	  memset(p, ' ', nb);
-	  res = !isnan (n); 
+	  res = !isnan (n);
 	  if (res != 0)
 	    {
-	      if (signbit(n))   
+	      if (signbit(n))
 		fin = '-';
 	      else
 		fin = '+';
 
 	      if (nb > 7)
-		memcpy(p + nb - 8, "Infinity", 8); 
+		memcpy(p + nb - 8, "Infinity", 8);
 	      else
 		memcpy(p + nb - 3, "Inf", 3);
 	      if (nb < 8 && nb > 3)
 		p[nb - 4] = fin;
 	      else if (nb > 8)
-		p[nb - 9] = fin; 
+		p[nb - 9] = fin;
 	    }
 	  else
 	    memcpy(p + nb - 3, "NaN", 3);
@@ -732,13 +735,13 @@ write_float (fnode *f, const char *source, int len)
 
   if (f->format != FMT_G)
     {
-      output_float (f, n, len);
+      output_float (f, n);
     }
   else
     {
       save_scale_factor = g.scale_factor;
-      f2 = calculate_G_format(f, n, len, &nb);
-      output_float (f2, n, len);
+      f2 = calculate_G_format(f, n, &nb);
+      output_float (f2, n);
       g.scale_factor = save_scale_factor;
       if (f2 != NULL)
         free_mem(f2);
@@ -1325,7 +1328,7 @@ list_formatted_write (bt type, void *p, int len)
 
 /* Stores the delimiter to be used for character objects.  */
 
-static char * nml_delim;
+static const char * nml_delim;
 
 static namelist_info *
 nml_write_obj (namelist_info * obj, index_type offset,
@@ -1359,13 +1362,13 @@ nml_write_obj (namelist_info * obj, index_type offset,
       if (base)
 	{
 	  len =strlen (base->var_name);
-	  for (dim_i = 0; dim_i < strlen (base_name); dim_i++)
+	  for (dim_i = 0; dim_i < (index_type) strlen (base_name); dim_i++)
             {
 	      cup = toupper (base_name[dim_i]);
 	      write_character (&cup, 1);
             }
 	}
-      for (dim_i =len; dim_i < strlen (obj->var_name); dim_i++)
+      for (dim_i =len; dim_i < (index_type) strlen (obj->var_name); dim_i++)
 	{
 	  cup = toupper (obj->var_name[dim_i]);
 	  write_character (&cup, 1);
@@ -1430,7 +1433,7 @@ nml_write_obj (namelist_info * obj, index_type offset,
 	    }
 	  num++;
 
-	  /* Output the data, if an intrinsic type, or recurse into this 
+	  /* Output the data, if an intrinsic type, or recurse into this
 	     routine to treat derived types.  */
 
 	  switch (obj->type)
@@ -1466,10 +1469,10 @@ nml_write_obj (namelist_info * obj, index_type offset,
 
 	      /* To treat a derived type, we need to build two strings:
 		 ext_name = the name, including qualifiers that prepends
-			    component names in the output - passed to 
+			    component names in the output - passed to
 			    nml_write_obj.
 		 obj_name = the derived type name with no qualifiers but %
-			    appended.  This is used to identify the 
+			    appended.  This is used to identify the
 			    components.  */
 
 	      /* First ext_name => get length of all possible components  */
@@ -1490,7 +1493,7 @@ nml_write_obj (namelist_info * obj, index_type offset,
 		{
 		  strcat (ext_name, dim_i ? "" : "(");
 		  clen = strlen (ext_name);
-		  st_sprintf (ext_name + clen, "%d", obj->ls[dim_i].idx);
+		  st_sprintf (ext_name + clen, "%d", (int) obj->ls[dim_i].idx);
 		  strcat (ext_name, (dim_i == obj->var_rank - 1) ? ")" : ",");
 		}
 
@@ -1558,8 +1561,8 @@ obj_loop:
 }
 
 /* This is the entry function for namelist writes.  It outputs the name
-   of the namelist and iterates through the namelist by calls to 
-   nml_write_obj.  The call below has dummys in the arguments used in 
+   of the namelist and iterates through the namelist by calls to
+   nml_write_obj.  The call below has dummys in the arguments used in
    the treatment of derived types.  */
 
 void
@@ -1617,4 +1620,3 @@ namelist_write (void)
 }
 
 #undef NML_DIGITS
-

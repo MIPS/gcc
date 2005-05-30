@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
+#include "debug.h"
 #include "target.h"
 
 static tree bot_manip (tree *, int *, void *);
@@ -111,6 +112,7 @@ lvalue_p_1 (tree ref,
     case STRING_CST:
       return clk_ordinary;
 
+    case CONST_DECL:
     case VAR_DECL:
       if (TREE_READONLY (ref) && ! TREE_STATIC (ref)
 	  && DECL_LANG_SPECIFIC (ref)
@@ -1767,7 +1769,8 @@ handle_com_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || *node != TYPE_MAIN_VARIANT (*node))
     {
-      warning (0, "%qE attribute can only be applied to class definitions", name);
+      warning (OPT_Wattributes, "%qE attribute can only be applied "
+	       "to class definitions", name);
       return NULL_TREE;
     }
 
@@ -2265,7 +2268,14 @@ fold_if_not_in_template (tree expr)
      "fold".  We will call fold later when actually instantiating the
      template.  Integral constant expressions in templates will be
      evaluated via fold_non_dependent_expr, as necessary.  */
-  return (processing_template_decl ? expr : fold (expr));
+  if (processing_template_decl)
+    return expr;
+
+  /* Fold C++ front-end specific tree codes.  */
+  if (TREE_CODE (expr) == UNARY_PLUS_EXPR)
+    return fold_convert (TREE_TYPE (expr), TREE_OPERAND (expr, 0));
+
+  return fold (expr);
 }
 
 

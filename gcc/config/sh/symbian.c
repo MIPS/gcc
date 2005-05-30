@@ -144,7 +144,8 @@ sh_symbian_dllimport_p (tree decl)
     {
       /* Don't warn about artificial methods.  */
       if (!DECL_ARTIFICIAL (decl))
-	warning (0, "%H function '%D' is defined after prior declaration as dllimport: attribute ignored",
+	warning (OPT_Wattributes, "%H function '%D' is defined after prior "
+		 "declaration as dllimport: attribute ignored",
 		 & DECL_SOURCE_LOCATION (decl), decl);
       return false;
     }
@@ -155,7 +156,8 @@ sh_symbian_dllimport_p (tree decl)
   else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
     {
       if (extra_warnings)
-	warning (0, "%Hinline function '%D' is declared as dllimport: attribute ignored.",
+	warning (OPT_Wattributes, "%Hinline function '%D' is declared as "
+		 "dllimport: attribute ignored.",
 		 & DECL_SOURCE_LOCATION (decl), decl);
       return false;
     }
@@ -216,14 +218,10 @@ sh_symbian_mark_dllexport (tree decl)
   tree idp;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
 
   if (sh_symbian_dllimport_name_p (oldname))
     {
@@ -265,14 +263,10 @@ sh_symbian_mark_dllimport (tree decl)
   rtx newrtl;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
 
   if (sh_symbian_dllexport_name_p (oldname))
     {
@@ -411,14 +405,14 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
 		   | (int) ATTR_FLAG_FUNCTION_NEXT
 		   | (int) ATTR_FLAG_ARRAY_NEXT))
 	{
-	  warning (0, "%qs attribute ignored", attr);
+	  warning (OPT_Wattributes, "%qs attribute ignored", attr);
 	  *no_add_attrs = true;
 	  return tree_cons (name, args, NULL_TREE);
 	}
 
       if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
 	{
-	  warning (0, "%qs attribute ignored", attr);
+	  warning (OPT_Wattributes, "%qs attribute ignored", attr);
 	  *no_add_attrs = true;
 	}
 

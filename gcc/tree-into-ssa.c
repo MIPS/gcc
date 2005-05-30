@@ -107,8 +107,8 @@ static VEC(tree,heap) *block_defs_stack;
 /* Basic block vectors used in this file ought to be allocated in the
    heap.  We use pointer vector, because ints can be easily passed by
    value.  */
-DEF_VEC_P(int);
-DEF_VEC_ALLOC_P(int,heap);
+DEF_VEC_I(int);
+DEF_VEC_ALLOC_I(int,heap);
 
 /* Set of existing SSA names being replaced by update_ssa.  */
 static sbitmap old_ssa_names;
@@ -616,7 +616,7 @@ add_new_name_mapping (tree new, tree old)
    for every variable in the function.  For every statement S in block
    BB:
 
-   1- Variables defined by S in DEF_OPS(S) are marked in the bitmap
+   1- Variables defined by S in the DEFS of S are marked in the bitmap
       WALK_DATA->GLOBAL_DATA->KILLS.
 
    2- If S uses a variable VAR and there is no preceding kill of VAR,
@@ -648,7 +648,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
   /* If a variable is used before being set, then the variable is live
      across a block boundary, so mark it live-on-entry to BB.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-			    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMUSTDEFKILL)
+			    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMUSTKILL)
     {
       tree sym = USE_FROM_PTR (use_p);
       gcc_assert (DECL_P (sym));
@@ -1668,7 +1668,7 @@ mark_def_site_blocks (sbitmap interesting_blocks)
   struct mark_def_sites_global_data mark_def_sites_global_data;
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
-  def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
+  def_blocks = htab_create (VEC_length (tree, referenced_vars),
 			    def_blocks_hash, def_blocks_eq, def_blocks_free);
 
   for (i = 0; i < num_referenced_vars; i++)
@@ -1750,7 +1750,7 @@ rewrite_into_ssa (void)
   sbitmap_zero (interesting_blocks);
 
   /* Initialize dominance frontier.  */
-  dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
+  dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap));
   FOR_EACH_BB (bb)
     dfs[bb->index] = BITMAP_ALLOC (NULL);
 
@@ -2611,7 +2611,7 @@ switch_virtuals_to_full_rewrite (void)
 void
 update_ssa (unsigned update_flags)
 {
-  bitmap *dfs, blocks;
+  bitmap blocks;
   basic_block bb, start_bb;
   bitmap_iterator bi;
   unsigned i;
@@ -2646,13 +2646,8 @@ update_ssa (unsigned update_flags)
 
   if (insert_phi_p)
     {
-      /* If the caller requested PHI nodes to be added, compute
-	 dominance frontiers and initialize live-in information data
-	 structures (DEF_BLOCKS).  */
-      dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
-      FOR_EACH_BB (bb)
-	dfs[bb->index] = BITMAP_ALLOC (NULL);
-      compute_dominance_frontiers (dfs);
+      /* If the caller requested PHI nodes to be added, initialize
+	 live-in information data structures (DEF_BLOCKS).  */
 
       /* For each SSA name N, the DEF_BLOCKS table describes where the
 	 name is defined, which blocks have PHI nodes for N, and which
@@ -2663,7 +2658,6 @@ update_ssa (unsigned update_flags)
     }
   else
     {
-      dfs = NULL;
       def_blocks = NULL;
     }
 
@@ -2685,6 +2679,10 @@ update_ssa (unsigned update_flags)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
+	  /* We are going to use the operand cache API, such as
+	     SET_USE, SET_DEF, and FOR_EACH_IMM_USE_FAST.  The operand
+	     cache for each statement should be up-to-date.  */
+	  gcc_assert (!stmt_modified_p (stmt));
 	  REWRITE_THIS_STMT (stmt) = 0;
 	  REGISTER_DEFS_IN_THIS_STMT (stmt) = 0;
 	}
@@ -2738,6 +2736,15 @@ update_ssa (unsigned update_flags)
      and for symbols in SYMS_TO_RENAME.  */
   if (insert_phi_p)
     {
+      bitmap *dfs;
+
+      /* If the caller requested PHI nodes to be added, compute
+	 dominance frontiers.  */
+      dfs = xmalloc (last_basic_block * sizeof (bitmap));
+      FOR_EACH_BB (bb)
+	dfs[bb->index] = BITMAP_ALLOC (NULL);
+      compute_dominance_frontiers (dfs);
+
       if (sbitmap_first_set_bit (old_ssa_names) >= 0)
 	{
 	  /* insert_update_phi_nodes_for will call add_new_name_mapping
@@ -2756,6 +2763,10 @@ update_ssa (unsigned update_flags)
       EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
 	insert_updated_phi_nodes_for (referenced_var (i), dfs, blocks,
 	                              update_flags);
+
+      FOR_EACH_BB (bb)
+	BITMAP_FREE (dfs[bb->index]);
+      free (dfs);
 
       /* Insertion of PHI nodes may have added blocks to the region.
 	 We need to re-compute START_BB to include the newly added
@@ -2813,13 +2824,6 @@ update_ssa (unsigned update_flags)
 
   /* Free allocated memory.  */
 done:
-  if (insert_phi_p)
-    {
-      FOR_EACH_BB (bb)
-	BITMAP_FREE (dfs[bb->index]);
-      free (dfs);
-    }
-
   BITMAP_FREE (blocks);
   delete_update_ssa ();
 

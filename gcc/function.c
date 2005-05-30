@@ -1317,7 +1317,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 {
   HOST_WIDE_INT offset;
   int insn_code, i;
-  bool any_change;
+  bool any_change = false;
   rtx set, new, x, seq;
 
   /* There are some special cases to be handled first.  */
@@ -1374,6 +1374,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	}
 
       extract_insn (insn);
+      insn_code = INSN_CODE (insn);
 
       /* Handle a plus involving a virtual register by determining if the
 	 operands remain valid if they're modified in place.  */
@@ -1387,7 +1388,9 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	  offset += INTVAL (recog_data.operand[2]);
 
 	  /* If the sum is zero, then replace with a plain move.  */
-	  if (offset == 0)
+	  if (offset == 0
+	      && REG_P (SET_DEST (set))
+	      && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	    {
 	      start_sequence ();
 	      emit_move_insn (SET_DEST (set), new);
@@ -1400,7 +1403,6 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	    }
 
 	  x = gen_int_mode (offset, recog_data.operand_mode[2]);
-	  insn_code = INSN_CODE (insn);
 
 	  /* Using validate_change and apply_change_group here leaves
 	     recog_data in an invalid state.  Since we know exactly what
@@ -1411,15 +1413,17 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	      *recog_data.operand_loc[1] = recog_data.operand[1] = new;
 	      *recog_data.operand_loc[2] = recog_data.operand[2] = x;
 	      any_change = true;
-	      goto verify;
+
+	      /* Fall through into the regular operand fixup loop in
+		 order to take care of operands other than 1 and 2.  */
 	    }
 	}
     }
   else
-    extract_insn (insn);
-
-  insn_code = INSN_CODE (insn);
-  any_change = false;
+    {
+      extract_insn (insn);
+      insn_code = INSN_CODE (insn);
+    }
 
   /* In the general case, we expect virtual registers to appear only in
      operands, and then only as either bare registers or inside memories.  */
@@ -1485,8 +1489,8 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	      end_sequence ();
 	      emit_insn_before (seq, insn);
 	    }
-	  x = simplify_gen_subreg (insn_data[insn_code].operand[i].mode,
-				   new, GET_MODE (new), SUBREG_BYTE (x));
+	  x = simplify_gen_subreg (recog_data.operand_mode[i], new,
+				   GET_MODE (new), SUBREG_BYTE (x));
 	  break;
 
 	default:
@@ -1503,7 +1507,6 @@ instantiate_virtual_regs_in_insn (rtx insn)
       any_change = true;
     }
 
- verify:
   if (any_change)
     {
       /* Propagate operand changes into the duplicates.  */
@@ -3741,9 +3744,6 @@ allocate_struct_function (tree fndecl)
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
   cfun = ggc_alloc_cleared (sizeof (struct function));
-  cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
-
-  n_edges = 0;
 
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
@@ -3850,9 +3850,8 @@ init_function_start (tree subr)
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
-  if (warn_aggregate_return
-      && AGGREGATE_TYPE_P (TREE_TYPE (DECL_RESULT (subr))))
-    warning (0, "function returns an aggregate");
+  if (AGGREGATE_TYPE_P (TREE_TYPE (DECL_RESULT (subr))))
+    warning (OPT_Waggregate_return, "function returns an aggregate");
 }
 
 /* Make sure all values used by the optimization passes have sane

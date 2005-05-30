@@ -340,6 +340,32 @@ stmts_are_full_exprs_p (void)
   return current_stmt_tree ()->stmts_are_full_exprs_p;
 }
 
+/* T is a statement.  Add it to the statement-tree.  This is the C++
+   version.  The C/ObjC frontends have a slightly different version of
+   this function.  */
+
+tree
+add_stmt (tree t)
+{
+  enum tree_code code = TREE_CODE (t);
+
+  if (EXPR_P (t) && code != LABEL_EXPR)
+    {
+      if (!EXPR_HAS_LOCATION (t))
+	SET_EXPR_LOCATION (t, input_location);
+
+      /* When we expand a statement-tree, we must know whether or not the
+	 statements are full-expressions.  We record that fact here.  */
+      STMT_IS_FULL_EXPR_P (t) = stmts_are_full_exprs_p ();
+    }
+
+  /* Add T to the statement-tree.  Non-side-effect statements need to be
+     recorded during statement expressions.  */
+  append_to_statement_list_force (t, &cur_stmt_list);
+
+  return t;
+}
+
 /* Returns the stmt_tree (if any) to which statements are currently
    being added.  If there is no active statement-tree, NULL is
    returned.  */
@@ -401,7 +427,7 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-static tree
+tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -2760,9 +2786,9 @@ finish_id_expression (tree id_expression,
 	      if (context != NULL_TREE && context != current_function_decl
 		  && ! TREE_STATIC (decl))
 		{
-		  error ("use of %s from containing function",
-			 (TREE_CODE (decl) == VAR_DECL
-			  ? "%<auto%> variable" : "parameter"));
+		  error (TREE_CODE (decl) == VAR_DECL
+			 ? "use of %<auto%> variable from containing function"
+			 : "use of parameter from containing function");
 		  cp_error_at ("  %q#D declared here", decl);
 		  return error_mark_node;
 		}

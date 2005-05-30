@@ -160,14 +160,6 @@ namespace __gnu_test
   void 
   run_tests_wrapped_env(const char*, const char*, const func_callback&);
 
-  // Try to create a locale with the given name. If it fails, bail.
-  std::locale
-  try_named_locale(const char* name);
-
-  int
-  try_mkfifo (const char* filename, mode_t mode);
-
-
   // Counting.
   struct counter
   {

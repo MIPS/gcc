@@ -507,11 +507,11 @@ static int gcse_subst_count;
 static int gcse_create_count;
 /* Number of local constants propagated.  */
 static int local_const_prop_count;
-/* Number of local copys propagated.  */
+/* Number of local copies propagated.  */
 static int local_copy_prop_count;
 /* Number of global constants propagated.  */
 static int global_const_prop_count;
-/* Number of global copys propagated.  */
+/* Number of global copies propagated.  */
 static int global_copy_prop_count;
 
 /* For available exprs */
@@ -3415,7 +3415,7 @@ one_cprop_pass (int pass, bool cprop_jumps, bool bypass_jumps)
     {
       fprintf (gcse_file, "CPROP of %s, pass %d: %d bytes needed, ",
 	       current_function_name (), pass, bytes_used);
-      fprintf (gcse_file, "%d local const props, %d local copy props\n\n",
+      fprintf (gcse_file, "%d local const props, %d local copy props, ",
 	       local_const_prop_count, local_copy_prop_count);
       fprintf (gcse_file, "%d global const props, %d global copy props\n\n",
 	       global_const_prop_count, global_copy_prop_count);
@@ -6529,9 +6529,9 @@ is_too_expensive (const char *pass)
      graceful degradation.  */
   if (n_edges > 20000 + n_basic_blocks * 4)
     {
-      if (warn_disabled_optimization)
-	warning (0, "%s: %d basic blocks and %d edges/basic block",
-		 pass, n_basic_blocks, n_edges / n_basic_blocks);
+      warning (OPT_Wdisabled_optimization,
+	       "%s: %d basic blocks and %d edges/basic block",
+	       pass, n_basic_blocks, n_edges / n_basic_blocks);
 
       return true;
     }
@@ -6542,9 +6542,9 @@ is_too_expensive (const char *pass)
        * SBITMAP_SET_SIZE (max_reg_num ())
        * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
     {
-      if (warn_disabled_optimization)
-	warning (0, "%s: %d basic blocks and %d registers",
-		 pass, n_basic_blocks, max_reg_num ());
+      warning (OPT_Wdisabled_optimization,
+	       "%s: %d basic blocks and %d registers",
+	       pass, n_basic_blocks, max_reg_num ());
 
       return true;
     }

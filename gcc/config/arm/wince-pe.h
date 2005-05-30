@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM with WINCE-PE obj format.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Nick Clifton <nickc@redhat.com>
    
    This file is part of GCC.
@@ -20,7 +20,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT	(TARGET_FLAG_NOP_FUN)
+#define TARGET_DEFAULT	(MASK_NOP_FUN_DLLIMPORT)
 
 #undef  MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \

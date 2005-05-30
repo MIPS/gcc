@@ -202,17 +202,6 @@ if test -z "$enable_hash_synchronization"; then
    enable_hash_synchronization=$enable_hash_synchronization_default
 fi
 
-# Do we allow intermodule optimizations (i.e. compiling many files at once)?
-AC_ARG_ENABLE(libgcj-multifile,
-  AS_HELP_STRING([--enable-libgcj-multifile]
-                 [allow compilation of several files at once]),
-[case "${enableval}" in
-  yes) enable_libgcj_multifile=yes ;;
-  no)  enable_libgcj_multifile=no ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-libgcj-multifile) ;;
-esac],[enable_libgcj_multifile=no])
-AM_CONDITIONAL(ONESTEP, test "$enable_libgcj_multifile" = yes)
-
 AC_ARG_WITH(java-home,
   AS_HELP_STRING([--with-java-home=DIRECTORY],
                  [value of java.home system property]),
@@ -718,6 +707,7 @@ AM_CONDITIONAL(USING_NO_THREADS, test "$THREADS" = none)
 if test -d sysdep; then true; else mkdir sysdep; fi
 AC_CONFIG_LINKS(sysdep/locks.h:sysdep/$sysdeps_dir/locks.h)
 AC_CONFIG_LINKS(sysdep/backtrace.h:$fallback_backtrace_h)
+AC_CONFIG_LINKS(sysdep/descriptor.h:$descriptor_h)
 
 HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
@@ -1136,9 +1126,9 @@ LT_AC_PROG_GCJ
 
 CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
-AC_COMPILE_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(void *)
 
-AC_C_BIGENDIAN_CROSS
+AC_C_BIGENDIAN
 
 ZLIBS=
 SYS_ZLIBS=

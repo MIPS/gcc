@@ -642,7 +642,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 
   FOR_EACH_BB (bb)
     {
-      bb_ann_t block_ann = bb_ann (bb);
       block_stmt_iterator si;
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
@@ -665,9 +664,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		if (stmt_escapes_p)
 		  mark_call_clobbered (var);
 	      }
-
-	  if (stmt_escapes_p)
-	    block_ann->has_escape_site = 1;
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
@@ -2777,6 +2773,39 @@ found_tag:
       for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
     }
+}
+
+
+/* Create a type tag for PTR.  Construct the may-alias list of this type tag
+   so that it has the aliasing of VAR.  */
+
+void
+new_type_alias (tree ptr, tree var)
+{
+  var_ann_t p_ann = var_ann (ptr);
+  tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
+  var_ann_t v_ann = var_ann (var);
+  tree tag;
+  subvar_t svars;
+
+  gcc_assert (p_ann->type_mem_tag == NULL_TREE);
+  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG);
+  tag = create_memory_tag (tag_type, true);
+  p_ann->type_mem_tag = tag;
+
+  /* Add VAR to the may-alias set of PTR's new type tag.  If VAR has
+     subvars, add the subvars to the tag instead of the actual var.  */
+  if (var_can_have_subvars (var)
+      && (svars = get_subvars_for_var (var)))
+    {
+      subvar_t sv;      
+      for (sv = svars; sv; sv = sv->next)
+        add_may_alias (tag, sv->var);
+    }
+  else
+    add_may_alias (tag, var);
+
+  /* Note, TAG and its set of aliases are not marked for renaming.  */
 }
 
 

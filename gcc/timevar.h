@@ -1,5 +1,5 @@
 /* Timing variables for measuring compiler performance.
-   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -61,6 +61,9 @@ struct timevar_time_def
 
   /* Wall clock time.  */
   double wall;
+
+  /* Garbage collector memory.  */
+  unsigned ggc_mem;
 };
 
 /* An enumeration of timing variable identifiers.  Constructed from
@@ -92,5 +95,7 @@ extern void timevar_print (FILE *);
 extern void print_time (const char *, long);
 
 extern bool timevar_enable;
+
+extern size_t timevar_ggc_mem_total;
 
 #endif /* ! GCC_TIMEVAR_H */

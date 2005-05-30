@@ -42,8 +42,7 @@ target_triplet = @target@
 subdir = external/w3c_dom
 DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../config/accross.m4 \
-	$(top_srcdir)/../config/acx.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/gxx-include-dir.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lcmessage.m4 \
@@ -171,8 +170,6 @@ NATIVE_TRUE = @NATIVE_TRUE@
 NEEDS_DATA_START_FALSE = @NEEDS_DATA_START_FALSE@
 NEEDS_DATA_START_TRUE = @NEEDS_DATA_START_TRUE@
 OBJEXT = @OBJEXT@
-ONESTEP_FALSE = @ONESTEP_FALSE@
-ONESTEP_TRUE = @ONESTEP_TRUE@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -314,7 +311,7 @@ AM_GCJFLAGS = \
 BUILT_SOURCES = classes.stamp
 noinst_LTLIBRARIES = libw3c-gcj.la
 libw3c_gcj_la_SOURCES = w3c.jar
-libw3c_gcj_la_GCJFLAGS = -findirect-dispatch $(AM_GCJFLAGS)
+libw3c_gcj_la_GCJFLAGS = -findirect-dispatch -fbootstrap-classes $(AM_GCJFLAGS)
 source_files = \
 org/w3c/dom/xpath/XPathNamespace.java \
 org/w3c/dom/xpath/XPathResult.java \

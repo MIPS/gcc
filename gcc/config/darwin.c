@@ -191,8 +191,8 @@ void
 machopic_define_symbol (rtx mem)
 {
   rtx sym_ref;
-  if (GET_CODE (mem) != MEM)
-    abort ();
+  
+  gcc_assert (GET_CODE (mem) == MEM);
   sym_ref = XEXP (mem, 0);
   SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 }
@@ -203,8 +203,7 @@ const char *
 machopic_function_base_name (void)
 {
   /* if dynamic-no-pic is on, we should not get here */
-  if (MACHO_DYNAMIC_NO_PIC_P)
-    abort ();
+  gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
 
   if (function_base == NULL)
     function_base =
@@ -237,8 +236,7 @@ machopic_output_function_base_name (FILE *file)
   const char *current_name;
 
   /* If dynamic-no-pic is on, we should not get here.  */
-  if (MACHO_DYNAMIC_NO_PIC_P)
-    abort ();
+  gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
   current_name =
     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
   if (function_base_func_name != current_name)
@@ -425,7 +423,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
  	  emit_insn (gen_macho_low (reg, reg, orig));
 #else
 	   /* some other cpu -- writeme!  */
-	   abort ();
+	   gcc_unreachable ();
 #endif
 	   return reg;
 	}
@@ -440,8 +438,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	  rtx hi_sum_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
 
-	  if (reg == NULL)
-	    abort ();
+	  gcc_assert (reg);
 
 	  emit_insn (gen_rtx_SET (Pmode, hi_sum_reg,
 			      gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
@@ -452,7 +449,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	  orig = reg;
 #else
 #if defined (HAVE_lo_sum)
-	  if (reg == 0) abort ();
+	  gcc_assert (reg);
 
 	  emit_insn (gen_rtx_SET (VOIDmode, reg,
 				  gen_rtx_HIGH (Pmode, offset)));
@@ -602,10 +599,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	{
 	  if (reg == 0)
 	    {
-	      if (reload_in_progress)
-		abort ();
-	      else
-		reg = gen_reg_rtx (Pmode);
+	      gcc_assert (!reload_in_progress);
+	      reg = gen_reg_rtx (Pmode);
 	    }
 
 #ifdef HAVE_lo_sum
@@ -624,7 +619,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other platform that can use dynamic-no-pic  */
-	      abort ();
+	      gcc_unreachable ();
 #endif
 	      pic_ref = reg;
 	    }
@@ -717,10 +712,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      if (reg == 0)
 		{
-		  if (reload_in_progress)
-		    abort ();
-		  else
-		    reg = gen_reg_rtx (Pmode);
+		  gcc_assert (!reload_in_progress);
+		  reg = gen_reg_rtx (Pmode);
 		}
 
 	      hi_sum_reg = reg;
@@ -1229,7 +1222,8 @@ darwin_handle_weak_import_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL && TREE_CODE (*node) != VAR_DECL)
     {
-      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else
@@ -1315,8 +1309,7 @@ darwin_non_lazy_pcrel (FILE *file, rtx addr)
 {
   const char *nlp_name;
 
-  if (GET_CODE (addr) != SYMBOL_REF)
-    abort ();
+  gcc_assert (GET_CODE (addr) == SYMBOL_REF);
 
   nlp_name = machopic_indirection_name (addr, /*stub_p=*/false);
   fputs ("\t.long\t", file);
@@ -1343,8 +1336,8 @@ darwin_assemble_visibility (tree decl, int vis)
       fputs ("\n", asm_out_file);
     }
   else
-    warning (0, "internal and protected visibility attributes not supported "
-	     "in this configuration; ignored");
+    warning (OPT_Wattributes, "internal and protected visibility attributes "
+	     "not supported in this configuration; ignored");
 }
 
 /* Output a difference of two labels that will be an assembly time
