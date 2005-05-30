@@ -16,7 +16,6 @@ int main1 (aint *ib)
   int i;
   int ia[N];
 
-  /* Not vectorizable: ib may alias ia.  */
   for (i = 0; i < N; i++)
     {
       ia[i] = ib[i+off];
@@ -41,4 +40,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail { lp64 || vect_no_align } } } } */
+/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 1 "vect" { xfail { lp64 || vect_no_align } } } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 0 "vect" } } */

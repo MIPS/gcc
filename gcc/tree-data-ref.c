@@ -127,7 +127,69 @@ static tree object_analysis (tree, tree, bool, tree, struct data_reference **,
 static struct data_reference * init_data_ref (tree, tree, tree, tree, bool, 
 				      tree, tree, tree, tree, bool, tree,
 				      struct ptr_info_def *);
+
+/* Determine if PTR and DECL may alias, the result is put in ALIASED.
+   Return FALSE if there is no type memory tag for PTR.
+*/
+static bool
+ptr_decl_may_alias_p (tree ptr, tree decl, 
+		      struct data_reference *ptr_dr, 
+		      bool *aliased)
+{
+  tree tag;
+   
+  gcc_assert (TREE_CODE (ptr) == SSA_NAME && DECL_P (decl));
+
+  tag = get_var_ann (SSA_NAME_VAR (ptr))->type_mem_tag;
+  if (!tag)
+    tag = DR_MEMTAG (ptr_dr);
+  if (!tag)
+    return false;
   
+  *aliased = is_aliased_with (tag, decl);      
+  return true;
+}
+
+/* Determine if BASE_A and BASE_B may alias, the result is put in ALIASED.
+   Return FALSE if there is no type memory tag for one of the symbols.
+*/
+static bool
+may_alias_p (tree base_a, tree base_b,
+	     struct data_reference *dra,
+	     struct data_reference *drb,
+	     bool *aliased)
+{
+  tree tag_a, tag_b;
+
+  if (TREE_CODE (base_a) == ADDR_EXPR || TREE_CODE (base_b) == ADDR_EXPR)
+    {
+      if (TREE_CODE (base_a) == ADDR_EXPR && TREE_CODE (base_b) == ADDR_EXPR)
+	{
+	 *aliased = (TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0));
+	 return true;
+	}
+      if (TREE_CODE (base_a) == ADDR_EXPR)
+	return ptr_decl_may_alias_p (base_b, TREE_OPERAND (base_a, 0), drb, 
+				     aliased);
+      else
+	return ptr_decl_may_alias_p (base_a, TREE_OPERAND (base_b, 0), dra, 
+				     aliased);
+    }
+  tag_a = get_var_ann (SSA_NAME_VAR (base_a))->type_mem_tag;
+  if (!tag_a)
+    tag_a = DR_MEMTAG (dra);
+  if (!tag_a)
+    return false;
+  tag_b = get_var_ann (SSA_NAME_VAR (base_b))->type_mem_tag;
+  if (!tag_b)
+    tag_b = DR_MEMTAG (drb);
+  if (!tag_b)
+    return false;
+  *aliased = (tag_a == tag_b);
+  return true;
+}
+
+
 /* This is the simplest data dependence test: determines whether the
    data references A and B access the same array/region.  Returns
    false when the property is not computable at compile time.
@@ -143,6 +205,7 @@ base_object_differ_p (struct data_reference *a,
   tree base_a = DR_BASE_OBJECT (a);
   tree base_b = DR_BASE_OBJECT (b);
   tree ta, tb;
+  bool aliased;
 
   if (!base_a || !base_b)
     return false;
@@ -193,11 +256,12 @@ base_object_differ_p (struct data_reference *a,
   /* In case one of the bases is a pointer (a[i] and (*p)[i]), we check with the
      help of alias analysis that p is not pointing to a.  */
   if ((TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == INDIRECT_REF 
-       && !alias_sets_conflict_p (get_alias_set (base_b),
-				  get_alias_set (base_a)))
+       && (ptr_decl_may_alias_p (TREE_OPERAND (base_b, 0), base_a, b, &aliased)
+	   && !aliased))
       || (TREE_CODE (base_b) == VAR_DECL && TREE_CODE (base_a) == INDIRECT_REF 
-	  && !alias_sets_conflict_p (get_alias_set (base_a),
-				     get_alias_set (base_b))))
+	  && (ptr_decl_may_alias_p (TREE_OPERAND (base_a, 0), base_b, a, 
+				    &aliased)
+	      && !aliased)))
     {
       *differ_p = true;
       return true;
@@ -206,8 +270,9 @@ base_object_differ_p (struct data_reference *a,
   /* If the bases are pointers ((*q)[i] and (*p)[i]), we check with the
      help of alias analysis they don't point to the same bases.  */
   if (TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == INDIRECT_REF 
-      && !alias_sets_conflict_p (get_alias_set (base_b),
-				 get_alias_set (base_a)))
+      && (may_alias_p (TREE_OPERAND (base_a, 0), TREE_OPERAND (base_b, 0), a, b, 
+		       &aliased)
+	  && !aliased))
     {
       *differ_p = true;
       return true;
@@ -234,16 +299,18 @@ base_object_differ_p (struct data_reference *a,
        && (TREE_CODE (base_b) == COMPONENT_REF
            && (TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
 	       || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
-		   && !alias_sets_conflict_p (get_alias_set (
-						  TREE_OPERAND (base_b, 0)),
-					      get_alias_set (base_a))))))
+		   && (ptr_decl_may_alias_p (
+				   TREE_OPERAND (TREE_OPERAND (base_b, 0), 0), 
+				   base_a, b, &aliased)
+		       && !aliased)))))
       || (TREE_CODE (base_b) == VAR_DECL
        && (TREE_CODE (base_a) == COMPONENT_REF
            && (TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
 	       || (TREE_CODE (TREE_OPERAND (base_a, 0)) == INDIRECT_REF
-		   && !alias_sets_conflict_p (get_alias_set (
-						  TREE_OPERAND (base_a, 0)),
-					      get_alias_set (base_b)))))))
+		   && (ptr_decl_may_alias_p (
+     		                   TREE_OPERAND (TREE_OPERAND (base_a, 0), 0), 
+				   base_b, a, &aliased)
+		       && !aliased))))))
     {
       *differ_p = true;
       return true;
@@ -270,7 +337,7 @@ base_addr_differ_p (struct data_reference *dra,
   tree addr_a = DR_BASE_ADDRESS (dra);
   tree addr_b = DR_BASE_ADDRESS (drb);
   tree type_a, type_b;
-  HOST_WIDE_INT alias_set_a, alias_set_b;
+  bool aliased;
 
   if (!addr_a || !addr_b)
     return false;
@@ -315,10 +382,7 @@ base_addr_differ_p (struct data_reference *dra,
     }
 
   /* Apply alias analysis.  */
-  alias_set_a = get_alias_set (build_fold_indirect_ref (addr_a));
-  alias_set_b = get_alias_set (build_fold_indirect_ref (addr_b));
-
-  if (!alias_sets_conflict_p (alias_set_a, alias_set_b))
+  if (may_alias_p (addr_a, addr_b, dra, drb, &aliased) && !aliased)
     {
       *differ_p = true;
       return true;

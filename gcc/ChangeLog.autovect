@@ -1,3 +1,13 @@
+2005-05-24  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (ptr_decl_may_alias_p): New function.
+	(may_alias_p): New function.
+	(base_object_differ_p): Call ptr_decl_may_alias_p and may_alias_p
+	instead of alias_sets_conflict.
+	(base_addr_differ_p): Likewise.
+	* tree-flow.h (is_aliased_with): Declare.
+	* tree-ssa-alias.c (is_aliased_with): New function.
+
 2005-05-25  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_determine_vectorization_factor): Fix 80

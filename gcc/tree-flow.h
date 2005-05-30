@@ -579,6 +579,7 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 static inline subvar_t get_subvars_for_var (tree);
 static inline bool ref_contains_array_ref (tree);
