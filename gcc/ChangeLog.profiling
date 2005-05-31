@@ -1,3 +1,9 @@
+2005-05-31  Razya Ladelsky  <razya@il.ibm.com>
+
+
+	* ipa-prop.c : Change references of cgraph_method aux field 
+	to uses of IPA_NODE_REF.
+
 2005-05-27  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20050525)

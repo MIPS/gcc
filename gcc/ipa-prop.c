@@ -400,35 +400,35 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
 inline int
 ipa_method_formal_count (struct cgraph_node *mt)
 {
-  return ((struct ipa_node *) mt->aux)->ipa_arg_num;
+  return IPA_NODE_REF(mt)->ipa_arg_num;
 }
 
 /* Set number of formals of method mt.  */
 inline void
 ipa_method_formal_count_set (struct cgraph_node *mt, int i)
 {
-  ((struct ipa_node *) mt->aux)->ipa_arg_num = i;
+  IPA_NODE_REF(mt)->ipa_arg_num = i;
 }
 
 /* Returns whether i-th formal of mt is modified in mt.  */
 static inline bool
 ipa_method_is_modified (struct cgraph_node *mt, int i)
 {
-  return ((struct ipa_node *) mt->aux)->ipa_mod[i].mod;
+  return IPA_NODE_REF(mt)->ipa_mod[i].mod;
 }
 
 /* Get param tree of i-th formal of mt.  */
 inline tree
 ipa_method_get_tree (struct cgraph_node *mt, int i)
 {
-  return ((struct ipa_node *) mt->aux)->ipa_param_tree[i].param_tree;
+  return IPA_NODE_REF(mt)->ipa_param_tree[i].param_tree;
 }
 
 /* Create tree map structure of mt.  */
 static inline void
 ipa_method_tree_map_create (struct cgraph_node *mt)
 {
-  ((struct ipa_node *) mt->aux)->ipa_param_tree =
+  IPA_NODE_REF(mt)->ipa_param_tree =
     xcalloc (ipa_method_formal_count (mt), sizeof (struct ipa_tree_map));
 }
 
@@ -444,7 +444,7 @@ ipa_method_modify_create (struct cgraph_node *mt)
 static inline void
 ipa_method_modify_set (struct cgraph_node *mt, int i, bool val)
 {
-  ((struct ipa_node *) mt->aux)->ipa_mod[i].mod = val;
+  IPA_NODE_REF(mt)->ipa_mod[i].mod = val;
 }
 
 /* Returning the parameter index of the ptree.  */
@@ -455,7 +455,7 @@ ipa_method_tree_map (struct cgraph_node *mt, tree ptree)
 
   count = ipa_method_formal_count (mt);
   for (i = 0; i < count; i++)
-    if (((struct ipa_node *) mt->aux)->ipa_param_tree[i].param_tree == ptree)
+    if (IPA_NODE_REF(mt)->ipa_param_tree[i].param_tree == ptree)
       return i;
 
   return -1;
@@ -476,7 +476,7 @@ ipa_method_compute_tree_map (struct cgraph_node *mt)
   param_num = 0;
   for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
     {
-      ((struct ipa_node *) mt->aux)->ipa_param_tree[param_num].param_tree =
+      IPA_NODE_REF(mt)->ipa_param_tree[param_num].param_tree =
 	parm;
       param_num++;
     }
@@ -670,12 +670,12 @@ ipa_free (void)
     {
       if (node->aux == NULL)
 	continue;
-      if (((struct ipa_node *) node->aux)->ipcp_cval)
-	free (((struct ipa_node *) node->aux)->ipcp_cval);
-      if (((struct ipa_node *) node->aux)->ipa_param_tree)
-	free (((struct ipa_node *) node->aux)->ipa_param_tree);
-      if (((struct ipa_node *) node->aux)->ipa_mod)
-	free (((struct ipa_node *) node->aux)->ipa_mod);
+      if (IPA_NODE_REF(node)->ipcp_cval)
+	free (IPA_NODE_REF(node)->ipcp_cval);
+      if (IPA_NODE_REF(node)->ipa_param_tree)
+	free (IPA_NODE_REF(node)->ipa_param_tree);
+      if (IPA_NODE_REF(node)->ipa_mod)
+	free (IPA_NODE_REF(node)->ipa_mod);
       for (cs = node->callees; cs; cs = cs->next_callee)
 	{
 	  if (cs->aux)
