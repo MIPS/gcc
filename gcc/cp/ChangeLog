@@ -1,3 +1,47 @@
+2005-05-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21165
+	* init.c (integral_constant_value): Check the type of the
+	initializer, not the decl.
+
+2005-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21784
+	* name-lookup.c (do_nonmember_using_decl): Ignore builtin
+	functions, even	when the used name is not a function.
+
+2005-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21340
+	* method.c (implicitly_declare_fn): Clear processing_template_decl
+	when generating implicit declaration.
+
+2005-05-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21614
+	* typeck.c (get_member_function_from_ptrfunc): Do not attempt
+	conversions to base classes of incomplete types.
+
+2005-05-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21455
+	* typeck.c (get_delta_difference): Cope with incomplete but equal
+	classes.
+
+	PR c++/21681
+	* parser.c (cp_parser_late_parsing_for_member): Disable access
+	checking for template functions.
+
+2005-05-26  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/21768
+	* pt.c (redeclare_class_template): Change error message according
+	to coding conventions.
+
+2005-05-26  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* call.c (build_op_delete_call): Fix quoting in error message.
+
 2005-05-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/21686

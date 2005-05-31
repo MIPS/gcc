@@ -1,3 +1,51 @@
+2005-05-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/20931
+	PR middle-end/20946
+	* fold-const.c (fold_checksum_tree): Copy types also if
+	TYPE_CONTAINS_PLACEHOLDER_INTERNAL is set.
+	Don't call fold_checksum_tree for TREE_LIST's TREE_CHAIN
+	first.
+	Tail recurse TREE_LIST's TREE_CHAIN.
+
+2005-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (sparc-sun-solaris2*): Update note
+	about Sun bug 4910101.
+	(sparc-sun-solaris2.7): Document bootstrap
+	failure with Sun WorkShop 6 99/08/18 as.
+
+2005-05-27  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR middle-end/21595
+	* builtins.c (fold_builtin_constant_p): Handle
+	&"string cst"[0] as constant.
+
+2005-05-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Backport from mainline:
+	2005-05-26  Ian Lance Taylor  <ian@airs.com>
+	* reload1.c (verify_initial_elim_offsets): Add braces to avoid
+	having a declaration after a statement.
+
+2005-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/21716
+	* reg-stack.c (swap_rtx_condition): Don't crash if %ax user was not
+	found in the basic block and last insn in the basic block is not
+	INSN_P.  Remove explicit unspec numbers that are no longer valid
+	from comments.
+
+2005-05-26  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/rs6000/t-rtems: Remove roe multilib variant.
+
+2005-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/21492
+	* cfgcleanup.c (try_crossjump_to_edge): update_forwarder_flag for
+	src2 if src2 has been split.
+
 2005-05-25  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* reload1.c (verify_initial_elim_offsets): Return boolean status

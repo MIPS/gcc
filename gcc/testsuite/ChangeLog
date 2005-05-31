@@ -1,3 +1,73 @@
+2005-05-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21165
+	* g++.dg/template/init5.C: New.
+
+2005-05-31  Andrew pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/20931
+	* g++.dg/opt/pr20931.C: New test.
+
+2005-05-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21784
+	* g++.dg/lookup/using14.C: New test.
+
+2005-05-29  Steven G. Kargl
+
+	PR fortran/20846
+	* gfortran.dg/inquire_8.f90: New test.
+
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21376
+	* gfortran.dg/output_exponents_1.f90: New test.
+
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20006
+	* gfortran.dg/dollar_edit_descriptor-1.f: New test.
+
+2005-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21340
+	* g++.dg/init/ctor6.C: New test.
+
+2005-05-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21614
+	* g++.dg/expr/ptrmem6.C: New test.
+	* g++.dg/expr/ptrmem6a.C: Likewise.
+
+2005-05-27  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR middle-end/21595
+	* g++.dg/tree-ssa/builtin1.C: New testcase.
+
+2005-05-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21455
+	* g++.dg/inherit/ptrmem3.C: New.
+
+	PR c++/21681
+	* g++.dg/parse/template16.C: New.
+
+2005-05-26  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Set float-store for 32-bit
+	x86-64 compilation.
+
+2005-05-26  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/17283
+	* gfortran.fortran-torture/execute/intrinsic_unpack.f90:
+	Test callee-allocated memory with write statements.
+
+2005-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/21492
+	* g++.dg/opt/crossjump1.C: New test.
+
 2005-05-25  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* gcc.dg/20050524-1.c: New test.
@@ -110,7 +180,7 @@
 2005-05-17  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc.dg/compat/struct-layout-1_generate.c (iterative_hash):
-	Remove little-endian optimizations. 
+	Remove little-endian optimizations.
 
 2005-05-17  Richard Guenther  <rguenth@gcc.gnu.org>
 
@@ -143,7 +213,7 @@
 	* gcc.dg/compat/struct-layout-1.exp: Do not link with libiberty.
 	* gcc.dg/compat/struct-layout-1_generate.c (config.h): Do not include.
 	(limits.h): Include unconditionally.
-	(stdlib.h): Likewise. 
+	(stdlib.h): Likewise.
 	(hashtab.h): Do not include.
 	(getopt.h): Likewise.
 	(stddef.h): Include.
@@ -159,7 +229,7 @@
 	(e_insert): Likewise.
 	(output): Use, instead of libiberty hashtable functions.
 	(main): Do not use getopt.  Do not call htab_create.
-	
+
 2005-05-16  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	PR libstdc++/21526
@@ -198,7 +268,7 @@
 2005-05-11  Bud Davis  <bdavis@gfortran.org>
 
 	* gfortran.dg/dev_null.f90: New test.
-	
+
 2005-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/21471
@@ -260,7 +330,7 @@
 2005-05-05  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/21352
-	* g++.dg/template/crash37.C: New test. 
+	* g++.dg/template/crash37.C: New test.
 
 2005-05-04  Jakub Jelinek  <jakub@redhat.com>
 
@@ -303,7 +373,7 @@
 	(g++_init): Make sure that CXXFLAGS is set.
 	* lib/gcc-defs.exp (gcc-set-multilib-library-path): New function.
 	* lib/gcc-dg.exp: Use gcc-set-multilib-library-path.
-	* lib/gfortran.exp (gfortran_link_flags): Likewise. 
+	* lib/gfortran.exp (gfortran_link_flags): Likewise.
 	* lib/objc.exp (objc_init): Likewise.
 	* lib/treelang.exp (treelang_init): Likewise.
 	2005-03-23  Mark Mitchell  <mark@codesourcery.com>
@@ -427,7 +497,7 @@
 2005-04-24  Laurent GUERBY  <laurent@guerby.net>
 
 	* ada/acats/run_all.sh: Use sync when executable not present.
-	
+
 2005-04-24  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/20059
@@ -846,7 +916,7 @@
 
 2005-03-21  Paolo Carlini  <pcarlini@suse.de>
 
-	PR c++/20147	
+	PR c++/20147
 	* g++.dg/ext/stmtexpr4.C: New test.
 
 2005-03-20  Joseph S. Myers  <joseph@codesourcery.com>
@@ -885,7 +955,7 @@
 
 	PR libfortran/20257
 	* gfortran.dg/pr20257.f90: New test.
-	
+
 2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20480
@@ -1076,7 +1146,7 @@
 	* gfortran.dg/pr19936_1.f90: ditto.
 
 2005-03-05  Paul Thomas  <prthomas@drfccad.cea.fr>
-            Steven G. Kargl  <kargls@comcast.net> 
+            Steven G. Kargl  <kargls@comcast.net>
 
 	* gfortran.dg/PR19754_1.f90: New test.
 	* gfortran.dg/PR19754_2.f90: ditto.
@@ -1306,7 +1376,7 @@
 	* g++.dg/parse/error27.C: New test.
 	* g++.dg/template/qualttp15.C: Adjust error markers.
 	* g++.old-deja/g++.other/struct1.C: Likewise.
-	
+
 	PR c++/20153
 	* g++.dg/template/error17.C: New test.
 
@@ -1336,7 +1406,7 @@
 
 	PR 19952
 	* g++.dg/tree-ssa/pr19952.C: New test.
-	
+
 2005-02-22  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/19883

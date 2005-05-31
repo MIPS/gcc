@@ -1,3 +1,47 @@
+2005-05-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* io/unix.c (fd_close): Add test so that we don't close()
+	stdout and stderr.
+
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20006
+	* io/format.c (parse_format_list): Set repeat count of $ format
+	node to 1.
+	* io/transfer.c (read_sf): Add g.seen_dollar to the test
+	concerning advancing I/O.
+	(data_transfer_init): Likewise.
+	(finalize_transfer): Likewise.
+
+2005-05-27  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* runtime/in_pack_generic.c:  Adjust copyright years.
+	(in_pack_generic):  Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+	* runtime/in_unpack_generic.c:  Adjust copyright years.
+	(in_unpack_generic):  Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+
+2005-05-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+	2005-05-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	* configure.ac: Check for trunc and truncf in libm.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* intrinsics/c99_functions.c (trunc, truncf): New functions.
+	* c99_protos.h (trunc, truncf): Declare them.
+
+2005-05-26  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/17283
+	* intrinsics/unpack_generic.c:  Fix name of routine
+	on top.  Update copyright years.
+	(unpack1):  Remove const from return array descriptor.
+	rs:  New variable, for calculating return sizes.
+	Populate return array descriptor if ret->data is NULL.
+
 2005-05-25  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	Backport from mainline:

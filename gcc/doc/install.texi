@@ -3622,11 +3622,11 @@ failure in form of a miscompilation of the stage1 compiler by the Sun
 compiler.  This is Sun bug 4974440.  This is fixed with patch 112760-07.
 
 GCC 3.4 changed the default debugging format from STABS to DWARF-2 for
-32-bit code on Solaris 7 and later.  If you are using the Sun
-assembler, this change apparently runs afoul of Sun bug 4910101, for
-which (as of 2004-05-23) there is no fix.  A symptom of the problem is
-that you cannot compile C++ programs like @command{groff} 1.19.1
-without getting messages similar to the following:
+32-bit code on Solaris 7 and later.  If you use the Sun assembler, this
+change apparently runs afoul of Sun bug 4910101 (which is referenced as
+a x86-only problem by Sun, probably because they do not use DWARF-2).
+A symptom of the problem is that you cannot compile C++ programs like
+@command{groff} 1.19.1 without getting messages similar to the following:
 
 @smallexample
 ld: warning: relocation error: R_SPARC_UA32: @dots{}
@@ -3695,6 +3695,17 @@ ld: fatal: relocation error: R_SPARC_32: file libgcc/sparcv9/_muldi3.o:
 @end smallexample
 
 This bug has been fixed in the final 5.0 version of the assembler.
+
+A similar problem was reported for version Sun WorkShop 6 99/08/18 of the
+Sun assembler, which causes a bootstrap failure with GCC 4.0.0:
+
+@smallexample
+ld: fatal: relocation error: R_SPARC_DISP32:
+  file .libs/libstdc++.lax/libsupc++convenience.a/vterminate.o:
+    symbol <unknown>: offset 0xfccd33ad is non-aligned
+@end smallexample
+
+This bug has been fixed in more recent revisions of the assembler.
 
 @html
 <hr />

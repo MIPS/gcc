@@ -1,3 +1,26 @@
+2005-05-29  Janne Blomqvist  <jblomqvi@vipunen.hut.fi>
+            Steven G. Kargl  <kargls@comcast.net>
+  
+	PR fortran/20846
+	* io.c (gfc_match_inquire): Implement constraints on UNIT and FILE usage.
+
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20006
+	* io.c (format_item_1): Add check and extension warning for
+	$ edit descriptor.
+
+2005-05-28  Jerry DeLisle   <jvdelisle@verizon.net>
+            Steven G. Kargl  <kargls@comcast.net>
+
+	* intrinsic.texi: added documentation for BIT_SIZE, BTEST, CHAR, CEILING,
+	CMPLX, ATAN2, and ASSOCIATED.
+
+2005-05-27  Steven G. Kargl  <kargls@comcast.net>
+
+	* trans-array.c (gfc_trans_deferred_array): Use build_int_cst to force
+	like types in comparsion.
+
 2005-05-21  Andrew Pinski
 
 	Backport from the mainline:
