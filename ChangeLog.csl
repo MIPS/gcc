@@ -1,3 +1,8 @@
+2005-06-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/collect2.c (maybe_unlink): Only unlink regular files or
+	symlinks.
+
 2005-05-20  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/common.opt (fconstant-pools): New.

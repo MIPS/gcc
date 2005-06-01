@@ -1578,7 +1578,12 @@ static void
 maybe_unlink (const char *file)
 {
   if (!debug)
-    unlink (file);
+    {
+      struct stat st;
+      if (lstat (file, &st) == 0
+	  && (S_ISREG (st.st_mode) || S_ISLNK (st.st_mode)))
+	unlink (file);
+    }
   else
     notice ("[Leaving %s]\n", file);
 }
