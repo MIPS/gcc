@@ -2494,9 +2494,10 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 	return false;
       break;
 
+    case TDmode:
     case TFmode:
     case TImode:
-      if (mode == TFmode || !TARGET_POWERPC64)
+      if ((mode == TFmode || mode == TDmode) || !TARGET_POWERPC64)
 	extra = 12;
       else if (offset & 3)
 	return false;
@@ -2645,7 +2646,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
 	       || (((mode != DImode && mode != DFmode) || TARGET_E500_DOUBLE)
-		   && mode != TFmode))
+		   && mode != TFmode
+		   && mode != TDmode))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode)
     {
@@ -3103,8 +3105,10 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && !ALTIVEC_VECTOR_MODE (mode)
       && (flag_pic || MACHO_DYNAMIC_NO_PIC_P)
       /* Don't do this for TFmode, since the result isn't offsettable.
-	 The same goes for DImode without 64-bit gprs.  */
+	 The same goes for TDmode and for DImode without 64-bit
+	 gprs.  */
       && mode != TFmode
+      && mode != TDmode
       && (mode != DImode || TARGET_POWERPC64))
     {
       if (flag_pic)
@@ -3196,9 +3200,10 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
     return 1;
   if (mode != TImode
       && mode != TFmode
+      && mode != TDmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
-	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
+	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode && mode != TDmode))
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
@@ -3639,7 +3644,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
      loaded as two parts.  */
   if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)
       && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128
-      && mode == TFmode && GET_CODE (operands[1]) == CONST_DOUBLE)
+      && (mode == TFmode || mode == TDmode)
+      && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       /* DImode is used, not DFmode, because simplify_gen_subreg doesn't
 	 know how to get a DFmode SUBREG of a TFmode.  */
@@ -3964,7 +3970,8 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
       return true;
     }
 
-  if (DEFAULT_ABI == ABI_V4 && TYPE_MODE (type) == TFmode)
+  if (DEFAULT_ABI == ABI_V4
+      && (TYPE_MODE (type) == TFmode || TYPE_MODE (type) == TDmode))
     return true;
 
   return false;
@@ -4352,7 +4359,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && (mode == SFmode || mode == DFmode
-	      || mode == SDmode || mode == DDmode))
+	      || mode == SDmode || mode == DDmode || mode == TDmode))
 	{
 	  if (cum->fregno <= FP_ARG_V4_MAX_REG)
 	    cum->fregno++;
@@ -4883,7 +4890,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && (mode == SFmode || mode == DFmode
-	      || mode == SDmode || mode == DDmode))
+	      || mode == SDmode || mode == DDmode || mode == TDmode))
 	{
 	  if (cum->fregno <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
@@ -4928,7 +4935,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    {
 	      /* Currently, we only ever need one reg here because complex
 		 doubles are split.  */
-	      gcc_assert (cum->fregno == FP_ARG_MAX_REG && fmode == TFmode);
+	      gcc_assert (cum->fregno == FP_ARG_MAX_REG
+			  && (fmode == TFmode || fmode == TDmode));
 
 	      /* Long double split over regs and memory.  */
 	      fmode = DFmode;
@@ -5088,7 +5096,8 @@ rs6000_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 			  enum machine_mode mode, tree type,
 			  bool named ATTRIBUTE_UNUSED)
 {
-  if (DEFAULT_ABI == ABI_V4 && mode == TFmode)
+  if (DEFAULT_ABI == ABI_V4
+      && (mode == TFmode || mode == TDmode))
     {
       if (TARGET_DEBUG_ARG)
 	fprintf (stderr, "function_arg_pass_by_reference: V4 long double\n");
@@ -5477,7 +5486,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS
       && (TYPE_MODE (type) == SFmode || TYPE_MODE (type) == DFmode
-	  || TYPE_MODE (type) == SDmode || TYPE_MODE (type) == DDmode))
+	  || TYPE_MODE (type) == SDmode || TYPE_MODE (type) == DDmode || TYPE_MODE (type) == TDmode))
     {
       /* FP args go in FP registers, if present.  */
       reg = fpr;
@@ -5486,6 +5495,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       sav_scale = 8;
       if (TYPE_MODE (type) == DFmode || TYPE_MODE (type) == DDmode)
 	align = 8;
+      else if (TYPE_MODE (type) == TDmode)
+	align = 16;
     }
   else
     {
@@ -17845,7 +17856,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
-    return mode == TFmode ? 4 : 2;
+    return (mode == TFmode || mode == TDmode) ? 4 : 2;
 
   /* Everything else has to go through GENERAL_REGS.  */
   else

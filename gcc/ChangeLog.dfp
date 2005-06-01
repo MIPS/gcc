@@ -1,3 +1,17 @@
+2005-06-01  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_address): Add TDmode.
+	(rs6000_legitimate_offset_address_p): Ditto.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimate_address): Ditto.
+	(rs6000_emit_move): Ditto.
+	(rs6000_return_in_memory): Ditto.
+	(function_arg_advance): Ditto.
+	(function_arg): Ditto.
+	(rs6000_pass_by_reference): Ditto.
+	(rs6000_gimplify_va_arg): Ditto.
+	(rs6000_register_move_cost): Ditto.
+
 2005-05-26  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* dfp.c (decimal_do_fix_trunc): New.
