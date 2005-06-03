@@ -288,6 +288,7 @@ build_f1neuron_cluster_info (void)
   return r;
 }
 #endif
+
 /* Given a tree representing a type, this function returns the 
    name of the type, as a string.  */
 
@@ -612,7 +613,6 @@ add_field_access_site (struct data_structure *ds, HOST_WIDE_INT bit_pos,
       else
 	found_field = false;
 
-      /* if (f_bit_pos >= bit_pos && f_bit_pos < (bit_pos + bit_size)) */
       if (found_field)
 	{
 	  as = (struct access_site *)xcalloc (1, sizeof (struct access_site));
@@ -659,7 +659,8 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
 #if 1
   struct_var = get_inner_reference (op, &bitsize, &bitpos, &offsetr, &mode, 
 				    &unsignedp, &volatilep, false);
-  if (! struct_var)
+  if (! struct_var
+      || (struct_var == op))
     return 0;
 
   if (TREE_CODE (struct_var) == VAR_DECL)
@@ -1129,118 +1130,6 @@ update_field_mappings (tree old_struct, tree new_type,
       }
 }
 
-
-/* When splitting (not peeling) structs, we need to create new struct
-   types, based on the original struct types, but with some fields
-   pulled out into sub-structs and replaced by new fields that point
-   to the child sub-structs.
-
-   This function takes a list of child structs (STRUCT_LIST), and builds
-   a new struct as follows:
-
-   If we call the first struct in struct_list, the "basis" struct,
-   then the new struct S_1 contains each field in the basis struct,
-   plus: for each succeeding struct S_i in the list, add one new field
-   (named "f_S_i") to the new struct and make the new field have type
-   "pointer to S_i".
-
-   So the final result, which gets returned  might look something like:
-
-   struct S_1 {
-      T1 f1;
-      T2 f2;
-      struct S_2 * f_S_2;
-      struct S_3 * f_S_3;
-      ...
-      struct S_n * f_S_n;
-   };
-
-   assuming there were n structs in the STRUCT_LIST to start with.
-
-   COUNT is the number of new sub struct created from the original
-   struct so far.
-
-   ORIG_STRUCT is the type decl for the original struct.
-
-   STRUCT_DATA is all the data for the original struct.    */
-
-static struct struct_tree_list *
-build_child_struct (struct struct_tree_list *struct_list, int count,
-		    tree orig_struct, struct data_structure *struct_data)
-{
-  struct new_type_node *new_type;
-  struct struct_tree_list *current;
-  struct struct_tree_list *return_val;
-  tree new_struct;
-  tree field_list = NULL;
-  tree tmp_node;
-  tree last_field = NULL;
-  char *new_name = NULL;
-  char *orig_name;
-  int num_fields = 0;
-
-  /* Build the name for the new child struct.  */
-
-  orig_name = get_type_name (orig_struct);
-  new_name = (char *) xmalloc ((strlen (orig_name) + 10) * sizeof (char));
-
-  sprintf (new_name, "%s_sub_%d", orig_name, count);
-
-  /* Make sure there isn't anything that already uses this new name!  */
-
-  while (maybe_get_identifier (new_name))
-    {
-      int len = strlen (new_name) + 3;
-      char * tmp_string = (char *) xmalloc (len * sizeof (char));
-      sprintf (tmp_string, "%s.0", new_name);
-      new_name = tmp_string;
-    }
-
-  /* Create a record for our new type.  */
-
-  new_type = (struct new_type_node *) xmalloc (sizeof (struct new_type_node));
-  
-  /* For each child struct that will hang off the new struct, make a new
-     field decl, update the original field mapping information, and chain the
-     new fields together.  */
-
-  for (current = struct_list; current; current = current->next)
-    {
-      tmp_node = make_new_field_decl (current->data);
-      if (!field_list)
-	field_list = tmp_node;
-      else
-	TREE_CHAIN (last_field) = tmp_node;
-      last_field = tmp_node;
-      num_fields++;
-    }
-
-  /* Initialize the information for the new type, then call
-     build_basic_struct to actually create the new struct  type.  */
-
-  new_type->num_fields = num_fields;
-  new_type->name = new_name;
-  new_type->field_list = field_list;
-  new_type->next = NULL;
-  new_type->sub_type = false;
-      
-  new_struct = lang_hooks.optimize.build_data_struct ((void *) new_type, new_name,
- 						      orig_struct);
-  
-  for (current = struct_list; current; current = current->next)
-    update_field_mappings (current->data, new_struct, struct_data);
-
-  /* Stuff the new type into a singleton struct_tree_list, and return it.  */
-
-  return_val = (struct struct_tree_list *) xmalloc (sizeof 
-						   (struct struct_tree_list));
-  return_val->data = new_struct;
-  return_val->next = NULL;
-  
-  return return_val;
-}
-
-
 /* Takes a tree of a type decl (or a list of such trees), and a list of such 
    trees, and adds the new tree(s) to the list.  */
 
@@ -1274,7 +1163,7 @@ create_and_assemble_new_types (struct data_structure *struct_data,
   struct struct_tree_list *child_types = NULL;
   struct struct_tree_list *sib_types = NULL;
   struct struct_tree_list *return_list = NULL;
-  struct struct_tree_list *child_struct = NULL;
+  struct struct_tree_list *cur_child;
   struct struct_tree_list *tmp_node;
   struct field_map *tmp_map;
   int i;
@@ -1291,20 +1180,6 @@ create_and_assemble_new_types (struct data_structure *struct_data,
     child_types = create_and_assemble_new_types (struct_data, 
 						 field_info->children,
 						 count, depth++);
-
-  if (child_types)
-    {
-      if (!field_info->direct_access)
-	{
-	  k = *count;
-	  child_struct = build_child_struct (child_types, k, 
-					     struct_data->decl, struct_data);
-	  k++;
-	  *count = k;
-	}
-      else
-	add_to_types_list (child_types, &return_list);
-    }
 
   if (field_info->sibling)
     sib_types = create_and_assemble_new_types (struct_data,
@@ -1356,9 +1231,9 @@ create_and_assemble_new_types (struct data_structure *struct_data,
 	last_field = new_decl;
       }
 
-  if (child_struct)
+  for (cur_child = child_types; cur_child; cur_child = cur_child->next)
     {
-      tree tmp_node = make_new_field_decl (child_struct->data);
+      tree tmp_node = make_new_field_decl (cur_child->data);
       TREE_CHAIN (last_field) = tmp_node;
       last_field = tmp_node;
       new_types->num_fields++;
@@ -1371,8 +1246,8 @@ create_and_assemble_new_types (struct data_structure *struct_data,
   new_type = lang_hooks.optimize.build_data_struct ((void *) new_types, new_name, 
 						    struct_data->decl);
 
-  if (child_struct)
-    update_field_mappings (child_struct->data, new_type, struct_data);
+  for (cur_child = child_types; cur_child; cur_child = cur_child->next)
+    update_field_mappings (cur_child->data, new_type, struct_data);
 
   for (i = 0; i < struct_data->num_fields; i++)
     if (TEST_BIT (field_info->fields_in_cluster, i))
@@ -1649,6 +1524,56 @@ replace_var_types (tree old_record, tree new_record)
     {
       struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
 
+      /* Check the type of the function */
+
+      var_type = TREE_TYPE (TREE_TYPE (c_node->decl));
+
+      type_nest = NULL;
+      while (POINTER_TYPE_P (var_type)
+	     || TREE_CODE (var_type) == ARRAY_TYPE)
+	{
+	  tmp_node = (struct struct_tree_list *) xmalloc 
+		                                  (sizeof 
+						   (struct struct_tree_list));
+	  tmp_node->data = var_type;
+	  tmp_node->next = type_nest;
+	  type_nest = tmp_node;
+	  var_type = TREE_TYPE (var_type);
+	}
+	  
+      if (similar_struct_decls_p (var_type, old_record))
+	{
+	  new_type = build_new_type (type_nest, new_record);
+	  TREE_TYPE (TREE_TYPE (c_node->decl)) = new_type;
+	}
+
+      /* Check the return type of the function */
+
+      if (DECL_RESULT (c_node->decl))
+	{
+	  var_type = TREE_TYPE (DECL_RESULT (c_node->decl));
+
+	  type_nest = NULL;
+	  while (POINTER_TYPE_P (var_type)
+		 || TREE_CODE (var_type) == ARRAY_TYPE)
+	    {
+	      tmp_node = (struct struct_tree_list *) xmalloc 
+		                                      (sizeof 
+						       (struct struct_tree_list));
+	      tmp_node->data = var_type;
+	      tmp_node->next = type_nest;
+	      type_nest = tmp_node;
+	      var_type = TREE_TYPE (var_type);
+	    }
+	  
+	  if (similar_struct_decls_p (var_type, old_record))
+	    {
+	      new_type = build_new_type (type_nest, new_record);
+	      TREE_TYPE (DECL_RESULT (c_node->decl)) = new_type;
+	    }
+	}
+      
+      
       /* Go through the arguments for each function...  */
 
       for (var_decl = DECL_ARGUMENTS (c_node->decl); var_decl;
@@ -1947,7 +1872,7 @@ collect_malloc_data (void)
   for (current = struct_reorg_malloc_list; current;  current = current->next)
     {
       tree stmt = current->data;
-      tree size_var;
+      tree size_var = NULL_TREE;
       tree result_var;
       tree fn_decl;
       tree malloc_fn_decl;
@@ -2915,6 +2840,34 @@ search_rhs_for_struct_vars (tree rhs, struct struct_list *data_struct_list,
   return return_list;
 }
 
+static bool
+equivalent_types_p (tree type1, tree type2)
+{
+  bool ret_value = false;
+  tree tt1;
+  tree tt2;
+
+  if (type1 == type2)
+    ret_value = true;
+  else
+    {
+      tt1 = type1;
+      tt2 = type2;
+      while (POINTER_TYPE_P (tt1)
+	     || TREE_CODE (tt1) == ARRAY_TYPE)
+	tt1 = TREE_TYPE (tt1);
+      while (POINTER_TYPE_P (tt2)
+	     || TREE_CODE (tt2) == ARRAY_TYPE)
+	tt2 = TREE_TYPE (tt2);
+      if (tt1 == tt2)
+	ret_value = true;
+      else
+	ret_value = similar_struct_decls_p (tt1, tt2);
+    }
+  
+  return ret_value;
+}
+
 /* Given and OLD_RHS of an OLD_TYPE,  start with a NEW_RHS that is
    a copy of the OLD_RHS, but then find the original var in for which
    we created new vars, and which corresponds to the OLD_RHS; replace 
@@ -2932,6 +2885,7 @@ find_and_substitute_types_and_vars (tree old_type, tree new_type,
   struct struct_tree_list *current;
   struct new_var_data *cur_var;
   bool found;
+  tree tmp_type;
 
   if (! (*new_rhs))
     return;
@@ -2939,6 +2893,11 @@ find_and_substitute_types_and_vars (tree old_type, tree new_type,
   for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (*new_rhs)); i++)
     find_and_substitute_types_and_vars (old_type, new_type, new_vars,
 					&TREE_OPERAND (*new_rhs, i), old_rhs);
+
+  tmp_type = new_type;
+  while (POINTER_TYPE_P (tmp_type)
+	 || TREE_CODE (tmp_type) == ARRAY_TYPE)
+    tmp_type = TREE_TYPE (tmp_type);
 
   switch (TREE_CODE (*new_rhs))
     {
@@ -2952,7 +2911,7 @@ find_and_substitute_types_and_vars (tree old_type, tree new_type,
     case VAR_DECL:
     case PARM_DECL:
       {
-	if (TREE_TYPE (*new_rhs) == old_type)
+	if (equivalent_types_p (TREE_TYPE (*new_rhs), old_type))
 	  {
 	    found  = false;
 	    for (cur_var = new_vars; cur_var && !found; 
@@ -2962,7 +2921,9 @@ find_and_substitute_types_and_vars (tree old_type, tree new_type,
 		{
 		  for (current = cur_var->new_vars; current && !found;
 		       current = current->next)
-		    if (TREE_TYPE (current->data) == new_type)
+		    if ((TREE_TYPE (current->data) == new_type)
+			|| similar_struct_decls_p (TREE_TYPE (current->data),
+						   tmp_type))
 		      {
 			*new_rhs = current->data;
 			found = true;
@@ -2999,11 +2960,13 @@ build_new_stmts (tree lhs, struct new_var_data *new_vars, tree stmt,
   current_function_decl = fn_decl;
   cfun = DECL_STRUCT_FUNCTION (fn_decl);
 
-  /* The following assumes the type of the component_ref is pointer-to-something.
-     This may not be an accurate assumption. (FIX ME!)  */
-
   if (TREE_CODE (lhs) == COMPONENT_REF)
-    tmp_lhs = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0);
+    {
+      tmp_lhs = TREE_OPERAND (lhs, 0);
+      if (TREE_CODE (tmp_lhs) != VAR_DECL
+	  && TREE_CODE (tmp_lhs) != PARM_DECL)
+	tmp_lhs = TREE_OPERAND (tmp_lhs, 0);
+    }
   else if (TREE_CODE (lhs) == INDIRECT_REF
 	   || TREE_CODE (lhs) == ARRAY_REF)
     tmp_lhs = TREE_OPERAND (lhs, 0);
@@ -3426,6 +3389,7 @@ update_field_accesses (struct struct_list *data_struct_list,
 		while (! field_access_found)
 		  {
 		    if (DECL_P (arg1)
+			&& DECL_NAME (arg1)
 			&& (strcmp (IDENTIFIER_POINTER (DECL_NAME (arg1)),
 				    IDENTIFIER_POINTER (DECL_NAME (cur_field.decl)))
 			    == 0))
@@ -4167,7 +4131,7 @@ check_field_order (struct data_structure *ds)
 {
   bool different_order = false;
   int i;
-  HOST_WIDE_INT prev_f_bit_pos = 0;
+  HOST_WIDE_INT prev_f_bit_pos;
   tree f_bit_pos_t;
 
   if (!ds->struct_clustering->fields_order)
@@ -4176,6 +4140,7 @@ check_field_order (struct data_structure *ds)
   f_bit_pos_t = bit_position (ds->fields[0].decl);
   if (! host_integerp (f_bit_pos_t, 0))
     abort ();
+  prev_f_bit_pos = tree_low_cst (f_bit_pos_t, 0);
 
   for (i = 1; i < ds->num_fields; i++)
     {
@@ -4245,6 +4210,10 @@ reorder_fields (struct data_structure *ds)
   new_type = lang_hooks.optimize.build_data_struct ((void *) new_types,
 						    new_name,
 						    ds->decl);
+
+  if (TYPE_MAIN_VARIANT (ds->decl) != ds->decl)
+    TYPE_MAIN_VARIANT (new_type) = TYPE_MAIN_VARIANT (ds->decl);
+
   tmp_node = (struct struct_tree_list *) xmalloc (sizeof 
 						  (struct struct_tree_list));
   tmp_node->data = new_type;
@@ -4302,6 +4271,156 @@ struct_passed_to_external_function (tree decl)
   return false;
 }
 
+static bool
+contained_in_other_struct (struct data_structure *struct_data, 
+			   struct struct_list *data_struct_list)
+{
+  struct struct_list *cur_struct;
+  struct data_structure *ds;
+  bool ret_value = false;
+  int i;
+  tree cur_field;
+  tree cur_type;
+
+  for (cur_struct = data_struct_list; cur_struct && !ret_value; 
+       cur_struct = cur_struct->next)
+    {
+      ds = cur_struct->struct_data;
+      if (ds == struct_data)
+	continue;
+      if (!ds->struct_clustering 
+	  || ds->count <= 0)
+	continue;
+
+      for (i = 0; i < ds->num_fields; i++)
+	{
+	  cur_field = ds->fields[i].decl;
+	  cur_type = TREE_TYPE (cur_field);
+	  while (POINTER_TYPE_P (cur_type)
+		 || TREE_CODE (cur_type) == ARRAY_TYPE)
+	    cur_type = TREE_TYPE (cur_type);
+	  if (similar_struct_decls_p (cur_type, struct_data->decl))
+	    {
+	      ret_value = true;
+	      break;
+	    }
+	}
+    }
+  
+  return ret_value;
+}
+
+static bool
+is_recursive_struct (struct data_structure *struct_data)
+{
+  int i;
+  bool ret_value = false;
+  for (i = 0; i < struct_data->num_fields && !ret_value; i++)
+    {
+      tree cur_field = struct_data->fields[i].decl;
+      tree cur_type = TREE_TYPE (cur_field);
+
+      while (POINTER_TYPE_P (cur_type)
+	     || TREE_CODE (cur_type) == ARRAY_TYPE)
+	cur_type = TREE_TYPE (cur_type);
+      if (similar_struct_decls_p (cur_type, struct_data->decl))
+	ret_value = true;
+    }
+
+  return ret_value;
+}
+
+static tree
+replace_all_types_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
+{
+  tree t = *tp;
+  struct data_structure *struct_data = (struct data_structure *) data;
+
+  switch (TREE_CODE (t))
+    {
+    case STATEMENT_LIST :
+      {
+	tree_stmt_iterator tsi;
+	for (tsi = tsi_start (*tp); !tsi_end_p (tsi); tsi_next (&tsi))
+	  walk_tree (tsi_stmt_ptr (tsi), replace_all_types_1, data,
+		     visited_nodes);
+	break;
+      default:
+	{
+	  struct struct_tree_list *type_nest;
+	  struct struct_tree_list *tmp_node;
+	  tree node_type;
+	  tree new_type;
+	  tree operand;
+	  int i;
+
+	  node_type = TREE_TYPE (t);
+	  type_nest = NULL;
+	  while (node_type
+		 && (POINTER_TYPE_P (node_type)
+		     || TREE_CODE (node_type) == ARRAY_TYPE))
+	    {
+	      tmp_node = (struct struct_tree_list *) xmalloc (sizeof
+							      (struct struct_tree_list));
+	      tmp_node->data = node_type;
+	      tmp_node->next = type_nest;
+	      type_nest = tmp_node;
+	      node_type = TREE_TYPE (node_type);
+	    }
+
+	  if (similar_struct_decls_p (node_type, struct_data->decl))
+	    {
+	      new_type = build_new_type (type_nest, struct_data->new_types->data);
+	      TREE_TYPE (t) = new_type;
+	    }
+
+	  for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
+	    {
+	      operand = TREE_OPERAND (t, i);
+	      if (operand)
+		walk_tree (&operand, replace_all_types_1, data,
+			   visited_nodes);
+	    }
+	  break;
+	}
+      }
+    }
+  return NULL; 
+}
+
+static void
+replace_all_types (struct data_structure *struct_data)
+{
+  struct cgraph_node *c_node;
+  struct function *func;
+  struct function *save_cfun;
+  tree fn_decl;
+  tree save_fn_decl;
+  basic_block this_bb;
+
+  save_cfun = cfun;
+  save_fn_decl = current_function_decl;
+
+  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+    {
+      func = DECL_STRUCT_FUNCTION (c_node->decl);
+      fn_decl = c_node->decl;
+
+      if (func)
+	{
+	  visited_nodes = pointer_set_create ();
+	  FOR_EACH_BB_FN (this_bb, func)
+	    walk_tree (&this_bb->stmt_list, replace_all_types_1, struct_data,
+		       visited_nodes);
+	  pointer_set_destroy (visited_nodes);
+	  visited_nodes = NULL;
+	}
+    }
+
+  current_function_decl = save_fn_decl;
+  cfun = save_cfun;
+}
+
 static void
 do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	 bitmap escaped_types)
@@ -4309,7 +4428,6 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
   int sub_type_count = 0;
   struct struct_list *cur_struct;
   struct new_var_data *total_new_vars = NULL;
-  bool reorder_only = false;
 
   /* 
      1).  Create a new struct/record type (or hierarchy of types)
@@ -4343,6 +4461,11 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	  of such structs in phase 1.
   */
 
+  /* A hack:  Currently tree-sra occasionally interacts badly with
+     reorg-structs, so we should not do both together at this time.  */
+
+  flag_tree_sra = 0;
+
   for (cur_struct = data_struct_list; cur_struct;
        cur_struct = cur_struct->next)
     {
@@ -4353,16 +4476,21 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	  && struct_data->struct_clustering)
 	{
 	  if (bitmap_bit_p (escaped_types, (struct_data->decl)->type.uid)
-	      || struct_data->struct_clustering->children
 	      || bitmap_bit_p (passed_types, (struct_data->decl)->type.uid)
+	      || contained_in_other_struct (struct_data, data_struct_list)
 	      || contains_bit_field_accesses_p (struct_data))
-	    reorder_only = true;
+	    struct_data->reorder_only = true;
 
-	  if (!reorder_only
+	  if (!struct_data->reorder_only
 	      && struct_passed_to_external_function (struct_data->decl))
-	    reorder_only = true;
+	    struct_data->reorder_only = true;
 
-	  if (reorder_only)
+	  if (!struct_data->reorder_only
+	      && !struct_data->struct_clustering->children
+	      && is_recursive_struct (struct_data))
+	    struct_data->reorder_only = true;
+
+	  if (struct_data->reorder_only)
 	    {
 	      bool different_order;
 	      bool recursive_struct = false;
@@ -4379,10 +4507,11 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 		     &donelist);
 		  replace_var_types (struct_data->decl,
 				     struct_data->new_types->data);
+		  replace_all_types (struct_data);
 		}
 	    }
-	  else if (struct_data->struct_clustering->sibling
-		   && ! struct_data->struct_clustering->children
+	  else if ((struct_data->struct_clustering->sibling
+		    || struct_data->struct_clustering->children)
 		   /* For the moment disallow full peeling of structs that 
 		      are passed around as parameters to functions, as that 
 		      would require updating all the function call sites, the 
@@ -4395,7 +4524,8 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	      struct new_var_data *new_vars;
 	      bool recursive_struct = false;
 	      
-	      struct_data->struct_clustering->direct_access = true;
+	      if (!struct_data->struct_clustering->children)
+		struct_data->struct_clustering->direct_access = true;
 	      sub_type_count = 0;
 	      
 	      struct_data->new_types =  create_and_assemble_new_types 
@@ -4408,9 +4538,6 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 					 struct_data->new_types->data,
 					 struct_data->decl,
 					 &donelist);
-	      if (recursive_struct 
-		  && struct_data->struct_clustering->direct_access)
-		fatal_error ("Attempt to peel structs that are recursive.");
 	      
 	      new_vars = create_new_var_decls (struct_data);
 	      append_to_var_list (new_vars, &total_new_vars);
@@ -4518,7 +4645,15 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
     return NULL;
 
   /* Check to see if it is legal to rearrange this structure.  */
+
   if (!ipa_static_type_contained_p (struct_type))
+    return NULL;
+
+  /* At this time we don't want to mess with pre-initialized
+     arrays, so if it's got a hard-coded initialization, don't
+     reorganize it.  */
+
+  if (DECL_INITIAL (var_decl))
     return NULL;
 
   d_node = (struct data_structure *) 
@@ -4529,6 +4664,7 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
   d_node->fields = get_fields (struct_type, num_fields);
   d_node->alloc_sites = NULL;
   d_node->struct_clustering = NULL;
+  d_node->reorder_only = false;
 
   new_node = (struct struct_list *) xmalloc (sizeof(struct struct_list));
   new_node->struct_data = d_node;

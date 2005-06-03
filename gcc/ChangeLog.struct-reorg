@@ -1,3 +1,35 @@
+2005-06-03  Caroline Tice  <ctice@apple.com>
+
+	* c-gimplify.c (c_genericize): When writing out the dump, call
+	DECL_NAME rather than DECL_ASSEMBLER_NAME.
+	* struct-reorg.c (add_field_access_site): Remove code that was commented
+	out.
+	(get_stmt_accessed_fields_1): Force return if get_inner_reference on
+	op returned op itself.
+	(build_child_struct): Remove function (it was incorrect).
+	(create_and_assemble_new_type): Fix to correctly put references to
+	child fields as pointer fields in current struct (for splitting).
+	(replace_vars): Add code to update the types of functions and their
+	return values as well.
+	(collect_malloc_data): Initialize size_var;
+	(equivalent_type_p): New function.
+	(find_and_substitute_types_and_vars): Add code to deal with 
+	pointer-to-record types being passed in.
+	(build_new_stmts): Remove assumption that component-ref must always be
+	pointer-to-something.
+	(update_field_accesses): Initialize prev_f_bit_pos correctly.
+	(reorder_fields): Update TYPE_MAIN_VARIANT if appropriate.
+	(contained_in_other_struct): New function.
+	(is_recursive_struct): New function.
+	(replace_all_types_1): New function.
+	(replace_all_types): New function.
+	(do_reorg): Remove unused variable; disable tree_sra optimization if
+	doing reorg_structs; correctly update condition tests for when to
+	do reordering vs. splitting vs. peeling.
+	(make_data_struct_node): Disable optimization if dealing with a
+	pre-initialized array; initialize reorder_only field.
+	* struct-reorg.h (struct data_structure): Add new field, reorder_only.
+	
 2005-05-13  Caroline Tice  <ctice@apple.com>
 
 	* cgraphunit.c (record_call_1): Add 'realloc' to list of malloc 

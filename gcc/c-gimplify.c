@@ -117,7 +117,7 @@ c_genericize (tree fndecl)
       fprintf (dump_file, "\n;; Function %s",
 	       lang_hooks.decl_printable_name (fndecl, 2));
       fprintf (dump_file, " (%s)\n",
-	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
+	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
       fprintf (dump_file, ";; enabled by -%s\n", dump_flag_name (TDI_original));
       fprintf (dump_file, "\n");
 

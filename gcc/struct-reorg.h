@@ -159,6 +159,7 @@ struct data_structure {
   /* A linked list of the newly created type(s),  corresponding to the
      reorganization of the original structure.  */
   struct struct_tree_list *new_types;
+  bool reorder_only;
 };
 
 /*
