@@ -1,3 +1,114 @@
+2005-06-03  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jawt.c: Remove malloc.h, covered by stdlib.h.
+
+	* testsuite/libjava.jni/jni.exp
+	(gcj_jni_invocation_compile_c_to_binary): Add -bind_at_load to silence
+	the build process.
+
+2005-06-02  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/transport/TransportException.java: New file.
+
+2005-06-02  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* mauve-libgcj: Remove implemented classes from the fail section.
+	Add two new not implemented to it.
+
+2005-06-01  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.ac (BACKTRACESPEC): Remove definition, but continue to
+	AC_SUBST definition from configure.host.
+	* configure.host: Don't use -fno-omit-frame-pointer. Set BACKTRACESPEC
+	to -fomit-frame-pointer on 32-bit x86 targets.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/ObjectInputStream.java (currentLoader): Fixed typo.
+
+2005-06-01  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	PR libgcj/20435:
+	* gnu/regexp/RESyntax.java (RE_POSSESSIVE_OPS): New field.
+	(static): Add possessive matching to JAVA_1_4 syntax.
+	* gnu/regexp/RETokenRepeated.java (possessive): New field.
+	(makePossessive, isPossessive): New methods.
+	(match): Don't back off during possessive matching.
+	* gnu/regexp/RE.java (initalize): Accept possessive quantifier.
+	* java/util/regex/Pattern.java (constructor): Switch syntax from PERL5
+	to JAVA_1_4.
+
+2005-06-01  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/transport/JdwpPacket.java: New file.
+	* gnu/classpath/jdwp/transport/JdwpCommandPacket.java: New file.
+	* gnu/classpath/jdwp/transport/JdwpReplyPacket.java: New file.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21785:
+	* java/io/natObjectInputStream.cc (currentClassLoader): Removed.
+	(currentLoader): New method.
+	* java/io/ObjectInputStream.java (resolveProxyClass): Use
+	currentLoader.
+	(currentLoader): Now native.
+	(currentClassLoader): Removed.
+	* testsuite/libjava.lang/pr21785.java: New file.
+	* testsuite/libjava.lang/pr21785.out: New file.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21753:
+	* java/lang/natString.cc (substring): Changed sharing heuristic.
+
+2005-05-30  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/21821
+	* gnu/java/nio/channels/natFileChannelPosix.cc (open): Don't use
+	MAXPATHLEN. Format exception message using a StringBuffer instead.
+
+2005-05-29  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/20273:
+	* java/util/LinkedHashMap.java (access): Set 'root.pred'.
+
+2005-05-27  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	* ChangeLog: Fix typo.
+
+2005-05-26  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Testsuite adjustments for PR java/19870.
+	* testsuite/libjava.lang/PR19870.java: New testcase.
+	* testsuite/libjava.lang/PR19870.out: Expected output for the
+	testcase.
+	* testsuite/libjava.jacks/jacks.xfail: Add
+	8.5.2-accessible-static-member-usage-3 and 15.8.4-static-2
+
+
+2005-05-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* include/jvm.h (FLAG_BINARYCOMPAT_ABI, FLAG_BOOTSTRAP_LOADER): New.
+	(GCJ_BINARYCOMPAT_ADDITION, GCJ_BOOTSTRAP_LOADER_ADDITION): Removed.
+	(OLD_GCJ_40_BC_ABI_VERSION): Renamed. Old-style version ID for BC-ABI
+	classes.
+	(GCJ_CXX_ABI_VERSION): Renamed from GCJ_ABI_VERSION.
+	(GCJ_40_BC_ABI_VERSION): New. Calculate version	IDs using new method.
+	(_Jv_CheckABIVersion): Check for both old and new style version IDs.
+	(_Jv_ClassForBootstrapLoader): Use FLAG_BOOTSTRAP_LOADER. 
+
+2005-05-25  Richard Henderson  <rth@redhat.com>
+
+	PR libgcj/21692
+	* sysdep/descriptor-n.h: New file.
+	* sysdep/descriptor-y.h: New file.
+	* sysdep/powerpc/descriptor.h: New file.
+	* configure.host: Set $descriptor_h appropriate for the host.
+	* configure.ac: Link it.
+	* configure: Regenerate.
+	* stacktrace.cc: Include sysdep/descriptor.h.
+	(_Jv_StackTrace::UpdateNCodeMap): Use UNWRAP_FUNCTION_DESCRIPTOR.
+
 2005-05-25  Chris Burdess  <dog@gnu.org>
 
 	* gnu/xml/dom/ls/SAXEventSink.java: Ignore XML entities in start/
@@ -158,7 +269,7 @@
 2005-05-16  Ziga Mahkovec  <ziga.mahkovec@klika.si>
 
 	PR libgcj/20504
-	gnu/regexp/RE.java: Add support for quoting constructs.
+	* gnu/regexp/RE.java: Add support for quoting constructs.
 
 2005-05-15  Tom Tromey  <tromey@redhat.com>
 

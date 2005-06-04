@@ -136,12 +136,16 @@
 #define TARGET_MFCRF 0
 #endif
 
-/* Define TARGET_POPCNTB if the target assembler does not suppport the
+/* Define TARGET_POPCNTB if the target assembler does not support the
    popcount byte instruction.  */
 
 #ifndef HAVE_AS_POPCNTB
 #undef  TARGET_POPCNTB
 #define TARGET_POPCNTB 0
+#endif
+
+#ifndef TARGET_SECURE_PLT
+#define TARGET_SECURE_PLT 0
 #endif
 
 #define TARGET_32BIT		(! TARGET_64BIT)

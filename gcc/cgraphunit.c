@@ -172,14 +172,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
-static tree record_call_1 (tree *, int *, void *);
+static tree record_reference (tree *, int *, void *);
 static void cgraph_analyze_function (struct cgraph_node *node);
-static void cgraph_create_edges (struct cgraph_node *node, tree body);
 
-/* Records tree nodes seen in cgraph_create_edges.  Simply using
+/* Records tree nodes seen in record_reference.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
    once because it gets a new htab upon each recursive call from
-   record_calls_1.  */
+   record_reference itself.  */
 static struct pointer_set_t *visited_nodes;
 
 static FILE *cgraph_dump_file;
@@ -218,6 +217,17 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
         node->local.externally_visible = true;
       return true;
     }
+
+  /* If the user told us it is used, then it must be so.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+    return true;
+
+  /* ??? If the assembler name is set by hand, it is possible to assemble
+     the name later after finalizing the function and the fact is noticed
+     in assemble_name then.  This is arguably a bug.  */
+  if (DECL_ASSEMBLER_NAME_SET_P (decl)
+      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    return true;
 
   /* If we decided it was needed before, but at the time we didn't have
      the body of the function available, then it's still needed.  We have
@@ -282,7 +292,12 @@ cgraph_varpool_analyze_pending_decls (void)
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
 
       if (DECL_INITIAL (decl))
-	cgraph_create_edges (NULL, DECL_INITIAL (decl));
+	{
+	  visited_nodes = pointer_set_create ();
+          walk_tree (&DECL_INITIAL (decl), record_reference, NULL, visited_nodes);
+	  pointer_set_destroy (visited_nodes);
+	  visited_nodes = NULL;
+	}
       changed = true;
     }
   timevar_pop (TV_CGRAPH);
@@ -292,7 +307,7 @@ cgraph_varpool_analyze_pending_decls (void)
 /* Optimization of function bodies might've rendered some variables as
    unnecessary so we want to avoid these from being compiled.
 
-   This is done by prunning the queue and keeping only the variables that
+   This is done by pruning the queue and keeping only the variables that
    really appear needed (ie they are either externally visible or referenced
    by compiled function). Re-doing the reachability analysis on variables
    brings back the remaining variables referenced by these.  */
@@ -447,11 +462,10 @@ cgraph_finalize_function (tree decl, bool nested)
   if (decide_is_function_needed (node, decl))
     cgraph_mark_needed_node (node);
 
-  /* Since we reclaim unrechable nodes at the end of every language
+  /* Since we reclaim unreachable nodes at the end of every language
      level unit, we need to be conservative about possible entry points
      there.  */
-  if (flag_whole_program
-      && (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl)))
+  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     cgraph_mark_reachable_node (node);
 
   /* If not unit at a time, go ahead and emit everything we've found
@@ -471,9 +485,6 @@ cgraph_finalize_function (tree decl, bool nested)
     do_warn_unused_parameter (decl);
 }
 
-/* Used only while constructing the callgraph.  */
-static basic_block current_basic_block;
-
 void
 cgraph_lower_function (struct cgraph_node *node)
 {
@@ -485,7 +496,7 @@ cgraph_lower_function (struct cgraph_node *node)
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
 static tree
-record_call_1 (tree *tp, int *walk_subtrees, void *data)
+record_reference (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
 
@@ -516,41 +527,6 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	}
       break;
 
-    case CALL_EXPR:
-      {
-	tree decl = get_callee_fndecl (*tp);
-	if (decl && TREE_CODE (decl) == FUNCTION_DECL)
-	  {
-	    cgraph_create_edge (data, cgraph_node (decl), *tp,
-			        current_basic_block->count,
-				current_basic_block->loop_depth);
-
-	    /* When we see a function call, we don't want to look at the
-	       function reference in the ADDR_EXPR that is hanging from
-	       the CALL_EXPR we're examining here, because we would
-	       conclude incorrectly that the function's address could be
-	       taken by something that is not a function call.  So only
-	       walk the function parameter list, skip the other subtrees.  */
-
-	    walk_tree (&TREE_OPERAND (*tp, 1), record_call_1, data,
-		       visited_nodes);
-	    *walk_subtrees = 0;
-	  }
-	break;
-      }
-
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator tsi;
-	/* Track current statement while finding CALL_EXPRs.  */
-	for (tsi = tsi_start (*tp); !tsi_end_p (tsi); tsi_next (&tsi))
-	  {
-	    walk_tree (tsi_stmt_ptr (tsi), record_call_1, data,
-		       visited_nodes);
-	  }
-      }
-      break;
-
     default:
       /* Save some cycles by not walking types and declaration as we
 	 won't find anything useful there anyway.  */
@@ -573,98 +549,62 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 static void
 cgraph_create_edges (struct cgraph_node *node, tree body)
 {
+  basic_block bb;
 
-  /* The nodes we're interested in are never shared, so walk
-     the tree ignoring duplicates.  */
+  struct function *this_cfun = DECL_STRUCT_FUNCTION (body);
+  block_stmt_iterator bsi;
+  tree step;
   visited_nodes = pointer_set_create ();
-  gcc_assert (current_basic_block == NULL);
-  if (TREE_CODE (body) == FUNCTION_DECL)
-    {
-      struct function *this_cfun = DECL_STRUCT_FUNCTION (body);
-      block_stmt_iterator bsi;
-      tree step;
 
-      /* Reach the trees by walking over the CFG, and note the 
-	 enclosing basic-blocks in the call edges.  */
-      FOR_EACH_BB_FN (current_basic_block, this_cfun)
-        for (bsi = bsi_start (current_basic_block); !bsi_end_p (bsi); bsi_next (&bsi))
-	  walk_tree (bsi_stmt_ptr (bsi), record_call_1, node, visited_nodes);
-      current_basic_block = NULL;
+  /* Reach the trees by walking over the CFG, and note the 
+     enclosing basic-blocks in the call edges.  */
+  FOR_EACH_BB_FN (bb, this_cfun)
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	tree stmt = bsi_stmt (bsi);
+	tree call = get_call_expr_in (stmt);
+	tree decl;
 
-      /* Walk over any private statics that may take addresses of functions.  */
-      if (TREE_CODE (DECL_INITIAL (body)) == BLOCK)
-	{
-	  for (step = BLOCK_VARS (DECL_INITIAL (body));
-	       step;
-	       step = TREE_CHAIN (step))
-	    if (DECL_INITIAL (step))
-	      walk_tree (&DECL_INITIAL (step), record_call_1, node, visited_nodes);
-	}
-
-      /* Also look here for private statics.  */
-      if (DECL_STRUCT_FUNCTION (body))
-	for (step = DECL_STRUCT_FUNCTION (body)->unexpanded_var_list;
-	     step;
-	     step = TREE_CHAIN (step))
+	if (call && (decl = get_callee_fndecl (call)))
 	  {
-	    tree decl = TREE_VALUE (step);
-	    if (DECL_INITIAL (decl) && TREE_STATIC (decl))
-	      walk_tree (&DECL_INITIAL (decl), record_call_1, node, visited_nodes);
+	    cgraph_create_edge (node, cgraph_node (decl), stmt,
+				bb->count,
+				bb->loop_depth);
+	    walk_tree (&TREE_OPERAND (call, 1),
+		       record_reference, node, visited_nodes);
+	    if (TREE_CODE (stmt) == MODIFY_EXPR)
+	      walk_tree (&TREE_OPERAND (stmt, 0),
+			 record_reference, node, visited_nodes);
 	  }
+	else 
+	  walk_tree (bsi_stmt_ptr (bsi), record_reference, node, visited_nodes);
+      }
+
+  /* Walk over any private statics that may take addresses of functions.  */
+  if (TREE_CODE (DECL_INITIAL (body)) == BLOCK)
+    {
+      for (step = BLOCK_VARS (DECL_INITIAL (body));
+	   step;
+	   step = TREE_CHAIN (step))
+	if (DECL_INITIAL (step))
+	  walk_tree (&DECL_INITIAL (step), record_reference, node, visited_nodes);
     }
-  else
-    walk_tree (&body, record_call_1, node, visited_nodes);
+
+  /* Also look here for private statics.  */
+  if (DECL_STRUCT_FUNCTION (body))
+    for (step = DECL_STRUCT_FUNCTION (body)->unexpanded_var_list;
+	 step;
+	 step = TREE_CHAIN (step))
+      {
+	tree decl = TREE_VALUE (step);
+	if (DECL_INITIAL (decl) && TREE_STATIC (decl))
+	  walk_tree (&DECL_INITIAL (decl), record_reference, node, visited_nodes);
+      }
     
   pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
 }
 
-static bool error_found;
-
-/* Callback of verify_cgraph_node.  Check that all call_exprs have
-   cgraph nodes.  */
-
-static tree
-verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
-{
-  tree t = *tp;
-  tree decl;
-
-  if (TREE_CODE (t) == CALL_EXPR && (decl = get_callee_fndecl (t)))
-    {
-      struct cgraph_edge *e = cgraph_edge (data, t);
-      if (e)
-	{
-	  if (e->aux)
-	    {
-	      error ("Shared call_expr:");
-	      debug_tree (t);
-	      error_found = true;
-	    }
-	  if (e->callee->decl != cgraph_node (decl)->decl)
-	    {
-	      error ("Edge points to wrong declaration:");
-	      debug_tree (e->callee->decl);
-	      fprintf (stderr," Instead of:");
-	      debug_tree (decl);
-	    }
-	  e->aux = (void *)1;
-	}
-      else
-	{
-	  error ("Missing callgraph edge for call expr:");
-	  debug_tree (t);
-	  error_found = true;
-	}
-    }
-
-  /* Save some cycles by not walking types and declaration as we
-     won't find anything useful there anyway.  */
-  if (IS_TYPE_OR_DECL_P (*tp))
-    *walk_subtrees = 0;
-
-  return NULL_TREE;
-}
 
 /* Verify cgraph nodes of given cgraph node.  */
 void
@@ -675,9 +615,9 @@ verify_cgraph_node (struct cgraph_node *node)
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
   basic_block this_block;
   block_stmt_iterator bsi;
+  bool error_found = false;
 
   timevar_push (TV_CGRAPH_VERIFY);
-  error_found = false;
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)
       {
@@ -716,7 +656,7 @@ verify_cgraph_node (struct cgraph_node *node)
     }
   if (node->global.inlined_to == node)
     {
-      error ("Inlined_to pointer reffers to itself");
+      error ("Inlined_to pointer refers to itself");
       error_found = true;
     }
 
@@ -743,7 +683,38 @@ verify_cgraph_node (struct cgraph_node *node)
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
 	    for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
-	      walk_tree (bsi_stmt_ptr (bsi), verify_cgraph_node_1, node, visited_nodes);
+	      {
+		tree stmt = bsi_stmt (bsi);
+		tree call = get_call_expr_in (stmt);
+		tree decl;
+		if (call && (decl = get_callee_fndecl (call)))
+		  {
+		    struct cgraph_edge *e = cgraph_edge (node, stmt);
+		    if (e)
+		      {
+			if (e->aux)
+			  {
+			    error ("Shared call_stmt:");
+			    debug_generic_stmt (stmt);
+			    error_found = true;
+			  }
+			if (e->callee->decl != cgraph_node (decl)->decl)
+			  {
+			    error ("Edge points to wrong declaration:");
+			    debug_tree (e->callee->decl);
+			    fprintf (stderr," Instead of:");
+			    debug_tree (decl);
+			  }
+			e->aux = (void *)1;
+		      }
+		    else
+		      {
+			error ("Missing callgraph edge for call stmt:");
+			debug_generic_stmt (stmt);
+			error_found = true;
+		      }
+		  }
+	      }
 	  pointer_set_destroy (visited_nodes);
 	  visited_nodes = NULL;
 	}
@@ -755,9 +726,10 @@ verify_cgraph_node (struct cgraph_node *node)
 	{
 	  if (!e->aux)
 	    {
-	      error ("Edge %s->%s has no corresponding call_expr",
+	      error ("Edge %s->%s has no corresponding call_stmt",
 		     cgraph_node_name (e->caller),
 		     cgraph_node_name (e->callee));
+	      debug_generic_stmt (e->call_stmt);
 	      error_found = true;
 	    }
 	  e->aux = 0;
@@ -1045,6 +1017,8 @@ cgraph_expand_function (struct cgraph_node *node)
 	 points to the dead function body.  */
       cgraph_node_remove_callees (node);
     }
+
+  cgraph_function_flags_ready = true;
 }
 
 /* Expand all functions that must be output.
@@ -1097,7 +1071,7 @@ cgraph_expand_all_functions (void)
 
    We also change the TREE_PUBLIC flag of all declarations that are public
    in language point of view but we want to overwrite this default
-   via -fwhole-program for the backend point of view.  */
+   via visibilities for the backend point of view.  */
 
 static void
 cgraph_function_and_variable_visibility (void)
@@ -1109,8 +1083,7 @@ cgraph_function_and_variable_visibility (void)
     {
       if (node->reachable
 	  && (DECL_COMDAT (node->decl)
-	      || (TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl)
-		  && !flag_whole_program)))
+	      || (TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl))))
 	node->local.externally_visible = 1;
       if (!node->local.externally_visible && node->analyzed
 	  && !DECL_EXTERNAL (node->decl))
@@ -1120,19 +1093,14 @@ cgraph_function_and_variable_visibility (void)
 	}
       node->local.local = (!node->needed
 			   && node->analyzed
-			   && !TREE_PUBLIC (node->decl));
+			   && !DECL_EXTERNAL (node->decl)
+			   && !node->local.externally_visible);
     }
   for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
     {
       if (vnode->needed
-	  && (DECL_COMDAT (vnode->decl)
-	      || (TREE_PUBLIC (vnode->decl) && !flag_whole_program)))
+	  && (DECL_COMDAT (vnode->decl) || TREE_PUBLIC (vnode->decl)))
 	vnode->externally_visible = 1;
-      if (!vnode->externally_visible)
-	{
-	  gcc_assert (flag_whole_program || !TREE_PUBLIC (vnode->decl));
-	  TREE_PUBLIC (vnode->decl) = 0;
-	}
      gcc_assert (TREE_STATIC (vnode->decl));
     }
 
@@ -1141,8 +1109,7 @@ cgraph_function_and_variable_visibility (void)
      reachable just because they might be used later via external
      linkage, but after making them local they are really unreachable
      now.  */
-  if (flag_whole_program)
-    cgraph_remove_unreachable_nodes (true, cgraph_dump_file);
+  cgraph_remove_unreachable_nodes (true, cgraph_dump_file);
 
   if (cgraph_dump_file)
     {
@@ -1225,6 +1192,7 @@ cgraph_optimize (void)
     if (!vnode->non_ipa)
       ipa_analyze_variable (vnode);
 
+  cgraph_function_and_variable_visibility ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Marked ");
@@ -1235,8 +1203,8 @@ cgraph_optimize (void)
   bitmap_obstack_initialize (NULL);
   ipa_passes ();
   bitmap_obstack_release (NULL);
-  /* FIXME: this should be unnecesary if inliner took care of removing dead
-     functions.  */
+  /* This pass remove bodies of extern inline functions we never inlined.
+     Do this later so other IPA passes see what is really going on.  */
   cgraph_remove_unreachable_nodes (false, dump_file);  
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
@@ -1383,7 +1351,7 @@ update_call_expr (struct cgraph_node *new_version)
   for (e = new_version->callers; e; e = e->next_caller)
     /* Update the call expr on the edges
        to be calling the new version. */
-    TREE_OPERAND (TREE_OPERAND (e->call_expr, 0), 0) = new_version->decl;
+    TREE_OPERAND (TREE_OPERAND (get_call_expr_in (e->call_stmt), 0), 0) = new_version->decl;
 }
  
 
@@ -1420,7 +1388,7 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
       also cloned.  */
    for (e = old_version->callees;e; e=e->next_callee)
      {
-       new_e = cgraph_clone_edge (e, new_version, e->call_expr, 0, e->loop_nest);
+       new_e = cgraph_clone_edge (e, new_version, get_call_expr_in (e->call_stmt), 0, e->loop_nest);
        new_e->count = e->count;
      }
    /* Fix recursive calls. 

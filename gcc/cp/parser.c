@@ -4873,7 +4873,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 	  non_constant_p = (unary_operator == PREINCREMENT_EXPR
 			    ? "`++'" : "`--'");
 	  /* Fall through.  */
-	case CONVERT_EXPR:
+	case UNARY_PLUS_EXPR:
 	case NEGATE_EXPR:
 	case TRUTH_NOT_EXPR:
 	  expression = finish_unary_op_expr (unary_operator, cast_expression);
@@ -4909,7 +4909,7 @@ cp_parser_unary_operator (cp_token* token)
       return ADDR_EXPR;
 
     case CPP_PLUS:
-      return CONVERT_EXPR;
+      return UNARY_PLUS_EXPR;
 
     case CPP_MINUS:
       return NEGATE_EXPR;
@@ -15486,6 +15486,7 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       if (function_scope)
 	push_function_context_to (function_scope);
 
+      
       /* Push the body of the function onto the lexer stack.  */
       cp_parser_push_lexer_for_tokens (parser, tokens);
 
@@ -15494,10 +15495,17 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       start_preparsed_function (member_function, NULL_TREE,
 				SF_PRE_PARSED | SF_INCLASS_INLINE);
 
+      /* Don't do access checking if it is a templated function.  */
+      if (processing_template_decl)
+	push_deferring_access_checks (dk_no_check);
+      
       /* Now, parse the body of the function.  */
       cp_parser_function_definition_after_declarator (parser,
 						      /*inline_p=*/true);
 
+      if (processing_template_decl)
+	pop_deferring_access_checks ();
+      
       /* Leave the scope of the containing function.  */
       if (function_scope)
 	pop_function_context_from (function_scope);

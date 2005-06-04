@@ -147,7 +147,7 @@ struct dump_file_info
    chains for virtuals (e.g., DCE).  */
 #define TODO_update_ssa_no_phi		(1 << 8)
 
-/* Insert PHI nodes everywhere they are needed.  No prunning of the
+/* Insert PHI nodes everywhere they are needed.  No pruning of the
    IDF is done.  This is used by passes that need the PHI nodes for
    O_j even if it means that some arguments will come from the default
    definition of O_j's symbol (e.g., pass_linear_transform).
@@ -217,7 +217,8 @@ extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
-extern struct tree_opt_pass pass_pre_expand;
+extern struct tree_opt_pass pass_lower_complex;
+extern struct tree_opt_pass pass_lower_vector;
 extern struct tree_opt_pass pass_lower_vector_ssa;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_stdarg;

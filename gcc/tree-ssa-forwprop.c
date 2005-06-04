@@ -22,7 +22,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "rtl.h"
@@ -560,7 +559,8 @@ forward_propagate_addr_expr (tree stmt)
   if (bb_for_stmt (use_stmt)->loop_depth > stmt_loop_depth)
     return false;
 
-  /* Strip away any outer COMPONENT_REF/ARRAY_REF nodes from the LHS.  */
+  /* Strip away any outer COMPONENT_REF/ARRAY_REF nodes from the LHS. 
+     ADDR_EXPR will not appear on the LHS.  */
   lhs = TREE_OPERAND (use_stmt, 0);
   while (TREE_CODE (lhs) == COMPONENT_REF || TREE_CODE (lhs) == ARRAY_REF)
     lhs = TREE_OPERAND (lhs, 0);
@@ -591,9 +591,12 @@ forward_propagate_addr_expr (tree stmt)
       return true;
     }
 
-  /* Strip away any outer COMPONENT_REF/ARRAY_REF nodes from the RHS.  */
+  /* Strip away any outer COMPONENT_REF, ARRAY_REF or ADDR_EXPR
+     nodes from the RHS.  */
   rhs = TREE_OPERAND (use_stmt, 1);
-  while (TREE_CODE (rhs) == COMPONENT_REF || TREE_CODE (rhs) == ARRAY_REF)
+  while (TREE_CODE (rhs) == COMPONENT_REF
+	 || TREE_CODE (rhs) == ARRAY_REF
+	 || TREE_CODE (rhs) == ADDR_EXPR)
     rhs = TREE_OPERAND (rhs, 0);
 
   /* Now see if the RHS node is an INDIRECT_REF using NAME.  If so, 

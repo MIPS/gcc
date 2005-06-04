@@ -23,7 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "basic-block.h"
@@ -1246,7 +1245,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 /* Function vect_analyze_data_refs_alignment
 
    Analyze the alignment of the data-references in the loop.
-   FOR NOW: Until support for misliagned accesses is in place, only if all
+   FOR NOW: Until support for misaligned accesses is in place, only if all
    accesses are aligned can the loop be vectorized. This restriction will be 
    relaxed.  */ 
 
@@ -1908,7 +1907,7 @@ vect_object_analysis (tree memref, tree stmt, bool is_read,
           foreach ref
 	     base_address = vect_object_analysis(ref)
       1.1- vect_object_analysis(ref): 
-           Analyze ref, and build a DR (data_referece struct) for it;
+           Analyze ref, and build a DR (data_reference struct) for it;
            compute base, initial_offset, step and alignment. 
            Call get_inner_reference for refs handled in this function.
            Call vect_addr_analysis(addr) to analyze pointer type expressions.
@@ -2466,7 +2465,7 @@ vect_analyze_loop_form (struct loop *loop)
   if (!empty_block_p (loop->latch))
     {
       if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS, loop_loc))
-        fprintf (vect_dump, "not vectorized: unexpectd loop form.");
+        fprintf (vect_dump, "not vectorized: unexpected loop form.");
       return NULL;
     }
 

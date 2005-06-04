@@ -171,8 +171,8 @@ rtl_predicted_by_p (basic_block bb, enum br_predictor predictor)
 bool
 tree_predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
-  struct edge_prediction *i = bb_ann (bb)->predictions;
-  for (i = bb_ann (bb)->predictions; i; i = i->next)
+  struct edge_prediction *i;
+  for (i = bb->predictions; i; i = i->next)
     if (i->predictor == predictor)
       return true;
   return false;
@@ -235,8 +235,8 @@ tree_predict_edge (edge e, enum br_predictor predictor, int probability)
   if (!flag_guess_branch_prob)
      return;
 
-  i->next = bb_ann (e->src)->predictions;
-  bb_ann (e->src)->predictions = i;
+  i->next = e->src->predictions;
+  e->src->predictions = i;
   i->probability = probability;
   i->predictor = predictor;
   i->edge = e;
@@ -490,7 +490,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     {
       if (!bb->count)
 	set_even_probabilities (bb);
-      bb_ann (bb)->predictions = NULL;
+      bb->predictions = NULL;
       if (file)
 	fprintf (file, "%i edges in bb %i predicted to even probabilities\n",
 		 nedges, bb->index);
@@ -502,7 +502,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
 
   /* We implement "first match" heuristics and use probability guessed
      by predictor with smallest index.  */
-  for (pred = bb_ann (bb)->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->next)
     {
       int predictor = pred->predictor;
       int probability = pred->probability;
@@ -548,7 +548,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     combined_probability = best_probability;
   dump_prediction (file, PRED_COMBINED, combined_probability, bb, true);
 
-  for (pred = bb_ann (bb)->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->next)
     {
       int predictor = pred->predictor;
       int probability = pred->probability;
@@ -558,7 +558,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
       dump_prediction (file, predictor, probability, bb,
 		       !first_match || best_predictor == predictor);
     }
-  bb_ann (bb)->predictions = NULL;
+  bb->predictions = NULL;
 
   if (!bb->count)
     {

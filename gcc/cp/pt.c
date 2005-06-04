@@ -3225,10 +3225,9 @@ redeclare_class_template (tree type, tree parms)
   if (TREE_VEC_LENGTH (parms) != TREE_VEC_LENGTH (tmpl_parms))
     {
       cp_error_at ("previous declaration %qD", tmpl);
-      error ("used %d template parameter%s instead of %d",
-		TREE_VEC_LENGTH (tmpl_parms), 
-		TREE_VEC_LENGTH (tmpl_parms) == 1 ? "" : "s",
-		TREE_VEC_LENGTH (parms));
+      error ("used %d template parameter(s) instead of %d",
+	     TREE_VEC_LENGTH (tmpl_parms), 
+	     TREE_VEC_LENGTH (parms));
       return;
     }
 
@@ -6495,8 +6494,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      clone_function_decl (r, /*update_method_vec_p=*/0);
 	  }
 	else if (IDENTIFIER_OPNAME_P (DECL_NAME (r)))
-	  grok_op_properties (r, DECL_FRIEND_P (r),
-			      (complain & tf_error) != 0);
+	  grok_op_properties (r, (complain & tf_error) != 0);
 
 	if (DECL_FRIEND_P (t) && DECL_FRIEND_CONTEXT (t))
 	  SET_DECL_FRIEND_CONTEXT (r,
@@ -7785,7 +7783,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case TRUTH_NOT_EXPR:
     case BIT_NOT_EXPR:
     case ADDR_EXPR:
-    case CONVERT_EXPR:      /* Unary + */
+    case UNARY_PLUS_EXPR:      /* Unary + */
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
     case ARROW_EXPR:
@@ -8466,7 +8464,7 @@ tsubst_copy_and_build (tree t,
     case BIT_NOT_EXPR:
     case ABS_EXPR:
     case TRUTH_NOT_EXPR:
-    case CONVERT_EXPR:  /* Unary + */
+    case UNARY_PLUS_EXPR:  /* Unary + */
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       return build_x_unary_op (TREE_CODE (t), RECUR (TREE_OPERAND (t, 0)));

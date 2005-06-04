@@ -1,3 +1,130 @@
+2005-06-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21336
+	* cp-tree.h (grok_op_properties): Remove friendp parameter.
+	* decl.c (grokfndecl): Adjust call.
+	(grok_op_properties): Determine the class of which the function is
+	a member by looking at its DECL_CONTEXT, not current_class_type.
+	* pt.c (tsubst_decl): Adjust call to grok_op_properties.
+
+2005-06-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* method.c (synthesize_method): Add addtional arg to warning call.
+
+	PR c++/21280
+	* Make-lang.in (method.o): Add diagnostic.h
+	* decl.c (start_preparsed_function): Use decl's location for file
+	info.
+	* decl2.c (cp_finish_file): Set input_location before synthesizing
+	a function.
+	(mark_used): When deferring a synthesized function, save current
+	location.  Do not set function's location when actually
+	synthesizing it.
+	* method.c: #include diagnostic.h.
+	(synthesize_method): Set the functions source location.  Show
+	needed location if errors are emitted.
+
+	* decl.c (start_decl): Simplify specialization handling. Remove
+	unneeded CLASSTYPE_TEMPLATE_INSTANTIATION check.
+	* mangle.c (discriminator_for_local_entity): Use VEC_index.
+
+	PR c++/20350
+	* decl.c (duplicate_decls): Copy all of DECL_USE_TEMPLATE.
+
+	PR c++/21151
+	* name-lookup.c (pushtag): Push local class even in a template.
+
+2005-05-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21165
+	* init.c (integral_constant_value): Check the type of the
+	initializer, not the decl.
+
+2005-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21784
+	* name-lookup.c (do_nonmember_using_decl): Ignore builtin
+	functions, even	when the used name is not a function.
+
+2005-05-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* operators.def, optimize.c: Update copyright.
+
+2005-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21210
+	* call.c (standard_conversion): Permit conversions to complex
+	types if conversion to the corresponding scalar type would be
+	permitted.
+
+	PR c++/21340
+	* method.c (implicitly_declare_fn): Clear processing_template_decl
+	when generating implicit declaration.
+
+2005-05-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21614
+	* typeck.c (get_member_function_from_ptrfunc): Do not attempt
+	conversions to base classes of incomplete types.
+
+2005-05-27  Ian Lance Taylor  <ian@airs.com>
+
+	* semantics.c (add_stmt): Add C++ frontend specific version.
+	* cp-tree.h (STMT_IS_FULL_EXPR_P): Define.
+	(stmts_are_full_exprs_p): Declare.
+
+2005-05-27  Roger Sayle  <roger@eyesopen.com>
+	    Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* cp-tree.def (UNARY_PLUS_EXPR): New C++ unary tree code.
+	* parser.c (cp_parser_unary_expression): Use UNARY_PLUS_EXPR instead
+	of CONVERT_EXPR.
+	(cp_parser_unary_expression): Likewise.
+	* typeck.c (build_unary_op): Likewise.
+	* call.c (add_builtin_candidate, build_new_op): Likewise.
+	* error.c (dump_expr): Likewise.
+	* pt.c (tsubst_copy, tsubst_copy_and_build): Likewise.
+	* decl.c (ambi_op_p, grok_op_properties): Likewise.
+	* dump.c (dump_op): Likewise.
+	* lex.c (init_operators): Likewise.
+	* operators.def ("+"): Likewise.
+	* cp-gimplify.c (cp_gimplify_expr): Handle UNARY_PLUS_EXPR like a
+	conversion, if the result and argument types differ.
+	* tree.c (fold_if_not_in_template): Fold UNARY_PLUS_EXPR much
+	like a NOP_EXPR when !processing_template_decl.
+
+	* cxx-pretty-print.c (pp_cxx_cast_expression): Prototype.
+	(pp_cxx_unary_expression): Handle new UNARY_PLUS_EXPR tree code.
+
+2005-05-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21455
+	* typeck.c (get_delta_difference): Cope with incomplete but equal
+	classes.  Reorder if.
+
+	PR c++/21681
+	* parser.c (cp_parser_late_parsing_for_member): Disable access
+	checking for template functions.
+
+2005-05-26  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/21768
+	* pt.c (redeclare_class_template): Change error message according
+	to coding conventions.
+
+2005-05-26  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* call.c (build_op_delete_call): Fix quoting in error message.
+
+2005-05-25  Richard Henderson  <rth@redhat.com>
+
+	PR libgcj/21692
+	* cp-tree.h (make_alias_for): Declare.
+	* decl2.c (build_java_method_aliases): New.
+	(cp_finish_file): Call it.
+	* method.c (make_alias_for): Split out from ...
+	(make_alias_for_thunk): ... here.
+
 2005-05-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/21686
@@ -248,8 +375,8 @@
 
 2005-05-02  Paolo Bonzini  <bonzini@gnu.org>
 
-        * semantics.c (finish_call_expr): Call resolve_overloaded_builtin
-        for BUILT_IN_MD built-ins.
+	* semantics.c (finish_call_expr): Call resolve_overloaded_builtin
+	for BUILT_IN_MD built-ins.
 
 2005-05-02  Michael Matz  <matz@suse.de>
 
@@ -310,7 +437,7 @@
 2005-04-22  Per Bothner  <per@bothner.com>
 
 	* decl.c (make_rtl_for_nonlocal_decl): Don't try get_fileinfo if
-        input_filename is NULL, as it is for (say) __PRETTY_FUNCTION__.
+	input_filename is NULL, as it is for (say) __PRETTY_FUNCTION__.
 
 2005-04-22  Alexandre Oliva  <aoliva@redhat.com>
 

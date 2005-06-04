@@ -245,7 +245,7 @@ ipa_callsite_param_map_create (struct cgraph_edge *cs)
 static inline tree
 ipa_callsite_tree (struct cgraph_edge *cs)
 {
-  return cs->call_expr;
+  return get_call_expr_in (cs->call_stmt);
 }
 
 /* Gets the caller of callsite cs.  */

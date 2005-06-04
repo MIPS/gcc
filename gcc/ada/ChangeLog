@@ -1,3 +1,23 @@
+2005-06-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* trans.c (gnat_gimplify_expr): Call
+	recompute_tree_invarant_for_addr_expr when we change
+	the operand of the ADDR_EXPR.
+
+2005-05-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* misc.c: Don't include errors.h.
+
+2005-05-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* raise.c (db): Add ATTRIBUTE_PRINTF_2.
+
+2005-05-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cal.c, decl.c, init.c, raise.c, trans.c, utils2.c: Fix
+	comment typos.
+	* gnat_rm.texi, gnat_ugn.texi: Fix typos.
+
 2005-05-16  Nathanael Nerode <neroden@gcc.gnu.org>
 
 	PR ada/20270

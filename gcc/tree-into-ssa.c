@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -107,8 +106,8 @@ static VEC(tree,heap) *block_defs_stack;
 /* Basic block vectors used in this file ought to be allocated in the
    heap.  We use pointer vector, because ints can be easily passed by
    value.  */
-DEF_VEC_P(int);
-DEF_VEC_ALLOC_P(int,heap);
+DEF_VEC_I(int);
+DEF_VEC_ALLOC_I(int,heap);
 
 /* Set of existing SSA names being replaced by update_ssa.  */
 static sbitmap old_ssa_names;
@@ -2681,6 +2680,10 @@ update_ssa (unsigned update_flags)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
+	  /* We are going to use the operand cache API, such as
+	     SET_USE, SET_DEF, and FOR_EACH_IMM_USE_FAST.  The operand
+	     cache for each statement should be up-to-date.  */
+	  gcc_assert (!stmt_modified_p (stmt));
 	  REWRITE_THIS_STMT (stmt) = 0;
 	  REGISTER_DEFS_IN_THIS_STMT (stmt) = 0;
 	}

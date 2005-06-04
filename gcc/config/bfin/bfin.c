@@ -67,8 +67,6 @@ const char *byte_reg_names[]   =  BYTE_REGISTER_NAMES;
 
 static int arg_regs[] = FUNCTION_ARG_REGISTERS;
 
-/* The value passed to -mshared-library-id=.  */
-static int bfin_library_id;
 /* Nonzero if -mshared-library-id was given.  */
 static int bfin_lib_id_given;
 
@@ -1722,8 +1720,6 @@ bfin_handle_option (size_t code, const char *arg, int value)
       if (value > MAX_LIBRARY_ID)
 	error ("-mshared-library-id=%s is not between 0 and %d",
 	       arg, MAX_LIBRARY_ID);
-      else
-	bfin_library_id = value;
       bfin_lib_id_given = 1;
       return true;
 
@@ -2470,7 +2466,7 @@ bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
    which perform the memory reference, are allowed to execute before the
    jump condition is evaluated.
    Therefore, we must insert additional instructions in all places where this
-   could lead to incorrect behaviour.  The manual recommends CSYNC, while
+   could lead to incorrect behavior.  The manual recommends CSYNC, while
    VDSP seems to use NOPs (even though its corresponding compiler option is
    named CSYNC).
 

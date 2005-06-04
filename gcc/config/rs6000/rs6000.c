@@ -552,6 +552,7 @@ struct processor_costs power4_cost = {
 
 
 static bool rs6000_function_ok_for_sibcall (tree, tree);
+static bool rs6000_insn_valid_within_doloop (rtx);
 static rtx rs6000_generate_compare (enum rtx_code);
 static void rs6000_maybe_dead (rtx);
 static void rs6000_emit_stack_tie (void);
@@ -905,6 +906,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL rs6000_function_ok_for_sibcall
+
+#undef TARGET_INSN_VALID_WITHIN_DOLOOP
+#define TARGET_INSN_VALID_WITHIN_DOLOOP rs6000_insn_valid_within_doloop
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rs6000_rtx_costs
@@ -3283,7 +3287,7 @@ rs6000_conditional_register_usage (void)
   if (! TARGET_POWER)
     fixed_regs[64] = 1;
 
-  /* 64-bit AIX reserves GPR13 for thread-private data.  */
+  /* 64-bit AIX and Linux reserve GPR13 for thread-private data.  */
   if (TARGET_64BIT)
     fixed_regs[13] = call_used_regs[13]
       = call_really_used_regs[13] = 1;
@@ -3293,6 +3297,11 @@ rs6000_conditional_register_usage (void)
     for (i = 32; i < 64; i++)
       fixed_regs[i] = call_used_regs[i]
 	= call_really_used_regs[i] = 1;
+
+  /* The TOC register is not killed across calls in a way that is
+     visible to the compiler.  */
+  if (DEFAULT_ABI == ABI_AIX)
+    call_really_used_regs[2] = 0;
 
   if (DEFAULT_ABI == ABI_V4
       && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
@@ -11409,13 +11418,15 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
       else
 	{
 	  rtx addrSI, aligned_addr;
+	  int shift_mask = mode == QImode ? 0x18 : 0x10;
 	  
 	  addrSI = force_reg (SImode, gen_lowpart_common (SImode,
 							  XEXP (used_m, 0)));
 	  shift = gen_reg_rtx (SImode);
 
 	  emit_insn (gen_rlwinm (shift, addrSI, GEN_INT (3),
-				 GEN_INT (0x18)));
+				 GEN_INT (shift_mask)));
+	  emit_insn (gen_xorsi3 (shift, shift, GEN_INT (shift_mask)));
 
 	  aligned_addr = expand_binop (Pmode, and_optab,
 				       XEXP (used_m, 0),
@@ -11453,7 +11464,7 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
 	  newop = expand_binop (SImode, ior_optab,
 				oldop, GEN_INT (~imask), NULL_RTX,
 				1, OPTAB_LIB_WIDEN);
-	  emit_insn (gen_ashlsi3 (newop, newop, shift));
+	  emit_insn (gen_rotlsi3 (newop, newop, shift));
 	  break;
 
 	case PLUS:
@@ -11482,6 +11493,19 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
 	  gcc_unreachable ();
 	}
 
+      if (GET_CODE (m) == NOT)
+	{
+	  rtx mask, xorm;
+
+	  mask = gen_reg_rtx (SImode);
+	  emit_move_insn (mask, GEN_INT (imask));
+	  emit_insn (gen_ashlsi3 (mask, mask, shift));
+
+	  xorm = gen_rtx_XOR (SImode, used_m, mask);
+	  /* Depending on the value of 'op', the XOR or the operation might
+	     be able to be simplified away.  */
+	  newop = simplify_gen_binary (code, SImode, xorm, newop);
+	}
       op = newop;
       used_mode = SImode;
       before = gen_reg_rtx (used_mode);
@@ -11499,7 +11523,7 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
 	after = gen_reg_rtx (used_mode);
     }
   
-  if (code == PLUS && used_mode != mode)
+  if ((code == PLUS || GET_CODE (m) == NOT) && used_mode != mode)
     the_op = op;  /* Computed above.  */
   else if (GET_CODE (op) == NOT && GET_CODE (m) != NOT)
     the_op = gen_rtx_fmt_ee (code, used_mode, op, m);
@@ -12505,6 +12529,23 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   return false;
 }
 
+/* TRUE if INSN insn is valid within a low-overhead loop.
+   PowerPC uses the COUNT register for branch on table instructions.  */
+
+static bool
+rs6000_insn_valid_within_doloop (rtx insn)
+{
+  if (CALL_P (insn))
+    return false;
+
+  if (JUMP_P (insn)
+      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+	  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
+    return false;
+
+  return true;
+}
+
 static int
 rs6000_ra_ever_killed (void)
 {
@@ -12572,15 +12613,49 @@ rs6000_emit_load_toc_table (int fromprolog)
   rtx dest, insn;
   dest = gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 
-  if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 1)
+  if (TARGET_ELF && TARGET_SECURE_PLT && DEFAULT_ABI != ABI_AIX && flag_pic)
     {
-      rtx temp = (fromprolog
-		  ? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
-		  : gen_reg_rtx (Pmode));
-      insn = emit_insn (gen_load_toc_v4_pic_si (temp));
+      char buf[30];
+      rtx lab, tmp1, tmp2, got, tempLR;
+
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
+      lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+      if (flag_pic == 2)
+	got = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
+      else
+	got = rs6000_got_sym ();
+      tmp1 = tmp2 = dest;
+      if (!fromprolog)
+	{
+	  tmp1 = gen_reg_rtx (Pmode);
+	  tmp2 = gen_reg_rtx (Pmode);
+	}
+      tempLR = (fromprolog
+		? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
+		: gen_reg_rtx (Pmode));
+      insn = emit_insn (gen_load_toc_v4_PIC_1 (tempLR, lab));
       if (fromprolog)
 	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (dest, temp);
+      insn = emit_move_insn (tmp1, tempLR);
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
+      insn = emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
+      insn = emit_insn (gen_load_toc_v4_PIC_3c (dest, tmp2, got, lab));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
+    }
+  else if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 1)
+    {
+      rtx tempLR = (fromprolog
+		    ? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
+		    : gen_reg_rtx (Pmode));
+
+      insn = emit_insn (gen_load_toc_v4_pic_si (tempLR));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
+      insn = emit_move_insn (dest, tempLR);
       if (fromprolog)
 	rs6000_maybe_dead (insn);
     }
@@ -13674,7 +13749,8 @@ rs6000_emit_prologue (void)
 
   /* If we are using RS6000_PIC_OFFSET_TABLE_REGNUM, we need to set it up.  */
   if ((TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
-      || (DEFAULT_ABI == ABI_V4 && flag_pic == 1
+      || (DEFAULT_ABI == ABI_V4
+	  && (flag_pic == 1 || (flag_pic && TARGET_SECURE_PLT))
 	  && regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM]))
     {
       /* If emit_load_toc_table will use the link register, we need to save
@@ -16120,7 +16196,7 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
    between the insns.
 
    The function estimates the group boundaries that the processor will form as
-   folllows:  It keeps track of how many vacant issue slots are available after
+   follows:  It keeps track of how many vacant issue slots are available after
    each insn.  A subsequent insn will start a new group if one of the following
    4 cases applies:
    - no more vacant issue slots remain in the current dispatch group.
@@ -17204,6 +17280,7 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
     }
 
   if (TARGET_RELOCATABLE
+      && !TARGET_SECURE_PLT
       && (get_pool_size () != 0 || current_function_profile)
       && uses_TOC ())
     {

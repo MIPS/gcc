@@ -1349,17 +1349,12 @@ struct tree_exp GTY(())
 #define SSA_NAME_VALUE(N) \
    SSA_NAME_CHECK (N)->ssa_name.value_handle
 
-/* Range information for SSA_NAMEs.  */
-#define SSA_NAME_VALUE_RANGE(N) \
-    SSA_NAME_CHECK (N)->ssa_name.value_range
-
 /* Auxiliary pass-specific data.  */
 #define SSA_NAME_AUX(N) \
    SSA_NAME_CHECK (N)->ssa_name.aux
 
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
-struct value_range_def;
 #endif
 
 
@@ -1396,9 +1391,6 @@ struct tree_ssa_name GTY(())
      this field; in the future we will allow VALUE_HANDLEs to persist
      as well.  */
   tree value_handle;
-
-  /* Value range information.  */
-  struct value_range_def *value_range;
 
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;
@@ -2064,10 +2056,17 @@ struct tree_binfo GTY (())
    writing debugging information about vfield and vbase decls for C++.  */
 #define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.vindex)
 
+extern tree decl_debug_expr_lookup (tree);
+extern void decl_debug_expr_insert (tree, tree);
+
 /* For VAR_DECL, this is set to either an expression that it was split
    from (if DECL_DEBUG_EXPR_IS_FROM is true), otherwise a tree_list of
    subexpressions that it was split into.  */
-#define DECL_DEBUG_EXPR(NODE) (DECL_CHECK (NODE)->decl.vindex)
+#define DECL_DEBUG_EXPR(NODE) \
+  (decl_debug_expr_lookup (VAR_DECL_CHECK (NODE)))
+
+#define SET_DECL_DEBUG_EXPR(NODE, VAL) \
+  (decl_debug_expr_insert (VAR_DECL_CHECK (NODE), (VAL)))
 
 #define DECL_DEBUG_EXPR_IS_FROM(NODE) \
   (DECL_CHECK (NODE)->decl.debug_expr_is_from)
@@ -3552,6 +3551,7 @@ extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);
+extern tree fold_indirect_ref_1 (tree, tree);
 
 extern tree force_fit_type (tree, int, bool, bool);
 
@@ -3613,6 +3613,7 @@ extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
 
 extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
+extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 
 /* In builtins.c */
 extern tree fold_builtin (tree, tree, bool);
@@ -4001,9 +4002,6 @@ extern int tree_node_sizes[];
    be restricted.  False if we are not in gimple form and folding is not
    restricted to creating gimple expressions.  */
 extern bool in_gimple_form;
-
-/* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (void);
 
 /* In tree-gimple.c.  */
 extern tree get_base_address (tree t);

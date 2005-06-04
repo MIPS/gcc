@@ -741,7 +741,9 @@ gate_merge_phi (void)
 struct tree_opt_pass pass_merge_phi = {
   "mergephi",			/* name */
   gate_merge_phi,		/* gate */
+  NULL, NULL,			/* IPA analysis */
   merge_phi_nodes,		/* execute */
+  NULL, NULL,			/* IPA analysis */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */

@@ -2346,14 +2346,23 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  gcc_unreachable ();
 	}
 
-      /* Convert down to the right base before using the instance.  First
-         use the type...  */
+      /* Convert down to the right base before using the instance.  A
+	 special case is that in a pointer to member of class C, C may
+	 be incomplete.  In that case, the function will of course be
+	 a member of C, and no conversion is required.  In fact,
+	 lookup_base will fail in that case, because incomplete
+	 classes do not have BINFOs.  */ 
       basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (fntype));
-      basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
-			      basetype, ba_check, NULL);
-      instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 1);
-      if (instance_ptr == error_mark_node)
-	return error_mark_node;
+      if (!same_type_ignoring_top_level_qualifiers_p 
+	  (basetype, TREE_TYPE (TREE_TYPE (instance_ptr))))
+	{
+	  basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
+				  basetype, ba_check, NULL);
+	  instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 
+					  1);
+	  if (instance_ptr == error_mark_node)
+	    return error_mark_node;
+	}
       /* ...and then the delta in the PMF.  */
       instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
 			     instance_ptr, delta);
@@ -3692,13 +3701,12 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
   switch (code)
     {
-    /* CONVERT_EXPR stands for unary plus in this context.  */
-    case CONVERT_EXPR:
+    case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
       {
 	int flags = WANT_ARITH | WANT_ENUM;
 	/* Unary plus (but not unary minus) is allowed on pointers.  */
-	if (code == CONVERT_EXPR)
+	if (code == UNARY_PLUS_EXPR)
 	  flags |= WANT_POINTER;
 	arg = build_expr_type_conversion (flags, arg, true);
 	if (!arg)
@@ -5523,7 +5531,6 @@ get_delta_difference (tree from, tree to,
 		      bool c_cast_p)
 {
   tree binfo;
-  tree virt_binfo;
   base_kind kind;
   tree result;
 
@@ -5532,36 +5539,14 @@ get_delta_difference (tree from, tree to,
   binfo = lookup_base (to, from, c_cast_p ? ba_unique : ba_check, &kind);
   if (kind == bk_inaccessible || kind == bk_ambig)
     error ("   in pointer to member function conversion");
-  else if (!binfo)
+  else if (binfo)
     {
-      if (!allow_inverse_p)
-	{
-	  error_not_base_type (from, to);
-	  error ("   in pointer to member conversion");
-	}
-      else
-	{
-	  binfo = lookup_base (from, to, c_cast_p ? ba_unique : ba_check, 
-			       &kind);
-	  if (binfo)
-	    {
-	      virt_binfo = binfo_from_vbase (binfo);
-	      if (virt_binfo)
-		/* This is a reinterpret cast, we choose to do nothing.  */
-		warning (0, "pointer to member cast via virtual base %qT",
-			 BINFO_TYPE (virt_binfo));
-	      else
-		result = size_diffop (size_zero_node, BINFO_OFFSET (binfo));
-	    }
-	}
-    }
-  else
-    {
-      virt_binfo = binfo_from_vbase (binfo);
-      if (!virt_binfo)
+      if (kind != bk_via_virtual)
 	result = BINFO_OFFSET (binfo);
       else
 	{
+	  tree virt_binfo = binfo_from_vbase (binfo);
+	  
 	  /* This is a reinterpret cast, we choose to do nothing.  */
 	  if (allow_inverse_p)
 	    warning (0, "pointer to member cast via virtual base %qT",
@@ -5569,6 +5554,30 @@ get_delta_difference (tree from, tree to,
 	  else
 	    error ("pointer to member conversion via virtual base %qT",
 		   BINFO_TYPE (virt_binfo));
+	}
+    }
+  else if (same_type_ignoring_top_level_qualifiers_p (from, to))
+    /* Pointer to member of incomplete class is permitted*/;
+  else if (!allow_inverse_p)
+    {
+      error_not_base_type (from, to);
+      error ("   in pointer to member conversion");
+    }
+  else
+    {
+      binfo = lookup_base (from, to, c_cast_p ? ba_unique : ba_check, &kind);
+      if (binfo)
+	{
+	  if (kind != bk_via_virtual)
+	    result = size_diffop (size_zero_node, BINFO_OFFSET (binfo));
+	  else
+	    {
+	      /* This is a reinterpret cast, we choose to do nothing.  */
+	      tree virt_binfo = binfo_from_vbase (binfo);
+	  
+	      warning (0, "pointer to member cast via virtual base %qT",
+		       BINFO_TYPE (virt_binfo));
+	    }
 	}
     }
 

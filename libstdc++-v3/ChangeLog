@@ -1,3 +1,157 @@
+2005-06-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21770
+	* include/bits/stl_deque.h: Add concept-check. In class _Deque_base
+	rebind _Alloc to  _Tp_alloc_type, change _Deque_impl to inherit from
+	the latter and add _M_get_Tp_allocator() which returns it. Use
+	everywhere _M_get_Tp_allocator() instead of get_allocator().
+	* include/bits/deque.tcc: Likewise, use _M_get_Tp_allocator().
+	* include/bits/stl_list.h: Add concept-check. In class _List_base
+	rebind _Alloc to _Tp_alloc_type and add _M_get_Tp_allocator(), which
+	returns the allocator (of type _Node_alloc_type) converted to
+	_Tp_alloc_type. Use everywhere _M_get_Tp_allocator() instead of
+	get_allocator().
+	* include/bits/list.tcc: Likewise, use _M_get_Tp_allocator().
+	* include/bits/stl_vector.h: Add concept-check. In class _Vector_base
+	rebind _Alloc to _Tp_alloc_type, change _Vector_impl to inherit from
+	the latter and add _M_get_Tp_allocator() which returns it. Use
+	everywhere _M_get_Tp_allocator() instead of get_allocator().
+	* include/bits/vector.tcc: Likewise, use _M_get_Tp_allocator().
+	* include/bits/stl_map.h: Add concept-check. Rebind _Alloc to
+	_Pair_alloc_type and use it for _Rb_tree.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Add concept-check. Rebind _Alloc to
+	_Key_alloc_type and use it for _Rb_tree.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/basic_string.h: Rebind _Alloc to _CharT_alloc_type and
+	use it for the allocator typedefs.
+	* testsuite/21_strings/basic_string/1.cc: New.
+	* testsuite/23_containers/deque/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/deque/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/deque/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/list/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/list/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/list/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/map/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/map/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/map/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/multimap/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/multimap/explicit_instantiation/1.cc: .. here.
+	* testsuite/23_containers/multimap/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/multiset/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/multiset/explicit_instantiation/1.cc: .. here.
+	* testsuite/23_containers/multiset/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/set/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/set/explicit_instantiation/1.cc: .. here.
+	* testsuite/23_containers/set/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/vector/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/vector/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/vector/explicit_instantiation/3.cc: New.
+
+2005-06-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21280
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust expected errors.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2005-05-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20534 (contd)
+	* include/debug/macros.h: Add _GLIBCXX_DEBUG_ABORT, using
+	__gnu_debug::__fancy_abort.
+	* src/debug.cc: Define the latter.
+	* include/debug/debug.h: Use _GLIBCXX_DEBUG_ABORT instead of
+	assert.
+	* config/linker-map.gnu (__gnu_debug::__fancy_abort): Add.
+
+2005-05-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_complex.h (log(const complex<_Tp>&)): When
+	_GLIBCXX_USE_C99_COMPLEX, forward to __builtin_clog/clogf/clogl.
+
+2005-05-28  Paolo Carlini  <pcarlini@suse.de>
+
+	Revert:
+	2005-05-18  Paolo Carlini  <pcarlini@suse.de>
+		    Nathan Myers  <ncm@cantrip.org>
+
+	PR libstdc++/19495
+	* include/bits/basic_string.h (_Raw_bytes_alloc): Rebind to
+	size_type instead of char and rename to _Raw_alloc.
+	* include/bits/basic_string.tcc (_Rep::_M_destroy, _Rep::_S_create):
+	Use the above.
+	* src/bitmap_allocator.cc: Add instantiation for size_type.
+	* src/mt_allocator.cc: Likewise.
+	* src/pool_allocator.cc: Likewise.
+	* include/ext/array_allocator.h: Tweak slightly, avoid assuming
+	the existence of an _Array::begin() and size() members.
+	* testsuite/ext/array_allocator/2.cc: Tweak to use an allocator
+	of size_type, instead of char, thus avoiding problems with
+	rebinds, not treated correctly by array_allocator.
+
+2005-05-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/abi.html: Mention 3.4.0 as the current baseline; add
+	a notice about the configure options.
+
+2005-05-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* docs/html/test.html: Mention PCH_CXXFLAGS.
+	* testsuite/lib/libstdc++.exp: Set PCH_CXXFLAGS by probing for an
+	available stcd++.h PCH.
+	* testsuite/libstdc++-dg/normal.exp: Use PCH_CXXFLAGS.
+
+2005-05-27  Theodore Papadopoulo  <Theodore.Papadopoulo@sophia.inria.fr>
+
+	* src/misc-inst.cc: Remove unnecessary included files.
+
+2005-05-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/21674
+	* include/bits/c++config: Remove extern template use when in debug
+	mode, disable for non-weak systems.
+	
+2005-05-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/20534 
+	* include/debug/debug.h: Forwarding header, that pulls in details
+	only if in debug mode.
+	* include/debug/macros.h: ...transfer all the internal macros here.
+	* include/debug/functions.h: ...transfer all the functions here.
+	* include/debug/safe_iterator.h: Add functions.h, macros.h includes.
+	* include/debug/safe_sequence.h: Same.
+	* include/debug/vector: Tweak.
+	* include/Makefile.am (debug_headers): Add new includes.
+	* include/Makefile.in: Regenerate.
+	* testsuite/17_intro/no_assert_neg.cc: Add.
+
+	* include/ext/hash_set: Add debug mode include.
+	* include/ext/hash_map: Same.
+	* include/debug/hash_map: Fix included files to match actual files.
+	* include/debug/hash_set: Same.
+		
+2005-05-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13943
+	* include/c_std/std_cstdlib.h: Do not open code llabs and lldiv,
+	available when _GLIBCXX_USE_C99 is defined.
+	* testsuite/26_numerics/cstdlib/13943.cc: New.
+
+	* acinclude.m4 ([GLIBCXX_ENABLE_C99]): For completeness, check
+	also strtoll and strtoull for ac_c99_stdlib.
+	* configure: Regenerate.
+
+2005-05-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Add linkage support for no extern templates.
+	(std::ios_base::_M_call_callbacks): Add.
+	(std::ios_base::_M_dispose_callbacks): Add.
+	(std::locale::facet::_S_get_c_name): Add.
+	(std::__copy_streambufs): Add.
+	* configure.ac (libtool_VERSION): To 6:5:0.
+	* configure: Regenerate.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.5.
+	
 2005-05-25  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.h (_Rep::_M_set_length_and_sharable):

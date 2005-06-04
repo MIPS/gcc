@@ -1389,7 +1389,7 @@ idx_find_step (tree base, tree *idx, void *data)
 {
   struct ifs_ivopts_data *dta = data;
   struct iv *iv;
-  tree step, type, iv_type, iv_step, lbound, off;
+  tree step, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
 
   if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF
@@ -1430,8 +1430,6 @@ idx_find_step (tree base, tree *idx, void *data)
   if (!iv->step)
     return true;
 
-  iv_type = TREE_TYPE (iv->base);
-  type = build_pointer_type (TREE_TYPE (base));
   if (TREE_CODE (base) == ARRAY_REF)
     {
       step = array_ref_element_size (base);
@@ -1442,13 +1440,13 @@ idx_find_step (tree base, tree *idx, void *data)
     }
   else
     /* The step for pointer arithmetics already is 1 byte.  */
-    step = build_int_cst (type, 1);
+    step = build_int_cst (sizetype, 1);
 
-  if (TYPE_PRECISION (iv_type) < TYPE_PRECISION (type))
+  if (TYPE_PRECISION (TREE_TYPE (iv->base)) < TYPE_PRECISION (sizetype))
     iv_step = can_count_iv_in_wider_type (dta->ivopts_data->current_loop,
-					  type, iv->base, iv->step, dta->stmt);
+					  sizetype, iv->base, iv->step, dta->stmt);
   else
-    iv_step = fold_convert (iv_type, iv->step);
+    iv_step = fold_convert (sizetype, iv->step);
 
   if (!iv_step)
     {
@@ -1456,12 +1454,12 @@ idx_find_step (tree base, tree *idx, void *data)
       return false;
     }
 
-  step = fold_build2 (MULT_EXPR, type, step, iv_step);
+  step = fold_build2 (MULT_EXPR, sizetype, step, iv_step);
 
   if (!*dta->step_p)
     *dta->step_p = step;
   else
-    *dta->step_p = fold_build2 (PLUS_EXPR, type, *dta->step_p, step);
+    *dta->step_p = fold_build2 (PLUS_EXPR, sizetype, *dta->step_p, step);
 
   return true;
 }
@@ -1513,25 +1511,6 @@ may_be_unaligned_p (tree ref)
   return false;
 }
 
-/* Builds ADDR_EXPR of object OBJ.  If OBJ is an INDIRECT_REF, the indirect_ref
-   is stripped instead.  */
-
-static tree
-build_addr_strip_iref (tree obj)
-{
-  tree type;
-
-  if (TREE_CODE (obj) == INDIRECT_REF)
-    {
-      type = build_pointer_type (TREE_TYPE (obj));
-      obj = fold_convert (type, TREE_OPERAND (obj, 0));
-    }
-  else
-    obj = build_addr (obj, current_function_decl);
-
-  return obj;
-}
-
 /* Finds addresses in *OP_P inside STMT.  */
 
 static void
@@ -1566,7 +1545,7 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
   gcc_assert (TREE_CODE (base) != ALIGN_INDIRECT_REF);
   gcc_assert (TREE_CODE (base) != MISALIGNED_INDIRECT_REF);
 
-  base = build_addr_strip_iref (base);
+  base = build_fold_addr_expr (base);
 
   civ = alloc_iv (base, step);
   record_use (data, op_p, civ, stmt, USE_ADDRESS);
@@ -1859,7 +1838,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       if (op0 == TREE_OPERAND (expr, 0))
 	return orig_expr;
 
-      expr = build_addr_strip_iref (op0);
+      expr = build_fold_addr_expr (op0);
       return fold_convert (orig_type, expr);
 
     case INDIRECT_REF:
@@ -1886,7 +1865,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
     TREE_OPERAND (expr, 1) = op1;
 
   /* Inside address, we might strip the top level component references,
-     thus changing type of the expresion.  Handling of ADDR_EXPR
+     thus changing type of the expression.  Handling of ADDR_EXPR
      will fix that.  */
   expr = fold_convert (orig_type, expr);
 
@@ -2847,7 +2826,7 @@ tree_to_aff_combination (tree expr, tree type,
       if (bitpos % BITS_PER_UNIT != 0)
 	break;
       aff_combination_const (comb, type, bitpos / BITS_PER_UNIT);
-      core = build_addr_strip_iref (core);
+      core = build_fold_addr_expr (core);
       if (TREE_CODE (core) == ADDR_EXPR)
 	aff_combination_add_elt (comb, core, 1);
       else

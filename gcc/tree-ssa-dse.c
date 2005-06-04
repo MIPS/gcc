@@ -22,7 +22,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "rtl.h"
@@ -135,7 +134,7 @@ dse_initialize_block_local_data (struct dom_walk_data *walk_data,
 				 bool recycled)
 {
   struct dse_block_local_data *bd
-    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+    = VEC_last (void_p, walk_data->block_data_stack);
 
   /* If we are given a recycled block local data structure, ensure any
      bitmap associated with the block is cleared.  */
@@ -163,7 +162,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 		   block_stmt_iterator bsi)
 {
   struct dse_block_local_data *bd
-    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+    = VEC_last (void_p, walk_data->block_data_stack);
   struct dse_global_data *dse_gd = walk_data->global_data;
   tree stmt = bsi_stmt (bsi);
   stmt_ann_t ann = stmt_ann (stmt);
@@ -195,7 +194,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
       /* We want to verify that each virtual definition in STMT has
 	 precisely one use and that all the virtual definitions are
 	 used by the same single statement.  When complete, we
-	 want USE_STMT to refer to the one statment which uses
+	 want USE_STMT to refer to the one statement which uses
 	 all of the virtual definitions from STMT.  */
       use_stmt = NULL;
       FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND (var1, var2, stmt, op_iter)
@@ -298,7 +297,7 @@ static void
 dse_record_phis (struct dom_walk_data *walk_data, basic_block bb)
 {
   struct dse_block_local_data *bd
-    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+    = VEC_last (void_p, walk_data->block_data_stack);
   struct dse_global_data *dse_gd = walk_data->global_data;
   tree phi;
 
@@ -314,7 +313,7 @@ dse_finalize_block (struct dom_walk_data *walk_data,
 		    basic_block bb ATTRIBUTE_UNUSED)
 {
   struct dse_block_local_data *bd
-    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+    = VEC_last (void_p, walk_data->block_data_stack);
   struct dse_global_data *dse_gd = walk_data->global_data;
   bitmap stores = dse_gd->stores;
   unsigned int i;

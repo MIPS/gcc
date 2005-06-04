@@ -477,7 +477,8 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_cf); 
   NEXT_PASS (pass_lower_eh); 
   NEXT_PASS (pass_build_cfg); 
-  NEXT_PASS (pass_pre_expand);
+  NEXT_PASS (pass_lower_complex);
+  NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_tree_profile); 
   NEXT_PASS (pass_cleanup_cfg);
@@ -619,6 +620,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
+  /* NEXT_PASS (pass_may_alias) cannot be done again because the
+     vectorizer creates alias relations that are not supported by
+     pass_may_alias.  */
   NEXT_PASS (pass_lower_vector_ssa);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);

@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "langhooks.h"
 #include "ggc.h"
+#include "toplev.h"
 
 
 /* Nonzero if we are using EH to handle cleanups.  */
@@ -1828,7 +1829,7 @@ verify_eh_edges (tree stmt)
     {
       if ((e->flags & EDGE_EH) && !e->aux)
 	{
-	  error ("Unnecesary EH edge %i->%i", bb->index, e->dest->index);
+	  error ("Unnecessary EH edge %i->%i", bb->index, e->dest->index);
 	  mark_eh_edge_found_error = true;
 	  return true;
 	}
@@ -2011,29 +2012,31 @@ bool
 tree_can_throw_internal (tree stmt)
 {
   int region_nr;
+  bool is_resx = false;
 
   if (TREE_CODE (stmt) == RESX_EXPR)
-    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0)), is_resx = true;
   else
     region_nr = lookup_stmt_eh_region (stmt);
   if (region_nr < 0)
     return false;
-  return can_throw_internal_1 (region_nr);
+  return can_throw_internal_1 (region_nr, is_resx);
 }
 
 bool
 tree_can_throw_external (tree stmt)
 {
   int region_nr;
+  bool is_resx = false;
 
   if (TREE_CODE (stmt) == RESX_EXPR)
-    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0)), is_resx = true;
   else
     region_nr = lookup_stmt_eh_region (stmt);
   if (region_nr < 0)
     return tree_could_throw_p (stmt);
   else
-    return can_throw_external_1 (region_nr);
+    return can_throw_external_1 (region_nr, is_resx);
 }
 
 /* Given a statement OLD_STMT and a new statement NEW_STMT that has replaced

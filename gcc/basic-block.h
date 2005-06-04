@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "predict.h"
 #include "vec.h"
-#include "errors.h"
 #include "function.h"
 
 /* Head of register set linked list.  */
@@ -183,7 +182,7 @@ struct loop;
 struct loops;
 
 /* Declared in tree-flow.h.  */
-struct bb_ann_d;
+struct edge_prediction;
 
 /* A basic block is a sequence of instructions with only entry and
    only one exit.  If any one of the instructions are executed, they
@@ -246,8 +245,11 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * rbi;
 
-  /* Annotations used at the tree level.  */
-  struct bb_ann_d *tree_annotations;
+  /* Chain of PHI nodes for this block.  */
+  tree phi_nodes;
+
+  /* A list of predictions.  */
+  struct edge_prediction *predictions;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -263,9 +265,6 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
 
   /* Various flags.  See BB_* below.  */
   int flags;
-
-  /* Which section block belongs in, when partitioning basic blocks.  */
-  int partition;
 };
 
 typedef struct basic_block_def *basic_block;

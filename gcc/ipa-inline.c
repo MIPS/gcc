@@ -322,13 +322,13 @@ cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
 
 /* A cost model driving the inlining heuristics in a way so the edges with
    smallest badness are inlined first.  After each inlining is performed
-   the costs of all caller edges of nodes affected are recompted so the
+   the costs of all caller edges of nodes affected are recomputed so the
    metrics may accurately depend on values such as number of inlinable callers
    of the function or function body size.
 
    For the moment we use estimated growth caused by inlining callee into all
    it's callers for driving the inlining but once we have loop depth or
-   frequency information readilly available we should do better.
+   frequency information readily available we should do better.
 
    With profiling we use number of executions of each edge to drive the cost.
    We also should distinguish hot and cold calls where the cold calls are
@@ -346,7 +346,7 @@ cgraph_edge_badness (struct cgraph_edge *edge)
 	cgraph_estimate_size_after_inlining (1, edge->caller, edge->callee);
       growth -= edge->caller->global.insns;
 
-      /* Always preffer inlining saving code size.  */
+      /* Always prefer inlining saving code size.  */
       if (growth <= 0)
 	return INT_MIN - growth;
       return ((int)((double)edge->count * INT_MIN / max_count)) / growth;
@@ -419,7 +419,7 @@ update_callee_keys (fibheap_t heap, struct cgraph_node *node,
 }
 
 /* Enqueue all recursive calls from NODE into priority queue depending on
-   how likely we want to recursivly inline the call.  */
+   how likely we want to recursively inline the call.  */
 
 static void
 lookup_recursive_calls (struct cgraph_node *node, struct cgraph_node *where,
@@ -611,7 +611,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	continue;
 
       /* When not having profile info ready we don't weight by any way the
-         possition of call in procedure itself.  This means if call of
+         position of call in procedure itself.  This means if call of
 	 function A from function B seems profitable to inline, the recursive
 	 call of function A in inline copy of A in B will look profitable too
 	 and we end up inlining until reaching maximal function growth.  This
@@ -633,7 +633,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	      edge->inline_failed
 		= (edge->callee->local.disregard_inline_limits ? N_("recursive inlining") : "");
 	      if (dump_file)
-		fprintf (dump_file, " inline_failed:Recursive inlining perfomed only for function itself.\n");
+		fprintf (dump_file, " inline_failed:Recursive inlining performed only for function itself.\n");
 	      continue;
 	    }
 	}
@@ -859,17 +859,6 @@ cgraph_decide_inlining (void)
 	    }
 	}
     }
-
-  /* We will never output extern functions we didn't inline. 
-     ??? Perhaps we can prevent accounting of growth of external
-     inline functions.  */
-
-  /* FIXME: at the moment we don't want to remove nodes here
-     or we confuse aliasing code.  This needs to be dealt with
-     better later by reorganizing the order of analysis.  
-
-     Uncommenting this should make same call in cgraph_optimize unnecesary.
-  cgraph_remove_unreachable_nodes (false, dump_file);  */
 
   if (dump_file)
     fprintf (dump_file,

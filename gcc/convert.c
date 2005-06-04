@@ -42,10 +42,7 @@ tree
 convert_to_pointer (tree type, tree expr)
 {
   if (integer_zerop (expr))
-    {
-      expr = build_int_cst (type, 0);
-      return expr;
-    }
+    return build_int_cst (type, 0);
 
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
@@ -57,13 +54,12 @@ convert_to_pointer (tree type, tree expr)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
-      if (TYPE_PRECISION (TREE_TYPE (expr)) == POINTER_SIZE)
-	return build1 (CONVERT_EXPR, type, expr);
+      if (TYPE_PRECISION (TREE_TYPE (expr)) != POINTER_SIZE)
+	expr = fold_build1 (NOP_EXPR,
+                            lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			    expr);
+      return fold_build1 (CONVERT_EXPR, type, expr);
 
-      return
-	convert_to_pointer (type,
-			    convert (lang_hooks.types.type_for_size
-				     (POINTER_SIZE, 0), expr));
 
     default:
       error ("cannot convert to a pointer type");
@@ -411,13 +407,14 @@ convert_to_integer (tree type, tree expr)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       if (integer_zerop (expr))
-	expr = integer_zero_node;
-      else
-	expr = fold (build1 (CONVERT_EXPR,
-			     lang_hooks.types.type_for_size (POINTER_SIZE, 0),
-			     expr));
+	return build_int_cst (type, 0);
 
-      return convert_to_integer (type, expr);
+      /* Convert to an unsigned integer of the correct width first,
+	 and from there widen/truncate to the required type.  */
+      expr = fold_build1 (CONVERT_EXPR,
+			  lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			  expr);
+      return fold_build1 (NOP_EXPR, type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:

@@ -84,7 +84,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "tree.h"
 #include "c-common.h"
 #include "flags.h"
@@ -840,7 +839,7 @@ process_phi_nodes (struct loop *loop)
 	  release_phi_node (phi);
 	  phi = next;
 	}
-      bb_ann (bb)->phi_nodes = NULL;
+      bb->phi_nodes = NULL;
     }
   return;
 }

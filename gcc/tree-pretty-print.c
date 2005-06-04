@@ -23,7 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "tree.h"
 #include "diagnostic.h"
 #include "real.h"
@@ -2354,8 +2353,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
 
   dump_bb_header (buffer, bb, indent, flags);
 
-  if (bb_ann (bb))
-    dump_phi_nodes (buffer, bb, indent, flags);
+  dump_phi_nodes (buffer, bb, indent, flags);
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {

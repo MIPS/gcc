@@ -129,7 +129,7 @@ struct mem_ref
 				   table, but the hash function depends
 				   on values of pointers. Thus we cannot use
 				   htab_traverse, since then we would get
-				   misscompares during bootstrap (although the
+				   miscompares during bootstrap (although the
 				   produced code would be correct).  */
 };
 
@@ -201,6 +201,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case PARM_DECL:
 	case STRING_CST:
 	case RESULT_DECL:
+	case VECTOR_CST:
 	  return true;
 
 	case MEM_REF:
@@ -639,7 +640,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  bsi_insert_after (&bsi, stmt2, BSI_NEW_STMT);
 	  SSA_NAME_DEF_STMT (lhs) = stmt2;
 
-	  /* Continue processing with invariant reciprocal statment.  */
+	  /* Continue processing with invariant reciprocal statement.  */
 	  stmt = stmt1;
 	}
 

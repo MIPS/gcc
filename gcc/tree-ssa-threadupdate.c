@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -298,6 +297,9 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
 {
   edge e = make_edge (rd->dup_block, rd->outgoing_edge->dest, EDGE_FALLTHRU);
   tree phi;
+
+  e->probability = REG_BR_PROB_BASE;
+  e->count = rd->dup_block->count;
 
   /* If there are any PHI nodes at the destination of the outgoing edge
      from the duplicate block, then we will need to add a new argument
@@ -802,22 +804,20 @@ thread_block (basic_block bb)
    Returns true if one or more edges were threaded, false otherwise.  */
 
 bool
-thread_through_all_blocks (void)
+thread_through_all_blocks (bitmap threaded_blocks)
 {
-  basic_block bb;
   bool retval = false;
+  unsigned int i;
+  bitmap_iterator bi;
 
   rediscover_loops_after_threading = false;
 
-  FOR_EACH_BB (bb)
+  EXECUTE_IF_SET_IN_BITMAP (threaded_blocks, 0, i, bi)
     {
-      if (bb_ann (bb)->incoming_edge_threaded
-	  && EDGE_COUNT (bb->preds) > 0)
-	{
-	  retval |= thread_block (bb);
-	  bb_ann (bb)->incoming_edge_threaded = false;
-	  
-	}
+      basic_block bb = BASIC_BLOCK (i);
+
+      if (EDGE_COUNT (bb->preds) > 0)
+	retval |= thread_block (bb);
     }
 
   return retval;

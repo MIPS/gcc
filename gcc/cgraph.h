@@ -33,12 +33,11 @@ enum availability
   /* Function body/variable initializer is unknown.  */
   AVAIL_NOT_AVAILABLE,
   /* Function body/variable initializer is known but might be replaced
-     by a different one from other compilation unit and thus can be
-     dealt with only as a hint.  */
+     by a different one from other compilation unit and thus needs to
+     be dealt with a care.  Like AVAIL_NOT_AVAILABLE it can have
+     arbitrary side effects on escaping variables and functions, while
+     like AVAILABLE it might access static variables.  */
   AVAIL_OVERWRITABLE,
-  /* Same as AVAIL_OVERWRITABLE except the front end has said that
-     this instance is stable enough to analyze or even inline.  */
-  AVAIL_OVERWRITABLE_BUT_INLINABLE,
   /* Function body/variable initializer is known and will be used in final
      program.  */
   AVAIL_AVAILABLE,
@@ -181,7 +180,7 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
   struct cgraph_edge *next_caller;
   struct cgraph_edge *prev_callee;
   struct cgraph_edge *next_callee;
-  tree call_expr;
+  tree call_stmt;
   PTR GTY ((skip (""))) aux;
   /* When NULL, inline this call.  When non-NULL, points to the explanation
      why function was not inlined.  */
@@ -214,7 +213,7 @@ struct cgraph_varpool_node GTY(())
   bool analyzed;
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
-  /* Set when function is scheduled to be assembled.  */
+  /* Set when variable is scheduled to be assembled.  */
   bool output;
   /* Set when function is visible by other units.  */
   bool externally_visible;
@@ -278,6 +277,11 @@ void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *, const char **);
 bool decide_is_variable_needed (struct cgraph_varpool_node *, tree);
+
+enum availability cgraph_function_body_availability (struct cgraph_node *);
+enum availability cgraph_variable_initializer_availability (struct cgraph_varpool_node *);
+bool cgraph_is_master_clone (struct cgraph_node *);
+struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);

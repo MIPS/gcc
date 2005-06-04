@@ -174,7 +174,8 @@ do { \
 #define TARGET_HARVARD (TARGET_HARD_SH4 || TARGET_SH5)
 
 /* Nonzero if a double-precision FPU is available.  */
-#define TARGET_FPU_DOUBLE (TARGET_SH4 || TARGET_SH2A_DOUBLE)
+#define TARGET_FPU_DOUBLE \
+  ((target_flags & MASK_SH4) != 0 || TARGET_SH2A_DOUBLE)
 
 /* Nonzero if an FPU is available.  */
 #define TARGET_FPU_ANY (TARGET_SH2E || TARGET_FPU_DOUBLE)
@@ -333,26 +334,6 @@ do { \
 
 #define TARGET_DEFAULT \
   (TARGET_CPU_DEFAULT | TARGET_ENDIAN_DEFAULT | TARGET_OPT_DEFAULT)
-
-#ifndef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS
-#endif
-
-#define TARGET_OPTIONS \
-{ { "ultcost=", &sh_multcost_str, \
-    N_("Cost to assume for a multiply insn"), 0 }, \
-  { "gettrcost=", &sh_gettrcost_str, \
-    N_("Cost to assume for gettr insn"), 0 }, \
-  { "div=", &sh_div_str, \
-    N_("division strategy, one of: call, call2, fp, inv, inv:minlat, inv20u, inv20l, inv:call, inv:call2, inv:fp"), 0 }, \
-  { "divsi3_libfunc=", &sh_divsi3_libfunc, \
-    N_("Specify name for 32 bit signed division function"), 0 }, \
-  { "cut2-workaround", &cut2_workaround_str, \
-    N_("Enable SH5 cut2 workaround"), "\1" }, \
-  SUBTARGET_OPTIONS \
-}
-
-#define TARGET_SH5_CUT2_WORKAROUND (*cut2_workaround_str)
 
 #ifndef SH_MULTILIB_CPU_DEFAULT
 #define SH_MULTILIB_CPU_DEFAULT "m1"
@@ -3265,73 +3246,6 @@ extern struct rtx_def *sp_switch;
 #define ADJUST_INSN_LENGTH(X, LENGTH)				\
   (LENGTH) += sh_insn_length_adjustment (X);
 
-/* Define the codes that are matched by predicates in sh.c.  */
-#define PREDICATE_CODES \
-  {"and_operand", {SUBREG, REG, CONST_INT}},				\
-  {"any_arith_reg_dest", {SUBREG, REG}},				\
-  {"any_register_operand", {SUBREG, REG}},				\
-  {"arith_operand", {SUBREG, REG, CONST_INT}},				\
-  {"arith_reg_dest", {SUBREG, REG}},					\
-  {"arith_reg_operand", {SUBREG, REG, SIGN_EXTEND}},			\
-  {"arith_reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_VECTOR}},	\
-  {"binary_float_operator", {PLUS, MINUS, MULT, DIV}},			\
-  {"binary_logical_operator", {AND, IOR, XOR}},				\
-  {"cache_address_operand", {PLUS, REG}},				\
-  {"cmp_operand", {SUBREG, REG, CONST_INT}},				\
-  {"cmpsi_operand", {SUBREG, REG, CONST_INT}},				\
-  {"commutative_float_operator", {PLUS, MULT}},				\
-  {"equality_comparison_operator", {EQ,NE}},				\
-  {"extend_reg_operand", {SUBREG, REG, TRUNCATE}},			\
-  {"extend_reg_or_0_operand", {SUBREG, REG, TRUNCATE, CONST_INT}},	\
-  {"ext_dest_operand", {SUBREG, REG}},					\
-  {"fp_arith_reg_dest", {SUBREG, REG}},					\
-  {"fp_arith_reg_operand", {SUBREG, REG}},				\
-  {"fpscr_operand", {REG}},						\
-  {"fpul_operand", {REG}},						\
-  {"general_extend_operand", {SUBREG, REG, MEM, TRUNCATE}},		\
-  {"general_movsrc_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE, MEM, CONST }}, \
-  {"general_movdst_operand", {SUBREG, REG, MEM}},			\
-  {"unaligned_load_operand", {MEM}},					\
-  {"greater_comparison_operator", {GT,GE,GTU,GEU}},			\
-  {"inqhi_operand", {TRUNCATE}},					\
-  {"int_gpr_dest", {SUBREG, REG}},					\
-  {"less_comparison_operator", {LT,LE,LTU,LEU}},			\
-  {"logical_operand", {SUBREG, REG, CONST_INT}},			\
-  {"logical_operator", {AND,IOR,XOR}},					\
-  {"logical_reg_operand", {SUBREG, REG}},				\
-  {"mextr_bit_offset", {CONST_INT}},					\
-  {"minuend_operand", {SUBREG, REG, TRUNCATE, CONST_INT}},		\
-  {"noncommutative_float_operator", {MINUS, DIV}},			\
-  {"sh_const_vec", {CONST_VECTOR}},					\
-  {"sh_1el_vec", {CONST_VECTOR}},					\
-  {"sh_register_operand", {REG, SUBREG, CONST_INT}},			\
-  {"sh_rep_vec", {CONST_VECTOR}},					\
-  {"shift_count_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
-			   LABEL_REF, SUBREG, REG, ZERO_EXTEND, SIGN_EXTEND}},\
-  {"shift_count_reg_operand", {SUBREG, REG, ZERO_EXTEND, SIGN_EXTEND}},	\
-  {"shift_operator", {ASHIFT, ASHIFTRT, LSHIFTRT}},			\
-  {"symbol_ref_operand", {SYMBOL_REF}},					\
-  {"target_operand", {SUBREG, REG, LABEL_REF, SYMBOL_REF, CONST, UNSPEC}},\
-  {"target_reg_operand", {SUBREG, REG}},				\
-  {"trunc_hi_operand", {SUBREG, REG, TRUNCATE}},			\
-  {"ua_address_operand", {SUBREG, REG, PLUS}},				\
-  {"ua_offset", {CONST_INT}},						\
-  {"unary_float_operator", {ABS, NEG, SQRT}},				\
-  {"xor_operand", {SUBREG, REG, CONST_INT}},				\
-
-#define SPECIAL_MODE_PREDICATES \
-  "any_arith_reg_dest", \
-  "any_register_operand", \
-  "int_gpr_dest", \
-  "target_operand", \
-  "target_reg_operand", \
-  "trunc_hi_operand", \
-  /* This line intentionally left blank.  */
-
-#define any_register_operand register_operand
-#define any_arith_reg_dest arith_reg_dest
-#define ext_dest_operand arith_reg_operand
-
 /* Define this macro if it is advisable to hold scalars in registers
    in a wider mode than that declared by the program.  In such cases,
    the value is constrained to be within the bounds of the declared
@@ -3459,12 +3373,6 @@ extern struct rtx_def *sp_switch;
    : NULL_RTX)
 
 #define SIMULTANEOUS_PREFETCHES 2
-
-extern const char *sh_multcost_str;
-extern const char *sh_gettrcost_str;
-extern const char *sh_div_str;
-extern const char *sh_divsi3_libfunc;
-extern const char *cut2_workaround_str;
 
 /* FIXME: middle-end support for highpart optimizations is missing.  */
 #define high_life_started reload_in_progress

@@ -26,12 +26,12 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
-#include "errors.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "toplev.h"
 
 #include "langhooks.h"
 #include "ipa-static.h"
@@ -1817,7 +1817,7 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
   /* If the variable cannot be modified and this is a V_MAY_DEF change
      it into a VUSE.  This happens when read-only variables are marked
-     call-clobbered and/or aliased to writeable variables.  So we only
+     call-clobbered and/or aliased to writable variables.  So we only
      check that this only happens on non-specific stores.
 
      Note that if this is a specific store, i.e. associated with a

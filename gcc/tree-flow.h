@@ -84,34 +84,6 @@ struct ptr_info_def GTY(())
 };
 
 
-/* Types of value ranges.  */
-enum value_range_type { VR_UNDEFINED, VR_RANGE, VR_ANTI_RANGE, VR_VARYING };
-
-
-/* Ranges of values that can be associated with an SSA_NAME after VRP
-   has executed.  */
-struct value_range_def GTY(())
-{
-  /* Lattice value represented by this range.  */
-  enum value_range_type type;
-
-  /* Minimum and maximum values represented by this range.  These
-     values are _CST nodes that should be interpreted as follows:
-
-     	- If TYPE == VR_UNDEFINED then MIN and MAX must be NULL.
-
-	- If TYPE == VR_RANGE then MIN holds the minimum value and
-	  MAX holds the maximum value of the range [MIN, MAX].
-
-	- If TYPE == ANTI_RANGE the variable is known to NOT
-	  take any values in the range [MIN, MAX].  */
-  tree min;
-  tree max;
-};
-
-typedef struct value_range_def value_range;
-
-
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
@@ -383,25 +355,7 @@ struct edge_prediction GTY((chain_next ("%h.next")))
   int probability;
 };
 
-/*---------------------------------------------------------------------------
-		  Block annotations stored in basic_block.tree_annotations
----------------------------------------------------------------------------*/
-struct bb_ann_d GTY(())
-{
-  /* Chain of PHI nodes for this block.  */
-  tree phi_nodes;
-
-  /* Nonzero if one or more incoming edges to this block should be threaded
-     to an outgoing edge of this block.  */
-  unsigned incoming_edge_threaded : 1;
-
-  struct edge_prediction *predictions;
-};
-
-typedef struct bb_ann_d *bb_ann_t;
-
 /* Accessors for basic block annotations.  */
-static inline bb_ann_t bb_ann (basic_block);
 static inline tree phi_nodes (basic_block);
 static inline void set_phi_nodes (basic_block, tree);
 
@@ -519,8 +473,6 @@ extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
-extern bool cleanup_tree_cfg (void);
-extern void cleanup_tree_cfg_loop (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
@@ -553,6 +505,12 @@ extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 extern void init_empty_tree_cfg (void);
 extern void fold_cond_expr_cond (void);
 extern void replace_uses_by (tree, tree);
+extern void start_recording_case_labels (void);
+extern void end_recording_case_labels (void);
+
+/* In tree-cfgcleanup.c  */
+extern bool cleanup_tree_cfg (void);
+extern void cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -596,6 +554,7 @@ extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
+extern void new_type_alias (tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline bool ref_contains_array_ref (tree);
@@ -644,12 +603,8 @@ bool fold_stmt_inplace (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
-value_range *get_value_range (tree);
-void dump_value_range (FILE *, value_range *);
-void debug_value_range (value_range *);
-void dump_all_value_ranges (FILE *);
-void debug_all_value_ranges (void);
 bool expr_computes_nonzero (tree);
+tree vrp_evaluate_conditional (tree, bool);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -794,6 +749,9 @@ extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
 extern bool expr_invariant_in_loop_p (struct loop *, tree);
+
+/* In tree-ssa-threadupdate.c.  */
+extern bool thread_through_all_blocks (bitmap);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, tree *, bool, tree);

@@ -495,7 +495,9 @@ struct tree_opt_pass pass_lower_vector =
 {
   "veclower",				/* name */
   0,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   expand_vector_operations,		/* execute */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -513,7 +515,9 @@ struct tree_opt_pass pass_lower_vector_ssa =
 {
   "veclower2",				/* name */
   gate_expand_vector_operations,	/* gate */
+  NULL, NULL,				/* IPA analysis */
   expand_vector_operations,		/* execute */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

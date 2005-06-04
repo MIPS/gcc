@@ -1,3 +1,36 @@
+2005-06-02  Jim Blandy  <jimb@redhat.com>
+
+	* config.sub: Add cases for the Renesas m32c.  (This patch has been
+	accepted into the master sources.)
+
+2005-06-02  Aldy Hernandez  <aldyh@redhat.com>
+            Michael Snyder  <msnyder@redhat.com>
+            Stan Cox  <scox@redhat.com>
+
+        * configure.in: Set noconfigdirs for ms1.
+
+        * configure: Regenerate.
+
+2005-06-01  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-06-01  Josh Conner  <jconner@apple.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-06-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-05-27  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-05-26  Chris Demetriou  <cgd@broadcom.com>
+
+	* MAINTAINERS (Write After Approval): Remove self.
+
 2005-05-25  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Makefile.tpl (stage[+id+]-start): Iterate over target module as well.

@@ -1441,6 +1441,10 @@ case "$LIBINTL" in *$LIBICONV*)
 	LIBICONV= ;;
 esac
 
+AC_ARG_ENABLE(secureplt,
+[  --enable-secureplt      enable -msecure-plt by default for PowerPC],
+[], [])
+
 # Windows32 Registry support for specifying GCC installation paths.
 AC_ARG_ENABLE(win32-registry,
 [  --disable-win32-registry
@@ -2637,6 +2641,14 @@ case "$target" in
 	lda	$29, 0($29)	!gpdisp!3],,
     [AC_DEFINE(HAVE_AS_EXPLICIT_RELOCS, 1,
   [Define if your assembler supports explicit relocations.])])
+    gcc_GAS_CHECK_FEATURE([jsrdirect relocation support],
+	gcc_cv_as_alpha_jsrdirect_relocs, [2,16,90],,
+[	.set nomacro
+	.text
+	ldq	$27, a($29)	!literal!1
+	jsr	$26, ($27), a	!lituse_jsrdirect!1],,
+    [AC_DEFINE(HAVE_AS_JSRDIRECT_RELOCS, 1,
+  [Define if your assembler supports the lituse_jsrdirect relocation.])])
     ;;
 
   cris-*-*)
@@ -2822,6 +2834,24 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_POPCNTB, 1,
 	  [Define if your assembler supports popcntb field.])])
 
+    case $target in
+      *-*-aix*) conftest_s='	.csect .text[[PR]]
+LCF..0:
+	addis 11,30,_GLOBAL_OFFSET_TABLE_-LCF..0@ha';;
+      *-*-darwin*)
+	conftest_s='	.text
+LCF0:
+	addis r11,r30,_GLOBAL_OFFSET_TABLE_-LCF0@ha';;
+      *) conftest_s='	.text
+.LCF0:
+	addis 11,30,_GLOBAL_OFFSET_TABLE_-.LCF0@ha';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([rel16 relocs],
+      gcc_cv_as_powerpc_rel16, [2,17,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_REL16, 1,
+	  [Define if your assembler supports R_PPC_REL16 relocs.])])
     ;;
 
   mips*-*-*)

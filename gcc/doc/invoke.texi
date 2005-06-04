@@ -277,6 +277,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-salias @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+-fdump-tree-vrp@r{[}-@var{n}@r{]} @gol
 -ftree-vectorizer-verbose=@var{n} @gol
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
@@ -636,7 +637,7 @@ See RS/6000 and PowerPC Options.
 -minsert-sched-nops=@var{scheme} @gol
 -mcall-sysv  -mcall-netbsd @gol
 -maix-struct-return  -msvr4-struct-return @gol
--mabi=@var{abi-type} @gol
+-mabi=@var{abi-type} -msecure-plt -mbss-plt @gol
 -misel -mno-isel @gol
 -misel=yes  -misel=no @gol
 -mspe -mno-spe @gol
@@ -732,6 +733,7 @@ See S/390 and zSeries Options.
 -finhibit-size-directive  -finstrument-functions @gol
 -fno-common  -fno-ident @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE @gol
+-fno-jump-tables @gol
 -freg-struct-return  -fshared-data  -fshort-enums @gol
 -fshort-double  -fshort-wchar @gol
 -fverbose-asm  -fpack-struct[=@var{n}]  -fstack-check @gol
@@ -4066,6 +4068,11 @@ file name.
 Dump each function after applying vectorization of loops.  The file name is
 made by appending @file{.vect} to the source file name.
 
+@item vrp
+@opindex fdump-tree-vrp
+Dump each function after Value Range Propagation (VRP).  The file name
+is made by appending @file{.vrp} to the source file name.
+
 @item all
 @opindex fdump-tree-all
 Enable all the available tree dumps with the flags provided in this option.
@@ -4320,6 +4327,7 @@ also turns on the following optimization flags:
 -funit-at-a-time @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels @gol
+-ftree-vrp @gol
 -ftree-pre}
 
 Please note the warning under @option{-fgcse} about
@@ -4470,7 +4478,7 @@ See below for a documentation of the individual
 parameters controlling inlining.
 
 @emph{Note:} pseudo instruction represents, in this particular context, an
-abstract measurement of function's size.  In no way, it represents a count
+abstract measurement of function's size.  In no way does it represent a count
 of assembly instructions and as such its exact meaning might change from one
 release to an another.
 
@@ -4961,6 +4969,15 @@ optimization later.  This is enabled by default at @option{-O} and higher.
 
 @item -ftree-vectorize
 Perform loop vectorization on trees.
+
+@item -ftree-vrp
+Perform Value Range Propagation on trees.  This is similar to the
+constant propagation pass, but instead of values, ranges of values are
+propagated.  This allows the optimizers to remove unnecessary range
+checks like array bound checks and null pointer checks.  This is
+enabled by default at @option{-O2} and higher.  Null pointer check
+elimination is only done if @option{-fdelete-null-pointer-checks} is
+enabled.
 
 @item -ftracer
 @opindex ftracer
@@ -6882,10 +6899,6 @@ options specified.
 Some configurations of the compiler also support additional special
 options, usually for compatibility with other compilers on the same
 platform.
-
-These options are defined by the macro @code{TARGET_SWITCHES} in the
-machine description.  The default for the options is also defined by
-that macro, which enables you to change the defaults.
 
 @c This list is ordered alphanumerically by subsection name.
 @c It should be the same order and spelling as these options are listed
@@ -10733,6 +10746,18 @@ ABI@.
 @opindex mabi=no-spe
 Disable Booke SPE ABI extensions for the current ABI@.
 
+@item -msecure-plt
+@opindex msecure-plt
+Generate code that allows ld and ld.so to build executables and shared
+libraries with non-exec .plt and .got sections.  This is a PowerPC
+32-bit SYSV ABI option.
+
+@item -mbss-plt
+@opindex mbss-plt
+Generate code that uses a BSS .plt section that ld.so fills in, and
+requires .plt and .got sections that are both writable and executable.
+This is a PowerPC 32-bit SYSV ABI option.
+
 @item -misel
 @itemx -mno-isel
 @opindex misel
@@ -12574,6 +12599,15 @@ generated position independent code can be only linked into executables.
 Usually these options are used when @option{-pie} GCC option will be
 used during linking.
 
+@item -fno-jump-tables
+@opindex fno-jump-tables
+Do not use jump tables for switch statements even where it would be
+more efficient than other code generation strategies.  This option is
+of use in conjunction with @option{-fpic} or @option{-fPIC} for
+building code which forms part of a dynamic linker and cannot
+reference the address of a jump table.  On some targets, jump tables
+do not require a GOT and this option is not needed.
+
 @item -ffixed-@var{reg}
 @opindex ffixed
 Treat the register named @var{reg} as a fixed register; generated code
@@ -12774,8 +12808,8 @@ For those adding visibility support to existing code, you may find
 @samp{#pragma GCC visibility} of use.  This works by you enclosing
 the declarations you wish to set visibility for with (for example)
 @samp{#pragma GCC visibility push(hidden)} and
-@samp{#pragma GCC visibility pop}.  These can be nested up to sixteen
-times.  Bear in mind that symbol visibility should be viewed @strong{as
+@samp{#pragma GCC visibility pop}.
+Bear in mind that symbol visibility should be viewed @strong{as
 part of the API interface contract} and thus all new code should
 always specify visibility when it is not the default ie; declarations
 only for use within the local DSO should @strong{always} be marked explicitly

@@ -28,7 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "diagnostic.h"
@@ -294,7 +293,9 @@ chrec_fold_plus_1 (enum tree_code code,
 		&& size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
 	      return build2 (code, type, op0, op1);
 	    else if (size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
-	      return fold_build2 (code, type, op0, op1);
+	      return fold_build2 (code, type,
+				  fold_convert (type, op0),
+				  fold_convert (type, op1));
 	    else
 	      return chrec_dont_know;
 	  }
