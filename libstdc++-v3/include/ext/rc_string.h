@@ -95,11 +95,13 @@ namespace __gnu_cxx
     : public __string_utility<_CharT, _Traits, _Alloc>
     {
     public:
-      // Types:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
       typedef _Alloc					    allocator_type;
-      typedef typename _Alloc::size_type		    size_type;
+
+      typedef typename __string_utility<_CharT, _Traits, _Alloc>::
+        _CharT_alloc_type                                   _CharT_alloc_type;
+      typedef typename _CharT_alloc_type::size_type	    size_type;
 
       // The maximum number of individual char_type elements of an
       // individual string is determined by _S_max_size. This is the

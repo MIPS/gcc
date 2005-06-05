@@ -66,27 +66,28 @@ namespace std
   // 21.3  Template class basic_string
   template<typename _CharT, typename _Traits, typename _Alloc>
     class basic_string
-    : private ___glibcxx_base_string<_CharT, _Traits, _Alloc>
+    : private __glibcxx_base_string<_CharT, _Traits, _Alloc>
     {
+      typedef typename __glibcxx_base_string<_CharT, _Traits, _Alloc>
+                                                            __string_base;      
+      typedef typename __string_base::_CharT_alloc_type     _CharT_alloc_type;
+
       // Types:
     public:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
       typedef _Alloc					    allocator_type;
-      typedef typename _Alloc::size_type		    size_type;
-      typedef typename _Alloc::difference_type		    difference_type;
-      typedef typename _Alloc::reference		    reference;
-      typedef typename _Alloc::const_reference		    const_reference;
-      typedef typename _Alloc::pointer			    pointer;
-      typedef typename _Alloc::const_pointer		    const_pointer;
+      typedef typename _CharT_alloc_type::size_type	    size_type;
+      typedef typename _CharT_alloc_type::difference_type   difference_type;
+      typedef typename _CharT_alloc_type::reference	    reference;
+      typedef typename _CharT_alloc_type::const_reference   const_reference;
+      typedef typename _CharT_alloc_type::pointer	    pointer;
+      typedef typename _CharT_alloc_type::const_pointer	    const_pointer;
       typedef __gnu_cxx::__normal_iterator<pointer, basic_string>  iterator;
       typedef __gnu_cxx::__normal_iterator<const_pointer, basic_string>
                                                             const_iterator;
       typedef std::reverse_iterator<const_iterator>	const_reverse_iterator;
       typedef std::reverse_iterator<iterator>		    reverse_iterator;
-
-      typedef typename ___glibcxx_base_string<_CharT, _Traits, _Alloc>
-                                                            __string_base;
 
       // Data Members (public):
       // NB: This is an unsigned type, and thus represents the maximum
@@ -2143,7 +2144,7 @@ namespace std
 #endif
 
   // Undefine.
-#undef ___glibcxx_base_string
+#undef __glibcxx_base_string
 } // namespace std
 
 #endif /* _BASIC_STRING_H */

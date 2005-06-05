@@ -40,7 +40,7 @@ GLIBCXX_3.6 {
       std::logic_error*;
       std::locale::[A-Za-e]*;
       std::locale::facet::[A-Za-z]*;
-      std::locale::facet::_S_get_c_locale*;	
+      std::locale::facet::_S_get_c_locale*;
       std::locale::facet::_S_clone_c_locale*;
       std::locale::facet::_S_create_c_locale*;
       std::locale::facet::_S_destroy_c_locale*;
@@ -290,7 +290,14 @@ GLIBCXX_3.6 {
     _ZN9__gnu_cxx9free_list6_M_getE*;
     _ZN9__gnu_cxx9free_list8_M_clearEv;
 
-    # Added in libstdcxx_so_7-branch   
+    # In GLIBCXX_3.4.5
+    _ZSt17__copy_streambufsI[cw]St11char_traitsI[cw]EEiPSt15basic_streambuf*;
+    _ZNSt8ios_base17_M_call_callbacksENS_5eventE;
+    _ZNSt8ios_base20_M_dispose_callbacksEv;
+    _ZNSt6locale5facet13_S_get_c_nameEv;
+    _ZN11__gnu_debug13__fancy_abortEPKciS1_S1_;
+
+    # Added in libstdcxx_so_7-branch
     _ZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
     _ZNK9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
     _ZZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;

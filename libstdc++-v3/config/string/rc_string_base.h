@@ -32,6 +32,6 @@
 
 // Define rc_string as the base class to std::basic_string.
 #include <ext/rc_string.h>
-#define ___glibcxx_base_string  __gnu_cxx::__rc_string
+#define __glibcxx_base_string  __gnu_cxx::__rc_string
 
 #endif

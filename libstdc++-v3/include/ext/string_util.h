@@ -49,11 +49,13 @@ namespace __gnu_cxx
   template<typename _CharT, typename _Traits, typename _Alloc>
     struct __string_utility
     {
+      typedef typename _Alloc::template rebind<_CharT>::other _CharT_alloc_type;
+
       typedef _Traits					    traits_type;      
       typedef typename _Traits::char_type		    value_type;
-      typedef typename _Alloc::size_type		    size_type;
-      typedef typename _Alloc::pointer			    pointer;
-      typedef typename _Alloc::const_pointer		    const_pointer;
+      typedef typename _CharT_alloc_type::size_type	    size_type;
+      typedef typename _CharT_alloc_type::pointer	    pointer;
+      typedef typename _CharT_alloc_type::const_pointer	    const_pointer;
       typedef __gnu_cxx::
       __normal_iterator<pointer,
 			std::basic_string<_CharT, _Traits, _Alloc> >
