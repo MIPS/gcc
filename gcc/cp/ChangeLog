@@ -1,3 +1,53 @@
+2005-06-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21619
+	* cp-tree.h (DECL_IS_BUILTIN_CONSTANT_P): New macro.
+	* parser.c (cp_parser_postfix_expression): Allow non-constant
+	expressions as arguments to __builtin_constant_p.
+	* tree.c (builtin_valid_in_constant_expr_p): Use
+	DECL_IS_BUILTIN_CONSTANT_P. 
+
+2005-06-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21853
+	* typeck.c (casts_away_constness_r): Do not drop cv-qualifiers on
+	the pointed-to type for a pointer-to-member.
+
+2005-06-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21336
+	* cp-tree.h (grok_op_properties): Remove friendp parameter.
+	* decl.c (grokfndecl): Adjust call.
+	(grok_op_properties): Determine the class of which the function is
+	a member by looking at its DECL_CONTEXT, not current_class_type.
+	* pt.c (tsubst_decl): Adjust call to grok_op_properties.
+
+2005-06-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* method.c (synthesize_method): Change synthesize error to warning
+	for previous patch.
+
+	PR c++/21280
+	* Make-lang.in (method.o): Add diagnostic.h
+	* decl.c (start_preparsed_function): Use decl's location for file
+	info.
+	* decl2.c (cp_finish_file): Set input_location before synthesizing
+	a function.
+	(mark_used): When deferring a synthesized function, save current
+	location.  Do not set function's location when actually
+	synthesizing it.
+	* method.c: #include diagnostic.h.
+	(synthesize_method): Set the functions source location.  Show
+	needed location if errors are emitted.
+
+	PR c++/21151
+	* name-lookup.c (pushtag): Push local class even in a template.
+
+2005-06-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20350
+	* decl.c (duplicate_decls): Copy all of DECL_USE_TEMPLATE.
+
 2005-05-31  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/21165

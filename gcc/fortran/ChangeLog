@@ -1,3 +1,137 @@
+2005-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from the mainline:
+	2005-04-17 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/17472
+	PR fortran/18209
+	PR fortran/18396
+	PR fortran/19467
+	PR fortran/19657
+	* fortran/trans-io.c (gfc_build_io_library_fndecls): Create
+	declaration for	st_set_nml_var and st_set_nml_var_dim. Remove
+	declarations of old namelist functions.
+	(build_dt): Simplified call to transfer_namelist_element.
+	(nml_get_addr_expr): Generates address expression for start of 
+	object data. New function.
+	(nml_full_name): Qualified name for derived type components. New 
+	function.
+	(transfer_namelist_element): Modified for calls to new functions 
+	and improved derived type handling.
+
+2005-06-05  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/21912
+	* trans-array.c (gfc_trans_array_constructor_value): Slightly reorder.
+	Generate correct exit condition in case of negative steps in
+	implied-do loops.
+
+	* invoke.texi: Fix description of flags required for compatibility
+	with g77.
+
+2005-06-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18109
+	PR fortran/18283
+	PR fortran/19107
+	PR fortran/16939
+	PR fortran/17192
+	PR fortran/17193
+	PR fortran/17202
+	PR fortran/18689
+	PR fortran/18890
+	* fortran/trans-array.c (gfc_conv_expr_descriptor): Obtain the
+	string length from the expression typespec character length value
+	and set temp_ss->stringlength and backend_decl. Obtain the
+	tree expression from gfc_conv_expr rather than gfc_conv_expr_val.
+	Dereference the expression to obtain the character.
+	* fortran/trans-array.c (gfc_conv_resolve_dependencies): Add string
+	length to temp_ss for character pointer array assignments.
+	* fortran/trans-expr.c (gfc_conv_component_ref): Remove the
+	dereference of scalar character pointer structure components.
+	* fortran/trans-expr.c (gfc_trans_subarray_assign): Obtain the
+	string length for the structure component from the component
+	expression.
+	* fortran/trans-expr.c (gfc_conv_variable): Correct errors in
+	dereferencing of characters and character pointers.
+	* fortran/trans-expr.c (gfc_conv_function_call): Provide string
+	length as return argument for various kinds of handling of return.
+	Return a char[]* temporary for character pointer functions and
+	dereference the temporary upon return.
+
+2005-06-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+        Erik Schnetter  <schnetter@aei.mpg.de>
+
+	PR fortran/19195
+	* trans.c (gfc_get_backend_locus): Remove unnecessary adjustment,
+	remove FIXME comment.
+
+2005-06-04  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR fortran/16898
+	* trans-types.c (gfc_array_range_type): New variable.
+	(gfc_init_types): Initialize gfc_array_range_type.
+	(gfc_get_array_type_bounds): Use gfc_array_range_type.
+
+2005-06-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+	Erik Edelmann  <erik.edelmann@iki.fi>
+
+	* array.c (gfc_match_array_constructor): Disallow empty array
+	constructor.
+
+2005-06-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* match.c (match_forall_iterator): Don't immediately give error if '='
+	is not followed by an expression.
+
+2005-06-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.h (gfc_option): Add flag_f2c.
+	* invoke.texi: Document '-ff2c' command line option.  Adapt
+	documentation for '-fno-second-underscore' and '-fno-underscoring'.
+	* lang.opt (ff2c): New entry.
+	* options.c (gfc-init_options): Set default calling convention
+	to -fno-f2c and -fno-second-underscore.
+	(handle_options): Set gfc_option.flag_f2c according to requested
+	calling	convention.
+	* trans-decl.c (gfc_get_extern_function_decl): Use special f2c
+	intrinsics where necessary.
+	(gfc_trans_deferred_vars): Change todo error to	assertion.
+	* trans-expr.c (gfc_conv_variable): Dereference access
+	to hidden result argument.
+	(gfc_conv_function_call): Add hidden result argument to argument
+	list if f2c calling conventions requested.  Slightly restructure
+	tests.  Convert result of default REAL function to requested type
+	if f2c calling conventions are used.  Dereference COMPLEX result
+	if f2c cc are used.
+	* trans-types.c (gfc_sym_type):  Return double for default REAL
+	function if f2c cc are used.
+	(gfc_return_by_reference): Slightly restructure logic.  Return
+	COMPLEX by reference depending on calling conventions.
+	(gfc_get_function_type): Correctly make hidden result argument a
+	pass-by-reference argument for COMPLEX.  Remove old code which does
+	this for derived types.
+
+	* resolve.c (resolve_symbol): Copy 'pointer' and 'dimension'
+	attribute from result symbol to function symbol.
+	* trans-expr.c (gfc_conv_function_call): Check sym for attribute
+	'dimension' instead of sym->result.
+
+2005-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/21729
+	* resolve.c (resolve_contained_fntype): Use sym->attr.untyped
+	to avoid giving error multiple times.
+	(resolve_entries): Don't error about BT_UNKNOWN here.
+	(resolve_unknown_f): Capitalize IMPLICIT for consistency.
+	(resolve_fntype): New function.
+	(gfc_resolve): Call resolve_fntype.
+
+2005-06-01  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/20883
+	* fortran/io.c (resolve_tag): Fix error message.
+
 2005-05-29  Janne Blomqvist  <jblomqvi@vipunen.hut.fi>
             Steven G. Kargl  <kargls@comcast.net>
   

@@ -1,3 +1,81 @@
+2005-06-06  Sebastian Pop <pop@cri.ensmp.fr>
+
+	PR tree-optimization/20742
+	* params.def (PARAM_SCEV_MAX_EXPR_SIZE): New parameter with
+	default value 20.
+	* tree-chrec.c: Depend on params.h.  Replace build with buildN,
+	and fold build with fold_buildN.
+	(chrec_fold_plus_1): Fail with a chrec_don_know when the size of
+	the expression exceeds PARAM_SCEV_MAX_EXPR_SIZE.
+	(tree_contains_chrecs): Compute an estimation of the size of the
+	given expression.
+	* tree-chrec.h (tree_contains_chrecs): Modify its declaration.
+	(tree_does_not_contain_chrecs): Update the use of tree_contains_chrecs.
+	* tree-scalar-evolution.c (simple_iv): Ditto.
+	* doc/invoke.texi (scev-max-expr-size): Documented.
+
+2005-06-04  Richard Henderson  <rth@redhat.com>
+
+        PR target/21888
+        * config/alpha/alpha.c (alpha_align_insns): Don't insert nops
+        until we've passed initial ldgp.
+
+2005-06-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix52.h (ASM_CPU_SPEC): Add power5.
+
+2005-06-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21873
+	* c-typeck.c (push_init_level): Don't pop levels without braces if
+	implicit == 1.
+
+2005-06-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21879
+	* c-decl.c (start_function): Restore label_context_stack_se and
+	label_context_stack_vm  if returning with an error.
+
+2005-06-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree.c (build_common_builtin_nodes): Fix the return type on
+	__builtin_memcmp.
+
+2005-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/21536
+	PR c/20760
+	* gimplify.c (gimplify_decl_expr): Call gimplify_type_sizes
+	on variable sizes types if a decl is a pointer to a VLA.
+	(gimplify_type_sizes): Handle POINTER_TYPE and REFERENCE_TYPE.
+	Call gimplify_type_sizes on aggregate fields.  Prevent infinite
+	recursion.
+
+	* config/i386/xmmintrin.h (_mm_setzero_ps, _mm_set_ss, _mm_set1_ps,
+	_mm_set_ps, _mm_setr_ps): Add __extension__.
+	* config/i386/emmintrin.h (_mm_set_sd, _mm_set1_pd, _mm_set_pd,
+	_mm_setr_pd, _mm_setzero_pd, _mm_set_epi64x, _mm_set_epi64x,
+	_mm_set_epi32, _mm_set_epi16, _mm_set_epi8, _mm_setzero_si128):
+	Likewise.
+	(_mm_clflush): Don't use return in void function.
+
+	* config/i386/emmintrin.h (_mm_castpd_ps, _mm_castpd_si128,
+	_mm_castps_pd, _mm_castps_si128, _mm_castsi128_ps, _mm_castsi128_pd):
+	Use __inline instead of inline.
+
+2005-06-01  Richard Henderson  <rth@redhat.com>
+
+	* configure.ac (HAVE_AS_JSRDIRECT_RELOCS): New.
+	* config.in, configure: Rebuild.
+	* config/alpha/alpha.c (print_operand): Add 'j'.
+	* alpha.md (divmodsi_internal_er_1): Use it.
+	(divmoddi_internal_er_1): Likewise.
+
+2005-05-31  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/21817
+	* tree-ssa-loop-im.c (for_each_index): Handle VECTOR_CST.
+
 2005-05-31  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR middle-end/20931
@@ -425,22 +503,6 @@
 	* config/i386/i386.c (legitimize_address): When canonicalizing
 	ASHIFT into MULT, multiply by 1 << shift_count instead of
 	1 << log2 (shift_count).
-
-2005-05-04  Sebastian Pop  <sebastian.pop@cri.ensmp.fr>
-
-	PR tree-optimization/20742
-	* Makefile.in (tree-chrec.o): Depend on params.h.
-	* params.def (PARAM_SCEV_MAX_EXPR_SIZE): New parameter with
-	default value 20.
-	* tree-chrec.c: Depend on params.h.  Replace build with buildN.
-	(chrec_fold_plus_1): Fail with a chrec_don_know when the size of
-	the expression exceeds PARAM_SCEV_MAX_EXPR_SIZE.
-	(tree_contains_chrecs): Compute an estimation of the size of the
-	given expression.
-	* tree-chrec.h (tree_contains_chrecs): Modify its declaration.
-	(tree_does_not_contain_chrecs): Update the use of tree_contains_chrecs.
-	* tree-scalar-evolution.c (simple_iv): Ditto.
-	* doc/invoke.texi (scev-max-expr-size): Documented.
 
 2005-05-04  Jakub Jelinek  <jakub@redhat.com>
 

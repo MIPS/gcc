@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static tree gfc_get_derived_type (gfc_symbol * derived);
 
 tree gfc_array_index_type;
+tree gfc_array_range_type;
 tree pvoid_type_node;
 tree ppvoid_type_node;
 tree pchar_type_node;
@@ -528,6 +529,10 @@ gfc_init_types (void)
   pchar_type_node = build_pointer_type (gfc_character1_type_node);
 
   gfc_array_index_type = gfc_get_int_type (gfc_index_integer_kind);
+  gfc_array_range_type
+	  = build_range_type (gfc_array_index_type,
+			      build_int_cst (gfc_array_index_type, 0),
+			      NULL_TREE);
 
   /* The maximum array element size that can be handled is determined
      by the number of bits available to store this field in the array
@@ -1182,9 +1187,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   /* We define data as an unknown size array. Much better than doing
      pointer arithmetic.  */
   arraytype =
-    build_array_type (etype,
-		      build_range_type (gfc_array_index_type,
-					gfc_index_zero_node, NULL_TREE));
+    build_array_type (etype, gfc_array_range_type);
   arraytype = build_pointer_type (arraytype);
   GFC_TYPE_ARRAY_DATAPTR_TYPE (fat_type) = arraytype;
 
@@ -1269,6 +1272,18 @@ gfc_sym_type (gfc_symbol * sym)
     sym = sym->result;
 
   type = gfc_typenode_for_spec (&sym->ts);
+  if (gfc_option.flag_f2c
+      && sym->attr.function
+      && sym->ts.type == BT_REAL
+      && sym->ts.kind == gfc_default_real_kind
+      && !sym->attr.always_explicit)
+    {
+      /* Special case: f2c calling conventions require that (scalar) 
+	 default REAL functions return the C type double instead.  */
+      sym->ts.kind = gfc_default_double_kind;
+      type = gfc_typenode_for_spec (&sym->ts);
+      sym->ts.kind = gfc_default_real_kind;
+    }
 
   if (sym->attr.dummy && !sym->attr.function)
     byref = 1;
@@ -1450,19 +1465,29 @@ gfc_get_derived_type (gfc_symbol * derived)
 int
 gfc_return_by_reference (gfc_symbol * sym)
 {
+  gfc_symbol *result;
+
   if (!sym->attr.function)
     return 0;
 
-  if (sym->result)
-    sym = sym->result;
+  result = sym->result ? sym->result : sym;
 
-  if (sym->attr.dimension)
+  if (result->attr.dimension)
     return 1;
 
-  if (sym->ts.type == BT_CHARACTER)
+  if (result->ts.type == BT_CHARACTER)
     return 1;
 
-  /* Possibly return complex numbers by reference for g77 compatibility.  */
+  /* Possibly return complex numbers by reference for g77 compatibility.
+     We don't do this for calls to intrinsics (as the library uses the
+     -fno-f2c calling convention), nor for calls to functions which always
+     require an explicit interface, as no compatibility problems can
+     arise there.  */
+  if (gfc_option.flag_f2c
+      && result->ts.type == BT_COMPLEX
+      && !sym->attr.intrinsic && !sym->attr.always_explicit)
+    return 1;
+  
   return 0;
 }
 
@@ -1548,7 +1573,7 @@ gfc_get_function_type (gfc_symbol * sym)
 	gfc_conv_const_charlen (arg->ts.cl);
 
       type = gfc_sym_type (arg);
-      if (arg->ts.type == BT_DERIVED
+      if (arg->ts.type == BT_COMPLEX
 	  || arg->attr.dimension
 	  || arg->ts.type == BT_CHARACTER)
 	type = build_reference_type (type);

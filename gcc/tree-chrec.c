@@ -381,7 +381,7 @@ chrec_fold_multiply (tree type,
 	    return op0;
 	  if (integer_zerop (op1))
 	    return build_int_cst_type (type, 0);
-	  return fold (build (MULT_EXPR, type, op0, op1));
+	  return fold (build2 (MULT_EXPR, type, op0, op1));
 	}
     }
 }
@@ -724,7 +724,7 @@ reset_evolution_in_loop (unsigned loop_num,
 {
   if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
       && CHREC_VARIABLE (chrec) > loop_num)
-    return build2 
+    return build2
       (TREE_CODE (chrec), 
        build_int_cst (NULL_TREE, CHREC_VARIABLE (chrec)), 
        reset_evolution_in_loop (loop_num, CHREC_LEFT (chrec), new_evol), 
