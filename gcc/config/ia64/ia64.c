@@ -117,6 +117,10 @@ const char *ia64_tune_string;
    avoid the normal second scheduling pass.  */
 static int ia64_flag_schedule_insns2;
 
+/* Determines whether we run variable tracking in machine dependent
+   reorganization.  */
+static int ia64_flag_var_tracking;
+
 /* Variables which are this size or smaller are put in the sdata/sbss
    sections.  */
 
@@ -1890,6 +1894,13 @@ ia64_split_call (rtx retval, rtx addr, rtx retaddr, rtx scratch_r,
 static void
 ia64_file_start (void)
 {
+  /* Variable tracking should be run after all optimizations which change order
+     of insns.  It also needs a valid CFG.  This can't be done in
+     ia64_override_options, because flag_var_tracking is finallized after
+     that.  */
+  ia64_flag_var_tracking = flag_var_tracking;
+  flag_var_tracking = 0;
+
   default_file_start ();
   emit_safe_across_calls ();
 }
@@ -7674,6 +7685,13 @@ ia64_reorg (void)
 
   fixup_errata ();
   emit_predicate_relation_info ();
+
+  if (ia64_flag_var_tracking)
+    {
+      timevar_push (TV_VAR_TRACKING);
+      variable_tracking_main ();
+      timevar_pop (TV_VAR_TRACKING);
+    }
 }
 
 /* Return true if REGNO is used by the epilogue.  */

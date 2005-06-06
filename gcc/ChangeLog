@@ -1,3 +1,225 @@
+2005-05-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.c (ia64_override_options): Don't set
+	ia64_flag_var_tracking and clear flag_var_tracking here...
+	(ia64_file_start): ... but here.
+
+2004-12-31  Richard Henderson  <rth@redhat.com>
+
+	* var-tracking.c (vt_initialize): Set DECL_IGNORED_P.
+
+2004-12-24  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* var-tracking.c (VARIABLE_HASH_VAL): Use DECL_UID, so that this is
+	deterministic.
+
+2004-07-21  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (vt_find_locations): Set the in_pending bitmap at
+	once.
+
+2004-07-05  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c: Fix some comments.
+	(frame_stack_adjust): New.
+	(vt_stack_adjustments): Init stack_adjust of entry block to
+	minus stack adjustment of function prologue.
+	(adjust_stack_reference): Do not adjust if adjustment == 0.
+	(compute_bb_dataflow): Use plus_constant instead of gen_rtx_PLUS.
+	(emit_notes_in_bb): Likewise.
+	(vt_add_function_parameters): Do not adjust locations of
+	function arguments.
+	(vt_initialize): Compute the stack adjustment of function
+	prologue and offset the initial "location" of frame_base_decl
+	from the stack pointer after prologue.
+
+2004-04-28  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (variable_different_p): Add a parameter
+	compare_current_location, compare current location of variable parts
+	if it is true.
+	(dataflow_set_different_1): Pass compare_current_location == false.
+	(dataflow_set_different_2): Pass compare_current_location == false.
+	(emit_notes_for_differences_1): Pass compare_current_location == true.
+
+2004-03-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* var-tracking.c: Remove unnecessary casts.
+
+2004-03-11  Josef Zlomek  <zlomekj@suse.cz>
+
+	PR/14362
+	* var-tracking.c (struct variable_def): Added field refcount.
+	(variable_htab_free): Decrease the refcount and delete variable
+	only if there are no more references.
+	(unshare_variable): New function.
+	(vars_copy_1): Increase refcount instead of copying the variable.
+	(variable_union): Share the variables where possible, unshare
+	the variables if needed.
+	(variable_different_p): Return false if var1 and var2 are
+	the same structure.
+	(variable_was_changed): Init the refcount of new variable.
+	(set_frame_base_location): Unshare variable if needed.
+	(set_variable_part): Init the refcount of new variable.
+	Unshare the variables if needed.
+	(delete_variable_part): Unshare the variables if needed. 
+	(emit_notes_for_differences_1): Init the refcount of new variable.
+	(vt_add_function_parameters): Do not add function parameters to
+	IN set of ENTRY_BLOCK_PTR because it is unused anyway.
+	(vt_initialize): Do not add frame_base_decl to IN set of
+	ENTRY_BLOCK_PTR because it is unused anyway.
+
+2004-03-11  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (vars_copy_1): Cleanup and speedup chain operations.
+	(vars_copy): Likewise.
+	(variable_union): Likewise.
+	(set_variable_part): Likewise.
+	(delete_variable_part): Likewise.
+
+2004-03-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* var-tracking.c: Fix comment typos and formatting.
+
+2004-03-04  Josef Zlomek  <zlomekj@suse.cz>
+
+	PR/14362
+	* var-tracking.c (track_expr_p): Do not track variables which
+	should be ignored for debugging purposes.
+
+2004-02-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* dwarf2out.c (loclabel_num): Move outside #ifdef
+	DWARF2_DEBUGGING_INFO and mark with GTY(()).
+
+2004-02-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* var-tracking.c: Fix comment formatting.
+
+2004-02-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* tree.h (frame_base_decl): Add GTY marker.
+
+2004-02-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* dwarf2out.c (output_loc_list): Remove no longer necessary, and now
+	incorrect, hunk.
+	(add_location_or_const_value_attribute): Use text_section_label,
+	not TEXT_SECTION_NAME.
+
+2004-02-07  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (vt_add_function_parameters): Surround checkings by
+	#ifdef ENABLE_CHECKING and #endif.
+
+2004-02-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* var-tracking.c: Fix comment typos.
+
+2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* dwarf2out.c (loclabel_num): Move into #ifdef 
+	DWARF2_DEBUGGING_INFO.
+
+2004-02-06  Daniel Berlin <dberlin@dberlin.org>
+	    Josef Zlomek  <zlomekj@suse.cz>
+
+	* dwarf2out.c (struct gcc_debug_hooks): Call dwarf2out_begin_function
+	at the beginning of function, call dwarf2out_var_location for
+	NOTE_INSN_VAR_LOCATION note.
+	(struct var_loc_node, struct var_loc_list_def, loclabel_num,
+	decl_loc_table): New.
+	(lookup_decl_loc): New function.
+	(add_var_loc_to_decl): New function.
+	(based_loc_descr): Added parameter can_use_fbreg, DW_OP_fbreg is used
+	only if can_use_fbreg.
+	(mem_loc_descriptor): Added parameter can_use_fbreg, pass it to other
+	functions.
+	(loc_descriptor): Likewise. Process VAR_LOCATION.
+	(concat_loc_descriptor): Call loc_descriptor with can_use_fbreg == true.
+	(loc_descriptor_from_tree): Call mem_loc_descriptor with
+	can_use_fbreg == true.
+	(add_location_or_const_value_attribute): Added parameter enum
+	dwarf_attribute attr, generate attribute ATTR.  Create the location list.
+	(add_bound_info): Call loc_descriptor with can_use_fbreg == true.
+	(gen_formal_parameter_die): Call add_location_or_const_value_attribute
+	with attr == DW_AT_location.
+	(gen_subprogram_die): Generate the location list for DW_AT_frame_base
+	if frame_base_decl is defined and has a location list.
+	(gen_variable_die): Call add_location_or_const_value_attribute with
+	attr == DW_AT_location.
+	(dwarf2out_var_location): New function.
+	(dwarf2out_begin_function): New function.
+	(dwarf2out_init): Create decl_loc_table.
+
+2004-02-06  Josef Zlomek  <zlomekj@suse.cz>
+	    Daniel Berlin <dberlin@dberlin.org>
+
+	Josef Zlomek  <zlomekj@suse.cz>
+	* Makefile.in (var-tracking.o): New.
+	* common.opt (fvar-tracking): New.
+	* flags.h (flag_var_tracking): New.
+	* gengtype.c (adjust_field_rtx_def): NOTE_INSN_VAR_LOCATION was added.
+	* opts.c (common_handle_option): Add OPT_fvar_tracking.
+	* print-rtl.c (print_rtx): NOTE_INSN_VAR_LOCATION was added.
+	* rtl.c (note_insn_name): Likewise.
+	* rtl.def (VAR_LOCATION): New.
+	* rtl.h (NOTE_VAR_LOCATION): New.
+	(NOTE_VAR_LOCATION_DECL): New.
+	(NOTE_VAR_LOCATION_LOC): New.
+	(enum insn_note): NOTE_INSN_VAR_LOCATION was added.
+	(variable_tracking_main): New exported function.
+	* timevar.def (TV_VAR_TRACKING): New.
+	* toplev.c (enum dump_file_index): Added DFI_vartrack.
+	(dump_file): "vartrack" was added (-dV).
+	(flag_var_tracking): New.
+	(f_options): "var-tracking" was added.
+	(rest_of_handle_variable_tracking): New function.
+	(rest_of_compilation): Run variable tracking.
+	(process_options): If user has not specified flag_var_tracking set it
+	according to optimize, debug_info_level and debug_hooks.
+	* tree.h (frame_base_decl): New.
+	* var-tracking.c: New file.
+	* config/ia64/ia64.c (ia64_flag_var_tracking): New variable.
+	(ia64_override_options): Set flags to run variable tracking in machine
+	dependent reorg instead of toplev.c.
+	(ia64_reorg): Run variable tracking if wanted.
+	* doc/invoke.texi: Mention variable tracking in -dV,
+	add and -fvar-tracking.
+	* doc/passes.texi: Added variable tracking pass.
+
+	Daniel Berlin <dberlin@dberlin.org>
+	* debug.h (struct gcc_debug_hooks): Added var_location debug hook.
+	* dbxout.c (dbx_debug_hooks): Likewise.
+	(xcoff_debug): Likewise.
+	* debug.c (do_nothing_debug_hooks): Likewise.
+	* dwarf2out.c (dwarf2_debug_hooks): Likewise.
+	* dwarfout.c (dwarf_debug_hooks): Likewise.
+	* sdbout.c (sdb_debug_hooks): Likewise.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Likewise.
+	* final.c (final_scan_insn): Call var_location debug hook for each 
+	NOTE_INSN_VAR_LOCATION. 
+
+2004-02-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* dwarf2out.c (output_loc_list): Don't use deltas if we have
+	a separate line info table in use.
+	Use the correct size for terminators.
+	(output_die): Use offset, not delta.
+
+2004-01-29  Josef Zlomek  <zlomekj@suse.cz>
+
+	* dwarf2out.c (struct die_struct): Added field decl_id.
+	(decl_die_table): Changed to hash table.
+	(decl_die_table_allocated): Deleted.
+	(decl_die_table_in_use): Deleted.
+	(DECL_DIE_TABLE_INCREMENT): Deleted.
+	(decl_die_table_hash): New function.
+	(decl_die_table_eq): New function.
+	(lookup_decl_die): Lookup in a hash table.
+	(equate_decl_number_to_die): Insert into a hash table.
+	(dwarf2out_init): Init hash table decl_die_table.
+
 2005-05-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/21239
