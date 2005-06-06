@@ -150,6 +150,32 @@ ptr_decl_may_alias_p (tree ptr, tree decl,
   return true;
 }
 
+
+/* Determine if two pointers may alias, the result is put in ALIASED.
+   Return FALSE if there is no type memory tag for one of the pointers.
+*/
+static bool
+ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b, 
+		     struct data_reference *dra, 
+		     struct data_reference *drb, 
+		     bool *aliased)
+{  
+  tree tag_a, tag_b;
+
+  tag_a = get_var_ann (SSA_NAME_VAR (ptr_a))->type_mem_tag;
+  if (!tag_a)
+    tag_a = DR_MEMTAG (dra);
+  if (!tag_a)
+    return false;
+  tag_b = get_var_ann (SSA_NAME_VAR (ptr_b))->type_mem_tag;
+  if (!tag_b)
+    tag_b = DR_MEMTAG (drb);
+  if (!tag_b)
+    return false;
+  *aliased = (tag_a == tag_b);
+  return true;
+}
+
 /* Determine if BASE_A and BASE_B may alias, the result is put in ALIASED.
    Return FALSE if there is no type memory tag for one of the symbols.
 */
@@ -159,8 +185,6 @@ may_alias_p (tree base_a, tree base_b,
 	     struct data_reference *drb,
 	     bool *aliased)
 {
-  tree tag_a, tag_b;
-
   if (TREE_CODE (base_a) == ADDR_EXPR || TREE_CODE (base_b) == ADDR_EXPR)
     {
       if (TREE_CODE (base_a) == ADDR_EXPR && TREE_CODE (base_b) == ADDR_EXPR)
@@ -175,18 +199,8 @@ may_alias_p (tree base_a, tree base_b,
 	return ptr_decl_may_alias_p (base_a, TREE_OPERAND (base_b, 0), dra, 
 				     aliased);
     }
-  tag_a = get_var_ann (SSA_NAME_VAR (base_a))->type_mem_tag;
-  if (!tag_a)
-    tag_a = DR_MEMTAG (dra);
-  if (!tag_a)
-    return false;
-  tag_b = get_var_ann (SSA_NAME_VAR (base_b))->type_mem_tag;
-  if (!tag_b)
-    tag_b = DR_MEMTAG (drb);
-  if (!tag_b)
-    return false;
-  *aliased = (tag_a == tag_b);
-  return true;
+
+  return ptr_ptr_may_alias_p (base_a, base_b, dra, drb, aliased);
 }
 
 
@@ -287,6 +301,37 @@ base_object_differ_p (struct data_reference *a,
           || (TREE_CODE (TREE_TYPE (TREE_OPERAND (base_a, 0))) == RECORD_TYPE 
               && TREE_CODE (TREE_TYPE (TREE_OPERAND (base_b, 0))) == RECORD_TYPE
               && TREE_OPERAND (base_a, 1) != TREE_OPERAND (base_b, 1))))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  /* Compare a record/union access (b.c[i] or p->c[i]) and a pointer
+     ((*q)[i]).  */
+  if ((TREE_CODE (base_a) == INDIRECT_REF
+       && (TREE_CODE (base_b) == COMPONENT_REF
+           && ((TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
+		&& (ptr_decl_may_alias_p (TREE_OPERAND (base_a, 0), 
+					  TREE_OPERAND (base_b, 0), a, &aliased)
+		    && !aliased))
+	       || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
+		   && (ptr_ptr_may_alias_p (TREE_OPERAND (base_a, 0), 
+					    TREE_OPERAND (base_b, 0), a, b,
+					    &aliased)
+		       && !aliased)))))
+       || (TREE_CODE (base_b) == INDIRECT_REF
+	   && (TREE_CODE (base_a) == COMPONENT_REF
+	       && ((TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
+		    && (ptr_decl_may_alias_p (TREE_OPERAND (base_b, 0), 
+					      TREE_OPERAND (base_a, 0), b, 
+					      &aliased)
+			&& !aliased))
+	       || (TREE_CODE (TREE_OPERAND (base_a, 0)) == INDIRECT_REF
+		   && (ptr_ptr_may_alias_p (TREE_OPERAND (base_a, 0), 
+					    TREE_OPERAND (base_b, 0), a, b,
+					    &aliased)
+		       && !aliased))))))
+
     {
       *differ_p = true;
       return true;
@@ -3803,19 +3848,21 @@ polyhedra_dependence_tester (struct data_dependence_relation *ddr)
 }
 
 /* */
-
+#if 0
 static void
 omega_compute_classic_representations (struct data_dependence_relation *ddr ATTRIBUTE_UNUSED)
 {
   
 }
+#endif
 
 /* Construct the constraint system for DDR, then solve it using the
    OMEGA solver.  */
 
 static void
-omega_dependence_tester (struct data_dependence_relation *ddr)
+omega_dependence_tester (struct data_dependence_relation *ddr ATTRIBUTE_UNUSED)
 {
+#if 0
   int res = 0;
   omega_pb pb = (omega_pb) xmalloc (sizeof (struct omega_pb));
 
@@ -3869,6 +3916,7 @@ omega_dependence_tester (struct data_dependence_relation *ddr)
     fprintf (dump_file, ")\n");
 
   free (pb);
+#endif
 }
 
 /* This computes the affine dependence relation between A and B.

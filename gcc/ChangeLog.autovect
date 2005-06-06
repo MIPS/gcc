@@ -1,3 +1,12 @@
+2005-06-06  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (ptr_ptr_may_alias_p): New function.
+	(may_alias_p): Call ptr_ptr_may_alias_p.
+	(base_object_differ_p): Handle COMPONENT_REF and INDIRECT_REF bases.
+	(omega_compute_classic_representations): Put within #if 0 to avoid 
+	warnings.
+	(omega_dependence_tester): Likewise.
+
 2005-05-24  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (ptr_decl_may_alias_p): New function.
