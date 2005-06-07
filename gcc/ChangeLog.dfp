@@ -1,4 +1,9 @@
 2005-06-07  Ben Elliston  <bje@au.ibm.com>
+	    David Edelsohn  <dje@watson.ibm.com>
+
+	* config/rs6000/rs6000.md (movsd, movdd, movtd): New insns.
+
+2005-06-07  Ben Elliston  <bje@au.ibm.com>
 
 	* testsuite/gcc.dg/dfp/constants.c: Improve comments.
 
