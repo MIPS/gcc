@@ -1,3 +1,21 @@
+2005-06-06  Chris Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (__unguarded_linear_insert): Remove 
+	unnecessary parameter, make rvalref aware.
+	(__unguarded_nocopy_partition, __unguarded_mid_partition,
+	__introsort_partition): New helper functions.
+	(__insertion_sort): Make rvalref aware, adapt to new
+	__unguarded_linear_insert.
+	(__unguarded_insertion_sort): Adapt to new __unguarded_linear_insert.
+	(__introsort_loop, nth_element): Use __introsort_partition.
+	* include/bits/stl_algobase.h (__move, __move_backward): New.
+	* testsuite/25_algorithms/nth_element/moveable.cc: New.
+	* testsuite/25_algorithms/partial_sort/moveable.cc: New.
+	* testsuite/25_algorithms/sort/moveable.cc: New.
+	* testsuite/25_algorithms/sort.cc: Move to...
+	* testsuite/25_algorithms/sort/sort.cc: ...here.
+	* testsuite/performance/25_algorithms/sort.cc: New.
+
 2005-06-05  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050605.

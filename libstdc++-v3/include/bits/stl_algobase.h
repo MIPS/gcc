@@ -381,6 +381,33 @@ namespace std
        return std::__copy_normal<__in, __out>::copy_n(__first, __last,
 						      __result);
     }
+    
+  template<typename _InputIterator, typename _OutputIterator>
+    inline typename __enable_if<_OutputIterator,
+      __gnu_cxx::__is_moveable<
+        typename std::iterator_traits<_OutputIterator>::value_type>::value &&
+        __are_same<typename std::iterator_traits<_InputIterator>::value_type,
+		   typename std::iterator_traits<_OutputIterator>::value_type>
+	  ::__value>::__type
+    __move(_InputIterator __first, _InputIterator __last,
+           _OutputIterator __result)
+    {
+      for(; __first != __last; ++__result, ++__first)
+        *__result = __gnu_cxx::__move(*__first);
+      return __result;
+    }
+        
+  template<typename _InputIterator, typename _OutputIterator>
+    inline typename __enable_if<_OutputIterator,
+      !(__gnu_cxx::__is_moveable<
+          typename std::iterator_traits<_OutputIterator>::value_type>::value &&
+          __are_same<typename std::iterator_traits<_InputIterator>::value_type,
+	  	     typename std::iterator_traits<_OutputIterator>::value_type>
+	  ::__value)>::__type
+    __move(_InputIterator __first, _InputIterator __last,
+           _OutputIterator __result)
+    { return std::copy(__first, __last, __result); }    
+  
   
   template<bool, typename>
     struct __copy_backward
@@ -512,6 +539,34 @@ namespace std
 								 __result);
     }
 
+  template<typename _InputIterator, typename _OutputIterator>
+    inline 
+    typename __enable_if<_OutputIterator,
+      __gnu_cxx::__is_moveable<
+        typename iterator_traits<_OutputIterator>::value_type>::value &&
+        __are_same<typename iterator_traits<_InputIterator>::value_type,
+		   typename iterator_traits<_OutputIterator>::value_type>
+	  ::__value>::__type
+    __move_backward(_InputIterator __first, _InputIterator __last,
+		    _OutputIterator __result)
+    {
+      while (__first != __last)
+	*--__result = __gnu_cxx::__move(*--__last);
+      return __result;
+    }
+        
+  template<typename _InputIterator, typename _OutputIterator>
+    inline 
+    typename __enable_if<_OutputIterator,
+      !(__gnu_cxx::__is_moveable<
+          typename iterator_traits<_OutputIterator>::value_type>::value &&
+          __are_same<typename iterator_traits<_InputIterator>::value_type,
+	  	     typename iterator_traits<_OutputIterator>::value_type>
+	  ::__value)>::__type
+    __move_backward(_InputIterator __first, _InputIterator __last,
+		    _OutputIterator __result)
+    { return std::copy_backward(__first, __last, __result); }    
+    
   template<bool>
     struct __fill
     {

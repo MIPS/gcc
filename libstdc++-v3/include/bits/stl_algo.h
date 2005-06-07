@@ -1929,20 +1929,109 @@ namespace std
    *  This is a helper function for the sort routine.
    *  @endif
   */
-  template<typename _RandomAccessIterator, typename _Tp, typename _Compare>
-    void
-    __unguarded_linear_insert(_RandomAccessIterator __last, _Tp __val,
-			      _Compare __comp)
+  template<typename _RandomAccessIterator, typename _Compare>
+    inline void
+    __unguarded_linear_insert(_RandomAccessIterator __last, _Compare __comp)
     {
+      typename iterator_traits<_RandomAccessIterator>::value_type
+        __val(__gnu_cxx::__move(*__last));
       _RandomAccessIterator __next = __last;
       --__next;
       while (__comp(__val, *__next))
 	{
-	  *__last = *__next;
+	  *__last = __gnu_cxx::__move(*__next);
 	  __last = __next;
 	  --__next;
 	}
-      *__last = __val;
+      *__last = __gnu_cxx::__move(__val);
+    }
+
+  /**
+   *  @if maint
+   *  This is a helper function. It assumes __pivot is not in the range
+   *  [__first, __last).
+   *  @endif
+  */
+  template<typename _RandomAccessIterator, typename _Compare>
+    inline _RandomAccessIterator
+    __unguarded_nocopy_partition(_RandomAccessIterator __first,
+			  	 _RandomAccessIterator __last,
+			  	 _RandomAccessIterator __pivot, _Compare __comp)
+    {
+      while (true)
+	{
+	  while (__comp(*__first, *__pivot))
+	    ++__first;
+	  --__last;
+	  while (__comp(*__pivot, *__last))
+	    --__last;
+	  if (!(__first < __last))
+	    return __first;
+	  std::iter_swap(__first, __last);
+	  ++__first;
+	}
+    }
+    
+   /**
+    *  @if maint
+    *  This is a helper function for the sort routine.
+    *  @endif
+    */
+  template<typename _RandomAccessIterator, typename _Compare>
+    _RandomAccessIterator 
+    __unguarded_mid_partition(_RandomAccessIterator __first,
+			      _RandomAccessIterator __last,
+			      _RandomAccessIterator __pivot, _Compare __comp)
+    {
+      while (true)
+        {
+          while (__comp(*__first, *__pivot))
+            ++__first;
+          --__last;
+          while (__comp(*__pivot, *__last))
+            --__last;
+          if (__first == __pivot)
+            {
+              if(__last == __pivot)
+                return __first;
+              ++__first;
+              while(__comp(*__first, *__pivot))
+                ++__first;
+              if(!(__first < __last))
+                return __first;
+              std::iter_swap(__first, __last);
+              ++__first;
+              break;
+            }
+            
+          if (__last == __pivot)
+            {
+              --__last;
+              while(__comp(*__pivot, *__last))
+                --__last;
+              if(!(__first < __last))
+                return __first;
+              std::iter_swap(__first, __last);
+              ++__first;
+              break;
+            }
+          std::iter_swap(__first, __last);
+          ++__first;
+        }
+
+        while (true)
+        {
+          while (__comp(*__first, *__pivot))
+            ++__first;
+          --__last;
+          while (__comp(*__pivot, *__last))
+            --__last;
+          
+          if (!(__first < __last))
+            return __first;
+          std::iter_swap(__first, __last);
+          ++__first;
+        }
     }
 
   /**
@@ -1959,15 +2048,15 @@ namespace std
 
       for (_RandomAccessIterator __i = __first + 1; __i != __last; ++__i)
 	{
-	  typename iterator_traits<_RandomAccessIterator>::value_type
-	    __val = *__i;
-	  if (__comp(__val, *__first))
+	  if (__comp(*__i, *__first))
 	    {
-	      std::copy_backward(__first, __i, __i + 1);
-	      *__first = __val;
+	      typename iterator_traits<_RandomAccessIterator>::value_type
+		__val(__gnu_cxx::__move(*__i));
+	      std::__move_backward(__first, __i, __i + 1);
+	      *__first = __gnu_cxx::__move(__val);
 	    }
 	  else
-	    std::__unguarded_linear_insert(__i, __val, __comp);
+	    std::__unguarded_linear_insert(__i, __comp);
 	}
     }
 
@@ -1985,7 +2074,7 @@ namespace std
 	_ValueType;
 
       for (_RandomAccessIterator __i = __first; __i != __last; ++__i)
-	std::__unguarded_linear_insert(__i, _ValueType(*__i), __comp);
+	std::__unguarded_linear_insert(__i, __comp);
     }
 
   /**
@@ -2200,6 +2289,65 @@ namespace std
 			     __gnu_cxx::__ops::less());
     }
 
+
+  template<typename _RandomAccessIterator, typename _Compare>
+    inline typename __enable_if<_RandomAccessIterator, 
+      !(__gnu_cxx::__is_moveable<typename iterator_traits<_RandomAccessIterator>
+    				            ::value_type>::value)>::__type
+    __introsort_partition(_RandomAccessIterator __first,
+		          _RandomAccessIterator __last, _Compare __comp)
+    {
+      typedef typename iterator_traits<_RandomAccessIterator>::value_type
+	_ValueType;
+	
+      return
+	std::__unguarded_partition(__first, __last,
+				   _ValueType(std::__median(*__first,
+							    *(__first
+							      + (__last
+								 - __first)
+							      / 2),
+							    *(__last - 1),
+							    __comp)), __comp);
+    }
+
+  template<typename _RandomAccessIterator, typename _Compare>
+    inline typename __enable_if<_RandomAccessIterator,
+      __gnu_cxx::__is_moveable<typename iterator_traits<_RandomAccessIterator>
+    			         ::value_type>::value>::__type
+    __introsort_partition(_RandomAccessIterator __first,
+                          _RandomAccessIterator __last, _Compare __comp)
+    {
+      typedef typename iterator_traits<_RandomAccessIterator>::value_type
+	_ValueType;
+
+      _RandomAccessIterator __cut, __pivot(__first + (__last - __first) / 2);
+      const _ValueType& __a = *__first;
+      const _ValueType& __b = *__pivot;
+      const _ValueType& __c = *(__last - 1);
+        
+      if (__comp(__a, __b))
+	if (__comp(__b, __c))
+	  __cut = std::__unguarded_mid_partition(__first, __last, __pivot,
+						 __comp);
+	else if (__comp(__a, __c))
+	  __cut = std::__unguarded_nocopy_partition(__first, __last - 1,
+						    __last - 1, __comp);
+	else
+	  __cut = std::__unguarded_nocopy_partition(__first + 1, __last,
+						    __first, __comp);
+      else if (__comp(__a, __c))
+	__cut = std::__unguarded_nocopy_partition(__first + 1, __last,
+						  __first, __comp);
+      else if (__comp(__b, __c))
+	__cut = std::__unguarded_nocopy_partition(__first, __last - 1,
+						  __last - 1, __comp);
+      else
+	__cut = std::__unguarded_mid_partition(__first, __last, __pivot,
+					       __comp);
+      return __cut;
+    }
+
   /**
    *  @if maint
    *  This is a helper function for the sort routine.
@@ -2223,15 +2371,7 @@ namespace std
 	    }
 	  --__depth_limit;
 	  _RandomAccessIterator __cut =
-	    std::__unguarded_partition(__first, __last,
-				       _ValueType(std::__median(*__first,
-								*(__first
-								  + (__last
-								     - __first)
-								  / 2),
-								*(__last - 1),
-								__comp)),
-				       __comp);
+	    std::__introsort_partition(__first, __last, __comp);
 	  std::__introsort_loop(__cut, __last, __depth_limit, __comp);
 	  __last = __cut;
 	}
@@ -3051,14 +3191,7 @@ namespace std
       while (__last - __first > 3)
 	{
 	  _RandomAccessIterator __cut =
-	    std::__unguarded_partition(__first, __last,
-				       _ValueType(std::__median(*__first,
-								*(__first
-								  + (__last
-								     - __first)
-								  / 2),
-								*(__last - 1),
-							      __comp)), __comp);
+	    std::__introsort_partition(__first, __last, __comp);
 	  if (__cut <= __nth)
 	    __first = __cut;
 	  else
