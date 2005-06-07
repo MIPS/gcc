@@ -1,4 +1,10 @@
 2005-06-07  Ben Elliston  <bje@au.ibm.com>
+
+	* config.gcc (powerpc-*-linux*): Add rs6000/t-linux to tmake_file.
+	* config/t-linux: Move contents from here ..
+	* config/rs6000/t-linux: .. to here.
+
+2005-06-07  Ben Elliston  <bje@au.ibm.com>
 	    David Edelsohn  <dje@watson.ibm.com>
 
 	* config/rs6000/rs6000.md (movsd, movdd, movtd): New insns.
