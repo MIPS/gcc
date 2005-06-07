@@ -1,3 +1,9 @@
+2005-06-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/sol2-c.c (cmn_err_char_table): Allow width for %b
+	formats.
+	* gcc/testsuite/gcc.dg/format/cmn_err-1.c: Update.
+
 2005-06-01  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/collect2.c (maybe_unlink): Only unlink regular files or
