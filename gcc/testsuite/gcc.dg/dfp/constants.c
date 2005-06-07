@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Various decimal floating point constants. */
+/* Various decimal floating point constants.  */
 _Decimal32 a32 = 1.1df;
 _Decimal32 A32 = 10.1DF;
 _Decimal64 a64 = 2.2dd;
@@ -16,8 +16,8 @@ _Decimal64 B64 = .00000202e2dd;
 _Decimal128 b128 = 000.3e0dl;
 _Decimal128 B128 = 3000300030003e0DL;
 
-/* Hexadecimal floating point constants are not valid for decimal floating
-   poing type constants. */
+/* N1107 6.4.4.2: The df, dd, dl, DF, DD and DL suffixes shall not be
+   used in a hexadecimal-floating-constant.  */
 
 _Decimal32 x32 = 0x1.0p1df;  /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
 _Decimal32 X32 = 0x1.0p1DF;  /* { dg-error "invalid suffix" "hexadecimal floating constant" } */

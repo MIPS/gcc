@@ -1,3 +1,7 @@
+2005-06-07  Ben Elliston  <bje@au.ibm.com>
+
+	* testsuite/gcc.dg/dfp/constants.c: Improve comments.
+
 2005-06-01  Ben Elliston  <bje@au.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_legitimize_address): Add TDmode.
