@@ -33,6 +33,24 @@ fp-bit32.c: $(srcdir)/config/fp-bit.c
 	  cat $(srcdir)/config/fp-bit.c; \
 	  echo '#endif' ) > fp-bit32.c
 
+# Build decimal floating point support routines.
+
+D32PBIT  = dfp32-bit.c
+D64PBIT  = dfp64-bit.c
+D128PBIT = dfp128-bit.c
+
+dfp32-bit.c: $(srcdir)/config/dfp-bit.c
+	echo '#define WIDTH 32' > $@
+	cat $< >> $@
+
+dfp64-bit.c: $(srcdir)/config/dfp-bit.c
+	echo '#define WIDTH 64' > $@
+	cat $< >> $@
+
+dfp128-bit.c: $(srcdir)/config/dfp-bit.c
+	echo '#define WIDTH 128' > $@
+	cat $< >> $@
+
 # Hack to use -mlong-double-128 just for compiling 64 bit libgcc
 mklibgcc: bispecs
 
