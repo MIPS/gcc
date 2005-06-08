@@ -1,5 +1,7 @@
 2005-06-08  Janis Johnson  <janis187@us.ibm.com>
 
+	* c-typeck.c (convert_arguments): Don't promote _Decimal32.
+
 	* config/t-linux64: Copy DFP support from t-linux.
 
 2005-06-07  Ben Elliston  <bje@au.ibm.com>
