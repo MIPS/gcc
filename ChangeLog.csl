@@ -1,3 +1,9 @@
+2005-05-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR 18655
+	* dwarf2out.c (output_call_frame_info): Use DWARF2_FRAME_REG_OUT
+	before outputting DWARF_FRAME_RETURN_COLUMN.
+
 2005-03-30  Mark Mitchell <mark@codesourcery.com>
 
 	Merge to merge-csl-arm-csl_3_4_3-linux-1.
