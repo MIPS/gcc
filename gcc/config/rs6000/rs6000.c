@@ -18131,7 +18131,8 @@ static bool
 rs6000_scalar_mode_supported_p (enum machine_mode mode)
 {
   if (DECIMAL_FLOAT_MODE_P (mode))
-    return true;
+    return (!strcmp (lang_hooks.name, "GNU C")) ? true : false;
+
   return default_scalar_mode_supported_p (mode);
 }
 

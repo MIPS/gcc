@@ -1,5 +1,8 @@
 2005-06-08  Janis Johnson  <janis187@us.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_scalar_mode_supported_p):
+	decimal floating point types are supported only for C.
+
 	* c-typeck.c (convert_arguments): Don't promote _Decimal32.
 
 	* config/t-linux64: Copy DFP support from t-linux.
