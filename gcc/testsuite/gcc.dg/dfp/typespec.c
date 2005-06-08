@@ -78,37 +78,37 @@ _Decimal64 signed short*x70;  /* { dg-error "error" "_Decimal64 signed short" } 
 _Decimal128 signed short*x71; /* { dg-error "error" "_Decimal128 signed short" } */
 int signed _Decimal32 *x72;  /* { dg-error "error" "int signed _Decimal32" } */
 int signed _Decimal64 *x73;  /* { dg-error "error" "int signed _Decimal64" } */
-int signed _Decimal128*x74;  /* { dg-error "error" "int signed _Decimal128" } */
-int unsigned _Decimal32*x75;  /* { dg-error "error" "int unsigned _Decimal32" } */
-int unsigned _Decimal64*x76;  /* { dg-error "error" "int unsigned _Decimal64" } */
-int unsigned _Decimal128*x77; /* { dg-error "error" "int unsigned _Decimal128" } */
-long int _Decimal32*x78;  /* { dg-error "error" "long int _Decimal32" } */
-long int _Decimal64*x79;  /* { dg-error "error" "long int _Decimal64" } */
-long int _Decimal128*x80; /* { dg-error "error" "long int _Decimal128" } */
-long long _Decimal32*x81;  /* { dg-error "error" "long long _Decimal32" } */
-long long _Decimal64*x82;  /* { dg-error "error" "long long _Decimal64" } */
-long long _Decimal128*x83; /* { dg-error "error" "long long _Decimal128" } */
-long double _Decimal32*x84;  /* { dg-error "error" "long double _Decimal32" } */
-long double _Decimal64*x85;  /* { dg-error "error" "long double _Decimal64" } */
-long double _Decimal128*x86; /* { dg-error "error" "long double _Decimal128" } */
-long signed _Decimal32*x87;  /* { dg-error "error" "long signed _Decimal32" } */
-long signed _Decimal64*x88;  /* { dg-error "error" "long signed _Decimal64" } */
-long signed _Decimal128*x89; /* { dg-error "error" "long signed _Decimal128" } */
-long unsigned _Decimal32*x90;  /* { dg-error "error" "long unsigned _Decimal32" } */
-long unsigned _Decimal64*x91;  /* { dg-error "error" "long unsigned _Decimal64" } */
-long unsigned _Decimal128*x92; /* { dg-error "error" "long unsigned _Decimal128" } */
-double long _Decimal32*x93;  /* { dg-error "error" "double long _Decimal32" } */
-double long _Decimal64*x94;  /* { dg-error "error" "double long _Decimal64" } */
-double long _Decimal128*x95; /* { dg-error "error" "double long _Decimal128" } */
-signed char _Decimal32*x96;   /* { dg-error "error" "signed char _Decimal32" } */
-signed char _Decimal64*x97;  /* { dg-error "error" "signed char _Decimal64" } */
-signed char _Decimal128*x98; /* { dg-error "error" "signed char _Decimal128" } */
-signed short _Decimal32*x99;   /* { dg-error "error" "signed short _Decimal32" } */
-signed short _Decimal64*x100;  /* { dg-error "error" "signed short _Decimal64" } */
-signed short _Decimal128*x101; /* { dg-error "error" "signed short _Decimal128" } */
-signed int _Decimal32*x102;  /* { dg-error "error" "signed int _Decimal32" } */
-signed int _Decimal64*x103;  /* { dg-error "error" "signed int _Decimal64" } */
-signed int _Decimal128*x104; /* { dg-error "error" "signed int _Decimal128" } */
+int signed _Decimal128 *x74;  /* { dg-error "error" "int signed _Decimal128" } */
+int unsigned _Decimal32 *x75;  /* { dg-error "error" "int unsigned _Decimal32" } */
+int unsigned _Decimal64 *x76;  /* { dg-error "error" "int unsigned _Decimal64" } */
+int unsigned _Decimal128 *x77; /* { dg-error "error" "int unsigned _Decimal128" } */
+long int _Decimal32 *x78;  /* { dg-error "error" "long int _Decimal32" } */
+long int _Decimal64 *x79;  /* { dg-error "error" "long int _Decimal64" } */
+long int _Decimal128 *x80; /* { dg-error "error" "long int _Decimal128" } */
+long long _Decimal32 *x81;  /* { dg-error "error" "long long _Decimal32" } */
+long long _Decimal64 *x82;  /* { dg-error "error" "long long _Decimal64" } */
+long long _Decimal128 *x83; /* { dg-error "error" "long long _Decimal128" } */
+long double _Decimal32 *x84;  /* { dg-error "error" "long double _Decimal32" } */
+long double _Decimal64 *x85;  /* { dg-error "error" "long double _Decimal64" } */
+long double _Decimal128 *x86; /* { dg-error "error" "long double _Decimal128" } */
+long signed _Decimal32 *x87;  /* { dg-error "error" "long signed _Decimal32" } */
+long signed _Decimal64 *x88;  /* { dg-error "error" "long signed _Decimal64" } */
+long signed _Decimal128 *x89; /* { dg-error "error" "long signed _Decimal128" } */
+long unsigned _Decimal32 *x90;  /* { dg-error "error" "long unsigned _Decimal32" } */
+long unsigned _Decimal64 *x91;  /* { dg-error "error" "long unsigned _Decimal64" } */
+long unsigned _Decimal128 *x92; /* { dg-error "error" "long unsigned _Decimal128" } */
+double long _Decimal32 *x93;  /* { dg-error "error" "double long _Decimal32" } */
+double long _Decimal64 *x94;  /* { dg-error "error" "double long _Decimal64" } */
+double long _Decimal128 *x95; /* { dg-error "error" "double long _Decimal128" } */
+signed char _Decimal32 *x96;   /* { dg-error "error" "signed char _Decimal32" } */
+signed char _Decimal64 *x97;  /* { dg-error "error" "signed char _Decimal64" } */
+signed char _Decimal128 *x98; /* { dg-error "error" "signed char _Decimal128" } */
+signed short _Decimal32 *x99;   /* { dg-error "error" "signed short _Decimal32" } */
+signed short _Decimal64 *x100;  /* { dg-error "error" "signed short _Decimal64" } */
+signed short _Decimal128 *x101; /* { dg-error "error" "signed short _Decimal128" } */
+signed int _Decimal32 *x102;  /* { dg-error "error" "signed int _Decimal32" } */
+signed int _Decimal64 *x103;  /* { dg-error "error" "signed int _Decimal64" } */
+signed int _Decimal128 *x104; /* { dg-error "error" "signed int _Decimal128" } */
 signed long _Decimal32 *105x; /* { dg-error "error" "signed long _Decimal32" } */
 signed long _Decimal64 *x107; /* { dg-error "error" "signed long _Decimal64" } \*/
 signed long _Decimal128 *x107; /* { dg-error "error" "signed long _Decimal128" } \*/
@@ -286,6 +286,7 @@ unsigned long int long _Decimal128 *x279; /* { dg-error "error" "unsigned long i
 unsigned long long int _Decimal32 *x280; /* { dg-error "error" "unsigned long long int _Decimal32" } */
 unsigned long long int _Decimal64 *x281; /* { dg-error "error" "unsigned long long int _Decimal64" } */
 unsigned long long int _Decimal128 *x282; /* { dg-error "error" "unsigned long long int _Decimal128" } */
+
 _Complex _Decimal32 *x283; /* { dg-error "error" "_Complex _Decimal32" } */
 _Complex _Decimal64 *x284; /* { dg-error "error" "_Complex _Decimal64" } */
 _Complex _Decimal128 *x285; /* { dg-error "error" "_Complex _Decimal128" } */
