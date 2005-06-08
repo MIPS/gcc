@@ -294,3 +294,10 @@ _Complex _Decimal128 *x285; /* { dg-error "error" "_Complex _Decimal128" } */
 _Decimal32 _Complex *x286; /* { dg-error "error" "_Decimal32 _Complex" } */
 _Decimal64 _Complex *x287; /* { dg-error "error" "_Decimal64 _Complex" } */
 _Decimal128 _Complex *x288; /* { dg-error "error" "_Decimal128 _Complex" } */
+
+unsigned _Decimal32 *x289; /* { dg-error "error" "unsigned _Decimal32" } */
+unsigned _Decimal64 *x290; /* { dg-error "error" "unsigned _Decimal64" } */
+unsigned _Decimal128 *x291; /* { dg-error "error" "unsigned _Decimal128" } */
+signed _Decimal32 *x292; /* { dg-error "error" "signed _Decimal32" } */
+signed _Decimal64 *x293; /* { dg-error "error" "signed _Decimal64" } */
+signed _Decimal128 *x294; /* { dg-error "error" "signed _Decimal128" } */

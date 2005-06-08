@@ -1,5 +1,7 @@
 2005-06-08  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/typespec.c: Add more checks.
+
 	* gcc.dg/dfp/typespec.c: Fix typos.
 
 2005-05-20  Jon Grimm  <jgrimm2@us.ibm.com>
