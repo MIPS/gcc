@@ -176,6 +176,7 @@ ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b,
   return true;
 }
 
+
 /* Determine if BASE_A and BASE_B may alias, the result is put in ALIASED.
    Return FALSE if there is no type memory tag for one of the symbols.
 */
@@ -201,6 +202,78 @@ may_alias_p (tree base_a, tree base_b,
     }
 
   return ptr_ptr_may_alias_p (base_a, base_b, dra, drb, aliased);
+}
+
+
+/* Determine if a pointer (BASE_A) and a record/union access (BASE_B)
+   are not aliased. Return TRUE if they differ.  */
+static bool
+record_ptr_differ_p (tree base_a, tree base_b, 	     
+		     struct data_reference *dra,
+		     struct data_reference *drb)
+{
+  bool aliased;
+
+  /* Compare a record/union access (b.c[i] or p->c[i]) and a pointer
+     ((*q)[i]).  */
+  if (TREE_CODE (base_a) == INDIRECT_REF
+      && (TREE_CODE (base_b) == COMPONENT_REF
+	  && ((TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
+	       && (ptr_decl_may_alias_p (TREE_OPERAND (base_a, 0), 
+					 TREE_OPERAND (base_b, 0), dra, &aliased)
+		   && !aliased))
+	      || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
+		  && (ptr_ptr_may_alias_p (TREE_OPERAND (base_a, 0), 
+					   TREE_OPERAND (base_b, 0), dra, drb,
+					   &aliased)
+		      && !aliased)))))
+    return true;
+  else
+    return false;
+} 
+
+    
+/* Determine if an array access (BASE_A) and a record/union access (BASE_B)
+   are not aliased. Return TRUE if they differ.  */
+static bool
+record_array_differ_p (tree base_a, tree base_b, 	     
+		       struct data_reference *drb)
+{  
+  bool aliased;
+
+  /* Compare a record/union access (b.c[i] or p->c[i]) and an array access 
+     (a[i]). In case of p->c[i] use alias analysis to verify that p is not
+     pointing to a.  */
+  if (TREE_CODE (base_a) == VAR_DECL
+      && (TREE_CODE (base_b) == COMPONENT_REF
+	  && (TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
+	      || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
+		  && (ptr_decl_may_alias_p (
+				   TREE_OPERAND (TREE_OPERAND (base_b, 0), 0), 
+				   base_a, drb, &aliased)
+		      && !aliased)))))
+    return true;
+  else
+    return false;
+}
+
+
+/* Determine if an array access (BASE_A) and a pointer (BASE_B)
+   are not aliased. Return TRUE if they differ.  */
+static bool
+array_ptr_differ_p (tree base_a, tree base_b, 	     
+		    struct data_reference *drb)
+{  
+  bool aliased;
+
+  /* In case one of the bases is a pointer (a[i] and (*p)[i]), we check with the
+     help of alias analysis that p is not pointing to a.  */
+  if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == INDIRECT_REF 
+      && (ptr_decl_may_alias_p (TREE_OPERAND (base_b, 0), base_a, drb, &aliased)
+	  && !aliased))
+    return true;
+  else
+    return false;
 }
 
 
@@ -269,13 +342,8 @@ base_object_differ_p (struct data_reference *a,
 
   /* In case one of the bases is a pointer (a[i] and (*p)[i]), we check with the
      help of alias analysis that p is not pointing to a.  */
-  if ((TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == INDIRECT_REF 
-       && (ptr_decl_may_alias_p (TREE_OPERAND (base_b, 0), base_a, b, &aliased)
-	   && !aliased))
-      || (TREE_CODE (base_b) == VAR_DECL && TREE_CODE (base_a) == INDIRECT_REF 
-	  && (ptr_decl_may_alias_p (TREE_OPERAND (base_a, 0), base_b, a, 
-				    &aliased)
-	      && !aliased)))
+  if (array_ptr_differ_p (base_a, base_b, b) 
+      || array_ptr_differ_p (base_b, base_a, a))
     {
       *differ_p = true;
       return true;
@@ -337,25 +405,20 @@ base_object_differ_p (struct data_reference *a,
       return true;
     }
 
+  /* Compare a record/union access (b.c[i] or p->c[i]) and a pointer
+     ((*q)[i]).  */
+  if (record_ptr_differ_p (base_a, base_b, a, b) 
+      || record_ptr_differ_p (base_b, base_a, b, a))
+    {
+      *differ_p = true;
+      return true;
+    }
+
   /* Compare a record/union access (b.c[i] or p->c[i]) and an array access 
      (a[i]). In case of p->c[i] use alias analysis to verify that p is not
      pointing to a.  */
-  if ((TREE_CODE (base_a) == VAR_DECL
-       && (TREE_CODE (base_b) == COMPONENT_REF
-           && (TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
-	       || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
-		   && (ptr_decl_may_alias_p (
-				   TREE_OPERAND (TREE_OPERAND (base_b, 0), 0), 
-				   base_a, b, &aliased)
-		       && !aliased)))))
-      || (TREE_CODE (base_b) == VAR_DECL
-       && (TREE_CODE (base_a) == COMPONENT_REF
-           && (TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
-	       || (TREE_CODE (TREE_OPERAND (base_a, 0)) == INDIRECT_REF
-		   && (ptr_decl_may_alias_p (
-     		                   TREE_OPERAND (TREE_OPERAND (base_a, 0), 0), 
-				   base_b, a, &aliased)
-		       && !aliased))))))
+  if (record_array_differ_p (base_a, base_b, b)
+      || record_array_differ_p (base_b, base_a, a))
     {
       *differ_p = true;
       return true;

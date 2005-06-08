@@ -1,3 +1,10 @@
+2005-06-07  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (record_ptr_differ_p): New function.
+	(record_array_differ_p, array_ptr_differ_p): Likewise.
+	(base_object_differ_p): Call record_ptr_differ_p, 
+	record_array_differ_p and array_ptr_differ_p.
+
 2005-06-06  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (ptr_ptr_may_alias_p): New function.
