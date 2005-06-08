@@ -1,5 +1,8 @@
 2005-06-08  Janis Johnson  <janis187@us.ibm.com>
 
+	* lib/target-supports.exp (check_effective_target_dfp): New.
+	* gcc.dg/dfp/dfp.exp: Skip if no DFP support.
+
 	* gcc.dg/dfp/typespec.c: Add more checks.
 
 	* gcc.dg/dfp/typespec.c: Fix typos.
