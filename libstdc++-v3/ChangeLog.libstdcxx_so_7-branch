@@ -1,5 +1,12 @@
 2005-06-10  Paolo Carlini  <pcarlini@suse.de>
 
+	* src/rc_string-inst.cc: Fix typo in comment.
+	* src/wrc_string-inst.cc: Likewise.
+	* src/sso_string-inst.cc: Likewise.
+	* src/wsso_string-inst.cc: Likewise.
+
+2005-06-10  Paolo Carlini  <pcarlini@suse.de>
+
 	* acinclude.m4: Add __sso_string and change the default.
 	* config/linker-map.gnu: Add symbols.
 	* config/string/sso_string_base.h: Add.
