@@ -1,3 +1,11 @@
+2005-06-10  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-103.c: Update scan-tree-dump-times string.
+	* gcc.dg/vect/no_version/vect-99.c: Likewise.
+	* gcc.dg/vect/no_version/vect-reduc-3.c: Now vectorizable.
+	* gfortran.dg/vect/vect-4.f90: Added comment.
+	* gcc.dg/vect/no_version/vect-noreduc.c: New test.
+
 2005-06-06  Ira Rosen  <irar@il.ibm.com>
 
 	* gfortran.dg/vect/vect-6.f90: New testcase.

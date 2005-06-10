@@ -675,9 +675,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
           gcc_assert (new_name_ptr);
           current_new_name = *new_name_ptr;
         }
-#ifdef ENABLE_CHECKING
       gcc_assert (! SSA_NAME_AUX (current_new_name));
-#endif
 
       new_name_ptr2 = xmalloc (sizeof (tree));
       *new_name_ptr2 = PHI_RESULT (new_phi);
@@ -864,9 +862,7 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
   LOC loop_loc;
 
   orig_cond = get_loop_exit_condition (loop);
-#ifdef ENABLE_CHECKING
   gcc_assert (orig_cond);
-#endif
   loop_cond_bsi = bsi_for_stmt (orig_cond);
 
   standard_iv_increment_position (loop, &incr_bsi, &insert_after);
@@ -1448,7 +1444,6 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_DATA_REF (res) = NULL;
   STMT_VINFO_IN_PATTERN_P (res) = false;
   STMT_VINFO_RELATED_STMT (res) = NULL;
-  STMT_VINFO_EXTERNAL_USE (res) = NULL_TREE;
   if (TREE_CODE (stmt) == PHI_NODE)
     STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
   else
@@ -1825,8 +1820,15 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
 
 /* Function reduction_code_for_scalar_code
 
-   Return the correponding tree-code to be used to reduce the final (vector) 
-   partial result into the very final single scalar result.  */
+   Input:
+   CODE - tree_code of a reduction operations.
+
+   Output:
+   REDUC_CODE - the correponding tree-code to be used to reduce the
+      vector of partial results into a single scalar result (which
+      will also reside in a vector). 
+
+   Return TRUE if a corresponding REDUC_CODE was found, FALSE otherwise.  */
 
 bool
 reduction_code_for_scalar_code (enum tree_code code, 
@@ -1863,8 +1865,13 @@ reduction_code_for_scalar_code (enum tree_code code,
      a2 = operation (a3, a1)
 
    such that:
-   1. operation is...
-   2. no uses for a2 in the loop (elsewhere)  */
+   1. operation is commutative and associative and it is safe to
+      change the the order of the computation.
+   2. no uses for a2 in the loop (a2 is used out of the loop).
+   3. no uses of a1 in the loop besides the reduction operation.
+
+   Condition 1 is tested here.
+   Conditions 2,3 are tested in vect_mark_stmts_to_be_vectorized.  */
 
 tree
 vect_is_simple_reduction (struct loop *loop, tree phi)
@@ -2009,13 +2016,28 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       && flow_bb_inside_loop_p (loop, bb_for_stmt (def2))
       && def1 == phi)
     {
+      use_operand_p use; 
+      ssa_op_iter iter;
+
+      /* Swap operands (just for simplicity - so that the rest of the code
+         can assume that the reduction variable is always the last (second)
+         argument).  */
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	{
 	  fprintf (vect_dump, "detected reduction: need to swap operands:");
 	  print_generic_expr (vect_dump, operation, TDF_SLIM);
     	}
-      /* TODO: Swap operands.  */
-      return NULL_TREE;
+
+      /* CHECKME */
+      FOR_EACH_SSA_USE_OPERAND (use, def_stmt, iter, SSA_OP_USE)
+        {
+	  tree tuse = USE_FROM_PTR (use);
+	  if (tuse == op1)
+	    SET_USE (use, op2);
+	  else if (tuse == op2)
+	    SET_USE (use, op1);
+	}
+      return def_stmt;
     }
   else
     {

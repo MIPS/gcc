@@ -1,3 +1,52 @@
+2005-06-10  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_analyze_operations): Fail vectorization
+	in case of a relevant phi.
+	(vect_analyze_data_ref_dependence): Check if distance modulo VF is
+	zero. Check if absolute distance is greater than 0. Updated debug
+	printouts accordingly.
+	(vect_mark_relevant): Phis may be marked as relevant.
+	(vect_mark_stmts_to_be_vectorized): Last use of a reduction does not
+	mark its defining phi as relevant. Update documentation accordingly.
+	(vect_pattern_recog_1): Remove setting of STMT_VINFO_EXTERNAL_USE.
+	(vect_can_advance_ivs_p): Skip reduction phis.
+	* tree-vect-transform.c (vect_get_vec_def_for_operand): Takes 
+	additional argument. Reduction is handled inside the switch. Return a 
+	vector def instead of a scalar def for reduction by calling 
+	get_initial_def_for_reduction. The scalar_def is returned in the new
+	argument.
+	(vectorizable_target_reduction_pattern, vectorizable_reduction) 
+	(vectorizable_assignment, vectorizable_operation, vectorizable_store) 
+	(vectorizable_select): Update call to vect_get_vec_def_for_operand.
+	(get_initial_def_for_reduction): Last argument changed from bool* to
+	tree*. Second argument name changed to init_val. Move ADJUST_IN_EPILOG
+	ifdefs.
+	(vect_create_epilog_for_reduction): Update call to 
+	vect_get_vec_def_for_operand. Call to get_initial_def_for_reduction
+	moved to vect_get_vec_def_for_operand. Remove ifdef ADJUST_IN_EPILOG.
+	Remove use of STMT_VINFO_EXTERNAL_USE, find immediate uses instead.
+	(vect_update_ivs_after_vectorizer): Skip reduction phis.
+	* tree-vectorizer.h (after_loop_use): Field removed from stmt_vec_info.
+	(STMT_VINFO_EXTERNAL_USE): Macro removed.  
+
+	* tree-vect-analyze.c (vect_determine_vectorization_factor)
+	(vect_analyze_operations, vect_enhance_data_refs_alignment)
+	(vect_stmt_relevant_p): Remove ENABLE_CHECKING guard around gcc_assert.
+	* tree-vect-transform (vect_finish_stmt_generation)
+	(vectorizable_reduction, vectorizable_target_reduction_pattern)
+	(vectorizable_target_reduction_pattern, vectorizable_assignment)
+	(vectorizable_operation, vectorizable_select, vect_transform_loop)
+	(vect_do_peeling_for_loop_bound, vect_do_peeling_for_alignment): Remove
+	ENABLE_CHECKING guard around gcc_assert.
+	(vect_create_cond_for_align_checks): Replace an abort with a gcc_assert.
+	* tree-vectorizer.c (slpeel_update_phi_nodes_for_guard1)
+	(new_stmt_vec_info): Remove setting of STMT_VINFO_EXTERNAL_USE.
+	(vect_is_simple_use): Update documentation.
+	(reduction_code_for_scalar_code): Update documentation. Swap operands
+	if needed.
+	* tree-vect-transform.c (vect_get_new_vect_var): Remove redundant code.
+	* tree.def: Fix typo.
+	
 2005-06-07  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (record_ptr_differ_p): New function.
@@ -46,7 +95,8 @@
 
 2005-05-24  Ira Rosen  <irar@il.ibm.com>
 
-	* tree-data-ref.c (base_object_differ_p): Fix parameters of get_alias_set.
+	* tree-data-ref.c (base_object_differ_p): Fix parameters of 
+	get_alias_set.
 	(base_addr_differ_p): Likewise.
 
 2005-05-03  Leehod Baruch  <leehod@il.ibm.com>

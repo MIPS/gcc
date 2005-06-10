@@ -206,10 +206,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
           else
             vectorization_factor = nunits;
 
-#ifdef ENABLE_CHECKING
           gcc_assert (GET_MODE_SIZE (TYPE_MODE (scalar_type))
                         * vectorization_factor == UNITS_PER_SIMD_WORD);
-#endif
         }
     }
 
@@ -276,7 +274,15 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
               return false;
             }
 
-          gcc_assert (!STMT_VINFO_RELEVANT_P (stmt_info));
+	  if (STMT_VINFO_RELEVANT_P (stmt_info))
+	    {
+	      /* Most likely a reduction-like computation that is used
+		 in the loop.  */
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
+                                        LOOP_LOC (loop_vinfo)))
+                fprintf (vect_dump, "not vectorized: unsupported pattern.");
+              return false;
+	    }
         }
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
@@ -309,10 +315,9 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
           if (STMT_VINFO_RELEVANT_P (stmt_info))
             {
-#ifdef ENABLE_CHECKING
               gcc_assert (!VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))));
               gcc_assert (STMT_VINFO_VECTYPE (stmt_info));
-#endif
+
               ok = (vectorizable_operation (stmt, NULL, NULL)
                     || vectorizable_assignment (stmt, NULL, NULL)
                     || vectorizable_load (stmt, NULL, NULL)
@@ -643,20 +648,27 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	break;
     }
   dist = DDR_DIST_VECT (ddr)[loop_depth];
+  if (vect_print_dump_info (REPORT_DR_DETAILS, LOOP_LOC (loop_vinfo)))
+    fprintf (vect_dump, "dependence distance  = %d.",dist);
 
   /* Same loop iteration.  */
-  if (dist == 0)
+  if (dist % vectorization_factor == 0)
     {
       /* Two references with distance zero have the same alignment.  */
       VARRAY_PUSH_GENERIC_PTR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info_a), drb);
       VARRAY_PUSH_GENERIC_PTR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info_b), dra);
 
       if (vect_print_dump_info (REPORT_DR_DETAILS, LOOP_LOC (loop_vinfo)))
-	fprintf (vect_dump, "dependence distance 0.");
+	{
+	  fprintf (vect_dump, "dependence distance modulo vf == 0 between ");
+	  print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
+	  fprintf (vect_dump, " and "); 
+	  print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
+	}
       return false;
     }
 
-  if (dist >= vectorization_factor)
+  if (abs (dist) >= vectorization_factor)
     {
       /* Dependence distance does not create dependence, as far as vectorization
 	 is concerned, in this case.  */
@@ -1126,9 +1138,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
             fprintf (vect_dump, "Peeling for alignment will be applied.");
 
 	  stat = vect_verify_datarefs_alignment (loop_vinfo);
-#ifdef ENABLE_CHECKING
 	  gcc_assert (stat);
-#endif
           return stat;
         }
     }
@@ -1228,9 +1238,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       gcc_assert (! (do_peeling && do_versioning));
 
       stat = vect_verify_datarefs_alignment (loop_vinfo);
-#ifdef ENABLE_CHECKING
       gcc_assert (stat);
-#endif
       return stat;
     }
 
@@ -1471,12 +1479,12 @@ vect_mark_relevant (varray_type *worklist, tree stmt,
     }
 
   STMT_VINFO_LIVE_P (stmt_info) |= live_p;
+  STMT_VINFO_RELEVANT_P (stmt_info) |= relevant_p;
 
   if (TREE_CODE (stmt) == PHI_NODE)
-    /* Don't mark as relevant because it's not going to vectorized.  */
+    /* Don't put phi-nodes in the worklist. Phis that are marked relevant
+       or live will fail vectorization later on.  */
     return;
-
-  STMT_VINFO_RELEVANT_P (stmt_info) |= relevant_p;
 
   if (STMT_VINFO_RELEVANT_P (stmt_info) == save_relevant_p
       && STMT_VINFO_LIVE_P (stmt_info) == save_live_p)
@@ -1544,15 +1552,11 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
 	    {
 	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 		fprintf (vect_dump, "vec_stmt_relevant_p: used out of loop.");
-#ifdef ENABLE_CHECKING
+
   	      /* We expect all such uses to be in the loop exit phis
 	         (because of loop closed form)   */
 	      gcc_assert (TREE_CODE (USE_STMT (use_p)) == PHI_NODE);
 	      gcc_assert (bb == loop->single_exit->dest);
-	      gcc_assert (!STMT_VINFO_EXTERNAL_USE (vinfo_for_stmt (stmt)));
-#endif
-              STMT_VINFO_EXTERNAL_USE (vinfo_for_stmt (stmt)) = 
-							USE_STMT (use_p);
 	      *live_p = true;
 	    }
 	}
@@ -1671,19 +1675,31 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
          Exceptions:
 
-         - if USE is used only for address computations (e.g. array indexing),
+         (case 1) 
+	   If USE is used only for address computations (e.g. array indexing),
            which does not need to be directly vectorized, then the
            liveness/relevance of the respective DEF_STMT is left unchanged.
 
-         - if STMT has been identified as defining a reduction variable, then:
-             STMT_VINFO_LIVE_P (DEF_STMT_info) <-- false
-             STMT_VINFO_RELEVANT_P (DEF_STMT_info) <-- true
-	   because even though STMT is classified as live (since it defines a 
-	   value that is used across loop iterations) and irrelevant (since it
-	   is not used inside the loop), it will be vectorized, and therefore 
-	   the corresponding DEF_STMTs need to marked as relevant. 
+	 (case 2)
+           If STMT has been identified as defining a reduction variable, then
+	   there we have two cases:
+	   (case 2.1)
+	     The last use of STMT is the reduction-variable, which is defined
+	     by a loop-header-phi. we don't want to mark the phi as live or
+	     relevant, so in this case we skip the call to vect_mark_relevant. 
+	   (case 2.2)
+	     The rest of the uses of STMT are defined in the loop body. For 
+	     the def_stmt of these uses we want to set liveness/relevance 
+	     as follows:
+               STMT_VINFO_LIVE_P (DEF_STMT_info) <-- false
+               STMT_VINFO_RELEVANT_P (DEF_STMT_info) <-- true
+	     because even though STMT is classified as live (since it defines a 
+	     value that is used across loop iterations) and irrelevant (since it
+	     is not used inside the loop), it will be vectorized, and therefore 
+	     the corresponding DEF_STMTs need to marked as relevant. 
        */
 
+      /* case 2.2:  */
       if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def)
 	{
 	  gcc_assert (!relevant_p && live_p);
@@ -1695,36 +1711,41 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	{
 	  tree use = USE_OP (use_ops, i);
 
-	  /* We are only interested in uses that need to be vectorized. Uses 
-	     that are used for address computation are not considered relevant.
+	  /* case 1: we are only interested in uses that need to be vectorized. 
+	     Uses that are used for address computation are not considered 
+	     relevant.
 	   */
-	  if (exist_non_indexing_operands_for_use_p (use, stmt))
+	  if (!exist_non_indexing_operands_for_use_p (use, stmt))
+	    continue;
+
+
+          if (!vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt))
+            {
+              if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS, 
+					LOOP_LOC (loop_vinfo)))
+                fprintf (vect_dump, "not vectorized: unsupported use in stmt.");
+              varray_clear (worklist);
+              return false;
+            }
+
+	  if (!def_stmt || IS_EMPTY_STMT (def_stmt))
+	    continue;
+
+          bb = bb_for_stmt (def_stmt);
+	  if (!flow_bb_inside_loop_p (loop, bb))
+	    continue;
+
+	  /* case 2.1: the reduction-use does not mark the defining-phi
+	     as relevant.  */
+	  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def
+	      && (i == NUM_USES (use_ops) - 1))
 	    {
-              if (!vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt))
-                {
-                  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
-					    LOOP_LOC (loop_vinfo)))
-                    fprintf (vect_dump, 
-			     "not vectorized: unsupported use in stmt.");
-                  varray_clear (worklist);
-                  return false;
-                }
-
-	      if (!def_stmt || IS_EMPTY_STMT (def_stmt))
-		continue;
-
-	      bb = bb_for_stmt (def_stmt);
-	      if (!flow_bb_inside_loop_p (loop, bb))
-		continue;
-
-	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	        {
-	          fprintf (vect_dump, "def_stmt: ");
-	          print_generic_expr (vect_dump, def_stmt, TDF_SLIM);
-	        } 
-
-	      vect_mark_relevant (&worklist, def_stmt, relevant_p, live_p);
+	      gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
+	      continue;
 	    }
+
+	  
+	  vect_mark_relevant (&worklist, def_stmt, relevant_p, live_p);
 	}
     }				/* while worklist */
 
@@ -1995,8 +2016,7 @@ vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, tree *, varray_type *),
   STMT_VINFO_RELATED_STMT (pattern_stmt_info) = stmt;
   STMT_VINFO_RELATED_STMT (stmt_info) = pattern_expr;
   STMT_VINFO_DEF_TYPE (pattern_stmt_info) = STMT_VINFO_DEF_TYPE (stmt_info);
-  STMT_VINFO_EXTERNAL_USE (pattern_stmt_info) = 
-					STMT_VINFO_EXTERNAL_USE (stmt_info);
+
   /* We created the following expr:
      	X = pattern_expr (args)
      and set the type of X to the type of the pattern_expr.
@@ -2177,7 +2197,6 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
 	  continue;
 	}
 
-#if 0 /* TODO */
       /* Skip reduction phis.  */
 
       if (STMT_VINFO_DEF_TYPE (vinfo_for_stmt (phi)) == vect_reduction_def)
@@ -2186,7 +2205,6 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
 	    fprintf (vect_dump, "reduc phi. skip.");
 	  continue;
 	}
-#endif
 
       /* Analyze the evolution function.  */
 

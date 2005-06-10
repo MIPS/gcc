@@ -1,6 +1,9 @@
 ! { dg-do compile }
 ! { dg-require-effective-target vect_float }
 
+! Peeling to align the store to Y will also align the load from Y.
+! The load from X may still be misaligned.
+
 SUBROUTINE SAXPY(X, Y, A)
 DIMENSION X(64), Y(64)
 Y = Y + A * X
