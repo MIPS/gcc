@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Encoding tests for ObjC class layouts.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */

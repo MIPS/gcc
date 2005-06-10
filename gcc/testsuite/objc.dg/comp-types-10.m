@@ -1,4 +1,6 @@
+/* APPLE LOCAL file mainline */
 /* { dg-do compile } */
+
 
 #include <objc/Object.h>
 

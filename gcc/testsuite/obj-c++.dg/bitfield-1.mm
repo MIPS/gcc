@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Check if ObjC class layout follows the ABI (informally)
    set in the past.  ObjC structs must be laid out as if
    all ivars, including those inherited from superclasses,

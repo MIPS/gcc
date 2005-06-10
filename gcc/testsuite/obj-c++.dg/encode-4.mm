@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test Objective-C method encodings. */
 
 /* The _encoded_ parameter offsets for Objective-C methods are 
@@ -15,7 +16,6 @@
 
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */
-
 
 #include <objc/objc.h>
 #include <objc/Object.h>

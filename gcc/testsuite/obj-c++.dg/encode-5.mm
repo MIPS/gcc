@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Method encoding tests for stand-alone @protocol declarations.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */

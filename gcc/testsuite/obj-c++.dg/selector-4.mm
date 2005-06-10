@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test warning for non existing selectors.  */
 /* Contributed by Devang Patel <dpatel@apple.com>.  */
 

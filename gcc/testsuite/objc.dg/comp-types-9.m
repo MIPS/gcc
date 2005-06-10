@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Yet another mysterious gimplifier crasher.  */
 /* { dg-do compile } */
 /* { dg-options "-O3" } */

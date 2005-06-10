@@ -1,6 +1,6 @@
+/* APPLE LOCAL file mainline */
 /* Check if finding multiple signatures for a method is handled gracefully when method lookup succeeds (see also method-7.m).  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
-/* { dg-options "-Wstrict-selector-match" } */
 /* { dg-do compile } */
 
 #include <objc/Object.h>
@@ -41,3 +41,6 @@
     return result;
 }
 @end
+
+/* { dg-options "-Wstrict-selector-match" } */
+

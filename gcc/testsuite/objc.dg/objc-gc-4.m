@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test looking up fields in superclasses in the context of write-barriers
    (where component references get rewritten).  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */

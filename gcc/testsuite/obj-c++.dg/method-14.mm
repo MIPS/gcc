@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Check if casting the receiver type causes method lookup to succeed.  This was broken
    in Objective-C++.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */

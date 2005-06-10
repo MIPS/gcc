@@ -1,4 +1,4 @@
-
+/* APPLE LOCAL file mainline */
 /* Check Class <protocol> types */
 /* Author: David Ayers <d.ayers@inode.at> */
 /* { dg-do compile } */

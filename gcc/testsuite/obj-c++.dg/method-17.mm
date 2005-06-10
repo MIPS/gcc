@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* When there is only one candidate method available, make sure the
    compiler uses its argument/return types when constructing the
    message sends (so that proper C/C++ argument conversions may

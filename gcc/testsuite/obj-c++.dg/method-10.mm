@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test for sending messages to aliased classes (and instances thereof).  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */

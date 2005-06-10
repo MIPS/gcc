@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Check if the @defs() construct preserves the correct
    layout of bitfields.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */

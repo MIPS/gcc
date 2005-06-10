@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Check if bitfield ivars are correctly @encode'd when
    the NeXT runtime is used.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */

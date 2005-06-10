@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Check if array arguments of ObjC methods are decayed to pointer types
    in a proper fashion:
      (1) The _encodings_ for the array arguments should remain to be '[4i]' and

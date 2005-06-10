@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test if context-sensitive "in", "out", "byref", etc., qualifiers can be
    used as method selectors.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */

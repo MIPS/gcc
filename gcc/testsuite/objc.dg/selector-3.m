@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test warning for non-existent selectors.  */
 /* This is the "-fgnu-runtime" variant of objc.dg/selector-1.m.  */
 /* { dg-options "-Wselector -fgnu-runtime" } */

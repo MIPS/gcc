@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test if instance methods of root classes are used as class methods, if no
    "real" methods are found.  For receivers of type 'id' and 'Class', all
    root classes must be considered.  */
