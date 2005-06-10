@@ -1606,6 +1606,10 @@ vectorize_loops (struct loops *loops)
 	continue;
 
       vect_transform_loop (loop_vinfo, loops); 
+      /* APPLE LOCAL begin 4095567 */
+      /* Now this function uses vectors.  */
+      DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector = 1;
+      /* APPLE LOCAL end 4095567 */
       num_vectorized_loops++;
     }
 

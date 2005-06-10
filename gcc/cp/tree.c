@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 #include "debug.h"
 #include "target.h"
 
@@ -113,7 +113,7 @@ lvalue_p_1 (tree ref,
     case STRING_CST:
       return clk_ordinary;
 
-    /* APPLE LOCAL Objective-C++ */
+    /* APPLE LOCAL mainline */
     case CONST_DECL:
     case VAR_DECL:
       if (TREE_READONLY (ref) && ! TREE_STATIC (ref)

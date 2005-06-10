@@ -1734,6 +1734,10 @@ typedef struct rs6000_args
   int sysv_gregno;		/* next available GP register */
   int intoffset;		/* running offset in struct (darwin64) */
   int use_stack;		/* any part of struct on stack (darwin64) */
+  /* APPLE LOCAL begin fix 64-bit varargs 4028089 */
+  int floats_in_gpr;		/* count of SFmode floats taking up
+				   GPR space (darwin64) */
+  /* APPLE LOCAL end fix 64-bit varargs 4028089 */
   int named;			/* false for varargs params */
 } CUMULATIVE_ARGS;
 
@@ -2601,6 +2605,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"reg_or_aligned_short_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			   \
+  /* APPLE LOCAL radar 3869444 (also in  mainline) */			   \
+  {"scc_operand", {SUBREG, REG, CONST_INT}},			   	   \
   {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_add_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_sub_cint64_operand", {SUBREG, REG, CONST_INT}},		   \

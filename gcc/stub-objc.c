@@ -63,21 +63,33 @@ objc_is_reserved_word (tree ARG_UNUSED (ident))
   return 0;
 }
 
-int
-objc_comptypes (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs),
-                int ARG_UNUSED (reflexive))
+/* APPLE LOCAL begin mainline */
+/* The 'objc_comptypes' routine has been removed.  */
+bool
+objc_compare_types (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp),
+		    int ARG_UNUSED (argno), tree ARG_UNUSED (callee))
 {
-  return -1;
+  return false;
 }
 
-/* APPLE LOCAL begin Radar 4055183 */
+void
+objc_volatilize_decl (tree ARG_UNUSED (decl))
+{
+}
+
+bool
+objc_type_quals_match (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp))
+{
+  return false;
+}
+
 tree
 objc_rewrite_function_call (tree function, tree ARG_UNUSED (params))
 {
   return function;
 }
 
-/* APPLE LOCAL end Radar 4055183 */
+/* APPLE LOCAL end mainline */
 tree
 objc_message_selector (void)
 { 
@@ -238,13 +250,13 @@ objc_get_class_reference (tree ARG_UNUSED (name))
   return 0;
 }
 
-/* APPLE LOCAL begin Objective-C++ */
+/* APPLE LOCAL begin mainline */
 tree
 objc_get_class_ivars (tree ARG_UNUSED (name))
 {
   return 0;
 }
-/* APPLE LOCAL end Objective-C++ */
+/* APPLE LOCAL end mainline */
 
 tree
 objc_get_protocol_qualified_type (tree ARG_UNUSED (name),
@@ -271,7 +283,7 @@ objc_is_public (tree ARG_UNUSED (expr), tree ARG_UNUSED (identifier))
   return 1;
 }
 
-/* APPLE LOCAL begin Objective-C++ */
+/* APPLE LOCAL begin mainline */
 tree
 objc_build_throw_stmt (tree ARG_UNUSED (expr))
 {
@@ -310,9 +322,7 @@ objc_build_synchronized (location_t ARG_UNUSED (location),
 {
   return 0;
 }
-/* APPLE LOCAL end Objective-C++ */
 
-/* APPLE LOCAL begin ObjC GC */
 tree
 objc_generate_write_barrier (tree ARG_UNUSED (lhs),
 			     enum tree_code ARG_UNUSED (modifycode),
@@ -320,4 +330,4 @@ objc_generate_write_barrier (tree ARG_UNUSED (lhs),
 {
   return 0;
 }  
-/* APPLE LOCAL end ObjC GC */
+/* APPLE LOCAL end mainline */

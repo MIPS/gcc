@@ -253,10 +253,10 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) (void);
 
-  /* APPLE LOCAL begin Objective-C++  */
+  /* APPLE LOCAL begin mainline */
   /* Called at the end of the translation unit.  */
   void (*finish_file) PARAMS ((void));
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
   
   /* Parses the entire file.  The argument is nonzero to cause bison
      parsers to dump debugging information during parsing.  */
@@ -433,6 +433,11 @@ struct lang_hooks
   tree (*builtin_function) (const char *name, tree type, int function_code,
 			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
+
+  /* APPLE LOCAL begin 4133801 */
+  void (*start_source_file) (int n, const char *s);
+  void (*end_source_file) (int n, const char *s);
+  /* APPLE LOCAL end 4133801 */
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

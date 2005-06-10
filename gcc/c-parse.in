@@ -3788,8 +3788,11 @@ _yylex (void)
     case CPP_ATSIGN:
       /* If we're doing CW assembly, return this as a regular token
 	 (indicates labels).  */
-      if (cw_asm_state >= cw_asm_decls)
-	return '@';
+      /* If we are not doing CW assembly and this symbol is seen. '@' has 
+	 not been consumed by the objc-lexer. This maybe because user forgot 
+	 to specify objc as the language or due to user error. Parser will decide. 
+      */
+      return '@';
       /* APPLE LOCAL end CW asm blocks */
 
     case CPP_EOF:

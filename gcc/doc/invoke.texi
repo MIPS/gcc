@@ -241,17 +241,17 @@ Objective-C and Objective-C++ Dialects}.
 -fconstant-string-class=@var{class-name} @gol
 -fgnu-runtime  -fnext-runtime @gol
 -fno-nil-receivers @gol
-@c APPLE LOCAL ObjC C++ ivars
+@c APPLE LOCAL mainline
 -fobjc-call-cxx-cdtors (APPLE ONLY) @gol
 -fobjc-exceptions @gol
 -freplace-objc-classes @gol
 -fzero-link @gol
 -gen-decls @gol
-@c APPLE LOCAL begin Objective-C
+@c APPLE LOCAL begin mainline
 -Wno-protocol  -Wselector @gol
 -Wstrict-selector-match @gol
 -Wundeclared-selector}
-@c APPLE LOCAL end Objective-C
+@c APPLE LOCAL end mainline
 
 @item Language Independent Options
 @xref{Language Independent Options,,Options to Control Diagnostic Messages Formatting}.
@@ -890,14 +890,14 @@ C++ source code which must be preprocessed.  Note that in @samp{.cxx},
 the last two letters must both be literally @samp{x}.  Likewise,
 @samp{.C} refers to a literal capital C@.
 
-@c APPLE LOCAL begin Objective-C++
+@c APPLE LOCAL begin mainline
 @item @var{file}.mm
 @itemx @var{file}.M
 Objective-C++ source code which must be preprocessed.  (APPLE ONLY)
 
 @item @var{file}.mii
 Objective-C++ source code which should not be preprocessed.  (APPLE ONLY)
-@c APPLE LOCAL end Objective-C++
+@c APPLE LOCAL end mainline
 
 @item @var{file}.hh
 @itemx @var{file}.H
@@ -2081,7 +2081,7 @@ is not @code{nil}.  This allows for more efficient entry points in the runtime
 to be used.  Currently, this option is only available in conjunction with
 the NeXT runtime on Mac OS X 10.3 and later.
 
-@c APPLE LOCAL begin ObjC C++ ivars
+@c APPLE LOCAL begin mainline
 @item -fobjc-call-cxx-cdtors
 @opindex fobjc-call-cxx-cdtors
 For each Objective-C class, check if any of its instance variables is a
@@ -2105,7 +2105,7 @@ be invoked immediately before the runtime deallocates an object instance.
 As of this writing, only the NeXT runtime on Mac OS X 10.4 and later has
 support for invoking the @code{- (id) .cxx_construct} and
 @code{- (void) .cxx_destruct} methods.
-@c APPLE LOCAL end ObjC C++ ivars
+@c APPLE LOCAL end mainline
 
 @item -fobjc-exceptions
 @opindex fobjc-exceptions
@@ -2248,7 +2248,7 @@ stage of compilation is not reached, for example because an error is
 found during compilation, or because the @option{-fsyntax-only} option is
 being used.
 
-@c APPLE LOCAL begin Objective-C
+@c APPLE LOCAL begin mainline
 @item -Wstrict-selector-match
 @opindex Wstrict-selector-match
 Warn if multiple methods with differing argument and/or return types are
@@ -2257,7 +2257,7 @@ selector to a receiver of type @code{id} or @code{Class}.  When this flag
 is off (which is the default behavior), the compiler will omit such warnings
 if any differences found are confined to types which share the same size
 and alignment.
-@c APPLE LOCAL end Objective-C
+@c APPLE LOCAL end mainline
 
 @item -Wundeclared-selector
 @opindex Wundeclared-selector

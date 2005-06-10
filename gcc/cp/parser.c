@@ -36,7 +36,9 @@
 #include "toplev.h"
 #include "output.h"
 #include "target.h"
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL 4133801 */
+#include "debug.h"
+/* APPLE LOCAL mainline */
 #include "c-common.h"
 /* APPLE LOCAL pascal strings */
 #include "../../libcpp/internal.h"
@@ -131,6 +133,35 @@ typedef struct cp_token_cache GTY(())
   /* Points immediately after the last token in the range.  */
   cp_token * GTY ((skip)) last;
 } cp_token_cache;
+
+/* APPLE LOCAL begin 4133801 */
+typedef enum cp_file_entry_kind
+  {
+    CP_FILE_BEGIN = 0,
+    CP_FILE_END
+  } cp_file_entry_kind;
+
+/* cp_lexer_file is a collection of file begins (and ends) observed
+   by lexer while collecting tokens for arser.  */
+
+typedef struct cp_lexer_file GTY(())
+{
+  enum cp_file_entry_kind kind;
+
+  /* line number and file names */
+  int line;
+  const char *file;
+
+  struct cp_lexer_file * GTY ((skip)) next;
+} cp_lexer_file;
+
+static GTY(()) cp_lexer_file *cp_lexer_file_stack;
+static GTY(()) cp_lexer_file *last_cp_lexer_file;
+
+static void cp_add_lexer_file (int, const char *, cp_file_entry_kind);
+static void cp_lexer_copy_token (cp_token *, cp_token *);
+static void cp_parser_bincl_eincl (cp_lexer *lexer);
+/* APPLE LOCAL end 4133801 */
 
 /* Prototypes.  */
 
@@ -274,10 +305,60 @@ cp_lexer_new_main (void)
   space = alloc;
   pos = buffer;
   *pos = first_token;
-  
+
+  /* APPLE LOCAL begin 4133801 */  
   /* Get the remaining tokens from the preprocessor.  */
   while (pos->type != CPP_EOF)
     {
+
+      /* Insert CP_BINCL/CP_EINCL tokens if file begin/end is already seen.  */
+      if (cp_lexer_file_stack)
+	{
+	  cp_token saved_pos;
+	  cp_lexer_file *tmp;
+	  cp_lexer_file *fs = cp_lexer_file_stack;
+
+	  /* Copy position content, so that it added into to the next position
+	     afterwards.  */
+	  cp_lexer_copy_token (&saved_pos, pos);
+
+	  while (fs)
+	    {
+	      /* Create new CP_BINCL/CP_EINCL token.  */
+	      LOCATION_FILE (pos->location) = fs->file;
+	      LOCATION_LINE (pos->location) = fs->line;
+	      pos->keyword = 0;
+	      pos->in_system_header = 0;
+	      pos->implicit_extern_c = 0;
+	      pos->value = NULL_TREE;
+	      if (fs->kind == CP_FILE_BEGIN)
+		pos->type = CPP_BINCL;
+	      else
+		pos->type = CPP_EINCL;
+	      
+	      /* Free this file entry.  */
+	      tmp = fs;
+	      fs = fs->next;
+	      tmp = NULL;
+	      pos++;
+	      if (!--space)
+		{
+		  space = alloc;
+		  alloc *= 2;
+		  buffer = ggc_realloc (buffer, alloc * sizeof (cp_token));
+		  pos = buffer + space;
+		}
+	      
+	    }
+	  
+	  /* Free file stack entirely.  */
+	  last_cp_lexer_file = NULL;
+	  cp_lexer_file_stack = NULL;
+
+	  /* Restore saved position.  */
+	  cp_lexer_copy_token (pos, &saved_pos);
+	}
+
       pos++;
       if (!--space)
 	{
@@ -288,6 +369,7 @@ cp_lexer_new_main (void)
 	}
       cp_lexer_get_preprocessor_token (lexer, pos);
     }
+  /* APPLE LOCAL end 4133801 */
   lexer->buffer = buffer;
   lexer->buffer_length = alloc - space;
   lexer->last_token = pos;
@@ -409,7 +491,7 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 	 mapped to `const'.  */
       token->value = ridpointers[token->keyword];
     }
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   /* Handle Objective-C++ keywords.  */
   else if (token->type == CPP_AT_NAME)
     {
@@ -427,7 +509,7 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 	default: token->keyword = C_RID_CODE (token->value);
 	}
     }
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
   else
     token->keyword = RID_MAX;
 }
@@ -455,6 +537,10 @@ cp_lexer_peek_token (cp_lexer *lexer)
       cp_lexer_print_token (cp_lexer_debug_stream, lexer->next_token);
       putc ('\n', cp_lexer_debug_stream);
     }
+  
+  /* APPLE LOCAL 4133801 */
+  cp_parser_bincl_eincl (lexer);
+
   return lexer->next_token;
 }
 
@@ -510,14 +596,19 @@ cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
   while (n != 0)
     {
       ++token;
+
       if (token == lexer->last_token)
 	{
 	  token = (cp_token *)&eof_token;
 	  break;
 	}
-      
-      if (token->type != CPP_PURGED)
+
+      /* APPLE LOCAL begin 4133801 */      
+      if (token->type != CPP_PURGED
+	  && token->type != CPP_BINCL
+	  && token->type != CPP_EINCL)
 	--n;
+      /* APPLE LOCAL end 4133801 */
     }
 
   if (cp_lexer_debugging_p (lexer))
@@ -646,6 +737,98 @@ cp_lexer_save_tokens (cp_lexer* lexer)
 
   VEC_safe_push (cp_token_position, lexer->saved_tokens, lexer->next_token);
 }
+
+/* APPLE LOCAL begin 4133801 */
+/* Note down new file begin or end entry in cp_lexer_file */
+static void 
+cp_add_lexer_file (int n, const char *s, cp_file_entry_kind k)
+{
+  cp_lexer_file *lf = ggc_alloc (sizeof (cp_lexer_file));
+
+  /* Populate */
+  lf->line = n;
+  lf->file = s;
+  lf->kind = k;
+  lf->next = NULL;
+
+  /* Add in the list */
+  if (last_cp_lexer_file)
+    last_cp_lexer_file->next = lf;
+  else
+    cp_lexer_file_stack = lf;
+  last_cp_lexer_file = lf;
+}
+
+/* Lang hooks for begining of source file.  */
+
+void
+cp_start_source_file (int n, const char *s)
+{
+  cp_add_lexer_file (n, s, CP_FILE_BEGIN);
+}
+
+/* Lang hooks for end of source file.  */
+
+void
+cp_end_source_file (int n, const char *s)
+{
+  cp_add_lexer_file (n, s, CP_FILE_END);
+}
+
+/* At the end of compilation emit BINCL/EINCL for remaining entries.  */
+
+void
+cp_flush_lexer_file_stack (void)
+{
+  if (cp_lexer_file_stack)
+    {
+      cp_lexer_file *lf = cp_lexer_file_stack;
+      while (lf)
+	{
+	  if (lf->kind == CP_FILE_BEGIN)
+	    (*debug_hooks->start_source_file) (lf->line, lf->file);
+	  else if (lf->kind == CP_FILE_END)
+	    (*debug_hooks->end_source_file) (lf->line);
+	  lf = lf->next;
+	}
+    }
+}
+
+/* Copy cp_token */
+static void
+cp_lexer_copy_token (cp_token *to, cp_token *from)
+{
+  to->type = from->type;
+  to->keyword = from->keyword;
+  to->flags = from->flags;
+  to->in_system_header = from->in_system_header;
+  to->implicit_extern_c = from->implicit_extern_c;
+  to->value = from->value;
+  to->location = from->location;
+}
+
+/* Handle CPP_BINCL and CPP_EINCL tokens.  */
+
+static void 
+cp_parser_bincl_eincl (cp_lexer *lexer)
+{
+  cp_token *token = lexer->next_token;
+
+  /* If the next token is CPP_BINCL/CPP_EINCL then invoke debug info hook */
+  while (token->type == CPP_BINCL || token->type == CPP_EINCL)
+    {
+      if (token->type == CPP_BINCL)
+	(*debug_hooks->start_source_file) (LOCATION_LINE (token->location),
+					   LOCATION_FILE (token->location));
+      else if (token->type == CPP_EINCL)
+	(*debug_hooks->end_source_file) (LOCATION_LINE (token->location));	
+
+      cp_lexer_purge_token (lexer);
+      token = lexer->next_token;
+    }
+}
+
+/* APPLE LOCAL end 4133801 */
 
 /* Commit to the portion of the token stream most recently saved.  */
 
@@ -1661,7 +1844,7 @@ static bool cp_parser_extension_opt
 static void cp_parser_label_declaration
   (cp_parser *);
 
-/* APPLE LOCAL begin Objective-C++ */
+/* APPLE LOCAL begin mainline */
 /* Objective-C++ Productions */
 
 static tree cp_parser_objc_message_receiver
@@ -1734,7 +1917,7 @@ static tree cp_parser_objc_throw_statement
   (cp_parser *);
 static tree cp_parser_objc_statement
   (cp_parser *);
-/* APPLE LOCAL end Objective-C++ */
+/* APPLE LOCAL end mainline */
 
 /* Utility Routines */
 
@@ -2795,12 +2978,12 @@ cp_parser_translation_unit (cp_parser* parser)
      ( compound-statement )
      __builtin_va_arg ( assignment-expression , type-id )
 
-   APPLE LOCAL begin Objective-C++
+   APPLE LOCAL begin mainline
    Objective-C++ Extension:
 
    primary-expression:
      objc-expression
-   APPLE LOCAL end Objective-C++
+   APPLE LOCAL end mainline
 
    literal:
      __null
@@ -3030,13 +3213,13 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_OFFSETOF:
 	  return cp_parser_builtin_offsetof (parser);
 
-	/* APPLE LOCAL begin Objective-C++ */
+	/* APPLE LOCAL begin mainline */
 	/* Objective-C++ expressions.  */
 	case RID_AT_ENCODE:
 	case RID_AT_PROTOCOL:
 	case RID_AT_SELECTOR:
 	  return cp_parser_objc_expression (parser);
-	/* APPLE LOCAL end Objective-C++ */
+	/* APPLE LOCAL end mainline */
 
 	default:
 	  cp_parser_error (parser, "expected primary-expression");
@@ -3100,11 +3283,11 @@ cp_parser_primary_expression (cp_parser *parser,
 	    if (ambiguous_p)
 	      return error_mark_node;
 
-	    /* APPLE LOCAL begin Objective-C++ */
+	    /* APPLE LOCAL begin mainline */
 	    /* In Objective-C++, an instance variable (ivar) may be preferred
 	       to whatever cp_parser_lookup_name() found.  */
 	    decl = objc_lookup_ivar (decl, id_expression);
-	    /* APPLE LOCAL end Objective-C++ */
+	    /* APPLE LOCAL end mainline */
 
 	    /* If name lookup gives us a SCOPE_REF, then the
 	       qualifying scope was dependent.  Just propagate the
@@ -3156,12 +3339,12 @@ cp_parser_primary_expression (cp_parser *parser,
 
       /* Anything else is an error.  */
     default:
-      /* APPLE LOCAL begin Objective-C++ */
+      /* APPLE LOCAL begin mainline */
       /* ...unless we have an Objective-C++ message or string literal, that is.  */
       if (c_dialect_objc () 
 	  && (token->type == CPP_OPEN_SQUARE || token->type == CPP_OBJC_STRING))
 	return cp_parser_objc_expression (parser);
-      /* APPLE LOCAL end Objective-C++ */
+      /* APPLE LOCAL end mainline */
 
       cp_parser_error (parser, "expected primary-expression");
       return error_mark_node;
@@ -6219,7 +6402,7 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr)
 	  statement = cp_parser_jump_statement (parser);
 	  break;
 
-	/* APPLE LOCAL begin Objective-C++ */
+	/* APPLE LOCAL begin mainline */
 	/* Objective-C++ exception-handling constructs.  */
 	case RID_AT_TRY:
 	case RID_AT_CATCH:
@@ -6228,7 +6411,7 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr)
 	case RID_AT_THROW:
 	  statement = cp_parser_objc_statement (parser);
 	  break;
-	/* APPLE LOCAL end Objective-C++ */
+	/* APPLE LOCAL end mainline */
 
 	case RID_TRY:
 	  statement = cp_parser_try_block (parser);
@@ -7167,11 +7350,11 @@ cp_parser_declaration (cp_parser* parser)
 	       /* An unnamed namespace definition.  */
 	       || token2.type == CPP_OPEN_BRACE))
     cp_parser_namespace_definition (parser);
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   /* Objective-C++ declaration/definition.  */
   else if (c_dialect_objc () && OBJC_IS_AT_KEYWORD (token1.keyword))
     cp_parser_objc_declaration (parser);
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
   /* We must have either a block declaration or a function
      definition.  */
   else
@@ -9937,7 +10120,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
      followed by a "<".  That usually indicates that the user thought
      that the type was a template.  */
   if (type && type != error_mark_node)
-    /* APPLE LOCAL begin Objective-C++ */
+    /* APPLE LOCAL begin mainline */
     {
       /* As a last-ditch effort, see if TYPE is an Objective-C type.
 	 If it is, then the '<'...'>' enclose protocol names rather than
@@ -9958,7 +10141,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 
       cp_parser_check_for_invalid_template_id (parser, TREE_TYPE (type));
     } 
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
 
   return type;
 }
@@ -10005,7 +10188,7 @@ cp_parser_type_name (cp_parser* parser)
       /* Look up the type-name.  */
       type_decl = cp_parser_lookup_name_simple (parser, identifier);
 
-      /* APPLE LOCAL begin Objective-C++ */
+      /* APPLE LOCAL begin mainline */
       if (TREE_CODE (type_decl) != TYPE_DECL
 	  && (objc_is_id (identifier) || objc_is_class_name (identifier)))
 	{
@@ -10015,7 +10198,7 @@ cp_parser_type_name (cp_parser* parser)
 	  if (type) 
 	    type_decl = TYPE_NAME (type);
 	}
-      /* APPLE LOCAL end Objective-C++ */
+      /* APPLE LOCAL end mainline */
 
       /* Issue an error if we did not find a type-name.  */
       if (TREE_CODE (type_decl) != TYPE_DECL)
@@ -12160,11 +12343,11 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 
       /* Peek at the next token.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN)
-	  /* APPLE LOCAL begin Objective-C++ */
+	  /* APPLE LOCAL begin mainline */
 	  || cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS)
 	  || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
 	  || cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
-	  /* APPLE LOCAL end Objective-C++ */
+	  /* APPLE LOCAL end mainline */
 	/* The parameter-declaration-list is complete.  */
 	break;
       else if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
@@ -13507,7 +13690,7 @@ cp_parser_member_declaration (cp_parser* parser)
       return;
     }
 
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   /* Check for @defs.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AT_DEFS))
     {
@@ -13523,7 +13706,7 @@ cp_parser_member_declaration (cp_parser* parser)
 	}
       return;
     }
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
 
   /* Parse the decl-specifier-seq.  */
   cp_parser_decl_specifier_seq (parser,
@@ -17238,7 +17421,7 @@ cw_asm_typename_or_reserved (tree value)
 }
 /* APPLE LOCAL end CW asm blocks */
 
-/* APPLE LOCAL begin Objective-C++ */
+/* APPLE LOCAL begin mainline */
 /* Objective-C++ Productions */
 
 
@@ -17315,8 +17498,8 @@ cp_parser_objc_message_expression (cp_parser* parser)
 /* Parse an objc-message-receiver.
 
    objc-message-receiver:
-     type-name
      expression
+     simple-type-specifier
 
   Returns a representation of the type or expression.  */
 
@@ -17324,7 +17507,6 @@ static tree
 cp_parser_objc_message_receiver (cp_parser* parser)
 {
   tree rcv;
-  bool class_scope_p, template_p;
 
   /* An Objective-C message receiver may be either (1) a type
      or (2) an expression.  */
@@ -17334,24 +17516,9 @@ cp_parser_objc_message_receiver (cp_parser* parser)
   if (cp_parser_parse_definitely (parser))
     return rcv;
 
-  /* Look for the optional `::' operator.  */
-  cp_parser_global_scope_opt (parser, false);
-  /* Look for the nested-name-specifier.  */
-  cp_parser_nested_name_specifier_opt (parser,
-				       /*typename_keyword_p=*/true,
-				       /*check_dependency_p=*/true,
-				       /*type_p=*/true,
-				       /*is_declaration=*/true);
-  class_scope_p = (parser->scope && TYPE_P (parser->scope));
-  template_p = class_scope_p && cp_parser_optional_template_keyword (parser);
-  /* Finally, look for the class-name.  */
-  rcv = cp_parser_class_name (parser,
-			       class_scope_p,
-			       template_p,
-			       /*type_p=*/true,
-			       /*check_dependency_p=*/true,
-			       /*class_head_p=*/false,
-			       /*is_declaration=*/true);
+  rcv = cp_parser_simple_type_specifier (parser,
+					 /*decl_specs=*/NULL,
+					 CP_PARSER_FLAGS_NONE);
 
   return objc_get_class_reference (rcv);
 }
@@ -18301,7 +18468,7 @@ cp_parser_objc_statement (cp_parser * parser) {
 
   return error_mark_node;
 }
-/* APPLE LOCAL end Objective-C++ */
+/* APPLE LOCAL end mainline */
 
 /* The parser.  */
 

@@ -428,37 +428,20 @@ objc_mark_locals_volatile (void *enclosing_blk)
   struct cp_binding_level *scope;
 
   for (scope = current_binding_level;
-       /* APPLE LOCAL Objective-C */
+       /* APPLE LOCAL mainline */
        scope && scope != enclosing_blk;
        scope = scope->level_chain)
     {
       tree decl;
 
+      /* APPLE LOCAL begin mainline */
       for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
-        {
-        /* APPLE LOCAL begin Objective-C */
-        /* Do not mess with variables that are 'static' or (already)
-	   'volatile'.  */
-	  if (!TREE_THIS_VOLATILE (decl) && !TREE_STATIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL))
-	    {
-	      TREE_TYPE (decl)
-		= build_qualified_type (TREE_TYPE (decl),
-					(TYPE_QUALS (TREE_TYPE (decl))
-					 | TYPE_QUAL_VOLATILE));
-	      TREE_THIS_VOLATILE (decl) = 1;
-	      TREE_SIDE_EFFECTS (decl) = 1;
-	      DECL_REGISTER (decl) = 0;
-	      /* APPLE LOCAL end Objective-C */
-	    }
-        }
-      /* APPLE LOCAL begin Objective-C */
+	objc_volatilize_decl (decl);
 
       /* Do not climb up past the current function.  */
       if (scope->kind == sk_function_parms)
 	break;
-      /* APPLE LOCAL end Objective-C */
+      /* APPLE LOCAL end mainline */
     }
 }
 

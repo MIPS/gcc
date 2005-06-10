@@ -1,3 +1,52 @@
+2005-06-02  Devang Patel  <dpatel@apple.com>
+
+	Radar 4133801
+	* parser.c (struct cp_lexer_file): Decorate using GTY markers.
+	(cp_lexer_new_main): Initialize fields of new tokens.
+
+2005-06-02  Devang Patel  <dpatel@apple.com>
+
+	Radar 4133801
+	* cp-tree.h (cp_flush_lexer_file_stack): New.
+	* parser.c (cp_flush_lexer_file_stack): New.
+	(cp_lexer_file_stack, last_cp_lexer_file): Make static.
+	(cp_add_lexer_file): Initialize next field.
+	* decl2.c (cp_finish_file): Flush cp_lexer_file_stack.
+
+2005-05-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4035492
+	* class.c (layout_class_type): Do not issue C++ ABI warnings for
+	ObjC structs.
+	* decl.c (objc_mark_locals_volatile): Streamline by calling
+	objc_volatilize_decl().
+	* parser.c (cp_parser_objc_message_expression): Allow simple type
+	specifiers (instead of merely type names) as message receivers.
+	* pt.c (template_args_equal): Do not call objc_comptypes().
+	* typeck.c (composite_pointer_type): If both pointers are ObjC-esque,
+	arbitrarily choose the first; do not call objc_comptypes().
+	(comp_array_types): Do not call objc_comptypes().
+	(convert_for_assignment): Call objc_compare_types().
+	(comp_ptr_ttypes_real): Call objc_type_quals_match() before
+	concluding that types do not match.
+
+2005-06-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4133801
+	* Make-lang.in (cp/parser.o): Depend on debug.h.
+	* cp-objcp-common.h (LANG_HOOKS_START_SOURCE_FILE,
+	LANG_HOOKS_END_SOURCE_FILE): New.
+	* cp-tree.h (cp_start_source_file, cp_end_source_file): New.
+	* parser.c (debug.h): Include.
+	(enum cp_file_entry_kind): New.
+	(struct cp_lexer_file): New.
+	(cp_lexer_file_stack, last_cp_lexer_file): New.
+	(cp_add_lexer_file, cp_lexer_copy_token, cp_parser_bincl_eincl): New.
+	(cp_lexer_new_main): Insert new CPP_BINCL and CPP_EINCL tokens based
+	on cp_lexer_file_stack.
+	(cp_lexer_peek_nth_token): Skip CPP_BINCL and CPP_EINCL tokens.
+	(cp_lexer_peek_token): Process CPP_BINCL and CPP_EINCL tokens.
+
 2005-04-25  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4094385

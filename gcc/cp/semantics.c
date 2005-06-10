@@ -400,7 +400,7 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 tree
 do_poplevel (tree stmt_list)
 {

@@ -194,9 +194,9 @@ struct lang_identifier GTY(())
   cxx_binding *namespace_bindings;
   cxx_binding *bindings;
   tree class_template_info;
-  /* APPLE LOCAL begin objc speedup --dpatel */
+  /* APPLE LOCAL begin mainline */
   tree interface_value; /* ObjC interface, if any */
-  /* APPLE LOCAL end objc speedup --dpatel */
+  /* APPLE LOCAL end mainline */
   tree label_value;
 };
 
@@ -602,11 +602,11 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define deleting_dtor_identifier        cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
 #define delta_identifier                cp_global_trees[CPTI_DELTA_IDENTIFIER]
 #define in_charge_identifier            cp_global_trees[CPTI_IN_CHARGE_IDENTIFIER]
-  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+/* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
 #define delta2_identifier		cp_global_trees[CPTI_DELTA2_IDENTIFIER]
 #define index_identifier		cp_global_trees[CPTI_INDEX_IDENTIFIER]
 #define pfn_or_delta2_identifier cp_global_trees[CPTI_PFN_OR_DELTA2_IDENTIFIER]
-  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+/* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
 /* The name of the parameter that contains a pointer to the VTT to use
    for this subobject constructor or destructor.  */
@@ -4132,7 +4132,7 @@ extern void pop_to_parent_deferring_access_checks	(void);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
 extern void init_cp_semantics                   (void);
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 extern tree do_poplevel				(tree);
 extern void add_decl_expr			(tree);
 extern tree finish_expr_stmt                    (tree);
@@ -4400,7 +4400,7 @@ extern tree mangle_ref_init_variable            (tree);
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
 
-/* APPLE LOCAL begin Objective-C */
+/* APPLE LOCAL begin mainline */
 /* In cp/cp-objcp-common.c.  */
 
 extern HOST_WIDE_INT cxx_get_alias_set (tree);
@@ -4410,7 +4410,7 @@ extern size_t cp_tree_size (enum tree_code);
 extern bool cp_var_mod_type_p (tree, tree);
 extern void cxx_initialize_diagnostics (struct diagnostic_context *);
 extern int cxx_types_compatible_p (tree, tree);
-/* APPLE LOCAL end Objective-C */
+/* APPLE LOCAL end mainline */
 
 /* APPLE LOCAL begin KEXT double destructor */
 extern int has_apple_kext_compatibility_attr_p	PARAMS ((tree));
@@ -4428,6 +4428,11 @@ extern void cp_genericize			(tree);
 extern tree cw_asm_cp_build_component_ref	(tree, tree);
 /* APPLE LOCAL end CW asm blocks */
 
+/* APPLE LOCAL begin 4133801 */
+extern void cp_start_source_file (int, const char *);
+extern void cp_end_source_file (int, const char *);
+extern void cp_flush_lexer_file_stack (void);
+/* APPLE LOCAL end 4133801 */
 /* -- end of C++ */
 
 /* In order for the format checking to accept the C++ frontend

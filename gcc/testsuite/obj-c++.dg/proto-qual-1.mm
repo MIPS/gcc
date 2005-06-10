@@ -1,4 +1,4 @@
-// APPLE LOCAL file Objective-C++
+// APPLE LOCAL file mainline
 /* Check that protocol qualifiers are compiled and encoded properly.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>  */
 /* { dg-do run } */

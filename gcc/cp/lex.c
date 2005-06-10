@@ -175,7 +175,7 @@ struct resword
    _true_.  */
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 #define D_OBJC		0x08	/* Objective C++ only */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
@@ -283,7 +283,7 @@ static const struct resword reswords[] =
   { "wchar_t",          RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
 
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   /* The remaining keywords are specific to Objective-C++.  NB:
      All of them will remain _disabled_, since they are context-
      sensitive.  */
@@ -309,7 +309,7 @@ static const struct resword reswords[] =
   { "inout",		RID_INOUT,		D_OBJC },
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
 };
 
 void
@@ -318,7 +318,7 @@ init_reswords (void)
   unsigned int i;
   tree id;
   int mask = ((flag_no_asm ? D_ASM : 0)
-	      /* APPLE LOCAL Objective-C++ */
+	      /* APPLE LOCAL mainline */
 	      | D_OBJC
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 

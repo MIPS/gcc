@@ -1,7 +1,118 @@
+2005-06-03  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4131839 (from mainline)
+	* gcc.c-torture/execute/20050603-1.c:  New.
+
+2005-05-31  Devang Patel  <dpatel@apple.com>
+
+	Radar 4133821
+	* gcc.dg/bincl-1.c: New test.
+	* gcc.dg/bincl-1.h: New.
+	* g++.dg/bincl-1.C: New test.
+	* g++.dg/bincl-1.h: New.
+
+2005-05-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4128976
+	* objc.dg/comp-types-11.m: Bring over from mainline.
+	* obj-c++.dg/comp-types-12.mm: Likewise.
+
+2005-05-26  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/selector-[2-4].mm: Bring over from mainline.
+	* objc.dg/selector-3.m: Likewise.
+
+2005-05-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4035492
+	* obj-c++.dg/bitfield-[1-5].mm, obj-c++.dg/class-protocol-1.mm,
+	obj-c++.dg/comp-types-1[0-1].mm, obj-c++.dg/comp-types-[2-9].mm,
+	obj-c++.dg/encode-[4-8].mm, obj-c++.dg/layout-1.mm,
+	obj-c++.dg/method-1[0-9].mm, obj-c++.dg/method-2[0-1].mm,
+	obj-c++.dg/method-[8-9].mm, obj-c++.dg/objc-gc-3.mm,
+	try-catch-10.mm: New.
+	* obj-c++.dg/objc-gc-1.mm: Add another test.
+	* objc.dg/bitfield-5.m, objc.dg/comp-types-10.m,
+	objc.dg/comp-types-9.m, objc.dg/layout-1.m, objc.dg/objc-gc-4.m,
+	objc.dg/try-catch-9.m: New.
+	* objc.dg/class-protocol-1.m, objc.dg/comp-types-1.m,
+	objc.dg/comp-types-[5-6].m, objc.dg/method-9.m: Tweak diagnostics.
+
+2005-05-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4119059
+	* gcc.dg/darwin-altivec-vspl.c: New.
+	* gcc.apple/apple-altivec-12.c: Fix.
+
+2005-05-26  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/selector-4.m: Bring over from mainline.
+
+2005-05-26  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/selector-1.mm: Adjust APPLE LOCAL marker.
+	* obj-c++.dg/selector-4.mm: Bring over from mainline.
+
+2005-05-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/selector-2.mm: New.
+	* obj-c++.dg/selector-3.mm: New.
+	* objc.dg/selector-3.m: New.
+
+2005-05-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/selector-2.m: Remove "-fgnu-runtime"; be flexible
+	about where warning appears.
+
+2005-05-16  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4087344
+	* objc.dg/stret-2.m: Grow the 'blob' struct just a bit,
+	so that ..._stret messaging kicks in on x86 also.
+
+2005-05-13  Stuart Hastings  <stuart@apple.com>
+
+	* gcc.apple/i386-deep-branch-predict-1.c: Added -fPIC.
+
+2005-05-13  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/volatile-1.m: Provide a
+	scan-assembler pattern for x86 Darwin.
+
+2005-05-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4087344
+	* objc.dg/symtab-1.m: Accept '.word' as 
+	a synonym for '.short'.
+
+2005-05-11  Stan Shebs  <shebs@apple.com>
+
+	* gcc.dg/darwin64-abi.c: New testcase.
+
+2005-05-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 4110735
+	* g++.dg/opt/20050511-1.C: New test.
+
+2005-05-09  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4113078
+	* gcc.apple/4113078.c: New.
+
+2005-05-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4104248
+	* gcc.apple/4104248.c: New.
+
+2005-05-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4090661
+	* gcc.apple/4090661.c: New.
+
 2005-05-02  Dale Johannesen  <dalej@apple.com>
 
-	Radar 4102133.c
-	* gcc.apple/4102133.c : New.
+	Radar 4102133
+	* gcc.apple/4102133.c: New.
 
 2005-05-01  Jon Ziegler  <jonz@apple.com>
 

@@ -265,6 +265,7 @@ static struct macosx_vers {
   { "10.2", 1020 },
   { "10.3", 1030 },
   { "10.4", 1040 },
+  { "10.5", 1050 },
   { NULL, 0 }
 };  
 /* APPLE LOCAL end deployment target */

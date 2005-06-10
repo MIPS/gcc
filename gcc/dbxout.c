@@ -206,7 +206,7 @@ enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
    pair of the file number and the type number within the file.
    This is a stack of input files.  */
 
-struct dbx_file
+struct dbx_file GTY(())
 {
   struct dbx_file *next;
   int file_number;
@@ -226,7 +226,7 @@ struct dbx_file
 
 #if (defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)) \
     && defined (DBX_USE_BINCL)
-static struct dbx_file *current_file;
+static GTY(()) struct dbx_file *current_file;
 #endif
 
 /* This is the next file number to use.  */
@@ -963,10 +963,10 @@ get_lang_number (void)
     return N_SO_PASCAL;
   else if (strcmp (language_string, "GNU Objective-C") == 0)
     return N_SO_OBJC;
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   else if (strcmp (language_string, "GNU Objective-C++") == 0)
     return N_SO_OBJCPLUS;
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
   else
     return 0;
 
@@ -1042,7 +1042,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = xmalloc (sizeof *current_file);
+  current_file = ggc_alloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -1158,7 +1158,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = xmalloc (sizeof *n);
+  struct dbx_file *n = ggc_alloc (sizeof *n);
 
   n->next = current_file;
   n->next_type_number = 1;

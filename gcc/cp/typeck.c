@@ -519,6 +519,15 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       return build_type_attribute_variant (result_type, attributes);
     }
 
+    /* APPLE LOCAL begin mainline */
+    if (c_dialect_objc () && TREE_CODE (t1) == POINTER_TYPE
+	&& TREE_CODE (t2) == POINTER_TYPE)
+      {
+	if (objc_compare_types (t1, t2, -3, NULL_TREE))
+	  return t1;
+      }
+
+  /* APPLE LOCAL end mainline */
   /* [expr.eq] permits the application of a pointer conversion to
      bring the pointers to a common type.  */
   if (TREE_CODE (t1) == POINTER_TYPE && TREE_CODE (t2) == POINTER_TYPE
@@ -530,16 +539,12 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       class1 = TREE_TYPE (t1);
       class2 = TREE_TYPE (t2);
 
-      /* APPLE LOCAL begin Objective-C++ */
-      if (DERIVED_FROM_P (class1, class2) || 
-	  (c_dialect_objc () && objc_comptypes (class1, class2, 0) == 1))
-      /* APPLE LOCAL end Objective-C++ */
+      /* APPLE LOCAL mainline */
+      if (DERIVED_FROM_P (class1, class2))
 	t2 = (build_pointer_type 
 	      (cp_build_qualified_type (class1, TYPE_QUALS (class2))));
-      /* APPLE LOCAL begin Objective-C++ */
-      else if (DERIVED_FROM_P (class2, class1) ||
-	       (c_dialect_objc () && objc_comptypes (class2, class1, 0) == 1))
-      /* APPLE LOCAL end Objective-C++ */
+      /* APPLE LOCAL mainline */
+      else if (DERIVED_FROM_P (class2, class1))
 	t1 = (build_pointer_type 
 	      (cp_build_qualified_type (class2, TYPE_QUALS (class1))));
       else
@@ -927,6 +932,9 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
 bool
 comptypes (tree t1, tree t2, int strict)
 {
+  /* APPLE LOCAL begin mainline */
+  /* Variable 'retval' removed.  */
+  /* APPLE LOCAL end mainline */
   if (t1 == t2)
     return true;
 
@@ -1019,12 +1027,9 @@ comptypes (tree t1, tree t2, int strict)
 	break;
       else if ((strict & COMPARE_DERIVED) && DERIVED_FROM_P (t2, t1))
 	break;
-      
-      /* We may be dealing with Objective-C instances.  */
-      if (TREE_CODE (t1) == RECORD_TYPE
-	  && objc_comptypes (t1, t2, 0) > 0)
-	break;
 
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' has been removed.  */
       return false;
 
     case OFFSET_TYPE:
@@ -1869,11 +1874,11 @@ finish_class_member_access_expr (tree object, tree name)
   if (object == error_mark_node || name == error_mark_node)
     return error_mark_node;
 
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   /* If OBJECT is an ObjC class instance, we must obey ObjC access rules.  */
   if (!objc_is_public (object, name))
     return error_mark_node;
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
 
   object_type = TREE_TYPE (object);
 
@@ -2469,12 +2474,12 @@ build_function_call (tree function, tree params)
   int is_method;
   tree original = function;
 
-  /* APPLE LOCAL begin Radar 4055183 */
+  /* APPLE LOCAL begin mainline */
   /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
      expressions, like those used for ObjC messenger dispatches.  */
   function = objc_rewrite_function_call (function, params);
 
-  /* APPLE LOCAL end Radar 4055183 */
+  /* APPLE LOCAL end mainline */
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs, since FUNCTION is used in non-lvalue context.  */
   if (TREE_CODE (function) == NOP_EXPR
@@ -5596,7 +5601,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (newrhs == error_mark_node)
     return error_mark_node;
 
-  /* APPLE LOCAL begin ObjC GC */
+  /* APPLE LOCAL begin mainline */
   if (c_dialect_objc () && flag_objc_gc)
     {
       result = objc_generate_write_barrier (lhs, modifycode, newrhs);
@@ -5604,7 +5609,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       if (result)
 	return result;
     }
-  /* APPLE LOCAL end ObjC GC */
+  /* APPLE LOCAL end mainline */
 
   result = build2 (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
 		   lhstype, lhs, newrhs);
@@ -6104,6 +6109,34 @@ convert_for_assignment (tree type, tree rhs,
   if (TREE_CODE (rhs) == CONST_DECL)
     rhs = DECL_INITIAL (rhs);
   
+  /* APPLE LOCAL begin mainline */
+  if (c_dialect_objc ())
+    {
+      int parmno;
+      tree rname = fndecl;
+
+      if (!strcmp (errtype, "assignment"))
+	parmno = -1;
+      else if (!strcmp (errtype, "initialization"))
+	parmno = -2;
+      else
+	{
+	  tree selector = objc_message_selector ();
+
+	  parmno = parmnum;
+
+	  if (selector && parmno > 1)
+	    {
+	      rname = selector;
+	      parmno -= 1;
+	    }
+	}
+
+      if (objc_compare_types (type, rhstype, parmno, rname))
+	return convert (type, rhs);
+    }
+
+  /* APPLE LOCAL end mainline */
   /* [expr.ass]
 
      The expression is implicitly converted (clause _conv_) to the
@@ -6528,10 +6561,18 @@ comp_ptr_ttypes_real (tree to, tree from, int constp)
 	 so the usual checks are not appropriate.  */
       if (TREE_CODE (to) != FUNCTION_TYPE && TREE_CODE (to) != METHOD_TYPE)
 	{
-	  if (!at_least_as_qualified_p (to, from))
+	  /* APPLE LOCAL begin mainline */
+	  /* In Objective-C++, some types may have been 'volatilized' by
+	     the compiler; when comparing them here, the volatile
+	     qualification must be ignored.  */
+	  bool objc_quals_match = objc_type_quals_match (to, from);
+
+	  if (!at_least_as_qualified_p (to, from) && !objc_quals_match)
+	  /* APPLE LOCAL end mainline */
 	    return 0;
 
-	  if (!at_least_as_qualified_p (from, to))
+	  /* APPLE LOCAL mainline */
+	  if (!at_least_as_qualified_p (from, to) && !objc_quals_match)
 	    {
 	      if (constp == 0)
 		return 0;

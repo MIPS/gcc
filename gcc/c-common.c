@@ -374,12 +374,12 @@ int flag_next_runtime = 1;
 int flag_next_runtime = 0;
 #endif
 
-/* APPLE LOCAL begin ObjC C++ ivars */
+/* APPLE LOCAL begin mainline */
 /* Generate special '- .cxx_construct' and '- .cxx_destruct' methods
    to initialize any non-POD ivars in ObjC++ classes.  */
 
 int flag_objc_call_cxx_cdtors = 0;
-/* APPLE LOCAL end ObjC C++ ivars */
+/* APPLE LOCAL end mainline */
 
 /* Tells the compiler that this is a special run.  Do not perform any
    compiling, instead we are to test some platform dependent features
@@ -6529,7 +6529,7 @@ cw_asm_expr_val (tree arg)
     return cw_asm_field_offset (arg);
 
   if (TREE_CODE (arg) == INTEGER_CST)
-    return tree_low_cst (arg, 0);
+    return int_cst_value (arg);
 
   if (TREE_CODE (arg) == PLUS_EXPR)
     return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 

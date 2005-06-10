@@ -1594,6 +1594,13 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   if (! lang_hooks.tree_inlining.start_inlining (fn))
     goto egress;
 
+  /* APPLE LOCAL begin 4113078 */
+  /* If we inline a vector-containing function into one that didn't,
+     mark the outer function as vector-containing.  */
+  if (DECL_STRUCT_FUNCTION (edge->callee->decl)->uses_vector)
+    DECL_STRUCT_FUNCTION (edge->caller->decl)->uses_vector = 1;
+  /* APPLE LOCAL end 4113078 */
+
   /* Build a block containing code to initialize the arguments, the
      actual inline expansion of the body, and a label for the return
      statements within the function to jump to.  The type of the

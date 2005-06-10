@@ -756,11 +756,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_no_nonansi_builtin = !value;
       break;
 
-    /* APPLE LOCAL begin ObjC C++ ivars */
+    /* APPLE LOCAL begin mainline */
     case OPT_fobjc_call_cxx_cdtors:
       flag_objc_call_cxx_cdtors = value;
       break;
-    /* APPLE LOCAL end ObjC C++ ivars */
+    /* APPLE LOCAL end mainline */
 
     case OPT_fobjc_exceptions:
       flag_objc_exceptions = value;

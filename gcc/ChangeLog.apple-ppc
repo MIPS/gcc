@@ -1,8 +1,190 @@
-2005-05-12  Dale Johannesen <dalej@apple.com>
-            Stuart Hastings <stuart@apple.com>
+2005-06-04  Devang Patel  <dpatel@apple.com>
 
-        * stor-layout.c (compute_record_mode):  Put back 8-byte struct
-        "hack", merged with FSF and 64-bit ABI changes.
+       * dbxout.c (struct dbx_file): Apply GTY markers.
+       (dbxout_init, dbxout_start_source_file): Use ggc_alloc instead of xmalloc.
+
+2005-06-04  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4131839 (from mainline)
+	* config/rs6000/rs6000.c (insn-addr.h):  Don't include.
+	(no_global_regs_above): New.
+	(rs6000_emit_prologue):  Use it; cosmetic formatting fixes.
+	(rs6000_emit_epilogue):  Use it; cosmetic formatting fixes.
+	(rs6000_conditional_register_usage): Don't put Darwin PIC
+	register in global_regs.
+	(rs6000_override_options):  Add -fgcse-las to -fast.
+	Remove clear of -fspeculative-prefetching.
+	(rs6000_rtx_mult_cost):  Remove.
+	(rs6000_stack_info, rs6000_emit_prologue, rs6000_emit_epilogue):
+	Adjust LOCAL comments.
+	(rs6000_is_costly_dependence):  Look under ZERO/SIGN_EXTEND for MEMs.
+	* config/rs6000/rs6000-protos.h (rs6000_rtx_mult_cost):  Remove.
+
+2005-06-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.c (macosx_vers_tbl): Handle '10.5'.
+
+2005-06-02  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/simplify-rtx.c(simplify_binary_operation, simplify_immed_subreg):
+	Back out these extra checks (Chablis branch).
+
+2005-05-31  Stuart Hastings  <stuart@apple.com>
+
+	Copy 2004-05-19 patch from Karma mainline onto Chablis branch:
+	Radar 4124883, 4122515
+	* gcc/config/i386/i386.md(UNSPEC_LDQ, UNSPEC_MOVQ, UNSPEC_STOQ): New.
+	* gcc/config/i386/sse.md(sse_loadqv4si, sse_storeqv4si, sse_movqv4si):
+	Move UNSPECs inside patterns, incorporate new UNSPEC_ constants.
+
+2005-05-27  Stuart Hastings  <stuart@apple.com>
+
+	Radar 41216124
+	* gcc/config.gcc: Darwin/x86 sets need_64bit_hwint=yes.
+	* gcc/config.host: Darwin/x86 sets use_long_long_for_widest_fast_int=yes.
+	* libcpp/configure.ac: Darwin/x86 sets need_64bit_hwint=yes.
+	* libcpp/configure: Regenerated with autoconf.
+
+2005-05-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* stub-objc.c (objc_comptypes): Remove for real.
+
+2005-05-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4035492
+	* c-common.h (objc_comptypes): Remove prototype.
+	(objc_compare_types, objc_volatilized_decl, objc_type_quals_match):
+	New prototypes.
+	* c-decl.c (objc_mark_locals_volatile): Streamline by calling
+	objc_volatilize_decl().
+	* c-typeck.c (comp_target_types): Remove third parameter; do not
+	call objc_comptypes().
+	(comptypes): Remove calls to objc_comptypes().
+	(build_function_call): Extend compatible prototype check to ObjC.
+	(build_conditional_expr): Adjust call to comp_target_types().
+	(convert_for_assignment): Call objc_compare_types() instead of
+	objc_comptypes(); adjust calls to comp_target_types(); call
+	objc_type_quals_match() before issuing qualifier mismatch warnings.
+	(build_binary_op): Call objc_compare_types() before issuing
+	pointer mismatch warnings; adjust calls to comp_target_types().
+	* gimplify.c (gimplify_expr): Adjust APPLE LOCAL markers to
+	point at new culprit.
+	* stub-objc.c (objc_comptypes): Remove stub.
+	(objc_compare_types, objc_volatilized_decl, objc_type_quals_match):
+	New stubs.
+
+2005-05-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4119059
+	* config/altivec.md: Use u5bit_cint_operand and s5bit_cint_operand.
+	* config/rs6000/rs6000.c (s5bit_cint_operand, u5bit_cint_operand): New.
+	(rs6000_expand_unop_builtin): Fix signed 5 bits literal validation.
+
+2005-06-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4133801
+	* Makefile.in (c-lex.o): Depend on langhooks.h.
+	(langhooks.o): Depend on debug.h.
+	* c-lex.c (langhooks.h): Include.
+	(fe_file_change): Use lang hooks instead of debug hooks.
+	* langhooks-def.h (lhd_start_source_file, lhd_end_source_file,
+	LANG_HOOKS_START_SOURCE_FILE, LANG_HOOKS_END_SOURCE_FILE): New.
+	* langhooks.c (debug.h): Include.
+	(lhd_start_source_file, lhd_end_source_file): New.
+	* langhooks.h (struct lang_hooks): Two new members.
+
+2005-05-19  Devang Patel  <dpatel@apple.com>
+
+	Radar 4123684
+	* config/rs6000/rs6000.md (insvsi_internal1): Remove.
+
+2005-05-19  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4124883, 4122515
+	* gcc/simplify-rtx.c(simplify_binary_operation): Can't simplify vector shifts yet.
+	(simplify_immed_subreg): Fail instead of asserting when asked for a TImode constant.
+	* gcc/config/i386/i386.md(UNSPEC_LDQ, UNSPEC_MOVQ, UNSPEC_STOQ): New.
+	* gcc/config/i386/sse.md(sse_loadqv4si, sse_storeqv4si, sse_movqv4si):
+	Move UNSPECs inside patterns, incorporate new UNSPEC_ constants.
+
+2005-05-12  Dale Johannesen <dalej@apple.com>
+	    Stuart Hastings <stuart@apple.com>
+
+	* stor-layout.c (compute_record_mode):  Put back 8-byte struct
+	"hack", merged with FSF and 64-bit ABI changes.
+
+2005-05-11  Stan Shebs  <shebs@apple.com>
+
+	Fix 64-bit varargs for Darwin (Radar 4028089).
+	* config/rs6000/rs6000.h (rs6000_args): New field floats_in_gpr.
+	* config/rs6000/rs6000.c (rs6000_darwin64_record_arg_advance_flush):
+	Add argument, add case for 8-byte register half-filled with a float.
+	(rs6000_darwin64_record_arg_advance_recurse): Detect and handle
+	single-precision floats specially.
+
+2005-05-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 4110735
+	* config/rs6000/rs6000.md (insvsi_internal1): Fix operand[1].
+
+2005-05-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4111151
+	* toplev.c (backend_init): Call init_caller_save unconditionally.
+
+2005-05-10  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4099020
+	Reinstall patch, omitting simplify-rtx change.
+	* gcc/config/i386/sse.md (sse_loadqv4s, sse_storeqv4si, sse_movqv4si): New.
+	* gcc/config/i386/i386.c: (IX86_BUILTIN_MOVQ,
+	IX86_BUILTIN_LOADQ, IX86_BUILTIN_STOREQ): New.
+	(__builtin_ia32_movqv4si, __builtin_ia32_loadlv4si, __builtin_ia32_storelv4si): New.
+	* emmintrin.h (_mm_loadl_epi64, _mm_storel_epi64, _mm_move_epi64): Use them.
+	* gcc/config/i386/mmx.md: Exempt SSE subregs from multiword split.
+
+2005-05-10  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4078600
+	* gcc/stor-layout.c(compute_record_mode): Delete the "8-byte struct hack".
+
+2005-05-10  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4095567
+	* passes.c (rest_of_compilation): Readjust default stack boundaries for
+	leaf functions with no vector code.
+
+2005-05-09  Jon Ziegler  <jonz@apple.com>
+
+	Radar 4099020
+	Revert Stuart's patch for 4099020.
+
+2005-05-09  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4113078
+	* tree-inline.c (expand_call_inline):  Propagate uses_vector bit correctly.
+
+2005-05-07  Stuart Hastings  <stuart@apple.com>
+
+        Radar 4099020
+        * gcc/config/i386/sse.md (sse_loadqv4s, sse_storeqv4si, sse_movqv4si): New.
+        * gcc/config/i386/i386.c: (IX86_BUILTIN_MOVQ,
+        IX86_BUILTIN_LOADQ, IX86_BUILTIN_STOREQ): New.
+        (__builtin_ia32_movqv4si, __builtin_ia32_loadlv4si, __builtin_ia32_storelv4si): New.
+        * emmintrin.h (_mm_loadl_epi64, _mm_storel_epi64, _mm_move_epi64): Use them.
+        * gcc/config/i386/mmx.md: Exempt SSE subregs from multiword split.
+        * gcc/simplify-rtx.c(simplify_immed_subreg): Exit cleanly if outermode too wide.
+
+2005-05-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4090661
+	* config/i386/i386.c (ix86_constant_alignment):  Max out
+	alignment of string constants at 4 bytes.
+
+2005-05-05  Stuart Hastings  <stuart@apple.com>
+
+	* Radar 4078600
+	* gcc/stor-layout.c(compute_record_mode): Revert previous patch.
 
 2005-04-04  Devang Patel  <dpatel@apple.com>
 

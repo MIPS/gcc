@@ -2120,7 +2120,11 @@ backend_init (void)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expmed ();
-  if (flag_caller_saves)
+  /* APPLE LOCAL begin 4111151 optimization pragmas */
+  /* We must do this if it will ever be turned on by pragmas.  It's not
+     that expensive so just do it unconditionally.  */
+  /* if (flag_caller_saves) */
+  /* APPLE LOCAL begin 4111151 optimization pragmas */
     init_caller_save ();
   expand_dummy_function_end ();
 }

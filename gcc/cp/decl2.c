@@ -2613,7 +2613,7 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
      global constructors and destructors.  */
   body = NULL_TREE;
 
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   /* For Objective-C++, we may need to initialize metadata found in this module.
      This must be done _before_ any other static initializations.  */
   if (c_dialect_objc () && (priority == DEFAULT_INIT_PRIORITY)
@@ -2622,7 +2622,7 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
       body = start_objects (function_key, priority);
       static_ctors = objc_generate_static_init_call (static_ctors);
     }
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
 
   /* Call the static storage duration function with appropriate
      arguments.  */
@@ -3116,7 +3116,10 @@ cp_finish_file (void)
 	dump_end (TDI_tu, stream);
       }
   }
-  
+
+  /* APPLE LOCAL 4133801 */
+  cp_flush_lexer_file_stack ();
+
   timevar_pop (TV_VARCONST);
 
   if (flag_detailed_statistics)

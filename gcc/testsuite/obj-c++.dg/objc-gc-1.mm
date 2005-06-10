@@ -79,6 +79,7 @@ extern MyClass *externFunc(void);
   m_myclass = 0; /* { dg-warning "global\\/static variable assignment" } */
   *indirect = obj; /* { dg-warning "strong\\-cast may possibly be needed" } */
   (__strong id)*indirect = obj; /* { dg-warning "strong\\-cast assignment" } */
+  (__strong id)(MyClass *)*indirect = obj; /* { dg-warning "strong\\-cast assignment" } */
   self = 0;
   self->isa = 0; /* { dg-warning "instance variable assignment" } */
   return SomeObj = obj; /* { dg-warning "instance variable assignment" } */

@@ -499,12 +499,12 @@ extern int flag_gen_declaration;
 
 extern int flag_next_runtime;
 
-/* APPLE LOCAL begin ObjC C++ ivars */
+/* APPLE LOCAL begin mainline */
 /* Generate special '- .cxx_construct' and '- .cxx_destruct' methods
    to initialize any non-POD ivars in ObjC++ classes.  */
 
 extern int flag_objc_call_cxx_cdtors;
-/* APPLE LOCAL end ObjC C++ ivars */
+/* APPLE LOCAL end mainline */
 
 /* Tells the compiler that this is a special run.  Do not perform any
    compiling, instead we are to test some platform dependent features
@@ -995,9 +995,13 @@ extern tree objc_is_class_name (tree);
 extern tree objc_is_object_ptr (tree);
 extern void objc_check_decl (tree);
 extern int objc_is_reserved_word (tree);
-extern int objc_comptypes (tree, tree, int);
-/* APPLE LOCAL Radar 4055183 */
+/* APPLE LOCAL begin mainline */
+/* Prototype for 'objc_comptypes' removed.  */
+extern bool objc_compare_types (tree, tree, int, tree);
+extern void objc_volatilize_decl (tree);
+extern bool objc_type_quals_match (tree, tree);
 extern tree objc_rewrite_function_call (tree, tree);
+/* APPLE LOCAL end mainline */
 extern tree objc_message_selector (void);
 extern tree objc_lookup_ivar (tree, tree);
 extern void objc_clear_super_receiver (void);
@@ -1034,16 +1038,16 @@ extern void objc_add_instance_variable (tree);
 extern tree objc_build_keyword_decl (tree, tree, tree);
 extern tree objc_build_throw_stmt (tree);
 extern void objc_begin_try_stmt (location_t, tree);
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 extern tree objc_finish_try_stmt (void);
 extern void objc_begin_catch_clause (tree);
 extern void objc_finish_catch_clause (void);
 extern void objc_build_finally_clause (location_t, tree);
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 extern tree objc_build_synchronized (location_t, tree, tree);
 extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
-/* APPLE LOCAL ObjC GC */
+/* APPLE LOCAL mainline */
 extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
 
 /* The following are provided by the C and C++ front-ends, and called by

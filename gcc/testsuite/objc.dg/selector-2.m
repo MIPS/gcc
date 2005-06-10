@@ -1,5 +1,5 @@
+/* APPLE LOCAL file mainline */
 /* Test that we don't ICE when issuing a -Wselector warning.  */
-/* APPLE LOCAL Objective-C */
 /* { dg-options "-Wselector" } */
 /* { dg-do compile } */
 
@@ -11,8 +11,8 @@
 -(void) foo
 {
   SEL a;
-  /* APPLE LOCAL Objective-C */
-  a = @selector(b1ar); /* { dg-warning "creating selector for nonexistent method .b1ar." } */
+  a = @selector(b1ar);
 }
-/* APPLE LOCAL Objective-C */
 @end
+/* { dg-warning "creating selector for nonexistent method .b1ar." "" { target *-*-* } 0 } */
+

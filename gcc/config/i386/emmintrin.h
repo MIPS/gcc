@@ -666,11 +666,13 @@ _mm_loadu_si128 (__m128i const *__P)
   return (__m128i) __builtin_ia32_loaddqu ((char const *)__P);
 }
 
+/* APPLE LOCAL begin 4099020 */
 static __inline __m128i
 _mm_loadl_epi64 (__m128i const *__P)
 {
-  return _mm_set_epi64 ((__m64)0LL, *(__m64 *)__P);
+  return  (__m128i)__builtin_ia32_loadlv4si ((__v2si *)__P);
 }
+/* APPLE LOCAL end 4099020 */
 
 static __inline void
 _mm_store_si128 (__m128i *__P, __m128i __B)
@@ -684,11 +686,13 @@ _mm_storeu_si128 (__m128i *__P, __m128i __B)
   __builtin_ia32_storedqu ((char *)__P, (__v16qi)__B);
 }
 
+/* APPLE LOCAL begin 4099020 */
 static __inline void
 _mm_storel_epi64 (__m128i *__P, __m128i __B)
 {
-  *(long long *)__P = __builtin_ia32_vec_ext_v2di ((__v2di)__B, 0);
+  __builtin_ia32_storelv4si ((__v2si *)__P, __B);
 }
+/* APPLE LOCAL end 4099020 */
 
 static __inline __m64
 _mm_movepi64_pi64 (__m128i __B)
@@ -702,11 +706,13 @@ _mm_movpi64_epi64 (__m64 __A)
   return _mm_set_epi64 ((__m64)0LL, __A);
 }
 
+/* APPLE LOCAL begin 4099020 */
 static __inline __m128i
 _mm_move_epi64 (__m128i __A)
 {
-  return _mm_set_epi64 ((__m64)0LL, _mm_movepi64_pi64 (__A));
+  return (__m128i)__builtin_ia32_movqv4si ((__v4si)__A) ;
 }
+/* APPLE LOCAL end 4099020 */
 
 /* Create a vector of zeros.  */
 static __inline __m128i

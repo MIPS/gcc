@@ -1,3 +1,13 @@
+2005-06-01  Mike Stump  <mrs@apple.com>
+
+	Merge in chablis-branchpoint->chablis-merge-2005-06-01.
+
+2005-05-18  Mike Stump  <mrs@apple.com>
+
+	Radar 4110533
+	* build-gcc: Don't strip shell scripts, chgrp to wheel when done,
+	and rebuild less when doing a rebuild.
+
 2005-04-13  Geoff Keating  <dalej@apple.com>
 
 	Radar 4071716

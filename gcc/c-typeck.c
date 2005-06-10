@@ -75,7 +75,8 @@ static int require_constant_elements;
 
 static tree qualify_type (tree, tree);
 static int tagged_types_tu_compatible_p (tree, tree);
-static int comp_target_types (tree, tree, int);
+/* APPLE LOCAL mainline */
+static int comp_target_types (tree, tree);
 static int function_types_compatible_p (tree, tree);
 static int type_lists_compatible_p (tree, tree);
 static tree decl_constant_value_for_broken_optimization (tree);
@@ -696,10 +697,8 @@ comptypes (tree type1, tree type2)
   switch (TREE_CODE (t1))
     {
     case POINTER_TYPE:
-      /* We must give ObjC the first crack at comparing pointers, since
-	   protocol qualifiers may be involved.  */
-      if (c_dialect_objc () && (val = objc_comptypes (t1, t2, 0)) >= 0)
-	break;
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' removed.  */
       /* Do not remove mode or aliasing information.  */
       if (TYPE_MODE (t1) != TYPE_MODE (t2)
 	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2))
@@ -752,10 +751,8 @@ comptypes (tree type1, tree type2)
       }
 
     case RECORD_TYPE:
-      /* We are dealing with two distinct structs.  In assorted Objective-C
-	 corner cases, however, these can still be deemed equivalent.  */
-      if (c_dialect_objc () && objc_comptypes (t1, t2, 0) == 1)
-	val = 1;
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' removed.  */
 
     case ENUMERAL_TYPE:
     case UNION_TYPE:
@@ -774,22 +771,19 @@ comptypes (tree type1, tree type2)
   return attrval == 2 && val == 1 ? 2 : val;
 }
 
+/* APPLE LOCAL begin mainline */
 /* Return 1 if TTL and TTR are pointers to types that are equivalent,
-   ignoring their qualifiers.  REFLEXIVE is only used by ObjC - set it
-   to 1 or 0 depending if the check of the pointer types is meant to
-   be reflexive or not (typically, assignments are not reflexive,
-   while comparisons are reflexive).
-*/
+   ignoring their qualifiers.  */
+/* APPLE LOCAL end mainline */
 
 static int
-comp_target_types (tree ttl, tree ttr, int reflexive)
+comp_target_types (tree ttl, tree ttr)
 {
   int val;
   tree mvl, mvr;
 
-  /* Give objc_comptypes a crack at letting these types through.  */
-  if ((val = objc_comptypes (ttl, ttr, reflexive)) >= 0)
-    return val;
+  /* APPLE LOCAL mainline */
+  /* Call to 'objc_comptypes' removed.  */
 
   /* Do not lose qualifiers on element types of array types that are
      pointer targets by taking their TYPE_MAIN_VARIANT.  */
@@ -2074,12 +2068,12 @@ build_function_call (tree function, tree params)
   else
     function = default_conversion (function);
 
-  /* APPLE LOCAL begin Radar 4055183 */
+  /* APPLE LOCAL begin mainline */
   /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
      expressions, like those used for ObjC messenger dispatches.  */
   function = objc_rewrite_function_call (function, params);
 
-  /* APPLE LOCAL end Radar 4055183 */
+  /* APPLE LOCAL end mainline */
   fntype = TREE_TYPE (function);
 
   if (TREE_CODE (fntype) == ERROR_MARK)
@@ -2098,17 +2092,16 @@ build_function_call (tree function, tree params)
   /* fntype now gets the type of function pointed to.  */
   fntype = TREE_TYPE (fntype);
 
+  /* APPLE LOCAL begin mainline */
   /* Check that the function is called through a compatible prototype.
      If it is not, replace the call by a trap, wrapped up in a compound
      expression if necessary.  This has the nice side-effect to prevent
      the tree-inliner from generating invalid assignment trees which may
-     blow up in the RTL expander later.
+     blow up in the RTL expander later.  */
+  /* APPLE LOCAL end mainline */
 
-     ??? This doesn't work for Objective-C because objc_comptypes
-     refuses to compare function prototypes, yet the compiler appears
-     to build calls that are flagged as invalid by C's comptypes.  */
-  if (!c_dialect_objc ()
-      && TREE_CODE (function) == NOP_EXPR
+  /* APPLE LOCAL mainline */
+  if (TREE_CODE (function) == NOP_EXPR
       && TREE_CODE (tem = TREE_OPERAND (function, 0)) == ADDR_EXPR
       && TREE_CODE (tem = TREE_OPERAND (tem, 0)) == FUNCTION_DECL
       && !comptypes (fntype, TREE_TYPE (tem)))
@@ -3105,7 +3098,8 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
     }
   else if (code1 == POINTER_TYPE && code2 == POINTER_TYPE)
     {
-      if (comp_target_types (type1, type2, 1))
+      /* APPLE LOCAL mainline */
+      if (comp_target_types (type1, type2))
 	result_type = common_pointer_type (type1, type2);
       else if (integer_zerop (op1) && TREE_TYPE (type1) == void_type_node
 	       && TREE_CODE (orig_op1) != NOP_EXPR)
@@ -3232,7 +3226,9 @@ build_c_cast (tree type, tree expr)
   /* APPLE LOCAL begin AltiVec */
   /* If we are casting to a vector type, treat the expression as a vector
      initializer if this target supports it.  */
-  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+  if (TREE_CODE (type) == VECTOR_TYPE 
+      && int_size_in_bytes (type) == 16
+      && targetm.cast_expr_as_vector_init)
     return vector_constructor_from_expr (expr, type);
   /* APPLE LOCAL end AltiVec */
 
@@ -3553,7 +3549,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (TREE_CODE (newrhs) == ERROR_MARK)
     return error_mark_node;
 
-  /* APPLE LOCAL begin ObjC GC */
+  /* APPLE LOCAL begin mainline */
   /* Emit ObjC write barrier, if necessary.  */
   if (c_dialect_objc () && flag_objc_gc)
     {
@@ -3561,7 +3557,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       if (result)
 	return result;
     }
-  /* APPLE LOCAL end ObjC GC */
+  /* APPLE LOCAL end mainline */
   
   /* Scan operands.  */
 
@@ -3598,6 +3594,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   tree rhstype;
   enum tree_code coder;
   tree rname = NULL_TREE;
+  /* APPLE LOCAL mainline */
+  bool objc_ok;
 
   if (errtype == ic_argpass || errtype == ic_argpass_nonproto)
     {
@@ -3663,14 +3661,41 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   if (coder == ERROR_MARK)
     return error_mark_node;
 
+  /* APPLE LOCAL begin mainline */
+  if (c_dialect_objc ())
+    {
+      int parmno;
+
+      switch (errtype)
+	{
+	case ic_return:
+	  parmno = 0;
+	  break;
+
+	case ic_assign:
+	  parmno = -1;
+	  break;
+
+	case ic_init:
+	  parmno = -2;
+	  break;
+
+	default:
+	  parmno = parmnum;
+	  break;
+	}
+
+      objc_ok = objc_compare_types (type, rhstype, parmno, rname);
+    }
+  else
+    objc_ok = false;
+
+  /* APPLE LOCAL end mainline */
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
     {
       overflow_warning (rhs);
-      /* Check for Objective-C protocols.  This will automatically
-	 issue a warning if there are protocol violations.  No need to
-	 use the return value.  */
-      if (c_dialect_objc ())
-	objc_comptypes (type, rhstype, 0);
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' removed.  */
       return rhs;
     }
 
@@ -3753,7 +3778,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		 Meanwhile, the lhs target must have all the qualifiers of
 		 the rhs.  */
 	      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		  || comp_target_types (memb_type, rhstype, 0))
+		  /* APPLE LOCAL mainline */
+		  || comp_target_types (memb_type, rhstype))
 		{
 		  /* If this type won't generate any warnings, use it.  */
 		  if (TYPE_QUALS (ttl) == TYPE_QUALS (ttr)
@@ -3859,7 +3885,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-	  || (target_cmp = comp_target_types (type, rhstype, 0))
+	  /* APPLE LOCAL mainline */
+	  || (target_cmp = comp_target_types (type, rhstype))
 	  || is_opaque_pointer
 	  || (c_common_unsigned_type (mvl)
 	      == c_common_unsigned_type (mvr)))
@@ -3889,7 +3916,12 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	      /* APPLE LOCAL begin 4086969 */
 	      if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
 		{
-		  if (warn_discard_qual)
+		  /* APPLE LOCAL begin mainline */
+		  /* Types differing only by the presence of the 'volatile'
+		     qualifier are acceptable if the 'volatile' has been added
+		     in by the Objective-C EH machinery.  */
+		  if (warn_discard_qual && !objc_type_quals_match (ttl, ttr))
+		  /* APPLE LOCAL end mainline */
 		    WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
 					    "qualifiers from pointer target type"),
 					 N_("assignment discards qualifiers "
@@ -3936,12 +3968,18 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	    }
 	}
       else
-	WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE from "
-				"incompatible pointer type"),
-			     N_("assignment from incompatible pointer type"),
-			     N_("initialization from incompatible "
-				"pointer type"),
-			     N_("return from incompatible pointer type"));
+	/* APPLE LOCAL begin mainline */
+	/* Certain combinations of ObjC types do not warrant a
+	   warning here.  */
+	if (!objc_ok)
+	  WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE from "
+				  "incompatible pointer type"),
+			       N_("assignment from incompatible pointer type"),
+			       N_("initialization from incompatible "
+				  "pointer type"),
+			       N_("return from incompatible pointer type"));
+
+	/* APPLE LOCAL end mainline */
       return convert (type, rhs);
     }
   else if (codel == POINTER_TYPE && coder == ARRAY_TYPE)
@@ -7583,6 +7621,11 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   /* Nonzero means set RESULT_TYPE to the common type of the args.  */
   int common = 0;
 
+  /* APPLE LOCAL begin mainline */
+  /* True means types are compatible as far as ObjC is concerned.  */
+  bool objc_ok;
+
+  /* APPLE LOCAL end mainline */
   if (convert_p)
     {
       op0 = default_conversion (orig_op0);
@@ -7612,6 +7655,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   if (code0 == ERROR_MARK || code1 == ERROR_MARK)
     return error_mark_node;
 
+  /* APPLE LOCAL begin mainline */
+  objc_ok = objc_compare_types (type0, type1, -3, NULL_TREE);
+
+  /* APPLE LOCAL end mainline */
   switch (code)
     {
     case PLUS_EXPR:
@@ -7628,7 +7675,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
-	  && comp_target_types (type0, type1, 1))
+	  /* APPLE LOCAL mainline */
+	  && comp_target_types (type0, type1))
 	return pointer_diff (op0, op1);
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -7797,7 +7845,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
-	  if (comp_target_types (type0, type1, 1))
+	  /* APPLE LOCAL mainline */
+	  if (comp_target_types (type0, type1))
 	    result_type = common_pointer_type (type0, type1);
 	  else if (VOID_TYPE_P (tt0))
 	    {
@@ -7816,7 +7865,12 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			 " with function pointer");
 	    }
 	  else
-	    pedwarn ("comparison of distinct pointer types lacks a cast");
+	    /* APPLE LOCAL begin mainline */
+	    /* Certain combinations of ObjC types do not warrant a
+	       warning here.  */
+	    if (!objc_ok)
+	      pedwarn ("comparison of distinct pointer types lacks a cast");
+	    /* APPLE LOCAL end mainline */
 
 	  if (result_type == NULL_TREE)
 	    result_type = ptr_type_node;
@@ -7849,7 +7903,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1, 1))
+	  /* APPLE LOCAL mainline */
+	  if (comp_target_types (type0, type1))
 	    {
 	      result_type = common_pointer_type (type0, type1);
 	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))

@@ -1,4 +1,4 @@
-/* APPLE LOCAL file */
+/* APPLE LOCAL file mainline */
 /* Check if finding multiple signatures for a method is handled gracefully.  Author:  Ziemowit Laski <zlaski@apple.com>  */
 /* { dg-do compile } */
 
@@ -26,5 +26,4 @@ id foo(void) {
   return obj;
 }
 
-/* APPLE LOCAL Objective-C */
 /* { dg-options "-Wstrict-selector-match" } */

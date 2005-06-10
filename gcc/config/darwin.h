@@ -432,6 +432,8 @@ do {					\
    "/* APPLE LOCAL why did I do that?  -- mrs */" \
    %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
+   "/* APPLE LOCAL mainline 4.1 2005-06-03 */" \
+   %{isysroot*:-syslibroot %*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
    %{umbrella*} \
    %{undefined*} \
@@ -702,16 +704,14 @@ do {					\
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   /* APPLE LOCAL begin Objective-C++ 4105386 */		     \
+	   /* APPLE LOCAL begin mainline */		    		     \
 	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   /* APPLE LOCAL end Objective-C++ 4105386 */			     \
-	   /* APPLE LOCAL begin Objective-C++ */			\
-	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))		\
-	     fprintf (FILE, "\"%s\"", &xname[1]);			\
-	   else								\
-	     fputs (&xname[1], FILE); 					\
-	   /* APPLE LOCAL end Objective-C++ */				\
+	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))	     \
+	     fprintf (FILE, "\"%s\"", &xname[1]);			     \
+	   else								     \
+	     fputs (&xname[1], FILE); 					     \
+	   /* APPLE LOCAL end mainline */				     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
@@ -719,10 +719,10 @@ do {					\
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
-	 /* APPLE LOCAL begin Objective-C++  */				\
-       else if (xname[0] != '"' && name_needs_quotes (xname))		\
-	 fprintf (FILE, "\"%s\"", xname);				\
-	 /* APPLE LOCAL end Objective-C++  */				\
+	 /* APPLE LOCAL begin mainline */				     \
+       else if (xname[0] != '"' && name_needs_quotes (xname))		     \
+	 fprintf (FILE, "\"%s\"", xname);				     \
+	 /* APPLE LOCAL end mainline */					     \
        else								     \
          asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)

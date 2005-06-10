@@ -39,6 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "tm_p.h"
 #include "splay-tree.h"
+/* APPLE LOCAL 4133801 */
+#include "langhooks.h"
 #include "debug.h"
 /* APPLE LOCAL AltiVec */
 #include "../libcpp/internal.h"
@@ -253,7 +255,8 @@ fe_file_change (const struct line_map *new_map)
 	  input_line = included_at;
 	  push_srcloc (new_map->to_file, 1);
 #endif
-	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
+	  /* APPLE LOCAL 4133801 */
+	  lang_hooks.start_source_file (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
@@ -276,8 +279,8 @@ fe_file_change (const struct line_map *new_map)
 	}
 #endif
       pop_srcloc ();
-
-      (*debug_hooks->end_source_file) (new_map->to_line);
+      /* APPLE LOCAL 4133801 */
+      lang_hooks.end_source_file (new_map->to_line, new_map->to_file);
     }
 
   update_header_times (new_map->to_file);

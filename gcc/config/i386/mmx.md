@@ -169,9 +169,11 @@
 (define_split
   [(set (match_operand:MMXMODE 0 "nonimmediate_operand" "")
         (match_operand:MMXMODE 1 "general_operand" ""))]
+;; APPLE LOCAL begin 4099020
   "!TARGET_64BIT && reload_completed
-   && (!MMX_REG_P (operands[0]) && !SSE_REG_P (operands[0]))
-   && (!MMX_REG_P (operands[1]) && !SSE_REG_P (operands[1]))"
+   && (!MMX_REG_P (operands[0]) && !SSE_REG_P (operands[0]) && GET_CODE (operands[0]) != SUBREG)
+   && (!MMX_REG_P (operands[1]) && !SSE_REG_P (operands[1]) && GET_CODE (operands[1]) != SUBREG)"
+;; APPLE LOCAL end 4099020
   [(const_int 0)]
   "ix86_split_long_move (operands); DONE;")
 

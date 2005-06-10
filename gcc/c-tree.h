@@ -25,7 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "diagnostic.h"
 
-/* APPLE LOCAL begin objc speedup --dpatel */
+/* APPLE LOCAL begin mainline */
 /* Definition of 'struct lang_identifier' has been moved here from c-decl.c.
    so that ObjC can see it.  */
    
@@ -41,12 +41,12 @@ struct lang_identifier GTY(())
   struct c_binding *label_binding;  /* labels */
   tree interface_value;             /* ObjC interface, if any */
 };
-/* APPLE LOCAL end objc speedup --dpatel */
+/* APPLE LOCAL end mainline */
 
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
 #define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
-  /* APPLE LOCAL objc speedup --dpatel */ \
+  /* APPLE LOCAL mainline */ \
   (sizeof (struct c_common_identifier) + 4 * sizeof (void *))
 
 /* For gc purposes, return the most likely link for the longest chain.  */

@@ -104,11 +104,6 @@ CONFIGFLAGS="--disable-checking \
   --with-gxx-include-dir=\${prefix}/include/gcc/darwin/$MAJ_VERS/c++ \
   --build=$BUILD-apple-darwin$DARWIN_VERS"
 
-# For 64-bit bringup
-if [ "$VERS" == "3.5.0" ]; then
-  CONFIGFLAGS="$CONFIGFLAGS --enable-bringup --disable-shared --enable-static"
-fi
-
 # Figure out how many make processes to run.
 SYSCTL=`sysctl -n hw.activecpu`
 
@@ -131,11 +126,10 @@ MAKEFLAGS=${LOCAL_MAKEFLAGS-"-j $SYSCTL"}
 # because it'll be needed for the bootstrap.
 mkdir -p $DIR/obj-$BUILD-$BUILD $DIR/dst-$BUILD-$BUILD || exit 1
 cd $DIR/obj-$BUILD-$BUILD || exit 1
-if [ \! -f $DIR/$BUILD-configured ] ; then
+if [ \! -f Makefile ]; then
  $SRC_DIR/configure $CONFIGFLAGS \
    `if [ $BUILD = i686 ] ; then echo $I386_CPU ; fi` \
    --host=$BUILD-apple-darwin$DARWIN_VERS --target=$BUILD-apple-darwin$DARWIN_VERS || exit 1
- touch $DIR/$BUILD-configured || exit 1
 fi
 make $MAKEFLAGS $BOOTSTRAP CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
 make $MAKEFLAGS html CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -176,10 +170,12 @@ for t in $TARGETS ; do
  if [ $t != $BUILD ] ; then
   mkdir -p $DIR/obj-$BUILD-$t $DIR/dst-$BUILD-$t || exit 1
    cd $DIR/obj-$BUILD-$t || exit 1
-   $SRC_DIR/configure $CONFIGFLAGS  \
-    `if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
-     --program-prefix=$t-apple-darwin$DARWIN_VERS- \
-     --host=$BUILD-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
+   if [ \! -f Makefile ]; then
+    $SRC_DIR/configure $CONFIGFLAGS  \
+     `if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
+      --program-prefix=$t-apple-darwin$DARWIN_VERS- \
+      --host=$BUILD-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
+   fi
    make $MAKEFLAGS all CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
    make $MAKEFLAGS DESTDIR=$DIR/dst-$BUILD-$t install-gcc install-target \
      CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -242,10 +238,12 @@ for h in $HOSTS ; do
 	pp=$t-apple-darwin$DARWIN_VERS-
       fi
 
-      $SRC_DIR/configure $CONFIGFLAGS \
-	`if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
-        --program-prefix=$pp \
-        --host=$h-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
+      if [ \! -f Makefile ]; then
+        $SRC_DIR/configure $CONFIGFLAGS \
+	  `if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
+          --program-prefix=$pp \
+          --host=$h-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
+      fi
       make $MAKEFLAGS all-gcc CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
       make $MAKEFLAGS DESTDIR=$DIR/dst-$h-$t install-gcc \
         CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -361,7 +359,7 @@ for l in $SHARED_LIBS ; do
     # Also change dependent library names so that libstdc++.6.0.2.dylib
     # (for example) links against libgcc.1.dylib to avoid link errors.
 
-    install_name_tool -id $DEST_ROOT/lib/$F1 .$F
+    install_name_tool -id $DEST_ROOT/lib/$F1 .$F || exit 1
 
     # At this point, l is the name of the library we're rewriting.
     # .$DEST_ROOT/lib/$F1 is the major version of the library.
@@ -370,7 +368,8 @@ for l in $SHARED_LIBS ; do
     for subl in $SHARED_LIBS ; do
       SUBF=.$DEST_ROOT/lib/$subl
       if [ -f $SUBF ] ; then
-        install_name_tool -change $DEST_ROOT/lib/$l $DEST_ROOT/lib/$F1 $SUBF
+        install_name_tool -change $DEST_ROOT/lib/$l $DEST_ROOT/lib/$F1 $SUBF \
+	    || exit 1
       fi
     done
 
@@ -380,11 +379,11 @@ for l in $SHARED_LIBS ; do
     for usinglib in $SHARED_LIBS ; do
       USINGPATH=.$DEST_ROOT/lib/$usinglib
       if [ -f $USINGPATH ] ; then
-        for t1 in $TARGETS ; do
+        for t in $TARGETS ; do
           BADPATH=$DEST_ROOT/$t-apple-darwin$DARWIN_VERS/lib/$l 
           GOODPATH=$DEST_ROOT/lib/$F1
           # Deal with the weird names generated for cross compiler portions.
-          install_name_tool -change $BADPATH $GOODPATH $USINGPATH
+          install_name_tool -change $BADPATH $GOODPATH $USINGPATH || exit 1
         done
       fi
     done
@@ -439,15 +438,14 @@ done
 # Install man pages using version number.
 # Only g++ man page needs rename. gcc, cpp and gcov man page are already 
 # installed using proper name.
-mv $DEST_DIR$DEST_ROOT/share/man/man1/g++.1 \
-   $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1
-ln -f $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1 \
-   $DEST_DIR$DEST_ROOT/share/man/man1/c++-$MAJ_VERS.1
+MDIR=$DEST_DIR$DEST_ROOT/share/man/man1
+mv $MDIR/g++.1 $MDIR/g++-$MAJ_VERS.1 || exit 1
+ln -f $MDIR/g++-$MAJ_VERS.1 $MDIR/c++-$MAJ_VERS.1 || exit 1
 for t in $TARGETS ; do
-  ln -f $DEST_DIR$DEST_ROOT/share/man/man1/gcc-$MAJ_VERS.1 \
-     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin$DARWIN_VERS-gcc-$VERS.1
-  ln -f $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1 \
-     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin$DARWIN_VERS-g++-$VERS.1
+  ln -f $MDIR/gcc-$MAJ_VERS.1 $MDIR/$t-apple-darwin$DARWIN_VERS-gcc-$VERS.1 \
+      || exit 1
+  ln -f $MDIR/g++-$MAJ_VERS.1 $MDIR/$t-apple-darwin$DARWIN_VERS-g++-$VERS.1 \
+      || exit 1
 done
 
 # Build driver-driver using fully-named drivers
@@ -502,19 +500,14 @@ find obj-* -name \*.\[chy\] -print | cpio -pdml $SYM_DIR/src || exit 1
 
 ########################################
 # Strip the executables and libraries
-find $DEST_DIR -perm -0111 \! -name \*.dylib -type f -print \
+find $DEST_DIR -perm -0111 \! -name \*.dylib \! -name fixinc.sh \! -name mkheaders -type f -print \
   | xargs strip || exit 1
 find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
   | xargs strip -SX || exit 1
 find $DEST_DIR -name \*.a -type f -print \
   | xargs ranlib || exit 1
-
-if [ "$MAJ_VERS" = "3.5" ]; then
-    rm -f `find $DEST_DIR -name \*.dylib -print`
-    rm -f $DEST_DIR$DEST_ROOT/share/man/man7/fsf-funding.7
-    rm -f $DEST_DIR$DEST_ROOT/share/man/man7/gfdl.7
-    rm -f $DEST_DIR$DEST_ROOT/share/man/man7/gpl.7
-fi
+chgrp -h -R wheel $DEST_DIR
+chgrp -R wheel $DEST_DIR
 
 # Done!
 exit 0

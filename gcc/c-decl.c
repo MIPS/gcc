@@ -225,7 +225,7 @@ struct c_binding GTY((chain_next ("%h.prev")))
 #define I_LABEL_DECL(node) \
  (I_LABEL_BINDING(node) ? I_LABEL_BINDING(node)->decl : 0)
 
-/* APPLE LOCAL objc speedup --dpatel */
+/* APPLE LOCAL mainline */
 /* Definition of 'struct lang_identifier' moved to c-tree.h.  */
 
 /* Validate c-lang.c's assumptions.  */
@@ -556,27 +556,8 @@ objc_mark_locals_volatile (void *enclosing_blk)
        scope = scope->outer)
     {
       for (b = scope->bindings; b; b = b->prev)
-	{
-	  /* APPLE LOCAL begin Objective-C */
-	  tree decl = b->decl;
-
-        /* Do not mess with variables that are 'static' or (already)
-	   'volatile'.  */
-	  if (!TREE_THIS_VOLATILE (decl) && !TREE_STATIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL))
-	    {
-	      TREE_TYPE (decl)
-		= build_qualified_type (TREE_TYPE (decl),
-					(TYPE_QUALS (TREE_TYPE (decl))
-					 | TYPE_QUAL_VOLATILE));
-	      TREE_THIS_VOLATILE (decl) = 1;
-	      TREE_SIDE_EFFECTS (decl) = 1;
-	      DECL_REGISTER (decl) = 0;
-	      C_DECL_REGISTER (decl) = 0;
-	      /* APPLE LOCAL end Objective-C */
-	    }
-	}
+	/* APPLE LOCAL mainline */
+	objc_volatilize_decl (b->decl);
 
       /* Do not climb up past the current function.  */
       if (scope->function_body)

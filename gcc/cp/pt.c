@@ -34,10 +34,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "pointer-set.h"
 #include "flags.h"
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 #include "c-common.h"
 #include "cp-tree.h"
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 #include "cp-objcp-common.h"
 #include "tree-inline.h"
 #include "decl.h"
@@ -4024,26 +4024,8 @@ template_args_equal (tree ot, tree nt)
     /* For member templates */
     return TREE_CODE (ot) == TREE_VEC && comp_template_args (ot, nt);
   else if (TYPE_P (nt))
-    /* APPLE LOCAL begin Objective-C++ */
-    {
-      int c1, c2;
-
-      if (!TYPE_P (ot))
-	return 0;
-
-      /* We must handle ObjC types specially because they may differ
-	 only in protocol qualifications (e.g., 'NSObject *' vs.
-	 'NSObject <Foo> *') that must be taken into account here.
-	 See also cp/typeck.c:build_c_cast(), where a similar problem
-	 arises.  We must call objc_comptypes() twice, since its
-	 comparisons are _not_ symmetric.  */
-      if ((c1 = objc_comptypes (ot, nt, 0)) >= 0
-	  && (c2 = objc_comptypes (nt, ot, 0)) >= 0)
-	return (c1 && c2);
-
-      return same_type_p (ot, nt);
-    }
-    /* APPLE LOCAL end Objective-C++ */
+    /* APPLE LOCAL mainline */
+    return TYPE_P (ot) && same_type_p (ot, nt);
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
   else
@@ -8874,7 +8856,7 @@ tsubst_copy_and_build (tree t,
       return t;
 
     default:
-      /* APPLE LOCAL begin Objective-C++ */
+      /* APPLE LOCAL begin mainline */
       /* Handle Objective-C++ constructs, if appropriate.  */
 	{
 	  tree subst
@@ -8884,7 +8866,7 @@ tsubst_copy_and_build (tree t,
 	  if (subst)
 	    return subst;
 	}
-      /* APPLE LOCAL end Objective-C++ */
+      /* APPLE LOCAL end mainline */
 
       return tsubst_copy (t, args, complain, in_decl);
     }

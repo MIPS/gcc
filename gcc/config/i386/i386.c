@@ -12580,6 +12580,20 @@ ix86_constant_alignment (tree exp, int align)
 	   && TREE_STRING_LENGTH (exp) >= 31 && align < BITS_PER_WORD)
     return BITS_PER_WORD;
 
+/* APPLE LOCAL begin 4090661 */
+#if TARGET_MACHO
+  /* Without this, static arrays initialized to strings get aligned
+     to 32 bytes.  These go in cstring, so would result in a lot of extra
+     padding in files with a couple of small strings.  4090661. */
+  else if (TREE_CODE (exp) == STRING_CST)
+    {
+      if (TREE_STRING_LENGTH (exp) >= 31 && !optimize_size)
+	return BITS_PER_WORD;
+      else
+	return 8;
+    }
+#endif
+/* APPLE LOCAL end 4090661 */
   return align;
 }
 
@@ -13081,6 +13095,12 @@ enum ix86_builtins
   IX86_BUILTIN_MASKMOVDQU,
   IX86_BUILTIN_MOVMSKPD,
   IX86_BUILTIN_PMOVMSKB128,
+
+  /* APPLE LOCAL begin 4099020 */
+  IX86_BUILTIN_MOVQ,
+  IX86_BUILTIN_LOADQ,
+  IX86_BUILTIN_STOREQ,
+  /* APPLE LOCAL end 4099020 */
 
   IX86_BUILTIN_PACKSSWB128,
   IX86_BUILTIN_PACKSSDW128,
@@ -14153,6 +14173,15 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE3, "__builtin_ia32_lddqu",
 	       v16qi_ftype_pcchar, IX86_BUILTIN_LDDQU);
 
+  /* APPLE LOCAL begin 4099020 */
+  ftype = build_function_type_list (V4SI_type_node, V4SI_type_node, NULL_TREE);
+  def_builtin (MASK_SSE, "__builtin_ia32_movqv4si", ftype, IX86_BUILTIN_MOVQ);
+  ftype = build_function_type_list (V4SI_type_node, pv2si_type_node, NULL_TREE);
+  def_builtin (MASK_SSE, "__builtin_ia32_loadlv4si", ftype, IX86_BUILTIN_LOADQ);
+  ftype = build_function_type_list (void_type_node, pv2si_type_node, V4SI_type_node, NULL_TREE);
+  def_builtin (MASK_SSE, "__builtin_ia32_storelv4si", ftype, IX86_BUILTIN_STOREQ);
+  /* APPLE LOCAL end 4099020 */
+
   /* Access to the vec_init patterns.  */
   ftype = build_function_type_list (V2SI_type_node, integer_type_node,
 				    integer_type_node, NULL_TREE);
@@ -14694,6 +14723,17 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return ix86_expand_unop1_builtin (CODE_FOR_sse_vmrsqrtv4sf2, arglist, target);
     case IX86_BUILTIN_RCPSS:
       return ix86_expand_unop1_builtin (CODE_FOR_sse_vmrcpv4sf2, arglist, target);
+
+      /* APPLE LOCAL begin 4099020 */
+    case IX86_BUILTIN_LOADQ:
+	return ix86_expand_unop_builtin (CODE_FOR_sse_loadqv4si, arglist, target, 1);
+
+    case IX86_BUILTIN_MOVQ:
+	return ix86_expand_unop_builtin (CODE_FOR_sse_movqv4si, arglist, target, 0);
+
+    case IX86_BUILTIN_STOREQ:
+      return ix86_expand_store_builtin (CODE_FOR_sse_storeqv4si, arglist);
+      /* APPLE LOCAL end 4099020 */
 
     case IX86_BUILTIN_LOADUPS:
       return ix86_expand_unop_builtin (CODE_FOR_sse_movups, arglist, target, 1);

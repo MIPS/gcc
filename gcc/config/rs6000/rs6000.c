@@ -50,8 +50,6 @@
 #include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
-/* APPLE LOCAL why is this needed? */
-#include "insn-addr.h"
 #include "cfglayout.h"
 #include "sched-int.h"
 #include "tree-gimple.h"
@@ -653,6 +651,8 @@ static bool macho_lo_sum_memory_operand (rtx x, enum machine_mode mode);
 static bool legitimate_lo_sum_address_p (enum machine_mode, rtx, int);
 static struct machine_function * rs6000_init_machine_status (void);
 static bool rs6000_assemble_integer (rtx, unsigned int, int);
+/* APPLE LOCAL mainline */
+static bool no_global_regs_above (int);
 #ifdef HAVE_GAS_HIDDEN
 static void rs6000_assemble_visibility (tree, int);
 #endif
@@ -786,7 +786,8 @@ static rtx rs6000_complex_function_value (enum machine_mode);
 static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree);
 static void rs6000_darwin64_record_arg_advance_flush (CUMULATIVE_ARGS *,
-						      HOST_WIDE_INT);
+				       /* APPLE LOCAL fix 64-bit varargs 4028089 */
+						      HOST_WIDE_INT, int);
 static void rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *,
 							tree, HOST_WIDE_INT);
 static void rs6000_darwin64_record_arg_flush (CUMULATIVE_ARGS *,
@@ -1374,6 +1375,7 @@ rs6000_override_options (const char *default_cpu)
       flag_tree_loop_linear = 1;
       flag_strict_aliasing = 1;
       flag_schedule_interblock = 1;
+      flag_gcse_las = 1;
       align_jumps_max_skip = 15; 
       align_loops_max_skip = 15;
       align_functions = 16;
@@ -1381,8 +1383,6 @@ rs6000_override_options (const char *default_cpu)
       align_jumps = 16;
       set_fast_math_flags (1);
       flag_reorder_blocks = 1;
-      /* APPLE LOCAL disable this until it works better.  */
-      flag_speculative_prefetching = 0;
       if (flag_branch_probabilities && !flag_exceptions)
 	flag_reorder_blocks_and_partition = 1;
       if (!flag_pic)
@@ -2175,6 +2175,24 @@ xer_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return 0;
 }
 
+/* APPLE LOCAL begin 4119059 */
+/* Return 1 if OP is a signed 5-bit constant.  */
+int
+s5bit_cint_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+ return (GET_CODE (op) == CONST_INT
+	  && (INTVAL (op) >= -16 && INTVAL (op) <= 15));
+}
+
+/* Return 1 if OP is a unsigned 5-bit constant.  */
+int
+u5bit_cint_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+ return (GET_CODE (op) == CONST_INT
+	  && (INTVAL (op) >= 0 && INTVAL (op) <= 31));
+}
+
+/* APPLE LOCAL end 4119059 */
 /* Return 1 if OP is a signed 8-bit constant.  Int multiplication
    by such constants completes more quickly.  */
 
@@ -2319,6 +2337,21 @@ reg_or_cint_operand (rtx op, enum machine_mode mode)
   return (GET_CODE (op) == CONST_INT || gpc_reg_operand (op, mode));
 }
 
+/* APPLE LOCAL begin radar 3869444 (also in  mainline) */
+/* Return 1 if op is an integer meeting one of 'I','J','O','L'(TARGET_32BIT)
+   or 'J'(TARGET_64BIT) constraints or if it is a non-special register. */
+
+int
+scc_operand (rtx op, enum machine_mode mode)
+{
+  return ((GET_CODE (op) == CONST_INT 
+	   && (CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')  
+	       || CONST_OK_FOR_LETTER_P (INTVAL (op), 'K') 
+	       || CONST_OK_FOR_LETTER_P (INTVAL (op), 'O') 
+	       || CONST_OK_FOR_LETTER_P (INTVAL (op), (TARGET_32BIT ? 'L' : 'J'))))
+	       || gpc_reg_operand (op, mode));
+}
+/* APPLE LOCAL end radar 3869444 (also in  mainline) */
 /* Return 1 is the operand is either a non-special register or ANY
    32-bit signed constant integer.  */
 
@@ -4453,8 +4486,9 @@ rs6000_conditional_register_usage (void)
 
   if (DEFAULT_ABI == ABI_DARWIN
       && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
-    global_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
-      = fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
+/* APPLE LOCAL begin mainline remove global_regs[PIC] */
+      fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
+/* APPLE LOCAL end mainline remove global_regs[PIC] */
       = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
       = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
@@ -4636,57 +4670,6 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
     }
   return dest;
 }
-
-/* APPLE LOCAL begin RTX_COST for multiply */
-int 
-rs6000_rtx_mult_cost (rtx x)
-{
-    switch (rs6000_cpu)
-      {
-      case PROCESSOR_RIOS1:
-      case PROCESSOR_PPC405:
-        return (GET_CODE (XEXP (x, 1)) != CONST_INT
-		? COSTS_N_INSNS (5)
-		: INTVAL (XEXP (x, 1)) >= -256 && INTVAL (XEXP (x, 1)) <= 255
-		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));
-      case PROCESSOR_RS64A:
-        return (GET_CODE (XEXP (x, 1)) != CONST_INT
-		? GET_MODE (XEXP (x, 1)) != DImode
-		? COSTS_N_INSNS (20) : COSTS_N_INSNS (34)
-		: INTVAL (XEXP (x, 1)) >= -256 && INTVAL (XEXP (x, 1)) <= 255
-		? COSTS_N_INSNS (8) : COSTS_N_INSNS (12));
-      case PROCESSOR_RIOS2:
-      case PROCESSOR_MPCCORE:
-      case PROCESSOR_PPC604e:
-        return COSTS_N_INSNS (2);
-      case PROCESSOR_PPC601:
-        return COSTS_N_INSNS (5);
-      case PROCESSOR_PPC603:
-      case PROCESSOR_PPC7400:
-      case PROCESSOR_PPC750:
-        return (GET_CODE (XEXP (x, 1)) != CONST_INT
-		? COSTS_N_INSNS (5)
-		: INTVAL (XEXP (x, 1)) >= -256 && INTVAL (XEXP (x, 1)) <= 255
-		? COSTS_N_INSNS (2) : COSTS_N_INSNS (3));
-      case PROCESSOR_PPC7450:
-        return (GET_CODE (XEXP (x, 1)) != CONST_INT
-		? COSTS_N_INSNS (4)
-		: COSTS_N_INSNS (3));
-      case PROCESSOR_PPC403:
-      case PROCESSOR_PPC604:
-        return COSTS_N_INSNS (4);
-      case PROCESSOR_PPC620:
-      case PROCESSOR_PPC630:
-        return (GET_CODE (XEXP (x, 1)) != CONST_INT
-		? GET_MODE (XEXP (x, 1)) != DImode
-		? COSTS_N_INSNS (5) : COSTS_N_INSNS (7)
-		: INTVAL (XEXP (x, 1)) >= -256 && INTVAL (XEXP (x, 1)) <= 255
-		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));
-      default:
-	abort ();
-      }
-}
-/* APPLE LOCAL end RTX_COST for multiply */
 
 /* Helper for the following.  Get rid of [r+r] memory refs
    in cases where it won't work (TImode, TFmode).  */
@@ -5322,17 +5305,35 @@ rs6000_arg_size (enum machine_mode mode, tree type)
 
 static void
 rs6000_darwin64_record_arg_advance_flush (CUMULATIVE_ARGS *cum,
-					  HOST_WIDE_INT bitpos)
+					  /* APPLE LOCAL fix 64-bit varargs 4028089 */
+					  HOST_WIDE_INT bitpos, int final)
 {
   unsigned int startbit, endbit;
   int intregs, intoffset;
   enum machine_mode mode;
+
+  /* APPLE LOCAL begin fix 64-bit varargs 4028089 */
+  /* Handle the situations where a float is taking up the first half
+     of the GPR, and the other half is empty (typically due to
+     alignment restrictions). We can detect this by a 8-byte-aligned
+     int field, or by seeing that this is the final flush for this
+     argument. Count the word and continue on.  */
+  if (cum->floats_in_gpr == 1
+      && (cum->intoffset % 64 == 0
+	  || (cum->intoffset == -1 && final)))
+    {
+      cum->words++;
+      cum->floats_in_gpr = 0;
+    }
+  /* APPLE LOCAL end fix 64-bit varargs 4028089 */
 
   if (cum->intoffset == -1)
     return;
 
   intoffset = cum->intoffset;
   cum->intoffset = -1;
+  /* APPLE LOCAL fix 64-bit varargs 4028089 */
+  cum->floats_in_gpr = 0;
 
   if (intoffset % BITS_PER_WORD != 0)
     {
@@ -5383,13 +5384,51 @@ rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *cum,
 	  rs6000_darwin64_record_arg_advance_recurse (cum, ftype, bitpos);
 	else if (USE_FP_FOR_ARG_P (cum, mode, ftype))
 	  {
-	    rs6000_darwin64_record_arg_advance_flush (cum, bitpos);
+	    /* APPLE LOCAL fix 64-bit varargs 4028089 */
+	    rs6000_darwin64_record_arg_advance_flush (cum, bitpos, 0);
 	    cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
+	    /* APPLE LOCAL begin fix 64-bit varargs 4028089 */
+	    /* Single-precision floats present a special problem for
+	       us, because they are smaller than an 8-byte GPR, and so
+	       the structure-packing rules combined with the standard
+	       varargs behavior mean that we want to pack float/float
+	       and float/int combinations into a single register's
+	       space. This is complicated by the arg advance flushing,
+	       which works on arbitrarily large groups of int-type
+	       fields.  */
+	    if (mode == SFmode)
+	      {
+		if (cum->floats_in_gpr == 1)
+		  {
+		    /* Two floats in a word; count the word and reset
+		       the float count.  */
+		    cum->words++;
+		    cum->floats_in_gpr = 0;
+		  }
+		else if (bitpos % 64 == 0)
+		  {
+		    /* A float at the beginning of an 8-byte word;
+		       count it and put off adjusting cum->words until
+		       we see if a arg advance flush is going to do it
+		       for us.  */
+		    cum->floats_in_gpr++;
+		  }
+		else
+		  {
+		    /* The float is at the end of a word, preceded
+		       by integer fields, so the arg advance flush
+		       just above has already set cum->words and
+		       everything is taken care of.  */
+		  }
+	      }
+	    else
+	    /* APPLE LOCAL end fix 64-bit varargs 4028089 */
 	    cum->words += (GET_MODE_SIZE (mode) + 7) >> 3;
 	  }
 	else if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, 1))
 	  {
-	    rs6000_darwin64_record_arg_advance_flush (cum, bitpos);
+	    /* APPLE LOCAL fix 64-bit varargs 4028089 */
+	    rs6000_darwin64_record_arg_advance_flush (cum, bitpos, 0);
 	    cum->vregno++;
 	    cum->words += 2;
 	  }
@@ -5494,9 +5533,12 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	     { int; double; int; } [powerpc alignment].  We have to
 	     grovel through the fields for these too.  */
 	  cum->intoffset = 0;
+	  /* APPLE LOCAL fix 64-bit varargs 4028089 */
+	  cum->floats_in_gpr = 0;
 	  rs6000_darwin64_record_arg_advance_recurse (cum, type, 0);
 	  rs6000_darwin64_record_arg_advance_flush (cum, 
-						    size * BITS_PER_UNIT);
+				    /* APPLE LOCAL fix 64-bit varargs 4028089 */
+						    size * BITS_PER_UNIT, 1);
 	}
     }
   else if (DEFAULT_ABI == ABI_V4)
@@ -5813,6 +5855,8 @@ rs6000_darwin64_record_arg (CUMULATIVE_ARGS *orig_cum, tree type,
 
   cum->intoffset = 0;
   cum->use_stack = 0;
+  /* APPLE LOCAL fix 64-bit varargs 4028089 */
+  cum->floats_in_gpr = 0;
   cum->named = named;
 
   /* Put entries into rvec[] for individual FP and vector fields, and
@@ -7685,8 +7729,20 @@ rs6000_expand_unop_builtin (enum insn_code icode, tree arglist, rtx target)
 
   if (icode == CODE_FOR_altivec_vspltisb
       || icode == CODE_FOR_altivec_vspltish
-      || icode == CODE_FOR_altivec_vspltisw
-      || icode == CODE_FOR_spe_evsplatfi
+      /* APPLE LOCAL begin 4119059 */
+      || icode == CODE_FOR_altivec_vspltisw)
+    {
+      /* Only allow 5-bit *signed* literals.  */
+      if (GET_CODE (op0) != CONST_INT
+	  || INTVAL (op0) > 15
+	  || INTVAL (op0) < -16)
+	{
+	  error ("argument 1 must be a 5-bit signed literal");
+	  return const0_rtx;
+	}
+    }
+  if  (icode == CODE_FOR_spe_evsplatfi
+       /* APPLE LOCAL end 4119059 */
       || icode == CODE_FOR_spe_evsplati)
     {
       /* Only allow 5-bit *signed* literals.  */
@@ -14512,7 +14568,7 @@ rs6000_stack_info (void)
 	  && !FP_SAVE_INLINE (info_ptr->first_fp_reg_save))
       || info_ptr->first_altivec_reg_save <= LAST_ALTIVEC_REGNO
       || (DEFAULT_ABI == ABI_V4 && current_function_calls_alloca)
-      /* APPLE LOCAL but why? */
+      /* APPLE LOCAL mainline */
       /* Test for flag_pic, abi, current_function deleted deliberately.  */
       || info_ptr->calls_p)
     {
@@ -15786,6 +15842,20 @@ gen_frame_mem_offset (enum machine_mode mode, rtx reg, int offset)
   return gen_rtx_MEM (mode, gen_rtx_PLUS (Pmode, reg, offset_rtx));
 }
 
+/* APPLE LOCAL begin mainline */
+/* Look for user-defined global regs.  We should not save and restore these,
+   and cannot use stmw/lmw if there are any in its range.  */
+
+static bool
+no_global_regs_above (int first_greg)
+{
+  int i;
+  for (i = 0; i < 32 - first_greg; i++)
+    if (global_regs[first_greg + i])
+      return false;
+  return true;
+}
+/* APPLE LOCAL end mainline */
 #ifndef TARGET_FIX_AND_CONTINUE
 #define TARGET_FIX_AND_CONTINUE 0
 #endif
@@ -15844,7 +15914,10 @@ rs6000_emit_prologue (void)
   using_store_multiple = (TARGET_MULTIPLE && ! TARGET_POWERPC64
 			  && (!TARGET_SPE_ABI
 			      || info->spe_64bit_regs_used == 0)
-			  && info->first_gp_reg_save < 31);
+/* APPLE LOCAL begin mainline */
+			  && info->first_gp_reg_save < 31
+			  && no_global_regs_above (info->first_gp_reg_save));
+/* APPLE LOCAL end mainline */
   saving_FPRs_inline = (info->first_fp_reg_save == 64
 			|| FP_SAVE_INLINE (info->first_fp_reg_save)
 			|| current_function_calls_eh_return
@@ -16056,7 +16129,7 @@ rs6000_emit_prologue (void)
      used in this function, and do the corresponding magic in the
      epilogue.  */
 
-  /* APPLE LOCAL begin radar 4105210 */
+  /* APPLE LOCAL begin mainline radar 4105210 */
   if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
       && info->vrsave_mask != 0)
     {
@@ -16089,7 +16162,7 @@ rs6000_emit_prologue (void)
 
       insn = emit_insn (generate_set_vrsave (reg, info, 0));
     }
-  /* APPLE LOCAL end radar 4105210 */
+  /* APPLE LOCAL end mainline radar 4105210 */
 
   /* If we use the link register, get it into r0.  */
   if (!WORLD_SAVE_P (info) && info->lr_save_p)
@@ -16212,8 +16285,8 @@ rs6000_emit_prologue (void)
 
 	  /* APPLE LOCAL reduce code size */
 	  RTVEC_ELT (p, count++) = gen_rtx_SET (VOIDmode, mem, reg);
-      /* APPLE LOCAL begin C++ EH and setjmp (radar 2866661) */
 	}
+      /* APPLE LOCAL begin C++ EH and setjmp (radar 2866661) */
 #if TARGET_MACHO
       /* Darwin version of these functions stores R0.  */
       RTVEC_ELT (p, count++) = gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode, 0));
@@ -16266,12 +16339,14 @@ rs6000_emit_prologue (void)
     {
       int i;
       for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-	if ((regs_ever_live[info->first_gp_reg_save+i]
-	     && (! call_used_regs[info->first_gp_reg_save+i]
-		 || (i+info->first_gp_reg_save
+/* APPLE LOCAL begin mainline cosmetics */
+	if ((regs_ever_live[info->first_gp_reg_save + i]
+	     && (!call_used_regs[info->first_gp_reg_save + i]
+		 || (i + info->first_gp_reg_save
 		     == RS6000_PIC_OFFSET_TABLE_REGNUM
 		     && TARGET_TOC && TARGET_MINIMAL_TOC)))
-	    || (i+info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
+	    || (i + info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
+/* APPLE LOCAL end mainline cosmetics */
 		&& ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
 		    /* APPLE LOCAL begin volatile pic base reg in leaves */
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic
@@ -16475,11 +16550,11 @@ rs6000_emit_prologue (void)
       rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
       rtx src = machopic_function_base_sym ();
 
-      /* APPLE LOCAL begin save and restore LR */
+      /* APPLE LOCAL begin save and restore LR mainline */
       /* Save and restore LR locally around this call (in R0).  */
       if (!info->lr_save_p)
 	rs6000_maybe_dead (emit_move_insn (gen_rtx_REG (Pmode, 0), lr));
-      /* APPLE LOCAL end save and restore LR */
+      /* APPLE LOCAL end save and restore LR mainline */
 
       /* APPLE LOCAL begin performance enhancement */
       if (!lr_already_set_up_for_pic)
@@ -16496,10 +16571,11 @@ rs6000_emit_prologue (void)
 					  : cfun->machine->substitute_pic_base_reg),
 			     lr);
       rs6000_maybe_dead (insn);
-
+      /* APPLE LOCAL end volatile pic base reg in leaves */
+      /* APPLE LOCAL begin save and restore LR mainline */
       if (!info->lr_save_p)
 	rs6000_maybe_dead (emit_move_insn (lr, gen_rtx_REG (Pmode, 0)));
-      /* APPLE LOCAL end volatile pic base reg in leaves */
+      /* APPLE LOCAL end save and restore LR mainline */
     }
 #endif
 }
@@ -16614,7 +16690,10 @@ rs6000_emit_epilogue (int sibcall)
   using_load_multiple = (TARGET_MULTIPLE && ! TARGET_POWERPC64
 			 && (!TARGET_SPE_ABI
 			     || info->spe_64bit_regs_used == 0)
-			 && info->first_gp_reg_save < 31);
+/* APPLE LOCAL begin mainline */
+			 && info->first_gp_reg_save < 31
+			 && no_global_regs_above (info->first_gp_reg_save));
+/* APPLE LOCAL end mainline */
   restoring_FPRs_inline = (sibcall
 			   || current_function_calls_eh_return
 			   || info->first_fp_reg_save == 64
@@ -16883,11 +16962,13 @@ rs6000_emit_epilogue (int sibcall)
     }
   else
     for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-      if ((regs_ever_live[info->first_gp_reg_save+i]
-	   && (! call_used_regs[info->first_gp_reg_save+i]
-	       || (i+info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
+/* APPLE LOCAL begin mainline cosmetics */
+      if ((regs_ever_live[info->first_gp_reg_save + i]
+	   && (!call_used_regs[info->first_gp_reg_save + i]
+	       || (i + info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
 		   && TARGET_TOC && TARGET_MINIMAL_TOC)))
-	  || (i+info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
+	  || (i + info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
+/* APPLE LOCAL end mainline cosmetics */
 	      && ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
 		  /* APPLE LOCAL begin darwin native */
 		  || (DEFAULT_ABI == ABI_DARWIN && flag_pic
@@ -18681,19 +18762,26 @@ rs6000_is_costly_dependence (rtx insn, rtx next, rtx link, int cost,
 	dependence.  */
     /* APPLE LOCAL begin nop on true-dependence. */
     {
-     if (GET_CODE (PATTERN (next)) == SET && GET_CODE (PATTERN (insn)) == SET)
-       {
-         rtx load_mem = SET_SRC (PATTERN (next));
-	 rtx sto_mem = SET_DEST (PATTERN (insn));
-	 if (GET_CODE (load_mem) == MEM && GET_CODE (sto_mem) == MEM)
-	   /* Only consider those true-depenedence cases that memory conflict 
-	      can be determined. Exclude cases, where true-dependency was decided
-	      because memory conflict could not be determined from aliasing info. */
-	   return must_true_dependence (load_mem, sto_mem);
-       }
-     return true;
+      if (GET_CODE (PATTERN (next)) == SET && GET_CODE (PATTERN (insn)) == SET)
+        {
+          rtx load_mem = SET_SRC (PATTERN (next));
+	  rtx sto_mem = SET_DEST (PATTERN (insn));
+	  if (GET_CODE (load_mem) == ZERO_EXTEND
+	      || GET_CODE (load_mem) == SIGN_EXTEND)
+	    load_mem = XEXP (load_mem, 0);
+	  if (GET_CODE (sto_mem) == ZERO_EXTEND
+	      || GET_CODE (sto_mem) == SIGN_EXTEND)
+	    load_mem = XEXP (sto_mem, 0);
+	  if (GET_CODE (load_mem) == MEM && GET_CODE (sto_mem) == MEM)
+	    /* Only consider those true-depenedence cases that memory conflict 
+	       can be determined. Exclude cases, where true-dependency was 
+	       decided because memory conflict could not be determined from 
+	       aliasing info. */
+	    return must_true_dependence (load_mem, sto_mem);
+        }
+      return true;
     }
-     /* APPLE LOCAL end nop on true-dependence. */
+    /* APPLE LOCAL end nop on true-dependence. */
     
   /* The flag is set to X; dependences with latency >= X are considered costly,
      and will not be scheduled in the same group.  */
