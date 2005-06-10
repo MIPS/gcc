@@ -1,3 +1,8 @@
+2005-06-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4133801
+	* include/cpplib.h (CPP_BINCL, CPP_EINCL):  New.
+
 2005-04-21  Devang Patel  <dpatel@apple.com>
 
 	Radar 4058553

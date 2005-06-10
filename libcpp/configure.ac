@@ -103,12 +103,14 @@ fi
 
 m4_changequote(,)
 case $target in
+	# APPLE LOCAL begin 4126124
 	alpha*-*-* | \
 	arm*-*-eabi* | \
 	arm*-*-symbianelf* | \
 	x86_64-*-* | \
 	ia64-*-* | \
 	hppa*64*-*-* | parisc*64*-*-* | \
+	i[34567]86-*-darwin[0-9]* | \
 	i[34567]86-*-solaris2.1[0-9]* | \
 	mips*-*-* | \
 	mmix-*-* | \
@@ -119,6 +121,7 @@ case $target in
 	sparcv9-*-solaris2* | \
 	sparc-*-solaris2.[789] | sparc-*-solaris2.1[0-9]* | \
 	sh[123456789l]*-*-*)
+	# APPLE LOCAL end 4126124
 		need_64bit_hwint=yes ;;
 	*)
 		need_64bit_hwint=no ;;
