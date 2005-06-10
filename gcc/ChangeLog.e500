@@ -1,3 +1,8 @@
+2005-06-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline.
+	* config/rs6000/sysv4.h (TARGET_ASM_EXCEPTION_SECTION): Delete.
+
 2005-03-10  Aldy Hernandez  <aldyh@redhat.com>
 
         * doc/invoke.texi: Add 8540 to list of cpus in rs6000 cpu section.
