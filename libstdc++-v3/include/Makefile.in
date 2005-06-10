@@ -437,6 +437,7 @@ ext_headers = \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
 	${ext_srcdir}/rc_string.h \
+	${ext_srcdir}/sso_string.h \
 	${ext_srcdir}/string_util.h \
 	${ext_srcdir}/rope \
 	${ext_srcdir}/ropeimpl.h \

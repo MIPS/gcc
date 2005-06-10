@@ -135,10 +135,12 @@ sources = \
 	streambuf-inst.cc \
 	streambuf.cc \
 	rc_string-inst.cc \
+	sso_string-inst.cc \
 	string-inst.cc \
 	valarray-inst.cc \
 	wlocale-inst.cc \
 	wrc_string-inst.cc \
+	wsso_string-inst.cc \
 	wstring-inst.cc \
 	${host_sources} \
 	${host_sources_extra}

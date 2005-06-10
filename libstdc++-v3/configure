@@ -6382,7 +6382,7 @@ if test "${enable_libstdcxx_string+set}" = set; then
   enableval="$enable_libstdcxx_string"
 
       case "$enableval" in
-       rc|yes|no|auto) ;;
+       rc|sso|yes|no|auto) ;;
        *) { { echo "$as_me:$LINENO: error: Unknown argument to enable/disable libstdcxx-string" >&5
 echo "$as_me: error: Unknown argument to enable/disable libstdcxx-string" >&2;}
    { (exit 1); exit 1; }; } ;;
@@ -6411,10 +6411,10 @@ fi;
   if test $enable_libstdcxx_string_flag = auto; then
     case ${target_os} in
       linux* | gnu* | kfreebsd*-gnu | knetbsd*-gnu)
-        enable_libstdcxx_string_flag=rc
+        enable_libstdcxx_string_flag=sso
         ;;
       *)
-        enable_libstdcxx_string_flag=rc
+        enable_libstdcxx_string_flag=sso
         ;;
     esac
   fi
@@ -6427,6 +6427,10 @@ echo "${ECHO_T}$enable_libstdcxx_string_flag" >&6
     rc)
       STRING_H=config/string/rc_string_base.h
       STRING_NAME=__gnu_cxx::__rc_string
+      ;;
+    sso)
+      STRING_H=config/string/sso_string_base.h
+      STRING_NAME=__gnu_cxx::__sso_string
       ;;
   esac
 

@@ -1,3 +1,18 @@
+2005-06-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4: Add __sso_string and change the default.
+	* config/linker-map.gnu: Add symbols.
+	* config/string/sso_string_base.h: Add.
+	* include/Makefile.am: Add sso_string.h.
+	* include/ext/sso_string.h: New basic_string base class (not
+	reference counted + simple optimization for short strings).
+	* src/Makefile.am: Add sso_string-inst.cc, wsso_string-inst.cc.
+	* src/sso_string-inst.cc: __sso_string<char> instantiations.
+	* src/wsso_string-inst.cc: Likewise for wchar_t.
+	* configure: Regenerate.
+	* include/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+
 2005-06-06  Chris Jefferson  <chris@bubblescope.net>
 
 	* include/bits/stl_algo.h (__unguarded_linear_insert): Remove 

@@ -1318,7 +1318,7 @@ AC_DEFUN([GLIBCXX_ENABLE_STRING], [
   AC_MSG_CHECKING([for std::basic_string base class to use])
   GLIBCXX_ENABLE(libstdcxx-string,auto,[=KIND],
     [use KIND for target std::basic_string base],
-    [permit rc|yes|no|auto])
+    [permit rc|sso|yes|no|auto])
 
   # If they didn't use this option switch, or if they specified --enable
   # with no specific model, we'll have to look for one.  If they
@@ -1338,10 +1338,10 @@ AC_DEFUN([GLIBCXX_ENABLE_STRING], [
   if test $enable_libstdcxx_string_flag = auto; then
     case ${target_os} in
       linux* | gnu* | kfreebsd*-gnu | knetbsd*-gnu)
-        enable_libstdcxx_string_flag=rc
+        enable_libstdcxx_string_flag=sso
         ;;
       *)
-        enable_libstdcxx_string_flag=rc
+        enable_libstdcxx_string_flag=sso
         ;;
     esac
   fi
@@ -1353,6 +1353,10 @@ AC_DEFUN([GLIBCXX_ENABLE_STRING], [
     rc)
       STRING_H=config/string/rc_string_base.h
       STRING_NAME=__gnu_cxx::__rc_string
+      ;;
+    sso)
+      STRING_H=config/string/sso_string_base.h
+      STRING_NAME=__gnu_cxx::__sso_string
       ;;
   esac
 

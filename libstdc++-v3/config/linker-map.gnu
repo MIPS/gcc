@@ -306,6 +306,10 @@ GLIBCXX_3.6 {
     _ZZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE18_S_initialize_onceEvE6__init;
     _ZGVZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE11_S_get_poolEvE7_S_pool;
 
+    _ZN9__gnu_cxx12__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZNK9__gnu_cxx12__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZZN9__gnu_cxx12__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+
   # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
 
   local:
