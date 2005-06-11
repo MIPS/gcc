@@ -1682,11 +1682,13 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 	 (case 2)
            If STMT has been identified as defining a reduction variable, then
-	   there we have two cases:
+	   we have two cases:
 	   (case 2.1)
 	     The last use of STMT is the reduction-variable, which is defined
-	     by a loop-header-phi. we don't want to mark the phi as live or
-	     relevant, so in this case we skip the call to vect_mark_relevant. 
+	     by a loop-header-phi. We don't want to mark the phi as live or
+	     relevant (because it does not need to be vectorized, it is handled
+	     as part of the vectorization of the reduction), so in this case we 
+	     skip the call to vect_mark_relevant. 
 	   (case 2.2)
 	     The rest of the uses of STMT are defined in the loop body. For 
 	     the def_stmt of these uses we want to set liveness/relevance 
@@ -1718,7 +1720,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	  if (!exist_non_indexing_operands_for_use_p (use, stmt))
 	    continue;
 
-
           if (!vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt))
             {
               if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS, 
@@ -1738,12 +1739,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	  /* case 2.1: the reduction-use does not mark the defining-phi
 	     as relevant.  */
 	  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def
-	      && (i == NUM_USES (use_ops) - 1))
-	    {
-	      gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
-	      continue;
-	    }
-
+	      && TREE_CODE (def_stmt) == PHI_NODE)
+	    continue;
 	  
 	  vect_mark_relevant (&worklist, def_stmt, relevant_p, live_p);
 	}

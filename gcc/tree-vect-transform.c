@@ -667,7 +667,11 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
    INIT_VAL - the initial value of the reduction variable
 
    Output:
-   Return a vector variable, initialized according to the operation.
+   SCALAR_DEF - a tree that holds a value to be added to the final result
+	of the reduction (used for "ADJUST_IN_EPILOG" - see below).
+   Return a vector variable, initialized according to the operation that STMT
+	performs. This vector will be used as the initial value of the
+	vector of partial results.
 
    Option1 ("ADJUST_IN_EPILOG"): Initialize the vector as follows:
      add:         [0,0,...,0,0]
@@ -729,6 +733,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
     /* 'nunits - 1' elements are set to 0; The last element is set to
        'init_val'.  No further adjustments at the epilog are needed.  */
     nelements = nunits - 1;
+    need_epilog_adjust = false;
 #endif
     break;
 
@@ -736,9 +741,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
   case MAX_EXPR:
     def = init_val;
     nelements = nunits;
-#ifdef ADJUST_IN_EPILOG
     need_epilog_adjust = false; 
-#endif
     break;
 
   default:
@@ -752,8 +755,6 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
 
   if (nelements == nunits - 1)
     {
-      gcc_assert (! ADJUST_IN_EPILOG);
-
       /* Set the last element of the vector.  */
       t = tree_cons (NULL_TREE, init_val, t);
       nelements += 1;

@@ -1,3 +1,10 @@
+2005-06-11  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_mark_stmts_to_be_vectorized): Fix typo and
+	add documentation.
+	(get_initial_def_for_reduction): Add documentation. Remove 
+	ADJUST_IN_EPILOG checks.
+
 2005-06-10  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_analyze_operations): Fail vectorization
