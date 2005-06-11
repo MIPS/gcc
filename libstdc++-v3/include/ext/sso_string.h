@@ -122,8 +122,8 @@ namespace __gnu_cxx
       // Use empty-base optimization: http://www.cantrip.org/emptyopt.html
       struct _Alloc_hider : _Alloc
       {
-	_Alloc_hider(const _Alloc& __a)
-	: _Alloc(__a), _M_p(0) { }
+	_Alloc_hider(const _Alloc& __a, _CharT* __ptr)
+	: _Alloc(__a), _M_p(__ptr) { }
 
 	_CharT* _M_p; // The actual data.
       };
@@ -233,11 +233,8 @@ namespace __gnu_cxx
       _M_leak() { }
 
       __sso_string()
-      : _M_dataplus(_Alloc())
-      {
-	_M_data(_M_local_data);
-	_M_set_length(0);
-      }
+      : _M_dataplus(_Alloc(), _M_local_data)
+      { _M_set_length(0); }
 
       __sso_string(const _Alloc& __a);
 
@@ -371,27 +368,27 @@ namespace __gnu_cxx
   template<typename _CharT, typename _Traits, typename _Alloc>
     __sso_string<_CharT, _Traits, _Alloc>::
     __sso_string(const _Alloc& __a)
-    : _M_dataplus(__a)
+    : _M_dataplus(__a, _M_local_data)
     { _S_construct(size_type(), _CharT(), __a); }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     __sso_string<_CharT, _Traits, _Alloc>::
     __sso_string(const __sso_string& __rcs)
-    : _M_dataplus(__rcs._M_get_allocator())
+    : _M_dataplus(__rcs._M_get_allocator(), _M_local_data)
     { _S_construct(__rcs._M_data(), __rcs._M_data() + __rcs._M_length(),
 		   __rcs._M_get_allocator()); }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     __sso_string<_CharT, _Traits, _Alloc>::
     __sso_string(size_type __n, _CharT __c, const _Alloc& __a)
-    : _M_dataplus(__a)
+    : _M_dataplus(__a, _M_local_data)
     { _S_construct(__n, __c, __a); }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     template<typename _InputIterator>
     __sso_string<_CharT, _Traits, _Alloc>::
     __sso_string(_InputIterator __beg, _InputIterator __end, const _Alloc& __a)
-    : _M_dataplus(__a)
+    : _M_dataplus(__a, _M_local_data)
     { _S_construct(__beg, __end, __a); }
 
   // NB: This is the special case for Input Iterators, used in
@@ -407,7 +404,6 @@ namespace __gnu_cxx
       {
 	// Avoid reallocation for common case.
 	size_type __len = 0;
-	_M_data(_M_local_data);
 	size_type __capacity = size_type(_S_local_capacity);
 
 	while (__beg != __end && __len < __capacity)
@@ -457,9 +453,7 @@ namespace __gnu_cxx
 
 	size_type __dnew = static_cast<size_type>(std::distance(__beg, __end));
 
-	if (__dnew <= size_type(_S_local_capacity))
-	  _M_data(_M_local_data);
-	else
+	if (__dnew > size_type(_S_local_capacity))
 	  {
 	    _M_data(_S_create(__dnew, size_type(0), __a));
 	    _M_capacity(__dnew);
@@ -482,9 +476,7 @@ namespace __gnu_cxx
     __sso_string<_CharT, _Traits, _Alloc>::
     _S_construct(size_type __n, _CharT __c, const _Alloc& __a)
     {
-      if (__n <= size_type(_S_local_capacity))
-	_M_data(_M_local_data);
-      else
+      if (__n > size_type(_S_local_capacity))
 	{
 	  _M_data(_S_create(__n, size_type(0), __a));
 	  _M_capacity(__n);
@@ -506,10 +498,8 @@ namespace __gnu_cxx
 	  const allocator_type __a = _M_get_allocator();
 	  size_type __size = __rcs._M_length();
 
-	  _CharT* __tmp;
-	  if (__size <= size_type(_S_local_capacity))
-	    __tmp = _M_local_data;
-	  else
+	  _CharT* __tmp = _M_local_data;
+	  if (__size > size_type(_S_local_capacity))
 	    __tmp = _S_create(__size, size_type(0), __a);
 
 	  _M_destroy(__a);

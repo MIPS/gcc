@@ -1,3 +1,10 @@
+2005-06-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string.h (__sso_string::_Alloc_hider): Adjust
+	constructor to take an additional _CharT*.
+	(__sso_string): Adjust constructors and _S_construct to use the
+	above; slightly tweak _M_assign.
+
 2005-06-10  Paolo Carlini  <pcarlini@suse.de>
 
 	* src/rc_string-inst.cc: Fix typo in comment.
