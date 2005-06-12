@@ -1,3 +1,9 @@
+2005-06-12  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (record_ptr_differ_p): Peel COMPONENT_REFs to get 
+	to the base.
+	(record_array_differ_p): Likewise.
+
 2005-06-11  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_mark_stmts_to_be_vectorized): Fix typo and

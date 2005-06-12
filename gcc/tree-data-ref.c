@@ -214,19 +214,26 @@ record_ptr_differ_p (tree base_a, tree base_b,
 {
   bool aliased;
 
+  if (TREE_CODE (base_b) != COMPONENT_REF)
+    return false;
+
+  /* Peel COMPONENT_REFs to get to the base. Do not peel INDIRECT_REFs.
+     For a.b.c.d[i] we will get a, and for a.b->c.d[i] we will get a.b.  
+     Probably will be unnecessary with struct alias analysis.  */
+  while (TREE_CODE (base_b) == COMPONENT_REF)
+     base_b = TREE_OPERAND (base_b, 0);
   /* Compare a record/union access (b.c[i] or p->c[i]) and a pointer
      ((*q)[i]).  */
   if (TREE_CODE (base_a) == INDIRECT_REF
-      && (TREE_CODE (base_b) == COMPONENT_REF
-	  && ((TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
-	       && (ptr_decl_may_alias_p (TREE_OPERAND (base_a, 0), 
-					 TREE_OPERAND (base_b, 0), dra, &aliased)
-		   && !aliased))
-	      || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
-		  && (ptr_ptr_may_alias_p (TREE_OPERAND (base_a, 0), 
-					   TREE_OPERAND (base_b, 0), dra, drb,
-					   &aliased)
-		      && !aliased)))))
+      && ((TREE_CODE (base_b) == VAR_DECL
+	   && (ptr_decl_may_alias_p (TREE_OPERAND (base_a, 0), base_b, dra, 
+				     &aliased)
+	       && !aliased))
+	  || (TREE_CODE (base_b) == INDIRECT_REF
+	      && (ptr_ptr_may_alias_p (TREE_OPERAND (base_a, 0), 
+				       TREE_OPERAND (base_b, 0), dra, drb, 
+				       &aliased)
+		  && !aliased))))
     return true;
   else
     return false;
@@ -241,17 +248,24 @@ record_array_differ_p (tree base_a, tree base_b,
 {  
   bool aliased;
 
+  if (TREE_CODE (base_b) != COMPONENT_REF)
+    return false;
+
+  /* Peel COMPONENT_REFs to get to the base. Do not peel INDIRECT_REFs.
+     For a.b.c.d[i] we will get a, and for a.b->c.d[i] we will get a.b.  
+     Probably will be unnecessary with struct alias analysis.  */
+  while (TREE_CODE (base_b) == COMPONENT_REF)
+     base_b = TREE_OPERAND (base_b, 0);
+
   /* Compare a record/union access (b.c[i] or p->c[i]) and an array access 
      (a[i]). In case of p->c[i] use alias analysis to verify that p is not
      pointing to a.  */
   if (TREE_CODE (base_a) == VAR_DECL
-      && (TREE_CODE (base_b) == COMPONENT_REF
-	  && (TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
-	      || (TREE_CODE (TREE_OPERAND (base_b, 0)) == INDIRECT_REF
-		  && (ptr_decl_may_alias_p (
-				   TREE_OPERAND (TREE_OPERAND (base_b, 0), 0), 
-				   base_a, drb, &aliased)
-		      && !aliased)))))
+      && (TREE_CODE (base_b) == VAR_DECL
+	  || (TREE_CODE (base_b) == INDIRECT_REF
+	      && (ptr_decl_may_alias_p (TREE_OPERAND (base_b, 0), base_a, drb, 
+					&aliased)
+		  && !aliased))))
     return true;
   else
     return false;
