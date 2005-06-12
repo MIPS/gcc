@@ -414,7 +414,8 @@ namespace std
        *  data.
        */
       void
-      reserve(size_type __res_arg = 0);
+      reserve(size_type __res_arg = 0)
+      {	this->_M_reserve(__res_arg); }
 
       /**
        *  Erases the string, making it empty.
@@ -623,7 +624,11 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      assign(const basic_string& __str);
+      assign(const basic_string& __str)
+      {
+	this->_M_assign(__str);
+	return *this;
+      }
 
       /**
        *  @brief  Set value to a substring of a string.

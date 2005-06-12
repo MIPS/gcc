@@ -128,4 +128,5 @@ namespace __gnu_cxx
   // Instantiations.
   template class bitmap_allocator<char>;
   template class bitmap_allocator<wchar_t>;
+  template class bitmap_allocator<size_t>;
 } // namespace __gnu_cxx

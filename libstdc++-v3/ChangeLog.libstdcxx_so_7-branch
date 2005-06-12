@@ -1,3 +1,25 @@
+2005-06-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (reserve): Forward to
+	_M_reserve.
+	(assign(const basic_string&)): Likewise to _M_assign.
+	* include/bits/basic_string.tcc (reserve,
+	assign(const basic_string&)): Remove.
+	* include/ext/rc_string.h (_M_reserve): Tweak consistently.
+	* include/ext/sso_string.h (_M_reserve): Likewise.
+
+	* include/ext/sso_string.h (_M_dispose): New, check
+	_M_is_local and forward to _M_destroy.
+	(_M_destroy): Adjust; adjust all callers to use _M_dispose.
+	(_M_reserve): Use _M_destroy.
+
+	* include/ext/sso_string.h: Rename _S_construct ->
+	_M_construct.
+	* src/sso_string-inst.cc: Likewise.
+
+	* src/allocator-inst.cc: Add instantiation for size_t.
+	* src/bitmap_allocator.cc: Likewise.
+
 2005-06-11  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h (__sso_string::_Alloc_hider): Adjust

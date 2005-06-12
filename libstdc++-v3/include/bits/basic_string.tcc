@@ -54,15 +54,6 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
     basic_string<_CharT, _Traits, _Alloc>::
-    assign(const basic_string& __str)
-    {
-      this->_M_assign(__str);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>&
-    basic_string<_CharT, _Traits, _Alloc>::
     assign(const _CharT* __s, size_type __n)
     {
       __glibcxx_requires_string_len(__s, __n);
@@ -225,20 +216,6 @@ namespace std
 	   return _M_replace_safe(__pos, __n1, __tmp._M_data(), __n2);
 	 }
      }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    void
-    basic_string<_CharT, _Traits, _Alloc>::
-    reserve(size_type __res)
-    {
-      if (__res != this->capacity() || this->_M_is_shared())
-        {
-	  // Make sure we don't shrink below the current size
-	  if (__res < this->size())
-	    __res = this->size();
-	  this->_M_reserve(__res);
-        }
-    }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
