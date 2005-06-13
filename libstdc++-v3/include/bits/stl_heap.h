@@ -86,17 +86,17 @@ namespace std
     }
 
   template<typename _RandomAccessIterator, typename _Distance>
-    bool
+    inline bool
     __is_heap(_RandomAccessIterator __first, _Distance __n)
     { return std::__is_heap(__first, __gnu_cxx::__ops::less(), __n); }
 
   template<typename _RandomAccessIterator>
-    bool
+    inline bool
     __is_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
     { return std::__is_heap(__first, std::distance(__first, __last)); }
 
   template<typename _RandomAccessIterator, typename _StrictWeakOrdering>
-    bool
+    inline bool
     __is_heap(_RandomAccessIterator __first, _RandomAccessIterator __last,
 	    _StrictWeakOrdering __comp)
     { return std::__is_heap(__first, __comp, std::distance(__first, __last)); }
@@ -333,7 +333,7 @@ namespace std
    *  This operation makes the elements in [first,last) into a heap.
   */
   template<typename _RandomAccessIterator>
-    void
+    inline void
     make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
     {
       typedef typename iterator_traits<_RandomAccessIterator>::value_type
@@ -381,7 +381,7 @@ namespace std
    *  This operation sorts the valid heap in the range [first,last).
   */
   template<typename _RandomAccessIterator>
-    void
+    inline void
     sort_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
     {
       // concept requirements

@@ -354,7 +354,7 @@ namespace std
    *  @param  first  An input iterator.
    *  @param  last   An input iterator.
    *  @param  result An output iterator.
-   *  @return   result + (first - last)
+   *  @return   result + (last - first)
    *
    *  This inline function will boil down to a call to @c memmove whenever
    *  possible.  Failing that, if random access iterators are passed, then the
@@ -381,7 +381,22 @@ namespace std
        return std::__copy_normal<__in, __out>::copy_n(__first, __last,
 						      __result);
     }
-    
+  
+  /**
+   *  @brief Moves the range [first,last) into result.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  result An output iterator.
+   *  @return   result + (last - first)
+   *
+   *  Uses __gnu_cxx::__move to move each element in the input range to the
+   *  output range. The values in the input range are left in a valid but
+   *  undefined state.  Result may not be contained within
+   *  [first,last); the copy_backward function should be used instead.
+   *
+   *  Note that the end of the output range is permitted to be contained
+   *  within [first,last).
+  */   
   template<typename _InputIterator, typename _OutputIterator>
     inline typename __enable_if<_OutputIterator,
       __gnu_cxx::__is_moveable<
@@ -396,7 +411,17 @@ namespace std
         *__result = __gnu_cxx::__move(*__first);
       return __result;
     }
-        
+    
+  /**
+   *  @brief Moves the range [first,last) into result.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  result An output iterator.
+   *  @return   result + (last - first)
+   *
+   *  Used when a type is not specialized for move semantics. Simply calls
+   *  std::copy with the given values and returns its result.
+  */
   template<typename _InputIterator, typename _OutputIterator>
     inline typename __enable_if<_OutputIterator,
       !(__gnu_cxx::__is_moveable<
@@ -505,7 +530,7 @@ namespace std
     };
 
   /**
-   *  @brief Copies the range [first,last) into result.
+   *  @brief Moves the range [first,last) into result.
    *  @param  first  A bidirectional iterator.
    *  @param  last   A bidirectional iterator.
    *  @param  result A bidirectional iterator.
@@ -539,6 +564,16 @@ namespace std
 								 __result);
     }
 
+  /**
+   *  @brief Copies the range [first,last) into result.
+   *  @param  first  A bidirectional iterator.
+   *  @param  last   A bidirectional iterator.
+   *  @param  result A bidirectional iterator.
+   *  @return   result - (first - last)
+   *
+   *  The function has the same effect as copy_backward, except it uses
+   *  __gnu_cxx::__move to move the values rather than copy them.
+  */
   template<typename _InputIterator, typename _OutputIterator>
     inline 
     typename __enable_if<_OutputIterator,
@@ -554,7 +589,17 @@ namespace std
 	*--__result = __gnu_cxx::__move(*--__last);
       return __result;
     }
-        
+
+  /**
+   *  @brief Moves the range [first,last) into result.
+   *  @param  first  A bidirectional iterator.
+   *  @param  last   A bidirectional iterator.
+   *  @param  result A bidirectional iterator.
+   *  @return   result - (first - last)
+   *
+   *  Used for non-moveable types, this simply calls copy_backward with the
+   *  given values, and returns its result.
+  */        
   template<typename _InputIterator, typename _OutputIterator>
     inline 
     typename __enable_if<_OutputIterator,
@@ -762,7 +807,7 @@ namespace std
    *  to by the iterators are not equal.
   */
   template<typename _InputIterator1, typename _InputIterator2>
-    pair<_InputIterator1, _InputIterator2>
+    inline pair<_InputIterator1, _InputIterator2>
     mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
 	     _InputIterator2 __first2)
     {
@@ -880,7 +925,7 @@ namespace std
    *  then this is an inline call to @c memcmp.
   */
   template<typename _InputIterator1, typename _InputIterator2>
-    bool
+    inline bool
     lexicographical_compare(_InputIterator1 __first1, _InputIterator1 __last1,
 			    _InputIterator2 __first2, _InputIterator2 __last2)
     {

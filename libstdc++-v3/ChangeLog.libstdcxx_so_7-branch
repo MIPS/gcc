@@ -1,3 +1,31 @@
+2005-06-13  Chris Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (adjacent_find, search, search_n, unique,
+	partial_sort, lower_bound, upper_bound, merge, inplace_merge, 
+	nth_element, equal_range, binary_search, includes, set_union,
+	set_intersection, set_difference, set_symmetric_difference,
+	max_element, min_element, next_permutation, prev_permutation, 
+	partial_sort_copy, find_first_of): Add inline to trivial function.
+	(__partition(,,,forward_iterator_tag),
+	__partition(,,,bidirectional_iterator_tag), __inplace_stable_partition,
+	__stable_partition_adaptive, __unguarded_partition, _S_threshold,
+	__unguarded_linear_insert, __unguarded_nocopy_partition,
+	__unguarded_mid_partition, __unguarded_insertion_sort, __introsort_loop,
+	__inplace_stable_sort): Extend existing comment.
+	(__introsort_partition, __merge_sort_loop, _S_chuck_size,
+	__chunk_insertion_sort, __merge_sort_with_buffer,
+	__stable_sort_adaptive): Add comment.
+	* include/bits/stl_algobase.h (mismatch, lexicographical_compare) : Add
+	inline to trivial functions.
+	(copy): Correct minor error in comment.
+	(__move, __move_backward): Add comments.
+	* include/bits/stl_heap.h (__is_heap(_RandomAccessIterator, _Distance),
+	__is_heap(_RandomAccessIterator, _RandomAccessIterator), 
+	__is_heap(_RandomAccessIterator, _RandomAccessIterator, __comp), 
+	make_heap, sort_heap): Add inline to trivial functions.
+
+	* include/bits/stl_algo.h (partial_sort_copy): Fix missing return.
+
 2005-06-12  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.h (reserve): Forward to

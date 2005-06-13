@@ -372,7 +372,7 @@ namespace std
    *  or @p last if no such iterator exists.
   */
   template<typename _ForwardIterator>
-    _ForwardIterator
+    inline _ForwardIterator
     adjacent_find(_ForwardIterator __first, _ForwardIterator __last)
     {
       // concept requirements
@@ -538,7 +538,7 @@ namespace std
    *  @p [first1,last1-(last2-first2))
   */
   template<typename _ForwardIterator1, typename _ForwardIterator2>
-    _ForwardIterator1
+    inline _ForwardIterator1
     search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 	   _ForwardIterator2 __first2, _ForwardIterator2 __last2)
     {
@@ -632,7 +632,7 @@ namespace std
    *  equal to @p val.
   */
   template<typename _ForwardIterator, typename _Integer, typename _Tp>
-    _ForwardIterator
+    inline _ForwardIterator
     search_n(_ForwardIterator __first, _ForwardIterator __last,
 	     _Integer __count, const _Tp& __val)
     {
@@ -1267,7 +1267,7 @@ namespace std
    *  are still present, but their value is unspecified.
   */
   template<typename _ForwardIterator>
-    _ForwardIterator
+    inline _ForwardIterator
     unique(_ForwardIterator __first, _ForwardIterator __last)
     {
       // concept requirements
@@ -1670,7 +1670,9 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function...
+   *  This is an uglified
+   *  partition(_Forwarditerator, _ForwardIterator, _Predicate)
+   *  overloaded for forward iterators.
    *  @endif
   */
   template<typename _ForwardIterator, typename _Predicate>
@@ -1700,7 +1702,9 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function...
+   *  This is an uglified
+   *  partition(_Forwarditerator, _ForwardIterator, _Predicate)
+   *  overloaded for bidirectional iterators.
    *  @endif
   */
   template<typename _BidirectionalIterator, typename _Predicate>
@@ -1764,7 +1768,8 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function...
+   *  This is a helper function for stable_partition, used when it is 
+   *  not possible to allocate a temporary buffer.
    *  @endif
   */
   template<typename _ForwardIterator, typename _Predicate, typename _Distance>
@@ -1792,7 +1797,8 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function...
+   *  This is a helper function for stable_partition, used when it is possible
+   *  to allocate a temporary buffer.
    *  @endif
   */
   template<typename _ForwardIterator, typename _Pointer, typename _Predicate,
@@ -1893,7 +1899,10 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function...
+   *  @pre __pivot is the dereferenced value of some iterator in the range
+   *  [__first, __last).
+   *
+   *  This is a helper function called from __introsort_partition.
    *  @endif
   */
   template<typename _RandomAccessIterator, typename _Tp, typename _Compare>
@@ -1918,15 +1927,17 @@ namespace std
 
   /**
    *  @if maint
-   *  @doctodo
-   *  This controls some aspect of the sort routines.
+   *  This controls the largest range which partitioning is performed on
+   *  during sorting. For ranges smaller than this, insertion sort is used.
    *  @endif
   */
   enum { _S_threshold = 16 };
 
   /**
    *  @if maint
-   *  This is a helper function for the sort routine.
+   *  @pre Exists valid iterator i such that i<__last and !comp(*i, *__last).
+   *
+   *  This is a helper function for sort.
    *  @endif
   */
   template<typename _RandomAccessIterator, typename _Compare>
@@ -1948,8 +1959,11 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function. It assumes __pivot is not in the range
+   *  @pre There exist iterators i,j in [__first, __last) such that 
+   *  !__comp(*i, __pivot)  and !__comp(*j, __pivot). __pivot is not in range
    *  [__first, __last).
+   *
+   *  This is a helper function for the sort function.
    *  @endif
   */
   template<typename _RandomAccessIterator, typename _Compare>
@@ -1974,7 +1988,9 @@ namespace std
     
    /**
     *  @if maint
-    *  This is a helper function for the sort routine.
+    *  @pre __pivot is in the range [__first, __last).
+    *
+    *  This is a helper for the sort function.
     *  @endif
     */
   template<typename _RandomAccessIterator, typename _Compare>
@@ -2062,7 +2078,9 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function for the sort routine.
+   *  @pre Forall i in the range [__first, __last), !comp(*i, *(__first - 1)).
+   *  
+   *  This is a helper for the sort function.
    *  @endif
   */
   template<typename _RandomAccessIterator, typename _Compare>
@@ -2172,7 +2190,7 @@ namespace std
    *  the range @p [middle,last) then @p *j<*i and @p *k<*i are both false.
   */
   template<typename _RandomAccessIterator>
-    void
+    inline void
     partial_sort(_RandomAccessIterator __first,
 		 _RandomAccessIterator __middle,
 		 _RandomAccessIterator __last)
@@ -2271,7 +2289,7 @@ namespace std
    *  The value returned is @p result_first+N.
   */
   template<typename _InputIterator, typename _RandomAccessIterator>
-    _RandomAccessIterator
+    inline _RandomAccessIterator
     partial_sort_copy(_InputIterator __first, _InputIterator __last,
 		      _RandomAccessIterator __result_first,
 		      _RandomAccessIterator __result_last)
@@ -2285,11 +2303,17 @@ namespace std
       __glibcxx_function_requires(_LessThanComparableConcept<_OutputValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_InputValueType>)
 
-      std::partial_sort_copy(__first, __last, __result_first, __result_last, 
-			     __gnu_cxx::__ops::less());
+      return std::partial_sort_copy(__first, __last, __result_first,
+				    __result_last, __gnu_cxx::__ops::less());
     }
 
-
+   /**
+    *  @if maint
+    *  This is a helper function for the sort routine designed for non-moveable
+    *  types which partitions the  range [__first, __last). It copies the 
+    *  element which is being pivoted on.
+    *  @endif
+   */
   template<typename _RandomAccessIterator, typename _Compare>
     inline typename __enable_if<_RandomAccessIterator, 
       !(__gnu_cxx::__is_moveable<typename iterator_traits<_RandomAccessIterator>
@@ -2311,6 +2335,13 @@ namespace std
 							    __comp)), __comp);
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for the sort routine designed for moveable
+   *  types which partitions the range [__first, __last). It avoids copying
+   *  the element which is pivoted on.
+   *  @endif
+  */
   template<typename _RandomAccessIterator, typename _Compare>
     inline typename __enable_if<_RandomAccessIterator,
       __gnu_cxx::__is_moveable<typename iterator_traits<_RandomAccessIterator>
@@ -2350,7 +2381,9 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function for the sort routine.
+   *  This is a helper function for the sort routine which ensures each
+   *  element of [__first, __last) is no more than _S_threshold from its 
+   *  correct position.
    *  @endif
   */
   template<typename _RandomAccessIterator, typename _Size, typename _Compare>
@@ -2502,7 +2535,7 @@ namespace std
    *  @ingroup binarysearch
   */
   template<typename _ForwardIterator, typename _Tp>
-    _ForwardIterator
+    inline _ForwardIterator
     lower_bound(_ForwardIterator __first, _ForwardIterator __last,
 		const _Tp& __val)
     {
@@ -2581,7 +2614,7 @@ namespace std
    *  @ingroup binarysearch
   */
   template<typename _ForwardIterator, typename _Tp>
-    _ForwardIterator
+    inline _ForwardIterator
     upper_bound(_ForwardIterator __first, _ForwardIterator __last,
 		const _Tp& __val)
     {
@@ -2648,7 +2681,8 @@ namespace std
 
   /**
    *  @if maint
-   *  This is a helper function for the stable sorting routines.
+   *  This is a helper function for the stable sorting routines for use
+   *  when no extra buffer could be allocated.
    *  @endif
   */
   template<typename _RandomAccessIterator, typename _Compare>
@@ -2747,7 +2781,7 @@ namespace std
   */
   template<typename _InputIterator1, typename _InputIterator2,
 	   typename _OutputIterator>
-    _OutputIterator
+    inline _OutputIterator
     merge(_InputIterator1 __first1, _InputIterator1 __last1,
 	  _InputIterator2 __first2, _InputIterator2 __last2,
 	  _OutputIterator __result)
@@ -2759,6 +2793,12 @@ namespace std
 			__gnu_cxx::__ops::less());
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for stable_sort for when an extra buffer
+   *  was allocated.
+   *  @endif
+   */
   template<typename _RandomAccessIterator1, typename _RandomAccessIterator2,
 	   typename _Distance, typename _Compare>
     void
@@ -2785,8 +2825,19 @@ namespace std
 		 __comp);
     }
 
+  /**
+   *  @if maint
+   *  This sets at what size range stable_sort should switch to using an
+   *  insertion sort.
+   *  @endif
+   */
   enum { _S_chunk_size = 7 };
 
+  /**
+   *  @if maint
+   *  This is a helper function for stable_sort.
+   *  @endif
+   */
   template<typename _RandomAccessIterator, typename _Distance, typename _Compare>
     void
     __chunk_insertion_sort(_RandomAccessIterator __first,
@@ -2801,6 +2852,12 @@ namespace std
       std::__insertion_sort(__first, __last, __comp);
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for stable_sort for when the buffer is
+   *  large enough to store the range [__first, __last).
+   *  @endif
+   */
   template<typename _RandomAccessIterator, typename _Pointer, typename _Compare>
     void
     __merge_sort_with_buffer(_RandomAccessIterator __first,
@@ -3040,7 +3097,7 @@ namespace std
    *  distance(first,last).
   */
   template<typename _BidirectionalIterator>
-    void
+    inline void
     inplace_merge(_BidirectionalIterator __first,
 		  _BidirectionalIterator __middle,
 		  _BidirectionalIterator __last)
@@ -3053,6 +3110,11 @@ namespace std
       std::inplace_merge(__first, __middle, __last, __gnu_cxx::__ops::less());
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for stable_sort.
+   *  @endif
+   */
   template<typename _RandomAccessIterator, typename _Pointer,
 	   typename _Distance, typename _Compare>
     void
@@ -3216,7 +3278,7 @@ namespace std
    *  holds that @p *j<*i is false.
   */
   template<typename _RandomAccessIterator>
-    void
+    inline void
     nth_element(_RandomAccessIterator __first,
 		_RandomAccessIterator __nth,
 		_RandomAccessIterator __last)
@@ -3310,7 +3372,7 @@ namespace std
    *  but does not actually call those functions.
   */
   template<typename _ForwardIterator, typename _Tp>
-    pair<_ForwardIterator, _ForwardIterator>
+    inline pair<_ForwardIterator, _ForwardIterator>
     equal_range(_ForwardIterator __first, _ForwardIterator __last,
 		const _Tp& __val)
     {
@@ -3369,7 +3431,7 @@ namespace std
    *  that, use std::find or a container's specialized find member functions.
   */
   template<typename _ForwardIterator, typename _Tp>
-    bool
+    inline bool
     binary_search(_ForwardIterator __first, _ForwardIterator __last,
                   const _Tp& __val)
     {
@@ -3452,7 +3514,7 @@ namespace std
    *  found before the search iterator reaches @a last2, false is returned.
   */
   template<typename _InputIterator1, typename _InputIterator2>
-    bool
+    inline bool
     includes(_InputIterator1 __first1, _InputIterator1 __last1,
 	     _InputIterator2 __first2, _InputIterator2 __last2)
     {
@@ -3545,7 +3607,7 @@ namespace std
   */
   template<typename _InputIterator1, typename _InputIterator2,
 	   typename _OutputIterator>
-    _OutputIterator
+    inline _OutputIterator
     set_union(_InputIterator1 __first1, _InputIterator1 __last1,
 	      _InputIterator2 __first2, _InputIterator2 __last2,
 	      _OutputIterator __result)
@@ -3630,7 +3692,7 @@ namespace std
   */
   template<typename _InputIterator1, typename _InputIterator2,
 	   typename _OutputIterator>
-    _OutputIterator
+    inline _OutputIterator
     set_intersection(_InputIterator1 __first1, _InputIterator1 __last1,
 		     _InputIterator2 __first2, _InputIterator2 __last2,
 		     _OutputIterator __result)
@@ -3721,7 +3783,7 @@ namespace std
   */
   template<typename _InputIterator1, typename _InputIterator2,
 	   typename _OutputIterator>
-    _OutputIterator
+    inline _OutputIterator
     set_difference(_InputIterator1 __first1, _InputIterator1 __last1,
 		   _InputIterator2 __first2, _InputIterator2 __last2,
 		   _OutputIterator __result)
@@ -3814,7 +3876,7 @@ namespace std
   */
   template<typename _InputIterator1, typename _InputIterator2,
 	   typename _OutputIterator>
-    _OutputIterator
+    inline _OutputIterator
     set_symmetric_difference(_InputIterator1 __first1, _InputIterator1 __last1,
 			     _InputIterator2 __first2, _InputIterator2 __last2,
 			     _OutputIterator __result)
@@ -3863,7 +3925,7 @@ namespace std
    *  @return  Iterator referencing the first instance of the largest value.
   */
   template<typename _ForwardIterator>
-    _ForwardIterator
+    inline _ForwardIterator
     max_element(_ForwardIterator __first, _ForwardIterator __last)
     {
       // concept requirements
@@ -3908,7 +3970,7 @@ namespace std
    *  @return  Iterator referencing the first instance of the smallest value.
   */
   template<typename _ForwardIterator>
-    _ForwardIterator
+    inline _ForwardIterator
     min_element(_ForwardIterator __first, _ForwardIterator __last)
     {
       // concept requirements
@@ -3989,7 +4051,7 @@ namespace std
    *  is the largest of the set, the smallest is generated and false returned.
   */
   template<typename _BidirectionalIterator>
-    bool
+    inline bool
     next_permutation(_BidirectionalIterator __first,
 		     _BidirectionalIterator __last)
     {
@@ -4069,7 +4131,7 @@ namespace std
    *  returned.
   */
   template<typename _BidirectionalIterator>
-    bool
+    inline bool
     prev_permutation(_BidirectionalIterator __first,
 		     _BidirectionalIterator __last)
     {
@@ -4134,7 +4196,7 @@ namespace std
    *  in the range [first1,last1), otherwise returns @p last1.
   */
   template<typename _InputIterator, typename _ForwardIterator>
-    _InputIterator
+    inline _InputIterator
     find_first_of(_InputIterator __first1, _InputIterator __last1,
 		  _ForwardIterator __first2, _ForwardIterator __last2)
     {
