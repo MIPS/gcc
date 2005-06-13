@@ -6531,6 +6531,9 @@ cw_asm_expr_val (tree arg)
   if (TREE_CODE (arg) == INTEGER_CST)
     return int_cst_value (arg);
 
+  if (TREE_CODE (arg) == REAL_CST)
+    return int_cst_value (convert (integer_type_node, arg));
+
   if (TREE_CODE (arg) == PLUS_EXPR)
     return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 
 	   + cw_asm_expr_val (TREE_OPERAND (arg, 1));
@@ -6541,6 +6544,11 @@ cw_asm_expr_val (tree arg)
 
   if (TREE_CODE (arg) == NEGATE_EXPR)
     return - cw_asm_expr_val (TREE_OPERAND (arg, 0));
+
+  if (TREE_CODE (arg) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST
+      && TREE_INT_CST_LOW (TREE_OPERAND (arg, 1)) == 0)
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0));
 
   error ("invalid operand for arithmetic in assembly block");
   return 0;
@@ -6673,7 +6681,11 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case ARRAY_REF:
-      error ("array references not supported");
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) != INTEGER_CST
+	  || TREE_INT_CST_LOW (TREE_OPERAND (arg, 1)) != 0)
+        error ("array references not supported");
+      else
+	sprintf (buf + strlen (buf), "%d", cw_asm_field_offset (TREE_OPERAND (arg, 0)));
       break;
 
     case NEGATE_EXPR:
