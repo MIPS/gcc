@@ -1,5 +1,12 @@
 2005-06-13  Dale Johannesen  <dalej@apple.com>
 
+	Tests from mainline
+	Radar 4141805, 4137102
+	* gcc.dg/20050607-1.c:  New.
+	* g++.dg/opt/crossjump1.C:  New.
+
+2005-06-13  Dale Johannesen  <dalej@apple.com>
+
 	* gcc.c-torture/execute/20050603-1.c:  Fix marker.
 
 2005-06-03  Dale Johannesen  <dalej@apple.com>
