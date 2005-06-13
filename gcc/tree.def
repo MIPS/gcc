@@ -947,6 +947,47 @@ DEFTREECODE (REALIGN_LOAD_EXPR, "realign_load", tcc_expression, 3)
 
 DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 7)
 
+/* OpenMP - #pragma omp parallel [clause1 ... clauseN]
+   Operand 1: GOMP_PARALLEL_CLAUSES: List of clauses.
+   Operand 2: GOMP_PARALLEL_BODY: Code to be executed by all threads.  */
+DEFTREECODE (GOMP_PARALLEL, "gomp_parallel", tcc_expression, 2)
+
+/* OpenMP - #pragma omp for [clause1 ... clauseN]
+   Operand 1: GOMP_FOR_CLAUSES: List of clauses.
+   Operand 2: GOMP_FOR_INIT: Initialization code.
+   Operand 3: GOMP_FOR_INCR: Loop index increment.
+   Operand 4: GOMP_FOR_BODY: Loop body.  */
+DEFTREECODE (GOMP_FOR, "gomp_for", tcc_expression, 4)
+
+/* OpenMP - #pragma omp sections [clause1 ... clauseN]
+   Operand 1: GOMP_SECTIONS_CLAUSES: List of clauses.
+   Operand 2: GOMP_SECTIONS_BODY: Sections body.  */
+DEFTREECODE (GOMP_SECTIONS, "gomp_sections", tcc_expression, 2)
+
+/* OpenMP - #pragma omp section
+   Operand 1: GOMP_SECTION_BODY: Section body.  */
+DEFTREECODE (GOMP_SECTION, "gomp_section", tcc_expression, 1)
+
+/* OpenMP - #pragma omp single
+   Operand 1: GOMP_SINGLE_BODY: Single section body.  */
+DEFTREECODE (GOMP_SINGLE, "gomp_single", tcc_expression, 1)
+
+/* OpenMP - #pragma omp master
+   Operand 1: GOMP_MASTER_BODY: Master section body.  */
+DEFTREECODE (GOMP_MASTER, "gomp_master", tcc_expression, 1)
+
+/* OpenMP - #pragma omp critical [name]
+   Operand 1: GOMP_CRITICAL_NAME: Identifier for critical section.
+   Operand 2: GOMP_CRITICAL_BODY: Critical section body.  */
+DEFTREECODE (GOMP_CRITICAL, "gomp_critical", tcc_expression, 2)
+
+/* OpenMP - #pragma omp barrier.  */
+DEFTREECODE (GOMP_BARRIER, "gomp_barrier", tcc_expression, 0)
+
+/* OpenMP - #pragma omp ordered.
+   Operand 1: GOMP_ORDERED_BODY: Body to be executed sequentially.  */
+DEFTREECODE (GOMP_ORDERED, "gomp_ordered", tcc_expression, 1)
+
 /*
 Local variables:
 mode:c

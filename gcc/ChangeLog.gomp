@@ -1,0 +1,46 @@
+2005-06-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree.def (GOMP_PARALLEL, GOMP_FOR, GOMP_SECTIONS,
+	GOMP_SECTION, GOMP_SINGLE, GOMP_MASTER, GOMP_CRITICAL,
+	GOMP_BARRIER, GOMP_ORDERED): Define.
+
+2005-06-13  Dmitry Kurochkin  <dmitry.kurochkin@gmail.com>
+
+	* c.opt (fopenmp): New flag.
+	* c-parser.c (c_parse_init): Initialize OpenMP pragmas.
+	(pragma_omp_kind, pragma_omp_clause): Declare.
+	(c_token): Add omp_kind field.
+	(c_lex_one_token): Handle CPP_PRAGMA.
+	(c_token_starts_declspecs): Handle PRAGMA_OMP_THREADPRIVATE.
+	(c_parser_declaration_or_fndef): Update comment, handle
+	PRAGMA_OMP_THREADPRIVATE.
+	(c_parser_compound_statement, c_parser_statement): Update comment.
+	(c_parser_compound_statement_nostart): Handler PRAGMA_OMP_BARRIER
+	and PRAGMA_OMP_FLUSH.
+	(c_parser_statement_after_labels): Handle OpenMP pragmas.
+	(c_parser_section_scope, c_parser_pragma,
+	c_parser_pragma_omp_atomic, c_parser_pragma_omp_barrier,
+	c_parser_pragma_omp_critical, c_parser_pragma_omp_flush,
+	c_parser_pragma_omp_for, c_parser_pragma_omp_master,
+	c_parser_pragma_omp_master, c_parser_pragma_omp_ordered,
+	c_parser_pragma_omp_parallel,
+	c_parser_pragma_omp_parallel_for,
+	c_parser_pragma_omp_parallel_sections,
+	c_parser_pragma_omp_section,
+	c_parser_pragma_omp_sections, c_parser_pragma_omp_single,
+	c_parser_pragma_omp_threadprivate,
+	c_parser_pragma_omp_clause,
+	c_parser_pragma_omp_variable_list,
+	c_parser_pragma_omp_clause_copyin,
+	c_parser_pragma_omp_clause_copyprivate,
+	c_parser_pragma_omp_clause_default,
+	c_parser_pragma_omp_clause_firstprivate,
+	c_parser_pragma_omp_clause_if,
+	c_parser_pragma_omp_clause_lastprivate,
+	c_parser_pragma_omp_clause_nowait,
+	c_parser_pragma_omp_clause_num_threads,
+	c_parser_pragma_omp_clause_ordered,
+	c_parser_pragma_omp_clause_private,
+	c_parser_pragma_omp_clause_reduction,
+	c_parser_pragma_omp_clause_schedule,
+	c_parser_pragma_omp_clause_shared): New.

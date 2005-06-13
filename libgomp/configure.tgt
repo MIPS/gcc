@@ -1,0 +1,70 @@
+# This is the target specific configuration file.  This is invoked by the
+# autoconf generated configure script.  Putting it in a separate shell file
+# lets us skip running autoconf when modifying target specific information.
+
+# This file switches on the shell variable ${target}, and sets the
+# following shell variables:
+#  config_path		An ordered list of directories to search for
+#			sources and headers.  This is relative to the
+#			config subdirectory of the source tree.
+#  XCFLAGS		Add extra compile flags to use.
+#  XLDFLAGS		Add extra link flags to use.
+
+# Optimize TLS usage by avoiding the overhead of dynamic allocation.
+# This does require that the library be present during process 
+# startup, so mark the library as not to be dlopened.
+if test $have_tls = yes && test "$with_gnu_ld" = "yes"; then
+	XCFLAGS="${XCFLAGS} -ftls-model=initial-exec"
+	XLDFLAGS="${XLDFLAGS} -Wl,-z,nodlopen"
+fi
+
+# Since we require POSIX threads, assume a POSIX system by default.
+config_path="posix"
+
+# Check for futex enabled all at once.
+if test $enable_linux_futex = yes; then
+  case "${target}" in
+
+    alpha*-*-linux*)
+	config_path="linux/alpha linux posix"
+	;;
+
+    ia64*-*-linux*)
+	config_path="linux/ia64 linux posix"
+	;;
+
+    powerpc*-*-linux*)
+	config_path="linux/powerpc linux posix"
+	;;
+
+    # Note that bare i386 is not included here.  We need cmpxchg.
+    i[456]86-*-linux*)
+	config_path="linux/x86 linux posix"
+	case " ${CFLAGS} " in
+	  *" -march="*)	;;
+	  *)		XCFLAGS="${XCFLAGS} -march=i486" ;;
+	esac
+	;;
+
+    # Similar jiggery-pokery for x86_64 multilibs.
+    x86_64-*-linux*)
+	case " ${CC} ${CFLAGS} " in
+	  *" -m32 "*)
+	    case " ${CFLAGS} " in
+		*" -march="*) ;;
+		*)            XCFLAGS="${XCFLAGS} -march=i486" ;;
+	    esac
+	    ;;
+	esac
+	config_path="linux/x86 linux posix"
+	;;
+  esac
+fi
+
+# Other system configury
+case "${target}" in
+
+  *)
+	;;
+
+esac

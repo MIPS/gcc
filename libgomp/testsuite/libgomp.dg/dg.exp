@@ -1,0 +1,18 @@
+load_lib libgomp-dg.exp
+
+# If a testcase doesn't have special options, use these.
+if ![info exists DEFAULT_CFLAGS] then {
+    set DEFAULT_CFLAGS ""
+}
+
+# Initialize dg.
+dg-init
+
+# Gather a list of all tests.
+set tests [lsort [glob -nocomplain $srcdir/$subdir/*.c]]
+
+# Main loop.
+dg-runtest $tests "" $DEFAULT_CFLAGS
+
+# All done.
+dg-finish

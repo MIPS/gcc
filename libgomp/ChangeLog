@@ -1,0 +1,256 @@
+2005-05-16  Richard Henderson  <rth@redhat.com>
+
+	* configure.ac: Test for clock_gettime.
+	* config.h.in, configure: Rebuild.
+	* config/posix/time.c: Use recommended TIME_WITH_SYS_TIME pattern.
+	(omp_get_wtime): Use clock_gettime if available.
+	(omp_get_wtick): Use clock_getres if available.
+
+2005-05-11  Richard Henderson  <rth@redhat.com>
+
+	* config/linux/ia64/futex.h: New file.
+	* configure.tgt: Use it.
+
+	* team.c (gomp_barrier_init, gomp_barrier_destroy): Mark inline.
+
+2005-05-07  Richard Henderson  <rth@redhat.com>
+
+	* config/linux/powerpc/futex.h: New file.
+	* configure.tgt: Use it.
+
+	* config/linux/i486/futex.h: Merge ...
+	* config/linux/x86_64/futex.h: ... into ...
+	* config/linux/x86/futex.h: ... here.
+	* configure.tgt: Update to match.
+
+2005-05-06  Richard Henderson  <rth@redhat.com>
+
+	* config/linux/alpha/futex.h: Conditionally define SYS_futex.
+	* config/linux/i486/futex.h: Likewise.
+	* config/linux/x86_64/futex.h: Likewise.
+
+	* config/linux/lock.c: New file.
+	* config/linux/omp-lock.h: New file.
+
+	* critical.c, env.h: Don't include omp.h
+	* config/posix/lock.c: Include libgomp.h instead of omp.h.
+	* config/posix/time.c: Likewise.
+	* config/posix/omp-lock.h: New file.
+	* libgomp.h: Include omp-lock.h and omp.h.
+	* Makefile.am (nodist_include_HEADERS): New.
+	(omp.h): New rule.
+	* configure.ac (PERL): New.
+	* mkomp_h.pl: New file.
+	* omp.h.in: Rename from omp.h; replace omp_lock_t and omp_nest_lock_t
+	with templates.
+	* Makefile.in, configure, testsuite/Makefile.in: Rebuild.
+
+	* testsuite/lib/libgomp-dg.exp (libgomp_init): Add include into
+	build directory.  Re-add -march=i486 hack.
+
+	* testsuite/lib/libgomp-dg.exp (libgomp_compile_flags): Remove.
+	(libgomp_link_flags): Remove.
+	(libgomp_initialized): Remove.
+	(libgomp_init): Don't protect from reinitialization.  Copy code
+	from libstdc++ for getting the multilib set correctly.
+
+2005-05-05  Richard Henderson  <rth@redhat.com>
+
+	* config/linux/alpha/futex.h: New file.
+	* configure.tgt (alpha*-*-linux*): Use it.
+
+	* config/posix/mutex.c: New file.
+	* config/posix/sem.c: Use libgomp.h.
+
+	* configure.tgt (x86_64-linux): Also test CC for -m32.
+	* config/linux/x86_64/futex.h (futex_wait): Fix r10 usage.
+
+	* testsuite/lib/libgomp-dg.exp (libgomp_link_flags): Add / 
+	after $gccpath.
+
+	* Makefile.am (SUBDIRS): New.
+	(libgomp_la_LDFLAGS): Add -lpthread.
+	* configure.ac (AM_INIT_AUTOMAKE): Enable dependencies.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Rebuild.
+
+	* libgomp_g.h: New file.
+	* libgomp.h: Split out all public declarations to libgomp_g.h.
+	Use pragma GCC visibility instead of ATTRIBUTE_HIDDEN.
+	* config/linux/mutex.h: Remove ATTRIBUTE_HIDDEN.
+	* config/linux/sem.h: Likewise.
+	* config/posix/sem.h: Likewise.
+
+	* Makefile.am (AM_LDFLAGS): New.
+	(libgomp_version_script): Split out from ...
+	(libgomp_la_LDFLAGS): ... here.
+	(libgomp_version_info): New.
+	* acinclude.m4 (LIBGOMP_CHECK_TLS): Use LIBGOMP_ENABLE.
+	(LIBGOMP_ENABLE): New.
+	(LIBGOMP_CHECK_LINKER_FEATURES): New.
+	(LIBGOMP_ENABLE_SYMVERS): New.
+	* configure.ac (AC_INIT): Version 1.0.
+	(enable-version-specific-runtime-libs): Use LIBGOMP_ENABLE.
+	(enable-linux-futex): Likewise.  Rename from enable-futex.
+	(libtool_VERSION): New.
+	(LIBGOMP_ENABLE_SYMVERS): Use it.
+	* configure.tgt: Check with_gnu_ld wrt have_tls optimizations.
+	* Makefile.in, aclocal.m4, configure: Rebuild.
+
+	* config/linux/mutex.c: Include libgomp.h instead of mutex.h.
+	(gomp_mutex_unlock_slow): Fix typo.
+	* config/linux/sem.c: Similarly.
+	(gomp_sem_post_slow): Fix typo.
+	* config/linux/sem.h (gomp_sem_post_slow): Fix typo.
+	* config/linux/i486/futex.h: Remove USE_LINUX_SYSENTER code.
+	[__PIC__] (sys_futex0): Don't use tmp output in asm.
+
+	* Makefile.am (AM_CFLAGS): Expand with XCFLAGS.
+	(libgomp_la_LDFLAGS): Add top_srcdir to path.
+	* acinclude.m4: Copy libtool.m4 stuff from libgfortran.
+	* configure.ac: Check for getloadavg.  Substitute XCFLAGS and
+	XLDFLAGS.  Add XCFLAGS to CFLAGS around LIBGOMP_CHECK_SYNC_BUILTINS.
+	* configure.tgt: Set XCFLAGS and XLDFLAGS instead of CFLAGS and
+	LDFLAGS.  Pull enable_futex check to top-level.
+	* libgomp.h: Fix sem.h and mutex.h includes.  Define ATTRIBUTE_HIDDEN.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerate.
+
+	First attempt at real configury.
+	* Makefile, config.h: Remove file.
+	* Makefile.am, Makefile.in: New file.
+	* acinclude.m4 aclocal.m4: New file.
+	* configure.ac, configure.tgt, configure: New file.
+
+	* config/posix/lock.c: Rename from sys-lock.c.
+	* config/posix/mutex.h: Rename from sys-mutex.h.
+	* config/posix/sem.c: Rename from sys-sem.c.
+	* config/posix/sem.h: Rename from sys-sem.h.
+	* config/posix/proc.c: Rename from sys-proc.c.
+	* config/posix/time.c: Rename from sys-proc.c.
+
+	* config/linux/mutex.c: New file.
+	* config/linux/mutex.h: New file.
+	* config/linux/sem.c: New file.
+	* config/linux/sem.h: New file.
+	* config/linux/i486/futex.h: New file.
+	* config/linux/x86_64/futex.h: New file.
+
+2005-05-04  Richard Henderson  <rth@redhat.com>
+
+	* iter.c (gomp_iter_dynamic_next, gomp_iter_guided_next): New.
+	* libgomp.h: Declare them.
+	* loop.c (gomp_loop_dynamic_start, gomp_loop_guided_start,
+	gomp_loop_dynamic_next, gomp_loop_guided_next): Use them.
+
+2005-05-04  Richard Henderson  <rth@redhat.com>
+
+	* libgomp-1 code drop
+
+2005-05-04  Richard Henderson  <rth@redhat.com>
+
+	* iter.c (gomp_iter_static_next): Return tri-state on 0.
+	* ordered.c (gomp_ordered_static_next): Remove not_last argument.
+	* libgomp.h (struct gomp_team_state): Make static_trip unsigned.
+	(gomp_iter_static_next): Update.
+	(gomp_ordered_static_next): Update.
+	* loop.c (gomp_loop_static_start): Update for gomp_iter_static_next.
+	(gomp_loop_ordered_static_start): Likewise.  Exit early for a
+	totally empty range.
+	(gomp_loop_ordered_static_next): Refine test for calling
+	gomp_ordered_static_next.
+	* testsuite/ordered-1.c: Add case for more threads than iterations.
+
+	* iter.c (gomp_iter_runtime_next_locked): Remove.
+	* loop.c (gomp_loop_static_start, gomp_loop_dynamic_start,
+	gomp_loop_guided_start, gomp_loop_ordered_static_start, 
+	gomp_loop_ordered_dynamic_start, gomp_loop_ordered_guided_start,
+	gomp_loop_static_next, gomp_loop_dynamic_next, gomp_loop_guided_next,
+	gomp_loop_ordered_static_next, gomp_loop_ordered_dynamic_next,
+	gomp_loop_ordered_guided_next): Downcase name, make static, add
+	an external alias with the old name.
+	(GOMP_loop_runtime_start, GOMP_loop_ordered_runtime_start,
+	GOMP_loop_runtime_next, GOMP_loop_ordered_runtime_next): Use a
+	switch and call one of the above static functions.
+	* libgomp.h: Update.
+
+	* work.c (gomp_work_share_start): Lock the mutex for !first too.
+	* loop.c (GOMP_loop_static_start, GOMP_loop_dynamic_start,
+	GOMP_loop_guided_start, GOMP_loop_runtime_start,
+	GOMP_loop_ordered_static_start, GOMP_loop_ordered_dynamic_start,
+	GOMP_loop_ordered_guided_start): Update to match.
+	* sections.c (GOMP_sections_start): Likewise.
+	* single.c (GOMP_single_start, GOMP_single_copy_start): Likewise.
+
+	* ordered.c (gomp_ordered_first, gomp_ordered_last, gomp_ordered_next,
+	gomp_ordered_static_init, gomp_ordered_static_next): Rename s/_loop//.
+	Use bounds check instead of modulus.
+	(gomp_ordered_sync): Split out of GOMP_ordered_start.
+	(gomp_ordered_last): Don't sync with ordered_owner here.
+	(gomp_ordered_next): Likewise.
+	(gomp_ordered_static_loop_next): Likewise.
+	* loop.c, libgomp.h: Update to match.
+
+	* libgomp.h (GOMP_barrier): Declare.
+
+	* testsuite/barrier-1.c: New file.
+	* testsuite/critical-1.c: New file.
+	* testsuite/ordered-2.c: New file.
+	* testsuite/ordered-1.c: New file.
+	* testsuite/sections-1.c: New file.
+	* testsuite/single-1.c: New file.
+	* testsuite/Makefile (TESTS): Add them.
+
+2005-05-04  Richard Henderson  <rth@redhat.com>
+
+	* libgomp.h (struct gomp_work_share): Add ordered_owner.
+	* loop.c (GOMP_loop_static_start): If not the startup thread,
+	acquire the mutex to wait for initialization complete.
+	(GOMP_loop_ordered_static_start): Likewise.
+	(GOMP_loop_ordered_runtime_start): Likewise.
+	(GOMP_loop_ordered_static_first): Remove.
+	(GOMP_loop_ordered_dynamic_first): Remove.
+	(GOMP_loop_ordered_guided_first): Remove.
+	(GOMP_loop_ordered_runtime_first): Remove.
+	* ordered.c (gomp_ordered_loop_first): Post to own release when
+	we're the first thread.
+	(gomp_ordered_loop_last): Wait on release if not owner.
+	(gomp_ordered_loop_next): Likewise.
+	(gomp_ordered_static_loop_init): New.
+	(gomp_ordered_static_loop_next): Use ordered_owner.
+	(GOMP_ordered_start): Likewise.
+	* work.c (gomp_new_work_share): Initialize ordered_owner.
+
+2005-05-03  Richard Henderson  <rth@redhat.com>
+
+	* Makefile (OPT): New.
+	(CFLAGS): Use it.
+
+	* loop.c (GOMP_loop_end, GOMP_loop_end_nowait): New.
+	* sections.c (GOMP_sections_end, GOMP_sections_end_nowait): New.
+	* libgomp.h, libgomp.map, NOTES: Update to match.
+
+	* team.c (struct gomp_thread_start_data): Remove ts, fn, data.
+	Add initialized and thr members.
+	(gomp_thread_start): Pause when initially spawned to wait for
+	the whole team to be created.
+	(gomp_team_start): Release team members at the end.
+
+	* testsuite/loop-1.c (N): New.  Use it instead of hardcoded 100.
+	(f_foo_1): Use GOMP_loop_end.
+	(f_foo_2): Use GOMP_loop_end_nowait.
+
+	* testsuite/loop-2.c: New file.
+	* testsuite/Makefile (TESTS): Add it.
+
+2005-05-03  Richard Henderson  <rth@redhat.com>
+
+	* iter.c (gomp_iter_static_next): Fix overflow check typo.
+	(gomp_iter_dynamic_next_locked): Fix overflow check thinko.
+	* team.c (new_team): Initialize oldest_live_gen to 1 if no
+	initial work_share.
+
+	* testsuite/Makefile: New file.
+	* testsuite/loop-1.c: New file.
+
+2005-05-03  Richard Henderson  <rth@redhat.com>
+
+	Initial implementation and checkin.

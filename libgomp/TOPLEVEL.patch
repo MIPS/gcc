@@ -1,0 +1,1212 @@
+? libgomp
+Index: Makefile.def
+===================================================================
+RCS file: /cvs/gcc/gcc/Makefile.def,v
+retrieving revision 1.50
+diff -u -p -d -r1.50 Makefile.def
+--- Makefile.def	30 Mar 2005 08:17:44 -0000	1.50
++++ Makefile.def	6 May 2005 06:36:31 -0000
+@@ -135,6 +135,7 @@ target_modules = { module= boehm-gc; };
+ target_modules = { module= qthreads; };
+ target_modules = { module= rda; };
+ target_modules = { module= libada; };
++target_modules = { module= libgomp; };
+ 
+ // These are (some of) the make targets to be done in each subdirectory.
+ // Not all; these are the ones which don't have special options.
+@@ -419,6 +420,7 @@ lang_env_dependencies = { module=libjava
+ lang_env_dependencies = { module=libobjc; };
+ lang_env_dependencies = { module=libstdc++-v3; };
+ lang_env_dependencies = { module=zlib; };
++lang_env_dependencies = { module=libgomp; };
+ 
+ dependencies = { module=configure-target-boehm-gc; on=configure-target-qthreads; };
+ dependencies = { module=configure-target-fastjar; on=configure-target-zlib; };
+Index: Makefile.in
+===================================================================
+RCS file: /cvs/gcc/gcc/Makefile.in,v
+retrieving revision 1.263
+diff -u -p -d -r1.263 Makefile.in
+--- Makefile.in	4 May 2005 15:41:48 -0000	1.263
++++ Makefile.in	6 May 2005 06:36:37 -0000
+@@ -746,7 +746,8 @@ configure-target:  \
+     maybe-configure-target-boehm-gc \
+     maybe-configure-target-qthreads \
+     maybe-configure-target-rda \
+-    maybe-configure-target-libada
++    maybe-configure-target-libada \
++    maybe-configure-target-libgomp
+ 
+ # The target built for a native non-bootstrap build.
+ .PHONY: all
+@@ -849,7 +850,8 @@ all-target:  \
+     maybe-all-target-boehm-gc \
+     maybe-all-target-qthreads \
+     maybe-all-target-rda \
+-    maybe-all-target-libada
++    maybe-all-target-libada \
++    maybe-all-target-libgomp
+ 
+ # Do a target for all the subdirectories.  A ``make do-X'' will do a
+ # ``make X'' in all subdirectories (because, in general, there is a
+@@ -948,7 +950,8 @@ info-target:  \
+     maybe-info-target-boehm-gc \
+     maybe-info-target-qthreads \
+     maybe-info-target-rda \
+-    maybe-info-target-libada
++    maybe-info-target-libada \
++    maybe-info-target-libgomp
+ 
+ .PHONY: do-dvi
+ do-dvi: unstage dvi-host dvi-target stage
+@@ -1042,7 +1045,8 @@ dvi-target:  \
+     maybe-dvi-target-boehm-gc \
+     maybe-dvi-target-qthreads \
+     maybe-dvi-target-rda \
+-    maybe-dvi-target-libada
++    maybe-dvi-target-libada \
++    maybe-dvi-target-libgomp
+ 
+ .PHONY: do-html
+ do-html: unstage html-host html-target stage
+@@ -1136,7 +1140,8 @@ html-target:  \
+     maybe-html-target-boehm-gc \
+     maybe-html-target-qthreads \
+     maybe-html-target-rda \
+-    maybe-html-target-libada
++    maybe-html-target-libada \
++    maybe-html-target-libgomp
+ 
+ .PHONY: do-TAGS
+ do-TAGS: unstage TAGS-host TAGS-target stage
+@@ -1230,7 +1235,8 @@ TAGS-target:  \
+     maybe-TAGS-target-boehm-gc \
+     maybe-TAGS-target-qthreads \
+     maybe-TAGS-target-rda \
+-    maybe-TAGS-target-libada
++    maybe-TAGS-target-libada \
++    maybe-TAGS-target-libgomp
+ 
+ .PHONY: do-install-info
+ do-install-info: unstage install-info-host install-info-target stage
+@@ -1324,7 +1330,8 @@ install-info-target:  \
+     maybe-install-info-target-boehm-gc \
+     maybe-install-info-target-qthreads \
+     maybe-install-info-target-rda \
+-    maybe-install-info-target-libada
++    maybe-install-info-target-libada \
++    maybe-install-info-target-libgomp
+ 
+ .PHONY: do-installcheck
+ do-installcheck: unstage installcheck-host installcheck-target stage
+@@ -1418,7 +1425,8 @@ installcheck-target:  \
+     maybe-installcheck-target-boehm-gc \
+     maybe-installcheck-target-qthreads \
+     maybe-installcheck-target-rda \
+-    maybe-installcheck-target-libada
++    maybe-installcheck-target-libada \
++    maybe-installcheck-target-libgomp
+ 
+ .PHONY: do-mostlyclean
+ do-mostlyclean: unstage mostlyclean-host mostlyclean-target stage
+@@ -1512,7 +1520,8 @@ mostlyclean-target:  \
+     maybe-mostlyclean-target-boehm-gc \
+     maybe-mostlyclean-target-qthreads \
+     maybe-mostlyclean-target-rda \
+-    maybe-mostlyclean-target-libada
++    maybe-mostlyclean-target-libada \
++    maybe-mostlyclean-target-libgomp
+ 
+ .PHONY: do-clean
+ do-clean: unstage clean-host clean-target stage
+@@ -1606,7 +1615,8 @@ clean-target:  \
+     maybe-clean-target-boehm-gc \
+     maybe-clean-target-qthreads \
+     maybe-clean-target-rda \
+-    maybe-clean-target-libada
++    maybe-clean-target-libada \
++    maybe-clean-target-libgomp
+ 
+ .PHONY: do-distclean
+ do-distclean: unstage distclean-host distclean-target stage
+@@ -1700,7 +1710,8 @@ distclean-target:  \
+     maybe-distclean-target-boehm-gc \
+     maybe-distclean-target-qthreads \
+     maybe-distclean-target-rda \
+-    maybe-distclean-target-libada
++    maybe-distclean-target-libada \
++    maybe-distclean-target-libgomp
+ 
+ .PHONY: do-maintainer-clean
+ do-maintainer-clean: unstage maintainer-clean-host maintainer-clean-target stage
+@@ -1794,7 +1805,8 @@ maintainer-clean-target:  \
+     maybe-maintainer-clean-target-boehm-gc \
+     maybe-maintainer-clean-target-qthreads \
+     maybe-maintainer-clean-target-rda \
+-    maybe-maintainer-clean-target-libada
++    maybe-maintainer-clean-target-libada \
++    maybe-maintainer-clean-target-libgomp
+ 
+ 
+ # Here are the targets which correspond to the do-X targets.
+@@ -1947,7 +1959,8 @@ do-check: unstage  \
+     maybe-check-target-boehm-gc \
+     maybe-check-target-qthreads \
+     maybe-check-target-rda \
+-    maybe-check-target-libada stage
++    maybe-check-target-libada \
++    maybe-check-target-libgomp stage
+ 
+ # Automated reporting of test results.
+ 
+@@ -2133,7 +2146,8 @@ install-target:  \
+     maybe-install-target-boehm-gc \
+     maybe-install-target-qthreads \
+     maybe-install-target-rda \
+-    maybe-install-target-libada
++    maybe-install-target-libada \
++    maybe-install-target-libgomp
+ 
+ uninstall:
+ 	@echo "the uninstall target is not supported in this tree"
+@@ -33223,6 +33237,341 @@ maintainer-clean-target-libada: 
+ 
+ 
+ 
++# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
++@if target-libgomp
++$(TARGET_SUBDIR)/libgomp/multilib.out: multilib.out
++	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgomp ; \
++	rm -f $(TARGET_SUBDIR)/libgomp/Makefile || : ; \
++	cp multilib.out $(TARGET_SUBDIR)/libgomp/multilib.out
++@endif target-libgomp
++
++
++
++.PHONY: configure-target-libgomp maybe-configure-target-libgomp
++maybe-configure-target-libgomp:
++@if target-libgomp
++maybe-configure-target-libgomp: configure-target-libgomp
++configure-target-libgomp: $(TARGET_SUBDIR)/libgomp/multilib.out
++	@test ! -f $(TARGET_SUBDIR)/libgomp/Makefile || exit 0; \
++	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgomp ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo Configuring in $(TARGET_SUBDIR)/libgomp; \
++	cd "$(TARGET_SUBDIR)/libgomp" || exit 1; \
++	case $(srcdir) in \
++	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
++	  *) topdir=`echo $(TARGET_SUBDIR)/libgomp/ | \
++		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
++	esac; \
++	srcdiroption="--srcdir=$${topdir}/libgomp"; \
++	libsrcdir="$$s/libgomp"; \
++	rm -f no-such-file || : ; \
++	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
++	  $(TARGET_CONFIGARGS) $${srcdiroption}  \
++	  || exit 1
++@endif target-libgomp
++
++
++
++
++
++.PHONY: all-target-libgomp maybe-all-target-libgomp
++maybe-all-target-libgomp:
++@if target-libgomp
++TARGET-target-libgomp=all
++maybe-all-target-libgomp: all-target-libgomp
++all-target-libgomp: configure-target-libgomp
++	@r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  $(TARGET-target-libgomp))
++@endif target-libgomp
++
++
++
++
++
++.PHONY: check-target-libgomp maybe-check-target-libgomp
++maybe-check-target-libgomp:
++@if target-libgomp
++maybe-check-target-libgomp: check-target-libgomp
++
++check-target-libgomp:
++	@r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(TARGET_FLAGS_TO_PASS)   check)
++
++@endif target-libgomp
++
++.PHONY: install-target-libgomp maybe-install-target-libgomp
++maybe-install-target-libgomp:
++@if target-libgomp
++maybe-install-target-libgomp: install-target-libgomp
++
++install-target-libgomp: installdirs
++	@r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  install)
++
++@endif target-libgomp
++
++# Other targets (info, dvi, etc.)
++
++.PHONY: maybe-info-target-libgomp info-target-libgomp
++maybe-info-target-libgomp:
++@if target-libgomp
++maybe-info-target-libgomp: info-target-libgomp
++
++info-target-libgomp: \
++    configure-target-libgomp 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing info in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           info) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-dvi-target-libgomp dvi-target-libgomp
++maybe-dvi-target-libgomp:
++@if target-libgomp
++maybe-dvi-target-libgomp: dvi-target-libgomp
++
++dvi-target-libgomp: \
++    configure-target-libgomp 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing dvi in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           dvi) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-html-target-libgomp html-target-libgomp
++maybe-html-target-libgomp:
++@if target-libgomp
++maybe-html-target-libgomp: html-target-libgomp
++
++html-target-libgomp: \
++    configure-target-libgomp 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing html in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           html) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-TAGS-target-libgomp TAGS-target-libgomp
++maybe-TAGS-target-libgomp:
++@if target-libgomp
++maybe-TAGS-target-libgomp: TAGS-target-libgomp
++
++TAGS-target-libgomp: \
++    configure-target-libgomp 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing TAGS in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           TAGS) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-install-info-target-libgomp install-info-target-libgomp
++maybe-install-info-target-libgomp:
++@if target-libgomp
++maybe-install-info-target-libgomp: install-info-target-libgomp
++
++install-info-target-libgomp: \
++    configure-target-libgomp \
++    info-target-libgomp 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing install-info in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           install-info) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-installcheck-target-libgomp installcheck-target-libgomp
++maybe-installcheck-target-libgomp:
++@if target-libgomp
++maybe-installcheck-target-libgomp: installcheck-target-libgomp
++
++installcheck-target-libgomp: \
++    configure-target-libgomp 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing installcheck in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           installcheck) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-mostlyclean-target-libgomp mostlyclean-target-libgomp
++maybe-mostlyclean-target-libgomp:
++@if target-libgomp
++maybe-mostlyclean-target-libgomp: mostlyclean-target-libgomp
++
++mostlyclean-target-libgomp: 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing mostlyclean in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           mostlyclean) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-clean-target-libgomp clean-target-libgomp
++maybe-clean-target-libgomp:
++@if target-libgomp
++maybe-clean-target-libgomp: clean-target-libgomp
++
++clean-target-libgomp: 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing clean in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           clean) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-distclean-target-libgomp distclean-target-libgomp
++maybe-distclean-target-libgomp:
++@if target-libgomp
++maybe-distclean-target-libgomp: distclean-target-libgomp
++
++distclean-target-libgomp: 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing distclean in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           distclean) \
++	  || exit 1
++
++@endif target-libgomp
++
++.PHONY: maybe-maintainer-clean-target-libgomp maintainer-clean-target-libgomp
++maybe-maintainer-clean-target-libgomp:
++@if target-libgomp
++maybe-maintainer-clean-target-libgomp: maintainer-clean-target-libgomp
++
++maintainer-clean-target-libgomp: 
++	@[ -f $(TARGET_SUBDIR)/libgomp/Makefile ] || exit 0 ; \
++	r=`${PWD_COMMAND}`; export r; \
++	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
++	$(NORMAL_TARGET_EXPORTS) \
++	echo "Doing maintainer-clean in $(TARGET_SUBDIR)/libgomp" ; \
++	for flag in $(EXTRA_TARGET_FLAGS); do \
++	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
++	done; \
++	(cd $(TARGET_SUBDIR)/libgomp && \
++	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
++	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
++	          "RANLIB=$${RANLIB}" \
++	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
++	           maintainer-clean) \
++	  || exit 1
++
++@endif target-libgomp
++
++
++
+ # ----------
+ # GCC module
+ # ----------
+@@ -34610,6 +34959,8 @@ configure-target-rda: maybe-all-gcc
+ 
+ configure-target-libada: maybe-all-gcc
+ 
++configure-target-libgomp: maybe-all-gcc
++
+ 
+ 
+ configure-target-boehm-gc: maybe-all-target-newlib maybe-all-target-libgloss
+@@ -34632,6 +34983,8 @@ configure-target-libstdc++-v3: maybe-all
+ 
+ configure-target-zlib: maybe-all-target-newlib maybe-all-target-libgloss
+ 
++configure-target-libgomp: maybe-all-target-newlib maybe-all-target-libgloss
++
+ configure-target-examples: maybe-all-target-newlib maybe-all-target-libgloss
+ 
+ configure-target-libtermcap: maybe-all-target-newlib maybe-all-target-libgloss
+Index: configure
+===================================================================
+RCS file: /cvs/gcc/gcc/configure,v
+retrieving revision 1.214
+diff -u -p -d -r1.214 configure
+--- configure	5 May 2005 01:31:58 -0000	1.214
++++ configure	6 May 2005 06:36:38 -0000
+@@ -903,7 +903,8 @@ target_libraries="target-libiberty \
+ 		target-libgfortran \
+ 		${libgcj} \
+ 		target-libobjc \
+-		target-libada"
++		target-libada \
++		target-libgomp"
+ 
+ # these tools are built using the target libraries, and are intended to
+ # run only in the target environment
+@@ -1101,7 +1102,6 @@ no)
+   ;;
+ esac
+ 
+-
+ # Allow --disable-libmudflap to exclude target-libmudflap
+ case $enable_libmudflap in
+ yes)
+@@ -1124,6 +1124,30 @@ no)
+     esac
+ esac
+ 
++# Allow --disable-libgomp to exclude target-libgomp
++case $enable_libgomp in
++yes)
++    ;;
++no)
++    noconfigdirs="$noconfigdirs target-libgomp"
++    ;;
++"")
++    # Enable libgomp by default on hosted POSIX systems.
++    case "${target}" in
++    *-*-linux*-gnu | *-*-gnu* | *-*-k*bsd*-gnu)
++	;;
++    *-*-netbsd* | *-*-freebsd* | *-*-openbsd*)
++	;;
++    *-*-solaris2* | *-*-sysv4* | *-*-irix* | *-*-osf* | *-*-hpux*)
++	;;
++    *-*-darwin*)
++	;;
++    *)
++	noconfigdirs="$noconfigdirs target-libgomp"
++	;;
++    esac
++esac
++
+ 
+ case "${target}" in
+   *-*-chorusos)
+@@ -1778,7 +1802,7 @@ else
+   # Extract the first word of "gcc", so it can be a program name with args.
+ set dummy gcc; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:1782: checking for $ac_word" >&5
++echo "configure:1806: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -1808,7 +1832,7 @@ if test -z "$CC"; then
+   # Extract the first word of "cc", so it can be a program name with args.
+ set dummy cc; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:1812: checking for $ac_word" >&5
++echo "configure:1836: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -1859,7 +1883,7 @@ fi
+       # Extract the first word of "cl", so it can be a program name with args.
+ set dummy cl; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:1863: checking for $ac_word" >&5
++echo "configure:1887: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -1891,7 +1915,7 @@ fi
+ fi
+ 
+ echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works""... $ac_c" 1>&6
+-echo "configure:1895: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works" >&5
++echo "configure:1919: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works" >&5
+ 
+ ac_ext=c
+ # CFLAGS is not in ac_cpp because -g, -O, etc. are not valid cpp options.
+@@ -1902,12 +1926,12 @@ cross_compiling=$ac_cv_prog_cc_cross
+ 
+ cat > conftest.$ac_ext << EOF
+ 
+-#line 1906 "configure"
++#line 1930 "configure"
+ #include "confdefs.h"
+ 
+ main(){return(0);}
+ EOF
+-if { (eval echo configure:1911: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
++if { (eval echo configure:1935: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+   ac_cv_prog_cc_works=yes
+   # If we can't run a trivial program, we are probably using a cross compiler.
+   if (./conftest; exit) 2>/dev/null; then
+@@ -1933,12 +1957,12 @@ if test $ac_cv_prog_cc_works = no; then
+   { echo "configure: error: installation or configuration problem: C compiler cannot create executables." 1>&2; exit 1; }
+ fi
+ echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler""... $ac_c" 1>&6
+-echo "configure:1937: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler" >&5
++echo "configure:1961: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler" >&5
+ echo "$ac_t""$ac_cv_prog_cc_cross" 1>&6
+ cross_compiling=$ac_cv_prog_cc_cross
+ 
+ echo $ac_n "checking whether we are using GNU C""... $ac_c" 1>&6
+-echo "configure:1942: checking whether we are using GNU C" >&5
++echo "configure:1966: checking whether we are using GNU C" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_gcc'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -1947,7 +1971,7 @@ else
+   yes;
+ #endif
+ EOF
+-if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:1951: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
++if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:1975: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
+   ac_cv_prog_gcc=yes
+ else
+   ac_cv_prog_gcc=no
+@@ -1966,7 +1990,7 @@ ac_test_CFLAGS="${CFLAGS+set}"
+ ac_save_CFLAGS="$CFLAGS"
+ CFLAGS=
+ echo $ac_n "checking whether ${CC-cc} accepts -g""... $ac_c" 1>&6
+-echo "configure:1970: checking whether ${CC-cc} accepts -g" >&5
++echo "configure:1994: checking whether ${CC-cc} accepts -g" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_cc_g'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2033,7 +2057,7 @@ fi
+ # Extract the first word of "${ac_tool_prefix}gnatbind", so it can be a program name with args.
+ set dummy ${ac_tool_prefix}gnatbind; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2037: checking for $ac_word" >&5
++echo "configure:2061: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_GNATBIND'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2065,7 +2089,7 @@ if test -n "$ac_tool_prefix"; then
+   # Extract the first word of "gnatbind", so it can be a program name with args.
+ set dummy gnatbind; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2069: checking for $ac_word" >&5
++echo "configure:2093: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_GNATBIND'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2098,7 +2122,7 @@ fi
+ fi
+ 
+ echo $ac_n "checking whether compiler driver understands Ada""... $ac_c" 1>&6
+-echo "configure:2102: checking whether compiler driver understands Ada" >&5
++echo "configure:2126: checking whether compiler driver understands Ada" >&5
+ if eval "test \"`echo '$''{'acx_cv_cc_gcc_supports_ada'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2130,7 +2154,7 @@ else
+ fi
+ 
+ echo $ac_n "checking how to compare bootstrapped objects""... $ac_c" 1>&6
+-echo "configure:2134: checking how to compare bootstrapped objects" >&5
++echo "configure:2158: checking how to compare bootstrapped objects" >&5
+ if eval "test \"`echo '$''{'gcc_cv_prog_cmp_skip'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2228,9 +2252,9 @@ saved_CFLAGS="$CFLAGS"
+ CFLAGS="$CFLAGS $gmpinc"
+ # Check GMP actually works
+ echo $ac_n "checking for correct version of gmp.h""... $ac_c" 1>&6
+-echo "configure:2232: checking for correct version of gmp.h" >&5
++echo "configure:2256: checking for correct version of gmp.h" >&5
+ cat > conftest.$ac_ext <<EOF
+-#line 2234 "configure"
++#line 2258 "configure"
+ #include "confdefs.h"
+ #include "gmp.h"
+ int main() {
+@@ -2241,7 +2265,7 @@ choke me
+ 
+ ; return 0; }
+ EOF
+-if { (eval echo configure:2245: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
++if { (eval echo configure:2269: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>&5; }; then
+   rm -rf conftest*
+   echo "$ac_t""yes" 1>&6
+ else
+@@ -2254,12 +2278,12 @@ rm -f conftest*
+ 
+ if test x"$have_gmp" = xyes; then
+   echo $ac_n "checking for MPFR""... $ac_c" 1>&6
+-echo "configure:2258: checking for MPFR" >&5
++echo "configure:2282: checking for MPFR" >&5
+ 
+   saved_LIBS="$LIBS"
+   LIBS="$LIBS $gmplibs"
+   cat > conftest.$ac_ext <<EOF
+-#line 2263 "configure"
++#line 2287 "configure"
+ #include "confdefs.h"
+ #include <gmp.h>
+ #include <mpfr.h>
+@@ -2267,7 +2291,7 @@ int main() {
+ mpfr_t n; mpfr_init(n);
+ ; return 0; }
+ EOF
+-if { (eval echo configure:2271: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
++if { (eval echo configure:2295: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+   rm -rf conftest*
+   echo "$ac_t""yes" 1>&6
+ else
+@@ -2754,7 +2778,7 @@ do
+ # Extract the first word of "$ac_prog", so it can be a program name with args.
+ set dummy $ac_prog; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2758: checking for $ac_word" >&5
++echo "configure:2782: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_BISON'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2789,7 +2813,7 @@ do
+ # Extract the first word of "$ac_prog", so it can be a program name with args.
+ set dummy $ac_prog; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2793: checking for $ac_word" >&5
++echo "configure:2817: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_YACC'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2824,7 +2848,7 @@ do
+ # Extract the first word of "$ac_prog", so it can be a program name with args.
+ set dummy $ac_prog; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2828: checking for $ac_word" >&5
++echo "configure:2852: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_M4'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2859,7 +2883,7 @@ do
+ # Extract the first word of "$ac_prog", so it can be a program name with args.
+ set dummy $ac_prog; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2863: checking for $ac_word" >&5
++echo "configure:2887: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_FLEX'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2894,7 +2918,7 @@ do
+ # Extract the first word of "$ac_prog", so it can be a program name with args.
+ set dummy $ac_prog; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2898: checking for $ac_word" >&5
++echo "configure:2922: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_LEX'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -2929,7 +2953,7 @@ do
+ # Extract the first word of "$ac_prog", so it can be a program name with args.
+ set dummy $ac_prog; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:2933: checking for $ac_word" >&5
++echo "configure:2957: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_MAKEINFO'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3536,7 +3560,7 @@ test -n "$target_alias" && ncn_target_to
+   # Extract the first word of "${ncn_tool_prefix}ar", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}ar; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3540: checking for $ac_word" >&5
++echo "configure:3564: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_AR'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3569,7 +3593,7 @@ if test -z "$ac_cv_prog_AR" ; then
+     # Extract the first word of "ar", so it can be a program name with args.
+ set dummy ar; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3573: checking for $ac_word" >&5
++echo "configure:3597: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_AR'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3608,7 +3632,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}as", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}as; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3612: checking for $ac_word" >&5
++echo "configure:3636: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_AS'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3641,7 +3665,7 @@ if test -z "$ac_cv_prog_AS" ; then
+     # Extract the first word of "as", so it can be a program name with args.
+ set dummy as; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3645: checking for $ac_word" >&5
++echo "configure:3669: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_AS'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3680,7 +3704,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}dlltool", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}dlltool; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3684: checking for $ac_word" >&5
++echo "configure:3708: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_DLLTOOL'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3713,7 +3737,7 @@ if test -z "$ac_cv_prog_DLLTOOL" ; then
+     # Extract the first word of "dlltool", so it can be a program name with args.
+ set dummy dlltool; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3717: checking for $ac_word" >&5
++echo "configure:3741: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_DLLTOOL'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3752,7 +3776,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}ld", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}ld; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3756: checking for $ac_word" >&5
++echo "configure:3780: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_LD'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3785,7 +3809,7 @@ if test -z "$ac_cv_prog_LD" ; then
+     # Extract the first word of "ld", so it can be a program name with args.
+ set dummy ld; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3789: checking for $ac_word" >&5
++echo "configure:3813: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_LD'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3824,7 +3848,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}nm", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}nm; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3828: checking for $ac_word" >&5
++echo "configure:3852: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_NM'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3857,7 +3881,7 @@ if test -z "$ac_cv_prog_NM" ; then
+     # Extract the first word of "nm", so it can be a program name with args.
+ set dummy nm; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3861: checking for $ac_word" >&5
++echo "configure:3885: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_NM'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3896,7 +3920,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}ranlib", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}ranlib; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3900: checking for $ac_word" >&5
++echo "configure:3924: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_RANLIB'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3929,7 +3953,7 @@ if test -z "$ac_cv_prog_RANLIB" ; then
+     # Extract the first word of "ranlib", so it can be a program name with args.
+ set dummy ranlib; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3933: checking for $ac_word" >&5
++echo "configure:3957: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_RANLIB'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -3968,7 +3992,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}windres", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}windres; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:3972: checking for $ac_word" >&5
++echo "configure:3996: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_WINDRES'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4001,7 +4025,7 @@ if test -z "$ac_cv_prog_WINDRES" ; then
+     # Extract the first word of "windres", so it can be a program name with args.
+ set dummy windres; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4005: checking for $ac_word" >&5
++echo "configure:4029: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_WINDRES'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4040,7 +4064,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}objcopy", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}objcopy; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4044: checking for $ac_word" >&5
++echo "configure:4068: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_OBJCOPY'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4073,7 +4097,7 @@ if test -z "$ac_cv_prog_OBJCOPY" ; then
+     # Extract the first word of "objcopy", so it can be a program name with args.
+ set dummy objcopy; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4077: checking for $ac_word" >&5
++echo "configure:4101: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_OBJCOPY'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4112,7 +4136,7 @@ fi
+   # Extract the first word of "${ncn_tool_prefix}objdump", so it can be a program name with args.
+ set dummy ${ncn_tool_prefix}objdump; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4116: checking for $ac_word" >&5
++echo "configure:4140: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_OBJDUMP'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4145,7 +4169,7 @@ if test -z "$ac_cv_prog_OBJDUMP" ; then
+     # Extract the first word of "objdump", so it can be a program name with args.
+ set dummy objdump; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4149: checking for $ac_word" >&5
++echo "configure:4173: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_OBJDUMP'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4191,7 +4215,7 @@ fi
+   # Extract the first word of "${ncn_target_tool_prefix}ar", so it can be a program name with args.
+ set dummy ${ncn_target_tool_prefix}ar; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4195: checking for $ac_word" >&5
++echo "configure:4219: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_AR_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4224,7 +4248,7 @@ if test -z "$ac_cv_prog_CONFIGURED_AR_FO
+     # Extract the first word of "ar", so it can be a program name with args.
+ set dummy ar; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4228: checking for $ac_word" >&5
++echo "configure:4252: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_AR_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4263,7 +4287,7 @@ fi
+   # Extract the first word of "${ncn_target_tool_prefix}as", so it can be a program name with args.
+ set dummy ${ncn_target_tool_prefix}as; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4267: checking for $ac_word" >&5
++echo "configure:4291: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_AS_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4296,7 +4320,7 @@ if test -z "$ac_cv_prog_CONFIGURED_AS_FO
+     # Extract the first word of "as", so it can be a program name with args.
+ set dummy as; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4300: checking for $ac_word" >&5
++echo "configure:4324: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_AS_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4335,7 +4359,7 @@ fi
+   # Extract the first word of "${ncn_target_tool_prefix}dlltool", so it can be a program name with args.
+ set dummy ${ncn_target_tool_prefix}dlltool; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4339: checking for $ac_word" >&5
++echo "configure:4363: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_DLLTOOL_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4368,7 +4392,7 @@ if test -z "$ac_cv_prog_CONFIGURED_DLLTO
+     # Extract the first word of "dlltool", so it can be a program name with args.
+ set dummy dlltool; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4372: checking for $ac_word" >&5
++echo "configure:4396: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_DLLTOOL_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4407,7 +4431,7 @@ fi
+   # Extract the first word of "${ncn_target_tool_prefix}ld", so it can be a program name with args.
+ set dummy ${ncn_target_tool_prefix}ld; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4411: checking for $ac_word" >&5
++echo "configure:4435: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_LD_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4440,7 +4464,7 @@ if test -z "$ac_cv_prog_CONFIGURED_LD_FO
+     # Extract the first word of "ld", so it can be a program name with args.
+ set dummy ld; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4444: checking for $ac_word" >&5
++echo "configure:4468: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_LD_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4479,7 +4503,7 @@ fi
+   # Extract the first word of "${ncn_target_tool_prefix}nm", so it can be a program name with args.
+ set dummy ${ncn_target_tool_prefix}nm; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4483: checking for $ac_word" >&5
++echo "configure:4507: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_NM_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4512,7 +4536,7 @@ if test -z "$ac_cv_prog_CONFIGURED_NM_FO
+     # Extract the first word of "nm", so it can be a program name with args.
+ set dummy nm; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4516: checking for $ac_word" >&5
++echo "configure:4540: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_NM_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4551,7 +4575,7 @@ fi
+   # Extract the first word of "${ncn_target_tool_prefix}ranlib", so it can be a program name with args.
+ set dummy ${ncn_target_tool_prefix}ranlib; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4555: checking for $ac_word" >&5
++echo "configure:4579: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_RANLIB_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4584,7 +4608,7 @@ if test -z "$ac_cv_prog_CONFIGURED_RANLI
+     # Extract the first word of "ranlib", so it can be a program name with args.
+ set dummy ranlib; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4588: checking for $ac_word" >&5
++echo "configure:4612: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_RANLIB_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4623,7 +4647,7 @@ fi
+   # Extract the first word of "${ncn_target_tool_prefix}windres", so it can be a program name with args.
+ set dummy ${ncn_target_tool_prefix}windres; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4627: checking for $ac_word" >&5
++echo "configure:4651: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_WINDRES_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4656,7 +4680,7 @@ if test -z "$ac_cv_prog_CONFIGURED_WINDR
+     # Extract the first word of "windres", so it can be a program name with args.
+ set dummy windres; ac_word=$2
+ echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+-echo "configure:4660: checking for $ac_word" >&5
++echo "configure:4684: checking for $ac_word" >&5
+ if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_WINDRES_FOR_TARGET'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4741,7 +4765,7 @@ RANLIB_FOR_TARGET=${RANLIB_FOR_TARGET}${
+ NM_FOR_TARGET=${NM_FOR_TARGET}${extra_nmflags_for_target}
+ 
+ echo $ac_n "checking whether to enable maintainer-specific portions of Makefiles""... $ac_c" 1>&6
+-echo "configure:4745: checking whether to enable maintainer-specific portions of Makefiles" >&5
++echo "configure:4769: checking whether to enable maintainer-specific portions of Makefiles" >&5
+ # Check whether --enable-maintainer-mode or --disable-maintainer-mode was given.
+ if test "${enable_maintainer_mode+set}" = set; then
+   enableval="$enable_maintainer_mode"
+@@ -4788,7 +4812,7 @@ esac
+ # gcc for stageN-gcc and stagePREV-gcc for stage(N-1).  In case this is not
+ # possible, however, we can resort to mv.
+ echo $ac_n "checking if symbolic links between directories work""... $ac_c" 1>&6
+-echo "configure:4792: checking if symbolic links between directories work" >&5
++echo "configure:4816: checking if symbolic links between directories work" >&5
+ if eval "test \"`echo '$''{'gcc_cv_prog_ln_s_dir'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -4902,15 +4926,34 @@ trap 'rm -f $CONFIG_STATUS conftest*; ex
+ # Transform confdefs.h into DEFS.
+ # Protect against shell expansion while executing Makefile rules.
+ # Protect against Makefile macro expansion.
+-cat > conftest.defs <<\EOF
+-s%#define \([A-Za-z_][A-Za-z0-9_]*\) *\(.*\)%-D\1=\2%g
+-s%[ 	`~#$^&*(){}\\|;'"<>?]%\\&%g
+-s%\[%\\&%g
+-s%\]%\\&%g
+-s%\$%$$%g
+-EOF
+-DEFS=`sed -f conftest.defs confdefs.h | tr '\012' ' '`
+-rm -f conftest.defs
++#
++# If the first sed substitution is executed (which looks for macros that
++# take arguments), then we branch to the quote section.  Otherwise,
++# look for a macro that doesn't take arguments.
++cat >confdef2opt.sed <<\_ACEOF
++t clear
++: clear
++s,^[ 	]*#[ 	]*define[ 	][ 	]*\([^ 	(][^ 	(]*([^)]*)\)[ 	]*\(.*\),-D\1=\2,g
++t quote
++s,^[ 	]*#[ 	]*define[ 	][ 	]*\([^ 	][^ 	]*\)[ 	]*\(.*\),-D\1=\2,g
++t quote
++d
++: quote
++s,[ 	`~#$^&*(){}\\|;'"<>?],\\&,g
++s,\[,\\&,g
++s,\],\\&,g
++s,\$,$$,g
++p
++_ACEOF
++# We use echo to avoid assuming a particular line-breaking character.
++# The extra dot is to prevent the shell from consuming trailing
++# line-breaks from the sub-command output.  A line-break within
++# single-quotes doesn't work because, if this script is created in a
++# platform that uses two characters for line-breaks (e.g., DOS), tr
++# would break.
++ac_LF_and_DOT=`echo; echo .`
++DEFS=`sed -n -f confdef2opt.sed confdefs.h | tr "$ac_LF_and_DOT" ' .'`
++rm -f confdef2opt.sed
+ 
+ 
+ # Without the "./", some shells look in PATH for config.status.
+Index: configure.in
+===================================================================
+RCS file: /cvs/gcc/gcc/configure.in,v
+retrieving revision 1.349
+diff -u -p -d -r1.349 configure.in
+--- configure.in	5 May 2005 00:59:21 -0000	1.349
++++ configure.in	6 May 2005 06:36:38 -0000
+@@ -150,7 +150,8 @@ target_libraries="target-libiberty \
+ 		target-libgfortran \
+ 		${libgcj} \
+ 		target-libobjc \
+-		target-libada"
++		target-libada \
++		target-libgomp"
+ 
+ # these tools are built using the target libraries, and are intended to
+ # run only in the target environment
+@@ -318,7 +319,6 @@ no)
+   ;;
+ esac
+ 
+-
+ # Allow --disable-libmudflap to exclude target-libmudflap
+ case $enable_libmudflap in
+ yes)
+@@ -341,6 +341,30 @@ no)
+     esac
+ esac
+ 
++# Allow --disable-libgomp to exclude target-libgomp
++case $enable_libgomp in
++yes)
++    ;;
++no)
++    noconfigdirs="$noconfigdirs target-libgomp"
++    ;;
++"")
++    # Enable libgomp by default on hosted POSIX systems.
++    case "${target}" in
++    *-*-linux*-gnu | *-*-gnu* | *-*-k*bsd*-gnu)
++	;;
++    *-*-netbsd* | *-*-freebsd* | *-*-openbsd*)
++	;;
++    *-*-solaris2* | *-*-sysv4* | *-*-irix* | *-*-osf* | *-*-hpux*)
++	;;
++    *-*-darwin*)
++	;;
++    *)
++	noconfigdirs="$noconfigdirs target-libgomp"
++	;;
++    esac
++esac
++
+ 
+ case "${target}" in
+   *-*-chorusos)

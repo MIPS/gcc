@@ -1,0 +1,6 @@
+2005-06-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.def: Add target_module libgomp.
+	* Makefile.in: Regenerate.
+	* configure.in (target_libraries): Add target-libgomp.
+	* configure: Regenerate.
