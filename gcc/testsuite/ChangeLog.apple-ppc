@@ -1,3 +1,7 @@
+2005-06-13  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/execute/20050603-1.c:  Fix marker.
+
 2005-06-03  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4131839 (from mainline)
