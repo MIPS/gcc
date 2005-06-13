@@ -1,3 +1,15 @@
+2005-06-10  Dale Johannesen  <dalej@apple.com>
+
+	Fixes from mainline.
+	Radar 4137102, 4141805, 4104248
+	* config/i386/i386.md (movqi_1):  Fix case where source
+	is memory and destination EDI.
+	* tree-nested.c (finalize_nesting_tree_1):  Disable
+	warn_padded around layout_type call.
+	* cfgcleanup.c (try_crossjump_to_edge): update_forwarder_flag for
+	src2 if src2 has been split.
+
+
 2005-06-04  Devang Patel  <dpatel@apple.com>
 
        * dbxout.c (struct dbx_file): Apply GTY markers.

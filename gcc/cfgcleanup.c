@@ -1686,6 +1686,10 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   delete_basic_block (to_remove);
 
   update_forwarder_flag (redirect_from);
+  /* APPLE LOCAL begin mainline 4141805 */
+  if (redirect_to != src2)
+    update_forwarder_flag (src2);
+  /* APPLE LOCAL end mainline 4141805 */
 
   return true;
 }
