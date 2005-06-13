@@ -2124,7 +2124,7 @@ backend_init (void)
   /* We must do this if it will ever be turned on by pragmas.  It's not
      that expensive so just do it unconditionally.  */
   /* if (flag_caller_saves) */
-  /* APPLE LOCAL begin 4111151 optimization pragmas */
+  /* APPLE LOCAL end 4111151 optimization pragmas */
     init_caller_save ();
   expand_dummy_function_end ();
 }
