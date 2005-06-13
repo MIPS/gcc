@@ -212,20 +212,6 @@ for t in $TARGETS ; do
   rm -r $D/static $D/kext || exit 1
 done
 
-# Make all symbols in libgcc.a private extern.  This is a temporary fix
-# and should be removed after we merge with mainline 4.0 final.
-for t in $TARGETS ; do
-  DT=$DIR/dst-$BUILD-$t
-  D=`echo $DT/usr/lib/gcc/$t-apple-darwin$DARWIN_VERS/$VERS`
-  D64=$D/ppc64
-
-  for lib in $D/libgcc.a $D/libgcc_eh.a $D/libgcc_static.a $D/libgcc_eh.a $D64/libgcc.a $D64/libgcc_eh.a $D/libcc_kext.a ; do
-    if [ -f $lib ] ; then
-      nmedit -p $lib
-    fi
-  done
-done
-
 # Build the cross-hosted compilers.
 for h in $HOSTS ; do
   if [ $h != $BUILD ] ; then
