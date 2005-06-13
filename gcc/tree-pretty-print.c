@@ -57,7 +57,6 @@ static void dump_generic_bb_buff (pretty_printer *, basic_block, int, int);
 
 static pretty_printer buffer;
 static int initialized = 0;
-static bool dumping_stmts;
 
 /* Try to print something for an unknown tree code.  */
 
@@ -101,7 +100,6 @@ void
 print_generic_decl (FILE *file, tree decl, int flags)
 {
   maybe_init_pretty_print (file);
-  dumping_stmts = true;
   print_declaration (&buffer, decl, 2, flags);
   pp_write_text_to_stream (&buffer);
 }
@@ -113,7 +111,6 @@ void
 print_generic_stmt (FILE *file, tree t, int flags)
 {
   maybe_init_pretty_print (file);
-  dumping_stmts = true;
   dump_generic_node (&buffer, t, 0, flags, true);
   pp_flush (&buffer);
 }
@@ -128,7 +125,6 @@ print_generic_stmt_indented (FILE *file, tree t, int flags, int indent)
   int i;
 
   maybe_init_pretty_print (file);
-  dumping_stmts = true;
 
   for (i = 0; i < indent; i++)
     pp_space (&buffer);
@@ -143,7 +139,6 @@ void
 print_generic_expr (FILE *file, tree t, int flags)
 {
   maybe_init_pretty_print (file);
-  dumping_stmts = false;
   dump_generic_node (&buffer, t, 0, flags, false);
 }
 
@@ -273,9 +268,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   if (is_stmt && (flags & TDF_STMTADDR))
     pp_printf (buffer, "<&%p> ", (void *)node);
 
-  if (dumping_stmts
-      && (flags & TDF_LINENO)
-      && EXPR_HAS_LOCATION (node))
+  if ((flags & TDF_LINENO) && EXPR_HAS_LOCATION (node))
     {
       expanded_location xloc = expand_location (EXPR_LOCATION (node));
       pp_character (buffer, '[');
@@ -825,8 +818,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  }
 
 	dump_generic_node (buffer, TREE_OPERAND (node, 0),
-			   spc, flags, dumping_stmts);
-	if (dumping_stmts)
+			   spc, flags, !(flags & TDF_SLIM));
+	if (flags & TDF_SLIM)
 	  newline_and_indent (buffer, spc);
 	else
 	  {
@@ -839,8 +832,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	     tp = &TREE_OPERAND (*tp, 1))
 	  {
 	    dump_generic_node (buffer, TREE_OPERAND (*tp, 0),
-			       spc, flags, dumping_stmts);
-	    if (dumping_stmts)
+			       spc, flags, !(flags & TDF_SLIM));
+	    if (flags & TDF_SLIM)
 	      newline_and_indent (buffer, spc);
 	    else
 	      {
@@ -849,7 +842,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	      }
 	  }
 
-	dump_generic_node (buffer, *tp, spc, flags, dumping_stmts);
+	dump_generic_node (buffer, *tp, spc, flags, !(flags & TDF_SLIM));
       }
       break;
 
@@ -858,7 +851,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	tree_stmt_iterator si;
 	bool first = true;
 
-	if ((flags & TDF_SLIM) || !dumping_stmts)
+	if (flags & TDF_SLIM)
 	  {
 	    pp_string (buffer, "<STATEMENT_LIST>");
 	    break;
@@ -1535,6 +1528,21 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
+    case GOMP_PARALLEL:
+      pp_string (buffer, "#pragma omp parallel ");
+      dump_generic_node (buffer, GOMP_PARALLEL_CLAUSES (node), spc, flags,
+			 false);
+      newline_and_indent (buffer, spc + 2);
+      dump_generic_node (buffer, GOMP_PARALLEL_BODY (node), spc + 2, flags,
+		         false);
+      break;
+
+    case GOMP_CLAUSE_PRIVATE:
+      pp_string (buffer, "private (");
+      dump_generic_node (buffer, GOMP_PRIVATE_VARS (node), spc, flags, false);
+      pp_string (buffer, ")");
+      break;
+
     default:
       NIY;
     }
@@ -2198,7 +2206,6 @@ void
 dump_generic_bb (FILE *file, basic_block bb, int indent, int flags)
 {
   maybe_init_pretty_print (file);
-  dumping_stmts = true;
   dump_generic_bb_buff (&buffer, bb, indent, flags);
   pp_flush (&buffer);
 }

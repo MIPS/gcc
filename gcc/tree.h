@@ -1297,6 +1297,14 @@ struct tree_vec GTY(())
 #define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
 #define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
 
+/* OpenMP directive and clause accessors.  */
+#define GOMP_PARALLEL_CLAUSES(NODE)	\
+		TREE_OPERAND (GOMP_PARALLEL_CHECK (NODE), 0)
+#define GOMP_PARALLEL_BODY(NODE)	\
+		TREE_OPERAND (GOMP_PARALLEL_CHECK (NODE), 1)
+#define GOMP_PRIVATE_VARS(NODE)		\
+  		TREE_OPERAND (GOMP_CLAUSE_PRIVATE_CHECK (NODE), 0)
+
 struct tree_exp GTY(())
 {
   struct tree_common common;

@@ -193,6 +193,7 @@ static const struct resword reswords[] =
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
 
+/* Handlers for parsing OpenMP pragmas.  */
 static void c_parser_pragma_omp_atomic (cpp_reader *);
 static void c_parser_pragma_omp_barrier (cpp_reader *);
 static void c_parser_pragma_omp_critical (cpp_reader *);
@@ -205,6 +206,50 @@ static void c_parser_pragma_omp_section (cpp_reader *);
 static void c_parser_pragma_omp_sections (cpp_reader *);
 static void c_parser_pragma_omp_single (cpp_reader *);
 static void c_parser_pragma_omp_threadprivate (cpp_reader *);
+
+/* List of clauses gathered for the current OpenMP directive.  */
+static tree omp_clauses;
+
+/* All OpenMP pragmas.  OpenMP draft 2.5.  */
+typedef enum pragma_omp_kind {
+  PRAGMA_OMP_NONE = 0,
+
+  PRAGMA_OMP_ATOMIC,
+  PRAGMA_OMP_BARRIER,
+  PRAGMA_OMP_CRITICAL,
+  PRAGMA_OMP_FLUSH,
+  PRAGMA_OMP_FOR,
+  PRAGMA_OMP_MASTER,
+  PRAGMA_OMP_ORDERED,
+  PRAGMA_OMP_PARALLEL,
+  PRAGMA_OMP_PARALLEL_FOR,
+  PRAGMA_OMP_PARALLEL_SECTIONS,
+  PRAGMA_OMP_SECTION,
+  PRAGMA_OMP_SECTIONS,
+  PRAGMA_OMP_SINGLE,
+  PRAGMA_OMP_THREADPRIVATE
+} pragma_omp_kind;
+
+
+/* All OpenMP clauses.  OpenMP draft 2.5.  */
+typedef enum pragma_omp_clause {
+  PRAGMA_OMP_CLAUSE_NONE = 0,
+
+  PRAGMA_OMP_CLAUSE_COPYIN,
+  PRAGMA_OMP_CLAUSE_COPYPRIVATE,
+  PRAGMA_OMP_CLAUSE_DEFAULT,
+  PRAGMA_OMP_CLAUSE_FIRSTPRIVATE,
+  PRAGMA_OMP_CLAUSE_IF,
+  PRAGMA_OMP_CLAUSE_LASTPRIVATE,
+  PRAGMA_OMP_CLAUSE_NOWAIT,
+  PRAGMA_OMP_CLAUSE_NUM_THREADS,
+  PRAGMA_OMP_CLAUSE_ORDERED,
+  PRAGMA_OMP_CLAUSE_PRIVATE,
+  PRAGMA_OMP_CLAUSE_REDUCTION,
+  PRAGMA_OMP_CLAUSE_SCHEDULE,
+  PRAGMA_OMP_CLAUSE_SHARED
+} pragma_omp_clause;
+
 
 /* Initialization routine for this file.  */
 
@@ -282,27 +327,6 @@ typedef enum c_id_kind {
   /* Not an identifier.  */
   C_ID_NONE
 } c_id_kind;
-
-/* All OpenMP pragmas.
-   OpenMP draft 2.5 */
-typedef enum pragma_omp_kind {
-  PRAGMA_OMP_NONE = 0,
-
-  PRAGMA_OMP_ATOMIC,
-  PRAGMA_OMP_BARRIER,
-  PRAGMA_OMP_CRITICAL,
-  PRAGMA_OMP_FLUSH,
-  PRAGMA_OMP_FOR,
-  PRAGMA_OMP_MASTER,
-  PRAGMA_OMP_ORDERED,
-  PRAGMA_OMP_PARALLEL,
-  PRAGMA_OMP_PARALLEL_FOR,
-  PRAGMA_OMP_PARALLEL_SECTIONS,
-  PRAGMA_OMP_SECTION,
-  PRAGMA_OMP_SECTIONS,
-  PRAGMA_OMP_SINGLE,
-  PRAGMA_OMP_THREADPRIVATE
-} pragma_omp_kind;
 
 /* A single C token after string literal concatenation and conversion
    of preprocessing tokens to tokens.  */
@@ -450,7 +474,8 @@ c_lex_one_token (c_token *token)
 	  ++p;
 	  while (*p != '\n' && ISSPACE (*p))
 	    ++p;
-	  /* This is an OpenMP pragma. Getting it's kind now. */
+
+	  /* This is an OpenMP pragma.  Get its kind. */
 	  switch (*p)
 	    {
 	    case 'a':
@@ -464,13 +489,9 @@ c_lex_one_token (c_token *token)
 	      break;
 	    case 'f':
 	      if (*(p + 1) == 'o')
-		{
-		  token->omp_kind = PRAGMA_OMP_FOR;
-		}
+		token->omp_kind = PRAGMA_OMP_FOR;
 	      else
-		{
-		  token->omp_kind = PRAGMA_OMP_FLUSH;
-		}
+		token->omp_kind = PRAGMA_OMP_FLUSH;
 	      break;
 	    case 'm':
 	      token->omp_kind = PRAGMA_OMP_MASTER;
@@ -504,18 +525,12 @@ c_lex_one_token (c_token *token)
 	      if (*(p + 1) == 'e')
 		{
 		  if (*(p + 7) != 's')
-		    {
-		      token->omp_kind = PRAGMA_OMP_SECTION;
-		    }
+		    token->omp_kind = PRAGMA_OMP_SECTION;
 		  else
-		    {
-		      token->omp_kind = PRAGMA_OMP_SECTIONS;
-		    }
+		    token->omp_kind = PRAGMA_OMP_SECTIONS;
 		}
 	      else
-		{
-		  token->omp_kind = PRAGMA_OMP_SINGLE;
-		}
+		token->omp_kind = PRAGMA_OMP_SINGLE;
 	      break;
 	    default:
 	      token->omp_kind = PRAGMA_OMP_THREADPRIVATE;
@@ -1095,8 +1110,6 @@ static tree c_parser_objc_selector_arg (c_parser *);
 static tree c_parser_objc_receiver (c_parser *);
 static tree c_parser_objc_message_args (c_parser *);
 static tree c_parser_objc_keywordexpr (c_parser *);
-static tree c_parser_section_scope (c_parser *);
-static void c_parser_pragma (c_parser *);
 
 /* Parse a translation unit (C90 6.7, C99 6.9).
 
@@ -1225,6 +1238,33 @@ c_parser_external_declaration (c_parser *parser)
       break;
     }
 }
+
+
+/* Consume and handle a CPP_PRAGMA token.
+   Taken from gcc/cp/parser.c: cp_lexer_handle_pragma (). */
+
+static void
+c_parser_pragma (c_parser *parser)
+{
+  cpp_string s;
+  c_token *token = c_parser_peek_token (parser);
+  c_parser_consume_token (parser);
+  gcc_assert (token->type == CPP_PRAGMA);
+  gcc_assert (token->value);
+
+  s.len = TREE_STRING_LENGTH (token->value);
+  s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
+
+  cpp_handle_deferred_pragma (parse_in, &s);
+
+  /* Consume all tokens */
+  parser->tokens_avail = 0;
+
+  /* Clearing token->value here means that we will get an ICE if we
+     try to process this #pragma again (which should be impossible). */
+  token->value = NULL;
+}
+
 
 /* Parse a declaration or function definition (C90 6.5, 6.7.1, C99
    6.7, 6.9.1).  If FNDEF_OK is true, a function definition is
@@ -3472,9 +3512,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	}
       else if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_BARRIER
 	       || c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_FLUSH)
-	{
-	      c_parser_pragma (parser);
-	}
+	c_parser_pragma (parser);
       else
 	{
 	statement:
@@ -3666,6 +3704,8 @@ c_parser_statement (c_parser *parser)
   c_parser_statement_after_labels (parser);
 }
 
+static void c_parser_omp_directive (c_parser *parser);
+
 /* Parse a statement, other than a labeled statement.  */
 
 static void
@@ -3775,39 +3815,7 @@ c_parser_statement_after_labels (c_parser *parser)
       c_parser_consume_token (parser);
       break;
     case CPP_PRAGMA:
-      switch (c_parser_peek_token (parser)->omp_kind)
-	{
-	case PRAGMA_OMP_ATOMIC:
-	  c_parser_pragma (parser);
-	  goto expr_stmt;
-	case PRAGMA_OMP_CRITICAL:
-	case PRAGMA_OMP_MASTER:
-	case PRAGMA_OMP_ORDERED:
-	case PRAGMA_OMP_PARALLEL:
-	case PRAGMA_OMP_SINGLE:
-	  c_parser_pragma (parser);
-	  c_parser_statement (parser);
-	  break;
-	case PRAGMA_OMP_FOR:
-	case PRAGMA_OMP_PARALLEL_FOR:
-	  c_parser_pragma (parser);
-	  if (c_parser_next_token_is_keyword (parser, RID_FOR))
-	    {
-	      c_parser_for_statement (parser);
-	    }
-	  else
-	    {
-	      c_parser_error (parser, "for statement expected");
-	    }
-	  break;
-	case PRAGMA_OMP_PARALLEL_SECTIONS:
-	case PRAGMA_OMP_SECTIONS:
-	  c_parser_pragma (parser);
-	  add_stmt (c_parser_section_scope (parser));
-	  break;
-	default:
-	  goto expr_stmt;
-	}
+      c_parser_omp_directive (parser);
       break;
     default:
     expr_stmt:
@@ -6441,18 +6449,20 @@ c_parser_objc_keywordexpr (c_parser *parser)
     }
 }
 
+
 /* OpenMP draft 2.5:
+
    section-scope:
      { section-sequence }
 
    section-sequence:
      section-directive[opt] structured-block
-     section-sequence section-directive structured-block */
+     section-sequence section-directive structured-block  */
 
 static tree
 c_parser_section_scope (c_parser *parser)
 {
-  /* Taken from c_parser_compount_statement () */
+  /* Taken from c_parser_compound_statement () */
   tree stmt;
   if (!c_parser_require (parser, CPP_OPEN_BRACE, "expected %<{%>"))
     return error_mark_node;
@@ -6460,64 +6470,69 @@ c_parser_section_scope (c_parser *parser)
   stmt = c_begin_compound_stmt (true);
 
   if (c_parser_peek_token (parser)->omp_kind != PRAGMA_OMP_SECTION)
-    {
-      c_parser_statement (parser);
-    }
+    c_parser_statement (parser);
+
   while (c_parser_next_token_is_not (parser, CPP_CLOSE_BRACE))
-    {
-      if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_SECTION)
-	{
-	  c_parser_pragma (parser);
-	  c_parser_statement (parser);
-	}
-      else
-	{
-	  c_parser_error (parser, "'#pragma omp section' expected");
-	  break;
-	}
-    }
+    if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_SECTION)
+      {
+	c_parser_pragma (parser);
+	c_parser_statement (parser);
+      }
+    else
+      {
+	c_parser_error (parser, "'#pragma omp section' expected");
+	break;
+      }
+
   c_parser_skip_until_found (parser, CPP_CLOSE_BRACE, 0);
+
   return c_end_compound_stmt (stmt, true);
 }
 
-/* ====== */
 
-/* All OpenMP clause. OpenMP draft 2.5 */
-typedef enum pragma_omp_clause {
-  PRAGMA_OMP_CLAUSE_NONE = 0,
+/* Parse the body of an OpenMP directive.  */
 
-  PRAGMA_OMP_CLAUSE_COPYIN,
-  PRAGMA_OMP_CLAUSE_COPYPRIVATE,
-  PRAGMA_OMP_CLAUSE_DEFAULT,
-  PRAGMA_OMP_CLAUSE_FIRSTPRIVATE,
-  PRAGMA_OMP_CLAUSE_IF,
-  PRAGMA_OMP_CLAUSE_LASTPRIVATE,
-  PRAGMA_OMP_CLAUSE_NOWAIT,
-  PRAGMA_OMP_CLAUSE_NUM_THREADS,
-  PRAGMA_OMP_CLAUSE_ORDERED,
-  PRAGMA_OMP_CLAUSE_PRIVATE,
-  PRAGMA_OMP_CLAUSE_REDUCTION,
-  PRAGMA_OMP_CLAUSE_SCHEDULE,
-  PRAGMA_OMP_CLAUSE_SHARED
-} pragma_omp_clause;
+static void
+c_parser_omp_directive (c_parser *parser)
+{
+  tree stmt;
+  enum pragma_omp_kind code = c_parser_peek_token (parser)->omp_kind;
 
-static pragma_omp_clause c_parser_pragma_omp_clause (c_parser *);
-static void c_parser_pragma_omp_variable_list (c_parser *);
-static void c_parser_pragma_omp_clause_copyin (c_parser *);
-static void c_parser_pragma_omp_clause_copyprivate (c_parser *);
-static void c_parser_pragma_omp_clause_default (c_parser *);
-static void c_parser_pragma_omp_clause_firstprivate (c_parser *);
-static void c_parser_pragma_omp_clause_if (c_parser *);
-static void c_parser_pragma_omp_clause_lastprivate (c_parser *);
-static void c_parser_pragma_omp_clause_nowait (c_parser *);
-static void c_parser_pragma_omp_clause_num_threads (c_parser *);
-static void c_parser_pragma_omp_clause_ordered (c_parser *);
-static void c_parser_pragma_omp_clause_private (c_parser *);
-static void c_parser_pragma_omp_clause_reduction (c_parser *);
-static void c_parser_pragma_omp_clause_schedule (c_parser *);
-static void c_parser_pragma_omp_clause_shared (c_parser *);
-static inline void c_parser_pragma_omp_parallel_for (c_parser *);
-static inline void c_parser_pragma_omp_parallel_sections (c_parser *);
+  /* Parse the pragma header.  */
+  c_parser_pragma (parser);
+
+  switch (code)
+    {
+      case PRAGMA_OMP_PARALLEL:
+	stmt = c_parser_compound_statement (parser);
+	add_stmt (build (GOMP_PARALLEL, void_type_node, omp_clauses, stmt));
+	break;
+
+      case PRAGMA_OMP_CRITICAL:
+      case PRAGMA_OMP_MASTER:
+      case PRAGMA_OMP_ORDERED:
+      case PRAGMA_OMP_SINGLE:
+	c_parser_statement (parser);
+	break;
+
+      case PRAGMA_OMP_FOR:
+      case PRAGMA_OMP_PARALLEL_FOR:
+	if (c_parser_next_token_is_keyword (parser, RID_FOR))
+	  c_parser_for_statement (parser);
+	else
+	  c_parser_error (parser, "for statement expected");
+	break;
+
+      case PRAGMA_OMP_PARALLEL_SECTIONS:
+      case PRAGMA_OMP_SECTIONS:
+	add_stmt (c_parser_section_scope (parser));
+	break;
+
+      default:
+	c_finish_expr_stmt (c_parser_expression (parser).value);
+    }
+}
+
 
 /* Returns name of the next clause.
    If the clause is not recognized PRAGMA_OMP_CLAUSE_NONE is returned and
@@ -6606,55 +6621,52 @@ c_parser_pragma_omp_clause (c_parser *parser)
      identifier
      variable-list , identifier */
 
-static void
+static tree
 c_parser_pragma_omp_variable_list (c_parser *parser)
 {
-  printf ("\tvariable list: ");
+  tree list = NULL_TREE;
 
   if (c_parser_next_token_is_not (parser, CPP_NAME)
       || c_parser_peek_token (parser)->id_kind != C_ID_ID)
-    {
-      c_parser_error (parser, "expected identifier");
-    }
+    c_parser_error (parser, "expected identifier");
 
   while (c_parser_next_token_is (parser, CPP_NAME)
 	 && c_parser_peek_token (parser)->id_kind == C_ID_ID)
     {
       tree t = lookup_name (c_parser_peek_token (parser)->value);
-      if (!t)
-	{
-	  undeclared_variable (c_parser_peek_token (parser)->value,
-	                       c_parser_peek_token (parser)->location);
-	}
+
+      if (t == NULL_TREE)
+	undeclared_variable (c_parser_peek_token (parser)->value,
+			     c_parser_peek_token (parser)->location);
       else if (t != error_mark_node)
-	{
-	  printf ("%s ",
-	          IDENTIFIER_POINTER (c_parser_peek_token (parser)->value));
-	}
+	list = tree_cons (NULL_TREE, t, list);
+
       c_parser_consume_token (parser);
 
       if (c_parser_next_token_is_not (parser, CPP_COMMA))
-	{
-	  break;
-	}
+	break;
+
       c_parser_consume_token (parser);
     }
-  printf ("\n");
+
+  return list;
 }
 
-/* OpenMP draft 2.5:
-   copyin ( vriable-list ) */
 
-static void
+/* OpenMP draft 2.5:
+   copyin ( variable-list ) */
+
+static tree
 c_parser_pragma_omp_clause_copyin (c_parser *parser)
 {
-  printf ("copyin\n");
-
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      c_parser_pragma_omp_variable_list (parser);
+      tree vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+      return build (GOMP_CLAUSE_COPYIN, NULL_TREE, vars);
     }
+
+  return NULL_TREE;
 }
 
 /* OpenMP draft 2.5:
@@ -6806,16 +6818,17 @@ c_parser_pragma_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED)
 /* OpenMP draft 2.5:
    private ( variable-list ) */
 
-static void
+static tree
 c_parser_pragma_omp_clause_private (c_parser *parser)
 {
-  printf ("private\n");
-
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      c_parser_pragma_omp_variable_list (parser);
+      tree vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+      return build (GOMP_CLAUSE_PRIVATE, NULL_TREE, vars);
     }
+
+  return NULL_TREE;
 }
 
 /* OpenMP draft 2.5:
@@ -6963,12 +6976,10 @@ c_parser_pragma_omp_clause_shared (c_parser *parser)
     }
 }
 
-
- 
-/* The actual parser and external interface.  ??? Does this need to be
-   garbage-collected?  */
 
+/* The actual parser.  ??? Does this need to be garbage-collected?  */
 static GTY (()) c_parser *the_parser;
+
 
 /* OpenMP pragma handlers. */
 
@@ -6978,13 +6989,12 @@ static GTY (()) c_parser *the_parser;
 static void
 c_parser_pragma_omp_atomic (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  printf ("#pragma omp atomic\n");
+  printf ("#pragma omp atomic");
 
   if (c_parser_next_token_is_not (the_parser, CPP_EOF))
-    {
-      c_parser_error (the_parser, "expected new-line");
-    }
+    c_parser_error (the_parser, "expected new-line");
 }
+
 
 /* OpenMP draft 2.5:
    # pragma omp barrier new-line */
@@ -7127,67 +7137,10 @@ c_parser_pragma_omp_ordered (cpp_reader *pfile ATTRIBUTE_UNUSED)
     }
 }
 
-/* OpenMP draft 2.5:
-   # pragma omp parallel parallel-clause[optseq] new-line
-   # pragma omp parallel for parallel-for-clause[optseq] new-line
-   # pragma omp parallel sections parallel-sections-clause[optseq] new-line */
 
-static void
-c_parser_pragma_omp_parallel (cpp_reader *pfile ATTRIBUTE_UNUSED)
-{
-  if (c_parser_next_token_is_keyword (the_parser, RID_FOR))
-    {
-      c_parser_consume_token (the_parser);
-      c_parser_pragma_omp_parallel_for (the_parser);
-    }
-  else if (c_parser_next_token_is (the_parser, CPP_NAME)
-	   && !strcmp ("sections",
-		       IDENTIFIER_POINTER (c_parser_peek_token (the_parser)->value)))
-    {
-      c_parser_consume_token (the_parser);
-      c_parser_pragma_omp_parallel_sections (the_parser);
-    }
-  else
-    {
-      printf ("#pragma omp parallel\n");
+/* OpenMP draft 2.5.
 
-      while (c_parser_next_token_is_not (the_parser, CPP_EOF))
-	{
-	  const pragma_omp_clause c = c_parser_pragma_omp_clause (the_parser);
-
-	  switch (c)
-	    {
-	    case PRAGMA_OMP_CLAUSE_COPYIN:
-	      c_parser_pragma_omp_clause_copyin (the_parser);
-	      break;
-	    case PRAGMA_OMP_CLAUSE_DEFAULT:
-	      c_parser_pragma_omp_clause_default (the_parser);
-	      break;
-	    case PRAGMA_OMP_CLAUSE_FIRSTPRIVATE:
-	      c_parser_pragma_omp_clause_firstprivate (the_parser);
-	      break;
-	    case PRAGMA_OMP_CLAUSE_IF:
-	      c_parser_pragma_omp_clause_if (the_parser);
-	      break;
-	    case PRAGMA_OMP_CLAUSE_NUM_THREADS:
-	      c_parser_pragma_omp_clause_num_threads (the_parser);
-	      break;
-	    case PRAGMA_OMP_CLAUSE_PRIVATE:
-	      c_parser_pragma_omp_clause_private (the_parser);
-	      break;
-	    case PRAGMA_OMP_CLAUSE_REDUCTION:
-	      c_parser_pragma_omp_clause_reduction (the_parser);
-	      break;
-	    case PRAGMA_OMP_CLAUSE_SHARED:
-	      c_parser_pragma_omp_clause_shared (the_parser);
-	      break;
-	    default:
-	      c_parser_error (the_parser, "unknown clause");
-	      return;
-	    }
-	}
-    }
-}
+   # pragma omp parallel for parallel-for-clause[optseq] new-line  */
 
 static inline void
 c_parser_pragma_omp_parallel_for (c_parser *parser)
@@ -7239,6 +7192,11 @@ c_parser_pragma_omp_parallel_for (c_parser *parser)
     }
 }
 
+
+/* OpenMP draft 2.5:
+
+   #pragma omp parallel sections parallel-sections-clause[optseq] new-line  */
+
 static inline void
 c_parser_pragma_omp_parallel_sections (c_parser *parser)
 {
@@ -7279,6 +7237,78 @@ c_parser_pragma_omp_parallel_sections (c_parser *parser)
 	default:
 	  c_parser_error (parser, "unknown clause");
 	  return;
+	}
+    }
+}
+
+
+/* OpenMP draft 2.5:
+
+   #pragma omp parallel parallel-clause[optseq] new-line
+   #pragma omp parallel for parallel-for-clause[optseq] new-line
+   #pragma omp parallel sections parallel-sections-clause[optseq] new-line  */
+
+static void
+c_parser_pragma_omp_parallel (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  if (c_parser_next_token_is_keyword (the_parser, RID_FOR))
+    {
+      /* Parse #pragma omp parallel for [clauses].  */
+      c_parser_consume_token (the_parser);
+      c_parser_pragma_omp_parallel_for (the_parser);
+    }
+  else if (c_parser_next_token_is (the_parser, CPP_NAME)
+	   && !strcmp ("sections",
+		       IDENTIFIER_POINTER (c_parser_peek_token 
+						(the_parser)->value)))
+    {
+      /* Parse #pragma omp parallel sections [clauses].  */
+      c_parser_consume_token (the_parser);
+      c_parser_pragma_omp_parallel_sections (the_parser);
+    }
+  else
+    {
+      /* Parse #pragma omp parallel [clauses].  */
+      omp_clauses = NULL_TREE;
+
+      while (c_parser_next_token_is_not (the_parser, CPP_EOF))
+	{
+	  const pragma_omp_clause c = c_parser_pragma_omp_clause (the_parser);
+	  tree n = NULL_TREE;;
+
+	  switch (c)
+	    {
+	      case PRAGMA_OMP_CLAUSE_COPYIN:
+		n = c_parser_pragma_omp_clause_copyin (the_parser);
+		break;
+	      case PRAGMA_OMP_CLAUSE_DEFAULT:
+		c_parser_pragma_omp_clause_default (the_parser);
+		break;
+	      case PRAGMA_OMP_CLAUSE_FIRSTPRIVATE:
+		c_parser_pragma_omp_clause_firstprivate (the_parser);
+		break;
+	      case PRAGMA_OMP_CLAUSE_IF:
+		c_parser_pragma_omp_clause_if (the_parser);
+		break;
+	      case PRAGMA_OMP_CLAUSE_NUM_THREADS:
+		c_parser_pragma_omp_clause_num_threads (the_parser);
+		break;
+	      case PRAGMA_OMP_CLAUSE_PRIVATE:
+		n = c_parser_pragma_omp_clause_private (the_parser);
+		break;
+	      case PRAGMA_OMP_CLAUSE_REDUCTION:
+		c_parser_pragma_omp_clause_reduction (the_parser);
+		break;
+	      case PRAGMA_OMP_CLAUSE_SHARED:
+		c_parser_pragma_omp_clause_shared (the_parser);
+		break;
+	      default:
+		c_parser_error (the_parser, "unknown clause");
+		return;
+	    }
+
+	  if (n)
+	    omp_clauses = tree_cons (NULL_TREE, n, omp_clauses);
 	}
     }
 }
@@ -7332,6 +7362,7 @@ c_parser_pragma_omp_sections (cpp_reader *pfile ATTRIBUTE_UNUSED)
     }
 }
 
+
 /* OpenMP draft 2.5:
    # pragma omp single single-clause[optseq] new-line */
 
@@ -7364,6 +7395,7 @@ c_parser_pragma_omp_single (cpp_reader *pfile ATTRIBUTE_UNUSED)
     }
 }
 
+
 /* OpenMP draft 2.5:
    # pragma omp threadprivate (variable-list) */
 
@@ -7379,35 +7411,9 @@ c_parser_pragma_omp_threadprivate (cpp_reader *pfile ATTRIBUTE_UNUSED)
     }
 
   if (c_parser_next_token_is_not (the_parser, CPP_EOF))
-    {
-      c_parser_error (the_parser, "expected new-line");
-    }
+    c_parser_error (the_parser, "expected new-line");
 }
-
-/* Consume and handle a CPP_PRAGMA token.
-   Taken from gcc/cp/parser.c: cp_lexer_handle_pragma (). */
-
-static void
-c_parser_pragma (c_parser *parser)
-{
-  cpp_string s;
-  c_token *token = c_parser_peek_token (parser);
-  c_parser_consume_token (parser);
-  gcc_assert (token->type == CPP_PRAGMA);
-  gcc_assert (token->value);
-
-  s.len = TREE_STRING_LENGTH (token->value);
-  s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
-
-  cpp_handle_deferred_pragma (parse_in, &s);
-
-  /* Consume all tokens */
-  parser->tokens_avail = 0;
-  /* Clearing token->value here means that we will get an ICE if we
-     try to process this #pragma again (which should be impossible). */
-  token->value = NULL;
-}
-
+
 /* Parse a single source file.  */
 
 void

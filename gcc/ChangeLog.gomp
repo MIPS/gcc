@@ -1,5 +1,22 @@
 2005-06-13  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-parser.c: Re-order and re-format OpenMP parsing helpers.
+	(c_lex_one_token): Fix typo in comment.
+	(c_parser_omp_directive): Emit GOMP_PARALLEL.
+	(c_parser_pragma_omp_variable_list): Return TREE_LIST of VAR_DECLs.
+	(c_parser_pragma_omp_clause_copyin): Return list of copyin variables.
+	(c_parser_pragma_omp_clause_private): Likewise.
+	* gimplify.c (gimplify_gomp_parallel): New.
+	(gimplify_expr): Handle GOMP_PARALLEL.
+	* tree-pretty-print.c (dumping_stmts): Remove.
+	Update all users.
+	(dump_generic_node): Handle GOMP_PARALLEL and GOMP_CLAUSE_PRIVATE.
+	* tree.def (GOMP_CLAUSE_COPYIN, GOMP_CLAUSE_PRIVATE): Define.
+	* tree.h (GOMP_PARALLEL_CLAUSES, GOMP_PARALLEL_BODY,
+	GOMP_PRIVATE_VARS): Define.
+
+2005-06-13  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree.def (GOMP_PARALLEL, GOMP_FOR, GOMP_SECTIONS,
 	GOMP_SECTION, GOMP_SINGLE, GOMP_MASTER, GOMP_CRITICAL,
 	GOMP_BARRIER, GOMP_ORDERED): Define.

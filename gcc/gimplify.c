@@ -3760,6 +3760,55 @@ gimplify_to_stmt_list (tree *stmt_p)
 }
 
 
+/* Gimplify an OpenMP parallel section (GOMP_PARALLEL).  This builds a
+   new function __gomp_fn.XXXXX that encapsulates the body of the
+   directive, and emits the following code:
+
+   	GOMP_parallel_start (__gomp_fn.XXXX, ...);
+	__gomp_fn.XXXX (NULL);
+	GOMP_parallel_end ();
+*/
+
+static enum gimplify_status
+gimplify_gomp_parallel (tree *expr_p, tree *pre_p, tree *post_p)
+{
+  tree fn_type, fn, lib_fn_type, lib_fn, args;
+  char *fn_name;
+  static unsigned int num;
+
+  /* Build a new function out of the pragma's body.  */
+  fn_type = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
+  ASM_FORMAT_PRIVATE_NAME (fn_name, "__gomp_fn", num++);
+  fn = build_fn_decl (fn_name, fn_type);
+
+  /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...) to PRE_P.  */
+  lib_fn_type = build_function_type_list (void_type_node,
+					  fn_type,
+                                          ptr_type_node,
+					  unsigned_type_node,
+					  NULL_TREE);
+  lib_fn = build_fn_decl ("GOMP_parallel_start", lib_fn_type);
+  args = tree_cons (NULL_TREE, fn,
+		    tree_cons (NULL_TREE, null_pointer_node,
+			       tree_cons (NULL_TREE, integer_one_node,
+					  NULL_TREE)));
+
+  append_to_statement_list (build_function_call_expr (lib_fn, args), pre_p);
+
+  /* Emit GOMP_parallel_end () to POST_P.  */
+  lib_fn_type = build_function_type_list (void_type_node, void_type_node,
+					  NULL_TREE);
+  lib_fn = build_fn_decl ("GOMP_parallel_end", lib_fn_type);
+  args = NULL_TREE;
+  append_to_statement_list (build_function_call_expr (lib_fn, args), post_p);
+
+  /* Replace EXPR_P with __gomp_fn.XXXX ().  */
+  args = NULL_TREE;
+  *expr_p = build_function_call_expr (fn, args);
+
+  return GS_ALL_DONE;
+}
+
 /*  Gimplifies the expression tree pointed by EXPR_P.  Return 0 if
     gimplification failed.
 
@@ -4195,6 +4244,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case SSA_NAME:
 	  /* Allow callbacks into the gimplifier during optimization.  */
 	  ret = GS_ALL_DONE;
+	  break;
+
+	case GOMP_PARALLEL:
+	  ret = gimplify_gomp_parallel (expr_p, pre_p, post_p);
 	  break;
 
 	default:

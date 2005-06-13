@@ -988,6 +988,12 @@ DEFTREECODE (GOMP_BARRIER, "gomp_barrier", tcc_expression, 0)
    Operand 1: GOMP_ORDERED_BODY: Body to be executed sequentially.  */
 DEFTREECODE (GOMP_ORDERED, "gomp_ordered", tcc_expression, 1)
 
+/* OpenMP clause: copyin (variable_list).  */
+DEFTREECODE (GOMP_CLAUSE_COPYIN, "copyin", tcc_expression, 1)
+
+/* OpenMP clause: private (variable_list).  */
+DEFTREECODE (GOMP_CLAUSE_PRIVATE, "private", tcc_expression, 1)
+
 /*
 Local variables:
 mode:c
