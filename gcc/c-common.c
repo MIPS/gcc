@@ -6683,7 +6683,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
     case ARRAY_REF:
       if (TREE_CODE (TREE_OPERAND (arg, 1)) != INTEGER_CST
 	  || TREE_INT_CST_LOW (TREE_OPERAND (arg, 1)) != 0)
-        error ("array references not supported");
+        error ("array references, other than [0], not supported");
       else
 	sprintf (buf + strlen (buf), "%d", cw_asm_field_offset (TREE_OPERAND (arg, 0)));
       break;
