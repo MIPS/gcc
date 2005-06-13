@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* { dg-do compile } */
 /* { dg-options "-Wpadded" }
 /* The struct internally constructed for the nested function should
