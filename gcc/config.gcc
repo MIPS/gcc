@@ -1037,6 +1037,13 @@ i[34567]86-*-linux*)	# Intel 80386's running GNU/Linux
 			# aka GNU/Linux C library 6
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h i386/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff"
+	case ${target} in
+	*-wrs-linux*)
+		tm_file="${tm_file} i386/x86-64.h"
+		tm_defines="${tm_defines} TARGET_BI_ARCH=1"
+		need_64bit_hwint=yes
+		;;
+	esac
 	;;
 x86_64-*-linux*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h \

@@ -1,3 +1,10 @@
+2005-06-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/config.gcc (i[34567]86-wrs-linux*): Build a bi-arch
+	compiler.
+	* gcc/config/i386/x86-64.h (ASM_SPEC): Explicitly pass --64 to the
+	assembler in 64-bit mode.
+
 2005-05-09  Mark Mitchell  <mark@codesourcery.com>
 
 	PR 18655
