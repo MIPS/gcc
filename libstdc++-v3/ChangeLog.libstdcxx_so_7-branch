@@ -1,5 +1,15 @@
 2005-06-14  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/ext/sso_string.h: Remove the const _Alloc& argument
+	from all the member functions, simply use _M_get_allocator()
+	instead; change _S_create to non-static and rename as _M_create.
+	* src/sso_string-inst.cc: Likewise, remove the argument.
+
+	* include/ext/sso_string.h (__sso_string(const _Alloc&)): Simplify,
+	just call _M_set_length.
+
+2005-06-14  Paolo Carlini  <pcarlini@suse.de>
+
         Merged to mainline at tag libstdcxx_so_7-merge-20050614.
 
 	(Adjusted debug/string::swap to disambiguate _M_swap)

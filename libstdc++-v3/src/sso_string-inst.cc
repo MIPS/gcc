@@ -60,16 +60,13 @@ namespace __gnu_cxx
 
   template 
     void 
-    RS::_M_construct(RS::iterator, RS::iterator, 
-		     const allocator<C>&, std::forward_iterator_tag);
+    RS::_M_construct(RS::iterator, RS::iterator, std::forward_iterator_tag);
 
   template
     void
-    RS::_M_construct(C*, C*, const allocator<C>&,
-		     std::forward_iterator_tag);
+    RS::_M_construct(C*, C*, std::forward_iterator_tag);
 
   template
     void
-    RS::_M_construct(const C*, const C*, const allocator<C>&,
-		     std::forward_iterator_tag);
+    RS::_M_construct(const C*, const C*, std::forward_iterator_tag);
 } // namespace __gnu_cxx
