@@ -1,3 +1,8 @@
+2005-06-13  Richard Henderson  <rth@redhat.com>
+
+	* configure.in: Add --disable-gomp.
+	* configure: Regenerate.
+
 2005-06-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.def: Add target_module libgomp.
