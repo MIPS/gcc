@@ -1,6 +1,6 @@
 2005-06-13  Richard Henderson  <rth@redhat.com>
 
-	* configure.in: Add --disable-gomp.
+	* configure.in: Add --disable-libgomp.
 	* configure: Regenerate.
 
 2005-06-09  Diego Novillo  <dnovillo@redhat.com>
