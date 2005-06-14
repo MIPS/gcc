@@ -159,12 +159,13 @@ namespace __gnu_test
   void 
   run_tests_wrapped_env(const char*, const char*, const func_callback&);
 
+
   // For containers (23.1/3).
   struct NonDefaultConstructible
   {
     NonDefaultConstructible(int) { }
   };
-
+ 
   inline bool
   operator==(const NonDefaultConstructible& lhs,
 	     const NonDefaultConstructible& rhs)
@@ -174,7 +175,8 @@ namespace __gnu_test
   operator<(const NonDefaultConstructible& lhs,
 	    const NonDefaultConstructible& rhs)
   { return false; }
-  
+
+
   // Counting.
   struct counter
   {
