@@ -679,6 +679,7 @@ static void is_altivec_return_reg (rtx, void *);
 static rtx generate_set_vrsave (rtx, rs6000_stack_t *, int);
 int easy_vector_constant (rtx, enum machine_mode);
 static bool rs6000_is_opaque_type (tree);
+static bool rs6000_decimal_float_supported_p (void);
 static rtx rs6000_dwarf_register_span (rtx);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
 static rtx rs6000_tls_get_addr (void);
@@ -918,6 +919,9 @@ static const char alt_reg_names[][8] =
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN rs6000_dwarf_register_span
 
+#undef TARGET_DECIMAL_FLOAT_SUPPORTED_P
+#define TARGET_DECIMAL_FLOAT_SUPPORTED_P rs6000_decimal_float_supported_p
+
 /* On rs6000, function arguments are promoted, as are function return
    values.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
@@ -983,6 +987,13 @@ static const char alt_reg_names[][8] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+
+/* Target hook for decimal_float_supported_p.  */
+static bool
+rs6000_decimal_float_supported_p (void)
+{
+  return true;
+}
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
    MODE.  */

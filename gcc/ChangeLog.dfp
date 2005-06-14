@@ -1,5 +1,10 @@
 2005-06-13  Janis Johnson  <janis187@us.ibm.com>
 
+	* target.h (struct gcc_target): New hook decimal_float_supported_p.
+	* target-def.h: Define its default.
+	* config/rs6000/rs6000.c: Define it for this target.
+	* doc/tm.texi: Document it.
+
 	* doc/extend.texi (Decimal Float): New.
 
 2005-06-08  Janis Johnson  <janis187@us.ibm.com>
