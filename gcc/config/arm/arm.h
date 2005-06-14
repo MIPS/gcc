@@ -301,7 +301,6 @@ extern GTY(()) rtx aof_pic_label;
 
 #define TARGET_HARD_TP			(target_thread_pointer == TP_CP15)
 #define TARGET_SOFT_TP			(target_thread_pointer == TP_SOFT)
-#define TARGET_LINUX_TP			(target_thread_pointer == TP_LINUX)
 
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
@@ -511,8 +510,7 @@ extern enum arm_abi_type arm_abi;
 /* Which thread pointer access sequence to use.  */
 enum arm_tp_type {
   TP_SOFT,
-  TP_CP15,
-  TP_LINUX
+  TP_CP15
 };
 
 extern enum arm_tp_type target_thread_pointer;
@@ -1725,14 +1723,15 @@ typedef struct machine_function GTY(())
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
   /* Labels for per-function Thumb call-via stubs.  One per potential calling
-     register.  We can never call via SP, LR or PC.  */
-  rtx call_via[13];
+     register.  We can never call via LR or PC.  We can call via SP if a
+     trampoline happens to be on the top of the stack.  */
+  rtx call_via[14];
 }
 machine_function;
 
 /* As in the machine_function, a global set of call-via labels, for code 
    that is in text_section().  */
-extern GTY(()) rtx thumb_call_via_label[13];
+extern GTY(()) rtx thumb_call_via_label[14];
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the
@@ -2038,6 +2037,16 @@ typedef struct
 /* Alignment required for a trampoline in bits.  */
 #define TRAMPOLINE_ALIGNMENT  32
 
+/* Call __clear_cache after setting up the trampoline unless this is a nop.  */
+#ifdef CLEAR_INSN_CACHE
+#define ARM_EMIT_TRAMPOLINE_CACHE_CLEAR(TRAMP)				\
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
+		     0, VOIDmode, 2, TRAMP, Pmode,			\
+		     plus_constant (TRAMP, TRAMPOLINE_SIZE), Pmode);
+#else
+#define ARM_EMIT_TRAMPOLINE_CACHE_CLEAR(TRAMP) do {} while (0)
+#endif
+
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
@@ -2052,6 +2061,7 @@ typedef struct
 			       plus_constant (TRAMP,			\
 					      TARGET_ARM ? 12 : 20)),	\
 		  FNADDR);						\
+  ARM_EMIT_TRAMPOLINE_CACHE_CLEAR (TRAMP);				\
 }
 #endif
 
@@ -2217,6 +2227,12 @@ typedef struct
 #   define DTORS_SECTION_ASM_OP ARM_DTORS_SECTION_OP
 # endif /* !defined (__ARM_EABI__) */
 #endif /* !defined (IN_LIBCC2) */
+
+/* True if the operating system can merge entities with vague linkage
+   (e.g., symbols in COMDAT group) during dynamic linking.  */
+#ifndef TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P
+#define TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P true
+#endif
 
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)

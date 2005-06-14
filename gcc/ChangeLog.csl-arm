@@ -1,3 +1,105 @@
+2005-05-13  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline:
+	* config/arm/arm.md (negsf2, negdf2): Permit these expands when
+	compiling for VFP.
+
+2005-05-06  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/unwind-arm.c (get_eit_entry): Adjust address to throwing
+	call, not following instruction.
+
+2005-05-01  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (ARM_EMIT_TRAMPOLINE_CACHE_CLEAR): Define.
+	(INITIALIZE_TRAMPOLINE): Use it.
+	* config/arm/linux-gas.h (INITIALIZE_TRAMPOLINE): Remove.
+	* config/arm/netbsd.h (INITIALIZE_TRAMPOLINE): Remove.
+	* config/arm/netbsd-elf.h (INITIALIZE_TRAMPOLINE): Remove.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/bpabi.h (TARGET_DEFAULT): Define.
+	* config/arm/linux-eabi.h (SUBTARGET_CPU_DEFAULT): Define.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/bpabi.h (RENAME_LIBRARY_SET): Always use .thumb_set in
+	thumb mode.
+	* config/arm/ieee754-df.S: Use __INTERWORKING_STUBS__.
+	* config/arm/ieee754-sf.S: Ditto.
+	* config/arm/lib1funcs.asm: Define and use __INTERWORKING_STUBS__.
+	(FUNC_ALIAS): New macro.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
+	* combine.c (distribute_notes): Don't put REG_EQUAL notes on deleted
+	insns.
+
+2005-04-30  Paul Brook  <paul@codesourcery.com>
+
+	* combine.c (distribute_notes): Don't put notes on temporary insns.
+
+2005-04-27  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.c (target_thread_pointer): Default to TP_SOFT.
+	(arm_override_options, arm_load_tp): Remove -mtp=linux support.
+	* config/arm/arm.h (TARGET_LINUX_TP): Delete.
+	(enum arm_tp_type): Remove TP_LINUX.
+
+2005-04-26  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.md (thumb_mulsi3): Use two-operand assembly form.
+
+2005-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport from mainline:
+	* gcc.dg/arm-vfp1.c: Remove -ffast-math.
+	
+	Backport from mainline:
+	* gcc.dg/arm-vfp1.c: New test.
+
+2005-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_VISIBILITY): New macro.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	(TARGET_CXX): Adjust accordingly.
+	* target.h (struct gcc_target): Remove epxort_class_data.  Add
+	determine_class_data_visibility and class_data_always_comdat.
+	* cp/decl2.c (determine_class_data_visibility): New function
+	(import_export_vtable): Honor
+	TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT.  Use
+	determine_class_data_visibility.
+	(maybe_emit_vtables): Play fewer odd games with cgraph.
+	(determine_visibility): Remove use of export_class_data.
+	(import_export_tinfo): Honor TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT.  Use
+	determine_class_data_visibility.
+	* cp/rtti.c (get_tinfo_decl): Do not set DECL_COMDAT.
+	* config/arm/arm.c (arm_cxx_export_class_data): Remove.
+	(arm_cxx_determine_class_data_visibility): New.
+	(arm_cxx_class_data_always_comdat): Likewise.
+	(TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Define.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* config/arm/arm.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P): Define.
+	* config/arm/symbian.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P):
+	Define.
+	* doc/tm.texi (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Document.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* testsuite/g++.dg/ext/visibility/arm2.C: New test.
+	* testsuite/g++.dg/ext/visibility/arm3.C: Likewise.
+	* testsuite/g++.dg/ext/visibility/symbian2.C: Likewise.
+	
+2005-04-01  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (thumb_call_via_label): Include space for SP.
+	(arm_output_function_epilogue): Allow call_via_SP.
+	(thumb_call_via_reg, arm_file_end): Ditto.
+	* config/arm/arm.h (struct machine_function): Include space for SP.
+	(thumb_call_via_label): Update declaration.
+
 2005-03-30  Paul Brook  <pau@codesourcery.com>
 
 	* dwarf2out.c (multiple_reg_loc_descriptor): Handle single REG.

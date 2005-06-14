@@ -3321,7 +3321,7 @@ legitimate_pic_operand_p (rtx x)
 int
 legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 {
-  rtx rs1 = NULL, rs2 = NULL, imm1 = NULL, imm2;
+  rtx rs1 = NULL, rs2 = NULL, imm1 = NULL;
 
   if (REG_P (addr) || GET_CODE (addr) == SUBREG)
     rs1 = addr;
@@ -3385,7 +3385,6 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	       && ! TARGET_CM_MEDMID
 	       && RTX_OK_FOR_OLO10_P (rs2))
 	{
-	  imm2 = rs2;
 	  rs2 = NULL;
 	  imm1 = XEXP (rs1, 1);
 	  rs1 = XEXP (rs1, 0);
@@ -3401,25 +3400,10 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
 	return 0;
 
-      if (USE_AS_OFFSETABLE_LO10)
-	{
-	  /* We can't allow TFmode, because an offset greater than or equal to
-	     the alignment (8) may cause the LO_SUM to overflow if !v9.  */
-	  if (mode == TFmode && ! TARGET_V9)
-	    return 0;
-	}
-      else
-        {
-	  /* We prohibit LO_SUM for TFmode when there are no quad move insns
-	     and we consequently need to split.  We do this because LO_SUM
-	     is not an offsettable address.  If we get the situation in reload
-	     where source and destination of a movtf pattern are both MEMs with
-	     LO_SUM address, then only one of them gets converted to an
-	     offsettable address.  */
-	  if (mode == TFmode
-	      && ! (TARGET_FPU && TARGET_ARCH64 && TARGET_HARD_QUAD))
-	    return 0;
-	}
+      /* We can't allow TFmode in 32-bit mode, because an offset greater
+	 than the alignment (8) may cause the LO_SUM to overflow.  */
+      if (mode == TFmode && TARGET_ARCH32)
+	return 0;
     }
   else if (GET_CODE (addr) == CONST_INT && SMALL_INT (addr))
     return 1;
@@ -5102,7 +5086,7 @@ static void function_arg_record_value_2
 static void function_arg_record_value_1
  (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
-static rtx function_arg_union_value (int, enum machine_mode, int);
+static rtx function_arg_union_value (int, enum machine_mode, int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
@@ -5446,10 +5430,18 @@ function_arg_record_value (tree type, enum machine_mode mode,
    REGNO is the hard register the union will be passed in.  */
 
 static rtx
-function_arg_union_value (int size, enum machine_mode mode, int regno)
+function_arg_union_value (int size, enum machine_mode mode, int slotno,
+			  int regno)
 {
   int nwords = ROUND_ADVANCE (size), i;
   rtx regs;
+
+  /* See comment in previous function for empty structures.  */
+  if (nwords == 0)
+    return gen_rtx_REG (mode, regno);
+
+  if (slotno == SPARC_INT_ARG_MAX - 1)
+    nwords = 1;
 
   /* Unions are passed left-justified.  */
   regs = gen_rtx_PARALLEL (mode, rtvec_alloc (nwords));
@@ -5517,7 +5509,7 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
       if (size > 16)
 	abort (); /* shouldn't get here */
 
-      return function_arg_union_value (size, mode, regno);
+      return function_arg_union_value (size, mode, slotno, regno);
     }
   /* v9 fp args in reg slots beyond the int reg slots get passed in regs
      but also have the slot allocated for them.
@@ -5797,7 +5789,7 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	  if (size > 32)
 	    abort (); /* shouldn't get here */
 
-	  return function_arg_union_value (size, mode, regbase);
+	  return function_arg_union_value (size, mode, 0, regbase);
 	}
       else if (AGGREGATE_TYPE_P (type))
 	{
@@ -5820,7 +5812,7 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	     try to be unduly clever, and simply follow the ABI
 	     for unions in that case.  */
 	  if (mode == BLKmode)
-	    return function_arg_union_value (bytes, mode, regbase);
+	    return function_arg_union_value (bytes, mode, 0, regbase);
 	}
       else if (GET_MODE_CLASS (mode) == MODE_INT
 	       && GET_MODE_SIZE (mode) < UNITS_PER_WORD)

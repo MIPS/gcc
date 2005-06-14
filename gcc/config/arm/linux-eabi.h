@@ -41,6 +41,12 @@
 #undef ARM_DEFAULT_ABI
 #define ARM_DEFAULT_ABI ARM_ABI_AAPCS_LINUX
 
+/* Default to armv5t so that thumb shared libraries work.
+   The ARM10TDMI core is the default for armv5t, so set
+   SUBTARGET_CPU_DEFAULT to achieve this.  */
+#undef SUBTARGET_CPU_DEFAULT
+#define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm10tdmi
+
 #undef SUBTARGET_EXTRA_LINK_SPEC
 #define SUBTARGET_EXTRA_LINK_SPEC "-m armelf_linux_eabi"
 

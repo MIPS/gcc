@@ -33,6 +33,10 @@
 #undef FPUTYPE_DEFAULT
 #define FPUTYPE_DEFAULT (FPUTYPE_VFP)
 
+/* EABI targets should enable interworking by default.  */
+#undef TARGET_DEFAULT
+#define TARGET_DEFAULT (ARM_FLAG_INTERWORK)
+
 /* The ARM BPABI functions return a boolean; they use no special
    calling convention.  */
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) TARGET_BPABI
@@ -50,7 +54,7 @@
   "%{static:-Bstatic} %{shared:-shared} %{symbolic:-Bsymbolic} "	\
   "-X"
 
-#if defined (__thumb__) && !defined (__THUMB_INTERWORK__) 
+#if defined (__thumb__)
 #define RENAME_LIBRARY_SET ".thumb_set"
 #else
 #define RENAME_LIBRARY_SET ".set"

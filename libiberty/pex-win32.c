@@ -27,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 static const char *this_program;
 
@@ -204,6 +205,33 @@ find_executable (program, search)
   return full_executable;
 }
 
+/* Tries to duplicate a handle. Returns true for successful duplication, or
+   if GetStdHandle returns 0 or INVALID_HANDLE_VALUE. Returns false on
+   error.  */
+
+static int
+maybe_duplicate_handle (HANDLE *dest, int fd, DWORD type, HANDLE me)
+{
+  if (fd == -1)
+    {
+      HANDLE std_handle = GetStdHandle (type);
+      if (std_handle != INVALID_HANDLE_VALUE
+	  && std_handle != 0)
+	{
+	  if (!DuplicateHandle (me, std_handle, me, dest, 0, TRUE,
+		                DUPLICATE_SAME_ACCESS))
+	    return 0;
+	}
+    }
+  else
+    {
+      if (!DuplicateHandle (me, (HANDLE)_get_osfhandle (fd), me, dest, 0, TRUE,
+	                    DUPLICATE_SAME_ACCESS))
+	return 0;
+    }
+  return 1;
+}
+
 int
 pexec (program, argv, search, stdin_fd, stdout_fd, stderr_fd)
      const char *program;
@@ -233,29 +261,16 @@ pexec (program, argv, search, stdin_fd, stdout_fd, stderr_fd)
 
   me = GetCurrentProcess();
 
-  if (!DuplicateHandle (me,
-		        (stdin_fd == -1)
-			? GetStdHandle (STD_INPUT_HANDLE)
-			: (HANDLE)_get_osfhandle (stdin_fd),
-			me, &si.hStdInput,
-			0, TRUE, DUPLICATE_SAME_ACCESS))
-    goto cleanup;
-  if (!DuplicateHandle (me,
-			(stdout_fd == -1)
-			? GetStdHandle (STD_OUTPUT_HANDLE)
-			: (HANDLE)_get_osfhandle (stdout_fd),
-			me, &si.hStdOutput,
-			0, TRUE, DUPLICATE_SAME_ACCESS))
-    goto cleanup;
-  if (!DuplicateHandle (me,
-			(stderr_fd == -1)
-			? GetStdHandle (STD_ERROR_HANDLE)
-			: (HANDLE)_get_osfhandle (stderr_fd),
-			me, &si.hStdError,
-			0, TRUE, DUPLICATE_SAME_ACCESS))
+  if (!maybe_duplicate_handle (&si.hStdInput, stdin_fd, STD_INPUT_HANDLE, me))
     goto cleanup;
 
- 
+  if (!maybe_duplicate_handle (&si.hStdOutput, stdout_fd, STD_OUTPUT_HANDLE,
+	                       me))
+    goto cleanup;
+
+  if (!maybe_duplicate_handle (&si.hStdError, stderr_fd, STD_ERROR_HANDLE, me))
+    goto cleanup;
+
   if (!CreateProcess (executable, cmdline,
 		     0, 0, TRUE, 0, 0, 0,
 		     &si, &pinf))

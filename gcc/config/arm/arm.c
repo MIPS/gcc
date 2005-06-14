@@ -179,7 +179,8 @@ static tree arm_get_cookie_size (tree);
 static bool arm_cookie_has_size (void);
 static bool arm_cxx_cdtor_returns_this (void);
 static bool arm_cxx_key_method_may_be_inline (void);
-static bool arm_cxx_export_class_data (void);
+static void arm_cxx_determine_class_data_visibility (tree);
+static bool arm_cxx_class_data_always_comdat (void);
 static const char * arm_cxx_unwind_resume_name (void);
 static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
@@ -307,8 +308,12 @@ static rtx arm_dwarf_register_span (rtx);
 #undef TARGET_CXX_USE_AEABI_ATEXIT
 #define TARGET_CXX_USE_AEABI_ATEXIT arm_cxx_use_aeabi_atexit
 
-#undef TARGET_CXX_EXPORT_CLASS_DATA
-#define TARGET_CXX_EXPORT_CLASS_DATA arm_cxx_export_class_data
+#undef TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
+#define TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY \
+  arm_cxx_determine_class_data_visibility
+
+#undef TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT
+#define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT arm_cxx_class_data_always_comdat
 
 #undef TARGET_CXX_UNWIND_RESUME_NAME
 #define TARGET_CXX_UNWIND_RESUME_NAME arm_cxx_unwind_resume_name
@@ -397,14 +402,14 @@ const char * target_abi_name = NULL;
 /* Set by the -mtp=... option.  */
 const char * target_thread_switch = NULL;
 
-enum arm_tp_type target_thread_pointer;
+enum arm_tp_type target_thread_pointer = TP_SOFT;
 
 /* Used to parse -mstructure_size_boundary command line option.  */
 const char * structure_size_string = NULL;
 int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 
 /* Used for Thumb call_via trampolines.  */
-rtx thumb_call_via_label[13];
+rtx thumb_call_via_label[14];
 static int thumb_call_reg_needed;
 
 /* Bit values used to identify processor capabilities.  */
@@ -1144,20 +1149,12 @@ arm_override_options (void)
       && (tune_flags & FL_MODE32) == 0)
     flag_schedule_insns = flag_schedule_insns_after_reload = 0;
 
-  /* Default to the appropriate thread pointer access method.  */
-  if (arm_abi == ARM_ABI_AAPCS_LINUX)
-    target_thread_pointer = TP_LINUX;
-  else
-    target_thread_pointer = TP_SOFT;
-
   if (target_thread_switch)
     {
       if (strcmp (target_thread_switch, "soft") == 0)
 	target_thread_pointer = TP_SOFT;
       else if (strcmp (target_thread_switch, "cp15") == 0)
 	target_thread_pointer = TP_CP15;
-      else if (strcmp (target_thread_switch, "linux") == 0)
-	target_thread_pointer = TP_LINUX;
       else
 	error ("invalid thread pointer option: -mtp=%s", target_thread_switch);
     }
@@ -3704,18 +3701,6 @@ arm_load_tp (rtx target)
       
       emit_insn (gen_load_tp_hard (target));
     }
-  else if (TARGET_LINUX_TP)
-    {
-      rtx tp;
-
-      /* Can return in any reg.  */
-      if (!target)
-	target = gen_reg_rtx (SImode);
-
-      tp = gen_rtx_MEM (Pmode, gen_int_mode (0xffff0ffc, Pmode));
-      RTX_UNCHANGING_P (tp) = 1;
-      emit_move_insn (target, tp);
-    }
   else
     {
       /* Always returned in R0 */
@@ -5197,6 +5182,17 @@ vfp_secondary_reload_class (enum machine_mode mode, rtx x)
 }
 
 
+/* Return true if X is a register that will be eliminated later on.  */
+int
+arm_eliminable_register (rtx x)
+{
+  return REG_P (x) && (REGNO (x) == FRAME_POINTER_REGNUM
+		       || REGNO (x) == ARG_POINTER_REGNUM
+		       || (REGNO (x) >= FIRST_VIRTUAL_REGISTER
+			   && REGNO (x) <= LAST_VIRTUAL_REGISTER));
+}
+
+
 /* Returns TRUE if INSN is an "LDR REG, ADDR" instruction.
    Use by the Cirrus Maverick code which has to workaround
    a hardware bug triggered by such instructions.  */
@@ -5751,33 +5747,42 @@ adjacent_mem_locations (rtx a, rtx b)
 	  || (GET_CODE (XEXP (b, 0)) == PLUS
 	      && GET_CODE (XEXP (XEXP (b, 0), 1)) == CONST_INT)))
     {
-      int val0 = 0, val1 = 0;
-      int reg0, reg1;
-  
+      HOST_WIDE_INT val0 = 0, val1 = 0;
+      rtx reg0, reg1;
+      int val_diff;
+
       if (GET_CODE (XEXP (a, 0)) == PLUS)
         {
-	  reg0 = REGNO  (XEXP (XEXP (a, 0), 0));
+	  reg0 = XEXP (XEXP (a, 0), 0);
 	  val0 = INTVAL (XEXP (XEXP (a, 0), 1));
         }
       else
-	reg0 = REGNO (XEXP (a, 0));
+	reg0 = XEXP (a, 0);
 
       if (GET_CODE (XEXP (b, 0)) == PLUS)
         {
-	  reg1 = REGNO  (XEXP (XEXP (b, 0), 0));
+	  reg1 = XEXP (XEXP (b, 0), 0);
 	  val1 = INTVAL (XEXP (XEXP (b, 0), 1));
         }
       else
-	reg1 = REGNO (XEXP (b, 0));
+	reg1 = XEXP (b, 0);
 
       /* Don't accept any offset that will require multiple
 	 instructions to handle, since this would cause the
 	 arith_adjacentmem pattern to output an overlong sequence.  */
       if (!const_ok_for_op (PLUS, val0) || !const_ok_for_op (PLUS, val1))
 	return 0;
-      
-      return (reg0 == reg1) && ((val1 - val0) == 4 || (val0 - val1) == 4);
+
+      /* Don't allow an eliminable register: register elimination can make
+	 the offset too large.  */
+      if (arm_eliminable_register (reg0))
+	return 0;
+
+      val_diff = val1 - val0;
+      return ((REGNO (reg0) == REGNO (reg1))
+	      && (val_diff == 4 || val_diff == -4));
     }
+
   return 0;
 }
 
@@ -8617,7 +8622,6 @@ output_call_mem (rtx *operands)
   return "";
 }
 
-
 /* Output a move from arm registers to an fpa registers.
    OPERANDS[0] is an fpa register.
    OPERANDS[1] is the first registers of an arm register pair.  */
@@ -10374,7 +10378,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 
       /* Emit any call-via-reg trampolines that are needed for v4t support
 	 of call_reg and call_value_reg type insns.  */
-      for (regno = 0; regno < SP_REGNUM; regno++)
+      for (regno = 0; regno < LR_REGNUM; regno++)
 	{
 	  rtx label = cfun->machine->call_via[regno];
 
@@ -14436,7 +14440,7 @@ thumb_call_via_reg (rtx reg)
   int regno = REGNO (reg);
   rtx *labelp;
 
-  if (regno >= SP_REGNUM)
+  if (regno >= LR_REGNUM)
     abort ();
 
   /* If we are in the normal text section we can use a single instance
@@ -14619,7 +14623,7 @@ arm_file_end (void)
   asm_fprintf (asm_out_file, "\t.code 16\n");
   ASM_OUTPUT_ALIGN (asm_out_file, 1);
 
-  for (regno = 0; regno < SP_REGNUM; regno++)
+  for (regno = 0; regno < LR_REGNUM; regno++)
     {
       rtx label = thumb_call_via_label[regno];
 
@@ -15187,17 +15191,29 @@ arm_cxx_key_method_may_be_inline (void)
   return !TARGET_AAPCS_BASED;
 }
 
-/* The EABI says that the virtual table, etc., for a class must be
-   exported if it has a key method.  The EABI does not specific the
-   behavior if there is no key method, but there is no harm in
-   exporting the class data in that case too.  */
-
-static bool
-arm_cxx_export_class_data (void)
+static void
+arm_cxx_determine_class_data_visibility (tree decl)
 {
-  return TARGET_AAPCS_BASED;
+  if (!TARGET_AAPCS_BASED)
+    return;
+
+  /* In general, \S 3.2.5.5 of the ARM EABI requires that class data
+     is exported.  However, on systems without dynamic vague linkage,
+     \S 3.2.5.6 says that COMDAT class data has hidden linkage.  */
+  if (!TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P && DECL_COMDAT (decl))
+    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+  else
+    DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+  DECL_VISIBILITY_SPECIFIED (decl) = 1;
 }
 
+static bool
+arm_cxx_class_data_always_comdat (void)
+{
+  /* \S 3.2.5.4 of the ARM C++ ABI says that class data only have
+     vague linkage if the class has no key function.  */
+  return !TARGET_AAPCS_BASED;
+}
 
 /* The EABI says __aeabi_atexit should be used to register static
    destructors.  */

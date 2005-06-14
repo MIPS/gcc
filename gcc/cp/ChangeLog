@@ -1,3 +1,298 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2005-05-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21427
+	Backport 2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+	* class.c (update_vtable_entry_for_fn): Don't crash on invalid
+	covariancy. 
+
+	* cp-tree.h (THUNK_TARGET): Expand comment.
+	* method.c (use_thunk): Make sure we also use the target, if that
+	is a thunk.
+
+	Backport 2005-02-11  Nathan Sidwell  <nathan@codesourcery.com>
+	* class.c (update_vtable_entry_for_fn): Walk the covariant's binfo
+	chain rather than using lookup_base.
+
+2005-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2004-12-21  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/19034
+	* tree.c (cp_tree_equal): Handle OVERLOAD.
+
+2005-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert:
+	2005-05-01  Mark Mitchell  <mark@codesourcery.com>
+	* typeck.c (unary_complex_lvalue): In a template, always refuse
+	simplifications.
+
+2005-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-02-22  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/19991
+	* init.c (decl_constant_value): Iterate if the value of a decl
+	is itself a constant.
+
+2005-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+        2004-12-22  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/18464
+	* call.c (build_this): In templates, do not bother with
+	build_unary_op.
+	* typeck.c (unary_complex_lvalue): In a template, always refuse
+	simplifications.
+
+2005-04-25  Roger Sayle  <roger@eyesopen.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20995
+	Partial backport from mainline.
+	2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+	* tree.c (fold_if_not_in_template): New function.
+	* cp-tree.h (fold_if_not_in_template): Prototype here.
+	* call.c (build_conditional_expr): Use fold_if_not_in_template.
+	* typeck.c (build_binary_op): Likewise.
+
+2005-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21025
+	* typeck.c (cxx_sizeof_or_alignof_type): Check whether the type to
+	which sizeof/alignof is dependent, rather than just whether we are
+	processing_template_decl.
+	
+2005-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/19312
+	* tree.c (stabilize_init): Don't bother trying to stabilize
+	something with no side-effects.
+
+2005-04-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20679
+	* parser.c (cp_parser_template_name): Fix thinko.
+
+2005-04-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/18644
+	* call.c (build_new_op): Remove check for -Wsynth.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20147
+	* semantics.c (finish_stmt_expr_expr): Return immediately
+	if error_operand_p (expr).
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20240
+	* decl.c (decls_match): Compare context of VAR_DECL.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20333
+	* parser.c (cp_parser_postfix_expression) <case RID_TYPENAME>:
+	Check the return value of cp_parser_nested_name_specifier.
+
+2005-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20142
+	* init.c (build_vec_init): When determining whether or not the
+	element type has an asignment operator, look through all array
+	dimensions. 
+
+2005-03-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19311
+	* init.c (build_offset_ref): Don't build non-dependent SCOPE_REF.
+	* pt.c (build_non_dependent_expr): Don't build NON_DEPENDENT_EXPR
+	for OFFSET_TYPE.
+	* typeck.c (build_x_unary_op): Don't build non-dependent SCOPE_REF.
+	Also set PTRMEM_OK_P for NON_DEPENDENT_EXPR.
+	(build_unary_op): Handle building ADDR_EXPR of OFFSET_REF inside
+	template.
+
+2005-03-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* name-lookup.c (push_overloaded_decl): Don't error if the new
+	decl matches the old one.
+	* decl.c (redeclaration_error_message): Likewise.
+
+2005-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/20175
+	* decl.c (reshape_init): Don't warn about missing braces if STRING_CST
+	initializes a char/wchar_t array.
+
+2005-02-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/20028
+	* class.c (finish_struct): Initialize TYPE_SIZE_UNIT of a
+	template along with TYPE_SIZE.
+
+2005-02-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (reshape_init): Use explicit quotes in error message
+	instead of %q.
+	
+2005-02-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/14479
+	PR c++/19487
+	* pt.c (maybe_check_template_type): Remove.
+	* cp-tree.h (maybe_check_template_type): Remove prototype.
+	* name-lookup.c (maybe_process_template_type_declaration): Don't
+	use maybe_check_template_type.
+
+2005-02-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19755
+	* decl.c (reshape_init): Issue warnings about missing braces.
+
+2005-02-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_unqualified_id): Initialize type_decl.
+
+	PR c++/19787
+	* call.c (initialize_reference): Robustify.
+
+	PR c++/19762
+	* parser.c (cp_parser_unqualified_id): Avoid creating destructor
+	names with invalid types.
+
+	PR c++/19739
+	* parser.c (cp_parser_attributes_list): Allow empty lists.
+
+2005-02-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19733
+	* cvt.c (convert_to_void): Issue errors about pseudo-destructor
+	expressions.
+
+2005-02-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/18757
+	PR c++/19366
+	PR c++/19499
+	* parser.c (cp_parser_template_id): Revert 2004-12-09's patch.
+	Issue an error when creating the template id.
+	* pt.c (fn_type_unification): Return early if the explicit
+	template arg list is an error_mark_node.
+
+2005-01-27  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR c++/18370
+	* parser.c (cp_parser_initializer_clause): Initialize *non_constant_p.
+
+2005-01-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19375
+	* semantics.c (finish_id_expression): Disable access checking for
+	already lookuped FIELD_DECL.
+
+2005-01-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19258
+	* parser.c (cp_parser_late_parsing_default_args): Handle friend
+	defined in class.
+	* pt.c (push_access_scope, pop_access_scope): Likewise.
+
+2005-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19263
+	* typeck2.c (split_nonconstant_init_1) <case VECTOR_TYPE>: Put a copy
+	of CONSTRUCTOR's node into MODIFY_EXPR, as the original is modified.
+	Store code to *pcode.
+
+2004-12-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/18384, c++/18327
+	* decl.c (reshape_init_array): Use UHWI type for max_index_cst
+	and index.  Convert max_index to size_type_node if it isn't
+	host_integerp (, 1).
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/18962
+	* pt.c (check_explicit_specialization): Use the argument list from
+	the definition in a template function specialization definition.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/18757
+	* parser.c (cp_parser_template_id): Don't create a CPP_TEMPLATE_ID
+	if parsing failed.
+
+2004-12-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18975
+	* method.c (do_build_copy_constructor): Refactor. Don't const
+	qualify a mutable field.
+	(do_build_assign_ref): Likewise.
+
+2004-12-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/18731
+	* parser.c (cp_parser_class_head): Reject typedef-name in class head.
+
+2004-12-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16681
+	* init.c (build_zero_init): Build a RANGE_EXPR for an array
+	initializer.
+
+2004-12-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18100
+	* name-lookup.c (push_class_level_binding): Diagnose nested
+	class template with the same name as enclosing class.
+
+2004-12-04  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17011, c++/17971
+	* pt.c (tsubst_copy) <FIELD_DECL case>: Check and diagnose
+	invalid field.
+	(tsubst_copy_and_build) <COMPONENT_REF case>: Check
+	error_mark_node after member substitution.
+	* semantics.c (finish_id_expression): Call
+	finish_non_static_data_member for dependent FIELD_DECL.
+
+2004-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18123
+	* parser.c (cp_parser_type_specifier): Don't create new enum
+	type if it is not in the form 'enum [identifier] { [...] };'.
+	Catch template declaration of enum. 
+
+2004-12-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17431
+	* call.c (standard_conversion): Add FLAGS parameter. Do not allow
+	derived to base conversion when checking constructor
+	accessibility.
+	(implicit_conversion): Pass FLAGS to standard_conversion.
+	(check_constructir_callable): Disallow conversion functions.
+
+2004-11-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18389
+	* decl.c (start_decl): Make sure to set *pop_scope_p.  Return
+	error_mark_node to indicate errors.
+
+	PR c++/18436
+	* pt.c (tsubst_copy_and_build): Do not do Koenig lookup when an
+	unqualified name resolves to a member function.
+
+	PR c++/18407
+	* pt.c (tsubst_copy_and_build): Handle qualified names used from a
+	derived class correctly.
+
 2004-11-04  Release Manager
 
 	* GCC 3.4.3 released.

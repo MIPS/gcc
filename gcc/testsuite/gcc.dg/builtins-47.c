@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-ffast-math -fdump-tree-gimple" } */
+/* { dg-options "-ffast-math" } */
 
 extern double sqrt (double);
 extern double pow (double, double);
@@ -14,7 +14,3 @@ int main ()
     abort();
   return 0;
 }
-
-/* { dg-final { scan-tree-dump-times "sqrt" 0 "gimple" } } */
-/* { dg-final { scan-tree-dump-times "pow" 0 "gimple" } } */
-/* { dg-final { cleanup-tree-dump "gimple" } } */

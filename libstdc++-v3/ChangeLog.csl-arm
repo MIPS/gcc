@@ -1,0 +1,16 @@
+2005-03-10  Julian Brown  <julian@codesourcery.com>
+
+	* configure.ac (LIBSUPCXX_PRONLY): New AM_CONDITIONAL: yes if we are
+	compiling for SymbianOS on ARM.
+	* include/Makefile.am: Don't install C++ headers if LIBSUPCXX_PRONLY
+	is true.
+	* libsupc++/Makefile.am: Include only eh_personality.cc in libsupc++
+	if LIBSUPCXX_PRONLY is true.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
