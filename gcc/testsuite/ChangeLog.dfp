@@ -1,3 +1,8 @@
+2005-06-13  Janis Johnson  <janis187@us.ibm.com>
+
+	gcc.dg/format/dfp-printf-1.c: New test.
+	gcc.dg/format/dfp-scanf-1.c: New test.
+
 2005-06-08  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/dfp/altivec-types.c: New.

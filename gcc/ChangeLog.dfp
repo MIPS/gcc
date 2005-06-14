@@ -1,5 +1,12 @@
 2005-06-13  Janis Johnson  <janis187@us.ibm.com>
 
+	* c-format.h (FMT_LEN_H, FMT_LEN_D, FMT_LEN_DD): New.
+	* c-format.c (printf_length_specs, scanf_length_specs): Add entries
+	for H, D, DD.
+	(print_char_table, scan_char_table): Use new entries.
+	(asm_fprintf_char_table, gcc_diag_char_table, gcc_cdiag_char_table,
+	gcc_cxxdiag_char_table): Adjust for longer length arrays.
+
 	* target.h (struct gcc_target): New hook decimal_float_supported_p.
 	* target-def.h: Define its default.
 	* config/rs6000/rs6000.c: Define it for this target.
