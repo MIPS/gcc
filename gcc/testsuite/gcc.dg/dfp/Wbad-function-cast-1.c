@@ -27,8 +27,8 @@ foo(void)
   (_Decimal128)rf3();
   (_Decimal128)rf4();
   (_Decimal128)rf5();
-  (float)rf3;
-  (double)rf4;
+  (float)rf3();
+  (double)rf4();
   (long double)rf5();
    /* Casts to types with different TREE_CODE (which is how this
      warning has been defined) are not OK, except for casts to void

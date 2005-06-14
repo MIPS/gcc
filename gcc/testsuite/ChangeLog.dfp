@@ -1,5 +1,7 @@
 2005-06-13  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/Wbad-function-cast-1.c: Fix typos.
+
 	* gcc.dg/dfp/pedantic-1.c: New.
 
 	* gcc.dg/nodfp-1.c: New.
