@@ -1,5 +1,7 @@
 2005-06-13  Janis Johnson  <janis187@us.ibm.com>
 
+	* c-decl.c (declspecs_add_type): Pedwarn for decimal float.
+
 	* c-decl.c (declspecs_add_type): Error if decimal float not supported.
 
 	* c-format.h (FMT_LEN_H, FMT_LEN_D, FMT_LEN_DD): New.
