@@ -1,5 +1,7 @@
 2005-06-13  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/nodfp-1.c: New.
+
 	* gcc.dg/compat/scalar-by-value-dfp_main.c: New.
 	* gcc.dg/compat/scalar-by-value-dfp_x.c: New.
 	* gcc.dg/compat/scalar-by-value-dfp_y.c: New.

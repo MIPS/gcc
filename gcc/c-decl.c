@@ -7276,6 +7276,8 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		else
 		  specs->typespec_word = cts_dfloat128;
 	      }
+	      if (!targetm.decimal_float_supported_p ())
+		error ("decimal floating point not supported for this target");
 	      return specs;
 	    default:
 	      /* ObjC reserved word "id", handled below.  */
