@@ -3116,9 +3116,10 @@ cp_finish_file (void)
 	dump_end (TDI_tu, stream);
       }
   }
-
-  /* APPLE LOCAL 4133801 */
+  
+  /* APPLE LOCAL begin 4133801 */
   cp_flush_lexer_file_stack ();
+  /* APPLE LOCAL end 4133801 */
 
   timevar_pop (TV_VARCONST);
 

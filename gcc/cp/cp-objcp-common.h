@@ -22,6 +22,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_CP_OBJCP_COMMON
 #define GCC_CP_OBJCP_COMMON
 
+/* APPLE LOCAL mainline */
+/* delete unneeded decls */
+
 /* In cp/cp-lang.c and objcp/objcp-lang.c.  */
 
 extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,

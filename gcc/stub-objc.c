@@ -89,8 +89,8 @@ objc_rewrite_function_call (tree function, tree ARG_UNUSED (params))
   return function;
 }
 
-/* APPLE LOCAL end mainline */
 tree
+/* APPLE LOCAL end mainline */
 objc_message_selector (void)
 { 
   return 0;

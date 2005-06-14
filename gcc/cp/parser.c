@@ -538,8 +538,9 @@ cp_lexer_peek_token (cp_lexer *lexer)
       putc ('\n', cp_lexer_debug_stream);
     }
   
-  /* APPLE LOCAL 4133801 */
+  /* APPLE LOCAL begin 4133801 */
   cp_parser_bincl_eincl (lexer);
+  /* APPLE LOCAL end 4133801 */
 
   return lexer->next_token;
 }
@@ -596,7 +597,6 @@ cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
   while (n != 0)
     {
       ++token;
-
       if (token == lexer->last_token)
 	{
 	  token = (cp_token *)&eof_token;

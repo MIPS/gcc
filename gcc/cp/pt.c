@@ -4024,7 +4024,6 @@ template_args_equal (tree ot, tree nt)
     /* For member templates */
     return TREE_CODE (ot) == TREE_VEC && comp_template_args (ot, nt);
   else if (TYPE_P (nt))
-    /* APPLE LOCAL mainline */
     return TYPE_P (ot) && same_type_p (ot, nt);
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;

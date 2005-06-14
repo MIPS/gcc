@@ -16019,7 +16019,6 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
   fprintf (file, "\t.long\t%s\n", binder_name);
   /* APPLE LOCAL end deep branch prediction pic-base.  */
-  /* APPLE LOCAL extraneous diff on APPLE LOCAL checker */
 }
 
 /* APPLE LOCAL begin deep branch prediction pic-base */

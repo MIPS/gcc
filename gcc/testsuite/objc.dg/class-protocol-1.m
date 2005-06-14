@@ -376,7 +376,7 @@ testComptypes(void)
     /* APPLE LOCAL mainline */
     mc1 = objP1;
     objP1 = mc1;
-
+    
     /* APPLE LOCAL mainline */
     mc1 = objP2; /* { dg-warning "does not conform" } */
     objP2 = mc1; /* { dg-warning "does not implement" } */

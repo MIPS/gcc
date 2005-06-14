@@ -4183,9 +4183,9 @@ build_private_template (tree class)
       tree record = objc_build_struct (CLASS_NAME (class),
 				       get_class_ivars (class, false),
 				       CLASS_SUPER_NAME (class));
-      /* APPLE LOCAL end mainline */
 
       /* mark this record as class template - for class type checking */
+      /* APPLE LOCAL end mainline */
       INIT_TYPE_OBJC_INFO (record);
       TYPE_OBJC_INTERFACE (record) = class;
       CLASS_STATIC_TEMPLATE (class) = record;

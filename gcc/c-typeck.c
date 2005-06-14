@@ -777,6 +777,7 @@ comptypes (tree type1, tree type2)
 /* APPLE LOCAL end mainline */
 
 static int
+/* APPLE LOCAL mainline */
 comp_target_types (tree ttl, tree ttr)
 {
   int val;

@@ -539,11 +539,9 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       class1 = TREE_TYPE (t1);
       class2 = TREE_TYPE (t2);
 
-      /* APPLE LOCAL mainline */
       if (DERIVED_FROM_P (class1, class2))
 	t2 = (build_pointer_type 
 	      (cp_build_qualified_type (class1, TYPE_QUALS (class2))));
-      /* APPLE LOCAL mainline */
       else if (DERIVED_FROM_P (class2, class1))
 	t1 = (build_pointer_type 
 	      (cp_build_qualified_type (class2, TYPE_QUALS (class1))));
@@ -1027,7 +1025,6 @@ comptypes (tree t1, tree t2, int strict)
 	break;
       else if ((strict & COMPARE_DERIVED) && DERIVED_FROM_P (t2, t1))
 	break;
-
       /* APPLE LOCAL mainline */
       /* Call to 'objc_comptypes' has been removed.  */
       return false;
