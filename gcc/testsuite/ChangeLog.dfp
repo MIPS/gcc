@@ -1,5 +1,12 @@
 2005-06-13  Janis Johnson  <janis187@us.ibm.com>
 
+	gcc.dg/compat/scalar-by-value-dfp_main.c: New.
+	gcc.dg/compat/scalar-by-value-dfp_x.c: New.
+	gcc.dg/compat/scalar-by-value-dfp_y.c: New.
+	gcc.dg/compat/scalar-return-dfp_main.c: New.
+	gcc.dg/compat/scalar-return-dfp_x.c: New.
+	gcc.dg/compat/scalar-return-dfp_y.c: New.
+
 	gcc.dg/format/dfp-printf-1.c: New test.
 	gcc.dg/format/dfp-scanf-1.c: New test.
 
