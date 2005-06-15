@@ -26,6 +26,45 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "omega.h"
 #include "polyhedron.h"
 
+ /** {base_address + offset + init} is the first location accessed by data-ref 
+      in the loop, and step is the stride of data-ref in the loop in bytes;
+      e.g.:
+    
+                       Example 1                      Example 2
+      data-ref         a[j].b[i][j]                   a + x + 16B (a is int*)
+      
+First location info:
+      base_address     &a                             a
+      offset           j_0*D_j + i_0*D_i + C_a        x
+      init             C_b                            16
+      step             D_j                            4
+      access_fn        NULL                           {16, +, 1}
+
+Base object info:
+      base_object      a                              NULL
+      access_fn        <access_fns of indexes of b>   NULL
+
+  **/
+struct first_location_in_loop
+{
+  tree base_address;
+  tree offset;
+  tree init;
+  tree step;
+  /* Access function related to first location in the loop.  */
+  varray_type access_fns;
+};
+
+struct base_object_info
+{
+  /* The object.  */
+  tree base_object;
+  
+  /* A list of chrecs.  Access functions related to BASE_OBJECT.  */
+  varray_type access_fns;
+};
+
+
 struct data_reference
 {
   /* A pointer to the statement that contains this DR.  */
@@ -34,41 +73,17 @@ struct data_reference
   /* A pointer to the ARRAY_REF node.  */
   tree ref;
 
-  /* The object.  */
-  tree base_object;
-  
-  /* A list of chrecs.  */
-  varray_type access_fns;
-
   /* Auxiliary info specific to a pass.  */
   int aux;
 
   /* True when the data reference is in RHS of a stmt.  */
   bool is_read;
 
- /** {base_address + offset + init} is the first location accessed by data-ref 
-      in the loop, and step is the stride of data-ref in the loop in bytes;
-      e.g.:
-    
-                       Example 1                      Example 2
-      data-ref         a[j].b[i][j]                   a + x + 16B (a is int*)
-      
-      base_address     &a                             a
-      offset           j_0*D_j + i_0*D_i + C_a        x
-      init             C_b                            16
-      step             D_j                            4
+  /* First location accessed by the data-ref in the loop.  */
+  struct first_location_in_loop first_location;
 
-      base_object      a                              NULL
-      access_fn        <access_fns of indexes of b>   {16, +, 1}
-
-      Access function for the loop is relative to {base_address + offset}, or 
-      to base_object if it is not NULL.
-  **/
-  /* The above base_address, offset, init and step.  */
-  tree base_address;
-  tree offset;
-  tree init;
-  tree step;
+  /* Base object related info.  */
+  struct base_object_info object_info;
 
   /* Aliasing information.  */
   tree memtag;
@@ -83,17 +98,21 @@ struct data_reference
   tree misalignment;
 };
 
+
 #define DR_STMT(DR)                (DR)->stmt
 #define DR_REF(DR)                 (DR)->ref
-#define DR_BASE_OBJECT(DR)         (DR)->base_object
-#define DR_ACCESS_FNS(DR)          (DR)->access_fns
+#define DR_BASE_OBJECT(DR)         (DR)->object_info.base_object
+#define DR_ACCESS_FNS(DR)\
+  (DR_BASE_OBJECT(DR) ? (DR)->object_info.access_fns : (DR)->first_location.access_fns)
+#define DR_OBJECT_ACCESS_FNS(DR)   (DR)->object_info.access_fns
+#define DR_FIRST_LOCATION_ACCESS_FNS(DR)  (DR)->first_location.access_fns
 #define DR_ACCESS_FN(DR, I)        VARRAY_TREE (DR_ACCESS_FNS (DR), I)
 #define DR_NUM_DIMENSIONS(DR)      VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
 #define DR_IS_READ(DR)             (DR)->is_read
-#define DR_BASE_ADDRESS(DR)        (DR)->base_address
-#define DR_OFFSET(DR)              (DR)->offset
-#define DR_INIT(DR)                (DR)->init
-#define DR_STEP(DR)                (DR)->step
+#define DR_BASE_ADDRESS(DR)        (DR)->first_location.base_address
+#define DR_OFFSET(DR)              (DR)->first_location.offset
+#define DR_INIT(DR)                (DR)->first_location.init
+#define DR_STEP(DR)                (DR)->first_location.step
 #define DR_MEMTAG(DR)              (DR)->memtag
 #define DR_POINTSTO_INFO(DR)       (DR)->pointsto_info
 #define DR_BASE_ALIGNED(DR)        (DR)->base_aligned

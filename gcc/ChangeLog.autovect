@@ -1,5 +1,22 @@
 2005-06-12  Ira Rosen  <irar@il.ibm.com>
 
+	* tree-data-ref.c (base_addr_differ_p): Compare addresses.
+	(analyze_array): Initialize access functions based on object.
+	(init_data_ref): Initialize access functions based on first 
+	location.
+	(object_analysis): Don't update BASE_OBJECT for INDIRECT_REFs.
+	(create_data_ref): Don't update access function for INDIRECT_REFs.
+	(find_data_references_in_loop): Initialize access functions.
+	* tree-data-ref.h (struct first_location_in_loop): New data structure.
+	(struct base_object_info): New data structure.
+	(struct data_reference): Move fields to the new structures.
+	(DR_BASE_OBJECT): Update according to the new data structures.
+	(DR_ACCESS_FNS, DR_BASE_ADDRESS, DR_OFFSET, DR_INIT, DR_STEP): 
+	Likewise.
+	(DR_OBJECT_ACCESS_FNS, DR_FIRST_LOCATION_ACCESS_FNS): New macros.
+
+2005-06-12  Ira Rosen  <irar@il.ibm.com>
+
 	* tree-data-ref.c (record_ptr_differ_p): Peel COMPONENT_REFs to get 
 	to the base.
 	(record_array_differ_p): Likewise.
