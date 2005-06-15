@@ -1,3 +1,19 @@
+2005-06-15  Caroline Tice  <ctice@apple.com>
+
+	* struct-reorg.c (find_and_substitute_types_and_vars): Use
+	equivalent_types_p, instead of ==, to compare types.
+	(recursively_copy_node): New function.
+	(build_new_stmts):  Replace call to copy_node with call to
+	recursively_copy_node; properly initialize decl.rtl for new decls.
+	(collect_struct_use_data):  Fix bug that assumed base addresses would
+	not be used directly in addition exprs.
+	(is_recursive_struct):  Add check for pointer-fields named "next".
+	(do_reorg):  Remove hack that turned off tree_sra; rearrange logic
+	that decides which reorganization to perform.
+	(program_redefines_malloc_p): New function.
+	(reorg_structs): Add test that disables struct reorg optimization if
+	program_redefines_malloc_p returns true.
+
 2005-06-03  Caroline Tice  <ctice@apple.com>
 
 	* c-gimplify.c (c_genericize): When writing out the dump, call

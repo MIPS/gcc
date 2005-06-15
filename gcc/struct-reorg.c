@@ -2921,7 +2921,7 @@ find_and_substitute_types_and_vars (tree old_type, tree new_type,
 		{
 		  for (current = cur_var->new_vars; current && !found;
 		       current = current->next)
-		    if ((TREE_TYPE (current->data) == new_type)
+		    if (equivalent_types_p (TREE_TYPE (current->data), new_type)
 			|| similar_struct_decls_p (TREE_TYPE (current->data),
 						   tmp_type))
 		      {
@@ -2935,6 +2935,30 @@ find_and_substitute_types_and_vars (tree old_type, tree new_type,
     default:
       break;
     }
+}
+
+static tree
+recursively_copy_node (tree old_node)
+{
+  tree new_node;
+  int i = 0;
+
+  new_node = copy_node (old_node);
+  if (DECL_P (new_node))
+    new_node->decl.rtl = NULL;
+
+  for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (old_node)); i++)
+    {
+      tree new_op = NULL_TREE;
+      tree op = TREE_OPERAND (old_node, i);
+      if (op
+	  && TREE_CODE_LENGTH (TREE_CODE (op)) > 0)
+	{
+	  new_op = recursively_copy_node (op);
+	  TREE_OPERAND (new_node, i) = new_op;
+	}
+    }
+  return new_node;
 }
 
 /* This function, given an LHS and a tree representing a program stmt
@@ -3036,7 +3060,7 @@ build_new_stmts (tree lhs, struct new_var_data *new_vars, tree stmt,
 	tree new_type = TREE_TYPE (new_var_decl);
 	tree old_type = TREE_TYPE (cur_var->orig_var);
 	tree old_rhs = TREE_OPERAND (stmt, 1);
-	tree new_rhs = copy_node (old_rhs);
+	tree new_rhs = recursively_copy_node (old_rhs);
 	tree new_lhs;
 	
 	if (lhs == tmp_lhs)
@@ -3046,6 +3070,9 @@ build_new_stmts (tree lhs, struct new_var_data *new_vars, tree stmt,
 	else if (TREE_CODE (lhs) == ARRAY_REF)
 	  {
 	    new_lhs = copy_node (lhs);
+
+	    if (DECL_P (new_lhs))
+	      new_lhs->decl.rtl = NULL;
 
 	    find_and_substitute_types_and_vars (old_type, new_type, new_vars,
 						&new_lhs, lhs);
@@ -3835,6 +3862,7 @@ collect_struct_use_data (struct struct_list *data_struct_list,
 	  prev = NULL;
 	  for (cur = plus_modifies; cur; cur = cur->next)
 	    {
+	      struct struct_list *cur_struct;
 	      tree plus_stmt = cur->data;
 	      tree plus_expr = TREE_OPERAND (plus_stmt, 1);
 	      tree arg0 = TREE_OPERAND (plus_expr, 0);
@@ -3848,6 +3876,32 @@ collect_struct_use_data (struct struct_list *data_struct_list,
 		    || TREE_OPERAND (tmp_ptr->data, 0) == arg1)
 		  found = 1;
 
+	      if (!found)
+		{
+		  tree type0 = TREE_TYPE (arg0);
+		  tree type1 = TREE_TYPE (arg1);
+		  
+		  while (POINTER_TYPE_P (type0)
+			 || TREE_CODE (type0) == ARRAY_TYPE)
+		    type0 = TREE_TYPE (type0);
+		  
+		  while (POINTER_TYPE_P (type1)
+			 || TREE_CODE (type1) == ARRAY_TYPE)
+		    type1 = TREE_TYPE (type1);
+
+		  if ((TREE_CODE (type0) == RECORD_TYPE)
+		      || (TREE_CODE (type1) == RECORD_TYPE))
+		    for (cur_struct = data_struct_list; cur_struct && !found;
+			 cur_struct = cur_struct->next)
+		      {
+			if (similar_struct_decls_p (cur_struct->struct_data->decl,
+						    type0)
+			    || similar_struct_decls_p (cur_struct->struct_data->decl,
+						       type1))
+			  found = true;
+		      }
+		}
+	      
 	      if (!found)
 		{
 		  if (!prev)
@@ -4320,6 +4374,11 @@ is_recursive_struct (struct data_structure *struct_data)
       tree cur_field = struct_data->fields[i].decl;
       tree cur_type = TREE_TYPE (cur_field);
 
+      if (DECL_P (cur_field)
+	  && (strcmp (IDENTIFIER_POINTER (DECL_NAME (cur_field)), "next") == 0)
+	  && POINTER_TYPE_P (cur_type))
+	ret_value = true;
+
       while (POINTER_TYPE_P (cur_type)
 	     || TREE_CODE (cur_type) == ARRAY_TYPE)
 	cur_type = TREE_TYPE (cur_type);
@@ -4461,11 +4520,6 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	  of such structs in phase 1.
   */
 
-  /* A hack:  Currently tree-sra occasionally interacts badly with
-     reorg-structs, so we should not do both together at this time.  */
-
-  flag_tree_sra = 0;
-
   for (cur_struct = data_struct_list; cur_struct;
        cur_struct = cur_struct->next)
     {
@@ -4477,7 +4531,6 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	{
 	  if (bitmap_bit_p (escaped_types, (struct_data->decl)->type.uid)
 	      || bitmap_bit_p (passed_types, (struct_data->decl)->type.uid)
-	      || contained_in_other_struct (struct_data, data_struct_list)
 	      || contains_bit_field_accesses_p (struct_data))
 	    struct_data->reorder_only = true;
 
@@ -4486,9 +4539,17 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 	    struct_data->reorder_only = true;
 
 	  if (!struct_data->reorder_only
-	      && !struct_data->struct_clustering->children
 	      && is_recursive_struct (struct_data))
-	    struct_data->reorder_only = true;
+	    {
+	      if (!struct_data->struct_clustering->children)
+		{
+		  struct_data->struct_clustering->children = 
+		                        struct_data->struct_clustering->sibling;
+		  struct_data->struct_clustering->sibling = NULL;
+		}
+	      else
+		struct_data->reorder_only = true;
+	    }
 
 	  if (struct_data->reorder_only)
 	    {
@@ -4511,14 +4572,7 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 		}
 	    }
 	  else if ((struct_data->struct_clustering->sibling
-		    || struct_data->struct_clustering->children)
-		   /* For the moment disallow full peeling of structs that 
-		      are passed around as parameters to functions, as that 
-		      would require updating all the function call sites, the 
-		      function definition, and the cgrpah nodes.  We can add 
-		      this capability in later, if we wish.  */
-		   && ! bitmap_bit_p (passed_types, 
-				      (struct_data->decl)->type.uid))
+		    || struct_data->struct_clustering->children))
 	    {
 	      struct struct_tree_list *donelist = NULL;
 	      struct new_var_data *new_vars;
@@ -4538,6 +4592,15 @@ do_reorg (struct struct_list *data_struct_list, bitmap passed_types,
 					 struct_data->new_types->data,
 					 struct_data->decl,
 					 &donelist);
+
+	      if (contained_in_other_struct (struct_data, data_struct_list))
+		{
+		  if (!struct_data->struct_clustering->direct_access)
+		    replace_all_types (struct_data);
+		  else
+		    struct_data->new_types = NULL;
+		}
+
 	      
 	      new_vars = create_new_var_decls (struct_data);
 	      append_to_var_list (new_vars, &total_new_vars);
@@ -4996,6 +5059,60 @@ printout_field_reordering_hints (struct data_structure *ds, FILE *outfile)
   fprintf (outfile, "}\n");
 }
 
+static bool
+program_redefines_malloc_p (void)
+{
+  bool redefines = false;
+  struct cgraph_node *c_node;
+  struct cgraph_node *c_node2;
+  struct cgraph_edge *c_edge;
+  tree fndecl;
+  tree fndecl2;
+  
+  for (c_node = cgraph_nodes; c_node && !redefines; c_node = c_node->next)
+    {
+      fndecl = c_node->decl;
+      
+      if (strcmp (IDENTIFIER_POINTER (DECL_NAME (fndecl)), "malloc") == 0)
+	{
+	  for (c_edge = c_node->callers; c_edge && !redefines; 
+	       c_edge = c_edge->next_caller)
+	    {
+	      c_node2 = c_edge->caller;
+	      fndecl2 = c_node2->decl;
+	      if (strstr (IDENTIFIER_POINTER (DECL_NAME (fndecl2)), "_malloc") != 0)
+		redefines = true;
+	    }
+	}
+
+      if (strcmp (IDENTIFIER_POINTER (DECL_NAME (fndecl)), "calloc") == 0)
+	{
+	  for (c_edge = c_node->callers; c_edge && !redefines; 
+	       c_edge = c_edge->next_caller)
+	    {
+	      c_node2 = c_edge->caller;
+	      fndecl2 = c_node2->decl;
+	      if (strstr (IDENTIFIER_POINTER (DECL_NAME (fndecl2)), "_calloc") != 0)
+		redefines = true;
+	    }
+	}
+
+      if(strcmp (IDENTIFIER_POINTER (DECL_NAME (fndecl)), "realloc") == 0)
+	{
+	  for (c_edge = c_node->callers; c_edge && !redefines; 
+	       c_edge = c_edge->next_caller)
+	    {
+	      c_node2 = c_edge->caller;
+	      fndecl2 = c_node2->decl;
+	      if (strstr (IDENTIFIER_POINTER (DECL_NAME (fndecl2)), "_realloc") != 0)
+		redefines = true;
+	    }
+	}
+    }
+  
+  return redefines;
+}
+
 /* Perform data structure peeling.  */
 void
 reorg_structs (void)
@@ -5023,6 +5140,9 @@ reorg_structs (void)
 	("Whole program not passed to compiler: Can't perform struct peeling.");
       return;
     }
+
+  if (program_redefines_malloc_p ())
+    return;
 
   type_check_p = true;
   escaped_vars = BITMAP_GGC_ALLOC ();
