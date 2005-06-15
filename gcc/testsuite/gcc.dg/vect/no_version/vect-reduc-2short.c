@@ -1,38 +1,38 @@
 /* { dg-require-effective-target vect_int } */
 
 #include <stdarg.h>
+#include <stdio.h>
 #include "tree-vect.h"
 
 #define N 16
 #define DIFF 242
 
-int main1 (unsigned int x, unsigned int max_result)
+int main1 (short x, short max_result)
 {
   int i;
-  unsigned int ub[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
-  unsigned int uc[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-  unsigned int udiff = 2;
-  unsigned int umax = x;
-  unsigned int umin = 10;
+  short b[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
+  short c[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+  short diff = 2;
+  short max = x;
+  short min = 10;
 
   for (i = 0; i < N; i++) {
-    udiff += (ub[i] - uc[i]);
+    diff += (b[i] - c[i]);
+  }
+  for (i = 0; i < N; i++) {
+    max = max < c[i] ? c[i] : max;
   }
 
   for (i = 0; i < N; i++) {
-    umax = umax < uc[i] ? uc[i] : umax;
-  }
-
-  for (i = 0; i < N; i++) {
-    umin = umin > uc[i] ? uc[i] : umin;
+    min = min > c[i] ? c[i] : min;
   }
 
   /* check results:  */
-  if (udiff != DIFF)
+  if (diff != DIFF)
     abort ();
-  if (umax != max_result)
+  if (max != max_result)
     abort ();
-  if (umin != 0)
+  if (min != 0)
     abort ();
 
   return 0;

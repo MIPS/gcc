@@ -1,3 +1,14 @@
+2005-06-15  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-reduc-1.c: Vectorizable on all
+	relevant platforms - remove "target powerpc*-*-*" restriction.
+	* gcc.dg/vect/no_version/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/no_version/vect-reduc-3.c: Likewise.
+	* gcc.dg/vect/no_version/vect-reduc-2short.c: New test.
+	* gcc.dg/vect/no_version/vect-reduc-2char.c: New test.
+	* gcc.dg/vect/no_version/vect-reduc-3short.c: New test.
+	* gcc.dg/vect/no_version/vect-reduc-3char.c: New test.
+
 2005-06-12  Ira Rosen  <irar@il.ibm.com>
 
 	* gfortran.dg/vect/vect-7.f90: New testcase.

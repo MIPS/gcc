@@ -234,7 +234,8 @@ enum optab_index
   OTI_reduc_umax,
   OTI_reduc_smin,
   OTI_reduc_umin,
-  OTI_reduc_plus,
+  OTI_reduc_splus,
+  OTI_reduc_uplus,
 
   /* Set specified field of vector operand.  */
   OTI_vec_set,
@@ -242,6 +243,9 @@ enum optab_index
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
+  /* Whole vector shift. The shift amount is an immediate value in bytes.  */
+  OTI_vec_shli,
+  OTI_vec_shri,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
 
@@ -358,11 +362,14 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define reduc_umax_optab (optab_table[OTI_reduc_umax])
 #define reduc_smin_optab (optab_table[OTI_reduc_smin])
 #define reduc_umin_optab (optab_table[OTI_reduc_umin])
-#define reduc_plus_optab (optab_table[OTI_reduc_plus])
+#define reduc_splus_optab (optab_table[OTI_reduc_splus])
+#define reduc_uplus_optab (optab_table[OTI_reduc_uplus])
 
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
+#define vec_shli_optab (optab_table[OTI_vec_shli])
+#define vec_shri_optab (optab_table[OTI_vec_shri])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
 
 #define ssat_sub_optab (optab_table[OTI_ssat_sub])
@@ -540,5 +547,8 @@ bool expand_vec_cond_expr_p (tree, enum machine_mode);
 
 /* Generate code for VEC_COND_EXPR.  */
 extern rtx expand_vec_cond_expr (tree, rtx);
+
+/* Generate code for VEC_LSHIFT_EXPR and VEC_RSHIFT_EXPR.  */
+extern rtx expand_vec_shift_expr (tree, rtx);
 
 #endif /* GCC_OPTABS_H */

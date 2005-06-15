@@ -974,7 +974,7 @@
 (define_insn "altivec_vslo"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
-                      (match_operand:V4SI 2 "register_operand" "v")] 111))]
+		   (match_operand:V4SI 2 "register_operand" "v")] 111))]
   "TARGET_ALTIVEC"
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1711,134 +1711,80 @@
   operands[3] = gen_reg_rtx (GET_MODE (operands[0]));
 })
 
-(define_expand "reduc_smax_v4si"
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")] 217))]
+(define_expand "vec_shli_<mode>"
+  [(set (match_operand:V 0 "register_operand" "=v")
+	(unspec:V [(match_operand:V 1 "register_operand" "v")
+		   (match_operand:QI 2 "immediate_operand" "i")] 219 ))]
   "TARGET_ALTIVEC"
   "
 {
+  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1], 
+					operands[2]));
+  DONE;
+}")
+
+(define_expand "vec_shri_<mode>"
+  [(set (match_operand:V 0 "register_operand" "=v")
+	(unspec:V [(match_operand:V 1 "register_operand" "v")
+		   (match_operand:QI 2 "immediate_operand" "i")] 219 ))]
+  "TARGET_ALTIVEC"
+  "
+{
+  rtx tmp16 = gen_rtx_CONST_INT (QImode, 16);
+  rtx shift = gen_reg_rtx (QImode);
+
+  emit_insn (gen_subsi3 (shift, tmp16, operands[2]));
+  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1], 
+					shift));
+  DONE;
+}")
+
+(define_insn "altivec_vsumsws_nomode"
+  [(set (match_operand 0 "register_operand" "=v")
+        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
+                      (match_operand:V4SI 2 "register_operand" "v")] 135))
+   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
+  "TARGET_ALTIVEC"
+  "vsumsws %0,%1,%2"
+  [(set_attr "type" "veccomplex")])
+
+(define_expand "reduc_splus_<mode>"
+  [(set (match_operand:VIshort 0 "register_operand" "=v")
+        (unspec:VIshort [(match_operand:VIshort 1 "register_operand" "v")] 217))]
+  "TARGET_ALTIVEC"
+  "
+{
+  rtx vzero = gen_reg_rtx (V4SImode);
   rtx vtmp1 = gen_reg_rtx (V4SImode);
-  rtx vtmp2 = gen_reg_rtx (V4SImode);
-  rtx vtmp3 = gen_reg_rtx (V4SImode);
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_smaxv4si3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_smaxv4si3 (operands[0], vtmp2, vtmp3));
+
+  emit_insn (gen_altivec_vspltisw (vzero, const0_rtx));
+  emit_insn (gen_altivec_vsum4s<VI_char>s (vtmp1, operands[1], vzero));
+  emit_insn (gen_altivec_vsumsws_nomode (operands[0], vtmp1, vzero));
   DONE;
 }")
 
-(define_expand "reduc_smax_v4sf"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
-        (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "v")] 217))]
+(define_expand "reduc_uplus_v16qi"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+        (unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")] 217))]
   "TARGET_ALTIVEC"
   "
 {
-  rtx vtmp1 = gen_reg_rtx (V4SFmode);
-  rtx vtmp2 = gen_reg_rtx (V4SFmode);
-  rtx vtmp3 = gen_reg_rtx (V4SFmode);
-  emit_insn (gen_altivec_vsldoi_v4sf (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_smaxv4sf3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4sf (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_smaxv4sf3 (operands[0], vtmp2, vtmp3));
-  DONE;
-}")
-
-(define_expand "reduc_umax_v4si"
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")] 217))]
-  "TARGET_ALTIVEC"
-  "
-{
+  rtx vzero = gen_reg_rtx (V4SImode);
   rtx vtmp1 = gen_reg_rtx (V4SImode);
-  rtx vtmp2 = gen_reg_rtx (V4SImode);
-  rtx vtmp3 = gen_reg_rtx (V4SImode);
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_umaxv4si3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_umaxv4si3 (operands[0], vtmp2, vtmp3));
+
+  emit_insn (gen_altivec_vspltisw (vzero, const0_rtx));
+  emit_insn (gen_altivec_vsum4ubs (vtmp1, operands[1], vzero));
+  emit_insn (gen_altivec_vsumsws_nomode (operands[0], vtmp1, vzero));
   DONE;
 }")
 
-(define_expand "reduc_smin_v4si"
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")] 217))]
-  "TARGET_ALTIVEC"
-  "
-{
-  rtx vtmp1 = gen_reg_rtx (V4SImode);
-  rtx vtmp2 = gen_reg_rtx (V4SImode);
-  rtx vtmp3 = gen_reg_rtx (V4SImode);
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_sminv4si3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_sminv4si3 (operands[0], vtmp2, vtmp3));
-  DONE;
-}")
-
-(define_expand "reduc_smin_v4sf"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
-        (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "v")] 217))]
-  "TARGET_ALTIVEC" 
-  "
-{
-  rtx vtmp1 = gen_reg_rtx (V4SFmode);
-  rtx vtmp2 = gen_reg_rtx (V4SFmode);
-  rtx vtmp3 = gen_reg_rtx (V4SFmode);
-  emit_insn (gen_altivec_vsldoi_v4sf (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_sminv4sf3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4sf (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_sminv4sf3 (operands[0], vtmp2, vtmp3));
-  DONE;
-}")
-
-(define_expand "reduc_umin_v4si"
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")] 217))]
-  "TARGET_ALTIVEC"
-  "
-{
-  rtx vtmp1 = gen_reg_rtx (V4SImode);
-  rtx vtmp2 = gen_reg_rtx (V4SImode);
-  rtx vtmp3 = gen_reg_rtx (V4SImode);
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_uminv4si3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_uminv4si3 (operands[0], vtmp2, vtmp3));
-  DONE;
-}")
-
-
-(define_expand "reduc_plus_v4si"
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")] 217))]
-  "TARGET_ALTIVEC"
-  "
-{
-  rtx vtmp1 = gen_reg_rtx (V4SImode);
-  rtx vtmp2 = gen_reg_rtx (V4SImode);
-  rtx vtmp3 = gen_reg_rtx (V4SImode);
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_addv4si3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4si (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_addv4si3 (operands[0], vtmp2, vtmp3));
-  DONE;
-}")
-
-(define_expand "reduc_plus_v4sf"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
-        (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "v")] 217))]
-  "TARGET_ALTIVEC"
-  "
-{
-  rtx vtmp1 = gen_reg_rtx (V4SFmode);
-  rtx vtmp2 = gen_reg_rtx (V4SFmode);
-  rtx vtmp3 = gen_reg_rtx (V4SFmode);
-  emit_insn (gen_altivec_vsldoi_v4sf (vtmp1, operands[1], operands[1], gen_rtx_CONST_INT (SImode, 8)));
-  emit_insn (gen_addv4sf3 (vtmp2, operands[1], vtmp1));
-  emit_insn (gen_altivec_vsldoi_v4sf (vtmp3, vtmp2, vtmp2, gen_rtx_CONST_INT (SImode, 4)));
-  emit_insn (gen_addv4sf3 (operands[0], vtmp2, vtmp3));
-  DONE;
-}")
+;; todo: 
+;;(define_expand "reduc_uplus_v8hi"
+;;  [(set (match_operand:V8HI 0 "register_operand" "=v")
+;;        (unspec:V8HI [(match_operand:V8HI 1 "register_operand" "v")] 217))]
+;;  "TARGET_ALTIVEC"
+;;  "
+;;{ }")
 
 (define_insn "vec_realign_load_v4sf"
   [(set (match_operand:V4SF 0 "register_operand" "=v")

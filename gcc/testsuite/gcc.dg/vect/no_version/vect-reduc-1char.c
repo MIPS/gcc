@@ -6,17 +6,17 @@
 #define N 16
 #define DIFF 242
 
-int main1 (unsigned int x, unsigned int max_result)
+int main1 (unsigned char x, unsigned char max_result)
 {
   int i;
-  unsigned int ub[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
-  unsigned int uc[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-  unsigned int udiff = 2;
-  unsigned int umax = x;
-  unsigned int umin = 10;
+  unsigned char ub[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
+  unsigned char uc[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+  unsigned char udiff = 2;
+  unsigned char umax = x;
+  unsigned char umin = 10;
 
   for (i = 0; i < N; i++) {
-    udiff += (ub[i] - uc[i]);
+    udiff += (unsigned char)(ub[i] - uc[i]);
   }
 
   for (i = 0; i < N; i++) {
