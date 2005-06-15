@@ -6338,6 +6338,8 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 	     }
 	 }
     }
+  else if (TREE_CODE (var) == VAR_DECL && !strcmp(TREE_STRING_POINTER (str), "m") )
+    TREE_ADDRESSABLE (var) = 1;
 }
 
 /* CW identifier may include '.', '+' or '-'. Except that an operator
