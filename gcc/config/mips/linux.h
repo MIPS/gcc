@@ -179,7 +179,6 @@ Boston, MA 02111-1307, USA.  */
 #undef LIB_SPEC
 #define LIB_SPEC "\
 %{shared: -lc} \
-%{!static:-rpath-link %R/lib:%R/usr/lib} \
 %{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"
 
@@ -199,6 +198,12 @@ typedef struct _sig_ucontext {
     struct sigcontext uc_mcontext;
     sigset_t      uc_sigmask;
 } _sig_ucontext_t;
+
+#if defined (__MIPSEB__) && !defined (__mips64)
+# define MD_FALLBACK_REGISTER_OFFSET 4
+#else
+# define MD_FALLBACK_REGISTER_OFFSET 0
+#endif
 
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)            \
   do {                                                               \
@@ -242,11 +247,13 @@ typedef struct _sig_ucontext {
     for (i_ = 0; i_ < 32; i_++) {                                    \
       (FS)->regs.reg[i_].how = REG_SAVED_OFFSET;                     \
       (FS)->regs.reg[i_].loc.offset                                  \
-        = (_Unwind_Ptr)&(sc_->sc_regs[i_]) - new_cfa_;               \
+        = ((_Unwind_Ptr)&(sc_->sc_regs[i_]) - new_cfa_               \
+           + MD_FALLBACK_REGISTER_OFFSET);                           \
     }                                                                \
     (FS)->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].how = REG_SAVED_OFFSET; \
     (FS)->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].loc.offset           \
-        = (_Unwind_Ptr)&(sc_->sc_pc) - new_cfa_;                     \
+        = ((_Unwind_Ptr)&(sc_->sc_pc) - new_cfa_                     \
+           + MD_FALLBACK_REGISTER_OFFSET);                           \
     (FS)->retaddr_column = SIGNAL_UNWIND_RETURN_COLUMN;              \
                                                                      \
     goto SUCCESS;                                                    \
