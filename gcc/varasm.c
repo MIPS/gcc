@@ -4280,7 +4280,7 @@ mark_weak (tree decl)
 /* We put the NEWDECL on the weak_decls list at some point.
    Replace it with the OLDDECL.  */
 
-void
+static void
 replace_weak (tree newdecl, tree olddecl)
 {
   if (SUPPORTS_WEAK)

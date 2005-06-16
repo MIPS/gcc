@@ -1,3 +1,10 @@
+2005-06-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* lex.c (warn_about_normalization): Add cast to 'sz'.
+	* macro.c (cpp_get_token): Use cast on 'result' rather than making
+	it non-const.
+	* pch.c (cpp_read_state): Don't mix declarations and code.
+
 2005-06-01  Devang Patel  <dpatel@apple.com>
 
 	Radar 4133801
