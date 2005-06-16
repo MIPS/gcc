@@ -7269,7 +7269,7 @@ test -z "$INSTALL_PROGRAM" && INSTALL_PROGRAM='${INSTALL}'
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
 
-# APPLE LOCAL Mach time
+# APPLE LOCAL begin Mach time
 
 for ac_header in mach/mach_time.h
 do
@@ -7420,6 +7420,7 @@ fi
 
 done
 
+# APPLE LOCAL end Mach time
 
 # See if cmp has --ignore-initial.
 echo "$as_me:$LINENO: checking for cmp's capabilities" >&5
@@ -7541,7 +7542,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7392: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7545: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -12854,7 +12855,8 @@ then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	if  "x$STMP_FIXPROTO" != x  ; then
+# APPLE LOCAL mainline 4.0 2005-06-16
+	if test "x$STMP_FIXPROTO" != x ; then
 	  STMP_FIXPROTO=stmp-install-fixproto
 	fi
     fi

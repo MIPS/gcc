@@ -1692,7 +1692,8 @@ then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	if [ "x$STMP_FIXPROTO" != x ] ; then
+# APPLE LOCAL mainline 4.0 2005-06-16
+	if test "x$STMP_FIXPROTO" != x ; then
 	  STMP_FIXPROTO=stmp-install-fixproto
 	fi
     fi

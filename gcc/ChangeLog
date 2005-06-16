@@ -1,3 +1,10 @@
+2005-05-07  Anthony Green  <green@redhat.com>
+
+	PR bootstrap/21403
+	* configure.ac (STMP_FIXPROTO): Fix [ ] consumption problem in
+	x$STMP_FIXPROTO test.
+	* configure: Rebuilt.
+
 2005-06-03  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/darwin.h (LINK_SPEC): Pass -syslibroot to linker
