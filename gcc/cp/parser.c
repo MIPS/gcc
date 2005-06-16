@@ -16702,6 +16702,7 @@ cp_parser_cw_asm_compound_statement (cp_parser *parser)
   /* Consume the `}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
   /* We're done with the block of asm.  */
+  cw_asm_at_bol = 0;
   inside_cw_asm_block = 0;
   cw_asm_state = cw_asm_none;
   return compound_stmt;
