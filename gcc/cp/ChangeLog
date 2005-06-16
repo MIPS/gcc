@@ -1,3 +1,8 @@
+2005-06-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (c++.install-man): Doesn't really depend on installdirs.
+	(rule for installing g++.1 manpage): Does depend on installdirs.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.
