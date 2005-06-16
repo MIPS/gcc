@@ -52,7 +52,6 @@
 #include <bits/basic_string.h>
 
 #ifndef _GLIBCXX_EXPORT_TEMPLATE
-# include <algorithm> // for find_if
 # include <bits/basic_string.tcc> 
 #endif
 

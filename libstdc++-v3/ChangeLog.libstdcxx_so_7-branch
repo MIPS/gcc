@@ -1,3 +1,16 @@
+2005-06-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_string.h: Don't include <algorithm>.
+
+	* include/ext/sso_string.h: Move all the includes (besides
+	atomicity.h) to string_util.h.
+	* include/ext/rc_string.h: Likewise.
+	* include/ext/string_util.h: Adjust accordingly.
+
+	* include/ext/sso_string.h: Change inheritance from
+	__string_utility to protected; change _S_terminal to private.
+	* include/ext/rc_string.h: Likewise.
+
 2005-06-14  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h: Remove the const _Alloc& argument

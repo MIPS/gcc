@@ -34,14 +34,6 @@
 #ifndef _SSO_STRING_H
 #define _SSO_STRING_H 1
 
-#include <bits/functexcept.h>
-#include <bits/stringfwd.h>
-#include <cstddef>
-#include <bits/stl_iterator_base_types.h>
-#include <bits/stl_iterator.h>
-#include <bits/cpp_type_traits.h>
-#include <algorithm>
-
 #include <ext/string_util.h>
 
 namespace __gnu_cxx
@@ -79,7 +71,7 @@ namespace __gnu_cxx
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     class __sso_string
-    : public __string_utility<_CharT, _Traits, _Alloc>,
+    : protected __string_utility<_CharT, _Traits, _Alloc>,
       private __sso_string_base<_CharT, _Alloc>
     {
       typedef __sso_string_base<_CharT, _Alloc>             _Base;
@@ -105,9 +97,10 @@ namespace __gnu_cxx
       // m = npos / sizeof(CharT) - 1
       // In addition, this implementation quarters this amount.
       static const size_type	_S_max_size;
-      static const _CharT	_S_terminal;
 
     private:
+      static const _CharT	_S_terminal;
+
       using _Base::_S_local_capacity;
       using _Base::_M_local_data;
       using _Base::_M_allocated_capacity;

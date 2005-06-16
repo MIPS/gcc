@@ -34,16 +34,8 @@
 #ifndef _RC_STRING_H
 #define _RC_STRING_H 1
 
-#include <bits/functexcept.h>
-#include <bits/atomicity.h>
-#include <bits/stringfwd.h>
-#include <cstddef>
-#include <bits/stl_iterator_base_types.h>
-#include <bits/stl_iterator.h>
-#include <bits/cpp_type_traits.h>
-#include <algorithm>
-
 #include <ext/string_util.h>
+#include <bits/atomicity.h>
 
 namespace __gnu_cxx
 {
@@ -92,7 +84,7 @@ namespace __gnu_cxx
   */
  template<typename _CharT, typename _Traits, typename _Alloc>
     class __rc_string
-    : public __string_utility<_CharT, _Traits, _Alloc>
+    : protected __string_utility<_CharT, _Traits, _Alloc>
     {
     public:
       typedef _Traits					    traits_type;
@@ -115,9 +107,10 @@ namespace __gnu_cxx
       // m = ((npos - sizeof(_Rep))/sizeof(CharT)) - 1
       // In addition, this implementation quarters this amount.
       static const size_type	_S_max_size;
-      static const _CharT	_S_terminal;
 
     private:
+      static const _CharT	_S_terminal;
+
       // _Rep: string representation
       //   Invariants:
       //   1. String really contains _M_length + 1 characters: due to 21.3.4

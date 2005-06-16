@@ -34,6 +34,14 @@
 #ifndef _STRING_UTIL_H
 #define _STRING_UTIL_H 1
 
+#include <bits/functexcept.h>
+#include <bits/stringfwd.h>
+#include <cstddef>
+#include <bits/stl_iterator_base_types.h>
+#include <bits/stl_iterator.h>
+#include <bits/cpp_type_traits.h>
+#include <algorithm> // For std::distance, srd::search.
+
 namespace __gnu_cxx
 {
   template<typename _Type>
