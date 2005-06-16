@@ -3269,7 +3269,6 @@ process_command (int argc, const char **argv)
   int is_modify_target_name;
   int j;
 #endif
-  bool warn_system_header_switch = false;
 
   GET_ENVIRONMENT (gcc_exec_prefix, "GCC_EXEC_PREFIX");
 
