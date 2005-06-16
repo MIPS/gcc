@@ -1,3 +1,10 @@
+2005-06-15  Devang Patel  <dpatel@apple.com>
+
+	Undo
+	2005-06-04  Devang Patel  <dpatel@apple.com>
+        * dbxout.c (struct dbx_file): Apply GTY markers.
+        (dbxout_init, dbxout_start_source_file): Use ggc_alloc instead of xmalloc.
+
 2005-06-15  Geoffrey Keating  <geoffk@apple.com>
 
 	* varasm.c (replace_weak): Make 'static'.
@@ -12,7 +19,6 @@
 	warn_padded around layout_type call.
 	* cfgcleanup.c (try_crossjump_to_edge): update_forwarder_flag for
 	src2 if src2 has been split.
-
 
 2005-06-04  Devang Patel  <dpatel@apple.com>
 

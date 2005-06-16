@@ -144,7 +144,7 @@ typedef enum cp_file_entry_kind
 /* cp_lexer_file is a collection of file begins (and ends) observed
    by lexer while collecting tokens for arser.  */
 
-typedef struct cp_lexer_file GTY(())
+typedef struct cp_lexer_file
 {
   enum cp_file_entry_kind kind;
 
@@ -152,11 +152,11 @@ typedef struct cp_lexer_file GTY(())
   int line;
   const char *file;
 
-  struct cp_lexer_file * GTY ((skip)) next;
+  struct cp_lexer_file *next;
 } cp_lexer_file;
 
-static GTY(()) cp_lexer_file *cp_lexer_file_stack;
-static GTY(()) cp_lexer_file *last_cp_lexer_file;
+static cp_lexer_file *cp_lexer_file_stack;
+static cp_lexer_file *last_cp_lexer_file;
 
 static void cp_add_lexer_file (int, const char *, cp_file_entry_kind);
 static void cp_lexer_copy_token (cp_token *, cp_token *);
@@ -743,7 +743,7 @@ cp_lexer_save_tokens (cp_lexer* lexer)
 static void 
 cp_add_lexer_file (int n, const char *s, cp_file_entry_kind k)
 {
-  cp_lexer_file *lf = ggc_alloc (sizeof (cp_lexer_file));
+  cp_lexer_file *lf = xmalloc (sizeof (cp_lexer_file));
 
   /* Populate */
   lf->line = n;
@@ -785,12 +785,17 @@ cp_flush_lexer_file_stack (void)
       cp_lexer_file *lf = cp_lexer_file_stack;
       while (lf)
 	{
+	  cp_lexer_file *tmp;
 	  if (lf->kind == CP_FILE_BEGIN)
 	    (*debug_hooks->start_source_file) (lf->line, lf->file);
 	  else if (lf->kind == CP_FILE_END)
 	    (*debug_hooks->end_source_file) (lf->line);
+	  tmp = lf;
 	  lf = lf->next;
+	  tmp = NULL;
 	}
+      last_cp_lexer_file = NULL;
+      cp_lexer_file_stack = NULL;
     }
 }
 
