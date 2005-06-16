@@ -96,7 +96,7 @@ rm -rf $SRC_DIR/tcl $SRC_DIR/expect $SRC_DIR/dejagnu || exit 1
 rm -f /usr/lib/gcc/*/4.0.0/specs
 
 # These are the configure and build flags that are used.
-CONFIGFLAGS="--disable-checking \
+CONFIGFLAGS="--disable-checking -enable-werror \
   --prefix=$DEST_ROOT \
   --mandir=\${prefix}/share/man \
   --enable-languages=c,objc,c++,obj-c++ \
@@ -171,7 +171,7 @@ for t in $TARGETS ; do
   mkdir -p $DIR/obj-$BUILD-$t $DIR/dst-$BUILD-$t || exit 1
    cd $DIR/obj-$BUILD-$t || exit 1
    if [ \! -f Makefile ]; then
-    $SRC_DIR/configure $CONFIGFLAGS  \
+    $SRC_DIR/configure $CONFIGFLAGS --enable-werror-always \
      `if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
       --program-prefix=$t-apple-darwin$DARWIN_VERS- \
       --host=$BUILD-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
