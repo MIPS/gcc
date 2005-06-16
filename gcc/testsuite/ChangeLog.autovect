@@ -1,3 +1,7 @@
+2005-06-16  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-115.c: Fix: allocate struct.
+
 2005-06-15  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/no_version/vect-reduc-1.c: Vectorizable on all
