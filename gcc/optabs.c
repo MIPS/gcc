@@ -465,6 +465,7 @@ expand_vec_shift_expr (tree vec_shift_expr, rtx target)
   tree vec_oprnd = TREE_OPERAND (vec_shift_expr, 0);
   tree shift_oprnd = TREE_OPERAND (vec_shift_expr, 1);
   optab shift_optab;
+  rtx pat;
 
   gcc_assert (TREE_CODE (shift_oprnd) == INTEGER_CST);
 
@@ -502,7 +503,9 @@ expand_vec_shift_expr (tree vec_shift_expr, rtx target)
     target = gen_reg_rtx (mode);
 
   /* Emit instruction */
-  emit_insn (GEN_FCN (icode) (target, rtx_op1, rtx_op2));
+  pat = GEN_FCN (icode) (target, rtx_op1, rtx_op2);
+  gcc_assert (pat);
+  emit_insn (pat);
 
   return target;
 }

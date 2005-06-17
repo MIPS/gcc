@@ -243,7 +243,7 @@ enum optab_index
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
-  /* Whole vector shift. The shift amount is an immediate value in bytes.  */
+  /* Whole vector shift. The shift amount is an immediate value in bits.  */
   OTI_vec_shli,
   OTI_vec_shri,
   /* Extract specified elements from vectors, for vector load.  */

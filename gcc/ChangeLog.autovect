@@ -1,3 +1,13 @@
+2005-06-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* optabs.c (expand_vec_shift_expr): Make sure GEN_FCN succeeded.
+	* optabs.h (OTI_vec_shli, OTI_vec_shri): Update comment.
+	* tree-vect-transform.c (vect_create_epilog_for_reduction): Generate
+	a shift in bits instead of bytes.	
+	* tree.def (VEC_LSHIFT_EXPR, VEC_RSHIFT_EXPR): Update comment.
+	* config/rs6000/altivec.md (vec_shli_<mode>, vec_shri_<mode>): 
+	Take shift argument in bits instead of bytes.
+
 2005-06-15  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* genopinit.c (vec_shli_optab, vec_shri_optab): Initialize new optabs.

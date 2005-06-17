@@ -915,9 +915,9 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
       enum tree_code shift_code;
       bool have_whole_vector_shift = true;
       enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1)); /* CHECKME */
-      int byte_offset, bit_offset;
-      int element_bytesize, element_bitsize;
-      int vec_size_in_bits; 
+      int bit_offset;
+      int element_bitsize = tree_low_cst (bitsize, 1);
+      int vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
       tree vec_temp;
 
       /* The result of the reduction is expected to be at the LSB bits
@@ -946,18 +946,17 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
 	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	    fprintf (vect_dump, "Reduce using vector shifts");
 
-	  element_bytesize = tree_low_cst (bytesize, 1);
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
 	  new_temp = PHI_RESULT (new_phi);
 
-	  for (byte_offset = UNITS_PER_SIMD_WORD/2; 
-	       byte_offset >= element_bytesize; 
-	       byte_offset /= 2)	
+	  for (bit_offset = vec_size_in_bits/2;
+	       bit_offset >= element_bitsize; 
+	       bit_offset /= 2)	
 	    {
-	      tree bytepos = size_int (byte_offset); 
+	      tree bitpos = size_int (bit_offset); 
 
 	      epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
-			      build2 (shift_code, vectype, new_temp, bytepos));
+			      build2 (shift_code, vectype, new_temp, bitpos));
 	      new_name = make_ssa_name (vec_dest, epilog_stmt);
 	      TREE_OPERAND (epilog_stmt, 0) = new_name;
 	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
@@ -990,8 +989,6 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
 	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	    fprintf (vect_dump, "Reduce using scalar code. ");
 
-	  element_bytesize = tree_low_cst (bytesize, 1);
-	  element_bitsize = tree_low_cst (bitsize, 1);
 	  new_temp = scalar_initial_def;
 	  vec_temp = PHI_RESULT (new_phi);
 	  vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);

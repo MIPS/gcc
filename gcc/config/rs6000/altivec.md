@@ -1718,8 +1718,15 @@
   "TARGET_ALTIVEC"
   "
 {
+  rtx tmp = gen_rtx_CONST_INT (QImode, 3);
+  rtx bitshift = operands[2];
+  rtx byteshift = gen_reg_rtx (QImode);
+
+  if (INTVAL (bitshift) & 0x3)
+    FAIL;
+  emit_insn (gen_ashrsi3 (byteshift, bitshift, tmp));
   emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1], 
-					operands[2]));
+					byteshift));
   DONE;
 }")
 
@@ -1730,10 +1737,16 @@
   "TARGET_ALTIVEC"
   "
 {
+  rtx tmp = gen_rtx_CONST_INT (QImode, 3);
+  rtx bitshift = operands[2];
+  rtx byteshift = gen_reg_rtx (QImode);
   rtx tmp16 = gen_rtx_CONST_INT (QImode, 16);
   rtx shift = gen_reg_rtx (QImode);
 
-  emit_insn (gen_subsi3 (shift, tmp16, operands[2]));
+  if (INTVAL (bitshift) & 0x3)
+    FAIL;
+  emit_insn (gen_ashrsi3 (byteshift, bitshift, tmp));
+  emit_insn (gen_subsi3 (shift, tmp16, byteshift));
   emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1], 
 					shift));
   DONE;
