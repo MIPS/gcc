@@ -1,8 +1,6 @@
-/* Test messages for -Wconversion, including that they are not
-   pedwarns.  */
-/* Based on gcc.dg/Wconversion-2.c */
+/* Test messages for -Wconversion (based on gcc.dg/Wconversion-2.c).  */
 /* { dg-do compile } */
-/* { dg-options "-std=gnu99 -pedantic-errors -Wconversion" } */
+/* { dg-options "-std=gnu99 -Wconversion" } */
 
 void fsi(signed int);
 void fd32(_Decimal32);
