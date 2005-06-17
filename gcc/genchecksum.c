@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
 /* Generate checksums of executables for PCH validation
    Copyright (C) 2005
    Free Software Foundation, Inc.
@@ -75,3 +76,4 @@ main (int argc, char ** argv)
 
   return 0;
 }
+/* APPLE LOCAL end mainline 4.1 2005-06-17 3988498 */

@@ -936,6 +936,13 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       print_struct_values = 1;
       break;
 
+/* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
+    case OPT_print_pch_checksum:
+      c_common_print_pch_checksum (stdout);
+      exit_after_options = true;
+      break;
+
+/* APPLE LOCAL end mainline 4.1 2005-06-17 3988498 */
     case OPT_remap:
       cpp_opts->remap = 1;
       break;
@@ -1152,6 +1159,11 @@ c_common_init (void)
      are known.  */
   cpp_init_iconv (parse_in);
 
+/* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
+  if (version_flag)
+    c_common_print_pch_checksum (stderr);
+
+/* APPLE LOCAL end mainline 4.1 2005-06-17 3988498 */
   if (flag_preprocess_only)
     {
       finish_options ();

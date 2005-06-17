@@ -13179,13 +13179,8 @@ build the project.  To make builds faster, GCC allows users to
 `precompile' a header file; then, if builds can use the precompiled
 header file they will be much faster.
 
-@strong{Caution:} There are a few known situations where GCC will
-crash when trying to use a precompiled header.  If you have trouble
-with a precompiled header, you should remove the precompiled header
-and compile without it.  In addition, please use GCC's on-line
-defect-tracking system to report any problems you encounter with
-precompiled headers.  @xref{Bugs}.
-
+@c APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+@c APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 To create a precompiled header file, simply compile it as you would any
 other file, if necessary using the @option{-x} option to make the driver
 treat it as a C or C++ header file.  You will probably want to use a
@@ -13250,11 +13245,11 @@ the current compilation.  You can't use a C precompiled header for a C++
 compilation.
 
 @item
-The precompiled header file must be produced by the same compiler
-version and configuration as the current compilation is using.
-The easiest way to guarantee this is to use the same compiler binary
-for creating and using precompiled headers.
+@c APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+The precompiled header file must have been produced by the same compiler
+binary as the current compilation is using.
 
+@c APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 @item
 Any macros defined before the precompiled header is included must
 either be defined in the same way as when the precompiled header was
@@ -13290,8 +13285,13 @@ which options are safe to change and which are not; the safest choice
 is to use exactly the same options when generating and using the
 precompiled header.  The following are known to be safe:
 
-@gccoptlist{-fpreprocessed -pedantic-errors}
+@c APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+@gccoptlist{-fpreprocessed
+-fsched-interblock -fsched-spec -fsched-spec-load -fsched-spec-load-dangerous
+-fsched-verbose=<number> -fschedule-insns
+-pedantic-errors}
 
+@c APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 @end itemize
 
 For all of these except the last, the compiler will automatically

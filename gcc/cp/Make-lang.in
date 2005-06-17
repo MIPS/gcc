@@ -101,12 +101,24 @@ CXX_OBJS = cp/cp-lang.o stub-objc.o $(CXX_AND_OBJCXX_OBJS)
 cp-warn = $(STRICT_WARN)
 
 # APPLE LOCAL begin order files  --ilr
-cc1plus$(exeext): $(CXX_OBJS) $(BACKEND) $(LIBDEPS)
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+cc1plus-dummy$(exeext): $(CXX_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	      $(CXX_OBJS) $(BACKEND) $(LIBS) \
+	      $(CXX_OBJS) dummy-checksum.o $(BACKEND) $(LIBS) \
 	      $(CC1PLUS_ORDER_FLAGS)
-# APPLE LOCAL end order files  --ilr
 
+cc1plus-checksum.c : cc1plus-dummy$(exeext) build/genchecksum$(exeext)
+	build/genchecksum$(exeext) cc1plus-dummy$(exeext) > $@
+
+cc1plus-checksum.o : cc1plus-checksum.c
+
+cc1plus$(exeext): $(CXX_OBJS) cc1plus-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
+	      $(CXX_OBJS) cc1plus-checksum.o $(BACKEND) $(LIBS) \
+	      $(CC1PLUS_ORDER_FLAGS)
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
+# APPLE LOCAL end order files  --ilr
+  
 # Special build rules.
 $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
 	gperf -o -C -E -k '1-6,$$' -j1 -D -N 'libc_name_p' -L ANSI-C \
