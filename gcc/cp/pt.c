@@ -9370,17 +9370,14 @@ type_unification_real (tree tparms,
 	  else
 	    type = arg;
 
-	  if (strict == DEDUCE_EXACT || strict == DEDUCE_ORDER)
-	    {
-	      if (same_type_p (parm, type))
-		continue;
-	    }
-	  else
-	    /* It might work; we shouldn't check now, because we might
-	       get into infinite recursion.  Overload resolution will
-	       handle it.  */
+	  /* APPLE LOCAL begin mainline 4.1 2005-06-17 4122333 */
+	  if (same_type_p (parm, type))
 	    continue;
-
+	  if (strict != DEDUCE_EXACT && strict != DEDUCE_ORDER
+	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg))
+	    continue;
+	  /* APPLE LOCAL end mainline 4.1 2005-06-17 4122333 */
+	  
 	  return 1;
 	}
 	

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline 4.1 2005-06-17 4122333 */
 struct Attribute { };
 
 template <class T> bool operator == (const Attribute &attr, const T &value);
