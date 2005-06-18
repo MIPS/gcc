@@ -1,3 +1,8 @@
+2005-06-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* config/rs6000/altivec.md (vec_shli_<mode>, vec_shri_<mode>): Add comment.
+	Bit-and with 7 instead 3.
+
 2005-06-17  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* optabs.c (expand_vec_shift_expr): Make sure GEN_FCN succeeded.

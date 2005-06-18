@@ -1711,6 +1711,11 @@
   operands[3] = gen_reg_rtx (GET_MODE (operands[0]));
 })
 
+;; Vector shift left in bits. Currently supported ony for shift
+;; amounts that can be expressed as byte shifts (divisible by 8).
+;; General shift amounts can be supported using vslo + vsl. We're
+;; not expecting to see these yet (the vectorizer currently 
+;; generates only shifts divisible by byte_size).
 (define_expand "vec_shli_<mode>"
   [(set (match_operand:V 0 "register_operand" "=v")
 	(unspec:V [(match_operand:V 1 "register_operand" "v")
@@ -1722,7 +1727,7 @@
   rtx bitshift = operands[2];
   rtx byteshift = gen_reg_rtx (QImode);
 
-  if (INTVAL (bitshift) & 0x3)
+  if (INTVAL (bitshift) & 0x7)
     FAIL;
   emit_insn (gen_ashrsi3 (byteshift, bitshift, tmp));
   emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1], 
@@ -1730,6 +1735,11 @@
   DONE;
 }")
 
+;; Vector shift left in bits. Currently supported ony for shift
+;; amounts that can be expressed as byte shifts (divisible by 8).
+;; General shift amounts can be supported using vsro + vsr. We're
+;; not expecting to see these yet (the vectorizer currently 
+;; generates only shifts divisible by byte_size).
 (define_expand "vec_shri_<mode>"
   [(set (match_operand:V 0 "register_operand" "=v")
 	(unspec:V [(match_operand:V 1 "register_operand" "v")
@@ -1743,7 +1753,7 @@
   rtx tmp16 = gen_rtx_CONST_INT (QImode, 16);
   rtx shift = gen_reg_rtx (QImode);
 
-  if (INTVAL (bitshift) & 0x3)
+  if (INTVAL (bitshift) & 0x7)
     FAIL;
   emit_insn (gen_ashrsi3 (byteshift, bitshift, tmp));
   emit_insn (gen_subsi3 (shift, tmp16, byteshift));
