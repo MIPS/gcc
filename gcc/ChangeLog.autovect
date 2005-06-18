@@ -1,5 +1,9 @@
 2005-06-19  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* tree.def (VEC_LSHIFT_EXPR, VEC_RSHIFT_EXPR): Fix typo.
+
+2005-06-19  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* config/rs6000/altivec.md (vec_shli_<mode>, vec_shri_<mode>): Add comment.
 	Bit-and with 7 instead 3.
 
