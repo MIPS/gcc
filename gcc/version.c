@@ -16,7 +16,7 @@
      to get version number string. Do not use new line.
 */
 
-const char version_string[] = "4.0.0 (Apple Computer, Inc. build 5203)";
+const char version_string[] = "4.0.0 (Apple Computer, Inc. build 5204)";
 /* APPLE LOCAL end Apple version */
 
 /* This is the location of the online document giving instructions for
