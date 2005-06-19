@@ -1,3 +1,8 @@
+2005-06-19  Ira Rosen  <irar@il.ibm.com>
+
+        * tree-data-ref.c (initialize_data_dependence_relation): Remove
+        dependence test based on dimensions of data-refs.
+
 2005-06-19  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree.def (VEC_LSHIFT_EXPR, VEC_RSHIFT_EXPR): Fix typo.
