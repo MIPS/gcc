@@ -229,12 +229,12 @@ typedef unsigned long long      uintmax_t;
 /* 7.18.4 Macros for integer constants */
 #define INT8_C(v)    (v)
 #define INT16_C(v)   (v)
-#define INT32_C(v)   (v ## L)
+#define INT32_C(v)   (v)
 #define INT64_C(v)   (v ## LL)
 
 #define UINT8_C(v)   (v ## U)
 #define UINT16_C(v)  (v ## U)
-#define UINT32_C(v)  (v ## UL)
+#define UINT32_C(v)  (v ## U)
 #define UINT64_C(v)  (v ## ULL)
 
 #define INTMAX_C(v)  (v ## LL)
