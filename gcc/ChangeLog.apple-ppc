@@ -1,3 +1,8 @@
+2005-06-20  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4146993
+	* gcc/gcc/config/i386/i386.c (machopic_output_stub): Use only %ecx.
+
 2005-06-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4151537

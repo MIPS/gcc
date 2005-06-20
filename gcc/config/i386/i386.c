@@ -15954,6 +15954,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   fprintf (file, "%s:\n", stub);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
 
+  /* APPLE LOCAL begin use %ecx in stubs 4146993 */
   /* APPLE LOCAL begin deep branch prediction pic-base */
   if (MACHOPIC_PURE)
     {
@@ -15961,17 +15962,17 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       if (TARGET_DEEP_BRANCH_PREDICTION)
 	{
 	  /* 25-byte PIC stub using "CALL get_pc_thunk".  */
-	  rtx tmp = gen_rtx_REG (SImode, 0 /* EAX */);
-	  output_set_got (tmp);	/* "CALL ___<cpu>.get_pc_thunk.ax".  */
-	  fprintf (file, "LPC$%d:\tmovl\t%s-LPC$%d(%%eax),%%edx\n", label, lazy_ptr_name, label);
+	  rtx tmp = gen_rtx_REG (SImode, 2 /* ECX */);
+	  output_set_got (tmp);	/* "CALL ___<cpu>.get_pc_thunk.cx".  */
+	  fprintf (file, "LPC$%d:\tmovl\t%s-LPC$%d(%%ecx),%%ecx\n", label, lazy_ptr_name, label);
 	}
       else
 	{
 	  /* 26-byte PIC stub using inline picbase: "CALL L42 ! L42: pop %eax".  */
-	  fprintf (file, "\tcall LPC$%d\nLPC$%d:\tpopl %%eax\n", label, label);
-	  fprintf (file, "\tmovl %s-LPC$%d(%%eax),%%edx\n", lazy_ptr_name, label);
+	  fprintf (file, "\tcall LPC$%d\nLPC$%d:\tpopl %%ecx\n", label, label);
+	  fprintf (file, "\tmovl %s-LPC$%d(%%ecx),%%ecx\n", lazy_ptr_name, label);
 	}
-      fprintf (file, "\tjmp\t%%edx\n");
+      fprintf (file, "\tjmp\t%%ecx\n");
     }
   else	/* 16-byte -mdynamic-no-pic stub.  */
     fprintf (file, "\tjmp\t*%s\n", lazy_ptr_name);
@@ -15990,14 +15991,15 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   /* APPLE LOCAL begin deep branch prediction pic-base * tabify insns */
   if (MACHOPIC_PURE)
     {
-      fprintf (file, "\tlea\t%s-LPC$%d(%%eax),%%eax\n", lazy_ptr_name, label);
-      fprintf (file, "\tpushl\t%%eax\n");
+      fprintf (file, "\tlea\t%s-%s(%%ecx),%%ecx\n", lazy_ptr_name, binder_name);
+      fprintf (file, "\tpushl\t%%ecx\n");
     }
   else
     fprintf (file, "\t pushl\t$%s\n", lazy_ptr_name);
 
   fprintf (file, "\tjmp\tdyld_stub_binding_helper\n");
   /* APPLE LOCAL end deep branch prediction pic-base * tabify insns */
+  /* APPLE LOCAL end use %ecx in stubs 4146993 */
 
   /* APPLE LOCAL begin deep branch prediction pic-base.  */
   /* N.B. Keep the correspondence of these
