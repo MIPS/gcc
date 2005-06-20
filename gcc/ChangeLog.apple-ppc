@@ -1,3 +1,14 @@
+2005-06-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4151537
+	* config/rs6000/rs6000.md (UNSPEC_LD_MPIC_L):  New.
+	* config/rs6000/darwin.md (load_macho_picbase_label):  New.
+	(load_macho_picbase_label_si):  New.
+	(load_macho_picbase_label_di):  New.
+	* config/rs6000/rs6000.c (objc_method_using_pic): Remove.
+	(name_encodes_objc_method_p):  Rewrite.
+	(rs6000_emit_prologue):  Rewrite "ObjC method use of R12".
+
 2005-06-15  Devang Patel  <dpatel@apple.com>
 
 	Undo

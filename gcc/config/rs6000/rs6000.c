@@ -15652,16 +15652,11 @@ generate_set_vrsave (rtx reg, rs6000_stack_t *info, int epiloguep)
 }
 
 /* APPLE LOCAL begin special ObjC method use of R12 */
-static int objc_method_using_pic = 0;
-
 /* Determine whether a name is an ObjC method.  */
+
 static int name_encodes_objc_method_p (const char *piclabel_name)
 {
-  return (piclabel_name[0] == '*' && piclabel_name[1] == '"' 
-       ? (piclabel_name[2] == 'L'
-	  && (piclabel_name[3] == '+' || piclabel_name[3] == '-'))
-       : (piclabel_name[1] == 'L'
-	  && (piclabel_name[2] == '+' || piclabel_name[2] == '-')));
+  return (piclabel_name[0] == '+' || piclabel_name[0] == '-');
 }
 /* APPLE LOCAL end special ObjC method use of R12 */
 
@@ -15887,7 +15882,37 @@ rs6000_emit_prologue (void)
 #endif
   /* APPLE LOCAL end callers_lr_already_saved */
   /* APPLE LOCAL special ObjC method use of R12 */
-  objc_method_using_pic = 0;
+  int objc_method_using_pic = 0;
+
+  /* APPLE LOCAL begin special ObjC method use of R12 */
+#if TARGET_MACHO
+  if (DEFAULT_ABI == ABI_DARWIN 
+	&& current_function_uses_pic_offset_table && flag_pic
+	   && current_function_decl 
+	   && DECL_ASSEMBLER_NAME_SET_P (current_function_decl))
+    {
+      /* At -O0, this will not be set yet, so we won't do this opt.  */
+      const char *piclabel_name 
+	= IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
+      
+      if (name_encodes_objc_method_p (piclabel_name)
+	  /* If we're saving vector or FP regs via a function call,
+	     then don't bother with this ObjC R12 optimization.
+	     This test also eliminates world_save.  */
+	  && (info->first_altivec_reg_save > LAST_ALTIVEC_REGNO
+	      || VECTOR_SAVE_INLINE (info->first_altivec_reg_save))
+	  && (info->first_fp_reg_save == 64 
+	      || FP_SAVE_INLINE (info->first_fp_reg_save)))
+	{
+	  rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
+          rtx src = machopic_function_base_sym ();
+	  objc_method_using_pic = 1;	
+	  rs6000_maybe_dead (emit_insn (gen_load_macho_picbase_label (lr, 
+					src)));
+	}
+    }
+#endif /* TARGET_MACHO */
+  /* APPLE LOCAL end special ObjC method use of R12 */
 
   if (TARGET_FIX_AND_CONTINUE)
     {
@@ -15942,31 +15967,6 @@ rs6000_emit_prologue (void)
       if (frame_reg_rtx != sp_reg_rtx)
 	rs6000_emit_stack_tie ();
     }
-
-  /* APPLE LOCAL begin special ObjC method use of R12 */
-#if TARGET_MACHO
-  if (DEFAULT_ABI == ABI_DARWIN 
-	&& current_function_uses_pic_offset_table && flag_pic)
-    {
-      const char *piclabel_name = machopic_function_base_name ();
-      
-      if (name_encodes_objc_method_p (piclabel_name)
-	  /* If we're saving vector or FP regs via a function call,
-	     then don't bother with this ObjC R12 optimization.
-	     This test also eliminates world_save.  */
-	  && (info->first_altivec_reg_save > LAST_ALTIVEC_REGNO
-	      || VECTOR_SAVE_INLINE (info->first_altivec_reg_save))
-	  && (info->first_fp_reg_save == 64 
-	      || FP_SAVE_INLINE (info->first_fp_reg_save)))
-	{
-	   /* We cannot output the label now; there seems to be no 
-	     way to prevent cfgcleanup from deleting it.  It is done
-	     in rs6000_output_function_prologue with fprintf!  */
-	  objc_method_using_pic = 1;
-	}
-    }
-#endif /* TARGET_MACHO */
-  /* APPLE LOCAL end special ObjC method use of R12 */
 
   /* Handle world saves specially here.  */
   if (WORLD_SAVE_P (info))
@@ -16558,17 +16558,15 @@ rs6000_emit_prologue (void)
 
       /* APPLE LOCAL begin performance enhancement */
       if (!lr_already_set_up_for_pic)
-	rs6000_maybe_dead (emit_insn ((TARGET_64BIT
-				       ? gen_load_macho_picbase_di (lr, src)
-				       : gen_load_macho_picbase (lr, src))));
+	rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (lr, src)));
       /* APPLE LOCAL end performance enhancement */
 
       /* APPLE LOCAL begin volatile pic base reg in leaves */
       insn = emit_move_insn (gen_rtx_REG (Pmode,
-					  (cfun->machine->substitute_pic_base_reg 
-					   == INVALID_REGNUM)
-					  ? RS6000_PIC_OFFSET_TABLE_REGNUM
-					  : cfun->machine->substitute_pic_base_reg),
+			      (cfun->machine->substitute_pic_base_reg 
+			       == INVALID_REGNUM)
+			      ? RS6000_PIC_OFFSET_TABLE_REGNUM
+			      : cfun->machine->substitute_pic_base_reg),
 			     lr);
       rs6000_maybe_dead (insn);
       /* APPLE LOCAL end volatile pic base reg in leaves */
@@ -16615,17 +16613,6 @@ rs6000_output_function_prologue (FILE *file,
       fputs ("\t.extern __quous\n", file);
       common_mode_defined = 1;
     }
-
-  /* APPLE LOCAL begin special ObjC method use of R12 */
-#if TARGET_MACHO
-  if ( HAVE_prologue && DEFAULT_ABI == ABI_DARWIN && objc_method_using_pic )
-    {
-      /* APPLE FIXME isn't there an asm macro to do all this? */
-      const char* piclabel = machopic_function_base_name ();
-      fprintf(file, "%s:\n", (*piclabel == '*') ? piclabel + 1 : piclabel);
-    }
-#endif
-  /* APPLE LOCAL end special ObjC method use of R12 */
 
   if (! HAVE_prologue)
     {
