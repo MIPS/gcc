@@ -1,3 +1,8 @@
+2005-06-21  Ira Rosen  <irar@il.ibm.com>
+
+        * tree-data-ref.c (initialize_data_dependence_relation): Perform
+        dependence test based on dimensions of data-refs for arrays.
+
 2005-06-19  Ira Rosen  <irar@il.ibm.com>
 
         * tree-data-ref.c (initialize_data_dependence_relation): Remove

@@ -1955,6 +1955,17 @@ initialize_data_dependence_relation (struct data_reference *a,
       return res;
     }
   
+  
+  /* When the dimensions of two arrays A and B differ, we directly 
+     initialize the relation to "there is no dependence": chrec_known. 
+   */
+  if (DR_BASE_OBJECT (a) && DR_BASE_OBJECT (b)
+      && DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b))
+    {
+      DDR_ARE_DEPENDENT (res) = chrec_known;    
+      return res;
+    }
+
   if (DR_BASE_ADDRESS (a) && DR_BASE_ADDRESS (b))
     known_dependence = base_addr_differ_p (a, b, &differ_p);
   else 
