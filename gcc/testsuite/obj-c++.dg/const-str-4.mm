@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Ensure that the preprocessor handles ObjC string constants gracefully. */
 /* Author: Ziemowit Laski <zlaski@apple.com> */
 /* { dg-options "-fnext-runtime -fconstant-string-class=MyString -lobjc" } */ 

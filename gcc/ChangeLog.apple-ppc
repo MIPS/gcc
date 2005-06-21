@@ -1,3 +1,9 @@
+2005-06-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4149909
+	* config/darwin.c (machopic_select_section): constant ObjC string
+	objects now always have type "__builtin_ObjCString".
+
 2005-06-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4087330

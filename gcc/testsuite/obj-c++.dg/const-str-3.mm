@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test the -fconstant-string-class=Foo option under the NeXT
    runtime.  */
 /* Developed by Markus Hitter <mah@jump-ing.de>.  */

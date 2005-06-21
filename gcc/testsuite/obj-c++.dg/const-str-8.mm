@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test for assigning compile-time constant-string objects to static variables.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
 

@@ -331,6 +331,8 @@ static void finish_var_decl (tree, tree);
 static tree create_field_decl (tree, const char *);
 static tree setup_string_decl (void);
 static int check_string_class_template (void);
+/* APPLE LOCAL 4149909 */
+static tree objc_build_internal_const_str_type (void);
 static tree my_build_string (int, const char *);
 static void build_objc_symtab_template (void);
 static tree init_def_list (tree);
@@ -1841,11 +1843,13 @@ synth_module_prologue (void)
 static int
 check_string_class_template (void)
 {
-  tree field_decl = TYPE_FIELDS (constant_string_type);
+  /* APPLE LOCAL 4149909 */
+  tree field_decl = objc_get_class_ivars (constant_string_id);
 
 #define AT_LEAST_AS_LARGE_AS(F, T) \
   (F && TREE_CODE (F) == FIELD_DECL \
-     && (TREE_INT_CST_LOW (DECL_SIZE (F)) \
+     /* APPLE LOCAL 4149909 */ \
+     && (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (F))) \
 	 >= TREE_INT_CST_LOW (TYPE_SIZE (T))))
 
   if (!AT_LEAST_AS_LARGE_AS (field_decl, ptr_type_node))
@@ -1864,6 +1868,29 @@ check_string_class_template (void)
 /* Avoid calling `check_string_class_template ()' more than once.  */
 static GTY(()) int string_layout_checked;
 
+/* APPLE LOCAL begin 4149909 */
+/* Construct an internal string layout to be used as a template for
+   creating NSConstantString/NXConstantString instances.  */
+
+static tree
+objc_build_internal_const_str_type (void)
+{
+  tree type = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  tree fields = build_decl (FIELD_DECL, NULL_TREE, ptr_type_node);
+  tree field = build_decl (FIELD_DECL, NULL_TREE, ptr_type_node);
+
+  TREE_CHAIN (field) = fields; fields = field;
+  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+  TREE_CHAIN (field) = fields; fields = field;
+  /* NB: The finish_builtin_struct() routine expects FIELD_DECLs in
+     reverse order!  */
+  finish_builtin_struct (type, "__builtin_ObjCString",
+			 fields, NULL_TREE);
+
+  return type;
+}
+
+/* APPLE LOCAL end 4149909 */
 /* Custom build_string which sets TREE_TYPE!  */
 
 static tree
@@ -1935,6 +1962,8 @@ objc_build_string_object (tree string)
     {
       string_layout_checked = -1;
       constant_string_class = lookup_interface (constant_string_id);
+      /* APPLE LOCAL 4149909 */
+      internal_const_str_type = objc_build_internal_const_str_type ();
 
       if (!constant_string_class
 	  || !(constant_string_type
@@ -1971,9 +2000,11 @@ objc_build_string_object (tree string)
       *loc = desc = ggc_alloc (sizeof (*desc));
       desc->literal = string;
 
-      /* GNU:    & ((NXConstantString) { NULL, string, length })  */
-      /* NeXT:   & ((NSConstantString) { isa, string, length })   */
-      fields = TYPE_FIELDS (constant_string_type);
+      /* APPLE LOCAL begin 4149909 */
+      /* GNU:    (NXConstantString *) & ((__builtin_ObjCString) { NULL, string, length })  */
+      /* NeXT:   (NSConstantString *) & ((__builtin_ObjCString) { isa, string, length })   */
+      fields = TYPE_FIELDS (internal_const_str_type);
+      /* APPLE LOCAL end 4149909 */
       initlist
 	= build_tree_list (fields,
 			   flag_next_runtime
@@ -1985,13 +2016,15 @@ objc_build_string_object (tree string)
       fields = TREE_CHAIN (fields);
       initlist = tree_cons (fields, build_int_cst (NULL_TREE, length),
  			    initlist);
-      constructor = objc_build_constructor (constant_string_type,
+      /* APPLE LOCAL 4149909 */
+      constructor = objc_build_constructor (internal_const_str_type,
 					    nreverse (initlist));
       TREE_INVARIANT (constructor) = true;
 
       if (!flag_next_runtime)
 	constructor
-	  = objc_add_static_instance (constructor, constant_string_type);
+	  /* APPLE LOCAL 4149909 */
+	  = objc_add_static_instance (constructor, internal_const_str_type);
       else
         {
 	  var = build_decl (CONST_DECL, NULL, TREE_TYPE (constructor));
@@ -2003,7 +2036,10 @@ objc_build_string_object (tree string)
       desc->constructor = constructor;
     }
 
-  addr = build_unary_op (ADDR_EXPR, desc->constructor, 1);
+  /* APPLE LOCAL begin 4149909 */
+  addr = convert (build_pointer_type (constant_string_type),
+		  build_unary_op (ADDR_EXPR, desc->constructor, 1));
+  /* APPLE LOCAL end 4149909 */
 
   return addr;
 }

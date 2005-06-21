@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test to make sure that the const objc strings are the same across
    scopes.  */
 /* Developed by Andrew Pinski <pinskia@physics.uc.edu> */

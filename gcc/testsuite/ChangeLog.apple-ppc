@@ -1,3 +1,10 @@
+2005-06-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4149909
+	* obj-c++.dg/const-str-[1-9].mm: Bring over from mainline.
+	* obj-c++.dg/const-str-1[0-1].mm: New.
+	* objc.dg/const-str-1[0-1].m: New.
+
 2005-06-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4151537

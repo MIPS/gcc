@@ -1162,29 +1162,23 @@ machopic_select_section (tree exp, int reloc,
 	   && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
 	   && TYPE_NAME (TREE_TYPE (exp)))
     {
-      /* APPLE LOCAL begin constant strings */
+      /* APPLE LOCAL constant strings */
       extern int flag_next_runtime;
-      extern const char *constant_string_class_name;
-      /* APPLE LOCAL end constant strings */
       tree name = TYPE_NAME (TREE_TYPE (exp));
       if (TREE_CODE (name) == TYPE_DECL)
 	name = DECL_NAME (name);
-      if (!strcmp (IDENTIFIER_POINTER (name), "NSConstantString"))
-	objc_constant_string_object_section ();
-      else if (!strcmp (IDENTIFIER_POINTER (name), "NXConstantString"))
-	objc_string_object_section ();
-      /* APPLE LOCAL begin constant strings */
-      else if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_CFString"))
-	cfstring_constant_object_section ();
-      else if (constant_string_class_name
-	  && !strcmp (IDENTIFIER_POINTER (name),
-		      constant_string_class_name))
+      /* APPLE LOCAL begin 4149909 */
+      if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_ObjCString"))
 	{
 	  if (flag_next_runtime)
 	    objc_constant_string_object_section ();
 	  else
 	    objc_string_object_section ();
 	}
+      /* APPLE LOCAL end 4149909 */
+      /* APPLE LOCAL begin constant strings */
+      else if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_CFString"))
+	cfstring_constant_object_section ();
       /* APPLE LOCAL end constant strings */
       else
 	base_function ();

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test errors for constant strings.  */
 /* { dg-do compile } */
 /* { dg-options "-fgnu-runtime" } */

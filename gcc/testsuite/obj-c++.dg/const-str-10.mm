@@ -1,16 +1,24 @@
-/* APPLE LOCAL file mainline */
-/* Test if ObjC constant strings get placed in the correct section.  */
+/* APPLE LOCAL file 4149909 */
+/* Test if ObjC constant string layout is checked properly, regardless of how
+   constant string classes get derived.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
 
-/* { dg-options "-fnext-runtime" } */
+/* { dg-options "-fnext-runtime -fno-constant-cfstrings" } */
 /* { dg-do compile { target *-*-darwin* } } */
 
 #include <objc/Object.h>
 
-@interface NSConstantString: Object {
-  char *cString;
-  unsigned int len;
+@interface NSString: Object
+@end
+
+@interface NSSimpleCString : NSString {
+@protected
+    char *bytes;
+    unsigned int numBytes;
 }
+@end
+    
+@interface NSConstantString : NSSimpleCString
 @end
 
 extern struct objc_class _NSConstantStringClassReference;
