@@ -1,3 +1,11 @@
+2005-06-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4087330
+	* calls.c (expand_call): Enable indirect sibcalls unconditionally.
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Allow
+	indirect sibcalls on Darwin when PLT considerations prohibit
+	them on other OSs.
+
 2005-06-20  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4146993

@@ -2263,20 +2263,6 @@ expand_call (tree exp, rtx target, int ignore)
 	 It does not seem worth the effort since few optimizable
 	 sibling calls will return a structure.  */
       || structure_value_addr != NULL_RTX
-/* APPLE LOCAL begin indirect sibcalls */
-#ifndef MAGIC_INDIRECT_CALL_REG
-/* The register holding the address is now always R12, so
-   we can consider indirect calls as sibcall candidates on ppc. */
-      /* If the register holding the address is a callee saved
-	 register, then we lose.  We have no way to prevent that,
-	 so we only allow calls to named functions.  */
-      /* ??? This could be done by having the insn constraints
-	 use a register class that is all call-clobbered.  Any
-	 reload insns generated to fix things up would appear
-	 before the sibcall_epilogue.  */
-      || fndecl == NULL_TREE
-#endif
-/* APPLE LOCAL end indirect sibcalls */
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
       || !targetm.function_ok_for_sibcall (fndecl, exp)

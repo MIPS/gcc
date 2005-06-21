@@ -1786,11 +1786,14 @@ const struct attribute_spec ix86_attribute_table[] =
 static bool
 ix86_function_ok_for_sibcall (tree decl, tree exp)
 {
+  /* APPLE LOCAL begin indirect sibcall 4087330 */
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
-     as the PLT requires %ebx be live.  */
-  if (!TARGET_64BIT && flag_pic && (!decl || TREE_PUBLIC (decl)))
+     as the PLT requires %ebx be live.  (Darwin does not have a PLT.)  */
+  if (!TARGET_MACHO && !TARGET_64BIT && flag_pic 
+      && (!decl || TREE_PUBLIC (decl)))
     return false;
+  /* APPLE LOCAL end indirect sibcall 4087330 */
 
   /* If we are returning floats on the 80387 register stack, we cannot
      make a sibcall from a function that doesn't return a float to a
