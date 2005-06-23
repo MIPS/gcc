@@ -1001,6 +1001,8 @@ extern tree objc_is_class_name (tree);
 extern tree objc_is_object_ptr (tree);
 extern void objc_check_decl (tree);
 extern int objc_is_reserved_word (tree);
+/* APPLE LOCAL 4154928 */
+extern tree objc_common_type (tree, tree);
 /* APPLE LOCAL begin mainline */
 /* Prototype for 'objc_comptypes' removed.  */
 extern bool objc_compare_types (tree, tree, int, tree);

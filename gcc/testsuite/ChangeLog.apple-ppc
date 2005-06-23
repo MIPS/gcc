@@ -1,3 +1,11 @@
+2005-06-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4154928
+	* obj-c++.dg/const-cfstring-5.mm: New.
+	* obj-c++.dg/const-str-12.mm: New.
+	* objc.dg/const-cfstring-5.m: New.
+	* objc.dg/const-str-12.m: New.
+
 2005-06-21  Ziemowit Laski  <zlaski@apple.com>
 
 	* obj-c++.dg/const-cfstring-[1-4].mm: New.

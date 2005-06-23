@@ -1,3 +1,11 @@
+2005-06-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4154928
+	* c-common.h (objc_common_type): New prototype.
+	* c-typeck.c (build_conditional_expr): For two ObjC pointer types,
+	use their ObjC common type.
+	* stub-objc.c (objc_common_type): New stub.
+
 2005-06-21  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4149909

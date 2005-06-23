@@ -3124,6 +3124,11 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	  result_type = build_pointer_type (qualify_type (TREE_TYPE (type2),
 							  TREE_TYPE (type1)));
 	}
+      /* APPLE LOCAL begin 4154928 */
+      /* Objective-C pointer comparisons are a bit more lenient.  */
+      else if (objc_compare_types (type1, type2, -3, NULL_TREE))
+	result_type = objc_common_type (type1, type2);
+      /* APPLE LOCAL end 4154928 */
       else
 	{
 	  pedwarn ("pointer type mismatch in conditional expression");

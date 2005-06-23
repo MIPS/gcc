@@ -1127,6 +1127,37 @@ objc_compare_protocols (tree lcls, tree ltyp, tree rcls, tree rtyp, bool warn)
   return have_lproto || (rcls != NULL_TREE);
 }
 
+/* APPLE LOCAL begin 4154928 */
+/* Given two types TYPE1 and TYPE2, return their least common ancestor.
+   Both TYPE1 and TYPE2 must be pointers, and already determined to be
+   compatible by objc_compare_types() below.  */
+
+tree
+objc_common_type (tree type1, tree type2)
+{
+  tree inner1 = TREE_TYPE (type1), inner2 = TREE_TYPE (type2);
+
+  while (POINTER_TYPE_P (inner1))
+    {
+      inner1 = TREE_TYPE (inner1);
+      inner2 = TREE_TYPE (inner2);
+    }
+
+  /* If one type is derived from another, return the base type.  */
+  if (DERIVED_FROM_P (inner1, inner2))
+    return type1;
+  else if (DERIVED_FROM_P (inner2, inner1))
+    return type2;
+
+  /* If both types are 'Class', return 'Class'.  */
+  if (objc_is_class_id (inner1) && objc_is_class_id (inner2))
+    return objc_class_type;
+
+  /* Otherwise, return 'id'.  */
+  return objc_object_type;
+}
+
+/* APPLE LOCAL end 4154928 */
 /* Determine if it is permissible to assign (if ARGNO is greater than -3)
    an instance of RTYP to an instance of LTYP or to compare the two
    (if ARGNO is equal to -3), per ObjC type system rules.  Before

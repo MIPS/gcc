@@ -63,6 +63,14 @@ objc_is_reserved_word (tree ARG_UNUSED (ident))
   return 0;
 }
 
+/* APPLE LOCAL begin 4154928 */
+tree
+objc_common_type (tree ARG_UNUSED (type1), tree ARG_UNUSED (type2))
+{
+  return 0;
+}
+
+/* APPLE LOCAL end 4154928 */
 /* APPLE LOCAL begin mainline */
 /* The 'objc_comptypes' routine has been removed.  */
 bool
