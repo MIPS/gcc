@@ -1,3 +1,9 @@
+2005-06-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4140846
+	* obj-c++.dg/typedef-alias-1.mm: Bring over from mainline.
+	* objc.dg/typedef-alias-1.m: Likewise.
+
 2005-06-22  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4154928
