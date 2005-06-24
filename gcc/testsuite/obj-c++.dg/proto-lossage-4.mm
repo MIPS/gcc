@@ -1,4 +1,4 @@
-/* Test for situations in which protocol conformance information
+/* APPLE LOCAL file mainline */ /* Test for situations in which protocol conformance information
    may be lost while casting.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do compile } */

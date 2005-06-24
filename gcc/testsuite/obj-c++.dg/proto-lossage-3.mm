@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Crash due to descriptionFor(Instance|Class)Method applied to
    a protocol with no instance/class methods respectively.
    Problem report and original fix by richard@brainstorm.co.uk.  */

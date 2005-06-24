@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Don't forget to look in protocols if a class (and its superclasses) do not
    provide a suitable method.  */
 /* { dg-do compile } */
