@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Do not lose references to forward-declared protocols.  */
 /* { dg-do compile } */
 @class MyBaseClass;

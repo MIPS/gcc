@@ -1,3 +1,11 @@
+2005-06-28  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4140824
+	* objc-act.c (objc_build_struct): Save the TYPE_OBJC_INFO
+	portion of TYPE_LANG_SPECIFIC info for all variants of
+	a class before calling finish_struct(), and restore
+	same TYPE_OBJC_INFO afterwards.
+
 2005-06-22  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4154928
