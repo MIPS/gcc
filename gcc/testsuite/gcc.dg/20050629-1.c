@@ -1,3 +1,5 @@
+/* { dg-options "-O2 -funswitch-loops" }
+
 void f(int type){
     int tmp;
 	
