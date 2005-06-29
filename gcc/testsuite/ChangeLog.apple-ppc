@@ -1,5 +1,11 @@
 2005-06-28  Dale Johannesen  <dalej@apple.com>
 
+	Radar 4163069
+	* gcc.apple/pack-test-1.c:  New.
+	* gcc.dg/pack-test-1.c:  Enable for darwin.
+
+2005-06-28  Dale Johannesen  <dalej@apple.com>
+
 	* gcc.c-torture/execute/20050603-1.c:  Move...
 	* gcc.dg/20050603-1.c: ...to here, and edit to match mainline.
 
