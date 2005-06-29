@@ -128,8 +128,9 @@ extern int target_flags;
 #define MASK_64BIT		0x00100000	/* Produce 64bit code */
 #define MASK_MS_BITFIELD_LAYOUT 0x00200000	/* Use native (MS) bitfield layout */
 #define MASK_TLS_DIRECT_SEG_REFS 0x00400000	/* Avoid adding %gs:0  */
+#define MASK_SAVE_ARGS		0x00800000	/* Save register args on stack */
 
-/* Unused:			0x03e0000	*/
+/* Unused:			0x03000000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -180,6 +181,9 @@ extern int target_flags;
 /* Don't create frame pointers for leaf functions */
 #define TARGET_OMIT_LEAF_FRAME_POINTER \
   (target_flags & MASK_OMIT_LEAF_FRAME_POINTER)
+
+/* Save register arguments on stack */
+#define TARGET_SAVE_ARGS (target_flags & MASK_SAVE_ARGS)
 
 /* Debug GO_IF_LEGITIMATE_ADDRESS */
 #define TARGET_DEBUG_ADDR (ix86_debug_addr_string != 0)
@@ -425,6 +429,10 @@ extern int x86_prefetch_sse;
     N_("Use direct references against %gs when accessing tls data") },	      \
   { "no-tls-direct-seg-refs",	-MASK_TLS_DIRECT_SEG_REFS,		      \
     N_("Do not use direct references against %gs when accessing tls data") }, \
+  { "save-args",		MASK_SAVE_ARGS,				      \
+    N_("Save register arguments on the stack") },			      \
+  { "no-save-args",		-MASK_SAVE_ARGS,			      \
+    N_("Do not save register arguments on the stack") },		      \
   SUBTARGET_SWITCHES							      \
   { "",									      \
     TARGET_DEFAULT | TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_DEFAULT	      \
