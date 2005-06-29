@@ -63,10 +63,21 @@ namespace std
   template 
     S::basic_string(S::iterator, S::iterator, const allocator<C>&);
 
-  // Used in str::find.
+  // Used in basic_string::find.
   template
     const C*
     search(const C*, const C*, const C*, const C*, bool(*)(const C&, const C&));
+
+  template
+    const C*
+    __search(const C*, const C*, const C*, const C*,
+	     bool(*)(const C&, const C&),
+	     random_access_iterator_tag, random_access_iterator_tag);
+  template
+    const C*
+    __find_if(const C*, const C*,
+	      __gnu_cxx::__ops::__bind2nd<bool(*)(const C&, const C&), C>,
+	      random_access_iterator_tag);
 } // namespace std
 
 namespace __gnu_cxx

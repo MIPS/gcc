@@ -158,7 +158,7 @@ namespace std
   template<typename _InputIterator, typename _Tp>
     inline _InputIterator
     __find(_InputIterator __first, _InputIterator __last,
-	 const _Tp& __val, input_iterator_tag)
+	   const _Tp& __val, input_iterator_tag)
     {
       while (__first != __last && !(*__first == __val))
 	++__first;
@@ -173,7 +173,7 @@ namespace std
   template<typename _InputIterator, typename _Predicate>
     inline _InputIterator
     __find_if(_InputIterator __first, _InputIterator __last,
-	    _Predicate __pred, input_iterator_tag)
+	      _Predicate __pred, input_iterator_tag)
     {
       while (__first != __last && !__pred(*__first))
 	++__first;
@@ -188,7 +188,7 @@ namespace std
   template<typename _RandomAccessIterator, typename _Tp>
     _RandomAccessIterator
     __find(_RandomAccessIterator __first, _RandomAccessIterator __last,
-	 const _Tp& __val, random_access_iterator_tag)
+	   const _Tp& __val, random_access_iterator_tag)
     {
       typename iterator_traits<_RandomAccessIterator>::difference_type
 	__trip_count = (__last - __first) >> 2;
@@ -240,7 +240,7 @@ namespace std
   template<typename _RandomAccessIterator, typename _Predicate>
     _RandomAccessIterator
     __find_if(_RandomAccessIterator __first, _RandomAccessIterator __last,
-	    _Predicate __pred, random_access_iterator_tag)
+	      _Predicate __pred, random_access_iterator_tag)
     {
       typename iterator_traits<_RandomAccessIterator>::difference_type
 	__trip_count = (__last - __first) >> 2;
@@ -430,6 +430,90 @@ namespace std
     }
 
  /**
+   *  @if maint
+   *  This is an uglified
+   *  search(_ForwardIterator1, _FowrardIterator1, _ForwardIterator2,
+   *	     _ForwardIterator2, _BinaryPredicate)
+   *  overloaded for when one of the two iterator types is not random access.
+   *  @endif
+  */
+  template<typename _ForwardIterator1, typename _ForwardIterator2,
+	   typename _BinaryPredicate>
+    _ForwardIterator1
+    __search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+	     _ForwardIterator2 __first2, _ForwardIterator2 __last2,
+	     _BinaryPredicate  __predicate, forward_iterator_tag,
+	     forward_iterator_tag)
+    {
+      // General case.
+      _ForwardIterator2 __p1, __p;
+      __p1 = __first2; ++__p1;
+      _ForwardIterator1 __current = __first1;
+
+      while (__first1 != __last1)
+	{
+	  __first1 = std::find_if(__first1, __last1,
+	  			  __gnu_cxx::__ops::bind2nd(__predicate,
+	  						    *__first2));
+	  if (__first1 == __last1)
+	    return __last1;
+
+	  __p = __p1;
+	  __current = __first1;
+	  if (++__current == __last1)
+	    return __last1;
+
+	  while (__predicate(*__current, *__p))
+	    {
+	      if (++__p == __last2)
+		return __first1;
+	      if (++__current == __last1)
+		return __last1;
+	    }
+	  ++__first1;
+	}
+      return __first1;
+    }
+
+  /**
+   *  @if maint
+   *  This is an uglified
+   *  search(_ForwardIterator1, _FowrardIterator1, _ForwardIterator2,
+   *	     _ForwardIterator2, _BinaryPredicate)
+   *  overloaded for when both iterator types are random acccess.
+   *  @endif
+  */
+  template<typename _ForwardIterator1, typename _ForwardIterator2,
+	   typename _BinaryPredicate>
+    _ForwardIterator1
+    __search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+	     _ForwardIterator2 __first2, _ForwardIterator2 __last2,
+	     _BinaryPredicate  __predicate, random_access_iterator_tag,
+	     random_access_iterator_tag)
+    {
+      typedef typename iterator_traits<_ForwardIterator2>::difference_type
+	_Distance;
+      _Distance __length(__last2 - __first2);
+      
+      if (__length > (__last1 - __first1))
+	return __last1;
+
+      _ForwardIterator1 __lastpossible(__last1 - __length + 1);
+      __first1 = std::find_if(__first1, __lastpossible,
+			      __gnu_cxx::__ops::bind2nd(__predicate,
+	  						*__first2));
+      while(__first1 != __lastpossible)
+      {
+	if (std::equal(__first1, __first1 + __length, __first2, __predicate))
+	  return __first1;
+	__first1 = std::find_if(__first1 + 1, __lastpossible,
+				__gnu_cxx::__ops::bind2nd(__predicate,
+	  						  *__first2));
+      }
+      return __last1;
+    }
+    
+  /**
    *  @brief Search a sequence for a matching sub-sequence using a predicate.
    *  @param  first1     A forward iterator.
    *  @param  last1      A forward iterator.
@@ -451,7 +535,7 @@ namespace std
   */
   template<typename _ForwardIterator1, typename _ForwardIterator2,
 	   typename _BinaryPredicate>
-    _ForwardIterator1
+    inline _ForwardIterator1
     search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 	   _ForwardIterator2 __first2, _ForwardIterator2 __last2,
 	   _BinaryPredicate  __predicate)
@@ -473,45 +557,12 @@ namespace std
       _ForwardIterator2 __tmp(__first2);
       ++__tmp;
       if (__tmp == __last2)
-	{
-	  while (__first1 != __last1 && !__predicate(*__first1, *__first2))
-	    ++__first1;
-	  return __first1;
-	}
+	return std::find_if(__first1, __last1, 
+			    __gnu_cxx::__ops::bind2nd(__predicate, *__first2));
 
-      // General case.
-      _ForwardIterator2 __p1, __p;
-      __p1 = __first2; ++__p1;
-      _ForwardIterator1 __current = __first1;
-
-      while (__first1 != __last1)
-	{
-	  while (__first1 != __last1)
-	    {
-	      if (__predicate(*__first1, *__first2))
-		break;
-	      ++__first1;
-	    }
-	  while (__first1 != __last1 && !__predicate(*__first1, *__first2))
-	    ++__first1;
-	  if (__first1 == __last1)
-	    return __last1;
-
-	  __p = __p1;
-	  __current = __first1;
-	  if (++__current == __last1)
-	    return __last1;
-
-	  while (__predicate(*__current, *__p))
-	    {
-	      if (++__p == __last2)
-		return __first1;
-	      if (++__current == __last1)
-		return __last1;
-	    }
-	  ++__first1;
-	}
-      return __first1;
+      return std::__search(__first1, __last1, __first2, __last2, __predicate,
+			   std::__iterator_category(__first1),
+			   std::__iterator_category(__first2));
     }
 
   /**

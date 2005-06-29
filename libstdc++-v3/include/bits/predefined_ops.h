@@ -54,6 +54,58 @@ namespace __ops
       operator()(const _Lhs& __lhs, const _Rhs& __rhs) const
       { return __lhs == __rhs; }
   };
+  
+  /**
+   * @if maint
+   * A class inspired by bind2nd and company, which wraps a function or
+   * class and a reference, and produces a unary function object. It has less
+   * requirements than the standard version and is designed to be use to wrap
+   * binary predicates given to algorithms in the standard library.
+   * @endif
+  */
+  template<typename _Comp, typename _Value>  
+    class __bind2nd
+    {
+      _Comp _M_comp;
+      const _Value& _M_value;
+
+    public:
+      explicit
+      __bind2nd(_Comp __comp, const _Value& __inval) 
+      : _M_comp(__comp), _M_value(__inval) {}
+      
+      template<typename _Lhs>
+        bool
+        operator()(const _Lhs& __lhs)
+        { return _M_comp(__lhs, _M_value); }
+    };
+
+  /**
+   * @if maint
+   * Specialisation of __bind2nd for equality.
+   * @endif
+  */
+  template<typename _Value>
+    class __bind2nd<__gnu_cxx::__ops::equal_to, _Value>
+    {
+      const _Value& _M_value;
+
+    public:
+      explicit
+      __bind2nd(__gnu_cxx::__ops::equal_to, const _Value& __inval)
+      : _M_value(__inval) {}
+      
+      template<typename _Lhs>
+      bool
+      operator()(const _Lhs& __lhs)
+      { return __lhs == _M_value; }
+    };
+
+  template<typename _Comp, typename _Value>
+    inline __bind2nd<_Comp, _Value>
+    bind2nd(_Comp __comp, const _Value& __value)
+    { return __bind2nd<_Comp, _Value>(__comp, __value); }
+
 } // namespace __ops
 } // namespace __gnu_cxx
 
