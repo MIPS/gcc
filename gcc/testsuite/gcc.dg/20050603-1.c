@@ -1,3 +1,4 @@
+/* APPLE LOCAL mainline */
 /* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-O2" } */
 #include <locale.h>
