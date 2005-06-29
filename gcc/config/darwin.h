@@ -489,8 +489,11 @@ do {					\
 /* #define ENDFILE_SPEC "" */
 
 /* Default Darwin ASM_SPEC, very simple.  */
+/* APPLE LOCAL begin radar 4161346 */
 #define ASM_SPEC "-arch %(darwin_arch) \
-  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL}"
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
+  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+/* APPLE LOCAL end radar 4161346 */
 
 /* We use Dbx symbol format.  */
 

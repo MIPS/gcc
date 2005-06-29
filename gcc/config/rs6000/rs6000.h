@@ -210,6 +210,9 @@ extern int target_flags;
 #define MASK_LONG_BRANCH	0x00200000
 /* APPLE LOCAL end long-branch  */
 
+/* APPLE LOCAL begin radar 4161346 */
+#define MASK_PIM_ALTIVEC 0x00400000
+/* APPLE LOCAL end radar 4161346 */
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
 #define TARGET_POWERPC		(target_flags & MASK_POWERPC)

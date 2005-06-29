@@ -1358,7 +1358,8 @@ rs6000_override_options (const char *default_cpu)
 	  if (! TARGET_ALTIVEC)
 	    {
 	      flag_disable_opts_for_faltivec = 1;
-	      target_flags |= MASK_ALTIVEC;
+	      /* APPLE LOCAL radar 4161346 */
+	      target_flags |= (MASK_ALTIVEC | MASK_PIM_ALTIVEC);
 	    }
 	}
       else
@@ -20033,6 +20034,8 @@ rs6000_darwin_file_start (void)
     { "power4", "ppc970", 0 },
     { "G5", "ppc970", 0 },
     { "7450", "ppc7450", 0 },
+    /* APPLE LOCAL radar 4161346 */
+    { "ppc", "ppc", MASK_PIM_ALTIVEC },
     { "7400", "ppc7400", MASK_ALTIVEC },
     { "G4", "ppc7400", 0 },
     { "750", "ppc750", 0 },
