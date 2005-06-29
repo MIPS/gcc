@@ -1,3 +1,9 @@
+2005-06-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4163069
+	* config/darwin-c.c (darwin_pragma_options):
+	Add handling for second parameter.
+
 2005-06-22  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4154928
