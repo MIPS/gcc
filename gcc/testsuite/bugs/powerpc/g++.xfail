@@ -101,8 +101,8 @@
 3941491: g++.dg/debug/trivial.C -gdwarf-23 -fastcp (test for excess errors)
 3967626: g++.dg/eh/forced1.C execution test
 3967626: g++.old-deja/g++.eh/terminate2.C execution test
-4097506: g++.dg/ext/opt-pragma-2.C scan-assembler-times bl "L_printf 4
-4097506: g++.dg/ext/opt-pragma-3.C scan-assembler-times b "L_printf 4
-4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times b "L_printf 2
-4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times bl "L_printf 2
-4099260: g++.old-deja/g++.brendan/new3.C execution test
+#4097506: g++.dg/ext/opt-pragma-2.C scan-assembler-times bl "L_printf 4
+#4097506: g++.dg/ext/opt-pragma-3.C scan-assembler-times b "L_printf 4
+#4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times b "L_printf 2
+#4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times bl "L_printf 2
+#4099260: g++.old-deja/g++.brendan/new3.C execution test
