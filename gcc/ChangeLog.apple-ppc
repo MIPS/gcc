@@ -1,3 +1,11 @@
+2005-06-30  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4131077, copied from FSF mainline.
+	* gcc/config/i386/mmintrin.h: Mark vector intrinsics always_inline.
+	* gcc/config/i386/emmintrin.h: Likewise.
+	* gcc/config/i386/pmmintrin.h: Likewise.
+	* gcc/config/i386/xmmintrin.h: Likewise.
+
 2005-06-28  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4163069
