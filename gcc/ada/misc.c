@@ -41,7 +41,6 @@
 #include "tree.h"
 #include "real.h"
 #include "rtl.h"
-#include "errors.h"
 #include "diagnostic.h"
 #include "expr.h"
 #include "libfuncs.h"
@@ -354,7 +353,7 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
     flag_no_inline = 1;
   if (flag_inline_functions)
     flag_inline_trees = 2;
-  
+
   flag_tree_salias = 0;
 
   return false;
@@ -463,6 +462,7 @@ gnat_init_gcc_eh (void)
   using_eh_for_cleanups ();
 
   eh_personality_libfunc = init_one_libfunc ("__gnat_eh_personality");
+  default_init_unwind_resume_libfunc ();
   lang_eh_type_covers = gnat_eh_type_covers;
   lang_eh_runtime_type = gnat_eh_runtime_type;
 

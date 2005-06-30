@@ -15,8 +15,8 @@
 ; 
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-; 02111-1307, USA.
+; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+; 02110-1301, USA.
 
 ; See the GCC internals manual for a description of this file's format.
 
@@ -127,6 +127,11 @@ Warn whenever an Objective-C assignment is being intercepted by the garbage coll
 Wbad-function-cast
 C ObjC Var(warn_bad_function_cast)
 Warn about casting functions to incompatible types
+
+Wc++-compat
+C Var(warn_cxx_compat)
+Warn about C constructs that are not in the common subset of C and C++
+
 
 Wcast-qual
 C ObjC C++ ObjC++ Var(warn_cast_qual)

@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -764,7 +764,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
   /* We have read one more token than we want.  */
   _cpp_backup_tokens (parse_in, 1);
   if (concats)
-    strs = (cpp_string *) obstack_finish (&str_ob);
+    strs = XOBFINISH (&str_ob, cpp_string *);
 
   if (concats && !objc_string && !in_system_header)
     warning (OPT_Wtraditional,

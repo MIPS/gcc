@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* References:
 
@@ -1357,7 +1357,8 @@ struct state_ainsn_table
 
 static const char *decl_name (enum decl_mode);
 static void decl_mode_check_failed (enum decl_mode, const char *,
-				    const char *, int, const char *);
+				    const char *, int, const char *)
+     ATTRIBUTE_NORETURN;
 
 /* Return string representation of declaration mode MODE.  */
 static const char *
@@ -1445,7 +1446,7 @@ decl_mode_check_failed (enum decl_mode mode, const char *expected_mode_str,
 static const char *regexp_name (enum regexp_mode);
 static void regexp_mode_check_failed (enum regexp_mode, const char *,
 				      const char *, int,
-				      const char *);
+				      const char *) ATTRIBUTE_NORETURN;
 
 
 /* Return string representation of regexp mode MODE.  */

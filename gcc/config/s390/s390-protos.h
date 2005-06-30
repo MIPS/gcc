@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Declare functions in s390.c.  */
 
@@ -29,6 +29,7 @@ extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
 extern void s390_function_profiler (FILE *, int);
 extern void s390_conditional_register_usage (void);
+extern void s390_set_has_landing_pad_p (bool);
 
 #ifdef RTX_CODE
 extern int s390_extra_constraint_str (rtx, int, const char *);
@@ -88,7 +89,6 @@ extern void s390_output_pool_entry (rtx, enum machine_mode, unsigned int);
 extern void s390_trampoline_template (FILE *);
 extern void s390_initialize_trampoline (rtx, rtx, rtx);
 extern rtx s390_gen_rtx_const_DI (int, int);
-extern void s390_output_dwarf_dtprel (FILE*, int, rtx);
 extern int s390_agen_dep_p (rtx, rtx);
 extern rtx s390_load_got (void);
 extern void s390_emit_tpf_eh_return (rtx);

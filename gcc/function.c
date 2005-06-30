@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file handles the generation of rtl code from tree structure
    at the level of the function as a whole.
@@ -61,6 +61,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cfglayout.h"
 #include "tree-gimple.h"
+#include "predict.h"
+
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -121,13 +123,16 @@ struct machine_function * (*init_machine_status) (void);
 /* The currently compiled function.  */
 struct function *cfun = 0;
 
+DEF_VEC_I(int);
+DEF_VEC_ALLOC_I(int,heap);
+
 /* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
-static GTY(()) varray_type prologue;
-static GTY(()) varray_type epilogue;
+static VEC(int,heap) *prologue;
+static VEC(int,heap) *epilogue;
 
 /* Array of INSN_UIDs to hold the INSN_UIDs for each sibcall epilogue
    in this function.  */
-static GTY(()) varray_type sibcall_epilogue;
+static VEC(int,heap) *sibcall_epilogue;
 
 /* In order to evaluate some expressions, such as function calls returning
    structures in memory, we need to temporarily allocate stack locations.
@@ -198,8 +203,8 @@ static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
 /* We always define `record_insns' even if it's not used so that we
    can always export `prologue_epilogue_contains'.  */
-static void record_insns (rtx, varray_type *) ATTRIBUTE_UNUSED;
-static int contains (rtx, varray_type);
+static void record_insns (rtx, VEC(int,heap) **) ATTRIBUTE_UNUSED;
+static int contains (rtx, VEC(int,heap) **);
 #ifdef HAVE_return
 static void emit_return_into_block (basic_block, rtx);
 #endif
@@ -306,6 +311,10 @@ free_after_parsing (struct function *f)
 void
 free_after_compilation (struct function *f)
 {
+  VEC_free (int, heap, prologue);
+  VEC_free (int, heap, epilogue);
+  VEC_free (int, heap, sibcall_epilogue);
+
   f->eh = NULL;
   f->expr = NULL;
   f->emit = NULL;
@@ -340,11 +349,10 @@ free_after_compilation (struct function *f)
 static HOST_WIDE_INT
 get_func_frame_size (struct function *f)
 {
-#ifdef FRAME_GROWS_DOWNWARD
-  return -f->x_frame_offset;
-#else
-  return f->x_frame_offset;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    return -f->x_frame_offset;
+  else
+    return f->x_frame_offset;
 }
 
 /* Return size needed for stack frame based on slots so far allocated.
@@ -405,9 +413,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   else
     alignment = align / BITS_PER_UNIT;
 
-#ifdef FRAME_GROWS_DOWNWARD
-  function->x_frame_offset -= size;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    function->x_frame_offset -= size;
 
   /* Ignore alignment we can't do with expected alignment of the boundary.  */
   if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
@@ -433,17 +440,16 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 	  division with a negative dividend isn't as well defined as we might
 	  like.  So we instead assume that ALIGNMENT is a power of two and
 	  use logical operations which are unambiguous.  */
-#ifdef FRAME_GROWS_DOWNWARD
-      function->x_frame_offset
-	= (FLOOR_ROUND (function->x_frame_offset - frame_phase,
-			(unsigned HOST_WIDE_INT) alignment)
-	   + frame_phase);
-#else
-      function->x_frame_offset
-	= (CEIL_ROUND (function->x_frame_offset - frame_phase,
-		       (unsigned HOST_WIDE_INT) alignment)
-	   + frame_phase);
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	function->x_frame_offset
+	  = (FLOOR_ROUND (function->x_frame_offset - frame_phase,
+			  (unsigned HOST_WIDE_INT) alignment)
+	     + frame_phase);
+      else
+	function->x_frame_offset
+	  = (CEIL_ROUND (function->x_frame_offset - frame_phase,
+			 (unsigned HOST_WIDE_INT) alignment)
+	     + frame_phase);
     }
 
   /* On a big-endian machine, if we are allocating more space than we will use,
@@ -464,9 +470,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 			  (function->x_frame_offset + bigend_correction,
 			   Pmode));
 
-#ifndef FRAME_GROWS_DOWNWARD
-  function->x_frame_offset += size;
-#endif
+  if (!FRAME_GROWS_DOWNWARD)
+    function->x_frame_offset += size;
 
   x = gen_rtx_MEM (mode, addr);
 
@@ -691,20 +696,22 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 	 can be either above or below this stack slot depending on which
 	 way the frame grows.  We include the extra space if and only if it
 	 is above this slot.  */
-#ifdef FRAME_GROWS_DOWNWARD
-      p->size = frame_offset_old - frame_offset;
-#else
-      p->size = size;
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	p->size = frame_offset_old - frame_offset;
+      else
+	p->size = size;
 
       /* Now define the fields used by combine_temp_slots.  */
-#ifdef FRAME_GROWS_DOWNWARD
-      p->base_offset = frame_offset;
-      p->full_size = frame_offset_old - frame_offset;
-#else
-      p->base_offset = frame_offset_old;
-      p->full_size = frame_offset - frame_offset_old;
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	{
+	  p->base_offset = frame_offset;
+	  p->full_size = frame_offset_old - frame_offset;
+	}
+      else
+	{
+	  p->base_offset = frame_offset_old;
+	  p->full_size = frame_offset - frame_offset_old;
+	}
       p->address = 0;
 
       selected = p;
@@ -2329,6 +2336,14 @@ assign_parm_adjust_stack_rtl (struct assign_parm_data_one *data)
 	   && data->nominal_mode != data->passed_mode)
     stack_parm = NULL;
 
+  /* If stack protection is in effect for this function, don't leave any
+     pointers in their passed stack slots.  */
+  else if (cfun->stack_protect_guard
+	   && (flag_stack_protect == 2
+	       || data->passed_pointer
+	       || POINTER_TYPE_P (data->nominal_type)))
+    stack_parm = NULL;
+
   data->stack_parm = stack_parm;
 }
 
@@ -3140,7 +3155,8 @@ gimplify_parameters (void)
 	      t = build2 (MODIFY_EXPR, void_type_node, local, parm);
 	      gimplify_and_add (t, &stmts);
 
-	      DECL_VALUE_EXPR (parm) = local;
+	      SET_DECL_VALUE_EXPR (parm, local);
+	      DECL_HAS_VALUE_EXPR_P (parm) = 1;
 	    }
 	}
     }
@@ -3861,10 +3877,11 @@ init_function_for_compilation (void)
 {
   reg_renumber = 0;
 
-  /* No prologue/epilogue insns yet.  */
-  VARRAY_GROW (prologue, 0);
-  VARRAY_GROW (epilogue, 0);
-  VARRAY_GROW (sibcall_epilogue, 0);
+  /* No prologue/epilogue insns yet.  Make sure that these vectors are
+     empty.  */
+  gcc_assert (VEC_length (int, prologue) == 0);
+  gcc_assert (VEC_length (int, epilogue) == 0);
+  gcc_assert (VEC_length (int, sibcall_epilogue) == 0);
 }
 
 void
@@ -3912,6 +3929,97 @@ expand_main_function (void)
 	 && !defined(INIT_ARRAY_SECTION_ASM_OP)))
   emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif
+}
+
+/* Expand code to initialize the stack_protect_guard.  This is invoked at
+   the beginning of a function to be protected.  */
+
+#ifndef HAVE_stack_protect_set
+# define HAVE_stack_protect_set		0
+# define gen_stack_protect_set(x,y)	(gcc_unreachable (), NULL_RTX)
+#endif
+
+void
+stack_protect_prologue (void)
+{
+  tree guard_decl = targetm.stack_protect_guard ();
+  rtx x, y;
+
+  /* Avoid expand_expr here, because we don't want guard_decl pulled
+     into registers unless absolutely necessary.  And we know that
+     cfun->stack_protect_guard is a local stack slot, so this skips
+     all the fluff.  */
+  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  y = validize_mem (DECL_RTL (guard_decl));
+
+  /* Allow the target to copy from Y to X without leaking Y into a
+     register.  */
+  if (HAVE_stack_protect_set)
+    {
+      rtx insn = gen_stack_protect_set (x, y);
+      if (insn)
+	{
+	  emit_insn (insn);
+	  return;
+	}
+    }
+
+  /* Otherwise do a straight move.  */
+  emit_move_insn (x, y);
+}
+
+/* Expand code to verify the stack_protect_guard.  This is invoked at
+   the end of a function to be protected.  */
+
+#ifndef HAVE_stack_protect_test
+# define HAVE_stack_protect_test	0
+# define gen_stack_protect_test(x, y)	(gcc_unreachable (), NULL_RTX)
+#endif
+
+static void
+stack_protect_epilogue (void)
+{
+  tree guard_decl = targetm.stack_protect_guard ();
+  rtx label = gen_label_rtx ();
+  rtx x, y, tmp;
+
+  /* Avoid expand_expr here, because we don't want guard_decl pulled
+     into registers unless absolutely necessary.  And we know that
+     cfun->stack_protect_guard is a local stack slot, so this skips
+     all the fluff.  */
+  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  y = validize_mem (DECL_RTL (guard_decl));
+
+  /* Allow the target to compare Y with X without leaking either into
+     a register.  */
+  switch (HAVE_stack_protect_test != 0)
+    {
+    case 1:
+      tmp = gen_stack_protect_test (x, y);
+      if (tmp)
+	{
+	  emit_insn (tmp);
+	  emit_jump_insn (bcc_gen_fctn[EQ] (label));
+	  break;
+	}
+      /* FALLTHRU */
+
+    default:
+      emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
+      break;
+    }
+
+  /* The noreturn predictor has been moved to the tree level.  The rtl-level
+     predictors estimate this branch about 20%, which isn't enough to get
+     things moved out of line.  Since this is the only extant case of adding
+     a noreturn function at the rtl level, it doesn't seem worth doing ought
+     except adding the prediction by hand.  */
+  tmp = get_last_insn ();
+  if (JUMP_P (tmp))
+    predict_insn_def (tmp, PRED_NORETURN, TAKEN);
+
+  expand_expr_stmt (targetm.stack_protect_fail ());
+  emit_label (label);
 }
 
 /* Start the RTL for a new function, and set variables used for
@@ -4260,11 +4368,6 @@ expand_function_end (void)
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
 
-  /* Let except.c know where it should emit the call to unregister
-     the function context for sjlj exceptions.  */
-  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
-    sjlj_emit_function_exit_after (get_last_insn ());
-
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */
@@ -4392,6 +4495,15 @@ expand_function_end (void)
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
 
+  /* Let except.c know where it should emit the call to unregister
+     the function context for sjlj exceptions.  */
+  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
+    sjlj_emit_function_exit_after (get_last_insn ());
+
+  /* If stack protection is enabled for this function, check the guard.  */
+  if (cfun->stack_protect_guard)
+    stack_protect_epilogue ();
+
   /* If we had calls to alloca, and this machine needs
      an accurate stack pointer to exit the function,
      insert some code to save and restore the stack pointer.  */
@@ -4446,28 +4558,12 @@ get_arg_pointer_save_area (struct function *f)
    (a list of one or more insns).  */
 
 static void
-record_insns (rtx insns, varray_type *vecp)
+record_insns (rtx insns, VEC(int,heap) **vecp)
 {
-  int i, len;
   rtx tmp;
 
-  tmp = insns;
-  len = 0;
-  while (tmp != NULL_RTX)
-    {
-      len++;
-      tmp = NEXT_INSN (tmp);
-    }
-
-  i = VARRAY_SIZE (*vecp);
-  VARRAY_GROW (*vecp, i + len);
-  tmp = insns;
-  while (tmp != NULL_RTX)
-    {
-      VARRAY_INT (*vecp, i) = INSN_UID (tmp);
-      i++;
-      tmp = NEXT_INSN (tmp);
-    }
+  for (tmp = insns; tmp != NULL_RTX; tmp = NEXT_INSN (tmp))
+    VEC_safe_push (int, heap, *vecp, INSN_UID (tmp));
 }
 
 /* Set the locator of the insn chain starting at INSN to LOC.  */
@@ -4486,7 +4582,7 @@ set_insn_locators (rtx insn, int loc)
    be running after reorg, SEQUENCE rtl is possible.  */
 
 static int
-contains (rtx insn, varray_type vec)
+contains (rtx insn, VEC(int,heap) **vec)
 {
   int i, j;
 
@@ -4495,15 +4591,16 @@ contains (rtx insn, varray_type vec)
     {
       int count = 0;
       for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
-	for (j = VARRAY_SIZE (vec) - 1; j >= 0; --j)
-	  if (INSN_UID (XVECEXP (PATTERN (insn), 0, i)) == VARRAY_INT (vec, j))
+	for (j = VEC_length (int, *vec) - 1; j >= 0; --j)
+	  if (INSN_UID (XVECEXP (PATTERN (insn), 0, i))
+	      == VEC_index (int, *vec, j))
 	    count++;
       return count;
     }
   else
     {
-      for (j = VARRAY_SIZE (vec) - 1; j >= 0; --j)
-	if (INSN_UID (insn) == VARRAY_INT (vec, j))
+      for (j = VEC_length (int, *vec) - 1; j >= 0; --j)
+	if (INSN_UID (insn) == VEC_index (int, *vec, j))
 	  return 1;
     }
   return 0;
@@ -4512,9 +4609,9 @@ contains (rtx insn, varray_type vec)
 int
 prologue_epilogue_contains (rtx insn)
 {
-  if (contains (insn, prologue))
+  if (contains (insn, &prologue))
     return 1;
-  if (contains (insn, epilogue))
+  if (contains (insn, &epilogue))
     return 1;
   return 0;
 }
@@ -4523,7 +4620,7 @@ int
 sibcall_epilogue_contains (rtx insn)
 {
   if (sibcall_epilogue)
-    return contains (insn, sibcall_epilogue);
+    return contains (insn, &sibcall_epilogue);
   return 0;
 }
 
@@ -4708,8 +4805,8 @@ keep_stack_depressed (rtx insns)
 		if (HARD_REGNO_MODE_OK (regno, Pmode)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
-		    && !REGNO_REG_SET_P (EXIT_BLOCK_PTR->global_live_at_start,
-					 regno)
+		    && !REGNO_REG_SET_P
+		         (EXIT_BLOCK_PTR->il.rtl->global_live_at_start, regno)
 		    && !refers_to_regno_p (regno,
 					   regno + hard_regno_nregs[regno]
 								   [Pmode],
@@ -5136,7 +5233,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       cfg_layout_initialize (0);
       FOR_EACH_BB (cur_bb)
 	if (cur_bb->index >= 0 && cur_bb->next_bb->index >= 0)
-	  cur_bb->rbi->next = cur_bb->next_bb;
+	  cur_bb->aux = cur_bb->next_bb;
       cfg_layout_finalize ();
     }
 epilogue_done:
@@ -5262,7 +5359,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
   rtx insn, last, note;
   int len;
 
-  if ((len = VARRAY_SIZE (prologue)) > 0)
+  if ((len = VEC_length (int, prologue)) > 0)
     {
       last = 0, note = 0;
 
@@ -5276,7 +5373,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PROLOGUE_END)
 		note = insn;
 	    }
-	  else if (contains (insn, prologue))
+	  else if (contains (insn, &prologue))
 	    {
 	      last = insn;
 	      if (--len == 0)
@@ -5303,7 +5400,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	}
     }
 
-  if ((len = VARRAY_SIZE (epilogue)) > 0)
+  if ((len = VEC_length (int, epilogue)) > 0)
     {
       last = 0, note = 0;
 
@@ -5317,7 +5414,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EPILOGUE_BEG)
 		note = insn;
 	    }
-	  else if (contains (insn, epilogue))
+	  else if (contains (insn, &epilogue))
 	    {
 	      last = insn;
 	      if (--len == 0)
@@ -5342,16 +5439,6 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	}
     }
 #endif /* HAVE_prologue or HAVE_epilogue */
-}
-
-/* Called once, at initialization, to initialize function.c.  */
-
-void
-init_function_once (void)
-{
-  VARRAY_INT_INIT (prologue, 0, "prologue");
-  VARRAY_INT_INIT (epilogue, 0, "epilogue");
-  VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
 }
 
 /* Resets insn_block_boundaries array.  */

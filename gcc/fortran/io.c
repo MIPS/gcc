@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -974,8 +974,9 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
       /* Format label can be integer varibale.  */
       if (tag != &tag_format || e->ts.type != BT_INTEGER)
         {
-          gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-		     gfc_basic_typename (tag->type));
+          gfc_error ("%s tag at %L must be of type %s or %s", tag->name,
+		&e->where, gfc_basic_typename (tag->type),
+		gfc_basic_typename (BT_INTEGER));
           return FAILURE;
         }
     }

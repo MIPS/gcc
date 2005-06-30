@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* warning, error, and fatal.  These definitions are suitable for use
    in the generator programs; eventually we would like to use them in
@@ -30,10 +30,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_ERRORS_H
 #define GCC_ERRORS_H
 
-extern void warning (int, const char *, ...);
-extern void error (const char *, ...);
-extern void fatal (const char *, ...) ATTRIBUTE_NORETURN;
-extern void internal_error (const char *, ...) ATTRIBUTE_NORETURN;
+extern void warning (int, const char *, ...) ATTRIBUTE_PRINTF_2;
+extern void error (const char *, ...) ATTRIBUTE_PRINTF_1;
+extern void fatal (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_PRINTF_1;
+extern void internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_PRINTF_1;
 extern const char *trim_filename (const char *);
 
 extern int have_error;

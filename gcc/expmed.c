@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -3030,7 +3030,7 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 
   /* These are the operations that are potentially turned into a sequence
      of shifts and additions.  */
-  if (GET_MODE_CLASS (mode) == MODE_INT
+  if (SCALAR_INT_MODE_P (mode)
       && (unsignedp || !flag_trapv))
     {
       HOST_WIDE_INT coeff = 0;

@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "langhooks.h"
 #include "ggc.h"
+#include "toplev.h"
 
 
 /* Nonzero if we are using EH to handle cleanups.  */
@@ -1868,6 +1869,13 @@ tree_could_trap_p (tree expr)
  restart:
   switch (code)
     {
+    case TARGET_MEM_REF:
+      /* For TARGET_MEM_REFs use the information based on the original
+	 reference.  */
+      expr = TMR_ORIGINAL (expr);
+      code = TREE_CODE (expr);
+      goto restart;
+
     case COMPONENT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:

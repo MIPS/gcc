@@ -19,8 +19,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,7 +31,7 @@
 #include "c-common.h"
 #include "c-pragma.h"
 #include "c-tree.h"
-#include "errors.h"
+#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
@@ -50,8 +50,8 @@ static tree altivec_resolve_overloaded_builtin (tree, tree);
    whether or not new function declarations receive a longcall
    attribute by default.  */
 
-#define SYNTAX_ERROR(msgid) do {			\
-  warning (0, msgid);					\
+#define SYNTAX_ERROR(gmsgid) do {			\
+  warning (0, gmsgid);					\
   warning (0, "ignoring malformed #pragma longcall");	\
   return;						\
 } while (0)

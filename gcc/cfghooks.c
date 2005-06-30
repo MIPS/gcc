@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -545,7 +545,6 @@ merge_blocks (basic_block a, basic_block b)
 
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
   b->preds = b->succs = NULL;
-  a->global_live_at_end = b->global_live_at_end;
 
   if (dom_computed[CDI_DOMINATORS])
     redirect_immediate_dominators (CDI_DOMINATORS, b, a);
@@ -756,8 +755,8 @@ duplicate_block (basic_block bb, edge e)
       new_bb->frequency = bb->frequency;
     }
 
-  new_bb->rbi->original = bb;
-  bb->rbi->copy = new_bb;
+  set_bb_original (new_bb, bb);
+  set_bb_copy (bb, new_bb);
 
   return new_bb;
 }

@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* TODO:
 
@@ -644,18 +644,18 @@ c_parser_new (void)
    used.  */
 
 static void
-c_parser_error (c_parser *parser, const char *msgid)
+c_parser_error (c_parser *parser, const char *gmsgid)
 {
   c_token *token = c_parser_peek_token (parser);
   if (parser->error)
     return;
   parser->error = true;
-  if (!msgid)
+  if (!gmsgid)
     return;
   /* This diagnostic makes more sense if it is tagged to the line of
      the token we just peeked at.  */
   c_parser_set_source_position_from_token (token);
-  c_parse_error (msgid,
+  c_parse_error (gmsgid,
 		 /* Because c_parse_error does not understand
 		    CPP_KEYWORD, keywords are treated like
 		    identifiers.  */
@@ -913,7 +913,7 @@ static void c_parser_while_statement (c_parser *);
 static void c_parser_do_statement (c_parser *);
 static void c_parser_for_statement (c_parser *);
 static tree c_parser_asm_statement (c_parser *);
-static tree c_parser_asm_operands (c_parser *);
+static tree c_parser_asm_operands (c_parser *, bool);
 static tree c_parser_asm_clobbers (c_parser *);
 static struct c_expr c_parser_expr_no_commas (c_parser *, struct c_expr *);
 static struct c_expr c_parser_conditional_expression (c_parser *,
@@ -929,7 +929,8 @@ static struct c_expr c_parser_postfix_expression_after_paren_type (c_parser *,
 static struct c_expr c_parser_postfix_expression_after_primary (c_parser *,
 								struct c_expr);
 static struct c_expr c_parser_expression (c_parser *);
-static tree c_parser_expr_list (c_parser *);
+static struct c_expr c_parser_expression_conv (c_parser *);
+static tree c_parser_expr_list (c_parser *, bool);
 
 /* These Objective-C parser functions are only ever called when
    compiling Objective-C.  */
@@ -2370,12 +2371,13 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
       && c_parser_next_token_is (parser, CPP_NAME)
       && c_parser_peek_token (parser)->id_kind == C_ID_ID)
     {
-      tree list = NULL_TREE;
+      tree list = NULL_TREE, *nextp = &list;
       while (c_parser_next_token_is (parser, CPP_NAME)
 	     && c_parser_peek_token (parser)->id_kind == C_ID_ID)
 	{
-	  list = chainon (list, build_tree_list (NULL_TREE,
-						 c_parser_peek_token (parser)->value));
+	  *nextp = build_tree_list (NULL_TREE,
+				    c_parser_peek_token (parser)->value);
+	  nextp = & TREE_CHAIN (*nextp);
 	  c_parser_consume_token (parser);
 	  if (c_parser_next_token_is_not (parser, CPP_COMMA))
 	    break;
@@ -2766,7 +2768,7 @@ c_parser_attributes (c_parser *parser)
 		{
 		  c_parser_consume_token (parser);
 		  attr_args = tree_cons (NULL_TREE, arg1,
-					 c_parser_expr_list (parser));
+					 c_parser_expr_list (parser, false));
 		}
 	    }
 	  else
@@ -2774,7 +2776,7 @@ c_parser_attributes (c_parser *parser)
 	      if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 		attr_args = NULL_TREE;
 	      else
-		attr_args = c_parser_expr_list (parser);
+		attr_args = c_parser_expr_list (parser, false);
 	    }
 	  attr = build_tree_list (attr_name, attr_args);
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
@@ -2891,7 +2893,14 @@ c_parser_initializer (c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
     return c_parser_braced_init (parser, NULL_TREE, false);
   else
-    return c_parser_expr_no_commas (parser, NULL);
+    {
+      struct c_expr ret;
+      ret = c_parser_expr_no_commas (parser, NULL);
+      if (TREE_CODE (ret.value) != STRING_CST
+	  && TREE_CODE (ret.value) != COMPOUND_LITERAL_EXPR)
+	ret = default_function_array_conversion (ret);
+      return ret;
+    }
 }
 
 /* Parse a braced initializer list.  TYPE is the type specified for a
@@ -3045,10 +3054,11 @@ c_parser_initelt (c_parser *parser)
 		  rec = first;
 		  while (c_parser_next_token_is (parser, CPP_COMMA))
 		    {
-		      tree next;
+		      struct c_expr next;
 		      c_parser_consume_token (parser);
-		      next = c_parser_expr_no_commas (parser, NULL).value;
-		      rec = build_compound_expr (rec, next);
+		      next = c_parser_expr_no_commas (parser, NULL);
+		      next = default_function_array_conversion (next);
+		      rec = build_compound_expr (rec, next.value);
 		    }
 		parse_message_args:
 		  /* Now parse the objc-message-args.  */
@@ -3133,7 +3143,13 @@ c_parser_initval (c_parser *parser, struct c_expr *after)
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE) && !after)
     init = c_parser_braced_init (parser, NULL_TREE, true);
   else
-    init = c_parser_expr_no_commas (parser, after);
+    {
+      init = c_parser_expr_no_commas (parser, after);
+      if (init.value != NULL_TREE
+	  && TREE_CODE (init.value) != STRING_CST
+	  && TREE_CODE (init.value) != COMPOUND_LITERAL_EXPR)
+	init = default_function_array_conversion (init);
+    }
   process_init_element (init);
 }
 
@@ -3515,7 +3531,7 @@ c_parser_statement_after_labels (c_parser *parser)
 	    }
 	  else
 	    {
-	      stmt = c_finish_return (c_parser_expression (parser).value);
+	      stmt = c_finish_return (c_parser_expression_conv (parser).value);
 	      goto expect_semicolon;
 	    }
 	  break;
@@ -3563,7 +3579,7 @@ c_parser_statement_after_labels (c_parser *parser)
       break;
     default:
     expr_stmt:
-      stmt = c_finish_expr_stmt (c_parser_expression (parser).value);
+      stmt = c_finish_expr_stmt (c_parser_expression_conv (parser).value);
     expect_semicolon:
       c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
       break;
@@ -3596,7 +3612,7 @@ c_parser_paren_condition (c_parser *parser)
     return error_mark_node;
   loc = c_parser_peek_token (parser)->location;
   cond = c_objc_common_truthvalue_conversion
-    (c_parser_expression (parser).value);
+    (c_parser_expression_conv (parser).value);
   if (EXPR_P (cond))
     SET_EXPR_LOCATION (cond, loc);
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -3831,7 +3847,7 @@ c_parser_for_statement (c_parser *parser)
 	}
       else
 	{
-	  tree ocond = c_parser_expression (parser).value;
+	  tree ocond = c_parser_expression_conv (parser).value;
 	  cond = c_objc_common_truthvalue_conversion (ocond);
 	  if (EXPR_P (cond))
 	    SET_EXPR_LOCATION (cond, loc);
@@ -3927,7 +3943,7 @@ c_parser_asm_statement (c_parser *parser)
       || c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
     outputs = NULL_TREE;
   else
-    outputs = c_parser_asm_operands (parser);
+    outputs = c_parser_asm_operands (parser, false);
   if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
     {
       inputs = NULL_TREE;
@@ -3945,7 +3961,7 @@ c_parser_asm_statement (c_parser *parser)
       || c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
     inputs = NULL_TREE;
   else
-    inputs = c_parser_asm_operands (parser);
+    inputs = c_parser_asm_operands (parser, true);
   if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
     {
       clobbers = NULL_TREE;
@@ -3973,7 +3989,9 @@ c_parser_asm_statement (c_parser *parser)
   return ret;
 }
 
-/* Parse asm operands, a GNU extension.
+/* Parse asm operands, a GNU extension.  If CONVERT_P (for inputs but
+   not outputs), apply the default conversion of functions and arrays
+   to pointers.
 
    asm-operands:
      asm-operand
@@ -3985,12 +4003,13 @@ c_parser_asm_statement (c_parser *parser)
 */
 
 static tree
-c_parser_asm_operands (c_parser *parser)
+c_parser_asm_operands (c_parser *parser, bool convert_p)
 {
   tree list = NULL_TREE;
   while (true)
     {
-      tree name, str, expr;
+      tree name, str;
+      struct c_expr expr;
       if (c_parser_next_token_is (parser, CPP_OPEN_SQUARE))
 	{
 	  c_parser_consume_token (parser);
@@ -4021,7 +4040,9 @@ c_parser_asm_operands (c_parser *parser)
 	  c_lex_string_translate = 0;
 	  return NULL_TREE;
 	}
-      expr = c_parser_expression (parser).value;
+      expr = c_parser_expression (parser);
+      if (convert_p)
+	expr = default_function_array_conversion (expr);
       c_lex_string_translate = 0;
       if (!c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
 	{
@@ -4029,7 +4050,7 @@ c_parser_asm_operands (c_parser *parser)
 	  return NULL_TREE;
 	}
       list = chainon (list, build_tree_list (build_tree_list (name, str),
-					     expr));
+					     expr.value));
       if (c_parser_next_token_is (parser, CPP_COMMA))
 	c_parser_consume_token (parser);
       else
@@ -4127,6 +4148,7 @@ c_parser_expr_no_commas (c_parser *parser, struct c_expr *after)
     }
   c_parser_consume_token (parser);
   rhs = c_parser_expr_no_commas (parser, NULL);
+  rhs = default_function_array_conversion (rhs);
   ret.value = build_modify_expr (lhs.value, code, rhs.value);
   if (code == NOP_EXPR)
     ret.original_code = MODIFY_EXPR;
@@ -4160,6 +4182,7 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
   cond = c_parser_binary_expression (parser, after);
   if (c_parser_next_token_is_not (parser, CPP_QUERY))
     return cond;
+  cond = default_function_array_conversion (cond);
   c_parser_consume_token (parser);
   if (c_parser_next_token_is (parser, CPP_COLON))
     {
@@ -4176,7 +4199,7 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
 	= c_objc_common_truthvalue_conversion
 	(default_conversion (cond.value));
       skip_evaluation += cond.value == truthvalue_false_node;
-      exp1 = c_parser_expression (parser);
+      exp1 = c_parser_expression_conv (parser);
       skip_evaluation += ((cond.value == truthvalue_true_node)
 			  - (cond.value == truthvalue_false_node));
     }
@@ -4188,6 +4211,7 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
       return ret;
     }
   exp2 = c_parser_conditional_expression (parser, NULL);
+  exp2 = default_function_array_conversion (exp2);
   skip_evaluation -= cond.value == truthvalue_true_node;
   ret.value = build_conditional_expr (cond.value, exp1.value, exp2.value);
   ret.original_code = ERROR_MARK;
@@ -4311,6 +4335,10 @@ c_parser_binary_expression (c_parser *parser, struct c_expr *after)
       default:								      \
 	break;								      \
       }									      \
+    stack[sp - 1].expr							      \
+      = default_function_array_conversion (stack[sp - 1].expr);		      \
+    stack[sp].expr							      \
+      = default_function_array_conversion (stack[sp].expr);		      \
     stack[sp - 1].expr = parser_build_binary_op (stack[sp].op,		      \
 						 stack[sp - 1].expr,	      \
 						 stack[sp].expr);	      \
@@ -4411,11 +4439,15 @@ c_parser_binary_expression (c_parser *parser, struct c_expr *after)
       switch (ocode)
 	{
 	case TRUTH_ANDIF_EXPR:
+	  stack[sp].expr
+	    = default_function_array_conversion (stack[sp].expr);
 	  stack[sp].expr.value = c_objc_common_truthvalue_conversion
 	    (default_conversion (stack[sp].expr.value));
 	  skip_evaluation += stack[sp].expr.value == truthvalue_false_node;
 	  break;
 	case TRUTH_ORIF_EXPR:
+	  stack[sp].expr
+	    = default_function_array_conversion (stack[sp].expr);
 	  stack[sp].expr.value = c_objc_common_truthvalue_conversion
 	    (default_conversion (stack[sp].expr.value));
 	  skip_evaluation += stack[sp].expr.value == truthvalue_true_node;
@@ -4459,7 +4491,7 @@ c_parser_cast_expression (c_parser *parser, struct c_expr *after)
     {
       struct c_type_name *type_name;
       struct c_expr ret;
-      tree expr;
+      struct c_expr expr;
       c_parser_consume_token (parser);
       type_name = c_parser_type_name (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -4472,8 +4504,9 @@ c_parser_cast_expression (c_parser *parser, struct c_expr *after)
       if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
 	return c_parser_postfix_expression_after_paren_type (parser,
 							     type_name);
-      expr = c_parser_cast_expression (parser, NULL).value;
-      ret.value = c_cast_expr (type_name, expr);
+      expr = c_parser_cast_expression (parser, NULL);
+      expr = default_function_array_conversion (expr);
+      ret.value = c_cast_expr (type_name, expr.value);
       ret.original_code = ERROR_MARK;
       return ret;
     }
@@ -4512,26 +4545,28 @@ static struct c_expr
 c_parser_unary_expression (c_parser *parser)
 {
   int ext;
-  struct c_expr ret;
+  struct c_expr ret, op;
   switch (c_parser_peek_token (parser)->type)
     {
     case CPP_PLUS_PLUS:
       c_parser_consume_token (parser);
-      return parser_build_unary_op (PREINCREMENT_EXPR,
-				    c_parser_cast_expression (parser, NULL));
+      op = c_parser_cast_expression (parser, NULL);
+      op = default_function_array_conversion (op);
+      return parser_build_unary_op (PREINCREMENT_EXPR, op);
     case CPP_MINUS_MINUS:
       c_parser_consume_token (parser);
-      return parser_build_unary_op (PREDECREMENT_EXPR,
-				    c_parser_cast_expression (parser, NULL));
+      op = c_parser_cast_expression (parser, NULL);
+      op = default_function_array_conversion (op);
+      return parser_build_unary_op (PREDECREMENT_EXPR, op);
     case CPP_AND:
       c_parser_consume_token (parser);
       return parser_build_unary_op (ADDR_EXPR,
 				    c_parser_cast_expression (parser, NULL));
     case CPP_MULT:
       c_parser_consume_token (parser);
-      ret.value
-	= build_indirect_ref (c_parser_cast_expression (parser, NULL).value,
-			      "unary *");
+      op = c_parser_cast_expression (parser, NULL);
+      op = default_function_array_conversion (op);
+      ret.value = build_indirect_ref (op.value, "unary *");
       ret.original_code = ERROR_MARK;
       return ret;
     case CPP_PLUS:
@@ -4539,20 +4574,24 @@ c_parser_unary_expression (c_parser *parser)
       if (!c_dialect_objc () && !in_system_header)
 	warning (OPT_Wtraditional,
 		 "traditional C rejects the unary plus operator");
-      return parser_build_unary_op (CONVERT_EXPR,
-				    c_parser_cast_expression (parser, NULL));
+      op = c_parser_cast_expression (parser, NULL);
+      op = default_function_array_conversion (op);
+      return parser_build_unary_op (CONVERT_EXPR, op);
     case CPP_MINUS:
       c_parser_consume_token (parser);
-      return parser_build_unary_op (NEGATE_EXPR,
-				    c_parser_cast_expression (parser, NULL));
+      op = c_parser_cast_expression (parser, NULL);
+      op = default_function_array_conversion (op);
+      return parser_build_unary_op (NEGATE_EXPR, op);
     case CPP_COMPL:
       c_parser_consume_token (parser);
-      return parser_build_unary_op (BIT_NOT_EXPR,
-				    c_parser_cast_expression (parser, NULL));
+      op = c_parser_cast_expression (parser, NULL);
+      op = default_function_array_conversion (op);
+      return parser_build_unary_op (BIT_NOT_EXPR, op);
     case CPP_NOT:
       c_parser_consume_token (parser);
-      return parser_build_unary_op (TRUTH_NOT_EXPR,
-				    c_parser_cast_expression (parser, NULL));
+      op = c_parser_cast_expression (parser, NULL);
+      op = default_function_array_conversion (op);
+      return parser_build_unary_op (TRUTH_NOT_EXPR, op);
     case CPP_AND_AND:
       /* Refer to the address of a label as a pointer.  */
       c_parser_consume_token (parser);
@@ -4584,14 +4623,14 @@ c_parser_unary_expression (c_parser *parser)
 	  return ret;
 	case RID_REALPART:
 	  c_parser_consume_token (parser);
-	  return parser_build_unary_op (REALPART_EXPR,
-					c_parser_cast_expression (parser,
-								  NULL));
+	  op = c_parser_cast_expression (parser, NULL);
+	  op = default_function_array_conversion (op);
+	  return parser_build_unary_op (REALPART_EXPR, op);
 	case RID_IMAGPART:
 	  c_parser_consume_token (parser);
-	  return parser_build_unary_op (IMAGPART_EXPR,
-					c_parser_cast_expression (parser,
-								  NULL));
+	  op = c_parser_cast_expression (parser, NULL);
+	  op = default_function_array_conversion (op);
+	  return parser_build_unary_op (IMAGPART_EXPR, op);
 	default:
 	  return c_parser_postfix_expression (parser);
 	}
@@ -5221,7 +5260,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	    exprlist = NULL_TREE;
 	  else
-	    exprlist = c_parser_expr_list (parser);
+	    exprlist = c_parser_expr_list (parser, true);
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
 	  expr.value = build_function_call (expr.value, exprlist);
@@ -5230,6 +5269,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	case CPP_DOT:
 	  /* Structure element reference.  */
 	  c_parser_consume_token (parser);
+	  expr = default_function_array_conversion (expr);
 	  if (c_parser_next_token_is (parser, CPP_NAME))
 	    ident = c_parser_peek_token (parser)->value;
 	  else
@@ -5246,6 +5286,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	case CPP_DEREF:
 	  /* Structure element reference.  */
 	  c_parser_consume_token (parser);
+	  expr = default_function_array_conversion (expr);
 	  if (c_parser_next_token_is (parser, CPP_NAME))
 	    ident = c_parser_peek_token (parser)->value;
 	  else
@@ -5263,12 +5304,14 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	case CPP_PLUS_PLUS:
 	  /* Postincrement.  */
 	  c_parser_consume_token (parser);
+	  expr = default_function_array_conversion (expr);
 	  expr.value = build_unary_op (POSTINCREMENT_EXPR, expr.value, 0);
 	  expr.original_code = ERROR_MARK;
 	  break;
 	case CPP_MINUS_MINUS:
 	  /* Postdecrement.  */
 	  c_parser_consume_token (parser);
+	  expr = default_function_array_conversion (expr);
 	  expr.value = build_unary_op (POSTDECREMENT_EXPR, expr.value, 0);
 	  expr.original_code = ERROR_MARK;
 	  break;
@@ -5295,13 +5338,27 @@ c_parser_expression (c_parser *parser)
       struct c_expr next;
       c_parser_consume_token (parser);
       next = c_parser_expr_no_commas (parser, NULL);
+      next = default_function_array_conversion (next);
       expr.value = build_compound_expr (expr.value, next.value);
       expr.original_code = COMPOUND_EXPR;
     }
   return expr;
 }
 
-/* Parse a non-empty list of expressions.
+/* Parse an expression and convert functions or arrays to
+   pointers.  */
+
+static struct c_expr
+c_parser_expression_conv (c_parser *parser)
+{
+  struct c_expr expr;
+  expr = c_parser_expression (parser);
+  expr = default_function_array_conversion (expr);
+  return expr;
+}
+
+/* Parse a non-empty list of expressions.  If CONVERT_P, convert
+   functions and arrays to pointers.
 
    nonempty-expr-list:
      assignment-expression
@@ -5309,17 +5366,21 @@ c_parser_expression (c_parser *parser)
 */
 
 static tree
-c_parser_expr_list (c_parser *parser)
+c_parser_expr_list (c_parser *parser, bool convert_p)
 {
   struct c_expr expr;
-  tree ret;
+  tree ret, cur;
   expr = c_parser_expr_no_commas (parser, NULL);
-  ret = build_tree_list (NULL_TREE, expr.value);
+  if (convert_p)
+    expr = default_function_array_conversion (expr);
+  ret = cur = build_tree_list (NULL_TREE, expr.value);
   while (c_parser_next_token_is (parser, CPP_COMMA))
     {
       c_parser_consume_token (parser);
       expr = c_parser_expr_no_commas (parser, NULL);
-      ret = chainon (ret, build_tree_list (NULL_TREE, expr.value));
+      if (convert_p)
+	expr = default_function_array_conversion (expr);
+      cur = TREE_CHAIN (cur) = build_tree_list (NULL_TREE, expr.value);
     }
   return ret;
 }
@@ -6179,7 +6240,7 @@ c_parser_objc_message_args (c_parser *parser)
 static tree
 c_parser_objc_keywordexpr (c_parser *parser)
 {
-  tree list = c_parser_expr_list (parser);
+  tree list = c_parser_expr_list (parser, true);
   if (TREE_CHAIN (list) == NULL_TREE)
     {
       /* Just return the expression, remove a level of

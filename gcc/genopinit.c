@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "bconfig.h"
@@ -168,9 +168,9 @@ static const char * const optabs[] =
   "reload_in_optab[$A] = CODE_FOR_$(reload_in$a$)",
   "reload_out_optab[$A] = CODE_FOR_$(reload_out$a$)",
   "movmem_optab[$A] = CODE_FOR_$(movmem$a$)",
-  "clrmem_optab[$A] = CODE_FOR_$(clrmem$a$)",
   "cmpstr_optab[$A] = CODE_FOR_$(cmpstr$a$)",
   "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)",
+  "setmem_optab[$A] = CODE_FOR_$(setmem$a$)",
   "sync_add_optab[$A] = CODE_FOR_$(sync_add$I$a$)",
   "sync_sub_optab[$A] = CODE_FOR_$(sync_sub$I$a$)",
   "sync_ior_optab[$A] = CODE_FOR_$(sync_ior$I$a$)",
@@ -196,9 +196,17 @@ static const char * const optabs[] =
   "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
   "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
   "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)",
+  "vec_shl_optab->handlers[$A].insn_code = CODE_FOR_$(vec_shl_$a$)",
+  "vec_shr_optab->handlers[$A].insn_code = CODE_FOR_$(vec_shr_$a$)",
   "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)",
   "vcond_gen_code[$A] = CODE_FOR_$(vcond$a$)",
-  "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)"
+  "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)",
+  "reduc_smax_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smax_$a$)",
+  "reduc_umax_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_umax_$a$)",
+  "reduc_smin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smin_$a$)",
+  "reduc_umin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_umin_$a$)",
+  "reduc_splus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_splus_$a$)" ,
+  "reduc_uplus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_uplus_$a$)" 
 };
 
 static void gen_insn (rtx);

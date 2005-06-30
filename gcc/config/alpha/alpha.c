@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -4069,7 +4069,7 @@ int
 alpha_expand_block_clear (rtx operands[])
 {
   rtx bytes_rtx	= operands[1];
-  rtx align_rtx = operands[2];
+  rtx align_rtx = operands[3];
   HOST_WIDE_INT orig_bytes = INTVAL (bytes_rtx);
   HOST_WIDE_INT bytes = orig_bytes;
   HOST_WIDE_INT align = INTVAL (align_rtx) * BITS_PER_UNIT;
@@ -4921,6 +4921,20 @@ print_operand (FILE *file, rtx x, int code)
       }
       break;
 
+    case 'j':
+      {
+	const char *lituse;
+
+#ifdef HAVE_AS_JSRDIRECT_RELOCS
+	lituse = "lituse_jsrdirect";
+#else
+	lituse = "lituse_jsr";
+#endif
+
+	gcc_assert (INTVAL (x) != 0);
+	fprintf (file, "\t\t!%s!%d", lituse, (int) INTVAL (x));
+      }
+      break;
     case 'r':
       /* If this operand is the constant zero, write it as "$31".  */
       if (GET_CODE (x) == REG)
@@ -8960,7 +8974,7 @@ alpha_align_insns (unsigned int max_align,
   unsigned int align;
   /* OFS is the offset of the current insn in the insn group.  */
   int ofs;
-  int prev_in_use, in_use, len;
+  int prev_in_use, in_use, len, ldgp;
   rtx i, next;
 
   /* Let shorten branches care for assigning alignments to code labels.  */
@@ -8977,6 +8991,8 @@ alpha_align_insns (unsigned int max_align,
   i = get_insns ();
   if (GET_CODE (i) == NOTE)
     i = next_nonnote_insn (i);
+
+  ldgp = alpha_function_needs_gp ? 8 : 0;
 
   while (i)
     {
@@ -9032,6 +9048,10 @@ alpha_align_insns (unsigned int max_align,
 	      ofs = 0;
 	    }
 	}
+
+      /* We may not insert padding inside the initial ldgp sequence.  */
+      else if (ldgp > 0)
+	ldgp -= len;
 
       /* If the group won't fit in the same INT16 as the previous,
 	 we need to add padding to keep the group together.  Rather

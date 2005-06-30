@@ -1,3 +1,15 @@
+2005-06-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* libiberty.h (strverscmp): Prototype. 
+
+2005-06-06  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* libiberty.h (XOBFINISH): New.
+
+2005-06-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (vsnprintf): Add format attribute.
+
 2005-05-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* ansidecl.h: Add ATTRIBUTE_FPTR_PRINTF.

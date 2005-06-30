@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -341,6 +341,9 @@ static void sparc_init_libfuncs (void);
 static void sparc_init_builtins (void);
 static void sparc_vis_init_builtins (void);
 static rtx sparc_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+static tree sparc_fold_builtin (tree, tree, bool);
+static int sparc_vis_mul8x16 (int, int);
+static tree sparc_handle_vis_mul8x16 (int, tree, tree, tree);
 static void sparc_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				   HOST_WIDE_INT, tree);
 static bool sparc_can_output_mi_thunk (tree, HOST_WIDE_INT,
@@ -363,6 +366,7 @@ static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
 static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree, bool);
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
+static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
@@ -436,11 +440,14 @@ static bool fpu_option_set = false;
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN sparc_expand_builtin
+#undef TARGET_FOLD_BUILTIN
+#define TARGET_FOLD_BUILTIN sparc_fold_builtin
 
-#ifdef HAVE_AS_TLS
+#if TARGET_TLS
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
 #endif
+
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM sparc_cannot_force_const_mem
 
@@ -511,6 +518,11 @@ static bool fpu_option_set = false;
 #define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION sparc_handle_option
+
+#if TARGET_GNU_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL sparc_output_dwarf_dtprel
+#endif
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END sparc_file_end
@@ -7897,6 +7909,204 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   return op[0];
 }
+
+static int
+sparc_vis_mul8x16 (int e8, int e16)
+{
+  return (e8 * e16 + 128) / 256;
+}
+
+/* Multiply the vector elements in ELTS0 to the elements in ELTS1 as specified
+   by FNCODE.  All of the elements in ELTS0 and ELTS1 lists must be integer
+   constants.  A tree list with the results of the multiplications is returned,
+   and each element in the list is of INNER_TYPE.  */
+
+static tree
+sparc_handle_vis_mul8x16 (int fncode, tree inner_type, tree elts0, tree elts1)
+{
+  tree n_elts = NULL_TREE;
+  int scale;
+
+  switch (fncode)
+    {
+    case CODE_FOR_fmul8x16_vis:
+      for (; elts0 && elts1;
+	   elts0 = TREE_CHAIN (elts0), elts1 = TREE_CHAIN (elts1))
+	{
+	  int val
+	    = sparc_vis_mul8x16 (TREE_INT_CST_LOW (TREE_VALUE (elts0)),
+				 TREE_INT_CST_LOW (TREE_VALUE (elts1)));
+	  n_elts = tree_cons (NULL_TREE,
+			      build_int_cst (inner_type, val),
+			      n_elts);
+	}
+      break;
+
+    case CODE_FOR_fmul8x16au_vis:
+      scale = TREE_INT_CST_LOW (TREE_VALUE (elts1));
+
+      for (; elts0; elts0 = TREE_CHAIN (elts0))
+	{
+	  int val
+	    = sparc_vis_mul8x16 (TREE_INT_CST_LOW (TREE_VALUE (elts0)),
+				 scale);
+	  n_elts = tree_cons (NULL_TREE,
+			      build_int_cst (inner_type, val),
+			      n_elts);
+	}
+      break;
+
+    case CODE_FOR_fmul8x16al_vis:
+      scale = TREE_INT_CST_LOW (TREE_VALUE (TREE_CHAIN (elts1)));
+
+      for (; elts0; elts0 = TREE_CHAIN (elts0))
+	{
+	  int val
+	    = sparc_vis_mul8x16 (TREE_INT_CST_LOW (TREE_VALUE (elts0)),
+				 scale);
+	  n_elts = tree_cons (NULL_TREE,
+			      build_int_cst (inner_type, val),
+			      n_elts);
+	}
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return nreverse (n_elts);
+
+}
+/* Handle TARGET_FOLD_BUILTIN target hook.
+   Fold builtin functions for SPARC intrinsics.  If IGNORE is true the
+   result of the function call is ignored.  NULL_TREE is returned if the
+   function could not be folded.  */
+
+static tree
+sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
+{
+  tree arg0, arg1, arg2;
+  tree rtype = TREE_TYPE (TREE_TYPE (fndecl));
+  
+
+  if (ignore && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
+      && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrdi_vis)
+    return build_int_cst (rtype, 0);
+
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case CODE_FOR_fexpand_vis:
+      arg0 = TREE_VALUE (arglist);
+      STRIP_NOPS (arg0);
+
+      if (TREE_CODE (arg0) == VECTOR_CST)
+	{
+	  tree inner_type = TREE_TYPE (rtype);
+	  tree elts = TREE_VECTOR_CST_ELTS (arg0);
+	  tree n_elts = NULL_TREE;
+
+	  for (; elts; elts = TREE_CHAIN (elts))
+	    {
+	      unsigned int val = TREE_INT_CST_LOW (TREE_VALUE (elts)) << 4;
+	      n_elts = tree_cons (NULL_TREE,
+				  build_int_cst (inner_type, val),
+				  n_elts);
+	    }
+	  return build_vector (rtype, nreverse (n_elts));
+	}
+      break;
+
+    case CODE_FOR_fmul8x16_vis:
+    case CODE_FOR_fmul8x16au_vis:
+    case CODE_FOR_fmul8x16al_vis:
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      STRIP_NOPS (arg0);
+      STRIP_NOPS (arg1);
+
+      if (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST)
+	{
+	  tree inner_type = TREE_TYPE (rtype);
+	  tree elts0 = TREE_VECTOR_CST_ELTS (arg0);
+	  tree elts1 = TREE_VECTOR_CST_ELTS (arg1);
+	  tree n_elts = sparc_handle_vis_mul8x16 (DECL_FUNCTION_CODE (fndecl),
+						  inner_type, elts0, elts1);
+
+	  return build_vector (rtype, n_elts);
+	}
+      break;
+
+    case CODE_FOR_fpmerge_vis:
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      STRIP_NOPS (arg0);
+      STRIP_NOPS (arg1);
+
+      if (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST)
+	{
+	  tree elts0 = TREE_VECTOR_CST_ELTS (arg0);
+	  tree elts1 = TREE_VECTOR_CST_ELTS (arg1);
+	  tree n_elts = NULL_TREE;
+
+	  for (; elts0 && elts1;
+	       elts0 = TREE_CHAIN (elts0), elts1 = TREE_CHAIN (elts1))
+	    {
+	      n_elts = tree_cons (NULL_TREE, TREE_VALUE (elts0), n_elts);
+	      n_elts = tree_cons (NULL_TREE, TREE_VALUE (elts1), n_elts);
+	    }
+
+	  return build_vector (rtype, nreverse (n_elts));
+	}
+      break;
+
+    case CODE_FOR_pdist_vis:
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      STRIP_NOPS (arg0);
+      STRIP_NOPS (arg1);
+      STRIP_NOPS (arg2);
+
+      if (TREE_CODE (arg0) == VECTOR_CST
+	  && TREE_CODE (arg1) == VECTOR_CST
+	  && TREE_CODE (arg2) == INTEGER_CST)
+	{
+	  int overflow = 0;
+	  unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (arg2);
+	  HOST_WIDE_INT high = TREE_INT_CST_HIGH (arg2);
+	  tree elts0 = TREE_VECTOR_CST_ELTS (arg0);
+	  tree elts1 = TREE_VECTOR_CST_ELTS (arg1);
+
+	  for (; elts0 && elts1;
+	       elts0 = TREE_CHAIN (elts0), elts1 = TREE_CHAIN (elts1))
+	    {
+	      unsigned HOST_WIDE_INT
+		low0 = TREE_INT_CST_LOW (TREE_VALUE (elts0)),
+		low1 = TREE_INT_CST_LOW (TREE_VALUE (elts1));
+	      HOST_WIDE_INT high0 = TREE_INT_CST_HIGH (TREE_VALUE (elts0));
+	      HOST_WIDE_INT high1 = TREE_INT_CST_HIGH (TREE_VALUE (elts1));
+
+	      unsigned HOST_WIDE_INT l;
+	      HOST_WIDE_INT h;
+
+	      overflow |= neg_double (low1, high1, &l, &h);
+	      overflow |= add_double (low0, high0, l, h, &l, &h);
+	      if (h < 0)
+		overflow |= neg_double (l, h, &l, &h);
+
+	      overflow |= add_double (low, high, l, h, &low, &high);
+	    }
+
+	  gcc_assert (overflow == 0);
+
+	  return build_int_cst_wide (rtype, low, high);
+	}
+
+    default:
+      break;
+    }
+  return NULL_TREE;
+}
 
 int
 sparc_extra_constraint_check (rtx op, int c, int strict)
@@ -8451,10 +8661,10 @@ sparc_dwarf_handle_frame_unspec (const char *label,
   dwarf2out_window_save (label);
 }
 
-/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+/* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
-void
+static void
 sparc_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   switch (size)
@@ -8472,8 +8682,10 @@ sparc_output_dwarf_dtprel (FILE *file, int size, rtx x)
   fputs (")", file);
 }
 
-static
-void sparc_file_end (void)
+/* Do whatever processing is required at the end of a file.  */
+
+static void
+sparc_file_end (void)
 {
   /* If we haven't emitted the special PIC helper function, do so now.  */
   if (pic_helper_symbol_name[0] && !pic_helper_emitted_p)

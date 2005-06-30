@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -250,7 +250,6 @@ match
 gfc_match_label (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_state_data *p;
   match m;
 
   gfc_new_block = NULL;
@@ -265,18 +264,15 @@ gfc_match_label (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_new_block->attr.flavor != FL_LABEL
-      && gfc_add_flavor (&gfc_new_block->attr, FL_LABEL,
-			 gfc_new_block->name, NULL) == FAILURE)
-    return MATCH_ERROR;
+  if (gfc_new_block->attr.flavor == FL_LABEL)
+    {
+      gfc_error ("Duplicate construct label '%s' at %C", name);
+      return MATCH_ERROR;
+    }
 
-  for (p = gfc_state_stack; p; p = p->previous)
-    if (p->sym == gfc_new_block)
-      {
-	gfc_error ("Label %s at %C already in use by a parent block",
-		   gfc_new_block->name);
-	return MATCH_ERROR;
-      }
+  if (gfc_add_flavor (&gfc_new_block->attr, FL_LABEL,
+		      gfc_new_block->name, NULL) == FAILURE)
+    return MATCH_ERROR;
 
   return MATCH_YES;
 }
@@ -3084,9 +3080,7 @@ match_forall_iterator (gfc_forall_iterator ** result)
     }
 
   m = gfc_match_expr (&iter->start);
-  if (m == MATCH_NO)
-    goto syntax;
-  if (m == MATCH_ERROR)
+  if (m != MATCH_YES)
     goto cleanup;
 
   if (gfc_match_char (':') != MATCH_YES)

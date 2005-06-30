@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
-#include "errors.h"
+#include "toplev.h"
 
 static void live_worklist (tree_live_info_p, int *, int);
 static tree_live_info_p new_tree_live_info (var_map);
@@ -185,7 +185,8 @@ void
 compact_var_map (var_map map, int flags)
 {
   sbitmap used;
-  int x, limit, count, tmp, root, root_i;
+  int tmp, root, root_i;
+  unsigned int x, limit, count;
   tree var;
   root_var_p rv = NULL;
 
@@ -238,10 +239,12 @@ compact_var_map (var_map map, int flags)
   /* Build a compacted partitioning.  */
   if (count != limit)
     {
+      sbitmap_iterator sbi;
+
       map->compact_to_partition = (int *)xmalloc (count * sizeof (int));
       count = 0;
       /* SSA renaming begins at 1, so skip 0 when compacting.  */
-      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x,
+      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x, sbi)
 	{
 	  map->partition_to_compact[x] = count;
 	  map->compact_to_partition[count] = x;
@@ -249,7 +252,7 @@ compact_var_map (var_map map, int flags)
 	  if (TREE_CODE (var) != SSA_NAME)
 	    change_partition_var (map, var, count);
 	  count++;
-	});
+	}
     }
   else
     {
@@ -408,9 +411,11 @@ create_ssa_var_map (int flags)
     sbitmap_a_and_b (both, used_in_real_ops, used_in_virtual_ops);
     if (sbitmap_first_set_bit (both) >= 0)
       {
-	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i,
+	sbitmap_iterator sbi;
+
+	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i, sbi)
 	  fprintf (stderr, "Variable %s used in real and virtual operands\n",
-		   get_name (referenced_var (i))));
+		   get_name (referenced_var (i)));
 	internal_error ("SSA corruption");
       }
 

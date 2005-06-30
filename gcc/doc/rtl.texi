@@ -1207,7 +1207,8 @@ Algol or Pascal function variables including a static chain.
 @findex MODE_CC
 @item MODE_CC
 Modes representing condition code values.  These are @code{CCmode} plus
-any modes listed in the @code{EXTRA_CC_MODES} macro.  @xref{Jump Patterns},
+any @code{CC_MODE} modes listed in the @file{@var{machine}-modes.def}.  
+@xref{Jump Patterns},
 also see @ref{Condition Code}.
 
 @findex MODE_RANDOM
@@ -1520,9 +1521,9 @@ value of @code{FIRST_PARM_OFFSET}.
 @findex VIRTUAL_STACK_VARS_REGNUM
 @cindex @code{FRAME_GROWS_DOWNWARD} and virtual registers
 @item VIRTUAL_STACK_VARS_REGNUM
-If @code{FRAME_GROWS_DOWNWARD} is defined, this points to immediately
-above the first variable on the stack.  Otherwise, it points to the
-first variable on the stack.
+If @code{FRAME_GROWS_DOWNWARD} is defined to a non-zero value, this points
+to immediately above the first variable on the stack.  Otherwise, it points
+to the first variable on the stack.
 
 @cindex @code{STARTING_FRAME_OFFSET} and virtual registers
 @cindex @code{FRAME_POINTER_REGNUM} and virtual registers
@@ -3131,9 +3132,6 @@ Appears near the end of the function body, just before the label that
 does not suffice for returning).  This note may be deleted by jump
 optimization.
 
-@findex NOTE_INSN_SETJMP
-@item NOTE_INSN_SETJMP
-Appears following each call to @code{setjmp} or a related function.
 @end table
 
 These codes are printed symbolically when they appear in debugging dumps.
@@ -3314,6 +3312,11 @@ of this note indicates to other optimizations that this this branching
 instruction should not be ``collapsed'' into a simpler branching
 construct.  It is used when the optimization to partition basic blocks
 into hot and cold sections is turned on.
+
+@findex REG_SETJMP
+@item REG_SETJMP 
+Appears attached to each @code{CALL_INSN} to @code{setjmp} or a 
+related function.
 @end table
 
 The following notes describe attributes of outputs of an insn:

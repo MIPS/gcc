@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the top level of cc1/c++.
    It parses command args, opens files, invokes the various passes
@@ -227,7 +227,7 @@ rest_of_decl_compilation (tree decl,
 	  && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
-	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
+	      && TREE_CODE (decl) != FUNCTION_DECL)
 	    cgraph_varpool_finalize_decl (decl);
 	  else
 	    assemble_variable (decl, top_level, at_end, 0);
@@ -600,7 +600,7 @@ rest_of_handle_sms (void)
   /* Finalize layout changes.  */
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)
-      bb->rbi->next = bb->next_bb;
+      bb->aux = bb->next_bb;
   cfg_layout_finalize ();
   free_dominance_info (CDI_DOMINATORS);
   ggc_collect ();
@@ -790,7 +790,8 @@ rest_of_handle_branch_prob (void)
   timevar_push (TV_BRANCH_PROB);
   open_dump_file (DFI_bp, current_function_decl);
 
-  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+  if ((profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+      && !flag_tree_based_profiling)
     branch_prob ();
 
   /* Discover and record the loop depth at the head of each basic
@@ -801,7 +802,7 @@ rest_of_handle_branch_prob (void)
     flow_loops_dump (&loops, dump_file, NULL, 0);
 
   /* Estimate using heuristics if no profiling info is available.  */
-  if (flag_guess_branch_prob)
+  if (flag_guess_branch_prob && profile_status == PROFILE_ABSENT)
     estimate_probability (&loops);
 
   flow_loops_free (&loops);
@@ -1186,7 +1187,7 @@ rest_of_handle_loop2 (void)
   /* Finalize layout changes.  */
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)
-      bb->rbi->next = bb->next_bb;
+      bb->aux = bb->next_bb;
   cfg_layout_finalize ();
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
@@ -1579,9 +1580,9 @@ rest_of_compilation (void)
   timevar_push (TV_FLOW);
   rest_of_handle_cfg ();
 
-  if (!flag_tree_based_profiling
-      && (optimize > 0 || profile_arc_flag
-	  || flag_test_coverage || flag_branch_probabilities))
+  if (optimize > 0
+      || ((profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+	  && !flag_tree_based_profiling))
     {
       rtl_register_profile_hooks ();
       rtl_register_value_prof_hooks ();
@@ -1589,6 +1590,7 @@ rest_of_compilation (void)
 
       if (flag_branch_probabilities
 	  && flag_profile_values
+          && !flag_tree_based_profiling
 	  && (flag_value_profile_transformations
 	      || flag_speculative_prefetching))
 	rest_of_handle_value_profile_transformations ();

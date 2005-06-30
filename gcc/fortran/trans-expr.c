@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* trans-expr.c-- generate GENERIC trees for gfc_expr.  */
 
@@ -281,7 +281,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
       se->string_length = tmp;
     }
 
-  if (c->pointer && c->dimension == 0)
+  if (c->pointer && c->dimension == 0 && c->ts.type != BT_CHARACTER)
     se->expr = gfc_build_indirect_ref (se->expr);
 }
 
@@ -365,29 +365,30 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
           /* Dereference character pointer dummy arguments
 	     or results.  */
 	  if ((sym->attr.pointer || sym->attr.allocatable)
-	      && ((sym->attr.dummy)
-		  || (sym->attr.function
-		  || sym->attr.result)))
+	      && (sym->attr.dummy
+		  || sym->attr.function
+		  || sym->attr.result))
 	    se->expr = gfc_build_indirect_ref (se->expr);
 	}
       else
 	{
-          /* Dereference non-charcter scalar dummy arguments.  */
-	  if ((sym->attr.dummy) && (!sym->attr.dimension))
+          /* Dereference non-character scalar dummy arguments.  */
+	  if (sym->attr.dummy && !sym->attr.dimension)
 	    se->expr = gfc_build_indirect_ref (se->expr);
 
           /* Dereference scalar hidden result.  */
-	  if ((gfc_option.flag_f2c && sym->ts.type == BT_COMPLEX)
+	  if (gfc_option.flag_f2c && sym->ts.type == BT_COMPLEX
 	      && (sym->attr.function || sym->attr.result)
-	      && (!sym->attr.dimension))
+	      && !sym->attr.dimension && !sym->attr.pointer)
 	    se->expr = gfc_build_indirect_ref (se->expr);
 
           /* Dereference non-character pointer variables. 
-	     These must be dummys or results or scalars.  */
+	     These must be dummies, results, or scalars.  */
 	  if ((sym->attr.pointer || sym->attr.allocatable)
-	      && ((sym->attr.dummy) 
-		  || (sym->attr.function || sym->attr.result)
-		  || (!sym->attr.dimension)))
+	      && (sym->attr.dummy
+		  || sym->attr.function
+		  || sym->attr.result
+		  || !sym->attr.dimension))
 	    se->expr = gfc_build_indirect_ref (se->expr);
 	}
 
@@ -1072,9 +1073,10 @@ gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
 
 
 /* Generate code for a procedure call.  Note can return se->post != NULL.
-   If se->direct_byref is set then se->expr contains the return parameter.  */
+   If se->direct_byref is set then se->expr contains the return parameter.
+   Return non-zero, if the call has alternate specifiers.  */
 
-void
+int
 gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 			gfc_actual_arglist * arg)
 {
@@ -1090,6 +1092,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   tree len;
   tree stringargs;
   gfc_formal_arglist *formal;
+  int has_alternate_specifier = 0;
 
   arglist = NULL_TREE;
   stringargs = NULL_TREE;
@@ -1121,8 +1124,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
               gfc_advance_se_ss_chain (se);
 
 	      /* Bundle in the string length.  */
-	      se->string_length=len;
-              return;
+	      se->string_length = len;
+              return 0;
             }
 	}
       info = &se->ss->data.info;
@@ -1184,12 +1187,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  type = gfc_get_character_type (sym->ts.kind, sym->ts.cl);
 	  type = build_pointer_type (type);
 
-	  /* Return an address to a char[4]* temporary for character pointers.  */
+	  /* Return an address to a char[0:len-1]* temporary for character pointers.  */
 	  if (sym->attr.pointer || sym->attr.allocatable)
 	    {
-	      /* Build char[4] * pstr.  */
+	      /* Build char[0:len-1] * pstr.  */
 	      tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node, len,
-				 convert (gfc_charlen_type_node, integer_one_node));
+				 build_int_cst (gfc_charlen_type_node, 1));
 	      tmp = build_range_type (gfc_array_index_type, gfc_index_zero_node, tmp);
 	      tmp = build_array_type (gfc_character1_type_node, tmp);
 	      var = gfc_create_var (build_pointer_type (tmp), "pstr");
@@ -1306,16 +1309,21 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   /* Generate the actual call.  */
   gfc_conv_function_val (se, sym);
   /* If there are alternate return labels, function type should be
-     integer.  */
-  if (has_alternate_specifier)
-    TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
+     integer.  Can't modify the type in place though, since it can be shared
+     with other functions.  */
+  if (has_alternate_specifier
+      && TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) != integer_type_node)
+    {
+      gcc_assert (! sym->attr.dummy);
+      TREE_TYPE (sym->backend_decl)
+        = build_function_type (integer_type_node,
+                               TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
+      se->expr = gfc_build_addr_expr (NULL, sym->backend_decl);
+    }
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
   se->expr = build3 (CALL_EXPR, TREE_TYPE (fntype), se->expr,
 		     arglist, NULL_TREE);
-
-  if (sym->result)
-    sym = sym->result;
 
   /* If we have a pointer function, but we don't want a pointer, e.g.
      something like
@@ -1355,7 +1363,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		{
 		  /* Check the data pointer hasn't been modified.  This would
 		     happen in a function returning a pointer.  */
-		  tmp = gfc_conv_descriptor_data (info->descriptor);
+		  tmp = gfc_conv_descriptor_data_get (info->descriptor);
 		  tmp = build2 (NE_EXPR, boolean_type_node, tmp, info->data);
 		  gfc_trans_runtime_check (tmp, gfc_strconst_fault, &se->pre);
 		}
@@ -1380,6 +1388,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    }
 	}
     }
+
+  return has_alternate_specifier;
 }
 
 
@@ -1671,6 +1681,9 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_start_scalarized_body (&loop, &body);
 
   gfc_conv_tmp_array_ref (&lse);
+  if (cm->ts.type == BT_CHARACTER)
+    lse.string_length = cm->ts.cl->backend_decl;
+
   gfc_conv_expr (&rse, expr);
 
   tmp = gfc_trans_scalar_assign (&lse, &rse, cm->ts.type);
@@ -1713,12 +1726,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
 	{
 	  /* Array pointer.  */
 	  if (expr->expr_type == EXPR_NULL)
-	    {
-	      dest = gfc_conv_descriptor_data (dest);
-	      tmp = fold_convert (TREE_TYPE (se.expr),
-				  null_pointer_node);
-	      gfc_add_modify_expr (&block, dest, tmp);
-	    }
+	    gfc_conv_descriptor_data_set (&block, dest, null_pointer_node);
 	  else
 	    {
 	      rss = gfc_walk_expr (expr);
@@ -2064,11 +2072,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       gfc_conv_expr_descriptor (&lse, expr1, lss);
       /* Implement Nullify.  */
       if (expr2->expr_type == EXPR_NULL)
-        {
-          lse.expr = gfc_conv_descriptor_data (lse.expr);
-          rse.expr = fold_convert (TREE_TYPE (lse.expr), null_pointer_node);
-          gfc_add_modify_expr (&block, lse.expr, rse.expr);
-        }
+	gfc_conv_descriptor_data_set (&block, lse.expr, null_pointer_node);
       else
         {
           lse.direct_byref = 1;

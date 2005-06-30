@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains optimizer of the control flow.  The main entry point is
    cleanup_cfg.  Following optimizations are performed:
@@ -395,7 +395,7 @@ thread_jump (int mode, edge e, basic_block b)
   /* In case liveness information is available, we need to prove equivalence
      only of the live values.  */
   if (mode & CLEANUP_UPDATE_LIFE)
-    AND_REG_SET (nonequal, b->global_live_at_end);
+    AND_REG_SET (nonequal, b->il.rtl->global_live_at_end);
 
   EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, rsi)
     goto failed_exit;
@@ -2132,8 +2132,6 @@ cleanup_cfg (int mode)
       delete_dead_jumptables ();
     }
 
-  /* Kill the data we won't maintain.  */
-  free_EXPR_LIST_list (&label_value_list);
   timevar_pop (TV_CLEANUP_CFG);
 
   return changed;

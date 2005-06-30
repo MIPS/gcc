@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -386,11 +386,13 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
   data->ret = linear_search_fdes (&ob, (fde *) eh_frame, (void *) data->pc);
   if (data->ret != NULL)
     {
+      _Unwind_Ptr func;
       unsigned int encoding = get_fde_encoding (data->ret);
+      
       read_encoded_value_with_base (encoding,
 				    base_from_cb_data (encoding, data),
-				    data->ret->pc_begin,
-				    (_Unwind_Ptr *)&data->func);
+				    data->ret->pc_begin, &func);
+      data->func = (void *) func;
     }
   return 1;
 }

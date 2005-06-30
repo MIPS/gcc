@@ -1,3 +1,307 @@
+2005-06-29  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/22211:
+	* testsuite/libjava.lang/pr22211.java: New file.
+	* java/lang/natThread.cc (finish_): Synchronize when updating
+	alive_flag.
+	(_Jv_AttachCurrentThread): Likewise.
+	(interrupt): Only call _Jv_ThreadInterrupt if thread is alive.
+	* java/lang/Thread.java (isAlive): Now synchronized.
+
+2005-06-29  Tom Tromey  <tromey@redhat.com>
+
+	* interpret.cc (run) <insn_checkcast, checkcast_resolved>: Use
+	_Jv_CheckCast.
+
+2005-06-28  Robin Green  <greenrd@greenrd.org>
+
+	PR java/22189
+	* gnu/gcj/runtime/PersistentByteMap.java (init): Fix rounding
+	error.
+
+2005-06-27  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21540, PR java/13788:
+	* testsuite/libjava.compile/pr21540.java: New file.
+	* testsuite/libjava.compile/pr13788.java: New file.
+	* testsuite/libjava.jacks/jacks.xfail: Updated.
+
+2005-06-26  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libjava.mauve/xfails: Updated to reflect current state
+	of mauve and libjava. 
+
+2005-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_UnregisterClass): Handle case
+	where class' name is NULL.
+	(_Jv_FindClass): Don't wait for class state.
+	* java/lang/natVMClassLoader.cc (defineClass): Only unregister if
+	name found.
+	* include/java-interp.h (_Jv_DefineClass): Updated.
+	* defineclass.cc (_Jv_DefineClass): Added 'name_result' argument.
+	(struct _Jv_ClassReader): Likewise.
+	(found_name): New field.
+	(handleClassBegin): Set *found_name.
+	(_Jv_VerifyMethodSignature): Handle case where ptr==NULL.
+	(handleClassBegin): Throw error if super class not set.
+	(read_methods): Correctly call check_tag and prepare_pool_entry.
+
+2005-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* boehm.cc (_Jv_MarkObj): Handle case where field's type is NULL.
+
+2005-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (verify_instructions_0): Correctly handle situation
+	where PC falls off end.
+
+2005-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* interpret.cc (compile): Handle case where table entry is
+	outside of PC range.
+
+2005-06-23  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.compile/PR20697.java: New test-case.
+
+2005-06-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am (SUBDIRS): Use append for conditional.
+	(toolexeclib_LTLIBRARIES): Likewise.
+	(lib_gnu_java_awt_peer_gtk_la_SOURCES): Directly define with
+	a conditional append.
+	* Makefile.in: Regenerate.
+
+2005-06-17  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/exception/VmDeadException.java: New file.
+	* gnu/classpath/jdwp/exception/NotImplementedException.java: New file.
+	* gnu/classpath/jdwp/exception/JdwpInternalErrorException.java: New
+	file.
+	* gnu/classpath/jdwp/exception/JdwpException.java: New file.
+	* gnu/classpath/jdwp/exception/InvalidThreadGroupException.java: New
+	file.
+	* gnu/classpath/jdwp/exception/InvalidThreadException.java: New file.
+	* gnu/classpath/jdwp/exception/InvalidStringException.java: New file
+	* gnu/classpath/jdwp/exception/InvalidObjectException.java: New file.
+	* gnu/classpath/jdwp/exception/InvalidEventTypeException.java: New
+	file.
+	* gnu/classpath/jdwp/exception/InvalidCountException.java: New file.
+	* gnu/classpath/jdwp/exception/InvalidClassException.java: New file.
+
+2005-06-16  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am (libgcj_la_SOURCES): Define without conditional sources.
+	(if USING_BOEHMGC): Directly append libgcj_la_SOURCES.
+	(if USING_NOGC, SUPPLY_BACKTRACE, USING_POSIX_PLATFORM,
+	USING_WIN32_PLATFORM, USING_DARWIN_CRT, USING_POSIX_THREADS,
+	USING_WIN32_THREADS, USING_NO_THREADS): Likewise.
+	* Makefile.in: Regenerate.
+
+2005-06-15  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac (USING_ECOS_PLATFORM): Remove and merge into...
+	(USING_POSIX_PLATFORM): ... here.
+	* Makefile.am: Delete USING_ECOS_PLATFORM.
+	* configure, Makefile.in, include/Makefile.in, testsuite/Makefile.in,
+	external/Makefile.in, external/sax/Makefile.in,
+	external/w3c_dom/Makefile.in, gcj/Makefile.in: Regenerate.
+
+2005-06-15  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/17536:
+	* testsuite/libjava.lang/pr17536.java: New file.
+	* testsuite/libjava.lang/pr17536.out: New file.
+
+2005-06-15  Goffredo Baroncelli  <kreijack@inwind.it>
+
+	PR libgcj/21074:
+	* gnu/java/net/protocol/http/HTTPURLConnection.java
+	(getHeaderFieldKey): Check index.
+
+2005-06-15  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21906:
+	* defineclass.cc (handleMethodsEnd): Set ncode for abstract
+	methods.
+	* include/jvm.h (_Jv_ThrowAbstractMethodError): Declare.
+	* link.cc (_Jv_ThrowAbstractMethodError): Renamed.  No longer
+	static.
+	(append_partial_itable): Use it.
+	(set_vtable_entries): Likewise.
+
+2005-06-15  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/runtime/SystemClassLoader.java (init): Clear
+	last_was_sep in loop.
+
+2005-06-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.host: Handle Solaris 10/x86.
+
+2005-06-14  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/id/JdwpIdFactory.java: New file.
+	* gnu/classpath/jdwp/processor/PacketProcessor.java: New file.
+
+2005-06-14  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/id/ArrayId.java: New file.
+	* gnu/classpath/jdwp/id/ArrayReferenceTypeId.java: New file.
+	* gnu/classpath/jdwp/id/ClassLoaderId.java: New file.
+	* gnu/classpath/jdwp/id/ClassObjectId.java: New file.
+	* gnu/classpath/jdwp/id/ClassReferenceTypeId.java: New file.
+	* gnu/classpath/jdwp/id/InterfaceReferenceTypeId.java: New file.
+	* gnu/classpath/jdwp/id/JdwpId.java: New file.
+	* gnu/classpath/jdwp/id/ObjectId.java: New file.
+	* gnu/classpath/jdwp/id/ReferenceTypeId.java: New file.
+	* gnu/classpath/jdwp/id/StringId.java: New file.
+	* gnu/classpath/jdwp/id/ThreadGroupId.java: New file.
+	* gnu/classpath/jdwp/id/ThreadId.java: New file.
+
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19877:
+	* configure, aclocal.m4, Makefile.in: Rebuilt.
+
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getClasses): New method.
+	(internalGetClasses): Likewise.
+	(getClassLoader): Updated documentation.
+	(getDeclaredClasses): New overload; old overload no longer
+	native.
+	(_getConstructors): Removed.
+	(resourcePath): Updated.
+	* java/lang/natClass.cc (getClasses): Removed.
+	* java/lang/Class.h (getDeclaredClasses, getDeclaredConstructors):
+	Updated.
+	(_getConstructors): Removed.
+
+2005-06-13  Jim Huang  <jserv@kaffe.org>
+
+	PR libgcj/22036:
+	* jni.cc (_Jv_JNI_NewObjectV): Use chars() method.
+	(_Jv_JNI_NewObject): Likewise.
+
+2005-06-13  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21844:
+	* testsuite/libjava.lang/pr21844.java: New file.
+	* testsuite/libjava.lang/pr21844.out: New file.
+
+2005-06-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/21949
+	* java/rmi/server/RMIClassLoader.java (getClassLoader): Make public.
+	From Gary Benson.
+
+2005-06-08  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	* java/text/MessageFormat.java (parse): When parsing strings, check
+	for an empty pattern trailer.
+
+2005-06-06  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/util/Signature.java: New file.
+	* gnu/classpath/jdwp/transport/JdwpConnection.java: New file.
+
+2005-06-05  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (setOption): Fix case
+	fall-through bug.
+
+2005-06-04  Anthony Green  <green@redhat.com>
+
+	* java/net/URLClassLoader.java: import gnu.gcj.Core,
+	and gnu.java.net.protocol.core.CoreInputStream.
+	(CureURLLoader): New class.
+	(CoreResource): New class.
+	(addURLImpl): Add special treatment for the "core" protocol.
+	* gnu/gcj/natCore.cc (find): New method.
+	* gnu/gcj/Core.java (find): New method.
+
+2005-06-03  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/transport/ITransport.java: New file.
+	* gnu/classpath/jdwp/transport/SocketTransport.java: New file.
+	* gnu/classpath/jdwp/transport/TransportFactory.java: New file.
+
+2005-06-03  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jawt.c: Remove malloc.h, covered by stdlib.h.
+
+	* testsuite/libjava.jni/jni.exp
+	(gcj_jni_invocation_compile_c_to_binary): Add -bind_at_load to silence
+	the build process.
+
+2005-06-02  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/transport/TransportException.java: New file.
+
+2005-06-02  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* mauve-libgcj: Remove implemented classes from the fail section.
+	Add two new not implemented to it.
+
+2005-06-01  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.ac (BACKTRACESPEC): Remove definition, but continue to
+	AC_SUBST definition from configure.host.
+	* configure.host: Don't use -fno-omit-frame-pointer. Set BACKTRACESPEC
+	to -fomit-frame-pointer on 32-bit x86 targets.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/ObjectInputStream.java (currentLoader): Fixed typo.
+
+2005-06-01  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	PR libgcj/20435:
+	* gnu/regexp/RESyntax.java (RE_POSSESSIVE_OPS): New field.
+	(static): Add possessive matching to JAVA_1_4 syntax.
+	* gnu/regexp/RETokenRepeated.java (possessive): New field.
+	(makePossessive, isPossessive): New methods.
+	(match): Don't back off during possessive matching.
+	* gnu/regexp/RE.java (initalize): Accept possessive quantifier.
+	* java/util/regex/Pattern.java (constructor): Switch syntax from PERL5
+	to JAVA_1_4.
+
+2005-06-01  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/transport/JdwpPacket.java: New file.
+	* gnu/classpath/jdwp/transport/JdwpCommandPacket.java: New file.
+	* gnu/classpath/jdwp/transport/JdwpReplyPacket.java: New file.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21785:
+	* java/io/natObjectInputStream.cc (currentClassLoader): Removed.
+	(currentLoader): New method.
+	* java/io/ObjectInputStream.java (resolveProxyClass): Use
+	currentLoader.
+	(currentLoader): Now native.
+	(currentClassLoader): Removed.
+	* testsuite/libjava.lang/pr21785.java: New file.
+	* testsuite/libjava.lang/pr21785.out: New file.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21753:
+	* java/lang/natString.cc (substring): Changed sharing heuristic.
+
+2005-05-30  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/21821
+	* gnu/java/nio/channels/natFileChannelPosix.cc (open): Don't use
+	MAXPATHLEN. Format exception message using a StringBuffer instead.
+
+2005-05-29  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/20273:
+	* java/util/LinkedHashMap.java (access): Set 'root.pred'.
+
 2005-05-27  Ziga Mahkovec  <ziga.mahkovec@klika.si>
 
 	* ChangeLog: Fix typo.

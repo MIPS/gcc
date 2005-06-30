@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -75,7 +75,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
     {
       if (TYPE_UNSIGNED (TREE_TYPE (step)))
 	{
-	  step1 = fold (build1 (NEGATE_EXPR, TREE_TYPE (step), step));
+	  step1 = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
 	  if (tree_int_cst_lt (step1, step))
 	    {
 	      incr_op = MINUS_EXPR;
@@ -88,7 +88,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	      && may_negate_without_overflow_p (step))
 	    {
 	      incr_op = MINUS_EXPR;
-	      step = fold (build1 (NEGATE_EXPR, TREE_TYPE (step), step));
+	      step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
 	    }
 	}
     }
@@ -566,13 +566,13 @@ copy_phi_node_args (unsigned first_new_block)
   unsigned i;
 
   for (i = first_new_block; i < (unsigned) last_basic_block; i++)
-    BASIC_BLOCK (i)->rbi->duplicated = 1;
+    BASIC_BLOCK (i)->flags |= BB_DUPLICATED;
 
   for (i = first_new_block; i < (unsigned) last_basic_block; i++)
     add_phi_args_after_copy_bb (BASIC_BLOCK (i));
 
   for (i = first_new_block; i < (unsigned) last_basic_block; i++)
-    BASIC_BLOCK (i)->rbi->duplicated = 0;
+    BASIC_BLOCK (i)->flags &= ~BB_DUPLICATED;
 }
 
 

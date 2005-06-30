@@ -43,9 +43,11 @@ DIST_COMMON = $(gcj_HEADERS) $(srcdir)/Makefile.am \
 	$(toolgcj_HEADERS)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
+	$(top_srcdir)/../config/depstand.m4 \
 	$(top_srcdir)/../config/gxx-include-dir.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lcmessage.m4 \
+	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/lib-ld.m4 \
 	$(top_srcdir)/../config/lib-link.m4 \
 	$(top_srcdir)/../config/lib-prefix.m4 $(top_srcdir)/pkg.m4 \
@@ -200,8 +202,6 @@ USING_BOEHMGC_FALSE = @USING_BOEHMGC_FALSE@
 USING_BOEHMGC_TRUE = @USING_BOEHMGC_TRUE@
 USING_DARWIN_CRT_FALSE = @USING_DARWIN_CRT_FALSE@
 USING_DARWIN_CRT_TRUE = @USING_DARWIN_CRT_TRUE@
-USING_ECOS_PLATFORM_FALSE = @USING_ECOS_PLATFORM_FALSE@
-USING_ECOS_PLATFORM_TRUE = @USING_ECOS_PLATFORM_TRUE@
 USING_GCC_FALSE = @USING_GCC_FALSE@
 USING_GCC_TRUE = @USING_GCC_TRUE@
 USING_NOGC_FALSE = @USING_NOGC_FALSE@

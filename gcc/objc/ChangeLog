@@ -1,3 +1,38 @@
+2005-06-29  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_build_internal_const_str_type): New function.
+	(check_string_class_template): Use objc_get_class_ivars() instead
+	of TYPE_FIELDS() to retrieve ivar list.
+	(AT_LEAST_AS_LARGE_AS): Check the size of each field's type rather
+	than the field itself.
+	(objc_build_string_object): Synthesize a "__builtin_ObjCString"
+	type and use it to lay out compile-time string objects.
+	* objc-act.h (OCTI_INTERNAL_CNST_STR_TYPE, internal_const_str_type):
+	New.
+
+2005-06-28  Paul Brook  <paul@codesourcery.com>
+
+	* objc-act.c (objc_init_exceptions): Call
+	default_init_unwind_resume_libfunc.
+
+2005-06-27  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_build_struct): Save the TYPE_OBJC_INFO
+	portion of TYPE_LANG_SPECIFIC info for all variants of
+	a class before calling finish_struct(), and restore
+	same TYPE_OBJC_INFO afterwards.
+
+2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address in copyright headers.
+
+2005-06-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* objc-act.c (my_build_string_pointer): New.
+	(objc_get_class_reference, get_super_receiver): Call
+	my_build_string_pointer instead of my_build_string when building
+	function arguments.
+
 2005-05-25  Mike Stump  <mrs@mrs.kithrup.com>
 
 	* objc-act.c (volatilized_hash): Avoid warnings on 64-bit

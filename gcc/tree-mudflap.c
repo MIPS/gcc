@@ -17,12 +17,11 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
-#include "errors.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -45,6 +44,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "ggc.h"
 #include "cgraph.h"
+#include "toplev.h"
 
 /* Internal function decls */
 
@@ -528,14 +528,11 @@ mf_build_check_statement_for (tree base, tree limit,
   make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
   make_single_succ_edge (then_bb, join_bb, EDGE_FALLTHRU);
 
-  /* We expect that the conditional jump we will construct will not
-     be taken very often as it basically is an exception condition.  */
-  predict_edge_def (single_pred_edge (then_bb), PRED_MUDFLAP, NOT_TAKEN);
-
   /* Mark the pseudo-fallthrough edge from cond_bb to join_bb.  */
   e = find_edge (cond_bb, join_bb);
   e->flags = EDGE_FALSE_VALUE;
-  predict_edge_def (e, PRED_MUDFLAP, TAKEN);
+  e->count = cond_bb->count;
+  e->probability = REG_BR_PROB_BASE;
 
   /* Update dominance info.  Note that bb_join's data was
      updated by split_block.  */
@@ -662,9 +659,9 @@ mf_build_check_statement_for (tree base, tree limit,
   u = tree_cons (NULL_TREE, dirflag, u);
   /* NB: we pass the overall [base..limit] range to mf_check.  */
   u = tree_cons (NULL_TREE, 
-                 fold (build (PLUS_EXPR, integer_type_node,
-                              fold (build (MINUS_EXPR, mf_uintptr_type, mf_limit, mf_base)),
-                              integer_one_node)),
+                 fold_build2 (PLUS_EXPR, integer_type_node,
+			      fold_build2 (MINUS_EXPR, mf_uintptr_type, mf_limit, mf_base),
+			      integer_one_node),
                  u);
   u = tree_cons (NULL_TREE, mf_base, u);
   t = build_function_call_expr (mf_check_fndecl, u);
@@ -710,7 +707,7 @@ mf_decl_eligible_p (tree decl)
           /* The type of the variable must be complete.  */
           && COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))
 	  /* The decl hasn't been decomposed somehow.  */
-	  && DECL_VALUE_EXPR (decl) == NULL);
+	  && !DECL_HAS_VALUE_EXPR_P (decl));
 }
 
 
@@ -815,27 +812,35 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 	    if (elt)
 	      elt = build1 (ADDR_EXPR, build_pointer_type TREE_TYPE (elt), elt);
             addr = fold_convert (ptr_type_node, elt ? elt : base);
-            addr = fold (build (PLUS_EXPR, ptr_type_node,
-                                addr, fold_convert (ptr_type_node,
-                                                    byte_position (field))));           
+            addr = fold_build2 (PLUS_EXPR, ptr_type_node,
+				addr, fold_convert (ptr_type_node,
+						    byte_position (field)));
           }
         else
           addr = build1 (ADDR_EXPR, build_pointer_type (type), t);
 
-        limit = fold (build (MINUS_EXPR, mf_uintptr_type,
-                             fold (build2 (PLUS_EXPR, mf_uintptr_type, 
-                                           convert (mf_uintptr_type, addr), 
-                                           size)),
-                             integer_one_node));
+        limit = fold_build2 (MINUS_EXPR, mf_uintptr_type,
+                             fold_build2 (PLUS_EXPR, mf_uintptr_type,
+					  convert (mf_uintptr_type, addr),
+					  size),
+                             integer_one_node);
       }
       break;
 
     case INDIRECT_REF:
       addr = TREE_OPERAND (t, 0);
       base = addr;
-      limit = fold (build (MINUS_EXPR, ptr_type_node,
-                           fold (build (PLUS_EXPR, ptr_type_node, base, size)),
-                           integer_one_node));
+      limit = fold_build2 (MINUS_EXPR, ptr_type_node,
+                           fold_build2 (PLUS_EXPR, ptr_type_node, base, size),
+                           integer_one_node);
+      break;
+
+    case TARGET_MEM_REF:
+      addr = tree_mem_ref_addr (ptr_type_node, t);
+      base = addr;
+      limit = fold_build2 (MINUS_EXPR, ptr_type_node,
+			   fold_build2 (PLUS_EXPR, ptr_type_node, base, size),
+			   build_int_cst_type (ptr_type_node, 1));
       break;
 
     case ARRAY_RANGE_REF:
@@ -864,12 +869,12 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 
         addr = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
         addr = convert (ptr_type_node, addr);
-        addr = fold (build (PLUS_EXPR, ptr_type_node, addr, ofs));
+        addr = fold_build2 (PLUS_EXPR, ptr_type_node, addr, ofs);
 
         base = addr;
-        limit = fold (build (MINUS_EXPR, ptr_type_node,
-                             fold (build (PLUS_EXPR, ptr_type_node, base, size)),
-                             integer_one_node));
+        limit = fold_build2 (MINUS_EXPR, ptr_type_node,
+                             fold_build2 (PLUS_EXPR, ptr_type_node, base, size),
+                             integer_one_node);
       }
       break;
 
@@ -1252,7 +1257,7 @@ mudflap_finish_file (void)
              Perform registration for non-static objects regardless of
              TREE_USED or TREE_ADDRESSABLE, because they may be used
              from other compilation units.  */
-          if (TREE_STATIC (obj) && ! TREE_ADDRESSABLE (obj))
+          if (! TREE_PUBLIC (obj) && ! TREE_ADDRESSABLE (obj))
             continue;
 
           if (! COMPLETE_TYPE_P (TREE_TYPE (obj)))

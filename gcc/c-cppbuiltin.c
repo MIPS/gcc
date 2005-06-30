@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -481,6 +481,12 @@ c_cpp_builtins (cpp_reader *pfile)
 
   if (targetm.handle_pragma_extern_prefix)
     cpp_define (pfile, "__PRAGMA_EXTERN_PREFIX");
+
+  /* Make the choice of the stack protector runtime visible to source code.  */
+  if (flag_stack_protect == 2)
+    cpp_define (pfile, "__SSP_ALL__=2");
+  else if (flag_stack_protect == 1)
+    cpp_define (pfile, "__SSP__=1");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */

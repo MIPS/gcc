@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -26,12 +26,12 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
-#include "errors.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "toplev.h"
 
 #include "langhooks.h"
 
@@ -152,6 +152,7 @@ static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
+static void get_tmr_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
 static inline void append_def (tree *);
 static inline void append_use (tree *);
@@ -997,8 +998,7 @@ build_ssa_operands (tree stmt)
 
 
 /* Free any operands vectors in OPS.  */
-#if 0
-static void 
+void 
 free_ssa_operands (stmt_operands_p ops)
 {
   ops->def_ops = NULL;
@@ -1006,14 +1006,7 @@ free_ssa_operands (stmt_operands_p ops)
   ops->maydef_ops = NULL;
   ops->mustdef_ops = NULL;
   ops->vuse_ops = NULL;
-  while (ops->memory.next != NULL)
-    {
-      operand_memory_p tmp = ops->memory.next;
-      ops->memory.next = tmp->next;
-      ggc_free (tmp);
-    }
 }
-#endif
 
 
 /* Get the operands of statement STMT.  Note that repeated calls to
@@ -1289,6 +1282,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_indirect_ref_operands (stmt, expr, flags);
       return;
 
+    case TARGET_MEM_REF:
+      get_tmr_operands (stmt, expr, flags);
+      return;
+
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
       /* Treat array references as references to the virtual variable
@@ -1341,7 +1338,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 			     flags & ~opf_kill_def);
 	
 	if (code == COMPONENT_REF)
-	  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	  {
+	    if (s_ann && TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
+	      s_ann->has_volatile_ops = true; 
+	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	  }
 	return;
       }
     case WITH_SIZE_EXPR:
@@ -1670,6 +1671,30 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   /* Add a USE operand for the base pointer.  */
   get_expr_operands (stmt, pptr, opf_none);
+}
+
+/* A subroutine of get_expr_operands to handle TARGET_MEM_REF.  */
+
+static void
+get_tmr_operands (tree stmt, tree expr, int flags)
+{
+  tree tag = TMR_TAG (expr);
+
+  /* First record the real operands.  */
+  get_expr_operands (stmt, &TMR_BASE (expr), opf_none);
+  get_expr_operands (stmt, &TMR_INDEX (expr), opf_none);
+
+  /* MEM_REFs should never be killing.  */
+  flags &= ~opf_kill_def;
+
+  if (TMR_SYMBOL (expr))
+    note_addressable (TMR_SYMBOL (expr), stmt_ann (stmt));
+
+  if (tag)
+    add_stmt_operand (&tag, stmt_ann (stmt), flags);
+  else
+    /* Something weird, so ensure that we will be careful.  */
+    stmt_ann (stmt)->has_volatile_ops = true;
 }
 
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */

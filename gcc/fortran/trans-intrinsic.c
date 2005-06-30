@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* trans-intrinsic.c-- generate GENERIC trees for calls to intrinsics.  */
 
@@ -2189,7 +2189,7 @@ gfc_conv_allocated (gfc_se *se, gfc_expr *expr)
   arg1se.descriptor_only = 1;
   gfc_conv_expr_descriptor (&arg1se, arg1->expr, ss1);
 
-  tmp = gfc_conv_descriptor_data (arg1se.expr);
+  tmp = gfc_conv_descriptor_data_get (arg1se.expr);
   tmp = build2 (NE_EXPR, boolean_type_node, tmp,
 		fold_convert (TREE_TYPE (tmp), null_pointer_node));
   se->expr = convert (gfc_typenode_for_spec (&expr->ts), tmp);
@@ -2235,7 +2235,7 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
           /* A pointer to an array.  */
           arg1se.descriptor_only = 1;
           gfc_conv_expr_lhs (&arg1se, arg1->expr);
-          tmp2 = gfc_conv_descriptor_data (arg1se.expr);
+          tmp2 = gfc_conv_descriptor_data_get (arg1se.expr);
         }
       tmp = build2 (NE_EXPR, boolean_type_node, tmp2,
 		    fold_convert (TREE_TYPE (tmp2), null_pointer_node));

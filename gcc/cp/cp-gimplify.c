@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -409,7 +409,7 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
       *expr_p = from;
 
       /* The initialization is now a side-effect, so the container can
-         become void.  */
+	 become void.  */
       if (from != sub)
 	TREE_TYPE (from) = void_type_node;
     }
@@ -635,7 +635,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 		      CLEANUP_EXPR (stmt));
 
   pointer_set_insert (p_set, *stmt_p);
-  
+
   return NULL;
 }
 

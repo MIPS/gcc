@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* References:
 
@@ -231,13 +231,36 @@ rtl_predict_edge (edge e, enum br_predictor predictor, int probability)
 void
 tree_predict_edge (edge e, enum br_predictor predictor, int probability)
 {
-  struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
+  gcc_assert (profile_status != PROFILE_GUESSED);
+  if ((e->src != ENTRY_BLOCK_PTR && EDGE_COUNT (e->src->succs) > 1)
+      && flag_guess_branch_prob && optimize)
+    {
+      struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
 
-  i->next = e->src->predictions;
-  e->src->predictions = i;
-  i->probability = probability;
-  i->predictor = predictor;
-  i->edge = e;
+      i->next = e->src->predictions;
+      e->src->predictions = i;
+      i->probability = probability;
+      i->predictor = predictor;
+      i->edge = e;
+    }
+}
+
+/* Remove all predictions on given basic block that are attached
+   to edge E.  */
+void
+remove_predictions_associated_with_edge (edge e)
+{
+  if (e->src->predictions)
+    {
+      struct edge_prediction **prediction = &e->src->predictions;
+      while (*prediction)
+	{
+	  if ((*prediction)->edge == e)
+	    *prediction = (*prediction)->next;
+	  else
+	    prediction = &((*prediction)->next);
+	}
+    }
 }
 
 /* Return true when we can store prediction on insn INSN.
@@ -971,7 +994,7 @@ expr_expected_value (tree expr, bitmap visited)
       op1 = expr_expected_value (TREE_OPERAND (expr, 1), visited);
       if (!op1)
 	return NULL;
-      res = fold (build (TREE_CODE (expr), TREE_TYPE (expr), op0, op1));
+      res = fold_build2 (TREE_CODE (expr), TREE_TYPE (expr), op0, op1);
       if (TREE_CONSTANT (res))
 	return res;
       return NULL;
@@ -982,7 +1005,7 @@ expr_expected_value (tree expr, bitmap visited)
       op0 = expr_expected_value (TREE_OPERAND (expr, 0), visited);
       if (!op0)
 	return NULL;
-      res = fold (build1 (TREE_CODE (expr), TREE_TYPE (expr), op0));
+      res = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr), op0);
       if (TREE_CONSTANT (res))
 	return res;
       return NULL;
@@ -1360,7 +1383,7 @@ tree_estimate_probability (void)
   FOR_EACH_BB (bb)
     combine_predictions_for_bb (dump_file, bb);
 
-  if (0)  /* FIXME: Enable once we are pass down the profile to RTL level.  */
+  if (!flag_loop_optimize)
     strip_builtin_expect ();
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
@@ -1904,11 +1927,16 @@ choose_function_section (void)
 		    UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
 }
 
+static bool
+gate_estimate_probability (void)
+{
+  return flag_guess_branch_prob;
+}
 
 struct tree_opt_pass pass_profile = 
 {
   "profile",				/* name */
-  NULL,					/* gate */
+  gate_estimate_probability,		/* gate */
   tree_estimate_probability,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */

@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef _S390_H
 #define _S390_H
@@ -506,7 +506,7 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
    are accessed by positive offsets, and function arguments are stored at
    increasing addresses.  */
 #define STACK_GROWS_DOWNWARD
-/* #undef FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD 1
 /* #undef ARGS_GROW_DOWNWARD */
 
 /* The basic stack layout looks like this: the stack pointer points
@@ -518,13 +518,13 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define STACK_POINTER_OFFSET (TARGET_64BIT ? 160 : 96)
 
 /* Offset within stack frame to start allocating local variables at.  */
-extern int current_function_outgoing_args_size;
-#define STARTING_FRAME_OFFSET \
-     (STACK_POINTER_OFFSET + current_function_outgoing_args_size)
+#define STARTING_FRAME_OFFSET 0
 
 /* Offset from the stack pointer register to an item dynamically
    allocated on the stack, e.g., by `alloca'.  */
-#define STACK_DYNAMIC_OFFSET(FUNDECL) (STARTING_FRAME_OFFSET)
+extern int current_function_outgoing_args_size;
+#define STACK_DYNAMIC_OFFSET(FUNDECL) \
+  (STACK_POINTER_OFFSET + current_function_outgoing_args_size)
 
 /* Offset of first parameter from the argument pointer register value.
    We have a fake argument pointer register that points directly to
@@ -799,7 +799,7 @@ do {									\
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
-extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
+extern struct rtx_def *s390_compare_op0, *s390_compare_op1, *s390_compare_emitted;
 
 
 /* Relative costs of operations.  */
@@ -917,13 +917,6 @@ extern int flag_pic;
   "%f8",  "%f10", "%f12", "%f14", "%f9",  "%f11", "%f13", "%f15",	\
   "%ap",  "%cc",  "%fp",  "%rp",  "%a0",  "%a1"				\
 }
-
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  s390_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.  */
 #define PRINT_OPERAND(FILE, X, CODE) print_operand (FILE, X, CODE)

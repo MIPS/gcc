@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -142,7 +142,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   rtx insn;
   HARD_REG_SET live;
 
-  REG_SET_TO_HARD_REG_SET (live, b->global_live_at_start);
+  REG_SET_TO_HARD_REG_SET (live, b->il.rtl->global_live_at_start);
   insn = BB_HEAD (b);
   while (t)
     {
@@ -1223,6 +1223,12 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
 
   /* Likewise with the frame pointer, if we're using one.  */
   if (frame_pointer_needed && dr == HARD_FRAME_POINTER_REGNUM)
+    return;
+
+  /* Do not propagate copies to fixed or global registers, patterns
+     can be relying to see particular fixed register or users can
+     expect the chosen global register in asm.  */
+  if (fixed_regs[dr] || global_regs[dr])
     return;
 
   /* If SRC and DEST overlap, don't record anything.  */

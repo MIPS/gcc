@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_OPTABS_H
 #define GCC_OPTABS_H
@@ -231,12 +231,23 @@ enum optab_index
   /* Conditional add instruction.  */
   OTI_addcc,
 
+  /* Reduction operations on a vector operand.  */
+  OTI_reduc_smax,
+  OTI_reduc_umax,
+  OTI_reduc_smin,
+  OTI_reduc_umin,
+  OTI_reduc_splus,
+  OTI_reduc_uplus,
+
   /* Set specified field of vector operand.  */
   OTI_vec_set,
   /* Extract specified field of vector operand.  */
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
+  /* Whole vector shift. The shift amount is in bits.  */
+  OTI_vec_shl,
+  OTI_vec_shr,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
 
@@ -347,9 +358,18 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define push_optab (optab_table[OTI_push])
 #define addcc_optab (optab_table[OTI_addcc])
 
+#define reduc_smax_optab (optab_table[OTI_reduc_smax])
+#define reduc_umax_optab (optab_table[OTI_reduc_umax])
+#define reduc_smin_optab (optab_table[OTI_reduc_smin])
+#define reduc_umin_optab (optab_table[OTI_reduc_umin])
+#define reduc_splus_optab (optab_table[OTI_reduc_splus])
+#define reduc_uplus_optab (optab_table[OTI_reduc_uplus])
+
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
+#define vec_shl_optab (optab_table[OTI_vec_shl])
+#define vec_shr_optab (optab_table[OTI_vec_shr])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
 
 #define powi_optab (optab_table[OTI_powi])
@@ -424,8 +444,8 @@ extern enum insn_code vcondu_gen_code[NUM_MACHINE_MODES];
 /* This array records the insn_code of insns to perform block moves.  */
 extern enum insn_code movmem_optab[NUM_MACHINE_MODES];
 
-/* This array records the insn_code of insns to perform block clears.  */
-extern enum insn_code clrmem_optab[NUM_MACHINE_MODES];
+/* This array records the insn_code of insns to perform block sets.  */
+extern enum insn_code setmem_optab[NUM_MACHINE_MODES];
 
 /* These arrays record the insn_code of two different kinds of insns
    to perform block compares.  */
@@ -561,5 +581,8 @@ bool expand_vec_cond_expr_p (tree, enum machine_mode);
 
 /* Generate code for VEC_COND_EXPR.  */
 extern rtx expand_vec_cond_expr (tree, rtx);
+
+/* Generate code for VEC_LSHIFT_EXPR and VEC_RSHIFT_EXPR.  */
+extern rtx expand_vec_shift_expr (tree, rtx);
 
 #endif /* GCC_OPTABS_H */

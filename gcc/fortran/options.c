@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -70,6 +70,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_no_backend = 0;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
+  gfc_option.flag_backslash = 1;
 
   gfc_option.q_kind = gfc_default_double_kind;
 
@@ -77,9 +78,10 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   flag_errno_math = 0;
 
   gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
-    | GFC_STD_F2003 | GFC_STD_F95 | GFC_STD_F77 | GFC_STD_GNU;
+    | GFC_STD_F2003 | GFC_STD_F95 | GFC_STD_F77 | GFC_STD_GNU
+    | GFC_STD_LEGACY;
   gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
-    | GFC_STD_F2003;
+    | GFC_STD_F2003 | GFC_STD_LEGACY;
 
   gfc_option.warn_nonstd_intrinsics = 0;
 
@@ -113,6 +115,9 @@ gfc_post_options (const char **pfilename)
   /* If -pedantic, warn about the use of GNU extensions.  */
   if (pedantic && (gfc_option.allow_std & GFC_STD_GNU) != 0)
     gfc_option.warn_std |= GFC_STD_GNU;
+  /* -std=legacy -pedantic is effectively -std=gnu.  */
+  if (pedantic && (gfc_option.allow_std & GFC_STD_LEGACY) != 0)
+    gfc_option.warn_std |= GFC_STD_F95_OBS | GFC_STD_F95_DEL | GFC_STD_LEGACY;
 
   /* If the user didn't explicitly specify -f(no)-second-underscore we
      use it if we're trying to be compatible with f2c, and not
@@ -229,6 +234,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_dollar_ok = value;
       break;
 
+    case OPT_fbackslash:
+      gfc_option.flag_backslash = value;
+      break;
+
     case OPT_fdump_parse_tree:
       gfc_option.verbose = value;
       break;
@@ -333,8 +342,16 @@ gfc_handle_option (size_t scode, const char *arg, int value)
     case OPT_std_gnu:
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
 	| GFC_STD_F77 | GFC_STD_F95 | GFC_STD_F2003
-	| GFC_STD_GNU;
-      gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL;
+	| GFC_STD_GNU | GFC_STD_LEGACY;
+      gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
+	| GFC_STD_LEGACY;
+      break;
+
+    case OPT_std_legacy:
+      gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
+	| GFC_STD_F77 | GFC_STD_F95 | GFC_STD_F2003
+	| GFC_STD_GNU | GFC_STD_LEGACY;
+      gfc_option.warn_std = 0;
       break;
 
     case OPT_Wnonstd_intrinsics:

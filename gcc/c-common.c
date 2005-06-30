@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -47,6 +47,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-mudflap.h"
 #include "opts.h"
 #include "real.h"
+#include "cgraph.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -337,14 +338,6 @@ int warn_main;
 
 int flag_gen_declaration;
 
-/* Generate code for GNU or NeXT runtime environment.  */
-
-#ifdef NEXT_OBJC_RUNTIME
-int flag_next_runtime = 1;
-#else
-int flag_next_runtime = 0;
-#endif
-
 /* Tells the compiler that this is a special run.  Do not perform any
    compiling, instead we are to test some platform dependent features
    and output a C header file with appropriate definitions.  */
@@ -518,6 +511,8 @@ static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
+static tree handle_externally_visible_attribute (tree *, tree, tree, int,
+						 bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
 static tree handle_transparent_union_attribute (tree *, tree, tree,
 						int, bool *);
@@ -584,6 +579,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
 			      handle_unused_attribute },
+  { "externally_visible",     0, 0, true,  false, false,
+			      handle_externally_visible_attribute },
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute },
@@ -1818,7 +1815,7 @@ min_precision (tree value, int unsignedp)
      a bit-wise negation, so use that operation instead.  */
 
   if (tree_int_cst_sgn (value) < 0)
-    value = fold (build1 (BIT_NOT_EXPR, TREE_TYPE (value), value));
+    value = fold_build1 (BIT_NOT_EXPR, TREE_TYPE (value), value);
 
   /* Return the number of bits needed, taking into account the fact
      that we need one more bit for a signed than unsigned type.  */
@@ -2333,7 +2330,7 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
-  return fold (build2 (resultcode, result_type, ptrop, intop));
+  return fold_build2 (resultcode, result_type, ptrop, intop);
 }
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
@@ -2449,10 +2446,10 @@ c_common_truthvalue_conversion (tree expr)
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold (build3 (COND_EXPR, truthvalue_type_node,
+      return fold_build3 (COND_EXPR, truthvalue_type_node,
 		TREE_OPERAND (expr, 0),
 		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2))));
+		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2)));
 
     case CONVERT_EXPR:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -2861,7 +2858,7 @@ c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
      TYPE_IS_SIZETYPE means that certain things (like overflow) will
      never happen.  However, this node should really have type
      `size_t', which is just a typedef for an ordinary integer type.  */
-  value = fold (build1 (NOP_EXPR, size_type_node, value));
+  value = fold_build1 (NOP_EXPR, size_type_node, value);
   gcc_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (value)));
 
   return value;
@@ -2911,7 +2908,7 @@ c_alignof_expr (tree expr)
   else
     return c_alignof (TREE_TYPE (expr));
 
-  return fold (build1 (NOP_EXPR, size_type_node, t));
+  return fold_build1 (NOP_EXPR, size_type_node, t);
 }
 
 /* Handle C and C++ default attributes.  */
@@ -2948,10 +2945,16 @@ c_common_nodes_and_builtins (void)
 #define DEF_FUNCTION_TYPE_2(NAME, RETURN, ARG1, ARG2) NAME,
 #define DEF_FUNCTION_TYPE_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
+#define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
+#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) \
+  NAME,
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_FUNCTION_TYPE_VAR_1(NAME, RETURN, ARG1) NAME,
 #define DEF_FUNCTION_TYPE_VAR_2(NAME, RETURN, ARG1, ARG2) NAME,
 #define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
+#define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
+#define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG6) \
+  NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -2960,10 +2963,14 @@ c_common_nodes_and_builtins (void)
 #undef DEF_FUNCTION_TYPE_2
 #undef DEF_FUNCTION_TYPE_3
 #undef DEF_FUNCTION_TYPE_4
+#undef DEF_FUNCTION_TYPE_5
+#undef DEF_FUNCTION_TYPE_6
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
 #undef DEF_FUNCTION_TYPE_VAR_3
+#undef DEF_FUNCTION_TYPE_VAR_4
+#undef DEF_FUNCTION_TYPE_VAR_5
 #undef DEF_POINTER_TYPE
     BT_LAST
   };
@@ -3223,6 +3230,42 @@ c_common_nodes_and_builtins (void)
 			      tree_cons (NULL_TREE,			\
 					 builtin_types[(int) ARG4],	\
 					 void_list_node)))));
+#define DEF_FUNCTION_TYPE_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5)	\
+  builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons					\
+			     (NULL_TREE,				\
+			      builtin_types[(int) ARG3],		\
+			      tree_cons (NULL_TREE,			\
+					 builtin_types[(int) ARG4],	\
+					 tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG5],\
+					      void_list_node))))));
+#define DEF_FUNCTION_TYPE_6(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6)					\
+  builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons					\
+			     (NULL_TREE,				\
+			      builtin_types[(int) ARG3],		\
+			      tree_cons					\
+			      (NULL_TREE,				\
+			       builtin_types[(int) ARG4],		\
+			       tree_cons (NULL_TREE,			\
+					 builtin_types[(int) ARG5],	\
+					 tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG6],\
+					      void_list_node)))))));
 #define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN)				\
   builtin_types[(int) ENUM]						\
     = build_function_type (builtin_types[(int) RETURN], NULL_TREE);
@@ -3255,6 +3298,38 @@ c_common_nodes_and_builtins (void)
 					builtin_types[(int) ARG3],	\
 					NULL_TREE))));
 
+#define DEF_FUNCTION_TYPE_VAR_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)	\
+   builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons (NULL_TREE,			\
+					builtin_types[(int) ARG3],	\
+					tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG4],\
+					      NULL_TREE)))));
+
+#define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4,	\
+				ARG5)					\
+   builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons					\
+			     (NULL_TREE,				\
+			      builtin_types[(int) ARG3],		\
+			      tree_cons (NULL_TREE,			\
+					builtin_types[(int) ARG4],	\
+					tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG5],\
+					      NULL_TREE))))));
+
 #define DEF_POINTER_TYPE(ENUM, TYPE)			\
   builtin_types[(int) ENUM]				\
     = build_pointer_type (builtin_types[(int) TYPE]);
@@ -3264,10 +3339,14 @@ c_common_nodes_and_builtins (void)
 #undef DEF_FUNCTION_TYPE_2
 #undef DEF_FUNCTION_TYPE_3
 #undef DEF_FUNCTION_TYPE_4
+#undef DEF_FUNCTION_TYPE_5
+#undef DEF_FUNCTION_TYPE_6
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
 #undef DEF_FUNCTION_TYPE_VAR_3
+#undef DEF_FUNCTION_TYPE_VAR_4
+#undef DEF_FUNCTION_TYPE_VAR_5
 #undef DEF_POINTER_TYPE
 
   c_init_attributes ();
@@ -4164,6 +4243,47 @@ handle_unused_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
 	*node = build_variant_type_copy (*node);
       TREE_USED (*node) = 1;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "externally_visible" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_externally_visible_attribute (tree *pnode, tree name,
+				     tree ARG_UNUSED (args),
+				     int ARG_UNUSED (flags),
+				     bool *no_add_attrs)
+{
+  tree node = *pnode;
+
+  if ((!TREE_STATIC (node) && TREE_CODE (node) != FUNCTION_DECL)
+      || !TREE_PUBLIC (node))
+    {
+      warning (OPT_Wattributes,
+	       "%qE attribute have effect only on public objects", name);
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (node) == FUNCTION_DECL)
+    {
+      struct cgraph_node *n = cgraph_node (node);
+      n->local.externally_visible = true;
+      if (n->local.finalized)
+	cgraph_mark_needed_node (n);
+    }
+  else if (TREE_CODE (node) == VAR_DECL)
+    {
+      struct cgraph_varpool_node *n = cgraph_varpool_node (node);
+      n->externally_visible = true;
+      if (n->finalized)
+	cgraph_varpool_mark_needed_node (n);
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
     }
 
   return NULL_TREE;
@@ -5137,14 +5257,21 @@ check_function_nonnull (tree attrs, tree params)
    from the end) is a (pointer)0.  */
 
 static void
-check_function_sentinel (tree attrs, tree params)
+check_function_sentinel (tree attrs, tree params, tree typelist)
 {
   tree attr = lookup_attribute ("sentinel", attrs);
 
   if (attr)
     {
-      if (!params)
-	warning (0, "missing sentinel in function call");
+      /* Skip over the named arguments.  */
+      while (typelist && params)
+      {
+	typelist = TREE_CHAIN (typelist);
+	params = TREE_CHAIN (params);
+      }
+      
+      if (typelist || !params)
+	warning (0, "not enough variable arguments to fit a sentinel");
       else
         {
 	  tree sentinel, end;
@@ -5166,7 +5293,7 @@ check_function_sentinel (tree attrs, tree params)
 	    }
 	  if (pos > 0)
 	    {
-	      warning (0, "not enough arguments to fit a sentinel");
+	      warning (0, "not enough variable arguments to fit a sentinel");
 	      return;
 	    }
 
@@ -5380,7 +5507,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 
 /* Check for valid arguments being passed to a function.  */
 void
-check_function_arguments (tree attrs, tree params)
+check_function_arguments (tree attrs, tree params, tree typelist)
 {
   /* Check for null being passed in a pointer argument that must be
      non-null.  We also need to do this if format checking is enabled.  */
@@ -5393,7 +5520,7 @@ check_function_arguments (tree attrs, tree params)
   if (warn_format)
     {
       check_function_format (attrs, params);
-      check_function_sentinel (attrs, params);
+      check_function_sentinel (attrs, params, typelist);
     }
 }
 
@@ -5560,51 +5687,51 @@ catenate_strings (const char *lhs, const char *rhs_start, int rhs_size)
   return result;
 }
 
-/* Issue the error given by MSGID, indicating that it occurred before
+/* Issue the error given by GMSGID, indicating that it occurred before
    TOKEN, which had the associated VALUE.  */
 
 void
-c_parse_error (const char *msgid, enum cpp_ttype token, tree value)
+c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
 {
 #define catenate_messages(M1, M2) catenate_strings ((M1), (M2), sizeof (M2))
 
   char *message = NULL;
 
   if (token == CPP_EOF)
-    message = catenate_messages (msgid, " at end of input");
+    message = catenate_messages (gmsgid, " at end of input");
   else if (token == CPP_CHAR || token == CPP_WCHAR)
     {
       unsigned int val = TREE_INT_CST_LOW (value);
       const char *const ell = (token == CPP_CHAR) ? "" : "L";
       if (val <= UCHAR_MAX && ISGRAPH (val))
-        message = catenate_messages (msgid, " before %s'%c'");
+        message = catenate_messages (gmsgid, " before %s'%c'");
       else
-        message = catenate_messages (msgid, " before %s'\\x%x'");
+        message = catenate_messages (gmsgid, " before %s'\\x%x'");
 
       error (message, ell, val);
       free (message);
       message = NULL;
     }
   else if (token == CPP_STRING || token == CPP_WSTRING)
-    message = catenate_messages (msgid, " before string constant");
+    message = catenate_messages (gmsgid, " before string constant");
   else if (token == CPP_NUMBER)
-    message = catenate_messages (msgid, " before numeric constant");
+    message = catenate_messages (gmsgid, " before numeric constant");
   else if (token == CPP_NAME)
     {
-      message = catenate_messages (msgid, " before %qE");
+      message = catenate_messages (gmsgid, " before %qE");
       error (message, value);
       free (message);
       message = NULL;
     }
   else if (token < N_TTYPES)
     {
-      message = catenate_messages (msgid, " before %qs token");
+      message = catenate_messages (gmsgid, " before %qs token");
       error (message, cpp_type2name (token));
       free (message);
       message = NULL;
     }
   else
-    error (msgid);
+    error (gmsgid);
 
   if (message)
     {
@@ -5753,7 +5880,7 @@ fold_offsetof_1 (tree expr)
       if (TREE_CODE (t) == INTEGER_CST && tree_int_cst_sgn (t) < 0)
 	{
 	  code = MINUS_EXPR;
-	  t = fold (build1 (NEGATE_EXPR, TREE_TYPE (t), t));
+	  t = fold_build1 (NEGATE_EXPR, TREE_TYPE (t), t);
 	}
       t = convert (sizetype, t);
       off = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (TREE_TYPE (expr)), t);
@@ -6068,6 +6195,21 @@ resolve_overloaded_builtin (tree function, tree params)
     default:
       return NULL_TREE;
     }
+}
+
+/* Ignoring their sign, return true if two scalar types are the same.  */
+bool
+same_scalar_type_ignoring_signedness (tree t1, tree t2)
+{
+  enum tree_code c1 = TREE_CODE (t1), c2 = TREE_CODE (t2);
+
+  gcc_assert ((c1 == INTEGER_TYPE || c1 == REAL_TYPE)
+	      && (c2 == INTEGER_TYPE || c2 == REAL_TYPE));
+
+  /* Equality works here because c_common_signed_type uses
+     TYPE_MAIN_VARIANT.  */
+  return lang_hooks.types.signed_type (t1)
+    == lang_hooks.types.signed_type (t2);
 }
 
 #include "gt-c-common.h"

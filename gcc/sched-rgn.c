@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This pass implements list scheduling within basic blocks.  It is
    run twice: (1) after flow analysis, but before register allocation,
@@ -351,7 +351,8 @@ is_cfg_nonregular (void)
 static void
 extract_edgelst (sbitmap set, edgelst *el)
 {
-  int i;
+  unsigned int i;
+  sbitmap_iterator sbi;
 
   /* edgelst table space is reused in each call to extract_edgelst.  */
   edgelst_last = 0;
@@ -360,11 +361,11 @@ extract_edgelst (sbitmap set, edgelst *el)
   el->nr_members = 0;
 
   /* Iterate over each word in the bitset.  */
-  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i,
-  {
-    edgelst_table[edgelst_last++] = rgn_edges[i];
-    el->nr_members++;
-  });
+  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i, sbi)
+    {
+      edgelst_table[edgelst_last++] = rgn_edges[i];
+      el->nr_members++;
+    }
 }
 
 /* Functions for the construction of regions.  */
@@ -1183,7 +1184,8 @@ check_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
 
-		  if (REGNO_REG_SET_P (b->global_live_at_start, regno + j))
+		  if (REGNO_REG_SET_P (b->il.rtl->global_live_at_start,
+				       regno + j))
 		    {
 		      return 0;
 		    }
@@ -1197,7 +1199,7 @@ check_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
 
-	      if (REGNO_REG_SET_P (b->global_live_at_start, regno))
+	      if (REGNO_REG_SET_P (b->il.rtl->global_live_at_start, regno))
 		{
 		  return 0;
 		}
@@ -1256,7 +1258,8 @@ update_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-		  SET_REGNO_REG_SET (b->global_live_at_start, regno + j);
+		  SET_REGNO_REG_SET (b->il.rtl->global_live_at_start,
+				     regno + j);
 		}
 	    }
 	}
@@ -1266,7 +1269,7 @@ update_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-	      SET_REGNO_REG_SET (b->global_live_at_start, regno);
+	      SET_REGNO_REG_SET (b->il.rtl->global_live_at_start, regno);
 	    }
 	}
     }

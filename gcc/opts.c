@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -110,8 +110,10 @@ static void complain_wrong_lang (const char *, const struct cl_option *,
 				 unsigned int lang_mask);
 static void handle_options (unsigned int, const char **, unsigned int);
 static void wrap_help (const char *help, const char *item, unsigned int);
+static void print_target_help (void);
 static void print_help (void);
 static void print_param_help (void);
+static void print_filtered_help (unsigned int);
 static unsigned int print_switch (const char *text, unsigned int indent);
 static void set_debug_level (enum debug_info_type type, int extended,
 			     const char *arg);
@@ -294,16 +296,7 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (opt_index == cl_options_count)
-    {
-#if defined (TARGET_OPTIONS) || defined (TARGET_SWITCHES)
-      if (opt[1] == 'm')
-	{
-	  set_target_switch (argv[0] + 2);
-	  result = 1;
-	}
-#endif
-      goto done;
-    }
+    goto done;
 
   option = &cl_options[opt_index];
 
@@ -541,6 +534,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
       flag_tree_salias = 1;
+      flag_unit_at_a_time = 1;
 
       if (!optimize_size)
 	{
@@ -576,7 +570,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
-      flag_unit_at_a_time = 1;
       flag_tree_store_ccp = 1;
       flag_tree_store_copy_prop = 1;
       flag_tree_vrp = 1;
@@ -633,13 +626,9 @@ decode_options (unsigned int argc, const char **argv)
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
   target_flags = targetm.default_target_flags;
-  set_target_switch ("");
 
-  /* Unwind tables are always present when a target has ABI-specified unwind
-     tables, so the default should be ON.  */
-#ifdef TARGET_UNWIND_INFO
-  flag_unwind_tables = TARGET_UNWIND_INFO;
-#endif
+  /* Some tagets have ABI-specified unwind tables.  */
+  flag_unwind_tables = targetm.unwind_tables_default;
 
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */
@@ -726,7 +715,7 @@ common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT__target_help:
-      display_target_options ();
+      print_target_help ();
       exit_after_options = true;
       break;
 
@@ -1203,6 +1192,27 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
     }
 }
 
+/* Display help for target options.  */
+static void
+print_target_help (void)
+{
+  unsigned int i;
+  static bool displayed = false;
+
+  /* Avoid double printing for --help --target-help.  */
+  if (displayed)
+    return;
+
+  displayed = true;
+  for (i = 0; i < cl_options_count; i++)
+    if ((cl_options[i].flags & (CL_TARGET | CL_UNDOCUMENTED)) == CL_TARGET)
+      {
+	printf (_("\nTarget specific options:\n"));
+	print_filtered_help (CL_TARGET);
+	break;
+      }
+}
+
 /* Output --help text.  */
 static void
 print_help (void)
@@ -1229,8 +1239,7 @@ print_help (void)
 	      lang_names[i]);
       print_filtered_help (1U << i);
     }
-
-  display_target_options ();
+  print_target_help ();
 }
 
 /* Print the help for --param.  */
@@ -1259,7 +1268,7 @@ print_param_help (void)
 }
 
 /* Print help for a specific front-end, etc.  */
-void
+static void
 print_filtered_help (unsigned int flag)
 {
   unsigned int i, len, filter, indent = 0;
@@ -1441,4 +1450,38 @@ option_enabled (int opt_idx)
 	break;
       }
   return -1;
+}
+
+/* Fill STATE with the current state of option OPTION.  Return true if
+   there is some state to store.  */
+
+bool
+get_option_state (int option, struct cl_option_state *state)
+{
+  if (cl_options[option].flag_var == 0)
+    return false;
+
+  switch (cl_options[option].var_type)
+    {
+    case CLVC_BOOLEAN:
+    case CLVC_EQUAL:
+      state->data = cl_options[option].flag_var;
+      state->size = sizeof (int);
+      break;
+
+    case CLVC_BIT_CLEAR:
+    case CLVC_BIT_SET:
+      state->ch = option_enabled (option);
+      state->data = &state->ch;
+      state->size = 1;
+      break;
+
+    case CLVC_STRING:
+      state->data = *(const char **) cl_options[option].flag_var;
+      if (state->data == 0)
+	state->data = "";
+      state->size = strlen (state->data) + 1;
+      break;
+    }
+  return true;
 }

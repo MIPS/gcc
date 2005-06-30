@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* My strategy here is as follows:
 
@@ -115,7 +115,7 @@ get_base_filename (const char *filename)
     }
 
   return lbasename (filename);
-}        
+}
 
 static void
 open_repo_file (const char *filename)
@@ -332,7 +332,7 @@ repo_export_class_p (tree class_type)
     return false;
   /* If the virtual table has been assigned to this translation unit,
      export the class.  */
-  return (IDENTIFIER_REPO_CHOSEN 
+  return (IDENTIFIER_REPO_CHOSEN
 	  (DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (class_type))));
 }
 

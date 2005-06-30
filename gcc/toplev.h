@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TOPLEV_H
 #define GCC_TOPLEV_H
@@ -73,6 +73,7 @@ extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
 extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
 extern void sorry (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void verbatim (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, int, int);
 extern void rest_of_type_compilation (tree, int);
@@ -138,9 +139,7 @@ extern int time_report;
 extern int flag_tree_based_profiling;
 
 /* Things to do with target switches.  */
-extern void display_target_options (void);
 extern void print_version (FILE *, const char *);
-extern void set_target_switch (const char *);
 extern void * default_get_pch_validity (size_t *);
 extern const char * default_pch_valid_p (const void *, size_t);
 

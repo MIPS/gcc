@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define DBX_DEBUGGING_INFO 1
 #define SDB_DEBUGGING_INFO 1
@@ -402,6 +402,10 @@ extern int i386_pe_dllimport_name_p (const char *);
 #define SUBTARGET_ATTRIBUTE_TABLE \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
   { "selectany", 0, 0, true, false, false, ix86_handle_selectany_attribute }
+
+/*  mcount() does not need a counter variable.  */
+#undef NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS 1
 
 #undef TREE
 

@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -102,7 +102,7 @@ struct lim_aux_data
 
 #define LIM_DATA(STMT) (TREE_CODE (STMT) == PHI_NODE \
 			? NULL \
-			: (struct lim_aux_data *) (stmt_ann (STMT)->aux))
+			: (struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
 
 /* Description of a memory reference location for store motion.  */
 
@@ -201,6 +201,19 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case PARM_DECL:
 	case STRING_CST:
 	case RESULT_DECL:
+	case VECTOR_CST:
+	case COMPLEX_CST:
+	  return true;
+
+	case TARGET_MEM_REF:
+	  idx = &TMR_BASE (*addr_p);
+	  if (*idx
+	      && !cbck (*addr_p, idx, data))
+	    return false;
+	  idx = &TMR_INDEX (*addr_p);
+	  if (*idx
+	      && !cbck (*addr_p, idx, data))
+	    return false;
 	  return true;
 
 	default:
@@ -631,7 +644,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  stmt = stmt1;
 	}
 
-      stmt_ann (stmt)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+      stmt_ann (stmt)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
       LIM_DATA (stmt)->always_executed_in = outermost;
 
       if (maybe_never && pos == MOVE_PRESERVE_EXECUTION)
@@ -722,7 +735,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
       cost = LIM_DATA (stmt)->cost;
       level = LIM_DATA (stmt)->tgt_loop;
       free_lim_aux_data (LIM_DATA (stmt));
-      stmt_ann (stmt)->aux = NULL;
+      stmt_ann (stmt)->common.aux = NULL;
 
       if (!level)
 	{
@@ -951,7 +964,7 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
 
   /* Emit the load & stores.  */
   load = build (MODIFY_EXPR, void_type_node, tmp_var, ref);
-  get_stmt_ann (load)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+  get_stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
   LIM_DATA (load)->max_loop = loop;
   LIM_DATA (load)->tgt_loop = loop;
 

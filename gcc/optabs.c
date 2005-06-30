@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -294,6 +294,21 @@ optab_for_tree_code (enum tree_code code, tree type)
     case REALIGN_LOAD_EXPR:
       return vec_realign_load_optab;
 
+    case REDUC_MAX_EXPR:
+      return TYPE_UNSIGNED (type) ? reduc_umax_optab : reduc_smax_optab;
+
+    case REDUC_MIN_EXPR:
+      return TYPE_UNSIGNED (type) ? reduc_umin_optab : reduc_smin_optab;
+
+    case REDUC_PLUS_EXPR:
+      return TYPE_UNSIGNED (type) ? reduc_uplus_optab : reduc_splus_optab;
+
+    case VEC_LSHIFT_EXPR:
+      return vec_shl_optab;
+
+    case VEC_RSHIFT_EXPR:
+      return vec_shr_optab;
+
     default:
       break;
     }
@@ -432,6 +447,61 @@ force_expand_binop (enum machine_mode mode, optab binoptab,
   if (x != target)
     emit_move_insn (target, x);
   return true;
+}
+
+/* Generate insns for VEC_LSHIFT_EXPR, VEC_RSHIFT_EXPR.  */
+
+rtx
+expand_vec_shift_expr (tree vec_shift_expr, rtx target)
+{
+  enum insn_code icode;
+  rtx rtx_op1, rtx_op2;
+  enum machine_mode mode1;
+  enum machine_mode mode2;
+  enum machine_mode mode = TYPE_MODE (TREE_TYPE (vec_shift_expr));
+  tree vec_oprnd = TREE_OPERAND (vec_shift_expr, 0);
+  tree shift_oprnd = TREE_OPERAND (vec_shift_expr, 1);
+  optab shift_optab;
+  rtx pat;
+
+  switch (TREE_CODE (vec_shift_expr))
+    {
+      case VEC_RSHIFT_EXPR:
+	shift_optab = vec_shr_optab;
+	break;
+      case VEC_LSHIFT_EXPR:
+	shift_optab = vec_shl_optab;
+	break;
+      default:
+	gcc_unreachable ();
+    }
+
+  icode = (int) shift_optab->handlers[(int) mode].insn_code;
+  gcc_assert (icode != CODE_FOR_nothing);
+
+  mode1 = insn_data[icode].operand[1].mode;
+  mode2 = insn_data[icode].operand[2].mode;
+
+  rtx_op1 = expand_expr (vec_oprnd, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+  if (!(*insn_data[icode].operand[1].predicate) (rtx_op1, mode1)
+      && mode1 != VOIDmode)
+    rtx_op1 = force_reg (mode1, rtx_op1);
+
+  rtx_op2 = expand_expr (shift_oprnd, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+  if (!(*insn_data[icode].operand[2].predicate) (rtx_op2, mode2)
+      && mode2 != VOIDmode)
+    rtx_op2 = force_reg (mode2, rtx_op2);
+
+  if (!target
+      || ! (*insn_data[icode].operand[0].predicate) (target, mode))
+    target = gen_reg_rtx (mode);
+
+  /* Emit instruction */
+  pat = GEN_FCN (icode) (target, rtx_op1, rtx_op2);
+  gcc_assert (pat);
+  emit_insn (pat);
+
+  return target;
 }
 
 /* This subroutine of expand_doubleword_shift handles the cases in which
@@ -5061,9 +5131,18 @@ init_optabs (void)
   cstore_optab = init_optab (UNKNOWN);
   push_optab = init_optab (UNKNOWN);
 
+  reduc_smax_optab = init_optab (UNKNOWN);
+  reduc_umax_optab = init_optab (UNKNOWN);
+  reduc_smin_optab = init_optab (UNKNOWN);
+  reduc_umin_optab = init_optab (UNKNOWN);
+  reduc_splus_optab = init_optab (UNKNOWN);
+  reduc_uplus_optab = init_optab (UNKNOWN);
+
   vec_extract_optab = init_optab (UNKNOWN);
   vec_set_optab = init_optab (UNKNOWN);
   vec_init_optab = init_optab (UNKNOWN);
+  vec_shl_optab = init_optab (UNKNOWN);
+  vec_shr_optab = init_optab (UNKNOWN);
   vec_realign_load_optab = init_optab (UNKNOWN);
   movmisalign_optab = init_optab (UNKNOWN);
 
@@ -5083,9 +5162,9 @@ init_optabs (void)
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
       movmem_optab[i] = CODE_FOR_nothing;
-      clrmem_optab[i] = CODE_FOR_nothing;
       cmpstr_optab[i] = CODE_FOR_nothing;
       cmpmem_optab[i] = CODE_FOR_nothing;
+      setmem_optab[i] = CODE_FOR_nothing;
 
       sync_add_optab[i] = CODE_FOR_nothing;
       sync_sub_optab[i] = CODE_FOR_nothing;
@@ -5209,9 +5288,6 @@ init_optabs (void)
   memset_libfunc = init_one_libfunc ("memset");
   setbits_libfunc = init_one_libfunc ("__setbits");
 
-  unwind_resume_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
-					    ? "_Unwind_SjLj_Resume"
-					    : "_Unwind_Resume");
 #ifndef DONT_USE_BUILTIN_SETJMP
   setjmp_libfunc = init_one_libfunc ("__builtin_setjmp");
   longjmp_libfunc = init_one_libfunc ("__builtin_longjmp");
@@ -5627,6 +5703,7 @@ expand_bool_compare_and_swap (rtx mem, rtx old_val, rtx new_val, rtx target)
   emit_jump_insn (bcc_gen_fctn[EQ] (label0));
   emit_move_insn (target, const0_rtx);
   emit_jump_insn (gen_jump (label1));
+  emit_barrier ();
   emit_label (label0);
   emit_move_insn (target, const1_rtx);
   emit_label (label1);

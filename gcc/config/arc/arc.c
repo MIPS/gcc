@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* ??? This is an old port, and is undoubtedly suffering from bit rot.  */
 
@@ -1441,16 +1441,6 @@ arc_eligible_for_epilogue_delay (rtx trial, int slot)
       && ! reg_mentioned_p (frame_pointer_rtx, PATTERN (trial)))
     return 1;
   return 0;
-}
-
-/* PIC */
-
-/* Emit special PIC prologues and epilogues.  */
-
-void
-arc_finalize_pic (void)
-{
-  /* nothing to do */
 }
 
 /* Return true if OP is a shift operator.  */

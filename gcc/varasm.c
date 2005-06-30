@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* This file handles generation of all the assembler code
@@ -176,21 +176,22 @@ EXTRA_SECTION_FUNCTIONS
 static void
 initialize_cold_section_name (void)
 {
-  const char *name;
   const char *stripped_name;
-  char *buffer;
+  char *name, *buffer;
+  tree dsn;
 
   gcc_assert (cfun && current_function_decl);
   if (cfun->unlikely_text_section_name)
     return;
 
-  if (flag_function_sections && DECL_SECTION_NAME (current_function_decl))
+  dsn = DECL_SECTION_NAME (current_function_decl);
+  if (flag_function_sections && dsn)
     {
-      name = alloca (TREE_STRING_LENGTH (DECL_SECTION_NAME
-					 (current_function_decl)));
-      strcpy ((char *) name, TREE_STRING_POINTER (DECL_SECTION_NAME 
-					 (current_function_decl)));
+      name = alloca (TREE_STRING_LENGTH (dsn) + 1);
+      memcpy (name, TREE_STRING_POINTER (dsn), TREE_STRING_LENGTH (dsn) + 1);
+
       stripped_name = targetm.strip_name_encoding (name);
+
       buffer = ACONCAT ((stripped_name, "_unlikely", NULL));
       cfun->unlikely_text_section_name = ggc_strdup (buffer);
     }
@@ -1233,13 +1234,13 @@ assemble_start_function (tree decl, const char *fnname)
   first_function_block_is_cold = false;
   if (flag_reorder_blocks_and_partition)
     {
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "HOTB", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LHOTB", const_labelno);
       cfun->hot_section_label = ggc_strdup (tmp_label);
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "COLDB", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LCOLDB", const_labelno);
       cfun->cold_section_label = ggc_strdup (tmp_label);
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "HOTE", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LHOTE", const_labelno);
       cfun->hot_section_end_label = ggc_strdup (tmp_label);
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "COLDE", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LCOLDE", const_labelno);
       cfun->cold_section_end_label = ggc_strdup (tmp_label);
       const_labelno++;
     }
@@ -1289,26 +1290,11 @@ assemble_start_function (tree decl, const char *fnname)
 	 doing partitioning, if the entire function was decided by
 	 choose_function_section (predict.c) to be cold.  */
 
-      int i;
-      int len;
-      char *s;
-
       initialize_cold_section_name ();
 
-      /* The following is necessary, because 'strcmp
-	(TREE_STRING_POINTER (DECL_SECTION_NAME (decl)), blah)' always
-	fails, presumably because TREE_STRING_POINTER is declared to
-	be an array of size 1 of char.  */
-
-      len = TREE_STRING_LENGTH (DECL_SECTION_NAME (decl));
-      s = (char *) xmalloc (len + 1);
-
-      for (i = 0; i < len; i ++)
-	s[i] = (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)))[i];
-      s[len] = '\0';
-      
       if (cfun->unlikely_text_section_name 
-	  && (strcmp (s, cfun->unlikely_text_section_name) == 0))
+	  && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+		     cfun->unlikely_text_section_name) == 0)
 	first_function_block_is_cold = true;
     }
 
@@ -3485,6 +3471,7 @@ compute_reloc_for_constant (tree exp)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       reloc = compute_reloc_for_constant (TREE_OPERAND (exp, 0));
       break;
 
@@ -3541,6 +3528,7 @@ output_addressed_constants (tree exp)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       output_addressed_constants (TREE_OPERAND (exp, 0));
       break;
 

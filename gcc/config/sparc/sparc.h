@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Note that some other tm.h files include this one and then override
    whatever definitions are necessary.  */
@@ -1360,11 +1360,11 @@ extern char leaf_reg_remap[];
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to non-zero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -2349,13 +2349,6 @@ extern int sparc_indent_opcode;
       }					\
   } while (0)
 
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  sparc_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
-
 #define SPARC_SYMBOL_REF_TLS_P(RTX) \
   (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
 
@@ -2447,11 +2440,14 @@ extern int sparc_indent_opcode;
     }								\
 }
 
+/* TLS support defaulting to original Sun flavor.  GNU extensions
+   must be activated in separate configuration files.  */
 #ifdef HAVE_AS_TLS
 #define TARGET_TLS 1
 #else
 #define TARGET_TLS 0
 #endif
+
 #define TARGET_SUN_TLS TARGET_TLS
 #define TARGET_GNU_TLS 0
 

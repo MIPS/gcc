@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* An exception is an event that can be signaled from within a
@@ -139,8 +139,7 @@ struct eh_region GTY(())
     ERT_CATCH,
     ERT_ALLOWED_EXCEPTIONS,
     ERT_MUST_NOT_THROW,
-    ERT_THROW,
-    ERT_FIXUP
+    ERT_THROW
   } type;
 
   /* Holds the action to perform based on the preceding type.  */
@@ -150,8 +149,6 @@ struct eh_region GTY(())
     struct eh_region_u_try {
       struct eh_region *catch;
       struct eh_region *last_catch;
-      struct eh_region *prev_try;
-      rtx continue_label;
     } GTY ((tag ("ERT_TRY"))) try;
 
     /* The list through the catch handlers, the list of type objects
@@ -180,13 +177,6 @@ struct eh_region GTY(())
     struct eh_region_u_cleanup {
       struct eh_region *prev_try;
     } GTY ((tag ("ERT_CLEANUP"))) cleanup;
-
-    /* The real region (by expression and by pointer) that fixup code
-       should live in.  */
-    struct eh_region_u_fixup {
-      struct eh_region *real_region;
-      bool resolved;
-    } GTY ((tag ("ERT_FIXUP"))) fixup;
   } GTY ((desc ("%0.type"))) u;
 
   /* Entry point for this region's handler before landing pads are built.  */
@@ -572,6 +562,7 @@ expand_resx_expr (tree exp)
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region *reg = cfun->eh->region_array[region_nr];
 
+  gcc_assert (!reg->resume);
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -835,6 +826,8 @@ find_exception_handler_labels (void)
     add_ehl_entry (return_label, NULL);
 }
 
+/* Returns true if the current function has exception handling regions.  */
+
 bool
 current_function_has_exception_handlers (void)
 {
@@ -844,9 +837,9 @@ current_function_has_exception_handlers (void)
     {
       struct eh_region *region = cfun->eh->region_array[i];
 
-      if (! region || region->region_number != i)
-	continue;
-      if (region->type != ERT_THROW)
+      if (region
+	  && region->region_number == i
+	  && region->type != ERT_THROW)
 	return true;
     }
 
@@ -1141,12 +1134,23 @@ add_ehspec_entry (htab_t ehspec_hash, htab_t ttypes_hash, tree list)
       n->filter = -(VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data) + 1);
       *slot = n;
 
-      /* Look up each type in the list and encode its filter
-	 value as a uleb128.  Terminate the list with 0.  */
+      /* Generate a 0 terminated list of filter values.  */
       for (; list ; list = TREE_CHAIN (list))
-	push_uleb128 (&cfun->eh->ehspec_data,
-		      add_ttypes_entry (ttypes_hash, TREE_VALUE (list)));
-      VARRAY_PUSH_UCHAR (cfun->eh->ehspec_data, 0);
+	{
+	  if (targetm.arm_eabi_unwinder)
+	    VARRAY_PUSH_TREE (cfun->eh->ehspec_data, TREE_VALUE (list));
+	  else
+	    {
+	      /* Look up each type in the list and encode its filter
+		 value as a uleb128.  */
+	      push_uleb128 (&cfun->eh->ehspec_data,
+		  add_ttypes_entry (ttypes_hash, TREE_VALUE (list)));
+	    }
+	}
+      if (targetm.arm_eabi_unwinder)
+	VARRAY_PUSH_TREE (cfun->eh->ehspec_data, NULL_TREE);
+      else
+	VARRAY_PUSH_UCHAR (cfun->eh->ehspec_data, 0);
     }
 
   return n->filter;
@@ -1164,7 +1168,10 @@ assign_filter_values (void)
   htab_t ttypes, ehspec;
 
   cfun->eh->ttype_data = VEC_alloc (tree, gc, 16);
-  VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
+  if (targetm.arm_eabi_unwinder)
+    VARRAY_TREE_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
+  else
+    VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
 
   ttypes = htab_create (31, ttypes_filter_hash, ttypes_filter_eq, free);
   ehspec = htab_create (31, ehspec_filter_hash, ehspec_filter_eq, free);
@@ -2430,7 +2437,6 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	return RNL_BLOCKED;
 
     case ERT_THROW:
-    case ERT_FIXUP:
     case ERT_UNKNOWN:
       /* Shouldn't see these here.  */
       gcc_unreachable ();
@@ -3385,6 +3391,54 @@ default_exception_section (void)
     readonly_data_section ();
 }
 
+
+/* Output a reference from an exception table to the type_info object TYPE.
+   TT_FORMAT and TT_FORMAT_SIZE descibe the DWARF encoding method used for
+   the value.  */
+
+static void
+output_ttype (tree type, int tt_format, int tt_format_size)
+{
+  rtx value;
+
+  if (type == NULL_TREE)
+    value = const0_rtx;
+  else
+    {
+      struct cgraph_varpool_node *node;
+
+      type = lookup_type_for_runtime (type);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+
+      /* Let cgraph know that the rtti decl is used.  Not all of the
+	 paths below go through assemble_integer, which would take
+	 care of this for us.  */
+      STRIP_NOPS (type);
+      if (TREE_CODE (type) == ADDR_EXPR)
+	{
+	  type = TREE_OPERAND (type, 0);
+	  if (TREE_CODE (type) == VAR_DECL)
+	    {
+	      node = cgraph_varpool_node (type);
+	      if (node)
+		cgraph_varpool_mark_needed_node (node);
+	    }
+	}
+      else if (TREE_CODE (type) != INTEGER_CST)
+	abort ();
+    }
+
+  /* Allow the target to override the type table entry format.  */
+  if (targetm.asm_out.ttype (value))
+    return;
+
+  if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
+    assemble_integer (value, tt_format_size,
+		      tt_format_size * BITS_PER_UNIT, 1);
+  else
+    dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+}
+
 void
 output_function_exception_table (void)
 {
@@ -3544,40 +3598,7 @@ output_function_exception_table (void)
   while (i-- > 0)
     {
       tree type = VEC_index (tree, cfun->eh->ttype_data, i);
-      rtx value;
-
-      if (type == NULL_TREE)
-	value = const0_rtx;
-      else
-	{
-	  struct cgraph_varpool_node *node;
-
-	  type = lookup_type_for_runtime (type);
-	  value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
-
-	  /* Let cgraph know that the rtti decl is used.  Not all of the
-	     paths below go through assemble_integer, which would take
-	     care of this for us.  */
-	  STRIP_NOPS (type);
-	  if (TREE_CODE (type) == ADDR_EXPR)
-	    {
-	      type = TREE_OPERAND (type, 0);
-	      if (TREE_CODE (type) == VAR_DECL)
-		{
-	          node = cgraph_varpool_node (type);
-	          if (node)
-		    cgraph_varpool_mark_needed_node (node);
-		}
-	    }
-	  else
-	    gcc_assert (TREE_CODE (type) == INTEGER_CST);
-	}
-
-      if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
-	assemble_integer (value, tt_format_size,
-			  tt_format_size * BITS_PER_UNIT, 1);
-      else
-	dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+      output_ttype (type, tt_format, tt_format_size);
     }
 
 #ifdef HAVE_AS_LEB128
@@ -3588,8 +3609,16 @@ output_function_exception_table (void)
   /* ??? Decode and interpret the data for flag_debug_asm.  */
   n = VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data);
   for (i = 0; i < n; ++i)
-    dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
-			 (i ? NULL : "Exception specification table"));
+    {
+      if (targetm.arm_eabi_unwinder)
+	{
+	  tree type = VARRAY_TREE (cfun->eh->ehspec_data, i);
+	  output_ttype (type, tt_format, tt_format_size);
+	}
+      else
+	dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
+			     (i ? NULL : "Exception specification table"));
+    }
 
   current_function_section (current_function_decl);
 }
@@ -3614,7 +3643,7 @@ dump_eh_tree (FILE *out, struct function *fun)
   int depth = 0;
   static const char * const type_name[] = {"unknown", "cleanup", "try", "catch",
 					   "allowed_exceptions", "must_not_throw",
-					   "throw", "fixup"};
+					   "throw"};
 
   i = fun->eh->region_tree;
   if (! i)
@@ -3738,4 +3767,17 @@ verify_eh_tree (struct function *fun)
 	}
     }
 }
+
+
+/* Initialize unwind_resume_libfunc.  */
+
+void
+default_init_unwind_resume_libfunc (void)
+{
+  /* The default c++ routines aren't actually c++ specific, so use those.  */
+  unwind_resume_libfunc =
+    init_one_libfunc ( USING_SJLJ_EXCEPTIONS ? "_Unwind_SjLj_Resume"
+					     : "_Unwind_Resume");
+}
+
 #include "gt-except.h"

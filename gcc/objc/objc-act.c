@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Purpose: This module implements the Objective-C 4.0 language.
 
@@ -801,6 +801,7 @@ objc_build_struct (tree name, tree fields, tree super_name)
 {
   tree s = start_struct (RECORD_TYPE, name);
   tree super = (super_name ? xref_tag (RECORD_TYPE, super_name) : NULL_TREE);
+  tree t, objc_info = NULL_TREE;
 
   if (super)
     {
@@ -813,9 +814,9 @@ objc_build_struct (tree name, tree fields, tree super_name)
 	     && TREE_CODE (TREE_CHAIN (field)) == FIELD_DECL)
 	field = TREE_CHAIN (field);
 
-      /* For ObjC ABI purposes, the "packed" size of a base class is
-	 the the sum of the offset and the size (in bits) of the last
-	 field in the class.  */
+      /* For ObjC ABI purposes, the "packed" size of a base class is the
+	 the sum of the offset and the size (in bits) of the last field
+	 in the class.  */
       DECL_SIZE (base)
 	= (field && TREE_CODE (field) == FIELD_DECL
 	   ? size_binop (PLUS_EXPR, 
@@ -844,7 +845,22 @@ objc_build_struct (tree name, tree fields, tree super_name)
       fields = base;
     }
 
+  /* NB: Calling finish_struct() may cause type TYPE_LANG_SPECIFIC fields
+     in all variants of this RECORD_TYPE to be clobbered, but it is therein
+     that we store protocol conformance info (e.g., 'NSObject <MyProtocol>').
+     Hence, we must squirrel away the ObjC-specific information before calling
+     finish_struct(), and then reinstate it afterwards.  */
+
+  for (t = TYPE_NEXT_VARIANT (s); t; t = TYPE_NEXT_VARIANT (t))
+    objc_info
+      = chainon (objc_info,
+		 build_tree_list (NULL_TREE, TYPE_OBJC_INFO (t)));
+
   s = finish_struct (s, fields, NULL_TREE);
+
+  for (t = TYPE_NEXT_VARIANT (s); t;
+       t = TYPE_NEXT_VARIANT (t), objc_info = TREE_CHAIN (objc_info))
+    TYPE_OBJC_INFO (t) = TREE_VALUE (objc_info);
 
   /* Use TYPE_BINFO structures to point at the super class, if any.  */
   objc_xref_basetypes (s, super);
@@ -1691,11 +1707,11 @@ synth_module_prologue (void)
 static int
 check_string_class_template (void)
 {
-  tree field_decl = TYPE_FIELDS (constant_string_type);
+  tree field_decl = objc_get_class_ivars (constant_string_id);
 
 #define AT_LEAST_AS_LARGE_AS(F, T) \
   (F && TREE_CODE (F) == FIELD_DECL \
-     && (TREE_INT_CST_LOW (DECL_SIZE (F)) \
+     && (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (F))) \
 	 >= TREE_INT_CST_LOW (TYPE_SIZE (T))))
 
   if (!AT_LEAST_AS_LARGE_AS (field_decl, ptr_type_node))
@@ -1714,6 +1730,27 @@ check_string_class_template (void)
 /* Avoid calling `check_string_class_template ()' more than once.  */
 static GTY(()) int string_layout_checked;
 
+/* Construct an internal string layout to be used as a template for
+   creating NSConstantString/NXConstantString instances.  */
+
+static tree
+objc_build_internal_const_str_type (void)
+{
+  tree type = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  tree fields = build_decl (FIELD_DECL, NULL_TREE, ptr_type_node);
+  tree field = build_decl (FIELD_DECL, NULL_TREE, ptr_type_node);
+
+  TREE_CHAIN (field) = fields; fields = field;
+  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+  TREE_CHAIN (field) = fields; fields = field;
+  /* NB: The finish_builtin_struct() routine expects FIELD_DECLs in
+     reverse order!  */
+  finish_builtin_struct (type, "__builtin_ObjCString",
+			 fields, NULL_TREE);
+
+  return type;
+}
+
 /* Custom build_string which sets TREE_TYPE!  */
 
 static tree
@@ -1722,6 +1759,16 @@ my_build_string (int len, const char *str)
   return fix_string_type (build_string (len, str));
 }
 
+/* Build a string with contents STR and length LEN and convert it to a
+   pointer.  */
+
+static tree
+my_build_string_pointer (int len, const char *str)
+{
+  tree string = my_build_string (len, str);
+  tree ptrtype = build_pointer_type (TREE_TYPE (TREE_TYPE (string)));
+  return build1 (ADDR_EXPR, ptrtype, string);
+}
 
 static hashval_t
 string_hash (const void *ptr)
@@ -1776,6 +1823,7 @@ objc_build_string_object (tree string)
     {
       string_layout_checked = -1;
       constant_string_class = lookup_interface (constant_string_id);
+      internal_const_str_type = objc_build_internal_const_str_type ();
 
       if (!constant_string_class
 	  || !(constant_string_type
@@ -1812,9 +1860,9 @@ objc_build_string_object (tree string)
       *loc = desc = ggc_alloc (sizeof (*desc));
       desc->literal = string;
 
-      /* GNU:    & ((NXConstantString) { NULL, string, length })  */
-      /* NeXT:   & ((NSConstantString) { isa, string, length })   */
-      fields = TYPE_FIELDS (constant_string_type);
+      /* GNU:    (NXConstantString *) & ((__builtin_ObjCString) { NULL, string, length })  */
+      /* NeXT:   (NSConstantString *) & ((__builtin_ObjCString) { isa, string, length })   */
+      fields = TYPE_FIELDS (internal_const_str_type);
       initlist
 	= build_tree_list (fields,
 			   flag_next_runtime
@@ -1826,13 +1874,13 @@ objc_build_string_object (tree string)
       fields = TREE_CHAIN (fields);
       initlist = tree_cons (fields, build_int_cst (NULL_TREE, length),
  			    initlist);
-      constructor = objc_build_constructor (constant_string_type,
+      constructor = objc_build_constructor (internal_const_str_type,
 					    nreverse (initlist));
       TREE_INVARIANT (constructor) = true;
 
       if (!flag_next_runtime)
 	constructor
-	  = objc_add_static_instance (constructor, constant_string_type);
+	  = objc_add_static_instance (constructor, internal_const_str_type);
       else
         {
 	  var = build_decl (CONST_DECL, NULL, TREE_TYPE (constructor));
@@ -1844,7 +1892,8 @@ objc_build_string_object (tree string)
       desc->constructor = constructor;
     }
 
-  addr = build_unary_op (ADDR_EXPR, desc->constructor, 1);
+  addr = convert (build_pointer_type (constant_string_type),
+		  build_unary_op (ADDR_EXPR, desc->constructor, 1));
 
   return addr;
 }
@@ -2699,8 +2748,9 @@ objc_get_class_reference (tree ident)
       add_class_reference (ident);
 
       params = build_tree_list (NULL_TREE,
-				my_build_string (IDENTIFIER_LENGTH (ident) + 1,
-						 IDENTIFIER_POINTER (ident)));
+				my_build_string_pointer
+				(IDENTIFIER_LENGTH (ident) + 1,
+				 IDENTIFIER_POINTER (ident)));
 
       assemble_external (objc_get_class_decl);
       return build_function_call (objc_get_class_decl, params);
@@ -3380,6 +3430,7 @@ objc_init_exceptions (void)
 	= init_one_libfunc (USING_SJLJ_EXCEPTIONS
 			    ? "__gnu_objc_personality_sj0"
 			    : "__gnu_objc_personality_v0");
+      default_init_unwind_resume_libfunc ();
       using_eh_for_cleanups ();
       lang_eh_runtime_type = objc_eh_runtime_type;
     }
@@ -8641,8 +8692,9 @@ get_super_receiver (void)
 		  (super_class,
 		   build_tree_list
 		   (NULL_TREE,
-		    my_build_string (IDENTIFIER_LENGTH (super_name) + 1,
-				     IDENTIFIER_POINTER (super_name))));
+		    my_build_string_pointer
+		    (IDENTIFIER_LENGTH (super_name) + 1,
+		     IDENTIFIER_POINTER (super_name))));
 	    }
 
 	  super_expr

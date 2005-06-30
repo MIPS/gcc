@@ -26,21 +26,16 @@ details.  */
    verification. */
 #define INVALID_STATE ((state *) -1)
 
-#ifdef VERIFY_DEBUG
-static void
-debug_print (const char *fmt, ...)
+static void ATTRIBUTE_PRINTF_1
+debug_print (const char *fmt ATTRIBUTE_UNUSED, ...)
 {
+#ifdef VERIFY_DEBUG
   va_list ap;
   va_start (ap, fmt);
   vfprintf (stderr, fmt, ap);
   va_end (ap);
-}
-#else
-static void
-debug_print (const char *fmt ATTRIBUTE_UNUSED, ...)
-{
-}    
 #endif /* VERIFY_DEBUG */
+}
 
 /* This started as a fairly ordinary verifier, and for the most part
    it remains so.  It works in the obvious way, by modeling the effect
@@ -2256,10 +2251,12 @@ verify_instructions_0 (void)
       else
 	{
 	  /* We only have to do this checking in the situation where
-	     control flow falls through from the previous
-	     instruction.  Otherwise merging is done at the time we
-	     push the branch.  */
-	  if (vfr->states[vfr->PC] != NULL)
+	     control flow falls through from the previous instruction.
+	     Otherwise merging is done at the time we push the branch.
+	     Note that we'll catch the off-the-end problem just
+	     below.  */
+	  if (vfr->PC < vfr->current_method->code_length
+	      && vfr->states[vfr->PC] != NULL)
 	    {
 	      /* We've already visited this instruction.  So merge
 	         the states together.  It is simplest, but not most

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -353,6 +353,8 @@ static rtx frv_struct_value_rtx			(tree, int);
 static bool frv_must_pass_in_stack (enum machine_mode mode, tree type);
 static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
+static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
+  ATTRIBUTE_UNUSED;
 
 /* Allow us to easily change the default for -malloc-cc.  */
 #ifndef DEFAULT_NO_ALLOC_CC
@@ -425,6 +427,11 @@ static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_SETUP_INCOMING_VARARGS frv_setup_incoming_varargs
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG frv_reorg
+
+#if HAVE_AS_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL frv_output_dwarf_dtprel
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2291,14 +2298,14 @@ frv_expand_block_move (rtx operands[])
 
    operands[0] is the destination
    operands[1] is the length
-   operands[2] is the alignment */
+   operands[3] is the alignment */
 
 int
 frv_expand_block_clear (rtx operands[])
 {
   rtx orig_dest = operands[0];
   rtx bytes_rtx	= operands[1];
-  rtx align_rtx = operands[2];
+  rtx align_rtx = operands[3];
   int constp	= (GET_CODE (bytes_rtx) == CONST_INT);
   int align;
   int bytes;
@@ -3415,7 +3422,7 @@ frv_legitimate_address_p (enum machine_mode mode,
 static rtx
 gen_inlined_tls_plt (rtx addr)
 {
-  rtx mem, retval, dest;
+  rtx retval, dest;
   rtx picreg = get_hard_reg_initial_val (Pmode, FDPIC_REG);
 
 
@@ -5258,13 +5265,15 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
       for (j = CC_FIRST; j <= CC_LAST; j++)
 	if (TEST_HARD_REG_BIT (tmp_reg->regs, j))
 	  {
-	    if (REGNO_REG_SET_P (then_bb->global_live_at_start, j))
+	    if (REGNO_REG_SET_P (then_bb->il.rtl->global_live_at_start, j))
 	      continue;
 
-	    if (else_bb && REGNO_REG_SET_P (else_bb->global_live_at_start, j))
+	    if (else_bb
+		&& REGNO_REG_SET_P (else_bb->il.rtl->global_live_at_start, j))
 	      continue;
 
-	    if (join_bb && REGNO_REG_SET_P (join_bb->global_live_at_start, j))
+	    if (join_bb
+		&& REGNO_REG_SET_P (join_bb->il.rtl->global_live_at_start, j))
 	      continue;
 
 	    SET_HARD_REG_BIT (frv_ifcvt.nested_cc_ok_rewrite, j);
@@ -5286,7 +5295,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Remove anything live at the beginning of the join block from being
          available for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (join_bb->global_live_at_start, 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (join_bb->il.rtl->global_live_at_start, 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -5330,7 +5339,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Anything live at the beginning of the block is obviously unavailable
          for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (bb[j]->global_live_at_start, 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (bb[j]->il.rtl->global_live_at_start, 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -5984,7 +5993,7 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 		  severely.  */
 	       && ce_info->join_bb
 	       && ! (REGNO_REG_SET_P
-		     (ce_info->join_bb->global_live_at_start,
+		     (ce_info->join_bb->il.rtl->global_live_at_start,
 		      REGNO (SET_DEST (set))))
 	       /* Similarly, we must not unconditionally set a reg
 		  used as scratch in the THEN branch if the same reg
@@ -5992,7 +6001,7 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 	       && (! ce_info->else_bb
 		   || BLOCK_FOR_INSN (insn) == ce_info->else_bb
 		   || ! (REGNO_REG_SET_P
-			 (ce_info->else_bb->global_live_at_start,
+			 (ce_info->else_bb->il.rtl->global_live_at_start,
 			  REGNO (SET_DEST (set))))))
 	pattern = set;
 
@@ -9098,10 +9107,10 @@ frv_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 
 #define TLS_BIAS (2048 - 16)
 
-/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+/* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
-void
+static void
 frv_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   gcc_assert (size == 4);

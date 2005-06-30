@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This pass implements tree level if-conversion transformation of loops.
    Initial goal is to help vectorizer vectorize loops with conditions.
@@ -84,7 +84,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "tree.h"
 #include "c-common.h"
 #include "flags.h"
@@ -583,8 +582,8 @@ add_to_predicate_list (basic_block bb, tree new_cond)
   tree cond = bb->aux;
 
   if (cond)
-    cond = fold (build (TRUTH_OR_EXPR, boolean_type_node,
-			unshare_expr (cond), new_cond));
+    cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
+			unshare_expr (cond), new_cond);
   else
     cond = new_cond;
 

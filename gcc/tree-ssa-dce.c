@@ -18,8 +18,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Dead code elimination.
 
@@ -47,7 +47,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 
 /* These RTL headers are needed for basic-block.h.  */
@@ -279,6 +278,15 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
   stmt_ann_t ann;
   tree op, def;
   ssa_op_iter iter;
+
+  /* With non-call exceptions, we have to assume that all statements could
+     throw.  If a statement may throw, it is inherently necessary.  */
+  if (flag_non_call_exceptions
+      && tree_could_throw_p (stmt))
+    {
+      mark_stmt_necessary (stmt, true);
+      return;
+    }
 
   /* Statements that are implicitly live.  Most function calls, asm and return
      statements are required.  Labels and BIND_EXPR nodes are kept because

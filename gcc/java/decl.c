@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -1107,6 +1107,15 @@ java_init_decl_processing (void)
   TREE_THIS_VOLATILE (soft_nullpointer_node) = 1;
   TREE_SIDE_EFFECTS (soft_nullpointer_node) = 1;
 
+  soft_abstractmethod_node
+    = builtin_function ("_Jv_ThrowAbstractMethodError",
+			build_function_type (void_type_node, endlink),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* Mark soft_abstractmethod_node as a `noreturn' function with side
+     effects.  */
+  TREE_THIS_VOLATILE (soft_abstractmethod_node) = 1;
+  TREE_SIDE_EFFECTS (soft_abstractmethod_node) = 1;
+
   t = tree_cons (NULL_TREE, class_ptr_type,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
   soft_checkcast_node
@@ -1188,6 +1197,7 @@ java_init_decl_processing (void)
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
                                              ? "__gcj_personality_sj0"
                                              : "__gcj_personality_v0");
+  default_init_unwind_resume_libfunc ();
 
   lang_eh_runtime_type = do_nothing;
 

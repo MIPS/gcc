@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -35,10 +35,19 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+pragma Warnings (Off);
+--  Allow withing of non-Preelaborated units in Ada 2005 mode where this
+--  package will be categorized as Preelaborate. See AI-362 for details.
+--  It is safe in the context of the run-time to violate the rules!
+
 with System;
 with System.Tasking;
 
+pragma Warnings (On);
+
 package Ada.Task_Identification is
+pragma Preelaborate_05 (Task_Identification);
+--  In accordance with Ada 2005 AI-362
 
    type Task_Id is private;
 
@@ -66,6 +75,13 @@ private
 
    type Task_Id is new System.Tasking.Task_Id;
 
+   pragma Warnings (Off);
+   --  Allow non-static constant in Ada 2005 mode where this package will be
+   --  categorized as Preelaborate. See AI-362 for details. It is safe in the
+   --  context of the run-time to violate the rules!
+
    Null_Task_Id : constant Task_Id := Task_Id (System.Tasking.Null_Task);
+
+   pragma Warnings (On);
 
 end Ada.Task_Identification;

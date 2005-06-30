@@ -154,26 +154,22 @@ move_pos_offset (stream* st, int pos_off)
   unix_stream * str = (unix_stream*)st;
   if (pos_off < 0)
     {
-      str->active  += pos_off;
-      if (str->active < 0)
-         str->active = 0;
+      str->logical_offset += pos_off;
 
-      str->logical_offset  += pos_off;
-
-      if (str->dirty_offset+str->ndirty > str->logical_offset)
+      if (str->dirty_offset + str->ndirty > str->logical_offset)
         {
-          if (str->ndirty +  pos_off > 0)
-            str->ndirty += pos_off ;
+          if (str->ndirty + pos_off > 0)
+            str->ndirty += pos_off;
           else
             {
               str->dirty_offset +=  pos_off + pos_off;
-              str->ndirty = 0 ;
+              str->ndirty = 0;
             }
         }
 
-    return pos_off ;
+    return pos_off;
   }
-  return 0 ;
+  return 0;
 }
 
 
@@ -542,8 +538,11 @@ fd_close (unix_stream * s)
   if (s->buffer != NULL && s->buffer != s->small_buffer)
     free_mem (s->buffer);
 
-  if (close (s->fd) < 0)
-    return FAILURE;
+  if (s->fd != STDOUT_FILENO && s->fd != STDERR_FILENO)
+    {
+      if (close (s->fd) < 0)
+        return FAILURE;
+    }
 
   free_mem (s);
 
@@ -1299,10 +1298,10 @@ stream_at_bof (stream * s)
 {
   unix_stream *us;
 
-  us = (unix_stream *) s;
+  if (!is_seekable (s))
+    return 0;
 
-  if (!us->mmaped)
-    return 0;			/* File is not seekable */
+  us = (unix_stream *) s;
 
   return us->logical_offset == 0;
 }
@@ -1316,10 +1315,10 @@ stream_at_eof (stream * s)
 {
   unix_stream *us;
 
-  us = (unix_stream *) s;
+  if (!is_seekable (s))
+    return 0;
 
-  if (!us->mmaped)
-    return 0;			/* File is not seekable */
+  us = (unix_stream *) s;
 
   return us->logical_offset == us->dirty_offset;
 }

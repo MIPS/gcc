@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -137,6 +137,12 @@ int stack_pointer;
 
 const unsigned char *linenumber_table;
 int linenumber_count;
+
+/* Largest pc so far in this method that has been passed to lookup_label. */
+int highest_label_pc_this_method = -1;
+
+/* Base value for this method to add to pc to get generated label. */
+int start_label_pc_this_method = 0;
 
 void
 init_expr_processing (void)
@@ -1766,7 +1772,9 @@ lookup_label (int pc)
 {
   tree name;
   char buf[32];
-  ASM_GENERATE_INTERNAL_LABEL(buf, "LJpc=", pc);
+  if (pc > highest_label_pc_this_method)
+    highest_label_pc_this_method = pc;
+  ASM_GENERATE_INTERNAL_LABEL(buf, "LJpc=", start_label_pc_this_method + pc);
   name = get_identifier (buf);
   if (IDENTIFIER_LOCAL_VALUE (name))
     return IDENTIFIER_LOCAL_VALUE (name);

@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include <signal.h>
+#include "tree-vect.h"
 
 #define N 64
 #define MAX 42
@@ -16,6 +17,8 @@ int main ()
   int D[N];
 
   int i, j;
+
+  check_vect ();
 
   for (i = 0; i < N; i++)
     {
@@ -69,5 +72,6 @@ int main ()
 
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "accesses have the same alignment." 2 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_OPTS_H
 #define GCC_OPTS_H
@@ -52,6 +52,14 @@ struct cl_option
   int var_value;
 };
 
+/* Records that the state of an option consists of SIZE bytes starting
+   at DATA.  DATA might point to CH in some cases.  */
+struct cl_option_state {
+  const void *data;
+  size_t size;
+  char ch;
+};
+
 extern const struct cl_option cl_options[];
 extern const unsigned int cl_options_count;
 extern const char *const lang_names[];
@@ -77,6 +85,6 @@ extern unsigned num_in_fnames;
 
 extern void decode_options (unsigned int argc, const char **argv);
 extern int option_enabled (int opt_idx);
-extern void print_filtered_help (unsigned int);
+extern bool get_option_state (int, struct cl_option_state *);
 
 #endif

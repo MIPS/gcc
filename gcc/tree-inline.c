@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -159,6 +159,7 @@ static void declare_inline_vars (tree, tree);
 static void remap_save_expr (tree *, void *, int *);
 
 static inline bool inlining_p (inline_data *id);
+static void add_lexical_block (tree current_block, tree new_block);
 
 /* Insert a tree->tree mapping for ID.  Despite the name suggests
    that the trees should be variables, it is used for more than that.  */
@@ -245,13 +246,6 @@ remap_decl (tree decl, inline_data *id)
 	  DECL_ANON_UNION_ELEMS (t) = nreverse (members);
 	}
 #endif
-
-      /* If we are inlining and this is a variable (not a label), declare the
-	 remapped variable in the callers' body.  */
-      if (inlining_p (id)
-	  && (TREE_CODE (t) == VAR_DECL
-	      || TREE_CODE (t) == PARM_DECL))
-	declare_inline_vars (id->block, t);
 
       /* Remember it, so that if we encounter this local entity
 	 again we can reuse this copy.  */
@@ -385,6 +379,17 @@ remap_decls (tree decls, inline_data *id)
     {
       tree new_var;
 
+      /* We can not chain the local static declarations into the unexpanded_var_list
+         as we can't duplicate them or break one decl rule.  Go ahead and link
+         them into unexpanded_var_list.  */
+      if (!lang_hooks.tree_inlining.auto_var_in_fn_p (old_var, id->callee)
+	  && !DECL_EXTERNAL (old_var))
+	{
+	  cfun->unexpanded_var_list = tree_cons (NULL_TREE, old_var,
+						 cfun->unexpanded_var_list);
+	  continue;
+	}
+
       /* Remap the variable.  */
       new_var = remap_decl (old_var, id);
 
@@ -425,30 +430,30 @@ remap_block (tree *block, inline_data *id)
   BLOCK_VARS (new_block) = remap_decls (BLOCK_VARS (old_block), id);
 
   fn = id->caller;
-#if 1
-  /* FIXME!  It shouldn't be so hard to manage blocks.  Rebuilding them in
-     rest_of_compilation is a good start.  */
   if (id->cloning_p)
     /* We're building a clone; DECL_INITIAL is still
        error_mark_node, and current_binding_level is the parm
        binding level.  */
     lang_hooks.decls.insert_block (new_block);
-  else
-    {
-      /* Attach this new block after the DECL_INITIAL block for the
-	 function into which this block is being inlined.  In
-	 rest_of_compilation we will straighten out the BLOCK tree.  */
-      tree *first_block;
-      if (DECL_INITIAL (fn))
-	first_block = &BLOCK_CHAIN (DECL_INITIAL (fn));
-      else
-	first_block = &DECL_INITIAL (fn);
-      BLOCK_CHAIN (new_block) = *first_block;
-      *first_block = new_block;
-    }
-#endif
   /* Remember the remapped block.  */
   insert_decl_map (id, old_block, new_block);
+}
+
+/* Copy the whole block tree and root it in id->block.  */
+static tree
+remap_blocks (tree block, inline_data *id)
+{
+  tree t;
+  tree new = block;
+
+  if (!block)
+    return NULL;
+
+  remap_block (&new, id);
+  gcc_assert (new != block);
+  for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
+    add_lexical_block (new, remap_blocks (t, id));
+  return new;
 }
 
 static void
@@ -492,6 +497,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 {
   inline_data *id = (inline_data *) data;
   tree fn = id->callee;
+  tree new_block;
 
   /* Begin by recognizing trees that we'll completely rewrite for the
      inlining context.  Our output for these trees is completely
@@ -543,9 +549,11 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
     copy_statement_list (tp);
   else if (TREE_CODE (*tp) == SAVE_EXPR)
     remap_save_expr (tp, id->decl_map, walk_subtrees);
-  else if (TREE_CODE (*tp) == LABEL_DECL)
+  else if (TREE_CODE (*tp) == LABEL_DECL
+	   && (! DECL_CONTEXT (*tp)
+	       || decl_function_context (*tp) == id->callee))
     /* These may need to be remapped for EH handling.  */
-    remap_decl (*tp, id);
+    *tp = remap_decl (*tp, id);
   else if (TREE_CODE (*tp) == BIND_EXPR)
     copy_bind_expr (tp, walk_subtrees, id);
   /* Types may need remapping as well.  */
@@ -615,13 +623,17 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	         it manually here as we'll eventually get ADDR_EXPRs
 		 which lie about their types pointed to.  In this case
 		 build_fold_indirect_ref wouldn't strip the INDIRECT_REF,
-		 but we absolutely rely on that.  */
-	      if (TREE_CODE ((tree)n->value) == ADDR_EXPR)
-		*tp = TREE_OPERAND ((tree)n->value, 0);
-	      else
-	        *tp = build1 (INDIRECT_REF,
-			      TREE_TYPE (TREE_TYPE ((tree)n->value)),
-			      (tree)n->value);
+		 but we absolutely rely on that.  As fold_indirect_ref
+	         does other useful transformations, try that first, though.  */
+	      tree type = TREE_TYPE (TREE_TYPE ((tree)n->value));
+	      *tp = fold_indirect_ref_1 (type, (tree)n->value);
+	      if (! *tp)
+	        {
+		  if (TREE_CODE ((tree)n->value) == ADDR_EXPR)
+		    *tp = TREE_OPERAND ((tree)n->value, 0);
+	          else
+	            *tp = build1 (INDIRECT_REF, type, (tree)n->value);
+		}
 	      *walk_subtrees = 0;
 	      return NULL;
 	    }
@@ -630,9 +642,23 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       /* Here is the "usual case".  Copy this tree node, and then
 	 tweak some special cases.  */
       copy_tree_r (tp, walk_subtrees, NULL);
-      if (id->block
-	  && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*tp))))
-	TREE_BLOCK (*tp) = id->block;
+
+      /* If EXPR has block defined, map it to newly constructed block.
+         When inlining we want EXPRs without block appear in the block
+	 of function call.  */
+      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*tp))))
+	{
+	  new_block = id->block;
+	  if (TREE_BLOCK (*tp))
+	    {
+	      splay_tree_node n;
+	      n = splay_tree_lookup (id->decl_map,
+				     (splay_tree_key) TREE_BLOCK (*tp));
+	      gcc_assert (n);
+	      new_block = (tree) n->value;
+	    }
+	  TREE_BLOCK (*tp) = new_block;
+	}
 
       if (TREE_CODE (*tp) == RESX_EXPR && id->eh_region_offset)
 	TREE_OPERAND (*tp, 0) =
@@ -1295,7 +1321,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined because it uses "
+	    = G_("%Jfunction %qF can never be inlined because it uses "
 		 "alloca (override using the always_inline attribute)");
 	  return node;
 	}
@@ -1307,7 +1333,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (setjmp_call_p (t))
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined because it uses setjmp");
+	    = G_("%Jfunction %qF can never be inlined because it uses setjmp");
 	  return node;
 	}
 
@@ -1321,7 +1347,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  case BUILT_IN_NEXT_ARG:
 	  case BUILT_IN_VA_END:
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because it "
+	      = G_("%Jfunction %qF can never be inlined because it "
 		   "uses variable argument lists");
 	    return node;
 
@@ -1332,14 +1358,14 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	       function calling __builtin_longjmp to be inlined into the
 	       function calling __builtin_setjmp, Things will Go Awry.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses setjmp-longjmp exception handling");
 	    return node;
 
 	  case BUILT_IN_NONLOCAL_GOTO:
 	    /* Similarly.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses non-local goto");
 	    return node;
 
@@ -1350,7 +1376,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	       been inlined into.  Similarly __builtin_return would
 	       return from the function the inline has been inlined into.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses __builtin_return or __builtin_apply_args");
 	    return node;
 
@@ -1369,7 +1395,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (TREE_CODE (t) != LABEL_DECL)
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined "
+	    = G_("%Jfunction %qF can never be inlined "
 		 "because it contains a computed goto");
 	  return node;
 	}
@@ -1383,7 +1409,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	     because we cannot remap the destination label used in the
 	     function that is performing the non-local goto.  */
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined "
+	    = G_("%Jfunction %qF can never be inlined "
 		 "because it receives a non-local goto");
 	  return node;
 	}
@@ -1408,7 +1434,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	if (variably_modified_type_p (TREE_TYPE (t), NULL))
 	  {
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined "
+	      = G_("%Jfunction %qF can never be inlined "
 		   "because it uses variable sized variables");
 	    return node;
 	  }
@@ -1677,6 +1703,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
+    case VEC_LSHIFT_EXPR:
+    case VEC_RSHIFT_EXPR:
 
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
@@ -1720,6 +1748,10 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case ASM_EXPR:
 
     case REALIGN_LOAD_EXPR:
+
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
+    case REDUC_PLUS_EXPR:
 
     case RESX_EXPR:
       *count += 1;
@@ -1847,7 +1879,6 @@ add_lexical_block (tree current_block, tree new_block)
     ;
   *blk_p = new_block;
   BLOCK_SUPERCONTEXT (new_block) = current_block;
-  BLOCK_SUBBLOCKS (new_block) = NULL_TREE;
 }
 
 /* If *TP is a CALL_EXPR, replace it with its inline expansion.  */
@@ -1946,10 +1977,13 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
       else if (warn_inline && DECL_DECLARED_INLINE_P (fn)
 	       && !DECL_IN_SYSTEM_HEADER (fn)
 	       && strlen (reason)
-	       && !lookup_attribute ("noinline", DECL_ATTRIBUTES (fn)))
+	       && !lookup_attribute ("noinline", DECL_ATTRIBUTES (fn))
+	       /* Avoid warnings during early inline pass. */
+	       && (!flag_unit_at_a_time || cgraph_global_info_ready))
 	{
-	  warning (0, "%Jinlining failed in call to %qF: %s", fn, fn, reason);
-	  warning (0, "called from here");
+	  warning (OPT_Winline, "%Jinlining failed in call to %qF: %s",
+		   fn, fn, reason);
+	  warning (OPT_Winline, "called from here");
 	}
       goto egress;
     }
@@ -2003,18 +2037,16 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 
   /* Initialize the parameters.  */
   args = TREE_OPERAND (t, 1);
-  if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (t))
-    {
-      return_slot_addr = TREE_VALUE (args);
-      args = TREE_CHAIN (args);
-    }
-  else
-    return_slot_addr = NULL_TREE;
 
   initialize_inlined_parameters (id, args, TREE_OPERAND (t, 2), fn, bb);
 
   /* Record the function we are about to inline.  */
   id->callee = fn;
+
+  if (DECL_STRUCT_FUNCTION (fn)->saved_blocks)
+    add_lexical_block (id->block, remap_blocks (DECL_STRUCT_FUNCTION (fn)->saved_blocks, id));
+  else if (DECL_INITIAL (fn))
+    add_lexical_block (id->block, remap_blocks (DECL_INITIAL (fn), id));
 
   /* Return statements in the function body will be replaced by jumps
      to the RET_LABEL.  */
@@ -2023,10 +2055,10 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   gcc_assert (TREE_CODE (DECL_INITIAL (fn)) == BLOCK);
 
   /* Find the lhs to which the result of this call is assigned.  */
-  modify_dest = stmt;
-  if (TREE_CODE (modify_dest) == MODIFY_EXPR)
+  return_slot_addr = NULL;
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
-      modify_dest = TREE_OPERAND (modify_dest, 0);
+      modify_dest = TREE_OPERAND (stmt, 0);
 
       /* The function which we are inlining might not return a value,
 	 in which case we should issue a warning that the function
@@ -2036,6 +2068,11 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 	 uninitialized variable.  */
       if (DECL_P (modify_dest))
 	TREE_NO_WARNING (modify_dest) = 1;
+      if (CALL_EXPR_RETURN_SLOT_OPT (t))
+	{
+	  return_slot_addr = build_fold_addr_expr (modify_dest);
+	  modify_dest = NULL;
+	}
     }
   else
     modify_dest = NULL;
@@ -2063,6 +2100,21 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
      duplicate our body before altering anything.  */
   copy_body (id, bb->count, bb->frequency, bb, return_block);
   id->current_node = old_node;
+
+  /* Add local vars in this inlined callee to caller.  */
+  t_step = id->callee_cfun->unexpanded_var_list;
+  if (id->callee_cfun->saved_unexpanded_var_list)
+    t_step = id->callee_cfun->saved_unexpanded_var_list;
+  for (; t_step; t_step = TREE_CHAIN (t_step))
+    {
+      var = TREE_VALUE (t_step);
+      if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
+	cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
+					       cfun->unexpanded_var_list);
+      else
+	cfun->unexpanded_var_list = tree_cons (NULL_TREE, remap_decl (var, id),
+					       cfun->unexpanded_var_list);
+    }
 
   /* Clean up.  */
   splay_tree_delete (id->decl_map);
@@ -2101,16 +2153,6 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   /* Declare the 'auto' variables added with this inlined body.  */
   record_vars (BLOCK_VARS (id->block));
   id->block = NULL_TREE;
-
-  /* Add local static vars in this inlined callee to caller.  */
-  for (t_step = id->callee_cfun->unexpanded_var_list;
-       t_step;
-       t_step = TREE_CHAIN (t_step))
-    {
-      var = TREE_VALUE (t_step);
-      if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
-	record_vars (var);
-    }
   successfully_inlined = TRUE;
 
  egress:
@@ -2249,6 +2291,7 @@ save_body (tree fn, tree *arg_copy, tree *sc_copy)
   inline_data id;
   tree newdecl, *parg;
   basic_block fn_entry_block;
+  tree t_step;
 
   memset (&id, 0, sizeof (id));
   id.callee = fn;
@@ -2287,11 +2330,28 @@ save_body (tree fn, tree *arg_copy, tree *sc_copy)
 
   insert_decl_map (&id, DECL_RESULT (fn), DECL_RESULT (fn));
 
+  DECL_STRUCT_FUNCTION (fn)->saved_blocks
+    = remap_blocks (DECL_INITIAL (fn), &id);
+  for (t_step = id.callee_cfun->unexpanded_var_list;
+       t_step;
+       t_step = TREE_CHAIN (t_step))
+    {
+      tree var = TREE_VALUE (t_step);
+      if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
+	cfun->saved_unexpanded_var_list
+	  = tree_cons (NULL_TREE, var, cfun->saved_unexpanded_var_list);
+      else 
+	cfun->saved_unexpanded_var_list
+	  = tree_cons (NULL_TREE, remap_decl (var, &id),
+		       cfun->saved_unexpanded_var_list);
+    }
+
   /* Actually copy the body, including a new (struct function *) and CFG.
      EH info is also duplicated so its labels point into the copied
      CFG, not the original.  */
   fn_entry_block = ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (fn));
-  newdecl = copy_body (&id, fn_entry_block->count, fn_entry_block->frequency, NULL, NULL);
+  newdecl = copy_body (&id, fn_entry_block->count, fn_entry_block->frequency,
+		       NULL, NULL);
   DECL_STRUCT_FUNCTION (fn)->saved_cfg = DECL_STRUCT_FUNCTION (newdecl)->cfg;
   DECL_STRUCT_FUNCTION (fn)->saved_eh = DECL_STRUCT_FUNCTION (newdecl)->eh;
 

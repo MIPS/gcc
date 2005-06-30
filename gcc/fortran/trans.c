@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -437,9 +437,9 @@ gfc_get_backend_locus (locus * loc)
 {
   loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
 #ifdef USE_MAPPED_LOCATION
-  loc->lb->location = input_location; /* FIXME adjust?? */
+  loc->lb->location = input_location;
 #else
-  loc->lb->linenum = input_line - 1;
+  loc->lb->linenum = input_line;
 #endif
   loc->lb->file = gfc_current_backend_file;
 }

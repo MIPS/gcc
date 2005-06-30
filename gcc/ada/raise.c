@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *             Copyright (C) 1992-2004, Free Software Foundation, Inc.      *
+ *             Copyright (C) 1992-2005, Free Software Foundation, Inc.      *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -204,7 +204,7 @@ db_indent (int requests)
 
 }
 
-static void
+static void ATTRIBUTE_PRINTF_2
 db (int db_code, char * msg_format, ...)
 {
   if (db_accepted_codes () & db_code)

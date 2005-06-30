@@ -417,8 +417,7 @@ AC_EGREP_HEADER(u_int32_t, sys/config.h, AC_DEFINE(HAVE_BSD_INT32_DEFINED, 1,
                                            [Define if you have u_int32_t]))
 
 AM_CONDITIONAL(USING_WIN32_PLATFORM, test "$PLATFORM" = Win32)
-AM_CONDITIONAL(USING_POSIX_PLATFORM, test "$PLATFORM" = Posix)
-AM_CONDITIONAL(USING_ECOS_PLATFORM, test "$PLATFORM" = Ecos)
+AM_CONDITIONAL(USING_POSIX_PLATFORM, test "$PLATFORM" = Posix || test "$PLATFORM" = Ecos)
 
 case "$host" in
   *-darwin*) DARWIN_CRT=true ;;
@@ -1148,6 +1147,7 @@ AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
 AC_SUBST(CHECKREFSPEC)
 AC_SUBST(EXCEPTIONSPEC)
+AC_SUBST(BACKTRACESPEC)
 AC_SUBST(IEEESPEC)
 
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes)
@@ -1344,15 +1344,6 @@ if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
    SIGNAL_HANDLER_AUX=
 fi
-
-# Define here any compiler flags that you need in order to make backtrace() work.
-BACKTRACESPEC=
-case "${host}" in
- x86_64*-*-linux*|i?86-*)
-    BACKTRACESPEC=-fno-omit-frame-pointer
-    ;;
-esac
-AC_SUBST(BACKTRACESPEC)
 
 AC_SUBST(SYSDEP_SOURCES)
 

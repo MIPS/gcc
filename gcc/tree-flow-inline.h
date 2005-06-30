@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef _TREE_FLOW_INLINE_H
 #define _TREE_FLOW_INLINE_H 1
@@ -65,7 +65,6 @@ get_stmt_ann (tree stmt)
   stmt_ann_t ann = stmt_ann (stmt);
   return (ann) ? ann : create_stmt_ann (stmt);
 }
-
 
 /* Return the annotation type for annotation ANN.  */
 static inline enum tree_ann_type

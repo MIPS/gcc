@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This pass detects the loops that iterate a constant number of times,
    adds a canonical induction variable (step -1, tested against 0) 
@@ -95,9 +95,9 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
      with a modulo arithmetics.  */
 
   type = TREE_TYPE (niter);
-  niter = fold (build2 (PLUS_EXPR, type,
-			niter,
-			build_int_cst (type, 1)));
+  niter = fold_build2 (PLUS_EXPR, type,
+		       niter,
+		       build_int_cst (type, 1));
   incr_at = bsi_last (in->src);
   create_iv (niter,
 	     fold_convert (type, integer_minus_one_node),
@@ -226,6 +226,7 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
       update_stmt (cond);
+      initialize_original_copy_tables ();
 
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					       loops, n_unroll, NULL,
@@ -233,8 +234,10 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
 	{
 	  COND_EXPR_COND (cond) = old_cond;
 	  update_stmt (cond);
+          free_original_copy_tables ();
 	  return false;
 	}
+      free_original_copy_tables ();
     }
   
   COND_EXPR_COND (cond) = do_exit;
@@ -272,8 +275,8 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
       /* The result of number_of_iterations_in_loop is by one higher than
 	 we expect (i.e. it returns number of executions of the exit
 	 condition, not of the loop latch edge).  */
-      niter = fold (build2 (MINUS_EXPR, TREE_TYPE (niter), niter,
-			    build_int_cst (TREE_TYPE (niter), 1)));
+      niter = fold_build2 (MINUS_EXPR, TREE_TYPE (niter), niter,
+			   build_int_cst (TREE_TYPE (niter), 1));
     }
   else
     {

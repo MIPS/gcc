@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_FLAGS_H
 #define GCC_FLAGS_H
@@ -180,6 +180,10 @@ extern int flag_shlib;
    to be a catchall for printing debug information in the assembler file.  */
 
 extern int flag_debug_asm;
+
+/* Generate code for GNU or NeXT Objective-C runtime environment.  */
+
+extern int flag_next_runtime;
 
 extern int flag_dump_rtl_in_asm;
 

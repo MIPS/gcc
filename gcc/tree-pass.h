@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #ifndef GCC_TREE_PASS_H
@@ -164,6 +164,7 @@ extern struct tree_opt_pass pass_lower_cf;
 extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;
 extern struct tree_opt_pass pass_tree_profile;
+extern struct tree_opt_pass pass_early_tree_profile;
 extern struct tree_opt_pass pass_referenced_vars;
 extern struct tree_opt_pass pass_sra;
 extern struct tree_opt_pass pass_tail_recursion;
@@ -192,8 +193,11 @@ extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
-extern struct tree_opt_pass pass_pre_expand;
+extern struct tree_opt_pass pass_lower_complex_O0;
+extern struct tree_opt_pass pass_lower_complex;
+extern struct tree_opt_pass pass_lower_vector;
 extern struct tree_opt_pass pass_lower_vector_ssa;
+extern struct tree_opt_pass pass_object_sizes;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_stdarg;
 extern struct tree_opt_pass pass_early_warn_uninitialized;
@@ -219,8 +223,15 @@ extern struct tree_opt_pass pass_store_ccp;
 extern struct tree_opt_pass pass_store_copy_prop;
 extern struct tree_opt_pass pass_vrp;
 extern struct tree_opt_pass pass_create_structure_vars;
+extern struct tree_opt_pass pass_build_pta;
+extern struct tree_opt_pass pass_del_pta;
 extern struct tree_opt_pass pass_uncprop;
+extern struct tree_opt_pass pass_return_slot;
+extern struct tree_opt_pass pass_reassoc;
+extern struct tree_opt_pass pass_rebuild_cgraph_edges;
 
+/* IPA Passes */
 extern struct tree_opt_pass pass_ipa_inline;
+extern struct tree_opt_pass pass_early_ipa_inline;
 
 #endif /* GCC_TREE_PASS_H */

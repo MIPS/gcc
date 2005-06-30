@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
@@ -178,6 +178,8 @@ struct function GTY(())
      inlining */
   tree saved_args;
   tree saved_static_chain_decl;
+  tree saved_blocks;
+  tree saved_unexpanded_var_list;
 
   /* For function.c.  */
 
@@ -368,6 +370,10 @@ struct function GTY(())
 
   const char *unlikely_text_section_name;
 
+  /* A variable living at the top of the frame that holds a known value.
+     Used for detecting stack clobbers.  */
+  tree stack_protect_guard;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -555,9 +561,6 @@ extern void instantiate_virtual_regs (void);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);
-
-/* Called once, at initialization, to initialize function.c.  */
-extern void init_function_once (void);
 
 extern void do_warn_unused_parameter (tree);
 

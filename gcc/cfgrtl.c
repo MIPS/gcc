@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains low level functions to manipulate the CFG and analyze it
    that are aware of the RTL intermediate language.
@@ -58,11 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "target.h"
 #include "cfgloop.h"
-
-/* The labels mentioned in non-jump rtl.  Valid during find_basic_blocks.  */
-/* ??? Should probably be using LABEL_NUSES instead.  It would take a
-   bit of surgery to be able to use or co-opt the routines in jump.  */
-rtx label_value_list;
+#include "ggc.h"
 
 static int can_delete_note_p (rtx);
 static int can_delete_label_p (rtx);
@@ -103,8 +99,7 @@ can_delete_label_p (rtx label)
   return (!LABEL_PRESERVE_P (label)
 	  /* User declared labels must be preserved.  */
 	  && LABEL_NAME (label) == 0
-	  && !in_expr_list_p (forced_labels, label)
-	  && !in_expr_list_p (label_value_list, label));
+	  && !in_expr_list_p (forced_labels, label));
 }
 
 /* Delete INSN by patching it out.  Return the next insn.  */
@@ -279,6 +274,7 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
 
       bb = alloc_block ();
 
+      init_rtl_bb_info (bb);
       if (!head && !end)
 	head = end = bb_note
 	  = emit_note_after (NOTE_INSN_BASIC_BLOCK, get_last_insn ());
@@ -306,7 +302,7 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
   BB_HEAD (bb) = head;
   BB_END (bb) = end;
   bb->index = last_basic_block++;
-  bb->flags = BB_NEW;
+  bb->flags = BB_NEW | BB_RTL;
   link_block (bb, after);
   BASIC_BLOCK (bb->index) = bb;
   update_bb_for_insn (bb);
@@ -349,7 +345,6 @@ cfg_layout_create_basic_block (void *head, void *end, basic_block after)
 {
   basic_block newbb = rtl_create_basic_block (head, end, after);
 
-  initialize_bb_rbi (newbb);
   return newbb;
 }
 
@@ -484,21 +479,21 @@ rtl_split_block (basic_block bb, void *insnp)
   FOR_EACH_EDGE (e, ei, new_bb->succs)
     e->src = new_bb;
 
-  if (bb->global_live_at_start)
+  if (bb->il.rtl->global_live_at_start)
     {
-      new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-      COPY_REG_SET (new_bb->global_live_at_end, bb->global_live_at_end);
+      new_bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      new_bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+      COPY_REG_SET (new_bb->il.rtl->global_live_at_end, bb->il.rtl->global_live_at_end);
 
       /* We now have to calculate which registers are live at the end
 	 of the split basic block and at the start of the new basic
 	 block.  Start with those registers that are known to be live
 	 at the end of the original basic block and get
 	 propagate_block to determine which registers are live.  */
-      COPY_REG_SET (new_bb->global_live_at_start, bb->global_live_at_end);
-      propagate_block (new_bb, new_bb->global_live_at_start, NULL, NULL, 0);
-      COPY_REG_SET (bb->global_live_at_end,
-		    new_bb->global_live_at_start);
+      COPY_REG_SET (new_bb->il.rtl->global_live_at_start, bb->il.rtl->global_live_at_end);
+      propagate_block (new_bb, new_bb->il.rtl->global_live_at_start, NULL, NULL, 0);
+      COPY_REG_SET (bb->il.rtl->global_live_at_end,
+		    new_bb->il.rtl->global_live_at_start);
 #ifdef HAVE_conditional_execution
       /* In the presence of conditional execution we are not able to update
 	 liveness precisely.  */
@@ -599,6 +594,7 @@ rtl_merge_blocks (basic_block a, basic_block b)
     }
 
   BB_END (a) = a_end;
+  a->il.rtl->global_live_at_end = b->il.rtl->global_live_at_end;
 }
 
 /* Return true when block A and B can be merged.  */
@@ -716,7 +712,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
       /* Selectively unlink whole insn chain.  */
       if (in_cfglayout)
 	{
-	  rtx insn = src->rbi->footer;
+	  rtx insn = src->il.rtl->footer;
 
           delete_insn_chain (kill_from, BB_END (src));
 
@@ -728,7 +724,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 		  if (PREV_INSN (insn))
 		    NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
 		  else
-		    src->rbi->footer = NEXT_INSN (insn);
+		    src->il.rtl->footer = NEXT_INSN (insn);
 		  if (NEXT_INSN (insn))
 		    PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
 		}
@@ -1089,14 +1085,14 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       jump_block->frequency = EDGE_FREQUENCY (e);
       jump_block->loop_depth = target->loop_depth;
 
-      if (target->global_live_at_start)
+      if (target->il.rtl->global_live_at_start)
 	{
-	  jump_block->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-	  jump_block->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-	  COPY_REG_SET (jump_block->global_live_at_start,
-			target->global_live_at_start);
-	  COPY_REG_SET (jump_block->global_live_at_end,
-			target->global_live_at_start);
+	  jump_block->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+	  jump_block->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+	  COPY_REG_SET (jump_block->il.rtl->global_live_at_start,
+			target->il.rtl->global_live_at_start);
+	  COPY_REG_SET (jump_block->il.rtl->global_live_at_end,
+			target->il.rtl->global_live_at_start);
 	}
 
       /* Make sure new block ends up in correct hot/cold section.  */
@@ -1357,14 +1353,14 @@ rtl_split_edge (edge edge_in)
     }
 
   /* ??? This info is likely going to be out of date very soon.  */
-  if (edge_in->dest->global_live_at_start)
+  if (edge_in->dest->il.rtl->global_live_at_start)
     {
-      bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-      COPY_REG_SET (bb->global_live_at_start,
-		    edge_in->dest->global_live_at_start);
-      COPY_REG_SET (bb->global_live_at_end,
-		    edge_in->dest->global_live_at_start);
+      bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+      COPY_REG_SET (bb->il.rtl->global_live_at_start,
+		    edge_in->dest->il.rtl->global_live_at_start);
+      COPY_REG_SET (bb->il.rtl->global_live_at_end,
+		    edge_in->dest->il.rtl->global_live_at_start);
     }
 
   make_single_succ_edge (bb, edge_in->dest, EDGE_FALLTHRU);
@@ -1463,7 +1459,7 @@ safe_insert_insn_on_edge (rtx insn, edge e)
 	&& !REGNO_PTR_FRAME_P (regno))
       SET_REGNO_REG_SET (killed, regno);
 
-  bitmap_and_into (killed, e->dest->global_live_at_start);
+  bitmap_and_into (killed, e->dest->il.rtl->global_live_at_start);
 
   EXECUTE_IF_SET_IN_REG_SET (killed, 0, regno, rsi)
     {
@@ -1766,7 +1762,7 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   s_indent[indent] = '\0';
 
   fprintf (outf, ";;%s Registers live at start: ", s_indent);
-  dump_regset (bb->global_live_at_start, outf);
+  dump_regset (bb->il.rtl->global_live_at_start, outf);
   putc ('\n', outf);
 
   for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb)); insn != last;
@@ -1774,7 +1770,7 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
     print_rtl_single (outf, insn);
 
   fprintf (outf, ";;%s Registers live at end: ", s_indent);
-  dump_regset (bb->global_live_at_end, outf);
+  dump_regset (bb->il.rtl->global_live_at_end, outf);
   putc ('\n', outf);
 }
 
@@ -1825,7 +1821,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	    {
 	      fprintf (outf, ";; Start of basic block %d, registers live:",
 		       bb->index);
-	      dump_regset (bb->global_live_at_start, outf);
+	      dump_regset (bb->il.rtl->global_live_at_start, outf);
 	      putc ('\n', outf);
 	    }
 
@@ -1842,7 +1838,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	    {
 	      fprintf (outf, ";; End of basic block %d, registers live:\n",
 		       bb->index);
-	      dump_regset (bb->global_live_at_end, outf);
+	      dump_regset (bb->il.rtl->global_live_at_end, outf);
 	      putc ('\n', outf);
 	    }
 
@@ -1913,6 +1909,12 @@ rtl_verify_flow_info_1 (void)
       for (x = last_head; x != NULL_RTX; x = PREV_INSN (x))
 	if (x == end)
 	  break;
+
+      if (!(bb->flags & BB_RTL))
+	{
+	  error ("BB_RTL flag not set for block %d", bb->index);
+	  err = 1;
+	}
 
       if (!x)
 	{
@@ -2141,6 +2143,12 @@ rtl_verify_flow_info (void)
     {
       edge e;
       edge_iterator ei;
+
+      if (bb->predictions)
+	{
+	  error ("bb prediction set for block %i, but it is not used in RTL land", bb->index);
+	  err = 1;
+	}
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->flags & EDGE_FALLTHRU)
@@ -2481,8 +2489,8 @@ cfg_layout_split_block (basic_block bb, void *insnp)
   rtx insn = insnp;
   basic_block new_bb = rtl_split_block (bb, insn);
 
-  new_bb->rbi->footer = bb->rbi->footer;
-  bb->rbi->footer = NULL;
+  new_bb->il.rtl->footer = bb->il.rtl->footer;
+  bb->il.rtl->footer = NULL;
 
   return new_bb;
 }
@@ -2588,24 +2596,24 @@ cfg_layout_delete_block (basic_block bb)
 {
   rtx insn, next, prev = PREV_INSN (BB_HEAD (bb)), *to, remaints;
 
-  if (bb->rbi->header)
+  if (bb->il.rtl->header)
     {
       next = BB_HEAD (bb);
       if (prev)
-	NEXT_INSN (prev) = bb->rbi->header;
+	NEXT_INSN (prev) = bb->il.rtl->header;
       else
-	set_first_insn (bb->rbi->header);
-      PREV_INSN (bb->rbi->header) = prev;
-      insn = bb->rbi->header;
+	set_first_insn (bb->il.rtl->header);
+      PREV_INSN (bb->il.rtl->header) = prev;
+      insn = bb->il.rtl->header;
       while (NEXT_INSN (insn))
 	insn = NEXT_INSN (insn);
       NEXT_INSN (insn) = next;
       PREV_INSN (next) = insn;
     }
   next = NEXT_INSN (BB_END (bb));
-  if (bb->rbi->footer)
+  if (bb->il.rtl->footer)
     {
-      insn = bb->rbi->footer;
+      insn = bb->il.rtl->footer;
       while (insn)
 	{
 	  if (BARRIER_P (insn))
@@ -2613,7 +2621,7 @@ cfg_layout_delete_block (basic_block bb)
 	      if (PREV_INSN (insn))
 		NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
 	      else
-		bb->rbi->footer = NEXT_INSN (insn);
+		bb->il.rtl->footer = NEXT_INSN (insn);
 	      if (NEXT_INSN (insn))
 		PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
 	    }
@@ -2621,11 +2629,11 @@ cfg_layout_delete_block (basic_block bb)
 	    break;
 	  insn = NEXT_INSN (insn);
 	}
-      if (bb->rbi->footer)
+      if (bb->il.rtl->footer)
 	{
 	  insn = BB_END (bb);
-	  NEXT_INSN (insn) = bb->rbi->footer;
-	  PREV_INSN (bb->rbi->footer) = insn;
+	  NEXT_INSN (insn) = bb->il.rtl->footer;
+	  PREV_INSN (bb->il.rtl->footer) = insn;
 	  while (NEXT_INSN (insn))
 	    insn = NEXT_INSN (insn);
 	  NEXT_INSN (insn) = next;
@@ -2636,11 +2644,9 @@ cfg_layout_delete_block (basic_block bb)
 	}
     }
   if (bb->next_bb != EXIT_BLOCK_PTR)
-    to = &bb->next_bb->rbi->header;
+    to = &bb->next_bb->il.rtl->header;
   else
     to = &cfg_layout_function_footer;
-
-  bb->rbi = NULL;
 
   rtl_delete_block (bb);
 
@@ -2718,13 +2724,13 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
   gcc_assert (!JUMP_P (BB_END (a)));
 
   /* Possible line number notes should appear in between.  */
-  if (b->rbi->header)
+  if (b->il.rtl->header)
     {
       rtx first = BB_END (a), last;
 
-      last = emit_insn_after_noloc (b->rbi->header, BB_END (a));
+      last = emit_insn_after_noloc (b->il.rtl->header, BB_END (a));
       delete_insn_chain (NEXT_INSN (first), last);
-      b->rbi->header = NULL;
+      b->il.rtl->header = NULL;
     }
 
   /* In the case basic blocks are not adjacent, move them around.  */
@@ -2760,21 +2766,22 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
     }
 
   /* Possible tablejumps and barriers should appear after the block.  */
-  if (b->rbi->footer)
+  if (b->il.rtl->footer)
     {
-      if (!a->rbi->footer)
-	a->rbi->footer = b->rbi->footer;
+      if (!a->il.rtl->footer)
+	a->il.rtl->footer = b->il.rtl->footer;
       else
 	{
-	  rtx last = a->rbi->footer;
+	  rtx last = a->il.rtl->footer;
 
 	  while (NEXT_INSN (last))
 	    last = NEXT_INSN (last);
-	  NEXT_INSN (last) = b->rbi->footer;
-	  PREV_INSN (b->rbi->footer) = last;
+	  NEXT_INSN (last) = b->il.rtl->footer;
+	  PREV_INSN (b->il.rtl->footer) = last;
 	}
-      b->rbi->footer = NULL;
+      b->il.rtl->footer = NULL;
     }
+  a->il.rtl->global_live_at_end = b->il.rtl->global_live_at_end;
 
   if (dump_file)
     fprintf (dump_file, "Merged blocks %d and %d.\n",
@@ -2793,14 +2800,14 @@ cfg_layout_split_edge (edge e)
 
   /* ??? This info is likely going to be out of date very soon, but we must
      create it to avoid getting an ICE later.  */
-  if (e->dest->global_live_at_start)
+  if (e->dest->il.rtl->global_live_at_start)
     {
-      new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-      COPY_REG_SET (new_bb->global_live_at_start,
-		    e->dest->global_live_at_start);
-      COPY_REG_SET (new_bb->global_live_at_end,
-		    e->dest->global_live_at_start);
+      new_bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      new_bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+      COPY_REG_SET (new_bb->il.rtl->global_live_at_start,
+		    e->dest->il.rtl->global_live_at_start);
+      COPY_REG_SET (new_bb->il.rtl->global_live_at_end,
+		    e->dest->il.rtl->global_live_at_start);
     }
 
   make_edge (new_bb, e->dest, EDGE_FALLTHRU);
@@ -3045,6 +3052,13 @@ rtl_extract_cond_bb_edges (basic_block b, edge *branch_edge,
       *branch_edge = e;
       *fallthru_edge = EDGE_SUCC (b, 1);
     }
+}
+
+void
+init_rtl_bb_info (basic_block bb)
+{
+  gcc_assert (!bb->il.rtl);
+  bb->il.rtl = ggc_alloc_cleared (sizeof (struct rtl_bb_info));
 }
 
 

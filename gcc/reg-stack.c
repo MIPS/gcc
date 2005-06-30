@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This pass converts stack-like registers from the "flat register
    file" model that gcc uses, to a stack convention that the 387 uses.
@@ -208,7 +208,7 @@ typedef struct block_info_def
   struct stack_def stack_out;	/* Output stack configuration.  */
   HARD_REG_SET out_reg_set;	/* Stack regs live on output.  */
   int done;			/* True if block already converted.  */
-  int predecessors;		/* Number of predecessors that needs
+  int predecessors;		/* Number of predecessors that need
 				   to be visited.  */
 } *block_info;
 
@@ -224,6 +224,11 @@ enum emit_where
 /* The block we're currently working on.  */
 static basic_block current_block;
 
+/* In the current_block, whether we're processing the first register
+   stack or call instruction, i.e. the the regstack is currently the
+   same as BLOCK_INFO(current_block)->stack_in.  */
+static bool starting_stack_p;
+
 /* This is the register file for all register after conversion.  */
 static rtx
   FP_mode_reg[LAST_STACK_REG+1-FIRST_STACK_REG][(int) MAX_MACHINE_MODE];
@@ -237,7 +242,6 @@ static rtx not_a_num;
 /* Forward declarations */
 
 static int stack_regs_mentioned_p (rtx pat);
-static void straighten_stack (rtx, stack);
 static void pop_stack (stack, int);
 static rtx *get_true_reg (rtx *);
 
@@ -248,7 +252,6 @@ static void replace_reg (rtx *, int);
 static void remove_regno_note (rtx, enum reg_note, unsigned int);
 static int get_hard_regnum (stack, rtx);
 static rtx emit_pop_insn (rtx, stack, rtx, enum emit_where);
-static void emit_swap_insn (rtx, stack, rtx);
 static void swap_to_top(rtx, stack, rtx, rtx);
 static bool move_for_stack_reg (rtx, stack, rtx);
 static bool move_nan_for_stack_reg (rtx, stack, rtx);
@@ -344,8 +347,7 @@ next_flags_user (rtx insn)
   return NULL_RTX;
 }
 
-/* Reorganize the stack into ascending numbers,
-   after this insn.  */
+/* Reorganize the stack into ascending numbers, before this insn.  */
 
 static void
 straighten_stack (rtx insn, stack regstack)
@@ -365,7 +367,7 @@ straighten_stack (rtx insn, stack regstack)
   for (top = temp_stack.top = regstack->top; top >= 0; top--)
     temp_stack.reg[top] = FIRST_STACK_REG + temp_stack.top - top;
 
-  change_stack (insn, regstack, &temp_stack, EMIT_AFTER);
+  change_stack (insn, regstack, &temp_stack, EMIT_BEFORE);
 }
 
 /* Pop a register from the stack.  */
@@ -862,6 +864,16 @@ emit_swap_insn (rtx insn, stack regstack, rtx reg)
 	  && REG_P (i1src) && REGNO (i1src) == FIRST_STACK_REG
 	  && find_regno_note (i1, REG_DEAD, FIRST_STACK_REG) == NULL_RTX)
 	return;
+    }
+
+  /* Avoid emitting the swap if this is the first register stack insn
+     of the current_block.  Instead update the current_block's stack_in
+     and let compensate edges take care of this for us.  */
+  if (current_block && starting_stack_p)
+    {
+      BLOCK_INFO (current_block)->stack_in = *regstack;
+      starting_stack_p = false;
+      return;
     }
 
   swap_rtx = gen_swapxf (FP_MODE_REG (hard_regno, XFmode),
@@ -2205,7 +2217,7 @@ subst_stack_regs (rtx insn, stack regstack)
 
       if (top >= 0)
 	{
-	  straighten_stack (PREV_INSN (insn), regstack);
+	  straighten_stack (insn, regstack);
 
 	  /* Now mark the arguments as dead after the call.  */
 
@@ -2295,6 +2307,19 @@ change_stack (rtx insn, stack old, stack new, enum emit_where where)
 {
   int reg;
   int update_end = 0;
+
+  /* Stack adjustments for the first insn in a block update the
+     current_block's stack_in instead of inserting insns directly.
+     compensate_edges will add the necessary code later.  */
+  if (current_block
+      && starting_stack_p
+      && where == EMIT_BEFORE)
+    {
+      BLOCK_INFO (current_block)->stack_in = *new;
+      starting_stack_p = false;
+      *old = *new;
+      return;
+    }
 
   /* We will be inserting new insns "backwards".  If we are to insert
      after INSN, find the next insn, and insert before it.  */
@@ -2604,24 +2629,22 @@ propagate_stack (edge e)
 static bool
 compensate_edge (edge e, FILE *file)
 {
-  basic_block block = e->src, target = e->dest;
-  block_info bi = BLOCK_INFO (block);
-  struct stack_def regstack, tmpstack;
+  basic_block source = e->src, target = e->dest;
   stack target_stack = &BLOCK_INFO (target)->stack_in;
+  stack source_stack = &BLOCK_INFO (source)->stack_out;
+  struct stack_def regstack;
   int reg;
 
-  current_block = block;
-  regstack = bi->stack_out;
   if (file)
-    fprintf (file, "Edge %d->%d: ", block->index, target->index);
+    fprintf (file, "Edge %d->%d: ", source->index, target->index);
 
   gcc_assert (target_stack->top != -2);
 
   /* Check whether stacks are identical.  */
-  if (target_stack->top == regstack.top)
+  if (target_stack->top == source_stack->top)
     {
       for (reg = target_stack->top; reg >= 0; --reg)
-	if (target_stack->reg[reg] != regstack.reg[reg])
+	if (target_stack->reg[reg] != source_stack->reg[reg])
 	  break;
 
       if (reg == -1)
@@ -2638,59 +2661,49 @@ compensate_edge (edge e, FILE *file)
       print_stack (file, target_stack);
     }
 
-  /* Care for non-call EH edges specially.  The normal return path have
-     values in registers.  These will be popped en masse by the unwind
-     library.  */
-  if ((e->flags & (EDGE_EH | EDGE_ABNORMAL_CALL)) == EDGE_EH)
-    target_stack->top = -1;
-
-  /* Other calls may appear to have values live in st(0), but the
+  /* Abnormal calls may appear to have values live in st(0), but the
      abnormal return path will not have actually loaded the values.  */
-  else if (e->flags & EDGE_ABNORMAL_CALL)
+  if (e->flags & EDGE_ABNORMAL_CALL)
     {
       /* Assert that the lifetimes are as we expect -- one value
          live at st(0) on the end of the source block, and no
-         values live at the beginning of the destination block.  */
-      HARD_REG_SET tmp;
-
-      CLEAR_HARD_REG_SET (tmp);
-      GO_IF_HARD_REG_EQUAL (target_stack->reg_set, tmp, eh1);
-      gcc_unreachable ();
-    eh1:
-
-      /* We are sure that there is st(0) live, otherwise we won't compensate.
+         values live at the beginning of the destination block.
 	 For complex return values, we may have st(1) live as well.  */
-      SET_HARD_REG_BIT (tmp, FIRST_STACK_REG);
-      if (TEST_HARD_REG_BIT (regstack.reg_set, FIRST_STACK_REG + 1))
-        SET_HARD_REG_BIT (tmp, FIRST_STACK_REG + 1);
-      GO_IF_HARD_REG_EQUAL (regstack.reg_set, tmp, eh2);
-      gcc_unreachable ();
-    eh2:
-
-      target_stack->top = -1;
+      gcc_assert (source_stack->top == 0 || source_stack->top == 1);
+      gcc_assert (target_stack->top == -1);
+      return false;
     }
+
+  /* Handle non-call EH edges specially.  The normal return path have
+     values in registers.  These will be popped en masse by the unwind
+     library.  */
+  if (e->flags & EDGE_EH)
+    {
+      gcc_assert (target_stack->top == -1);
+      return false;
+    }
+
+  /* We don't support abnormal edges.  Global takes care to
+     avoid any live register across them, so we should never
+     have to insert instructions on such edges.  */
+  gcc_assert (! (e->flags & EDGE_ABNORMAL));
+
+  /* Make a copy of source_stack as change_stack is destructive.  */
+  regstack = *source_stack;
 
   /* It is better to output directly to the end of the block
      instead of to the edge, because emit_swap can do minimal
      insn scheduling.  We can do this when there is only one
      edge out, and it is not abnormal.  */
-  else if (EDGE_COUNT (block->succs) == 1 && !(e->flags & EDGE_ABNORMAL))
+  if (EDGE_COUNT (source->succs) == 1)
     {
-      /* change_stack kills values in regstack.  */
-      tmpstack = regstack;
-
-      change_stack (BB_END (block), &tmpstack, target_stack,
-		    (JUMP_P (BB_END (block))
-		     ? EMIT_BEFORE : EMIT_AFTER));
+      current_block = source;
+      change_stack (BB_END (source), &regstack, target_stack,
+		    (JUMP_P (BB_END (source)) ? EMIT_BEFORE : EMIT_AFTER));
     }
   else
     {
       rtx seq, after;
-
-      /* We don't support abnormal edges.  Global takes care to
-         avoid any live register across them, so we should never
-         have to insert instructions on such edges.  */
-      gcc_assert (!(e->flags & EDGE_ABNORMAL));
 
       current_block = NULL;
       start_sequence ();
@@ -2698,8 +2711,7 @@ compensate_edge (edge e, FILE *file)
       /* ??? change_stack needs some point to emit insns after.  */
       after = emit_note (NOTE_INSN_DELETED);
 
-      tmpstack = regstack;
-      change_stack (after, &tmpstack, target_stack, EMIT_BEFORE);
+      change_stack (after, &regstack, target_stack, EMIT_BEFORE);
 
       seq = get_insns ();
       end_sequence ();
@@ -2719,6 +2731,8 @@ compensate_edges (FILE *file)
 {
   bool inserted = false;
   basic_block bb;
+
+  starting_stack_p = false;
 
   FOR_EACH_BB (bb)
     if (bb != ENTRY_BLOCK_PTR)
@@ -2800,8 +2814,6 @@ convert_regs_1 (FILE *file, basic_block block)
 	}
     }
 
-  current_block = block;
-
   if (file)
     {
       fprintf (file, "\nBasic block %d\nInput stack: ", block->index);
@@ -2810,8 +2822,11 @@ convert_regs_1 (FILE *file, basic_block block)
 
   /* Process all insns in this block.  Keep track of NEXT so that we
      don't process insns emitted while substituting in INSN.  */
+  current_block = block;
   next = BB_HEAD (block);
   regstack = bi->stack_in;
+  starting_stack_p = true;
+
   do
     {
       insn = next;
@@ -2834,6 +2849,7 @@ convert_regs_1 (FILE *file, basic_block block)
 	      print_stack (file, &regstack);
 	    }
 	  control_flow_insn_deleted |= subst_stack_regs (insn, &regstack);
+	  starting_stack_p = false;
 	}
     }
   while (next);
@@ -2899,6 +2915,7 @@ convert_regs_1 (FILE *file, basic_block block)
   gcc_assert (any_malformed_asm);
  win:
   bi->stack_out = regstack;
+  bi->done = true;
 }
 
 /* Convert registers in all blocks reachable from BLOCK.  */
@@ -2946,7 +2963,6 @@ convert_regs_2 (FILE *file, basic_block block)
 	  }
 
       convert_regs_1 (file, block);
-      BLOCK_INFO (block)->done = 1;
     }
   while (sp != stack);
 
@@ -3061,9 +3077,9 @@ reg_to_stack (FILE *file)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (bb->global_live_at_end, reg))
+	  if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_end, reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (bb->global_live_at_start, reg))
+	  if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_start, reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }
