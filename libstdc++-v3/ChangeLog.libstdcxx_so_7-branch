@@ -1,3 +1,27 @@
+2005-06-30  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20050630.
+
+        (Not merged the ABI compatibility bits)
+
+2005-06-29  Chris Jefferson <chris@bubblescope.net>
+
+	PR libstdc++/21796
+	* include/bits/predefined_ops.h (__bind2nd, bind2nd): New.
+	* include/bits/stl_algo.h (search): Delegate to specializations.
+	(__search(,,,,,forward_iterator_tag): Tidy up original version of
+	std::search, add calls to find_if.
+	(__search(,,,,,random_access_iterator_tag): Add new random access
+	specialization.
+	* testsuite/25_algorithms/search/1.cc: Add new test.
+	* testsuite/25_algorithms/search/check_type.cc: Improve and extend
+	tests.
+
+2005-06-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/string-inst.cc: Add explicit instantiations of __search and
+	__find_if.
+
 2005-06-16  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/std/std_string.h: Don't include <algorithm>.

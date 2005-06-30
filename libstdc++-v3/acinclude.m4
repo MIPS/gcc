@@ -531,14 +531,15 @@ dnl
 dnl GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE must be done before this.
 dnl
 dnl Sets:
-dnl  enable_abi_check / GLIBCXX_TEST_ABI
+dnl  enable_abi_check
 dnl  GLIBCXX_TEST_WCHAR_T
 dnl  GLIBCXX_TEST_THREAD
 dnl Substs:
 dnl  baseline_dir
 dnl
 AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
-  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
+  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes && 
+                           test $enable_symvers != no; then
     # Do checks for resource limit functions.
     GLIBCXX_CHECK_SETRLIMIT
 
@@ -560,12 +561,10 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
     # CXX_FOR_BUILD.
     enable_abi_check=no
   fi
-
+  
   # Export file names for ABI checking.
   baseline_dir="$glibcxx_srcdir/config/abi/${abi_baseline_pair}\$(MULTISUBDIR)"
   AC_SUBST(baseline_dir)
-
-  GLIBCXX_CONDITIONAL(GLIBCXX_TEST_ABI, test $enable_abi_check = yes)
 ])
 
 
@@ -1684,6 +1683,8 @@ EOF
         enable_sjlj_exceptions=yes
       elif grep _Unwind_Resume conftest.s >/dev/null 2>&1 ; then
         enable_sjlj_exceptions=no
+      elif grep __cxa_end_cleanup conftest.s >/dev/null 2>&1 ; then
+        enable_sjlj_exceptions=no
       fi
     fi
     CXXFLAGS="$old_CXXFLAGS"
@@ -1769,7 +1770,6 @@ fi
 # For GNU ld, we need at least this version.  The format is described in
 # GLIBCXX_CHECK_LINKER_FEATURES above.
 glibcxx_min_gnu_ld_version=21400
-# XXXXXXXXXXX glibcxx_gnu_ld_version=21390
 
 # Check to see if unspecified "yes" value can win, given results above.
 # Change "yes" into either "no" or a style name.
@@ -1787,8 +1787,6 @@ if test $enable_symvers = yes; then
       AC_MSG_WARN(=== $glibcxx_min_gnu_ld_version or later and rebuild GCC.)
       if test $glibcxx_gnu_ld_version -ge 21200 ; then
         # Globbing fix is present, proper block support is not.
-        dnl AC_MSG_WARN([=== Dude, you are soooo close.  Maybe we can fake it.])
-        dnl enable_symvers=???
         AC_MSG_WARN([=== Symbol versioning will be disabled.])
         enable_symvers=no
       else

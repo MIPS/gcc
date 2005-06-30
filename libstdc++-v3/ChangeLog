@@ -1,3 +1,733 @@
+2005-06-29  Paolo Carlini  <pcarlini@suse.de>
+	    
+	PR libstdc++/21244 (cont^2)
+	* include/ext/bitmap_allocator.h: Convert everywhere
+	bits_per_block to size_t.	
+
+2005-06-29  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/basic_string.h, include/bits/locale_facets.h: Fix
+	Doxygen comments that use wrong parameter and function names.
+
+2005-06-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 37.
+	* docs/html/ext/howto.html: Adjust.
+
+2005-06-29  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22131
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_int,
+	num_get<>::_M_extract_float, money_get<>::_M_extract):
+	Adjust to assign the result also when digit grouping is
+	wrong (but the grammar is correct), as per 22.2.2.1.2, p11-12
+	(NB: consistently for money_get too).
+	* config/locale/generic/c_locale.cc (__convert_to_v): Do
+	not check ios_base::failbit at the outset.
+	* config/locale/gnu/c_locale.cc: Likewise.
+	* testsuite/22_locale/money_get/get/char/22131.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/22131.cc: Likewise.
+	* testsuite/22_locale/num_get/get/char/22131.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/22131.cc: Likewise.
+	* testsuite/22_locale/num_get/get/char/12.cc: Adjust.
+	* testsuite/22_locale/num_get/get/wchar_t/12.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/07.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/wchar_t/07.cc:
+	Likewise.
+
+2005-06-28  Paul Brook  <paul@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SJLJ_EXCEPTIONS): Check for
+	__cxa_end_cleanup.
+	* libsupc++/Makefile.am (sources): Add eh_call.c and eh_arm.c.
+	* libsupc++/eh_arm.cc: New file.
+	* libsupc++/eh_call.cc: New file.
+	* libsupc++/eh_catch.cc (__cxa_get_exception_ptr): Use
+	__gxx_caught_object.
+	(__cxa_begin_catch): Ditto. Use __is_gxx_exception_class. Call
+	_Unwind_Complete when using the ARM EABI.
+	(__cxa_end_catch): Use __is_gxx_exception_class.
+	* libsupc++/eh_personality.cc: Define NO_SIZE_OF_ENCODED_VALUE when
+	using the ARM EABI.
+	(save_caught_exception, restore_caught_exception): New functions.
+	(_throw_typet): New typedef.
+	(get_ttype_entry, get_adjusted_ptr, check_exception_spec): Add ARM
+	EABI implementations.
+	(PERSONALITY_FUNCTION): Use new functions.  Addd support for ARM EABI
+	unwinding libary.
+	(__cxa_unexpected): Disable when using the ARM EABI.
+	* libsupc++/eh_throw.cc (__cxa_throw): Use __GXX_INIT_EXCEPTION_CLASS.
+	(__cxa_rethrow): Use __is_gxx_exception_class.  Call
+	_Unwind_RaiseException when using the ARM EABI.
+	* libsupc++/unwind-cxx.h (struct __cxa_exception): Add fields for ARM
+	EABI semantics.
+	(struct __cxa_eh_globals): Ditto.
+	(__cxa_call_terminate): Add prototype.
+	(__cxa_type_match, __cxa_begin_cleanup, __cxa_end_cleanup): Add
+	prototypes.
+	(__get_exception_header_from_obj, __get_exception_header_from_ue):
+	Move earlier in file.
+	(__is_gxx_exception_class, __GXX_INIT_EXCEPTION_CLASS,
+	__gxx_caught_object): New functions.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* src/Makefie.in: Regenerate.
+	* testsuite/makefile.in: Regenerate.
+
+2005-06-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22102
+	* include/bits/stl_tree.h (insert_unique(iterator, const _Val&),
+	insert_equal((iterator, const _Val&)): Reimplement to check both
+	before and after, as per the algorithm "ignore hint if wrong" of
+	ISO paper N1780.
+
+2005-06-27  Benjamin Kosnik  <bkoz@redhat.com>
+	    Ami Tavory  <pbassoc@gmail.com>
+	
+	* docs/html/documentation.html: Add link for policy based
+	associative containers docs.
+	* docs/html/ext/pb_assoc/Std_hash_set_impl.jpg: New.
+	* docs/html/ext/pb_assoc/acks.html: New.
+	* docs/html/ext/pb_assoc/balls_and_bins.jpg: New.
+	* docs/html/ext/pb_assoc/basic_assoc_cntnr.html: New.
+	* docs/html/ext/pb_assoc/basic_assoc_cntnr_compound_data.html: New.
+	* docs/html/ext/pb_assoc/basic_assoc_cntnr_no_data.html: New.
+	* docs/html/ext/pb_assoc/basic_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/basic_hash_assoc_cntnr.html: New.
+	* docs/html/ext/pb_assoc/basic_hash_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/basic_invalidation_guarantee.html: New.
+	* docs/html/ext/pb_assoc/basic_ms_tag.html: New.
+	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr.html: New.
+	* docs/html/ext/pb_assoc/
+	  basic_tree_assoc_cntnr_const_node_iterator.html: New.
+	* docs/html/ext/pb_assoc/
+	  basic_tree_assoc_cntnr_node_iterator.html: New.
+	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr_rev.html: New.
+	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr_rev_it.html: New.
+	* docs/html/ext/pb_assoc/basic_tree_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/cc_hash_assoc_cntnr.html: New.
+	* docs/html/ext/pb_assoc/cc_hash_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/
+	  cc_hash_max_collision_check_resize_trigger.html: New.
+	* docs/html/ext/pb_assoc/cc_hash_policy_cd.jpg: New.
+	* docs/html/ext/pb_assoc/cd.jpg: New.
+	* docs/html/ext/pb_assoc/component_requirements.html: New.
+	* docs/html/ext/pb_assoc/compound_data_enabled_ms_tag.html: New.
+	* docs/html/ext/pb_assoc/compound_data_type.html: New.
+	* docs/html/ext/pb_assoc/compound_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/concepts.html: New.
+	* docs/html/ext/pb_assoc/contact.html: New.
+	* docs/html/ext/pb_assoc/counter_update_metadata.html: New.
+	* docs/html/ext/pb_assoc/counter_update_policy.html: New.
+	* docs/html/ext/pb_assoc/data_enabled_ms_tag.html: New.
+	* docs/html/ext/pb_assoc/design.html: New.
+	* docs/html/ext/pb_assoc/different_underlying_dss.jpg: New.
+	* docs/html/ext/pb_assoc/direct_mask_range_hashing.html: New.
+	* docs/html/ext/pb_assoc/direct_mod_range_hashing.html: New.
+	* docs/html/ext/pb_assoc/disclaimer.html: New.
+	* docs/html/ext/pb_assoc/ds_gen.html: New.
+	* docs/html/ext/pb_assoc/ds_tag_cd.jpg: New.
+	* docs/html/ext/pb_assoc/ds_traits.html: New.
+	* docs/html/ext/pb_assoc/embedded_lists_1.jpg: New.
+	* docs/html/ext/pb_assoc/embedded_lists_2.jpg: New.
+	* docs/html/ext/pb_assoc/examples.html: New.
+	* docs/html/ext/pb_assoc/exception_guarantees_specifics.html: New.
+	* docs/html/ext/pb_assoc/find_invalidation_guarantee.html: New.
+	* docs/html/ext/pb_assoc/find_iterators_cd.jpg: New.
+	* docs/html/ext/pb_assoc/find_iterators_range_ops_1.jpg: New.
+	* docs/html/ext/pb_assoc/find_iterators_range_ops_2.jpg: New.
+	* docs/html/ext/pb_assoc/generics.html: New.
+	* docs/html/ext/pb_assoc/gp_hash_assoc_cntnr.html: New.
+	* docs/html/ext/pb_assoc/gp_hash_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/gp_hash_policy_cd.jpg: New.
+	* docs/html/ext/pb_assoc/hash_and_probe_general.html: New.
+	* docs/html/ext/pb_assoc/hash_based_containers.html: New.
+	* docs/html/ext/pb_assoc/hash_cd.jpg: New.
+	* docs/html/ext/pb_assoc/hash_exponential_size_policy.html: New.
+	* docs/html/ext/pb_assoc/hash_fn.html: New.
+	* docs/html/ext/pb_assoc/hash_load_check_resize_trigger.html: New.
+	* docs/html/ext/pb_assoc/hash_policies.html: New.
+	* docs/html/ext/pb_assoc/hash_policy_cd.jpg: New.
+	* docs/html/ext/pb_assoc/hash_prime_size_policy.html: New.
+	* docs/html/ext/pb_assoc/hash_range_hashing_seq_diagram.jpg: New.
+	* docs/html/ext/pb_assoc/hash_range_hashing_seq_diagram2.jpg: New.
+	* docs/html/ext/pb_assoc/hash_ranged_hash_range_hashing_fns.jpg: New.
+	* docs/html/ext/pb_assoc/hash_standard_resize_policy.html: New.
+	* docs/html/ext/pb_assoc/home.html: New.
+	* docs/html/ext/pb_assoc/index.html: New.
+	* docs/html/ext/pb_assoc/insert_resize_sequence_diagram1.jpg: New.
+	* docs/html/ext/pb_assoc/insert_resize_sequence_diagram2.jpg: New.
+	* docs/html/ext/pb_assoc/insert_resize_sequence_diagram3.jpg: New.
+	* docs/html/ext/pb_assoc/insert_type_methods.html: New.
+	* docs/html/ext/pb_assoc/interface.html: New.
+	* docs/html/ext/pb_assoc/interval_node_invariants.jpg: New.
+	* docs/html/ext/pb_assoc/introduction.html: New.
+	* docs/html/ext/pb_assoc/invalidation_guarantee_cd.jpg: New.
+	* docs/html/ext/pb_assoc/invalidation_guarantee_erase.jpg: New.
+	* docs/html/ext/pb_assoc/lib_download.html: New.
+	* docs/html/ext/pb_assoc/linear_probe_fn.html: New.
+	* docs/html/ext/pb_assoc/list_updates.html: New.
+	* docs/html/ext/pb_assoc/lu_assoc_cntnr.html: New.
+	* docs/html/ext/pb_assoc/lu_based_containers.html: New.
+	* docs/html/ext/pb_assoc/lu_cd.jpg: New.
+	* docs/html/ext/pb_assoc/lu_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/lu_ops.jpg: New.
+	* docs/html/ext/pb_assoc/mmap_value_utils.html: New.
+	* docs/html/ext/pb_assoc/motivation.html: New.
+	* docs/html/ext/pb_assoc/move_to_front_update_metadata.html: New.
+	* docs/html/ext/pb_assoc/move_to_front_update_policy.html: New.
+	* docs/html/ext/pb_assoc/ms_cd.jpg: New.
+	* docs/html/ext/pb_assoc/ms_gen.html: New.
+	* docs/html/ext/pb_assoc/ms_tag_cd.jpg: New.
+	* docs/html/ext/pb_assoc/ms_traits.html: New.
+	* docs/html/ext/pb_assoc/node_invariant_invalidations.jpg: New.
+	* docs/html/ext/pb_assoc/node_invariants.html: New.
+	* docs/html/ext/pb_assoc/node_invariants.jpg: New.
+	* docs/html/ext/pb_assoc/non_unique_mapping.html: New.
+	* docs/html/ext/pb_assoc/non_unique_mapping_containers.jpg: New.
+	* docs/html/ext/pb_assoc/null_data_type.html: New.
+	* docs/html/ext/pb_assoc/null_hash_fn.html: New.
+	* docs/html/ext/pb_assoc/null_probe_fn.html: New.
+	* docs/html/ext/pb_assoc/order_by_key.html: New.
+	* docs/html/ext/pb_assoc/order_statistics_key.html: New.
+	* docs/html/ext/pb_assoc/order_statistics_key_cmp.html: New.
+	* docs/html/ext/pb_assoc/order_statistics_node_updator.html: New.
+	* docs/html/ext/pb_assoc/ov_tree_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/overview.html: New.
+	* docs/html/ext/pb_assoc/pb_assoc_ex.html: New.
+	* docs/html/ext/pb_assoc/portability.html: New.
+	* docs/html/ext/pb_assoc/quadratic_probe_fn.html: New.
+	* docs/html/ext/pb_assoc/range_invalidation_guarantee.html: New.
+	* docs/html/ext/pb_assoc/rank_node_invariants.jpg: New.
+	* docs/html/ext/pb_assoc/rationale_null_node_updator.jpg: New.
+	* docs/html/ext/pb_assoc/rb_tree_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/reference_iterator.jpg: New.
+	* docs/html/ext/pb_assoc/references.html: New.
+	* docs/html/ext/pb_assoc/regression_tests.html: New.
+	* docs/html/ext/pb_assoc/resize_general.html: New.
+	* docs/html/ext/pb_assoc/resize_policies.html: New.
+	* docs/html/ext/pb_assoc/resize_policy_cd.jpg: New.
+	* docs/html/ext/pb_assoc/restoring_node_invariants.jpg: New.
+	* docs/html/ext/pb_assoc/sample_node_updator.hpp: New.
+	* docs/html/ext/pb_assoc/sample_probe_fn.hpp: New.
+	* docs/html/ext/pb_assoc/sample_probe_fn.html: New.
+	* docs/html/ext/pb_assoc/sample_range_hashing.hpp: New.
+	* docs/html/ext/pb_assoc/sample_range_hashing.html: New.
+	* docs/html/ext/pb_assoc/sample_ranged_hash_fn.hpp: New.
+	* docs/html/ext/pb_assoc/sample_ranged_hash_fn.html: New.
+	* docs/html/ext/pb_assoc/sample_ranged_probe_fn.hpp: New.
+	* docs/html/ext/pb_assoc/sample_ranged_probe_fn.html: New.
+	* docs/html/ext/pb_assoc/sample_resize_policy.hpp: New.
+	* docs/html/ext/pb_assoc/sample_resize_policy.html: New.
+	* docs/html/ext/pb_assoc/sample_resize_trigger.hpp: New.
+	* docs/html/ext/pb_assoc/sample_size_policy.hpp: New.
+	* docs/html/ext/pb_assoc/sample_update_policy.hpp: New.
+	* docs/html/ext/pb_assoc/size_policies_general.html: New.
+	* docs/html/ext/pb_assoc/splay_tree_ds_tag.html: New.
+	* docs/html/ext/pb_assoc/timing_tests.html: New.
+	* docs/html/ext/pb_assoc/toc.html: New.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr.html: New.
+	* docs/html/ext/pb_assoc/
+	  tree_assoc_cntnr_const_node_iterator.html: New.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr_node_iterator.html: New.
+	* docs/html/ext/pb_assoc/tree_based_containers.html: New.
+	* docs/html/ext/pb_assoc/tree_cd.jpg: New.
+	* docs/html/ext/pb_assoc/trigger_policies_general.html: New.
+	* docs/html/ext/pb_assoc/tutorial.html: New.
+	* docs/html/ext/pb_assoc/update_seq_diagram.jpg: New.
+	* include/Makefile.am: Add assoc_srcdir, assoc_builddir, assoc_subdir,
+	assoc_headers.
+	* include/Makefile.in: Regenerate.
+	* include/ext/typelist.h: New.
+	* include/ext/pb_assoc/assoc_cntnr.hpp: New.
+	* include/ext/pb_assoc/data_type.hpp: New.
+	* include/ext/pb_assoc/ds_trait.hpp: New.
+	* include/ext/pb_assoc/exception.hpp: New.
+	* include/ext/pb_assoc/hash_policy.hpp: New.
+	* include/ext/pb_assoc/lu_policy.hpp: New.
+	* include/ext/pb_assoc/ms_trait.hpp: New.
+	* include/ext/pb_assoc/tree_policy.hpp: New.
+	* include/ext/pb_assoc/trivial_iterator_def.hpp: New.
+	* include/ext/pb_assoc/detail/assoc_cntnr_base.hpp: New.
+	* include/ext/pb_assoc/detail/cond_dealtor.hpp: New.
+	* include/ext/pb_assoc/detail/constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ds_trait_imp.hpp: New.
+	* include/ext/pb_assoc/detail/hash_types_traits.hpp: New.
+	* include/ext/pb_assoc/detail/map_debug_base.hpp: New.
+	* include/ext/pb_assoc/detail/mapping_level_imp.hpp: New.
+	* include/ext/pb_assoc/detail/ms_category_imp.hpp: New.
+	* include/ext/pb_assoc/detail/ms_trait_imp.hpp: New.
+	* include/ext/pb_assoc/detail/order_statistics_imp.hpp: New.
+	* include/ext/pb_assoc/detail/standard_policies.hpp: New.
+	* include/ext/pb_assoc/detail/standard_sizes.hpp: New.
+	* include/ext/pb_assoc/detail/type_utils.hpp: New.
+	* include/ext/pb_assoc/detail/typelist.hpp: New.
+	* include/ext/pb_assoc/detail/types_traits.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/
+     	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/
+	  constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/d_extract_key.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/
+	  d_find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/
+	  d_insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/extract_key.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/
+	  insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_assoc_cntnr/
+	  iterators_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_hash_assoc_cntnr/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_hash_assoc_cntnr/
+	  constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_hash_assoc_cntnr/
+	  resize_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  node_iteration_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  policy_access_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  r_erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  r_range_iteration_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  range_iteration_fn_imps.hpp: New.	
+	* include/ext/pb_assoc/detail/basic_tree_assoc_cntnr/
+	  split_join_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/
+	  bin_search_tree_.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/
+	  cond_dtor_entry_dealtor.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/
+	  cond_key_dtor_entry_dealtor.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/
+	  constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/debug_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/find_iterators.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/
+	  iterators_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/node_iterators.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/
+	  r_erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/rotate_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/bin_search_tree_/
+	  split_join_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_hash_assoc_cntnr/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/cc_ht_map_.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/cmp_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  cond_key_dtor_entry_dealtor.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  constructor_destructor_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  constructor_destructor_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/debug_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  debug_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  debug_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/entry_list_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  erase_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  erase_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  find_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  find_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  insert_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  insert_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/iterators_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  policy_access_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/resize_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  resize_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/
+	  resize_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/size_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/cc_ht_map_/standard_policies.hpp: New.
+	* include/ext/pb_assoc/detail/eq_fn/eq_by_less.hpp: New.
+	* include/ext/pb_assoc/detail/eq_fn/hash_eq_fn.hpp: New.
+	* include/ext/pb_assoc/detail/gp_hash_assoc_cntnr/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  constructor_destructor_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  constructor_destructor_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/debug_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  debug_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  debug_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  erase_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  erase_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  find_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  find_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/gp_ht_map_.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+  	  insert_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  insert_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/iterator_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  policy_access_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/resize_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  resize_no_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/gp_ht_map_/
+	  resize_store_hash_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/
+	  direct_mask_range_hashing_imp.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/
+	  direct_mod_range_hashing_imp.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/linear_probe_fn_imp.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/
+	  mask_based_range_hashing.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/mod_based_range_hashing.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/probe_fn_base.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/quadratic_probe_fn_imp.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/ranged_hash_fn.hpp: New.
+	* include/ext/pb_assoc/detail/hash_fn/ranged_probe_fn.hpp: New.
+	* include/ext/pb_assoc/detail/lu_assoc_cntnr/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_assoc_cntnr/
+	  policy_access_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/debug_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/iterators_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/lu_map_.hpp: New.
+	* include/ext/pb_assoc/detail/lu_map_/policy_access_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/lu_policy/
+  	  counter_lu_metadata_imp.hpp: New.
+	* include/ext/pb_assoc/detail/lu_policy/counter_lu_policy_imp.hpp: New.
+	* include/ext/pb_assoc/detail/lu_policy/mtf_lu_policy_imp.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/cond_dtor.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/
+	  constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/debug_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/iterators_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/node_iterators.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/ov_tree_map_.hpp: New.
+	* include/ext/pb_assoc/detail/ov_tree_map_/split_join_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/
+	  constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/debug_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/node.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/rb_tree_.hpp: New.
+	* include/ext/pb_assoc/detail/rb_tree_map_/split_join_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/resize_policy/
+	  cc_hash_max_collision_resize_trigger_imp.hpp: New.
+	* include/ext/pb_assoc/detail/resize_policy/
+	  hash_exponential_size_policy_imp.hpp: New.
+	* include/ext/pb_assoc/detail/resize_policy/
+	  hash_load_check_resize_trigger_imp.hpp: New.
+	* include/ext/pb_assoc/detail/resize_policy/
+	  hash_prime_size_policy_imp.hpp: New.
+	* include/ext/pb_assoc/detail/resize_policy/
+	  hash_standard_resize_policy_imp.hpp: New.
+	* include/ext/pb_assoc/detail/resize_policy/
+	  ht_prime_size_policy_imp.hpp: New.
+	* include/ext/pb_assoc/detail/resize_policy/size_base.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/
+	  constructors_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/debug_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/node.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/splay_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/splay_tree_.hpp: New.
+	* include/ext/pb_assoc/detail/splay_tree_/split_join_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/tree_assoc_cntnr/
+	  constructor_destructor_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/tree_policy/
+	  null_node_updator_imp.hpp: New.
+	* include/ext/pb_assoc/detail/tree_policy/
+	  order_statistics_imp.hpp: New.
+	* include/ext/pb_assoc/detail/typelist/typelist_append.hpp: New.
+	* include/ext/pb_assoc/detail/typelist/typelist_apply.hpp: New.
+	* include/ext/pb_assoc/detail/typelist/typelist_at_index.hpp: New.
+	* include/ext/pb_assoc/detail/typelist/typelist_contains.hpp: New.
+	* include/ext/pb_assoc/detail/typelist/typelist_filter.hpp: New.
+	* include/ext/pb_assoc/detail/typelist/typelist_transform.hpp: New.
+	* include/ext/pb_assoc/detail/typelist/
+	  typelist_typelist_append.hpp: New.
+	* include/ext/pb_assoc/detail/unordered_iterator/
+	  const_find_iterator.hpp: New.
+	* include/ext/pb_assoc/detail/unordered_iterator/
+	  const_iterator.hpp: New.
+	* include/ext/pb_assoc/detail/unordered_iterator/
+	  find_iterator.hpp: New.
+	* include/ext/pb_assoc/detail/unordered_iterator/iterator.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	  constructor_destructor_and_related.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	  erase_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	  erase_if_pred.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/find_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/info_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	insert_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	invalidation_guarantee_selector.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	it_value_type_traits.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/iterator.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	iterator_fn_imps.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/ref_pair.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	value_type_adapter.hpp: New.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	value_type_traits.hpp: New.
+	* testsuite/Makefile.am (CLEANFILES): Add .o, .dat, .cc.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/testsuite_common_types.h: New.
+	* testsuite/testsuite_visualization.h: New.
+	* testsuite/ext/pb_assoc/example/basic_map.cc: New.
+	* testsuite/ext/pb_assoc/example/basic_multimap.cc: New.
+	* testsuite/ext/pb_assoc/example/basic_set.cc: New.
+	* testsuite/ext/pb_assoc/example/ds_traits.cc: New.
+	* testsuite/ext/pb_assoc/example/erase_if.cc: New.
+	* testsuite/ext/pb_assoc/example/extract_key.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_find_neg.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_illegal_resize.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_initial_size.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_load_set_change.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_mod.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_resize.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_resize_neg.cc: New.
+	* testsuite/ext/pb_assoc/example/hash_shift_mask.cc: New.
+	* testsuite/ext/pb_assoc/example/mapping_level.cc: New.
+	* testsuite/ext/pb_assoc/example/mapping_level_neg.cc: New.
+	* testsuite/ext/pb_assoc/example/ms_traits.cc: New.
+	* testsuite/ext/pb_assoc/example/ranged_hash.cc: New.
+	* testsuite/ext/pb_assoc/example/store_hash.cc: New.
+	* testsuite/ext/pb_assoc/example/tree_intervals.cc: New.
+	* testsuite/ext/pb_assoc/example/tree_join.cc: New.
+	* testsuite/ext/pb_assoc/example/tree_order_statistics.cc: New.
+	* testsuite/ext/pb_assoc/example/tree_order_statistics_join.cc: New.
+	* testsuite/ext/pb_assoc/example/tree_split.cc: New.
+	* testsuite/performance/20_util/allocator/(insert.cc,
+	  insert_insert.cc, list_sort_search.cc, map_mt_find.cc, map_thread.cc,
+	  producer_consumer.cc): Recast to use typelists and move to...
+	* testsuite/performance/23_containers/find/map.cc: New.
+	* testsuite/performance/23_containers/index/map.cc: New.
+	* testsuite/performance/23_containers/insert/associative.cc: New.
+	* testsuite/performance/23_containers/insert/sequence.cc: New.
+	* testsuite/performance/23_containers/insert_erase/associative.cc: New.
+	* testsuite/performance/23_containers/producer_consumer/
+	(associative.cc, sequence.cc): New.
+	* testsuite/performance/23_containers/sort_search/list.cc: New.
+	* testsuite/performance/23_containers/container_benchmark.cc: Remove.
+	* testsuite/performance/23_containers/map_create_fill.cc: Move...
+	* testsuite/performance/23_containers/create/map.cc: ...here.
+	* testsuite/performance/23_containers/set_create_from_sorted.cc: Move.
+	* testsuite/performance/23_containers/create_from_sorted/set.cc: here.
+	* testsuite/performance/23_containers/list_create_fill_sort.cc: Move...
+	* testsuite/performance/23_containers/create_sort/list.cc: ...here.
+	* testsuite/performance/23_containers/set_insert_from_sorted.cc: Move.
+	* testsuite/performance/23_containers/insert_from_sorted/set.cc: here.
+	
+2005-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/22109
+	* src/compatibility.cc (_GLIBCXX_SYMVER_COMPATIBILITY): Remove.
+	(istreambuf_iterator, basic_fstream, basic_ifstream, basic_ofstream,
+	_M_copy, _M_move, _M_assign, _M_disjunct, _M_check_length,
+	_M_set_length_and_sharable, ignore, eq): Define to XX suffixed
+	variants.
+	(ignore (streamsize)): Remove _W prefixed aliases.
+	(_GLIBCXX_3_4_SYMVER_SPECIAL, _GLIBCXX_3_4_5_SYMVER_SPECIAL,
+	_GLIBCXX_APPLY_SYMVER_SPECIAL): Remove.
+	(_GLIBCXX_3_4_SYMVER, _GLIBCXX_3_4_5_SYMVER): Add XXname argument.
+	Use #XXname instead of #name as the alias argument.
+	* config/abi/compatibility.h: Replace uses of
+	_GLIBCXX_APPLY_SYMVER_SPECIAL with _GLIBCXX_APPLY_SYMVER.  Always
+	pass 2 arguments to the _GLIBCXX_APPLY_SYMVER macro.
+	* include/bits/char_traits.h (char_traits::eq): Revert 2005-06-15
+	change.
+	* acinclude.m4: Decrease glibcxx_min_gnu_ld_version back to 21400.
+	* configure: Rebuilt.
+
+2005-06-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/22111
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Remove
+	GLIBCXX_TEST_ABI. Remove duplicate _GLIBCXX_ASM_SYMVER define.
+	Don't enable abi testing unless versioned.
+	* configure: Regenerate.
+	* testsuite/Makefile.am (check-abi): Remove conditional.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/libstdc++-abi/abi.exp: Call build_support, then check
+	v3-symver before proceeding.
+	* testsuite/lib/libstdc++.exp (libstdc++-dg-test): Set v3-symvers
+	if _GLIBCXX_SYMVER.
+	
+2005-06-17  Paolo Carlini  <pcarlini@suse.de>
+
+        Port from libstdcxx_so_7-branch:
+	2005-01-12  Christopher Jefferson <chris@bubblescope.net>
+
+	* include/bits/stl_function.h (mem_fun_t, const_mem_fun_t,
+	mem_fun_ref_t, const_mem_fun_ref_t, mem_fun1_t, const_mem_fun1_t,
+	mem_fun1_ref_t, const_mem_fun1_ref_t): Remove overloads for void
+	return type, just an old HP/SGI workaround.
+	* testsuite/20_util/functional/binders.cc: Move to...
+	* testsuite/20_util/functional/binders/3113.cc: ...here.
+	* testsuite/20_util/functional/binders/1.cc: New.
+
+2005-06-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/21_strings/gotw29a.txt: Update code to corrected version.
+
+2005-06-17  Jakub Jelinek  <jakub@redhat.com>
+            Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/alpha-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/hppa-linux-gnu/baseline_symbols.txt: Same.
+	* config/abi/mips-linux-gnu/baseline_symbols.txt: Same.
+	* config/abi/sparc-linux-gnu/baseline_symbols.txt: Same.
+
+	* config/abi/alpha-freebsd5/baseline_symbols.txt: Remove.
+	* config/abi/i386-freebsd4/baseline_symbols.txt: Same.
+	* config/abi/i386-freebsd5/baseline_symbols.txt: Same.
+	* config/abi/sparc-freebsd5/baseline_symbols.txt: Same.
+
+	* config/abi/arm-linux-gnu/baseline_symbols.txt: Remove.
+	* config/abi/m68k-linux-gnu/baseline_symbols.txt: Same.
+
+2005-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/ia64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/s390x-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/s390-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/x86_64-linux-gnu/32/baseline_symbols.txt: Update.
+	* config/abi/powerpc-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/i486-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/i386-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/powerpc64-linux-gnu/baseline_symbols.txt: New file.
+	* config/abi/powerpc64-linux-gnu/32/baseline_symbols.txt: New file.
+
+2005-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/compatibility.cc: Include bits/c++config.h first.
+	(_GLIBCXX_SYMVER_COMPATIBILITY): Define if _GLIBCXX_SYMVER
+	and PIC are both defined.
+	* include/bits/char_traits.h (char_traits::eq): Rename
+	only if _GLIBCXX_SYMVER_COMPATIBILITY is defined.
+
+2005-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+        * acinclude.m4 ((GLIBCXX_ENABLE_SYMVERS): Rename _GLIBCXX_SIZE_T_IS_INT
+        to _GLIBCXX_SIZE_T_IS_UINT.  Define _GLIBCXX_PTRDIFF_T_IS_INT.
+        * configure: Regenerate.
+        * config.h.in: Regenerate.
+        * src/compatibility.cc (istream:ignore(streamsize)): Use
+        _GLIBCXX_PTRDIFF_T_IS_INT instead of _GLIBCXX_SIZE_T_IS_INT.
+        * config/abi/compatibility.h: Rename _GLIBCXX_SIZE_T_IS_INT
+        to _GLIBCXX_SIZE_T_IS_UINT.  Use _GLIBCXX_PTRDIFF_T_IS_INT
+        instead for symbols with streamsize arguments.
+
+2005-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linker-map.gnu: Also export
+	_ZNSt13basic_istreamIwSt11char_traitsIwEE6ignoreE[il][il].
+
+2005-06-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:6:0.
+	* configure: Regenerate.
+	* config/linker-map.gnu: Edit.
+	* src/istream.cc: Move istream::ignore(streamsize) specializations...
+	* src/compatibility.cc: ...here. New.
+	* include/bits/char_traits.h (char_traits::eq): Rename when
+	appropriate.
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Define _GLIBCXX_SIZE_T_IS_INT.
+	Bump glibcxx_min_gnu_ld_version to 21590.
+	* configure: Regenerate.
+	* acconfig.h: Remove _GLIBCXX_ASM_SYMVER.
+	* config.h.in: Regenerate.
+	* src/Makefile.am (sources): Add compatibility.cc.
+	* src/Makefile.in: Regenerate.
+	* include/Makefile.am (host_headers_noinst): Add compatibility.h.
+	* include/Makefile.in: Regenerate.
+	* testsuite/testsuite_abi.h (symbol): Add data members.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.5,
+	GLIBCXX_3.4.6.  Remove deprecated versions. Do a better job
+	version checking.
+
+2005-06-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable: Trivial formatting fixes.
+	* include/tr1/unordered_map: Likewise.
+	* include/tr1/unordered_set: Likewise.
+
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19877:
+	* configure, aclocal.m4: Rebuilt.
+	* Makefile.in, include/Makefile.in, libmath/Makefile.in,
+	libsupc++/Makefile.in, po/Makefile.in, src/Makefile.in,
+	testsuite/Makefile.in: Likewise.
+
 2005-06-08  Benjamin Kosnik  <bkoz@redhat.com>
 
 	PR libstdc++/21955

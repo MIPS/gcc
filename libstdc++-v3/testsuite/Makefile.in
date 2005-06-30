@@ -40,7 +40,8 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/fragment.am
 subdir = testsuite
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../config/no-executables.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/lead-dot.m4 \
+	$(top_srcdir)/../config/no-executables.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/crossconfig.m4 \
 	$(top_srcdir)/linkage.m4 $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/configure.ac
@@ -117,8 +118,6 @@ GLIBCXX_C_HEADERS_C_TRUE = @GLIBCXX_C_HEADERS_C_TRUE@
 GLIBCXX_HOSTED_FALSE = @GLIBCXX_HOSTED_FALSE@
 GLIBCXX_HOSTED_TRUE = @GLIBCXX_HOSTED_TRUE@
 GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
-GLIBCXX_TEST_ABI_FALSE = @GLIBCXX_TEST_ABI_FALSE@
-GLIBCXX_TEST_ABI_TRUE = @GLIBCXX_TEST_ABI_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -269,7 +268,8 @@ performance_script = ${glibcxx_srcdir}/scripts/check_performance
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = *.txt *.tst *.exe core* filebuf_* tmp* ostream_* *.log *.sum \
-	     testsuite_* site.exp abi_check baseline_symbols *TEST*
+	     testsuite_* site.exp abi_check baseline_symbols *TEST* *.dat \
+	     *.o *.cc
 
 all: all-am
 
@@ -505,9 +505,8 @@ new-abi-baseline:
 
 # Use 'new-abi-baseline' to create an initial symbol file.  Then run
 # 'check-abi' to test for changes against that file.
-@GLIBCXX_TEST_ABI_TRUE@check-abi: baseline_symbols site.exp
-@GLIBCXX_TEST_ABI_TRUE@	-@runtest --tool libstdc++ abi.exp
-@GLIBCXX_TEST_ABI_FALSE@check-abi:
+check-abi: baseline_symbols site.exp
+	-@runtest --tool libstdc++ abi.exp
 check-compile: testsuite_files ${compile_script}
 	-@(chmod + ${compile_script}; \
 	  ${compile_script} ${glibcxx_srcdir} ${glibcxx_builddir})
