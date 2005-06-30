@@ -30,3 +30,5 @@
 #4125564: 22_locale/num_put/put/char/4.cc execution test
 #4125564: 22_locale/num_put/put/wchar_t/4.cc execution test
 #4125564: 26_numerics/complex/complex_inserters_extractors.cc execution test
+4129761: 26_numerics/complex/complex_value.cc execution test
+4129761: 26_numerics/complex/pow.cc execution test
