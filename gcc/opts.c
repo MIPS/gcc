@@ -523,7 +523,11 @@ void set_flags_from_O (unsigned int cmdline)
       flag_rerun_cse_after_loop = 1;
       flag_rerun_loop_opt = 1;
       flag_caller_saves = 1;
+/* APPLE LOCAL begin radar 4153339 */
+/** Removed - Note! Mainline will removed the entire -fforce-mem functionality.
       flag_force_mem = 1;
+*/
+/* APPLE LOCAL end radar 4153339 */
       flag_peephole2 = 1;
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;

@@ -1,3 +1,7 @@
+2005-06-30 Fariborz Jahanian <fjahanian@apple.com>
+
+	* opts.c (decode_options): Don't set -fforce-mem with -O2 and more.
+
 2005-06-30  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4131077, copied from FSF mainline.
