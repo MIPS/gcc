@@ -643,6 +643,7 @@ dbxout_begin_simple_stabs_desc (const char *str, int stype, int sdesc)
    out not to be the case, and anyway this needs fewer #ifdefs.)  */
 
 /* Begin a complex .stabs directive.  If we can, write the initial
+   APPLE LOCAL ss2
    ASM_STABS_OP to the dbx_out_file.  */
 
 static void
