@@ -1,5 +1,9 @@
 2005-06-30 Devang Patel  <dpatel@apple.com>
 	
+	* doc/invoke.texi: Document -fsave-repository.
+
+2005-06-30 Devang Patel  <dpatel@apple.com>
+	
 	* c-opts.c (c_common_handle_option): Handle OPT_fsave_repository.
 	Set flag_pch_file.
 	* c.opt (fsave-repository=): New.

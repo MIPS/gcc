@@ -177,6 +177,8 @@ in the following sections.
 -ObjC (APPLE ONLY) -ObjC++ (APPLE ONLY) @gol
 @c APPLE LOCAL fat builds
 -arch @var{arch} (APPLE ONLY) @gol
+@c APPLE LOCAL ss2
+-fsave-repository=@var{file} @gol
 -x @var{language}  -v  -###  --help  --target-help  --version}
 
 @item C Language Options
@@ -1006,6 +1008,13 @@ and libraries are available for each architecture specified.  (APPLE
 ONLY)
 @opindex arch
 @c APPLE LOCAL end fat builds
+
+@c APPLE LOCAL begin ss2
+@item -fsave-repository=@var{file}
+@opindex fsave-repository
+Save debug info in separate object file.
+This is available only while building PCH in -gfull mode.
+@c APPLE LOCAL end ss2
 
 @item -pass-exit-codes
 @opindex pass-exit-codes
