@@ -203,8 +203,8 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
     pop_field_alignment ();
   else
     warning ("malformed '#pragma options align={mac68k|power|natural|reset}', ignoring");
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 }
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 /* #pragma pack ()

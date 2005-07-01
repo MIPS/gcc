@@ -1969,6 +1969,7 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
       flag_trapping_math = 0;
     }
   /* APPLE LOCAL end tweak default optimizations */
+  /* APPLE LOCAL outwit script into not complaining about following line */
 }
 
 /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
