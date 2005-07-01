@@ -41,12 +41,12 @@ namespace __gnu_cxx
   // N.B. According to 3.9/10 and 9/4, POD types can have user-defined 
   // constructors: in that case, cannot be member of an union (9.5/1).
   // See, f.i., class gnu_char_type in the testsuite.
-  template<typename _CharT, typename _Alloc,
+  template<typename _CharT, typename _Traits, typename _Alloc,
 	   bool = std::__is_scalar<_CharT>::__value>
     struct __sso_string_base
     {
-      typedef typename _Alloc::template rebind<_CharT>::other _CharT_alloc_type;
-      typedef typename _CharT_alloc_type::size_type size_type;
+      typedef typename __string_utility<_CharT, _Traits, _Alloc>::
+        _CharT_alloc_type::size_type                        size_type;
 
       enum { _S_local_capacity = 15 };
       
@@ -57,11 +57,11 @@ namespace __gnu_cxx
       };
     };
 
-  template<typename _CharT, typename _Alloc>
-    struct __sso_string_base<_CharT, _Alloc, false>
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    struct __sso_string_base<_CharT, _Traits, _Alloc, false>
     {
-      typedef typename _Alloc::template rebind<_CharT>::other _CharT_alloc_type;
-      typedef typename _CharT_alloc_type::size_type size_type;
+      typedef typename __string_utility<_CharT, _Traits, _Alloc>::
+        _CharT_alloc_type::size_type                        size_type;
 
       enum { _S_local_capacity = 15 };
 
@@ -72,9 +72,9 @@ namespace __gnu_cxx
   template<typename _CharT, typename _Traits, typename _Alloc>
     class __sso_string
     : protected __string_utility<_CharT, _Traits, _Alloc>,
-      private __sso_string_base<_CharT, _Alloc>
+      private __sso_string_base<_CharT, _Traits, _Alloc>
     {
-      typedef __sso_string_base<_CharT, _Alloc>             _Base;
+      typedef __sso_string_base<_CharT, _Traits, _Alloc>    _Base;
 
     public:
       typedef _Traits					    traits_type;

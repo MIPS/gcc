@@ -1,3 +1,9 @@
+2005-07-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string.h (struct __sso_string_base):
+	Add _Traits template parameter; tweak typedefs.
+	(class __sso_string): Adjust consistently.
+
 2005-06-30  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050630.
