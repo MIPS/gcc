@@ -1,3 +1,8 @@
+2005-06-30 Devang Patel  <dpatel@apple.com>
+
+	* lang-specs.h: While making PCH, invoke as if -fsave-repository
+	is used.
+
 2005-06-28  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4140824

@@ -775,6 +775,11 @@ frtti
 C++ ObjC++
 Generate run time type descriptor information
 
+; APPLE LOCAL begin ss2
+fsave-repository=
+C ObjC C++ ObjC++ Joined Separate
+; APPLE LOCAL end ss2
+
 fshort-double
 C ObjC C++ ObjC++
 Use the same size for double as for float

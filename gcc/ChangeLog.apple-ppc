@@ -1,3 +1,18 @@
+2005-06-30 Devang Patel  <dpatel@apple.com>
+	
+	* c-opts.c (c_common_handle_option): Handle OPT_fsave_repository.
+	Set flag_pch_file.
+	* c.opt (fsave-repository=): New.
+	* dbxout.c: Use dbx_out_file instead of asm_out_file.
+	(dbx_out_file): New.
+	(dbxout_init): Open dbx_out_file for writing.
+	(emit_bincl_stab): Emit EXCL and BINCL stabs with checksum.
+	(dbxout_finish): Close dbx_out_file.
+	* flags.h (flag_pch_file, flag_save_repository): New.
+	* gcc.c (pch): Invoke as when -fsave-repository is used.
+	* toplev.c (asm_file_name2, flag_pch_file, flag_save_repository): New.
+	(init_asm_output): Handle -fsave-repository.
+
 2005-06-30 Fariborz Jahanian <fjahanian@apple.com>
 
 	* opts.c (decode_options): Don't set -fforce-mem with -O2 and more.

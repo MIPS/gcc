@@ -201,6 +201,8 @@ enum graph_dump_types graph_dump_format;
 /* Name for output file of assembly code, specified with -o.  */
 
 const char *asm_file_name;
+/* APPLE LOCAL  ss2 */
+char *asm_file_name2;
 
 /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
 /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
@@ -438,6 +440,11 @@ FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
 const char *dump_file_name;
+
+/* APPLE LOCAL begin ss2 */
+int flag_pch_file;
+int flag_save_repository;
+/* APPLE LOCAL end ss2 */
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -1521,7 +1528,19 @@ init_asm_output (const char *name)
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
       else
-	asm_out_file = fopen (asm_file_name, "w+b");
+      /* APPLE LOCAL begin ss2 */
+	{
+	  if (flag_save_repository
+	      && flag_pch_file && !flag_debug_only_used_symbols)
+	    {
+	      asm_file_name2 = (char *) xmalloc (strlen (asm_file_name) + 3);
+	      sprintf (asm_file_name2, "%s.t", asm_file_name);
+	      asm_out_file = fopen (asm_file_name2, "w+b");
+	    }
+	  else
+	    asm_out_file = fopen (asm_file_name, "w+b");
+	}
+      /* APPLE LOCAL end ss2 */
       if (asm_out_file == 0)
 	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
     }
@@ -2202,7 +2221,13 @@ finalize (void)
     {
       if (ferror (asm_out_file) != 0)
 	fatal_error ("error writing to %s: %m", asm_file_name);
-      if (fclose (asm_out_file) != 0)
+      /* APPLE LOCAL begin ss2 */
+      if (flag_save_repository
+	  && flag_pch_file 
+	  && !flag_debug_only_used_symbols)
+	unlink (asm_file_name2);
+      else if (fclose (asm_out_file) != 0)
+	/* APPLE LOCAL end ss2 */
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
 

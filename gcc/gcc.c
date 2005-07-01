@@ -797,7 +797,10 @@ static const char *trad_capable_cpp =
 /* APPLE LOCAL begin pch */
 /* When making PCH file use this.  */
 static const char *pch = 
-"-o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*}%V";
+/* APPLE LOCAL begin ss2 */
+"-o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*} \
+ %{fsave-repository=*: \n as -o %w%* %g.s %A}%V";
+/* APPLE LOCAL end ss2 */
 /* APPLE LOCAL end pch */
 
 /* We don't wrap .d files in %W{} since a missing .d file, and

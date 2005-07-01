@@ -268,8 +268,16 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       result = 0;
       break;
 
+      /* APPLE LOCAL begin ss2 */
+    case OPT_fsave_repository_:
+      flag_save_repository = 1;
+      break;
+      /* APPLE LOCAL end ss2 */
+
     case OPT__output_pch_:
       pch_file = arg;
+      /* APPLE LOCAL ss2 */
+      flag_pch_file = 1;
       break;
 
     case OPT_A:
