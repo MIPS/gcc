@@ -1,3 +1,10 @@
+2005-07-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4153181
+	* objc-act.c (objc_build_volatilized_type): New function.
+	(objc_volatilize_decl): Call objc_build_volatilized_type()
+	instead of build_qualified_type().
+
 2005-06-30 Devang Patel  <dpatel@apple.com>
 
 	* lang-specs.h: While making PCH, invoke as if -fsave-repository

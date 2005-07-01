@@ -1,3 +1,9 @@
+2005-07-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4153181
+	* obj-c++.dg/try-catch-11.mm: Bring over from mainline.
+	* objc.dg/try-catch-10.m: Likewise.
+
 2005-06-28  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4163069
