@@ -1,5 +1,9 @@
 2005-07-04  Devang Patel  <dpatel@apple.com>
 
+	* objc.dg/ss/ss.exp: Test objective-c headers.
+
+2005-07-04  Devang Patel  <dpatel@apple.com>
+
 	* objc.dg/ss: New.
 	* objc.dg/ss/ss.exp: New.
 	* objc.dg/ss/one.m: New.

@@ -97,7 +97,7 @@ foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.m]] {
 
             # Make repository
             # This will create two output files $short_bname.h.o and PCH
-            dg-test -keep-output "$bname.h" $flags "-fsave-repository=$short_bname.h.o -x c++-header"
+            dg-test -keep-output "$bname.h" $flags "-fsave-repository=$short_bname.h.o -x objective-c-header"
 
             if { [ file exists "$short_bname.o" ] } {
                 file rename -force "$short_bname.h.o" "$bname.h.o"
