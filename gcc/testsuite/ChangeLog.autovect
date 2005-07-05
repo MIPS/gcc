@@ -1,3 +1,7 @@
+2005-07-05  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-117.c: New test.
+
 2005-06-16  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/no_version/vect-115.c: Fix: allocate struct.

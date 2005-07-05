@@ -515,7 +515,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   tree phi;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block bb = loop->header;
-  tree dummy;
+  tree dummy, evolution_part;
+  bool unknown_evolution;
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vect_analyze_scalar_cycles ===");
@@ -547,7 +548,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       /* Analyze the evolution function.  */
 
-      access_fn = analyze_scalar_evolution (loop, def);
+      access_fn = analyze_scalar_evolution (loop, def, true, &unknown_evolution);
 
       if (!access_fn)
         continue;
@@ -567,8 +568,6 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 	  continue;
 	}
 
-      /* TODO: handle invariant phis  */
-
       reduc_stmt = vect_is_simple_reduction (loop, phi);
       if (reduc_stmt)
         {
@@ -581,9 +580,26 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
       else
         if (vect_print_dump_info (REPORT_DETAILS, LOOP_LOC (loop_vinfo)))
 	  fprintf (vect_dump, "Unknown def-use cycle pattern.");
+      
+      /* Handle invariant phis.  */
+      evolution_part = evolution_part_in_loop_num (access_fn, loop->num);
+      if (evolution_part == NULL_TREE)
+        {
+          if (unknown_evolution)
+            {
+              if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+                fprintf (vect_dump, "Unknown def-use cycle pattern.");
+              continue;
+            }
+          else
+            {
+              if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+                fprintf (vect_dump, "invariant phi. ");
+              STMT_VINFO_DEF_TYPE (stmt_vinfo) = vect_invariant_phi_def;
+              continue;
+            }
+        }
     }
-
-  return;
 }
 
 
@@ -2177,6 +2193,7 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
     {
       tree access_fn = NULL;
       tree evolution_part;
+      bool unknown_evolution;
 
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	{
@@ -2206,7 +2223,8 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
       /* Analyze the evolution function.  */
 
       access_fn = instantiate_parameters
-	(loop, analyze_scalar_evolution (loop, PHI_RESULT (phi)));
+	(loop, analyze_scalar_evolution (loop, PHI_RESULT (phi), true, 
+					 &unknown_evolution));
 
       if (!access_fn)
 	{
@@ -2225,9 +2243,18 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
       
       if (evolution_part == NULL_TREE)
 	{
-	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	    fprintf (vect_dump, "No evolution.");
-	  return false;
+	  if (unknown_evolution)
+            {
+              if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+                fprintf (vect_dump, "No evolution.");
+              return false;
+            }
+          else
+            {
+              if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+                fprintf (vect_dump, "invariant phi. skip.");
+              continue;
+            }
 	}
   
       /* FORNOW: We do not transform initial conditions of IVs 

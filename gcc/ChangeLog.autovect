@@ -1,3 +1,39 @@
+2005-07-05  Ira Rosen  <irar@il.ibm.com>
+
+	* lambda-code.c (gcc_loop_to_lambda_loop): Call analyze_scalar_evolution 
+	with correct parameters.
+	* tree-data-ref.c (analyze_array_indexes): Likewise.
+	(analyze_indirect_ref): Likewise and check if the reference is loop
+	invariant with the help of the new parameter of analyze_scalar_evolution.
+	(analyze_offset_expr): Likewise.
+	* tree-elim-check.c (try_eliminate_check): Call 
+	analyze_scalar_evolution with correct parameters.
+	* tree-scalar-evolution.c (follow_ssa_edge_inner_loop_phi, 
+	unify_peeled_chrec, interpret_loop_phi, interpret_condition_phi, 
+	interpret_rhs_modify_expr): Likewise.
+	(compute_scalar_evolution_in_loop): Call 
+	analyze_scalar_evolution_1 with correct parameters.
+	(analyze_scalar_evolution_1): Add parameters to always analyze evolution 
+	and to decide whether it is unknown. Fix parameters of 
+	interpret_rhs_modify_expr and analyze_scalar_evolution_1. 
+	(analyze_scalar_evolution): Add parameters to always analyze evolution 
+	and to decide whether it is unknown. Fix parameters of 
+	analyze_scalar_evolution_1. 
+	(instantiate_parameters_1): Call analyze_scalar_evolution with correct 
+	parameters.
+	(analyze_scalar_evolution_for_all_loop_phi_nodes): Likewise.
+	* tree-scalar-evolution.h (analyze_scalar_evolution): Add parameters to 
+	the declaration.
+	* tree-vect-analyze.c (vect_analyze_scalar_cycles): Call 	
+	analyze_scalar_evolution with correct parameters. Skip invariant phis 
+	with the help of unknown_evolution.
+	(vect_can_advance_ivs_p): Likewise.
+	* tree-vect-transform.c (vect_get_vec_def_for_operand): Handle invariant 
+	phis.
+	(vect_update_ivs_after_vectorizer):  Call analyze_scalar_evolution with 
+	correct parameters. If no evolution, it must be an unknown evolution.
+	* tree-vectorizer.h (enum vect_def_type): Add vect_invariant_phi_def.
+
 2005-06-21  Ira Rosen  <irar@il.ibm.com>
 
         * tree-data-ref.c (initialize_data_dependence_relation): Perform
