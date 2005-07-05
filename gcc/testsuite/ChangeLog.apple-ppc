@@ -1,5 +1,10 @@
 2005-07-01  Devang Patel  <dpatel@apple.com>
 
+	* g++.dg/ss/ss-cmd1.c: Remove.
+	* g++.dg/ss/ss-cmd1.C: Add.
+
+2005-07-01  Devang Patel  <dpatel@apple.com>
+
 	Radar 4168086
 	* gcc.dg/ss: New.
 	* gcc.dg/ss/ss.exp: New.
