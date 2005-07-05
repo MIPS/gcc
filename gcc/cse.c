@@ -5533,11 +5533,19 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
 	  else if (zero_sign_extended_src)
 	    {
+	      rtx truncated_const;
+	      if (elt->is_const)
+	        truncated_const = gen_rtx_TRUNCATE (
+		  GET_MODE (XEXP (zero_sign_extended_src, 0)),
+		  copy_rtx (elt->exp));
+	      else
+	        truncated_const= copy_rtx (elt->exp);
 	      trial = GET_CODE(zero_sign_extended_src) == ZERO_EXTEND 
 		      ? gen_rtx_ZERO_EXTEND (GET_MODE(zero_sign_extended_src),
-					     copy_rtx (elt->exp))
+					     truncated_const)
 		      : gen_rtx_SIGN_EXTEND (GET_MODE(zero_sign_extended_src),
-					     copy_rtx (elt->exp));
+					     truncated_const);
+	      trial = fold_rtx (trial, NULL_RTX);
 	      elt = elt->next_same_value;
 	      src_elt_cost = MAX_COST;
 	    }
