@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -63,6 +63,12 @@ public abstract class GraphicsDevice
 
   /** The current full-screen window, or null if there is none. */
   private Window full_screen;
+
+  /**
+   * The bounds of the fullscreen window before it has been switched to full
+   * screen.
+   */
+  private Rectangle fullScreenOldBounds;
 
   /** The current display mode, or null if unknown. */
   private DisplayMode mode;
@@ -151,9 +157,9 @@ public abstract class GraphicsDevice
    * </ul><br>
    * If <code>isFullScreenSupported()</code> returns false, full-screen
    * exclusive mode is simulated by resizing the window to the size of the
-   * screen and positioning it at (0,0).
-   *
-   * XXX Not yet implemented in Classpath.
+   * screen and positioning it at (0,0). This is also what this method does.
+   * If a device supports real fullscreen mode then it should override this
+   * method as well as #isFullScreenSupported and #getFullScreenWindow.
    *
    * @param w the window to toggle
    * @see #isFullScreenSupported()
@@ -164,11 +170,24 @@ public abstract class GraphicsDevice
    */
   public synchronized void setFullScreenWindow(Window w)
   {
+    // Restore the previous window to normal mode and release the reference.
     if (full_screen != null)
-      ; // XXX Restore the previous window to normal mode.
-    full_screen = w;
-    // XXX If w != null, make it full-screen.
-    throw new Error("not implemented");
+      {
+	full_screen.setBounds(fullScreenOldBounds);
+      }
+
+    full_screen = null;
+
+    // If w != null, make it full-screen.
+    if (w != null)
+      {
+	fullScreenOldBounds = w.getBounds();
+	full_screen = w;
+	DisplayMode dMode = getDisplayMode();
+	full_screen.setBounds(0, 0, dMode.getWidth(), dMode.getHeight());
+	full_screen.requestFocus();
+	full_screen.setLocationRelativeTo(null);
+      }
   }
 
   /**

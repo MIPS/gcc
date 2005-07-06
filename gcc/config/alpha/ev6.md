@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ; EV6 can issue 4 insns per clock.  It's out-of-order, so this isn't
 ; expected to help over-much, but a precise description can be important
@@ -53,13 +53,18 @@
 ; adjust_cost still factors in user-specified memory latency, so return 1 here.
 (define_insn_reservation "ev6_ild" 1
   (and (eq_attr "tune" "ev6")
-       (eq_attr "type" "ild,ldsym"))
+       (eq_attr "type" "ild,ldsym,ld_l"))
   "ev6_l")
 
 (define_insn_reservation "ev6_ist" 1
   (and (eq_attr "tune" "ev6")
-       (eq_attr "type" "ist"))
+       (eq_attr "type" "ist,st_c"))
   "ev6_l")
+
+(define_insn_reservation "ev6_mb" 1
+  (and (eq_attr "tune" "ev6")
+       (eq_attr "type" "mb"))
+  "ev6_l1")
 
 ; FP loads take at least 4 clocks.  adjust_cost still factors
 ; in user-specified memory latency, so return 2 here.

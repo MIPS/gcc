@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -40,6 +40,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coverage.h"
 #include "tree.h"
 #include "gcov-io.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 static struct value_prof_hooks *value_prof_hooks;
 
@@ -128,8 +130,6 @@ static bool rtl_mod_subtract_transform (rtx);
 #ifdef HAVE_prefetch
 static bool speculative_prefetching_transform (rtx);
 #endif
-static void tree_divmod_values_to_profile (tree, histogram_values *);
-static void tree_values_to_profile (tree, histogram_values *);
 static tree tree_divmod_fixed_value (tree, tree, tree, tree, 
 				    tree, int, gcov_type, gcov_type);
 static tree tree_mod_pow2 (tree, tree, tree, tree, int, gcov_type, gcov_type);
@@ -181,8 +181,7 @@ rtl_divmod_values_to_profile (rtx insn, histogram_values *values)
 	  hist->hvalue.rtl.mode = mode;
 	  hist->hvalue.rtl.insn = insn;
 	  hist->type = HIST_TYPE_POW2;
-	  hist->hdata.pow2.may_be_other = 1;
-	  VEC_safe_push (histogram_value, *values, hist);
+	  VEC_safe_push (histogram_value, heap, *values, hist);
 	}
 
       /* Check whether the divisor is not in fact a constant.  */
@@ -194,7 +193,7 @@ rtl_divmod_values_to_profile (rtx insn, histogram_values *values)
 	  hist->hvalue.rtl.seq = NULL_RTX;
 	  hist->hvalue.rtl.insn = insn;
 	  hist->type = HIST_TYPE_SINGLE_VALUE;
-	  VEC_safe_push (histogram_value, *values, hist);
+	  VEC_safe_push (histogram_value, heap, *values, hist);
 	}
 
       /* For mod, check whether it is not often a noop (or replaceable by
@@ -214,7 +213,7 @@ rtl_divmod_values_to_profile (rtx insn, histogram_values *values)
 	  hist->type = HIST_TYPE_INTERVAL;
 	  hist->hdata.intvl.int_start = 0;
 	  hist->hdata.intvl.steps = 2;
-	  VEC_safe_push (histogram_value, *values, hist);
+	  VEC_safe_push (histogram_value, heap, *values, hist);
 	}
       return;
 
@@ -235,7 +234,7 @@ find_mem_reference_1 (rtx *expr, void *ret)
 {
   rtx *mem = ret;
 
-  if (GET_CODE (*expr) == MEM)
+  if (MEM_P (*expr))
     {
       *mem = *expr;
       return 1;
@@ -286,7 +285,7 @@ insn_prefetch_values_to_profile (rtx insn, histogram_values* values)
   histogram_value hist;
 
   /* It only makes sense to look for memory references in ordinary insns.  */
-  if (GET_CODE (insn) != INSN)
+  if (!NONJUMP_INSN_P (insn))
     return false;
 
   if (!find_mem_reference (insn, &mem, &write))
@@ -305,7 +304,7 @@ insn_prefetch_values_to_profile (rtx insn, histogram_values* values)
   hist->hvalue.rtl.seq = NULL_RTX;
   hist->hvalue.rtl.insn = insn;
   hist->type = HIST_TYPE_CONST_DELTA;
-  VEC_safe_push (histogram_value, *values, hist);
+  VEC_safe_push (histogram_value, heap, *values, hist);
 
   return true;
 }
@@ -330,19 +329,18 @@ rtl_find_values_to_profile (histogram_values *values)
 {
   rtx insn;
   unsigned i, libcall_level;
+  histogram_value hist;
 
   life_analysis (NULL, PROP_DEATH_NOTES);
 
-  *values = VEC_alloc (histogram_value, 0);
+  *values = NULL;
   libcall_level = 0;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     rtl_values_to_profile (insn, values);
   static_values = *values;
 
-  for (i = 0; i < VEC_length (histogram_value, *values); i++)
+  for (i = 0; VEC_iterate (histogram_value, *values, i, hist); i++)
     {
-      histogram_value hist = VEC_index (histogram_value, *values, i);
-
       switch (hist->type)
 	{
 	case HIST_TYPE_INTERVAL:
@@ -361,9 +359,7 @@ rtl_find_values_to_profile (histogram_values *values)
 	    fprintf (dump_file,
 		     "Pow2 counter for insn %d.\n",
 		     INSN_UID ((rtx)hist->hvalue.rtl.insn));
-	  hist->n_counters 
-		= GET_MODE_BITSIZE (hist->hvalue.rtl.mode)
-		  +  (hist->hdata.pow2.may_be_other ? 1 : 0);
+	  hist->n_counters = 2;
 	  break;
 
 	case HIST_TYPE_SINGLE_VALUE:
@@ -723,7 +719,7 @@ rtl_mod_pow2_value_transform (rtx insn)
   enum machine_mode mode;
   gcov_type wrong_values, count;
   edge e;
-  int i, all, prob;
+  int all, prob;
 
   set = single_set (insn);
   if (!set)
@@ -752,15 +748,9 @@ rtl_mod_pow2_value_transform (rtx insn)
   histogram = XEXP (XEXP (histogram, 0), 1);
   value = XEXP (histogram, 0);
   histogram = XEXP (histogram, 1);
-  wrong_values =INTVAL (XEXP (histogram, 0));
+  wrong_values = INTVAL (XEXP (histogram, 0));
   histogram = XEXP (histogram, 1);
-
-  count = 0;
-  for (i = 0; i < GET_MODE_BITSIZE (mode); i++)
-    {
-      count += INTVAL (XEXP (histogram, 0));
-      histogram = XEXP (histogram, 1);
-    }
+  count = INTVAL (XEXP (histogram, 0));
 
   if (!rtx_equal_p (op2, value))
     return false;
@@ -1233,17 +1223,23 @@ tree_divmod_fixed_value_transform (tree stmt)
   if (simple_cst_equal (op2, value) != 1 || 2 * count < all)
     return false;
 
-  if (dump_file)
-    {
-      fprintf (dump_file, "Div/mod by constant transformation on insn ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-    }
-
   /* Compute probability of taking the optimal path.  */
   prob = (count * REG_BR_PROB_BASE + all / 2) / all;
 
-  tree_val = build_int_cst_wide (GCOV_TYPE_NODE, val & 0xffffffffull, val >> 32);
+  tree_val = build_int_cst_wide (get_gcov_type (),
+				 (unsigned HOST_WIDE_INT) val,
+				 val >> (HOST_BITS_PER_WIDE_INT - 1) >> 1);
   result = tree_divmod_fixed_value (stmt, op, op1, op2, tree_val, prob, count, all);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "Div/mod by constant ");
+      print_generic_expr (dump_file, value, TDF_SLIM);
+      fprintf (dump_file, "=");
+      print_generic_expr (dump_file, tree_val, TDF_SLIM);
+      fprintf (dump_file, " transformation on insn ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+    }
 
   TREE_OPERAND (modify, 1) = result;
 
@@ -1354,7 +1350,6 @@ tree_mod_pow2_value_transform (tree stmt)
   gcov_type count, wrong_values, all;
   tree modify, op, op1, op2, result, value;
   int prob;
-  unsigned int i;
 
   modify = stmt;
   if (TREE_CODE (stmt) == RETURN_EXPR
@@ -1385,9 +1380,7 @@ tree_mod_pow2_value_transform (tree stmt)
 
   value = histogram->hvalue.tree.value;
   wrong_values = histogram->hvalue.tree.counters[0];
-  count = 0;
-  for (i = 1; i <= TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (stmt))); i++)
-    count += histogram->hvalue.tree.counters[i];
+  count = histogram->hvalue.tree.counters[1];
 
   /* We require that we hit a power of 2 at least half of all evaluations.  */
   if (simple_cst_equal (op2, value) != 1 || count < wrong_values)
@@ -1502,11 +1495,11 @@ tree_mod_subtract (tree stmt, tree operation, tree op1, tree op2,
   e12->flags &= ~EDGE_FALLTHRU;
   e12->flags |= EDGE_FALSE_VALUE;
   e12->probability = REG_BR_PROB_BASE - prob1;
-  e12->count = count1;
+  e12->count = all - count1;
 
   e14 = make_edge (bb, bb4, EDGE_TRUE_VALUE);
   e14->probability = prob1;
-  e14->count = all - count1;
+  e14->count = count1;
 
   if (ncounts)  /* Assumed to be 0 or 1.  */
     {
@@ -1575,10 +1568,6 @@ tree_mod_subtract_transform (tree stmt)
   wrong_values += histogram->hvalue.tree.counters[i+1];
   all += wrong_values;
 
-  /* Sanity check. */
-  if (simple_cst_equal (op2, value) != 1)
-    return false;
-
   /* We require that we use just subtractions in at least 50% of all
      evaluations.  */
   count = 0;
@@ -1637,68 +1626,68 @@ rtl_register_value_prof_hooks (void)
   gcc_assert (!ir_type ());
 }
 
-/* Find values inside INSN for that we want to measure histograms for
+/* Find values inside STMT for that we want to measure histograms for
    division/modulo optimization.  */
 static void
 tree_divmod_values_to_profile (tree stmt, histogram_values *values)
 {
-  tree op, op1, op2;
+  tree assign, lhs, rhs, divisor, op0, type;
   histogram_value hist;
 
-  op = stmt;
-  if (TREE_CODE (stmt) == RETURN_EXPR 
-      && TREE_OPERAND (stmt, 0)
-      && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR)
-    op = TREE_OPERAND (stmt, 0);
+  if (TREE_CODE (stmt) == RETURN_EXPR)
+    assign = TREE_OPERAND (stmt, 0);
+  else
+    assign = stmt;
 
-  if (TREE_CODE (op) != MODIFY_EXPR)
+  if (!assign
+      || TREE_CODE (assign) != MODIFY_EXPR)
     return;
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (op)))
+  lhs = TREE_OPERAND (assign, 0);
+  type = TREE_TYPE (lhs);
+  if (!INTEGRAL_TYPE_P (type))
     return;
-  op = TREE_OPERAND (op, 1);
-  switch (TREE_CODE (op))
+
+  rhs = TREE_OPERAND (assign, 1);
+  switch (TREE_CODE (rhs))
     {
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
-      op1 = TREE_OPERAND (op, 0);
-      op2 = TREE_OPERAND (op, 1);
+      divisor = TREE_OPERAND (rhs, 1);
+      op0 = TREE_OPERAND (rhs, 0);
 
-      /* Check for a special case where the divisor is power(s) of 2.
-         This is more aggressive than the RTL version, under the
-	 assumption that later phases will reduce / or % by power of 2
-	 to something clever most of the time.  Signed or unsigned.  */
-      if (TREE_CODE (op2) != INTEGER_CST)
-	{
-	  hist = ggc_alloc (sizeof (*hist));
-	  hist->hvalue.tree.value = op2;
-	  hist->hvalue.tree.stmt = stmt;
-	  hist->type = HIST_TYPE_POW2;
-	  hist->hdata.pow2.may_be_other = 1;
-	  VEC_safe_push (histogram_value, *values, hist);
-	}
+      VEC_reserve (histogram_value, heap, *values, 3);
 
-      /* Check for the case where the divisor is the same value most
-	 of the time.  */
-      if (TREE_CODE (op2) != INTEGER_CST)
+      if (is_gimple_reg (divisor))
 	{
+	  /* Check for the case where the divisor is the same value most
+	     of the time.  */
 	  hist = ggc_alloc (sizeof (*hist));
-	  hist->hvalue.tree.value = op2;
+	  hist->hvalue.tree.value = divisor;
 	  hist->hvalue.tree.stmt = stmt;
 	  hist->type = HIST_TYPE_SINGLE_VALUE;
-	  VEC_safe_push (histogram_value, *values, hist);
+	  VEC_quick_push (histogram_value, *values, hist);
 	}
 
       /* For mod, check whether it is not often a noop (or replaceable by
 	 a few subtractions).  */
-      if (TREE_CODE (op) == TRUNC_MOD_EXPR && TYPE_UNSIGNED (TREE_TYPE (op)))
+      if (TREE_CODE (rhs) == TRUNC_MOD_EXPR
+	  && TYPE_UNSIGNED (type))
 	{
+          /* Check for a special case where the divisor is power of 2.  */
+	  hist = ggc_alloc (sizeof (*hist));
+	  hist->hvalue.tree.value = divisor;
+	  hist->hvalue.tree.stmt = stmt;
+	  hist->type = HIST_TYPE_POW2;
+	  VEC_quick_push (histogram_value, *values, hist);
+
 	  hist = ggc_alloc (sizeof (*hist));
 	  hist->hvalue.tree.stmt = stmt;
-	  hist->hvalue.tree.value = op2;
+	  hist->hvalue.tree.value
+		  = build2 (TRUNC_DIV_EXPR, type, op0, divisor);
 	  hist->type = HIST_TYPE_INTERVAL;
 	  hist->hdata.intvl.int_start = 0;
 	  hist->hdata.intvl.steps = 2;
-	  VEC_safe_push (histogram_value, *values, hist);
+	  VEC_quick_push (histogram_value, *values, hist);
 	}
       return;
 
@@ -1707,8 +1696,9 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
     }
 }
 
-/* Find values inside INSN for that we want to measure histograms and adds
-   them to list VALUES (increasing the record of its length in N_VALUES).  */
+/* Find values inside STMT for that we want to measure histograms and adds
+   them to list VALUES.  */
+
 static void
 tree_values_to_profile (tree stmt, histogram_values *values)
 {
@@ -1721,22 +1711,17 @@ tree_find_values_to_profile (histogram_values *values)
 {
   basic_block bb;
   block_stmt_iterator bsi;
-  tree stmt;
-  unsigned int i;
+  unsigned i;
+  histogram_value hist;
 
-  *values = VEC_alloc (histogram_value, 0);
+  *values = NULL;
   FOR_EACH_BB (bb)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-        tree stmt = bsi_stmt (bsi);
-        tree_values_to_profile (stmt, values);
-      }
+      tree_values_to_profile (bsi_stmt (bsi), values);
   static_values = *values;
   
-  for (i = 0; i < VEC_length (histogram_value, *values); i++)
+  for (i = 0; VEC_iterate (histogram_value, *values, i, hist); i++)
     {
-      histogram_value hist = VEC_index (histogram_value, *values, i);
-
       switch (hist->type)
         {
 	case HIST_TYPE_INTERVAL:
@@ -1756,20 +1741,17 @@ tree_find_values_to_profile (histogram_values *values)
 	case HIST_TYPE_POW2:
 	  if (dump_file)
 	    {
-	      fprintf (dump_file, "Pow2 counter for insn ");
+	      fprintf (dump_file, "Pow2 counter for tree ");
 	      print_generic_expr (dump_file, hist->hvalue.tree.stmt, TDF_SLIM);
 	      fprintf (dump_file, ".\n");
 	    }
-	  stmt = hist->hvalue.tree.stmt;
-	  hist->n_counters 
-		= TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (stmt)))
-		  +  (hist->hdata.pow2.may_be_other ? 1 : 0);
+	  hist->n_counters = 2;
 	  break;
 
 	case HIST_TYPE_SINGLE_VALUE:
 	  if (dump_file)
 	    {
-	      fprintf (dump_file, "Single value counter for insn ");
+	      fprintf (dump_file, "Single value counter for tree ");
 	      print_generic_expr (dump_file, hist->hvalue.tree.stmt, TDF_SLIM);
 	      fprintf (dump_file, ".\n");
 	    }
@@ -1779,7 +1761,7 @@ tree_find_values_to_profile (histogram_values *values)
 	case HIST_TYPE_CONST_DELTA:
 	  if (dump_file)
 	    {
-	      fprintf (dump_file, "Constant delta counter for insn ");
+	      fprintf (dump_file, "Constant delta counter for tree ");
 	      print_generic_expr (dump_file, hist->hvalue.tree.stmt, TDF_SLIM);
 	      fprintf (dump_file, ".\n");
 	    }
@@ -1787,7 +1769,7 @@ tree_find_values_to_profile (histogram_values *values)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 }
@@ -1815,6 +1797,43 @@ bool
 value_profile_transformations (void)
 {
   bool retval = (value_prof_hooks->value_profile_transformations) ();
-  VEC_free (histogram_value, static_values);
+  VEC_free (histogram_value, heap, static_values);
   return retval;
 }
+
+static bool 
+gate_handle_value_profile_transformations (void)
+{
+  return flag_branch_probabilities
+         && flag_profile_values
+         && !flag_tree_based_profiling
+         && (flag_value_profile_transformations
+             || flag_speculative_prefetching);
+}
+
+
+/* Do optimizations based on expression value profiles.  */
+static void
+rest_of_handle_value_profile_transformations (void)
+{
+  if (value_profile_transformations ())
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+}
+
+struct tree_opt_pass pass_value_profile_transformations =
+{
+  "vpt",                               /* name */
+  gate_handle_value_profile_transformations,           /* gate */
+  rest_of_handle_value_profile_transformations,        /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_VPT,                               /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'V'                                   /* letter */
+};
+

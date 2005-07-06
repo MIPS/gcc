@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -730,7 +730,6 @@ package body Exp_Ch11 is
             end;
          end if;
 
-
          --  If an exception occurrence is present, then we must declare it
          --  and initialize it from the value stored in the TSD
 
@@ -1174,7 +1173,6 @@ package body Exp_Ch11 is
 
                Name_Buffer (Name_Len) := ASCII.NUL;
             end if;
-
 
             if Opt.Exception_Locations_Suppressed then
                Name_Len := 0;

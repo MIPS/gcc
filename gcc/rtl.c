@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file is compiled twice: once for the generator programs
    once for the compiler.  */
@@ -33,7 +33,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "real.h"
 #include "ggc.h"
-#include "errors.h"
+#ifdef GENERATOR_FILE
+# include "errors.h"
+#else
+# include "toplev.h"
+#endif
 
 
 /* Indexed by rtx code, gives number of operands for an rtx with that code.
@@ -174,7 +178,7 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = (rtx) ggc_alloc_zone_stat (RTX_SIZE (code), &rtl_zone PASS_MEM_STAT);
+  rt = (rtx) ggc_alloc_zone_pass_stat (RTX_SIZE (code), &rtl_zone);
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -308,8 +312,8 @@ shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
 {
   rtx copy;
 
-  copy = (rtx) ggc_alloc_zone_stat (RTX_SIZE (GET_CODE (orig)),
-				    &rtl_zone PASS_MEM_STAT);
+  copy = (rtx) ggc_alloc_zone_pass_stat (RTX_SIZE (GET_CODE (orig)),
+					 &rtl_zone);
   memcpy (copy, orig, RTX_SIZE (GET_CODE (orig)));
   return copy;
 }

@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -534,6 +534,15 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
     {
       regno = REGNO (dest);
 
+#ifdef STACK_REGS
+      /* Treat all writes to a stack register as modifying the TOS.  */
+      if (regno >= FIRST_STACK_REG && regno <= LAST_STACK_REG)
+	{
+	  SET_REGNO_REG_SET (reg_pending_uses, FIRST_STACK_REG);
+	  regno = FIRST_STACK_REG;
+	}
+#endif
+
       /* A hard reg in a wide mode may really be multiple registers.
          If so, mark all of them just like the first.  */
       if (regno < FIRST_PSEUDO_REGISTER)
@@ -684,6 +693,16 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
     case REG:
       {
 	int regno = REGNO (x);
+
+#ifdef STACK_REGS
+      /* Treat all reads of a stack register as modifying the TOS.  */
+      if (regno >= FIRST_STACK_REG && regno <= LAST_STACK_REG)
+	{
+	  SET_REGNO_REG_SET (reg_pending_sets, FIRST_STACK_REG);
+	  regno = FIRST_STACK_REG;
+	}
+#endif
+
 	if (regno < FIRST_PSEUDO_REGISTER)
 	  {
 	    int i = hard_regno_nregs[regno][GET_MODE (x)];

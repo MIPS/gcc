@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,8 +38,6 @@ exception statement from your version. */
 
 package java.net;
 
-import gnu.classpath.Configuration;
-
 import java.util.Enumeration;
 import java.util.Vector;
 
@@ -55,24 +53,24 @@ import java.util.Vector;
  */
 public final class NetworkInterface
 {
-  static
-    {
-      if (Configuration.INIT_LOAD_LIBRARY)
-	System.loadLibrary("javanet");
-    }
-
   private String name;
   private Vector inetAddresses;
 
-  private NetworkInterface(String name, InetAddress address)
+  NetworkInterface(String name, InetAddress address)
   {
     this.name = name;
     this.inetAddresses = new Vector(1, 1);
     this.inetAddresses.add(address);
   }
 
-  private static native Vector getRealNetworkInterfaces()
-    throws SocketException;
+  NetworkInterface(String name, InetAddress[] addresses)
+  {
+    this.name = name;
+    this.inetAddresses = new Vector(addresses.length, 1);
+
+    for (int i = 0; i < addresses.length; i++)
+      this.inetAddresses.add(addresses[i]);
+  }
 
   /**
    * Returns the name of the network interface
@@ -145,7 +143,7 @@ public final class NetworkInterface
   public static NetworkInterface getByName(String name)
     throws SocketException
   {
-    Vector networkInterfaces = getRealNetworkInterfaces();
+    Vector networkInterfaces = VMNetworkInterface.getInterfaces();
 
     for (Enumeration e = networkInterfaces.elements(); e.hasMoreElements();)
       {
@@ -172,7 +170,7 @@ public final class NetworkInterface
   public static NetworkInterface getByInetAddress(InetAddress addr)
     throws SocketException
   {
-    Vector networkInterfaces = getRealNetworkInterfaces();
+    Vector networkInterfaces = VMNetworkInterface.getInterfaces();
 
     for (Enumeration interfaces = networkInterfaces.elements();
          interfaces.hasMoreElements();)
@@ -199,7 +197,7 @@ public final class NetworkInterface
    */
   public static Enumeration getNetworkInterfaces() throws SocketException
   {
-    Vector networkInterfaces = getRealNetworkInterfaces();
+    Vector networkInterfaces = VMNetworkInterface.getInterfaces();
 
     if (networkInterfaces.isEmpty())
       return null;

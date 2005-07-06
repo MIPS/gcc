@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This pass detects the loops that iterate a constant number of times,
    adds a canonical induction variable (step -1, tested against 0) 
@@ -55,6 +55,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "tree-inline.h"
 
+/* Specifies types of loops that may be unrolled.  */
+
+enum unroll_level
+{
+  UL_SINGLE_ITER,	/* Only loops that exit immediately in the first
+			   iteration.  */
+  UL_NO_GROWTH,		/* Only loops whose unrolling will not cause increase
+			   of code size.  */
+  UL_ALL		/* All suitable loops.  */
+};
+
 /* Adds a canonical induction variable to LOOP iterating NITER times.  EXIT
    is the exit edge whose condition is replaced.  */
 
@@ -84,9 +95,9 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
      with a modulo arithmetics.  */
 
   type = TREE_TYPE (niter);
-  niter = fold (build2 (PLUS_EXPR, type,
-			niter,
-			build_int_cst (type, 1)));
+  niter = fold_build2 (PLUS_EXPR, type,
+		       niter,
+		       build_int_cst (type, 1));
   incr_at = bsi_last (in->src);
   create_iv (niter,
 	     fold_convert (type, integer_minus_one_node),
@@ -97,7 +108,7 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
   COND_EXPR_COND (cond) = build2 (cmp, boolean_type_node,
 				  var,
 				  build_int_cst (type, 0));
-  modify_stmt (cond);
+  update_stmt (cond);
 }
 
 /* Computes an estimated number of insns in LOOP.  */
@@ -117,18 +128,43 @@ tree_num_loop_insns (struct loop *loop)
   return size;
 }
 
+/* Estimate number of insns of completely unrolled loop.  We assume
+   that the size of the unrolled loop is decreased in the
+   following way (the numbers of insns are based on what
+   estimate_num_insns returns for appropriate statements):
+
+   1) exit condition gets removed (2 insns)
+   2) increment of the control variable gets removed (2 insns)
+   3) All remaining statements are likely to get simplified
+      due to constant propagation.  Hard to estimate; just
+      as a heuristics we decrease the rest by 1/3.
+
+   NINSNS is the number of insns in the loop before unrolling.
+   NUNROLL is the number of times the loop is unrolled.  */
+
+static unsigned HOST_WIDE_INT
+estimated_unrolled_size (unsigned HOST_WIDE_INT ninsns,
+			 unsigned HOST_WIDE_INT nunroll)
+{
+  HOST_WIDE_INT unr_insns = 2 * ((HOST_WIDE_INT) ninsns - 4) / 3;
+  if (unr_insns <= 0)
+    unr_insns = 1;
+  unr_insns *= (nunroll + 1);
+
+  return unr_insns;
+}
+
 /* Tries to unroll LOOP completely, i.e. NITER times.  LOOPS is the
-   loop tree.  COMPLETELY_UNROLL is true if we should unroll the loop
-   even if it may cause code growth.  EXIT is the exit of the loop
-   that should be eliminated.  */
+   loop tree.  UL determines which loops we are allowed to unroll. 
+   EXIT is the exit of the loop that should be eliminated.  */
 
 static bool
 try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
 			    struct loop *loop,
 			    edge exit, tree niter,
-			    bool completely_unroll)
+			    enum unroll_level ul)
 {
-  unsigned HOST_WIDE_INT n_unroll, ninsns, max_unroll;
+  unsigned HOST_WIDE_INT n_unroll, ninsns, max_unroll, unr_insns;
   tree old_cond, cond, dont_exit, do_exit;
 
   if (loop->inner)
@@ -144,7 +180,7 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
 
   if (n_unroll)
     {
-      if (!completely_unroll)
+      if (ul == UL_SINGLE_ITER)
 	return false;
 
       ninsns = tree_num_loop_insns (loop);
@@ -152,6 +188,25 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
       if (n_unroll * ninsns
 	  > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS))
 	return false;
+
+      if (ul == UL_NO_GROWTH)
+	{
+	  unr_insns = estimated_unrolled_size (ninsns, n_unroll);
+	  
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "  Loop size: %d\n", (int) ninsns);
+	      fprintf (dump_file, "  Estimated size after unrolling: %d\n",
+		       (int) unr_insns);
+	    }
+	  
+	  if (unr_insns > ninsns)
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "Not unrolling loop %d:\n", loop->num);
+	      return false;
+	    }
+	}
     }
 
   if (exit->flags & EDGE_TRUE_VALUE)
@@ -170,19 +225,25 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
     {
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
-      modify_stmt (cond);
+      update_stmt (cond);
+      initialize_original_copy_tables ();
 
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					       loops, n_unroll, NULL,
 					       NULL, NULL, NULL, 0))
 	{
 	  COND_EXPR_COND (cond) = old_cond;
+	  update_stmt (cond);
+          free_original_copy_tables ();
 	  return false;
 	}
+      free_original_copy_tables ();
     }
   
   COND_EXPR_COND (cond) = do_exit;
-  modify_stmt (cond);
+  update_stmt (cond);
+
+  update_ssa (TODO_update_ssa);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Unrolled loop %d completely.\n", loop->num);
@@ -191,14 +252,14 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
 }
 
 /* Adds a canonical induction variable to LOOP if suitable.  LOOPS is the loops
-   tree.  CREATE_IV is true if we may create a new iv.  COMPLETELY_UNROLL is
-   true if we should do complete unrolling even if it may cause the code
-   growth.  If TRY_EVAL is true, we try to determine the number of iterations
-   of a loop by direct evaluation.  Returns true if cfg is changed.  */
+   tree.  CREATE_IV is true if we may create a new iv.  UL determines what
+   which loops we are allowed to completely unroll.  If TRY_EVAL is true, we try
+   to determine the number of iterations of a loop by direct evaluation. 
+   Returns true if cfg is changed.  */
 
 static bool
 canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
-				       bool create_iv, bool completely_unroll,
+				       bool create_iv, enum unroll_level ul,
 				       bool try_eval)
 {
   edge exit = NULL;
@@ -214,8 +275,8 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
       /* The result of number_of_iterations_in_loop is by one higher than
 	 we expect (i.e. it returns number of executions of the exit
 	 condition, not of the loop latch edge).  */
-      niter = fold (build2 (MINUS_EXPR, TREE_TYPE (niter), niter,
-			    build_int_cst (TREE_TYPE (niter), 1)));
+      niter = fold_build2 (MINUS_EXPR, TREE_TYPE (niter), niter,
+			   build_int_cst (TREE_TYPE (niter), 1));
     }
   else
     {
@@ -242,7 +303,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
       fprintf (dump_file, " times.\n");
     }
 
-  if (try_unroll_loop_completely (loops, loop, exit, niter, completely_unroll))
+  if (try_unroll_loop_completely (loops, loop, exit, niter, ul))
     return true;
 
   if (create_iv)
@@ -267,7 +328,8 @@ canonicalize_induction_variables (struct loops *loops)
 
       if (loop)
 	changed |= canonicalize_loop_induction_variables (loops, loop,
-							  true, false, true);
+							  true, UL_SINGLE_ITER,
+							  true);
     }
 
   /* Clean up the information about numbers of iterations, since brute force
@@ -278,14 +340,17 @@ canonicalize_induction_variables (struct loops *loops)
     cleanup_tree_cfg_loop ();
 }
 
-/* Unroll LOOPS completely if they iterate just few times.  */
+/* Unroll LOOPS completely if they iterate just few times.  Unless
+   MAY_INCREASE_SIZE is true, perform the unrolling only if the
+   size of the code does not increase.  */
 
 void
-tree_unroll_loops_completely (struct loops *loops)
+tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
 {
   unsigned i;
   struct loop *loop;
   bool changed = false;
+  enum unroll_level ul = may_increase_size ? UL_ALL : UL_NO_GROWTH;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -295,7 +360,7 @@ tree_unroll_loops_completely (struct loops *loops)
 	continue;
 
       changed |= canonicalize_loop_induction_variables (loops, loop,
-							false, true,
+							false, ul,
 							!flag_tree_loop_ivcanon);
     }
 

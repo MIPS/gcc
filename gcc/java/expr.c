@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -137,6 +137,12 @@ int stack_pointer;
 
 const unsigned char *linenumber_table;
 int linenumber_count;
+
+/* Largest pc so far in this method that has been passed to lookup_label. */
+int highest_label_pc_this_method = -1;
+
+/* Base value for this method to add to pc to get generated label. */
+int start_label_pc_this_method = 0;
 
 void
 init_expr_processing (void)
@@ -373,7 +379,7 @@ pop_type_0 (tree type, char **messagep)
       && t == object_ptr_type_node)
     {
       if (type != ptr_type_node)
-	warning ("need to insert runtime check for %s", 
+	warning (0, "need to insert runtime check for %s", 
 		 xstrdup (lang_printable_name (type, 0)));
       return type;
     }
@@ -502,7 +508,7 @@ can_widen_reference_to (tree source_type, tree target_type)
 			  source_type, target_type);
 
       if (!quiet_flag)
-       warning ("assert: %s is assign compatible with %s", 
+       warning (0, "assert: %s is assign compatible with %s", 
 		xstrdup (lang_printable_name (target_type, 0)),
 		xstrdup (lang_printable_name (source_type, 0)));
       /* Punt everything to runtime.  */
@@ -549,7 +555,7 @@ can_widen_reference_to (tree source_type, tree target_type)
 	  if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
 	    {
 	      if (! quiet_flag)
-		warning ("assert: %s is assign compatible with %s", 
+		warning (0, "assert: %s is assign compatible with %s", 
 			 xstrdup (lang_printable_name (target_type, 0)),
 			 xstrdup (lang_printable_name (source_type, 0)));
 	      return 1;
@@ -1766,7 +1772,9 @@ lookup_label (int pc)
 {
   tree name;
   char buf[32];
-  ASM_GENERATE_INTERNAL_LABEL(buf, "LJpc=", pc);
+  if (pc > highest_label_pc_this_method)
+    highest_label_pc_this_method = pc;
+  ASM_GENERATE_INTERNAL_LABEL(buf, "LJpc=", start_label_pc_this_method + pc);
   name = get_identifier (buf);
   if (IDENTIFIER_LOCAL_VALUE (name))
     return IDENTIFIER_LOCAL_VALUE (name);
@@ -2050,7 +2058,6 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
       if (! flag_indirect_dispatch 
 	  || (! DECL_EXTERNAL (method) && ! TREE_PUBLIC (method)))
 	{
-	  make_decl_rtl (method);
 	  func = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (method)),
 			 method);
 	}
@@ -2513,8 +2520,7 @@ build_jni_stub (tree method)
     method_args = DECL_ARGUMENTS (method);
   else
     method_args = BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (method));
-  block = build_block (env_var, NULL_TREE, NULL_TREE,
-		       method_args, NULL_TREE);
+  block = build_block (env_var, NULL_TREE, method_args, NULL_TREE);
   TREE_SIDE_EFFECTS (block) = 1;
   /* When compiling from source we don't set the type of the block,
      because that will prevent patch_return from ever being run.  */
@@ -2715,7 +2721,8 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
     }
 
   field_ref = build_field_ref (field_ref, self_type, field_name);
-  if (is_static)
+  if (is_static
+      && ! flag_indirect_dispatch)
     field_ref = build_class_init (self_type, field_ref);
   if (is_putting)
     {
@@ -2723,22 +2730,22 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
       if (FIELD_FINAL (field_decl))
 	{
 	  if (DECL_CONTEXT (field_decl) != current_class)
-            error ("%Jassignment to final field '%D' not in field's class",
-                   field_decl, field_decl);
+            error ("assignment to final field %q+D not in field's class",
+                   field_decl);
 	  else if (FIELD_STATIC (field_decl))
 	    {
 	      if (!DECL_CLINIT_P (current_function_decl))
-		warning ("%Jassignment to final static field %qD not in "
+		warning (0, "assignment to final static field %q+D not in "
                          "class initializer",
-                         field_decl, field_decl);
+                         field_decl);
 	    }
 	  else
 	    {
 	      tree cfndecl_name = DECL_NAME (current_function_decl);
 	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
 		  && !ID_FINIT_P (cfndecl_name))
-                warning ("%Jassignment to final field '%D' not in constructor",
-			 field_decl, field_decl);
+                warning (0, "assignment to final field %q+D not in constructor",
+			 field_decl);
 	    }
 	}
       java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (field_ref),
@@ -2927,7 +2934,7 @@ expand_byte_code (JCF *jcf, tree method)
       int pc = GET_u2 (linenumber_pointer);
       linenumber_pointer += 4;
       if (pc >= length)
-	warning ("invalid PC in line number table");
+	warning (0, "invalid PC in line number table");
       else
 	{
 	  if ((instruction_bits[pc] & BCODE_HAS_LINENUMBER) != 0)
@@ -2983,7 +2990,7 @@ expand_byte_code (JCF *jcf, tree method)
 	    {
               /* We've just reached the end of a region of dead code.  */
 	      if (extra_warnings)
-		warning ("unreachable bytecode from %d to before %d",
+		warning (0, "unreachable bytecode from %d to before %d",
 			 dead_code_index, PC);
               dead_code_index = -1;
             }
@@ -3025,7 +3032,7 @@ expand_byte_code (JCF *jcf, tree method)
     {
       /* We've just reached the end of a region of dead code.  */
       if (extra_warnings)
-	warning ("unreachable bytecode from %d to the end of the method", 
+	warning (0, "unreachable bytecode from %d to the end of the method", 
 		 dead_code_index);
     }
 }
@@ -3484,7 +3491,8 @@ maybe_adjust_start_pc (struct JCF *jcf, int code_offset,
    For method invocation, we modify the arguments so that a
    left-to-right order evaluation is performed. Saved expressions
    will, in CALL_EXPR order, be reused when the call will be expanded.
-*/
+
+   We also promote outgoing args if needed.  */
 
 tree
 force_evaluation_order (tree node)
@@ -3518,7 +3526,17 @@ force_evaluation_order (tree node)
       /* This reverses the evaluation order. This is a desired effect. */
       for (cmp = NULL_TREE; arg; arg = TREE_CHAIN (arg))
 	{
-	  tree saved = save_expr (force_evaluation_order (TREE_VALUE (arg)));
+	  /* Promote types smaller than integer.  This is required by
+	     some ABIs.  */
+	  tree type = TREE_TYPE (TREE_VALUE (arg));
+	  tree saved;
+	  if (targetm.calls.promote_prototypes (type)
+	      && INTEGRAL_TYPE_P (type)
+	      && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
+				      TYPE_SIZE (integer_type_node)))
+	    TREE_VALUE (arg) = fold_convert (integer_type_node, TREE_VALUE (arg));
+
+	  saved = save_expr (force_evaluation_order (TREE_VALUE (arg)));
 	  cmp = (cmp == NULL_TREE ? saved :
 		 build2 (COMPOUND_EXPR, void_type_node, cmp, saved));
 	  TREE_VALUE (arg) = saved;

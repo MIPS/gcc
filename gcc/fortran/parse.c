@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -479,7 +479,13 @@ next_statement (void)
       gfc_buffer_error (1);
 
       if (gfc_at_eol ())
-	gfc_advance_line ();
+	{
+	  if (gfc_option.warn_line_truncation
+	      && gfc_current_locus.lb->truncated)
+	    gfc_warning_now ("Line truncated at %C");
+
+	  gfc_advance_line ();
+	}
 
       gfc_skip_comments ();
 
@@ -2151,7 +2157,7 @@ gfc_fixup_sibling_symbols (gfc_symbol * sym, gfc_namespace * siblings)
             gfc_free_symbol (old_sym);
         }
 
-      /* Do the same for any contined procedures.  */
+      /* Do the same for any contained procedures.  */
       gfc_fixup_sibling_symbols (sym, ns->contained);
     }
 }

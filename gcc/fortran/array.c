@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -866,15 +866,31 @@ gfc_match_array_constructor (gfc_expr ** result)
   gfc_expr *expr;
   locus where;
   match m;
+  const char *end_delim;
 
   if (gfc_match (" (/") == MATCH_NO)
-    return MATCH_NO;
+    {
+      if (gfc_match (" [") == MATCH_NO)
+        return MATCH_NO;
+      else
+        {
+          if (gfc_notify_std (GFC_STD_F2003, "New in Fortran 2003: [...] "
+                              "style array constructors at %C") == FAILURE)
+            return MATCH_ERROR;
+          end_delim = " ]";
+        }
+    }
+  else
+    end_delim = " /)";
 
   where = gfc_current_locus;
   head = tail = NULL;
 
-  if (gfc_match (" /)") == MATCH_YES)
-    goto empty;			/* Special case */
+  if (gfc_match (end_delim) == MATCH_YES)
+    {
+      gfc_error ("Empty array constructor at %C is not allowed");
+      goto cleanup;
+    }
 
   for (;;)
     {
@@ -895,10 +911,9 @@ gfc_match_array_constructor (gfc_expr ** result)
 	break;
     }
 
-  if (gfc_match (" /)") == MATCH_NO)
+  if (gfc_match (end_delim) == MATCH_NO)
     goto syntax;
 
-empty:
   expr = gfc_get_expr ();
 
   expr->expr_type = EXPR_ARRAY;

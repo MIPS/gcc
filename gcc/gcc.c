@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
 
 This paragraph is here to try to keep Sun CC from dying.
 The number of chars here seems crucial!!!!  */
@@ -59,7 +59,7 @@ compilation is specified by a string called a "spec".  */
 
    4. If the argument takes an argument, e.g., `--baz argument1',
    modify either DEFAULT_SWITCH_TAKES_ARG or
-   DEFAULT_WORD_SWITCH_TAKES_ARG in this file.  Omit the first `-'
+   DEFAULT_WORD_SWITCH_TAKES_ARG in gcc.h.  Omit the first `-'
    from `--baz'.
 
    5. Document the option in this file's display_help().  If the
@@ -328,7 +328,6 @@ static int default_arg (const char *, int);
 static void set_multilib_dir (void);
 static void print_multilib_info (void);
 static void perror_with_name (const char *);
-static void pfatal_pexecute (const char *, const char *) ATTRIBUTE_NORETURN;
 static void notice (const char *, ...) ATTRIBUTE_PRINTF_1;
 static void display_help (void);
 static void add_preprocessor_option (const char *, int);
@@ -460,6 +459,8 @@ or with constant text in a single argument.
  %l     process LINK_SPEC as a spec.
  %L     process LIB_SPEC as a spec.
  %G     process LIBGCC_SPEC as a spec.
+ %R     Output the concatenation of target_system_root and
+        target_sysroot_suffix.
  %S     process STARTFILE_SPEC as a spec.  A capital S is actually used here.
  %E     process ENDFILE_SPEC as a spec.  A capital E is actually used here.
  %C     process CPP_SPEC as a spec.
@@ -667,6 +668,14 @@ proper position among the other output files.  */
 #define LINK_GCC_C_SEQUENCE_SPEC "%G %L %G"
 #endif
 
+#ifndef LINK_SSP_SPEC
+#ifdef TARGET_LIBC_PROVIDES_SSP
+#define LINK_SSP_SPEC "%{fstack-protector:}"
+#else
+#define LINK_SSP_SPEC "%{fstack-protector:-lssp_nonshared -lssp }"
+#endif
+#endif
+
 #ifndef LINK_PIE_SPEC
 #ifdef HAVE_LD_PIE
 #define LINK_PIE_SPEC "%{pie:-pie} "
@@ -688,7 +697,7 @@ proper position among the other output files.  */
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
-    %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp)%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
@@ -699,6 +708,10 @@ proper position among the other output files.  */
 
 #ifndef STARTFILE_PREFIX_SPEC
 # define STARTFILE_PREFIX_SPEC ""
+#endif
+
+#ifndef SYSROOT_SPEC
+# define SYSROOT_SPEC "--sysroot=%R"
 #endif
 
 #ifndef SYSROOT_SUFFIX_SPEC
@@ -714,6 +727,7 @@ static const char *cpp_spec = CPP_SPEC;
 static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
 static const char *link_gcc_c_sequence_spec = LINK_GCC_C_SEQUENCE_SPEC;
+static const char *link_ssp_spec = LINK_SSP_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
@@ -728,6 +742,7 @@ static const char *linker_name_spec = LINKER_NAME;
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
+static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
 
@@ -942,7 +957,7 @@ static const struct compiler default_compilers[] =
 		cc1 %(cpp_unique_options) %(cc1_options)}}\
                 %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
   {"-",
-   "%{!E:%e-E required when input is from standard input}\
+   "%{!E:%e-E or -x required when input is from standard input}\
     %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
   {".h", "@c-header", 0, 0, 0},
   {"@c-header",
@@ -1510,6 +1525,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
   INIT_STATIC_SPEC ("cc1plus",			&cc1plus_spec),
   INIT_STATIC_SPEC ("link_gcc_c_sequence",	&link_gcc_c_sequence_spec),
+  INIT_STATIC_SPEC ("link_ssp",			&link_ssp_spec),
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
@@ -1532,6 +1548,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix_1",	&md_startfile_prefix_1),
   INIT_STATIC_SPEC ("startfile_prefix_spec",	&startfile_prefix_spec),
+  INIT_STATIC_SPEC ("sysroot_spec",             &sysroot_spec),
   INIT_STATIC_SPEC ("sysroot_suffix_spec",	&sysroot_suffix_spec),
   INIT_STATIC_SPEC ("sysroot_hdrs_suffix_spec",	&sysroot_hdrs_suffix_spec),
 };
@@ -1729,7 +1746,7 @@ init_spec (void)
       }
 
     obstack_1grow (&obstack, '\0');
-    libgcc_spec = obstack_finish (&obstack);
+    libgcc_spec = XOBFINISH (&obstack, const char *);
   }
 #endif
 #ifdef USE_AS_TRADITIONAL_FORMAT
@@ -1738,14 +1755,14 @@ init_spec (void)
     static const char tf[] = "--traditional-format ";
     obstack_grow (&obstack, tf, sizeof(tf) - 1);
     obstack_grow0 (&obstack, asm_spec, strlen (asm_spec));
-    asm_spec = obstack_finish (&obstack);
+    asm_spec = XOBFINISH (&obstack, const char *);
   }
 #endif
 #ifdef LINK_EH_SPEC
   /* Prepend LINK_EH_SPEC to whatever link_spec we had before.  */
   obstack_grow (&obstack, LINK_EH_SPEC, sizeof(LINK_EH_SPEC) - 1);
   obstack_grow0 (&obstack, link_spec, strlen (link_spec));
-  link_spec = obstack_finish (&obstack);
+  link_spec = XOBFINISH (&obstack, const char *);
 #endif
 
   specs = sl;
@@ -2386,7 +2403,7 @@ build_search_list (struct path_prefix *paths, const char *prefix,
     }
 
   obstack_1grow (&collect_obstack, '\0');
-  return obstack_finish (&collect_obstack);
+  return XOBFINISH (&collect_obstack, char *);
 }
 
 /* Rebuild the COMPILER_PATH and LIBRARY_PATH environment variables
@@ -2973,7 +2990,7 @@ convert_filename (const char *name, int do_exe ATTRIBUTE_UNUSED,
     {
       obstack_grow (&obstack, name, len - 2);
       obstack_grow0 (&obstack, TARGET_OBJECT_SUFFIX, strlen (TARGET_OBJECT_SUFFIX));
-      name = obstack_finish (&obstack);
+      name = XOBFINISH (&obstack, const char *);
     }
 #endif
 
@@ -2994,7 +3011,7 @@ convert_filename (const char *name, int do_exe ATTRIBUTE_UNUSED,
   obstack_grow (&obstack, name, len);
   obstack_grow0 (&obstack, TARGET_EXECUTABLE_SUFFIX,
 		 strlen (TARGET_EXECUTABLE_SUFFIX));
-  name = obstack_finish (&obstack);
+  name = XOBFINISH (&obstack, const char *);
 #endif
 
   return name;
@@ -3934,16 +3951,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  infiles[n_infiles].language = "*";
 	  infiles[n_infiles++].name = argv[++i];
 	}
+      /* Xassembler and Xpreprocessor were already handled in the first argv
+	 scan, so all we need to do here is ignore them and their argument.  */
       else if (strcmp (argv[i], "-Xassembler") == 0)
-	{
-	  infiles[n_infiles].language = "*";
-	  infiles[n_infiles++].name = argv[++i];
-	}
+	i++;
       else if (strcmp (argv[i], "-Xpreprocessor") == 0)
-	{
-	  infiles[n_infiles].language = "*";
-	  infiles[n_infiles++].name = argv[++i];
-	}
+	i++;
       else if (strcmp (argv[i], "-l") == 0)
 	{ /* POSIX allows separation of -l and the lib arg;
 	     canonicalize by concatenating -l with its arg */
@@ -4151,7 +4164,7 @@ set_collect_gcc_options (void)
 	}
     }
   obstack_grow (&collect_obstack, "\0", 1);
-  putenv (obstack_finish (&collect_obstack));
+  putenv (XOBFINISH (&collect_obstack, char *));
 }
 
 /* Process a spec string, accumulating and running commands.  */
@@ -4250,7 +4263,7 @@ do_spec_2 (const char *spec)
   if (arg_going)
     {
       obstack_1grow (&obstack, 0);
-      string = obstack_finish (&obstack);
+      string = XOBFINISH (&obstack, const char *);
       if (this_is_library_file)
 	string = find_file (string);
       store_arg (string, delete_this_arg, this_is_output_file);
@@ -4485,7 +4498,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	if (arg_going)
 	  {
 	    obstack_1grow (&obstack, 0);
-	    string = obstack_finish (&obstack);
+	    string = XOBFINISH (&obstack, const char *);
 	    if (this_is_library_file)
 	      string = find_file (string);
 	    store_arg (string, delete_this_arg, this_is_output_file);
@@ -4530,7 +4543,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	if (arg_going)
 	  {
 	    obstack_1grow (&obstack, 0);
-	    string = obstack_finish (&obstack);
+	    string = XOBFINISH (&obstack, const char *);
 	    if (this_is_library_file)
 	      string = find_file (string);
 	    store_arg (string, delete_this_arg, this_is_output_file);
@@ -4549,7 +4562,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	if (arg_going)
 	  {
 	    obstack_1grow (&obstack, 0);
-	    string = obstack_finish (&obstack);
+	    string = XOBFINISH (&obstack, const char *);
 	    if (this_is_library_file)
 	      string = find_file (string);
 	    store_arg (string, delete_this_arg, this_is_output_file);
@@ -4911,7 +4924,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      if (arg_going)
 		{
 		  obstack_1grow (&obstack, 0);
-		  string = obstack_finish (&obstack);
+		  string = XOBFINISH (&obstack, const char *);
 		  if (this_is_library_file)
 		    string = find_file (string);
 		  store_arg (string, delete_this_arg, this_is_output_file);
@@ -5240,7 +5253,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
   if (processing_spec_function && arg_going)
     {
       obstack_1grow (&obstack, 0);
-      string = obstack_finish (&obstack);
+      string = XOBFINISH (&obstack, const char *);
       if (this_is_library_file)
         string = find_file (string);
       store_arg (string, delete_this_arg, this_is_output_file);
@@ -5995,6 +6008,9 @@ main (int argc, const char **argv)
   GCC_DRIVER_HOST_INITIALIZATION;
 #endif
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   if (signal (SIGINT, SIG_IGN) != SIG_IGN)
@@ -6031,21 +6047,21 @@ main (int argc, const char **argv)
       obstack_grow (&multilib_obstack, p, strlen (p));
 
     obstack_1grow (&multilib_obstack, 0);
-    multilib_select = obstack_finish (&multilib_obstack);
+    multilib_select = XOBFINISH (&multilib_obstack, const char *);
 
     q = multilib_matches_raw;
     while ((p = *q++) != (char *) 0)
       obstack_grow (&multilib_obstack, p, strlen (p));
 
     obstack_1grow (&multilib_obstack, 0);
-    multilib_matches = obstack_finish (&multilib_obstack);
+    multilib_matches = XOBFINISH (&multilib_obstack, const char *);
 
     q = multilib_exclusions_raw;
     while ((p = *q++) != (char *) 0)
       obstack_grow (&multilib_obstack, p, strlen (p));
 
     obstack_1grow (&multilib_obstack, 0);
-    multilib_exclusions = obstack_finish (&multilib_obstack);
+    multilib_exclusions = XOBFINISH (&multilib_obstack, const char *);
 
     need_space = FALSE;
     for (i = 0; i < ARRAY_SIZE (multilib_defaults_raw); i++)
@@ -6059,7 +6075,7 @@ main (int argc, const char **argv)
       }
 
     obstack_1grow (&multilib_obstack, 0);
-    multilib_defaults = obstack_finish (&multilib_obstack);
+    multilib_defaults = XOBFINISH (&multilib_obstack, const char *);
   }
 
   /* Set up to remember the pathname of gcc and any options
@@ -6068,7 +6084,7 @@ main (int argc, const char **argv)
   obstack_init (&collect_obstack);
   obstack_grow (&collect_obstack, "COLLECT_GCC=", sizeof ("COLLECT_GCC=") - 1);
   obstack_grow (&collect_obstack, argv[0], strlen (argv[0]) + 1);
-  putenv (obstack_finish (&collect_obstack));
+  putenv (XOBFINISH (&collect_obstack, char *));
 
 #ifdef INIT_ENVIRONMENT
   /* Set up any other necessary machine specific environment variables.  */
@@ -6140,17 +6156,30 @@ main (int argc, const char **argv)
       && do_spec_2 (sysroot_suffix_spec) == 0)
     {
       if (argbuf_index > 1)
-        error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC.");
+        error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC");
       else if (argbuf_index == 1)
         target_sysroot_suffix = xstrdup (argbuf[argbuf_index -1]);
     }
+
+#ifdef HAVE_LD_SYSROOT
+  /* Pass the --sysroot option to the linker, if it supports that.  If
+     there is a sysroot_suffix_spec, it has already been processed by
+     this point, so target_system_root really is the system root we
+     should be using.  */
+  if (target_system_root)
+    {
+      obstack_grow (&obstack, "%(sysroot_spec) ", strlen ("%(sysroot_spec) "));
+      obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+      set_spec ("link", XOBFINISH (&obstack, const char *));
+    }
+#endif
 
   /* Process sysroot_hdrs_suffix_spec.  */
   if (*sysroot_hdrs_suffix_spec != 0
       && do_spec_2 (sysroot_hdrs_suffix_spec) == 0)
     {
       if (argbuf_index > 1)
-        error ("spec failure: more than one arg to SYSROOT_HEADERS_SUFFIX_SPEC.");
+        error ("spec failure: more than one arg to SYSROOT_HEADERS_SUFFIX_SPEC");
       else if (argbuf_index == 1)
         target_sysroot_hdrs_suffix = xstrdup (argbuf[argbuf_index -1]);
     }
@@ -6330,7 +6359,7 @@ main (int argc, const char **argv)
       obstack_init (&obstack);
       do_spec_1 (THREAD_MODEL_SPEC, 0, thread_model);
       obstack_1grow (&obstack, '\0');
-      thrmod = obstack_finish (&obstack);
+      thrmod = XOBFINISH (&obstack, const char *);
 #else
       thrmod = thread_model;
 #endif
@@ -6686,24 +6715,6 @@ perror_with_name (const char *name)
   error ("%s: %s", name, xstrerror (errno));
 }
 
-static void
-pfatal_pexecute (const char *errmsg_fmt, const char *errmsg_arg)
-{
-  if (errmsg_arg)
-    {
-      int save_errno = errno;
-
-      /* Space for trailing '\0' is in %s.  */
-      char *msg = xmalloc (strlen (errmsg_fmt) + strlen (errmsg_arg));
-      sprintf (msg, errmsg_fmt, errmsg_arg);
-      errmsg_fmt = msg;
-
-      errno = save_errno;
-    }
-
-  pfatal_with_name (errmsg_fmt);
-}
-
 /* Output an error message and exit.  */
 
 void
@@ -6715,40 +6726,46 @@ fancy_abort (const char *file, int line, const char *func)
 /* Output an error message and exit.  */
 
 void
-fatal (const char *msgid, ...)
+fatal (const char *cmsgid, ...)
 {
   va_list ap;
 
-  va_start (ap, msgid);
+  va_start (ap, cmsgid);
 
   fprintf (stderr, "%s: ", programname);
-  vfprintf (stderr, _(msgid), ap);
+  vfprintf (stderr, _(cmsgid), ap);
   va_end (ap);
   fprintf (stderr, "\n");
   delete_temp_files ();
   exit (1);
 }
 
+/* The argument is actually c-format, not gcc-internal-format,
+   but because functions with identical names are used through
+   the rest of the compiler with gcc-internal-format, we just
+   need to hope all users of these functions use the common
+   subset between c-format and gcc-internal-format.  */
+
 void
-error (const char *msgid, ...)
+error (const char *gmsgid, ...)
 {
   va_list ap;
 
-  va_start (ap, msgid);
+  va_start (ap, gmsgid);
   fprintf (stderr, "%s: ", programname);
-  vfprintf (stderr, _(msgid), ap);
+  vfprintf (stderr, _(gmsgid), ap);
   va_end (ap);
 
   fprintf (stderr, "\n");
 }
 
 static void
-notice (const char *msgid, ...)
+notice (const char *cmsgid, ...)
 {
   va_list ap;
 
-  va_start (ap, msgid);
-  vfprintf (stderr, _(msgid), ap);
+  va_start (ap, cmsgid);
+  vfprintf (stderr, _(cmsgid), ap);
   va_end (ap);
 }
 
@@ -7070,7 +7087,7 @@ set_multilib_dir (void)
 
 	  obstack_grow (&multilib_obstack, start, end - start);
 	  obstack_1grow (&multilib_obstack, 0);
-	  mdswitches[i].str = obstack_finish (&multilib_obstack);
+	  mdswitches[i].str = XOBFINISH (&multilib_obstack, const char *);
 	  mdswitches[i++].len = end - start;
 
 	  if (*end == '\0')

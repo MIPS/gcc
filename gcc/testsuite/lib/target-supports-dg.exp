@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # If this target does not support weak symbols, skip this test.
 
@@ -117,6 +117,24 @@ proc dg-require-named-sections { args } {
 proc dg-require-effective-target { args } {
     set args [lreplace $args 0 0]
     if { ![is-effective-target [lindex $args 0]] } {
+	upvar dg-do-what dg-do-what
+        set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    }
+}
+
+# If this target does not have fork, skip this test.
+
+proc dg-require-fork { args } {
+    if { ![check_fork_available] } {
+	upvar dg-do-what dg-do-what
+        set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    }
+}
+
+# If this target does not have mkfifo, skip this test.
+
+proc dg-require-mkfifo { args } {
+    if { ![check_mkfifo_available] } {
 	upvar dg-do-what dg-do-what
         set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
     }

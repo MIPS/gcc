@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 extern void default_external_libcall (rtx);
 
@@ -34,6 +34,10 @@ extern enum machine_mode default_eh_return_filter_mode (void);
 extern unsigned HOST_WIDE_INT default_shift_truncation_mask
   (enum machine_mode);
 
+extern tree default_stack_protect_guard (void);
+extern tree default_external_stack_protect_fail (void);
+extern tree default_hidden_stack_protect_fail (void);
+
 extern tree default_cxx_guard_type (void);
 extern tree default_cxx_get_cookie_size (tree);
 
@@ -45,6 +49,8 @@ extern bool hook_callee_copies_named
 extern void default_unwind_emit (FILE *, rtx);
 
 extern bool default_scalar_mode_supported_p (enum machine_mode);
+
+extern const char * default_invalid_within_doloop (rtx);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */

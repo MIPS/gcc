@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_GFORTRAN_H
 #define GCC_GFORTRAN_H
@@ -92,13 +92,14 @@ mstring;
 
 
 /* Flags to specify which standard/extension contains a feature.  */
-#define GFC_STD_GNU                (1<<5)    /* GNU Fortran extension.  */
-#define GFC_STD_F2003             (1<<4)    /* New in F2003.  */
+#define GFC_STD_LEGACY		(1<<6) /* Backward compatibility.  */
+#define GFC_STD_GNU		(1<<5)    /* GNU Fortran extension.  */
+#define GFC_STD_F2003		(1<<4)    /* New in F2003.  */
 /* Note that no features were obsoleted nor deleted in F2003.  */
-#define GFC_STD_F95                 (1<<3)    /* New in F95.  */
-#define GFC_STD_F95_DEL         (1<<2)    /* Deleted in F95.  */
-#define GFC_STD_F95_OBS        (1<<1)    /* Obsoleted in F95.  */
-#define GFC_STD_F77                 (1<<0)    /* Up to and including F77.  */
+#define GFC_STD_F95		(1<<3)    /* New in F95.  */
+#define GFC_STD_F95_DEL		(1<<2)    /* Deleted in F95.  */
+#define GFC_STD_F95_OBS		(1<<1)    /* Obsoleted in F95.  */
+#define GFC_STD_F77		(1<<0)    /* Up to and including F77.  */
 
 /*************************** Enums *****************************/
 
@@ -271,6 +272,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_ABS,
   GFC_ISYM_ACHAR,
   GFC_ISYM_ACOS,
+  GFC_ISYM_ACOSH,
   GFC_ISYM_ADJUSTL,
   GFC_ISYM_ADJUSTR,
   GFC_ISYM_AIMAG,
@@ -280,8 +282,10 @@ enum gfc_generic_isym_id
   GFC_ISYM_ANINT,
   GFC_ISYM_ANY,
   GFC_ISYM_ASIN,
+  GFC_ISYM_ASINH,
   GFC_ISYM_ASSOCIATED,
   GFC_ISYM_ATAN,
+  GFC_ISYM_ATANH,
   GFC_ISYM_ATAN2,
   GFC_ISYM_J0,
   GFC_ISYM_J1,
@@ -431,6 +435,9 @@ typedef struct
   /* Set if this is the master function for a procedure with multiple
      entry points.  */
   unsigned entry_master:1;
+  /* Set if this is the master function for a function with multiple
+     entry points where characteristics of the entry points differ.  */
+  unsigned mixed_entry_master:1;
 
   /* Set if a function must always be referenced by an explicit interface.  */
   unsigned always_explicit:1;
@@ -481,6 +488,8 @@ typedef struct gfc_linebuf
   struct gfc_file *file;
   struct gfc_linebuf *next;
 
+  int truncated;
+
   char line[1];
 } gfc_linebuf;
 
@@ -491,6 +500,14 @@ typedef struct
   char *nextc;
   gfc_linebuf *lb;
 } locus;
+
+/* In order for the "gfc" format checking to work correctly, you must
+   have declared a typedef locus first.  */
+#if GCC_VERSION >= 4001
+#define ATTRIBUTE_GCC_GFC(m, n) __attribute__ ((__format__ (__gcc_gfc__, m, n))) ATTRIBUTE_NONNULL(m)
+#else
+#define ATTRIBUTE_GCC_GFC(m, n) ATTRIBUTE_NONNULL(m)
+#endif
 
 
 #include <limits.h>
@@ -815,7 +832,7 @@ typedef struct gfc_namespace
 
   gfc_charlen *cl_list;
 
-  int save_all, seen_save;
+  int save_all, seen_save, seen_implicit_none;
 
   /* Normally we don't need to refcount namespaces.  However when we read
      a module containing a function with multiple entry points, this
@@ -840,7 +857,7 @@ typedef struct gfc_gsymbol
 {
   BBT_HEADER(gfc_gsymbol);
 
-  char name[GFC_MAX_SYMBOL_LEN+1];
+  const char *name;
   enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
         GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
 
@@ -1146,7 +1163,7 @@ extern gfc_logical_info gfc_logical_kinds[];
 
 typedef struct
 {
-  mpfr_t epsilon, huge, tiny;
+  mpfr_t epsilon, huge, tiny, subnormal;
   int kind, radix, digits, min_exponent, max_exponent;
   int range, precision;
 
@@ -1414,6 +1431,8 @@ typedef struct
   int flag_no_backend;
   int flag_pack_derived;
   int flag_repack_arrays;
+  int flag_f2c;
+  int flag_backslash;
 
   int q_kind;
 
@@ -1532,19 +1551,19 @@ typedef struct gfc_error_buf
 void gfc_error_init_1 (void);
 void gfc_buffer_error (int);
 
-void gfc_warning (const char *, ...);
-void gfc_warning_now (const char *, ...);
+void gfc_warning (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_warning_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 
-void gfc_error (const char *, ...);
-void gfc_error_now (const char *, ...);
-void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN;
-void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN;
+void gfc_error (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_error_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
+void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_clear_error (void);
 int gfc_error_check (void);
 
-try gfc_notify_std (int, const char *, ...);
+try gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 /* A general purpose syntax error.  */
 #define gfc_syntax_error(ST)	\

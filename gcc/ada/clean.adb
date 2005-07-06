@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -884,7 +884,8 @@ package body Clean is
       if Project = Main_Project and then Data.Exec_Directory /= No_Name then
          declare
             Exec_Dir : constant String :=
-              Get_Name_String (Data.Exec_Directory);
+                         Get_Name_String (Data.Exec_Directory);
+
          begin
             Change_Dir (Exec_Dir);
 
@@ -899,9 +900,22 @@ package body Clean is
                        Main_Source_File,
                        Current_File_Index);
 
-                  if Is_Regular_File (Get_Name_String (Executable)) then
-                     Delete (Exec_Dir, Get_Name_String (Executable));
-                  end if;
+                  declare
+                     Exec_File_Name : constant String :=
+                                        Get_Name_String (Executable);
+
+                  begin
+                     if Is_Absolute_Path (Name => Exec_File_Name) then
+                        if Is_Regular_File (Exec_File_Name) then
+                           Delete ("", Exec_File_Name);
+                        end if;
+
+                     else
+                        if Is_Regular_File (Exec_File_Name) then
+                           Delete (Exec_Dir, Exec_File_Name);
+                        end if;
+                     end if;
+                  end;
                end if;
 
                if Data.Object_Directory /= No_Name then

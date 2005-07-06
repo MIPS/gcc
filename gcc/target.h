@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -51,6 +51,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "insn-modes.h"
 
 struct loop;
+
+struct stdarg_info;
 
 struct gcc_target
 {
@@ -92,6 +94,9 @@ struct gcc_target
 
     /* Output an internal label.  */
     void (* internal_label) (FILE *, const char *, unsigned long);
+
+    /* Emit a ttype table reference to a typeinfo object.  */
+    bool (* ttype) (rtx);
 
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
@@ -179,6 +184,9 @@ struct gcc_target
      /* Output an assembler directive to mark decl live. This instructs
 	linker to not dead code strip this symbol.  */
     void (*mark_decl_preserved) (const char *);
+
+    /* Output a DTP-relative reference to a TLS symbol.  */
+    void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
 
   } asm_out;
 
@@ -345,9 +353,15 @@ struct gcc_target
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
+  /* Select a replacement for a target-specific builtin.  This is done
+     *before* regular type checking, and so allows the target to implement
+     a crude form of function overloading.  The result is a complete
+     expression that implements the operation.  */
+  tree (*resolve_overloaded_builtin) (tree decl, tree params);
+
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
-
+  
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
      TYPE.  In all other cases, return NULL.  */
@@ -434,6 +448,10 @@ struct gcc_target
      invalid addresses.  */
   int (* address_cost) (rtx x);
 
+  /* Return where to allocate pseudo for a given hard register initial
+     value.  */
+  rtx (* allocate_initial_value) (rtx x);
+
   /* Given a register, this hook should return a parallel of registers
      to represent where to find the register pieces.  Define this hook
      if the register and its mode are represented in Dwarf in
@@ -481,6 +499,11 @@ struct gcc_target
 
   int (* adjust_unroll_max) (struct loop *, int, int, int, int);
 
+  /* If nonnull, this function checks whether a PCH file with the
+     given set of target flags can be used.  It returns NULL if so,
+     otherwise it returns an error message.  */
+  const char *(*check_pch_target_flags) (int);
+
   /* True if the compiler should give an enum type only as many
      bytes as it takes to represent the range of possible values of
      that type.  */
@@ -510,6 +533,25 @@ struct gcc_target
      to let the backend emit the call frame instructions.  */
   void (* dwarf_handle_frame_unspec) (const char *, rtx, int);
 
+  /* Perform architecture specific checking of statements gimplified
+     from VA_ARG_EXPR.  LHS is left hand side of MODIFY_EXPR, RHS
+     is right hand side.  Returns true if the statements doesn't need
+     to be checked for va_list references.  */
+  bool (* stdarg_optimize_hook) (struct stdarg_info *ai, tree lhs, tree rhs);
+
+  /* This target hook allows the operating system to override the DECL
+     that represents the external variable that contains the stack
+     protection guard variable.  The type of this DECL is ptr_type_node.  */
+  tree (* stack_protect_guard) (void);
+
+  /* This target hook allows the operating system to override the CALL_EXPR
+     that is invoked when a check vs the guard variable fails.  */
+  tree (* stack_protect_fail) (void);
+
+  /* Returns NULL if target supports the insn within a doloop block,
+     otherwise it returns an error message.  */
+  const char * (*invalid_within_doloop) (rtx);
+    
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -564,6 +606,18 @@ struct gcc_target
 					     	    tree funcdecl, tree val);
   } calls;
 
+  /* Return the diagnostic message string if conversion from FROMTYPE
+     to TOTYPE is not allowed, NULL otherwise.  */
+  const char *(*invalid_conversion) (tree fromtype, tree totype);
+
+  /* Return the diagnostic message string if the unary operation OP is
+     not permitted on TYPE, NULL otherwise.  */
+  const char *(*invalid_unary_op) (int op, tree type);
+
+  /* Return the diagnostic message string if the binary operation OP
+     is not permitted on TYPE1 and TYPE2, NULL otherwise.  */
+  const char *(*invalid_binary_op) (int op, tree type1, tree type2);
+
   /* Functions specific to the C++ frontend.  */
   struct cxx {
     /* Return the integer type used for guard variables.  */
@@ -585,11 +639,27 @@ struct gcc_target
        itself.  Returning true is the behavior required by the Itanium
        C++ ABI.  */
     bool (*key_method_may_be_inline) (void);
-    /* Returns true if all class data (virtual tables, type info,
-       etc.) should be exported from the current DLL, even when the
-       associated class is not exported.  */
-    bool (*export_class_data) (void);
+    /* DECL is a virtual table, virtual table table, typeinfo object,
+       or other similar implicit class data object that will be
+       emitted with external linkage in this translation unit.  No ELF
+       visibility has been explicitly specified.  If the target needs
+       to specify a visibility other than that of the containing class,
+       use this hook to set DECL_VISIBILITY and
+       DECL_VISIBILITY_SPECIFIED.  */ 
+    void (*determine_class_data_visibility) (tree decl);
+    /* Returns true (the default) if virtual tables and other
+       similar implicit class data objects are always COMDAT if they
+       have external linkage.  If this hook returns false, then
+       class data for classes whose virtual table will be emitted in
+       only one translation unit will not be COMDAT.  */
+    bool (*class_data_always_comdat) (void);
+    /* Returns true if __aeabi_atexit should be used to register static
+       destructors.  */
+    bool (*use_aeabi_atexit) (void);
   } cxx;
+
+  /* True if unwinding tables should be generated by default.  */
+  bool unwind_tables_default;
 
   /* Leave the boolean fields at the end.  */
 
@@ -626,6 +696,11 @@ struct gcc_target
   /* True if the target is allowed to reorder memory accesses unless
      synchronization is explicitly requested.  */
   bool relaxed_ordering;
+
+  /* Returns true if we should generate exception tables for use with the
+     ARM EABI.  The effects the encoding of function exception specifications.
+   */
+  bool arm_eabi_unwinder;
 
   /* Leave the boolean fields at the end.  */
 };

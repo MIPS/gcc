@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -36,6 +36,8 @@ obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
 package java.lang;
+
+import gnu.classpath.SystemProperties;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -170,7 +172,7 @@ public class Throwable implements Serializable
   public Throwable(String message, Throwable cause)
   {
     this(message);
-    initCause(cause);
+    this.cause = cause;
   }
 
   /**
@@ -401,13 +403,7 @@ public class Throwable implements Serializable
    */
   private static class StaticData
   {
-    static final String nl;
-
-    static
-    {
-      // Access package private properties field to prevent Security check.
-      nl = System.properties.getProperty("line.separator");
-    }
+    static final String nl = SystemProperties.getProperty("line.separator");
   }
 
   // Create whole stack trace in a stringbuffer so we don't have to print

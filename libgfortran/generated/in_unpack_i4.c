@@ -37,9 +37,9 @@ Boston, MA 02111-1307, USA.  */
 void
 internal_unpack_4 (gfc_array_i4 * d, const GFC_INTEGER_4 * src)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   index_type dsize;
@@ -71,7 +71,7 @@ internal_unpack_4 (gfc_array_i4 * d, const GFC_INTEGER_4 * src)
 
   if (dsize != 0)
     {
-      memcpy (dest, src, dsize * 4);
+      memcpy (dest, src, dsize * sizeof (GFC_INTEGER_4));
       return;
     }
 

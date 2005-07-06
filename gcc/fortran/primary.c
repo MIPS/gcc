@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -637,7 +637,7 @@ next_string_char (char delimiter)
   if (c == '\n')
     return -2;
 
-  if (c == '\\')
+  if (gfc_option.flag_backslash && c == '\\')
     {
       old_locus = gfc_current_locus;
 
@@ -1516,6 +1516,9 @@ check_substring:
 	  if (primary->expr_type == EXPR_CONSTANT)
 	    primary->expr_type = EXPR_SUBSTRING;
 
+	  if (substring)
+	    primary->ts.cl = NULL;
+
 	  break;
 
 	case MATCH_NO:
@@ -1799,8 +1802,11 @@ gfc_match_rvalue (gfc_expr ** result)
       break;
 
     case FL_PARAMETER:
-      if (sym->value
-	  && sym->value->expr_type != EXPR_ARRAY)
+      /* A statement of the form "REAL, parameter :: a(0:10) = 1" will
+	 end up here.  Unfortunately, sym->value->expr_type is set to 
+	 EXPR_CONSTANT, and so the if () branch would be followed without
+	 the !sym->as check.  */
+      if (sym->value && sym->value->expr_type != EXPR_ARRAY && !sym->as)
 	e = gfc_copy_expr (sym->value);
       else
 	{
@@ -1989,6 +1995,8 @@ gfc_match_rvalue (gfc_expr ** result)
 		}
 
 	      e->ts = sym->ts;
+	      if (e->ref)
+		e->ts.cl = NULL;
 	      m = MATCH_YES;
 	      break;
 	    }

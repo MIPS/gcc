@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -125,26 +125,11 @@ final class VMClassLoader
    *
    * @param c the class to resolve
    */
-  static final native void resolveClass(Class clazz);
-
-  static final void transformException(Class clazz, Throwable x)
+  static final void resolveClass(Class clazz)
   {
-    LinkageError e;
-    if (x instanceof LinkageError)
-      e = (LinkageError) x;
-    else if (x instanceof ClassNotFoundException)
-      {
-	e = new NoClassDefFoundError("while resolving class: "
-				     + clazz.getName());
-	e.initCause (x);
-      }
-    else
-      {
-	e = new LinkageError ("unexpected exception during linking: "
-			      + clazz.getName());
-	e.initCause (x);
-      }
-    throw e;
+    // There doesn't seem to be a need for this to do anything.
+    // Testing reveals that the JDK doesn't seem to do anything here,
+    // either.
   }
 
   /**

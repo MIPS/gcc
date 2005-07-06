@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (define_constants
   [(UNSPEC_LOAD_DF_LOW		 0)
@@ -126,7 +126,8 @@
 ;; slt		set less than instructions
 ;; clz		the clz and clo instructions
 ;; trap		trap if instructions
-;; imul		integer multiply
+;; imul		integer multiply 2 operands
+;; imul3	integer multiply 3 operands
 ;; imadd	integer multiply-add
 ;; idiv		integer divide
 ;; fmove	floating point register move
@@ -148,13 +149,24 @@
 ;; multi	multiword sequence (or user asm statements)
 ;; nop		no operation
 (define_attr "type"
-  "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,prefetch,prefetchx,condmove,xfer,mthilo,mfhilo,const,arith,shift,slt,clz,trap,imul,imadd,idiv,fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,frsqrt1,frsqrt2,multi,nop"
+  "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,prefetch,prefetchx,condmove,xfer,mthilo,mfhilo,const,arith,shift,slt,clz,trap,imul,imul3,imadd,idiv,fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,frsqrt1,frsqrt2,multi,nop"
   (cond [(eq_attr "jal" "!unset") (const_string "call")
 	 (eq_attr "got" "load") (const_string "load")]
 	(const_string "unknown")))
 
 ;; Main data type used by the insn
 (define_attr "mode" "unknown,none,QI,HI,SI,DI,SF,DF,FPSW"
+  (const_string "unknown"))
+
+;; Mode for conversion types (fcvt)
+;; I2S          integer to float single (SI/DI to SF)
+;; I2D          integer to float double (SI/DI to DF)
+;; S2I          float to integer (SF to SI/DI)
+;; D2I          float to integer (DF to SI/DI)
+;; D2S          double to float single
+;; S2D          float single to double
+
+(define_attr "cnv_mode" "unknown,I2S,I2D,S2I,D2I,D2S,S2D" 
   (const_string "unknown"))
 
 ;; Is this an extended instruction in mips16 mode?
@@ -242,7 +254,7 @@
 	  ;; VR4120 errata MD(4): if there are consecutive dmult instructions,
 	  ;; the result of the second one is missed.  The assembler should work
 	  ;; around this by inserting a nop after the first dmult.
-	  (and (eq_attr "type" "imul")
+	  (and (eq_attr "type" "imul,imul3")
 	       (and (eq_attr "mode" "DI")
 		    (ne (symbol_ref "TARGET_FIX_VR4120") (const_int 0))))
 	  (const_int 8)
@@ -254,7 +266,7 @@
 ;; Attribute describing the processor.  This attribute must match exactly
 ;; with the processor_type enumeration in mips.h.
 (define_attr "cpu"
-  "default,4kc,5kc,20kc,m4k,r3000,r3900,r6000,r4000,r4100,r4111,r4120,r4130,r4300,r4600,r4650,r5000,r5400,r5500,r7000,r8000,r9000,sb1,sr71000"
+  "r3000,4kc,4kp,5kc,20kc,24k,24kx,m4k,r3900,r6000,r4000,r4100,r4111,r4120,r4130,r4300,r4600,r4650,r5000,r5400,r5500,r7000,r8000,r9000,sb1,sr71000"
   (const (symbol_ref "mips_tune")))
 
 ;; The type of hardware hazard associated with this instruction.
@@ -306,7 +318,7 @@
 ;; True if an instruction might assign to hi or lo when reloaded.
 ;; This is used by the TUNE_MACC_CHAINS code.
 (define_attr "may_clobber_hilo" "no,yes"
-  (if_then_else (eq_attr "type" "imul,imadd,idiv,mthilo")
+  (if_then_else (eq_attr "type" "imul,imul3,imadd,idiv,mthilo")
 		(const_string "yes")
 		(const_string "no")))
 
@@ -413,6 +425,10 @@
 ;; generated from the same template.
 (define_code_macro fcond [unordered uneq unlt unle eq lt le])
 
+;; This code macro is used for comparisons that can be implemented
+;; by swapping the operands.
+(define_code_macro swapped_fcond [ge gt unge ungt])
+
 ;; <u> expands to an empty string when doing a signed operation and
 ;; "u" when doing an unsigned operation.
 (define_code_attr u [(sign_extend "") (zero_extend "u")])
@@ -438,6 +454,12 @@
 			 (eq "eq")
 			 (lt "lt")
 			 (le "le")])
+
+;; Similar, but for swapped conditions.
+(define_code_attr swapped_fcond [(ge "le")
+				 (gt "lt")
+				 (unge "ule")
+				 (ungt "ult")])
 
 ;; .........................
 ;;
@@ -478,6 +500,8 @@
 (define_cpu_unit "alu" "alu")
 (define_cpu_unit "imuldiv" "imuldiv")
 
+(include "4k.md")
+(include "24k.md")
 (include "3000.md")
 (include "4000.md")
 (include "4100.md")
@@ -945,7 +969,7 @@
     return "mul\t%0,%1,%2";
   return "mult\t%0,%1,%2";
 }
-  [(set_attr "type" "imul")
+  [(set_attr "type" "imul3,imul")
    (set_attr "mode" "SI")])
 
 (define_insn "muldi3_mult3"
@@ -956,7 +980,7 @@
    (clobber (match_scratch:DI 4 "=l"))]
   "TARGET_64BIT && GENERATE_MULT3_DI"
   "dmult\t%0,%1,%2"
-  [(set_attr "type" "imul")
+  [(set_attr "type" "imul3")
    (set_attr "mode" "DI")])
 
 ;; If a register gets allocated to LO, and we spill to memory, the reload
@@ -1378,7 +1402,7 @@
   "@
    muls\t$0,%1,%2
    muls\t%0,%1,%2"
-  [(set_attr "type"     "imul")
+  [(set_attr "type"     "imul,imul3")
    (set_attr "mode"     "SI")])
 
 ;; ??? We could define a mulditi3 pattern when TARGET_64BIT.
@@ -1564,7 +1588,7 @@
   "@
    mult<u>\t%1,%2
    mulhi<u>\t%0,%1,%2"
-  [(set_attr "type" "imul")
+  [(set_attr "type" "imul,imul3")
    (set_attr "mode" "SI")])
 
 (define_insn "*<su>mulsi3_highpart_neg_mulhi_internal"
@@ -1582,7 +1606,7 @@
   "@
    mulshi<u>\t%.,%1,%2
    mulshi<u>\t%0,%1,%2"
-  [(set_attr "type" "imul")
+  [(set_attr "type" "imul,imul3")
    (set_attr "mode" "SI")])
 
 ;; Disable unsigned multiplication for -mfix-vr4120.  This is for VR4120
@@ -2130,6 +2154,7 @@ beq\t%2,%.,1b\;\
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
   "cvt.s.d\t%0,%1"
   [(set_attr "type"	"fcvt")
+   (set_attr "cnv_mode"	"D2S")   
    (set_attr "mode"	"SF")])
 
 ;; Integer truncation patterns.  Truncating SImode values to smaller
@@ -2294,7 +2319,8 @@ beq\t%2,%.,1b\;\
         (zero_extend:GPR (match_operand:SHORT 1 "nonimmediate_operand")))]
   ""
 {
-  if (TARGET_MIPS16 && !memory_operand (operands[1], <SHORT:MODE>mode))
+  if (TARGET_MIPS16 && !GENERATE_MIPS16E
+      && !memory_operand (operands[1], <SHORT:MODE>mode))
     {
       emit_insn (gen_and<GPR:mode>3 (operands[0],
 				     gen_lowpart (<GPR:MODE>mode, operands[1]),
@@ -2313,6 +2339,14 @@ beq\t%2,%.,1b\;\
    andi\t%0,%1,<SHORT:mask>
    l<SHORT:size>u\t%0,%1"
   [(set_attr "type" "arith,load")
+   (set_attr "mode" "<GPR:MODE>")])
+
+(define_insn "*zero_extend<SHORT:mode><GPR:mode>2_mips16e"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+        (zero_extend:GPR (match_operand:SHORT 1 "register_operand" "0")))]
+  "GENERATE_MIPS16E"
+  "ze<SHORT:size>\t%0"
+  [(set_attr "type" "arith")
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*zero_extend<SHORT:mode><GPR:mode>2_mips16"
@@ -2393,11 +2427,21 @@ beq\t%2,%.,1b\;\
         (sign_extend:GPR (match_operand:SHORT 1 "nonimmediate_operand")))]
   "")
 
+(define_insn "*extend<SHORT:mode><GPR:mode>2_mips16e"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+        (sign_extend:GPR (match_operand:SHORT 1 "nonimmediate_operand" "0,m")))]
+  "GENERATE_MIPS16E"
+  "@
+   se<SHORT:size>\t%0
+   l<SHORT:size>\t%0,%1"
+  [(set_attr "type" "arith,load")
+   (set_attr "mode" "<GPR:MODE>")])
+
 (define_insn_and_split "*extend<SHORT:mode><GPR:mode>2"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
         (sign_extend:GPR
 	     (match_operand:SHORT 1 "nonimmediate_operand" "d,m")))]
-  "!ISA_HAS_SEB_SEH"
+  "!ISA_HAS_SEB_SEH && !GENERATE_MIPS16E"
   "@
    #
    l<SHORT:size>\t%0,%1"
@@ -2444,6 +2488,7 @@ beq\t%2,%.,1b\;\
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
   "cvt.d.s\t%0,%1"
   [(set_attr "type"	"fcvt")
+   (set_attr "cnv_mode"	"S2D")   
    (set_attr "mode"	"DF")])
 
 ;;
@@ -2472,6 +2517,7 @@ beq\t%2,%.,1b\;\
   "trunc.w.d %0,%1"
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"DF")
+   (set_attr "cnv_mode"	"D2I")
    (set_attr "length"	"4")])
 
 (define_insn "fix_truncdfsi2_macro"
@@ -2487,6 +2533,7 @@ beq\t%2,%.,1b\;\
 }
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"DF")
+   (set_attr "cnv_mode"	"D2I")
    (set_attr "length"	"36")])
 
 (define_expand "fix_truncsfsi2"
@@ -2507,7 +2554,8 @@ beq\t%2,%.,1b\;\
   "TARGET_HARD_FLOAT && ISA_HAS_TRUNC_W"
   "trunc.w.s %0,%1"
   [(set_attr "type"	"fcvt")
-   (set_attr "mode"	"DF")
+   (set_attr "mode"	"SF")
+   (set_attr "cnv_mode"	"S2I")
    (set_attr "length"	"4")])
 
 (define_insn "fix_truncsfsi2_macro"
@@ -2522,7 +2570,8 @@ beq\t%2,%.,1b\;\
     return "trunc.w.s %0,%1,%2";
 }
   [(set_attr "type"	"fcvt")
-   (set_attr "mode"	"DF")
+   (set_attr "mode"	"SF")
+   (set_attr "cnv_mode"	"S2I")
    (set_attr "length"	"36")])
 
 
@@ -2533,6 +2582,7 @@ beq\t%2,%.,1b\;\
   "trunc.l.d %0,%1"
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"DF")
+   (set_attr "cnv_mode"	"D2I")
    (set_attr "length"	"4")])
 
 
@@ -2543,6 +2593,7 @@ beq\t%2,%.,1b\;\
   "trunc.l.s %0,%1"
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"SF")
+   (set_attr "cnv_mode"	"S2I")
    (set_attr "length"	"4")])
 
 
@@ -2553,6 +2604,7 @@ beq\t%2,%.,1b\;\
   "cvt.d.w\t%0,%1"
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"DF")
+   (set_attr "cnv_mode"	"I2D")   
    (set_attr "length"	"4")])
 
 
@@ -2563,6 +2615,7 @@ beq\t%2,%.,1b\;\
   "cvt.d.l\t%0,%1"
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"DF")
+   (set_attr "cnv_mode"	"I2D")   
    (set_attr "length"	"4")])
 
 
@@ -2573,6 +2626,7 @@ beq\t%2,%.,1b\;\
   "cvt.s.w\t%0,%1"
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"SF")
+   (set_attr "cnv_mode"	"I2S")   
    (set_attr "length"	"4")])
 
 
@@ -2583,6 +2637,7 @@ beq\t%2,%.,1b\;\
   "cvt.s.l\t%0,%1"
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"SF")
+   (set_attr "cnv_mode"	"I2S")   
    (set_attr "length"	"4")])
 
 
@@ -2782,7 +2837,7 @@ beq\t%2,%.,1b\;\
 
 (define_expand "extzv"
   [(set (match_operand 0 "register_operand")
-	(zero_extract (match_operand:QI 1 "memory_operand")
+	(zero_extract (match_operand 1 "nonimmediate_operand")
 		      (match_operand 2 "immediate_operand")
 		      (match_operand 3 "immediate_operand")))]
   "!TARGET_MIPS16"
@@ -2791,12 +2846,33 @@ beq\t%2,%.,1b\;\
 				  INTVAL (operands[2]),
 				  INTVAL (operands[3])))
     DONE;
+  else if (mips_use_ins_ext_p (operands[1], operands[2], operands[3]))
+    {
+      if (GET_MODE (operands[0]) == DImode)
+        emit_insn (gen_extzvdi (operands[0], operands[1], operands[2],
+				operands[3]));
+      else
+        emit_insn (gen_extzvsi (operands[0], operands[1], operands[2],
+				operands[3]));
+      DONE;
+    }
   else
     FAIL;
 })
 
+(define_insn "extzv<mode>"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(zero_extract:GPR (match_operand:GPR 1 "register_operand" "d")
+			  (match_operand:SI 2 "immediate_operand" "I")
+			  (match_operand:SI 3 "immediate_operand" "I")))]
+  "mips_use_ins_ext_p (operands[1], operands[2], operands[3])"
+  "<d>ext\t%0,%1,%3,%2"
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"<MODE>")])
+
+
 (define_expand "insv"
-  [(set (zero_extract (match_operand:QI 0 "memory_operand")
+  [(set (zero_extract (match_operand 0 "nonimmediate_operand")
 		      (match_operand 1 "immediate_operand")
 		      (match_operand 2 "immediate_operand"))
 	(match_operand 3 "reg_or_0_operand"))]
@@ -2806,9 +2882,29 @@ beq\t%2,%.,1b\;\
 				   INTVAL (operands[1]),
 				   INTVAL (operands[2])))
     DONE;
-  else
-    FAIL;
+  else if (mips_use_ins_ext_p (operands[0], operands[1], operands[2]))
+    {
+      if (GET_MODE (operands[0]) == DImode)
+        emit_insn (gen_insvdi (operands[0], operands[1], operands[2],
+			       operands[3]));
+      else
+        emit_insn (gen_insvsi (operands[0], operands[1], operands[2],
+			       operands[3]));
+      DONE;
+   }
+   else
+     FAIL;
 })
+
+(define_insn "insv<mode>"
+  [(set (zero_extract:GPR (match_operand:GPR 0 "register_operand" "+d")
+			  (match_operand:SI 1 "immediate_operand" "I")
+			  (match_operand:SI 2 "immediate_operand" "I"))
+	(match_operand:GPR 3 "reg_or_0_operand" "dJ"))]
+  "mips_use_ins_ext_p (operands[0], operands[1], operands[2])"
+  "<d>ins\t%0,%z3,%2,%1"
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"<MODE>")])
 
 ;; Unaligned word moves generated by the bit field patterns.
 ;;
@@ -4576,21 +4672,12 @@ beq\t%2,%.,1b\;\
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
-(define_insn "sgt_<mode>"
+(define_insn "s<code>_<mode>"
   [(set (match_operand:CC 0 "register_operand" "=z")
-	(gt:CC (match_operand:SCALARF 1 "register_operand" "f")
-	       (match_operand:SCALARF 2 "register_operand" "f")))]
+	(swapped_fcond:CC (match_operand:SCALARF 1 "register_operand" "f")
+		          (match_operand:SCALARF 2 "register_operand" "f")))]
   ""
-  "c.lt.<fmt>\t%Z0%2,%1"
-  [(set_attr "type" "fcmp")
-   (set_attr "mode" "FPSW")])
-
-(define_insn "sge_<mode>"
-  [(set (match_operand:CC 0 "register_operand" "=z")
-	(ge:CC (match_operand:SCALARF 1 "register_operand" "f")
-	       (match_operand:SCALARF 2 "register_operand" "f")))]
-  ""
-  "c.le.<fmt>\t%Z0%2,%1"
+  "c.<swapped_fcond>.<fmt>\t%Z0%2,%1"
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
@@ -5299,7 +5386,7 @@ beq\t%2,%.,1b\;\
 
 ; Thread-Local Storage
 
-; The TLS base pointer is acessed via "rdhwr $v1, $29".  No current
+; The TLS base pointer is accessed via "rdhwr $v1, $29".  No current
 ; MIPS architecture defines this register, and no current
 ; implementation provides it; instead, any OS which supports TLS is
 ; expected to trap and emulate this instruction.  rdhwr is part of the

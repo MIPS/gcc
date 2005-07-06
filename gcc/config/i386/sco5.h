@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386, SCO OpenServer 5 Syntax)");
@@ -280,14 +280,6 @@ Boston, MA 02111-1307, USA.  */
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \
  "%{!shared:%{!G:-lgcc}}"
-
-/* Here for legacy support only so we still accept -melf flag */
-#define MASK_COFF     		010000000000	/* Mask for COFF generation */
-#define TARGET_ELF              (1)
-
-#undef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES 					\
-	{ "elf", -MASK_COFF, N_("Generate ELF output")  },
 
 /* Handle special EH pointer encodings.  Absolute, pc-relative, and
    indirect are handled automatically.  */

@@ -202,16 +202,12 @@ if test -z "$enable_hash_synchronization"; then
    enable_hash_synchronization=$enable_hash_synchronization_default
 fi
 
-# Do we allow intermodule optimizations (i.e. compiling many files at once)?
-AC_ARG_ENABLE(libgcj-multifile,
-  AS_HELP_STRING([--enable-libgcj-multifile]
-                 [allow compilation of several files at once]),
-[case "${enableval}" in
-  yes) enable_libgcj_multifile=yes ;;
-  no)  enable_libgcj_multifile=no ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-libgcj-multifile) ;;
-esac],[enable_libgcj_multifile=no])
-AM_CONDITIONAL(ONESTEP, test "$enable_libgcj_multifile" = yes)
+AC_ARG_WITH(java-home,
+  AS_HELP_STRING([--with-java-home=DIRECTORY],
+                 [value of java.home system property]),
+		 [JAVA_HOME="${withval}"], [JAVA_HOME=""])
+AM_CONDITIONAL(JAVA_HOME_SET, test ! -z "$JAVA_HOME")
+AC_SUBST(JAVA_HOME)
 
 # What is the native OS API for MinGW?
 AC_ARG_WITH(win32-nlsapi,
@@ -421,8 +417,7 @@ AC_EGREP_HEADER(u_int32_t, sys/config.h, AC_DEFINE(HAVE_BSD_INT32_DEFINED, 1,
                                            [Define if you have u_int32_t]))
 
 AM_CONDITIONAL(USING_WIN32_PLATFORM, test "$PLATFORM" = Win32)
-AM_CONDITIONAL(USING_POSIX_PLATFORM, test "$PLATFORM" = Posix)
-AM_CONDITIONAL(USING_ECOS_PLATFORM, test "$PLATFORM" = Ecos)
+AM_CONDITIONAL(USING_POSIX_PLATFORM, test "$PLATFORM" = Posix || test "$PLATFORM" = Ecos)
 
 case "$host" in
   *-darwin*) DARWIN_CRT=true ;;
@@ -449,10 +444,10 @@ test -d java/lang || mkdir java/lang
 AC_CONFIG_LINKS(java/lang/ConcreteProcess.java:java/lang/${PLATFORM}Process.java)
 AC_CONFIG_LINKS(java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc)
 
-# Likewise for natInetAddress.cc and natNetworkInterface.cc.
+# Likewise for natInetAddress.cc and natVMNetworkInterface.cc.
 test -d java/net || mkdir java/net
 AC_CONFIG_LINKS(java/net/natInetAddress.cc:java/net/natInetAddress${PLATFORMNET}.cc)
-AC_CONFIG_LINKS(java/net/natNetworkInterface.cc:java/net/natNetworkInterface${PLATFORMNET}.cc)
+AC_CONFIG_LINKS(java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc)
 
 # Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.cc.
 test -d gnu/java || mkdir gnu/java
@@ -711,6 +706,7 @@ AM_CONDITIONAL(USING_NO_THREADS, test "$THREADS" = none)
 if test -d sysdep; then true; else mkdir sysdep; fi
 AC_CONFIG_LINKS(sysdep/locks.h:sysdep/$sysdeps_dir/locks.h)
 AC_CONFIG_LINKS(sysdep/backtrace.h:$fallback_backtrace_h)
+AC_CONFIG_LINKS(sysdep/descriptor.h:$descriptor_h)
 
 HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
@@ -1129,9 +1125,9 @@ LT_AC_PROG_GCJ
 
 CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
-AC_COMPILE_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(void *)
 
-AC_C_BIGENDIAN_CROSS
+AC_C_BIGENDIAN
 
 ZLIBS=
 SYS_ZLIBS=
@@ -1151,6 +1147,7 @@ AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
 AC_SUBST(CHECKREFSPEC)
 AC_SUBST(EXCEPTIONSPEC)
+AC_SUBST(BACKTRACESPEC)
 AC_SUBST(IEEESPEC)
 
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes)
@@ -1347,15 +1344,6 @@ if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
    SIGNAL_HANDLER_AUX=
 fi
-
-# Define here any compiler flags that you need in order to make backtrace() work.
-BACKTRACESPEC=
-case "${host}" in
- x86_64*-*-linux*|i?86-*)
-    BACKTRACESPEC=-fno-omit-frame-pointer
-    ;;
-esac
-AC_SUBST(BACKTRACESPEC)
 
 AC_SUBST(SYSDEP_SOURCES)
 

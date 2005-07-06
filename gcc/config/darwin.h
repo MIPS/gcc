@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef CONFIG_DARWIN_H
 #define CONFIG_DARWIN_H
@@ -139,24 +139,6 @@ Boston, MA 02111-1307, USA.  */
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
-
-/* Nonzero if the user has chosen to force sizeof(bool) to be 1
-   by providing the -mone-byte-bool switch.  It would be better
-   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
-   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
-   that this switch has no "no-" variant. */
-extern const char *darwin_one_byte_bool;
-  
-extern int darwin_fix_and_continue;
-extern const char *darwin_fix_and_continue_switch;
-
-#undef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS \
-  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
-  {"fix-and-continue", &darwin_fix_and_continue_switch,			\
-   N_("Generate code suitable for fast turn around debugging"), 0},	\
-  {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-   N_("Don't generate code suitable for fast turn around debugging"), 0}
 
 /* These compiler options take n arguments.  */
 
@@ -293,6 +275,7 @@ extern const char *darwin_fix_and_continue_switch;
    %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
+   %{isysroot*:-syslibroot %*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
    %{umbrella*} \
    %{undefined*} \
@@ -392,7 +375,7 @@ extern const char *darwin_fix_and_continue_switch;
   do {									\
     if (ALIAS)								\
       {									\
-	warning ("alias definitions not supported in Mach-O; ignored");	\
+	warning (0, "alias definitions not supported in Mach-O; ignored");	\
 	break;								\
       }									\
  									\
@@ -551,7 +534,12 @@ extern const char *darwin_fix_and_continue_switch;
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   fputs (&xname[1], FILE);					     \
+	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
+	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))	     \
+	     fprintf (FILE, "\"%s\"", &xname[1]);			     \
+	   else								     \
+	     fputs (&xname[1], FILE); 					     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
@@ -559,6 +547,8 @@ extern const char *darwin_fix_and_continue_switch;
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
+       else if (xname[0] != '"' && name_needs_quotes (xname))		     \
+	 fprintf (FILE, "\"%s\"", xname);				     \
        else								     \
          asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)

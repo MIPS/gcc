@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -209,14 +209,21 @@ private static final long serialVersionUID = -4206021311591459213L;
   * The style should be one of BOLD, ITALIC, or BOLDITALIC.  The default
   * style if none is specified is PLAIN.  The default size if none
   * is specified is 12.
+  * 
+  * @param fontspec  a string specifying the required font (<code>null</code> 
+  *                  permitted, interpreted as 'Dialog-PLAIN-12').
+  * 
+  * @return A font.
   */
   public static Font decode (String fontspec)
 {
+  if (fontspec == null) 
+    fontspec = "Dialog-PLAIN-12";
   String name = null;
   int style = PLAIN;
   int size = 12;
 
-  StringTokenizer st = new StringTokenizer(fontspec, "-");
+  StringTokenizer st = new StringTokenizer(fontspec, "- ");
   while (st.hasMoreTokens())
     {
       String token = st.nextToken();

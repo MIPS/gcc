@@ -80,7 +80,7 @@
 #   define NEED_FIND_LIMIT
 # endif
 
-#if defined(FREEBSD) && defined(I386)
+#if defined(FREEBSD) && (defined(I386) || defined(powerpc) || defined(__powerpc__))
 #  include <machine/trap.h>
 #  if !defined(PCR)
 #    define NEED_FIND_LIMIT
@@ -945,7 +945,16 @@ ptr_t GC_get_stack_base()
 	  } /* Otherwise it's not safe to add 16 bytes and we fall	*/
 	    /* back to using /proc.					*/
 #	else 
+#	ifdef SPARC
+	  /* Older versions of glibc for 64-bit Sparc do not set
+	   * this variable correctly, it gets set to either zero
+	   * or one.
+	   */
+	  if (__libc_stack_end != (ptr_t) (unsigned long)0x1)
+	    return __libc_stack_end;
+#	else
 	  return __libc_stack_end;
+#	endif
 #	endif
       }
     f = open("/proc/self/stat", O_RDONLY);
@@ -1378,7 +1387,7 @@ int * etext_addr;
 }
 # endif
 
-# if defined(FREEBSD) && defined(I386) && !defined(PCR)
+# if defined(FREEBSD) && (defined(I386) || defined(powerpc) || defined(__powerpc__)) && !defined(PCR)
 /* Its unclear whether this should be identical to the above, or 	*/
 /* whether it should apply to non-X86 architectures.			*/
 /* For now we don't assume that there is always an empty page after	*/
@@ -2510,7 +2519,11 @@ SIG_PF GC_old_segv_handler;	/* Also old MSWIN32 ACCESS_VIOLATION filter */
 #               if defined(ARM32)
                   char * addr = (char *)sc.fault_address;
 #               else
-		  --> architecture not supported
+#		  if defined(CRIS)
+		    char * addr = (char *)sc.regs.csraddr;
+#		  else
+		    --> architecture not supported
+#		  endif
 #               endif
 #	      endif
 #	    endif

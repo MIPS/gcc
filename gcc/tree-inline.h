@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_TREE_INLINE_H
 #define GCC_TREE_INLINE_H
@@ -28,8 +28,10 @@ void optimize_inline_calls (tree);
 bool tree_inlinable_function_p (tree);
 tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);
-tree save_body (tree, tree *, tree *);
+void save_body (tree, tree *, tree *);
 int estimate_move_cost (tree type);
+void push_cfun (struct function *new_cfun);
+void pop_cfun (void);
 int estimate_num_insns (tree expr);
 
 /* 0 if we should not perform inlining.

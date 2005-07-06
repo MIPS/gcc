@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -439,6 +439,7 @@ package body ALI is
                  or else Nextc = '(' or else Nextc = ')'
                  or else Nextc = '{' or else Nextc = '}'
                  or else Nextc = '<' or else Nextc = '>'
+                 or else Nextc = '[' or else Nextc = ']'
                  or else Nextc = '=';
             end if;
          end loop;
@@ -1885,6 +1886,31 @@ package body ALI is
                   XE.Col    := Get_Nat;
                   XE.Lib    := (Getc = '*');
                   XE.Entity := Get_Name;
+
+                  --  Handle the information about generic instantiations
+
+                  if Nextc = '[' then
+                     Skipc; --  Opening '['
+                     N := Get_Nat;
+
+                     if Nextc /= '|' then
+                        XE.Iref_File_Num := Current_File_Num;
+                        XE.Iref_Line     := N;
+                     else
+                        XE.Iref_File_Num :=
+                          Sdep_Id (N + Nat (First_Sdep_Entry) - 1);
+                        Skipc;
+                        XE.Iref_Line := Get_Nat;
+                     end if;
+
+                     if Getc /= ']' then
+                        Fatal_Error;
+                     end if;
+
+                  else
+                     XE.Iref_File_Num := No_Sdep_Id;
+                     XE.Iref_Line     := 0;
+                  end if;
 
                   Current_File_Num := XS.File_Num;
 

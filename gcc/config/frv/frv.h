@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #ifndef __FRV_H__
 #define __FRV_H__
@@ -1445,9 +1445,9 @@ typedef struct frv_stack {
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
-#define FRAME_GROWS_DOWNWARD
+/* Define this macro to non-zero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset from the frame pointer to the first local variable slot to be
    allocated.
@@ -2157,19 +2157,8 @@ do {							\
 #define HAVE_PRE_MODIFY_REG 1
 
 
-/* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the SPARC,
-   `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
-   description of the reason for this definition)
+/* We define extra CC modes in frv-modes.def so we need a selector.  */
 
-        #define SELECT_CC_MODE(OP,X,Y) \
-          (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-           ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-           : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-               || GET_CODE (X) == NEG) \
-              ? CC_NOOVmode : CCmode))
-
-   You need not define this macro if `EXTRA_CC_MODES' is not defined.  */
 #define SELECT_CC_MODE frv_select_cc_mode
 
 /* A C expression whose value is one if it is always safe to reverse a
@@ -2371,13 +2360,6 @@ do {									\
   fprintf (STREAM, "\t.picptr\t");					\
   assemble_name (STREAM, LABEL);					\
 } while (0)
-
-#if HAVE_AS_TLS
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  frv_output_dwarf_dtprel ((FILE), (SIZE), (X))
-#endif
 
 /* Whether to emit the gas specific dwarf2 line number support.  */
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DEBUG_LOC)

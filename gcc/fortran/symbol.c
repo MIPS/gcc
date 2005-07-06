@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -106,6 +106,14 @@ gfc_set_implicit_none (void)
 {
   int i;
 
+  if (gfc_current_ns->seen_implicit_none)
+    {
+      gfc_error ("Duplicate IMPLICIT NONE statement at %C");
+      return;
+    }
+
+  gfc_current_ns->seen_implicit_none = 1;
+
   for (i = 0; i < GFC_LETTERS; i++)
     {
       gfc_clear_ts (&gfc_current_ns->default_type[i]);
@@ -159,6 +167,12 @@ try
 gfc_merge_new_implicit (gfc_typespec * ts)
 {
   int i;
+
+  if (gfc_current_ns->seen_implicit_none)
+    {
+      gfc_error ("Cannot specify IMPLICIT at %C after IMPLICIT NONE");
+      return FAILURE;
+    }
 
   for (i = 0; i < GFC_LETTERS; i++)
     {
@@ -2317,6 +2331,25 @@ gfc_traverse_ns (gfc_namespace * ns, void (*func) (gfc_symbol *))
 }
 
 
+/* Return TRUE if the symbol is an automatic variable.  */
+static bool
+gfc_is_var_automatic (gfc_symbol * sym)
+{
+  /* Pointer and allocatable variables are never automatic.  */
+  if (sym->attr.pointer || sym->attr.allocatable)
+    return false;
+  /* Check for arrays with non-constant size.  */
+  if (sym->attr.dimension && sym->as
+      && !gfc_is_compile_time_shape (sym->as))
+    return true;
+  /* Check for non-constant length character variables.  */
+  if (sym->ts.type == BT_CHARACTER
+      && sym->ts.cl
+      && gfc_is_constant_expr (sym->ts.cl->length))
+    return true;
+  return false;
+}
+
 /* Given a symbol, mark it as SAVEd if it is allowed.  */
 
 static void
@@ -2330,7 +2363,9 @@ save_symbol (gfc_symbol * sym)
       || sym->attr.dummy
       || sym->attr.flavor != FL_VARIABLE)
     return;
-
+  /* Automatic objects are not saved.  */
+  if (gfc_is_var_automatic (sym))
+    return;
   gfc_add_save (&sym->attr, sym->name, &sym->declared_at);
 }
 
@@ -2410,7 +2445,7 @@ gfc_get_gsymbol (const char *name)
 
   s = gfc_getmem (sizeof (gfc_gsymbol));
   s->type = GSYM_UNKNOWN;
-  strcpy (s->name, name);
+  s->name = gfc_get_string (name);
 
   gfc_insert_bbt (&gfc_gsym_root, s, gsym_compare);
 

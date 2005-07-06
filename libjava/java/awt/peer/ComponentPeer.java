@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -128,11 +128,60 @@ public interface ComponentPeer
   boolean canDetermineObscurity();
   void coalescePaintEvent(PaintEvent e);
   void updateCursorImmediately();
-  VolatileImage createVolatileImage(int width, int height);
   boolean handlesWheelScrolling();
-  void createBuffers(int x, BufferCapabilities capabilities) throws AWTException;
+
+  /**
+   * A convenience method that creates a volatile image.  The volatile
+   * image is created on the screen device on which this component is
+   * displayed, in the device's current graphics configuration.
+   *
+   * @param width width of the image
+   * @param height height of the image
+   *
+   * @see VolatileImage
+   *
+   * @since 1.2
+   */
+  VolatileImage createVolatileImage(int width, int height);
+
+  /**
+   * Create a number of image buffers that implement a buffering
+   * strategy according to the given capabilities.
+   *
+   * @param numBuffers the number of buffers
+   * @param caps the buffering capabilities
+   *
+   * @throws AWTException if the specified buffering strategy is not
+   * implemented
+   *
+   * @since 1.2
+   */
+  void createBuffers(int numBuffers, BufferCapabilities caps)
+    throws AWTException;
+
+  /**
+   * Return the back buffer of this component.
+   *
+   * @return the back buffer of this component.
+   *
+   * @since 1.2
+   */
   Image getBackBuffer();
+
+  /**
+   * Perform a page flip, leaving the contents of the back buffer in
+   * the specified state.
+   *
+   * @param contents the state in which to leave the back buffer
+   *
+   * @since 1.2
+   */
   void flip(BufferCapabilities.FlipContents contents);
+
+  /**
+   * Destroy the resources created by createBuffers.
+   *
+   * @since 1.2
+   */
   void destroyBuffers();
-  
 }

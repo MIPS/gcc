@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #ifndef _TREE_SSA_LIVE_H
@@ -337,7 +337,7 @@ make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
 
 typedef struct tree_partition_associator_d
 {
-  varray_type trees;
+  VEC(tree,heap) *trees;
   varray_type first_partition;
   int *next_partition;
   int *partition_to_tree_map;
@@ -375,7 +375,7 @@ tpa_num_trees (tpa_p tpa)
 static inline tree
 tpa_tree (tpa_p tpa, int i)
 {
-  return VARRAY_TREE (tpa->trees, i);
+  return VEC_index (tree, tpa->trees, i);
 }
 
 

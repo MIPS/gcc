@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -110,19 +110,22 @@ public class GdkGraphics2D extends Graphics2D
   
   private final int native_state = GtkGenericPeer.getUniqueInteger();  
 
-  private Paint paint;
-  private Stroke stroke;
-  private Color fg;
-  private Color bg;
-  private Shape clip;
-  private AffineTransform transform;
+  // These are package-private to avoid accessor methods.
+  Paint paint;
+  Stroke stroke;
+  Color fg;
+  Color bg;
+  Shape clip;
+  AffineTransform transform;
   private GtkComponentPeer component;
-  private Font font;
+  // This is package-private to avoid an accessor method.
+  Font font;
   private RenderingHints hints;
   private BufferedImage bimage;
   private boolean pixelConversionRequired;
   private int[] pixelBuffer;
-  private Composite comp;
+  // This is package-private to avoid an accessor method.
+  Composite comp;
   private Stack stateStack;
 
   private native void initState(GtkComponentPeer component);

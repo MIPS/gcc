@@ -14,8 +14,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Return nonzero iff OP is one of the integer constants 1 or 2.
 (define_predicate "pos_scale_operand"
@@ -119,7 +119,7 @@
 ;; reg + const, which the patterns can't handle.
 ;; We only allow SYMBOL_REF if !flag_pic.
 (define_predicate "call_insn_operand"
-  (ior (and (match_test "!flag_pic") (match_code "symbol_ref"))
+  (ior (and (match_test "!flag_pic && !TARGET_LONG_CALLS") (match_code "symbol_ref"))
        (match_operand 0 "register_no_elim_operand")))
 
 ;; Test for an operator valid in a conditional branch

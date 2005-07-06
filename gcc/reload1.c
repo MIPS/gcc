@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -120,7 +120,8 @@ static unsigned int *reg_max_ref_width;
 
 /* Element N is the list of insns that initialized reg N from its equivalent
    constant or memory slot.  */
-static rtx *reg_equiv_init;
+rtx *reg_equiv_init;
+int reg_equiv_init_size;
 
 /* Vector to remember old contents of reg_renumber before spilling.  */
 static short *reg_old_renumber;
@@ -383,7 +384,7 @@ static int eliminate_regs_in_insn (rtx, int);
 static void update_eliminable_offsets (void);
 static void mark_not_eliminable (rtx, rtx, void *);
 static void set_initial_elim_offsets (void);
-static void verify_initial_elim_offsets (void);
+static bool verify_initial_elim_offsets (void);
 static void set_initial_label_offsets (void);
 static void set_offsets_for_label (rtx);
 static void init_elim_table (void);
@@ -405,7 +406,6 @@ static int reload_reg_free_for_value_p (int, int, int, enum reload_type,
 					rtx, rtx, int, int);
 static int free_for_value_p (int, enum machine_mode, int, enum reload_type,
 			     rtx, rtx, int, int);
-static int function_invariant_p (rtx);
 static int reload_reg_reaches_end_p (unsigned int, int, enum reload_type);
 static int allocate_reload_reg (struct insn_chain *, int, int);
 static int conflicts_with_override (rtx);
@@ -694,7 +694,6 @@ reload (rtx first, int global)
 
   reg_equiv_constant = xcalloc (max_regno, sizeof (rtx));
   reg_equiv_mem = xcalloc (max_regno, sizeof (rtx));
-  reg_equiv_init = xcalloc (max_regno, sizeof (rtx));
   reg_equiv_address = xcalloc (max_regno, sizeof (rtx));
   reg_max_ref_width = xcalloc (max_regno, sizeof (int));
   reg_old_renumber = xcalloc (max_regno, sizeof (short));
@@ -720,88 +719,87 @@ reload (rtx first, int global)
 	  && GET_MODE (insn) != VOIDmode)
 	PUT_MODE (insn, VOIDmode);
 
+      if (INSN_P (insn))
+	scan_paradoxical_subregs (PATTERN (insn));
+
       if (set != 0 && REG_P (SET_DEST (set)))
 	{
 	  rtx note = find_reg_note (insn, REG_EQUIV, NULL_RTX);
-	  if (note
-	      && (! function_invariant_p (XEXP (note, 0))
-		  || ! flag_pic
-		  /* A function invariant is often CONSTANT_P but may
-		     include a register.  We promise to only pass
-		     CONSTANT_P objects to LEGITIMATE_PIC_OPERAND_P.  */
-		  || (CONSTANT_P (XEXP (note, 0))
-		      && LEGITIMATE_PIC_OPERAND_P (XEXP (note, 0)))))
-	    {
-	      rtx x = XEXP (note, 0);
-	      i = REGNO (SET_DEST (set));
-	      if (i > LAST_VIRTUAL_REGISTER)
-		{
-		  /* It can happen that a REG_EQUIV note contains a MEM
-		     that is not a legitimate memory operand.  As later
-		     stages of reload assume that all addresses found
-		     in the reg_equiv_* arrays were originally legitimate,
-		     we ignore such REG_EQUIV notes.  */
-		  if (memory_operand (x, VOIDmode))
-		    {
-		      /* Always unshare the equivalence, so we can
-			 substitute into this insn without touching the
-			 equivalence.  */
-		      reg_equiv_memory_loc[i] = copy_rtx (x);
-		    }
-		  else if (function_invariant_p (x))
-		    {
-		      if (GET_CODE (x) == PLUS)
-			{
-			  /* This is PLUS of frame pointer and a constant,
-			     and might be shared.  Unshare it.  */
-			  reg_equiv_constant[i] = copy_rtx (x);
-			  num_eliminable_invariants++;
-			}
-		      else if (x == frame_pointer_rtx
-			       || x == arg_pointer_rtx)
-			{
-			  reg_equiv_constant[i] = x;
-			  num_eliminable_invariants++;
-			}
-		      else if (LEGITIMATE_CONSTANT_P (x))
-			reg_equiv_constant[i] = x;
-		      else
-			{
-			  reg_equiv_memory_loc[i]
-			    = force_const_mem (GET_MODE (SET_DEST (set)), x);
-			  if (!reg_equiv_memory_loc[i])
-			    continue;
-			}
-		    }
-		  else
-		    continue;
+	  rtx x;
 
-		  /* If this register is being made equivalent to a MEM
-		     and the MEM is not SET_SRC, the equivalencing insn
-		     is one with the MEM as a SET_DEST and it occurs later.
-		     So don't mark this insn now.  */
-		  if (!MEM_P (x)
-		      || rtx_equal_p (SET_SRC (set), x))
-		    reg_equiv_init[i]
-		      = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv_init[i]);
+	  if (! note)
+	    continue;
+
+	  i = REGNO (SET_DEST (set));
+	  x = XEXP (note, 0);
+
+	  if (i <= LAST_VIRTUAL_REGISTER)
+	    continue;
+
+	  if (! function_invariant_p (x)
+	      || ! flag_pic
+	      /* A function invariant is often CONSTANT_P but may
+		 include a register.  We promise to only pass
+		 CONSTANT_P objects to LEGITIMATE_PIC_OPERAND_P.  */
+	      || (CONSTANT_P (x)
+		  && LEGITIMATE_PIC_OPERAND_P (x)))
+	    {
+	      /* It can happen that a REG_EQUIV note contains a MEM
+		 that is not a legitimate memory operand.  As later
+		 stages of reload assume that all addresses found
+		 in the reg_equiv_* arrays were originally legitimate,
+		 we ignore such REG_EQUIV notes.  */
+	      if (memory_operand (x, VOIDmode))
+		{
+		  /* Always unshare the equivalence, so we can
+		     substitute into this insn without touching the
+		       equivalence.  */
+		  reg_equiv_memory_loc[i] = copy_rtx (x);
+		}
+	      else if (function_invariant_p (x))
+		{
+		  if (GET_CODE (x) == PLUS)
+		    {
+		      /* This is PLUS of frame pointer and a constant,
+			 and might be shared.  Unshare it.  */
+		      reg_equiv_constant[i] = copy_rtx (x);
+		      num_eliminable_invariants++;
+		    }
+		  else if (x == frame_pointer_rtx
+			   || x == arg_pointer_rtx)
+		    {
+		      reg_equiv_constant[i] = x;
+		      num_eliminable_invariants++;
+		    }
+		  else if (LEGITIMATE_CONSTANT_P (x))
+		    reg_equiv_constant[i] = x;
+		  else
+		    {
+		      reg_equiv_memory_loc[i]
+			= force_const_mem (GET_MODE (SET_DEST (set)), x);
+		      if (! reg_equiv_memory_loc[i])
+			reg_equiv_init[i] = NULL_RTX;
+		    }
+		}
+	      else
+		{
+		  reg_equiv_init[i] = NULL_RTX;
+		  continue;
 		}
 	    }
+	  else
+	    reg_equiv_init[i] = NULL_RTX;
 	}
-
-      /* If this insn is setting a MEM from a register equivalent to it,
-	 this is the equivalencing insn.  */
-      else if (set && MEM_P (SET_DEST (set))
-	       && REG_P (SET_SRC (set))
-	       && reg_equiv_memory_loc[REGNO (SET_SRC (set))]
-	       && rtx_equal_p (SET_DEST (set),
-			       reg_equiv_memory_loc[REGNO (SET_SRC (set))]))
-	reg_equiv_init[REGNO (SET_SRC (set))]
-	  = gen_rtx_INSN_LIST (VOIDmode, insn,
-			       reg_equiv_init[REGNO (SET_SRC (set))]);
-
-      if (INSN_P (insn))
-	scan_paradoxical_subregs (PATTERN (insn));
     }
+
+  if (dump_file)
+    for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+      if (reg_equiv_init[i])
+	{
+	  fprintf (dump_file, "init_insns for %u: ", i);
+	  print_inline_rtx (dump_file, reg_equiv_init[i], 20);
+	  fprintf (dump_file, "\n");
+	}
 
   init_elim_table ();
 
@@ -972,6 +970,13 @@ reload (rtx first, int global)
       if (starting_frame_size != get_frame_size ())
 	something_changed = 1;
 
+      /* Even if the frame size remained the same, we might still have
+	 changed elimination offsets, e.g. if find_reloads called 
+	 force_const_mem requiring the back end to allocate a constant
+	 pool base register that needs to be saved on the stack.  */
+      else if (!verify_initial_elim_offsets ())
+	something_changed = 1;
+
       {
 	HARD_REG_SET to_spill;
 	CLEAR_HARD_REG_SET (to_spill);
@@ -1063,8 +1068,7 @@ reload (rtx first, int global)
 
       gcc_assert (old_frame_size == get_frame_size ());
 
-      if (num_eliminable)
-	verify_initial_elim_offsets ();
+      gcc_assert (verify_initial_elim_offsets ());
     }
 
   /* If we were able to eliminate the frame pointer, show that it is no
@@ -1075,11 +1079,11 @@ reload (rtx first, int global)
 
   if (! frame_pointer_needed)
     FOR_EACH_BB (bb)
-      CLEAR_REGNO_REG_SET (bb->global_live_at_start,
+      CLEAR_REGNO_REG_SET (bb->il.rtl->global_live_at_start,
 			   HARD_FRAME_POINTER_REGNUM);
 
-  /* Come here (with failure set nonzero) if we can't get enough spill regs
-     and we decide not to abort about it.  */
+  /* Come here (with failure set nonzero) if we can't get enough spill
+     regs.  */
  failed:
 
   CLEAR_REG_SET (&spilled_pseudos);
@@ -1221,10 +1225,10 @@ reload (rtx first, int global)
 
       if (size > STACK_CHECK_MAX_FRAME_SIZE)
 	{
-	  warning ("frame size too large for reliable stack checking");
+	  warning (0, "frame size too large for reliable stack checking");
 	  if (! verbose_warned)
 	    {
-	      warning ("try reducing the number of local variables");
+	      warning (0, "try reducing the number of local variables");
 	      verbose_warned = 1;
 	    }
 	}
@@ -1243,7 +1247,7 @@ reload (rtx first, int global)
     free (offsets_at);
 
   free (reg_equiv_mem);
-  free (reg_equiv_init);
+  reg_equiv_init = 0;
   free (reg_equiv_address);
   free (reg_max_ref_width);
   free (reg_old_renumber);
@@ -3288,23 +3292,32 @@ mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
    where something illegal happened during reload_as_needed that could
    cause incorrect code to be generated if we did not check for it.  */
 
-static void
+static bool
 verify_initial_elim_offsets (void)
 {
   HOST_WIDE_INT t;
 
-#ifdef ELIMINABLE_REGS
-  struct elim_table *ep;
+  if (!num_eliminable)
+    return true;
 
-  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-    {
-      INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
-      gcc_assert (t == ep->initial_offset);
-    }
+#ifdef ELIMINABLE_REGS
+  {
+   struct elim_table *ep;
+
+   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
+     {
+       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
+       if (t != ep->initial_offset)
+	 return false;
+     }
+  }
 #else
   INITIAL_FRAME_POINTER_OFFSET (t);
-  gcc_assert (t == reg_eliminate[0].initial_offset);
+  if (t != reg_eliminate[0].initial_offset)
+    return false;
 #endif
+
+  return true;
 }
 
 /* Reset all offsets on eliminable registers to their initial values.  */
@@ -4047,7 +4060,7 @@ forget_old_reloads_1 (rtx x, rtx ignored ATTRIBUTE_UNUSED,
   unsigned int nr;
 
   /* note_stores does give us subregs of hard regs,
-     subreg_regno_offset will abort if it is not a hard reg.  */
+     subreg_regno_offset requires a hard reg.  */
   while (GET_CODE (x) == SUBREG)
     {
       /* We ignore the subreg offset when calculating the regno,
@@ -4951,13 +4964,13 @@ free_for_value_p (int regno, enum machine_mode mode, int opnum,
 }
 
 /* Return nonzero if the rtx X is invariant over the current function.  */
-/* ??? Actually, the places where we use this expect exactly what
- * is tested here, and not everything that is function invariant.  In
- * particular, the frame pointer and arg pointer are special cased;
- * pic_offset_table_rtx is not, and this will cause aborts when we
- *             go to spill these things to memory.  */
+/* ??? Actually, the places where we use this expect exactly what is
+   tested here, and not everything that is function invariant.  In
+   particular, the frame pointer and arg pointer are special cased;
+   pic_offset_table_rtx is not, and we must not spill these things to
+   memory.  */
 
-static int
+int
 function_invariant_p (rtx x)
 {
   if (CONSTANT_P (x))
@@ -6075,10 +6088,10 @@ merge_assigned_reloads (rtx insn)
 			|| rld[j].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
 		       ? RELOAD_FOR_OTHER_ADDRESS : RELOAD_OTHER);
 
-		  /* Check to see if we accidentally converted two reloads
-		     that use the same reload register with different inputs
-		     to the same type.  If so, the resulting code won't work,
-		     so abort.  */
+		  /* Check to see if we accidentally converted two
+		     reloads that use the same reload register with
+		     different inputs to the same type.  If so, the
+		     resulting code won't work.  */
 		  if (rld[j].reg_rtx)
 		    for (k = 0; k < j; k++)
 		      gcc_assert (rld[k].in == 0 || rld[k].reg_rtx == 0

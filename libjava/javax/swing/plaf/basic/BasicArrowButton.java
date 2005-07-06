@@ -1,5 +1,5 @@
 /* BasicArrowButton.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -80,17 +80,22 @@ public class BasicArrowButton extends JButton implements SwingConstants
   /**
    * The color the arrow is painted in if disabled and the bottom and right
    * edges of the button.
+   * This is package-private to avoid an accessor method.
    */
-  private transient Color shadow = Color.GRAY;
+  transient Color shadow = Color.GRAY;
 
   /**
    * The color the arrow is painted in if enabled and the bottom and right
    * edges of the button.
+   * This is package-private to avoid an accessor method.
    */
-  private transient Color darkShadow = Color.DARK_GRAY;
+  transient Color darkShadow = Color.DARK_GRAY;
 
-  /** The top and left edges of the button. */
-  private transient Color highlight = Color.WHITE;
+  /**
+   * The top and left edges of the button.
+   * This is package-private to avoid an accessor method.
+   */
+  transient Color highlight = Color.WHITE;
 
   /** The border around the ArrowButton. */
   private transient Border buttonBorder = new Border()

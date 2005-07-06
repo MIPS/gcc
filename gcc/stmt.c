@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file handles the generation of rtl code from tree structure
    above the level of expressions, using subroutines in exp*.c and emit-rtl.c.
@@ -329,7 +329,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
       size_t c_len = strlen (constraint);
 
       if (p != constraint)
-	warning ("output constraint %qc for operand %d "
+	warning (0, "output constraint %qc for operand %d "
 		 "is not at the beginning",
 		 *p, operand_num);
 
@@ -553,7 +553,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
       }
 
   if (saw_match && !*allows_reg)
-    warning ("matching constraint does not allow a register");
+    warning (0, "matching constraint does not allow a register");
 
   return true;
 }
@@ -877,10 +877,10 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
       if (asm_operand_ok (op, constraint) <= 0)
 	{
-	  if (allows_reg)
+	  if (allows_reg && TYPE_MODE (type) != BLKmode)
 	    op = force_reg (TYPE_MODE (type), op);
 	  else if (!allows_mem)
-	    warning ("asm operand %d probably doesn%'t match constraints",
+	    warning (0, "asm operand %d probably doesn%'t match constraints",
 		     i + noutputs);
 	  else if (MEM_P (op))
 	    {
@@ -890,7 +890,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	    }
 	  else
 	    {
-	      warning ("use of memory input without lvalue in "
+	      warning (0, "use of memory input without lvalue in "
 		       "asm operand %d is deprecated", i + noutputs);
 
 	      if (CONSTANT_P (op))
@@ -1475,7 +1475,7 @@ warn_if_unused_value (tree exp, location_t locus)
       if (TREE_SIDE_EFFECTS (exp))
 	return 0;
 
-      warning ("%Hvalue computed is not used", &locus);
+      warning (0, "%Hvalue computed is not used", &locus);
       return 1;
     }
 }
@@ -2238,10 +2238,10 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
       else
         test[i].bits++;
 
-      lo = tree_low_cst (fold (build2 (MINUS_EXPR, index_type,
-				       n->low, minval)), 1);
-      hi = tree_low_cst (fold (build2 (MINUS_EXPR, index_type,
-				       n->high, minval)), 1);
+      lo = tree_low_cst (fold_build2 (MINUS_EXPR, index_type,
+				      n->low, minval), 1);
+      hi = tree_low_cst (fold_build2 (MINUS_EXPR, index_type,
+				      n->high, minval), 1);
       for (j = lo; j <= hi; j++)
         if (j >= HOST_BITS_PER_WIDE_INT)
 	  test[i].hi |= (HOST_WIDE_INT) 1 << (j - HOST_BITS_PER_INT);
@@ -2251,9 +2251,9 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
 
   qsort (test, count, sizeof(*test), case_bit_test_cmp);
 
-  index_expr = fold (build2 (MINUS_EXPR, index_type,
-			     fold_convert (index_type, index_expr),
-			     fold_convert (index_type, minval)));
+  index_expr = fold_build2 (MINUS_EXPR, index_type,
+			    fold_convert (index_type, index_expr),
+			    fold_convert (index_type, minval));
   index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
   do_pending_stack_adjust ();
 
@@ -2417,7 +2417,7 @@ expand_case (tree exp)
 	}
 
       /* Compute span of values.  */
-      range = fold (build2 (MINUS_EXPR, index_type, maxval, minval));
+      range = fold_build2 (MINUS_EXPR, index_type, maxval, minval);
 
       /* Try implementing this switch statement by a short sequence of
 	 bit-wise comparisons.  However, we let the binary-tree case
@@ -2437,7 +2437,7 @@ expand_case (tree exp)
 	  if (compare_tree_int (minval, 0) > 0
 	      && compare_tree_int (maxval, GET_MODE_BITSIZE (word_mode)) < 0)
 	    {
-	      minval = fold_convert (index_type, integer_zero_node);
+	      minval = build_int_cst (index_type, 0);
 	      range = maxval;
 	    }
 	  emit_case_bit_tests (index_type, index_expr, minval, range,
@@ -2458,6 +2458,7 @@ expand_case (tree exp)
 #ifndef ASM_OUTPUT_ADDR_DIFF_ELT
 	       || flag_pic
 #endif
+	       || !flag_jump_tables
 	       || TREE_CONSTANT (index_expr)
 	       /* If neither casesi or tablejump is available, we can
 		  only go this way.  */
@@ -2522,7 +2523,7 @@ expand_case (tree exp)
 		  && compare_tree_int (minval, 0) > 0
 		  && compare_tree_int (minval, 3) < 0)
 		{
-		  minval = fold_convert (index_type, integer_zero_node);
+		  minval = build_int_cst (index_type, 0);
 		  range = maxval;
 		}
 
@@ -2543,11 +2544,11 @@ expand_case (tree exp)
 		 value since that should fit in a HOST_WIDE_INT while the
 		 actual values may not.  */
 	      HOST_WIDE_INT i_low
-		= tree_low_cst (fold (build2 (MINUS_EXPR, index_type,
-					      n->low, minval)), 1);
+		= tree_low_cst (fold_build2 (MINUS_EXPR, index_type,
+					     n->low, minval), 1);
 	      HOST_WIDE_INT i_high
-		= tree_low_cst (fold (build2 (MINUS_EXPR, index_type,
-					      n->high, minval)), 1);
+		= tree_low_cst (fold_build2 (MINUS_EXPR, index_type,
+					     n->high, minval), 1);
 	      HOST_WIDE_INT i;
 
 	      for (i = i_low; i <= i_high; i ++)
@@ -2828,8 +2829,9 @@ node_has_low_bound (case_node_ptr node, tree index_type)
   if (node->left)
     return 0;
 
-  low_minus_one = fold (build2 (MINUS_EXPR, TREE_TYPE (node->low),
-				node->low, integer_one_node));
+  low_minus_one = fold_build2 (MINUS_EXPR, TREE_TYPE (node->low),
+			       node->low,
+			       build_int_cst (TREE_TYPE (node->low), 1));
 
   /* If the subtraction above overflowed, we can't verify anything.
      Otherwise, look for a parent that tests our value - 1.  */
@@ -2878,8 +2880,9 @@ node_has_high_bound (case_node_ptr node, tree index_type)
   if (node->right)
     return 0;
 
-  high_plus_one = fold (build2 (PLUS_EXPR, TREE_TYPE (node->high),
-				node->high, integer_one_node));
+  high_plus_one = fold_build2 (PLUS_EXPR, TREE_TYPE (node->high),
+			       node->high,
+			       build_int_cst (TREE_TYPE (node->high), 1));
 
   /* If the addition above overflowed, we can't verify anything.
      Otherwise, look for a parent that tests our value + 1.  */
@@ -3303,8 +3306,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      new_index = expand_simple_binop (mode, MINUS, index, low_rtx,
 					       NULL_RTX, unsignedp,
 					       OPTAB_WIDEN);
-	      new_bound = expand_expr (fold (build2 (MINUS_EXPR, type,
-						     high, low)),
+	      new_bound = expand_expr (fold_build2 (MINUS_EXPR, type,
+						    high, low),
 				       NULL_RTX, mode, 0);
 
 	      emit_cmp_and_jump_insns (new_index, new_bound, GT, NULL_RTX,

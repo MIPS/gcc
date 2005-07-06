@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_OUTPUT_H
 #define GCC_OUTPUT_H
@@ -320,8 +320,8 @@ extern bool default_assemble_integer (rtx, unsigned int, int);
 
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
-   the constant, otherwise 0.  If FORCE is nonzero, abort if we can't output
-   the constant.  */
+   the constant, otherwise 0.  If FORCE is nonzero the constant must
+   be outputable. */
 extern bool assemble_integer (rtx, unsigned, unsigned, int);
 
 /* An interface to assemble_integer for the common case in which a value is
@@ -425,7 +425,7 @@ extern rtx current_insn_predicate;
 extern rtx current_output_insn;
 
 /* Nonzero while outputting an `asm' with operands.
-   This means that inconsistencies are the user's fault, so don't abort.
+   This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
 extern rtx this_is_asm_operands;
 
@@ -453,11 +453,6 @@ enum in_section { no_section, in_text, in_unlikely_executed_text, in_data,
 #endif
 };
 
-extern char *unlikely_section_label;
-extern char *hot_section_label;
-extern char *hot_section_end_label;
-extern char *cold_section_end_label;
-extern char *unlikely_text_section_name;
 extern const char *last_text_section_name;
 extern enum in_section last_text_section;
 extern bool first_function_block_is_cold;

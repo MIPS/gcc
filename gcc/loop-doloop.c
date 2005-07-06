@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "output.h"
 #include "params.h"
+#include "target.h"
 
 /* This module is used to modify loops with a determinable number of
    iterations to use special low-overhead looping instructions.
@@ -68,12 +69,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Return the loop termination condition for PATTERN or zero
    if it is not a decrement and branch jump insn.  */
 
-static rtx
+rtx
 doloop_condition_get (rtx pattern)
 {
   rtx cmp;
   rtx inc;
   rtx reg;
+  rtx inc_src;
   rtx condition;
 
   /* The canonical doloop pattern we expect is:
@@ -84,12 +86,13 @@ doloop_condition_get (rtx pattern)
                 (set (reg) (plus (reg) (const_int -1)))
                 (additional clobbers and uses)])
 
-     Some machines (IA-64) make the decrement conditional on
-     the condition as well, so we don't bother verifying the
-     actual decrement.  In summary, the branch must be the
-     first entry of the parallel (also required by jump.c),
-     and the second entry of the parallel must be a set of
-     the loop counter register.  */
+     Some targets (IA-64) wrap the set of the loop counter in
+     an if_then_else too.
+
+     In summary, the branch must be the first entry of the
+     parallel (also required by jump.c), and the second
+     entry of the parallel must be a set of the loop counter
+     register.  */
 
   if (GET_CODE (pattern) != PARALLEL)
     return 0;
@@ -98,11 +101,21 @@ doloop_condition_get (rtx pattern)
   inc = XVECEXP (pattern, 0, 1);
 
   /* Check for (set (reg) (something)).  */
-  if (GET_CODE (inc) != SET || ! REG_P (SET_DEST (inc)))
+  if (GET_CODE (inc) != SET)
+    return 0;
+  reg = SET_DEST (inc);
+  if (! REG_P (reg))
     return 0;
 
-  /* Extract loop counter register.  */
-  reg = SET_DEST (inc);
+  /* Check if something = (plus (reg) (const_int -1)).
+     On IA-64, this decrement is wrapped in an if_then_else.  */
+  inc_src = SET_SRC (inc);
+  if (GET_CODE (inc_src) == IF_THEN_ELSE)
+    inc_src = XEXP (inc_src, 1);
+  if (GET_CODE (inc_src) != PLUS
+      || XEXP (inc_src, 0) != reg
+      || XEXP (inc_src, 1) != constm1_rtx)
+    return 0;
 
   /* Check for (set (pc) (if_then_else (condition)
                                        (label_ref (label))
@@ -117,15 +130,16 @@ doloop_condition_get (rtx pattern)
   /* Extract loop termination condition.  */
   condition = XEXP (SET_SRC (cmp), 0);
 
-  if ((GET_CODE (condition) != GE && GET_CODE (condition) != NE)
-      || GET_CODE (XEXP (condition, 1)) != CONST_INT)
+  /* We expect a GE or NE comparison with 0 or 1.  */
+  if ((GET_CODE (condition) != GE
+       && GET_CODE (condition) != NE)
+      || (XEXP (condition, 1) != const0_rtx
+          && XEXP (condition, 1) != const1_rtx))
     return 0;
 
-  if (XEXP (condition, 0) == reg)
-    return condition;
-
-  if (GET_CODE (XEXP (condition, 0)) == PLUS
-      && XEXP (XEXP (condition, 0), 0) == reg)
+  if ((XEXP (condition, 0) == reg)
+      || (GET_CODE (XEXP (condition, 0)) == PLUS
+		   && XEXP (XEXP (condition, 0), 0) == reg))
     return condition;
 
   /* ??? If a machine uses a funny comparison, we could return a
@@ -187,24 +201,15 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	   insn != NEXT_INSN (BB_END (bb));
 	   insn = NEXT_INSN (insn))
 	{
-	  /* A called function may clobber any special registers required for
-	     low-overhead looping.  */
-	  if (CALL_P (insn))
+	  /* Different targets have different necessities for low-overhead
+	     looping.  Call the back end for each instruction within the loop
+	     to let it decide whether the insn prohibits a low-overhead loop.
+	     It will then return the cause for it to emit to the dump file.  */
+	  const char * invalid = targetm.invalid_within_doloop (insn);
+	  if (invalid)
 	    {
 	      if (dump_file)
-		fprintf (dump_file, "Doloop: Function call in loop.\n");
-	      result = false;
-	      goto cleanup;
-	    }
-
-	  /* Some targets (eg, PPC) use the count register for branch on table
-	     instructions.  ??? This should be a target specific check.  */
-	  if (JUMP_P (insn)
-	      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
-	    {
-	      if (dump_file)
-		fprintf (dump_file, "Doloop: Computed branch in the loop.\n");
+		fprintf (dump_file, "Doloop: %s\n", invalid);
 	      result = false;
 	      goto cleanup;
 	    }

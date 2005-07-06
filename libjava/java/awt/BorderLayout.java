@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -700,6 +700,10 @@ calcSize(Container target, int what)
       Dimension cdim = calcCompSize(center, what);
 
       int width = edim.width + cdim.width + wdim.width + (hgap * 2);
+      // check for overflow
+      if (width < edim.width || width < cdim.width || width < cdim.width)
+          width = Integer.MAX_VALUE;
+
       if (ndim.width > width)
 	width = ndim.width;
       if (sdim.width > width)
@@ -713,7 +717,13 @@ calcSize(Container target, int what)
       if (wdim.height > height)
 	height = wdim.height;
 
-      height += (ndim.height + sdim.height + (vgap * 2) + ins.top + ins.bottom);
+      int addedHeight = height + (ndim.height + sdim.height + (vgap * 2)
+                                  + ins.top + ins.bottom);
+      // check for overflow
+      if (addedHeight < height)
+          height = Integer.MAX_VALUE;
+      else
+          height = addedHeight;
 
       return(new Dimension(width, height));
     }

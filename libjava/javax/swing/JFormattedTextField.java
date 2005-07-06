@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -155,7 +155,8 @@ public class JFormattedTextField extends JTextField
   private Object value;
   private int focusLostBehavior = COMMIT_OR_REVERT;
   private AbstractFormatterFactory formatterFactory;
-  private boolean editValid = true;
+  // Package-private to avoid an accessor method.
+  boolean editValid = true;
   
   public JFormattedTextField ()
   {

@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Assign name and types to intrinsic procedures.  For functions, the
@@ -80,6 +80,15 @@ gfc_resolve_acos (gfc_expr * f, gfc_expr * x)
   f->ts = x->ts;
   f->value.function.name =
     gfc_get_string ("__acos_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
+}
+
+
+void
+gfc_resolve_acosh (gfc_expr * f, gfc_expr * x)
+{
+  f->ts = x->ts;
+  f->value.function.name =
+    gfc_get_string ("__acosh_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
 }
 
 
@@ -177,6 +186,13 @@ gfc_resolve_asin (gfc_expr * f, gfc_expr * x)
     gfc_get_string ("__asin_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
 }
 
+void
+gfc_resolve_asinh (gfc_expr * f, gfc_expr * x)
+{
+  f->ts = x->ts;
+  f->value.function.name =
+    gfc_get_string ("__asinh_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
+}
 
 void
 gfc_resolve_atan (gfc_expr * f, gfc_expr * x)
@@ -186,6 +202,13 @@ gfc_resolve_atan (gfc_expr * f, gfc_expr * x)
     gfc_get_string ("__atan_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
 }
 
+void
+gfc_resolve_atanh (gfc_expr * f, gfc_expr * x)
+{
+  f->ts = x->ts;
+  f->value.function.name =
+    gfc_get_string ("__atanh_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
+}
 
 void
 gfc_resolve_atan2 (gfc_expr * f, gfc_expr * x,
@@ -1137,8 +1160,14 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
     case 4:
     case 8:
     /* case 16: */
-      f->value.function.name =
-	gfc_get_string (PREFIX("reshape_%d"), source->ts.kind);
+      if (source->ts.type == BT_COMPLEX)
+	f->value.function.name =
+	  gfc_get_string (PREFIX("reshape_%c%d"),
+			  gfc_type_letter (BT_COMPLEX), source->ts.kind);
+      else
+	f->value.function.name =
+	  gfc_get_string (PREFIX("reshape_%d"), source->ts.kind);
+
       break;
 
     default:

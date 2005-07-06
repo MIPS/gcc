@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # This file was written by Janis Johnson, <janis187@us.ibm.com>
 
@@ -279,8 +279,18 @@ proc compat-execute { src1 sid use_alt } {
     regsub "sid" "sid_y_alt.o" $sid obj3_alt
 
     # Get the base name of this test, for use in messages.
-    regsub "^$srcdir/?" $src1 "" testcase
-    regsub "^$tmpdir/?" $testcase "tmpdir-" testcase
+    set testcase "$src1"
+    # Remove the $srcdir and $tmpdir prefixes from $src1.  (It would
+    # be possible to use "regsub" here, if we were careful to escape
+    # all regular expression characters in $srcdir and $tmpdir, but
+    # that would be more complicated that this approach.) 
+    if {[string first "$srcdir/" "$src1"] == 0} {
+	set testcase [string range "$src1" [string length "$srcdir/"] end]
+    }
+    if {[string first "$tmpdir/" "$testcase"] == 0} {
+	set testcase [string range "$testcase" [string length "$tmpdir/"] end]
+	set testcase "tmpdir-$testcase"
+    }
     regsub "_main.*" $testcase "" testcase
     # Set up the base name of executable files so they'll be unique.
     regsub -all "\[./\]" $testcase "-" execbase

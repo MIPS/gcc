@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -107,17 +107,29 @@ public class BasicButtonUI extends ButtonUI
     textShiftOffset = defaultTextShiftOffset;
   }
 
+  /**
+   * Returns the prefix for the UI defaults property for this UI class.
+   * This is &apos;Button&apos; for this class.
+   *
+   * @return the prefix for the UI defaults property
+   */
+  protected String getPropertyPrefix()
+  {
+    return "Button";
+  }
+
   protected void installDefaults(AbstractButton b)
   {
     UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    focusColor = defaults.getColor("Button.focus");
-    b.setForeground(defaults.getColor("Button.foreground"));
-    b.setBackground(defaults.getColor("Button.background"));
-    b.setMargin(defaults.getInsets("Button.margin"));
-    b.setBorder(defaults.getBorder("Button.border"));
-    b.setIconTextGap(defaults.getInt("Button.textIconGap"));
+    String prefix = getPropertyPrefix();
+    focusColor = defaults.getColor(prefix + ".focus");
+    b.setForeground(defaults.getColor(prefix + ".foreground"));
+    b.setBackground(defaults.getColor(prefix + ".background"));
+    b.setMargin(defaults.getInsets(prefix + ".margin"));
+    b.setBorder(defaults.getBorder(prefix + ".border"));
+    b.setIconTextGap(defaults.getInt(prefix + ".textIconGap"));
     b.setInputMap(JComponent.WHEN_FOCUSED, 
-                  (InputMap) defaults.get("Button.focusInputMap"));
+                  (InputMap) defaults.get(prefix + ".focusInputMap"));
     b.setOpaque(true);
   }
 
@@ -247,14 +259,12 @@ public class BasicButtonUI extends ButtonUI
     Rectangle tr = new Rectangle();
     Rectangle ir = new Rectangle();
     Rectangle vr = new Rectangle();
-    Rectangle br = new Rectangle();
 
     Font f = c.getFont();
 
     g.setFont(f);
 
-    SwingUtilities.calculateInnerArea(b, br);
-    SwingUtilities.calculateInsetArea(br, b.getMargin(), vr);    
+    SwingUtilities.calculateInnerArea(b, vr);
     String text = SwingUtilities.layoutCompoundLabel(c, g.getFontMetrics(f), 
                                                      b.getText(),
                                                      currentIcon(b),
@@ -270,7 +280,7 @@ public class BasicButtonUI extends ButtonUI
         || b.isSelected())
       paintButtonPressed(g, b);
     else
-      paintButtonNormal(g, br, c);
+      paintButtonNormal(g, vr, c);
 	
     paintIcon(g, c, ir);
     if (text != null)

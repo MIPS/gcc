@@ -1,4 +1,4 @@
-/* The Blackfin code generation auxilary output file.
+/* The Blackfin code generation auxiliary output file.
    Copyright (C) 2005  Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -67,7 +67,8 @@ const char *byte_reg_names[]   =  BYTE_REGISTER_NAMES;
 
 static int arg_regs[] = FUNCTION_ARG_REGISTERS;
 
-const char *bfin_library_id_string;
+/* Nonzero if -mshared-library-id was given.  */
+static int bfin_lib_id_given;
 
 static void
 bfin_globalize_label (FILE *stream, const char *name)
@@ -320,7 +321,7 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum,
 
   /* The move for named arguments will be generated automatically by the
      compiler.  We need to generate the move rtx for the unnamed arguments
-     if they are in the first 3 words.  We assume atleast 1 named argument
+     if they are in the first 3 words.  We assume at least 1 named argument
      exists, so we never generate [ARGP] = R0 here.  */
 
   for (i = cum->words + 1; i < max_arg_registers; i++)
@@ -515,8 +516,7 @@ emit_link_insn (rtx spreg, HOST_WIDE_INT frame_size)
   for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
     {
       rtx set = XVECEXP (PATTERN (insn), 0, i);
-      if (GET_CODE (set) != SET)
-	abort ();
+      gcc_assert (GET_CODE (set) == SET);
       RTX_FRAME_RELATED_P (set) = 1;
     }
 
@@ -776,8 +776,8 @@ bfin_expand_prologue (void)
     {
       rtx addr;
       
-      if (bfin_library_id_string)
-	addr = plus_constant (pic_offset_table_rtx, atoi (bfin_library_id_string));
+      if (bfin_lib_id_given)
+	addr = plus_constant (pic_offset_table_rtx, -4 - bfin_library_id * 4);
       else
 	addr = gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
 			     gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
@@ -876,11 +876,12 @@ effective_address_32bit_p (rtx op, enum machine_mode mode)
   mode = GET_MODE (op);
   op = XEXP (op, 0);
 
-  if (REG_P (op) || GET_CODE (op) == POST_INC
-      || GET_CODE (op) == PRE_DEC || GET_CODE (op) == POST_DEC)
-    return 0;
   if (GET_CODE (op) != PLUS)
-    abort ();
+    {
+      gcc_assert (REG_P (op) || GET_CODE (op) == POST_INC
+		  || GET_CODE (op) == PRE_DEC || GET_CODE (op) == POST_DEC);
+      return 0;
+    }
 
   offset = INTVAL (XEXP (op, 1));
 
@@ -915,9 +916,6 @@ bfin_address_cost (rtx addr ATTRIBUTE_UNUSED)
 void
 print_address_operand (FILE *file, rtx x)
 {
-  if (GET_CODE (x) == MEM) 
-    abort ();
-
   switch (GET_CODE (x))
     {
     case PLUS:
@@ -940,7 +938,9 @@ print_address_operand (FILE *file, rtx x)
       break;
 
     default:
+      gcc_assert (GET_CODE (x) != MEM);
       print_operand (file, x, 0);
+      break;
     }
 }
 
@@ -1071,8 +1071,7 @@ print_operand (FILE *file, rtx x, char code)
 	    }
 	  else if (code == 'T')
 	    {
-	      if (REGNO (x) > 7)
-		abort ();
+	      gcc_assert (D_REGNO_P (REGNO (x)));
 	      fprintf (file, "%s", byte_reg_names[REGNO (x)]);
 	    }
 	  else 
@@ -1114,15 +1113,20 @@ print_operand (FILE *file, rtx x, char code)
 	  break;
 
 	case UNSPEC:
-	  if (XINT (x, 1) == UNSPEC_MOVE_PIC)
+	  switch (XINT (x, 1))
 	    {
+	    case UNSPEC_MOVE_PIC:
 	      output_addr_const (file, XVECEXP (x, 0, 0));
 	      fprintf (file, "@GOT");
+	      break;
+
+	    case UNSPEC_LIBRARY_OFFSET:
+	      fprintf (file, "_current_shared_library_p5_offset_");
+	      break;
+
+	    default:
+	      gcc_unreachable ();
 	    }
-	  else if (XINT (x, 1) == UNSPEC_LIBRARY_OFFSET)
-	    fprintf (file, "_current_shared_library_p5_offset_");
-	  else
-	    abort ();
 	  break;
 
 	default:
@@ -1266,18 +1270,8 @@ bfin_return_in_memory (tree type)
   if (mode == BLKmode)
     return 1;
   size = int_size_in_bytes (type);	
-  if (VECTOR_MODE_P (mode) || mode == TImode)
-    {
-      /* User-created vectors small enough to fit in REG.  */
-      if (size < 8)
-        return 0;
-      if (size == 8 || size == 16)
-	return 1;
-    }
 
-  if (size > 12)
-    return 1;
-  return 0;
+  return size > 8;
 }
 
 /* Register in which address to store a structure value
@@ -1386,8 +1380,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	{
 	  if (reg == 0)
 	    {
-	      if (no_new_pseudos)
-		abort ();
+	      gcc_assert (!no_new_pseudos);
 	      reg = gen_reg_rtx (Pmode);
 	    }
 
@@ -1419,8 +1412,7 @@ legitimize_pic_address (rtx orig, rtx reg)
       if (GET_CODE (addr) == CONST)
 	{
 	  addr = XEXP (addr, 0);
-	  if (GET_CODE (addr) != PLUS)
-	    abort ();
+	  gcc_assert (GET_CODE (addr) == PLUS);
 	}
 
       if (XEXP (addr, 0) == pic_offset_table_rtx)
@@ -1428,8 +1420,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 
       if (reg == 0)
 	{
-	  if (no_new_pseudos)
-	    abort ();
+	  gcc_assert (!no_new_pseudos);
 	  reg = gen_reg_rtx (Pmode);
 	}
 
@@ -1439,11 +1430,8 @@ legitimize_pic_address (rtx orig, rtx reg)
 
       if (GET_CODE (addr) == CONST_INT)
 	{
-	  if (! reload_in_progress && ! reload_completed)
-	    addr = force_reg (Pmode, addr);
-	  else
-	    /* If we reach here, then something is seriously wrong.  */
-	    abort ();
+	  gcc_assert (! reload_in_progress && ! reload_completed);
+	  addr = force_reg (Pmode, addr);
 	}
 
       if (GET_CODE (addr) == PLUS && CONSTANT_P (XEXP (addr, 1)))
@@ -1711,6 +1699,25 @@ secondary_output_reload_class (enum reg_class class, enum machine_mode mode,
   return secondary_input_reload_class (class, mode, x);
 }
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+bfin_handle_option (size_t code, const char *arg, int value)
+{
+  switch (code)
+    {
+    case OPT_mshared_library_id_:
+      if (value > MAX_LIBRARY_ID)
+	error ("-mshared-library-id=%s is not between 0 and %d",
+	       arg, MAX_LIBRARY_ID);
+      bfin_lib_id_given = 1;
+      return true;
+
+    default:
+      return true;
+    }
+}
+
 /* Implement the macro OVERRIDE_OPTIONS.  */
 
 void
@@ -1720,19 +1727,8 @@ override_options (void)
     flag_omit_frame_pointer = 1;
 
   /* Library identification */
-  if (bfin_library_id_string)
-    {
-      int id;
-
-      if (! TARGET_ID_SHARED_LIBRARY)
-	error ("-mshared-library-id= specified without -mid-shared-library");
-      id = atoi (bfin_library_id_string);
-      if (id < 0 || id > MAX_LIBRARY_ID)
-	error ("-mshared-library-id=%d is not between 0 and %d", id, MAX_LIBRARY_ID);
-
-      /* From now on, bfin_library_id_string will contain the library offset.  */
-      asprintf ((char **)&bfin_library_id_string, "%d", (id * -4) - 4);
-    }
+  if (bfin_lib_id_given && ! TARGET_ID_SHARED_LIBRARY)
+    error ("-mshared-library-id= specified without -mid-shared-library");
 
   if (TARGET_ID_SHARED_LIBRARY)
     /* ??? Provide a way to use a bigger GOT.  */
@@ -1741,7 +1737,10 @@ override_options (void)
   flag_schedule_insns = 0;
 }
 
-/* Return the destination address of BRANCH.  */
+/* Return the destination address of BRANCH.
+   We need to use this instead of get_attr_length, because the
+   cbranch_with_nops pattern conservatively sets its length to 6, and
+   we still prefer to use shorter sequences.  */
 
 static int
 branch_dest (rtx branch)
@@ -1811,8 +1810,7 @@ asm_conditional_branch (rtx insn, rtx *operands, int n_nops, int predict_taken)
   int bp = predict_taken && len == 0 ? 1 : cbranch_predicted_taken_p (insn);
   int idx = (bp << 1) | (GET_CODE (operands[0]) == EQ ? BRF : BRT);
   output_asm_insn (ccbranch_templates[idx][len], operands);
-  if (n_nops > 0 && bp)
-    abort ();
+  gcc_assert (n_nops == 0 || !bp);
   if (len == 0)
     while (n_nops-- > 0)
       output_asm_insn ("nop;", NULL);
@@ -1833,10 +1831,8 @@ bfin_gen_compare (rtx cmp, enum machine_mode mode ATTRIBUTE_UNUSED)
      do not need to emit another comparison.  */
   if (GET_MODE (op0) == BImode)
     {
-      if ((code == NE || code == EQ) && op1 == const0_rtx)
-	tem = op0, code2 = code;
-      else
-	abort ();
+      gcc_assert ((code == NE || code == EQ) && op1 == const0_rtx);
+      tem = op0, code2 = code;
     }
   else
     {
@@ -2270,15 +2266,19 @@ void
 output_push_multiple (rtx insn, rtx *operands)
 {
   char buf[80];
+  int ok;
+  
   /* Validate the insn again, and compute first_[dp]reg_to_save. */
-  if (! push_multiple_operation (PATTERN (insn), VOIDmode))
-    abort ();
+  ok = push_multiple_operation (PATTERN (insn), VOIDmode);
+  gcc_assert (ok);
+  
   if (first_dreg_to_save == 8)
     sprintf (buf, "[--sp] = ( p5:%d );\n", first_preg_to_save);
   else if (first_preg_to_save == 6)
     sprintf (buf, "[--sp] = ( r7:%d );\n", first_dreg_to_save);
   else
-    sprintf (buf, "[--sp] = ( r7:%d, p5:%d );\n", first_dreg_to_save, first_preg_to_save);
+    sprintf (buf, "[--sp] = ( r7:%d, p5:%d );\n",
+	     first_dreg_to_save, first_preg_to_save);
 
   output_asm_insn (buf, operands);
 }
@@ -2290,16 +2290,19 @@ void
 output_pop_multiple (rtx insn, rtx *operands)
 {
   char buf[80];
+  int ok;
+  
   /* Validate the insn again, and compute first_[dp]reg_to_save. */
-  if (! pop_multiple_operation (PATTERN (insn), VOIDmode))
-    abort ();
+  ok = pop_multiple_operation (PATTERN (insn), VOIDmode);
+  gcc_assert (ok);
 
   if (first_dreg_to_save == 8)
     sprintf (buf, "( p5:%d ) = [sp++];\n", first_preg_to_save);
   else if (first_preg_to_save == 6)
     sprintf (buf, "( r7:%d ) = [sp++];\n", first_dreg_to_save);
   else
-    sprintf (buf, "( r7:%d, p5:%d ) = [sp++];\n", first_dreg_to_save, first_preg_to_save);
+    sprintf (buf, "( r7:%d, p5:%d ) = [sp++];\n",
+	     first_dreg_to_save, first_preg_to_save);
 
   output_asm_insn (buf, operands);
 }
@@ -2453,7 +2456,7 @@ bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
    which perform the memory reference, are allowed to execute before the
    jump condition is evaluated.
    Therefore, we must insert additional instructions in all places where this
-   could lead to incorrect behaviour.  The manual recommends CSYNC, while
+   could lead to incorrect behavior.  The manual recommends CSYNC, while
    VDSP seems to use NOPs (even though its corresponding compiler option is
    named CSYNC).
 
@@ -2541,7 +2544,7 @@ handle_int_attribute (tree *node, tree name,
 
   if (TREE_CODE (x) != FUNCTION_TYPE)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2668,6 +2671,67 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
     output_asm_insn ("jump.l\t%P0", xops);
 }
 
+/* Codes for all the Blackfin builtins.  */
+enum bfin_builtins
+{
+  BFIN_BUILTIN_CSYNC,
+  BFIN_BUILTIN_SSYNC,
+  BFIN_BUILTIN_MAX
+};
+
+#define def_builtin(NAME, TYPE, CODE)				\
+do {								\
+  builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+		    NULL, NULL_TREE);				\
+} while (0)
+
+/* Set up all builtin functions for this target.  */
+static void
+bfin_init_builtins (void)
+{
+  tree void_ftype_void
+    = build_function_type (void_type_node, void_list_node);
+
+  /* Add the remaining MMX insns with somewhat more complicated types.  */
+  def_builtin ("__builtin_bfin_csync", void_ftype_void, BFIN_BUILTIN_CSYNC);
+  def_builtin ("__builtin_bfin_ssync", void_ftype_void, BFIN_BUILTIN_SSYNC);
+}
+
+/* Expand an expression EXP that calls a built-in function,
+   with result going to TARGET if that's convenient
+   (and in mode MODE if that's convenient).
+   SUBTARGET may be used as the target for computing one of EXP's operands.
+   IGNORE is nonzero if the value is to be ignored.  */
+
+static rtx
+bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
+		     rtx subtarget ATTRIBUTE_UNUSED,
+		     enum machine_mode mode ATTRIBUTE_UNUSED,
+		     int ignore ATTRIBUTE_UNUSED)
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+
+  switch (fcode)
+    {
+    case BFIN_BUILTIN_CSYNC:
+      emit_insn (gen_csync ());
+      return 0;
+    case BFIN_BUILTIN_SSYNC:
+      emit_insn (gen_ssync ());
+      return 0;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS bfin_init_builtins
+
+#undef TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN bfin_expand_builtin
+
 #undef TARGET_ASM_GLOBALIZE_LABEL
 #define TARGET_ASM_GLOBALIZE_LABEL bfin_globalize_label 
 
@@ -2724,5 +2788,8 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P bfin_vector_mode_supported_p
+
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION bfin_handle_option
 
 struct gcc_target targetm = TARGET_INITIALIZER;

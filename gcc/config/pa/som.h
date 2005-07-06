@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* So we can conditionalize small amounts of code in pa.c or pa.md.  */
 #undef TARGET_SOM
@@ -306,10 +306,6 @@ do {						\
    on the location of the GCC tool directory.  The downside is GCC
    cannot be moved after installation using a symlink.  */
 #define ALWAYS_STRIP_DOTDOT 1
-
-/* Aggregates with a single float or double field should be passed and
-   returned in the general registers.  */
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (MODE==SFmode || MODE==DFmode)
 
 /* If GAS supports weak, we can support weak when we have working linker
    support for secondary definitions and are generating code for GAS.  */

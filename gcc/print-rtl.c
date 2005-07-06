@@ -1,5 +1,6 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file is compiled twice: once for the generator programs,
    once for the compiler.  */
@@ -554,10 +555,7 @@ print_rtx (rtx in_rtx)
 	break;
 
       default:
-	fprintf (stderr,
-		 "switch format wrong in rtl.print_rtx(). format was: %c.\n",
-		 format_ptr[-1]);
-	abort ();
+	gcc_unreachable ();
       }
 
   switch (GET_CODE (in_rtx))

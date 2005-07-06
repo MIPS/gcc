@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -252,7 +252,7 @@ fix_irreducible_loops (basic_block from)
   int stack_top;
   sbitmap on_stack;
   edge *edges, e;
-  unsigned n_edges, i;
+  unsigned num_edges, i;
 
   if (!(from->flags & BB_IRREDUCIBLE_LOOP))
     return;
@@ -278,16 +278,16 @@ fix_irreducible_loops (basic_block from)
 
       bb->flags &= ~BB_IRREDUCIBLE_LOOP;
       if (bb->loop_father->header == bb)
-	edges = get_loop_exit_edges (bb->loop_father, &n_edges);
+	edges = get_loop_exit_edges (bb->loop_father, &num_edges);
       else
 	{
-	  n_edges = EDGE_COUNT (bb->succs);
-	  edges = xmalloc (n_edges * sizeof (edge));
+	  num_edges = EDGE_COUNT (bb->succs);
+	  edges = xmalloc (num_edges * sizeof (edge));
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    edges[ei.index] = e;
 	}
 
-      for (i = 0; i < n_edges; i++)
+      for (i = 0; i < num_edges; i++)
 	{
 	  e = edges[i];
 
@@ -574,7 +574,7 @@ unloop (struct loops *loops, struct loop *loop)
   unsigned i, n;
   basic_block latch = loop->latch;
   edge *edges;
-  unsigned n_edges;
+  unsigned num_edges;
 
   /* This is relatively straightforward.  The dominators are unchanged, as
      loop header dominates loop latch, so the only thing we have to care of
@@ -583,7 +583,7 @@ unloop (struct loops *loops, struct loop *loop)
      its work.  */
 
   body = get_loop_body (loop);
-  edges = get_loop_exit_edges (loop, &n_edges);
+  edges = get_loop_exit_edges (loop, &num_edges);
   n = loop->num_nodes;
   for (i = 0; i < n; i++)
     if (body[i]->loop_father == loop)
@@ -612,10 +612,10 @@ unloop (struct loops *loops, struct loop *loop)
      update the irreducible marks inside its body.  While it is certainly
      possible to do, it is a bit complicated and this situation should be
      very rare, so we just remark all loops in this case.  */
-  for (i = 0; i < n_edges; i++)
+  for (i = 0; i < num_edges; i++)
     if (edges[i]->flags & EDGE_IRREDUCIBLE_LOOP)
       break;
-  if (i != n_edges)
+  if (i != num_edges)
     mark_irreducible_loops (loops);
   free (edges);
 }
@@ -813,19 +813,19 @@ update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
   unsigned i;
 
   for (i = 0; i < nbbs; i++)
-    bbs[i]->rbi->duplicated = 1;
+    bbs[i]->flags |= BB_DUPLICATED;
 
   for (; loop->outer; loop = loop->outer)
     {
       if (!loop->single_exit)
 	continue;
 
-      if (loop->single_exit->src->rbi->duplicated)
+      if (loop->single_exit->src->flags & BB_DUPLICATED)
 	loop->single_exit = NULL;
     }
 
   for (i = 0; i < nbbs; i++)
-    bbs[i]->rbi->duplicated = 0;
+    bbs[i]->flags &= ~BB_DUPLICATED;
 }
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
@@ -982,14 +982,18 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       /* Copy bbs.  */
       copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop);
 
-      for (i = 0; i < n; i++)
-	new_bbs[i]->rbi->copy_number = j + 1;
+      if (flags & DLTHE_RECORD_COPY_NUMBER)
+	for (i = 0; i < n; i++)
+	  {
+	    gcc_assert (!new_bbs[i]->aux);
+	    new_bbs[i]->aux = (void *)(size_t)(j + 1);
+	  }
 
       /* Note whether the blocks and edges belong to an irreducible loop.  */
       if (add_irreducible_flag)
 	{
 	  for (i = 0; i < n; i++)
-	    new_bbs[i]->rbi->duplicated = 1;
+	    new_bbs[i]->flags |= BB_DUPLICATED;
 	  for (i = 0; i < n; i++)
 	    {
 	      edge_iterator ei;
@@ -998,13 +1002,13 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 		new_bb->flags |= BB_IRREDUCIBLE_LOOP;
 
 	      FOR_EACH_EDGE (ae, ei, new_bb->succs)
-		if (ae->dest->rbi->duplicated
+		if ((ae->dest->flags & BB_DUPLICATED)
 		    && (ae->src->loop_father == target
 			|| ae->dest->loop_father == target))
 		  ae->flags |= EDGE_IRREDUCIBLE_LOOP;
 	    }
 	  for (i = 0; i < n; i++)
-	    new_bbs[i]->rbi->duplicated = 0;
+	    new_bbs[i]->flags &= ~BB_DUPLICATED;
 	}
 
       /* Redirect the special edges.  */
@@ -1064,7 +1068,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       int n_dom_bbs,j;
 
       bb = bbs[i];
-      bb->rbi->copy_number = 0;
+      bb->aux = 0;
 
       n_dom_bbs = get_dominated_by (CDI_DOMINATORS, bb, &dom_bbs);
       for (j = 0; j < n_dom_bbs; j++)
@@ -1447,18 +1451,18 @@ loop_version (struct loops *loops, struct loop * loop,
       return NULL;
     }
 
-  latch_edge = single_succ_edge (loop->latch->rbi->copy);
+  latch_edge = single_succ_edge (get_bb_copy (loop->latch));
   
   extract_cond_bb_edges (*condition_bb, &true_edge, &false_edge);
   nloop = loopify (loops,
 		   latch_edge,
-		   single_pred_edge (loop->header->rbi->copy),
+		   single_pred_edge (get_bb_copy (loop->header)),
 		   *condition_bb, true_edge, false_edge,
 		   false /* Do not redirect all edges.  */);
 
   exit = loop->single_exit;
   if (exit)
-    nloop->single_exit = find_edge (exit->src->rbi->copy, exit->dest);
+    nloop->single_exit = find_edge (get_bb_copy (exit->src), exit->dest);
 
   /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
   lv_flush_pending_stmts (latch_edge);

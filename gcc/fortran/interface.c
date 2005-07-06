@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Deal with interfaces.  An explicit interface is represented as a
@@ -41,7 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Generic interfaces:
      The generic name points to a linked list of symbols.  Each symbol
-     has an explicit interface.  Each explicit interface has it's own
+     has an explicit interface.  Each explicit interface has its own
      namespace containing the arguments.  Module procedures are symbols in
      which the interface is added later when the module procedure is parsed.
 
@@ -1096,7 +1096,7 @@ compare_parameter (gfc_symbol * formal, gfc_expr * actual,
       return compare_interfaces (formal, actual->symtree->n.sym, 0);
     }
 
-  if (actual->expr_type != EXPR_NULL
+  if ((actual->expr_type != EXPR_NULL || actual->ts.type != BT_UNKNOWN)
       && !gfc_compare_types (&formal->ts, &actual->ts))
     return 0;
 

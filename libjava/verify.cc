@@ -31,6 +31,7 @@ details.  */
 #include <java/lang/Throwable.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/lang/StringBuffer.h>
+#include <java/lang/NoClassDefFoundError.h>
 
 #ifdef VERIFY_DEBUG
 #include <stdio.h>
@@ -368,7 +369,11 @@ private:
 	= verifier->current_class->getClassLoaderInternal();
       // We might see either kind of name.  Sigh.
       if (data.name->first() == 'L' && data.name->limit()[-1] == ';')
-	data.klass = _Jv_FindClassFromSignature (data.name->chars(), loader);
+	{
+	  data.klass = _Jv_FindClassFromSignature (data.name->chars(), loader);
+	  if (data.klass == NULL)
+	    throw new java::lang::NoClassDefFoundError(data.name->toString());
+	}
       else
 	data.klass = Class::forName (_Jv_NewStringUtf8Const (data.name),
 				     false, loader);
@@ -2193,8 +2198,9 @@ private:
 	    // We only have to do this checking in the situation where
 	    // control flow falls through from the previous
 	    // instruction.  Otherwise merging is done at the time we
-	    // push the branch.
-	    if (states[PC] != NULL)
+	    // push the branch.  Note that we'll catch the
+	    // off-the-end problem just below.
+	    if (PC < current_method->code_length && states[PC] != NULL)
 	      {
 		// We've already visited this instruction.  So merge
 		// the states together.  It is simplest, but not most

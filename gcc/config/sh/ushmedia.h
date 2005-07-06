@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2001, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2000, 2001, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -14,8 +14,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you include this header file into source
    files compiled by GCC, this header file does not by itself cause
@@ -720,14 +720,14 @@ sh_media_ADDZ_L (unsigned int mm, unsigned int mn)
   return mm + mn;
 }
 
-/* NOP and Synchronization instrinsics not implemented here.  */
+/* NOP and Synchronization intrinsics not implemented here.  */
 
 static __inline__ void sh_media_PREFO(void *mm, int s)
 {
   __builtin_sh_media_PREFO (mm + s, 0, 0);
 }
 
-/* Event Handling instrinsics not implemented here.  */
+/* Event Handling intrinsics not implemented here.  */
 
 /* Old asm stuff */
 

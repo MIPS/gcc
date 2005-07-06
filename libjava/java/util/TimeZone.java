@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -1107,15 +1107,21 @@ public abstract class TimeZone implements java.io.Serializable, Cloneable
 
     StringBuffer sb = new StringBuffer(9);
     sb.append("GMT");
-    sb.append(offset >= 0 ? '+' : '-');
 
-    offset = Math.abs(offset) / (1000 * 60);
-    int hours = offset / 60;
-    int minutes = offset % 60;
+    offset = offset / (1000 * 60);
+    int hours = Math.abs(offset) / 60;
+    int minutes = Math.abs(offset) % 60;
 
-    sb.append((char) ('0' + hours / 10)).append((char) ('0' + hours % 10));
-    sb.append(':');
-    sb.append((char) ('0' + minutes / 10)).append((char) ('0' + minutes % 10));
+    if (minutes != 0 || hours != 0)
+      {
+	sb.append(offset >= 0 ? '+' : '-');
+	sb.append((char) ('0' + hours / 10));
+	sb.append((char) ('0' + hours % 10));
+	sb.append(':');
+	sb.append((char) ('0' + minutes / 10));
+	sb.append((char) ('0' + minutes % 10));
+      }
+
     return sb.toString();
   }
 

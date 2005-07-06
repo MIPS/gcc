@@ -20,8 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* MIPS external variables defined in mips.c.  */
@@ -32,12 +32,14 @@ Boston, MA 02111-1307, USA.  */
    the cpu attribute in the mips.md machine description.  */
 
 enum processor_type {
-  PROCESSOR_DEFAULT,
+  PROCESSOR_R3000,
   PROCESSOR_4KC,
+  PROCESSOR_4KP,
   PROCESSOR_5KC,
   PROCESSOR_20KC,
+  PROCESSOR_24K,
+  PROCESSOR_24KX,
   PROCESSOR_M4K,
-  PROCESSOR_R3000,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
   PROCESSOR_R4000,
@@ -55,7 +57,25 @@ enum processor_type {
   PROCESSOR_R8000,
   PROCESSOR_R9000,
   PROCESSOR_SB1,
-  PROCESSOR_SR71000
+  PROCESSOR_SR71000,
+  PROCESSOR_MAX
+};
+
+/* Costs of various operations on the different architectures.  */
+
+struct mips_rtx_cost_data
+{
+  unsigned short fp_add;
+  unsigned short fp_mult_sf;
+  unsigned short fp_mult_df;
+  unsigned short fp_div_sf;
+  unsigned short fp_div_df;
+  unsigned short int_mult_si;
+  unsigned short int_mult_di;
+  unsigned short int_div_si;
+  unsigned short int_div_di;
+  unsigned short branch_cost;
+  unsigned short memory_latency;
 };
 
 /* Which ABI to use.  ABI_32 (original 32, or o32), ABI_N32 (n32),
@@ -102,10 +122,10 @@ extern enum processor_type mips_tune;   /* which cpu to schedule for */
 extern int mips_isa;			/* architectural level */
 extern int mips_abi;			/* which ABI to use */
 extern int mips16_hard_float;		/* mips16 without -msoft-float */
-extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
+extern const struct mips_rtx_cost_data *mips_cost;
 
 /* Macros to silence warnings about numbers being signed in traditional
    C and unsigned in ISO C when compiled on 32-bit hosts.  */
@@ -148,8 +168,10 @@ extern const struct mips_cpu_info *mips_tune_info;
    We therefore disable GP-relative switch tables for n64 on IRIX targets.  */
 #define TARGET_GPWORD (TARGET_ABICALLS && !(mips_abi == ABI_64 && TARGET_IRIX))
 
-					/* Generate mips16 code */
+/* Generate mips16 code */
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
+/* Generate mips16e code. Default 16bit ASE for mips32/mips32r2/mips64 */
+#define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
@@ -668,6 +690,11 @@ extern const struct mips_cpu_info *mips_tune_info;
                                  && (ISA_MIPS32R2                      \
                                      ))
 
+/* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
+#define ISA_HAS_EXT_INS         (!TARGET_MIPS16                        \
+                                 && (ISA_MIPS32R2                      \
+                                     ))
+
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
    and "addiu $4,$4,1".  */
@@ -966,11 +993,11 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
 
-#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : 0)
+#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : UNITS_PER_WORD)
 
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
-#define INT_TYPE_SIZE (TARGET_INT64 ? 64 : 32)
+#define INT_TYPE_SIZE 32
 #define LONG_TYPE_SIZE (TARGET_LONG64 ? 64 : 32)
 #define LONG_LONG_TYPE_SIZE 64
 
@@ -2292,9 +2319,8 @@ typedef struct mips_args {
 #define REGISTER_MOVE_COST(MODE, FROM, TO)				\
   mips_register_move_cost (MODE, FROM, TO)
 
-/* ??? Fix this to be right for the R8000.  */
 #define MEMORY_MOVE_COST(MODE,CLASS,TO_P) \
-  (((TUNE_MIPS4000 || TUNE_MIPS6000) ? 6 : 4) \
+  (mips_cost->memory_latency	      		\
    + memory_move_secondary_cost ((MODE), (CLASS), (TO_P)))
 
 /* Define if copies to/from condition code registers should be avoided.
@@ -2307,11 +2333,8 @@ typedef struct mips_args {
 /* A C expression for the cost of a branch instruction.  A value of
    1 is the default; other values are interpreted relative to that.  */
 
-/* ??? Fix this to be right for the R8000.  */
-#define BRANCH_COST							\
-  ((! TARGET_MIPS16							\
-    && (TUNE_MIPS4000 || TUNE_MIPS6000))				\
-   ? 2 : 1)
+#define BRANCH_COST mips_cost->branch_cost
+#define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* If defined, modifies the length assigned to instruction INSN as a
    function of the context in which it is used.  LENGTH is an lvalue
@@ -2576,18 +2599,9 @@ do {									\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
 } while (0)
 
-/* When generating mips16 code we want to put the jump table in the .text
-   section.  In all other cases, we want to put the jump table in the .rdata
-   section.  Unfortunately, we can't use JUMP_TABLES_IN_TEXT_SECTION, because
-   it is not conditional.  Instead, we use ASM_OUTPUT_CASE_LABEL to switch back
-   to the .text section if appropriate.  */
-#undef ASM_OUTPUT_CASE_LABEL
-#define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, INSN)			\
-do {									\
-  if (TARGET_MIPS16)							\
-    function_section (current_function_decl);				\
-  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
-} while (0)
+/* When generating MIPS16 code, we want the jump table to be in the text
+   section so that we can load its address using a PC-relative addition.  */
+#define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -2677,11 +2691,6 @@ while (0)
 
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (POINTER_SIZE == 64 ? "long int" : "int")
-
-/* See mips_expand_prologue's use of loadgp for when this should be
-   true.  */
-
-#define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_ABICALLS && !TARGET_OLDABI)
 
 #ifndef __mips16
 /* Since the bits of the _init and _fini function is spread across

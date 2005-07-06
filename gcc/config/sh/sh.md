@@ -18,8 +18,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 ;; ??? Should prepend a * to all pattern names which are not used.
@@ -1022,7 +1022,7 @@
 	  FAIL;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 }")
@@ -1106,9 +1106,9 @@
   rtx set1, set2;
   rtx replacements[4];
 
-  /* We want to replace occurences of operands[0] with operands[1] and
+  /* We want to replace occurrences of operands[0] with operands[1] and
      operands[2] with operands[0] in operands[4]/operands[5].
-     Doing just two replace_rtx calls naiively would result in the second
+     Doing just two replace_rtx calls naively would result in the second
      replacement undoing all that the first did if operands[1] and operands[2]
      are identical, so we must do this simultaneously.  */
   replacements[0] = operands[0];
@@ -3036,7 +3036,7 @@ label:
   [(const_int 0)]
   "
 {
-  if (INTVAL (operands[2]) == (unsigned) 0xffffffff)
+  if ((unsigned)INTVAL (operands[2]) == (unsigned) 0xffffffff)
     emit_insn (gen_mshflo_l_di (operands[0], operands[1], CONST0_RTX (DImode)));
   else
     emit_insn (gen_mshfhi_l_di (operands[0], CONST0_RTX (DImode), operands[1]));
@@ -3189,8 +3189,7 @@ label:
       offset = SUBREG_BYTE (operands[0]);
       operands[0] = SUBREG_REG (operands[0]);
     }
-  if (GET_CODE (operands[0]) != REG)
-    abort ();
+  gcc_assert (GET_CODE (operands[0]) == REG);
   if (! TARGET_LITTLE_ENDIAN)
     offset += 8 - GET_MODE_SIZE (inmode);
   operands[5] = gen_rtx_SUBREG (inmode, operands[0], offset);
@@ -5228,14 +5227,20 @@ label:
 	  && GET_CODE (XEXP (operands[1], 0)) == POST_INC))
     FAIL;
 
-  if (GET_CODE (operands[0]) == REG)
-    regno = REGNO (operands[0]);
-  else if (GET_CODE (operands[0]) == SUBREG)
-    regno = subreg_regno (operands[0]);
-  else if (GET_CODE (operands[0]) == MEM)
-    regno = -1;
-  else
-    abort ();
+  switch (GET_CODE (operands[0]))
+    {
+    case REG:
+      regno = REGNO (operands[0]);
+      break;
+    case SUBREG:
+      regno = subreg_regno (operands[0]);
+      break;
+    case MEM:
+      regno = -1;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   if (regno == -1
       || ! refers_to_regno_p (regno, regno + 1, operands[1], 0))
@@ -5633,11 +5638,12 @@ label:
     operands[2] = immed_double_const ((unsigned long) values[endian]
 				      | ((HOST_WIDE_INT) values[1 - endian]
 					 << 32), 0, DImode);
-  else if (HOST_BITS_PER_WIDE_INT == 32)
-    operands[2] = immed_double_const (values[endian], values[1 - endian],
-				      DImode);
   else
-    abort ();
+    {
+      gcc_assert (HOST_BITS_PER_WIDE_INT == 32);
+      operands[2] = immed_double_const (values[endian], values[1 - endian],
+	  			        DImode);
+    }
 
   operands[3] = gen_rtx_REG (DImode, true_regnum (operands[0]));
 }")
@@ -6005,14 +6011,20 @@ label:
 	  && GET_CODE (XEXP (operands[1], 0)) == POST_INC))
     FAIL;
 
-  if (GET_CODE (operands[0]) == REG)
-    regno = REGNO (operands[0]);
-  else if (GET_CODE (operands[0]) == SUBREG)
-    regno = subreg_regno (operands[0]);
-  else if (GET_CODE (operands[0]) == MEM)
-    regno = -1;
-  else
-    abort ();
+  switch (GET_CODE (operands[0]))
+    {
+    case REG:
+      regno = REGNO (operands[0]);
+      break;
+    case SUBREG:
+      regno = subreg_regno (operands[0]);
+      break;
+    case MEM:
+      regno = -1;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   if (regno == -1
       || ! refers_to_regno_p (regno, regno + 1, operands[1], 0))
@@ -6746,26 +6758,6 @@ label:
   "TARGET_SHMEDIA"
   "b%o3%'	%N2, %N1, %0%>"
   [(set_attr "type" "cbranch_media")])
-
-;; ??? Workaround for PR rtl-optimization/20413
-(define_split
-  [(set (pc)
-	(if_then_else (match_operator 3 "comparison_operator"
-			[(match_operand 1 "arith_reg_or_0_operand" "")
-			 (match_operand 2 "arith_operand" "")])
-		      (match_operand 0 "target_operand" "")
-		      (pc)))]
-  "TARGET_SHMEDIA && GET_MODE (operands[0]) == VOIDmode
-   && recog_memoized (insn)"
-  [(set (pc) (if_then_else (match_dup 3) (match_dup 0) (pc)))]
-  "PUT_MODE (operands[0], Pmode);")
-
-(define_split
-  [(set (pc) (match_operand 0 "target_operand" ""))]
-  "TARGET_SHMEDIA && GET_MODE (operands[0]) == VOIDmode
-   && recog_memoized (insn)"
-  [(set (pc) (match_dup 0))]
-  "PUT_MODE (operands[0], Pmode);")
 
 (define_expand "beq"
   [(set (pc)
@@ -7542,53 +7534,51 @@ label:
   "TARGET_SHCOMPACT"
   "
 {
-  if (operands[2] && INTVAL (operands[2]))
+  rtx cookie_rtx;
+  long cookie;
+  rtx func;
+  rtx r0, r1;
+
+  gcc_assert (operands[2] && INTVAL (operands[2]));
+  cookie_rtx = operands[2];
+  cookie = INTVAL (cookie_rtx);
+  func = XEXP (operands[0], 0);
+
+  if (flag_pic)
     {
-      rtx cookie_rtx = operands[2];
-      long cookie = INTVAL (cookie_rtx);
-      rtx func = XEXP (operands[0], 0);
-      rtx r0, r1;
-
-      if (flag_pic)
-	{
-	  if (GET_CODE (func) == SYMBOL_REF && ! SYMBOL_REF_LOCAL_P (func))
-	    {
-	      rtx reg = gen_reg_rtx (Pmode);
-
-	      emit_insn (gen_symGOTPLT2reg (reg, func));
-	      func = reg;
-	    }
-	  else
-	    func = legitimize_pic_address (func, Pmode, 0);
+      if (GET_CODE (func) == SYMBOL_REF && ! SYMBOL_REF_LOCAL_P (func))
+        {
+	  rtx reg = gen_reg_rtx (Pmode);
+	  emit_insn (gen_symGOTPLT2reg (reg, func));
+	  func = reg;
 	}
-
-      r0 = gen_rtx_REG (SImode, R0_REG);
-      r1 = gen_rtx_REG (SImode, R1_REG);
-
-      /* Since such a call function may use all call-clobbered
-	 registers, we force a mode switch earlier, so that we don't
-	 run out of registers when adjusting fpscr for the call.  */
-      emit_insn (gen_force_mode_for_call ());
-
-      operands[0]
-	= function_symbol (NULL, \"__GCC_shcompact_call_trampoline\",
-			   SFUNC_GOT);
-      operands[0] = force_reg (SImode, operands[0]);
-
-      emit_move_insn (r0, func);
-      emit_move_insn (r1, cookie_rtx);
-
-      if (cookie & CALL_COOKIE_RET_TRAMP (1))
-	emit_call_insn (gen_call_pop_compact_rettramp
-			(operands[0], operands[1], operands[2], operands[3]));
       else
-	emit_call_insn (gen_call_pop_compact
-			(operands[0], operands[1], operands[2], operands[3]));
-
-      DONE;
+        func = legitimize_pic_address (func, Pmode, 0);
     }
 
-  abort ();
+  r0 = gen_rtx_REG (SImode, R0_REG);
+  r1 = gen_rtx_REG (SImode, R1_REG);
+
+  /* Since such a call function may use all call-clobbered
+     registers, we force a mode switch earlier, so that we don't
+     run out of registers when adjusting fpscr for the call.  */
+  emit_insn (gen_force_mode_for_call ());
+
+  operands[0] = function_symbol (NULL, \"__GCC_shcompact_call_trampoline\",
+				 SFUNC_GOT);
+  operands[0] = force_reg (SImode, operands[0]);
+
+  emit_move_insn (r0, func);
+  emit_move_insn (r1, cookie_rtx);
+
+  if (cookie & CALL_COOKIE_RET_TRAMP (1))
+    emit_call_insn (gen_call_pop_compact_rettramp
+	   	     (operands[0], operands[1], operands[2], operands[3]));
+  else
+    emit_call_insn (gen_call_pop_compact
+	  	     (operands[0], operands[1], operands[2], operands[3]));
+
+  DONE;
 }")
 
 (define_expand "call_value"
@@ -7938,55 +7928,54 @@ label:
   "TARGET_SHCOMPACT"
   "
 {
-  if (TARGET_SHCOMPACT && operands[3] && INTVAL (operands[3]))
+  rtx cookie_rtx;
+  long cookie;
+  rtx func;
+  rtx r0, r1;
+
+  gcc_assert (TARGET_SHCOMPACT && operands[3] && INTVAL (operands[3]));
+  cookie_rtx = operands[3];
+  cookie = INTVAL (cookie_rtx);
+  func = XEXP (operands[1], 0);
+
+  if (flag_pic)
     {
-      rtx cookie_rtx = operands[3];
-      long cookie = INTVAL (cookie_rtx);
-      rtx func = XEXP (operands[1], 0);
-      rtx r0, r1;
+      if (GET_CODE (func) == SYMBOL_REF && ! SYMBOL_REF_LOCAL_P (func))
+        {
+          rtx reg = gen_reg_rtx (Pmode);
 
-      if (flag_pic)
-	{
-	  if (GET_CODE (func) == SYMBOL_REF && ! SYMBOL_REF_LOCAL_P (func))
-	    {
-	      rtx reg = gen_reg_rtx (Pmode);
-
-	      emit_insn (gen_symGOTPLT2reg (reg, func));
-	      func = reg;
-	    }
-	  else
-	    func = legitimize_pic_address (func, Pmode, 0);
-	}
-
-      r0 = gen_rtx_REG (SImode, R0_REG);
-      r1 = gen_rtx_REG (SImode, R1_REG);
-
-      /* Since such a call function may use all call-clobbered
-	 registers, we force a mode switch earlier, so that we don't
-	 run out of registers when adjusting fpscr for the call.  */
-      emit_insn (gen_force_mode_for_call ());
-
-      operands[1]
-	= function_symbol (NULL, \"__GCC_shcompact_call_trampoline\",
-			   SFUNC_GOT);
-      operands[1] = force_reg (SImode, operands[1]);
-
-      emit_move_insn (r0, func);
-      emit_move_insn (r1, cookie_rtx);
-
-      if (cookie & CALL_COOKIE_RET_TRAMP (1))
-	emit_call_insn (gen_call_value_pop_compact_rettramp
-			(operands[0], operands[1], operands[2],
-			 operands[3], operands[4]));
+	  emit_insn (gen_symGOTPLT2reg (reg, func));
+          func = reg;
+        }
       else
-	emit_call_insn (gen_call_value_pop_compact
-			(operands[0], operands[1], operands[2],
-			 operands[3], operands[4]));
-
-      DONE;
+        func = legitimize_pic_address (func, Pmode, 0);
     }
 
-  abort ();
+  r0 = gen_rtx_REG (SImode, R0_REG);
+  r1 = gen_rtx_REG (SImode, R1_REG);
+
+  /* Since such a call function may use all call-clobbered
+     registers, we force a mode switch earlier, so that we don't
+     run out of registers when adjusting fpscr for the call.  */
+  emit_insn (gen_force_mode_for_call ());
+
+  operands[1] = function_symbol (NULL, \"__GCC_shcompact_call_trampoline\",
+				 SFUNC_GOT);
+  operands[1] = force_reg (SImode, operands[1]);
+
+  emit_move_insn (r0, func);
+  emit_move_insn (r1, cookie_rtx);
+
+  if (cookie & CALL_COOKIE_RET_TRAMP (1))
+    emit_call_insn (gen_call_value_pop_compact_rettramp
+			(operands[0], operands[1], operands[2],
+			 operands[3], operands[4]));
+  else
+    emit_call_insn (gen_call_value_pop_compact
+			(operands[0], operands[1], operands[2],
+			 operands[3], operands[4]));
+
+  DONE;
 }")
 
 (define_expand "sibcall_epilogue"
@@ -8669,8 +8658,7 @@ mov.l\\t1f,r0\\n\\
 {
   rtx diff_vec = PATTERN (next_real_insn (operands[2]));
 
-  if (GET_CODE (diff_vec) != ADDR_DIFF_VEC)
-    abort ();
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
   switch (GET_MODE (diff_vec))
     {
@@ -8683,7 +8671,7 @@ mov.l\\t1f,r0\\n\\
 	return \"mov.b	@(r0,%1),%0\;extu.b	%0,%0\";
       return \"mov.b	@(r0,%1),%0\";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }"
   [(set_attr "length" "4")])
@@ -8701,8 +8689,7 @@ mov.l\\t1f,r0\\n\\
   rtx diff_vec = PATTERN (next_real_insn (operands[2]));
   const char *load;
 
-  if (GET_CODE (diff_vec) != ADDR_DIFF_VEC)
-    abort ();
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
   switch (GET_MODE (diff_vec))
     {
@@ -8719,7 +8706,7 @@ mov.l\\t1f,r0\\n\\
 	load = \"mov.b	@(r0,%1),%0\";
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   output_asm_insn (\"add\tr0,%1\;mova\t%O3,r0\\n\", operands);
   return load;
@@ -8736,8 +8723,7 @@ mov.l\\t1f,r0\\n\\
 {
   rtx diff_vec = PATTERN (next_real_insn (operands[2]));
 
-  if (GET_CODE (diff_vec) != ADDR_DIFF_VEC)
-    abort ();
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
   switch (GET_MODE (diff_vec))
     {
@@ -8750,7 +8736,7 @@ mov.l\\t1f,r0\\n\\
 	return \"\";
       return \"add	%1, r63, %0\";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }"
   [(set_attr "type" "arith_media")])
@@ -8765,8 +8751,7 @@ mov.l\\t1f,r0\\n\\
 {
   rtx diff_vec = PATTERN (next_real_insn (operands[3]));
 
-  if (GET_CODE (diff_vec) != ADDR_DIFF_VEC)
-    abort ();
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
   switch (GET_MODE (diff_vec))
     {
@@ -8783,7 +8768,7 @@ mov.l\\t1f,r0\\n\\
 	return \"ldx.ub	%1, %2, %0\";
       return \"ldx.b	%1, %2, %0\";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }"
   [(set_attr "type" "load_media")])
@@ -8867,8 +8852,7 @@ mov.l\\t1f,r0\\n\\
     {
       rtx r18 = gen_rtx_REG (Pmode, PR_MEDIA_REG);
 
-      if (! call_really_used_regs[TR0_REG] || fixed_regs[TR0_REG])
-	abort ();
+      gcc_assert (call_really_used_regs[TR0_REG] && !fixed_regs[TR0_REG]);
       tr_regno = TR0_REG;
       tr = gen_rtx_REG (Pmode, tr_regno);
       emit_move_insn (tr, r18);
@@ -11629,7 +11613,7 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA && INTVAL (operands[3]) + INTVAL (operands[4]) == 64"
   "*
 {
-  static char templ[16];
+  static char templ[21];
 
   sprintf (templ, \"mextr%d\\t%%N1, %%N2, %%0\",
 	   (int) INTVAL (operands[3]) >> 3);
@@ -11646,7 +11630,7 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA && INTVAL (operands[3]) + INTVAL (operands[4]) == 64"
   "*
 {
-  static char templ[16];
+  static char templ[21];
 
   sprintf (templ, \"mextr%d\\t%%N2, %%N1, %%0\",
 	   (int) INTVAL (operands[4]) >> 3);

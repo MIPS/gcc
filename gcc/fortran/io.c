@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -433,6 +433,7 @@ check_format (void)
 format_item:
   /* In this state, the next thing has to be a format item.  */
   t = format_lex ();
+format_item_1:
   switch (t)
     {
     case FMT_POSINT:
@@ -490,9 +491,13 @@ format_item:
 
     case FMT_DOLLAR:
       t = format_lex ();
+
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: $ descriptor at %C")
+          == FAILURE)
+        return FAILURE;
       if (t != FMT_RPAREN || level > 0)
 	{
-	  error = "$ must the last specifier";
+	  error = "$ must be the last specifier";
 	  goto syntax;
 	}
 
@@ -641,7 +646,7 @@ data_desc:
       {
         while(repeat >0)
          {
-          next_char(0);
+          next_char(1);
           repeat -- ;
          }
       }
@@ -701,8 +706,10 @@ between_desc:
       goto syntax;
 
     default:
-      error = "Missing comma";
-      goto syntax;
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %C")
+	  == FAILURE)
+	return FAILURE;
+      goto format_item_1;
     }
 
 optional_comma:
@@ -967,8 +974,9 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
       /* Format label can be integer varibale.  */
       if (tag != &tag_format || e->ts.type != BT_INTEGER)
         {
-          gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-		     gfc_basic_typename (tag->type));
+          gfc_error ("%s tag at %L must be of type %s or %s", tag->name,
+		&e->where, gfc_basic_typename (tag->type),
+		gfc_basic_typename (BT_INTEGER));
           return FAILURE;
         }
     }
@@ -1635,7 +1643,14 @@ match_dt_element (io_kind k, gfc_dt * dt)
 
   m = match_ltag (&tag_end, &dt->end);
   if (m == MATCH_YES)
-    dt->end_where = gfc_current_locus;
+    {
+      if (k == M_WRITE)
+       {
+         gfc_error ("END tag at %C not allowed in output statement");
+         return MATCH_ERROR;
+       }
+      dt->end_where = gfc_current_locus;
+    }
   if (m != MATCH_NO)
     return m;
 
@@ -2356,12 +2371,15 @@ gfc_match_inquire (void)
   gfc_inquire *inquire;
   gfc_code *code;
   match m;
+  locus loc;
 
   m = gfc_match_char ('(');
   if (m == MATCH_NO)
     return m;
 
   inquire = gfc_getmem (sizeof (gfc_inquire));
+
+  loc = gfc_current_locus;
 
   m = match_inquire_element (inquire);
   if (m == MATCH_ERROR)
@@ -2427,6 +2445,20 @@ gfc_match_inquire (void)
 
   if (gfc_match_eos () != MATCH_YES)
     goto syntax;
+
+  if (inquire->unit != NULL && inquire->file != NULL)
+    {
+      gfc_error ("INQUIRE statement at %L cannot contain both FILE and"
+		 " UNIT specifiers", &loc);
+      goto cleanup;
+    }
+
+  if (inquire->unit == NULL && inquire->file == NULL)
+    {
+      gfc_error ("INQUIRE statement at %L requires either FILE or"
+		     " UNIT specifier", &loc);
+      goto cleanup;
+    }
 
   if (gfc_pure (NULL))
     {

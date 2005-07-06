@@ -1,5 +1,4 @@
-# Process this file with autoconf to produce a configure script, like so:
-# aclocal && autoconf && autoheader && automake
+# Process this file with autoreconf to produce a configure script.
 
 AC_PREREQ(2.59)
 AC_INIT(package-unused, version-unused,, libstdc++)
@@ -13,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:4:0
+libtool_VERSION=6:6:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -58,7 +57,9 @@ fi
 #  no-dependencies:  turns off auto dependency generation (just for now)
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is now required.
-AM_INIT_AUTOMAKE([1.9.1 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
+AM_INIT_AUTOMAKE([1.9.3 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
+AH_TEMPLATE(PACKAGE, [Name of package])
+AH_TEMPLATE(VERSION, [Version number of package])
 
 # Runs configure.host, finds CC, CXX, and assorted other critical bits.  Sets
 # up critical shell variables.
@@ -222,7 +223,7 @@ else
     AC_DEFINE(HAVE_S_ISREG)
     AC_DEFINE(HAVE_S_IFREG)
   else
-    m4_include([crossconfig.m4])
+    GLIBCXX_CROSSCONFIG
   fi
 
   # At some point, we should differentiate between architectures
@@ -311,7 +312,6 @@ AC_CONFIG_FILES( \
   Makefile \
   AC_FOREACH([DIR], glibcxx_SUBDIRS, [DIR/Makefile ])
   )
-AC_CONFIG_FILES([scripts/check_survey],[chmod +x scripts/check_survey])
 AC_CONFIG_FILES([scripts/testsuite_flags],[chmod +x scripts/testsuite_flags])
 
 dnl These commands are run at the end of config.status:

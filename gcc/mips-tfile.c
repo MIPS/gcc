@@ -3,7 +3,7 @@
    in the form of comments (the mips assembler does not support
    assembly access to debug information).
    Copyright (C) 1991, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
 This file is part of GCC.
@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Here is a brief description of the MIPS ECOFF symbol table.  The
@@ -2358,7 +2358,7 @@ initialize_init_file (void)
   init_file.fdr.fMerge = 1;
   init_file.fdr.glevel = GLEVEL_2;
 
-#ifdef HOST_WORDS_BIG_ENDIAN
+#ifdef WORDS_BIG_ENDIAN
   init_file.fdr.fBigendian = 1;
 #endif
 
@@ -4438,7 +4438,7 @@ copy_object (void)
 
 
 
-  /* Abort if the symbol table is not last.  */
+  /* The symbol table should be last.  */
   if (max_file_offset != (unsigned long) stat_buf.st_size)
     fatal ("symbol table is not last (symbol table ends at %ld, .o ends at %ld",
 	   max_file_offset,
@@ -4940,7 +4940,7 @@ pfatal_with_name (const char *msg)
 }
 
 
-/* Procedure to abort with an out of bounds error message.  It has
+/* Procedure to die with an out of bounds error message.  It has
    type int, so it can be used with an ?: expression within the
    ORIG_xxx macros, but the function never returns.  */
 

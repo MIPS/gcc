@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -50,25 +50,42 @@ import java.security.Security;
  * String passwd = AccessController.doPrivileged(action);
  * </code>
  */
-public class GetSecurityPropertyAction extends GetPropertyAction
+public class GetSecurityPropertyAction implements PrivilegedAction
 {
+  private String name;
+  private String value;
+
   public GetSecurityPropertyAction()
   {
   }
 
-  public GetSecurityPropertyAction (String propName)
+  public GetSecurityPropertyAction(String propName)
   {
-    super (propName);
+    setParameters(propName);
   }
 
   public GetSecurityPropertyAction(String propName, String defaultValue)
   {
-    super (propName, defaultValue);
+    setParameters(propName, defaultValue);
+  }
+
+  public GetSecurityPropertyAction setParameters(String propName)
+  {
+    this.name = propName;
+    this.value = null;
+    return this;
+  }
+
+  public GetSecurityPropertyAction setParameters(String propName, String defaultValue)
+  {
+    this.name = propName;
+    this.value = defaultValue;
+    return this;
   }
 
   public Object run()
   {
-    String val = Security.getProperty (name);
+    String val = Security.getProperty(name);
     if (val == null)
       val = value;
     return val;

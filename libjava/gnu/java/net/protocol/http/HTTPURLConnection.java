@@ -1,5 +1,5 @@
 /* HTTPURLConnection.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -40,19 +40,21 @@ package gnu.java.net.protocol.http;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.cert.Certificate;
-import java.util.Date;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.HostnameVerifier;
@@ -93,6 +95,7 @@ public class HTTPURLConnection
 
   private Response response;
   private ByteArrayInputStream responseSink;
+  private ByteArrayInputStream errorSink;
 
   private HandshakeCompletedEvent handshakeEvent;
 
@@ -280,11 +283,32 @@ public class HTTPURLConnection
                 file = location.substring(end);
                 retry = true;
               }
-            // Otherwise this is not an HTTP redirect, can't follow
+	    else if (location.length() > 0)
+	      {
+		// Malformed absolute URI, treat as file part of URI
+		if (location.charAt(0) == '/')
+		  {
+		    // Absolute path
+		    file = location;
+		  }
+		else
+		  {
+		    // Relative path
+		    int lsi = file.lastIndexOf('/');
+		    file = (lsi == -1) ? "/" : file.substring(0, lsi + 1);
+		    file += location;
+		  }
+		retry = true;
+	      }
           }
         else
           {
             responseSink = new ByteArrayInputStream(reader.toByteArray ());
+            if (response.getCode() == 404)
+              {
+                errorSink = responseSink;
+                throw new FileNotFoundException(url.toString());
+              }
           }
       }
     while (retry);
@@ -454,6 +478,11 @@ public class HTTPURLConnection
     return responseSink;
   }
 
+  public InputStream getErrorStream()
+  {
+    return errorSink;
+  }
+
   public Map getHeaderFields()
   {
     if (!connected)
@@ -543,6 +572,10 @@ public class HTTPURLConnection
     int count = 1;
     do
       {
+        if (!i.hasNext())
+          {
+            return null;
+          }
         entry = (Map.Entry) i.next();
         count++;
       }

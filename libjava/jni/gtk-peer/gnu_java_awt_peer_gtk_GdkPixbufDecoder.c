@@ -15,8 +15,8 @@
    
    You should have received a copy of the GNU General Public License
    along with GNU Classpath; see the file COPYING.  If not, write to the
-   Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.
+   Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301 USA.
    
    Linking this library statically or dynamically with other modules is
    making a combined work based on this library.  Thus, the terms and
@@ -206,6 +206,7 @@ query_formats (JNIEnv *env, jclass clazz)
   jclass formatClass;
   jmethodID addExtensionID;
   jmethodID addMimeTypeID;
+  jobject string;
 
   formatClass = (*env)->FindClass
     (env, "gnu/java/awt/peer/gtk/GdkPixbufDecoder$ImageFormatSpec");
@@ -227,26 +228,33 @@ query_formats (JNIEnv *env, jclass clazz)
       format = (GdkPixbufFormat *) f->data;
       name = gdk_pixbuf_format_get_name(format);
 
+      string = (*env)->NewStringUTF(env, name);
+      g_assert(string != NULL);
+
       jformat = (*env)->CallStaticObjectMethod 
-	(env, clazz, registerFormatID, 				    
-	 (*env)->NewStringUTF(env, name),
+	(env, clazz, registerFormatID, string,
 	 (jboolean) gdk_pixbuf_format_is_writable(format));
+      (*env)->DeleteLocalRef(env, string);
 
       g_assert(jformat != NULL);
       
       ch = gdk_pixbuf_format_get_extensions(format);
       while (*ch)
 	{
-	  (*env)->CallVoidMethod (env, jformat, addExtensionID, 
-				  (*env)->NewStringUTF(env, *ch)); 
+	  string = (*env)->NewStringUTF(env, *ch);
+	  g_assert(string != NULL);
+	  (*env)->CallVoidMethod (env, jformat, addExtensionID, string);
+	  (*env)->DeleteLocalRef(env, string);
 	  ++ch;
 	}
       
       ch = gdk_pixbuf_format_get_mime_types(format);
       while (*ch)
 	{
-	  (*env)->CallVoidMethod (env, jformat, addMimeTypeID, 
-				  (*env)->NewStringUTF(env, *ch)); 
+	  string = (*env)->NewStringUTF(env, *ch);
+	  g_assert(string != NULL);
+	  (*env)->CallVoidMethod (env, jformat, addMimeTypeID, string);
+	  (*env)->DeleteLocalRef(env, string);
 	  ++ch;
 	}
     }

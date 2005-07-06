@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* f95-lang.c-- GCC backend interface stuff */
 
@@ -420,7 +420,7 @@ poplevel (int keep, int reverse, int functionbody)
      binding level is a function body, or if there are any nested blocks then
      create a BLOCK node to record them for the life of this function.  */
   if (keep || functionbody)
-    block_node = build_block (keep ? decl_chain : 0, 0, subblock_chain, 0, 0);
+    block_node = build_block (keep ? decl_chain : 0, subblock_chain, 0, 0);
 
   /* Record the BLOCK node just built as the subblock its enclosing scope.  */
   for (subblock_node = subblock_chain; subblock_node;
@@ -790,15 +790,15 @@ gfc_init_builtin_functions (void)
 
   /* We define these separately as the fortran versions have different
      semantics (they return an integer type) */
-  gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
-		      BUILT_IN_FLOOR, "floor", true);
-  gfc_define_builtin ("__builtin_floorf", mfunc_float[0], 
-		      BUILT_IN_FLOORF, "floorf", true);
   gfc_define_builtin ("__builtin_round", mfunc_double[0], 
 		      BUILT_IN_ROUND, "round", true);
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
-  
+  gfc_define_builtin ("__builtin_trunc", mfunc_double[0],
+                      BUILT_IN_TRUNC, "trunc", true);
+  gfc_define_builtin ("__builtin_truncf", mfunc_float[0],
+                      BUILT_IN_TRUNCF, "truncf", true);
+
   gfc_define_builtin ("__builtin_cabs", func_cdouble_double, 
 		      BUILT_IN_CABS, "cabs", true);
   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 

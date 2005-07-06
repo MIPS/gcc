@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -40,8 +40,8 @@ package gnu.java.net.protocol.http;
 
 import gnu.java.net.LineInputStream;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.Collection;
@@ -323,7 +323,10 @@ public class Headers
         if (c1 == ' ' || c1 == '\t')
           {
             // Continuation
-            value.append(line.substring(0, len - 1));
+	    int last = len - 1;
+	    if (line.charAt(last) != '\r')
+	      ++last;
+            value.append(line.substring(0, last));
           }
         else
           {
@@ -340,7 +343,10 @@ public class Headers
                 di++;
               }
             while (di < len && line.charAt(di) == ' ');
-            value.append(line.substring(di, len - 1));
+	    int last = len - 1;
+	    if (line.charAt(last) != '\r')
+	      ++last;
+            value.append(line.substring(di, last));
           }
       }
   }

@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -65,4 +65,8 @@ extern rtx hook_rtx_tree_int_null (tree, int);
 extern tree hook_tree_tree_tree_tree_3rd_identity (tree, tree, tree);
 extern const char *hook_constcharptr_tree_null (tree);
 extern tree hook_tree_tree_tree_bool_null (tree, tree, bool);
+extern const char *hook_constcharptr_rtx_null (rtx);
+extern const char *hook_constcharptr_tree_tree_null (tree, tree);
+extern const char *hook_constcharptr_int_tree_null (int, tree);
+extern const char *hook_constcharptr_int_tree_tree_null (int, tree, tree);
 #endif

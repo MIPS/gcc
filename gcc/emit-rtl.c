@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Middle-to-low level generation of rtx code and insns.
@@ -55,6 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "tree-pass.h"
 
 /* Commonly used modes.  */
 
@@ -1330,9 +1331,10 @@ operand_subword (rtx op, unsigned int offset, int validate_address, enum machine
   return simplify_gen_subreg (word_mode, op, mode, (offset * UNITS_PER_WORD));
 }
 
-/* Similar to `operand_subword', but never return 0.  If we can't extract
-   the required subword, put OP into a register and try again.  If that fails,
-   abort.  We always validate the address in this case.
+/* Similar to `operand_subword', but never return 0.  If we can't
+   extract the required subword, put OP into a register and try again.
+   The second attempt must succeed.  We always validate the address in
+   this case.
 
    MODE is the mode of OP, in case it is CONST_INT.  */
 
@@ -1578,8 +1580,8 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		 index, then convert to sizetype and multiply by the size of
 		 the array element.  */
 	      if (! integer_zerop (low_bound))
-		index = fold (build2 (MINUS_EXPR, TREE_TYPE (index),
-				      index, low_bound));
+		index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+				     index, low_bound);
 
 	      off_tree = size_binop (PLUS_EXPR,
 				     size_binop (MULT_EXPR, convert (sizetype,
@@ -2134,6 +2136,24 @@ unshare_all_rtl (void)
   unshare_all_rtl_1 (current_function_decl, get_insns ());
 }
 
+struct tree_opt_pass pass_unshare_all_rtl =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  unshare_all_rtl,                      /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
 /* Check that ORIG is not marked when it should not be and mark ORIG as in use,
    Recursively does the same for subexpressions.  */
 
@@ -2197,11 +2217,11 @@ verify_rtx_sharing (rtx orig, rtx insn)
 #ifdef ENABLE_CHECKING
   if (RTX_FLAG (x, used))
     {
-      error ("Invalid rtl sharing found in the insn");
+      error ("invalid rtl sharing found in the insn");
       debug_rtx (insn);
-      error ("Shared rtx");
+      error ("shared rtx");
       debug_rtx (x);
-      internal_error ("Internal consistency failure");
+      internal_error ("internal consistency failure");
     }
 #endif
   gcc_assert (!RTX_FLAG (x, used));
@@ -2696,7 +2716,7 @@ get_first_nonnote_insn (void)
 	  continue;
       else
 	{
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    insn = XVECEXP (PATTERN (insn), 0, 0);
 	}
@@ -2722,7 +2742,7 @@ get_last_nonnote_insn (void)
 	  continue;
       else
 	{
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    insn = XVECEXP (PATTERN (insn), 0,
 			    XVECLEN (PATTERN (insn), 0) - 1);
@@ -3265,7 +3285,7 @@ make_insn_raw (rtx pattern)
 	  || (GET_CODE (insn) == SET
 	      && SET_DEST (insn) == pc_rtx)))
     {
-      warning ("ICE: emit_insn used where emit_jump_insn needed:\n");
+      warning (0, "ICE: emit_insn used where emit_jump_insn needed:\n");
       debug_rtx (insn);
     }
 #endif
@@ -3703,6 +3723,23 @@ remove_unnecessary_notes (void)
   /* Too many EH_REGION_BEG notes.  */
   gcc_assert (!eh_stack);
 }
+
+struct tree_opt_pass pass_remove_unnecessary_notes =
+{
+  NULL,                                 /* name */ 
+  NULL,					/* gate */
+  remove_unnecessary_notes,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,					/* tv_id */ 
+  0,					/* properties_required */
+  0,                                    /* properties_provided */
+  0,					/* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0                                     /* letter */ 
+};
 
 
 /* Emit insn(s) of given code and pattern

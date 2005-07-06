@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -1766,30 +1766,6 @@ shift_return_value (enum machine_mode mode, bool left_p, rtx value)
   return true;
 }
 
-/* Remove all REG_EQUIV notes found in the insn chain.  */
-
-static void
-purge_reg_equiv_notes (void)
-{
-  rtx insn;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      while (1)
-	{
-	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
-	  if (note)
-	    {
-	      /* Remove the note and keep looking at the notes for
-		 this insn.  */
-	      remove_note (insn, note);
-	      continue;
-	    }
-	  break;
-	}
-    }
-}
-
 /* Generate all the code for a function call
    and return an rtx for its value.
    Store the value in TARGET (specified as an rtx) if convenient.
@@ -1888,6 +1864,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
+  char *stack_usage_map_buf = NULL;
 
   int old_stack_allocated;
 
@@ -1934,8 +1911,8 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
-  if (warn_aggregate_return && AGGREGATE_TYPE_P (TREE_TYPE (exp)))
-    warning ("function call has aggregate value");
+  if (AGGREGATE_TYPE_P (TREE_TYPE (exp)))
+    warning (OPT_Waggregate_return, "function call has aggregate value");
 
   /* If the result of a pure or const function call is ignored (or void),
      and none of its arguments are volatile, we can avoid expanding the
@@ -1988,17 +1965,7 @@ expand_call (tree exp, rtx target, int ignore)
       {
 	struct_value_size = int_size_in_bytes (TREE_TYPE (exp));
 
-	if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (exp))
-	  {
-	    /* The structure value address arg is already in actparms.
-	       Pull it out.  It might be nice to just leave it there, but
-	       we need to set structure_value_addr.  */
-	    tree return_arg = TREE_VALUE (actparms);
-	    actparms = TREE_CHAIN (actparms);
-	    structure_value_addr = expand_expr (return_arg, NULL_RTX,
-						VOIDmode, EXPAND_NORMAL);
-	  }
-	else if (target && MEM_P (target))
+	if (target && MEM_P (target) && CALL_EXPR_RETURN_SLOT_OPT (exp))
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {
@@ -2197,8 +2164,11 @@ expand_call (tree exp, rtx target, int ignore)
          the argument areas are shared.  */
       || (fndecl && decl_function_context (fndecl) == current_function_decl)
       /* If this function requires more stack slots than the current
-	 function, we cannot change it into a sibling call.  */
-      || args_size.constant > current_function_args_size
+	 function, we cannot change it into a sibling call.
+	 current_function_pretend_args_size is not part of the
+	 stack allocated by our caller.  */
+      || args_size.constant > (current_function_args_size
+			       - current_function_pretend_args_size)
       /* If the callee pops its own arguments, then it must pop exactly
 	 the same number of arguments as the current function.  */
       || (RETURN_POPS_ARGS (fndecl, funtype, args_size.constant)
@@ -2381,7 +2351,10 @@ expand_call (tree exp, rtx target, int ignore)
 		  highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 						     needed);
 #endif
-		  stack_usage_map = alloca (highest_outgoing_arg_in_use);
+		  if (stack_usage_map_buf)
+		    free (stack_usage_map_buf);
+		  stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+		  stack_usage_map = stack_usage_map_buf;
 
 		  if (initial_highest_arg_in_use)
 		    memcpy (stack_usage_map, initial_stack_usage_map,
@@ -2486,7 +2459,10 @@ expand_call (tree exp, rtx target, int ignore)
 		    = stack_arg_under_construction;
 		  stack_arg_under_construction = 0;
 		  /* Make a new map for the new argument list.  */
-		  stack_usage_map = alloca (highest_outgoing_arg_in_use);
+		  if (stack_usage_map_buf)
+		    free (stack_usage_map_buf);
+		  stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+		  stack_usage_map = stack_usage_map_buf;
 		  memset (stack_usage_map, 0, highest_outgoing_arg_in_use);
 		  highest_outgoing_arg_in_use = 0;
 		}
@@ -3040,6 +3016,9 @@ expand_call (tree exp, rtx target, int ignore)
       emit_move_insn (virtual_stack_dynamic_rtx, stack_pointer_rtx);
     }
 
+  if (stack_usage_map_buf)
+    free (stack_usage_map_buf);
+
   return target;
 }
 
@@ -3047,16 +3026,40 @@ expand_call (tree exp, rtx target, int ignore)
    this function's incoming arguments.
 
    At the start of RTL generation we know the only REG_EQUIV notes
-   in the rtl chain are those for incoming arguments, so we can safely
-   flush any REG_EQUIV note.
+   in the rtl chain are those for incoming arguments, so we can look
+   for REG_EQUIV notes between the start of the function and the
+   NOTE_INSN_FUNCTION_BEG.
 
    This is (slight) overkill.  We could keep track of the highest
    argument we clobber and be more selective in removing notes, but it
    does not seem to be worth the effort.  */
+
 void
 fixup_tail_calls (void)
 {
-  purge_reg_equiv_notes ();
+  rtx insn;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      /* There are never REG_EQUIV notes for the incoming arguments
+	 after the NOTE_INSN_FUNCTION_BEG note, so stop if we see it.  */
+      if (NOTE_P (insn)
+	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
+	break;
+
+      while (1)
+	{
+	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
+	  if (note)
+	    {
+	      /* Remove the note and keep looking at the notes for
+		 this insn.  */
+	      remove_note (insn, note);
+	      continue;
+	    }
+	  break;
+	}
+    }
 }
 
 /* Traverse an argument list in VALUES and expand all complex
@@ -3210,6 +3213,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   /* Size of the stack reserved for parameter registers.  */
   int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
+  char *stack_usage_map_buf = NULL;
 
   rtx struct_value = targetm.calls.struct_value_rtx (0, 0);
 
@@ -3488,7 +3492,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 					 needed);
 #endif
-      stack_usage_map = alloca (highest_outgoing_arg_in_use);
+      stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+      stack_usage_map = stack_usage_map_buf;
 
       if (initial_highest_arg_in_use)
 	memcpy (stack_usage_map, initial_stack_usage_map,
@@ -3841,6 +3846,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       highest_outgoing_arg_in_use = initial_highest_arg_in_use;
       stack_usage_map = initial_stack_usage_map;
     }
+
+  if (stack_usage_map_buf)
+    free (stack_usage_map_buf);
 
   return value;
 

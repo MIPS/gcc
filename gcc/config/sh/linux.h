@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Run-time Target Specification.  */
 #undef TARGET_VERSION
@@ -48,7 +48,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
-  (TARGET_CPU_DEFAULT | USERMODE_BIT | TARGET_ENDIAN_DEFAULT \
+  (TARGET_CPU_DEFAULT | MASK_USERMODE | TARGET_ENDIAN_DEFAULT \
    | TARGET_OPT_DEFAULT)
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
@@ -75,7 +75,7 @@ Boston, MA 02111-1307, USA.  */
 	fprintf (STREAM, "\tst.l\tr15,0,r18\n");			\
 	if (flag_pic)							\
 	  {								\
-	    char *gofs = "(datalabel _GLOBAL_OFFSET_TABLE_-(0f-.))";	\
+	    const char *gofs = "(datalabel _GLOBAL_OFFSET_TABLE_-(0f-.))"; \
 	    fprintf (STREAM, "\tmovi\t((%s>>16)&0xffff),r21\n", gofs);	\
 	    fprintf (STREAM, "\tshori\t(%s & 0xffff),r21\n", gofs);	\
 	    fprintf (STREAM, "0:\tptrel/u\tr21,tr0\n");			\

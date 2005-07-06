@@ -35,21 +35,6 @@ details.  */
 #include <java/lang/Runtime.h>
 #include <java/util/HashSet.h>
 
-void
-java::lang::VMClassLoader::resolveClass (jclass klass)
-{
-  JvSynchronize sync (klass);
-  try
-    {
-      _Jv_Linker::wait_for_state (klass, JV_STATE_LINKED);
-    }
-  catch (java::lang::Throwable *x)
-    {
-      klass->set_state(JV_STATE_ERROR);
-      transformException(klass, x);
-    }
-}
-
 java::lang::Class *
 java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 					jstring name,
@@ -86,16 +71,18 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 	  klass->name = name2;
 	}
 
+      _Jv_Utf8Const *found_name = NULL;
       try
 	{
-	  _Jv_DefineClass (klass, data, offset, length, pd);
+	  _Jv_DefineClass (klass, data, offset, length, pd, &found_name);
 	}
       catch (java::lang::Throwable *ex)
 	{
 	  klass->state = JV_STATE_ERROR;
 	  klass->notifyAll ();
 
-	  _Jv_UnregisterInitiatingLoader (klass, klass->loader);
+	  if (found_name != NULL)
+	    _Jv_UnregisterInitiatingLoader (klass, klass->loader);
 
 	  // If EX is not a ClassNotFoundException, that's ok, because we
 	  // account for the possibility in defineClass().
@@ -114,6 +101,7 @@ java::lang::ClassLoader *
 java::lang::VMClassLoader::getSystemClassLoaderInternal()
 {
   _Jv_InitClass (&gnu::gcj::runtime::ExtensionClassLoader::class$);
+  _Jv_CopyClassesToSystemLoader (gnu::gcj::runtime::ExtensionClassLoader::system_instance);
   return gnu::gcj::runtime::ExtensionClassLoader::system_instance;
 }
 
@@ -123,6 +111,7 @@ java::lang::VMClassLoader::getPrimitiveClass (jchar type)
   char sig[2];
   sig[0] = (char) type;
   sig[1] = '\0';
+  // Note: this cannot return NULL, since the input is always correct.
   return _Jv_FindClassFromSignature (sig, NULL);
 }
 
@@ -215,7 +204,7 @@ java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
       // It isn't clear from the spec, but this is what other
       // implementations do in practice.
       if (resolve)
-	_Jv_InitClass (klass);
+	resolveClass (klass);
       else
 	_Jv_Linker::wait_for_state (klass, JV_STATE_LOADING);
 

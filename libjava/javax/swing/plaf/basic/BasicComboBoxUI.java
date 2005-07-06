@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -160,17 +160,22 @@ public class BasicComboBoxUI extends ComboBoxUI
   private Color highlight;
   private Color lightHighlight;
 
-  /* Size of the largest item in the comboBox */
-  private Dimension largestItemSize;
+  /* Size of the largest item in the comboBox
+   * This is package-private to avoid an accessor method.
+   */
+  Dimension largestItemSize;
 
   // It seems that JComboBox doesn't have a border set explicitely. So we just
   // paint the border everytime combo box is displayed. 
 
-  /* border insets for this JComboBox*/
-  private static final Insets borderInsets = new Insets(2, 2, 2, 2);
+  /* border insets for this JComboBox
+   * This is package-private to avoid an accessor method. */
+  static final Insets borderInsets = new Insets(2, 2, 2, 2);
 
   // Width of the arrow button  
-  private static int arrowButtonWidth = 15;
+  // This is package-private to avoid an accessor method.
+  // FIXME: has wrong name for a constant.
+  static final int arrowButtonWidth = 15;
 
   // FIXME: This fields aren't used anywhere at this moment.
   protected Dimension cachedMinimumSize;

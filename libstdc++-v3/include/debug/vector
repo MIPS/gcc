@@ -1,6 +1,6 @@
 // Debugging vector implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004
+// Copyright (C) 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -32,9 +32,9 @@
 #define _GLIBCXX_DEBUG_VECTOR 1
 
 #include <vector>
+#include <utility>
 #include <debug/safe_sequence.h>
 #include <debug/safe_iterator.h>
-#include <utility>
 
 namespace __gnu_debug_def
 {
@@ -64,8 +64,8 @@ namespace __gnu_debug_def
 
       typedef _Tp				    value_type;
       typedef _Allocator			    allocator_type;
-      typedef typename _Allocator::pointer          pointer;
-      typedef typename _Allocator::const_pointer    const_pointer;
+      typedef typename _Base::pointer               pointer;
+      typedef typename _Base::const_pointer         const_pointer;
       typedef std::reverse_iterator<iterator>       reverse_iterator;
       typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 

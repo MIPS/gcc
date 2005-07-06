@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -50,6 +50,7 @@ import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleStateSet;
+import javax.swing.JButton;
 import javax.swing.plaf.ToolBarUI;
 
 /**
@@ -742,6 +743,15 @@ public class JToolBar extends JComponent implements SwingConstants, Accessible
   {
     // XXX: Sun says disable button but test cases show otherwise.
     super.addImpl(component, constraints, index);
+
+    // if we added a Swing Button then adjust this a little
+    if (component instanceof AbstractButton)
+      {
+        AbstractButton b = (AbstractButton) component;
+        b.setRolloverEnabled(rollover);
+        b.updateUI();
+      }
+
   } // addImpl()
 
   /**

@@ -1,5 +1,5 @@
 /* Output routines for Motorola MCore processor
-   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -309,9 +309,7 @@ mcore_print_operand_address (FILE * stream, rtx x)
 	    break;
 
 	  default:
-	    debug_rtx (x);
-
-	    abort ();
+	    gcc_unreachable ();
 	  }
       }
 
@@ -370,7 +368,7 @@ mcore_print_operand (FILE * stream, rtx x, int code)
 	    (stream, XEXP (adjust_address (x, SImode, 4), 0));
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       break;
     case 'U':
@@ -598,18 +596,12 @@ mcore_gen_compare_reg (enum rtx_code code)
       break;
 
     case GTU:	/* Use inverted condition, cmple.  */
-      if (GET_CODE (op1) == CONST_INT && INTVAL (op1) == 0)
-	{
-	  /* Unsigned > 0 is the same as != 0, but we need
-	     to invert the condition, so we want to set
-	     code = EQ.  This cannot be done however, as the
-	     mcore does not support such a test.  Instead we
-	     cope with this case in the "bgtu" pattern itself
-	     so we should never reach this point.  */
-	  /* code = EQ; */
-	  abort ();
-	  break;
-	}
+      /* Unsigned > 0 is the same as != 0, but we need to invert the
+	 condition, so we want to set code = EQ.  This cannot be done
+	 however, as the mcore does not support such a test.  Instead
+	 we cope with this case in the "bgtu" pattern itself so we
+	 should never reach this point.  */
+      gcc_assert (GET_CODE (op1) != CONST_INT || INTVAL (op1) != 0);
       code = LEU;
       /* Drop through.  */
       
@@ -666,8 +658,7 @@ mcore_output_call (rtx operands[], int index)
     {
       if (TARGET_CG_DATA)
 	{
-	  if (mcore_current_function_name == 0)
-	    abort ();
+	  gcc_assert (mcore_current_function_name);
 	  
 	  ASM_OUTPUT_CG_EDGE (asm_out_file, mcore_current_function_name,
 			      "unknown", 1);
@@ -679,13 +670,11 @@ mcore_output_call (rtx operands[], int index)
     {
       if (TARGET_CG_DATA)
 	{
-	  if (mcore_current_function_name == 0)
-	    abort ();
+	  gcc_assert (mcore_current_function_name);
+	  gcc_assert (GET_CODE (addr) == SYMBOL_REF);
 	  
-	  if (GET_CODE (addr) != SYMBOL_REF)
-	    abort ();
-	  
-	  ASM_OUTPUT_CG_EDGE (asm_out_file, mcore_current_function_name, XSTR (addr, 0), 0);
+	  ASM_OUTPUT_CG_EDGE (asm_out_file, mcore_current_function_name,
+			      XSTR (addr, 0), 0);
 	}
       
       sprintf (buffer, "jbsr\t%%%d", index);
@@ -1094,9 +1083,10 @@ mcore_output_andn (rtx insn ATTRIBUTE_UNUSED, rtx operands[])
   rtx out_operands[3];
   const char * load_op;
   char buf[256];
+  int trick_no;
 
-  if (try_constant_tricks (INTVAL (operands[1]), &x, &y) != 2)
-    abort ();
+  trick_no = try_constant_tricks (INTVAL (operands[1]), &x, &y);
+  gcc_assert (trick_no == 2);
 
   out_operands[0] = operands[0];
   out_operands[1] = GEN_INT(x);
@@ -1136,15 +1126,13 @@ output_inline_const (enum machine_mode mode, rtx operands[])
   int value;
 
   value = INTVAL (operands[1]);
-   
-  if ((trick_no = try_constant_tricks (value, &x, &y)) == 0)
-    {
-      /* lrw's are handled separately:  Large inlinable constants
-	 never get turned into lrw's.  Our caller uses try_constant_tricks
-         to back off to an lrw rather than calling this routine.  */
-      abort ();
-    }
 
+  trick_no = try_constant_tricks (value, &x, &y);
+  /* lrw's are handled separately: Large inlinable constants never get
+     turned into lrw's.  Our caller uses try_constant_tricks to back
+     off to an lrw rather than calling this routine.  */
+  gcc_assert (trick_no != 0);
+  
   if (trick_no == 1)
     x = value;
 
@@ -1252,7 +1240,7 @@ mcore_output_move (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
 	      case QImode:
 		return "ld.b\t%0,%1";
 	      default:
-		abort ();
+		gcc_unreachable ();
 	      }
 	}
       else if (GET_CODE (src) == CONST_INT)
@@ -1283,10 +1271,10 @@ mcore_output_move (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
       case QImode:
 	return "st.b\t%1,%0";
       default:
-	abort ();
+	gcc_unreachable ();
       }
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Return a sequence of instructions to perform DI or DF move.
@@ -1329,10 +1317,10 @@ mcore_output_movedouble (rtx operands[], enum machine_mode mode ATTRIBUTE_UNUSED
 	      else if (GET_CODE (XEXP (memexp, 1)) == REG)
 		basereg = REGNO (XEXP (memexp, 1));
 	      else
-		abort ();
+		gcc_unreachable ();
 	    }
 	  else
-	    abort ();
+	    gcc_unreachable ();
 
           /* ??? length attribute is wrong here.  */
 	  if (dstreg == basereg)
@@ -1359,7 +1347,7 @@ mcore_output_movedouble (rtx operands[], enum machine_mode mode ATTRIBUTE_UNUSED
 	      else if (CONST_OK_FOR_N (INTVAL (src)))
 		output_asm_insn ("bmaski	%0,%N1", operands);
 	      else
-		abort ();
+		gcc_unreachable ();
 
 	      if (INTVAL (src) < 0)
 		return "bmaski	%R0,32";
@@ -1377,7 +1365,7 @@ mcore_output_movedouble (rtx operands[], enum machine_mode mode ATTRIBUTE_UNUSED
 	      else if (CONST_OK_FOR_N (INTVAL (src)))
 		output_asm_insn ("bmaski	%R0,%N1", operands);
 	      else
-		abort ();
+		gcc_unreachable ();
 	      
 	      if (INTVAL (src) < 0)
 		return "bmaski	%0,32";
@@ -1386,12 +1374,12 @@ mcore_output_movedouble (rtx operands[], enum machine_mode mode ATTRIBUTE_UNUSED
 	    }
 	}
       else
-	abort ();
+	gcc_unreachable ();
     }
   else if (GET_CODE (dst) == MEM && GET_CODE (src) == REG)
     return "stw\t%1,%0\n\tstw\t%R1,%R0";
   else
-    abort ();
+    gcc_unreachable ();
 }
 
 /* Predicates used by the templates.  */
@@ -1624,7 +1612,7 @@ mcore_expand_block_move (rtx *operands)
       max = 4*1;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (bytes <= max)
@@ -1859,14 +1847,7 @@ layout_mcore_frame (struct mcore_frame * infp)
   assert (growths <= MAX_STACK_GROWS);
   
   for (i = 0; i < growths; i++)
-    {
-      if (infp->growth[i] % STACK_BYTES)
-	{
-	  fprintf (stderr,"stack growth of %d is not %d aligned\n",
-		   infp->growth[i], STACK_BYTES);
-	  abort ();
-	}
-    }
+    gcc_assert (!(infp->growth[i] % STACK_BYTES));
 }
 
 /* Define the offset between two registers, one to be eliminated, and
@@ -1895,9 +1876,7 @@ mcore_initial_elimination_offset (int from, int to)
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return below_frame;
 
-  abort ();
-
-  return 0;
+  gcc_unreachable ();
 }
 
 /* Keep track of some information about varargs for the prolog.  */
@@ -1946,13 +1925,11 @@ mcore_expand_prolog (void)
 
       x = DECL_RTL (current_function_decl);
       
-      if (GET_CODE (x) != MEM)
-	abort ();
+      gcc_assert (GET_CODE (x) == MEM);
       
       x = XEXP (x, 0);
       
-      if (GET_CODE (x) != SYMBOL_REF)
-	abort ();
+      gcc_assert (GET_CODE (x) == SYMBOL_REF);
       
       if (mcore_current_function_name)
 	free (mcore_current_function_name);
@@ -2140,7 +2117,7 @@ mcore_expand_epilog (void)
 
 /* The MCORE cannot load a large constant into a register, constants have to
    come from a pc relative load.  The reference of a pc relative load
-   instruction must be less than 1k infront of the instruction.  This
+   instruction must be less than 1k in front of the instruction.  This
    means that we often have to dump a constant inside a function, and
    generate code to branch around it.
 
@@ -2705,7 +2682,7 @@ handle_structs_in_regs (enum machine_mode mode, tree type, int reg)
 {
   int size;
 
-  /* The MCore ABI defines that a structure whoes size is not a whole multiple
+  /* The MCore ABI defines that a structure whose size is not a whole multiple
      of bytes is passed packed into registers (or spilled onto the stack if
      not enough registers are available) with the last few bytes of the
      structure being packed, left-justified, into the last register/stack slot.
@@ -2866,13 +2843,10 @@ mcore_mark_dllexport (tree decl)
 
   rtlname = XEXP (DECL_RTL (decl), 0);
   
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (   GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
   
   if (mcore_dllexport_name_p (oldname))
     return;  /* Already done.  */
@@ -2904,17 +2878,13 @@ mcore_mark_dllimport (tree decl)
 
   rtlname = XEXP (DECL_RTL (decl), 0);
   
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (   GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
   
-  if (mcore_dllexport_name_p (oldname))
-    abort (); /* This shouldn't happen.  */
-  else if (mcore_dllimport_name_p (oldname))
+  gcc_assert (!mcore_dllexport_name_p (oldname));
+  if (mcore_dllimport_name_p (oldname))
     return; /* Already done.  */
 
   /* ??? One can well ask why we're making these checks here,
@@ -2925,7 +2895,7 @@ mcore_mark_dllimport (tree decl)
       && !DECL_VIRTUAL_P (decl)
       && DECL_INITIAL (decl))
     {
-      error ("%Jinitialized variable '%D' is marked dllimport", decl, decl);
+      error ("initialized variable %q+D is marked dllimport", decl);
       return;
     }
   
@@ -3059,7 +3029,7 @@ mcore_handle_naked_attribute (tree * node, tree name, tree args ATTRIBUTE_UNUSED
     }
   else
     {
-      warning ("%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }

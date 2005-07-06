@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "output.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "target.h"
@@ -451,10 +452,10 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning ("%Jsize of %qD is %d bytes", decl, decl, size_as_int);
+	    warning (0, "size of %q+D is %d bytes", decl, size_as_int);
 	  else
-	    warning ("%Jsize of %qD is larger than %d bytes",
-                     decl, decl, larger_than_size);
+	    warning (0, "size of %q+D is larger than %wd bytes",
+                     decl, larger_than_size);
 	}
     }
 
@@ -758,9 +759,9 @@ place_union_field (record_layout_info rli, tree field)
   if (TREE_CODE (rli->t) == UNION_TYPE)
     rli->offset = size_binop (MAX_EXPR, rli->offset, DECL_SIZE_UNIT (field));
   else if (TREE_CODE (rli->t) == QUAL_UNION_TYPE)
-    rli->offset = fold (build3 (COND_EXPR, sizetype,
-				DECL_QUALIFIER (field),
-				DECL_SIZE_UNIT (field), rli->offset));
+    rli->offset = fold_build3 (COND_EXPR, sizetype,
+			       DECL_QUALIFIER (field),
+			       DECL_SIZE_UNIT (field), rli->offset);
 }
 
 #if defined (PCC_BITFIELD_TYPE_MATTERS) || defined (BITFIELD_NBYTES_LIMITED)
@@ -851,11 +852,11 @@ place_field (record_layout_info rli, tree field)
 	  if (TYPE_ALIGN (type) > desired_align)
 	    {
 	      if (STRICT_ALIGNMENT)
-		warning ("%Jpacked attribute causes inefficient alignment "
-                         "for %qD", field, field);
+		warning (OPT_Wattributes, "packed attribute causes "
+                         "inefficient alignment for %q+D", field);
 	      else
-		warning ("%Jpacked attribute is unnecessary for %qD",
-			 field, field);
+		warning (OPT_Wattributes, "packed attribute is "
+			 "unnecessary for %q+D", field);
 	    }
 	}
       else
@@ -869,8 +870,7 @@ place_field (record_layout_info rli, tree field)
       /* No, we need to skip space before this field.
 	 Bump the cumulative size to multiple of field alignment.  */
 
-      if (warn_padded)
-	warning ("%Jpadding struct to align %qD", field, field);
+      warning (OPT_Wpadded, "padding struct to align %q+D", field);
 
       /* If the alignment is still within offset_align, just align
 	 the bit position.  */
@@ -1267,9 +1267,9 @@ finalize_record_size (record_layout_info rli)
   TYPE_SIZE_UNIT (rli->t)
     = round_up (unpadded_size_unit, TYPE_ALIGN_UNIT (rli->t));
 
-  if (warn_padded && TREE_CONSTANT (unpadded_size)
+  if (TREE_CONSTANT (unpadded_size)
       && simple_cst_equal (unpadded_size, TYPE_SIZE (rli->t)) == 0)
-    warning ("padding struct size to alignment boundary");
+    warning (OPT_Wpadded, "padding struct size to alignment boundary");
 
   if (warn_packed && TREE_CODE (rli->t) == RECORD_TYPE
       && TYPE_PACKED (rli->t) && ! rli->packed_maybe_necessary
@@ -1299,17 +1299,19 @@ finalize_record_size (record_layout_info rli)
 		name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (rli->t)));
 
 	      if (STRICT_ALIGNMENT)
-		warning ("packed attribute causes inefficient "
+		warning (OPT_Wpacked, "packed attribute causes inefficient "
 			 "alignment for %qs", name);
 	      else
-		warning ("packed attribute is unnecessary for %qs", name);
+		warning (OPT_Wpacked,
+			 "packed attribute is unnecessary for %qs", name);
 	    }
 	  else
 	    {
 	      if (STRICT_ALIGNMENT)
-		warning ("packed attribute causes inefficient alignment");
+		warning (OPT_Wpacked,
+			 "packed attribute causes inefficient alignment");
 	      else
-		warning ("packed attribute is unnecessary");
+		warning (OPT_Wpacked, "packed attribute is unnecessary");
 	    }
 	}
     }
@@ -1712,9 +1714,9 @@ layout_type (tree type)
 	       that (possible) negative values are handled appropriately.  */
 	    length = size_binop (PLUS_EXPR, size_one_node,
 				 fold_convert (sizetype,
-					       fold (build2 (MINUS_EXPR,
-							     TREE_TYPE (lb),
-							     ub, lb))));
+					       fold_build2 (MINUS_EXPR,
+							    TREE_TYPE (lb),
+							    ub, lb)));
 
 	    /* Special handling for arrays of bits (for Chill).  */
 	    element_size = TYPE_SIZE (element);

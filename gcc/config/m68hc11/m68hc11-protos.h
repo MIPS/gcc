@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 extern int m68hc11_override_options (void);
@@ -98,6 +98,7 @@ extern int memory_indexed_operand (rtx, enum machine_mode);
 extern void m68hc11_split_logical (enum machine_mode, int, rtx*);
 
 extern int m68hc11_register_indirect_p (rtx, enum machine_mode);
+extern int m68hc11_valid_addressing_p (rtx, enum machine_mode, int);
 
 extern int symbolic_memory_operand (rtx, enum machine_mode);
 
@@ -123,6 +124,7 @@ extern int m68hc11_page0_symbol_p (rtx x);
 
 extern HOST_WIDE_INT m68hc11_min_offset;
 extern HOST_WIDE_INT m68hc11_max_offset;
+extern int m68hc11_addr_mode;
 
 #endif /* HAVE_MACHINE_MODES */
 #endif /* RTX_CODE */

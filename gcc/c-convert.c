@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* This file contains the functions for converting C expressions
@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-tree.h"
 #include "langhooks.h"
 #include "toplev.h"
+#include "target.h"
 
 /* Change of width--truncation and extension of integers or reals--
    is represented with NOP_EXPR.  Proper functioning of many things
@@ -69,14 +70,25 @@ convert (tree type, tree expr)
 {
   tree e = expr;
   enum tree_code code = TREE_CODE (type);
+  const char *invalid_conv_diag;
 
-  if (type == TREE_TYPE (expr)
-      || TREE_CODE (expr) == ERROR_MARK
-      || code == ERROR_MARK || TREE_CODE (TREE_TYPE (expr)) == ERROR_MARK)
+  if (type == error_mark_node
+      || expr == error_mark_node
+      || TREE_TYPE (expr) == error_mark_node)
+    return error_mark_node;
+
+  if ((invalid_conv_diag
+       = targetm.invalid_conversion (TREE_TYPE (expr), type)))
+    {
+      error (invalid_conv_diag);
+      return error_mark_node;
+    }
+
+  if (type == TREE_TYPE (expr))
     return expr;
 
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (expr)))
-    return fold (build1 (NOP_EXPR, type, expr));
+    return fold_build1 (NOP_EXPR, type, expr);
   if (TREE_CODE (TREE_TYPE (expr)) == ERROR_MARK)
     return error_mark_node;
   if (TREE_CODE (TREE_TYPE (expr)) == VOID_TYPE)
@@ -103,9 +115,9 @@ convert (tree type, tree expr)
       /* If it returns a NOP_EXPR, we must fold it here to avoid
 	 infinite recursion between fold () and convert ().  */
       if (TREE_CODE (t) == NOP_EXPR)
-	return fold (build1 (NOP_EXPR, type, TREE_OPERAND (t, 0)));
+	return fold_build1 (NOP_EXPR, type, TREE_OPERAND (t, 0));
       else
-	return fold (build1 (NOP_EXPR, type, t));
+	return fold_build1 (NOP_EXPR, type, t);
     }
   if (code == POINTER_TYPE || code == REFERENCE_TYPE)
     return fold (convert_to_pointer (type, e));

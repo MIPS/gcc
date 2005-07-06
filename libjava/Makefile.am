@@ -7,76 +7,9 @@ ACLOCAL_AMFLAGS = -I . -I ../config
 # May be used by various substitution variables.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
-## Garbage collector conditionals.
-if USING_BOEHMGC
-BOEHMGC_SRC = boehm.cc
-else
-BOEHMGC_SRC =
-endif
-
-if USING_NOGC
-NOGC_SRC = nogc.cc
-else
-NOGC_SRC =
-endif
-
-## Broken backtrace conditional.
-if SUPPLY_BACKTRACE
-BACKTRACE_SRC = sysdep/dwarf2-backtrace.cc
-else
-BACKTRACE_SRC =
-endif
-
-## Conditionals for platform-specific helper functions.
-if USING_POSIX_PLATFORM
-POSIX_PLATFORM_SRC = posix.cc
-else
-POSIX_PLATFORM_SRC =
-endif
-
-if USING_WIN32_PLATFORM
-WIN32_PLATFORM_SRC = win32.cc
-else
-WIN32_PLATFORM_SRC =
-endif
-
-if USING_ECOS_PLATFORM
-ECOS_PLATFORM_SRC = posix.cc
-else
-ECOS_PLATFORM_SRC =
-endif
-
-## Conditionals for platform-specific thread support.
-if USING_POSIX_THREADS
-POSIX_THREAD_SRC = posix-threads.cc
-else
-POSIX_THREAD_SRC =
-endif
-
-if USING_WIN32_THREADS
-WIN32_THREAD_SRC = win32-threads.cc
-else
-WIN32_THREAD_SRC =
-endif
-
-if USING_NO_THREADS
-NO_THREAD_SRC = no-threads.cc
-else
-NO_THREAD_SRC =
-endif
-
-## Testsuite conditional.
-if TESTSUBDIR
-SUBDIRS = $(DIRLTDL) testsuite gcj include external
-else
 SUBDIRS = $(DIRLTDL) gcj include external
-endif
-
-## Darwin uses the jcr section, but doesn't use crtstuff.
-if USING_DARWIN_CRT
-DARWIN_CRT_SRC = darwin.cc
-else
-DARWIN_CRT_SRC = 
+if TESTSUBDIR
+SUBDIRS += testsuite
 endif
 
 # write_entries_to_file - writes each entry in a list
@@ -97,29 +30,30 @@ target_noncanonical = @target_noncanonical@
 ## What gets installed, and where.
 ##
 
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la
+toolexecmainlib_DATA = libgcj.spec
+
 if XLIB_AWT
-cond_xlib_ltlibrary = lib-gnu-awt-xlib.la
-else
-cond_xlib_ltlibrary =
+toolexeclib_LTLIBRARIES += lib-gnu-awt-xlib.la
 endif
 
 if GTK_AWT
-cond_gtk_ltlibrary = lib-gnu-java-awt-peer-gtk.la
-cond_gtk_jawt_ltlibrary = libjawt.la
-else
-cond_gtk_ltlibrary =
-cond_gtk_jawt_ltlibrary =
+toolexeclib_LTLIBRARIES += lib-gnu-java-awt-peer-gtk.la libgcjawt.la
 endif
-
-toolexeclib_LTLIBRARIES = libgcj.la libgij.la \
-    $(cond_gtk_ltlibrary) $(cond_gtk_jawt_ltlibrary) $(cond_xlib_ltlibrary)
-toolexecmainlib_DATA = libgcj.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libgcj.pc
 
 jardir = $(datadir)/java
 jar_DATA = libgcj-$(gcc_version).jar
+
+if JAVA_HOME_SET
+JAVA_HOME_DIR = $(JAVA_HOME)
+BOOT_CLASS_PATH_DIR = $(JAVA_HOME)/lib/rt.jar
+else
+JAVA_HOME_DIR = $(prefix)
+BOOT_CLASS_PATH_DIR = $(jardir)/$(jar_DATA)
+endif
 
 ## FIXME: Using libdir violates GNU coding standards.
 secdir = $(libdir)/security
@@ -184,7 +118,8 @@ AM_CXXFLAGS = \
 	-D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\"" \
 	-DLIBDIR="\"$(libdir)\"" \
-	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\"" \
+        -DJAVA_HOME="\"$(JAVA_HOME_DIR)\"" \
+        -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
@@ -195,12 +130,11 @@ AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
 	-fclasspath= -fbootclasspath=$(BOOTCLASSPATH) \
 	--encoding=UTF-8 \
-	-Wno-deprecated
+	-Wno-deprecated -fbootstrap-classes
 
-if USING_GCC
-AM_CFLAGS = @LIBGCJ_CFLAGS@ $(WARNINGS)
-else
 AM_CFLAGS = @LIBGCJ_CFLAGS@
+if USING_GCC
+AM_CFLAGS += $(WARNINGS)
 endif
 
 ## Extra CFLAGS used for JNI C sources shared with GNU Classpath.
@@ -219,6 +153,72 @@ BOOTCLASSPATH = $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir)'$(CLASSPATH_SEPARATOR)'
 
 ## ################################################################
 
+# Files for which we build .lo files
+all_native_compiled_source_files = \
+    $(java_source_files) \
+    $(built_java_source_files) \
+    $(xlib_java_source_files)
+
+# Files for which we build .class files
+# It *must* begin with $(all_native_compiled_source_files)
+all_java_source_files = \
+    $(all_native_compiled_source_files) \
+    $(gtk_awt_peer_source_files) \
+    $(gnu_xml_source_files) \
+    $(javax_imageio_source_files) \
+    $(javax_xml_source_files) \
+    $(gnu_java_beans_source_files) \
+    gnu/gcj/tools/gcj_dbtool/Main.java
+
+EXTRA_DIST = $(all_java_source_files)
+
+# Build dependencies between java, class and lo files.  They are included
+# below, together with automatically-generated dependencies between Java
+# files.
+#
+# Dependencies from Java to .class files
+# --------------------------------------
+# Each directory's filelist file depends on the corresponding Java source files.
+# The stamp file depends on the filelist (using a `Static Pattern Rule').
+# Each class file depends on the its directory's .stamp file.  This reflects
+# the fact that 1) all classfiles are compiled in one go when the .stamp file
+# is built and 2) anything which depends on a particular .class file must wait
+# until its directory is processed and the .stamp file is created.
+#
+# Dependencies from Java to .lo files
+# -----------------------------------
+# As above, each directory's filelist file depends on the corresponding Java
+# source files, and the stamp file depends on the filelist.  For native
+# compilation, the lo file depends on the stamp file (also using a `Static
+# Pattern Rule').  So, when one Java file changes, the filelist file is
+# updated, the stamp file rule builds the .class files, and the .lo file rule
+# recompiles to native code.
+Makefile.deps: $(srcdir)/Makefile.in
+	@: $(call write_entries_to_file,$(all_java_source_files),files.tmplist)
+	echo 's,^\(.*\)/\([^/]*\)\.java$$,\1.list: &\' > tmpsed
+	echo '\1/\2.class: \1.stamp,' >> tmpsed
+	sed -ftmpsed files.tmplist > Makefile.deps
+	rm files.tmplist tmpsed
+
+all_native_compiled_dirs = $(sort $(patsubst %/, %, $(dir $(all_native_compiled_source_files))))
+all_java_dirs = $(sort $(patsubst %/, %, $(dir $(all_java_source_files))))
+all_java_lo_files = $(all_native_compiled_dirs:=.lo)
+all_java_deps_files = $(all_java_dirs:=.deps)
+all_java_stamp_files = $(all_java_dirs:=.stamp)
+all_java_filelist_files = $(all_java_dirs:=.list)
+
+# In the future these may be defined manually, if we decide to split libgcj.so
+# into multiple shared libraries.  For now, everything but xlib goes into
+# all_libgcj_lo_files
+all_xlib_lo_files = gnu/gcj/xlib.lo gnu/awt/xlib.lo
+all_libgcj_lo_files = $(filter-out $(all_xlib_lo_files), $(all_java_lo_files))
+
+# Include automatically generated dependencies between Java source files.
+-include Makefile.deps $(all_java_deps_files)
+
+all_property_files = $(property_files) \
+    java/util/logging/logging.properties
+
 ##
 ## How to build libgcj.a and libgcj.jar
 ##
@@ -226,33 +226,50 @@ BOOTCLASSPATH = $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir)'$(CLASSPATH_SEPARATOR)'
 libgij_la_SOURCES = gij.cc
 libgij_la_DEPENDENCIES = libgcj.la libgcj.spec
 ## See jv_convert_LDADD.
-libgij_la_LIBADD = -L$(here)/.libs libgcj.la \
-	external/sax/libsax-gcj.la \
-	external/w3c_dom/libw3c-gcj.la
+libgij_la_LIBADD = -L$(here)/.libs libgcj.la
 ## The mysterious backslash in the grep pattern is consumed by make.
 libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
-# Work around libtool wanting to do piece-wise linking with -r.  Using a
-# convenience library suddenly invokes the --whole-archive path instead.
-# This allows the build to succeed for targets that allocate multiple got
-# subsections in the linker, such as Alpha and MIPS.
-libgcj0_convenience_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
+libgcj_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
-	$(nat_source_files) $(math_c_source_files) $(java_source_files) \
-	$(built_java_source_files) \
-	$(BOEHMGC_SRC) $(NOGC_SRC) \
-	$(BACKTRACE_SRC) \
-	$(POSIX_PLATFORM_SRC) $(WIN32_PLATFORM_SRC) $(ECOS_PLATFORM_SRC) \
-	$(DARWIN_CRT_SRC) \
-	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
-libgcj0_convenience_la_LIBADD = \
-	gnu-xml.lo javax-imageio.lo \
-	javax-xml.lo gnu-java-beans.lo
+	$(nat_source_files) $(math_c_source_files)
 
-noinst_LTLIBRARIES = libgcj0_convenience.la
+if USING_BOEHMGC
+libgcj_la_SOURCES += boehm.cc
+endif
 
-libgcj_la_SOURCES =
+if USING_NOGC
+libgcj_la_SOURCES += nogc.cc
+endif
+
+if SUPPLY_BACKTRACE
+libgcj_la_SOURCES += sysdep/dwarf2-backtrace.cc
+endif
+
+if USING_POSIX_PLATFORM
+libgcj_la_SOURCES += posix.cc
+endif
+
+if USING_WIN32_PLATFORM
+libgcj_la_SOURCES += win32.cc
+endif
+
+if USING_DARWIN_CRT
+libgcj_la_SOURCES += darwin.cc
+endif
+
+if USING_POSIX_THREADS
+libgcj_la_SOURCES += posix-threads.cc
+endif
+
+if USING_WIN32_THREADS
+libgcj_la_SOURCES += win32-threads.cc
+endif
+
+if USING_NO_THREADS
+libgcj_la_SOURCES += no-threads.cc
+endif
 
 ## Objects from C++ sources in subdirs.
 nat_files = $(nat_source_files:.cc=.lo)
@@ -265,7 +282,11 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 	$(LIBLTDL) $(SYS_ZLIBS) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LIBADD = \
-	libgcj0_convenience.la \
+	$(all_libgcj_lo_files) \
+	gnu-xml.lo javax-imageio.lo \
+	javax-xml.lo gnu-java-beans.lo \
+	external/sax/libsax-gcj.la \
+	external/w3c_dom/libw3c-gcj.la \
 	$(LIBFFI) $(ZLIBS) $(GCLIBS) $(propertyo_files)
 libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h \
@@ -275,7 +296,7 @@ libgcj_la_LINK = $(LIBLINK)
 
 ## The .db file.  This rule is only used for native builds, so it is
 ## safe to invoke gcj-dbtool.
-$(db_name): gcj-dbtool
+$(db_name): gcj-dbtool$(EXEEXT)
 ## In case it exists already.
 	@rm -f $(db_name)
 ## We don't actually care if it fails -- if it does, just make an
@@ -283,17 +304,8 @@ $(db_name): gcj-dbtool
 ## not available.
 	./gcj-dbtool -n $(db_name) || touch $(db_name)
 
-# Gtk/Cairo JNI sources.
-if GTK_CAIRO
-gtk_cairo_c_source_files = \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
-else
-gtk_cairo_c_source_files = 
-endif
-
 ## Gtk JNI sources.
-gtk_c_source_files = \
-$(gtk_cairo_c_source_files) \
+lib_gnu_java_awt_peer_gtk_la_SOURCES = \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
@@ -332,10 +344,18 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/gtk-peer/gtk_jawt.c \
-jni/classpath/native_state.c
+jni/classpath/native_state.c \
+jni/gtk-peer/gthread-jni.h \
+jni/gtk-peer/gtkpeer.h \
+jni/classpath/native_state.h
+
+# Gtk/Cairo JNI sources.
+if GTK_CAIRO
+lib_gnu_java_awt_peer_gtk_la_SOURCES += jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+endif
 
 ## Java sources for Gtk peers.
-gtk_awt_peer_sources = \
+gtk_awt_peer_source_files = \
 gnu/java/awt/peer/gtk/GdkTextLayout.java \
 gnu/java/awt/peer/gtk/GdkFontMetrics.java \
 gnu/java/awt/peer/gtk/GdkFontPeer.java \
@@ -378,12 +398,13 @@ gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 gnu/java/awt/peer/gtk/GtkTextComponentPeer.java	\
 gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
+gnu/java/awt/peer/gtk/GtkVolatileImage.java \
 gnu/java/awt/peer/gtk/GtkWindowPeer.java \
 gnu/java/awt/peer/gtk/GThreadMutex.java \
 gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 
-gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
+gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_source_files)))
 
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h: gnu/java/awt/peer/gtk/GdkGraphics.java
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h: gnu/java/awt/peer/gtk/GdkGraphics2D.java
@@ -473,39 +494,31 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo: $(top_builddir)/jniinclude/
 ## that JNI headers are built before JNI C files.
 $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
 
-lib_gnu_java_awt_peer_gtk_la_SOURCES = \
-$(gtk_awt_peer_sources) \
-$(gtk_c_source_files) \
-jni/gtk-peer/gthread-jni.h \
-jni/gtk-peer/gtkpeer.h \
-jni/classpath/native_state.h
-
 lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-Ijniinclude -I$(srcdir)/jni/classpath \
 	-I$(srcdir)/jni/gtk-peer $(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
 	$(X_CFLAGS) $(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS)
 lib_gnu_java_awt_peer_gtk_la_GCJFLAGS = $(AM_GCJFLAGS) -fjni
-lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
-lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-$(gcc_version).jar libgcj.la libgcj.spec
+lib_gnu_java_awt_peer_gtk_la_LIBADD = gtk-awt-peer.lo $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = gtk-awt-peer.lo $(gtk_jni_headers) libgcj-$(gcc_version).jar libgcj.la libgcj.spec
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
 lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
 
-libjawt_la_SOURCES = jawt.c
-libjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
+libgcjawt_la_SOURCES = jawt.c
+libgcjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
 ## See jv_convert_LDADD.
-libjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
-libjawt_la_LDFLAGS = \
+libgcjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
+libgcjawt_la_LDFLAGS = \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
 	$(LIBGCJ_LD_SYMBOLIC)
-libjawt_la_LINK = $(LIBLINK)
+libgcjawt_la_LINK = $(LIBLINK)
 
-lib_gnu_awt_xlib_la_SOURCES = \
-	$(xlib_java_source_files) \
-	$(xlib_nat_source_files)
-lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-$(gcc_version).jar libgcj.la libgcj.spec
-lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
+lib_gnu_awt_xlib_la_SOURCES = $(xlib_nat_source_files)
+lib_gnu_awt_xlib_la_LIBADD = $(all_xlib_lo_files)
+lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-$(gcc_version).jar libgcj.la libgcj.spec \
+	$(lib_gnu_awt_xlib_la_LIBADD)
 ## We require libstdc++-v3 to be in the same build tree.
 lib_gnu_awt_xlib_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -519,21 +532,6 @@ lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
-all_java_source_files = \
-    $(java_source_files) \
-    $(built_java_source_files) \
-    $(gtk_awt_peer_sources) \
-    $(xlib_java_source_files) \
-    $(gnu_xml_source_files) \
-    $(javax_imageio_source_files) \
-    $(javax_xml_source_files) \
-    $(gnu_java_beans_source_files)
-
-all_java_class_files = $(all_java_source_files:.java=.class)
-
-all_property_files = $(property_files) \
-    java/util/logging/logging.properties
-
 ## Build property files into the library.
 property_files = \
 gnu/regexp/MessagesBundle.properties \
@@ -545,32 +543,24 @@ propertyo_files = $(property_files:.properties=.properties.lo)
 %.properties.lo: %.properties
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
 
-if ONESTEP
+# Compile one directory in one go.  If the files have to be compiled with the
+# binary compatibility ABI, only make the .class here -- the .lo is made
+# elsewhere in this Makefile.
 
-# Compile all classfiles in one go.
+%.list:
+	@: $(shell $(mkinstalldirs) $(basename $@))
+	@: $(call write_entries_to_file,$^,$@)
 
-classes.stamp: $(all_java_source_files) gnu/gcj/tools/gcj_dbtool/Main.java
-	@echo Compiling Java sourcefiles...
-	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) @libgcj.sourcelist
-	echo > classes.stamp
-# This next rule seems backward, but reflects the fact that 1) all
-# classfiles are compiled in one go when classes.stamp is built and 2)
-# anything which depends on a particular .class file must wait until
-# this file is built.
-$(all_java_class_files) gnu/gcj/tools/gcj_dbtool/Main.class: classes.stamp
+$(all_java_lo_files): %.lo: %.stamp
+	$(LTGCJCOMPILE) -o $@ -c @${<:.stamp=.list}
 
-else # !ONESTEP
+$(all_java_stamp_files): %.stamp: %.list
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) \
+		-MD -MF ${@:.stamp=.deps} @$<
+	echo timestamp > $@
 
-# Compile each classfile individually.
-
-.java.class:
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) $<
-
-classes.stamp: $(all_java_class_files) $(all_property_files)
-	echo > classes.stamp
-
-endif
+classes.stamp: $(all_property_files) $(all_java_stamp_files)
+	echo timestamp > classes.stamp
 
 libgcj-$(gcc_version).jar: classes.stamp
 	-@rm -f libgcj-$(gcc_version).jar
@@ -596,7 +586,9 @@ libgcj-$(gcc_version).jar: classes.stamp
 	  $(ZIP) -ufM0E@ $@; \
 	done
 
-CLEANFILES = libgcj-$(gcc_version).jar classes.stamp
+CLEANFILES = libgcj-$(gcc_version).jar classes.stamp $(all_java_stamp_files) \
+	$(all_java_deps_files) $(all_java_filelist_files)
+DISTCLEANFILES = Makefile.deps native.dirs bytecompile.dirs
 
 mostlyclean-local:
 ## Use libtool rm to remove each libtool object
@@ -619,21 +611,8 @@ clean-nat:
 
 SUFFIXES = .class .java .h .properties
 
-$(javao_files) $(xlib_javao_files): %.lo: %.java
-	$(LTGCJCOMPILE) -o $@ -c $<
-
-$(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
-	$(LTGCJCOMPILE) -fjni -o $@ -c $<
-
 ## Pass the list of object files to libtool in a temporary file to
 ## avoid tripping platform command line length limits.
-libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
-	@echo Creating list of files to link...
-	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS),libgcj.objectlist)
-	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
-	$(libgcj_la_LIBADD) \
-	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
-
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
 	@echo Creating list of files to link...
 	@: $(call write_entries_to_file,$(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_LIBADD),lib_gnu_awt_xlib.objectlist)
@@ -691,6 +670,17 @@ gnu-java-beans.lo: $(gnu_java_beans_source_files)
 	$(MAKE) classes.stamp
 	$(LTGCJCOMPILE) -findirect-dispatch -c -o gnu-java-beans.lo \
 		`find gnu/java/beans -name '*.class' -print`
+
+## Depend on the sources, even though we are going to compile the
+## classes.
+gtk-awt-peer.lo: $(gtk_awt_peer_source_files)
+## FIXME: this is ugly.  We want to make sure the .class files have
+## been built, but we don't want a real dependency on them as this
+## would cause our target to be rebuilt whenever any .java file is
+## touched.
+	$(MAKE) classes.stamp
+	$(LTGCJCOMPILE) -findirect-dispatch -fjni -c -o gtk-awt-peer.lo \
+		`find gnu/java/awt/peer/gtk -name '*.class' -print`
 
 ## ################################################################
 
@@ -1207,6 +1197,29 @@ gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
 gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
+gnu/javax/swing/text/html/parser/support/gnuStringIntMapper.java \
+gnu/javax/swing/text/html/parser/support/parameterDefaulter.java \
+gnu/javax/swing/text/html/parser/support/Parser.java \
+gnu/javax/swing/text/html/parser/support/textPreProcessor.java \
+gnu/javax/swing/text/html/parser/support/low/Buffer.java \
+gnu/javax/swing/text/html/parser/support/low/Constants.java \
+gnu/javax/swing/text/html/parser/support/low/Location.java \
+gnu/javax/swing/text/html/parser/support/low/node.java \
+gnu/javax/swing/text/html/parser/support/low/ParseException.java \
+gnu/javax/swing/text/html/parser/support/low/pattern.java \
+gnu/javax/swing/text/html/parser/support/low/Queue.java \
+gnu/javax/swing/text/html/parser/support/low/ReaderTokenizer.java \
+gnu/javax/swing/text/html/parser/support/low/Token.java \
+gnu/javax/swing/text/html/parser/gnuDTD.java \
+gnu/javax/swing/text/html/parser/HTML_401F.java \
+gnu/javax/swing/text/html/parser/htmlAttributeSet.java \
+gnu/javax/swing/text/html/parser/htmlValidator.java \
+gnu/javax/swing/text/html/parser/models/list.java \
+gnu/javax/swing/text/html/parser/models/node.java \
+gnu/javax/swing/text/html/parser/models/noTagModel.java \
+gnu/javax/swing/text/html/parser/models/PCDATAonly_model.java \
+gnu/javax/swing/text/html/parser/models/TableRowContentModel.java \
+gnu/javax/swing/text/html/parser/models/transformer.java \
 java/applet/Applet.java \
 java/applet/AppletStub.java \
 java/applet/AppletContext.java \
@@ -1654,6 +1667,28 @@ javax/swing/plaf/basic/BasicLookAndFeel.java \
 javax/swing/plaf/basic/BasicBorders.java \
 javax/swing/plaf/basic/BasicIconFactory.java \
 javax/swing/plaf/basic/ComboPopup.java \
+javax/swing/plaf/metal/MetalBorders.java \
+javax/swing/plaf/metal/MetalButtonUI.java \
+javax/swing/plaf/metal/MetalCheckBoxUI.java \
+javax/swing/plaf/metal/MetalComboBoxUI.java \
+javax/swing/plaf/metal/MetalDesktopIconUI.java \
+javax/swing/plaf/metal/MetalInternalFrameUI.java \
+javax/swing/plaf/metal/MetalLabelUI.java \
+javax/swing/plaf/metal/MetalPopupMenuSeparatorUI.java \
+javax/swing/plaf/metal/MetalProgressBarUI.java \
+javax/swing/plaf/metal/MetalRadioButtonUI.java \
+javax/swing/plaf/metal/MetalRootPaneUI.java \
+javax/swing/plaf/metal/MetalScrollBarUI.java \
+javax/swing/plaf/metal/MetalScrollPaneUI.java \
+javax/swing/plaf/metal/MetalSeparatorUI.java \
+javax/swing/plaf/metal/MetalSliderUI.java \
+javax/swing/plaf/metal/MetalSplitPaneUI.java \
+javax/swing/plaf/metal/MetalTabbedPaneUI.java \
+javax/swing/plaf/metal/MetalTextFieldUI.java \
+javax/swing/plaf/metal/MetalToggleButtonUI.java \
+javax/swing/plaf/metal/MetalToolBarUI.java \
+javax/swing/plaf/metal/MetalToolTipUI.java \
+javax/swing/plaf/metal/MetalTreeUI.java \
 javax/swing/plaf/BorderUIResource.java \
 javax/swing/plaf/UIResource.java \
 javax/swing/plaf/ButtonUI.java \
@@ -1831,6 +1866,7 @@ javax/swing/text/AbstractDocument.java \
 javax/swing/text/AttributeSet.java \
 javax/swing/text/BadLocationException.java \
 javax/swing/text/Caret.java \
+javax/swing/text/ChangedCharSetException.java \
 javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
@@ -1869,7 +1905,26 @@ javax/swing/text/Utilities.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/html/HTML.java \
+javax/swing/text/html/HTMLDocument.java \
+javax/swing/text/html/HTMLEditorKit.java \
+javax/swing/text/html/HTMLFrameHyperlinkEvent.java \
+javax/swing/text/html/parser/AttributeList.java \
+javax/swing/text/html/parser/ContentModel.java \
+javax/swing/text/html/parser/DTD.java \
+javax/swing/text/html/parser/DTDConstants.java \
+javax/swing/text/html/parser/DocumentParser.java \
+javax/swing/text/html/parser/Element.java \
+javax/swing/text/html/parser/Entity.java \
+javax/swing/text/html/parser/Parser.java \
 javax/swing/text/html/parser/ParserDelegator.java \
+javax/swing/text/html/parser/TagElement.java \
+javax/swing/text/rtf/ControlWordToken.java \
+javax/swing/text/rtf/RTFEditorKit.java \
+javax/swing/text/rtf/RTFParseException.java \
+javax/swing/text/rtf/RTFParser.java \
+javax/swing/text/rtf/RTFScanner.java \
+javax/swing/text/rtf/TextToken.java \
+javax/swing/text/rtf/Token.java \
 javax/swing/tree/TreeNode.java \
 javax/swing/tree/AbstractLayoutCache.java \
 javax/swing/tree/DefaultMutableTreeNode.java \
@@ -2668,6 +2723,63 @@ gnu/xml/dom/DomEvent.java \
 gnu/xml/dom/DomEntity.java \
 gnu/xml/dom/DomCDATASection.java \
 gnu/xml/dom/DomDOMException.java \
+gnu/xml/dom/html2/DomHTMLAnchorElement.java \
+gnu/xml/dom/html2/DomHTMLAppletElement.java \
+gnu/xml/dom/html2/DomHTMLAreaElement.java \
+gnu/xml/dom/html2/DomHTMLBaseElement.java \
+gnu/xml/dom/html2/DomHTMLBaseFontElement.java \
+gnu/xml/dom/html2/DomHTMLBodyElement.java \
+gnu/xml/dom/html2/DomHTMLBRElement.java \
+gnu/xml/dom/html2/DomHTMLButtonElement.java \
+gnu/xml/dom/html2/DomHTMLCollection.java \
+gnu/xml/dom/html2/DomHTMLDirectoryElement.java \
+gnu/xml/dom/html2/DomHTMLDivElement.java \
+gnu/xml/dom/html2/DomHTMLDListElement.java \
+gnu/xml/dom/html2/DomHTMLDocument.java \
+gnu/xml/dom/html2/DomHTMLElement.java \
+gnu/xml/dom/html2/DomHTMLFieldSetElement.java \
+gnu/xml/dom/html2/DomHTMLFontElement.java \
+gnu/xml/dom/html2/DomHTMLFormElement.java \
+gnu/xml/dom/html2/DomHTMLFrameElement.java \
+gnu/xml/dom/html2/DomHTMLFrameSetElement.java \
+gnu/xml/dom/html2/DomHTMLHeadElement.java \
+gnu/xml/dom/html2/DomHTMLHeadingElement.java \
+gnu/xml/dom/html2/DomHTMLHRElement.java \
+gnu/xml/dom/html2/DomHTMLHtmlElement.java \
+gnu/xml/dom/html2/DomHTMLIFrameElement.java \
+gnu/xml/dom/html2/DomHTMLImageElement.java \
+gnu/xml/dom/html2/DomHTMLImpl.java \
+gnu/xml/dom/html2/DomHTMLInputElement.java \
+gnu/xml/dom/html2/DomHTMLIsIndexElement.java \
+gnu/xml/dom/html2/DomHTMLLabelElement.java \
+gnu/xml/dom/html2/DomHTMLLegendElement.java \
+gnu/xml/dom/html2/DomHTMLLIElement.java \
+gnu/xml/dom/html2/DomHTMLLinkElement.java \
+gnu/xml/dom/html2/DomHTMLMapElement.java \
+gnu/xml/dom/html2/DomHTMLMenuElement.java \
+gnu/xml/dom/html2/DomHTMLMetaElement.java \
+gnu/xml/dom/html2/DomHTMLModElement.java \
+gnu/xml/dom/html2/DomHTMLObjectElement.java \
+gnu/xml/dom/html2/DomHTMLOListElement.java \
+gnu/xml/dom/html2/DomHTMLOptGroupElement.java \
+gnu/xml/dom/html2/DomHTMLOptionElement.java \
+gnu/xml/dom/html2/DomHTMLParagraphElement.java \
+gnu/xml/dom/html2/DomHTMLParamElement.java \
+gnu/xml/dom/html2/DomHTMLParser.java \
+gnu/xml/dom/html2/DomHTMLPreElement.java \
+gnu/xml/dom/html2/DomHTMLQuoteElement.java \
+gnu/xml/dom/html2/DomHTMLScriptElement.java \
+gnu/xml/dom/html2/DomHTMLSelectElement.java \
+gnu/xml/dom/html2/DomHTMLStyleElement.java \
+gnu/xml/dom/html2/DomHTMLTableCaptionElement.java \
+gnu/xml/dom/html2/DomHTMLTableCellElement.java \
+gnu/xml/dom/html2/DomHTMLTableColElement.java \
+gnu/xml/dom/html2/DomHTMLTableElement.java \
+gnu/xml/dom/html2/DomHTMLTableRowElement.java \
+gnu/xml/dom/html2/DomHTMLTableSectionElement.java \
+gnu/xml/dom/html2/DomHTMLTextAreaElement.java \
+gnu/xml/dom/html2/DomHTMLTitleElement.java \
+gnu/xml/dom/html2/DomHTMLUListElement.java \
 gnu/xml/transform/GenerateIdFunction.java \
 gnu/xml/transform/FormatNumberFunction.java \
 gnu/xml/transform/ValueOfNode.java \
@@ -2792,6 +2904,7 @@ java/lang/StackTraceElement.java \
 java/lang/StrictMath.java \
 java/lang/String.java \
 java/lang/StringBuffer.java \
+java/lang/StringBuilder.java \
 java/lang/StringIndexOutOfBoundsException.java \
 java/lang/System.java \
 java/lang/Thread.java \
@@ -2984,6 +3097,7 @@ java/util/regex/PatternSyntaxException.java
 ordinary_java_source_files = $(core_java_source_files) \
 gnu/classpath/ServiceFactory.java \
 gnu/classpath/ServiceProviderLoadingAction.java \
+gnu/classpath/SystemProperties.java \
 gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
 gnu/gcj/RawDataManaged.java \
@@ -3208,6 +3322,7 @@ gnu/java/net/protocol/http/event/ConnectionEvent.java \
 gnu/java/net/protocol/http/event/ConnectionListener.java \
 gnu/java/net/protocol/http/event/RequestEvent.java \
 gnu/java/net/protocol/http/event/RequestListener.java \
+gnu/java/net/protocol/https/Handler.java \
 gnu/java/net/protocol/jar/Connection.java \
 gnu/java/net/protocol/jar/Handler.java \
 gnu/java/nio/ChannelInputStream.java \
@@ -3415,6 +3530,7 @@ java/net/URLStreamHandler.java \
 java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
+java/net/VMNetworkInterface.java \
 java/nio/Buffer.java \
 java/nio/BufferOverflowException.java \
 java/nio/BufferUnderflowException.java \
@@ -3746,6 +3862,7 @@ math_c_source_files = \
 
 ## This lists all the C++ source files in subdirectories.
 nat_source_files = \
+gnu/classpath/natSystemProperties.cc \
 gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
@@ -3783,6 +3900,7 @@ java/lang/natObject.cc \
 java/lang/natRuntime.cc	\
 java/lang/natString.cc \
 java/lang/natStringBuffer.cc \
+java/lang/natStringBuilder.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natVMClassLoader.cc \
@@ -3794,7 +3912,7 @@ java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
 java/lang/reflect/natProxy.cc \
-java/net/natNetworkInterface.cc \
+java/net/natVMNetworkInterface.cc \
 java/net/natInetAddress.cc \
 java/nio/channels/natChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
@@ -3862,44 +3980,6 @@ gnu/gcj/xlib/natXException.cc \
 gnu/gcj/xlib/natXExposeEvent.cc \
 gnu/gcj/xlib/natXImage.cc \
 gnu/gcj/xlib/natXUnmapEvent.cc
-
-## ################################################################
-
-##
-## javadoc to texinfo conversion
-##
-
-TexinfoDoclet.class: $(srcdir)/scripts/TexinfoDoclet.java
-	javac -d . $(srcdir)/scripts/TexinfoDoclet.java
-
-texinfo: TexinfoDoclet.class
-	langsource=`ls $(srcdir)/java/lang/*.java`; \
-	lang=`echo $$langsource | sed -e 's/[^ ].*EcosProcess.java//g' | sed -e 's/[^ ].*PosixProcess.java//g'`; \
-	javadoc -outfile $(srcdir)/doc/java-lang.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $$lang
-	javadoc -outfile $(srcdir)/doc/java-lang-ref.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/ref/*.java
-	javadoc -outfile $(srcdir)/doc/java-lang-reflect.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/reflect/*.java
-	javadoc -outfile $(srcdir)/doc/java-applet.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/applet/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-color.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/color/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-datatransfer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/datatransfer/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-event.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/event/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-geom.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/geom/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-image.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/image/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-peer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/peer/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans-beancontext.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/beancontext/*.java
-	javadoc -outfile $(srcdir)/doc/java-io.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/io/*.java
-	javadoc -outfile $(srcdir)/doc/java-math.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/math/*.java
-	javadoc -outfile $(srcdir)/doc/java-net.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/net/*.java
-	javadoc -outfile $(srcdir)/doc/java-security.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-cert.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security-cert/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-spec.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-interfaces.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/interfaces/*.java
-	javadoc -outfile $(srcdir)/doc/java-sql.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/sql/*.java
-	javadoc -outfile $(srcdir)/doc/java-text.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/text/*.java
-	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/jar/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/zip/*.java
 
 ## ################################################################
 

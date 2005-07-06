@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the loop optimization pass of the compiler.
    It finds invariant computations within loops and moves them
@@ -66,6 +66,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "optabs.h"
 #include "cfgloop.h"
 #include "ggc.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* Get the loop info pointer of a loop.  */
 #define LOOP_INFO(LOOP) ((struct loop_info *) (LOOP)->aux)
@@ -424,7 +426,7 @@ struct loop_info
 #ifndef HAVE_prefetch
 #define HAVE_prefetch 0
 #define CODE_FOR_prefetch 0
-#define gen_prefetch(a,b,c) (abort(), NULL_RTX)
+#define gen_prefetch(a,b,c) (gcc_unreachable (), NULL_RTX)
 #endif
 
 /* Give up the prefetch optimizations once we exceed a given threshold.
@@ -1135,6 +1137,7 @@ scan_loop (struct loop *loop, int flags)
 	  if (! in_libcall
 	      && (set = single_set (p))
 	      && REG_P (SET_DEST (set))
+	      && SET_DEST (set) != frame_pointer_rtx
 #ifdef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
 	      && SET_DEST (set) != pic_offset_table_rtx
 #endif
@@ -3283,6 +3286,7 @@ find_and_verify_loops (rtx f, struct loops *loops)
 		    if (invert_jump (p, new_label, 1))
 		      {
 			rtx q, r;
+			bool only_notes;
 
 			/* If no suitable BARRIER was found, create a suitable
 			   one before TARGET.  Since TARGET is a fall through
@@ -3307,8 +3311,10 @@ find_and_verify_loops (rtx f, struct loops *loops)
 
 			/* Include the BARRIER after INSN and copy the
 			   block after LOC.  */
-			if (squeeze_notes (&new_label, &last_insn_to_move))
-			  abort ();
+			only_notes = squeeze_notes (&new_label,
+						    &last_insn_to_move);
+			gcc_assert (!only_notes);
+			
 			reorder_insns (new_label, last_insn_to_move, loc);
 
 			/* All those insns are now in TARGET_LOOP.  */
@@ -5074,7 +5080,7 @@ reg_dead_after_loop (const struct loop *loop, rtx reg)
   /* HACK: Must also search the loop fall through exit, create a label_ref
      here which points to the loop->end, and append the loop_number_exit_labels
      list to it.  */
-  label = gen_rtx_LABEL_REF (VOIDmode, loop->end);
+  label = gen_rtx_LABEL_REF (Pmode, loop->end);
   LABEL_NEXTREF (label) = loop->exit_labels;
 
   for (; label; label = LABEL_NEXTREF (label))
@@ -5479,9 +5485,40 @@ loop_givs_rescan (struct loop *loop, struct iv_class *bl, rtx *reg_map)
 	mark_reg_pointer (v->new_reg, 0);
 
       if (v->giv_type == DEST_ADDR)
-	/* Store reduced reg as the address in the memref where we found
-	   this giv.  */
-	validate_change (v->insn, v->location, v->new_reg, 0);
+	{
+	  /* Store reduced reg as the address in the memref where we found
+	     this giv.  */
+	  if (validate_change_maybe_volatile (v->insn, v->location,
+					      v->new_reg))
+	    /* Yay, it worked!  */;
+	  /* Not replaceable; emit an insn to set the original
+	     giv reg from the reduced giv.  */
+	  else if (REG_P (*v->location))
+	    loop_insn_emit_before (loop, 0, v->insn,
+				   gen_move_insn (*v->location,
+						  v->new_reg));
+	  else if (GET_CODE (*v->location) == PLUS
+		   && REG_P (XEXP (*v->location, 0))
+		   && CONSTANT_P (XEXP (*v->location, 1)))
+	    loop_insn_emit_before (loop, 0, v->insn,
+				   gen_move_insn (XEXP (*v->location, 0),
+						  gen_rtx_MINUS
+						  (GET_MODE (*v->location),
+						   v->new_reg,
+						   XEXP (*v->location, 1))));
+	  else
+	    {
+	      /* If it wasn't a reg, create a pseudo and use that.  */
+	      rtx reg, seq;
+	      start_sequence ();
+	      reg = force_reg (v->mode, *v->location);
+	      seq = get_insns ();
+	      end_sequence ();
+	      loop_insn_emit_before (loop, 0, v->insn, seq);
+	      if (!validate_change_maybe_volatile (v->insn, v->location, reg))
+		gcc_unreachable ();
+	    }
+	}
       else if (v->replaceable)
 	{
 	  reg_map[REGNO (v->dest_reg)] = v->new_reg;
@@ -6688,7 +6725,7 @@ valid_initial_value_p (rtx x, rtx insn, int call_seen, rtx loop_start)
      some machines, don't use any hard registers at all.  */
   if (REGNO (x) < FIRST_PSEUDO_REGISTER
       && (SMALL_REGISTER_CLASSES
-	  || (call_used_regs[REGNO (x)] && call_seen)))
+	  || (call_seen && call_used_regs[REGNO (x)])))
     return 0;
 
   /* Don't use registers that have been clobbered before the start of the
@@ -7621,9 +7658,9 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
     case CONST_INT:
     case SYMBOL_REF:
     case CONST:
-      /* convert_modes aborts if we try to convert to or from CCmode, so just
+      /* convert_modes dies if we try to convert to or from CCmode, so just
          exclude that case.  It is very unlikely that a condition code value
-	 would be a useful iterator anyways.  convert_modes aborts if we try to
+	 would be a useful iterator anyways.  convert_modes dies if we try to
 	 convert a float mode to non-float or vice versa too.  */
       if (loop->level == 1
 	  && GET_MODE_CLASS (mode) == GET_MODE_CLASS (GET_MODE (dest_reg))
@@ -11775,3 +11812,66 @@ debug_loops (const struct loops *loops)
 {
   flow_loops_dump (loops, stderr, loop_dump_aux, 1);
 }
+
+static bool
+gate_handle_loop_optimize (void)
+{
+  return (optimize > 0 && flag_loop_optimize);
+}
+
+/* Move constant computations out of loops.  */
+static void
+rest_of_handle_loop_optimize (void)
+{
+  int do_prefetch;
+
+  /* CFG is no longer maintained up-to-date.  */
+  free_bb_for_insn ();
+  profile_status = PROFILE_ABSENT;
+  
+  do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
+  
+  if (flag_rerun_loop_opt)
+    {
+      cleanup_barriers ();
+      
+      /* We only want to perform unrolling once.  */
+      loop_optimize (get_insns (), dump_file, 0);
+      
+      /* The first call to loop_optimize makes some instructions
+         trivially dead.  We delete those instructions now in the
+         hope that doing so will make the heuristics in loop work
+         better and possibly speed up compilation.  */
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  
+      /* The regscan pass is currently necessary as the alias
+         analysis code depends on this information.  */
+      reg_scan (get_insns (), max_reg_num ());
+    } 
+  cleanup_barriers ();
+  loop_optimize (get_insns (), dump_file, do_prefetch);
+      
+  /* Loop can create trivially dead instructions.  */
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  find_basic_blocks (get_insns ());
+}
+
+struct tree_opt_pass pass_loop_optimize =
+{
+  "old-loop",                           /* name */
+  gate_handle_loop_optimize,            /* gate */   
+  rest_of_handle_loop_optimize,         /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_LOOP,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'L'                                   /* letter */
+};
+
+

@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -109,17 +109,20 @@ class DefaultRGBChooserPanel extends AbstractColorChooserPanel
     }
   }
 
-  /** Whether the color change was initiated by the spinners. */
-  private transient boolean spinnerChange = false;
+  /** Whether the color change was initiated by the spinners.
+   * This is package-private to avoid an accessor method.  */
+  transient boolean spinnerChange = false;
 
-  /** Whether the color change was initiated by the sliders. */
-  private transient boolean sliderChange = false;
+  /** Whether the color change was initiated by the sliders.
+   * This is package-private to avoid an accessor method.  */
+  transient boolean sliderChange = false;
 
   /**
    * Whether the change was forced by the chooser (meaning the color has
    * already been changed).
+   * This is package-private to avoid an accessor method.
    */
-  private transient boolean updateChange = false;
+  transient boolean updateChange = false;
 
   /** The ChangeListener for the sliders. */
   private transient ChangeListener colorChanger;
@@ -127,14 +130,17 @@ class DefaultRGBChooserPanel extends AbstractColorChooserPanel
   /** The ChangeListener for the spinners. */
   private transient ChangeListener spinnerHandler;
 
-  /** The slider that handles the red values. */
-  private transient JSlider R;
+  /** The slider that handles the red values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSlider R;
 
-  /** The slider that handles the green values. */
-  private transient JSlider G;
+  /** The slider that handles the green values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSlider G;
 
-  /** The slider that handles the blue values. */
-  private transient JSlider B;
+  /** The slider that handles the blue values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSlider B;
 
   /** The label for the red slider. */
   private transient JLabel RLabel;
@@ -145,14 +151,17 @@ class DefaultRGBChooserPanel extends AbstractColorChooserPanel
   /** The label for the blue slider. */
   private transient JLabel BLabel;
 
-  /** The spinner that handles the red values. */
-  private transient JSpinner RSpinner;
+  /** The spinner that handles the red values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner RSpinner;
 
-  /** The spinner that handles the green values. */
-  private transient JSpinner GSpinner;
+  /** The spinner that handles the green values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner GSpinner;
 
-  /** The spinner that handles the blue values. */
-  private transient JSpinner BSpinner;
+  /** The spinner that handles the blue values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner BSpinner;
 
   /**
    * Creates a new DefaultRGBChooserPanel object.

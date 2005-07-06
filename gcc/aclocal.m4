@@ -1,4 +1,3 @@
-m4_include([../config/accross.m4])
 m4_include([../config/acx.m4])
 m4_include([../config/gettext-sister.m4])
 m4_include([../config/iconv.m4])
@@ -17,10 +16,10 @@ dnl 	[ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND [, INCLUDES]]])
 AC_DEFUN([gcc_AC_CHECK_DECL],
 [AC_MSG_CHECKING([whether $1 is declared])
 AC_CACHE_VAL(gcc_cv_have_decl_$1,
-[AC_TRY_COMPILE([$4],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([$4],
 [#ifndef $1
 char *(*pfn) = (char *(*)) $1 ;
-#endif], eval "gcc_cv_have_decl_$1=yes", eval "gcc_cv_have_decl_$1=no")])
+#endif])], eval "gcc_cv_have_decl_$1=yes", eval "gcc_cv_have_decl_$1=no")])
 if eval "test \"`echo '$gcc_cv_have_decl_'$1`\" = yes"; then
   AC_MSG_RESULT(yes) ; ifelse([$2], , :, [$2])
 else
@@ -94,7 +93,7 @@ dnl See if the printf functions in libc support %p in format strings.
 AC_DEFUN([gcc_AC_FUNC_PRINTF_PTR],
 [AC_CACHE_CHECK(whether the printf functions support %p,
   gcc_cv_func_printf_ptr,
-[AC_TRY_RUN([#include <stdio.h>
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[#include <stdio.h>
 
 int main()
 {
@@ -103,7 +102,7 @@ int main()
   sprintf(buf, "%p", p);
   sscanf(buf, "%p", &q);
   return (p != q);
-}], gcc_cv_func_printf_ptr=yes, gcc_cv_func_printf_ptr=no,
+}]])], gcc_cv_func_printf_ptr=yes, gcc_cv_func_printf_ptr=no,
 	gcc_cv_func_printf_ptr=no)
 rm -f core core.* *.core])
 if test $gcc_cv_func_printf_ptr = yes ; then
@@ -152,7 +151,7 @@ dnl Define MKDIR_TAKES_ONE_ARG if mkdir accepts only one argument instead
 dnl of the usual 2.
 AC_DEFUN([gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG],
 [AC_CACHE_CHECK([if mkdir takes one argument], gcc_cv_mkdir_takes_one_arg,
-[AC_TRY_COMPILE([
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 #include <sys/types.h>
 #ifdef HAVE_SYS_STAT_H
 # include <sys/stat.h>
@@ -162,7 +161,7 @@ AC_DEFUN([gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG],
 #endif
 #ifdef HAVE_DIRECT_H
 # include <direct.h>
-#endif], [mkdir ("foo", 0);], 
+#endif], [mkdir ("foo", 0);])],
         gcc_cv_mkdir_takes_one_arg=no, gcc_cv_mkdir_takes_one_arg=yes)])
 if test $gcc_cv_mkdir_takes_one_arg = yes ; then
   AC_DEFINE(MKDIR_TAKES_ONE_ARG, 1, [Define if host mkdir takes a single argument.])
@@ -280,7 +279,7 @@ else
 
    # Unlike /dev/zero, the MAP_ANON(YMOUS) defines can be probed for.
    AC_CACHE_CHECK([for MAP_ANON(YMOUS)], gcc_cv_decl_map_anon,
-    [AC_TRY_COMPILE(
+    [AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 [#include <sys/types.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -289,7 +288,7 @@ else
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 ],
-[int n = MAP_ANONYMOUS;],
+[int n = MAP_ANONYMOUS;])],
     gcc_cv_decl_map_anon=yes,
     gcc_cv_decl_map_anon=no)])
 
@@ -330,7 +329,8 @@ dnl Locate a program and check that its version is acceptable.
 dnl AC_PROG_CHECK_VER(var, name, version-switch,
 dnl                  version-extract-regexp, version-glob)
 AC_DEFUN([gcc_AC_CHECK_PROG_VER],
-[AC_CHECK_PROG([$1], [$2], [$2])
+[AC_REQUIRE([gcc_AC_BUILD_EXEEXT])
+AC_CHECK_PROG([$1], [$2], [$2])
 if test -n "[$]$1"; then
   # Found it, now check the version.
   AC_CACHE_CHECK(for modern $2, gcc_cv_prog_$2_modern,
@@ -338,7 +338,7 @@ if test -n "[$]$1"; then
   ac_prog_version=`<<$>>$1 $3 2>&1 |
                    sed -n 's/^.*patsubst(<<$4>>,/,\/).*$/\1/p'`
 changequote([,])dnl
-  echo "configure:__oline__: version of $2 is $ac_prog_version" >&AC_FD_CC
+  echo "configure:__oline__: version of $2 is $ac_prog_version" >&AS_MESSAGE_LOG_FD
 changequote(<<,>>)dnl
   case $ac_prog_version in
     '')     gcc_cv_prog_$2_modern=no;;
@@ -358,7 +358,7 @@ dnl be either signed or unsigned.
 dnl
 AC_DEFUN([gcc_AC_C_ENUM_BF_UNSIGNED],
 [AC_CACHE_CHECK(for unsigned enumerated bitfields, gcc_cv_enum_bf_unsigned,
-[AC_TRY_RUN(#include <stdlib.h>
+[AC_RUN_IFELSE([AC_LANG_SOURCE([#include <stdlib.h>
 enum t { BLAH = 128 } ;
 struct s_t { enum t member : 8; } s ;
 int main(void)
@@ -367,7 +367,7 @@ int main(void)
         if (s.member < 0) exit(1);
         exit(0);
 
-}, gcc_cv_enum_bf_unsigned=yes, gcc_cv_enum_bf_unsigned=no, gcc_cv_enum_bf_unsigned=yes)])
+}])], gcc_cv_enum_bf_unsigned=yes, gcc_cv_enum_bf_unsigned=no, gcc_cv_enum_bf_unsigned=yes)])
 if test $gcc_cv_enum_bf_unsigned = yes; then
   AC_DEFINE(ENUM_BITFIELDS_ARE_UNSIGNED, 1,
     [Define if enumerated bitfields are treated as unsigned values.])
@@ -391,11 +391,11 @@ if test $gcc_cv_decl_char_bit = no; then
 [i=8
  gcc_cv_c_nbby=
  while test $i -lt 65; do
-   AC_TRY_COMPILE(,
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,
      [switch(0) {
   case (unsigned char)((unsigned long)1 << $i) == ((unsigned long)1 << $i):
   case (unsigned char)((unsigned long)1<<($i-1)) == ((unsigned long)1<<($i-1)):
-  ; }], 
+  ; }])],
      [gcc_cv_c_nbby=$i; break])
    i=`expr $i + 1`
  done
@@ -409,36 +409,13 @@ else
 fi
 fi])
 
-dnl Checking for long long.
-dnl By Caolan McNamara <caolan@skynet.ie>
-dnl Added check for __int64, Zack Weinberg <zackw@stanford.edu>
-dnl
-AC_DEFUN([gcc_AC_C_LONG_LONG],
-[AC_CACHE_CHECK(for long long int, ac_cv_c_long_long,
-  [AC_TRY_COMPILE(,[long long int i;],
-         ac_cv_c_long_long=yes,
-         ac_cv_c_long_long=no)])
-  if test $ac_cv_c_long_long = yes; then
-    AC_DEFINE(HAVE_LONG_LONG, 1,
-      [Define if your compiler supports the \`long long' type.])
-  fi
-AC_CACHE_CHECK(for __int64, ac_cv_c___int64,
-  [AC_TRY_COMPILE(,[__int64 i;],
-	ac_cv_c___int64=yes,
-	ac_cv_c___int64=no)])
-  if test $ac_cv_c___int64 = yes; then
-    AC_DEFINE(HAVE___INT64, 1,
-      [Define if your compiler supports the \`__int64' type.])
-  fi
-])
-
 dnl From Bruno Haible.
 
 AC_DEFUN([AM_LANGINFO_CODESET],
 [
   AC_CACHE_CHECK([for nl_langinfo and CODESET], am_cv_langinfo_codeset,
-    [AC_TRY_LINK([#include <langinfo.h>],
-      [char* cs = nl_langinfo(CODESET);],
+    [AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <langinfo.h>],
+      [char* cs = nl_langinfo(CODESET);])],
       am_cv_langinfo_codeset=yes,
       am_cv_langinfo_codeset=no)
     ])
@@ -454,11 +431,11 @@ AC_DEFUN([gcc_AC_INITFINI_ARRAY],
 	[], [
 AC_CACHE_CHECK(for .preinit_array/.init_array/.fini_array support,
 		 gcc_cv_initfini_array, [dnl
-  AC_TRY_RUN([
+  AC_RUN_IFELSE([AC_LANG_SOURCE([
 static int x = -1;
 int main (void) { return x; }
 int foo (void) { x = 0; }
-int (*fp) (void) __attribute__ ((section (".init_array"))) = foo;],
+int (*fp) (void) __attribute__ ((section (".init_array"))) = foo;])],
 	     [gcc_cv_initfini_array=yes], [gcc_cv_initfini_array=no],
 	     [gcc_cv_initfini_array=no])])
   enable_initfini_array=$gcc_cv_initfini_array
@@ -540,12 +517,12 @@ AC_DEFUN([gcc_GAS_CHECK_FEATURE],
     gcc_GAS_VERSION_GTE_IFELSE($3, [[$2]=yes])
   el])if test x$gcc_cv_as != x; then
     echo ifelse(m4_substr([$5],0,1),[$], "[$5]", '[$5]') > conftest.s
-    if AC_TRY_COMMAND([$gcc_cv_as $4 -o conftest.o conftest.s >&AC_FD_CC])
+    if AC_TRY_COMMAND([$gcc_cv_as $4 -o conftest.o conftest.s >&AS_MESSAGE_LOG_FD])
     then
 	ifelse([$6],, [$2]=yes, [$6])
     else
-      echo "configure: failed program was" >&AC_FD_CC
-      cat conftest.s >&AC_FD_CC
+      echo "configure: failed program was" >&AS_MESSAGE_LOG_FD
+      cat conftest.s >&AS_MESSAGE_LOG_FD
     fi
     rm -f conftest.o conftest.s
   fi])
@@ -572,8 +549,8 @@ fi])])
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 AC_DEFUN([AM_PROG_CC_C_O],
 [AC_REQUIRE([AC_PROG_CC_C_O])dnl
@@ -608,8 +585,8 @@ fi
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # For projects using AC_CONFIG_AUX_DIR([foo]), Autoconf sets
 # $ac_aux_dir to `$srcdir/foo'.  In other projects, it is set to
@@ -655,3 +632,102 @@ AC_PREREQ([2.50])dnl
 # expand $ac_aux_dir to an absolute path
 am_aux_dir=`cd $ac_aux_dir && pwd`
 ])
+
+
+dnl GCC_TARGET_TEMPLATE(KEY)
+dnl ------------------------
+dnl Define KEY as a valid configure key on the target machine.
+
+m4_define([GCC_TARGET_TEMPLATE],
+[m4_define([GCC_TARGET_TEMPLATE($1)],[])])
+
+dnl AH_TEMPLATE(KEY, DESCRIPTION)
+dnl -----------------------------
+dnl Issue an autoheader template for KEY, i.e., a comment composed of
+dnl DESCRIPTION (properly wrapped), and then #undef KEY.  Redefinition
+dnl of the macro in autoheader.m4, to support definition of only a few
+dnl keys while compiling target libraries.
+
+m4_define([AH_TEMPLATE],
+[AH_VERBATIM([$1],m4_text_wrap([$2 */], [   ], [/* ])
+m4_ifdef([GCC_TARGET_TEMPLATE($1)],[],[#ifndef USED_FOR_TARGET
+])[#undef $1]m4_ifdef([GCC_TARGET_TEMPLATE($1)],[],[
+#endif
+]))])
+
+AC_DEFUN([gcc_AC_TOOL_DIRS], [
+# When searching for the assembler or linker, search the same directories
+# that the installed compiler will search.  Else we may find the wrong
+# assembler or linker and lose.  If we do not find a suitable binary,
+# then try the user's path.
+#
+# Also note we have to check MD_EXEC_PREFIX before checking the user's path.
+if test "x$exec_prefix" = xNONE; then
+	if test "x$prefix" = xNONE; then
+		gcc_cv_tool_prefix=/usr/local
+	else
+		gcc_cv_tool_prefix=$prefix
+	fi
+else
+	gcc_cv_tool_prefix=$exec_prefix
+fi
+
+if test x$host = x$build; then
+    gcc_cv_tool_dirs="$gcc_cv_tool_prefix/libexec/gcc/$target_noncanonical/$gcc_version"
+    gcc_cv_tool_dirs="$gcc_cv_tool_dirs$PATH_SEPARATOR$gcc_cv_tool_prefix/libexec/gcc/$target_noncanonical"
+    gcc_cv_tool_dirs="$gcc_cv_tool_dirs$PATH_SEPARATOR/usr/lib/gcc/$target_noncanonical/$gcc_version"
+    gcc_cv_tool_dirs="$gcc_cv_tool_dirs$PATH_SEPARATOR/usr/lib/gcc/$target_noncanonical"
+    gcc_cv_tool_dirs="$gcc_cv_tool_dirs$PATH_SEPARATOR$gcc_cv_tool_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version"
+    gcc_cv_tool_dirs="$gcc_cv_tool_dirs$PATH_SEPARATOR$gcc_cv_tool_prefix/$target_noncanonical/bin"
+else
+    gcc_cv_tool_dirs=
+fi
+
+if test x$build = x$target; then
+    # Rummage through tm_files looking for MD_EXEC_PREFIX
+    md_dirs=
+    for f in ${tm_file_list}; do
+	if test -f $f; then
+	    if grep '^#[ 	]*undef[ 	]*MD_EXEC_PREFIX' $f > /dev/null; then
+		md_dirs=
+	    fi
+	    md_dirs="$md_dirs "`sed -n -e 's@^#[ 	]*define[ 	]*MD_EXEC_PREFIX[ 	]*"\(.*\)/"@\1@p' < $f`
+	fi
+    done
+    for f in ${md_dirs}; do
+        gcc_cv_tool_dirs="$gcc_cv_tool_dirs$PATH_SEPARATOR$f"
+    done
+fi])
+
+dnl Make sure that build_exeext is looked for
+AC_DEFUN([gcc_AC_BUILD_EXEEXT], [
+ac_executable_extensions="$build_exeext"])
+
+AC_DEFUN([gcc_AC_CHECK_TOOL], [
+AC_REQUIRE([gcc_AC_TOOL_DIRS])
+AC_REQUIRE([gcc_AC_BUILD_EXEEXT])
+
+dnl shut up useless "checking for..." messages
+dnl we can still read them in config.log
+exec AS_MESSAGE_FD([])>/dev/null
+if test "x[$]$1" = x; then
+	AC_PATH_PROGS($1, $2, , $gcc_cv_tool_dirs)
+fi
+if test "x[$]$1" = x; then
+	# If the loop above did not find a tool, then use whatever
+	# one we can find in the users's path.  We are looking for a
+	# ${build} -> ${target} tool.
+	if test "x$program_prefix" != xNONE; then
+		default_tool_name=${program_prefix}$2
+	elif test x$build != x$host && test x$build != x$target; then
+		default_tool_name=${target_noncanonical}-$2
+	else
+		default_tool_name=`echo $2 | sed "${program_transform_name}"`
+	fi
+	AC_PATH_PROGS($1, $default_tool_name,
+		$gcc_cv_tool_prefix/$default_tool_name$build_exeext)
+fi
+test "$silent" != yes && exec AS_MESSAGE_FD([])>&1
+
+$3="[$]$1"
+AC_SUBST($3)])

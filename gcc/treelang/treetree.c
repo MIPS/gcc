@@ -33,8 +33,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.
+   Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.
 
    In other words, you are welcome to use, share and improve this program.
    You are forbidden to forbid anyone else to use, share and improve
@@ -698,14 +698,9 @@ tree_code_get_expression (unsigned int exp_type,
 
     case EXP_FUNCTION_INVOCATION:
       gcc_assert (op1);
-      {
-        tree fun_ptr;
-	TREE_USED (op1) = 1;
-        fun_ptr = fold_build1 (ADDR_EXPR,
-			       build_pointer_type (TREE_TYPE (op1)), op1);
-        ret1 = fold_build3 (CALL_EXPR, type, fun_ptr, nreverse (op2),
-			    NULL_TREE);
-      }
+      gcc_assert(TREE_TYPE (TREE_TYPE (op1)) == type);
+      TREE_USED (op1) = 1;
+      ret1 = build_function_call_expr(op1, op2);
       break;
 
     default:
@@ -1023,7 +1018,7 @@ poplevel (int keep, int reverse, int functionbody)
      binding level is a function body, or if there are any nested blocks then
      create a BLOCK node to record them for the life of this function.  */
   if (keep || functionbody)
-    block_node = build_block (keep ? decl_chain : 0, 0, subblock_chain, 0, 0);
+    block_node = build_block (keep ? decl_chain : 0, subblock_chain, 0, 0);
 
   /* Record the BLOCK node just built as the subblock its enclosing scope.  */
   for (subblock_node = subblock_chain; subblock_node;

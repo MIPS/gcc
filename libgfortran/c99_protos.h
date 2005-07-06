@@ -33,8 +33,16 @@ Boston, MA 02111-1307, USA.  */
 extern float acosf(float);
 #endif
 
+#ifndef HAVE_ACOSHF
+extern float acoshf(float);
+#endif
+
 #ifndef HAVE_ASINF
 extern float asinf(float);
+#endif
+
+#ifndef HAVE_ASINHF
+extern float asinhf(float);
 #endif
 
 #ifndef HAVE_ATAN2F
@@ -43,6 +51,10 @@ extern float atan2f(float, float);
 
 #ifndef HAVE_ATANF
 extern float atanf(float);
+#endif
+
+#ifndef HAVE_ATANHF
+extern float atanhf(float);
 #endif
 
 #ifndef HAVE_CEILF
@@ -89,6 +101,10 @@ extern float logf(float);
 extern float log10f(float);
 #endif
 
+#ifndef HAVE_SCALBN
+extern double scalbn(double, int);
+#endif
+
 #ifndef HAVE_SCALBNF
 extern float scalbnf(float, int);
 #endif
@@ -113,6 +129,14 @@ extern float tanf(float);
 extern float tanhf(float);
 #endif
 
+#ifndef HAVE_TRUNC
+extern double trunc(double x);
+#endif
+
+#ifndef HAVE_TRUNCF
+extern float truncf(float x);
+#endif
+
 #ifndef HAVE_NEXTAFTERF
 extern float nextafterf(float, float);
 #endif
@@ -127,6 +151,10 @@ extern double round(double);
 
 #ifndef HAVE_ROUNDF
 extern float roundf(float);
+#endif
+
+#ifndef HAVE_LOG10L
+extern long double log10l(long double);
 #endif
 
 #endif  /* C99_PROTOS_H  */

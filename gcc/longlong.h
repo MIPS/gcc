@@ -14,8 +14,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* You have to define the following before including this file:
 
@@ -46,8 +46,8 @@
 
 /* Define auxiliary asm macros.
 
-   1) umul_ppmm(high_prod, low_prod, multipler, multiplicand) multiplies two
-   UWtype integers MULTIPLER and MULTIPLICAND, and generates a two UWtype
+   1) umul_ppmm(high_prod, low_prod, multiplier, multiplicand) multiplies two
+   UWtype integers MULTIPLIER and MULTIPLICAND, and generates a two UWtype
    word product in HIGH_PROD and LOW_PROD.
 
    2) __umulsidi3(a,b) multiplies two UWtype integers A and B, and returns a

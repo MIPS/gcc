@@ -1,5 +1,5 @@
 /* Configuration file for ARM BPABI targets.
-   Copyright (C) 2004
+   Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC   
 
@@ -17,14 +17,17 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Use the AAPCS ABI by default.  */
 #define ARM_DEFAULT_ABI ARM_ABI_AAPCS
 
 /* Assume that AAPCS ABIs should adhere to the full BPABI.  */ 
 #define TARGET_BPABI (TARGET_AAPCS_BASED)
+
+/* BPABI targets use EABI frame unwinding tables.  */
+#define TARGET_UNWIND_INFO 1
 
 /* Section 4.1 of the AAPCS requires the use of VFP format.  */
 #define FPUTYPE_DEFAULT FPUTYPE_VFP
@@ -46,7 +49,7 @@
   "%{static:-Bstatic} %{shared:-shared} %{symbolic:-Bsymbolic} "	\
   "-X"
 
-#if defined (__thumb__) && !defined (__THUMB_INTERWORK__) 
+#if defined (__thumb__)
 #define RENAME_LIBRARY_SET ".thumb_set"
 #else
 #define RENAME_LIBRARY_SET ".set"
@@ -100,3 +103,10 @@
 
 #define TARGET_OS_CPP_BUILTINS() \
   TARGET_BPABI_CPP_BUILTINS()
+
+/* The BPABI specifies the use of .{init,fini}_array.  Therefore, we
+   do not want GCC to put anything into the .{init,fini} sections.  */
+#undef INIT_SECTION_ASM_OP
+#undef FINI_SECTION_ASM_OP
+#define INIT_ARRAY_SECTION_ASM_OP ARM_EABI_CTORS_SECTION_OP
+#define FINI_ARRAY_SECTION_ASM_OP ARM_EABI_DTORS_SECTION_OP

@@ -1,6 +1,57 @@
+2005-06-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* testsuite/libmudflap.c/externs-1.c (main): Add return statement.
+
+2005-06-15  Frank Ch. Eigler  <fche@redhat.com>
+
+	Fix for uncaching bug reported by Herman ten Brugge.
+	* mf-runtime.c (__mf_uncache_object): Search whole cache.
+	* testsuite/libmudflap.c/fail40-frag.c: New test.
+
+2005-05-23  Alfred M. Szmidt  <ams@gnu.org>
+
+	PR libmudflap/21724
+	* Makefile.am (AM_MAKEFLAGS): Pass includedir.
+	* Makefile.in: Amend.
+
+2005-06-14  Frank Ch. Eigler  <fche@redhat.com>
+
+	PR mudflap/21023
+	* testsuite/libmudflap.c/externs.exp, externs-{1,2}.c: New test files.
+	* testsuite/libmudflap.c/cfrags.exp: Bypass new sources.
+
+2005-06-14  Frank Ch. Eigler  <fche@redhat.com>
+
+	PR libmudflap/21094
+	* testsuite/libmudflap.c++/*.exp: Assert build tree g++.
+
+2005-06-14  Frank Ch. Eigler  <fche@redhat.com>
+
+	PR mudflap/22064
+	* mf-impl.h (mudflap_mode, violation_mode): Make these ordinary
+	unsigned vars with #defines instead of enums.
+
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-12  Frank Ch. Eigler  <fche@redhat.com>
+
+	PR mudflap/19266
+	* testsuite/libmudflap.c++/c++frags.exp: Also test -O permutation.
+	* testsuite/libmudflap.c++/pass57-frag.cxx: New test.
+
 2005-04-04  Alan Modra  <amodra@bigpond.net.au>
 
 	* mf-runtime.c (__mfu_unregister): Warning fix for char unsigned.
+
+2005-03-31  Mike Stump  <mrs@apple.com>
+
+	* mf-runtime.h: Add libmudflap copyright clause.
 
 2005-03-21  Mike Stump  <mrs@apple.com>
 

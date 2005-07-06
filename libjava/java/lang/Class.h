@@ -31,6 +31,7 @@ extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
 // This must be predefined with "C" linkage.
 extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
                                                int meth_idx);
+extern "C" void *_Jv_ResolvePoolEntry (jclass this_class, jint index);
 
 // These are the possible values for the `state' field of the class
 // structure.  Note that ordering is important here.  Whenever the
@@ -235,6 +236,8 @@ jclass _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader);
 
 jboolean _Jv_IsInterpretedClass (jclass);
 
+void _Jv_CopyClassesToSystemLoader (java::lang::ClassLoader *);
+
 #ifdef INTERPRETER
 void _Jv_InitField (jobject, jclass, int);
 
@@ -270,7 +273,7 @@ public:
   java::lang::reflect::Constructor *getConstructor (JArray<jclass> *);
   JArray<java::lang::reflect::Constructor *> *getConstructors (void);
   java::lang::reflect::Constructor *getDeclaredConstructor (JArray<jclass> *);
-  JArray<java::lang::reflect::Constructor *> *getDeclaredConstructors (void);
+  JArray<java::lang::reflect::Constructor *> *getDeclaredConstructors (jboolean);
   java::lang::reflect::Field *getDeclaredField (jstring);
   JArray<java::lang::reflect::Field *> *getDeclaredFields ();
   JArray<java::lang::reflect::Field *> *getDeclaredFields (jboolean);
@@ -278,12 +281,12 @@ public:
   JArray<java::lang::reflect::Method *> *getDeclaredMethods (void);
 
   JArray<jclass> *getDeclaredClasses (void);
+  JArray<jclass> *getDeclaredClasses (jboolean);
   jclass getDeclaringClass (void);
 
   java::lang::reflect::Field *getField (jstring);
 private:
   JArray<java::lang::reflect::Field *> internalGetFields ();
-  JArray<java::lang::reflect::Constructor *> *_getConstructors (jboolean);
   java::lang::reflect::Field *getField (jstring, jint);
   jint _getMethods (JArray<java::lang::reflect::Method *> *result,
 		    jint offset);
@@ -490,6 +493,10 @@ private:
   friend class ::_Jv_InterpreterEngine;
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);
+
+  friend void *::_Jv_ResolvePoolEntry (jclass this_class, jint index);
+
+  friend void ::_Jv_CopyClassesToSystemLoader (java::lang::ClassLoader *);
 
   // Chain for class pool.  This also doubles as the ABI version
   // number.  It is only used for this purpose at class registration

@@ -1,3 +1,94 @@
+2005-07-05  Randolph Chung  <tausq@debian.org>
+
+	* src/pa/ffi.c (ffi_struct_type): Rename FFI_TYPE_SMALL_STRUCT1
+	as FFI_TYPE_SMALL_STRUCT3.  Break out handling for 5-7 byte
+	structures.  Kill compilation warnings.
+	(ffi_closure_inner_LINUX): Print return values as hex in debug
+	message.  Rename FFI_TYPE_SMALL_STRUCT1 as FFI_TYPE_SMALL_STRUCT3.
+	Properly handle 5-7 byte structure returns.
+	* src/pa/ffitarget.h (FFI_TYPE_SMALL_STRUCT1)
+	(FFI_TYPE_SMALL_STRUCT2): Remove.
+	(FFI_TYPE_SMALL_STRUCT3, FFI_TYPE_SMALL_STRUCT5)
+	(FFI_TYPE_SMALL_STRUCT6, FFI_TYPE_SMALL_STRUCT7): Define.
+	* src/pa/linux.S: Mark source file as using PA1.1 assembly.
+	(checksmst1, checksmst2): Remove.
+	(checksmst3): Optimize handling of 3-byte struct returns.
+	(checksmst567): Properly handle 5-7 byte struct returns.
+
+2005-06-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libgcj/21943
+	* src/mips/n32.S: Enforce PIC code.
+	* src/mips/o32.S: Likewise.
+
+2005-06-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.ac: Treat i*86-*-solaris2.10 and up as X86_64.
+	* configure: Regenerate.
+	
+2005-06-01  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/powerpc/ppc_closure.S (ffi_closure_SYSV): Don't use JUMPTARGET
+	to call ffi_closure_helper_SYSV.  Append @local instead.
+	* src/powerpc/sysv.S (ffi_call_SYSV): Likewise for ffi_prep_args_SYSV.
+
+2005-05-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Use AC_C_BIGENDIAN instead of AC_C_BIGENDIAN_CROSS.
+	Use AC_CHECK_SIZEOF instead of AC_COMPILE_CHECK_SIZEOF.
+	* Makefile.am (ACLOCAL_AMFLAGS): Remove -I ../config.
+	* aclocal.m4, configure, fficonfig.h.in, Makefile.in,
+	include/Makefile.in, testsuite/Makefile.in: Regenerate.
+	
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-05-08  Richard Henderson  <rth@redhat.com>
+
+	PR libffi/21285
+	* src/alpha/osf.S: Update unwind into to match code.
+
+2005-05-04  Andreas Degert <ad@papyrus-gmbh.de>
+	    Richard Henderson  <rth@redhat.com>
+
+	* src/x86/ffi64.c (ffi_prep_cif_machdep): Save sse-used flag in
+	bit 11 of flags.
+	(ffi_call): Mask return type field.  Pass ssecount to ffi_call_unix64.
+	(ffi_prep_closure): Set carry bit if sse-used flag set.
+	* src/x86/unix64.S (ffi_call_unix64): Add ssecount argument.
+	Only load sse registers if ssecount non-zero.
+	(ffi_closure_unix64): Only save sse registers if carry set on entry.
+
+2005-04-29  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* configure.ac: Add i*86-*-rtems*, sparc*-*-rtems*,
+	powerpc-*rtems*, arm*-*-rtems*, sh-*-rtems*.
+	* configure: Regenerate.
+
+2005-04-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libffi-dg.exp (libffi-dg-test-1): In regsub use,
+	have Tcl8.3-compatible intermediate variable.
+
+2005-04-18  Simon Posnjak <simon.posnjak@siol.net> 
+	    Hans-Peter Nilsson  <hp@axis.com>
+
+	* Makefile.am: Add CRIS support.
+	* configure.ac: Likewise.
+	* Makefile.in, configure, testsuite/Makefile.in,
+	include/Makefile.in: Regenerate.
+	* src/cris: New directory.
+	* src/cris/ffi.c, src/cris/sysv.S, src/cris/ffitarget.h: New files.
+	* src/prep_cif.c (ffi_prep_cif): Wrap in #ifndef __CRIS__.
+
+	* testsuite/lib/libffi-dg.exp (libffi-dg-test-1): Replace \n with
+	\r?\n in output tests.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
 2005-03-30  Hans Boehm  <Hans.Boehm@hp.com>
 
 	* src/ia64/ffitarget.h (ffi_arg): Use long long instead of DI.

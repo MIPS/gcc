@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_DEFAULTS_H
 #define GCC_DEFAULTS_H
@@ -702,8 +702,10 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define HAS_LONG_UNCOND_BRANCH 0
 #endif
 
+/* By default, only attempt to parallelize bitwise operations, and
+   possibly adds/subtracts using bit-twiddling.  */
 #ifndef UNITS_PER_SIMD_WORD
-#define UNITS_PER_SIMD_WORD 0
+#define UNITS_PER_SIMD_WORD UNITS_PER_WORD
 #endif
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
@@ -838,6 +840,10 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 /* Biggest alignment supported by the object file format of this machine.  */
 #ifndef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT BIGGEST_ALIGNMENT
+#endif
+
+#ifndef FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

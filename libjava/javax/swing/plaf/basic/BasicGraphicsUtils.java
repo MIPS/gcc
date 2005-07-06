@@ -1,5 +1,5 @@
 /* BasicGraphicsUtils.java
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -595,7 +595,6 @@ public class BasicGraphicsUtils
     Rectangle iconRect = new Rectangle();
     Rectangle textRect = new Rectangle();
     Insets insets = b.getInsets();
-    Insets margin = b.getMargin();
     
     viewRect = new Rectangle();
 
@@ -628,11 +627,11 @@ public class BasicGraphicsUtils
 
     contentRect = textRect.union(iconRect);
 
-    return new Dimension(insets.left + margin.left
+    return new Dimension(insets.left
 			 + contentRect.width 
-			 + insets.right + margin.right,
-                         insets.top + margin.top
+			 + insets.right,
+                         insets.top
 			 + contentRect.height 
-			 + insets.bottom + margin.bottom);
+			 + insets.bottom);
   }
 }

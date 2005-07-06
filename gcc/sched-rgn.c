@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This pass implements list scheduling within basic blocks.  It is
    run twice: (1) after flow analysis, but before register allocation,
@@ -65,6 +65,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "sched-int.h"
 #include "target.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* Define when we want to do count REG_DEAD notes before and after scheduling
    for sanity checking.  We can't do that when conditional execution is used,
@@ -351,7 +353,8 @@ is_cfg_nonregular (void)
 static void
 extract_edgelst (sbitmap set, edgelst *el)
 {
-  int i;
+  unsigned int i;
+  sbitmap_iterator sbi;
 
   /* edgelst table space is reused in each call to extract_edgelst.  */
   edgelst_last = 0;
@@ -360,11 +363,11 @@ extract_edgelst (sbitmap set, edgelst *el)
   el->nr_members = 0;
 
   /* Iterate over each word in the bitset.  */
-  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i,
-  {
-    edgelst_table[edgelst_last++] = rgn_edges[i];
-    el->nr_members++;
-  });
+  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i, sbi)
+    {
+      edgelst_table[edgelst_last++] = rgn_edges[i];
+      el->nr_members++;
+    }
 }
 
 /* Functions for the construction of regions.  */
@@ -1183,7 +1186,8 @@ check_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
 
-		  if (REGNO_REG_SET_P (b->global_live_at_start, regno + j))
+		  if (REGNO_REG_SET_P (b->il.rtl->global_live_at_start,
+				       regno + j))
 		    {
 		      return 0;
 		    }
@@ -1197,7 +1201,7 @@ check_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
 
-	      if (REGNO_REG_SET_P (b->global_live_at_start, regno))
+	      if (REGNO_REG_SET_P (b->il.rtl->global_live_at_start, regno))
 		{
 		  return 0;
 		}
@@ -1256,7 +1260,8 @@ update_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-		  SET_REGNO_REG_SET (b->global_live_at_start, regno + j);
+		  SET_REGNO_REG_SET (b->il.rtl->global_live_at_start,
+				     regno + j);
 		}
 	    }
 	}
@@ -1266,7 +1271,7 @@ update_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-	      SET_REGNO_REG_SET (b->global_live_at_start, regno);
+	      SET_REGNO_REG_SET (b->il.rtl->global_live_at_start, regno);
 	    }
 	}
     }
@@ -2585,3 +2590,95 @@ schedule_insns (FILE *dump_file)
   sbitmap_free (large_region_blocks);
 }
 #endif
+
+static bool
+gate_handle_sched (void)
+{
+#ifdef INSN_SCHEDULING
+  return flag_schedule_insns;
+#else
+  return 0;
+#endif
+}
+
+/* Run instruction scheduler.  */
+static void
+rest_of_handle_sched (void)
+{
+#ifdef INSN_SCHEDULING
+  /* Do control and data sched analysis,
+     and write some of the results to dump file.  */
+
+  schedule_insns (dump_file);
+#endif
+}
+
+static bool
+gate_handle_sched2 (void)
+{
+#ifdef INSN_SCHEDULING
+  return optimize > 0 && flag_schedule_insns_after_reload;
+#else
+  return 0;
+#endif
+}
+
+/* Run second scheduling pass after reload.  */
+static void
+rest_of_handle_sched2 (void)
+{
+#ifdef INSN_SCHEDULING
+  /* Do control and data sched analysis again,
+     and write some more of the results to dump file.  */
+
+  split_all_insns (1);
+
+  if (flag_sched2_use_superblocks || flag_sched2_use_traces)
+    {
+      schedule_ebbs (dump_file);
+      /* No liveness updating code yet, but it should be easy to do.
+         reg-stack recomputes the liveness when needed for now.  */
+      count_or_remove_death_notes (NULL, 1);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+    }
+  else
+    schedule_insns (dump_file);
+#endif
+}
+
+struct tree_opt_pass pass_sched =
+{
+  "sched1",                             /* name */
+  gate_handle_sched,                    /* gate */
+  rest_of_handle_sched,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SCHED,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'S'                                   /* letter */
+};
+
+struct tree_opt_pass pass_sched2 =
+{
+  "sched2",                             /* name */
+  gate_handle_sched2,                   /* gate */
+  rest_of_handle_sched2,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SCHED2,                            /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'R'                                   /* letter */
+};
+

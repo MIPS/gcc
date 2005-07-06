@@ -44,10 +44,10 @@ DIST_COMMON = $(glibcxxinstall_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/fragment.am
 subdir = libsupc++
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
-	$(top_srcdir)/linkage.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/crossconfig.m4 \
+	$(top_srcdir)/linkage.m4 $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -65,29 +65,31 @@ toolexeclibLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(noinst_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 libsupc___la_LIBADD =
 am__libsupc___la_SOURCES_DIST = del_op.cc del_opnt.cc del_opv.cc \
-	del_opvnt.cc eh_alloc.cc eh_aux_runtime.cc eh_catch.cc \
-	eh_exception.cc eh_globals.cc eh_personality.cc \
-	eh_term_handler.cc eh_terminate.cc eh_throw.cc eh_type.cc \
-	eh_unex_handler.cc guard.cc new_handler.cc new_op.cc \
-	new_opnt.cc new_opv.cc new_opvnt.cc pure.cc tinfo.cc tinfo2.cc \
-	vec.cc vterminate.cc cp-demangle.c
+	del_opvnt.cc eh_alloc.cc eh_arm.cc eh_aux_runtime.cc \
+	eh_call.cc eh_catch.cc eh_exception.cc eh_globals.cc \
+	eh_personality.cc eh_term_handler.cc eh_terminate.cc \
+	eh_throw.cc eh_type.cc eh_unex_handler.cc guard.cc \
+	new_handler.cc new_op.cc new_opnt.cc new_opv.cc new_opvnt.cc \
+	pure.cc tinfo.cc tinfo2.cc vec.cc vterminate.cc cp-demangle.c
 am__objects_1 = del_op.lo del_opnt.lo del_opv.lo del_opvnt.lo \
-	eh_alloc.lo eh_aux_runtime.lo eh_catch.lo eh_exception.lo \
-	eh_globals.lo eh_personality.lo eh_term_handler.lo \
-	eh_terminate.lo eh_throw.lo eh_type.lo eh_unex_handler.lo \
-	guard.lo new_handler.lo new_op.lo new_opnt.lo new_opv.lo \
-	new_opvnt.lo pure.lo tinfo.lo tinfo2.lo vec.lo vterminate.lo
+	eh_alloc.lo eh_arm.lo eh_aux_runtime.lo eh_call.lo eh_catch.lo \
+	eh_exception.lo eh_globals.lo eh_personality.lo \
+	eh_term_handler.lo eh_terminate.lo eh_throw.lo eh_type.lo \
+	eh_unex_handler.lo guard.lo new_handler.lo new_op.lo \
+	new_opnt.lo new_opv.lo new_opvnt.lo pure.lo tinfo.lo tinfo2.lo \
+	vec.lo vterminate.lo
 @GLIBCXX_HOSTED_TRUE@am__objects_2 = cp-demangle.lo
 am_libsupc___la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libsupc___la_OBJECTS = $(am_libsupc___la_OBJECTS)
 libsupc__convenience_la_LIBADD =
 am__libsupc__convenience_la_SOURCES_DIST = del_op.cc del_opnt.cc \
-	del_opv.cc del_opvnt.cc eh_alloc.cc eh_aux_runtime.cc \
-	eh_catch.cc eh_exception.cc eh_globals.cc eh_personality.cc \
-	eh_term_handler.cc eh_terminate.cc eh_throw.cc eh_type.cc \
-	eh_unex_handler.cc guard.cc new_handler.cc new_op.cc \
-	new_opnt.cc new_opv.cc new_opvnt.cc pure.cc tinfo.cc tinfo2.cc \
-	vec.cc vterminate.cc cp-demangle.c
+	del_opv.cc del_opvnt.cc eh_alloc.cc eh_arm.cc \
+	eh_aux_runtime.cc eh_call.cc eh_catch.cc eh_exception.cc \
+	eh_globals.cc eh_personality.cc eh_term_handler.cc \
+	eh_terminate.cc eh_throw.cc eh_type.cc eh_unex_handler.cc \
+	guard.cc new_handler.cc new_op.cc new_opnt.cc new_opv.cc \
+	new_opvnt.cc pure.cc tinfo.cc tinfo2.cc vec.cc vterminate.cc \
+	cp-demangle.c
 am_libsupc__convenience_la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libsupc__convenience_la_OBJECTS =  \
 	$(am_libsupc__convenience_la_OBJECTS)
@@ -170,12 +172,6 @@ GLIBCXX_C_HEADERS_C_TRUE = @GLIBCXX_C_HEADERS_C_TRUE@
 GLIBCXX_HOSTED_FALSE = @GLIBCXX_HOSTED_FALSE@
 GLIBCXX_HOSTED_TRUE = @GLIBCXX_HOSTED_TRUE@
 GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
-GLIBCXX_TEST_ABI_FALSE = @GLIBCXX_TEST_ABI_FALSE@
-GLIBCXX_TEST_ABI_TRUE = @GLIBCXX_TEST_ABI_TRUE@
-GLIBCXX_TEST_THREAD_FALSE = @GLIBCXX_TEST_THREAD_FALSE@
-GLIBCXX_TEST_THREAD_TRUE = @GLIBCXX_TEST_THREAD_TRUE@
-GLIBCXX_TEST_WCHAR_T_FALSE = @GLIBCXX_TEST_WCHAR_T_FALSE@
-GLIBCXX_TEST_WCHAR_T_TRUE = @GLIBCXX_TEST_WCHAR_T_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -315,7 +311,9 @@ sources = \
 	del_opv.cc \
 	del_opvnt.cc \
 	eh_alloc.cc \
+	eh_arm.cc \
 	eh_aux_runtime.cc \
+	eh_call.cc \
 	eh_catch.cc \
 	eh_exception.cc \
 	eh_globals.cc \

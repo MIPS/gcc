@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with the GNU C Library; if not, write to the Free
-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.  */
+   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301 USA.  */
 
 /* This file has been modified for usage in libiberty.  It includes "xregex.h"
    instead of <regex.h>.  The "xregex.h" header file renames all external
@@ -6172,9 +6172,9 @@ byte_re_match_2_internal (struct re_pattern_buffer *bufp,
 	    uint32_t nrules;
 # endif /* _LIBC */
 #endif /* WCHAR */
-	    boolean not = (re_opcode_t) *(p - 1) == charset_not;
+	    boolean negate = (re_opcode_t) *(p - 1) == charset_not;
 
-            DEBUG_PRINT2 ("EXECUTING charset%s.\n", not ? "_not" : "");
+            DEBUG_PRINT2 ("EXECUTING charset%s.\n", negate ? "_not" : "");
 	    PREFETCH ();
 	    c = TRANSLATE (*d); /* The character to match.  */
 #ifdef WCHAR
@@ -6541,20 +6541,20 @@ byte_re_match_2_internal (struct re_pattern_buffer *bufp,
 	      if (c == *workp)
 		goto char_set_matched;
 
-	    not = !not;
+	    negate = !negate;
 
 	  char_set_matched:
-	    if (not) goto fail;
+	    if (negate) goto fail;
 #else
             /* Cast to `unsigned' instead of `unsigned char' in case the
                bit list is a full 32 bytes long.  */
 	    if (c < (unsigned) (*p * BYTEWIDTH)
 		&& p[1 + c / BYTEWIDTH] & (1 << (c % BYTEWIDTH)))
-	      not = !not;
+	      negate = !negate;
 
 	    p += 1 + *p;
 
-	    if (!not) goto fail;
+	    if (!negate) goto fail;
 #undef WORK_BUFFER_SIZE
 #endif /* WCHAR */
 	    SET_REGS_MATCHED ();
@@ -7044,15 +7044,15 @@ byte_re_match_2_internal (struct re_pattern_buffer *bufp,
 		else if ((re_opcode_t) p1[3] == charset
 			 || (re_opcode_t) p1[3] == charset_not)
 		  {
-		    int not = (re_opcode_t) p1[3] == charset_not;
+		    int negate = (re_opcode_t) p1[3] == charset_not;
 
 		    if (c < (unsigned) (p1[4] * BYTEWIDTH)
 			&& p1[5 + c / BYTEWIDTH] & (1 << (c % BYTEWIDTH)))
-		      not = !not;
+		      negate = !negate;
 
-                    /* `not' is equal to 1 if c would match, which means
+                    /* `negate' is equal to 1 if c would match, which means
                         that we can't change to pop_failure_jump.  */
-		    if (!not)
+		    if (!negate)
                       {
   		        p[-3] = (unsigned char) pop_failure_jump;
                         DEBUG_PRINT1 ("  No match => pop_failure_jump.\n");

@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -883,7 +883,8 @@ public abstract class JTextComponent extends JComponent
     return getUI().getEditorKit(this).getActions();
   }
     
-  private Document doc;
+  // This is package-private to avoid an accessor method.
+  Document doc;
   private Caret caret;
   private Highlighter highlighter;
   private Color caretColor;
@@ -894,11 +895,30 @@ public abstract class JTextComponent extends JComponent
   private Insets margin;
   private boolean dragEnabled;
 
+  /** Issues repaint request on document changes. */
+  private DocumentListener repaintListener;
+
   /**
    * Creates a new <code>JTextComponent</code> instance.
    */
   public JTextComponent()
   {
+    repaintListener = new DocumentListener()
+      {
+	public void changedUpdate(DocumentEvent ev)
+	{
+	  repaint();
+	}
+	public void insertUpdate(DocumentEvent ev)
+	{
+	  repaint();
+	}
+	public void removeUpdate(DocumentEvent ev)
+	{
+	  repaint();
+	}
+      };
+
     Keymap defkeymap = getKeymap(DEFAULT_KEYMAP);
     boolean creatingKeymap = false;
     if (defkeymap == null)
@@ -932,6 +952,13 @@ public abstract class JTextComponent extends JComponent
   {
     Document oldDoc = doc;
     doc = newDoc;
+
+    // setup document listener
+    if (oldDoc != null)
+      oldDoc.removeDocumentListener(repaintListener);
+    if (newDoc != null)
+      newDoc.addDocumentListener(repaintListener);
+
     firePropertyChange("document", oldDoc, newDoc);
     revalidate();
     repaint();

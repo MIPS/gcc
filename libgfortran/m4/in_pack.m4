@@ -37,13 +37,14 @@ include(iparm.m4)dnl
 /* Allocates a block of memory with internal_malloc if the array needs
    repacking.  */
 
-dnl Only the kind (ie size) is used to name the function.
+dnl The kind (ie size) is used to name the function for logicals, integers
+dnl and reals.  For complex, it's c4 or c8.
 rtype_name *
-`internal_pack_'rtype_kind (rtype * source)
+`internal_pack_'rtype_ccode (rtype * source)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   index_type ssize;
@@ -84,7 +85,7 @@ rtype_name *
     return source->data;
 
   /* Allocate storage for the destination.  */
-  destptr = (rtype_name *)internal_malloc_size (ssize * rtype_kind);
+  destptr = (rtype_name *)internal_malloc_size (ssize * sizeof (rtype_name));
   dest = destptr;
   src = source->data;
   stride0 = stride[0];

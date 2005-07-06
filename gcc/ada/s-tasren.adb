@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---               GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS                --
+--                GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                  --
 --                                                                          --
 --            S Y S T E M . T A S K I N G . R E N D E Z V O U S             --
 --                                                                          --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -555,10 +555,11 @@ package body System.Tasking.Rendezvous is
    procedure Exceptional_Complete_Rendezvous
      (Ex : Ada.Exceptions.Exception_Id)
    is
-      Self_Id    : constant Task_Id := STPO.Self;
-      Entry_Call : Entry_Call_Link := Self_Id.Common.Call;
-      Caller     : Task_Id;
-      Called_PO  : STPE.Protection_Entries_Access;
+      Self_Id                : constant Task_Id := STPO.Self;
+      Entry_Call             : Entry_Call_Link := Self_Id.Common.Call;
+      Caller                 : Task_Id;
+      Called_PO              : STPE.Protection_Entries_Access;
+      Acceptor_Prev_Priority : Integer;
 
       Exception_To_Raise : Ada.Exceptions.Exception_Id := Ex;
       Ceiling_Violation  : Boolean;
@@ -720,15 +721,16 @@ package body System.Tasking.Rendezvous is
                   Self_Id.Common.Compiler_Data.Current_Excep);
             end if;
 
+            Acceptor_Prev_Priority := Entry_Call.Acceptor_Prev_Priority;
             Initialization.Wakeup_Entry_Caller (Self_Id, Entry_Call, Done);
+
             STPO.Unlock (Caller);
 
             if Single_Lock then
                Unlock_RTS;
             end if;
 
-            Entry_Calls.Reset_Priority
-              (Self_Id, Entry_Call.Acceptor_Prev_Priority);
+            Entry_Calls.Reset_Priority (Self_Id, Acceptor_Prev_Priority);
          end if;
       end if;
 

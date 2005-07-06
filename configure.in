@@ -147,6 +147,7 @@ target_libraries="target-libiberty \
 		target-newlib \
 		target-libstdc++-v3 \
 		target-libmudflap \
+		target-libssp \
 		target-libgfortran \
 		${libgcj} \
 		target-libobjc \
@@ -256,6 +257,10 @@ case "${host}" in
   *-cygwin*)
     configdirs="$configdirs libtermcap" ;;
 esac
+
+# A target can indicate whether a language isn't supported for some reason.
+# Only spaces may be used in this macro; not newlines or tabs.
+unsupported_languages=
 
 # Remove more programs from consideration, based on the host or 
 # target this usually means that a port of the program doesn't
@@ -481,10 +486,18 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj} gcc gdb newlib"
     ;;
   cris-*-* | crisv32-*-*)
+    unsupported_languages="$unsupported_languages java"
     case "${target}" in
-      *-*-elf | *-*-aout)
-	noconfigdirs="$noconfigdirs ${libgcj}";;
+      *-*-aout)
+	unsupported_languages="$unsupported_languages f95"
+	noconfigdirs="$noconfigdirs target-libffi target-boehm-gc";;
+      *-*-elf)
+	unsupported_languages="$unsupported_languages f95"
+	noconfigdirs="$noconfigdirs target-boehm-gc";;
+      *-*-linux*)
+	noconfigdirs="$noconfigdirs target-newlib target-libgloss";;
       *)
+	unsupported_languages="$unsupported_languages f95"
 	noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss";;
     esac
     ;;
@@ -634,13 +647,17 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libstdc++-v3"
     ;;
   mmix-*-*)
-    noconfigdirs="$noconfigdirs ${libgcj} gdb libgloss target-libgfortran"
+    noconfigdirs="$noconfigdirs target-libffi target-boehm-gc gdb libgloss"
+    unsupported_languages="$unsupported_languages f95 java"
     ;;
   mn10200-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   mn10300-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
+  ms1-*-*)
+    noconfigdirs="$noconfigdirs sim"
     ;;
   powerpc-*-aix*)
     # copied from rs6000-*-* entry
@@ -1025,7 +1042,7 @@ have_gmp=yes
 AC_ARG_WITH(mpfr-dir, [  --with-mpfr-dir=PATH    Specify source directory for MPFR library])
 
 if test "x$with_mpfr_dir" != x; then
-  gmpinc="-I$with_mpfr_dir/mpfr"
+  gmpinc="-I$with_mpfr_dir"
   gmplibs="$with_mpfr_dir/libmpfr.a"
 else
   gmplibs="-lmpfr"
@@ -1202,7 +1219,14 @@ if test -d ${srcdir}/gcc; then
             add_this_lang=no
             ;;
         esac
-        
+
+	# Disable a language that is unsupported by the target.
+	case " $unsupported_languages " in
+	  *" $language "*)
+	    add_this_lang=no
+	    ;;
+	esac
+
 	case $add_this_lang in
 	  no)
             # Remove language-dependent dirs.
@@ -1226,8 +1250,8 @@ if test -d ${srcdir}/gcc; then
   missing_languages=`echo "$missing_languages" | sed -e "s/^,//" -e "s/,$//"`
   if test "x$missing_languages" != x; then
     AC_MSG_ERROR([
-The following requested languages were not found: ${missing_languages}
-The available languages are: ${potential_languages}])
+The following requested languages could not be built: ${missing_languages}
+Recognised languages are: ${potential_languages}])
   fi
 
   if test "x$new_enable_languages" != "x$enable_languages"; then
@@ -1923,8 +1947,10 @@ fi
 # fixed in future.  It's still worthwhile to use a cache file for each
 # directory.  I think.
 
-# Pass the appropriate --host, --build, and --cache-file arguments.
-target_configargs="--cache-file=./config.cache --host=${target_alias} --build=${build_alias} ${target_configargs}"
+# Pass the appropriate --build, --host, --target and --cache-file arguments.
+# We need to pass --target, as newer autoconf's requires consistency
+# for target_alias and gcc doesn't manage it consistently.
+target_configargs="--cache-file=./config.cache --build=${build_alias} --host=${target_alias} --target=${target_alias} ${target_configargs}"
 
 FLAGS_FOR_TARGET=
 case " $target_configdirs " in

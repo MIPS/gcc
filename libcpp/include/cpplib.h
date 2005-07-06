@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -569,6 +569,19 @@ enum {
 /* The common part of an identifier node shared amongst all 3 C front
    ends.  Also used to store CPP identifiers, which are a superset of
    identifiers in the grammatical sense.  */
+
+union _cpp_hashnode_value GTY(())
+{
+  /* If a macro.  */
+  cpp_macro * GTY((tag ("NTV_MACRO"))) macro;
+  /* Answers to an assertion.  */
+  struct answer * GTY ((tag ("NTV_ANSWER"))) answers;
+  /* Code for a builtin macro.  */
+  enum builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin;
+  /* Macro argument index.  */
+  unsigned short GTY ((tag ("NTV_ARGUMENT"))) arg_index;
+};
+
 struct cpp_hashnode GTY(())
 {
   struct ht_identifier ident;
@@ -580,17 +593,7 @@ struct cpp_hashnode GTY(())
   ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
   unsigned char flags;			/* CPP flags.  */
 
-  union _cpp_hashnode_value
-  {
-    /* If a macro.  */
-    cpp_macro * GTY((tag ("NTV_MACRO"))) macro;
-    /* Answers to an assertion.  */
-    struct answer * GTY ((tag ("NTV_ANSWER"))) answers;
-    /* Code for a builtin macro.  */
-    enum builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin;
-    /* Macro argument index.  */
-    unsigned short GTY ((tag ("NTV_ARGUMENT"))) arg_index;
-  } GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
+  union _cpp_hashnode_value GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
 };
 
 /* Call this first to get a handle to pass to other functions.

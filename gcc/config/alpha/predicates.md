@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Return 1 if OP is the zero constant for MODE.
 (define_predicate "const0_operand"
@@ -231,7 +231,7 @@
       return add_operand (op, mode);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return 0;
 })
@@ -506,7 +506,7 @@
 
 ;; Returns 1 if OP is not an eliminable register.
 ;;
-;; This exists to cure a pathological abort in the s8addq (et al) patterns,
+;; This exists to cure a pathological failure in the s8addq (et al) patterns,
 ;;
 ;;	long foo () { long t; bar(); return (long) &t * 26107; }
 ;;

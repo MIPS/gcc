@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 /* stdio.h must precede rtl.h for FFS.  */
@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "params.h"
 #include "rtlhooks-def.h"
+#include "tree-pass.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -3808,7 +3809,7 @@ fold_rtx (rtx x, rtx insn)
 
 	    /* It's not safe to substitute the operand of a conversion
 	       operator with a constant, as the conversion's identity
-	       depends upon the mode of it's operand.  This optimization
+	       depends upon the mode of its operand.  This optimization
 	       is handled by the call to simplify_unary_operation.  */
 	    if (GET_RTX_CLASS (code) == RTX_UNARY
 		&& GET_MODE (replacements[j]) != mode_arg0
@@ -4359,47 +4360,6 @@ equiv_constant (rtx x)
     }
 
   return 0;
-}
-
-/* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a fixed-point
-   number, return an rtx (MEM, SUBREG, or CONST_INT) that refers to the
-   least-significant part of X.
-   MODE specifies how big a part of X to return.
-
-   If the requested operation cannot be done, 0 is returned.
-
-   This is similar to gen_lowpart_general in emit-rtl.c.  */
-
-rtx
-gen_lowpart_if_possible (enum machine_mode mode, rtx x)
-{
-  rtx result = gen_lowpart_common (mode, x);
-
-  if (result)
-    return result;
-  else if (MEM_P (x))
-    {
-      /* This is the only other case we handle.  */
-      int offset = 0;
-      rtx new;
-
-      if (WORDS_BIG_ENDIAN)
-	offset = (MAX (GET_MODE_SIZE (GET_MODE (x)), UNITS_PER_WORD)
-		  - MAX (GET_MODE_SIZE (mode), UNITS_PER_WORD));
-      if (BYTES_BIG_ENDIAN)
-	/* Adjust the address so that the address-after-the-data is
-	   unchanged.  */
-	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode))
-		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (x))));
-
-      new = adjust_address_nv (x, mode, offset);
-      if (! memory_address_p (mode, XEXP (new, 0)))
-	return 0;
-
-      return new;
-    }
-  else
-    return 0;
 }
 
 /* Given INSN, a jump insn, PATH_TAKEN indicates if we are following the "taken"
@@ -5575,9 +5535,10 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	  else if (constant_pool_entries_cost
 		   && CONSTANT_P (trial)
-		   /* Reject cases that will abort in decode_rtx_const.
-		      On the alpha when simplifying a switch, we get
-		      (const (truncate (minus (label_ref) (label_ref)))).  */
+		   /* Reject cases that will cause decode_rtx_const to
+		      die.  On the alpha when simplifying a switch, we
+		      get (const (truncate (minus (label_ref)
+		      (label_ref)))).  */
 		   && ! (GET_CODE (trial) == CONST
 			 && GET_CODE (XEXP (trial, 0)) == TRUNCATE)
 		   /* Likewise on IA-64, except without the truncate.  */
@@ -6839,7 +6800,7 @@ cse_main (rtx f, int nregs, FILE *file)
       max_qty = val.nsets * 2;
 
       if (file)
-	fnotice (file, ";; Processing block from %d to %d, %d sets.\n",
+	fprintf (file, ";; Processing block from %d to %d, %d sets.\n",
 		 INSN_UID (insn), val.last ? INSN_UID (val.last) : 0,
 		 val.nsets);
 
@@ -7781,3 +7742,119 @@ cse_condition_code_reg (void)
 	}
     }
 }
+
+
+/* Perform common subexpression elimination.  Nonzero value from
+   `cse_main' means that jumps were simplified and some code may now
+   be unreachable, so do jump optimization again.  */
+static bool
+gate_handle_cse (void)
+{
+  return optimize > 0;
+}
+
+static void
+rest_of_handle_cse (void)
+{
+  int tem;
+
+  if (dump_file)
+    dump_flow_info (dump_file);
+
+  reg_scan (get_insns (), max_reg_num ());
+
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  if (tem)
+    rebuild_jump_labels (get_insns ());
+  if (purge_all_dead_edges ())
+    delete_unreachable_blocks ();
+
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+
+  /* If we are not running more CSE passes, then we are no longer
+     expecting CSE to be run.  But always rerun it in a cheap mode.  */
+  cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
+
+  if (tem)
+    delete_dead_jumptables ();
+
+  if (tem || optimize > 1)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+}
+
+struct tree_opt_pass pass_cse =
+{
+  "cse1",                               /* name */
+  gate_handle_cse,                      /* gate */   
+  rest_of_handle_cse,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_CSE,                               /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  's'                                   /* letter */
+};
+
+
+static bool
+gate_handle_cse2 (void)
+{
+  return optimize > 0 && flag_rerun_cse_after_loop;
+}
+
+/* Run second CSE pass after loop optimizations.  */
+static void
+rest_of_handle_cse2 (void)
+{
+  int tem;
+
+  if (dump_file)
+    dump_flow_info (dump_file);
+
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+
+  /* Run a pass to eliminate duplicated assignments to condition code
+     registers.  We have to run this after bypass_jumps, because it
+     makes it harder for that pass to determine whether a jump can be
+     bypassed safely.  */
+  cse_condition_code_reg ();
+
+  purge_all_dead_edges ();
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+
+  if (tem)
+    {
+      timevar_push (TV_JUMP);
+      rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      timevar_pop (TV_JUMP);
+    }
+  reg_scan (get_insns (), max_reg_num ());
+  cse_not_expected = 1;
+}
+
+
+struct tree_opt_pass pass_cse2 =
+{
+  "cse2",                               /* name */
+  gate_handle_cse2,                     /* gate */   
+  rest_of_handle_cse2,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_CSE2,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  't'                                   /* letter */
+};
+

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */     
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */     
 
 /* The core algorithm is based on Andy Vaught's g95 tree.  Also the
    way to build UNION_TYPE is borrowed from Richard Henderson.
@@ -848,7 +848,7 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 		 requirements.  Insert padding immediately before this
 		 segment.  */
 	      gfc_warning ("Padding of %d bytes required before '%s' in "
-			   "COMMON '%s' at %L", offset, s->sym->name,
+			   "COMMON '%s' at %L", (int)offset, s->sym->name,
 			   common->name, &common->where);
 	    }
 	  else
@@ -874,7 +874,7 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
   if (common_segment->offset != 0)
     {
       gfc_warning ("COMMON '%s' at %L requires %d bytes of padding at start",
-		   common->name, &common->where, common_segment->offset);
+		   common->name, &common->where, (int)common_segment->offset);
     }
 
   create_common (common, common_segment, saw_equiv);

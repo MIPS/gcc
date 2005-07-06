@@ -20,8 +20,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -285,10 +285,10 @@ atomic_free (unsigned int *mask, int bit)
 #define PTR_IN(X, P)	((P) >= (X) && (P) < (X) + SIZE (X))
 
 static struct unw_reg_state emergency_reg_state[32];
-static int emergency_reg_state_free = MASK_FOR (emergency_reg_state);
+static unsigned int emergency_reg_state_free = MASK_FOR (emergency_reg_state);
 
 static struct unw_labeled_state emergency_labeled_state[8];
-static int emergency_labeled_state_free = MASK_FOR (emergency_labeled_state);
+static unsigned int emergency_labeled_state_free = MASK_FOR (emergency_labeled_state);
 
 #ifdef ENABLE_MALLOC_CHECKING
 static int reg_state_alloced;
@@ -2274,6 +2274,8 @@ uw_install_context (struct _Unwind_Context *current __attribute__((unused)),
 	"ld8 r26 = [r20], 8			\n\t"
 	"(p6) ldf.fill f22 = [r28]		\n\t"
 	"cmp.ne p7, p0 = r0, r29		\n\t"
+	";;					\n\t"
+	"ld8 r27 = [r20], 8			\n\t"
 	";;					\n\t"
 	"ld8 r28 = [r20], 8			\n\t"
 	"(p7) ldf.fill f23 = [r29]		\n\t"

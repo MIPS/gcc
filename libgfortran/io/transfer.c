@@ -1,5 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   Namelist transfer functions contributed by Paul Thomas
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -79,8 +80,9 @@ export_proto(transfer_complex);
 
 gfc_unit *current_unit = NULL;
 static int sf_seen_eor = 0;
+static int eor_condition = 0;
 
-char scratch[SCRATCH_SIZE] = { };
+char scratch[SCRATCH_SIZE];
 static char *line_buffer = NULL;
 
 static unit_advance advance_status;
@@ -88,7 +90,7 @@ static unit_advance advance_status;
 static st_option advance_opt[] = {
   {"yes", ADVANCE_YES},
   {"no", ADVANCE_NO},
-  {NULL}
+  {NULL, 0}
 };
 
 
@@ -150,9 +152,14 @@ read_sf (int *length)
   else
     p = base = data;
 
-  memset(base,'\0',*length);
+  /* If we have seen an eor previously, return a length of 0.  The
+     caller is responsible for correctly padding the input field.  */
+  if (sf_seen_eor)
+    {
+      *length = 0;
+      return base;
+    }
 
-  current_unit->bytes_left = options.default_recl;
   readlen = 1;
   n = 0;
 
@@ -160,7 +167,7 @@ read_sf (int *length)
     {
       if (is_internal_unit())
         {
-	  /* readlen may be modified inside salloc_r if 
+	  /* readlen may be modified inside salloc_r if
 	     is_internal_unit() is true.  */
           readlen = 1;
         }
@@ -179,13 +186,16 @@ read_sf (int *length)
 
       if (readlen < 1 || *q == '\n' || *q == '\r')
 	{
-	  /* ??? What is this for?  */
-          if (current_unit->unit_number == options.stdin_unit)
-            {
-              if (n <= 0)
-                continue;
-            }
 	  /* Unexpected end of line.  */
+
+	  /* If we see an EOR during non-advancing I/O, we need to skip
+	     the rest of the I/O statement.  Set the corresponding flag.  */
+	  if (advance_status == ADVANCE_NO || g.seen_dollar)
+	    eor_condition = 1;
+
+	  /* Without padding, terminate the I/O statement without assigning
+	     the value.  With padding, the value still needs to be assigned,
+	     so we can just continue with a short read.  */
 	  if (current_unit->flags.pad == PAD_NO)
 	    {
 	      generate_error (ERROR_EOR, NULL);
@@ -203,6 +213,10 @@ read_sf (int *length)
       sf_seen_eor = 0;
     }
   while (n < *length);
+  current_unit->bytes_left -= *length;
+
+  if (ioparm.size != NULL)
+    *ioparm.size += *length;
 
   return base;
 }
@@ -212,7 +226,7 @@ read_sf (int *length)
    file, advancing the current position.  We return a pointer to a
    buffer containing the bytes.  We return NULL on end of record or
    end of file.
-  
+
    If the read is short, then it is because the current record does not
    have enough data to satisfy the read request and the file was
    opened with PAD=YES.  The caller must assume tailing spaces for
@@ -425,7 +439,7 @@ formatted_transfer (bt type, void *p, int len)
 {
   int pos ,m ;
   fnode *f;
-  int i, n;
+  int n;
   int consume_data_flag;
 
   /* Change a complex data item into a pair of reals.  */
@@ -433,6 +447,11 @@ formatted_transfer (bt type, void *p, int len)
   n = (p == NULL) ? 0 : ((type != BT_COMPLEX) ? 1 : 2);
   if (type == BT_COMPLEX)
     type = BT_REAL;
+
+  /* If there's an EOR condition, we simulate finalizing the transfer
+     by doing nothing.  */
+  if (eor_condition)
+    return;
 
   for (;;)
     {
@@ -656,22 +675,19 @@ formatted_transfer (bt type, void *p, int len)
 
         case FMT_TL:
         case FMT_T:
-           if (f->format==FMT_TL)
+           if (f->format == FMT_TL)
+             pos = current_unit->recl - current_unit->bytes_left - f->u.n;
+           else /* FMT_T */
              {
-                pos = f->u.n ;
-                pos= current_unit->recl - current_unit->bytes_left - pos;
-             }
-           else // FMT==T
-             {
-                consume_data_flag = 0 ;
-                pos = f->u.n - 1; 
+               consume_data_flag = 0;
+               pos = f->u.n - 1;
              }
 
            if (pos < 0 || pos >= current_unit->recl )
-           {
-             generate_error (ERROR_EOR, "T Or TL edit position error");
-             break ;
-            }
+             {
+               generate_error (ERROR_EOR, "T or TL edit position error");
+               break ;
+             }
             m = pos - (current_unit->recl - current_unit->bytes_left);
 
             if (m == 0)
@@ -688,6 +704,7 @@ formatted_transfer (bt type, void *p, int len)
             if (m < 0)
              {
                move_pos_offset (current_unit->s,m);
+	       current_unit->bytes_left -= m;
              }
 
 	  break;
@@ -729,9 +746,7 @@ formatted_transfer (bt type, void *p, int len)
 
 	case FMT_SLASH:
           consume_data_flag = 0 ;
-	  for (i = 0; i < f->repeat; i++)
-	    next_record (0);
-
+	  next_record (0);
 	  break;
 
 	case FMT_COLON:
@@ -1103,6 +1118,13 @@ data_transfer_init (int read_flag)
 	generate_error (ERROR_OS, NULL);
     }
 
+  /* Overwriting an existing sequential file ?
+     it is always safe to truncate the file on the first write */
+  if (g.mode == WRITING
+      && current_unit->flags.access == ACCESS_SEQUENTIAL
+      && current_unit->current_record == 0)
+        struncate(current_unit->s);
+
   current_unit->mode = g.mode;
 
   /* Set the initial value of flags.  */
@@ -1114,6 +1136,7 @@ data_transfer_init (int read_flag)
   g.first_item = 1;
   g.item_count = 0;
   sf_seen_eor = 0;
+  eor_condition = 0;
 
   pre_position ();
 
@@ -1160,7 +1183,7 @@ data_transfer_init (int read_flag)
     }
   else
     {
-      if (advance_status == ADVANCE_YES)
+      if (advance_status == ADVANCE_YES && !g.seen_dollar)
 	current_unit->read_bad = 1;
     }
 
@@ -1178,7 +1201,7 @@ data_transfer_init (int read_flag)
 #define MAX_READ 4096
 
 static void
-next_record_r (int done)
+next_record_r (void)
 {
   int rlength, length;
   gfc_offset new;
@@ -1200,7 +1223,7 @@ next_record_r (int done)
 	{
 	  new = file_position (current_unit->s) + current_unit->bytes_left;
 
-	  /* Direct access files do not generate END conditions, 
+	  /* Direct access files do not generate END conditions,
 	     only I/O errors.  */
 	  if (sseek (current_unit->s, new) == FAILURE)
 	    generate_error (ERROR_OS, NULL);
@@ -1228,8 +1251,11 @@ next_record_r (int done)
     case FORMATTED_SEQUENTIAL:
       length = 1;
       /* sf_read has already terminated input because of an '\n'  */
-      if (sf_seen_eor) 
-         break;
+      if (sf_seen_eor)
+	{
+	  sf_seen_eor=0;
+	  break;
+	}
 
       do
         {
@@ -1266,7 +1292,7 @@ next_record_r (int done)
 /* Position to the next record in write mode.  */
 
 static void
-next_record_w (int done)
+next_record_w (void)
 {
   gfc_offset c, m;
   int length;
@@ -1341,7 +1367,7 @@ next_record_w (int done)
         }
 
       if (sfree (current_unit->s) == FAILURE)
- 	goto io_error;
+	goto io_error;
 
       break;
 
@@ -1365,9 +1391,9 @@ next_record (int done)
   current_unit->read_bad = 0;
 
   if (g.mode == READING)
-    next_record_r (done);
+    next_record_r ();
   else
-    next_record_w (done);
+    next_record_w ();
 
   /* keep position up to date for INQUIRE */
   current_unit->flags.position = POSITION_ASIS;
@@ -1395,6 +1421,13 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+
+  if (eor_condition)
+    {
+      generate_error (ERROR_EOR, NULL);
+      return;
+    }
+
   if (ioparm.library_return != LIBRARY_OK)
     return;
 
@@ -1422,11 +1455,12 @@ finalize_transfer (void)
     {
       free_fnodes ();
 
-      if (advance_status == ADVANCE_NO)
+      if (advance_status == ADVANCE_NO || g.seen_dollar)
 	{
 	  /* Most systems buffer lines, so force the partial record
 	     to be written out.  */
 	  flush (current_unit->s);
+	  g.seen_dollar = 0;
 	  return;
 	}
 
@@ -1445,7 +1479,9 @@ finalize_transfer (void)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (bt type, void *dest, int len)
+iolength_transfer (bt type   __attribute__ ((unused)),
+		   void *dest __attribute__ ((unused)),
+		   int len)
 {
   if (ioparm.iolength != NULL)
     *ioparm.iolength += len;
@@ -1587,94 +1623,77 @@ st_write_done (void)
   library_end ();
 }
 
+/* Receives the scalar information for namelist objects and stores it
+   in a linked list of namelist_info types.  */
 
-static void
-st_set_nml_var (void * var_addr, char * var_name, int var_name_len,
-                int kind, bt type, int string_length)
+extern void st_set_nml_var (void * ,char * ,
+			    GFC_INTEGER_4 ,gfc_charlen_type ,GFC_INTEGER_4);
+export_proto(st_set_nml_var);
+
+
+void
+st_set_nml_var (void * var_addr, char * var_name, GFC_INTEGER_4 len,
+		gfc_charlen_type string_length, GFC_INTEGER_4 dtype)
 {
-  namelist_info *t1 = NULL, *t2 = NULL;
-  namelist_info *nml = (namelist_info *) get_mem (sizeof (namelist_info));
+  namelist_info *t1 = NULL;
+  namelist_info *nml;
+
+  nml = (namelist_info*) get_mem (sizeof (namelist_info));
+
   nml->mem_pos = var_addr;
-  if (var_name)
+
+  nml->var_name = (char*) get_mem (strlen (var_name) + 1);
+  strcpy (nml->var_name, var_name);
+
+  nml->len = (int) len;
+  nml->string_length = (index_type) string_length;
+
+  nml->var_rank = (int) (dtype & GFC_DTYPE_RANK_MASK);
+  nml->size = (index_type) (dtype >> GFC_DTYPE_SIZE_SHIFT);
+  nml->type = (bt) ((dtype & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT);
+
+  if (nml->var_rank > 0)
     {
-      assert (var_name_len > 0);
-      nml->var_name = (char*) get_mem (var_name_len+1);
-      strncpy (nml->var_name, var_name, var_name_len);
-      nml->var_name[var_name_len] = 0;
+      nml->dim = (descriptor_dimension*)
+		   get_mem (nml->var_rank * sizeof (descriptor_dimension));
+      nml->ls = (nml_loop_spec*)
+		  get_mem (nml->var_rank * sizeof (nml_loop_spec));
     }
   else
     {
-      assert (var_name_len == 0);
-      nml->var_name = NULL;
+      nml->dim = NULL;
+      nml->ls = NULL;
     }
-
-  nml->len = kind;
-  nml->type = type;
-  nml->string_length = string_length;
 
   nml->next = NULL;
 
   if (ionml == NULL)
-     ionml = nml;
+    ionml = nml;
   else
     {
-      t1 = ionml;
-      while (t1 != NULL)
-       {
-         t2 = t1;
-         t1 = t1->next;
-       }
-       t2->next = nml;
+      for (t1 = ionml; t1->next; t1 = t1->next);
+      t1->next = nml;
     }
+  return;
 }
 
-extern void st_set_nml_var_int (void *, char *, int, int);
-export_proto(st_set_nml_var_int);
-
-extern void st_set_nml_var_float (void *, char *, int, int);
-export_proto(st_set_nml_var_float);
-
-extern void st_set_nml_var_char (void *, char *, int, int, gfc_charlen_type);
-export_proto(st_set_nml_var_char);
-
-extern void st_set_nml_var_complex (void *, char *, int, int);
-export_proto(st_set_nml_var_complex);
-
-extern void st_set_nml_var_log (void *, char *, int, int);
-export_proto(st_set_nml_var_log);
+/* Store the dimensional information for the namelist object.  */
+extern void st_set_nml_var_dim (GFC_INTEGER_4, GFC_INTEGER_4,
+				GFC_INTEGER_4 ,GFC_INTEGER_4);
+export_proto(st_set_nml_var_dim);
 
 void
-st_set_nml_var_int (void * var_addr, char * var_name, int var_name_len,
-		    int kind)
+st_set_nml_var_dim (GFC_INTEGER_4 n_dim, GFC_INTEGER_4 stride,
+		    GFC_INTEGER_4 lbound, GFC_INTEGER_4 ubound)
 {
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_INTEGER, 0);
-}
+  namelist_info * nml;
+  int n;
 
-void
-st_set_nml_var_float (void * var_addr, char * var_name, int var_name_len,
-		      int kind)
-{
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_REAL, 0);
-}
+  n = (int)n_dim;
 
-void
-st_set_nml_var_char (void * var_addr, char * var_name, int var_name_len,
-		     int kind, gfc_charlen_type string_length)
-{
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_CHARACTER,
-		  string_length);
-}
+  for (nml = ionml; nml->next; nml = nml->next);
 
-void
-st_set_nml_var_complex (void * var_addr, char * var_name, int var_name_len,
-			int kind)
-{
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_COMPLEX, 0);
-}
-
-void
-st_set_nml_var_log (void * var_addr, char * var_name, int var_name_len,
-		    int kind)
-{
-   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_LOGICAL, 0);
+  nml->dim[n].stride = (ssize_t)stride;
+  nml->dim[n].lbound = (ssize_t)lbound;
+  nml->dim[n].ubound = (ssize_t)ubound;
 }

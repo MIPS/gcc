@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* ??? Look at ABI group documents for list of preprocessor macros and
    other features required for ABI compliance.  */
@@ -67,7 +67,6 @@ extern unsigned int ia64_section_threshold;
 #define TARGET_HAVE_TLS true
 #endif
 
-extern int ia64_tls_size;
 #define TARGET_TLS14		(ia64_tls_size == 14)
 #define TARGET_TLS22		(ia64_tls_size == 22)
 #define TARGET_TLS64		(ia64_tls_size == 64)
@@ -167,8 +166,6 @@ extern enum processor_type ia64_tune;
 #endif
 
 #define UNITS_PER_WORD 8
-
-#define UNITS_PER_SIMD_WORD UNITS_PER_WORD
 
 #define POINTER_SIZE (TARGET_ILP32 ? 32 : 64)
 
@@ -456,7 +453,7 @@ while (0)
 
 #define CALL_REALLY_USED_REGISTERS \
 { /* General registers.  */				\
-  1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1,	\
+  0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
@@ -465,7 +462,7 @@ while (0)
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,	\
   /* Floating-point registers.  */			\
-  1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
@@ -474,7 +471,7 @@ while (0)
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   /* Predicate registers.  */				\
-  1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
@@ -508,9 +505,7 @@ while (0)
 #define LOCAL_REGNO(REGNO) \
   (IN_REGNO_P (REGNO) || LOC_REGNO_P (REGNO))
 
-/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison.  Must be defined if
-   EXTRA_CC_MODES is defined.  */
+/* We define CCImode in ia64-modes.def so we need a selector.  */
 
 #define SELECT_CC_MODE(OP,X,Y)  CCmode
 
@@ -897,11 +892,11 @@ enum reg_class
    : ((CLASS) == FR_REGS && (MODE) == XCmode) ? 2		\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* In FP regs, we can't change FP values to integer values and vice
-   versa, but we can change e.g. DImode to SImode.  */
+/* In FP regs, we can't change FP values to integer values and vice versa,
+   but we can change e.g. DImode to SImode, and V2SFmode into DImode.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 	\
-  (GET_MODE_CLASS (FROM) != GET_MODE_CLASS (TO)		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
+  (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
    ? reg_classes_intersect_p (CLASS, FR_REGS) : 0)
 
 /* A C expression that defines the machine-dependent operand constraint
@@ -954,9 +949,9 @@ enum reg_class
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
-/* #define FRAME_GROWS_DOWNWARD */
+/* Define this macro to non-zero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 0
 
 /* Offset from the frame pointer to the first local variable slot to
    be allocated.  */
@@ -1270,24 +1265,11 @@ do {									\
    call the profiling subroutine `mcount'.  */
 
 #undef FUNCTION_PROFILER
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
-do {									\
-  char buf[20];								\
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LP", LABELNO);			\
-  fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", FILE);			\
-  if (TARGET_AUTO_PIC)							\
-    fputs ("\tmovl out3 = @gprel(", FILE);				\
-  else									\
-    fputs ("\taddl out3 = @ltoff(", FILE);				\
-  assemble_name (FILE, buf);						\
-  if (TARGET_AUTO_PIC)							\
-    fputs (");;\n", FILE);						\
-  else									\
-    fputs ("), r1;;\n", FILE);						\
-  fputs ("\tmov out1 = r1\n", FILE);					\
-  fputs ("\tmov out2 = b0\n", FILE);					\
-  fputs ("\tbr.call.sptk.many b0 = _mcount;;\n", FILE);			\
-} while (0)
+#define FUNCTION_PROFILER(FILE, LABELNO) \
+  ia64_output_function_profiler(FILE, LABELNO)
+
+/* Neither hpux nor linux use profile counters.  */
+#define NO_PROFILE_COUNTERS 1
 
 /* Trampolines for Nested Functions.  */
 
@@ -1412,10 +1394,7 @@ do {									\
 /* A C expression that is nonzero if X is a legitimate constant for an
    immediate operand on the target machine.  */
 
-#define LEGITIMATE_CONSTANT_P(X) \
-  (GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode	\
-   || GET_MODE (X) == DImode || CONST_DOUBLE_OK_FOR_G (X))	\
-
+#define LEGITIMATE_CONSTANT_P(X) ia64_legitimate_constant_p (X)
 
 /* Condition Code Status */
 
@@ -1741,13 +1720,6 @@ do {									\
   { "loc79", LOC_REG (79) }, 						\
 }
 
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  ia64_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
-
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand X.  X is an RTL expression.  */
 
@@ -1796,7 +1768,7 @@ do {									\
 /* This is how to output an element of a case-vector that is absolute.
    (Ia64 does not use such vectors, but we must define this macro anyway.)  */
 
-#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) abort ()
+#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) gcc_unreachable ()
 
 /* Jump tables only need 8 byte alignment.  */
 
@@ -2013,6 +1985,8 @@ extern int ia64_final_schedule;
 
 #define TARGET_UNWIND_INFO	1
 
+#define TARGET_UNWIND_TABLES_DEFAULT true
+
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
 
 /* This function contains machine specific function data.  */
@@ -2034,66 +2008,6 @@ struct machine_function GTY(())
   int state_num;
 };
 
-
-enum ia64_builtins
-{
-  IA64_BUILTIN_SYNCHRONIZE,
-
-  IA64_BUILTIN_FETCH_AND_ADD_SI,
-  IA64_BUILTIN_FETCH_AND_SUB_SI,
-  IA64_BUILTIN_FETCH_AND_OR_SI,
-  IA64_BUILTIN_FETCH_AND_AND_SI,
-  IA64_BUILTIN_FETCH_AND_XOR_SI,
-  IA64_BUILTIN_FETCH_AND_NAND_SI,
-
-  IA64_BUILTIN_ADD_AND_FETCH_SI,
-  IA64_BUILTIN_SUB_AND_FETCH_SI,
-  IA64_BUILTIN_OR_AND_FETCH_SI,
-  IA64_BUILTIN_AND_AND_FETCH_SI,
-  IA64_BUILTIN_XOR_AND_FETCH_SI,
-  IA64_BUILTIN_NAND_AND_FETCH_SI,
-
-  IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI,
-  IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI,
-
-  IA64_BUILTIN_SYNCHRONIZE_SI,
-
-  IA64_BUILTIN_LOCK_TEST_AND_SET_SI,
-
-  IA64_BUILTIN_LOCK_RELEASE_SI,
-
-  IA64_BUILTIN_FETCH_AND_ADD_DI,
-  IA64_BUILTIN_FETCH_AND_SUB_DI,
-  IA64_BUILTIN_FETCH_AND_OR_DI,
-  IA64_BUILTIN_FETCH_AND_AND_DI,
-  IA64_BUILTIN_FETCH_AND_XOR_DI,
-  IA64_BUILTIN_FETCH_AND_NAND_DI,
-
-  IA64_BUILTIN_ADD_AND_FETCH_DI,
-  IA64_BUILTIN_SUB_AND_FETCH_DI,
-  IA64_BUILTIN_OR_AND_FETCH_DI,
-  IA64_BUILTIN_AND_AND_FETCH_DI,
-  IA64_BUILTIN_XOR_AND_FETCH_DI,
-  IA64_BUILTIN_NAND_AND_FETCH_DI,
-
-  IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI,
-  IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI,
-
-  IA64_BUILTIN_SYNCHRONIZE_DI,
-
-  IA64_BUILTIN_LOCK_TEST_AND_SET_DI,
-
-  IA64_BUILTIN_LOCK_RELEASE_DI,
-
-  IA64_BUILTIN_BSP,
-  IA64_BUILTIN_FLUSHRS
-};
-
-/* Codes for expand_compare_and_swap and expand_swap_and_compare.  */
-enum fetchop_code {
-  IA64_ADD_OP, IA64_SUB_OP, IA64_OR_OP, IA64_AND_OP, IA64_XOR_OP, IA64_NAND_OP
-};
-
 #define DONT_USE_BUILTIN_SETJMP
 
 /* Output any profiling code before the prologue.  */
@@ -2104,7 +2018,6 @@ enum fetchop_code {
 /* Initialize library function table. */
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS ia64_init_libfuncs
-
 
 
 /* Switch on code for querying unit reservations.  */

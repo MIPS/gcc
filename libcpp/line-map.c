@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -97,7 +97,7 @@ linemap_add (struct line_maps *set, enum lc_reason reason,
   if (set->used == set->allocated)
     {
       set->allocated = 2 * set->allocated + 256;
-      set->maps = xrealloc (set->maps, set->allocated * sizeof (struct line_map));
+      set->maps = XRESIZEVEC (struct line_map, set->maps, set->allocated);
     }
 
   map = &set->maps[set->used];
@@ -199,6 +199,8 @@ linemap_line_start (struct line_maps *set, unsigned int to_line,
       int column_bits;
       if (max_column_hint > 100000 || highest > 0xC0000000)
 	{
+	  /* If the column number is ridiculous or we've allocated a huge
+	     number of source_locations, give up on column numbers. */
 	  max_column_hint = 0;
 	  if (highest >0xF0000000)
 	    return 0;
@@ -211,13 +213,15 @@ linemap_line_start (struct line_maps *set, unsigned int to_line,
 	    column_bits++;
 	  max_column_hint = 1U << column_bits;
 	}
+      /* Allocate the new line_map.  However, if the current map only has a
+	 single line we can sometimes just increase its column_bits instead. */
       if (line_delta < 0
 	  || last_line != map->to_line
 	  || SOURCE_COLUMN (map, highest) >= (1U << column_bits))
 	map = (struct line_map*) linemap_add (set, LC_RENAME, map->sysp,
 				      map->to_file, to_line);
       map->column_bits = column_bits;
-      r = map->start_location;
+      r = map->start_location + ((to_line - map->to_line) << column_bits);
     }
   else
     r = highest - SOURCE_COLUMN (map, highest)

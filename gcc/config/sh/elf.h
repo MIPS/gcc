@@ -1,5 +1,5 @@
 /* Definitions of target machine for gcc for Renesas / SuperH SH using ELF.
-   Copyright (C) 1996, 1997, 2000, 2001, 2002, 2004
+   Copyright (C) 1996, 1997, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Ian Lance Taylor <ian@cygnus.com>.
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Let sh.c know this is ELF.  */
 #undef TARGET_ELF
@@ -61,7 +61,7 @@ Boston, MA 02111-1307, USA.  */
 #undef LINK_SPEC
 #define LINK_SPEC SH_LINK_SPEC
 #undef LINK_EMUL_PREFIX
-#if TARGET_ENDIAN_DEFAULT == LITTLE_ENDIAN_BIT
+#if TARGET_ENDIAN_DEFAULT == MASK_LITTLE_ENDIAN
 #define LINK_EMUL_PREFIX "sh%{!mb:l}elf"
 #else
 #define LINK_EMUL_PREFIX "sh%{ml:l}elf"

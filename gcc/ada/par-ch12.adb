@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -898,10 +898,12 @@ package body Ch12 is
 
    --  SUBPROGRAM_DEFAULT ::= DEFAULT_NAME | <>
 
-   --  DEFAULT_NAME ::= NAME
+   --  DEFAULT_NAME ::= NAME | null
 
    --  The caller has checked that the initial tokens are WITH FUNCTION or
    --  WITH PROCEDURE, and the initial WITH has been scanned out.
+
+   --  A null default is an Ada 2005 feature.
 
    --  Error recovery: cannot raise Error_Resync
 
@@ -938,6 +940,22 @@ package body Ch12 is
          elsif Token = Tok_Box then
             Set_Box_Present (Def_Node, True);
             Scan; -- past <>
+            T_Semicolon;
+
+         elsif Token = Tok_Null then
+            if Ada_Version < Ada_05 then
+               Error_Msg_SP
+                 ("null default subprograms are an Ada 2005 extension");
+               Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
+            end if;
+
+            if Nkind (Spec_Node) = N_Procedure_Specification then
+               Set_Null_Present (Spec_Node);
+            else
+               Error_Msg_SP ("only procedures can be null");
+            end if;
+
+            Scan;  --  past NULL
             T_Semicolon;
 
          else

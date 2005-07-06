@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import java.awt.Dimension;
+import java.awt.DisplayMode;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 
@@ -79,4 +81,35 @@ public class GdkScreenGraphicsDevice extends GraphicsDevice
     // FIXME: query X for default configuration
     return new GdkGraphicsConfiguration(this);
   }
+
+
+  /**
+   * Returns the current display mode of this device, or null if unknown.
+   *
+   * @return the current display mode
+   * @see #setDisplayMode(DisplayMode)
+   * @see #getDisplayModes()
+   * @since 1.4
+   */
+  public DisplayMode getDisplayMode()
+  {
+    // determine display mode
+    Dimension dim = getToolkit().getScreenSize();
+    DisplayMode mode = new DisplayMode(dim.width, dim.height, 0,
+				       DisplayMode.REFRESH_RATE_UNKNOWN);
+    return mode;
+  }
+
+  /**
+   * This device does not yet support fullscreen exclusive mode, so this
+   * returns <code>false</code>.
+   *
+   * @return <code>false</code>
+   * @since 1.4
+   */
+  public boolean isFullScreenSupported()
+  {
+    return false;
+  }
+
 }

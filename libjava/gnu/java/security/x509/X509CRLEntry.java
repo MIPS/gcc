@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,12 +38,14 @@ exception statement from your version. */
 
 package gnu.java.security.x509;
 
+import gnu.java.security.OID;
+import gnu.java.security.der.DERReader;
+import gnu.java.security.der.DERValue;
+import gnu.java.security.x509.ext.Extension;
+
 import java.io.IOException;
-
 import java.math.BigInteger;
-
 import java.security.cert.CRLException;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -51,10 +53,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-
-import gnu.java.security.OID;
-import gnu.java.security.der.*;
-import gnu.java.security.x509.ext.*;
 
 /**
  * A single entry in a X.509 certificate revocation list.

@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -110,7 +110,6 @@ public class DefaultEditorKit extends EditorKit
               t.getDocument().insertString(t.getCaret().getDot(), event.getActionCommand(), null);
               t.getCaret().setDot(Math.min(t.getCaret().getDot() + 1,
                                            t.getDocument().getEndPosition().getOffset()));
-              t.repaint();
             }
           catch (BadLocationException be)
             {
@@ -251,7 +250,6 @@ public class DefaultEditorKit extends EditorKit
                 if (pos < t.getDocument().getEndPosition().getOffset())
                   {
                     t.getDocument().remove(t.getCaret().getDot(), 1);
-                    t.repaint();
                   }
               }
             catch (BadLocationException e)
@@ -275,7 +273,6 @@ public class DefaultEditorKit extends EditorKit
                   {
                     t.getDocument().remove(pos - 1, 1);
                     t.getCaret().setDot(pos - 1);
-                    t.repaint();
                   }
               }
             catch (BadLocationException e)

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This module is essentially the "combiner" phase of the U. of Arizona
    Portable Optimizer, but redone to work on our list-structured
@@ -96,6 +96,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Include output.h for dump_file.  */
 #include "output.h"
 #include "params.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* Number of attempts to combine instructions in this function.  */
 
@@ -422,6 +424,10 @@ static bool unmentioned_reg_p (rtx, rtx);
 #undef RTL_HOOKS_GEN_LOWPART
 #define RTL_HOOKS_GEN_LOWPART              gen_lowpart_for_combine
 
+/* Our implementation of gen_lowpart never emits a new pseudo.  */
+#undef RTL_HOOKS_GEN_LOWPART_NO_EMIT
+#define RTL_HOOKS_GEN_LOWPART_NO_EMIT      gen_lowpart_for_combine
+
 #undef RTL_HOOKS_REG_NONZERO_REG_BITS
 #define RTL_HOOKS_REG_NONZERO_REG_BITS     reg_nonzero_bits_for_combine
 
@@ -635,7 +641,9 @@ combine_instructions (rtx f, unsigned int nregs)
   rtx prev;
 #endif
   int i;
+  unsigned int j;
   rtx links, nextlinks;
+  sbitmap_iterator sbi;
 
   int new_direct_jump_p = 0;
 
@@ -880,9 +888,9 @@ combine_instructions (rtx f, unsigned int nregs)
     }
   clear_bb_flags ();
 
-  EXECUTE_IF_SET_IN_SBITMAP (refresh_blocks, 0, i,
-			     BASIC_BLOCK (i)->flags |= BB_DIRTY);
-  new_direct_jump_p |= purge_all_dead_edges (0);
+  EXECUTE_IF_SET_IN_SBITMAP (refresh_blocks, 0, j, sbi)
+    BASIC_BLOCK (j)->flags |= BB_DIRTY;
+  new_direct_jump_p |= purge_all_dead_edges ();
   delete_noop_moves ();
 
   update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
@@ -979,7 +987,8 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set,
       && REGNO (x) >= FIRST_PSEUDO_REGISTER
       /* If this register is undefined at the start of the file, we can't
 	 say what its contents were.  */
-      && ! REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, REGNO (x))
+      && ! REGNO_REG_SET_P
+         (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start, REGNO (x))
       && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT)
     {
       if (set == 0 || GET_CODE (set) == CLOBBER)
@@ -1523,7 +1532,7 @@ cant_combine_insn_p (rtx insn)
   /* Never combine loads and stores involving hard regs that are likely
      to be spilled.  The register allocator can usually handle such
      reg-reg moves by tying.  If we allow the combiner to make
-     substitutions of likely-spilled regs, we may abort in reload.
+     substitutions of likely-spilled regs, reload might die.
      As an exception, we allow combinations involving fixed regs; these are
      not available to the register allocator so there's no risk involved.  */
 
@@ -2092,8 +2101,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       || (i1 != 0 && FIND_REG_INC_NOTE (i1, NULL_RTX) != 0
 	  && (n_occurrences + added_sets_1 + (added_sets_2 && ! i1_feeds_i3)
 	      > 1))
-      /* Fail if we tried to make a new register (we used to abort, but there's
-	 really no reason to).  */
+      /* Fail if we tried to make a new register.  */
       || max_reg_num () != maxreg
       /* Fail if we couldn't do something and have a CLOBBER.  */
       || GET_CODE (newpat) == CLOBBER
@@ -2382,8 +2390,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	      || GET_MODE (*split) == VOIDmode
 	      || (REGNO (i2dest) < FIRST_PSEUDO_REGISTER
 		  && HARD_REGNO_MODE_OK (REGNO (i2dest), GET_MODE (*split))
-		  && (HARD_REGNO_NREGS (REGNO (i2dest), GET_MODE (i2dest))
-		      == HARD_REGNO_NREGS (REGNO (i2dest), GET_MODE (*split))))
+		  && (hard_regno_nregs[REGNO (i2dest)][GET_MODE (i2dest)]
+		      == hard_regno_nregs[REGNO (i2dest)][GET_MODE (*split)]))
 	      || (REGNO (i2dest) >= FIRST_PSEUDO_REGISTER
 		  && REG_N_SETS (REGNO (i2dest)) == 1 && ! added_sets_2
 		  && ! REG_USERVAR_P (i2dest)))
@@ -3764,47 +3772,6 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
       SUBST (XEXP (x, 1), temp);
     }
 
-  /* If this is a PLUS, MINUS, or MULT, and the first operand is the
-     sign extension of a PLUS with a constant, reverse the order of the sign
-     extension and the addition. Note that this not the same as the original
-     code, but overflow is undefined for signed values.  Also note that the
-     PLUS will have been partially moved "inside" the sign-extension, so that
-     the first operand of X will really look like:
-         (ashiftrt (plus (ashift A C4) C5) C4).
-     We convert this to
-         (plus (ashiftrt (ashift A C4) C2) C4)
-     and replace the first operand of X with that expression.  Later parts
-     of this function may simplify the expression further.
-
-     For example, if we start with (mult (sign_extend (plus A C1)) C2),
-     we swap the SIGN_EXTEND and PLUS.  Later code will apply the
-     distributive law to produce (plus (mult (sign_extend X) C1) C3).
-
-     We do this to simplify address expressions.  */
-
-  if ((code == PLUS || code == MINUS || code == MULT)
-      && GET_CODE (XEXP (x, 0)) == ASHIFTRT
-      && GET_CODE (XEXP (XEXP (x, 0), 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == ASHIFT
-      && GET_CODE (XEXP (XEXP (XEXP (XEXP (x, 0), 0), 0), 1)) == CONST_INT
-      && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-      && XEXP (XEXP (XEXP (XEXP (x, 0), 0), 0), 1) == XEXP (XEXP (x, 0), 1)
-      && GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1)) == CONST_INT
-      && (temp = simplify_binary_operation (ASHIFTRT, mode,
-					    XEXP (XEXP (XEXP (x, 0), 0), 1),
-					    XEXP (XEXP (x, 0), 1))) != 0)
-    {
-      rtx new
-	= simplify_shift_const (NULL_RTX, ASHIFT, mode,
-				XEXP (XEXP (XEXP (XEXP (x, 0), 0), 0), 0),
-				INTVAL (XEXP (XEXP (x, 0), 1)));
-
-      new = simplify_shift_const (NULL_RTX, ASHIFTRT, mode, new,
-				  INTVAL (XEXP (XEXP (x, 0), 1)));
-
-      SUBST (XEXP (x, 0), simplify_gen_binary (PLUS, mode, new, temp));
-    }
-
   /* If this is a simple operation applied to an IF_THEN_ELSE, try
      applying it to the arms of the IF_THEN_ELSE.  This often simplifies
      things.  Check for cases where both arms are testing the same
@@ -4780,7 +4747,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 		if (GET_CODE (op0) == VEC_CONCAT)
 		  {
 		    HOST_WIDE_INT op0_size = GET_MODE_SIZE (GET_MODE (XEXP (op0, 0)));
-		    if (op0_size < offset)
+		    if (offset < op0_size)
 		      op0 = XEXP (op0, 0);
 		    else
 		      {
@@ -5309,6 +5276,11 @@ simplify_set (rtx x)
 	  SUBST (SET_SRC (x), gen_rtx_COMPARE (compare_mode, op0, op1));
 	  src = SET_SRC (x);
 	}
+      else if (GET_MODE (op0) == compare_mode && op1 == const0_rtx)
+	{
+	  SUBST(SET_SRC (x), op0);
+	  src = SET_SRC (x);
+        }
       else
 	{
 	  /* Otherwise, update the COMPARE if needed.  */
@@ -6767,41 +6739,33 @@ make_compound_operation (rtx x, enum rtx_code in_code)
 	 what it originally did, do this SUBREG as a force_to_mode.  */
 
       tem = make_compound_operation (SUBREG_REG (x), in_code);
-      if (GET_CODE (tem) != GET_CODE (SUBREG_REG (x))
-	  && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (tem))
-	  && subreg_lowpart_p (x))
-	{
-	  rtx newer = force_to_mode (tem, mode, ~(HOST_WIDE_INT) 0,
-				     NULL_RTX, 0);
 
-	  /* If we have something other than a SUBREG, we might have
-	     done an expansion, so rerun ourselves.  */
-	  if (GET_CODE (newer) != SUBREG)
-	    newer = make_compound_operation (newer, in_code);
+      {
+	rtx simplified;
+	simplified = simplify_subreg (GET_MODE (x), tem, GET_MODE (tem),
+				      SUBREG_BYTE (x));
 
-	  return newer;
-	}
+	if (simplified)
+	  tem = simplified;
 
-      /* If this is a paradoxical subreg, and the new code is a sign or
-	 zero extension, omit the subreg and widen the extension.  If it
-	 is a regular subreg, we can still get rid of the subreg by not
-	 widening so much, or in fact removing the extension entirely.  */
-      if ((GET_CODE (tem) == SIGN_EXTEND
-	   || GET_CODE (tem) == ZERO_EXTEND)
-	  && subreg_lowpart_p (x))
-	{
-	  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (tem))
-	      || (GET_MODE_SIZE (mode) >
-		  GET_MODE_SIZE (GET_MODE (XEXP (tem, 0)))))
-	    {
-	      if (! SCALAR_INT_MODE_P (mode))
-		break;
-	      tem = gen_rtx_fmt_e (GET_CODE (tem), mode, XEXP (tem, 0));
-	    }
-	  else
-	    tem = gen_lowpart (mode, XEXP (tem, 0));
+	if (GET_CODE (tem) != GET_CODE (SUBREG_REG (x))
+	    && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (tem))
+	    && subreg_lowpart_p (x))
+	  {
+	    rtx newer = force_to_mode (tem, mode, ~(HOST_WIDE_INT) 0,
+				       NULL_RTX, 0);
+	    
+	    /* If we have something other than a SUBREG, we might have
+	       done an expansion, so rerun ourselves.  */
+	    if (GET_CODE (newer) != SUBREG)
+	      newer = make_compound_operation (newer, in_code);
+	    
+	    return newer;
+	  }
+
+	if (simplified)
 	  return tem;
-	}
+      }
       break;
 
     default:
@@ -8314,8 +8278,9 @@ reg_nonzero_bits_for_combine (rtx x, enum machine_mode mode,
       && (reg_stat[REGNO (x)].last_set_label == label_tick
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
-	      && ! REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start,
-				    REGNO (x))))
+	      && ! REGNO_REG_SET_P
+	         (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
+		  REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *nonzero &= reg_stat[REGNO (x)].last_set_nonzero_bits;
@@ -8381,8 +8346,9 @@ reg_num_sign_bit_copies_for_combine (rtx x, enum machine_mode mode,
       && (reg_stat[REGNO (x)].last_set_label == label_tick
           || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
-	      && ! REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start,
-				    REGNO (x))))
+	      && ! REGNO_REG_SET_P
+	         (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
+		  REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *result = reg_stat[REGNO (x)].last_set_sign_bit_copies;
@@ -11216,7 +11182,8 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 	    || (! (regno >= FIRST_PSEUDO_REGISTER
 		   && REG_N_SETS (regno) == 1
 		   && (! REGNO_REG_SET_P
-		       (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno)))
+		       (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
+			regno)))
 		&& reg_stat[j].last_set_label > tick))
 	  {
 	    if (replace)
@@ -11326,7 +11293,8 @@ get_last_value (rtx x)
 	  && (regno < FIRST_PSEUDO_REGISTER
 	      || REG_N_SETS (regno) != 1
 	      || (REGNO_REG_SET_P
-		  (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno)))))
+		  (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
+		   regno)))))
     return 0;
 
   /* If the value was set in a later insn than the ones we are processing,
@@ -11487,7 +11455,7 @@ reg_dead_at_p (rtx reg, rtx insn)
     }
 
   for (i = reg_dead_regno; i < reg_dead_endregno; i++)
-    if (REGNO_REG_SET_P (block->global_live_at_start, i))
+    if (REGNO_REG_SET_P (block->il.rtl->global_live_at_start, i))
       return 0;
 
   return 1;
@@ -12254,7 +12222,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		 was dead, there's nothing left to do.  Otherwise, we'll
 		 need to do a global life update after combine.  */
 	      if (REG_NOTE_KIND (note) == REG_DEAD && place == 0
-		  && REGNO_REG_SET_P (bb->global_live_at_start,
+		  && REGNO_REG_SET_P (bb->il.rtl->global_live_at_start,
 				      REGNO (XEXP (note, 0))))
 		SET_BIT (refresh_blocks, this_basic_block->index);
 	    }
@@ -12534,7 +12502,7 @@ insn_cuid (rtx insn)
 void
 dump_combine_stats (FILE *file)
 {
-  fnotice
+  fprintf
     (file,
      ";; Combiner statistics: %d attempts, %d substitutions (%d requiring new space),\n;; %d successes.\n\n",
      combine_attempts, combine_merges, combine_extras, combine_successes);
@@ -12543,8 +12511,55 @@ dump_combine_stats (FILE *file)
 void
 dump_combine_total_stats (FILE *file)
 {
-  fnotice
+  fprintf
     (file,
      "\n;; Combiner totals: %d attempts, %d substitutions (%d requiring new space),\n;; %d successes.\n",
      total_attempts, total_merges, total_extras, total_successes);
 }
+
+
+static bool
+gate_handle_combine (void)
+{
+  return (optimize > 0);
+}
+
+/* Try combining insns through substitution.  */
+static void
+rest_of_handle_combine (void)
+{
+  int rebuild_jump_labels_after_combine
+    = combine_instructions (get_insns (), max_reg_num ());
+
+  /* Combining insns may have turned an indirect jump into a
+     direct jump.  Rebuild the JUMP_LABEL fields of jumping
+     instructions.  */
+  if (rebuild_jump_labels_after_combine)
+    {
+      timevar_push (TV_JUMP);
+      rebuild_jump_labels (get_insns ());
+      timevar_pop (TV_JUMP);
+
+      delete_dead_jumptables ();
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+    }
+}
+
+struct tree_opt_pass pass_combine =
+{
+  "combine",                            /* name */
+  gate_handle_combine,                  /* gate */
+  rest_of_handle_combine,               /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_COMBINE,                           /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'c'                                   /* letter */
+};
+

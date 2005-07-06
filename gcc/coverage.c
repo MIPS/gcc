@@ -1,6 +1,6 @@
 /* Read and write coverage files, and associated functionality.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #define GCOV_LINKAGE
@@ -180,7 +180,7 @@ read_counts_file (void)
 
   if (!gcov_magic (gcov_read_unsigned (), GCOV_DATA_MAGIC))
     {
-      warning ("%qs is not a gcov data file", da_file_name);
+      warning (0, "%qs is not a gcov data file", da_file_name);
       gcov_close ();
       return;
     }
@@ -191,7 +191,7 @@ read_counts_file (void)
       GCOV_UNSIGNED2STRING (v, tag);
       GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
 
-      warning ("%qs is version %q.*s, expected version %q.*s",
+      warning (0, "%qs is version %q.*s, expected version %q.*s",
  	       da_file_name, 4, v, 4, e);
       gcov_close ();
       return;
@@ -271,7 +271,7 @@ read_counts_file (void)
 	    }
 	  else if (entry->checksum != checksum)
 	    {
-	      error ("coverage mismatch for function %u while reading execution counters.",
+	      error ("coverage mismatch for function %u while reading execution counters",
 		     fn_ident);
 	      error ("checksum is %x instead of %x", entry->checksum, checksum);
 	      htab_delete (counts_hash);
@@ -279,7 +279,7 @@ read_counts_file (void)
 	    }
 	  else if (entry->summary.num != n_counts)
 	    {
-	      error ("coverage mismatch for function %u while reading execution counters.",
+	      error ("coverage mismatch for function %u while reading execution counters",
 		     fn_ident);
 	      error ("number of counters is %d instead of %d", entry->summary.num, n_counts);
 	      htab_delete (counts_hash);
@@ -345,7 +345,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   entry = htab_find (counts_hash, &elt);
   if (!entry)
     {
-      warning ("no coverage for function %qs found.", IDENTIFIER_POINTER
+      warning (0, "no coverage for function %qs found", IDENTIFIER_POINTER
 	       (DECL_ASSEMBLER_NAME (current_function_decl)));
       return 0;
     }
@@ -353,7 +353,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   checksum = compute_checksum ();
   if (entry->checksum != checksum)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs.",
+      error ("coverage mismatch for function %qs while reading counter %qs",
 	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
 	     ctr_names[counter]);
       error ("checksum is %x instead of %x", entry->checksum, checksum);
@@ -361,7 +361,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
     }
   else if (entry->summary.num != expected)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs.",
+      error ("coverage mismatch for function %qs while reading counter %qs",
 	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
 	     ctr_names[counter]);
       error ("number of counters is %d instead of %d", entry->summary.num, expected);
@@ -392,16 +392,17 @@ coverage_counter_alloc (unsigned counter, unsigned num)
       /* We don't know the size yet; make it big enough that nobody
 	 will make any clever transformation on it.  */
       char buf[20];
+      tree gcov_type_node = get_gcov_type ();
       tree domain_tree
         = build_index_type (build_int_cst (NULL_TREE, 1000)); /* replaced later */
       tree gcov_type_array_type
-        = build_array_type (GCOV_TYPE_NODE, domain_tree);
+        = build_array_type (gcov_type_node, domain_tree);
       tree_ctr_tables[counter]
         = build_decl (VAR_DECL, NULL_TREE, gcov_type_array_type);
       TREE_STATIC (tree_ctr_tables[counter]) = 1;
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", counter + 1);
       DECL_NAME (tree_ctr_tables[counter]) = get_identifier (buf);
-      DECL_ALIGN (tree_ctr_tables[counter]) = TYPE_ALIGN (GCOV_TYPE_NODE);
+      DECL_ALIGN (tree_ctr_tables[counter]) = TYPE_ALIGN (gcov_type_node);
     }
   fn_b_ctrs[counter] = fn_n_ctrs[counter];
   fn_n_ctrs[counter] += num;
@@ -440,18 +441,19 @@ rtl_coverage_counter_ref (unsigned counter, unsigned no)
 tree
 tree_coverage_counter_ref (unsigned counter, unsigned no)
 {
+  tree gcov_type_node = get_gcov_type ();
   tree domain_type = TYPE_DOMAIN (TREE_TYPE (tree_ctr_tables[counter]));
 
   gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
   no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
 
   /* "no" here is an array index, scaled to bytes later.  */
-  return build4 (ARRAY_REF, GCOV_TYPE_NODE, tree_ctr_tables[counter],
+  return build4 (ARRAY_REF, gcov_type_node, tree_ctr_tables[counter],
 		 fold_convert (domain_type,
 			       build_int_cst (NULL_TREE, no)),
 		 TYPE_MIN_VALUE (domain_type),
-		 size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (GCOV_TYPE_NODE),
-			     size_int (TYPE_ALIGN_UNIT (GCOV_TYPE_NODE))));
+		 size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (gcov_type_node),
+			     size_int (TYPE_ALIGN_UNIT (gcov_type_node))));
 }
 
 /* Generate a checksum for a string.  CHKSUM is the current
@@ -579,7 +581,7 @@ coverage_end_function (void)
 
   if (bbg_file_opened > 1 && gcov_is_error ())
     {
-      warning ("error writing %qs", bbg_file_name);
+      warning (0, "error writing %qs", bbg_file_name);
       bbg_file_opened = -1;
     }
 
@@ -685,7 +687,7 @@ build_ctr_info_type (void)
 {
   tree type = lang_hooks.types.make_type (RECORD_TYPE);
   tree field, fields = NULL_TREE;
-  tree gcov_ptr_type = build_pointer_type (GCOV_TYPE_NODE);
+  tree gcov_ptr_type = build_pointer_type (get_gcov_type ());
   tree gcov_merge_fn_type;
 
   /* counters */

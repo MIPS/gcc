@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -275,10 +275,22 @@ init_glib_threads(JNIEnv *env, jint portableNativeSync)
     }
   
   (*env)->GetJavaVM( env, &the_vm );
-  if (portableNativeSync)
-    g_thread_init ( &portable_native_sync_jni_functions );
+  if (!g_thread_supported ())
+    {
+      if (portableNativeSync)
+        g_thread_init ( &portable_native_sync_jni_functions );
+      else
+        g_thread_init ( NULL );
+    }
   else
-    g_thread_init ( NULL );
+    {
+      /* Warn if portable native sync is desired but the threading
+         system is already initialized.  In that case we can't
+         override the threading implementation with our portable
+         native sync functions. */
+      if (portableNativeSync)
+        g_printerr ("peer warning: portable native sync disabled.\n");
+    }
 
   /* Debugging progress message; uncomment if needed: */
   /*   printf("called gthread init\n"); */

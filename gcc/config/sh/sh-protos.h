@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003, 2004
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
@@ -18,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_SH_PROTOS_H
 #define GCC_SH_PROTOS_H
@@ -131,7 +132,6 @@ extern int sh_need_epilogue (void);
 extern void sh_set_return_address (rtx, rtx);
 extern int initial_elimination_offset (int, int);
 extern int fldi_ok (void);
-extern int sh_pr_n_sets (void);
 extern int sh_hard_regno_rename_ok (unsigned int, unsigned int);
 extern int sh_cfun_interrupt_handler_p (void);
 extern int sh_attr_renesas_p (tree);
@@ -158,7 +158,6 @@ extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
 extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, signed int, enum machine_mode);
-extern const char *sh_pch_valid_p (const void *data_p, size_t sz);
 extern bool sh_promote_prototypes (tree);
 
 extern rtx replace_n_hard_rtx (rtx, rtx *, int , int);

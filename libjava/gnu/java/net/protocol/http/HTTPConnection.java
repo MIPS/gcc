@@ -1,5 +1,5 @@
 /* HTTPConnection.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -39,16 +39,17 @@ exception statement from your version. */
 package gnu.java.net.protocol.http;
 
 import gnu.classpath.Configuration;
+import gnu.classpath.SystemProperties;
+import gnu.java.net.EmptyX509TrustManager;
 import gnu.java.net.protocol.http.event.ConnectionEvent;
 import gnu.java.net.protocol.http.event.ConnectionListener;
 import gnu.java.net.protocol.http.event.RequestEvent;
 import gnu.java.net.protocol.http.event.RequestListener;
-import gnu.java.net.EmptyX509TrustManager;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -58,6 +59,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
@@ -82,27 +84,7 @@ public class HTTPConnection
    */
   public static final int HTTPS_PORT = 443;
 
-  private static final String userAgent = initUserAgent();
-
-  private static String initUserAgent()
-  {
-    try
-      {
-        StringBuffer buf = new StringBuffer("libgcj");
-        buf.append(" (");
-        buf.append(System.getProperty("os.name"));
-        buf.append("; ");
-        buf.append(System.getProperty("os.arch"));
-        buf.append("; ");
-        buf.append(System.getProperty("user.language"));
-        buf.append(")");
-        return buf.toString();
-      }
-    catch (SecurityException e)
-      {
-        return "inetlib/1.1";
-      }
-  }
+  private static final String userAgent = SystemProperties.getProperty("http.agent");
 
   /**
    * The host name of the server to connect to.
