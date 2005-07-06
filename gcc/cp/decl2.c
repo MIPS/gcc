@@ -1485,6 +1485,7 @@ import_export_vtable (tree decl, tree type, int final)
 	  /* Mark the DECL as used, so that it will be emitted, even
 	     if there are no references to it.  */
 	  TREE_USED (decl) = 1;
+	  mark_referenced (DECL_ASSEMBLER_NAME (decl));
 	}
     }
   else
