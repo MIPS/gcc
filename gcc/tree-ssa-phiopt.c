@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -331,6 +331,8 @@ replace_phi_edge_with_variable (basic_block cond_block,
     {
       EDGE_SUCC (cond_block, 0)->flags |= EDGE_FALLTHRU;
       EDGE_SUCC (cond_block, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (cond_block, 0)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (cond_block, 0)->count += EDGE_SUCC (cond_block, 1)->count;
 
       block_to_remove = EDGE_SUCC (cond_block, 1)->dest;
     }
@@ -339,6 +341,8 @@ replace_phi_edge_with_variable (basic_block cond_block,
       EDGE_SUCC (cond_block, 1)->flags |= EDGE_FALLTHRU;
       EDGE_SUCC (cond_block, 1)->flags
 	&= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (cond_block, 1)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (cond_block, 1)->count += EDGE_SUCC (cond_block, 0)->count;
 
       block_to_remove = EDGE_SUCC (cond_block, 0)->dest;
     }
@@ -720,8 +724,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND <= LARGER.  */
-	      if (!integer_nonzerop (fold (build2 (LE_EXPR, boolean_type_node,
-						   bound, larger))))
+	      if (!integer_nonzerop (fold_build2 (LE_EXPR, boolean_type_node,
+						  bound, larger)))
 		return false;
 	    }
 	  else if (operand_equal_for_phi_arg_p (arg_false, smaller))
@@ -745,8 +749,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND >= SMALLER.  */
-	      if (!integer_nonzerop (fold (build2 (GE_EXPR, boolean_type_node,
-						   bound, smaller))))
+	      if (!integer_nonzerop (fold_build2 (GE_EXPR, boolean_type_node,
+						  bound, smaller)))
 		return false;
 	    }
 	  else
@@ -779,8 +783,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND >= LARGER.  */
-	      if (!integer_nonzerop (fold (build2 (GE_EXPR, boolean_type_node,
-						   bound, larger))))
+	      if (!integer_nonzerop (fold_build2 (GE_EXPR, boolean_type_node,
+						  bound, larger)))
 		return false;
 	    }
 	  else if (operand_equal_for_phi_arg_p (arg_true, smaller))
@@ -804,8 +808,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND <= SMALLER.  */
-	      if (!integer_nonzerop (fold (build2 (LE_EXPR, boolean_type_node,
-						   bound, smaller))))
+	      if (!integer_nonzerop (fold_build2 (LE_EXPR, boolean_type_node,
+						  bound, smaller)))
 		return false;
 	    }
 	  else

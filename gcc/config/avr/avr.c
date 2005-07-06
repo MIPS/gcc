@@ -17,8 +17,8 @@
    
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -269,7 +269,7 @@ avr_override_options (void)
 
   if (!t->name)
     {
-      fprintf (stderr, "unknown MCU `%s' specified\nKnown MCU names:\n",
+      fprintf (stderr, "unknown MCU '%s' specified\nKnown MCU names:\n",
 	       avr_mcu_name);
       for (t = avr_mcu_types; t->name; t++)
 	fprintf (stderr,"   %s\n", t->name);
@@ -4684,7 +4684,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning (0, "`%s' appears to be a misspelled interrupt handler",
+              warning (0, "%qs appears to be a misspelled interrupt handler",
                        func_name);
             }
         }
@@ -4692,7 +4692,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning (0, "`%s' appears to be a misspelled signal handler",
+              warning (0, "%qs appears to be a misspelled signal handler",
                        func_name);
             }
         }

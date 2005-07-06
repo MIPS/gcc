@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This pass tries to find the optimal set of induction variables for the loop.
    It optimizes just the basic linear induction variables (although adding
@@ -1492,7 +1492,7 @@ may_be_unaligned_p (tree ref)
   unsigned base_align;
 
   /* TARGET_MEM_REFs are translated directly to valid MEMs on the target,
-     thus they are not missaligned.  */
+     thus they are not misaligned.  */
   if (TREE_CODE (ref) == TARGET_MEM_REF)
     return false;
 
@@ -3053,7 +3053,7 @@ get_computation_aff (struct loop *loop,
 
   /* We may need to shift the value if we are after the increment.  */
   if (stmt_after_increment (loop, cand, at))
-    cbase = fold (build2 (PLUS_EXPR, uutype, cbase, cstep));
+    cbase = fold_build2 (PLUS_EXPR, uutype, cbase, cstep);
 
   /* use = ubase - ratio * cbase + ratio * var.
 
@@ -3149,8 +3149,8 @@ add_cost (enum machine_mode mode)
 
   start_sequence ();
   force_operand (gen_rtx_fmt_ee (PLUS, mode,
-				 gen_raw_REG (mode, FIRST_PSEUDO_REGISTER),
-				 gen_raw_REG (mode, FIRST_PSEUDO_REGISTER + 1)),
+				 gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 1),
+				 gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 2)),
 		 NULL_RTX);
   seq = get_insns ();
   end_sequence ();
@@ -3221,8 +3221,8 @@ multiply_by_cost (HOST_WIDE_INT cst, enum machine_mode mode)
   (*cached)->cst = cst;
 
   start_sequence ();
-  expand_mult (mode, gen_raw_REG (mode, FIRST_PSEUDO_REGISTER), GEN_INT (cst),
-	       NULL_RTX, 0);
+  expand_mult (mode, gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 1),
+	       gen_int_mode (cst, mode), NULL_RTX, 0);
   seq = get_insns ();
   end_sequence ();
   
@@ -3247,7 +3247,7 @@ multiplier_allowed_in_address_p (HOST_WIDE_INT ratio)
   
   if (!valid_mult)
     {
-      rtx reg1 = gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER);
+      rtx reg1 = gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 1);
       rtx addr;
       HOST_WIDE_INT i;
 
@@ -3305,12 +3305,12 @@ get_address_cost (bool symbol_present, bool var_present,
       HOST_WIDE_INT i;
       initialized = true;
 
-      reg1 = gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER);
+      reg1 = gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 1);
 
       addr = gen_rtx_fmt_ee (PLUS, Pmode, reg1, NULL_RTX);
       for (i = 1; i <= 1 << 20; i <<= 1)
 	{
-	  XEXP (addr, 1) = GEN_INT (i);
+	  XEXP (addr, 1) = gen_int_mode (i, Pmode);
 	  if (!memory_address_p (Pmode, addr))
 	    break;
 	}
@@ -3319,7 +3319,7 @@ get_address_cost (bool symbol_present, bool var_present,
 
       for (i = 1; i <= 1 << 20; i <<= 1)
 	{
-	  XEXP (addr, 1) = GEN_INT (-i);
+	  XEXP (addr, 1) = gen_int_mode (-i, Pmode);
 	  if (!memory_address_p (Pmode, addr))
 	    break;
 	}
@@ -3368,10 +3368,10 @@ get_address_cost (bool symbol_present, bool var_present,
     {
       acost = 0;
       
-      addr = gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER);
-      reg1 = gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER + 1);
+      addr = gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 1);
+      reg1 = gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 2);
       if (ratio_p)
-	addr = gen_rtx_fmt_ee (MULT, Pmode, addr, GEN_INT (rat));
+	addr = gen_rtx_fmt_ee (MULT, Pmode, addr, gen_int_mode (rat, Pmode));
 
       if (var_present)
 	addr = gen_rtx_fmt_ee (PLUS, Pmode, addr, reg1);
@@ -3383,10 +3383,10 @@ get_address_cost (bool symbol_present, bool var_present,
 	    base = gen_rtx_fmt_e (CONST, Pmode,
 				  gen_rtx_fmt_ee (PLUS, Pmode,
 						  base,
-						  GEN_INT (off)));
+						  gen_int_mode (off, Pmode)));
 	}
       else if (offset_p)
-	base = GEN_INT (off);
+	base = gen_int_mode (off, Pmode);
       else
 	base = NULL_RTX;
     
@@ -3913,9 +3913,9 @@ iv_value (struct iv *iv, tree niter)
   tree type = TREE_TYPE (iv->base);
 
   niter = fold_convert (type, niter);
-  val = fold (build2 (MULT_EXPR, type, iv->step, niter));
+  val = fold_build2 (MULT_EXPR, type, iv->step, niter);
 
-  return fold (build2 (PLUS_EXPR, type, iv->base, val));
+  return fold_build2 (PLUS_EXPR, type, iv->base, val);
 }
 
 /* Computes value of candidate CAND at position AT in iteration NITER.  */
@@ -3927,7 +3927,7 @@ cand_value_at (struct loop *loop, struct iv_cand *cand, tree at, tree niter)
   tree type = TREE_TYPE (cand->iv->base);
 
   if (stmt_after_increment (loop, cand, at))
-    val = fold (build2 (PLUS_EXPR, type, val, cand->iv->step));
+    val = fold_build2 (PLUS_EXPR, type, val, cand->iv->step);
 
   return val;
 }
@@ -4026,9 +4026,9 @@ may_eliminate_iv (struct ivopts_data *data,
   else
     wider_type = nit_type;
 
-  if (!integer_nonzerop (fold (build2 (GE_EXPR, boolean_type_node,
-				       fold_convert (wider_type, period),
-				       fold_convert (wider_type, nit)))))
+  if (!integer_nonzerop (fold_build2 (GE_EXPR, boolean_type_node,
+				      fold_convert (wider_type, period),
+				      fold_convert (wider_type, nit))))
     return false;
 
   *bound = cand_value_at (loop, cand, use->stmt, nit);

@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This pass converts stack-like registers from the "flat register
    file" model that gcc uses, to a stack convention that the 387 uses.
@@ -170,6 +170,8 @@
 #include "varray.h"
 #include "reload.h"
 #include "ggc.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* We use this array to cache info about insns, because otherwise we
    spend too much time in stack_regs_mentioned_p.
@@ -2667,8 +2669,9 @@ compensate_edge (edge e, FILE *file)
     {
       /* Assert that the lifetimes are as we expect -- one value
          live at st(0) on the end of the source block, and no
-         values live at the beginning of the destination block.  */
-      gcc_assert (source_stack->top == 0);
+         values live at the beginning of the destination block.
+	 For complex return values, we may have st(1) live as well.  */
+      gcc_assert (source_stack->top == 0 || source_stack->top == 1);
       gcc_assert (target_stack->top == -1);
       return false;
     }
@@ -3076,9 +3079,9 @@ reg_to_stack (FILE *file)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (bb->global_live_at_end, reg))
+	  if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_end, reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (bb->global_live_at_start, reg))
+	  if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_start, reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }
@@ -3125,5 +3128,52 @@ reg_to_stack (FILE *file)
   return true;
 }
 #endif /* STACK_REGS */
+
+static bool
+gate_handle_stack_regs (void)
+{
+#ifdef STACK_REGS
+  return 1;
+#else
+  return 0;
+#endif
+}
+
+/* Convert register usage from flat register file usage to a stack
+   register file.  */
+static void
+rest_of_handle_stack_regs (void)
+{
+#ifdef STACK_REGS
+  if (reg_to_stack (dump_file) && optimize)
+    {
+      if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
+                       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
+          && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
+        {
+          reorder_basic_blocks (0);
+          cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
+        }
+    }
+#endif
+}
+
+struct tree_opt_pass pass_stack_regs =
+{
+  "stack",                              /* name */
+  gate_handle_stack_regs,               /* gate */
+  rest_of_handle_stack_regs,            /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_REG_STACK,                         /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'k'                                   /* letter */
+};
 
 #include "gt-reg-stack.h"

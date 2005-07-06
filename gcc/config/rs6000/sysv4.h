@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 /* Header files should be C++ aware in general.  */
 #undef  NO_IMPLICIT_EXTERN_C
@@ -252,7 +252,9 @@ do {									\
 /* Size of the V.4 varargs area if needed.  */
 /* Override rs6000.h definition.  */
 #undef	RS6000_VARARGS_AREA
-#define RS6000_VARARGS_AREA (current_function_stdarg ? RS6000_VARARGS_SIZE : 0)
+#define RS6000_VARARGS_AREA \
+  ((DEFAULT_ABI == ABI_V4 && current_function_stdarg)		\
+   ? RS6000_VARARGS_SIZE : 0)
 
 /* Override default big endianism definitions in rs6000.h.  */
 #undef	BYTES_BIG_ENDIAN
@@ -334,15 +336,6 @@ do {									\
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED)				      \
 	((TARGET_ALTIVEC && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)     \
 	 ? 128 : COMPUTED)
-
-/* Define this macro as an expression for the alignment of a type
-   (given by TYPE as a tree node) if the alignment computed in the
-   usual way is COMPUTED and the alignment explicitly specified was
-   SPECIFIED.  */
-#define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED)			\
-	((TARGET_ALTIVEC  && TREE_CODE (TYPE) == VECTOR_TYPE)		\
-	 ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)			\
-	 : MAX (COMPUTED, SPECIFIED))
 
 #undef  BIGGEST_FIELD_ALIGNMENT
 
@@ -1283,8 +1276,6 @@ ncrtn.o%s"
   ((flag_pic || TARGET_RELOCATABLE)					     \
    ? (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4) \
    : DW_EH_PE_absptr)
-
-#define TARGET_ASM_EXCEPTION_SECTION readonly_data_section
 
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
 

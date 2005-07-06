@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This module implements main driver of compilation process as well as
    few basic intraprocedural optimizers.
@@ -189,9 +189,16 @@ static bool
 decide_is_function_needed (struct cgraph_node *node, tree decl)
 {
   tree origin;
+  if (MAIN_NAME_P (DECL_NAME (decl))
+      && TREE_PUBLIC (decl))
+    {
+      node->local.externally_visible = true;
+      return true;
+    }
 
   /* If the user told us it is used, then it must be so.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+  if (node->local.externally_visible
+      || lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
     return true;
 
   /* ??? If the assembler name is set by hand, it is possible to assemble
@@ -209,7 +216,8 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
 
   /* Externally visible functions must be output.  The exception is
      COMDAT functions that must be output only when they are needed.  */
-  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+  if ((TREE_PUBLIC (decl) && !flag_whole_program)
+      && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     return true;
 
   /* Constructors and destructors are reachable from the runtime by
@@ -419,7 +427,7 @@ cgraph_finalize_function (tree decl, bool nested)
   if (!flag_unit_at_a_time)
     {
       cgraph_analyze_function (node);
-      cgraph_decide_inlining_incrementally (node);
+      cgraph_decide_inlining_incrementally (node, false);
     }
 
   if (decide_is_function_needed (node, decl))
@@ -428,7 +436,7 @@ cgraph_finalize_function (tree decl, bool nested)
   /* Since we reclaim unreachable nodes at the end of every language
      level unit, we need to be conservative about possible entry points
      there.  */
-  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+  if ((TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl)))
     cgraph_mark_reachable_node (node);
 
   /* If not unit at a time, go ahead and emit everything we've found
@@ -543,31 +551,91 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 	  walk_tree (bsi_stmt_ptr (bsi), record_reference, node, visited_nodes);
       }
 
-  /* Walk over any private statics that may take addresses of functions.  */
-  if (TREE_CODE (DECL_INITIAL (body)) == BLOCK)
+  /* Look for initializers of constant variables and private statics.  */
+  for (step = DECL_STRUCT_FUNCTION (body)->unexpanded_var_list;
+       step;
+       step = TREE_CHAIN (step))
     {
-      for (step = BLOCK_VARS (DECL_INITIAL (body));
-	   step;
-	   step = TREE_CHAIN (step))
-	if (DECL_INITIAL (step))
-	  walk_tree (&DECL_INITIAL (step), record_reference, node, visited_nodes);
+      tree decl = TREE_VALUE (step);
+      if (TREE_CODE (decl) == VAR_DECL
+	  && (TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
+	  && flag_unit_at_a_time)
+	cgraph_varpool_finalize_decl (decl);
+      else if (TREE_CODE (decl) == VAR_DECL && DECL_INITIAL (decl))
+	walk_tree (&DECL_INITIAL (decl), record_reference, node, visited_nodes);
     }
-
-  /* Also look here for private statics.  */
-  if (DECL_STRUCT_FUNCTION (body))
-    for (step = DECL_STRUCT_FUNCTION (body)->unexpanded_var_list;
-	 step;
-	 step = TREE_CHAIN (step))
-      {
-	tree decl = TREE_VALUE (step);
-	if (DECL_INITIAL (decl) && TREE_STATIC (decl))
-	  walk_tree (&DECL_INITIAL (decl), record_reference, node, visited_nodes);
-      }
     
   pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
 }
 
+/* Give initial reasons why inlining would fail.  Those gets
+   either NULLified or usually overwritten by more precise reason
+   later.  */
+static void
+initialize_inline_failed (struct cgraph_node *node)
+{
+  struct cgraph_edge *e;
+
+  for (e = node->callers; e; e = e->next_caller)
+    {
+      gcc_assert (!e->callee->global.inlined_to);
+      gcc_assert (e->inline_failed);
+      if (node->local.redefined_extern_inline)
+	e->inline_failed = N_("redefined extern inline functions are not "
+			   "considered for inlining");
+      else if (!node->local.inlinable)
+	e->inline_failed = N_("function not inlinable");
+      else
+	e->inline_failed = N_("function not considered for inlining");
+    }
+}
+
+/* Rebuild call edges from current function after a passes not aware
+   of cgraph updating.  */
+static void
+rebuild_cgraph_edges (void)
+{
+  basic_block bb;
+  struct cgraph_node *node = cgraph_node (current_function_decl);
+  block_stmt_iterator bsi;
+
+  cgraph_node_remove_callees (node);
+
+  node->count = ENTRY_BLOCK_PTR->count;
+
+  FOR_EACH_BB (bb)
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	tree stmt = bsi_stmt (bsi);
+	tree call = get_call_expr_in (stmt);
+	tree decl;
+
+	if (call && (decl = get_callee_fndecl (call)))
+	  cgraph_create_edge (node, cgraph_node (decl), stmt,
+			      bb->count,
+			      bb->loop_depth);
+      }
+  initialize_inline_failed (node);
+  gcc_assert (!node->global.inlined_to);
+}
+
+struct tree_opt_pass pass_rebuild_cgraph_edges =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  rebuild_cgraph_edges,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};
 
 /* Verify cgraph nodes of given cgraph node.  */
 void
@@ -584,7 +652,7 @@ verify_cgraph_node (struct cgraph_node *node)
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)
       {
-	error ("Aux field set for edge %s->%s",
+	error ("aux field set for edge %s->%s",
 	       cgraph_node_name (e->caller), cgraph_node_name (e->callee));
 	error_found = true;
       }
@@ -596,30 +664,30 @@ verify_cgraph_node (struct cgraph_node *node)
 	      != (e->caller->global.inlined_to
 		  ? e->caller->global.inlined_to : e->caller))
 	    {
-	      error ("Inlined_to pointer is wrong");
+	      error ("inlined_to pointer is wrong");
 	      error_found = true;
 	    }
 	  if (node->callers->next_caller)
 	    {
-	      error ("Multiple inline callers");
+	      error ("multiple inline callers");
 	      error_found = true;
 	    }
 	}
       else
 	if (node->global.inlined_to)
 	  {
-	    error ("Inlined_to pointer set for noninline callers");
+	    error ("inlined_to pointer set for noninline callers");
 	    error_found = true;
 	  }
     }
   if (!node->callers && node->global.inlined_to)
     {
-      error ("Inlined_to pointer is set but no predecesors found");
+      error ("inlined_to pointer is set but no predecesors found");
       error_found = true;
     }
   if (node->global.inlined_to == node)
     {
-      error ("Inlined_to pointer refers to itself");
+      error ("inlined_to pointer refers to itself");
       error_found = true;
     }
 
@@ -629,7 +697,7 @@ verify_cgraph_node (struct cgraph_node *node)
       break;
   if (!node)
     {
-      error ("Node not found in DECL_ASSEMBLER_NAME hash");
+      error ("node not found in DECL_ASSEMBLER_NAME hash");
       error_found = true;
     }
   
@@ -657,13 +725,13 @@ verify_cgraph_node (struct cgraph_node *node)
 		      {
 			if (e->aux)
 			  {
-			    error ("Shared call_stmt:");
+			    error ("shared call_stmt:");
 			    debug_generic_stmt (stmt);
 			    error_found = true;
 			  }
 			if (e->callee->decl != cgraph_node (decl)->decl)
 			  {
-			    error ("Edge points to wrong declaration:");
+			    error ("edge points to wrong declaration:");
 			    debug_tree (e->callee->decl);
 			    fprintf (stderr," Instead of:");
 			    debug_tree (decl);
@@ -672,7 +740,7 @@ verify_cgraph_node (struct cgraph_node *node)
 		      }
 		    else
 		      {
-			error ("Missing callgraph edge for call stmt:");
+			error ("missing callgraph edge for call stmt:");
 			debug_generic_stmt (stmt);
 			error_found = true;
 		      }
@@ -689,7 +757,7 @@ verify_cgraph_node (struct cgraph_node *node)
 	{
 	  if (!e->aux)
 	    {
-	      error ("Edge %s->%s has no corresponding call_stmt",
+	      error ("edge %s->%s has no corresponding call_stmt",
 		     cgraph_node_name (e->caller),
 		     cgraph_node_name (e->callee));
 	      debug_generic_stmt (e->call_stmt);
@@ -701,7 +769,7 @@ verify_cgraph_node (struct cgraph_node *node)
   if (error_found)
     {
       dump_cgraph_node (stderr, node);
-      internal_error ("verify_cgraph_node failed.");
+      internal_error ("verify_cgraph_node failed");
     }
   timevar_pop (TV_CGRAPH_VERIFY);
 }
@@ -743,6 +811,14 @@ cgraph_varpool_assemble_pending_decls (void)
       if (!TREE_ASM_WRITTEN (decl) && !node->alias && !DECL_EXTERNAL (decl))
 	{
 	  assemble_variable (decl, 0, 1, 0);
+	  /* Local static variables are never seen by check_global_declarations
+	     so we need to output debug info by hand.  */
+	  if (decl_function_context (decl) && errorcount == 0 && sorrycount == 0)
+	    {
+	      timevar_push (TV_SYMOUT);
+	      (*debug_hooks->global_decl) (decl);
+	      timevar_pop (TV_SYMOUT);
+	    }
 	  changed = true;
 	}
       node->next_needed = NULL;
@@ -755,7 +831,6 @@ static void
 cgraph_analyze_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
-  struct cgraph_edge *e;
 
   current_function_decl = decl;
   push_cfun (DECL_STRUCT_FUNCTION (decl));
@@ -769,16 +844,7 @@ cgraph_analyze_function (struct cgraph_node *node)
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = lang_hooks.tree_inlining.disregard_inline_limits (decl);
-  for (e = node->callers; e; e = e->next_caller)
-    {
-      if (node->local.redefined_extern_inline)
-	e->inline_failed = N_("redefined extern inline functions are not "
-			   "considered for inlining");
-      else if (!node->local.inlinable)
-	e->inline_failed = N_("function not inlinable");
-      else
-	e->inline_failed = N_("function not considered for inlining");
-    }
+  initialize_inline_failed (node);
   if (flag_really_no_inline && !node->local.disregard_inline_limits)
     node->local.inlinable = 0;
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
@@ -1058,7 +1124,13 @@ cgraph_function_and_variable_visibility (void)
       if (node->reachable
 	  && (DECL_COMDAT (node->decl)
 	      || (TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl))))
-	node->local.externally_visible = 1;
+	node->local.externally_visible = true;
+      if (!node->local.externally_visible && node->analyzed
+	  && !DECL_EXTERNAL (node->decl))
+	{
+	  gcc_assert (flag_whole_program || !TREE_PUBLIC (node->decl));
+	  TREE_PUBLIC (node->decl) = 0;
+	}
       node->local.local = (!node->needed
 			   && node->analyzed
 			   && !DECL_EXTERNAL (node->decl)
@@ -1069,6 +1141,11 @@ cgraph_function_and_variable_visibility (void)
       if (vnode->needed
 	  && (DECL_COMDAT (vnode->decl) || TREE_PUBLIC (vnode->decl)))
 	vnode->externally_visible = 1;
+      if (!vnode->externally_visible)
+	{
+	  gcc_assert (flag_whole_program || !TREE_PUBLIC (vnode->decl));
+	  TREE_PUBLIC (vnode->decl) = 0;
+	}
      gcc_assert (TREE_STATIC (vnode->decl));
     }
 
@@ -1111,6 +1188,16 @@ cgraph_preserve_function_body_p (tree decl)
     if (node->global.inlined_to)
       return true;
   return false;
+}
+
+static void
+ipa_passes (void)
+{
+  cfun = NULL;
+  tree_register_cfg_hooks ();
+  bitmap_obstack_initialize (NULL);
+  execute_ipa_pass_list (all_ipa_passes);
+  bitmap_obstack_release (NULL);
 }
 
 /* Perform simple optimizations based on callgraph.  */
@@ -1194,7 +1281,7 @@ cgraph_optimize (void)
 	    dump_cgraph_node (stderr, node);
  	  }
       if (error_found)
-	internal_error ("Nodes with no released memory found.");
+	internal_error ("nodes with no released memory found");
     }
 #endif
 }

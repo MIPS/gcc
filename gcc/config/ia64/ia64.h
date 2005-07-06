@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* ??? Look at ABI group documents for list of preprocessor macros and
    other features required for ABI compliance.  */
@@ -892,11 +892,11 @@ enum reg_class
    : ((CLASS) == FR_REGS && (MODE) == XCmode) ? 2		\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* In FP regs, we can't change FP values to integer values and vice
-   versa, but we can change e.g. DImode to SImode.  */
+/* In FP regs, we can't change FP values to integer values and vice versa,
+   but we can change e.g. DImode to SImode, and V2SFmode into DImode.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 	\
-  (GET_MODE_CLASS (FROM) != GET_MODE_CLASS (TO)		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
+  (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
    ? reg_classes_intersect_p (CLASS, FR_REGS) : 0)
 
 /* A C expression that defines the machine-dependent operand constraint
@@ -949,9 +949,9 @@ enum reg_class
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
-/* #define FRAME_GROWS_DOWNWARD */
+/* Define this macro to non-zero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 0
 
 /* Offset from the frame pointer to the first local variable slot to
    be allocated.  */
@@ -1984,6 +1984,8 @@ do {									\
 extern int ia64_final_schedule;
 
 #define TARGET_UNWIND_INFO	1
+
+#define TARGET_UNWIND_TABLES_DEFAULT true
 
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
 

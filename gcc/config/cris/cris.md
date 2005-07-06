@@ -17,8 +17,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; The original PO technology requires these to be ordered by speed,
 ;; so that assigner will pick the fastest.
@@ -73,8 +73,9 @@
    (CRIS_FP_REGNUM 8)
    (CRIS_SP_REGNUM 14)
    (CRIS_SRP_REGNUM 16)
-   (CRIS_AP_REGNUM 17)
-   (CRIS_MOF_REGNUM 18)]
+   (CRIS_MOF_REGNUM 17)
+   (CRIS_AP_REGNUM 18)
+   (CRIS_CC0_REGNUM 19)]
 )
 
 ;; We need an attribute to define whether an instruction can be put in

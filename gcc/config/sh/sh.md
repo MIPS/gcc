@@ -18,8 +18,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 ;; ??? Should prepend a * to all pattern names which are not used.
@@ -11613,7 +11613,7 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA && INTVAL (operands[3]) + INTVAL (operands[4]) == 64"
   "*
 {
-  static char templ[16];
+  static char templ[21];
 
   sprintf (templ, \"mextr%d\\t%%N1, %%N2, %%0\",
 	   (int) INTVAL (operands[3]) >> 3);
@@ -11630,7 +11630,7 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA && INTVAL (operands[3]) + INTVAL (operands[4]) == 64"
   "*
 {
-  static char templ[16];
+  static char templ[21];
 
   sprintf (templ, \"mextr%d\\t%%N2, %%N1, %%0\",
 	   (int) INTVAL (operands[4]) >> 3);

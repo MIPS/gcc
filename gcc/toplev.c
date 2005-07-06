@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the top level of cc1/c++.
    It parses command args, opens files, invokes the various passes
@@ -289,6 +289,14 @@ const char *aux_info_file_name;
 
 int flag_shlib;
 
+/* Generate code for GNU or NeXT Objective-C runtime environment.  */
+
+#ifdef NEXT_OBJC_RUNTIME
+int flag_next_runtime = 1;
+#else
+int flag_next_runtime = 0;
+#endif
+
 /* Set to the default thread-local storage (tls) model to use.  */
 
 enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
@@ -434,9 +442,9 @@ announce_function (tree decl)
   if (!quiet_flag)
     {
       if (rtl_dump_and_exit)
-	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
+	fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
-	verbatim (" %s", lang_hooks.decl_printable_name (decl, 2));
+	fprintf (stderr, " %s", lang_hooks.decl_printable_name (decl, 2));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc);
@@ -815,10 +823,10 @@ check_global_declarations (tree *vec, int len)
 	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
 	{
 	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	    pedwarn ("%J%qF used but never defined", decl, decl);
+	    pedwarn ("%q+F used but never defined", decl);
 	  else
-	    warning (0, "%J%qF declared %<static%> but never defined",
-		     decl, decl);
+	    warning (0, "%q+F declared %<static%> but never defined",
+		     decl);
 	  /* This symbol is effectively an "extern" declaration now.  */
 	  TREE_PUBLIC (decl) = 1;
 	  assemble_external (decl);
@@ -843,7 +851,7 @@ check_global_declarations (tree *vec, int len)
 	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  /* Otherwise, ask the language.  */
 	  && lang_hooks.decls.warn_unused_global (decl))
-	warning (0, "%J%qD defined but not used", decl, decl);
+	warning (0, "%q+D defined but not used", decl);
 
       /* Avoid confusing the debug information machinery when there are
 	 errors.  */
@@ -1085,19 +1093,25 @@ const char *const debug_type_names[] =
 void
 print_version (FILE *file, const char *indent)
 {
+  static const char fmt1[] =
+#ifdef __GNUC__
+    N_("%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n")
+#else
+    N_("%s%s%s version %s (%s) compiled by CC.\n")
+#endif
+    ;
+  static const char fmt2[] =
+    N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
 #define __VERSION__ "[?]"
 #endif
-  fnotice (file,
-#ifdef __GNUC__
-	   "%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n"
-#else
-	   "%s%s%s version %s (%s) compiled by CC.\n"
-#endif
-	   , indent, *indent != 0 ? " " : "",
+  fprintf (file,
+	   file == stderr ? _(fmt1) : fmt1,
+	   indent, *indent != 0 ? " " : "",
 	   lang_hooks.name, version_string, TARGET_NAME,
 	   indent, __VERSION__);
-  fnotice (file, "%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
+  fprintf (file,
+	   file == stderr ? _(fmt2) : fmt2,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
@@ -1347,11 +1361,16 @@ default_pch_valid_p (const void *data_p, size_t len)
 
 /* Default tree printer.   Handles declarations only.  */
 static bool
-default_tree_printer (pretty_printer * pp, text_info *text)
+default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
+		      int precision, bool wide, bool set_locus, bool hash)
 {
   tree t;
 
-  switch (*text->format_spec)
+  /* FUTURE: %+x should set the locus.  */
+  if (precision != 0 || wide || hash)
+    return false;
+
+  switch (*spec)
     {
     case 'D':
       t = va_arg (*text->args_ptr, tree);
@@ -1367,6 +1386,9 @@ default_tree_printer (pretty_printer * pp, text_info *text)
     default:
       return false;
     }
+
+  if (set_locus && text->locus)
+    *text->locus = DECL_SOURCE_LOCATION (t);
 
   if (DECL_P (t))
     {
@@ -1448,7 +1470,7 @@ general_init (const char *argv0)
 
   /* This must be done after add_params but before argument processing.  */
   init_ggc_heuristics();
-  init_tree_optimization_passes ();
+  init_optimization_passes ();
 }
 
 /* Process the options that have been parsed.  */
@@ -1747,6 +1769,16 @@ process_options (void)
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
   if (flag_cx_limited_range)
     flag_complex_method = 0;
+
+  /* Targets must be able to place spill slots at lower addresses.  If the
+     target already uses a soft frame pointer, the transition is trivial.  */
+  if (!FRAME_GROWS_DOWNWARD && flag_stack_protect)
+    {
+      warning (0, "-fstack-protector not supported for this target");
+      flag_stack_protect = 0;
+    }
+  if (!flag_stack_protect)
+    warn_stack_protect = 0;
 }
 
 /* Initialize the compiler back end.  */

@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -2671,6 +2671,14 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
     output_asm_insn ("jump.l\t%P0", xops);
 }
 
+/* Codes for all the Blackfin builtins.  */
+enum bfin_builtins
+{
+  BFIN_BUILTIN_CSYNC,
+  BFIN_BUILTIN_SSYNC,
+  BFIN_BUILTIN_MAX
+};
+
 #define def_builtin(NAME, TYPE, CODE)				\
 do {								\
   builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\

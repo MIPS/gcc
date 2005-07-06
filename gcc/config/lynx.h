@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* In this file we set up defaults that can be chosen by
    <target>/lynx.h files.  A target-specific lynx.h file can decide
@@ -68,7 +68,7 @@ Boston, MA 02111-1307, USA.  */
 # define CPP_OS_LYNX_SPEC \
 "%{mthreads: \
    %{mlegacy-threads: \
-     %eCannot use mthreads and mlegacy-threads together.}} \
+     %ecannot use mthreads and mlegacy-threads together}} \
  %{mthreads: -D_MULTITHREADED} \
  %{mlegacy-threads: -D_THREADS_POSIX4ad4} \
  -Asystem=lynx -Asystem=unix -D__Lynx__ -D__unix__"
@@ -93,7 +93,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef LINK_OS_LYNX_SPEC
 # define LINK_OS_LYNX_SPEC \
 "%{shared} %{static} \
- %{mshared: %{static: %eCannot use mshared and static together.}} \
+ %{mshared: %{static: %ecannot use mshared and static together}} \
  %{!mshared: %{!shared: %{!static: -static}}} \
  %{L*} \
  %{mthreads: \

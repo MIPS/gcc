@@ -19,8 +19,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* RUN-TIME TARGET SPECIFICATION.  */
 
@@ -863,12 +863,12 @@ enum reg_class
 /* #define STACK_GROWS_DOWNWARD.  */
 /* Like the dsp16xx, i370, i960, and we32k ports.  */
 
-/* Define this if the nominal address of the stack frame
+/* Define this to non-zero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
 
-/* #define FRAME_GROWS_DOWNWARD.  */
+#define FRAME_GROWS_DOWNWARD 0
 
 
 /* Registers That Address the Stack Frame.  */
@@ -1666,41 +1666,6 @@ if (final_sequence != NULL_RTX)				\
 /* We don't want a leading tab.  */
 
 #define ASM_OUTPUT_ASM(FILE, STRING) fprintf (FILE, "%s\n", STRING)
-
-/* Define the codes that are matched by predicates in c4x.c.  */
-
-#define PREDICATE_CODES						\
-  {"fp_zero_operand", {CONST_DOUBLE}},				\
-  {"const_operand", {CONST_INT, CONST_DOUBLE}},			\
-  {"stik_const_operand", {CONST_INT}},				\
-  {"not_const_operand", {CONST_INT}},				\
-  {"reg_operand", {REG, SUBREG}},				\
-  {"reg_or_const_operand", {REG, SUBREG, CONST_INT, CONST_DOUBLE}},\
-  {"r0r1_reg_operand", {REG, SUBREG}},				\
-  {"r2r3_reg_operand", {REG, SUBREG}},				\
-  {"ext_low_reg_operand", {REG, SUBREG}},			\
-  {"ext_reg_operand", {REG, SUBREG}},				\
-  {"std_reg_operand", {REG, SUBREG}},				\
-  {"std_or_reg_operand", {REG, SUBREG}},			\
-  {"addr_reg_operand", {REG, SUBREG}},				\
-  {"index_reg_operand", {REG, SUBREG}},				\
-  {"dp_reg_operand", {REG}},					\
-  {"sp_reg_operand", {REG}},					\
-  {"st_reg_operand", {REG}},					\
-  {"rc_reg_operand", {REG}},					\
-  {"call_address_operand", {REG, SYMBOL_REF, LABEL_REF, CONST}}, \
-  {"dst_operand", {SUBREG, REG, MEM}}, \
-  {"src_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"src_hi_operand", {SUBREG, REG, MEM, CONST_DOUBLE}}, 	\
-  {"lsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"tsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"nonimmediate_src_operand", {SUBREG, REG, MEM}}, 		\
-  {"nonimmediate_lsrc_operand", {SUBREG, REG, MEM}}, 		\
-  {"any_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"par_ind_operand", {MEM}},					\
-  {"parallel_operand", {SUBREG, REG, MEM}},			\
-  {"symbolic_address_operand", {SYMBOL_REF, LABEL_REF, CONST}},
-
 
 /* Define the intrinsic functions for the c3x/c4x.  */
 

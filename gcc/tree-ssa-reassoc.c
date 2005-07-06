@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -230,6 +230,13 @@ init_reassoc (void)
 	  insert_value_rank (def, ++rank);
 	}
     }
+  /* Give the chain decl a distinct rank. */
+  if (cfun->static_chain_decl != NULL)
+    {
+      tree def = default_def (cfun->static_chain_decl);
+      if (def != NULL)
+        insert_value_rank (def, ++rank);
+    }
   
   /* Set up rank for each BB  */
   for (i = 0; i < n_basic_blocks; i++)
@@ -399,7 +406,7 @@ should_transpose (tree rhs ATTRIBUTE_UNUSED,
 
   /* Also, see if the LHS's high ranked op should be switched with our
      RHS simply because it is greater in rank than our current RHS.  */
-  if (TREE_CODE (TREE_OPERAND (lhsdefop, 0)) == SSA_NAME)
+  if (TREE_CODE (TREE_OPERAND (lhsdefop, highrankop)) == SSA_NAME)
     {
       tree iop = SSA_NAME_DEF_STMT (TREE_OPERAND (lhsdefop, highrankop));
       if (TREE_CODE (iop) == MODIFY_EXPR)

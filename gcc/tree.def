@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* For tcc_references, tcc_expression, tcc_comparison, tcc_unary,
@@ -993,6 +993,22 @@ DEFTREECODE (GOMP_CLAUSE_COPYIN, "copyin", tcc_expression, 1)
 
 /* OpenMP clause: private (variable_list).  */
 DEFTREECODE (GOMP_CLAUSE_PRIVATE, "private", tcc_expression, 1)
+
+/* Reduction operations. 
+   Operations that take a vector of elements and "reduce" it to a scalar
+   result (e.g. summing the elements of the vector, finding the minimum over
+   the vector elements, etc).
+   Operand 0 is a vector; the first element in the vector has the result.
+   Operand 1 is a vector.  */ 
+DEFTREECODE (REDUC_MAX_EXPR, "reduc_max_expr", tcc_unary, 1)
+DEFTREECODE (REDUC_MIN_EXPR, "reduc_min_expr", tcc_unary, 1)
+DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)
+
+/* Whole vector left/right shift in bytes.
+   Operand 0 is a vector to be shifted.
+   Operand 1 is an integer shift amount in bits.  */
+DEFTREECODE (VEC_LSHIFT_EXPR, "vec_lshift_expr", tcc_binary, 2)
+DEFTREECODE (VEC_RSHIFT_EXPR, "vec_rshift_expr", tcc_binary, 2)
 
 /*
 Local variables:

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* References:
 
@@ -994,7 +994,7 @@ expr_expected_value (tree expr, bitmap visited)
       op1 = expr_expected_value (TREE_OPERAND (expr, 1), visited);
       if (!op1)
 	return NULL;
-      res = fold (build (TREE_CODE (expr), TREE_TYPE (expr), op0, op1));
+      res = fold_build2 (TREE_CODE (expr), TREE_TYPE (expr), op0, op1);
       if (TREE_CONSTANT (res))
 	return res;
       return NULL;
@@ -1005,7 +1005,7 @@ expr_expected_value (tree expr, bitmap visited)
       op0 = expr_expected_value (TREE_OPERAND (expr, 0), visited);
       if (!op0)
 	return NULL;
-      res = fold (build1 (TREE_CODE (expr), TREE_TYPE (expr), op0));
+      res = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr), op0);
       if (TREE_CONSTANT (res))
 	return res;
       return NULL;
@@ -1383,7 +1383,7 @@ tree_estimate_probability (void)
   FOR_EACH_BB (bb)
     combine_predictions_for_bb (dump_file, bb);
 
-  if (0)  /* FIXME: Enable once we are pass down the profile to RTL level.  */
+  if (!flag_loop_optimize)
     strip_builtin_expect ();
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);

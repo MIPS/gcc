@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains subroutines used only from the file reload1.c.
    It knows how to scan one insn for operands and values
@@ -1537,7 +1537,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	    /* Check that we don't use a hardreg for an uninitialized
 	       pseudo.  See also find_dummy_reload().  */
 	    && (ORIGINAL_REGNO (XEXP (note, 0)) < FIRST_PSEUDO_REGISTER
-		|| ! bitmap_bit_p (ENTRY_BLOCK_PTR->global_live_at_end,
+		|| ! bitmap_bit_p (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
 				   ORIGINAL_REGNO (XEXP (note, 0))))
 	    && ! refers_to_regno_for_reload_p (regno,
 					       (regno
@@ -2011,7 +2011,7 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 	   as they would clobber the other live pseudo using the same.
 	   See also PR20973.  */
       && (ORIGINAL_REGNO (in) < FIRST_PSEUDO_REGISTER
-          || ! bitmap_bit_p (ENTRY_BLOCK_PTR->global_live_at_end,
+          || ! bitmap_bit_p (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
 			     ORIGINAL_REGNO (in))))
     {
       unsigned int regno = REGNO (in) + in_offset;

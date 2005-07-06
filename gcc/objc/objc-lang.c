@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "diagnostic.h"
-#include "c-pretty-print.h"
 #include "c-objc-common.h"
 
 enum c_language_kind c_language = clk_objc;

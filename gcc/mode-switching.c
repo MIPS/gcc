@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,6 +34,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "tm_p.h"
 #include "function.h"
+#include "tree-pass.h"
+#include "timevar.h"
 
 /* We want target macros for the mode switching code to be able to refer
    to instruction attribute values.  */
@@ -219,7 +221,7 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
     if (eg->flags & EDGE_FALLTHRU)
       {
 	basic_block src_bb = eg->src;
-	regset live_at_end = src_bb->global_live_at_end;
+	regset live_at_end = src_bb->il.rtl->global_live_at_end;
 	rtx last_insn, ret_reg;
 
 	gcc_assert (!pre_exit);
@@ -368,8 +370,8 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 	else
 	  {
 	    pre_exit = split_edge (eg);
-	    COPY_REG_SET (pre_exit->global_live_at_start, live_at_end);
-	    COPY_REG_SET (pre_exit->global_live_at_end, live_at_end);
+	    COPY_REG_SET (pre_exit->il.rtl->global_live_at_start, live_at_end);
+	    COPY_REG_SET (pre_exit->il.rtl->global_live_at_end, live_at_end);
 	  }
       }
 
@@ -453,7 +455,7 @@ optimize_mode_switching (FILE *file)
 	  HARD_REG_SET live_now;
 
 	  REG_SET_TO_HARD_REG_SET (live_now,
-				   bb->global_live_at_start);
+				   bb->il.rtl->global_live_at_start);
 	  for (insn = BB_HEAD (bb);
 	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
 	       insn = NEXT_INSN (insn))
@@ -583,7 +585,7 @@ optimize_mode_switching (FILE *file)
 	      src_bb = eg->src;
 
 	      REG_SET_TO_HARD_REG_SET (live_at_edge,
-				       src_bb->global_live_at_end);
+				       src_bb->il.rtl->global_live_at_end);
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);
@@ -708,4 +710,43 @@ optimize_mode_switching (FILE *file)
 
   return 1;
 }
+
 #endif /* OPTIMIZE_MODE_SWITCHING */
+
+static bool
+gate_mode_switching (void)
+{
+#ifdef OPTIMIZE_MODE_SWITCHING
+  return true;
+#else
+  return false;
+#endif
+}
+
+static void
+rest_of_handle_mode_switching (void)
+{
+#ifdef OPTIMIZE_MODE_SWITCHING
+  no_new_pseudos = 0;
+  optimize_mode_switching (NULL);
+  no_new_pseudos = 1;
+#endif /* OPTIMIZE_MODE_SWITCHING */
+}
+
+
+struct tree_opt_pass pass_mode_switching =
+{
+  NULL,                                 /* name */
+  gate_mode_switching,                  /* gate */
+  rest_of_handle_mode_switching,        /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_MODE_SWITCH,                       /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};

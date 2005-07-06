@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
 
 */
 
@@ -188,14 +188,14 @@ DEFPARAM(PARAM_MAX_GCSE_PASSES,
    (Added loads execution count)					  */
 DEFPARAM(PARAM_GCSE_AFTER_RELOAD_PARTIAL_FRACTION,
 	"gcse-after-reload-partial-fraction",
-	"The threshold ratio for performing partial redundancy elimination after reload.",
+	"The threshold ratio for performing partial redundancy elimination after reload",
         3, 0, 0)
 /* This is the threshold ratio of the critical edges execution count compared to
    the redundant loads execution count that permits performing the load
    redundancy elimination in gcse after reload.  */
 DEFPARAM(PARAM_GCSE_AFTER_RELOAD_CRITICAL_FRACTION,
 	"gcse-after-reload-critical-fraction",
-	"The threshold ratio of critical edges execution count that permit performing redundancy elimination after reload.",
+	"The threshold ratio of critical edges execution count that permit performing redundancy elimination after reload",
         10, 0, 0)
 /* This parameter limits the number of insns in a loop that will be unrolled,
    and by how much the loop is unrolled.
@@ -417,7 +417,7 @@ DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
 
 DEFPARAM(PARAM_MAX_ALIASED_VOPS,
          "max-aliased-vops",
-	 "The maximum number of virtual operands allowed to represent aliases before triggering alias grouping.",
+	 "The maximum number of virtual operands allowed to represent aliases before triggering alias grouping",
 	 500, 0, 0)
 
 DEFPARAM(PARAM_MAX_SCHED_REGION_BLOCKS,
@@ -466,6 +466,11 @@ DEFPARAM (PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO,
 	  "virtual-mappings-ratio",
 	  "Ratio between virtual mappings and virtual symbols to do full virtual renames",
 	  3, 0, 0)
+
+DEFPARAM (PARAM_SSP_BUFFER_SIZE,
+	  "ssp-buffer-size",
+	  "The lower bound for a buffer to be considered for stack smashing protection",
+	  8, 1, 0)
 
 /*
 Local variables:

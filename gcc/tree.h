@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TREE_H
 #define GCC_TREE_H
@@ -337,7 +337,7 @@ struct tree_common GTY(())
 
        TREE_PRIVATE in
            ..._DECL
-       CALL_EXPR_HAS_RETURN_SLOT_ADDR in
+       CALL_EXPR_RETURN_SLOT_OPT in
            CALL_EXPR
        DECL_BY_REFERENCE in
            PARM_DECL, RESULT_DECL
@@ -980,9 +980,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    an exception.  In a CALL_EXPR, nonzero means the call cannot throw.  */
 #define TREE_NOTHROW(NODE) ((NODE)->common.nothrow_flag)
 
-/* In a CALL_EXPR, means that the address of the return slot is part of the
-   argument list.  */
-#define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
+/* In a CALL_EXPR, means that it's safe to use the target of the call
+   expansion as the return slot for a call that returns in memory.  */
+#define CALL_EXPR_RETURN_SLOT_OPT(NODE) ((NODE)->common.private_flag)
 
 /* In a RESULT_DECL or PARM_DECL, means that it is passed by invisible
    reference (and the TREE_TYPE is a pointer to the true type).  */
@@ -1675,7 +1675,12 @@ struct tree_block GTY(())
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
-  (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision)
+  (((unsigned HOST_WIDE_INT) 1) \
+   << VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision)
+
+/* Set precision to n when we have 2^n sub-parts of the vector.  */
+#define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
+  (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.precision = exact_log2 (X))
 
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
@@ -2187,14 +2192,20 @@ extern void decl_debug_expr_insert (tree, tree);
 
 /* Nonzero means that the decl had its visibility specified rather than
    being inferred.  */
-#define DECL_VISIBILITY_SPECIFIED(NODE) (DECL_CHECK (NODE)->decl.visibility_specified)
+#define DECL_VISIBILITY_SPECIFIED(NODE) \
+  (DECL_CHECK (NODE)->decl.visibility_specified)
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
 
+/* In a VAR_DECL, the model to use if the data should be allocated from
+   thread-local storage.  */
+#define DECL_TLS_MODEL(NODE) (VAR_DECL_CHECK (NODE)->decl.tls_model)
+
 /* In a VAR_DECL, nonzero if the data should be allocated from
    thread-local storage.  */
-#define DECL_THREAD_LOCAL(NODE) (VAR_DECL_CHECK (NODE)->decl.thread_local_flag)
+#define DECL_THREAD_LOCAL_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl.tls_model != TLS_MODEL_NONE)
 
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  */
@@ -2361,6 +2372,14 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
   DECL_CHECK (DECL)->decl.gimple_formal_temp
 
+/* For function local variables of COMPLEX type, indicates that the
+   variable is not aliased, and that all modifications to the variable
+   have been adjusted so that they are killing assignments.  Thus the
+   variable may now be treated as a GIMPLE register, and use real
+   instead of virtual ops in SSA form.  */
+#define DECL_COMPLEX_GIMPLE_REG_P(DECL) \
+  DECL_CHECK (DECL)->decl.gimple_reg_flag
+
 /* Enumerate visibility settings.  */
 #ifndef SYMBOL_VISIBILITY_DEFINED
 #define SYMBOL_VISIBILITY_DEFINED
@@ -2380,6 +2399,8 @@ struct tree_decl GTY(())
   location_t locus;
   unsigned int uid;
   tree size;
+
+  /* 32 bits: */
   ENUM_BITFIELD(machine_mode) mode : 8;
 
   unsigned external_flag : 1;
@@ -2408,10 +2429,11 @@ struct tree_decl GTY(())
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
   unsigned pure_flag : 1;
 
+  /* 32 bits: */
   unsigned non_addressable : 1;
   unsigned user_align : 1;
   unsigned uninlinable : 1;
-  unsigned thread_local_flag : 1;
+  unsigned gimple_reg_flag : 1;
   unsigned declared_inline_flag : 1;
   ENUM_BITFIELD(symbol_visibility) visibility : 2;
   unsigned visibility_specified : 1;
@@ -2432,8 +2454,10 @@ struct tree_decl GTY(())
   unsigned returns_twice_flag : 1;
   unsigned seen_in_bind_expr : 1;
   unsigned novops_flag : 1;
-  unsigned has_value_expr:1;
-  /* 8 unused bits.  */
+  unsigned has_value_expr : 1;
+
+  ENUM_BITFIELD(tls_model) tls_model : 3;
+  /* 5 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -3610,9 +3634,6 @@ extern tree build_fold_indirect_ref (tree);
 extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
-extern tree fold_complex_mult_parts (tree, tree, tree, tree, tree);
-extern tree fold_complex_div_parts (tree, tree, tree, tree, tree,
-				    enum tree_code);
 
 extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
@@ -3625,6 +3646,12 @@ extern tree fold_builtin (tree, tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
 extern tree fold_builtin_strcpy (tree, tree, tree);
 extern tree fold_builtin_strncpy (tree, tree, tree);
+extern tree fold_builtin_memory_chk (tree, tree, tree, bool,
+				     enum built_in_function);
+extern tree fold_builtin_stxcpy_chk (tree, tree, tree, bool,
+				     enum built_in_function);
+extern tree fold_builtin_strncpy_chk (tree, tree);
+extern tree fold_builtin_snprintf_chk (tree, tree, enum built_in_function);
 extern bool fold_builtin_next_arg (tree);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
@@ -3661,6 +3688,7 @@ extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree);
+extern void stack_protect_prologue (void);
 extern void recompute_tree_invarant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
@@ -3870,100 +3898,6 @@ typedef tree (*walk_tree_fn) (tree *, int *, void *);
 extern tree walk_tree (tree*, walk_tree_fn, void*, struct pointer_set_t*);
 extern tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 
-/* In tree-dump.c */
-
-/* Different tree dump places.  When you add new tree dump places,
-   extend the DUMP_FILES array in tree-dump.c.  */
-enum tree_dump_index
-{
-  TDI_none,			/* No dump */
-  TDI_tu,			/* dump the whole translation unit.  */
-  TDI_class,			/* dump class hierarchy.  */
-  TDI_original,			/* dump each function before optimizing it */
-  TDI_generic,			/* dump each function after genericizing it */
-  TDI_nested,			/* dump each function after unnesting it */
-  TDI_inlined,			/* dump each function after inlining
-				   within it.  */
-  TDI_vcg,			/* create a VCG graph file for each
-				   function's flowgraph.  */
-  TDI_tree_all,                 /* enable all the GENERIC/GIMPLE dumps.  */
-  TDI_rtl_all,                  /* enable all the RTL dumps.  */
-  TDI_ipa_all,                  /* enable all the IPA dumps.  */
-
-  TDI_cgraph,                   /* dump function call graph.  */
-
-  DFI_MIN,                      /* For now, RTL dumps are placed here.  */
-  DFI_sibling = DFI_MIN,
-  DFI_eh,
-  DFI_jump,
-  DFI_cse,
-  DFI_gcse,
-  DFI_loop,
-  DFI_bypass,
-  DFI_cfg,
-  DFI_bp,
-  DFI_vpt,
-  DFI_ce1,
-  DFI_tracer,
-  DFI_loop2,
-  DFI_web,
-  DFI_cse2,
-  DFI_life,
-  DFI_combine,
-  DFI_ce2,
-  DFI_regmove,
-  DFI_sms,
-  DFI_sched,
-  DFI_lreg,
-  DFI_greg,
-  DFI_postreload,
-  DFI_gcse2,
-  DFI_flow2,
-  DFI_peephole2,
-  DFI_ce3,
-  DFI_rnreg,
-  DFI_bbro,
-  DFI_branch_target_load,
-  DFI_sched2,
-  DFI_stack,
-  DFI_vartrack,
-  DFI_mach,
-  DFI_dbr,
-
-  TDI_end
-};
-
-/* Bit masks to control dumping. Not all values are applicable to
-   all dumps. Add new ones at the end. When you define new
-   values, extend the DUMP_OPTIONS array in tree-dump.c */
-#define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
-#define TDF_SLIM	(1 << 1)	/* don't go wild following links */
-#define TDF_RAW  	(1 << 2)	/* don't unparse the function */
-#define TDF_DETAILS	(1 << 3)	/* show more detailed info about
-					   each pass */
-#define TDF_STATS	(1 << 4)	/* dump various statistics about
-					   each pass */
-#define TDF_BLOCKS	(1 << 5)	/* display basic block boundaries */
-#define TDF_VOPS	(1 << 6)	/* display virtual operands */
-#define TDF_LINENO	(1 << 7)	/* display statement line numbers */
-#define TDF_UID		(1 << 8)	/* display decl UIDs */
-
-#define TDF_TREE	(1 << 9)	/* is a tree dump */
-#define TDF_RTL		(1 << 10)	/* is a RTL dump */
-#define TDF_IPA		(1 << 11)	/* is an IPA dump */
-#define TDF_STMTADDR	(1 << 12)	/* Address of stmt.  */
-
-typedef struct dump_info *dump_info_p;
-
-extern char *get_dump_file_name (enum tree_dump_index);
-extern int dump_flag (dump_info_p, int, tree);
-extern int dump_enabled_p (enum tree_dump_index);
-extern int dump_initialized_p (enum tree_dump_index);
-extern FILE *dump_begin (enum tree_dump_index, int *);
-extern void dump_end (enum tree_dump_index, FILE *);
-extern void dump_node (tree, int, FILE *);
-extern int dump_switch_p (const char *);
-extern const char *dump_flag_name (enum tree_dump_index);
 /* Assign the RTX to declaration.  */
 
 extern void set_decl_rtl (tree, rtx);
@@ -4010,5 +3944,10 @@ extern void vect_set_verbosity_level (const char *);
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
+
+/* In tree-object-size.c.  */
+extern void init_object_sizes (void);
+extern void fini_object_sizes (void);
+extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
 
 #endif  /* GCC_TREE_H  */

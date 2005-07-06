@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #ifndef __FRV_H__
 #define __FRV_H__
@@ -1445,9 +1445,9 @@ typedef struct frv_stack {
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
-#define FRAME_GROWS_DOWNWARD
+/* Define this macro to non-zero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset from the frame pointer to the first local variable slot to be
    allocated.

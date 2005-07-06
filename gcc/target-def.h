@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -68,6 +68,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #ifndef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL default_internal_label
+#endif
+
+#ifndef TARGET_ARM_TTYPE
+#define TARGET_ASM_TTYPE hook_bool_rtx_false
 #endif
 
 #ifndef TARGET_ASM_ASSEMBLE_VISIBILITY
@@ -137,8 +141,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_HAVE_NAMED_SECTIONS false
 #endif
 
-#ifndef TARGET_INSN_VALID_WITHIN_DOLOOP
-#define TARGET_INSN_VALID_WITHIN_DOLOOP default_insn_valid_within_doloop
+#ifndef TARGET_INVALID_WITHIN_DOLOOP
+#define TARGET_INVALID_WITHIN_DOLOOP default_invalid_within_doloop
 #endif
 
 #ifndef TARGET_HAVE_TLS
@@ -217,6 +221,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
                         TARGET_ASM_EMIT_UNWIND_LABEL,           \
 			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
+			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
@@ -357,6 +362,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
+#define TARGET_ALLOCATE_INITIAL_VALUE NULL
 
 #ifndef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS hook_void_void
@@ -373,6 +379,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
 #define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN hook_invalid_arg_for_unprototyped_fn
 #endif
+
+#define TARGET_INVALID_CONVERSION hook_constcharptr_tree_tree_null
+#define TARGET_INVALID_UNARY_OP hook_constcharptr_int_tree_null
+#define TARGET_INVALID_BINARY_OP hook_constcharptr_int_tree_tree_null
 
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
@@ -397,6 +407,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_DWARF_HANDLE_FRAME_UNSPEC 0
 
 #define TARGET_STDARG_OPTIMIZE_HOOK 0
+
+#define TARGET_STACK_PROTECT_GUARD  default_stack_protect_guard
+#define TARGET_STACK_PROTECT_FAIL   default_external_stack_protect_fail
+
+#define TARGET_ARM_EABI_UNWINDER false
 
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
@@ -441,6 +456,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN			\
    }
 
+#ifndef TARGET_UNWIND_TABLES_DEFAULT
+#define TARGET_UNWIND_TABLES_DEFAULT false
+#endif
 
 #ifndef TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME
 #define TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME 0
@@ -503,7 +521,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
     TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
     TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
     TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
-    TARGET_CXX_USE_AEABI_ATEXIT			\
+    TARGET_CXX_USE_AEABI_ATEXIT,		\
   }
 
 /* The whole shebang.  */
@@ -549,6 +567,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_VECTOR_OPAQUE_P,			\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\
+  TARGET_ALLOCATE_INITIAL_VALUE,		\
   TARGET_DWARF_REGISTER_SPAN,                   \
   TARGET_FIXED_CONDITION_CODE_REGS,		\
   TARGET_CC_MODES_COMPATIBLE,			\
@@ -564,9 +583,15 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_DWARF_CALLING_CONVENTION,              \
   TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
   TARGET_STDARG_OPTIMIZE_HOOK,			\
-  TARGET_INSN_VALID_WITHIN_DOLOOP,		\
+  TARGET_STACK_PROTECT_GUARD,			\
+  TARGET_STACK_PROTECT_FAIL,			\
+  TARGET_INVALID_WITHIN_DOLOOP,			\
   TARGET_CALLS,					\
+  TARGET_INVALID_CONVERSION,			\
+  TARGET_INVALID_UNARY_OP,			\
+  TARGET_INVALID_BINARY_OP,			\
   TARGET_CXX,					\
+  TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
@@ -577,6 +602,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
   TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
   TARGET_RELAXED_ORDERING,			\
+  TARGET_ARM_EABI_UNWINDER			\
 }
 
 #include "hooks.h"

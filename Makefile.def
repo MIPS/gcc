@@ -115,6 +115,7 @@ host_modules= { module= gnattools; };
 
 target_modules = { module= libstdc++-v3; lib_path=.libs; raw_cxx=true; };
 target_modules = { module= libmudflap; lib_path=.libs; };
+target_modules = { module= libssp; lib_path=.libs; };
 target_modules = { module= newlib; };
 target_modules = { module= libgfortran; };
 target_modules = { module= libobjc; };
@@ -474,6 +475,7 @@ bootstrap_stage = {
 	stage_configure_flags="@stage2_werror_flag@" ;
 	stage_make_flags='CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"' ; };
 bootstrap_stage = {
-	id=feedback ; prev=1 ;
+	id=feedback ; prev=profile ;
+	bootstrap_target=profiledbootstrap ;
 	stage_configure_flags="@stage2_werror_flag@" ;
 	stage_make_flags='CFLAGS="$(BOOT_CFLAGS) -fprofile-use"' ; };

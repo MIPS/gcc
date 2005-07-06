@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "tree-chrec.h"
+#include "tree-pass.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
@@ -262,7 +263,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   if (TREE_CODE (node) != ERROR_MARK
       && is_gimple_stmt (node)
       && (flags & TDF_VOPS)
-      && stmt_ann (node))
+      && stmt_ann (node)
+      && TREE_CODE (node) != PHI_NODE)
     dump_vops (buffer, node, spc, flags);
 
   if (is_stmt && (flags & TDF_STMTADDR))
@@ -996,8 +998,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_character (buffer, ']');
 	}
 
-      if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (node))
-	pp_string (buffer, " [return slot addr]");
+      if (CALL_EXPR_RETURN_SLOT_OPT (node))
+	pp_string (buffer, " [return slot optimization]");
       if (CALL_EXPR_TAILCALL (node))
 	pp_string (buffer, " [tail call]");
       break;
@@ -1036,6 +1038,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
+    case VEC_LSHIFT_EXPR:
+    case VEC_RSHIFT_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
@@ -1543,6 +1547,24 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ")");
       break;
 
+    case REDUC_MAX_EXPR:
+      pp_string (buffer, " REDUC_MAX_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case REDUC_MIN_EXPR:
+      pp_string (buffer, " REDUC_MIN_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case REDUC_PLUS_EXPR:
+      pp_string (buffer, " REDUC_PLUS_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
     default:
       NIY;
     }
@@ -1825,6 +1847,11 @@ op_prio (tree op)
     case ABS_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
+    case REDUC_PLUS_EXPR:
+    case VEC_LSHIFT_EXPR:
+    case VEC_RSHIFT_EXPR:
       return 16;
 
     case SAVE_EXPR:
@@ -1912,8 +1939,17 @@ op_symbol (tree op)
     case RSHIFT_EXPR:
       return ">>";
 
+    case VEC_LSHIFT_EXPR:
+      return "v<<";
+
+    case VEC_RSHIFT_EXPR:
+      return "v>>";
+ 
     case PLUS_EXPR:
       return "+";
+
+    case REDUC_PLUS_EXPR:
+      return "r+";
 
     case NEGATE_EXPR:
     case MINUS_EXPR:

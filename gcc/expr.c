@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -134,7 +134,6 @@ static void clear_by_pieces (rtx, unsigned HOST_WIDE_INT, unsigned int);
 static void store_by_pieces_1 (struct store_by_pieces *, unsigned int);
 static void store_by_pieces_2 (rtx (*) (rtx, ...), enum machine_mode,
 			       struct store_by_pieces *);
-static bool clear_storage_via_clrmem (rtx, rtx, unsigned);
 static rtx clear_storage_via_libcall (rtx, rtx, bool);
 static tree clear_storage_libcall_fn (int);
 static rtx compress_float_constant (rtx, rtx);
@@ -200,8 +199,8 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 /* This array records the insn_code of insns to perform block moves.  */
 enum insn_code movmem_optab[NUM_MACHINE_MODES];
 
-/* This array records the insn_code of insns to perform block clears.  */
-enum insn_code clrmem_optab[NUM_MACHINE_MODES];
+/* This array records the insn_code of insns to perform block sets.  */
+enum insn_code setmem_optab[NUM_MACHINE_MODES];
 
 /* These arrays record the insn_code of two different kinds of insns
    to perform block compares.  */
@@ -2478,69 +2477,13 @@ clear_storage (rtx object, rtx size, enum block_op_methods method)
   if (GET_CODE (size) == CONST_INT
       && CLEAR_BY_PIECES_P (INTVAL (size), align))
     clear_by_pieces (object, INTVAL (size), align);
-  else if (clear_storage_via_clrmem (object, size, align))
+  else if (set_storage_via_setmem (object, size, const0_rtx, align))
     ;
   else
     return clear_storage_via_libcall (object, size,
 				      method == BLOCK_OP_TAILCALL);
 
   return NULL;
-}
-
-/* A subroutine of clear_storage.  Expand a clrmem pattern;
-   return true if successful.  */
-
-static bool
-clear_storage_via_clrmem (rtx object, rtx size, unsigned int align)
-{
-  /* Try the most limited insn first, because there's no point
-     including more than one in the machine description unless
-     the more limited one has some advantage.  */
-
-  rtx opalign = GEN_INT (align / BITS_PER_UNIT);
-  enum machine_mode mode;
-
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
-    {
-      enum insn_code code = clrmem_optab[(int) mode];
-      insn_operand_predicate_fn pred;
-
-      if (code != CODE_FOR_nothing
-	  /* We don't need MODE to be narrower than
-	     BITS_PER_HOST_WIDE_INT here because if SIZE is less than
-	     the mode mask, as it is returned by the macro, it will
-	     definitely be less than the actual mode mask.  */
-	  && ((GET_CODE (size) == CONST_INT
-	       && ((unsigned HOST_WIDE_INT) INTVAL (size)
-		   <= (GET_MODE_MASK (mode) >> 1)))
-	      || GET_MODE_BITSIZE (mode) >= BITS_PER_WORD)
-	  && ((pred = insn_data[(int) code].operand[0].predicate) == 0
-	      || (*pred) (object, BLKmode))
-	  && ((pred = insn_data[(int) code].operand[2].predicate) == 0
-	      || (*pred) (opalign, VOIDmode)))
-	{
-	  rtx op1;
-	  rtx last = get_last_insn ();
-	  rtx pat;
-
-	  op1 = convert_to_mode (mode, size, 1);
-	  pred = insn_data[(int) code].operand[1].predicate;
-	  if (pred != 0 && ! (*pred) (op1, mode))
-	    op1 = copy_to_mode_reg (mode, op1);
-
-	  pat = GEN_FCN ((int) code) (object, op1, opalign);
-	  if (pat)
-	    {
-	      emit_insn (pat);
-	      return true;
-	    }
-	  else
-	    delete_insns_since (last);
-	}
-    }
-
-  return false;
 }
 
 /* A subroutine of clear_storage.  Expand a call to memset.
@@ -2636,6 +2579,67 @@ clear_storage_libcall_fn (int for_call)
   return block_clear_fn;
 }
 
+/* Expand a setmem pattern; return true if successful.  */
+
+bool
+set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align)
+{
+  /* Try the most limited insn first, because there's no point
+     including more than one in the machine description unless
+     the more limited one has some advantage.  */
+
+  rtx opalign = GEN_INT (align / BITS_PER_UNIT);
+  enum machine_mode mode;
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      enum insn_code code = setmem_optab[(int) mode];
+      insn_operand_predicate_fn pred;
+
+      if (code != CODE_FOR_nothing
+	  /* We don't need MODE to be narrower than
+	     BITS_PER_HOST_WIDE_INT here because if SIZE is less than
+	     the mode mask, as it is returned by the macro, it will
+	     definitely be less than the actual mode mask.  */
+	  && ((GET_CODE (size) == CONST_INT
+	       && ((unsigned HOST_WIDE_INT) INTVAL (size)
+		   <= (GET_MODE_MASK (mode) >> 1)))
+	      || GET_MODE_BITSIZE (mode) >= BITS_PER_WORD)
+	  && ((pred = insn_data[(int) code].operand[0].predicate) == 0
+	      || (*pred) (object, BLKmode))
+	  && ((pred = insn_data[(int) code].operand[3].predicate) == 0
+	      || (*pred) (opalign, VOIDmode)))
+	{
+	  rtx opsize,opchar;
+	  rtx last = get_last_insn ();
+	  rtx pat;
+
+	  opsize = convert_to_mode (mode, size, 1);
+	  pred = insn_data[(int) code].operand[1].predicate;
+	  if (pred != 0 && ! (*pred) (opsize, mode))
+	    opsize = copy_to_mode_reg (mode, opsize);
+	  
+	  opchar = convert_to_mode (mode, val, 1);
+	  pred = insn_data[(int) code].operand[2].predicate;
+	  if (pred != 0 && ! (*pred) (opchar, mode))
+	    opchar = copy_to_mode_reg (mode, opchar);
+
+	  pat = GEN_FCN ((int) code) (object, opsize, opchar, opalign);
+	  if (pat)
+	    {
+	      emit_insn (pat);
+	      return true;
+	    }
+	  else
+	    delete_insns_since (last);
+	}
+    }
+
+  return false;
+}
+
+
 /* Write to one of the components of the complex value CPLX.  Write VAL to
    the real part if IMAG_P is false, and the imaginary part if its true.  */
 
@@ -2656,6 +2660,16 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
   imode = GET_MODE_INNER (cmode);
   ibitsize = GET_MODE_BITSIZE (imode);
 
+  /* For MEMs simplify_gen_subreg may generate an invalid new address
+     because, e.g., the original address is considered mode-dependent
+     by the target, which restricts simplify_subreg from invoking
+     adjust_address_nv.  Instead of preparing fallback support for an
+     invalid address, we call adjust_address_nv directly.  */
+  if (MEM_P (cplx))
+    emit_move_insn (adjust_address_nv (cplx, imode,
+				       imag_p ? GET_MODE_SIZE (imode) : 0),
+		    val);
+
   /* If the sub-object is at least word sized, then we know that subregging
      will work.  This special case is important, since store_bit_field
      wants to operate on integer modes, and there's rarely an OImode to
@@ -2667,11 +2681,7 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
 	 where the natural size of floating-point regs is 32-bit.  */
       || (REG_P (cplx)
 	  && REGNO (cplx) < FIRST_PSEUDO_REGISTER
-	  && hard_regno_nregs[REGNO (cplx)][cmode] % 2 == 0)
-      /* For MEMs we always try to make a "subreg", that is to adjust
-	 the MEM, because store_bit_field may generate overly
-	 convoluted RTL for sub-word fields.  */
-      || MEM_P (cplx))
+	  && hard_regno_nregs[REGNO (cplx)][cmode] % 2 == 0))
     {
       rtx part = simplify_gen_subreg (imode, cplx, cmode,
 				      imag_p ? GET_MODE_SIZE (imode) : 0);
@@ -2716,6 +2726,15 @@ read_complex_part (rtx cplx, bool imag_p)
 	}
     }
 
+  /* For MEMs simplify_gen_subreg may generate an invalid new address
+     because, e.g., the original address is considered mode-dependent
+     by the target, which restricts simplify_subreg from invoking
+     adjust_address_nv.  Instead of preparing fallback support for an
+     invalid address, we call adjust_address_nv directly.  */
+  if (MEM_P (cplx))
+    return adjust_address_nv (cplx, imode,
+			      imag_p ? GET_MODE_SIZE (imode) : 0);
+
   /* If the sub-object is at least word sized, then we know that subregging
      will work.  This special case is important, since extract_bit_field
      wants to operate on integer modes, and there's rarely an OImode to
@@ -2727,11 +2746,7 @@ read_complex_part (rtx cplx, bool imag_p)
 	 where the natural size of floating-point regs is 32-bit.  */
       || (REG_P (cplx)
 	  && REGNO (cplx) < FIRST_PSEUDO_REGISTER
-	  && hard_regno_nregs[REGNO (cplx)][cmode] % 2 == 0)
-      /* For MEMs we always try to make a "subreg", that is to adjust
-	 the MEM, because extract_bit_field may generate overly
-	 convoluted RTL for sub-word fields.  */
-      || MEM_P (cplx))
+	  && hard_regno_nregs[REGNO (cplx)][cmode] % 2 == 0))
     {
       rtx ret = simplify_gen_subreg (imode, cplx, cmode,
 				     imag_p ? GET_MODE_SIZE (imode) : 0);
@@ -5151,9 +5166,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	    cleared = 1;
 	  }
 	
+	/* Inform later passes that the old value is dead.  */
 	if (!cleared && REG_P (target))
-	  /* Inform later passes that the old value is dead.  */
-	  emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
+	  emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 
         /* Store each element of the constructor into the corresponding
 	   element of TARGET, determined by counting the elements.  */
@@ -8356,6 +8371,23 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
         return temp;
       }
 
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
+    case REDUC_PLUS_EXPR:
+      {
+        op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
+        this_optab = optab_for_tree_code (code, type);
+        temp = expand_unop (mode, this_optab, op0, target, unsignedp);
+        gcc_assert (temp);
+        return temp;
+      }
+
+    case VEC_LSHIFT_EXPR:
+    case VEC_RSHIFT_EXPR:
+      {
+	target = expand_vec_shift_expr (exp, target);
+	return target;
+      }
 
     default:
       return lang_hooks.expand_expr (exp, original_target, tmode,

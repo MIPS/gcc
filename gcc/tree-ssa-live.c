@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -286,6 +286,7 @@ change_partition_var (var_map map, tree var, int part)
     map->partition_to_var[map->compact_to_partition[part]] = var;
 }
 
+static inline void mark_all_vars_used (tree *);
 
 /* Helper function for mark_all_vars_used, called via walk_tree.  */
 
@@ -294,6 +295,17 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
 		      void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
+
+  /* Ignore TREE_ORIGINAL for TARGET_MEM_REFS, as well as other
+     fields that do not contain vars.  */
+  if (TREE_CODE (t) == TARGET_MEM_REF)
+    {
+      mark_all_vars_used (&TMR_SYMBOL (t));
+      mark_all_vars_used (&TMR_BASE (t));
+      mark_all_vars_used (&TMR_INDEX (t));
+      *walk_subtrees = 0;
+      return NULL;
+    }
 
   /* Only need to mark VAR_DECLS; parameters and return results are not
      eliminated as unused.  */
@@ -329,18 +341,15 @@ create_ssa_var_map (int flags)
   var_map map;
   ssa_op_iter iter;
 #ifdef ENABLE_CHECKING
-  sbitmap used_in_real_ops;
-  sbitmap used_in_virtual_ops;
+  bitmap used_in_real_ops;
+  bitmap used_in_virtual_ops;
 #endif
 
   map = init_var_map (num_ssa_names + 1);
 
 #ifdef ENABLE_CHECKING
-  used_in_real_ops = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (used_in_real_ops);
-
-  used_in_virtual_ops = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (used_in_virtual_ops);
+  used_in_real_ops = BITMAP_ALLOC (NULL);
+  used_in_virtual_ops = BITMAP_ALLOC (NULL);
 #endif
 
   if (flags & SSA_VAR_MAP_REF_COUNT)
@@ -377,7 +386,7 @@ create_ssa_var_map (int flags)
 	      register_ssa_partition (map, use, true);
 
 #ifdef ENABLE_CHECKING
-	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (use))->uid);
+	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (use)));
 #endif
 	    }
 
@@ -386,7 +395,7 @@ create_ssa_var_map (int flags)
 	      register_ssa_partition (map, dest, false);
 
 #ifdef ENABLE_CHECKING
-	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (dest))->uid);
+	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (dest)));
 #endif
 	    }
 
@@ -395,7 +404,8 @@ create_ssa_var_map (int flags)
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, 
 				     SSA_OP_VIRTUAL_USES | SSA_OP_VMUSTDEF)
 	    {
-	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (use))->uid);
+	      bitmap_set_bit (used_in_virtual_ops, 
+			      DECL_UID (SSA_NAME_VAR (use)));
 	    }
 
 #endif /* ENABLE_CHECKING */
@@ -407,21 +417,21 @@ create_ssa_var_map (int flags)
 #if defined ENABLE_CHECKING
   {
     unsigned i;
-    sbitmap both = sbitmap_alloc (num_referenced_vars);
-    sbitmap_a_and_b (both, used_in_real_ops, used_in_virtual_ops);
-    if (sbitmap_first_set_bit (both) >= 0)
+    bitmap both = BITMAP_ALLOC (NULL);
+    bitmap_and (both, used_in_real_ops, used_in_virtual_ops);
+    if (!bitmap_empty_p (both))
       {
-	sbitmap_iterator sbi;
+	bitmap_iterator bi;
 
-	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i, sbi)
+	EXECUTE_IF_SET_IN_BITMAP (both, 0, i, bi)
 	  fprintf (stderr, "Variable %s used in real and virtual operands\n",
 		   get_name (referenced_var (i)));
 	internal_error ("SSA corruption");
       }
 
-    sbitmap_free (used_in_real_ops);
-    sbitmap_free (used_in_virtual_ops);
-    sbitmap_free (both);
+    BITMAP_FREE (used_in_real_ops);
+    BITMAP_FREE (used_in_virtual_ops);
+    BITMAP_FREE (both);
   }
 #endif
 

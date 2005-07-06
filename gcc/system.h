@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #ifndef GCC_SYSTEM_H
@@ -692,7 +692,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	HANDLE_PRAGMA_REDEFINE_EXTNAME HANDLE_PRAGMA_EXTERN_PREFIX	\
 	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE               \
         VECTOR_MODE_SUPPORTED_P TARGET_SUPPORTS_HIDDEN 			\
-	FUNCTION_ARG_PARTIAL_NREGS ASM_OUTPUT_DWARF_DTPREL
+	FUNCTION_ARG_PARTIAL_NREGS ASM_OUTPUT_DWARF_DTPREL		\
+	ALLOCATE_INITIAL_VALUE
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
@@ -159,6 +159,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
+  /* Set when function is visible by other units.  */
+  bool externally_visible;
   /* Set for aliases once they got through assemble_alias.  */
   bool alias;
 };
@@ -284,7 +286,7 @@ bool cgraph_remove_unreachable_nodes (bool, FILE *);
 int cgraph_postorder (struct cgraph_node **);
 
 /* In ipa-inline.c  */
-void cgraph_decide_inlining_incrementally (struct cgraph_node *);
+bool cgraph_decide_inlining_incrementally (struct cgraph_node *, bool);
 void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
 void cgraph_mark_inline_edge (struct cgraph_edge *);
 bool cgraph_default_inline_p (struct cgraph_node *);

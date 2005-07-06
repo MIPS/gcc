@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1164,11 +1164,6 @@ package body Exp_Dist is
             --  simple sequence of string comparisons.
 
             RPC_Receiver_Elsif_Parts := New_List;
-            Append_To (RPC_Receiver_Statements,
-              Make_Implicit_If_Statement (Designated_Type,
-                Condition       => New_Occurrence_Of (Standard_False, Loc),
-                Then_Statements => New_List,
-                Elsif_Parts     => RPC_Receiver_Elsif_Parts));
          end if;
       end if;
 
@@ -1308,6 +1303,16 @@ package body Exp_Dist is
       --  Build the case statement and the heart of the subprogram
 
       if not Is_RAS then
+         if Get_PCS_Name = Name_PolyORB_DSA
+           and then Present (First (RPC_Receiver_Elsif_Parts))
+         then
+            Append_To (RPC_Receiver_Statements,
+              Make_Implicit_If_Statement (Designated_Type,
+                Condition       => New_Occurrence_Of (Standard_False, Loc),
+                Then_Statements => New_List,
+                Elsif_Parts     => RPC_Receiver_Elsif_Parts));
+         end if;
+
          Append_To (RPC_Receiver_Case_Alternatives,
            Make_Case_Statement_Alternative (Loc,
              Discrete_Choices => New_List (Make_Others_Choice (Loc)),
@@ -9633,11 +9638,6 @@ package body Exp_Dist is
                   U_Type := Base_Type (U_Type);
                end if;
 
-               if Is_Itype (U_Type) then
-                  return Build_TypeCode_Call
-                    (Loc, Associated_Node_For_Itype (U_Type), Decls);
-               end if;
-
                if U_Type = Standard_Boolean then
                   Lib_RE := RE_TC_B;
 
@@ -10100,18 +10100,12 @@ package body Exp_Dist is
               and then not Is_Tagged_Type (Typ)
             then
                declare
-                  D_Node : constant Node_Id := Declaration_Node (Typ);
                   Parent_Type : Entity_Id := Etype (Typ);
                begin
 
-                  if Is_Enumeration_Type (Typ)
-                    and then Nkind (D_Node) = N_Subtype_Declaration
-                    and then Nkind (Original_Node (D_Node))
-                    /= N_Subtype_Declaration
-                  then
+                  if Is_Itype (Parent_Type) then
 
-                     --  Parent_Type is the implicit intermediate base type
-                     --  created by Build_Derived_Enumeration_Type.
+                     --  Skip implicit base type
 
                      Parent_Type := Etype (Parent_Type);
                   end if;

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef _TREE_FLOW_H
 #define _TREE_FLOW_H 1
@@ -40,6 +40,20 @@ typedef struct basic_block_def *basic_block;
 
 /* True if the code is in ssa form.  */
 extern bool in_ssa_p;
+
+typedef struct
+{
+  htab_t htab;
+  PTR *slot;
+  PTR *limit;
+} htab_iterator;
+
+/* Iterate through the elements of hashtable HTAB, using htab_iterator ITER,
+   storing each element in RESULT, which is of type TYPE.  */
+#define FOR_EACH_HTAB_ELEMENT(HTAB, RESULT, TYPE, ITER) \
+  for (RESULT = (TYPE) first_htab_element (&(ITER), (HTAB)); \
+	!end_htab_p (&(ITER)); \
+	RESULT = (TYPE) next_htab_element (&(ITER)))
 
 /*---------------------------------------------------------------------------
 		      Attributes for SSA_NAMEs.
@@ -208,9 +222,6 @@ struct var_ann_d GTY(())
   /* Variables that may alias this variable.  */
   varray_type may_aliases;
 
-  /* Unique ID of this variable.  */
-  size_t uid;
-
   /* Used when going out of SSA form to indicate which partition this
      variable represents storage for.  */
   unsigned partition;
@@ -356,11 +367,33 @@ static inline void set_phi_nodes (basic_block, tree);
 /*---------------------------------------------------------------------------
 			      Global declarations
 ---------------------------------------------------------------------------*/
-/* Array of all variables referenced in the function.  */
-extern GTY(()) VEC(tree,gc) *referenced_vars;
+struct int_tree_map GTY(())
+{
+  
+  unsigned int uid;
+  tree to;
+};
 
-#define num_referenced_vars VEC_length (tree, referenced_vars)
-#define referenced_var(i) VEC_index (tree, referenced_vars, i)
+extern unsigned int int_tree_map_hash (const void *);
+extern int int_tree_map_eq (const void *, const void *);
+
+typedef struct 
+{
+  htab_iterator hti;
+} referenced_var_iterator;
+
+
+#define FOR_EACH_REFERENCED_VAR(VAR, ITER) \
+  for ((VAR) = first_referenced_var (&(ITER)); \
+       !end_referenced_vars_p (&(ITER)); \
+       (VAR) = next_referenced_var (&(ITER))) 
+
+/* Array of all variables referenced in the function.  */
+extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
+
+extern tree referenced_var_lookup (unsigned int);
+#define num_referenced_vars htab_elements (referenced_vars)
+#define referenced_var(i) referenced_var_lookup (i)
 
 /* Array of all SSA_NAMEs used in the function.  */
 extern GTY(()) VEC(tree,gc) *ssa_names;
@@ -748,6 +781,9 @@ extern bool thread_through_all_blocks (bitmap);
 tree force_gimple_operand (tree, tree *, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree);
 
+/* In tree-ssa-structalias.c */
+bool find_what_p_points_to (tree);
+
 /* In tree-ssa-address.c  */
 
 /* Affine combination of trees.  We keep track of at most MAX_AFF_ELTS elements
@@ -789,6 +825,23 @@ tree create_mem_ref (block_stmt_iterator *, tree,
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
+/* This structure is simply used during pushing fields onto the fieldstack
+   to track the offset of the field, since bitpos_of_field gives it relative
+   to its immediate containing type, and we want it relative to the ultimate
+   containing object.  */
+
+struct fieldoff
+{
+  tree field;
+  HOST_WIDE_INT offset;  
+};
+typedef struct fieldoff fieldoff_s;
+
+DEF_VEC_O(fieldoff_s);
+DEF_VEC_ALLOC_O(fieldoff_s,heap);
+int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
+				 HOST_WIDE_INT, bool *);
+void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 #include "tree-flow-inline.h"
 

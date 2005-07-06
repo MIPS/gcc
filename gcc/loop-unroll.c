@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -519,7 +519,9 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
 					  loops, npeel,
 					  wont_exit, desc->out_edge,
 					  remove_edges, &n_remove_edges,
-					  DLTHE_FLAG_UPDATE_FREQ);
+					  DLTHE_FLAG_UPDATE_FREQ
+					  | (opt_info
+					     ? DLTHE_RECORD_COPY_NUMBER : 0));
       gcc_assert (ok);
 
       free (wont_exit);
@@ -717,7 +719,10 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 					      loops, exit_mod,
 					      wont_exit, desc->out_edge,
 					      remove_edges, &n_remove_edges,
-					      DLTHE_FLAG_UPDATE_FREQ);
+					      DLTHE_FLAG_UPDATE_FREQ
+					      | (opt_info && exit_mod > 1
+						 ? DLTHE_RECORD_COPY_NUMBER
+						   : 0));
 	  gcc_assert (ok);
 
           if (opt_info && exit_mod > 1)
@@ -753,7 +758,10 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 					      loops, exit_mod + 1,
 					      wont_exit, desc->out_edge,
 					      remove_edges, &n_remove_edges,
-					      DLTHE_FLAG_UPDATE_FREQ);
+					      DLTHE_FLAG_UPDATE_FREQ
+					      | (opt_info && exit_mod > 0
+						 ? DLTHE_RECORD_COPY_NUMBER
+						   : 0));
 	  gcc_assert (ok);
  
           if (opt_info && exit_mod > 0)
@@ -777,7 +785,10 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 				      loops, max_unroll,
 				      wont_exit, desc->out_edge,
 				      remove_edges, &n_remove_edges,
-				      DLTHE_FLAG_UPDATE_FREQ);
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
 
   if (opt_info)
@@ -790,7 +801,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 
   if (exit_at_end)
     {
-      basic_block exit_block = desc->in_edge->src->rbi->copy;
+      basic_block exit_block = get_bb_copy (desc->in_edge->src);
       /* Find a new in and out edge; they are in the last copy we have made.  */
       
       if (EDGE_SUCC (exit_block, 0)->dest == desc->out_edge->dest)
@@ -1097,7 +1108,10 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 				      loops, max_unroll,
 				      wont_exit, desc->out_edge,
 				      remove_edges, &n_remove_edges,
-				      DLTHE_FLAG_UPDATE_FREQ);
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
   
   if (opt_info)
@@ -1110,7 +1124,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 
   if (exit_at_end)
     {
-      basic_block exit_block = desc->in_edge->src->rbi->copy;
+      basic_block exit_block = get_bb_copy (desc->in_edge->src);
       /* Find a new in and out edge; they are in the last copy we have
 	 made.  */
       
@@ -1274,7 +1288,10 @@ peel_loop_simple (struct loops *loops, struct loop *loop)
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 				      loops, npeel, wont_exit,
 				      NULL, NULL,
-				      NULL, DLTHE_FLAG_UPDATE_FREQ);
+				      NULL, DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
 
   free (wont_exit);
@@ -1422,7 +1439,10 @@ unroll_loop_stupid (struct loops *loops, struct loop *loop)
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      loops, nunroll, wont_exit,
 				      NULL, NULL, NULL,
-				      DLTHE_FLAG_UPDATE_FREQ);
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
   
   if (opt_info)
@@ -2058,10 +2078,13 @@ apply_opt_in_copies (struct opt_info *opt_info,
   for (i = opt_info->first_new_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
-      orig_bb = bb->rbi->original;
+      orig_bb = get_bb_original (bb);
       
-      delta = determine_split_iv_delta (bb->rbi->copy_number, n_copies,
+      /* bb->aux holds position in copy sequence initialized by
+	 duplicate_loop_to_header_edge.  */
+      delta = determine_split_iv_delta ((size_t)bb->aux, n_copies,
 					unrolling);
+      bb->aux = 0;
       orig_insn = BB_HEAD (orig_bb);
       for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb)); insn = next)
         {
@@ -2124,12 +2147,12 @@ apply_opt_in_copies (struct opt_info *opt_info,
   
   /* Rewrite also the original loop body.  Find them as originals of the blocks
      in the last copied iteration, i.e. those that have
-     bb->rbi->original->copy == bb.  */
+     get_bb_copy (get_bb_original (bb)) == bb.  */
   for (i = opt_info->first_new_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
-      orig_bb = bb->rbi->original;
-      if (orig_bb->rbi->copy != bb)
+      orig_bb = get_bb_original (bb);
+      if (get_bb_copy (orig_bb) != bb)
 	continue;
       
       delta = determine_split_iv_delta (0, n_copies, unrolling);

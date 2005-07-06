@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* trans-decl.c -- Handling of backend function and variable decls, etc */
 
@@ -1873,6 +1873,7 @@ gfc_build_builtin_function_decls (void)
   tree gfc_int4_type_node = gfc_get_int_type (4);
   tree gfc_int8_type_node = gfc_get_int_type (8);
   tree gfc_logical4_type_node = gfc_get_logical_type (4);
+  tree gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
 
   gfor_fndecl_internal_malloc =
     gfc_build_library_function_decl (get_identifier (PREFIX("internal_malloc")),
@@ -1899,7 +1900,8 @@ gfc_build_builtin_function_decls (void)
 
   gfor_fndecl_deallocate =
     gfc_build_library_function_decl (get_identifier (PREFIX("deallocate")),
-				     void_type_node, 1, ppvoid_type_node);
+				     void_type_node, 2, ppvoid_type_node,
+				     gfc_pint4_type_node);
 
   gfor_fndecl_stop_numeric =
     gfc_build_library_function_decl (get_identifier (PREFIX("stop_numeric")),

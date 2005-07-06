@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_GFORTRAN_H
 #define GCC_GFORTRAN_H
@@ -272,6 +272,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_ABS,
   GFC_ISYM_ACHAR,
   GFC_ISYM_ACOS,
+  GFC_ISYM_ACOSH,
   GFC_ISYM_ADJUSTL,
   GFC_ISYM_ADJUSTR,
   GFC_ISYM_AIMAG,
@@ -281,8 +282,10 @@ enum gfc_generic_isym_id
   GFC_ISYM_ANINT,
   GFC_ISYM_ANY,
   GFC_ISYM_ASIN,
+  GFC_ISYM_ASINH,
   GFC_ISYM_ASSOCIATED,
   GFC_ISYM_ATAN,
+  GFC_ISYM_ATANH,
   GFC_ISYM_ATAN2,
   GFC_ISYM_J0,
   GFC_ISYM_J1,
@@ -497,6 +500,14 @@ typedef struct
   char *nextc;
   gfc_linebuf *lb;
 } locus;
+
+/* In order for the "gfc" format checking to work correctly, you must
+   have declared a typedef locus first.  */
+#if GCC_VERSION >= 4001
+#define ATTRIBUTE_GCC_GFC(m, n) __attribute__ ((__format__ (__gcc_gfc__, m, n))) ATTRIBUTE_NONNULL(m)
+#else
+#define ATTRIBUTE_GCC_GFC(m, n) ATTRIBUTE_NONNULL(m)
+#endif
 
 
 #include <limits.h>
@@ -1421,6 +1432,7 @@ typedef struct
   int flag_pack_derived;
   int flag_repack_arrays;
   int flag_f2c;
+  int flag_backslash;
 
   int q_kind;
 
@@ -1539,19 +1551,19 @@ typedef struct gfc_error_buf
 void gfc_error_init_1 (void);
 void gfc_buffer_error (int);
 
-void gfc_warning (const char *, ...);
-void gfc_warning_now (const char *, ...);
+void gfc_warning (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_warning_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 
-void gfc_error (const char *, ...);
-void gfc_error_now (const char *, ...);
-void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN;
-void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN;
+void gfc_error (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_error_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
+void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_clear_error (void);
 int gfc_error_check (void);
 
-try gfc_notify_std (int, const char *, ...);
+try gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 /* A general purpose syntax error.  */
 #define gfc_syntax_error(ST)	\

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -137,6 +137,12 @@ int stack_pointer;
 
 const unsigned char *linenumber_table;
 int linenumber_count;
+
+/* Largest pc so far in this method that has been passed to lookup_label. */
+int highest_label_pc_this_method = -1;
+
+/* Base value for this method to add to pc to get generated label. */
+int start_label_pc_this_method = 0;
 
 void
 init_expr_processing (void)
@@ -1766,7 +1772,9 @@ lookup_label (int pc)
 {
   tree name;
   char buf[32];
-  ASM_GENERATE_INTERNAL_LABEL(buf, "LJpc=", pc);
+  if (pc > highest_label_pc_this_method)
+    highest_label_pc_this_method = pc;
+  ASM_GENERATE_INTERNAL_LABEL(buf, "LJpc=", start_label_pc_this_method + pc);
   name = get_identifier (buf);
   if (IDENTIFIER_LOCAL_VALUE (name))
     return IDENTIFIER_LOCAL_VALUE (name);
@@ -2722,22 +2730,22 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
       if (FIELD_FINAL (field_decl))
 	{
 	  if (DECL_CONTEXT (field_decl) != current_class)
-            error ("%Jassignment to final field '%D' not in field's class",
-                   field_decl, field_decl);
+            error ("assignment to final field %q+D not in field's class",
+                   field_decl);
 	  else if (FIELD_STATIC (field_decl))
 	    {
 	      if (!DECL_CLINIT_P (current_function_decl))
-		warning (0, "%Jassignment to final static field %qD not in "
+		warning (0, "assignment to final static field %q+D not in "
                          "class initializer",
-                         field_decl, field_decl);
+                         field_decl);
 	    }
 	  else
 	    {
 	      tree cfndecl_name = DECL_NAME (current_function_decl);
 	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
 		  && !ID_FINIT_P (cfndecl_name))
-                warning (0, "%Jassignment to final field '%D' not in constructor",
-			 field_decl, field_decl);
+                warning (0, "assignment to final field %q+D not in constructor",
+			 field_decl);
 	    }
 	}
       java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (field_ref),

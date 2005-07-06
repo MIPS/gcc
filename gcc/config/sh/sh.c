@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -271,6 +271,8 @@ static int sh_address_cost (rtx);
 #ifdef TARGET_ADJUST_UNROLL_MAX
 static int sh_adjust_unroll_max (struct loop *, int, int, int, int);
 #endif
+static int sh_pr_n_sets (void);
+static rtx sh_allocate_initial_value (rtx);
 static int shmedia_target_regs_stack_space (HARD_REG_SET *);
 static int shmedia_reserve_space_for_target_registers_p (int, HARD_REG_SET *);
 static int shmedia_target_regs_stack_adjust (HARD_REG_SET *);
@@ -422,6 +424,8 @@ static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 #define TARGET_RTX_COSTS sh_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST sh_address_cost
+#undef TARGET_ALLOCATE_INITIAL_VALUE
+#define TARGET_ALLOCATE_INITIAL_VALUE sh_allocate_initial_value
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG sh_reorg
@@ -1682,7 +1686,8 @@ output_branchy_insn (enum rtx_code code, const char *template,
 const char *
 output_ieee_ccmpeq (rtx insn, rtx *operands)
 {
-  return output_branchy_insn (NE, "bt\t%l9\\;fcmp/eq\t%1,%0", insn, operands);
+  return output_branchy_insn (NE, "bt\t%l9\n\tfcmp/eq\t%1,%0",
+			      insn, operands);
 }
 
 /* Output the start of the assembler file.  */
@@ -8348,14 +8353,39 @@ flow_dependent_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
     *pinsn = NULL_RTX;
 }
 
-/* For use by ALLOCATE_INITIAL_VALUE.  Note that sh.md contains some
+/* For use by sh_allocate_initial_value.  Note that sh.md contains some
    'special function' patterns (type sfunc) that clobber pr, but that
    do not look like function calls to leaf_function_p.  Hence we must
    do this extra check.  */
-int
+static int
 sh_pr_n_sets (void)
 {
   return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
+}
+
+/* Return where to allocate pseudo for a given hard register initial
+   value.  */
+static rtx
+sh_allocate_initial_value (rtx hard_reg)
+{
+  rtx x;
+
+  if (REGNO (hard_reg) == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG))
+    {
+      if (current_function_is_leaf
+	  && ! sh_pr_n_sets ()
+	  && ! (TARGET_SHCOMPACT
+		&& ((current_function_args_info.call_cookie
+		     & ~ CALL_COOKIE_RET_TRAMP (1))
+		    || current_function_has_nonlocal_label)))
+	x = hard_reg;
+      else
+	x = gen_rtx_MEM (Pmode, return_address_pointer_rtx);
+    }
+  else
+    x = NULL_RTX;
+
+  return x;
 }
 
 /* This function returns "2" to indicate dual issue for the SH4
@@ -9590,7 +9620,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   insn_locators_initialize ();
   insns = get_insns ();
 
-  if (optimize > 0 && flag_schedule_insns_after_reload)
+  if (optimize > 0)
     {
       /* Initialize the bitmap obstacks.  */
       bitmap_obstack_initialize (NULL);
@@ -9598,31 +9628,36 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       if (! cfun->cfg)
 	init_flow ();
       rtl_register_cfg_hooks ();
+      init_rtl_bb_info (ENTRY_BLOCK_PTR);
+      init_rtl_bb_info (EXIT_BLOCK_PTR);
+      ENTRY_BLOCK_PTR->flags |= BB_RTL;
+      EXIT_BLOCK_PTR->flags |= BB_RTL;
       find_basic_blocks (insns);
-      life_analysis (dump_file, PROP_FINAL);
 
-      split_all_insns (1);
+      if (flag_schedule_insns_after_reload)
+	{
+	  life_analysis (dump_file, PROP_FINAL);
 
-      schedule_insns (dump_file);
+	  split_all_insns (1);
+
+	  schedule_insns (dump_file);
+	}
+      /* We must split jmp insn in PIC case.  */
+      else if (flag_pic)
+	split_all_insns_noflow ();
     }
 
   sh_reorg ();
 
   if (optimize > 0 && flag_delayed_branch)
-    {
-      if (! cfun->cfg)
-	{
-	  init_flow ();
-	  find_basic_blocks (insns);
-	}
-      dbr_schedule (insns, dump_file);
-    }
+    dbr_schedule (insns, dump_file);
+
   shorten_branches (insns);
   final_start_function (insns, file, 1);
   final (insns, file, 1);
   final_end_function ();
 
-  if (optimize > 0 && flag_schedule_insns_after_reload)
+  if (optimize > 0)
     {
       /* Release all memory allocated by flow.  */
       free_basic_block_vars ();

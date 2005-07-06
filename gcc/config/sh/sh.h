@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_SH_H
 #define GCC_SH_H
@@ -604,7 +604,7 @@ do {									\
 	 --with-newlib --with-headers.  But there is no way to check	\
 	 here we have a working libgcov, so just assume that we have.  */\
       if (profile_flag)							\
-	warning (0, "Profiling is still experimental for this target.");\
+	warning (0, "profiling is still experimental for this target");\
     }									\
   else									\
     {									\
@@ -1694,11 +1694,11 @@ extern enum reg_class reg_class_from_letter[];
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/*  Define this macro if the addresses of local variable slots are at
-    negative offsets from the frame pointer.
+/*  Define this macro to non-zero if the addresses of local variable slots
+    are at negative offsets from the frame pointer.
 
     The SH only has positive indexes, so grow the frame up.  */
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD 0
 
 /* Offset from the frame pointer to the first local variable slot to
    be allocated.  */
@@ -3359,18 +3359,6 @@ extern struct rtx_def *sp_switch;
 1:	.long	" USER_LABEL_PREFIX #FUNC " - 0b\n\
 2:\n" TEXT_SECTION_ASM_OP);
 #endif /* (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__ */
-
-#define ALLOCATE_INITIAL_VALUE(hard_reg) \
-  (REGNO (hard_reg) == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG) \
-   ? (current_function_is_leaf \
-      && ! sh_pr_n_sets () \
-      && ! (TARGET_SHCOMPACT \
-	    && ((current_function_args_info.call_cookie \
-		 & ~ CALL_COOKIE_RET_TRAMP (1)) \
-		|| current_function_has_nonlocal_label)) \
-      ? (hard_reg) \
-      : gen_rtx_MEM (Pmode, return_address_pointer_rtx)) \
-   : NULL_RTX)
 
 #define SIMULTANEOUS_PREFETCHES 2
 

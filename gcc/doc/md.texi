@@ -3100,8 +3100,8 @@ corresponds to the C data type @code{double} and the @code{floorf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 
-@cindex @code{trunc@var{m}2} instruction pattern
-@item @samp{trunc@var{m}2}
+@cindex @code{btrunc@var{m}2} instruction pattern
+@item @samp{btrunc@var{m}2}
 Store the argument rounded to integer towards zero.
 
 The @code{trunc} built-in function of C always uses the mode which
@@ -3133,6 +3133,17 @@ Store the argument rounded according to the default rounding mode
 
 The @code{nearbyint} built-in function of C always uses the mode which
 corresponds to the C data type @code{double} and the @code{nearbyintf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{rint@var{m}2} instruction pattern
+@item @samp{rint@var{m}2}
+Store the argument rounded according to the default rounding mode and
+raise the inexact exception when the result differs in value from
+the argument
+
+The @code{rint} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{rintf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 
@@ -3242,19 +3253,21 @@ destination and source strings are operands 1 and 2, and both are
 the expansion of this pattern should store in operand 0 the address in
 which the @code{NUL} terminator was stored in the destination string.
 
-@cindex @code{clrmem@var{m}} instruction pattern
-@item @samp{clrmem@var{m}}
-Block clear instruction.  The destination string is the first operand,
+@cindex @code{setmem@var{m}} instruction pattern
+@item @samp{setmem@var{m}}
+Block set instruction.  The destination string is the first operand,
 given as a @code{mem:BLK} whose address is in mode @code{Pmode}.  The
-number of bytes to clear is the second operand, in mode @var{m}.  See
+number of bytes to set is the second operand, in mode @var{m}.  The value to
+initialize the memory with is the third operand. Targets that only support the
+clearing of memory should reject any value that is not the constant 0.  See
 @samp{movmem@var{m}} for a discussion of the choice of mode.
 
-The third operand is the known alignment of the destination, in the form
+The fourth operand is the known alignment of the destination, in the form
 of a @code{const_int} rtx.  Thus, if the compiler knows that the
 destination is word-aligned, it may provide the value 4 for this
 operand.
 
-The use for multiple @code{clrmem@var{m}} is as for @code{movmem@var{m}}.
+The use for multiple @code{setmem@var{m}} is as for @code{movmem@var{m}}.
 
 @cindex @code{cmpstr@var{m}} instruction pattern
 @item @samp{cmpstr@var{m}}
@@ -4082,6 +4095,28 @@ released only after all previous memory operations have completed.
 
 If this pattern is not defined, then a @code{memory_barrier} pattern
 will be emitted, followed by a store of the value to the memory operand.
+
+@cindex @code{stack_protect_set} instruction pattern
+@item @samp{stack_protect_set}
+
+This pattern, if defined, moves a @code{Pmode} value from the memory
+in operand 1 to the memory in operand 0 without leaving the value in
+a register afterward.  This is to avoid leaking the value some place
+that an attacker might use to rewrite the stack guard slot after 
+having clobbered it.
+
+If this pattern is not defined, then a plain move pattern is generated.
+
+@cindex @code{stack_protect_test} instruction pattern
+@item @samp{stack_protect_test}
+
+This pattern, if defined, compares a @code{Pmode} value from the
+memory in operand 1 with the memory in operand 0 without leaving the
+value in a register afterward and branches to operand 2 if the values
+weren't equal.
+
+If this pattern is not defined, then a plain compare pattern and
+conditional branch pattern is used.
 
 @end table
 

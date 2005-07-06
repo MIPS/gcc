@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -164,7 +164,7 @@ static const unsigned char *
   decode_signature_piece (FILE *, const unsigned char *,
 			  const unsigned char *, int *);
 static void print_class_decls (FILE *, JCF *, int);
-static void error (const char *gmsgid, ...);
+static void error (const char *gmsgid, ...) ATTRIBUTE_PRINTF_1;
 static void usage (void) ATTRIBUTE_NORETURN;
 static void help (void) ATTRIBUTE_NORETURN;
 static void version (void) ATTRIBUTE_NORETURN;

@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #define GCOV_LINKAGE
@@ -271,7 +271,7 @@ read_counts_file (void)
 	    }
 	  else if (entry->checksum != checksum)
 	    {
-	      error ("coverage mismatch for function %u while reading execution counters.",
+	      error ("coverage mismatch for function %u while reading execution counters",
 		     fn_ident);
 	      error ("checksum is %x instead of %x", entry->checksum, checksum);
 	      htab_delete (counts_hash);
@@ -279,7 +279,7 @@ read_counts_file (void)
 	    }
 	  else if (entry->summary.num != n_counts)
 	    {
-	      error ("coverage mismatch for function %u while reading execution counters.",
+	      error ("coverage mismatch for function %u while reading execution counters",
 		     fn_ident);
 	      error ("number of counters is %d instead of %d", entry->summary.num, n_counts);
 	      htab_delete (counts_hash);
@@ -345,7 +345,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   entry = htab_find (counts_hash, &elt);
   if (!entry)
     {
-      warning (0, "no coverage for function %qs found.", IDENTIFIER_POINTER
+      warning (0, "no coverage for function %qs found", IDENTIFIER_POINTER
 	       (DECL_ASSEMBLER_NAME (current_function_decl)));
       return 0;
     }
@@ -353,7 +353,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   checksum = compute_checksum ();
   if (entry->checksum != checksum)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs.",
+      error ("coverage mismatch for function %qs while reading counter %qs",
 	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
 	     ctr_names[counter]);
       error ("checksum is %x instead of %x", entry->checksum, checksum);
@@ -361,7 +361,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
     }
   else if (entry->summary.num != expected)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs.",
+      error ("coverage mismatch for function %qs while reading counter %qs",
 	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
 	     ctr_names[counter]);
       error ("number of counters is %d instead of %d", entry->summary.num, expected);

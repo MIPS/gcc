@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Functions in i386.c */
 extern void override_options (void);
@@ -149,7 +149,7 @@ extern int ix86_expand_setcc (enum rtx_code, rtx);
 extern int ix86_expand_int_movcc (rtx[]);
 extern int ix86_expand_fp_movcc (rtx[]);
 extern bool ix86_expand_fp_vcond (rtx[]);
-extern bool ix86_expand_int_vcond (rtx[], bool);
+extern bool ix86_expand_int_vcond (rtx[]);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
@@ -230,6 +230,7 @@ extern rtx ix86_tls_get_addr (void);
 extern void ix86_expand_vector_init (bool, rtx, rtx);
 extern void ix86_expand_vector_set (bool, rtx, rtx, int);
 extern void ix86_expand_vector_extract (bool, rtx, rtx, int);
+extern void ix86_expand_reduc_v4sf (rtx (*)(rtx, rtx, rtx), rtx, rtx);
 
 /* In winnt.c  */
 extern int i386_pe_dllexport_name_p (const char *);

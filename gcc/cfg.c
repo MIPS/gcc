@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains low level functions to manipulate the CFG and
    analyze it.  All other modules should not transform the data structure
@@ -63,6 +63,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "timevar.h"
 #include "ggc.h"
+#include "hashtab.h"
+#include "alloc-pool.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -132,16 +134,6 @@ alloc_block (void)
   basic_block bb;
   bb = ggc_alloc_cleared (sizeof (*bb));
   return bb;
-}
-
-/* Initialize rbi (the structure containing data used by basic block
-   duplication and reordering) for the given basic block.  */
-
-void
-initialize_bb_rbi (basic_block bb)
-{
-  gcc_assert (!bb->rbi);
-  bb->rbi = ggc_alloc_cleared (sizeof (struct reorder_block_def));
 }
 
 /* Link block B to chain after AFTER.  */
@@ -419,7 +411,8 @@ clear_bb_flags (void)
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE);
+    bb->flags = (BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE)
+		 | (bb->flags & BB_RTL));
 }
 
 /* Check the consistency of profile information.  We can't do that
@@ -551,16 +544,19 @@ dump_flow_info (FILE *file)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	dump_edge_info (file, e, 1);
 
-      if (bb->global_live_at_start)
+      if (bb->flags & BB_RTL)
 	{
-	  fprintf (file, "\nRegisters live at start:");
-	  dump_regset (bb->global_live_at_start, file);
-	}
+	  if (bb->il.rtl->global_live_at_start)
+	    {
+	      fprintf (file, "\nRegisters live at start:");
+	      dump_regset (bb->il.rtl->global_live_at_start, file);
+	    }
 
-      if (bb->global_live_at_end)
-	{
-	  fprintf (file, "\nRegisters live at end:");
-	  dump_regset (bb->global_live_at_end, file);
+	  if (bb->il.rtl->global_live_at_end)
+	    {
+	      fprintf (file, "\nRegisters live at end:");
+	      dump_regset (bb->il.rtl->global_live_at_end, file);
+	    }
 	}
 
       putc ('\n', file);
@@ -895,7 +891,7 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
       int scale = 65536 * REG_BR_PROB_BASE / prob;
 
       FOR_EACH_EDGE (c, ei, bb->succs)
-	c->probability *= scale / 65536;
+	c->probability = (c->probability * scale) / 65536;
     }
 
   gcc_assert (bb == taken_edge->src);
@@ -939,4 +935,149 @@ scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
 	e->count = (e->count * num) /den;
     }
+}
+
+/* Data structures used to maintain mapping between basic blocks and
+   copies.  */
+static htab_t bb_original;
+static htab_t bb_copy;
+static alloc_pool original_copy_bb_pool;
+
+struct htab_bb_copy_original_entry
+{
+  /* Block we are attaching info to.  */
+  int index1;
+  /* Index of original or copy (depending on the hashtable) */
+  int index2;
+};
+
+static hashval_t
+bb_copy_original_hash (const void *p)
+{
+  struct htab_bb_copy_original_entry *data
+    = ((struct htab_bb_copy_original_entry *)p);
+
+  return data->index1;
+}
+static int
+bb_copy_original_eq (const void *p, const void *q)
+{
+  struct htab_bb_copy_original_entry *data
+    = ((struct htab_bb_copy_original_entry *)p);
+  struct htab_bb_copy_original_entry *data2
+    = ((struct htab_bb_copy_original_entry *)q);
+
+  return data->index1 == data2->index1;
+}
+
+/* Initialize the data structures to maintain mapping between blocks
+   and its copies.  */
+void
+initialize_original_copy_tables (void)
+{
+  gcc_assert (!original_copy_bb_pool);
+  original_copy_bb_pool
+    = create_alloc_pool ("original_copy",
+			 sizeof (struct htab_bb_copy_original_entry), 10);
+  bb_original = htab_create (10, bb_copy_original_hash,
+			     bb_copy_original_eq, NULL);
+  bb_copy = htab_create (10, bb_copy_original_hash, bb_copy_original_eq, NULL);
+}
+
+/* Free the data structures to maintain mapping between blocks and
+   its copies.  */
+void
+free_original_copy_tables (void)
+{
+  gcc_assert (original_copy_bb_pool);
+  htab_delete (bb_copy);
+  htab_delete (bb_original);
+  free_alloc_pool (original_copy_bb_pool);
+  bb_copy = NULL;
+  bb_original = NULL;
+  original_copy_bb_pool = NULL;
+}
+
+/* Set original for basic block.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+void
+set_bb_original (basic_block bb, basic_block original)
+{
+  if (original_copy_bb_pool)
+    {
+      struct htab_bb_copy_original_entry **slot;
+      struct htab_bb_copy_original_entry key;
+
+      key.index1 = bb->index;
+      slot =
+	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_original,
+							       &key, INSERT);
+      if (*slot)
+	(*slot)->index2 = original->index;
+      else
+	{
+	  *slot = pool_alloc (original_copy_bb_pool);
+	  (*slot)->index1 = bb->index;
+	  (*slot)->index2 = original->index;
+	}
+    }
+}
+
+/* Get the original basic block.  */
+basic_block
+get_bb_original (basic_block bb)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = bb->index;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (bb_original, &key);
+  if (entry)
+    return BASIC_BLOCK (entry->index2);
+  else
+    return NULL;
+}
+
+/* Set copy for basic block.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+void
+set_bb_copy (basic_block bb, basic_block copy)
+{
+  if (original_copy_bb_pool)
+    {
+      struct htab_bb_copy_original_entry **slot;
+      struct htab_bb_copy_original_entry key;
+
+      key.index1 = bb->index;
+      slot =
+	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_copy,
+							       &key, INSERT);
+      if (*slot)
+	(*slot)->index2 = copy->index;
+      else
+	{
+	  *slot = pool_alloc (original_copy_bb_pool);
+	  (*slot)->index1 = bb->index;
+	  (*slot)->index2 = copy->index;
+	}
+    }
+}
+
+/* Get the copy of basic block.  */
+basic_block
+get_bb_copy (basic_block bb)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = bb->index;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (bb_copy, &key);
+  if (entry)
+    return BASIC_BLOCK (entry->index2);
+  else
+    return NULL;
 }

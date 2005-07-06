@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* This file handles generation of all the assembler code
@@ -464,7 +464,7 @@ named_section (tree decl, const char *name, int reloc)
     {
       flags = get_named_section_flags (name);
       if ((flags & SECTION_OVERRIDE) == 0)
-	error ("%J%D causes a section type conflict", decl, decl);
+	error ("%+D causes a section type conflict", decl);
     }
 
   named_section_real (name, flags, decl);
@@ -925,15 +925,15 @@ make_decl_rtl (tree decl)
       reg_number = decode_reg_name (name);
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
-	error ("%Jregister name not specified for %qD", decl, decl);
+	error ("register name not specified for %q+D", decl);
       else if (reg_number < 0)
-	error ("%Jinvalid register name for %qD", decl, decl);
+	error ("invalid register name for %q+D", decl);
       else if (TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
-	error ("%Jdata type of %qD isn%'t suitable for a register",
-	       decl, decl);
+	error ("data type of %q+D isn%'t suitable for a register",
+	       decl);
       else if (! HARD_REGNO_MODE_OK (reg_number, TYPE_MODE (TREE_TYPE (decl))))
-	error ("%Jregister specified for %qD isn%'t suitable for data type",
-               decl, decl);
+	error ("register specified for %q+D isn%'t suitable for data type",
+               decl);
       /* Now handle properly declared static register variables.  */
       else
 	{
@@ -983,7 +983,7 @@ make_decl_rtl (tree decl)
       {
 	reg_number = decode_reg_name (name);
 	if (reg_number >= 0 || reg_number == -3)
-	  error ("%Jregister name given for non-register variable %qD", decl, decl);
+	  error ("register name given for non-register variable %q+D", decl);
       }
 #endif
   }
@@ -1234,13 +1234,13 @@ assemble_start_function (tree decl, const char *fnname)
   first_function_block_is_cold = false;
   if (flag_reorder_blocks_and_partition)
     {
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "HOTB", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LHOTB", const_labelno);
       cfun->hot_section_label = ggc_strdup (tmp_label);
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "COLDB", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LCOLDB", const_labelno);
       cfun->cold_section_label = ggc_strdup (tmp_label);
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "HOTE", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LHOTE", const_labelno);
       cfun->hot_section_end_label = ggc_strdup (tmp_label);
-      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "COLDE", const_labelno);
+      ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LCOLDE", const_labelno);
       cfun->cold_section_end_label = ggc_strdup (tmp_label);
       const_labelno++;
     }
@@ -1629,7 +1629,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   if (!dont_output_data && DECL_SIZE (decl) == 0)
     {
-      error ("%Jstorage size of %qD isn%'t known", decl, decl);
+      error ("storage size of %q+D isn%'t known", decl);
       TREE_ASM_WRITTEN (decl) = 1;
       return;
     }
@@ -1657,7 +1657,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (! dont_output_data
       && ! host_integerp (DECL_SIZE_UNIT (decl), 1))
     {
-      error ("%Jsize of variable %qD is too large", decl, decl);
+      error ("size of variable %q+D is too large", decl);
       return;
     }
 
@@ -1680,8 +1680,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
      In particular, a.out format supports a maximum alignment of 4.  */
   if (align > MAX_OFILE_ALIGNMENT)
     {
-      warning (0, "%Jalignment of %qD is greater than maximum object "
-               "file alignment.  Using %d", decl, decl,
+      warning (0, "alignment of %q+D is greater than maximum object "
+               "file alignment.  Using %d", decl,
 	       MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
     }
@@ -1716,7 +1716,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (DECL_SECTION_NAME (decl) || dont_output_data)
     ;
   /* We don't implement common thread-local data at present.  */
-  else if (DECL_THREAD_LOCAL (decl))
+  else if (DECL_THREAD_LOCAL_P (decl))
     {
       if (DECL_COMMON (decl))
 	sorry ("thread-local COMMON data not implemented");
@@ -1744,8 +1744,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
       if ((unsigned HOST_WIDE_INT) DECL_ALIGN_UNIT (decl) > rounded)
-	warning (0, "%Jrequested alignment for %qD is greater than "
-                 "implemented alignment of %d", decl, decl, rounded);
+	warning (0, "requested alignment for %q+D is greater than "
+                 "implemented alignment of %wu", decl, rounded);
 #endif
 
       /* If the target cannot output uninitialized but not common global data
@@ -3471,6 +3471,7 @@ compute_reloc_for_constant (tree exp)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       reloc = compute_reloc_for_constant (TREE_OPERAND (exp, 0));
       break;
 
@@ -3527,6 +3528,7 @@ output_addressed_constants (tree exp)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       output_addressed_constants (TREE_OPERAND (exp, 0));
       break;
 
@@ -4333,16 +4335,16 @@ merge_weak (tree newdecl, tree olddecl)
 	 declare_weak because the NEWDECL and OLDDECL was not yet
 	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
       if (TREE_ASM_WRITTEN (olddecl))
-	error ("%Jweak declaration of %qD must precede definition",
-	       newdecl, newdecl);
+	error ("weak declaration of %q+D must precede definition",
+	       newdecl);
 
       /* If we've already generated rtl referencing OLDDECL, we may
 	 have done so in a way that will not function properly with
 	 a weak symbol.  */
       else if (TREE_USED (olddecl)
 	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
-	warning (0, "%Jweak declaration of %qD after first use results "
-                 "in unspecified behavior", newdecl, newdecl);
+	warning (0, "weak declaration of %q+D after first use results "
+                 "in unspecified behavior", newdecl);
 
       if (SUPPORTS_WEAK)
 	{
@@ -4375,16 +4377,16 @@ void
 declare_weak (tree decl)
 {
   if (! TREE_PUBLIC (decl))
-    error ("%Jweak declaration of %qD must be public", decl, decl);
+    error ("weak declaration of %q+D must be public", decl);
   else if (TREE_CODE (decl) == FUNCTION_DECL && TREE_ASM_WRITTEN (decl))
-    error ("%Jweak declaration of %qD must precede definition", decl, decl);
+    error ("weak declaration of %q+D must precede definition", decl);
   else if (SUPPORTS_WEAK)
     {
       if (! DECL_WEAK (decl))
 	weak_decls = tree_cons (NULL, decl, weak_decls);
     }
   else
-    warning (0, "%Jweak declaration of %qD not supported", decl, decl);
+    warning (0, "weak declaration of %q+D not supported", decl);
 
   mark_weak (decl);
 }
@@ -4581,11 +4583,11 @@ finish_aliases_1 (void)
 
       target_decl = find_decl_and_mark_needed (p->decl, p->target);
       if (target_decl == NULL)
-	error ("%J%qD aliased to undefined symbol %qE",
-	       p->decl, p->decl, p->target);
+	error ("%q+D aliased to undefined symbol %qs",
+	       p->decl, IDENTIFIER_POINTER (p->target));
       else if (DECL_EXTERNAL (target_decl))
-	error ("%J%qD aliased to external symbol %qE",
-	       p->decl, p->decl, p->target);
+	error ("%q+D aliased to external symbol %qs",
+	       p->decl, IDENTIFIER_POINTER (p->target));
     }
 }
 
@@ -4743,30 +4745,11 @@ init_varasm_once (void)
   const_alias_set = new_alias_set ();
 }
 
-static enum tls_model
-decl_tls_model (tree decl)
+enum tls_model
+decl_default_tls_model (tree decl)
 {
   enum tls_model kind;
-  tree attr = lookup_attribute ("tls_model", DECL_ATTRIBUTES (decl));
   bool is_local;
-
-  if (attr)
-    {
-      attr = TREE_VALUE (TREE_VALUE (attr));
-      gcc_assert (TREE_CODE (attr) == STRING_CST);
-      
-      if (!strcmp (TREE_STRING_POINTER (attr), "local-exec"))
-	kind = TLS_MODEL_LOCAL_EXEC;
-      else if (!strcmp (TREE_STRING_POINTER (attr), "initial-exec"))
-	kind = TLS_MODEL_INITIAL_EXEC;
-      else if (!strcmp (TREE_STRING_POINTER (attr), "local-dynamic"))
-	kind = optimize ? TLS_MODEL_LOCAL_DYNAMIC : TLS_MODEL_GLOBAL_DYNAMIC;
-      else if (!strcmp (TREE_STRING_POINTER (attr), "global-dynamic"))
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      else
-	gcc_unreachable ();
-      return kind;
-    }
 
   is_local = targetm.binds_local_p (decl);
   if (!flag_shlib)
@@ -4776,6 +4759,7 @@ decl_tls_model (tree decl)
       else
 	kind = TLS_MODEL_INITIAL_EXEC;
     }
+
   /* Local dynamic is inefficient when we're not combining the
      parts of the address.  */
   else if (optimize && is_local)
@@ -4826,7 +4810,7 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
   if (decl && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
-  if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+  if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))
     flags |= SECTION_TLS | SECTION_WRITE;
 
   if (strcmp (name, ".bss") == 0
@@ -5104,7 +5088,7 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     ret = SECCAT_RODATA;
 
   /* There are no read-only thread-local sections.  */
-  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))
     {
       /* Note that this would be *just* SECCAT_BSS, except that there's
 	 no concept of a read-only thread-local-data section.  */
@@ -5368,8 +5352,8 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
     flags |= SYMBOL_FLAG_FUNCTION;
   if (targetm.binds_local_p (decl))
     flags |= SYMBOL_FLAG_LOCAL;
-  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    flags |= decl_tls_model (decl) << SYMBOL_FLAG_TLS_SHIFT;
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))
+    flags |= DECL_TLS_MODEL (decl) << SYMBOL_FLAG_TLS_SHIFT;
   else if (targetm.in_small_data_p (decl))
     flags |= SYMBOL_FLAG_SMALL;
   /* ??? Why is DECL_EXTERNAL ever set for non-PUBLIC names?  Without

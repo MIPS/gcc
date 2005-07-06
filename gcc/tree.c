@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains the low level primitives for operating on tree nodes,
    including allocation, list operations, interning of identifiers,
@@ -1632,7 +1632,7 @@ array_type_nelts (tree type)
 
   return (integer_zerop (min)
 	  ? max
-	  : fold (build2 (MINUS_EXPR, TREE_TYPE (max), max, min)));
+	  : fold_build2 (MINUS_EXPR, TREE_TYPE (max), max, min));
 }
 
 /* If arg is static -- a reference to an object in static storage -- then
@@ -1652,7 +1652,7 @@ staticp (tree arg)
 
     case VAR_DECL:
       return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
-	      && ! DECL_THREAD_LOCAL (arg)
+	      && ! DECL_THREAD_LOCAL_P (arg)
 	      && ! DECL_NON_ADDR_CONST_P (arg)
 	      ? arg : NULL);
 
@@ -2053,8 +2053,8 @@ substitute_in_expr (tree exp, tree f, tree r)
      if (op0 == TREE_OPERAND (exp, 0))
        return exp;
 
-     new = fold (build3 (COMPONENT_REF, TREE_TYPE (exp),
-			 op0, TREE_OPERAND (exp, 1), NULL_TREE));
+     new = fold_build3 (COMPONENT_REF, TREE_TYPE (exp),
+			op0, TREE_OPERAND (exp, 1), NULL_TREE);
    }
   else
     switch (TREE_CODE_CLASS (code))
@@ -2079,7 +2079,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	    if (op0 == TREE_OPERAND (exp, 0))
 	      return exp;
 
-	    new = fold (build1 (code, TREE_TYPE (exp), op0));
+	    new = fold_build1 (code, TREE_TYPE (exp), op0);
 	    break;
 
 	  case 2:
@@ -2089,7 +2089,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	    if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1))
 	      return exp;
 
-	    new = fold (build2 (code, TREE_TYPE (exp), op0, op1));
+	    new = fold_build2 (code, TREE_TYPE (exp), op0, op1);
 	    break;
 
 	  case 3:
@@ -2101,7 +2101,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 		&& op2 == TREE_OPERAND (exp, 2))
 	      return exp;
 
-	    new = fold (build3 (code, TREE_TYPE (exp), op0, op1, op2));
+	    new = fold_build3 (code, TREE_TYPE (exp), op0, op1, op2);
 	    break;
 
 	  default:
@@ -2157,7 +2157,7 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 	if (POINTER_TYPE_P (TREE_TYPE (elt))
 	    && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (elt)))
 		== need_type))
-	  return fold (build1 (INDIRECT_REF, need_type, elt));
+	  return fold_build1 (INDIRECT_REF, need_type, elt);
 
       /* If we didn't find it, return the original PLACEHOLDER_EXPR.  If it
 	 survives until RTL generation, there will be an error.  */
@@ -2199,7 +2199,7 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 	    if (op0 == TREE_OPERAND (exp, 0))
 	      return exp;
 	    else
-	      return fold (build1 (code, TREE_TYPE (exp), op0));
+	      return fold_build1 (code, TREE_TYPE (exp), op0);
 
 	  case 2:
 	    op0 = SUBSTITUTE_PLACEHOLDER_IN_EXPR (TREE_OPERAND (exp, 0), obj);
@@ -2208,7 +2208,7 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 	    if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1))
 	      return exp;
 	    else
-	      return fold (build2 (code, TREE_TYPE (exp), op0, op1));
+	      return fold_build2 (code, TREE_TYPE (exp), op0, op1);
 
 	  case 3:
 	    op0 = SUBSTITUTE_PLACEHOLDER_IN_EXPR (TREE_OPERAND (exp, 0), obj);
@@ -2219,7 +2219,7 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 		&& op2 == TREE_OPERAND (exp, 2))
 	      return exp;
 	    else
-	      return fold (build3 (code, TREE_TYPE (exp), op0, op1, op2));
+	      return fold_build3 (code, TREE_TYPE (exp), op0, op1, op2);
 
 	  case 4:
 	    op0 = SUBSTITUTE_PLACEHOLDER_IN_EXPR (TREE_OPERAND (exp, 0), obj);
@@ -2466,6 +2466,8 @@ do { tree _node = (NODE); \
 	UPDATE_TITCSE (TREE_OPERAND (node, 2));
     }
 
+  node = lang_hooks.expr_to_decl (node, &tc, &ti, &se);
+
   /* Now see what's inside.  If it's an INDIRECT_REF, copy our properties from
      the address, since &(*a)->b is a form of addition.  If it's a decl, it's
      invariant and constant if the decl is static.  It's also invariant if it's
@@ -2480,7 +2482,8 @@ do { tree _node = (NODE); \
 	;
       else if (decl_function_context (node) == current_function_decl
 	       /* Addresses of thread-local variables are invariant.  */
-	       || (TREE_CODE (node) == VAR_DECL && DECL_THREAD_LOCAL (node)))
+	       || (TREE_CODE (node) == VAR_DECL
+		   && DECL_THREAD_LOCAL_P (node)))
 	tc = false;
       else
 	ti = tc = false;
@@ -3367,7 +3370,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
           && !DECL_DECLARED_INLINE_P (node))
 	{
-	  error ("%Jfunction %qD definition is marked dllimport.", node, node);
+	  error ("function %q+D definition is marked dllimport", node);
 	  *no_add_attrs = true;
 	}
 
@@ -3375,8 +3378,8 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	{
 	  if (DECL_INITIAL (node))
 	    {
-	      error ("%Jvariable %qD definition is marked dllimport.",
-		     node, node);
+	      error ("variable %q+D definition is marked dllimport",
+		     node);
 	      *no_add_attrs = true;
 	    }
 
@@ -3395,8 +3398,8 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       && (TREE_CODE (node) == VAR_DECL
 	  || TREE_CODE (node) == FUNCTION_DECL))
     {
-      error ("%Jexternal linkage required for symbol %qD because of "
-	     "%qs attribute.", node, node, IDENTIFIER_POINTER (name));
+      error ("external linkage required for symbol %q+D because of "
+	     "%qs attribute", node, IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -5710,7 +5713,7 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   tree t = make_node (VECTOR_TYPE);
 
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (innertype);
-  TYPE_VECTOR_SUBPARTS (t) = nunits;
+  SET_TYPE_VECTOR_SUBPARTS (t, nunits);
   TYPE_MODE (t) = mode;
   TYPE_READONLY (t) = TYPE_READONLY (innertype);
   TYPE_VOLATILE (t) = TYPE_VOLATILE (innertype);
@@ -6371,16 +6374,16 @@ tree_fold_gcd (tree a, tree b)
     return a;
 
   if (tree_int_cst_sgn (a) == -1)
-    a = fold (build2 (MULT_EXPR, type, a,
-		      convert (type, integer_minus_one_node)));
+    a = fold_build2 (MULT_EXPR, type, a,
+		     convert (type, integer_minus_one_node));
 
   if (tree_int_cst_sgn (b) == -1)
-    b = fold (build2 (MULT_EXPR, type, b,
-		      convert (type, integer_minus_one_node)));
+    b = fold_build2 (MULT_EXPR, type, b,
+		     convert (type, integer_minus_one_node));
 
   while (1)
     {
-      a_mod_b = fold (build2 (FLOOR_MOD_EXPR, type, a, b));
+      a_mod_b = fold_build2 (FLOOR_MOD_EXPR, type, a, b);
 
       if (!TREE_INT_CST_LOW (a_mod_b)
 	  && !TREE_INT_CST_HIGH (a_mod_b))

@@ -1,3 +1,36 @@
+2005-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.def (target_modules): Add libssp.
+	* configure.in (target_libraries): Add target-libssp.
+	* configure: Rebuilt.
+	* Makefile.in: Rebuilt.
+
+2005-07-01  Zack Weinberg  <zackw@panix.com>
+
+	* MAINTAINERS: Change email address.  Resign from maintainership.
+
+2005-07-01  Richard Guenther  <rguenther@suse.de>
+
+	* MAINTAINERS: Change my e-mail address and affiliation.
+
+2005-06-22  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (stagefeedback): Come after profile.
+	Define profiledbootstrap target.
+	* Makefile.tpl (profiledbootstrap): Remove.
+	(stageprofile-end): Zap stagefeedback.
+	(stagefeedback-start): Copy all .gcda files, not only GCC's.
+	* Makefile.in: Regenerate.
+
+2005-06-13  Richard Sandiford  <richard@codesourcery.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-06-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* depcomp: Update from automake CVS.  Add 'ia64hp' stanza.
+	In 'cpp' stanza, support '#line' as well as '# '.
+
 2005-06-08  Andreas Schwab  <schwab@suse.de>
 
 	* MAINTAINERS: Move myself from 'Write After Approval' to
@@ -29,12 +62,12 @@
 	accepted into the master sources.)
 
 2005-06-02  Aldy Hernandez  <aldyh@redhat.com>
-            Michael Snyder  <msnyder@redhat.com>
-            Stan Cox  <scox@redhat.com>
+	    Michael Snyder  <msnyder@redhat.com>
+	    Stan Cox  <scox@redhat.com>
 
-        * configure.in: Set noconfigdirs for ms1.
+	* configure.in: Set noconfigdirs for ms1.
 
-        * configure: Regenerate.
+	* configure: Regenerate.
 
 2005-06-01  Jerry DeLisle  <jvdelisle@verizon.net>
 
@@ -71,7 +104,7 @@
 
 2005-05-19  Paul Brook  <paul@codesourcery.com>
 
-	* configure.in: Rewrite misleading error message when requested 
+	* configure.in: Rewrite misleading error message when requested
 	language cannot be built.
 	* configure: Regenerate.
 
@@ -87,7 +120,7 @@
 
 	* libtool.m4 (AC_LIBTOOL_SYS_MAX_CMD_LEN): Use quotes on
 	lt_cv_sys_max_cmd_len for now.
-	
+
 2005-05-09  Stan Cox  <scox@redhat.com>
 
 	* MAINTAINERS: Remove self, add Nick Clifton as iq2000 maintainer.
@@ -164,7 +197,7 @@
 
 2005-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
-        * Makefile.tpl (BUILD_CONFIGARGS): Include --with-build-subdir.
+	* Makefile.tpl (BUILD_CONFIGARGS): Include --with-build-subdir.
 	(TARGET_CONFIGARGS): Include --with-target-subdir.
 	(configure, all): New macros.  Use them throughout.
 	* Makefile.in: Regenerate.
@@ -172,7 +205,7 @@
 2005-04-04  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* MAINTAINERS (Write After Approval): Add myself.
-	
+
 2005-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* MAINTAINERS: Remove 'loop unrolling' maintainer.

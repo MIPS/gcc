@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -41,6 +41,8 @@
 #include "tm_p.h"
 #include "cfgloop.h"
 #include "target.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 
 #ifndef HAVE_conditional_execution
@@ -2364,9 +2366,9 @@ merge_if_block (struct ce_if_block * ce_info)
 
   if (then_bb)
     {
-      if (combo_bb->global_live_at_end)
-	COPY_REG_SET (combo_bb->global_live_at_end,
-		      then_bb->global_live_at_end);
+      if (combo_bb->il.rtl->global_live_at_end)
+	COPY_REG_SET (combo_bb->il.rtl->global_live_at_end,
+		      then_bb->il.rtl->global_live_at_end);
       merge_blocks (combo_bb, then_bb);
       num_true_changes++;
     }
@@ -2417,9 +2419,9 @@ merge_if_block (struct ce_if_block * ce_info)
 	   && join_bb != EXIT_BLOCK_PTR)
     {
       /* We can merge the JOIN.  */
-      if (combo_bb->global_live_at_end)
-	COPY_REG_SET (combo_bb->global_live_at_end,
-		      join_bb->global_live_at_end);
+      if (combo_bb->il.rtl->global_live_at_end)
+	COPY_REG_SET (combo_bb->il.rtl->global_live_at_end,
+		      join_bb->il.rtl->global_live_at_end);
 
       merge_blocks (combo_bb, join_bb);
       num_true_changes++;
@@ -3060,9 +3062,9 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_ior (test_bb->global_live_at_end,
-	      else_bb->global_live_at_start,
-	      then_bb->global_live_at_end);
+  bitmap_ior (test_bb->il.rtl->global_live_at_end,
+	      else_bb->il.rtl->global_live_at_start,
+	      then_bb->il.rtl->global_live_at_end);
 
 
   /* We can avoid creating a new basic block if then_bb is immediately
@@ -3178,9 +3180,9 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_ior (test_bb->global_live_at_end,
-	      then_bb->global_live_at_start,
-	      else_bb->global_live_at_end);
+  bitmap_ior (test_bb->il.rtl->global_live_at_end,
+	      then_bb->il.rtl->global_live_at_start,
+	      else_bb->il.rtl->global_live_at_end);
 
   delete_basic_block (else_bb);
 
@@ -3357,7 +3359,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* For TEST, we're interested in a range of insns, not a whole block.
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
 
-      COPY_REG_SET (test_live, other_bb->global_live_at_start);
+      COPY_REG_SET (test_live, other_bb->il.rtl->global_live_at_start);
       pbi = init_propagate_block_info (test_bb, test_live, test_set, test_set,
 				       0);
 
@@ -3373,12 +3375,13 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* We can perform the transformation if
 	   MERGE_SET & (TEST_SET | TEST_LIVE)
 	 and
-	   TEST_SET & merge_bb->global_live_at_start
+	   TEST_SET & merge_bb->il.rtl->global_live_at_start
 	 are empty.  */
 
       if (bitmap_intersect_p (test_set, merge_set)
 	  || bitmap_intersect_p (test_live, merge_set)
-	  || bitmap_intersect_p (test_set, merge_bb->global_live_at_start))
+	  || bitmap_intersect_p (test_set,
+	    			 merge_bb->il.rtl->global_live_at_start))
 	fail = 1;
 
       FREE_REG_SET (tmp);
@@ -3578,3 +3581,120 @@ if_convert (int x_life_data_ok)
   verify_flow_info ();
 #endif
 }
+
+static bool
+gate_handle_if_conversion (void)
+{
+  return (optimize > 0);
+}
+
+/* If-conversion and CFG cleanup.  */
+static void
+rest_of_handle_if_conversion (void)
+{
+  if (flag_if_conversion)
+    {
+      if (dump_file)
+        dump_flow_info (dump_file);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (get_insns (), max_reg_num ());
+      if_convert (0);
+    }
+
+  timevar_push (TV_JUMP);
+  cleanup_cfg (CLEANUP_EXPENSIVE);
+  reg_scan (get_insns (), max_reg_num ());
+  timevar_pop (TV_JUMP);
+}
+
+struct tree_opt_pass pass_rtl_ifcvt =
+{
+  "ce1",                                /* name */
+  gate_handle_if_conversion,            /* gate */
+  rest_of_handle_if_conversion,         /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_IFCVT,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'C'                                   /* letter */
+};
+
+static bool
+gate_handle_if_after_combine (void)
+{
+  return (optimize > 0 && flag_if_conversion);
+}
+
+
+/* Rerun if-conversion, as combine may have simplified things enough
+   to now meet sequence length restrictions.  */
+static void
+rest_of_handle_if_after_combine (void)
+{
+  no_new_pseudos = 0;
+  if_convert (1);
+  no_new_pseudos = 1;
+}
+
+struct tree_opt_pass pass_if_after_combine =
+{
+  "ce2",                                /* name */
+  gate_handle_if_after_combine,         /* gate */
+  rest_of_handle_if_after_combine,      /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_IFCVT,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'C'                                   /* letter */
+};
+
+
+static bool
+gate_handle_if_after_reload (void)
+{
+  return (optimize > 0);
+}
+
+static void
+rest_of_handle_if_after_reload (void)
+{
+  /* Last attempt to optimize CFG, as scheduling, peepholing and insn
+     splitting possibly introduced more crossjumping opportunities.  */
+  cleanup_cfg (CLEANUP_EXPENSIVE
+               | CLEANUP_UPDATE_LIFE
+               | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  if (flag_if_conversion2)
+    if_convert (1);
+}
+
+
+struct tree_opt_pass pass_if_after_reload =
+{
+  "ce3",                                /* name */
+  gate_handle_if_after_reload,          /* gate */
+  rest_of_handle_if_after_reload,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_IFCVT2,                            /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'E'                                   /* letter */
+};
+
+

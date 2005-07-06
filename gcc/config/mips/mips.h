@@ -20,8 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* MIPS external variables defined in mips.c.  */
@@ -168,8 +168,10 @@ extern const struct mips_rtx_cost_data *mips_cost;
    We therefore disable GP-relative switch tables for n64 on IRIX targets.  */
 #define TARGET_GPWORD (TARGET_ABICALLS && !(mips_abi == ABI_64 && TARGET_IRIX))
 
-					/* Generate mips16 code */
+/* Generate mips16 code */
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
+/* Generate mips16e code. Default 16bit ASE for mips32/mips32r2/mips64 */
+#define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)

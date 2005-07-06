@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -1805,7 +1805,7 @@ save_restore_insns (int store_p)
 
   if (gp_offset < 0 || end_offset < 0)
     internal_error
-      ("gp_offset (%ld) or end_offset (%ld) is less than zero.",
+      ("gp_offset (%ld) or end_offset (%ld) is less than zero",
        (long) gp_offset, (long) end_offset);
 
   else if (gp_offset < 32768)

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -55,6 +55,11 @@ package Stylesw is
    Style_Check_Blanks_At_End : Boolean := False;
    --  This can be set True by using the -gnatg or -gnatyb switches. If
    --  it is True, then spaces at the end of lines are not permitted.
+
+   Style_Check_Blank_Lines : Boolean := False;
+   --  This can be set True by using the -gnatg or -gnatyu switches. If
+   --  it is True, then multiple blank lines are not permitted, and there
+   --  may not be a blank line at the end of the file.
 
    Style_Check_Comments : Boolean := False;
    --  This can be set True by using the -gnatg or -gnatyc switches. If

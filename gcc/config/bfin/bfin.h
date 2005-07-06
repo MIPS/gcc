@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #ifndef _BFIN_CONFIG
 #define _BFIN_CONFIG
@@ -79,11 +79,11 @@ extern const char *bfin_library_id_string;
 
 #define STACK_PUSH_CODE PRE_DEC
 
-/* Define this if the nominal address of the stack frame
+/* Define this to non-zero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* We define a dummy ARGP register; the parameters start at offset 0 from
    it. */
@@ -988,31 +988,6 @@ do {                                              \
 
 #define EXTRA_CONSTRAINT(VALUE, D) \
     ((D) == 'Q' ? GET_CODE (VALUE) == SYMBOL_REF : 0)
-
-/* Codes for all the Blackfin builtins.  */
-enum bfin_builtins
-{
-  BFIN_BUILTIN_CSYNC,
-  BFIN_BUILTIN_SSYNC,
-  BFIN_BUILTIN_MAX
-};
-
-/* `FINALIZE_PIC'
-     By generating position-independent code, when two different
-     programs (A and B) share a common library (libC.a), the text of
-     the library can be shared whether or not the library is linked at
-     the same address for both programs.  In some of these
-     environments, position-independent code requires not only the use
-     of different addressing modes, but also special code to enable the
-     use of these addressing modes.
-
-     The `FINALIZE_PIC' macro serves as a hook to emit these special
-     codes once the function is being compiled into assembly code, but
-     not before.  (It is not done before, because in the case of
-     compiling an inline function, it would lead to multiple PIC
-     prologues being included in functions which used inline functions
-     and were compiled to assembly language.) */
-#define FINALIZE_PIC  do {} while (0)
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section

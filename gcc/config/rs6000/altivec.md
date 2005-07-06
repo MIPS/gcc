@@ -16,8 +16,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
+;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 (define_constants
   [(UNSPEC_VCMPBFP       50)
@@ -1167,7 +1167,7 @@
         (vec_duplicate:V16QI
 	 (vec_select:QI (match_operand:V16QI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vspltb %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1177,7 +1177,7 @@
 	(vec_duplicate:V8HI
 	 (vec_select:HI (match_operand:V8HI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vsplth %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1187,7 +1187,7 @@
 	(vec_duplicate:V4SI
 	 (vec_select:SI (match_operand:V4SI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+			 [(match_operand:QI 2 "u5bit_cint_operand" "i")]))))]
   "TARGET_ALTIVEC"
   "vspltw %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1195,7 +1195,7 @@
 (define_insn "altivec_vspltis<VI_char>"
   [(set (match_operand:VI 0 "register_operand" "=v")
 	(vec_duplicate:VI
-	 (match_operand:QI 1 "const_int_operand" "i")))]
+	 (match_operand:QI 1 "s5bit_cint_operand" "i")))]
   "TARGET_ALTIVEC"
   "vspltis<VI_char> %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1203,7 +1203,7 @@
 (define_insn "altivec_vspltisw_v4sf"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
 	(vec_duplicate:V4SF
-	 (float:SF (match_operand:QI 1 "const_int_operand" "i"))))]
+	 (float:SF (match_operand:QI 1 "s5bit_cint_operand" "i"))))]
   "TARGET_ALTIVEC"
   "vspltisw %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1824,6 +1824,103 @@
   operands[2] = gen_reg_rtx (GET_MODE (operands[0]));
   operands[3] = gen_reg_rtx (GET_MODE (operands[0]));
 })
+
+;; Vector shift left in bits. Currently supported ony for shift
+;; amounts that can be expressed as byte shifts (divisible by 8).
+;; General shift amounts can be supported using vslo + vsl. We're
+;; not expecting to see these yet (the vectorizer currently
+;; generates only shifts divisible by byte_size).
+(define_expand "vec_shl_<mode>"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (unspec:V [(match_operand:V 1 "register_operand" "v")
+                   (match_operand:QI 2 "reg_or_short_operand" "")] 219 ))]
+  "TARGET_ALTIVEC"
+  "
+{
+  rtx bitshift = operands[2];
+  rtx byteshift = gen_reg_rtx (QImode);
+  HOST_WIDE_INT bitshift_val;
+  HOST_WIDE_INT byteshift_val;
+
+  if (! CONSTANT_P (bitshift))
+    FAIL;
+  bitshift_val = INTVAL (bitshift);
+  if (bitshift_val & 0x7)
+    FAIL;
+  byteshift_val = bitshift_val >> 3;
+  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
+  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
+                                        byteshift));
+  DONE;
+}")
+
+;; Vector shift left in bits. Currently supported ony for shift
+;; amounts that can be expressed as byte shifts (divisible by 8).
+;; General shift amounts can be supported using vsro + vsr. We're
+;; not expecting to see these yet (the vectorizer currently
+;; generates only shifts divisible by byte_size).
+(define_expand "vec_shr_<mode>"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (unspec:V [(match_operand:V 1 "register_operand" "v")
+                   (match_operand:QI 2 "reg_or_short_operand" "")] 219 ))]
+  "TARGET_ALTIVEC"
+  "
+{
+  rtx bitshift = operands[2];
+  rtx byteshift = gen_reg_rtx (QImode);
+  HOST_WIDE_INT bitshift_val;
+  HOST_WIDE_INT byteshift_val;
+ 
+  if (! CONSTANT_P (bitshift))
+    FAIL;
+  bitshift_val = INTVAL (bitshift);
+  if (bitshift_val & 0x7)
+    FAIL;
+  byteshift_val = 16 - (bitshift_val >> 3);
+  byteshift = gen_rtx_CONST_INT (QImode, byteshift_val);
+  emit_insn (gen_altivec_vsldoi_<mode> (operands[0], operands[1], operands[1],
+                                        byteshift));
+  DONE;
+}")
+
+(define_insn "altivec_vsumsws_nomode"
+  [(set (match_operand 0 "register_operand" "=v")
+        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
+                      (match_operand:V4SI 2 "register_operand" "v")] 135))
+   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
+  "TARGET_ALTIVEC"
+  "vsumsws %0,%1,%2"
+  [(set_attr "type" "veccomplex")])
+
+(define_expand "reduc_splus_<mode>"
+  [(set (match_operand:VIshort 0 "register_operand" "=v")
+        (unspec:VIshort [(match_operand:VIshort 1 "register_operand" "v")] 217))]
+  "TARGET_ALTIVEC"
+  "
+{ 
+  rtx vzero = gen_reg_rtx (V4SImode);
+  rtx vtmp1 = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_altivec_vspltisw (vzero, const0_rtx));
+  emit_insn (gen_altivec_vsum4s<VI_char>s (vtmp1, operands[1], vzero));
+  emit_insn (gen_altivec_vsumsws_nomode (operands[0], vtmp1, vzero));
+  DONE;
+}")
+
+(define_expand "reduc_uplus_v16qi"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+        (unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")] 217))]
+  "TARGET_ALTIVEC"
+  "
+{
+  rtx vzero = gen_reg_rtx (V4SImode);
+  rtx vtmp1 = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_altivec_vspltisw (vzero, const0_rtx));
+  emit_insn (gen_altivec_vsum4ubs (vtmp1, operands[1], vzero));
+  emit_insn (gen_altivec_vsumsws_nomode (operands[0], vtmp1, vzero));
+  DONE;
+}")
 
 (define_insn "vec_realign_load_v4sf"
   [(set (match_operand:V4SF 0 "register_operand" "=v")

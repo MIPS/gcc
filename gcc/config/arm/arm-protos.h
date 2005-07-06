@@ -18,8 +18,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_ARM_PROTOS_H
 #define GCC_ARM_PROTOS_H
@@ -39,6 +39,8 @@ extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
 extern HOST_WIDE_INT thumb_compute_initial_elimination_offset (unsigned int,
 							       unsigned int);
 extern unsigned int arm_dbx_register_number (unsigned int);
+extern void arm_output_fn_unwind (FILE *, bool);
+  
 
 #ifdef TREE_CODE
 extern int arm_return_in_memory (tree);

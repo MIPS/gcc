@@ -17,8 +17,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -6361,6 +6361,26 @@
   ""
   "eqv %1,%2,%0"
   [(set_attr "type" "ilog")])
+
+(define_expand "vec_shl_<mode>"
+  [(set (match_operand:VEC 0 "register_operand" "")
+	(ashift:DI (match_operand:VEC 1 "register_operand" "")
+		   (match_operand:DI 2 "reg_or_6bit_operand" "")))]
+  ""
+{
+  operands[0] = gen_lowpart (DImode, operands[0]);
+  operands[1] = gen_lowpart (DImode, operands[1]);
+})
+
+(define_expand "vec_shr_<mode>"
+  [(set (match_operand:VEC 0 "register_operand" "")
+        (lshiftrt:DI (match_operand:VEC 1 "register_operand" "")
+                     (match_operand:DI 2 "reg_or_6bit_operand" "")))]
+  ""
+{
+  operands[0] = gen_lowpart (DImode, operands[0]);
+  operands[1] = gen_lowpart (DImode, operands[1]);
+})
 
 ;; Bit field extract patterns which use ext[wlq][lh]
 
@@ -6552,25 +6572,29 @@
   [(set_attr "type" "multi")
    (set_attr "length" "28")])
 
-(define_expand "clrmemqi"
+(define_expand "setmemqi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
-		   (const_int 0))
+		   (match_operand 2 "const_int_operand" ""))
 	      (use (match_operand:DI 1 "immediate_operand" ""))
-	      (use (match_operand:DI 2 "immediate_operand" ""))])]
+	      (use (match_operand:DI 3 "immediate_operand" ""))])]
   ""
 {
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
+
   if (alpha_expand_block_clear (operands))
     DONE;
   else
     FAIL;
 })
 
-(define_expand "clrmemdi"
+(define_expand "setmemdi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
-		   (const_int 0))
+		   (match_operand 2 "const_int_operand" ""))
 	      (use (match_operand:DI 1 "immediate_operand" ""))
-	      (use (match_operand:DI 2 "immediate_operand" ""))
-	      (use (match_dup 3))
+	      (use (match_operand:DI 3 "immediate_operand" ""))
+	      (use (match_dup 4))
 	      (clobber (reg:DI 25))
 	      (clobber (reg:DI 16))
 	      (clobber (reg:DI 17))
@@ -6578,8 +6602,12 @@
 	      (clobber (reg:DI 27))])]
   "TARGET_ABI_OPEN_VMS"
 {
-  operands[3] = gen_rtx_SYMBOL_REF (Pmode, "OTS$ZERO");
-  alpha_need_linkage (XSTR (operands[3], 0), 0);
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
+
+  operands[4] = gen_rtx_SYMBOL_REF (Pmode, "OTS$ZERO");
+  alpha_need_linkage (XSTR (operands[4], 0), 0);
 })
 
 (define_insn "*clrmemdi_1"

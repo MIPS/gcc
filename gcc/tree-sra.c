@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -151,7 +151,7 @@ static tree generate_element_ref (struct sra_elt *);
 static bool
 is_sra_candidate_decl (tree decl)
 {
-  return DECL_P (decl) && bitmap_bit_p (sra_candidates, var_ann (decl)->uid);
+  return DECL_P (decl) && bitmap_bit_p (sra_candidates, DECL_UID (decl));
 }
 
 /* Return true if TYPE is a scalar type.  */
@@ -493,7 +493,7 @@ lookup_element (struct sra_elt *parent, tree child, tree type,
       if (TREE_CODE (child) == PARM_DECL)
 	{
 	  elt->n_copies = 1;
-	  bitmap_set_bit (needs_copy_in, var_ann (child)->uid);
+	  bitmap_set_bit (needs_copy_in, DECL_UID (child));
 	}
     }
 
@@ -940,15 +940,15 @@ sra_walk_function (const struct sra_walk_fns *fns)
 static bool
 find_candidates_for_sra (void)
 {
-  size_t i;
   bool any_set = false;
+  tree var;
+  referenced_var_iterator rvi;
 
-  for (i = 0; i < num_referenced_vars; i++)
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = referenced_var (i);
       if (decl_can_be_decomposed_p (var))
         {
-          bitmap_set_bit (sra_candidates, var_ann (var)->uid);
+          bitmap_set_bit (sra_candidates, DECL_UID (var));
           any_set = true;
         }
     }
@@ -1526,7 +1526,22 @@ generate_copy_inout (struct sra_elt *elt, bool copy_out, tree expr,
   struct sra_elt *c;
   tree t;
 
-  if (elt->replacement)
+  if (!copy_out && TREE_CODE (expr) == SSA_NAME
+      && TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
+    {
+      tree r, i;
+
+      c = lookup_element (elt, integer_zero_node, NULL, NO_INSERT);
+      r = c->replacement;
+      c = lookup_element (elt, integer_one_node, NULL, NO_INSERT);
+      i = c->replacement;
+
+      t = build (COMPLEX_EXPR, elt->type, r, i);
+      t = build (MODIFY_EXPR, void_type_node, expr, t);
+      SSA_NAME_DEF_STMT (expr) = t;
+      append_to_statement_list (t, list_p);
+    }
+  else if (elt->replacement)
     {
       if (copy_out)
 	t = build (MODIFY_EXPR, void_type_node, elt->replacement, expr);
@@ -1714,16 +1729,9 @@ generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
   if (ret && *list_p)
     {
       tree_stmt_iterator i;
-      size_t old, new, j;
-
-      old = num_referenced_vars;
 
       for (i = tsi_start (*list_p); !tsi_end_p (i); tsi_next (&i))
 	find_new_referenced_vars (tsi_stmt_ptr (i));
-
-      new = num_referenced_vars;
-      for (j = old; j < new; ++j)
-	mark_sym_for_renaming (referenced_var (j));
     }
 
   return ret;

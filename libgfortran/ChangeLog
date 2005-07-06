@@ -1,3 +1,217 @@
+2005-07-01  Andreas Jaeger  <aj@suse.de>
+
+	* intrinsics/unpack_generic.c: Remove const from parameter.
+
+	* io/transfer.c (formatted_transfer): Remove unused variable.
+
+2005-06-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/22142
+	* m4/eoshift1.m4:  Correct bstride (it needs to be multiplied
+	by size since it's a char pointer).
+	* m4/eoshift1_4.c:  Regenerated.
+	* m4/eoshift1_8.c:  Regenerated.
+
+2005-06-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/22142
+	* m4/eoshift3.m4:  Correct bstride (it needs to be multiplied
+	by size since it's a char pointer).
+	* m4/eoshift3_4.c:  Regenerated.
+	* m4/eoshift3_8.c:  Regenerated.
+
+2005-06-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/22170
+	* io/transfer.c (formatted_transfer): Do not iterate on the
+	repeat count of a FMT_SLASH, since this is already done in
+	next_format().
+
+2005-06-25  Thomas Koenig  <Thomas.Koenig@online.de>
+
+        PR libfortran/22144
+        * m4/cshift1.m4: Remove const from argument ret.
+        Populate return array descriptor if ret->data is NULL.
+        * m4/eoshift1.m4: Likewise.
+        * m4/eoshift3.m4: Likewise.
+        * generated/cshift1_4.c:  Regenerated.
+        * generated/cshift1_8.c:  Regenerated.
+        * generated/eoshift1_4.c:  Regenerated.
+        * generated/eoshift1_8.c:  Regenerated.
+        * generated/eoshift3_4.c:  Regenerated.
+        * generated/eoshift3_8.c:  Regenerated.
+
+2005-06-24  Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR libfortran/21915
+	* Makefile.am: Include intrinsics/hyper.c.
+	* c99_protos.h: Add prototypes for single precision versions of
+	acosh, asinh, and atanh for platforms that do not have these.
+	* config.h.in: Add #undef for wrappers.
+	* configure.ac: Add checks for single precision versions.
+	* aclocal.m4: Regenerated.
+	* Makefile.in: Regenerated.
+	* configure: Regenerated.
+	* intrinsics/hyper.c: New file, adds new wrapper functions.
+
+2005-06-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/c99_functions.c (log10l): New log10l function for
+	systems where this is not available.
+	* c99_protos.h: Prototype for log10l function.
+	* libgfortran.h: Use generated kinds.h to define GFC_INTEGER_*,
+	GFC_UINTEGER_*, GFC_LOGICAL_*, GFC_REAL_*, GFC_COMPLEX_*. Update
+	prototypes for gfc_itoa and xtoa.
+	* io/io.h: Update prototypes for set_integer and max_value.
+	* io/list_read.c (convert_integer): Use new
+	GFC_(INTEGER|REAL)_LARGEST type.
+	* io/read.c (set_integer): Likewise.
+	(max_value): Likewise.
+	(convert_real): Likewise.
+	(real_l): Likewise.
+	(next_char): Likewise.
+	(read_decimal): Likewise.
+	(read_radix): Likewise.
+	(read_f): Likewise.
+	* io/write.c (extract_int): Use new GFC_INTEGER_LARGEST type.
+	(extract_real): Use new GFC_REAL_LARGEST type.
+	(calculate_exp): Likewise.
+	(calculate_G_format): Likewise.
+	(output_float): Likewise. Use log10l for long double values.
+	Add comment for sprintf format. Use GFC_REAL_LARGEST_FORMAT.
+	(write_l): Use new GFC_INTEGER_LARGEST type.
+	(write_float): Use new GFC_REAL_LARGEST type.
+	(write_int): Remove useless special case for (len < 8).
+	(write_decimal): Use GFC_INTEGER_LARGEST.
+	(otoa): Use GFC_UINTEGER_LARGEST as argument.
+	(btoa): Use GFC_UINTEGER_LARGEST as argument.
+	* runtime/error.c (gfc_itoa): Use GFC_INTEGER_LARGEST as
+	argument.
+	(xtoa): Use GFC_UINTEGER_LARGEST as argument.
+	* Makefile.am: Use mk-kinds-h.sh to generate header kinds.h
+	with all Fortran kinds available.
+	* configure.ac: Check for strtold and log10l.
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* mk-kinds-h.sh: Configuration script for available integer
+	and real kinds.
+
+
+2005-06-18  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* unix.c (stream_at_bof): Don't assume that all non-mmapped files
+	are non-seekable.
+	(stream_at_eof): Likewise.
+
+2005-06-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19155
+	* io/read.c (convert_real): strtod can set errno to EINVAL on an
+	empty string, but we shouldn't have an error in that case.
+
+2005-06-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19216
+	* io/list_read.c (eat_separator): No need to call next_record,
+	even in non-namelist_mode.
+
+2005-06-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/transfer.c (formatted_transfer): Fix typo in error message.
+
+2005-06-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/16436
+	* io/transfer.c (read_sf): Correct updating of bytes_left field.
+	(formatted_transfer): Correct updating of bytes_left field and
+	reformatting code (comments and whitespace).
+	* io/unix.c (move_pos_offset): "active" field should not be
+	changed here. Whitespace corrections.
+
+2005-06-15  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21950
+	* intrinsics/c99_functions.c (scalbn): Provide fallback
+	implementation for scalbn.
+	* c99_protos.h: Prototype for scalbn.
+	* configure.ac: Add check for scalbn.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2005-06-14  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* intrinsics/eoshift0.c:  Removed prototype for eoshift0.
+	* intrinsics/eoshift2.c:  Removed prototype for eoshift2.
+
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19877:
+	* configure, aclocal.m4, Makefile.in: Rebuilt.
+
+2005-06-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21594
+	* intrinsics/eoshift0.c:  Add prototype for eoshift0.
+	* intrinsics/eoshift2.c:  Add prototype for eoshift2.
+
+2005-06-12  Steven G. Kargl <kargls@comcast.net>
+	    Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/PR21797
+	* m4/cexp.m4 (csqrt`'q):  Add type qualifyer to
+	sqrt and fabs.
+	* generated/exp_c4.c:  Regenerated.
+
+2005-06-12  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19155
+	* io/read.c (read_f): Take care of spaces after initial sign.
+
+2005-06-11  Thomas Koenig  <Thomas.Koenig@onlinde.de>
+
+	PR libfortran/21333
+	* Makefile.am: Add in_pack_c4.c, in_pack_c8.c, in_unpack_c4.c
+	and in_unpack_c8.c.
+	* Makefile.in: Regenerate.
+	* libgfortran.h:  Declare internal_pack_c4, internal_pack_c8,
+	internal_unpack_c4 and internal_unpack_c8.
+	* m4/in_pack.m4: Use rtype_ccode insteald of rtype_kind
+	in function name.
+	Use sizeof (rtype_name) as size for memory allocation.
+	* m4/in_unpack.m4: Use rtype_ccode insteald of rtype_kind
+	in function name.
+	Use sizeof (rtype_name) for calculation of sizes for memcpy.
+	* runtime/in_pack_generic.c:  For real, integer and logical
+	call internal_pack_4 if size==4 and internal_pack_8 if
+	size==8.
+	For complex, call internal_pack_c4 if size==8 and
+	internal_pack_c8 if size==16.
+	* runtime/in_unpack_generic.c: For real, integer and logical
+	call internal_unpack_4 if size==4 and internal_unpack_8 if
+	size==8.
+	For complex, call internal_unpack_c4 if size==8 and
+	internal_unpack_c8 if size==16.
+	* generated/in_pack_i4.c:  Regenerated.
+	* generated/in_pack_i8.c:  Regenerated.
+	* generated/in_unpack_i4.c:  Regenerated.
+	* generated/in_unpack_i8.c:  Regenerated.
+	* generated/in_pack_c4.c:  New file.
+	* generated/in_pack_c8.c:  New file.
+	* generated/in_unpack_c4.c:  New file.
+	* generated/in_unpack_c8.c:  New file.
+
+2005-06-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21480
+	* m4/reshape.m4:  Use sizeof (rtype_name) for sizes to be passed
+	to reshape_packed.
+	* generated/reshape_c4.c:  Regenerated.
+	* generated/reshape_c8.c:  Regenerated.
+	* generated/reshape_i4.c:  Regenerated.
+	* generated/reshape_i8.c:  Regenerated.
+
 2005-06-07  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/21926
@@ -25,7 +239,7 @@
 	concerning advancing I/O.
 	(data_transfer_init): Likewise.
 	(finalize_transfer): Likewise.
-	
+
 2005-05-27  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	* runtime/in_pack_generic.c:  Adjust copyright years.

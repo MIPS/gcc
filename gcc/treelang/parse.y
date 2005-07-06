@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 In other words, you are welcome to use, share and improve this program.
 You are forbidden to forbid anyone else to use, share and improve
@@ -40,6 +40,7 @@ the GCC compiler.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "timevar.h"
+#include "tree.h"
 
 #include "treelang.h"
 #include "treetree.h"
@@ -675,7 +676,8 @@ NAME LEFT_PARENTHESIS expressions_with_commas_opt RIGHT_PARENTHESIS {
     }
   type = tree_code_get_type (NUMERIC_TYPE (prod));
   prod->tp.pro.code = tree_code_get_expression (EXP_FUNCTION_INVOCATION, type,
-                                                proto->tp.pro.code, parms,
+                                                proto->tp.pro.code,
+						nreverse (parms),
                                                 NULL, tok->tp.tok.location);
   $$ = prod;
 }

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* We need to have MOTOROLA always defined (either 0 or 1) because we use
    if-statements and ?: on it.  This way we have compile-time error checking
@@ -448,7 +448,7 @@ extern enum reg_class regno_reg_class[];
 /* Stack layout; function entry, exit and calling.  */
 
 #define STACK_GROWS_DOWNWARD
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 #define STARTING_FRAME_OFFSET 0
 
 /* On the 680x0, sp@- in a byte insn really pushes a word.

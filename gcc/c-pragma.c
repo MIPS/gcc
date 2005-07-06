@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -259,8 +259,8 @@ apply_pragma_weak (tree decl, tree value)
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
       && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-    warning (0, "%Japplying #pragma weak %qD after first use results "
-             "in unspecified behavior", decl, decl);
+    warning (0, "applying #pragma weak %q+D after first use results "
+             "in unspecified behavior", decl);
 
   declare_weak (decl);
 }
@@ -619,7 +619,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
         {
           if (!VEC_length (visibility, visstack))
             {
-              GCC_BAD ("No matching push for %<#pragma GCC visibility pop%>");
+              GCC_BAD ("no matching push for %<#pragma GCC visibility pop%>");
             }
           else
             {

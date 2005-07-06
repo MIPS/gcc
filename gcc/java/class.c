@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -549,6 +549,8 @@ inherits_from_p (tree type1, tree type2)
     {
       if (type1 == type2)
 	return 1;
+      if (! CLASS_LOADED_P (type1))
+	load_class (type1, 1);
       type1 = CLASSTYPE_SUPER (type1);
     }
   return 0;
@@ -1313,7 +1315,10 @@ make_method_value (tree mdecl)
     index = integer_minus_one_node;
 
   code = null_pointer_node;
-  if (!METHOD_ABSTRACT (mdecl))
+  if (METHOD_ABSTRACT (mdecl))
+    code = build1 (ADDR_EXPR, nativecode_ptr_type_node,
+		   soft_abstractmethod_node);
+  else
     code = build1 (ADDR_EXPR, nativecode_ptr_type_node, 
 		   make_local_function_alias (mdecl));
   START_RECORD_CONSTRUCTOR (minit, method_type_node);
@@ -2354,8 +2359,8 @@ layout_class_method (tree this_class, tree super_class,
 	      && ! flag_indirect_dispatch
 	      && !CLASS_FROM_SOURCE_P (this_class)
 	      && ! DECL_ARTIFICIAL (super_method))
-	    error ("%Jnon-static method '%D' overrides static method",
-                   method_decl, method_decl);
+	    error ("non-static method %q+D overrides static method",
+                   method_decl);
 	}
       else if (this_class == object_type_node
 	       && (METHOD_FINAL (method_decl)

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -516,10 +516,12 @@ record_vars (tree vars)
     {
       tree var = vars;
 
+      /* BIND_EXPRs contains also function/type/constant declarations
+         we don't need to care about.  */
+      if (TREE_CODE (var) != VAR_DECL)
+	continue;
       /* Nothing to do in this case.  */
       if (DECL_EXTERNAL (var))
-	continue;
-      if (TREE_CODE (var) == FUNCTION_DECL)
 	continue;
 
       /* Record the variable.  */

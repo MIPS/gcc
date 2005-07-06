@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -39,6 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "reload.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -3066,7 +3068,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      COPY_REG_SET (live, bb->global_live_at_end);
+      COPY_REG_SET (live, bb->il.rtl->global_live_at_end);
       COPY_REG_SET (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
 #ifdef HAVE_conditional_execution
@@ -3278,7 +3280,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 
       /* Some peepholes can decide the don't need one or more of their
 	 inputs.  If this happens, local life update is not enough.  */
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->global_live_at_start, live,
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->il.rtl->global_live_at_start, live,
 				      0, j, rsi)
 	{
 	  do_global_life_update = true;
@@ -3418,3 +3420,122 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
 
   return true;
 }
+
+static bool
+gate_handle_peephole2 (void)
+{
+  return (optimize > 0 && flag_peephole2);
+}
+
+static void
+rest_of_handle_peephole2 (void)
+{
+#ifdef HAVE_peephole2
+  peephole2_optimize (dump_file);
+#endif
+}
+
+struct tree_opt_pass pass_peephole2 =
+{
+  "peephole2",                          /* name */
+  gate_handle_peephole2,                /* gate */
+  rest_of_handle_peephole2,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_PEEPHOLE2,                         /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'z'                                   /* letter */
+};
+
+static void
+rest_of_handle_split_all_insns (void)
+{
+  split_all_insns (1);
+}
+
+struct tree_opt_pass pass_split_all_insns =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_split_all_insns,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+/* The placement of the splitting that we do for shorten_branches
+   depends on whether regstack is used by the target or not.  */
+static bool
+gate_do_final_split (void)
+{
+#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
+  return 1;
+#else
+  return 0;
+#endif 
+}
+
+struct tree_opt_pass pass_split_for_shorten_branches =
+{
+  NULL,                                 /* name */
+  gate_do_final_split,                  /* gate */
+  split_all_insns_noflow,               /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
+static bool
+gate_handle_split_before_regstack (void)
+{
+#if defined (HAVE_ATTR_length) && defined (STACK_REGS)
+  /* If flow2 creates new instructions which need splitting
+     and scheduling after reload is not done, they might not be
+     split until final which doesn't allow splitting
+     if HAVE_ATTR_length.  */
+# ifdef INSN_SCHEDULING
+  return (optimize && !flag_schedule_insns_after_reload);
+# else
+  return (optimize);
+# endif
+#else
+  return 0;
+#endif
+}
+
+struct tree_opt_pass pass_split_before_regstack =
+{
+  NULL,                                 /* name */
+  gate_handle_split_before_regstack,    /* gate */
+  rest_of_handle_split_all_insns,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};

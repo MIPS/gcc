@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "target.h"
 #include "langhooks.h"
+#include "tree-pass.h"
 
 /* Round to the next highest integer that meets the alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
@@ -107,6 +108,7 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
       TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
       TREE_READONLY (copy) = TREE_READONLY (decl);
       TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
+      DECL_COMPLEX_GIMPLE_REG_P (copy) = DECL_COMPLEX_GIMPLE_REG_P (decl);
     }
   else
     {
@@ -370,50 +372,72 @@ emit_initial_value_sets (void)
   emit_insn_after (seq, entry_of_function ());
 }
 
+struct tree_opt_pass pass_initial_value_sets =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  emit_initial_value_sets,              /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 /* If the backend knows where to allocate pseudos for hard
    register initial values, register these allocations now.  */
 void
 allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
 {
-#ifdef ALLOCATE_INITIAL_VALUE
-  struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
-  int i;
-
-  if (ivs == 0)
-    return;
-
-  for (i = 0; i < ivs->num_entries; i++)
+  if (targetm.allocate_initial_value)
     {
-      int regno = REGNO (ivs->entries[i].pseudo);
-      rtx x = ALLOCATE_INITIAL_VALUE (ivs->entries[i].hard_reg);
+      struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
+      int i;
 
-      if (x && REG_N_SETS (REGNO (ivs->entries[i].pseudo)) <= 1)
+      if (ivs == 0)
+	return;
+
+      for (i = 0; i < ivs->num_entries; i++)
 	{
-	  if (MEM_P (x))
-	    reg_equiv_memory_loc[regno] = x;
-	  else
+	  int regno = REGNO (ivs->entries[i].pseudo);
+	  rtx x = targetm.allocate_initial_value (ivs->entries[i].hard_reg);
+  
+	  if (x && REG_N_SETS (REGNO (ivs->entries[i].pseudo)) <= 1)
 	    {
-	      basic_block bb;
-	      int new_regno;
-
-	      gcc_assert (REG_P (x));
-	      new_regno = REGNO (x);
-	      reg_renumber[regno] = new_regno;
-	      /* Poke the regno right into regno_reg_rtx so that even
-	     	 fixed regs are accepted.  */
-	      REGNO (ivs->entries[i].pseudo) = new_regno;
-	      /* Update global register liveness information.  */
-	      FOR_EACH_BB (bb)
+	      if (MEM_P (x))
+		reg_equiv_memory_loc[regno] = x;
+	      else
 		{
-		  if (REGNO_REG_SET_P(bb->global_live_at_start, regno))
-		    SET_REGNO_REG_SET (bb->global_live_at_start, new_regno);
-		  if (REGNO_REG_SET_P(bb->global_live_at_end, regno))
-		    SET_REGNO_REG_SET (bb->global_live_at_end, new_regno);
+		  basic_block bb;
+		  int new_regno;
+
+		  gcc_assert (REG_P (x));
+		  new_regno = REGNO (x);
+		  reg_renumber[regno] = new_regno;
+		  /* Poke the regno right into regno_reg_rtx so that even
+		     fixed regs are accepted.  */
+		  REGNO (ivs->entries[i].pseudo) = new_regno;
+		  /* Update global register liveness information.  */
+		  FOR_EACH_BB (bb)
+		    {
+		      struct rtl_bb_info *info = bb->il.rtl;
+
+		      if (REGNO_REG_SET_P(info->global_live_at_start, regno))
+			SET_REGNO_REG_SET (info->global_live_at_start,
+					   new_regno);
+		      if (REGNO_REG_SET_P(info->global_live_at_end, regno))
+			SET_REGNO_REG_SET (info->global_live_at_end,
+					   new_regno);
+		    }
 		}
 	    }
 	}
     }
-#endif
 }
 
 #include "gt-integrate.h"

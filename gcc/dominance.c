@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This file implements the well known algorithm from Lengauer and Tarjan
    to compute the dominators in a control flow graph.  A basic block D is said
@@ -746,15 +746,15 @@ get_dominated_by_region (enum cdi_direction dir, basic_block *region,
   basic_block dom;
 
   for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 1;
+    region[i]->flags |= BB_DUPLICATED;
   for (i = 0; i < n_region; i++)
     for (dom = first_dom_son (dir, region[i]);
 	 dom;
 	 dom = next_dom_son (dir, dom))
-      if (!dom->rbi->duplicated)
+      if (!(dom->flags & BB_DUPLICATED))
 	doms[n_doms++] = dom;
   for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 0;
+    region[i]->flags &= ~BB_DUPLICATED;
 
   return n_doms;
 }

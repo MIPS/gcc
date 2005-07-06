@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file handles the generation of rtl code from tree structure
    at the level of the function as a whole.
@@ -61,6 +61,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cfglayout.h"
 #include "tree-gimple.h"
+#include "tree-pass.h"
+#include "predict.h"
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -347,11 +349,10 @@ free_after_compilation (struct function *f)
 static HOST_WIDE_INT
 get_func_frame_size (struct function *f)
 {
-#ifdef FRAME_GROWS_DOWNWARD
-  return -f->x_frame_offset;
-#else
-  return f->x_frame_offset;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    return -f->x_frame_offset;
+  else
+    return f->x_frame_offset;
 }
 
 /* Return size needed for stack frame based on slots so far allocated.
@@ -412,9 +413,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   else
     alignment = align / BITS_PER_UNIT;
 
-#ifdef FRAME_GROWS_DOWNWARD
-  function->x_frame_offset -= size;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    function->x_frame_offset -= size;
 
   /* Ignore alignment we can't do with expected alignment of the boundary.  */
   if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
@@ -440,17 +440,16 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 	  division with a negative dividend isn't as well defined as we might
 	  like.  So we instead assume that ALIGNMENT is a power of two and
 	  use logical operations which are unambiguous.  */
-#ifdef FRAME_GROWS_DOWNWARD
-      function->x_frame_offset
-	= (FLOOR_ROUND (function->x_frame_offset - frame_phase,
-			(unsigned HOST_WIDE_INT) alignment)
-	   + frame_phase);
-#else
-      function->x_frame_offset
-	= (CEIL_ROUND (function->x_frame_offset - frame_phase,
-		       (unsigned HOST_WIDE_INT) alignment)
-	   + frame_phase);
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	function->x_frame_offset
+	  = (FLOOR_ROUND (function->x_frame_offset - frame_phase,
+			  (unsigned HOST_WIDE_INT) alignment)
+	     + frame_phase);
+      else
+	function->x_frame_offset
+	  = (CEIL_ROUND (function->x_frame_offset - frame_phase,
+			 (unsigned HOST_WIDE_INT) alignment)
+	     + frame_phase);
     }
 
   /* On a big-endian machine, if we are allocating more space than we will use,
@@ -471,9 +470,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 			  (function->x_frame_offset + bigend_correction,
 			   Pmode));
 
-#ifndef FRAME_GROWS_DOWNWARD
-  function->x_frame_offset += size;
-#endif
+  if (!FRAME_GROWS_DOWNWARD)
+    function->x_frame_offset += size;
 
   x = gen_rtx_MEM (mode, addr);
 
@@ -698,20 +696,22 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 	 can be either above or below this stack slot depending on which
 	 way the frame grows.  We include the extra space if and only if it
 	 is above this slot.  */
-#ifdef FRAME_GROWS_DOWNWARD
-      p->size = frame_offset_old - frame_offset;
-#else
-      p->size = size;
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	p->size = frame_offset_old - frame_offset;
+      else
+	p->size = size;
 
       /* Now define the fields used by combine_temp_slots.  */
-#ifdef FRAME_GROWS_DOWNWARD
-      p->base_offset = frame_offset;
-      p->full_size = frame_offset_old - frame_offset;
-#else
-      p->base_offset = frame_offset_old;
-      p->full_size = frame_offset - frame_offset_old;
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	{
+	  p->base_offset = frame_offset;
+	  p->full_size = frame_offset_old - frame_offset;
+	}
+      else
+	{
+	  p->base_offset = frame_offset_old;
+	  p->full_size = frame_offset - frame_offset_old;
+	}
       p->address = 0;
 
       selected = p;
@@ -820,7 +820,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
-	  error ("%Jsize of variable %qD is too large", decl, decl);
+	  error ("size of variable %q+D is too large", decl);
 	  size = 1;
 	}
 
@@ -1662,6 +1662,24 @@ instantiate_virtual_regs (void)
      frame_pointer_rtx.  */
   virtuals_instantiated = 1;
 }
+
+struct tree_opt_pass pass_instantiate_virtual_regs =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  instantiate_virtual_regs,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 /* Return 1 if EXP is an aggregate type (or a value with aggregate type).
    This means a type for which function calls must pass an address to the
@@ -2334,6 +2352,14 @@ assign_parm_adjust_stack_rtl (struct assign_parm_data_one *data)
   else if (data->entry_parm == stack_parm
 	   && data->nominal_mode != BLKmode
 	   && data->nominal_mode != data->passed_mode)
+    stack_parm = NULL;
+
+  /* If stack protection is in effect for this function, don't leave any
+     pointers in their passed stack slots.  */
+  else if (cfun->stack_protect_guard
+	   && (flag_stack_protect == 2
+	       || data->passed_pointer
+	       || POINTER_TYPE_P (data->nominal_type)))
     stack_parm = NULL;
 
   data->stack_parm = stack_parm;
@@ -3443,9 +3469,9 @@ setjmp_vars_warning (tree block)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning (0, "%Jvariable %qD might be clobbered by %<longjmp%>"
+	warning (0, "variable %q+D might be clobbered by %<longjmp%>"
 		 " or %<vfork%>",
-		 decl, decl);
+		 decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
@@ -3464,8 +3490,8 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning (0, "%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
-	       decl, decl);
+      warning (0, "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
+	       decl);
 }
 
 
@@ -3876,6 +3902,24 @@ init_function_for_compilation (void)
   gcc_assert (VEC_length (int, sibcall_epilogue) == 0);
 }
 
+struct tree_opt_pass pass_init_function =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */   
+  init_function_for_compilation,        /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
 void
 expand_main_function (void)
 {
@@ -3921,6 +3965,96 @@ expand_main_function (void)
 	 && !defined(INIT_ARRAY_SECTION_ASM_OP)))
   emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif
+}
+
+/* Expand code to initialize the stack_protect_guard.  This is invoked at
+   the beginning of a function to be protected.  */
+
+#ifndef HAVE_stack_protect_set
+# define HAVE_stack_protect_set		0
+# define gen_stack_protect_set(x,y)	(gcc_unreachable (), NULL_RTX)
+#endif
+
+void
+stack_protect_prologue (void)
+{
+  tree guard_decl = targetm.stack_protect_guard ();
+  rtx x, y;
+
+  /* Avoid expand_expr here, because we don't want guard_decl pulled
+     into registers unless absolutely necessary.  And we know that
+     cfun->stack_protect_guard is a local stack slot, so this skips
+     all the fluff.  */
+  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  y = validize_mem (DECL_RTL (guard_decl));
+
+  /* Allow the target to copy from Y to X without leaking Y into a
+     register.  */
+  if (HAVE_stack_protect_set)
+    {
+      rtx insn = gen_stack_protect_set (x, y);
+      if (insn)
+	{
+	  emit_insn (insn);
+	  return;
+	}
+    }
+
+  /* Otherwise do a straight move.  */
+  emit_move_insn (x, y);
+}
+
+/* Expand code to verify the stack_protect_guard.  This is invoked at
+   the end of a function to be protected.  */
+
+#ifndef HAVE_stack_protect_test
+# define HAVE_stack_protect_test		0
+# define gen_stack_protect_test(x, y, z)	(gcc_unreachable (), NULL_RTX)
+#endif
+
+static void
+stack_protect_epilogue (void)
+{
+  tree guard_decl = targetm.stack_protect_guard ();
+  rtx label = gen_label_rtx ();
+  rtx x, y, tmp;
+
+  /* Avoid expand_expr here, because we don't want guard_decl pulled
+     into registers unless absolutely necessary.  And we know that
+     cfun->stack_protect_guard is a local stack slot, so this skips
+     all the fluff.  */
+  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  y = validize_mem (DECL_RTL (guard_decl));
+
+  /* Allow the target to compare Y with X without leaking either into
+     a register.  */
+  switch (HAVE_stack_protect_test != 0)
+    {
+    case 1:
+      tmp = gen_stack_protect_test (x, y, label);
+      if (tmp)
+	{
+	  emit_insn (tmp);
+	  break;
+	}
+      /* FALLTHRU */
+
+    default:
+      emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
+      break;
+    }
+
+  /* The noreturn predictor has been moved to the tree level.  The rtl-level
+     predictors estimate this branch about 20%, which isn't enough to get
+     things moved out of line.  Since this is the only extant case of adding
+     a noreturn function at the rtl level, it doesn't seem worth doing ought
+     except adding the prediction by hand.  */
+  tmp = get_last_insn ();
+  if (JUMP_P (tmp))
+    predict_insn_def (tmp, PRED_NORETURN, TAKEN);
+
+  expand_expr_stmt (targetm.stack_protect_fail ());
+  emit_label (label);
 }
 
 /* Start the RTL for a new function, and set variables used for
@@ -4179,7 +4313,7 @@ do_warn_unused_parameter (tree fn)
        decl; decl = TREE_CHAIN (decl))
     if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
 	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
-      warning (0, "%Junused parameter %qD", decl, decl);
+      warning (0, "unused parameter %q+D", decl);
 }
 
 static GTY(()) rtx initial_trampoline;
@@ -4268,11 +4402,6 @@ expand_function_end (void)
 
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
-
-  /* Let except.c know where it should emit the call to unregister
-     the function context for sjlj exceptions.  */
-  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
-    sjlj_emit_function_exit_after (get_last_insn ());
 
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
@@ -4400,6 +4529,15 @@ expand_function_end (void)
 
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
+
+  /* Let except.c know where it should emit the call to unregister
+     the function context for sjlj exceptions.  */
+  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
+    sjlj_emit_function_exit_after (get_last_insn ());
+
+  /* If stack protection is enabled for this function, check the guard.  */
+  if (cfun->stack_protect_guard)
+    stack_protect_epilogue ();
 
   /* If we had calls to alloca, and this machine needs
      an accurate stack pointer to exit the function,
@@ -4702,8 +4840,8 @@ keep_stack_depressed (rtx insns)
 		if (HARD_REGNO_MODE_OK (regno, Pmode)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
-		    && !REGNO_REG_SET_P (EXIT_BLOCK_PTR->global_live_at_start,
-					 regno)
+		    && !REGNO_REG_SET_P
+		         (EXIT_BLOCK_PTR->il.rtl->global_live_at_start, regno)
 		    && !refers_to_regno_p (regno,
 					   regno + hard_regno_nregs[regno]
 								   [Pmode],
@@ -5130,7 +5268,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       cfg_layout_initialize (0);
       FOR_EACH_BB (cur_bb)
 	if (cur_bb->index >= 0 && cur_bb->next_bb->index >= 0)
-	  cur_bb->rbi->next = cur_bb->next_bb;
+	  cur_bb->aux = cur_bb->next_bb;
       cfg_layout_finalize ();
     }
 epilogue_done:
@@ -5397,5 +5535,33 @@ current_function_name (void)
 {
   return lang_hooks.decl_printable_name (cfun->decl, 2);
 }
+
+
+static void
+rest_of_handle_check_leaf_regs (void)
+{
+#ifdef LEAF_REGISTERS
+  current_function_uses_only_leaf_regs
+    = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
+#endif
+}
+
+struct tree_opt_pass pass_leaf_regs =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_check_leaf_regs,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 #include "gt-function.h"

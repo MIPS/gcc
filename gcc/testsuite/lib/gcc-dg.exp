@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 load_lib dg.exp
 load_lib file-format.exp
@@ -122,7 +122,7 @@ proc gcc-dg-test-1 { target_compile prog do_what extra_tool_flags } {
 	    set output_file "./[file rootname [file tail $prog]].exe"
 	    # This is the only place where we care if an executable was
 	    # created or not.  If it was, dg.exp will try to run it.
-	    remote_file build delete $output_file
+	    catch { remote_file build delete $output_file }
 	}
 	default {
 	    perror "$do_what: not a valid dg-do keyword"

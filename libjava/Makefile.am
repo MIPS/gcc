@@ -7,76 +7,9 @@ ACLOCAL_AMFLAGS = -I . -I ../config
 # May be used by various substitution variables.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
-## Garbage collector conditionals.
-if USING_BOEHMGC
-BOEHMGC_SRC = boehm.cc
-else
-BOEHMGC_SRC =
-endif
-
-if USING_NOGC
-NOGC_SRC = nogc.cc
-else
-NOGC_SRC =
-endif
-
-## Broken backtrace conditional.
-if SUPPLY_BACKTRACE
-BACKTRACE_SRC = sysdep/dwarf2-backtrace.cc
-else
-BACKTRACE_SRC =
-endif
-
-## Conditionals for platform-specific helper functions.
-if USING_POSIX_PLATFORM
-POSIX_PLATFORM_SRC = posix.cc
-else
-POSIX_PLATFORM_SRC =
-endif
-
-if USING_WIN32_PLATFORM
-WIN32_PLATFORM_SRC = win32.cc
-else
-WIN32_PLATFORM_SRC =
-endif
-
-if USING_ECOS_PLATFORM
-ECOS_PLATFORM_SRC = posix.cc
-else
-ECOS_PLATFORM_SRC =
-endif
-
-## Conditionals for platform-specific thread support.
-if USING_POSIX_THREADS
-POSIX_THREAD_SRC = posix-threads.cc
-else
-POSIX_THREAD_SRC =
-endif
-
-if USING_WIN32_THREADS
-WIN32_THREAD_SRC = win32-threads.cc
-else
-WIN32_THREAD_SRC =
-endif
-
-if USING_NO_THREADS
-NO_THREAD_SRC = no-threads.cc
-else
-NO_THREAD_SRC =
-endif
-
-## Testsuite conditional.
-if TESTSUBDIR
-SUBDIRS = $(DIRLTDL) testsuite gcj include external
-else
 SUBDIRS = $(DIRLTDL) gcj include external
-endif
-
-## Darwin uses the jcr section, but doesn't use crtstuff.
-if USING_DARWIN_CRT
-DARWIN_CRT_SRC = darwin.cc
-else
-DARWIN_CRT_SRC = 
+if TESTSUBDIR
+SUBDIRS += testsuite
 endif
 
 # write_entries_to_file - writes each entry in a list
@@ -97,23 +30,16 @@ target_noncanonical = @target_noncanonical@
 ## What gets installed, and where.
 ##
 
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la
+toolexecmainlib_DATA = libgcj.spec
+
 if XLIB_AWT
-cond_xlib_ltlibrary = lib-gnu-awt-xlib.la
-else
-cond_xlib_ltlibrary =
+toolexeclib_LTLIBRARIES += lib-gnu-awt-xlib.la
 endif
 
 if GTK_AWT
-cond_gtk_ltlibrary = lib-gnu-java-awt-peer-gtk.la
-cond_gtk_gcjawt_ltlibrary = libgcjawt.la
-else
-cond_gtk_ltlibrary =
-cond_gtk_gcjawt_ltlibrary =
+toolexeclib_LTLIBRARIES += lib-gnu-java-awt-peer-gtk.la libgcjawt.la
 endif
-
-toolexeclib_LTLIBRARIES = libgcj.la libgij.la \
-    $(cond_gtk_ltlibrary) $(cond_gtk_gcjawt_ltlibrary) $(cond_xlib_ltlibrary)
-toolexecmainlib_DATA = libgcj.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libgcj.pc
@@ -206,10 +132,9 @@ AM_GCJFLAGS = \
 	--encoding=UTF-8 \
 	-Wno-deprecated -fbootstrap-classes
 
-if USING_GCC
-AM_CFLAGS = @LIBGCJ_CFLAGS@ $(WARNINGS)
-else
 AM_CFLAGS = @LIBGCJ_CFLAGS@
+if USING_GCC
+AM_CFLAGS += $(WARNINGS)
 endif
 
 ## Extra CFLAGS used for JNI C sources shared with GNU Classpath.
@@ -308,12 +233,43 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
-	$(nat_source_files) $(math_c_source_files) \
-	$(BOEHMGC_SRC) $(NOGC_SRC) \
-	$(BACKTRACE_SRC) \
-	$(POSIX_PLATFORM_SRC) $(WIN32_PLATFORM_SRC) $(ECOS_PLATFORM_SRC) \
-	$(DARWIN_CRT_SRC) \
-	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
+	$(nat_source_files) $(math_c_source_files)
+
+if USING_BOEHMGC
+libgcj_la_SOURCES += boehm.cc
+endif
+
+if USING_NOGC
+libgcj_la_SOURCES += nogc.cc
+endif
+
+if SUPPLY_BACKTRACE
+libgcj_la_SOURCES += sysdep/dwarf2-backtrace.cc
+endif
+
+if USING_POSIX_PLATFORM
+libgcj_la_SOURCES += posix.cc
+endif
+
+if USING_WIN32_PLATFORM
+libgcj_la_SOURCES += win32.cc
+endif
+
+if USING_DARWIN_CRT
+libgcj_la_SOURCES += darwin.cc
+endif
+
+if USING_POSIX_THREADS
+libgcj_la_SOURCES += posix-threads.cc
+endif
+
+if USING_WIN32_THREADS
+libgcj_la_SOURCES += win32-threads.cc
+endif
+
+if USING_NO_THREADS
+libgcj_la_SOURCES += no-threads.cc
+endif
 
 ## Objects from C++ sources in subdirs.
 nat_files = $(nat_source_files:.cc=.lo)
@@ -348,17 +304,8 @@ $(db_name): gcj-dbtool$(EXEEXT)
 ## not available.
 	./gcj-dbtool -n $(db_name) || touch $(db_name)
 
-# Gtk/Cairo JNI sources.
-if GTK_CAIRO
-gtk_cairo_c_source_files = \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
-else
-gtk_cairo_c_source_files = 
-endif
-
 ## Gtk JNI sources.
-gtk_c_source_files = \
-$(gtk_cairo_c_source_files) \
+lib_gnu_java_awt_peer_gtk_la_SOURCES = \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
@@ -397,7 +344,15 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/gtk-peer/gtk_jawt.c \
-jni/classpath/native_state.c
+jni/classpath/native_state.c \
+jni/gtk-peer/gthread-jni.h \
+jni/gtk-peer/gtkpeer.h \
+jni/classpath/native_state.h
+
+# Gtk/Cairo JNI sources.
+if GTK_CAIRO
+lib_gnu_java_awt_peer_gtk_la_SOURCES += jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+endif
 
 ## Java sources for Gtk peers.
 gtk_awt_peer_source_files = \
@@ -538,12 +493,6 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo: $(top_builddir)/jniinclude/
 ## For the peer library, DEPENDENCIES need to come before OBJECTS so
 ## that JNI headers are built before JNI C files.
 $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
-
-lib_gnu_java_awt_peer_gtk_la_SOURCES = \
-$(gtk_c_source_files) \
-jni/gtk-peer/gthread-jni.h \
-jni/gtk-peer/gtkpeer.h \
-jni/classpath/native_state.h
 
 lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-Ijniinclude -I$(srcdir)/jni/classpath \

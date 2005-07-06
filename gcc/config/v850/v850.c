@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -2138,7 +2138,7 @@ v850_handle_data_area_attribute (tree* node,
       if (current_function_decl != NULL_TREE)
 	{
           error ("%Jdata area attributes cannot be specified for "
-                 "local variables", decl, decl);
+                 "local variables", decl);
 	  *no_add_attrs = true;
 	}
 
@@ -2148,8 +2148,8 @@ v850_handle_data_area_attribute (tree* node,
       area = v850_get_data_area (decl);
       if (area != DATA_AREA_NORMAL && data_area != area)
 	{
-	  error ("%Jdata area of '%D' conflicts with previous declaration",
-                 decl, decl);
+	  error ("data area of %q+D conflicts with previous declaration",
+                 decl);
 	  *no_add_attrs = true;
 	}
       break;
@@ -2278,7 +2278,7 @@ construct_restore_jr (rtx op)
   
   if (count <= 2)
     {
-      error ("bogus JR construction: %d\n", count);
+      error ("bogus JR construction: %d", count);
       return NULL;
     }
 
@@ -2485,7 +2485,7 @@ void
 v850_output_aligned_bss (FILE * file,
                          tree decl,
                          const char * name,
-                         int size,
+                         unsigned HOST_WIDE_INT size,
                          int align)
 {
   switch (v850_get_data_area (decl))
@@ -2684,7 +2684,7 @@ construct_dispose_instruction (rtx op)
   
   if (count <= 2)
     {
-      error ("Bogus DISPOSE construction: %d\n", count);
+      error ("bogus DISPOSE construction: %d", count);
       return NULL;
     }
 
@@ -2703,7 +2703,7 @@ construct_dispose_instruction (rtx op)
      will fit into the DISPOSE instruction.  */
   if (stack_bytes > 128)
     {
-      error ("Too much stack space to dispose of: %d", stack_bytes);
+      error ("too much stack space to dispose of: %d", stack_bytes);
       return NULL;
     }
 
@@ -2805,7 +2805,7 @@ construct_prepare_instruction (rtx op)
   
   if (count <= 1)
     {
-      error ("Bogus PREPEARE construction: %d\n", count);
+      error ("bogus PREPEARE construction: %d", count);
       return NULL;
     }
 
@@ -2824,7 +2824,7 @@ construct_prepare_instruction (rtx op)
      will fit into the DISPOSE instruction.  */
   if (stack_bytes < -128)
     {
-      error ("Too much stack space to prepare: %d", stack_bytes);
+      error ("too much stack space to prepare: %d", stack_bytes);
       return NULL;
     }
 

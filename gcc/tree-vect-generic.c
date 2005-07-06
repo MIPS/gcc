@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -448,6 +448,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 	compute_type = TREE_TYPE (type);
     }
 
+  gcc_assert (code != VEC_LSHIFT_EXPR && code != VEC_RSHIFT_EXPR);
   rhs = expand_vector_operation (bsi, type, compute_type, rhs, code);
   if (lang_hooks.types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
     *p_rhs = rhs;

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -113,7 +113,6 @@ package GNAT.OS_Lib is
    subtype Minute_Type is Integer range    0 ..   59;
    subtype Second_Type is Integer range    0 ..   59;
    --  Declarations similar to those in Calendar, breaking down the time
-
 
    function GM_Year    (Date : OS_Time) return Year_Type;
    function GM_Month   (Date : OS_Time) return Month_Type;
@@ -709,6 +708,41 @@ package GNAT.OS_Lib is
    --  This is a non blocking call. The Process_Id of the spawned process is
    --  returned. Parameters are to be used as in Spawn. If Invalid_Id is
    --  returned the program could not be spawned.
+   --
+   --  "Non_Blocking_Spawn" should not be used in tasking applications.
+   --
+   --  This function will always return Invalid_Id under VxWorks, since there
+   --  is no notion of executables under this OS.
+
+   function Non_Blocking_Spawn
+     (Program_Name           : String;
+      Args                   : Argument_List;
+      Output_File_Descriptor : File_Descriptor;
+      Err_To_Out             : Boolean := True)
+      return                   Process_Id;
+   --  Similar to the procedure above, but redirects the output to the file
+   --  designated by Output_File_Descriptor. If Err_To_Out is True, then the
+   --  Standard Error output is also redirected. Invalid_Id is returned
+   --  if the program could not be spawned successfully.
+   --
+   --  "Non_Blocking_Spawn" should not be used in tasking applications.
+   --
+   --  This function will always return Invalid_Id under VxWorks, since there
+   --  is no notion of executables under this OS.
+
+   function Non_Blocking_Spawn
+     (Program_Name : String;
+      Args         : Argument_List;
+      Output_File  : String;
+      Err_To_Out   : Boolean := True)
+      return         Process_Id;
+   --  Similar to the procedure above, but saves the output of the command to
+   --  a file with the name Output_File.
+   --
+   --  Success is set to True if the command is executed and its output
+   --  successfully written to the file. Invalid_Id is returned if the output
+   --  file could not be created or if the program could not be spawned
+   --  successfully.
    --
    --  "Non_Blocking_Spawn" should not be used in tasking applications.
    --

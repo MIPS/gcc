@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -330,7 +330,7 @@ override_options (void)
   /* -fPIC uses 32-bit pc-relative displacements, which don't exist
      until the 68020.  */
   if (!TARGET_68020 && !TARGET_COLDFIRE && (flag_pic == 2))
-    error("-fPIC is not currently supported on the 68000 or 68010\n");
+    error ("-fPIC is not currently supported on the 68000 or 68010");
 
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding

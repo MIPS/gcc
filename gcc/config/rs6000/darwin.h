@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (Darwin/PowerPC)");
@@ -151,8 +151,8 @@ do {									\
 
 /* Base register for access to local variables of the function.  */
 
-#undef  FRAME_POINTER_REGNUM
-#define FRAME_POINTER_REGNUM 30
+#undef  HARD_FRAME_POINTER_REGNUM
+#define HARD_FRAME_POINTER_REGNUM 30
 
 #undef  RS6000_PIC_OFFSET_TABLE_REGNUM
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 31
@@ -161,9 +161,11 @@ do {									\
 
 #undef STARTING_FRAME_OFFSET
 #define STARTING_FRAME_OFFSET						\
-  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
-   + RS6000_VARARGS_AREA						\
-   + RS6000_SAVE_AREA)
+  (FRAME_GROWS_DOWNWARD							\
+   ? 0									\
+   : (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
+      + RS6000_VARARGS_AREA						\
+      + RS6000_SAVE_AREA))
 
 #undef STACK_DYNAMIC_OFFSET
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
@@ -206,7 +208,8 @@ do {									\
     "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
     "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
     "vrsave", "vscr",							\
-    "spe_acc", "spefscr"                                                \
+    "spe_acc", "spefscr",                                               \
+    "sfp"								\
 }
 
 /* This outputs NAME to FILE.  */

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Middle-to-low level generation of rtx code and insns.
@@ -55,6 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "tree-pass.h"
 
 /* Commonly used modes.  */
 
@@ -2135,6 +2136,24 @@ unshare_all_rtl (void)
   unshare_all_rtl_1 (current_function_decl, get_insns ());
 }
 
+struct tree_opt_pass pass_unshare_all_rtl =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  unshare_all_rtl,                      /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
 /* Check that ORIG is not marked when it should not be and mark ORIG as in use,
    Recursively does the same for subexpressions.  */
 
@@ -2198,11 +2217,11 @@ verify_rtx_sharing (rtx orig, rtx insn)
 #ifdef ENABLE_CHECKING
   if (RTX_FLAG (x, used))
     {
-      error ("Invalid rtl sharing found in the insn");
+      error ("invalid rtl sharing found in the insn");
       debug_rtx (insn);
-      error ("Shared rtx");
+      error ("shared rtx");
       debug_rtx (x);
-      internal_error ("Internal consistency failure");
+      internal_error ("internal consistency failure");
     }
 #endif
   gcc_assert (!RTX_FLAG (x, used));
@@ -3704,6 +3723,23 @@ remove_unnecessary_notes (void)
   /* Too many EH_REGION_BEG notes.  */
   gcc_assert (!eh_stack);
 }
+
+struct tree_opt_pass pass_remove_unnecessary_notes =
+{
+  NULL,                                 /* name */ 
+  NULL,					/* gate */
+  remove_unnecessary_notes,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,					/* tv_id */ 
+  0,					/* properties_required */
+  0,                                    /* properties_provided */
+  0,					/* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0                                     /* letter */ 
+};
 
 
 /* Emit insn(s) of given code and pattern

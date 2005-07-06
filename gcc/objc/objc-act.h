@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_OBJC_ACT_H
 #define GCC_OBJC_ACT_H
@@ -263,6 +263,7 @@ enum objc_tree_index
     OCTI_CNST_STR_TYPE,
     OCTI_CNST_STR_GLOB_ID,
     OCTI_STRING_CLASS_DECL,
+    OCTI_INTERNAL_CNST_STR_TYPE,
     OCTI_SUPER_DECL,
     OCTI_UMSG_NONNIL_DECL,
     OCTI_UMSG_NONNIL_STRET_DECL,
@@ -450,6 +451,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define constant_string_global_id		\
 				objc_global_trees[OCTI_CNST_STR_GLOB_ID]
 #define string_class_decl	objc_global_trees[OCTI_STRING_CLASS_DECL]
+#define internal_const_str_type	objc_global_trees[OCTI_INTERNAL_CNST_STR_TYPE]
 #define UOBJC_SUPER_decl	objc_global_trees[OCTI_SUPER_DECL]
 
 #endif /* GCC_OBJC_ACT_H */

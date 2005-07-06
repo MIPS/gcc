@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -552,7 +552,7 @@ struct processor_costs power4_cost = {
 
 
 static bool rs6000_function_ok_for_sibcall (tree, tree);
-static bool rs6000_insn_valid_within_doloop (rtx);
+static const char *rs6000_invalid_within_doloop (rtx);
 static rtx rs6000_generate_compare (enum rtx_code);
 static void rs6000_maybe_dead (rtx);
 static void rs6000_emit_stack_tie (void);
@@ -615,9 +615,6 @@ static const char * rs6000_xcoff_strip_name_encoding (const char *);
 static unsigned int rs6000_xcoff_section_type_flags (tree, const char *, int);
 static void rs6000_xcoff_file_start (void);
 static void rs6000_xcoff_file_end (void);
-#endif
-#if TARGET_MACHO
-static bool rs6000_binds_local_p (tree);
 #endif
 static int rs6000_variable_issue (FILE *, int, rtx, int);
 static bool rs6000_rtx_costs (rtx, int, int, int *);
@@ -731,7 +728,7 @@ static rtx rs6000_emit_vector_compare (enum rtx_code, rtx, rtx,
 				       enum machine_mode);
 static int get_vsel_insn (enum machine_mode);
 static void rs6000_emit_vector_select (rtx, rtx, rtx, rtx);
-
+static tree rs6000_stack_protect_fail (void);
 
 const int INSN_NOT_AVAILABLE = -1;
 static enum machine_mode rs6000_eh_return_filter_mode (void);
@@ -770,7 +767,9 @@ char rs6000_reg_names[][8] =
       "24", "25", "26", "27", "28", "29", "30", "31",
       "vrsave", "vscr",
       /* SPE registers.  */
-      "spe_acc", "spefscr"
+      "spe_acc", "spefscr",
+      /* Soft frame pointer.  */
+      "sfp"
 };
 
 #ifdef TARGET_REGNAMES
@@ -794,7 +793,9 @@ static const char alt_reg_names[][8] =
   "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
   "vrsave", "vscr",
   /* SPE registers.  */
-  "spe_acc", "spefscr"
+  "spe_acc", "spefscr",
+  /* Soft frame pointer.  */
+  "sfp"
 };
 #endif
 
@@ -897,7 +898,7 @@ static const char alt_reg_names[][8] =
 
 #if TARGET_MACHO
 #undef TARGET_BINDS_LOCAL_P
-#define TARGET_BINDS_LOCAL_P rs6000_binds_local_p
+#define TARGET_BINDS_LOCAL_P darwin_binds_local_p
 #endif
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
@@ -909,8 +910,8 @@ static const char alt_reg_names[][8] =
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL rs6000_function_ok_for_sibcall
 
-#undef TARGET_INSN_VALID_WITHIN_DOLOOP
-#define TARGET_INSN_VALID_WITHIN_DOLOOP rs6000_insn_valid_within_doloop
+#undef TARGET_INVALID_WITHIN_DOLOOP
+#define TARGET_INVALID_WITHIN_DOLOOP rs6000_invalid_within_doloop
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rs6000_rtx_costs
@@ -971,6 +972,9 @@ static const char alt_reg_names[][8] =
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS \
   (TARGET_DEFAULT | MASK_SCHED_PROLOG)
+
+#undef TARGET_STACK_PROTECT_FAIL
+#define TARGET_STACK_PROTECT_FAIL rs6000_stack_protect_fail
 
 /* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
    The PowerPC architecture requires only weak consistency among
@@ -1546,6 +1550,10 @@ rs6000_parse_tls_size_option (void)
 void
 optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 {
+  if (DEFAULT_ABI == ABI_DARWIN)
+    /* The Darwin libraries never set errno, so we might as well
+       avoid calling them when that's the only reason we would.  */
+    flag_errno_math = 0;
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -1849,6 +1857,12 @@ rs6000_file_start (void)
 	    }
 	}
 
+      if (PPC405_ERRATUM77)
+	{
+	  fprintf (file, "%s PPC405CR_ERRATUM77", start);
+	  start = "";
+	}
+
 #ifdef USING_ELFOS_H
       switch (rs6000_sdata)
 	{
@@ -1947,7 +1961,7 @@ num_insns_constant (rtx op, enum machine_mode mode)
     case CONST_INT:
 #if HOST_BITS_PER_WIDE_INT == 64
       if ((INTVAL (op) >> 31) != 0 && (INTVAL (op) >> 31) != -1
-	  && mask64_operand (op, mode))
+	  && mask_operand (op, mode))
 	return 2;
       else
 #endif
@@ -1989,7 +2003,7 @@ num_insns_constant (rtx op, enum machine_mode mode)
 		|| (high == -1 && low < 0))
 	      return num_insns_constant_wide (low);
 	    
-	    else if (mask64_operand (op, mode))
+	    else if (mask_operand (op, mode))
 	      return 2;
 	    
 	    else if (low == 0)
@@ -4037,9 +4051,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
       && TARGET_ALTIVEC_ABI
       && ALTIVEC_VECTOR_MODE (TYPE_MODE (TREE_TYPE (fntype))))
     {
-      error ("Cannot return value in vector register because"
+      error ("cannot return value in vector register because"
 	     " altivec instructions are disabled, use -maltivec"
-	     " to enable them.");
+	     " to enable them");
     }
 }
 
@@ -4283,9 +4297,9 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	{
 	  cum->vregno++;
 	  if (!TARGET_ALTIVEC)
-	    error ("Cannot pass argument in vector register because"
+	    error ("cannot pass argument in vector register because"
 		   " altivec instructions are disabled, use -maltivec"
-		   " to enable them.");
+		   " to enable them");
 
 	  /* PowerPC64 Linux and AIX allocate GPRs for a vector argument
 	     even if it is going to be passed in a vector register.
@@ -6240,8 +6254,8 @@ rs6000_expand_unop_builtin (enum insn_code icode, tree arglist, rtx target)
     {
       /* Only allow 5-bit *signed* literals.  */
       if (GET_CODE (op0) != CONST_INT
-	  || INTVAL (op0) > 0x1f
-	  || INTVAL (op0) < -0x1f)
+	  || INTVAL (op0) > 15
+	  || INTVAL (op0) < -16)
 	{
 	  error ("argument 1 must be a 5-bit signed literal");
 	  return const0_rtx;
@@ -6812,7 +6826,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       && fcode <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
     {
       *expandedp = true;
-      error ("unresolved overload for Altivec builtin %qE", fndecl);
+      error ("unresolved overload for Altivec builtin %qF", fndecl);
       return const0_rtx;
     }
 
@@ -8579,14 +8593,14 @@ rs6000_init_libfuncs (void)
 
    operands[0] is the destination
    operands[1] is the length
-   operands[2] is the alignment */
+   operands[3] is the alignment */
 
 int
 expand_block_clear (rtx operands[])
 {
   rtx orig_dest = operands[0];
   rtx bytes_rtx	= operands[1];
-  rtx align_rtx = operands[2];
+  rtx align_rtx = operands[3];
   bool constp	= (GET_CODE (bytes_rtx) == CONST_INT);
   HOST_WIDE_INT align;
   HOST_WIDE_INT bytes;
@@ -9879,7 +9893,7 @@ print_operand (FILE *file, rtx x, int code)
       /* PowerPC64 mask position.  All 0's is excluded.
 	 CONST_INT 32-bit mask is considered sign-extended so any
 	 transition must occur within the CONST_INT, not on the boundary.  */
-      if (! mask64_operand (x, DImode))
+      if (! mask_operand (x, DImode))
 	output_operand_lossage ("invalid %%S value");
 
       uval = INT_LOWPART (x);
@@ -10580,6 +10594,19 @@ rs6000_generate_compare (enum rtx_code code)
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)))));
+      else if (GET_CODE (rs6000_compare_op1) == UNSPEC
+	       && XINT (rs6000_compare_op1, 1) == UNSPEC_SP_TEST)
+	{
+	  rtx op1 = XVECEXP (rs6000_compare_op1, 0, 0);
+	  comp_mode = CCEQmode;
+	  compare_result = gen_reg_rtx (CCEQmode);
+	  if (TARGET_64BIT)
+	    emit_insn (gen_stack_protect_testdi (compare_result,
+						 rs6000_compare_op0, op1));
+	  else
+	    emit_insn (gen_stack_protect_testsi (compare_result,
+						 rs6000_compare_op0, op1));
+	}
       else
 	emit_insn (gen_rtx_SET (VOIDmode, compare_result,
 				gen_rtx_COMPARE (comp_mode,
@@ -12093,6 +12120,13 @@ rs6000_stack_info (void)
   info_ptr->vars_size    = RS6000_ALIGN (get_frame_size (), 8);
   info_ptr->parm_size    = RS6000_ALIGN (current_function_outgoing_args_size,
 					 TARGET_ALTIVEC ? 16 : 8);
+  if (FRAME_GROWS_DOWNWARD)
+    info_ptr->vars_size
+      += RS6000_ALIGN (info_ptr->fixed_size + info_ptr->varargs_size
+		       + info_ptr->vars_size + info_ptr->parm_size,
+		       ABI_STACK_BOUNDARY / BITS_PER_UNIT)
+	 - (info_ptr->fixed_size + info_ptr->varargs_size
+	    + info_ptr->vars_size + info_ptr->parm_size);
 
   if (TARGET_SPE_ABI && info_ptr->spe_64bit_regs_used != 0)
     info_ptr->spe_gp_size = 8 * (32 - info_ptr->first_gp_reg_save);
@@ -12532,21 +12566,22 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   return false;
 }
 
-/* TRUE if INSN insn is valid within a low-overhead loop.
+/* NULL if INSN insn is valid within a low-overhead loop.
+   Otherwise return why doloop cannot be applied.
    PowerPC uses the COUNT register for branch on table instructions.  */
 
-static bool
-rs6000_insn_valid_within_doloop (rtx insn)
+static const char *
+rs6000_invalid_within_doloop (rtx insn)
 {
   if (CALL_P (insn))
-    return false;
+    return "Function call in the loop.";
 
   if (JUMP_P (insn)
       && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
 	  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
-    return false;
+    return "Computed branch in the loop.";
 
-  return true;
+  return NULL;
 }
 
 static int
@@ -13759,7 +13794,7 @@ rs6000_emit_prologue (void)
   /* Set frame pointer, if needed.  */
   if (frame_pointer_needed)
     {
-      insn = emit_move_insn (gen_rtx_REG (Pmode, FRAME_POINTER_REGNUM),
+      insn = emit_move_insn (gen_rtx_REG (Pmode, HARD_FRAME_POINTER_REGNUM),
 			     sp_reg_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
     }
@@ -15431,7 +15466,6 @@ void
 output_function_profiler (FILE *file, int labelno)
 {
   char buf[100];
-  int save_lr = 8;
 
   switch (DEFAULT_ABI)
     {
@@ -15439,7 +15473,6 @@ output_function_profiler (FILE *file, int labelno)
       gcc_unreachable ();
 
     case ABI_V4:
-      save_lr = 4;
       if (!TARGET_32BIT)
 	{
 	  warning (0, "no profiling of 64-bit code for this ABI");
@@ -15447,11 +15480,28 @@ output_function_profiler (FILE *file, int labelno)
 	}
       ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
       fprintf (file, "\tmflr %s\n", reg_names[0]);
-      if (flag_pic == 1)
+      if (NO_PROFILE_COUNTERS)
+	{
+	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+		       reg_names[0], reg_names[1]);
+	}
+      else if (TARGET_SECURE_PLT && flag_pic)
+	{
+	  asm_fprintf (file, "\tbcl 20,31,1f\n1:\n\t{st|stw} %s,4(%s)\n",
+		       reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\tmflr %s\n", reg_names[12]);
+	  asm_fprintf (file, "\t{cau|addis} %s,%s,",
+		       reg_names[12], reg_names[12]);
+	  assemble_name (file, buf);
+	  asm_fprintf (file, "-1b@ha\n\t{cal|la} %s,", reg_names[0]);
+	  assemble_name (file, buf);
+	  asm_fprintf (file, "-1b@l(%s)\n", reg_names[12]);
+	}
+      else if (flag_pic == 1)
 	{
 	  fputs ("\tbl _GLOBAL_OFFSET_TABLE_@local-4\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
-		       reg_names[0], save_lr, reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+		       reg_names[0], reg_names[1]);
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[12]);
 	  asm_fprintf (file, "\t{l|lwz} %s,", reg_names[0]);
 	  assemble_name (file, buf);
@@ -15459,10 +15509,10 @@ output_function_profiler (FILE *file, int labelno)
 	}
       else if (flag_pic > 1)
 	{
-	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
-		       reg_names[0], save_lr, reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+		       reg_names[0], reg_names[1]);
 	  /* Now, we need to get the address of the label.  */
-	  fputs ("\tbl 1f\n\t.long ", file);
+	  fputs ("\tbcl 20,31,1f\n\t.long ", file);
 	  assemble_name (file, buf);
 	  fputs ("-.\n1:", file);
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[11]);
@@ -15476,8 +15526,8 @@ output_function_profiler (FILE *file, int labelno)
 	  asm_fprintf (file, "\t{liu|lis} %s,", reg_names[12]);
 	  assemble_name (file, buf);
 	  fputs ("@ha\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
-		       reg_names[0], save_lr, reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+		       reg_names[0], reg_names[1]);
 	  asm_fprintf (file, "\t{cal|la} %s,", reg_names[0]);
 	  assemble_name (file, buf);
 	  asm_fprintf (file, "@l(%s)\n", reg_names[12]);
@@ -17522,17 +17572,6 @@ rs6000_xcoff_file_end (void)
 }
 #endif /* TARGET_XCOFF */
 
-#if TARGET_MACHO
-/* Cross-module name binding.  Darwin does not support overriding
-   functions at dynamic-link time.  */
-
-static bool
-rs6000_binds_local_p (tree decl)
-{
-  return default_binds_local_p_1 (decl, 0);
-}
-#endif
-
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
@@ -17588,9 +17627,9 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  return true;
 	}
       else if ((outer_code == PLUS
-		&& reg_or_add_cint64_operand (x, VOIDmode))
+		&& reg_or_add_cint_operand (x, VOIDmode))
 	       || (outer_code == MINUS
-		   && reg_or_sub_cint64_operand (x, VOIDmode))
+		   && reg_or_sub_cint_operand (x, VOIDmode))
 	       || ((outer_code == SET
 		    || outer_code == IOR
 		    || outer_code == XOR)
@@ -17607,7 +17646,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && ((outer_code == AND
 	       && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
 		   || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
-		   || mask64_operand (x, DImode)))
+		   || mask_operand (x, DImode)))
 	      || ((outer_code == IOR || outer_code == XOR)
 		  && CONST_DOUBLE_HIGH (x) == 0
 		  && (CONST_DOUBLE_LOW (x)
@@ -18216,9 +18255,21 @@ rs6000_initial_elimination_offset (int from, int to)
   rs6000_stack_t *info = rs6000_stack_info ();
   HOST_WIDE_INT offset;
 
-  if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
+  if (from == HARD_FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     offset = info->push_p ? 0 : -info->total_size;
-  else if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
+  else if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
+    {
+      offset = info->push_p ? 0 : -info->total_size;
+      if (FRAME_GROWS_DOWNWARD)
+	offset += info->fixed_size + info->varargs_size
+		  + info->vars_size + info->parm_size;
+    }
+  else if (from == FRAME_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
+    offset = FRAME_GROWS_DOWNWARD
+	     ? info->fixed_size + info->varargs_size
+	       + info->vars_size + info->parm_size
+	     : 0;
+  else if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     offset = info->total_size;
   else if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     offset = info->push_p ? info->total_size : 0;
@@ -18336,6 +18387,19 @@ invalid_arg_for_unprototyped_fn (tree typelist, tree funcdecl, tree val)
                   && DECL_BUILT_IN_CLASS (funcdecl) != BUILT_IN_MD)))
 	  ? N_("AltiVec argument passed to unprototyped function")
 	  : NULL;
+}
+
+/* For TARGET_SECURE_PLT 32-bit PIC code we can save PIC register
+   setup by using __stack_chk_fail_local hidden function instead of
+   calling __stack_chk_fail directly.  Otherwise it is better to call
+   __stack_chk_fail directly.  */
+
+static tree
+rs6000_stack_protect_fail (void)
+{
+  return (DEFAULT_ABI == ABI_V4 && TARGET_SECURE_PLT && flag_pic)
+	 ? default_hidden_stack_protect_fail ()
+	 : default_external_stack_protect_fail ();
 }
 
 #include "gt-rs6000.h"

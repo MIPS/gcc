@@ -17,14 +17,17 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Use the AAPCS ABI by default.  */
 #define ARM_DEFAULT_ABI ARM_ABI_AAPCS
 
 /* Assume that AAPCS ABIs should adhere to the full BPABI.  */ 
 #define TARGET_BPABI (TARGET_AAPCS_BASED)
+
+/* BPABI targets use EABI frame unwinding tables.  */
+#define TARGET_UNWIND_INFO 1
 
 /* Section 4.1 of the AAPCS requires the use of VFP format.  */
 #define FPUTYPE_DEFAULT FPUTYPE_VFP

@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -132,16 +132,17 @@ static void find_tail_calls (basic_block, struct tailcall **);
 static bool
 suitable_for_tail_opt_p (void)
 {
-  int i;
+  referenced_var_iterator rvi;
+  tree var;
 
   if (current_function_stdarg)
     return false;
 
   /* No local variable nor structure field should be call-clobbered.  We
      ignore any kind of memory tag, as these are not real variables.  */
-  for (i = 0; i < (int) num_referenced_vars; i++)
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = VEC_index (tree, referenced_vars, i);
 
       if (!(TREE_STATIC (var) || DECL_EXTERNAL (var))
 	  && (var_ann (var)->mem_tag_kind == NOT_A_TAG

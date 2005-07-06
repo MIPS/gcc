@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -390,7 +390,6 @@ create_bb (void *h, void *e, basic_block after)
   n_basic_blocks++;
   last_basic_block++;
 
-  initialize_bb_rbi (bb);
   return bb;
 }
 
@@ -2569,11 +2568,7 @@ disband_implicit_edges (void)
 void
 delete_tree_cfg_annotations (void)
 {
-  basic_block bb;
-
   label_to_block_map = NULL;
-  FOR_EACH_BB (bb)
-    bb->rbi = NULL;
 }
 
 
@@ -3192,7 +3187,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       if (!is_gimple_condexpr (x))
         {
-	  error ("Invalid conditional operand");
+	  error ("invalid conditional operand");
 	  return x;
 	}
       break;
@@ -3209,7 +3204,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case BIT_NOT_EXPR:
     case NON_LVALUE_EXPR:
     case TRUTH_NOT_EXPR:
-      CHECK_OP (0, "Invalid operand to unary operator");
+      CHECK_OP (0, "invalid operand to unary operator");
       break;
 
     case REALPART_EXPR:
@@ -3226,20 +3221,20 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       while (handled_component_p (t))
 	{
 	  if (TREE_CODE (t) == COMPONENT_REF && TREE_OPERAND (t, 2))
-	    CHECK_OP (2, "Invalid COMPONENT_REF offset operator");
+	    CHECK_OP (2, "invalid COMPONENT_REF offset operator");
 	  else if (TREE_CODE (t) == ARRAY_REF
 		   || TREE_CODE (t) == ARRAY_RANGE_REF)
 	    {
-	      CHECK_OP (1, "Invalid array index.");
+	      CHECK_OP (1, "invalid array index");
 	      if (TREE_OPERAND (t, 2))
-		CHECK_OP (2, "Invalid array lower bound.");
+		CHECK_OP (2, "invalid array lower bound");
 	      if (TREE_OPERAND (t, 3))
-		CHECK_OP (3, "Invalid array stride.");
+		CHECK_OP (3, "invalid array stride");
 	    }
 	  else if (TREE_CODE (t) == BIT_FIELD_REF)
 	    {
-	      CHECK_OP (1, "Invalid operand to BIT_FIELD_REF");
-	      CHECK_OP (2, "Invalid operand to BIT_FIELD_REF");
+	      CHECK_OP (1, "invalid operand to BIT_FIELD_REF");
+	      CHECK_OP (2, "invalid operand to BIT_FIELD_REF");
 	    }
 
 	  t = TREE_OPERAND (t, 0);
@@ -3247,7 +3242,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
       if (!CONSTANT_CLASS_P (t) && !is_gimple_lvalue (t))
 	{
-	  error ("Invalid reference prefix.");
+	  error ("invalid reference prefix");
 	  return t;
 	}
       *walk_subtrees = 0;
@@ -3289,8 +3284,8 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-      CHECK_OP (0, "Invalid operand to binary operator");
-      CHECK_OP (1, "Invalid operand to binary operator");
+      CHECK_OP (0, "invalid operand to binary operator");
+      CHECK_OP (1, "invalid operand to binary operator");
       break;
 
     default:
@@ -3312,7 +3307,7 @@ verify_stmt (tree stmt, bool last_in_block)
 
   if (!is_gimple_stmt (stmt))
     {
-      error ("Is not a valid GIMPLE statement.");
+      error ("is not a valid GIMPLE statement");
       goto fail;
     }
 
@@ -3332,12 +3327,12 @@ verify_stmt (tree stmt, bool last_in_block)
     {
       if (!tree_could_throw_p (stmt))
 	{
-	  error ("Statement marked for throw, but doesn%'t.");
+	  error ("statement marked for throw, but doesn%'t");
 	  goto fail;
 	}
       if (!last_in_block && tree_can_throw_internal (stmt))
 	{
-	  error ("Statement marked for throw in middle of block.");
+	  error ("statement marked for throw in middle of block");
 	  goto fail;
 	}
     }
@@ -3432,7 +3427,7 @@ verify_stmts (void)
 
 	  if (bb_for_stmt (phi) != bb)
 	    {
-	      error ("bb_for_stmt (phi) is set to a wrong basic block\n");
+	      error ("bb_for_stmt (phi) is set to a wrong basic block");
 	      err |= true;
 	    }
 
@@ -3463,7 +3458,7 @@ verify_stmts (void)
 	      addr = walk_tree (&t, verify_node_sharing, htab, NULL);
 	      if (addr)
 		{
-		  error ("Incorrect sharing of tree nodes");
+		  error ("incorrect sharing of tree nodes");
 		  debug_generic_stmt (phi);
 		  debug_generic_stmt (addr);
 		  err |= true;
@@ -3477,7 +3472,7 @@ verify_stmts (void)
 
 	  if (bb_for_stmt (stmt) != bb)
 	    {
-	      error ("bb_for_stmt (stmt) is set to a wrong basic block\n");
+	      error ("bb_for_stmt (stmt) is set to a wrong basic block");
 	      err |= true;
 	    }
 
@@ -3486,7 +3481,7 @@ verify_stmts (void)
 	  addr = walk_tree (&stmt, verify_node_sharing, htab, NULL);
 	  if (addr)
 	    {
-	      error ("Incorrect sharing of tree nodes");
+	      error ("incorrect sharing of tree nodes");
 	      debug_generic_stmt (stmt);
 	      debug_generic_stmt (addr);
 	      err |= true;
@@ -3495,7 +3490,7 @@ verify_stmts (void)
     }
 
   if (err)
-    internal_error ("verify_stmts failed.");
+    internal_error ("verify_stmts failed");
 
   htab_delete (htab);
   timevar_pop (TV_TREE_STMT_VERIFY);
@@ -3516,20 +3511,20 @@ tree_verify_flow_info (void)
 
   if (ENTRY_BLOCK_PTR->stmt_list)
     {
-      error ("ENTRY_BLOCK has a statement list associated with it\n");
+      error ("ENTRY_BLOCK has a statement list associated with it");
       err = 1;
     }
 
   if (EXIT_BLOCK_PTR->stmt_list)
     {
-      error ("EXIT_BLOCK has a statement list associated with it\n");
+      error ("EXIT_BLOCK has a statement list associated with it");
       err = 1;
     }
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if (e->flags & EDGE_FALLTHRU)
       {
-	error ("Fallthru to exit from bb %d\n", e->src->index);
+	error ("fallthru to exit from bb %d", e->src->index);
 	err = 1;
       }
 
@@ -3551,7 +3546,7 @@ tree_verify_flow_info (void)
 
 	  if (prev_stmt && DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
 	    {
-	      error ("Nonlocal label %s is not first "
+	      error ("nonlocal label %s is not first "
 		     "in a sequence of labels in bb %d",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
@@ -3560,7 +3555,7 @@ tree_verify_flow_info (void)
 
 	  if (label_to_block (LABEL_EXPR_LABEL (stmt)) != bb)
 	    {
-	      error ("Label %s to block does not match in bb %d\n",
+	      error ("label %s to block does not match in bb %d",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
@@ -3569,7 +3564,7 @@ tree_verify_flow_info (void)
 	  if (decl_function_context (LABEL_EXPR_LABEL (stmt))
 	      != current_function_decl)
 	    {
-	      error ("Label %s has incorrect context in bb %d\n",
+	      error ("label %s has incorrect context in bb %d",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
@@ -3583,7 +3578,7 @@ tree_verify_flow_info (void)
 
 	  if (found_ctrl_stmt)
 	    {
-	      error ("Control flow in the middle of basic block %d\n",
+	      error ("control flow in the middle of basic block %d",
 		     bb->index);
 	      err = 1;
 	    }
@@ -3593,7 +3588,7 @@ tree_verify_flow_info (void)
 
 	  if (TREE_CODE (stmt) == LABEL_EXPR)
 	    {
-	      error ("Label %s in the middle of basic block %d\n",
+	      error ("label %s in the middle of basic block %d",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
@@ -3612,7 +3607,7 @@ tree_verify_flow_info (void)
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (e->flags & EDGE_FALLTHRU)
 	      {
-		error ("Fallthru edge after a control statement in bb %d \n",
+		error ("fallthru edge after a control statement in bb %d",
 		       bb->index);
 		err = 1;
 	      }
@@ -3627,7 +3622,7 @@ tree_verify_flow_info (void)
 	    if (TREE_CODE (COND_EXPR_THEN (stmt)) != GOTO_EXPR
 		|| TREE_CODE (COND_EXPR_ELSE (stmt)) != GOTO_EXPR)
 	      {
-		error ("Structured COND_EXPR at the end of bb %d\n", bb->index);
+		error ("structured COND_EXPR at the end of bb %d", bb->index);
 		err = 1;
 	      }
 
@@ -3640,7 +3635,7 @@ tree_verify_flow_info (void)
 		|| (false_edge->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL))
 		|| EDGE_COUNT (bb->succs) >= 3)
 	      {
-		error ("Wrong outgoing edge flags at end of bb %d\n",
+		error ("wrong outgoing edge flags at end of bb %d",
 		       bb->index);
 		err = 1;
 	      }
@@ -3648,7 +3643,7 @@ tree_verify_flow_info (void)
 	    if (!has_label_p (true_edge->dest,
 			      GOTO_DESTINATION (COND_EXPR_THEN (stmt))))
 	      {
-		error ("%<then%> label does not match edge at end of bb %d\n",
+		error ("%<then%> label does not match edge at end of bb %d",
 		       bb->index);
 		err = 1;
 	      }
@@ -3656,7 +3651,7 @@ tree_verify_flow_info (void)
 	    if (!has_label_p (false_edge->dest,
 			      GOTO_DESTINATION (COND_EXPR_ELSE (stmt))))
 	      {
-		error ("%<else%> label does not match edge at end of bb %d\n",
+		error ("%<else%> label does not match edge at end of bb %d",
 		       bb->index);
 		err = 1;
 	      }
@@ -3666,7 +3661,7 @@ tree_verify_flow_info (void)
 	case GOTO_EXPR:
 	  if (simple_goto_p (stmt))
 	    {
-	      error ("Explicit goto at end of bb %d\n", bb->index);
+	      error ("explicit goto at end of bb %d", bb->index);
     	      err = 1;
 	    }
 	  else
@@ -3678,7 +3673,7 @@ tree_verify_flow_info (void)
 				 | EDGE_FALSE_VALUE))
 		    || !(e->flags & EDGE_ABNORMAL))
 		  {
-		    error ("Wrong outgoing edge flags at end of bb %d\n",
+		    error ("wrong outgoing edge flags at end of bb %d",
 			   bb->index);
 		    err = 1;
 		  }
@@ -3691,12 +3686,12 @@ tree_verify_flow_info (void)
 		  & (EDGE_FALLTHRU | EDGE_ABNORMAL
 		     | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
 	    {
-	      error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
+	      error ("wrong outgoing edge flags at end of bb %d", bb->index);
 	      err = 1;
 	    }
 	  if (single_succ (bb) != EXIT_BLOCK_PTR)
 	    {
-	      error ("Return edge does not point to exit in bb %d\n",
+	      error ("return edge does not point to exit in bb %d",
 		     bb->index);
 	      err = 1;
 	    }
@@ -3729,13 +3724,13 @@ tree_verify_flow_info (void)
 		tree c = TREE_VEC_ELT (vec, i);
 		if (! CASE_LOW (c))
 		  {
-		    error ("Found default case not at end of case vector");
+		    error ("found default case not at end of case vector");
 		    err = 1;
 		    continue;
 		  }
 		if (! tree_int_cst_lt (CASE_LOW (prev), CASE_LOW (c)))
 		  {
-		    error ("Case labels not sorted:\n ");
+		    error ("case labels not sorted:");
 		    print_generic_expr (stderr, prev, 0);
 		    fprintf (stderr," is greater than ");
 		    print_generic_expr (stderr, c, 0);
@@ -3746,7 +3741,7 @@ tree_verify_flow_info (void)
 	      }
 	    if (CASE_LOW (TREE_VEC_ELT (vec, n - 1)))
 	      {
-		error ("No default case found at end of case vector");
+		error ("no default case found at end of case vector");
 		err = 1;
 	      }
 
@@ -3754,7 +3749,7 @@ tree_verify_flow_info (void)
 	      {
 		if (!e->dest->aux)
 		  {
-		    error ("Extra outgoing edge %d->%d\n",
+		    error ("extra outgoing edge %d->%d",
 			   bb->index, e->dest->index);
 		    err = 1;
 		  }
@@ -3762,7 +3757,7 @@ tree_verify_flow_info (void)
 		if ((e->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL
 				 | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
 		  {
-		    error ("Wrong outgoing edge flags at end of bb %d\n",
+		    error ("wrong outgoing edge flags at end of bb %d",
 			   bb->index);
 		    err = 1;
 		  }
@@ -3776,7 +3771,7 @@ tree_verify_flow_info (void)
 
 		if (label_bb->aux != (void *)2)
 		  {
-		    error ("Missing edge %i->%i",
+		    error ("missing edge %i->%i",
 			   bb->index, label_bb->index);
 		    err = 1;
 		  }
@@ -4161,7 +4156,7 @@ tree_duplicate_bb (basic_block bb)
 
 /* Basic block BB_COPY was created by code duplication.  Add phi node
    arguments for edges going out of BB_COPY.  The blocks that were
-   duplicated have rbi->duplicated set to one.  */
+   duplicated have BB_DUPLICATED set.  */
 
 void
 add_phi_args_after_copy_bb (basic_block bb_copy)
@@ -4171,15 +4166,15 @@ add_phi_args_after_copy_bb (basic_block bb_copy)
   edge_iterator ei;
   tree phi, phi_copy, phi_next, def;
       
-  bb = bb_copy->rbi->original;
+  bb = get_bb_original (bb_copy);
 
   FOR_EACH_EDGE (e_copy, ei, bb_copy->succs)
     {
       if (!phi_nodes (e_copy->dest))
 	continue;
 
-      if (e_copy->dest->rbi->duplicated)
-	dest = e_copy->dest->rbi->original;
+      if (e_copy->dest->flags & BB_DUPLICATED)
+	dest = get_bb_original (e_copy->dest);
       else
 	dest = e_copy->dest;
 
@@ -4190,8 +4185,8 @@ add_phi_args_after_copy_bb (basic_block bb_copy)
 	     In this case we are not looking for edge to dest, but to
 	     duplicated block whose original was dest.  */
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (e->dest->rbi->duplicated
-		&& e->dest->rbi->original == dest)
+	    if ((e->dest->flags & BB_DUPLICATED)
+		&& get_bb_original (e->dest) == dest)
 	      break;
 
 	  gcc_assert (e != NULL);
@@ -4218,13 +4213,13 @@ add_phi_args_after_copy (basic_block *region_copy, unsigned n_region)
   unsigned i;
 
   for (i = 0; i < n_region; i++)
-    region_copy[i]->rbi->duplicated = 1;
+    region_copy[i]->flags |= BB_DUPLICATED;
 
   for (i = 0; i < n_region; i++)
     add_phi_args_after_copy_bb (region_copy[i]);
 
   for (i = 0; i < n_region; i++)
-    region_copy[i]->rbi->duplicated = 0;
+    region_copy[i]->flags &= ~BB_DUPLICATED;
 }
 
 /* Duplicates a REGION (set of N_REGION basic blocks) with just a single
@@ -4298,6 +4293,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
   /* Record blocks outside the region that are dominated by something
      inside.  */
   doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  initialize_original_copy_tables ();
+
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
 
   total_freq = entry->dest->frequency;
@@ -4321,7 +4318,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
     }
 
   /* Redirect the entry and add the phi node arguments.  */
-  redirected = redirect_edge_and_branch (entry, entry->dest->rbi->copy);
+  redirected = redirect_edge_and_branch (entry, get_bb_copy (entry->dest));
   gcc_assert (redirected != NULL);
   flush_pending_stmts (entry);
 
@@ -4330,7 +4327,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
      region, but was dominated by something inside needs recounting as
      well.  */
   set_immediate_dominator (CDI_DOMINATORS, entry->dest, entry->src);
-  doms[n_doms++] = entry->dest->rbi->original;
+  doms[n_doms++] = get_bb_original (entry->dest);
   iterate_fix_dominators (CDI_DOMINATORS, doms, n_doms);
   free (doms);
 
@@ -4343,6 +4340,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   if (free_region_copy)
     free (region_copy);
 
+  free_original_copy_tables ();
   return true;
 }
 
@@ -4967,7 +4965,7 @@ gimplify_build3 (block_stmt_iterator *bsi, enum tree_code code,
 {
   tree ret;
 
-  ret = fold (build3 (code, type, a, b, c));
+  ret = fold_build3 (code, type, a, b, c);
   STRIP_NOPS (ret);
 
   return gimplify_val (bsi, type, ret);
@@ -4982,7 +4980,7 @@ gimplify_build2 (block_stmt_iterator *bsi, enum tree_code code,
 {
   tree ret;
 
-  ret = fold (build2 (code, type, a, b));
+  ret = fold_build2 (code, type, a, b);
   STRIP_NOPS (ret);
 
   return gimplify_val (bsi, type, ret);
@@ -4997,7 +4995,7 @@ gimplify_build1 (block_stmt_iterator *bsi, enum tree_code code, tree type,
 {
   tree ret;
 
-  ret = fold (build1 (code, type, a));
+  ret = fold_build1 (code, type, a);
   STRIP_NOPS (ret);
 
   return gimplify_val (bsi, type, ret);
@@ -5132,8 +5130,8 @@ execute_warn_function_noreturn (void)
       && !TREE_THIS_VOLATILE (cfun->decl)
       && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
       && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
-    warning (0, "%Jfunction might be possible candidate for "
-	     "attribute %<noreturn%>",
+    warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
+	     "for attribute %<noreturn%>",
 	     cfun->decl);
 }
 

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -203,12 +203,16 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	{
 	  /* Different targets have different necessities for low-overhead
 	     looping.  Call the back end for each instruction within the loop
-	     to let it decide whether the insn is valid.  */
-	  if (!targetm.insn_valid_within_doloop (insn))
-	  {
+	     to let it decide whether the insn prohibits a low-overhead loop.
+	     It will then return the cause for it to emit to the dump file.  */
+	  const char * invalid = targetm.invalid_within_doloop (insn);
+	  if (invalid)
+	    {
+	      if (dump_file)
+		fprintf (dump_file, "Doloop: %s\n", invalid);
 	      result = false;
 	      goto cleanup;
-	  }
+	    }
 	}
     }
   result = true;

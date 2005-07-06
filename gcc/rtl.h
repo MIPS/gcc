@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_RTL_H
 #define GCC_RTL_H
@@ -1896,7 +1896,7 @@ extern enum rtx_code reversed_comparison_code_parts (enum rtx_code,
 						     rtx, rtx, rtx);
 extern void delete_for_peephole (rtx, rtx);
 extern int condjump_in_parallel_p (rtx);
-extern void purge_line_number_notes (rtx);
+extern void purge_line_number_notes (void);
 
 /* In emit-rtl.c.  */
 extern int max_reg_num (void);
@@ -2089,7 +2089,8 @@ extern rtx emit_library_call_value (rtx, rtx, enum libcall_type,
 /* In varasm.c */
 extern int in_data_section (void);
 extern void init_varasm_once (void);
-
+extern enum tls_model decl_default_tls_model (tree);
+  
 /* In rtl.c */
 extern void traverse_md_constants (int (*) (void **, void *), void *);
 struct md_constant { char *name, *value; };

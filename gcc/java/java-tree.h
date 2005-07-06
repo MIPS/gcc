@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -234,6 +234,12 @@ extern int always_initialize_class_p;
 
 extern int flag_verify_invocations;
 
+/* Largest pc so far in this method that has been passed to lookup_label. */
+extern int highest_label_pc_this_method;
+
+/* Base value for this method to add to pc to get generated label. */
+extern int start_label_pc_this_method;
+
 typedef struct CPool constant_pool;
 
 #define CONSTANT_ResolvedFlag 16
@@ -386,6 +392,7 @@ enum java_tree_index
   JTI_SOFT_MULTIANEWARRAY_NODE,
   JTI_SOFT_BADARRAYINDEX_NODE,
   JTI_SOFT_NULLPOINTER_NODE,
+  JTI_SOFT_ABSTRACTMETHOD_NODE,
   JTI_SOFT_CHECKARRAYSTORE_NODE,
   JTI_SOFT_MONITORENTER_NODE,
   JTI_SOFT_MONITOREXIT_NODE,
@@ -645,6 +652,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_BADARRAYINDEX_NODE]
 #define soft_nullpointer_node \
   java_global_trees[JTI_SOFT_NULLPOINTER_NODE]
+#define soft_abstractmethod_node \
+  java_global_trees[JTI_SOFT_ABSTRACTMETHOD_NODE]
 #define soft_checkarraystore_node \
   java_global_trees[JTI_SOFT_CHECKARRAYSTORE_NODE]
 #define soft_monitorenter_node \
@@ -1305,7 +1314,6 @@ extern tree emit_symbol_table (tree, tree, tree, tree, tree, int);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
-extern void parse_error_context (tree cl, const char *gmsgid, ...);
 extern void finish_class (void);
 extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);

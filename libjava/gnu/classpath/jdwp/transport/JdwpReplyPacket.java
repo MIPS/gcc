@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,6 +38,9 @@ exception statement from your version. */
 
 
 package gnu.classpath.jdwp.transport;
+
+import java.io.DataOutputStream;
+import java.io.IOException;
 
 /**
  * A class represents a JDWP reply packet.
@@ -75,9 +78,20 @@ public class JdwpReplyPacket extends JdwpPacket
    */
   public JdwpReplyPacket (JdwpPacket pkt, short errorCode)
   {
+    this(pkt);
+    _errorCode = errorCode;
+  }
+
+  /**
+   * Constructs a <code>JdwpReplyPacket</code> with the
+   * id from the given packet and an empty error code
+   *
+   * @param pkt        the packet whose id this packet will use
+   */
+  public JdwpReplyPacket (JdwpPacket pkt)
+  {
     super (pkt);
     _flags = (byte) JDWP_FLAG_REPLY;
-    _errorCode = errorCode;
   }
 
   /**
@@ -115,13 +129,9 @@ public class JdwpReplyPacket extends JdwpPacket
   }
 
   // Writes the command packet data into the given buffer
-  protected int myToBytes (byte[] bytes, int index)
-  {
-    // Need to add error code
-    int i = 0;
-    bytes[index + i++] = (byte) (getErrorCode () >>> 8);
-    bytes[index + i++] = (byte) getErrorCode ();
-    
-    return i;
+  protected void myWrite (DataOutputStream dos)
+    throws IOException
+ {
+    dos.writeShort (getErrorCode ());
   }
 }

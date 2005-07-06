@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -928,6 +928,21 @@ parse_class_file (void)
       note_instructions (jcf, method);
 
       give_name_to_locals (jcf);
+
+      /* Bump up start_label_pc_this_method so we get a unique label number
+	 and reset highest_label_pc_this_method. */
+      if (highest_label_pc_this_method >= 0)
+	{
+	  /* We adjust to the next multiple of 1000.  This is just a frill
+	     so the last 3 digits of the label number match the bytecode
+	     offset, which might make debugging marginally more convenient. */
+	  start_label_pc_this_method
+	    = ((((start_label_pc_this_method + highest_label_pc_this_method)
+		 / 1000)
+		+ 1)
+	       * 1000);
+	  highest_label_pc_this_method = -1;
+	}
 
       /* Convert bytecode to trees.  */
       expand_byte_code (jcf, method);

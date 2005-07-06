@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -52,6 +52,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "cfglayout.h"
 #include "tree-gimple.h"
+#include "intl.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -262,6 +263,10 @@ static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 static bool ia64_vector_mode_supported_p (enum machine_mode mode);
 static bool ia64_cannot_force_const_mem (rtx);
+static const char *ia64_mangle_fundamental_type (tree);
+static const char *ia64_invalid_conversion (tree, tree);
+static const char *ia64_invalid_unary_op (int, tree);
+static const char *ia64_invalid_binary_op (int, tree, tree);
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -429,6 +434,16 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ia64_cannot_force_const_mem
 
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE ia64_mangle_fundamental_type
+
+#undef TARGET_INVALID_CONVERSION
+#define TARGET_INVALID_CONVERSION ia64_invalid_conversion
+#undef TARGET_INVALID_UNARY_OP
+#define TARGET_INVALID_UNARY_OP ia64_invalid_unary_op
+#undef TARGET_INVALID_BINARY_OP
+#define TARGET_INVALID_BINARY_OP ia64_invalid_binary_op
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 typedef enum
@@ -500,21 +515,21 @@ ia64_handle_model_attribute (tree *node, tree name, tree args,
 	  && !TREE_STATIC (decl))
 	{
 	  error ("%Jan address area attribute cannot be specified for "
-		 "local variables", decl, decl);
+		 "local variables", decl);
 	  *no_add_attrs = true;
 	}
       area = ia64_get_addr_area (decl);
       if (area != ADDR_AREA_NORMAL && addr_area != area)
 	{
-	  error ("%Jaddress area of '%s' conflicts with previous "
-		 "declaration", decl, decl);
+	  error ("address area of %q+D conflicts with previous "
+		 "declaration", decl);
 	  *no_add_attrs = true;
 	}
       break;
 
     case FUNCTION_DECL:
       error ("%Jaddress area attribute cannot be specified for functions",
-	     decl, decl);
+	     decl);
       *no_add_attrs = true;
       break;
 
@@ -737,6 +752,17 @@ ia64_legitimate_constant_p (rtx x)
     case CONST:
     case SYMBOL_REF:
       return tls_symbolic_operand_type (x) == 0;
+
+    case CONST_VECTOR:
+      {
+	enum machine_mode mode = GET_MODE (x);
+
+	if (mode == V2SFmode)
+	  return ia64_extra_constraint (x, 'Y');
+
+	return (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+		&& GET_MODE_SIZE (mode) <= 8);
+      }
 
     default:
       return false;
@@ -1270,8 +1296,8 @@ ia64_split_tmode_move (rtx operands[])
    This solution attempts to prevent this situation from occurring.  When
    we see something like the above, we spill the inner register to memory.  */
 
-rtx
-spill_xfmode_operand (rtx in, int force)
+static rtx
+spill_xfmode_rfmode_operand (rtx in, int force, enum machine_mode mode)
 {
   if (GET_CODE (in) == SUBREG
       && GET_MODE (SUBREG_REG (in)) == TImode
@@ -1279,16 +1305,142 @@ spill_xfmode_operand (rtx in, int force)
     {
       rtx memt = assign_stack_temp (TImode, 16, 0);
       emit_move_insn (memt, SUBREG_REG (in));
-      return adjust_address (memt, XFmode, 0);
+      return adjust_address (memt, mode, 0);
     }
   else if (force && GET_CODE (in) == REG)
     {
-      rtx memx = assign_stack_temp (XFmode, 16, 0);
+      rtx memx = assign_stack_temp (mode, 16, 0);
       emit_move_insn (memx, in);
       return memx;
     }
   else
     return in;
+}
+
+/* Expand the movxf or movrf pattern (MODE says which) with the given
+   OPERANDS, returning true if the pattern should then invoke
+   DONE.  */
+
+bool
+ia64_expand_movxf_movrf (enum machine_mode mode, rtx operands[])
+{
+  rtx op0 = operands[0];
+
+  if (GET_CODE (op0) == SUBREG)
+    op0 = SUBREG_REG (op0);
+
+  /* We must support XFmode loads into general registers for stdarg/vararg,
+     unprototyped calls, and a rare case where a long double is passed as
+     an argument after a float HFA fills the FP registers.  We split them into
+     DImode loads for convenience.  We also need to support XFmode stores
+     for the last case.  This case does not happen for stdarg/vararg routines,
+     because we do a block store to memory of unnamed arguments.  */
+
+  if (GET_CODE (op0) == REG && GR_REGNO_P (REGNO (op0)))
+    {
+      rtx out[2];
+
+      /* We're hoping to transform everything that deals with XFmode
+	 quantities and GR registers early in the compiler.  */
+      gcc_assert (!no_new_pseudos);
+
+      /* Struct to register can just use TImode instead.  */
+      if ((GET_CODE (operands[1]) == SUBREG
+	   && GET_MODE (SUBREG_REG (operands[1])) == TImode)
+	  || (GET_CODE (operands[1]) == REG
+	      && GR_REGNO_P (REGNO (operands[1]))))
+	{
+	  rtx op1 = operands[1];
+
+	  if (GET_CODE (op1) == SUBREG)
+	    op1 = SUBREG_REG (op1);
+	  else
+	    op1 = gen_rtx_REG (TImode, REGNO (op1));
+
+	  emit_move_insn (gen_rtx_REG (TImode, REGNO (op0)), op1);
+	  return true;
+	}
+
+      if (GET_CODE (operands[1]) == CONST_DOUBLE)
+	{
+	  emit_move_insn (gen_rtx_REG (DImode, REGNO (op0)),
+			  operand_subword (operands[1], 0, 0, mode));
+	  emit_move_insn (gen_rtx_REG (DImode, REGNO (op0) + 1),
+			  operand_subword (operands[1], 1, 0, mode));
+	  return true;
+	}
+
+      /* If the quantity is in a register not known to be GR, spill it.  */
+      if (register_operand (operands[1], mode))
+	operands[1] = spill_xfmode_rfmode_operand (operands[1], 1, mode);
+
+      gcc_assert (GET_CODE (operands[1]) == MEM);
+
+      out[WORDS_BIG_ENDIAN] = gen_rtx_REG (DImode, REGNO (op0));
+      out[!WORDS_BIG_ENDIAN] = gen_rtx_REG (DImode, REGNO (op0) + 1);
+
+      emit_move_insn (out[0], adjust_address (operands[1], DImode, 0));
+      emit_move_insn (out[1], adjust_address (operands[1], DImode, 8));
+      return true;
+    }
+
+  if (GET_CODE (operands[1]) == REG && GR_REGNO_P (REGNO (operands[1])))
+    {
+      /* We're hoping to transform everything that deals with XFmode
+	 quantities and GR registers early in the compiler.  */
+      gcc_assert (!no_new_pseudos);
+
+      /* Op0 can't be a GR_REG here, as that case is handled above.
+	 If op0 is a register, then we spill op1, so that we now have a
+	 MEM operand.  This requires creating an XFmode subreg of a TImode reg
+	 to force the spill.  */
+      if (register_operand (operands[0], mode))
+	{
+	  rtx op1 = gen_rtx_REG (TImode, REGNO (operands[1]));
+	  op1 = gen_rtx_SUBREG (mode, op1, 0);
+	  operands[1] = spill_xfmode_rfmode_operand (op1, 0, mode);
+	}
+
+      else
+	{
+	  rtx in[2];
+
+          gcc_assert (GET_CODE (operands[0]) == MEM);
+	  in[WORDS_BIG_ENDIAN] = gen_rtx_REG (DImode, REGNO (operands[1]));
+	  in[!WORDS_BIG_ENDIAN] = gen_rtx_REG (DImode, REGNO (operands[1]) + 1);
+
+	  emit_move_insn (adjust_address (operands[0], DImode, 0), in[0]);
+	  emit_move_insn (adjust_address (operands[0], DImode, 8), in[1]);
+	  return true;
+	}
+    }
+
+  if (!reload_in_progress && !reload_completed)
+    {
+      operands[1] = spill_xfmode_rfmode_operand (operands[1], 0, mode);
+
+      if (GET_MODE (op0) == TImode && GET_CODE (op0) == REG)
+	{
+	  rtx memt, memx, in = operands[1];
+	  if (CONSTANT_P (in))
+	    in = validize_mem (force_const_mem (mode, in));
+	  if (GET_CODE (in) == MEM)
+	    memt = adjust_address (in, TImode, 0);
+	  else
+	    {
+	      memt = assign_stack_temp (TImode, 16, 0);
+	      memx = adjust_address (memt, mode, 0);
+	      emit_move_insn (memx, in);
+	    }
+	  emit_move_insn (op0, memt);
+	  return true;
+	}
+
+      if (!ia64_move_ok (operands[0], operands[1]))
+	operands[1] = force_reg (mode, operands[1]);
+    }
+
+  return false;
 }
 
 /* Emit comparison instruction if necessary, returning the expression
@@ -1374,7 +1526,8 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
   return gen_rtx_fmt_ee (code, mode, cmp, const0_rtx);
 }
 
-/* Generate an integral vector comparison.  */
+/* Generate an integral vector comparison.  Return true if the condition has
+   been reversed, and so the sense of the comparison should be inverted.  */
 
 static bool
 ia64_expand_vecint_compare (enum rtx_code code, enum machine_mode mode,
@@ -1383,152 +1536,91 @@ ia64_expand_vecint_compare (enum rtx_code code, enum machine_mode mode,
   bool negate = false;
   rtx x;
 
+  /* Canonicalize the comparison to EQ, GT, GTU.  */
   switch (code)
     {
     case EQ:
     case GT:
+    case GTU:
       break;
 
     case NE:
-      code = EQ;
-      negate = true;
-      break;
-
     case LE:
-      code = GT;
+    case LEU:
+      code = reverse_condition (code);
       negate = true;
       break;
 
     case GE:
+    case GEU:
+      code = reverse_condition (code);
       negate = true;
       /* FALLTHRU */
 
     case LT:
-      x = op0;
-      op0 = op1;
-      op1 = x;
-      code = GT;
-      break;
-
-    case GTU:
-    case GEU:
     case LTU:
-    case LEU:
-      {
-	rtx w0h, w0l, w1h, w1l, ch, cl;
-	enum machine_mode wmode;
-	rtx (*unpack_l) (rtx, rtx, rtx);
-	rtx (*unpack_h) (rtx, rtx, rtx);
-	rtx (*pack) (rtx, rtx, rtx);
-
-	/* We don't have native unsigned comparisons, but we can generate
-	   them better than generic code can.  */
-
-	gcc_assert (mode != V2SImode);
-	switch (mode)
-	  {
-	  case V8QImode:
-	    wmode = V4HImode;
-	    pack = gen_pack2_sss;
-	    unpack_l = gen_unpack1_l;
-	    unpack_h = gen_unpack1_h;
-	    break;
-
-	  case V4HImode:
-	    wmode = V2SImode;
-	    pack = gen_pack4_sss;
-	    unpack_l = gen_unpack2_l;
-	    unpack_h = gen_unpack2_h;
-	    break;
-
-	  default:
-	    gcc_unreachable ();
-	  }
-
-	/* Unpack into wider vectors, zero extending the elements.  */
-
-	w0l = gen_reg_rtx (wmode);
-	w0h = gen_reg_rtx (wmode);
-	w1l = gen_reg_rtx (wmode);
-	w1h = gen_reg_rtx (wmode);
-	emit_insn (unpack_l (gen_lowpart (mode, w0l), op0, CONST0_RTX (mode)));
-	emit_insn (unpack_h (gen_lowpart (mode, w0h), op0, CONST0_RTX (mode)));
-	emit_insn (unpack_l (gen_lowpart (mode, w1l), op1, CONST0_RTX (mode)));
-	emit_insn (unpack_h (gen_lowpart (mode, w1h), op1, CONST0_RTX (mode)));
-
-	/* Compare in the wider mode.  */
-
-	cl = gen_reg_rtx (wmode);
-	ch = gen_reg_rtx (wmode);
-	code = signed_condition (code);
-	ia64_expand_vecint_compare (code, wmode, cl, w0l, w1l);
-	negate = ia64_expand_vecint_compare (code, wmode, ch, w0h, w1h);
-
-	/* Repack into a single narrower vector.  */
-
-	emit_insn (pack (dest, cl, ch));
-      }
-      return negate;
+      code = swap_condition (code);
+      x = op0, op0 = op1, op1 = x;
+      break;
 
     default:
       gcc_unreachable ();
+    }
+
+  /* Unsigned parallel compare is not supported by the hardware.  Play some
+     tricks to turn this into a signed comparison against 0.  */
+  if (code == GTU)
+    {
+      switch (mode)
+	{
+	case V2SImode:
+	  {
+	    rtx t1, t2, mask;
+
+	    /* Perform a parallel modulo subtraction.  */
+	    t1 = gen_reg_rtx (V2SImode);
+	    emit_insn (gen_subv2si3 (t1, op0, op1));
+
+	    /* Extract the original sign bit of op0.  */
+	    mask = GEN_INT (-0x80000000);
+	    mask = gen_rtx_CONST_VECTOR (V2SImode, gen_rtvec (2, mask, mask));
+	    mask = force_reg (V2SImode, mask);
+	    t2 = gen_reg_rtx (V2SImode);
+	    emit_insn (gen_andv2si3 (t2, op0, mask));
+
+	    /* XOR it back into the result of the subtraction.  This results
+	       in the sign bit set iff we saw unsigned underflow.  */
+	    x = gen_reg_rtx (V2SImode);
+	    emit_insn (gen_xorv2si3 (x, t1, t2));
+
+	    code = GT;
+	    op0 = x;
+	    op1 = CONST0_RTX (mode);
+	  }
+	  break;
+
+	case V8QImode:
+	case V4HImode:
+	  /* Perform a parallel unsigned saturating subtraction.  */
+	  x = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, x,
+				  gen_rtx_US_MINUS (mode, op0, op1)));
+
+	  code = EQ;
+	  op0 = x;
+	  op1 = CONST0_RTX (mode);
+	  negate = !negate;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
     }
 
   x = gen_rtx_fmt_ee (code, mode, op0, op1);
   emit_insn (gen_rtx_SET (VOIDmode, dest, x));
 
   return negate;
-}
-
-static void
-ia64_expand_vcondu_v2si (enum rtx_code code, rtx operands[])
-{
-  rtx dl, dh, bl, bh, op1l, op1h, op2l, op2h, op4l, op4h, op5l, op5h, x;
-
-  /* In this case, we extract the two SImode quantities and generate
-     normal comparisons for each of them.  */
-
-  op1l = gen_lowpart (SImode, operands[1]);
-  op2l = gen_lowpart (SImode, operands[2]);
-  op4l = gen_lowpart (SImode, operands[4]);
-  op5l = gen_lowpart (SImode, operands[5]);
-
-  op1h = gen_reg_rtx (SImode);
-  op2h = gen_reg_rtx (SImode);
-  op4h = gen_reg_rtx (SImode);
-  op5h = gen_reg_rtx (SImode);
-
-  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op1h),
-			  gen_lowpart (DImode, operands[1]), GEN_INT (32)));
-  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op2h),
-			  gen_lowpart (DImode, operands[2]), GEN_INT (32)));
-  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op4h),
-			  gen_lowpart (DImode, operands[4]), GEN_INT (32)));
-  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op5h),
-			  gen_lowpart (DImode, operands[5]), GEN_INT (32)));
-
-  bl = gen_reg_rtx (BImode);
-  x = gen_rtx_fmt_ee (code, BImode, op4l, op5l);
-  emit_insn (gen_rtx_SET (VOIDmode, bl, x));
-
-  bh = gen_reg_rtx (BImode);
-  x = gen_rtx_fmt_ee (code, BImode, op4h, op5h);
-  emit_insn (gen_rtx_SET (VOIDmode, bh, x));
-
-  /* With the results of the comparisons, emit conditional moves.  */
-
-  dl = gen_reg_rtx (SImode);
-  x = gen_rtx_IF_THEN_ELSE (SImode, bl, op1l, op2l);
-  emit_insn (gen_rtx_SET (VOIDmode, dl, x));
-
-  dh = gen_reg_rtx (SImode);
-  x = gen_rtx_IF_THEN_ELSE (SImode, bh, op1h, op2h);
-  emit_insn (gen_rtx_SET (VOIDmode, dh, x));
-
-  /* Merge the two partial results back into a vector.  */
-
-  x = gen_rtx_VEC_CONCAT (V2SImode, dl, dh);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
 }
 
 /* Emit an integral vector conditional move.  */
@@ -1540,15 +1632,6 @@ ia64_expand_vecint_cmov (rtx operands[])
   enum rtx_code code = GET_CODE (operands[3]);
   bool negate;
   rtx cmp, x, ot, of;
-
-  /* Since we don't have unsigned V2SImode comparisons, it's more efficient
-     to special-case them entirely.  */
-  if (mode == V2SImode
-      && (code == GTU || code == GEU || code == LEU || code == LTU))
-    {
-      ia64_expand_vcondu_v2si (code, operands);
-      return;
-    }
 
   cmp = gen_reg_rtx (mode);
   negate = ia64_expand_vecint_compare (code, mode, cmp,
@@ -1598,13 +1681,25 @@ bool
 ia64_expand_vecint_minmax (enum rtx_code code, enum machine_mode mode,
 			   rtx operands[])
 {
-  rtx xops[5];
+  rtx xops[6];
 
   /* These four combinations are supported directly.  */
   if (mode == V8QImode && (code == UMIN || code == UMAX))
     return false;
   if (mode == V4HImode && (code == SMIN || code == SMAX))
     return false;
+
+  /* This combination can be implemented with only saturating subtraction.  */
+  if (mode == V4HImode && code == UMAX)
+    {
+      rtx x, tmp = gen_reg_rtx (mode);
+
+      x = gen_rtx_US_MINUS (mode, operands[1], operands[2]);
+      emit_insn (gen_rtx_SET (VOIDmode, tmp, x));
+
+      emit_insn (gen_addv4hi3 (operands[0], tmp, operands[2]));
+      return true;
+    }
 
   /* Everything else implemented via vector comparisons.  */
   xops[0] = operands[0];
@@ -2087,12 +2182,14 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       break;
   i = regno - OUT_REG (0) + 1;
 
+#ifndef PROFILE_HOOK
   /* When -p profiling, we need one output register for the mcount argument.
      Likewise for -a profiling for the bb_init_func argument.  For -ax
      profiling, we need two output registers for the two bb_init_trace_func
      arguments.  */
   if (current_function_profile)
     i = MAX (i, 1);
+#endif
   current_frame_info.n_output_regs = i;
 
   /* ??? No rotating register support yet.  */
@@ -3820,6 +3917,19 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
                    gen_rtx_EXPR_LIST (VOIDmode,
 		     gen_rtx_REG (DImode, basereg + cum->words + offset),
 				      const0_rtx)));
+      /* Similarly, an anonymous XFmode or RFmode value must be split
+	 into two registers and padded appropriately.  */
+      else if (BYTES_BIG_ENDIAN && (mode == XFmode || mode == RFmode))
+	{
+	  rtx loc[2];
+	  loc[0] = gen_rtx_EXPR_LIST (VOIDmode,
+		     gen_rtx_REG (DImode, basereg + cum->words + offset),
+				      const0_rtx);
+	  loc[1] = gen_rtx_EXPR_LIST (VOIDmode,
+		     gen_rtx_REG (DImode, basereg + cum->words + offset + 1),
+				      GEN_INT (UNITS_PER_WORD));
+	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (2, loc));
+	}
       else
 	return gen_rtx_REG (mode, basereg + cum->words + offset);
     }
@@ -4127,7 +4237,7 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 	 the middle-end will give it XFmode anyway, and XFmode values
 	 don't normally fit in integer registers.  So we need to smuggle
 	 the value inside a parallel.  */
-      else if (mode == XFmode || mode == XCmode)
+      else if (mode == XFmode || mode == XCmode || mode == RFmode)
 	need_parallel = true;
 
       if (need_parallel)
@@ -4542,7 +4652,7 @@ ia64_register_move_cost (enum machine_mode mode, enum reg_class from,
      so that we get secondary memory reloads.  Between FR_REGS,
      we have to make this at least as expensive as MEMORY_MOVE_COST
      to avoid spectacularly poor register class preferencing.  */
-  if (mode == XFmode)
+  if (mode == XFmode || mode == RFmode)
     {
       if (to != GR_REGS || from != GR_REGS)
         return MEMORY_MOVE_COST (mode, to, 0);
@@ -5168,25 +5278,19 @@ update_set_flags (rtx x, struct reg_flags *pflags)
       return;
 
     case IF_THEN_ELSE:
-      if (SET_DEST (x) == pc_rtx)
-	/* X is a conditional branch.  */
-	return;
-      else
-	{
-	  /* X is a conditional move.  */
-	  rtx cond = XEXP (src, 0);
-	  cond = XEXP (cond, 0);
-
-	  /* We always split conditional moves into COND_EXEC patterns, so the
-	     only pattern that can reach here is doloop_end_internal.  We don't
-	     need to do anything special for this pattern.  */
-	  gcc_assert (GET_CODE (cond) == REG && REGNO (cond) == AR_LC_REGNUM);
-	  return;
-	}
+      /* There are three cases here:
+	 (1) The destination is (pc), in which case this is a branch,
+	 nothing here applies.
+	 (2) The destination is ar.lc, in which case this is a
+	 doloop_end_internal,
+	 (3) The destination is an fp register, in which case this is
+	 an fselect instruction.
+	 In all cases, nothing we do in this function applies.  */
+      return;
 
     default:
       if (COMPARISON_P (src)
-	  && GET_MODE_CLASS (GET_MODE (XEXP (src, 0))) == MODE_FLOAT)
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (XEXP (src, 0))))
 	/* Set pflags->is_fp to 1 so that we know we're dealing
 	   with a floating point comparison when processing the
 	   destination of the SET.  */
@@ -7423,7 +7527,7 @@ emit_predicate_relation_info (void)
       /* Skip p0, which may be thought to be live due to (reg:DI p0)
 	 grabbing the entire block of predicate registers.  */
       for (r = PR_REG (2); r < PR_REG (64); r += 2)
-	if (REGNO_REG_SET_P (bb->global_live_at_start, r))
+	if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_start, r))
 	  {
 	    rtx p = gen_rtx_REG (BImode, r);
 	    rtx n = emit_insn_after (gen_pred_rel_mutex (p), head);
@@ -8032,9 +8136,7 @@ ia64_init_builtins (void)
 
   /* The __fpreg type.  */
   fpreg_type = make_node (REAL_TYPE);
-  /* ??? The back end should know to load/save __fpreg variables using
-     the ldf.fill and stf.spill instructions.  */
-  TYPE_PRECISION (fpreg_type) = 80;
+  TYPE_PRECISION (fpreg_type) = 82;
   layout_type (fpreg_type);
   (*lang_hooks.types.register_builtin_type) (fpreg_type, "__fpreg");
 
@@ -8523,6 +8625,7 @@ ia64_scalar_mode_supported_p (enum machine_mode mode)
     case SFmode:
     case DFmode:
     case XFmode:
+    case RFmode:
       return true;
 
     case TFmode:
@@ -8583,6 +8686,99 @@ ia64_output_function_profiler (FILE *file, int labelno)
   fputs ("\t.body\n", file);
   fputs ("\tmov out1 = r1\n", file);
   fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
+}
+
+static GTY(()) rtx mcount_func_rtx;
+static rtx
+gen_mcount_func_rtx (void)
+{
+  if (!mcount_func_rtx)
+    mcount_func_rtx = init_one_libfunc ("_mcount");
+  return mcount_func_rtx;
+}
+
+void
+ia64_profile_hook (int labelno)
+{
+  rtx label, ip;
+
+  if (NO_PROFILE_COUNTERS)
+    label = const0_rtx;
+  else
+    {
+      char buf[30];
+      const char *label_name;
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
+      label_name = (*targetm.strip_name_encoding) (ggc_strdup (buf));
+      label = gen_rtx_SYMBOL_REF (Pmode, label_name);
+      SYMBOL_REF_FLAGS (label) = SYMBOL_FLAG_LOCAL;
+    }
+  ip = gen_reg_rtx (Pmode);
+  emit_insn (gen_ip_value (ip));
+  emit_library_call (gen_mcount_func_rtx (), LCT_NORMAL,
+                     VOIDmode, 3,
+		     gen_rtx_REG (Pmode, BR_REG (0)), Pmode,
+		     ip, Pmode,
+		     label, Pmode);
+}
+
+/* Return the mangling of TYPE if it is an extended fundamental type.  */
+
+static const char *
+ia64_mangle_fundamental_type (tree type)
+{
+  /* On HP-UX, "long double" is mangled as "e" so __float128 is
+     mangled as "e".  */
+  if (!TARGET_HPUX && TYPE_MODE (type) == TFmode)
+    return "g";
+  /* On HP-UX, "e" is not available as a mangling of __float80 so use
+     an extended mangling.  Elsewhere, "e" is available since long
+     double is 80 bits.  */
+  if (TYPE_MODE (type) == XFmode)
+    return TARGET_HPUX ? "u9__float80" : "e";
+  if (TYPE_MODE (type) == RFmode)
+    return "u7__fpreg";
+  return NULL;
+}
+
+/* Return the diagnostic message string if conversion from FROMTYPE to
+   TOTYPE is not allowed, NULL otherwise.  */
+static const char *
+ia64_invalid_conversion (tree fromtype, tree totype)
+{
+  /* Reject nontrivial conversion to or from __fpreg.  */
+  if (TYPE_MODE (fromtype) == RFmode
+      && TYPE_MODE (totype) != RFmode
+      && TYPE_MODE (totype) != VOIDmode)
+    return N_("invalid conversion from %<__fpreg%>");
+  if (TYPE_MODE (totype) == RFmode
+      && TYPE_MODE (fromtype) != RFmode)
+    return N_("invalid conversion to %<__fpreg%>");
+  return NULL;
+}
+
+/* Return the diagnostic message string if the unary operation OP is
+   not permitted on TYPE, NULL otherwise.  */
+static const char *
+ia64_invalid_unary_op (int op, tree type)
+{
+  /* Reject operations on __fpreg other than unary + or &.  */
+  if (TYPE_MODE (type) == RFmode
+      && op != CONVERT_EXPR
+      && op != ADDR_EXPR)
+    return N_("invalid operation on %<__fpreg%>");
+  return NULL;
+}
+
+/* Return the diagnostic message string if the binary operation OP is
+   not permitted on TYPE1 and TYPE2, NULL otherwise.  */
+static const char *
+ia64_invalid_binary_op (int op ATTRIBUTE_UNUSED, tree type1, tree type2)
+{
+  /* Reject operations on __fpreg.  */
+  if (TYPE_MODE (type1) == RFmode || TYPE_MODE (type2) == RFmode)
+    return N_("invalid operation on %<__fpreg%>");
+  return NULL;
 }
 
 #include "gt-ia64.h"

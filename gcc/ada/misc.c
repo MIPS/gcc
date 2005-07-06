@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -353,7 +353,7 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
     flag_no_inline = 1;
   if (flag_inline_functions)
     flag_inline_trees = 2;
-  
+
   flag_tree_salias = 0;
 
   return false;
@@ -464,6 +464,7 @@ gnat_init_gcc_eh (void)
   eh_personality_libfunc = init_one_libfunc ("__gnat_eh_personality");
   lang_eh_type_covers = gnat_eh_type_covers;
   lang_eh_runtime_type = gnat_eh_runtime_type;
+  default_init_unwind_resume_libfunc ();
 
   /* Turn on -fexceptions and -fnon-call-exceptions. The first one triggers
      the generation of the necessary exception runtime tables. The second one
@@ -633,6 +634,14 @@ gnat_expand_body (tree gnu_decl)
     return;
 
   tree_rest_of_compilation (gnu_decl);
+
+  if (DECL_STATIC_CONSTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (gnu_decl), 0),
+                                 DEFAULT_INIT_PRIORITY);
+
+  if (DECL_STATIC_DESTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (gnu_decl), 0),
+                                DEFAULT_INIT_PRIORITY);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been

@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -1048,10 +1048,14 @@ machopic_select_section (tree exp, int reloc,
       tree name = TYPE_NAME (TREE_TYPE (exp));
       if (TREE_CODE (name) == TYPE_DECL)
 	name = DECL_NAME (name);
-      if (!strcmp (IDENTIFIER_POINTER (name), "NSConstantString"))
-	objc_constant_string_object_section ();
-      else if (!strcmp (IDENTIFIER_POINTER (name), "NXConstantString"))
-	objc_string_object_section ();
+
+      if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_ObjCString"))
+	{
+	  if (flag_next_runtime)
+	    objc_constant_string_object_section ();
+	  else
+	    objc_string_object_section ();
+	}
       else
 	base_function ();
     }
@@ -1379,6 +1383,15 @@ darwin_file_end (void)
       ASM_OUTPUT_ALIGN (asm_out_file, 1);
     }
   fprintf (asm_out_file, "\t.subsections_via_symbols\n");
+}
+
+/* Cross-module name binding.  Darwin does not support overriding
+   functions at dynamic-link time.  */
+
+bool
+darwin_binds_local_p (tree decl)
+{
+  return default_binds_local_p_1 (decl, 0);
 }
 
 #include "gt-darwin.h"

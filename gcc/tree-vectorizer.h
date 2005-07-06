@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TREE_VECTORIZER_H
 #define GCC_TREE_VECTORIZER_H
@@ -39,7 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
   vect_simple_var,
-  vect_pointer_var
+  vect_pointer_var,
+  vect_scalar_var
 };
 
 /* Defines type of operation: unary or binary.  */
@@ -56,7 +57,7 @@ enum dr_alignment_support {
   dr_aligned
 };
 
-/* Define type of def-use cross-iteraiton cycle.  */
+/* Define type of def-use cross-iteration cycle.  */
 enum vect_def_type {
   vect_constant_def,
   vect_invariant_def,
@@ -155,8 +156,13 @@ enum stmt_vec_info_type {
   store_vec_info_type,
   op_vec_info_type,
   assignment_vec_info_type,
-  condition_vec_info_type
+  condition_vec_info_type,
+  reduc_vec_info_type
 };
+
+typedef struct data_reference *dr_p;
+DEF_VEC_P(dr_p);
+DEF_VEC_ALLOC_P(dr_p,heap);
 
 typedef struct _stmt_vec_info {
 
@@ -230,6 +236,10 @@ typedef struct _stmt_vec_info {
      in bytes.  */
   tree misalignment;
 
+  /* List of datarefs that are known to have the same alignment as the dataref
+     of this stmt.  */
+  VEC(dr_p,heap) *same_align_refs;
+
   /* Classify the def of this stmt.  */
   enum vect_def_type def_type;
 
@@ -252,6 +262,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VECT_STEP(S)           (S)->step
 #define STMT_VINFO_VECT_BASE_ALIGNED_P(S) (S)->base_aligned_p
 #define STMT_VINFO_VECT_MISALIGNMENT(S)   (S)->misalignment
+#define STMT_VINFO_SAME_ALIGN_REFS(S)     (S)->same_align_refs
 #define STMT_VINFO_DEF_TYPE(S)            (S)->def_type
 
 static inline void set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info);
@@ -336,6 +347,8 @@ extern tree vect_is_simple_reduction (struct loop *, tree);
 extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
+extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
+
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
@@ -354,6 +367,7 @@ extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info, struct loops *);
 

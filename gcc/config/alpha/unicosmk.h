@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef TARGET_ABI_UNICOSMK
 #define TARGET_ABI_UNICOSMK 1
@@ -96,7 +96,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* The stack frame grows downward.  */
 
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine. This is somewhat

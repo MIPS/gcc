@@ -16,8 +16,8 @@
 ; 
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-; 02111-1307, USA.
+; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+; 02110-1301, USA.
 
 ; See the GCC internals manual for a description of this file's format.
 
@@ -108,6 +108,10 @@ Warn when padding is required to align structure members
 Wshadow
 Common Var(warn_shadow)
 Warn when one local variable shadows another
+
+Wstack-protector
+Common Var(warn_stack_protect)
+Warn when not issuing stack smashing protection for some reason
 
 Wstrict-aliasing
 Common
@@ -341,7 +345,7 @@ Common Joined RejectNegative
 
 fdiagnostics-show-option
 Common
-Amend appropriate diagnostic messages with the command line option that controls them.
+Amend appropriate diagnostic messages with the command line option that controls them
 
 fdump-
 Common Joined RejectNegative
@@ -429,7 +433,7 @@ elimination
 fgcse-after-reload
 Common Report Var(flag_gcse_after_reload)
 Perform global common subexpression elimination after register allocation
-has finished.
+has finished
 
 fguess-branch-probability
 Common Report Var(flag_guess_branch_prob)
@@ -471,6 +475,10 @@ Pay attention to the \"inline\" keyword
 finline-functions
 Common Report Var(flag_inline_functions)
 Integrate simple functions into their callers
+
+fearly-inlining
+Common Report Var(flag_early_inlining) Init(1)
+Perform early inlining
 
 finline-limit-
 Common RejectNegative Joined UInteger
@@ -544,15 +552,15 @@ Move loop invariant computations out of loops
 
 fmudflap
 Common RejectNegative Report Var(flag_mudflap)
-Add mudflap bounds-checking instrumentation for single-threaded program.
+Add mudflap bounds-checking instrumentation for single-threaded program
 
 fmudflapth
 Common RejectNegative Report Var(flag_mudflap_threads)
-Add mudflap bounds-checking instrumentation for multi-threaded program.
+Add mudflap bounds-checking instrumentation for multi-threaded program
 
 fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
-Ignore read operations when inserting mudflap instrumentation.
+Ignore read operations when inserting mudflap instrumentation
 
 freschedule-modulo-scheduled-loops
 Common Report Var(flag_resched_modulo_sched)
@@ -745,7 +753,7 @@ Mark data as shared rather than private
 
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
-Show column numbers in diagnostics, when available.  Default on.
+Show column numbers in diagnostics, when available.  Default on
 
 fsignaling-nans
 Common Report Var(flag_signaling_nans)
@@ -761,11 +769,11 @@ Use value profiling for speculative prefetching
 
 fsplit-ivs-in-unroller
 Common Report Var(flag_split_ivs_in_unroller) Init(1)
-Split lifetimes of induction variables when loops are unrolled.
+Split lifetimes of induction variables when loops are unrolled
 
 fvariable-expansion-in-unroller
 Common Report Var(flag_variable_expansion_in_unroller) 
-Apply variable expansion when loops are unrolled.
+Apply variable expansion when loops are unrolled
 
 ; Emit code to probe the stack, to help detect stack overflow; also
 ; may cause large objects to be allocated dynamically.
@@ -783,6 +791,14 @@ Common RejectNegative Joined
 fstack-limit-symbol=
 Common RejectNegative Joined
 -fstack-limit-symbol=<name>	Trap if the stack goes past symbol <name>
+
+fstack-protector
+Common Report Var(flag_stack_protect, 1)
+Use propolice as a stack protection method
+
+fstack-protector-all
+Common Report RejectNegative Var(flag_stack_protect, 2) VarExists
+Use a stack protection method for every function
 
 fstrength-reduce
 Common Report Var(flag_strength_reduce)
@@ -853,7 +869,7 @@ Coalesce memory temporaries in the SSA->normal pass
 
 ftree-copyrename
 Common Report Var(flag_tree_copyrename)
-Replace SSA temporaries with better names in copies.
+Replace SSA temporaries with better names in copies
 
 ftree-copy-prop
 Common Report Var(flag_tree_copy_prop)
@@ -917,7 +933,7 @@ Replace temporary expressions in the SSA->normal pass
 
 ftree-lrs
 Common Report Var(flag_tree_live_range_split)
-Perform live range splitting during the SSA->normal pass.
+Perform live range splitting during the SSA->normal pass
 
 ftree-vrp
 Common Report Var(flag_tree_vrp) Init(0)
@@ -985,6 +1001,10 @@ Use expression value profiles in optimizations
 fweb
 Common Report Var(flag_web) Init(0)
 Construct webs and split unrelated uses of single variable
+
+fwhole-program
+Common Report Var(flag_whole_program) Init(0)
+Perform whole program optimizations
 
 fwrapv
 Common Report Var(flag_wrapv)

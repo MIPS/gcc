@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "toplev.h"
+#include "real.h"
 
 /* Utility functions for the code transformation.  */
 static bool vect_transform_stmt (tree, block_stmt_iterator *);
@@ -52,12 +53,13 @@ static tree vect_create_data_ref_ptr
 static tree vect_create_index_for_vector_ref (loop_vec_info);
 static tree vect_create_addr_base_for_vector_ref (tree, tree *, tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
-static tree vect_get_vec_def_for_operand (tree, tree);
+static tree vect_get_vec_def_for_operand (tree, tree, tree *);
 static tree vect_init_vector (tree, tree);
 static void vect_finish_stmt_generation 
   (tree stmt, tree vec_stmt, block_stmt_iterator *bsi);
 static bool vect_is_simple_cond (tree, loop_vec_info); 
 static void update_vuses_to_preheader (tree, struct loop*);
+static tree get_initial_def_for_reduction (tree, tree, tree *);
 
 /* Utility function dealing with loop peeling (not peeling itself).  */
 static void vect_generate_tmps_on_preheader 
@@ -70,6 +72,7 @@ static void vect_update_inits_of_drs (loop_vec_info, tree);
 static void vect_do_peeling_for_alignment (loop_vec_info, struct loops *);
 static void vect_do_peeling_for_loop_bound 
   (loop_vec_info, tree *, struct loops *);
+static int vect_min_worthwhile_factor (enum tree_code);
 
 
 /* Function vect_get_new_vect_var.
@@ -85,10 +88,20 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
   const char *prefix;
   tree new_vect_var;
 
-  if (var_kind == vect_simple_var)
-    prefix = "vect_"; 
-  else
+  switch (var_kind)
+  {
+  case vect_simple_var:
+    prefix = "vect_";
+    break;
+  case vect_scalar_var:
+    prefix = "stmp_";
+    break;
+  case vect_pointer_var:
     prefix = "vect_p";
+    break;
+  default:
+    gcc_unreachable ();
+  }
 
   if (name)
     new_vect_var = create_tmp_var (type, concat (prefix, name, NULL));
@@ -198,17 +211,17 @@ vect_create_addr_base_for_vector_ref (tree stmt,
     {
       tree tmp = create_tmp_var (TREE_TYPE (base_offset), "offset");
       add_referenced_tmp_var (tmp);
-      offset = fold (build2 (MULT_EXPR, TREE_TYPE (offset), offset, 
-			     STMT_VINFO_VECT_STEP (stmt_info)));
-      base_offset = fold (build2 (PLUS_EXPR, TREE_TYPE (base_offset), 
-				  base_offset, offset));
+      offset = fold_build2 (MULT_EXPR, TREE_TYPE (offset), offset,
+			    STMT_VINFO_VECT_STEP (stmt_info));
+      base_offset = fold_build2 (PLUS_EXPR, TREE_TYPE (base_offset),
+				 base_offset, offset);
       base_offset = force_gimple_operand (base_offset, &new_stmt, false, tmp);  
       append_to_statement_list_force (new_stmt, new_stmt_list);
     }
   
   /* base + base_offset */
-  addr_base = fold (build2 (PLUS_EXPR, TREE_TYPE (data_ref_base), data_ref_base, 
-			    base_offset));
+  addr_base = fold_build2 (PLUS_EXPR, TREE_TYPE (data_ref_base), data_ref_base,
+			   base_offset);
 
   /* addr_expr = addr_base */
   addr_expr = vect_get_new_vect_var (scalar_ptr_type, vect_pointer_var,
@@ -435,13 +448,18 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
 {
   tree vec_dest;
   const char *new_name;
+  tree type;
+  enum vect_var_kind kind;
+
+  kind = vectype ? vect_simple_var : vect_scalar_var;
+  type = vectype ? vectype : TREE_TYPE (scalar_dest);
 
   gcc_assert (TREE_CODE (scalar_dest) == SSA_NAME);
 
   new_name = get_name (scalar_dest);
   if (!new_name)
     new_name = "var_";
-  vec_dest = vect_get_new_vect_var (vectype, vect_simple_var, new_name);
+  vec_dest = vect_get_new_vect_var (type, vect_simple_var, new_name);
   add_referenced_tmp_var (vec_dest);
 
   return vec_dest;
@@ -502,7 +520,7 @@ vect_init_vector (tree stmt, tree vector_var)
    needs to be introduced.  */
 
 static tree
-vect_get_vec_def_for_operand (tree op, tree stmt)
+vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
 {
   tree vec_oprnd;
   tree vec_stmt;
@@ -512,6 +530,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree vec_inv;
   tree vec_cst;
   tree t = NULL_TREE;
@@ -542,14 +561,14 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
         }
     }
 
-  /* FORNOW */
-  gcc_assert (dt != vect_reduction_def);
-
   switch (dt)
     {
     /* Case 1: operand is a constant.  */
     case vect_constant_def:
       {
+	if (scalar_def) 
+	  *scalar_def = op;
+
         /* Create 'vect_cst_ = {cst,cst,...,cst}'  */
         if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
           fprintf (vect_dump, "Create vector_cst. nunits = %d", nunits);
@@ -565,6 +584,9 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
     /* Case 2: operand is defined outside the loop - loop invariant.  */
     case vect_invariant_def:
       {
+	if (scalar_def) 
+	  *scalar_def = def;
+
         /* Create 'vec_inv = {inv,inv,..,inv}'  */
         if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
           fprintf (vect_dump, "Create vector_inv.");
@@ -581,6 +603,9 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
     /* Case 3: operand is defined inside the loop.  */
     case vect_loop_def:
       {
+	if (scalar_def) 
+	  *scalar_def = def_stmt;
+
         /* Get the def from the vectorized stmt.  */
         def_stmt_info = vinfo_for_stmt (def_stmt);
         vec_stmt = STMT_VINFO_VEC_STMT (def_stmt_info);
@@ -589,7 +614,17 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
         return vec_oprnd;
       }
 
-    /* Case 4: operand is defined by loop-header phi - induction.  */
+    /* Case 4: operand is defined by a loop header phi - reduction  */
+    case vect_reduction_def:
+      {
+        gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
+
+        /* Get the def before the loop  */
+        op = PHI_ARG_DEF_FROM_EDGE (def_stmt, loop_preheader_edge (loop));
+        return get_initial_def_for_reduction (stmt, op, scalar_def);
+     }
+
+    /* Case 5: operand is defined by loop-header phi - induction.  */
     case vect_induction_def:
       {
         if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
@@ -618,16 +653,651 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
       print_generic_expr (vect_dump, vec_stmt, TDF_SLIM);
     }
 
-#ifdef ENABLE_CHECKING
   /* Make sure bsi points to the stmt that is being vectorized.  */
   gcc_assert (stmt == bsi_stmt (*bsi));
-#endif
 
 #ifdef USE_MAPPED_LOCATION
   SET_EXPR_LOCATION (vec_stmt, EXPR_LOCATION (stmt));
 #else
   SET_EXPR_LOCUS (vec_stmt, EXPR_LOCUS (stmt));
 #endif
+}
+
+
+#define ADJUST_IN_EPILOG 1
+
+/* Function get_initial_def_for_reduction
+
+   Input:
+   STMT - a stmt that performs a reduction operation in the loop.
+   INIT_VAL - the initial value of the reduction variable
+
+   Output:
+   SCALAR_DEF - a tree that holds a value to be added to the final result
+	of the reduction (used for "ADJUST_IN_EPILOG" - see below).
+   Return a vector variable, initialized according to the operation that STMT
+	performs. This vector will be used as the initial value of the
+	vector of partial results.
+
+   Option1 ("ADJUST_IN_EPILOG"): Initialize the vector as follows:
+     add:         [0,0,...,0,0]
+     mult:        [1,1,...,1,1]
+     min/max:     [init_val,init_val,..,init_val,init_val]
+     bit and/or:  [init_val,init_val,..,init_val,init_val]
+   and when necessary (e.g. add/mult case) let the caller know 
+   that it needs to adjust the result by init_val.
+
+   Option2: Initialize the vector as follows:
+     add:         [0,0,...,0,init_val]
+     mult:        [1,1,...,1,init_val]
+     min/max:     [init_val,init_val,...,init_val]
+     bit and/or:  [init_val,init_val,...,init_val]
+   and no adjustments are needed.
+
+   For example, for the following code:
+
+   s = init_val;
+   for (i=0;i<n;i++)
+     s = s + a[i];
+
+   STMT is 's = s + a[i]', and the reduction variable is 's'.
+   For a vector of 4 units, we want to return either [0,0,0,init_val],
+   or [0,0,0,0] and let the caller know that it needs to adjust
+   the result at the end by 'init_val'.
+
+   FORNOW: We use the "ADJUST_IN_EPILOG" scheme.
+   TODO: Use some cost-model to estimate which scheme is more profitable.
+*/
+
+static tree
+get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
+{
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+  int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
+  int nelements;
+  enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1));
+  tree type = TREE_TYPE (init_val);
+  tree def;
+  tree vec, t = NULL_TREE;
+  bool need_epilog_adjust;
+  int i;
+
+  gcc_assert (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
+
+  switch (code)
+  {
+  case PLUS_EXPR:
+    if (INTEGRAL_TYPE_P (type))
+      def = build_int_cst (type, 0);
+    else
+      def = build_real (type, dconst0);
+
+#ifdef ADJUST_IN_EPILOG
+    /* All the 'nunits' elements are set to 0. The final result will be
+       adjusted by 'init_val' at the loop epilog.  */
+    nelements = nunits;
+    need_epilog_adjust = true;
+#else
+    /* 'nunits - 1' elements are set to 0; The last element is set to 
+        'init_val'.  No further adjustments at the epilog are needed.  */
+    nelements = nunits - 1;
+    need_epilog_adjust = false;
+#endif
+    break;
+
+  case MIN_EXPR:
+  case MAX_EXPR:
+    def = init_val;
+    nelements = nunits;
+    need_epilog_adjust = true;
+    break;
+
+  default:
+    gcc_unreachable ();
+  }
+
+  for (i = nelements - 1; i >= 0; --i)
+    t = tree_cons (NULL_TREE, def, t);
+
+  if (nelements == nunits - 1)
+    {
+      /* Set the last element of the vector.  */
+      t = tree_cons (NULL_TREE, init_val, t);
+      nelements += 1;
+    }
+  gcc_assert (nelements == nunits);
+  
+  if (TREE_CODE (init_val) == INTEGER_CST || TREE_CODE (init_val) == REAL_CST)
+    vec = build_vector (vectype, t);
+  else
+    vec = build_constructor (vectype, t);
+    
+  if (!need_epilog_adjust)
+    {
+      if (INTEGRAL_TYPE_P (type))
+	init_val = build_int_cst (type, 0);
+      else
+	init_val = build_real (type, dconst0);
+    }
+  *scalar_def = init_val;
+
+  return vect_init_vector (stmt, vec);
+}
+
+
+/* Function vect_create_epilog_for_reduction:
+    
+   Create code at the loop-epilog to finalize the result of a reduction
+   computation.
+  
+   LOOP_EXIT_VECT_DEF is a vector of partial results. We need to "reduce" it
+   into a single result, by applying the operation REDUC_CODE on the
+   partial-results-vector. For this, we need to create a new phi node at the
+   loop exit to preserve loop-closed form, as illustrated below.
+
+   STMT is the original scalar reduction stmt that is being vectorized.
+   REDUCTION_OP is the scalar reduction-variable.
+   REDUCTION_PHI is the phi-node that carries the reduction computation.
+   This function also sets the arguments for the REDUCTION_PHI:
+   The loop-entry argument is the (vectorized) initial-value of REDUCTION_OP.
+   The loop-latch argument is VECT_DEF - the vector of partial sums.
+
+     This function transforms this:
+    
+        loop:
+          vec_def = phi <null, null>    # REDUCTION_PHI
+          ....
+          VECT_DEF = ...
+
+        loop_exit:
+          s_out0 = phi <s_loop>         # EXIT_PHI
+
+          use <s_out0>
+          use <s_out0>
+
+     Into:
+
+        loop:
+          vec_def = phi <vec_init, VECT_DEF> # REDUCTION_PHI
+          ....
+          VECT_DEF = ...
+
+        loop_exit:
+          s_out0 = phi <s_loop>         # EXIT_PHI
+          v_out1 = phi <VECT_DEF>       # NEW_EXIT_PHI
+
+          v_out2 = reduc_expr <v_out1>
+          s_out3 = extract_field <v_out2, 0>
+
+          use <s_out3>
+          use <s_out3>
+*/
+
+static void
+vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
+                                  enum tree_code reduc_code, tree reduction_phi)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  enum machine_mode mode = TYPE_MODE (vectype);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  basic_block exit_bb;
+  tree scalar_dest = TREE_OPERAND (stmt, 0);
+  tree scalar_type = TREE_TYPE (scalar_dest);
+  tree new_phi;
+  block_stmt_iterator exit_bsi;
+  tree vec_dest;
+  tree new_temp;
+  tree new_name;
+  tree epilog_stmt;
+  tree new_scalar_dest, exit_phi;
+  tree bitsize, bitpos, bytesize; 
+  enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1));
+  tree scalar_initial_def;
+  tree vec_initial_def;
+  tree orig_name;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  bool extract_scalar_result;
+  bool adjust_in_epilog;
+  
+  /*** 1. Create the reduction def-use cycle  ***/
+  
+  /* 1.1 set the loop-entry arg of the reduction-phi:  */
+  /* For the case of reduction, vect_get_vec_def_for_operand returns
+     the scalar def before the loop, that defines the initial value
+     of the reduction variable.  */
+  vec_initial_def = vect_get_vec_def_for_operand (reduction_op, stmt,
+						  &scalar_initial_def);
+  add_phi_arg (reduction_phi, vec_initial_def, loop_preheader_edge (loop));
+
+
+  /* 1.2 set the loop-latch arg for the reduction-phi:  */
+  add_phi_arg (reduction_phi, vect_def, loop_latch_edge (loop));
+
+  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+    {
+      fprintf (vect_dump, "transform reduction: created def-use cycle:");
+      print_generic_expr (vect_dump, reduction_phi, TDF_SLIM);
+      fprintf (vect_dump, "\n");
+      print_generic_expr (vect_dump, SSA_NAME_DEF_STMT (vect_def), TDF_SLIM);
+    }
+
+
+  /*** 2. Create epilog code ***/
+
+  /* 2.1 Create new loop-exit-phi to preserve loop-closed form:
+        v_out1 = phi <v_loop>  */
+
+  exit_bb = loop->single_exit->dest;
+  new_phi = create_phi_node (SSA_NAME_VAR (vect_def), exit_bb);
+  SET_PHI_ARG_DEF (new_phi, loop->single_exit->dest_idx, vect_def);
+
+  exit_bsi = bsi_start (exit_bb);
+
+
+  new_scalar_dest = vect_create_destination_var (scalar_dest, NULL);
+  bitsize = TYPE_SIZE (scalar_type);
+  bytesize = TYPE_SIZE_UNIT (scalar_type);
+
+  /* 2.2 Create the reduction code.  */
+
+  if (reduc_code < NUM_TREE_CODES)
+    {
+      /*** Case 1:  Create:
+	   v_out2 = reduc_expr <v_out1>  */
+
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	fprintf (vect_dump, "Reduce using direct vector reduction.");
+
+      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+      epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+			build1 (reduc_code, vectype,  PHI_RESULT (new_phi)));
+      new_temp = make_ssa_name (vec_dest, epilog_stmt);
+      TREE_OPERAND (epilog_stmt, 0) = new_temp;
+      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+
+      extract_scalar_result = true;
+      adjust_in_epilog = true;
+    }
+  else
+    {
+      enum tree_code shift_code;
+      bool have_whole_vector_shift = true;
+      enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1)); /* CHECKME */
+      int bit_offset;
+      int element_bitsize = tree_low_cst (bitsize, 1);
+      int vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
+      tree vec_temp;
+
+      /* The result of the reduction is expected to be at the least
+	 significant bits of the vector.  This is merely convention,
+	 as it's the extraction later that really matters, and that
+	 is also under our control.  */
+      if (vec_shr_optab->handlers[mode].insn_code != CODE_FOR_nothing)
+	shift_code = VEC_RSHIFT_EXPR;
+      else
+	have_whole_vector_shift = false;
+
+      /* Regardless of whether we have a whole vector shift, if we're
+	 emulating the operation via tree-vect-generic, we don't want
+	 to use it.  Only the first round of the reduction is likely
+	 to still be profitable via emulation.  */
+      /* ??? It might be better to emit a reduction tree code here, so that
+	 tree-vect-generic can expand the first round via bit tricks.  */
+      if (!VECTOR_MODE_P (mode))
+	have_whole_vector_shift = false;
+      else
+	{
+	  optab optab = optab_for_tree_code (code, vectype);
+	  if (optab->handlers[mode].insn_code == CODE_FOR_nothing)
+	    have_whole_vector_shift = false;
+	}
+
+      if (have_whole_vector_shift)
+        {
+	  /*** Case 2:
+	     for (offset = VS/2; offset >= element_size; offset/=2)
+	        {
+	          Create:  va' = vec_shift <va, offset>
+	          Create:  va = vop <va, va'>
+	        }  */
+
+	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	    fprintf (vect_dump, "Reduce using vector shifts");
+
+	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  new_temp = PHI_RESULT (new_phi);
+
+	  for (bit_offset = vec_size_in_bits/2;
+	       bit_offset >= element_bitsize;
+	       bit_offset /= 2)
+	    {
+	      tree bitpos = size_int (bit_offset);
+
+	      epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+	      build2 (shift_code, vectype, new_temp, bitpos));
+	      new_name = make_ssa_name (vec_dest, epilog_stmt);
+	      TREE_OPERAND (epilog_stmt, 0) = new_name;
+	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+		print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+
+
+	      epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+	      build2 (code, vectype, new_name, new_temp));
+	      new_temp = make_ssa_name (vec_dest, epilog_stmt);
+	      TREE_OPERAND (epilog_stmt, 0) = new_temp;
+	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+		print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+	    }
+
+	  extract_scalar_result = true;
+	  adjust_in_epilog = true;
+	}
+      else
+        {
+	  /*** Case 3:
+	     Create:  s = init; 
+	     for (offset=0; offset<vector_size; offset+=element_size;)
+	       {
+	         Create:  s' = extract_field <v_out2, offset>
+	         Create:  s = op <s, s'>
+	       }  */
+
+	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	    fprintf (vect_dump, "Reduce using scalar code. ");
+
+	  vec_temp = PHI_RESULT (new_phi);
+	  vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
+
+	  /* first iteration is peeled out when possible to minimize
+	     the number of operations we generate:  */
+	  if (code == PLUS_EXPR 
+	     && (integer_zerop (scalar_initial_def) 
+		 || real_zerop (scalar_initial_def)))
+	    {
+	      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+                                build3 (BIT_FIELD_REF, scalar_type,
+                                	vec_temp, bitsize, bitsize_zero_node));
+              new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+              TREE_OPERAND (epilog_stmt, 0) = new_temp;
+              bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+              if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+                print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+	      
+	      bit_offset = element_bitsize;
+	    }
+	  else
+	    {
+	      new_temp = scalar_initial_def;
+	      bit_offset = 0;
+	    }
+
+	  for (;
+	       bit_offset < vec_size_in_bits;
+	       bit_offset += element_bitsize)
+	    { 
+	      tree bitpos = bitsize_int (bit_offset);
+
+	      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+				build3 (BIT_FIELD_REF, scalar_type,
+					vec_temp, bitsize, bitpos));
+	      new_name = make_ssa_name (new_scalar_dest, epilog_stmt);
+	      TREE_OPERAND (epilog_stmt, 0) = new_name;
+	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+		print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+
+
+	      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+				build2 (code, scalar_type, new_name, new_temp));
+	      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+	      TREE_OPERAND (epilog_stmt, 0) = new_temp;
+	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+		print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+	    }
+
+	  extract_scalar_result = false;
+	  adjust_in_epilog = false;
+	}
+    }
+
+
+  /* 2.3  Extract the final scalar result.  Create:
+         s_out3 = extract_field <v_out2, bitpos>  */
+  
+  if (extract_scalar_result)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	fprintf (vect_dump, "extract scalar result");
+
+      /* The result is in the low order bits.  */
+      if (BITS_BIG_ENDIAN)
+	bitpos = size_binop (MULT_EXPR,
+		       bitsize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1),
+		       TYPE_SIZE (scalar_type));
+      else
+	bitpos = bitsize_zero_node;
+
+      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+		     build3 (BIT_FIELD_REF, scalar_type,
+			     new_temp, bitsize, bitpos));
+      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+      TREE_OPERAND (epilog_stmt, 0) = new_temp; 
+      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+    }
+
+
+  /* 2.4 Adjust the final result by the initial value of the reduction
+	 variable. (when such adjustment is not needed, then
+	 'scalar_initial_def' is zero).
+
+	 Create: 
+	 s_out = scalar_expr <s_out, scalar_initial_def>  */
+  
+  if (adjust_in_epilog)
+    {
+      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+                      build2 (code, scalar_type, new_temp, scalar_initial_def));
+      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+      TREE_OPERAND (epilog_stmt, 0) = new_temp;
+      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+    }
+
+
+  /* 2.5 Replace uses of s_out0 with uses of s_out3  */
+
+  /* Find the loop-closed-use at the loop exit of the original
+     scalar result.  (The reduction result is expected to have
+     two immediate uses - one at the latch block, and one at the
+     loop exit).  */
+  exit_phi = NULL;
+  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, scalar_dest)
+    {
+      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (USE_STMT (use_p))))
+	{
+	  exit_phi = USE_STMT (use_p);
+	  break;
+	}
+    }
+
+  orig_name = PHI_RESULT (exit_phi);
+
+  FOR_EACH_IMM_USE_SAFE (use_p, imm_iter, orig_name)
+    SET_USE (use_p, new_temp);
+} 
+
+
+/* Function vectorizable_reduction.
+
+   Check if STMT performs a reduction operation that can be vectorized.
+   If VEC_STMT is also passed, vectorize the STMT: create a vectorized
+   stmt to replace it, put it in VEC_STMT, and insert it at BSI.
+   Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
+
+bool
+vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
+{
+  tree vec_dest;
+  tree scalar_dest;
+  tree op0, op1;
+  tree loop_vec_def;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  tree operation;
+  enum tree_code code, reduc_code = 0;
+  enum machine_mode vec_mode;
+  int op_type;
+  optab optab, reduc_optab;
+  tree new_temp;
+  tree def0, def1, def_stmt0, def_stmt1;
+  enum vect_def_type dt0, dt1;
+  tree new_phi;
+  tree scalar_type;
+  bool is_simple_use0;
+  bool is_simple_use1;
+
+  /* Is vectorizable reduction?  */
+
+  /* Not supportable if the reduction variable is used in the loop.  */
+  if (STMT_VINFO_RELEVANT_P (stmt_info))
+    return false;
+
+  if (!STMT_VINFO_LIVE_P (stmt_info))
+    return false;
+
+  /* Make sure it was already recognized as a reduction pattern.  */
+  if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_reduction_def)
+    return false;
+
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+
+  operation = TREE_OPERAND (stmt, 1);
+  code = TREE_CODE (operation);
+  op_type = TREE_CODE_LENGTH (code);
+
+  if (op_type != binary_op)
+    return false;
+
+  op0 = TREE_OPERAND (operation, 0);
+  op1 = TREE_OPERAND (operation, 1);
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_type = TREE_TYPE (scalar_dest);
+
+  /* Check the first operand. It is expected to be defined inside the loop.  */
+  is_simple_use0 =
+        vect_is_simple_use (op0, loop_vinfo, &def_stmt0, &def0, &dt0);
+  is_simple_use1 =
+        vect_is_simple_use (op1, loop_vinfo, &def_stmt1, &def1, &dt1);
+
+  gcc_assert (is_simple_use0);
+  gcc_assert (is_simple_use1);
+  gcc_assert (dt0 == vect_loop_def);
+  gcc_assert (dt1 == vect_reduction_def);
+  gcc_assert (TREE_CODE (def_stmt1) == PHI_NODE);
+  gcc_assert (stmt == vect_is_simple_reduction (loop, def_stmt1));
+
+  if (STMT_VINFO_LIVE_P (vinfo_for_stmt (def_stmt1)))
+   return false;
+
+  /* Supportable by target?  */
+
+  /* check support for the operation in the loop  */
+  optab = optab_for_tree_code (code, vectype);
+  if (!optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "no optab.");
+      return false;
+    }
+  vec_mode = TYPE_MODE (vectype);
+  if (optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "op not supported by target.");
+      if (GET_MODE_SIZE (vec_mode) != UNITS_PER_WORD
+          || LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	     < vect_min_worthwhile_factor (code))
+        return false;
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	fprintf (vect_dump, "proceeding using word mode.");
+    }
+
+  /* Worthwhile without SIMD support?  */
+  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
+      && LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	 < vect_min_worthwhile_factor (code))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	fprintf (vect_dump, "not worthwhile without SIMD support.");
+      return false;
+    }
+
+  /* check support for the epilog operation  */
+  if (!reduction_code_for_scalar_code (code, &reduc_code))
+    return false;
+  reduc_optab = optab_for_tree_code (reduc_code, vectype);
+  if (!reduc_optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "no optab for reduction.");
+      reduc_code = NUM_TREE_CODES;
+    }
+  if (reduc_optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "reduc op not supported by target.");
+      reduc_code = NUM_TREE_CODES;
+    }
+ 
+  if (!vec_stmt) /* transformation not required.  */
+    {
+      STMT_VINFO_TYPE (stmt_info) = reduc_vec_info_type;
+      return true;
+    }
+
+  /** Transform.  **/
+
+  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+    fprintf (vect_dump, "transform reduction.");
+
+  /* Create the destination vector  */
+  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+
+
+  /* Create the reduction-phi that defines the reduction-operand.  */
+  new_phi = create_phi_node (vec_dest, loop->header);
+
+
+  /* Prepare the operand that is defined inside the loop body  */
+  loop_vec_def = vect_get_vec_def_for_operand (op0, stmt, NULL);
+  gcc_assert (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (loop_vec_def))));
+
+
+  /* Create the vectorized operation that computes the partial results  */
+  *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+                build2 (code, vectype, loop_vec_def, PHI_RESULT (new_phi)));
+  new_temp = make_ssa_name (vec_dest, *vec_stmt);
+  TREE_OPERAND (*vec_stmt, 0) = new_temp;
+  vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
+
+
+  /* Finalize the reduction-phi (set it's arguments) and create the
+     epilog reduction code.  */
+  vect_create_epilog_for_reduction (new_temp, stmt, op1, reduc_code, new_phi);
+  return true;
 }
 
 
@@ -688,7 +1358,7 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   /* Handle use.  */
   op = TREE_OPERAND (stmt, 1);
-  vec_oprnd = vect_get_vec_def_for_operand (op, stmt);
+  vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
 
   /* Arguments are ready. create the new vector stmt.  */
   *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_oprnd);
@@ -846,12 +1516,12 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   /* Handle uses.  */
   op0 = TREE_OPERAND (operation, 0);
-  vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt);
+  vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt, NULL);
 
   if (op_type == binary_op)
     {
       op1 = TREE_OPERAND (operation, 1);
-      vec_oprnd1 = vect_get_vec_def_for_operand (op1, stmt); 
+      vec_oprnd1 = vect_get_vec_def_for_operand (op1, stmt, NULL); 
     }
 
   /* Arguments are ready. create the new vector stmt.  */
@@ -940,7 +1610,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   gcc_assert (alignment_support_cheme == dr_aligned);  /* FORNOW */
 
   /* Handle use - get the vectorized def from the defining stmt.  */
-  vec_oprnd1 = vect_get_vec_def_for_operand (op, stmt);
+  vec_oprnd1 = vect_get_vec_def_for_operand (op, stmt, NULL);
 
   /* Handle def.  */
   /* FORNOW: make sure the data reference is aligned.  */
@@ -962,9 +1632,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     {
       SSA_NAME_DEF_STMT (def) = *vec_stmt;
 
-      /* If this virtual def has a use outside the loop and a loop peel is performed
-         then the def may be renamed by the peel.  Mark it for renaming so the
-         later use will also be renamed.  */
+      /* If this virtual def has a use outside the loop and a loop peel is 
+	 performed then the def may be renamed by the peel.  Mark it for 
+	 renaming so the later use will also be renamed.  */
       mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
 
@@ -1387,11 +2057,11 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   /* Handle cond expr.  */
   vec_cond_lhs = 
-    vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 0), stmt);
+    vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 0), stmt, NULL);
   vec_cond_rhs = 
-    vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 1), stmt);
-  vec_then_clause = vect_get_vec_def_for_operand (then_clause, stmt);
-  vec_else_clause = vect_get_vec_def_for_operand (else_clause, stmt);
+    vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 1), stmt, NULL);
+  vec_then_clause = vect_get_vec_def_for_operand (then_clause, stmt, NULL);
+  vec_else_clause = vect_get_vec_def_for_operand (else_clause, stmt, NULL);
 
   /* Arguments are ready. create the new vector stmt.  */
   vec_compare = build2 (TREE_CODE (cond_expr), vectype, 
@@ -1460,8 +2130,23 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
 
   if (STMT_VINFO_LIVE_P (stmt_info))
     {
-      done = vectorizable_live_operation (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
+      switch (STMT_VINFO_TYPE (stmt_info))
+      {
+      case reduc_vec_info_type:
+        done = vectorizable_reduction (stmt, bsi, &vec_stmt);
+        gcc_assert (done);
+        break;
+
+      default:
+        done = vectorizable_live_operation (stmt, bsi, &vec_stmt);
+        gcc_assert (done);
+      }
+
+      if (vec_stmt)
+        {
+          gcc_assert (!STMT_VINFO_VEC_STMT (stmt_info));
+          STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
+        }
     }
 
   return is_store; 
@@ -1717,6 +2402,14 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
 	  continue;
 	}
 
+      /* Skip reduction phis.  */
+      if (STMT_VINFO_DEF_TYPE (vinfo_for_stmt (phi)) == vect_reduction_def)
+        { 
+          if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+            fprintf (vect_dump, "reduc phi. skip.");
+          continue;
+        } 
+
       access_fn = analyze_scalar_evolution (loop, PHI_RESULT (phi)); 
       gcc_assert (access_fn);
       evolution_part =
@@ -1765,18 +2458,17 @@ static void
 vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
 				struct loops *loops)
 {
-
   tree ni_name, ratio_mult_vf_name;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *new_loop;
   edge update_e;
   basic_block preheader;
-#ifdef ENABLE_CHECKING
   int loop_num;
-#endif
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-    fprintf (vect_dump, "=== vect_transtorm_for_unknown_loop_bound ===");
+    fprintf (vect_dump, "=== vect_do_peeling_for_loop_bound ===");
+
+  initialize_original_copy_tables ();
 
   /* Generate the following variables on the preheader of original loop:
 	 
@@ -1786,14 +2478,12 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
   vect_generate_tmps_on_preheader (loop_vinfo, &ni_name,
 				   &ratio_mult_vf_name, ratio);
 
-#ifdef ENABLE_CHECKING
   loop_num  = loop->num; 
-#endif
   new_loop = slpeel_tree_peel_loop_to_edge (loop, loops, loop->single_exit,
 					    ratio_mult_vf_name, ni_name, false);
-#ifdef ENABLE_CHECKING
   gcc_assert (new_loop);
   gcc_assert (loop_num == loop->num);
+#ifdef ENABLE_CHECKING
   slpeel_verify_cfg_after_peeling (loop, new_loop);
 #endif
 
@@ -1816,7 +2506,7 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
   /* After peeling we have to reset scalar evolution analyzer.  */
   scev_reset ();
 
-  return;
+  free_original_copy_tables ();
 }
 
 
@@ -1942,9 +2632,9 @@ vect_update_init_of_dr (struct data_reference *dr, tree niters)
   stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
   tree offset = STMT_VINFO_VECT_INIT_OFFSET (stmt_info);
       
-  niters = fold (build2 (MULT_EXPR, TREE_TYPE (niters), niters, 
-			 STMT_VINFO_VECT_STEP (stmt_info)));
-  offset = fold (build2 (PLUS_EXPR, TREE_TYPE (offset), offset, niters));
+  niters = fold_build2 (MULT_EXPR, TREE_TYPE (niters), niters,
+			STMT_VINFO_VECT_STEP (stmt_info));
+  offset = fold_build2 (PLUS_EXPR, TREE_TYPE (offset), offset, niters);
   STMT_VINFO_VECT_INIT_OFFSET (stmt_info) = offset;
 }
 
@@ -2000,6 +2690,8 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo, struct loops *loops)
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vect_do_peeling_for_alignment ===");
 
+  initialize_original_copy_tables ();
+
   ni_name = vect_build_loop_niters (loop_vinfo);
   niters_of_prolog_loop = vect_gen_niters_for_prolog_loop (loop_vinfo, ni_name);
   
@@ -2007,15 +2699,15 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo, struct loops *loops)
   new_loop = 
 	slpeel_tree_peel_loop_to_edge (loop, loops, loop_preheader_edge (loop), 
 				       niters_of_prolog_loop, ni_name, true); 
-#ifdef ENABLE_CHECKING
   gcc_assert (new_loop);
+#ifdef ENABLE_CHECKING
   slpeel_verify_cfg_after_peeling (new_loop, loop);
 #endif
 
   /* Update number of times loop executes.  */
   n_iters = LOOP_VINFO_NITERS (loop_vinfo);
-  LOOP_VINFO_NITERS (loop_vinfo) = fold (build2 (MINUS_EXPR,
-		TREE_TYPE (n_iters), n_iters, niters_of_prolog_loop));
+  LOOP_VINFO_NITERS (loop_vinfo) = fold_build2 (MINUS_EXPR,
+		TREE_TYPE (n_iters), n_iters, niters_of_prolog_loop);
 
   /* Update the init conditions of the access functions of all data refs.  */
   vect_update_inits_of_drs (loop_vinfo, niters_of_prolog_loop);
@@ -2023,7 +2715,7 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo, struct loops *loops)
   /* After peeling we have to reset scalar evolution analyzer.  */
   scev_reset ();
 
-  return;
+  free_original_copy_tables ();
 }
 
 
@@ -2048,7 +2740,6 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vec_transform_loop ===");
 
-  
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
 
@@ -2101,18 +2792,18 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 	    }	
 	  stmt_info = vinfo_for_stmt (stmt);
 	  gcc_assert (stmt_info);
-	  if (!STMT_VINFO_RELEVANT_P (stmt_info))
+	  if (!STMT_VINFO_RELEVANT_P (stmt_info)
+	      && !STMT_VINFO_LIVE_P (stmt_info))
 	    {
 	      bsi_next (&si);
 	      continue;
 	    }
-#ifdef ENABLE_CHECKING
 	  /* FORNOW: Verify that all stmts operate on the same number of
 	             units and no inner unrolling is necessary.  */
 	  gcc_assert 
 		(TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (stmt_info))
-		 == vectorization_factor);
-#endif
+		 == (unsigned HOST_WIDE_INT) vectorization_factor);
+
 	  /* -------- vectorize statement ------------ */
 	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	    fprintf (vect_dump, "transform statement.");

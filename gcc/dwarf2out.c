@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* TODO: Emit .debug_line header even when there are no functions, since
 	   the file numbers are used by .debug_info.  Alternately, leave
@@ -499,7 +499,8 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
 	if (offset < 0)
 	  continue;
 
-	emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
+	emit_move_insn (adjust_address (mem, mode, offset),
+			gen_int_mode (size, mode));
       }
 
 #ifdef DWARF_ALT_FRAME_RETURN_COLUMN
@@ -3447,7 +3448,7 @@ get_cfa_from_loc_descr (dw_cfa_location *cfa, struct dw_loc_descr_struct *loc)
 	  cfa->offset = ptr->dw_loc_oprnd1.v.val_unsigned;
 	  break;
 	default:
-	  internal_error ("DW_LOC_OP %s not implemented\n",
+	  internal_error ("DW_LOC_OP %s not implemented",
 			  dwarf_stack_op_name (ptr->dw_loc_opc));
 	}
     }
@@ -8950,7 +8951,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 1);
 
     case VAR_DECL:
-      if (DECL_THREAD_LOCAL (loc))
+      if (DECL_THREAD_LOCAL_P (loc))
 	{
 	  rtx rtl;
 
@@ -12523,6 +12524,11 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
 	  
 	  if (die != NULL && die->die_parent == NULL)
 	    add_child_die (context_die, die);
+	  /* Do not produce debug information for static variables since
+	     these might be optimized out.  We are called for these later
+	     in cgraph_varpool_analyze_pending_decls. */
+	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	    ;
 	  else
 	    gen_decl_die (decl, context_die);
 	}
@@ -13069,6 +13075,10 @@ dwarf2out_decl (tree decl)
 	 miss things which really ought to be in scope at a given point.  */
       if (DECL_EXTERNAL (decl) && !TREE_USED (decl))
 	return;
+
+      /* For local statics lookup proper context die.  */
+      if (TREE_STATIC (decl) && decl_function_context (decl))
+	context_die = lookup_decl_die (DECL_CONTEXT (decl));
 
       /* If we are in terse mode, don't generate any DIEs to represent any
 	 variable declarations or definitions.  */

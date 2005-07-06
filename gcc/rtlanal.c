@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -3657,12 +3657,14 @@ nonzero_bits1 (rtx x, enum machine_mode mode, rtx known_x,
     case GE:  case GEU:  case UNGE:
     case LE:  case LEU:  case UNLE:
     case UNORDERED: case ORDERED:
-
       /* If this produces an integer result, we know which bits are set.
 	 Code here used to clear bits outside the mode of X, but that is
 	 now done above.  */
-
-      if (GET_MODE_CLASS (mode) == MODE_INT
+      /* Mind that MODE is the mode the caller wants to look at this 
+	 operation in, and not the actual operation mode.  We can wind 
+	 up with (subreg:DI (gt:V4HI x y)), and we don't have anything
+	 that describes the results of a vector compare.  */
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT
 	  && mode_width <= HOST_BITS_PER_WIDE_INT)
 	nonzero = STORE_FLAG_VALUE;
       break;

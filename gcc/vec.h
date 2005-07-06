@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_VEC_H
 #define GCC_VEC_H
@@ -283,7 +283,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    uninitialized.  */
 
 #define VEC_safe_grow(T,A,V,I)		\
-	(VEC_OP(T,A,safe_grow)(&(V),I VEC_CHECK_INFO))
+	(VEC_OP(T,A,safe_grow)(&(V),I VEC_CHECK_INFO MEM_STAT_INFO))
 
 /* Replace element
    T VEC_T_replace (VEC(T) *v, unsigned ix, T val); // Integer

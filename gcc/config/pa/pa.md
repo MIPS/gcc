@@ -18,8 +18,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; This gcc Version 2 machine description is inspired by sparc.md and
 ;; mips.md.
@@ -2896,9 +2896,9 @@
 
 (define_insn ""
   [(set (match_operand:HI 0 "move_dest_operand"
-	 		  "=r,r,r,r,r,Q,!*q,!r,!*f")
+	 		  "=r,r,r,r,r,Q,!*q,!r")
 	(match_operand:HI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
+			  "r,J,N,K,RQ,rM,!rM,!*q"))]
   "register_operand (operands[0], HImode)
    || reg_or_0_operand (operands[1], HImode)"
   "@
@@ -2909,11 +2909,10 @@
    ldh%M1 %1,%0
    sth%M0 %r1,%0
    mtsar %r1
-   {mfctl|mfctl,w} %sar,%0
-   fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu")
+   {mfctl|mfctl,w} %sar,%0"
+  [(set_attr "type" "move,move,move,shift,load,store,move,move")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:HI 0 "register_operand" "=r")
@@ -3021,9 +3020,9 @@
 
 (define_insn ""
   [(set (match_operand:QI 0 "move_dest_operand"
-			  "=r,r,r,r,r,Q,!*q,!r,!*f")
+			  "=r,r,r,r,r,Q,!*q,!r")
 	(match_operand:QI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
+			  "r,J,N,K,RQ,rM,!rM,!*q"))]
   "register_operand (operands[0], QImode)
    || reg_or_0_operand (operands[1], QImode)"
   "@
@@ -3034,11 +3033,10 @@
    ldb%M1 %1,%0
    stb%M0 %r1,%0
    mtsar %r1
-   {mfctl|mfctl,w} %%sar,%0
-   fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu")
+   {mfctl|mfctl,w} %%sar,%0"
+  [(set_attr "type" "move,move,move,shift,load,store,move,move")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:QI 0 "register_operand" "=r")
@@ -3518,24 +3516,28 @@
   "* return output_block_move (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrmemsi"
+(define_expand "setmemsi"
   [(parallel [(set (match_operand:BLK 0 "" "")
-		   (const_int 0))
-	      (clobber (match_dup 3))
+		   (match_operand 2 "const_int_operand" ""))
 	      (clobber (match_dup 4))
+	      (clobber (match_dup 5))
 	      (use (match_operand:SI 1 "arith_operand" ""))
-	      (use (match_operand:SI 2 "const_int_operand" ""))])]
+	      (use (match_operand:SI 3 "const_int_operand" ""))])]
   "!TARGET_64BIT && optimize > 0"
   "
 {
   int size, align;
+
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
 
   /* Undetermined size, use the library routine.  */
   if (GET_CODE (operands[1]) != CONST_INT)
     FAIL;
 
   size = INTVAL (operands[1]);
-  align = INTVAL (operands[2]);
+  align = INTVAL (operands[3]);
   align = align > 4 ? 4 : align;
 
   /* If size/alignment is large, then use the library routines.  */
@@ -3550,8 +3552,8 @@
   operands[0]
     = replace_equiv_address (operands[0],
 			     copy_to_mode_reg (SImode, XEXP (operands[0], 0)));
-  operands[3] = gen_reg_rtx (SImode);
   operands[4] = gen_reg_rtx (SImode);
+  operands[5] = gen_reg_rtx (SImode);
 }")
 
 (define_insn "clrmemsi_prereload"
@@ -3628,24 +3630,28 @@
   "* return output_block_clear (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrmemdi"
+(define_expand "setmemdi"
   [(parallel [(set (match_operand:BLK 0 "" "")
-		   (const_int 0))
-	      (clobber (match_dup 3))
+		   (match_operand 2 "const_int_operand" ""))
 	      (clobber (match_dup 4))
+	      (clobber (match_dup 5))
 	      (use (match_operand:DI 1 "arith_operand" ""))
-	      (use (match_operand:DI 2 "const_int_operand" ""))])]
+	      (use (match_operand:DI 3 "const_int_operand" ""))])]
   "TARGET_64BIT && optimize > 0"
   "
 {
   int size, align;
+
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
 
   /* Undetermined size, use the library routine.  */
   if (GET_CODE (operands[1]) != CONST_INT)
     FAIL;
 
   size = INTVAL (operands[1]);
-  align = INTVAL (operands[2]);
+  align = INTVAL (operands[3]);
   align = align > 8 ? 8 : align;
 
   /* If size/alignment is large, then use the library routines.  */
@@ -3660,8 +3666,8 @@
   operands[0]
     = replace_equiv_address (operands[0],
 			     copy_to_mode_reg (DImode, XEXP (operands[0], 0)));
-  operands[3] = gen_reg_rtx (DImode);
   operands[4] = gen_reg_rtx (DImode);
+  operands[5] = gen_reg_rtx (DImode);
 }")
 
 (define_insn "clrmemdi_prereload"

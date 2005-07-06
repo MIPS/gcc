@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -235,11 +235,7 @@ package body Exp_Tss is
 
    function Make_Init_Proc_Name (Typ : Entity_Id) return Name_Id is
    begin
-      Get_Name_String (Chars (Typ));
-      Name_Len := Name_Len + 2;
-      Name_Buffer (Name_Len - 1) := TSS_Init_Proc (1);
-      Name_Buffer (Name_Len)     := TSS_Init_Proc (2);
-      return Name_Find;
+      return Make_TSS_Name (Typ, TSS_Init_Proc);
    end Make_Init_Proc_Name;
 
    -------------------------
@@ -252,10 +248,10 @@ package body Exp_Tss is
    is
    begin
       Get_Name_String (Chars (Typ));
-      Add_Char_To_Name_Buffer (Nam (1));
-      Add_Char_To_Name_Buffer (Nam (2));
       Add_Char_To_Name_Buffer ('_');
       Add_Nat_To_Name_Buffer (Increment_Serial_Number);
+      Add_Char_To_Name_Buffer (Nam (1));
+      Add_Char_To_Name_Buffer (Nam (2));
       return Name_Find;
    end Make_TSS_Name_Local;
 

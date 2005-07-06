@@ -2716,6 +2716,7 @@ This describes the stack layout and calling conventions.
 * Function Entry::
 * Profiling::
 * Tail Calls::
+* Stack Smashing Protection::
 @end menu
 
 @node Frame Layout
@@ -2752,8 +2753,8 @@ which is often wrong.
 @end defmac
 
 @defmac FRAME_GROWS_DOWNWARD
-Define this macro if the addresses of local variable slots are at negative
-offsets from the frame pointer.
+Define this macro to non-zero value if the addresses of local variable slots
+are at negative offsets from the frame pointer.
 @end defmac
 
 @defmac ARGS_GROW_DOWNWARD
@@ -4377,6 +4378,31 @@ during PIC compilation.  The hook is used to enforce these restrictions,
 as the @code{sibcall} md pattern can not fail, or fall over to a
 ``normal'' call.  The criteria for successful sibling call optimization
 may vary greatly between different architectures.
+@end deftypefn
+
+@node Stack Smashing Protection
+@subsection Stack smashing protection
+@cindex stack smashing protection
+
+@deftypefn {Target Hook} tree TARGET_STACK_PROTECT_GUARD (void)
+This hook returns a @code{DECL} node for the external variable to use
+for the stack protection guard.  This variable is initialized by the 
+runtime to some random value and is used to initialize the guard value
+that is placed at the top of the local stack frame.  The type of this
+variable must be @code{ptr_type_node}.
+
+The default version of this hook creates a variable called
+@samp{__stack_chk_guard}, which is normally defined in @file{libgcc2.c}.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_STACK_PROTECT_FAIL (void)
+This hook returns a tree expression that alerts the runtime that the
+stack protect guard variable has been modified.  This expression should
+involve a call to a @code{noreturn} function.
+
+The default version of this hook invokes a function called
+@samp{__stack_chk_fail}, taking no arguments.  This function is 
+normally defined in @file{libgcc2.c}.
 @end deftypefn
 
 @node Varargs
@@ -7622,6 +7648,11 @@ Define this macro if your target has ABI specified unwind tables.  Usually
 these will be output by @code{TARGET_UNWIND_EMIT}.
 @end defmac
 
+@deftypevar {Target Hook} bool TARGET_UNWID_TABLES_DEFAULT
+This variable should be set to @code{true} if the target ABI requires unwinding
+tables even when exceptions are not used.
+@end deftypevar
+
 @defmac MUST_USE_SJLJ_EXCEPTIONS
 This macro need only be defined if @code{DWARF2_UNWIND_INFO} is
 runtime-variable.  In that case, @file{except.h} cannot correctly
@@ -7670,6 +7701,20 @@ register and its mode are represented in Dwarf in non-contiguous
 locations, or if the register should be represented in more than one
 register in Dwarf.  Otherwise, this hook should return @code{NULL_RTX}.
 If not defined, the default is to return @code{NULL_RTX}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_ASM_TTYPE (rtx @var{sym})
+This hook is used to output a reference from a frame unwinding table to
+the type_info object identified by @var{sym}.  It should return @code{true}
+if the reference was output.  Returning @code{false} will cause the
+reference to be output using the normal Dwarf2 routines.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_ARM_EABI_UNWINDER
+This hook should be set to @code{true} on targets that use an ARM EABI
+based unwinding library, and @code{false} on other targets.  This effects
+the format of unwinding tables, and how the unwinder in entered after
+running a cleanup.  The default is @code{false}.
 @end deftypefn
 
 @node Alignment Output
@@ -9377,13 +9422,14 @@ simplified expression for the call's result.  If @var{ignore} is true
 the value will be ignored.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_INSN_VALID_WITHIN_DOLOOP (rtx @var{insn})
+@deftypefn {Target Hook} const char * TARGET_INVALID_WITHIN_DOLOOP (rtx @var{insn})
 
-Take an instruction in @var{insn} and return true if it is valid within a
-low-overhead loop.
+Take an instruction in @var{insn} and return NULL if it is valid within a
+low-overhead loop, otherwise return a string why doloop could not be applied.
 
-Many targets use special registers for low-overhead looping. This function
-should return false for any instruction that clobbers these. 
+Many targets use special registers for low-overhead looping. For any
+instruction that clobbers these this function should return a string indicating
+the reason why the doloop could not be applied. 
 By default, the RTL loop optimizer does not use a present doloop pattern for
 loops containing function calls or branch on table instructions.  
 @end deftypefn
@@ -9399,14 +9445,14 @@ filling of delay slots can result in branches being redirected, and this
 may in turn cause a branch offset to overflow.
 @end defmac
 
-@defmac ALLOCATE_INITIAL_VALUE (@var{hard_reg})
+@deftypefn {Target Hook} rtx TARGET_ALLOCATE_INITIAL_VALUE (rtx @var{hard_reg})
 
 When the initial value of a hard register has been copied in a pseudo
 register, it is often not necessary to actually allocate another register
 to this pseudo register, because the original hard register or a stack slot
-it has been saved into can be used.  @code{ALLOCATE_INITIAL_VALUE}, if
-defined, is called at the start of register allocation once for each
-hard register that had its initial value copied by using
+it has been saved into can be used.  @code{TARGET_ALLOCATE_INITIAL_VALUE}
+is called at the start of register allocation once for each hard register
+that had its initial value copied by using
 @code{get_func_hard_reg_initial_val} or @code{get_hard_reg_initial_val}.
 Possible values are @code{NULL_RTX}, if you don't want
 to do any special allocation, a @code{REG} rtx---that would typically be
@@ -9414,10 +9460,12 @@ the hard register itself, if it is known not to be clobbered---or a
 @code{MEM}.
 If you are returning a @code{MEM}, this is only a hint for the allocator;
 it might decide to use another register anyways.
-You may use @code{current_function_leaf_function} in the definition of the
-macro, functions that use @code{REG_N_SETS}, to determine if the hard
+You may use @code{current_function_leaf_function} in the hook, functions
+that use @code{REG_N_SETS}, to determine if the hard
 register in question will not be clobbered.
-@end defmac
+The default value of this hook is @code{NULL}, which disables any special
+allocation.
+@end deftypefn
 
 @defmac TARGET_OBJECT_SUFFIX
 Define this macro to be a C string representing the suffix for object
@@ -9558,6 +9606,26 @@ and ia64.  The default is @code{false}.
 If defined, this macro returns the diagnostic message when it is 
 illegal to pass argument @var{val} to function @var{funcdecl} 
 with prototype @var{typelist}.
+@end deftypefn
+
+@deftypefn {Target Hook} {const char *} TARGET_INVALID_CONVERSION (tree @var{fromtype}, tree @var{totype})
+If defined, this macro returns the diagnostic message when it is
+invalid to convert from @var{fromtype} to @var{totype}, or @code{NULL}
+if validity should be determined by the front end.
+@end deftypefn
+
+@deftypefn {Target Hook} {const char *} TARGET_INVALID_UNARY_OP (int @var{op}, tree @var{type})
+If defined, this macro returns the diagnostic message when it is
+invalid to apply operation @var{op} (where unary plus is denoted by
+@code{CONVERT_EXPR}) to an operand of type @var{type}, or @code{NULL}
+if validity should be determined by the front end.
+@end deftypefn
+
+@deftypefn {Target Hook} {const char *} TARGET_INVALID_BINARY_OP (int @var{op}, tree @var{type1}, tree @var{type2})
+If defined, this macro returns the diagnostic message when it is
+invalid to apply operation @var{op} to operands of types @var{type1}
+and @var{type2}, or @code{NULL} if validity should be determined by
+the front end.
 @end deftypefn
 
 @defmac TARGET_USE_JCR_SECTION

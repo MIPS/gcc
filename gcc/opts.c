@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
+#include "tree-pass.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -534,6 +535,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
       flag_tree_salias = 1;
+      flag_unit_at_a_time = 1;
 
       if (!optimize_size)
 	{
@@ -569,7 +571,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
-      flag_unit_at_a_time = 1;
       flag_tree_store_ccp = 1;
       flag_tree_store_copy_prop = 1;
       flag_tree_vrp = 1;
@@ -627,11 +628,8 @@ decode_options (unsigned int argc, const char **argv)
      modify it.  */
   target_flags = targetm.default_target_flags;
 
-  /* Unwind tables are always present when a target has ABI-specified unwind
-     tables, so the default should be ON.  */
-#ifdef TARGET_UNWIND_INFO
-  flag_unwind_tables = TARGET_UNWIND_INFO;
-#endif
+  /* Some tagets have ABI-specified unwind tables.  */
+  flag_unwind_tables = targetm.unwind_tables_default;
 
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */
@@ -690,7 +688,7 @@ decode_options (unsigned int argc, const char **argv)
       && !targetm.have_named_sections)
     {
       inform 
-       ("-freorder-blocks-and-partition does not work on this architecture.");
+       ("-freorder-blocks-and-partition does not work on this architecture");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1051,8 +1051,17 @@ package body Sem_Elab is
               and then In_Preelaborated_Unit
               and then not In_Inlined_Body
             then
-               Error_Msg_N
-                 ("non-static call not allowed in preelaborated unit", N);
+               --  This is a warning in -gnatg mode allowing such calls to
+               --  be used in the predefined library with appropriate care.
+
+               if GNAT_Mode then
+                  Error_Msg_N
+                    ("?non-static call not allowed in preelaborated unit", N);
+               else
+                  Error_Msg_N
+                    ("non-static call not allowed in preelaborated unit", N);
+               end if;
+
                return;
             end if;
 

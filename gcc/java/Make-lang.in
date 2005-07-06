@@ -16,8 +16,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330,
-#Boston, MA 02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+#Boston, MA 02110-1301, USA.
 
 #Java and all Java-based marks are trademarks or registered trademarks
 #of Sun Microsystems, Inc. in the United States and other countries.
@@ -365,7 +365,8 @@ java/parse-scan.o: java/parse-scan.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) toplev.h $(JAVA_LEX_C) java/parse.h java/lex.h input.h
 java/parse.o: java/parse.c java/jcf-reader.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) function.h $(JAVA_TREE_H) $(JAVA_LEX_C) java/parse.h \
-  java/lex.h input.h $(GGC_H) debug.h gt-java-parse.h gtype-java.h target.h
+  java/lex.h input.h $(GGC_H) debug.h gt-java-parse.h gtype-java.h target.h \
+  $(TREE_DUMP_H)
 
 # jcf-io.o needs $(ZLIBINC) added to cflags.
 java/jcf-io.o: java/jcf-io.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -453,7 +454,7 @@ java.install-man: installdirs \
 	  chmod a-x $$man_name ; \
 	done
 
-$(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext): doc/gcj.1
+$(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext): doc/gcj.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@

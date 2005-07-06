@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -998,8 +998,7 @@ build_ssa_operands (tree stmt)
 
 
 /* Free any operands vectors in OPS.  */
-#if 0
-static void 
+void 
 free_ssa_operands (stmt_operands_p ops)
 {
   ops->def_ops = NULL;
@@ -1007,14 +1006,7 @@ free_ssa_operands (stmt_operands_p ops)
   ops->maydef_ops = NULL;
   ops->mustdef_ops = NULL;
   ops->vuse_ops = NULL;
-  while (ops->memory.next != NULL)
-    {
-      operand_memory_p tmp = ops->memory.next;
-      ops->memory.next = tmp->next;
-      ggc_free (tmp);
-    }
 }
-#endif
 
 
 /* Get the operands of statement STMT.  Note that repeated calls to
@@ -1346,7 +1338,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 			     flags & ~opf_kill_def);
 	
 	if (code == COMPONENT_REF)
-	  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	  {
+	    if (s_ann && TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
+	      s_ann->has_volatile_ops = true; 
+	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	  }
 	return;
       }
     case WITH_SIZE_EXPR:
@@ -1559,10 +1555,10 @@ get_asm_expr_operands (tree stmt)
 	  add_stmt_operand (&global_var, s_ann, opf_is_def);
 	else
 	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-	      {
-		tree var = referenced_var (i);
-		add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
-	      }
+	    {
+	      tree var = referenced_var (i);
+	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
+	    }
 
 	/* Now clobber all addressables.  */
 	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
@@ -1941,10 +1937,10 @@ note_addressable (tree var, stmt_ann_t s_ann)
 	{
 	  subvar_t sv;
 	  for (sv = svars; sv; sv = sv->next)
-	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
+	    bitmap_set_bit (s_ann->addresses_taken, DECL_UID (sv->var));
 	}
       else
-	bitmap_set_bit (s_ann->addresses_taken, var_ann (var)->uid);
+	bitmap_set_bit (s_ann->addresses_taken, DECL_UID (var));
     }
 }
 

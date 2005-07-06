@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -1643,7 +1643,14 @@ match_dt_element (io_kind k, gfc_dt * dt)
 
   m = match_ltag (&tag_end, &dt->end);
   if (m == MATCH_YES)
-    dt->end_where = gfc_current_locus;
+    {
+      if (k == M_WRITE)
+       {
+         gfc_error ("END tag at %C not allowed in output statement");
+         return MATCH_ERROR;
+       }
+      dt->end_where = gfc_current_locus;
+    }
   if (m != MATCH_NO)
     return m;
 

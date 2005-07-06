@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /*  This file contains basic routines manipulating call graph and variable pool
   
@@ -98,6 +98,7 @@ The varpool data structure:
 #include "output.h"
 #include "intl.h"
 #include "tree-gimple.h"
+#include "tree-dump.h"
 
 static void cgraph_node_remove_callers (struct cgraph_node *node);
 static inline void cgraph_edge_remove_caller (struct cgraph_edge *e);
@@ -473,7 +474,8 @@ cgraph_remove_node (struct cgraph_node *node)
     {
       struct cgraph_node *n = *slot;
       if (!n->next_clone && !n->global.inlined_to
-	  && (TREE_ASM_WRITTEN (n->decl) || DECL_EXTERNAL (n->decl)))
+	  && (cgraph_global_info_ready
+	      && (TREE_ASM_WRITTEN (n->decl) || DECL_EXTERNAL (n->decl))))
 	kill_body = true;
     }
 
@@ -807,7 +809,8 @@ bool
 decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
 {
   /* If the user told us it is used, then it must be so.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+  if (node->externally_visible
+      || lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
     return true;
 
   /* ??? If the assembler name is set by hand, it is possible to assemble
@@ -863,7 +866,7 @@ cgraph_varpool_finalize_decl (tree decl)
   /* Since we reclaim unreachable nodes at the end of every language
      level unit, we need to be conservative about possible entry points
      there.  */
-  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+  else if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     cgraph_varpool_mark_needed_node (node);
   if (cgraph_global_info_ready || !flag_unit_at_a_time)
     cgraph_varpool_assemble_pending_decls ();

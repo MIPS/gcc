@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -36,6 +36,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "output.h"
 #include "toplev.h"
+#include "tree-pass.h"
+#include "timevar.h"
 
 /* This pass of the compiler performs global register allocation.
    It assigns hard register numbers to all the pseudo registers
@@ -694,7 +696,7 @@ global_conflicts (void)
 	 be explicitly marked in basic_block_live_at_start.  */
 
       {
-	regset old = b->global_live_at_start;
+	regset old = b->il.rtl->global_live_at_start;
 	int ax = 0;
 	reg_set_iterator rsi;
 
@@ -1726,7 +1728,7 @@ mark_elimination (int from, int to)
 
   FOR_EACH_BB (bb)
     {
-      regset r = bb->global_live_at_start;
+      regset r = bb->il.rtl->global_live_at_start;
       if (REGNO_REG_SET_P (r, from))
 	{
 	  CLEAR_REGNO_REG_SET (r, from);
@@ -1816,7 +1818,7 @@ build_insn_chain (rtx first)
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP (b->global_live_at_start, 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (b->il.rtl->global_live_at_start, 0, i, bi)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
@@ -2345,10 +2347,10 @@ calculate_reg_pav (void)
 	      if (pred->index != ENTRY_BLOCK)
 		bitmap_ior_into (bb_live_pavin, BB_INFO (pred)->live_pavout);
 	    }
-	  bitmap_and_into (bb_live_pavin, bb->global_live_at_start);
+	  bitmap_and_into (bb_live_pavin, bb->il.rtl->global_live_at_start);
 	  bitmap_ior_and_compl (temp_bitmap, bb_info->avloc,
 				bb_live_pavin, bb_info->killed);
-	  bitmap_and_into (temp_bitmap, bb->global_live_at_end);
+	  bitmap_and_into (temp_bitmap, bb->il.rtl->global_live_at_end);
 	  if (! bitmap_equal_p (temp_bitmap, bb_live_pavout))
 	    {
 	      bitmap_copy (bb_live_pavout, temp_bitmap);
@@ -2469,8 +2471,55 @@ make_accurate_live_analysis (void)
     {
       bb_info = BB_INFO (bb);
       
-      bitmap_and_into (bb->global_live_at_start, bb_info->live_pavin);
-      bitmap_and_into (bb->global_live_at_end, bb_info->live_pavout);
+      bitmap_and_into (bb->il.rtl->global_live_at_start, bb_info->live_pavin);
+      bitmap_and_into (bb->il.rtl->global_live_at_end, bb_info->live_pavout);
     }
   free_bb_info ();
 }
+/* Run old register allocator.  Return TRUE if we must exit
+   rest_of_compilation upon return.  */
+static void
+rest_of_handle_global_alloc (void)
+{
+  bool failure;
+
+  /* If optimizing, allocate remaining pseudo-regs.  Do the reload
+     pass fixing up any insns that are invalid.  */
+
+  if (optimize)
+    failure = global_alloc (dump_file);
+  else
+    {
+      build_insn_chain (get_insns ());
+      failure = reload (get_insns (), 0);
+    }
+
+  if (dump_enabled_p (pass_global_alloc.static_pass_number))
+    {
+      timevar_push (TV_DUMP);
+      dump_global_regs (dump_file);
+      timevar_pop (TV_DUMP);
+    }
+
+  gcc_assert (reload_completed || failure);
+  reload_completed = !failure;
+}
+
+struct tree_opt_pass pass_global_alloc =
+{
+  "greg",                               /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_global_alloc,          /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_GLOBAL_ALLOC,                      /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'g'                                   /* letter */
+};
+

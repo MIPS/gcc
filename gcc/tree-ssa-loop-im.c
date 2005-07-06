@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -202,6 +202,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case STRING_CST:
 	case RESULT_DECL:
 	case VECTOR_CST:
+	case COMPLEX_CST:
 	  return true;
 
 	case TARGET_MEM_REF:
@@ -1164,20 +1165,14 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
 
   FOR_EACH_SSA_TREE_OPERAND (vname, stmt, oi,
 			     SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-    {
-      bitmap_set_bit (ref->vops,
-		      var_ann (SSA_NAME_VAR (vname))->uid);
-    }
+    bitmap_set_bit (ref->vops, DECL_UID (SSA_NAME_VAR (vname)));
   record_mem_ref_loc (&ref->locs, stmt, mem);
   return;
 
 fail:
   FOR_EACH_SSA_TREE_OPERAND (vname, stmt, oi,
 			     SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-    {
-      bitmap_set_bit (clobbered_vops,
-		      var_ann (SSA_NAME_VAR (vname))->uid);
-    }
+    bitmap_set_bit (clobbered_vops, DECL_UID (SSA_NAME_VAR (vname)));
 }
 
 /* Gathers memory references in LOOP.  Notes vops accessed through unrecognized

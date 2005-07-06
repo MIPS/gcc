@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Utility functions for manipulation with TARGET_MEM_REFs -- tree expressions
    that directly map to addressing modes of the target.  */
@@ -198,8 +198,8 @@ addr_for_mem_ref (struct mem_address *addr, bool really_expand)
 
 	  templates_initialized = true;
 	  sym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup ("test_symbol"));
-	  bse = gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER);
-	  idx = gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER + 1);
+	  bse = gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 1);
+	  idx = gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 2);
 
 	  for (i = 0; i < 32; i++)
 	    gen_addr_rtx ((i & 16 ? sym : NULL_RTX),

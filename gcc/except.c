@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* An exception is an event that can be signaled from within a
@@ -75,6 +75,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "cgraph.h"
 #include "diagnostic.h"
+#include "tree-pass.h"
+#include "timevar.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -562,6 +564,7 @@ expand_resx_expr (tree exp)
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region *reg = cfun->eh->region_array[region_nr];
 
+  gcc_assert (!reg->resume);
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -825,6 +828,8 @@ find_exception_handler_labels (void)
     add_ehl_entry (return_label, NULL);
 }
 
+/* Returns true if the current function has exception handling regions.  */
+
 bool
 current_function_has_exception_handlers (void)
 {
@@ -834,9 +839,9 @@ current_function_has_exception_handlers (void)
     {
       struct eh_region *region = cfun->eh->region_array[i];
 
-      if (! region || region->region_number != i)
-	continue;
-      if (region->type != ERT_THROW)
+      if (region
+	  && region->region_number == i
+	  && region->type != ERT_THROW)
 	return true;
     }
 
@@ -1131,12 +1136,23 @@ add_ehspec_entry (htab_t ehspec_hash, htab_t ttypes_hash, tree list)
       n->filter = -(VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data) + 1);
       *slot = n;
 
-      /* Look up each type in the list and encode its filter
-	 value as a uleb128.  Terminate the list with 0.  */
+      /* Generate a 0 terminated list of filter values.  */
       for (; list ; list = TREE_CHAIN (list))
-	push_uleb128 (&cfun->eh->ehspec_data,
-		      add_ttypes_entry (ttypes_hash, TREE_VALUE (list)));
-      VARRAY_PUSH_UCHAR (cfun->eh->ehspec_data, 0);
+	{
+	  if (targetm.arm_eabi_unwinder)
+	    VARRAY_PUSH_TREE (cfun->eh->ehspec_data, TREE_VALUE (list));
+	  else
+	    {
+	      /* Look up each type in the list and encode its filter
+		 value as a uleb128.  */
+	      push_uleb128 (&cfun->eh->ehspec_data,
+		  add_ttypes_entry (ttypes_hash, TREE_VALUE (list)));
+	    }
+	}
+      if (targetm.arm_eabi_unwinder)
+	VARRAY_PUSH_TREE (cfun->eh->ehspec_data, NULL_TREE);
+      else
+	VARRAY_PUSH_UCHAR (cfun->eh->ehspec_data, 0);
     }
 
   return n->filter;
@@ -1154,7 +1170,10 @@ assign_filter_values (void)
   htab_t ttypes, ehspec;
 
   cfun->eh->ttype_data = VEC_alloc (tree, gc, 16);
-  VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
+  if (targetm.arm_eabi_unwinder)
+    VARRAY_TREE_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
+  else
+    VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
 
   ttypes = htab_create (31, ttypes_filter_hash, ttypes_filter_eq, free);
   ehspec = htab_create (31, ehspec_filter_hash, ehspec_filter_eq, free);
@@ -2694,6 +2713,23 @@ set_nothrow_function_flags (void)
       }
 }
 
+struct tree_opt_pass pass_set_nothrow_function_flags =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  set_nothrow_function_flags,           /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 /* Various hooks for unwind library.  */
 
@@ -3203,6 +3239,23 @@ convert_to_eh_region_ranges (void)
   htab_delete (ar_hash);
 }
 
+struct tree_opt_pass pass_convert_to_eh_region_ranges =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  convert_to_eh_region_ranges,          /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 static void
 push_uleb128 (varray_type *data_area, unsigned int value)
@@ -3374,6 +3427,54 @@ default_exception_section (void)
     readonly_data_section ();
 }
 
+
+/* Output a reference from an exception table to the type_info object TYPE.
+   TT_FORMAT and TT_FORMAT_SIZE descibe the DWARF encoding method used for
+   the value.  */
+
+static void
+output_ttype (tree type, int tt_format, int tt_format_size)
+{
+  rtx value;
+
+  if (type == NULL_TREE)
+    value = const0_rtx;
+  else
+    {
+      struct cgraph_varpool_node *node;
+
+      type = lookup_type_for_runtime (type);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+
+      /* Let cgraph know that the rtti decl is used.  Not all of the
+	 paths below go through assemble_integer, which would take
+	 care of this for us.  */
+      STRIP_NOPS (type);
+      if (TREE_CODE (type) == ADDR_EXPR)
+	{
+	  type = TREE_OPERAND (type, 0);
+	  if (TREE_CODE (type) == VAR_DECL)
+	    {
+	      node = cgraph_varpool_node (type);
+	      if (node)
+		cgraph_varpool_mark_needed_node (node);
+	    }
+	}
+      else if (TREE_CODE (type) != INTEGER_CST)
+	abort ();
+    }
+
+  /* Allow the target to override the type table entry format.  */
+  if (targetm.asm_out.ttype (value))
+    return;
+
+  if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
+    assemble_integer (value, tt_format_size,
+		      tt_format_size * BITS_PER_UNIT, 1);
+  else
+    dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+}
+
 void
 output_function_exception_table (void)
 {
@@ -3533,40 +3634,7 @@ output_function_exception_table (void)
   while (i-- > 0)
     {
       tree type = VEC_index (tree, cfun->eh->ttype_data, i);
-      rtx value;
-
-      if (type == NULL_TREE)
-	value = const0_rtx;
-      else
-	{
-	  struct cgraph_varpool_node *node;
-
-	  type = lookup_type_for_runtime (type);
-	  value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
-
-	  /* Let cgraph know that the rtti decl is used.  Not all of the
-	     paths below go through assemble_integer, which would take
-	     care of this for us.  */
-	  STRIP_NOPS (type);
-	  if (TREE_CODE (type) == ADDR_EXPR)
-	    {
-	      type = TREE_OPERAND (type, 0);
-	      if (TREE_CODE (type) == VAR_DECL)
-		{
-	          node = cgraph_varpool_node (type);
-	          if (node)
-		    cgraph_varpool_mark_needed_node (node);
-		}
-	    }
-	  else
-	    gcc_assert (TREE_CODE (type) == INTEGER_CST);
-	}
-
-      if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
-	assemble_integer (value, tt_format_size,
-			  tt_format_size * BITS_PER_UNIT, 1);
-      else
-	dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+      output_ttype (type, tt_format, tt_format_size);
     }
 
 #ifdef HAVE_AS_LEB128
@@ -3577,8 +3645,16 @@ output_function_exception_table (void)
   /* ??? Decode and interpret the data for flag_debug_asm.  */
   n = VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data);
   for (i = 0; i < n; ++i)
-    dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
-			 (i ? NULL : "Exception specification table"));
+    {
+      if (targetm.arm_eabi_unwinder)
+	{
+	  tree type = VARRAY_TREE (cfun->eh->ehspec_data, i);
+	  output_ttype (type, tt_format, tt_format_size);
+	}
+      else
+	dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
+			     (i ? NULL : "Exception specification table"));
+    }
 
   current_function_section (current_function_decl);
 }
@@ -3706,7 +3782,7 @@ verify_eh_tree (struct function *fun)
 	      {
 		if (depth != -1)
 		  {
-		    error ("Tree list ends on depth %i", depth + 1);
+		    error ("tree list ends on depth %i", depth + 1);
 		    err = true;
 		  }
 		if (count != nvisited)
@@ -3717,7 +3793,7 @@ verify_eh_tree (struct function *fun)
 		if (err)
 		  {
 		    dump_eh_tree (stderr, fun);
-		    internal_error ("verify_eh_tree failed.");
+		    internal_error ("verify_eh_tree failed");
 		  }
 	        return;
 	      }
@@ -3727,4 +3803,49 @@ verify_eh_tree (struct function *fun)
 	}
     }
 }
+
+/* Initialize unwind_resume_libfunc.  */
+
+void
+default_init_unwind_resume_libfunc (void)
+{
+  /* The default c++ routines aren't actually c++ specific, so use those.  */
+  unwind_resume_libfunc =
+    init_one_libfunc ( USING_SJLJ_EXCEPTIONS ? "_Unwind_SjLj_Resume"
+					     : "_Unwind_Resume");
+}
+
+
+static bool
+gate_handle_eh (void)
+{
+  return doing_eh (0);
+}
+
+/* Complete generation of exception handling code.  */
+static void
+rest_of_handle_eh (void)
+{
+  cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
+  finish_eh_generation ();
+  cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
+}
+
+struct tree_opt_pass pass_rtl_eh =
+{
+  "eh",                                 /* name */
+  gate_handle_eh,                       /* gate */   
+  rest_of_handle_eh,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_JUMP,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'h'                                   /* letter */
+};
+
 #include "gt-except.h"

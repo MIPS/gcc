@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -1528,8 +1528,8 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 
 	if (op2)	  
 	  genop2 = find_or_generate_expression (block, op2, stmts);
-	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr),
-			      genop0, genarglist, genop2));
+	folded = fold_build3 (TREE_CODE (expr), TREE_TYPE (expr),
+			      genop0, genarglist, genop2);
 	break;
 	
 	
@@ -1543,8 +1543,8 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	tree op2 = TREE_OPERAND (expr, 1);
 	tree genop1 = find_or_generate_expression (block, op1, stmts);
 	tree genop2 = find_or_generate_expression (block, op2, stmts);
-	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
-			      genop1, genop2));
+	folded = fold_build2 (TREE_CODE (expr), TREE_TYPE (expr), 
+			      genop1, genop2);
 	break;
       }
 
@@ -1552,8 +1552,8 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
       {
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree genop1 = find_or_generate_expression (block, op1, stmts);
-	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
-			      genop1));
+	folded = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr), 
+			      genop1);
 	break;
       }
 
@@ -1593,6 +1593,8 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
      that we will return.  */
   temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
   add_referenced_tmp_var (temp);
+  if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
+    DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
   newexpr = build (MODIFY_EXPR, TREE_TYPE (expr), temp, newexpr);
   name = make_ssa_name (temp, newexpr);
   TREE_OPERAND (newexpr, 0) = name;
@@ -1699,6 +1701,8 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
   /* Now build a phi for the new variable.  */
   temp = create_tmp_var (type, tmpname);
   add_referenced_tmp_var (temp);
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
   temp = create_phi_node (temp, block);
   NECESSARY (temp) = 0; 
   VEC_safe_push (tree, heap, inserted_exprs, temp);

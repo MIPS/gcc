@@ -61,6 +61,7 @@ intrinsics/gerror.c \
 intrinsics/getcwd.c \
 intrinsics/getlog.c \
 intrinsics/getXid.c \
+intrinsics/hyper.c \
 intrinsics/hostnm.c \
 intrinsics/kill.c \
 intrinsics/ierrno.c \
@@ -243,11 +244,15 @@ generated/cshift1_8.c
 
 in_pack_c = \
 generated/in_pack_i4.c \
-generated/in_pack_i8.c
+generated/in_pack_i8.c \
+generated/in_pack_c4.c \
+generated/in_pack_c8.c
 
 in_unpack_c = \
 generated/in_unpack_i4.c \
-generated/in_unpack_i8.c
+generated/in_unpack_i8.c \
+generated/in_unpack_c4.c \
+generated/in_unpack_c8.c
 
 i_exponent_c = \
 generated/exponent_r4.c \
@@ -295,7 +300,7 @@ gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
     $(i_pow_c) \
-    selected_int_kind.inc selected_real_kind.inc
+    selected_int_kind.inc selected_real_kind.inc kinds.h
 
 # We only use these if libm doesn't contain complex math functions.
 
@@ -414,6 +419,9 @@ libgfortran_la_DEPENDENCIES = @MATH_OBJ@
 I_M4_DEPS=m4/iparm.m4
 I_M4_DEPS0=$(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1=$(I_M4_DEPS) m4/ifunction.m4
+
+kinds.h: $(srcdir)/mk-kinds-h.sh
+	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@
 
 selected_int_kind.inc: $(srcdir)/mk-sik-inc.sh
 	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@

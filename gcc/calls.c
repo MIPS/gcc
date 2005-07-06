@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -1864,6 +1864,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
+  char *stack_usage_map_buf = NULL;
 
   int old_stack_allocated;
 
@@ -1964,17 +1965,7 @@ expand_call (tree exp, rtx target, int ignore)
       {
 	struct_value_size = int_size_in_bytes (TREE_TYPE (exp));
 
-	if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (exp))
-	  {
-	    /* The structure value address arg is already in actparms.
-	       Pull it out.  It might be nice to just leave it there, but
-	       we need to set structure_value_addr.  */
-	    tree return_arg = TREE_VALUE (actparms);
-	    actparms = TREE_CHAIN (actparms);
-	    structure_value_addr = expand_expr (return_arg, NULL_RTX,
-						VOIDmode, EXPAND_NORMAL);
-	  }
-	else if (target && MEM_P (target))
+	if (target && MEM_P (target) && CALL_EXPR_RETURN_SLOT_OPT (exp))
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {
@@ -2360,7 +2351,10 @@ expand_call (tree exp, rtx target, int ignore)
 		  highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 						     needed);
 #endif
-		  stack_usage_map = alloca (highest_outgoing_arg_in_use);
+		  if (stack_usage_map_buf)
+		    free (stack_usage_map_buf);
+		  stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+		  stack_usage_map = stack_usage_map_buf;
 
 		  if (initial_highest_arg_in_use)
 		    memcpy (stack_usage_map, initial_stack_usage_map,
@@ -2465,7 +2459,10 @@ expand_call (tree exp, rtx target, int ignore)
 		    = stack_arg_under_construction;
 		  stack_arg_under_construction = 0;
 		  /* Make a new map for the new argument list.  */
-		  stack_usage_map = alloca (highest_outgoing_arg_in_use);
+		  if (stack_usage_map_buf)
+		    free (stack_usage_map_buf);
+		  stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+		  stack_usage_map = stack_usage_map_buf;
 		  memset (stack_usage_map, 0, highest_outgoing_arg_in_use);
 		  highest_outgoing_arg_in_use = 0;
 		}
@@ -3019,6 +3016,9 @@ expand_call (tree exp, rtx target, int ignore)
       emit_move_insn (virtual_stack_dynamic_rtx, stack_pointer_rtx);
     }
 
+  if (stack_usage_map_buf)
+    free (stack_usage_map_buf);
+
   return target;
 }
 
@@ -3213,6 +3213,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   /* Size of the stack reserved for parameter registers.  */
   int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
+  char *stack_usage_map_buf = NULL;
 
   rtx struct_value = targetm.calls.struct_value_rtx (0, 0);
 
@@ -3491,7 +3492,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 					 needed);
 #endif
-      stack_usage_map = alloca (highest_outgoing_arg_in_use);
+      stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+      stack_usage_map = stack_usage_map_buf;
 
       if (initial_highest_arg_in_use)
 	memcpy (stack_usage_map, initial_stack_usage_map,
@@ -3844,6 +3846,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       highest_outgoing_arg_in_use = initial_highest_arg_in_use;
       stack_usage_map = initial_stack_usage_map;
     }
+
+  if (stack_usage_map_buf)
+    free (stack_usage_map_buf);
 
   return value;
 

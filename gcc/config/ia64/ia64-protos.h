@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Variables defined in ia64.c.  */
 
@@ -45,7 +45,7 @@ extern int addp4_optimize_ok (rtx, rtx);
 extern void ia64_emit_cond_move (rtx, rtx, rtx);
 extern int ia64_depz_field_mask (rtx, rtx);
 extern void ia64_split_tmode_move (rtx[]);
-extern rtx spill_xfmode_operand (rtx, int);
+extern bool ia64_expand_movxf_movrf (enum machine_mode, rtx[]);
 extern rtx ia64_expand_compare (enum rtx_code, enum machine_mode);
 extern void ia64_expand_vecint_cmov (rtx[]);
 extern bool ia64_expand_vecint_minmax (enum rtx_code, enum machine_mode, rtx[]);
@@ -114,3 +114,4 @@ extern enum direction ia64_hpux_function_arg_padding (enum machine_mode, tree);
 
 extern void ia64_hpux_handle_builtin_pragma (struct cpp_reader *);
 extern void ia64_output_function_profiler (FILE *, int);
+extern void ia64_profile_hook (int);

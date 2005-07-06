@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -911,6 +911,16 @@ add_functions (void)
 
   make_generic ("acos", GFC_ISYM_ACOS, GFC_STD_F77);
 
+  add_sym_1 ("acosh", 1, 1, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_acosh, gfc_resolve_acosh,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("dacosh", 1, 1, BT_REAL, dd, GFC_STD_GNU,
+	     NULL, gfc_simplify_acosh, gfc_resolve_acosh,
+	     x, BT_REAL, dd, REQUIRED);
+
+  make_generic ("acosh", GFC_ISYM_ACOSH, GFC_STD_GNU);
+
   add_sym_1 ("adjustl", 1, 1, BT_CHARACTER, dc, GFC_STD_F95,
 	     NULL, gfc_simplify_adjustl, NULL,
 	     stg, BT_CHARACTER, dc, REQUIRED);
@@ -980,6 +990,16 @@ add_functions (void)
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("asin", GFC_ISYM_ASIN, GFC_STD_F77);
+  
+  add_sym_1 ("asinh", 1, 1, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_asinh, gfc_resolve_asinh,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("dasinh", 1, 1, BT_REAL, dd, GFC_STD_GNU,
+	     NULL, gfc_simplify_asinh, gfc_resolve_asinh,
+	     x, BT_REAL, dd, REQUIRED);
+
+  make_generic ("asinh", GFC_ISYM_ASINH, GFC_STD_GNU);
 
   add_sym_2 ("associated", 0, 1, BT_LOGICAL, dl, GFC_STD_F95,
 	     gfc_check_associated, NULL, NULL,
@@ -996,6 +1016,16 @@ add_functions (void)
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("atan", GFC_ISYM_ATAN, GFC_STD_F77);
+  
+  add_sym_1 ("atanh", 1, 1, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_atanh, gfc_resolve_atanh,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("datanh", 1, 1, BT_REAL, dd, GFC_STD_GNU,
+	     NULL, gfc_simplify_atanh, gfc_resolve_atanh,
+	     x, BT_REAL, dd, REQUIRED);
+
+  make_generic ("atanh", GFC_ISYM_ATANH, GFC_STD_GNU);
 
   add_sym_2 ("atan2", 1, 1, BT_REAL, dr, GFC_STD_F77,
 	     gfc_check_atan2, gfc_simplify_atan2, gfc_resolve_atan2,
@@ -1006,7 +1036,7 @@ add_functions (void)
 	     y, BT_REAL, dd, REQUIRED, x, BT_REAL, dd, REQUIRED);
 
   make_generic ("atan2", GFC_ISYM_ATAN2, GFC_STD_F77);
-
+  
   /* Bessel and Neumann functions for G77 compatibility.  */
   add_sym_1 ("besj0", 1, 0, BT_REAL, dr, GFC_STD_GNU,
 	     gfc_check_g77_math1, NULL, gfc_resolve_g77_math1,
@@ -2914,7 +2944,7 @@ check_intrinsic_standard (const char *name, int standard, locus * where)
   if (!gfc_option.warn_nonstd_intrinsics)
     return;
 
-  gfc_notify_std (standard, "Intrinsic '%s' at %L is not included"
+  gfc_notify_std (standard, "Intrinsic '%s' at %L is not included "
 		  "in the selected standard", name, where);
 }
 
@@ -3007,16 +3037,13 @@ got_specific:
   expr->value.function.isym = specific;
   gfc_intrinsic_symbol (expr->symtree->n.sym);
 
+  gfc_suppress_error = 0;
   if (do_simplify (specific, expr) == FAILURE)
-    {
-      gfc_suppress_error = 0;
-      return MATCH_ERROR;
-    }
+    return MATCH_ERROR;
 
   /* TODO: We should probably only allow elemental functions here.  */
   flag |= (expr->ts.type != BT_INTEGER && expr->ts.type != BT_CHARACTER);
 
-  gfc_suppress_error = 0;
   if (pedantic && gfc_init_expr
       && flag && gfc_init_expr_extensions (specific))
     {

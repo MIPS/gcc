@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -1107,6 +1107,15 @@ java_init_decl_processing (void)
   TREE_THIS_VOLATILE (soft_nullpointer_node) = 1;
   TREE_SIDE_EFFECTS (soft_nullpointer_node) = 1;
 
+  soft_abstractmethod_node
+    = builtin_function ("_Jv_ThrowAbstractMethodError",
+			build_function_type (void_type_node, endlink),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* Mark soft_abstractmethod_node as a `noreturn' function with side
+     effects.  */
+  TREE_THIS_VOLATILE (soft_abstractmethod_node) = 1;
+  TREE_SIDE_EFFECTS (soft_abstractmethod_node) = 1;
+
   t = tree_cons (NULL_TREE, class_ptr_type,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
   soft_checkcast_node
@@ -1188,6 +1197,7 @@ java_init_decl_processing (void)
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
                                              ? "__gcj_personality_sj0"
                                              : "__gcj_personality_v0");
+  default_init_unwind_resume_libfunc ();
 
   lang_eh_runtime_type = do_nothing;
 
@@ -1300,7 +1310,7 @@ pushdecl (tree x)
 	/* error_mark_node is 0 for a while during initialization!  */
 	{
 	  t = 0;
-	  error ("%J'%D' used prior to declaration", x, x);
+	  error ("%q+D used prior to declaration", x);
 	}
 
       /* If we're naming a hitherto-unnamed type, set its TYPE_NAME
@@ -1672,12 +1682,12 @@ poplevel (int keep, int reverse, int functionbody)
 
 	  if (DECL_INITIAL (label) == 0)
 	    {
-	      error ("%Jlabel '%D' used but not defined", label, label);
+	      error ("label %q+D used but not defined", label);
 	      /* Avoid crashing later.  */
 	      define_label (input_location, DECL_NAME (label));
 	    }
 	  else if (warn_unused[UNUSED_LABEL] && !TREE_USED (label))
-	    warning (0, "%Jlabel '%D' defined but not used", label, label);
+	    warning (0, "label %q+D defined but not used", label);
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
 	  /* Put the labels into the "variables" of the
@@ -1805,8 +1815,8 @@ force_poplevels (int start_pc)
   while (current_binding_level->start_pc > start_pc)
     {
       if (pedantic && current_binding_level->start_pc > start_pc)
-	warning (0, "%JIn %D: overlapped variable and exception ranges at %d",
-                 current_function_decl, current_function_decl,
+	warning (0, "In %+D: overlapped variable and exception ranges at %d",
+                 current_function_decl,
 		 current_binding_level->start_pc);
       poplevel (1, 0, 0);
     }
@@ -1877,8 +1887,8 @@ give_name_to_locals (JCF *jcf)
 	  tree decl = build_decl (VAR_DECL, name, type);
 	  if (end_pc > DECL_CODE_LENGTH (current_function_decl))
 	    {
-	      warning (0, "%Jbad PC range for debug info for local '%D'",
-                       decl, decl);
+	      warning (0, "bad PC range for debug info for local %q+D",
+                       decl);
 	      end_pc = DECL_CODE_LENGTH (current_function_decl);
 	    }
 

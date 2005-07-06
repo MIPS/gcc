@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --                  ADA.STRINGS.WIDE_UNBOUNDED.WIDE_TEXT_IO                 --
 --                                                                          --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -73,7 +73,6 @@ package body Ada.Strings.Wide_Unbounded.Wide_Text_IO is
    begin
       Get_Line (File, Buffer, Last);
       Str1 := new Wide_String'(Buffer (1 .. Last));
-
       while Last = Buffer'Last loop
          Get_Line (File, Buffer, Last);
          Str2 := new Wide_String'(Str1.all & Buffer (1 .. Last));

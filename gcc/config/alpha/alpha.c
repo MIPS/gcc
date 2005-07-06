@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -1046,6 +1046,9 @@ alpha_legitimize_address (rtx x, rtx scratch,
 
       switch (tls_symbolic_operand_type (x))
 	{
+	case TLS_MODEL_NONE:
+	  break;
+
 	case TLS_MODEL_GLOBAL_DYNAMIC:
 	  start_sequence ();
 
@@ -1134,6 +1137,9 @@ alpha_legitimize_address (rtx x, rtx scratch,
 	      emit_insn (gen_rtx_SET (VOIDmode, tp, insn));
 	    }
 	  return gen_rtx_LO_SUM (Pmode, tp, eqv);
+
+	default:
+	  gcc_unreachable ();
 	}
 
       if (local_symbolic_operand (x, Pmode))
@@ -4069,7 +4075,7 @@ int
 alpha_expand_block_clear (rtx operands[])
 {
   rtx bytes_rtx	= operands[1];
-  rtx align_rtx = operands[2];
+  rtx align_rtx = operands[3];
   HOST_WIDE_INT orig_bytes = INTVAL (bytes_rtx);
   HOST_WIDE_INT bytes = orig_bytes;
   HOST_WIDE_INT align = INTVAL (align_rtx) * BITS_PER_UNIT;
@@ -5779,7 +5785,7 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, tree lhs, tree rhs)
 
   base = get_base_address (base);
   if (TREE_CODE (base) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, var_ann (base)->uid))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (base)))
     return false;
 
   offset = TREE_OPERAND (lhs, offset_arg);

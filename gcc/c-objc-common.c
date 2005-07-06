@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -40,7 +40,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "c-objc-common.h"
 
-static bool c_tree_printer (pretty_printer *, text_info *);
+static bool c_tree_printer (pretty_printer *, text_info *, const char *,
+			    int, bool, bool, bool);
 
 bool
 c_missing_noreturn_ok_p (tree decl)
@@ -77,8 +78,8 @@ c_cannot_inline_tree_fn (tree *fnp)
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     {
       if (do_warning)
-	warning (0, "%Jfunction %qF can never be inlined because it "
-		 "is suppressed using -fno-inline", fn, fn);
+	warning (0, "function %q+F can never be inlined because it "
+		 "is suppressed using -fno-inline", fn);
       goto cannot_inline;
     }
 
@@ -87,16 +88,16 @@ c_cannot_inline_tree_fn (tree *fnp)
   if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
-	warning (0, "%Jfunction %qF can never be inlined because it might not "
-		 "be bound within this unit of translation", fn, fn);
+	warning (0, "function %q+F can never be inlined because it might not "
+		 "be bound within this unit of translation", fn);
       goto cannot_inline;
     }
 
   if (!function_attribute_inlinable_p (fn))
     {
       if (do_warning)
-	warning (0, "%Jfunction %qF can never be inlined because it uses "
-		 "attributes conflicting with inlining", fn, fn);
+	warning (0, "function %q+F can never be inlined because it uses "
+		 "attributes conflicting with inlining", fn);
       goto cannot_inline;
     }
 
@@ -160,7 +161,8 @@ c_objc_common_init (void)
    Please notice when called, the `%' part was already skipped by the
    diagnostic machinery.  */
 static bool
-c_tree_printer (pretty_printer *pp, text_info *text)
+c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
+		int precision, bool wide, bool set_locus, bool hash)
 {
   tree t = va_arg (*text->args_ptr, tree);
   tree name;
@@ -168,7 +170,13 @@ c_tree_printer (pretty_printer *pp, text_info *text)
   c_pretty_printer *cpp = (c_pretty_printer *) pp;
   pp->padding = pp_none;
 
-  switch (*text->format_spec)
+  if (precision != 0 || wide || hash)
+    return false;
+
+  if (set_locus && text->locus)
+    *text->locus = DECL_SOURCE_LOCATION (t);
+
+  switch (*spec)
     {
     case 'D':
       if (DECL_DEBUG_EXPR_IS_FROM (t) && DECL_DEBUG_EXPR (t))

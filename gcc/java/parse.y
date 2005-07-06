@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -72,6 +72,7 @@ definitions and other extensions.  */
 #include "ggc.h"
 #include "debug.h"
 #include "tree-inline.h"
+#include "tree-dump.h"
 #include "cgraph.h"
 #include "target.h"
 
@@ -96,7 +97,7 @@ static tree lookup_java_method2 (tree, tree, int);
 static tree method_header (int, tree, tree, tree);
 static void fix_method_argument_names (tree ,tree);
 static tree method_declarator (tree, tree);
-static void parse_warning_context (tree cl, const char *gmsgid, ...);
+static void parse_warning_context (tree cl, const char *gmsgid, ...) ATTRIBUTE_GCC_DIAG(2,3);
 #ifdef USE_MAPPED_LOCATION
 static void issue_warning_error_from_context
   (source_location, const char *gmsgid, va_list *);
@@ -161,7 +162,7 @@ static tree build_new_invocation (tree, tree);
 static tree build_assignment (int, int, tree, tree);
 static tree build_binop (enum tree_code, int, tree, tree);
 static tree patch_assignment (tree, tree);
-static tree patch_binop (tree, tree, tree);
+static tree patch_binop (tree, tree, tree, int);
 static tree build_unaryop (int, int, tree);
 static tree build_incdec (int, int, tree, int);
 static tree patch_unaryop (tree, tree);
@@ -1319,6 +1320,7 @@ interface_member_declaration:
 		{ end_class_declaration (1); }
 |	interface_declaration	/* Added, JDK1.1 inner interfaces */
 		{ end_class_declaration (1); }
+|	empty_statement
 ;
 
 constant_declaration:
@@ -3141,7 +3143,8 @@ issue_warning_error_from_context (
   text.err_no = errno;
   text.args_ptr = ap;
   text.format_spec = gmsgid;
-  pp_format_text (global_dc->printer, &text);
+  pp_format (global_dc->printer, &text);
+  pp_output_formatted_text (global_dc->printer);
   strncpy (buffer, pp_formatted_text (global_dc->printer), sizeof (buffer) - 1);
   buffer[sizeof (buffer) - 1] = '\0';
   pp_clear_output_area (global_dc->printer);
@@ -8389,13 +8392,6 @@ nested_field_access_p (tree type, tree decl)
     {
       if (type_root == decl_type)
         return 1;
-
-      /* Before we give up, see whether it is a non-static field
-         inherited from the enclosing context we are considering.  */
-      if (!DECL_CONTEXT (TYPE_NAME (type_root))
-          && !is_static
-          && inherits_from_p (type_root, decl_type))
-        return 1;
     }
 
   if (TREE_CODE (decl_type) == RECORD_TYPE
@@ -8414,6 +8410,13 @@ nested_field_access_p (tree type, tree decl)
     decl_type_root = decl_type;
     
   if (type_root == decl_type_root)
+    return 1;
+
+  /* Before we give up, see whether it is a non-static field
+     inherited from the enclosing context we are considering.  */
+  if (!DECL_CONTEXT (TYPE_NAME (type_root))
+      && !is_static
+      && inherits_from_p (type_root, decl_type))
     return 1;
 
   return 0;
@@ -11416,13 +11419,9 @@ find_most_specific_methods_list (tree list)
 	  if (argument_types_convertible (method_v, current_v))
 	    {
 	      if (valid_method_invocation_conversion_p
-		  (DECL_CONTEXT (method_v), DECL_CONTEXT (current_v))
-		  || (INNER_CLASS_TYPE_P (DECL_CONTEXT (current_v))
-		      && enclosing_context_p (DECL_CONTEXT (method_v),
-					      DECL_CONTEXT (current_v))))
+		  (DECL_CONTEXT (method_v), DECL_CONTEXT (current_v)))
 		{
-		  int v = (DECL_SPECIFIC_COUNT (current_v) +=
-		    (INNER_CLASS_TYPE_P (DECL_CONTEXT (current_v)) ? 2 : 1));
+		  int v = (DECL_SPECIFIC_COUNT (current_v) += 1);
 		  max = (v > max ? v : max);
 		}
 	    }
@@ -11795,8 +11794,13 @@ java_complete_lhs (tree node)
 
       /* First, the case expression must be constant. Values of final
          fields are accepted. */
+      nn = fold_constant_for_init (cn, NULL_TREE);
+      if (nn != NULL_TREE)
+	cn = nn;
+
       cn = fold (cn);
-      if ((TREE_CODE (cn) == COMPOUND_EXPR || TREE_CODE (cn) == COMPONENT_REF)
+      if ((TREE_CODE (cn) == COMPOUND_EXPR
+	   || TREE_CODE (cn) == COMPONENT_REF)
 	  && JDECL_P (TREE_OPERAND (cn, 1))
 	  && FIELD_FINAL (TREE_OPERAND (cn, 1))
 	  && DECL_INITIAL (TREE_OPERAND (cn, 1)))
@@ -12307,12 +12311,12 @@ java_complete_lhs (tree node)
 
           TREE_OPERAND (node, 1) = nn;
         }
-      return patch_binop (node, wfl_op1, wfl_op2);
+      return patch_binop (node, wfl_op1, wfl_op2, 0);
 
     case INSTANCEOF_EXPR:
       wfl_op1 = TREE_OPERAND (node, 0);
       COMPLETE_CHECK_OP_0 (node);
-      return patch_binop (node, wfl_op1, TREE_OPERAND (node, 1));
+      return patch_binop (node, wfl_op1, TREE_OPERAND (node, 1), 0);
 
     case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
@@ -13446,7 +13450,7 @@ java_refold (tree t)
    of remaining nodes and detects more errors in certain cases.  */
 
 static tree
-patch_binop (tree node, tree wfl_op1, tree wfl_op2)
+patch_binop (tree node, tree wfl_op1, tree wfl_op2, int folding)
 {
   tree op1 = TREE_OPERAND (node, 0);
   tree op2 = TREE_OPERAND (node, 1);
@@ -13628,16 +13632,14 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2)
 			    build_int_cst (NULL_TREE, 0x3f)));
 
       /* The >>> operator is a >> operating on unsigned quantities */
-      if (code == URSHIFT_EXPR && ! flag_emit_class_files)
+      if (code == URSHIFT_EXPR && (folding || ! flag_emit_class_files))
 	{
 	  tree to_return;
           tree utype = java_unsigned_type (prom_type);
           op1 = convert (utype, op1);
-	  TREE_SET_CODE (node, RSHIFT_EXPR);
-          TREE_OPERAND (node, 0) = op1;
-          TREE_OPERAND (node, 1) = op2;
-          TREE_TYPE (node) = utype;
-	  to_return = convert (prom_type, node);
+
+	  to_return = fold_build2 (RSHIFT_EXPR, utype, op1, op2);
+	  to_return = convert (prom_type, to_return);
 	  /* Copy the original value of the COMPOUND_ASSIGN_P flag */
 	  COMPOUND_ASSIGN_P (to_return) = COMPOUND_ASSIGN_P (node);
 	  TREE_SIDE_EFFECTS (to_return)
@@ -14416,6 +14418,12 @@ patch_unaryop (tree node, tree wfl_op)
 	  value = fold (value);
 	  return value;
 	}
+      break;
+
+    case NOP_EXPR:
+      /* This can only happen when the type is already known.  */
+      gcc_assert (TREE_TYPE (node) != NULL_TREE);
+      prom_type = TREE_TYPE (node);
       break;
     }
 
@@ -16218,13 +16226,14 @@ fold_constant_for_init (tree node, tree context)
       if (val == NULL_TREE || ! TREE_CONSTANT (val))
 	return NULL_TREE;
       TREE_OPERAND (node, 1) = val;
-      return patch_binop (node, op0, op1);
+      return patch_binop (node, op0, op1, 1);
 
     case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
     case TRUTH_NOT_EXPR:
     case BIT_NOT_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       op0 = TREE_OPERAND (node, 0);
       val = fold_constant_for_init (op0, context);
       if (val == NULL_TREE || ! TREE_CONSTANT (val))
@@ -16250,8 +16259,8 @@ fold_constant_for_init (tree node, tree context)
       if (val == NULL_TREE || ! TREE_CONSTANT (val))
 	return NULL_TREE;
       TREE_OPERAND (node, 2) = val;
-      return integer_zerop (TREE_OPERAND (node, 0)) ? TREE_OPERAND (node, 1)
-	: TREE_OPERAND (node, 2);
+      return integer_zerop (TREE_OPERAND (node, 0)) ? TREE_OPERAND (node, 2)
+	: TREE_OPERAND (node, 1);
 
     case VAR_DECL:
     case FIELD_DECL:

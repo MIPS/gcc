@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -306,7 +306,7 @@ fix_range (const char *const_str)
      REG2 are either register names or register numbers.  The effect
      of this option is to mark the registers in the range from REG1 to
      REG2 as ``fixed'' so they won't be used by the compiler.  This is
-     used, e.g., to ensure that kernel mode code doesn't use f32-f127.  */
+     used, e.g., to ensure that kernel mode code doesn't use fr4-fr31.  */
 
   i = strlen (const_str);
   str = (char *) alloca (i + 1);
@@ -449,12 +449,12 @@ override_options (void)
 
   if (flag_pic && TARGET_PORTABLE_RUNTIME)
     {
-      warning (0, "PIC code generation is not supported in the portable runtime model\n");
+      warning (0, "PIC code generation is not supported in the portable runtime model");
     }
 
   if (flag_pic && TARGET_FAST_INDIRECT_CALLS)
    {
-      warning (0, "PIC code generation is not compatible with fast indirect calls\n");
+      warning (0, "PIC code generation is not compatible with fast indirect calls");
    }
 
   if (! TARGET_GAS && write_symbols != NO_DEBUG)

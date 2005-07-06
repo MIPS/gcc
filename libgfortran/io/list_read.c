@@ -236,11 +236,6 @@ eat_separator (void)
 
     case '/':
       input_complete = 1;
-      if (!namelist_mode)
-	{
-	  next_record (0);
-	  at_eol = 1;
-	}
       break;
 
     case '\n':
@@ -344,7 +339,7 @@ convert_integer (int length, int negative)
 {
   char c, *buffer, message[100];
   int m;
-  int64_t v, max, max10;
+  GFC_INTEGER_LARGEST v, max, max10;
 
   buffer = saved_string;
   v = 0;

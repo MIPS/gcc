@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -2895,7 +2895,7 @@ mcore_mark_dllimport (tree decl)
       && !DECL_VIRTUAL_P (decl)
       && DECL_INITIAL (decl))
     {
-      error ("%Jinitialized variable '%D' is marked dllimport", decl, decl);
+      error ("initialized variable %q+D is marked dllimport", decl);
       return;
     }
   

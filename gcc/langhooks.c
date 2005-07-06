@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -542,4 +542,11 @@ HOST_WIDE_INT
 lhd_to_target_charset (HOST_WIDE_INT c)
 {
   return c;
+}
+
+tree
+lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
+		  bool *ti ATTRIBUTE_UNUSED, bool *se ATTRIBUTE_UNUSED)
+{
+  return expr;
 }
