@@ -1,3 +1,17 @@
+2005-07-06  Dale Johannesen  <dalej@apple.com>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+        Radar 4158356
+        * tree-sra.c (enum copy_how):  New.
+        (struct sra_elt):  Change use_block_copy to how_to_copy.
+        (instantiate_element_integer):  New.
+        (decide_block_copy):  Rewrite logic.
+        (generate_copy_inout):  Use how_to_copy.
+        (generate_element_zero):  Ditto.
+        (scalarize_copy):  Ditto.
+        (scalarize_init):  Ditto.
+        (scalarize_ldst):  Ditto.
+
 2005-06-30 Devang Patel  <dpatel@apple.com>
 	
 	* doc/invoke.texi: Document -fsave-repository.
