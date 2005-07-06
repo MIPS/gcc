@@ -1,3 +1,9 @@
+2005-07-06  Dale Johannesen  <dalej@apple.com>
+
+        Radar 4158356
+        * gcc.apple/4158356.c:  New.
+        * g++.dg/tree-ssa/ssa-sra-2.C:  Modified to pass.
+
 2005-07-04  Devang Patel  <dpatel@apple.com>
 
 	* objc.dg/ss/ss.exp: Test objective-c headers.
