@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline */
 /* { dg-do compile } */
 /* { dg-options "-O2 -funroll-loops -march=nocona" } */
 
@@ -30,3 +31,4 @@ void f()
     T[0] = _mm_srai_pi16(R, 3);
   }
 }
+/* APPLE LOCAL end mainline */
