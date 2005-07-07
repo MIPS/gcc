@@ -1,3 +1,17 @@
+2005-07-07  Eric Christopher  <echristo@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/libgomp.dg/dg.exp: Add -fopenmp to DEFAULT_CFLAGS.
+	* testsuite/libgomp.dg/omp_hello.c: Add standard includes, fix
+	up code.
+	* testsuite/libgomp.dg/omp_matvec.c: Ditto.
+	* testsuite/libgomp.dg/omp_orphan.c: Ditto.
+	* testsuite/libgomp.dg/omp_reduction.c: Ditto.
+	* testsuite/libgomp.dg/omp_workshare1.c: Ditto.
+	* testsuite/libgomp.dg/omp_workshare2.c: Ditto.
+	* testsuite/libgomp.dg/omp_workshare3.c: Ditto.
+	* testsuite/libgomp.dg/omp_workshare4.c: Ditto.
+
 2005-06-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* TOPLEVEL.patch: Remove.
