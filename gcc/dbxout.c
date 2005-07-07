@@ -977,18 +977,22 @@ dbxout_function_end (tree decl)
 
   /* By convention, GCC will mark the end of a function with an N_FUN
      symbol and an empty string.  */
-#ifdef DBX_OUTPUT_NFUN
   /* APPLE LOCAL ss2 */
-  DBX_OUTPUT_NFUN (dbx_out_file, lscope_label_name, current_function_decl);
-#else
-  dbxout_begin_empty_stabs (N_FUN);
-  dbxout_stab_value_label_diff (lscope_label_name,
-				XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
-				
-#endif
-
-  if (!NO_DBX_BNSYM_ENSYM && !flag_debug_only_used_symbols)
-    dbxout_stabd (N_ENSYM, 0);
+  if (!flag_save_repository)
+    {
+ #ifdef DBX_OUTPUT_NFUN
+      DBX_OUTPUT_NFUN (dbx_out_file, lscope_label_name, current_function_decl);
+ #else
+      dbxout_begin_empty_stabs (N_FUN);
+      dbxout_stab_value_label_diff (lscope_label_name,
+				    XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
+      
+ #endif
+      
+      if (!NO_DBX_BNSYM_ENSYM && !flag_debug_only_used_symbols)
+	dbxout_stabd (N_ENSYM, 0);
+    }
+  /* APPLE LOCAL end ss2 */
 }
 #endif /* DBX_DEBUGGING_INFO */
 
@@ -1335,6 +1339,8 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
   if (use_gnu_debug_info_extensions
       && !NO_DBX_FUNCTION_END
       && !NO_DBX_BNSYM_ENSYM
+      /* APPLE LOCAL ss2 */
+      && !flag_save_repository
       && !flag_debug_only_used_symbols)
     dbxout_stabd (N_BNSYM, 0);
 
@@ -1349,6 +1355,10 @@ dbxout_source_line (unsigned int lineno, const char *filename)
 {
   dbxout_source_file (filename);
 
+  /* APPLE LOCAL begin ss2 */
+  if (!flag_save_repository)
+    {
+      /* APPLE LOCAL end ss2 */
 #ifdef DBX_OUTPUT_SOURCE_LINE
   /* APPLE LOCAL ss2 */
   DBX_OUTPUT_SOURCE_LINE (dbx_out_file, lineno, dbxout_source_line_counter);
@@ -1364,6 +1374,8 @@ dbxout_source_line (unsigned int lineno, const char *filename)
   else
     dbxout_stabd (N_SLINE, lineno);
 #endif
+  /* APPLE LOCAL ss2 */
+    }
 }
 
 /* Describe the beginning of an internal block within a function.  */
@@ -2568,6 +2580,11 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
 	break;
 
+      /* APPLE LOCAL begin ss2 */
+      if (flag_save_repository)
+	break;
+      /* APPLE LOCAL end ss2 */
+
       dbxout_begin_complex_stabs ();
       stabstr_I (DECL_ASSEMBLER_NAME (decl));
       stabstr_S (TREE_PUBLIC (decl) ? ":F" : ":f");
@@ -2913,13 +2930,24 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	  if (DECL_INITIAL (decl) == 0
 	      || (!strcmp (lang_hooks.name, "GNU C++")
 		  && DECL_INITIAL (decl) == error_mark_node))
-	    code = N_LCSYM;
+	    /* APPLE LOCAL begin ss2 */
+	    {
+	      code = N_LCSYM;
+	      if (flag_save_repository)
+		return 0;
+	    }
+	    /* APPLE LOCAL end ss2 */
 	  else if (DECL_IN_TEXT_SECTION (decl))
 	    /* This is not quite right, but it's the closest
 	       of all the codes that Unix defines.  */
 	    code = DBX_STATIC_CONST_VAR_CODE;
 	  else
 	    {
+	      /* APPLE LOCAL begin ss2 */
+	      if (flag_save_repository)
+		return 0;
+	      /* APPLE LOCAL end ss2 */
+
 	      /* Ultrix `as' seems to need this.  */
 #ifdef DBX_STATIC_STAB_DATA_SECTION
 	      data_section ();
@@ -3003,6 +3031,11 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	 cases we're forced to lie to debuggers and tell them that
 	 this variable was itself `static'.  */
       code = N_LCSYM;
+
+      /* APPLE LOCAL begin ss2 */
+      if (flag_save_repository)
+	return 0;
+      /* APPLE LOCAL end ss2 */
       letter = 'V';
       addr = XEXP (XEXP (home, 0), 0);
     }
@@ -3365,6 +3398,10 @@ static void
 dbx_output_lbrac (const char *label,
 		  const char *begin_label ATTRIBUTE_UNUSED)
 {
+  /* APPLE LOCAL begin ss2 */
+  if (flag_save_repository)
+    return;
+  /* APPLE LOCAL end ss2 */
 #ifdef DBX_OUTPUT_LBRAC
   /* APPLE LOCAL ss2 */
   DBX_OUTPUT_LBRAC (dbx_out_file, label);
@@ -3384,6 +3421,10 @@ static void
 dbx_output_rbrac (const char *label,
 		  const char *begin_label ATTRIBUTE_UNUSED)
 {
+  /* APPLE LOCAL begin ss2 */
+  if (flag_save_repository)
+    return;
+  /* APPLE LOCAL end ss2 */
 #ifdef DBX_OUTPUT_RBRAC
   /* APPLE LOCAL ss2 */
   DBX_OUTPUT_RBRAC (dbx_out_file, label);

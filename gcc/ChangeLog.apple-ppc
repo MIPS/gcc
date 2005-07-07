@@ -1,3 +1,16 @@
+2005-07-07  Devang Patel  <dpatel@apple.com>
+
+	Radar 4172062
+	* dbxout.c (dbxout_function_end): Disable FUN stabs when symbol 
+	separation is ON.
+	(dbxout_begin_prologue): Disable BNSYM stabs when symbol separation is 
+	ON.
+	(dbxout_source_line): Disable SLINE stabs when symbol separation is ON.
+	(dbxout_symbol, dbxout_symbol_location): Disable STSYM and LCSYM stabs 
+	when symbol separation 	is ON.
+	(dbxout_output_lbrac, dbxout_output_rbrack): Disable LBRAC and RBRAC
+	stabs when symbol separation is ON.
+
 2005-07-06  Dale Johannesen  <dalej@apple.com>
             Andrew Pinski  <pinskia@physics.uc.edu>
 
