@@ -1,5 +1,10 @@
 2005-07-04  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.dg/dfp/conversions-2.c: Include <stdlib.h> instead of
+	prototyping abort ().
+
+2005-07-04  Ben Elliston  <bje@au.ibm.com>
+
 	* arg-passing-1.c: New test.
 	* arg-passing-2.c: Likewise.
 	* arg-passing-3.c: Likewise.
