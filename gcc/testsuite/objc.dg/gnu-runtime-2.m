@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Sanity check for GNU-runtime version of constant strings,
    regardless of runtime used on target system.  */
 
