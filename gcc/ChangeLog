@@ -1,3 +1,11 @@
+2005-07-07  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR rtl-optimization/22258
+	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg00053.html
+	* combine.c (likely_spilled_retval_1, likely_spilled_retval_p):
+	New functions.
+	(try_combine): Use likely_spilled_retval_p.
+
 2005-07-06  J"orn Rennecke <joern.rennecke@st.com>
 
 	* sh.c (final_prescan_insn): Undo bogus change from 2005-05-09.
