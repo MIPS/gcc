@@ -1,3 +1,16 @@
+2005-07-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* build_gcc (LIBSTDCXX_VERSION): New.
+	(Run the build): Don't build libstdc++.
+	(CONFIGFLAGS): Have program-transform-name change 'g++' too.
+	Change --with-gxx-include-dir to point to new libstdc++ location.
+	(Rearrange various libraries): Remove libstdc++-related stuff.
+	(bin): Find all the g++ drivers.
+	(lib): Explicitly name libgcc libraries.
+	Dramatically simplify installed-name logic.
+	(include): Don't do anything with c++ headers.
+	(Install man pages): Don't handle g++.1 specially.
+
 2005-07-05  Geoffrey Keating  <geoffk@apple.com>
 
 	* more-hdrs/stdint.h (WCHAR_MIN): Don't define if already defined.
