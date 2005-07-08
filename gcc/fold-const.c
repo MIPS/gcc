@@ -9860,6 +9860,29 @@ fold (tree expr)
 	}
       return t;
 
+   case BIT_FIELD_REF:
+      if (TREE_CODE (arg0) == VECTOR_CST
+	  && type == TREE_TYPE (TREE_TYPE (arg0))
+	  && host_integerp (arg1, 1)
+	  && host_integerp (TREE_OPERAND (t, 2), 1))
+	{
+	  unsigned HOST_WIDE_INT width = tree_low_cst (arg1, 1);
+	  unsigned HOST_WIDE_INT idx = tree_low_cst (TREE_OPERAND (t, 2), 1);
+
+	  if (width != 0
+	      && simple_cst_equal (arg1, TYPE_SIZE (type)) == 1
+	      && (idx % width) == 0
+	      && (idx = idx / width)
+		 < TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg0)))
+	    {
+	      tree elements = TREE_VECTOR_CST_ELTS (arg0);
+	      while (idx-- > 0)
+		elements = TREE_CHAIN (elements);
+	      return TREE_VALUE (elements);
+	    }
+	}
+      return t;
+
     default:
       return t;
     } /* switch (code) */

@@ -1,3 +1,7 @@
+2005-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (fold): Optimize BIT_FIELD_REF of VECTOR_CST.
+
 2005-07-07  Mark Mitchell  <mark@codesourcery.com>
 
 	* version.c (version_string): Set to 4.0.2, in prerelease format.
