@@ -1,5 +1,11 @@
 2005-06-06  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move,
+	rs6000_register_move_cost, rs6000_memory_move_cost): Likewise.
+	* config/ia64/ia64.c (mark_reg_gr_used_mask): Likewise.
+
+2005-06-06  Jakub Jelinek  <jakub@redhat.com>
+
 	* fold-const.c (operand_equal_p): Don't return 1, if element
 	chains for 2 VECTOR_CSTs are not the same length.
 
