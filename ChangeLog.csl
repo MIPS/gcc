@@ -1,3 +1,9 @@
+2005-07-07  Paul Brook  <paul@codesourcery.com>
+
+	Issue #347
+	* config/arm/arm.c (arm_pad_arg_upward): Compare return value of
+	DEFAULT_FUNCTION_ARG_PADDING to upward.
+
 2005-06-14  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* gcc/config/mips/linux.h (MD_FALLBACK_REGISTER_OFFSET): Define.
