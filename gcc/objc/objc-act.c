@@ -941,15 +941,15 @@ objc_is_class_id (tree type)
 /* The 'objc_types_compatible_p' and 'objc_comptypes' routines
    have been removed.  */
 
-/* Construct a C struct with tag NAME, a base struct with tag
+/* Construct a C struct with same name as CLASS, a base struct with tag
    SUPER_NAME (if any), and FIELDS indicated.  */
 
 static tree
-objc_build_struct (tree name, tree fields, tree super_name)
+objc_build_struct (tree class, tree fields, tree super_name)
 {
+  tree name = CLASS_NAME (class);
   tree s = start_struct (RECORD_TYPE, name);
   tree super = (super_name ? xref_tag (RECORD_TYPE, super_name) : NULL_TREE);
-  /* APPLE LOCAL mainline */
   tree t, objc_info = NULL_TREE;
 
   if (super)
@@ -994,7 +994,6 @@ objc_build_struct (tree name, tree fields, tree super_name)
       fields = base;
     }
 
-  /* APPLE LOCAL begin mainline */
   /* NB: Calling finish_struct() may cause type TYPE_LANG_SPECIFIC fields
      in all variants of this RECORD_TYPE to be clobbered, but it is therein
      that we store protocol conformance info (e.g., 'NSObject <MyProtocol>').
@@ -1006,22 +1005,29 @@ objc_build_struct (tree name, tree fields, tree super_name)
       = chainon (objc_info,
 		 build_tree_list (NULL_TREE, TYPE_OBJC_INFO (t)));
 
-  /* APPLE LOCAL end mainline */
+  /* Point the struct at its related Objective-C class.  */
+  INIT_TYPE_OBJC_INFO (s);
+  TYPE_OBJC_INTERFACE (s) = class;
+
   s = finish_struct (s, fields, NULL_TREE);
-  /* APPLE LOCAL begin mainline */
 
   for (t = TYPE_NEXT_VARIANT (s); t;
        t = TYPE_NEXT_VARIANT (t), objc_info = TREE_CHAIN (objc_info))
-    TYPE_OBJC_INFO (t) = TREE_VALUE (objc_info);
+    {
+      TYPE_OBJC_INFO (t) = TREE_VALUE (objc_info);
+      /* Replace the IDENTIFIER_NODE with an actual @interface.  */
+      TYPE_OBJC_INTERFACE (t) = class;
+    }
 
-  /* APPLE LOCAL end mainline */
   /* Use TYPE_BINFO structures to point at the super class, if any.  */
   objc_xref_basetypes (s, super);
+
+  /* Mark this struct as a class template.  */
+  CLASS_STATIC_TEMPLATE (class) = s;
 
   return s;
 }
 
-/* APPLE LOCAL begin mainline */
 /* Build a type differing from TYPE only in that TYPE_VOLATILE is set.
    Unlike tree.c:build_qualified_type(), preserve TYPE_LANG_SPECIFIC in the
    process.  */
@@ -1285,6 +1291,16 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
     }
   else
     rcls = rproto = NULL_TREE;
+
+  /* If we could not find an @interface declaration, we must have
+     only seen a @class declaration; for purposes of type comparison,
+     treat it as a stand-alone (root) class.  */
+
+  if (lcls && TREE_CODE (lcls) == IDENTIFIER_NODE)
+    lcls = NULL_TREE;
+
+  if (rcls && TREE_CODE (rcls) == IDENTIFIER_NODE)
+    rcls = NULL_TREE;
 
   /* If either type is an unqualified 'id', we're done.  */
   if ((!lproto && objc_is_object_id (ltyp))
@@ -4308,21 +4324,12 @@ build_private_template (tree class)
 {
   if (!CLASS_STATIC_TEMPLATE (class))
     {
-      /* APPLE LOCAL begin mainline */
-      tree record = objc_build_struct (CLASS_NAME (class),
+      tree record = objc_build_struct (class,
 				       get_class_ivars (class, false),
 				       CLASS_SUPER_NAME (class));
 
-      /* mark this record as class template - for class type checking */
-      /* APPLE LOCAL end mainline */
-      INIT_TYPE_OBJC_INFO (record);
-      TYPE_OBJC_INTERFACE (record) = class;
-      CLASS_STATIC_TEMPLATE (class) = record;
-
-      /* APPLE LOCAL begin mainline */
-      /* FSF Candidate */
-      /* Set the TREE_USED bit for this struct, so that stab generator can emit
-	 stabs for this struct type.  */
+      /* Set the TREE_USED bit for this struct, so that stab generator
+	 can emit stabs for this struct type.  */
       if (flag_debug_only_used_symbols && TYPE_STUB_DECL (record))
 	TREE_USED (TYPE_STUB_DECL (record)) = 1;
       /* APPLE LOCAL end mainline */

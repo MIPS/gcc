@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 @class Base;
 @protocol _Protocol;
 

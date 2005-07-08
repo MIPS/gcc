@@ -1,3 +1,9 @@
+2005-07-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4168740 (via mainline)
+	* obj-c++.dg/proto-lossage-6.mm: Bring over from mainline.
+	* objc.dg/proto-lossage-6.m: Likewise.
+
 2005-07-08 Devang Patel  <dpatel@apple.com>
 
 	* g++.dg/ss/two.C: New.
