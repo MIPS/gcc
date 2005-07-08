@@ -1,3 +1,10 @@
+2005-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19317
+	* g++.dg/opt/pr19317-1.C: New test.
+	* g++.dg/opt/pr19317-2.C: New test.
+	* g++.dg/opt/pr19317-3.C: New test.
+
 2005-06-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR regression/21897
