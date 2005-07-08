@@ -5166,14 +5166,21 @@ check_function_nonnull (tree attrs, tree params)
    from the end) is a (pointer)0.  */
 
 static void
-check_function_sentinel (tree attrs, tree params)
+check_function_sentinel (tree attrs, tree params, tree typelist)
 {
   tree attr = lookup_attribute ("sentinel", attrs);
 
   if (attr)
     {
-      if (!params)
-	warning ("missing sentinel in function call");
+      /* Skip over the named arguments.  */
+      while (typelist && params)
+      {
+	typelist = TREE_CHAIN (typelist);
+	params = TREE_CHAIN (params);
+      }
+      
+      if (typelist || !params)
+	warning ("not enough variable arguments to fit a sentinel");
       else
         {
 	  tree sentinel, end;
@@ -5196,7 +5203,7 @@ check_function_sentinel (tree attrs, tree params)
 	    }
 	  if (pos > 0)
 	    {
-	      warning ("not enough arguments to fit a sentinel");
+	      warning ("not enough variable arguments to fit a sentinel");
 	      return;
 	    }
 
@@ -5417,7 +5424,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 
 /* Check for valid arguments being passed to a function.  */
 void
-check_function_arguments (tree attrs, tree params)
+check_function_arguments (tree attrs, tree params, tree typelist)
 {
   /* Check for null being passed in a pointer argument that must be
      non-null.  We also need to do this if format checking is enabled.  */
@@ -5430,7 +5437,7 @@ check_function_arguments (tree attrs, tree params)
   if (warn_format)
     {
       check_function_format (attrs, params);
-      check_function_sentinel (attrs, params);
+      check_function_sentinel (attrs, params, typelist);
     }
 }
 

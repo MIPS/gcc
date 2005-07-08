@@ -1,3 +1,22 @@
+2005-07-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR c/21911
+	* gcc.dg/format/sentinel-1.c: Update.  Fix execl* calls.
+
+2005-07-08  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/22308
+	* gcc.dg/pr22308-1.c: New test.
+
+2005-07-08  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/22013
+	PR c/22098
+	* gcc.c-torture/compile/pr22013-1.c,
+	gcc.c-torture/execute/pr22098-1.c,
+	gcc.c-torture/execute/pr22098-2.c,
+	gcc.c-torture/execute/pr22098-3.c: New tests.
+
 2005-03-16  Daniel Berlin  <dberlin@dberlin.org>
 
 	* gcc.dg/tree-ssa/pr20490.c: New test.
