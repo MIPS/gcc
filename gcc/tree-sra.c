@@ -1437,9 +1437,11 @@ decide_block_copy (struct sra_elt *elt)
 	  /* If the type fits in a mode other than BLK_MODE, we don't really
 	     need to do a block copy or an element copy but we can use V_C_E
 	     and create an integer variable which has the same mode as the
-	     struct and this is only a copy.  */
+	     struct and this is only a copy.
+	     Copies bigger than DImode create problems later, so disallow them. */
 	  if (!elt->is_scalar && TYPE_MODE (elt->type) != BLKmode
-	      && elt->n_uses == 0 && elt->children == NULL)
+	      && elt->n_uses == 0 && elt->children == NULL
+	      && full_size <= GET_MODE_SIZE (DImode))
 	    how_to_copy = integer_copy;
           /* APPLE LOCAL end 4158356 PR 22156/22157 */
 	}

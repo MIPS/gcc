@@ -1,3 +1,9 @@
+2005-07-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4173477, 4173754, 4173757, 4173774, 4174030
+	* tree-sra.c (decide_block_copy):  Disallow integer
+	copies bigger than DImode.
+
 2005-07-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 4172062
