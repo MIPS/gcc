@@ -93,8 +93,8 @@ cp $testdir/support/*.ada $testdir/support/*.a $testdir/support/*.tst $dir/suppo
 
 # Find out the size in bit of an address on the target
 target_gnatmake $testdir/support/impbit.adb >> $dir/acats.log 2>&1
-target_run $dir/support/impbit $dir/support/impbit.out 2>&1
-target_bit=`cat $dir/support/impbit.out`
+target_run $dir/support/impbit $dir/support/impbit.out 2>/dev/null
+target_bit=`egrep -v -e ^spawn $dir/support/impbit.out`
 echo target_bit="$target_bit" >> $dir/acats.log
 
 # Find out a suitable asm statement

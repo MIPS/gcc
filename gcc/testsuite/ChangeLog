@@ -1,3 +1,7 @@
+2005-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* ada/acats/run_all.sh: Filter out spawn line from target_bit.
+
 2005-07-07  Release Manager
 
 	* GCC 4.0.1 released.
