@@ -833,7 +833,7 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 /* Node: Frame Layout */
 
 #define STACK_GROWS_DOWNWARD
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* It seems to be indicated in the code (at least 2.1) that this is
    better a constant, and best 0.  */
