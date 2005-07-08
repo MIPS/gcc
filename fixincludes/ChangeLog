@@ -1,3 +1,9 @@
+2005-06-24  Geoffrey Keating  <geoffk@geoffk.org>
+
+	* inclhack.def (AAB_darwin7_9_long_double_funcs): New.
+	(AAB_darwin7_9_long_double_funcs_2): New.
+	* fixincl.x: Regenerate.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.
