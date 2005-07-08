@@ -1,3 +1,45 @@
+2005-07-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Set to 4.0.2, in prerelease format.
+	* doc/include/gcc-common.texi (version): Set to 4.0.2.
+	
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-07-01  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (find_equivalent_equality_comparison): Do not
+	a eliminate type conversion which feeds an equality comparison
+	if the original type or either operand in the comparison is a
+	function pointer.
+
+2005-06-30  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/22260
+	* config/sparc/sparc.c (emit_and_preserve): Add 2nd register.
+	Preserve the 2nd register too, if present.
+	(sparc_output_mi_thunk) <PIC case>: Preserve the PIC register too.
+	Adjust call to emit_and_preserve.
+
+2005-06-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR 22171
+	* tree-ssa-operands (get_expr_operands): Check s_ann for NULL
+	before use.
+
+2005-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-06-13  Zdenek Dvorak  <dvorakz@suse.cz>
+	PR middle-end/21985
+	* fold-const.c (split_address_to_core_and_offset): Always return
+	the address of the base object.
+
+	PR 22000
+	* tree-ssa-operands.c (get_expr_operands): Check the volatility of
+	the FIELD_DECL and set s_ann->has_volatile_ops accordingly.
+
 2005-06-20  Jan Beulich  <jbeulich@novell.com>
 
 	* config/i386/netware-libgcc.def: Update copyright.
