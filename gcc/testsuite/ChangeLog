@@ -1,3 +1,8 @@
+2005-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/19005
+	* gcc.c-torture/execute/pr19005.c: New test.
+
 2005-04-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/19317
