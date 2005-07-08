@@ -1,5 +1,10 @@
 2005-07-08 Devang Patel  <dpatel@apple.com>
 
+	* g++.dg/ss/two.C: New.
+	* g++.dg/ss/two.ssh: New.
+
+2005-07-08 Devang Patel  <dpatel@apple.com>
+
 	* g++.dg/dg.exp: Prune tests from ss directory.
 
 2005-07-07  Ziemowit Laski  <zlaski@apple.com>
