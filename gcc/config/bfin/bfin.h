@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 #ifndef _BFIN_CONFIG
 #define _BFIN_CONFIG
@@ -50,6 +50,54 @@ extern int target_flags;
 
 #define TARGET_DEFAULT MASK_CSYNC
 
+/* Don't create frame pointers for leaf functions */
+#define TARGET_OMIT_LEAF_FRAME_POINTER (target_flags & MASK_OMIT_LEAF_FRAME_POINTER)
+#define TARGET_LOW_64K                 (target_flags & MASK_LOW_64K)
+#define TARGET_CSYNC		       (target_flags & MASK_CSYNC)
+#define TARGET_ID_SHARED_LIBRARY       (target_flags & MASK_ID_SHARED_LIBRARY)
+
+#define MASK_OMIT_LEAF_FRAME_POINTER 0x00000001
+#define MASK_CSYNC                   0x00000002
+#define MASK_LOW_64K           	     0x00000004
+/* Compile using library ID based shared libraries.
+ * Set a specific ID using the -mshared-library-id=xxx option.
+ */
+#define MASK_ID_SHARED_LIBRARY	     0x00000008
+
+#define TARGET_SWITCHES  {\
+  { "omit-leaf-frame-pointer",	  MASK_OMIT_LEAF_FRAME_POINTER,		\
+    "Omit frame pointer for leaf functions" }, 				\
+  { "no-omit-leaf-frame-pointer",-MASK_OMIT_LEAF_FRAME_POINTER,		\
+    "Use frame pointer for leaf functions"},       			\
+  { "low64k",	                  MASK_LOW_64K,				\
+    "Program is located in low 64K of memory" },			\
+  { "no-low64k",	         -MASK_LOW_64K,				\
+    "Program is not located in low 64K of memory (default)"},		\
+  { "csync",		         MASK_CSYNC,				\
+    "Avoid speculative loads by inserting CSYNC or equivalent"},	\
+  { "no-csync",			-MASK_CSYNC,				\
+    "Do not generate extra code to avoid speculative loads"},		\
+  { "id-shared-library", MASK_ID_SHARED_LIBRARY,			\
+    "Enable ID based shared library" },					\
+  { "no-id-shared-library", -MASK_ID_SHARED_LIBRARY,			\
+    "Disable ID based shared library" },				\
+  { "", TARGET_DEFAULT,							\
+    "default: csync"}}
+
+/* This macro is similar to `TARGET_SWITCHES' but defines names of
+   command options that have values.  Its definition is an
+   initializer with a subgrouping for each command option.
+
+   Each subgrouping contains a string constant, that defines the
+   fixed part of the option name, and the address of a variable.  The
+   variable, type `char *', is set to the variable part of the given
+   option if the fixed part matches.  The actual option name is made
+   by appending `-m' to the specified name.  */
+#define TARGET_OPTIONS							\
+{ { "shared-library-id=",	&bfin_library_id_string,		\
+    "ID of shared library to build", 0}					\
+}
+
 /* Maximum number of library ids we permit */
 #define MAX_LIBRARY_ID 255
 
@@ -79,11 +127,11 @@ extern const char *bfin_library_id_string;
 
 #define STACK_PUSH_CODE PRE_DEC
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD 1
+#define FRAME_GROWS_DOWNWARD
 
 /* We define a dummy ARGP register; the parameters start at offset 0 from
    it. */
@@ -331,7 +379,7 @@ enum reg_class
   BREGS,
   LREGS,
   MREGS,
-  CIRCREGS, /* Circular buffering registers, Ix, Bx, Lx together form.  See Automatic Circular Buffering.  */
+  CIRCREGS, /* Circular buffering registers, Ix, Bx, Lx together form. See Automatic Circlur Buffering */
   DAGREGS,
   EVEN_AREGS,
   ODD_AREGS,
@@ -773,6 +821,9 @@ do {                                              \
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
 
+/* Size of a vector for autovectorization.  */
+#define UNITS_PER_SIMD_WORD 4
+
 /* Width in bits of a pointer.
    See also the macro `Pmode1' defined below.  */
 #define POINTER_SIZE 32
@@ -989,6 +1040,23 @@ do {                                              \
 #define EXTRA_CONSTRAINT(VALUE, D) \
     ((D) == 'Q' ? GET_CODE (VALUE) == SYMBOL_REF : 0)
 
+/* `FINALIZE_PIC'
+     By generating position-independent code, when two different
+     programs (A and B) share a common library (libC.a), the text of
+     the library can be shared whether or not the library is linked at
+     the same address for both programs.  In some of these
+     environments, position-independent code requires not only the use
+     of different addressing modes, but also special code to enable the
+     use of these addressing modes.
+
+     The `FINALIZE_PIC' macro serves as a hook to emit these special
+     codes once the function is being compiled into assembly code, but
+     not before.  (It is not done before, because in the case of
+     compiling an inline function, it would lead to multiple PIC
+     prologues being included in functions which used inline functions
+     and were compiled to assembly language.) */
+#define FINALIZE_PIC  do {} while (0)
+
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
@@ -1081,9 +1149,8 @@ do { char __buf[256];					\
     } while (0)
 
 #define ASM_OUTPUT_ALIGN(FILE,LOG) 				\
-    do {							\
-      if ((LOG) != 0)						\
-	fprintf (FILE, "\t.align %d\n", 1 << (LOG));		\
+    do {		 					\
+	fprintf (FILE, ".align %d\n", LOG);			\
     } while (0)
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)		\

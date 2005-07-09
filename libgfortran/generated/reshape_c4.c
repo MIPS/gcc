@@ -97,7 +97,7 @@ reshape_c4 (gfc_array_c4 * ret, gfc_array_c4 * source, shape_type * shape,
 	  ret->dim[n].stride = rs;
 	  rs *= rex;
 	}
-      ret->offset = 0;
+      ret->base = 0;
       ret->data = internal_malloc_size ( rs * sizeof (GFC_COMPLEX_4));
       ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
     }
@@ -174,9 +174,9 @@ reshape_c4 (gfc_array_c4 * ret, gfc_array_c4 * source, shape_type * shape,
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= sizeof (GFC_COMPLEX_4);
-      ssize *= sizeof (GFC_COMPLEX_4);
-      psize *= sizeof (GFC_COMPLEX_4);
+      rsize *= 4;
+      ssize *= 4;
+      psize *= 4;
       reshape_packed ((char *)ret->data, rsize, (char *)source->data,
 		      ssize, pad ? (char *)pad->data : NULL, psize);
       return;

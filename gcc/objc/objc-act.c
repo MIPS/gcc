@@ -8786,12 +8786,19 @@ objc_start_function (tree name, tree type, tree attrs,
   /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
-  struct c_label_context *nstack;
-  nstack = XOBNEW (&parser_obstack, struct c_label_context);
-  nstack->labels_def = NULL;
-  nstack->labels_used = NULL;
-  nstack->next = label_context_stack;
-  label_context_stack = nstack;
+  struct c_label_context_se *nstack_se;
+  struct c_label_context_vm *nstack_vm;
+  nstack_se = XOBNEW (&parser_obstack, struct c_label_context_se);
+  nstack_se->labels_def = NULL;
+  nstack_se->labels_used = NULL;
+  nstack_se->next = label_context_stack_se;
+  label_context_stack_se = nstack_se;
+  nstack_vm = XOBNEW (&parser_obstack, struct c_label_context_vm);
+  nstack_vm->labels_def = NULL;
+  nstack_vm->labels_used = NULL;
+  nstack_vm->scope = 0;
+  nstack_vm->next = label_context_stack_vm;
+  label_context_stack_vm = nstack_vm;
   /* APPLE LOCAL begin mainline */
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;

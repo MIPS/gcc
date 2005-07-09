@@ -1051,14 +1051,14 @@ do {									\
 	int i;								\
         for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
           if (TEST_HARD_REG_BIT (reg_class_contents[(int)MMX_REGS], i))	\
-	    fixed_regs[i] = call_used_regs[i] = 1;		 	\
+	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
       }									\
     if (! TARGET_SSE)							\
       {									\
 	int i;								\
         for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
           if (TEST_HARD_REG_BIT (reg_class_contents[(int)SSE_REGS], i))	\
-	    fixed_regs[i] = call_used_regs[i] = 1;		 	\
+	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
       }									\
     if (! TARGET_80387 && ! TARGET_FLOAT_RETURNS_IN_80387)		\
       {									\
@@ -1067,7 +1067,15 @@ do {									\
         COPY_HARD_REG_SET (x, reg_class_contents[(int)FLOAT_REGS]);	\
         for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
           if (TEST_HARD_REG_BIT (x, i)) 				\
-	    fixed_regs[i] = call_used_regs[i] = 1;			\
+	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
+      }									\
+    if (! TARGET_64BIT)							\
+      {									\
+	int i;								\
+	for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)		\
+	  reg_names[i] = "";						\
+	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
+	  reg_names[i] = "";						\
       }									\
   } while (0)
 
@@ -1609,11 +1617,10 @@ enum reg_class
    || ((CLASS) == FP_TOP_REG)						\
    || ((CLASS) == FP_SECOND_REG))
 
-/* APPLE LOCAL begin mainline */
-/* Return a class of registers that cannot change FROM mode to TO mode. */
+/* Return a class of registers that cannot change FROM mode to TO mode.  */
+
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
   ix86_cannot_change_mode_class (FROM, TO, CLASS)
-/* APPLE LOCAL end mainline */
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -2210,7 +2217,7 @@ do {							\
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
-/* In order to refer to the first 8 regs as 32 bit regs prefix an "e"
+/* In order to refer to the first 8 regs as 32 bit regs, prefix an "e".
    For non floating point regs, the following are the HImode names.
 
    For float regs, the stack top is sometimes referred to as "%st(0)"
@@ -2235,9 +2242,7 @@ do {							\
   { "rax", 0 }, { "rdx", 1 }, { "rcx", 2 }, { "rbx", 3 },	\
   { "rsi", 4 }, { "rdi", 5 }, { "rbp", 6 }, { "rsp", 7 },	\
   { "al", 0 }, { "dl", 1 }, { "cl", 2 }, { "bl", 3 },		\
-  { "ah", 0 }, { "dh", 1 }, { "ch", 2 }, { "bh", 3 },		\
-  { "mm0", 8},  { "mm1", 9},  { "mm2", 10}, { "mm3", 11},	\
-  { "mm4", 12}, { "mm5", 13}, { "mm6", 14}, { "mm7", 15} }
+  { "ah", 0 }, { "dh", 1 }, { "ch", 2 }, { "bh", 3 } }
 
 /* Note we are omitting these since currently I don't know how
 to get gcc to use these, since they want the same but different

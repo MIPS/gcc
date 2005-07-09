@@ -1,3 +1,7 @@
+2005-07-08  Mike Stump  <mrs@apple.com>
+
+	* Merge from gcc_4_0_0_release to gcc_4_0_1_release.
+
 2005-07-16  Geoffrey Keating  <geoffk@apple.com>
 
 	* build_gcc (LIBSTDCXX_VERSION): New.

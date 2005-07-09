@@ -674,6 +674,7 @@ static void rs6000_file_start (void);
 static unsigned int rs6000_elf_section_type_flags (tree, const char *, int);
 static void rs6000_elf_asm_out_constructor (rtx, int);
 static void rs6000_elf_asm_out_destructor (rtx, int);
+static void rs6000_elf_end_indicate_exec_stack (void) ATTRIBUTE_UNUSED;
 static void rs6000_elf_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_elf_unique_section (tree, int);
 static void rs6000_elf_select_rtx_section (enum machine_mode, rtx,
@@ -4775,11 +4776,29 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   /* Recognize the case where operand[1] is a reference to thread-local
      data and load its address to a register.  */
-  if (GET_CODE (operands[1]) == SYMBOL_REF)
+  if (rs6000_tls_referenced_p (operands[1]))
     {
-      enum tls_model model = SYMBOL_REF_TLS_MODEL (operands[1]);
-      if (model != 0)
-	operands[1] = rs6000_legitimize_tls_address (operands[1], model);
+      enum tls_model model;
+      rtx tmp = operands[1];
+      rtx addend = NULL;
+
+      if (GET_CODE (tmp) == CONST && GET_CODE (XEXP (tmp, 0)) == PLUS)
+	{
+          addend = XEXP (XEXP (tmp, 0), 1);
+	  tmp = XEXP (XEXP (tmp, 0), 0);
+	}
+
+      gcc_assert (GET_CODE (tmp) == SYMBOL_REF);
+      model = SYMBOL_REF_TLS_MODEL (tmp);
+      gcc_assert (model != 0);
+
+      tmp = rs6000_legitimize_tls_address (tmp, model);
+      if (addend)
+	{
+	  tmp = gen_rtx_PLUS (mode, tmp, addend);
+	  tmp = force_operand (tmp, operands[0]);
+	}
+      operands[1] = tmp;
     }
 
   /* Handle the case where reload calls us with an invalid address.  */
@@ -10649,11 +10668,21 @@ rs6000_init_libfuncs (void)
 	  set_conv_libfunc (ufix_optab, SImode, TFmode, "_quitrunc");
 	}
 
-      /* Standard AIX/Darwin/64-bit SVR4 quad floating point routines.  */
-      set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
-      set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
-      set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
-      set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
+      /* AIX/Darwin/64-bit Linux quad floating point routines.  */
+      if (!TARGET_XL_COMPAT)
+	{
+	  set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
+	  set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
+	  set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
+	  set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
+	}
+      else
+	{
+	  set_optab_libfunc (add_optab, TFmode, "_xlqadd");
+	  set_optab_libfunc (sub_optab, TFmode, "_xlqsub");
+	  set_optab_libfunc (smul_optab, TFmode, "_xlqmul");
+	  set_optab_libfunc (sdiv_optab, TFmode, "_xlqdiv");
+	}
     }
   else
     {
@@ -20344,6 +20373,13 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       fprintf (file, "\t.previous\n");
     }
   ASM_OUTPUT_LABEL (file, name);
+}
+
+static void
+rs6000_elf_end_indicate_exec_stack (void)
+{
+  if (TARGET_32BIT)
+    file_end_indicate_exec_stack ();
 }
 #endif
 

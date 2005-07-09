@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "convert.h"
 /* APPLE LOCAL KEXT */
 #include "tree-iterator.h"
+#include "cgraph.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -7815,6 +7816,8 @@ cp_fold_obj_type_ref (tree ref, tree known_type)
   gcc_assert (tree_int_cst_equal (OBJ_TYPE_REF_TOKEN (ref),
 				  DECL_VINDEX (fndecl)));
 #endif
+
+  cgraph_node (fndecl)->local.vtable_method = true;
 
   return build_address (fndecl);
 }
