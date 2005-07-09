@@ -1,4 +1,3 @@
-/* APPLE LOCAL begin mainline */
 // PR C++/21614
 // { dg-additional-sources "ptrmem6a.C" }
 // { dg-do run }
@@ -11,4 +10,3 @@ int main () {
     return 0;
   return 1;
 }
-/* APPLE LOCAL end mainline */
