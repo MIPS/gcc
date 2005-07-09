@@ -1,3 +1,8 @@
+2005-07-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 4172150
+	* dbxout.c (dbxout_type): Check Objective-C++ lang also.
+
 2005-07-08  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4173477, 4173754, 4173757, 4173774, 4174030

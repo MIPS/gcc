@@ -232,6 +232,8 @@ static struct dbx_file *current_file;
 /* APPLE LOCAL begin ss2 */
 /* This is the output file used by dbxout routines.  */
 static FILE *dbx_out_file;
+static FILE *dbx_out_file_saved;
+static FILE *dbx_out_file_nowhere;
 /* APPLE LOCAL end ss2 */
 /* This is the next file number to use.  */
 
@@ -992,6 +994,11 @@ dbxout_function_end (tree decl)
       if (!NO_DBX_BNSYM_ENSYM && !flag_debug_only_used_symbols)
 	dbxout_stabd (N_ENSYM, 0);
     }
+  else if (flag_pch_file)
+    {
+      dbx_out_file = dbx_out_file_saved;
+    }
+
   /* APPLE LOCAL end ss2 */
 }
 #endif /* DBX_DEBUGGING_INFO */
@@ -1047,6 +1054,10 @@ dbxout_init (const char *input_file_name)
       dbx_out_file = fopen (asm_file_name, "w+b");
       if (dbx_out_file == 0)
 	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
+      dbx_out_file_nowhere = fopen ("/dev/null", "w+b");
+      if (dbx_out_file_nowhere == 0)
+	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
+      
     }
   else
     dbx_out_file = asm_out_file;
@@ -1339,11 +1350,18 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
   if (use_gnu_debug_info_extensions
       && !NO_DBX_FUNCTION_END
       && !NO_DBX_BNSYM_ENSYM
-      /* APPLE LOCAL ss2 */
-      && !flag_save_repository
       && !flag_debug_only_used_symbols)
-    dbxout_stabd (N_BNSYM, 0);
-
+    /* APPLE LOCAL begin ss2 */
+    {
+      if (flag_save_repository && flag_pch_file)
+	{
+	  dbx_out_file_saved = dbx_out_file;
+	  dbx_out_file = dbx_out_file_nowhere;
+	}
+      else
+	dbxout_stabd (N_BNSYM, 0);
+    }
+    /* APPLE LOCAL begin ss2 */
   dbxout_source_line (lineno, filename);
 }
 
@@ -1467,6 +1485,8 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
       if (ferror (dbx_out_file) != 0)
 	fatal_error ("error writing to %s: %m", asm_file_name);
       if (fclose (dbx_out_file) != 0)
+	fatal_error ("error closing %s: %m", asm_file_name);
+      if (fclose (dbx_out_file_nowhere) != 0)
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
   /* APPLE LOCAL end ss2 */
@@ -2220,7 +2240,10 @@ dbxout_type (tree type, int full)
 				   access == access_protected_node
 				   ? '1' :'0');
 		    if (BINFO_VIRTUAL_P (child)
-			&& strcmp (lang_hooks.name, "GNU C++") == 0)
+			/* APPLE LOCAL begin 4172150 */
+			&& (strcmp (lang_hooks.name, "GNU C++") == 0
+			    || strcmp (lang_hooks.name, "GNU Objective-C++") == 0))
+			/* APPLE LOCAL end 4172150 */
 		      /* For a virtual base, print the (negative)
 		     	 offset within the vtable where we must look
 		     	 to find the necessary adjustment.  */
