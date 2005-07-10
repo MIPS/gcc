@@ -1,3 +1,66 @@
+2005-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from the mainline:
+	2005-07-08  Jakub Jelinek  <jakub@redhat.com>
+	* primary.c (gfc_match_rvalue): Handle ENTRY the same way
+	as FUNCTION.
+
+	2005-07-07  Jakub Jelinek  <jakub@redhat.com>
+	* scanner.c (load_line): Add pbuflen argument, don't make
+	buflen static.  If maxlen == 0 or preprocessor_flag,
+	don't truncate at buflen, but at maxlen.  In xrealloc add
+	1 byte at the end for the terminating '\0'.  Don't fill
+	with spaces up to buflen, but gfc_option.fixed_line_length.
+	(load_file): Adjust load_line caller.  Add line_len variable.
+
+	* scanner.c (preprocessor_line): Only set current_file->line when errors
+	have not been encountered.  Warn and don't crash if a file leave
+	preprocessor line has no corresponding entering line.  Formatting.
+
+	2005-07-07  Jakub Jelinek  <jakub@redhat.com>
+	* decl.c (gfc_match_entry): Allow ENTRY without parentheses
+	even in FUNCTIONs.
+
+	2005-06-25  Jakub Jelinek  <jakub@redhat.com>
+	* trans-stmt.c (gfc_trans_forall_1): Prefer to use smaller logical
+	type than boolean_type_node.
+
+	2005-06-13  Jakub Jelinek  <jakub@redhat.com>
+	* trans-expr.c (gfc_conv_function_call): Return int instead of
+	void.  Use a local variable for has_alternate_specifier and
+	return it.  Avoid modification of function type's return value
+	in place, since it may be shared.
+	* trans.h (has_alternate_specifier): Remove.
+	(gfc_conv_function_call): Change return type.
+	* trans-stmt.c (has_alternate_specifier): Remove.
+	(gfc_trans_call): Add a local has_alternate_specifier variable,
+	set it from gfc_conv_function_call return value.
+
+2005-07-08  Steven G. Kargl  <kargls@comcast.net>
+
+	Backport from the mainline:
+	PR fortran/21257
+	(port from g95)
+	* match.c (gfc_match_label): Detect duplicate labels.
+	* gfortran.dg/duplicate_labels.f90: New test.
+
+	PR fortran/19926
+	* primary.c (gfc_match_rvalue):  expr_type can be EXPR_CONSTANT
+	for an array; check that sym->as is NULL.
+	* gfortran.dg/pr19926.f90: New test.
+
+	PR fortran/17792
+	PR fortran/21375
+	* trans-array.c (gfc_array_deallocate): pstat is new argument
+	(gfc_array_allocate): update gfc_array_deallocate() call.
+	(gfc_trans_deferred_array): ditto.
+	* trans-array.h: update gfc_array_deallocate() prototype.
+	* trans-decl.c (gfc_build_builtin_function_decls): update declaration
+	* trans-stmt.c (gfc_trans_deallocate): Implement STAT= feature.
+
+	* intrinsic.c (gfc_intrinsic_func_interface): Enable errors for generic
+	functions whose simplification routine return FAILURE.
+
 2005-07-07  Release Manager
 
 	* GCC 4.0.1 released.

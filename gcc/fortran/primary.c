@@ -1773,11 +1773,24 @@ gfc_match_rvalue (gfc_expr ** result)
 
   gfc_set_sym_referenced (sym);
 
-  if (sym->attr.function && sym->result == sym
-      && (gfc_current_ns->proc_name == sym
+  if (sym->attr.function && sym->result == sym)
+    {
+      if (gfc_current_ns->proc_name == sym
 	  || (gfc_current_ns->parent != NULL
-	      && gfc_current_ns->parent->proc_name == sym)))
-    goto variable;
+	      && gfc_current_ns->parent->proc_name == sym))
+	goto variable;
+
+      if (sym->attr.entry
+	  && (sym->ns == gfc_current_ns
+	      || sym->ns == gfc_current_ns->parent))
+	{
+	  gfc_entry_list *el = NULL;
+	  
+	  for (el = sym->ns->entries; el; el = el->next)
+	    if (sym == el->sym)
+	      goto variable;
+	}
+    }
 
   if (sym->attr.function || sym->attr.external || sym->attr.intrinsic)
     goto function0;
@@ -1802,8 +1815,11 @@ gfc_match_rvalue (gfc_expr ** result)
       break;
 
     case FL_PARAMETER:
-      if (sym->value
-	  && sym->value->expr_type != EXPR_ARRAY)
+      /* A statement of the form "REAL, parameter :: a(0:10) = 1" will
+	 end up here.  Unfortunately, sym->value->expr_type is set to 
+	 EXPR_CONSTANT, and so the if () branch would be followed without
+	 the !sym->as check.  */
+      if (sym->value && sym->value->expr_type != EXPR_ARRAY && !sym->as)
 	e = gfc_copy_expr (sym->value);
       else
 	{
