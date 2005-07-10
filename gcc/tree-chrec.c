@@ -882,9 +882,6 @@ tree_contains_chrecs (tree expr, int *size)
   if (size)
     (*size)++;
   
-  if (size)
-    (*size)++;
-
   if (tree_is_chrec (expr))
     return true;
 
