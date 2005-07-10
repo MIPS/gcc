@@ -1066,7 +1066,6 @@ objc_build_volatilized_type (tree type)
 /* Mark DECL as being 'volatile' for purposes of Darwin
    _setjmp()/_longjmp() exception handling.  Called from
    objc_mark_locals_volatile().  */
-/* APPLE LOCAL end mainline */
 void
 objc_volatilize_decl (tree decl)
 {
@@ -1080,7 +1079,6 @@ objc_volatilize_decl (tree decl)
       struct volatilized_type key;
       void **loc;
 
-      /* APPLE LOCAL mainline */
       t = objc_build_volatilized_type (t);
       key.type = t;
       loc = htab_find_slot (volatilized_htab, &key, INSERT);
@@ -2132,7 +2130,6 @@ objc_build_string_object (tree string)
 
       if (!flag_next_runtime)
 	constructor
-	  /* APPLE LOCAL mainline */
 	  = objc_add_static_instance (constructor, constant_string_type);
       else
         {
@@ -2954,34 +2951,26 @@ objc_get_class_reference (tree ident)
 		     ? OBJC_TYPE_NAME (ident)
 		     : ident);
   bool local_scope = false;
-  /* APPLE LOCAL end mainline */
 
 #ifdef OBJCPLUS
   if (processing_template_decl)
     /* Must wait until template instantiation time.  */
     return build_min_nt (CLASS_REFERENCE_EXPR, ident);
-    /* APPLE LOCAL begin mainline */
 #endif
 
-  /* APPLE LOCAL end mainline */
   if (TREE_CODE (ident) == TYPE_DECL)
-    /* APPLE LOCAL begin mainline */
     ident = (DECL_ORIGINAL_TYPE (ident)
 	     ? DECL_ORIGINAL_TYPE (ident)
 	     : TREE_TYPE (ident));
-    /* APPLE LOCAL end mainline */
 
-/* APPLE LOCAL begin mainline */
 #ifdef OBJCPLUS
   if (TYPE_P (ident) && TYPE_CONTEXT (ident)
       && TYPE_CONTEXT (ident) != global_namespace)
     local_scope = true;
-  /* APPLE LOCAL end mainline */
 #endif
 /* APPLE LOCAL mainline */
 /* 'orig_ident = ident' assignment removed.  */
 
-  /* APPLE LOCAL mainline */
   if (local_scope || !(ident = objc_is_class_name (ident)))
     {
       error ("%qs is not an Objective-C class name or alias",
@@ -3275,13 +3264,11 @@ objc_substitute_decl (tree expr, tree oldexpr, tree newexpr)
   switch (TREE_CODE (expr))
     {
     case COMPONENT_REF:
-      /* APPLE LOCAL begin mainline */
       return objc_build_component_ref
 	     (objc_substitute_decl (TREE_OPERAND (expr, 0),
 				    oldexpr,
 				    newexpr),
 	      DECL_NAME (TREE_OPERAND (expr, 1)));
-      /* APPLE LOCAL end mainline */
     case ARRAY_REF:
       return build_array_ref (objc_substitute_decl (TREE_OPERAND (expr, 0),
 						    oldexpr,
@@ -9760,21 +9747,15 @@ objc_rewrite_function_call (tree function, tree params)
    a function in OBJ_TYPE_REF_EXPR (presumably objc_msgSend or one
    of its cousins).  */
 
-/* APPLE LOCAL begin mainline */
 enum gimplify_status
 objc_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
-/* APPLE LOCAL end mainline */
 {
   enum gimplify_status r0, r1;
-  /* APPLE LOCAL begin mainline */
 
   if (TREE_CODE (*expr_p) == OBJ_TYPE_REF
-  /* APPLE LOCAL end mainline */
       && TREE_CODE (OBJ_TYPE_REF_EXPR (*expr_p)) == ADDR_EXPR
-      /* APPLE LOCAL begin mainline */
       && TREE_CODE (TREE_OPERAND (OBJ_TYPE_REF_EXPR (*expr_p), 0))
 	 == FUNCTION_DECL)
-      /* APPLE LOCAL end mainline */
     {
       /* Postincrements in OBJ_TYPE_REF_OBJECT don't affect the
 	 value of the OBJ_TYPE_REF, so force them to be emitted
@@ -9786,11 +9767,9 @@ objc_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			  is_gimple_val, fb_rvalue);
       r1 = gimplify_expr (&OBJ_TYPE_REF_EXPR (*expr_p), pre_p, post_p,
 			  is_gimple_val, fb_rvalue);
-      /* APPLE LOCAL mainline */
 
       return MIN (r0, r1);
     }
-    /* APPLE LOCAL mainline */
 
 #ifdef OBJCPLUS
   return cp_gimplify_expr (expr_p, pre_p, post_p);

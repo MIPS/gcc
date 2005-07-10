@@ -977,7 +977,7 @@ dbxout_function_end (tree decl)
 
   /* By convention, GCC will mark the end of a function with an N_FUN
      symbol and an empty string.  */
-  /* APPLE LOCAL ss2 */
+  /* APPLE LOCAL begin ss2 */
   if (!flag_save_repository)
     {
  #ifdef DBX_OUTPUT_NFUN
@@ -1170,7 +1170,6 @@ emit_bincl_stab (const char *name)
 {
   /* APPLE LOCAL ss2 */
   static unsigned int dbx_checksum;
-
   dbxout_begin_simple_stabs (name, N_BINCL);
   
   /* APPLE LOCAL begin ss2 */
