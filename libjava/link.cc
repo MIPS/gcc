@@ -1091,8 +1091,8 @@ _Jv_Linker::link_exception_table (jclass self)
 }
   
 // This is put in empty vtable slots.
-static void
-_Jv_abstractMethodError (void)
+void
+_Jv_ThrowAbstractMethodError ()
 {
   throw new java::lang::AbstractMethodError();
 }
@@ -1188,7 +1188,8 @@ _Jv_Linker::set_vtable_entries (jclass klass, _Jv_VTable *vtable)
       if (meth->index == (_Jv_ushort) -1)
 	continue;
       if ((meth->accflags & Modifier::ABSTRACT))
-	vtable->set_method(meth->index, (void *) &_Jv_abstractMethodError);
+	vtable->set_method(meth->index,
+			   (void *) &_Jv_ThrowAbstractMethodError);
       else
 	vtable->set_method(meth->index, meth->ncode);
     }
@@ -1240,7 +1241,7 @@ _Jv_Linker::make_vtable (jclass klass)
   if (! (klass->accflags & Modifier::ABSTRACT))
     {
       for (int i = 0; i < klass->vtable_method_count; ++i)
-	if (vtable->get_method(i) == (void *) &_Jv_abstractMethodError)
+	if (vtable->get_method(i) == (void *) &_Jv_ThrowAbstractMethodError)
 	  {
 	    using namespace java::lang;
 	    while (klass != NULL)

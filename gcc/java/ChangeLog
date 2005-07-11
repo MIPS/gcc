@@ -1,3 +1,11 @@
+2005-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* classobj.cc (create_one_method_record): Use
+	builtin_Jv_ThrowAbstractMethodError.
+	* hooks.hh (builtin_Jv_ThrowAbstractMethodError): Declare.
+	* decl.cc (builtin_Jv_ThrowAbstractMethodError): New global.
+	(initialize_builtin_functions): Initialize it.
+
 2005-05-15  Tom Tromey  <tromey@redhat.com>
 
 	* lower.cc (visit_bytecode_block): Use build_label.

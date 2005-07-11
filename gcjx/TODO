@@ -1,3 +1,6 @@
+use a using declaration to resolve overrides in
+various MI cases.
+
 check to see if:
   public static void main(String... args)
 will be picked up by 'java klass'
@@ -11,9 +14,6 @@ after we've generated code for that method
 in some places we check both inner_p() and static_context_p()
 on a class.  this is lame, we should mark the class static
 in a static context
-
-the bug in PR 19810 makes for weird bytecode output from gcjx
-we are failing to eliminate some dead code
 
 gcjx also fails on PR 19629, though differently
 it creates the anonymous constructor incorrectly
@@ -185,6 +185,7 @@ visitor.  we could do this by:
 [ this is very low priority as we already have a hoc solutions in place ]
 
 use slist<> instead of list<> to save space?
+also, bkoz says that list<> is slow
 
 error to reference a member of a type variable with more than one bound
 unless member is accessible member of Object
@@ -297,10 +298,18 @@ X gcjh has options to add text to the header in different places;
 
 Tree generation
 
+use set_decl_assembler_name lang hook instead of mangling up front
+
+we should add an abi method that detemrines if a class needs
+initialization.  we could then omit init. calls in some cases (c++ abi):
+when there are no initializers or String constants in the class
+we could also pre-initialize some classes in libgcj
+
 should we use PLACEHOLDER_EXPR when dealing with array types?
 
 put _Jv_ThrowNoSuchMethodError into vtable for abstract methods
 could pass in method and class name too...
+  [ done ]
 
 is there a way to emit 'import' statements into the debug info?
 this would let gdb do a better job of name lookup
@@ -457,7 +466,7 @@ X use of "$" in an identifier
 X warn if an ascii character is represented by \u
 
 - if a parameter `x' shadows a field `x', (optionally) emit a warning
-  if we assign to x.  usually this is a bug
+  if we assign to the parameter x.  usually this is a bug
 X type and permissions of serialVersionUID
   (are there any other magic fields?)
 - check types and such of magic serialization methods
@@ -573,6 +582,11 @@ http://www-124.ibm.com/pipermail/jikes/2004-February/002679.html
   writing a separate "back end" to do warning checks based on some
   kind of xml descriptor would be possible and easy
 
+- I see code like this a fair amount:
+  int x = (bytes[i] << 24) | (bytes[i+1] << 16) | ...
+  this has a sign extension bug.
+  warning about this might be nice
+
 ================================================================
 
 test
@@ -593,10 +607,6 @@ likewise for "{"
 ================================================================
 
 Bytecode generation
-
-- if we generate an invoke against a miranda method, we want to
-  generate a Methodref referring to <somewhere>.  but currently we
-  can't do this and we end up with something incorrect
 
 we could recognize adjacent catch clauses with empty bodies and point
 them all to the same bytecode block
@@ -724,7 +734,7 @@ gcj PRs believed to be fixed by gcjx:
 13124
 13252
 13378
-13493 ?
+13493
 13788 (sad one for gcj really)
 15377
 15411
@@ -749,7 +759,18 @@ test 18281
 18789
 18796
 19070
-
 19674
 19707
 19758
+19810
+19841
+19870
+19908
+20193
+20302 -- but note we give a confusing message for the bad code
+20418
+20977
+20978
+21045
+21818
+22128

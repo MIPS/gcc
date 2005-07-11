@@ -207,9 +207,8 @@ class_object_creator::create_one_method_record (model_method *method)
 {
   record_creator inst (type_method);
   tree mdecl;
-  // FIXME: consider using _Jv_ThrowNoSuchMethodError.
   if (method->abstract_p ())
-    mdecl = null_pointer_node;
+    mdecl = builtin_Jv_ThrowAbstractMethodError;
   else
     mdecl = builtins->map_method (method);
   inst.set_field ("name", builtins->map_utf8const (method->get_name()));

@@ -436,6 +436,8 @@ _Jv_GetArrayElementFromElementType (jobject array,
   return elts;
 }
 
+extern "C" void _Jv_ThrowAbstractMethodError ()
+  __attribute__((noreturn));
 extern "C" void _Jv_ThrowBadArrayIndex (jint bad_index)
   __attribute__((noreturn));
 extern "C" void _Jv_ThrowNullPointerException (void)

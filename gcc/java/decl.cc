@@ -162,6 +162,7 @@ tree builtin_Jv_NewObjectArray;
 tree builtin_Jv_NewMultiArray;
 tree builtin_Jv_ThrowBadArrayIndex;
 tree builtin_Jv_ThrowNullPointerException;
+tree builtin_Jv_ThrowAbstractMethodError;
 tree builtin_Jv_CheckArrayStore;
 tree builtin_Jv_LookupInterfaceMethod;
 tree builtin_Jv_LookupInterfaceMethodIdx;
@@ -699,6 +700,17 @@ initialize_builtin_functions ()
   TREE_SIDE_EFFECTS (builtin_Jv_ThrowNullPointerException) = 1;
   builtin_Jv_ThrowNullPointerException
     = build_address_of (builtin_Jv_ThrowNullPointerException);
+
+  builtin_Jv_ThrowAbstractMethodError
+    = gcjx::builtin_function ("_Jv_ThrowAbstractMethodError",
+			      build_function_type (void_type_node,
+						   void_list_node),
+			      0, NOT_BUILT_IN, NULL, NULL_TREE);
+  // Mark this as a 'noreturn' function with side effects.
+  TREE_THIS_VOLATILE (builtin_Jv_ThrowAbstractMethodError) = 1;
+  TREE_SIDE_EFFECTS (builtin_Jv_ThrowAbstractMethodError) = 1;
+  builtin_Jv_ThrowAbstractMethodError
+    = build_address_of (builtin_Jv_ThrowAbstractMethodError);
 
   t = tree_cons (NULL_TREE, type_class_ptr,
 		 tree_cons (NULL_TREE, type_object_ptr, void_list_node));
