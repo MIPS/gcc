@@ -308,8 +308,8 @@ we could also pre-initialize some classes in libgcj
 should we use PLACEHOLDER_EXPR when dealing with array types?
 
 put _Jv_ThrowNoSuchMethodError into vtable for abstract methods
-could pass in method and class name too...
   [ done ]
+could pass in method and class name too...
 
 is there a way to emit 'import' statements into the debug info?
 this would let gdb do a better job of name lookup
@@ -413,6 +413,7 @@ various limitations.
 Another random thought: we could have a GDirect ("pinvoke") -like mode
 where we directly generate native code that calls functions in some C
 library.
+look at jikesrvm's approach to this
 
 right now we put the vtable index into the otable
 but why not put the byte index in there?
