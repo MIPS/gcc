@@ -571,11 +571,20 @@ class_reader::parse_signature ()
       std::list<ref_type_variable> type_parameters;
       ref_forwarding_type return_type;
 
-      current_exceptions.clear ();
+      std::list<ref_forwarding_type> new_exceptions;
+
+      current_method_arguments.clear ();
       parser.parse_method_signature (current_method_arguments,
 				     type_parameters,
 				     return_type,
-				     current_exceptions);
+				     new_exceptions);
+
+      // A compiler may elide the exceptions if they are not generic.
+      if (! new_exceptions.empty ())
+	current_exceptions = new_exceptions;
+
+      // FIXME: could check that the generic signature is compatible
+      // with the erased type.
 
       // A couple things we discover about the method are actually
       // handled in parse_method.  Others we can easily set here.
@@ -951,12 +960,8 @@ class_reader::parse_self ()
 	  result->set_superclass (super);
 	}
 
-      // ACC_SUPER doesn't make sense for enums, but is required for
-      // ordinary classes.
-      if ((access_flags & ACC_ENUM) == 0)
-	must_set |= ACC_SUPER;
-      else
-	must_not_set |= ACC_SUPER;
+      // Require ACC_SUPER for enums as well as ordinary classes.
+      must_set |= ACC_SUPER;
       must_not_set |= ACC_ANNOTATION;
 
       if ((access_flags & ACC_ABSTRACT) != 0

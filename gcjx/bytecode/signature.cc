@@ -182,7 +182,7 @@ signature_parser::parse_ref_type ()
 
       std::list<std::string> ids;
       std::string::const_iterator start = it;
-      while (it != done && *it != '.' && *it != ';')
+      while (it != done && *it != '.' && *it != ';' && *it != '<')
 	++it;
 
       result = new model_forwarding_inner (where,

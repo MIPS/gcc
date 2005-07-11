@@ -1,6 +1,6 @@
 // Represent a method's 'throws' clause.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -172,12 +172,18 @@ model_throws_clause::propagate_throws (resolution_scope *scope)
 std::string
 model_throws_clause::get_signature ()
 {
+  bool seen_generic = false;
   std::string result;
   for (std::list<ref_forwarding_type>::const_iterator i = decls.begin ();
        i != decls.end ();
        ++i)
-    result += "^" + (*i)->type ()->get_signature ();
-  return result;
+    {
+      model_type *t = (*i)->type ();
+      if (t->erasure () != t)
+	seen_generic = true;
+      result += "^" + t->get_signature ();
+    }
+  return seen_generic ? result : "";
 }
 
 void

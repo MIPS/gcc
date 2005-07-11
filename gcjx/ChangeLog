@@ -1,3 +1,14 @@
+2005-07-11  Tom Tromey  <tromey@redhat.com>
+
+	* model/throwsclause.cc (get_signature): Return empty string if
+	no parameterized types seen.
+	* bytecode/classreader.cc (parse_signature): Handle case where
+	exceptions are elided.  Clear current_method_arguments before
+	parsing method signature.
+	(parse_self): Require ACC_SUPER for enums.
+	* bytecode/signature.cc (parse_ref_type): Exit loop if inner class
+	is parameterized.
+
 2005-07-09  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/generate.cc (visit_field_ref): Correctly call
