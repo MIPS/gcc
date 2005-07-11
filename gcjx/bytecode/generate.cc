@@ -2143,7 +2143,7 @@ bytecode_generator::find_method (const char *mname, model_class *klass,
       throw request->error ("couldn't find method %1 with argument of type "
 			    "%2 in class %3 -- perhaps you have the wrong "
 			    "class library?")
-	% mname % argtype % klass;
+	% mname % (argtype ? argtype : primitive_void_type) % klass;
     }
 
   if (result->get_return_type () != result_type)

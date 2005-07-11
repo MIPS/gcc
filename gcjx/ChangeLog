@@ -1,5 +1,10 @@
 2005-07-11  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (find_method): Don't crash if argtype is
+	NULL and method is not found.
+
+2005-07-11  Tom Tromey  <tromey@redhat.com>
+
 	* model/throwsclause.cc (get_signature): Return empty string if
 	no parameterized types seen.
 	* bytecode/classreader.cc (parse_signature): Handle case where
