@@ -1,5 +1,9 @@
 2005-06-04  Tom Tromey  <tromey@redhat.com>
 
+	* classobj.cc (create_one_method_record): Fixed 'ncode' value.
+
+2005-06-04  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.cc (create_one_method_record): Use
 	builtin_Jv_ThrowAbstractMethodError.
 	* hooks.hh (builtin_Jv_ThrowAbstractMethodError): Declare.

@@ -210,7 +210,7 @@ class_object_creator::create_one_method_record (model_method *method)
   if (method->abstract_p ())
     mdecl = builtin_Jv_ThrowAbstractMethodError;
   else
-    mdecl = builtins->map_method (method);
+    mdecl = build_address_of (builtins->map_method (method));
   inst.set_field ("name", builtins->map_utf8const (method->get_name()));
   inst.set_field ("signature",
 		  builtins->map_utf8const (get_descriptor (method)));
@@ -218,7 +218,7 @@ class_object_creator::create_one_method_record (model_method *method)
 		  build_int_cst (type_jushort, method->get_modifiers ()));
   gcj_abi *abi = builtins->find_abi ();
   inst.set_field ("index", abi->get_vtable_index (klass, method));
-  inst.set_field ("ncode", build_address_of (mdecl));
+  inst.set_field ("ncode", mdecl);
   inst.set_field ("throws", create_method_throws (method));
   return inst.finish_record ();
 }
