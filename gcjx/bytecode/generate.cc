@@ -2234,15 +2234,29 @@ bytecode_generator::visit_cast (model_cast *cast_expr,
 	{
 	  // Unboxing conversion.  Call <type>Value() on the wrapper
 	  // object, e.g. for Integer we call intValue().  Using
-	  // get_pretty_name here is a bit of an abuse.
-	  std::string method_name = dest_type->get_pretty_name () + "Value";
+	  // get_pretty_name here is a bit of an abuse.  Note that
+	  // Character doesn't have all the methods from Number, so we
+	  // need a special case here.
+	  std::string method_name;
+	  bool is_char = false;
+	  model_type *tmp_dest_type = dest_type;
+	  if (expr->type () == global->get_compiler ()->java_lang_Character ())
+	    {
+	      is_char = true;
+	      method_name = "charValue";
+	      tmp_dest_type = primitive_char_type;
+	    }
+	  else
+	    method_name = dest_type->get_pretty_name () + "Value";
 	  model_method *call
 	    = find_method (method_name.c_str (),
 			   assert_cast<model_class *> (expr->type ()),
-			   NULL, dest_type, cast_expr);
+			   NULL, tmp_dest_type, cast_expr);
 	  std::list<ref_expression> args;
 	  handle_invocation (op_invokevirtual, call->get_declaring_class (),
 			     call, args);
+	  if (is_char)
+	    emit_cast (primitive_char_type, dest_type);
 	}
       else
 	{

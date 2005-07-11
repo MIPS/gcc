@@ -1,5 +1,9 @@
 2005-07-11  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (visit_cast): Handle Character specially.
+
+2005-07-11  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.cc (find_method): Don't crash if argtype is
 	NULL and method is not found.
 
