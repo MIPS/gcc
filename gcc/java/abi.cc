@@ -241,27 +241,27 @@ cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
   tree allocator = builtin_Jv_AllocObject;  // FIXME: finalizer
   tree klass_tree = builtins->map_type (klass);
   // Allocate the object.
-  tree n = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (allocator)), allocator,
-		   build_tree_list (NULL_TREE,
-				    build_class_reference (builtins, current,
-							   klass)),
-		   NULL_TREE);
-  TREE_SIDE_EFFECTS (n) = 1;
+  tree call = build3 (CALL_EXPR, type_object_ptr, allocator,
+		      build_tree_list (NULL_TREE,
+				       build_class_reference (builtins,
+							      current, klass)),
+		      NULL_TREE);
+  TREE_SIDE_EFFECTS (call) = 1;
 
-  n = build1 (NOP_EXPR, klass_tree, n);
-  TREE_SIDE_EFFECTS (n) = 1;
+  call = build1 (NOP_EXPR, klass_tree, call);
+  TREE_SIDE_EFFECTS (call) = 1;
 
-  tree mem = save_expr (n);
+  tree mem = save_expr (call);
 
   // Call the constructor.
-  n = build_method_call (builtins, current, mem, arguments, constructor,
-			 false);
+  tree real_call = build_method_call (builtins, current, mem, arguments,
+				      constructor, false);
 
   // Yield the new object
-  n = build2 (COMPOUND_EXPR, klass_tree, n, mem);
-  TREE_SIDE_EFFECTS (n) = 1;
+  tree result = build2 (COMPOUND_EXPR, klass_tree, real_call, mem);
+  TREE_SIDE_EFFECTS (result) = 1;
 
-  return n;
+  return result;
 }
 
 tree

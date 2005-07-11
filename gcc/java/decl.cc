@@ -601,14 +601,14 @@ initialize_builtin_functions ()
   tree t = tree_cons (NULL_TREE, type_class_ptr, void_list_node);
   builtin_Jv_AllocObject
     = gcjx::builtin_function ("_Jv_AllocObject",
-			      build_function_type (ptr_type_node, t),
+			      build_function_type (type_object_ptr, t),
 			      0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (builtin_Jv_AllocObject) = 1;
   builtin_Jv_AllocObject = build_address_of (builtin_Jv_AllocObject);
 
   builtin_Jv_AllocObjectNoFinalizer
     = gcjx::builtin_function ("_Jv_AllocObjectNoFinalizer",
-			      build_function_type (ptr_type_node, t),
+			      build_function_type (type_object_ptr, t),
 			      0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (builtin_Jv_AllocObjectNoFinalizer) = 1;
   builtin_Jv_AllocObjectNoFinalizer

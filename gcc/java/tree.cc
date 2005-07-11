@@ -872,8 +872,10 @@ tree_generator::visit_return (model_return *rtn,
   if (expr)
     {
       expr->visit (this);
-      current = build2 (MODIFY_EXPR, gcc_builtins->map_type (expr->type ()),
-			DECL_RESULT (method_tree), current);
+      current = build2 (MODIFY_EXPR, TREE_TYPE (DECL_RESULT (method_tree)),
+			DECL_RESULT (method_tree),
+			convert (TREE_TYPE (DECL_RESULT (method_tree)),
+				 current));
       TREE_SIDE_EFFECTS (current) = 1;
     }
   else
@@ -1551,8 +1553,8 @@ tree_generator::visit_assignment (model_assignment *elt,
   rhs->visit (this);
   tree rhs_tree = current;
   // FIXME: if LHS is array, may need assign. check.
-  current = build2 (MODIFY_EXPR, gcc_builtins->map_type (lhs->type ()),
-		    lhs_tree, rhs_tree);
+  current = build2 (MODIFY_EXPR, TREE_TYPE (lhs_tree),
+		    lhs_tree, convert (TREE_TYPE (lhs_tree), rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
   annotate (current, elt);
 }
