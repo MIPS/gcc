@@ -1,3 +1,8 @@
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	* tree.cc (visit_method): Don't initialize class from static
+	initializer.
+
 2005-06-13  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_assignment): Fix types.

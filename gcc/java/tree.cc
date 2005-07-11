@@ -146,7 +146,7 @@ tree_generator::visit_method (model_method *meth,
       tree statements = alloc_stmt_list ();
       tree_stmt_iterator out = tsi_start (statements);
 
-      if (meth->static_p ())
+      if (meth->static_p () && ! meth->static_initializer_p ())
 	{
 	  tree init
 	    = gcc_builtins->build_class_init (meth->get_declaring_class ());
