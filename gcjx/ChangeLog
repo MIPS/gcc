@@ -1,5 +1,10 @@
 2005-07-09  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (visit_field_ref): Correctly call
+	handle_invocation.
+
+2005-07-09  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.hh (bytecode_generator::handle_invocation):
 	Updated.
 	* bytecode/generate.cc (handle_invocation): Added 'use_accessor'

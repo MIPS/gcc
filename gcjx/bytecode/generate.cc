@@ -2700,7 +2700,7 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
 	{
 	  std::list<ref_expression> nullargs;
 	  handle_invocation (op_invokestatic, ref->get_qualifying_class (),
-			     tm, nullargs, false, true);
+			     tm, nullargs, false, ! field->static_p ());
 	}
     }
   else if (expr_target == LEFT_HAND_SIDE)
