@@ -1782,15 +1782,16 @@ bytecode_generator::dereference_left_hand_side (left_hand_side_info *info)
 	model_class *k = dynamic_cast<model_class *> (info->type);
 	model_method *access = k->get_accessor (info->field, false);
 	// First duplicate.
-	if (! access->static_p ())
+	if (! info->field->static_p ())
 	  {
 	    emit (op_dup);
 	    increase_stack (k);
 	  }
 	// Now dereference.
-	emit (access->static_p () ? op_invokestatic : op_invokevirtual);
+	assert (access->static_p ());
+	emit (op_invokestatic);
 	emit2 (cpool->add (k, access));
-	if (! access->static_p ())
+	if (! info->field->static_p ())
 	  reduce_stack (k);
 	increase_stack (access->get_return_type ());
       }
@@ -1872,9 +1873,10 @@ bytecode_generator::emit_lhs_store (left_hand_side_info *info,
       {
 	model_class *k = dynamic_cast<model_class *> (info->type);
 	model_method *access = k->get_accessor (info->field, true);
-	emit (access->static_p () ? op_invokestatic : op_invokevirtual);
+	assert (access->static_p ());
+	emit (op_invokestatic);
 	emit2 (cpool->add (k, access));
-	if (! access->static_p ())
+	if (! info->field->static_p ())
 	  reduce_stack (k);
 	reduce_stack (rhs_type);
       }
@@ -2683,6 +2685,7 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
 	// FIXME: remove this cast.
 	= accessed->get_accessor (const_cast<model_field *> (field),
 				  expr_target == LEFT_HAND_SIDE);
+      assert (tm->static_p ());
 
       if (expr_target == LEFT_HAND_SIDE)
 	{
@@ -2696,10 +2699,8 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
       else
 	{
 	  std::list<ref_expression> nullargs;
-	  handle_invocation (tm->static_p ()
-			     ? op_invokestatic
-			     : op_invokevirtual,
-			     ref->get_qualifying_class (), tm, nullargs);
+	  handle_invocation (op_invokestatic, ref->get_qualifying_class (),
+			     tm, nullargs, false, true);
 	}
     }
   else if (expr_target == LEFT_HAND_SIDE)
@@ -3065,7 +3066,8 @@ bytecode_generator::handle_invocation (java_opcode opcode,
 				       model_class *qualifier,
 				       const model_method *meth,
 				       const std::list<ref_expression> &args,
-				       bool null_check_semantics)
+				       bool null_check_semantics,
+				       bool use_accessor)
 {
   {
     assert (expr_target == IGNORE
@@ -3111,7 +3113,7 @@ bytecode_generator::handle_invocation (java_opcode opcode,
        i != args.end ();
        ++i)
     reduce_stack ((*i)->type ());
-  if (! meth->static_p ())
+  if (! meth->static_p () || use_accessor)
     reduce_stack (meth->get_declaring_class ());
   if (meth->get_return_type () != primitive_void_type)
     increase_stack (meth->get_return_type ());
@@ -3141,9 +3143,13 @@ bytecode_generator::visit_method_invocation (model_method_invocation *inv,
       this_expr->visit (this);
     }
 
-  model_class *accessed;
+  model_class *accessed = NULL;
+  bool nonstatic_accessor = false;
   if (trampoline_required_p (meth, method->get_declaring_class (), &accessed))
-    meth = accessed->get_accessor (const_cast<model_method *> (meth));
+    {
+      nonstatic_accessor = ! meth->static_p ();
+      meth = accessed->get_accessor (const_cast<model_method *> (meth));
+    }
 
   java_opcode opcode;
   if (meth->static_p ())
@@ -3154,7 +3160,8 @@ bytecode_generator::visit_method_invocation (model_method_invocation *inv,
     opcode = op_invokespecial;
   else
     opcode = op_invokevirtual;
-  handle_invocation (opcode, inv->get_qualifying_class (), meth, args);
+  handle_invocation (opcode, inv->get_qualifying_class (), meth, args,
+		     false, nonstatic_accessor);
 }
 
 void
@@ -3164,16 +3171,21 @@ bytecode_generator::visit_type_qualified_invocation
     const std::list<ref_expression> &args,
     bool super)
 {
-  // FIXME: duplicate code.
-  model_class *accessed;
-  if (trampoline_required_p (meth, method->get_declaring_class (), &accessed))
-    meth = accessed->get_accessor (const_cast<model_method *> (meth));
-
   if (! meth->static_p ())
     emit_load (meth->get_declaring_class (), this_index);
+
+  // FIXME: duplicate code.
+  model_class *accessed = NULL;
+  bool nonstatic_accessor = false;
+  if (trampoline_required_p (meth, method->get_declaring_class (), &accessed))
+    {
+      nonstatic_accessor = ! meth->static_p ();
+      meth = accessed->get_accessor (const_cast<model_method *> (meth));
+    }
+
   handle_invocation (super ? op_invokespecial : op_invokestatic,
 		     inv->get_qualifying_class (),
-		     meth, args);
+		     meth, args, false, nonstatic_accessor);
 }
 
 void
@@ -3184,12 +3196,17 @@ bytecode_generator::visit_super_invocation
 {
   // FIXME: duplicate code.
   model_class *accessed;
+  bool nonstatic_accessor = false;
   if (trampoline_required_p (meth, method->get_declaring_class (), &accessed))
-    meth = accessed->get_accessor (const_cast<model_method *> (meth));
+    {
+      nonstatic_accessor = ! meth->static_p ();
+      meth = accessed->get_accessor (const_cast<model_method *> (meth));
+    }
 
   emit_load (method->get_declaring_class (), this_index);
   handle_invocation (op_invokespecial, inv->get_qualifying_class (),
-		     meth, args, inv->get_expression () != NULL);
+		     meth, args, inv->get_expression () != NULL,
+		     nonstatic_accessor);
 }
 
 void
@@ -3201,7 +3218,7 @@ bytecode_generator::visit_this_invocation
   // Note: an accessor can never be needed here.
   emit_load (method->get_declaring_class (), this_index);
   handle_invocation (op_invokespecial, inv->get_qualifying_class (),
-		     meth, args, inv->get_expression () != NULL);
+		     meth, args, false, inv->get_expression () != NULL);
 }
 
 void

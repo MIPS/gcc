@@ -263,7 +263,7 @@ class bytecode_generator : public visitor
 			  model_class *,
 			  const model_method *,
 			  const std::list<ref_expression> &,
-			  bool = false);
+			  bool = false, bool = false);
   void handle_logical_binary (const ref_expression &,
 			      const ref_expression &,
 			      bool);

@@ -2134,18 +2134,32 @@ model_class::get_accessor (model_field *fld, bool writing)
     {
       ref_method meth = new model_method (fld->get_location (), this);
 
-      modifier_t mods = 0;
-      if (fld->static_p ())
-	mods |= ACC_STATIC;
-      meth->set_modifiers (mods);
+      // An accessor must always be static so that it can't be
+      // accidentally overridden by a subclass.
+      meth->set_modifiers (ACC_STATIC);
       meth->set_synthetic ();
 
-      ref_expression expr;
-      {
-	ref_field_ref fref = new model_field_ref (fld->get_location ());
-	fref->set_field (fld);
-	expr = fref;
-      }
+      ref_field_ref fref = new model_field_ref (fld->get_location ());
+      fref->set_field (fld);
+
+      std::list<ref_variable_decl> args;
+      // If we are handling an instance field we must pass in an
+      // object reference.
+      if (! fld->static_p ())
+	{
+	  // Note that we use 'this' and not the field's declaring
+	  // class here.  Using the declaring class could result in a
+	  // violation of the 'protected' access rules.
+	  ref_forwarding_type fldt
+	    = new model_forwarding_resolved (fld->get_location (), this);
+	  ref_variable_decl arg
+	    = new model_parameter_decl (fld->get_location (), "ref",
+					fldt, this);
+	  args.push_back (arg);
+
+	  fref->set_expression (new model_simple_variable_ref (fld->get_location (),
+							       arg.get ()));
+	}
 
       std::list<ref_stmt> statements;
       if (writing)
@@ -2163,12 +2177,10 @@ model_class::get_accessor (model_field *fld, bool writing)
 					"arg",
 					fld->get_declared_type (),
 					this);
-	  std::list<ref_variable_decl> args;
 	  args.push_back (arg);
-	  meth->set_parameters (args);
 
 	  ref_assignment assign = new model_assignment (fld->get_location ());
-	  assign->set_lhs (expr);
+	  assign->set_lhs (fref);
 	  assign->set_rhs (new model_simple_variable_ref (fld->get_location (),
 							  arg.get ()));
 
@@ -2179,9 +2191,11 @@ model_class::get_accessor (model_field *fld, bool writing)
 	{
 	  meth->set_return_type (fld->get_declared_type ());
 
-	  // The body is 'return EXPR'.
-	  statements.push_back (new model_return (fld->get_location (), expr));
+	  // The body is 'return FREF'.
+	  statements.push_back (new model_return (fld->get_location (), fref));
 	}
+
+      meth->set_parameters (args);
 
       ref_block block = new model_block (fld->get_location (), statements);
       meth->set_body (block);
@@ -2209,6 +2223,12 @@ model_class::get_accessor (model_method *meth)
       // This is only used in the constructor case.
       int added_args = 0;
 
+      // Formal and actual arguments to the new method.
+      std::list<ref_variable_decl> args;
+      std::list<ref_expression> actual;
+      // Object reference, if needed.
+      ref_variable_decl arg;
+
       // Note that constructors are special since we can't create one
       // with a new name.  So, we are forced to add dummy arguments to
       // differentiate our constructors from ones that the user might
@@ -2233,22 +2253,36 @@ model_class::get_accessor (model_method *meth)
 	  while (has_method_with_descriptor_p (name, descriptor));
 
 	  accm = new model_constructor (cons);
+	  accm->set_modifiers (0);
 	}
       else
-	accm = new model_method (where, this);
+	{
+	  accm = new model_method (where, this);
+	  // An accessor must always be static so that it can't be
+	  // accidentally overridden by a subclass.
+	  accm->set_modifiers (ACC_STATIC);
 
-      modifier_t mods = 0;
-      if (meth->static_p ())
-	mods |= ACC_STATIC;
-      accm->set_modifiers (mods);
+	  if (! meth->static_p ())
+	    {
+	      // Note that we use 'this' and not the method's
+	      // declaring class here.  Using the declaring class
+	      // could result in a violation of the 'protected' access
+	      // rules.
+	      ref_forwarding_type declt
+		= new model_forwarding_resolved (meth->get_location (), this);
+	      arg = new model_parameter_decl (meth->get_location (), "ref",
+					      declt, this);
+	      args.push_back (arg);
+	    }
+	}
+
       accm->set_synthetic ();
       accm->set_return_type (new model_forwarding_resolved (where,
 							    meth->get_return_type ()));
 
       // Compute the new formal arguments and actual arguments to the
       // forwarding method call we create.
-      std::list<ref_variable_decl> args, old_args = meth->get_parameters ();
-      std::list<ref_expression> actual;
+      std::list<ref_variable_decl> old_args = meth->get_parameters ();
       for (std::list<ref_variable_decl>::const_iterator i = old_args.begin ();
 	   i != old_args.end ();
 	   ++i)
@@ -2260,8 +2294,7 @@ model_class::get_accessor (model_method *meth)
 				       other->get_declared_type (),
 				       this);
 	  args.push_back (arg);
-	  actual.push_back (new model_simple_variable_ref (where,
-							   arg.get ()));
+	  actual.push_back (new model_simple_variable_ref (where, arg.get ()));
 	}
 
       // For a constructor we added arguments, so add those to the
@@ -2310,7 +2343,14 @@ model_class::get_accessor (model_method *meth)
 	  thi->set_enclosing_class (this);
 	}
       else
-	inv = new model_method_invocation (where);
+	{
+	  inv = new model_method_invocation (where);
+
+	  if (arg)
+	    inv->set_expression (new model_simple_variable_ref (meth->get_location (),
+								arg.get ()));
+	}
+
       inv->set_arguments (actual);
       inv->set_method (meth->get_name ());
 

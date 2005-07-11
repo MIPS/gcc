@@ -1,3 +1,19 @@
+2005-07-09  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/generate.hh (bytecode_generator::handle_invocation):
+	Updated.
+	* bytecode/generate.cc (handle_invocation): Added 'use_accessor'
+	argument.
+	(visit_method_invocation): Updated.
+	(visit_type_qualified_invocation): Likewise.
+	(visit_super_invocation): Likewise.
+	(visit_field_ref): Likewise.
+	(dereference_left_hand_side): Updated for static accessors.
+	(emit_lhs_store): Likewise.
+	(visit_field_ref): Likewise.
+	* model/class.cc (get_accessor): Always make accessor static.
+	(get_accessor): Likewise.
+
 2005-07-08  Colin Walters  <walters@verbum.org>
 
 	* verify.cc (class _Jv_BytecodeVerifier) <op_new>: Don't
