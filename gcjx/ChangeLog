@@ -1,3 +1,9 @@
+2005-07-08  Colin Walters  <walters@verbum.org>
+
+	* verify.cc (class _Jv_BytecodeVerifier) <op_new>: Don't
+	check for abstract classes or interfaces here; JVM spec
+	says it should throw an exception, so we'll do so later.
+
 2005-06-24  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/verify.cc (verify_instructions_0): Correctly handle
