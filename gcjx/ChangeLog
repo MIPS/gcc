@@ -1,5 +1,10 @@
 2005-07-11  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (visit_cast): Fixed ordering of emit_cast
+	arguments.
+
+2005-07-11  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.cc (visit_cast): Handle Character specially.
 
 2005-07-11  Tom Tromey  <tromey@redhat.com>

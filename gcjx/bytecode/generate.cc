@@ -2256,7 +2256,7 @@ bytecode_generator::visit_cast (model_cast *cast_expr,
 	  handle_invocation (op_invokevirtual, call->get_declaring_class (),
 			     call, args);
 	  if (is_char)
-	    emit_cast (primitive_char_type, dest_type);
+	    emit_cast (dest_type, primitive_char_type);
 	}
       else
 	{
