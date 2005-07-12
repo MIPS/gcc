@@ -1,3 +1,21 @@
+2005-07-12  Devang Patel  <dpatel@apple.com>
+
+	Radar 4172062 : Take 2
+	* final.c (final_start_function): Supress debug hooks while making symbol
+	repository.
+	(final_scan_insn): Same.
+	* passes (rest_of_handle_final): Same.
+	* dbxout.c (dbxout_function_end): Do not disable FUN stabs when symbol 
+	separation is ON.
+	(dbxout_begin_prologue): Do not disable BNSYM stabs when symbol separation 
+	is ON.
+	(dbxout_source_line): Do not disable SLINE stabs when symbol separation is ON.
+	(dbxout_symbol, dbxout_symbol_location): Do  not disable STSYM and LCSYM stabs 
+	when symbol separation 	is ON.
+	(dbxout_output_lbrac, dbxout_output_rbrack): Do not disable LBRAC and RBRAC
+	stabs when symbol separation is ON.
+
+
 2005-07-08  Devang Patel  <dpatel@apple.com>
 
 	Radar 4172150

@@ -331,7 +331,10 @@ rest_of_handle_final (void)
      *will* be routed past here.  */
 
   timevar_push (TV_SYMOUT);
-  (*debug_hooks->function_decl) (current_function_decl);
+  /* APPLE LOCAL begin aaa */
+  if (!flag_save_repository || !flag_pch_file)
+    (*debug_hooks->function_decl) (current_function_decl);
+  /* APPLE LOCAL end aaa */
   timevar_pop (TV_SYMOUT);
 
   ggc_collect ();

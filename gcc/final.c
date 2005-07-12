@@ -1347,7 +1347,10 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   high_block_linenum = high_function_linenum = last_linenum;
 
-  (*debug_hooks->begin_prologue) (last_linenum, last_filename);
+  /* APPLE LOCAL begin aaa */
+  if (!flag_save_repository || !flag_pch_file)
+    (*debug_hooks->begin_prologue) (last_linenum, last_filename);
+  /* APPLE LOCAL end aaa */
 
 #if defined (DWARF2_UNWIND_INFO) || defined (TARGET_UNWIND_INFO)
   if (write_symbols != DWARF2_DEBUG && write_symbols != VMS_AND_DWARF2_DEBUG)
@@ -1806,7 +1809,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	      high_block_linenum = last_linenum;
 
 	      /* Output debugging info about the symbol-block beginning.  */
-	      (*debug_hooks->begin_block) (last_linenum, n);
+	      /* APPLE LOCAL begin aaa */
+	      if (!flag_save_repository || !flag_pch_file)
+		(*debug_hooks->begin_block) (last_linenum, n);
+	      /* APPLE LOCAL end aaa */
 
 	      /* Mark this block as output.  */
 	      TREE_ASM_WRITTEN (NOTE_BLOCK (insn)) = 1;
@@ -1828,7 +1834,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	      --block_depth;
 	      gcc_assert (block_depth >= 0);
 
-	      (*debug_hooks->end_block) (high_block_linenum, n);
+	      /* APPLE LOCAL begin aaa */
+	      if (!flag_save_repository || !flag_pch_file)
+		(*debug_hooks->end_block) (high_block_linenum, n);
+	      /* APPLE LOCAL end aaa */
 	    }
 	  break;
 
@@ -2100,7 +2109,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	   note in a row.  */
 	if (notice_source_line (insn))
 	  {
-	    (*debug_hooks->source_line) (last_linenum, last_filename);
+	      /* APPLE LOCAL begin aaa */
+	      if (!flag_save_repository || !flag_pch_file)
+		(*debug_hooks->source_line) (last_linenum, last_filename);
+	      /* APPLE LOCAL end aaa */
 	  }
 
 	if (GET_CODE (body) == ASM_INPUT)
