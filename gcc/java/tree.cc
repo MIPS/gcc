@@ -1318,7 +1318,7 @@ tree_generator::find_method (const char *mname, model_class *klass,
       throw request->error ("couldn't find method %1 with argument of type "
 			    "%2 in class %3 -- perhaps you have the wrong "
 			    "class library?")
-	% mname % argtype % klass;
+	% mname % (argtype ? argtype : primitive_void_type) % klass;
     }
 
   if (result->get_return_type () != result_type)
@@ -1770,16 +1770,27 @@ tree_generator::visit_cast (model_cast *elt,
 	{
 	  // Unboxing conversion.  Call <type>Value() on the wrapper
 	  // object, e.g. for Integer we call intValue().  Using
-	  // get_pretty_name here is a bit of an abuse.
+	  // get_pretty_name here is a bit of an abuse.  Note that
+	  // Character doesn't have all the methods from Number, so we
+	  // need a special case here.
 	  // FIXME: for the C++ ABI we could reference fields directly
 	  // in some situations.
-	  std::string method_name = dest_type->get_pretty_name () + "Value";
+	  model_type *tmp_dest_type = dest_type;
+	  if (expr->type () == global->get_compiler ()->java_lang_Character ())
+	    tmp_dest_type = primitive_char_type;
+	  std::string method_name = (tmp_dest_type->get_pretty_name ()
+				     + "Value");
 	  model_method *call
 	    = find_method (method_name.c_str (),
 			   assert_cast<model_class *> (expr->type ()),
-			   NULL, dest_type, elt);
+			   NULL, tmp_dest_type, elt);
 	  current = gcc_builtins->map_method_call (class_wrapper, expr_tree,
 						   NULL_TREE, call, false);
+	  if (tmp_dest_type != dest_type)
+	    {
+	      assert (tmp_dest_type == primitive_char_type);
+	      current = convert (gcc_builtins->map_type (dest_type), current);
+	    }
 	}
       else
 	{
