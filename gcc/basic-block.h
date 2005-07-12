@@ -823,6 +823,13 @@ enum update_life_extent
 #define CLEANUP_CFGLAYOUT	128	/* Do cleanup in cfglayout mode.  */
 #define CLEANUP_LOG_LINKS	256	/* Update log links.  */
 
+/* The following are ORed in on top of the CLEANUP* flags in calls to
+   struct_equiv_block_eq.  */
+#define STRUCT_EQUIV_START	512	 /* Initializes the search range.  */
+#define STRUCT_EQUIV_RERUN	1024	/* Rerun to find register use in
+					   found equivalence.  */
+#define STRUCT_EQUIV_FINAL	2048	/* Make any changes necessary to get
+					   actual equivalence.  */
 extern void life_analysis (FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
@@ -981,6 +988,117 @@ extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);
 extern basic_block get_bb_copy (basic_block);
 
+/* In cfgcleanup.c */
+
 #include "cfghooks.h"
+
+/* Constants used to size arrays in struct equiv_info (currently only one).
+   When these limits are exceeded, struct_equiv returns zero.
+   The maximum number of pseudo registers that are different in the two blocks,
+   but appear in equivalent places and are dead at the end (or where one of
+   a pair is dead at the end).  */
+#define STRUCT_EQUIV_MAX_LOCAL 16
+/* The maximum number of references to an input register that struct_equiv
+   can handle.  */
+
+/* Structure used to roll back state when we find we can't match an insn,
+   or we want to match part of it in a different way.  */
+struct struct_equiv_checkpoint
+{
+  int ninsns, version, local_count, input_count;
+  rtx x_start, y_start;
+  bool input_valid;
+};
+
+/* A struct equiv_info is used to pass information to struct_equiv and
+   to gather state while two basic blocks are checked for structural
+   equivalence.
+   MODE carries the mode bits from cleanup_cfg if we are called from
+   try_crossjump_to_edge, and additionally it carries the
+   STRUCT_EQUIV_* bits described above.
+   X_BLOCK and Y_BLOCK are the two block being compared.
+   X_INPUT and Y_INPUT are used by struct_equiv to record a register that
+   is used as an input parameter, i.e. where different registers are used
+   as sources.  This is only used for a register that is live at the end
+   of the blocks, or in some identical code at the end of the blocks;
+   Inputs that are dead at the end go into X_LOCAL / Y_LOCAL.
+   INPUT_VALID indicates if we have actually set up X_INPUT / Y_INPUT
+   during the current pass; we keep X_INPUT / Y_INPUT around between passes
+   so that we can match REG_EQUAL / REG_EQUIV notes referring to these.
+   NEED_FULL_BLOCK is set when the entire basic blocks have to match, as
+   in if-conversion.  It is cleared for cross-jumping.
+   If INPUT_REG is set, it is replaced in X_BLOCK for the input.
+   INPUT_COST is the cost that adding an extra input to the matched blocks
+   is supposed to have, and is taken into account when considering if the
+   matched sequence should be extended backwards.  input_cost < 0 means
+   don't accept any inputs at all.
+   X_LOCAL and Y_LOCAL are used to gather register numbers of register pairs
+   that are local to X_BLOCK and Y_BLOCK, with LOCAL_COUNT being the index
+   to the next free entry.
+   NINSNS keeps track of how many insns are matched so far.  INPUT_COUNT
+   keeps track of the number of inputs of the currently considered
+   partial block.  VERSION is changed any time information about local
+   registers, inputs and/or register liveness changes.  When backtracking,
+   it is decremented for changes that can be undone, and if a discrepancy
+   remains, NEED_RERUN is set to indicate that a new pass should be made
+   over the entire block match to get accurate register information.
+   EQUIV_USED for each insn, indexed with NINSNS, where a REG_EQUAL or
+   REG_EQUIV note is being used, to avoid having to backtrack in the next
+   pass, so that we get accurate life info for this insn then.
+   CHECKPOINT[0] is used to store the best match so far, weighing the
+   cost of matched insns COSTS_N_INSNS (NINSNS) against the cost
+   INPUT_COUNT * INPUT_COST of setting up the inputs.
+   CHECKPOINT[1] is used to store the state after the sets and clobbers
+   have been matched, but before the inputs have been matched, and if the
+   match of the input fails, to restore from and re-try with an equivalence
+   if available.
+   DYING_INPUTS is set to the number of local registers that turn out
+   to be inputs to the (possibly partial) block.
+   LOCAL_RVALUE is nonzero if the corresponding X_LOCAL / Y_LOCAL entry
+   was a source operand (including STRICT_LOW_PART) for the last invocation
+   of struct_equiv mentioning it, zero if it was a destination-only operand.
+   Since we are scanning backwards, this means the register is input/local
+   for the (partial) block scanned so far.
+   COMMON_LIVE keeps track of the registers which are currently live
+   (as we scan backwards from the end) and have the same numbers in both
+   blocks.  N.B. a register that is in common_live is unsuitable to become
+   a local reg.
+   Likewise, X_LOCAL_LIVE / Y_LOCAL_LIVE keep track of registers that are
+   local to one of the blocks; these registers must not be accepted as
+   identical when encountered in both blocks.
+   X_END and Y_END are the last insns in X_BLOCK and Y_BLOCK, respectively,
+   that are being compared.  A final jump insn will not be included.
+   After struct_equiv_block_eq has run, X_START and Y_START are set to
+   first instructions of the - possibly partial - matched blocks.
+   LIVE_UPDATE controls if we want to change any life info at all.  We
+   set it to false during REG_EQUAL / REG_EUQIV note comparison of the final
+   pass so that we don't introduce new registers just for the note; if we
+   can't match the notes without the current register information, we drop
+   them.  */
+   
+struct equiv_info
+{
+  basic_block x_block, y_block;
+  rtx x_input, y_input, input_reg;
+  int input_cost;
+  int dying_inputs;
+  regset common_live;
+  regset x_local_live, y_local_live;
+  bitmap equiv_used;
+  rtx x_end, y_end;
+  int ninsns, version, local_count, input_count;
+  rtx x_start, y_start;
+  bool input_valid;
+  struct struct_equiv_checkpoint checkpoint[2];
+  int mode;
+  bool need_rerun, live_update;
+  bool need_full_block;
+  bool check_input_conflict;
+  bool had_input_conflict;
+  bool local_rvalue[STRUCT_EQUIV_MAX_LOCAL];
+  rtx x_local[STRUCT_EQUIV_MAX_LOCAL], y_local[STRUCT_EQUIV_MAX_LOCAL];
+};
+
+int struct_equiv_block_eq (int mode, struct equiv_info *info);
 
 #endif /* GCC_BASIC_BLOCK_H */

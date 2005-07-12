@@ -53,6 +53,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "expr.h"
+#include "reload.h"
 
 /* cleanup_cfg maintains following flags for each basic block.  */
 
@@ -77,8 +78,13 @@ static bool first_pass;
 static bool try_crossjump_to_edge (int, edge, edge);
 static bool try_crossjump_bb (int, basic_block);
 static bool outgoing_edges_match (int, basic_block, basic_block);
-static int flow_find_cross_jump (int, basic_block, basic_block, rtx *, rtx *);
 static bool insns_match_p (int, rtx, rtx);
+
+static bool struct_equiv (rtx *xp, rtx y, int rvalue, struct equiv_info *info);
+static bool struct_equiv_set (rtx x, rtx y, struct equiv_info *info);
+static bool struct_equiv_dst_mem (rtx x, rtx y, struct equiv_info *info);
+static void find_dying_inputs (struct equiv_info *info);
+static bool resolve_input_conflict (struct equiv_info *info);
 
 static void merge_blocks_move_predecessor_nojumps (basic_block, basic_block);
 static void merge_blocks_move_successor_nojumps (basic_block, basic_block);
@@ -988,6 +994,997 @@ merge_memattrs (rtx x, rtx y)
   return;
 }
 
+/* After reload, some moves, as indicated by SECONDARY_RELOAD_CLASS and
+  SECONDARY_MEMORY_NEEDED, cannot be done directly.  For our purposes, we
+   consider them impossible to generate after reload (even though some
+   might be synthesized when you throw enough code at them).
+   Since we don't know while procesing a cross-jump if a local register
+   that is currently live will eventually be live and thus be an input,
+   we keep track of potential inputs that would require an impossible move
+   by using a prohibitively high cost for them.  */
+#define IMPOSSIBLE_MOVE_FACTOR 20000
+
+/* In SET, assign the bit for the register number of REG the value VALUE.
+   If REG is a hard register, do so for all its consituent registers.
+   Return the number of registers that have become included (as a positive
+   number) or excluded (as a negative number).  */
+static int
+assign_reg_reg_set (regset set, rtx reg, int value)
+{
+  unsigned regno = REGNO (reg);
+  int nregs, i, old;
+
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      if (reload_completed)
+	regno = reg_renumber[regno];
+      else
+	{
+	  if ((value != 0) == REGNO_REG_SET_P (set, regno))
+	    return 0;
+	  if (value)
+	    SET_REGNO_REG_SET (set, regno);
+	  else
+	    CLEAR_REGNO_REG_SET (set, regno);
+	  return value ? 1 : -1;
+	}
+    }
+  old = 0;
+  for (i = nregs = hard_regno_nregs[regno][GET_MODE (reg)]; --i >= 0; regno++)
+    {
+      old += REGNO_REG_SET_P (set, regno);
+      if (value)
+	SET_REGNO_REG_SET (set, regno);
+      else
+	CLEAR_REGNO_REG_SET (set, regno);
+    }
+  return value ? nregs - old : -old;
+}
+
+/* Check if *xp is equivalent to Y.  RVALUE indicates if the processed
+   piece of rtl is used as a destination, in which case we can't have
+   different registers being an input.  Returns nonzero if the two blocks
+   have been identified as equivalent, zero otherwise.
+   RVALUE == 0: destination
+   RVALUE == 1: source
+   RVALUE == -1: source, ignore SET_DEST of SET / clobber.  */
+static bool
+struct_equiv (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
+{
+  rtx x = *xp;
+  enum rtx_code code;
+  int length;
+  const char *format;
+  int i;
+
+  if (!y || !x)
+    return x == y;
+  code = GET_CODE (y);
+  if (code != REG && x == y)
+    return true;
+  if (reload_completed
+      && (code == REG || (code == SUBREG && REG_P (SUBREG_REG (y))))
+      && rtx_renumbered_equal_p (x, y))
+    {
+      int regno = true_regnum (x);
+      int nregs = hard_regno_nregs[regno][GET_MODE (x)];
+      int i;
+
+      for (i = nregs; --i>= 0; regno++)
+	if (REGNO_REG_SET_P (info->x_local_live, regno)
+	    || REGNO_REG_SET_P (info->y_local_live, regno))
+	  return false;
+
+      if (!rvalue && info->input_valid
+	  && (reg_overlap_mentioned_for_reload_p (x, info->x_input)
+	      || reg_overlap_mentioned_for_reload_p (x, info->y_input)))
+	return false;
+
+      /* Update liveness information.  */
+      if (info->live_update
+	  && assign_reg_reg_set (info->common_live, x, rvalue))
+	info->version++;
+
+      return true;
+    }
+  if (GET_CODE (x) != code
+      || GET_MODE (x) != GET_MODE (y))
+    return false;
+  /* ??? could extend to allow CONST_INT inputs.  */
+  switch (code)
+    {
+    case REG:
+      {
+	unsigned x_regno, y_regno;
+	int x_common_live, y_common_live;
+
+	if (reload_completed)
+	  x_regno = true_regnum (x), y_regno = true_regnum (y);
+	else
+	  x_regno = REGNO (x), y_regno = REGNO (y);
+
+	/* If the register is a locally live one in one block, the
+	   corresponding one must be locally live in the other, too, and
+	   match of identical regnos doesn't apply.  */
+	if (REGNO_REG_SET_P (info->x_local_live, x_regno))
+	  {
+	    if (!REGNO_REG_SET_P (info->y_local_live, y_regno))
+	      return false;
+	  }
+	else if (REGNO_REG_SET_P (info->y_local_live, y_regno))
+	  return false;
+	else if (x_regno == y_regno)
+	  {
+	    if (!rvalue && info->input_valid
+		&& (reg_overlap_mentioned_p (x, info->x_input)
+		    || reg_overlap_mentioned_p (x, info->y_input)))
+	      return false;
+
+	    /* Update liveness information.  */
+	    if (info->live_update
+		&& assign_reg_reg_set (info->common_live, x, rvalue))
+	      info->version++;
+
+	    return true;
+	  }
+
+	x_common_live = REGNO_REG_SET_P (info->common_live, x_regno);
+	y_common_live = REGNO_REG_SET_P (info->common_live, y_regno);
+	if (x_common_live != y_common_live)
+	  return false;
+	else if (x_common_live)
+	  {
+	    if (! rvalue || info->input_cost < 0 || no_new_pseudos)
+	      return false;
+	    /* If info->live_update is not set, we are processing notes.
+	       We then allow a match with x_input / y_input found in a
+	       previous pass.  */
+	    if (info->live_update && !info->input_valid)
+	      {
+		info->input_valid = true;
+		info->x_input = x;
+		info->y_input = y;
+		info->input_count += optimize_size ? 2 : 1;
+		if (info->input_reg
+		    && GET_MODE (info->input_reg) != GET_MODE (info->x_input))
+		  info->input_reg = NULL_RTX;
+		if (!info->input_reg)
+		  info->input_reg = gen_reg_rtx (GET_MODE (info->x_input));
+		validate_change (info->x_start, xp, info->input_reg, 1);
+	      }
+	    else if ((info->live_update ? ! info->input_valid : ! info->x_input)
+		     || ! rtx_equal_p (x, info->x_input)
+		     || ! rtx_equal_p (y, info->y_input))
+	      return false;
+	    validate_change (info->x_start, xp, info->input_reg, 1);
+	  }
+	else
+	  {
+	    int x_nregs = (x_regno >= FIRST_PSEUDO_REGISTER
+			   ? 1 : hard_regno_nregs[x_regno][GET_MODE (x)]);
+	    int y_nregs = (y_regno >= FIRST_PSEUDO_REGISTER
+			   ? 1 : hard_regno_nregs[y_regno][GET_MODE (y)]);
+	    int size = GET_MODE_SIZE (GET_MODE (x));
+	    enum machine_mode x_mode = GET_MODE (x);
+	    unsigned x_regno_i, y_regno_i;
+	    int x_nregs_i, y_nregs_i, size_i;
+	    int change;
+
+	    /* This might be a register local to each block.  See if we have
+	       it already registerd.  */
+	    for (i = info->local_count - 1; i >= 0; i--)
+	      {
+		x_regno_i = REGNO (info->x_local[i]);
+		x_nregs_i = (x_regno_i >= FIRST_PSEUDO_REGISTER
+			     ? 1 : hard_regno_nregs[x_regno_i][GET_MODE (x)]);
+		y_regno_i = REGNO (info->y_local[i]);
+		y_nregs_i = (y_regno_i >= FIRST_PSEUDO_REGISTER
+			     ? 1 : hard_regno_nregs[y_regno_i][GET_MODE (y)]);
+		size_i = GET_MODE_SIZE (GET_MODE (info->x_local[i]));
+
+		/* If we have a new pair of registers that is wider than an
+		   old pair and enclosing it with matching offsets,
+		   remove the old pair.  If we find a matching, wider, old
+		   pair, use the old one.  If the width is the same, use the
+		   old one if the modes match, but the new if they don't.
+		   We don't want to get too fancy with subreg_regno_offset
+		   here, so we just test two straightforwad cases each.  */
+		if (info->live_update
+		    && (x_mode != GET_MODE (info->x_local[i])
+			? size >= size_i : size > size_i))
+		  {
+		    /* If the new pair is fully enclosing a matching
+		       existing pair, remove the old one.  N.B. because
+		       we are removing one entry here, the check below
+		       if we have space for a new entry will succeed.  */
+		    if ((x_regno <= x_regno_i
+			 && x_regno + x_nregs >= x_regno_i + x_nregs_i
+			 && x_nregs == y_nregs && x_nregs_i == y_nregs_i
+			 && x_regno - x_regno_i == y_regno - y_regno_i)
+			|| (x_regno == x_regno_i && y_regno == y_regno_i
+			    && x_nregs >= x_nregs_i && y_nregs >= y_nregs_i))
+		      {
+			info->x_local[i] = info->x_local[info->local_count-1];
+			info->y_local[i] = info->y_local[info->local_count-1];
+			info->local_count--;
+			continue;
+		      }
+		  }
+		else
+		  {
+
+		    /* If the new pair is fully enclosed within a matching
+		       existing pair, succeed.  */
+		    if (x_regno >= x_regno_i
+			&& x_regno + x_nregs <= x_regno_i + x_nregs_i
+			&& x_nregs == y_nregs && x_nregs_i == y_nregs_i
+			&& x_regno - x_regno_i == y_regno - y_regno_i)
+		      break;
+		    if (x_regno == x_regno_i && y_regno == y_regno_i
+			&& x_nregs <= x_nregs_i && y_nregs <= y_nregs_i)
+		      break;
+		}
+
+		/* Any other overlap causes a match failure.  */
+		if (x_regno + x_nregs > x_regno_i
+		    && x_regno_i + x_nregs_i > x_regno)
+		  return false;
+		if (y_regno + y_nregs > y_regno_i
+		    && y_regno_i + y_nregs_i > y_regno)
+		  return false;
+	      }
+	    if (i < 0)
+	      {
+		/* Not found.  Create a new entry if possible.  */
+		if (!info->live_update
+		    || info->local_count >= STRUCT_EQUIV_MAX_LOCAL)
+		  return false;
+		/* Make sure we enter this pair in its renumbered form.  */
+		if (x_regno != REGNO (x))
+		  x = gen_rtx_REG (GET_MODE (x), x_regno);
+		if (y_regno != REGNO (y))
+		  y = gen_rtx_REG (GET_MODE (y), y_regno);
+		info->x_local[info->local_count] = x;
+		info->y_local[info->local_count] = y;
+		info->local_count++;
+		info->version++;
+	      }
+	    assign_reg_reg_set (info->x_local_live, x, rvalue);
+	    change = assign_reg_reg_set (info->y_local_live, y, rvalue);
+	    if (change)
+	      {
+		if (reload_completed)
+		  {
+		    if (SECONDARY_OUTPUT_RELOAD_CLASS
+			(REGNO_REG_CLASS (y_regno), x_mode, x) != NO_REGS
+#ifdef SECONDARY_MEMORY_NEEDED
+			|| SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (y_regno),
+						    REGNO_REG_CLASS (x_regno),
+						    x_mode)
+#endif
+			)
+		      change *= IMPOSSIBLE_MOVE_FACTOR;
+		  }
+		info->input_count += change;
+		info->version++;
+	      }
+	  }
+	return true;
+      }
+    case SET:
+      {
+        enum rtx_code dst_code = GET_CODE (SET_DEST (x));
+
+	return ((rvalue < 0
+		 ? ((dst_code != STRICT_LOW_PART
+		     && dst_code != ZERO_EXTEND
+		     && dst_code != SIGN_EXTEND)
+		    ? struct_equiv_dst_mem (SET_DEST (x), SET_DEST (y), info)
+		    : struct_equiv (&SET_DEST (x), SET_DEST (y), 1, info))
+		 : struct_equiv (&SET_DEST (x), SET_DEST (y), 0, info))
+		&& struct_equiv (&SET_SRC (x), SET_SRC (y), 1, info));
+      }
+    case CLOBBER:
+      return rvalue < 0 || struct_equiv (&XEXP (x, 0), XEXP (y, 0), 0, info);
+    /* The AUTO_INC / POST_MODIFY / PRE_MODIFY sets are modelled to take
+       place during input processing, however, that is benign, since they
+       are paired with reads.
+       We force 1 for rvalue in the MEM recursion to make sure that
+       PRE_MODIFY / POST_MODIFY SET_DESTS are seen at all.  */
+    case MEM:
+      return !rvalue || struct_equiv (&XEXP (x, 0), XEXP (y, 0), 1, info);
+    case POST_INC: case POST_DEC: case PRE_INC: case PRE_DEC:
+      return (struct_equiv (&XEXP (x, 0), XEXP (y, 0), 0, info)
+	      && struct_equiv (&XEXP (x, 0), XEXP (y, 0), 1, info));
+    case PARALLEL:
+      {
+	int j;
+
+	if (!struct_equiv_set (x, y, info))
+	  return false;
+	for (j = 0; j < XVECLEN (x, 0); ++j)
+	  if (! struct_equiv (&XVECEXP (x, 0, j), XVECEXP (y, 0, j), -1, info))
+	    return false;
+	return true;
+      }
+    case LABEL_REF:
+      /* We can't assume nonlocal labels have their following insns yet.  */
+      if (LABEL_REF_NONLOCAL_P (x) || LABEL_REF_NONLOCAL_P (y))
+	return XEXP (x, 0) == XEXP (y, 0);
+
+      /* Two label-refs are equivalent if they point at labels
+	 in the same position in the instruction stream.  */
+      return (next_real_insn (XEXP (x, 0))
+	      == next_real_insn (XEXP (y, 0)));
+    case SYMBOL_REF:
+      return XSTR (x, 0) == XSTR (y, 0);
+    /* Some rtl is guaranteed to be shared, or unique;  If we didn't match
+       EQ equality above, they aren't the same.  */
+    case CONST_INT:
+    case CODE_LABEL:
+      return false;
+    default:
+      break;
+    }
+
+  /* For commutative operations, the RTX match if the operands match in any
+     order.  */
+  if (targetm.commutative_p (x, UNKNOWN))
+    return ((struct_equiv (&XEXP (x, 0), XEXP (y, 0), rvalue, info)
+	     && struct_equiv (&XEXP (x, 1), XEXP (y, 1), rvalue, info))
+	    || (struct_equiv (&XEXP (x, 0), XEXP (y, 1), rvalue, info)
+		&& struct_equiv (&XEXP (x, 1), XEXP (y, 0), rvalue, info)));
+
+  /* Process subexpressions - this is similar to rtx_equal_p.  */
+  length = GET_RTX_LENGTH (code);
+  format = GET_RTX_FORMAT (code);
+
+  for (i = 0; i < length; ++i)
+    {
+      switch (format[i])
+        {
+	case 'w':
+	  if (XWINT (x, i) != XWINT (y, i))
+	    return false;
+	  break;
+	case 'n':
+	case 'i':
+	  if (XINT (x, i) != XINT (y, i))
+	    return false;
+	  break;
+        case 'V':
+        case 'E':
+	  if (XVECLEN (x, i) != XVECLEN (y, i))
+	    return false;
+          if (XVEC (x, i) != 0)
+            {
+              int j;
+              for (j = 0; j < XVECLEN (x, i); ++j)
+                {
+                  if (! struct_equiv (&XVECEXP (x, i, j), XVECEXP (y, i, j),
+				      rvalue, info))
+		    return false;
+                }
+            }
+          break;
+        case 'e':
+          if (! struct_equiv (&XEXP (x, i), XEXP (y, i), rvalue, info))
+	    return false;
+          break;
+	case 'S':
+	case 's':
+	  if ((XSTR (x, i) || XSTR (y, i))
+	      && (! XSTR (x, i) || ! XSTR (y, i)
+		  || strcmp (XSTR (x, i), XSTR (y, i))))
+	    return false;
+	  break;
+        case 'u':
+	  /* These are just backpointers, so they don't matter.  */
+	  break;
+        case '0':
+        case 't':
+	  break;
+	  /* It is believed that rtx's at this level will never
+	     contain anything but integers and other rtx's,
+	     except for within LABEL_REFs and SYMBOL_REFs.  */
+	default:
+	  gcc_unreachable ();
+	}
+    }
+  return true;
+}
+
+/* Do only the struct_equiv SET_DEST processing for SETs and CLOBBERs.  */
+static bool
+struct_equiv_set (rtx x, rtx y, struct equiv_info *info)
+{
+  if (!x || !y)
+    return x == y;
+  if (GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
+    return struct_equiv (&XEXP (x, 0), XEXP (y, 0), 0, info);
+  else if (GET_CODE (x) == PARALLEL)
+    {
+      int j;
+
+      if (XVECLEN (x, 0) != XVECLEN (y, 0))
+	return false;
+      for (j = 0; j < XVECLEN (x, 0); ++j)
+	{
+	  rtx xe = XVECEXP (x, 0, j);
+	  rtx ye = XVECEXP (y, 0, j);
+
+	  if (GET_CODE (xe) != GET_CODE (ye))
+	    return false;
+	  if ((GET_CODE (xe) == SET || GET_CODE (xe) == CLOBBER)
+	      && ! struct_equiv (&XEXP (xe, 0), XEXP (ye, 0), 0, info))
+	    return false;
+	}
+    }
+  return true;
+}
+
+/* Process MEMs in SET_DEST destinations.  We must not process this together
+   with REG SET_DESTs, but must do it separately, lest when we see
+ [(set (reg:SI foo) (bar))
+  (set (mem:SI (reg:SI foo) (baz)))]
+   struct_equiv_block_eq could get confused to assume that (reg:SI foo)
+   is not live before this instruction.  */
+static bool
+struct_equiv_dst_mem (rtx x, rtx y, struct equiv_info *info)
+{
+  enum rtx_code code = GET_CODE (x);
+  int length;
+  const char *format;
+  int i;
+
+  if (code != GET_CODE (y))
+    return false;
+  if (code == MEM)
+    return struct_equiv (&XEXP (x, 0), XEXP (y, 0), 1, info);
+
+  /* Process subexpressions.  */
+  length = GET_RTX_LENGTH (code);
+  format = GET_RTX_FORMAT (code);
+
+  for (i = 0; i < length; ++i)
+    {
+      switch (format[i])
+        {
+        case 'V':
+        case 'E':
+	  if (XVECLEN (x, i) != XVECLEN (y, i))
+	    return false;
+          if (XVEC (x, i) != 0)
+            {
+              int j;
+              for (j = 0; j < XVECLEN (x, i); ++j)
+                {
+                  if (! struct_equiv_dst_mem (XVECEXP (x, i, j),
+					      XVECEXP (y, i, j), info))
+		    return false;
+                }
+            }
+          break;
+        case 'e':
+          if (! struct_equiv_dst_mem (XEXP (x, i), XEXP (y, i), info))
+	    return false;
+          break;
+	default:
+	  break;
+	}
+    }
+  return true;
+}
+
+/* Record state about current inputs / local registers / lifeness
+   in CHECKPOINT[N] of INFO.  */
+static void
+struct_equiv_make_checkpoint (int n, struct equiv_info *info)
+{
+  struct struct_equiv_checkpoint *p = &info->checkpoint[n];
+
+  p->ninsns = info->ninsns;
+  p->version = info->version;
+  p->local_count = info->local_count;
+  p->input_count = info->input_count;
+  p->x_start = info->x_start;
+  p->y_start = info->y_start;
+  p->input_valid = info->input_valid;
+}
+
+/* Call struct_equiv_make_checkpoint (N, INFO) if the current partial block
+   is suitable to split off - i.e. there is no dangling cc0 user - and
+   if the current cost of the common instructions, minus the cost for
+   setting up the inputs, is higher than what has been recorded before
+   in CHECKPOINT[N].  Also, if we do so, confirm or cancel any pending
+   changes.  */
+static void
+struct_equiv_improve_checkpoint (int n, struct equiv_info *info)
+{
+  struct struct_equiv_checkpoint *p = &info->checkpoint[n];
+
+#ifdef HAVE_cc0
+  if (reg_mentioned_p (cc0_rtx, info->x_start) && !sets_cc0_p (info->x_start))
+    return;
+#endif
+  if (info->input_count >= IMPOSSIBLE_MOVE_FACTOR)
+    return;
+  if (info->check_input_conflict && ! resolve_input_conflict (info))
+    return;
+  if (info->input_cost >= 0
+      ? (COSTS_N_INSNS(info->ninsns - p->ninsns)
+	 > info->input_cost * (info->input_count - p->input_count))
+      : info->ninsns > p->ninsns && !info->input_count)
+    {
+      /* We have a profitable set of changes.  If this is the final pass,
+	 commit them now.  Otherwise, we don't know yet if we can make any
+	 change, so put the old code back for now.  */
+      if (info->mode & STRUCT_EQUIV_FINAL)
+	confirm_change_group ();
+      else
+	cancel_changes (0);
+      struct_equiv_make_checkpoint (n, info);
+    }
+}
+
+/* Restore state about current inputs / local registers / lifeness
+   from CHECKPOINT[N] of INFO.  */
+static void
+struct_equiv_restore_checkpoint (int n, struct equiv_info *info)
+{
+  struct struct_equiv_checkpoint *p = &info->checkpoint[n];
+
+  info->ninsns = p->ninsns;
+  info->x_start = p->x_start;
+  info->y_start = p->y_start;
+  info->input_count = p->input_count;
+  info->input_valid = p->input_valid;
+  while (info->local_count > p->local_count)
+    {
+      info->local_count--;
+      info->version--;
+      if (REGNO_REG_SET_P (info->x_local_live,
+			   REGNO (info->x_local[info->local_count])))
+	{
+	  assign_reg_reg_set (info->x_local_live,
+			      info->x_local[info->local_count], 0);
+	  assign_reg_reg_set (info->y_local_live,
+			      info->y_local[info->local_count], 0);
+	  info->version--;
+	}
+    }
+  if (info->version != p->version)
+    info->need_rerun = true;
+}
+
+/* Check if the set of REG_DEAD notes attached to I1 and I2 allows us to
+   go ahead with merging I1 and I2, which otherwise look fine.
+   Inputs / local registers for the inputs of I1 and I2 have already been
+   set up.  */
+static bool
+struct_equiv_death (rtx i1 ATTRIBUTE_UNUSED, rtx i2 ATTRIBUTE_UNUSED,
+		    struct equiv_info *info ATTRIBUTE_UNUSED)
+{
+#ifdef STACK_REGS
+  /* If cross_jump_death_matters is not 0, the insn's mode
+     indicates whether or not the insn contains any stack-like regs.  */
+    
+  if (INSN_P (i1)
+      && (info->mode & CLEANUP_POST_REGSTACK) && stack_regs_mentioned (i1))
+    {
+      /* If register stack conversion has already been done, then
+	 death notes must also be compared before it is certain that
+	 the two instruction streams match.  */
+    
+      rtx note;
+      HARD_REG_SET i1_regset, i2_regset;
+    
+      CLEAR_HARD_REG_SET (i1_regset);
+      CLEAR_HARD_REG_SET (i2_regset);
+
+      for (note = REG_NOTES (i1); note; note = XEXP (note, 1))
+	if (REG_NOTE_KIND (note) == REG_DEAD
+	    && STACK_REG_P (XEXP (note, 0)))
+	  SET_HARD_REG_BIT (i1_regset, REGNO (XEXP (note, 0)));
+
+      for (note = REG_NOTES (i2); note; note = XEXP (note, 1))
+	if (REG_NOTE_KIND (note) == REG_DEAD
+	    && STACK_REG_P (XEXP (note, 0)))
+	  {
+	    unsigned regno = REGNO (XEXP (note, 0));
+	    int i;
+
+	    for (i = info->local_count - 1; i >= 0; i--)
+	      if (regno == REGNO (info->y_local[i]))
+		{
+		  regno = REGNO (info->x_local[i]);
+		  break;
+		}
+	    SET_HARD_REG_BIT (i2_regset, regno);
+	  }
+
+      GO_IF_HARD_REG_EQUAL (i1_regset, i2_regset, done);
+
+      return false;
+
+    done:
+      ;
+    }
+#endif
+  return true;
+}
+
+/* Return number of matched insns.  */
+/* This function must be called up to three times for a successful cross-jump
+   match:
+   first to find out which instructions do match.  While trying to match
+   another instruction that doesn't match, we destroy information in info
+   about the actual inputs.  So if there have been any before the last
+   match attempt, we need to callthis function again to recompute the
+   actual inputs up to the actual start of the matching sequence.
+   When we are then satisfied that the cross-jump is worth while, we
+   call this function a third time to make any changes needed to make the
+   sequences match: apply equivalences, remove non-matching
+   notes and merge memory attributes.  */
+int
+struct_equiv_block_eq (int mode, struct equiv_info *info)
+{
+  rtx x_stop, y_stop;
+  rtx xi, yi;
+  int i;
+
+  if (! REG_SET_EQUAL_P (info->x_block->il.rtl->global_live_at_end,
+			 info->y_block->il.rtl->global_live_at_end))
+    return 0;
+  info->mode = mode;
+  if (mode & STRUCT_EQUIV_START)
+    {
+      x_stop = BB_HEAD (info->x_block);
+      y_stop = BB_HEAD (info->y_block);
+      if (!x_stop || !y_stop)
+	return 0;
+      info->x_input = info->y_input = info->input_reg = NULL_RTX;
+      info->equiv_used = ALLOC_REG_SET (&reg_obstack);
+      info->check_input_conflict = false;
+    }
+  else
+    {
+      x_stop = info->x_start;
+      y_stop = info->y_start;
+    }
+  info->had_input_conflict = false;
+  info->ninsns = info->version = info->local_count = info->input_count = 0;
+  info->x_start = info->y_start = NULL_RTX;
+  info->need_rerun = false;
+  info->live_update = true;
+  info->input_valid = false;
+  info->common_live = ALLOC_REG_SET (&reg_obstack);
+  info->x_local_live = ALLOC_REG_SET (&reg_obstack);
+  info->y_local_live = ALLOC_REG_SET (&reg_obstack);
+  COPY_REG_SET (info->common_live, info->x_block->il.rtl->global_live_at_end);
+  struct_equiv_make_checkpoint (0, info);
+
+  /* Skip simple jumps at the end of the blocks.  Complex jumps still
+     need to be compared for equivalence, which we'll do below.  */
+
+  xi = BB_END (info->x_block);
+  if (onlyjump_p (xi)
+      || (returnjump_p (xi) && !side_effects_p (PATTERN (xi))))
+    {
+      info->x_start = xi;
+      xi = PREV_INSN (xi);
+    }
+
+  yi = BB_END (info->y_block);
+  if (onlyjump_p (yi)
+      || (returnjump_p (yi) && !side_effects_p (PATTERN (yi))))
+    {
+      info->y_start = yi;
+      /* Count everything except for unconditional jump as insn.  */
+      /* ??? Is it right to count unconditional jumps with a clobber?
+         Should we count conditional returns?  */
+      if (!simplejump_p (yi) && !returnjump_p (yi) && info->x_start)
+	info->ninsns++;
+      yi = PREV_INSN (yi);
+    }
+
+  struct_equiv_improve_checkpoint (0, info);
+  info->x_end = xi;
+  info->y_end = yi;
+  if (info->x_start != x_stop) for (;;)
+    {
+      int rvalue_change_start;
+
+      /* Ignore notes.  */
+      while (!INSN_P (xi) && xi != x_stop)
+	xi = PREV_INSN (xi);
+
+      while (!INSN_P (yi) && yi != y_stop)
+	yi = PREV_INSN (yi);
+
+      if (GET_CODE (xi) != GET_CODE (yi))
+	break;
+
+      info->x_start = xi;
+      info->y_start = yi;
+
+      /* If this is a CALL_INSN, compare register usage information.
+	 If we don't check this on stack register machines, the two
+	 CALL_INSNs might be merged leaving reg-stack.c with mismatching
+	 numbers of stack registers in the same basic block.
+	 If we don't check this on machines with delay slots, a delay slot may
+	 be filled that clobbers a parameter expected by the subroutine.
+
+	 ??? We take the simple route for now and assume that if they're
+	 equal, they were constructed identically.  */
+
+      if (CALL_P (xi))
+	{
+	  if (SIBLING_CALL_P (xi) != SIBLING_CALL_P (yi)
+	      || ! struct_equiv_set (PATTERN (xi), PATTERN (yi), info)
+	      || ! struct_equiv_set (CALL_INSN_FUNCTION_USAGE (xi),
+				     CALL_INSN_FUNCTION_USAGE (yi), info)
+	      || ! struct_equiv (&CALL_INSN_FUNCTION_USAGE (xi),
+				 CALL_INSN_FUNCTION_USAGE (yi), -1, info))
+	    break;
+	}
+      else if (INSN_P (xi))
+	{
+	  if (! struct_equiv_set (PATTERN (xi), PATTERN (yi), info))
+	    break;
+	}
+      rvalue_change_start = num_validated_changes ();
+      struct_equiv_make_checkpoint (1, info);
+      /* Check struct_equiv_death *after* the inputs have been processed,
+	 so that local inputs will already have been set up.  */
+      if (INSN_P (xi)
+	  && (bitmap_bit_p (info->equiv_used, info->ninsns)
+	      || ! struct_equiv (&PATTERN (xi), PATTERN (yi), -1, info)
+	      || ! struct_equiv_death (xi, yi, info)
+	      || ! verify_changes (0)))
+	{
+	  rtx equiv1, equiv2, s1, s2;
+
+	  cancel_changes (rvalue_change_start);
+	  struct_equiv_restore_checkpoint (1, info);
+	  /* Do not do EQUIV substitution after reload.  First, we're undoing
+	     the work of reload_cse.  Second, we may be undoing the work of
+	     the post- reload splitting pass.  */
+	  /* ??? Possibly add a new phase switch variable that can be used by
+	     targets to disallow the troublesome insns after splitting.  */
+	  if (reload_completed)
+	    break;
+
+	  /* The following code helps take care of G++ cleanups.  */
+	  equiv1 = find_reg_equal_equiv_note (xi);
+	  equiv2 = find_reg_equal_equiv_note (yi);
+	  if (!equiv1 || !equiv2
+	      /* If the equivalences are not to a constant, they may
+		 reference pseudos that no longer exist, so we can't
+		 use them.  */
+	      || (reload_completed
+		  && (!CONSTANT_P (XEXP (equiv1, 0))
+		      || !rtx_equal_p (XEXP (equiv1, 0), XEXP (equiv2, 0)))))
+	    break;
+
+	  s1 = single_set (xi);
+	  s2 = single_set (yi);
+
+	  if (s1 == 0 && s2 == 0)
+	    break;
+	  validate_change (xi, &SET_SRC (s1), XEXP (equiv1, 0), 1);
+	  validate_change (yi, &SET_SRC (s2), XEXP (equiv2, 0), 1);
+	  /* Only inspecting the new SET_SRC is not good enough,
+	     because there may also be bare USEs in a single_set
+	     PARALLEL.  */
+	  if (!struct_equiv (&PATTERN (xi), PATTERN (yi), -1, info)
+	      || !struct_equiv_death (xi, yi, info)
+	      || !verify_changes (0))
+	    break;
+	  /* Mark this insn so that we'll use the equivalence in
+	     all subsequent passes.  */
+	  bitmap_set_bit (info->equiv_used, info->ninsns);
+	}
+      if (INSN_P (xi))
+	{
+	  if (info->mode & STRUCT_EQUIV_FINAL)
+	    {
+	      rtx equiv1, equiv2;
+
+	      merge_memattrs (xi, yi);
+
+	      /* If the merged insns have different REG_EQUAL notes, then
+		 remove them.  */
+	      info->live_update = false;
+	      equiv1 = find_reg_equal_equiv_note (xi);
+	      equiv2 = find_reg_equal_equiv_note (yi);
+	      if (equiv1 && !equiv2)
+		remove_note (xi, equiv1);
+	      else if (!equiv1 && equiv2)
+		remove_note (yi, equiv2);
+	      else if (equiv1 && equiv2
+		       && !struct_equiv (&XEXP (equiv1, 0), XEXP (equiv2, 0),
+					 1, info))
+		{
+		  remove_note (xi, equiv1);
+		  remove_note (yi, equiv2);
+		}
+	      info->live_update = true;
+	    }
+	  info->ninsns++;
+	  info->x_start = xi;
+	  info->y_start = yi;
+	  struct_equiv_improve_checkpoint (0, info);
+	}
+      if (xi == x_stop || yi == y_stop)
+	{
+	  /* If we reached the start of at least one of the blocks, but
+	     checkpoint[0] hasn't been advanced back to the first valid insn
+	     yet, represent the increased benefit of completing the block
+	     as an increased instruction count.  */
+	  if (info->checkpoint[0].x_start != info->x_start
+	      && (xi == BB_HEAD (info->x_block)
+		  || yi == BB_HEAD (info->y_block)))
+	    {
+	      info->ninsns++;
+	      struct_equiv_improve_checkpoint (0, info);
+	      info->ninsns--;
+	      if (info->checkpoint[0].ninsns > info->ninsns)
+		info->checkpoint[0].ninsns = info->ninsns;
+	    }
+	  break;
+	}
+      xi = PREV_INSN (xi);
+      yi = PREV_INSN (yi);
+    }
+
+  /* If we failed to match an insn, but had some changes registered from
+     trying to make the insns match, we need to cancel these changes now.  */
+  cancel_changes (0);
+  /* Restore to checkpoint[0] to get the sequence with the best known-so-far
+     cost-benefit difference.  */
+  struct_equiv_restore_checkpoint (0, info);
+
+  /* Include preceding notes and labels in the cross-jump / if-conversion.
+     One, this may bring us to the head of the blocks.
+     Two, it keeps line number notes as matched as may be.  */
+  if (info->ninsns)
+    {
+      xi = info->x_start;
+      yi = info->y_start;
+      while (xi != x_stop && !INSN_P (PREV_INSN (xi)))
+	xi = PREV_INSN (xi);
+
+      while (yi != y_stop && !INSN_P (PREV_INSN (yi)))
+	yi = PREV_INSN (yi);
+
+      info->x_start = xi;
+      info->y_start = yi;
+    }
+
+  if (!info->input_valid)
+    info->x_input = info->y_input = info->input_reg = NULL_RTX;
+  if (!info->need_rerun)
+    {
+      find_dying_inputs (info);
+      if (info->mode & STRUCT_EQUIV_FINAL)
+	{
+	  if (info->check_input_conflict && ! resolve_input_conflict (info))
+	    gcc_unreachable ();
+	}
+      else
+	{
+	  bool input_conflict = info->had_input_conflict;
+
+	  if (!input_conflict
+	      && info->dying_inputs > 1
+	      && bitmap_intersect_p (info->x_local_live, info->y_local_live))
+	    {
+	      regset_head clobbered_regs;
+
+	      INIT_REG_SET (&clobbered_regs);
+	      for (i = 0; i < info->local_count; i++)
+		{
+		  if (assign_reg_reg_set (&clobbered_regs, info->y_local[i], 0))
+		    {
+		      input_conflict = true;
+		      break;
+		    }
+		  assign_reg_reg_set (&clobbered_regs, info->x_local[i], 1);
+		}
+	      CLEAR_REG_SET (&clobbered_regs);
+	    }
+	  if (input_conflict && !info->check_input_conflict)
+	    info->need_rerun = true;
+	  info->check_input_conflict = input_conflict;
+	}
+    }
+
+  if (info->need_full_block
+      && (info->x_start != x_stop || info->y_start != y_stop))
+    return 0;
+  return info->ninsns;
+}
+
+/* For each local register, set info->local_rvalue to true iff the register
+   is a dying input.  Store the total number of these in info->dying_inputs.  */
+static void
+find_dying_inputs (struct equiv_info *info)
+{
+  int i;
+
+  info->dying_inputs = 0;
+  for (i = info->local_count-1; i >=0; i--)
+    {
+      rtx x = info->x_local[i];
+      unsigned regno = REGNO (x);
+      int nregs = (regno >= FIRST_PSEUDO_REGISTER
+		   ? 1 : hard_regno_nregs[regno][GET_MODE (x)]);
+
+      for (info->local_rvalue[i] = false; nregs >= 0; regno++, --nregs)
+	if (REGNO_REG_SET_P (info->x_local_live, regno))
+	  {
+	    info->dying_inputs++;
+	    info->local_rvalue[i] = true;
+	    break;
+	  }
+    }
+}
+
+/* For each local register that is a dying input, y_local[i] will be
+   copied to x_local[i].  We'll do this in ascending order.  Try to
+   re-order the locals to avoid conflicts like r3 = r2; r4 = r3; .
+   Return true iff the re-ordering is successful, or not necessary.  */
+static bool
+resolve_input_conflict (struct equiv_info *info)
+{
+  int i, j, end;
+  int nswaps = 0;
+
+  find_dying_inputs (info);
+  if (info->dying_inputs <= 1)
+    return true;
+  end = info->local_count - 1;
+  for (i = 0; i <= end; i++)
+    {
+      /* Cycle detection with regsets is expensive, so we just check that
+	 we don't exceed the maximum number of swaps needed in the acyclic
+	 case.  */
+      int max_swaps = end - i;
+
+      /* Check if x_local[i] will be clobbered.  */
+      if (!info->local_rvalue[i])
+	continue;
+      /* Check if any later value needs to be copied earlier.  */
+      for (j = i + 1; j <= end; j++)
+	{
+	  rtx tmp;
+
+	  if (!info->local_rvalue[j])
+	    continue;
+	  if (! (*(reload_completed
+		   ? &reg_overlap_mentioned_for_reload_p
+		   : &reg_overlap_mentioned_p))
+		(info->x_local[i], info->y_local[j]))
+	    continue;
+	  if (--max_swaps < 0)
+	    return false;
+	  nswaps++;
+	  tmp = info->x_local[i];
+	  info->x_local[i] = info->x_local[j];
+	  info->x_local[j] = tmp;
+	  tmp = info->y_local[i];
+	  info->y_local[i] = info->y_local[j];
+	  info->y_local[j] = tmp;
+	  j = i;
+	}
+    }
+  info->had_input_conflict = true;
+  if (dump_file && nswaps)
+    fprintf (dump_file, "Resolved input conflict, %d %s.\n",
+	     nswaps, nswaps == 1 ? "swap" : "swaps");
+  return true;
+}
 
 /* Return true if I1 and I2 are equivalent and thus can be crossjumped.  */
 
@@ -1097,119 +2094,6 @@ insns_match_p (int mode ATTRIBUTE_UNUSED, rtx i1, rtx i2)
   return false;
 }
 
-/* Look through the insns at the end of BB1 and BB2 and find the longest
-   sequence that are equivalent.  Store the first insns for that sequence
-   in *F1 and *F2 and return the sequence length.
-
-   To simplify callers of this function, if the blocks match exactly,
-   store the head of the blocks in *F1 and *F2.  */
-
-static int
-flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
-		      basic_block bb2, rtx *f1, rtx *f2)
-{
-  rtx i1, i2, last1, last2, afterlast1, afterlast2;
-  int ninsns = 0;
-
-  /* Skip simple jumps at the end of the blocks.  Complex jumps still
-     need to be compared for equivalence, which we'll do below.  */
-
-  i1 = BB_END (bb1);
-  last1 = afterlast1 = last2 = afterlast2 = NULL_RTX;
-  if (onlyjump_p (i1)
-      || (returnjump_p (i1) && !side_effects_p (PATTERN (i1))))
-    {
-      last1 = i1;
-      i1 = PREV_INSN (i1);
-    }
-
-  i2 = BB_END (bb2);
-  if (onlyjump_p (i2)
-      || (returnjump_p (i2) && !side_effects_p (PATTERN (i2))))
-    {
-      last2 = i2;
-      /* Count everything except for unconditional jump as insn.  */
-      if (!simplejump_p (i2) && !returnjump_p (i2) && last1)
-	ninsns++;
-      i2 = PREV_INSN (i2);
-    }
-
-  while (true)
-    {
-      /* Ignore notes.  */
-      while (!INSN_P (i1) && i1 != BB_HEAD (bb1))
-	i1 = PREV_INSN (i1);
-
-      while (!INSN_P (i2) && i2 != BB_HEAD (bb2))
-	i2 = PREV_INSN (i2);
-
-      if (i1 == BB_HEAD (bb1) || i2 == BB_HEAD (bb2))
-	break;
-
-      if (!insns_match_p (mode, i1, i2))
-	break;
-
-      merge_memattrs (i1, i2);
-
-      /* Don't begin a cross-jump with a NOTE insn.  */
-      if (INSN_P (i1))
-	{
-	  /* If the merged insns have different REG_EQUAL notes, then
-	     remove them.  */
-	  rtx equiv1 = find_reg_equal_equiv_note (i1);
-	  rtx equiv2 = find_reg_equal_equiv_note (i2);
-
-	  if (equiv1 && !equiv2)
-	    remove_note (i1, equiv1);
-	  else if (!equiv1 && equiv2)
-	    remove_note (i2, equiv2);
-	  else if (equiv1 && equiv2
-		   && !rtx_equal_p (XEXP (equiv1, 0), XEXP (equiv2, 0)))
-	    {
-	      remove_note (i1, equiv1);
-	      remove_note (i2, equiv2);
-	    }
-
-	  afterlast1 = last1, afterlast2 = last2;
-	  last1 = i1, last2 = i2;
-	  ninsns++;
-	}
-
-      i1 = PREV_INSN (i1);
-      i2 = PREV_INSN (i2);
-    }
-
-#ifdef HAVE_cc0
-  /* Don't allow the insn after a compare to be shared by
-     cross-jumping unless the compare is also shared.  */
-  if (ninsns && reg_mentioned_p (cc0_rtx, last1) && ! sets_cc0_p (last1))
-    last1 = afterlast1, last2 = afterlast2, ninsns--;
-#endif
-
-  /* Include preceding notes and labels in the cross-jump.  One,
-     this may bring us to the head of the blocks as requested above.
-     Two, it keeps line number notes as matched as may be.  */
-  if (ninsns)
-    {
-      while (last1 != BB_HEAD (bb1) && !INSN_P (PREV_INSN (last1)))
-	last1 = PREV_INSN (last1);
-
-      if (last1 != BB_HEAD (bb1) && LABEL_P (PREV_INSN (last1)))
-	last1 = PREV_INSN (last1);
-
-      while (last2 != BB_HEAD (bb2) && !INSN_P (PREV_INSN (last2)))
-	last2 = PREV_INSN (last2);
-
-      if (last2 != BB_HEAD (bb2) && LABEL_P (PREV_INSN (last2)))
-	last2 = PREV_INSN (last2);
-
-      *f1 = last1;
-      *f2 = last2;
-    }
-
-  return ninsns;
-}
-
 /* Return true iff outgoing edges of BB1 and BB2 match, together with
    the branch instruction.  This means that if we commonize the control
    flow before end of the basic block, the semantic remains unchanged.
@@ -1489,14 +2373,13 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 static bool
 try_crossjump_to_edge (int mode, edge e1, edge e2)
 {
-  int nmatch;
+  int nmatch, i;
   basic_block src1 = e1->src, src2 = e2->src;
   basic_block redirect_to, redirect_from, to_remove;
-  rtx newpos1, newpos2;
   edge s;
   edge_iterator ei;
-
-  newpos1 = newpos2 = NULL_RTX;
+  struct equiv_info info;
+  rtx x_active, y_active;
 
   /* If we have partitioned hot/cold basic blocks, it is a bad idea
      to try this optimization. 
@@ -1547,15 +2430,59 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
     return false;
 
   /* ... and part the second.  */
-  nmatch = flow_find_cross_jump (mode, src1, src2, &newpos1, &newpos2);
+  info.x_block = src2;
+  info.y_block = src1;
+  info.need_full_block = false;
+  info.input_cost = optimize_size ? COSTS_N_INSNS (1) : -1;
+  nmatch = struct_equiv_block_eq (STRUCT_EQUIV_START | mode, &info);
 
   /* Don't proceed with the crossjump unless we found a sufficient number
      of matching instructions or the 'from' block was totally matched
      (such that its predecessors will hopefully be redirected and the
      block removed).  */
-  if ((nmatch < PARAM_VALUE (PARAM_MIN_CROSSJUMP_INSNS))
-      && (newpos1 != BB_HEAD (src1)))
+  if (!nmatch)
     return false;
+  if ((nmatch -info.input_count < PARAM_VALUE (PARAM_MIN_CROSSJUMP_INSNS))
+      && (info.y_start != BB_HEAD (src1)))
+    return false;
+  while (info.need_rerun)
+    {
+      nmatch = struct_equiv_block_eq (STRUCT_EQUIV_RERUN | mode, &info);
+      if (!nmatch)
+	return false;
+      if ((nmatch -info.input_count < PARAM_VALUE (PARAM_MIN_CROSSJUMP_INSNS))
+	   && (info.y_start != BB_HEAD (src1)))
+	return false;
+    }
+  nmatch = struct_equiv_block_eq (STRUCT_EQUIV_FINAL | mode, &info);
+  if ((nmatch -info.input_count < PARAM_VALUE (PARAM_MIN_CROSSJUMP_INSNS))
+      && (info.y_start != BB_HEAD (src1)))
+    return false;
+
+  /* Skip possible basic block header.  */
+  x_active = info.x_start;
+  if (LABEL_P (x_active))
+    x_active = NEXT_INSN (x_active);
+  if (NOTE_P (x_active))
+    x_active = NEXT_INSN (x_active);
+
+  y_active = info.y_start;
+  if (LABEL_P (y_active))
+    y_active = NEXT_INSN (y_active);
+  if (NOTE_P (y_active))
+    y_active = NEXT_INSN (y_active);
+
+  if (info.input_reg)
+    {
+      emit_insn_before (gen_move_insn (info.input_reg, info.x_input),
+			x_active);
+      emit_insn_before (gen_move_insn (info.input_reg, info.y_input),
+			y_active);
+    }
+  for (i = 0; i < info.local_count; i++)
+    if (info.local_rvalue[i])
+      emit_insn_before (gen_move_insn (info.x_local[i], info.y_local[i]),
+			y_active);
 
   /* Here we know that the insns in the end of SRC1 which are common with SRC2
      will be deleted.
@@ -1589,20 +2516,26 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
     }
 
   /* Avoid splitting if possible.  */
-  if (newpos2 == BB_HEAD (src2))
+  if (info.x_start == BB_HEAD (src2))
     redirect_to = src2;
   else
     {
       if (dump_file)
 	fprintf (dump_file, "Splitting bb %i before %i insns\n",
 		 src2->index, nmatch);
-      redirect_to = split_block (src2, PREV_INSN (newpos2))->dest;
+      redirect_to = split_block (src2, PREV_INSN (info.x_start))->dest;
+      COPY_REG_SET (info.y_block->il.rtl->global_live_at_end,
+		    info.x_block->il.rtl->global_live_at_end);
     }
 
   if (dump_file)
-    fprintf (dump_file,
-	     "Cross jumping from bb %i to bb %i; %i common insns\n",
-	     src1->index, src2->index, nmatch);
+    {
+      fprintf (dump_file, "Cross jumping from bb %i to bb %i; %i common insns",
+	       src1->index, src2->index, nmatch);
+      if (info.local_count)
+	fprintf (dump_file, ", %i local registers", info.local_count);
+      fprintf (dump_file, "\n");
+    }
 
   redirect_to->count += src1->count;
   redirect_to->frequency += src1->frequency;
@@ -1666,14 +2599,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 
   /* Edit SRC1 to go to REDIRECT_TO at NEWPOS1.  */
 
-  /* Skip possible basic block header.  */
-  if (LABEL_P (newpos1))
-    newpos1 = NEXT_INSN (newpos1);
-
-  if (NOTE_P (newpos1))
-    newpos1 = NEXT_INSN (newpos1);
-
-  redirect_from = split_block (src1, PREV_INSN (newpos1))->src;
+  redirect_from = split_block (src1, PREV_INSN (y_active))->src;
   to_remove = single_succ (redirect_from);
 
   redirect_edge_and_branch_force (single_succ_edge (redirect_from), redirect_to);

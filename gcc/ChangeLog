@@ -1,3 +1,34 @@
+2005-07-12  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR rtl-optimization/20070
+	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg00843.html
+	* basic-block.h (STRUCT_EQUIV_START, STRUCT_EQUIV_RERUN): Define.
+	(STRUCT_EQUIV_FINAL, STRUCT_EQUIV_MAX_LOCAL): Likewise.
+	(struct struct_equiv_checkpoint, struct equiv_info): Likewise.
+	(struct_equiv_block_eq): Declare.
+	* cfgcleanup.c (reload.h, expr.h): #include.
+	(IMPOSSIBLE_MOVE_FACTOR): Define.
+	(flow_find_cross_jump): Remove.
+	(assign_reg_reg_set, struct_equiv, struct_equiv_set): New functions.
+	(struct_equiv_dst_mem, struct_equiv_make_checkpoint): Likewise.
+	(struct_equiv_improve_checkpoint): Likewise.
+	(struct_equiv_restore_checkpoint, struct_equiv_death): Likewise.
+	(struct_equiv_block_eq): Likewise.
+	(find_dying_inputs, resolve_input_conflict): Likewise.
+	(try_crossjump_to_edge): Use struct_equiv_block_eq instead of
+	flow_find_cross_jump.
+	* ifcvt.c (noce_try_complex_cmove): New function.
+	(noce_process_if_block): Call it.
+	For flag_expensive_optimizations, update cond_exec_changed_p on
+	success.
+	(rest_of_handle_if_conversion): For flag_expensive_optimizations,
+	provide if_convert with register lifeness info.
+
+	Back out this change:
+	2005-03-07  Kazu Hirata  <kazu@cs.umass.edu>
+          * recog.c (verify_changes): Make it static.
+          * recog.h: Remove the corresponding prototype.
+
 2005-07-07  J"orn Rennecke <joern.rennecke@st.com>
 
 	* hooks.c (hook_bool_rtx_int_false): New function.

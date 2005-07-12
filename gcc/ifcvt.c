@@ -616,6 +616,8 @@ static rtx noce_get_alt_condition (struct noce_if_info *, rtx, rtx *);
 static int noce_try_minmax (struct noce_if_info *);
 static int noce_try_abs (struct noce_if_info *);
 static int noce_try_sign_mask (struct noce_if_info *);
+static bool noce_try_complex_cmove (struct ce_if_block *,
+				    struct noce_if_info *);
 
 /* Helper function for noce_try_store_flag*.  */
 
@@ -2081,10 +2083,17 @@ noce_process_if_block (struct ce_if_block * ce_info)
 
   /* Look for one of the potential sets.  */
   insn_a = first_active_insn (then_bb);
+  /* Set up the info block for noce_try_complex_cmove.  */
+  if_info.test_bb = test_bb;
+  if_info.cond = cond;
+  if_info.jump = jump;
+  if_info.insn_a = insn_a;
   if (! insn_a
       || insn_a != last_active_insn (then_bb, FALSE)
       || (set_a = single_set (insn_a)) == NULL_RTX)
-    return FALSE;
+    return ((else_bb && HAVE_conditional_move)
+	    ? noce_try_complex_cmove (ce_info, &if_info)
+	    : FALSE);
 
   x = SET_DEST (set_a);
   a = SET_SRC (set_a);
@@ -2163,11 +2172,7 @@ noce_process_if_block (struct ce_if_block * ce_info)
   if (! noce_operand_ok (a) || ! noce_operand_ok (b))
     return FALSE;
 
-  /* Set up the info block for our subroutines.  */
-  if_info.test_bb = test_bb;
-  if_info.cond = cond;
-  if_info.jump = jump;
-  if_info.insn_a = insn_a;
+  /* Set up the rest of the info block for our subroutines.  */
   if_info.insn_b = insn_b;
   if_info.x = x;
   if_info.a = a;
@@ -2292,6 +2297,8 @@ noce_process_if_block (struct ce_if_block * ce_info)
 
   /* Merge the blocks!  */
   merge_if_block (ce_info);
+  if (flag_expensive_optimizations)
+    cond_exec_changed_p = TRUE;
 
   return TRUE;
 }
@@ -2799,6 +2806,83 @@ find_if_block (struct ce_if_block * ce_info)
   ce_info->join_bb = join_bb;
 
   return process_if_block (ce_info);
+}
+
+/* Try to use a cmove where if end else blocks are structurally equivalent
+   blocks that differ only by an input register, and possible some local
+   registers.  */
+static bool
+noce_try_complex_cmove (struct ce_if_block * ce_info,
+			struct noce_if_info *if_info)
+{
+  basic_block then_bb = ce_info->then_bb;	/* THEN */
+  basic_block else_bb = ce_info->else_bb;	/* ELSE or NULL */
+  rtx yi;
+  struct equiv_info info;
+  int i;
+  rtx temp;
+  rtx next;
+  int n_matched;
+
+  if (!life_data_ok)
+    return false;
+  info.x_block = else_bb;
+  info.y_block = then_bb;
+  info.need_full_block = true;
+  info.input_cost = 0;
+  n_matched = struct_equiv_block_eq (STRUCT_EQUIV_START, &info);
+  if (! n_matched)
+    return false;
+  while (info.need_rerun)
+    {
+      n_matched = struct_equiv_block_eq (STRUCT_EQUIV_RERUN, &info);
+      if (! n_matched)
+	return false;
+    }
+  /* We want exactly one input.
+     ??? We might allow more inputs if BRANCH_COST is high, or no inputs
+     as a means of commoning basically identical code.  */
+  if (info.input_valid && ! info.dying_inputs)
+    {
+      temp = info.input_reg;
+      if_info->a = info.y_input;
+      if_info->b = info.x_input;
+    }
+  else
+    {
+      if (info.dying_inputs != 1)
+	return false;
+      for (i = info.local_count-1; ! info.local_rvalue[i]; ) i--;
+      temp = info.x_local[i];
+      if_info->a = info.y_local[i];
+      if_info->b = info.x_local[i];
+    }
+  if_info->x = temp;
+  if (! noce_try_cmove (if_info))
+    return false;
+  if (dump_file)
+    {
+      fprintf (dump_file, "Using temp ");
+      print_simple_rtl (dump_file, temp);
+      fprintf (dump_file, " for inputs ");
+      print_simple_rtl (dump_file, if_info->a);
+      fprintf (dump_file, " and ");
+      print_simple_rtl (dump_file, if_info->b);
+      fprintf (dump_file, ".\n%d local registers.\n",
+	       info.local_count - info.dying_inputs);
+    }
+  struct_equiv_block_eq (STRUCT_EQUIV_FINAL, &info);
+  if (flag_expensive_optimizations)
+    cond_exec_changed_p = TRUE;
+  for (yi = BB_HEAD (then_bb); yi != BB_END (then_bb); yi = next)
+    {
+      next = NEXT_INSN (yi);
+      if (INSN_P (yi))
+	next = delete_insn (yi);
+    }
+  delete_insn (if_info->jump);
+  merge_if_block (ce_info);
+  return true;
 }
 
 /* Convert a branch over a trap, or a branch
@@ -3598,7 +3682,23 @@ rest_of_handle_if_conversion (void)
         dump_flow_info (dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       reg_scan (get_insns (), max_reg_num ());
-      if_convert (0);
+      if (flag_expensive_optimizations)
+	{
+	  basic_block bb;
+
+	  life_analysis (dump_file, PROP_REG_INFO);
+	  if_convert (1);
+	  count_or_remove_death_notes (NULL, 1);
+	  FOR_EACH_BB (bb)
+	    {
+	      bb->il.rtl->global_live_at_start = 0;
+	      bb->il.rtl->global_live_at_end = 0;
+	    }
+	  ENTRY_BLOCK_PTR->il.rtl->global_live_at_start = 0;
+	  EXIT_BLOCK_PTR->il.rtl->global_live_at_start = 0;
+	}
+      else
+	if_convert (0);
     }
 
   timevar_push (TV_JUMP);
