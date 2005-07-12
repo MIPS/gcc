@@ -1,5 +1,11 @@
 2005-07-11  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (find_field): Examine erasure of field's
+	type.
+	(find_method): Examine erasures of method's types.
+
+2005-07-11  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.cc (visit_cast): Fixed ordering of emit_cast
 	arguments.
 

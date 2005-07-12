@@ -2101,7 +2101,7 @@ bytecode_generator::find_field (const std::string &name,
        ++it)
     {
       model_field *field = (*it).get ();
-      if (field->get_name () == name && field->type () == type)
+      if (field->get_name () == name && field->type ()->erasure () == type)
         return field;
     }
   throw request->error ("couldn't find field %1 of type %2 in class %3")
@@ -2131,7 +2131,7 @@ bytecode_generator::find_method (const char *mname, model_class *klass,
       if (! argtype || len != 1)
 	continue;
       ref_variable_decl var = params.front ();
-      if (var->type () == argtype)
+      if (var->type ()->erasure () == argtype)
 	{
 	  result = meth;
 	  break;
@@ -2146,7 +2146,7 @@ bytecode_generator::find_method (const char *mname, model_class *klass,
 	% mname % (argtype ? argtype : primitive_void_type) % klass;
     }
 
-  if (result->get_return_type () != result_type)
+  if (result->get_return_type ()->erasure () != result_type)
     {
       throw request->error ("method %1 doesn't have expected return type"
 			    " of %2")
@@ -2302,8 +2302,9 @@ bytecode_generator::visit_class_ref (model_class_ref *ref,
   if (type->primitive_p () || type == primitive_void_type)
     {
       model_class *wrapper = box_primitive_type (type);
-      model_field *field = find_field ("TYPE", wrapper,
-        global->get_compiler ()->java_lang_Class (), ref);
+      model_field *field
+	= find_field ("TYPE", wrapper,
+		      global->get_compiler ()->java_lang_Class (), ref);
       emit (op_getstatic);
       emit2 (cpool->add (wrapper, field));
     }
