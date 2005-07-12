@@ -90,6 +90,7 @@
 	    Richard Shann <rshann@superh.com>
 
 	PR middle-end/20396:
+	http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00883.html
 	* loop.c (combine_movables): Take TRULY_NOOP_TRUNCATION into account.
 	* optabs.c (expand_binop): Likewise.
 
