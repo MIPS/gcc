@@ -1,3 +1,31 @@
+2005-07-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR ada/22340
+
+	* Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Fix pasto.
+	* Makefile.in: Regenerate.
+
+2005-07-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* MAINTAINERS: Remove Dave Brolley as a cpplib maintainer.  Add Dave
+	Brolley to write-after-approval. 
+
+2005-07-07  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.def (flags_to_pass): Add CFLAGS_FOR_BUILD.
+	* Makefile.tpl (EXTRA_GCC_FLAGS): Don't pass CFLAGS_FOR_BUILD here.
+	* Makefile.in: Regenerated.
+
+2005-07-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in: Don't build sim or rda when targetting darwin.
+	* configure: Regenerate.
+
+2005-07-06  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.in: Add --enable-libssp and --disable-libssp.
+	* configure: Regenerate with autoconf-2.13.
+
 2005-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.def (target_modules): Add libssp.

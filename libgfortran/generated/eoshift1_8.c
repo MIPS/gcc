@@ -101,7 +101,7 @@ eoshift1_8 (gfc_array_char *ret,
       int i;
 
       ret->data = internal_malloc_size (size * size0 ((array_t *)array));
-      ret->base = 0;
+      ret->offset = 0;
       ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
@@ -158,7 +158,14 @@ eoshift1_8 (gfc_array_char *ret,
     {
       /* Do the shift for this dimension.  */
       sh = *hptr;
-      delta = (sh >= 0) ? sh: -sh;
+      if (( sh >= 0 ? sh : -sh ) > len)
+	{
+	  delta = len;
+	  sh = len;
+	}
+      else
+	delta = (sh >= 0) ? sh: -sh;
+
       if (sh > 0)
         {
           src = &sptr[delta * soffset];

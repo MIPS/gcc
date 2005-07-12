@@ -124,6 +124,7 @@ static void pa_init_builtins (void);
 static rtx hppa_builtin_saveregs (void);
 static tree hppa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool pa_scalar_mode_supported_p (enum machine_mode);
+static bool pa_commutative_p (rtx x, int outer_code);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
 static struct deferred_plabel *get_plabel (rtx) ATTRIBUTE_UNUSED;
@@ -226,6 +227,9 @@ static size_t n_deferred_plabels = 0;
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL pa_function_ok_for_sibcall
 
+#undef TARGET_COMMUTATIVE_P
+#define TARGET_COMMUTATIVE_P pa_commutative_p
+
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK pa_asm_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
@@ -291,6 +295,9 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P pa_scalar_mode_supported_p
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM pa_tls_referenced_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -595,6 +602,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 {
   rtx pic_ref = orig;
 
+  gcc_assert (!PA_SYMBOL_REF_TLS_P (orig));
+
   /* Labels need special handling.  */
   if (pic_label_operand (orig, mode))
     {
@@ -671,6 +680,80 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
   return pic_ref;
 }
 
+static GTY(()) rtx gen_tls_tga;
+
+static rtx
+gen_tls_get_addr (void)
+{
+  if (!gen_tls_tga)
+    gen_tls_tga = init_one_libfunc ("__tls_get_addr");
+  return gen_tls_tga;
+}
+
+static rtx
+hppa_tls_call (rtx arg)
+{
+  rtx ret;
+
+  ret = gen_reg_rtx (Pmode);
+  emit_library_call_value (gen_tls_get_addr (), ret,
+		  	   LCT_CONST, Pmode, 1, arg, Pmode);
+
+  return ret;
+}
+
+static rtx
+legitimize_tls_address (rtx addr)
+{
+  rtx ret, insn, tmp, t1, t2, tp;
+  enum tls_model model = SYMBOL_REF_TLS_MODEL (addr);
+
+  switch (model) 
+    {
+      case TLS_MODEL_GLOBAL_DYNAMIC:
+	tmp = gen_reg_rtx (Pmode);
+	emit_insn (gen_tgd_load (tmp, addr));
+	ret = hppa_tls_call (tmp);
+	break;
+
+      case TLS_MODEL_LOCAL_DYNAMIC:
+	ret = gen_reg_rtx (Pmode);
+	tmp = gen_reg_rtx (Pmode);
+	start_sequence ();
+	emit_insn (gen_tld_load (tmp, addr));
+	t1 = hppa_tls_call (tmp);
+	insn = get_insns ();
+	end_sequence ();
+	t2 = gen_reg_rtx (Pmode);
+	emit_libcall_block (insn, t2, t1, 
+			    gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+				            UNSPEC_TLSLDBASE));
+	emit_insn (gen_tld_offset_load (ret, addr, t2));
+	break;
+
+      case TLS_MODEL_INITIAL_EXEC:
+	tp = gen_reg_rtx (Pmode);
+	tmp = gen_reg_rtx (Pmode);
+	ret = gen_reg_rtx (Pmode);
+	emit_insn (gen_tp_load (tp));
+	emit_insn (gen_tie_load (tmp, addr));
+	emit_move_insn (ret, gen_rtx_PLUS (Pmode, tp, tmp));
+	break;
+
+      case TLS_MODEL_LOCAL_EXEC:
+	tp = gen_reg_rtx (Pmode);
+	ret = gen_reg_rtx (Pmode);
+	emit_insn (gen_tp_load (tp));
+	emit_insn (gen_tle_load (ret, addr, tp));
+	break;
+
+      default:
+	gcc_unreachable ();
+    }
+
+  return ret;
+}
+
 /* Try machine-dependent ways of modifying an illegitimate address
    to be legitimate.  If we find one, return the new, valid address.
    This macro is used in only one place: `memory_address' in explow.c.
@@ -740,7 +823,9 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && !REG_POINTER (XEXP (x, 1)))
     return gen_rtx_PLUS (Pmode, XEXP (x, 1), XEXP (x, 0));
 
-  if (flag_pic)
+  if (PA_SYMBOL_REF_TLS_P (x))
+    return legitimize_tls_address (x);
+  else if (flag_pic)
     return legitimize_pic_address (x, mode, gen_reg_rtx (Pmode));
 
   /* Strip off CONST.  */
@@ -1188,6 +1273,25 @@ force_mode (enum machine_mode mode, rtx orig)
   gcc_assert (REGNO (orig) < FIRST_PSEUDO_REGISTER);
 
   return gen_rtx_REG (mode, REGNO (orig));
+}
+
+/* Return 1 if *X is a thread-local symbol.  */
+
+static int
+pa_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
+{
+  return PA_SYMBOL_REF_TLS_P (*x);
+}
+
+/* Return 1 if X contains a thread-local symbol.  */
+
+bool
+pa_tls_referenced_p (rtx x)
+{
+  if (!TARGET_HAVE_TLS)
+    return false;
+
+  return for_each_rtx (&x, &pa_tls_symbol_ref_1, 0);
 }
 
 /* Emit insns to move operands[1] into operands[0].
@@ -1706,6 +1810,26 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 
 	    }
 	  return 1;
+	}
+      else if (pa_tls_referenced_p (operand1))
+	{
+	  rtx tmp = operand1;
+	  rtx addend = NULL;
+
+	  if (GET_CODE (tmp) == CONST && GET_CODE (XEXP (tmp, 0)) == PLUS)
+	    {
+	      addend = XEXP (XEXP (tmp, 0), 1);
+	      tmp = XEXP (XEXP (tmp, 0), 0);
+	    }
+
+	  gcc_assert (GET_CODE (tmp) == SYMBOL_REF);
+	  tmp = legitimize_tls_address (tmp);
+	  if (addend)
+	    {
+	      tmp = gen_rtx_PLUS (mode, tmp, addend);
+	      tmp = force_operand (tmp, operands[0]);
+	    }
+	  operands[1] = tmp;
 	}
       else if (GET_CODE (operand1) != CONST_INT
 	       || !cint_ok_for_move (INTVAL (operand1)))
@@ -5710,10 +5834,10 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       t = fold_convert (ptr, t);
-      t = build_fold_indirect_ref (t);
+      t = build_va_arg_indirect_ref (t);
 
       if (indirect)
-	t = build_fold_indirect_ref (t);
+	t = build_va_arg_indirect_ref (t);
 
       return t;
     }
@@ -7371,6 +7495,8 @@ hppa_encode_label (rtx sym)
 static void
 pa_encode_section_info (tree decl, rtx rtl, int first)
 {
+  default_encode_section_info (decl, rtl, first);
+
   if (first && TEXT_SPACE_P (decl))
     {
       SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
@@ -7696,6 +7822,18 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 
   /* Sibcalls are only ok within a translation unit.  */
   return (decl && !TREE_PUBLIC (decl));
+}
+
+/* ??? Addition is not commutative on the PA due to the weird implicit
+   space register selection rules for memory addresses.  Therefore, we
+   don't consider a + b == b + a, as this might be inside a MEM.  */
+static bool
+pa_commutative_p (rtx x, int outer_code)
+{
+  return (COMMUTATIVE_P (x)
+	  && (TARGET_NO_SPACE_REGS
+	      || (outer_code != UNKNOWN && outer_code != MEM)
+	      || GET_CODE (x) != PLUS));
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
@@ -8580,24 +8718,40 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode valmode;
 
-  /* Aggregates with a size less than or equal to 128 bits are returned
-     in GR 28(-29).  They are left justified.  The pad bits are undefined.
-     Larger aggregates are returned in memory.  */
-  if (TARGET_64BIT && AGGREGATE_TYPE_P (valtype))
+  if (AGGREGATE_TYPE_P (valtype))
     {
-      rtx loc[2];
-      int i, offset = 0;
-      int ub = int_size_in_bytes (valtype) <= UNITS_PER_WORD ? 1 : 2;
-
-      for (i = 0; i < ub; i++)
+      if (TARGET_64BIT)
 	{
-	  loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (DImode, 28 + i),
-				      GEN_INT (offset));
-	  offset += 8;
-	}
+          /* Aggregates with a size less than or equal to 128 bits are
+	     returned in GR 28(-29).  They are left justified.  The pad
+	     bits are undefined.  Larger aggregates are returned in
+	     memory.  */
+	  rtx loc[2];
+	  int i, offset = 0;
+	  int ub = int_size_in_bytes (valtype) <= UNITS_PER_WORD ? 1 : 2;
 
-      return gen_rtx_PARALLEL (BLKmode, gen_rtvec_v (ub, loc));
+	  for (i = 0; i < ub; i++)
+	    {
+	      loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
+					  gen_rtx_REG (DImode, 28 + i),
+					  GEN_INT (offset));
+	      offset += 8;
+	    }
+
+	  return gen_rtx_PARALLEL (BLKmode, gen_rtvec_v (ub, loc));
+	}
+      else if (int_size_in_bytes (valtype) > UNITS_PER_WORD)
+	{
+	  /* Aggregates 5 to 8 bytes in size are returned in general
+	     registers r28-r29 in the same manner as other non
+	     floating-point objects.  The data is right-justified and
+	     zero-extended to 64 bits.  This is opposite to the normal
+	     justification used on big endian targets and requires
+	     special treatment.  */
+	  rtx loc = gen_rtx_EXPR_LIST (VOIDmode,
+				       gen_rtx_REG (DImode, 28), const0_rtx);
+	  return gen_rtx_PARALLEL (BLKmode, gen_rtvec (1, loc));
+	}
     }
 
   if ((INTEGRAL_TYPE_P (valtype)
@@ -8608,6 +8762,7 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     valmode = TYPE_MODE (valtype);
 
   if (TREE_CODE (valtype) == REAL_TYPE
+      && !AGGREGATE_TYPE_P (valtype)
       && TYPE_MODE (valtype) != TFmode
       && !TARGET_SOFT_FLOAT)
     return gen_rtx_REG (valmode, 32);
@@ -8733,12 +8888,12 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	     to 64 bits.  This is opposite to the normal justification
 	     used on big endian targets and requires special treatment.
 	     We now define BLOCK_REG_PADDING to pad these objects.  */
-	  if (mode == BLKmode)
+	  if (mode == BLKmode || (type && AGGREGATE_TYPE_P (type)))
 	    {
 	      rtx loc = gen_rtx_EXPR_LIST (VOIDmode,
 					   gen_rtx_REG (DImode, gpr_reg_base),
 					   const0_rtx);
-	      return gen_rtx_PARALLEL (mode, gen_rtvec (1, loc));
+	      return gen_rtx_PARALLEL (BLKmode, gen_rtvec (1, loc));
 	    }
 	}
       else
@@ -8799,7 +8954,9 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	      && cum->indirect)
 	  /* If the parameter is not a floating point parameter, then
 	     it belongs in GPRs.  */
-	  || !FLOAT_MODE_P (mode))
+	  || !FLOAT_MODE_P (mode)
+	  /* Structure with single SFmode field belongs in GPR.  */
+	  || (type && AGGREGATE_TYPE_P (type)))
 	retval = gen_rtx_REG (mode, gpr_reg_base);
       else
 	retval = gen_rtx_REG (mode, fpr_reg_base);

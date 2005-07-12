@@ -102,7 +102,7 @@ of the same kind; for example, if you specify @option{-L} more than once,
 the directories are searched in the order specified.
 
 Many options have long names starting with @samp{-f} or with
-@samp{-W}---for example, @option{-fforce-mem},
+@samp{-W}---for example, 
 @option{-fstrength-reduce}, @option{-Wformat} and so on.  Most of
 these have both positive and negative forms; the negative form of
 @option{-ffoo} would be @option{-fno-foo}.  This manual documents
@@ -302,7 +302,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks -fearly-inlining @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
--fforce-addr  -fforce-mem  -ffunction-sections @gol
+-fforce-addr  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
@@ -414,8 +414,9 @@ Objective-C and Objective-C++ Dialects}.
 -mcall-prologues  -mno-tablejump  -mtiny-stack  -mint8}
 
 @emph{Blackfin Options}
-@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer -mcsync @gol
--mno-csync -mlow-64k -mno-low64k -mid-shared-library @gol
+@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer @gol
+-mspecld-anomaly -mno-specld-anomaly -mcsync-anomaly -mno-csync-anomaly @gol
+-mlow-64k -mno-low64k -mid-shared-library @gol
 -mno-id-shared-library -mshared-library-id=@var{n} @gol
 -mlong-calls  -mno-long-calls}
 
@@ -451,7 +452,8 @@ Objective-C and Objective-C++ Dialects}.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
--whatsloaded -F -gused -gfull -mone-byte-bool}
+-whatsloaded -F -gused -gfull -mmacosx-min-version=@var{version} @gol
+-mone-byte-bool}
 
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
@@ -513,8 +515,8 @@ Objective-C and Objective-C++ Dialects}.
 -mmmx  -msse  -msse2 -msse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
--m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
--mno-red-zone -mno-tls-direct-seg-refs @gol
+-m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
+-momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64}
 
@@ -4322,7 +4324,6 @@ also turns on the following optimization flags:
 -fstrength-reduce @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -fcaller-saves @gol
--fforce-mem @gol
 -fpeephole2 @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
@@ -4399,15 +4400,12 @@ Force memory operands to be copied into registers before doing
 arithmetic on them.  This produces better code by making all memory
 references potential common subexpressions.  When they are not common
 subexpressions, instruction combination should eliminate the separate
-register-load.
-
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+register-load. This option is now a nop and will be removed in 4.2.
 
 @item -fforce-addr
 @opindex fforce-addr
 Force memory address constants to be copied into registers before
-doing arithmetic on them.  This may produce better code just as
-@option{-fforce-mem} may.
+doing arithmetic on them.
 
 @item -fomit-frame-pointer
 @opindex fomit-frame-pointer
@@ -7406,15 +7404,26 @@ makes an extra register available in leaf functions.  The option
 @option{-fomit-frame-pointer} removes the frame pointer for all functions
 which might make debugging harder.
 
-@item -mcsync
-@opindex mcsync
+@item -mspecld-anomaly
+@opindex mspecld-anomaly
 When enabled, the compiler will ensure that the generated code does not
 contain speculative loads after jump instructions.  This option is enabled
 by default.
 
-@item -mno-csync
-@opindex mno-csync
+@item -mno-specld-anomaly
+@opindex mno-specld-anomaly
 Don't generate extra code to prevent speculative loads from occurring.
+
+@item -mcsync-anomaly
+@opindex mspecld-anomaly
+When enabled, the compiler will ensure that the generated code does not
+contain CSYNC or SSYNC instructions too soon after conditional branches.
+This option is enabled by default.
+
+@item -mno-csync-anomaly
+@opindex mno-specld-anomaly
+Don't generate extra code to prevent CSYNC or SSYNC instructions from
+occurring too soon after a conditional branch.
 
 @item -mlow-64k
 @opindex mlow-64k
@@ -7671,6 +7680,14 @@ This is by default ON@.
 @item -gfull
 @opindex -gfull
 Emit debugging information for all symbols and types.
+
+@item -mmacosx-version-min=@var{version}
+The earliest version of MacOS X that this executable will run on
+is @var{version}.  Typical values of @var{version} include @code{10.1},
+@code{10.2}, and @code{10.3.9}.
+
+The default for this option is to make choices that seem to be most
+useful.  
 
 @item -mone-byte-bool
 @opindex -mone-byte-bool
@@ -9024,6 +9041,17 @@ function by using the function attribute @samp{regparm}.
 @var{num} is nonzero, then you must build all modules with the same
 value, including any libraries.  This includes the system libraries and
 startup modules.
+
+@item -msseregparm
+@opindex msseregparm
+Use SSE register passing conventions for float and double arguments
+and return values.  You can control this behavior for a specific
+function by using the function attribute @samp{sseregparm}.
+@xref{Function Attributes}.
+
+@strong{Warning:} if you use this switch then you must build all
+modules with the same value, including any libraries.  This includes
+the system libraries and startup modules.
 
 @item -mpreferred-stack-boundary=@var{num}
 @opindex mpreferred-stack-boundary
@@ -11437,7 +11465,8 @@ to the GNU/Linux for zSeries ABI, the default is @option{-mzarch}.
 @opindex mno-mvcle
 Generate (or do not generate) code using the @code{mvcle} instruction
 to perform block moves.  When @option{-mno-mvcle} is specified,
-use a @code{mvc} loop instead.  This is the default.
+use a @code{mvc} loop instead.  This is the default unless optimizing for
+size.
 
 @item -mdebug
 @itemx -mno-debug

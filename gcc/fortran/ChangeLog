@@ -1,3 +1,84 @@
+2005-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-stmt.c (gfc_trans_forall_loop): Clear maskindex before
+	the outermost loop.
+	(gfc_trans_assign_need_temp, gfc_trans_pointer_assign_need_temp,
+	gfc_trans_forall_1, gfc_evaluate_where_mask, gfc_trans_where_2):
+	Don't clear maskindexes here.
+
+2005-07-08  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* trans-decl.c (create_function_arglist): DECL_ARG_TYPE_AS_WRITTEN
+	is removed.
+
+2005-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* primary.c (gfc_match_rvalue): Handle ENTRY the same way
+	as FUNCTION.
+
+2005-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* scanner.c (load_line): Add pbuflen argument, don't make
+	buflen static.  If maxlen == 0 or preprocessor_flag,
+	don't truncate at buflen, but at maxlen.  In xrealloc add
+	1 byte at the end for the terminating '\0'.  Don't fill
+	with spaces up to buflen, but gfc_option.fixed_line_length.
+	(load_file): Adjust load_line caller.  Add line_len variable.
+
+	* scanner.c (preprocessor_line): Only set current_file->line when errors
+	have not been encountered.  Warn and don't crash if a file leave
+	preprocessor line has no corresponding entering line.  Formatting.
+
+2005-07-07  Steven Bosscher  <stevenb@suse.de>
+
+	* primary.c (match_hollerith_constant): Use int, not unsigned int,
+	for the hollerith length.  Fix indentation.
+
+2005-07-07  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/16531
+	PR fortran/15966
+	PR fortran/18781
+	* arith.c (gfc_hollerith2int, gfc_hollerith2real,
+	gfc_hollerith2complex, gfc_hollerith2character, gfc_hollerith2logical):
+	New functions.
+	(eval_intrinsic): Don't evaluate if Hollerith constant arguments exist.
+	* arith.h (gfc_hollerith2int, gfc_hollerith2real,
+	gfc_hollerith2complex, gfc_hollerith2character, gfc_hollerith2logical):
+	Add prototypes.
+	* expr.c (free_expr0): Free memery allocated for Hollerith constant.
+	(gfc_copy_expr): Allocate and copy string if Expr is from Hollerith.
+	(gfc_check_assign): Enable conversion from Hollerith to other.
+	* gfortran.h (bt): Add BT_HOLLERITH.
+	(gfc_expr): Add from_H flag.
+	* intrinsic.c (gfc_type_letter): Return 'h' for BT_HOLLERITH.
+	(add_conversions): Add conversions from Hollerith constant to other.
+	(do_simplify): Don't simplify if  Hollerith constant arguments exist.
+	* io.c (resolve_tag): Enable array in FORMAT tag under GFC_STD_GNU.
+	* misc.c (gfc_basetype_name): Return "HOLLERITH" for BT_HOLLERITH.
+	(gfc_type_name): Print "HOLLERITH" for BT_HOLLERITH.
+	* primary.c (match_hollerith_constant): New function.
+	(gfc_match_literal_constant): Add match Hollerith before Integer.
+	* simplify.c (gfc_convert_constant): Add conversion from Hollerith
+	to other.
+	* trans-const.c (gfc_conv_constant_to_tree): Use VIEW_CONVERT_EXPR to
+	convert Hollerith constant to tree.
+	* trans-io.c (gfc_convert_array_to_string): Get array's address and
+	length to set string expr.
+	(set_string): Deal with array assigned Hollerith constant and character
+	array.
+	* gfortran.texi: Document Hollerith constants as extention support.
+
+2005-07-07  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/22327
+	* trans-array.c (gfc_trans_array_constructor_value): Fix index of data.
+
+2005-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (gfc_match_entry): Allow ENTRY without parentheses
+	even in FUNCTIONs.
+
 2005-07-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gfortran.texi, intrinsic.texi: Fix typos.

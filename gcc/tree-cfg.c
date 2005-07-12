@@ -1981,7 +1981,12 @@ remove_bb (basic_block bb)
 	}
       else
         {
-	  release_defs (stmt);
+	  /* Release SSA definitions if we are in SSA.  Note that we
+	     may be called when not in SSA.  For example,
+	     final_cleanup calls this function via
+	     cleanup_tree_cfg.  */
+	  if (in_ssa_p)
+	    release_defs (stmt);
 
 	  bsi_remove (&i);
 	}
@@ -3078,12 +3083,9 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   if (TYPE_P (t))
     *walk_subtrees = 0;
   
-  /* Check operand N for being valid GIMPLE and give error MSG if not. 
-     We check for constants explicitly since they are not considered
-     gimple invariants if they overflowed.  */
+  /* Check operand N for being valid GIMPLE and give error MSG if not.  */
 #define CHECK_OP(N, MSG) \
-  do { if (!CONSTANT_CLASS_P (TREE_OPERAND (t, N))		\
-         && !is_gimple_val (TREE_OPERAND (t, N)))		\
+  do { if (!is_gimple_val (TREE_OPERAND (t, N)))		\
        { error (MSG); return TREE_OPERAND (t, N); }} while (0)
 
   switch (TREE_CODE (t))

@@ -137,7 +137,7 @@ rest_of_decl_compilation (tree decl,
 
   /* Can't defer this, because it needs to happen before any
      later function definitions are processed.  */
-  if (DECL_REGISTER (decl) && DECL_ASSEMBLER_NAME_SET_P (decl))
+  if (DECL_ASSEMBLER_NAME_SET_P (decl) && DECL_REGISTER (decl))
     make_decl_rtl (decl);
 
   /* Forward declarations for nested functions are not "external",
@@ -471,10 +471,8 @@ init_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
-  NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_return_slot);
-  NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
 
@@ -490,9 +488,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_dominator);
 
   NEXT_PASS (pass_phiopt);
-  NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_ch);
@@ -558,6 +554,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
   NEXT_PASS (pass_scev_cprop);
+  NEXT_PASS (pass_empty_loop);
   NEXT_PASS (pass_record_bounds);
   NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_iv_canon);
@@ -666,18 +663,19 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
     gcc_assert (flags & TODO_update_ssa_any);
 #endif
 
-  if (flags & TODO_update_ssa_any)
-    {
-      unsigned update_flags = flags & TODO_update_ssa_any;
-      update_ssa (update_flags);
-    }
-
+  /* Always cleanup the CFG before doing anything else.  */
   if (flags & TODO_cleanup_cfg)
     {
       if (current_loops)
 	cleanup_tree_cfg_loop ();
       else
 	cleanup_tree_cfg ();
+    }
+
+  if (flags & TODO_update_ssa_any)
+    {
+      unsigned update_flags = flags & TODO_update_ssa_any;
+      update_ssa (update_flags);
     }
 
   if ((flags & TODO_dump_func)

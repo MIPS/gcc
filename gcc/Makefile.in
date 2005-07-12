@@ -711,7 +711,7 @@ RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) reg-notes.def insn-notes.def \
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h builtins.def \
-          input.h statistics.h vec.h
+          input.h statistics.h vec.h treestruct.def
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
           hard-reg-set.h cfghooks.h $(OBSTACK_H)
 GCOV_IO_H = gcov-io.h gcov-iov.h auto-host.h
@@ -1222,25 +1222,33 @@ stamp-as: $(ORIGINAL_AS_FOR_TARGET)
 	echo timestamp > $@
 
 stamp-collect-ld: $(ORIGINAL_LD_FOR_TARGET)
-	@echo creating collect-ld; rm -f collect-ld; \
-	case "$<" in \
-	  ./*) ;; \
+	@echo creating collect-ld; \
+	case "$(ORIGINAL_LD_FOR_TARGET)" in \
+	  ./collect-ld) ;; \
 	  ../*) \
+	     rm -f collect-ld$(exeext); \
 	     echo $(LN) $< collect-ld$(exeext); \
 	     $(LN) $< collect-ld$(exeext) || cp $< collect-ld$(exeext) ;; \
-	  *) echo '#!$(SHELL)' > collect-ld; echo 'exec $< "$$@"' >> collect-ld ; \
+	  *) \
+	     rm -f collect-ld$(exeext); \
+	     echo '#!$(SHELL)' > collect-ld; \
+	     echo 'exec $(ORIGINAL_LD_FOR_TARGET) "$$@"' >> collect-ld ; \
 	     chmod +x collect-ld ;; \
 	esac
 	echo timestamp > $@
 
 stamp-nm: $(ORIGINAL_NM_FOR_TARGET)
-	@echo creating nm; rm -f nm; \
-	case "$<" in \
-	  ./*) ;; \
+	@echo creating nm; \
+	case "$(ORIGINAL_NM_FOR_TARGET)" in \
+	  ./nm) ;; \
 	  ../*) \
+	     rm -f nm$(exeext); \
 	     echo $(LN) $< nm$(exeext); \
 	     $(LN) $< nm$(exeext) || cp $< nm$(exeext) ;; \
-	  *) echo '#!$(SHELL)' > nm; echo 'exec $< "$$@"' >> nm ; \
+	  *) \
+	     rm -f nm$(exeext); \
+	     echo '#!$(SHELL)' > nm; \
+	     echo 'exec $(ORIGINAL_NM_FOR_TARGET) "$$@"' >> nm ; \
 	     chmod +x nm ;; \
 	esac
 	echo timestamp > $@
@@ -1449,7 +1457,8 @@ c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(EXPR_H) debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) \
     opts.h $(C_PRAGMA_H) gt-c-decl.h $(CGRAPH_H) $(HASHTAB_H) libfuncs.h \
     except.h $(LANGHOOKS_DEF_H) $(TREE_DUMP_H) $(C_COMMON_H) $(CPPLIB_H) \
-    $(DIAGNOSTIC_H) input.h langhooks.h $(TREE_GIMPLE_H) tree-mudflap.h
+    $(DIAGNOSTIC_H) input.h langhooks.h $(TREE_GIMPLE_H) tree-mudflap.h  \
+    pointer-set.h
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(TREE_H) $(C_TREE_H) $(TARGET_H) $(FLAGS_H) intl.h output.h $(EXPR_H) \
     $(RTL_H) toplev.h $(TM_P_H) langhooks.h $(GGC_H) $(TREE_FLOW_H) \
@@ -1886,7 +1895,7 @@ tree-ssa-alias.o : tree-ssa-alias.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) tree-inline.h $(FLAGS_H) \
    function.h $(TIMEVAR_H) convert.h $(TM_H) coretypes.h langhooks.h \
    $(TREE_DUMP_H) tree-pass.h $(PARAMS_H) $(BASIC_BLOCK_H) $(DIAGNOSTIC_H) \
-   hard-reg-set.h $(TREE_GIMPLE_H) vec.h
+   hard-reg-set.h $(TREE_GIMPLE_H) vec.h tree-ssa-structalias.h
 tree-ssa-reassoc.o : tree-ssa-reassoc.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) errors.h $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) tree-iterator.h\
@@ -2716,6 +2725,11 @@ gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
 gt-stringpool.h gt-targhooks.h : s-gtype ; @true
 
+define echo_quoted_to_gtyp
+ echo "\"$(gtyp)\", " >> tmp-gtyp.h
+
+endef
+
 gtyp-gen.h: s-gtyp-gen ; @true
 s-gtyp-gen: Makefile
 	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h
@@ -2723,24 +2737,16 @@ s-gtyp-gen: Makefile
 	echo "\"$(GTFILES_SRCDIR)\"" >> tmp-gtyp.h
 	echo ";" >> tmp-gtyp.h
 	echo "static const char *const lang_files[] = {" >> tmp-gtyp.h
-	ll="$(GTFILES_FILES_FILES)"; \
-	for f in $$ll; do \
-	echo "\"$$f\", "; done >> tmp-gtyp.h
+	$(foreach gtyp,$(GTFILES_FILES_FILES),$(echo_quoted_to_gtyp))
 	echo "NULL};" >> tmp-gtyp.h
 	echo "static const char *const langs_for_lang_files[] = {" >> tmp-gtyp.h
-	ff="$(GTFILES_FILES_LANGS)"; \
-	for f in $$ff; do \
-	echo "\"$$f\", " ; done  >> tmp-gtyp.h
+	$(foreach gtyp,$(GTFILES_FILES_LANGS),$(echo_quoted_to_gtyp))
 	echo "NULL};" >> tmp-gtyp.h
 	echo "static const char *const all_files[] = {" >> tmp-gtyp.h
-	gf="$(GTFILES)"; \
-	for f in $$gf; do \
-	echo "\"$$f\", "; done >> tmp-gtyp.h
+	$(foreach gtyp,$(GTFILES),$(echo_quoted_to_gtyp))
 	echo " NULL};" >> tmp-gtyp.h
 	echo "static const char *const lang_dir_names[] = { \"c\", " >> tmp-gtyp.h
-	gf="$(GTFILES_LANG_DIR_NAMES)"; \
-	for l in $$gf; do \
-	echo "\"$$l\", "; done >> tmp-gtyp.h
+	$(foreach gtyp,$(GTFILES_LANG_DIR_NAMES),$(echo_quoted_to_gtyp))
 	echo "NULL};" >> tmp-gtyp.h
 	$(SHELL) $(srcdir)/../move-if-change tmp-gtyp.h gtyp-gen.h
 	$(STAMP) s-gtyp-gen

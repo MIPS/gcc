@@ -1573,6 +1573,11 @@ override_options (void)
         target_flags |= MASK_NO_RED_ZONE;
     }
 
+  /* Accept -msseregparm only if at least SSE support is enabled.  */
+  if (TARGET_SSEREGPARM
+      && ! TARGET_SSE)
+    error ("-msseregparm used without SSE enabled");
+
   ix86_fpmath = TARGET_FPMATH_DEFAULT;
 
   if (ix86_fpmath_string != 0)
@@ -1947,8 +1952,9 @@ ix86_function_sseregparm (tree type, tree decl)
 {
   /* Use SSE registers to pass SFmode and DFmode arguments if requested
      by the sseregparm attribute.  */
-  if (type
-      && lookup_attribute ("sseregparm", TYPE_ATTRIBUTES (type)))
+  if (TARGET_SSEREGPARM
+      || (type
+	  && lookup_attribute ("sseregparm", TYPE_ATTRIBUTES (type))))
     {
       if (!TARGET_SSE)
 	{
@@ -4175,7 +4181,7 @@ output_set_got (rtx dest)
   if (!flag_pic || TARGET_DEEP_BRANCH_PREDICTION)
     output_asm_insn ("add{l}\t{%1, %0|%0, %1}", xops);
   else if (!TARGET_MACHO)
-    output_asm_insn ("add{l}\t{%1+[.-%a2], %0|%0, %a1+(.-%a2)}", xops);
+    output_asm_insn ("add{l}\t{%1+[.-%a2], %0|%0, %1+(.-%a2)}", xops);
 
   return "";
 }
