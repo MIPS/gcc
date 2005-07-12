@@ -175,15 +175,7 @@ proc libstdc++_init { testfile } {
             set includes [exec sh $flags_file --build-includes]
         } else {
             set cxx [transform "g++"]
-	    # APPLE LOCAL begin libstdc++ testing
-	    # For standalone libstdc++ testing, we need to provide all
-	    # the necessary compiler flags, since we do not have a 
-	    # testsuite_flags file to fall back on.
-	    set cxxflags [concat "-g -O2 -D_GLIBCXX_ASSERT" \
-		" -ffunction-sections" \
-		" -fdata-sections -fmessage-length=0 -DAPPLE_KEYMGR" \
-		" -DLOCALEDIR=\"/usr/share/locale\""]
-	    # APPLE LOCAL end libstdc++ testing
+            set cxxflags "-g -O2 -D_GLIBCXX_ASSERT -fmessage-length=0" 
             set includes "-I${srcdir}"
 	    # Guess at the location of the installed locale files.
 	    # (It would be nice if "gcc --print-file-name" could find

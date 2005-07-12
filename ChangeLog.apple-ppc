@@ -1,3 +1,7 @@
+2005-07-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* libstdc++-v3: Remove all APPLE LOCAL markers.
+
 2005-07-08  Mike Stump  <mrs@apple.com>
 
 	* Merge from gcc_4_0_0_release to gcc_4_0_1_release.
