@@ -22,6 +22,7 @@
 3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 25)
 3843157: g++.dg/pascal-strings-2.C (test for excess errors)
 4096269: g++.dg/eh/uncaught1.C execution test
+4178461: g++.old-deja/g++.other/string2.C execution test
 #
 # The following tests fail only when the c++ suite is run through Obj-C++.
 3904139: g++.dg/ext/fnname3.C execution test
@@ -106,3 +107,7 @@
 #4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times b "L_printf 2
 #4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times bl "L_printf 2
 #4099260: g++.old-deja/g++.brendan/new3.C execution test
+4157563: ./debug-1.H -g (test for excess errors)
+4157563: ./debug-1.H -O2 -g (test for excess errors)
+4157563: ./debug-1.H -O2 (test for excess errors)
+4157563: ./debug-1.H -fastcp (test for excess errors)

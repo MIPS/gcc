@@ -111,6 +111,8 @@
 #4084907: gcc.c-torture/execute/20050316-1.c execution,  -Os 
 #4085878: gcc.dg/convert-vec-1.c  (test for errors, line 3)
 3788046: gcc.dg/simd-2.c (test for excess errors)
+4178485: gcc.dg/void-cast-2.c  (test for warnings, line 7)
+4178485: gcc.dg/void-cast-2.c  (test for warnings, line 8)
 #
 # the following failures are for -m64
 3966342: gcc.apple/altivec-1.c (test for excess errors)
@@ -211,6 +213,7 @@
 4097506: gcc.apple/opt-pragma-3.c scan-assembler-times b "L_printf 4
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times b "L_printf 2
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times bl "L_printf 2
+4157559: gcc.dg/20050607-1.c (test for excess errors)
 #
 # the following failures are for x86 only
 4087300: gcc.c-torture/execute/builtins/strcat.c execution,  -fast

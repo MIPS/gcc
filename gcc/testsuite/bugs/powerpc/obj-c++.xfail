@@ -10,3 +10,4 @@
 ### file and make sure the Radar is closed.
 ###
 ###------------------------------------------------------------------
+4178746: obj-c++.dg/debug-1.mm scan-assembler B:Tt\\(0,45\\)=s16!1,10-96
