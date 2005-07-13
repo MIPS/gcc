@@ -153,6 +153,282 @@ lower_stmt_body (tree expr, struct lower_data *data)
     lower_stmt (&tsi, data);
 }
 
+
+/* Data structure used for remap_locals_r.  */
+
+struct remap_locals_d
+{
+  /* FUNCTION_DECL of the new artificial function containing the
+     pragma's body.  */
+  tree gomp_fn;
+  
+  /* Sets of DECLs representing the different data sharing clauses.  */
+  bitmap private;
+  bitmap firstprivate;
+  bitmap lastprivate;
+  bitmap shared;
+
+  /* Sets of DECLs representing the different data copying clauses.  */
+  bitmap copyin;
+  bitmap copyprivate;
+};
+  
+
+/* Add all the variables in LIST to the bitmap *SET_P.  Create a new
+   bitmap, if necessary.  */
+
+static void
+add_decls_to_set (bitmap *set_p, tree list)
+{
+  tree t;
+
+  if (*set_p == NULL)
+    *set_p = BITMAP_ALLOC (NULL);
+
+  for (t = list; t; t = TREE_CHAIN (t))
+    {
+      tree var = TREE_VALUE (t);
+      bitmap_set_bit (*set_p, DECL_UID (var));
+    }
+}
+
+
+/* Fill in all the data sharing and copying bitmaps in REMAP_INFO_P
+   using the clauses in LIST.  */
+
+static void
+build_remap_info (struct remap_locals_d *remap_info_p, tree list)
+{
+  tree c;
+
+  for (c = list; c; c = TREE_CHAIN (c))
+    {
+      tree clause = TREE_VALUE (c);
+      bitmap *set_p = NULL;
+
+      if (TREE_CODE (clause) == GOMP_CLAUSE_PRIVATE)
+	set_p = &remap_info_p->private;
+      else if (TREE_CODE (clause) == GOMP_CLAUSE_SHARED)
+	set_p = &remap_info_p->shared;
+      else if (TREE_CODE (clause) == GOMP_CLAUSE_FIRSTPRIVATE)
+	set_p = &remap_info_p->firstprivate;
+      else if (TREE_CODE (clause) == GOMP_CLAUSE_LASTPRIVATE)
+	set_p = &remap_info_p->lastprivate;
+      else if (TREE_CODE (clause) == GOMP_CLAUSE_COPYIN)
+	set_p = &remap_info_p->copyin;
+      else if (TREE_CODE (clause) == GOMP_CLAUSE_COPYPRIVATE)
+	set_p = &remap_info_p->copyprivate;
+
+      if (set_p)
+	add_decls_to_set (set_p, TREE_OPERAND (clause, 0));
+    }
+
+  /* FIXME.  Add checking code to disallow variables in multiple sets.
+     Variables may only appear in exactly one set, except for
+     firstprivate and lastprivate.  */
+}
+
+
+/* Callback for walk_tree to change the context of all the local
+   variables found in *TP accordingly to what is described by the
+   data clauses of DATA.GOMP_EXPR.  */
+
+static tree
+remap_locals_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
+{
+  struct remap_locals_d *remap_info = (struct remap_locals_d *)data;
+  tree t, gomp_fn;
+
+  gomp_fn = remap_info->gomp_fn;
+
+  t = *tp;
+  if (TREE_CODE (t) == PARM_DECL)
+    {
+      gcc_unreachable ();
+    }
+  else if (TREE_CODE (t) == VAR_DECL
+           && !is_global_var (t)
+	   && decl_function_context (t) != gomp_fn)
+    {
+      struct function *f = DECL_STRUCT_FUNCTION (gomp_fn);
+      DECL_CONTEXT (t) = gomp_fn;
+      f->unexpanded_var_list = tree_cons (NULL_TREE, t, f->unexpanded_var_list);
+    }
+
+  return NULL;
+}
+
+
+/* Rewrite references to local variables inside the body of GOMP_EXPR
+   using the data sharing information from the directive clauses.
+   GOMP_FN is the compiler generated function that contains the body
+   of GOMP_EXPR.  */
+
+static void
+remap_locals_in_gomp_body (tree gomp_expr, tree gomp_fn)
+{
+  tree_stmt_iterator i;
+  struct remap_locals_d remap_info;
+  tree body = GOMP_PARALLEL_BODY (gomp_expr);
+
+  memset (&remap_info, 0, sizeof (remap_info));
+  remap_info.gomp_fn = gomp_fn;
+
+  /* Build the sets of data sharing clauses.  */
+  build_remap_info (&remap_info, GOMP_PARALLEL_CLAUSES (gomp_expr));
+
+  /* Rewrite all the private local variables so that their context is
+     GOMP_FN.  */
+  for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
+    walk_tree (tsi_stmt_ptr (i), remap_locals_r, &remap_info, NULL);
+
+  /* Add initialization/finalization code in GOMP_FN to model copyin,
+     firstprivate and lastprivate.  */
+}
+
+
+/* Build a new nested function to hold the body of GOMP_EXPR (an
+   OpenMP pragma).  The new function is added to the call graph and
+   the FUNCTION_DECL representing it, returned.  */
+
+static tree
+create_gomp_fn (tree gomp_expr)
+{
+  char *fn_name;
+  static unsigned int num = 0;
+  tree fn_type, fn_body, fn_decl, res_decl;
+  tree fn_data_arg;
+
+  /* Enclose the body in a BIND_EXPR, if it doesn't have one already.  */
+  fn_body = GOMP_PARALLEL_BODY (gomp_expr);
+  if (TREE_CODE (fn_body) != BIND_EXPR)
+    {
+      fn_body = build3 (BIND_EXPR, void_type_node, NULL, fn_body, NULL);
+      TREE_SIDE_EFFECTS (fn_body) = 1;
+    }
+
+  /* Build the declaration of the new function.  */
+  ASM_FORMAT_PRIVATE_NAME (fn_name, "__gomp_fn", num++);
+  fn_type = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
+  fn_decl = build_fn_decl (fn_name, fn_type);
+  res_decl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+
+  /* Initialize attributes for the result and the function.  */
+  DECL_ARTIFICIAL (res_decl) = 1;
+  DECL_IGNORED_P (res_decl) = 1;
+  DECL_RESULT (fn_decl) = res_decl;
+
+  TREE_STATIC (fn_decl) = 0;
+  TREE_USED (fn_decl) = 1;
+  DECL_ARTIFICIAL (fn_decl) = 1;
+  DECL_IGNORED_P (fn_decl) = 0;
+  TREE_PUBLIC (fn_decl) = 0;
+  DECL_UNINLINABLE (fn_decl) = 1;
+  DECL_EXTERNAL (fn_decl) = 0;
+  DECL_CONTEXT (fn_decl) = NULL_TREE;
+
+  DECL_INITIAL (fn_decl) = make_node (BLOCK);
+  TREE_USED (DECL_INITIAL (fn_decl)) = 1;
+  gcc_assert (TREE_CODE (fn_body) == BIND_EXPR);
+  DECL_SAVED_TREE (fn_decl) = fn_body;
+
+  /* Add the argument DATA.  */
+  fn_data_arg = build_decl (PARM_DECL, get_identifier ("data"), ptr_type_node);
+  DECL_ARGUMENTS (fn_decl) = fn_data_arg;
+
+  /* Add FN_DECL to the call graph.  */
+  cgraph_add_new_function (fn_decl);
+
+  /* Remap local variables according to the data clauses.  */
+  remap_locals_in_gomp_body (gomp_expr, fn_decl);
+
+  return fn_decl;
+}
+
+
+/* Build and return the call GOMP_parallel_start (FN, DATA, NUM_THREADS).  */
+
+static tree
+create_gomp_parallel_start (tree fn, tree data, tree num_threads)
+{
+  tree lib_fn, args, type;
+
+  type = build_function_type_list (void_type_node,
+				   TREE_TYPE (fn),
+				   ptr_type_node,
+				   unsigned_type_node,
+				   NULL_TREE);
+
+  lib_fn = build_fn_decl ("GOMP_parallel_start", type);
+  args = tree_cons (NULL_TREE, fn,
+		    tree_cons (NULL_TREE, data,
+			       tree_cons (NULL_TREE, num_threads,
+					  NULL_TREE)));
+
+  return build_function_call_expr (lib_fn, args);
+}
+
+
+/* Build and return a call to GOMP_parallel_end().  */
+
+static tree
+create_gomp_parallel_end (void)
+{
+  tree fn, type;
+
+  type = build_function_type_list (void_type_node, void_type_node, NULL_TREE);
+  fn = build_fn_decl ("GOMP_parallel_end", type);
+  return build_function_call_expr (fn, NULL_TREE);
+}
+
+
+/* Lower the OpenMP pragma pointed by TSI.  Build a new function with
+   the body of the pragma and emit the appropriate runtime call.  DATA
+   contains locus and scope information for TSI.  */
+
+static void
+lower_gomp_expr (tree_stmt_iterator *tsi)
+{
+  tree stmt, fn, call, args, num_threads, data_arg, addr_data_arg;
+  tree_stmt_iterator orig_tsi;
+
+  stmt = tsi_stmt (*tsi);
+
+  /* Build the local temporary GOMP_DATA that will contain all the
+     local state that we need to send to the child thread.
+     FIXME, structure creation and initialization not implemented yet.  */
+  data_arg = create_tmp_var (integer_type_node, "gomp_data");
+  addr_data_arg = build1 (ADDR_EXPR, build_pointer_type (integer_type_node),
+                          data_arg);
+  TREE_ADDRESSABLE (data_arg) = 1;
+
+  /* Build a new function out of the pragma's body and add it to the
+     call graph as a nested function of the current function.  */
+  fn = create_gomp_fn (stmt);
+
+  /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...) to PRE_P.  FIXME,
+     num_threads should only be integer_zero_node if the clause
+     num_threads is not present.  */
+  num_threads = integer_zero_node;
+  call = create_gomp_parallel_start (fn, addr_data_arg, num_threads);
+  tsi_link_before (tsi, call, TSI_CONTINUE_LINKING);
+
+  /* Emit __gomp_fn.XXXX (&gomp_data).  */
+  args = tree_cons (NULL_TREE, addr_data_arg, NULL_TREE);
+  call = build_function_call_expr (fn, args);
+  tsi_link_after (tsi, call, TSI_NEW_STMT);
+
+  /* Emit GOMP_parallel_end ().  */
+  call = create_gomp_parallel_end ();
+  tsi_link_after (tsi, call, TSI_NEW_STMT);
+
+  /* Remove the original statement.  */
+  orig_tsi = *tsi;
+  tsi_next (&orig_tsi);
+  tsi_delink (&orig_tsi);
+}
+
+
 /* Lowers statement TSI.  DATA is passed through the recursion.  */
 
 static void
@@ -194,6 +470,10 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case GOTO_EXPR:
     case LABEL_EXPR:
     case SWITCH_EXPR:
+      break;
+
+    case GOMP_PARALLEL:
+      lower_gomp_expr (tsi);
       break;
 
     default:

@@ -218,6 +218,7 @@ is_gimple_stmt (tree t)
     case RESX_EXPR:
     case PHI_NODE:
     case STATEMENT_LIST:
+    case GOMP_PARALLEL:
       /* These are always void.  */
       return true;
 

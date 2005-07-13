@@ -1,3 +1,25 @@
+2005-07-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* cgraph.c (cgraph_add_new_function): New.
+	* cgraph.h (cgraph_add_new_function): Declare.
+	* gimple-low.c (struct remap_locals_d): Declare.
+	(add_decls_to_set): New.
+	(build_remap_info): New.
+	(remap_locals_r): New.
+	(remap_locals_in_gomp_body): New.
+	(create_gomp_fn): New.
+	(create_gomp_parallel_start): New.
+	(create_gomp_parallel_end): New.
+	(lower_gomp_expr): New.
+	(lower_stmt): Call it.
+	* gimplify.c (gimplify_gomp_parallel): Remove.
+	(gimplify_expr): Don't gimplify GOMP_PARALLEL.
+	* tree-gimple.c (is_gimple_stmt): Consider GOMP_PARALLEL
+	to be GIMPLE.
+	* tree.def (GOMP_CLAUSE_SHARED, GOMP_CLAUSE_FIRSTPRIVATE,
+	GOMP_CLAUSE_LASTPRIVATE, GOMP_CLAUSE_REDUCTION,
+	GOMP_CLAUSE_COPYPRIVATE,): Define.
+
 2005-06-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-parser.c: Re-order and re-format OpenMP parsing helpers.
