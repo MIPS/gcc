@@ -3,4 +3,6 @@
 double foo (double x) {
   return x + 1.75;
 }
-/* { dg-final { scan-assembler "movsd" } } */
+/* { dg-final { scan-assembler-not "cvtss2sd" } } */
+/* { dg-final { scan-assembler-not "flds" } } */
+/* { dg-final { scan-assembler-not "movss" } } */
