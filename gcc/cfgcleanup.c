@@ -1041,10 +1041,13 @@ assign_reg_reg_set (regset set, rtx reg, int value)
   return value ? nregs - old : -old;
 }
 
-/* Check if *xp is equivalent to Y.  RVALUE indicates if the processed
-   piece of rtl is used as a destination, in which case we can't have
-   different registers being an input.  Returns nonzero if the two blocks
-   have been identified as equivalent, zero otherwise.
+/* Check if *xp is equivalent to Y.  Until an an unreconcilable difference is
+   found, use in-group changes with validate_change on *xp to make register
+   assignments agree.  It is the (not necessarily direct) callers
+   responsibility to verify / confirm / cancel these changes, as appropriate.
+   RVALUE indicates if the processed piece of rtl is used as a destination, in
+   which case we can't have different registers being an input.  Returns
+   nonzero if the two blocks have been identified as equivalent, zero otherwise.
    RVALUE == 0: destination
    RVALUE == 1: source
    RVALUE == -1: source, ignore SET_DEST of SET / clobber.  */
@@ -1273,16 +1276,26 @@ struct_equiv (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
       }
     case SET:
       {
-        enum rtx_code dst_code = GET_CODE (SET_DEST (x));
+	/* Process destination.  */
+	if (rvalue < 0)
+	  {
+	    /* Ignore the destinations role as a destination.  Still,
+	       we have to consider input registers embedded in the addresses
+	       of a MEM.  Some special forms also make the entire destination
+	       a source.  */
+	    enum rtx_code dst_code = GET_CODE (SET_DEST (x));
 
-	return ((rvalue < 0
-		 ? ((dst_code != STRICT_LOW_PART
-		     && dst_code != ZERO_EXTEND
-		     && dst_code != SIGN_EXTEND)
-		    ? struct_equiv_dst_mem (SET_DEST (x), SET_DEST (y), info)
-		    : struct_equiv (&SET_DEST (x), SET_DEST (y), 1, info))
-		 : struct_equiv (&SET_DEST (x), SET_DEST (y), 0, info))
-		&& struct_equiv (&SET_SRC (x), SET_SRC (y), 1, info));
+	    if ((dst_code != STRICT_LOW_PART
+		 && dst_code != ZERO_EXTEND
+		 && dst_code != SIGN_EXTEND)
+		? !struct_equiv_dst_mem (SET_DEST (x), SET_DEST (y), info)
+		: !struct_equiv (&SET_DEST (x), SET_DEST (y), 1, info))
+	      return false;
+	  }
+	else if (!struct_equiv (&SET_DEST (x), SET_DEST (y), 0, info))
+	  return false;
+	/* Process source.  */
+	return struct_equiv (&SET_SRC (x), SET_SRC (y), 1, info);
       }
     case CLOBBER:
       return rvalue < 0 || struct_equiv (&XEXP (x, 0), XEXP (y, 0), 0, info);
