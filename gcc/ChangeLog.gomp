@@ -1,5 +1,9 @@
 2005-07-13  Diego Novillo  <dnovillo@redhat.com>
 
+	* gimplify.c (gimplify_gomp_parallel): Really remove.
+
+2005-07-13  Diego Novillo  <dnovillo@redhat.com>
+
 	* cgraph.c (cgraph_add_new_function): New.
 	* cgraph.h (cgraph_add_new_function): Declare.
 	* gimple-low.c (struct remap_locals_d): Declare.

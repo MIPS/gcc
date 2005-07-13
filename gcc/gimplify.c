@@ -3863,42 +3863,6 @@ gimplify_to_stmt_list (tree *stmt_p)
 }
 
 
-#if 0
-/* Gimplify an OpenMP parallel section (GOMP_PARALLEL).  This builds a
-   new nested function __gomp_fn.XXXXX that encapsulates the body of the
-   directive, and emits the following code:
-
-   	GOMP_parallel_start (__gomp_fn.XXXX, ...);
-	__gomp_fn.XXXX ();
-	GOMP_parallel_end ();
-*/
-
-static enum gimplify_status
-gimplify_gomp_parallel (tree *expr_p, tree *pre_p, tree *post_p)
-{
-  tree fn, lib_fn, num_threads;
-
-  /* Build a new function out of the pragma's body and add it to the
-     call graph as a nested function of the current function.  */
-  fn = create_gomp_fn (*expr_p);
-
-  /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...) to PRE_P.  */
-  num_threads = build_int_cst (unsigned_type_node, 2);
-  lib_fn = create_gomp_parallel_start (fn, null_pointer_node, num_threads);
-  append_to_statement_list (lib_fn, pre_p);
-
-  /* Replace EXPR_P with __gomp_fn.XXXX ().  */
-  *expr_p = build_function_call_expr (fn, NULL_TREE);
-
-  /* Emit GOMP_parallel_end () to POST_P.  */
-  lib_fn = create_gomp_parallel_end ();
-  append_to_statement_list (lib_fn, post_p);
-
-  return GS_ALL_DONE;
-}
-#endif
-
-
 /*  Gimplifies the expression tree pointed by EXPR_P.  Return 0 if
     gimplification failed.
 
