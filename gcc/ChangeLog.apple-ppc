@@ -1,3 +1,9 @@
+2005-07-13  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4175845
+	* tree-ssa-loop-im.c (for_each_index):  Permit
+	VIEW_CONVERT_EXPR with int constant operand.
+
 2005-07-12  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4095526  (mainline)
