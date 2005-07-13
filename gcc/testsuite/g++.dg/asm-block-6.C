@@ -9,6 +9,6 @@ main()
         }
 }
 
-#pragma options align=mac68k
+#pragma options align=natural
 #pragma options align=reset
 /* APPLE LOCAL end radar 4150131 */
