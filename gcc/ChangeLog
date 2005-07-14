@@ -1,7 +1,7 @@
 2005-07-12  J"orn Rennecke <joern.rennecke@st.com>
 
 	PR rtl-optimization/22445
-	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg00902.html
+	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg00933.html
 	* cselib.c (target.h): Include.
 	(rtx_equal_for_cselib_p): Allow commutative matches.
 	(cselib_hash_rtx): Don't use MODE for CONST_INT hashing.

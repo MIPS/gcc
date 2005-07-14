@@ -500,14 +500,11 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
 	  break;
 
 	case 'e':
-	  if (i > 0 && fmt[i-1] == 'e'
+	  if (i == 1
 	      && targetm.commutative_p (x, UNKNOWN)
-	      && rtx_equal_for_cselib_p (XEXP (x, i), XEXP (y, i-1))
-	      && rtx_equal_for_cselib_p (XEXP (x, i-1), XEXP (y, i)))
-	    {
-	      i--;
-	      continue;
-	    }
+	      && rtx_equal_for_cselib_p (XEXP (x, 1), XEXP (y, 0))
+	      && rtx_equal_for_cselib_p (XEXP (x, 0), XEXP (y, 1)))
+	    return 1;
 	  if (! rtx_equal_for_cselib_p (XEXP (x, i), XEXP (y, i)))
 	    return 0;
 	  break;
