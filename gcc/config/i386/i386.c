@@ -4076,7 +4076,7 @@ ix86_file_end (void)
       /* APPLE LOCAL begin deep branch prediction pic-base */
       else if (TARGET_MACHO)
 	{
-	  darwin_textcoal_nt_section ();
+	  text_coal_section ();
 	  fputs (".weak_definition\t", asm_out_file);
 	  assemble_name (asm_out_file, name);
 	  fputs ("\n.private_extern\t", asm_out_file);

@@ -1,3 +1,11 @@
+2005-07-14  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4150746
+	* gcc/config/i386/i386.c (ix86_file_end): Move get_pc_thunks to
+	 __TEXT,__textcoal_nt.
+	* gcc/config/darwin.h: Remove darwin_textcoal_nt_section.
+	* gcc/config/darwin-proto.h: Likewise.
+
 2005-07-14  Dale Johannesen  <dalej@apple.com>
 	
 	Radar 4095526

@@ -823,8 +823,6 @@ FUNCTION (void)								\
   in_machopic_picsymbol_stub1,						\
   /* APPLE LOCAL dynamic-no-pic */					\
   in_machopic_picsymbol_stub2,						\
-  /* APPLE LOCAL deep branch prediction pic-base */			\
-  in_darwin_textcoal_nt,						\
   in_darwin_exception, in_darwin_eh_frame,				\
   num_sections
 
@@ -985,11 +983,6 @@ SECTION_FUNCTION (machopic_picsymbol_stub2_section,	\
 		in_machopic_picsymbol_stub2,		\
 		".section __TEXT,__picsymbolstub2,symbol_stubs,pure_instructions,25", 0)      		\
 /* APPLE LOCAL end dynamic-no-pic */			\
-/* APPLE LOCAL begin deep branch prediction pic-base */			\
-SECTION_FUNCTION (darwin_textcoal_nt_section,		\
-		in_darwin_textcoal_nt,			\
-		".section __TEXT,__textcoal_nt,coalesced,no_toc", 0)\
-/* APPLE LOCAL end deep branch prediction pic-base */				\
 SECTION_FUNCTION (darwin_exception_section,				\
 		in_darwin_exception,					\
 		".section __DATA,__gcc_except_tab", 0)			\
