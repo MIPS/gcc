@@ -1,3 +1,119 @@
+2005-07-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/16435
+	* gfortran.dg/tl_editting.f90: New.
+	* gfortran.dg/g77/f77-edit-x-out.f: Remove XFAIL.
+
+2005-07-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/past_eor.f90: New.
+	* gfortran.dg/complex_read.f90: New.
+
+2005-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/g77/cpp6.f: New test.
+
+	PR fortran/22417
+	* gfortran.dg/g77/cpp5.F: New test.
+	* gfortran.dg/g77/cpp5.h: New file.
+	* gfortran.dg/g77/cpp5inc.h: New file.
+
+2005-07-14  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/char_array_constructor.f90: New test.
+
+2005-07-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/pr22051-2.c: Tweak expected output to allow
+	additional casts.
+
+	* gcc.dg/tree-ssa/pr22321.c: New test.
+
+2005-07-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20637
+	* g++.dg/inherit/using4.C: New.
+	* g++.dg/overload/error1.C: Adjust expected errors.
+	* g++.old-deja/g++.benjamin/warn02.C: Likewise.
+	* g++.old-deja/g++.brendan/arm2.C: Likewise.
+	* g++.old-deja/g++.other/redecl2.C: Likewise.
+	* g++.old-deja/g++.other/redecl4.C: Likewise.
+	* g++.old-deja/g++.pt/memtemp78.C: Likewise.
+
+	PR c++/20678
+	* g++.dg/other/crash-4.C: New.
+
+	PR 21903
+	* g++.dg/parse/defarg9.C: New.
+
+	PR c++/21929
+	* g++.dg/parse/crash26.C: New.
+	
+	PR c++/20789
+	* g++.dg/init/member1.C: New.
+
+	PR c++/20746
+	* g++.dg/abi/covariant5.C: New.
+
+2005-07-12  Feng Wang  <fengwang@nudt.edu.cn>
+
+	Backport from the mainline:
+	2005-07-07  Feng Wang  <fengwang@nudt.edu.cn>
+	PR fortran/16531
+	PR fortran/15966
+	PR fortran/18781
+	* gfortran.dg/hollerith.f90: New.
+	* gfortran.dg/hollerith2.f90: New.
+	* gfortran.dg/hollerith3.f90: New.
+	* gfortran.dg/hollerith4.f90: New.
+	* gfortran.dg/hollerith_f95.f90: New.
+	* gfortran.dg/hollerith_legacy.f90: New.
+	* gfortran.dg/g77/cpp4.F: New. Port from g77.
+
+2005-07-11  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree.ssa/pr22051-1.c: Remove dg-cleanup markers.  It
+	is not supported in the GCC 4.0 dg testsuite infrastructure. 
+	* gcc.dg/tree.ssa/pr22051-2.c: Remove dg-cleanup markers.  It
+	is not supported in the GCC 4.0 dg testsuite infrastructure. 
+
+	* gcc.dg/tree.ssa/pr22051-1.c: New test.
+	* gcc.dg/tree.ssa/pr22051-2.c: New test.
+
+2005-07-11  Aldy Hernandez  <aldyh@redhat.com>
+
+        Backport from mainline:
+        2005-06-15  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/simd-1.c: Update error messages.
+        * gcc.dg/simd-1b.c: Re-enable tests.  Update error messages.
+        * gcc.dg/simd-2.c: Update error messages.
+        * gcc.dg/simd-4.c: New.
+
+2005-07-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20563
+	* g++.dg/ext/label4.C: New test.
+
+2005-07-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	Backport from the mainline:
+	2005-06-01  Roger Sayle  <roger@eyesopen.com>
+	* gfortran.dg/logint-1.f: New test case.
+	* gfortran.dg/logint-2.f: Likewise.
+	* gfortran.dg/logint-3.f: Likewise.
+
+2005-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.fortran-torture/execute/forall_7.f90: New test.
+
+2005-07-10  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/simplify_modulo.f90: New.
+
+	PR fortran/22327
+	* gfortran.dg/array_constructor_5.f90: New test.
+
 2005-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20050620-1.c: New test.

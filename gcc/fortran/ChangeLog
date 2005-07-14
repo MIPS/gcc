@@ -1,3 +1,129 @@
+2005-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.h (MAX_ERROR_MESSAGE): Remove.
+	(gfc_error_buf): Add allocated and index fields.  Change message
+	field from array to a pointer.
+	* error.c (use_warning_buffer, error_ptr, warning_ptr): Remove.
+	(cur_error_buffer): New variable.
+	(error_char): Use cur_error_buffer->{message,index} instead of
+	{warning,error}_{buffer.message,ptr}.  Reallocate message buffer
+	if too small.
+	(gfc_warning, gfc_notify_std, gfc_error, gfc_error_now): Setup
+	cur_error_buffer and its index rather than {warning,error}_ptr
+	and use_warning_buffer.
+	(gfc_warning_check, gfc_error_check): Don't print anything if
+	message is NULL.
+	(gfc_push_error): Allocate saved message with xstrdup.
+	(gfc_pop_error): Free saved message with gfc_free.
+	(gfc_free_error): New function.
+	* primary.c (match_complex_constant): Call gfc_free_error if
+	gfc_pop_error will not be called.
+	* match.c (gfc_match_st_function): Likewise.
+
+	PR fortran/22417
+	* scanner.c (preprocessor_line): Don't treat flag 3 as the start of a new
+	file.  Fix file left but not entered warning.
+
+2005-07-14  Feng Wang  <fengwang@nudt.edu.cn>
+	Steven G. Kargl  <kargls@comcast.net>
+
+	* array.c (resolve_character_array_constructor): Allocate gfc_charlen
+	for the array and attach to namespace list for automatic deallocation.
+
+2005-07-12  Feng Wang  <fengwang@nudt.edu.cn>
+
+	Backport from the mainline:
+	2005-03-05  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+	* trans-const.c (gfc_conv_constant_to_tree): Use correct tree
+	type for COMPLEX constants.
+
+	2005-07-07  Feng Wang  <fengwang@nudt.edu.cn>
+	PR fortran/16531
+	PR fortran/15966
+	PR fortran/18781
+	* arith.c (gfc_hollerith2int, gfc_hollerith2real,
+	gfc_hollerith2complex, gfc_hollerith2character, gfc_hollerith2logical):
+	New functions.
+	(eval_intrinsic): Don't evaluate if Hollerith constant arguments exist.
+	* arith.h (gfc_hollerith2int, gfc_hollerith2real,
+	gfc_hollerith2complex, gfc_hollerith2character, gfc_hollerith2logical):
+	Add prototypes.
+	* expr.c (free_expr0): Free memery allocated for Hollerith constant.
+	(gfc_copy_expr): Allocate and copy string if Expr is from Hollerith.
+	(gfc_check_assign): Enable conversion from Hollerith to other.
+	* gfortran.h (bt): Add BT_HOLLERITH.
+	(gfc_expr): Add from_H flag.
+	* intrinsic.c (gfc_type_letter): Return 'h' for BT_HOLLERITH.
+	(add_conversions): Add conversions from Hollerith constant to other.
+	(do_simplify): Don't simplify if  Hollerith constant arguments exist.
+	* io.c (resolve_tag): Enable array in FORMAT tag under GFC_STD_GNU.
+	* misc.c (gfc_basetype_name): Return "HOLLERITH" for BT_HOLLERITH.
+	(gfc_type_name): Print "HOLLERITH" for BT_HOLLERITH.
+	* primary.c (match_hollerith_constant): New function.
+	(gfc_match_literal_constant): Add match Hollerith before Integer.
+	* simplify.c (gfc_convert_constant): Add conversion from Hollerith
+	to other.
+	* trans-const.c (gfc_conv_constant_to_tree): Use VIEW_CONVERT_EXPR to
+	convert Hollerith constant to tree.
+	* trans-io.c (gfc_convert_array_to_string): Get array's address and
+	length to set string expr.
+	(set_string): Deal with array assigned Hollerith constant and character
+	array.
+	* gfortran.texi: Document Hollerith constants as extention support.
+
+2005-07-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* match.c (gfc_match_label): Remove unused variable.
+
+	Backport from the mainline:
+	2005-06-01  Roger Sayle  <roger@eyesopen.com>
+
+	* intrinsic.c (add_conv): No longer take a "simplify" argument as
+	its always gfc_convert_constant, instead take a "standard" argument.
+	(add_conversions): Change all existing calls of add_conv to pass
+	GFC_STD_F77 as appropriate.  Additionally, if we're allowing GNU
+	extensions support integer-logical and logical-integer conversions.
+	(gfc_convert_type_warn): Warn about use the use of these conversions
+	as a extension when appropriate, i.e. with -pedantic.
+	* simplify.c (gfc_convert_constant): Add support for integer to
+	logical and logical to integer conversions, using gfc_int2log and
+	gfc_log2int.
+	* arith.c (gfc_log2int, gfc_int2log): New functions.
+	* arith.h (gfc_log2int, gfc_int2log): Prototype here.
+	* gfortran.texi: Document this new GNU extension.
+
+	2005-05-30  Roger Sayle  <roger@eyesopen.com>
+	* gfortran.h (GFC_STD_LEGACY): New "standard" macro.  Reindent.
+	* options.c (gfc_init_options): By default, allow legacy extensions
+	but warn about them.
+	(gfc_post_options): Make -pedantic warn about legacy extensions
+	even with -std=legacy.
+	(gfc_handle_option): Make -std=gnu follow the default behaviour
+ 	of warning about legacy extensions, but allowing them. Make the
+	new -std=legacy accept everything and warn about nothing.
+	* lang.opt (std=legacy): New F95 command line option.
+	* invoke.texi: Document both -std=f2003 and -std=legacy.
+	* gfortran.texi: Explain the two types of extensions and document
+	how they are affected by the various -std= command line options.
+
+2005-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-stmt.c (gfc_trans_forall_loop): Clear maskindex before
+	the outermost loop.
+	(gfc_trans_assign_need_temp, gfc_trans_pointer_assign_need_temp,
+	gfc_trans_forall_1, gfc_evaluate_where_mask, gfc_trans_where_2):
+	Don't clear maskindexes here.
+
+2005-07-10  Feng Wang  <fengwang@nudt.edu.cn>
+
+	Backport from the mainline:
+	2005-07-07  Feng Wang  <fengwang@nudt.edu.cn>
+	PR fortran/22327
+	* trans-array.c (gfc_trans_array_constructor_value): Fix index of data.
+
+	2005-06-24  Feng Wang  <fengwang@nudt.edu.cn>
+	* simplify.c (gfc_simplify_modulo): Don't clear before get result.
+
 2005-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from the mainline:

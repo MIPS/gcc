@@ -58,7 +58,6 @@ char *alloca ();
 #define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
 #define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
-#define MAX_ERROR_MESSAGE 1000	/* Maximum length of an error message.  */
 
 #define free(x) Use_gfc_free_instead_of_free()
 #define gfc_is_whitespace(c) ((c==' ') || (c=='\t'))
@@ -92,13 +91,14 @@ mstring;
 
 
 /* Flags to specify which standard/extension contains a feature.  */
-#define GFC_STD_GNU                (1<<5)    /* GNU Fortran extension.  */
-#define GFC_STD_F2003             (1<<4)    /* New in F2003.  */
+#define GFC_STD_LEGACY		(1<<6) /* Backward compatibility.  */
+#define GFC_STD_GNU		(1<<5)    /* GNU Fortran extension.  */
+#define GFC_STD_F2003		(1<<4)    /* New in F2003.  */
 /* Note that no features were obsoleted nor deleted in F2003.  */
-#define GFC_STD_F95                 (1<<3)    /* New in F95.  */
-#define GFC_STD_F95_DEL         (1<<2)    /* Deleted in F95.  */
-#define GFC_STD_F95_OBS        (1<<1)    /* Obsoleted in F95.  */
-#define GFC_STD_F77                 (1<<0)    /* Up to and including F77.  */
+#define GFC_STD_F95		(1<<3)    /* New in F95.  */
+#define GFC_STD_F95_DEL		(1<<2)    /* Deleted in F95.  */
+#define GFC_STD_F95_OBS		(1<<1)    /* Obsoleted in F95.  */
+#define GFC_STD_F77		(1<<0)    /* Up to and including F77.  */
 
 /*************************** Enums *****************************/
 
@@ -126,7 +126,7 @@ gfc_source_form;
 
 typedef enum
 { BT_UNKNOWN = 1, BT_INTEGER, BT_REAL, BT_COMPLEX,
-  BT_LOGICAL, BT_CHARACTER, BT_DERIVED, BT_PROCEDURE
+  BT_LOGICAL, BT_CHARACTER, BT_DERIVED, BT_PROCEDURE, BT_HOLLERITH
 }
 bt;
 
@@ -1065,6 +1065,9 @@ typedef struct gfc_expr
 
   locus where;
 
+  /* True if it is converted from Hollerith constant.  */
+  unsigned int from_H : 1;
+
   union
   {
     int logical;
@@ -1533,7 +1536,8 @@ const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
 typedef struct gfc_error_buf
 {
   int flag;
-  char message[MAX_ERROR_MESSAGE];
+  size_t allocated, index;
+  char *message;
 } gfc_error_buf;
 
 void gfc_error_init_1 (void);
@@ -1559,6 +1563,7 @@ try gfc_notify_std (int, const char *, ...);
 
 void gfc_push_error (gfc_error_buf *);
 void gfc_pop_error (gfc_error_buf *);
+void gfc_free_error (gfc_error_buf *);
 
 void gfc_status (const char *, ...) ATTRIBUTE_PRINTF_1;
 void gfc_status_char (char);

@@ -1,3 +1,59 @@
+2005-07-14  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline.
+	PR libgfortran/22412
+	* io/write.c (otoa): Bias p by SCRATCH_SIZE, not
+	sizeof (SCRATCH_SIZE).
+	(btoa): Same.
+
+2005-07-14 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/16435
+	* transfer.c (formatted_transfer): Correct the problems
+	with X- and T-editting that caused TLs followed by TRs
+	to overwrite data, which caused NIST FM908.FOR to fail
+	on many tests.
+	(data_transfer_init): Zero X- and T-editting counters at
+	the start of formatted IO.
+	* write.c (write_x): Write specified number of skips with
+	specified number of spaces at the end.
+
+2005-07-14 Paul Thomas  <pault@gcc.gnu.org>
+
+	* io/read.c (read_complex): Prevent X formatting during reads
+	from going beyond EOR to fix NIST fm908.FOR failure.
+	* io/list_read.c (read_complex): Allow complex data in list-
+	directed reads to have eols either side of the comma to
+	fix NIST FM906.FOR failure.
+	(nml_get_obj_data): Cure warnings about initializer braces.
+	(namelist_read):  Cure warnings about potentially uninitialized pointers.
+
+2005-07-12  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* runtime/string.c (compare0): Remove unused variable.
+	* intrinsics/etime.c (etime_sub): Ditto.
+	* intrinsics/getcwd.c (getcwd_i4_sub): Ditto.
+	* intrinsics/stat.c (stat_i4_sub stat_i8_sub fstat_i4_sub
+	fstat_i8_sub): Ditto.
+	* intrinsics/unlink.c (unlink_i4_sub): Ditto.
+	* io/unit.c (init_units): Ditto.
+
+	Backport from mainline.
+	2005-07-07  Feng Wang  <fengwang@nudt.edu.cn>
+	PR fortran/16531
+	* io/transfer.c (formatted_transfer): Enable FMT_A on other types to
+	support Hollerith constants.
+
+2005-07-10  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libfortran/21875  (FM111.f)
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or 
+	BLANK_NULL are active.
+	(read_decimal): Interpret ' ' character correctly for BZ or BN.
+	(read_radix): Interpret ' ' character correctly for BZ or BN.
+	(read_f): Interpret ' ' character correctly for BZ or BN.
+	* gfortran.dg/test (fmt_read_bz_bn.f90): New test case.
+
 2005-07-07  Release Manager
 
 	* GCC 4.0.1 released.

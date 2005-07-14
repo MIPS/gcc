@@ -120,10 +120,12 @@
    (UNSPEC_PUSH_MULTIPLE 5)])
 
 (define_constants
-  [(UNSPEC_VOLATILE_EH_RETURN 0)])
+  [(UNSPEC_VOLATILE_EH_RETURN 0)
+   (UNSPEC_VOLATILE_CSYNC 1)
+   (UNSPEC_VOLATILE_SSYNC 2)])
 
 (define_attr "type"
-  "move,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,compare,dummy"
+  "move,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,sync,compare,dummy"
   (const_string "misc"))
 
 ;; Scheduling definitions
@@ -133,7 +135,7 @@
 (define_cpu_unit "core" "bfin")
 
 (define_insn_reservation "alu" 1
-  (eq_attr "type" "move,mvi,mcst,dsp32,alu0,shft,brcc,br,call,misc,compare")
+  (eq_attr "type" "move,mvi,mcst,dsp32,alu0,shft,brcc,br,call,misc,sync,compare")
   "core")
 
 (define_insn_reservation "imul" 3
@@ -1845,6 +1847,18 @@
     }
   gcc_unreachable ();
 })
+
+(define_insn "csync"
+  [(unspec_volatile [(const_int 0)] UNSPEC_VOLATILE_CSYNC)]
+  ""
+  "csync;"
+  [(set_attr "type" "sync")])
+
+(define_insn "ssync"
+  [(unspec_volatile [(const_int 0)] UNSPEC_VOLATILE_SSYNC)]
+  ""
+  "ssync;"
+  [(set_attr "type" "sync")])
 
 ;;; Vector instructions
 

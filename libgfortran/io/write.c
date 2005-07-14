@@ -941,13 +941,13 @@ otoa (uint64_t n)
       return scratch;
     }
 
-  p = scratch + sizeof (SCRATCH_SIZE) - 1;
+  p = scratch + SCRATCH_SIZE - 1;
   *p-- = '\0';
 
   while (n != 0)
     {
       *p = '0' + (n & 7);
-      p -- ;
+      p--;
       n >>= 3;
     }
 
@@ -969,7 +969,7 @@ btoa (uint64_t n)
       return scratch;
     }
 
-  p = scratch + sizeof (SCRATCH_SIZE) - 1;
+  p = scratch + SCRATCH_SIZE - 1;
   *p-- = '\0';
 
   while (n != 0)
@@ -1047,15 +1047,16 @@ write_es (fnode *f, const char *p, int len)
 /* Take care of the X/TR descriptor.  */
 
 void
-write_x (fnode * f)
+write_x (int m, int nspaces)
 {
   char *p;
 
-  p = write_block (f->u.n);
+  p = write_block (m);
   if (p == NULL)
     return;
 
-  memset (p, ' ', f->u.n);
+  if (nspaces > 0)
+    memset ((char*)(p + m - nspaces), ' ', nspaces);
 }
 
 

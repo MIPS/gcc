@@ -79,6 +79,10 @@ gfc_type_letter (bt type)
       c = 'c';
       break;
 
+    case BT_HOLLERITH:
+      c = 'h';
+      break;
+
     default:
       c = 'u';
       break;
@@ -2227,8 +2231,7 @@ add_subroutines (void)
 /* Add a function to the list of conversion symbols.  */
 
 static void
-add_conv (bt from_type, int from_kind, bt to_type, int to_kind,
-	  gfc_expr * (*simplify) (gfc_expr *, bt, int))
+add_conv (bt from_type, int from_kind, bt to_type, int to_kind, int standard)
 {
 
   gfc_typespec from, to;
@@ -2250,9 +2253,10 @@ add_conv (bt from_type, int from_kind, bt to_type, int to_kind,
 
   sym = conversion + nconv;
 
-  sym->name =  conv_name (&from, &to);
+  sym->name = conv_name (&from, &to);
   sym->lib_name = sym->name;
-  sym->simplify.cc = simplify;
+  sym->simplify.cc = gfc_convert_constant;
+  sym->standard = standard;
   sym->elemental = 1;
   sym->ts = to;
   sym->generic_id = GFC_ISYM_CONVERSION;
@@ -2277,7 +2281,7 @@ add_conversions (void)
 	  continue;
 
 	add_conv (BT_INTEGER, gfc_integer_kinds[i].kind,
-		  BT_INTEGER, gfc_integer_kinds[j].kind, gfc_convert_constant);
+		  BT_INTEGER, gfc_integer_kinds[j].kind, GFC_STD_F77);
       }
 
   /* Integer-Real/Complex conversions.  */
@@ -2285,17 +2289,42 @@ add_conversions (void)
     for (j = 0; gfc_real_kinds[j].kind != 0; j++)
       {
 	add_conv (BT_INTEGER, gfc_integer_kinds[i].kind,
-		  BT_REAL, gfc_real_kinds[j].kind, gfc_convert_constant);
+		  BT_REAL, gfc_real_kinds[j].kind, GFC_STD_F77);
 
 	add_conv (BT_REAL, gfc_real_kinds[j].kind,
-		  BT_INTEGER, gfc_integer_kinds[i].kind, gfc_convert_constant);
+		  BT_INTEGER, gfc_integer_kinds[i].kind, GFC_STD_F77);
 
 	add_conv (BT_INTEGER, gfc_integer_kinds[i].kind,
-		  BT_COMPLEX, gfc_real_kinds[j].kind, gfc_convert_constant);
+		  BT_COMPLEX, gfc_real_kinds[j].kind, GFC_STD_F77);
 
 	add_conv (BT_COMPLEX, gfc_real_kinds[j].kind,
-		  BT_INTEGER, gfc_integer_kinds[i].kind, gfc_convert_constant);
+		  BT_INTEGER, gfc_integer_kinds[i].kind, GFC_STD_F77);
       }
+
+  if ((gfc_option.allow_std & GFC_STD_LEGACY) != 0)
+    {
+      /* Hollerith-Integer conversions.  */
+      for (i = 0; gfc_integer_kinds[i].kind != 0; i++)
+	add_conv (BT_HOLLERITH, gfc_default_character_kind,
+		  BT_INTEGER, gfc_integer_kinds[i].kind, GFC_STD_LEGACY);
+      /* Hollerith-Real conversions.  */
+      for (i = 0; gfc_real_kinds[i].kind != 0; i++)
+	add_conv (BT_HOLLERITH, gfc_default_character_kind,
+		  BT_REAL, gfc_real_kinds[i].kind, GFC_STD_LEGACY);
+      /* Hollerith-Complex conversions.  */
+      for (i = 0; gfc_real_kinds[i].kind != 0; i++)
+	add_conv (BT_HOLLERITH, gfc_default_character_kind,
+		  BT_COMPLEX, gfc_real_kinds[i].kind, GFC_STD_LEGACY);
+
+      /* Hollerith-Character conversions.  */
+      add_conv (BT_HOLLERITH, gfc_default_character_kind, BT_CHARACTER,
+		  gfc_default_character_kind, GFC_STD_LEGACY);
+
+      /* Hollerith-Logical conversions.  */
+      for (i = 0; gfc_logical_kinds[i].kind != 0; i++)
+	add_conv (BT_HOLLERITH, gfc_default_character_kind,
+		  BT_LOGICAL, gfc_logical_kinds[i].kind, GFC_STD_LEGACY);
+    }
 
   /* Real/Complex - Real/Complex conversions.  */
   for (i = 0; gfc_real_kinds[i].kind != 0; i++)
@@ -2304,17 +2333,17 @@ add_conversions (void)
 	if (i != j)
 	  {
 	    add_conv (BT_REAL, gfc_real_kinds[i].kind,
-		      BT_REAL, gfc_real_kinds[j].kind, gfc_convert_constant);
+		      BT_REAL, gfc_real_kinds[j].kind, GFC_STD_F77);
 
 	    add_conv (BT_COMPLEX, gfc_real_kinds[i].kind,
-		      BT_COMPLEX, gfc_real_kinds[j].kind, gfc_convert_constant);
+		      BT_COMPLEX, gfc_real_kinds[j].kind, GFC_STD_F77);
 	  }
 
 	add_conv (BT_REAL, gfc_real_kinds[i].kind,
-		  BT_COMPLEX, gfc_real_kinds[j].kind, gfc_convert_constant);
+		  BT_COMPLEX, gfc_real_kinds[j].kind, GFC_STD_F77);
 
 	add_conv (BT_COMPLEX, gfc_real_kinds[i].kind,
-		  BT_REAL, gfc_real_kinds[j].kind, gfc_convert_constant);
+		  BT_REAL, gfc_real_kinds[j].kind, GFC_STD_F77);
       }
 
   /* Logical/Logical kind conversion.  */
@@ -2325,8 +2354,19 @@ add_conversions (void)
 	  continue;
 
 	add_conv (BT_LOGICAL, gfc_logical_kinds[i].kind,
-		  BT_LOGICAL, gfc_logical_kinds[j].kind, gfc_convert_constant);
+		  BT_LOGICAL, gfc_logical_kinds[j].kind, GFC_STD_F77);
       }
+
+  /* Integer-Logical and Logical-Integer conversions.  */
+  if ((gfc_option.allow_std & GFC_STD_LEGACY) != 0)
+    for (i=0; gfc_integer_kinds[i].kind; i++)
+      for (j=0; gfc_logical_kinds[j].kind; j++)
+	{
+	  add_conv (BT_INTEGER, gfc_integer_kinds[i].kind,
+		    BT_LOGICAL, gfc_logical_kinds[j].kind, GFC_STD_LEGACY);
+	  add_conv (BT_LOGICAL, gfc_logical_kinds[j].kind,
+		    BT_INTEGER, gfc_integer_kinds[i].kind, GFC_STD_LEGACY);
+	}
 }
 
 
@@ -2672,6 +2712,16 @@ do_simplify (gfc_intrinsic_sym * specific, gfc_expr * e)
   gfc_expr *result, *a1, *a2, *a3, *a4, *a5;
   gfc_actual_arglist *arg;
 
+  /* Check the arguments if there are Hollerith constants. We deal with
+     them at run-time.  */
+  for (arg = e->value.function.actual; arg != NULL; arg = arg->next)
+    {
+      if (arg->expr && arg->expr->from_H)
+	{
+	  result = NULL;
+	  goto finish;
+	}
+    }
   /* Max and min require special handling due to the variable number
      of args.  */
   if (specific->simplify.f1 == gfc_simplify_min)
@@ -3140,7 +3190,10 @@ gfc_convert_type_warn (gfc_expr * expr, gfc_typespec * ts, int eflag,
     goto bad;
 
   /* At this point, a conversion is necessary. A warning may be needed.  */
-  if (wflag && gfc_option.warn_conversion)
+  if ((gfc_option.warn_std & sym->standard) != 0)
+    gfc_warning_now ("Extension: Conversion from %s to %s at %L",
+		     gfc_typename (&from_ts), gfc_typename (ts), &expr->where);
+  else if (wflag && gfc_option.warn_conversion)
     gfc_warning_now ("Conversion from %s to %s at %L",
 		     gfc_typename (&from_ts), gfc_typename (ts), &expr->where);
 

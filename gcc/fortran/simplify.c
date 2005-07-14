@@ -2279,12 +2279,11 @@ gfc_simplify_modulo (gfc_expr * a, gfc_expr * p)
       mpfr_div (quot, a->value.real, p->value.real, GFC_RND_MODE);
       mpfr_floor (iquot, quot);
       mpfr_mul (term, iquot, p->value.real, GFC_RND_MODE);
+      mpfr_sub (result->value.real, a->value.real, term, GFC_RND_MODE);
 
       mpfr_clear (quot);
       mpfr_clear (iquot);
       mpfr_clear (term);
-
-      mpfr_sub (result->value.real, a->value.real, term, GFC_RND_MODE);
       break;
 
     default:
@@ -3721,6 +3720,9 @@ gfc_convert_constant (gfc_expr * e, bt type, int kind)
 	case BT_COMPLEX:
 	  f = gfc_int2complex;
 	  break;
+	case BT_LOGICAL:
+	  f = gfc_int2log;
+	  break;
 	default:
 	  goto oops;
 	}
@@ -3762,9 +3764,45 @@ gfc_convert_constant (gfc_expr * e, bt type, int kind)
       break;
 
     case BT_LOGICAL:
-      if (type != BT_LOGICAL)
-	goto oops;
-      f = gfc_log2log;
+      switch (type)
+	{
+	case BT_INTEGER:
+	  f = gfc_log2int;
+	  break;
+	case BT_LOGICAL:
+	  f = gfc_log2log;
+	  break;
+	default:
+	  goto oops;
+	}
+      break;
+
+    case BT_HOLLERITH:
+      switch (type)
+	{
+	case BT_INTEGER:
+	  f = gfc_hollerith2int;
+	  break;
+
+	case BT_REAL:
+	  f = gfc_hollerith2real;
+	  break;
+
+	case BT_COMPLEX:
+	  f = gfc_hollerith2complex;
+	  break;
+
+	case BT_CHARACTER:
+	  f = gfc_hollerith2character;
+	  break;
+
+	case BT_LOGICAL:
+	  f = gfc_hollerith2logical;
+	  break;
+
+	default:
+	  goto oops;
+	}
       break;
 
     default:
