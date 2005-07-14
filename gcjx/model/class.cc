@@ -2003,11 +2003,24 @@ model_class::check_interface_instances (model_class *base,
 }
 
 model_class *
-model_class::apply_type_map (model_element *request,
-			     const model_type_map &type_map)
+model_class::apply_type_map (model_element *, const model_type_map &)
 {
   assert (! anonymous);
   assert (! static_context);
+
+  // The model_class object represents the class declaration and also
+  // the raw type.  Applying a type map to the raw type does nothing,
+  // hence we simply return 'this'.  Creating a parameterized instance
+  // is done with create_instance.
+  return this;
+}
+
+model_class *
+model_class::create_instance (model_element *request,
+			      const std::list<model_class *> &params)
+{
+  model_type_map type_map;
+  create_type_map (type_map, request, params);
 
   if (type_parameters.empty () || type_map.empty_p ())
     return this;
@@ -2076,15 +2089,6 @@ model_class::apply_type_map (model_element *request,
 
   instances.push_back (result);
   return result.get ();
-}
-
-model_class *
-model_class::create_instance (model_element *request,
-			      const std::list<model_class *> &params)
-{
-  model_type_map typemap;
-  create_type_map (typemap, request, params);
-  return apply_type_map (request, typemap);
 }
 
 void

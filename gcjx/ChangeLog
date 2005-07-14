@@ -1,3 +1,8 @@
+2005-07-14  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.cc (apply_type_map): Moved body ...
+	(create_instance): ... here.
+
 2005-07-11  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/generate.cc (find_field): Examine erasure of field's
