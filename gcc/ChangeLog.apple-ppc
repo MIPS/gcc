@@ -1,3 +1,8 @@
+2005-07-14  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4177798
+	* build_gcc: Default to -msse2 -march=pentium-m -mtune=prescott.
+
 2005-07-13  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4175845
