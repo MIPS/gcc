@@ -43,7 +43,6 @@ extern int cw_asm_in_decl;
 extern int inside_cw_asm_block;
 extern int cw_asm_at_bol;
 extern int cw_asm_in_operands;
-extern int cw_asm_labelno;
 /* APPLE LOCAL end CW asm blocks */
 
 /* Usage of TREE_LANG_FLAG_?:

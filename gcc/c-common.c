@@ -587,7 +587,7 @@ int cw_asm_at_bol;
 int cw_asm_in_operands;
 
 /* Count used for synthetic labels derived from asm block labels.  */
-int cw_asm_labelno;
+static GTY(()) int cw_asm_labelno;
 
 /* Working buffer for building the assembly string.  */
 static char *cw_asm_buffer;
@@ -602,7 +602,7 @@ static GTY(()) varray_type cw_asm_labels;
 static GTY(()) varray_type cw_asm_labels_uniq;
 
 static int cw_asm_expr_val (tree arg);
-static void print_cw_asm_operand (char *, tree, unsigned, tree *, bool, bool);
+static void print_cw_asm_operand (char *, tree, unsigned, tree *, tree *, bool, bool);
 static int cw_asm_get_register_var (tree, unsigned, bool);
 static tree cw_asm_identifier (tree expr);
 /* APPLE LOCAL end CW asm blocks */
@@ -6390,7 +6390,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
 {
   tree sexpr;
   tree arg, tail;
-  tree inputs, outputs, clobbers, uses;
+  tree inputs, outputs, clobbers, uses, label;
   tree stmt;
   unsigned int n;
   const char *opcodename;
@@ -6402,6 +6402,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   inputs = NULL_TREE;
   clobbers = NULL_TREE;
   uses = NULL_TREE;
+  label = NULL_TREE;
 
   STRIP_NOPS (expr);
 
@@ -6466,14 +6467,14 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   /* Build .file "file-name" directive. */
   sprintf(cw_asm_buffer, "%s \"%s\"", ".file", input_filename);
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
-  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (stmt) = 1;
   (void)add_stmt (stmt);
 
   /* Build .line "line-number" directive. */
   sprintf(cw_asm_buffer, "%s %d", ".line", lineno);
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
-  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (stmt) = 1;
   (void)add_stmt (stmt);
 
@@ -6487,7 +6488,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
       arg = TREE_VALUE (tail);
       if (tail != args)
 	strcat (cw_asm_buffer, ",");
-      print_cw_asm_operand (cw_asm_buffer, arg, n, &uses,false, false);
+      print_cw_asm_operand (cw_asm_buffer, arg, n, &uses, &label, false, false);
       ++n;
     }
 
@@ -6524,7 +6525,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
     TREE_VALUE (tail) = cw_asm_default_function_conversion (TREE_VALUE (tail));
 
   /* Treat as volatile always.  */
-  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses);
+  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses, label);
   ASM_VOLATILE_P (stmt) = 1;
   stmt = add_stmt (stmt);
   return stmt;
@@ -6580,7 +6581,7 @@ cw_asm_expr_val (tree arg)
 
 static void
 print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
-		      tree *uses,
+		      tree *uses, tree *label,
 		      bool must_be_reg, bool must_not_be_reg)
 {
   int idnum;
@@ -6597,6 +6598,11 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
     case INTEGER_CST:
       sprintf (buf + strlen (buf), HOST_WIDE_INT_PRINT_DEC, tree_low_cst (arg, 0));
       break;
+
+    case LABEL_DECL:
+      *label = arg;
+      arg = DECL_NAME (arg);
+      /* Fall thru */
 
     case IDENTIFIER_NODE:
       strncat (buf, IDENTIFIER_POINTER (arg), IDENTIFIER_LENGTH (arg));
@@ -6667,10 +6673,10 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
     case COMPOUND_EXPR:
       /* "Compound exprs" are really offset+register constructs.  */
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
 			    false, true);
       strcat (buf, "(");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
 			    ! must_not_be_reg, must_not_be_reg);
       strcat (buf, ")");
       break;
@@ -6694,9 +6700,9 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       op0 = TREE_OPERAND (arg, 0);
       /* Catch a couple different flavors of component refs.  */
       if (TREE_CODE (op0) == VAR_DECL)
-	print_cw_asm_operand (buf, op0, argnum, uses, true, false);
+	print_cw_asm_operand (buf, op0, argnum, uses, label, true, false);
       else
-	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses, true, false);
+	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses, label, true, false);
       strcat (buf, ")");
       break;
 
@@ -6710,7 +6716,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
     case NEGATE_EXPR:
       strcat (buf, "-");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
 			    must_be_reg, must_not_be_reg);
       break;
 
@@ -6763,6 +6769,7 @@ cw_asm_label (tree labid, int atsign)
   tree sexpr;
   tree inputs = NULL_TREE, outputs = NULL_TREE, clobbers = NULL_TREE;
   tree stmt;
+  tree label;
 
   STRIP_NOPS (labid);
 
@@ -6773,13 +6780,14 @@ cw_asm_label (tree labid, int atsign)
     cw_asm_buffer = xmalloc (4000);
 
   cw_asm_buffer[0] = '\0';
-  strcat (cw_asm_buffer, IDENTIFIER_POINTER (get_cw_asm_label (labid)));
+  label = get_cw_asm_label (labid);
+  strcat (cw_asm_buffer, IDENTIFIER_POINTER (DECL_NAME (label)));
   strcat (cw_asm_buffer, ":");
 
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
 
   /* Simple asm statements are treated as volatile.  */
-  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, NULL_TREE);
+  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, NULL_TREE, label);
   ASM_VOLATILE_P (stmt) = 1;
   stmt = add_stmt (stmt);
   return stmt;
@@ -6841,14 +6849,18 @@ get_cw_asm_label (tree labid)
 
   if (!cw_ha16)
     {
-      cw_ha16 = get_identifier ("ha16");
-      cw_hi16 = get_identifier ("hi16");
-      cw_lo16 = get_identifier ("lo16");
+      cw_ha16 = define_label (input_location, get_identifier ("ha16"));
+      cw_hi16 = define_label (input_location, get_identifier ("hi16"));
+      cw_lo16 = define_label (input_location, get_identifier ("lo16"));
     }
 
   /* lo16(), ha16() and hi16() should be left unmolested.  */
-  if (labid == cw_lo16 || labid == cw_ha16 || labid == cw_hi16)
-    return labid;
+  if (labid == DECL_NAME (cw_lo16))
+    return cw_lo16;
+  else if (labid == DECL_NAME (cw_ha16))
+    return cw_ha16;
+  else if (labid == DECL_NAME (cw_hi16))
+    return cw_hi16;
 
   for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_labels); ++n)
     {
@@ -6869,6 +6881,7 @@ get_cw_asm_label (tree labid)
     }
   strcat (buf, labname);
   newid = get_identifier (buf);
+  newid = define_label (input_location, newid);
   VARRAY_PUSH_TREE (cw_asm_labels_uniq, newid);
   return newid;
 }
@@ -6931,14 +6944,14 @@ cw_asm_entry (tree keyword, tree scspec, tree fn)
     {
       strlab = build_string (9, ".globl %0");
       /* Treat as volatile always.  */
-      stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE);
+      stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE, NULL_TREE);
       ASM_VOLATILE_P (stmt) = 1;
       stmt = add_stmt (stmt);
     }
 
   strlab = build_string (3, "%0:");
   /* Treat as volatile always.  */
-  stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE);
+  stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (stmt) = 1;
   stmt = add_stmt (stmt);
   return stmt;

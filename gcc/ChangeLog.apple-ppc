@@ -1,3 +1,25 @@
+2005-07-14 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4178242
+	* c-common.c (print_cw_asm_operand): Add a new argument
+	to return the label declaration in.
+	(cw_asm_label): Add label declaration, if any, to asm_expr
+	tree.
+	(get_cw_asm_label): Build and return a label declaration tree
+	instead of a node_identifier for the label.
+	(cw_asm_labelno): Make it static.
+	* c-common.h: Remove extern declaration of cw_asm_labelno.
+	* c-typeck.c (parser_build_binary_op): Check for a spurious label
+	decl tree and return an error node instead.
+	(cw_asm_c_build_component_ref): If a label declaration, get its
+	underlying identifier node.
+	* tree-cfg.c (set_bb_for_stmt): Generate a unique label name for the
+	asm_expr's generic label name, if any.
+	* tree.def (ASM_EXPR): Define a new field for it.
+	* tree.h (ASM_LABEL): New macro definition.
+	* cp/semantics.c (finish_asm_stmt): Building of ASM_EXPR tree requires a
+	new argument.
+
 2005-07-14  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4174405

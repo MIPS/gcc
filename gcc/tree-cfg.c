@@ -2881,6 +2881,40 @@ set_bb_for_stmt (tree t, basic_block bb)
 	    gcc_assert (!bb || !VARRAY_BB (label_to_block_map, uid));
 	  VARRAY_BB (label_to_block_map, uid) = bb;
 	}
+      /* APPLE LOCAL begin CW asm blocks */
+      if (TREE_CODE (t) == ASM_EXPR && ASM_LABEL (t))
+	{
+	  int uid;
+	  tree label = ASM_LABEL (t);
+	  uid = LABEL_DECL_UID (label);
+	  if (ASM_STRING (t))
+	    {
+	      tree string = ASM_STRING (t); 
+	      char *pos = strchr (TREE_STRING_POINTER (string), '$');
+	      if (pos)
+		{
+		  static int cw_asm_unique_labelno;
+	  	  static char *cw_asm_buffer;
+		  int label_uid;
+		  if (cw_asm_buffer == NULL)
+		    cw_asm_buffer = xmalloc (1024);
+		  label_uid = uid == -1 ? cw_asm_unique_labelno++ : uid;
+	          LABEL_DECL_UID (label) = label_uid;
+		  pos = strchr (pos, ':');
+		  if (pos)
+		    {
+		      strcpy (cw_asm_buffer, TREE_STRING_POINTER (string)); 
+		      pos = strchr (cw_asm_buffer, ':');
+		      gcc_assert (pos);
+		      sprintf (pos, "%d:", label_uid);
+		    }
+		  else
+		    sprintf (cw_asm_buffer, "%s%d", TREE_STRING_POINTER (string), label_uid);
+		  ASM_STRING (t) = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+		}
+	    }
+	}
+      /* APPLE LOCAL end CW asm blocks */
     }
 }
 

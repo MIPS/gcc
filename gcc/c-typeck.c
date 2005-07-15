@@ -2422,13 +2422,17 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   enum tree_code code2 = arg2.original_code;
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (inside_cw_asm_block 
-      && (TREE_CODE (arg1.value) == IDENTIFIER_NODE
-          || TREE_CODE (arg2.value) == IDENTIFIER_NODE))
+  if (inside_cw_asm_block)
     {
-      result.value = error_mark_node;
-      result.original_code = code;
-      return result;
+      if (TREE_CODE (arg1.value) == LABEL_DECL
+          || TREE_CODE (arg2.value) == LABEL_DECL
+	  || TREE_CODE (arg1.value) == IDENTIFIER_NODE
+	  || TREE_CODE (arg2.value) == IDENTIFIER_NODE)
+        {
+          result.value = error_mark_node;
+          result.original_code = code;
+          return result;
+        }
     }
   /* APPLE LOCAL end CW asm blocks */
 
@@ -6733,7 +6737,7 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
     }
 
   /* APPLE LOCAL CW asm blocks. */
-  args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers, NULL);
+  args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers, NULL_TREE, NULL_TREE);
 
   /* Simple asm statements are treated as volatile.  */
   if (simple)
@@ -6828,6 +6832,8 @@ cw_asm_c_build_component_ref (tree typename, tree component)
     {
       return build_component_ref (typename, component);
     }
+  else if (TREE_CODE (typename) == LABEL_DECL)
+    typename = DECL_NAME (typename);
 
   val = lookup_name (typename);
   if (val)

@@ -1,3 +1,10 @@
+2005-07-14 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4178242
+
+	* gcc.apple/asm-label-1.c
+	* gcc.apple/asm-label-2.c
+
 2005-07-14  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4174405

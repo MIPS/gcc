@@ -1227,7 +1227,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
   r = build_stmt (ASM_EXPR, string,
 		  output_operands, input_operands,
   /* APPLE LOCAL CW asm blocks. */
-		  clobbers, NULL_TREE);
+		  clobbers, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (r) = volatile_p;
   r = maybe_cleanup_point_expr_void (r);
   return add_stmt (r);
