@@ -1522,13 +1522,13 @@ struct_equiv_improve_checkpoint (int n, struct equiv_info *info)
 #endif
   if (info->input_count >= IMPOSSIBLE_MOVE_FACTOR)
     return;
-  if (info->check_input_conflict && ! resolve_input_conflict (info))
-    return;
   if (info->input_cost >= 0
       ? (COSTS_N_INSNS(info->ninsns - p->ninsns)
 	 > info->input_cost * (info->input_count - p->input_count))
       : info->ninsns > p->ninsns && !info->input_count)
     {
+      if (info->check_input_conflict && ! resolve_input_conflict (info))
+	return;
       /* We have a profitable set of changes.  If this is the final pass,
 	 commit them now.  Otherwise, we don't know yet if we can make any
 	 change, so put the old code back for now.  */
@@ -1953,10 +1953,14 @@ resolve_input_conflict (struct equiv_info *info)
 {
   int i, j, end;
   int nswaps = 0;
+  rtx save_x_local[STRUCT_EQUIV_MAX_LOCAL];
+  rtx save_y_local[STRUCT_EQUIV_MAX_LOCAL];
 
   find_dying_inputs (info);
   if (info->dying_inputs <= 1)
     return true;
+  memcpy (save_x_local, info->x_local, sizeof save_x_local);
+  memcpy (save_y_local, info->y_local, sizeof save_y_local);
   end = info->local_count - 1;
   for (i = 0; i <= end; i++)
     {
@@ -1981,7 +1985,11 @@ resolve_input_conflict (struct equiv_info *info)
 		(info->x_local[i], info->y_local[j]))
 	    continue;
 	  if (--max_swaps < 0)
-	    return false;
+	    {
+	      memcpy (info->x_local, save_x_local, sizeof save_x_local);
+	      memcpy (info->y_local, save_y_local, sizeof save_y_local);
+	      return false;
+	    }
 	  nswaps++;
 	  tmp = info->x_local[i];
 	  info->x_local[i] = info->x_local[j];

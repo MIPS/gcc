@@ -1,16 +1,7 @@
-2005-07-12  J"orn Rennecke <joern.rennecke@st.com>
-
-	PR rtl-optimization/22445
-	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg00933.html
-	* cselib.c (target.h): Include.
-	(rtx_equal_for_cselib_p): Allow commutative matches.
-	(cselib_hash_rtx): Don't use MODE for CONST_INT hashing.
-	Remove MODE parameter.  Changed all callers.
-
-2005-07-12  J"orn Rennecke <joern.rennecke@st.com>
+2005-07-14  J"orn Rennecke <joern.rennecke@st.com>
 
 	PR rtl-optimization/20070
-	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg00908.html
+	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg01041.html
 	* basic-block.h (STRUCT_EQUIV_START, STRUCT_EQUIV_RERUN): Define.
 	(STRUCT_EQUIV_FINAL, STRUCT_EQUIV_MAX_LOCAL): Likewise.
 	(struct struct_equiv_checkpoint, struct equiv_info): Likewise.
@@ -37,6 +28,15 @@
 	2005-03-07  Kazu Hirata  <kazu@cs.umass.edu>
           * recog.c (verify_changes): Make it static.
           * recog.h: Remove the corresponding prototype.
+
+2005-07-12  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR rtl-optimization/22445
+	http://gcc.gnu.org/ml/gcc-patches/2005-07/msg00933.html
+	* cselib.c (target.h): Include.
+	(rtx_equal_for_cselib_p): Allow commutative matches.
+	(cselib_hash_rtx): Don't use MODE for CONST_INT hashing.
+	Remove MODE parameter.  Changed all callers.
 
 2005-07-07  J"orn Rennecke <joern.rennecke@st.com>
 
