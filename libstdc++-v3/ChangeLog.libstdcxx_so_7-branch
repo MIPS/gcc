@@ -1,3 +1,18 @@
+2005-07-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/moveable.h: Rename __is_moveable::value -> __value.
+	* include/bits/stl_algo.h: Likewise.
+	* include/bits/stl_algobase.h: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_pair.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+	* testsuite/testsuite_rvalref.h: Likewise.
+
 2005-07-01  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h (struct __sso_string_base):

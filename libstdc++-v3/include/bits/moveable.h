@@ -40,7 +40,7 @@ namespace __gnu_cxx
 
   template<class _Tp>
     struct __is_moveable
-    { static const bool value = false; };
+    { static const bool __value = false; };
 
   template<class _Tp>
     struct __rvalref
@@ -51,7 +51,7 @@ namespace __gnu_cxx
       __rvalref(_Tp& __inref) : __ref(__inref) { }
     };
 
-  template<class _Tp, bool = __is_moveable<_Tp>::value>
+  template<class _Tp, bool = __is_moveable<_Tp>::__value>
     struct __move_helper
     {
       typedef _Tp& __type;

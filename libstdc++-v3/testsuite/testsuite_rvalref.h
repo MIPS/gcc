@@ -115,7 +115,7 @@ namespace __gnu_cxx
 {
   template<>
     struct __is_moveable<__gnu_test::rvalstruct>
-    { static const bool value = true; };
+    { static const bool __value = true; };
 }
 
 #endif // _GLIBCXX_TESTSUITE_TR1_H

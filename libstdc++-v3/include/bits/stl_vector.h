@@ -989,7 +989,7 @@ namespace __gnu_cxx
 {
   template<typename _Tp, typename _Alloc>
     struct __is_moveable<_GLIBCXX_STD::vector<_Tp, _Alloc> >
-    { static const bool value = true; };
+    { static const bool __value = true; };
 }
 
 #endif /* _VECTOR_H */

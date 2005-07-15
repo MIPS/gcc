@@ -2368,7 +2368,7 @@ namespace std
   template<typename _RandomAccessIterator, typename _Compare>
     inline typename __enable_if<_RandomAccessIterator, 
       !(__gnu_cxx::__is_moveable<typename iterator_traits<_RandomAccessIterator>
-    				            ::value_type>::value)>::__type
+    				            ::value_type>::__value)>::__type
     __introsort_partition(_RandomAccessIterator __first,
 		          _RandomAccessIterator __last, _Compare __comp)
     {
@@ -2396,7 +2396,7 @@ namespace std
   template<typename _RandomAccessIterator, typename _Compare>
     inline typename __enable_if<_RandomAccessIterator,
       __gnu_cxx::__is_moveable<typename iterator_traits<_RandomAccessIterator>
-    			         ::value_type>::value>::__type
+    			         ::value_type>::__value>::__type
     __introsort_partition(_RandomAccessIterator __first,
                           _RandomAccessIterator __last, _Compare __comp)
     {

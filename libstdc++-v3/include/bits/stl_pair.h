@@ -169,7 +169,7 @@ namespace __gnu_cxx
 {
   template<typename _T1, typename _T2>
     struct __is_moveable<std::pair<_T1, _T2> >
-    { static const bool value = true; };
+    { static const bool __value = true; };
 }
 
 #endif /* _PAIR_H */

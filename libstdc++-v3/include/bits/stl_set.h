@@ -609,6 +609,6 @@ namespace __gnu_cxx
 {
   template <typename _Key, typename _Compare, typename _Alloc>
     struct __is_moveable<_GLIBCXX_STD::set<_Key, _Compare, _Alloc> >
-    { static const bool value = true; };
+    { static const bool __value = true; };
 }
 #endif /* _SET_H */

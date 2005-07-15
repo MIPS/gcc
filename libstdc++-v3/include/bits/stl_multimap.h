@@ -689,8 +689,8 @@ namespace _GLIBCXX_STD
 namespace __gnu_cxx
 {
   template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
-    struct __is_moveable<_GLIBCXX_STD::multimap<_Key, _Tp, _Compare,_Alloc> >
-    { static const bool value = true; };
+    struct __is_moveable<_GLIBCXX_STD::multimap<_Key, _Tp, _Compare, _Alloc> >
+    { static const bool __value = true; };
 }
 
 #endif /* _MULTIMAP_H */

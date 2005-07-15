@@ -399,10 +399,10 @@ namespace std
   */   
   template<typename _InputIterator, typename _OutputIterator>
     inline typename __enable_if<_OutputIterator,
-      __gnu_cxx::__is_moveable<
-        typename std::iterator_traits<_OutputIterator>::value_type>::value &&
-        __are_same<typename std::iterator_traits<_InputIterator>::value_type,
-		   typename std::iterator_traits<_OutputIterator>::value_type>
+    __gnu_cxx::__is_moveable<
+    typename std::iterator_traits<_OutputIterator>::value_type>::__value
+    && __are_same<typename std::iterator_traits<_InputIterator>::value_type,
+		  typename std::iterator_traits<_OutputIterator>::value_type>
 	  ::__value>::__type
     __move(_InputIterator __first, _InputIterator __last,
            _OutputIterator __result)
@@ -424,10 +424,10 @@ namespace std
   */
   template<typename _InputIterator, typename _OutputIterator>
     inline typename __enable_if<_OutputIterator,
-      !(__gnu_cxx::__is_moveable<
-          typename std::iterator_traits<_OutputIterator>::value_type>::value &&
-          __are_same<typename std::iterator_traits<_InputIterator>::value_type,
-	  	     typename std::iterator_traits<_OutputIterator>::value_type>
+    !(__gnu_cxx::__is_moveable<
+      typename std::iterator_traits<_OutputIterator>::value_type>::__value
+      && __are_same<typename std::iterator_traits<_InputIterator>::value_type,
+                    typename std::iterator_traits<_OutputIterator>::value_type>
 	  ::__value)>::__type
     __move(_InputIterator __first, _InputIterator __last,
            _OutputIterator __result)
@@ -577,10 +577,10 @@ namespace std
   template<typename _InputIterator, typename _OutputIterator>
     inline 
     typename __enable_if<_OutputIterator,
-      __gnu_cxx::__is_moveable<
-        typename iterator_traits<_OutputIterator>::value_type>::value &&
-        __are_same<typename iterator_traits<_InputIterator>::value_type,
-		   typename iterator_traits<_OutputIterator>::value_type>
+    __gnu_cxx::__is_moveable<
+    typename iterator_traits<_OutputIterator>::value_type>::__value
+    && __are_same<typename iterator_traits<_InputIterator>::value_type,
+		  typename iterator_traits<_OutputIterator>::value_type>
 	  ::__value>::__type
     __move_backward(_InputIterator __first, _InputIterator __last,
 		    _OutputIterator __result)
@@ -603,10 +603,10 @@ namespace std
   template<typename _InputIterator, typename _OutputIterator>
     inline 
     typename __enable_if<_OutputIterator,
-      !(__gnu_cxx::__is_moveable<
-          typename iterator_traits<_OutputIterator>::value_type>::value &&
-          __are_same<typename iterator_traits<_InputIterator>::value_type,
-	  	     typename iterator_traits<_OutputIterator>::value_type>
+    !(__gnu_cxx::__is_moveable<
+      typename iterator_traits<_OutputIterator>::value_type>::__value
+      && __are_same<typename iterator_traits<_InputIterator>::value_type,
+                    typename iterator_traits<_OutputIterator>::value_type>
 	  ::__value)>::__type
     __move_backward(_InputIterator __first, _InputIterator __last,
 		    _OutputIterator __result)
