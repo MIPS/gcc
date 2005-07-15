@@ -1,3 +1,8 @@
+2005-07-15  Devang Patel  <dpatel@apple.com>
+
+	Radar 4182529
+	* gcc.apple/vect-ndist-1.c: New.
+
 2005-07-14 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4178242

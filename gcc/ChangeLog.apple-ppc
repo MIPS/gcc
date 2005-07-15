@@ -1,3 +1,9 @@
+2005-07-15  Devang Patel  <dpatel@apple.com>
+
+	Radar 4182529
+	* tree-vect-analyze.c (vect_analyze_data_ref_dependence): Use absolute
+	value of distance vector.
+
 2005-07-14 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4178242
