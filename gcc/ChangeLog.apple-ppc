@@ -1,3 +1,9 @@
+2005-07-14  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4174405
+	* calls.c (expand_call):  Don't let sibcalls clobber caller's
+	stack space on x86.
+
 2005-07-14  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4150746

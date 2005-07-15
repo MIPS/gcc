@@ -3126,23 +3126,34 @@ expand_call (tree exp, rtx target, int ignore)
 			  == stack_pointer_delta - pending_stack_adjust));
 	}
 
-      /* APPLE LOCAL begin sibcall optimization stomped CW frames (radar 3007352) */
-      /* GCC for PPC on Darwin has always rounded 'current_function_args_size' up to a multiple of 16.
-	 CodeWarrior doesn't.
-	 A father() that passes, say, 40 bytes of parameters to daughter() will have eight bytes of
-	 padding if compiled with GCC, and zero bytes of padding if compiled with CW.
-	 If a GCC-compiled daughter() in turn sibcalls to granddaughter() with, say, 44 bytes of parameters,
-	 GCC will generate a store of that extra parameter into padding of the father() parameter area.
-	 Alas, if father() was compild by CW, father() will not have the parameter area padding,
-	 and something in the father() stackframe will be stomped.
-	 Parameter areas are guaranteed to be a minimum of 32 bytes.  See Radar 3007352.  */
+      /* APPLE LOCAL begin sibcall 3007352 */
+      /* GCC for PPC on Darwin has always rounded
+	 'current_function_args_size' up to a multiple of 16.
+	 CodeWarrior doesn't.  A father() that passes, say, 40 bytes
+	 of parameters to daughter() will have eight bytes of padding
+	 if compiled with GCC, and zero bytes of padding if compiled
+	 with CW.  If a GCC-compiled daughter() in turn sibcalls to
+	 granddaughter() with, say, 44 bytes of parameters, GCC will
+	 generate a store of that extra parameter into padding of the
+	 father() parameter area.  Alas, if father() was compiled by
+	 CW, father() will not have the parameter area padding, and
+	 something in the father() stackframe will be stomped.  PPC
+	 parameter areas are guaranteed to be a minimum of 32 bytes.
+	 See Radar 3007352.
+
+	 On non-PPC/Darwin, we still must be careful to use the
+	 unrounded argument area size; Darwin maintains a
+	 vector-aligned stack for every target.  See Radar
+	 3324536.  */
       if ( ( ! sibcall_failure)
+#if defined (TARGET_POWERPC)
 	   && args_size.constant > 32
+#endif
 	   && args_size.constant > cfun->unrounded_args_size)
 	{
 	  sibcall_failure = 1;
 	}
-      /* APPLE LOCAL end sibcall optimization stomped CW frames (radar 3007352) */
+      /* APPLE LOCAL end sibcall 3007352 */
 
       /* If something prevents making this a sibling call,
 	 zero out the sequence.  */
