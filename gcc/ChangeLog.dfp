@@ -1,3 +1,9 @@
+2005-07-17  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2.h (enum dwarf_type): Rename DW_ATE_GNU_decimal_float back
+	to DW_ATE_decimal float now that it exists in DWARF 3.
+	* dwarf2out.c (base_type_die): Use the new enumeration.
+
 2005-07-11  Ben Elliston  <bje@au.ibm.com>
 
 	* dfp.h: Formatting.
