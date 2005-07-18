@@ -307,8 +307,7 @@ linear_transform_loops (struct loops *loops)
 				       DDR_SIZE_VECT (ddr));
 		  fprintf (dump_file, ")\n");
 		  fprintf (dump_file, "DIRECTION_V (");
-		  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), 
-				       DDR_SIZE_VECT (ddr));
+		  print_direction_vector (dump_file, ddr);
 		  fprintf (dump_file, ")\n");
 		}
 	    }

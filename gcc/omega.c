@@ -29,13 +29,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    ELIMINATE_REDUNDANT_CONSTRAINTS
    - use expensive methods to eliminate all redundant constraints
    
-   singleResult
+   SINGLE_RESULT
    - only produce a single simplified result.
 
    APROX 
    - approximate inexact reductions omega_verify_simplification (runtime),
    - if TRUE, omega_simplify_problem checks for problem with no
-   solutions reduceWithSubs (runtime),
+   solutions omega_reduce_with_subs (runtime),
    - if FALSE, convert substitutions back to EQs.
  */
 
@@ -54,7 +54,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 bool omega_reduce_with_subs = true;
 bool omega_verify_simplification = false;
 
-
 #define MAX_WILD_CARDS 18
 #ifndef APROX
 #define APROX 0
@@ -62,37 +61,29 @@ bool omega_verify_simplification = false;
 
 #define EQ_type 1
 #define GEQ_type 2
-#define keyMult 31
-#define indexMult 17
+#define KEY_MULT 31
 
-#ifdef singleResult
-#define returnSingleResult  1
+#ifdef SINGLE_RESULT
+#define return_single_result  1
 #else
-static int returnSingleResult = 0;
+static int return_single_result = 0;
 #endif
 
-static int mayBeRed = 0;
-#define hash_table_size 550
-#define maxKeys 500
+static int may_be_red = 0;
+#define HASH_TABLE_SIZE 550
+#define MAX_KEYS 500
 
-static struct eqn hash_master[hash_table_size];
-
-int nonConvex = 0;
-
-static int doItAgain;
-
+static struct eqn hash_master[HASH_TABLE_SIZE];
+static bool non_convex = false;
+static bool do_it_again;
 static int conservative = 0;
-
 static int next_key;
 static char wild_name[200][40];
 static int next_wild_card = 0;
-static int trace = 1;
-static int depth = 0;
-static bool omega_found_reduction;
+static enum omega_result omega_found_reduction;
 static int packing[max_vars];
-
-static int inApproximateMode = 0;
-static int createColor = 0;
+static bool in_approximate_mode = 0;
+static bool create_color = false;
 static int please_no_equalities_in_simplified_problems = 0;
 static int hash_version = 0;
 
@@ -188,11 +179,11 @@ omega_eqn_is_red (eqn e, int desired_result)
 static inline char *
 omega_variable_to_str (int i)
 {
-  if (0 <= i && i < 20)
+  if (0 <= i && i <= 20)
     return wild_name[i];
 
   if (-20 < i && i < 0)
-    return wild_name[40 - i];
+    return wild_name[40 + i];
 
   gcc_unreachable ();
 }
@@ -234,7 +225,7 @@ omega_initialize_variables (omega_pb p)
   for (i = p->num_vars; i >= 0; i--)
     p->forwarding_address[i] = p->var[i] = i;
 
-  p->variablesInitialized = 1;
+  p->variables_initialized = 1;
 }
 
 /* Initialize problem P.  */
@@ -244,8 +235,8 @@ omega_initialize_problem (omega_pb p)
 {
   p->num_vars = 0;
   p->hash_version = hash_version;
-  p->variablesInitialized = 0;
-  p->variablesFreed = 0;
+  p->variables_initialized = 0;
+  p->variables_freed = 0;
   p->safe_vars = 0;
   p->num_eqs = 0;
   p->num_geqs = 0;
@@ -261,8 +252,8 @@ omega_copy_problem (omega_pb p1, omega_pb p2)
 
   p1->num_vars = p2->num_vars;
   p1->hash_version = p2->hash_version;
-  p1->variablesInitialized = p2->variablesInitialized;
-  p1->variablesFreed = p2->variablesFreed;
+  p1->variables_initialized = p2->variables_initialized;
+  p1->variables_freed = p2->variables_freed;
   p1->safe_vars = p2->safe_vars;
   p1->num_eqs = p2->num_eqs;
   p1->num_subs = p2->num_subs;
@@ -517,7 +508,7 @@ omega_print_problem (FILE *file, omega_pb pb)
 {
   int e;
 
-  if (!pb->variablesInitialized)
+  if (!pb->variables_initialized)
     omega_initialize_variables (pb);
 
   printVars (file, pb);
@@ -542,7 +533,7 @@ omega_print_problem (FILE *file, omega_pb pb)
     {
       eqn eq = &pb->subs[e];
 
-      if (eq->color)
+      if (eq->color == omega_red)
 	fprintf (file, "[");
 
       if (eq->key > 0)
@@ -552,7 +543,7 @@ omega_print_problem (FILE *file, omega_pb pb)
 
       omega_print_term (file, pb, eq, 1);
 
-      if (eq->color)
+      if (eq->color == omega_red)
 	fprintf (file, "]");
 
       fprintf (file, "\n");
@@ -598,7 +589,7 @@ omega_print_red_equations (FILE *file, omega_pb pb)
 {
   int e;
 
-  if (!pb->variablesInitialized)
+  if (!pb->variables_initialized)
     omega_initialize_variables (pb);
 
   printVars (file, pb);
@@ -621,7 +612,7 @@ omega_print_red_equations (FILE *file, omega_pb pb)
     if (pb->subs[e].color == omega_red)
       {
 	eqn eq = &pb->subs[e];
-	if (eq->color)
+	if (eq->color == omega_red)
 	  fprintf (file, "[");
 
 	if (eq->key > 0)
@@ -631,7 +622,7 @@ omega_print_red_equations (FILE *file, omega_pb pb)
 
 	omega_print_term (file, pb, eq, 1);
 
-	if (eq->color)
+	if (eq->color == omega_red)
 	  fprintf (file, "]");
 
 	fprintf (file, "\n");
@@ -662,7 +653,7 @@ omega_pretty_print_problem (FILE *file, omega_pb pb)
   int chain[max_vars];
   int i, m, multiprint;
 
-  if (!pb->variablesInitialized)
+  if (!pb->variables_initialized)
     omega_initialize_variables (pb);
 
   if (pb->num_vars > 0)
@@ -954,7 +945,7 @@ omega_add_new_wild_card (omega_pb pb)
   return i;
 }
 
-/* Delete inequality E from problem PB that has NV variables.  */
+/* Delete inequality E from problem PB that has N_VARS variables.  */
 
 static void
 omega_delete_geq (omega_pb pb, int e, int nv)
@@ -972,10 +963,10 @@ omega_delete_geq (omega_pb pb, int e, int nv)
   pb->num_geqs--;
 }
 
-/* Delete extra inequality E from problem PB that has NV variables.  */
+/* Delete extra inequality E from problem PB that has N_VARS variables.  */
 
 static void
-omega_delete_geq_extra (omega_pb pb, int e, int nV)
+omega_delete_geq_extra (omega_pb pb, int e, int n_vars)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -985,7 +976,7 @@ omega_delete_geq_extra (omega_pb pb, int e, int nV)
     }
 
   if (e < pb->num_geqs-1)
-    omega_copy_eqn (&pb->geqs[e], &pb->geqs[pb->num_geqs - 1],(nV));
+    omega_copy_eqn (&pb->geqs[e], &pb->geqs[pb->num_geqs - 1],(n_vars));
   pb->num_geqs--;
 }
 
@@ -995,7 +986,7 @@ omega_delete_geq_extra (omega_pb pb, int e, int nV)
 static void
 omega_delete_variable (omega_pb pb, int i)
 {
-  int nV = pb->num_vars;
+  int n_vars = pb->num_vars;
   int e;
 
   if (i < pb->safe_vars)
@@ -1006,40 +997,40 @@ omega_delete_variable (omega_pb pb, int i)
 	{
 	  pb->geqs[e].touched = true;
 	  pb->geqs[e].coef[i] = pb->geqs[e].coef[j];
-	  pb->geqs[e].coef[j] = pb->geqs[e].coef[nV];
+	  pb->geqs[e].coef[j] = pb->geqs[e].coef[n_vars];
 	}
 
       for (e = pb->num_eqs - 1; e >= 0; e--)
 	{
 	  pb->eqs[e].coef[i] = pb->eqs[e].coef[j];
-	  pb->eqs[e].coef[j] = pb->eqs[e].coef[nV];
+	  pb->eqs[e].coef[j] = pb->eqs[e].coef[n_vars];
 	}
 
       for (e = pb->num_subs - 1; e >= 0; e--)
 	{
 	  pb->subs[e].coef[i] = pb->subs[e].coef[j];
-	  pb->subs[e].coef[j] = pb->subs[e].coef[nV];
+	  pb->subs[e].coef[j] = pb->subs[e].coef[n_vars];
 	}
 
       pb->var[i] = pb->var[j];
-      pb->var[j] = pb->var[nV];
+      pb->var[j] = pb->var[n_vars];
     }
-  else if (i < nV)
+  else if (i < n_vars)
     {
       for (e = pb->num_geqs - 1; e >= 0; e--)
-	if (pb->geqs[e].coef[nV])
+	if (pb->geqs[e].coef[n_vars])
 	  {
-	    pb->geqs[e].coef[i] = pb->geqs[e].coef[nV];
+	    pb->geqs[e].coef[i] = pb->geqs[e].coef[n_vars];
 	    pb->geqs[e].touched = true;
 	  }
 
       for (e = pb->num_eqs - 1; e >= 0; e--)
-	pb->eqs[e].coef[i] = pb->eqs[e].coef[nV];
+	pb->eqs[e].coef[i] = pb->eqs[e].coef[n_vars];
 
       for (e = pb->num_subs - 1; e >= 0; e--)
-	pb->subs[e].coef[i] = pb->subs[e].coef[nV];
+	pb->subs[e].coef[i] = pb->subs[e].coef[n_vars];
 
-      pb->var[i] = pb->var[nV];
+      pb->var[i] = pb->var[n_vars];
     }
 
   if (i <= pb->safe_vars)
@@ -1048,10 +1039,10 @@ omega_delete_variable (omega_pb pb, int i)
   pb->num_vars--;
 }
 
-/* */
+/* Substitute in PB variable VAR with "C * SUB".  */
 
 static void
-omega_substitute (omega_pb pb, eqn sub, int i, int c)
+omega_substitute (omega_pb pb, eqn sub, int var, int c)
 {
   int e, j, j0, k;
   int topVar;
@@ -1066,7 +1057,8 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "substituting using %s := ", omega_variable_to_str (pb->var[i]));
+      fprintf (dump_file, "substituting using %s := ",
+	       omega_variable_to_str (pb->var[var]));
       omega_print_term (dump_file, pb, sub, -c);
       fprintf (dump_file, "\n");
       printVars (dump_file, pb);
@@ -1075,25 +1067,25 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
   if (topVar < 0)
     {
       for (e = pb->num_eqs - 1; e >= 0; e--)
-	pb->eqs[e].coef[i] = 0;
+	pb->eqs[e].coef[var] = 0;
 
       for (e = pb->num_geqs - 1; e >= 0; e--)
-	if (pb->geqs[e].coef[i] != 0)
+	if (pb->geqs[e].coef[var] != 0)
 	  {
 	    pb->geqs[e].touched = true;
-	    pb->geqs[e].coef[i] = 0;
+	    pb->geqs[e].coef[var] = 0;
 	  }
 
       for (e = pb->num_subs - 1; e >= 0; e--)
-	pb->subs[e].coef[i] = 0;
+	pb->subs[e].coef[var] = 0;
 
-      if (i <= pb->safe_vars && pb->var[i] >= 0)
+      if (var <= pb->safe_vars && pb->var[var] >= 0)
 	{
 	  eqn eqn = &(pb->subs[pb->num_subs++]);
 	  for (k = pb->num_vars; k >= 0; k--)
 	    eqn->coef[k] = 0;
-	  eqn->key = pb->var[i];
-	  eqn->color = 0;
+	  eqn->key = pb->var[var];
+	  eqn->color = omega_black;
 	}
     }
   else if (topVar == 0 && packing[0] == 0)
@@ -1102,25 +1094,25 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
 
       for (e = pb->num_eqs - 1; e >= 0; e--)
 	{
-	  pb->eqs[e].coef[0] += pb->eqs[e].coef[i] * c;
-	  pb->eqs[e].coef[i] = 0;
+	  pb->eqs[e].coef[0] += pb->eqs[e].coef[var] * c;
+	  pb->eqs[e].coef[var] = 0;
 	}
 
       for (e = pb->num_geqs - 1; e >= 0; e--)
-	if (pb->geqs[e].coef[i] != 0)
+	if (pb->geqs[e].coef[var] != 0)
 	  {
-	    pb->geqs[e].coef[0] += pb->geqs[e].coef[i] * c;
-	    pb->geqs[e].coef[i] = 0;
+	    pb->geqs[e].coef[0] += pb->geqs[e].coef[var] * c;
+	    pb->geqs[e].coef[var] = 0;
 	    pb->geqs[e].touched = true;
 	  }
 
       for (e = pb->num_subs - 1; e >= 0; e--)
 	{
-	  pb->subs[e].coef[0] += pb->subs[e].coef[i] * c;
-	  pb->subs[e].coef[i] = 0;
+	  pb->subs[e].coef[0] += pb->subs[e].coef[var] * c;
+	  pb->subs[e].coef[var] = 0;
 	}
 
-      if (i <= pb->safe_vars && pb->var[i] >= 0)
+      if (var <= pb->safe_vars && pb->var[var] >= 0)
 	{
 	  eqn eqn = &(pb->subs[pb->num_subs++]);
 
@@ -1128,8 +1120,8 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
 	    eqn->coef[k] = 0;
 
 	  eqn->coef[0] = c;
-	  eqn->key = pb->var[i];
-	  eqn->color = 0;
+	  eqn->key = pb->var[var];
+	  eqn->color = omega_black;
 	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1145,11 +1137,11 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
 	{
 	  eqn eqn = &(pb->eqs[e]);
 
-	  k = eqn->coef[i];
+	  k = eqn->coef[var];
 	  if (k != 0)
 	    {
 	      k = c * k;
-	      eqn->coef[i] = 0;
+	      eqn->coef[var] = 0;
 
 	      for (j = topVar; j >= 0; j--)
 		{
@@ -1168,12 +1160,12 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
       for (e = pb->num_geqs - 1; e >= 0; e--)
 	{
 	  eqn eqn = &(pb->geqs[e]);
-	  k = eqn->coef[i];
+	  k = eqn->coef[var];
 	  if (k != 0)
 	    {
 	      k = c * k;
 	      eqn->touched = true;
-	      eqn->coef[i] = 0;
+	      eqn->coef[var] = 0;
 
 	      for (j = topVar; j >= 0; j--)
 		{
@@ -1193,11 +1185,11 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
 	{
 	  eqn eqn = &(pb->subs[e]);
 
-	  k = eqn->coef[i];
+	  k = eqn->coef[var];
 	  if (k != 0)
 	    {
 	      k = c * k;
-	      eqn->coef[i] = 0;
+	      eqn->coef[var] = 0;
 
 	      for (j = topVar; j >= 0; j--)
 		{
@@ -1221,7 +1213,7 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
 	  fprintf (dump_file, "===\n\n");
 	}
 
-      if (i <= pb->safe_vars && pb->var[i] >= 0)
+      if (var <= pb->safe_vars && pb->var[var] >= 0)
 	{
 	  eqn eqn;
 	  eqn = &(pb->subs[pb->num_subs++]);
@@ -1230,7 +1222,7 @@ omega_substitute (omega_pb pb, eqn sub, int i, int c)
 	  for (k = pb->num_vars; k >= 0; k--)
 	    eqn->coef[k] = c * (sub->coef[k]);
 
-	  eqn->key = pb->var[i];
+	  eqn->key = pb->var[var];
 	  eqn->color = sub->color;
 	}
     }
@@ -1245,7 +1237,7 @@ omega_do_mod (omega_pb pb, int factor, int e, int j)
   int k, i;
   struct eqn eq;
   int nFactor;
-  int killJ = FALSE;
+  bool kill_j = false;
 
   omega_copy_eqn (&eq, &pb->eqs[e], pb->num_vars);
 
@@ -1264,7 +1256,7 @@ omega_do_mod (omega_pb pb, int factor, int e, int j)
       eq.coef[pb->num_vars] = eq.coef[i];
       eq.coef[j] = 0;
       eq.coef[i] = -factor;
-      killJ = TRUE;
+      kill_j = true;
     }
   else
     {
@@ -1278,7 +1270,7 @@ omega_do_mod (omega_pb pb, int factor, int e, int j)
   for (k = pb->num_vars; k >= 0; k--)
     pb->eqs[e].coef[k] = pb->eqs[e].coef[k] / factor;
 
-  if (killJ)
+  if (kill_j)
     omega_delete_variable (pb, j);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1314,7 +1306,7 @@ verify_omega_pb (omega_pb pb)
   omega_copy_problem (tmp_problem, pb);
   tmp_problem->safe_vars = 0;
   tmp_problem->num_subs = 0;
-  anyColor = 0;
+  anyColor = omega_black;
 
   for (e = pb->num_geqs - 1; e >= 0; e--)
     anyColor |= pb->geqs[e].color;
@@ -1391,8 +1383,8 @@ adding_equality_constraint (omega_pb pb, int e)
     }
 }
 
-static int fastLookup[maxKeys * 2];
-static int fastLookupRed[maxKeys * 2];
+static int fastLookup[MAX_KEYS * 2];
+static int fastLookupRed[MAX_KEYS * 2];
 
 typedef enum {
   normalize_false,
@@ -1405,15 +1397,15 @@ typedef enum {
 static normalize_return_type
 normalize_omega_problem (omega_pb pb)
 {
-  int e, i, j, k, nV;
+  int e, i, j, k, n_vars;
   int coupled_subscripts = 0;
 
-  nV = pb->num_vars;
+  n_vars = pb->num_vars;
   for (e = 0; e < pb->num_geqs; e++)
     {
       if (!pb->geqs[e].touched)
 	{
-	  if (!single_var_geq (pb->geqs[e], nV))
+	  if (!single_var_geq (pb->geqs[e], n_vars))
 	    coupled_subscripts = 1;
 	}
       else
@@ -1425,7 +1417,7 @@ normalize_omega_problem (omega_pb pb)
 
 	  {
 	    int *p = &packing[0];
-	    for (k = 1; k <= nV; k++)
+	    for (k = 1; k <= n_vars; k++)
 	      if (pb->geqs[e].coef[k])
 		{
 		  *(p++) = k;
@@ -1444,7 +1436,7 @@ normalize_omega_problem (omega_pb pb)
 		    }
 		  return normalize_false;
 		}
-	      omega_delete_geq (pb, e, nV);
+	      omega_delete_geq (pb, e, n_vars);
 	      e--;
 	      continue;
 	    }
@@ -1481,7 +1473,7 @@ normalize_omega_problem (omega_pb pb)
 		  int x;
 		  i = packing[i0];
 		  x = pb->geqs[e].coef[i];
-		  hashCode = hashCode * keyMult * (i + 3) + x;
+		  hashCode = hashCode * KEY_MULT * (i + 3) + x;
 		  if (x < 0)
 		    x = -x;
 		  if (x == 1)
@@ -1498,7 +1490,7 @@ normalize_omega_problem (omega_pb pb)
 		  int x;
 		  i = packing[i0];
 		  x = pb->geqs[e].coef[i];
-		  hashCode = hashCode * keyMult * (i + 3) + x;
+		  hashCode = hashCode * KEY_MULT * (i + 3) + x;
 		}
 	      if (g > 1)
 		{
@@ -1512,7 +1504,7 @@ normalize_omega_problem (omega_pb pb)
 		      i = packing[i0];
 		      pb->geqs[e].coef[i] = pb->geqs[e].coef[i] / g;
 		      hashCode =
-			hashCode * keyMult * (i + 3) + pb->geqs[e].coef[i];
+			hashCode * KEY_MULT * (i + 3) + pb->geqs[e].coef[i];
 		    }
 		}
 
@@ -1526,7 +1518,7 @@ normalize_omega_problem (omega_pb pb)
 		    fprintf (dump_file, "\n");
 		  }
 
-		j = g2 % hash_table_size;
+		j = g2 % HASH_TABLE_SIZE;
 		while (1)
 		  {
 		    eqn proto = &(hash_master[j]);
@@ -1581,12 +1573,12 @@ normalize_omega_problem (omega_pb pb)
 				   next_key);
 
 			proto->key = next_key++;
-			if (proto->key > maxKeys)
+			if (proto->key > MAX_KEYS)
 			  {
 			    if (dump_file && (dump_flags & TDF_DETAILS))
 			      fprintf (dump_file,
 				       "too many hash keys generated \n");
-			    exit (2);
+			    gcc_assert (0);
 			  }
 			if (hashCode >= 0)
 			  pb->geqs[e].key = proto->key;
@@ -1594,7 +1586,7 @@ normalize_omega_problem (omega_pb pb)
 			  pb->geqs[e].key = -proto->key;
 			break;
 		      }
-		    j = (j + 1) % hash_table_size;
+		    j = (j + 1) % HASH_TABLE_SIZE;
 		  }
 	      }
 	    }
@@ -1608,8 +1600,9 @@ normalize_omega_problem (omega_pb pb)
 	if (e > 0)
 	  {
 	    int cTerm = pb->geqs[e].coef[0];
-	    e2 = fastLookup[maxKeys - eKey];
-	    if (e2 < e && pb->geqs[e2].key == -eKey && !pb->geqs[e2].color)
+	    e2 = fastLookup[MAX_KEYS - eKey];
+	    if (e2 < e && pb->geqs[e2].key == -eKey
+		&& pb->geqs[e2].color == omega_black)
 	      {
 		if (pb->geqs[e2].coef[0] < -cTerm)
 		  {
@@ -1624,17 +1617,19 @@ normalize_omega_problem (omega_pb pb)
 		    return normalize_false;
 		  }
 		if (pb->geqs[e2].coef[0] == -cTerm
-		    && (createColor || !pb->geqs[e].color))
+		    && (create_color 
+			|| pb->geqs[e].color == omega_black))
 		  {
 		    omega_copy_eqn (&pb->eqs[pb->num_eqs], &pb->geqs[e], pb->num_vars);
-		    if (!pb->geqs[e].color)
+		    if (pb->geqs[e].color == omega_black)
 		      adding_equality_constraint (pb, pb->num_eqs);
 		    pb->num_eqs++;
 		    gcc_assert (pb->num_eqs <= max_eqs);
 		  }
 	      }
-	    e2 = fastLookupRed[maxKeys - eKey];
-	    if (e2 < e && pb->geqs[e2].key == -eKey && pb->geqs[e2].color)
+	    e2 = fastLookupRed[MAX_KEYS - eKey];
+	    if (e2 < e && pb->geqs[e2].key == -eKey
+		&& pb->geqs[e2].color == omega_red)
 	      {
 		if (pb->geqs[e2].coef[0] < -cTerm)
 		  {
@@ -1648,21 +1643,22 @@ normalize_omega_problem (omega_pb pb)
 		      }
 		    return normalize_false;
 		  }
-		if (pb->geqs[e2].coef[0] == -cTerm && createColor)
+		if (pb->geqs[e2].coef[0] == -cTerm && create_color)
 		  {
 		    omega_copy_eqn (&pb->eqs[pb->num_eqs], &pb->geqs[e], pb->num_vars);
-		    pb->eqs[pb->num_eqs].color = 1;
+		    pb->eqs[pb->num_eqs].color = omega_red;
 		    pb->num_eqs++;
 		    gcc_assert (pb->num_eqs <= max_eqs);
 		  }
 	      }
 
-	    e2 = fastLookup[maxKeys + eKey];
-	    if (e2 < e && pb->geqs[e2].key == eKey && !pb->geqs[e2].color)
+	    e2 = fastLookup[MAX_KEYS + eKey];
+	    if (e2 < e && pb->geqs[e2].key == eKey 
+		&& pb->geqs[e2].color == omega_black)
 	      {
 		if (pb->geqs[e2].coef[0] > cTerm)
 		  {
-		    if (!pb->geqs[e].color)
+		    if (pb->geqs[e].color == omega_black)
 		      {
 			if (dump_file && (dump_flags & TDF_DETAILS))
 			  {
@@ -1676,7 +1672,7 @@ normalize_omega_problem (omega_pb pb)
 			    fprintf (dump_file, "\n");
 			  }
 			pb->geqs[e2].coef[0] = cTerm;
-			omega_delete_geq (pb, e, nV);
+			omega_delete_geq (pb, e, n_vars);
 			e--;
 			continue;
 		      }
@@ -1692,13 +1688,14 @@ normalize_omega_problem (omega_pb pb)
 			omega_print_geq (dump_file, pb, &(pb->geqs[e2]));
 			fprintf (dump_file, "\n");
 		      }
-		    omega_delete_geq (pb, e, nV);
+		    omega_delete_geq (pb, e, n_vars);
 		    e--;
 		    continue;
 		  }
 	      }
-	    e2 = fastLookupRed[maxKeys + eKey];
-	    if (e2 < e && pb->geqs[e2].key == eKey && pb->geqs[e2].color)
+	    e2 = fastLookupRed[MAX_KEYS + eKey];
+	    if (e2 < e && pb->geqs[e2].key == eKey
+		&& pb->geqs[e2].color == omega_red)
 	      {
 		if (pb->geqs[e2].coef[0] >= cTerm)
 		  {
@@ -1714,7 +1711,7 @@ normalize_omega_problem (omega_pb pb)
 		    pb->geqs[e2].coef[0] = cTerm;
 		    pb->geqs[e2].color = pb->geqs[e].color;
 		  }
-		else if (pb->geqs[e].color)
+		else if (pb->geqs[e].color == omega_red)
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      {
@@ -1726,19 +1723,19 @@ normalize_omega_problem (omega_pb pb)
 			fprintf (dump_file, "\n");
 		      }
 		  }
-		omega_delete_geq (pb, e, nV);
+		omega_delete_geq (pb, e, n_vars);
 		e--;
 		continue;
 
 	      }
 	  }
-	if (pb->geqs[e].color)
-	  fastLookupRed[maxKeys + eKey] = e;
+	if (pb->geqs[e].color == omega_red)
+	  fastLookupRed[MAX_KEYS + eKey] = e;
 	else
-	  fastLookup[maxKeys + eKey] = e;
+	  fastLookup[MAX_KEYS + eKey] = e;
       }
     }
-  createColor = 0;
+  create_color = false;
   return coupled_subscripts ? normalize_coupled : normalize_uncoupled;
 }
 
@@ -1748,14 +1745,14 @@ static void
 cleanout_wildcards (omega_pb pb)
 {
   int e, e2, i, j;
-  int a, c, nV;
+  int a, c, n_vars;
   int g;
   int renormalize = 0;
   struct eqn *sub;
-  nV = pb->num_vars;
+  n_vars = pb->num_vars;
   for (e = pb->num_eqs - 1; e >= 0; e--)
     {
-      for (i = nV; i >= pb->safe_vars + 1; i--)
+      for (i = n_vars; i >= pb->safe_vars + 1; i--)
 	if (pb->eqs[e].coef[i])
 	  {
 	    for (j = i - 1; j >= pb->safe_vars + 1; j--)
@@ -1782,17 +1779,17 @@ cleanout_wildcards (omega_pb pb)
 		    {
 		      eqn eqn = &(pb->eqs[e2]);
 		      int j, k;
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			eqn->coef[j] *= a;
 		      k = eqn->coef[i];
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			eqn->coef[j] -= sub->coef[j] * k / c;
 		      eqn->coef[i] = 0;
 		      g = 0;
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			g = gcd (abs (eqn->coef[j]), g);
 		      if (g)
-			for (j = nV; j >= 0; j--)
+			for (j = n_vars; j >= 0; j--)
 			  eqn->coef[j] = eqn->coef[j] / g;
 
 		    }
@@ -1801,10 +1798,10 @@ cleanout_wildcards (omega_pb pb)
 		    {
 		      eqn eqn = &(pb->geqs[e2]);
 		      int j, k;
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			eqn->coef[j] *= a;
 		      k = eqn->coef[i];
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			eqn->coef[j] -= sub->coef[j] * k / c;
 		      eqn->coef[i] = 0;
 		      eqn->touched = true;
@@ -1815,17 +1812,17 @@ cleanout_wildcards (omega_pb pb)
 		    {
 		      eqn eqn = &(pb->subs[e2]);
 		      int j, k;
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			eqn->coef[j] *= a;
 		      k = eqn->coef[i];
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			eqn->coef[j] -= sub->coef[j] * k / c;
 		      eqn->coef[i] = 0;
 		      g = 0;
-		      for (j = nV; j >= 0; j--)
+		      for (j = n_vars; j >= 0; j--)
 			g = gcd (abs (eqn->coef[j]), g);
 		      if (g)
-			for (j = nV; j >= 0; j--)
+			for (j = n_vars; j >= 0; j--)
 			  eqn->coef[j] = eqn->coef[j] / g;
 		    }
 
@@ -1856,9 +1853,10 @@ swap (int *i, int *j)
 /* */
 
 static void
-resurrectSubs (omega_pb pb)
+resurrect_subs (omega_pb pb)
 {
-  if (pb->num_subs > 0 && !please_no_equalities_in_simplified_problems)
+  if (pb->num_subs > 0 
+      && please_no_equalities_in_simplified_problems == 0)
     {
       int i, e, n, m;
 
@@ -2162,8 +2160,6 @@ omega_eliminate_redundant (omega_pb pb, bool expensive)
     return 1;
   {
     omega_pb tmp_problem;
-    int oldTrace = trace;
-    trace = 0;
     tmp_problem = (omega_pb) xmalloc (sizeof (struct omega_pb));
     conservative++;
     for (e = pb->num_geqs - 1; e >= 0; e--)
@@ -2178,17 +2174,16 @@ omega_eliminate_redundant (omega_pb pb, bool expensive)
 	omega_copy_problem (tmp_problem, pb);
 	omega_negate_geq (tmp_problem, e);
 	tmp_problem->safe_vars = 0;
-	tmp_problem->variablesFreed = 0;
+	tmp_problem->variables_freed = 0;
 	if (!omega_solve_problem (tmp_problem, omega_false))
 	  omega_delete_geq (pb, e, pb->num_vars);
       }
-    trace = oldTrace;
     free (tmp_problem);
     conservative--;
   }
   if (!omega_reduce_with_subs)
     {
-      resurrectSubs (pb);
+      resurrect_subs (pb);
       gcc_assert (please_no_equalities_in_simplified_problems
 		  || pb->num_subs == 0);
     }
@@ -2348,7 +2343,6 @@ coalesce (omega_pb pb)
       fprintf (dump_file, "Coalesced pb->geqs into %d EQ's:\n", foundSomething);
       omega_print_problem (dump_file, pb);
     }
-
 }
 
 /* */
@@ -2491,8 +2485,6 @@ omega_eliminate_red (omega_pb pb, bool eliminateAll)
     }
   {
     omega_pb tmp_problem;
-    int oldTrace = trace;
-    trace = 0;
     conservative++;
     tmp_problem = (omega_pb) xmalloc (sizeof (struct omega_pb));
     for (e = pb->num_geqs - 1; e >= 0; e--)
@@ -2508,7 +2500,7 @@ omega_eliminate_red (omega_pb pb, bool eliminateAll)
 	  omega_copy_problem (tmp_problem, pb);
 	  omega_negate_geq (tmp_problem, e);
 	  tmp_problem->safe_vars = 0;
-	  tmp_problem->variablesFreed = 0;
+	  tmp_problem->variables_freed = 0;
 	  tmp_problem->num_subs = 0;
 	  if (!omega_solve_problem (tmp_problem, omega_false))
 	    {
@@ -2529,19 +2521,19 @@ omega_eliminate_red (omega_pb pb, bool eliminateAll)
 		}
 	    }
 	}
-    trace = oldTrace;
     conservative--;
     free (tmp_problem);
   }
   /* omega_simplify_problem (pb); */
   if (!omega_reduce_with_subs)
-    gcc_assert (please_no_equalities_in_simplified_problems || pb->num_subs == 0);
+    gcc_assert (please_no_equalities_in_simplified_problems
+		|| pb->num_subs == 0);
 }
 
 /* */
 
 static void
-chainUnprotect (omega_pb pb)
+chain_unprotect (omega_pb pb)
 {
   int i, e;
   int unprotect[max_vars];
@@ -2560,7 +2552,8 @@ chainUnprotect (omega_pb pb)
       omega_print_problem (dump_file, pb);
       for (i = 1; i <= pb->safe_vars; i++)
 	if (unprotect[i])
-	  fprintf (dump_file, "unprotecting %s\n", omega_variable_to_str (pb->var[i]));
+	  fprintf (dump_file, "unprotecting %s\n",
+		   omega_variable_to_str (pb->var[i]));
     }
 
   for (i = 1; i <= pb->safe_vars; i++)
@@ -2601,14 +2594,14 @@ omega_problem_reduced (omega_pb pb)
   if (omega_verify_simplification)
     {
       int result;
-      if (inApproximateMode)
+      if (in_approximate_mode)
 	result = 1;
       else
 	result = verify_omega_pb (pb);
       if (!result)
 	return;
       if (pb->num_eqs > 0)
-	doItAgain = 1;
+	do_it_again = true;
     }
 
 #ifdef eliminateRedundantConstraints
@@ -2616,17 +2609,17 @@ omega_problem_reduced (omega_pb pb)
     return;
 #endif
 
-  omega_found_reduction = true;
+  omega_found_reduction = omega_true;
 
   if (!please_no_equalities_in_simplified_problems)
     coalesce (pb);
 
   if (omega_reduce_with_subs || please_no_equalities_in_simplified_problems)
-    chainUnprotect (pb);
+    chain_unprotect (pb);
   else
-    resurrectSubs (pb);
+    resurrect_subs (pb);
 
-  if (!returnSingleResult)
+  if (!return_single_result)
     {
       int i;
 
@@ -2648,20 +2641,21 @@ omega_problem_reduced (omega_pb pb)
     }
 }
 
-/* Eliminates all the free variables from PB.  */
+/* Eliminates all the free variables for problem PB, that is all the
+   variables from FV to PB->NUM_VARS.  */
 
 static void
 omega_free_eliminations (omega_pb pb, int fv)
 {
   bool try_again = true;
   int i, e, e2;
-  int nV = pb->num_vars;
+  int n_vars = pb->num_vars;
 
   while (try_again)
     {
       try_again = false;
 
-      for (i = nV; i > fv; i--)
+      for (i = n_vars; i > fv; i--)
 	{
 	  for (e = pb->num_geqs - 1; e >= 0; e--)
 	    if (pb->geqs[e].coef[i])
@@ -2705,17 +2699,17 @@ omega_free_eliminations (omega_pb pb, int fv)
 
 	      if (e >= 0)
 		{
-		  omega_delete_geq (pb, e, nV);
+		  omega_delete_geq (pb, e, n_vars);
 
 		  for (e--; e >= 0; e--)
 		    if (pb->geqs[e].coef[i])
-		      omega_delete_geq (pb, e, nV);
+		      omega_delete_geq (pb, e, n_vars);
 
-		  try_again = (i < nV);
+		  try_again = (i < n_vars);
 		}
 
 	      omega_delete_variable (pb, i);
-	      nV = pb->num_vars;
+	      n_vars = pb->num_vars;
 	    }
 	}
     }
@@ -2731,49 +2725,49 @@ omega_free_eliminations (omega_pb pb, int fv)
 /* Do free red eliminations.  */
 
 static void
-freeRedEliminations (omega_pb pb)
+free_red_eliminations (omega_pb pb)
 {
-  int tryAgain = 1;
+  bool try_again = true;
   int i, e, e2;
-  int nV = pb->num_vars;
-  int isRedVar[max_vars];
-  int isDeadVar[max_vars];
-  int isDeadGEQ[max_geqs];
-  for (i = nV; i > 0; i--)
+  int n_vars = pb->num_vars;
+  int is_red_var[max_vars];
+  int is_dead_var[max_vars];
+  int is_dead_geq[max_geqs];
+  for (i = n_vars; i > 0; i--)
     {
-      isRedVar[i] = 0;
-      isDeadVar[i] = 0;
+      is_red_var[i] = 0;
+      is_dead_var[i] = 0;
     }
   for (e = pb->num_geqs - 1; e >= 0; e--)
     {
-      isDeadGEQ[e] = 0;
+      is_dead_geq[e] = 0;
       if (pb->geqs[e].color)
-	for (i = nV; i > 0; i--)
+	for (i = n_vars; i > 0; i--)
 	  if (pb->geqs[e].coef[i] != 0)
-	    isRedVar[i] = 1;
+	    is_red_var[i] = 1;
     }
 
-  while (tryAgain)
+  while (try_again)
     {
-      tryAgain = 0;
-      for (i = nV; i > 0; i--)
-	if (!isRedVar[i] && !isDeadVar[i])
+      try_again = false;
+      for (i = n_vars; i > 0; i--)
+	if (!is_red_var[i] && !is_dead_var[i])
 	  {
 	    for (e = pb->num_geqs - 1; e >= 0; e--)
-	      if (!isDeadGEQ[e] && pb->geqs[e].coef[i])
+	      if (!is_dead_geq[e] && pb->geqs[e].coef[i])
 		break;
 	    if (e < 0)
 	      e2 = e;
 	    else if (pb->geqs[e].coef[i] > 0)
 	      {
 		for (e2 = e - 1; e2 >= 0; e2--)
-		  if (!isDeadGEQ[e2] && pb->geqs[e2].coef[i] < 0)
+		  if (!is_dead_geq[e2] && pb->geqs[e2].coef[i] < 0)
 		    break;
 	      }
 	    else
 	      {
 		for (e2 = e - 1; e2 >= 0; e2--)
-		  if (!isDeadGEQ[e2] && pb->geqs[e2].coef[i] > 0)
+		  if (!is_dead_geq[e2] && pb->geqs[e2].coef[i] > 0)
 		    break;
 	      }
 	    if (e2 < 0)
@@ -2795,19 +2789,19 @@ freeRedEliminations (omega_pb pb)
 			   omega_variable_to_str (pb->var[i]));
 		for (; e >= 0; e--)
 		  if (pb->geqs[e].coef[i])
-		    isDeadGEQ[e] = 1;
-		tryAgain = 1;
-		isDeadVar[i] = 1;
+		    is_dead_geq[e] = 1;
+		try_again = true;
+		is_dead_var[i] = 1;
 	      }
 	  }
     }
 
   for (e = pb->num_geqs - 1; e >= 0; e--)
-    if (isDeadGEQ[e])
-      omega_delete_geq (pb, e, nV);
+    if (is_dead_geq[e])
+      omega_delete_geq (pb, e, n_vars);
 
-  for (i = nV; i > 0; i--)
-    if (isDeadVar[i])
+  for (i = n_vars; i > 0; i--)
+    if (is_dead_var[i])
       omega_delete_variable (pb, i);
 
 
@@ -2819,10 +2813,10 @@ freeRedEliminations (omega_pb pb)
     }
 }
 
-/* */
+/* Substitute in PB variable VAR with "C * SUB".  */
 
 static void
-omega_substitute_red (omega_pb pb, eqn sub, int i, int c, bool * foundBlack)
+omega_substitute_red (omega_pb pb, eqn sub, int var, int c, bool *found_black)
 {
   int e, j, j0, k;
   int topVar;
@@ -2835,13 +2829,14 @@ omega_substitute_red (omega_pb pb, eqn sub, int i, int c, bool * foundBlack)
     topVar = (p - &packing[0]) - 1;
   }
 
-  *foundBlack = 0;
+  *found_black = 0;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       if (sub->color)
 	fprintf (dump_file, "[");
-      fprintf (dump_file, "substituting using %s := ", omega_variable_to_str (pb->var[i]));
+      fprintf (dump_file, "substituting using %s := ",
+	       omega_variable_to_str (pb->var[var]));
       omega_print_term (dump_file, pb, sub, -c);
       if (sub->color)
 	fprintf (dump_file, "]");
@@ -2852,15 +2847,15 @@ omega_substitute_red (omega_pb pb, eqn sub, int i, int c, bool * foundBlack)
   for (e = pb->num_eqs - 1; e >= 0; e--)
     {
       eqn eqn = &(pb->eqs[e]);
-      k = eqn->coef[i];
+      k = eqn->coef[var];
       if (k != 0)
 	{
 	  if (!eqn->color)
-	    *foundBlack = 1;
+	    *found_black = 1;
 	  else
 	    {
 	      k = c * k;
-	      eqn->coef[i] = 0;
+	      eqn->coef[var] = 0;
 	      for (j = topVar; j >= 0; j--)
 		{
 		  j0 = packing[j];
@@ -2878,16 +2873,16 @@ omega_substitute_red (omega_pb pb, eqn sub, int i, int c, bool * foundBlack)
   for (e = pb->num_geqs - 1; e >= 0; e--)
     {
       eqn eqn = &(pb->geqs[e]);
-      k = eqn->coef[i];
+      k = eqn->coef[var];
       if (k != 0)
 	{
 	  if (!eqn->color)
-	    *foundBlack = 1;
+	    *found_black = 1;
 	  else
 	    {
 	      k = c * k;
 	      eqn->touched = true;
-	      eqn->coef[i] = 0;
+	      eqn->coef[var] = 0;
 	      for (j = topVar; j >= 0; j--)
 		{
 		  j0 = packing[j];
@@ -2905,15 +2900,15 @@ omega_substitute_red (omega_pb pb, eqn sub, int i, int c, bool * foundBlack)
   for (e = pb->num_subs - 1; e >= 0; e--)
     {
       eqn eqn = &(pb->subs[e]);
-      k = eqn->coef[i];
+      k = eqn->coef[var];
       if (k != 0)
 	{
 	  if (!eqn->color)
-	    *foundBlack = 1;
+	    *found_black = 1;
 	  else
 	    {
 	      k = c * k;
-	      eqn->coef[i] = 0;
+	      eqn->coef[var] = 0;
 	      for (j = topVar; j >= 0; j--)
 		{
 		  j0 = packing[j];
@@ -2933,11 +2928,10 @@ omega_substitute_red (omega_pb pb, eqn sub, int i, int c, bool * foundBlack)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "---\n\n");
 
-  if (i <= pb->safe_vars && pb->var[i] >= 0)
+  if (var <= pb->safe_vars && pb->var[var] >= 0)
     {
-      *foundBlack = 1;
+      *found_black = 1;
     }
-
 }
 
 /* */
@@ -2969,7 +2963,7 @@ omega_do_elimination (omega_pb pb, int e, int i)
 {
   struct eqn sub;
   int c;
-  int nV = pb->num_vars;
+  int n_vars = pb->num_vars;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "eliminating variable %s\n", omega_variable_to_str (pb->var[i]));
@@ -3007,12 +3001,12 @@ omega_do_elimination (omega_pb pb, int e, int i)
 	  {
 	    eqn eqn = &(pb->eqs[e]);
 	    int j, k;
-	    for (j = nV; j >= 0; j--)
+	    for (j = n_vars; j >= 0; j--)
 	      eqn->coef[j] *= a;
 	    k = eqn->coef[i];
 	    eqn->coef[i] = 0;
 	    eqn->color |= sub.color;
-	    for (j = nV; j >= 0; j--)
+	    for (j = n_vars; j >= 0; j--)
 	      eqn->coef[j] -= sub.coef[j] * k / c;
 	  }
       for (e = pb->num_geqs - 1; e >= 0; e--)
@@ -3020,12 +3014,12 @@ omega_do_elimination (omega_pb pb, int e, int i)
 	  {
 	    eqn eqn = &(pb->geqs[e]);
 	    int j, k;
-	    for (j = nV; j >= 0; j--)
+	    for (j = n_vars; j >= 0; j--)
 	      eqn->coef[j] *= a;
 	    k = eqn->coef[i];
 	    eqn->coef[i] = 0;
 	    eqn->color |= sub.color;
-	    for (j = nV; j >= 0; j--)
+	    for (j = n_vars; j >= 0; j--)
 	      eqn->coef[j] -= sub.coef[j] * k / c;
 	    eqn->touched = true;
 	  }
@@ -3036,21 +3030,21 @@ omega_do_elimination (omega_pb pb, int e, int i)
 	    int j, k;
 	    gcc_assert (0);
 	    gcc_assert (!sub.color);
-	    for (j = nV; j >= 0; j--)
+	    for (j = n_vars; j >= 0; j--)
 	      eqn->coef[j] *= a;
 	    k = eqn->coef[i];
 	    eqn->coef[i] = 0;
-	    for (j = nV; j >= 0; j--)
+	    for (j = n_vars; j >= 0; j--)
 	      eqn->coef[j] -= sub.coef[j] * k / c;
 	  }
-      if (inApproximateMode)
+      if (in_approximate_mode)
 	omega_delete_variable (pb, i);
       else
 	omega_convert_eq_to_geqs (pb, e2);
     }
 }
 
-/* */
+/* Helper function: solve equations one at a time.  */
 
 static enum omega_result
 omega_solve_eq (omega_pb pb, enum omega_result desired_result)
@@ -3062,12 +3056,13 @@ omega_solve_eq (omega_pb pb, enum omega_result desired_result)
 
   if (dump_file && (dump_flags & TDF_DETAILS) && pb->num_eqs > 0)
     {
-      fprintf (dump_file, "\nomega_solve_eq (%d, %d)\n", desired_result, mayBeRed);
+      fprintf (dump_file, "\nomega_solve_eq (%d, %d)\n",
+	       desired_result, may_be_red);
       omega_print_problem (dump_file, pb);
       fprintf (dump_file, "\n");
     }
 
-  if (mayBeRed)
+  if (may_be_red)
     {
       i = 0;
       j = pb->num_eqs - 1;
@@ -3153,7 +3148,7 @@ omega_solve_eq (omega_pb pb, enum omega_result desired_result)
 	  int k = j;
 	  bool promotionPossible =
 	    (j <= pb->safe_vars && pb->safe_vars + 1 == i
-	     && !omega_eqn_is_red (eqn, desired_result) && !inApproximateMode);
+	     && !omega_eqn_is_red (eqn, desired_result) && !in_approximate_mode);
 	  if (dump_file && (dump_flags & TDF_DETAILS) && promotionPossible)
 	    fprintf (dump_file, " Promotion possible\n");
 	normalizeEQ:
@@ -3260,7 +3255,7 @@ omega_solve_eq (omega_pb pb, enum omega_result desired_result)
 	      goto normalizeEQ;
 	    }
 
-	  if (g2 > 1 && !inApproximateMode)
+	  if (g2 > 1 && !in_approximate_mode)
 	    {
 	      if (pb->eqs[e].color)
 		{
@@ -3309,7 +3304,7 @@ omega_solve_eq (omega_pb pb, enum omega_result desired_result)
 	  /* find variable to eliminate */
 	  if (g2 > 1)
 	    {
-	      gcc_assert (inApproximateMode);
+	      gcc_assert (in_approximate_mode);
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
@@ -3375,7 +3370,7 @@ omega_solve_eq (omega_pb pb, enum omega_result desired_result)
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "should not have happened\n");
-		  exit (2);
+		  gcc_assert (0);
 		}
 	      omega_do_mod (pb, factor, e, j);
 	      /* go back and try this equation again */
@@ -3431,13 +3426,13 @@ parallel_splinter (omega_pb pb, int e, int diff,
   return omega_false;
 }
 
-/* */
+/* Helper function: solve equations one at a time.  */
 
 static enum omega_result
 omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 {
   int i, j, k, e;
-  int nV, fv;
+  int n_vars, fv;
   int result;
   int coupled_subscripts = 0;
   int eliminate_again;
@@ -3459,7 +3454,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "TOO MANY EQUATIONS GENERATED\n");
-	  exit (2);
+	  gcc_assert (0);
 	}
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -3469,9 +3464,9 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	  fprintf (dump_file, "\n");
 	}
 
-      nV = pb->num_vars;
+      n_vars = pb->num_vars;
 
-      if (nV == 1)
+      if (n_vars == 1)
 	{
 	  int u_color = omega_black;
 	  int l_color = omega_black;
@@ -3482,6 +3477,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	    {
 	      int a = pb->geqs[e].coef[1];
 	      int c = pb->geqs[e].coef[0];
+
 	      /* our equation is ax + c >= 0, or ax >= -c, or c >= -ax */
 	      if (a == 0)
 		{
@@ -3496,8 +3492,10 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		{
 		  if (a != 1)
 		    c = int_div (c, a);
-		  if (lower_bound < -c ||
-		      (lower_bound == -c && !omega_eqn_is_red (&pb->geqs[e], desired_result)))
+
+		  if (lower_bound < -c
+		      || (lower_bound == -c
+			  && !omega_eqn_is_red (&pb->geqs[e], desired_result)))
 		    {
 		      lower_bound = -c;
 		      l_color = pb->geqs[e].color;
@@ -3507,14 +3505,17 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		{
 		  if (a != -1)
 		    c = int_div (c, -a);
-		  if (upper_bound > c ||
-		      (upper_bound == c && !omega_eqn_is_red (&pb->geqs[e], desired_result)))
+
+		  if (upper_bound > c
+		      || (upper_bound == c 
+			  && !omega_eqn_is_red (&pb->geqs[e], desired_result)))
 		    {
 		      upper_bound = c;
 		      u_color = pb->geqs[e].color;
 		    }
 		}
 	    }
+
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "upper bound = %d\n", upper_bound);
@@ -3527,6 +3528,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		fprintf (dump_file, "equations have no solution \n");
 	      return omega_false;
 	    }
+
 	  if (desired_result == omega_simplify)
 	    {
 	      pb->num_geqs = 0;
@@ -3552,6 +3554,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 			  pb->geqs[0].touched = false;
 			  pb->num_geqs = 1;
 			}
+
 		      if (upper_bound < pos_infinity)
 			{
 			  pb->geqs[pb->num_geqs].coef[0] = upper_bound;
@@ -3565,9 +3568,11 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		}
 	      else
 		pb->num_vars = 0;
+
 	      omega_problem_reduced (pb);
 	      return omega_false;
 	    }
+
 	  if (original_problem != no_problem && !l_color && !u_color
 	      && !conservative && lower_bound == upper_bound)
 	    {
@@ -3576,18 +3581,22 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	      pb->num_eqs = 1;
 	      adding_equality_constraint (pb, 0);
 	    }
+
 	  return omega_true;
 	}
 
-      if (!pb->variablesFreed)
+      if (!pb->variables_freed)
 	{
-	  pb->variablesFreed = 1;
+	  pb->variables_freed = 1;
+
 	  if (desired_result != omega_simplify)
 	    omega_free_eliminations (pb, 0);
 	  else
 	    omega_free_eliminations (pb, pb->safe_vars);
-	  nV = pb->num_vars;
-	  if (nV == 1)
+
+	  n_vars = pb->num_vars;
+
+	  if (n_vars == 1)
 	    continue;
 	}
 
@@ -3605,7 +3614,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	  break;
 	}
 
-      nV = pb->num_vars;
+      n_vars = pb->num_vars;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -3629,14 +3638,18 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		pb->num_geqs = 0;
 	      else
 		for (e = pb->num_geqs - 1; e >= 0; e--)
-		  if (pb->geqs[e].key > pb->safe_vars || -pb->safe_vars > pb->geqs[e].key)
-		    omega_delete_geq (pb, e, nV);
+		  if (pb->geqs[e].key > pb->safe_vars
+		      || -pb->safe_vars > pb->geqs[e].key)
+		    omega_delete_geq (pb, e, n_vars);
+
 	      pb->num_vars = pb->safe_vars;
+
 	      if (desired_result == omega_simplify)
 		{
 		  omega_problem_reduced (pb);
 		  return omega_false;
 		}
+
 	      return omega_true;
 	    }
 
@@ -3655,45 +3668,46 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		}
 	      return omega_true;
 	    }
-	  if (desired_result == omega_simplify && nV == pb->safe_vars)
+
+	  if (desired_result == omega_simplify && n_vars == pb->safe_vars)
 	    {
 	      omega_problem_reduced (pb);
 	      return omega_false;
 	    }
 
 
-	  if (pb->num_geqs > max_geqs - 30 || pb->num_geqs > 2 * nV * nV + 4 * nV + 10)
+	  if (pb->num_geqs > max_geqs - 30
+	      || pb->num_geqs > 2 * n_vars * n_vars + 4 * n_vars + 10)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file,
 			 "TOO MANY EQUATIONS; %d equations, %d variables, ELIMINATING REDUNDANT ONES\n",
-			 pb->num_geqs, nV);
+			 pb->num_geqs, n_vars);
+
 	      if (!omega_eliminate_redundant (pb, 0))
 		return omega_false;
-	      nV = pb->num_vars;
+
+	      n_vars = pb->num_vars;
+
 	      if (pb->num_eqs > 0)
 		return omega_solve_problem (pb, desired_result);
+
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file,
 			 "END ELIMINATION OF REDUNDANT EQUATIONS\n");
 	    }
 
-
-
 	  {
 	    int parallel_difference = INT_MAX;
 	    int best_parallel_eqn = -1;
-	    int minC, maxC, minCj;
-	    int lower_bound_count;
-	    int e2, Le, Ue;
+	    int minC, maxC, minCj = 0;
+	    int lower_bound_count = 0;
+	    int e2, Le = 0, Ue;
 	    bool possible_easy_int_solution;
 	    int max_splinters = 1;
 	    bool exact = false;
 	    bool luckyExact = false;
 	    int neweqns = 0;
-	    minCj = 0;
-	    Le = 0;
-	    lower_bound_count = 0;
 
 	    if (desired_result != omega_simplify)
 	      fv = 0;
@@ -3702,13 +3716,9 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 
 	    {
 	      int best = (INT_MAX);
-	      int j = 0, jLe, jLowerBoundCount, upper_bound_count;
+	      int j = 0, jLe = 0, jLowerBoundCount = 0, upper_bound_count;
 
-	      jLe = 0;
-	      jLowerBoundCount = 0;
-
-
-	      for (i = nV; i != fv; i--)
+	      for (i = n_vars; i != fv; i--)
 		{
 		  int score;
 		  int ub = -2;
@@ -3752,7 +3762,8 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		      break;
 		    }
 
-		  if (ub >= 0 && lb >= 0 && pb->geqs[lb].key == -pb->geqs[ub].key)
+		  if (ub >= 0 && lb >= 0
+		      && pb->geqs[lb].key == -pb->geqs[ub].key)
 		    {
 		      int Lc = pb->geqs[lb].coef[i];
 		      int Uc = -pb->geqs[ub].coef[i];
@@ -3762,16 +3773,17 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		    }
 
 		  if (maxC == 1 || minC == -1 || lucky || APROX
-		      || inApproximateMode)
+		      || in_approximate_mode)
 		    {
 		      neweqns = score = upper_bound_count * lower_bound_count;
 
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			fprintf (dump_file,
-				 "For %s, exact, score = %d*%d, range = %d ... %d, \nlucky = %d, APROX = %d, inApproximateMode=%d \n",
-				 omega_variable_to_str (pb->var[i]), upper_bound_count,
+				 "For %s, exact, score = %d*%d, range = %d ... %d, \nlucky = %d, APROX = %d, in_approximate_mode=%d \n",
+				 omega_variable_to_str (pb->var[i]),
+				 upper_bound_count,
 				 lower_bound_count, minC, maxC, lucky, APROX,
-				 inApproximateMode);
+				 in_approximate_mode);
 
 		      if (!exact || score < best)
 			{
@@ -3792,10 +3804,13 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			fprintf (dump_file,
 				 "For %s, non-exact, score = %d*%d, range = %d ... %d \n",
-				 omega_variable_to_str (pb->var[i]), upper_bound_count,
+				 omega_variable_to_str (pb->var[i]),
+				 upper_bound_count,
 				 lower_bound_count, minC, maxC);
+
 		      neweqns = upper_bound_count * lower_bound_count;
 		      score = maxC - minC;
+
 		      if (best > score)
 			{
 			  best = score;
@@ -3810,7 +3825,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	      if (lower_bound_count == 0)
 		{
 		  omega_free_eliminations (pb, pb->safe_vars);
-		  nV = pb->num_vars;
+		  n_vars = pb->num_vars;
 		  eliminate_again = 1;
 		  continue;
 		}
@@ -3849,9 +3864,9 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	    tried_eliminating_redundant = 0;
 #endif
 
-	    if (returnSingleResult && desired_result == omega_simplify && !exact)
+	    if (return_single_result && desired_result == omega_simplify && !exact)
 	      {
-		nonConvex = 1;
+		non_convex = true;
 		omega_problem_reduced (pb);
 		return omega_true;
 	      }
@@ -3926,7 +3941,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 
 	    smoothed = 0;
 
-	    if (i != nV)
+	    if (i != n_vars)
 	      {
 		int t;
 		j = pb->num_vars;
@@ -3968,11 +3983,11 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 	      }
 
 	    pb->num_vars--;
-	    nV = pb->num_vars;
+	    n_vars = pb->num_vars;
 
 	    if (exact)
 	      {
-		if (nV == 1)
+		if (n_vars == 1)
 		  {
 		    int upper_bound = pos_infinity;
 		    int lower_bound = neg_infinity;
@@ -4099,7 +4114,8 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 					      || pb->geqs[Le].color;
 					  }
 
-					if (dump_file && (dump_flags & TDF_DETAILS))
+					if (dump_file
+					    && (dump_flags & TDF_DETAILS))
 					  {
 					    if (pb->geqs[Ue].color
 						|| pb->geqs[Le].color)
@@ -4139,7 +4155,8 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 			    pb->eqs[0].coef[1] = -1;
 			    pb->eqs[0].coef[0] = upper_bound;
 			    pb->eqs[0].color = ub_color | lb_color;
-			    if (desired_result == omega_simplify && !pb->eqs[0].color)
+			    if (desired_result == omega_simplify
+				&& !pb->eqs[0].color)
 			      return omega_solve_problem (pb, desired_result);
 			  }
 			if (upper_bound != pos_infinity)
@@ -4190,7 +4207,8 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 				fprintf (dump_file,
 					 "adding equality constraint %d to outer problem\n",
 					 e);
-				omega_print_problem (dump_file, original_problem);
+				omega_print_problem (dump_file,
+						     original_problem);
 			      }
 			  }
 			return omega_true;
@@ -4206,27 +4224,28 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      fprintf (dump_file, "an inplace elimination\n");
 
-		    omega_copy_eqn (&lbeqn, &pb->geqs[Le], (nV + 1));
-		    omega_delete_geq_extra (pb, Le, nV + 1);
+		    omega_copy_eqn (&lbeqn, &pb->geqs[Le], (n_vars + 1));
+		    omega_delete_geq_extra (pb, Le, n_vars + 1);
 		    for (Ue = pb->num_geqs - 1; Ue >= 0; Ue--)
 		      if (pb->geqs[Ue].coef[i] < 0)
 			{
 			  if (lbeqn.key == -pb->geqs[Ue].key)
-			    omega_delete_geq_extra (pb, Ue, nV + 1);
+			    omega_delete_geq_extra (pb, Ue, n_vars + 1);
 			  else
 			    {
 			      int Uc = -pb->geqs[Ue].coef[i];
 			      pb->geqs[Ue].touched = true;
 			      pb->geqs[Ue].color |= lbeqn.color;
 			      eliminate_again = 0;
-			      for (k = 0; k <= nV; k++)
+			      for (k = 0; k <= n_vars; k++)
 				pb->geqs[Ue].coef[k] =
 				  check_mul (pb->geqs[Ue].coef[k],
 					    Lc) + check_mul (lbeqn.coef[k],
 							    Uc);
 			      if (dump_file && (dump_flags & TDF_DETAILS))
 				{
-				  omega_print_geq (dump_file, pb, &(pb->geqs[Ue]));
+				  omega_print_geq (dump_file, pb,
+						   &(pb->geqs[Ue]));
 				  fprintf (dump_file, "\n");
 				}
 			    }
@@ -4265,26 +4284,29 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 					fprintf (dump_file,
 						 "Le = %d, Ue = %d, gen = %d\n",
 						 Le, Ue, e2);
-					omega_print_geq_extra (dump_file, pb, &(pb->geqs[Le]));
+					omega_print_geq_extra (dump_file, pb,
+							       &(pb->geqs[Le]));
 					fprintf (dump_file, "\n");
-					omega_print_geq_extra (dump_file, pb, &(pb->geqs[Ue]));
+					omega_print_geq_extra (dump_file, pb,
+							       &(pb->geqs[Ue]));
 					fprintf (dump_file, "\n");
 				      }
 				    eliminate_again = 0;
 
-				    for (k = nV; k >= 0; k--)
+				    for (k = n_vars; k >= 0; k--)
 				      pb->geqs[e2].coef[k] =
 					check_mul (pb->geqs[Ue].coef[k],
 						  Lc) +
 					check_mul (pb->geqs[Le].coef[k], Uc);
-				    pb->geqs[e2].coef[nV + 1] = 0;
+				    pb->geqs[e2].coef[n_vars + 1] = 0;
 				    pb->geqs[e2].touched = true;
 				    pb->geqs[e2].color =
 				      pb->geqs[Ue].color | pb->geqs[Le].color;
 
 				    if (dump_file && (dump_flags & TDF_DETAILS))
 				      {
-					omega_print_geq (dump_file, pb, &(pb->geqs[e2]));
+					omega_print_geq (dump_file, pb,
+							 &(pb->geqs[e2]));
 					fprintf (dump_file, "\n");
 				      }
 				  }
@@ -4314,7 +4336,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 			}
 		      for (e = pb->num_geqs - 1; e >= 0; e--)
 			if (isDead[e])
-			  omega_delete_geq_extra (pb, e, nV + 1);
+			  omega_delete_geq_extra (pb, e, n_vars + 1);
 		    }
 		    continue;
 		  }
@@ -4330,11 +4352,14 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 
 		e2 = 0;
 		possible_easy_int_solution = true;
+
 		for (e = 0; e < pb->num_geqs; e++)
 		  if (pb->geqs[e].coef[i] == 0)
 		    {
-		      omega_copy_eqn (&(rS->geqs[e2]), &pb->geqs[e], pb->num_vars);
-		      omega_copy_eqn (&(iS->geqs[e2]), &pb->geqs[e], pb->num_vars);
+		      omega_copy_eqn (&(rS->geqs[e2]), &pb->geqs[e],
+				      pb->num_vars);
+		      omega_copy_eqn (&(iS->geqs[e2]), &pb->geqs[e],
+				      pb->num_vars);
 
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			{
@@ -4343,7 +4368,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 				   pb->geqs[e].coef[i]);
 			  omega_print_geq_extra (dump_file, pb, &pb->geqs[e]);
 			  fprintf (dump_file, "\n");
-			  for (t = 0; t <= nV + 1; t++)
+			  for (t = 0; t <= n_vars + 1; t++)
 			    fprintf (dump_file, "%d ", pb->geqs[e].coef[t]);
 			  fprintf (dump_file, "\n");
 
@@ -4351,10 +4376,12 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		      e2++;
 		      gcc_assert (e2 < max_geqs);
 		    }
+
 		for (Le = pb->num_geqs - 1; Le >= 0; Le--)
 		  if (pb->geqs[Le].coef[i] > 0)
 		    {
 		      int Lc = pb->geqs[Le].coef[i];
+
 		      for (Ue = pb->num_geqs - 1; Ue >= 0; Ue--)
 			if (pb->geqs[Ue].coef[i] < 0)
 			  {
@@ -4370,28 +4397,32 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 				    fprintf (dump_file,
 					     "Le(Lc) = %d(%d_, Ue(Uc) = %d(%d), gen = %d\n",
 					     Le, Lc, Ue, Uc, e2);
-				    omega_print_geq_extra (dump_file, pb, &pb->geqs[Le]);
+				    omega_print_geq_extra (dump_file, pb,
+							   &pb->geqs[Le]);
 				    fprintf (dump_file, "\n");
-				    omega_print_geq_extra (dump_file, pb, &pb->geqs[Ue]);
+				    omega_print_geq_extra (dump_file, pb,
+							   &pb->geqs[Ue]);
 				    fprintf (dump_file, "\n");
 				  }
 
 				if (Uc == Lc)
 				  {
-				    for (k = nV; k >= 0; k--)
-				      iS->geqs[e2].coef[k] =
+				    for (k = n_vars; k >= 0; k--)
+				      iS->geqs[e2].coef[k] = 
 					rS->geqs[e2].coef[k] =
-					pb->geqs[Ue].coef[k] + pb->geqs[Le].coef[k];
+					pb->geqs[Ue].coef[k] +
+					pb->geqs[Le].coef[k];
+
 				    iS->geqs[e2].coef[0] -= (Uc - 1);
 				  }
 				else
 				  {
-				    for (k = nV; k >= 0; k--)
+				    for (k = n_vars; k >= 0; k--)
 				      iS->geqs[e2].coef[k] =
 					rS->geqs[e2].coef[k] =
-					check_mul (pb->geqs[Ue].coef[k],
-						  Lc) +
+					check_mul (pb->geqs[Ue].coef[k], Lc) +
 					check_mul (pb->geqs[Le].coef[k], Uc);
+
 				    iS->geqs[e2].coef[0] -=
 				      (Uc - 1) * (Lc - 1);
 				  }
@@ -4401,25 +4432,27 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 
 				if (dump_file && (dump_flags & TDF_DETAILS))
 				  {
-				    omega_print_geq (dump_file, pb, &(rS->geqs[e2]));
+				    omega_print_geq (dump_file, pb,
+						     &(rS->geqs[e2]));
 				    fprintf (dump_file, "\n");
 				  }
+
 				e2++;
 				gcc_assert (e2 < max_geqs);
 			      }
 			    else
 			      {
 				int Uc = -pb->geqs[Ue].coef[i];
+
 				if (pb->geqs[Ue].coef[0] * Lc +
-				    pb->geqs[Le].coef[0] * Uc - (Uc - 1) * (Lc -
-									1) <
-				    0)
+				    pb->geqs[Le].coef[0] * Uc -
+				    (Uc - 1) * (Lc - 1) < 0)
 				  possible_easy_int_solution = false;
 			      }
 			  }
-
 		    }
-		iS->variablesInitialized = rS->variablesInitialized = 1;
+
+		iS->variables_initialized = rS->variables_initialized = 1;
 		iS->num_vars = rS->num_vars = pb->num_vars;
 		iS->num_geqs = rS->num_geqs = e2;
 		iS->num_eqs = rS->num_eqs = 0;
@@ -4427,27 +4460,25 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		iS->safe_vars = rS->safe_vars = pb->safe_vars;
 		{
 		  int t;
-		  for (t = nV; t >= 0; t--)
+
+		  for (t = n_vars; t >= 0; t--)
 		    rS->var[t] = pb->var[t];
-		  for (t = nV; t >= 0; t--)
+
+		  for (t = n_vars; t >= 0; t--)
 		    iS->var[t] = pb->var[t];
+
 		  for (e = pb->num_subs - 1; e >= 0; e--)
 		    {
 		      omega_copy_eqn (&(rS->subs[e]), &(pb->subs[e]), pb->num_vars);
 		      omega_copy_eqn (&(iS->subs[e]), &(pb->subs[e]), pb->num_vars);
 		    }
 		}
+
 		pb->num_vars++;
-		nV = pb->num_vars;
+		n_vars = pb->num_vars;
+
 		if (desired_result != omega_true)
 		  {
-		    int t = trace;
-
-		    if (dump_file && (dump_flags & TDF_DETAILS))
-		      fprintf (dump_file, "\nreal solution(%d):\n", depth);
-
-		    depth++;
-		    trace = 0;
 		    if (original_problem == no_problem)
 		      {
 			original_problem = pb;
@@ -4456,8 +4487,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		      }
 		    else
 		      result = omega_solve_geq (rS, omega_false);
-		    trace = t;
-		    depth--;
+
 		    if (result == omega_false)
 		      {
 			free (rS);
@@ -4473,18 +4503,15 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 			return omega_solve_problem (pb, desired_result);
 		      }
 		  }
+
 		if (desired_result != omega_false)
 		  {
 		    if (possible_easy_int_solution)
 		      {
-			if (dump_file && (dump_flags & TDF_DETAILS))
-			  fprintf (dump_file, "\ninteger solution(%d):\n",
-				   depth);
-			depth++;
 			conservative++;
 			result = omega_solve_geq (iS, desired_result);
 			conservative--;
-			depth--;
+
 			if (result != omega_false)
 			  {
 			    free (rS);
@@ -4492,6 +4519,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 			    return result;
 			  }
 		      }
+
 		    if (!exact && best_parallel_eqn >= 0
 			&& parallel_difference <= max_splinters)
 		      {
@@ -4511,10 +4539,13 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 		      int lower_bound[max_geqs];
 		      int smallest;
 		      int t;
+
 		      conservative++;
+
 		      for (e = 0; e < pb->num_geqs; e++)
 			if (pb->geqs[e].coef[i] > 1)
 			  lower_bound[lower_bounds++] = e;
+
 		      /* sort array */
 		      for (j = 0; j < lower_bounds; j++)
 			{
@@ -4542,13 +4573,14 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 			{
 			  int max_incr;
 			  int c;
+
 			  e = lower_bound[j];
 			  max_incr =
 			    ((pb->geqs[e].coef[i] - 1) *
 			     (worst_lower_bound_constant - 1) -
 			     1) / worst_lower_bound_constant;
-
 			  /* max_incr += 2; */
+
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    {
 			      fprintf (dump_file, "for equation ");
@@ -4558,6 +4590,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 				       max_incr);
 			      omega_print_problem (dump_file, pb);
 			    }
+
 			  if (max_incr > 50)
 			    {
 			      if (!smoothed
@@ -4570,7 +4603,10 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 				  goto solve_geq_start;
 				}
 			    }
-			  omega_copy_eqn (&pb->eqs[0], &pb->geqs[e], pb->num_vars);
+
+			  omega_copy_eqn (&pb->eqs[0], &pb->geqs[e],
+					  pb->num_vars);
+
 			  /*
 			   * if (pb->geqs[e].color) fprintf(dump_file,"warning: adding black equality constraint
 			   * based on red inequality\n");
@@ -4607,7 +4643,8 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
 			  if (j + 1 < lower_bounds)
 			    {
 			      pb->num_eqs = 0;
-			      omega_copy_eqn (&pb->geqs[e], &pb->eqs[0], pb->num_vars);
+			      omega_copy_eqn (&pb->geqs[e], &pb->eqs[0],
+					      pb->num_vars);
 			      pb->geqs[e].touched = true;
 			      pb->geqs[e].color = omega_black;
 			      omega_copy_problem (rS, pb);
@@ -4644,7 +4681,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_result)
    recursion depth.  */
 static int omega_solve_depth = 0;
 
-/* Return true when the problem PB has a solution following the
+/* Return omega_true when the problem PB has a solution following the
    DESIRED_RESULT.  */
 
 enum omega_result
@@ -4662,21 +4699,23 @@ omega_solve_problem (omega_pb pb, enum omega_result desired_result)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Solve depth = %d, inApprox = %d, aborting\n",
-		   omega_solve_depth, inApproximateMode);
+		   omega_solve_depth, in_approximate_mode);
 	  omega_print_problem (dump_file, pb);
 	}
-      exit (2);
+      gcc_assert (0);
     }
 
   do
     {
-      doItAgain = 0;
+      do_it_again = false;
+
       if (omega_solve_eq (pb, desired_result) == omega_false)
 	{
 	  omega_solve_depth--;
 	  return omega_false;
 	}
-      if (inApproximateMode && !pb->num_geqs)
+
+      if (in_approximate_mode && !pb->num_geqs)
 	{
 	  result = omega_true;
 	  pb->num_vars = pb->safe_vars;
@@ -4685,13 +4724,13 @@ omega_solve_problem (omega_pb pb, enum omega_result desired_result)
 	}
       else
 	result = omega_solve_geq (pb, desired_result);
-    }
-  while (doItAgain && desired_result == omega_simplify);
+    } while (do_it_again && desired_result == omega_simplify);
+
   omega_solve_depth--;
 
   if (!omega_reduce_with_subs)
     {
-      resurrectSubs (pb);
+      resurrect_subs (pb);
       gcc_assert (please_no_equalities_in_simplified_problems 
 		  || !result || pb->num_subs == 0);
     }
@@ -4711,7 +4750,6 @@ omega_problem_has_red_equations (omega_pb pb)
   int e;
   int i;
 
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Checking for red equations:\n");
@@ -4719,32 +4757,36 @@ omega_problem_has_red_equations (omega_pb pb)
     }
 
   please_no_equalities_in_simplified_problems++;
-  mayBeRed++;
-#ifndef singleResult
-  returnSingleResult++;
+  may_be_red++;
+#ifndef SINGLE_RESULT
+  return_single_result++;
 #endif
-  createColor = 1;
-  result = !omega_simplify_problem (pb);
-#ifndef singleResult
-  returnSingleResult--;
+  create_color = true;
+  result = (omega_simplify_problem (pb) == omega_false);
+#ifndef SINGLE_RESULT
+  return_single_result--;
 #endif
-  mayBeRed--;
+  may_be_red--;
   please_no_equalities_in_simplified_problems--;
+
   if (result)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
       	fprintf (dump_file, "Gist is FALSE\n");
+
       pb->num_subs = 0;
       pb->num_geqs = 0;
       pb->num_eqs = 1;
       pb->eqs[0].color = omega_red;
+
       for (i = pb->num_vars; i > 0; i--)
 	pb->eqs[0].coef[i] = 0;
+
       pb->eqs[0].coef[0] = 1;
       return true;
     }
-  freeRedEliminations (pb);
 
+  free_red_eliminations (pb);
   gcc_assert (pb->num_eqs == 0);
 
   for (e = pb->num_geqs - 1; e >= 0; e--)
@@ -4758,6 +4800,7 @@ omega_problem_has_red_equations (omega_pb pb)
     {
       int ub = 0;
       int lb = 0;
+
       for (e = pb->num_geqs - 1; e >= 0; e--)
 	{
 	  if (pb->geqs[e].coef[i])
@@ -4768,6 +4811,7 @@ omega_problem_has_red_equations (omega_pb pb)
 		ub |= (1 + pb->geqs[e].color);
 	    }
 	}
+
       if (ub == 2 || lb == 2)
 	{
 
@@ -4776,9 +4820,10 @@ omega_problem_has_red_equations (omega_pb pb)
 
 	  if (!omega_reduce_with_subs)
 	    {
-	      resurrectSubs (pb);
+	      resurrect_subs (pb);
 	      gcc_assert (pb->num_subs == 0);
 	    }
+
 	  return true;
 	}
     }
@@ -4787,11 +4832,14 @@ omega_problem_has_red_equations (omega_pb pb)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file,
 	     "*** Doing potentially expensive elimination tests for red equations\n");
+
   please_no_equalities_in_simplified_problems++;
   omega_eliminate_red (pb, 1);
   please_no_equalities_in_simplified_problems--;
+
   result = false;
   gcc_assert (pb->num_eqs == 0);
+
   for (e = pb->num_geqs - 1; e >= 0; e--)
     if (pb->geqs[e].color == omega_red)
       result = true;
@@ -4809,11 +4857,11 @@ omega_problem_has_red_equations (omega_pb pb)
 
   if (!omega_reduce_with_subs)
     {
-      resurrectSubs (pb);
-      {
-	normalize_return_type r = normalize_omega_problem (pb);
-	gcc_assert (r != normalize_false);
-      }
+      normalize_return_type r;
+
+      resurrect_subs (pb);
+      r = normalize_omega_problem (pb);
+      gcc_assert (r != normalize_false);
       coalesce (pb);
       cleanout_wildcards (pb);
       gcc_assert (pb->num_subs == 0);
@@ -4822,34 +4870,32 @@ omega_problem_has_red_equations (omega_pb pb)
   return result;
 }
 
-/*   */
+/* Simplify PB in approximate mode.   */
 
-int
+enum omega_result
 omega_simplify_approximate (omega_pb pb)
 {
-  int result;
+  enum omega_result result;
 
-  inApproximateMode = 1;
+  in_approximate_mode = true;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Entering Approximate Mode\n");
+    fprintf (dump_file, "(Entering Approximate Mode\n");
 
   result = omega_simplify_problem (pb);
 
   if (pb->num_vars != pb->safe_vars)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "gcc_assertion blown!\n");
-	  omega_print_problem (dump_file, pb);
-	}
+	omega_print_problem (dump_file, pb);
+
       gcc_assert (pb->num_vars == pb->safe_vars);
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Leaving Approximate Mode\n");
+    fprintf (dump_file, "Leaving Approximate Mode)\n");
 
-  inApproximateMode = 0;
+  in_approximate_mode = false;
 
   if (!omega_reduce_with_subs)
     gcc_assert (pb->num_subs == 0);
@@ -4859,13 +4905,13 @@ omega_simplify_approximate (omega_pb pb)
 
 /* Simplifies problem PB.  */
 
-bool
+enum omega_result
 omega_simplify_problem (omega_pb pb)
 {
   int i;
-  omega_found_reduction = false;
+  omega_found_reduction = omega_false;
 
-  if (!pb->variablesInitialized)
+  if (!pb->variables_initialized)
     omega_initialize_variables (pb);
 
 #ifdef clearForwardingPointers
@@ -4874,108 +4920,128 @@ omega_simplify_problem (omega_pb pb)
       pb->forwarding_address[pb->var[i]] = 0;
 #endif
 
-  if (next_key * 3 > maxKeys)
+  if (next_key * 3 > MAX_KEYS)
     {
       int e;
+
       hash_version++;
       next_key = max_vars + 1;
+
       for (e = pb->num_geqs - 1; e >= 0; e--)
 	pb->geqs[e].touched = true;
-      for (i = 0; i < hash_table_size; i++)
+
+      for (i = 0; i < HASH_TABLE_SIZE; i++)
 	hash_master[i].touched = -1;
+
       pb->hash_version = hash_version;
     }
   else if (pb->hash_version != hash_version)
     {
       int e;
+
       for (e = pb->num_geqs - 1; e >= 0; e--)
 	pb->geqs[e].touched = true;
+
       pb->hash_version = hash_version;
     }
 
-  nonConvex = 0;
+  non_convex = false;
 
   if (pb->num_vars > pb->num_eqs + 3 * pb->safe_vars)
     omega_free_eliminations (pb, pb->safe_vars);
 
-  if (!mayBeRed && pb->num_subs == 0 && pb->safe_vars == 0)
+  if (!may_be_red && pb->num_subs == 0 && pb->safe_vars == 0)
     {
       omega_found_reduction = omega_solve_problem (pb, omega_unknown);
-      if (omega_found_reduction && !returnSingleResult)
+      if (omega_found_reduction != omega_false
+	  && !return_single_result)
 	{
 	  pb->num_geqs = 0;
 	  pb->num_eqs = 0;
 	  (*omega_when_reduced) (pb);
 	}
+
       return omega_found_reduction;
     }
 
   omega_solve_problem (pb, omega_simplify);
 
-  if (omega_found_reduction)
+  if (omega_found_reduction != omega_false)
     {
       for (i = 1; i <= pb->safe_vars; i++)
 	pb->forwarding_address[pb->var[i]] = i;
+
       for (i = 0; i < pb->num_subs; i++)
 	pb->forwarding_address[pb->subs[i].key] = -i - 1;
     }
 
   if (!omega_reduce_with_subs)
     gcc_assert (please_no_equalities_in_simplified_problems
-		|| !omega_found_reduction || pb->num_subs == 0);
+		|| omega_found_reduction == omega_false
+		|| pb->num_subs == 0);
 
   return omega_found_reduction;
 }
 
-/*   */
+/* Make variable VAR unprotected: it then can be eliminated.  */
 
 void
-omega_unprotect_variable (omega_pb pb, int v)
+omega_unprotect_variable (omega_pb pb, int var)
 {
-  int e, t, j, i;
-  i = pb->forwarding_address[v];
-  if (i < 0)
+  int e, t, j, idx;
+  idx = pb->forwarding_address[var];
+
+  if (idx < 0)
     {
-      i = -1 - i;
+      idx = -1 - idx;
       pb->num_subs--;
-      if (i < pb->num_subs)
+      if (idx < pb->num_subs)
 	{
-	  omega_copy_eqn (&pb->subs[i], &pb->subs[pb->num_subs], pb->num_vars);
-	  pb->forwarding_address[pb->subs[i].key] = -i - 1;
+	  omega_copy_eqn (&pb->subs[idx], &pb->subs[pb->num_subs],
+			  pb->num_vars);
+	  pb->forwarding_address[pb->subs[idx].key] = -idx - 1;
 	}
     }
   else
     {
-      int bringToLife[max_vars];
-      int comingBack = 0;
+      int bring_to_life[max_vars];
       int e2;
+
       for (e = pb->num_subs - 1; e >= 0; e--)
-	if ((bringToLife[e] = (pb->subs[e].coef[i] != 0)))
-	  comingBack++;
+	bring_to_life[e] = (pb->subs[e].coef[idx] != 0);
 
       for (e2 = pb->num_subs - 1; e2 >= 0; e2--)
-	if (bringToLife[e2])
+	if (bring_to_life[e2])
 	  {
-
 	    pb->num_vars++;
 	    pb->safe_vars++;
+
 	    if (pb->safe_vars < pb->num_vars)
 	      {
 		for (e = pb->num_geqs - 1; e >= 0; e--)
 		  {
-		    pb->geqs[e].coef[pb->num_vars] = pb->geqs[e].coef[pb->safe_vars];
+		    pb->geqs[e].coef[pb->num_vars] = 
+		      pb->geqs[e].coef[pb->safe_vars];
+
 		    pb->geqs[e].coef[pb->safe_vars] = 0;
 		  }
+
 		for (e = pb->num_eqs - 1; e >= 0; e--)
 		  {
-		    pb->eqs[e].coef[pb->num_vars] = pb->eqs[e].coef[pb->safe_vars];
+		    pb->eqs[e].coef[pb->num_vars] =
+		      pb->eqs[e].coef[pb->safe_vars];
+
 		    pb->eqs[e].coef[pb->safe_vars] = 0;
 		  }
+
 		for (e = pb->num_subs - 1; e >= 0; e--)
 		  {
-		    pb->subs[e].coef[pb->num_vars] = pb->subs[e].coef[pb->safe_vars];
+		    pb->subs[e].coef[pb->num_vars] =
+		      pb->subs[e].coef[pb->safe_vars];
+
 		    pb->subs[e].coef[pb->safe_vars] = 0;
 		  }
+
 		pb->var[pb->num_vars] = pb->var[pb->safe_vars];
 		pb->forwarding_address[pb->var[pb->num_vars]] =
 		  pb->num_vars;
@@ -4983,78 +5049,78 @@ omega_unprotect_variable (omega_pb pb, int v)
 	    else
 	      {
 		for (e = pb->num_geqs - 1; e >= 0; e--)
-		  {
-		    pb->geqs[e].coef[pb->safe_vars] = 0;
-		  }
+		  pb->geqs[e].coef[pb->safe_vars] = 0;
+
 		for (e = pb->num_eqs - 1; e >= 0; e--)
-		  {
-		    pb->eqs[e].coef[pb->safe_vars] = 0;
-		  }
+		  pb->eqs[e].coef[pb->safe_vars] = 0;
+
 		for (e = pb->num_subs - 1; e >= 0; e--)
-		  {
-		    pb->subs[e].coef[pb->safe_vars] = 0;
-		  }
+		  pb->subs[e].coef[pb->safe_vars] = 0;
 	      }
 
 	    pb->var[pb->safe_vars] = pb->subs[e2].key;
 	    pb->forwarding_address[pb->subs[e2].key] = pb->safe_vars;
 
-	    omega_copy_eqn (&(pb->eqs[pb->num_eqs]), &(pb->subs[e2]), pb->num_vars);
+	    omega_copy_eqn (&(pb->eqs[pb->num_eqs]), &(pb->subs[e2]),
+			    pb->num_vars);
 	    pb->eqs[pb->num_eqs++].coef[pb->safe_vars] = -1;
 	    gcc_assert (pb->num_eqs <= max_eqs);
+
 	    if (e2 < pb->num_subs - 1)
-	      omega_copy_eqn (&(pb->subs[e2]), &(pb->subs[pb->num_subs - 1]), pb->num_vars);
+	      omega_copy_eqn (&(pb->subs[e2]), &(pb->subs[pb->num_subs - 1]),
+			      pb->num_vars);
+
 	    pb->num_subs--;
 	  }
 
-
-
-
-      if (i < pb->safe_vars)
+      if (idx < pb->safe_vars)
 	{
 	  j = pb->safe_vars;
+
 	  for (e = pb->num_subs - 1; e >= 0; e--)
 	    {
 	      t = pb->subs[e].coef[j];
-	      pb->subs[e].coef[j] = pb->subs[e].coef[i];
-	      pb->subs[e].coef[i] = t;
+	      pb->subs[e].coef[j] = pb->subs[e].coef[idx];
+	      pb->subs[e].coef[idx] = t;
 	    }
+
 	  for (e = pb->num_geqs - 1; e >= 0; e--)
-	    if (pb->geqs[e].coef[j] != pb->geqs[e].coef[i])
+	    if (pb->geqs[e].coef[j] != pb->geqs[e].coef[idx])
 	      {
 		pb->geqs[e].touched = true;
 		t = pb->geqs[e].coef[j];
-		pb->geqs[e].coef[j] = pb->geqs[e].coef[i];
-		pb->geqs[e].coef[i] = t;
+		pb->geqs[e].coef[j] = pb->geqs[e].coef[idx];
+		pb->geqs[e].coef[idx] = t;
 	      }
+
 	  for (e = pb->num_eqs - 1; e >= 0; e--)
 	    {
 	      t = pb->eqs[e].coef[j];
-	      pb->eqs[e].coef[j] = pb->eqs[e].coef[i];
-	      pb->eqs[e].coef[i] = t;
+	      pb->eqs[e].coef[j] = pb->eqs[e].coef[idx];
+	      pb->eqs[e].coef[idx] = t;
 	    }
+
 	  t = pb->var[j];
-	  pb->var[j] = pb->var[i];
-	  pb->var[i] = t;
-	  pb->forwarding_address[pb->var[i]] = i;
+	  pb->var[j] = pb->var[idx];
+	  pb->var[idx] = t;
+	  pb->forwarding_address[pb->var[idx]] = idx;
 	  pb->forwarding_address[pb->var[j]] = j;
 	}
       pb->safe_vars--;
     }
-  chainUnprotect (pb);
 
+  chain_unprotect (pb);
 }
 
-/* Unprotects var and simplifies the problem.  */
+/* Unprotects VAR and simplifies PB.  */
 
-int
-omega_constrain_variable_sign (omega_pb pb, int color, int i,
-			       int sign)
+enum omega_result
+omega_constrain_variable_sign (omega_pb pb, int color, int var, int sign)
 {
-  int nV = pb->num_vars;
+  int n_vars = pb->num_vars;
   int e, k, j;
 
-  k = pb->forwarding_address[i];
+  k = pb->forwarding_address[var];
   if (k < 0)
     {
       k = -1 - k;
@@ -5062,10 +5128,11 @@ omega_constrain_variable_sign (omega_pb pb, int color, int i,
       if (sign != 0)
 	{
 	  e = pb->num_geqs++;
-	  omega_copy_eqn (&pb->geqs[e], &pb->subs[k],
-			  pb->num_vars);
-	  for (j = 0; j <= nV; j++)
+	  omega_copy_eqn (&pb->geqs[e], &pb->subs[k], pb->num_vars);
+
+	  for (j = 0; j <= n_vars; j++)
 	    pb->geqs[e].coef[j] *= sign;
+
 	  pb->geqs[e].coef[0]--;
 	  pb->geqs[e].touched = true;
 	  pb->geqs[e].color = color;
@@ -5074,11 +5141,9 @@ omega_constrain_variable_sign (omega_pb pb, int color, int i,
 	{
 	  e = pb->num_eqs++;
 	  gcc_assert (pb->num_eqs <= max_eqs);
-	  omega_copy_eqn (&pb->eqs[e], &pb->subs[k],
-			  pb->num_vars);
+	  omega_copy_eqn (&pb->eqs[e], &pb->subs[k], pb->num_vars);
 	  pb->eqs[e].color = color;
 	}
-
     }
   else if (sign != 0)
     {
@@ -5097,27 +5162,27 @@ omega_constrain_variable_sign (omega_pb pb, int color, int i,
       pb->eqs[e].coef[k] = 1;
       pb->eqs[e].color = color;
     }
-  omega_unprotect_variable (pb, i);
+
+  omega_unprotect_variable (pb, var);
   return omega_simplify_problem (pb);
 }
 
-/*   */
+/* Add an equation "VAR = VALUE" to PB.  */
 
 void
 omega_constrain_variable_value (omega_pb pb,
-				int color, int i, int value)
+				int color, int var, int value)
 {
   int e, k;
 
-  k = pb->forwarding_address[i];
+  k = pb->forwarding_address[var];
   if (k < 0)
     {
       k = -1 - k;
 
       e = pb->num_eqs++;
       gcc_assert (pb->num_eqs <= max_eqs);
-      omega_copy_eqn (&pb->eqs[e], &pb->subs[k],
-		      pb->num_vars);
+      omega_copy_eqn (&pb->eqs[e], &pb->subs[k], pb->num_vars);
       pb->eqs[e].coef[0] -= value;
     }
   else
@@ -5137,10 +5202,10 @@ int
 omega_query_variable (omega_pb pb, int i,
 		      int *lower_bound, int *upper_bound)
 {
-  int nV = pb->num_vars;
+  int n_vars = pb->num_vars;
   int e, j;
-  int isSimple;
-  int coupled = FALSE;
+  bool is_simple;
+  bool coupled = false;
   i = pb->forwarding_address[i];
 
   (*lower_bound) = neg_infinity;
@@ -5148,41 +5213,43 @@ omega_query_variable (omega_pb pb, int i,
 
   if (i < 0)
     {
-      int easy = TRUE;
+      bool easy = true;
       i = -i - 1;
-      for (j = 1; j <= nV; j++)
+      for (j = 1; j <= n_vars; j++)
 	if (pb->subs[i].coef[j] != 0)
-	  easy = FALSE;
+	  easy = false;
 
       if (easy)
 	{
 	  *upper_bound = *lower_bound = pb->subs[i].coef[0];
-	  return FALSE;
+	  return false;
 	}
-      return TRUE;
+      return true;
     }
 
   for (e = pb->num_subs - 1; e >= 0; e--)
     if (pb->subs[e].coef[i] != 0)
-      coupled = TRUE;
+      coupled = true;
 
   for (e = pb->num_eqs - 1; e >= 0; e--)
     if (pb->eqs[e].coef[i] != 0)
       {
-	isSimple = TRUE;
-	for (j = 1; j <= nV; j++)
+	is_simple = true;
+	for (j = 1; j <= n_vars; j++)
 	  if (i != j && pb->eqs[e].coef[j] != 0)
 	    {
-	      isSimple = FALSE;
-	      coupled = TRUE;
+	      is_simple = false;
+	      coupled = true;
 	      break;
 	    }
-	if (!isSimple)
+
+	if (!is_simple)
 	  continue;
 	else
 	  {
-	    *lower_bound = *upper_bound = -pb->eqs[e].coef[i] * pb->eqs[e].coef[0];
-	    return FALSE;
+	    *lower_bound = *upper_bound = 
+	      -pb->eqs[e].coef[i] * pb->eqs[e].coef[0];
+	    return false;
 	  }
       }
 
@@ -5194,7 +5261,7 @@ omega_query_variable (omega_pb pb, int i,
 	else if (pb->geqs[e].key == -i)
 	  set_min (upper_bound, pb->geqs[e].coef[0]);
 	else
-	  coupled = TRUE;
+	  coupled = true;
       }
 
   return coupled;
@@ -5220,7 +5287,9 @@ query_coupled_variable (omega_pb pb, int i, int *l, int *u,
 		   "query_coupled_variable called with bad parameters\n");
 	  omega_print_problem (dump_file, pb);
 	}
-      exit (2);
+
+      gcc_assert (abs (pb->forwarding_address[i]) == 1 && pb->num_vars + pb->num_subs == 2
+		  && pb->num_eqs + pb->num_subs == 1);
     }
 
   if (pb->forwarding_address[i] == -1)
@@ -5376,7 +5445,7 @@ omega_initialize (void)
   next_wild_card = 0;
   next_key = max_vars + 1;
 
-  for (i = 0; i < hash_table_size; i++)
+  for (i = 0; i < HASH_TABLE_SIZE; i++)
     hash_master[i].touched = -1;
 
   sprintf (wild_name[0], "1");

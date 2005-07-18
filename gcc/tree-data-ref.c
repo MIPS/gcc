@@ -603,6 +603,49 @@ dump_subscript (FILE *outf, struct subscript *subscript)
   fprintf (outf, " )\n");
 }
 
+/* Print DDR's classic direction vector to OUTF.  */
+
+void
+print_direction_vector (FILE *outf,
+			struct data_dependence_relation *ddr)
+{
+  int eq;
+
+  for (eq = 0; eq < DDR_SIZE_VECT (ddr); eq++)
+    {
+      enum data_dependence_direction dir = DDR_DIR_VECT (ddr)[eq];
+
+      switch (dir)
+	{
+	case dir_positive:
+	  fprintf (outf, "    +");
+	  break;
+	case dir_negative:
+	  fprintf (outf, "    -");
+	  break;
+	case dir_equal:
+	  fprintf (outf, "    =");
+	  break;
+	case dir_positive_or_equal:
+	  fprintf (outf, "   +=");
+	  break;
+	case dir_positive_or_negative:
+	  fprintf (outf, "   +-");
+	  break;
+	case dir_negative_or_equal:
+	  fprintf (outf, "   -=");
+	  break;
+	case dir_star:
+	  fprintf (outf, "    *");
+	  break;
+	default:
+	  fprintf (outf, "indep");
+	  break;
+	}
+    }
+  fprintf (outf, "\n");
+}
+
 /* Dump function for a DATA_DEPENDENCE_RELATION structure.  */
 
 void 
@@ -633,20 +676,18 @@ dump_data_dependence_relation (FILE *outf,
 	}
       if (DDR_DIST_VECT (ddr))
 	{
-	  fprintf (outf, "  distance_vect: ");
+	  fprintf (outf, "  distance_vect:  ");
 	  print_lambda_vector (outf, DDR_DIST_VECT (ddr), DDR_SIZE_VECT (ddr));
 	}
       if (DDR_DIR_VECT (ddr))
 	{
 	  fprintf (outf, "  direction_vect: ");
-	  print_lambda_vector (outf, DDR_DIR_VECT (ddr), DDR_SIZE_VECT (ddr));
+	  print_direction_vector (outf, ddr);
 	}
     }
 
   fprintf (outf, ")\n");
 }
-
-
 
 /* Dump function for a DATA_DEPENDENCE_DIRECTION structure.  */
 
@@ -711,7 +752,7 @@ dump_dist_dir_vectors (FILE *file, varray_type ddrs)
 	  print_lambda_vector (file, DDR_DIST_VECT (ddr), DDR_SIZE_VECT (ddr));
 	  fprintf (file, ")\n");
 	  fprintf (file, "DIRECTION_V (");
-	  print_lambda_vector (file, DDR_DIR_VECT (ddr), DDR_SIZE_VECT (ddr));
+	  print_direction_vector (file, ddr);
 	  fprintf (file, ")\n");
 	}
     }
@@ -3649,8 +3690,9 @@ init_csys_eq_with_af (csys cy, unsigned eq,
 	  }
 
 	CSYS_VEC (cy, eq, offset + var_idx) = int_cst_value (right);
-	if (offset != 0)
-	  CSYS_VEC (cy, eq, var_idx) += int_cst_value (right);
+	if (offset == 0)
+	  CSYS_VEC (cy, eq, var_idx + VARRAY_ACTIVE_SIZE (vloops)) 
+	    += int_cst_value (right);
 
 	switch (TREE_CODE (left))
 	  {
@@ -3726,6 +3768,13 @@ find_loops_surrounding (struct loop *loop, struct loop *stop,
    di + M = 0
    0 <= i <= N
    0 <= i + di <= N
+
+   Because Omega solver expects the distance variables to come first
+   in the constraint system (as variables to be protected), and that
+   other solvers are fine with both representations, we just build the
+   constraint system using the following layout: 
+
+   "is_eq | distance vars | index vars | cst".
 */
 
 static bool
@@ -3744,10 +3793,10 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
   *maybe_dependent = true;
 
   /* Compute the size of the constraint system.
-     nb_loops_in_nest = number of loops surrounding both references.
-     dimension = 2 * nb_loops_in_nest.
+     nb_loops = number of loops surrounding both references
+     dimension = 2 * nb_loops
      nb_eqs = nb_subscripts
-     nb_ineqs = nb_loops_in_nest
+     nb_ineqs = nb_loops * 4
   */
   VARRAY_GENERIC_PTR_INIT (vloops, 3, "vloops");
   loop_a = bb_for_stmt (DR_STMT (dra))->loop_father;
@@ -3768,10 +3817,10 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 
   /* For each subscript, insert an equality for representing the
      conflicts.  */
-  for (i = 0, eq = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
+  for (eq = 0; eq < DDR_NUM_SUBSCRIPTS (ddr); eq++)
     {
-      tree access_fun_a = DR_ACCESS_FN (dra, i);
-      tree access_fun_b = DR_ACCESS_FN (drb, i);
+      tree access_fun_a = DR_ACCESS_FN (dra, eq);
+      tree access_fun_b = DR_ACCESS_FN (drb, eq);
 
       /* ZIV test.  */
       if (ziv_subscript_p (access_fun_a, access_fun_b))
@@ -3789,11 +3838,11 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 	    }
 	}
 
-      access_fun_b = chrec_fold_multiply (chrec_type (access_fun_b), 
+      access_fun_b = chrec_fold_multiply (chrec_type (access_fun_b),
 					  access_fun_b, integer_minus_one_node);
-      
-      if (!init_csys_eq_with_af (cy, eq, 0, access_fun_a, vloops) 
-	  || !init_csys_eq_with_af (cy, eq, nb_loops, access_fun_b, vloops))
+
+      if (!init_csys_eq_with_af (cy, eq, nb_loops, access_fun_a, vloops)
+	  || !init_csys_eq_with_af (cy, eq, 0, access_fun_b, vloops))
 	{
 	  /* There is probably a dependence, but the system of
 	     constraints cannot be built: answer "don't know".  */
@@ -3811,8 +3860,6 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 	  varray_clear (vloops);
 	  return true;
 	}
-      
-      eq++;
     }
 
   /* The rest are inequalities.  */
@@ -3828,12 +3875,12 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
       tree nb_iters = get_number_of_iters_for_loop (loop->num);
 
       /* 0 <= loop_x */
-      CSYS_VEC (cy, ineq, i) = 1;
+      CSYS_VEC (cy, ineq, i + nb_loops) = 1;
       ineq++;
 
       /* 0 <= loop_x + dx */
-      CSYS_VEC (cy, ineq, i) = 1;
       CSYS_VEC (cy, ineq, i + nb_loops) = 1;
+      CSYS_VEC (cy, ineq, i) = 1;
       ineq++;
 
       if (nb_iters != NULL_TREE
@@ -3842,13 +3889,13 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 	  int nbi = int_cst_value (nb_iters);
 
 	  /* loop_x <= nb_iters */
-	  CSYS_VEC (cy, ineq, i) = -1;
+	  CSYS_VEC (cy, ineq, i + nb_loops) = -1;
 	  CSYS_CST (cy, ineq) = nbi;
 	  ineq++;
 
 	  /* loop_x + dx <= nb_iters */
-	  CSYS_VEC (cy, ineq, i) = -1;
 	  CSYS_VEC (cy, ineq, i + nb_loops) = -1;
+	  CSYS_VEC (cy, ineq, i) = -1;
 	  CSYS_CST (cy, ineq) = nbi;
 	  ineq++;
 	}
@@ -3869,70 +3916,105 @@ polyhedra_dependence_tester (struct data_dependence_relation *ddr)
   /* Translate to generating system (gs) representation, then detect
      dep/indep.  */
 
-  debug_csys (DDR_CSYS (ddr));
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "(polyhedra_dependence_tester \n");
+      dump_data_dependence_relation (dump_file, ddr);
+      csys_print (dump_file, DDR_CSYS (ddr));
+    }
+
   DDR_POLYHEDRON (ddr) = polyhedron_from_csys (DDR_CSYS (ddr));
-  debug_gsys (POLYH_GSYS (DDR_POLYHEDRON (ddr)));
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      gsys_print (dump_file, POLYH_GSYS (DDR_POLYHEDRON (ddr)));
+      fprintf (dump_file, ") \n");
+    }
 
   dependence_stats.num_dependence_undetermined++;
   finalize_ddr_dependent (ddr, chrec_dont_know);
 }
 
-/* */
-#if 0
+/* Initialize DDR's distance and direction vectors from the omega
+   problem.  */
+
 static void
-omega_compute_classic_representations (struct data_dependence_relation *ddr ATTRIBUTE_UNUSED)
+omega_compute_classic_representations (struct data_dependence_relation *ddr)
 {
-  
+  int i;
+  lambda_vector dir_v, dist_v;
+  DDR_SIZE_VECT (ddr) = CSYS_DIMENSION (DDR_CSYS (ddr)) / 2;
+
+  dist_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
+  dir_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
+  lambda_vector_clear (dist_v, DDR_SIZE_VECT (ddr));
+  lambda_vector_clear (dir_v, DDR_SIZE_VECT (ddr));
+
+  for (i = 0; i < DDR_SIZE_VECT (ddr); i++)
+    {
+      int dist = DDR_OMEGA (ddr)->eqs[i].coef[0];
+      enum data_dependence_direction dir = dir_star;
+
+      /* FIXME: Computing dir this way is suboptimal, since dir can
+	 catch cases that dist is unable to represent.  */
+      if (dist == 0)
+	dir = dir_equal;
+      else if (dist > 0)
+	dir = dir_positive;
+      else if (dist < 0)
+	dir = dir_negative;
+      
+      dist_v[i] = dist;
+      dir_v[i] = dir;
+    }
+
+  DDR_DIST_VECT (ddr) = dist_v;
+  DDR_DIR_VECT (ddr) = dir_v;
 }
-#endif
 
 /* Construct the constraint system for DDR, then solve it using the
    OMEGA solver.  */
 
 static void
-omega_dependence_tester (struct data_dependence_relation *ddr ATTRIBUTE_UNUSED)
+omega_dependence_tester (struct data_dependence_relation *ddr)
 {
-#if 0
-  int res = 0;
-  omega_pb pb = (omega_pb) xmalloc (sizeof (struct omega_pb));
+  enum omega_result res;
+
+  dump_file = stderr;
+  dump_flags = 31;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(omega_dependence_tester \n");
       dump_data_dependence_relation (dump_file, ddr);
+      csys_print (dump_file, DDR_CSYS (ddr));
     }
 
-  csys_to_omega (DDR_CSYS (ddr), pb);
+  DDR_OMEGA (ddr) = csys_to_omega (DDR_CSYS (ddr));
+
   if (dump_file && (dump_flags & TDF_DETAILS))
-    omega_pretty_print_problem (dump_file, pb);
+    omega_pretty_print_problem (dump_file, DDR_OMEGA (ddr));
 
-  res = omega_solve_problem (pb, omega_unknown);
+  res = omega_simplify_problem (DDR_OMEGA (ddr));
 
-  {
-    int i = 0, lower_bound, upper_bound, dist;
-    bool dist_known = false;
-    int dd_lt = 2;
-    int dd_eq = 4;
-    int dd_gt = 8;
-    int dir;
+  /* FIXME: Seems like omega_simplify always returns omega_false, so
+     RES is not a good criteria to be used for distinguish between
+     dep/indep/unknown.  Have to better document the return value for
+     omega_solve_problem.  For the moment systematically initialize
+     dist/dir.  */
+  omega_compute_classic_representations (ddr);
+  dependence_stats.num_dependence_dependent++;
 
-    dir = omega_query_variable_signs (pb, i, dd_lt, dd_eq, dd_gt,
-				      lower_bound, upper_bound,
-				      &dist_known, &dist);
-    fprintf (stderr, "dir = %d\n", dir);
-  }
-
-  if (res == 0)
+#if 0
+  if (res == omega_false)
     {
       /* When there is no solution to the dependence problem, there is
 	 no dependence.  */
       finalize_ddr_dependent (ddr, chrec_known);
       dependence_stats.num_dependence_independent++;
     }
-  else if (res == 1)
+  else if (res == omega_true)
     {
-      /* FIXME: Extract the classic representations: distances and
-	 directions. */
       omega_compute_classic_representations (ddr);
       dependence_stats.num_dependence_dependent++;
     }
@@ -3941,12 +4023,13 @@ omega_dependence_tester (struct data_dependence_relation *ddr ATTRIBUTE_UNUSED)
       dependence_stats.num_dependence_undetermined++;
       finalize_ddr_dependent (ddr, chrec_dont_know);
     }
+#endif
   
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-
-  free (pb);
-#endif
+    {
+      dump_data_dependence_relation (dump_file, ddr);
+      fprintf (dump_file, ")\n");
+    }
 }
 
 /* This computes the affine dependence relation between A and B.
@@ -4357,6 +4440,8 @@ free_dependence_relation (struct data_dependence_relation *ddr)
 
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE && DDR_SUBSCRIPTS (ddr))
     varray_clear (DDR_SUBSCRIPTS (ddr));
+  if (DDR_OMEGA (ddr))
+    free (DDR_OMEGA (ddr));
   free (ddr);
 }
 

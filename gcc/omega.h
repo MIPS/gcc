@@ -26,8 +26,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include <config.h>
 
-#ifndef Already_Included_IP
-#define Already_Included_IP 1
+#ifndef GCC_OMEGA_H
+#define GCC_OMEGA_H
 
 #define max_vars 128
 #define max_geqs 256
@@ -40,34 +40,75 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 enum omega_result {
   omega_false = 0,
   omega_true = 1,
+
+  /* Value returned when the solver is unable to determine an
+     answer.  */
   omega_unknown = 2,
+
+  /* Value used for asking the solver to simplify the system.  */
   omega_simplify = 3
 };
 
-/* Used for labeling equations.  */
-enum omega_eqn_color {
+/* Values used for labeling equations.  Private (not used outside the
+   solver).  */
+enum omega_eqn_color { 
   omega_black = 0,
   omega_red = 1
 };
 
+/* Structure for equations.  */
 typedef struct eqn
 {
+  /* Private (not used outside the solver).  */
   int key;
+  /* Private (not used outside the solver).  */
   int touched;
+  /* Private (not used outside the solver).  */
   enum omega_eqn_color color;
+
+  /* Array of coefficients for the equation.  */
   int coef[max_vars + 1];
 } *eqn;
 
 typedef struct omega_pb
 {
-  int num_vars, num_eqs, num_geqs, safe_vars, num_subs;
+  /* The number of variables in the system of equations.  */
+  int num_vars;
+  
+  /* Safe variables are not eliminated during the Fourier-Motzkin
+     simplification of the system.  */
+  int safe_vars;
+
+  /* Number of equalities: number of elements in eqs[].  */
+  int num_eqs;
+
+  /* Number of inequalities: number of elements in geqs[].  */
+  int num_geqs;
+
+  /* Number of variables that were substituted: number of elements in
+     subs[].  */
+  int num_subs;
+
+  /* Private (not used outside the solver).  */
   int hash_version;
-  int variablesInitialized;
-  int variablesFreed;
+  /* Private (not used outside the solver).  */
+  int variables_initialized;
+  /* Private (not used outside the solver).  */
+  int variables_freed;
+
+  /* Index of variables.  */
   int var[max_vars + 2];
+
+  /* Private (not used outside the solver).  */
   int forwarding_address[max_vars + 2];
+
+  /* Inequalities in the system of constraints.  */
   struct eqn geqs[max_geqs];
+
+  /* Equations in the system of constraints.  */
   struct eqn eqs[max_eqs];
+
+  /* Variables that were substituted.  */
   struct eqn subs[max_vars + 1];
 } *omega_pb;
 
@@ -78,14 +119,16 @@ extern void omega_initialize (void);
 extern void omega_initialize_problem (omega_pb);
 extern void omega_initialize_variables (omega_pb);
 extern enum omega_result omega_solve_problem (omega_pb, enum omega_result);
+extern enum omega_result omega_simplify_problem (omega_pb);
+extern enum omega_result omega_simplify_approximate (omega_pb);
+extern enum omega_result omega_constrain_variable_sign (omega_pb, int, int,
+							int);
 
 extern void omega_copy_problem (omega_pb, omega_pb);
 extern void omega_print_problem (FILE *, omega_pb);
 extern void omega_print_red_equations (FILE *, omega_pb);
 extern int omega_count_red_equations (omega_pb);
 extern void omega_pretty_print_problem (FILE *, omega_pb);
-extern bool omega_simplify_problem (omega_pb);
-extern int omega_simplify_approximate (omega_pb);
 extern void omega_unprotect_variable (omega_pb, int var);
 extern void omega_negate_geq (omega_pb, int);
 extern void omega_convert_eq_to_geqs (omega_pb, int eq);
@@ -94,18 +137,12 @@ extern void omega_sprint_eqn (char *, omega_pb, eqn, int, int);
 extern bool omega_problem_has_red_equations (omega_pb);
 extern int omega_eliminate_redundant (omega_pb, bool);
 extern void omega_eliminate_red (omega_pb, bool);
-extern int omega_constrain_variable_sign (omega_pb, int, int, int);
 extern void omega_constrain_variable_value (omega_pb, int, int, int);
 extern int omega_query_variable (omega_pb, int, int *, int *);
 extern int omega_query_variable_signs (omega_pb, int, int, int, int,
 				       int, int, bool *, int *);
 extern int omega_query_variable_bounds (omega_pb, int, int *, int *);
-
-extern int reduceWithSubs;
-extern int verifySimplification;
-
 extern void (*omega_when_reduced) (omega_pb);
-
 extern void omega_no_procedure (omega_pb);
 
 /* Print to FILE equality E from PB.  */
@@ -160,6 +197,8 @@ omega_init_eqn_zero (eqn e, int s)
     *p00++ = 0;
 }
 
+#undef headerWords
+
 /* Returns true when E is an inequality that contains a single
    variable.  */
 
@@ -171,8 +210,11 @@ single_var_geq (struct eqn e, int nv ATTRIBUTE_UNUSED)
 
 #define cant_do_omega abort
 
-/* Initialize P as an Omega problem with NVARS variables and
-   NPROT safe variables.  */
+/* Initialize P as an Omega problem with NVARS variables and NPROT
+   safe variables.  Safe variables are not eliminated during the
+   Fourier-Motzkin elimination.  Safe variables are all those
+   variables that are placed at the beginning of the array of
+   variables: P->var[0, ..., NPROT - 1].  */
 
 static inline void
 init_problem (omega_pb p, unsigned nvars, unsigned nprot)
@@ -221,4 +263,4 @@ prob_add_zero_geq (omega_pb p, int color)
   return c;
 }
 
-#endif
+#endif /* GCC_OMEGA_H */

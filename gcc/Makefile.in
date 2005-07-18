@@ -1787,7 +1787,8 @@ tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TM_H) coretypes.h
 omega.o : omega.c omega.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) diagnostic.h varray.h tree-pass.h 
-polyhedron.o : polyhedron.c $(POLYHEDRON_H) $(CONFIG_H) $(SYSTEM_H)
+polyhedron.o : polyhedron.c $(POLYHEDRON_H) $(CONFIG_H) $(SYSTEM_H) $(TM_H) \
+   coretypes.h errors.h $(GGC_H) $(TREE_H) varray.h sbitmap.h vec.h
 tree-chrec.o: tree-chrec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) tree-chrec.h tree-pass.h cfgloop.h $(TREE_FLOW.h)
 tree-scalar-evolution.o: tree-scalar-evolution.c $(CONFIG_H) $(SYSTEM_H) \

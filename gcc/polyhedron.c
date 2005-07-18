@@ -124,8 +124,6 @@ debug_csys (csys cy)
   csys_print (stderr, cy);
 }
 
-
-
 /* Return a new generating system.  */
 
 gsys
@@ -185,8 +183,6 @@ void debug_gsys (gsys gy)
   gsys_print (stderr, gy);
 }
 
-
-
 /* Return a new polyhedron from a constraint system CY and a
    generating system GY.  */
 
@@ -201,17 +197,22 @@ polyhedron_new (csys cy, gsys gy, lambda_matrix sat)
   return pol;
 }
 
-
+/* Return the omega problem corresponding to the constraint system
+   CY.  */
 
-/* Translate the constraint system CY to the omega problem RES.  RES
-   should be allocated before calling this function.  */
-
-void 
-csys_to_omega (csys cy, omega_pb res)
+omega_pb
+csys_to_omega (csys cy)
 {
   int i, j;
+  int nb_protected_vars = CSYS_DIMENSION (cy) / 2;
+  omega_pb res = (omega_pb) xmalloc (sizeof (struct omega_pb));
+
   omega_initialize ();
-  init_problem (res, CSYS_DIMENSION (cy), 0);
+
+  /* Omega expects the protected variables (those that have to be kept
+     after elimination) to appear first in the constraint system.
+     These variables are the distance variables.  */
+  init_problem (res, CSYS_DIMENSION (cy), nb_protected_vars);
 
   for (i = 0; i < CSYS_NB_CONSTRAINTS (cy); i++)
     {
@@ -232,6 +233,7 @@ csys_to_omega (csys cy, omega_pb res)
 	  res->geqs[idx].coef[0] = CSYS_CST (cy, i);
 	}
     }
+  return res;
 }
 
 
@@ -861,20 +863,36 @@ reduce_system (polyhedron pol)
   return pol;
 }
 
-/* Returns a polyhedron built from the RAYS matrix.  */
+/* Returns a polyhedron built from the RAYS matrix with M rows by N
+   columns.  */
 
 polyhedron
-rays_to_polyhedron (lambda_matrix rays ATTRIBUTE_UNUSED)
+rays_to_polyhedron (lambda_matrix rays ATTRIBUTE_UNUSED,
+		    int m ATTRIBUTE_UNUSED,
+		    int n ATTRIBUTE_UNUSED)
 {
-  return NULL;
+  polyhedron res = NULL;
+
+  
+
+  return res;
 }
 
-/* Returns a polyhedron built from the CONSTRAINT matrix.  */
+/* Returns a polyhedron built from the CONSTRAINT matrix with
+   NB_CONSTRAINTS rows by DIMENSION + 2 columns.  */
 
 polyhedron
-cons_to_polyhedron (lambda_matrix constraints ATTRIBUTE_UNUSED)
+cons_to_polyhedron (lambda_matrix constraints, int nb_constraints,
+		    int dimension, int nb_eqs)
 {
-  return NULL;
+  csys res = ggc_alloc_cleared (sizeof (struct csys));
+
+  CSYS_DIMENSION (res) = dimension;
+  CSYS_NB_EQS (res) = nb_eqs;
+  CSYS_NB_CONSTRAINTS (res) = nb_constraints;
+  CSYS_M (res) = constraints;
+
+  return polyhedron_from_csys (res);
 }
 
 /* Returns a polyhedron built from the constraint system CY.  */
@@ -927,7 +945,7 @@ polyhedron_image (polyhedron pol, lambda_matrix fun,
 	}
     }
 
-  return rays_to_polyhedron (rays);
+  return rays_to_polyhedron (rays, POLYH_NB_RAYS (pol), fun_rows + 1);
 }
 
 /* Given a polyhedron POL and a transformation matrix FUN, return the
@@ -961,5 +979,6 @@ polyhedron_preimage (polyhedron pol, lambda_matrix fun,
 	}
     }
 
-  return cons_to_polyhedron (constraints);
+  /* return cons_to_polyhedron (constraints); */
+  return NULL;
 }

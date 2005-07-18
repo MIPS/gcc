@@ -109,7 +109,7 @@ extern csys csys_new (int, int, int);
 extern csys csys_copy (csys);
 extern void csys_print (FILE *, csys);
 extern void debug_csys (csys);
-extern void csys_to_omega (csys, omega_pb);
+extern omega_pb csys_to_omega (csys);
 
 extern gsys gsys_new (int, int, int);
 extern gsys gsys_copy (gsys);
@@ -125,8 +125,7 @@ extern void debug_polyhedron (polyhedron);
 
 extern polyhedron polyhedron_image (polyhedron, lambda_matrix, int, int);
 extern polyhedron polyhedron_preimage (polyhedron, lambda_matrix, int, int);
-extern polyhedron rays_to_polyhedron (lambda_matrix);
-extern polyhedron cons_to_polyhedron (lambda_matrix);
-
+extern polyhedron rays_to_polyhedron (lambda_matrix, int, int);
+extern polyhedron cons_to_polyhedron (lambda_matrix, int, int, int);
 
 #endif

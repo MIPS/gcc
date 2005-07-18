@@ -204,6 +204,9 @@ struct data_dependence_relation
 
   /* Representation of the dependence as polyhedra.  */
   polyhedron dependence_polyhedron;
+
+  /* Representation of the dependence as an Omega problem.  */
+  omega_pb omega_dependence;
 };
 
 #define DDR_A(DDR) DDR->a
@@ -220,6 +223,7 @@ struct data_dependence_relation
 #define DDR_DIST_VECT(DDR) DDR->dist_vect
 #define DDR_CSYS(DDR) DDR->dependence_constraint_system
 #define DDR_POLYHEDRON(DDR) DDR->dependence_polyhedron
+#define DDR_OMEGA(DDR) DDR->omega_dependence
 
 
 
@@ -236,6 +240,7 @@ extern void compute_data_dependences_for_loop (struct loop *, tree, bool,
 					       varray_type *, varray_type *);
 extern struct data_reference *analyze_array (tree, tree, bool);
 
+extern void print_direction_vector (FILE *, struct data_dependence_relation *);
 extern void dump_subscript (FILE *, struct subscript *);
 extern void dump_ddrs (FILE *, varray_type);
 extern void dump_dist_dir_vectors (FILE *, varray_type);

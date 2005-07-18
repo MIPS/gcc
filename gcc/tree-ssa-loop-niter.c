@@ -1329,6 +1329,176 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
   return niter ? niter : chrec_dont_know;
 }
 
+/* Returns the number of iterations in LOOP and the EXIT edge.  This
+   version uses Bill Pugh's Omega solver.  If the problem is too hard,
+   return chrec_dont_know.  */
+
+#if 0
+
+static tree
+find_loop_niter_by_omega (struct loop *loop, edge *exit)
+{
+  unsigned n_exits, i;
+  edge *exits = get_loop_exit_edges (loop, &n_exits);
+  tree niter = NULL_TREE, aniter;
+  omega_pb pb = (omega_pb) xmalloc (sizeof (struct omega_pb));  
+
+  /* Initialize an omega problem.  For the moment, only solve
+     univariate problems of the form: (N * 3 + 2) mod modulo >= (N
+     + 12) mod modulo, i.e. (N * 2 - 10) + K * modulo >= 0.  N
+     is an important variable, it is protected, whereas the wrap
+     factor K is just a helper variable, so we want it to be
+     eliminated by Omega.  */
+  omega_initialize ();
+  init_problem (pb, 2, 1);
+
+  *exit = NULL;
+  for (i = 0; i < n_exits; i++)
+    {
+      enum tree_code code;
+      tree cond, op0, op1, type;
+      tree base0, base1, step0, step1;
+      edge ex = exits[i];
+      tree stmt = last_stmt (ex->src);
+
+      if (!just_once_each_iteration_p (loop, ex->src)
+	  || stmt == NULL_TREE
+	  || TREE_CODE (stmt) != COND_EXPR)
+	continue;
+
+      /* We want the condition for staying inside loop.  */
+      cond = COND_EXPR_COND (stmt);
+      if (ex->flags & EDGE_TRUE_VALUE)
+	cond = invert_truthvalue (cond);
+
+      code = TREE_CODE (cond);
+      switch (code)
+	{
+	case GT_EXPR:
+	case GE_EXPR:
+	case NE_EXPR:
+	case EQ_EXPR:
+	case LT_EXPR:
+	case LE_EXPR:
+	  break;
+
+	default:
+	  continue;
+	}
+
+      op0 = TREE_OPERAND (cond, 0);
+      op1 = TREE_OPERAND (cond, 1);
+      type = TREE_TYPE (op0);
+
+      if (TREE_CODE (type) != INTEGER_TYPE
+	  && !POINTER_TYPE_P (type))
+	continue;
+      if (!simple_iv (loop, stmt, op0, &base0, &step0))
+	continue;
+      if (!simple_iv (loop, stmt, op1, &base1, &step1))
+	continue;
+
+      /* Push a new constraint.  */
+
+      /* while ({base0, +, step0}_x == {base1, +, step1}_x) */
+      if (code == EQ_EXPR)
+	{
+	  tree diff = fold (build2 (MINUS_EXPR, type, base0, base1));
+
+	  /* The loop is exited directly when bases differ.  */
+	  if (diff != NULL_TREE
+	      && TREE_CODE (diff) == INTEGER_CST
+	      && !integer_zerop (diff))
+	    return fold_convert (type, integer_zero_node);
+	  else
+	    {
+	      /* Determine the minimal N >= 0 that verifies:
+
+		 (base0 + N * step0) mod modulo 
+		 != (base1 + N * step1) mod modulo
+
+		 (base0 + N * step0) mod modulo 
+		 - (base1 + N * step1) mod modulo != 0
+
+		 (base0 - base1 + N * (step0 - step1)) mod modulo != 0
+
+		 (base0 - base1 + N * (step0 - step1)) + K * modulo != 0
+
+		 (base0 - base1 + N * (step0 - step1)) + K * modulo != 0
+	      */
+	      tree diff_s = fold (build2 (MINUS_EXPR, type, step0, step1));
+	      tree modulo;
+	      unsigned idx;
+
+	      if (TREE_CODE (diff_s) != INTEGER_CST
+		  || TREE_CODE (diff) != INTEGER_CST
+		  || !TYPE_UNSIGNED (type))
+		return chrec_dont_know;
+
+	      modulo = TYPE_MAX_VALUE (type);
+	      idx = prob_add_zero_eq (pb, 0);
+
+	      pb->eqs[idx].coef[0] = int_cst_value (diff);
+	      pb->eqs[idx].coef[1] = int_cst_value (diff_s);
+	      pb->eqs[idx].coef[2] = int_cst_value (modulo);	      
+	    }
+	}
+
+      /* while ({base0, +, step0}_x != {base1, +, step1}_x) */
+      if (code == NE_EXPR)
+	{
+	  tree diff = fold (build2 (MINUS_EXPR, type, base0, base1));
+
+	  /* The loop is exited directly when bases are equal.  */
+	  if (diff != NULL_TREE
+	      && TREE_CODE (diff) == INTEGER_CST
+	      && integer_zerop (diff))
+	    return fold_convert (type, integer_zero_node);
+	  else
+	    {
+	      /* Determine the minimal N >= 0 that verifies:
+
+		 (base0 + N * step0) mod modulo 
+		 == (base1 + N * step1) mod modulo
+
+		 (base0 + N * step0) mod modulo 
+		 - (base1 + N * step1) mod modulo == 0
+
+		 (base0 - base1 + N * (step0 - step1)) mod modulo == 0
+
+		 (base0 - base1 + N * (step0 - step1)) + K * modulo == 0
+	      */
+	      tree diff_s = fold (build2 (MINUS_EXPR, type, step0, step1));
+	      tree modulo;
+	      unsigned idx;
+
+	      if (TREE_CODE (diff_s) != INTEGER_CST
+		  || TREE_CODE (diff) != INTEGER_CST
+		  || !TYPE_UNSIGNED (type))
+		return chrec_dont_know;
+
+	      modulo = TYPE_MAX_VALUE (type);
+	      idx = prob_add_zero_eq (pb, 0);
+
+	      pb->eqs[idx].coef[0] = int_cst_value (diff);
+	      pb->eqs[idx].coef[1] = int_cst_value (diff_s);
+	      pb->eqs[idx].coef[2] = int_cst_value (modulo);	      
+	    }
+	}
+	
+
+      /* prob_add_zero_geq (pb, 0);
+       */
+    }
+  free (exits);
+
+  /* Solve the system of equalities and inequalities.  */
+  
+  return niter ? niter : chrec_dont_know;
+}
+
+#endif
+
 /*
 
    Analysis of upper bounds on number of iterations of a loop.
