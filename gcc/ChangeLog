@@ -1,3 +1,8 @@
+2005-07-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* alias.c (nonoverlapping_component_refs_p): Restore old
+	behaviour.
+
 2005-07-15  J"orn Rennecke <joern.rennecke@st.com>
 
 	cvs update -j1.531 -j1.530 loop.c

@@ -1971,7 +1971,12 @@ nonoverlapping_component_refs_p (tree x, tree y)
 	}
       while (x && TREE_CODE (x) == COMPONENT_REF);
       /* Never found a common type.  */
+/* FIXME: we don't find all common types, so this is unsafe.  */
+#if 0
       return true;
+#else
+return false;
+#endif
 
     found:
       /* If we're left with accessing different fields of a structure,
