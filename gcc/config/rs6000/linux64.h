@@ -561,5 +561,3 @@ while (0)
 #ifdef IN_LIBGCC2
 #include "config/rs6000/linux-unwind.h"
 #endif
-
-#endif

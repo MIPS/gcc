@@ -1750,7 +1750,7 @@ pdp11-*-*)
 #	tmake_file="${tmake_file} rs6000/t-fprules "
 #	extra_headers=
 #	;;
-powerpc64-*-linux*)
+powerpc64-*-linux*|powerpc-wrs-linux-gnu)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
 	test x$with_cpu != x || cpu_is_64bit=yes
 	test x$cpu_is_64bit != xyes || tm_file="${tm_file} rs6000/default64.h"
