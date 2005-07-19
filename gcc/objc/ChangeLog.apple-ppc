@@ -1,3 +1,10 @@
+2005-07-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4175534
+	* objc-act.c (objc_compare_types): A new silent comparison
+	mode (-4), differing from regular comparison (-3) in that
+	'false' is returned instead of issuing warnings.
+
 2005-07-08  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4168740 (via mainline)

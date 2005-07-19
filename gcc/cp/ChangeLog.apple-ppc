@@ -1,3 +1,9 @@
+2005-07-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4175534
+	* call.c (standard_conversion): Do not issue warnings when
+	comparing ObjC pointer types.
+
 2005-06-30 Devang Patel  <dpatel@apple.com>
 
 	* lang-specs.h: While making PCH, invoke as if -fsave-repository

@@ -1,3 +1,8 @@
+2005-07-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4175534
+	* obj-c++.dg/method-22.mm: New.
+
 2005-07-15  Devang Patel  <dpatel@apple.com>
 
 	Radar 4182529

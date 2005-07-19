@@ -1238,7 +1238,10 @@ objc_common_type (tree type1, tree type2)
      0		Return value;
      -1		Assignment;
      -2		Initialization;
-     -3		Comparison (LTYP and RTYP may match in either direction).
+     APPLE LOCAL begin 4175534
+     -3		Comparison (LTYP and RTYP may match in either direction);
+     -4		Silent comparison (for C++ overload resolution).
+     APPLE LOCAL end 4175534
 */
 
 bool
@@ -1271,8 +1274,11 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
       && !TYPE_HAS_OBJC_INFO (rtyp))
     return false;
 
-  /* Past this point, we are committed to returning 'true' to the caller.
-     However, we can still warn about type and/or protocol mismatches.  */
+  /* APPLE LOCAL begin 4175534 */
+  /* Past this point, we are committed to returning 'true' to the caller
+     (unless performing a silent comparison; see below).  However, we can
+     still warn about type and/or protocol mismatches.  */
+  /* APPLE LOCAL end 4175534 */
 
   if (TYPE_HAS_OBJC_INFO (ltyp))
     {
@@ -1326,7 +1332,8 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
       if (!pointers_compatible)
 	pointers_compatible = DERIVED_FROM_P (ltyp, rtyp);
 
-      if (!pointers_compatible && argno == -3)
+      /* APPLE LOCAL 4175534 */
+      if (!pointers_compatible && argno <= -3)
 	pointers_compatible = DERIVED_FROM_P (rtyp, ltyp);
     }
 
@@ -1335,20 +1342,29 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
   if (pointers_compatible)
     {
       pointers_compatible = objc_compare_protocols (lcls, ltyp, rcls, rtyp,
-						    argno != -3);
+						    /* APPLE LOCAL 4175534 */
+						    argno > -3);
 
       if (!pointers_compatible && argno == -3)
 	pointers_compatible = objc_compare_protocols (rcls, rtyp, lcls, ltyp,
-						      argno != -3);
+						      /* APPLE LOCAL 4175534 */
+						      argno > -3);
     }
 
   if (!pointers_compatible)
     {
-      /* NB: For the time being, we shall make our warnings look like their
-	 C counterparts.  In the future, we may wish to make them more
-	 ObjC-specific.  */
+      /* APPLE LOCAL begin 4175534 */
+      /* The two pointers are not exactly compatible.  Issue a warning, unless
+	 we are performing a silent comparison, in which case return 'false'
+	 instead.  */
+      /* APPLE LOCAL end 4175534 */
       switch (argno)
 	{
+	/* APPLE LOCAL begin 4175534 */
+	case -4:
+	  return false;
+
+	/* APPLE LOCAL end 4175534 */
 	case -3:
 	  warning ("comparison of distinct Objective-C types lacks a cast");
 	  break;
