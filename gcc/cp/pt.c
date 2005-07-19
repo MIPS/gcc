@@ -2251,9 +2251,10 @@ reduce_template_parm_level (tree index, tree type, int levels)
 				     decl, type);
       TEMPLATE_PARM_DESCENDANTS (index) = t;
 
-      /* Template template parameters need this.  */
-      DECL_TEMPLATE_PARMS (decl)
-	= DECL_TEMPLATE_PARMS (TEMPLATE_PARM_DECL (index));
+	/* Template template parameters need this.  */
+      if (TREE_CODE (decl) != CONST_DECL)
+	DECL_TEMPLATE_PARMS (decl)
+	  = DECL_TEMPLATE_PARMS (TEMPLATE_PARM_DECL (index));
     }
 
   return TEMPLATE_PARM_DESCENDANTS (index);
@@ -5986,6 +5987,9 @@ tsubst_template_parms (tree parms, tree args, tsubst_flags_t complain)
 	  tree parm_decl = TREE_VALUE (tuple);
 
 	  parm_decl = tsubst (parm_decl, args, complain, NULL_TREE);
+	  if (TREE_CODE (parm_decl) == PARM_DECL
+	      && invalid_nontype_parm_type_p (TREE_TYPE (parm_decl), complain))
+	    parm_decl = error_mark_node;
 	  default_value = tsubst_template_arg (default_value, args,
 					       complain, NULL_TREE);
 
@@ -6646,12 +6650,14 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	DECL_CONTEXT (r) = ctx;
 	/* Clear out the mangled name and RTL for the instantiation.  */
 	SET_DECL_ASSEMBLER_NAME (r, NULL_TREE);
-	SET_DECL_RTL (r, NULL_RTX);
+	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
+	  SET_DECL_RTL (r, NULL_RTX);
 
 	/* Don't try to expand the initializer until someone tries to use
 	   this variable; otherwise we run into circular dependencies.  */
 	DECL_INITIAL (r) = NULL_TREE;
-	SET_DECL_RTL (r, NULL_RTX);
+	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
+	  SET_DECL_RTL (r, NULL_RTX);
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
 
 	/* Even if the original location is out of scope, the newly
@@ -9167,7 +9173,6 @@ fn_type_unification (tree fn,
 
   if (return_type)
     {
-      /* We've been given a return type to match, prepend it.  */
       parms = tree_cons (NULL_TREE, TREE_TYPE (fntype), parms);
       args = tree_cons (NULL_TREE, return_type, args);
     }
@@ -9178,7 +9183,7 @@ fn_type_unification (tree fn,
      event.  */
   result = type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn),
 				  targs, parms, args, /*subr=*/0,
-				  strict, /*allow_incomplete*/1);
+				  strict, 0);
 
   if (result == 0)
     /* All is well so far.  Now, check:
@@ -9286,7 +9291,9 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
 
    If SUBR is 1, we're being called recursively (to unify the
    arguments of a function or method parameter of a function
-   template).  */
+   template).  If IS_METHOD is true, XPARMS are the parms of a
+   member function, and special rules apply to cv qualification
+   deduction on the this parameter.  */
 
 static int
 type_unification_real (tree tparms,
@@ -9295,7 +9302,7 @@ type_unification_real (tree tparms,
 		       tree xargs,
 		       int subr,
 		       unification_kind_t strict,
-		       int allow_incomplete)
+		       int is_method)
 {
   tree parm, arg;
   int i;
@@ -9347,6 +9354,26 @@ type_unification_real (tree tparms,
 	   template args from other function args.  */
 	continue;
 
+      if (is_method)
+	{
+	  /* The cv qualifiers on the this pointer argument must match
+ 	     exactly.  We cannot deduce a T as const X against a const
+ 	     member function for instance.  */
+	  gcc_assert (TREE_CODE (parm) == POINTER_TYPE);
+	  gcc_assert (TREE_CODE (arg) == POINTER_TYPE);
+	  /* The restrict qualifier will be on the pointer.  */
+	  if (cp_type_quals (parm) != cp_type_quals (arg))
+	    return 1;
+	  parm = TREE_TYPE (parm);
+	  arg = TREE_TYPE (arg);
+	  if (cp_type_quals (parm) != cp_type_quals (arg))
+	    return 1;
+	  
+	  parm = TYPE_MAIN_VARIANT (parm);
+	  arg = TYPE_MAIN_VARIANT (arg);
+	  is_method = 0;
+	}
+      
       /* Conversions will be performed on a function argument that
 	 corresponds with a function parameter that contains only
 	 non-deducible template parameters and explicitly specified
@@ -9426,8 +9453,6 @@ type_unification_real (tree tparms,
 	      && !saw_undeduced++)
 	    goto again;
 
-	  if (!allow_incomplete)
-	    error ("incomplete type unification");
 	  return 2;
 	}
 
@@ -10253,8 +10278,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 		 TREE_TYPE (arg), UNIFY_ALLOW_NONE))
 	return 1;
       return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
-				    TYPE_ARG_TYPES (arg), 1,
-				    DEDUCE_EXACT, 0);
+				    TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT,
+				    TREE_CODE (parm) == METHOD_TYPE);
 
     case OFFSET_TYPE:
       /* Unify a pointer to member with a pointer to member function, which

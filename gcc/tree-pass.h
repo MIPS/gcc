@@ -228,6 +228,7 @@ extern struct tree_opt_pass pass_lim;
 extern struct tree_opt_pass pass_unswitch;
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_scev_cprop;
+extern struct tree_opt_pass pass_empty_loop;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
@@ -276,16 +277,19 @@ extern struct tree_opt_pass pass_store_ccp;
 extern struct tree_opt_pass pass_store_copy_prop;
 extern struct tree_opt_pass pass_vrp;
 extern struct tree_opt_pass pass_create_structure_vars;
-extern struct tree_opt_pass pass_build_pta;
-extern struct tree_opt_pass pass_del_pta;
 extern struct tree_opt_pass pass_uncprop;
+extern struct tree_opt_pass pass_promote_statics;
 extern struct tree_opt_pass pass_return_slot;
 extern struct tree_opt_pass pass_reassoc;
 extern struct tree_opt_pass pass_rebuild_cgraph_edges;
+extern struct tree_opt_pass pass_eliminate_useless_stores;
 
 /* IPA Passes */
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_early_ipa_inline;
+extern struct tree_opt_pass pass_ipa_reference;
+extern struct tree_opt_pass pass_ipa_pure_const;
+extern struct tree_opt_pass pass_ipa_type_escape;
 extern struct tree_opt_pass pass_early_local_passes;
 
 extern struct tree_opt_pass pass_all_optimizations;

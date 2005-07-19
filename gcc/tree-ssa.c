@@ -231,7 +231,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
   TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
-      && var_ann (SSA_NAME_VAR (ssa_name))->default_def == ssa_name)
+      && default_def (SSA_NAME_VAR (ssa_name)) == ssa_name)
     ; /* Default definitions have empty statements.  Nothing to do.  */
   else if (!def_bb)
     {
@@ -467,10 +467,9 @@ verify_flow_sensitive_alias_info (void)
 	}
 
       if (pi->name_mem_tag
-	  && !pi->pt_malloc
 	  && (pi->pt_vars == NULL || bitmap_empty_p (pi->pt_vars)))
 	{
-	  error ("pointers with a memory tag, should have points-to sets or point to malloc");
+	  error ("pointers with a memory tag, should have points-to sets");
 	  goto err;
 	}
 

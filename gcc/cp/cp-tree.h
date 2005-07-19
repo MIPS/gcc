@@ -174,15 +174,15 @@ struct diagnostic_context;
 #define NON_THUNK_FUNCTION_CHECK(NODE) __extension__			\
 ({  const tree __t = (NODE);						\
     if (TREE_CODE (__t) != FUNCTION_DECL &&				\
-	TREE_CODE (__t) != TEMPLATE_DECL && __t->decl.lang_specific	\
-	&& __t->decl.lang_specific->decl_flags.thunk_p)			\
+ 	TREE_CODE (__t) != TEMPLATE_DECL && __t->decl_common.lang_specific	\
+	&& __t->decl_common.lang_specific->decl_flags.thunk_p)			\
       tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, 0);	\
     __t; })
 #define THUNK_FUNCTION_CHECK(NODE) __extension__			\
 ({  const tree __t = (NODE);						\
-    if (TREE_CODE (__t) != FUNCTION_DECL || !__t->decl.lang_specific	\
-	|| !__t->decl.lang_specific->decl_flags.thunk_p)		\
-      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, 0);	\
+    if (TREE_CODE (__t) != FUNCTION_DECL || !__t->decl_common.lang_specific	\
+	|| !__t->decl_common.lang_specific->decl_flags.thunk_p)		\
+      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, 0); 	\
      __t; })
 #else
 #define NON_THUNK_FUNCTION_CHECK(NODE) (NODE)
@@ -1992,7 +1992,7 @@ struct lang_decl GTY(())
 /* In a NAMESPACE_DECL, the list of namespaces which have associated
    themselves with this one.  */
 #define DECL_NAMESPACE_ASSOCIATIONS(NODE) \
-  (NAMESPACE_DECL_CHECK (NODE)->decl.saved_tree)
+  (NAMESPACE_DECL_CHECK (NODE)->decl_non_common.saved_tree)
 
 /* In a NAMESPACE_DECL, points to the original namespace if this is
    a namespace alias.  */
@@ -2007,14 +2007,12 @@ struct lang_decl GTY(())
    && CP_DECL_CONTEXT (NODE) == global_namespace	\
    && DECL_NAME (NODE) == std_identifier)
 
-/* In a non-local VAR_DECL with static storage duration, this is the
-   initialization priority.  If this value is zero, the NODE will be
-   initialized at the DEFAULT_INIT_PRIORITY.  */
-#define DECL_INIT_PRIORITY(NODE) (VAR_DECL_CHECK (NODE)->decl.u2.i)
-
 /* In a TREE_LIST concatenating using directives, indicate indirect
    directives  */
 #define TREE_INDIRECT_USING(NODE) (TREE_LIST_CHECK (NODE)->common.lang_flag_0)
+
+extern tree decl_shadowed_for_var_lookup (tree);
+extern void decl_shadowed_for_var_insert (tree, tree);
 
 /* Non zero if this is a using decl for a dependent scope. */
 #define DECL_DEPENDENT_P(NODE) DECL_LANG_FLAG_0 (USING_DECL_CHECK (NODE))
@@ -2025,9 +2023,18 @@ struct lang_decl GTY(())
 /* The decls named by a using decl.  */
 #define USING_DECL_DECLS(NODE) DECL_INITIAL (USING_DECL_CHECK (NODE))
 
+/* In a VAR_DECL, true if we have a shadowed local variable
+   in the shadowed var table for this VAR_DECL.  */
+#define DECL_HAS_SHADOWED_FOR_VAR_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.shadowed_for_var_p)
+
 /* In a VAR_DECL for a variable declared in a for statement,
    this is the shadowed (local) variable.  */
-#define DECL_SHADOWED_FOR_VAR(NODE) DECL_RESULT_FLD(VAR_DECL_CHECK (NODE))
+#define DECL_SHADOWED_FOR_VAR(NODE) \
+  (DECL_HAS_SHADOWED_FOR_VAR_P(NODE) ? decl_shadowed_for_var_lookup (NODE) : NULL)
+
+#define SET_DECL_SHADOWED_FOR_VAR(NODE, VAL) \
+  (decl_shadowed_for_var_insert (NODE, VAL))
 
 /* In a FUNCTION_DECL, this is nonzero if this function was defined in
    the class definition.  We have saved away the text of the function,
@@ -2049,8 +2056,24 @@ struct lang_decl GTY(())
 #define DECL_DEFERRED_FN(DECL) \
   (DECL_LANG_SPECIFIC (DECL)->decl_flags.deferred)
 
-/* For a VAR_DECL, FUNCTION_DECL, TYPE_DECL or TEMPLATE_DECL:
-   template-specific information.  */
+/* If non-NULL for a VAR_DECL, FUNCTION_DECL, TYPE_DECL or
+   TEMPLATE_DECL, the entity is a template specialization.  In that
+   case, DECL_TEMPLATE_INFO is a TREE_LIST, whose TREE_PURPOSE is the
+   TEMPLATE_DECL of which this entity is a specialization.  The TREE_
+   TREE_VALUE is the template arguments used to specialize the
+   template.  
+
+   In general, DECL_TEMPLATE_INFO is non-NULL only if
+   DECL_USE_TEMPLATE is non-zero.  However, for friends, we sometimes
+   have DECL_TEMPLATE_INFO even when DECL_USE_TEMPLATE is zero.
+   Consider:
+
+      template <typename T> struct S { friend void f(T) {} };
+
+   In this case, S<int>::f is, from the point of view of the compiler,
+   an instantiation of a template -- but, from the point of view of
+   the language, each instantiation of S results in a wholly unrelated
+   global function f.  */ 
 #define DECL_TEMPLATE_INFO(NODE) \
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
@@ -2300,7 +2323,7 @@ struct lang_decl GTY(())
 /* Nonzero if NODE is a FUNCTION_DECL for a built-in function, and we have
    not yet seen a prototype for that function.  */
 #define DECL_ANTICIPATED(NODE) \
-  (DECL_LANG_SPECIFIC (DECL_CHECK (NODE))->decl_flags.anticipated_p)
+  (DECL_LANG_SPECIFIC (DECL_COMMON_CHECK (NODE))->decl_flags.anticipated_p)
 
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)
@@ -2622,7 +2645,7 @@ struct lang_decl GTY(())
    TEMPLATE_PARM_INDEX for the parameter is available as the
    DECL_INITIAL (for a PARM_DECL) or as the TREE_TYPE (for a
    TYPE_DECL).  */
-#define DECL_TEMPLATE_PARMS(NODE)       DECL_ARGUMENTS (NODE)
+#define DECL_TEMPLATE_PARMS(NODE)       DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments
 #define DECL_INNERMOST_TEMPLATE_PARMS(NODE) \
    INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (NODE))
 #define DECL_NTPARMS(NODE) \
@@ -4282,6 +4305,7 @@ extern tree build_modify_expr			(tree, enum tree_code, tree);
 extern tree convert_for_initialization		(tree, tree, tree, int,
 						 const char *, tree, int);
 extern int comp_ptr_ttypes			(tree, tree);
+extern bool comp_ptr_ttypes_const               (tree, tree);
 extern int ptr_reasonably_similar		(tree, tree);
 extern tree build_ptrmemfunc			(tree, tree, int, bool);
 extern int cp_type_quals			(tree);
@@ -4358,6 +4382,7 @@ extern size_t cp_tree_size			(enum tree_code);
 extern bool cp_var_mod_type_p			(tree, tree);
 extern void cxx_initialize_diagnostics		(struct diagnostic_context *);
 extern int cxx_types_compatible_p		(tree, tree);
+extern void init_shadowed_var_for_decl		(void);
 
 /* in cp-gimplify.c */
 extern int cp_gimplify_expr			(tree *, tree *, tree *);

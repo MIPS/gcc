@@ -2395,7 +2395,7 @@ gfc_match_entry (void)
   else
     {
       /* An entry in a function.  */
-      m = gfc_match_formal_arglist (entry, 0, 0);
+      m = gfc_match_formal_arglist (entry, 0, 1);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
@@ -3100,6 +3100,16 @@ do_parm (void)
       m = MATCH_ERROR;
       goto cleanup;
     }
+
+  if (sym->ts.type == BT_CHARACTER
+      && sym->ts.cl != NULL
+      && sym->ts.cl->length != NULL
+      && sym->ts.cl->length->expr_type == EXPR_CONSTANT
+      && init->expr_type == EXPR_CONSTANT
+      && init->ts.type == BT_CHARACTER
+      && init->ts.kind == 1)
+    gfc_set_constant_character_len (
+      mpz_get_si (sym->ts.cl->length->value.integer), init);
 
   sym->value = init;
   return MATCH_YES;

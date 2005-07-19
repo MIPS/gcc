@@ -2881,6 +2881,50 @@ mips_relational_operand_ok_p (enum rtx_code code, rtx cmp1)
     }
 }
 
+/* Canonicalize LE or LEU comparisons into LT comparisons when
+   possible to avoid extra instructions or inverting the
+   comparison.  */
+
+static bool
+mips_canonicalize_comparison (enum rtx_code *code, rtx *cmp1, 
+			      enum machine_mode mode)
+{
+  HOST_WIDE_INT original, plus_one;
+
+  if (GET_CODE (*cmp1) != CONST_INT)
+    return false;
+  
+  original = INTVAL (*cmp1);
+  plus_one = trunc_int_for_mode ((unsigned HOST_WIDE_INT) original + 1, mode);
+  
+  switch (*code)
+    {
+    case LE:
+      if (original < plus_one)
+	{
+	  *code = LT;
+	  *cmp1 = force_reg (mode, GEN_INT (plus_one));
+	  return true;
+	}
+      break;
+      
+    case LEU:
+      if (plus_one != 0)
+	{
+	  *code = LTU;
+	  *cmp1 = force_reg (mode, GEN_INT (plus_one));
+	  return true;
+	}
+      break;
+      
+    default:
+      return false;
+   }
+  
+  return false;
+
+}
+
 /* Compare CMP0 and CMP1 using relational operator CODE and store the
    result in TARGET.  CMP0 and TARGET are register_operands that have
    the same integer mode.  If INVERT_PTR is nonnull, it's OK to set
@@ -2891,10 +2935,13 @@ mips_emit_int_relational (enum rtx_code code, bool *invert_ptr,
 			  rtx target, rtx cmp0, rtx cmp1)
 {
   /* First see if there is a MIPS instruction that can do this operation
-     with CMP1 in its current form.  If not, try doing the same for the
+     with CMP1 in its current form. If not, try to canonicalize the
+     comparison to LT. If that fails, try doing the same for the
      inverse operation.  If that also fails, force CMP1 into a register
      and try again.  */
   if (mips_relational_operand_ok_p (code, cmp1))
+    mips_emit_binary (code, target, cmp0, cmp1);
+  else if (mips_canonicalize_comparison (&code, &cmp1, GET_MODE (target)))
     mips_emit_binary (code, target, cmp0, cmp1);
   else
     {
@@ -4186,11 +4233,11 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       COND_EXPR_ELSE (addr) = t;
 
       addr = fold_convert (build_pointer_type (type), addr);
-      addr = build_fold_indirect_ref (addr);
+      addr = build_va_arg_indirect_ref (addr);
     }
 
   if (indirect)
-    addr = build_fold_indirect_ref (addr);
+    addr = build_va_arg_indirect_ref (addr);
 
   return addr;
 }

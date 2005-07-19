@@ -125,7 +125,7 @@
    (UNSPEC_VOLATILE_SSYNC 2)])
 
 (define_attr "type"
-  "move,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,compare,dummy"
+  "move,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,sync,compare,dummy"
   (const_string "misc"))
 
 ;; Scheduling definitions
@@ -135,7 +135,7 @@
 (define_cpu_unit "core" "bfin")
 
 (define_insn_reservation "alu" 1
-  (eq_attr "type" "move,mvi,mcst,dsp32,alu0,shft,brcc,br,call,misc,compare")
+  (eq_attr "type" "move,mvi,mcst,dsp32,alu0,shft,brcc,br,call,misc,sync,compare")
   "core")
 
 (define_insn_reservation "imul" 3
@@ -1451,7 +1451,7 @@
 
 (define_expand "cmpsi"
  [(set (cc0) (compare (match_operand:SI 0 "register_operand" "")
-                      (match_operand:SI 1 "nonmemory_operand" "")))]
+                      (match_operand:SI 1 "reg_or_const_int_operand" "")))]
  ""
 {
   bfin_compare_op0 = operands[0];
@@ -1462,7 +1462,7 @@
 (define_insn "compare_eq"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (eq:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
   "cc =%1==%2;"
   [(set_attr "type" "compare")])
@@ -1470,7 +1470,7 @@
 (define_insn "compare_ne"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (ne:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   "0"
   "cc =%1!=%2;"
   [(set_attr "type" "compare")])
@@ -1478,7 +1478,7 @@
 (define_insn "compare_lt"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (lt:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
   "cc =%1<%2;"
   [(set_attr "type" "compare")])
@@ -1486,7 +1486,7 @@
 (define_insn "compare_le"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (le:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
   "cc =%1<=%2;"
   [(set_attr "type" "compare")])
@@ -1494,7 +1494,7 @@
 (define_insn "compare_leu"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (leu:BI (match_operand:SI 1 "register_operand" "d,a")
-                (match_operand:SI 2 "nonmemory_operand" "dKu3,aKu3")))]
+                (match_operand:SI 2 "reg_or_const_int_operand" "dKu3,aKu3")))]
   ""
   "cc =%1<=%2 (iu);"
   [(set_attr "type" "compare")])
@@ -1502,7 +1502,7 @@
 (define_insn "compare_ltu"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (ltu:BI (match_operand:SI 1 "register_operand" "d,a")
-                (match_operand:SI 2 "nonmemory_operand" "dKu3,aKu3")))]
+                (match_operand:SI 2 "reg_or_const_int_operand" "dKu3,aKu3")))]
   ""
   "cc =%1<%2 (iu);"
   [(set_attr "type" "compare")])
@@ -1931,13 +1931,13 @@
   [(unspec_volatile [(const_int 0)] UNSPEC_VOLATILE_CSYNC)]
   ""
   "csync;"
-  [(set_attr "type" "misc")])
+  [(set_attr "type" "sync")])
 
 (define_insn "ssync"
   [(unspec_volatile [(const_int 0)] UNSPEC_VOLATILE_SSYNC)]
   ""
   "ssync;"
-  [(set_attr "type" "misc")])
+  [(set_attr "type" "sync")])
 
 ;;; Vector instructions
 

@@ -1,3 +1,162 @@
+2005-07-17  Andreas Jaeger  <aj@suse.de>
+
+	* defineclass.cc (handleClassBegin): Remove unused variable.
+
+2005-07-16  Andreas Schwab  <schwab@suse.de>
+
+	* scripts/makemake.tcl (emit_package_rule): Emit command to create
+	target directory.
+	* Makefile.am (%.lo): Don't create it here.
+	* sources.am, Makefile.in: Regenerated.
+
+2005-07-15  Tom Tromey  <tromey@redhat.com>
+
+	Major merge with Classpath.
+	Removed many duplicate files.
+	* HACKING: Updated.x
+	* classpath: Imported new directory.
+	* standard.omit: New file.
+	* Makefile.in, aclocal.m4, configure: Rebuilt.
+	* sources.am: New file.
+	* configure.ac: Run Classpath configure script.  Moved code around
+	to support.  Disable xlib AWT peers (temporarily).
+	* Makefile.am (SUBDIRS): Added 'classpath'
+	(JAVAC): Removed.
+	(AM_CPPFLAGS): Added more -I options.
+	(BOOTCLASSPATH): Simplified.
+	Completely redid how sources are built.
+	Include sources.am.
+	* include/Makefile.am (tool_include__HEADERS): Removed jni.h.
+	* include/jni.h: Removed (in Classpath).
+	* scripts/classes.pl: Updated to look at built classes.
+	* scripts/makemake.tcl: New file.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Added
+	-I options.
+	(gcj_jni_invocation_compile_c_to_binary): Likewise.
+
+2005-07-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/xlib/XCanvasPeer.java (attributes): New field.
+	(eventMask): New field.
+	(XCanvasPeer(Component)): Use attributes field.
+	(setBackground): Implemented.
+	(setEventMask): Process mask only if changed.
+	* gnu/awt/xlib/XEventLoop.java (class): Iplement Runnable.
+	(eventLoopThread): New field.
+	(XEventLoop(Display,EventQueue)): Start eventLoopThread.
+	(interrupt): Removed.
+	(run): New method.
+	* gnu/awt/xlib/XEventQueue.java (getNextEvent): Process Container
+	and Component events.
+	* gnu/awt/xlib/XFramePeer.java (processingConfigureNotify): New
+	field.
+	(configureNotify): Set and clear processingConfigureNotify.
+	(setBounds): Process only if processingConfigureNotify is false.
+	(toBack): Implemented.
+	(toFront): Implemented.
+	* gnu/awt/xlib/XGraphics.java (setColor): Ignore null color.
+	* gnu/awt/xlib/XGraphicsConfiguration.java (getPixel): Ignore null
+	color.
+	* gnu/awt/xlib/XToolkit.java (nativeQueueEmpty): Always return true.
+	(wakeNativeQueue): Do nothing.
+	(iterateNativeQueue): Do queue.wait if blocking.
+	* gnu/gcj/xlib/Font.java (loadFont): New method.
+	(loadFontImpl): Renamed native method, was loadFont. 
+	* gnu/gcj/xlib/Window.java (toFront): New method.
+	(toBack): New method.
+	* gnu/gcj/xlib/natFont.cc (loadFontImpl): Renamed method, was 
+	loadFont.
+	* gnu/gcj/xlib/natWindow.cc (toBack): New method.
+	(toFront): New method. 
+	* gnu/gcj/xlib/natXAnyEvent.cc (loadNext): Removed timeout.
+
+2005-07-14  Andrew Haley  <aph@redhat.com>
+
+        * gnu/java/net/protocol/file/Connection.java (unquote): New
+        method.
+        (connect): Unquote filename.
+        gnu/java/net/protocol/jar/Connection.java (getInputStream):
+        Likewise.  
+        (getJarFile): Likewise.
+
+        * java/net/URLConnection.java (getContentHandler): Guard cast with
+        instaceof.
+
+        * java/net/URL.java (URL): If the file part of a spec is absolute,
+        ignore the file part of its context.
+
+2005-07-14  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/VirtualMachineCommandSet.java:
+	Implemented VirtualMachine Command Set.
+
+2005-07-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getProtectionDomain): Merged javadoc from
+	Classpath.
+
+2005-07-12  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/FieldCommandSet.java:
+	Implemented the Field CommandSet.
+	* gnu/classpath/jdwp/processor/InterfaceTypeCommandSet.java:
+	Implemented the InterfaceType CommandSet.
+
+2005-07-12  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/PacketProcessor.java (run): Send
+	shutdown to jdwp instead of connection.
+
+2005-07-12  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/ObjectReferenceCommandSet.java:
+	New file.
+
+2005-07-08  Colin Walters  <walters@verbum.org>
+
+	* verify.cc (class _Jv_BytecodeVerifier) <op_new>: Don't
+	check for abstract classes or interfaces here; JVM spec
+	says it should throw an exception, so we'll do so later.
+	* interpret.cc (run): Throw an InstantiationException for
+	abstract classes and interfaces.
+
+2005-07-08  Andrew Haley  <aph@redhat.com>
+
+	* posix-threads.cc (_Jv_ThreadSetPriority): Use SCHED_OTHER
+	(regular, non-realtime scheduling), not SCHED_RR (realtime,
+	round-robin).
+
+2005-07-07  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/util/Signature.java
+	(computeFieldSignature): New Method.
+
+2005-07-07  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/ReferenceTypeCommandSet.java:New
+	file.
+
+2005-07-07  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Remove 6.5.5.1-nested-4,
+	6.5.5.1-nested-7, 6.5.5.1-nested-16, 6.5.5.1-nested-17.
+
+2005-07-07  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.compile/PR21045.java: New test.
+	* testsuite/libjava.jacks/jacks.xfail: Remove 15.9.5.1-exception-1,
+	15.9.5.1-exception-3, 8.3.2-abrupt-6, 8.3.2-abrupt-7.
+
+2005-07-06  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/InputStreamReader.java (refill): Handle no-progress
+	case correctly.
+	* gnu/gcj/convert/IOConverter.java: Add 'utf8' alias.
+
+2005-07-06  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Removed 9.1.3-body-5.
+
 2005-07-05  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* testsuite/libjava.compile/PR19674.java: New test.

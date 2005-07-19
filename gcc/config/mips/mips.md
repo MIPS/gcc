@@ -1898,65 +1898,12 @@
 ;; exception on -2147483648 (sigh).
 
 (define_insn "abs<mode>2"
-  [(set (match_operand:GPR 0 "register_operand" "=d")
-	(abs:GPR (match_operand:GPR 1 "register_operand" "d")))]
-  "!TARGET_MIPS16"
-{
-  if (REGNO (operands[0]) == REGNO (operands[1]) && GENERATE_BRANCHLIKELY)
-    return "%(bltzl\t%1,1f\;<d>subu\t%0,%.,%0\n%~1:%)";
-  else
-    return "%(bgez\t%1,1f\;move\t%0,%1\;<d>subu\t%0,%.,%0\n%~1:%)";
-}
-  [(set_attr "type" "multi")
-   (set_attr "mode" "<MODE>")
-   (set_attr "length" "12")])
-
-(define_insn "abs<mode>2"
   [(set (match_operand:ANYF 0 "register_operand" "=f")
 	(abs:ANYF (match_operand:ANYF 1 "register_operand" "f")))]
   ""
   "abs.<fmt>\t%0,%1"
   [(set_attr "type" "fabs")
    (set_attr "mode" "<UNITMODE>")])
-
-;;
-;;  ....................
-;;
-;;	FIND FIRST BIT INSTRUCTION
-;;
-;;  ....................
-;;
-
-(define_insn "ffs<mode>2"
-  [(set (match_operand:GPR 0 "register_operand" "=&d")
-	(ffs:GPR (match_operand:GPR 1 "register_operand" "d")))
-   (clobber (match_scratch:GPR 2 "=&d"))
-   (clobber (match_scratch:GPR 3 "=&d"))]
-  "!TARGET_MIPS16"
-{
-  if (optimize && find_reg_note (insn, REG_DEAD, operands[1]))
-    return "%(\
-move\t%0,%.\;\
-beq\t%1,%.,2f\n\
-%~1:\tand\t%2,%1,0x0001\;\
-<d>addu\t%0,%0,1\;\
-beq\t%2,%.,1b\;\
-<d>srl\t%1,%1,1\n\
-%~2:%)";
-
-  return "%(\
-move\t%0,%.\;\
-move\t%3,%1\;\
-beq\t%3,%.,2f\n\
-%~1:\tand\t%2,%3,0x0001\;\
-<d>addu\t%0,%0,1\;\
-beq\t%2,%.,1b\;\
-<d>srl\t%3,%3,1\n\
-%~2:%)";
-}
-  [(set_attr "type" "multi")
-   (set_attr "mode" "<MODE>")
-   (set_attr "length" "28")])
 
 ;;
 ;;  ...................

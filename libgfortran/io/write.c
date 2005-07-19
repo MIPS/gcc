@@ -102,6 +102,40 @@ extract_int (const void *p, int len)
   return i;
 }
 
+static GFC_UINTEGER_LARGEST
+extract_uint (const void *p, int len)
+{
+  GFC_UINTEGER_LARGEST i = 0;
+
+  if (p == NULL)
+    return i;
+
+  switch (len)
+    {
+    case 1:
+      i = (GFC_UINTEGER_1) *((const GFC_INTEGER_1 *) p);
+      break;
+    case 2:
+      i = (GFC_UINTEGER_2) *((const GFC_INTEGER_2 *) p);
+      break;
+    case 4:
+      i = (GFC_UINTEGER_4) *((const GFC_INTEGER_4 *) p);
+      break;
+    case 8:
+      i = (GFC_UINTEGER_8) *((const GFC_INTEGER_8 *) p);
+      break;
+#ifdef HAVE_GFC_INTEGER_16
+    case 16:
+      i = (GFC_UINTEGER_16) *((const GFC_INTEGER_16 *) p);
+      break;
+#endif
+    default:
+      internal_error ("bad integer kind");
+    }
+
+  return i;
+}
+
 static GFC_REAL_LARGEST
 extract_real (const void *p, int len)
 {
@@ -615,7 +649,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
   else
     leadzero = 0;
 
-  /* Padd to full field width.  */
+  /* Pad to full field width.  */
 
 
   if ( ( nblanks > 0 ) && !no_leading_blank )
@@ -754,11 +788,11 @@ write_float (fnode *f, const char *source, int len)
 	      else
 		fin = '+';
 
-	      if (nb > 7)
+	      if (nb > 8)
 		memcpy(p + nb - 8, "Infinity", 8);
 	      else
 		memcpy(p + nb - 3, "Inf", 3);
-	      if (nb < 8 && nb > 3)
+	      if (nb < 9 && nb > 3)
 		p[nb - 4] = fin;
 	      else if (nb > 8)
 		p[nb - 9] = fin;
@@ -802,7 +836,7 @@ write_int (fnode *f, const char *source, int len,
   w = f->u.integer.w;
   m = f->u.integer.m;
 
-  n = extract_int (source, len);
+  n = extract_uint (source, len);
 
   /* Special case:  */
 
@@ -970,13 +1004,13 @@ otoa (GFC_UINTEGER_LARGEST n)
       return scratch;
     }
 
-  p = scratch + sizeof (SCRATCH_SIZE) - 1;
+  p = scratch + SCRATCH_SIZE - 1;
   *p-- = '\0';
 
   while (n != 0)
     {
       *p = '0' + (n & 7);
-      p -- ;
+      p--;
       n >>= 3;
     }
 
@@ -998,7 +1032,7 @@ btoa (GFC_UINTEGER_LARGEST n)
       return scratch;
     }
 
-  p = scratch + sizeof (SCRATCH_SIZE) - 1;
+  p = scratch + SCRATCH_SIZE - 1;
   *p-- = '\0';
 
   while (n != 0)
@@ -1076,15 +1110,16 @@ write_es (fnode *f, const char *p, int len)
 /* Take care of the X/TR descriptor.  */
 
 void
-write_x (fnode * f)
+write_x (int len, int nspaces)
 {
   char *p;
 
-  p = write_block (f->u.n);
+  p = write_block (len);
   if (p == NULL)
     return;
 
-  memset (p, ' ', f->u.n);
+  if (nspaces > 0)
+    memset (&p[len - nspaces], ' ', nspaces);
 }
 
 

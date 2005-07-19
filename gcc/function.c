@@ -1732,7 +1732,7 @@ aggregate_value_p (tree exp, tree fntype)
     return 1;
   /* Make sure we have suitable call-clobbered regs to return
      the value in; if not, we must return it in memory.  */
-  reg = hard_function_value (type, 0, 0);
+  reg = hard_function_value (type, 0, fntype, 0);
 
   /* If we have something other than a REG (e.g. a PARALLEL), then assume
      it is OK.  */
@@ -3055,13 +3055,8 @@ assign_parms (tree fndecl)
 	{
 	  rtx real_decl_rtl;
 
-#ifdef FUNCTION_OUTGOING_VALUE
-	  real_decl_rtl = FUNCTION_OUTGOING_VALUE (TREE_TYPE (decl_result),
-						   fndecl);
-#else
-	  real_decl_rtl = FUNCTION_VALUE (TREE_TYPE (decl_result),
-					  fndecl);
-#endif
+	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
+							fndecl, true);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that current_function_return_rtx
 	     holds the hard register containing the return value, not a
@@ -3256,7 +3251,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
 {
   tree sizetree;
   enum direction where_pad;
-  int boundary;
+  unsigned int boundary;
   int reg_parm_stack_space = 0;
   int part_size_in_regs;
 
@@ -3290,6 +3285,13 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
   locate->where_pad = where_pad;
   locate->boundary = boundary;
+
+  /* Remember if the outgoing parameter requires extra alignment on the
+     calling function side.  */
+  if (boundary > PREFERRED_STACK_BOUNDARY)
+    boundary = PREFERRED_STACK_BOUNDARY;
+  if (cfun->stack_alignment_needed < boundary)
+    cfun->stack_alignment_needed = boundary;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -4142,7 +4144,7 @@ expand_function_start (tree subr)
 	  /* In order to figure out what mode to use for the pseudo, we
 	     figure out what the mode of the eventual return register will
 	     actually be, and use that.  */
-	  rtx hard_reg = hard_function_value (return_type, subr, 1);
+	  rtx hard_reg = hard_function_value (return_type, subr, 0, 1);
 
 	  /* Structures that are returned in registers are not
 	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
@@ -4403,6 +4405,11 @@ expand_function_end (void)
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
 
+  /* Let except.c know where it should emit the call to unregister
+     the function context for sjlj exceptions.  */
+  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
+    sjlj_emit_function_exit_after (get_last_insn ());
+
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */
@@ -4487,13 +4494,8 @@ expand_function_end (void)
       else
 	value_address = XEXP (value_address, 0);
 
-#ifdef FUNCTION_OUTGOING_VALUE
-      outgoing = FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
-					  current_function_decl);
-#else
-      outgoing = FUNCTION_VALUE (build_pointer_type (type),
-				 current_function_decl);
-#endif 
+      outgoing = targetm.calls.function_value (build_pointer_type (type),
+					       current_function_decl, true);
 
       /* Mark this as a function return value so integrate will delete the
 	 assignment and USE below when inlining this function.  */
@@ -4529,11 +4531,6 @@ expand_function_end (void)
 
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
-
-  /* Let except.c know where it should emit the call to unregister
-     the function context for sjlj exceptions.  */
-  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
-    sjlj_emit_function_exit_after (get_last_insn ());
 
   /* If stack protection is enabled for this function, check the guard.  */
   if (cfun->stack_protect_guard)

@@ -209,9 +209,6 @@ remap_decl (tree decl, inline_data *id)
       TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
       if (TREE_CODE (t) == TYPE_DECL)
         DECL_ORIGINAL_TYPE (t) = remap_type (DECL_ORIGINAL_TYPE (t), id);
-      else if (TREE_CODE (t) == PARM_DECL)
-        DECL_ARG_TYPE_AS_WRITTEN (t)
-	  = remap_type (DECL_ARG_TYPE_AS_WRITTEN (t), id);
 
       /* Remap sizes as necessary.  */
       walk_tree (&DECL_SIZE (t), copy_body_r, id, NULL);
@@ -1969,7 +1966,9 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
      inlining.  */
   if (!cgraph_inline_p (cg_edge, &reason))
     {
-      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn))
+	  /* Avoid warnings during early inline pass. */
+	  && (!flag_unit_at_a_time || cgraph_global_info_ready))
 	{
 	  sorry ("inlining failed in call to %q+F: %s", fn, reason);
 	  sorry ("called from here");

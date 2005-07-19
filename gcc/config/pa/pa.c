@@ -602,8 +602,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 {
   rtx pic_ref = orig;
 
-  if (PA_SYMBOL_REF_TLS_P (orig))
-    abort();
+  gcc_assert (!PA_SYMBOL_REF_TLS_P (orig));
 
   /* Labels need special handling.  */
   if (pic_label_operand (orig, mode))
@@ -749,7 +748,7 @@ legitimize_tls_address (rtx addr)
 	break;
 
       default:
-	abort();
+	gcc_unreachable ();
     }
 
   return ret;
@@ -5835,10 +5834,10 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       t = fold_convert (ptr, t);
-      t = build_fold_indirect_ref (t);
+      t = build_va_arg_indirect_ref (t);
 
       if (indirect)
-	t = build_fold_indirect_ref (t);
+	t = build_va_arg_indirect_ref (t);
 
       return t;
     }
@@ -7832,7 +7831,8 @@ static bool
 pa_commutative_p (rtx x, int outer_code)
 {
   return (COMMUTATIVE_P (x)
-	  && ((outer_code != UNKNOWN && outer_code != MEM)
+	  && (TARGET_NO_SPACE_REGS
+	      || (outer_code != UNKNOWN && outer_code != MEM)
 	      || GET_CODE (x) != PLUS));
 }
 

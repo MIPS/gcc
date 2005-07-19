@@ -704,7 +704,8 @@ wrapup_global_declarations (tree *vec, int len)
 
       /* We're not deferring this any longer.  Assignment is
 	 conditional to avoid needlessly dirtying PCH pages.  */
-      if (DECL_DEFER_OUTPUT (decl) != 0)
+      if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
+	  && DECL_DEFER_OUTPUT (decl) != 0)
 	DECL_DEFER_OUTPUT (decl) = 0;
 
       if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
@@ -1529,9 +1530,15 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  /* The loop unrolling code assumes that cse will be run after loop.  */
+  /* The loop unrolling code assumes that cse will be run after loop.
+     Also enable -fweb and -frename-registers that help scheduling
+     the unrolled loop.  */
   if (flag_unroll_loops || flag_peel_loops)
-    flag_rerun_cse_after_loop = 1;
+    {
+      flag_rerun_cse_after_loop = 1;
+      flag_web = 1;
+      flag_rename_registers = 1;
+    }
 
   /* If explicitly asked to run new loop optimizer, switch off the old
      one.  */

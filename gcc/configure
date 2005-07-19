@@ -11212,8 +11212,10 @@ CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 
 
 
-for ac_func in getenv atol asprintf sbrk abort atof getcwd getwd strsignal \
-	strstr errno snprintf vsnprintf vasprintf malloc realloc calloc \
+
+for ac_func in getenv atol asprintf sbrk abort atof getcwd getwd \
+	strsignal strstr strverscmp \
+	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked
 do
   ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
@@ -12896,7 +12898,12 @@ fi
 
 exec 6>/dev/null
 if test "x$gcc_cv_as" = x; then
-	for ac_prog in as
+	# The AC_PATH_PROGS macro doesn't work properly when its 4th argument
+	# is empty.
+	if test "x$gcc_cv_tool_dirs" = x; then
+		gcc_cv_as=
+	else
+		for ac_prog in as
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -12940,6 +12947,7 @@ fi
   test -n "$gcc_cv_as" && break
 done
 
+	fi
 fi
 if test "x$gcc_cv_as" = x; then
 	# If the loop above did not find a tool, then use whatever
@@ -13068,7 +13076,12 @@ fi
 
 exec 6>/dev/null
 if test "x$gcc_cv_ld" = x; then
-	for ac_prog in ld
+	# The AC_PATH_PROGS macro doesn't work properly when its 4th argument
+	# is empty.
+	if test "x$gcc_cv_tool_dirs" = x; then
+		gcc_cv_ld=
+	else
+		for ac_prog in ld
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -13112,6 +13125,7 @@ fi
   test -n "$gcc_cv_ld" && break
 done
 
+	fi
 fi
 if test "x$gcc_cv_ld" = x; then
 	# If the loop above did not find a tool, then use whatever
@@ -13206,7 +13220,12 @@ fi
 
 exec 6>/dev/null
 if test "x$gcc_cv_nm" = x; then
-	for ac_prog in nm
+	# The AC_PATH_PROGS macro doesn't work properly when its 4th argument
+	# is empty.
+	if test "x$gcc_cv_tool_dirs" = x; then
+		gcc_cv_nm=
+	else
+		for ac_prog in nm
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -13250,6 +13269,7 @@ fi
   test -n "$gcc_cv_nm" && break
 done
 
+	fi
 fi
 if test "x$gcc_cv_nm" = x; then
 	# If the loop above did not find a tool, then use whatever

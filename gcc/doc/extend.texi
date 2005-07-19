@@ -1523,7 +1523,7 @@ attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
 @code{noreturn}, @code{returns_twice}, @code{noinline}, @code{always_inline},
-@code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
+@code{flatten}, @code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
 @code{unused}, @code{deprecated}, @code{weak}, @code{malloc},
@@ -1565,6 +1565,14 @@ Not all target machines support this attribute.
 Generally, functions are not inlined unless optimization is specified.
 For functions declared inline, this attribute inlines the function even
 if no optimization level was specified.
+
+@cindex @code{flatten} function attribute
+@item flatten
+Generally, inlining into a function is limited.  For a function marked with
+this attribute, every call inside this function will be inlined, if possible.
+Whether the function itself is considered for inlining depends on its size and
+the current inlining parameters.  The @code{flatten} attribute only works
+reliably in unit-at-a-time mode.
 
 @item cdecl
 @cindex functions that do pop the argument stack on the 386
@@ -5766,6 +5774,7 @@ instructions, but allow the compiler to schedule those calls.
 @menu
 * Alpha Built-in Functions::
 * ARM Built-in Functions::
+* Blackfin Built-in Functions::
 * FR-V Built-in Functions::
 * X86 Built-in Functions::
 * MIPS Paired-Single Support::
@@ -6000,6 +6009,20 @@ v4hi __builtin_arm_wunpckilh (v4hi, v4hi)
 v2si __builtin_arm_wunpckilw (v2si, v2si)
 long long __builtin_arm_wxor (long long, long long)
 long long __builtin_arm_wzero ()
+@end smallexample
+
+@node Blackfin Built-in Functions
+@subsection Blackfin Built-in Functions
+
+Currently, there are two Blackfin-specific built-in functions.  These are
+used for generating @code{CSYNC} and @code{SSYNC} machine insns without
+using inline assembly; by using these built-in functions the compiler can
+automatically add workarounds for hardware errata involving these
+instructions.  These functions are named as follows:
+
+@smallexample
+void __builtin_bfin_csync (void)
+void __builtin_bfin_ssync (void)
 @end smallexample
 
 @node FR-V Built-in Functions

@@ -1981,7 +1981,12 @@ remove_bb (basic_block bb)
 	}
       else
         {
-	  release_defs (stmt);
+	  /* Release SSA definitions if we are in SSA.  Note that we
+	     may be called when not in SSA.  For example,
+	     final_cleanup calls this function via
+	     cleanup_tree_cfg.  */
+	  if (in_ssa_p)
+	    release_defs (stmt);
 
 	  bsi_remove (&i);
 	}
@@ -2235,6 +2240,7 @@ dump_cfg_stats (FILE *file)
   basic_block bb;
   const char * const fmt_str   = "%-30s%-13s%12s\n";
   const char * const fmt_str_1 = "%-30s%13d%11lu%c\n";
+  const char * const fmt_str_2 = "%-30s%13ld%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
@@ -2257,7 +2263,7 @@ dump_cfg_stats (FILE *file)
     num_edges += EDGE_COUNT (bb->succs);
   size = num_edges * sizeof (struct edge_def);
   total += size;
-  fprintf (file, fmt_str_1, "Edges", num_edges, SCALE (size), LABEL (size));
+  fprintf (file, fmt_str_2, "Edges", num_edges, SCALE (size), LABEL (size));
 
   fprintf (file, "---------------------------------------------------------\n");
   fprintf (file, fmt_str_3, "Total memory used by CFG data", SCALE (total),
@@ -3078,12 +3084,9 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   if (TYPE_P (t))
     *walk_subtrees = 0;
   
-  /* Check operand N for being valid GIMPLE and give error MSG if not. 
-     We check for constants explicitly since they are not considered
-     gimple invariants if they overflowed.  */
+  /* Check operand N for being valid GIMPLE and give error MSG if not.  */
 #define CHECK_OP(N, MSG) \
-  do { if (!CONSTANT_CLASS_P (TREE_OPERAND (t, N))		\
-         && !is_gimple_val (TREE_OPERAND (t, N)))		\
+  do { if (!is_gimple_val (TREE_OPERAND (t, N)))		\
        { error (MSG); return TREE_OPERAND (t, N); }} while (0)
 
   switch (TREE_CODE (t))

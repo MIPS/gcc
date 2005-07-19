@@ -29,6 +29,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
+#include "ipa-reference.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -70,9 +71,6 @@ struct ptr_info_def GTY(())
   /* Nonzero if points-to analysis couldn't determine where this pointer
      is pointing to.  */
   unsigned int pt_anything : 1;
-
-  /* Nonzero if this pointer is the result of a call to malloc.  */
-  unsigned int pt_malloc : 1;
 
   /* Nonzero if the value of this pointer escapes the current function.  */
   unsigned int value_escapes_p : 1;
@@ -160,19 +158,22 @@ enum mem_tag_kind {
   /* This variable represents a structure field.  */
   STRUCT_FIELD
 };
+
 struct subvar;
 typedef struct subvar *subvar_t;
 
 /* This structure represents a fake sub-variable for a structure field.  */
-
 struct subvar GTY(())
 {
-  /* Fake variable name */
+  /* Fake variable.  */
   tree var;
+
   /* Offset inside structure.  */
-  HOST_WIDE_INT offset;
-  /* Size of field.  */
-  HOST_WIDE_INT size;
+  unsigned HOST_WIDE_INT offset;
+
+  /* Size of the field.  */
+  unsigned HOST_WIDE_INT size;
+
   /* Next subvar for this structure.  */
   subvar_t next;
 };
@@ -239,6 +240,11 @@ struct var_ann_d GTY(())
      current version of this variable (an SSA_NAME).  */
   tree current_def;
   
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  This field is only used
+     for FUNCTION_DECLs.  */
+  ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
+
   /* If this variable is a structure, this fields holds a list of
      symbols representing each of the fields of the structure.  */
   subvar_t subvars;
@@ -392,6 +398,7 @@ typedef struct
 extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
 
 extern tree referenced_var_lookup (unsigned int);
+extern tree referenced_var_lookup_if_exists (unsigned int);
 #define num_referenced_vars htab_elements (referenced_vars)
 #define referenced_var(i) referenced_var_lookup (i)
 
@@ -552,6 +559,8 @@ extern void debug_referenced_vars (void);
 extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
+extern void dump_subvars_for (FILE *, tree);
+extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree);
 extern void mark_new_vars_to_rename (tree);
@@ -578,11 +587,13 @@ extern void add_type_alias (tree, tree);
 extern void new_type_alias (tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
+static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
-extern tree okay_component_ref_for_subvars (tree, HOST_WIDE_INT *,
-					    HOST_WIDE_INT *);
+extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
+					    unsigned HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
-static inline bool overlap_subvar (HOST_WIDE_INT, HOST_WIDE_INT,
+static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
+				   unsigned HOST_WIDE_INT,
 				   subvar_t, bool *);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
@@ -626,6 +637,7 @@ tree widen_bitfield (tree, tree, tree);
 /* In tree-vrp.c  */
 bool expr_computes_nonzero (tree);
 tree vrp_evaluate_conditional (tree, bool);
+void simplify_stmt_using_ranges (tree);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -683,6 +695,7 @@ void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *, bool);
+void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
@@ -714,6 +727,7 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
+edge single_dom_exit (struct loop *);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
@@ -765,6 +779,10 @@ bool is_hidden_global_store (tree);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree, basic_block);
+void sra_insert_before (block_stmt_iterator *, tree);
+void sra_insert_after (block_stmt_iterator *, tree);
+void sra_init_cache (void);
+bool sra_type_can_be_decomposed_p (tree);
 
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);

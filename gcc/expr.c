@@ -202,9 +202,10 @@ enum insn_code movmem_optab[NUM_MACHINE_MODES];
 /* This array records the insn_code of insns to perform block sets.  */
 enum insn_code setmem_optab[NUM_MACHINE_MODES];
 
-/* These arrays record the insn_code of two different kinds of insns
+/* These arrays record the insn_code of three different kinds of insns
    to perform block compares.  */
 enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
+enum insn_code cmpstrn_optab[NUM_MACHINE_MODES];
 enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
 /* Synchronization primitives.  */
@@ -642,9 +643,6 @@ convert_move (rtx to, rtx from, int unsignedp)
       if ((code = can_extend_p (to_mode, from_mode, unsignedp))
 	  != CODE_FOR_nothing)
 	{
-	  if (flag_force_mem)
-	    from = force_not_mem (from);
-
 	  emit_unop_insn (code, to, from, equiv_code);
 	  return;
 	}
@@ -2611,7 +2609,8 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align)
 	  && ((pred = insn_data[(int) code].operand[3].predicate) == 0
 	      || (*pred) (opalign, VOIDmode)))
 	{
-	  rtx opsize,opchar;
+	  rtx opsize, opchar;
+	  enum machine_mode char_mode;
 	  rtx last = get_last_insn ();
 	  rtx pat;
 
@@ -2620,10 +2619,15 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align)
 	  if (pred != 0 && ! (*pred) (opsize, mode))
 	    opsize = copy_to_mode_reg (mode, opsize);
 	  
-	  opchar = convert_to_mode (mode, val, 1);
-	  pred = insn_data[(int) code].operand[2].predicate;
-	  if (pred != 0 && ! (*pred) (opchar, mode))
-	    opchar = copy_to_mode_reg (mode, opchar);
+	  opchar = val;
+	  char_mode = insn_data[(int) code].operand[2].mode;
+	  if (char_mode != VOIDmode)
+	    {
+	      opchar = convert_to_mode (char_mode, opchar, 1);
+	      pred = insn_data[(int) code].operand[2].predicate;
+	      if (pred != 0 && ! (*pred) (opchar, char_mode))
+		opchar = copy_to_mode_reg (char_mode, opchar);
+	    }
 
 	  pat = GEN_FCN ((int) code) (object, opsize, opchar, opalign);
 	  if (pat)
@@ -3198,8 +3202,14 @@ compress_float_constant (rtx x, rtx y)
   enum machine_mode orig_srcmode = GET_MODE (y);
   enum machine_mode srcmode;
   REAL_VALUE_TYPE r;
+  int oldcost, newcost;
 
   REAL_VALUE_FROM_CONST_DOUBLE (r, y);
+
+  if (LEGITIMATE_CONSTANT_P (y))
+    oldcost = rtx_cost (y, SET);
+  else
+    oldcost = rtx_cost (force_const_mem (dstmode, y), SET);
 
   for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
        srcmode != orig_srcmode;
@@ -3225,12 +3235,23 @@ compress_float_constant (rtx x, rtx y)
 	     the extension.  */
 	  if (! (*insn_data[ic].operand[1].predicate) (trunc_y, srcmode))
 	    continue;
+	  /* This is valid, but may not be cheaper than the original. */
+	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET);
+	  if (oldcost < newcost)
+	    continue;
 	}
       else if (float_extend_from_mem[dstmode][srcmode])
-	trunc_y = validize_mem (force_const_mem (srcmode, trunc_y));
+	{
+	  trunc_y = force_const_mem (srcmode, trunc_y);
+	  /* This is valid, but may not be cheaper than the original. */
+	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET);
+	  if (oldcost < newcost)
+	    continue;
+	  trunc_y = validize_mem (trunc_y);
+	}
       else
 	continue;
-
+ 
       emit_unop_insn (ic, x, trunc_y, UNKNOWN);
       last_insn = get_last_insn ();
 

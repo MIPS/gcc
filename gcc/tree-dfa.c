@@ -254,6 +254,37 @@ debug_referenced_vars (void)
 }
 
 
+/* Dump sub-variables for VAR to FILE.  */
+
+void
+dump_subvars_for (FILE *file, tree var)
+{
+  subvar_t sv = get_subvars_for_var (var);
+
+  if (!sv)
+    return;
+
+  fprintf (file, "{ ");
+
+  for (; sv; sv = sv->next)
+    {
+      print_generic_expr (file, sv->var, dump_flags);
+      fprintf (file, " ");
+    }
+
+  fprintf (file, "}");
+}
+
+
+/* Dumb sub-variables for VAR to stderr.  */
+
+void
+debug_subvars_for (tree var)
+{
+  dump_subvars_for (stderr, var);
+}
+
+
 /* Dump variable VAR and its may-aliases to FILE.  */
 
 void
@@ -304,16 +335,22 @@ dump_variable (FILE *file, tree var)
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
 
-  if (ann->default_def)
+  if (default_def (var))
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, dump_flags);
+      print_generic_expr (file, default_def (var), dump_flags);
     }
 
   if (ann->may_aliases)
     {
       fprintf (file, ", may aliases: ");
       dump_may_aliases_for (file, var);
+    }
+
+  if (get_subvars_for_var (var))
+    {
+      fprintf (file, ", sub-vars: ");
+      dump_subvars_for (file, var);
     }
 
   fprintf (file, "\n");
@@ -529,6 +566,20 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
 
 /* Lookup UID in the referenced_vars hashtable and return the associated
+   variable or NULL if it is not there.  */
+
+tree 
+referenced_var_lookup_if_exists (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = htab_find_with_hash (referenced_vars, &in, uid);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */
 
 tree 
@@ -741,8 +792,8 @@ find_new_referenced_vars (tree *stmt_p)
    size, in bits, of REF inside the return value.  */
 
 tree
-okay_component_ref_for_subvars (tree ref, HOST_WIDE_INT *poffset,
-				HOST_WIDE_INT *psize)
+okay_component_ref_for_subvars (tree ref, unsigned HOST_WIDE_INT *poffset,
+				unsigned HOST_WIDE_INT *psize)
 {
   tree result = NULL;
   HOST_WIDE_INT bitsize;

@@ -80,7 +80,7 @@ eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
       int i;
 
       ret->data = internal_malloc_size (size * size0 ((array_t *)array));
-      ret->base = 0;
+      ret->offset = 0;
       ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
@@ -131,10 +131,19 @@ eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
   sstride0 = sstride[0];
   rptr = ret->data;
   sptr = array->data;
-  if (shift > 0)
-    len = len - shift;
+
+  if ((shift >= 0 ? shift : -shift) > len)
+    {
+      shift = len;
+      len = 0;
+    }
   else
-    len = len + shift;
+    {
+      if (shift > 0)
+	len = len - shift;
+      else
+	len = len + shift;
+    }
 
   while (rptr)
     {

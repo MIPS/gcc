@@ -552,6 +552,10 @@ expand_one_stack_var (tree var)
 static void
 expand_one_static_var (tree var)
 {
+  /* In unit-at-a-time all the static variables are expanded at the end
+     of compilation process.  */
+  if (flag_unit_at_a_time)
+    return;
   /* If this is an inlined copy of a static local variable,
      look up the original.  */
   var = DECL_ORIGIN (var);
@@ -770,15 +774,14 @@ stack_protect_classify_type (tree type)
 	  || t == signed_char_type_node
 	  || t == unsigned_char_type_node)
 	{
-	  HOST_WIDE_INT max = PARAM_VALUE (PARAM_SSP_BUFFER_SIZE);
-	  HOST_WIDE_INT len;
+	  unsigned HOST_WIDE_INT max = PARAM_VALUE (PARAM_SSP_BUFFER_SIZE);
+	  unsigned HOST_WIDE_INT len;
 
-	  if (!TYPE_DOMAIN (type)
-	      || !TYPE_MAX_VALUE (TYPE_DOMAIN (type))
-	      || !host_integerp (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 1))
-	    len = max + 1;
+	  if (!TYPE_SIZE_UNIT (type)
+	      || !host_integerp (TYPE_SIZE_UNIT (type), 1))
+	    len = max;
 	  else
-	    len = tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 1);
+	    len = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
 
 	  if (len < max)
 	    ret = SPCT_HAS_SMALL_CHAR_ARRAY | SPCT_HAS_ARRAY;
@@ -1575,11 +1578,6 @@ tree_expand_cfg (void)
     (*debug_hooks->outlining_inline_function) (current_function_decl);
 
   TREE_ASM_WRITTEN (current_function_decl) = 1;
-
-#ifdef FINALIZE_PIC
-  if (flag_pic)
-    FINALIZE_PIC;
-#endif
 }
 
 struct tree_opt_pass pass_expand =
