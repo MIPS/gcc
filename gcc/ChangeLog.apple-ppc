@@ -1,3 +1,10 @@
+2005-07-19  Devang Patel  <dpatel@apple.com>
+
+	Radar 4183032
+	* tree-vectorizer.c (vect_loop_location): New.
+	(vect_print_dump_info): Use vect_loop_location.
+	(vectorize_loops): Set vect_loop_location.
+
 2005-07-15  Devang Patel  <dpatel@apple.com>
 
 	Radar 4182529
