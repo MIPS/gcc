@@ -1,3 +1,10 @@
+2005-07-20  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4136935
+	* objc-act.c (pointee_is_readonly): New function.
+	(encode_pointer, encode_aggregate_within, encode_type):
+	Attempt to emulate GCC 3.3 when generating type encodings.
+
 2005-07-18  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4175534

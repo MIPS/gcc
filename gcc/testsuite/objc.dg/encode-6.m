@@ -20,4 +20,5 @@ struct Cxx {
 }
 @end 
 
-/* { dg-final { scan-assembler "@\[0-9\]+@0:\[0-9\]+r\\^{Cxx=\\^r{Cxx}}\[0-9\]+\\^r{Cxx}" } } */
+/* APPLE LOCAL 4136935 */
+/* { dg-final { scan-assembler "@\[0-9\]+@0:\[0-9\]+\\^{Cxx=\\^{Cxx}}\[0-9\]+r\\^{Cxx=\\^{Cxx}}" } } */

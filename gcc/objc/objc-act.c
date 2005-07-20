@@ -287,6 +287,8 @@ static tree lookup_and_install_protocols (tree);
 /* Type encoding.  */
 
 static void encode_type_qualifiers (tree);
+/* APPLE LOCAL 4136935 */
+static bool pointee_is_readonly (tree);
 static void encode_pointer (tree, int, int);
 static void encode_array (tree, int, int);
 static void encode_aggregate (tree, int, int);
@@ -8110,6 +8112,19 @@ encode_type_qualifiers (tree declspecs)
     }
 }
 
+/* APPLE LOCAL begin 4136935 */
+/* Determine if a pointee is marked read-only.  */
+
+static bool
+pointee_is_readonly (tree pointee)
+{
+  while (POINTER_TYPE_P (pointee))
+    pointee = TREE_TYPE (pointee);
+
+  return TYPE_READONLY (pointee);
+}
+
+/* APPLE LOCAL end 4136935 */
 /* Encode a pointer type.  */
 
 static void
@@ -8117,6 +8132,19 @@ encode_pointer (tree type, int curtype, int format)
 {
   tree pointer_to = TREE_TYPE (type);
 
+  /* APPLE LOCAL begin 4136935 */
+  /* For historical/compatibility reasons, the read-only qualifier of the
+     pointee gets emitted _before_ the '^'.  The read-only qualifier of
+     the pointer itself gets ignored, _unless_ we are looking at a typedef!  
+     Also, do not emit the 'r' for anything but the outermost type!  */
+  if (!generating_instance_variables
+      && (obstack_object_size (&util_obstack) - curtype <= 1)
+      && (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+	  ? TYPE_READONLY (type)
+	  : pointee_is_readonly (pointer_to)))
+    obstack_1grow (&util_obstack, 'r');
+
+  /* APPLE LOCAL end 4136935 */
   if (TREE_CODE (pointer_to) == RECORD_TYPE)
     {
       if (OBJC_TYPE_NAME (pointer_to)
@@ -8167,10 +8195,8 @@ encode_pointer (tree type, int curtype, int format)
 
       if (!flag_next_runtime || strcmp (IDENTIFIER_POINTER (pname), "BOOL"))
 	{
-	  /* It appears that "r*" means "const char *" rather than
-	     "char *const".  */
-	  if (TYPE_READONLY (pointer_to))
-	    obstack_1grow (&util_obstack, 'r');
+	  /* APPLE LOCAL 4136935 */
+	  /* The "r" is now generated above.  */
 
 	  obstack_1grow (&util_obstack, '*');
 	  return;
@@ -8258,15 +8284,18 @@ encode_aggregate_within (tree type, int curtype, int format, int left,
   tree name;
   /* NB: aggregates that are pointed to have slightly different encoding
      rules in that you never encode the names of instance variables.  */
-  /* APPLE LOCAL begin mainline */
+  /* APPLE LOCAL begin 4136935 */
   int ob_size = obstack_object_size (&util_obstack);
-  char c1 = ob_size > 1 ? *(obstack_next_free (&util_obstack) - 2) : 0;
-  char c0 = ob_size > 0 ? *(obstack_next_free (&util_obstack) - 1) : 0;
-  int pointed_to = (c0 == '^' || (c1 == '^' && c0 == 'r'));
+  int pointed_to = (ob_size > 0
+		    ? *(obstack_next_free (&util_obstack) - 1) == '^'
+		    : 0);
   int inline_contents
-   = ((format == OBJC_ENCODE_INLINE_DEFS || generating_instance_variables)
-      && (!pointed_to || ob_size - curtype == (c1 == 'r' ? 2 : 1)));
-  /* APPLE LOCAL end mainline */
+    = ((format == OBJC_ENCODE_INLINE_DEFS || generating_instance_variables)
+       && (!pointed_to
+	   || ob_size - curtype == 1
+	   || (ob_size - curtype == 2
+	       && *(obstack_next_free (&util_obstack) - 2) == 'r')));
+  /* APPLE LOCAL end 4136935 */
 
   /* Traverse struct aliases; it is important to get the
      original struct and its tag name (if any).  */
@@ -8347,19 +8376,32 @@ encode_type (tree type, int curtype, int format)
 {
   enum tree_code code = TREE_CODE (type);
   char c;
+  /* APPLE LOCAL begin 4136935 */
+  tree int_type;
 
-  if (TYPE_READONLY (type))
-    obstack_1grow (&util_obstack, 'r');
-
+  /* Ignore type qualifiers when encoding a type; see encode_pointer()
+     for an exception to this rule.  */
+  /* APPLE LOCAL end 4136935 */
   if (code == INTEGER_TYPE)
     {
       switch (GET_MODE_BITSIZE (TYPE_MODE (type)))
 	{
 	case 8:  c = TYPE_UNSIGNED (type) ? 'C' : 'c'; break;
 	case 16: c = TYPE_UNSIGNED (type) ? 'S' : 's'; break;
-	case 32: 
-	  if (type == long_unsigned_type_node
-	      || type == long_integer_type_node)
+	case 32:
+	  /* APPLE LOCAL begin 4136935 */
+	  /* Another legacy kludge: 32-bit longs are encoded as 'l' or 'L',
+	     but not always.  For typedefs, we need to use 'i' or 'I' instead
+	     if encoding a struct field, or a pointer!  */
+	  int_type =  ((!generating_instance_variables
+			&& (obstack_object_size (&util_obstack)
+			    == (unsigned) curtype))
+		       ? TYPE_MAIN_VARIANT (type)
+		       : type);
+
+	  if (int_type == long_unsigned_type_node
+	      || int_type == long_integer_type_node)
+	  /* APPLE LOCAL end 4136935 */
 	         c = TYPE_UNSIGNED (type) ? 'L' : 'l';
 	  else
 	         c = TYPE_UNSIGNED (type) ? 'I' : 'i';
@@ -8401,6 +8443,25 @@ encode_type (tree type, int curtype, int format)
 
   else if (code == FUNCTION_TYPE) /* '?' */
     obstack_1grow (&util_obstack, '?');
+  /* APPLE LOCAL begin 4136935 */
+  
+  /* Super-kludge.  Some ObjC qualifier and type combinations need to be
+     rearranged for compatibility with gcc-3.3.  */
+  if (code == POINTER_TYPE && obstack_object_size (&util_obstack) >= 3)
+    {
+      char *enc = obstack_base (&util_obstack) + curtype;
+
+      /* Rewrite "in const" from "nr" to "rn".  */
+      if (curtype >= 1 && !strncmp (enc - 1, "nr", 2))
+        strncpy (enc - 1, "rn", 2);
+      /* Rewrite "bycopy in" from "On" to "nO".  */
+      else if (curtype >= 2 && !strncmp (enc - 2, "On", 2))
+	strncpy (enc - 2, "nO", 2);
+      /* Rewrite "bycopy out" from "Oo" to "oO".  */
+      else if (curtype >= 2 && !strncmp (enc - 2, "Oo", 2))
+	strncpy (enc - 2, "oO", 2);
+    }
+  /* APPLE LOCAL end 4136935 */
 }
 
 static void
