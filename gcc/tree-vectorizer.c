@@ -1143,6 +1143,7 @@ vect_set_dump_settings (void)
    For vectorization debug dumps.  */
 
 bool
+/* APPLE LOCAL AV dump */
 vect_print_dump_info (enum verbosity_levels vl, LOC loc ATTRIBUTE_UNUSED)
 {
   if (vl > vect_verbosity_level)
