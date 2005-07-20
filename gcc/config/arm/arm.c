@@ -6658,13 +6658,15 @@ arm_must_pass_in_stack (enum machine_mode mode, tree type)
 
 /* For use by FUNCTION_ARG_PADDING (MODE, TYPE).
    Return true if an argument passed on the stack should be padded upwards,
-   i.e. if the least-significant byte has useful data.  */
+   i.e. if the least-significant byte has useful data.
+   For legacy APCS ABIs we use the default.  For AAPCS based ABIs small
+   aggregate types are placed in the lowest memory address.  */
 
 bool
 arm_pad_arg_upward (enum machine_mode mode, tree type)
 {
   if (!TARGET_AAPCS_BASED)
-    return DEFAULT_FUNCTION_ARG_PADDING(mode, type);
+    return DEFAULT_FUNCTION_ARG_PADDING(mode, type) == upward;
 
   if (type && BYTES_BIG_ENDIAN && INTEGRAL_TYPE_P (type))
     return false;
@@ -13489,7 +13491,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       if (l_mask)
 	{
 	  thumb_pushpop (f, l_mask, 1, &cfa_offset, l_mask);
-	  offset = bit_count (l_mask);
+	  offset = bit_count (l_mask) * UNITS_PER_WORD;
 	}
       else
 	offset = 0;
@@ -14750,7 +14752,7 @@ arm_unwind_emit_stm (FILE * asm_out_file, rtx p)
   else if (reg >= FIRST_FPA_REGNUM && reg <= LAST_FPA_REGNUM)
     {
       /* FPA registers are done differently.  */
-      asm_fprintf (asm_out_file, "\t.save %r, %d\n", reg, nregs);
+      asm_fprintf (asm_out_file, "\t.save %r, %wd\n", reg, nregs);
       return;
     }
   else
@@ -14848,7 +14850,7 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
 	      || GET_CODE (XEXP (e1, 1)) != CONST_INT)
 	    abort ();
 
-	  asm_fprintf (asm_out_file, "\t.pad #%d\n",
+	  asm_fprintf (asm_out_file, "\t.pad #%wd\n",
 		       -INTVAL (XEXP (e1, 1)));
 	}
       else if (REGNO (e0) == HARD_FRAME_POINTER_REGNUM)
@@ -14863,7 +14865,7 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
 		abort ();
 	      reg = REGNO (XEXP (e1, 0));
 	      offset = INTVAL (XEXP (e1, 1));
-	      asm_fprintf (asm_out_file, "\t.setfp %r, %r, #%d\n",
+	      asm_fprintf (asm_out_file, "\t.setfp %r, %r, #%wd\n",
 			   HARD_FRAME_POINTER_REGNUM, reg,
 			   INTVAL (XEXP (e1, 1)));
 	    }

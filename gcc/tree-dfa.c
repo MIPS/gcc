@@ -83,7 +83,7 @@ static void add_referenced_var (tree, struct walk_state *);
 /* Global declarations.  */
 
 /* Array of all variables referenced in the function.  */
-VEC(tree,gc) *referenced_vars;
+htab_t referenced_vars;
 
 
 /*---------------------------------------------------------------------------
@@ -230,14 +230,14 @@ make_rename_temp (tree type, const char *prefix)
 void
 dump_referenced_vars (FILE *file)
 {
-  size_t i;
-
+  tree var;
+  referenced_var_iterator rvi;
+  
   fprintf (file, "\nReferenced variables in %s: %u\n\n",
 	   get_name (current_function_decl), (unsigned) num_referenced_vars);
-
-  for (i = 0; i < num_referenced_vars; i++)
+  
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = referenced_var (i);
       fprintf (file, "Variable: ");
       dump_variable (file, var);
       fprintf (file, "\n");
@@ -251,6 +251,37 @@ void
 debug_referenced_vars (void)
 {
   dump_referenced_vars (stderr);
+}
+
+
+/* Dump sub-variables for VAR to FILE.  */
+
+void
+dump_subvars_for (FILE *file, tree var)
+{
+  subvar_t sv = get_subvars_for_var (var);
+
+  if (!sv)
+    return;
+
+  fprintf (file, "{ ");
+
+  for (; sv; sv = sv->next)
+    {
+      print_generic_expr (file, sv->var, dump_flags);
+      fprintf (file, " ");
+    }
+
+  fprintf (file, "}");
+}
+
+
+/* Dumb sub-variables for VAR to stderr.  */
+
+void
+debug_subvars_for (tree var)
+{
+  dump_subvars_for (stderr, var);
 }
 
 
@@ -278,7 +309,7 @@ dump_variable (FILE *file, tree var)
 
   ann = var_ann (var);
 
-  fprintf (file, ", UID %u", (unsigned) ann->uid);
+  fprintf (file, ", UID %u", (unsigned) DECL_UID (var));
 
   fprintf (file, ", ");
   print_generic_expr (file, TREE_TYPE (var), dump_flags);
@@ -304,16 +335,22 @@ dump_variable (FILE *file, tree var)
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
 
-  if (ann->default_def)
+  if (default_def (var))
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, dump_flags);
+      print_generic_expr (file, default_def (var), dump_flags);
     }
 
   if (ann->may_aliases)
     {
       fprintf (file, ", may aliases: ");
       dump_may_aliases_for (file, var);
+    }
+
+  if (get_subvars_for_var (var))
+    {
+      fprintf (file, ", sub-vars: ");
+      dump_subvars_for (file, var);
     }
 
   fprintf (file, "\n");
@@ -528,6 +565,50 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 }
 
 
+/* Lookup UID in the referenced_vars hashtable and return the associated
+   variable or NULL if it is not there.  */
+
+tree 
+referenced_var_lookup_if_exists (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = htab_find_with_hash (referenced_vars, &in, uid);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Lookup UID in the referenced_vars hashtable and return the associated
+   variable.  */
+
+tree 
+referenced_var_lookup (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = htab_find_with_hash (referenced_vars, &in, uid);
+  gcc_assert (h || uid == 0);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Insert the pair UID, TO into the referenced_vars hashtable.  */
+
+static void
+referenced_var_insert (unsigned int uid, tree to)
+{ 
+  struct int_tree_map *h;
+  void **loc;
+
+  h = ggc_alloc (sizeof (struct int_tree_map));
+  h->uid = uid;
+  h->to = to;
+  loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
+  *(struct int_tree_map **)  loc = h;
+}
+
 /* Add VAR to the list of dereferenced variables.
 
    WALK_STATE contains a hash table used to avoid adding the same
@@ -555,8 +636,8 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	 intrinsic to the variable.  */
       if (slot)
 	*slot = (void *) var;
-      v_ann->uid = num_referenced_vars;
-      VEC_safe_push (tree, gc, referenced_vars, var);
+      
+      referenced_var_insert (DECL_UID (var), var);
 
       /* Global variables are always call-clobbered.  */
       if (is_global_var (var))
@@ -646,7 +727,7 @@ mark_new_vars_to_rename (tree stmt)
     {
       if (!DECL_P (val))
 	val = SSA_NAME_VAR (val);
-      bitmap_set_bit (vars_in_vops_to_rename, var_ann (val)->uid);
+      bitmap_set_bit (vars_in_vops_to_rename, DECL_UID (val));
     }
 
   /* Now force an operand re-scan on the statement and mark any newly
@@ -711,8 +792,8 @@ find_new_referenced_vars (tree *stmt_p)
    size, in bits, of REF inside the return value.  */
 
 tree
-okay_component_ref_for_subvars (tree ref, HOST_WIDE_INT *poffset,
-				HOST_WIDE_INT *psize)
+okay_component_ref_for_subvars (tree ref, unsigned HOST_WIDE_INT *poffset,
+				unsigned HOST_WIDE_INT *psize)
 {
   tree result = NULL;
   HOST_WIDE_INT bitsize;

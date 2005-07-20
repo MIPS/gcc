@@ -1018,11 +1018,15 @@ static bool
 fold_predicate_in (tree stmt)
 {
   tree *pred_p = NULL;
+  bool modify_expr_p = false;
   tree val;
 
   if (TREE_CODE (stmt) == MODIFY_EXPR
       && COMPARISON_CLASS_P (TREE_OPERAND (stmt, 1)))
-    pred_p = &TREE_OPERAND (stmt, 1);
+    {
+      modify_expr_p = true;
+      pred_p = &TREE_OPERAND (stmt, 1);
+    }
   else if (TREE_CODE (stmt) == COND_EXPR)
     pred_p = &COND_EXPR_COND (stmt);
   else
@@ -1031,6 +1035,9 @@ fold_predicate_in (tree stmt)
   val = vrp_evaluate_conditional (*pred_p, true);
   if (val)
     {
+      if (modify_expr_p)
+        val = fold_convert (TREE_TYPE (*pred_p), val);
+      
       if (dump_file)
 	{
 	  fprintf (dump_file, "Folding predicate ");
@@ -1108,7 +1115,14 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  /* If we have range information, see if we can fold
 	     predicate expressions.  */
 	  if (use_ranges_p)
-	    did_replace = fold_predicate_in (stmt);
+	    {
+	      did_replace = fold_predicate_in (stmt);
+
+	      /* Some statements may be simplified using ranges.  For
+		 example, division may be replaced by shifts, modulo
+		 replaced with bitwise and, etc.  */
+	      simplify_stmt_using_ranges (stmt);
+	    }
 
 	  if (prop_value)
 	    {

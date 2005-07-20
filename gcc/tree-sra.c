@@ -151,7 +151,7 @@ static tree generate_element_ref (struct sra_elt *);
 static bool
 is_sra_candidate_decl (tree decl)
 {
-  return DECL_P (decl) && bitmap_bit_p (sra_candidates, var_ann (decl)->uid);
+  return DECL_P (decl) && bitmap_bit_p (sra_candidates, DECL_UID (decl));
 }
 
 /* Return true if TYPE is a scalar type.  */
@@ -172,8 +172,8 @@ is_sra_scalar_type (tree type)
    instantiated, just that if we decide to break up the type into
    separate pieces that it can be done.  */
 
-static bool
-type_can_be_decomposed_p (tree type)
+bool
+sra_type_can_be_decomposed_p (tree type)
 {
   unsigned int cache = TYPE_UID (TYPE_MAIN_VARIANT (type)) * 2;
   tree t;
@@ -275,7 +275,7 @@ decl_can_be_decomposed_p (tree var)
     }
 
   /* We must be able to decompose the variable's type.  */
-  if (!type_can_be_decomposed_p (TREE_TYPE (var)))
+  if (!sra_type_can_be_decomposed_p (TREE_TYPE (var)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -296,7 +296,7 @@ type_can_instantiate_all_elements (tree type)
 {
   if (is_sra_scalar_type (type))
     return true;
-  if (!type_can_be_decomposed_p (type))
+  if (!sra_type_can_be_decomposed_p (type))
     return false;
 
   switch (TREE_CODE (type))
@@ -493,7 +493,7 @@ lookup_element (struct sra_elt *parent, tree child, tree type,
       if (TREE_CODE (child) == PARM_DECL)
 	{
 	  elt->n_copies = 1;
-	  bitmap_set_bit (needs_copy_in, var_ann (child)->uid);
+	  bitmap_set_bit (needs_copy_in, DECL_UID (child));
 	}
     }
 
@@ -940,15 +940,15 @@ sra_walk_function (const struct sra_walk_fns *fns)
 static bool
 find_candidates_for_sra (void)
 {
-  size_t i;
   bool any_set = false;
+  tree var;
+  referenced_var_iterator rvi;
 
-  for (i = 0; i < num_referenced_vars; i++)
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = referenced_var (i);
       if (decl_can_be_decomposed_p (var))
         {
-          bitmap_set_bit (sra_candidates, var_ann (var)->uid);
+          bitmap_set_bit (sra_candidates, DECL_UID (var));
           any_set = true;
         }
     }
@@ -1729,16 +1729,9 @@ generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
   if (ret && *list_p)
     {
       tree_stmt_iterator i;
-      size_t old, new, j;
-
-      old = num_referenced_vars;
 
       for (i = tsi_start (*list_p); !tsi_end_p (i); tsi_next (&i))
 	find_new_referenced_vars (tsi_stmt_ptr (i));
-
-      new = num_referenced_vars;
-      for (j = old; j < new; ++j)
-	mark_sym_for_renaming (referenced_var (j));
     }
 
   return ret;
@@ -1776,7 +1769,7 @@ insert_edge_copies (tree stmt, basic_block bb)
 
 /* Helper function to insert LIST before BSI, and set up line number info.  */
 
-static void
+void
 sra_insert_before (block_stmt_iterator *bsi, tree list)
 {
   tree stmt = bsi_stmt (*bsi);
@@ -1788,7 +1781,7 @@ sra_insert_before (block_stmt_iterator *bsi, tree list)
 
 /* Similarly, but insert after BSI.  Handles insertion onto edges as well.  */
 
-static void
+void
 sra_insert_after (block_stmt_iterator *bsi, tree list)
 {
   tree stmt = bsi_stmt (*bsi);
@@ -2145,6 +2138,16 @@ debug_sra_elt_name (struct sra_elt *elt)
   fputc ('\n', stderr);
 }
 
+void 
+sra_init_cache (void)
+{
+  if (sra_type_decomp_cache) 
+    return;
+
+  sra_type_decomp_cache = BITMAP_ALLOC (NULL);
+  sra_type_inst_cache = BITMAP_ALLOC (NULL);
+}
+
 /* Main entry point.  */
 
 static void
@@ -2154,8 +2157,7 @@ tree_sra (void)
   gcc_obstack_init (&sra_obstack);
   sra_candidates = BITMAP_ALLOC (NULL);
   needs_copy_in = BITMAP_ALLOC (NULL);
-  sra_type_decomp_cache = BITMAP_ALLOC (NULL);
-  sra_type_inst_cache = BITMAP_ALLOC (NULL);
+  sra_init_cache ();
   sra_map = htab_create (101, sra_elt_hash, sra_elt_eq, NULL);
 
   /* Scan.  If we find anything, instantiate and scalarize.  */

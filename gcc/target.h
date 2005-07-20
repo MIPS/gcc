@@ -396,6 +396,9 @@ struct gcc_target
   /* True if the insn X cannot be duplicated.  */
   bool (* cannot_copy_insn_p) (rtx);
 
+  /* True if X is considered to be commutative.  */
+  bool (* commutative_p) (rtx, int);
+
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) (rtx);
 
@@ -603,6 +606,11 @@ struct gcc_target
        is not allowed for this 'val' argument; NULL otherwise. */
     const char *(*invalid_arg_for_unprototyped_fn) (tree typelist, 
 					     	    tree funcdecl, tree val);
+
+    /* Return an rtx for the return value location of the function
+       specified by FN_DECL_OR_TYPE with a return type of RET_TYPE.  */
+    rtx (*function_value) (tree ret_type, tree fn_decl_or_type,
+			   bool outgoing);
   } calls;
 
   /* Return the diagnostic message string if conversion from FROMTYPE

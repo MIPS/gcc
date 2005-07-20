@@ -218,7 +218,7 @@ C ObjC C++ ObjC++ Joined
 
 Winit-self
 C ObjC C++ ObjC++ Var(warn_init_self)
-Warn about variables which are initialized to themselves.
+Warn about variables which are initialized to themselves
 
 Wimplicit
 C ObjC C++ ObjC++
@@ -233,7 +233,7 @@ Warn when a declaration does not specify a type
 
 Wimport
 C ObjC C++ ObjC++
-Deprecated.  This switch has no effect.
+Deprecated.  This switch has no effect
 
 Wint-to-pointer-cast
 C ObjC Var(warn_int_to_pointer_cast) Init(1)
@@ -331,6 +331,10 @@ Wpointer-to-int-cast
 C ObjC Var(warn_pointer_to_int_cast) Init(1)
 Warn when a pointer is cast to an integer of a different size
 
+Wpragmas
+C ObjC C++ ObjC++ Var(warn_pragmas) Init(1)
+Warn about misuses of pragmas
+
 Wprotocol
 ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
@@ -417,11 +421,11 @@ Give strings the type \"array of char\"
 
 Wpointer-sign
 C ObjC Var(warn_pointer_sign) Init(1)
-Warn when a pointer differs in signedness in an assignment.
+Warn when a pointer differs in signedness in an assignment
 
 ansi
 C ObjC C++ ObjC++
-A synonym for -std=c89 (for C) or -std=c++98 (for C++).
+A synonym for -std=c89 (for C) or -std=c++98 (for C++)
 
 d
 C ObjC C++ ObjC++ Joined
@@ -493,7 +497,7 @@ C ObjC C++ ObjC++ Joined RejectNegative
 
 finput-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
--finput-charset=<cset>	Specify the default character set for source files.
+-finput-charset=<cset>	Specify the default character set for source files
 
 
 fexternal-templates
@@ -680,7 +684,7 @@ C++ ObjC++
 
 fthreadsafe-statics
 C++ ObjC++
--fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics.
+-fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics
 
 funsigned-bitfields
 C ObjC C++ ObjC++
@@ -798,7 +802,7 @@ Generate C header of platform-specific features
 
 print-pch-checksum
 C ObjC C++ ObjC++
-Print a checksum of the executable for PCH validity checking, and stop.
+Print a checksum of the executable for PCH validity checking, and stop
 
 remap
 C ObjC C++ ObjC++

@@ -11212,8 +11212,10 @@ CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 
 
 
-for ac_func in getenv atol asprintf sbrk abort atof getcwd getwd strsignal \
-	strstr errno snprintf vsnprintf vasprintf malloc realloc calloc \
+
+for ac_func in getenv atol asprintf sbrk abort atof getcwd getwd \
+	strsignal strstr strverscmp \
+	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked
 do
   ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
@@ -12896,7 +12898,12 @@ fi
 
 exec 6>/dev/null
 if test "x$gcc_cv_as" = x; then
-	for ac_prog in as
+	# The AC_PATH_PROGS macro doesn't work properly when its 4th argument
+	# is empty.
+	if test "x$gcc_cv_tool_dirs" = x; then
+		gcc_cv_as=
+	else
+		for ac_prog in as
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -12940,6 +12947,7 @@ fi
   test -n "$gcc_cv_as" && break
 done
 
+	fi
 fi
 if test "x$gcc_cv_as" = x; then
 	# If the loop above did not find a tool, then use whatever
@@ -13068,7 +13076,12 @@ fi
 
 exec 6>/dev/null
 if test "x$gcc_cv_ld" = x; then
-	for ac_prog in ld
+	# The AC_PATH_PROGS macro doesn't work properly when its 4th argument
+	# is empty.
+	if test "x$gcc_cv_tool_dirs" = x; then
+		gcc_cv_ld=
+	else
+		for ac_prog in ld
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -13112,6 +13125,7 @@ fi
   test -n "$gcc_cv_ld" && break
 done
 
+	fi
 fi
 if test "x$gcc_cv_ld" = x; then
 	# If the loop above did not find a tool, then use whatever
@@ -13206,7 +13220,12 @@ fi
 
 exec 6>/dev/null
 if test "x$gcc_cv_nm" = x; then
-	for ac_prog in nm
+	# The AC_PATH_PROGS macro doesn't work properly when its 4th argument
+	# is empty.
+	if test "x$gcc_cv_tool_dirs" = x; then
+		gcc_cv_nm=
+	else
+		for ac_prog in nm
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -13250,6 +13269,7 @@ fi
   test -n "$gcc_cv_nm" && break
 done
 
+	fi
 fi
 if test "x$gcc_cv_nm" = x; then
 	# If the loop above did not find a tool, then use whatever
@@ -14014,6 +14034,35 @@ x:      .long   25
         call    #gettlsoff(x)'
 	tls_first_major=2
 	tls_first_minor=14
+	;;
+  hppa*-*-linux*)
+    conftest_s='
+t1:	.reg	%r20
+t2:	.reg	%r21
+gp:	.reg	%r19
+	.section ".tdata","awT",@progbits
+foo:	.long	25
+	.text
+	.align	4
+	addil LT%foo-$tls_gdidx$,gp
+	ldo RT%foo-$tls_gdidx$(%r1),%arg0
+	b __tls_get_addr
+	nop
+	addil LT%foo-$tls_ldidx$,gp
+	b __tls_get_addr
+	ldo RT%foo-$tls_ldidx$(%r1),%arg0
+	addil LR%foo-$tls_dtpoff$,%ret0
+	ldo RR%foo-$tls_dtpoff$(%r1),%t1
+	mfctl %cr27,%t1
+	addil LT%foo-$tls_ieoff$,gp
+	ldw RT%foo-$tls_ieoff$(%r1),%t2
+	add %t1,%t2,%t3
+	mfctl %cr27,%t1
+	addil LR%foo-$tls_leoff$,%t1
+	ldo RR%foo-$tls_leoff$(%r1),%t2'
+	tls_first_major=2
+	tls_first_minor=15
+	tls_as_opt=--fatal-warnings
 	;;
   i[34567]86-*-*)
     conftest_s='
@@ -15510,6 +15559,54 @@ if test x$with_sysroot = x && test x$host = x$target \
 
 cat >>confdefs.h <<_ACEOF
 #define PREFIX_INCLUDE_DIR "$prefix/include"
+_ACEOF
+
+fi
+
+# Test for stack protector support in target C library.
+case "$target" in
+  *-*-linux*)
+    echo "$as_me:$LINENO: checking __stack_chk_fail in target GNU C library" >&5
+echo $ECHO_N "checking __stack_chk_fail in target GNU C library... $ECHO_C" >&6
+if test "${gcc_cv_libc_provides_ssp+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_libc_provides_ssp=no
+      if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
+	if test "x$with_sysroot" = x; then
+	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_sysroot" = xyes; then
+	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
+	else
+	  glibc_header_dir="${with_sysroot}/usr/include"
+	fi
+      else
+	glibc_header_dir=/usr/include
+      fi
+      # glibc 2.4 and later provides __stack_chk_fail and
+      # either __stack_chk_guard, or TLS access to stack guard canary.
+      if test -f $glibc_header_dir/features.h \
+	 && $EGREP '^[ 	]*#[ 	]*define[ 	]+__GNU_LIBRARY__[ 	]+([1-9][0-9]|[6-9])' \
+	    $glibc_header_dir/features.h > /dev/null; then
+	if $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC__[ 	]+([1-9][0-9]|[3-9])' \
+	   $glibc_header_dir/features.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
+	elif $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC__[ 	]+2' \
+	     $glibc_header_dir/features.h > /dev/null \
+	     && $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
+	     $glibc_header_dir/features.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
+	fi
+      fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_libc_provides_ssp" >&5
+echo "${ECHO_T}$gcc_cv_libc_provides_ssp" >&6 ;;
+  *) gcc_cv_libc_provides_ssp=no ;;
+esac
+if test x$gcc_cv_libc_provides_ssp = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define TARGET_LIBC_PROVIDES_SSP 1
 _ACEOF
 
 fi

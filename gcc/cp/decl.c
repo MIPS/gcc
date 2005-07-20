@@ -352,7 +352,7 @@ pop_label (tree label, tree old_value)
 	{
 	  location_t location;
 
-	  cp_error_at ("label %qD used but not defined", label);
+	  error ("label %q+D used but not defined", label);
 #ifdef USE_MAPPED_LOCATION
 	  location = input_location; /* FIXME want (input_filename, (line)0) */
 #else
@@ -363,7 +363,7 @@ pop_label (tree label, tree old_value)
 	  define_label (location, DECL_NAME (label));
 	}
       else if (warn_unused_label && !TREE_USED (label))
-	cp_warning_at ("label %qD defined but not used", label);
+	warning (0, "label %q+D defined but not used", label);
     }
 
   SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
@@ -557,7 +557,7 @@ poplevel (int keep, int reverse, int functionbody)
 	  && ! TREE_USED (decl)
 	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-	warning (0, "%Junused variable %qD", decl, decl);
+	warning (0, "unused variable %q+D", decl);
 
   /* Remove declarations for all the DECLs in this level.  */
   for (link = decls; link; link = TREE_CHAIN (link))
@@ -608,7 +608,10 @@ poplevel (int keep, int reverse, int functionbody)
 	      /* Keep track of what should have happened when we
 		 popped the binding.  */
 	      if (ob && ob->value)
-		DECL_SHADOWED_FOR_VAR (link) = ob->value;
+		{
+		  SET_DECL_SHADOWED_FOR_VAR (link, ob->value);
+		  DECL_HAS_SHADOWED_FOR_VAR_P (link) = 1;
+		}
 
 	      /* Add it to the list of dead variables in the next
 		 outermost binding to that we can remove these when we
@@ -997,7 +1000,7 @@ warn_extern_redeclared_static (tree newdecl, tree olddecl)
 
   name = DECL_ASSEMBLER_NAME (newdecl);
   pedwarn ("%qD was declared %<extern%> and later %<static%>", newdecl);
-  cp_pedwarn_at ("previous declaration of %qD", olddecl);
+  pedwarn ("previous declaration of %q+D", olddecl);
 }
 
 /* If NEWDECL is a redeclaration of OLDDECL, merge the declarations.
@@ -1045,19 +1048,19 @@ duplicate_decls (tree newdecl, tree olddecl)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (OPT_Wattributes, "%Jfunction %qD redeclared as inline",
-		   newdecl, newdecl);
-	  warning (OPT_Wattributes, "%Jprevious declaration of %qD "
-		   "with attribute noinline", olddecl, olddecl);
+	  warning (OPT_Wattributes, "function %q+D redeclared as inline",
+		   newdecl);
+	  warning (OPT_Wattributes, "previous declaration of %q+D "
+		   "with attribute noinline", olddecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (OPT_Wattributes, "%Jfunction %qD redeclared with "
-		   "attribute noinline", newdecl, newdecl);
-	  warning (OPT_Wattributes, "%Jprevious declaration of %qD was inline",
-		   olddecl, olddecl);
+	  warning (OPT_Wattributes, "function %q+D redeclared with "
+		   "attribute noinline", newdecl);
+	  warning (OPT_Wattributes, "previous declaration of %q+D was inline",
+		   olddecl);
 	}
     }
 
@@ -1218,7 +1221,7 @@ duplicate_decls (tree newdecl, tree olddecl)
       error ("%q#D redeclared as different kind of symbol", newdecl);
       if (TREE_CODE (olddecl) == TREE_LIST)
 	olddecl = TREE_VALUE (olddecl);
-      cp_error_at ("previous declaration of %q#D", olddecl);
+      error ("previous declaration of %q+#D", olddecl);
 
       return error_mark_node;
     }
@@ -1238,8 +1241,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      || TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
 	    {
 	      error ("declaration of template %q#D", newdecl);
-	      cp_error_at ("conflicts with previous declaration %q#D",
-			   olddecl);
+	      error ("conflicts with previous declaration %q+#D", olddecl);
 	    }
 	  else if (TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)) == FUNCTION_DECL
 		   && TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == FUNCTION_DECL
@@ -1253,7 +1255,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 				   TREE_TYPE (TREE_TYPE (olddecl))))
 	    {
 	      error ("new declaration %q#D", newdecl);
-	      cp_error_at ("ambiguates old declaration %q#D", olddecl);
+	      error ("ambiguates old declaration %q+#D", olddecl);
 	    }
 	  return NULL_TREE;
 	}
@@ -1263,13 +1265,13 @@ duplicate_decls (tree newdecl, tree olddecl)
 	    {
 	      error ("declaration of C function %q#D conflicts with",
 		     newdecl);
-	      cp_error_at ("previous declaration %q#D here", olddecl);
+	      error ("previous declaration %q+#D here", olddecl);
 	    }
 	  else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
 			      TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
 	    {
 	      error ("new declaration %q#D", newdecl);
-	      cp_error_at ("ambiguates old declaration %q#D", olddecl);
+	      error ("ambiguates old declaration %q+#D", olddecl);
 	    }
 	  else
 	    return NULL_TREE;
@@ -1277,8 +1279,7 @@ duplicate_decls (tree newdecl, tree olddecl)
       else
 	{
 	  error ("conflicting declaration %q#D", newdecl);
-	  cp_error_at ("%qD has a previous declaration as %q#D",
-		       olddecl, olddecl);
+	  error ("%q+D has a previous declaration as %q#D", olddecl, olddecl);
 	  return error_mark_node;
 	}
     }
@@ -1331,7 +1332,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	 declared as the name of any other entity in any global scope
 	 of the program.  */
       error ("declaration of namespace %qD conflicts with", newdecl);
-      cp_error_at ("previous declaration of namespace %qD here", olddecl);
+      error ("previous declaration of namespace %q+D here", olddecl);
       return error_mark_node;
     }
   else
@@ -1341,10 +1342,9 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  error (errmsg, newdecl);
 	  if (DECL_NAME (olddecl) != NULL_TREE)
-	    cp_error_at ((DECL_INITIAL (olddecl)
-			  && namespace_bindings_p ())
-			 ? "%q#D previously defined here"
-			 : "%q#D previously declared here", olddecl);
+	    error ((DECL_INITIAL (olddecl) && namespace_bindings_p ())
+			 ? "%q+#D previously defined here"
+			 : "%q+#D previously declared here", olddecl);
 	  return error_mark_node;
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -1353,7 +1353,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	       && TYPE_ARG_TYPES (TREE_TYPE (newdecl)) != NULL_TREE)
 	{
 	  /* Prototype decl follows defn w/o prototype.  */
-	  cp_warning_at ("prototype for %q#D", newdecl);
+	  warning (0, "prototype for %q+#D", newdecl);
 	  warning (0, "%Jfollows non-prototype definition here", olddecl);
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -1366,8 +1366,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	    SET_DECL_LANGUAGE (newdecl, DECL_LANGUAGE (olddecl));
 	  else
 	    {
-	      cp_error_at ("previous declaration of %q#D with %qL linkage",
-			   olddecl, DECL_LANGUAGE (olddecl));
+	      error ("previous declaration of %q+#D with %qL linkage",
+		     olddecl, DECL_LANGUAGE (olddecl));
 	      error ("conflicts with new declaration with %qL linkage",
 		     DECL_LANGUAGE (newdecl));
 	    }
@@ -1393,14 +1393,13 @@ duplicate_decls (tree newdecl, tree olddecl)
 		  {
 		    pedwarn ("default argument given for parameter %d of %q#D",
 			     i, newdecl);
-		    cp_pedwarn_at ("after previous specification in %q#D",
-				   olddecl);
+		    pedwarn ("after previous specification in %q+#D", olddecl);
 		  }
 		else
 		  {
 		    error ("default argument given for parameter %d of %q#D",
 			   i, newdecl);
-		    cp_error_at ("after previous specification in %q#D",
+		    error ("after previous specification in %q+#D",
 				 olddecl);
 		  }
 	      }
@@ -1463,7 +1462,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  && ! (DECL_FRIEND_P (newdecl) || DECL_FRIEND_P (olddecl)))
 	{
 	  warning (0, "redundant redeclaration of %qD in same scope", newdecl);
-	  cp_warning_at ("previous declaration of %qD", olddecl);
+	  warning (0, "previous declaration of %q+D", olddecl);
 	}
     }
 
@@ -1558,7 +1557,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	    {
 	      error ("declaration of %qF throws different exceptions",
 		     newdecl);
-	      cp_error_at ("than previous declaration %qF", olddecl);
+	      error ("than previous declaration %q+F", olddecl);
 	    }
 	}
       TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = newtype;
@@ -1798,8 +1797,8 @@ duplicate_decls (tree newdecl, tree olddecl)
       && DECL_VISIBILITY_SPECIFIED (newdecl)
       && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
-      warning (OPT_Wattributes, "%J%qD: visibility attribute ignored "
-	       "because it", newdecl, newdecl);
+      warning (OPT_Wattributes, "%q+D: visibility attribute ignored "
+	       "because it", newdecl);
       warning (OPT_Wattributes, "%Jconflicts with previous "
 	       "declaration here", olddecl);
     }
@@ -1808,6 +1807,13 @@ duplicate_decls (tree newdecl, tree olddecl)
     {
       DECL_VISIBILITY (newdecl) = DECL_VISIBILITY (olddecl);
       DECL_VISIBILITY_SPECIFIED (newdecl) = 1;
+    }
+  /* Init priority used to be merged from newdecl to olddecl by the memcpy, 
+     so keep this behavior.  */
+  if (TREE_CODE (newdecl) == VAR_DECL && DECL_HAS_INIT_PRIORITY_P (newdecl))
+    {
+      SET_DECL_INIT_PRIORITY (olddecl, DECL_INIT_PRIORITY (newdecl));
+      DECL_HAS_INIT_PRIORITY_P (olddecl) = 1;
     }
 
   /* The DECL_LANG_SPECIFIC information in OLDDECL will be replaced
@@ -1823,13 +1829,16 @@ duplicate_decls (tree newdecl, tree olddecl)
     {
       int function_size;
 
-      function_size = sizeof (struct tree_decl);
+      function_size = sizeof (struct tree_decl_common);
 
       memcpy ((char *) olddecl + sizeof (struct tree_common),
 	      (char *) newdecl + sizeof (struct tree_common),
 	      function_size - sizeof (struct tree_common));
 
-      if (DECL_TEMPLATE_INSTANTIATION (newdecl))
+      memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
+	      (char *) newdecl + sizeof (struct tree_decl_common),
+	      sizeof (struct tree_function_decl) - sizeof (struct tree_decl_common));
+      if (DECL_TEMPLATE_INFO (newdecl))
 	/* If newdecl is a template instantiation, it is possible that
 	   the following sequence of events has occurred:
 
@@ -1857,12 +1866,34 @@ duplicate_decls (tree newdecl, tree olddecl)
     }
   else
     {
+      size_t size = tree_code_size (TREE_CODE (olddecl));
       memcpy ((char *) olddecl + sizeof (struct tree_common),
 	      (char *) newdecl + sizeof (struct tree_common),
-	      sizeof (struct tree_decl) - sizeof (struct tree_common)
-	      + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
+	      sizeof (struct tree_decl_common) - sizeof (struct tree_common));
+      switch (TREE_CODE (olddecl))       
+	{
+	case LABEL_DECL:
+	case VAR_DECL:
+	case RESULT_DECL:
+	case PARM_DECL:
+	case FIELD_DECL:
+	case TYPE_DECL:
+	case CONST_DECL:
+	  {
+	    memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
+		    (char *) newdecl + sizeof (struct tree_decl_common),
+		    size - sizeof (struct tree_decl_common)
+		    + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
+	  }
+	  break;
+	default:
+	  memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
+		  (char *) newdecl + sizeof (struct tree_decl_common),
+		  sizeof (struct tree_decl_non_common) - sizeof (struct tree_decl_common)
+		  + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
+	  break;
+	}
     }
-
   DECL_UID (olddecl) = olddecl_uid;
   if (olddecl_friend)
     DECL_FRIEND_P (olddecl) = 1;
@@ -2151,11 +2182,9 @@ check_previous_goto_1 (tree decl,
 	    }
 
 	  if (problem > 1)
-	    cp_error_at ("  crosses initialization of %q#D",
-			 new_decls);
+	    error ("  crosses initialization of %q+#D", new_decls);
 	  else
-	    cp_pedwarn_at ("  enters scope of non-POD %q#D",
-			   new_decls);
+	    pedwarn ("  enters scope of non-POD %q+#D", new_decls);
 	}
 
       if (b == level)
@@ -2253,7 +2282,7 @@ check_goto (tree decl)
   if ((lab->in_try_scope || lab->in_catch_scope || lab->bad_decls)
       && !identified)
     {
-      cp_pedwarn_at ("jump to label %qD", decl);
+      pedwarn ("jump to label %q+D", decl);
       pedwarn ("  from here");
       identified = 1;
     }
@@ -2267,9 +2296,9 @@ check_goto (tree decl)
 	/* Can't skip init of __exception_info.  */
 	error ("%J  enters catch block", b);
       else if (u > 1)
-	cp_error_at ("  skips initialization of %q#D", b);
+	error ("  skips initialization of %q+#D", b);
       else
-	cp_pedwarn_at ("  enters scope of non-POD %q#D", b);
+	pedwarn ("  enters scope of non-POD %q+#D", b);
     }
 
   if (lab->in_try_scope)
@@ -2677,7 +2706,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
 	  if (complain & tf_error)
 	    {
 	      error ("template parameters do not match template");
-	      cp_error_at ("%qD declared here", tmpl);
+	      error ("%q+D declared here", tmpl);
 	    }
 	  return error_mark_node;
 	}
@@ -3367,17 +3396,14 @@ fixup_anonymous_aggr (tree t)
 	    if (CLASS_TYPE_P (type))
 	      {
 		if (TYPE_NEEDS_CONSTRUCTING (type))
-		  cp_error_at ("member %q#D with constructor not allowed "
-			       "in anonymous aggregate",
-			       field);
+		  error ("member %q+#D with constructor not allowed "
+			 "in anonymous aggregate", field);
 		if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
-		  cp_error_at ("member %q#D with destructor not allowed "
-			       "in anonymous aggregate",
-			       field);
+		  error ("member %q+#D with destructor not allowed "
+			 "in anonymous aggregate", field);
 		if (TYPE_HAS_COMPLEX_ASSIGN_REF (type))
-		  cp_error_at ("member %q#D with copy assignment operator "
-			       "not allowed in anonymous aggregate",
-			       field);
+		  error ("member %q+#D with copy assignment operator "
+			 "not allowed in anonymous aggregate", field);
 	      }
 	  }
     }
@@ -3503,10 +3529,9 @@ shadow_tag (cp_decl_specifier_seq *declspecs)
 
   if (declspecs->attributes)
     {
-      cp_warning_at ("attribute ignored in declaration of %q#T", t);
-      cp_warning_at ("attribute for %q#T must follow the %qs keyword",
-		     t,
-		     class_key_or_enum_as_string (t));
+      warning (0, "attribute ignored in declaration of %q+#T", t);
+      warning (0, "attribute for %q+#T must follow the %qs keyword",
+	       t, class_key_or_enum_as_string (t));
 
     }
 
@@ -3661,7 +3686,7 @@ start_decl (const cp_declarator *declarator,
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
-    warning (0, "%Jinline function %qD given attribute noinline", decl, decl);
+    warning (0, "inline function %q+D given attribute noinline", decl);
 
   if (context && COMPLETE_TYPE_P (complete_type (context)))
     {
@@ -3749,7 +3774,7 @@ start_decl (const cp_declarator *declarator,
      produce errors about redefs; to do this we force variables into the
      data segment.  */
   DECL_COMMON (tem) = ((TREE_CODE (tem) != VAR_DECL
-			|| !DECL_THREAD_LOCAL (tem))
+			|| !DECL_THREAD_LOCAL_P (tem))
 		       && (flag_conserve_space || ! TREE_PUBLIC (tem)));
 #endif
 
@@ -4045,9 +4070,9 @@ maybe_commonize_var (tree decl)
 		 be merged.  */
 	      TREE_PUBLIC (decl) = 0;
 	      DECL_COMMON (decl) = 0;
-	      cp_warning_at ("sorry: semantics of inline function static "
-			     "data %q#D are wrong (you'll wind up "
-			     "with multiple copies)", decl);
+	      warning (0, "sorry: semantics of inline function static "
+		       "data %q+#D are wrong (you'll wind up "
+		       "with multiple copies)", decl);
 	      warning (0, "%J  you can work around this by removing "
 		       "the initializer",
 		       decl);
@@ -4808,7 +4833,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
     {
       /* Only PODs can have thread-local storage.  Other types may require
 	 various kinds of non-trivial initialization.  */
-      if (DECL_THREAD_LOCAL (decl) && !pod_type_p (TREE_TYPE (decl)))
+      if (DECL_THREAD_LOCAL_P (decl) && !pod_type_p (TREE_TYPE (decl)))
 	error ("%qD cannot be thread-local because it has non-POD type %qT",
 	       decl, TREE_TYPE (decl));
       /* Convert the initializer to the type of DECL, if we have not
@@ -4822,7 +4847,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	{
 	  init = check_initializer (decl, init, flags, &cleanup);
 	  /* Thread-local storage cannot be dynamically initialized.  */
-	  if (DECL_THREAD_LOCAL (decl) && init)
+	  if (DECL_THREAD_LOCAL_P (decl) && init)
 	    {
 	      error ("%qD is thread-local and so cannot be dynamically "
 		     "initialized", decl);
@@ -5446,13 +5471,13 @@ bad_specifiers (tree object,
 	   "%qD invalid in %s declaration",
 	   object, type);
   if (friendp)
-    cp_error_at ("%qD declared as a friend", object);
+    error ("%q+D declared as a friend", object);
   if (raises
       && (TREE_CODE (object) == TYPE_DECL
 	  || (!TYPE_PTRFN_P (TREE_TYPE (object))
 	      && !TYPE_REFFN_P (TREE_TYPE (object))
 	      && !TYPE_PTRMEMFUNC_P (TREE_TYPE (object)))))
-    cp_error_at ("%qD declared with an exception specification", object);
+    error ("%q+D declared with an exception specification", object);
 }
 
 /* CTYPE is class type, or null if non-class.
@@ -5579,9 +5604,9 @@ grokfndecl (tree ctype,
 		  pedwarn ("non-local function %q#D uses anonymous type",
 			      decl);
 		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
-		    cp_pedwarn_at ("%q#D does not refer to the unqualified "
-				   "type, so it is not used for linkage",
-				   TYPE_NAME (t));
+		    pedwarn ("%q+#D does not refer to the unqualified "
+			     "type, so it is not used for linkage",
+			     TYPE_NAME (t));
 		}
 	    }
 	  else
@@ -5884,7 +5909,7 @@ grokvardecl (tree type,
   if (declspecs->specs[(int)ds_thread])
     {
       if (targetm.have_tls)
-	DECL_THREAD_LOCAL (decl) = 1;
+	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
       else
 	/* A mere warning is sure to result in improper semantics
 	   at runtime.  Don't bother to allow this to compile.  */
@@ -5915,9 +5940,9 @@ grokvardecl (tree type,
 		  warning (0, "non-local variable %q#D uses anonymous type",
 			   decl);
 		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
-		    cp_warning_at ("%q#D does not refer to the unqualified "
-				   "type, so it is not used for linkage",
-				   TYPE_NAME (t));
+		    warning (0, "%q+#D does not refer to the unqualified "
+			     "type, so it is not used for linkage",
+			     TYPE_NAME (t));
 		}
 	    }
 	  else
@@ -8207,7 +8232,7 @@ require_complete_types_for_parms (tree parms)
 	TREE_TYPE (parms) = error_mark_node;
       else if (complete_type_or_else (TREE_TYPE (parms), parms))
 	{
-	  layout_decl (parms, 0);
+	  relayout_decl (parms);
 	  DECL_ARG_TYPE (parms) = type_passed_as (TREE_TYPE (parms));
 	}
     }
@@ -9017,7 +9042,7 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   && tag_code != typename_type)
     {
       error ("using typedef-name %qD after %qs", decl, tag_name (tag_code));
-      cp_error_at ("%qD has a previous declaration here", decl);
+      error ("%q+D has a previous declaration here", decl);
       return error_mark_node;
     }
   else if (TREE_CODE (type) != RECORD_TYPE
@@ -9026,7 +9051,7 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   && tag_code != typename_type)
     {
       error ("%qT referred to as %qs", type, tag_name (tag_code));
-      cp_error_at ("%qT has a previous declaration here", type);
+      error ("%q+T has a previous declaration here", type);
       return error_mark_node;
     }
   else if (TREE_CODE (type) != ENUMERAL_TYPE
@@ -9034,7 +9059,7 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   && tag_code != typename_type)
     {
       error ("%qT referred to as enum", type);
-      cp_error_at ("%qT has a previous declaration here", type);
+      error ("%q+T has a previous declaration here", type);
       return error_mark_node;
     }
   else if (!allow_template_p
@@ -9918,7 +9943,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && lookup_attribute ("noinline", attrs))
-    warning (0, "%Jinline function %qD given attribute noinline", decl1, decl1);
+    warning (0, "inline function %q+D given attribute noinline", decl1);
 
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl1))
     /* This is a constructor, we must ensure that any default args

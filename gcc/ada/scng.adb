@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -2330,14 +2330,18 @@ package body Scng is
             --  Ada 2005 (AI-284): Do not apply the style check in case of
             --  "pragma Interface"
 
+            --  Ada 2005 (AI-340): Do not apply the style check in case of
+            --  MOD attribute.
+
             if Style_Check
               and then Source (Token_Ptr) <= 'Z'
               and then (Prev_Token /= Tok_Apostrophe
                           or else
-                            (Token /= Tok_Access
-                               and then Token /= Tok_Delta
-                               and then Token /= Tok_Digits
-                               and then Token /= Tok_Range))
+                            (Token /= Tok_Access and then
+                             Token /= Tok_Delta  and then
+                             Token /= Tok_Digits and then
+                             Token /= Tok_Mod    and then
+                             Token /= Tok_Range))
               and then (Token /= Tok_Interface
                           or else
                             (Token = Tok_Interface

@@ -49,6 +49,8 @@ Boston, MA 02110-1301, USA.  */
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "c-pragma.h"
+#include "tree-dump.h"
+#include "intl.h"
 
 extern cpp_reader *parse_in;
 
@@ -690,12 +692,12 @@ check_classfn (tree ctype, tree function, tree template_parms)
 		is_conv_op = false;
 	    }
 	  if (format)
-	    format = "                %#D";
+	    format = "                %+#D";
 	  else if (fndecls)
-	    format = "candidates are: %#D";
+	    format = N_("candidates are: %+#D");
 	  else
-	    format = "candidate is: %#D";
-	  cp_error_at (format, fndecl);
+	    format = N_("candidate is: %+#D");
+	  error (format, fndecl);
 	}
     }
   else if (!COMPLETE_TYPE_P (ctype))
@@ -1085,16 +1087,15 @@ build_anon_union_vars (tree type, tree object)
 	continue;
       if (TREE_CODE (field) != FIELD_DECL)
 	{
-	  cp_pedwarn_at ("%q#D invalid; an anonymous union can only "
-			 "have non-static data members",
-			 field);
+	  pedwarn ("%q+#D invalid; an anonymous union can only "
+		   "have non-static data members", field);
 	  continue;
 	}
 
       if (TREE_PRIVATE (field))
-	cp_pedwarn_at ("private member %q#D in anonymous union", field);
+	pedwarn ("private member %q+#D in anonymous union", field);
       else if (TREE_PROTECTED (field))
-	cp_pedwarn_at ("protected member %q#D in anonymous union", field);
+	pedwarn ("protected member %q+#D in anonymous union", field);
 
       if (processing_template_decl)
 	ref = build_min_nt (COMPONENT_REF, object,
@@ -2320,14 +2321,15 @@ static tree
 start_static_initialization_or_destruction (tree decl, int initp)
 {
   tree guard_if_stmt = NULL_TREE;
-  int priority;
+  int priority = 0;
   tree cond;
   tree guard;
   tree init_cond;
   priority_info pi;
 
-  /* Figure out the priority for this declaration.  */
-  priority = DECL_INIT_PRIORITY (decl);
+    /* Figure out the priority for this declaration.  */
+  if (DECL_HAS_INIT_PRIORITY_P (decl))
+    priority = DECL_INIT_PRIORITY (decl);
   if (!priority)
     priority = DEFAULT_INIT_PRIORITY;
 
@@ -3061,7 +3063,7 @@ cp_finish_file (void)
 	     already verified there was a definition.  */
 	  && !DECL_EXPLICIT_INSTANTIATION (decl))
 	{
-	  cp_warning_at ("inline function %qD used but never defined", decl);
+	  warning (0, "inline function %q+D used but never defined", decl);
 	  /* This symbol is effectively an "extern" declaration now.
 	     This is not strictly necessary, but removes a duplicate
 	     warning.  */
@@ -3212,8 +3214,7 @@ check_default_args (tree x)
 	saw_def = true;
       else if (saw_def)
 	{
-	  cp_error_at ("default argument missing for parameter %P of %q+#D",
-		       i, x);
+	  error ("default argument missing for parameter %P of %q+#D", i, x);
 	  break;
 	}
     }
@@ -3277,7 +3278,8 @@ mark_used (tree decl)
        times.  Maintaining a stack of active functions is expensive,
        and the inliner knows to instantiate any functions it might
        need.  */
-    instantiate_decl (decl, /*defer_ok=*/true, /*undefined_ok=*/0);
+    instantiate_decl (decl, /*defer_ok=*/true, 
+		      /*expl_inst_class_mem_p=*/false);
 }
 
 #include "gt-cp-decl2.h"

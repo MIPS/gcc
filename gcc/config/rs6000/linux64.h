@@ -536,7 +536,7 @@ while (0)
 
 #define TARGET_ASM_FILE_END rs6000_elf_end_indicate_exec_stack
 
-#define TARGET_HAS_F_SETLKW
+#define TARGET_POSIX_IO
 
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
@@ -547,3 +547,9 @@ while (0)
 #endif
 
 #define MD_UNWIND_SUPPORT "config/rs6000/linux-unwind.h"
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* ppc32 glibc provides __stack_chk_guard in -0x7008(2),
+   ppc64 glibc provides it at -0x7010(13).  */
+#define TARGET_THREAD_SSP_OFFSET	(TARGET_64BIT ? -0x7010 : -0x7008)
+#endif

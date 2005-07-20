@@ -272,6 +272,41 @@ s390_set_has_landing_pad_p (bool value)
   cfun->machine->has_landing_pad_p = value;
 }
 
+/* If two condition code modes are compatible, return a condition code
+   mode which is compatible with both.  Otherwise, return
+   VOIDmode.  */
+
+static enum machine_mode
+s390_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
+{
+  if (m1 == m2)
+    return m1;
+
+  switch (m1)
+    {
+    case CCZmode:
+      if (m2 == CCUmode || m2 == CCTmode || m2 == CCZ1mode
+	  || m2 == CCSmode || m2 == CCSRmode || m2 == CCURmode)
+        return m2;
+      return VOIDmode;
+
+    case CCSmode:
+    case CCUmode:
+    case CCTmode:
+    case CCSRmode:
+    case CCURmode:
+    case CCZ1mode:
+      if (m2 == CCZmode)
+	return m1;
+      
+      return VOIDmode;
+
+    default:
+      return VOIDmode;
+    }
+  return VOIDmode;
+}
+
 /* Return true if SET either doesn't set the CC register, or else
    the source and destination have matching CC modes and that
    CC mode is at least as constrained as REQ_MODE.  */
@@ -612,6 +647,23 @@ s390_canonicalize_comparison (enum rtx_code *code, rtx *op0, rtx *op1)
 	  *code = new_code;
 	}
     }
+
+  /* Simplify cascaded EQ, NE with const0_rtx.  */
+  if ((*code == NE || *code == EQ)
+      && (GET_CODE (*op0) == EQ || GET_CODE (*op0) == NE)
+      && GET_MODE (*op0) == SImode
+      && GET_MODE (XEXP (*op0, 0)) == CCZ1mode
+      && REG_P (XEXP (*op0, 0))
+      && XEXP (*op0, 1) == const0_rtx
+      && *op1 == const0_rtx)
+    {
+      if ((*code == EQ && GET_CODE (*op0) == NE)
+          || (*code == NE && GET_CODE (*op0) == EQ))
+	*code = EQ;
+      else
+	*code = NE;
+      *op0 = XEXP (*op0, 0);
+    }
 }
 
 /* Emit a compare instruction suitable to implement the comparison
@@ -625,8 +677,10 @@ s390_emit_compare (enum rtx_code code, rtx op0, rtx op1)
   rtx ret = NULL_RTX;
 
   /* Do not output a redundant compare instruction if a compare_and_swap
-     pattern already computed the result and the machine modes match.  */
-  if (s390_compare_emitted && GET_MODE (s390_compare_emitted) == mode)
+     pattern already computed the result and the machine modes are compatible.  */
+  if (s390_compare_emitted 
+      && (s390_cc_modes_compatible (GET_MODE (s390_compare_emitted), mode)
+	  == GET_MODE (s390_compare_emitted)))
     ret = gen_rtx_fmt_ee (code, VOIDmode, s390_compare_emitted, const0_rtx); 
   else
     {
@@ -673,6 +727,7 @@ s390_branch_condition_mask (rtx code)
   switch (GET_MODE (XEXP (code, 0)))
     {
     case CCZmode:
+    case CCZ1mode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -1107,6 +1162,10 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
   /* By default, always emit DWARF-2 unwind info.  This allows debugging
      without maintaining a stack frame back-chain.  */
   flag_asynchronous_unwind_tables = 1;
+
+  /* Use MVCLE instructions to decrease code size if requested.  */
+  if (size != 0)
+    target_flags |= MASK_MVCLE;
 }
 
 /* Return true if ARG is the name of a processor.  Set *TYPE and *FLAGS
@@ -1212,9 +1271,9 @@ override_options (void)
 
   /* Sanity checks.  */
   if (TARGET_ZARCH && !(s390_arch_flags & PF_ZARCH))
-    error ("z/Architecture mode not supported on %s.", s390_arch_string);
+    error ("z/Architecture mode not supported on %s", s390_arch_string);
   if (TARGET_64BIT && !TARGET_ZARCH)
-    error ("64-bit ABI not supported in ESA/390 mode.");
+    error ("64-bit ABI not supported in ESA/390 mode");
 
 
   /* Set processor cost function.  */
@@ -1226,7 +1285,7 @@ override_options (void)
 
   if (TARGET_BACKCHAIN && TARGET_PACKED_STACK && TARGET_HARD_FLOAT)
     error ("-mbackchain -mpacked-stack -mhard-float are not supported "
-	   "in combination.");
+	   "in combination");
 
   if (s390_stack_size)
     {
@@ -3221,25 +3280,49 @@ s390_expand_movmem (rtx dst, rtx src, rtx len)
     }
 }
 
-/* Emit code to clear LEN bytes at DST.  */
+/* Emit code to set LEN bytes at DST to VAL.
+   Make use of clrmem if VAL is zero.  */
 
 void
-s390_expand_clrmem (rtx dst, rtx len)
+s390_expand_setmem (rtx dst, rtx len, rtx val)
 {
-  if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
+  gcc_assert (GET_CODE (len) != CONST_INT || INTVAL (len) > 0);
+  gcc_assert (GET_CODE (val) == CONST_INT || GET_MODE (val) == QImode);
+  
+  if (GET_CODE (len) == CONST_INT && INTVAL (len) <= 257)
     {
-      if (INTVAL (len) > 0)
+      if (val == const0_rtx && INTVAL (len) <= 256)
         emit_insn (gen_clrmem_short (dst, GEN_INT (INTVAL (len) - 1)));
+      else
+	{
+	  /* Initialize memory by storing the first byte.  */
+	  emit_move_insn (adjust_address (dst, QImode, 0), val);
+	  
+	  if (INTVAL (len) > 1)
+	    {
+	      /* Initiate 1 byte overlap move.
+	         The first byte of DST is propagated through DSTP1.
+		 Prepare a movmem for:  DST+1 = DST (length = LEN - 1).
+		 DST is set to size 1 so the rest of the memory location
+		 does not count as source operand.  */
+	      rtx dstp1 = adjust_address (dst, VOIDmode, 1);
+	      set_mem_size (dst, const1_rtx);
+
+	      emit_insn (gen_movmem_short (dstp1, dst, 
+					   GEN_INT (INTVAL (len) - 2)));
+	    }
+	}
     }
 
   else if (TARGET_MVCLE)
     {
-      emit_insn (gen_clrmem_long (dst, convert_to_mode (Pmode, len, 1)));
+      val = force_not_mem (convert_modes (Pmode, QImode, val, 1));
+      emit_insn (gen_setmem_long (dst, convert_to_mode (Pmode, len, 1), val));
     }
 
   else
     {
-      rtx dst_addr, src_addr, count, blocks, temp;
+      rtx dst_addr, src_addr, count, blocks, temp, dstp1 = NULL_RTX;
       rtx loop_start_label = gen_label_rtx ();
       rtx loop_end_label = gen_label_rtx ();
       rtx end_label = gen_label_rtx ();
@@ -3261,7 +3344,22 @@ s390_expand_clrmem (rtx dst, rtx len)
       emit_move_insn (dst_addr, force_operand (XEXP (dst, 0), NULL_RTX));
       dst = change_address (dst, VOIDmode, dst_addr);
 
-      temp = expand_binop (mode, add_optab, count, constm1_rtx, count, 1, 0);
+      if (val == const0_rtx)
+        temp = expand_binop (mode, add_optab, count, constm1_rtx, count, 1, 0);
+      else
+	{
+	  dstp1 = adjust_address (dst, VOIDmode, 1);
+	  set_mem_size (dst, const1_rtx);
+
+	  /* Initialize memory by storing the first byte.  */
+	  emit_move_insn (adjust_address (dst, QImode, 0), val);
+	  
+	  /* If count is 1 we are done.  */
+	  emit_cmp_and_jump_insns (count, const1_rtx,
+				   EQ, NULL_RTX, mode, 1, end_label);
+
+	  temp = expand_binop (mode, add_optab, count, GEN_INT (-2), count, 1, 0);
+	}
       if (temp != count)
         emit_move_insn (count, temp);
 
@@ -3274,7 +3372,10 @@ s390_expand_clrmem (rtx dst, rtx len)
 
       emit_label (loop_start_label);
 
-      emit_insn (gen_clrmem_short (dst, GEN_INT (255)));
+      if (val == const0_rtx)
+	emit_insn (gen_clrmem_short (dst, GEN_INT (255)));
+      else
+	emit_insn (gen_movmem_short (dstp1, dst, GEN_INT (255)));
       s390_load_address (dst_addr,
 			 gen_rtx_PLUS (Pmode, dst_addr, GEN_INT (256)));
 
@@ -3288,7 +3389,10 @@ s390_expand_clrmem (rtx dst, rtx len)
       emit_jump (loop_start_label);
       emit_label (loop_end_label);
 
-      emit_insn (gen_clrmem_short (dst, convert_to_mode (Pmode, count, 1)));
+      if (val == const0_rtx)
+        emit_insn (gen_clrmem_short (dst, convert_to_mode (Pmode, count, 1)));
+      else
+        emit_insn (gen_movmem_short (dstp1, dst, convert_to_mode (Pmode, count, 1)));
       emit_label (end_label);
     }
 }
@@ -3633,7 +3737,9 @@ s390_delegitimize_address (rtx orig_x)
   return orig_x;
 }
 
-/* Output shift count operand OP to stdio stream FILE.  */
+/* Output operand OP to stdio stream FILE.
+   OP is an address (register + offset) which is not used to address data;
+   instead the rightmost bits are interpreted as the value.  */
 
 static void
 print_shift_count_operand (FILE *file, rtx op)
@@ -3663,8 +3769,8 @@ print_shift_count_operand (FILE *file, rtx op)
       gcc_assert (REGNO_REG_CLASS (REGNO (op)) == ADDR_REGS);
     }
 
-  /* Shift counts are truncated to the low six bits anyway.  */
-  fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset & 63);
+  /* Offsets are constricted to twelve bits.  */
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset & ((1 << 12) - 1));
   if (op)
     fprintf (file, "(%s)", reg_names[REGNO (op)]);
 }
@@ -3781,7 +3887,7 @@ print_operand_address (FILE *file, rtx addr)
   if (!s390_decompose_address (addr, &ad)
       || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
       || (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx)))
-    output_operand_lossage ("Cannot decompose address.");
+    output_operand_lossage ("cannot decompose address");
 
   if (ad.disp)
     output_addr_const (file, ad.disp);
@@ -5801,7 +5907,7 @@ s390_frame_info (void)
 
   cfun_frame_layout.frame_size = get_frame_size ();
   if (!TARGET_64BIT && cfun_frame_layout.frame_size > 0x7fff0000)
-    fatal_error ("Total size of local variables exceeds architecture limit.");
+    fatal_error ("total size of local variables exceeds architecture limit");
   
   if (!TARGET_PACKED_STACK)
     {
@@ -7857,40 +7963,6 @@ s390_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
   *p2 = INVALID_REGNUM;
  
   return true;
-}
-
-/* If two condition code modes are compatible, return a condition code
-   mode which is compatible with both.  Otherwise, return
-   VOIDmode.  */
-
-static enum machine_mode
-s390_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
-{
-  if (m1 == m2)
-    return m1;
-
-  switch (m1)
-    {
-    case CCZmode:
-      if (m2 == CCUmode || m2 == CCTmode
-	  || m2 == CCSmode || m2 == CCSRmode || m2 == CCURmode)
-        return m2;
-      return VOIDmode;
-
-    case CCSmode:
-    case CCUmode:
-    case CCTmode:
-    case CCSRmode:
-    case CCURmode:
-      if (m2 == CCZmode)
-	return m1;
-      
-      return VOIDmode;
-
-    default:
-      return VOIDmode;
-    }
-  return VOIDmode;
 }
 
 /* This function is used by the call expanders of the machine description.

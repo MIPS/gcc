@@ -517,22 +517,22 @@ if test x$ac_valgrind_checking != x ; then
   # It is certainly possible that there's valgrind but no valgrind.h.
   # GCC relies on making annotations so we must have both.
   AC_MSG_CHECKING(for VALGRIND_DISCARD in <valgrind/memcheck.h>)
-  AC_TRY_CPP(
-    [#include <valgrind/memcheck.h>
+  AC_PREPROC_IFELSE([AC_LANG_SOURCE(
+    [[#include <valgrind/memcheck.h>
 #ifndef VALGRIND_DISCARD
 #error VALGRIND_DISCARD not defined
-#endif],
+#endif]])],
   [gcc_cv_header_valgrind_memcheck_h=yes],
   [gcc_cv_header_valgrind_memcheck_h=no])
   AC_MSG_RESULT($gcc_cv_header_valgrind_memcheck_h)
   AC_MSG_CHECKING(for VALGRIND_DISCARD in <memcheck.h>)
-  AC_TRY_CPP(
-    [#include <memcheck.h>
+  AC_PREPROC_IFELSE([AC_LANG_SOURCE(
+    [[#include <memcheck.h>
 #ifndef VALGRIND_DISCARD
 #error VALGRIND_DISCARD not defined
-#endif],
-  [gcc_cv_header_memcheck_h=yes], 
-  gcc_cv_header_memcheck_h=no)
+#endif]])],
+  [gcc_cv_header_memcheck_h=yes],
+  [gcc_cv_header_memcheck_h=no])
   AC_MSG_RESULT($gcc_cv_header_memcheck_h)
   AM_PATH_PROG_WITH_TEST(valgrind_path, valgrind,
 	[$ac_dir/$ac_word --version | grep valgrind- >/dev/null 2>&1])
@@ -859,13 +859,13 @@ fi
 
 AC_MSG_CHECKING(for GNU C library)
 AC_CACHE_VAL(gcc_cv_glibc,
-[AC_TRY_COMPILE(
-  [#include <features.h>],[
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+  [[#include <features.h>]], [[
 #if ! (defined __GLIBC__ || defined __GNU_LIBRARY__)
 #error Not a GNU C library system
-#endif], 
-  [gcc_cv_glibc=yes], 
-  gcc_cv_glibc=no)])
+#endif]])],
+  [gcc_cv_glibc=yes],
+  [gcc_cv_glibc=no])])
 AC_MSG_RESULT($gcc_cv_glibc)
 if test $gcc_cv_glibc = yes; then
   AC_DEFINE(_GNU_SOURCE, 1, [Always define this when using the GNU C Library])
@@ -959,12 +959,12 @@ AC_SUBST(LDEXP_LIB)
 # doesn't clash with <sys/types.h>, and declares intmax_t.
 AC_MSG_CHECKING(for inttypes.h)
 AC_CACHE_VAL(gcc_cv_header_inttypes_h,
-[AC_TRY_COMPILE(
-  [#include <sys/types.h>
-#include <inttypes.h>],
-  [intmax_t i = -1;],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+[[#include <sys/types.h>
+#include <inttypes.h>]],
+  [[intmax_t i = -1;]])],
   [gcc_cv_header_inttypes_h=yes],
-  gcc_cv_header_inttypes_h=no)])
+  [gcc_cv_header_inttypes_h=no])])
 AC_MSG_RESULT($gcc_cv_header_inttypes_h)
 if test $gcc_cv_header_inttypes_h = yes; then
   AC_DEFINE(HAVE_INTTYPES_H, 1,
@@ -986,15 +986,15 @@ AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
 
 if test x$ac_cv_func_mbstowcs = xyes; then
   AC_CACHE_CHECK(whether mbstowcs works, gcc_cv_func_mbstowcs_works,
-[    AC_TRY_RUN([#include <stdlib.h>
+[    AC_RUN_IFELSE([AC_LANG_SOURCE([[#include <stdlib.h>
 int main()
 {
   mbstowcs(0, "", 0);
   return 0;
-}],
-    gcc_cv_func_mbstowcs_works=yes,
-    gcc_cv_func_mbstowcs_works=no,
-    gcc_cv_func_mbstowcs_works=yes)])
+}]])],
+    [gcc_cv_func_mbstowcs_works=yes],
+    [gcc_cv_func_mbstowcs_works=no],
+    [gcc_cv_func_mbstowcs_works=yes])])
   if test x$gcc_cv_func_mbstowcs_works = xyes; then
     AC_DEFINE(HAVE_WORKING_MBSTOWCS, 1,
   [Define this macro if mbstowcs does not crash when its
@@ -1035,7 +1035,7 @@ case "${host}" in
   ac_cv_func_vfork_works=yes
   ;;
 esac
-AC_FUNC_VFORK
+AC_FUNC_FORK
 
 AM_ICONV
 # Until we have in-tree GNU iconv:
@@ -1049,8 +1049,9 @@ AM_LANGINFO_CODESET
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
-gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd strsignal \
-	strstr errno snprintf vsnprintf vasprintf malloc realloc calloc \
+gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
+	strsignal strstr strverscmp \
+	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
 #include "system.h"])
@@ -1063,13 +1064,13 @@ gcc_AC_CHECK_DECLS(getrlimit setrlimit getrusage, , ,[
 #endif
 ])
 
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include "ansidecl.h"
 #include "system.h"
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
-],[rlim_t l = 0;],,[AC_DEFINE([rlim_t],[long],
+]], [[rlim_t l = 0;]])],[],[AC_DEFINE([rlim_t],[long],
 [Define to \`long' if <sys/resource.h> doesn't define.])])
 
 # On AIX 5.2, <ldfcn.h> conflicts with <fcntl.h>, as both define incompatible
@@ -1096,13 +1097,13 @@ gcc_AC_CHECK_DECLS(times, , ,[
 
 # More time-related stuff.
 AC_CACHE_CHECK(for struct tms, ac_cv_struct_tms, [
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include "ansidecl.h"
 #include "system.h"
 #ifdef HAVE_SYS_TIMES_H
 #include <sys/times.h>
 #endif
-], [struct tms tms;], ac_cv_struct_tms=yes, ac_cv_struct_tms=no)])
+]], [[struct tms tms;]])],[ac_cv_struct_tms=yes],[ac_cv_struct_tms=no])])
 if test $ac_cv_struct_tms = yes; then
   AC_DEFINE(HAVE_STRUCT_TMS, 1,
   [Define if <sys/times.h> defines struct tms.])
@@ -1111,10 +1112,10 @@ fi
 # use gcc_cv_* here because this doesn't match the behavior of AC_CHECK_TYPE.
 # revisit after autoconf 2.50.
 AC_CACHE_CHECK(for clock_t, gcc_cv_type_clock_t, [
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include "ansidecl.h"
 #include "system.h"
-], [clock_t x;], gcc_cv_type_clock_t=yes, gcc_cv_type_clock_t=no)])
+]], [[clock_t x;]])],[gcc_cv_type_clock_t=yes],[gcc_cv_type_clock_t=no])])
 if test $gcc_cv_type_clock_t = yes; then
   AC_DEFINE(HAVE_CLOCK_T, 1,
   [Define if <time.h> defines clock_t.])
@@ -2189,6 +2190,35 @@ x:      .long   25
 	tls_first_major=2
 	tls_first_minor=14
 	;;
+  hppa*-*-linux*)
+    conftest_s='
+t1:	.reg	%r20
+t2:	.reg	%r21
+gp:	.reg	%r19
+	.section ".tdata","awT",@progbits
+foo:	.long	25
+	.text
+	.align	4
+	addil LT%foo-$tls_gdidx$,gp
+	ldo RT%foo-$tls_gdidx$(%r1),%arg0
+	b __tls_get_addr
+	nop 		
+	addil LT%foo-$tls_ldidx$,gp
+	b __tls_get_addr
+	ldo RT%foo-$tls_ldidx$(%r1),%arg0
+	addil LR%foo-$tls_dtpoff$,%ret0
+	ldo RR%foo-$tls_dtpoff$(%r1),%t1
+	mfctl %cr27,%t1 		
+	addil LT%foo-$tls_ieoff$,gp
+	ldw RT%foo-$tls_ieoff$(%r1),%t2
+	add %t1,%t2,%t3 		
+	mfctl %cr27,%t1 		
+	addil LR%foo-$tls_leoff$,%t1
+	ldo RR%foo-$tls_leoff$(%r1),%t2'
+	tls_first_major=2
+	tls_first_minor=15
+	tls_as_opt=--fatal-warnings
+	;;
   i[34567]86-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -2970,6 +3000,45 @@ if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
 [Define to PREFIX/include if cpp should also search that directory.])
+fi
+
+# Test for stack protector support in target C library.
+case "$target" in
+  *-*-linux*)
+    AC_CACHE_CHECK(__stack_chk_fail in target GNU C library,
+      gcc_cv_libc_provides_ssp,
+      [gcc_cv_libc_provides_ssp=no
+      if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
+	if test "x$with_sysroot" = x; then
+	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_sysroot" = xyes; then
+	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
+	else
+	  glibc_header_dir="${with_sysroot}/usr/include"
+	fi
+      else
+	glibc_header_dir=/usr/include
+      fi
+      # glibc 2.4 and later provides __stack_chk_fail and
+      # either __stack_chk_guard, or TLS access to stack guard canary.
+      if test -f $glibc_header_dir/features.h \
+	 && $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GNU_LIBRARY__[ 	]+([1-9][0-9]|[6-9])' \
+	    $glibc_header_dir/features.h > /dev/null; then
+	if $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC__[ 	]+([1-9][0-9]|[3-9])' \
+	   $glibc_header_dir/features.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
+	elif $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC__[ 	]+2' \
+	     $glibc_header_dir/features.h > /dev/null \
+	     && $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
+	     $glibc_header_dir/features.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
+	fi
+      fi]) ;;
+  *) gcc_cv_libc_provides_ssp=no ;;
+esac
+if test x$gcc_cv_libc_provides_ssp = xyes; then
+  AC_DEFINE(TARGET_LIBC_PROVIDES_SSP, 1,
+	    [Define if your target C library provides stack protector support])
 fi
 
 # Find out what GC implementation we want, or may, use.

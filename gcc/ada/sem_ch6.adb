@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -3326,19 +3326,27 @@ package body Sem_Ch6 is
             Desig_1 := Directly_Designated_Type (Type_1);
 
             --  An access parameter can designate an incomplete type
+            --  If the incomplete type is the limited view of a type
+            --  from a limited_with_clause, check whether the non-limited
+            --  view is available.
 
-            if Ekind (Desig_1) = E_Incomplete_Type
-              and then Present (Full_View (Desig_1))
-            then
-               Desig_1 := Full_View (Desig_1);
+            if Ekind (Desig_1) = E_Incomplete_Type then
+               if Present (Full_View (Desig_1)) then
+                  Desig_1 := Full_View (Desig_1);
+
+               elsif Present (Non_Limited_View (Desig_1)) then
+                  Desig_1 := Non_Limited_View (Desig_1);
+               end if;
             end if;
 
             Desig_2 := Directly_Designated_Type (Type_2);
 
-            if Ekind (Desig_2) = E_Incomplete_Type
-              and then Present (Full_View (Desig_2))
-            then
-               Desig_2 := Full_View (Desig_2);
+            if Ekind (Desig_2) = E_Incomplete_Type then
+               if Present (Full_View (Desig_2)) then
+                  Desig_2 := Full_View (Desig_2);
+               elsif Present (Non_Limited_View (Desig_2)) then
+                  Desig_2 := Non_Limited_View (Desig_2);
+               end if;
             end if;
 
             --  The context is an instance association for a formal
@@ -5263,12 +5271,9 @@ package body Sem_Ch6 is
                         and then Ekind (Root_Type (Formal_Type)) =
                                                          E_Incomplete_Type)
             then
-               --  Ada 2005 (AI-50217): Incomplete tagged types that are made
-               --  visible by a limited with_clause are valid formal types.
+               --  Ada 2005 (AI-326): Tagged incomplete types allowed
 
-               if From_With_Type (Formal_Type)
-                 and then Is_Tagged_Type (Formal_Type)
-               then
+               if Is_Tagged_Type (Formal_Type) then
                   null;
 
                elsif Nkind (Parent (T)) /= N_Access_Function_Definition
@@ -5284,8 +5289,8 @@ package body Sem_Ch6 is
 
             --  Ada 2005 (AI-231): Create and decorate an internal subtype
             --  declaration corresponding to the null-excluding type of the
-            --  formal in the enclosing scope. Finally, replace the
-            --  parameter type of the formal with the internal subtype.
+            --  formal in the enclosing scope. Finally, replace the parameter
+            --  type of the formal with the internal subtype.
 
             if Null_Exclusion_Present (Param_Spec) then
                declare
@@ -5388,11 +5393,12 @@ package body Sem_Ch6 is
 
             Analyze_Per_Use_Expression (Default, Formal_Type);
 
-            --  Check that the designated type of an access parameter's
-            --  default is not a class-wide type unless the parameter's
-            --  designated type is also class-wide.
+            --  Check that the designated type of an access parameter's default
+            --  is not a class-wide type unless the parameter's designated type
+            --  is also class-wide.
 
             if Ekind (Formal_Type) = E_Anonymous_Access_Type
+              and then not From_With_Type (Formal_Type)
               and then Is_Class_Wide_Default (Default)
               and then not Is_Class_Wide_Type (Designated_Type (Formal_Type))
             then
@@ -5523,18 +5529,19 @@ package body Sem_Ch6 is
          elsif Is_Array_Type (T) then
             AS_Needed := True;
 
-         --  The only other case which needs an actual subtype is an
-         --  unconstrained record type which is an IN parameter (we cannot
-         --  generate actual subtypes for the OUT or IN OUT case, since an
-         --  assignment can change the discriminant values. However we exclude
-         --  the case of initialization procedures, since discriminants are
-         --  handled very specially in this context, see the section entitled
-         --  "Handling of Discriminants" in Einfo. We also exclude the case of
-         --  Discrim_SO_Functions (functions used in front end layout mode for
-         --  size/offset values), since in such functions only discriminants
-         --  are referenced, and not only are such subtypes not needed, but
-         --  they cannot always be generated, because of order of elaboration
-         --  issues.
+         --  The only other case needing an actual subtype is an unconstrained
+         --  record type which is an IN parameter (we cannot generate actual
+         --  subtypes for the OUT or IN OUT case, since an assignment can
+         --  change the discriminant values. However we exclude the case of
+         --  initialization procedures, since discriminants are handled very
+         --  specially in this context, see the section entitled "Handling of
+         --  Discriminants" in Einfo.
+
+         --  We also exclude the case of Discrim_SO_Functions (functions used
+         --  in front end layout mode for size/offset values), since in such
+         --  functions only discriminants are referenced, and not only are such
+         --  subtypes not needed, but they cannot always be generated, because
+         --  of order of elaboration issues.
 
          elsif Is_Record_Type (T)
            and then Ekind (Formal) = E_In_Parameter

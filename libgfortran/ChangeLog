@@ -1,3 +1,141 @@
+2005-07-17  Jerry DeLisle  <jvdelisle@verizon.net>
+
+    * io/write.c (write_float): Fix field width checks for
+    printing 'Infinity' or 'Inf'.
+    (output_float): Fix typo in comment.
+
+2005-07-12 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/16435
+	* transfer.c (formatted_transfer): Correct the problems
+	with X- and T-editting that caused TLs followed by TRs
+	to overwrite data, which caused NIST FM908.FOR to fail
+	on many tests.
+	(data_transfer_init): Zero X- and T-editting counters at
+	the start of formatted IO.
+	* write.c (write_x): Write specified number of skips with
+	specified number of spaces at the end.
+
+2005-07-13 Paul Thomas  <pault@gcc.gnu.org>
+
+	* io/read.c (read_complex): Prevent X formatting during reads
+	from going beyond EOR to fix NIST fm908.FOR failure.
+	* io/list_read.c (read_complex): Allow complex data in list-
+	directed reads to have eols either side of the comma to
+	fix NIST FM906.FOR failure.
+
+2005-07-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21593
+	io/unix.c:  Add member special_file to type unix_stream.
+	(fd_truncate):  Don't call ftruncate or chsize if
+	s refers to a special file.
+	(fd_to_stream):  initialize s->special_file.
+
+2005-07-11  David Edelsohn  <edelsohn@gnu.org>
+
+        PR libgfortran/22412
+        * io/write.c (otoa): Bias p by SCRATCH_SIZE, not
+        sizeof (SCRATCH_SIZE).
+        (btoa): Same.
+
+2005-07-09  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libfortran/21875  (FM111.f)
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or 
+	BLANK_NULL are active.
+	(read_decimal): Interpret ' ' character correctly for BZ or BN.
+	(read_radix): Interpret ' ' character correctly for BZ or BN.
+	(read_f): Interpret ' ' character correctly for BZ or BN.
+	* gfortran.dg/test (fmt_read_bz_bn.f90): New test case.
+
+2005-07-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/22217
+	* io/write.c (extract_unit):  New function; extract
+	ints as unsigned signed int of the correct size.
+	* io/write.c (write_int):  Use it.
+	* runtime/error.c:  Adjust copyright years.
+	Adjust size of buffer to maximum that can occur.
+
+2005-07-07  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* libgfortran.h (GFC_ARRAY_DESCRIPTOR): Replace 'type *base' by
+	'size_t offset'.
+	* intrinsics/cshift0.c, intrinsics/eoshift0.c,
+	intrinsics/eoshift2.c,intrinsics/pack_generic.c,
+	intrinsics/reshape_generic.c, intrinsics/spread_generic.c,
+	intrinsics/transpose_generic.c, intrinsics/unpack_generic,
+	m4/cshift1.m4, m4/eoshift1.m4, m4/eoshift3.m4, m4/iforeach.m4,
+	m4/ifunction.m4, m4/matmul.m4, m4/matmull.m4, m4/reshape.m4,
+	m4,transpose.m4: Set renamed field 'offset' to zero instead of
+	'base'.
+	* generated/all_l4.c, generated/all_l8.c,
+	generated/any_l4.c, generated/any_l8.c, generated/count_4_l4.c,
+	generated/count_4_l8.c, generated/count_8_l4.c,
+	generated/count_8_l8.c, generated/chift1_4.c,
+	generated/cshift1_8.c, generated/eoshift1_4.c,
+	generated/eoshift1_8.c, generated/eoshift3_4.c,
+	generated/eoshift3_8.c, generated/matmul_c4.c,
+	generated/matmul_c8.c, generated/matmul_i4.c, matmul_i8.c,
+	generated/matmul_l4.c, generated/matmul_l8.c,
+	generated/matmul_r4.c, generated/matmul_r8.c,
+	generated/maxloc0_4_i4.c, generated/maxloc0_4_i8.c,
+	generated/maxloc0_4_r4.c, generated/maxloc0_4_r8.c,
+	generated/maxloc0_8_i4.c, generated/maxloc0_8_i8.c,
+	generated/maxloc0_8_r4.c, generated/maxloc0_8_r8.c,
+	generated/maxloc1_4_i4.c, generated/maxloc1_4_i8.c,
+	generated/maxloc1_4_r4.c, generated/maxloc1_4_r8.c,
+	generated/maxloc1_8_i4.c, generated/maxloc1_8_i8.c,
+	generated/maxloc1_8_r4.c, generated/maxloc1_8_r8.c,
+	generated/maxval_i4.c, generated/maxval_i8.c,
+	generated/maxval_r4.c, generated/maxval_r8.c,
+	generated/minloc0_4_i4.c, generated/minloc0_4_i8.c,
+	generated/minloc0_4_r4.c, generated/minloc0_4_r8.c,
+	generated/minloc0_8_i4.c, generated/minloc0_8_i8.c,
+	generated/minloc0_8_r4.c, generated/minloc0_8_r8.c,
+	generated/minloc1_4_i4.c, generated/minloc1_4_i8.c,
+	generated/minloc1_4_r4.c, generated/minloc1_4_r8.c,
+	generated/minloc1_8_i4.c, generated/minloc1_8_i8.c,
+	generated/minloc1_8_r4.c, generated/minloc1_8_r8.c,
+	generated/minval_i4.c, generated/minval_i8.c,
+	generated/minval_r4.c, generated/minval_r8.c,
+	generated/product_c4.c, generated/product_c8.c,
+	generated/product_i4.c, generated/product_i8.c,
+	generated/product_r4.c, generated/product_r8.c,
+	generated/reshape_c4.c, generated/reshape_c8.c,
+	generated/reshape_i4.c, generated/reshape_i8.c,
+	generated/sum_c4.c, generated/sum_c8.c, generated/sum_i4.c,
+	generated/sum_i8.c, generated/sum_r4.c, generated/sum_r8.c,
+	generated/transpose_c4.c, generated/transpose_c8.c,
+	generated/transpose_i4.c, generated/transpose_i8.c: Regenerate:
+
+2005-07-07  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21594
+	* intrinsics/eoshift0.c:  If abs(shift) > len, fill the
+	the whole array with the boundary value, but don't overrun it.
+	* intrinsics/eoshift2.c:  Likewise.
+	* m4/eoshift1.m4:  Likewise.
+	* m4/eoshift3.m4:  Likewise.
+	* generated/eoshift1_4.c:  Regenerated.
+	* generated/eoshift1_8.c:  Regenerated.
+	* generated/eoshift3_4.c:  Regenerated.
+	* generated/eoshift3_8.c:  Regenerated.
+
+2005-07-07  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/16531
+	* io/transfer.c (formatted_transfer): Enable FMT_A on other types to
+	support Hollerith constants.
+
+2005-07-01  Andreas Jaeger  <aj@suse.de>
+
+	* intrinsics/unpack_generic.c: Remove const from parameter.
+
+	* io/transfer.c (formatted_transfer): Remove unused variable.
+
 2005-06-28  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/22142
@@ -46,7 +184,7 @@
 	* aclocal.m4: Regenerated.
 	* Makefile.in: Regenerated.
 	* configure: Regenerated.
-	* intrinsics/hyper.c: New file, adds new wrapper functions. 
+	* intrinsics/hyper.c: New file, adds new wrapper functions.
 
 2005-06-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
@@ -233,7 +371,7 @@
 	concerning advancing I/O.
 	(data_transfer_init): Likewise.
 	(finalize_transfer): Likewise.
-	
+
 2005-05-27  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	* runtime/in_pack_generic.c:  Adjust copyright years.

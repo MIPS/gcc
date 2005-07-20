@@ -145,7 +145,7 @@ location_t unknown_location = { NULL, 0 };
 
 /* Used to enable -fvar-tracking, -fweb and -frename-registers according
    to optimize and default_debug_hooks in process_options ().  */
-#define AUTODETECT_FLAG_VAR_TRACKING 2
+#define AUTODETECT_VALUE 2
 
 /* Current position in real source file.  */
 
@@ -334,9 +334,9 @@ rtx stack_limit_rtx;
 int flag_renumber_insns = 1;
 
 /* Nonzero if we should track variables.  When
-   flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
+   flag_var_tracking == AUTODETECT_VALUE it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
-int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+int flag_var_tracking = AUTODETECT_VALUE;
 
 /* True if the user has tagged the function with the 'section'
    attribute.  */
@@ -442,9 +442,9 @@ announce_function (tree decl)
   if (!quiet_flag)
     {
       if (rtl_dump_and_exit)
-	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
+	fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
-	verbatim (" %s", lang_hooks.decl_printable_name (decl, 2));
+	fprintf (stderr, " %s", lang_hooks.decl_printable_name (decl, 2));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc);
@@ -704,7 +704,8 @@ wrapup_global_declarations (tree *vec, int len)
 
       /* We're not deferring this any longer.  Assignment is
 	 conditional to avoid needlessly dirtying PCH pages.  */
-      if (DECL_DEFER_OUTPUT (decl) != 0)
+      if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
+	  && DECL_DEFER_OUTPUT (decl) != 0)
 	DECL_DEFER_OUTPUT (decl) = 0;
 
       if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
@@ -823,10 +824,10 @@ check_global_declarations (tree *vec, int len)
 	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
 	{
 	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	    pedwarn ("%J%qF used but never defined", decl, decl);
+	    pedwarn ("%q+F used but never defined", decl);
 	  else
-	    warning (0, "%J%qF declared %<static%> but never defined",
-		     decl, decl);
+	    warning (0, "%q+F declared %<static%> but never defined",
+		     decl);
 	  /* This symbol is effectively an "extern" declaration now.  */
 	  TREE_PUBLIC (decl) = 1;
 	  assemble_external (decl);
@@ -851,7 +852,7 @@ check_global_declarations (tree *vec, int len)
 	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  /* Otherwise, ask the language.  */
 	  && lang_hooks.decls.warn_unused_global (decl))
-	warning (0, "%J%qD defined but not used", decl, decl);
+	warning (0, "%q+D defined but not used", decl);
 
       /* Avoid confusing the debug information machinery when there are
 	 errors.  */
@@ -1093,19 +1094,25 @@ const char *const debug_type_names[] =
 void
 print_version (FILE *file, const char *indent)
 {
+  static const char fmt1[] =
+#ifdef __GNUC__
+    N_("%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n")
+#else
+    N_("%s%s%s version %s (%s) compiled by CC.\n")
+#endif
+    ;
+  static const char fmt2[] =
+    N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
 #define __VERSION__ "[?]"
 #endif
-  fnotice (file,
-#ifdef __GNUC__
-	   "%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n"
-#else
-	   "%s%s%s version %s (%s) compiled by CC.\n"
-#endif
-	   , indent, *indent != 0 ? " " : "",
+  fprintf (file,
+	   file == stderr ? _(fmt1) : fmt1,
+	   indent, *indent != 0 ? " " : "",
 	   lang_hooks.name, version_string, TARGET_NAME,
 	   indent, __VERSION__);
-  fnotice (file, "%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
+  fprintf (file,
+	   file == stderr ? _(fmt2) : fmt2,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
@@ -1355,11 +1362,16 @@ default_pch_valid_p (const void *data_p, size_t len)
 
 /* Default tree printer.   Handles declarations only.  */
 static bool
-default_tree_printer (pretty_printer * pp, text_info *text)
+default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
+		      int precision, bool wide, bool set_locus, bool hash)
 {
   tree t;
 
-  switch (*text->format_spec)
+  /* FUTURE: %+x should set the locus.  */
+  if (precision != 0 || wide || hash)
+    return false;
+
+  switch (*spec)
     {
     case 'D':
       t = va_arg (*text->args_ptr, tree);
@@ -1375,6 +1387,9 @@ default_tree_printer (pretty_printer * pp, text_info *text)
     default:
       return false;
     }
+
+  if (set_locus && text->locus)
+    *text->locus = DECL_SOURCE_LOCATION (t);
 
   if (DECL_P (t))
     {
@@ -1456,7 +1471,7 @@ general_init (const char *argv0)
 
   /* This must be done after add_params but before argument processing.  */
   init_ggc_heuristics();
-  init_tree_optimization_passes ();
+  init_optimization_passes ();
 }
 
 /* Process the options that have been parsed.  */
@@ -1515,9 +1530,15 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  /* The loop unrolling code assumes that cse will be run after loop.  */
-  if (flag_unroll_loops || flag_peel_loops)
-    flag_rerun_cse_after_loop = 1;
+  /* The loop unrolling code assumes that cse will be run after loop.
+     web and rename-registers also help when run after loop unrolling.  */
+
+  if (flag_rerun_cse_after_loop == AUTODETECT_VALUE)
+    flag_rerun_cse_after_loop = flag_unroll_loops || flag_peel_loops;
+  if (flag_web == AUTODETECT_VALUE)
+    flag_web = flag_unroll_loops || flag_peel_loops;
+  if (flag_rename_registers == AUTODETECT_VALUE)
+    flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
   /* If explicitly asked to run new loop optimizer, switch off the old
      one.  */
@@ -1672,11 +1693,11 @@ process_options (void)
       flag_var_tracking = 0;
     }
 
-  if (flag_rename_registers == AUTODETECT_FLAG_VAR_TRACKING)
+  if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = default_debug_hooks->var_location
 	    		    != do_nothing_debug_hooks.var_location;
 
-  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+  if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
 
   /* If auxiliary info generation is desired, open the output file.

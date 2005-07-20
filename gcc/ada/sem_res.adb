@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -2582,12 +2582,15 @@ package body Sem_Res is
             --  If the formal is Out or In_Out, do not resolve and expand the
             --  conversion, because it is subsequently expanded into explicit
             --  temporaries and assignments. However, the object of the
-            --  conversion can be resolved. An exception is the case of
-            --  a tagged type conversion with a class-wide actual. In that
-            --  case we want the tag check to occur and no temporary will
-            --  will be needed (no representation change can occur) and
-            --  the parameter is passed by reference, so we go ahead and
-            --  resolve the type conversion.
+            --  conversion can be resolved. An exception is the case of a
+            --  tagged type conversion with a class-wide actual. In that case
+            --  we want the tag check to occur and no temporary will be needed
+            --  (no representation change can occur) and the parameter is
+            --  passed by reference, so we go ahead and resolve the type
+            --  conversion. Another excpetion is the case of reference to a
+            --  component or subcomponent of a bit-packed array, in which case
+            --  we want to defer expansion to the point the in and out
+            --  assignments are performed.
 
             if Ekind (F) /= E_In_Parameter
               and then Nkind (A) = N_Type_Conversion
@@ -2628,8 +2631,9 @@ package body Sem_Res is
                   end if;
                end if;
 
-               if Conversion_OK (A)
-                 or else Valid_Conversion (A, Etype (A), Expression (A))
+               if (Conversion_OK (A)
+                     or else Valid_Conversion (A, Etype (A), Expression (A)))
+                 and then not Is_Ref_To_Bit_Packed_Array (Expression (A))
                then
                   Resolve (Expression (A));
                end if;
@@ -4920,6 +4924,19 @@ package body Sem_Res is
         and then Ekind (Entity (Prefix (N))) = E_In_Parameter
       then
          null;
+
+      --  Ada 2005 (AI-326): Tagged incomplete types allowed. The wrong usages
+      --  are handled by Analyze_Access_Attribute, Analyze_Assignment, Analyze_
+      --  Object_Renaming, and Freeze_Entity.
+
+      elsif Ada_Version >= Ada_05
+        and then Is_Entity_Name (Prefix (N))
+        and then Ekind (Directly_Designated_Type (Etype (Prefix (N))))
+                   = E_Incomplete_Type
+        and then Is_Tagged_Type (Directly_Designated_Type (Etype (Prefix (N))))
+      then
+         null;
+
       else
          Check_Fully_Declared (Typ, N);
       end if;

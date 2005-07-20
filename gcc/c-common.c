@@ -509,6 +509,7 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
@@ -575,6 +576,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  { "flatten",                0, 0, true,  false, false,
+                              handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
 			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
@@ -4191,6 +4194,28 @@ handle_always_inline_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "flatten" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_flatten_attribute (tree *node, tree name,
+                          tree args ATTRIBUTE_UNUSED,
+                          int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+
 /* Handle a "used" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -4599,8 +4624,8 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 		   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
 			      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
 	    {
-	      error ("%Jsection of %qD conflicts with previous declaration",
-		     *node, *node);
+	      error ("section of %q+D conflicts with previous declaration",
+		     *node);
 	      *no_add_attrs = true;
 	    }
 	  else
@@ -4608,7 +4633,7 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	}
       else
 	{
-	  error ("%Jsection attribute not allowed for %qD", *node, *node);
+	  error ("section attribute not allowed for %q+D", *node);
 	  *no_add_attrs = true;
 	}
     }
@@ -4682,7 +4707,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   else if (TREE_CODE (decl) != VAR_DECL
 	   && TREE_CODE (decl) != FIELD_DECL)
     {
-      error ("%Jalignment may not be specified for %qD", decl, decl);
+      error ("alignment may not be specified for %q+D", decl);
       *no_add_attrs = true;
     }
   else
@@ -4720,7 +4745,7 @@ handle_alias_attribute (tree *node, tree name, tree args,
   if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
       || (TREE_CODE (decl) != FUNCTION_DECL && !DECL_EXTERNAL (decl)))
     {
-      error ("%J%qD defined both normally and as an alias", decl, decl);
+      error ("%q+D defined both normally and as an alias", decl);
       *no_add_attrs = true;
     }
 
@@ -4873,35 +4898,38 @@ static tree
 handle_tls_model_attribute (tree *node, tree name, tree args,
 			    int ARG_UNUSED (flags), bool *no_add_attrs)
 {
+  tree id;
   tree decl = *node;
+  enum tls_model kind;
 
-  if (!DECL_THREAD_LOCAL (decl))
+  *no_add_attrs = true;
+
+  if (!DECL_THREAD_LOCAL_P (decl))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
+      return NULL_TREE;
     }
-  else
+
+  kind = DECL_TLS_MODEL (decl);
+  id = TREE_VALUE (args);
+  if (TREE_CODE (id) != STRING_CST)
     {
-      tree id;
-
-      id = TREE_VALUE (args);
-      if (TREE_CODE (id) != STRING_CST)
-	{
-	  error ("tls_model argument not a string");
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
-      if (strcmp (TREE_STRING_POINTER (id), "local-exec")
-	  && strcmp (TREE_STRING_POINTER (id), "initial-exec")
-	  && strcmp (TREE_STRING_POINTER (id), "local-dynamic")
-	  && strcmp (TREE_STRING_POINTER (id), "global-dynamic"))
-	{
-	  error ("tls_model argument must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
+      error ("tls_model argument not a string");
+      return NULL_TREE;
     }
 
+  if (!strcmp (TREE_STRING_POINTER (id), "local-exec"))
+    kind = TLS_MODEL_LOCAL_EXEC;
+  else if (!strcmp (TREE_STRING_POINTER (id), "initial-exec"))
+    kind = TLS_MODEL_INITIAL_EXEC;
+  else if (!strcmp (TREE_STRING_POINTER (id), "local-dynamic"))
+    kind = optimize ? TLS_MODEL_LOCAL_DYNAMIC : TLS_MODEL_GLOBAL_DYNAMIC;
+  else if (!strcmp (TREE_STRING_POINTER (id), "global-dynamic"))
+    kind = TLS_MODEL_GLOBAL_DYNAMIC;
+  else
+    error ("tls_model argument must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
+
+  DECL_TLS_MODEL (decl) = kind;
   return NULL_TREE;
 }
 
@@ -5517,11 +5545,11 @@ check_function_arguments (tree attrs, tree params, tree typelist)
 
   /* Check for errors in format strings.  */
 
-  if (warn_format)
-    {
+  if (warn_format || warn_missing_format_attribute)
       check_function_format (attrs, params);
-      check_function_sentinel (attrs, params, typelist);
-    }
+
+  if (warn_format)
+    check_function_sentinel (attrs, params, typelist);
 }
 
 /* Generic argument checking recursion routine.  PARAM is the argument to

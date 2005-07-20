@@ -577,6 +577,13 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'strverscmp', otherwise define to
+   0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STRVERSCMP
+#endif
+
+
 /* Define to 1 if we found a declaration for 'times', otherwise define to 0.
    */
 #ifndef USED_FOR_TARGET
@@ -1267,6 +1274,12 @@
 /* Define if you can safely include both <string.h> and <strings.h>. */
 #ifndef USED_FOR_TARGET
 #undef STRING_WITH_STRINGS
+#endif
+
+
+/* Define if your target C library provides stack protector support */
+#ifndef USED_FOR_TARGET
+#undef TARGET_LIBC_PROVIDES_SSP
 #endif
 
 

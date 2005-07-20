@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "tree-chrec.h"
+#include "tree-pass.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
@@ -267,7 +268,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   if (TREE_CODE (node) != ERROR_MARK
       && is_gimple_stmt (node)
       && (flags & TDF_VOPS)
-      && stmt_ann (node))
+      && stmt_ann (node)
+      && TREE_CODE (node) != PHI_NODE)
     dump_vops (buffer, node, spc, flags);
 
   if (is_stmt && (flags & TDF_STMTADDR))
@@ -1576,7 +1578,7 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
   if (TREE_CODE (t) == TYPE_DECL)
     pp_string (buffer, "typedef ");
 
-  if (DECL_REGISTER (t))
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL) && DECL_REGISTER (t))
     pp_string (buffer, "register ");
 
   if (TREE_PUBLIC (t) && DECL_EXTERNAL (t))

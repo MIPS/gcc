@@ -3943,13 +3943,16 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
     return fold_convert (type, integer_one_node);
 
   if (low == 0)
-    return fold_build2 (LE_EXPR, type, exp, high);
+    return fold_build2 (LE_EXPR, type, exp,
+			fold_convert (etype, high));
 
   if (high == 0)
-    return fold_build2 (GE_EXPR, type, exp, low);
+    return fold_build2 (GE_EXPR, type, exp,
+			fold_convert (etype, low));
 
   if (operand_equal_p (low, high, 0))
-    return fold_build2 (EQ_EXPR, type, exp, low);
+    return fold_build2 (EQ_EXPR, type, exp,
+			fold_convert (etype, low));
 
   if (integer_zerop (low))
     {
@@ -8575,11 +8578,11 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  && !TREE_SIDE_EFFECTS (arg1))
 	{
 	  tem = fold_to_nonsharp_ineq_using_bound (arg0, arg1);
-	  if (tem)
+	  if (tem && !operand_equal_p (tem, arg0, 0))
 	    return fold_build2 (code, type, tem, arg1);
 
 	  tem = fold_to_nonsharp_ineq_using_bound (arg1, arg0);
-	  if (tem)
+	  if (tem && !operand_equal_p (tem, arg1, 0))
 	    return fold_build2 (code, type, arg0, tem);
 	}
 
@@ -8736,7 +8739,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	 object against zero, then we know the result.  */
       if ((code == EQ_EXPR || code == NE_EXPR)
 	  && TREE_CODE (arg0) == ADDR_EXPR
-	  && DECL_P (TREE_OPERAND (arg0, 0))
+	  && VAR_OR_FUNCTION_DECL_P (TREE_OPERAND (arg0, 0))
 	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
 	  && integer_zerop (arg1))
 	return constant_boolean_node (code != EQ_EXPR, type);
@@ -8746,20 +8749,34 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	 have access to attributes for externs), then we know the result.  */
       if ((code == EQ_EXPR || code == NE_EXPR)
 	  && TREE_CODE (arg0) == ADDR_EXPR
-	  && DECL_P (TREE_OPERAND (arg0, 0))
+	  && VAR_OR_FUNCTION_DECL_P (TREE_OPERAND (arg0, 0))
 	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
 	  && ! lookup_attribute ("alias",
 				 DECL_ATTRIBUTES (TREE_OPERAND (arg0, 0)))
 	  && ! DECL_EXTERNAL (TREE_OPERAND (arg0, 0))
 	  && TREE_CODE (arg1) == ADDR_EXPR
-	  && DECL_P (TREE_OPERAND (arg1, 0))
+	  && VAR_OR_FUNCTION_DECL_P (TREE_OPERAND (arg1, 0))
 	  && ! DECL_WEAK (TREE_OPERAND (arg1, 0))
 	  && ! lookup_attribute ("alias",
 				 DECL_ATTRIBUTES (TREE_OPERAND (arg1, 0)))
 	  && ! DECL_EXTERNAL (TREE_OPERAND (arg1, 0)))
-	return constant_boolean_node (operand_equal_p (arg0, arg1, 0)
-				      ? code == EQ_EXPR : code != EQ_EXPR,
-				      type);
+	{
+	  /* We know that we're looking at the address of two
+	     non-weak, unaliased, static _DECL nodes.
+
+	     It is both wasteful and incorrect to call operand_equal_p
+	     to compare the two ADDR_EXPR nodes.  It is wasteful in that
+	     all we need to do is test pointer equality for the arguments
+	     to the two ADDR_EXPR nodes.  It is incorrect to use
+	     operand_equal_p as that function is NOT equivalent to a
+	     C equality test.  It can in fact return false for two
+	     objects which would test as equal using the C equality
+	     operator.  */
+	  bool equal = TREE_OPERAND (arg0, 0) == TREE_OPERAND (arg1, 0);
+	  return constant_boolean_node (equal
+				        ? code == EQ_EXPR : code != EQ_EXPR,
+				        type);
+	}
 
       /* If this is a comparison of two exprs that look like an
 	 ARRAY_REF of the same object, then we can fold this to a
@@ -8863,6 +8880,30 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		      || (code0 == PLUS_EXPR && is_positive < 0)))
 		return constant_boolean_node (0, type);
 	    }
+	}
+
+      /* Transform comparisons of the form X +- C1 CMP C2 to X CMP C2 +- C1.  */
+      if ((TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
+	  && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
+	      && !TREE_OVERFLOW (TREE_OPERAND (arg0, 1))
+	      && !TYPE_UNSIGNED (TREE_TYPE (arg1))
+	      && !(flag_wrapv || flag_trapv))
+	  && (TREE_CODE (arg1) == INTEGER_CST
+	      && !TREE_OVERFLOW (arg1)))
+	{
+	  tree const1 = TREE_OPERAND (arg0, 1);
+	  tree const2 = arg1;
+	  tree variable = TREE_OPERAND (arg0, 0);
+	  tree lhs;
+	  int lhs_add;
+	  lhs_add = TREE_CODE (arg0) != PLUS_EXPR;
+	  
+	  lhs = fold_build2 (lhs_add ? PLUS_EXPR : MINUS_EXPR,
+			     TREE_TYPE (arg1), const2, const1);
+	  if (TREE_CODE (lhs) == TREE_CODE (arg1)
+	      && (TREE_CODE (lhs) != INTEGER_CST
+	          || !TREE_OVERFLOW (lhs)))
+	    return fold_build2 (code, type, variable, lhs);
 	}
 
       if (FLOAT_TYPE_P (TREE_TYPE (arg0)))
@@ -10157,14 +10198,14 @@ fold_checksum_tree (tree expr, struct md5_ctx *ctx, htab_t ht)
 {
   void **slot;
   enum tree_code code;
-  char buf[sizeof (struct tree_decl)];
+  char buf[sizeof (struct tree_decl_non_common)];
   int i, len;
   
 recursive_label:
 
   gcc_assert ((sizeof (struct tree_exp) + 5 * sizeof (tree)
-	       <= sizeof (struct tree_decl))
-	      && sizeof (struct tree_type) <= sizeof (struct tree_decl));
+	       <= sizeof (struct tree_decl_non_common))
+	      && sizeof (struct tree_type) <= sizeof (struct tree_decl_non_common));
   if (expr == NULL)
     return;
   slot = htab_find_slot (ht, expr, INSERT);
@@ -10810,7 +10851,7 @@ tree_expr_nonzero_p (tree t)
 	  return false;
 
 	/* Weak declarations may link to NULL.  */
-	if (DECL_P (base))
+	if (VAR_OR_FUNCTION_DECL_P (base))
 	  return !DECL_WEAK (base);
 
 	/* Constants are never weak.  */

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -2679,6 +2679,25 @@ package body Sem_Ch4 is
 
                Resolve (Name);
 
+               --  Ada 2005 (AI-50217): Check wrong use of incomplete type.
+               --  Example:
+
+               --    limited with Pkg;
+               --    package Pkg is
+               --       type Acc_Inc is access Pkg.T;
+               --       X : Acc_Inc;
+               --       N : Natural := X.all.Comp; -- ERROR
+               --    end Pkg;
+
+               if Nkind (Name) = N_Explicit_Dereference
+                 and then From_With_Type (Etype (Prefix (Name)))
+                 and then not Is_Potentially_Use_Visible (Etype (Name))
+               then
+                  Error_Msg_NE
+                    ("premature usage of incomplete}", Prefix (Name),
+                     Etype (Prefix (Name)));
+               end if;
+
                --  We never need an actual subtype for the case of a selection
                --  for a indexed component of a non-packed array, since in
                --  this case gigi generates all the checks and can find the
@@ -4913,7 +4932,19 @@ package body Sem_Ch4 is
             begin
                Actual := First (Parameter_Associations (Parent_Node));
                while Present (Actual) loop
-                  Append (New_Copy_Tree (Actual), Actuals);
+                  declare
+                     New_Actual : constant Node_Id := New_Copy_Tree (Actual);
+
+                  begin
+                     Append (New_Actual, Actuals);
+
+                     if Nkind (Actual) = N_Function_Call
+                       and then Is_Overloaded (Name (Actual))
+                     then
+                        Save_Interps (Name (Actual), Name (New_Actual));
+                     end if;
+                  end;
+
                   Next (Actual);
                end loop;
             end;

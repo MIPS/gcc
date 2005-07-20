@@ -66,6 +66,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "optabs.h"
 #include "cfgloop.h"
 #include "ggc.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* Get the loop info pointer of a loop.  */
 #define LOOP_INFO(LOOP) ((struct loop_info *) (LOOP)->aux)
@@ -5495,23 +5497,40 @@ loop_givs_rescan (struct loop *loop, struct iv_class *bl, rtx *reg_map)
 	  else if (GET_CODE (*v->location) == PLUS
 		   && REG_P (XEXP (*v->location, 0))
 		   && CONSTANT_P (XEXP (*v->location, 1)))
-	    loop_insn_emit_before (loop, 0, v->insn,
-				   gen_move_insn (XEXP (*v->location, 0),
-						  gen_rtx_MINUS
-						  (GET_MODE (*v->location),
-						   v->new_reg,
-						   XEXP (*v->location, 1))));
+	    {
+	      rtx tem;
+	      start_sequence ();
+	      tem = expand_simple_binop (GET_MODE (*v->location), MINUS,
+					 v->new_reg, XEXP (*v->location, 1),
+					 NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	      emit_move_insn (XEXP (*v->location, 0), tem);
+	      tem = get_insns ();
+	      end_sequence ();
+	      loop_insn_emit_before (loop, 0, v->insn, tem);
+	    }
 	  else
 	    {
 	      /* If it wasn't a reg, create a pseudo and use that.  */
 	      rtx reg, seq;
 	      start_sequence ();
 	      reg = force_reg (v->mode, *v->location);
-	      seq = get_insns ();
-	      end_sequence ();
-	      loop_insn_emit_before (loop, 0, v->insn, seq);
-	      if (!validate_change_maybe_volatile (v->insn, v->location, reg))
-		gcc_unreachable ();
+	      if (validate_change_maybe_volatile (v->insn, v->location, reg))
+		{
+		  seq = get_insns ();
+		  end_sequence ();
+		  loop_insn_emit_before (loop, 0, v->insn, seq);
+		}
+	      else
+		{
+		  end_sequence ();
+		  if (loop_dump_stream)
+		    fprintf (loop_dump_stream,
+			     "unable to reduce iv in insn %d\n",
+			     INSN_UID (v->insn));
+		  bl->all_reduced = 0;
+		  v->ignore = 1;
+		  continue;
+		}
 	    }
 	}
       else if (v->replaceable)
@@ -11807,3 +11826,66 @@ debug_loops (const struct loops *loops)
 {
   flow_loops_dump (loops, stderr, loop_dump_aux, 1);
 }
+
+static bool
+gate_handle_loop_optimize (void)
+{
+  return (optimize > 0 && flag_loop_optimize);
+}
+
+/* Move constant computations out of loops.  */
+static void
+rest_of_handle_loop_optimize (void)
+{
+  int do_prefetch;
+
+  /* CFG is no longer maintained up-to-date.  */
+  free_bb_for_insn ();
+  profile_status = PROFILE_ABSENT;
+  
+  do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
+  
+  if (flag_rerun_loop_opt)
+    {
+      cleanup_barriers ();
+      
+      /* We only want to perform unrolling once.  */
+      loop_optimize (get_insns (), dump_file, 0);
+      
+      /* The first call to loop_optimize makes some instructions
+         trivially dead.  We delete those instructions now in the
+         hope that doing so will make the heuristics in loop work
+         better and possibly speed up compilation.  */
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  
+      /* The regscan pass is currently necessary as the alias
+         analysis code depends on this information.  */
+      reg_scan (get_insns (), max_reg_num ());
+    } 
+  cleanup_barriers ();
+  loop_optimize (get_insns (), dump_file, do_prefetch);
+      
+  /* Loop can create trivially dead instructions.  */
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  find_basic_blocks (get_insns ());
+}
+
+struct tree_opt_pass pass_loop_optimize =
+{
+  "old-loop",                           /* name */
+  gate_handle_loop_optimize,            /* gate */   
+  rest_of_handle_loop_optimize,         /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_LOOP,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'L'                                   /* letter */
+};
+
+

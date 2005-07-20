@@ -345,7 +345,7 @@ Common Joined RejectNegative
 
 fdiagnostics-show-option
 Common
-Amend appropriate diagnostic messages with the command line option that controls them.
+Amend appropriate diagnostic messages with the command line option that controls them
 
 fdump-
 Common Joined RejectNegative
@@ -431,9 +431,9 @@ Perform redundant load after store elimination in global common subexpression
 elimination
 
 fgcse-after-reload
-Common Report Var(flag_gcse_after_reload)
+Common Report Var(flag_gcse_after_reload) Init(2)
 Perform global common subexpression elimination after register allocation
-has finished.
+has finished
 
 fguess-branch-probability
 Common Report Var(flag_guess_branch_prob)
@@ -490,6 +490,18 @@ Common RejectNegative Joined UInteger
 finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls
+
+fipa-pure-const
+Common Report Var(flag_ipa_pure_const) Init(0)
+Discover pure and const functions
+
+fipa-reference
+Common Report Var(flag_ipa_reference) Init(0)
+Discover readonly and non addressable static variables
+
+fipa-type-escape
+Common Report Var(flag_ipa_type_escape) Init(0)
+Type based escape and alias analysis
 
 fivopts
 Common Report Var(flag_ivopts) Init(1)
@@ -552,15 +564,15 @@ Move loop invariant computations out of loops
 
 fmudflap
 Common RejectNegative Report Var(flag_mudflap)
-Add mudflap bounds-checking instrumentation for single-threaded program.
+Add mudflap bounds-checking instrumentation for single-threaded program
 
 fmudflapth
 Common RejectNegative Report Var(flag_mudflap_threads)
-Add mudflap bounds-checking instrumentation for multi-threaded program.
+Add mudflap bounds-checking instrumentation for multi-threaded program
 
 fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
-Ignore read operations when inserting mudflap instrumentation.
+Ignore read operations when inserting mudflap instrumentation
 
 freschedule-modulo-scheduled-loops
 Common Report Var(flag_resched_modulo_sched)
@@ -662,7 +674,7 @@ Common Report Var(flag_regmove)
 Enables a register move optimization
 
 frename-registers
-Common Report Var(flag_rename_registers)
+Common Report Var(flag_rename_registers) Init(2)
 Perform a register renaming optimization pass
 
 freorder-blocks
@@ -753,7 +765,7 @@ Mark data as shared rather than private
 
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
-Show column numbers in diagnostics, when available.  Default on.
+Show column numbers in diagnostics, when available.  Default on
 
 fsignaling-nans
 Common Report Var(flag_signaling_nans)
@@ -769,11 +781,11 @@ Use value profiling for speculative prefetching
 
 fsplit-ivs-in-unroller
 Common Report Var(flag_split_ivs_in_unroller) Init(1)
-Split lifetimes of induction variables when loops are unrolled.
+Split lifetimes of induction variables when loops are unrolled
 
 fvariable-expansion-in-unroller
 Common Report Var(flag_variable_expansion_in_unroller) 
-Apply variable expansion when loops are unrolled.
+Apply variable expansion when loops are unrolled
 
 ; Emit code to probe the stack, to help detect stack overflow; also
 ; may cause large objects to be allocated dynamically.
@@ -869,7 +881,7 @@ Coalesce memory temporaries in the SSA->normal pass
 
 ftree-copyrename
 Common Report Var(flag_tree_copyrename)
-Replace SSA temporaries with better names in copies.
+Replace SSA temporaries with better names in copies
 
 ftree-copy-prop
 Common Report Var(flag_tree_copy_prop)
@@ -933,7 +945,7 @@ Replace temporary expressions in the SSA->normal pass
 
 ftree-lrs
 Common Report Var(flag_tree_live_range_split)
-Perform live range splitting during the SSA->normal pass.
+Perform live range splitting during the SSA->normal pass
 
 ftree-vrp
 Common Report Var(flag_tree_vrp) Init(0)
@@ -999,7 +1011,7 @@ Common Report Var(flag_value_profile_transformations)
 Use expression value profiles in optimizations
 
 fweb
-Common Report Var(flag_web) Init(0)
+Common Report Var(flag_web) Init(2)
 Construct webs and split unrelated uses of single variable
 
 fwhole-program

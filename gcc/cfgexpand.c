@@ -37,8 +37,8 @@ Boston, MA 02110-1301, USA.  */
 #include "flags.h"
 #include "diagnostic.h"
 #include "toplev.h"
+#include "debug.h"
 #include "params.h"
-
 
 /* Verify that there is exactly single jump instruction since last and attach
    REG_BR_PROB note specifying probability.
@@ -552,6 +552,10 @@ expand_one_stack_var (tree var)
 static void
 expand_one_static_var (tree var)
 {
+  /* In unit-at-a-time all the static variables are expanded at the end
+     of compilation process.  */
+  if (flag_unit_at_a_time)
+    return;
   /* If this is an inlined copy of a static local variable,
      look up the original.  */
   var = DECL_ORIGIN (var);
@@ -770,15 +774,14 @@ stack_protect_classify_type (tree type)
 	  || t == signed_char_type_node
 	  || t == unsigned_char_type_node)
 	{
-	  HOST_WIDE_INT max = PARAM_VALUE (PARAM_SSP_BUFFER_SIZE);
-	  HOST_WIDE_INT len;
+	  unsigned HOST_WIDE_INT max = PARAM_VALUE (PARAM_SSP_BUFFER_SIZE);
+	  unsigned HOST_WIDE_INT len;
 
-	  if (!TYPE_DOMAIN (type)
-	      || !TYPE_MAX_VALUE (TYPE_DOMAIN (type))
-	      || !host_integerp (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 1))
-	    len = max + 1;
+	  if (!TYPE_SIZE_UNIT (type)
+	      || !host_integerp (TYPE_SIZE_UNIT (type), 1))
+	    len = max;
 	  else
-	    len = tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 1);
+	    len = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
 
 	  if (len < max)
 	    ret = SPCT_HAS_SMALL_CHAR_ARRAY | SPCT_HAS_ARRAY;
@@ -1556,6 +1559,25 @@ tree_expand_cfg (void)
 	       "\n\n;;\n;; Full RTL generated for this function:\n;;\n");
       /* And the pass manager will dump RTL for us.  */
     }
+
+  /* If we're emitting a nested function, make sure its parent gets
+     emitted as well.  Doing otherwise confuses debug info.  */
+  {   
+    tree parent;
+    for (parent = DECL_CONTEXT (current_function_decl);
+         parent != NULL_TREE;
+         parent = get_containing_scope (parent))
+      if (TREE_CODE (parent) == FUNCTION_DECL)
+        TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
+  }
+    
+  /* We are now committed to emitting code for this function.  Do any
+     preparation, such as emitting abstract debug info for the inline
+     before it gets mangled by optimization.  */
+  if (cgraph_function_possibly_inlined_p (current_function_decl))
+    (*debug_hooks->outlining_inline_function) (current_function_decl);
+
+  TREE_ASM_WRITTEN (current_function_decl) = 1;
 }
 
 struct tree_opt_pass pass_expand =
@@ -1572,6 +1594,6 @@ struct tree_opt_pass pass_expand =
   PROP_rtl,                             /* properties_provided */
   PROP_gimple_leh,			/* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,					/* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   'r'					/* letter */
 };

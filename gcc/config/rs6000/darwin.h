@@ -54,8 +54,7 @@
       if (TARGET_64BIT) builtin_define ("__ppc64__");  \
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
-      builtin_define ("__MACH__");              \
-      builtin_define ("__APPLE__");             \
+      darwin_cpp_builtins (pfile);		\
     }                                           \
   while (0)
 
@@ -151,8 +150,8 @@ do {									\
 
 /* Base register for access to local variables of the function.  */
 
-#undef  FRAME_POINTER_REGNUM
-#define FRAME_POINTER_REGNUM 30
+#undef  HARD_FRAME_POINTER_REGNUM
+#define HARD_FRAME_POINTER_REGNUM 30
 
 #undef  RS6000_PIC_OFFSET_TABLE_REGNUM
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 31
@@ -161,9 +160,10 @@ do {									\
 
 #undef STARTING_FRAME_OFFSET
 #define STARTING_FRAME_OFFSET						\
-  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
-   + RS6000_VARARGS_AREA						\
-   + RS6000_SAVE_AREA)
+  (FRAME_GROWS_DOWNWARD							\
+   ? 0									\
+   : (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
+      + RS6000_SAVE_AREA))
 
 #undef STACK_DYNAMIC_OFFSET
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
@@ -206,7 +206,8 @@ do {									\
     "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
     "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
     "vrsave", "vscr",							\
-    "spe_acc", "spefscr"                                                \
+    "spe_acc", "spefscr",                                               \
+    "sfp"								\
 }
 
 /* This outputs NAME to FILE.  */
@@ -413,3 +414,10 @@ do {									\
 
 /* This is the reserved ivar address Objective-C.  */
 #define OFFS_ASSIGNIVAR_FAST		0xFFFEFEC0
+
+/* Old versions of Mac OS/Darwin don't have C99 functions available.  */
+#undef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS					\
+  (TARGET_64BIT							\
+   || (darwin_macosx_version_min				\
+       && strverscmp (darwin_macosx_version_min, "10.3") >= 0))

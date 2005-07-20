@@ -1218,7 +1218,7 @@ enum reg_class
    (C) == 'l' ? INDEX_REGS :					\
    NO_REGS)
 
-/* The letters I, J, K, L and M in a register constraint string
+/* The letters I, J, K, L, M, N, and O in a register constraint string
    can be used to stand for particular ranges of immediate operands.
    This macro defines what the ranges are.
    C is the letter, and VALUE is a constant value.
@@ -1230,6 +1230,7 @@ enum reg_class
    L is for andsi as zero-extending move.
    M is for shifts that can be executed by the "lea" opcode.
    N is for immediate operands for out/in instructions (0-255)
+   O is for TImode shifts.
    */
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)				\
@@ -1239,6 +1240,7 @@ enum reg_class
    : (C) == 'L' ? (VALUE) == 0xff || (VALUE) == 0xffff		\
    : (C) == 'M' ? (VALUE) >= 0 && (VALUE) <= 3			\
    : (C) == 'N' ? (VALUE) >= 0 && (VALUE) <= 255		\
+   : (C) == 'O' ? (VALUE) >= 0 && (VALUE) <= 127		\
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -1432,13 +1434,6 @@ enum reg_class
 
 #define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, SIZE) \
   ix86_return_pops_args ((FUNDECL), (FUNTYPE), (SIZE))
-
-/* Define how to find the value returned by a function.
-   VALTYPE is the data type of the value (as a tree).
-   If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)  \
-   ix86_function_value (VALTYPE, FUNC)
 
 #define FUNCTION_VALUE_REGNO_P(N) \
   ix86_function_value_regno_p (N)

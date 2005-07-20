@@ -667,7 +667,7 @@ check_specialization_namespace (tree tmpl)
   else
     {
       pedwarn ("specialization of %qD in different namespace", tmpl);
-      cp_pedwarn_at ("  from definition of %q#D", tmpl);
+      pedwarn ("  from definition of %q+#D", tmpl);
       return false;
     }
 }
@@ -736,8 +736,8 @@ maybe_process_partial_specialization (tree type)
 	      != decl_namespace_context (CLASSTYPE_TI_TEMPLATE (type)))
 	    {
 	      pedwarn ("specializing %q#T in different namespace", type);
-	      cp_pedwarn_at ("  from definition of %q#D",
-			     CLASSTYPE_TI_TEMPLATE (type));
+	      pedwarn ("  from definition of %q+#D",
+		       CLASSTYPE_TI_TEMPLATE (type));
 	    }
 
 	  /* Check for invalid specialization after instantiation:
@@ -1284,7 +1284,7 @@ print_candidates (tree fns)
       tree f;
 
       for (f = TREE_VALUE (fn); f; f = OVL_NEXT (f))
-	cp_error_at ("%s %+#D", str, OVL_CURRENT (f));
+	error ("%s %+#D", str, OVL_CURRENT (f));
       str = "               ";
     }
 }
@@ -1533,17 +1533,16 @@ determine_specialization (tree template_id,
 
   if (templates == NULL_TREE && candidates == NULL_TREE)
     {
-      cp_error_at ("template-id %qD for %q+D does not match any template "
-		   "declaration",
-		   template_id, decl);
+      error ("template-id %qD for %q+D does not match any template "
+	     "declaration", template_id, decl);
       return error_mark_node;
     }
   else if ((templates && TREE_CHAIN (templates))
 	   || (candidates && TREE_CHAIN (candidates))
 	   || (templates && candidates))
     {
-      cp_error_at ("ambiguous template specialization %qD for %q+D",
-		   template_id, decl);
+      error ("ambiguous template specialization %qD for %q+D",
+	     template_id, decl);
       chainon (candidates, templates);
       print_candidates (candidates);
       return error_mark_node;
@@ -2197,8 +2196,8 @@ check_template_shadow (tree decl)
       || TEMPLATE_PARMS_FOR_INLINE (current_template_parms))
     return;
 
-  cp_error_at ("declaration of %q#D", decl);
-  cp_error_at (" shadows template parm %q#D", olddecl);
+  error ("declaration of %q+#D", decl);
+  error (" shadows template parm %q+#D", olddecl);
 }
 
 /* Return a new TEMPLATE_PARM_INDEX with the indicated INDEX, LEVEL,
@@ -2252,9 +2251,10 @@ reduce_template_parm_level (tree index, tree type, int levels)
 				     decl, type);
       TEMPLATE_PARM_DESCENDANTS (index) = t;
 
-      /* Template template parameters need this.  */
-      DECL_TEMPLATE_PARMS (decl)
-	= DECL_TEMPLATE_PARMS (TEMPLATE_PARM_DECL (index));
+	/* Template template parameters need this.  */
+      if (TREE_CODE (decl) != CONST_DECL)
+	DECL_TEMPLATE_PARMS (decl)
+	  = DECL_TEMPLATE_PARMS (TEMPLATE_PARM_DECL (index));
     }
 
   return TEMPLATE_PARM_DESCENDANTS (index);
@@ -3219,7 +3219,7 @@ redeclare_class_template (tree type, tree parms)
 
   if (TREE_VEC_LENGTH (parms) != TREE_VEC_LENGTH (tmpl_parms))
     {
-      cp_error_at ("previous declaration %qD", tmpl);
+      error ("previous declaration %q+D", tmpl);
       error ("used %d template parameter(s) instead of %d",
 	     TREE_VEC_LENGTH (tmpl_parms),
 	     TREE_VEC_LENGTH (parms));
@@ -3239,7 +3239,7 @@ redeclare_class_template (tree type, tree parms)
 	  || (TREE_CODE (tmpl_parm) != TYPE_DECL
 	      && !same_type_p (TREE_TYPE (tmpl_parm), TREE_TYPE (parm))))
 	{
-	  cp_error_at ("template parameter %q#D", tmpl_parm);
+	  error ("template parameter %q+#D", tmpl_parm);
 	  error ("redeclared here as %q#D", parm);
 	  return;
 	}
@@ -3960,7 +3960,7 @@ coerce_template_parms (tree parms,
 		 nargs, nparms);
 
 	  if (in_decl)
-	    cp_error_at ("provided for %qD", in_decl);
+	    error ("provided for %q+D", in_decl);
 	}
 
       return error_mark_node;
@@ -4347,7 +4347,7 @@ lookup_template_class (tree d1,
 	{
 	  error ("non-template type %qT used as a template", d1);
 	  if (in_decl)
-	    cp_error_at ("for template declaration %qD", in_decl);
+	    error ("for template declaration %q+D", in_decl);
 	}
       POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
     }
@@ -5441,7 +5441,7 @@ instantiate_class_template (tree type)
 	{
 	  if (get_class_bindings (TREE_VALUE (t), TREE_PURPOSE (t), args))
 	    {
-	      cp_error_at ("%s %+#T", str, TREE_TYPE (t));
+	      error ("%s %+#T", str, TREE_TYPE (t));
 	      str = "               ";
 	    }
 	}
@@ -5987,6 +5987,9 @@ tsubst_template_parms (tree parms, tree args, tsubst_flags_t complain)
 	  tree parm_decl = TREE_VALUE (tuple);
 
 	  parm_decl = tsubst (parm_decl, args, complain, NULL_TREE);
+	  if (TREE_CODE (parm_decl) == PARM_DECL
+	      && invalid_nontype_parm_type_p (TREE_TYPE (parm_decl), complain))
+	    parm_decl = error_mark_node;
 	  default_value = tsubst_template_arg (default_value, args,
 					       complain, NULL_TREE);
 
@@ -6547,7 +6550,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 					complain, in_decl);
 	TREE_CHAIN (r) = NULL_TREE;
 	if (VOID_TYPE_P (type))
-	  cp_error_at ("instantiation of %qD as type %qT", r, type);
+	  error ("instantiation of %q+D as type %qT", r, type);
       }
       break;
 
@@ -6647,12 +6650,14 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	DECL_CONTEXT (r) = ctx;
 	/* Clear out the mangled name and RTL for the instantiation.  */
 	SET_DECL_ASSEMBLER_NAME (r, NULL_TREE);
-	SET_DECL_RTL (r, NULL_RTX);
+	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
+	  SET_DECL_RTL (r, NULL_RTX);
 
 	/* Don't try to expand the initializer until someone tries to use
 	   this variable; otherwise we run into circular dependencies.  */
 	DECL_INITIAL (r) = NULL_TREE;
-	SET_DECL_RTL (r, NULL_RTX);
+	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
+	  SET_DECL_RTL (r, NULL_RTX);
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
 
 	/* Even if the original location is out of scope, the newly
@@ -6723,7 +6728,7 @@ tsubst_arg_types (tree arg_types,
 	{
 	  error ("invalid parameter type %qT", type);
 	  if (in_decl)
-	    cp_error_at ("in declaration %qD", in_decl);
+	    error ("in declaration %q+D", in_decl);
 	}
       return error_mark_node;
     }
@@ -9168,7 +9173,6 @@ fn_type_unification (tree fn,
 
   if (return_type)
     {
-      /* We've been given a return type to match, prepend it.  */
       parms = tree_cons (NULL_TREE, TREE_TYPE (fntype), parms);
       args = tree_cons (NULL_TREE, return_type, args);
     }
@@ -9179,7 +9183,7 @@ fn_type_unification (tree fn,
      event.  */
   result = type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn),
 				  targs, parms, args, /*subr=*/0,
-				  strict, /*allow_incomplete*/1);
+				  strict, 0);
 
   if (result == 0)
     /* All is well so far.  Now, check:
@@ -9287,7 +9291,9 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
 
    If SUBR is 1, we're being called recursively (to unify the
    arguments of a function or method parameter of a function
-   template).  */
+   template).  If IS_METHOD is true, XPARMS are the parms of a
+   member function, and special rules apply to cv qualification
+   deduction on the this parameter.  */
 
 static int
 type_unification_real (tree tparms,
@@ -9296,7 +9302,7 @@ type_unification_real (tree tparms,
 		       tree xargs,
 		       int subr,
 		       unification_kind_t strict,
-		       int allow_incomplete)
+		       int is_method)
 {
   tree parm, arg;
   int i;
@@ -9348,6 +9354,26 @@ type_unification_real (tree tparms,
 	   template args from other function args.  */
 	continue;
 
+      if (is_method)
+	{
+	  /* The cv qualifiers on the this pointer argument must match
+ 	     exactly.  We cannot deduce a T as const X against a const
+ 	     member function for instance.  */
+	  gcc_assert (TREE_CODE (parm) == POINTER_TYPE);
+	  gcc_assert (TREE_CODE (arg) == POINTER_TYPE);
+	  /* The restrict qualifier will be on the pointer.  */
+	  if (cp_type_quals (parm) != cp_type_quals (arg))
+	    return 1;
+	  parm = TREE_TYPE (parm);
+	  arg = TREE_TYPE (arg);
+	  if (cp_type_quals (parm) != cp_type_quals (arg))
+	    return 1;
+	  
+	  parm = TYPE_MAIN_VARIANT (parm);
+	  arg = TYPE_MAIN_VARIANT (arg);
+	  is_method = 0;
+	}
+      
       /* Conversions will be performed on a function argument that
 	 corresponds with a function parameter that contains only
 	 non-deducible template parameters and explicitly specified
@@ -9427,8 +9453,6 @@ type_unification_real (tree tparms,
 	      && !saw_undeduced++)
 	    goto again;
 
-	  if (!allow_incomplete)
-	    error ("incomplete type unification");
 	  return 2;
 	}
 
@@ -10254,8 +10278,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 		 TREE_TYPE (arg), UNIFY_ALLOW_NONE))
 	return 1;
       return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
-				    TYPE_ARG_TYPES (arg), 1,
-				    DEDUCE_EXACT, 0);
+				    TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT,
+				    TREE_CODE (parm) == METHOD_TYPE);
 
     case OFFSET_TYPE:
       /* Unify a pointer to member with a pointer to member function, which
@@ -10986,7 +11010,8 @@ do_decl_instantiation (tree decl, tree storage)
 
   mark_decl_instantiated (result, extern_p);
   if (! extern_p)
-    instantiate_decl (result, /*defer_ok=*/1, /*undefined_ok=*/0);
+    instantiate_decl (result, /*defer_ok=*/1, 
+		      /*expl_inst_class_mem_p=*/false);
 }
 
 void
@@ -11023,7 +11048,8 @@ instantiate_class_member (tree decl, int extern_p)
 {
   mark_decl_instantiated (decl, extern_p);
   if (! extern_p)
-    instantiate_decl (decl, /*defer_ok=*/1, /* undefined_ok=*/1);
+    instantiate_decl (decl, /*defer_ok=*/1, 
+		      /*expl_inst_class_mem_p=*/true);
 }
 
 /* Perform an explicit instantiation of template class T.  STORAGE, if
@@ -11319,14 +11345,12 @@ template_for_substitution (tree decl)
    DEFER_OK is nonzero, then we don't have to actually do the
    instantiation now; we just have to do it sometime.  Normally it is
    an error if this is an explicit instantiation but D is undefined.
-   If UNDEFINED_OK is nonzero, then instead we treat it as an implicit
-   instantiation.  UNDEFINED_OK is nonzero only if we are being used
-   to instantiate the members of an explicitly instantiated class
-   template.  */
-
+   EXPL_INST_CLASS_MEM_P is true iff D is a member of an
+   explicitly instantiated class template.  */
 
 tree
-instantiate_decl (tree d, int defer_ok, int undefined_ok)
+instantiate_decl (tree d, int defer_ok, 
+		  bool expl_inst_class_mem_p)
 {
   tree tmpl = DECL_TI_TEMPLATE (d);
   tree gen_args;
@@ -11415,9 +11439,14 @@ instantiate_decl (tree d, int defer_ok, int undefined_ok)
 
   input_location = DECL_SOURCE_LOCATION (d);
 
-  if (! pattern_defined && DECL_EXPLICIT_INSTANTIATION (d) && undefined_ok)
+  /* If D is a member of an explicitly instantiated class template,
+     and no definition is available, treat it like an implicit
+     instantiation.  */ 
+  if (!pattern_defined && expl_inst_class_mem_p 
+      && DECL_EXPLICIT_INSTANTIATION (d)) 
     {
       DECL_NOT_REALLY_EXTERN (d) = 0;
+      DECL_INTERFACE_KNOWN (d) = 0;
       SET_DECL_IMPLICIT_INSTANTIATION (d);
     }
 
@@ -11624,11 +11653,10 @@ instantiate_pending_templates (int retries)
      to avoid infinite loop.  */
   if (pending_templates && retries >= max_tinst_depth)
     {
-      cp_error_at ("template instantiation depth exceeds maximum of %d"
-		   " (use -ftemplate-depth-NN to increase the maximum)"
-		   " instantiating %q+D, possibly from virtual table"
-		   " generation",
-		   max_tinst_depth, TREE_VALUE (pending_templates));
+      error ("template instantiation depth exceeds maximum of %d"
+	    " instantiating %q+D, possibly from virtual table generation"
+	    " (use -ftemplate-depth-NN to increase the maximum)",
+	    max_tinst_depth, TREE_VALUE (pending_templates));
       return;
     }
 
@@ -11655,8 +11683,9 @@ instantiate_pending_templates (int retries)
 			 fn;
 			 fn = TREE_CHAIN (fn))
 		      if (! DECL_ARTIFICIAL (fn))
-			instantiate_decl (fn, /*defer_ok=*/0,
-					  /*undefined_ok=*/0);
+			instantiate_decl (fn, 
+					  /*defer_ok=*/0,
+					  /*expl_inst_class_mem_p=*/false);
 		  if (COMPLETE_TYPE_P (instantiation))
 		    reconsider = 1;
 		}
@@ -11676,9 +11705,10 @@ instantiate_pending_templates (int retries)
 	      if (!DECL_TEMPLATE_SPECIALIZATION (instantiation)
 		  && !DECL_TEMPLATE_INSTANTIATED (instantiation))
 		{
-		  instantiation = instantiate_decl (instantiation,
-						    /*defer_ok=*/0,
-						    /*undefined_ok=*/0);
+		  instantiation 
+		    = instantiate_decl (instantiation,
+					/*defer_ok=*/0,
+					/*expl_inst_class_mem_p=*/false);
 		  if (DECL_TEMPLATE_INSTANTIATED (instantiation))
 		    reconsider = 1;
 		}

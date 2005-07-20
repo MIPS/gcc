@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -818,6 +818,7 @@ package body Sem_Ch3 is
       while Nkind (D_Ityp) /= N_Full_Type_Declaration
          and then Nkind (D_Ityp) /= N_Procedure_Specification
          and then Nkind (D_Ityp) /= N_Function_Specification
+         and then Nkind (D_Ityp) /= N_Object_Declaration
          and then Nkind (D_Ityp) /= N_Object_Renaming_Declaration
          and then Nkind (D_Ityp) /= N_Formal_Type_Declaration
       loop
@@ -833,6 +834,7 @@ package body Sem_Ch3 is
          Set_Scope (Desig_Type, Scope (Defining_Unit_Name (D_Ityp)));
 
       elsif Nkind (D_Ityp) = N_Full_Type_Declaration
+        or else Nkind (D_Ityp) = N_Object_Declaration
         or else Nkind (D_Ityp) = N_Object_Renaming_Declaration
         or else Nkind (D_Ityp) = N_Formal_Type_Declaration
       then
@@ -981,7 +983,9 @@ package body Sem_Ch3 is
          N_Desig : Entity_Id;
 
       begin
-         if From_With_Type (Desig) then
+         if From_With_Type (Desig)
+           and then Ekind (Desig) /= E_Access_Type
+         then
             Set_From_With_Type (T);
 
             if Ekind (Desig) = E_Incomplete_Type then
@@ -1525,6 +1529,16 @@ package body Sem_Ch3 is
       Init_Size_Align (T);
       Set_Is_First_Subtype (T, True);
       Set_Etype (T, T);
+
+      --  Ada 2005 (AI-326): Mininum decoration to give support to tagged
+      --  incomplete types
+
+      if Tagged_Present (N) then
+         Set_Is_Tagged_Type (T);
+         Make_Class_Wide_Type (T);
+         Set_Primitive_Operations (T, New_Elmt_List);
+      end if;
+
       New_Scope (T);
 
       Set_Stored_Constraint (T, No_Elist);
@@ -5870,9 +5884,17 @@ package body Sem_Ch3 is
                   Same_Interfaces    : Boolean := True;
 
                begin
+                  if Nkind (N_Partial) /= N_Private_Extension_Declaration then
+                     Error_Msg_N
+                       ("(Ada 2005) interfaces only allowed in private"
+                        & " extension declarations", N_Partial);
+                  end if;
+
                   --  Count the interfaces implemented by the partial view
 
-                  if not Is_Empty_List (Interface_List (N_Partial)) then
+                  if Nkind (N_Partial) = N_Private_Extension_Declaration
+                    and then not Is_Empty_List (Interface_List (N_Partial))
+                  then
                      Iface_Partial := First (Interface_List (N_Partial));
 
                      while Present (Iface_Partial) loop
@@ -7523,10 +7545,10 @@ package body Sem_Ch3 is
 
          while Present (I) loop
 
-            --  Protect against wrong usages. Example:
+            --  Protect against wrong uses. For example:
             --    type I is interface;
             --    type O is tagged null record;
-            --    type Wrong is new I and O with null record;
+            --    type Wrong is new I and O with null record; -- ERROR
 
             if Is_Interface (Etype (I)) then
 
@@ -14119,7 +14141,7 @@ package body Sem_Ch3 is
          H    : Entity_Id;
 
       begin
-         --  If there is a previous partial view, no need to create a new one.
+         --  If there is a previous partial view, no need to create a new one
 
          if Prev /= T then
             return;

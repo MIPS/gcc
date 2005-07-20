@@ -68,7 +68,7 @@ Boston, MA 02110-1301, USA.  */
 # define CPP_OS_LYNX_SPEC \
 "%{mthreads: \
    %{mlegacy-threads: \
-     %eCannot use mthreads and mlegacy-threads together.}} \
+     %ecannot use mthreads and mlegacy-threads together}} \
  %{mthreads: -D_MULTITHREADED} \
  %{mlegacy-threads: -D_THREADS_POSIX4ad4} \
  -Asystem=lynx -Asystem=unix -D__Lynx__ -D__unix__"
@@ -93,7 +93,7 @@ Boston, MA 02110-1301, USA.  */
 #ifndef LINK_OS_LYNX_SPEC
 # define LINK_OS_LYNX_SPEC \
 "%{shared} %{static} \
- %{mshared: %{static: %eCannot use mshared and static together.}} \
+ %{mshared: %{static: %ecannot use mshared and static together}} \
  %{!mshared: %{!shared: %{!static: -static}}} \
  %{L*} \
  %{mthreads: \
@@ -173,6 +173,6 @@ Boston, MA 02110-1301, USA.  */
 # define NO_IMPLICIT_EXTERN_C
 #endif
 
-#ifndef TARGET_HAS_F_SETLKW
-# define TARGET_HAS_F_SETLKW
+#ifndef TARGET_POSIX_IO
+# define TARGET_POSIX_IO
 #endif

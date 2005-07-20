@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -73,6 +73,11 @@ tree gnat_std_decls[(int) ADT_LAST];
 
 /* Functions to call for each of the possible raise reasons.  */
 tree gnat_raise_decls[(int) LAST_REASON_CODE + 1];
+
+/* List of functions called automatically at the beginning and
+   end of execution, on targets without .ctors/.dtors sections.  */
+tree static_ctors;
+tree static_dtors;
 
 /* Associates a GNAT tree node to a GCC tree node. It is used in
    `save_gnu_tree', `get_gnu_tree' and `present_gnu_tree'. See documentation
@@ -1277,7 +1282,8 @@ create_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
      support global BSS sections, uninitialized global variables would
      go in DATA instead, thus increasing the size of the executable.  */
 #if !defined(ASM_OUTPUT_BSS) && !defined(ASM_OUTPUT_ALIGNED_BSS)
-  DECL_COMMON   (var_decl) = !flag_no_common;
+  if (TREE_CODE (var_decl) == VAR_DECL)
+    DECL_COMMON   (var_decl) = !flag_no_common;
 #endif
   DECL_INITIAL  (var_decl) = var_init;
   TREE_READONLY (var_decl) = const_flag;
@@ -1294,7 +1300,7 @@ create_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
   TREE_STATIC (var_decl)
     = public_flag || (global_bindings_p () ? !extern_flag : static_flag);
 
-  if (asm_name)
+  if (asm_name && VAR_OR_FUNCTION_DECL_P (var_decl))
     SET_DECL_ASSEMBLER_NAME (var_decl, asm_name);
 
   process_attributes (var_decl, attr_list);
@@ -1489,7 +1495,6 @@ create_param_decl (tree param_name, tree param_type, bool readonly)
     }
 
   DECL_ARG_TYPE (param_decl) = param_type;
-  DECL_ARG_TYPE_AS_WRITTEN (param_decl) = param_type;
   TREE_READONLY (param_decl) = readonly;
   return param_decl;
 }
@@ -1509,8 +1514,11 @@ process_attributes (tree decl, struct attrib *attr_list)
 	break;
 
       case ATTR_LINK_ALIAS:
-	TREE_STATIC (decl) = 1;
-	assemble_alias (decl, attr_list->name);
+        if (! DECL_EXTERNAL (decl))
+	  {
+	    TREE_STATIC (decl) = 1;
+	    assemble_alias (decl, attr_list->name);
+	  }
 	break;
 
       case ATTR_WEAK_EXTERNAL:
@@ -1532,6 +1540,16 @@ process_attributes (tree decl, struct attrib *attr_list)
 	else
 	  post_error ("?section attributes are not supported for this target",
 		      attr_list->error_point);
+	break;
+
+      case ATTR_LINK_CONSTRUCTOR:
+	DECL_STATIC_CONSTRUCTOR (decl) = 1;
+	TREE_USED (decl) = 1;
+	break;
+
+      case ATTR_LINK_DESTRUCTOR:
+	DECL_STATIC_DESTRUCTOR (decl) = 1;
+	TREE_USED (decl) = 1;
 	break;
       }
 }
@@ -1727,6 +1745,14 @@ end_subprog_body (tree body)
   /* If we're only annotating types, don't actually compile this function.  */
   if (type_annotate_only)
     return;
+
+  /* If we don't have .ctors/.dtors sections, and this is a static
+     constructor or destructor, it must be recorded now.  */
+  if (DECL_STATIC_CONSTRUCTOR (fndecl) && !targetm.have_ctors_dtors)
+    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+
+  if (DECL_STATIC_DESTRUCTOR (fndecl) && !targetm.have_ctors_dtors)
+    static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
 
   /* We do different things for nested and non-nested functions.
      ??? This should be in cgraph.  */

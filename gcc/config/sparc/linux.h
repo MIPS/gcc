@@ -208,7 +208,7 @@ do {									\
    runtime library.  */
 #define TARGET_C99_FUNCTIONS 1
 
-#define TARGET_HAS_F_SETLKW
+#define TARGET_POSIX_IO
 
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
@@ -229,3 +229,8 @@ do {									\
 
 #undef NEED_INDICATE_EXEC_STACK
 #define NEED_INDICATE_EXEC_STACK 1
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* sparc glibc provides __stack_chk_guard in [%g7 + 0x14].  */
+#define TARGET_THREAD_SSP_OFFSET	0x14
+#endif

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -623,7 +623,7 @@ plus_expr_object_size (struct object_size_info *osi, tree var, tree value)
 
 /* Compute object sizes for VAR.
    For ADDR_EXPR an object size is the number of remaining bytes
-   to the end of the object (where what is consindered an object depends on
+   to the end of the object (where what is considered an object depends on
    OSI->object_size_type).
    For allocation CALL_EXPR like malloc or calloc object size is the size
    of the allocation.

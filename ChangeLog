@@ -1,3 +1,75 @@
+2005-07-16  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address.
+
+2005-07-15  Eric Christopher  <echristo@redhat.com>
+
+	* MAINTAINERS: Change affiliation.
+
+2005-07-14  Jim Blandy  <jimb@redhat.com>
+
+	* configure.in: Add cases for Renesas m32c.
+	* configure: Regenerated.
+	
+2005-07-14  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* COPYING.LIB: Update from fsf.org.
+
+2005-07-14  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* COPYING, compile, config.guess,
+	config.sub, install-sh, missing, mkinstalldirs,
+	symlink-tree, ylwrap: Sync from upstream sources.
+	* config-ml.in: Update FSF address.
+
+2005-07-13  Eric Christopher  <echristo@redhat.com>
+
+	* configure.in: Add toplevel noconfigdir support for tpf.
+	* configure: Regenerate.
+
+2005-07-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR ada/22340
+
+	* Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Fix pasto.
+	* Makefile.in: Regenerate.
+
+2005-07-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* MAINTAINERS: Remove Dave Brolley as a cpplib maintainer.  Add Dave
+	Brolley to write-after-approval. 
+
+2005-07-07  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.def (flags_to_pass): Add CFLAGS_FOR_BUILD.
+	* Makefile.tpl (EXTRA_GCC_FLAGS): Don't pass CFLAGS_FOR_BUILD here.
+	* Makefile.in: Regenerated.
+
+2005-07-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in: Don't build sim or rda when targetting darwin.
+	* configure: Regenerate.
+
+2005-07-06  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.in: Add --enable-libssp and --disable-libssp.
+	* configure: Regenerate with autoconf-2.13.
+
+2005-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.def (target_modules): Add libssp.
+	* configure.in (target_libraries): Add target-libssp.
+	* configure: Rebuilt.
+	* Makefile.in: Rebuilt.
+
+2005-07-01  Zack Weinberg  <zackw@panix.com>
+
+	* MAINTAINERS: Change email address.  Resign from maintainership.
+
+2005-07-01  Richard Guenther  <rguenther@suse.de>
+
+	* MAINTAINERS: Change my e-mail address and affiliation.
+
 2005-06-22  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Makefile.def (stagefeedback): Come after profile.

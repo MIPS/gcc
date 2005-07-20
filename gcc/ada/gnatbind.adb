@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -75,6 +75,10 @@ procedure Gnatbind is
 
    Mapping_File : String_Ptr := null;
 
+   function Gnatbind_Supports_Auto_Init return Boolean;
+   --  Indicates if automatic initialization of elaboration procedure
+   --  through the constructor mechanism is possible on the platform.
+
    procedure List_Applicable_Restrictions;
    --  List restrictions that apply to this partition if option taken
 
@@ -82,6 +86,18 @@ procedure Gnatbind is
    --  Scan and process binder specific arguments. Argv is a single argument.
    --  All the one character arguments are still handled by Switch. This
    --  routine handles -aO -aI and -I-.
+
+   ---------------------------------
+   -- Gnatbind_Supports_Auto_Init --
+   ---------------------------------
+
+   function Gnatbind_Supports_Auto_Init return Boolean is
+      function gnat_binder_supports_auto_init return Integer;
+      pragma Import (C, gnat_binder_supports_auto_init,
+                     "__gnat_binder_supports_auto_init");
+   begin
+      return gnat_binder_supports_auto_init /= 0;
+   end Gnatbind_Supports_Auto_Init;
 
    ----------------------------------
    -- List_Applicable_Restrictions --
@@ -392,6 +408,16 @@ begin
       end;
       Next_Arg := Next_Arg + 1;
    end loop Scan_Args;
+
+   if Use_Pragma_Linker_Constructor then
+      if Bind_Main_Program then
+         Fail ("switch -a must be used in conjunction with -n or -Lxxx");
+
+      elsif not Gnatbind_Supports_Auto_Init then
+         Fail ("automatic initialisation of elaboration " &
+               "not supported on this platform");
+      end if;
+   end if;
 
    --  Test for trailing -o switch
 

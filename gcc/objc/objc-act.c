@@ -185,6 +185,7 @@ static tree build_protocol_initializer (tree, tree, tree, tree, tree);
 static tree get_class_ivars (tree, bool);
 static tree generate_protocol_list (tree);
 static void build_protocol_reference (tree);
+static tree objc_build_volatilized_type (tree);
 
 #ifdef OBJCPLUS
 static void objc_generate_cxx_cdtors (void);
@@ -793,12 +794,13 @@ objc_is_class_id (tree type)
   return OBJC_TYPE_NAME (type) == objc_class_id;
 }
 
-/* Construct a C struct with tag NAME, a base struct with tag
+/* Construct a C struct with same name as CLASS, a base struct with tag
    SUPER_NAME (if any), and FIELDS indicated.  */
 
 static tree
-objc_build_struct (tree name, tree fields, tree super_name)
+objc_build_struct (tree class, tree fields, tree super_name)
 {
+  tree name = CLASS_NAME (class);
   tree s = start_struct (RECORD_TYPE, name);
   tree super = (super_name ? xref_tag (RECORD_TYPE, super_name) : NULL_TREE);
   tree t, objc_info = NULL_TREE;
@@ -856,16 +858,62 @@ objc_build_struct (tree name, tree fields, tree super_name)
       = chainon (objc_info,
 		 build_tree_list (NULL_TREE, TYPE_OBJC_INFO (t)));
 
+  /* Point the struct at its related Objective-C class.  */
+  INIT_TYPE_OBJC_INFO (s);
+  TYPE_OBJC_INTERFACE (s) = class;
+
   s = finish_struct (s, fields, NULL_TREE);
 
   for (t = TYPE_NEXT_VARIANT (s); t;
        t = TYPE_NEXT_VARIANT (t), objc_info = TREE_CHAIN (objc_info))
-    TYPE_OBJC_INFO (t) = TREE_VALUE (objc_info);
+    {
+      TYPE_OBJC_INFO (t) = TREE_VALUE (objc_info);
+      /* Replace the IDENTIFIER_NODE with an actual @interface.  */
+      TYPE_OBJC_INTERFACE (t) = class;
+    }
 
   /* Use TYPE_BINFO structures to point at the super class, if any.  */
   objc_xref_basetypes (s, super);
 
+  /* Mark this struct as a class template.  */
+  CLASS_STATIC_TEMPLATE (class) = s;
+
   return s;
+}
+
+/* Build a type differing from TYPE only in that TYPE_VOLATILE is set.
+   Unlike tree.c:build_qualified_type(), preserve TYPE_LANG_SPECIFIC in the
+   process.  */
+static tree
+objc_build_volatilized_type (tree type)
+{
+  tree t;
+
+  /* Check if we have not constructed the desired variant already.  */
+  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+    {
+      /* The type qualifiers must (obviously) match up.  */
+      if (!TYPE_VOLATILE (t)
+	  || (TYPE_READONLY (t) != TYPE_READONLY (type))
+	  || (TYPE_RESTRICT (t) != TYPE_RESTRICT (type)))
+	continue;
+
+      /* For pointer types, the pointees (and hence their TYPE_LANG_SPECIFIC
+	 info, if any) must match up.  */
+      if (POINTER_TYPE_P (t)
+	  && (TREE_TYPE (t) != TREE_TYPE (type)))
+	continue;
+
+      /* Everything matches up!  */
+      return t;
+    }
+
+  /* Ok, we could not re-use any of the pre-existing variants.  Create
+     a new one.  */
+  t = build_variant_type_copy (type);
+  TYPE_VOLATILE (t) = 1;
+  
+  return t;
 }
 
 /* Mark DECL as being 'volatile' for purposes of Darwin
@@ -884,8 +932,7 @@ objc_volatilize_decl (tree decl)
       struct volatilized_type key;
       void **loc;
 
-      t = build_qualified_type (t, (TYPE_QUALS (t)
-				    | TYPE_QUAL_VOLATILE));
+      t = objc_build_volatilized_type (t);
       key.type = t;
       loc = htab_find_slot (volatilized_htab, &key, INSERT);
 
@@ -1063,6 +1110,16 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
     }
   else
     rcls = rproto = NULL_TREE;
+
+  /* If we could not find an @interface declaration, we must have
+     only seen a @class declaration; for purposes of type comparison,
+     treat it as a stand-alone (root) class.  */
+
+  if (lcls && TREE_CODE (lcls) == IDENTIFIER_NODE)
+    lcls = NULL_TREE;
+
+  if (rcls && TREE_CODE (rcls) == IDENTIFIER_NODE)
+    rcls = NULL_TREE;
 
   /* If either type is an unqualified 'id', we're done.  */
   if ((!lproto && objc_is_object_id (ltyp))
@@ -1880,7 +1937,7 @@ objc_build_string_object (tree string)
 
       if (!flag_next_runtime)
 	constructor
-	  = objc_add_static_instance (constructor, internal_const_str_type);
+	  = objc_add_static_instance (constructor, constant_string_type);
       else
         {
 	  var = build_decl (CONST_DECL, NULL, TREE_TYPE (constructor));
@@ -2887,8 +2944,8 @@ objc_declare_class (tree ident_list)
 		{
 		  error ("%qs redeclared as different kind of symbol",
 			 IDENTIFIER_POINTER (ident));
-		  error ("%Jprevious declaration of '%D'",
-			 record, record);
+		  error ("previous declaration of %q+D",
+			 record);
 		}
 	    }
 
@@ -4074,14 +4131,9 @@ build_private_template (tree class)
 {
   if (!CLASS_STATIC_TEMPLATE (class))
     {
-      tree record = objc_build_struct (CLASS_NAME (class),
+      tree record = objc_build_struct (class,
 				       get_class_ivars (class, false),
 				       CLASS_SUPER_NAME (class));
-
-      /* mark this record as class template - for class type checking */
-      INIT_TYPE_OBJC_INFO (record);
-      TYPE_OBJC_INTERFACE (record) = class;
-      CLASS_STATIC_TEMPLATE (class) = record;
 
       /* Set the TREE_USED bit for this struct, so that stab generator
 	 can emit stabs for this struct type.  */
@@ -4282,8 +4334,8 @@ encode_method_prototype (tree method_decl)
       /* If a type size is not known, bail out.  */
       if (sz < 0)
 	{
-	  error ("%Jtype '%D' does not have a known size",
-		 type, type);
+	  error ("type %q+D does not have a known size",
+		 type);
 	  /* Pretend that the encoding succeeded; the compilation will
 	     fail nevertheless.  */
 	  goto finish_encoding;
@@ -7039,13 +7091,13 @@ add_instance_variable (tree class, int public, tree field_decl)
 	  if (TYPE_NEEDS_CONSTRUCTING (field_type)
 	      && !TYPE_HAS_DEFAULT_CONSTRUCTOR (field_type))
 	    {
-	      warning (0, "type `%s' has no default constructor to call",
+	      warning (0, "type %qs has no default constructor to call",
 		       type_name);
 
 	      /* If we cannot call a constructor, we should also avoid
 		 calling the destructor, for symmetry.  */
 	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type))
-		warning (0, "destructor for `%s' shall not be run either",
+		warning (0, "destructor for %qs shall not be run either",
 			 type_name);
 	    }
         }
@@ -7057,9 +7109,9 @@ add_instance_variable (tree class, int public, tree field_decl)
 	    {
 	      /* Vtable pointers are Real Bad(tm), since Obj-C cannot
 		 initialize them.  */
-	      error ("type `%s' has virtual member functions", type_name);
-	      error ("illegal aggregate type `%s' specified "
-		     "for instance variable `%s'",
+	      error ("type %qs has virtual member functions", type_name);
+	      error ("illegal aggregate type %qs specified "
+		     "for instance variable %qs",
 		     type_name, ivar_name);
 	      /* Return class as is without adding this ivar.  */
 	      return class;
@@ -7068,9 +7120,9 @@ add_instance_variable (tree class, int public, tree field_decl)
 	  /* User-defined constructors and destructors are not known to Obj-C
 	     and hence will not be called.  This may or may not be a problem. */
 	  if (TYPE_NEEDS_CONSTRUCTING (field_type))
-	    warning (0, "type `%s' has a user-defined constructor", type_name);
+	    warning (0, "type %qs has a user-defined constructor", type_name);
 	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type))
-	    warning (0, "type `%s' has a user-defined destructor", type_name);
+	    warning (0, "type %qs has a user-defined destructor", type_name);
 
 	  if (!warn_cxx_ivars)
 	    {
@@ -7458,8 +7510,8 @@ start_class (enum tree_code code, tree class_name, tree super_name,
     {
       error ("%qs redeclared as different kind of symbol",
 	     IDENTIFIER_POINTER (class_name));
-      error ("%Jprevious declaration of '%D'",
-	     decl, decl);
+      error ("previous declaration of %q+D",
+	     decl);
     }
 
   if (code == CLASS_IMPLEMENTATION_TYPE)
@@ -8192,7 +8244,6 @@ objc_push_parm (tree parm)
   else if (TREE_CODE (TREE_TYPE (parm)) == FUNCTION_TYPE)
     TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (parm));
 
-  DECL_ARG_TYPE_AS_WRITTEN (parm) = TREE_TYPE (parm);
   DECL_ARG_TYPE (parm)
     = lang_hooks.types.type_promotes_to (TREE_TYPE (parm));
 

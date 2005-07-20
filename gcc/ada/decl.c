@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -3426,8 +3426,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    if (TREE_CODE (gnu_param_type) == RECORD_TYPE
 		&& TYPE_IS_PADDING_P (gnu_param_type)
 		&& (req_by_ref || Has_Foreign_Convention (gnat_entity)
-		    || !must_pass_by_ref (TREE_TYPE (TYPE_FIELDS
-						     (gnu_param_type)))))
+		    || (!must_pass_by_ref (TREE_TYPE (TYPE_FIELDS
+					              (gnu_param_type)))
+			&& (req_by_copy
+			    || !default_pass_by_ref (TREE_TYPE
+			    			      (TYPE_FIELDS
+						       (gnu_param_type)))))))
 	      gnu_param_type = TREE_TYPE (TYPE_FIELDS (gnu_param_type));
 
 	    /* If this is an IN parameter it is read-only, so make a variant
@@ -4521,6 +4525,14 @@ prepend_attributes (Entity_Id gnat_entity, struct attrib ** attr_list)
 
 	  case Pragma_Linker_Section:
 	    etype = ATTR_LINK_SECTION;
+	    break;
+
+	  case Pragma_Linker_Constructor:
+	    etype = ATTR_LINK_CONSTRUCTOR;
+	    break;
+
+	  case Pragma_Linker_Destructor:
+	    etype = ATTR_LINK_DESTRUCTOR;
 	    break;
 
 	  case Pragma_Weak_External:
@@ -5624,13 +5636,13 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
       tree *gnu_arr = (tree *) alloca (sizeof (tree) * len);
       int i;
 
-      /* Set DECL_SECTION_NAME to increasing integers so we have a
+      /* Set/abuse DECL_FCONTEXT to increasing integers so we have a
 	 stable sort.  */
       for (i = 0, gnu_field = gnu_our_rep_list; gnu_field;
 	   gnu_field = TREE_CHAIN (gnu_field), i++)
 	{
 	  gnu_arr[i] = gnu_field;
-	  DECL_SECTION_NAME (gnu_field) = size_int (i);
+	  DECL_FCONTEXT (gnu_field) = size_int (i);
 	}
 
       qsort (gnu_arr, len, sizeof (tree), compare_field_bitpos);
@@ -5643,7 +5655,7 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
 	  TREE_CHAIN (gnu_arr[i]) = gnu_our_rep_list;
 	  gnu_our_rep_list = gnu_arr[i];
 	  DECL_CONTEXT (gnu_arr[i]) = gnu_rep_type;
-	  DECL_SECTION_NAME (gnu_arr[i]) = NULL_TREE;
+	  DECL_FCONTEXT (gnu_arr[i]) = NULL_TREE;
 	}
 
       if (gnu_field_list)
@@ -5679,7 +5691,7 @@ compare_field_bitpos (const PTR rt1, const PTR rt2)
 
   if (tree_int_cst_equal (bit_position (*t1), bit_position (*t2)))
     return
-      (tree_int_cst_lt (DECL_SECTION_NAME (*t1), DECL_SECTION_NAME (*t2))
+      (tree_int_cst_lt (DECL_FCONTEXT (*t1), DECL_FCONTEXT (*t2))
        ? -1 : 1);
   else if (tree_int_cst_lt (bit_position (*t1), bit_position (*t2)))
     return -1;

@@ -61,8 +61,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "cfglayout.h"
 #include "tree-gimple.h"
+#include "tree-pass.h"
 #include "predict.h"
-
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -820,7 +820,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
-	  error ("%Jsize of variable %qD is too large", decl, decl);
+	  error ("size of variable %q+D is too large", decl);
 	  size = 1;
 	}
 
@@ -1662,6 +1662,24 @@ instantiate_virtual_regs (void)
      frame_pointer_rtx.  */
   virtuals_instantiated = 1;
 }
+
+struct tree_opt_pass pass_instantiate_virtual_regs =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  instantiate_virtual_regs,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 /* Return 1 if EXP is an aggregate type (or a value with aggregate type).
    This means a type for which function calls must pass an address to the
@@ -1714,7 +1732,7 @@ aggregate_value_p (tree exp, tree fntype)
     return 1;
   /* Make sure we have suitable call-clobbered regs to return
      the value in; if not, we must return it in memory.  */
-  reg = hard_function_value (type, 0, 0);
+  reg = hard_function_value (type, 0, fntype, 0);
 
   /* If we have something other than a REG (e.g. a PARALLEL), then assume
      it is OK.  */
@@ -3037,13 +3055,8 @@ assign_parms (tree fndecl)
 	{
 	  rtx real_decl_rtl;
 
-#ifdef FUNCTION_OUTGOING_VALUE
-	  real_decl_rtl = FUNCTION_OUTGOING_VALUE (TREE_TYPE (decl_result),
-						   fndecl);
-#else
-	  real_decl_rtl = FUNCTION_VALUE (TREE_TYPE (decl_result),
-					  fndecl);
-#endif
+	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
+							fndecl, true);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that current_function_return_rtx
 	     holds the hard register containing the return value, not a
@@ -3238,7 +3251,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
 {
   tree sizetree;
   enum direction where_pad;
-  int boundary;
+  unsigned int boundary;
   int reg_parm_stack_space = 0;
   int part_size_in_regs;
 
@@ -3272,6 +3285,13 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
   locate->where_pad = where_pad;
   locate->boundary = boundary;
+
+  /* Remember if the outgoing parameter requires extra alignment on the
+     calling function side.  */
+  if (boundary > PREFERRED_STACK_BOUNDARY)
+    boundary = PREFERRED_STACK_BOUNDARY;
+  if (cfun->stack_alignment_needed < boundary)
+    cfun->stack_alignment_needed = boundary;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -3451,9 +3471,9 @@ setjmp_vars_warning (tree block)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning (0, "%Jvariable %qD might be clobbered by %<longjmp%>"
+	warning (0, "variable %q+D might be clobbered by %<longjmp%>"
 		 " or %<vfork%>",
-		 decl, decl);
+		 decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
@@ -3472,8 +3492,8 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning (0, "%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
-	       decl, decl);
+      warning (0, "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
+	       decl);
 }
 
 
@@ -3884,6 +3904,24 @@ init_function_for_compilation (void)
   gcc_assert (VEC_length (int, sibcall_epilogue) == 0);
 }
 
+struct tree_opt_pass pass_init_function =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */   
+  init_function_for_compilation,        /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
 void
 expand_main_function (void)
 {
@@ -3972,8 +4010,8 @@ stack_protect_prologue (void)
    the end of a function to be protected.  */
 
 #ifndef HAVE_stack_protect_test
-# define HAVE_stack_protect_test	0
-# define gen_stack_protect_test(x, y)	(gcc_unreachable (), NULL_RTX)
+# define HAVE_stack_protect_test		0
+# define gen_stack_protect_test(x, y, z)	(gcc_unreachable (), NULL_RTX)
 #endif
 
 static void
@@ -3995,11 +4033,10 @@ stack_protect_epilogue (void)
   switch (HAVE_stack_protect_test != 0)
     {
     case 1:
-      tmp = gen_stack_protect_test (x, y);
+      tmp = gen_stack_protect_test (x, y, label);
       if (tmp)
 	{
 	  emit_insn (tmp);
-	  emit_jump_insn (bcc_gen_fctn[EQ] (label));
 	  break;
 	}
       /* FALLTHRU */
@@ -4107,7 +4144,7 @@ expand_function_start (tree subr)
 	  /* In order to figure out what mode to use for the pseudo, we
 	     figure out what the mode of the eventual return register will
 	     actually be, and use that.  */
-	  rtx hard_reg = hard_function_value (return_type, subr, 1);
+	  rtx hard_reg = hard_function_value (return_type, subr, 0, 1);
 
 	  /* Structures that are returned in registers are not
 	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
@@ -4278,7 +4315,7 @@ do_warn_unused_parameter (tree fn)
        decl; decl = TREE_CHAIN (decl))
     if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
 	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
-      warning (0, "%Junused parameter %qD", decl, decl);
+      warning (OPT_Wunused_parameter, "unused parameter %q+D", decl);
 }
 
 static GTY(()) rtx initial_trampoline;
@@ -4368,6 +4405,11 @@ expand_function_end (void)
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
 
+  /* Let except.c know where it should emit the call to unregister
+     the function context for sjlj exceptions.  */
+  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
+    sjlj_emit_function_exit_after (get_last_insn ());
+
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */
@@ -4452,13 +4494,8 @@ expand_function_end (void)
       else
 	value_address = XEXP (value_address, 0);
 
-#ifdef FUNCTION_OUTGOING_VALUE
-      outgoing = FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
-					  current_function_decl);
-#else
-      outgoing = FUNCTION_VALUE (build_pointer_type (type),
-				 current_function_decl);
-#endif 
+      outgoing = targetm.calls.function_value (build_pointer_type (type),
+					       current_function_decl, true);
 
       /* Mark this as a function return value so integrate will delete the
 	 assignment and USE below when inlining this function.  */
@@ -4494,11 +4531,6 @@ expand_function_end (void)
 
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
-
-  /* Let except.c know where it should emit the call to unregister
-     the function context for sjlj exceptions.  */
-  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
-    sjlj_emit_function_exit_after (get_last_insn ());
 
   /* If stack protection is enabled for this function, check the guard.  */
   if (cfun->stack_protect_guard)
@@ -5500,5 +5532,33 @@ current_function_name (void)
 {
   return lang_hooks.decl_printable_name (cfun->decl, 2);
 }
+
+
+static void
+rest_of_handle_check_leaf_regs (void)
+{
+#ifdef LEAF_REGISTERS
+  current_function_uses_only_leaf_regs
+    = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
+#endif
+}
+
+struct tree_opt_pass pass_leaf_regs =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_check_leaf_regs,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 #include "gt-function.h"

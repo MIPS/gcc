@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
+#include "tree-pass.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -522,6 +523,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_loop_optimize = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
+      flag_ipa_pure_const = 1;
+      flag_ipa_reference = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
@@ -555,11 +558,11 @@ decode_options (unsigned int argc, const char **argv)
       flag_cse_skip_blocks = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
+      flag_ipa_type_escape = 1;
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
       flag_rerun_loop_opt = 1;
       flag_caller_saves = 1;
-      flag_force_mem = 1;
       flag_peephole2 = 1;
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;
@@ -687,7 +690,7 @@ decode_options (unsigned int argc, const char **argv)
       && !targetm.have_named_sections)
     {
       inform 
-       ("-freorder-blocks-and-partition does not work on this architecture.");
+       ("-freorder-blocks-and-partition does not work on this architecture");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
@@ -1039,6 +1042,10 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_pedantic_errors:
       flag_pedantic_errors = pedantic = 1;
+      break;
+
+    case OPT_fforce_mem:
+      warning (0, "-f[no-]force-mem is nop and option will be removed in 4.2");
       break;
 
     default:

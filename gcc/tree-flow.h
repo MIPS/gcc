@@ -29,6 +29,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
+#include "ipa-reference.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -40,6 +41,20 @@ typedef struct basic_block_def *basic_block;
 
 /* True if the code is in ssa form.  */
 extern bool in_ssa_p;
+
+typedef struct
+{
+  htab_t htab;
+  PTR *slot;
+  PTR *limit;
+} htab_iterator;
+
+/* Iterate through the elements of hashtable HTAB, using htab_iterator ITER,
+   storing each element in RESULT, which is of type TYPE.  */
+#define FOR_EACH_HTAB_ELEMENT(HTAB, RESULT, TYPE, ITER) \
+  for (RESULT = (TYPE) first_htab_element (&(ITER), (HTAB)); \
+	!end_htab_p (&(ITER)); \
+	RESULT = (TYPE) next_htab_element (&(ITER)))
 
 /*---------------------------------------------------------------------------
 		      Attributes for SSA_NAMEs.
@@ -56,9 +71,6 @@ struct ptr_info_def GTY(())
   /* Nonzero if points-to analysis couldn't determine where this pointer
      is pointing to.  */
   unsigned int pt_anything : 1;
-
-  /* Nonzero if this pointer is the result of a call to malloc.  */
-  unsigned int pt_malloc : 1;
 
   /* Nonzero if the value of this pointer escapes the current function.  */
   unsigned int value_escapes_p : 1;
@@ -146,19 +158,22 @@ enum mem_tag_kind {
   /* This variable represents a structure field.  */
   STRUCT_FIELD
 };
+
 struct subvar;
 typedef struct subvar *subvar_t;
 
 /* This structure represents a fake sub-variable for a structure field.  */
-
 struct subvar GTY(())
 {
-  /* Fake variable name */
+  /* Fake variable.  */
   tree var;
+
   /* Offset inside structure.  */
-  HOST_WIDE_INT offset;
-  /* Size of field.  */
-  HOST_WIDE_INT size;
+  unsigned HOST_WIDE_INT offset;
+
+  /* Size of the field.  */
+  unsigned HOST_WIDE_INT size;
+
   /* Next subvar for this structure.  */
   subvar_t next;
 };
@@ -208,9 +223,6 @@ struct var_ann_d GTY(())
   /* Variables that may alias this variable.  */
   varray_type may_aliases;
 
-  /* Unique ID of this variable.  */
-  size_t uid;
-
   /* Used when going out of SSA form to indicate which partition this
      variable represents storage for.  */
   unsigned partition;
@@ -228,6 +240,11 @@ struct var_ann_d GTY(())
      current version of this variable (an SSA_NAME).  */
   tree current_def;
   
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  This field is only used
+     for FUNCTION_DECLs.  */
+  ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
+
   /* If this variable is a structure, this fields holds a list of
      symbols representing each of the fields of the structure.  */
   subvar_t subvars;
@@ -356,11 +373,58 @@ static inline void set_phi_nodes (basic_block, tree);
 /*---------------------------------------------------------------------------
 			      Global declarations
 ---------------------------------------------------------------------------*/
-/* Array of all variables referenced in the function.  */
-extern GTY(()) VEC(tree,gc) *referenced_vars;
+struct int_tree_map GTY(())
+{
+  
+  unsigned int uid;
+  tree to;
+};
 
-#define num_referenced_vars VEC_length (tree, referenced_vars)
-#define referenced_var(i) VEC_index (tree, referenced_vars, i)
+extern unsigned int int_tree_map_hash (const void *);
+extern int int_tree_map_eq (const void *, const void *);
+
+typedef struct 
+{
+  htab_iterator hti;
+} referenced_var_iterator;
+
+
+/* This macro loops over all the referenced vars, one at a time, putting the
+   current var in VAR.  Note:  You are not allowed to add referenced variables
+   to the hashtable while using this macro.  Doing so may cause it to behave
+   erratically.  */
+
+#define FOR_EACH_REFERENCED_VAR(VAR, ITER) \
+  for ((VAR) = first_referenced_var (&(ITER)); \
+       !end_referenced_vars_p (&(ITER)); \
+       (VAR) = next_referenced_var (&(ITER))) 
+
+
+typedef struct
+{
+  int i;
+} safe_referenced_var_iterator;
+
+/* This macro loops over all the referenced vars, one at a time, putting the
+   current var in VAR.  You are allowed to add referenced variables during the
+   execution of this macro, however, the macro will not iterate over them.  It
+   requires a temporary vector of trees, VEC, whose lifetime is controlled by
+   the caller.  The purpose of the vector is to temporarily store the
+   referenced_variables hashtable so that adding referenced variables does not
+   affect the hashtable.  */
+
+#define FOR_EACH_REFERENCED_VAR_SAFE(VAR, VEC, ITER) \
+  for ((ITER).i = 0, fill_referenced_var_vec (&(VEC)); \
+       VEC_iterate (tree, (VEC), (ITER).i, (VAR)); \
+       (ITER).i++)
+
+/* Array of all variables referenced in the function.  */
+extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
+
+extern tree referenced_var_lookup (unsigned int);
+extern tree referenced_var_lookup_if_exists (unsigned int);
+#define num_referenced_vars htab_elements (referenced_vars)
+#define referenced_var(i) referenced_var_lookup (i)
 
 /* Array of all SSA_NAMEs used in the function.  */
 extern GTY(()) VEC(tree,gc) *ssa_names;
@@ -519,6 +583,8 @@ extern void debug_referenced_vars (void);
 extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
+extern void dump_subvars_for (FILE *, tree);
+extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree);
 extern void mark_new_vars_to_rename (tree);
@@ -545,11 +611,13 @@ extern void add_type_alias (tree, tree);
 extern void new_type_alias (tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
+static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
-extern tree okay_component_ref_for_subvars (tree, HOST_WIDE_INT *,
-					    HOST_WIDE_INT *);
+extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
+					    unsigned HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
-static inline bool overlap_subvar (HOST_WIDE_INT, HOST_WIDE_INT,
+static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
+				   unsigned HOST_WIDE_INT,
 				   subvar_t, bool *);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
@@ -593,6 +661,7 @@ tree widen_bitfield (tree, tree, tree);
 /* In tree-vrp.c  */
 bool expr_computes_nonzero (tree);
 tree vrp_evaluate_conditional (tree, bool);
+void simplify_stmt_using_ranges (tree);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -650,6 +719,7 @@ void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *, bool);
+void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
@@ -681,6 +751,7 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
+edge single_dom_exit (struct loop *);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
@@ -732,6 +803,10 @@ bool is_hidden_global_store (tree);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree, basic_block);
+void sra_insert_before (block_stmt_iterator *, tree);
+void sra_insert_after (block_stmt_iterator *, tree);
+void sra_init_cache (void);
+bool sra_type_can_be_decomposed_p (tree);
 
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);

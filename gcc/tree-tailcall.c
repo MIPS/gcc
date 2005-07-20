@@ -132,16 +132,17 @@ static void find_tail_calls (basic_block, struct tailcall **);
 static bool
 suitable_for_tail_opt_p (void)
 {
-  int i;
+  referenced_var_iterator rvi;
+  tree var;
 
   if (current_function_stdarg)
     return false;
 
   /* No local variable nor structure field should be call-clobbered.  We
      ignore any kind of memory tag, as these are not real variables.  */
-  for (i = 0; i < (int) num_referenced_vars; i++)
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = VEC_index (tree, referenced_vars, i);
 
       if (!(TREE_STATIC (var) || DECL_EXTERNAL (var))
 	  && (var_ann (var)->mem_tag_kind == NOT_A_TAG
@@ -755,7 +756,7 @@ eliminate_tail_call (struct tailcall *t)
 
       if (!phi)
 	{
-	  tree name = var_ann (param)->default_def;
+	  tree name = default_def (param);
 	  tree new_name;
 
 	  if (!name)
@@ -768,7 +769,7 @@ eliminate_tail_call (struct tailcall *t)
 	    }
 	  new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 
-	  var_ann (param)->default_def = new_name;
+	  set_default_def (param, new_name);
 	  phi = create_phi_node (name, first);
 	  SSA_NAME_DEF_STMT (name) = phi;
 	  add_phi_arg (phi, new_name, single_succ_edge (ENTRY_BLOCK_PTR));
@@ -867,6 +868,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 
       if (!phis_constructed)
 	{
+	  tree name;
 	  /* Ensure that there is only one predecessor of the block.  */
 	  if (!single_pred_p (first))
 	    first = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
@@ -879,14 +881,13 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 		&& var_ann (param)
 		/* Also parameters that are only defined but never used need not
 		   be copied.  */
-		&& (var_ann (param)->default_def
-		    && TREE_CODE (var_ann (param)->default_def) == SSA_NAME))
+		&& ((name = default_def (param))
+		    && TREE_CODE (name) == SSA_NAME))
 	    {
-	      tree name = var_ann (param)->default_def;
 	      tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 	      tree phi;
 
-	      var_ann (param)->default_def = new_name;
+	      set_default_def (param, new_name);
 	      phi = create_phi_node (name, first);
 	      SSA_NAME_DEF_STMT (name) = phi;
 	      add_phi_arg (phi, new_name, single_pred_edge (first));

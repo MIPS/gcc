@@ -102,7 +102,7 @@ of the same kind; for example, if you specify @option{-L} more than once,
 the directories are searched in the order specified.
 
 Many options have long names starting with @samp{-f} or with
-@samp{-W}---for example, @option{-fforce-mem},
+@samp{-W}---for example, 
 @option{-fstrength-reduce}, @option{-Wformat} and so on.  Most of
 these have both positive and negative forms; the negative form of
 @option{-ffoo} would be @option{-fno-foo}.  This manual documents
@@ -241,7 +241,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wsign-compare  -Wstrict-aliasing -Wstrict-aliasing=2 @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
--Wunknown-pragmas  -Wunreachable-code @gol
+-Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
 -Wunused-value  -Wunused-variable  -Wwrite-strings @gol
 -Wvariadic-macros}
@@ -302,7 +302,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks -fearly-inlining @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
--fforce-addr  -fforce-mem  -ffunction-sections @gol
+-fforce-addr  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
@@ -414,8 +414,9 @@ Objective-C and Objective-C++ Dialects}.
 -mcall-prologues  -mno-tablejump  -mtiny-stack  -mint8}
 
 @emph{Blackfin Options}
-@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer -mcsync @gol
--mno-csync -mlow-64k -mno-low64k -mid-shared-library @gol
+@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer @gol
+-mspecld-anomaly -mno-specld-anomaly -mcsync-anomaly -mno-csync-anomaly @gol
+-mlow-64k -mno-low64k -mid-shared-library @gol
 -mno-id-shared-library -mshared-library-id=@var{n} @gol
 -mlong-calls  -mno-long-calls}
 
@@ -451,7 +452,8 @@ Objective-C and Objective-C++ Dialects}.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
--whatsloaded -F -gused -gfull -mone-byte-bool}
+-whatsloaded -F -gused -gfull -mmacosx-min-version=@var{version} @gol
+-mone-byte-bool}
 
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
@@ -513,8 +515,8 @@ Objective-C and Objective-C++ Dialects}.
 -mmmx  -msse  -msse2 -msse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
--m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
--mno-red-zone -mno-tls-direct-seg-refs @gol
+-m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
+-momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64}
 
@@ -2707,6 +2709,13 @@ GCC@.  If this command line option is used, warnings will even be issued
 for unknown pragmas in system header files.  This is not the case if
 the warnings were only enabled by the @option{-Wall} command line option.
 
+@item -Wno-pragmas
+@opindex Wno-pragmas
+@opindex Wpragmas
+Do not warn about misuses of pragmas, such as incorrect parameters,
+invalid syntax, or conflicts between pragmas.  See also
+@samp{-Wunknown-pragmas}.
+
 @item -Wstrict-aliasing
 @opindex Wstrict-aliasing
 This option is only active when @option{-fstrict-aliasing} is active.
@@ -3124,14 +3133,23 @@ hosted C environments.
 @item -Wmissing-format-attribute
 @opindex Wmissing-format-attribute
 @opindex Wformat
-If @option{-Wformat} is enabled, also warn about functions which might be
-candidates for @code{format} attributes.  Note these are only possible
-candidates, not absolute ones.  GCC will guess that @code{format}
-attributes might be appropriate for any function that calls a function
-like @code{vprintf} or @code{vscanf}, but this might not always be the
+Warn about function pointers which might be candidates for @code{format}
+attributes.  Note these are only possible candidates, not absolute ones.
+GCC will guess that function pointers with @code{format} attributes that
+are used in assignment, initialization, parameter passing or return
+statements should have a corresponding @code{format} attribute in the
+resulting type.  I.e.@: the left-hand side of the assignment or
+initialization, the type of the parameter variable, or the return type
+of the containing function respectively should also have a @code{format}
+attribute to avoid the warning.
+
+GCC will also warn about function definitions which might be
+candidates for @code{format} attributes.  Again, these are only
+possible candidates.  GCC will guess that @code{format} attributes
+might be appropriate for any function that calls a function like
+@code{vprintf} or @code{vscanf}, but this might not always be the
 case, and some functions for which @code{format} attributes are
-appropriate may not be detected.  This option has no effect unless
-@option{-Wformat} is enabled (possibly by @option{-Wall}).
+appropriate may not be detected.
 
 @item -Wno-multichar
 @opindex Wno-multichar
@@ -4322,7 +4340,6 @@ also turns on the following optimization flags:
 -fstrength-reduce @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -fcaller-saves @gol
--fforce-mem @gol
 -fpeephole2 @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
@@ -4399,15 +4416,12 @@ Force memory operands to be copied into registers before doing
 arithmetic on them.  This produces better code by making all memory
 references potential common subexpressions.  When they are not common
 subexpressions, instruction combination should eliminate the separate
-register-load.
-
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+register-load. This option is now a nop and will be removed in 4.2.
 
 @item -fforce-addr
 @opindex fforce-addr
 Force memory address constants to be copied into registers before
-doing arithmetic on them.  This may produce better code just as
-@option{-fforce-mem} may.
+doing arithmetic on them.
 
 @item -fomit-frame-pointer
 @opindex fomit-frame-pointer
@@ -5019,8 +5033,7 @@ the loop is entered.  This usually makes programs run more slowly.
 @opindex -fsplit-ivs-in-unroller
 Enables expressing of values of induction variables in later iterations
 of the unrolled loop using the value in the first iteration.  This breaks
-long dependency chains, thus improving efficiency of the scheduling passes
-(for best results, @option{-fweb} should be used as well).
+long dependency chains, thus improving efficiency of the scheduling passes.
 
 Combination of @option{-fweb} and CSE is often sufficient to obtain the
 same effect.  However in cases the loop body is more complicated than
@@ -5235,7 +5248,7 @@ though, can be replaced by @code{section} attributes.
 
 @item
 @emph{unit-at-a-time} mode removes unreferenced static variables
-and functions are removed.  This may result in undefined references
+and functions.  This may result in undefined references
 when an @code{asm} statement refers directly to variables or functions
 that are otherwise unused.  In that case either the variable/function
 shall be listed as an operand of the @code{asm} statement operand or,
@@ -5262,9 +5275,7 @@ passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a
 ``home register''.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os},
-on targets where the default format for debugging information supports
-variable tracking.
+Enabled by default with @option{-funroll-loops}.
 
 @item -fwhole-program
 @opindex fwhole-program
@@ -5526,7 +5537,7 @@ debug information format adopted by the target, however, it can
 make debugging impossible, since variables will no longer stay in
 a ``home register''.
 
-Not enabled by default at any level because it has known bugs.
+Enabled by default with @option{-funroll-loops}.
 
 @item -ftracer
 @opindex ftracer
@@ -5540,9 +5551,10 @@ Enabled with @option{-fprofile-use}.
 @opindex funroll-loops
 Unroll loops whose number of iterations can be determined at compile time or
 upon entry to the loop.  @option{-funroll-loops} implies
-@option{-frerun-cse-after-loop}.  It also turns on complete loop peeling
-(i.e.@: complete removal of loops with small constant number of iterations).
-This option makes code larger, and may or may not make it run faster.
+@option{-frerun-cse-after-loop}, @option{-fweb} and @option{-frename-registers}. 
+It also turns on complete loop peeling (i.e.@: complete removal of loops with
+small constant number of iterations).  This option makes code larger, and may
+or may not make it run faster.
 
 Enabled with @option{-fprofile-use}.
 
@@ -7406,15 +7418,26 @@ makes an extra register available in leaf functions.  The option
 @option{-fomit-frame-pointer} removes the frame pointer for all functions
 which might make debugging harder.
 
-@item -mcsync
-@opindex mcsync
+@item -mspecld-anomaly
+@opindex mspecld-anomaly
 When enabled, the compiler will ensure that the generated code does not
 contain speculative loads after jump instructions.  This option is enabled
 by default.
 
-@item -mno-csync
-@opindex mno-csync
+@item -mno-specld-anomaly
+@opindex mno-specld-anomaly
 Don't generate extra code to prevent speculative loads from occurring.
+
+@item -mcsync-anomaly
+@opindex mcsync-anomaly
+When enabled, the compiler will ensure that the generated code does not
+contain CSYNC or SSYNC instructions too soon after conditional branches.
+This option is enabled by default.
+
+@item -mno-csync-anomaly
+@opindex mno-csync-anomaly
+Don't generate extra code to prevent CSYNC or SSYNC instructions from
+occurring too soon after a conditional branch.
 
 @item -mlow-64k
 @opindex mlow-64k
@@ -7671,6 +7694,14 @@ This is by default ON@.
 @item -gfull
 @opindex -gfull
 Emit debugging information for all symbols and types.
+
+@item -mmacosx-version-min=@var{version}
+The earliest version of MacOS X that this executable will run on
+is @var{version}.  Typical values of @var{version} include @code{10.1},
+@code{10.2}, and @code{10.3.9}.
+
+The default for this option is to make choices that seem to be most
+useful.  
 
 @item -mone-byte-bool
 @opindex -mone-byte-bool
@@ -9024,6 +9055,17 @@ function by using the function attribute @samp{regparm}.
 @var{num} is nonzero, then you must build all modules with the same
 value, including any libraries.  This includes the system libraries and
 startup modules.
+
+@item -msseregparm
+@opindex msseregparm
+Use SSE register passing conventions for float and double arguments
+and return values.  You can control this behavior for a specific
+function by using the function attribute @samp{sseregparm}.
+@xref{Function Attributes}.
+
+@strong{Warning:} if you use this switch then you must build all
+modules with the same value, including any libraries.  This includes
+the system libraries and startup modules.
 
 @item -mpreferred-stack-boundary=@var{num}
 @opindex mpreferred-stack-boundary
@@ -11437,7 +11479,8 @@ to the GNU/Linux for zSeries ABI, the default is @option{-mzarch}.
 @opindex mno-mvcle
 Generate (or do not generate) code using the @code{mvcle} instruction
 to perform block moves.  When @option{-mno-mvcle} is specified,
-use a @code{mvc} loop instead.  This is the default.
+use a @code{mvc} loop instead.  This is the default unless optimizing for
+size.
 
 @item -mdebug
 @itemx -mno-debug

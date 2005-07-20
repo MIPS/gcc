@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -760,6 +760,89 @@ package body GNAT.Expect is
       end loop;
 
    end Flush;
+
+   ------------------------
+   -- Get_Command_Output --
+   ------------------------
+
+   function Get_Command_Output
+     (Command    : String;
+      Arguments  : GNAT.OS_Lib.Argument_List;
+      Input      : String;
+      Status     : access Integer;
+      Err_To_Out : Boolean := False) return String
+   is
+      use GNAT.Expect;
+
+      Process : Process_Descriptor;
+
+      Output : String_Access := new String (1 .. 1024);
+      --  Buffer used to accumulate standard output from the launched
+      --  command, expanded as necessary during execution.
+
+      Last : Integer := 0;
+      --  Index of the last used character within Output
+
+   begin
+      Non_Blocking_Spawn
+        (Process, Command, Arguments, Err_To_Out => Err_To_Out);
+
+      if Input'Length > 0 then
+         Send (Process, Input);
+      end if;
+
+      GNAT.OS_Lib.Close (Get_Input_Fd (Process));
+
+      declare
+         Result : Expect_Match;
+
+      begin
+         --  This loop runs until the call to Expect raises Process_Died
+
+         loop
+            Expect (Process, Result, ".+");
+
+            declare
+               NOutput : String_Access;
+               S       : constant String := Expect_Out (Process);
+               pragma Assert (S'Length > 0);
+
+            begin
+               --  Expand buffer if we need more space
+
+               if Last + S'Length > Output'Last then
+                  NOutput := new String (1 .. 2 * Output'Last);
+                  NOutput (Output'Range) := Output.all;
+                  Free (Output);
+
+                  --  Here if current buffer size is OK
+
+               else
+                  NOutput := Output;
+               end if;
+
+               NOutput (Last + 1 .. Last + S'Length) := S;
+               Last := Last + S'Length;
+               Output := NOutput;
+            end;
+         end loop;
+
+      exception
+         when Process_Died =>
+            Close (Process, Status.all);
+      end;
+
+      if Last = 0 then
+         return "";
+      end if;
+
+      declare
+         S : constant String := Output (1 .. Last);
+      begin
+         Free (Output);
+         return S;
+      end;
+   end Get_Command_Output;
 
    ------------------
    -- Get_Error_Fd --

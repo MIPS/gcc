@@ -45,6 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "target.h"
 #include "langhooks.h"
+#include "tree-pass.h"
 
 /* Round to the next highest integer that meets the alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
@@ -136,7 +137,8 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
   DECL_ABSTRACT_ORIGIN (copy) = DECL_ORIGIN (decl);
 
   /* The new variable/label has no RTL, yet.  */
-  if (!TREE_STATIC (copy) && !DECL_EXTERNAL (copy))
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (copy), TS_DECL_WRTL) 
+      && !TREE_STATIC (copy) && !DECL_EXTERNAL (copy))
     SET_DECL_RTL (copy, NULL_RTX);
 
   /* These args would always appear unused, if not for this.  */
@@ -370,6 +372,23 @@ emit_initial_value_sets (void)
 
   emit_insn_after (seq, entry_of_function ());
 }
+
+struct tree_opt_pass pass_initial_value_sets =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  emit_initial_value_sets,              /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
 
 /* If the backend knows where to allocate pseudos for hard
    register initial values, register these allocations now.  */

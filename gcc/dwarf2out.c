@@ -3448,7 +3448,7 @@ get_cfa_from_loc_descr (dw_cfa_location *cfa, struct dw_loc_descr_struct *loc)
 	  cfa->offset = ptr->dw_loc_oprnd1.v.val_unsigned;
 	  break;
 	default:
-	  internal_error ("DW_LOC_OP %s not implemented\n",
+	  internal_error ("DW_LOC_OP %s not implemented",
 			  dwarf_stack_op_name (ptr->dw_loc_opc));
 	}
     }
@@ -4631,6 +4631,9 @@ dwarf_form_name (unsigned int form)
 static tree
 decl_ultimate_origin (tree decl)
 {
+  if (!CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_COMMON))
+    return NULL_TREE;
+
   /* output_inline_function sets DECL_ABSTRACT_ORIGIN for all the
      nodes in the function to point to themselves; ignore that if
      we're trying to output the abstract instance of this function.  */
@@ -8954,7 +8957,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 1);
 
     case VAR_DECL:
-      if (DECL_THREAD_LOCAL (loc))
+      if (DECL_THREAD_LOCAL_P (loc))
 	{
 	  rtx rtl;
 
@@ -10146,7 +10149,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	 XXX: If you split a variable across multiple sections, this
 	 won't notice.  */
 
-      if (DECL_SECTION_NAME (decl))
+      if (VAR_OR_FUNCTION_DECL_P (decl) && DECL_SECTION_NAME (decl))
 	{
 	  tree sectree = DECL_SECTION_NAME (decl);
 	  secname = TREE_STRING_POINTER (sectree);

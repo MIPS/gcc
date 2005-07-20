@@ -1276,7 +1276,8 @@ m32r_compute_frame_size (int size)	/* # of var. bytes allocated.  */
   unsigned int gmask;
   enum m32r_function_type fn_type;
   int interrupt_p;
-  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table);
+  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
+                                  | current_function_profile);
 
   var_size	= M32R_STACK_ALIGN (size);
   args_size	= M32R_STACK_ALIGN (current_function_outgoing_args_size);
@@ -1375,7 +1376,8 @@ m32r_expand_prologue (void)
   int regno;
   int frame_size;
   unsigned int gmask;
-  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table);
+  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
+                                  | current_function_profile);
 
   if (! current_frame_info.initialized)
     m32r_compute_frame_size (get_frame_size ());
@@ -1530,10 +1532,18 @@ m32r_output_function_epilogue (FILE * file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	  else if (reg_offset < 32768)
 	    fprintf (file, "\tadd3 %s,%s,%s%d\n",
 		     sp_str, sp_str, IMMEDIATE_PREFIX, reg_offset);
-	  else
+	  else if (reg_offset < (1 << 24))
 	    fprintf (file, "\tld24 %s,%s%d\n\tadd %s,%s\n",
 		     reg_names[PROLOGUE_TMP_REGNUM],
 		     IMMEDIATE_PREFIX, reg_offset,
+		     sp_str, reg_names[PROLOGUE_TMP_REGNUM]);
+	  else
+	    fprintf (file, "\tseth %s,%s%d\n\tor3 %s,%s,%s%d\n\tadd %s,%s\n",
+		     reg_names[PROLOGUE_TMP_REGNUM],
+		     IMMEDIATE_PREFIX, reg_offset >> 16,
+		     reg_names[PROLOGUE_TMP_REGNUM],
+		     reg_names[PROLOGUE_TMP_REGNUM],
+		     IMMEDIATE_PREFIX, reg_offset & 0xffff,
 		     sp_str, reg_names[PROLOGUE_TMP_REGNUM]);
 	}
       else if (frame_pointer_needed)
@@ -1545,10 +1555,18 @@ m32r_output_function_epilogue (FILE * file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	  else if (reg_offset < 32768)
 	    fprintf (file, "\tadd3 %s,%s,%s%d\n",
 		     sp_str, fp_str, IMMEDIATE_PREFIX, reg_offset);
-	  else
+	  else if (reg_offset < (1 << 24))
 	    fprintf (file, "\tld24 %s,%s%d\n\tadd %s,%s\n",
 		     reg_names[PROLOGUE_TMP_REGNUM],
 		     IMMEDIATE_PREFIX, reg_offset,
+		     sp_str, reg_names[PROLOGUE_TMP_REGNUM]);
+	  else
+	    fprintf (file, "\tseth %s,%s%d\n\tor3 %s,%s,%s%d\n\tadd %s,%s\n",
+		     reg_names[PROLOGUE_TMP_REGNUM],
+		     IMMEDIATE_PREFIX, reg_offset >> 16,
+		     reg_names[PROLOGUE_TMP_REGNUM],
+		     reg_names[PROLOGUE_TMP_REGNUM],
+		     IMMEDIATE_PREFIX, reg_offset & 0xffff,
 		     sp_str, reg_names[PROLOGUE_TMP_REGNUM]);
 	}
       else
@@ -1708,14 +1726,6 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
     }
 
   return orig;
-}
-
-/* Emit special PIC prologues and epilogues.  */
-
-void
-m32r_finalize_pic (void)
-{
-  current_function_uses_pic_offset_table |= current_function_profile;
 }
 
 /* Nested function support.  */

@@ -1,3 +1,182 @@
+2005-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22263
+	* cp-tree.h (instantiate_decl): Change prototype.
+	* decl2.c (mark_used): Adjust accordingly.
+	* pt.c (do_decl_instantiation): Likewise.
+	(instantiate_class_member): Likewise.
+	(instantiate_decl): Rename undefined_ok as expl_inst_class_mem_p.
+	Clear DECL_INTERFACE_KNOWN for an explicitly instantiated template
+	that has no definition available.
+	(instantiate_pending_templates): Adjust call to instantiate_decl.
+
+2005-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22139
+	* cp-tree.h (DECL_TEMPLATE_INFO): Improve documentation.
+	* decl.c (duplicate_decls): Re-register template specializations
+	for functions that have DECL_TEMLPLATE_INFO, even if they do not
+	have DECL_TEMPLATE_INSTANTIATION set.
+
+2005-07-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* call.c (diagnostic_fn_t): New.
+	(build_temp, convert_like_real): Use diagnostic_fn_t.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22204
+	* repo.c (repo_emit_p): Robustify.
+
+2005-07-14  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR c++/22452
+	* tree.c (decl_linkage): Don't check DECL_COMDAT on CONST_DECL.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22132
+	* call.c (implicit_conversion): Add c_cast_p parameter.
+	(standard_conversion): Likewise.  Allow conversions between
+	differently-qualified pointer types when performing a C-style
+	cast.
+	(add_function_candidate): Adjust callee.
+	(build_builtin_candidate): Likewise.
+	(build_user_type_conversion_1): Likewise.
+	(conditional_conversion): Likewise.
+	(can_convert_arg): Likewise.
+	(can_convert_arg_bad): Likewise.
+	(perform_implicit_conversion): Likewise.
+	* cp-tree.h (comp_ptr_ttypes_const): Declare.
+	* typeck.c (comp_ptr_ttypes_const): Give it external linkage.
+	Return bool.
+	
+2005-07-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20172
+	* pt.c (tsubst_template_parms): Check for invalid non-type
+	parameters.
+
+2005-07-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* cp-lang.c (shadowed_var_for_decl, decl_shadowed_for_var_lookup,
+	decl_shadowed_for_var_insert): Move over to cp-objcp-common.c.
+	(cp_init_ts): Call init_shadowed_var_for_decl.
+	Remove include of gt-cp-cp-lang.h.
+	* cp-objcp-common.c (shadowed_var_for_decl,
+	decl_shadowed_for_var_lookup, decl_shadowed_for_var_insert): Moved from
+	cp-lang.c.
+	(init_shadowed_var_for_decl): New function to initialize
+	shadowed_var_for_decl.
+	Include gt-cp-cp-objcp-common.h.
+	* Make-lang.in (gt-cp-lang.h): Remove.
+	(gt-cp-cp-objcp-common.h): Add.
+	(cp/cp-lang.o): Remove dependancy on gt-cp-lang.h.
+	(cp/cp-objcp-common.o): Add dependancy on gt-cp-cp-objcp-common.h.
+	* config-lang.in (gtfiles): Remove cp-lang.c and Add cp-objcp-common.c.
+	* cp-tree (init_shadowed_var_for_decl): Add prototype.
+
+2005-07-08  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* Make-lang.in: Add gt-cp-lang.h.
+	(cp-lang.o): Ditto.	
+	* class.c (create_vtable_ptr): Stop setting DECL_ASSEMBLER_NAME on
+	the field.
+	* config-lang.in: Add cp-lang.c to gtfiles.
+	* cp-lang.c: Include hashtab.h.
+	(cp_init_ts): New function.
+	(LANG_HOOK_INIT_TS): Use macro.
+	(decl_shadowed_for_var_lookup): New function.
+	(decl_shadowed_for_var_insert): Ditto.
+	* cp-tree.h (THUNK_FUNCTION_CHECK): Use decl_common.
+	(NON_THUNK_FUNCTION_CHECK): Ditto.
+	(DECL_NAMESPACE_ASSOCIATIONS): Use decl_non_common.
+	(DECL_INIT_PRIORITY): Ditto.
+	(DECL_HAS_SHADOWED_FOR_VAR_P): Ditto.
+	(DECL_SHADOWED_FOR_VAR): Use hashtable.
+	(SET_DECL_SHADOWED_FOR_VAR): Ditto.
+	* decl.c (duplicate_decls): Update for new/updated structures.
+	(poplevel): Use SET_DECL_SHADOWED_FOR_VAR.
+	* decl2.c (start_static_initialization_or_destruction): Deal with
+	priority. 
+	* pt.c (tsubst_decl): Check TS_DECL_WRTL before doing
+	SET_DECL_RTL.
+	* tree.c (handle_init_priority_attribute): Handle priority.
+
+2005-07-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21799
+	* pt.c (type_unification_real): Add is_method argument.  Use it
+	for this pointer unification.
+	(fn_type_unification): Adjust type_unification_real call.
+	(unify): Likewise.
+
+2005-07-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* pt.c (type_unification_real): Remove allow_incomplete argument.
+	Remove unreachable code.
+	(fn_type_unification): Adjust call to type_unification_real.
+	(unify): Likewise.
+
+2005-07-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in (class.o, decl2.o): Adjust dependencies.
+	* class.c: Include tree-dump.h.
+	* decl2.c: Include tree-dump.h.
+	
+2005-07-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* dump.c: Use dump_string_field.
+
+2005-07-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* cp-tree.h (GCC_DIAG_STYLE): #undef before defining.  Change
+	minimum GCC version for format checking to 4.1.
+
+2005-07-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	* Make-lang.in (cc1plus-checksum.c): Use
+	build/genchecksum$(build_exeext), not build/genchecksum$(exeext).
+
+2005-07-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* name-lookup.c, parser.c: Use %q, %< and %> to quote in
+	diagnostics.
+
+2005-07-02  Zack Weinberg  <zack@codesourcery.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	* error.c (location_of): Add comment.
+	(locate_error, cp_error_at, cp_warning_at, cp_pedwarn_at): Remove.
+	* cp-tree.h (cp_error_at, cp_warning_at, cp_pedwarn_at): Remove.
+	* call.c, class.c, decl.c, decl2.c, friend.c, init.c,
+	name-lookup.c, parser.c, pt.c, search.c, semantics.c, typeck.c,
+	typeck2.c: Use '+' flag instead of %J, cp_error_at, cp_warning_at
+	or cp_pedwarn_at.  Mark up some diagnostic strings with N_.
+
+2005-06-30  Daniel Berlin  <dberlin@dberlin.org> 
+	
+	* decl.c (require_complete_types_for_parms): Call relayout_decl
+	instead of layout_decl.
+
+2005-06-30  Zack Weinberg  <zack@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-lang.c: No need to include cxx-pretty-print.h.
+	* error.c (cp_printer): Update signature.  No need to process
+	flags.
+	(print_instantiation_partial_context): Output last newline
+	with pp_base_newline.
+	* Make-lang.in: Update dependencies.
+
+2005-06-30  Steven Bosscher  <stevenb@suse.de>
+
+	* decl.c (start_decl): Replace DECL_THREAD_LOCAL with
+	DECL_THREAD_LOCAL_P.
+	(cp_finish_decl): Likewise.
+	(grokvardecl): Set the default DECL_TLS_MODEL here.
+
 2005-06-28  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* cvt.c (ocp_convert): Use invalid_conversion hook.
@@ -55,11 +234,6 @@
 	* rtti.c (get_tinfo_decl): Avoid caching tinfo_descs when it might
 	change.
 	(create_pseudo_type_info): First parameter is an int.
-
-2005-06-15  Aldy Hernandez  <aldyh@redhat.com>
-
-	* typeck.c (build_binary_op): Same.
-	* testsuite/g++.dg/conversion/simd3.C: New.
 
 2005-06-15  Nathan Sidwell  <nathan@codesourcery.com>
 

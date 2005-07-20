@@ -232,7 +232,7 @@ static GTY(()) int struct_value_alias_set;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
-rtx sparc_compare_op0, sparc_compare_op1;
+rtx sparc_compare_op0, sparc_compare_op1, sparc_compare_emitted;
 
 /* Vector to say how input registers are mapped to output registers.
    HARD_FRAME_POINTER_REGNUM cannot be remapped by this function to
@@ -1905,6 +1905,13 @@ gen_compare_reg (enum rtx_code code, rtx x, rtx y)
   enum machine_mode mode = SELECT_CC_MODE (code, x, y);
   rtx cc_reg;
 
+  if (sparc_compare_emitted != NULL_RTX)
+    {
+      cc_reg = sparc_compare_emitted;
+      sparc_compare_emitted = NULL_RTX;
+      return cc_reg;
+    }
+
   /* ??? We don't have movcc patterns so we cannot generate pseudo regs for the
      fcc regs (cse can't tell they're really call clobbered regs and will
      remove a duplicate comparison even if there is an intervening function
@@ -2071,6 +2078,7 @@ gen_v9_scc (enum rtx_code compare_code, register rtx *operands)
 void
 emit_v9_brxx_insn (enum rtx_code code, rtx op0, rtx label)
 {
+  gcc_assert (sparc_compare_emitted == NULL_RTX);
   emit_jump_insn (gen_rtx_SET (VOIDmode,
 			   pc_rtx,
 			   gen_rtx_IF_THEN_ELSE (VOIDmode,
@@ -8373,17 +8381,26 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
-/* Emit the sequence of insns SEQ while preserving the register REG.  */
+/* Emit the sequence of insns SEQ while preserving the registers.  */
 
 static void
-emit_and_preserve (rtx seq, rtx reg)
+emit_and_preserve (rtx seq, rtx reg, rtx reg2)
 {
+  /* STACK_BOUNDARY guarantees that this is a 2-word slot.  */
   rtx slot = gen_rtx_MEM (word_mode,
 			  plus_constant (stack_pointer_rtx, SPARC_STACK_BIAS));
 
   emit_insn (gen_stack_pointer_dec (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT)));
   emit_insn (gen_rtx_SET (VOIDmode, slot, reg));
+  if (reg2)
+    emit_insn (gen_rtx_SET (VOIDmode,
+			    adjust_address (slot, word_mode, UNITS_PER_WORD),
+			    reg2));
   emit_insn (seq);
+  if (reg2)
+    emit_insn (gen_rtx_SET (VOIDmode,
+			    reg2,
+			    adjust_address (slot, word_mode, UNITS_PER_WORD)));
   emit_insn (gen_rtx_SET (VOIDmode, reg, slot));
   emit_insn (gen_stack_pointer_inc (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT)));
 }
@@ -8523,11 +8540,12 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* The hoops we have to jump through in order to generate a sibcall
 	 without using delay slots...  */
-      rtx spill_reg, seq, scratch = gen_rtx_REG (Pmode, 1);
+      rtx spill_reg, spill_reg2, seq, scratch = gen_rtx_REG (Pmode, 1);
 
       if (flag_pic)
         {
 	  spill_reg = gen_rtx_REG (word_mode, 15);  /* %o7 */
+	  spill_reg2 = gen_rtx_REG (word_mode, PIC_OFFSET_TABLE_REGNUM);
 	  start_sequence ();
 	  /* Delay emitting the PIC helper function because it needs to
 	     change the section and we are emitting assembly code.  */
@@ -8535,7 +8553,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 	  scratch = legitimize_pic_address (funexp, Pmode, scratch);
 	  seq = get_insns ();
 	  end_sequence ();
-	  emit_and_preserve (seq, spill_reg);
+	  emit_and_preserve (seq, spill_reg, spill_reg2);
 	}
       else if (TARGET_ARCH32)
 	{
@@ -8564,7 +8582,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 	      sparc_emit_set_symbolic_const64 (scratch, funexp, spill_reg);
 	      seq = get_insns ();
 	      end_sequence ();
-	      emit_and_preserve (seq, spill_reg);
+	      emit_and_preserve (seq, spill_reg, 0);
 	      break;
 
 	    default:

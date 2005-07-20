@@ -93,7 +93,6 @@ typedef struct rs6000_stack {
   int varargs_save_offset;	/* offset to save the varargs registers */
   int ehrd_offset;		/* offset to EH return data */
   int reg_size;			/* register size (4 or 8) */
-  int varargs_size;		/* size to hold V.4 args passed in regs */
   HOST_WIDE_INT vars_size;	/* variable save area size */
   int parm_size;		/* outgoing parameter size */
   int save_size;		/* save area size */
@@ -112,6 +111,23 @@ typedef struct rs6000_stack {
   HOST_WIDE_INT total_size;	/* total bytes allocated for stack */
   int spe_64bit_regs_used;
 } rs6000_stack_t;
+
+/* A C structure for machine-specific, per-function data.
+   This is added to the cfun structure.  */
+typedef struct machine_function GTY(())
+{
+  /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
+  int ra_needs_full_frame;
+  /* Some local-dynamic symbol.  */
+  const char *some_ld_name;
+  /* Whether the instruction chain has been scanned already.  */
+  int insn_chain_scanned_p;
+  /* Flags if __builtin_return_address (0) was used.  */
+  int ra_need_lr;
+  /* Offset from virtual_stack_vars_rtx to the start of the ABI_V4
+     varargs save area.  */
+  HOST_WIDE_INT varargs_save_offset;
+} machine_function;
 
 /* Target cpu type */
 
@@ -730,7 +746,7 @@ static rtx rs6000_emit_vector_compare (enum rtx_code, rtx, rtx,
 				       enum machine_mode);
 static int get_vsel_insn (enum machine_mode);
 static void rs6000_emit_vector_select (rtx, rtx, rtx, rtx);
-
+static tree rs6000_stack_protect_fail (void);
 
 const int INSN_NOT_AVAILABLE = -1;
 static enum machine_mode rs6000_eh_return_filter_mode (void);
@@ -769,7 +785,9 @@ char rs6000_reg_names[][8] =
       "24", "25", "26", "27", "28", "29", "30", "31",
       "vrsave", "vscr",
       /* SPE registers.  */
-      "spe_acc", "spefscr"
+      "spe_acc", "spefscr",
+      /* Soft frame pointer.  */
+      "sfp"
 };
 
 #ifdef TARGET_REGNAMES
@@ -793,7 +811,9 @@ static const char alt_reg_names[][8] =
   "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
   "vrsave", "vscr",
   /* SPE registers.  */
-  "spe_acc", "spefscr"
+  "spe_acc", "spefscr",
+  /* Soft frame pointer.  */
+  "sfp"
 };
 #endif
 
@@ -976,6 +996,9 @@ static const char alt_reg_names[][8] =
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS \
   (TARGET_DEFAULT | MASK_SCHED_PROLOG)
+
+#undef TARGET_STACK_PROTECT_FAIL
+#define TARGET_STACK_PROTECT_FAIL rs6000_stack_protect_fail
 
 /* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
    The PowerPC architecture requires only weak consistency among
@@ -1865,13 +1888,11 @@ rs6000_file_start (void)
 	    }
 	}
 
-#ifdef CONFIG_PPC405CR
-      if (rs6000_cpu == PROCESSOR_PPC405)
+      if (PPC405_ERRATUM77)
 	{
-	  fprint (file, "%s PPC405CR_ERRATUM77", start);
+	  fprintf (file, "%s PPC405CR_ERRATUM77", start);
 	  start = "";
 	}
-#endif
 
 #ifdef USING_ELFOS_H
       switch (rs6000_sdata)
@@ -4072,9 +4093,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
       && TARGET_ALTIVEC_ABI
       && ALTIVEC_VECTOR_MODE (TYPE_MODE (TREE_TYPE (fntype))))
     {
-      error ("Cannot return value in vector register because"
+      error ("cannot return value in vector register because"
 	     " altivec instructions are disabled, use -maltivec"
-	     " to enable them.");
+	     " to enable them");
     }
 }
 
@@ -4318,9 +4339,9 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	{
 	  cum->vregno++;
 	  if (!TARGET_ALTIVEC)
-	    error ("Cannot pass argument in vector register because"
+	    error ("cannot pass argument in vector register because"
 		   " altivec instructions are disabled, use -maltivec"
-		   " to enable them.");
+		   " to enable them");
 
 	  /* PowerPC64 Linux and AIX allocate GPRs for a vector argument
 	     even if it is going to be passed in a vector register.
@@ -5243,11 +5264,70 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   if (DEFAULT_ABI == ABI_V4)
     {
-      if (! no_rtl)
-	save_area = plus_constant (virtual_stack_vars_rtx,
-				   - RS6000_VARARGS_SIZE);
-
       first_reg_offset = next_cum.sysv_gregno - GP_ARG_MIN_REG;
+
+      if (! no_rtl)
+	{
+	  int gpr_reg_num = 0, gpr_size = 0, fpr_size = 0;
+	  HOST_WIDE_INT offset = 0;
+
+	  /* Try to optimize the size of the varargs save area.
+	     The ABI requires that ap.reg_save_area is doubleword
+	     aligned, but we don't need to allocate space for all
+	     the bytes, only those to which we actually will save
+	     anything.  */
+	  if (cfun->va_list_gpr_size && first_reg_offset < GP_ARG_NUM_REG)
+	    gpr_reg_num = GP_ARG_NUM_REG - first_reg_offset;
+	  if (TARGET_HARD_FLOAT && TARGET_FPRS
+	      && next_cum.fregno <= FP_ARG_V4_MAX_REG
+	      && cfun->va_list_fpr_size)
+	    {
+	      if (gpr_reg_num)
+		fpr_size = (next_cum.fregno - FP_ARG_MIN_REG)
+			   * UNITS_PER_FP_WORD;
+	      if (cfun->va_list_fpr_size
+		  < FP_ARG_V4_MAX_REG + 1 - next_cum.fregno)
+		fpr_size += cfun->va_list_fpr_size * UNITS_PER_FP_WORD;
+	      else
+		fpr_size += (FP_ARG_V4_MAX_REG + 1 - next_cum.fregno)
+			    * UNITS_PER_FP_WORD;
+	    }
+	  if (gpr_reg_num)
+	    {
+	      offset = -((first_reg_offset * reg_size) & ~7);
+	      if (!fpr_size && gpr_reg_num > cfun->va_list_gpr_size)
+		{
+		  gpr_reg_num = cfun->va_list_gpr_size;
+		  if (reg_size == 4 && (first_reg_offset & 1))
+		    gpr_reg_num++;
+		}
+	      gpr_size = (gpr_reg_num * reg_size + 7) & ~7;
+	    }
+	  else if (fpr_size)
+	    offset = - (int) (next_cum.fregno - FP_ARG_MIN_REG)
+		       * UNITS_PER_FP_WORD
+		     - (int) (GP_ARG_NUM_REG * reg_size);
+
+	  if (gpr_size + fpr_size)
+	    {
+	      rtx reg_save_area
+		= assign_stack_local (BLKmode, gpr_size + fpr_size, 64);
+	      gcc_assert (GET_CODE (reg_save_area) == MEM);
+	      reg_save_area = XEXP (reg_save_area, 0);
+	      if (GET_CODE (reg_save_area) == PLUS)
+		{
+		  gcc_assert (XEXP (reg_save_area, 0)
+			      == virtual_stack_vars_rtx);
+		  gcc_assert (GET_CODE (XEXP (reg_save_area, 1)) == CONST_INT);
+		  offset += INTVAL (XEXP (reg_save_area, 1));
+		}
+	      else
+		gcc_assert (reg_save_area == virtual_stack_vars_rtx);
+	    }
+
+	  cfun->machine->varargs_save_offset = offset;
+	  save_area = plus_constant (virtual_stack_vars_rtx, offset);
+	}
     }
   else
     {
@@ -5297,7 +5377,8 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       int fregno = next_cum.fregno, nregs;
       rtx cr1 = gen_rtx_REG (CCmode, CR1_REGNO);
       rtx lab = gen_label_rtx ();
-      int off = (GP_ARG_NUM_REG * reg_size) + ((fregno - FP_ARG_MIN_REG) * 8);
+      int off = (GP_ARG_NUM_REG * reg_size) + ((fregno - FP_ARG_MIN_REG)
+					       * UNITS_PER_FP_WORD);
 
       emit_jump_insn
 	(gen_rtx_SET (VOIDmode,
@@ -5310,7 +5391,7 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
       for (nregs = 0;
 	   fregno <= FP_ARG_V4_MAX_REG && nregs < cfun->va_list_fpr_size;
-	   fregno++, off += 8, nregs++)
+	   fregno++, off += UNITS_PER_FP_WORD, nregs++)
 	{
 	  mem = gen_rtx_MEM (DFmode, plus_constant (save_area, off));
 	  set_mem_alias_set (mem, set);
@@ -5448,8 +5529,9 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), virtual_stack_vars_rtx);
-  t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	     build_int_cst (NULL_TREE, -RS6000_VARARGS_SIZE));
+  if (cfun->machine->varargs_save_offset)
+    t = build (PLUS_EXPR, TREE_TYPE (sav), t,
+	       build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
   t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6854,7 +6936,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       && fcode <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
     {
       *expandedp = true;
-      error ("unresolved overload for Altivec builtin %qE", fndecl);
+      error ("unresolved overload for Altivec builtin %qF", fndecl);
       return const0_rtx;
     }
 
@@ -10622,6 +10704,19 @@ rs6000_generate_compare (enum rtx_code code)
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)))));
+      else if (GET_CODE (rs6000_compare_op1) == UNSPEC
+	       && XINT (rs6000_compare_op1, 1) == UNSPEC_SP_TEST)
+	{
+	  rtx op1 = XVECEXP (rs6000_compare_op1, 0, 0);
+	  comp_mode = CCEQmode;
+	  compare_result = gen_reg_rtx (CCEQmode);
+	  if (TARGET_64BIT)
+	    emit_insn (gen_stack_protect_testdi (compare_result,
+						 rs6000_compare_op0, op1));
+	  else
+	    emit_insn (gen_stack_protect_testsi (compare_result,
+						 rs6000_compare_op0, op1));
+	}
       else
 	emit_insn (gen_rtx_SET (VOIDmode, compare_result,
 				gen_rtx_COMPARE (comp_mode,
@@ -11498,6 +11593,7 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
 	}
       else
 	oldop = lowpart_subreg (SImode, op, mode);
+
       switch (code)
 	{
 	case IOR:
@@ -11516,6 +11612,7 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
 	  break;
 
 	case PLUS:
+	case MINUS:
 	  {
 	    rtx mask;
 	    
@@ -11528,8 +11625,11 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
 	    emit_move_insn (mask, GEN_INT (imask));
 	    emit_insn (gen_ashlsi3 (mask, mask, shift));
 
-	    newop = gen_rtx_AND (SImode, gen_rtx_PLUS (SImode, m, newop),
-				 mask);
+	    if (code == PLUS)
+	      newop = gen_rtx_PLUS (SImode, m, newop);
+	    else
+	      newop = gen_rtx_MINUS (SImode, m, newop);
+	    newop = gen_rtx_AND (SImode, newop, mask);
 	    newop = gen_rtx_IOR (SImode, newop,
 				 gen_rtx_AND (SImode,
 					      gen_rtx_NOT (SImode, mask),
@@ -11571,7 +11671,8 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
 	after = gen_reg_rtx (used_mode);
     }
   
-  if ((code == PLUS || GET_CODE (m) == NOT) && used_mode != mode)
+  if ((code == PLUS || code == MINUS || GET_CODE (m) == NOT)
+      && used_mode != mode)
     the_op = op;  /* Computed above.  */
   else if (GET_CODE (op) == NOT && GET_CODE (m) != NOT)
     the_op = gen_rtx_fmt_ee (code, used_mode, op, m);
@@ -11581,11 +11682,12 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
   set_after = gen_rtx_SET (VOIDmode, after, the_op);
   set_before = gen_rtx_SET (VOIDmode, before, used_m);
   set_atomic = gen_rtx_SET (VOIDmode, used_m,
-			    gen_rtx_UNSPEC (used_mode, gen_rtvec (1, the_op),
+			    gen_rtx_UNSPEC (used_mode,
+					    gen_rtvec (1, the_op),
 					    UNSPEC_SYNC_OP));
   cc_scratch = gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (CCmode));
 
-  if (code == PLUS && used_mode != mode)
+  if ((code == PLUS || code == MINUS) && used_mode != mode)
     vec = gen_rtvec (5, set_after, set_before, set_atomic, cc_scratch,
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (SImode)));
   else
@@ -11613,7 +11715,155 @@ rs6000_emit_sync (enum rtx_code code, enum machine_mode mode,
     emit_insn (gen_isync ());
 }
 
-/* Emit instructions to move SRC to DST.  Called by splitters for
+/* A subroutine of the atomic operation splitters.  Jump to LABEL if
+   COND is true.  Mark the jump as unlikely to be taken.  */
+
+static void
+emit_unlikely_jump (rtx cond, rtx label)
+{
+  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  rtx x;
+
+  x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
+  x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_BR_PROB, very_unlikely, NULL_RTX);
+}
+
+/* A subroutine of the atomic operation splitters.  Emit a load-locked
+   instruction in MODE.  */
+
+static void
+emit_load_locked (enum machine_mode mode, rtx reg, rtx mem)
+{
+  rtx (*fn) (rtx, rtx) = NULL;
+  if (mode == SImode)
+    fn = gen_load_locked_si;
+  else if (mode == DImode)
+    fn = gen_load_locked_di;
+  emit_insn (fn (reg, mem));
+}
+
+/* A subroutine of the atomic operation splitters.  Emit a store-conditional
+   instruction in MODE.  */
+
+static void
+emit_store_conditional (enum machine_mode mode, rtx res, rtx mem, rtx val)
+{
+  rtx (*fn) (rtx, rtx, rtx) = NULL;
+  if (mode == SImode)
+    fn = gen_store_conditional_si;
+  else if (mode == DImode)
+    fn = gen_store_conditional_di;
+
+  /* Emit sync before stwcx. to address PPC405 Erratum.  */
+  if (PPC405_ERRATUM77)
+    emit_insn (gen_memory_barrier ());
+
+  emit_insn (fn (res, mem, val));
+}
+
+/* Expand an an atomic fetch-and-operate pattern.  CODE is the binary operation
+   to perform.  MEM is the memory on which to operate.  VAL is the second 
+   operand of the binary operator.  BEFORE and AFTER are optional locations to
+   return the value of MEM either before of after the operation.  SCRATCH is
+   a scratch register.  */
+
+void
+rs6000_split_atomic_op (enum rtx_code code, rtx mem, rtx val,
+                       rtx before, rtx after, rtx scratch)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx label, x, cond = gen_rtx_REG (CCmode, CR0_REGNO);
+
+  emit_insn (gen_memory_barrier ());
+
+  label = gen_label_rtx ();
+  emit_label (label);
+  label = gen_rtx_LABEL_REF (VOIDmode, label);
+
+  if (before == NULL_RTX)
+    before = scratch;
+  emit_load_locked (mode, before, mem);
+
+  if (code == NOT)
+    x = gen_rtx_AND (mode, gen_rtx_NOT (mode, before), val);
+  else if (code == AND)
+    x = gen_rtx_UNSPEC (mode, gen_rtvec (2, before, val), UNSPEC_AND);
+  else
+    x = gen_rtx_fmt_ee (code, mode, before, val);
+
+  if (after != NULL_RTX)
+    emit_insn (gen_rtx_SET (VOIDmode, after, copy_rtx (x)));
+  emit_insn (gen_rtx_SET (VOIDmode, scratch, x));
+
+  emit_store_conditional (mode, cond, mem, scratch);
+
+  x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
+  emit_unlikely_jump (x, label);
+
+  emit_insn (gen_isync ());
+}
+
+/* Expand an atomic compare and swap operation.  MEM is the memory on which
+   to operate.  OLDVAL is the old value to be compared.  NEWVAL is the new
+   value to be stored.  SCRATCH is a scratch GPR.  */
+
+void
+rs6000_split_compare_and_swap (rtx retval, rtx mem, rtx oldval, rtx newval,
+			       rtx scratch)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx label1, label2, x, cond = gen_rtx_REG (CCmode, CR0_REGNO);
+
+  emit_insn (gen_memory_barrier ());
+
+  label1 = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
+  label2 = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
+  emit_label (XEXP (label1, 0));
+
+  emit_load_locked (mode, retval, mem);
+
+  x = gen_rtx_COMPARE (CCmode, retval, oldval);
+  emit_insn (gen_rtx_SET (VOIDmode, cond, x));
+
+  x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
+  emit_unlikely_jump (x, label2);
+
+  emit_move_insn (scratch, newval);
+  emit_store_conditional (mode, cond, mem, scratch);
+
+  x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
+  emit_unlikely_jump (x, label1);
+
+  emit_insn (gen_isync ());
+  emit_label (XEXP (label2, 0));
+}
+
+/* Expand an atomic test and set operation.  MEM is the memory on which
+   to operate.  VAL is the value set.  SCRATCH is a scratch GPR.  */
+
+void
+rs6000_split_lock_test_and_set (rtx retval, rtx mem, rtx val, rtx scratch)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx label, x, cond = gen_rtx_REG (CCmode, CR0_REGNO);
+
+  emit_insn (gen_memory_barrier ());
+
+  label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
+  emit_label (XEXP (label, 0));
+
+  emit_load_locked (mode, retval, mem);
+  emit_move_insn (scratch, val);
+  emit_store_conditional (mode, cond, mem, scratch);
+
+  x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
+  emit_unlikely_jump (x, label);
+
+  emit_insn (gen_isync ());
+}
+
+  /* Emit instructions to move SRC to DST.  Called by splitters for
    multi-register moves.  It will emit at most one instruction for
    each register that is accessed; that is, it won't emit li/lis pairs
    (or equivalent for 64-bit code).  One of SRC or DST must be a hard
@@ -12131,10 +12381,16 @@ rs6000_stack_info (void)
   /* Determine various sizes.  */
   info_ptr->reg_size     = reg_size;
   info_ptr->fixed_size   = RS6000_SAVE_AREA;
-  info_ptr->varargs_size = RS6000_VARARGS_AREA;
   info_ptr->vars_size    = RS6000_ALIGN (get_frame_size (), 8);
   info_ptr->parm_size    = RS6000_ALIGN (current_function_outgoing_args_size,
 					 TARGET_ALTIVEC ? 16 : 8);
+  if (FRAME_GROWS_DOWNWARD)
+    info_ptr->vars_size
+      += RS6000_ALIGN (info_ptr->fixed_size + info_ptr->vars_size
+		       + info_ptr->parm_size,
+		       ABI_STACK_BOUNDARY / BITS_PER_UNIT)
+	 - (info_ptr->fixed_size + info_ptr->vars_size
+	    + info_ptr->parm_size);
 
   if (TARGET_SPE_ABI && info_ptr->spe_64bit_regs_used != 0)
     info_ptr->spe_gp_size = 8 * (32 - info_ptr->first_gp_reg_save);
@@ -12259,8 +12515,7 @@ rs6000_stack_info (void)
 
   non_fixed_size	 = (info_ptr->vars_size
 			    + info_ptr->parm_size
-			    + info_ptr->save_size
-			    + info_ptr->varargs_size);
+			    + info_ptr->save_size);
 
   info_ptr->total_size = RS6000_ALIGN (non_fixed_size + info_ptr->fixed_size,
 				       ABI_STACK_BOUNDARY / BITS_PER_UNIT);
@@ -12459,9 +12714,6 @@ debug_stack_info (rs6000_stack_t *info)
   if (info->total_size)
     fprintf (stderr, "\ttotal_size          = "HOST_WIDE_INT_PRINT_DEC"\n",
 	     info->total_size);
-
-  if (info->varargs_size)
-    fprintf (stderr, "\tvarargs_size        = %5d\n", info->varargs_size);
 
   if (info->vars_size)
     fprintf (stderr, "\tvars_size           = "HOST_WIDE_INT_PRINT_DEC"\n",
@@ -13802,7 +14054,7 @@ rs6000_emit_prologue (void)
   /* Set frame pointer, if needed.  */
   if (frame_pointer_needed)
     {
-      insn = emit_move_insn (gen_rtx_REG (Pmode, FRAME_POINTER_REGNUM),
+      insn = emit_move_insn (gen_rtx_REG (Pmode, HARD_FRAME_POINTER_REGNUM),
 			     sp_reg_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
     }
@@ -15731,6 +15983,11 @@ is_dispatch_slot_restricted (rtx insn)
     case TYPE_IDIV:
     case TYPE_LDIV:
       return 2;
+    case TYPE_LOAD_L:
+    case TYPE_STORE_C:
+    case TYPE_ISYNC:
+    case TYPE_SYNC:
+      return 4;
     default:
       if (rs6000_cpu == PROCESSOR_POWER5
 	  && is_cracked_insn (insn))
@@ -17874,9 +18131,15 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
     case UNSIGNED_FLOAT:
     case FIX:
     case UNSIGNED_FIX:
-    case FLOAT_EXTEND:
     case FLOAT_TRUNCATE:
       *total = rs6000_cost->fp;
+      return false;
+
+    case FLOAT_EXTEND:
+      if (mode == DFmode)
+	*total = 0;
+      else
+	*total = rs6000_cost->fp;
       return false;
 
     case UNSPEC:
@@ -18265,9 +18528,19 @@ rs6000_initial_elimination_offset (int from, int to)
   rs6000_stack_t *info = rs6000_stack_info ();
   HOST_WIDE_INT offset;
 
-  if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
+  if (from == HARD_FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     offset = info->push_p ? 0 : -info->total_size;
-  else if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
+  else if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
+    {
+      offset = info->push_p ? 0 : -info->total_size;
+      if (FRAME_GROWS_DOWNWARD)
+	offset += info->fixed_size + info->vars_size + info->parm_size;
+    }
+  else if (from == FRAME_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
+    offset = FRAME_GROWS_DOWNWARD
+	     ? info->fixed_size + info->vars_size + info->parm_size
+	     : 0;
+  else if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     offset = info->total_size;
   else if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     offset = info->push_p ? info->total_size : 0;
@@ -18395,6 +18668,19 @@ invalid_arg_for_unprototyped_fn (tree typelist, tree funcdecl, tree val)
                   && DECL_BUILT_IN_CLASS (funcdecl) != BUILT_IN_MD)))
 	  ? N_("AltiVec argument passed to unprototyped function")
 	  : NULL;
+}
+
+/* For TARGET_SECURE_PLT 32-bit PIC code we can save PIC register
+   setup by using __stack_chk_fail_local hidden function instead of
+   calling __stack_chk_fail directly.  Otherwise it is better to call
+   __stack_chk_fail directly.  */
+
+static tree
+rs6000_stack_protect_fail (void)
+{
+  return (DEFAULT_ABI == ABI_V4 && TARGET_SECURE_PLT && flag_pic)
+	 ? default_hidden_stack_protect_fail ()
+	 : default_external_stack_protect_fail ();
 }
 
 #include "gt-rs6000.h"

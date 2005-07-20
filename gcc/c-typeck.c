@@ -2837,9 +2837,6 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
       val = build1 (ADDR_EXPR, argtype, arg);
 
-      if (TREE_CODE (arg) == COMPOUND_LITERAL_EXPR)
-	TREE_INVARIANT (val) = TREE_CONSTANT (val) = 1;
-
       return val;
 
     default:
@@ -3843,6 +3840,55 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
         warning (OPT_Wc___compat, "request for implicit conversion from "
                  "%qT to %qT not permitted in C++", rhstype, type);
 
+      /* Check if the right-hand side has a format attribute but the
+	 left-hand side doesn't.  */
+      if (warn_missing_format_attribute)
+        {
+	  tree rattrs = TYPE_ATTRIBUTES (ttr), ra;
+	  for (ra = rattrs; ra; ra = TREE_CHAIN (ra))
+	    {
+	      if (is_attribute_p ("format", TREE_PURPOSE (ra)))
+		break;
+	    }
+	  if (ra)
+	    {
+	      tree lattrs = TYPE_ATTRIBUTES (ttl), la;
+	      for (la = lattrs; la; la = TREE_CHAIN (la))
+	      {
+		if (is_attribute_p ("format", TREE_PURPOSE (la)))
+		  break;
+	      }
+	      if (!la)
+		switch (errtype)
+		  {
+		  case ic_argpass:
+		  case ic_argpass_nonproto:
+		    warning (OPT_Wmissing_format_attribute,
+			     "argument %d of %qE might be "
+			     "a candidate for a format attribute",
+			     parmnum, rname);
+		    break;
+		  case ic_assign:
+		    warning (OPT_Wmissing_format_attribute,
+			     "assignment left-hand side might be "
+			     "a candidate for a format attribute");
+		    break;
+		  case ic_init:
+		    warning (OPT_Wmissing_format_attribute,
+			     "initialization left-hand side might be "
+			     "a candidate for a format attribute");
+		    break;
+		  case ic_return:
+		    warning (OPT_Wmissing_format_attribute,
+			     "return type might be "
+			     "a candidate for a format attribute");
+		    break;
+		  default:
+		    gcc_unreachable ();
+		  }
+	    }
+	}
+      
       /* Any non-function converts to a [const][volatile] void *
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
@@ -4492,6 +4538,10 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	  inside_init = error_mark_node;
 	}
 
+      /* Added to enable additional -Wmissing-format-attribute warnings.  */
+      if (TREE_CODE (TREE_TYPE (inside_init)) == POINTER_TYPE)
+	inside_init = convert_for_assignment (type, inside_init, ic_init, NULL_TREE,
+					      NULL_TREE, 0);
       return inside_init;
     }
 
@@ -8188,4 +8238,25 @@ c_objc_common_truthvalue_conversion (tree expr)
   /* ??? Should we also give an error for void and vectors rather than
      leaving those to give errors later?  */
   return c_common_truthvalue_conversion (expr);
+}
+
+
+/* Convert EXPR to a contained DECL, updating *TC, *TI and *SE as
+   required.  */
+
+tree
+c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
+		bool *ti ATTRIBUTE_UNUSED, bool *se)
+{
+  if (TREE_CODE (expr) == COMPOUND_LITERAL_EXPR)
+    {
+      tree decl = COMPOUND_LITERAL_EXPR_DECL (expr);
+      /* Executing a compound literal inside a function reinitializes
+	 it.  */
+      if (!TREE_STATIC (decl))
+	*se = true;
+      return decl;
+    }
+  else
+    return expr;
 }

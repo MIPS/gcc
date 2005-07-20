@@ -32,8 +32,8 @@ Boston, MA 02110-1301, USA.  */
 #include "ggc.h"
 #include "timevar.h"
 #include "toplev.h"
-
 #include "langhooks.h"
+#include "ipa-reference.h"
 
 /* This file contains the code required to manage the operands cache of the 
    SSA optimizer.  For every stmt, we maintain an operand cache in the stmt 
@@ -148,7 +148,6 @@ static bool ops_active = false;
 static GTY (()) struct ssa_operand_memory_d *operand_memory = NULL;
 static unsigned operand_memory_index;
 
-static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
@@ -158,7 +157,7 @@ static inline void append_def (tree *);
 static inline void append_use (tree *);
 static void append_v_may_def (tree);
 static void append_v_must_def (tree);
-static void add_call_clobber_ops (tree);
+static void add_call_clobber_ops (tree, tree);
 static void add_call_read_ops (tree);
 static void add_stmt_operand (tree *, stmt_ann_t, int);
 static void build_ssa_operands (tree stmt);
@@ -898,7 +897,8 @@ parse_ssa_operands (tree stmt)
 	if (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
 	  lhs = TREE_OPERAND (lhs, 0);
 
-	if (TREE_CODE (lhs) != ARRAY_REF && TREE_CODE (lhs) != ARRAY_RANGE_REF
+	if (TREE_CODE (lhs) != ARRAY_REF
+	    && TREE_CODE (lhs) != ARRAY_RANGE_REF
 	    && TREE_CODE (lhs) != BIT_FIELD_REF
 	    && TREE_CODE (lhs) != REALPART_EXPR
 	    && TREE_CODE (lhs) != IMAGPART_EXPR)
@@ -1310,7 +1310,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case IMAGPART_EXPR:
       {
 	tree ref;
-	HOST_WIDE_INT offset, size;
+	unsigned HOST_WIDE_INT offset, size;
  	/* This component ref becomes an access to all of the subvariables
 	   it can touch,  if we can determine that, but *NOT* the real one.
 	   If we can't determine which fields we could touch, the recursion
@@ -1327,9 +1327,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 		bool exact;		
 		if (overlap_subvar (offset, size, sv, &exact))
 		  {
+	            int subvar_flags = flags;
 		    if (!exact)
-		      flags &= ~opf_kill_def;
-		    add_stmt_operand (&sv->var, s_ann, flags);
+		      subvar_flags &= ~opf_kill_def;
+		    add_stmt_operand (&sv->var, s_ann, subvar_flags);
 		  }
 	      }
 	  }
@@ -1515,8 +1516,8 @@ get_asm_expr_operands (tree stmt)
       if (!allows_reg && allows_mem)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
-	  if (t && DECL_P (t))
-	    note_addressable (t, s_ann);
+	  if (t && DECL_P (t) && s_ann)
+	    add_to_addressable_set (t, &s_ann->addresses_taken);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def);
@@ -1534,8 +1535,8 @@ get_asm_expr_operands (tree stmt)
       if (!allows_reg && allows_mem)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
-	  if (t && DECL_P (t))
-	    note_addressable (t, s_ann);
+	  if (t && DECL_P (t) && s_ann)
+	    add_to_addressable_set (t, &s_ann->addresses_taken);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), 0);
@@ -1555,10 +1556,10 @@ get_asm_expr_operands (tree stmt)
 	  add_stmt_operand (&global_var, s_ann, opf_is_def);
 	else
 	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-	      {
-		tree var = referenced_var (i);
-		add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
-	      }
+	    {
+	      tree var = referenced_var (i);
+	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
+	    }
 
 	/* Now clobber all addressables.  */
 	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
@@ -1688,7 +1689,10 @@ get_tmr_operands (tree stmt, tree expr, int flags)
   flags &= ~opf_kill_def;
 
   if (TMR_SYMBOL (expr))
-    note_addressable (TMR_SYMBOL (expr), stmt_ann (stmt));
+    {
+      stmt_ann_t ann = stmt_ann (stmt);
+      add_to_addressable_set (TMR_SYMBOL (expr), &ann->addresses_taken);
+    }
 
   if (tag)
     add_stmt_operand (&tag, stmt_ann (stmt), flags);
@@ -1724,7 +1728,7 @@ get_call_expr_operands (tree stmt, tree expr)
 	 there is no point in recording that.  */ 
       if (TREE_SIDE_EFFECTS (expr)
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	add_call_clobber_ops (stmt);
+	add_call_clobber_ops (stmt, get_callee_fndecl (expr));
       else if (!(call_flags & ECF_CONST))
 	add_call_read_ops (stmt);
     }
@@ -1757,9 +1761,9 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
   /* If the operand is an ADDR_EXPR, add its operand to the list of
      variables that have had their address taken in this statement.  */
-  if (TREE_CODE (var) == ADDR_EXPR)
+  if (TREE_CODE (var) == ADDR_EXPR && s_ann)
     {
-      note_addressable (TREE_OPERAND (var, 0), s_ann);
+      add_to_addressable_set (TREE_OPERAND (var, 0), &s_ann->addresses_taken);
       return;
     }
 
@@ -1861,35 +1865,17 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
 	  if (flags & opf_is_def)
 	    {
-	      bool added_may_defs_p = false;
-
 	      /* If the variable is also an alias tag, add a virtual
 		 operand for it, otherwise we will miss representing
 		 references to the members of the variable's alias set.
 		 This fixes the bug in gcc.c-torture/execute/20020503-1.c.  */
 	      if (v_ann->is_alias_tag)
-		{
-		  added_may_defs_p = true;
-		  append_v_may_def (var);
-		}
+		append_v_may_def (var);
 
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		{
-		  /* While VAR may be modifiable, some of its aliases
-		     may not be.  If that's the case, we don't really
-		     need to add them a V_MAY_DEF for them.  */
-		  tree alias = VARRAY_TREE (aliases, i);
+		append_v_may_def (VARRAY_TREE (aliases, i));
 
-		  if (unmodifiable_var_p (alias))
-		    append_vuse (alias);
-		  else
-		    {
-		      append_v_may_def (alias);
-		      added_may_defs_p = true;
-		    }
-		}
-
-	      if (s_ann && added_may_defs_p)
+	      if (s_ann)
 		s_ann->makes_aliased_stores = 1;
 	    }
 	  else
@@ -1910,45 +1896,56 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 }
 
   
-/* Record that VAR had its address taken in the statement with annotations
-   S_ANN.  */
+/* Add the base address of REF to the set *ADDRESSES_TAKEN.  If
+   *ADDRESSES_TAKEN is NULL, a new set is created.  REF may be
+   a single variable whose address has been taken or any other valid
+   GIMPLE memory reference (structure reference, array, etc).  If the
+   base address of REF is a decl that has sub-variables, also add all
+   of its sub-variables.  */
 
-static void
-note_addressable (tree var, stmt_ann_t s_ann)
+void
+add_to_addressable_set (tree ref, bitmap *addresses_taken)
 {
+  tree var;
   subvar_t svars;
 
-  if (!s_ann)
-    return;
-  
+  gcc_assert (addresses_taken);
+
   /* Note that it is *NOT OKAY* to use the target of a COMPONENT_REF
-     as the only thing we take the address of.
-     See PR 21407 and the ensuing mailing list discussion.  */
-  
-  var = get_base_address (var);
+     as the only thing we take the address of.  If VAR is a structure,
+     taking the address of a field means that the whole structure may
+     be referenced using pointer arithmetic.  See PR 21407 and the
+     ensuing mailing list discussion.  */
+  var = get_base_address (ref);
   if (var && SSA_VAR_P (var))
     {
-      if (s_ann->addresses_taken == NULL)
-	s_ann->addresses_taken = BITMAP_GGC_ALLOC ();      
+      if (*addresses_taken == NULL)
+	*addresses_taken = BITMAP_GGC_ALLOC ();      
       
-
       if (var_can_have_subvars (var)
 	  && (svars = get_subvars_for_var (var)))
 	{
 	  subvar_t sv;
 	  for (sv = svars; sv; sv = sv->next)
-	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
+	    {
+	      bitmap_set_bit (*addresses_taken, DECL_UID (sv->var));
+	      TREE_ADDRESSABLE (sv->var) = 1;
+	    }
 	}
       else
-	bitmap_set_bit (s_ann->addresses_taken, var_ann (var)->uid);
+	{
+	  bitmap_set_bit (*addresses_taken, DECL_UID (var));
+	  TREE_ADDRESSABLE (var) = 1;
+	}
     }
 }
+
 
 /* Add clobbering definitions for .GLOBAL_VAR or for each of the call
    clobbered variables in the function.  */
 
 static void
-add_call_clobber_ops (tree stmt)
+add_call_clobber_ops (tree stmt, tree callee)
 {
   int i;
   unsigned u;
@@ -1956,6 +1953,7 @@ add_call_clobber_ops (tree stmt)
   bitmap_iterator bi;
   stmt_ann_t s_ann = stmt_ann (stmt);
   struct stmt_ann_d empty_ann;
+  bitmap not_read_b, not_written_b;
 
   /* Functions that are not const, pure or never return may clobber
      call-clobbered variables.  */
@@ -1970,8 +1968,22 @@ add_call_clobber_ops (tree stmt)
       return;
     }
 
+  /* FIXME - if we have better information from the static vars
+     analysis, we need to make the cache call site specific.  This way
+     we can have the performance benefits even if we are doing good
+     optimization.  */
+
+  /* Get info for local and module level statics.  There is a bit
+     set for each static if the call being processed does not read
+     or write that variable.  */
+
+  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
+  not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
+
   /* If cache is valid, copy the elements into the build vectors.  */
-  if (ssa_call_clobbered_cache_valid)
+  if (ssa_call_clobbered_cache_valid
+      && (!not_read_b || bitmap_empty_p (not_read_b))
+      && (!not_written_b || bitmap_empty_p (not_written_b)))
     {
       /* Process the caches in reverse order so we are always inserting at
          the head of the list.  */
@@ -2006,43 +2018,62 @@ add_call_clobber_ops (tree stmt)
       if (unmodifiable_var_p (var))
 	add_stmt_operand (&var, &empty_ann, opf_none);
       else
-	add_stmt_operand (&var, &empty_ann, opf_is_def | opf_non_specific);
+	{
+	  bool not_read
+	    = not_read_b ? bitmap_bit_p (not_read_b, u) : false;
+	  bool not_written
+	    = not_written_b ? bitmap_bit_p (not_written_b, u) : false;
+
+	  if ((TREE_READONLY (var)
+	       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
+	      || not_written)
+	    {
+	      if (!not_read)
+		add_stmt_operand (&var, &empty_ann, opf_none);
+	    }
+	  else
+	    add_stmt_operand (&var, &empty_ann, opf_is_def);
+	}
     }
 
-  clobbered_aliased_loads = empty_ann.makes_aliased_loads;
-  clobbered_aliased_stores = empty_ann.makes_aliased_stores;
-
-  /* Set the flags for a stmt's annotation.  */
-  if (s_ann)
+  if ((!not_read_b || bitmap_empty_p (not_read_b))
+      && (!not_written_b || bitmap_empty_p (not_written_b)))
     {
-      s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
-      s_ann->makes_aliased_stores = empty_ann.makes_aliased_stores;
+      clobbered_aliased_loads = empty_ann.makes_aliased_loads;
+      clobbered_aliased_stores = empty_ann.makes_aliased_stores;
+
+      /* Set the flags for a stmt's annotation.  */
+      if (s_ann)
+	{
+	  s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
+	  s_ann->makes_aliased_stores = empty_ann.makes_aliased_stores;
+	}
+
+      /* Prepare empty cache vectors.  */
+      VEC_truncate (tree, clobbered_vuses, 0);
+      VEC_truncate (tree, clobbered_v_may_defs, 0);
+
+      /* Now fill the clobbered cache with the values that have been found.  */
+      for (i = opbuild_first (&build_vuses);
+	   i != OPBUILD_LAST;
+	   i = opbuild_next (&build_vuses, i))
+	VEC_safe_push (tree, heap, clobbered_vuses,
+		       opbuild_elem_virtual (&build_vuses, i));
+
+      gcc_assert (opbuild_num_elems (&build_vuses) 
+		  == VEC_length (tree, clobbered_vuses));
+
+      for (i = opbuild_first (&build_v_may_defs);
+	   i != OPBUILD_LAST;
+	   i = opbuild_next (&build_v_may_defs, i))
+	VEC_safe_push (tree, heap, clobbered_v_may_defs, 
+		       opbuild_elem_virtual (&build_v_may_defs, i));
+
+      gcc_assert (opbuild_num_elems (&build_v_may_defs) 
+		  == VEC_length (tree, clobbered_v_may_defs));
+
+      ssa_call_clobbered_cache_valid = true;
     }
-
-  /* Prepare empty cache vectors.  */
-  VEC_truncate (tree, clobbered_vuses, 0);
-  VEC_truncate (tree, clobbered_v_may_defs, 0);
-
-  /* Now fill the clobbered cache with the values that have been found.  */
-  for (i = opbuild_first (&build_vuses);
-       i != OPBUILD_LAST;
-       i = opbuild_next (&build_vuses, i))
-    VEC_safe_push (tree, heap, clobbered_vuses,
-		   opbuild_elem_virtual (&build_vuses, i));
-
-  gcc_assert (opbuild_num_elems (&build_vuses) 
-	      == VEC_length (tree, clobbered_vuses));
-
-  for (i = opbuild_first (&build_v_may_defs);
-       i != OPBUILD_LAST;
-       i = opbuild_next (&build_v_may_defs, i))
-    VEC_safe_push (tree, heap, clobbered_v_may_defs, 
-		   opbuild_elem_virtual (&build_v_may_defs, i));
-
-  gcc_assert (opbuild_num_elems (&build_v_may_defs) 
-	      == VEC_length (tree, clobbered_v_may_defs));
-
-  ssa_call_clobbered_cache_valid = true;
 }
 
 

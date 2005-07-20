@@ -111,7 +111,7 @@ expr_computes_nonzero (tree expr)
      has requested not to remove NULL pointer checks.  */
   if (flag_delete_null_pointer_checks
       && TREE_CODE (expr) == ADDR_EXPR
-      && DECL_P (TREE_OPERAND (expr, 0))
+      && VAR_OR_FUNCTION_DECL_P (TREE_OPERAND (expr, 0))
       && !DECL_WEAK (TREE_OPERAND (expr, 0)))
     return true;
 
@@ -294,7 +294,7 @@ get_value_range (tree var)
   /* If VAR is a default definition, the variable can take any value
      in VAR's type.  */
   sym = SSA_NAME_VAR (var);
-  if (var == var_ann (sym)->default_def)
+  if (var == default_def (sym))
     {
       /* Try to use the "nonnull" attribute to create ~[0, 0]
 	 anti-ranges for pointers.  Note that this is only valid with
@@ -844,7 +844,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
       if (cond_code == LT_EXPR)
 	{
 	  tree one = build_int_cst (type, 1);
-	  max = fold (build (MINUS_EXPR, type, max, one));
+	  max = fold_build2 (MINUS_EXPR, type, max, one);
 	}
 
       set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
@@ -867,7 +867,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
       if (cond_code == GT_EXPR)
 	{
 	  tree one = build_int_cst (type, 1);
-	  min = fold (build (PLUS_EXPR, type, min, one));
+	  min = fold_build2 (PLUS_EXPR, type, min, one);
 	}
 
       set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
@@ -1183,7 +1183,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	       ? vrp_int_const_binop (code, vr0.max, vr1.min)
 	       : NULL_TREE;
 
-      val[3] = (vr0.min != vr1.min && vr0.max != vr1.max)
+      val[3] = (vr0.min != vr0.max && vr1.min != vr1.max)
 	       ? vrp_int_const_binop (code, vr0.max, vr1.max)
 	       : NULL_TREE;
 
@@ -3493,126 +3493,210 @@ varying:
   return SSA_PROP_VARYING;
 }
 
-/* Walk through the IL simplifying expressions using knowledge
-   gathered by VRP.  */
+/* Simplify a division or modulo operator to a right shift or
+   bitwise and if the first operand is unsigned or is greater
+   than zero and the second operand is an exact power of two.  */
 
 static void
-simplify_using_ranges (void)
+simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
 {
-  basic_block bb;
+  tree val = NULL;
+  tree op = TREE_OPERAND (rhs, 0);
+  value_range_t *vr = get_value_range (TREE_OPERAND (rhs, 0));
 
-  FOR_EACH_BB (bb)
+  if (TYPE_UNSIGNED (TREE_TYPE (op)))
     {
-      block_stmt_iterator bsi;
+      val = integer_one_node;
+    }
+  else
+    {
+      val = compare_range_with_value (GT_EXPR, vr, integer_zero_node);
+    }
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  if (val && integer_onep (val))
+    {
+      tree t;
+      tree op0 = TREE_OPERAND (rhs, 0);
+      tree op1 = TREE_OPERAND (rhs, 1);
+
+      if (rhs_code == TRUNC_DIV_EXPR)
 	{
-	  tree stmt = bsi_stmt (bsi);
+	  t = build_int_cst (NULL_TREE, tree_log2 (op1));
+	  t = build (RSHIFT_EXPR, TREE_TYPE (op0), op0, t);
+	}
+      else
+	{
+	  t = build_int_cst (TREE_TYPE (op1), 1);
+	  t = int_const_binop (MINUS_EXPR, op1, t, 0);
+	  t = fold_convert (TREE_TYPE (op0), t);
+	  t = build2 (BIT_AND_EXPR, TREE_TYPE (op0), op0, t);
+	}
 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+      TREE_OPERAND (stmt, 1) = t;
+      update_stmt (stmt);
+    }
+}
+
+/* If the operand to an ABS_EXPR is >= 0, then eliminate the
+   ABS_EXPR.  If the operand is <= 0, then simplify the
+   ABS_EXPR into a NEGATE_EXPR.  */
+
+static void
+simplify_abs_using_ranges (tree stmt, tree rhs)
+{
+  tree val = NULL;
+  tree op = TREE_OPERAND (rhs, 0);
+  tree type = TREE_TYPE (op);
+  value_range_t *vr = get_value_range (TREE_OPERAND (rhs, 0));
+
+  if (TYPE_UNSIGNED (type))
+    {
+      val = integer_zero_node;
+    }
+  else if (vr)
+    {
+      val = compare_range_with_value (LE_EXPR, vr, integer_zero_node);
+      if (!val)
+	{
+	  val = compare_range_with_value (GE_EXPR, vr, integer_zero_node);
+
+	  if (val)
 	    {
-	      tree rhs = TREE_OPERAND (stmt, 1);
-	      enum tree_code rhs_code = TREE_CODE (rhs);
-
-	      /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
-		 and BIT_AND_EXPR respectively if the first operand is greater
-		 than zero and the second operand is an exact power of two.  */
-	      if ((rhs_code == TRUNC_DIV_EXPR || rhs_code == TRUNC_MOD_EXPR)
-		  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0)))
-		  && integer_pow2p (TREE_OPERAND (rhs, 1)))
-		{
-		  tree val = NULL;
-		  tree op = TREE_OPERAND (rhs, 0);
-		  value_range_t *vr = get_value_range (TREE_OPERAND (rhs, 0));
-
-		  if (TYPE_UNSIGNED (TREE_TYPE (op)))
-		    {
-		      val = integer_one_node;
-		    }
-		  else
-		    {
-		      val = compare_range_with_value (GT_EXPR, vr,
-						      integer_zero_node);
-		    }
-
-		  if (val && integer_onep (val))
-		    {
-		      tree t;
-		      tree op0 = TREE_OPERAND (rhs, 0);
-		      tree op1 = TREE_OPERAND (rhs, 1);
-
-		      if (rhs_code == TRUNC_DIV_EXPR)
-			{
-			  t = build_int_cst (NULL_TREE, tree_log2 (op1));
-			  t = build (RSHIFT_EXPR, TREE_TYPE (op0), op0, t);
-			}
-		      else
-			{
-			  t = build_int_cst (TREE_TYPE (op1), 1);
-			  t = int_const_binop (MINUS_EXPR, op1, t, 0);
-			  t = fold_convert (TREE_TYPE (op0), t);
-			  t = build2 (BIT_AND_EXPR, TREE_TYPE (op0), op0, t);
-			}
-
-		      TREE_OPERAND (stmt, 1) = t;
-		      update_stmt (stmt);
-		    }
-
-		}
-
-	      /* Transform ABS (X) into X or -X as appropriate.  */
-	      if (rhs_code == ABS_EXPR
-		  && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-		  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0))))
-		{
-		  tree val = NULL;
-		  tree op = TREE_OPERAND (rhs, 0);
-		  tree type = TREE_TYPE (op);
-		  value_range_t *vr = get_value_range (TREE_OPERAND (rhs, 0));
-
-		  if (TYPE_UNSIGNED (type))
-		    {
-		      val = integer_zero_node;
-		    }
-		  else if (vr)
-		    {
-		      val = compare_range_with_value (LE_EXPR, vr,
-						      integer_zero_node);
-		      if (!val)
-			{
-			  val = compare_range_with_value (GE_EXPR, vr,
-							  integer_zero_node);
-
-			  if (val)
-			    {
-			      if (integer_zerop (val))
-				val = integer_one_node;
-			      else if (integer_onep (val))
-				val = integer_zero_node;
-			    }
-			}
-
-		      if (val
-			  && (integer_onep (val) || integer_zerop (val)))
-			{
-			  tree t;
-
-			  if (integer_onep (val))
-			    t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
-			  else
-			    t = op;
-
-			  TREE_OPERAND (stmt, 1) = t;
-			  update_stmt (stmt);
-			}
-		    }
-		}
+	      if (integer_zerop (val))
+		val = integer_one_node;
+	      else if (integer_onep (val))
+		val = integer_zero_node;
 	    }
+	}
 
-	  /* TODO.  Simplify conditionals.   */
+      if (val
+	  && (integer_onep (val) || integer_zerop (val)))
+	{
+	  tree t;
+
+	  if (integer_onep (val))
+	    t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
+	  else
+	    t = op;
+
+	  TREE_OPERAND (stmt, 1) = t;
+	  update_stmt (stmt);
 	}
     }
 }
+
+/* Simplify a conditional using a relational operator to an equality
+   test if the range information indicates only one value can satisfy
+   the original conditional.  */
+
+static void
+simplify_cond_using_ranges (tree stmt)
+{
+  tree cond = COND_EXPR_COND (stmt);
+  tree op0 = TREE_OPERAND (cond, 0);
+  tree op1 = TREE_OPERAND (cond, 1);
+  enum tree_code cond_code = TREE_CODE (cond);
+
+  if (cond_code != NE_EXPR
+      && cond_code != EQ_EXPR
+      && TREE_CODE (op0) == SSA_NAME
+      && INTEGRAL_TYPE_P (TREE_TYPE (op0))
+      && is_gimple_min_invariant (op1))
+    {
+      value_range_t *vr = get_value_range (op0);
+	  
+      /* If we have range information for OP0, then we might be
+	 able to simplify this conditional. */
+      if (vr->type == VR_RANGE)
+	{
+	  tree min = NULL;
+	  tree max = NULL;
+
+	  /* Extract minimum/maximum values which satisfy the
+	     the conditional as it was written.  */
+	  if (cond_code == LE_EXPR || cond_code == LT_EXPR)
+	    {
+	      min = TYPE_MIN_VALUE (TREE_TYPE (op0));
+
+	      max = op1;
+	      if (cond_code == LT_EXPR)
+		{
+		  tree one = build_int_cst (TREE_TYPE (op0), 1);
+		  max = fold (build (MINUS_EXPR, TREE_TYPE (op0), max, one));
+		}
+	    }
+	  else if (cond_code == GE_EXPR || cond_code == GT_EXPR)
+	    {
+	      max = TYPE_MAX_VALUE (TREE_TYPE (op0));
+
+	      min = op1;
+	      if (cond_code == GT_EXPR)
+		{
+		  tree one = build_int_cst (TREE_TYPE (op0), 1);
+		  max = fold (build (PLUS_EXPR, TREE_TYPE (op0), max, one));
+		}
+	    }
+
+	  /* Now refine the minimum and maximum values using any
+	     value range information we have for op0.  */
+	  if (min && max)
+	    {
+	      if (compare_values (vr->min, min) == -1)
+		min = min;
+	      else
+		min = vr->min;
+	      if (compare_values (vr->max, max) == 1)
+		max = max;
+	      else
+		max = vr->max;
+
+	      /* If the new min/max values have converged to a
+		 single value, then there is only one value which
+		 can satisfy the condition.  Rewrite the condition
+		 to test for equality.  */
+	      if (min == max
+		  && is_gimple_min_invariant (min))
+		{
+		  COND_EXPR_COND (stmt)
+		    = build (EQ_EXPR, boolean_type_node, op0, min);
+		  update_stmt (stmt);
+		}
+	    }
+	}
+    }
+}
+
+/* Simplify STMT using ranges if possible.  */
+
+void
+simplify_stmt_using_ranges (tree stmt)
+{
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
+    {
+      tree rhs = TREE_OPERAND (stmt, 1);
+      enum tree_code rhs_code = TREE_CODE (rhs);
+
+      /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
+	 and BIT_AND_EXPR respectively if the first operand is greater
+	 than zero and the second operand is an exact power of two.  */
+      if ((rhs_code == TRUNC_DIV_EXPR || rhs_code == TRUNC_MOD_EXPR)
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0)))
+	  && integer_pow2p (TREE_OPERAND (rhs, 1)))
+	simplify_div_or_mod_using_ranges (stmt, rhs, rhs_code);
+
+      /* Transform ABS (X) into X or -X as appropriate.  */
+      if (rhs_code == ABS_EXPR
+	  && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0))))
+	simplify_abs_using_ranges (stmt, rhs);
+    }
+  else if (TREE_CODE (stmt) == COND_EXPR
+	   && COMPARISON_CLASS_P (COND_EXPR_COND (stmt)))
+    {
+      simplify_cond_using_ranges (stmt);
+    }
+}
+
 
 
 /* Traverse all the blocks folding conditionals with known ranges.  */
@@ -3656,12 +3740,6 @@ vrp_finalize (void)
     }
 
   substitute_and_fold (single_val_range, true);
-
-  /* One could argue all simplifications should be done here
-     rather than using substitute_and_fold since this code
-     is going to have to perform a complete walk through the
-     IL anyway.  */
-  simplify_using_ranges ();
 
   /* Free allocated memory.  */
   for (i = 0; i < num_ssa_names; i++)

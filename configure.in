@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 ##############################################################################
 ### WARNING: this file contains embedded tabs.  Do not run untabify on this file.
@@ -147,6 +147,7 @@ target_libraries="target-libiberty \
 		target-newlib \
 		target-libstdc++-v3 \
 		target-libmudflap \
+		target-libssp \
 		target-libgfortran \
 		${libgcj} \
 		target-libobjc \
@@ -306,6 +307,14 @@ if test "${ENABLE_LIBADA}" != "yes" ; then
   noconfigdirs="$noconfigdirs gnattools"
 fi
 
+AC_ARG_ENABLE(libssp,
+[  --enable-libssp        Builds libssp directory],
+ENABLE_LIBSSP=$enableval,
+ENABLE_LIBSSP=yes)
+if test "${ENABLE_LIBSSP}" != "yes" ; then
+  noconfigdirs="$noconfigdirs target-libssp"
+fi
+
 # Save it here so that, even in case of --enable-libgcj, if the Java
 # front-end isn't enabled, we still get libgcj disabled.
 libgcj_saved=$libgcj
@@ -352,9 +361,11 @@ case "${target}" in
     ;;
   powerpc-*-darwin*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
+    noconfigdirs="$noconfigdirs sim target-rda"
     ;;
   *-*-darwin*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
+    noconfigdirs="$noconfigdirs sim target-rda"
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   *-*-freebsd[[12]] | *-*-freebsd[[12]].* | *-*-freebsd*aout*)
@@ -402,11 +413,18 @@ case "${target}" in
   *-*-rtems*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
+    # The tpf target doesn't support gdb yet.
+  *-*-tpf*)
+    noconfigdirs="$noconfigdirs target-newlib target-libgloss target-libiberty ${libgcj} target-libmudflap gdb tcl tk libgui itcl"
+    ;;
   *-*-uclinux*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss target-rda ${libgcj}"
     ;;
   *-*-vxworks*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss target-libiberty ${libgcj}"
+    ;;
+  m32c-*-*)
+    noconfigdirs="$noconfigdirs target-libstdc++-v3"
     ;;
   alpha*-dec-osf*)
     # ld works, but does not support shared libraries.

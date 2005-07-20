@@ -80,6 +80,7 @@ compilation is specified by a string called a "spec".  */
 #if ! defined( SIGCHLD ) && defined( SIGCLD )
 #  define SIGCHLD SIGCLD
 #endif
+#include "xregex.h"
 #include "obstack.h"
 #include "intl.h"
 #include "prefix.h"
@@ -349,6 +350,7 @@ static const char *convert_filename (const char *, int, int);
 static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
 static const char *replace_outfile_spec_function (int, const char **);
+static const char *version_compare_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -596,7 +598,7 @@ proper position among the other output files.  */
 #define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
  --wrap=mmap --wrap=munmap --wrap=alloca\
-} %{fmudflapth: --wrap=pthread_create --wrap=pthread_join --wrap=pthread_exit\
+} %{fmudflapth: --wrap=pthread_create\
 }} %{fmudflap|fmudflapth: --wrap=main}"
 #endif
 #ifndef MFLIB_SPEC
@@ -668,6 +670,14 @@ proper position among the other output files.  */
 #define LINK_GCC_C_SEQUENCE_SPEC "%G %L %G"
 #endif
 
+#ifndef LINK_SSP_SPEC
+#ifdef TARGET_LIBC_PROVIDES_SSP
+#define LINK_SSP_SPEC "%{fstack-protector:}"
+#else
+#define LINK_SSP_SPEC "%{fstack-protector:-lssp_nonshared -lssp }"
+#endif
+#endif
+
 #ifndef LINK_PIE_SPEC
 #ifdef HAVE_LD_PIE
 #define LINK_PIE_SPEC "%{pie:-pie} "
@@ -689,7 +699,7 @@ proper position among the other output files.  */
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
-    %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp)%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
@@ -719,6 +729,7 @@ static const char *cpp_spec = CPP_SPEC;
 static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
 static const char *link_gcc_c_sequence_spec = LINK_GCC_C_SEQUENCE_SPEC;
+static const char *link_ssp_spec = LINK_SSP_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
@@ -1516,6 +1527,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
   INIT_STATIC_SPEC ("cc1plus",			&cc1plus_spec),
   INIT_STATIC_SPEC ("link_gcc_c_sequence",	&link_gcc_c_sequence_spec),
+  INIT_STATIC_SPEC ("link_ssp",			&link_ssp_spec),
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
@@ -1567,6 +1579,7 @@ static const struct spec_function static_spec_functions[] =
   { "if-exists",		if_exists_spec_function },
   { "if-exists-else",		if_exists_else_spec_function },
   { "replace-outfile",		replace_outfile_spec_function },
+  { "version-compare",		version_compare_spec_function },
   { 0, 0 }
 };
 
@@ -2923,6 +2936,13 @@ static struct switchstr *switches;
 
 static int n_switches;
 
+/* Language is one of three things:
+
+   1) The name of a real programming language.
+   2) NULL, indicating that no one has figured out
+   what it is yet.
+   3) '*', indicating that the file should be passed
+   to the linker.  */
 struct infile
 {
   const char *name;
@@ -6146,7 +6166,7 @@ main (int argc, const char **argv)
       && do_spec_2 (sysroot_suffix_spec) == 0)
     {
       if (argbuf_index > 1)
-        error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC.");
+        error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC");
       else if (argbuf_index == 1)
         target_sysroot_suffix = xstrdup (argbuf[argbuf_index -1]);
     }
@@ -6169,7 +6189,7 @@ main (int argc, const char **argv)
       && do_spec_2 (sysroot_hdrs_suffix_spec) == 0)
     {
       if (argbuf_index > 1)
-        error ("spec failure: more than one arg to SYSROOT_HEADERS_SUFFIX_SPEC.");
+        error ("spec failure: more than one arg to SYSROOT_HEADERS_SUFFIX_SPEC");
       else if (argbuf_index == 1)
         target_sysroot_hdrs_suffix = xstrdup (argbuf[argbuf_index -1]);
     }
@@ -6540,11 +6560,21 @@ main (int argc, const char **argv)
       clear_failure_queue ();
     }
 
-  /* Reset the output file name to the first input file name, for use
-     with %b in LINK_SPEC on a target that prefers not to emit a.out
-     by default.  */
+  /* Reset the input file name to the first compile/object file name, for use
+     with %b in LINK_SPEC. We use the first input file that we can find
+     a compiler to compile it instead of using infiles.language since for 
+     languages other than C we use aliases that we then lookup later.  */
   if (n_infiles > 0)
-    set_input (infiles[0].name);
+    {
+      int i;
+
+      for (i = 0; i < n_infiles ; i++)
+	if (infiles[i].language && infiles[i].language[0] != '*')
+	  {
+	    set_input (infiles[i].name);
+	    break;
+	  }
+    }
 
   if (error_count == 0)
     {
@@ -7563,8 +7593,9 @@ if_exists_else_spec_function (int argc, const char **argv)
 }
 
 /* replace-outfile built-in spec function.
-   This looks for the first argument in the outfiles array's name and replaces it
-   with the second argument.  */
+
+   This looks for the first argument in the outfiles array's name and
+   replaces it with the second argument.  */
 
 static const char *
 replace_outfile_spec_function (int argc, const char **argv)
@@ -7582,3 +7613,120 @@ replace_outfile_spec_function (int argc, const char **argv)
   return NULL;
 }
 
+/* Given two version numbers, compares the two numbers.  
+   A version number must match the regular expression
+   ([1-9][0-9]*|0)(\.([1-9][0-9]*|0))*
+*/
+static int
+compare_version_strings (const char *v1, const char *v2)
+{
+  int rresult;
+  regex_t r;
+  
+  if (regcomp (&r, "^([1-9][0-9]*|0)(\\.([1-9][0-9]*|0))*$",
+	       REG_EXTENDED | REG_NOSUB) != 0)
+    abort ();
+  rresult = regexec (&r, v1, 0, NULL, 0);
+  if (rresult == REG_NOMATCH)
+    fatal ("invalid version number `%s'", v1);
+  else if (rresult != 0)
+    abort ();
+  rresult = regexec (&r, v2, 0, NULL, 0);
+  if (rresult == REG_NOMATCH)
+    fatal ("invalid version number `%s'", v2);
+  else if (rresult != 0)
+    abort ();
+
+  return strverscmp (v1, v2);
+}
+
+
+/* version_compare built-in spec function.
+
+   This takes an argument of the following form:
+
+   <comparison-op> <arg1> [<arg2>] <switch> <result>
+
+   and produces "result" if the comparison evaluates to true,
+   and nothing if it doesn't.
+
+   The supported <comparison-op> values are:
+   
+   >=  true if switch is a later (or same) version than arg1
+   !>  opposite of >=
+   <   true if switch is an earlier version than arg1
+   !<  opposite of <
+   ><  true if switch is arg1 or later, and earlier than arg2
+   <>  true if switch is earlier than arg1 or is arg2 or later
+
+   If the switch is not present, the condition is false unless
+   the first character of the <comparison-op> is '!'.
+
+   For example,
+   %:version-compare(>= 10.3 mmacosx-version-min= -lmx)
+   adds -lmx if -mmacosx-version-min=10.3.9 was passed.  */
+
+static const char *
+version_compare_spec_function (int argc, const char **argv)
+{
+  int comp1, comp2;
+  size_t switch_len;
+  const char *switch_value = NULL;
+  int nargs = 1, i;
+  bool result;
+
+  if (argc < 3)
+    abort ();
+  if (argv[0][0] == '\0')
+    abort ();
+  if ((argv[0][1] == '<' || argv[0][1] == '>') && argv[0][0] != '!')
+    nargs = 2;
+  if (argc != nargs + 3)
+    abort ();
+
+  switch_len = strlen (argv[nargs + 1]);
+  for (i = 0; i < n_switches; i++)
+    if (!strncmp (switches[i].part1, argv[nargs + 1], switch_len)
+	&& check_live_switch (i, switch_len))
+      switch_value = switches[i].part1 + switch_len;
+
+  if (switch_value == NULL)
+    comp1 = comp2 = -1;
+  else
+    {
+      comp1 = compare_version_strings (switch_value, argv[1]);
+      if (nargs == 2)
+	comp2 = compare_version_strings (switch_value, argv[2]);
+      else
+	comp2 = -1;  /* This value unused.  */
+    }
+
+  switch (argv[0][0] << 8 | argv[0][1])
+    {
+    case '>' << 8 | '=':
+      result = comp1 >= 0;
+      break;
+    case '!' << 8 | '<':
+      result = comp1 >= 0 || switch_value == NULL;
+      break;
+    case '<' << 8:
+      result = comp1 < 0;
+      break;
+    case '!' << 8 | '>':
+      result = comp1 < 0 || switch_value == NULL;
+      break;
+    case '>' << 8 | '<':
+      result = comp1 >= 0 && comp2 < 0;
+      break;
+    case '<' << 8 | '>':
+      result = comp1 < 0 || comp2 >= 0;
+      break;
+      
+    default:
+      abort ();
+    }
+  if (! result)
+    return NULL;
+
+  return argv[nargs + 2];
+}

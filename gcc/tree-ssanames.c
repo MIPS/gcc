@@ -183,7 +183,7 @@ release_ssa_name (tree var)
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
-  if (var == var_ann (SSA_NAME_VAR (var))->default_def)
+  if (var == default_def (SSA_NAME_VAR (var)))
     return;
 
   /* If VAR has been registered for SSA updating, don't remove it.
@@ -288,6 +288,10 @@ release_defs (tree stmt)
 {
   tree def;
   ssa_op_iter iter;
+
+  /* Make sure that we are in SSA.  Otherwise, operand cache may point
+     to garbage.  */
+  gcc_assert (in_ssa_p);
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)

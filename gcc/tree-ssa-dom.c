@@ -1882,6 +1882,18 @@ find_equivalent_equality_comparison (tree cond)
     {
       tree def_rhs = TREE_OPERAND (def_stmt, 1);
 
+
+      /* If either operand to the comparison is a pointer to
+	 a function, then we can not apply this optimization
+	 as some targets require function pointers to be
+	 canonicalized and in this case this optimization would
+	 eliminate a necessary canonicalization.  */
+      if ((POINTER_TYPE_P (TREE_TYPE (op0))
+	   && TREE_CODE (TREE_TYPE (TREE_TYPE (op0))) == FUNCTION_TYPE)
+	  || (POINTER_TYPE_P (TREE_TYPE (op1))
+	      && TREE_CODE (TREE_TYPE (TREE_TYPE (op1))) == FUNCTION_TYPE))
+	return NULL;
+	      
       /* Now make sure the RHS of the MODIFY_EXPR is a typecast.  */
       if ((TREE_CODE (def_rhs) == NOP_EXPR
 	   || TREE_CODE (def_rhs) == CONVERT_EXPR)
@@ -1893,6 +1905,16 @@ find_equivalent_equality_comparison (tree cond)
 
 	  if (TYPE_PRECISION (def_rhs_inner_type)
 	      > TYPE_PRECISION (TREE_TYPE (def_rhs)))
+	    return NULL;
+
+	  /* If the inner type of the conversion is a pointer to
+	     a function, then we can not apply this optimization
+	     as some targets require function pointers to be
+	     canonicalized.  This optimization would result in
+	     canonicalization of the pointer when it was not originally
+	     needed/intended.  */
+	  if (POINTER_TYPE_P (def_rhs_inner_type)
+	      && TREE_CODE (TREE_TYPE (def_rhs_inner_type)) == FUNCTION_TYPE)
 	    return NULL;
 
 	  /* What we want to prove is that if we convert OP1 to
@@ -2484,6 +2506,7 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
   bool insert = true;
   tree cached_lhs;
   bool retval = false;
+  bool modify_expr_p = false;
 
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     def = TREE_OPERAND (stmt, 0);
@@ -2525,9 +2548,15 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
   else if (TREE_CODE (stmt) == SWITCH_EXPR)
     expr_p = &SWITCH_COND (stmt);
   else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
-    expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+    {
+      expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+      modify_expr_p = true;
+    }
   else
-    expr_p = &TREE_OPERAND (stmt, 1);
+    {
+      expr_p = &TREE_OPERAND (stmt, 1);
+      modify_expr_p = true;
+    }
 
   /* It is safe to ignore types here since we have already done
      type checking in the hashing and equality routines.  In fact
@@ -2535,7 +2564,10 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
      propagation.  Also, make sure that it is safe to propagate
      CACHED_LHS into *EXPR_P.  */
   if (cached_lhs
-      && (TREE_CODE (cached_lhs) != SSA_NAME
+      && ((TREE_CODE (cached_lhs) != SSA_NAME
+	   && (modify_expr_p
+	       || tree_ssa_useless_type_conversion_1 (TREE_TYPE (*expr_p),
+						      TREE_TYPE (cached_lhs))))
 	  || may_propagate_copy (*expr_p, cached_lhs)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2558,6 +2590,11 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
 	  || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
 	      && is_gimple_min_invariant (cached_lhs)))
 	retval = true;
+      
+      if (modify_expr_p
+	  && !tree_ssa_useless_type_conversion_1 (TREE_TYPE (*expr_p),
+						  TREE_TYPE (cached_lhs)))
+	cached_lhs = fold_convert (TREE_TYPE (*expr_p), cached_lhs);
 
       propagate_tree_value (expr_p, cached_lhs);
       mark_stmt_modified (stmt);
@@ -3066,11 +3103,8 @@ lookup_avail_expr (tree stmt, bool insert)
 	{
 	  tree t = element->rhs;
 	  free (element);
-
-	  if (TREE_CODE (t) == EQ_EXPR)
-	    return boolean_false_node;
-	  else
-	    return boolean_true_node;
+	  return constant_boolean_node (TREE_CODE (t) != EQ_EXPR,
+					TREE_TYPE (t));
 	}
     }
 

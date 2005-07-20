@@ -352,6 +352,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED hook_bool_bool_false
 #define TARGET_CANNOT_FORCE_CONST_MEM hook_bool_rtx_false
 #define TARGET_CANNOT_COPY_INSN_P NULL
+#define TARGET_COMMUTATIVE_P hook_bool_rtx_commutative_p
 #define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
@@ -441,6 +442,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 #define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
+#define TARGET_FUNCTION_VALUE default_function_value
+
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
    TARGET_PROMOTE_FUNCTION_RETURN,				\
@@ -457,7 +460,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
    TARGET_ARG_PARTIAL_BYTES,					\
-   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN			\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN,			\
+   TARGET_FUNCTION_VALUE					\
    }
 
 #ifndef TARGET_UNWIND_TABLES_DEFAULT
@@ -559,6 +563,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED,	\
   TARGET_CANNOT_FORCE_CONST_MEM,		\
   TARGET_CANNOT_COPY_INSN_P,			\
+  TARGET_COMMUTATIVE_P,				\
   TARGET_DELEGITIMIZE_ADDRESS,			\
   TARGET_FUNCTION_OK_FOR_SIBCALL,		\
   TARGET_IN_SMALL_DATA_P,			\
