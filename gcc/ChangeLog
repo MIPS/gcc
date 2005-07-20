@@ -1,5 +1,14 @@
 2005-07-20  Kaz Kojima  <kkojima@gcc.gnu.org>
 
+	* config/sh/sh.md (UNSPEC_SP_SET, UNSPEC_SP_TEST): New constants.
+	(stack_protect_set, stack_protect_test): New expanders.
+        (stack_protect_set_si, stack_protect_set_si_media,
+	stack_protect_set_di_media, stack_protect_test_si,
+        stack_protect_test_si_media, stack_protect_test_di_media):
+	New insns.
+
+2005-07-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
 	* config/sh/sh.c (regno_reg_class): Add GENERAL_REGS for
 	soft frame pointer.
 	(sh_expand_prologue): Use hard_frame_pointer_rtx instead
