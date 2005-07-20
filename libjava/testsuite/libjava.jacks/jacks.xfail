@@ -347,8 +347,6 @@
 15.9.4-runtime-creation-1
 15.9.4-runtime-creation-2
 15.9.4-runtime-creation-5
-15.9.5.1-exception-1
-15.9.5.1-exception-3
 15.9.5.1-exception-4
 15.9.5.1-superconstructor-7
 15.9.5.1-superconstructor-8
@@ -468,14 +466,10 @@
 6.5.5.1-import-2
 6.5.5.1-import-3
 6.5.5.1-nested-14
-6.5.5.1-nested-16
-6.5.5.1-nested-17
 6.5.5.1-nested-19
 6.5.5.1-nested-20
 6.5.5.1-nested-21
 6.5.5.1-nested-23
-6.5.5.1-nested-4
-6.5.5.1-nested-7
 6.5.5.1-nested-8
 6.5.5.1-nested-9
 6.5.5.2-type-4
@@ -563,8 +557,6 @@
 8.3.1.2-final-29
 8.3.2-abrupt-3
 8.3.2-abrupt-5
-8.3.2-abrupt-6
-8.3.2-abrupt-7
 8.3.2.2-super-2
 8.3.2.3-illegal-forward-instance-1
 8.3.2.3-illegal-forward-instance-2
@@ -657,7 +649,6 @@
 9.1.1-in-interface-3
 9.1.1-in-interface-9
 9.1.2-supertype-1
-9.1.3-body-5
 9.2-implicit-18
 9.2-implicit-19
 9.2-implicit-2
