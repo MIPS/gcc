@@ -2067,8 +2067,24 @@ struct lang_decl GTY(())
 #define DECL_DEFERRED_FN(DECL) \
   (DECL_LANG_SPECIFIC (DECL)->decl_flags.deferred)
 
-/* For a VAR_DECL, FUNCTION_DECL, TYPE_DECL or TEMPLATE_DECL:
-   template-specific information.  */
+/* If non-NULL for a VAR_DECL, FUNCTION_DECL, TYPE_DECL or
+   TEMPLATE_DECL, the entity is a template specialization.  In that
+   case, DECL_TEMPLATE_INFO is a TREE_LIST, whose TREE_PURPOSE is the
+   TEMPLATE_DECL of which this entity is a specialization.  The TREE_
+   TREE_VALUE is the template arguments used to specialize the
+   template.  
+
+   In general, DECL_TEMPLATE_INFO is non-NULL only if
+   DECL_USE_TEMPLATE is non-zero.  However, for friends, we sometimes
+   have DECL_TEMPLATE_INFO even when DECL_USE_TEMPLATE is zero.
+   Consider:
+
+      template <typename T> struct S { friend void f(T) {} };
+
+   In this case, S<int>::f is, from the point of view of the compiler,
+   an instantiation of a template -- but, from the point of view of
+   the language, each instantiation of S results in a wholly unrelated
+   global function f.  */ 
 #define DECL_TEMPLATE_INFO(NODE) \
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
@@ -4309,6 +4325,7 @@ extern tree build_x_modify_expr			(tree, enum tree_code, tree);
 extern tree build_modify_expr			(tree, enum tree_code, tree);
 extern tree convert_for_initialization		(tree, tree, tree, int, const char *, tree, int);
 extern int comp_ptr_ttypes			(tree, tree);
+extern bool comp_ptr_ttypes_const               (tree, tree);
 extern int ptr_reasonably_similar		(tree, tree);
 extern tree build_ptrmemfunc			(tree, tree, int, bool);
 extern int cp_type_quals                        (tree);

@@ -1,3 +1,41 @@
+2005-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22263
+	* pt.c (instantiate_decl): Clear DECL_INTERFACE_KNOWN for an
+	explicitly instantiated template that has no definition
+	available. 
+
+2005-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22139
+	* cp-tree.h (DECL_TEMPLATE_INFO): Improve documentation.
+	* decl.c (duplicate_decls): Re-register template specializations
+	for functions that have DECL_TEMLPLATE_INFO, even if they do not
+	have DECL_TEMPLATE_INSTANTIATION set.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22204
+	* repo.c (repo_emit_p): Robustify.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22132
+	* call.c (implicit_conversion): Add c_cast_p parameter.
+	(standard_conversion): Likewise.  Allow conversions between
+	differently-qualified pointer types when performing a C-style
+	cast.
+	(add_function_candidate): Adjust callee.
+	(build_builtin_candidate): Likewise.
+	(build_user_type_conversion_1): Likewise.
+	(conditional_conversion): Likewise.
+	(can_convert_arg): Likewise.
+	(can_convert_arg_bad): Likewise.
+	(perform_implicit_conversion): Likewise.
+	* cp-tree.h (comp_ptr_ttypes_const): Declare.
+	* typeck.c (comp_ptr_ttypes_const): Give it external linkage.
+	Return bool.
+	
 2005-07-13  Aldy Hernandez  <aldyh@redhat.com>
 
 	* typeck.c (build_binary_op): Adjust error message to something

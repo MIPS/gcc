@@ -1,3 +1,92 @@
+2005-07-19  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline.
+	PR testsuite/21969
+	* gcc.dg/torture/pr21817.c: Use -fno-common for hppa*-*-* targets.
+
+2005-07-19  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline.
+	PR libfortran/21593
+	gfortran.dg/dev_null.f90:  Remove targets.
+
+2005-07-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/20842
+	* gfortran.dg/io_invalid_1.f90: New test.
+
+2005-07-18  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline.
+	PR libfortran/21333
+	* gfortran.fortran-torture/execute/in-pack.f90:  New test.
+
+2005-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22263
+	* g++.dg/template/explicit7.C: New test.
+
+2005-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22139
+	* g++.dg/template/friend36.C: New test.
+
+2005-07-17  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline.
+	PR libfortran/21480
+	* gfortran.dg/reshape-complex.f90:  Add a test for a packed
+	complex array.
+
+2005-07-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/13257
+	* comma_format_extension_[1234].f: New tests.
+
+2005-07-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/22421
+	* gcc.dg/format/bitfld-1.c: New test.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22204
+	* g++.dg/rtti/repo1.C: New test.
+
+2005-07-15  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline.
+	PR libfortran/21926
+	PR libfortran/18857
+	* gfortran.fortran-torture/execute/intrinsic_matmul.f90:
+	Test case where the return array has lowest stride one,
+	but isn't packed.
+	* gfortran.dg/matmul_1.f90: New test.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22132
+	* g++.dg/expr/cast4.C: New test.
+
+2005-07-15 Paul Brook  <paul@codesourcery.com>
+
+	Backport form mainline.
+	2005-06-22 Paul Brook  <paul@codesourcery.com>
+	PR fortran/21034
+	* gfortran.dg/auto_save_1.f90: New test.
+
+2005-07-14  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline:
+	PR libfortran/21594
+	PR libfortran/22144
+	PR libfortran/22142
+	* gfortran.fortran-torture/execute/intrinsic_eoshift.f90:
+	Add test cases where the shift length is greater than the
+	array length.
+	Add test cases for PR 22142 for eoshift1 and eoshift3.
+	* gfortran.dg/shift-alloc.f90:  New testcase.
+
 2005-07-14  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR libfortran/16435

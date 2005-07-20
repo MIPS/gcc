@@ -1,3 +1,73 @@
+2005-07-20  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* config.gcc: Add support for *-*-freebsd7, *-*-freebsd8,
+	and *-*-freebsd9.
+	* config/freebsd-spec.h (FBSD_TARGET_OS_CPP_BUILTINS): Ditto.
+	
+2005-07-20  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c: Include "langhooks.h".
+	(def_builtin): Go through lang_hooks to call builtin_function.
+
+	* config/bfin/bfin-protos.h (bfin_longcall_p): Declare.
+	* config/bfin/predicates.md (symbol_ref_operand): New.
+	(call_insn_operand): Delete.  All callers changed to use
+	register_no_elim_operand.
+	* config/bfin/bfin.c (init_cumulative_args): Initialize the new
+	call_cookie field.
+	(function_arg): Use it to generate the call's operand 2.
+	(bfin_longcall_p): New function.
+	(bfin_expand_call): Extra arg "cookie".  All callers and declaration
+	changed.  Emit extra USE in the pattern.  Use bfin_longcall_p to
+	determine if the address needs to be in a REG.
+	(bfin_handle_longcall_attribute): New function.
+	(bfin_attribute_table): Add "longcall" and "shortcall".
+	* config/bfin/bfin.h (CALL_NORMAL, CALL_LONG, CALL_SHORT): New macros.
+	(TARGET_LONG_CALLS, MASK_LONG_CALLS): New macros.
+	(TARGET_OPTIONS): Add -mlong-calls, -mno-long-calls.
+	(CUMULATIVE_ARGS): New member call_cookie.
+	(PREDICATE_CODES): Add symbol_ref_operand.
+	* config/bfin/bfin.md (call, call_value, sibcall, sibcall_value): Add
+	extra USE to the pattern.
+	(call_symbol, sibcall_symbol, call_value_symbol, sibcall_value_symbol):
+	New patterns, split off call_insn, sibcall_insn, call_value_insn and
+	sibcall_value_insn; now the new patterns handle direct calls and the
+	old ones indirect calls.
+	* doc/extend.texi: Mention Blackfin in longcall/shortcall docs.
+	* doc/invoke.texi (Blackfin Options): Add -mlong-call, -mno-long-call.
+
+2005-07-19  Richard Henderson  <rth@redhat.com>
+
+        PR tree-opt/22278
+        * gimplify.c (gimplify_expr): Use main variant type for the temp
+        destination for a discarded volatile read.
+        * tree-ssa.c (tree_ssa_useless_type_conversion_1): Don't elide
+        casts between non-void types that change volatility.
+
+2005-07-19  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline.
+	PR target/21721
+	* config/ia64/ia64.c (emit_predicate_relation_info): Skip p0.
+
+2005-07-18  Ian Lance Taylor  <ian@airs.com>
+
+	PR middle-end/22057
+	* tree-cfg.c (cleanup_tree_cfg): Only remove forwarder blocks when
+	optimizing.
+
+2005-07-16  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (*-*-solaris2*): Document recommended version
+	of GNU binutils and mention GNU linker problem on Solaris 10.
+
+2005-07-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/22421
+	* c-decl.c (c_build_bitfield_integer_type): New function.
+	(finish_struct): Call it.
+	* c-pretty-print.c (pp_c_type_specifier): Handle bit-field types.
+
 2005-07-13  Jeff Law  <law@redhat.com>
 
 	* fold-const.c (fold): When comparing two simple ADDR_EXPR
