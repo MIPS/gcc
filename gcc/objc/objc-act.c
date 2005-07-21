@@ -8388,8 +8388,8 @@ encode_type (tree type, int curtype, int format)
 	{
 	case 8:  c = TYPE_UNSIGNED (type) ? 'C' : 'c'; break;
 	case 16: c = TYPE_UNSIGNED (type) ? 'S' : 's'; break;
+	/* APPLE LOCAL begin 4136935 */
 	case 32:
-	  /* APPLE LOCAL begin 4136935 */
 	  /* Another legacy kludge: 32-bit longs are encoded as 'l' or 'L',
 	     but not always.  For typedefs, we need to use 'i' or 'I' instead
 	     if encoding a struct field, or a pointer!  */
