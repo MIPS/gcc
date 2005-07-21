@@ -12,5 +12,5 @@ void foo()
      a = b * c;
      a = b / c;
      a = -b;
-     a = d + b;		/* { dg-error "invalid operands to binary +" } */
+     a = d + b;		/* { dg-error "can't convert between vector" } */
 } 

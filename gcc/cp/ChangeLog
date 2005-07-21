@@ -1,3 +1,64 @@
+2005-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21987
+	* decl.c (grok_op_properties): Add missing warn_conversion check.
+
+2005-06-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20789
+	* decl.c (cp_finish_decl): Clear runtime runtime initialization if
+	in-class decl's initializer is bad.
+
+2005-06-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR c++/10611
+	* cvt.c (build_expr_type_conversion): Same.
+	* typeck.c (build_binary_op): Handle vectors.
+	(common_type): Same.
+	(type_after_usual_arithmetic_conversions): Same.
+	* testsuite/g++.dg/conversion/simd2.C: New.
+
+2005-06-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21903
+	* cp-tree.def (DEFAULT_ARG): Document TREE_CHAIN use.
+	* parser.c (cp_parser_late_parsing_default_args): Propagate parsed
+	argument to any early instantiations.
+	* pt.c (tsubst_arg_types): Chain early instantiation of default
+	arg.
+
+	PR c++/19884
+	* pt.c (check_explicit_specialization): Make sure namespace
+	binding lookup found an overloaded function.
+	(lookup_template_function): Just assert FNS is an overloaded
+	function.
+
+	PR c++/19608
+	* parser.c (cp_parser_late_parsing_for_member): Use
+	current_function_decl as scope to push to and from.
+	testsuite:
+
+2005-06-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20563
+	* parser.c (cp_parser_label_declaration): Deal with invalid/missing
+	identifiers.
+
+2005-06-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21853
+	* typeck.c (casts_away_constness_r): Do not drop cv-qualifiers on
+	the pointed-to type for a pointer-to-member.
+
+2005-06-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21336
+	* cp-tree.h (grok_op_properties): Remove friendp parameter.
+	* decl.c (grokfndecl): Adjust call.
+	(grok_op_properties): Determine the class of which the function is
+	a member by looking at its DECL_CONTEXT, not current_class_type.
+	* pt.c (tsubst_decl): Adjust call to grok_op_properties.
+
 2005-05-26  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/21768
