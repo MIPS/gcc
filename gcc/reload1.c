@@ -3473,16 +3473,20 @@ init_elim_table (void)
 
   /* Does this function require a frame pointer?  */
 
-  frame_pointer_needed = (! flag_omit_frame_pointer
-			  /* ?? If EXIT_IGNORE_STACK is set, we will not save
-			     and restore sp for alloca.  So we can't eliminate
-			     the frame pointer in that case.  At some point,
-			     we should improve this by emitting the
-			     sp-adjusting insns for this case.  */
-			  || (current_function_calls_alloca
-			      && EXIT_IGNORE_STACK)
-			  || FRAME_POINTER_REQUIRED);
-
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+    frame_pointer_needed = 0;
+  else
+    frame_pointer_needed = (! flag_omit_frame_pointer
+			    /* ?? If EXIT_IGNORE_STACK is set, we will not save
+			       and restore sp for alloca.  So we can't eliminate
+			       the frame pointer in that case.  At some point,
+			       we should improve this by emitting the
+			       sp-adjusting insns for this case.  */
+			    || (current_function_calls_alloca
+			        && EXIT_IGNORE_STACK)
+			    || FRAME_POINTER_REQUIRED);
+  /* APPLE LOCAL end CW asm blocks */
   num_eliminable = 0;
 
 #ifdef ELIMINABLE_REGS

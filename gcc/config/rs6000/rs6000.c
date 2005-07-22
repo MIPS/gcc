@@ -14768,8 +14768,26 @@ rs6000_stack_info (void)
 			    + info_ptr->save_size
 			    + info_ptr->varargs_size);
 
-  info_ptr->total_size = RS6000_ALIGN (non_fixed_size + info_ptr->fixed_size,
-				       ABI_STACK_BOUNDARY / BITS_PER_UNIT);
+  /* APPLE LOCAL begin CW asm blocks */
+  /* If we have an assembly function, maybe use an explicit size.  To
+     be consistent with CW behavior (and because it's safer), let
+     RS6000_ALIGN round the explicit size up if necessary.  */
+  if (cfun->cw_asm_function && cfun->cw_asm_frame_size != -2)
+    {
+      if (cfun->cw_asm_frame_size == -1)
+        non_fixed_size = 32;
+      else if (cfun->cw_asm_frame_size < 32)
+        error ("fralloc frame size must be at least 32");
+      else
+        non_fixed_size = cfun->cw_asm_frame_size;
+      non_fixed_size += 24;
+      info_ptr->total_size = RS6000_ALIGN (non_fixed_size, 
+					   ABI_STACK_BOUNDARY / BITS_PER_UNIT);
+    }
+  else
+    info_ptr->total_size = RS6000_ALIGN (non_fixed_size + info_ptr->fixed_size,
+				         ABI_STACK_BOUNDARY / BITS_PER_UNIT);
+  /* APPLE LOCAL end CW asm blocks */
 
   /* Determine if we need to allocate any stack frame:
 
@@ -14783,7 +14801,8 @@ rs6000_stack_info (void)
      For V.4 we don't have the stack cushion that AIX uses, but assume
      that the debugger can handle stackless frames.  */
 
-  if (info_ptr->calls_p)
+  /* APPLE LOCAL CW asm blocks */
+  if (info_ptr->calls_p || (cfun->cw_asm_function && cfun->cw_asm_frame_size != -2))
     info_ptr->push_p = 1;
 
   else if (DEFAULT_ABI == ABI_V4)

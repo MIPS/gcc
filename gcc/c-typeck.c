@@ -2424,10 +2424,19 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   /* APPLE LOCAL begin CW asm blocks */
   if (inside_cw_asm_block)
     {
-      if (TREE_CODE (arg1.value) == LABEL_DECL
-          || TREE_CODE (arg2.value) == LABEL_DECL
-	  || TREE_CODE (arg1.value) == IDENTIFIER_NODE
-	  || TREE_CODE (arg2.value) == IDENTIFIER_NODE)
+      if (code == MINUS_EXPR && TREE_CODE (arg1.value) == VAR_DECL 
+	  && TREE_CODE (arg2.value) == LABEL_DECL)
+	{
+	  /* PIC address. */
+          result.value = build2 (MINUS_EXPR, TREE_TYPE (arg1.value), arg1.value, arg2.value);
+	  result.original_code = code;
+	  return result;
+	}
+      else 
+	if (TREE_CODE (arg1.value) == LABEL_DECL
+            || TREE_CODE (arg2.value) == LABEL_DECL
+	    || TREE_CODE (arg1.value) == IDENTIFIER_NODE
+	    || TREE_CODE (arg2.value) == IDENTIFIER_NODE)
         {
           result.value = error_mark_node;
           result.original_code = code;

@@ -6681,8 +6681,19 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       strcat (buf, ")");
       break;
 
-    case PLUS_EXPR:
     case MINUS_EXPR:
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL 
+	  && TREE_CODE (TREE_OPERAND (arg, 1)) == LABEL_DECL)
+	{
+	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+				false, true);
+	  strcat (buf, "-");
+	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, 
+				uses, label, false, true);
+	  break;
+	}
+      /* Fall Thru */
+    case PLUS_EXPR:
       sprintf (buf + strlen (buf), "%d", cw_asm_expr_val (arg));
       break;
 

@@ -2900,14 +2900,23 @@ set_bb_for_stmt (tree t, basic_block bb)
 		    cw_asm_buffer = xmalloc (1024);
 		  label_uid = uid == -1 ? cw_asm_unique_labelno++ : uid;
 	          LABEL_DECL_UID (label) = label_uid;
-		  pos = strchr (pos, ':');
-		  if (pos)
+		  if (strchr (pos, ':'))
 		    {
 		      strcpy (cw_asm_buffer, TREE_STRING_POINTER (string)); 
 		      pos = strchr (cw_asm_buffer, ':');
 		      gcc_assert (pos);
 		      sprintf (pos, "%d:", label_uid);
 		    }
+		  else
+		    if (strchr (pos, ')'))
+		      {
+			/* PIC address expression */
+		        const char *string_expr = TREE_STRING_POINTER (string);
+			strcpy (cw_asm_buffer, string_expr);
+			pos = strchr (cw_asm_buffer, ')');
+			gcc_assert (pos);
+			sprintf (pos, "%d%s", label_uid, strchr (string_expr, ')'));
+		      }
 		  else
 		    sprintf (cw_asm_buffer, "%s%d", TREE_STRING_POINTER (string), label_uid);
 		  ASM_STRING (t) = build_string (strlen (cw_asm_buffer), cw_asm_buffer);

@@ -1,3 +1,21 @@
+2005-07-21  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4187164
+	* c-common.c (print_cw_asm_operand): Recognize and handle a PIC address
+	expression.
+	* c-typeck.c (parser_build_binary_op): Generate PIC address tree.
+	* function.c (init_function_start): Move fralloc info to asm function
+	declaration.
+	* print-tree.c (print_node): Print extra info for asm function.
+	* reload1.c (init_elim_table): asm function does not need frame
+	pointer.
+	* tree-cfg.c (set_bb_for_stmt): Make PIC label unique inside PIC
+	expression.
+	* config/rs6000/rs6000.c (rs6000_stack_info): Set stack size according to
+	setting of fralloc directive.
+	* rs6000.md (return, return_internal_si): Don't generaate 'blr' with 
+	nofralloc.
+	
 2005-07-19  Devang Patel  <dpatel@apple.com>
 
 	Radar 4183032
