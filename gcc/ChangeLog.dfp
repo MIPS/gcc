@@ -1,5 +1,7 @@
 2005-07-21  Janis Johnson  <janis187@us.ibm.com>
 
+	* optabs.c (init_optabs): Initialize ufloat_optab.
+
 	* c-cppbuiltin.c (bultin_define_float_constants): Add assert.
 	* combine.c (combine-simplify-rtx): Skip optimizations for DFP.
 	(simplify_comparison): Add assert.

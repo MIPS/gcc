@@ -5205,6 +5205,10 @@ init_optabs (void)
 				 MODE_FLOAT, MODE_INT);
   init_interclass_conv_libfuncs (ufix_optab, "fixuns",
 				 MODE_FLOAT, MODE_INT);
+  /* These functions are only needed for decimal float modes and could be
+     added from DFP-specific files via calls to set_optab_libfunc.  */
+  init_interclass_conv_libfuncs (ufloat_optab, "floatuns",
+				 MODE_INT, MODE_FLOAT);
 
   /* sext_optab is also used for FLOAT_EXTEND.  */
   init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
