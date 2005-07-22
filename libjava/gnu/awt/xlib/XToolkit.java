@@ -19,6 +19,7 @@ import java.awt.image.ImageObserver;
 import java.net.*;
 import java.awt.datatransfer.Clipboard;
 import java.io.InputStream;
+import java.text.AttributedString;
 import java.util.Map;
 import java.util.Properties;
 import gnu.gcj.xlib.Display;
@@ -26,6 +27,7 @@ import gnu.gcj.xlib.Screen;
 import gnu.gcj.xlib.Visual;
 import gnu.java.awt.ClasspathToolkit;
 import gnu.java.awt.peer.ClasspathFontPeer;
+import gnu.java.awt.peer.ClasspathTextLayoutPeer;
 
 public class XToolkit extends ClasspathToolkit
 {
@@ -400,6 +402,12 @@ public class XToolkit extends ClasspathToolkit
 
     return new XFontPeer (name,style,size);
   }
+
+  public ClasspathTextLayoutPeer 
+  getClasspathTextLayoutPeer (AttributedString str, FontRenderContext frc)
+  {
+    throw new Error("not implemented");
+  }
   
   /** Creates a font, reading the glyph definitions from a stream.
    *
@@ -430,5 +438,32 @@ public class XToolkit extends ClasspathToolkit
   {
     throw new java.lang.UnsupportedOperationException ();
   }
-  
+
+  public RobotPeer createRobot (GraphicsDevice screen) throws AWTException
+  {
+    throw new java.lang.UnsupportedOperationException ();
+  }
+
+  public boolean nativeQueueEmpty() 
+  { 
+    return eventLoop.isIdle(); 
+  }
+
+  public void wakeNativeQueue() 
+  {
+    eventLoop.interrupt();
+  }
+
+  /** Checks the native event queue for events.  If blocking, waits until an
+   * event is available before returning, unless interrupted by
+   * wakeNativeQueue.  If non-blocking, returns immediately even if no
+   * event is available.
+   *
+   * @param locked The calling EventQueue
+   * @param block If true, waits for a native event before returning
+   */
+  public void iterateNativeQueue(java.awt.EventQueue locked, boolean block) 
+  {
+    eventLoop.postNextEvent(block);
+  }
 }

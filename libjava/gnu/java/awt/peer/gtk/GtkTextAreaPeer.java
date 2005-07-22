@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -52,7 +52,7 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
 
   native void create (int width, int height, int scrollbarVisibility);
 
-  native void gtkSetFont (String name, int style, int size);
+  native void gtkWidgetModifyFont (String name, int style, int size);
   native void gtkWidgetRequestFocus ();
 
   void create ()
@@ -68,11 +68,7 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
 	awtComponent.setFont (f);
       }
 
-    FontMetrics fm;
-    if (GtkToolkit.useGraphics2D ())
-      fm = new GdkClasspathFontPeerMetrics (f);
-    else
-      fm = new GdkFontMetrics (f);
+    FontMetrics fm = getFontMetrics (f);
 
     TextArea ta = ((TextArea) awtComponent);
     int sizeRows = ta.getRows ();
@@ -130,11 +126,7 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
     if (f == null)
       return new Dimension (width, height);
 
-    FontMetrics fm;
-    if (GtkToolkit.useGraphics2D ())
-      fm = new GdkClasspathFontPeerMetrics (f);
-    else
-      fm = new GdkFontMetrics (f);
+    FontMetrics fm = getFontMetrics (f);
 
     int sizeRows = rows == 0 ? DEFAULT_ROWS : rows;
     int sizeCols = cols == 0 ? DEFAULT_COLS : cols;
@@ -163,11 +155,7 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
     if (f == null)
       return new Dimension (width, height);
 
-    FontMetrics fm;
-    if (GtkToolkit.useGraphics2D ())
-      fm = new GdkClasspathFontPeerMetrics (f);
-    else
-      fm = new GdkFontMetrics (f);
+    FontMetrics fm = getFontMetrics (f);
 
     int sizeRows = rows == 0 ? DEFAULT_ROWS : rows;
     int sizeCols = cols == 0 ? DEFAULT_COLS : cols;

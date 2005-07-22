@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package javax.swing;
 
+import java.io.Serializable;
+
 /**
  * SpinnerNumberModel
  *
@@ -44,7 +46,13 @@ package javax.swing;
  * @version 1.0
  */
 public class SpinnerNumberModel extends AbstractSpinnerModel
+  implements Serializable
 {
+  /**
+   * For compatability with Sun's JDK
+   */
+  private static final long serialVersionUID = 7279176385485777821L;
+
   /** DOCUMENT ME! */
   private Number value;
 
@@ -73,6 +81,8 @@ public class SpinnerNumberModel extends AbstractSpinnerModel
    * @param minimum the minimum value
    * @param maximum the maximum value
    * @param stepSize the step size
+   * @throws IllegalArgumentException if minimum &lt;= value &lt;= maximum does not
+   *                                  hold
    */
   public SpinnerNumberModel(double value, double minimum, double maximum,
                             double stepSize)
@@ -88,6 +98,8 @@ public class SpinnerNumberModel extends AbstractSpinnerModel
    * @param minimum the minimum value
    * @param maximum the maximum value
    * @param stepSize the step size
+   * @throws IllegalArgumentException if minimum &lt;= value &lt;= maximum does not
+   *                                  hold
    */
   public SpinnerNumberModel(int value, int minimum, int maximum, int stepSize)
   {
@@ -237,5 +249,50 @@ public class SpinnerNumberModel extends AbstractSpinnerModel
   public Number getNumber()
   {
     return value;
+  }
+
+  public Comparable getMinimum()
+  {
+    return minimum;
+  }
+
+  public void setMinimum(Comparable newMinimum)
+  {
+    if (minimum != newMinimum)
+      {
+	minimum = newMinimum;
+	fireStateChanged();
+      }
+  }
+
+  public Comparable getMaximum()
+  {
+    return maximum;
+  }
+
+  public void setMaximum(Comparable newMaximum)
+  {
+    if (maximum != newMaximum)
+      {
+	maximum = newMaximum;
+	fireStateChanged();
+      }
+  }
+
+  public Number getStepSize()
+  {
+    return stepSize;
+  }
+
+  public void setStepSize(Number newStepSize)
+  {
+    if (newStepSize == null)
+      throw new IllegalArgumentException();
+
+    if (stepSize != newStepSize)
+      {
+	stepSize = newStepSize;
+	fireStateChanged();
+      }
   }
 }

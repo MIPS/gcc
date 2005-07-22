@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -48,6 +48,8 @@ package java.security;
  */
 public class SecureClassLoader extends ClassLoader
 {
+  java.util.WeakHashMap protectionDomainCache = new java.util.WeakHashMap();
+
   protected SecureClassLoader(ClassLoader parent)
   {
     super(parent);
@@ -80,11 +82,29 @@ public class SecureClassLoader extends ClassLoader
   protected final Class defineClass(String name, byte[] b, int off, int len,
 				    CodeSource cs)
   {
-    // FIXME: Need to cache ProtectionDomains according to 1.3 docs.
     if (cs != null)
       {
-	ProtectionDomain protectionDomain
-          = new ProtectionDomain(cs, getPermissions(cs), this, null);
+	ProtectionDomain protectionDomain;
+	  
+	synchronized (protectionDomainCache)
+	  {
+	    protectionDomain = (ProtectionDomain)protectionDomainCache.get(cs);
+	  }
+
+	if (protectionDomain == null)
+	  {
+	    protectionDomain 
+	      = new ProtectionDomain(cs, getPermissions(cs), this, null);
+	    synchronized (protectionDomainCache)
+	      {
+		ProtectionDomain domain 
+		  = (ProtectionDomain)protectionDomainCache.get(cs);
+		if (domain == null)
+		  protectionDomainCache.put(cs, protectionDomain);
+		else
+		  protectionDomain = domain;
+	      }
+	  }
 	return super.defineClass(name, b, off, len, protectionDomain);
       } 
     else

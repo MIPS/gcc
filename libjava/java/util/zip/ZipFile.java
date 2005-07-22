@@ -1,5 +1,5 @@
 /* ZipFile.java --
-   Copyright (C) 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -117,8 +117,6 @@ public class ZipFile implements ZipConstants
    * 
    * The contents of the zip file will be accessible until it is closed.
    *
-   * The OPEN_DELETE mode is currently unimplemented in this library
-   * 
    * @since JDK1.3
    * @param mode Must be one of OPEN_READ or OPEN_READ | OPEN_DELETE
    *
@@ -128,11 +126,10 @@ public class ZipFile implements ZipConstants
    */
   public ZipFile(File file, int mode) throws ZipException, IOException
   {
+    if (mode != OPEN_READ && mode != (OPEN_READ | OPEN_DELETE))
+      throw new IllegalArgumentException("invalid mode");
     if ((mode & OPEN_DELETE) != 0)
-      {
-	throw new IllegalArgumentException
-	  ("OPEN_DELETE mode not supported yet in java.util.zip.ZipFile");
-      }
+      file.deleteOnExit();
     this.raf = new RandomAccessFile(file, "r");
     this.name = file.getPath();
   }

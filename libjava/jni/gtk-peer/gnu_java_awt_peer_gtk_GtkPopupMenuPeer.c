@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -58,7 +58,8 @@ menu_pos (GtkMenu *menu __attribute__((unused)),
   *push_in = TRUE;
 }
 
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkPopupMenuPeer_show
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkPopupMenuPeer_show
   (JNIEnv *env, jobject obj, jint x, jint y, jlong time)
 {
   void *ptr;

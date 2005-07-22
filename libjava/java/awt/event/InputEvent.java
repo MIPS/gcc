@@ -1,5 +1,5 @@
 /* InputEvent.java -- common superclass of component input events
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,15 +38,16 @@ exception statement from your version. */
 
 package java.awt.event;
 
-import java.awt.Component;
 import gnu.java.awt.EventModifier;
+
+import java.awt.Component;
 
 /**
  * This is the common superclass for all component input classes. These are
  * passed to listeners before the component, so that listeners can consume
  * the event before it does its default behavior.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  * @see KeyEvent
  * @see KeyAdapter
  * @see MouseEvent
@@ -349,6 +350,7 @@ public abstract class InputEvent extends ComponentEvent
    * XXX Sun claims this can be localized via the awt.properties file - how
    * do we implement that?
    *
+   * @param modifiers the modifiers
    * @return a string representation of the modifiers in this bitmask
    * @since 1.4
    */

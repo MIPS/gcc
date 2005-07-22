@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -235,7 +235,7 @@ public final class Subject implements Serializable
    */
   public static Object doAsPrivileged (final Subject subject,
                                        final PrivilegedExceptionAction action,
-                                       final AccessControlContext acc)
+				       AccessControlContext acc)
     throws PrivilegedActionException
   {
     final SecurityManager sm = System.getSecurityManager();
@@ -243,6 +243,8 @@ public final class Subject implements Serializable
       {
         sm.checkPermission (new AuthPermission ("doAsPrivileged"));
       }
+    if (acc == null)
+      acc = new AccessControlContext (new java.security.ProtectionDomain[0]);
     AccessControlContext context =
       new AccessControlContext (acc, new SubjectDomainCombiner (subject));
     return AccessController.doPrivileged (action, context);

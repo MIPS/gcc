@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -42,7 +42,7 @@ package java.awt;
  * Layout manager for laying out containers based on contraints. The
  * constraints control how the layout will proceed.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  * @see LayoutManager
  * @see Container
  * @since 1.0
@@ -57,7 +57,7 @@ public interface LayoutManager2 extends LayoutManager
    * @param component the component to add
    * @param constraints the constraints to satisfy
    */
-  void addLayoutComponent(Component component, Object contraints);
+  void addLayoutComponent(Component component, Object constraints);
 
   /**
    * Determines the maximum size of the specified target container.

@@ -1,5 +1,5 @@
 /* CropImageFilter.java -- Java class for cropping image filter
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,11 +38,10 @@ exception statement from your version. */
 
 package java.awt.image;
 
-import java.util.Hashtable;
 import java.awt.Rectangle;
+import java.util.Hashtable;
 
 /**
- * <br>
  * Currently this filter does almost nothing and needs to be implemented.
  *
  * @author C. Brian Jones (cbj@gnu.org) 

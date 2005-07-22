@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -42,7 +42,16 @@ import java.awt.event.TextEvent;
 import java.awt.event.TextListener;
 import java.awt.peer.TextComponentPeer;
 import java.io.Serializable;
+import java.text.BreakIterator;
 import java.util.EventListener;
+
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleState;
+import javax.accessibility.AccessibleStateSet;
+import javax.accessibility.AccessibleText;
+import javax.swing.text.AttributeSet;
 
 /**
   * This class provides common functionality for widgets than 
@@ -51,7 +60,7 @@ import java.util.EventListener;
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
 public class TextComponent extends Component
-  implements Serializable
+  implements Serializable, Accessible
 {
 
 /*
@@ -67,28 +76,245 @@ private static final long serialVersionUID = -2214773872412987419L;
 
 /**
   * @serial Indicates whether or not this component is editable.
+  * This is package-private to avoid an accessor method.
   */
-private boolean editable;
+boolean editable;
 
 /**
   * @serial The starting position of the selected text region.
+  * This is package-private to avoid an accessor method.
   */
-private int selectionStart;
+int selectionStart;
 
 /**
   * @serial The ending position of the selected text region.
+  * This is package-private to avoid an accessor method.
   */
-private int selectionEnd;
+int selectionEnd;
 
 /**
   * @serial The text in the component
+  * This is package-private to avoid an accessor method.
   */
-private String text;
+String text;
 
 /**
   * A list of listeners that will receive events from this object.
   */
 protected transient TextListener textListener;
+
+  protected class AccessibleAWTTextComponent
+    extends AccessibleAWTComponent
+    implements AccessibleText, TextListener
+  {
+    // Constructor
+    // Adds a listener for tracking caret changes
+    public AccessibleAWTTextComponent()
+    {
+      TextComponent.this.addTextListener(this);
+    }
+    
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.TEXT;
+    }
+    
+    public AccessibleStateSet getAccessibleStateSet()
+    {
+      // TODO: Docs say PropertyChangeEvent will fire if this state changes.
+      // That means that the event has to fire when editable changes.
+      AccessibleStateSet ss = super.getAccessibleStateSet();
+      if (editable)
+        ss.add(AccessibleState.EDITABLE);
+      return ss;
+    }
+    
+    public AccessibleText getAccessibleText()
+    {
+      return this;
+    }
+    
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getIndexAtPoint(java.awt.Point)
+     */
+    public int getIndexAtPoint(Point point)
+    {
+      return TextComponent.this.getIndexAtPoint(point);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getCharacterBounds(int)
+     */
+    public Rectangle getCharacterBounds(int index)
+    {
+      return TextComponent.this.getCharacterBounds(index);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getCharCount()
+     */
+    public int getCharCount()
+    {
+      return text.length();
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getCaretPosition()
+     */
+    public int getCaretPosition()
+    {
+      return TextComponent.this.getCaretPosition();
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getAtIndex(int, int)
+     */
+    public String getAtIndex(int part, int index)
+    {
+      if (index < 0 || index >= text.length())
+        return null;
+      BreakIterator it = null;
+      switch (part)
+      {
+      	case CHARACTER:
+      	  return text.substring(index, index + 1);
+      	case WORD:
+      	  it = BreakIterator.getWordInstance();
+      	  break;
+      	case SENTENCE:
+      	  it = BreakIterator.getSentenceInstance();
+      	  break;
+      	default:
+      	  return null;
+      }
+  	  it.setText(text);
+  	  int start = index;
+  	  if (!it.isBoundary(index))
+  	    start = it.preceding(index); 
+  	  int end = it.following(index);
+  	  if (end == -1)
+  	    return text.substring(index);
+  	  else
+  	    return text.substring(index, end);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getAfterIndex(int, int)
+     */
+    public String getAfterIndex(int part, int index) {
+      if (index < 0 || index >= text.length())
+        return null;
+      BreakIterator it = null;
+      switch (part)
+      {
+      	case CHARACTER:
+      	  return text.substring(index, index + 1);
+      	case WORD:
+      	  it = BreakIterator.getWordInstance();
+      	  break;
+      	case SENTENCE:
+      	  it = BreakIterator.getSentenceInstance();
+      	  break;
+      	default:
+      	  return null;
+      }
+  	  it.setText(text);
+  	  int start = index;
+  	  if (!it.isBoundary(index))
+  	    start = it.following(index);
+  	  // Make sure there was a complete unit.  I.e. if index is in the middle
+  	  // of a word, return null if there is no word after the that one.
+  	  if (start == -1)
+  	    return null;
+  	  int end = it.following(start);
+  	  if (end == -1)
+  	    return text.substring(index);
+  	  else
+  	    return text.substring(index, end);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getBeforeIndex(int, int)
+     */
+    public String getBeforeIndex(int part, int index)
+    {
+      if (index < 1 || index >= text.length())
+        return null;
+      BreakIterator it = null;
+      switch (part)
+      {
+      	case CHARACTER:
+      	  return text.substring(index - 1, index);
+      	case WORD:
+      	  it = BreakIterator.getWordInstance();
+      	  break;
+      	case SENTENCE:
+      	  it = BreakIterator.getSentenceInstance();
+      	  break;
+      	default:
+      	  return null;
+      }
+  	  it.setText(text);
+  	  int end = index;
+  	  if (!it.isBoundary(index))
+  	    end = it.preceding(index); 
+  	  // Make sure there was a complete unit.  I.e. if index is in the middle
+  	  // of a word, return null if there is no word before that one.
+  	  if (end == -1)
+  	    return null;
+  	  int start = it.preceding(end);
+  	  if (start == -1)
+  	    return text.substring(0, end);
+  	  else
+  	    return text.substring(start, end);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getCharacterAttribute(int)
+     */
+    public AttributeSet getCharacterAttribute(int index)
+    {
+      // FIXME: I suspect this really gets filled in by subclasses.
+      return null;
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getSelectionStart()
+     */
+    public int getSelectionStart() {
+      // TODO Auto-generated method stub
+      return selectionStart;
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getSelectionEnd()
+     */
+    public int getSelectionEnd()
+    {
+      return selectionEnd;
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleText#getSelectedText()
+     */
+    public String getSelectedText()
+    {
+      if (selectionEnd - selectionStart > 0)
+        return text.substring(selectionStart, selectionEnd);
+      else
+        return null;
+    }
+
+    /* (non-Javadoc)
+     * @see java.awt.event.TextListener#textValueChanged(java.awt.event.TextEvent)
+     */
+    public void textValueChanged(TextEvent event)
+    {
+      // TODO Auto-generated method stub
+      
+    }
+    
+  }
 
 /*************************************************************************/
 
@@ -468,5 +694,46 @@ paramString()
   {
     return (TextListener[]) getListeners (TextListener.class);
   }
+
+  /**
+   * Gets the AccessibleContext associated with this <code>TextComponent</code>.
+   * The context is created, if necessary.
+   *
+   * @return the associated context
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    /* Create the context if this is the first request */
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleAWTTextComponent();
+    return accessibleContext;
+  }
+
+  
+  /*******************************/
+  // Provide AccessibleAWTTextComponent access to several peer functions that
+  // aren't publicly exposed.  This is package-private to avoid an accessor
+  // method.
+  synchronized int
+  getIndexAtPoint(Point p)
+  {
+    TextComponentPeer tcp = (TextComponentPeer)getPeer();
+    if (tcp != null)
+      return tcp.getIndexAtPoint(p.x, p.y);
+    return -1;
+  }
+  
+  synchronized Rectangle
+  getCharacterBounds(int i)
+  {
+    TextComponentPeer tcp = (TextComponentPeer)getPeer();
+    if (tcp != null)
+      return tcp.getCharacterBounds(i);
+    return null;
+  }
+  
+  
+
+
 } // class TextComponent
 

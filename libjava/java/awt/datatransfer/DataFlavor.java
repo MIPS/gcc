@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -39,11 +39,11 @@ exception statement from your version. */
 package java.awt.datatransfer;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.IOException;
-import java.io.ObjectOutput;
 import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
@@ -328,7 +328,6 @@ getRepresentationClassFromMime(String mimeString, ClassLoader classLoader)
  *
  * @param mimeType The MIME type for this flavor.
  * @param humanPresentableName The display name of this flavor.
- * @param classLoader The class loader for finding classes.
  *
  * @exception IllegalArgumentException If the representation class
  * specified cannot be loaded.
@@ -529,7 +528,7 @@ isMimeTypeEqual(String mimeType)
  * @return <code>true</code> if the flavor's MIME type is equal to this 
  * object's MIME type, <code>false</code> otherwise.
  */
-public boolean
+public final boolean
 isMimeTypeEqual(DataFlavor flavor)
 {
   return(isMimeTypeEqual(flavor.getMimeType()));
@@ -555,7 +554,7 @@ isMimeTypeSerializedObject()
  * Tests whether or not this flavor has a representation class of
  * <code>java.io.InputStream</code>.
  *
- * @param <code>true</code> if the representation class of this flavor
+ * @return <code>true</code> if the representation class of this flavor
  * is <code>java.io.InputStream</code>, <code>false</code> otherwise.
  */
 public boolean
@@ -570,7 +569,7 @@ isRepresentationClassInputStream()
  * Tests whether the representation class for this flavor is
  * serializable.
  *
- * @param <code>true</code> if the representation class is serializable,
+ * @return <code>true</code> if the representation class is serializable,
  * <code>false</code> otherwise.
  */
 public boolean

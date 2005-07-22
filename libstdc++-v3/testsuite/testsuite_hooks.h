@@ -1,7 +1,8 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -51,9 +52,6 @@
 // 4)  copy_tracker, from Stephen M. Webb <stephen@bregmasoft.com>.
 //   A class with nontrivial ctor/dtor that provides the ability to track the
 //   number of copy ctors and dtors, and will throw on demand during copy.
-//
-// 5) pod_char, pod_int, , abstract character classes and
-//   char_traits specializations for testing instantiations.
 
 #ifndef _GLIBCXX_TESTSUITE_HOOKS_H
 #define _GLIBCXX_TESTSUITE_HOOKS_H
@@ -62,7 +60,6 @@
 #include <bits/functexcept.h>
 #include <cstddef>
 #include <locale>
-#include <ext/pod_char_traits.h>
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
@@ -163,37 +160,22 @@ namespace __gnu_test
   void 
   run_tests_wrapped_env(const char*, const char*, const func_callback&);
 
-  // Try to create a locale with the given name. If it fails, bail.
-  std::locale
-  try_named_locale(const char* name);
 
-  int
-  try_mkfifo (const char* filename, mode_t mode);
-
-  // Test data types.
-  struct pod_char
+  // For containers (23.1/3).
+  struct NonDefaultConstructible
   {
-    unsigned char c;
+    NonDefaultConstructible(int) { }
   };
+ 
+  inline bool
+  operator==(const NonDefaultConstructible& lhs,
+	     const NonDefaultConstructible& rhs)
+  { return false; }
 
   inline bool
-  operator==(const pod_char& lhs, const pod_char& rhs)
-  { return lhs.c == rhs.c; }
-  
-  struct pod_int
-  {
-    int i;
-  };
-  
-  struct state
-  {
-    unsigned long l;
-    unsigned long l2;
-  };
-
-  typedef unsigned short				value_type;
-  typedef unsigned int					int_type;
-  typedef __gnu_cxx::character<value_type, int_type>	pod_type;
+  operator<(const NonDefaultConstructible& lhs,
+	    const NonDefaultConstructible& rhs)
+  { return false; }
 
 
   // Counting.
@@ -224,7 +206,7 @@ namespace __gnu_test
     {
       count_++;
       if (count_ == throw_on_)
-	__throw_exception_again "copy constructor exception";
+	std::__throw_runtime_error("copy_constructor::mark_call");
     }
       
     static void
@@ -255,7 +237,7 @@ namespace __gnu_test
     {
       count_++;
       if (count_ == throw_on_)
-	__throw_exception_again "assignment operator exception";
+	std::__throw_runtime_error("assignment_operator::mark_call");
     }
 
     static void
@@ -380,105 +362,31 @@ namespace __gnu_test
 	return it == end ? v.end() : it;
       }
     };
+
+  // A binary semaphore for use across multiple processes.
+  class semaphore 
+  {
+  public:
+    // Creates a binary semaphore.  The semaphore is initially in the
+    // unsignaled state. 
+    semaphore();
+
+    // Destroy the semaphore.
+    ~semaphore();
+
+    // Signal the semaphore.  If there are processes blocked in
+    // "wait", exactly one will be permitted to proceed.
+    void signal();
+
+    // Wait until the semaphore is signaled.
+    void wait();
+
+  private:
+    int sem_set_;
+
+    pid_t pid_;
+  };
 } // namespace __gnu_test
-
-namespace std
-{
-  template<class _CharT>
-    struct char_traits;
-
-  // char_traits specialization
-  template<>
-    struct char_traits<__gnu_test::pod_char>
-    {
-      typedef __gnu_test::pod_char	char_type;
-      typedef __gnu_test::pod_int  	int_type;
-      typedef __gnu_test::state   	state_type;
-      typedef fpos<state_type> 		pos_type;
-      typedef streamoff 		off_type;
-      
-      static void 
-      assign(char_type& c1, const char_type& c2)
-      { c1.c = c2.c; }
-
-      static bool 
-      eq(const char_type& c1, const char_type& c2)
-      { return c1.c == c2.c; }
-
-      static bool 
-      lt(const char_type& c1, const char_type& c2)
-      { return c1.c < c2.c; }
-
-      static int 
-      compare(const char_type* s1, const char_type* s2, size_t n)
-      { return memcmp(s1, s2, n); }
-
-      static size_t
-      length(const char_type* s)
-      { return strlen(reinterpret_cast<const char*>(s)); }
-
-      static const char_type* 
-      find(const char_type* s, size_t n, const char_type& a)
-      { return static_cast<const char_type*>(memchr(s, a.c, n)); }
-
-      static char_type* 
-      move(char_type* s1, const char_type* s2, size_t n)
-      {
-	memmove(s1, s2, n);
-	return s1;
-      }
-
-      static char_type* 
-      copy(char_type* s1, const char_type* s2, size_t n)
-      {
-	memcpy(s1, s2, n);
-	return s1;
-      }
-
-      static char_type* 
-      assign(char_type* s, size_t n, char_type a)
-      {
-	memset(s, a.c, n);
-	return s;
-      }
-
-      static char_type 
-      to_char_type(const int_type& c)
-      {
-	char_type ret;
-	ret.c = static_cast<unsigned char>(c.i);
-	return ret;
-      }
-
-      static int_type 
-      to_int_type(const char_type& c)
-      {
-	int_type ret;
-	ret.i = c.c;
-	return ret;
-      }
-
-      static bool 
-      eq_int_type(const int_type& c1, const int_type& c2)
-      { return c1.i == c2.i; }
-
-      static int_type 
-      eof()
-      {
-	int_type n;
-	n.i = -10;
-	return n;
-      }
-
-      static int_type 
-      not_eof(const int_type& c)
-      {
-	if (eq_int_type(c, eof()))
-	  return int_type();
-	return c;
-      }
-    };
-} // namespace std
 
 #endif // _GLIBCXX_TESTSUITE_HOOKS_H
 

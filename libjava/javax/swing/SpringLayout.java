@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -42,11 +42,8 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.LayoutManager2;
-
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.swing.Spring;
 
 /**
  * A very flexible layout manager. Components are laid out by defining the
@@ -91,7 +88,7 @@ public class SpringLayout implements LayoutManager2
    *
    * @author Roman Kennke (roman@ontographics.com)
    */
-  public final static class Constraints
+  public static class Constraints
   {
 
     // The constraints for each edge, and width and height.

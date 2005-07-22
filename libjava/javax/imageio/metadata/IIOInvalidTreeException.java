@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -40,23 +40,28 @@ package javax.imageio.metadata;
 
 import javax.imageio.IIOException;
 
+import org.w3c.dom.Node;
+
 public class IIOInvalidTreeException extends IIOException
 {
-  protected /*Node*/ Object offendingNode;
+  private static final long serialVersionUID = -1314083172544132777L;
 
-  public IIOInvalidTreeException(String message, /*Node*/ Object offendingNode)
+  protected Node offendingNode;
+
+  public IIOInvalidTreeException(String message, Node offendingNode)
   {
     super(message);
     this.offendingNode = offendingNode;
   }
 
-  public IIOInvalidTreeException(String message, Throwable cause, /*Node*/ Object offendingNode)
+  public IIOInvalidTreeException(String message, Throwable cause,
+				 Node offendingNode)
   {
     super(message, cause);
     this.offendingNode = offendingNode;
   }
 
-  public /*Node*/ Object getOffendingNode()
+  public Node getOffendingNode()
   {
     return offendingNode;
   }

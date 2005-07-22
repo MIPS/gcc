@@ -1,5 +1,5 @@
 /* RepaintManager.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.Component;
@@ -42,12 +43,11 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.util.Enumeration;
-import java.util.Hashtable;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
-
 
 /**
  * <p>The repaint manager holds a set of dirty regions, invalid components,
@@ -176,12 +176,13 @@ public class RepaintManager
 
   /**
    * The global, shared RepaintManager instance. This is reused for all
-   * components in all windows.
+   * components in all windows.  This is package-private to avoid an accessor
+   * method.
    *
    * @see #currentManager
    * @see #setCurrentManager
    */
-  private static RepaintManager globalManager;
+  static RepaintManager globalManager;
 
   /**
    * Create a new RepaintManager object.
@@ -263,7 +264,7 @@ public class RepaintManager
         && ancestor instanceof JComponent
         && ((JComponent) ancestor).isValidateRoot())
       component = (JComponent) ancestor;
-    
+
     if (invalidComponents.contains(component))
       return;
 
@@ -309,6 +310,9 @@ public class RepaintManager
   public synchronized void addDirtyRegion(JComponent component, int x, int y,
                                           int w, int h)
   {
+    if (w == 0 || h == 0)
+      return;
+
     Rectangle r = new Rectangle(x, y, w, h);
     if (dirtyComponents.containsKey(component))
       r = r.union((Rectangle)dirtyComponents.get(component));

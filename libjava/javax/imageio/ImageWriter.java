@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -40,6 +40,7 @@ package javax.imageio;
 
 import java.awt.Dimension;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -59,9 +60,9 @@ public abstract class ImageWriter
   protected Locale locale;
   protected ImageWriterSpi originatingProvider;
   protected Object output;
-  protected List progressListeners;
-  protected List warningListeners;
-  protected List warningLocales;
+  protected List progressListeners = new ArrayList();
+  protected List warningListeners = new ArrayList();
+  protected List warningLocales = new ArrayList();
 
   protected ImageWriter(ImageWriterSpi originatingProvider)
   {
@@ -371,11 +372,11 @@ public abstract class ImageWriter
 
 	if (originatingProvider != null)
 	  types = originatingProvider.getOutputTypes();
-	
+        
 	if (types != null)
 	  for (int i = types.length - 1; i >= 0; --i)
-	    if (types[i].equals(output.getClass()))
-	      found = true;
+            if (types[i].isInstance(output))
+              found = true;
 
 	if (! found)
 	  throw new IllegalArgumentException("output type not available");

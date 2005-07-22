@@ -1,4 +1,7 @@
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+ 
+// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -41,10 +44,12 @@ test_04()
 
   bool test __attribute__((unused)) = true;
   const char* name = "tmp_fifo1";
+  semaphore s1, s2;
+
   signal(SIGPIPE, SIG_IGN);
   
   unlink(name);
-  if (0 != try_mkfifo(name, S_IRWXU))
+  if (0 != mkfifo(name, S_IRWXU))
     {
       std::cerr << "failed to create fifo" << std::endl;
       exit(-1);
@@ -60,13 +65,15 @@ test_04()
   else if (fval == 0)
     {
       std::ifstream ifs(name);
-      sleep(1);
+      s1.wait ();
       ifs.close();
+      s2.signal ();
       exit(0);
     }
 
   std::ofstream ofs(name);
-  sleep(2);
+  s1.signal ();
+  s2.wait ();
   ofs.put('t');
 
   /*

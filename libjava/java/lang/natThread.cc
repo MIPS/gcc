@@ -1,6 +1,6 @@
 // natThread.cc - Native part of Thread class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -84,6 +84,7 @@ finalize_native (jobject ptr)
 #ifdef _Jv_HaveMutexDestroy
   _Jv_MutexDestroy (&nt->join_mutex);
 #endif
+  _Jv_FreeJNIEnv(nt->jni_env);
 }
 
 jint
@@ -112,8 +113,11 @@ java::lang::Thread::holdsLock (jobject obj)
 void
 java::lang::Thread::interrupt (void)
 {
+  checkAccess ();
   natThread *nt = (natThread *) data;
-  _Jv_ThreadInterrupt (nt->thread);
+  JvSynchronize sync (this);
+  if (alive_flag)
+    _Jv_ThreadInterrupt (nt->thread);
 }
 
 void
@@ -213,7 +217,12 @@ java::lang::Thread::finish_ ()
   
   // Signal any threads that are waiting to join() us.
   _Jv_MutexLock (&nt->join_mutex);
-  alive_flag = false;
+
+  {
+    JvSynchronize sync (this);
+    alive_flag = false;
+  }
+
   _Jv_CondNotifyAll (&nt->join_cond, &nt->join_mutex);
   _Jv_MutexUnlock (&nt->join_mutex);  
 }
@@ -321,6 +330,7 @@ java::lang::Thread::start (void)
 void
 java::lang::Thread::stop (java::lang::Throwable *)
 {
+  checkAccess ();
   throw new UnsupportedOperationException
     (JvNewStringLatin1 ("Thread.stop unimplemented"));
 }
@@ -389,6 +399,7 @@ _Jv_SetCurrentJNIEnv (JNIEnv *env)
 jint
 _Jv_AttachCurrentThread(java::lang::Thread* thread)
 {
+  JvSynchronize sync (thread);
   if (thread == NULL || thread->startable_flag == false)
     return -1;
   thread->startable_flag = false;

@@ -1,5 +1,5 @@
 /* Compiler.java -- placeholder for Java-to-native runtime compilers
-   Copyright (C) 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -50,7 +50,7 @@ package java.lang;
  *
  * <p>Note that a VM might not have implemented any of this.
  *
- * @author Tom Tromey <tromey@cygnus.com>
+ * @author Tom Tromey (tromey@cygnus.com)
  * @see System#getProperty(String)
  * @see System#getProperty(String, String)
  * @see System#loadLibrary(String)
@@ -76,8 +76,7 @@ public final class Compiler
    */
   public static boolean compileClass(Class oneClass)
   {
-    // Never succeed.
-    return false;
+    return VMCompiler.compileClass(oneClass);
   }
 
   /**
@@ -90,8 +89,7 @@ public final class Compiler
    */
   public static boolean compileClasses(String classNames)
   {
-    // Note the incredibly lame interface.  Always fail.
-    return false;
+    return VMCompiler.compileClasses(classNames);
   }
 
   /**
@@ -105,8 +103,7 @@ public final class Compiler
    */
   public static Object command(Object arg)
   {
-    // Our implementation defines this to a no-op.
-    return null;
+    return VMCompiler.command(arg);
   }
 
   /**
@@ -116,6 +113,7 @@ public final class Compiler
    */
   public static void enable()
   {
+    VMCompiler.enable();
   }
 
   /**
@@ -124,5 +122,6 @@ public final class Compiler
    */
   public static void disable()
   {
+    VMCompiler.disable();
   }
 }

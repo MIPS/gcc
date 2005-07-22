@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -201,10 +201,10 @@ public class ReplicateScaleFilter extends ImageFilter
                            model, destPixels, 0, destScansize);
     }
 
-    protected byte[] replicatePixels(int srcx, int srcy, int srcw, int srch,
-                                    ColorModel model, byte[] srcPixels,
-                                    int srcOffset, int srcScansize,
-                                    double rx, double ry, int destScansize)
+    private byte[] replicatePixels(int srcx, int srcy, int srcw, int srch,
+                                   ColorModel model, byte[] srcPixels,
+                                   int srcOffset, int srcScansize,
+                                   double rx, double ry, int destScansize)
     {
 	byte[] destPixels =
 	  new byte[(int) Math.ceil(srcw/rx) * (int) Math.ceil(srch/ry)];
@@ -221,10 +221,10 @@ public class ReplicateScaleFilter extends ImageFilter
 	return destPixels;
     }
 
-    protected int[] replicatePixels(int srcx, int srcy, int srcw, int srch,
-                                    ColorModel model, int[] srcPixels,
-                                    int srcOffset, int srcScansize,
-                                    double rx, double ry, int destScansize)
+    private int[] replicatePixels(int srcx, int srcy, int srcw, int srch,
+                                  ColorModel model, int[] srcPixels,
+                                  int srcOffset, int srcScansize,
+                                  double rx, double ry, int destScansize)
     {
 	int[] destPixels =
 	  new int[(int) Math.ceil(srcw/rx) * (int) Math.ceil(srch/ry)];

@@ -1,6 +1,6 @@
 // List implementation (out of line) -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -74,7 +74,7 @@ namespace _GLIBCXX_STD
 	{
 	  _Node* __tmp = __cur;
 	  __cur = static_cast<_Node*>(__cur->_M_next);
-	  this->get_allocator().destroy(&__tmp->_M_data);
+	  _M_get_Tp_allocator().destroy(&__tmp->_M_data);
 	  _M_put_node(__tmp);
 	}
     }
@@ -102,7 +102,7 @@ namespace _GLIBCXX_STD
   template<typename _Tp, typename _Alloc>
     void
     list<_Tp, _Alloc>::
-    resize(size_type __new_size, const value_type& __x)
+    resize(size_type __new_size, value_type __x)
     {
       iterator __i = begin();
       size_type __len = 0;

@@ -1,5 +1,5 @@
 /* FileOutputStream.java -- Writes to a file on disk.
-   Copyright (C) 1998, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2001, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -51,8 +51,8 @@ import java.nio.channels.FileChannel;
  * This classes allows a stream of data to be written to a disk file or
  * any open <code>FileDescriptor</code>.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Tom Tromey <tromey@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Tom Tromey (tromey@cygnus.com)
  */
 public class FileOutputStream extends OutputStream
 {
@@ -72,7 +72,7 @@ public class FileOutputStream extends OutputStream
    * one exists) with the name of the file to be opened.  An exception is
    * thrown if writing is not allowed. 
    *
-   * @param name The name of the file this stream should write to
+   * @param path The name of the file this stream should write to
    * @param append <code>true</code> to append bytes to the end of the file,
    * or <code>false</code> to write bytes to the beginning
    *
@@ -95,7 +95,7 @@ public class FileOutputStream extends OutputStream
    * one exists) with the name of the file to be opened.  An exception is
    * thrown if writing is not allowed. 
    *
-   * @param name The name of the file this stream should write to
+   * @param path The name of the file this stream should write to
    *
    * @exception SecurityException If write access to the file is not allowed
    * @exception FileNotFoundException If a non-security error occurs
@@ -155,13 +155,10 @@ public class FileOutputStream extends OutputStream
     if (s != null)
       s.checkWrite(file.getPath());
 
-    if (file.isDirectory())
-      throw new FileNotFoundException(file.getPath() + " is a directory");
-
-   ch = new FileChannelImpl (file.getPath(), (append
-				     ? FileChannelImpl.WRITE
-				     | FileChannelImpl.APPEND
-				     : FileChannelImpl.WRITE));
+   ch = new FileChannelImpl (file, (append
+				    ? FileChannelImpl.WRITE
+				    | FileChannelImpl.APPEND
+				    : FileChannelImpl.WRITE));
   }
 
   /**
@@ -176,7 +173,7 @@ public class FileOutputStream extends OutputStream
    * one exists) with the specified <code>FileDescriptor</code> as an argument.
    * An exception is thrown if writing is not allowed. 
    *
-   * @param file The <code>FileDescriptor</code> this stream should write to
+   * @param fdObj The <code>FileDescriptor</code> this stream should write to
    *
    * @exception SecurityException If write access to the file is not allowed
    */

@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -45,19 +45,21 @@ exception statement from your version. */
  * Signature: (J)V
  *
  * Purpose: Run the C function whose function pointer is
- * 
+ *
  */
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun(JNIEnv *gdk_env, jobject lcl_obj, 
-					 jlong funcAddr, jlong funcArg)
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun
+  (JNIEnv *env __attribute__((unused)),
+   jobject lcl_obj __attribute__((unused)),
+   jlong funcAddr, jlong funcArg)
 {
   /* Convert the function's address back into a pointer to a C function. */
-  void *(*funcPtr)(void *) = (void *(*)(void *)) funcAddr;
-  
+  void *(*funcPtr)(void *) = (void *(*)(void *)) (size_t)funcAddr;
+
   /* We do not need to worry about the return value from funcPtr(); it's
      just thrown away.  That is part of the g_threads spec, so no reason
      to worry about returning it.  */
-  (void) funcPtr((void *) funcArg);
+  (void) funcPtr((void *) (size_t)funcArg);
   /* Fall off the end and terminate the thread of control. */
 }
 

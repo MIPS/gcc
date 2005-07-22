@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,7 +38,7 @@ exception statement from your version. */
 
 package java.io;
 
-import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 
 final class VMObjectStreamClass
 {
@@ -47,4 +47,94 @@ final class VMObjectStreamClass
     * (a.k.a. <clinit>).
     */
   static native boolean hasClassInitializer (Class clazz);
+
+  /**
+   * Sets the value of the specified "double" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setDoubleNative(Field field, Object obj, double val);
+
+  /**
+   * Sets the value of the specified "float" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setFloatNative(Field field, Object obj, float val);
+
+  /**
+   * Sets the value of the specified "long" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setLongNative(Field field, Object obj, long val);
+  
+  /**
+   * Sets the value of the specified "int" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setIntNative(Field field, Object obj, int val);
+  
+  /**
+   * Sets the value of the specified "short" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setShortNative(Field field, Object obj, short val);
+
+  /**
+   * Sets the value of the specified "char" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setCharNative(Field field, Object obj, char val);
+
+  /**
+   * Sets the value of the specified "byte" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setByteNative(Field field, Object obj, byte val);
+
+  /**
+   * Sets the value of the specified "boolean" field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setBooleanNative(Field field, Object obj, boolean val);
+
+  /**
+   * Sets the value of the specified object field, allowing final values 
+   * to be assigned.
+   *
+   * @param field Field to set the value.
+   * @param obj Instance which will have its field set.
+   * @param val Value to put in the field.
+   */
+  static native void setObjectNative(Field field, Object obj, Object val);
 }

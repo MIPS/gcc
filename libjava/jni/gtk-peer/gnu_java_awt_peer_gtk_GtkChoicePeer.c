@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -39,23 +39,24 @@ exception statement from your version. */
 #include "gtkpeer.h"
 #include "gnu_java_awt_peer_gtk_GtkChoicePeer.h"
 
-static void selection_changed (GtkComboBox *combobox, gpointer data);
+static void selection_changed (GtkComboBox *combobox, jobject peer);
 
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkChoicePeer_create 
   (JNIEnv *env, jobject obj)
 {
-  GtkWidget *menu;
-  GtkComboBox *combobox;
+  GtkWidget *combobox;
+  jobject *gref;
 
   NSA_SET_GLOBAL_REF (env, obj);
+  gref = NSA_GET_GLOBAL_REF (env, obj);
 
   gdk_threads_enter ();
   
   combobox = gtk_combo_box_new_text ();
 
   g_signal_connect (combobox, "changed",
-                    G_CALLBACK (selection_changed), obj);
+                    G_CALLBACK (selection_changed), *gref);
 
   gdk_threads_leave ();
 
@@ -176,12 +177,11 @@ Java_gnu_java_awt_peer_gtk_GtkChoicePeer_nativeGetSelected
   return index;
 }
 
-void selection_changed (GtkComboBox *combobox, jobject peer)
+static void selection_changed (GtkComboBox *combobox, jobject peer)
 {
   jstring label;
   GtkTreeModel *model;
   GtkTreeIter iter;
-  GValue value;
   gchar *selected;
   gint index;
 
@@ -197,8 +197,8 @@ void selection_changed (GtkComboBox *combobox, jobject peer)
 
       gdk_threads_leave ();
 
-      label = (*gdk_env)->NewStringUTF (gdk_env, selected);
-      (*gdk_env)->CallVoidMethod (gdk_env, peer,
+      label = (*gdk_env())->NewStringUTF (gdk_env(), selected);
+      (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 			          choicePostItemEventID,
 			          label,
 			          (jint) AWT_ITEM_SELECTED);

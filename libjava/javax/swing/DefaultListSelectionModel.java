@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,15 +35,16 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.io.Serializable;
-import java.util.EventListener;
 import java.util.BitSet;
+import java.util.EventListener;
+
 import javax.swing.event.EventListenerList;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-
 
 /**
  * <p>This class provides a default implementation of {@link
@@ -117,7 +118,7 @@ public class DefaultListSelectionModel implements Cloneable,
    * @see #isLeadAnchorNotificationEnabled
    * @see #setLeadAnchorNotificationEnabled
    */
-  boolean leadAnchorNotificationEnabled = true;
+  protected boolean leadAnchorNotificationEnabled = true;
 
 
   /**
@@ -519,6 +520,18 @@ public class DefaultListSelectionModel implements Cloneable,
    *
    * @param firstIndex The low index of the changed range
    * @param lastIndex The high index of the changed range
+   */
+  protected void fireValueChanged(int firstIndex, int lastIndex)
+  {
+    fireValueChanged(firstIndex, lastIndex, getValueIsAdjusting());
+  }
+  
+  /**
+   * Fires a {@link ListSelectionEvent} to all the listeners of type {@link
+   * ListSelectionListener} registered with this selection model.
+   *
+   * @param firstIndex The low index of the changed range
+   * @param lastIndex The high index of the changed range
    * @param isAdjusting Whether this change is part of a seqence of adjustments
    * made to the selection, such as during interactive scrolling
    */
@@ -586,5 +599,22 @@ public class DefaultListSelectionModel implements Cloneable,
   public ListSelectionListener[] getListSelectionListeners()
   {
     return (ListSelectionListener[]) getListeners(ListSelectionListener.class);
+  }
+
+  /**
+   * Returns a clone of this object.
+   * <code>listenerList</code> don't gets duplicated.
+   *
+   * @return the cloned object
+   *
+   * @throws CloneNotSupportedException if an error occurs
+   */
+  public Object clone()
+    throws CloneNotSupportedException
+  {
+    DefaultListSelectionModel model =
+      (DefaultListSelectionModel) super.clone();
+    model.sel = (BitSet) sel.clone();
+    return model;
   }
 }

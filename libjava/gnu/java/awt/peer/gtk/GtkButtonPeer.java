@@ -1,5 +1,5 @@
 /* GtkButtonPeer.java -- Implements ButtonPeer with GTK
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -41,10 +41,9 @@ package gnu.java.awt.peer.gtk;
 import java.awt.AWTEvent;
 import java.awt.Button;
 import java.awt.Component;
-import java.awt.Font;
 import java.awt.Point;
-import java.awt.event.MouseEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.awt.peer.ButtonPeer;
 
 public class GtkButtonPeer extends GtkComponentPeer
@@ -52,13 +51,15 @@ public class GtkButtonPeer extends GtkComponentPeer
 {
   native void create (String label);
 
-  public native void connectJObject ();
   public native void connectSignals ();
 
-  native void gtkSetFont (String name, int style, int size);
+  native void gtkWidgetModifyFont (String name, int style, int size);
   native void gtkSetLabel (String label);
   native void gtkWidgetSetForeground (int red, int green, int blue);
+  native void gtkWidgetSetBackground (int red, int green, int blue);
   native void gtkActivate ();
+  native void gtkWidgetRequestFocus ();
+  native void setNativeBounds (int x, int y, int width, int height);
 
   public GtkButtonPeer (Button b)
   {
@@ -86,8 +87,8 @@ public class GtkButtonPeer extends GtkComponentPeer
 	if (!me.isConsumed ()
 	    && (me.getModifiersEx () & MouseEvent.BUTTON1_DOWN_MASK) != 0
 	    && awtComponent.getBounds().contains(p))
-	  postActionEvent (((Button)awtComponent).getActionCommand (), 
-			   me.getModifiersEx ());
+          postActionEvent (((Button) awtComponent).getActionCommand (), 
+                           me.getModifiersEx ());
       }
 
     if (e.getID () == KeyEvent.KEY_PRESSED)

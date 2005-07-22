@@ -1,5 +1,5 @@
 /* GtkMenuItemPeer.java -- Implements MenuItemPeer with GTK+
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,29 +38,49 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import java.awt.Font;
 import java.awt.Menu;
 import java.awt.MenuBar;
+import java.awt.MenuComponent;
 import java.awt.MenuItem;
 import java.awt.peer.MenuItemPeer;
-import java.awt.peer.MenuComponentPeer;
-import java.awt.peer.MenuBarPeer;
 import java.awt.peer.MenuPeer;
 
 public class GtkMenuItemPeer extends GtkMenuComponentPeer
   implements MenuItemPeer
 {
   native void create (String label);
-  public native void connectSignals ();
+  native void connectSignals ();
+  native void gtkWidgetModifyFont (String name, int style, int size);
+
+  void create ()
+  {
+    create (((MenuItem) awtWidget).getLabel());
+  }
 
   public GtkMenuItemPeer (MenuItem item)
   {
     super (item);
-    create (item.getLabel ());
     setEnabled (item.isEnabled ());
     setParent (item);
 
     if (item.getParent() instanceof Menu && ! (item instanceof Menu))
       connectSignals();
+  }
+
+  void setFont ()
+  {
+    MenuComponent mc = ((MenuComponent) awtWidget);
+    Font f = mc.getFont ();
+
+    if (f == null)
+      {
+        MenuComponent parent = (MenuComponent) mc.getParent ();
+        Font pf = parent.getFont ();
+        gtkWidgetModifyFont (pf.getName (), pf.getStyle (), pf.getSize ());
+      }
+    else
+      gtkWidgetModifyFont(f.getName(), f.getStyle(), f.getSize());
   }
 
   void setParent (MenuItem item)
@@ -89,9 +109,9 @@ public class GtkMenuItemPeer extends GtkMenuComponentPeer
     setEnabled (true);
   }
 
-  native public void setEnabled (boolean b);
+  public native void setEnabled(boolean b);
 
-  native public void setLabel (String label);
+  public native void setLabel(String label);
 
   protected void postMenuActionEvent ()
   {

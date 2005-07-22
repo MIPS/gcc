@@ -1,7 +1,7 @@
 dnl Support macro file for intrinsic functions.
 dnl Works out all the function types from the filename.
 dnl This file is part of the GNU Fortran 95 Runtime Library (libgfortran)
-dnl Distributed under the GNU LGPL.  See COPYING for details.
+dnl Distributed under the GNU GPL with exception.  See COPYING for details.
 dnl M4 macro file to get type names from filenames
 define(get_typename2, `GFC_$1_$2')dnl
 define(get_typename, `get_typename2(ifelse($1,i,INTEGER,ifelse($1,r,REAL,ifelse($1,l,LOGICAL,ifelse($1,c,COMPLEX,unknown)))),`$2')')dnl
@@ -30,3 +30,4 @@ define(rtype_qual,`_'rtype_kind)dnl
 define(atype_max, atype_name`_HUGE')dnl
 define(atype_min, `-'atype_max)dnl
 define(name, regexp(regexp(file, `[^/]*$', `\&'), `^\([^_]*\)_', `\1'))dnl
+define(rtype_ccode,ifelse(rtype_letter,`c',rtype_code,rtype_kind))dnl

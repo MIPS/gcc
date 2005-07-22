@@ -1,5 +1,5 @@
 /* GtkCheckboxMenuItemPeer.java -- Implements CheckboxMenuItemPeer with GTK+
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -39,8 +39,9 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.CheckboxMenuItem;
+import java.awt.ItemSelectable;
+import java.awt.event.ItemEvent;
 import java.awt.peer.CheckboxMenuItemPeer;
-import java.awt.peer.MenuItemPeer;
 
 public class GtkCheckboxMenuItemPeer extends GtkMenuItemPeer
   implements CheckboxMenuItemPeer
@@ -53,5 +54,16 @@ public class GtkCheckboxMenuItemPeer extends GtkMenuItemPeer
     setState (menu.getState ());
   }
 
-  native public void setState (boolean t);
+  public native void setState(boolean t);
+
+  protected void postMenuActionEvent ()
+  {
+    CheckboxMenuItem item = (CheckboxMenuItem)awtWidget;
+    q().postEvent (new ItemEvent ((ItemSelectable)awtWidget,
+      ItemEvent.ITEM_STATE_CHANGED,
+      item.getActionCommand(),
+      item.getState() ? ItemEvent.DESELECTED : ItemEvent.SELECTED));
+
+    super.postMenuActionEvent();
+  }
 }

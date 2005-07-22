@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -41,6 +41,7 @@ package javax.swing.plaf.basic;
 import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.text.Element;
+import javax.swing.text.PasswordView;
 import javax.swing.text.View;
 
 public class BasicPasswordFieldUI extends BasicTextFieldUI
@@ -49,6 +50,11 @@ public class BasicPasswordFieldUI extends BasicTextFieldUI
   {
   }
 
+  public View create(Element elem)
+  {
+    return new PasswordView(elem);
+  }
+  
   public static ComponentUI createUI(JComponent c)
   {
     return new BasicPasswordFieldUI();

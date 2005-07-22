@@ -1,5 +1,5 @@
-/* BasicSplitPaneDivider.java
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+/* BasicSplitPaneDivider.java --
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.plaf.basic;
 
 import java.awt.Color;
@@ -49,11 +50,11 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+
 import javax.swing.JButton;
 import javax.swing.JSplitPane;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
-
 
 /**
  * The divider that separates the two parts of a JSplitPane in the Basic look
@@ -153,32 +154,37 @@ public class BasicSplitPaneDivider extends Container
   // left (top), middle, right(bottom)
   //    0          1          2
 
-  /** Keeps track of where the divider should be placed when using one touch expand
-   * buttons. */
-  private transient int currentDividerLocation = 1;
+  /**
+   * Keeps track of where the divider should be placed when using one touch
+   * expand buttons.
+   * This is package-private to avoid an accessor method.
+   */
+  transient int currentDividerLocation = 1;
 
+  /** DOCUMENT ME! */
   private transient Border tmpBorder = new Border()
-  {
-    public Insets getBorderInsets(Component c)
     {
-      return new Insets(2, 2, 2, 2);
-    }
-    
-    public boolean isBorderOpaque()
-    {
-      return false;
-    }
-    
-    public void paintBorder(Component c, Graphics g, int x, int y, int width, int height)
-    {
-      Color saved = g.getColor();
-      g.setColor(Color.BLACK);
-      
-      g.drawRect(x + 2, y + 2, width - 4, height - 4);
-      
-      g.setColor(saved);
-    }
-  };
+      public Insets getBorderInsets(Component c)
+      {
+	return new Insets(2, 2, 2, 2);
+      }
+
+      public boolean isBorderOpaque()
+      {
+	return false;
+      }
+
+      public void paintBorder(Component c, Graphics g, int x, int y,
+                              int width, int height)
+      {
+	Color saved = g.getColor();
+	g.setColor(Color.BLACK);
+
+	g.drawRect(x + 2, y + 2, width - 4, height - 4);
+
+	g.setColor(saved);
+      }
+    };
 
   /**
    * Constructs a new divider.
@@ -420,7 +426,7 @@ public class BasicSplitPaneDivider extends Container
     if (orientation == JSplitPane.VERTICAL_SPLIT)
       dir = SwingConstants.NORTH;
     JButton button = new BasicArrowButton(dir);
-    button.setBorderPainted(false);
+    button.setBorder(null);
 
     return button;
   }
@@ -437,7 +443,7 @@ public class BasicSplitPaneDivider extends Container
     if (orientation == JSplitPane.VERTICAL_SPLIT)
       dir = SwingConstants.SOUTH;
     JButton button = new BasicArrowButton(dir);
-    button.setBorderPainted(false);
+    button.setBorder(null);
     return button;
   }
 
@@ -484,15 +490,15 @@ public class BasicSplitPaneDivider extends Container
   }
 
   /**
-   * This helper method moves the divider to one of the 
-   * three locations when using one touch expand buttons.
-   * Location 0 is the left (or top) most location.
-   * Location 1 is the middle.
-   * Location 2 is the right (or bottom) most location.
+   * This helper method moves the divider to one of the  three locations when
+   * using one touch expand buttons. Location 0 is the left (or top) most
+   * location. Location 1 is the middle. Location 2 is the right (or bottom)
+   * most location.
+   * This is package-private to avoid an accessor method.
    *
    * @param locationIndex The location to move to.
    */
-  private void moveDividerTo(int locationIndex)
+  void moveDividerTo(int locationIndex)
   {
     Insets insets = splitPane.getInsets();
     switch (locationIndex)
@@ -612,8 +618,10 @@ public class BasicSplitPaneDivider extends Container
    */
   protected class DragController
   {
-    /** The difference between where the mouse is clicked and the 
-     * initial divider location. */
+    /**
+     * The difference between where the mouse is clicked and the  initial
+     * divider location.
+     */
     transient int offset;
 
     /**
@@ -650,8 +658,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method returns one of the two paramters
-     * for the orientation. In this case, it returns x.
+     * This method returns one of the two paramters for the orientation. In
+     * this case, it returns x.
      *
      * @param x The x coordinate.
      * @param y The y coordinate.
@@ -664,8 +672,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method is called to pass on the drag information
-     * to the UI through dragDividerTo.
+     * This method is called to pass on the drag information to the UI through
+     * dragDividerTo.
      *
      * @param newX The x coordinate of the MouseEvent.
      * @param newY The y coordinate of the MouseEvent.
@@ -677,8 +685,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method is called to pass on the drag information 
-     * to the UI through dragDividerTo.
+     * This method is called to pass on the drag information  to the UI
+     * through dragDividerTo.
      *
      * @param e The MouseEvent.
      */
@@ -689,8 +697,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method is called to finish the drag session 
-     * by calling finishDraggingTo.
+     * This method is called to finish the drag session  by calling
+     * finishDraggingTo.
      *
      * @param x The x coordinate of the MouseEvent.
      * @param y The y coordinate of the MouseEvent.
@@ -701,8 +709,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method is called to finish the drag session 
-     * by calling finishDraggingTo.
+     * This method is called to finish the drag session  by calling
+     * finishDraggingTo.
      *
      * @param e The MouseEvent.
      */
@@ -710,10 +718,10 @@ public class BasicSplitPaneDivider extends Container
     {
       finishDraggingTo(positionForMouseEvent(e));
     }
-    
+
     /**
-     * This is a helper method that includes the offset
-     * in the needed location.
+     * This is a helper method that includes the offset in the needed
+     * location.
      *
      * @param x The x coordinate of the MouseEvent.
      * @param y The y coordinate of the MouseEvent.
@@ -727,8 +735,8 @@ public class BasicSplitPaneDivider extends Container
   }
 
   /**
-   * This is a helper class that controls dragging when 
-   * the orientation is VERTICAL_SPLIT.
+   * This is a helper class that controls dragging when  the orientation is
+   * VERTICAL_SPLIT.
    */
   protected class VerticalDragController extends DragController
   {
@@ -744,8 +752,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method returns one of the two parameters given
-     * the orientation. In this case, it returns y.
+     * This method returns one of the two parameters given the orientation. In
+     * this case, it returns y.
      *
      * @param x The x coordinate of the MouseEvent.
      * @param y The y coordinate of the MouseEvent.
@@ -758,8 +766,7 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method returns the new location of the divider
-     * given a MouseEvent.
+     * This method returns the new location of the divider given a MouseEvent.
      *
      * @param e The MouseEvent.
      *
@@ -771,8 +778,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This is a helper method that includes the offset
-     * in the needed location.
+     * This is a helper method that includes the offset in the needed
+     * location.
      *
      * @param x The x coordinate of the MouseEvent.
      * @param y The y coordinate of the MouseEvent.
@@ -782,12 +789,11 @@ public class BasicSplitPaneDivider extends Container
     int adjust(int x, int y)
     {
       return getNeededLocation(x, y) + getY() - offset;
-    }        
+    }
   }
 
   /**
-   * This helper class acts as the Layout Manager for
-   * the divider.
+   * This helper class acts as the Layout Manager for the divider.
    */
   protected class DividerLayout implements LayoutManager
   {
@@ -858,8 +864,8 @@ public class BasicSplitPaneDivider extends Container
     }
 
     /**
-     * This method changes the button orientation when
-     * the orientation of the SplitPane changes.
+     * This method changes the button orientation when the orientation of the
+     * SplitPane changes.
      */
     private void changeButtonOrientation()
     {

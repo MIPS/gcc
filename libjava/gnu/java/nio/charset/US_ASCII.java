@@ -1,5 +1,5 @@
 /* US_ASCII.java -- 
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -53,7 +53,29 @@ final class US_ASCII extends Charset
 {
   US_ASCII ()
   {
-    super ("US-ASCII", new String[]{"ISO646-US"});
+    /* Canonical charset name chosen according to:
+     * http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html
+     */
+    super ("US-ASCII", new String[] {
+        /* These names are provided by 
+         * http://www.iana.org/assignments/character-sets
+         */
+        "iso-ir-6",
+        "ANSI_X3.4-1986",
+        "ISO_646.irv:1991",
+        "ASCII",
+        "ISO646-US",
+        "ASCII",
+        "us",
+        "IBM367",
+        "cp367",
+        "csASCII",
+        /* These names are provided by
+         * http://oss.software.ibm.com/cgi-bin/icu/convexp?s=ALL
+         */
+        "ANSI_X3.4-1968", "iso_646.irv:1983", "ascii7", "646",
+        "windows-20127"
+        });
   }
 
   public boolean contains (Charset cs)

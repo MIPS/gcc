@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -49,7 +49,7 @@ package java.io;
  * methods to read characters from a particular input source such as a file
  * or network connection.
  *
- * @author Per Bothner <bothner@cygnus.com>
+ * @author Per Bothner (bothner@cygnus.com)
  * @date April 21, 1998.  
  * @author Aaron M. Renn (arenn@urbanophile.com) 
  */
@@ -103,7 +103,7 @@ public abstract class Reader
    *
    * @param buf The array into which the chars read should be stored
    * @param offset The offset into the array to start storing chars
-   * @param len The requested number of chars to read
+   * @param count The requested number of chars to read
    *
    * @return The actual number of chars read, or -1 if end of stream.
    *
@@ -189,7 +189,7 @@ public abstract class Reader
     * <code>reset()</code> method is called, then the mark is invalid and the 
     * stream object instance is not required to remember the mark.
     *
-    * @param readlimit The number of chars that can be read before the mark 
+    * @param readLimit The number of chars that can be read before the mark 
     *        becomes invalid
     *
     * @exception IOException If an error occurs such as mark not being 
@@ -243,7 +243,7 @@ public abstract class Reader
     * override this method to provide a more efficient implementation where
     * one exists.
     *
-    * @param num_chars The requested number of chars to skip
+    * @param count The requested number of chars to skip
     *
     * @return The actual number of chars skipped.
     *

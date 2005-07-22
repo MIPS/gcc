@@ -1,5 +1,5 @@
 /* Base64InputStream.java -- base-64 input stream.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.io;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,6 +90,30 @@ public class Base64InputStream extends FilterInputStream
     state = 0;
     temp = 0;
     eof = false;
+  }
+
+  // Class method.
+  // ------------------------------------------------------------------------
+
+  /**
+   * Decode a single Base-64 string to a byte array.
+   *
+   * @param base64 The Base-64 encoded data.
+   * @return The decoded bytes.
+   * @throws IOException If the given data do not compose a valid Base-64
+   *  sequence.
+   */
+  public static byte[] decode(String base64) throws IOException
+  {
+    Base64InputStream in =
+      new Base64InputStream(new ByteArrayInputStream(base64.getBytes()));
+    ByteArrayOutputStream out =
+      new ByteArrayOutputStream((int) (base64.length() / 0.666));
+    byte[] buf = new byte[1024];
+    int len;
+    while ((len = in.read(buf)) != -1)
+      out.write(buf, 0, len);
+    return out.toByteArray();
   }
 
   // Instance methods.

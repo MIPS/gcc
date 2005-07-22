@@ -1,5 +1,5 @@
-/* BasicButtonListener.java
-   Copyright (C) 2004 Free Software Foundation, Inc.
+/* BasicButtonListener.java --
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -34,6 +34,7 @@ or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
+
 
 package javax.swing.plaf.basic;
 
@@ -58,12 +59,19 @@ public class BasicButtonListener
   implements MouseListener, MouseMotionListener, FocusListener, 
              ChangeListener, PropertyChangeListener
 {
+  public BasicButtonListener(AbstractButton b)
+  {
+    // Do nothing here.
+  }
+  
   public void propertyChange(PropertyChangeEvent e)
   {
   }
+  
   protected void checkOpacity(AbstractButton b) 
   {    
   }
+  
   public void focusGained(FocusEvent e) 
   {    
     if (e.getSource() instanceof AbstractButton)
@@ -86,6 +94,7 @@ public class BasicButtonListener
           button.repaint();   
       }
   }
+  
   public void installKeyboardActions(JComponent c)
   {
     c.getActionMap().put("pressed", 
@@ -114,20 +123,25 @@ public class BasicButtonListener
                            }
                        });    
   }
+  
   public void uninstallKeyboardActions(JComponent c)
   {
     c.getActionMap().put("pressed", null);
     c.getActionMap().put("released", null);
   }
+  
   public void stateChanged(ChangeEvent e)
   {
   }
+  
   public void mouseMoved(MouseEvent e)
   {
   }
+  
   public void mouseDragged(MouseEvent e)
   {
   }
+  
   public void mouseClicked(MouseEvent e)
   {
   }
@@ -143,7 +157,7 @@ public class BasicButtonListener
       {
         AbstractButton button = (AbstractButton) e.getSource();
         ButtonModel model = button.getModel();
-        if ((e.getModifiersEx() & InputEvent.BUTTON1_DOWN_MASK) != 0)
+        if (e.getButton() == MouseEvent.BUTTON1)
           {
             // It is important that these transitions happen in this order.
             model.setArmed(true);
@@ -151,7 +165,6 @@ public class BasicButtonListener
           }
       }
   }
-
 
   /**
    * Accept a mouse release event and set the button's 
@@ -166,7 +179,7 @@ public class BasicButtonListener
       {
         AbstractButton button = (AbstractButton) e.getSource();
         ButtonModel model = button.getModel();
-        if ((e.getModifiersEx() & InputEvent.BUTTON1_DOWN_MASK) != 0)
+        if (e.getButton() == MouseEvent.BUTTON1)
           {
             // It is important that these transitions happen in this order.
             model.setPressed(false);
@@ -174,7 +187,6 @@ public class BasicButtonListener
           }
       }
   }
-
 
   /**
    * Accept a mouse enter event and set the button's "rollover" property to

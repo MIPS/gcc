@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -43,9 +43,10 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.awt.LayoutManager;
-import java.awt.Rectangle;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.io.Serializable;
+
 import javax.swing.border.Border;
 
 /**
@@ -56,7 +57,7 @@ import javax.swing.border.Border;
 public class ScrollPaneLayout
   implements LayoutManager, ScrollPaneConstants, Serializable
 {
-  static final long serialVersionUID = -4480022884523193743L;
+  private static final long serialVersionUID = -4480022884523193743L;
 
   public static class UIResource extends ScrollPaneLayout 
     implements javax.swing.plaf.UIResource {
@@ -239,7 +240,7 @@ public class ScrollPaneLayout
 
             if (viewportBorder != null)
               {
-              viewportInsets = viewportBorder.getBorderInsets(parent);
+                viewportInsets = viewportBorder.getBorderInsets(parent);
                 if (viewportInsets != null)
                   viewportInsetsSize.setSize(viewportInsets.left + viewportInsets.right,
                                              viewportInsets.top + viewportInsets.bottom);
@@ -310,20 +311,19 @@ public class ScrollPaneLayout
 
             if (viewportBorder != null)
               {
-              viewportInsets = viewportBorder.getBorderInsets(parent);
+                viewportInsets = viewportBorder.getBorderInsets(parent);
                 if (viewportInsets != null)
                   viewportInsetsSize.setSize(viewportInsets.left + viewportInsets.right,
                                              viewportInsets.top + viewportInsets.bottom);
               }
-
+            
             if (insets != null)
               insetsSize.setSize(insets.left + insets.right,
                                  insets.top + insets.bottom);
 
-            maybeSetMinimumSize(viewport, viewportSize);
             maybeSetMinimumSize(colHead, columnHeaderSize);
             maybeSetMinimumSize(rowHead, rowHeaderSize);
-
+            
             if (vsbPolicy != VERTICAL_SCROLLBAR_NEVER)
               maybeSetMinimumSize(vsb, verticalScrollBarSize);
 
@@ -420,7 +420,7 @@ public class ScrollPaneLayout
             
             if (!showVsb)
               x3 = x4;
-
+            
             if (!showHsb)
               y3 = y4;
 
@@ -438,7 +438,7 @@ public class ScrollPaneLayout
             if (showVsb)
               {
                 vsb.setVisible(true);
-	      vsb.setBounds(new Rectangle(x3, y2, x4-x3, y3-y2));
+                vsb.setBounds(new Rectangle(x3, y2, x4-x3, y3-y2));
               }
             else if (vsb != null)
               vsb.setVisible(false);
@@ -446,7 +446,7 @@ public class ScrollPaneLayout
             if (showHsb)
               {
                 hsb.setVisible(true);
-              hsb.setBounds(new Rectangle(x2, y3, x3-x2, y4-y3));
+                hsb.setBounds(new Rectangle(x2, y3, x3-x2, y4-y3));
               }
             else if (hsb != null)
               hsb.setVisible(false);

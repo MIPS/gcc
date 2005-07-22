@@ -1,5 +1,5 @@
-/* TransformAttribute.java
-   Copyright (C) 2003 Free Software Foundation, Inc.
+/* TransformAttribute.java --
+   Copyright (C) 2003, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -42,6 +42,13 @@ import java.awt.geom.AffineTransform;
 import java.io.Serializable;
 
 /**
+ * This class provides a mechanism for using an {@link AffineTransform} as
+ * an <i>immutable</i> attribute (for example, in the 
+ * {@link java.text.AttributedString} class).  Any transform passed to 
+ * this class is copied before being stored, and any transform handed out
+ * by this class is a copy of the stored transform.  In this way, it is 
+ * not possible to modify the stored transform.
+ * 
  * @author Michael Koch
  */
 public final class TransformAttribute implements Serializable
@@ -50,20 +57,40 @@ public final class TransformAttribute implements Serializable
 
   private AffineTransform affineTransform;
   
+  /**
+   * Creates a new attribute that contains a copy of the given transform.
+   * 
+   * @param transform  the transform (<code>null</code> not permitted).
+   * 
+   * @throws IllegalArgumentException if <code>transform</code> is 
+   *         <code>null</code>.
+   */
   public TransformAttribute (AffineTransform transform) 
   {
-    if (transform != null)
+    if (transform == null)
       {
-        this.affineTransform = new AffineTransform (transform);
+        throw new IllegalArgumentException("Null 'transform' not permitted.");
       }
-  }
-
-  public AffineTransform getTransform ()
-  {
-    return affineTransform;
+    this.affineTransform = new AffineTransform (transform);
   }
 
   /**
+   * Returns a copy of the transform contained by this attribute.
+   * 
+   * @return A copy of the transform.
+   */
+  public AffineTransform getTransform ()
+  {
+    return (AffineTransform) affineTransform.clone();
+  }
+
+  /**
+   * Returns <code>true</code> if the transform contained by this attribute is
+   * an identity transform, and <code>false</code> otherwise.
+   * 
+   * @return <code>true</code> if the transform contained by this attribute is
+   * an identity transform, and <code>false</code> otherwise.
+   * 
    * @since 1.4
    */
   public boolean isIdentity ()

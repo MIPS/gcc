@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio.channels.spi;
 
 import java.io.IOException;
@@ -44,7 +45,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.LinkedList;
 import java.util.ListIterator;
-
 
 public abstract class AbstractSelectableChannel extends SelectableChannel
 {
@@ -226,7 +226,7 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
       {
 	key = locate(selector);
 
-	if (key != null)
+	if (key != null && key.isValid())
 	  {
 	    if (att != null)
 	      key.attach(att);

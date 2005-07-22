@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -26,6 +26,7 @@ details.  */
 #include <stdio.h>
 #include <java-cpool.h>
 #include <gcj/cni.h>
+#include <execution.h>
 
 #include <java/lang/Class.h>
 #include <java/lang/Float.h>
@@ -38,6 +39,7 @@ details.  */
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
+#include <java/security/ProtectionDomain.h>
 
 using namespace gcj;
 
@@ -68,7 +70,8 @@ static void throw_class_circularity_error (jstring msg)
  * public or private members here.
  */
 
-struct _Jv_ClassReader {
+struct _Jv_ClassReader
+{
 
   // do verification?  Currently, there is no option to disable this.
   // This flag just controls the verificaiton done by the class loader;
@@ -101,6 +104,9 @@ struct _Jv_ClassReader {
   
   // the classes associated interpreter data.
   _Jv_InterpClass  *def_interp;
+
+  // The name we found.
+  _Jv_Utf8Const **found_name;
 
   /* check that the given number of input bytes are available */
   inline void check (int num)
@@ -216,7 +222,9 @@ struct _Jv_ClassReader {
       throw_class_format_error ("erroneous type descriptor");
   }
 
-  _Jv_ClassReader (jclass klass, jbyteArray data, jint offset, jint length)
+  _Jv_ClassReader (jclass klass, jbyteArray data, jint offset, jint length,
+		   java::security::ProtectionDomain *pd,
+		   _Jv_Utf8Const **name_result)
   {
     if (klass == 0 || length < 0 || offset+length > data->length)
       throw_internal_error ("arguments to _Jv_DefineClass");
@@ -226,7 +234,12 @@ struct _Jv_ClassReader {
     len    = length;
     pos    = 0;
     def    = klass;
-    def_interp = (_Jv_InterpClass *) def->aux_info;
+    found_name = name_result;
+
+    def->size_in_bytes = -1;
+    def->vtable_method_count = -1;
+    def->engine = &_Jv_soleInterpreterEngine;
+    def->protectionDomain = pd;
   }
 
   /** and here goes the parser members defined out-of-line */
@@ -272,10 +285,15 @@ struct _Jv_ClassReader {
    */
 };
 
+// Note that *NAME_RESULT will only be set if the class is registered
+// with the class loader.  This is how the caller can know whether
+// unregistration is require.
 void
-_Jv_DefineClass (jclass klass, jbyteArray data, jint offset, jint length)
+_Jv_DefineClass (jclass klass, jbyteArray data, jint offset, jint length,
+		 java::security::ProtectionDomain *pd,
+		 _Jv_Utf8Const **name_result)
 {
-  _Jv_ClassReader reader (klass, data, offset, length);
+  _Jv_ClassReader reader (klass, data, offset, length, pd, name_result);
   reader.parse();
 
   /* that's it! */
@@ -311,8 +329,13 @@ _Jv_ClassReader::parse ()
 
   handleClassBegin (access_flags, this_class, super_class);
 
+  // Allocate our aux_info here, after the name is set, to fulfill our
+  // contract with the collector interface.
+  def->aux_info = (void *) _Jv_AllocBytes (sizeof (_Jv_InterpClass));
+  def_interp = (_Jv_InterpClass *) def->aux_info;
+
   int interfaces_count = read2u (); 
-	
+
   handleInterfacesBegin (interfaces_count);
 
   for (int i = 0; i < interfaces_count; i++)
@@ -335,12 +358,11 @@ _Jv_ClassReader::parse ()
   if (pos != len)
     throw_class_format_error ("unused data before end of file");
 
-  // tell everyone we're done.
-  def->state = JV_STATE_LOADED;
+  // Tell everyone we're done.
+  def->state = JV_STATE_READ;
   if (gcj::verbose_class_flag)
-    fprintf (stderr, "[Loaded (bytecode) %s]\n", def->name->chars());
+    _Jv_Linker::print_class_loaded (def);
   def->notifyAll ();
-
 }
 
 void _Jv_ClassReader::read_constpool ()
@@ -487,9 +509,9 @@ void _Jv_ClassReader::read_methods ()
       int attributes_count = read2u ();
       
       check_tag (name_index, JV_CONSTANT_Utf8);
-      prepare_pool_entry (descriptor_index, JV_CONSTANT_Utf8);
+      prepare_pool_entry (name_index, JV_CONSTANT_Utf8);
 
-      check_tag (name_index, JV_CONSTANT_Utf8);
+      check_tag (descriptor_index, JV_CONSTANT_Utf8);
       prepare_pool_entry (descriptor_index, JV_CONSTANT_Utf8);
 
       handleMethod (i, access_flags, name_index,
@@ -517,30 +539,20 @@ void _Jv_ClassReader::read_one_method_attribute (int method_index)
 	throw_class_format_error ("only one Exceptions attribute allowed per method");
 
       int num_exceptions = read2u ();
-      // We use malloc here because the GC won't scan the method
-      // objects.  FIXME this means a memory leak if we GC a class.
-      // (Currently we never do.)
       _Jv_Utf8Const **exceptions =
-	(_Jv_Utf8Const **) _Jv_Malloc ((num_exceptions + 1) * sizeof (_Jv_Utf8Const *));
+	(_Jv_Utf8Const **) _Jv_AllocBytes ((num_exceptions + 1)
+					   * sizeof (_Jv_Utf8Const *));
 
       int out = 0;
       _Jv_word *pool_data = def->constants.data;
       for (int i = 0; i < num_exceptions; ++i)
 	{
-	  try
+	  int ndx = read2u ();
+	  // JLS 2nd Ed. 4.7.5 requires that the tag not be 0.
+	  if (ndx != 0)
 	    {
-	      int ndx = read2u ();
-	      // JLS 2nd Ed. 4.7.5 requires that the tag not be 0.
-	      if (ndx != 0)
-		{
-		  check_tag (ndx, JV_CONSTANT_Class);
-		  exceptions[out++] = pool_data[ndx].utf8; 
-		}
-	    }
-	  catch (java::lang::Throwable *exc)
-	    {
-	      _Jv_Free (exceptions);
-	      throw exc;
+	      check_tag (ndx, JV_CONSTANT_Class);
+	      exceptions[out++] = pool_data[ndx].utf8; 
 	    }
 	}
       exceptions[out] = NULL;
@@ -612,26 +624,54 @@ void _Jv_ClassReader::read_one_method_attribute (int method_index)
     }
 }
 
-void _Jv_ClassReader::read_one_code_attribute (int /*method*/) 
+void _Jv_ClassReader::read_one_code_attribute (int method_index) 
 {
-  /* ignore for now, ... later we may want to pick up
-     line number information, for debugging purposes;
-     in fact, the whole debugger issue is open!  */
-
-  /* int name = */ read2u ();
+  int name = read2u ();
   int length = read4 ();
-  skip (length);
+  if (is_attribute_name (name, "LineNumberTable"))
+    {
+      _Jv_InterpMethod *method = reinterpret_cast<_Jv_InterpMethod *>
+	(def_interp->interpreted_methods[method_index]);
+      if (method->line_table != NULL)
+	throw_class_format_error ("Method already has LineNumberTable");
 
+      int table_len = read2u ();
+      _Jv_LineTableEntry* table
+	= (_Jv_LineTableEntry *) JvAllocBytes (table_len
+					    * sizeof (_Jv_LineTableEntry));
+      for (int i = 0; i < table_len; i++)
+       {
+	 table[i].bytecode_pc = read2u ();
+	 table[i].line = read2u ();
+       }
+      method->line_table_len = table_len;
+      method->line_table = table;
+    }
+  else
+    {
+      /* ignore unknown code attributes */
+      skip (length);
+    }
 }
 
 void _Jv_ClassReader::read_one_class_attribute () 
 {
-  /* we also ignore the class attributes, ...
-     some day we'll add inner-classes support. */
-
-  /* int name = */ read2u ();
+  int name = read2u ();
   int length = read4 ();
-  skip (length);
+  if (is_attribute_name (name, "SourceFile"))
+    {
+      int source_index = read2u ();
+      check_tag (source_index, JV_CONSTANT_Utf8);
+      prepare_pool_entry (source_index, JV_CONSTANT_Utf8);
+      def_interp->source_file_name = _Jv_NewStringUtf8Const
+	(def->constants.data[source_index].utf8);
+    }
+  else
+    {
+      /* Currently, we ignore most class attributes.
+         FIXME: Add inner-classes attributes support. */
+     skip (length);
+    }
 }
 
 
@@ -854,8 +894,7 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
 
 
 void
-_Jv_ClassReader::handleClassBegin
-  (int access_flags, int this_class, int super_class)
+_Jv_ClassReader::handleClassBegin (int access_flags, int this_class, int super_class)
 {
   using namespace java::lang::reflect;
 
@@ -868,7 +907,7 @@ _Jv_ClassReader::handleClassBegin
   // was ClassLoader.defineClass called with an expected class name?
   if (def->name == 0)
     {
-      jclass orig = _Jv_FindClassInCache (loadedName, def->loader);
+      jclass orig = def->loader->findLoadedClass(loadedName->toString());
 
       if (orig == 0)
 	{
@@ -901,24 +940,27 @@ _Jv_ClassReader::handleClassBegin
   pool_data[this_class].clazz = def;
   pool_tags[this_class] = JV_CONSTANT_ResolvedClass;
 
-  if (super_class == 0 && ! (access_flags & Modifier::INTERFACE))
+  if (super_class == 0)
     {
-      // FIXME: Consider this carefully!  
-      if (! _Jv_equalUtf8Consts (def->name, java::lang::Object::class$.name))
-	throw_no_class_def_found_error ("loading java.lang.Object");
+      // Note that this is ok if we are defining java.lang.Object.
+      // But there is no way to have this class be interpreted.
+      throw_class_format_error ("no superclass reference");
     }
-
-  // In the pre-loading state, it can be looked up in the
-  // cache only by this thread!  This allows the super-class
-  // to include references to this class.
 
   def->state = JV_STATE_PRELOADING;
 
-  {
-    JvSynchronize sync (&java::lang::Class::class$);
-    _Jv_RegisterClass (def);
-  }
+  // Register this class with its defining loader as well (despite the
+  // name of the function we're calling), so that super class lookups
+  // work properly.  If there is an error, our caller will unregister
+  // this class from the class loader.  Also, we don't need to hold a
+  // lock here, as our caller has acquired it.
+  _Jv_RegisterInitiatingLoader (def, def->loader);
 
+  // Note that we found a name so that unregistration can happen if
+  // needed.
+  *found_name = def->name;
+
+  jclass the_super = NULL;
   if (super_class != 0)
     {
       // Load the superclass.
@@ -926,8 +968,7 @@ _Jv_ClassReader::handleClassBegin
       _Jv_Utf8Const* super_name = pool_data[super_class].utf8; 
 
       // Load the superclass using our defining loader.
-      jclass the_super = _Jv_FindClass (super_name,
-					def->loader);
+      jclass the_super = _Jv_FindClass (super_name, def->loader);
 
       // This will establish that we are allowed to be a subclass,
       // and check for class circularity error.
@@ -950,23 +991,25 @@ _Jv_ClassReader::handleClassBegin
   def->notifyAll ();
 }
 
-///// implements the checks described in sect. 5.3.5.3
+///// Implements the checks described in sect. 5.3.5.3
 void
 _Jv_ClassReader::checkExtends (jclass sub, jclass super)
 {
   using namespace java::lang::reflect;
 
-  // having an interface or a final class as a superclass is no good
+  _Jv_Linker::wait_for_state (super, JV_STATE_LOADING);
+
+  // Having an interface or a final class as a superclass is no good.
   if ((super->accflags & (Modifier::INTERFACE | Modifier::FINAL)) != 0)
     {
       throw_incompatible_class_change_error (sub->getName ());
     }
 
-  // if the super class is not public, we need to check some more
+  // If the super class is not public, we need to check some more.
   if ((super->accflags & Modifier::PUBLIC) == 0)
     {
-      // With package scope, the classes must have the same
-      // class loader.
+      // With package scope, the classes must have the same class
+      // loader.
       if (   sub->loader != super->loader
 	  || !_Jv_ClassNameSamePackage (sub->name, super->name))
 	{
@@ -974,7 +1017,7 @@ _Jv_ClassReader::checkExtends (jclass sub, jclass super)
 	}
     } 
 
-  for (; super != 0; super = super->superclass)
+  for (; super != 0; super = super->getSuperclass ())
     {
       if (super == sub)
 	throw_class_circularity_error (sub->getName ());
@@ -1072,11 +1115,7 @@ void _Jv_ClassReader::handleField (int field_no,
   _Jv_Field *field = &def->fields[field_no];
   _Jv_Utf8Const *field_name = pool_data[name].utf8;
 
-#ifndef COMPACT_FIELDS
   field->name      = field_name;
-#else
-  field->nameIndex = name;
-#endif
 
   // Ignore flags we don't know about.  
   field->flags = flags & Modifier::ALL_FLAGS;
@@ -1234,7 +1273,7 @@ void _Jv_ClassReader::handleMethod
   // ignore unknown flags
   method->accflags = accflags & Modifier::ALL_FLAGS;
 
-  // intialize...
+  // Initialize...
   method->ncode = 0;
   method->throws = NULL;
   
@@ -1263,7 +1302,7 @@ void _Jv_ClassReader::handleMethod
 	throw_class_format_error ("erroneous method access flags");
 
       // FIXME: JVM spec S4.6: if ABSTRACT modifier is set, verify other 
-      // flags are not set. Verify flags for interface methods. Verifiy
+      // flags are not set. Verify flags for interface methods.  Verify
       // modifiers for initializers. 
     }
 }
@@ -1276,7 +1315,6 @@ void _Jv_ClassReader::handleCodeAttribute
   _Jv_InterpMethod *method = 
     (_Jv_InterpMethod*) (_Jv_AllocBytes (size));
 
-  method->deferred	 = NULL;
   method->max_stack      = max_stack;
   method->max_locals     = max_locals;
   method->code_length    = code_length;
@@ -1284,6 +1322,9 @@ void _Jv_ClassReader::handleCodeAttribute
   method->defining_class = def;
   method->self           = &def->methods[method_index];
   method->prepared       = NULL;
+  method->line_table_len = 0;
+  method->line_table     = NULL;
+
 
   // grab the byte code!
   memcpy ((void*) method->bytecode (),
@@ -1335,7 +1376,6 @@ void _Jv_ClassReader::handleMethodsEnd ()
 	      m->self = method;
 	      m->function = NULL;
 	      def_interp->interpreted_methods[i] = m;
-	      m->deferred = NULL;
 
 	      if ((method->accflags & Modifier::STATIC))
 		{
@@ -1352,6 +1392,7 @@ void _Jv_ClassReader::handleMethodsEnd ()
 	{
 	  if (def_interp->interpreted_methods[i] != 0)
 	    throw_class_format_error ("code provided for abstract method");
+	  method->ncode = (void *) &_Jv_ThrowAbstractMethodError;
 	}
       else
 	{
@@ -1520,7 +1561,7 @@ _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig)
   while (ptr && UTF8_PEEK (ptr, limit) != ')')
     ptr = _Jv_VerifyOne (ptr, limit, false);
 
-  if (UTF8_GET (ptr, limit) != ')')
+  if (! ptr || UTF8_GET (ptr, limit) != ')')
     return false;
 
   // get the return type
@@ -1626,7 +1667,7 @@ _Jv_VerifyClassName (_Jv_Utf8Const *name)
 }
 
 /* Returns true, if NAME1 and NAME2 represent classes in the same
-   package.  */
+   package.  Neither NAME2 nor NAME2 may name an array type.  */
 bool
 _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
 {

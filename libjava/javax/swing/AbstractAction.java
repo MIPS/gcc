@@ -1,5 +1,5 @@
 /* AbstractAction.java --
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -44,6 +44,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.HashMap;
+
 import javax.swing.event.SwingPropertyChangeSupport;
 
 /**
@@ -54,15 +55,13 @@ import javax.swing.event.SwingPropertyChangeSupport;
 public abstract class AbstractAction
   implements Action, Cloneable, Serializable
 {
-  static final long serialVersionUID = -6803159439231523484L;
+  private static final long serialVersionUID = -6803159439231523484L;
 
   /**
    * enabled
    */
   protected boolean enabled = true;
   
-  public static final String ENABLED_PROPERTY = "enabled";
-
   /**
    * changeSupport
    */
@@ -192,7 +191,7 @@ public abstract class AbstractAction
     if (enabled != this.enabled)
     {
       this.enabled = enabled;
-      firePropertyChange(ENABLED_PROPERTY, !this.enabled, this.enabled);
+      firePropertyChange("enabled", !this.enabled, this.enabled);
     }
   }
 

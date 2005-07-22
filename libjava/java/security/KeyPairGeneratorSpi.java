@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -92,18 +92,11 @@ public abstract class KeyPairGeneratorSpi
   public abstract KeyPair generateKeyPair();
 
   /**
-     Returns a clone of this class.
-
-     If cloning is not supported, then by default the class throws a
-     CloneNotSupportedException.  The MessageDigestSpi provider
-     implementation has to overload this class in order to be
-     cloneable.
+   * We override clone here to make it accessible for use by
+   * DummyKeyPairGenerator.
    */
-  public Object clone() throws CloneNotSupportedException
+  protected Object clone() throws CloneNotSupportedException
   {
-    if (this instanceof Cloneable)
-      return super.clone();
-    else
-      throw new CloneNotSupportedException();
+    return super.clone();
   }
 }

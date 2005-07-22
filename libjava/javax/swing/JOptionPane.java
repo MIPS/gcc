@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,21 +35,19 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.Component;
-import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Frame;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
-import javax.swing.Icon;
-import javax.swing.JInternalFrame;
 import javax.swing.event.InternalFrameAdapter;
 import javax.swing.event.InternalFrameEvent;
 import javax.swing.plaf.OptionPaneUI;
-
 
 /**
  * This class creates different types of JDialogs and JInternalFrames that can
@@ -66,7 +64,7 @@ public class JOptionPane extends JComponent implements Accessible
   {
     /** DOCUMENT ME! */
     private static final long serialVersionUID = 686071432213084821L;
-  
+
     /**
      * Creates a new AccessibleJOptionPane object.
      */
@@ -87,7 +85,7 @@ public class JOptionPane extends JComponent implements Accessible
 
   /** DOCUMENT ME! */
   private static final long serialVersionUID = 5231143276678566796L;
-  
+
   /** The value returned when cancel option is selected. */
   public static final int CANCEL_OPTION = 2;
 

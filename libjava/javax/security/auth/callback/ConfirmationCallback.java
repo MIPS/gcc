@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -47,7 +47,6 @@ import java.io.Serializable;
  * similar confirmations.
  *
  * @see CallbackHandler
- * @version $Revision: 1.1 $
  */
 public class ConfirmationCallback implements Callback, Serializable
 {
@@ -254,7 +253,7 @@ public class ConfirmationCallback implements Callback, Serializable
    * NO, CANCEL or OK).
    * @throws IllegalArgumentException if <code>prompt</code> is <code>null</code>,
    * if <code>prompt</code> has a length of <code>0</code>, if
-   * <code>messageType</code> is not either <ode>INFORMATION</code>,
+   * <code>messageType</code> is not either <code>INFORMATION</code>,
    * <code>WARNING</code>, or <code>ERROR</code>, if <code>optionType</code> is
    * not either <code>YES_NO_OPTION</code>, <code>YES_NO_CANCEL_OPTION</code>,
    * or <code>OK_CANCEL_OPTION</code>, or if <code>defaultOption</code> does
@@ -289,7 +288,7 @@ public class ConfirmationCallback implements Callback, Serializable
    * <code>options</code> array.
    * @throws IllegalArgumentException if <code>prompt</code> is <code>null</code>,
    * if <code>prompt</code> has a length of <code>0</code>, if
-   * <code>messageType</code> is not either <ode>INFORMATION</code>,
+   * <code>messageType</code> is not either <code>INFORMATION</code>,
    * <code>WARNING</code>, or <code>ERROR</code>, if <code>options</code> is
    * <code>null</code>, if <code>options</code> has a length of <code>0</code>,
    * if any element from <code>options</code> is <code>null</code>, if any

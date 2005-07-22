@@ -1,5 +1,5 @@
 /* InputVerifier.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -37,43 +37,39 @@ exception statement from your version. */
 
 package javax.swing;
 
+
 /**
  * InputVerifier
- * @author	Andrew Selkirk
- * @version	1.0
+ * @author Andrew Selkirk
+ * @version 1.0
  */
-public abstract class InputVerifier {
+public abstract class InputVerifier
+{
+  /**
+   * Creates a <code>InputVerifier</code>
+   */
+  public InputVerifier()
+  {
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * verify
+   *
+   * @param component the component to verify
+   *
+   * @return <code>true</code> if valid, <code>false</code> otherwise.
+   */
+  public abstract boolean verify(JComponent component);
 
-	/**
-	 * Constructor InputVerifier
-	 */
-	public InputVerifier() {
-	} // InputVerifier()
-
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * verify
-	 * @param component TODO
-	 * @returns boolean
-	 */
-	public abstract boolean verify(JComponent component);
-
-	/**
-	 * shouldYieldFocus
-	 * @param component TODO
-	 * @returns boolean
-	 */
-	public boolean shouldYieldFocus(JComponent component) {
-		return verify(component);
-	} // shouldYieldFocus()
-
-
-} // InputVerifier
+  /**
+   * shouldYieldFocus
+   *
+   * @param component the component to verify
+   *
+   * @return <code>true</code> if valid, <code>false</code> otherwise.
+   */
+  public boolean shouldYieldFocus(JComponent component)
+  {
+    return verify(component);
+  }
+}

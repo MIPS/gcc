@@ -1,5 +1,5 @@
 /* GtkFileDialogPeer.java -- Implements FileDialogPeer with GTK
-   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,15 +38,13 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.AWTEvent;
 import java.awt.Dialog;
 import java.awt.FileDialog;
 import java.awt.Graphics;
 import java.awt.Window;
-import java.awt.event.WindowEvent;
 import java.awt.peer.FileDialogPeer;
-import java.io.FilenameFilter;
 import java.io.File;
+import java.io.FilenameFilter;
 
 public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
 {
@@ -57,14 +55,14 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
   private FilenameFilter filter;
 
   native void create (GtkContainerPeer parent);
-  native void connectJObject ();
   native void connectSignals ();
   native void nativeSetFile (String file);
-  native public String nativeGetDirectory();
-  native public void nativeSetDirectory(String directory);
+  public native String nativeGetDirectory();
+  public native void nativeSetDirectory(String directory);
   native void nativeSetFilenameFilter (FilenameFilter filter);
 
-  public void create() {
+  public void create()
+  {
     create((GtkContainerPeer) awtComponent.getParent().getPeer());
 
     FileDialog fd = (FileDialog) awtComponent;
@@ -94,6 +92,7 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
                                                       awtComponent.getY (),
                                                       dims[0], dims[1]);
       }
+    super.setComponentBounds ();
   }
 
   public void setFile (String fileName)
@@ -114,7 +113,7 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
 
     // GtkFileChooser requires absolute filenames. If the given filename
     // is not absolute, let's construct it based on current directory.
-        currentFile = fileName;
+    currentFile = fileName;
     if (fileName.indexOf(FS) == 0)
       {
         nativeSetFile (fileName);

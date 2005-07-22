@@ -1,5 +1,5 @@
 /* KeyStroke.java --
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.AWTKeyStroke;
@@ -45,12 +46,15 @@ public class KeyStroke
   extends AWTKeyStroke
   implements Serializable
 {
-  static final long serialVersionUID = -9060180771037902530L;
-  private KeyStroke() {
+  private static final long serialVersionUID = -9060180771037902530L;
+  
+  // Called by java.awt.AWTKeyStroke.registerSubclass via reflection.
+  private KeyStroke()
+  {
   }
   
-  protected KeyStroke(char keyChar, int keyCode, int modifiers,
-                      boolean onKeyRelease)
+  private KeyStroke(char keyChar, int keyCode, int modifiers,
+                    boolean onKeyRelease)
   {
     super(keyChar, keyCode, modifiers, onKeyRelease);
   }
@@ -92,9 +96,22 @@ public class KeyStroke
     return (KeyStroke) getAWTKeyStroke(keyCode, modifiers);
   }
 
+  /**
+   * Returns the KeyStroke according to <code>getAWTKeyStroke()</code>.
+   * But it returns null instead of throwing
+   * <code>IllegalArugmentException</code> when
+   * the keystoke sequence cannot be parsed from the given string.
+   */
   public static KeyStroke getKeyStroke(String str) 
   {
-    return (KeyStroke) getAWTKeyStroke(str);
+    try
+      {
+	return (KeyStroke) getAWTKeyStroke(str);
+      }
+    catch (IllegalArgumentException iae)
+      {
+	return null;
+      }
   }
 
   public static KeyStroke getKeyStrokeForEvent(KeyEvent event) 

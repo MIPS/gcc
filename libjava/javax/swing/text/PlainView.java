@@ -1,5 +1,5 @@
 /* PlainView.java -- 
-   Copyright (C) 2004  Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -46,13 +46,12 @@ import java.awt.Graphics;
 import java.awt.Rectangle;
 import java.awt.Shape;
 
-
 public class PlainView extends View
   implements TabExpander
 {
-  private Color selectedColor;
-  private Color unselectedColor;
-  private Font font;
+  Color selectedColor;
+  Color unselectedColor;
+  Font font;
   
   protected FontMetrics metrics;
 
@@ -93,6 +92,9 @@ public class PlainView extends View
   public Shape modelToView(int position, Shape a, Position.Bias b)
     throws BadLocationException
   {
+    // Ensure metrics are up-to-date.
+    updateMetrics();
+    
     Document document = getDocument();
 
     // Get rectangle of the line containing position.
@@ -115,13 +117,14 @@ public class PlainView extends View
     return rect;
   }
   
-  public void drawLine(int lineIndex, Graphics g, int x, int y)
+  protected void drawLine(int lineIndex, Graphics g, int x, int y)
   {
     try
       {
 	metrics = g.getFontMetrics();
 	// FIXME: Selected text are not drawn yet.
-	drawUnselectedText(g, x, y, 0, getDocument().getLength());
+	Element line = getDocument().getDefaultRootElement().getElement(lineIndex);
+	drawUnselectedText(g, x, y, line.getStartOffset(), line.getEndOffset());
 	//drawSelectedText(g, , , , );
       }
     catch (BadLocationException e)
@@ -130,7 +133,7 @@ public class PlainView extends View
       }
   }
 
-  public int drawSelectedText(Graphics g, int x, int y, int p0, int p1)
+  protected int drawSelectedText(Graphics g, int x, int y, int p0, int p1)
     throws BadLocationException
   {
     g.setColor(selectedColor);
@@ -139,17 +142,20 @@ public class PlainView extends View
     return Utilities.drawTabbedText(segment, x, y, g, this, 0);
   }
 
-  public int drawUnselectedText(Graphics g, int x, int y, int p0, int p1)
+  protected int drawUnselectedText(Graphics g, int x, int y, int p0, int p1)
     throws BadLocationException
   {
     g.setColor(unselectedColor);
     Segment segment = new Segment();
     getDocument().getText(p0, p1 - p0, segment);
-    return Utilities.drawTabbedText(segment, x, y, g, this, 0);
+    return Utilities.drawTabbedText(segment, x, y, g, this, segment.offset);
   }
 
   public void paint(Graphics g, Shape s)
   {
+    // Ensure metrics are up-to-date.
+    updateMetrics();
+    
     JTextComponent textComponent = (JTextComponent) getContainer();
 
     g.setFont(textComponent.getFont());
@@ -159,10 +165,18 @@ public class PlainView extends View
     Rectangle rect = s.getBounds();
 
     // FIXME: Text may be scrolled.
-    drawLine(0, g, rect.x, rect.y);
+    Document document = textComponent.getDocument();
+    Element root = document.getDefaultRootElement();
+    int y = rect.y;
+    
+    for (int i = 0; i < root.getElementCount(); i++)
+      {
+	drawLine(i, g, rect.x, y);
+	y += metrics.getHeight();
+      }
   }
 
-  public int getTabSize()
+  protected int getTabSize()
   {
     return 8;
   }

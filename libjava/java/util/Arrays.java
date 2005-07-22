@@ -1,5 +1,5 @@
 /* Arrays.java -- Utility class with methods to operate on arrays
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -59,7 +59,7 @@ import java.lang.reflect.Array;
  *
  * @author Original author unknown
  * @author Bryce McKinlay
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see Comparable
  * @see Comparator
  * @since 1.2
@@ -935,7 +935,7 @@ public class Arrays
 
 
 // sort
-  // Thanks to Paul Fisher <rao@gnu.org> for finding this quicksort algorithm
+  // Thanks to Paul Fisher (rao@gnu.org) for finding this quicksort algorithm
   // as specified by Sun and porting it to Java. The algorithm is an optimised
   // quicksort, as described in Jon L. Bentley and M. Douglas McIlroy's
   // "Engineering a Sort Function", Software-Practice and Experience, Vol.
@@ -2358,7 +2358,7 @@ public class Arrays
    * Sun's choice for Serialization purposes. Element addition and removal
    * is prohibited, but values can be modified.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    * @status updated to 1.4
    */
   private static final class ArrayList extends AbstractList

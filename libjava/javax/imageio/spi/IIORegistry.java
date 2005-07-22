@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -39,7 +39,9 @@ exception statement from your version. */
 package javax.imageio.spi;
 
 import gnu.classpath.ServiceFactory;
+import gnu.java.awt.ClasspathToolkit;
 
+import java.awt.Toolkit;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -52,8 +54,8 @@ public final class IIORegistry extends ServiceRegistry
 
   static
   {
-    //defaultCategories.add(ImageReaderSpi.class);
-    //defaultCategories.add(ImageWriterSpi.class);
+    defaultCategories.add(ImageReaderSpi.class);
+    defaultCategories.add(ImageWriterSpi.class);
     defaultCategories.add(ImageTranscoderSpi.class);
     defaultCategories.add(ImageInputStreamSpi.class);
     defaultCategories.add(ImageOutputStreamSpi.class);
@@ -78,6 +80,10 @@ public final class IIORegistry extends ServiceRegistry
     super(defaultCategories.iterator());
 
     // XXX: Register built-in Spis here.
+
+    Toolkit toolkit = Toolkit.getDefaultToolkit();
+    if (toolkit instanceof ClasspathToolkit)
+      ((ClasspathToolkit)toolkit).registerImageIOSpis(this);
     
     registerApplicationClasspathSpis();
   }

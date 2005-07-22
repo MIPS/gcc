@@ -1,5 +1,5 @@
 /* PlainSocketImpl.java -- Default socket implementation
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -39,8 +39,10 @@ exception statement from your version. */
 
 package gnu.java.net;
 
-import java.io.InputStream;
+import gnu.classpath.Configuration;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -48,7 +50,6 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketImpl;
 import java.net.SocketOptions;
-import gnu.classpath.Configuration;
 
 /**
  * Written using on-line Java Platform 1.2 API Specification, as well
@@ -62,9 +63,9 @@ import gnu.classpath.Configuration;
  * combination of Java and native routines to implement standard BSD
  * style sockets of family AF_INET and types SOCK_STREAM and SOCK_DGRAM
  *
- * @author Per Bothner <bothner@cygnus.com>
- * @author Nic Ferrier <nferrier@tapsellferrier.co.uk>
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Per Bothner (bothner@cygnus.com)
+ * @author Nic Ferrier (nferrier@tapsellferrier.co.uk)
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  */
 public final class PlainSocketImpl extends SocketImpl
 {
@@ -200,8 +201,20 @@ public final class PlainSocketImpl extends SocketImpl
    */
   public native Object getOption(int optID) throws SocketException;
 
+  /**
+   * Flushes the input stream and closes it. If you read from the input stream
+   * after calling this method a <code>IOException</code> will be thrown.
+   * 
+   * @throws IOException if an error occurs
+   */
   public native void shutdownInput() throws IOException;
 
+  /**
+   * Flushes the output stream and closes it. If you write to the output stream
+   * after calling this method a <code>IOException</code> will be thrown.
+   * 
+   * @throws IOException if an error occurs
+   */
   public native void shutdownOutput() throws IOException;
 
   /**

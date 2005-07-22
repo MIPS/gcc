@@ -1,4 +1,7 @@
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+
+// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,13 +40,14 @@ void test_07()
   using namespace std;
   using namespace __gnu_test;
   bool test __attribute__((unused)) = true;
+  semaphore s1, s2;
 
   const char* name = "tmp_fifo3";
 
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);  
-  try_mkfifo(name, S_IRWXU);
+  mkfifo(name, S_IRWXU);
   
   int child = fork();
   VERIFY( child != -1 );
@@ -52,18 +56,18 @@ void test_07()
     {
       filebuf fbin;
       fbin.open(name, ios_base::in);
-      sleep(2);
+      s1.wait ();
       fbin.close();
+      s2.signal ();
       exit(0);
     }
   
   filebuf fb;
-  sleep(1);
   filebuf* ret = fb.open(name, ios_base::in | ios_base::out);
   VERIFY( ret != NULL );
   VERIFY( fb.is_open() );
-
-  sleep(3);
+  s1.signal ();
+  s2.wait ();
   fb.sputc('a');
 
   ret = fb.close();

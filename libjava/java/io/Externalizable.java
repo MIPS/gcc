@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -60,8 +60,6 @@ package java.io;
  */
 public interface Externalizable extends Serializable
 {
-  long serialVersionUID = -282491828744381764L;
-
   /**
    * This method restores an object's state by reading in the instance data
    * for the object from the passed in stream.  Note that this stream is not

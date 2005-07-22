@@ -1,6 +1,8 @@
+// { dg-require-namedlocale "" }
+
 // 2001-09-21 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,7 +35,7 @@ void test01()
 
   // basic construction and sanity checks.
   locale loc_c = locale::classic();
-  locale loc_de = __gnu_test::try_named_locale("de_DE");
+  locale loc_de = locale("de_DE");
   VERIFY( loc_de != loc_c );
 
   const wstring empty;
@@ -87,9 +89,10 @@ void test01()
   iterator_type is_it04(iss);
   tm time04;
   errorstate = good;
-  tim_get.get_time(is_it04, end, iss, errorstate, &time04);
+  iterator_type ret04 = tim_get.get_time(is_it04, end, iss, errorstate,
+					 &time04);
   VERIFY( time01.tm_hour == time_bday.tm_hour );
-  VERIFY( *is_it04 == L'a' );
+  VERIFY( *ret04 == L'a' );
   VERIFY( errorstate == ios_base::failbit );
 
   // inspection of named locales, de_DE

@@ -1,5 +1,5 @@
 /* DefaultRGHChooserPanel.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,18 +35,17 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.colorchooser;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+
 import javax.swing.Icon;
 import javax.swing.JColorChooser;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
@@ -54,12 +53,11 @@ import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
-
 /**
  * This is the default RGB panel for the JColorChooser. The color is selected
  * using three sliders that represent the RGB values.
  */
-public class DefaultRGBChooserPanel extends AbstractColorChooserPanel
+class DefaultRGBChooserPanel extends AbstractColorChooserPanel
 {
   /**
    * This class handles the slider value changes for all three sliders.
@@ -73,11 +71,14 @@ public class DefaultRGBChooserPanel extends AbstractColorChooserPanel
      */
     public void stateChanged(ChangeEvent e)
     {
-      if (internalChange)
+      if (updateChange)
 	return;
+
       int color = R.getValue() << 16 | G.getValue() << 8 | B.getValue();
 
+      sliderChange = true;
       getColorSelectionModel().setSelectedColor(new Color(color));
+      sliderChange = false;
     }
   }
 
@@ -93,23 +94,35 @@ public class DefaultRGBChooserPanel extends AbstractColorChooserPanel
      */
     public void stateChanged(ChangeEvent e)
     {
-      if (internalChange)
+      if (updateChange)
 	return;
+
       int red = ((Number) RSpinner.getValue()).intValue();
       int green = ((Number) GSpinner.getValue()).intValue();
       int blue = ((Number) BSpinner.getValue()).intValue();
 
       int color = red << 16 | green << 8 | blue;
 
+      spinnerChange = true;
       getColorSelectionModel().setSelectedColor(new Color(color));
+      spinnerChange = false;
     }
   }
 
+  /** Whether the color change was initiated by the spinners.
+   * This is package-private to avoid an accessor method.  */
+  transient boolean spinnerChange = false;
+
+  /** Whether the color change was initiated by the sliders.
+   * This is package-private to avoid an accessor method.  */
+  transient boolean sliderChange = false;
+
   /**
-   * Whether the color change was initiated from the slider or spinner rather
-   * than externally.
+   * Whether the change was forced by the chooser (meaning the color has
+   * already been changed).
+   * This is package-private to avoid an accessor method.
    */
-  private transient boolean internalChange = false;
+  transient boolean updateChange = false;
 
   /** The ChangeListener for the sliders. */
   private transient ChangeListener colorChanger;
@@ -117,14 +130,17 @@ public class DefaultRGBChooserPanel extends AbstractColorChooserPanel
   /** The ChangeListener for the spinners. */
   private transient ChangeListener spinnerHandler;
 
-  /** The slider that handles the red values. */
-  private transient JSlider R;
+  /** The slider that handles the red values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSlider R;
 
-  /** The slider that handles the green values. */
-  private transient JSlider G;
+  /** The slider that handles the green values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSlider G;
 
-  /** The slider that handles the blue values. */
-  private transient JSlider B;
+  /** The slider that handles the blue values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSlider B;
 
   /** The label for the red slider. */
   private transient JLabel RLabel;
@@ -135,14 +151,17 @@ public class DefaultRGBChooserPanel extends AbstractColorChooserPanel
   /** The label for the blue slider. */
   private transient JLabel BLabel;
 
-  /** The spinner that handles the red values. */
-  private transient JSpinner RSpinner;
+  /** The spinner that handles the red values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner RSpinner;
 
-  /** The spinner that handles the green values. */
-  private transient JSpinner GSpinner;
+  /** The spinner that handles the green values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner GSpinner;
 
-  /** The spinner that handles the blue values. */
-  private transient JSpinner BSpinner;
+  /** The spinner that handles the blue values.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner BSpinner;
 
   /**
    * Creates a new DefaultRGBChooserPanel object.
@@ -175,22 +194,28 @@ public class DefaultRGBChooserPanel extends AbstractColorChooserPanel
     int green = rgb >> 8 & 0xff;
     int blue = rgb & 0xff;
 
-    internalChange = true;
+    updateChange = true;
 
-    if (R != null)
-      R.setValue(red);
-    if (RSpinner != null)
-      RSpinner.setValue(new Integer(red));
-    if (G != null)
-      G.setValue(green);
-    if (GSpinner != null)
-      GSpinner.setValue(new Integer(green));
-    if (B != null)
-      B.setValue(blue);
-    if (BSpinner != null)
-      BSpinner.setValue(new Integer(blue));
+    if (! sliderChange)
+      {
+	if (R != null)
+	  R.setValue(red);
+	if (G != null)
+	  G.setValue(green);
+	if (B != null)
+	  B.setValue(blue);
+      }
+    if (! spinnerChange)
+      {
+	if (GSpinner != null)
+	  GSpinner.setValue(new Integer(green));
+	if (RSpinner != null)
+	  RSpinner.setValue(new Integer(red));
+	if (BSpinner != null)
+	  BSpinner.setValue(new Integer(blue));
+      }
 
-    internalChange = false;
+    updateChange = false;
 
     revalidate();
     repaint();

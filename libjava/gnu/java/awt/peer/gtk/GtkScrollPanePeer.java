@@ -1,5 +1,5 @@
 /* GtkScrollPanePeer.java -- Implements ScrollPanePeer with GTK
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -41,7 +41,6 @@ package gnu.java.awt.peer.gtk;
 import java.awt.Adjustable;
 import java.awt.Dimension;
 import java.awt.ScrollPane;
-import java.awt.peer.ComponentPeer;
 import java.awt.peer.ScrollPanePeer;
 
 public class GtkScrollPanePeer extends GtkContainerPeer
@@ -54,7 +53,7 @@ public class GtkScrollPanePeer extends GtkContainerPeer
     create (awtComponent.getWidth (), awtComponent.getHeight ());
   }
 
-  native void gtkScrolledWindowSetScrollPosition(int x, int y);
+  // native void gtkScrolledWindowSetScrollPosition(int x, int y);
   native void gtkScrolledWindowSetHScrollIncrement (int u);
   native void gtkScrolledWindowSetVScrollIncrement (int u);
 
@@ -84,9 +83,9 @@ public class GtkScrollPanePeer extends GtkContainerPeer
       setPolicy (((ScrollPane) awtComponent).getScrollbarDisplayPolicy ());
   }
 
-  native public int getHScrollbarHeight ();
-  native public int getVScrollbarWidth ();
-  native public void setScrollPosition (int x, int y);
+  public native int getHScrollbarHeight();
+  public native int getVScrollbarWidth();
+  public native void setScrollPosition(int x, int y);
 
   public Dimension getPreferredSize ()
   {

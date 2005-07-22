@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -250,6 +250,11 @@ public class ObjectOutputStream extends OutputStream
 		break;
 	      }
 
+	    Class clazz = obj.getClass();
+	    ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(clazz);
+	    if (osc == null)
+	      throw new NotSerializableException(clazz.getName());
+	    
 	    if ((replacementEnabled || obj instanceof Serializable)
 		&& ! replaceDone)
 	      {
@@ -257,19 +262,11 @@ public class ObjectOutputStream extends OutputStream
 		
 		if (obj instanceof Serializable)
 		  {
-		    Method m = null;
 		    try
 		      {
-			Class classArgs[] = {};
-			m = getMethod(obj.getClass(), "writeReplace",
-				      classArgs);
-			// m can't be null by definition since an
-			// exception would have been thrown so a check
-			// for null is not needed.
-			obj = m.invoke(obj, new Object[] {});
-		      }
-		    catch (NoSuchMethodException ignore)
-		      {
+                        Method m = osc.writeReplaceMethod;
+                        if (m != null)
+                            obj = m.invoke(obj, new Object[0]);
 		      }
 		    catch (IllegalAccessException ignore)
 		      {
@@ -294,11 +291,6 @@ public class ObjectOutputStream extends OutputStream
 		break;
 	      }
 
-	    Class clazz = obj.getClass();
-	    ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(clazz);
-	    if (osc == null)
-	      throw new NotSerializableException(clazz.getName());
-	    
 	    if (clazz.isArray ())
 	      {
 		realOutput.writeByte(TC_ARRAY);
@@ -360,8 +352,8 @@ public class ObjectOutputStream extends OutputStream
 		      {
 			if (dump)
 			  dumpElementln ("WRITE FIELDS CALLED FOR: " + obj);
-		      writeFields(obj, currentObjectStreamClass);
-		  }
+			writeFields(obj, currentObjectStreamClass);
+		      }
 		  }
 
 		this.currentObject = prevObject;
@@ -1261,18 +1253,11 @@ public class ObjectOutputStream extends OutputStream
   private void callWriteMethod(Object obj, ObjectStreamClass osc)
     throws IOException
   {
-    Class klass = osc.forClass();
     currentPutField = null;
     try
       {
-	Class classArgs[] = {ObjectOutputStream.class};
-	Method m = getMethod(klass, "writeObject", classArgs);
-	Object args[] = {this};
-	m.invoke(obj, args);	
-      }
-    catch (NoSuchMethodException nsme)
-      {
-	// Nothing.
+        Object args[] = {this};
+        osc.writeObjectMethod.invoke(obj, args);
       }
     catch (InvocationTargetException x)
       {
@@ -1285,7 +1270,8 @@ public class ObjectOutputStream extends OutputStream
 
 	IOException ioe
 	  = new IOException("Exception thrown from writeObject() on " +
-			    klass + ": " + exception.getClass().getName());
+			    osc.forClass().getName() + ": " +
+                            exception.getClass().getName());
 	ioe.initCause(exception);
 	throw ioe;
       }
@@ -1293,7 +1279,8 @@ public class ObjectOutputStream extends OutputStream
       {
 	IOException ioe
 	  = new IOException("Failure invoking writeObject() on " +
-			    klass + ": " + x.getClass().getName());
+			    osc.forClass().getName() + ": " +
+			    x.getClass().getName());
 	ioe.initCause(x);
 	throw ioe;
       }
@@ -1533,15 +1520,6 @@ public class ObjectOutputStream extends OutputStream
 	throw new InvalidClassException
 	  ("no field called " + name + " in class " + klass.getName());
       }
-  }
-
-  private Method getMethod (Class klass, String name, Class[] args)
-    throws java.lang.NoSuchMethodException
-  {
-    final Method m = klass.getDeclaredMethod(name, args);
-    setAccessible.setMember(m);
-    AccessController.doPrivileged(setAccessible);
-    return m;
   }
 
   private void dumpElementln (String msg)

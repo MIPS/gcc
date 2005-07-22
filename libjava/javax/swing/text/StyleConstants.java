@@ -1,5 +1,5 @@
 /* StyleConstants.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,17 +35,58 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.text;
 
 import java.awt.Color;
 import java.awt.Component;
+
 import javax.swing.Icon;
 
 public class StyleConstants
 {
+  public static final int ALIGN_LEFT = 0;
+  public static final int ALIGN_CENTER = 1;
+  public static final int ALIGN_RIGHT = 2;
+  public static final int ALIGN_JUSTIFIED = 3;
+
+  public static final Object Background = CharacterConstants.Background;
+  public static final Object BidiLevel = CharacterConstants.BidiLevel;
+  public static final Object Bold = CharacterConstants.Bold;
+  public static final Object ComponentAttribute = CharacterConstants.ComponentAttribute;
+  public static final Object FontFamily = CharacterConstants.Family;
+  public static final Object FontSize = CharacterConstants.Size;
+  public static final Object Foreground = CharacterConstants.Foreground;
+  public static final Object IconAttribute = CharacterConstants.IconAttribute;
+  public static final Object Italic = CharacterConstants.Italic;
+  public static final Object StrikeThrough = CharacterConstants.StrikeThrough;
+  public static final Object Subscript = CharacterConstants.Subscript;
+  public static final Object Superscript = CharacterConstants.Superscript;
+  public static final Object Underline = CharacterConstants.Underline;
+
+  public static final Object Alignment = ParagraphConstants.Alignment;
+  public static final Object FirstLineIndent = ParagraphConstants.FirstLineIndent;
+  public static final Object LeftIndent = ParagraphConstants.LeftIndent;
+  public static final Object LineSpacing = ParagraphConstants.LineSpacing;
+  public static final Object Orientation = ParagraphConstants.Orientation;
+  public static final Object RightIndent = ParagraphConstants.RightIndent;
+  public static final Object SpaceAbove = ParagraphConstants.SpaceAbove;
+  public static final Object SpaceBelow = ParagraphConstants.SpaceBelow;
+  public static final Object TabSet = ParagraphConstants.TabSet;
+
+  public static final String ComponentElementName = "component";
+  public static final String IconElementName = "icon";
+
+  public static final Object ComposedTextAttribute = new StyleConstants("composed text");
+  public static final Object ModelAttribute = new StyleConstants("model");
+  public static final Object NameAttribute = new StyleConstants("name");
+  public static final Object ResolveAttribute = new StyleConstants("resolver");
 
   String keyname;
-  private StyleConstants(String k) 
+
+  // Package-private to avoid accessor constructor for use by
+  // subclasses.
+  StyleConstants(String k) 
   {
     keyname = k;
   }
@@ -54,43 +95,6 @@ public class StyleConstants
   {
     return keyname;
   }
-
-  public static int ALIGN_CENTER;
-  public static int ALIGN_JUSTIFIED;
-  public static int ALIGN_LEFT;
-  public static int ALIGN_RIGHT;
-
-  public static Object Background = CharacterConstants.Background;
-  public static Object BidiLevel = CharacterConstants.BidiLevel;
-  public static Object Bold = CharacterConstants.Bold;
-  public static Object ComponentAttribute = CharacterConstants.ComponentAttribute;
-  public static Object FontFamily = CharacterConstants.Family;
-  public static Object FontSize = CharacterConstants.Size;
-  public static Object Foreground = CharacterConstants.Foreground;
-  public static Object IconAttribute = CharacterConstants.IconAttribute;
-  public static Object Italic = CharacterConstants.Italic;
-  public static Object StrikeThrough = CharacterConstants.StrikeThrough;
-  public static Object Subscript = CharacterConstants.Subscript;
-  public static Object Superscript = CharacterConstants.Superscript;
-  public static Object Underline = CharacterConstants.Underline;
-
-  public static Object Alignment = ParagraphConstants.Alignment;
-  public static Object FirstLineIndent = ParagraphConstants.FirstLineIndent;
-  public static Object LeftIndent = ParagraphConstants.LeftIndent;
-  public static Object LineSpacing = ParagraphConstants.LineSpacing;
-  public static Object Orientation = ParagraphConstants.Orientation;
-  public static Object RightIndent = ParagraphConstants.RightIndent;
-  public static Object SpaceAbove = ParagraphConstants.SpaceAbove;
-  public static Object SpaceBelow = ParagraphConstants.SpaceBelow;
-  public static Object TabSet = ParagraphConstants.TabSet;
-
-  public static String ComponentElementName = new String("component");
-  public static String IconElementName = new String("icon");
-
-  public static Object ComposedTextAttribute = new StyleConstants("composed text");
-  public static Object ModelAttribute = new StyleConstants("model");
-  public static Object NameAttribute = new StyleConstants("name");
-  public static Object ResolveAttribute = new StyleConstants("resolver");
 
   public static int getAlignment(AttributeSet a)
   {
@@ -277,7 +281,7 @@ public class StyleConstants
 
   public static void setBold(MutableAttributeSet a, boolean b)
   {
-    a.addAttribute(Bold, new Boolean(b));
+    a.addAttribute(Bold, Boolean.valueOf(b));
   } 
   
   public static void setComponent(MutableAttributeSet a, Component c)
@@ -312,7 +316,7 @@ public class StyleConstants
  
   public static void setItalic(MutableAttributeSet a, boolean b)
   {
-    a.addAttribute(Italic, new Boolean(b));
+    a.addAttribute(Italic, Boolean.valueOf(b));
   }
  
   public static void setLeftIndent(MutableAttributeSet a, float i)
@@ -342,17 +346,17 @@ public class StyleConstants
 
   public static void setStrikeThrough(MutableAttributeSet a, boolean b)
   {
-    a.addAttribute(StrikeThrough, new Boolean(b));
+    a.addAttribute(StrikeThrough, Boolean.valueOf(b));
   } 
 
   public static void setSubscript(MutableAttributeSet a, boolean b)
   {
-    a.addAttribute(Subscript, new Boolean(b));
+    a.addAttribute(Subscript, Boolean.valueOf(b));
   } 
 
   public static void setSuperscript(MutableAttributeSet a, boolean b)
   {
-    a.addAttribute(Superscript, new Boolean(b));
+    a.addAttribute(Superscript, Boolean.valueOf(b));
   } 
 
   public static void setTabSet(MutableAttributeSet a, javax.swing.text.TabSet tabs)
@@ -362,7 +366,7 @@ public class StyleConstants
 
   public static void setUnderline(MutableAttributeSet a, boolean b)
   {
-    a.addAttribute(Underline, new Boolean(b));
+    a.addAttribute(Underline, Boolean.valueOf(b));
   } 
 
   // The remainder are so-called "typesafe enumerations" which 

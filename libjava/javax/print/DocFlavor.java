@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -217,7 +217,9 @@ public class DocFlavor implements Cloneable, Serializable
   
   private static final long serialVersionUID = -4512080796965449721L;
   
-  public static final String hostEncoding = "US-ASCII";
+  // FIXME: Get the host encoding from somewhere. Note that the new String is to make
+  // sure the field won't be a compile time constant.
+  public static final String hostEncoding = new String("US-ASCII");
 
   private String mediaSubtype;
   private String mediaType;

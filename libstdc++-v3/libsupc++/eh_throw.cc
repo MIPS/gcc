@@ -63,11 +63,8 @@ __cxxabiv1::__cxa_throw (void *obj, std::type_info *tinfo,
   header->exceptionDestructor = dest;
   header->unexpectedHandler = __unexpected_handler;
   header->terminateHandler = __terminate_handler;
-  header->unwindHeader.exception_class = __gxx_exception_class;
+  __GXX_INIT_EXCEPTION_CLASS(header->unwindHeader.exception_class);
   header->unwindHeader.exception_cleanup = __gxx_exception_cleanup;
-
-  __cxa_eh_globals *globals = __cxa_get_globals ();
-  globals->uncaughtExceptions += 1;
 
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
   _Unwind_SjLj_RaiseException (&header->unwindHeader);
@@ -86,11 +83,13 @@ __cxxabiv1::__cxa_rethrow ()
   __cxa_eh_globals *globals = __cxa_get_globals ();
   __cxa_exception *header = globals->caughtExceptions;
 
+  globals->uncaughtExceptions += 1;
+
   // Watch for luser rethrowing with no active exception.
   if (header)
     {
       // Tell __cxa_end_catch this is a rethrow.
-      if (header->unwindHeader.exception_class != __gxx_exception_class)
+      if (!__is_gxx_exception_class(header->unwindHeader.exception_class))
 	globals->caughtExceptions = 0;
       else
 	header->handlerCount = -header->handlerCount;
@@ -98,7 +97,7 @@ __cxxabiv1::__cxa_rethrow ()
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
       _Unwind_SjLj_Resume_or_Rethrow (&header->unwindHeader);
 #else
-#ifdef _LIBUNWIND_STD_ABI
+#if defined(_LIBUNWIND_STD_ABI) || defined (__ARM_EABI_UNWINDER__)
       _Unwind_RaiseException (&header->unwindHeader);
 #else
       _Unwind_Resume_or_Rethrow (&header->unwindHeader);

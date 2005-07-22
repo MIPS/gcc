@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,20 +38,21 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.AWTEvent;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Insets;
-import java.awt.event.PaintEvent;
+import java.awt.Window;
+import java.awt.peer.ComponentPeer;
 import java.awt.peer.ContainerPeer;
 
 public class GtkContainerPeer extends GtkComponentPeer
   implements ContainerPeer
 {
   Container c;
+  boolean isValidating;
 
   public GtkContainerPeer(Container c)
   {
@@ -59,22 +60,38 @@ public class GtkContainerPeer extends GtkComponentPeer
     this.c = c;
   }
 
-  public void beginValidate() 
+  public void beginValidate ()
   {
+    isValidating = true;
   }
 
-  public void endValidate() 
+  public void endValidate ()
   {
-//      q.postEvent (new PaintEvent (awtComponent, PaintEvent.PAINT,
-//  				 new Rectangle (x, y, width, height)));
-//      Graphics gc = getGraphics ();
-//      if (gc != null)
-//        {
-//  	awtComponent.update (gc);
-//  	gc.dispose ();
-//        }
-//      System.out.println ("got here");
-//      awtComponent.repaint ();
+    Component parent = awtComponent.getParent ();
+
+    // Only set our parent on the GTK side if our parent on the AWT
+    // side is not showing.  Otherwise the gtk peer will be shown
+    // before we've had a chance to position and size it properly.
+    if (parent != null && parent.isShowing ())
+      {
+        Component[] components = ((Container) awtComponent).getComponents ();
+        int ncomponents = components.length;
+
+        for (int i = 0; i < ncomponents; i++)
+          {
+            ComponentPeer peer = components[i].getPeer ();
+
+            // Skip lightweight peers.
+            if (peer instanceof GtkComponentPeer)
+              ((GtkComponentPeer) peer).setParentAndBounds ();
+          }
+
+        // GTK windows don't have parents.
+        if (!(awtComponent instanceof Window))
+          setParentAndBounds ();
+      }
+
+    isValidating = false;
   }
 
   public Insets getInsets() 

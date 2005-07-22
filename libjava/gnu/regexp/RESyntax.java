@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -197,7 +197,12 @@ public final class RESyntax implements Serializable {
    */
   public static final int RE_CHAR_CLASS_ESC_IN_LISTS   = 24;
 
-  private static final int BIT_TOTAL                   = 25;
+  /**
+   * Syntax bit.  Possessive matching is allowed (++, *+, ?+, {x,y}+).
+   */
+  public static final int RE_POSSESSIVE_OPS            = 25;
+
+  private static final int BIT_TOTAL                   = 26;
 
   /**
    * Predefined syntax.
@@ -425,6 +430,7 @@ public final class RESyntax implements Serializable {
 
       RE_SYNTAX_JAVA_1_4 = new RESyntax(RE_SYNTAX_PERL5)
 	  // XXX
+	  .set(RE_POSSESSIVE_OPS)         // *+,?+,++,{}+
 	  .makeFinal();
   }
 

@@ -1,5 +1,5 @@
-/* BasicProgressBarUI.java
-   Copyright (C) 2004 Free Software Foundation, Inc.
+/* BasicProgressBarUI.java --
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.plaf.basic;
 
 import java.awt.Color;
@@ -49,6 +50,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+
 import javax.swing.JComponent;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
@@ -60,7 +62,6 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.ProgressBarUI;
-
 
 /**
  * The Basic Look and Feel UI delegate for the 
@@ -102,7 +103,7 @@ public class BasicProgressBarUI extends ProgressBarUI
     {
       // Only need to listen for indeterminate changes.
       // All other things are done on a repaint.
-      if (e.getPropertyName().equals(JProgressBar.INDETERMINATE_CHANGED_PROPERTY))
+      if (e.getPropertyName().equals("inderterminate"))
 	if (((Boolean) e.getNewValue()).booleanValue())
 	  startAnimationTimer();
 	else
@@ -466,7 +467,7 @@ public class BasicProgressBarUI extends ProgressBarUI
   /**
    * This method increments the animation index.
    */
-  public void incrementAnimationIndex()
+  protected void incrementAnimationIndex()
   {
     animationIndex++;
     //numFrames is like string length, it should be named numFrames or something

@@ -1,5 +1,5 @@
 /* DefaultHSBChooserPanel.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,23 +35,22 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.colorchooser;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.ComponentOrientation;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Image;
-import java.awt.LayoutManager;
 import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.image.MemoryImageSource;
+
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.Icon;
@@ -66,44 +65,52 @@ import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
-
 /**
  * This is the Default HSB Panel displayed in the JColorChooser.
  */
 class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 {
-  /** The gradient image displayed. */
-  private transient Image gradientImage;
+  /** The gradient image displayed.
+   * This is package-private to avoid an accessor method.  */
+  transient Image gradientImage;
 
   /** The Panel that holds the gradient image. */
   private transient JPanel gradientPanel;
 
-  /** The track gradient image. */
-  private transient Image trackImage;
+  /** The track gradient image.
+   * This is package-private to avoid an accessor method.  */
+  transient Image trackImage;
 
   /** The panel that holds the track. */
   private transient JPanel trackPanel;
 
-  /** The slider for the locked HSB value. */
-  private transient JSlider slider;
+  /** The slider for the locked HSB value.
+   * This is package-private to avoid an accessor method.  */
+  transient JSlider slider;
 
-  /** The RadioButton that controls the Hue. */
-  private transient JRadioButton hRadio;
+  /** The RadioButton that controls the Hue.
+   * This is package-private to avoid an accessor method.  */
+  transient JRadioButton hRadio;
 
-  /** The RadioButton that controls the Saturation. */
-  private transient JRadioButton sRadio;
+  /** The RadioButton that controls the Saturation.
+   * This is package-private to avoid an accessor method.  */
+  transient JRadioButton sRadio;
 
-  /** The RadioButton that controls the Brightness. */
-  private transient JRadioButton bRadio;
+  /** The RadioButton that controls the Brightness.
+   * This is package-private to avoid an accessor method.  */
+  transient JRadioButton bRadio;
 
-  /** The JSpinner that controls the Hue. */
-  private transient JSpinner hSpinner;
+  /** The JSpinner that controls the Hue.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner hSpinner;
 
-  /** The JSpinner that controls the Saturation. */
-  private transient JSpinner sSpinner;
+  /** The JSpinner that controls the Saturation.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner sSpinner;
 
-  /** The JSpinner that controls the Brightness. */
-  private transient JSpinner bSpinner;
+  /** The JSpinner that controls the Brightness.
+   * This is package-private to avoid an accessor method.  */
+  transient JSpinner bSpinner;
 
   /** The default width of the gradient image. */
   private static final int imgWidth = 200;
@@ -134,20 +141,26 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
   /** The JLabel that displays the value of Blue. */
   private transient JLabel bFull;
 
-  /** The point that is displayed in the gradient image. */
-  private transient Point gradientPoint = new Point();
+  /** The point that is displayed in the gradient image.
+   * Package-private to avoid an accessor method.
+   */
+  transient Point gradientPoint = new Point();
 
   /**
    * This indicates that the change to the slider or point is triggered
    * internally.
+   * This is package-private to avoid an accessor method.
    */
-  private transient boolean internalChange = false;
+  transient boolean internalChange = false;
 
-  /** This indicates that the change to the spinner is triggered internally. */
-  private transient boolean spinnerTrigger = false;
+  /** This indicates that the change to the spinner is triggered
+   * internally.
+   * This is package-private to avoid an accessor method.  */
+  transient boolean spinnerTrigger = false;
 
-  /** This int identifies which spinner is currently locked. */
-  private transient int locked = -1;
+  /** This int identifies which spinner is currently locked.
+   * This is package-private to avoid an accessor method.  */
+  transient int locked = -1;
 
   /** This value indicates that the Hue spinner is locked. */
   static final int HLOCKED = 0;
@@ -161,8 +174,9 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
   /**
    * This method indicates that the mouse event is in the process of being
    * handled.
+   * This is package-private to avoid an accessor method.
    */
-  private transient boolean handlingMouse;
+  transient boolean handlingMouse;
 
   /**
    * This helper class handles mouse events on the gradient image.
@@ -377,7 +391,7 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
                                                                          b)));
       spinnerTrigger = false;
 
-      if (! handlingMouse)
+      if (! handlingMouse && slider != null && ! slider.getValueIsAdjusting())
         {
 	  updateImage();
 	  updateTrack();
@@ -419,11 +433,6 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 
     internalChange = true;
 
-    // spinnerTrigger, internalChange, and handlingMouse are used because of the
-    // we don't want things like: change spinner -> update chooser -> change spinner
-    // That's because the value from before and after the update can differ
-    // slightly because of the conversion.
-    // FIXME: Think of better way to deal with this.
     if (! spinnerTrigger)
       {
 	hSpinner.setValue(new Integer((int) (hsbVals[0] * 360)));
@@ -438,8 +447,10 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 	  slider.setValue(((Number) hSpinner.getValue()).intValue());
 	if (! handlingMouse)
 	  {
-	    gradientPoint.x = (int) ((1 - hsbVals[1]) * imgWidth);
-	    gradientPoint.y = (int) ((1 - hsbVals[2]) * imgHeight);
+	    gradientPoint.x = (int) ((1
+	                      - ((Number) sSpinner.getValue()).intValue() / 100f) * imgWidth);
+	    gradientPoint.y = (int) ((1
+	                      - ((Number) bSpinner.getValue()).intValue() / 100f) * imgHeight);
 	  }
 	break;
       case SLOCKED:
@@ -447,8 +458,9 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 	  slider.setValue(((Number) sSpinner.getValue()).intValue());
 	if (! handlingMouse)
 	  {
-	    gradientPoint.x = (int) (hsbVals[0] * imgWidth);
-	    gradientPoint.y = (int) ((1 - hsbVals[2]) * imgHeight);
+	    gradientPoint.x = (int) (((Number) hSpinner.getValue()).intValue() / 360f * imgWidth);
+	    gradientPoint.y = (int) ((1
+	                      - ((Number) bSpinner.getValue()).intValue() / 100f) * imgHeight);
 	  }
 	break;
       case BLOCKED:
@@ -456,15 +468,19 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 	  slider.setValue(((Number) bSpinner.getValue()).intValue());
 	if (! handlingMouse)
 	  {
-	    gradientPoint.x = (int) (hsbVals[0] * imgWidth);
-	    gradientPoint.y = (int) ((1 - hsbVals[1]) * imgHeight);
+	    gradientPoint.x = (int) (((Number) hSpinner.getValue()).intValue() / 360f * imgWidth);
+	    gradientPoint.y = (int) ((1
+	                      - ((Number) sSpinner.getValue()).intValue() / 100f) * imgHeight);
 	  }
 	break;
       }
     internalChange = false;
 
-    updateImage();
-    updateTrack();
+    if (! handlingMouse && slider != null && ! slider.getValueIsAdjusting())
+      updateImage();
+
+    if (! handlingMouse || locked != HLOCKED)
+      updateTrack();
     updateTextFields();
   }
 
@@ -716,8 +732,9 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
   /**
    * This method calls the appropriate method to update the gradient image
    * depending on which HSB value is constant.
+   * This is package-private to avoid an accessor method.
    */
-  private void updateImage()
+  void updateImage()
   {
     switch (locked)
       {
@@ -750,8 +767,9 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
   /**
    * This method updates the slider in response to making a different HSB
    * property the constant.
+   * This is package-private to avoid an accessor method.
    */
-  private void updateSlider()
+  void updateSlider()
   {
     if (slider == null)
       return;
@@ -779,8 +797,9 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
   /**
    * This method updates the track gradient image depending on which HSB
    * property is constant.
+   * This is package-private to avoid an accessor method.
    */
-  private void updateTrack()
+  void updateTrack()
   {
     switch (locked)
       {
@@ -856,5 +875,17 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 
     trackImage = createImage(new MemoryImageSource(trackWidth, imgHeight,
                                                    trackPix, 0, trackWidth));
+  }
+
+  /**
+   * This method returns the HSB values for the currently selected color.
+   *
+   * @return The HSB values for the currently selected color.
+   */
+  private float[] getHSBValues()
+  {
+    Color c = getColorFromModel();
+    float[] f = Color.RGBtoHSB(c.getRed(), c.getGreen(), c.getBlue(), null);
+    return f;
   }
 }

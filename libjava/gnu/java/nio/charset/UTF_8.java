@@ -1,5 +1,5 @@
 /* UTF_8.java -- 
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -62,7 +62,15 @@ final class UTF_8 extends Charset
 {
   UTF_8 ()
   {
-    super ("UTF-8", null);
+    super ("UTF-8", new String[] {
+        /* These names are provided by
+         * http://oss.software.ibm.com/cgi-bin/icu/convexp?s=ALL
+         */
+        "ibm-1208", "ibm-1209", "ibm-5304", "ibm-5305",
+        "windows-65001", "cp1208",
+        // see http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html
+        "UTF8"
+    });
   }
 
   public boolean contains (Charset cs)
@@ -93,7 +101,7 @@ final class UTF_8 extends Charset
     protected CoderResult decodeLoop (ByteBuffer in, CharBuffer out)
     {
       // TODO: Optimize this in the case in.hasArray() / out.hasArray()
-      int inPos = 0;
+      int inPos = in.position(); 
       try
         {
           while (in.hasRemaining ())
@@ -188,7 +196,7 @@ final class UTF_8 extends Charset
 
     protected CoderResult encodeLoop (CharBuffer in, ByteBuffer out)
     {
-      int inPos = 0;
+      int inPos = in.position();
       try
         {
           // TODO: Optimize this in the case in.hasArray() / out.hasArray()

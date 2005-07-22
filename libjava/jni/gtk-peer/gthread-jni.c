@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -223,8 +223,8 @@ exception statement from your version. */
 #elif defined HAVE_INTTYPES_H
 #include <inttypes.h>
 #endif
-#include <stdio.h>		/* snprintf */
 #include <stdarg.h>		/* va_list */
+#include <glib.h>
 #include "gthread-jni.h"
 #include <assert.h>		/* assert() */
 
@@ -464,7 +464,7 @@ throw (JNIEnv * env, jthrowable cause, const char *message,
   if ((buf = malloc (len)))
     {
       memset (buf, 0, len);
-      snprintf (buf, len, fmt, message, file, line);
+      g_snprintf (buf, len, fmt, message, file, line);
       jmessage = (*env)->NewStringUTF (env, buf);
       free (buf);
     }

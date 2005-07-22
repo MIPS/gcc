@@ -1,5 +1,5 @@
 /* SocketChannel.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio.channels;
 
 import java.io.IOException;
@@ -44,16 +45,15 @@ import java.nio.ByteBuffer;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.nio.channels.spi.SelectorProvider;
 
-
 /**
- * @author Michael Koch
+ * @author Michael Koch (konqueror@gmx.de)
  * @since 1.4
  */
 public abstract class SocketChannel extends AbstractSelectableChannel
   implements ByteChannel, ScatteringByteChannel, GatheringByteChannel
 {
   /**
-   * Initializes this socket.
+   * Initializes this socket channel.
    */
   protected SocketChannel(SelectorProvider provider)
   {
@@ -63,6 +63,8 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Opens a socket channel.
    *
+   * @return the new <code>SocketChannel</code> object
+   * 
    * @exception IOException If an error occurs
    */
   public static SocketChannel open() throws IOException
@@ -73,6 +75,8 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Opens a channel and connects it to a remote address.
    *
+   * @return the new <code>SocketChannel</code> object
+   * 
    * @exception AsynchronousCloseException If this channel is already connected.
    * @exception ClosedByInterruptException If another thread interrupts the
    * current thread while the connect operation is in progress, thereby closing
@@ -96,6 +100,9 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Reads data from the channel.
    *
+   * @return the number of bytes read, zero is valid too, -1 if end of stream
+   * is reached
+   *
    * @exception IOException If an error occurs
    * @exception NotYetConnectedException If this channel is not yet connected.
    */
@@ -112,6 +119,8 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Writes data to the channel.
    *
+   * @return the number of bytes written, zero is valid too
+   * 
    * @exception IOException If an error occurs
    * @exception NotYetConnectedException If this channel is not yet connected.
    */
@@ -127,6 +136,8 @@ public abstract class SocketChannel extends AbstractSelectableChannel
 
   /**
    * Retrieves the valid operations for this channel.
+   *
+   * @return the valid operations
    */
   public final int validOps()
   {
@@ -137,6 +148,9 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Reads data from the channel.
    *
+   * @return the number of bytes read, zero is valid too, -1 if end of stream
+   * is reached
+   * 
    * @exception IOException If an error occurs
    * @exception NotYetConnectedException If this channel is not yet connected.
    */
@@ -145,6 +159,10 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Connects the channel's socket to the remote address.
    *
+   * @return <code>true</code> if the channel got successfully connected,
+   * <code>false</code> if the channel is in non-blocking mode and connection
+   * operation is still in progress.
+   * 
    * @exception AlreadyConnectedException If this channel is already connected.
    * @exception AsynchronousCloseException If this channel is already connected.
    * @exception ClosedByInterruptException If another thread interrupts the
@@ -191,6 +209,9 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Reads data from the channel.
    *
+   * @return the number of bytes read, zero is valid too, -1 if end of stream
+   * is reached
+   * 
    * @exception IOException If an error occurs
    * @exception NotYetConnectedException If this channel is not yet connected.
    */
@@ -199,12 +220,16 @@ public abstract class SocketChannel extends AbstractSelectableChannel
 
   /**
    * Retrieves the channel's socket.
+   *
+   * @return the socket
    */
   public abstract Socket socket();
 
   /**
    * Writes data to the channel.
    *
+   * @return the number of bytes written, zero is valid too
+   * 
    * @exception IOException If an error occurs
    * @exception NotYetConnectedException If this channel is not yet connected.
    */
@@ -213,6 +238,8 @@ public abstract class SocketChannel extends AbstractSelectableChannel
   /**
    * Writes data to the channel.
    *
+   * @return the number of bytes written, zero is valid too
+   * 
    * @exception IOException If an error occurs
    * @exception NotYetConnectedException If this channel is not yet connected.
    */

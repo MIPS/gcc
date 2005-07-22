@@ -1,5 +1,5 @@
 /* JSlider.java --
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -34,6 +34,7 @@ or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
+
 
 package javax.swing;
 
@@ -54,14 +55,11 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.plaf.SliderUI;
 
-
 /**
- * <p>
  * The JSlider is a Swing component that allows selection of a value within a
  * range by adjusting a thumb in a track. The values for the minimum,
  * maximum, extent and value are stored in a {@link
  * DefaultBoundedRangeModel}.
- * </p>
  * 
  * <p>
  * JSliders have the following properties:
@@ -114,7 +112,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
                                                    MenuContainer, Serializable
 {
   /** DOCUMENT ME! */
-  static final long serialVersionUID = -1441275936141218479L;
+  private static final long serialVersionUID = -1441275936141218479L;
 
   /**
    * DOCUMENT ME!
@@ -206,36 +204,6 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
     }
   }
 
-  /** Fired in a PropertyChangeEvent when the "inverted" property changes. */
-  public static final String INVERTED_CHANGED_PROPERTY = "inverted";
-
-  /** Fired in a PropertyChangeEvent when the "labelTable" property changes. */
-  public static final String LABEL_TABLE_CHANGED_PROPERTY = "labelTable";
-
-  /**
-   * Fired in a PropertyChangeEvent when the "majorTickSpacing" property
-   * changes.
-   */
-  public static final String MAJOR_TICK_SPACING_CHANGED_PROPERTY = "majorTickSpacing";
-
-  /**
-   * Fired in a PropertyChangeEvent when the "minorTickSpacing" property
-   * changes.
-   */
-  public static final String MINOR_TICK_SPACING_CHANGED_PROPERTY = "minorTickSpacing";
-
-  /** Fired in a PropertyChangeEvent when the "model" property changes. */
-  public static final String MODEL_CHANGED_PROPERTY = "model";
-
-  /** Fired in a PropertyChangeEvent when the "orientation" property changes. */
-  public static final String ORIENTATION_CHANGED_PROPERTY = "orientation";
-
-  /** Fired in a PropertyChangeEvent when the "paintLabels" property changes. */
-  public static final String PAINT_LABELS_CHANGED_PROPERTY = "paintLabels";
-
-  /** Fired in a PropertyChangeEvent when the "paintTicks" property changes. */
-  public static final String PAINT_TICKS_CHANGED_PROPERTY = "paintTicks";
-  
   /** Whether or not this slider paints its ticks. */
   private transient boolean paintTicks = false;
 
@@ -515,7 +483,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
 	sliderModel = model;
 	oldModel.removeChangeListener(changeListener);
 	sliderModel.addChangeListener(changeListener);
-	firePropertyChange(MODEL_CHANGED_PROPERTY, oldModel, sliderModel);
+	firePropertyChange("model", oldModel, sliderModel);
       }
   }
 
@@ -624,7 +592,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	int oldOrientation = this.orientation;
 	this.orientation = orientation;
-	firePropertyChange(ORIENTATION_CHANGED_PROPERTY, oldOrientation,
+	firePropertyChange("orientation", oldOrientation,
 	                   this.orientation);
       }
   }
@@ -650,7 +618,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	Dictionary oldTable = labelTable;
 	labelTable = table;
-	firePropertyChange(LABEL_TABLE_CHANGED_PROPERTY, oldTable, labelTable);
+	firePropertyChange("labelTable", oldTable, labelTable);
       }
   }
 
@@ -751,7 +719,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	boolean oldInverted = isInverted;
 	isInverted = inverted;
-	firePropertyChange(INVERTED_CHANGED_PROPERTY, oldInverted, isInverted);
+	firePropertyChange("inverted", oldInverted, isInverted);
       }
   }
 
@@ -777,7 +745,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	int oldSpacing = majorTickSpacing;
 	majorTickSpacing = spacing;
-	firePropertyChange(MAJOR_TICK_SPACING_CHANGED_PROPERTY, oldSpacing,
+	firePropertyChange("majorTickSpacing", oldSpacing,
 	                   majorTickSpacing);
       }
   }
@@ -804,7 +772,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	int oldSpacing = minorTickSpacing;
 	minorTickSpacing = spacing;
-	firePropertyChange(MINOR_TICK_SPACING_CHANGED_PROPERTY, oldSpacing,
+	firePropertyChange("minorTickSpacing", oldSpacing,
 	                   minorTickSpacing);
       }
   }
@@ -864,8 +832,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	boolean oldPaintTicks = paintTicks;
 	paintTicks = paint;
-	firePropertyChange(PAINT_TICKS_CHANGED_PROPERTY, oldPaintTicks,
-	                   paintTicks);
+	firePropertyChange("paintTicks", oldPaintTicks, paintTicks);
       }
   }
 
@@ -910,8 +877,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	boolean oldPaintLabels = paintLabels;
 	paintLabels = paint;
-	firePropertyChange(PAINT_LABELS_CHANGED_PROPERTY, oldPaintLabels,
-	                   paintLabels);
+	firePropertyChange("paintLabels", oldPaintLabels, paintLabels);
       }
   }
 

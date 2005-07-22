@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -123,7 +123,7 @@ public class PipedReader extends Reader
     * This stream is then ready for reading.  If this stream is already
     * connected or has been previously closed, then an exception is thrown
     *
-    * @param src The <code>PipedWriter</code> to connect this stream to
+    * @param source The <code>PipedWriter</code> to connect this stream to
     *
     * @exception IOException If this PipedReader or <code>source</code> 
     *                        has been connected already.
@@ -218,11 +218,7 @@ public class PipedReader extends Reader
     * because the end of the stream was reached.  If the stream is already
     * closed, a -1 will again be returned to indicate the end of the stream.
     * <p>
-    * This method will block if no chars are available to be read.
-    *
-    * @param buf The buffer into which chars will be stored
-    * @param offset The index into the buffer at which to start writing.
-    * @param len The maximum number of chars to read.
+    * This method will block if no char is available to be read.
     */
   public int read() throws IOException
   {
@@ -233,11 +229,7 @@ public class PipedReader extends Reader
     // if this method is never called.
 
     int r = read(read_buf, 0, 1);
-
-    if (r == -1)
-      return -1;
-    else
-      return read_buf[0];
+    return r != -1 ? read_buf[0] : -1;
   }
   
   /**

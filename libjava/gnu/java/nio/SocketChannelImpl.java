@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -182,7 +182,7 @@ public final class SocketChannelImpl extends SocketChannel
     // FIXME: Handle blocking/non-blocking mode.
 
     Selector selector = provider().openSelector();
-    register (selector, SelectionKey.OP_CONNECT);
+    register(selector, SelectionKey.OP_CONNECT);
 
     if (isBlocking())
       {
@@ -216,7 +216,7 @@ public final class SocketChannelImpl extends SocketChannel
     return socket;
   }
 
-  public int read (ByteBuffer dst) throws IOException
+  public int read(ByteBuffer dst) throws IOException
   {
     if (!isConnected())
       throw new NotYetConnectedException();
@@ -227,12 +227,9 @@ public final class SocketChannelImpl extends SocketChannel
     int available = input.available();
     int len = dst.capacity() - dst.position();
 	
-    if (available == 0)
+    if ((! isBlocking()) && available == 0)
       return 0;
     
-    if (len > available)
-      len = available;
-
     if (dst.hasArray())
       {
         offset = dst.arrayOffset() + dst.position();

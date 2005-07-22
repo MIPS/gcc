@@ -24,6 +24,9 @@ Boston, MA 02111-1307, USA.  */
 #include "fixlib.h"
 
 #include <sys/stat.h>
+#ifndef SEPARATE_FIX_PROC
+#include <sys/wait.h>
+#endif
 
 #if defined( HAVE_MMAP_FILE )
 #include <sys/mman.h>
@@ -451,7 +454,7 @@ run_compiles (void)
 {
   tFixDesc *p_fixd = fixDescList;
   int fix_ct = FIX_COUNT;
-  regex_t *p_re = xcalloc (REGEX_COUNT, sizeof (regex_t));
+  regex_t *p_re = XCNEWVEC (regex_t, REGEX_COUNT);
 
   /*  Make sure compile_re does not stumble across invalid data */
 
@@ -851,41 +854,43 @@ fix_with_system (tFixDesc* p_fixd,
   char*  pz_cmd;
   char*  pz_scan;
   size_t argsize;
-  int i;
-  tSCC *z_applyfix_prog[2] = {
-    "/../fixincludes/applyfix" EXE_EXT,
-    "/../../fixincludes/applyfix" EXE_EXT };
 
   if (p_fixd->fd_flags & FD_SUBROUTINE)
-    for (i = 0; i < 2; i++)
-      { 
-	struct stat buf;
+    {
+      static const char z_applyfix_prog[] =
+	"/../fixincludes/applyfix" EXE_EXT;
 
-        argsize = 32
-                + strlen( pz_orig_dir )
-                + sizeof( z_applyfix_prog )
-                + strlen( pz_fix_file )
-                + strlen( pz_file_source )
-                + strlen( pz_temp_file );
+      struct stat buf;
+      argsize = 32
+              + strlen (pz_orig_dir)
+              + sizeof (z_applyfix_prog)
+              + strlen (pz_fix_file)
+              + strlen (pz_file_source)
+              + strlen (pz_temp_file);
 
-        pz_cmd = xmalloc (argsize);
+      /* Allocate something sure to be big enough for our purposes */
+      pz_cmd = XNEWVEC (char, argsize);
+      strcpy (pz_cmd, pz_orig_dir);
+      pz_scan = pz_cmd + strlen (pz_orig_dir);
 
-        strcpy( pz_cmd, pz_orig_dir );
-        pz_scan = pz_cmd + strlen( pz_orig_dir );
-        strcpy( pz_scan, z_applyfix_prog );
-        pz_scan += sizeof( z_applyfix_prog ) - 1;
+      strcpy (pz_scan, z_applyfix_prog);
 
-	if (stat (pz_scan, &buf) != -1)
-	  {
-            *(pz_scan++) = ' ';
-            /*
-             *  Now add the fix number and file names that may be needed
-             */
-            sprintf (pz_scan, "%ld \'%s\' \'%s\' \'%s\'", p_fixd - fixDescList,
-	             pz_fix_file, pz_file_source, pz_temp_file);
-	    break;
-	  }
-      }
+      /* IF we can't find the "applyfix" executable file at the first guess,
+	 try one level higher up  */
+      if (stat (pz_cmd, &buf) == -1)
+	{
+	  strcpy (pz_scan, "/..");
+	  strcpy (pz_scan+3, z_applyfix_prog);
+	}
+
+      pz_scan += strlen (pz_scan);
+
+      /*
+       *  Now add the fix number and file names that may be needed
+       */
+      sprintf (pz_scan, " %ld '%s' '%s' '%s'", p_fixd - fixDescList,
+	       pz_fix_file, pz_file_source, pz_temp_file);
+    }
   else /* NOT an "internal" fix: */
     {
       size_t parg_size;
@@ -902,7 +907,7 @@ fix_with_system (tFixDesc* p_fixd,
          the following bizarre use of 'cat' only works on DOS boxes.
          It causes the file to be dropped into a temporary file for
          'cat' to read (pipes do not work on DOS).  */
-      tSCC   z_cmd_fmt[] = " \'%s\' | cat > \'%s\'";
+      tSCC   z_cmd_fmt[] = " '%s' | cat > '%s'";
 #else
       /* Don't use positional formatting arguments because some lame-o
          implementations cannot cope  :-(.  */
@@ -931,7 +936,7 @@ fix_with_system (tFixDesc* p_fixd,
         }
 
       /* Estimated buffer size we will need.  */
-      pz_scan = pz_cmd = xmalloc (argsize);
+      pz_scan = pz_cmd = XNEWVEC (char, argsize);
       /* How much of it do we allot to the program name and its
          arguments.  */
       parg_size = argsize - parg_size;
@@ -1018,7 +1023,7 @@ start_fixer (int read_fd, tFixDesc* p_fixd, char* pz_fix_file)
   else
     {
       tSCC z_cmd_fmt[] = "file='%s'\n%s";
-      pz_cmd = xmalloc (strlen (p_fixd->patch_args[2])
+      pz_cmd = XNEWVEC (char, strlen (p_fixd->patch_args[2])
 			+ sizeof (z_cmd_fmt) + strlen (pz_fix_file));
       sprintf (pz_cmd, z_cmd_fmt, pz_fix_file, p_fixd->patch_args[2]);
       pz_cmd_save = p_fixd->patch_args[2];

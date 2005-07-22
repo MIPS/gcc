@@ -1,5 +1,5 @@
 /* Toolkit.java -- AWT Toolkit superclass
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -53,8 +53,8 @@ import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
 import java.awt.peer.ButtonPeer;
 import java.awt.peer.CanvasPeer;
-import java.awt.peer.CheckboxPeer;
 import java.awt.peer.CheckboxMenuItemPeer;
+import java.awt.peer.CheckboxPeer;
 import java.awt.peer.ChoicePeer;
 import java.awt.peer.DialogPeer;
 import java.awt.peer.FileDialogPeer;
@@ -63,13 +63,13 @@ import java.awt.peer.FramePeer;
 import java.awt.peer.LabelPeer;
 import java.awt.peer.LightweightPeer;
 import java.awt.peer.ListPeer;
-import java.awt.peer.MenuPeer;
 import java.awt.peer.MenuBarPeer;
 import java.awt.peer.MenuItemPeer;
+import java.awt.peer.MenuPeer;
 import java.awt.peer.PanelPeer;
 import java.awt.peer.PopupMenuPeer;
-import java.awt.peer.ScrollbarPeer;
 import java.awt.peer.ScrollPanePeer;
+import java.awt.peer.ScrollbarPeer;
 import java.awt.peer.TextAreaPeer;
 import java.awt.peer.TextFieldPeer;
 import java.awt.peer.WindowPeer;
@@ -91,7 +91,7 @@ import java.util.Properties;
  * toolkit <code>gnu.java.awt.peer.gtk.GtkToolkit</code> is used.  This
  * toolkit creates its peers using the GTK+ toolkit.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  */
 public abstract class Toolkit
 {
@@ -371,8 +371,8 @@ public abstract class Toolkit
    * should override this method and provide real system colors for the
    * native GUI platform.
    *
-   * @param colors The array to copy the system colors into.
-   *               It must be at least 26 elements.
+   * @param systemColors The array to copy the system colors into.
+   * It must be at least 26 elements.
    *
    * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    *
@@ -525,6 +525,10 @@ public abstract class Toolkit
                              "java.awt.Toolkit");
         toolkit = (Toolkit) obj;
         return toolkit;
+      }
+    catch (ThreadDeath death)
+      {
+        throw death;
       }
     catch (Throwable t)
       {

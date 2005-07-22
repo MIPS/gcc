@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -74,7 +74,7 @@ public class Timer
   private static final class TaskQueue
   {
     /** Default size of this queue */
-    private final int DEFAULT_SIZE = 32;
+    private static final int DEFAULT_SIZE = 32;
 
     /** Whether to return null when there is nothing in the queue */
     private boolean nullOnEmpty;
@@ -343,9 +343,16 @@ public class Timer
 		{
 		  task.run();
 		}
+              catch (ThreadDeath death)
+                {
+                  // If an exception escapes, the Timer becomes invalid.
+                  queue.stop();
+                  throw death;
+                }
 	      catch (Throwable t)
-		{		
-		  /* ignore all errors */
+		{
+		  // If an exception escapes, the Timer becomes invalid.
+                  queue.stop();
 		}
 	    }
 

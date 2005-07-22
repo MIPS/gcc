@@ -1,5 +1,5 @@
 /* GtkLabelPeer.java -- Implements LabelPeer with GTK
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,8 +38,6 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.Component;
-import java.awt.Font;
 import java.awt.Label;
 import java.awt.peer.LabelPeer;
 
@@ -47,10 +45,11 @@ public class GtkLabelPeer extends GtkComponentPeer
     implements LabelPeer
 {
   native void create (String text, float alignment);
-  native void gtkSetFont (String name, int style, int size);
+  native void gtkWidgetModifyFont (String name, int style, int size);
   native void nativeSetAlignment (float alignment);
 
-  native public void setText (String text);
+  public native void setText(String text);
+  native void setNativeBounds (int x, int y, int width, int height);
 
   void create ()
   {

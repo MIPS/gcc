@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,9 +35,9 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dialog;
@@ -45,13 +45,12 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
-import java.awt.LayoutManager;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowEvent;
 import java.awt.IllegalComponentStateException;
+import java.awt.LayoutManager;
+import java.awt.event.WindowEvent;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
-
 
 /**
  * Unlike JComponent derivatives, JDialog inherits from java.awt.Dialog. But
@@ -77,7 +76,7 @@ public class JDialog extends Dialog implements Accessible, WindowConstants,
   private int close_action = HIDE_ON_CLOSE;
   
   /** Whether JDialogs are decorated by the Look and Feel. */
-  private static boolean decorated = false;
+  private static boolean decorated;
 
   /**
    * Creates a new non-modal JDialog with no title 

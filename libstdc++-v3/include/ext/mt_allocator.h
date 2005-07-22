@@ -1,6 +1,6 @@
 // MT-optimized allocator -*- C++ -*-
 
-// Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,7 +29,6 @@
 
 /** @file ext/mt_allocator.h
  *  This file is a GNU extension to the Standard C++ Library.
- *  You should only include this header if you are using GCC 3 or later.
  */
 
 #ifndef _MT_ALLOCATOR_H
@@ -495,14 +494,25 @@ namespace __gnu_cxx
       _S_get_pool()
       { 
 	// Sane defaults for the _PoolTp.
-	const static size_t __align = __alignof__(_Tp) >= sizeof(typename pool_type::_Block_record) ? __alignof__(_Tp) : sizeof(typename pool_type::_Block_record);
-	static __pool_base::_Tune _S_tune(__align, sizeof(_Tp) * 128, (sizeof(_Tp) * 2) >= __align ? sizeof(_Tp) * 2 : __align, __pool_base::_Tune::_S_chunk_size, __pool_base::_Tune::_S_max_threads, __pool_base::_Tune::_S_freelist_headroom, getenv("GLIBCXX_FORCE_NEW") ? true : false);
+	typedef typename pool_type::_Block_record _Block_record;
+	const static size_t __align = (__alignof__(_Tp) >= sizeof(_Block_record)
+				       ? __alignof__(_Tp)
+				       : sizeof(_Block_record));
+
+	typedef typename __pool_base::_Tune _Tune;
+	static _Tune _S_tune(__align, sizeof(_Tp) * 64,
+			     sizeof(_Tp) * 2 >= __align ? sizeof(_Tp) * 2
+			                                : __align,
+			     sizeof(_Tp) * size_t(_Tune::_S_chunk_size),
+			     _Tune::_S_max_threads,
+			     _Tune::_S_freelist_headroom,
+			     getenv("GLIBCXX_FORCE_NEW") ? true : false);
 	static pool_type _S_pool(_S_tune);
 	return _S_pool;
       }
 
       static void
-      _S_initialize_once() 
+      _S_initialize_once()
       { 
 	static bool __init;
 	if (__builtin_expect(__init == false, false))
@@ -530,14 +540,25 @@ namespace __gnu_cxx
       _S_get_pool()
       { 
 	// Sane defaults for the _PoolTp.
-	const static size_t __align = __alignof__(_Tp) >= sizeof(typename pool_type::_Block_record) ? __alignof__(_Tp) : sizeof(typename pool_type::_Block_record);
-	static __pool_base::_Tune _S_tune(__align, sizeof(_Tp) * 128, (sizeof(_Tp) * 2) >= __align ? sizeof(_Tp) * 2 : __align, __pool_base::_Tune::_S_chunk_size, __pool_base::_Tune::_S_max_threads, __pool_base::_Tune::_S_freelist_headroom, getenv("GLIBCXX_FORCE_NEW") ? true : false);
+	typedef typename pool_type::_Block_record _Block_record;
+	const static size_t __align = (__alignof__(_Tp) >= sizeof(_Block_record)
+				       ? __alignof__(_Tp)
+				       : sizeof(_Block_record));
+
+	typedef typename __pool_base::_Tune _Tune;
+	static _Tune _S_tune(__align, sizeof(_Tp) * 64,
+			     sizeof(_Tp) * 2 >= __align ? sizeof(_Tp) * 2
+                                                        : __align,
+			     sizeof(_Tp) * size_t(_Tune::_S_chunk_size),
+			     _Tune::_S_max_threads,
+			     _Tune::_S_freelist_headroom,
+			     getenv("GLIBCXX_FORCE_NEW") ? true : false);
 	static pool_type _S_pool(_S_tune);
 	return _S_pool;
       }
 
       static void
-      _S_initialize_once() 
+      _S_initialize_once()
       { 
 	static bool __init;
 	if (__builtin_expect(__init == false, false))

@@ -320,4 +320,20 @@ typedef uLong FAR uLongf;
 #   pragma map(inflate_copyright,"INCOPY")
 #endif
 
+/* Solaris 2.5.1 doesn't have vsnprintf */
+#if defined(__sun) && defined(__svr4__)
+#include <sys/feature_tests.h>
+#if _XOPEN_VERSION < 3
+#define NO_vsnprintf
+#endif
+#endif
+
+/* Tru64 UNIX V4.0 neither */
+#if defined(__alpha) && defined(__osf__)
+#include <unistd.h>
+#if _XOPEN_VERSION < 500
+#define NO_vsnprintf
+#endif
+#endif
+
 #endif /* ZCONF_H */

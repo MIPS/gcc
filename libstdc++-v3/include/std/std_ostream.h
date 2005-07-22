@@ -33,8 +33,7 @@
 //
 
 /** @file ostream
- *  This is a Standard C++ Library header.  You should @c #include this header
- *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
+ *  This is a Standard C++ Library header.
  */
 
 #ifndef _GLIBCXX_OSTREAM
@@ -176,9 +175,9 @@ namespace std
       __ostream_type& 
       operator<<(short __n)
       { 
-	ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
-	if (__fmt & ios_base::oct || __fmt & ios_base::hex)
-	  return this->operator<<(static_cast<unsigned long>
+	const ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
+	if (__fmt == ios_base::oct || __fmt == ios_base::hex)
+	  return this->operator<<(static_cast<long>
 				  (static_cast<unsigned short>(__n)));
 	else
 	  return this->operator<<(static_cast<long>(__n));
@@ -191,9 +190,9 @@ namespace std
       __ostream_type& 
       operator<<(int __n)
       { 
-	ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
-	if (__fmt & ios_base::oct || __fmt & ios_base::hex)
-	  return this->operator<<(static_cast<unsigned long>
+	const ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
+	if (__fmt == ios_base::oct || __fmt == ios_base::hex)
+	  return this->operator<<(static_cast<long>
 				  (static_cast<unsigned int>(__n)));
 	else
 	  return this->operator<<(static_cast<long>(__n));

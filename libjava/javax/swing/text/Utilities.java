@@ -1,5 +1,5 @@
 /* Utilities.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -45,7 +45,7 @@ import java.awt.Graphics;
  * A set of utilities to deal with text. This is used by several other classes
  * inside this package.
  *
- * @author Roman Kennke <roman@ontographics.com>
+ * @author Roman Kennke (roman@ontographics.com)
  */
 public class Utilities
 {
@@ -91,13 +91,29 @@ public class Utilities
     FontMetrics metrics = g.getFontMetrics();
     int ascent = metrics.getAscent();
 
+    int pixelWidth = 0;
+    int pos = s.offset;
+    int len = 0;
+
     for (int offset = s.offset; offset < (s.offset + s.count); ++offset)
       {
-	switch (buffer[offset])
+        char c = buffer[offset];
+        if (c == '\t' || c == '\n')
+          {
+            if (len > 0) {
+              g.drawChars(buffer, pos, len, pixelX, pixelY + ascent);            
+              pixelX += pixelWidth;
+              pixelWidth = 0;
+            }
+            pos = offset+1;
+            len = 0;
+          }
+        
+	switch (c)
 	  {
 	  case '\t':
 	    // In case we have a tab, we just 'jump' over the tab.
-	    // When we have no tab expander we just use the width of 'm'.
+	    // When we have no tab expander we just use the width of ' '.
 	    if (e != null)
 	      pixelX = (int) e.nextTabStop((float) pixelX,
 					   startOffset + offset - s.offset);
@@ -105,20 +121,20 @@ public class Utilities
 	      pixelX += metrics.charWidth(' ');
 	    break;
 	  case '\n':
-	    // In case we have a newline, we must draw
-	    // the buffer and jump on the next line.
-	    g.drawChars(buffer, offset, 1, pixelX, y);
+	    // In case we have a newline, we must jump to the next line.
 	    pixelY += metrics.getHeight();
 	    pixelX = x;
 	    break;
 	  default:
-	    // Here we draw the char.
-	    g.drawChars(buffer, offset, 1, pixelX, pixelY + ascent);
-	    pixelX += metrics.charWidth(buffer[offset]);
+            ++len;
+	    pixelWidth += metrics.charWidth(buffer[offset]);
 	    break;
 	  }
       }
 
+    if (len > 0)
+      g.drawChars(buffer, pos, len, pixelX, pixelY + ascent);            
+    
     return pixelX;
   }
 

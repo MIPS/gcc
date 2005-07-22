@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -48,6 +48,9 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.Vector;
 
 /**
@@ -66,7 +69,10 @@ import java.util.Vector;
  **/
 
 public class BeanInfoEmbryo {
-	Hashtable properties = new Hashtable();
+
+	// by using a TreeMap the properties will be sorted alphabetically by name
+	// which matches the (undocumented) behavior of jdk
+	TreeMap properties = new TreeMap();
 	Hashtable events = new Hashtable();
 	Vector methods = new Vector();
 
@@ -85,9 +91,9 @@ public class BeanInfoEmbryo {
 
 		PropertyDescriptor[] Aproperties = new PropertyDescriptor[properties.size()];
 		int i = 0;
-		Enumeration e = properties.elements();
-		while (e.hasMoreElements()) {
-			Aproperties[i] = (PropertyDescriptor) e.nextElement();
+		Iterator it = properties.entrySet().iterator();
+		while (it.hasNext()) {
+			Aproperties[i] = (PropertyDescriptor) (((Map.Entry)it.next()).getValue());
 			if(defaultPropertyName != null && Aproperties[i].getName().equals(defaultPropertyName)) {
 				defaultProperty = i;
 			}
@@ -96,7 +102,7 @@ public class BeanInfoEmbryo {
 
 		EventSetDescriptor[] Aevents = new EventSetDescriptor[events.size()];
 		i = 0;
-		e = events.elements();
+		Enumeration e = events.elements();
 		while (e.hasMoreElements()) {
 			Aevents[i] = (EventSetDescriptor) e.nextElement();
 			if(defaultEventName != null && Aevents[i].getName().equals(defaultEventName)) {

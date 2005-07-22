@@ -132,12 +132,6 @@ AC_SUBST(build_libmudflapth)
 
 AC_CHECK_LIB(dl, dlsym)
 
-# Process the option "--enable-version-specific-runtime-libs"
-gcc_version_trigger=${srcdir}/../gcc/version.c
-gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-AC_SUBST(gcc_version)
-
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
 case ${version_specific_libs} in
@@ -146,7 +140,7 @@ case ${version_specific_libs} in
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
     toolexecdir='$(libdir)/gcc/$(target_alias)'
-    toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
+    toolexeclibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
     ;;
   no)
     if test -n "$with_cross_host" &&
@@ -235,5 +229,5 @@ else
   multilib_arg=
 fi
 
-AC_CONFIG_FILES([Makefile testsuite/Makefile testsuite/mfconfig.exp mf-runtime.h])
+AC_CONFIG_FILES([Makefile testsuite/Makefile testsuite/mfconfig.exp])
 AC_OUTPUT

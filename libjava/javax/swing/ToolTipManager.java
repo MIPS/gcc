@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -37,28 +37,19 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.Panel;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.event.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
-import javax.swing.JComponent;
-import javax.swing.Popup;
-import javax.swing.PopupFactory;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
-
 
 /**
  * This class is responsible for the registration of JToolTips to Components
@@ -461,7 +452,13 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   {
     currentPoint = event.getPoint();
     if (currentTip != null)
-      currentTip.setTipText(((JComponent) currentComponent).getToolTipText(event));
+      {
+	if (currentComponent == null)
+	  currentComponent = (Component) event.getSource();
+	
+	String text = ((JComponent) currentComponent).getToolTipText(event);
+	currentTip.setTipText(text);
+      }
     if (enterTimer.isRunning())
       enterTimer.restart();
   }
@@ -469,11 +466,11 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   /**
    * This method displays the ToolTip. It can figure out the method needed to
    * show it as well (whether to display it in heavyweight/lightweight panel
-   * or a window.)
+   * or a window.)  This is package-private to avoid an accessor method.
    */
-  private void showTip()
+  void showTip()
   {
-    if (! enabled)
+    if (! enabled || currentComponent == null)
       return;
 
     if (currentTip == null
@@ -538,8 +535,9 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
 
   /**
    * This method hides the ToolTip.
+   * This is package-private to avoid an accessor method.
    */
-  private void hideTip()
+  void hideTip()
   {
     if (currentTip == null || ! currentTip.isVisible() || ! enabled)
       return;

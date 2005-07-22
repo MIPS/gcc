@@ -1,4 +1,4 @@
-/* BasicPanelUI.java
+/* BasicPanelUI.java --
    Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -40,26 +40,26 @@ package javax.swing.plaf.basic;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+
 import javax.swing.JComponent;
 import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.RootPaneUI;
 
-
 public class BasicRootPaneUI extends RootPaneUI
   implements PropertyChangeListener
 {
-    public static ComponentUI createUI(JComponent x) 
-    {
-        return new BasicRootPaneUI();
-    }
+  public static ComponentUI createUI(JComponent x) 
+  {
+    return new BasicRootPaneUI();
+  }
 
-    public void installUI(JComponent c)
-    {
-      c.setOpaque(true);
+  public void installUI(JComponent c)
+  {
+    c.setOpaque(true);
     c.setBackground(UIManager.getColor("control"));
-      super.installUI(c);
-    }
+    super.installUI(c);
+  }
 
   public void propertyChange(PropertyChangeEvent event)
   {

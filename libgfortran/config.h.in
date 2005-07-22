@@ -6,8 +6,14 @@
 /* libm includes acosf */
 #undef HAVE_ACOSF
 
+/* libm includes acoshf */
+#undef HAVE_ACOSHF
+
 /* libm includes asinf */
 #undef HAVE_ASINF
+
+/* libm includes asinhf */
+#undef HAVE_ASINHF
 
 /* libm includes atan2f */
 #undef HAVE_ATAN2F
@@ -15,8 +21,26 @@
 /* libm includes atanf */
 #undef HAVE_ATANF
 
+/* libm includes atanhf */
+#undef HAVE_ATANHF
+
+/* Define to 1 if the target supports __attribute__((alias(...))). */
+#undef HAVE_ATTRIBUTE_ALIAS
+
+/* Define to 1 if the target supports __attribute__((dllexport)). */
+#undef HAVE_ATTRIBUTE_DLLEXPORT
+
+/* Define to 1 if the target supports __attribute__((visibility(...))). */
+#undef HAVE_ATTRIBUTE_VISIBILITY
+
 /* libm includes ceilf */
 #undef HAVE_CEILF
+
+/* Define to 1 if you have the `chdir' function. */
+#undef HAVE_CHDIR
+
+/* Define to 1 if you have the `chsize' function. */
+#undef HAVE_CHSIZE
 
 /* complex.h exists */
 #undef HAVE_COMPLEX_H
@@ -45,14 +69,29 @@
 /* libm includes expf */
 #undef HAVE_EXPF
 
+/* libm includes fabsf */
+#undef HAVE_FABSF
+
+/* libm includes finite */
+#undef HAVE_FINITE
+
 /* libm includes floorf */
 #undef HAVE_FLOORF
 
 /* libm includes frexpf */
 #undef HAVE_FREXPF
 
+/* Define to 1 if you have the `ftruncate' function. */
+#undef HAVE_FTRUNCATE
+
 /* libc includes getgid */
 #undef HAVE_GETGID
+
+/* Define to 1 if you have the `gethostname' function. */
+#undef HAVE_GETHOSTNAME
+
+/* Define to 1 if you have the `getlogin' function. */
+#undef HAVE_GETLOGIN
 
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
@@ -71,6 +110,9 @@
 
 /* libm includes hypotf */
 #undef HAVE_HYPOTF
+
+/* Define to 1 if you have the <ieeefp.h> header file. */
+#undef HAVE_IEEEFP_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -93,8 +135,17 @@
 /* libm includes jnf */
 #undef HAVE_JNF
 
+/* Define to 1 if you have the `kill' function. */
+#undef HAVE_KILL
+
+/* Define to 1 if you have the `link' function. */
+#undef HAVE_LINK
+
 /* libm includes log10f */
 #undef HAVE_LOG10F
+
+/* libm includes log10l */
+#undef HAVE_LOG10L
 
 /* libm includes logf */
 #undef HAVE_LOGF
@@ -117,6 +168,9 @@
 /* libm includes nextafterf */
 #undef HAVE_NEXTAFTERF
 
+/* Define to 1 if you have the `perror' function. */
+#undef HAVE_PERROR
+
 /* libm includes powf */
 #undef HAVE_POWF
 
@@ -126,14 +180,26 @@
 /* libm includes roundf */
 #undef HAVE_ROUNDF
 
+/* libm includes scalbn */
+#undef HAVE_SCALBN
+
 /* libm includes scalbnf */
 #undef HAVE_SCALBNF
+
+/* Define to 1 if you have the <signal.h> header file. */
+#undef HAVE_SIGNAL_H
 
 /* libm includes sinf */
 #undef HAVE_SINF
 
 /* libm includes sinhf */
 #undef HAVE_SINHF
+
+/* Define to 1 if you have the `sleep' function. */
+#undef HAVE_SLEEP
+
+/* Define to 1 if you have the `snprintf' function. */
+#undef HAVE_SNPRINTF
 
 /* libm includes sqrtf */
 #undef HAVE_SQRTF
@@ -150,6 +216,9 @@
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
 
+/* Define to 1 if you have the `strerror' function. */
+#undef HAVE_STRERROR
+
 /* Define to 1 if you have the <strings.h> header file. */
 #undef HAVE_STRINGS_H
 
@@ -158,6 +227,21 @@
 
 /* Define to 1 if you have the `strtof' function. */
 #undef HAVE_STRTOF
+
+/* Define to 1 if you have the `strtold' function. */
+#undef HAVE_STRTOLD
+
+/* Define to 1 if `st_blksize' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_BLKSIZE
+
+/* Define to 1 if `st_blocks' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_BLOCKS
+
+/* Define to 1 if `st_rdev' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_RDEV
+
+/* Define to 1 if you have the `symlink' function. */
+#undef HAVE_SYMLINK
 
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
@@ -186,6 +270,9 @@
 /* libm includes tanhf */
 #undef HAVE_TANHF
 
+/* Define to 1 if you have the `time' function. */
+#undef HAVE_TIME
+
 /* Define to 1 if you have the `times' function. */
 #undef HAVE_TIMES
 
@@ -194,6 +281,12 @@
 
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
+
+/* libm includes trunc */
+#undef HAVE_TRUNC
+
+/* libm includes truncf */
+#undef HAVE_TRUNCF
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
@@ -233,6 +326,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Define to 1 if the target is ILP32. */
+#undef TARGET_ILP32
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME

@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -129,21 +129,21 @@ public class PipedOutputStream extends OutputStream
     * <code>PipedInputStream</code> to which this object is connected has
     * a buffer that cannot hold all of the bytes to be written.
     *
-    * @param buf The array containing bytes to write to the stream.
+    * @param buffer The array containing bytes to write to the stream.
     * @param offset The index into the array to start writing bytes from.
     * @param len The number of bytes to write.
     *
     * @exception IOException If the stream has not been connected or has
     *                        been closed.
     */
-  public void write(byte[] b, int off, int len) throws IOException
+  public void write(byte[] buffer, int offset, int len) throws IOException
   {
     if (sink == null)
       throw new IOException ("Not connected");
     if (closed)
       throw new IOException ("Pipe closed");
       
-    sink.receive (b, off, len);
+    sink.receive(buffer, offset, len);
   }
 
   /**

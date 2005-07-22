@@ -1,5 +1,5 @@
-/* Handler.java -- HTTP protocol handler for java.net
-   Copyright (c) 1998, 1999, 2003 Free Software Foundation, Inc.
+/* Handler.java --
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
-
+ 
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.net.protocol.http;
 
 import java.io.IOException;
@@ -43,44 +44,30 @@ import java.net.URLConnection;
 import java.net.URLStreamHandler;
 
 /**
- * This is the protocol handler for the HTTP protocol.  It implements
- * the abstract openConnection() method from URLStreamHandler by returning
- * a new HttpURLConnection object (from this package).  All other 
- * methods are inherited
+ * An HTTP URL stream handler.
  *
- * @author Aaron M. Renn (arenn@urbanophile.com)
- * @author Warren Levy
- * @author Anthony Green <green@redhat.com>
+ * @author Chris Burdess (dog@gnu.org)
  */
-public class Handler extends URLStreamHandler
+public class Handler
+  extends URLStreamHandler
 {
-  /**
-   * A do nothing constructor
-   */
-  public Handler()
-  {
-  }
 
   /**
-   * This method returs a new HttpURLConnection for the specified URL
-   *
-   * @param url The URL to return a connection for
-   *
-   * @return The URLConnection
-   *
-   * @exception IOException If an error occurs
-   */
-  protected URLConnection openConnection (URL url) throws IOException
-  {
-    return new Connection (url);
-  }
-
-  /**
-   * Returns the default port for a URL parsed by this handler.
+   * Returns the default HTTP port (80).
    */
   protected int getDefaultPort()
   {
-    return 80;
+    return HTTPConnection.HTTP_PORT;
   }
 
-} // class Handler
+  /**
+   * Returns an HTTPURLConnection for the given URL.
+   */
+  public URLConnection openConnection(URL url)
+    throws IOException
+  {
+    return new HTTPURLConnection(url);
+  }
+
+}
+

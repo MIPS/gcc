@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.event.ActionEvent;
@@ -44,10 +45,10 @@ import java.awt.event.ItemListener;
 import java.awt.event.KeyEvent;
 import java.io.Serializable;
 import java.util.EventListener;
+
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.EventListenerList;
-
 
 /**
  * The purpose of this class is to model the dynamic state of an abstract
@@ -70,7 +71,7 @@ import javax.swing.event.EventListenerList;
 public class DefaultButtonModel implements ButtonModel, Serializable
 {
   /** DOCUMENT ME! */
-  static final long serialVersionUID = -5342609566534980231L;
+  private static final long serialVersionUID = -5342609566534980231L;
 
   /**
    * Indicates that the button is <em>partially</em> committed to being
@@ -271,7 +272,7 @@ public class DefaultButtonModel implements ButtonModel, Serializable
    *
    * @param e The ItemEvent to fire
    */
-  public void fireItemStateChanged(ItemEvent e)
+  protected void fireItemStateChanged(ItemEvent e)
   {
     ItemListener[] ll = getItemListeners();
 
@@ -287,7 +288,7 @@ public class DefaultButtonModel implements ButtonModel, Serializable
    *
    * @param e The ActionEvent to fire
    */
-  public void fireActionPerformed(ActionEvent e)
+  protected void fireActionPerformed(ActionEvent e)
   {
     ActionListener[] ll = getActionListeners();
 
@@ -300,7 +301,7 @@ public class DefaultButtonModel implements ButtonModel, Serializable
    * has occurred. This happens in response to the any change to a property
    * of the model.
    */
-  public void fireStateChanged()
+  protected void fireStateChanged()
   {
     ChangeListener[] ll = getChangeListeners();
 
@@ -314,7 +315,7 @@ public class DefaultButtonModel implements ButtonModel, Serializable
    * @param stateflag DOCUMENT ME!
    * @param b DOCUMENT ME!
    */
-  protected void changeState(int stateflag, boolean b)
+  private void changeState(int stateflag, boolean b)
   {
     int oldstate = stateMask;
     int newstate;

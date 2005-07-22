@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -41,11 +41,12 @@ exception statement from your version. */
 #include <libart_lgpl/art_rgb_affine.h>
 
 
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkImagePainter_drawPixels
-(JNIEnv *env, jobject obj __attribute__((unused)), jobject gc_obj,
- jint bg_red, jint bg_green, jint bg_blue, jint x, jint y, jint width,
- jint height, jintArray jpixels, jint offset, jint scansize,
- jdoubleArray jaffine)
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkImagePainter_drawPixels
+  (JNIEnv *env, jobject obj __attribute__((unused)), jobject gc_obj,
+   jint bg_red, jint bg_green, jint bg_blue, jint x, jint y, jint width,
+   jint height, jintArray jpixels, jint offset, jint scansize,
+   jdoubleArray jaffine)
 {
   struct graphics *g;
   jint *pixels, *elems;
@@ -146,6 +147,12 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkImagePainter_drawPixels
     }
 
   gdk_threads_enter ();
+
+  if (!g || !GDK_IS_DRAWABLE (g->drawable))
+    {
+      gdk_threads_leave ();
+      return;
+    }
 
   gdk_draw_rgb_image (g->drawable,
 		      g->gc,

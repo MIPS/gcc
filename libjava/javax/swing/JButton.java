@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -53,90 +53,90 @@ public class JButton extends AbstractButton
   private static final long serialVersionUID = -1907255238954382202L;
   boolean def;
   boolean is_def;
-    
-    public JButton()
-    {
-	this(null, null);
-    }
 
-    public JButton(Action a)
-    {
-	this();
-	setAction(a);
-    }
+  public JButton()
+  {
+    this(null, null);
+  }
 
-    public JButton(Icon icon)
-    { 
-	this(null, icon);
-    }    
-  
-    public JButton(String text)
-    {
-	this(text, null);
-    }
-      
-    public JButton(String text, Icon icon)
-    {
-	super(text, icon);
-    }
+  public JButton(Action a)
+  {
+    this();
+    setAction(a);
+  }
 
-    public Object[] getSelectedObjects()
-    {
-	return null;
-    }
-  
-    protected  void configurePropertiesFromAction(Action a)
-    {
-	//Factory method which sets the AbstractButton's properties according to values from the Action instance. 
-	super.configurePropertiesFromAction(a);
-    }
-    
-    public AccessibleContext getAccessibleContext()
-    {
-	//Gets the AccessibleContext associated with this JButton. 
-	return null;
-    }
-  
-    public String getUIClassID()
-    {
+  public JButton(Icon icon)
+  {
+    this(null, icon);
+  }
+
+  public JButton(String text)
+  {
+    this(text, null);
+  }
+
+  public JButton(String text, Icon icon)
+  {
+    super(text, icon);
+  }
+
+  public Object[] getSelectedObjects()
+  {
+    return null;
+  }
+
+  protected void configurePropertiesFromAction(Action a)
+  {
+    //Factory method which sets the AbstractButton's properties according to values from the Action instance. 
+    super.configurePropertiesFromAction(a);
+  }
+
+  public AccessibleContext getAccessibleContext()
+  {
+    //Gets the AccessibleContext associated with this JButton. 
+    return null;
+  }
+
+  public String getUIClassID()
+  {
     //Returns a string that specifies the name of the L&F class that renders this component.  
-	return "ButtonUI";
-    }
-  
-    public boolean isDefaultButton()
-    {
-	//Returns whether or not this button is the default button on the RootPane.  
-	return is_def;
-    }
-  
-    public boolean isDefaultCapable()
-    {
-	//Returns whether or not this button is capable of being the default button on the RootPane. 
-	return def;
-    }
+    return "ButtonUI";
+  }
 
-    protected  String paramString()
-    {
-	return "JButton";
-    }
-    
+  public boolean isDefaultButton()
+  {
+    //Returns whether or not this button is the default button on the RootPane.  
+    return is_def;
+  }
+
+  public boolean isDefaultCapable()
+  {
+    //Returns whether or not this button is capable of being the default button on the RootPane. 
+    return def;
+  }
+
+  protected String paramString()
+  {
+    return "JButton";
+  }
+
   /**
    * Overrides JComponent.removeNotify to check if this button is currently
    * set as the default button on the RootPane, and if so, sets the RootPane's
    * default button to null to ensure the RootPane doesn't hold onto an invalid
    * button reference.
    */
-    public void removeNotify()
-    {
-    }
-    
-    public void setDefaultCapable(boolean defaultCapable)
+  public void removeNotify()
+  {
+  }
+
+  public void setDefaultCapable(boolean defaultCapable)
   {
     def = defaultCapable;
   }
-    
-    public void updateUI()
-    {
+
+  public void updateUI()
+  {
     setUI((ButtonUI) UIManager.getUI(this));
-    }
+  }
 }

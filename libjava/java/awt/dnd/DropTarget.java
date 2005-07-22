@@ -1,5 +1,5 @@
 /* DropTarget.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,12 +35,13 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.awt.dnd;
 
-import java.awt.Point;
 import java.awt.Component;
 import java.awt.GraphicsEnvironment;
 import java.awt.HeadlessException;
+import java.awt.Point;
 import java.awt.datatransfer.FlavorMap;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -204,15 +205,14 @@ public class DropTarget
   /**
    * Adds a new <code>DropTargetListener</code>.
    * 
-   * @exception TooManyListenersException If there is already a
-   * <code>DropTargetListener</code>.
+   * @exception TooManyListenersException Sun's JDK does not, despite
+   * documentation, throw this exception here when you install an additional
+   * <code>DropTargetListener</code>.  So to be compatible, we do the same
+   * thing.
    */
   public void addDropTargetListener (DropTargetListener dtl)
     throws TooManyListenersException
   {
-    if (dtl != null)
-      throw new TooManyListenersException ();
-    
     dropTargetListener = dtl;
   }
 

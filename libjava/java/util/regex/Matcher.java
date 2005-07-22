@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -45,7 +45,7 @@ import gnu.regexp.REMatch;
  *
  * @since 1.4
  */
-public class Matcher
+public final class Matcher
 {
   private Pattern pattern;
   private CharSequence input;
@@ -212,7 +212,10 @@ public class Matcher
     if (match != null)
       {
 	if (match.getStartIndex() == 0)
-	  return true;
+	  {
+	    position = match.getEndIndex();
+	    return true;
+	  }
 	match = null;
       }
     return false;
@@ -230,7 +233,13 @@ public class Matcher
    */
   public boolean matches ()
   {
-    return find(0);
+    if (lookingAt())
+      {
+	if (position == input.length())
+	  return true;
+	match = null;
+      }
+    return false;
   }
   
   /**

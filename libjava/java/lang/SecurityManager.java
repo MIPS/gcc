@@ -1,5 +1,5 @@
 /* SecurityManager.java -- security checks for privileged actions
-   Copyright (C) 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -101,7 +101,7 @@ import java.util.PropertyPermission;
  * subclassing this class.
  *
  * @author John Keiser
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see ClassLoader
  * @see SecurityException
  * @see #checkTopLevelWindow(Object)
@@ -125,6 +125,14 @@ import java.util.PropertyPermission;
  */
 public class SecurityManager
 {
+  /**
+   * The current security manager. This is located here instead of in
+   * System, to avoid security problems, as well as bootstrap issues.
+   * Make sure to access it in a thread-safe manner; it is package visible
+   * to avoid overhead in java.lang.
+   */
+  static volatile SecurityManager current;
+
   /**
    * Tells whether or not the SecurityManager is currently performing a
    * security check.
@@ -167,7 +175,7 @@ public class SecurityManager
    */
   protected Class[] getClassContext()
   {
-    return VMSecurityManager.getClassContext();
+    return VMSecurityManager.getClassContext(SecurityManager.class);
   }
 
   /**
@@ -189,7 +197,7 @@ public class SecurityManager
    */
   protected ClassLoader currentClassLoader()
   {
-    return VMSecurityManager.currentClassLoader();
+    return VMSecurityManager.currentClassLoader(SecurityManager.class);
   }
 
   /**
@@ -324,7 +332,7 @@ public class SecurityManager
   public void checkPermission(Permission perm)
   {
     // XXX Should be: AccessController.checkPermission(perm);
-    throw new SecurityException("Operation not allowed");
+    //.throw new SecurityException("Operation not allowed");
   }
 
   /**
@@ -553,7 +561,7 @@ public class SecurityManager
     //   throw new SecurityException("Missing context");
     // AccessControlContext ac = (AccessControlContext) context;
     // ac.checkPermission(new FilePermission(filename, "read"));
-    throw new SecurityException("Cannot read files via file names.");
+    // throw new SecurityException("Cannot read files via file names.");
   }
 
   /**
@@ -677,7 +685,7 @@ public class SecurityManager
     //   // Use the toString() hack to do the null check.
     //   ac.checkPermission(new SocketPermission(host.toString + ":" +port,
     //                                           "connect"));
-    throw new SecurityException("Cannot make network connections.");
+    // throw new SecurityException("Cannot make network connections.");
   }
 
   /**

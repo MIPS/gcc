@@ -1,5 +1,5 @@
 /* OutputStreamWriter.java -- Writer that converts chars to bytes
-   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -70,7 +70,7 @@ import gnu.gcj.convert.UnicodeToBytes;
  * </ul>
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
- * @author Per Bothner <bothner@cygnus.com>
+ * @author Per Bothner (bothner@cygnus.com)
  * @date April 17, 1998.  
  */
 public class OutputStreamWriter extends Writer
@@ -287,7 +287,7 @@ public class OutputStreamWriter extends Writer
   /**
    * This method writes a single character to the output stream.
    *
-   * @param c The char to write, passed as an int.
+   * @param ch The char to write, passed as an int.
    *
    * @exception IOException If an error occurs
    */

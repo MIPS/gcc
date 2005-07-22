@@ -1,5 +1,5 @@
 /* Window.java --
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -45,22 +45,27 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
 import java.awt.event.WindowListener;
 import java.awt.event.WindowStateListener;
+import java.awt.image.BufferStrategy;
 import java.awt.peer.WindowPeer;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
-import java.util.Iterator;
 import java.util.EventListener;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Vector;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleState;
+import javax.accessibility.AccessibleStateSet;
 
 /**
  * This class represents a top-level window with no decorations.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Warren Levy  <warrenl@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Warren Levy  (warrenl@cygnus.com)
  */
 public class Window extends Container implements Accessible
 {
@@ -83,11 +88,32 @@ public class Window extends Container implements Accessible
   private transient WindowFocusListener windowFocusListener;
   private transient WindowStateListener windowStateListener;
   private transient GraphicsConfiguration graphicsConfiguration;
-  private transient AccessibleContext accessibleContext;
 
   private transient boolean shown;
 
-  private transient Component windowFocusOwner;
+  // This is package-private to avoid an accessor method.
+  transient Component windowFocusOwner;
+  
+  /*
+   * The number used to generate the name returned by getName.
+   */
+  private static transient long next_window_number;
+
+  protected class AccessibleAWTWindow extends AccessibleAWTContainer
+  {
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.WINDOW;
+    }
+    
+    public AccessibleStateSet getAccessibleStateSet()
+    {
+      AccessibleStateSet states = super.getAccessibleStateSet();
+      if (isActive())
+        states.add(AccessibleState.ACTIVE);
+      return states;
+    }
+  }
 
   /** 
    * This (package access) constructor is used by subclasses that want
@@ -141,7 +167,7 @@ public class Window extends Container implements Accessible
    * Initializes a new instance of <code>Window</code> with the specified
    * parent.  The window will initially be invisible.
    *
-   * @param parent The owning <code>Frame</code> of this window.
+   * @param owner The owning <code>Frame</code> of this window.
    *
    * @exception IllegalArgumentException If the owner's GraphicsConfiguration
    * is not from a screen device, or if owner is null; this exception is always
@@ -199,12 +225,11 @@ public class Window extends Container implements Accessible
         && gc.getDevice().getType() != GraphicsDevice.TYPE_RASTER_SCREEN)
       throw new IllegalArgumentException ("gc must be from a screen device");
 
-    // FIXME: until we implement this, it just causes AWT to crash.
-//     if (gc == null)
-//       graphicsConfiguration = GraphicsEnvironment.getLocalGraphicsEnvironment()
-//         .getDefaultScreenDevice()
-//         .getDefaultConfiguration();
-//     else
+    if (gc == null)
+      graphicsConfiguration = GraphicsEnvironment.getLocalGraphicsEnvironment()
+                                                 .getDefaultScreenDevice()
+                                                 .getDefaultConfiguration();
+    else
       graphicsConfiguration = gc;
   }
 
@@ -291,7 +316,7 @@ public class Window extends Container implements Accessible
           initialFocusOwner = policy.getInitialComponent (this);
 
         if (initialFocusOwner != null)
-          initialFocusOwner.requestFocusInWindow (false);
+          initialFocusOwner.requestFocusInWindow ();
 
         shown = true;
       }
@@ -604,7 +629,7 @@ public class Window extends Container implements Accessible
    * <code>processWindowEvent()</code> is called to process the event,
    * otherwise the superclass version of this method is invoked.
    *
-   * @param event The event to process.
+   * @param evt The event to process.
    */
   protected void processEvent(AWTEvent evt)
   {
@@ -620,7 +645,7 @@ public class Window extends Container implements Accessible
    * invoked if it is enabled via <code>enableEvents()</code> or if
    * a listener has been added.
    *
-   * @param event The event to process.
+   * @param evt The event to process.
    */
   protected void processWindowEvent(WindowEvent evt)
   {
@@ -671,7 +696,33 @@ public class Window extends Container implements Accessible
 	  }
       }
   }
+  
+  /**
+   * Identifies if this window is active.  The active window is a Frame or
+   * Dialog that has focus or owns the active window.
+   *  
+   * @return true if active, else false.
+   * @since 1.4
+   */
+  public boolean isActive()
+  {
+    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+    return manager.getActiveWindow() == this;
+  }
 
+  /**
+   * Identifies if this window is focused.  A window is focused if it is the
+   * focus owner or it contains the focus owner.
+   * 
+   * @return true if focused, else false.
+   * @since 1.4
+   */
+  public boolean isFocused()
+  {
+    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+    return manager.getFocusedWindow() == this;
+  }
+  
   /**
    * Returns the child window that has focus if this window is active.
    * This method returns <code>null</code> if this window is not active
@@ -710,7 +761,7 @@ public class Window extends Container implements Accessible
   /**
    * Post a Java 1.0 event to the event queue.
    *
-   * @param event The event to post.
+   * @param e The event to post.
    *
    * @deprecated
    */
@@ -728,6 +779,184 @@ public class Window extends Container implements Accessible
   public boolean isShowing()
   {
     return super.isShowing();
+  }
+
+  public void setLocationRelativeTo (Component c)
+  {
+    if (c == null || !c.isShowing ())
+      {
+        int x = 0;
+        int y = 0;
+
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment ();
+        Point center = ge.getCenterPoint ();
+        x = center.x - (width / 2);
+        y = center.y - (height / 2);
+        setLocation (x, y);
+      }
+    // FIXME: handle case where component is non-null.
+  }
+
+  /**
+   * A BltBufferStrategy for windows.
+   */
+  private class WindowBltBufferStrategy extends BltBufferStrategy
+  {
+    /**
+     * Creates a block transfer strategy for this window.
+     *
+     * @param numBuffers the number of buffers in this strategy
+     * @param accelerated true if the buffer should be accelerated,
+     * false otherwise
+     */
+    WindowBltBufferStrategy(int numBuffers, boolean accelerated)
+    {
+      super(numBuffers,
+	    new BufferCapabilities(new ImageCapabilities(accelerated),
+				   new ImageCapabilities(accelerated),
+				   BufferCapabilities.FlipContents.COPIED));
+    }
+  }
+
+  /**
+   * A FlipBufferStrategy for windows.
+   */
+  private class WindowFlipBufferStrategy extends FlipBufferStrategy
+  {
+    /**
+     * Creates a flip buffer strategy for this window.
+     *
+     * @param numBuffers the number of buffers in this strategy
+     *
+     * @throws AWTException if the requested number of buffers is not
+     * supported
+     */
+    WindowFlipBufferStrategy(int numBuffers)
+      throws AWTException
+    {
+      super(numBuffers,
+	    new BufferCapabilities(new ImageCapabilities(true),
+				   new ImageCapabilities(true),
+				   BufferCapabilities.FlipContents.COPIED));
+    }
+  }
+
+  /**
+   * Creates a buffering strategy that manages how this window is
+   * repainted.  This method attempts to create the optimum strategy
+   * based on the desired number of buffers.  Hardware or software
+   * acceleration may be used.
+   *
+   * createBufferStrategy attempts different levels of optimization,
+   * but guarantees that some strategy with the requested number of
+   * buffers will be created even if it is not optimal.  First it
+   * attempts to create a page flipping strategy, then an accelerated
+   * blitting strategy, then an unaccelerated blitting strategy.
+   *
+   * Calling this method causes any existing buffer strategy to be
+   * destroyed.
+   *
+   * @param numBuffers the number of buffers in this strategy
+   *
+   * @throws IllegalArgumentException if requested number of buffers
+   * is less than one
+   * @throws IllegalStateException if this window is not displayable
+   *
+   * @since 1.4
+   */
+  public void createBufferStrategy(int numBuffers)
+  {
+    if (numBuffers < 1)
+      throw new IllegalArgumentException("Window.createBufferStrategy: number"
+					 + " of buffers is less than one");
+
+    if (!isDisplayable())
+      throw new IllegalStateException("Window.createBufferStrategy: window is"
+				      + " not displayable");
+
+    // try a flipping strategy
+    try
+      {
+	bufferStrategy = new WindowFlipBufferStrategy(numBuffers);
+	return;
+      }
+    catch (AWTException e)
+      {
+      }
+
+    // try an accelerated blitting strategy
+    try
+      {
+	bufferStrategy = new WindowBltBufferStrategy(numBuffers, true);
+      }
+    catch (AWTException e)
+      {
+      }
+
+    // fall back to an unaccelerated blitting strategy
+    try
+      {
+	bufferStrategy = new WindowBltBufferStrategy(numBuffers, false);
+      }
+    catch (AWTException e)
+      {
+      }
+  }
+
+  /**
+   * Creates a buffering strategy that manages how this window is
+   * repainted.  This method attempts to create a strategy based on
+   * the specified capabilities and throws an exception if the
+   * requested strategy is not supported.
+   *
+   * Calling this method causes any existing buffer strategy to be
+   * destroyed.
+   *
+   * @param numBuffers the number of buffers in this strategy
+   * @param caps the requested buffering capabilities
+   *
+   * @throws AWTException if the requested capabilities are not
+   * supported
+   * @throws IllegalArgumentException if requested number of buffers
+   * is less than one or if caps is null
+   *
+   * @since 1.4
+   */
+  public void createBufferStrategy(int numBuffers,
+				   BufferCapabilities caps)
+  {
+    if (numBuffers < 1)
+      throw new IllegalArgumentException("Window.createBufferStrategy: number"
+					 + " of buffers is less than one");
+
+    if (caps == null)
+      throw new IllegalArgumentException("Window.createBufferStrategy:"
+					 + " capabilities object is null");
+
+    // a flipping strategy was requested
+    if (caps.isPageFlipping())
+      {
+	try
+	  {
+	    bufferStrategy = new WindowFlipBufferStrategy(numBuffers);
+	  }
+	catch (AWTException e)
+	  {
+	  }
+      }
+    else
+      bufferStrategy = new WindowBltBufferStrategy(numBuffers, true);
+  }
+
+  /**
+   * Returns the buffer strategy used by the window.
+   *
+   * @return the buffer strategy.
+   * @since 1.4
+   */
+  public BufferStrategy getBufferStrategy()
+  {
+    return bufferStrategy;
   }
 
   /**
@@ -753,11 +982,18 @@ public class Window extends Container implements Accessible
       applyResourceBundle(rb);    
   }
 
+  /**
+   * Gets the AccessibleContext associated with this <code>Window</code>.
+   * The context is created, if necessary.
+   *
+   * @return the associated context
+   */
   public AccessibleContext getAccessibleContext()
   {
-    // FIXME
-    //return null;
-    throw new Error ("Not implemented");
+    /* Create the context if this is the first request */
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleAWTWindow();
+    return accessibleContext;
   }
 
   /** 
@@ -865,17 +1101,32 @@ public class Window extends Container implements Accessible
     this.y = y;
     width = w;
     height = h;
-    if (resized)
+    if (resized && isShowing ())
       {
         ComponentEvent ce =
           new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED);
         getToolkit().getSystemEventQueue().postEvent(ce);
       }
-    if (moved)
+    if (moved && isShowing ())
       {
         ComponentEvent ce =
           new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED);
         getToolkit().getSystemEventQueue().postEvent(ce);
       }
+  }
+
+  /**
+   * Generate a unique name for this window.
+   *
+   * @return A unique name for this window.
+   */
+  String generateName()
+  {
+    return "win" + getUniqueLong();
+  }
+
+  private static synchronized long getUniqueLong()
+  {
+    return next_window_number++;
   }
 }

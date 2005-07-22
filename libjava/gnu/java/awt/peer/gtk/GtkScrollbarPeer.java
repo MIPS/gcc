@@ -1,5 +1,5 @@
 /* GtkScrollbarPeer.java -- Implements ScrollbarPeer with GTK+
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -60,7 +60,6 @@ public class GtkScrollbarPeer extends GtkComponentPeer
 		      int min, int max, int stepIncr, int pageIncr,
 		      int visibleAmount);
 
-  native void connectJObject ();
   native void connectSignals ();
 
   public GtkScrollbarPeer (Scrollbar s)
@@ -68,13 +67,13 @@ public class GtkScrollbarPeer extends GtkComponentPeer
     super (s);
   }
 
-  native public void setLineIncrement (int amount);
-  native public void setPageIncrement (int amount);
-  native public void setValues (int value, int visible, int min, int max);
+  public native void setLineIncrement(int amount);
+  public native void setPageIncrement(int amount);
+  public native void setValues(int value, int visible, int min, int max);
 
   protected void postAdjustmentEvent (int type, int value)
   {
-    q.postEvent (new AdjustmentEvent ((Adjustable)awtComponent, 
+    q().postEvent (new AdjustmentEvent ((Adjustable)awtComponent, 
 				      AdjustmentEvent.ADJUSTMENT_VALUE_CHANGED,
 				      type, value));
   }

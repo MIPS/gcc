@@ -1,21 +1,30 @@
 /* Generic implementation of the EOSHIFT intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-Libgfor is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+Libgfortran is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
 
-Ligbfor is distributed in the hope that it will be useful,
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
+Ligbfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -32,32 +41,38 @@ static const char zeros[16] =
    sizeof(int) < sizeof (index_type).  */
 
 static void
-__eoshift2 (gfc_array_char * ret, const gfc_array_char * array,
-    int shift, const gfc_array_char * bound, int which)
+eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
+	  int shift, const gfc_array_char *bound, int which)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
   /* b.* indicates the bound array.  */
-  index_type bstride[GFC_MAX_DIMENSIONS - 1];
+  index_type bstride[GFC_MAX_DIMENSIONS];
   index_type bstride0;
   const char *bptr;
 
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
   index_type size;
   index_type len;
   index_type n;
+
+  /* The compiler cannot figure out that these are set, initialize
+     them to avoid warnings.  */
+  len = 0;
+  soffset = 0;
+  roffset = 0;
 
   size = GFC_DESCRIPTOR_SIZE (ret);
 
@@ -65,8 +80,8 @@ __eoshift2 (gfc_array_char * ret, const gfc_array_char * array,
     {
       int i;
 
-      ret->data = internal_malloc (size * size0 ((array_t *)array));
-      ret->base = 0;
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
+      ret->offset = 0;
       ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
@@ -124,15 +139,24 @@ __eoshift2 (gfc_array_char * ret, const gfc_array_char * array,
   bstride0 = bstride[0];
   rptr = ret->data;
   sptr = array->data;
+
+  if ((shift >= 0 ? shift : -shift ) > len)
+    {
+      shift = len;
+      len = 0;
+    }
+  else
+    {
+      if (shift > 0)
+	len = len - shift;
+      else
+	len = len + shift;
+    }
+  
   if (bound)
     bptr = bound->data;
   else
     bptr = zeros;
-
-  if (shift > 0)
-    len = len - shift;
-  else
-    len = len + shift;
 
   while (rptr)
     {
@@ -204,20 +228,57 @@ __eoshift2 (gfc_array_char * ret, const gfc_array_char * array,
 }
 
 
+extern void eoshift2_1 (gfc_array_char *, const gfc_array_char *,
+			const GFC_INTEGER_1 *, const gfc_array_char *,
+			const GFC_INTEGER_1 *);
+export_proto(eoshift2_1);
+
 void
-__eoshift2_4 (gfc_array_char * ret, const gfc_array_char * array,
-    const GFC_INTEGER_4 * pshift, const gfc_array_char * bound,
-    const GFC_INTEGER_4 * pdim)
+eoshift2_1 (gfc_array_char *ret, const gfc_array_char *array,
+	    const GFC_INTEGER_1 *pshift, const gfc_array_char *bound,
+	    const GFC_INTEGER_1 *pdim)
 {
-  __eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
+  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
 }
 
 
+extern void eoshift2_2 (gfc_array_char *, const gfc_array_char *,
+			const GFC_INTEGER_2 *, const gfc_array_char *,
+			const GFC_INTEGER_2 *);
+export_proto(eoshift2_2);
+
 void
-__eoshift2_8 (gfc_array_char * ret, const gfc_array_char * array,
-    const GFC_INTEGER_8 * pshift, const gfc_array_char * bound,
-    const GFC_INTEGER_8 * pdim)
+eoshift2_2 (gfc_array_char *ret, const gfc_array_char *array,
+	    const GFC_INTEGER_2 *pshift, const gfc_array_char *bound,
+	    const GFC_INTEGER_2 *pdim)
 {
-  __eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
+  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
 }
 
+
+extern void eoshift2_4 (gfc_array_char *, const gfc_array_char *,
+			const GFC_INTEGER_4 *, const gfc_array_char *,
+			const GFC_INTEGER_4 *);
+export_proto(eoshift2_4);
+
+void
+eoshift2_4 (gfc_array_char *ret, const gfc_array_char *array,
+	    const GFC_INTEGER_4 *pshift, const gfc_array_char *bound,
+	    const GFC_INTEGER_4 *pdim)
+{
+  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
+}
+
+
+extern void eoshift2_8 (gfc_array_char *, const gfc_array_char *,
+			const GFC_INTEGER_8 *, const gfc_array_char *,
+			const GFC_INTEGER_8 *);
+export_proto(eoshift2_8);
+
+void
+eoshift2_8 (gfc_array_char *ret, const gfc_array_char *array,
+	    const GFC_INTEGER_8 *pshift, const gfc_array_char *bound,
+	    const GFC_INTEGER_8 *pdim)
+{
+  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
+}

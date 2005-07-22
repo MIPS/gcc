@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -23,29 +23,27 @@ details.  */
 #include <java/lang/ClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 
+// Define this to get the direct-threaded interpreter.  If undefined,
+// we revert to a basic bytecode interpreter.  The former is faster
+// but uses more memory.
+#define DIRECT_THREADED
+
 extern "C" {
 #include <ffi.h>
-}
-
-extern inline jboolean
-_Jv_IsInterpretedClass (jclass c)
-{
-  return (c->accflags & java::lang::reflect::Modifier::INTERPRETED) != 0;
 }
 
 struct _Jv_ResolvedMethod;
 
 void _Jv_InitInterpreter ();
-void _Jv_DefineClass (jclass, jbyteArray, jint, jint);
+void _Jv_DefineClass (jclass, jbyteArray, jint, jint,
+		      java::security::ProtectionDomain *,
+		      _Jv_Utf8Const **);
 
 void _Jv_InitField (jobject, jclass, int);
 void * _Jv_AllocMethodInvocation (jsize size);
 int  _Jv_count_arguments (_Jv_Utf8Const *signature,
 			  jboolean staticp = true);
 void _Jv_VerifyMethod (_Jv_InterpMethod *method);
-
-/* FIXME: this should really be defined in some more generic place */
-#define ROUND(V, A) (((((unsigned) (V))-1) | ((A)-1))+1)
 
 /* the interpreter is written in C++, primarily because it makes it easy for
  * the entire thing to be "friend" with class Class. */
@@ -88,17 +86,48 @@ protected:
   // Size of raw arguments.
   _Jv_ushort args_raw_size;
 
-  // Chain of addresses to fill in.  See _Jv_Defer_Resolution.
-  void *deferred;
-
-  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
-  friend void _Jv_PrepareClass(jclass);
+  friend class _Jv_InterpreterEngine;
 
 public:
   _Jv_Method *get_method ()
   {
     return self;
   }
+};
+
+// The type of the PC depends on whether we're doing direct threading
+// or a more ordinary bytecode interpreter.
+#ifdef DIRECT_THREADED
+// Slot in the "compiled" form of the bytecode.
+union insn_slot
+{
+  // Address of code.
+  void *insn;
+  // An integer value used by an instruction.
+  jint int_val;
+  // A pointer value used by an instruction.
+  void *datum;
+};
+
+typedef insn_slot *pc_t;
+#else
+typedef unsigned char *pc_t;
+#endif
+
+
+// This structure holds the bytecode pc and corresponding source code
+// line number.  An array (plus length field) of this structure is put
+// in each _Jv_InterpMethod and used to resolve the (internal) program
+// counter of the interpreted method to an actual java source file
+// line.
+struct  _Jv_LineTableEntry
+{
+  union
+  {
+    pc_t pc;
+    int bytecode_pc;
+  };
+  int line;
 };
 
 class _Jv_InterpMethod : public _Jv_MethodBase
@@ -108,6 +137,10 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   int              code_length;
 
   _Jv_ushort       exc_count;
+
+  // Length of the line_table - when this is zero then line_table is NULL.
+  int line_table_len;  
+  _Jv_LineTableEntry *line_table;
 
   void *prepared;
 
@@ -141,18 +174,19 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   static void run_class (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_class (ffi_cif*, void*, ffi_raw*, void*);
 
-  void run (void*, ffi_raw *);
+  static void run (void*, ffi_raw *, _Jv_InterpMethod *);
+
+  // Returns source file line number for given PC value, or -1 if line
+  // number info is unavailable.
+  int get_source_line(pc_t mpc);
 
  public:
   static void dump_object(jobject o);
 
   friend class _Jv_ClassReader;
   friend class _Jv_BytecodeVerifier;
-  friend class gnu::gcj::runtime::NameFinder;
-  friend class gnu::gcj::runtime::StackTrace;
-  
-
-  friend void _Jv_PrepareClass(jclass);
+  friend class _Jv_StackTrace;
+  friend class _Jv_InterpreterEngine;
 
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
@@ -162,46 +196,21 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 class _Jv_InterpClass
 {
   _Jv_MethodBase **interpreted_methods;
-  _Jv_ushort        *field_initializers;
+  _Jv_ushort     *field_initializers;
+  jstring source_file_name;
 
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
-  friend void  _Jv_PrepareClass(jclass);
-  friend void  _Jv_PrepareMissingMethods (jclass base2, jclass iface_class);
+  friend class _Jv_StackTrace;
+  friend class _Jv_InterpreterEngine;
+
   friend void  _Jv_InitField (jobject, jclass, int);
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
 #endif
 
   friend _Jv_MethodBase ** _Jv_GetFirstMethod (_Jv_InterpClass *klass);
-  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
 };
-
-// We have an interpreted class CL and we're trying to find the
-// address of the ncode of a method METH.  That interpreted class
-// hasn't yet been prepared, so we defer fixups until they are ready.
-// To do this, we create a chain of fixups that will be resolved by
-// _Jv_PrepareClass.
-extern inline void 
-_Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **address)
-{
-  int i;
-  jclass self = (jclass) cl;
-  _Jv_InterpClass *interp_cl = (_Jv_InterpClass*) self->aux_info;
-
-  for (i = 0; i < self->method_count; i++)
-    {
-      _Jv_Method *m = &self->methods[i];
-      if (m == meth)
-	{
-	  _Jv_MethodBase *imeth = interp_cl->interpreted_methods[i];
-	  *address = imeth->deferred;
-	  imeth->deferred = address;
-	  return;
-	}
-    }
-  return;
-}    
 
 extern inline _Jv_MethodBase **
 _Jv_GetFirstMethod (_Jv_InterpClass *klass)
@@ -240,7 +249,11 @@ class _Jv_JNIMethod : public _Jv_MethodBase
   void *ncode ();
 
   friend class _Jv_ClassReader;
-  friend void _Jv_PrepareClass(jclass);
+  friend class _Jv_InterpreterEngine;
+
+#ifdef JV_MARKOBJ_DECL
+  friend JV_MARKOBJ_DECL;
+#endif
 
 public:
   // FIXME: this is ugly.
@@ -250,23 +263,24 @@ public:
   }
 };
 
-// A structure of this type is used to link together interpreter
-// invocations on the stack.
-struct _Jv_MethodChain
+// The interpreted call stack, represented by a linked list of frames.
+struct _Jv_InterpFrame
 {
-  const _Jv_InterpMethod *self;
-  _Jv_MethodChain **ptr;
-  _Jv_MethodChain *next;
+  _Jv_InterpMethod *self;
+  _Jv_InterpFrame **ptr;
+  _Jv_InterpFrame *next;
+  pc_t pc;
 
-  _Jv_MethodChain (const _Jv_InterpMethod *s, _Jv_MethodChain **n)
+  _Jv_InterpFrame (_Jv_InterpMethod *s, _Jv_InterpFrame **n)
   {
     self = s;
     ptr = n;
     next = *n;
     *n = this;
+    pc = NULL;
   }
 
-  ~_Jv_MethodChain ()
+  ~_Jv_InterpFrame ()
   {
     *ptr = next;
   }

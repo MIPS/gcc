@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -48,8 +48,8 @@ import javax.security.auth.callback.CallbackHandler;
  * simultaneous requests. It must also have a public constructor that accepts
  * no arguments.</p>
  *
- * This interface is not normally accessed directly by a server, which will use
- * the {@link Sasl} static methods to create a {@link SaslServer} instance
+ * <p>This interface is not normally accessed directly by a server, which will
+ * use the {@link Sasl} static methods to create a {@link SaslServer} instance
  * instead. However, a particular environment may provide and install a new or
  * different <code>SaslServerFactory</code>.</p>
  *

@@ -27,8 +27,8 @@
 #define LIBFFI_TARGET_H
 
 #ifndef LIBFFI_ASM
-typedef unsigned long          ffi_arg;
-typedef signed long            ffi_sarg;
+typedef unsigned long long          ffi_arg;
+typedef signed long long            ffi_sarg;
 
 typedef enum ffi_abi {
   FFI_FIRST_ABI = 0,
@@ -44,15 +44,6 @@ typedef enum ffi_abi {
 #define FFI_TRAMPOLINE_SIZE 24  /* Really the following struct, which 	*/
 				/* can be interpreted as a C function	*/
 				/* descriptor:				*/
-
-#ifndef LIBFFI_ASM
-struct ffi_ia64_trampoline_struct {
-    void * code_pointer;	/* Pointer to ffi_closure_UNIX	*/
-    void * fake_gp;		/* Pointer to closure, installed as gp	*/
-    void * real_gp;		/* Real gp value, reinstalled by 	*/
-				/* ffi_closure_UNIX.			*/
-};
-#endif
 
 #endif
 

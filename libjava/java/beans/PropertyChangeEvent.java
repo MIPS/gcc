@@ -1,5 +1,5 @@
 /* PropertyChangeEvent.java -- describes a change in a property
-   Copyright (C) 1998, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -55,7 +55,7 @@ import java.util.EventObject;
  * information.
  *
  * @author John Keiser
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.1
  * @status udpated to 1.4
  */
@@ -105,8 +105,8 @@ public class PropertyChangeEvent extends EventObject
    *
    * @param source the Bean containing the property
    * @param propertyName the property's name
-   * @param oldValue the old value of the property
-   * @param newValue the new value of the property
+   * @param oldVal the old value of the property
+   * @param newVal the new value of the property
    * @throws IllegalArgumentException if source is null
    */
   public PropertyChangeEvent(Object source, String propertyName,

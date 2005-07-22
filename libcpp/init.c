@@ -1,6 +1,6 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -137,7 +137,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   /* Initialize this instance of the library if it hasn't been already.  */
   init_library ();
 
-  pfile = xcalloc (1, sizeof (cpp_reader));
+  pfile = XCNEW (cpp_reader);
 
   cpp_set_lang (pfile, lang);
   CPP_OPTION (pfile, warn_multichar) = 1;
@@ -153,6 +153,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   CPP_OPTION (pfile, dollars_in_ident) = 1;
   CPP_OPTION (pfile, warn_dollars) = 1;
   CPP_OPTION (pfile, warn_variadic_macros) = 1;
+  CPP_OPTION (pfile, warn_normalize) = normalized_C;
 
   /* Default CPP arithmetic to something sensible for the host for the
      benefit of dumb users like fix-header.  */
@@ -275,7 +276,7 @@ cpp_destroy (cpp_reader *pfile)
 
    There are two tables of these.  builtin_array holds all the
    "builtin" macros: these are handled by builtin_macro() in
-   cppmacro.c.  Builtin is somewhat of a misnomer -- the property of
+   macro.c.  Builtin is somewhat of a misnomer -- the property of
    interest is that these macros require special code to compute their
    expansions.  The value is a "builtin_type" enumerator.
 
@@ -356,7 +357,7 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->type = NT_MACRO;
       hp->flags |= NODE_BUILTIN | NODE_WARN;
-      hp->value.builtin = b->value;
+      hp->value.builtin = (enum builtin_type) b->value;
     }
 
   if (CPP_OPTION (pfile, cplusplus))
@@ -544,7 +545,7 @@ read_original_directory (cpp_reader *pfile)
 
   if (pfile->cb.dir_change)
     {
-      char *debugdir = alloca (token->val.str.len - 3);
+      char *debugdir = (char *) alloca (token->val.str.len - 3);
 
       memcpy (debugdir, (const char *) token->val.str.text + 1,
 	      token->val.str.len - 4);
@@ -567,7 +568,7 @@ cpp_finish (cpp_reader *pfile, FILE *deps_stream)
   if (CPP_OPTION (pfile, warn_unused_macros))
     cpp_forall_identifiers (pfile, _cpp_warn_if_unused_macro, NULL);
 
-  /* cpplex.c leaves the final buffer on the stack.  This it so that
+  /* lex.c leaves the final buffer on the stack.  This it so that
      it returns an unending stream of CPP_EOFs to the client.  If we
      popped the buffer, we'd dereference a NULL buffer pointer and
      segfault.  It's nice to allow the client to do worry-free excess

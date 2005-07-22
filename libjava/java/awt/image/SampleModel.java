@@ -14,8 +14,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -37,7 +37,7 @@ exception statement from your version. */
 package java.awt.image;
 
 /**
- * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
+ * @author Rolf W. Rasmussen (rolfwr@ii.uib.no)
  */
 public abstract class SampleModel
 {
@@ -456,6 +456,17 @@ public abstract class SampleModel
 
     public abstract SampleModel createCompatibleSampleModel(int w, int h);
 
+    /**
+     * Return a SampleModel with a subset of the bands in this model.
+     * 
+     * Selects bands.length bands from this sample model.  The bands chosen
+     * are specified in the indices of bands[].  This also permits permuting
+     * the bands as well as taking a subset.  Thus, giving an array with
+     * 1, 2, 3, ..., numbands, will give an identical sample model.
+     * 
+     * @param bands Array with band indices to include.
+     * @return A new sample model
+     */
     public abstract SampleModel createSubsetSampleModel(int[] bands);
 
     public abstract DataBuffer createDataBuffer();

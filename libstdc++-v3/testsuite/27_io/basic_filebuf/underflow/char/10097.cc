@@ -1,6 +1,9 @@
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+
 // 2001-05-21 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,11 +56,12 @@ void test16()
   signal(SIGPIPE, SIG_IGN);
   unlink(name);
   
-  if (0 != try_mkfifo(name, S_IRWXU))
+  if (0 != mkfifo(name, S_IRWXU))
     {
       VERIFY( false );
     }
   
+  semaphore s1;
   int fval = fork();
   if (fval == -1)
     {
@@ -71,14 +75,13 @@ void test16()
       VERIFY ( fbout.is_open() );
       fbout.sputn("0123456789", 10);
       fbout.pubsync();
-      sleep(2);
+      s1.wait ();
       fbout.close();
       exit(0);
     }
 
   UnderBuf fb;
   fb.open(name, ios_base::in);
-  sleep(1);
   
   fb.sgetc();
   streamsize n = fb.pub_showmanyc();
@@ -94,6 +97,7 @@ void test16()
     }
 
   fb.close();
+  s1.signal ();
 }
 
 int main() 

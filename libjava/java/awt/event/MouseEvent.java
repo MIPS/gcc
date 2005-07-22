@@ -1,5 +1,5 @@
 /* MouseEvent.java -- a mouse event
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,11 +38,12 @@ exception statement from your version. */
 
 package java.awt.event;
 
+import gnu.java.awt.EventModifier;
+
 import java.awt.Component;
 import java.awt.Point;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import gnu.java.awt.EventModifier;
 
 /**
  * This event is generated for a mouse event. There are three main categories
@@ -62,8 +63,8 @@ import gnu.java.awt.EventModifier;
  * virtual device, some platforms may clip the path to fit in the bounds of
  * the component.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see MouseAdapter
  * @see MouseListener
  * @see MouseMotionAdapter

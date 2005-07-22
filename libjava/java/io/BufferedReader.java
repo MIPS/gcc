@@ -1,5 +1,5 @@
 /* BufferedReader.java
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
      Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -55,8 +55,8 @@ package java.io;
  * of remembering any number of input chars, to the limits of
  * system memory or the size of <code>Integer.MAX_VALUE</code>
  *
- * @author Per Bothner <bothner@cygnus.com>
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Per Bothner (bothner@cygnus.com)
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  */
 public class BufferedReader extends Reader
 {
@@ -508,7 +508,7 @@ public class BufferedReader extends Reader
    * <code>skip</code> method on the underlying stream to skip the 
    * remaining chars.
    *
-   * @param numChars The requested number of chars to skip
+   * @param count The requested number of chars to skip
    *
    * @return The actual number of chars skipped.
    *

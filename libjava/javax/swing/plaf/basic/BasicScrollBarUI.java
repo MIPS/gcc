@@ -1,5 +1,5 @@
-/* BasicScrollBarUI.java
-   Copyright (C) 2004 Free Software Foundation, Inc.
+/* BasicScrollBarUI.java --
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -34,6 +34,7 @@ or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
+
 
 package javax.swing.plaf.basic;
 
@@ -56,7 +57,6 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
 import javax.swing.BoundedRangeModel;
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JScrollBar;
@@ -70,7 +70,6 @@ import javax.swing.event.ChangeListener;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.ScrollBarUI;
 
-
 /**
  * The Basic Look and Feel UI delegate for JScrollBar.
  */
@@ -78,15 +77,14 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
                                                              SwingConstants
 {
   /**
-   * A helper class that listens to the two JButtons on each end
-   * of the JScrollBar.
+   * A helper class that listens to the two JButtons on each end of the
+   * JScrollBar.
    */
   protected class ArrowButtonListener extends MouseAdapter
   {
     /**
-     * Move the thumb in the direction specified by the 
-     * button's arrow. If this button is held down, then
-     * it should keep moving the thumb.
+     * Move the thumb in the direction specified by the  button's arrow. If
+     * this button is held down, then it should keep moving the thumb.
      *
      * @param e The MouseEvent fired by the JButton.
      */
@@ -113,8 +111,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * A helper class that listens to the ScrollBar's model
-   * for ChangeEvents.
+   * A helper class that listens to the ScrollBar's model for ChangeEvents.
    */
   protected class ModelListener implements ChangeListener
   {
@@ -127,7 +124,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     {
       //       System.err.println(this + ".stateChanged()");
       calculatePreferredSize();
-      layoutContainer(scrollbar);		  
+      layoutContainer(scrollbar);
       getThumbBounds();
       scrollbar.repaint();
     }
@@ -145,31 +142,41 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
      */
     public void propertyChange(PropertyChangeEvent e)
     {
-      if (e.getPropertyName().equals(JScrollBar.MODEL_CHANGED_PROPERTY))
+      if (e.getPropertyName().equals("model"))
         {
 	  ((BoundedRangeModel) e.getOldValue()).removeChangeListener(modelListener);
 	  scrollbar.getModel().addChangeListener(modelListener);
 	  getThumbBounds();
         }
-      else if (e.getPropertyName().equals(JScrollBar.ORIENTATION_CHANGED_PROPERTY))
+      else if (e.getPropertyName().equals("orientation"))
         {
 	  incrButton.removeMouseListener(buttonListener);
 	  decrButton.removeMouseListener(buttonListener);
-	  incrButton = createIncreaseButton(scrollbar.getOrientation());
-	  decrButton = createDecreaseButton(scrollbar.getOrientation());
-          incrButton.addMouseListener(buttonListener);
-          decrButton.addMouseListener(buttonListener);	  
-          calculatePreferredSize();
-          layoutContainer(scrollbar);		  
-	}
+          int orientation = scrollbar.getOrientation();
+          switch (orientation)
+            {
+            case (JScrollBar.HORIZONTAL):
+              incrButton = createIncreaseButton(EAST);
+              decrButton = createDecreaseButton(WEST);
+              break;
+            default:
+              incrButton = createIncreaseButton(SOUTH);
+              decrButton = createDecreaseButton(NORTH);
+              break;
+            }
+	  incrButton.addMouseListener(buttonListener);
+	  decrButton.addMouseListener(buttonListener);
+	  calculatePreferredSize();
+	  layoutContainer(scrollbar);
+        }
       layoutContainer(scrollbar);
       scrollbar.repaint();
     }
   }
 
   /**
-   * A helper class that listens for events from
-   * the timer that is used to move the thumb.
+   * A helper class that listens for events from the timer that is used to
+   * move the thumb.
    */
   protected class ScrollListener implements ActionListener
   {
@@ -180,8 +187,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     private transient boolean block;
 
     /**
-     * Creates a new ScrollListener object.
-     * The default is scrolling positively with block movement.
+     * Creates a new ScrollListener object. The default is scrolling
+     * positively with block movement.
      */
     public ScrollListener()
     {
@@ -190,8 +197,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     }
 
     /**
-     * Creates a new ScrollListener object using
-     * the given direction and block.
+     * Creates a new ScrollListener object using the given direction and
+     * block.
      *
      * @param dir The direction to move in.
      * @param block Whether movement will be in blocks.
@@ -234,8 +241,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	  // Only need to check it if it's block scrolling
 	  // We only block scroll if the click occurs
 	  // in the track.
-	  
-	  if (!trackListener.shouldScroll(direction))
+	  if (! trackListener.shouldScroll(direction))
 	    {
 	      trackHighlight = NO_HIGHLIGHT;
 	      scrollbar.repaint();
@@ -260,13 +266,14 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     /** The current Y coordinate of the mouse. */
     protected int currentMouseY;
 
-    /** The offset between the current mouse cursor and the 
-        current value of the scrollbar. */
+    /**
+     * The offset between the current mouse cursor and the  current value of
+     * the scrollbar.
+     */
     protected int offset;
 
     /**
-     * This method is called when the mouse is being
-     * dragged.
+     * This method is called when the mouse is being dragged.
      *
      * @param e The MouseEvent given.
      */
@@ -275,15 +282,15 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       currentMouseX = e.getX();
       currentMouseY = e.getY();
       if (scrollbar.getValueIsAdjusting())
-      {
-        int value;
-        if (scrollbar.getOrientation() == SwingConstants.HORIZONTAL)
-	  value = valueForXPosition(currentMouseX) - offset;
-	else
-	  value = valueForYPosition(currentMouseY) - offset;
-	
-	scrollbar.setValue(value);
-      }
+        {
+	  int value;
+	  if (scrollbar.getOrientation() == SwingConstants.HORIZONTAL)
+	    value = valueForXPosition(currentMouseX) - offset;
+	  else
+	    value = valueForYPosition(currentMouseY) - offset;
+
+	  scrollbar.setValue(value);
+        }
     }
 
     /**
@@ -298,9 +305,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     }
 
     /**
-     * This method is called when the mouse is
-     * pressed. When it is pressed, the thumb should
-     * move in blocks towards the cursor.
+     * This method is called when the mouse is pressed. When it is pressed,
+     * the thumb should move in blocks towards the cursor.
      *
      * @param e The MouseEvent given.
      */
@@ -318,7 +324,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       if (value == scrollbar.getValue())
 	return;
 
-      if (!thumbRect.contains(e.getPoint()))
+      if (! thumbRect.contains(e.getPoint()))
         {
 	  scrollTimer.stop();
 	  scrollListener.setScrollByBlock(true);
@@ -344,13 +350,13 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	  // to that value.
 	  scrollbar.setValueIsAdjusting(true);
 	  offset = value - scrollbar.getValue();
-	}
-      scrollbar.repaint();      
+        }
+      scrollbar.repaint();
     }
 
     /**
-     * This method is called when the mouse is released.
-     * It should stop movement on the thumb
+     * This method is called when the mouse is released. It should stop
+     * movement on the thumb
      *
      * @param e The MouseEvent given.
      */
@@ -358,32 +364,32 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     {
       trackHighlight = NO_HIGHLIGHT;
       scrollTimer.stop();
-      
+
       if (scrollbar.getValueIsAdjusting())
-        scrollbar.setValueIsAdjusting(false);
+	scrollbar.setValueIsAdjusting(false);
       scrollbar.repaint();
     }
-    
+
     /**
-     * A helper method that decides whether we should
-     * keep scrolling in the given direction.
+     * A helper method that decides whether we should keep scrolling in the
+     * given direction.
      *
      * @param direction The direction to check for.
      *
      * @return Whether the thumb should keep scrolling.
      */
-    public boolean shouldScroll (int direction)
+    public boolean shouldScroll(int direction)
     {
       int value;
       if (scrollbar.getOrientation() == HORIZONTAL)
-        value = valueForXPosition(currentMouseX);
+	value = valueForXPosition(currentMouseX);
       else
-        value = valueForYPosition(currentMouseY);
+	value = valueForYPosition(currentMouseY);
 
       if (direction == POSITIVE_SCROLL)
-        return (value > scrollbar.getValue());
+	return (value > scrollbar.getValue());
       else
-        return (value < scrollbar.getValue());
+	return (value < scrollbar.getValue());
     }
   }
 
@@ -393,8 +399,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   /** The listener that listens to the model. */
   protected ModelListener modelListener;
 
-  /** The listener that listens to the scrollbar for property
-      changes. */
+  /** The listener that listens to the scrollbar for property changes. */
   protected PropertyChangeListener propertyChangeListener;
 
   /** The listener that listens to the timer. */
@@ -410,10 +415,10 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   protected JButton incrButton;
 
   /** The dimensions of the maximum thumb size. */
-  protected static Dimension maximumThumbSize;
+  protected Dimension maximumThumbSize;
 
   /** The dimensions of the minimum thumb size. */
-  protected static Dimension minimumThumbSize;
+  protected Dimension minimumThumbSize;
 
   /** The color of the thumb. */
   protected Color thumbColor;
@@ -427,8 +432,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   /** The outer light shadow for the thumb. */
   protected Color thumbLightShadowColor;
 
-  /** The color that is used when the mouse press
-      occurs in the track. */
+  /** The color that is used when the mouse press occurs in the track. */
   protected Color trackHighlightColor;
 
   /** The color of the track. */
@@ -441,19 +445,19 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   protected Rectangle thumbRect;
 
   /** Indicates that the decrease highlight should be painted. */
-  protected static int DECREASE_HIGHLIGHT = 1;
+  protected static final int DECREASE_HIGHLIGHT = 1;
 
   /** Indicates that the increase highlight should be painted. */
-  protected static int INCREASE_HIGHLIGHT = 2;
+  protected static final int INCREASE_HIGHLIGHT = 2;
 
   /** Indicates that no highlight should be painted. */
-  protected static int NO_HIGHLIGHT = 0;
+  protected static final int NO_HIGHLIGHT = 0;
 
   /** Indicates that the scrolling direction is positive. */
-  private static int POSITIVE_SCROLL = 1;
+  private static final int POSITIVE_SCROLL = 1;
 
   /** Indicates that the scrolling direction is negative. */
-  private static int NEGATIVE_SCROLL = -1;
+  private static final int NEGATIVE_SCROLL = -1;
 
   /** The cached preferred size for the scrollbar. */
   private transient Dimension preferredSize;
@@ -471,88 +475,6 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   protected JScrollBar scrollbar;
 
   /**
-   * A helper class that allows us to draw icons for 
-   * the JButton.
-   */
-  private static class arrowIcon implements Icon
-  {
-    /** The polygon that describes the icon. */
-    private Polygon arrow;
-
-    /**
-     * Creates a new arrowIcon object.
-     *
-     * @param arrow The polygon that describes the arrow.
-     */
-    public arrowIcon(Polygon arrow)
-    {
-      this.arrow = arrow;
-    }
-
-    /**
-     * Returns the height of the icon.
-     *
-     * @return The height of the icon.
-     */
-    public int getIconHeight()
-    {
-      return 10;
-    }
-
-    /**
-     * Returns the width of the icon.
-     *
-     * @return The width of the icon.
-     */
-    public int getIconWidth()
-    {
-      return 10;
-    }
-
-    /**
-     * Paints the icon.
-     *
-     * @param c The Component to paint for.
-     * @param g The Graphics object to draw with.
-     * @param x The X coordinate to draw at.
-     * @param y The Y coordinate to draw at.
-     */
-    public void paintIcon(Component c, Graphics g, int x, int y)
-    {
-      g.translate(x, y);
-
-      Color saved = g.getColor();
-
-      g.setColor(Color.BLACK);
-
-      g.fillPolygon(arrow);
-
-      g.setColor(saved);
-      g.translate(-x, -y);
-    }
-  }
-
-  /** The Icon that points up. */
-  private static Icon upIcon = new arrowIcon(new Polygon(new int[] { 2, 5, 8 },
-                                                            new int[] { 7, 3, 7 },
-                                                            3));
-
-  /** The Icon that points down. */
-  private static Icon downIcon = new arrowIcon(new Polygon(new int[] { 2, 5, 8 },
-                                                              new int[] { 3, 7, 3 },
-                                                              3));
-
-  /** The Icon that points left. */
-  private static Icon leftIcon = new arrowIcon(new Polygon(new int[] { 7, 3, 7 },
-                                                              new int[] { 2, 5, 8 },
-                                                              3));
-
-  /** The Icon that points right. */
-  private static Icon rightIcon = new arrowIcon(new Polygon(new int[] { 3, 7, 3},
-                                                            new int[] { 2, 5, 8}, 
-                                                            3));
-
-  /**
    * This method adds a component to the layout.
    *
    * @param name The name to associate with the component that is added.
@@ -565,19 +487,19 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method configures the scrollbar's colors. This can be 
-   * done by looking up the standard colors from the Look and Feel defaults.
+   * This method configures the scrollbar's colors. This can be  done by
+   * looking up the standard colors from the Look and Feel defaults.
    */
   protected void configureScrollBarColors()
   {
     UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-  
+
     trackColor = defaults.getColor("ScrollBar.track");
     trackHighlightColor = defaults.getColor("ScrollBar.trackHighlight");
     thumbColor = defaults.getColor("ScrollBar.thumb");
     thumbHighlightColor = defaults.getColor("ScrollBar.thumbHighlight");
     thumbDarkShadowColor = defaults.getColor("ScrollBar.thumbDarkShadow");
-    thumbLightShadowColor = defaults.getColor("ScrollBar.thumbLightShadow");  
+    thumbLightShadowColor = defaults.getColor("ScrollBar.thumbShadow");
   }
 
   /**
@@ -590,9 +512,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     return new ArrowButtonListener();
   }
 
-  /** 
-   * This method creates a new JButton with the appropriate
-   * icon for the orientation.
+  /**
+   * This method creates a new JButton with the appropriate icon for the
+   * orientation.
    *
    * @param orientation The orientation this JButton uses.
    *
@@ -601,26 +523,15 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   protected JButton createIncreaseButton(int orientation)
   {
     if (incrButton == null)
-      {
-      incrButton = new JButton();
-        incrButton.setMargin(new Insets(0,0,0,0));
-        incrButton.setHorizontalAlignment(SwingConstants.CENTER);
-        incrButton.setHorizontalTextPosition(SwingConstants.CENTER);
-        incrButton.setVerticalAlignment(SwingConstants.CENTER);
-        incrButton.setVerticalTextPosition(SwingConstants.CENTER);
-      }
-    
-    if (orientation == SwingConstants.HORIZONTAL)
-      incrButton.setIcon(rightIcon);
+      incrButton = new BasicArrowButton(orientation);
     else
-      incrButton.setIcon(downIcon);
-
+      ((BasicArrowButton) incrButton).setDirection(orientation);
     return incrButton;
   }
 
   /**
-   * This method creates a new JButton with the appropriate
-   * icon for the orientation.
+   * This method creates a new JButton with the appropriate icon for the
+   * orientation.
    *
    * @param orientation The orientation this JButton uses.
    *
@@ -629,20 +540,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   protected JButton createDecreaseButton(int orientation)
   {
     if (decrButton == null)
-      {
-      decrButton = new JButton();
-        decrButton.setMargin(new Insets(0,0,0,0));
-        decrButton.setHorizontalAlignment(SwingConstants.CENTER);
-        decrButton.setHorizontalTextPosition(SwingConstants.CENTER);
-        decrButton.setVerticalAlignment(SwingConstants.CENTER);
-        decrButton.setVerticalTextPosition(SwingConstants.CENTER);
-      }
-
-    if (orientation == SwingConstants.HORIZONTAL)
-      decrButton.setIcon(leftIcon);
+      decrButton = new BasicArrowButton(orientation);
     else
-      decrButton.setIcon(upIcon);
-
+      ((BasicArrowButton) decrButton).setDirection(orientation);
     return decrButton;
   }
 
@@ -743,13 +643,13 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method calculates the preferred size since
-   * calling getPreferredSize() returns a cached value.
+   * This method calculates the preferred size since calling
+   * getPreferredSize() returns a cached value.
+   * This is package-private to avoid an accessor method.
    */
-  private void calculatePreferredSize()
+  void calculatePreferredSize()
   {
     // System.err.println(this + ".calculatePreferredSize()");
-
     int height;
     int width;
     height = width = 0;
@@ -790,11 +690,11 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method returns a cached value of the preferredSize.
-   * The only restrictions are: If the scrollbar is horizontal, the
-   * height should be the maximum of the height of the JButtons and 
-   * the minimum width of the thumb. For vertical scrollbars, the 
-   * calculation is similar (swap width for height and vice versa).
+   * This method returns a cached value of the preferredSize. The only
+   * restrictions are: If the scrollbar is horizontal, the height should be
+   * the maximum of the height of the JButtons and  the minimum width of the
+   * thumb. For vertical scrollbars, the  calculation is similar (swap width
+   * for height and vice versa).
    *
    * @param c The JComponent to measure.
    *
@@ -807,9 +707,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method returns the thumb's bounds based on the 
-   * current value of the scrollbar. This method updates the
-   * cached value and returns that.
+   * This method returns the thumb's bounds based on the  current value of the
+   * scrollbar. This method updates the cached value and returns that.
    *
    * @return The thumb bounds.
    */
@@ -821,24 +720,22 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     int extent = scrollbar.getVisibleAmount();
 
     // System.err.println(this + ".getThumbBounds()");
-
     if (max == min)
-    {
-      thumbRect.x = trackRect.x;
-      thumbRect.y = trackRect.y;
-      if (scrollbar.getOrientation() == HORIZONTAL)
       {
-	thumbRect.width = getMinimumThumbSize().width;
-	thumbRect.height = trackRect.height;
+	thumbRect.x = trackRect.x;
+	thumbRect.y = trackRect.y;
+	if (scrollbar.getOrientation() == HORIZONTAL)
+	  {
+	    thumbRect.width = getMinimumThumbSize().width;
+	    thumbRect.height = trackRect.height;
+	  }
+	else
+	  {
+	    thumbRect.width = trackRect.width;
+	    thumbRect.height = getMinimumThumbSize().height;
+	  }
+	return thumbRect;
       }
-      else
-      {
-        thumbRect.width = trackRect.width;
-	thumbRect.height = getMinimumThumbSize().height;
-      }
-      return thumbRect;
-    }
-               
 
     if (scrollbar.getOrientation() == HORIZONTAL)
       {
@@ -846,24 +743,25 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	thumbRect.x += (value - min) * trackRect.width / (max - min);
 	thumbRect.y = trackRect.y;
 
-	thumbRect.width = extent * trackRect.width / (max - min);
+	thumbRect.width = Math.max(extent * trackRect.width / (max - min),
+                                   getMinimumThumbSize().width);
 	thumbRect.height = trackRect.height;
       }
     else
       {
 	thumbRect.x = trackRect.x;
-	thumbRect.y = trackRect.y
-	              + value * trackRect.height / (max - min);
+	thumbRect.y = trackRect.y + value * trackRect.height / (max - min);
 
 	thumbRect.width = trackRect.width;
-	thumbRect.height = extent * trackRect.height / (max - min);
+	thumbRect.height = Math.max(extent * trackRect.height / (max - min),
+                                    getMinimumThumbSize().height);
       }
     return thumbRect;
   }
 
   /**
-   * This method calculates the bounds of the track. This method
-   * updates the cached value and returns it.
+   * This method calculates the bounds of the track. This method updates the
+   * cached value and returns it.
    *
    * @return The track's bounds.
    */
@@ -889,20 +787,30 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method installs any addition Components that 
-   * are a part of or related to this scrollbar.
+   * This method installs any addition Components that  are a part of or
+   * related to this scrollbar.
    */
   protected void installComponents()
   {
-    incrButton = createIncreaseButton(scrollbar.getOrientation());
+    int orientation = scrollbar.getOrientation();
+    switch (orientation)
+      {
+      case (JScrollBar.HORIZONTAL):
+        incrButton = createIncreaseButton(EAST);
+        decrButton = createDecreaseButton(WEST);
+        break;
+      default:
+        incrButton = createIncreaseButton(SOUTH);
+        decrButton = createDecreaseButton(NORTH);
+        break;
+      }
     scrollbar.add(incrButton);
-    decrButton = createDecreaseButton(scrollbar.getOrientation());
     scrollbar.add(decrButton);
   }
 
   /**
-   * This method installs the defaults for the scrollbar specified
-   * by the Basic Look and Feel.
+   * This method installs the defaults for the scrollbar specified by the
+   * Basic Look and Feel.
    */
   protected void installDefaults()
   {
@@ -912,6 +820,11 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     scrollbar.setBackground(defaults.getColor("ScrollBar.background"));
     scrollbar.setBorder(defaults.getBorder("ScrollBar.border"));
     scrollbar.setOpaque(true);
+
+    thumbColor = defaults.getColor("ScrollBar.thumb");
+    thumbDarkShadowColor = defaults.getColor("ScrollBar.thumbDarkShadow");
+    thumbHighlightColor = defaults.getColor("ScrollBar.thumbHighlight");
+    thumbLightShadowColor = defaults.getColor("ScrollBar.thumbShadow");
 
     maximumThumbSize = defaults.getDimension("ScrollBar.maximumThumbSize");
     minimumThumbSize = defaults.getDimension("ScrollBar.minimumThumbSize");
@@ -926,9 +839,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method installs any listeners for the scrollbar.
-   * This method also installs listeners for things such as
-   * the JButtons and the timer.
+   * This method installs any listeners for the scrollbar. This method also
+   * installs listeners for things such as the JButtons and the timer.
    */
   protected void installListeners()
   {
@@ -951,10 +863,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method installs the UI for the component.
-   * This can include setting up listeners, defaults, 
-   * and components. This also includes initializing any data
-   * objects.
+   * This method installs the UI for the component. This can include setting
+   * up listeners, defaults,  and components. This also includes initializing
+   * any data objects.
    *
    * @param c The JComponent to install.
    */
@@ -972,12 +883,12 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	scrollTimer.setRepeats(true);
 
 	installComponents();
-	installListeners();
 	installDefaults();
 	configureScrollBarColors();
+	installListeners();
 
 	calculatePreferredSize();
-        layoutContainer(scrollbar);	
+	layoutContainer(scrollbar);
       }
   }
 
@@ -1073,9 +984,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method is called when repainting and the mouse is 
-   * pressed in the track. It paints the track below the thumb
-   * with the trackHighlight color.
+   * This method is called when repainting and the mouse is  pressed in the
+   * track. It paints the track below the thumb with the trackHighlight
+   * color.
    *
    * @param g The Graphics object to paint with.
    */
@@ -1088,15 +999,15 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       g.fillRect(trackRect.x, trackRect.y, thumbRect.x - trackRect.x,
                  trackRect.height);
     else
-      g.fillRect(trackRect.x, trackRect.y, trackRect.width, 
+      g.fillRect(trackRect.x, trackRect.y, trackRect.width,
                  thumbRect.y - trackRect.y);
     g.setColor(saved);
   }
 
   /**
-   * This method is called when repainting and the mouse is 
-   * pressed in the track. It paints the track above the thumb
-   * with the trackHighlight color.
+   * This method is called when repainting and the mouse is  pressed in the
+   * track. It paints the track above the thumb with the trackHighlight
+   * color.
    *
    * @param g The Graphics objet to paint with.
    */
@@ -1109,11 +1020,10 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       g.fillRect(thumbRect.x + thumbRect.width, trackRect.y,
                  trackRect.x + trackRect.width - thumbRect.x - thumbRect.width,
                  trackRect.height);
-    else   
-      g.fillRect(trackRect.x, thumbRect.y + thumbRect.height, 
-                 trackRect.width,
-                 trackRect.y + trackRect.height - thumbRect.y - 
-		 thumbRect.height);
+    else
+      g.fillRect(trackRect.x, thumbRect.y + thumbRect.height, trackRect.width,
+                 trackRect.y + trackRect.height - thumbRect.y
+                 - thumbRect.height);
     g.setColor(saved);
   }
 
@@ -1126,53 +1036,15 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    */
   protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds)
   {
-    Color saved = g.getColor();
-    Point x;
-    Point y;
-    Point z;
-    Polygon lines;
-
-    g.setColor(thumbHighlightColor);
-    x = new Point(thumbBounds.x + 1, thumbBounds.y + 1);
-    y = new Point(x);
-    y.translate(thumbBounds.width - 2, 0);
-    z = new Point(x);
-    z.translate(0, thumbBounds.height - 2);
-
-    lines = new Polygon(new int[] { x.x, y.x, z.x },
-                        new int[] { x.y, y.y, z.y }, 3);
-
-    g.drawPolygon(lines);
-
-    g.setColor(thumbLightShadowColor);
-    x = new Point(thumbBounds.x + thumbBounds.width - 1,
-                  thumbBounds.y + thumbBounds.height - 1);
-    y = new Point(x);
-    y.translate(-(thumbBounds.width - 2), 0);
-    z = new Point(x);
-    z.translate(0, -(thumbBounds.height - 2));
-
-    lines = new Polygon(new int[] { x.x, y.x, z.x },
-                        new int[] { x.y, y.y, z.y }, 3);
-    g.drawPolygon(lines);
-
-    g.setColor(thumbDarkShadowColor);
-    x = new Point(thumbBounds.x + thumbBounds.width,
-                  thumbBounds.y + thumbBounds.height);
-    y = new Point(x);
-    y.translate(-thumbBounds.width, 0);
-    z = new Point(x);
-    z.translate(0, -thumbBounds.height);
-
-    lines = new Polygon(new int[] { x.x, y.x, z.x },
-                        new int[] { x.y, y.y, z.y }, 3);
-    g.drawPolygon(lines);
-
     g.setColor(thumbColor);
     g.fillRect(thumbBounds.x, thumbBounds.y, thumbBounds.width,
                thumbBounds.height);
 
-    g.setColor(saved);
+    BasicGraphicsUtils.drawBezel(g, thumbBounds.x, thumbBounds.y,
+                                 thumbBounds.width, thumbBounds.height,
+                                 false, false, thumbDarkShadowColor,
+                                 thumbDarkShadowColor, thumbHighlightColor,
+                                 thumbHighlightColor);
   }
 
   /**
@@ -1217,25 +1089,25 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * The method scrolls the thumb by a block in the 
-   * direction specified.
+   * The method scrolls the thumb by a block in the  direction specified.
    *
    * @param direction The direction to scroll.
    */
   protected void scrollByBlock(int direction)
   {
-    scrollbar.setValue(scrollbar.getValue() + scrollbar.getBlockIncrement(direction));
+    scrollbar.setValue(scrollbar.getValue()
+                       + scrollbar.getBlockIncrement(direction));
   }
 
   /**
-   * The method scrolls the thumb by a unit in the
-   * direction specified.
+   * The method scrolls the thumb by a unit in the direction specified.
    *
    * @param direction The direction to scroll.
    */
   protected void scrollByUnit(int direction)
   {
-    scrollbar.setValue(scrollbar.getValue() + scrollbar.getUnitIncrement(direction));
+    scrollbar.setValue(scrollbar.getValue()
+                       + scrollbar.getUnitIncrement(direction));
   }
 
   /**
@@ -1255,8 +1127,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method uninstalls any components that 
-   * are a part of or related to this scrollbar.
+   * This method uninstalls any components that  are a part of or related to
+   * this scrollbar.
    */
   protected void uninstallComponents()
   {
@@ -1267,8 +1139,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method uninstalls any defaults that this
-   * scrollbar acquired from the Basic Look and Feel defaults.
+   * This method uninstalls any defaults that this scrollbar acquired from the
+   * Basic Look and Feel defaults.
    */
   protected void uninstallDefaults()
   {
@@ -1278,8 +1150,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method uninstalls any keyboard
-   * actions this scrollbar acquired during install.
+   * This method uninstalls any keyboard actions this scrollbar acquired
+   * during install.
    */
   protected void uninstallKeyboardActions()
   {
@@ -1287,22 +1159,21 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method uninstalls any listeners that
-   * were registered during install.
+   * This method uninstalls any listeners that were registered during install.
    */
   protected void uninstallListeners()
   {
     scrollTimer.removeActionListener(scrollListener);
-    
+
     scrollbar.getModel().removeChangeListener(modelListener);
     scrollbar.removePropertyChangeListener(propertyChangeListener);
-    
+
     decrButton.removeMouseListener(buttonListener);
     incrButton.removeMouseListener(buttonListener);
-    
+
     scrollbar.removeMouseListener(trackListener);
     scrollbar.removeMouseMotionListener(trackListener);
-    
+
     propertyChangeListener = null;
     modelListener = null;
     buttonListener = null;
@@ -1311,10 +1182,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   }
 
   /**
-   * This method uninstalls the UI. This includes
-   * removing any defaults, listeners, and components
-   * that this UI may have initialized. It also nulls
-   * any instance data.
+   * This method uninstalls the UI. This includes removing any defaults,
+   * listeners, and components that this UI may have initialized. It also
+   * nulls any instance data.
    *
    * @param c The Component to uninstall for.
    */
@@ -1323,19 +1193,19 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     uninstallDefaults();
     uninstallListeners();
     uninstallComponents();
-    
+
     scrollTimer = null;
-    
+
     thumbRect = null;
     trackRect = null;
-    
+
     trackColor = null;
     trackHighlightColor = null;
     thumbColor = null;
     thumbHighlightColor = null;
     thumbDarkShadowColor = null;
     thumbLightShadowColor = null;
-    
+
     scrollbar = null;
   }
 
@@ -1343,12 +1213,13 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    * This method returns the value in the scrollbar's range given the y
    * coordinate. If the value is out of range, it will return the closest
    * legal value.
+   * This is package-private to avoid an accessor method.
    *
    * @param yPos The y coordinate to calculate a value for.
    *
    * @return The value for the y coordinate.
    */
-  private int valueForYPosition(int yPos)
+  int valueForYPosition(int yPos)
   {
     int min = scrollbar.getMinimum();
     int max = scrollbar.getMaximum();
@@ -1375,12 +1246,13 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    * This method returns the value in the scrollbar's range given the x
    * coordinate. If the value is out of range, it will return the closest
    * legal value.
+   * This is package-private to avoid an accessor method.
    *
    * @param xPos The x coordinate to calculate a value for.
    *
    * @return The value for the x coordinate.
    */
-  private int valueForXPosition(int xPos)
+  int valueForXPosition(int xPos)
   {
     int min = scrollbar.getMinimum();
     int max = scrollbar.getMaximum();

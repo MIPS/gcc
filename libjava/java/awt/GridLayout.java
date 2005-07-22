@@ -1,6 +1,5 @@
-// GridLayout.java - Grid-based layout engine
-
-/* Copyright (C) 1999, 2000, 2002  Free Software Foundation
+/* GridLayout.java -- Grid-based layout engine
+   Copyright (C) 1999, 2000, 2002, 2004  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -16,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -53,7 +52,7 @@ import java.io.Serializable;
  * horizontal and vertical gaps; these are used as spacing between
  * cells.
  *
- * @author Tom Tromey <tromey@redhat.com>
+ * @author Tom Tromey (tromey@redhat.com)
  * @author Aaron M. Renn (arenn@urbanophile.com)
  */
 public class GridLayout implements LayoutManager, Serializable
@@ -63,7 +62,7 @@ public class GridLayout implements LayoutManager, Serializable
   /** Add a new component to the layout.  This particular implementation
    * does nothing.
    * @param name The name of the component to add.
-   * @param component The component to add.
+   * @param comp The component to add.
    */
   public void addLayoutComponent (String name, Component comp)
   {

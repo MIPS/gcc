@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.text;
 
 import java.awt.Color;
@@ -45,12 +46,13 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import javax.swing.event.EventListenerList;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import java.util.Enumeration;
 import java.util.EventListener;
 import java.util.Hashtable;
+
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.EventListenerList;
 
 public class StyleContext 
     implements Serializable, AbstractDocument.AttributeContext
@@ -201,7 +203,11 @@ public class StyleContext
 
     public void setResolveParent(AttributeSet parent)
     {
-      attributes = StyleContext.this.addAttribute(attributes, ResolveAttribute, parent);
+      if (parent != null)
+        {
+          attributes = StyleContext.this.addAttribute
+            (attributes, ResolveAttribute, parent);
+        }
       fireStateChanged();
     }
       

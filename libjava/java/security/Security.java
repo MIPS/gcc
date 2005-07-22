@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,7 +38,9 @@ exception statement from your version. */
 
 package java.security;
 
-import gnu.java.security.action.GetPropertyAction;
+import gnu.classpath.SystemProperties;
+
+import gnu.classpath.Configuration;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -69,10 +71,8 @@ public final class Security
   
   static
     {
-      GetPropertyAction getProp = new GetPropertyAction("gnu.classpath.home.url");
-      String base = (String) AccessController.doPrivileged(getProp);
-      getProp = new GetPropertyAction("gnu.classpath.vm.shortname");
-      String vendor = (String) AccessController.doPrivileged(getProp);
+      String base = SystemProperties.getProperty("gnu.classpath.home.url");
+      String vendor = SystemProperties.getProperty("gnu.classpath.vm.shortname");
 
       // Try VM specific security file
       boolean loaded = loadProviders (base, vendor);
@@ -81,20 +81,27 @@ public final class Security
       if (!loadProviders (base, "classpath")
 	  && !loaded
 	  && providers.size() == 0)
-        {
-	  // No providers found and both security files failed to load properly.
-	  System.err.println
-	    ("WARNING: could not properly read security provider files:");
-	  System.err.println
-	    ("         " + base + "/security/" + vendor + ".security");
-	  System.err.println
-	    ("         " + base + "/security/" + "classpath" + ".security");
-	  System.err.println
-	    ("         Falling back to standard GNU security provider");
-	  providers.addElement (new gnu.java.security.provider.Gnu());
-        }
-  }
-
+	  {
+	      if (Configuration.DEBUG)
+		  {
+		      /* No providers found and both security files failed to
+		       * load properly. Give a warning in case of DEBUG is
+		       * enabled. Could be done with java.util.logging later.
+		       */
+		      System.err.println
+			  ("WARNING: could not properly read security provider files:");
+		      System.err.println
+			  ("         " + base + "/security/" + vendor
+			   + ".security");
+		      System.err.println
+			  ("         " + base + "/security/" + "classpath"
+			   + ".security");
+		      System.err.println
+			  ("         Falling back to standard GNU security provider");
+		  }
+	      providers.addElement (new gnu.java.security.provider.Gnu());
+	  }
+    }
   // This class can't be instantiated.
   private Security()
   {

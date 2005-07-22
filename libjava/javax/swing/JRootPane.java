@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.BorderLayout;
@@ -44,6 +45,7 @@ import java.awt.Dimension;
 import java.awt.LayoutManager;
 import java.awt.LayoutManager2;
 import java.io.Serializable;
+
 import javax.accessibility.AccessibleRole;
 import javax.swing.plaf.RootPaneUI;
 
@@ -62,7 +64,9 @@ public class JRootPane extends JComponent
   //  The class used to obtain the accessible role for this object.
   protected static class AccessibleJRootPane
   {
-    /** DOCUMENT ME! */
+    /**
+     * For compatability with Sun's JDK
+     */
     private static final long serialVersionUID = 1082432482784468088L;
 
     /**
@@ -96,7 +100,7 @@ public class JRootPane extends JComponent
     protected RootLayout()
     {
     }
-    
+
     /**
      * DOCUMENT ME!
      *
@@ -185,52 +189,52 @@ public class JRootPane extends JComponent
       */
       if (containerSize.width == 0 && containerSize.height == 0)
         {
-	  if (menuBar != null)
-	    {
-	      int maxWidth;
-	      menuBarSize = menuBar.getPreferredSize();
-	      maxWidth = Math.max(menuBarSize.width, contentPaneSize.width);
-	      menuBar.setBounds(0, 0, maxWidth, menuBarSize.height);
-	      glassPane.setBounds(0, menuBarSize.height, maxWidth,
-	                          contentPaneSize.height);
-	      contentPane.setBounds(0, menuBarSize.height, maxWidth,
-	                            contentPaneSize.height);
-	      layeredPane.setSize(maxWidth,
-	                          menuBarSize.height + contentPaneSize.height);
-	    }
-	  else
-	    {
-	      glassPane.setBounds(0, 0, contentPaneSize.width,
-	                          contentPaneSize.height);
-	      contentPane.setBounds(0, 0, contentPaneSize.width,
-	                            contentPaneSize.height);
-	      layeredPane.setSize(contentPaneSize.width, contentPaneSize.height);
-	    }
+          if (menuBar != null)
+            {
+              int maxWidth;
+              menuBarSize = menuBar.getPreferredSize();
+              maxWidth = Math.max(menuBarSize.width, contentPaneSize.width);
+              menuBar.setBounds(0, 0, maxWidth, menuBarSize.height);
+              glassPane.setBounds(0, menuBarSize.height, maxWidth,
+                                  contentPaneSize.height);
+              contentPane.setBounds(0, menuBarSize.height, maxWidth,
+                                    contentPaneSize.height);
+              layeredPane.setSize(maxWidth,
+                                  menuBarSize.height + contentPaneSize.height);
+            }
+          else
+            {
+              glassPane.setBounds(0, 0, contentPaneSize.width,
+                                  contentPaneSize.height);
+              contentPane.setBounds(0, 0, contentPaneSize.width,
+                                    contentPaneSize.height);
+              layeredPane.setSize(contentPaneSize.width, contentPaneSize.height);
+            }
         }
       else
         {
-	  if (menuBar != null)
-	    {
-	      menuBarSize = menuBar.getPreferredSize();
-	      if (menuBarSize.height > containerSize.height)
-		menuBarSize.height = containerSize.height;
-	      menuBar.setBounds(0, 0, containerSize.width, menuBarSize.height);
-	      int remainingHeight = containerSize.height - menuBarSize.height;
-	      glassPane.setBounds(0, menuBarSize.height, containerSize.width,
-	                          containerSize.height - menuBarSize.height);
-	      contentPane.setBounds(0, menuBarSize.height,
-	                            containerSize.width,
-	                            (containerSize.height - menuBarSize.height));
-	    }
-	  else
-	    {
-	      glassPane.setBounds(0, 0, containerSize.width,
-	                          containerSize.height);
-	    contentPane.setBounds(0, 0, containerSize.width,
-	                          containerSize.height);
-	    }
+          if (menuBar != null)
+            {
+              menuBarSize = menuBar.getPreferredSize();
+              if (menuBarSize.height > containerSize.height)
+                menuBarSize.height = containerSize.height;
+              menuBar.setBounds(0, 0, containerSize.width, menuBarSize.height);
+              int remainingHeight = containerSize.height - menuBarSize.height;
+              glassPane.setBounds(0, menuBarSize.height, containerSize.width,
+                                  containerSize.height - menuBarSize.height);
+              contentPane.setBounds(0, menuBarSize.height,
+                                    containerSize.width,
+                                    (containerSize.height - menuBarSize.height));
+            }
+          else
+            {
+              glassPane.setBounds(0, 0, containerSize.width,
+                                  containerSize.height);
+              contentPane.setBounds(0, 0, containerSize.width,
+                                    containerSize.height);
+            }
 
-	  layeredPane.setSize(containerSize.width, containerSize.height);
+          layeredPane.setSize(containerSize.width, containerSize.height);
         }
     }
 
@@ -275,20 +279,20 @@ public class JRootPane extends JComponent
 
       if (containerSize.width == 0 && containerSize.height == 0)
         {
-	  if (menuBar != null)
-	    {
-	      int maxWidth;
-	      menuBarSize = menuBar.getPreferredSize();
-	      maxWidth = Math.max(menuBarSize.width, contentPaneSize.width);
-	      prefSize = new Dimension(maxWidth,
-	                               contentPaneSize.height
-	                               + menuBarSize.height);
-	    }
-	  else
-	    prefSize = contentPaneSize;
+          if (menuBar != null)
+            {
+              int maxWidth;
+              menuBarSize = menuBar.getPreferredSize();
+              maxWidth = Math.max(menuBarSize.width, contentPaneSize.width);
+              prefSize = new Dimension(maxWidth,
+                                       contentPaneSize.height
+                                       + menuBarSize.height);
+            }
+          else
+            prefSize = contentPaneSize;
         }
       else
-	prefSize = c.getSize();
+        prefSize = c.getSize();
 
       return prefSize;
     }
@@ -306,6 +310,16 @@ public class JRootPane extends JComponent
   /** DOCUMENT ME! */
   private static final long serialVersionUID = 8690748000348575668L;
 
+  public static final int NONE = 0;
+  public static final int FRAME = 1;
+  public static final int PLAIN_DIALOG = 2;
+  public static final int INFORMATION_DIALOG = 3;
+  public static final int ERROR_DIALOG = 4;
+  public static final int COLOR_CHOOSER_DIALOG = 5;
+  public static final int FILE_CHOOSER_DIALOG = 6;
+  public static final int QUESTION_DIALOG = 7;
+  public static final int WARNING_DIALOG = 8;
+          
   /** DOCUMENT ME! */
   protected Component glassPane;
 
@@ -318,6 +332,13 @@ public class JRootPane extends JComponent
   /** DOCUMENT ME! */
   protected Container contentPane;
 
+  protected JButton defaultButton;
+
+  /**
+   * @since 1.4
+   */
+  private int windowDecorationStyle = NONE;
+  
   /**
    * DOCUMENT ME!
    *
@@ -325,8 +346,20 @@ public class JRootPane extends JComponent
    */
   public void setJMenuBar(JMenuBar m)
   {
+    JLayeredPane jlPane = getLayeredPane();
+    if (menuBar != null)
+      jlPane.remove(menuBar);
     menuBar = m;
-    getLayeredPane().add(menuBar, JLayeredPane.FRAME_CONTENT_LAYER);
+    if (menuBar != null)
+      jlPane.add(menuBar, JLayeredPane.FRAME_CONTENT_LAYER);
+  }
+
+  /**
+   * @deprecated Replaced by <code>setJMenuBar()</code>
+   */
+  public void setMenuBar(JMenuBar m)
+  {
+    setJMenuBar(m);
   }
 
   /**
@@ -337,6 +370,14 @@ public class JRootPane extends JComponent
   public JMenuBar getJMenuBar()
   {
     return menuBar;
+  }
+
+  /**
+   * @deprecated Replaced by <code>getJMenuBar()</code>
+   */
+  public JMenuBar getMenuBar()
+  {
+    return getJMenuBar();
   }
 
   /**
@@ -466,7 +507,7 @@ public class JRootPane extends JComponent
    *
    * @return DOCUMENT ME!
    */
-  protected JComponent createContentPane()
+  protected Container createContentPane()
   {
     JPanel p = new JPanel();
     p.setName(this.getName() + ".contentPane");
@@ -537,5 +578,48 @@ public class JRootPane extends JComponent
   public String getUIClassID()
   {
     return "RootPaneUI";
+  }
+
+  public JButton getDefaultButton()
+  {
+    return defaultButton;
+  }
+  
+  public void setDefaultButton(JButton newButton)
+  {
+    if (defaultButton == newButton)
+      return;
+    
+    JButton oldButton = defaultButton;
+    defaultButton = newButton;
+    firePropertyChange("defaultButton", oldButton, newButton);
+  }
+
+  /**
+   * @since 1.4
+   */
+  public int getWindowDecorationStyle()
+  {
+    return windowDecorationStyle;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public void setWindowDecorationStyle(int style)
+  {
+    if (style != NONE
+        && style != FRAME
+        && style != INFORMATION_DIALOG
+        && style != ERROR_DIALOG
+        && style != COLOR_CHOOSER_DIALOG
+        && style != FILE_CHOOSER_DIALOG
+        && style != QUESTION_DIALOG
+        && style != WARNING_DIALOG)
+      throw new IllegalArgumentException("invalid style");
+    
+    int oldStyle = windowDecorationStyle;
+    windowDecorationStyle = style;
+    firePropertyChange("windowDecorationStyle", oldStyle, style);
   }
 }

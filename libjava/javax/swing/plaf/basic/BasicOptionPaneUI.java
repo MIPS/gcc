@@ -1,5 +1,5 @@
-/* BasicOptionPaneUI.java
-   Copyright (C) 2004 Free Software Foundation, Inc.
+/* BasicOptionPaneUI.java --
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.plaf.basic;
 
 import java.awt.BorderLayout;
@@ -42,21 +43,19 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.Polygon;
-import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyVetoException;
+
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
@@ -75,9 +74,7 @@ import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.plaf.ComponentUI;
-import javax.swing.plaf.IconUIResource;
 import javax.swing.plaf.OptionPaneUI;
-
 
 /**
  * This class is the UI delegate for JOptionPane in the Basic Look and Feel.
@@ -442,7 +439,8 @@ public class BasicOptionPaneUI extends OptionPaneUI
   protected JOptionPane optionPane;
 
   /** The size of the icons. */
-  private static int iconSize = 36;
+  // FIXME: wrong name for a constant.
+  private static final int iconSize = 36;
 
   /** The foreground color for the message area. */
   private transient Color messageForeground;
@@ -454,28 +452,34 @@ public class BasicOptionPaneUI extends OptionPaneUI
   private transient Border buttonBorder;
 
   /** The string used to describe OK buttons. */
-  private static String OK_STRING = "OK";
+  // FIXME: wrong name for a constant.
+  private static final String OK_STRING = "OK";
 
   /** The string used to describe Yes buttons. */
-  private static String YES_STRING = "Yes";
+  // FIXME: wrong name for a constant.
+  private static final String YES_STRING = "Yes";
 
   /** The string used to describe No buttons. */
-  private static String NO_STRING = "No";
+  // FIXME: wrong name for a constant.
+  private static final String NO_STRING = "No";
 
   /** The string used to describe Cancel buttons. */
-  private static String CANCEL_STRING = "Cancel";
+  // FIXME: wrong name for a constant.
+  private static final String CANCEL_STRING = "Cancel";
 
-  /** The container for the message area. */
-  private transient Container messageAreaContainer;
+  /** The container for the message area.
+   * This is package-private to avoid an accessor method. */
+  transient Container messageAreaContainer;
 
-  /** The container for the buttons. */
-  private transient Container buttonContainer;
+  /** The container for the buttons.
+   * This is package-private to avoid an accessor method.  */
+  transient Container buttonContainer;
 
   /**
    * A helper class that implements Icon. This is used temporarily until
    * ImageIcons are fixed.
    */
-  private static class messageIcon implements Icon
+  private static class MessageIcon implements Icon
   {
     /**
      * This method returns the width of the icon.
@@ -512,7 +516,7 @@ public class BasicOptionPaneUI extends OptionPaneUI
   }
 
   /** The icon displayed for ERROR_MESSAGE. */
-  private static messageIcon errorIcon = new messageIcon()
+  private static MessageIcon errorIcon = new MessageIcon()
     {
       public void paintIcon(Component c, Graphics g, int x, int y)
       {
@@ -534,7 +538,7 @@ public class BasicOptionPaneUI extends OptionPaneUI
     };
 
   /** The icon displayed for INFORMATION_MESSAGE. */
-  private static messageIcon infoIcon = new messageIcon()
+  private static MessageIcon infoIcon = new MessageIcon()
     {
       public void paintIcon(Component c, Graphics g, int x, int y)
       {
@@ -560,7 +564,7 @@ public class BasicOptionPaneUI extends OptionPaneUI
     };
 
   /** The icon displayed for WARNING_MESSAGE. */
-  private static messageIcon warningIcon = new messageIcon()
+  private static MessageIcon warningIcon = new MessageIcon()
     {
       public void paintIcon(Component c, Graphics g, int x, int y)
       {
@@ -585,7 +589,7 @@ public class BasicOptionPaneUI extends OptionPaneUI
     };
 
   /** The icon displayed for MESSAGE_ICON. */
-  private static messageIcon questionIcon = new messageIcon()
+  private static MessageIcon questionIcon = new MessageIcon()
     {
       public void paintIcon(Component c, Graphics g, int x, int y)
       {
@@ -849,18 +853,7 @@ public class BasicOptionPaneUI extends OptionPaneUI
     messageArea.setLayout(new BorderLayout());
     addIcon(messageArea);
 
-    JPanel rightSide = new JPanel()
-    {
-    public Dimension getPreferredSize()
-    {
-	  int w = Math.max(optionPane.getSize().width, minimumWidth);
-      Insets i = optionPane.getInsets();
-      Dimension orig = super.getPreferredSize();
-      Dimension value = new Dimension(w - i.left - i.right - iconSize,
-                                      orig.height);
-      return value;
-    }
-    };    
+    JPanel rightSide = new JPanel();
     rightSide.setLayout(new GridBagLayout());
     GridBagConstraints con = createConstraints();
 
@@ -1241,8 +1234,9 @@ public class BasicOptionPaneUI extends OptionPaneUI
   /**
    * This method resets the value in the inputComponent to the
    * initialSelectionValue property.
+   * This is package-private to avoid an accessor method.
    */
-  private void resetSelectedValue()
+  void resetSelectedValue()
   {
     if (inputComponent != null)
       {

@@ -1,5 +1,5 @@
 /* FloatBufferImpl.java -- 
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -80,6 +80,8 @@ final class FloatBufferImpl extends FloatBuffer
   
   public FloatBuffer compact ()
   {
+    checkIfReadOnly();
+    mark = -1;
     int copied = 0;
     
     while (remaining () > 0)
@@ -89,6 +91,7 @@ final class FloatBufferImpl extends FloatBuffer
       }
 
     position (copied);
+    limit(capacity());
     return this;
   }
   
@@ -146,7 +149,7 @@ final class FloatBufferImpl extends FloatBuffer
   }
   
   /**
-   * Absolute put method. Writes <code>value</value> to position
+   * Absolute put method. Writes <code>value</code> to position
    * <code>index</code> in the buffer.
    *
    * @exception IndexOutOfBoundsException If index is negative or not smaller

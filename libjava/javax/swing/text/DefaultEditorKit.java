@@ -1,5 +1,5 @@
-/* DefaultEditorKit.java -- 
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+/* DefaultEditorKit.java --
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,18 +35,21 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.text;
 
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
-import java.io.InputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
-import javax.swing.Action;
-import javax.swing.JEditorPane;
 
+import javax.swing.Action;
 
 public class DefaultEditorKit extends EditorKit
 {
@@ -83,6 +86,7 @@ public class DefaultEditorKit extends EditorKit
     {
       super(cutAction);
     }
+
     public void actionPerformed(ActionEvent event)
     {
     }
@@ -95,6 +99,7 @@ public class DefaultEditorKit extends EditorKit
     {
       super(defaultKeyTypedAction);
     }
+
     public void actionPerformed(ActionEvent event)
     {
       JTextComponent t = getTextComponent(event);
@@ -105,7 +110,6 @@ public class DefaultEditorKit extends EditorKit
               t.getDocument().insertString(t.getCaret().getDot(), event.getActionCommand(), null);
               t.getCaret().setDot(Math.min(t.getCaret().getDot() + 1,
                                            t.getDocument().getEndPosition().getOffset()));
-              t.repaint();
             }
           catch (BadLocationException be)
             {
@@ -122,6 +126,7 @@ public class DefaultEditorKit extends EditorKit
     {
       super(insertBreakAction);
     }
+
     public void actionPerformed(ActionEvent event)
     {
     }
@@ -146,6 +151,7 @@ public class DefaultEditorKit extends EditorKit
     {
       super(insertTabAction);
     }
+
     public void actionPerformed(ActionEvent event)
     {
     }
@@ -158,6 +164,7 @@ public class DefaultEditorKit extends EditorKit
     {
       super(pasteAction);
     }
+
     public void actionPerformed(ActionEvent event)
     {
     }
@@ -243,7 +250,6 @@ public class DefaultEditorKit extends EditorKit
                 if (pos < t.getDocument().getEndPosition().getOffset())
                   {
                     t.getDocument().remove(t.getCaret().getDot(), 1);
-                    t.repaint();
                   }
               }
             catch (BadLocationException e)
@@ -267,7 +273,6 @@ public class DefaultEditorKit extends EditorKit
                   {
                     t.getDocument().remove(pos - 1, 1);
                     t.getCaret().setDot(pos - 1);
-                    t.repaint();
                   }
               }
             catch (BadLocationException e)
@@ -327,17 +332,6 @@ public class DefaultEditorKit extends EditorKit
     },
   };
 
-  /**
-   * Called when the kit is being removed from the JEditorPane.
-   */
-  public void deinstall(JEditorPane c)
-    {
-    }
-
-  public void install(JEditorPane c)
-    {
-    }
-
   public Caret createCaret()
   {
     return new DefaultCaret();
@@ -354,32 +348,47 @@ public class DefaultEditorKit extends EditorKit
   }
 
   public String getContentType()
-    {
-	return "text/plain";
-    }
-    
+  {
+    return "text/plain";
+  }
+  
   public ViewFactory getViewFactory()
-    {
-	return null;
-    }
+  {
+    return null;
+  }
 
-  public void read(InputStream in, Document doc, int pos)
+  public void read(InputStream in, Document document, int offset)
     throws BadLocationException, IOException
-    {
-    }
+  {
+    read(new InputStreamReader(in), document, offset);
+  }
 
-  public void read(Reader in, Document doc, int pos)
+  public void read(Reader in, Document document, int offset)
     throws BadLocationException, IOException
-    {
-    }
+  {
+    BufferedReader reader = new BufferedReader(in);
 
-  public void write(OutputStream out, Document doc, int pos, int len)
-    throws BadLocationException, IOException
-    {
-    }
+    String line;
+    StringBuffer content = new StringBuffer();
 
-  public void write(Writer out, Document doc, int pos, int len)
+    while ((line = reader.readLine()) != null)
+      {
+	content.append(line);
+	content.append("\n");
+      }
+    
+    document.insertString(offset, content.toString(),
+			  SimpleAttributeSet.EMPTY);
+  }
+
+  public void write(OutputStream out, Document document, int offset, int len)
     throws BadLocationException, IOException
-    {
-    }
+  {
+    write(new OutputStreamWriter(out), document, offset, len);
+  }
+
+  public void write(Writer out, Document document, int offset, int len)
+    throws BadLocationException, IOException
+  {
+  }
 }

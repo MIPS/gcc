@@ -14,8 +14,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -40,7 +40,7 @@ import gnu.java.awt.BitMaskExtent;
 import gnu.java.awt.Buffers;
 
 /**
- * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
+ * @author Rolf W. Rasmussen (rolfwr@ii.uib.no)
  */
 public class SinglePixelPackedSampleModel extends SampleModel
 {
@@ -59,6 +59,16 @@ public class SinglePixelPackedSampleModel extends SampleModel
 				      int scanlineStride, int[] bitMasks)
   {
     super(dataType, w, h, bitMasks.length);
+
+    switch (dataType)
+      {
+      case DataBuffer.TYPE_BYTE:
+      case DataBuffer.TYPE_USHORT:
+      case DataBuffer.TYPE_INT:
+	break;
+      default:
+	throw new IllegalArgumentException("SinglePixelPackedSampleModel unsupported dataType");
+      }
     
     this.scanlineStride = scanlineStride;
     this.bitMasks = bitMasks;
@@ -382,7 +392,7 @@ public class SinglePixelPackedSampleModel extends SampleModel
    * @param y The y-coordinate of the pixel rectangle in <code>obj</code>.
    * @param w The width of the pixel rectangle in <code>obj</code>.
    * @param h The height of the pixel rectangle in <code>obj</code>.
-   * @param obj The primitive array containing the pixels to set.
+   * @param iArray The primitive array containing the pixels to set.
    * @param data The DataBuffer to store the pixels into.
    * @see java.awt.image.SampleModel#setPixels(int, int, int, int, int[], java.awt.image.DataBuffer)
    */

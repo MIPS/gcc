@@ -1,5 +1,5 @@
-/* XBMDecoder -- Decodes X-bitmaps
-   Copyright (C) 1999 Free Software Foundation, Inc.
+/* XBMDecoder.java -- Decodes X-bitmaps
+   Copyright (C) 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,13 +35,19 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.awt.image;
 
-import java.awt.*;
-import java.awt.image.*;
-import java.util.*;
-import java.io.*;
+import java.awt.image.ColorModel;
+import java.awt.image.ImageConsumer;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URL;
+import java.util.StringTokenizer;
+import java.util.Vector;
 
 public class XBMDecoder extends ImageDecoder
 {
@@ -115,7 +121,7 @@ public class XBMDecoder extends ImageDecoder
       }
   }    
 
-  static public int[] getScanline (Reader in, int len) throws IOException
+  public static int[] getScanline (Reader in, int len) throws IOException
   {
     char byteStr[] = new char[2];
     int scanline[] = new int[len];

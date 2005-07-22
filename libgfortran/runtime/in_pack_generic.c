@@ -1,21 +1,30 @@
 /* Generic helper function for repacking arrays.
-   Copyright 2003 Free Software Foundation, Inc.
+   Copyright 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-Libgfor is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+Libgfortran is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
 
-Ligbfor is distributed in the hope that it will be useful,
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -25,12 +34,15 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include "libgfortran.h"
 
+extern void *internal_pack (gfc_array_char *);
+export_proto(internal_pack);
+
 void *
 internal_pack (gfc_array_char * source)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   index_type ssize;
@@ -40,6 +52,7 @@ internal_pack (gfc_array_char * source)
   int n;
   int packed;
   index_type size;
+  int type;
 
   if (source->dim[0].stride == 0)
     {
@@ -47,14 +60,36 @@ internal_pack (gfc_array_char * source)
       return source->data;
     }
 
+  type = GFC_DESCRIPTOR_TYPE (source);
   size = GFC_DESCRIPTOR_SIZE (source);
-  switch (size)
+  switch (type)
     {
-    case 4:
-      return internal_pack_4 ((gfc_array_i4 *)source);
+    case GFC_DTYPE_INTEGER:
+    case GFC_DTYPE_LOGICAL:
+    case GFC_DTYPE_REAL:
+      switch (size)
+	{
+	case 4:
+	  return internal_pack_4 ((gfc_array_i4 *)source);
+	  
+	case 8:
+	  return internal_pack_8 ((gfc_array_i8 *)source);
+	}
+      break;
 
-    case 8:
-      return internal_pack_8 ((gfc_array_i8 *)source);
+    case GFC_DTYPE_COMPLEX:
+      switch (size)
+	{
+	case 8:
+	  return internal_pack_c4 ((gfc_array_c4 *)source);
+	  
+	case 16:
+	  return internal_pack_c8 ((gfc_array_c8 *)source);
+	}
+      break;
+
+    default:
+      break;
     }
 
   dim = GFC_DESCRIPTOR_RANK (source);
@@ -120,4 +155,3 @@ internal_pack (gfc_array_char * source)
     }
   return destptr;
 }
-

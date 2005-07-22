@@ -1,5 +1,5 @@
 /* Comparator.java -- Interface for objects that specify an ordering
-   Copyright (C) 1998, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2001, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -60,7 +60,7 @@ package java.util;
  * Serializable.
  *
  * @author Original author unknown
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see Comparable
  * @see TreeMap
  * @see TreeSet
@@ -84,7 +84,7 @@ public interface Comparator
    *   <li>if compare(a, b) &lt; 0 and compare(b, c) &lt; 0 then compare(a, c)
    *       &lt; 0</li>
    *   <li>if compare(a, b) == 0 then compare(a, c) and compare(b, c) must
-   *       have the same sign</li
+   *       have the same sign</li>
    * </ul>
    * To be consistent with equals, the following additional constraint is
    * in place:

@@ -21,12 +21,11 @@ import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.util.Vector;
 
-public class XEventLoop implements Runnable
+public class XEventLoop
 {
   Display display;
   EventQueue queue;
   XAnyEvent anyEvent;
-  Thread eventLoopThread;
 
   LightweightRedirector lightweightRedirector = new LightweightRedirector();
     
@@ -36,44 +35,45 @@ public class XEventLoop implements Runnable
     this.queue = queue;
     
     anyEvent = new XAnyEvent(display);
-    eventLoopThread = new Thread(this, "AWT thread for XEventLoop");
-    eventLoopThread.start();
   }
 
-  public void run()
+  void interrupt()
   {
-    while (true) 
-      postNextEvent();
+    anyEvent.interrupt();
   }
 
-  void postNextEvent()
+  /** If there's an event available, post it.
+   * @return true if an event was posted
+   */
+  boolean postNextEvent(boolean block)
   {
-    AWTEvent evt = getNextEvent();
-    queue.postEvent(evt);
+    AWTEvent evt = getNextEvent(block);
+    if (evt != null)
+      queue.postEvent(evt);
+    return evt != null;
   }
     
-  /** get next event. Will block until events become available. */
- 
-  public AWTEvent getNextEvent()
+  /** Get the next event.
+   * @param block If true, block until an event becomes available
+   */
+  public AWTEvent getNextEvent(boolean block)
   {
     // ASSERT:
     if (isIdle())
       throw new Error("should not be idle");
     
     AWTEvent event = null;
-    while (event == null)
+    if (loadNextEvent(block))
       {
-	loadNextEvent();
-	event = createEvent();
+        event = createEvent();        
+        event = lightweightRedirector.redirect(event);
       }
-
-    event = lightweightRedirector.redirect(event);
-
     return event;
   }
 
-  void loadNextEvent()
+  boolean loadNextEvent(boolean block)
   {
+    boolean gotEvent = false;
     try
       {
 	setIdle(true);
@@ -100,7 +100,7 @@ public class XEventLoop implements Runnable
 	   of events. */
 	
 	//display.flush(); // implicit?
-	anyEvent.loadNext();
+	gotEvent = anyEvent.loadNext(block);
       }
     catch (RuntimeException re)
       {
@@ -110,6 +110,7 @@ public class XEventLoop implements Runnable
       {
 	setIdle(false);
       }
+    return gotEvent;
   }
     
   /**
@@ -173,7 +174,7 @@ public class XEventLoop implements Runnable
         return null;
         
       default:
-        String msg = "Do no know how to handle event (" + anyEvent + ")";
+        String msg = "Do not know how to handle event (" + anyEvent + ")";
         throw new RuntimeException (msg);
     }
   }

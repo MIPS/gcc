@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -46,7 +46,6 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer_create
   GtkWidget *widget;
   const char *str;
 
-  /* Create global reference and save it for future use */
   NSA_SET_GLOBAL_REF (env, obj);
 
   str = (*env)->GetStringUTFChars (env, label, NULL);
@@ -54,7 +53,6 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer_create
   gdk_threads_enter ();
   
   widget = gtk_check_menu_item_new_with_label (str);
-  gtk_check_menu_item_set_show_toggle (GTK_CHECK_MENU_ITEM (widget), 1);
   gtk_widget_show (widget);
 
   gdk_threads_leave ();

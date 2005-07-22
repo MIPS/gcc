@@ -1,5 +1,5 @@
 /* Proxy.java -- build a proxy class that implements reflected interfaces
-   Copyright (C) 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -459,7 +459,7 @@ public class Proxy implements Serializable
    * Helper class for mapping unique ClassLoader and interface combinations
    * to proxy classes.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    */
   private static final class ProxyType
   {
@@ -565,7 +565,7 @@ public class Proxy implements Serializable
    * without worrying about return type, declaring class, or throws clause,
    * and which reduces the maximally common throws clause between two methods
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    */
   private static final class ProxySignature
   {
@@ -718,7 +718,7 @@ public class Proxy implements Serializable
    * A flat representation of all data needed to generate bytecode/instantiate
    * a proxy class.  This is basically a struct.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    */
   private static final class ProxyData
   {
@@ -871,7 +871,7 @@ public class Proxy implements Serializable
    * this code is not loaded in memory if the VM has a native
    * implementation instead.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    */
   private static final class ClassFactory
   {
@@ -1347,7 +1347,7 @@ public class Proxy implements Serializable
 
           return clazz;
         }
-      catch (Throwable e)
+      catch (Exception e)
         {
           // assert false;
           throw (Error) new InternalError("Unexpected: " + e).initCause(e);

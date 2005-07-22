@@ -1,5 +1,5 @@
 /* ScrollPane.java -- Scrolling window
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -41,7 +41,10 @@ package java.awt;
 import java.awt.event.MouseEvent;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.ScrollPanePeer;
+
 import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
 
 /**
   * This widget provides a scrollable region that allows a single 
@@ -585,6 +588,28 @@ paramString()
   public void setWheelScrollingEnabled (boolean enable)
   {
     wheelScrollingEnabled = enable;
+  }
+  
+  protected class AccessibleAWTScrollPane extends AccessibleAWTContainer
+  {
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.SCROLL_PANE;
+    }
+  }
+
+  /**
+   * Gets the AccessibleContext associated with this <code>ScrollPane</code>.
+   * The context is created, if necessary.
+   *
+   * @return the associated context
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    /* Create the context if this is the first request */
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleAWTScrollPane();
+    return accessibleContext;
   }
 } // class ScrollPane 
 

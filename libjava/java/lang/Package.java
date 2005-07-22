@@ -1,5 +1,5 @@
 /* Package.java -- information about a package
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -273,8 +273,8 @@ public class Package
   public static Package getPackage(String name)
   {
     // Get the caller's classloader
-    ClassLoader cl = VMSecurityManager.currentClassLoader();
-    return cl != null ? cl.getPackage(name) : null;
+    ClassLoader cl = VMSecurityManager.currentClassLoader(Package.class);
+    return cl != null ? cl.getPackage(name) : VMClassLoader.getPackage(name);
   }
 
   /**
@@ -286,12 +286,9 @@ public class Package
   public static Package[] getPackages()
   {
     // Get the caller's classloader
-    Class c = VMSecurityManager.getClassContext()[1];
+    Class c = VMSecurityManager.getClassContext(Package.class)[1];
     ClassLoader cl = c.getClassLoader();
-    // Sun's implementation returns the packages loaded by the bootstrap
-    // classloader if cl is null, but right now our bootstrap classloader
-    // does not create any Packages.
-    return cl != null ? cl.getPackages() : new Package[0];
+    return cl != null ? cl.getPackages() : VMClassLoader.getPackages();
   }
 
   /**

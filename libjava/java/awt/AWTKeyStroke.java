@@ -1,5 +1,5 @@
 /* AWTKeyStroke.java -- an immutable key stroke
-   Copyright (C) 2002 Free Software Foundation
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -48,9 +48,9 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.StringTokenizer;
 
 /**
@@ -63,7 +63,7 @@ import java.util.StringTokenizer;
  * instances of a subclass, using reflection, provided the subclass has a
  * no-arg constructor (of any accessibility).
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see #getAWTKeyStroke(char)
  * @since 1.4
  * @status updated to 1.4
@@ -108,11 +108,12 @@ public class AWTKeyStroke implements Serializable
   private static Constructor ctor;
 
   /**
-   * A table of keyCode names to values.
+   * A table of keyCode names to values.  This is package-private to
+   * avoid an accessor method.
    *
    * @see #getAWTKeyStroke(String)
    */
-  private static final HashMap vktable = new HashMap();
+  static final HashMap vktable = new HashMap();
   static
   {
     // Using reflection saves the hassle of keeping this in sync with KeyEvent,
@@ -393,15 +394,16 @@ public class AWTKeyStroke implements Serializable
    * </code>      
    *
    * @param s the string to parse
+   * @throws IllegalArgumentException if s is null or cannot be parsed
    * @return the specified keystroke
-   * @throws NullPointerException if s is null
-   * @throws IllegalArgumentException if s cannot be parsed
    */
   public static AWTKeyStroke getAWTKeyStroke(String s)
   {
+    if (s == null)
+      throw new IllegalArgumentException("null argument");
     StringTokenizer t = new StringTokenizer(s, " ");
     if (! t.hasMoreTokens())
-      throw new IllegalArgumentException();
+      throw new IllegalArgumentException("no tokens '" + s + "'");
     int modifiers = 0;
     boolean released = false;
     String token = null;
@@ -432,7 +434,8 @@ public class AWTKeyStroke implements Serializable
                                          KeyEvent.VK_UNDEFINED, modifiers,
                                          false);
               }
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Invalid 'typed' argument '"
+			    		       + s + "'");
           }
         else if ("pressed".equals(token))
           {
@@ -453,8 +456,11 @@ public class AWTKeyStroke implements Serializable
     while (t.hasMoreTokens());
     // Now token contains the VK name we must parse.
     Integer code = (Integer) vktable.get(token);
-    if (code == null || t.hasMoreTokens())
-      throw new IllegalArgumentException();
+    if (code == null)
+      throw new IllegalArgumentException("Unknown token '" + token
+					 + "' in '" + s + "'");
+    if (t.hasMoreTokens())
+      throw new IllegalArgumentException("Too many tokens: " + s);
     return getAWTKeyStroke(KeyEvent.CHAR_UNDEFINED, code.intValue(),
                            modifiers, released);
   }

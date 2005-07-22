@@ -1,5 +1,5 @@
 /* InputContext.java -- provides the context for text input
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -35,7 +35,10 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.awt.im;
+
+import gnu.java.util.EmptyEnumeration;
 
 import java.awt.AWTEvent;
 import java.awt.AWTException;
@@ -43,14 +46,13 @@ import java.awt.Component;
 import java.awt.im.spi.InputMethod;
 import java.awt.im.spi.InputMethodDescriptor;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Locale;
-import gnu.java.util.EmptyEnumeration;
 
 /**
  * Provides a context for controlling input methods and keyboard layouts.
@@ -72,7 +74,7 @@ import gnu.java.util.EmptyEnumeration;
  * one entry per line in UTF-8 encoding, each class in the jar that implements
  * java.awt.im.spi.InputMethodDescriptor.
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see Component#getInputContext()
  * @see Component#enableInputMethods(boolean)
  * @since 1.2
@@ -100,8 +102,8 @@ public class InputContext
     while (e.hasMoreElements())
       {
         URL url = (URL) e.nextElement();
-        BufferedReader in = null;
-        String line = null;
+        BufferedReader in;
+        String line;
         try
           {
             in = new BufferedReader

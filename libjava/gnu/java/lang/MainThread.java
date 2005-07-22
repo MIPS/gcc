@@ -1,5 +1,5 @@
 /* gnu.java.lang.MainThread
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -91,11 +91,14 @@ final class MainThread extends Thread
       {
         try
 	  {
-	    klass = Class.forName(klass_name);
+	    klass = Class.forName(klass_name, true,
+				  ClassLoader.getSystemClassLoader());
 	  }
 	catch (ClassNotFoundException x)
 	  {
-	    throw new NoClassDefFoundError(klass_name);
+	    NoClassDefFoundError ncdfe = new NoClassDefFoundError(klass_name);
+	    ncdfe.initCause(x);
+	    throw ncdfe;
 	  }
       }
 
@@ -125,5 +128,7 @@ final class MainThread extends Thread
     return mainName;
   }
 
+  // Note: this function name is known to the stack tracing code.
+  // You shouldn't change this without also updating stacktrace.cc.
   private native void call_main();
 }

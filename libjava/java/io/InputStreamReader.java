@@ -1,5 +1,5 @@
 /* InputStreamReader.java -- Reader than transforms bytes to chars
-   Copyright (C) 1998, 1999, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -82,7 +82,7 @@ import gnu.gcj.convert.*;
  * @see InputStream
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
- * @author Per Bothner <bothner@cygnus.com>
+ * @author Per Bothner (bothner@cygnus.com)
  * @date April 22, 1998.  
  */
 public class InputStreamReader extends Reader
@@ -282,18 +282,30 @@ public class InputStreamReader extends Reader
       {
 	// We have knowledge of the internals of BufferedInputStream
 	// here.  Eww.
-	in.mark (0);
 	// BufferedInputStream.refill() can only be called when
 	// `pos>=count'.
 	boolean r = in.pos < in.count || in.refill ();
-	in.reset ();
 	if (! r)
 	  return -1;
 	converter.setInput(in.buf, in.pos, in.count);
 	int count = converter.read(buf, offset, length);
-	in.skip(converter.inpos - in.pos);
-	if (count > 0)
-	  return count;
+
+	// We might have bytes but not have made any progress.  In
+	// this case we try to refill.  If refilling fails, we assume
+	// we have a malformed character at the end of the stream.
+	if (count == 0 && converter.inpos == in.pos)
+	  {
+	    in.mark(in.count);
+	    if (! in.refill ())
+	      throw new CharConversionException ();
+	    in.reset();
+	  }
+	else
+	  {
+	    in.skip(converter.inpos - in.pos);
+	    if (count > 0)
+	      return count;
+	  }
       }
   }
 }

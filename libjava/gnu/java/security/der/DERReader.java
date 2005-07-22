@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,20 +38,18 @@ exception statement from your version. */
 
 package gnu.java.security.der;
 
+import gnu.java.security.OID;
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
-import java.io.InputStream;
 import java.io.IOException;
-
+import java.io.InputStream;
 import java.math.BigInteger;
-
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
-
-import gnu.java.security.OID;
 
 /**
  * This class decodes DER sequences into Java objects. The methods of
@@ -62,15 +60,15 @@ import gnu.java.security.OID;
  *
  * @author Casey Marshall (csm@gnu.org)
  */
-public final class DERReader implements DER
+public class DERReader implements DER
 {
 
   // Fields.
   // ------------------------------------------------------------------------
 
-  private InputStream in;
+  protected InputStream in;
 
-  private final ByteArrayOutputStream encBuf;
+  protected final ByteArrayOutputStream encBuf;
 
   // Constructor.
   // ------------------------------------------------------------------------
@@ -185,6 +183,26 @@ public final class DERReader implements DER
     return value;
   }
 
+  protected int readLength() throws IOException
+  {
+    int i = in.read();
+    if (i == -1)
+      throw new EOFException();
+    encBuf.write(i);
+    if ((i & ~0x7F) == 0)
+      {
+        return i;
+      }
+    else if (i < 0xFF)
+      {
+        byte[] octets = new byte[i & 0x7F];
+        in.read(octets);
+        encBuf.write(octets);
+        return new BigInteger(1, octets).intValue();
+      }
+    throw new DEREncodingException();
+  }
+
   // Own methods.
   // ------------------------------------------------------------------------
 
@@ -234,26 +252,6 @@ public final class DERReader implements DER
         default:
           throw new DEREncodingException("unknown tag " + tag);
       }
-  }
-
-  private int readLength() throws IOException
-  {
-    int i = in.read();
-    if (i == -1)
-      throw new EOFException();
-    encBuf.write(i);
-    if ((i & ~0x7F) == 0)
-      {
-        return i;
-      }
-    else if (i < 0xFF)
-      {
-        byte[] octets = new byte[i & 0x7F];
-        in.read(octets);
-        encBuf.write(octets);
-        return new BigInteger(1, octets).intValue();
-      }
-    throw new DEREncodingException();
   }
 
   private static String makeString(int tag, byte[] value)

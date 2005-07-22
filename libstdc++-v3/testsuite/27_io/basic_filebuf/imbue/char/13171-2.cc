@@ -1,4 +1,8 @@
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// { dg-require-namedlocale "" }
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+
+// Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,12 +37,13 @@ void test01()
   using namespace std;
   using namespace __gnu_test;
 
-  locale loc_fr(__gnu_test::try_named_locale("fr_FR"));
-  locale loc_en(__gnu_test::try_named_locale("en_US"));
+  locale loc_fr(locale("fr_FR"));
+  locale loc_en(locale("en_US"));
 
   const char* name = "tmp_fifo_13171-2";
   unlink(name);
-  try_mkfifo(name, S_IRWXU);
+  mkfifo(name, S_IRWXU);
+  semaphore s1, s2;
   
   int child = fork();
   if (child == 0)
@@ -47,7 +52,8 @@ void test01()
       fb.open(name, ios_base::out);
       fb.sputc('S');
       fb.pubsync();
-      sleep(2);
+      s1.signal ();
+      s2.wait ();
       fb.close();
       exit(0);
     }
@@ -55,12 +61,13 @@ void test01()
   filebuf fb;
   fb.pubimbue(loc_fr);
   fb.open(name, ios_base::in);
-  sleep(1);
+  s1.wait ();
   VERIFY( fb.is_open() );
   fb.pubimbue(loc_en);
   filebuf::int_type c = fb.sgetc();
   fb.close();
   VERIFY( c == 'S' );
+  s2.signal ();
 }
 
 int main()

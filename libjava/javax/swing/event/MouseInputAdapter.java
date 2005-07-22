@@ -1,5 +1,5 @@
 /* MouseInputAdapter.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -44,72 +44,76 @@ import java.awt.event.MouseEvent;
  * MouseInputAdapter
  * @author Andrew Selkirk
  */
-public class MouseInputAdapter	extends		Object
-								implements	MouseInputListener {
+public abstract class MouseInputAdapter implements MouseInputListener
+{
+  /**
+   * Constructor MouseInputAdapter
+   */
+  public MouseInputAdapter()
+  {
+    // Do nothing here.
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Mouse clicked
+   * @param event Mouse event
+   */
+  public void mouseClicked(MouseEvent event)
+  {
+    // Do nothing by default.
+  }
 
-	/**
-	 * Constructor MouseInputAdapter
-	 */
-	public MouseInputAdapter() {
-	} // MouseInputAdapter()
+  /**
+   * Mouse dragged
+   * @param event Mouse event
+   */
+  public void mouseDragged(MouseEvent event)
+  {
+    // Do nothing by default.
+  }
 
+  /**
+   * Mouse entered
+   * @param event Mouse event
+   */
+  public void mouseEntered(MouseEvent event)
+  {
+    // Do nothing by default.
+  }
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Mouse exited
+   * @param event Mouse event
+   */
+  public void mouseExited(MouseEvent event)
+  {
+    // Do nothing by default.
+  }
 
-	/**
-	 * Mouse clicked
-	 * @param event Mouse event
-	 */
-	public void mouseClicked(MouseEvent event) {
-	} // mouseClicked()
+  /**
+   * Mouse moved
+   * @param event Mouse event
+   */
+  public void mouseMoved(MouseEvent event)
+  {
+    // Do nothing by default.
+  }
 
-	/**
-	 * Mouse dragged
-	 * @param event Mouse event
-	 */
-	public void mouseDragged(MouseEvent event) {
-	} // mouseDragged()
+  /**
+   * Mouse pressed
+   * @param event Mouse event
+   */
+  public void mousePressed(MouseEvent event)
+  {
+    // Do nothing by default.
+  }
 
-	/**
-	 * Mouse entered
-	 * @param event Mouse event
-	 */
-	public void mouseEntered(MouseEvent event) {
- 	} // mouseEntered()
-
-	/**
-	 * Mouse exited
-	 * @param event Mouse event
-	 */
-	public void mouseExited(MouseEvent event) {
-	} // mouseExited()
-
-	/**
-	 * Mouse moved
-	 * @param event Mouse event
-	 */
-	public void mouseMoved(MouseEvent event) {
-	} // mouseMoved()
-
-	/**
-	 * Mouse pressed
-	 * @param event Mouse event
-	 */
-	public void mousePressed(MouseEvent event) {
-	} // mousePressed()
-
-	/**
-	 * Mouse released
-	 * @param event Mouse event
-	 */
-	public void mouseReleased(MouseEvent event) {
-	} // mouseReleased()
-
-
-} // MouseInputAdapterEvent
+  /**
+   * Mouse released
+   * @param event Mouse event
+   */
+  public void mouseReleased(MouseEvent event)
+  {
+    // Do nothing by default.
+  }
+}

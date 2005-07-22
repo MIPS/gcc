@@ -1,5 +1,5 @@
 /* LineNumberReader.java -- A character input stream which counts line numbers
-   Copyright (C) 1998, 1999, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2003, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -52,9 +52,9 @@ package java.io;
  * read from the stream does not end in a line termination sequence, it
  * will not be counted as a line.
  *
- * @author Per Bothner <bothner@cygnus.com>
+ * @author Per Bothner (bothner@cygnus.com)
  * @author Aaron M. Renn (arenn@urbanophile.com)
- * @author Guilhem Lavaux <guilhem@kaffe.org>
+ * @author Guilhem Lavaux (guilhem@kaffe.org)
  * @date December 28, 2003.
  */
 /* Written using "Java Class Libraries", 2nd edition, plus online

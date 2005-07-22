@@ -1,5 +1,5 @@
 /* ClasspathToolkit.java -- Abstract superclass for Classpath toolkits.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -38,27 +38,32 @@ exception statement from your version. */
 
 package gnu.java.awt;
 
-import java.awt.Image;
+import gnu.java.awt.peer.ClasspathFontPeer;
+import gnu.java.awt.peer.ClasspathTextLayoutPeer;
+
+import java.awt.AWTException;
 import java.awt.Dimension;
 import java.awt.DisplayMode;
+import java.awt.EventQueue;
 import java.awt.Font;
-import java.awt.FontFormatException;
 import java.awt.FontMetrics;
+import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.HeadlessException;
+import java.awt.Image;
 import java.awt.Toolkit;
+import java.awt.font.FontRenderContext;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageProducer;
+import java.awt.peer.RobotPeer;
 import java.io.File;
 import java.io.InputStream;
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.AttributedString;
 import java.util.HashMap;
 import java.util.Map;
 
-import gnu.java.awt.peer.ClasspathFontPeer;
-
+import javax.imageio.spi.IIORegistry;
 
 /**
  * An abstract superclass for Classpath toolkits.
@@ -89,7 +94,7 @@ public abstract class ClasspathToolkit
    * #getImage(java.net.URL)}. For images that were loaded via a path
    * to an image file, the map contains a key with a file URL.
    */
-  private Map imageCache;
+  private HashMap imageCache;
 
 
   /**
@@ -168,8 +173,10 @@ public abstract class ClasspathToolkit
    * this font peer should have, such as size, weight, family name, or
    * transformation.
    */
-
   public abstract ClasspathFontPeer getClasspathFontPeer (String name, Map attrs); 
+
+  public abstract ClasspathTextLayoutPeer 
+  getClasspathTextLayoutPeer (AttributedString str, FontRenderContext frc); 
 
 
   /** 
@@ -180,7 +187,6 @@ public abstract class ClasspathToolkit
    * implement {@link java.awt.font.OpenType} or
    * {@link java.awt.font.MultipleMaster}.
    */
-
   public Font getFont (String name, Map attrs) 
   {
     return new Font (name, attrs);
@@ -345,4 +351,19 @@ public abstract class ClasspathToolkit
   {
     return null;
   }
+
+  public abstract RobotPeer createRobot (GraphicsDevice screen)
+    throws AWTException;
+
+  /** 
+   * Used to register ImageIO SPIs provided by the toolkit.
+   */
+
+  public void registerImageIOSpis(IIORegistry reg)
+  {
+  }
+
+  public abstract boolean nativeQueueEmpty();
+  public abstract void wakeNativeQueue();  
+  public abstract void iterateNativeQueue(EventQueue locked, boolean block);
 }

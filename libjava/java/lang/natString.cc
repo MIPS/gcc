@@ -1,6 +1,6 @@
 // natString.cc - Implementation of java.lang.String native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -56,7 +56,7 @@ static int strhash_size = 0;  /* Number of slots available in strhash.
 jstring*
 _Jv_StringFindSlot (jchar* data, jint len, jint hash)
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
 
   int start_index = hash & (strhash_size - 1);
   int deleted_index = -1;
@@ -64,7 +64,7 @@ _Jv_StringFindSlot (jchar* data, jint len, jint hash)
   int index = start_index;
   /* step must be non-zero, and relatively prime with strhash_size. */
   jint step = (hash ^ (hash >> 16)) | 1;
-  for (;;)
+  do
     {
       jstring* ptr = &strhash[index];
       jstring value = (jstring) UNMASK_PTR (*ptr);
@@ -81,8 +81,12 @@ _Jv_StringFindSlot (jchar* data, jint len, jint hash)
 	       && memcmp(JvGetStringChars(value), data, 2*len) == 0)
 	return (ptr);
       index = (index + step) & (strhash_size - 1);
-      JvAssert (index != start_index);
     }
+  while (index != start_index);
+  // Note that we can have INDEX == START_INDEX if the table has no
+  // NULL entries but does have DELETED_STRING entries.
+  JvAssert (deleted_index >= 0);
+  return &strhash[deleted_index];
 }
 
 /* Calculate a hash code for the string starting at PTR at given LENGTH.
@@ -116,16 +120,15 @@ _Jv_StringGetSlot (jstring str)
   return _Jv_StringFindSlot(data, length, hashChars (data, length));
 }
 
-void
-java::lang::String::rehash()
+static void
+rehash ()
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
 
   if (strhash == NULL)
     {
       strhash_size = 1024;
       strhash = (jstring *) _Jv_AllocBytes (strhash_size * sizeof (jstring));
-      memset (strhash, 0, strhash_size * sizeof (jstring));
     }
   else
     {
@@ -133,7 +136,6 @@ java::lang::String::rehash()
       jstring* ptr = strhash + i;
       int nsize = strhash_size * 2;
       jstring *next = (jstring *) _Jv_AllocBytes (nsize * sizeof (jstring));
-      memset (next, 0, nsize * sizeof (jstring));
 
       while (--i >= 0)
 	{
@@ -166,7 +168,7 @@ java::lang::String::rehash()
 jstring
 java::lang::String::intern()
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
   if (3 * strhash_count >= 2 * strhash_size)
     rehash();
   jstring* ptr = _Jv_StringGetSlot(this);
@@ -193,7 +195,7 @@ java::lang::String::intern()
 void
 _Jv_FinalizeString (jobject obj)
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
 
   // We might not actually have intern()d any strings at all, if
   // we're being called from Reference.
@@ -285,9 +287,9 @@ _Jv_NewStringUtf8Const (Utf8Const* str)
     }
   chrs -= length;
 
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
   if (3 * strhash_count >= 2 * strhash_size)
-    java::lang::String::rehash();
+    rehash();
   jstring* ptr = _Jv_StringFindSlot (chrs, length, hash);
   if (*ptr != NULL && *ptr != DELETED_STRING)
     return (jstring) UNMASK_PTR (*ptr);
@@ -526,7 +528,7 @@ java::lang::String::equals(jobject anObject)
     return false;
   if (anObject == this)
     return true;
-  if (anObject->getClass() != &StringClass)
+  if (anObject->getClass() != &java::lang::String::class$)
     return false;
   jstring other = (jstring) anObject;
   if (count != other->count)
@@ -831,7 +833,10 @@ java::lang::String::substring (jint beginIndex, jint endIndex)
   if (beginIndex == 0 && endIndex == count)
     return this;
   jint newCount = endIndex - beginIndex;
-  if (newCount <= 8)  // Optimization, mainly for GC.
+  // For very small strings, just allocate a new one.  For other
+  // substrings, allocate a new one unless the substring is over half
+  // of the original string.
+  if (newCount <= 8 || newCount < (count >> 1))
     return JvNewString(JvGetStringChars(this) + beginIndex, newCount);
   jstring s = new String();
   s->data = data;
