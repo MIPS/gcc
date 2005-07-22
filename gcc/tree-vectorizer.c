@@ -1604,7 +1604,6 @@ vectorize_loops (struct loops *loops)
 
       /* APPLE LOCAL AV dump */
       vect_loop_location = find_loop_location (loop);
-
       loop_vinfo = vect_analyze_loop (loop);
       loop->aux = loop_vinfo;
 
