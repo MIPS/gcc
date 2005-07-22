@@ -2336,7 +2336,10 @@ round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
      the true base.  */
   if (fmt->log2_b != 1)
     {
-      int shift = REAL_EXP (r) & (fmt->log2_b - 1);
+      int shift;
+
+      gcc_assert (fmt->b != 10);
+      shift = REAL_EXP (r) & (fmt->log2_b - 1);
       if (shift)
 	{
 	  shift = fmt->log2_b - shift;
@@ -2527,7 +2530,8 @@ real_from_target (REAL_VALUE_TYPE *r, const long *buf, enum machine_mode mode)
   (*fmt->decode) (fmt, r, buf);
 }
 
-/* Return the number of bits in the significand for MODE.  */
+/* Return the number of bits of the largest binary value that the
+   significand of MODE will hold.  */
 /* ??? Legacy.  Should get access to real_format directly.  */
 
 int
@@ -2539,6 +2543,15 @@ significand_size (enum machine_mode mode)
   if (fmt == NULL)
     return 0;
 
+  if (fmt->b == 10)
+    {
+      /* Return the size in bits of the largest binary value that can be
+	 held by the decimal coefficient for this mode.  This is one more
+	 than the number of bits required to hold the largest coefficient
+	 of this mode.  */
+      double log2_10 = 3.3219281;
+      return fmt->p * log2_10;
+    }
   return fmt->p * fmt->log2_b;
 }
 

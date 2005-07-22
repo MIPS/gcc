@@ -1,3 +1,8 @@
+2005-07-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* real.c (round_for_format): Assert float radix is not 10.
+	(significand_size): Handle coefficient with decimal radix.
+
 2005-07-17  Ben Elliston  <bje@au.ibm.com>
 
 	* dwarf2.h (enum dwarf_type): Rename DW_ATE_GNU_decimal_float back
