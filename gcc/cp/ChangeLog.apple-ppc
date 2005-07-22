@@ -1,3 +1,10 @@
+2005-07-22  Devang Patel  <dpatel@apple.com>
+
+	Radar 4182972
+	* name-lookup.c (pushtag): Update comment.
+	* decl.c (grokdeclarator): Generate debug info for anonymous aggregate
+	type when it receives real name.
+
 2005-07-18  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4175534

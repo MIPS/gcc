@@ -7706,7 +7706,19 @@ grokdeclarator (const cp_declarator *declarator,
 	  /* Replace the anonymous name with the real name everywhere.  */
 	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
 	    if (TYPE_NAME (t) == oldname)
-	      TYPE_NAME (t) = decl;
+	      /* APPLE LOCAL begin 4182972 */
+	      {
+		TYPE_NAME (t) = decl;
+
+		/* Debug info was not generated earlier for anonymous aggregates.
+		   Now is the time generate debug info for such types.  */
+		if (ANON_AGGRNAME_P (DECL_NAME(oldname)))
+		  {
+ 		    DECL_IGNORED_P (TYPE_STUB_DECL (t)) = 0;
+		    debug_hooks->type_decl (TYPE_STUB_DECL (t), LOCAL_CLASS_P (t));
+		  }
+	      }
+	  /* APPLE LOCAL end 4182972 */
 
 	  if (TYPE_LANG_SPECIFIC (type))
 	    TYPE_WAS_ANONYMOUS (type) = 1;
