@@ -5105,6 +5105,8 @@ gen_const_vector (enum machine_mode mode, int constant)
   units = GET_MODE_NUNITS (mode);
   inner = GET_MODE_INNER (mode);
 
+  gcc_assert (!DECIMAL_FLOAT_MODE_P (inner));
+
   v = rtvec_alloc (units);
 
   /* We need to call this function after we set the scalar const_tiny_rtx
@@ -5196,6 +5198,8 @@ init_emit_once (int line_numbers)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
+      if (DECIMAL_FLOAT_MODE_P (mode))
+	continue;
       if (GET_MODE_BITSIZE (mode) == DOUBLE_TYPE_SIZE
 	  && double_mode == VOIDmode)
 	double_mode = mode;

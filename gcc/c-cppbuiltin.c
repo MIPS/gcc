@@ -89,6 +89,7 @@ builtin_define_float_constants (const char *name_prefix, const char *fp_suffix, 
   int decimal_dig;
 
   fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+  gcc_assert (fmt->b != 10);
 
   /* The radix of the exponent representation.  */
   if (type == float_type_node)

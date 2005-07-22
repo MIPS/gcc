@@ -3088,7 +3088,8 @@ reg_to_stack (FILE *file)
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
 	   mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))
-	FP_MODE_REG (i, mode) = gen_rtx_REG (mode, i);
+	if (!DECIMAL_FLOAT_MODE_P (mode))
+	  FP_MODE_REG (i, mode) = gen_rtx_REG (mode, i);
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_COMPLEX_FLOAT);
 	   mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))

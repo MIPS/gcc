@@ -4181,6 +4181,9 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
       break;
 
     case FLOAT_TRUNCATE:
+      if (DECIMAL_FLOAT_MODE_P (mode))
+	break;
+
       /* (float_truncate:SF (float_extend:DF foo:SF)) = foo:SF.  */
       if (GET_CODE (XEXP (x, 0)) == FLOAT_EXTEND
 	  && GET_MODE (XEXP (XEXP (x, 0), 0)) == mode)
@@ -4233,6 +4236,9 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 	return SUBREG_REG (XEXP (x, 0));
       break;
     case FLOAT_EXTEND:
+      if (DECIMAL_FLOAT_MODE_P (mode))
+	break;
+
       /*  (float_extend (float_extend x)) is (float_extend x)
 
 	  (float_extend (float x)) is (float x) assuming that double
@@ -9673,6 +9679,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		 tmode != GET_MODE (op0); tmode = GET_MODE_WIDER_MODE (tmode))
 	      if ((unsigned HOST_WIDE_INT) c0 == GET_MODE_MASK (tmode))
 		{
+		  gcc_assert (!INCOMPATIBLE_MODES_P (tmode, GET_MODE (op0)));
 		  op0 = gen_lowpart (tmode, inner_op0);
 		  op1 = gen_lowpart (tmode, inner_op1);
 		  code = unsigned_condition (code);

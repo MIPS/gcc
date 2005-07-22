@@ -1,5 +1,30 @@
 2005-07-21  Janis Johnson  <janis187@us.ibm.com>
 
+	* c-cppbuiltin.c (bultin_define_float_constants): Add assert.
+	* combine.c (combine-simplify-rtx): Skip optimizations for DFP.
+	(simplify_comparison): Add assert.
+	* cse.c (cse_insn): Loop through compatible modes.
+	* emit-rtl.c (gen_const_vector): Add assert.
+	(init_emit_once): Skip loop for DFP.
+	* expmed.c (init_expmed): Process compabible modes.
+	(extract_high_half, expand_mult_highpart_optab,
+	expand_mult_highpart): Add assert.
+	(expand_divmod): Process compatible modes.
+	* expr.c (init_expr_once): Skip DFP modes.
+	(convert_move): Process compatible modes; use the correct conversion
+	for fp modes of the same size.
+	(compress_float_constant): Process compatible modes.
+	* machmode.h (INCOMPATIBLE_MODES_P): New.
+	(GET_MODE_COMPATIBLE_WIDER_MODE): New. 
+	(get_mode_compatatible_wider_mode): Define.
+	* optabs.c (expand_binop, expand_twoval_unop, widen_clz, expand_parity,
+	expand_unop, expand_float, expand_fix): Process compatible modes.
+	* reg_stack.c (reg_to_stack): Skip DFP modes.
+	* regclass.c (choose_hard_reg_mode): Skip DFP modes.
+	* stor-layout.c (get_mode_compatible_wider_mode): New.
+	* var-tracking.c (emit_note_insn_var_location): Process compatible
+	modes.
+
 	* real.c (round_for_format): Assert float radix is not 10.
 	(significand_size): Handle coefficient with decimal radix.
 

@@ -260,6 +260,20 @@ get_mode_alignment (enum machine_mode mode)
   return MIN (BIGGEST_ALIGNMENT, MAX (1, mode_base_align[mode]*BITS_PER_UNIT));
 }
 
+/* Return the next wider mode that is compatible with MODE; this is
+   relevant for MODE_FLOAT, which is used for both binary floating
+   point and decimal floating point modes.  */
+
+enum machine_mode
+get_mode_compatible_wider_mode (enum machine_mode mode)
+{
+  enum machine_mode wider_mode;
+
+  wider_mode = GET_MODE_WIDER_MODE (mode);
+  while (wider_mode != VOIDmode && INCOMPATIBLE_MODES_P (mode, wider_mode))
+    wider_mode = GET_MODE_WIDER_MODE (wider_mode);
+  return wider_mode;
+}
 
 /* Subroutine of layout_decl: Force alignment required for the data type.
    But if the decl itself wants greater alignment, don't override that.  */

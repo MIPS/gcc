@@ -1173,7 +1173,8 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   /* If this is a multiply, see if we can do a widening operation that
      takes operands of this mode and makes a wider mode.  */
 
-  if (binoptab == smul_optab && GET_MODE_WIDER_MODE (mode) != VOIDmode
+  if (binoptab == smul_optab
+      && GET_MODE_COMPATIBLE_WIDER_MODE (mode) != VOIDmode
       && (((unsignedp ? umul_widen_optab : smul_widen_optab)
 	   ->handlers[(int) GET_MODE_WIDER_MODE (mode)].insn_code)
 	  != CODE_FOR_nothing))
@@ -1197,8 +1198,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
   if ((class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
       && methods != OPTAB_DIRECT && methods != OPTAB_LIB)
-    for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
-	 wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+    for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	 wider_mode != VOIDmode;
+	 wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
       {
 	if (binoptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
 	    || (binoptab == smul_optab
@@ -1726,8 +1728,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
   if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
+	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
 	{
 	  if ((binoptab->handlers[(int) wider_mode].insn_code
 	       != CODE_FOR_nothing)
@@ -1898,8 +1901,9 @@ expand_twoval_unop (optab unoptab, rtx op0, rtx targ0, rtx targ1,
 
   if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
+	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
 	{
 	  if (unoptab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2020,8 +2024,9 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
 
   if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
+	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
 	{
 	  if (binoptab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2120,8 +2125,9 @@ widen_clz (enum machine_mode mode, rtx op0, rtx target)
   if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
     {
       enum machine_mode wider_mode;
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
+	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
 	{
 	  if (clz_optab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2159,7 +2165,7 @@ expand_parity (enum machine_mode mode, rtx op0, rtx target)
     {
       enum machine_mode wider_mode;
       for (wider_mode = mode; wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
 	{
 	  if (popcount_optab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2388,8 +2394,9 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
     }
 
   if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
-    for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
-	 wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+    for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	 wider_mode != VOIDmode;
+	 wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
       {
 	if (unoptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing)
 	  {
@@ -2526,8 +2533,9 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
   if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
+	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
 	{
 	  if ((unoptab->handlers[(int) wider_mode].insn_code
 	       != CODE_FOR_nothing)
@@ -4281,7 +4289,7 @@ expand_float (rtx to, rtx from, int unsignedp)
      we can do the conversion signed even if the input is unsigned.  */
 
   for (fmode = GET_MODE (to); fmode != VOIDmode;
-       fmode = GET_MODE_WIDER_MODE (fmode))
+       fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
     for (imode = GET_MODE (from); imode != VOIDmode;
 	 imode = GET_MODE_WIDER_MODE (imode))
       {
@@ -4312,9 +4320,10 @@ expand_float (rtx to, rtx from, int unsignedp)
 	  }
       }
 
-  /* Unsigned integer, and no way to convert directly.
-     Convert as signed, then conditionally adjust the result.  */
-  if (unsignedp)
+  /* Unsigned integer, and no way to convert directly.  For binary
+     floating point modes, convert as signed, then conditionally adjust
+     the result.  */
+  if (unsignedp && !DECIMAL_FLOAT_MODE_P (GET_MODE (to)))
     {
       rtx label = gen_label_rtx ();
       rtx temp;
@@ -4325,7 +4334,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 	 with unsigned values greater than the signed maximum value.  */
 
       for (fmode = GET_MODE (to);  fmode != VOIDmode;
-	   fmode = GET_MODE_WIDER_MODE (fmode))
+	   fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
 	if (GET_MODE_BITSIZE (GET_MODE (from)) < GET_MODE_BITSIZE (fmode)
 	    && can_float_p (fmode, GET_MODE (from), 0) != CODE_FOR_nothing)
 	  break;
@@ -4473,7 +4482,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
      we can do the conversion either signed or unsigned.  */
 
   for (fmode = GET_MODE (from); fmode != VOIDmode;
-       fmode = GET_MODE_WIDER_MODE (fmode))
+       fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
     for (imode = GET_MODE (to); imode != VOIDmode;
 	 imode = GET_MODE_WIDER_MODE (imode))
       {
@@ -4530,7 +4539,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
 
   if (unsignedp && GET_MODE_BITSIZE (GET_MODE (to)) <= HOST_BITS_PER_WIDE_INT)
     for (fmode = GET_MODE (from); fmode != VOIDmode;
-	 fmode = GET_MODE_WIDER_MODE (fmode))
+	 fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
       if (CODE_FOR_nothing != can_fix_p (GET_MODE (to), fmode, 0,
 					 &must_trunc))
 	{
