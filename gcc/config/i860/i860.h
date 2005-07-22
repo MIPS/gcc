@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Note that some other tm.h files include this one and then override
@@ -36,33 +36,6 @@ do {                                            \
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION fprintf (stderr, " (i860)");
-
-/* Run-time compilation parameters selecting different hardware subsets
-   or supersets.
-
-   On the i860, we have one: TARGET_XP.  This option allows gcc to generate
-   additional instructions available only on the newer i860 XP (but not on
-   the older i860 XR).
-*/
-
-extern int target_flags;
-
-/* Nonzero if we should generate code to use the fpu.  */
-#define TARGET_XP (target_flags & 1)
-
-/* Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
-
-#define TARGET_SWITCHES  \
-  { {"xp", 1, N_("Generate code which uses the FPU")},			\
-    {"noxp", -1, N_("Do not generate code which uses the FPU")},	\
-    {"xr", -1, N_("Do not generate code which uses the FPU")},		\
-    { "", TARGET_DEFAULT, NULL}}
-
-#define TARGET_DEFAULT 0
 
 /* target machine storage layout */
 
@@ -383,11 +356,11 @@ enum reg_class { NO_REGS, GENERAL_REGS, FP_REGS, ALL_REGS, LIM_REG_CLASSES };
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to non-zero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -528,12 +501,6 @@ struct cumulative_args { int ints, floats; };
 			  / 4))				\
      : 0)						\
   : 0)
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* If defined, a C expression that gives the alignment boundary, in
    bits, of an argument with the specified mode and type.  If it is
@@ -1236,8 +1203,6 @@ extern const char *i860_reg_prefix;
    {"logic_operand",		{REG, SUBREG, CONST_INT}},		\
    {"shift_operand",		{REG, SUBREG, CONST_INT}},		\
    {"compare_operand",		{REG, SUBREG, CONST_INT}},		\
-   {"arith_const_operand",	{CONST_INT}},				\
-   {"logic_const_operand",	{CONST_INT}},				\
    {"bte_operand",		{REG, SUBREG, CONST_INT}},		\
    {"indexed_operand",		{MEM}},					\
    {"load_operand",		{MEM}},					\

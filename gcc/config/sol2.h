@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* We use stabs-in-elf for debugging, because that is what the native
    toolchain uses.  */
@@ -71,6 +71,11 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_define ("_LARGEFILE_SOURCE=1");	\
 	    builtin_define ("_LARGEFILE64_SOURCE=1");	\
 	    builtin_define ("__EXTENSIONS__");		\
+	  }						\
+	if (flag_pic)					\
+	  {						\
+	    builtin_define ("__PIC__");			\
+	    builtin_define ("__pic__");			\
 	  }						\
 	TARGET_SUB_OS_CPP_BUILTINS();			\
     } while (0)
@@ -147,6 +152,12 @@ Boston, MA 02111-1307, USA.  */
    %{symbolic:-Bsymbolic -G -dy -z text} \
    %(link_arch) \
    %{Qy:} %{!Qn:-Qy}"
+
+/* The Solaris linker doesn't understand constructor priorities.  (The
+   GNU linker does support constructor priorities, so GNU ld
+   configuration files for Solaris override this setting.)  */
+#undef SUPPORTS_INIT_PRIORITY
+#define SUPPORTS_INIT_PRIORITY 0
 
 /* This defines which switch letters take arguments.
    It is as in svr4.h but with -R added.  */
@@ -234,3 +245,6 @@ __enable_execute_stack (void *addr)					\
 extern GTY(()) tree solaris_pending_aligns;
 extern GTY(()) tree solaris_pending_inits;
 extern GTY(()) tree solaris_pending_finis;
+
+/* Allow macro expansion in #pragma pack.  */
+#define HANDLE_PRAGMA_PACK_WITH_EXPANSION

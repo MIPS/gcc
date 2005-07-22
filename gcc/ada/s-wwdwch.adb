@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --                     S Y S T E M . W W D _ W C H A R                      --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -31,46 +31,102 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Interfaces; use Interfaces;
+
+with System.WWd_Char;
+
 package body System.Wwd_WChar is
+
+   ------------------------------------
+   -- Wide_Wide_Width_Wide_Character --
+   ------------------------------------
+
+   --  This is the case where we are talking about the Wide_Wide_Image of
+   --  a Wide_Character, which is always the same character sequence as the
+   --  Wide_Image of the same Wide_Character.
+
+   function Wide_Wide_Width_Wide_Character
+     (Lo, Hi : Wide_Character) return Natural
+   is
+   begin
+      return Wide_Width_Wide_Character (Lo, Hi);
+   end Wide_Wide_Width_Wide_Character;
+
+   ------------------------------------
+   -- Wide_Wide_Width_Wide_Wide_Char --
+   ------------------------------------
+
+   function Wide_Wide_Width_Wide_Wide_Char
+     (Lo, Hi : Wide_Wide_Character) return Natural
+   is
+      LV : constant Unsigned_32 := Wide_Wide_Character'Pos (Lo);
+      HV : constant Unsigned_32 := Wide_Wide_Character'Pos (Hi);
+
+   begin
+      --  Return zero if empty range
+
+      if LV > HV then
+         return 0;
+
+      --  Return max value (12) for wide character (Hex_hhhhhhhh)
+
+      elsif HV > 255 then
+         return 12;
+
+      --  If any characters in normal character range, then use normal
+      --  Wide_Wide_Width attribute on this range to find out a starting point.
+      --  Otherwise start with zero.
+
+      else
+         return
+           System.WWd_Char.Wide_Wide_Width_Character
+             (Lo => Character'Val (LV),
+              Hi => Character'Val (Unsigned_32'Min (255, HV)));
+      end if;
+   end Wide_Wide_Width_Wide_Wide_Char;
 
    -------------------------------
    -- Wide_Width_Wide_Character --
    -------------------------------
 
    function Wide_Width_Wide_Character
-     (Lo, Hi : Wide_Character)
-      return   Natural
+     (Lo, Hi : Wide_Character) return Natural
    is
-      W : Natural;
-      P : Natural;
+      LV : constant Unsigned_32 := Wide_Character'Pos (Lo);
+      HV : constant Unsigned_32 := Wide_Character'Pos (Hi);
 
    begin
-      W := 0;
+      --  Return zero if empty range
 
-      for C in Lo .. Hi loop
-         P := Wide_Character'Pos (C);
+      if LV > HV then
+         return 0;
 
-         --  If we are in wide character range, the length is always 3
-         --  and we are done, since all remaining characters are the same.
+      --  Return max value (12) for wide character (Hex_hhhhhhhh)
 
-         if P > 255 then
-            return Natural'Max (W, 3);
+      elsif HV > 255 then
+         return 12;
 
-         --  If we are in character range then use length of character image
-         --  Is this right, what about wide char encodings of 80-FF???
+      --  If any characters in normal character range, then use normal
+      --  Wide_Wide_Width attribute on this range to find out a starting point.
+      --  Otherwise start with zero.
 
-         else
-            declare
-               S : constant Wide_String :=
-                     Character'Wide_Image (Character'Val (P));
-
-            begin
-               W := Natural'Max (W, S'Length);
-            end;
-         end if;
-      end loop;
-
-      return W;
+      else
+         return
+           System.WWd_Char.Wide_Width_Character
+             (Lo => Character'Val (LV),
+              Hi => Character'Val (Unsigned_32'Min (255, HV)));
+      end if;
    end Wide_Width_Wide_Character;
+
+   ------------------------------------
+   -- Wide_Width_Wide_Wide_Character --
+   ------------------------------------
+
+   function Wide_Width_Wide_Wide_Character
+     (Lo, Hi : Wide_Wide_Character) return Natural
+   is
+   begin
+      return Wide_Wide_Width_Wide_Wide_Char (Lo, Hi);
+   end Wide_Width_Wide_Wide_Character;
 
 end System.Wwd_WChar;

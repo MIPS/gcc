@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -43,7 +43,6 @@ with Snames;   use Snames;
 with Stand;    use Stand;
 with Stringt;  use Stringt;
 with Tbuild;   use Tbuild;
-with Uname;    use Uname;
 
 package body Sem_Dist is
 
@@ -200,6 +199,18 @@ package body Sem_Dist is
       return End_String;
    end Full_Qualified_Name;
 
+   ------------------
+   -- Get_PCS_Name --
+   ------------------
+
+   function Get_PCS_Name return PCS_Names is
+      PCS_Name : constant PCS_Names :=
+                   Chars (Entity (Expression
+                                    (Parent (RTE (RE_DSA_Implementation)))));
+   begin
+      return PCS_Name;
+   end Get_PCS_Name;
+
    ------------------------
    -- Is_All_Remote_Call --
    ------------------------
@@ -290,18 +301,10 @@ package body Sem_Dist is
       end if;
 
       --  Get and store the String_Id corresponding to the name of the
-      --  library unit whose Partition_Id is needed
+      --  library unit whose Partition_Id is needed.
 
-      Get_Unit_Name_String (Get_Unit_Name (Unit_Declaration_Node (Ety)));
-
-      --  Remove seven last character ("(spec)" or " (body)").
-      --  (this is a bit nasty, should have interface for this ???)
-
-      Name_Len := Name_Len - 7;
-
-      Start_String;
-      Store_String_Chars (Name_Buffer (1 .. Name_Len));
-      Prefix_String := End_String;
+      Get_Library_Unit_Name_String (Unit_Declaration_Node (Ety));
+      Prefix_String := String_From_Name_Buffer;
 
       --  Build the function call which will replace the attribute
 
@@ -350,7 +353,7 @@ package body Sem_Dist is
 
       Remote_Subp := Entity (Prefix (N));
 
-      if not Expander_Active then
+      if not Expander_Active or else Get_PCS_Name = Name_No_DSA then
          return;
       end if;
 
@@ -422,7 +425,6 @@ package body Sem_Dist is
                            (Loc, New_External_Name (
                                    Chars (User_Type), 'R'));
 
-
       Full_Obj_Type  : constant Entity_Id :=
                          Make_Defining_Identifier
                            (Loc, Chars (Obj_Type));
@@ -438,6 +440,33 @@ package body Sem_Dist is
       Fat_Type_Decl  : Node_Id;
 
    begin
+      Is_Degenerate := False;
+      Parameter := First (Parameter_Specifications (Type_Def));
+      while Present (Parameter) loop
+         if Nkind (Parameter_Type (Parameter)) = N_Access_Definition then
+            Error_Msg_N ("formal parameter& has anonymous access type?",
+              Defining_Identifier (Parameter));
+            Is_Degenerate := True;
+            exit;
+         end if;
+
+         Next (Parameter);
+      end loop;
+
+      if Is_Degenerate then
+         Error_Msg_NE (
+           "remote access-to-subprogram type& can only be null?",
+           Defining_Identifier (Parameter), User_Type);
+         --  The only legal value for a RAS with a formal parameter of an
+         --  anonymous access type is null, because it cannot be
+         --  subtype-Conformant with any legal remote subprogram declaration.
+         --  In this case, we cannot generate a corresponding primitive
+         --  operation.
+      end if;
+
+      if Get_PCS_Name = Name_No_DSA then
+         return;
+      end if;
 
       --  The tagged private type, primitive operation and RACW
       --  type associated with a RAS need to all be declared in
@@ -466,29 +495,7 @@ package body Sem_Dist is
               Null_Present     => True,
               Component_List   => Empty)));
 
-      Is_Degenerate := False;
-      Parameter := First (Parameter_Specifications (Type_Def));
-      Parameters : while Present (Parameter) loop
-         if Nkind (Parameter_Type (Parameter)) = N_Access_Definition then
-            Error_Msg_N ("formal parameter& has anonymous access type?",
-              Defining_Identifier (Parameter));
-            Is_Degenerate := True;
-            exit Parameters;
-         end if;
-         Next (Parameter);
-      end loop Parameters;
-
-      if Is_Degenerate then
-         Error_Msg_NE (
-           "remote access-to-subprogram type& can only be null?",
-           Defining_Identifier (Parameter), User_Type);
-         --  The only legal value for a RAS with a formal parameter of an
-         --  anonymous access type is null, because it cannot be
-         --  subtype-Conformant with any legal remote subprogram declaration.
-         --  In this case, we cannot generate a corresponding primitive
-         --  operation.
-
-      else
+      if not Is_Degenerate then
          Append_To (Vis_Decls,
            Make_Abstract_Subprogram_Declaration (Loc,
              Specification => Build_RAS_Primitive_Specification (
@@ -510,9 +517,6 @@ package body Sem_Dist is
                     Name_Class))));
       Set_Is_Remote_Call_Interface (RACW_Type, Is_RCI);
       Set_Is_Remote_Types (RACW_Type, Is_RT);
-      --  ??? Object RPC receiver generation should be bypassed for this
-      --  RACW type, since actually calls will be received by the package
-      --  RPC receiver for the designated RCI subprogram.
 
       Subpkg_Decl :=
         Make_Package_Declaration (Loc,
@@ -607,7 +611,7 @@ package body Sem_Dist is
          return;
       end if;
 
-      if not Expander_Active then
+      if not Expander_Active or else Get_PCS_Name = Name_No_DSA then
          return;
       end if;
 
@@ -697,7 +701,7 @@ package body Sem_Dist is
       Target_Type : Entity_Id;
 
    begin
-      if not Expander_Active then
+      if not Expander_Active or else Get_PCS_Name = Name_No_DSA then
          return False;
 
       elsif Ekind (Typ) = E_Access_Subprogram_Type

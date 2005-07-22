@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -89,10 +89,10 @@ package body VMS_Conv is
    --  the allocated result on the heap.
 
    function Is_Extensionless (F : String) return Boolean;
-   --  Returns true if the filename has no extension.
+   --  Returns true if the filename has no extension
 
    function Match (S1, S2 : String) return Boolean;
-   --  Determines whether S1 and S2 match. This is a case insensitive match.
+   --  Determines whether S1 and S2 match (this is a case insensitive match)
 
    function Match_Prefix (S1, S2 : String) return Boolean;
    --  Determines whether S1 matches a prefix of S2. This is also a case
@@ -207,7 +207,7 @@ package body VMS_Conv is
             Unixcmd  => new S'("gnatbind"),
             Unixsws  => null,
             Switches => Bind_Switches'Access,
-            Params   => new Parameter_Array'(1 => File),
+            Params   => new Parameter_Array'(1 => Unlimited_Files),
             Defext   => "ali"),
 
          Chop =>
@@ -272,17 +272,6 @@ package body VMS_Conv is
             Unixsws  => null,
             Switches => Krunch_Switches'Access,
             Params   => new Parameter_Array'(1 => File),
-            Defext   => "   "),
-
-         Library =>
-           (Cname    => new S'("LIBRARY"),
-            Usage    => new S'("GNAT LIBRARY /[CREATE | SET | DELETE]"
-                               & "=directory [/CONFIG=file]"),
-            VMS_Only => True,
-            Unixcmd  => new S'("gnatlbr"),
-            Unixsws  => null,
-            Switches => Lbr_Switches'Access,
-            Params   => new Parameter_Array'(1 .. 0 => File),
             Defext   => "   "),
 
          Link =>
@@ -661,8 +650,8 @@ package body VMS_Conv is
    procedure Output_Version is
    begin
       Put ("GNAT ");
-      Put (Gnatvsn.Gnat_Version_String);
-      Put_Line (" Copyright 1996-2004 Free Software Foundation, Inc.");
+      Put_Line (Gnatvsn.Gnat_Version_String);
+      Put_Line ("Copyright 1996-2005 Free Software Foundation, Inc.");
    end Output_Version;
 
    -----------

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 extern void mmix_override_options (void);
 extern void mmix_init_expanders (void);
@@ -38,6 +38,7 @@ extern void mmix_output_quoted_string (FILE *, const char *, int);
 extern void mmix_asm_output_source_line  (FILE *, int);
 extern void mmix_asm_output_ascii (FILE *, const char *, int);
 extern void mmix_asm_output_label (FILE *, const char *);
+extern void mmix_asm_output_internal_label (FILE *, const char *);
 extern void mmix_asm_weaken_label (FILE *, const char *);
 extern void mmix_asm_output_labelref (FILE *, const char *);
 extern void mmix_asm_output_def (FILE *, const char *, const char *);

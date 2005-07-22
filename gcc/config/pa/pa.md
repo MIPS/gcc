@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GCC compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002, 2003, 2004 Free Software Foundation, Inc.
+;;   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -18,8 +18,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; This gcc Version 2 machine description is inspired by sparc.md and
 ;; mips.md.
@@ -32,6 +32,13 @@
   [(UNSPEC_CFFC		0)	; canonicalize_funcptr_for_compare
    (UNSPEC_GOTO		1)	; indirect_goto
    (UNSPEC_DLTIND14R	2)	; 
+   (UNSPEC_TP		3)
+   (UNSPEC_TLSGD	4)
+   (UNSPEC_TLSLDM	5)
+   (UNSPEC_TLSLDO	6)
+   (UNSPEC_TLSLDBASE	7)
+   (UNSPEC_TLSIE	8)
+   (UNSPEC_TLSLE 	9)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -561,7 +568,7 @@
    (eq_attr "cpu" "8000"))
  "inm_8000,fdivsqrt_8000*6,rnm_8000")
 
-
+(include "predicates.md")
 
 ;; Compare instructions.
 ;; This controls RTL generation and register allocation.
@@ -2814,9 +2821,9 @@
   "!is_function_label_plus_const (operands[2])"
   "*
 {
-  if (flag_pic && symbolic_operand (operands[2], Pmode))
-    abort ();
-  else if (symbolic_operand (operands[2], Pmode))
+  gcc_assert (!flag_pic || !symbolic_operand (operands[2], Pmode));
+  
+  if (symbolic_operand (operands[2], Pmode))
     return \"ldo RR'%G2(%1),%0\";
   else
     return \"ldo R'%G2(%1),%0\";
@@ -2896,9 +2903,9 @@
 
 (define_insn ""
   [(set (match_operand:HI 0 "move_dest_operand"
-	 		  "=r,r,r,r,r,Q,!*q,!r,!*f")
+	 		  "=r,r,r,r,r,Q,!*q,!r")
 	(match_operand:HI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
+			  "r,J,N,K,RQ,rM,!rM,!*q"))]
   "register_operand (operands[0], HImode)
    || reg_or_0_operand (operands[1], HImode)"
   "@
@@ -2909,11 +2916,10 @@
    ldh%M1 %1,%0
    sth%M0 %r1,%0
    mtsar %r1
-   {mfctl|mfctl,w} %sar,%0
-   fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu")
+   {mfctl|mfctl,w} %sar,%0"
+  [(set_attr "type" "move,move,move,shift,load,store,move,move")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:HI 0 "register_operand" "=r")
@@ -3021,9 +3027,9 @@
 
 (define_insn ""
   [(set (match_operand:QI 0 "move_dest_operand"
-			  "=r,r,r,r,r,Q,!*q,!r,!*f")
+			  "=r,r,r,r,r,Q,!*q,!r")
 	(match_operand:QI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
+			  "r,J,N,K,RQ,rM,!rM,!*q"))]
   "register_operand (operands[0], QImode)
    || reg_or_0_operand (operands[1], QImode)"
   "@
@@ -3034,11 +3040,10 @@
    ldb%M1 %1,%0
    stb%M0 %r1,%0
    mtsar %r1
-   {mfctl|mfctl,w} %%sar,%0
-   fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu")
+   {mfctl|mfctl,w} %%sar,%0"
+  [(set_attr "type" "move,move,move,shift,load,store,move,move")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:QI 0 "register_operand" "=r")
@@ -3518,24 +3523,28 @@
   "* return output_block_move (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrmemsi"
+(define_expand "setmemsi"
   [(parallel [(set (match_operand:BLK 0 "" "")
-		   (const_int 0))
-	      (clobber (match_dup 3))
+		   (match_operand 2 "const_int_operand" ""))
 	      (clobber (match_dup 4))
+	      (clobber (match_dup 5))
 	      (use (match_operand:SI 1 "arith_operand" ""))
-	      (use (match_operand:SI 2 "const_int_operand" ""))])]
+	      (use (match_operand:SI 3 "const_int_operand" ""))])]
   "!TARGET_64BIT && optimize > 0"
   "
 {
   int size, align;
+
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
 
   /* Undetermined size, use the library routine.  */
   if (GET_CODE (operands[1]) != CONST_INT)
     FAIL;
 
   size = INTVAL (operands[1]);
-  align = INTVAL (operands[2]);
+  align = INTVAL (operands[3]);
   align = align > 4 ? 4 : align;
 
   /* If size/alignment is large, then use the library routines.  */
@@ -3550,8 +3559,8 @@
   operands[0]
     = replace_equiv_address (operands[0],
 			     copy_to_mode_reg (SImode, XEXP (operands[0], 0)));
-  operands[3] = gen_reg_rtx (SImode);
   operands[4] = gen_reg_rtx (SImode);
+  operands[5] = gen_reg_rtx (SImode);
 }")
 
 (define_insn "clrmemsi_prereload"
@@ -3628,24 +3637,28 @@
   "* return output_block_clear (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrmemdi"
+(define_expand "setmemdi"
   [(parallel [(set (match_operand:BLK 0 "" "")
-		   (const_int 0))
-	      (clobber (match_dup 3))
+		   (match_operand 2 "const_int_operand" ""))
 	      (clobber (match_dup 4))
+	      (clobber (match_dup 5))
 	      (use (match_operand:DI 1 "arith_operand" ""))
-	      (use (match_operand:DI 2 "const_int_operand" ""))])]
+	      (use (match_operand:DI 3 "const_int_operand" ""))])]
   "TARGET_64BIT && optimize > 0"
   "
 {
   int size, align;
+
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
 
   /* Undetermined size, use the library routine.  */
   if (GET_CODE (operands[1]) != CONST_INT)
     FAIL;
 
   size = INTVAL (operands[1]);
-  align = INTVAL (operands[2]);
+  align = INTVAL (operands[3]);
   align = align > 8 ? 8 : align;
 
   /* If size/alignment is large, then use the library routines.  */
@@ -3660,8 +3673,8 @@
   operands[0]
     = replace_equiv_address (operands[0],
 			     copy_to_mode_reg (DImode, XEXP (operands[0], 0)));
-  operands[3] = gen_reg_rtx (DImode);
   operands[4] = gen_reg_rtx (DImode);
+  operands[5] = gen_reg_rtx (DImode);
 }")
 
 (define_insn "clrmemdi_prereload"
@@ -4070,8 +4083,9 @@
   rtx op0 = operands[0];
   rtx op1 = operands[1];
 
-  if (GET_CODE (op1) == CONST_INT)
+  switch (GET_CODE (op1))
     {
+    case CONST_INT:
       operands[0] = operand_subword (op0, 1, 0, DImode);
       output_asm_insn (\"ldil L'%1,%0\", operands);
 
@@ -4080,10 +4094,9 @@
 	output_asm_insn (\"ldi -1,%0\", operands);
       else
 	output_asm_insn (\"ldi 0,%0\", operands);
-      return \"\";
-    }
-  else if (GET_CODE (op1) == CONST_DOUBLE)
-    {
+      break;
+
+    case CONST_DOUBLE:
       operands[0] = operand_subword (op0, 1, 0, DImode);
       operands[1] = GEN_INT (CONST_DOUBLE_LOW (op1));
       output_asm_insn (\"ldil L'%1,%0\", operands);
@@ -4091,10 +4104,12 @@
       operands[0] = operand_subword (op0, 0, 0, DImode);
       operands[1] = GEN_INT (CONST_DOUBLE_HIGH (op1));
       output_asm_insn (singlemove_string (operands), operands);
-      return \"\";
+      break;
+
+    default:
+      gcc_unreachable ();
     }
-  else
-    abort ();
+  return \"\";
 }"
   [(set_attr "type" "move")
    (set_attr "length" "8")])
@@ -5101,7 +5116,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 4))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5227,7 +5242,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5283,7 +5298,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5340,7 +5355,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5392,7 +5407,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5441,25 +5456,14 @@
 
 (define_expand "anddi3"
   [(set (match_operand:DI 0 "register_operand" "")
-	(and:DI (match_operand:DI 1 "and_operand" "")
+	(and:DI (match_operand:DI 1 "register_operand" "")
 		(match_operand:DI 2 "and_operand" "")))]
   ""
   "
 {
-  if (TARGET_64BIT)
-    {
-      /* One operand must be a register operand.  */
-      if (!register_operand (operands[1], DImode)
-	  && !register_operand (operands[2], DImode))
-	FAIL;
-    }
-  else
-    {
-      /* Both operands must be register operands.  */
-      if (!register_operand (operands[1], DImode)
-	  || !register_operand (operands[2], DImode))
-	FAIL;
-    }
+  /* Both operands must be register operands.  */
+  if (!TARGET_64BIT && !register_operand (operands[2], DImode))
+    FAIL;
 }")
 
 (define_insn ""
@@ -5520,25 +5524,14 @@
 
 (define_expand "iordi3"
   [(set (match_operand:DI 0 "register_operand" "")
-	(ior:DI (match_operand:DI 1 "ior_operand" "")
+	(ior:DI (match_operand:DI 1 "register_operand" "")
 		(match_operand:DI 2 "ior_operand" "")))]
   ""
   "
 {
-  if (TARGET_64BIT)
-    {
-      /* One operand must be a register operand.  */
-      if (!register_operand (operands[1], DImode)
-	  && !register_operand (operands[2], DImode))
-	FAIL;
-    }
-  else
-    {
-      /* Both operands must be register operands.  */
-      if (!register_operand (operands[1], DImode)
-	  || !register_operand (operands[2], DImode))
-	FAIL;
-    }
+  /* Both operands must be register operands.  */
+  if (!TARGET_64BIT && !register_operand (operands[2], DImode))
+    FAIL;
 }")
 
 (define_insn ""
@@ -7092,8 +7085,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  if (INTVAL (nb) > current_function_outgoing_args_size)
-	    abort ();
+	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -7592,8 +7584,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  if (INTVAL (nb) > current_function_outgoing_args_size)
-	    abort ();
+	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -8111,8 +8102,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  if (INTVAL (nb) > current_function_outgoing_args_size)
-	    abort ();
+	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -8193,8 +8183,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  if (INTVAL (nb) > current_function_outgoing_args_size)
-	    abort ();
+	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -9283,134 +9272,165 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
    (match_operand 2 "const_int_operand" "")]
   "TARGET_PA_20"
 {
-  /* The PA 2.0 prefetch instructions only support short displacements
-     when a cache control completer needs to be supplied.  Thus, we
-     can't use LO_SUM DLT addresses with the spatial locality completer.  */
-  if (operands[2] == const0_rtx && IS_LO_SUM_DLT_ADDR_P (operands[0]))
-    FAIL;
+  int locality = INTVAL (operands[2]);
 
-  /* We change operand0 to a MEM as we don't have the infrastructure to
-     output all the supported address modes for ldw/ldd but we do have
-     it for MEMs.  */
-  operands[0] = gen_rtx_MEM (Pmode, operands[0]);
+  gcc_assert (locality >= 0 && locality <= 3);
 
-  if (!TARGET_NO_SPACE_REGS
-      && !cse_not_expected
-      && GET_CODE (XEXP (operands[0], 0)) == PLUS
-      && REG_P (XEXP (XEXP (operands[0], 0), 0))
-      && REG_P (XEXP (XEXP (operands[0], 0), 1)))
-    operands[0]
-      = replace_equiv_address (operands[0],
-			       copy_to_mode_reg (Pmode,
-					 	 XEXP (operands[0], 0)));
+  /* Change operand[0] to a MEM as we don't have the infrastructure
+     to output all the supported address modes for ldw/ldd when we use
+     the address directly.  However, we do have it for MEMs.  */
+  operands[0] = gen_rtx_MEM (QImode, operands[0]);
 
-  if (TARGET_64BIT)
-    emit_insn (gen_prefetch_64 (operands[0], operands[1], operands[2]));
+  /* If the address isn't valid for the prefetch, replace it.  */
+  if (locality)
+    {
+      if (!prefetch_nocc_operand (operands[0], QImode))
+	operands[0]
+	  = replace_equiv_address (operands[0],
+				   copy_to_mode_reg (Pmode,
+						     XEXP (operands[0], 0)));
+      emit_insn (gen_prefetch_nocc (operands[0], operands[1], operands[2]));
+    }
   else
-    emit_insn (gen_prefetch_32 (operands[0], operands[1], operands[2]));
+    {
+      if (!prefetch_cc_operand (operands[0], QImode))
+	operands[0]
+	  = replace_equiv_address (operands[0],
+				   copy_to_mode_reg (Pmode,
+						     XEXP (operands[0], 0)));
+      emit_insn (gen_prefetch_cc (operands[0], operands[1], operands[2]));
+    }
   DONE;
 })
 
-(define_insn "prefetch_64"
-  [(prefetch (match_operand:DI 0 "prefetch_operand" "A,RQ")
-	     (match_operand:DI 1 "const_int_operand" "n,n")
-	     (match_operand:DI 2 "const_int_operand" "n,n"))]
-  "TARGET_64BIT
-   && (operands[2] != const0_rtx
-       || GET_CODE (XEXP (operands[0], 0)) != PLUS
-       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
-       || INT_5_BITS (XEXP (XEXP (operands[0], 0), 1)))"
+(define_insn "prefetch_cc"
+  [(prefetch (match_operand:QI 0 "prefetch_cc_operand" "RW")
+	     (match_operand:SI 1 "const_int_operand" "n")
+	     (match_operand:SI 2 "const_int_operand" "n"))]
+  "TARGET_PA_20 && operands[2] == const0_rtx"
 {
-  /* The SL completor indicates good spatial locality but poor temporal
-     locality.  The ldw instruction with a target of general register 0
-     prefetches a cache line for a read.  The ldd instruction prefetches
-     a cache line for a write.  */
-  static const char * const instr[2][2][2] = {
-    {
-      {
-	"",
-	"ldw RT'%A0,%%r0",
-      },
-      {
-	"",
-	"ldd RT'%A0,%%r0",
-      },
-    },
-    {
-      {
-	"ldw%M0,sl %0,%%r0",
-	"ldw%M0 %0,%%r0",
-      },
-      {
-	"ldd%M0,sl %0,%%r0",
-	"ldd%M0 %0,%%r0",
-      }
-    }
+  /* The SL cache-control completor indicates good spatial locality but
+     poor temporal locality.  The ldw instruction with a target of general
+     register 0 prefetches a cache line for a read.  The ldd instruction
+     prefetches a cache line for a write.  */
+  static const char * const instr[2] = {
+    "ldw%M0,sl %0,%%r0",
+    "ldd%M0,sl %0,%%r0"
   };
   int read_or_write = INTVAL (operands[1]);
-  int locality = INTVAL (operands[2]);
 
-  if ((which_alternative != 0 && which_alternative != 1)
-      || (read_or_write != 0 && read_or_write != 1)
-      || (locality < 0 || locality > 3))
-    abort ();
+  gcc_assert (read_or_write >= 0 && read_or_write <= 1);
 
-  if (which_alternative == 0 && locality == 0)
-    abort ();
-
-  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+  return instr [read_or_write];
 }
   [(set_attr "type" "load")
    (set_attr "length" "4")])
 
-(define_insn "prefetch_32"
-  [(prefetch (match_operand:SI 0 "prefetch_operand" "A,RQ")
+(define_insn "prefetch_nocc"
+  [(prefetch (match_operand:QI 0 "prefetch_nocc_operand" "A,RQ")
 	     (match_operand:SI 1 "const_int_operand" "n,n")
 	     (match_operand:SI 2 "const_int_operand" "n,n"))]
-  "TARGET_PA_20
-   && (operands[2] != const0_rtx
-       || GET_CODE (XEXP (operands[0], 0)) != PLUS
-       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
-       || INT_5_BITS (XEXP (XEXP (operands[0], 0), 1)))"
+  "TARGET_PA_20 && operands[2] != const0_rtx"
 {
-  /* The SL completor indicates good spatial locality but poor temporal
-     locality.  The ldw instruction with a target of general register 0
-     prefetches a cache line for a read.  The ldd instruction prefetches
-     a cache line for a write.  */
-  static const char * const instr[2][2][2] = {
+  /* The ldw instruction with a target of general register 0 prefetches
+     a cache line for a read.  The ldd instruction prefetches a cache line
+     for a write.  */
+  static const char * const instr[2][2] = {
     {
-      {
-	"",
-	"ldw RT'%A0,%%r0",
-      },
-      {
-	"",
-	"ldd RT'%A0,%%r0",
-      },
+      "ldw RT'%A0,%%r0",
+      "ldd RT'%A0,%%r0",
     },
     {
-      {
-	"ldw%M0,sl %0,%%r0",
-	"ldw%M0 %0,%%r0",
-      },
-      {
-	"ldd%M0,sl %0,%%r0",
-	"ldd%M0 %0,%%r0",
-      }
+      "ldw%M0 %0,%%r0",
+      "ldd%M0 %0,%%r0",
     }
   };
   int read_or_write = INTVAL (operands[1]);
-  int locality = INTVAL (operands[2]);
 
-  if ((which_alternative != 0 && which_alternative != 1)
-      || (read_or_write != 0 && read_or_write != 1)
-      || (locality < 0 || locality > 3))
-    abort ();
+  gcc_assert (which_alternative == 0 || which_alternative == 1);
+  gcc_assert (read_or_write >= 0 && read_or_write <= 1);
 
-  if (which_alternative == 0 && locality == 0)
-    abort ();
-
-  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+  return instr [which_alternative][read_or_write];
 }
   [(set_attr "type" "load")
    (set_attr "length" "4")])
+
+
+;; TLS Support
+(define_insn "tgd_load"
+ [(set (match_operand:SI 0 "register_operand" "=r")
+       (unspec:SI [(match_operand 1 "tgd_symbolic_operand" "")] UNSPEC_TLSGD))
+  (clobber (reg:SI 1))]
+  ""
+  "*
+{
+  if (flag_pic)
+    return \"addil LT'%1-$tls_gdidx$,%%r19\;ldo RT'%1-$tls_gdidx$(%%r1),%0\";
+  else
+    return \"addil LR'%1-$tls_gdidx$,%%r27\;ldo RR'%1-$tls_gdidx$(%%r1),%0\";
+}"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])
+
+(define_insn "tld_load"
+ [(set (match_operand:SI 0 "register_operand" "=r")
+       (unspec:SI [(match_operand 1 "tld_symbolic_operand" "")] UNSPEC_TLSLDM))
+  (clobber (reg:SI 1))]
+  ""
+  "*
+{
+  if (flag_pic)
+    return \"addil LT'%1-$tls_ldidx$,%%r19\;ldo RT'%1-$tls_ldidx$(%%r1),%0\";
+  else
+    return \"addil LR'%1-$tls_ldidx$,%%r27\;ldo RR'%1-$tls_ldidx$(%%r1),%0\";
+}"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])
+
+(define_insn "tld_offset_load"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (plus:SI (unspec:SI [(match_operand 1 "tld_symbolic_operand" "")] 
+		 	    UNSPEC_TLSLDO)
+		 (match_operand:SI 2 "register_operand" "r")))
+   (clobber (reg:SI 1))]
+  ""
+  "*
+{
+  return \"addil LR'%1-$tls_dtpoff$,%2\;ldo RR'%1-$tls_dtpoff$(%%r1),%0\"; 
+}"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])
+
+(define_insn "tp_load"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(const_int 0)] UNSPEC_TP))]
+  ""
+  "{mfctl|mfctl,w} %%cr27,%0"
+  [(set_attr "type" "multi")
+   (set_attr "length" "4")])
+
+(define_insn "tie_load"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec:SI [(match_operand 1 "tie_symbolic_operand" "")] UNSPEC_TLSIE))
+   (clobber (reg:SI 1))]
+  ""
+  "*
+{
+  if (flag_pic)
+    return \"addil LT'%1-$tls_ieoff$,%%r19\;ldw RT'%1-$tls_ieoff$(%%r1),%0\";
+  else
+    return \"addil LR'%1-$tls_ieoff$,%%r27\;ldw RR'%1-$tls_ieoff$(%%r1),%0\";
+}"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])
+
+(define_insn "tle_load"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (plus:SI (unspec:SI [(match_operand 1 "tle_symbolic_operand" "")] 
+		 	    UNSPEC_TLSLE)
+		 (match_operand:SI 2 "register_operand" "r")))
+   (clobber (reg:SI 1))]
+  ""
+  "addil LR'%1-$tls_leoff$,%2\;ldo RR'%1-$tls_leoff$(%%r1),%0"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])

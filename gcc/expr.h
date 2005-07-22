@@ -1,6 +1,7 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_EXPR_H
 #define GCC_EXPR_H
@@ -41,8 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* This is the 4th arg to `expand_expr'.
    EXPAND_STACK_PARM means we are possibly expanding a call param onto
-   the stack.  Choosing a value of 2 isn't special;  It just allows
-   some code optimization in store_expr.
+   the stack.
    EXPAND_SUM means it is ok to return a PLUS rtx or MULT rtx.
    EXPAND_INITIALIZER is similar but also record any labels on forced_labels.
    EXPAND_CONST_ADDRESS means it is ok to return a MEM whose address
@@ -50,7 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    EXPAND_WRITE means we are only going to write to the resulting rtx.
    EXPAND_MEMORY means we are interested in a memory result, even if
     the memory is constant and we could have propagated a constant value.  */
-enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
+enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 		      EXPAND_CONST_ADDRESS, EXPAND_INITIALIZER, EXPAND_WRITE,
 		      EXPAND_MEMORY};
 
@@ -75,10 +75,10 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
 #endif
 
 /* If a clear memory operation would take CLEAR_RATIO or more simple
-   move-instruction sequences, we will do a clrmem or libcall instead.  */
+   move-instruction sequences, we will do a setmem or libcall instead.  */
 
 #ifndef CLEAR_RATIO
-#if defined (HAVE_clrmemqi) || defined (HAVE_clrmemhi) || defined (HAVE_clrmemsi) || defined (HAVE_clrmemdi) || defined (HAVE_clrmemti)
+#if defined (HAVE_setmemqi) || defined (HAVE_setmemhi) || defined (HAVE_setmemsi) || defined (HAVE_setmemdi) || defined (HAVE_setmemti)
 #define CLEAR_RATIO 2
 #else
 /* If we are optimizing for space, cut down the default clear ratio.  */
@@ -117,6 +117,8 @@ struct locate_and_pad_arg_data
   struct args_size alignment_pad;
   /* Which way we should pad this arg.  */
   enum direction where_pad;
+  /* slot_offset is at least this aligned.  */
+  unsigned int boundary;
 };
 
 /* Add the value of the tree INC to the `struct args_size' TO.  */
@@ -182,10 +184,6 @@ do {							\
 
 #ifndef FUNCTION_ARG_BOUNDARY
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
-#endif
-
-#ifndef FUNCTION_ARG_PARTIAL_NREGS
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 #endif
 
 /* Supply a default definition of STACK_SAVEAREA_MODE for emit_stack_save.
@@ -312,6 +310,11 @@ int can_conditionally_move_p (enum machine_mode mode);
 rtx emit_conditional_add (rtx, enum rtx_code, rtx, rtx, enum machine_mode,
 			  rtx, rtx, enum machine_mode, int);
 
+rtx expand_val_compare_and_swap (rtx, rtx, rtx, rtx);
+rtx expand_bool_compare_and_swap (rtx, rtx, rtx, rtx);
+rtx expand_sync_operation (rtx, rtx, enum rtx_code);
+rtx expand_sync_fetch_operation (rtx, rtx, enum rtx_code, bool, rtx);
+rtx expand_sync_lock_test_and_set (rtx, rtx, rtx);
 
 /* Functions from expmed.c:  */
 
@@ -364,7 +367,9 @@ enum block_op_methods
 {
   BLOCK_OP_NORMAL,
   BLOCK_OP_NO_LIBCALL,
-  BLOCK_OP_CALL_PARM
+  BLOCK_OP_CALL_PARM,
+  /* Like BLOCK_OP_NORMAL, but the libcall can be tail call optimized.  */
+  BLOCK_OP_TAILCALL
 };
 
 extern void init_block_move_fn (const char *);
@@ -416,7 +421,10 @@ extern void use_group_regs (rtx *, rtx);
 
 /* Write zeros through the storage of OBJECT.
    If OBJECT has BLKmode, SIZE is its length in bytes.  */
-extern rtx clear_storage (rtx, rtx);
+extern rtx clear_storage (rtx, rtx, enum block_op_methods);
+
+/* Expand a setmem pattern; return true if successful.  */
+extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int);
 
 /* Determine whether the LEN bytes can be moved by using several move
    instructions.  Return nonzero if a call to move_by_pieces should
@@ -530,11 +538,6 @@ extern unsigned int case_values_threshold (void);
 
 /* Functions from alias.c */
 #include "alias.h"
-/* extern HOST_WIDE_INT get_varargs_alias_set (void); */
-/* extern HOST_WIDE_INT get_frame_alias_set (void); */
-/* extern void record_base_value (unsigned int, rtx, int); */
-/* extern HOST_WIDE_INT new_alias_set (void); */
-/* extern int can_address_p (tree); */
 
 
 /* rtl.h and tree.h were included.  */
@@ -545,14 +548,13 @@ extern rtx expr_size (tree);
    if the size can vary or is larger than an integer.  */
 extern HOST_WIDE_INT int_expr_size (tree);
 
-/* Return the address of the trampoline for entering nested fn FUNCTION.  */
-extern rtx trampoline_address (tree);
-
 /* Return an rtx that refers to the value returned by a function
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value (tree, tree, int);
 
 extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
+
+extern bool shift_return_value (enum machine_mode, bool, rtx);
 
 extern rtx expand_call (tree, rtx, int);
 
@@ -589,7 +591,7 @@ extern rtx eliminate_constant_term (rtx, rtx *);
    by emitting insns to perform arithmetic if nec.  */
 extern rtx memory_address (enum machine_mode, rtx);
 
-/* Like `memory_address' but pretent `flag_force_addr' is 0.  */
+/* Like `memory_address' but pretend `flag_force_addr' is 0.  */
 extern rtx memory_address_noforce (enum machine_mode, rtx);
 
 /* Return a memory reference like MEMREF, but with its mode changed
@@ -649,14 +651,6 @@ extern void set_mem_attributes_minus_bitpos (rtx, tree, int, HOST_WIDE_INT);
 
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template (void);
-
-/* Given rtx, return new rtx whose address won't be affected by
-   any side effects.  It has been copied to a new temporary reg.  */
-extern rtx stabilize (rtx);
-
-/* Given an rtx, copy all regs it refers to into new temps
-   and return a modified copy that refers to the new temps.  */
-extern rtx copy_all_regs (rtx);
 
 /* Copy given rtx to a new temp reg and return that.  */
 extern rtx copy_to_reg (rtx);

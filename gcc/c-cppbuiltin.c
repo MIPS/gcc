@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -219,7 +219,12 @@ builtin_define_float_constants (const char *name_prefix, const char *fp_suffix, 
   /* The difference between 1 and the least value greater than 1 that is
      representable in the given floating point type, b**(1-p).  */
   sprintf (name, "__%s_EPSILON__", name_prefix);
-  sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
+  if (fmt->pnan < fmt->p)
+    /* This is an IBM extended double format, so 1.0 + any double is
+       representable precisely.  */
+      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+    else      
+      sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
 
   /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
@@ -270,7 +275,7 @@ define__GNUC__ (void)
   if (c_dialect_cxx ())
     builtin_define_with_value_n ("__GNUG__", q, v - q);
 
-  gcc_assert (*v == '.' || ISDIGIT (v[1]));
+  gcc_assert (*v == '.' && ISDIGIT (v[1]));
   
   q = ++v;
   while (ISDIGIT (*v))
@@ -323,7 +328,7 @@ c_cpp_builtins (cpp_reader *pfile)
 
   if (c_dialect_cxx ())
     {
-      if (SUPPORTS_ONE_ONLY)
+      if (flag_weak && SUPPORTS_ONE_ONLY) 
 	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");
@@ -434,6 +439,12 @@ c_cpp_builtins (cpp_reader *pfile)
 
   if (targetm.handle_pragma_extern_prefix)
     cpp_define (pfile, "__PRAGMA_EXTERN_PREFIX");
+
+  /* Make the choice of the stack protector runtime visible to source code.  */
+  if (flag_stack_protect == 2)
+    cpp_define (pfile, "__SSP_ALL__=2");
+  else if (flag_stack_protect == 1)
+    cpp_define (pfile, "__SSP__=1");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */

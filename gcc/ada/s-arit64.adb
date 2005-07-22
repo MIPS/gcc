@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -232,6 +232,19 @@ package body System.Arith_64 is
       end if;
 
       Du := Lo (T2) & Lo (T1);
+
+      --  Set final signs (RM 4.5.5(27-30))
+
+      Den_Pos := (Y < 0) = (Z < 0);
+
+      --  Check overflow case of largest negative number divided by 1
+
+      if X = Int64'First and then Du = 1 and then not Den_Pos then
+         Raise_Error;
+      end if;
+
+      --  Perform the actual division
+
       Qu := Xu / Du;
       Ru := Xu rem Du;
 
@@ -240,10 +253,6 @@ package body System.Arith_64 is
       if Round and then Ru > (Du - Uns64'(1)) / Uns64'(2) then
          Qu := Qu + Uns64'(1);
       end if;
-
-      --  Set final signs (RM 4.5.5(27-30))
-
-      Den_Pos := (Y < 0) = (Z < 0);
 
       --  Case of dividend (X) sign positive
 

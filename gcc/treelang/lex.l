@@ -4,8 +4,8 @@
 
    ---------------------------------------------------------------------
 
-   Copyright (C) 1986, 87, 89, 92-96, 1997, 1999, 2000, 2001, 2002, 2003, 2004
-   Free Software Foundation, Inc.
+   Copyright (C) 1986, 87, 89, 92-96, 1997, 1999, 2000, 2001, 2002, 2003,
+   2004, 2005 Free Software Foundation, Inc.
    
    This program is free software; you can redistribute it and/or modify it 
    under the terms of the GNU General Public License as published by the
@@ -19,8 +19,8 @@
    
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.
+   Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.
    
    In other words, you are welcome to use, share and improve this program.
    You are forbidden to forbid anyone else to use, share and improve
@@ -37,13 +37,13 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "input.h"
-#include "errors.h"
 #include "tree.h"
 
 /* Token defs.  */
 #include "treelang.h"
 #include "parse.h"
 #include "treetree.h"
+#include "toplev.h"
 
 extern int option_lexer_trace;
 
@@ -61,6 +61,7 @@ static void dump_lex_value (int lexret);
 #define NOT_RETURN(a) {update_yylval (a); if (option_lexer_trace)\
    {fprintf (stderr, "\nlexer swallowing"); dump_lex_value (a);}}
 #ifndef USE_MAPPED_LOCATION
+#undef LINEMAP_POSITION_FOR_COLUMN
 #define LINEMAP_POSITION_FOR_COLUMN(INPUT, LINETABLE, COL)
 #endif
 %}

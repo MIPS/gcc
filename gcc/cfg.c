@@ -1,6 +1,7 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains low level functions to manipulate the CFG and
    analyze it.  All other modules should not transform the data structure
@@ -52,7 +53,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "flags.h"
 #include "output.h"
@@ -61,67 +61,31 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tm_p.h"
 #include "obstack.h"
-#include "alloc-pool.h"
 #include "timevar.h"
 #include "ggc.h"
+#include "hashtab.h"
+#include "alloc-pool.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
-struct obstack flow_obstack;
-static char *flow_firstobj;
-
-/* Number of basic blocks in the current function.  */
-
-int n_basic_blocks;
-
-/* First free basic block number.  */
-
-int last_basic_block;
-
-/* Number of edges in the current function.  */
-
-int n_edges;
-
-/* The basic block array.  */
-
-varray_type basic_block_info;
-
-/* The special entry and exit blocks.  */
-basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
-
-/* Memory alloc pool for bb member rbi.  */
-alloc_pool rbi_pool;
+struct bitmap_obstack reg_obstack;
 
 void debug_flow_info (void);
 static void free_edge (edge);
-
-/* Indicate the presence of the profile.  */
-enum profile_status profile_status;
 
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
+
 /* Called once at initialization time.  */
 
 void
 init_flow (void)
 {
-  static int initialized;
-
+  if (!cfun->cfg)
+    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
   n_edges = 0;
-
-  if (!initialized)
-    {
-      gcc_obstack_init (&flow_obstack);
-      flow_firstobj = obstack_alloc (&flow_obstack, 0);
-      initialized = 1;
-    }
-  else
-    {
-      obstack_free (&flow_obstack, flow_firstobj);
-      flow_firstobj = obstack_alloc (&flow_obstack, 0);
-    }
-
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -170,35 +134,6 @@ alloc_block (void)
   basic_block bb;
   bb = ggc_alloc_cleared (sizeof (*bb));
   return bb;
-}
-
-/* Create memory pool for rbi_pool.  */
-
-void
-alloc_rbi_pool (void)
-{
-  rbi_pool = create_alloc_pool ("rbi pool", 
-				sizeof (struct reorder_block_def),
-				n_basic_blocks + 2);
-}
-
-/* Free rbi_pool.  */
-
-void
-free_rbi_pool (void)
-{
-  free_alloc_pool (rbi_pool);
-}
-
-/* Initialize rbi (the structure containing data used by basic block
-   duplication and reordering) for the given basic block.  */
-
-void
-initialize_bb_rbi (basic_block bb)
-{
-  gcc_assert (!bb->rbi);
-  bb->rbi = pool_alloc (rbi_pool);
-  memset (bb->rbi, 0, sizeof (struct reorder_block_def));
 }
 
 /* Link block B to chain after AFTER.  */
@@ -259,6 +194,63 @@ expunge_block (basic_block b)
      clear out BB pointer of dead statements consistently.  */
 }
 
+/* Connect E to E->src.  */
+
+static inline void
+connect_src (edge e)
+{
+  VEC_safe_push (edge, gc, e->src->succs, e);
+}
+
+/* Connect E to E->dest.  */
+
+static inline void
+connect_dest (edge e)
+{
+  basic_block dest = e->dest;
+  VEC_safe_push (edge, gc, dest->preds, e);
+  e->dest_idx = EDGE_COUNT (dest->preds) - 1;
+}
+
+/* Disconnect edge E from E->src.  */
+
+static inline void
+disconnect_src (edge e)
+{
+  basic_block src = e->src;
+  edge_iterator ei;
+  edge tmp;
+
+  for (ei = ei_start (src->succs); (tmp = ei_safe_edge (ei)); )
+    {
+      if (tmp == e)
+	{
+	  VEC_unordered_remove (edge, src->succs, ei.index);
+	  return;
+	}
+      else
+	ei_next (&ei);
+    }
+
+  gcc_unreachable ();
+}
+
+/* Disconnect edge E from E->dest.  */
+
+static inline void
+disconnect_dest (edge e)
+{
+  basic_block dest = e->dest;
+  unsigned int dest_idx = e->dest_idx;
+
+  VEC_unordered_remove (edge, dest->preds, dest_idx);
+
+  /* If we removed an edge in the middle of the edge vector, we need
+     to update dest_idx of the edge that moved into the "hole".  */
+  if (dest_idx < EDGE_COUNT (dest->preds))
+    EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
+}
+
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
    created edge.  Use this only if you are sure that this edge can't
    possibly already exist.  */
@@ -270,12 +262,14 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   e = ggc_alloc_cleared (sizeof (*e));
   n_edges++;
 
-  VEC_safe_push (edge, src->succs, e);
-  VEC_safe_push (edge, dst->preds, e);
-
   e->src = src;
   e->dest = dst;
   e->flags = flags;
+
+  connect_src (e);
+  connect_dest (e);
+
+  execute_on_growing_pred (e);
 
   return e;
 }
@@ -284,46 +278,31 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
    edge cache CACHE.  Return the new edge, NULL if already exist.  */
 
 edge
-cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int flags)
+cached_make_edge (sbitmap edge_cache, basic_block src, basic_block dst, int flags)
 {
-  int use_edge_cache;
-  edge e;
-  edge_iterator ei;
+  if (edge_cache == NULL
+      || src == ENTRY_BLOCK_PTR
+      || dst == EXIT_BLOCK_PTR)
+    return make_edge (src, dst, flags);
 
-  /* Don't bother with edge cache for ENTRY or EXIT, if there aren't that
-     many edges to them, or we didn't allocate memory for it.  */
-  use_edge_cache = (edge_cache
-		    && src != ENTRY_BLOCK_PTR && dst != EXIT_BLOCK_PTR);
-
-  /* Make sure we don't add duplicate edges.  */
-  switch (use_edge_cache)
+  /* Does the requested edge already exist?  */
+  if (! TEST_BIT (edge_cache, dst->index))
     {
-    default:
-      /* Quick test for non-existence of the edge.  */
-      if (! TEST_BIT (edge_cache[src->index], dst->index))
-	break;
-
-      /* The edge exists; early exit if no work to do.  */
-      if (flags == 0)
-	return NULL;
-
-      /* Fall through.  */
-    case 0:
-      FOR_EACH_EDGE (e, ei, src->succs)
-	if (e->dest == dst)
-	  {
-	    e->flags |= flags;
-	    return NULL;
-	  }
-      break;
+      /* The edge does not exist.  Create one and update the
+	 cache.  */
+      SET_BIT (edge_cache, dst->index);
+      return unchecked_make_edge (src, dst, flags);
     }
 
-  e = unchecked_make_edge (src, dst, flags);
+  /* At this point, we know that the requested edge exists.  Adjust
+     flags if necessary.  */
+  if (flags)
+    {
+      edge e = find_edge (src, dst);
+      e->flags |= flags;
+    }
 
-  if (use_edge_cache)
-    SET_BIT (edge_cache[src->index], dst->index);
-
-  return e;
+  return NULL;
 }
 
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
@@ -332,7 +311,16 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 edge
 make_edge (basic_block src, basic_block dest, int flags)
 {
-  return cached_make_edge (NULL, src, dest, flags);
+  edge e = find_edge (src, dest);
+
+  /* Make sure we don't add duplicate edges.  */
+  if (e)
+    {
+      e->flags |= flags;
+      return NULL;
+    }
+
+  return unchecked_make_edge (src, dest, flags);
 }
 
 /* Create an edge connecting SRC to DEST and set probability by knowing
@@ -353,42 +341,11 @@ make_single_succ_edge (basic_block src, basic_block dest, int flags)
 void
 remove_edge (edge e)
 {
-  edge tmp;
-  basic_block src, dest;
-  bool found = false;
-  edge_iterator ei;
+  remove_predictions_associated_with_edge (e);
+  execute_on_shrinking_pred (e);
 
-  src = e->src;
-  dest = e->dest;
-
-  for (ei = ei_start (src->succs); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_unordered_remove (edge, src->succs, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
-
-  gcc_assert (found);
-
-  found = false;
-  for (ei = ei_start (dest->preds); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_unordered_remove (edge, dest->preds, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
-
-  gcc_assert (found);
+  disconnect_src (e);
+  disconnect_dest (e);
 
   free_edge (e);
 }
@@ -398,28 +355,16 @@ remove_edge (edge e)
 void
 redirect_edge_succ (edge e, basic_block new_succ)
 {
-  edge tmp;
-  edge_iterator ei;
-  bool found = false;
+  execute_on_shrinking_pred (e);
 
-  /* Disconnect the edge from the old successor block.  */
-  for (ei = ei_start (e->dest->preds); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_unordered_remove (edge, e->dest->preds, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
+  disconnect_dest (e);
 
-  gcc_assert (found);
+  e->dest = new_succ;
 
   /* Reconnect the edge to the new successor block.  */
-  VEC_safe_push (edge, new_succ->preds, e);
-  e->dest = new_succ;
+  connect_dest (e);
+
+  execute_on_growing_pred (e);
 }
 
 /* Like previous but avoid possible duplicate edge.  */
@@ -451,28 +396,12 @@ redirect_edge_succ_nodup (edge e, basic_block new_succ)
 void
 redirect_edge_pred (edge e, basic_block new_pred)
 {
-  edge tmp;
-  edge_iterator ei;
-  bool found = false;
+  disconnect_src (e);
 
-  /* Disconnect the edge from the old predecessor block.  */
-  for (ei = ei_start (e->src->succs); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_unordered_remove (edge, e->src->succs, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
-
-  gcc_assert (found);
+  e->src = new_pred;
 
   /* Reconnect the edge to the new predecessor block.  */
-  VEC_safe_push (edge, new_pred->succs, e);
-  e->src = new_pred;
+  connect_src (e);
 }
 
 /* Clear all basic block flags, with the exception of partitioning.  */
@@ -482,7 +411,8 @@ clear_bb_flags (void)
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = BB_PARTITION (bb);
+    bb->flags = (BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE)
+		 | (bb->flags & BB_RTL));
 }
 
 /* Check the consistency of profile information.  We can't do that
@@ -537,15 +467,14 @@ check_bb_profile (basic_block bb, FILE * file)
 void
 dump_flow_info (FILE *file)
 {
-  int i;
   basic_block bb;
-  static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
-  if (reg_n_info)
+  /* There are no pseudo registers after reload.  Don't dump them.  */
+  if (reg_n_info && !reload_completed)
     {
-      int max_regno = max_reg_num ();
-      fprintf (file, "%d registers.\n", max_regno);
-      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+      unsigned int i, max = max_reg_num ();
+      fprintf (file, "%d registers.\n", max);
+      for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
 	if (REG_N_REFS (i))
 	  {
 	    enum reg_class class, altclass;
@@ -615,16 +544,19 @@ dump_flow_info (FILE *file)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	dump_edge_info (file, e, 1);
 
-      if (bb->global_live_at_start)
+      if (bb->flags & BB_RTL)
 	{
-	  fprintf (file, "\nRegisters live at start:");
-	  dump_regset (bb->global_live_at_start, file);
-	}
+	  if (bb->il.rtl->global_live_at_start)
+	    {
+	      fprintf (file, "\nRegisters live at start:");
+	      dump_regset (bb->il.rtl->global_live_at_start, file);
+	    }
 
-      if (bb->global_live_at_end)
-	{
-	  fprintf (file, "\nRegisters live at end:");
-	  dump_regset (bb->global_live_at_end, file);
+	  if (bb->il.rtl->global_live_at_end)
+	    {
+	      fprintf (file, "\nRegisters live at end:");
+	      dump_regset (bb->il.rtl->global_live_at_end, file);
+	    }
 	}
 
       putc ('\n', file);
@@ -954,13 +886,198 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
       for (; (c = ei_safe_edge (ei)); ei_next (&ei))
 	c->probability = 0;
     }
-  else
-    FOR_EACH_EDGE (c, ei, bb->succs)
-      c->probability = ((c->probability * REG_BR_PROB_BASE) / (double) prob);
+  else if (prob != REG_BR_PROB_BASE)
+    {
+      int scale = 65536 * REG_BR_PROB_BASE / prob;
 
-  if (bb != taken_edge->src)
-    abort ();
+      FOR_EACH_EDGE (c, ei, bb->succs)
+	c->probability = (c->probability * scale) / 65536;
+    }
+
+  gcc_assert (bb == taken_edge->src);
   taken_edge->count -= count;
   if (taken_edge->count < 0)
     taken_edge->count = 0;
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in int arithmetic.  May lose some accuracy.  */
+void
+scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
+{
+  int i;
+  edge e;
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
+   function but considerably slower.  */
+void
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
+			         gcov_type den)
+{
+  int i;
+  edge e;
+
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
+}
+
+/* Data structures used to maintain mapping between basic blocks and
+   copies.  */
+static htab_t bb_original;
+static htab_t bb_copy;
+static alloc_pool original_copy_bb_pool;
+
+struct htab_bb_copy_original_entry
+{
+  /* Block we are attaching info to.  */
+  int index1;
+  /* Index of original or copy (depending on the hashtable) */
+  int index2;
+};
+
+static hashval_t
+bb_copy_original_hash (const void *p)
+{
+  struct htab_bb_copy_original_entry *data
+    = ((struct htab_bb_copy_original_entry *)p);
+
+  return data->index1;
+}
+static int
+bb_copy_original_eq (const void *p, const void *q)
+{
+  struct htab_bb_copy_original_entry *data
+    = ((struct htab_bb_copy_original_entry *)p);
+  struct htab_bb_copy_original_entry *data2
+    = ((struct htab_bb_copy_original_entry *)q);
+
+  return data->index1 == data2->index1;
+}
+
+/* Initialize the data structures to maintain mapping between blocks
+   and its copies.  */
+void
+initialize_original_copy_tables (void)
+{
+  gcc_assert (!original_copy_bb_pool);
+  original_copy_bb_pool
+    = create_alloc_pool ("original_copy",
+			 sizeof (struct htab_bb_copy_original_entry), 10);
+  bb_original = htab_create (10, bb_copy_original_hash,
+			     bb_copy_original_eq, NULL);
+  bb_copy = htab_create (10, bb_copy_original_hash, bb_copy_original_eq, NULL);
+}
+
+/* Free the data structures to maintain mapping between blocks and
+   its copies.  */
+void
+free_original_copy_tables (void)
+{
+  gcc_assert (original_copy_bb_pool);
+  htab_delete (bb_copy);
+  htab_delete (bb_original);
+  free_alloc_pool (original_copy_bb_pool);
+  bb_copy = NULL;
+  bb_original = NULL;
+  original_copy_bb_pool = NULL;
+}
+
+/* Set original for basic block.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+void
+set_bb_original (basic_block bb, basic_block original)
+{
+  if (original_copy_bb_pool)
+    {
+      struct htab_bb_copy_original_entry **slot;
+      struct htab_bb_copy_original_entry key;
+
+      key.index1 = bb->index;
+      slot =
+	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_original,
+							       &key, INSERT);
+      if (*slot)
+	(*slot)->index2 = original->index;
+      else
+	{
+	  *slot = pool_alloc (original_copy_bb_pool);
+	  (*slot)->index1 = bb->index;
+	  (*slot)->index2 = original->index;
+	}
+    }
+}
+
+/* Get the original basic block.  */
+basic_block
+get_bb_original (basic_block bb)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = bb->index;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (bb_original, &key);
+  if (entry)
+    return BASIC_BLOCK (entry->index2);
+  else
+    return NULL;
+}
+
+/* Set copy for basic block.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+void
+set_bb_copy (basic_block bb, basic_block copy)
+{
+  if (original_copy_bb_pool)
+    {
+      struct htab_bb_copy_original_entry **slot;
+      struct htab_bb_copy_original_entry key;
+
+      key.index1 = bb->index;
+      slot =
+	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_copy,
+							       &key, INSERT);
+      if (*slot)
+	(*slot)->index2 = copy->index;
+      else
+	{
+	  *slot = pool_alloc (original_copy_bb_pool);
+	  (*slot)->index1 = bb->index;
+	  (*slot)->index2 = copy->index;
+	}
+    }
+}
+
+/* Get the copy of basic block.  */
+basic_block
+get_bb_copy (basic_block bb)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = bb->index;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (bb_copy, &key);
+  if (entry)
+    return BASIC_BLOCK (entry->index2);
+  else
+    return NULL;
 }

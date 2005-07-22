@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
 
 */
 
@@ -48,6 +48,13 @@ typedef struct param_info
   const char *const option;
   /* The associated value.  */
   int value;
+
+  /* Minimum acceptable value.  */
+  int min_value;
+  
+  /* Maximum acceptable value, if greater than minimum  */
+  int max_value;
+  
   /* A short description of the option.  */
   const char *const help;
 } param_info;
@@ -70,7 +77,7 @@ extern void set_param_value (const char *name, int value);
 
 typedef enum compiler_param
 {
-#define DEFPARAM(enumerator, option, msgid, default) \
+#define DEFPARAM(enumerator, option, msgid, default, min, max) \
   enumerator,
 #include "params.def"
 #undef DEFPARAM
@@ -82,6 +89,8 @@ typedef enum compiler_param
   (compiler_params[(int) ENUM].value)
 
 /* Macros for the various parameters.  */
+#define SALIAS_MAX_IMPLICIT_FIELDS \
+  PARAM_VALUE (PARAM_SALIAS_MAX_IMPLICIT_FIELDS)
 #define SRA_MAX_STRUCTURE_SIZE \
   PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_SIZE)
 #define SRA_FIELD_STRUCTURE_RATIO \
@@ -96,8 +105,6 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_MIN_INLINE_INSNS)
 #define MAX_INLINE_INSNS_AUTO \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS_AUTO)
-#define MAX_INLINE_INSNS_RTL \
-  PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RTL)
 #define MAX_VARIABLE_EXPANSIONS \
   PARAM_VALUE (PARAM_MAX_VARIABLE_EXPANSIONS)
 #define MAX_DELAY_SLOT_INSN_SEARCH \
@@ -130,4 +137,10 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_MAX_ALIASED_VOPS)
 #define INTEGER_SHARE_LIMIT \
   PARAM_VALUE (PARAM_INTEGER_SHARE_LIMIT)
+#define MAX_LAST_VALUE_RTL \
+  PARAM_VALUE (PARAM_MAX_LAST_VALUE_RTL)
+#define MIN_VIRTUAL_MAPPINGS \
+  PARAM_VALUE (PARAM_MIN_VIRTUAL_MAPPINGS)
+#define VIRTUAL_MAPPINGS_TO_SYMS_RATIO \
+  PARAM_VALUE (PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO)
 #endif /* ! GCC_PARAMS_H */

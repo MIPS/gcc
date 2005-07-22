@@ -1,5 +1,5 @@
 /* Routines for liveness in SSA trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #ifndef _TREE_SSA_LIVE_H
@@ -64,7 +64,6 @@ extern void dump_var_map (FILE *, var_map);
 extern int var_union (var_map, tree, tree);
 extern void change_partition_var (var_map, tree, int);
 extern void compact_var_map (var_map, int);
-extern tree make_ssa_temp (tree);
 #ifdef ENABLE_CHECKING
 extern void register_ssa_partition_check (tree ssa_var);
 #endif
@@ -338,7 +337,7 @@ make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
 
 typedef struct tree_partition_associator_d
 {
-  varray_type trees;
+  VEC(tree,heap) *trees;
   varray_type first_partition;
   int *next_partition;
   int *partition_to_tree_map;
@@ -376,7 +375,7 @@ tpa_num_trees (tpa_p tpa)
 static inline tree
 tpa_tree (tpa_p tpa, int i)
 {
-  return VARRAY_TREE (tpa->trees, i);
+  return VEC_index (tree, tpa->trees, i);
 }
 
 
@@ -429,7 +428,7 @@ tpa_decompact(tpa_p tpa)
 }
 
 
-/* Once a var_map has been created and compressed, a complimentary root_var
+/* Once a var_map has been created and compressed, a complementary root_var
    object can be built.  This creates a list of all the root variables from
    which ssa version names are derived.  Each root variable has a list of 
    which partitions are versions of that root.  

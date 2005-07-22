@@ -1,5 +1,6 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -15,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -35,8 +36,8 @@
 #include "flags.h"
 #include "toplev.h"
 #include "obstack.h"
-
-static const char *const reg_class_names[] = REG_CLASS_NAMES;
+#include "timevar.h"
+#include "tree-pass.h"
 
 struct du_chain
 {
@@ -95,6 +96,9 @@ note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
   HARD_REG_SET *pset = (HARD_REG_SET *) data;
   unsigned int regno;
   int nregs;
+
+  if (GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
   if (!REG_P (x))
     return;
   regno = REGNO (x);
@@ -140,7 +144,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   rtx insn;
   HARD_REG_SET live;
 
-  REG_SET_TO_HARD_REG_SET (live, b->global_live_at_start);
+  REG_SET_TO_HARD_REG_SET (live, b->il.rtl->global_live_at_start);
   insn = BB_HEAD (b);
   while (t)
     {
@@ -1104,14 +1108,15 @@ kill_value_regno (unsigned int regno, unsigned int nregs,
 static void
 kill_value (rtx x, struct value_data *vd)
 {
-  /* SUBREGS are supposed to have been eliminated by now.  But some
-     ports, e.g. i386 sse, use them to smuggle vector type information
-     through to instruction selection.  Each such SUBREG should simplify,
-     so if we get a NULL  we've done something wrong elsewhere.  */
+  rtx orig_rtx = x;
 
   if (GET_CODE (x) == SUBREG)
-    x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
-			 GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+    {
+      x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
+			   GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+      if (x == NULL_RTX)
+	x = SUBREG_REG (orig_rtx);
+    }
   if (REG_P (x))
     {
       unsigned int regno = REGNO (x);
@@ -1220,6 +1225,12 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
 
   /* Likewise with the frame pointer, if we're using one.  */
   if (frame_pointer_needed && dr == HARD_FRAME_POINTER_REGNUM)
+    return;
+
+  /* Do not propagate copies to fixed or global registers, patterns
+     can be relying to see particular fixed register or users can
+     expect the chosen global register in asm.  */
+  if (fixed_regs[dr] || global_regs[dr])
     return;
 
   /* If SRC and DEST overlap, don't record anything.  */
@@ -1745,31 +1756,37 @@ copyprop_hardreg_forward (void)
 {
   struct value_data *all_vd;
   bool need_refresh;
-  basic_block bb, bbp = 0;
+  basic_block bb;
+  sbitmap visited;
 
   need_refresh = false;
 
   all_vd = xmalloc (sizeof (struct value_data) * last_basic_block);
 
+  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
+  sbitmap_zero (visited);
+
   FOR_EACH_BB (bb)
     {
+      SET_BIT (visited, bb->index - (INVALID_BLOCK + 1));
+
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
-      if (EDGE_COUNT (bb->preds) > 0)
-	for (bbp = bb; bbp && bbp != EDGE_PRED (bb, 0)->src; bbp = bbp->prev_bb);
-      if (EDGE_COUNT (bb->preds) == 1
-	  && ! (EDGE_PRED (bb, 0)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-	  && EDGE_PRED (bb, 0)->src != ENTRY_BLOCK_PTR
-	  && bbp)
-	all_vd[bb->index] = all_vd[EDGE_PRED (bb, 0)->src->index];
+      if (single_pred_p (bb)
+	  && TEST_BIT (visited,
+		       single_pred (bb)->index - (INVALID_BLOCK + 1))
+	  && ! (single_pred_edge (bb)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
+	all_vd[bb->index] = all_vd[single_pred (bb)->index];
       else
 	init_value_data (all_vd + bb->index);
 
       if (copyprop_hardreg_forward_1 (bb, all_vd + bb->index))
 	need_refresh = true;
     }
+
+  sbitmap_free (visited);  
 
   if (need_refresh)
     {
@@ -1892,3 +1909,38 @@ validate_value_data (struct value_data *vd)
 		      vd->e[i].next_regno);
 }
 #endif
+
+static bool
+gate_handle_regrename (void)
+{
+  return (optimize > 0 && (flag_rename_registers || flag_cprop_registers));
+}
+
+
+/* Run the regrename and cprop passes.  */
+static void
+rest_of_handle_regrename (void)
+{
+  if (flag_rename_registers)
+    regrename_optimize ();
+  if (flag_cprop_registers)
+    copyprop_hardreg_forward ();
+}
+
+struct tree_opt_pass pass_regrename =
+{
+  "rnreg",                              /* name */
+  gate_handle_regrename,                /* gate */
+  rest_of_handle_regrename,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_RENAME_REGISTERS,                  /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'n'                                   /* letter */
+};
+

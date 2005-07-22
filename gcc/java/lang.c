@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -39,7 +39,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "flags.h"
-#include "xref.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "tree-inline.h"
@@ -117,23 +116,28 @@ int compiling_from_source;
 
 const char *resource_name;
 
-/* When nonzero, we emit xref strings. Values of the flag for xref
-   backends are defined in xref_flag_table, xref.c.  */
-
-int flag_emit_xref = 0;
-
 /* When nonzero, -Wall was turned on.  */
 int flag_wall = 0;
 
 /* The encoding of the source file.  */
 const char *current_encoding = NULL;
 
+/* When nonzero, report use of deprecated classes, methods, or fields.  */
+int flag_deprecated = 1;
+
+/* When zero, don't optimize static class initialization. This flag shouldn't
+   be tested alone, use STATIC_CLASS_INITIALIZATION_OPTIMIZATION_P instead.  */
+/* FIXME: Make this work with gimplify.  */
+/* int flag_optimize_sci = 0;  */
+
+/* Don't attempt to verify invocations.  */
+int flag_verify_invocations = 0; 
+
+/* True if the new bytecode verifier should be used.  */
+int flag_new_verifier = 1;
+
 /* When nonzero, print extra version information.  */
 static int v_flag = 0;
-
-/* Set nonzero if the user specified -finline-functions on the command
-   line.  */
-int flag_really_inline = 0;
 
 JCF *current_jcf;
 
@@ -168,8 +172,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_PARSE_FILE java_parse_file
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE java_mark_addressable
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION java_truthvalue_conversion
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL java_dup_lang_specific_decl
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
@@ -210,6 +212,9 @@ struct language_function GTY(())
 
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
+
+#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
+#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME java_mangle_decl
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -322,11 +327,6 @@ java_handle_option (size_t scode, const char *arg, int value)
       jcf_path_extdirs_arg (arg);
       break;
 
-    case OPT_finline_functions:
-      flag_inline_functions = value;
-      flag_really_inline = value;
-      break;
-
     case OPT_foutput_class_dir_:
       jcf_write_base_directory = arg;
       break;
@@ -354,9 +354,6 @@ java_init (void)
   extern int flag_minimal_debug;
   flag_minimal_debug = 0;
 #endif
-
-  if (flag_inline_functions)
-    flag_inline_trees = 1;
 
   /* FIXME: Indirect dispatch isn't yet compatible with static class
      init optimization.  */
@@ -603,9 +600,17 @@ java_post_options (const char **pfilename)
   if (!flag_no_inline)
     flag_no_inline = 1;
   if (flag_inline_functions)
+    flag_inline_trees = 2;
+
+  /* An absolute requirement: if we're not using indirect dispatch, we
+     must always verify everything.  */
+  if (! flag_indirect_dispatch)
+    flag_verify_invocations = true;
+  else
     {
-      flag_inline_trees = 2;
-      flag_inline_functions = 0;
+      /* If we are using indirect dispatch, then we want the new
+	 verifier as well.  */
+      flag_new_verifier = 1;
     }
 
   /* Open input file.  */
@@ -731,6 +736,10 @@ java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
       WALK_SUBTREE (BLOCK_EXPR_BODY (t));
       return NULL_TREE;
 
+    case EXIT_BLOCK_EXPR:
+      *subtrees = 0;
+      return NULL_TREE;
+
     default:
       return NULL_TREE;
     }
@@ -795,7 +804,7 @@ merge_init_test_initialization (void **entry, void *x)
   does this by setting the DECL_INITIAL of the init_test_decl for that
   class, and no initializations are emitted for that class.
 
-  However, what if the method that is suppoed to do the initialization
+  However, what if the method that is supposed to do the initialization
   is itself inlined in the caller?  When expanding the called method
   we'll assume that the class initialization has already been done,
   because the DECL_INITIAL of the init_test_decl is set.
@@ -921,13 +930,12 @@ java_dump_tree (void *dump_info, tree t)
       return true;
 
     case LABELED_BLOCK_EXPR:
-      dump_child ("label", TREE_OPERAND (t, 0));
-      dump_child ("block", TREE_OPERAND (t, 1));
+      dump_child ("label", LABELED_BLOCK_LABEL (t));
+      dump_child ("block", LABELED_BLOCK_BODY (t));
       return true;
 
     case EXIT_BLOCK_EXPR:
-      dump_child ("block", TREE_OPERAND (t, 0));
-      dump_child ("val", TREE_OPERAND (t, 1));
+      dump_child ("block", EXIT_BLOCK_LABELED_BLOCK (t));
       return true;
 
     case BLOCK:
@@ -983,6 +991,10 @@ java_get_callee_fndecl (tree call_expr)
   tree method, table, element, atable_methods;
 
   HOST_WIDE_INT index;
+
+  /* FIXME: This is disabled because we end up passing calls through
+     the PLT, and we do NOT want to do that.  */
+  return NULL;
 
   if (TREE_CODE (call_expr) != CALL_EXPR)
     return NULL;

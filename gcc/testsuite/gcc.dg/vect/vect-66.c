@@ -1,9 +1,4 @@
-/* { dg-do run { target powerpc*-*-* } } */
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
-/* { dg-do run { target sparc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -mcpu=ultrasparc -mvis" { target sparc*-*-* } } */
+/* { dg-require-effective-target vect_int } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -57,7 +52,7 @@ int main1 ()
     {
       for (j = 0; j < 4; j++)
         {
-           ic[2][1][6][j] = 5;
+           ic[2][1][6][j+1] = 5;
         }
     }
 
@@ -66,7 +61,7 @@ int main1 ()
     {
       for (j = 0; j < 4; j++)
         {
-           if (ic[2][1][6][j] != 5)
+           if (ic[2][1][6][j+1] != 5)
                 abort();
         }
     }
@@ -82,3 +77,6 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

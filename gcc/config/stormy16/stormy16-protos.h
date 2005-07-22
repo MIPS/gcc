@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 
@@ -68,9 +68,6 @@ extern void xstormy16_expand_andqi3 (rtx *);
 #endif
 
 #if defined (HAVE_MACHINE_MODES) && defined (RTX_CODE)
-extern int xstormy16_ineqsi_operator (rtx, enum machine_mode);
-extern int equality_operator (rtx, enum machine_mode);
-extern int inequality_operator (rtx, enum machine_mode);
 extern void xstormy16_split_cbranch (enum machine_mode, rtx, rtx, rtx, rtx);
 extern int  short_memory_operand (rtx, enum machine_mode);
 extern int  nonimmediate_nonstack_operand (rtx, enum machine_mode);
@@ -85,15 +82,9 @@ extern void xstormy16_split_move (enum machine_mode, rtx, rtx);
 extern void xstormy16_expand_move (enum machine_mode, rtx, rtx);
 extern void xstormy16_expand_arith (enum machine_mode, enum rtx_code, 
 				    rtx, rtx, rtx, rtx);
-extern int  shift_operator (rtx, enum machine_mode);
 extern const char * xstormy16_output_shift (enum machine_mode, enum rtx_code, 
 					    rtx, rtx, rtx);
 extern int  xstormy16_below100_symbol (rtx, enum machine_mode);
-extern int  xstormy16_below100_operand (rtx, enum machine_mode);
 extern int  xstormy16_splittable_below100_operand (rtx, enum machine_mode);
-extern int  xstormy16_below100_or_register (rtx, enum machine_mode);
-extern int  xstormy16_splittable_below100_or_register (rtx, enum machine_mode);
-extern int xstormy16_onebit_set_operand (rtx, enum machine_mode);
-extern int xstormy16_onebit_clr_operand (rtx, enum machine_mode);
 #endif
 

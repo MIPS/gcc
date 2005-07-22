@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
@@ -42,53 +42,6 @@ Boston, MA 02111-1307, USA.  */
     }						\
   while (0)
 
-/* This declaration should be present.  */
-extern int target_flags;
-
-#define MASK_ALL_DEBUG		0x00000FE0
-#define MASK_ORDER_1		0x00001000
-#define MASK_INSN_SIZE_DUMP	0x00002000
-#define MASK_ORDER_2		0x00004000
-#define MASK_NO_TABLEJUMP	0x00008000
-#define MASK_INT8		0x00010000
-#define MASK_NO_INTERRUPTS	0x00020000
-#define MASK_CALL_PROLOGUES	0x00040000
-#define MASK_TINY_STACK		0x00080000
-#define MASK_SHORT_CALLS	0x00100000
-
-#define TARGET_ORDER_1		(target_flags & MASK_ORDER_1)
-#define TARGET_ORDER_2		(target_flags & MASK_ORDER_2)
-#define TARGET_INT8		(target_flags & MASK_INT8)
-#define TARGET_NO_INTERRUPTS	(target_flags & MASK_NO_INTERRUPTS)
-#define TARGET_INSN_SIZE_DUMP	(target_flags & MASK_INSN_SIZE_DUMP)
-#define TARGET_CALL_PROLOGUES	(target_flags & MASK_CALL_PROLOGUES)
-#define TARGET_TINY_STACK	(target_flags & MASK_TINY_STACK)
-#define TARGET_NO_TABLEJUMP	(target_flags & MASK_NO_TABLEJUMP)
-#define TARGET_SHORT_CALLS	(target_flags & MASK_SHORT_CALLS)
-#define TARGET_ALL_DEBUG	(target_flags & MASK_ALL_DEBUG)
-
-#define TARGET_SWITCHES {						\
-  { "order1", MASK_ORDER_1, NULL },					\
-  { "order2", MASK_ORDER_2, NULL },					\
-  { "int8", MASK_INT8, N_("Assume int to be 8 bit integer") },		\
-  { "no-interrupts", MASK_NO_INTERRUPTS,				\
-    N_("Change the stack pointer without disabling interrupts") },	\
-  { "call-prologues", MASK_CALL_PROLOGUES,				\
-    N_("Use subroutines for function prologue/epilogue") },		\
-  { "tiny-stack", MASK_TINY_STACK,					\
-    N_("Change only the low 8 bits of the stack pointer") },		\
-  { "no-tablejump", MASK_NO_TABLEJUMP,					\
-    N_("Do not generate tablejump insns") },				\
-  { "short-calls", MASK_SHORT_CALLS,					\
-    N_("Use rjmp/rcall (limited range) on >8K devices") },		\
-  { "size", MASK_INSN_SIZE_DUMP,					\
-    N_("Output instruction sizes to the asm file") },			\
-  { "deb", MASK_ALL_DEBUG, NULL },					\
-  { "", 0, NULL } }
-
-extern const char *avr_init_stack;
-extern const char *avr_mcu_name;
-
 extern const char *avr_base_arch_macro;
 extern const char *avr_extra_arch_macro;
 extern int avr_mega_p;
@@ -97,10 +50,6 @@ extern int avr_asm_only_p;
 
 #define AVR_MEGA (avr_mega_p && !TARGET_SHORT_CALLS)
 #define AVR_ENHANCED (avr_enhanced_p)
-
-#define TARGET_OPTIONS {						      \
- { "init-stack=", &avr_init_stack, N_("Specify the initial stack address"), 0}, \
- { "mcu=", &avr_mcu_name, N_("Specify the MCU name"), 0} }
 
 #define TARGET_VERSION fprintf (stderr, " (GNU assembler syntax)");
 
@@ -196,8 +145,6 @@ extern int avr_asm_only_p;
     1,1,/*  STACK */				\
     1,1 /* arg pointer */  }
 
-#define NON_SAVING_SETJMP 0
-
 #define REG_ALLOC_ORDER {			\
     24,25,					\
     18,19,					\
@@ -218,7 +165,7 @@ extern int avr_asm_only_p;
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE) avr_hard_regno_mode_ok(REGNO, MODE)
 
-#define MODES_TIEABLE_P(MODE1, MODE2) 0
+#define MODES_TIEABLE_P(MODE1, MODE2) 1
 
 enum reg_class {
   NO_REGS,
@@ -721,15 +668,13 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 
 #define ASM_OUTPUT_REG_PUSH(STREAM, REGNO)	\
 {						\
-  if (REGNO > 31)				\
-    abort ();					\
+  gcc_assert (REGNO < 32);			\
   fprintf (STREAM, "\tpush\tr%d", REGNO);	\
 }
 
 #define ASM_OUTPUT_REG_POP(STREAM, REGNO)	\
 {						\
-  if (REGNO > 31)				\
-    abort ();					\
+  gcc_assert (REGNO < 32);			\
   fprintf (STREAM, "\tpop\tr%d", REGNO);	\
 }
 
@@ -813,21 +758,21 @@ extern int avr_case_values_threshold;
 #define ASM_SPEC "%{mmcu=*:-mmcu=%*}"
 
 #define LINK_SPEC " %{!mmcu*:-m avr2}\
-%{mmcu=at90s1200|mmcu=attiny1*|mmcu=attiny28:-m avr1} \
-%{mmcu=attiny22|mmcu=attiny26|mmcu=at90s2*|mmcu=at90s4*|mmcu=at90s8*|mmcu=at90c8*|mmcu=at86rf401:-m avr2}\
+%{mmcu=at90s1200|mmcu=attiny11|mmcu=attiny12|mmcu=attiny15|mmcu=attiny28:-m avr1} \
+%{mmcu=attiny22|mmcu=attiny26|mmcu=at90s2*|mmcu=at90s4*|mmcu=at90s8*|mmcu=at90c8*|mmcu=at86rf401|mmcu=attiny13|mmcu=attiny2313:-m avr2}\
 %{mmcu=atmega103|mmcu=atmega603|mmcu=at43*|mmcu=at76*:-m avr3}\
-%{mmcu=atmega8*:-m avr4}\
-%{mmcu=atmega16*|mmcu=atmega32*|mmcu=atmega64|mmcu=atmega128|mmcu=at94k:-m avr5}\
-%{mmcu=atmega64|mmcu=atmega128|mmcu=atmega162|mmcu=atmega169: -Tdata 0x800100} "
+%{mmcu=atmega8*|mmcu=atmega48:-m avr4}\
+%{mmcu=atmega16*|mmcu=atmega32*|mmcu=atmega64*|mmcu=atmega128|mmcu=at90can128|mmcu=at94k:-m avr5}\
+%{mmcu=atmega325|mmcu=atmega3250|mmcu=atmega48|mmcu=atmega88|mmcu=atmega64|mmcu=atmega645|mmcu=atmega6450|mmcu=atmega128|mmcu=at90can128|mmcu=at90can128|mmcu=atmega162|mmcu=atmega165|mmcu=atmega168|mmcu=atmega169: -Tdata 0x800100} "
 
 #define LIB_SPEC \
-  "%{!mmcu=at90s1*:%{!mmcu=attiny1*:%{!mmcu=attiny28: -lc }}}"
+  "%{!mmcu=at90s1*:%{!mmcu=attiny11:%{!mmcu=attiny12:%{!mmcu=attiny15:%{!mmcu=attiny28: -lc }}}}}"
 
 #define LIBSTDCXX "-lgcc"
 /* No libstdc++ for now.  Empty string doesn't work.  */
 
 #define LIBGCC_SPEC \
-  "%{!mmcu=at90s1*:%{!mmcu=attiny1*:%{!mmcu=attiny28: -lgcc }}}"
+  "%{!mmcu=at90s1*:%{!mmcu=attiny11:%{!mmcu=attiny12:%{!mmcu=attiny15:%{!mmcu=attiny28: -lgcc }}}}}"
 
 #define STARTFILE_SPEC "%(crt_binutils)"
 
@@ -852,23 +797,34 @@ extern int avr_case_values_threshold;
 %{mmcu=at90c8534:crtc8534.o%s} \
 %{mmcu=at90s8535:crts8535.o%s} \
 %{mmcu=at86rf401:crt86401.o%s} \
+%{mmcu=attiny13:crttn13.o%s} \
+%{mmcu=attiny2313:crttn2313.o%s} \
 %{mmcu=atmega103|mmcu=avr3:crtm103.o%s} \
 %{mmcu=atmega603:crtm603.o%s} \
 %{mmcu=at43usb320:crt43320.o%s} \
 %{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at76c711:crt76711.o%s} \
 %{mmcu=atmega8|mmcu=avr4:crtm8.o%s} \
+%{mmcu=atmega48:crtm48.o%s} \
+%{mmcu=atmega88:crtm88.o%s} \
 %{mmcu=atmega8515:crtm8515.o%s} \
 %{mmcu=atmega8535:crtm8535.o%s} \
 %{mmcu=atmega16:crtm16.o%s} \
 %{mmcu=atmega161|mmcu=avr5:crtm161.o%s} \
 %{mmcu=atmega162:crtm162.o%s} \
 %{mmcu=atmega163:crtm163.o%s} \
+%{mmcu=atmega165:crtm165.o%s} \
+%{mmcu=atmega168:crtm168.o%s} \
 %{mmcu=atmega169:crtm169.o%s} \
 %{mmcu=atmega32:crtm32.o%s} \
 %{mmcu=atmega323:crtm323.o%s} \
+%{mmcu=atmega325:crtm325.o%s} \
+%{mmcu=atmega3250:crtm3250.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
+%{mmcu=atmega645:crtm6450.o%s} \
+%{mmcu=atmega6450:crtm6450.o%s} \
 %{mmcu=atmega128:crtm128.o%s} \
+%{mmcu=at90can128:crtcan128.o%s} \
 %{mmcu=at94k:crtat94k.o%s}"
 
 #define EXTRA_SPECS {"crt_binutils", CRT_BINUTILS_SPECS},

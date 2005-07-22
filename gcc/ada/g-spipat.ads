@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 1997-2002 Ada Core Technologies, Inc.            --
+--           Copyright (C) 1997-2005 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -953,23 +953,19 @@ pragma Elaborate_Body (Patterns);
 
    function Match
      (Subject : VString;
-      Pat     : Pattern)
-      return    Boolean;
+      Pat     : Pattern) return Boolean;
 
    function Match
      (Subject : VString;
-      Pat     : PString)
-      return    Boolean;
+      Pat     : PString) return Boolean;
 
    function Match
      (Subject : String;
-      Pat     : Pattern)
-      return    Boolean;
+      Pat     : Pattern) return Boolean;
 
    function Match
      (Subject : String;
-      Pat     : PString)
-      return    Boolean;
+      Pat     : PString) return Boolean;
 
    --  Replacement functions. The subject is matched against the pattern.
    --  Any immediate or deferred assignments or writes are executed, and
@@ -980,26 +976,22 @@ pragma Elaborate_Body (Patterns);
    function Match
      (Subject : VString_Var;
       Pat     : Pattern;
-      Replace : VString)
-      return    Boolean;
+      Replace : VString) return Boolean;
 
    function Match
      (Subject : VString_Var;
       Pat     : PString;
-      Replace : VString)
-      return    Boolean;
+      Replace : VString) return Boolean;
 
    function Match
      (Subject : VString_Var;
       Pat     : Pattern;
-      Replace : String)
-      return    Boolean;
+      Replace : String) return Boolean;
 
    function Match
      (Subject : VString_Var;
       Pat     : PString;
-      Replace : String)
-      return    Boolean;
+      Replace : String) return Boolean;
 
    --  Simple match procedures. The subject is matched against the pattern.
    --  Any immediate or deferred assignments or writes are executed. No
@@ -1063,8 +1055,7 @@ pragma Elaborate_Body (Patterns);
    function Match
      (Subject : VString_Var;
       Pat     : Pattern;
-      Result  : Match_Result_Var)
-      return    Boolean;
+      Result  : Match_Result_Var) return Boolean;
 
    procedure Match
      (Subject : in out VString;

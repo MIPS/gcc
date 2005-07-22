@@ -1,6 +1,6 @@
 /* Prints out trees in human readable form.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -100,8 +100,6 @@ cxx_print_type (FILE *file, tree node, int indent)
     fputs ( "needs-constructor", file);
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (node))
     fputs (" needs-destructor", file);
-  if (TYPE_HAS_DESTRUCTOR (node))
-    fputs (" ~X()", file);
   if (TYPE_HAS_DEFAULT_CONSTRUCTOR (node))
     fputs (" X()", file);
   if (TYPE_HAS_CONVERSION (node))
@@ -131,7 +129,7 @@ cxx_print_type (FILE *file, tree node, int indent)
 		 BINFO_N_BASE_BINFOS (TYPE_BINFO (node)));
       else
 	fprintf (file, " no-binfo");
-      
+
       fprintf (file, " use_template=%d", CLASSTYPE_USE_TEMPLATE (node));
       if (CLASSTYPE_INTERFACE_ONLY (node))
 	fprintf (file, " interface-only");

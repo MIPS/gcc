@@ -3,11 +3,11 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-vars" } */
 
-void foo(int);
+void foo(long);
 
 void xxx(void)
 {
-  int iter, jter;
+  long iter, jter;
 
   for (iter = 0, jter = 2; iter < 100; iter++, jter++)
     {
@@ -24,3 +24,5 @@ void xxx(void)
 /* And the use of jter should be replaced by iter + 2 */
 
 /* { dg-final { scan-tree-dump-times " \\+ 2" 1 "vars" } } */
+
+/* { dg-final { cleanup-tree-dump "vars" } } */

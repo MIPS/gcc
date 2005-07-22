@@ -1,7 +1,11 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-optimized" } */
 
+#ifdef __hppa__
+#define REGISTER "1"
+#else
 #define REGISTER "0"
+#endif
 
 void baz(void)
 {
@@ -10,3 +14,4 @@ void baz(void)
 }
 
 /* { dg-final { scan-tree-dump-times "asm\[^\\r\\n\]*xyzzy" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

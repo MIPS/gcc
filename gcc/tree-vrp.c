@@ -95,6 +95,36 @@ static sbitmap blocks_visited;
 static value_range_t **vr_value;
 
 
+/* Return true if EXPR computes a non-zero value.  */
+
+bool
+expr_computes_nonzero (tree expr)
+{
+  /* Type casts won't change anything, so just strip them.  */
+  STRIP_NOPS (expr);
+
+  /* Calling alloca, guarantees that the value is non-NULL.  */
+  if (alloca_call_p (expr))
+    return true;
+
+  /* The address of a non-weak symbol is never NULL, unless the user
+     has requested not to remove NULL pointer checks.  */
+  if (flag_delete_null_pointer_checks
+      && TREE_CODE (expr) == ADDR_EXPR
+      && VAR_OR_FUNCTION_DECL_P (TREE_OPERAND (expr, 0))
+      && !DECL_WEAK (TREE_OPERAND (expr, 0)))
+    return true;
+
+  /* IOR of any value with a nonzero value will result in a nonzero
+     value.  */
+  if (TREE_CODE (expr) == BIT_IOR_EXPR
+      && integer_nonzerop (TREE_OPERAND (expr, 1)))
+    return true;
+
+  return false;
+}
+
+
 /* Return true if ARG is marked with the nonnull attribute in the
    current function signature.  */
 
@@ -264,7 +294,7 @@ get_value_range (tree var)
   /* If VAR is a default definition, the variable can take any value
      in VAR's type.  */
   sym = SSA_NAME_VAR (var);
-  if (var == default_def (sym))
+  if (var == var_ann (sym)->default_def)
     {
       /* Try to use the "nonnull" attribute to create ~[0, 0]
 	 anti-ranges for pointers.  Note that this is only valid with
@@ -363,13 +393,13 @@ symbolic_range_p (value_range_t *vr)
 }
 
 
-/* Like tree_expr_nonzero_p, but this function uses value ranges
+/* Like expr_computes_nonzero, but this function uses value ranges
    obtained so far.  */
 
 static bool
 vrp_expr_computes_nonzero (tree expr)
 {
-  if (tree_expr_nonzero_p (expr))
+  if (expr_computes_nonzero (expr))
     return true;
 
   /* If we have an expression of the form &X->a, then the expression
@@ -1153,7 +1183,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	       ? vrp_int_const_binop (code, vr0.max, vr1.min)
 	       : NULL_TREE;
 
-      val[3] = (vr0.min != vr0.max && vr1.min != vr1.max)
+      val[3] = (vr0.min != vr1.min && vr0.max != vr1.max)
 	       ? vrp_int_const_binop (code, vr0.max, vr1.max)
 	       : NULL_TREE;
 
@@ -1289,7 +1319,7 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
      determining if it evaluates to NULL [0, 0] or non-NULL (~[0, 0]).  */
   if (POINTER_TYPE_P (TREE_TYPE (expr)) || POINTER_TYPE_P (TREE_TYPE (op0)))
     {
-      if (range_is_nonnull (&vr0) || tree_expr_nonzero_p (expr))
+      if (range_is_nonnull (&vr0) || expr_computes_nonzero (expr))
 	set_value_range_to_nonnull (vr, TREE_TYPE (expr));
       else if (range_is_null (&vr0))
 	set_value_range_to_null (vr, TREE_TYPE (expr));

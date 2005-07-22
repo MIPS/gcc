@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-1998 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -31,7 +31,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Subprograms for manipulation of wide character sequences
+--  Subprograms for manipulation of wide character sequences. Note that in
+--  this package, wide character and wide wide character are not distinguished
+--  since this package is basically concerned with syntactic notions, and it
+--  deals with Char_Code values, rather than values of actual Ada types.
 
 with Types; use Types;
 
@@ -40,7 +43,8 @@ package Widechar is
    function Length_Wide return Nat;
    --  Returns the maximum length in characters for the escape sequence that
    --  is used to encode wide character literals outside the ASCII range. Used
-   --  only in the implementation of the attribute Width for Wide_Character.
+   --  only in the implementation of the attribute Width for Wide_Character
+   --  and Wide_Wide_Character.
 
    procedure Scan_Wide
      (S   : Source_Buffer_Ptr;
@@ -76,10 +80,14 @@ package Widechar is
    --  checking is done, since this is only used on escape sequences generated
    --  by Set_Wide, which are known to be correct.
 
+   procedure Skip_Wide (S : Source_Buffer_Ptr; P : in out Source_Ptr);
+   --  Similar to the above procedure, but operates on a source buffer
+   --  instead of a string, with P being a Source_Ptr referencing the
+   --  contents of the source buffer.
+
    function Is_Start_Of_Wide_Char
-     (S    : Source_Buffer_Ptr;
-      P    : Source_Ptr)
-      return Boolean;
+     (S : Source_Buffer_Ptr;
+      P : Source_Ptr) return Boolean;
    --  Determines if S (P) is the start of a wide character sequence
 
 end Widechar;

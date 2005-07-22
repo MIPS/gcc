@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2000-2003 Free Software Foundation, Inc.       --
+--             Copyright (C) 2000-2004 Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -30,6 +30,16 @@
 with Types; use Types;
 
 package Prj.Ext is
+
+   function Project_Path return String;
+   --  Return the current value of the project path, either the value set
+   --  during elaboration of the package or, if procedure Set_Project_Path has
+   --  been called, the value set by the last call to Set_Project_Path.
+
+   procedure Set_Project_Path (New_Path : String);
+   --  Give a new value to the project path. The new value New_Path should
+   --  always start with the current directory (".") and the path separators
+   --  should be the correct ones for the platform.
 
    procedure Add
      (External_Name : String;

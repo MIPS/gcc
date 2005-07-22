@@ -1,5 +1,5 @@
 /* Support routines for the various generation passes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "bconfig.h"
 #include "system.h"
@@ -36,6 +36,10 @@ int target_flags;
 int insn_elision = 1;
 
 const char *in_fname;
+
+/* This callback will be invoked whenever an rtl include directive is
+   processed.  To be used for creation of the dependency file.  */
+void (*include_callback) (const char *);
 
 static struct obstack obstack;
 struct obstack *rtl_obstack = &obstack;
@@ -245,6 +249,9 @@ process_include (rtx desc, int lineno)
   read_rtx_filename = pathname;
   read_rtx_lineno = 1;
 
+  if (include_callback)
+    include_callback (pathname);
+
   /* Read the entire file.  */
   while (read_rtx (input_file, &desc, &lineno))
     process_rtx (desc, lineno);
@@ -310,7 +317,10 @@ process_rtx (rtx desc, int lineno)
 	   insn condition to create the new split condition.  */
 	split_cond = XSTR (desc, 4);
 	if (split_cond[0] == '&' && split_cond[1] == '&')
-	  split_cond = concat (XSTR (desc, 2), split_cond, NULL);
+	  {
+	    copy_rtx_ptr_loc (split_cond + 2, split_cond);
+	    split_cond = join_c_conditions (XSTR (desc, 2), split_cond + 2);
+	  }
 	XSTR (split, 1) = split_cond;
 	XVEC (split, 2) = XVEC (desc, 5);
 	XSTR (split, 3) = XSTR (desc, 6);
@@ -656,16 +666,8 @@ static const char *
 alter_test_for_insn (struct queue_elem *ce_elem,
 		     struct queue_elem *insn_elem)
 {
-  const char *ce_test, *insn_test;
-
-  ce_test = XSTR (ce_elem->data, 1);
-  insn_test = XSTR (insn_elem->data, 2);
-  if (!ce_test || *ce_test == '\0')
-    return insn_test;
-  if (!insn_test || *insn_test == '\0')
-    return ce_test;
-
-  return concat ("(", ce_test, ") && (", insn_test, ")", NULL);
+  return join_c_conditions (XSTR (ce_elem->data, 1),
+			    XSTR (insn_elem->data, 2));
 }
 
 /* Adjust all of the operand numbers in SRC to match the shift they'll
@@ -903,6 +905,9 @@ init_md_reader_args_cb (int argc, char **argv, bool (*parse_opt)(const char *))
   size_t ix;
   char *lastsl;
   rtx desc;
+
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
 
   for (i = 1; i < argc; i++)
     {

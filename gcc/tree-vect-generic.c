@@ -207,7 +207,7 @@ expand_vector_piecewise (block_stmt_iterator *bsi, elem_op_func f,
 			 tree type, tree inner_type,
 			 tree a, tree b, enum tree_code code)
 {
-  VEC(constructor_elt,gc) *v;
+  tree head, *chain = &head;
   tree part_width = TYPE_SIZE (inner_type);
   tree index = bitsize_int (0);
   int nunits = TYPE_VECTOR_SUBPARTS (type);
@@ -215,17 +215,15 @@ expand_vector_piecewise (block_stmt_iterator *bsi, elem_op_func f,
 	      / tree_low_cst (TYPE_SIZE (TREE_TYPE (type)), 1);
   int i;
 
-  v = VEC_alloc(constructor_elt, gc, (nunits + delta - 1) / delta);
   for (i = 0; i < nunits;
        i += delta, index = int_const_binop (PLUS_EXPR, index, part_width, 0))
     {
       tree result = f (bsi, inner_type, a, b, index, part_width, code);
-      constructor_elt *ce = VEC_quick_push (constructor_elt, v, NULL);
-      ce->index = NULL_TREE;
-      ce->value = result;
+      *chain = tree_cons (NULL_TREE, result, NULL_TREE);
+      chain = &TREE_CHAIN (*chain);
     }
 
-  return build_constructor (type, v);
+  return build1 (CONSTRUCTOR, type, head);
 }
 
 /* Expand a vector operation to scalars with the freedom to use

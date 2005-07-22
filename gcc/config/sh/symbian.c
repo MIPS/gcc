@@ -1,5 +1,5 @@
 /* Routines for GCC for a Symbian OS targeted SH backend.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by RedHat.
    Most of this code is stolen from i386/winnt.c.
 
@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -144,8 +144,9 @@ sh_symbian_dllimport_p (tree decl)
     {
       /* Don't warn about artificial methods.  */
       if (!DECL_ARTIFICIAL (decl))
-	warning ("%H function '%D' is defined after prior declaration as dllimport: attribute ignored",
-		 & DECL_SOURCE_LOCATION (decl), decl);
+	warning (OPT_Wattributes, "function %q+D is defined after prior "
+		 "declaration as dllimport: attribute ignored",
+		 decl);
       return false;
     }
 
@@ -155,8 +156,9 @@ sh_symbian_dllimport_p (tree decl)
   else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
     {
       if (extra_warnings)
-	warning ("%Hinline function '%D' is declared as dllimport: attribute ignored.",
-		 & DECL_SOURCE_LOCATION (decl), decl);
+	warning (OPT_Wattributes, "inline function %q+D is declared as "
+		 "dllimport: attribute ignored",
+		 decl);
       return false;
     }
 
@@ -168,8 +170,8 @@ sh_symbian_dllimport_p (tree decl)
 	   && !DECL_EXTERNAL (decl))
     {
       if (!DECL_VIRTUAL_P (decl))
-	error ("%Hdefinition of static data member '%D' of dllimport'd class.",
-	       & DECL_SOURCE_LOCATION (decl), decl);
+	error ("definition of static data member %q+D of dllimport'd class",
+	       decl);
       return false;
     }
 
@@ -216,14 +218,10 @@ sh_symbian_mark_dllexport (tree decl)
   tree idp;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
 
   if (sh_symbian_dllimport_name_p (oldname))
     {
@@ -265,14 +263,10 @@ sh_symbian_mark_dllimport (tree decl)
   rtx newrtl;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
 
   if (sh_symbian_dllexport_name_p (oldname))
     {
@@ -283,8 +277,8 @@ sh_symbian_mark_dllimport (tree decl)
     {
       /* Already done, but do a sanity check to prevent assembler errors.  */
       if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
-	error ("%Hfailure in redeclaration of '%D': dllimport'd symbol lacks external linkage.",
-	       &DECL_SOURCE_LOCATION (decl), decl);
+	error ("failure in redeclaration of %q+D: dllimport'd symbol lacks external linkage",
+	       decl);
     }
   else
     {
@@ -329,8 +323,7 @@ sh_symbian_encode_section_info (tree decl, rtx rtl, int first)
       tree idp = get_identifier (oldname + strlen (DLL_IMPORT_PREFIX));
       rtx newrtl = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
 
-      warning ("%H%s '%D' %s after being referenced with dllimport linkage.",
-	       & DECL_SOURCE_LOCATION (decl),
+      warning (0, "%s %q+D %s after being referenced with dllimport linkage",
 	       TREE_CODE (decl) == VAR_DECL ? "variable" : "function",
 	       decl, (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
 	       ? "defined locally" : "redeclared without dllimport attribute");
@@ -411,14 +404,14 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
 		   | (int) ATTR_FLAG_FUNCTION_NEXT
 		   | (int) ATTR_FLAG_ARRAY_NEXT))
 	{
-	  warning ("%qs attribute ignored", attr);
+	  warning (OPT_Wattributes, "%qs attribute ignored", attr);
 	  *no_add_attrs = true;
 	  return tree_cons (name, args, NULL_TREE);
 	}
 
       if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
 	{
-	  warning ("%qs attribute ignored", attr);
+	  warning (OPT_Wattributes, "%qs attribute ignored", attr);
 	  *no_add_attrs = true;
 	}
 
@@ -433,8 +426,8 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
 	{
 	  if (DECL_INITIAL (node))
 	    {
-	      error ("%Hvariable %qD definition is marked dllimport.",
-		     & DECL_SOURCE_LOCATION (node), node);
+	      error ("variable %q+D definition is marked dllimport",
+		     node);
 	      *no_add_attrs = true;
 	    }
 
@@ -508,8 +501,8 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
       && (   TREE_CODE (node) == VAR_DECL
 	  || TREE_CODE (node) == FUNCTION_DECL))
     {
-      error ("%Hexternal linkage required for symbol '%D' because of '%s' attribute.",
-	       & DECL_SOURCE_LOCATION (node), node, IDENTIFIER_POINTER (name));
+      error ("external linkage required for symbol %q+D because of %qs attribute",
+	     node, IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 

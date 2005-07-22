@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -370,7 +370,7 @@ pp_file_change (const struct line_map *map)
 {
   const char *flags = "";
 
-  if (flag_no_line_commands || flag_no_output)
+  if (flag_no_line_commands)
     return;
 
   if (map != NULL)

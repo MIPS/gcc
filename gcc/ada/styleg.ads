@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -92,6 +92,9 @@ package Styleg is
    procedure Check_Dot_Dot;
    --  Called after scanning out dot dot to check spacing
 
+   procedure Check_EOF;
+   --  Called after scanning out EOF mark
+
    procedure Check_HT;
    --  Called with Scan_Ptr pointing to a horizontal tab character
 
@@ -104,11 +107,15 @@ package Styleg is
    procedure Check_Left_Paren;
    --  Called after scanning out a left parenthesis to check spacing.
 
+   procedure Check_Line_Max_Length (Len : Int);
+   --  Called with Scan_Ptr pointing to the first line terminator character
+   --  terminating the current line. Used to check for appropriate line length.
+   --  The parameter Len is the length of the current line.
+
    procedure Check_Line_Terminator (Len : Int);
    --  Called with Scan_Ptr pointing to the first line terminator terminating
-   --  the current line, used to check for appropriate line terminator and
-   --  to check the line length (Len is the length of the current line).
-   --  Note that the terminator may be the EOF character.
+   --  the current line, used to check for appropriate line terminator usage.
+   --  The parameter Len is the length of the current line.
 
    procedure Check_Pragma_Name;
    --  The current token is a pragma identifier. Check that it is spelled
@@ -131,6 +138,10 @@ package Styleg is
 
    procedure Check_Vertical_Bar;
    --  Called after scanning a vertical bar to check spacing
+
+   procedure Check_Xtra_Parens (Loc : Source_Ptr);
+   --  Called after scanning a conditional expression that has at least one
+   --  level of parentheses around the entire expression.
 
    procedure No_End_Name (Name : Node_Id);
    --  Called if an END is encountered where a name is allowed but not present.

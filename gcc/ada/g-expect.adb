@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2000-2003 Ada Core Technologies, Inc.            --
+--           Copyright (C) 2000-2005 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -31,12 +31,12 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with System;        use System;
-with Ada.Calendar;  use Ada.Calendar;
+with System;       use System;
+with Ada.Calendar; use Ada.Calendar;
 
 with GNAT.IO;
-with GNAT.OS_Lib;   use GNAT.OS_Lib;
-with GNAT.Regpat;   use GNAT.Regpat;
+with GNAT.OS_Lib;  use GNAT.OS_Lib;
+with GNAT.Regpat;  use GNAT.Regpat;
 
 with Unchecked_Deallocation;
 
@@ -108,7 +108,7 @@ package body GNAT.Expect is
 
    function Waitpid (Pid : Process_Id) return Integer;
    pragma Import (C, Waitpid, "__gnat_waitpid");
-   --  Wait for a specific process id, and return its exit code.
+   --  Wait for a specific process id, and return its exit code
 
    ---------
    -- "+" --
@@ -656,7 +656,7 @@ package body GNAT.Expect is
                                    Descriptors (J).Buffer_Size - N;
                               end if;
 
-                              --  Keep what we read in the buffer.
+                              --  Keep what we read in the buffer
 
                               Descriptors (J).Buffer
                                 (Descriptors (J).Buffer_Index + 1 ..
@@ -754,17 +754,97 @@ package body GNAT.Expect is
                end if;
          end case;
       end loop;
-
    end Flush;
+
+   ------------------------
+   -- Get_Command_Output --
+   ------------------------
+
+   function Get_Command_Output
+     (Command    : String;
+      Arguments  : GNAT.OS_Lib.Argument_List;
+      Input      : String;
+      Status     : access Integer;
+      Err_To_Out : Boolean := False) return String
+   is
+      use GNAT.Expect;
+
+      Process : Process_Descriptor;
+
+      Output : String_Access := new String (1 .. 1024);
+      --  Buffer used to accumulate standard output from the launched
+      --  command, expanded as necessary during execution.
+
+      Last : Integer := 0;
+      --  Index of the last used character within Output
+
+   begin
+      Non_Blocking_Spawn
+        (Process, Command, Arguments, Err_To_Out => Err_To_Out);
+
+      if Input'Length > 0 then
+         Send (Process, Input);
+      end if;
+
+      GNAT.OS_Lib.Close (Get_Input_Fd (Process));
+
+      declare
+         Result : Expect_Match;
+
+      begin
+         --  This loop runs until the call to Expect raises Process_Died
+
+         loop
+            Expect (Process, Result, ".+");
+
+            declare
+               NOutput : String_Access;
+               S       : constant String := Expect_Out (Process);
+               pragma Assert (S'Length > 0);
+
+            begin
+               --  Expand buffer if we need more space
+
+               if Last + S'Length > Output'Last then
+                  NOutput := new String (1 .. 2 * Output'Last);
+                  NOutput (Output'Range) := Output.all;
+                  Free (Output);
+
+                  --  Here if current buffer size is OK
+
+               else
+                  NOutput := Output;
+               end if;
+
+               NOutput (Last + 1 .. Last + S'Length) := S;
+               Last := Last + S'Length;
+               Output := NOutput;
+            end;
+         end loop;
+
+      exception
+         when Process_Died =>
+            Close (Process, Status.all);
+      end;
+
+      if Last = 0 then
+         return "";
+      end if;
+
+      declare
+         S : constant String := Output (1 .. Last);
+      begin
+         Free (Output);
+         return S;
+      end;
+   end Get_Command_Output;
 
    ------------------
    -- Get_Error_Fd --
    ------------------
 
    function Get_Error_Fd
-     (Descriptor : Process_Descriptor)
-      return       GNAT.OS_Lib.File_Descriptor
-   is
+     (Descriptor : Process_Descriptor) return GNAT.OS_Lib.File_Descriptor is
    begin
       return Descriptor.Error_Fd;
    end Get_Error_Fd;
@@ -774,9 +854,7 @@ package body GNAT.Expect is
    ------------------
 
    function Get_Input_Fd
-     (Descriptor : Process_Descriptor)
-      return       GNAT.OS_Lib.File_Descriptor
-   is
+     (Descriptor : Process_Descriptor) return GNAT.OS_Lib.File_Descriptor is
    begin
       return Descriptor.Input_Fd;
    end Get_Input_Fd;
@@ -786,9 +864,7 @@ package body GNAT.Expect is
    -------------------
 
    function Get_Output_Fd
-     (Descriptor : Process_Descriptor)
-      return       GNAT.OS_Lib.File_Descriptor
-   is
+     (Descriptor : Process_Descriptor) return GNAT.OS_Lib.File_Descriptor is
    begin
       return Descriptor.Output_Fd;
    end Get_Output_Fd;
@@ -798,9 +874,7 @@ package body GNAT.Expect is
    -------------
 
    function Get_Pid
-     (Descriptor : Process_Descriptor)
-      return       Process_Id
-   is
+     (Descriptor : Process_Descriptor) return Process_Id is
    begin
       return Descriptor.Pid;
    end Get_Pid;
@@ -847,7 +921,7 @@ package body GNAT.Expect is
 
       Arg        : String_Access;
       Arg_List   : String_List (1 .. Args'Length + 2);
-      C_Arg_List :  aliased array (1 .. Args'Length + 2) of System.Address;
+      C_Arg_List : aliased array (1 .. Args'Length + 2) of System.Address;
 
       Command_With_Path : String_Access;
 
@@ -1004,9 +1078,9 @@ package body GNAT.Expect is
    ----------
 
    procedure Send
-     (Descriptor : in out Process_Descriptor;
-      Str        : String;
-      Add_LF     : Boolean := True;
+     (Descriptor   : in out Process_Descriptor;
+      Str          : String;
+      Add_LF       : Boolean := True;
       Empty_Buffer : Boolean := False)
    is
       Full_Str    : constant String := Str & ASCII.LF;
@@ -1020,7 +1094,7 @@ package body GNAT.Expect is
    begin
       if Empty_Buffer then
 
-         --  Force a read on the process if there is anything waiting.
+         --  Force a read on the process if there is anything waiting
 
          Expect_Internal (Descriptors, Result,
                           Timeout => 0, Full_Buffer => False);
@@ -1055,7 +1129,7 @@ package body GNAT.Expect is
    is
    begin
       Kill (Descriptor.Pid, Signal);
-      --  ??? Need to check process status here.
+      --  ??? Need to check process status here
    end Send_Signal;
 
    ---------------------------------
@@ -1123,6 +1197,8 @@ package body GNAT.Expect is
       Pipe2      : access Pipe_Type;
       Pipe3      : access Pipe_Type)
    is
+      Status : Boolean;
+
    begin
       --  Create the pipes
 
@@ -1134,18 +1210,36 @@ package body GNAT.Expect is
          return;
       end if;
 
+      --  Record the 'parent' end of the two pipes in Pid:
+      --    Child stdin  is connected to the 'write' end of Pipe1;
+      --    Child stdout is connected to the 'read'  end of Pipe2.
+      --  We do not want these descriptors to remain open in the child
+      --  process, so we mark them close-on-exec/non-inheritable.
+
       Pid.Input_Fd  := Pipe1.Output;
+      Set_Close_On_Exec (Pipe1.Output, True, Status);
       Pid.Output_Fd := Pipe2.Input;
+      Set_Close_On_Exec (Pipe2.Input, True, Status);
 
       if Err_To_Out then
+
+         --  Reuse the standard output pipe for standard error
+
          Pipe3.all := Pipe2.all;
       else
+
+         --  Create a separate pipe for standard error
+
          if Create_Pipe (Pipe3) /= 0 then
             return;
          end if;
       end if;
 
+      --  As above, we record the proper fd for the child's
+      --  standard error stream.
+
       Pid.Error_Fd := Pipe3.Input;
+      Set_Close_On_Exec (Pipe3.Input, True, Status);
    end Set_Up_Communications;
 
    ----------------------------------

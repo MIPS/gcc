@@ -1,6 +1,6 @@
 /* Compilation switch flag definitions for GCC.
    Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004
+   2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_FLAGS_H
 #define GCC_FLAGS_H
@@ -101,11 +101,6 @@ extern bool extra_warnings;
 
 extern void set_Wunused (int setting);
 
-/* Nonzero means warn about function definitions that default the return type
-   or that use a null return and have a return-type other than void.  */
-
-extern int warn_return_type;
-
 /* Nonzero means warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
    values are larger than N bytes. The value N is in `larger_than_size'.  */
@@ -145,9 +140,9 @@ extern int flag_pcc_struct_return;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
-   2 means C99-like requirements for complex divide (not yet implemented).  */
+   2 means C99-like requirements for complex multiply and divide.  */
 
-extern int flag_complex_divide_method;
+extern int flag_complex_method;
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
@@ -185,6 +180,10 @@ extern int flag_shlib;
    to be a catchall for printing debug information in the assembler file.  */
 
 extern int flag_debug_asm;
+
+/* Generate code for GNU or NeXT Objective-C runtime environment.  */
+
+extern int flag_next_runtime;
 
 extern int flag_dump_rtl_in_asm;
 

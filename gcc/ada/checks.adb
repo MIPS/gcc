@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -29,6 +29,7 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Ch2;  use Exp_Ch2;
+with Exp_Pakd; use Exp_Pakd;
 with Exp_Util; use Exp_Util;
 with Elists;   use Elists;
 with Eval_Fat; use Eval_Fat;
@@ -467,7 +468,8 @@ package body Checks is
    ---------------------------
 
    procedure Apply_Alignment_Check (E : Entity_Id; N : Node_Id) is
-      AC   : constant Node_Id := Address_Clause (E);
+      AC   : constant Node_Id   := Address_Clause (E);
+      Typ  : constant Entity_Id := Etype (E);
       Expr : Node_Id;
       Loc  : Source_Ptr;
 
@@ -506,16 +508,28 @@ package body Checks is
       --  value is unacceptable at compile time.
 
       if Compile_Time_Known_Value (Expr)
-        and then Known_Alignment (E)
+        and then (Known_Alignment (E) or else Known_Alignment (Typ))
       then
-         if Expr_Value (Expr) mod Alignment (E) /= 0 then
-            Insert_Action (N,
-               Make_Raise_Program_Error (Loc,
-                 Reason => PE_Misaligned_Address_Value));
-            Error_Msg_NE
-              ("?specified address for& not " &
-               "consistent with alignment ('R'M 13.3(27))", Expr, E);
-         end if;
+         declare
+            AL : Uint := Alignment (Typ);
+
+         begin
+            --  The object alignment might be more restrictive than the
+            --  type alignment.
+
+            if Known_Alignment (E) then
+               AL := Alignment (E);
+            end if;
+
+            if Expr_Value (Expr) mod AL /= 0 then
+               Insert_Action (N,
+                  Make_Raise_Program_Error (Loc,
+                    Reason => PE_Misaligned_Address_Value));
+               Error_Msg_NE
+                 ("?specified address for& not " &
+                  "consistent with alignment ('R'M 13.3(27))", Expr, E);
+            end if;
+         end;
 
       --  Here we do not know if the value is acceptable, generate
       --  code to raise PE if alignment is inappropriate.
@@ -701,10 +715,6 @@ package body Checks is
    -- Apply_Array_Size_Check --
    ----------------------------
 
-   --  Note: Really of course this entre check should be in the backend,
-   --  and perhaps this is not quite the right value, but it is good
-   --  enough to catch the normal cases (and the relevant ACVC tests!)
-
    --  The situation is as follows. In GNAT 3 (GCC 2.x), the size in bits
    --  is computed in 32 bits without an overflow check. That's a real
    --  problem for Ada. So what we do in GNAT 3 is to approximate the
@@ -713,8 +723,8 @@ package body Checks is
 
    --  In GNAT 5, the size in byte is still computed in 32 bits without
    --  an overflow check in the dynamic case, but the size in bits is
-   --  computed in 64 bits. We assume that's good enough, so we use the
-   --  size in bits for the test.
+   --  computed in 64 bits. We assume that's good enough, and we do not
+   --  bother to generate any front end test.
 
    procedure Apply_Array_Size_Check (N : Node_Id; Typ : Entity_Id) is
       Loc  : constant Source_Ptr := Sloc (N);
@@ -795,6 +805,14 @@ package body Checks is
    --  Start of processing for Apply_Array_Size_Check
 
    begin
+      --  Do size check on local arrays. We only need this in the GCC 2
+      --  case, since in GCC 3, we expect the back end to properly handle
+      --  things. This routine can be removed when we baseline GNAT 3.
+
+      if Opt.GCC_Version >= 3 then
+         return;
+      end if;
+
       --  No need for a check if not expanding
 
       if not Expander_Active then
@@ -830,144 +848,113 @@ package body Checks is
          end if;
       end loop;
 
-      --  GCC 3 case
+      --  First step is to calculate the maximum number of elements. For
+      --  this calculation, we use the actual size of the subtype if it is
+      --  static, and if a bound of a subtype is non-static, we go to the
+      --  bound of the base type.
 
-      if Opt.GCC_Version = 3 then
+      Siz := Uint_1;
+      Indx := First_Index (Typ);
+      while Present (Indx) loop
+         Xtyp := Etype (Indx);
+         Lo := Type_Low_Bound (Xtyp);
+         Hi := Type_High_Bound (Xtyp);
 
-         --  No problem if size is known at compile time (even if the front
-         --  end does not know it) because the back end does do overflow
-         --  checking on the size in bytes if it is compile time known.
+         --  If any bound raises constraint error, we will never get this
+         --  far, so there is no need to generate any kind of check.
 
-         if Size_Known_At_Compile_Time (Typ) then
-            return;
-         end if;
-      end if;
-
-      --  Following code is temporarily deleted, since GCC 3 is returning
-      --  zero for size in bits of large dynamic arrays. ???
-
---           --  Otherwise we check for the size in bits exceeding 2**31-1 * 8.
---           --  This is the case in which we could end up with problems from
---           --  an unnoticed overflow in computing the size in bytes
---
---           Check_Siz := (Uint_2 ** 31 - Uint_1) * Uint_8;
---
---           Sizx :=
---             Make_Attribute_Reference (Loc,
---               Prefix => New_Occurrence_Of (Typ, Loc),
---               Attribute_Name => Name_Size);
-
-      --  GCC 2 case (for now this is for GCC 3 dynamic case as well)
-
-      begin
-         --  First step is to calculate the maximum number of elements. For
-         --  this calculation, we use the actual size of the subtype if it is
-         --  static, and if a bound of a subtype is non-static, we go to the
-         --  bound of the base type.
-
-         Siz := Uint_1;
-         Indx := First_Index (Typ);
-         while Present (Indx) loop
-            Xtyp := Etype (Indx);
-            Lo := Type_Low_Bound (Xtyp);
-            Hi := Type_High_Bound (Xtyp);
-
-            --  If any bound raises constraint error, we will never get this
-            --  far, so there is no need to generate any kind of check.
-
-            if Raises_Constraint_Error (Lo)
-              or else
-                Raises_Constraint_Error (Hi)
-            then
-               Uintp.Release (Umark);
-               return;
-            end if;
-
-            --  Otherwise get bounds values
-
-            if Is_Static_Expression (Lo) then
-               Lob := Expr_Value (Lo);
-            else
-               Lob := Expr_Value (Type_Low_Bound (Base_Type (Xtyp)));
-               Static := False;
-            end if;
-
-            if Is_Static_Expression (Hi) then
-               Hib := Expr_Value (Hi);
-            else
-               Hib := Expr_Value (Type_High_Bound (Base_Type (Xtyp)));
-               Static := False;
-            end if;
-
-            Siz := Siz *  UI_Max (Hib - Lob + 1, Uint_0);
-            Next_Index (Indx);
-         end loop;
-
-         --  Compute the limit against which we want to check. For subprograms,
-         --  where the array will go on the stack, we use 8*2**24, which (in
-         --  bits) is the size of a 16 megabyte array.
-
-         if Is_Subprogram (Scope (Ent)) then
-            Check_Siz := Uint_2 ** 27;
-         else
-            Check_Siz := Uint_2 ** 31;
-         end if;
-
-         --  If we have all static bounds and Siz is too large, then we know
-         --  we know we have a storage error right now, so generate message
-
-         if Static and then Siz >= Check_Siz then
-            Insert_Action (N,
-              Make_Raise_Storage_Error (Loc,
-                Reason => SE_Object_Too_Large));
-            Error_Msg_N ("?Storage_Error will be raised at run-time", N);
-            Uintp.Release (Umark);
-            return;
-         end if;
-
-         --  Case of component size known at compile time. If the array
-         --  size is definitely in range, then we do not need a check.
-
-         if Known_Esize (Ctyp)
-           and then Siz * Esize (Ctyp) < Check_Siz
+         if Raises_Constraint_Error (Lo)
+           or else
+             Raises_Constraint_Error (Hi)
          then
             Uintp.Release (Umark);
             return;
          end if;
 
-         --  Here if a dynamic check is required
+         --  Otherwise get bounds values
 
-         --  What we do is to build an expression for the size of the array,
-         --  which is computed as the 'Size of the array component, times
-         --  the size of each dimension.
+         if Is_Static_Expression (Lo) then
+            Lob := Expr_Value (Lo);
+         else
+            Lob := Expr_Value (Type_Low_Bound (Base_Type (Xtyp)));
+            Static := False;
+         end if;
 
+         if Is_Static_Expression (Hi) then
+            Hib := Expr_Value (Hi);
+         else
+            Hib := Expr_Value (Type_High_Bound (Base_Type (Xtyp)));
+            Static := False;
+         end if;
+
+         Siz := Siz *  UI_Max (Hib - Lob + 1, Uint_0);
+         Next_Index (Indx);
+      end loop;
+
+      --  Compute the limit against which we want to check. For subprograms,
+      --  where the array will go on the stack, we use 8*2**24, which (in
+      --  bits) is the size of a 16 megabyte array.
+
+      if Is_Subprogram (Scope (Ent)) then
+         Check_Siz := Uint_2 ** 27;
+      else
+         Check_Siz := Uint_2 ** 31;
+      end if;
+
+      --  If we have all static bounds and Siz is too large, then we know
+      --  we know we have a storage error right now, so generate message
+
+      if Static and then Siz >= Check_Siz then
+         Insert_Action (N,
+           Make_Raise_Storage_Error (Loc,
+             Reason => SE_Object_Too_Large));
+         Error_Msg_N ("?Storage_Error will be raised at run-time", N);
          Uintp.Release (Umark);
+         return;
+      end if;
+
+      --  Case of component size known at compile time. If the array
+      --  size is definitely in range, then we do not need a check.
+
+      if Known_Esize (Ctyp)
+        and then Siz * Esize (Ctyp) < Check_Siz
+      then
+         Uintp.Release (Umark);
+         return;
+      end if;
+
+      --  Here if a dynamic check is required
+
+      --  What we do is to build an expression for the size of the array,
+      --  which is computed as the 'Size of the array component, times
+      --  the size of each dimension.
+
+      Uintp.Release (Umark);
+
+      Sizx :=
+        Make_Attribute_Reference (Loc,
+          Prefix =>         New_Occurrence_Of (Ctyp, Loc),
+          Attribute_Name => Name_Size);
+
+      Indx := First_Index (Typ);
+      for J in 1 .. Number_Dimensions (Typ) loop
+         if Sloc (Etype (Indx)) = Sloc (N) then
+            Ensure_Defined (Etype (Indx), N);
+         end if;
 
          Sizx :=
-           Make_Attribute_Reference (Loc,
-             Prefix =>         New_Occurrence_Of (Ctyp, Loc),
-             Attribute_Name => Name_Size);
+           Make_Op_Multiply (Loc,
+             Left_Opnd  => Sizx,
+             Right_Opnd =>
+               Make_Attribute_Reference (Loc,
+                 Prefix         => New_Occurrence_Of (Typ, Loc),
+                 Attribute_Name => Name_Length,
+                 Expressions    => New_List (
+                   Make_Integer_Literal (Loc, J))));
+         Next_Index (Indx);
+      end loop;
 
-         Indx := First_Index (Typ);
-         for J in 1 .. Number_Dimensions (Typ) loop
-            if Sloc (Etype (Indx)) = Sloc (N) then
-               Ensure_Defined (Etype (Indx), N);
-            end if;
-
-            Sizx :=
-              Make_Op_Multiply (Loc,
-                Left_Opnd  => Sizx,
-                Right_Opnd =>
-                  Make_Attribute_Reference (Loc,
-                    Prefix         => New_Occurrence_Of (Typ, Loc),
-                    Attribute_Name => Name_Length,
-                    Expressions    => New_List (
-                                        Make_Integer_Literal (Loc, J))));
-            Next_Index (Indx);
-         end loop;
-      end;
-
-      --  Common code to actually emit the check
+      --  Emit the check
 
       Code :=
         Make_Raise_Storage_Error (Loc,
@@ -977,7 +964,7 @@ package body Checks is
               Right_Opnd =>
                 Make_Integer_Literal (Loc,
                   Intval    => Check_Siz)),
-                  Reason    => SE_Object_Too_Large);
+          Reason => SE_Object_Too_Large);
 
       Set_Size_Check_Code (Defining_Identifier (N), Code);
       Insert_Action (N, Code, Suppress => All_Checks);
@@ -1003,7 +990,7 @@ package body Checks is
 
       elsif Is_Array_Type (Typ) then
 
-         --  A useful optimization: an aggregate with only an Others clause
+         --  A useful optimization: an aggregate with only an others clause
          --  always has the right bounds.
 
          if Nkind (N) = N_Aggregate
@@ -1131,10 +1118,10 @@ package body Checks is
          return;
       end if;
 
-      --  No discriminant checks necessary for access when expression
+      --  No discriminant checks necessary for an access when expression
       --  is statically Null. This is not only an optimization, this is
       --  fundamental because otherwise discriminant checks may be generated
-      --  in init procs for types containing an access to a non-frozen yet
+      --  in init procs for types containing an access to a not-yet-frozen
       --  record, causing a deadly forward reference.
 
       --  Also, if the expression is of an access type whose designated
@@ -1170,6 +1157,14 @@ package body Checks is
       --  and no check is required).
 
       if not Is_Constrained (T_Typ) then
+         return;
+
+      --  Ada 2005: nothing to do if the type is one for which there is a
+      --  partial view that is constrained.
+
+      elsif Ada_Version >= Ada_05
+        and then Has_Constrained_Partial_View (Base_Type (T_Typ))
+      then
          return;
       end if;
 
@@ -1596,7 +1591,7 @@ package body Checks is
 
       Insert_Action (Ck_Node,
         Make_Raise_Constraint_Error (Loc,
-          Condition => Make_Op_Not (Loc, Make_Op_And (Loc, Lo_Chk, Hi_Chk)),
+          Condition => Make_Op_Not (Loc, Make_And_Then (Loc, Lo_Chk, Hi_Chk)),
           Reason    => Reason));
    end Apply_Float_Conversion_Check;
 
@@ -1807,7 +1802,7 @@ package body Checks is
       --  we only do this for discrete types, and not fixed-point or
       --  floating-point types.
 
-      --  The additional less-precise tests below catch these cases.
+      --  The additional less-precise tests below catch these cases
 
       --  Note: skip this if we are given a source_typ, since the point
       --  of supplying a Source_Typ is to stop us looking at the expression.
@@ -2578,19 +2573,28 @@ package body Checks is
          then
             case Msg_K is
                when Components =>
-                  Error_Msg_N
-                    ("(Ada 2005) NULL not allowed in null-excluding " &
-                     "components", Expr);
+                  Apply_Compile_Time_Constraint_Error
+                     (N      => Expr,
+                      Msg    => "(Ada 2005) NULL not allowed in"
+                                  & " null-excluding components?",
+                      Reason => CE_Null_Not_Allowed,
+                      Rep    => False);
 
                when Formals =>
-                  Error_Msg_N
-                    ("(Ada 2005) NULL not allowed in null-excluding formals",
-                     Expr);
+                  Apply_Compile_Time_Constraint_Error
+                     (N      => Expr,
+                      Msg    => "(Ada 2005) NULL not allowed in"
+                                  & " null-excluding formals?",
+                      Reason => CE_Null_Not_Allowed,
+                      Rep    => False);
 
                when Objects =>
-                  Error_Msg_N
-                    ("(Ada 2005) NULL not allowed in null-excluding objects",
-                     Expr);
+                  Apply_Compile_Time_Constraint_Error
+                     (N      => Expr,
+                      Msg    => "(Ada 2005) NULL not allowed in"
+                                  & " null-excluding objects?",
+                      Reason => CE_Null_Not_Allowed,
+                      Rep    => False);
             end case;
          end if;
       end Check_Null_Not_Allowed;
@@ -2633,13 +2637,17 @@ package body Checks is
 
          when N_Object_Declaration =>
             Msg_K := Objects;
-            Has_Null_Exclusion := Null_Exclusion_Present (N);
-            Typ := Entity (Object_Definition (N));
-            Related_Nod := Object_Definition (N);
-            Check_Must_Be_Access (Typ, Has_Null_Exclusion);
-            Check_Already_Null_Excluding_Type
-              (Typ, Has_Null_Exclusion, Related_Nod);
-            Check_Must_Be_Initialized (N, Related_Nod);
+
+            if Nkind (Object_Definition (N)) /= N_Access_Definition then
+               Has_Null_Exclusion := Null_Exclusion_Present (N);
+               Typ := Entity (Object_Definition (N));
+               Related_Nod := Object_Definition (N);
+               Check_Must_Be_Access (Typ, Has_Null_Exclusion);
+               Check_Already_Null_Excluding_Type
+                 (Typ, Has_Null_Exclusion, Related_Nod);
+               Check_Must_Be_Initialized (N, Related_Nod);
+            end if;
+
             Check_Null_Not_Allowed (N);
 
          when N_Discriminant_Specification =>
@@ -3465,6 +3473,15 @@ package body Checks is
                   Set_Do_Range_Check (N, True);
                   return;
                end if;
+
+            --  Ditto if the prefix is an explicit dereference whose
+            --  designated type is unconstrained.
+
+            elsif Nkind (Prefix (P)) = N_Explicit_Dereference
+              and then not Is_Constrained (Atyp)
+            then
+               Set_Do_Range_Check (N, True);
+               return;
             end if;
 
             Indx := First_Index (Atyp);
@@ -3628,7 +3645,7 @@ package body Checks is
       then
          return;
 
-      --  No check required on the left-hand side of an assignment.
+      --  No check required on the left-hand side of an assignment
 
       elsif Nkind (Parent (Expr)) = N_Assignment_Statement
         and then Expr = Name (Parent (Expr))
@@ -3887,7 +3904,7 @@ package body Checks is
    --  Start of processing for Find_Check
 
    begin
-      --  Establish default, to avoid warnings from GCC.
+      --  Establish default, to avoid warnings from GCC
 
       Check_Num := 0;
 
@@ -4256,7 +4273,7 @@ package body Checks is
       --         ..
       --       Source_Base_Type(Target_Type'Last))]
 
-      --  The conversions will always work and need no check.
+      --  The conversions will always work and need no check
 
       elsif In_Subrange_Of (Target_Type, Source_Base_Type) then
          Insert_Action (N,
@@ -4697,6 +4714,28 @@ package body Checks is
                    Attribute_Name => Name_Valid)),
            Reason => CE_Invalid_Data),
          Suppress => All_Checks);
+
+      --  If the expression is a a reference to an element of a bit-packed
+      --  array, it is rewritten as a renaming declaration. If the expression
+      --  is an actual in a call, it has not been expanded, waiting for the
+      --  proper point at which to do it. The same happens with renamings, so
+      --  that we have to force the expansion now. This non-local complication
+      --  is due to code in exp_ch2,adb, exp_ch4.adb and exp_ch6.adb.
+
+      if Is_Entity_Name (Exp)
+        and then Nkind (Parent (Entity (Exp))) = N_Object_Renaming_Declaration
+      then
+         declare
+            Old_Exp : constant Node_Id := Name (Parent (Entity (Exp)));
+         begin
+            if Nkind (Old_Exp) = N_Indexed_Component
+              and then Is_Bit_Packed_Array (Etype (Prefix (Old_Exp)))
+            then
+               Expand_Packed_Element_Reference (Old_Exp);
+            end if;
+         end;
+      end if;
+
       Validity_Checks_On := True;
    end Insert_Valid_Check;
 
@@ -4711,14 +4750,25 @@ package body Checks is
    begin
       pragma Assert (Is_Access_Type (Etyp));
 
-      --  Don't need access check if: 1) we are analyzing a generic, 2) it is
-      --  known to be non-null, or 3) the check was suppressed on the type
+      --  Don't need access check if:
+      --   1) we are analyzing a generic
+      --   2) it is known to be non-null
+      --   3) the check was suppressed on the type
+      --   4) This is an attribute reference that returns an access type.
 
       if Inside_A_Generic
         or else Access_Checks_Suppressed (Etyp)
       then
          return;
-
+      elsif Nkind (N) = N_Attribute_Reference
+        and then
+         (Attribute_Name (N) = Name_Access
+            or else
+          Attribute_Name (N) = Name_Unchecked_Access
+            or else
+          Attribute_Name (N) = Name_Unrestricted_Access)
+      then
+         return;
          --  Otherwise install access check
 
       else
@@ -5744,7 +5794,17 @@ package body Checks is
             return Get_Discriminal (E, Bound);
 
          elsif Nkind (Bound) = N_Integer_Literal then
-            return  Make_Integer_Literal (Loc, Intval (Bound));
+            return Make_Integer_Literal (Loc, Intval (Bound));
+
+         --  Case of a bound that has been rewritten to an
+         --  N_Raise_Constraint_Error node because it is an out-of-range
+         --  value. We may not call Duplicate_Subexpr on this node because
+         --  an N_Raise_Constraint_Error is not side effect free, and we may
+         --  not assume that we are in the proper context to remove side
+         --  effects on it at the point of reference.
+
+         elsif Nkind (Bound) = N_Raise_Constraint_Error then
+            return New_Copy_Tree (Bound);
 
          else
             return Duplicate_Subexpr_No_Checks (Bound);
@@ -6259,14 +6319,15 @@ package body Checks is
                         then
                            null;
 
-                        --  If null range, no check needed.
+                           --  If null range, no check needed
+
                         elsif
                           Compile_Time_Known_Value (High_Bound (Opnd_Index))
                             and then
                           Compile_Time_Known_Value (Low_Bound (Opnd_Index))
                             and then
-                             Expr_Value (High_Bound (Opnd_Index)) <
-                                 Expr_Value (Low_Bound (Opnd_Index))
+                              Expr_Value (High_Bound (Opnd_Index)) <
+                                  Expr_Value (Low_Bound (Opnd_Index))
                         then
                            null;
 

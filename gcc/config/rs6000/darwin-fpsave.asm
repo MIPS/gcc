@@ -22,8 +22,8 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; see the file COPYING.  If not, write to
- * the Free Software Foundation, 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  * 
  *  As a special exception, if you link this library with files
  *  compiled with GCC to produce an executable, this does not cause the
@@ -40,10 +40,12 @@
 
    MORAL: DO NOT MESS AROUND WITH THESE FUNCTIONS!  */
 
+#include "darwin-asm.h"
+
 .text
 	.align 2
 
-/* saveFP saves R0 -- assumed to be the callers LR -- to 8(R1).  */
+/* saveFP saves R0 -- assumed to be the callers LR -- to 8/16(R1).  */
 
 .private_extern saveFP
 saveFP:
@@ -65,10 +67,10 @@ saveFP:
 	stfd f29,-24(r1)
 	stfd f30,-16(r1)
 	stfd f31,-8(r1)
-	stw  r0,8(r1)
+	stg  r0,SAVED_LR_OFFSET(r1)
 	blr
 
-/* restFP restores the caller`s LR from 8(R1).  Note that the code for
+/* restFP restores the caller`s LR from 8/16(R1).  Note that the code for
    this starts at the offset of F30 restoration, so calling this
    routine in an attempt to restore only F31 WILL NOT WORK (it would
    be a stupid thing to do, anyway.)  */
@@ -92,7 +94,7 @@ restFP:
 	lfd f28,-32(r1)
 	lfd f29,-24(r1)
 			/* <OFFSET OF F30 RESTORE> restore callers LR  */
-	lwz r0,8(r1)
+	lg r0,SAVED_LR_OFFSET(r1)
 	lfd f30,-16(r1)
 			/* and prepare for return to caller  */
 	mtlr r0	

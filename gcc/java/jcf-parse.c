@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -151,18 +151,22 @@ set_source_filename (JCF *jcf, int index)
       char *dot = strrchr (class_name, '.');
       if (dot != NULL)
 	{
-	  int i = dot - class_name + 1;
+	  /* Length of prefix, not counting final dot. */
+	  int i = dot - class_name;
 	  /* Concatenate current package prefix with new sfname. */
-	  char *buf = xmalloc (i+new_len+3);
-	  memcpy (buf, class_name, i);
-	  strcpy (buf + i, sfname);
-	  /* Replace '.' by DIR_SEPARATOR. */
+	  char *buf = xmalloc (i + new_len + 2); /* Space for '.' and '\0'. */
+	  strcpy (buf + i + 1, sfname);
+	  /* Copy package from class_name, replacing '.' by DIR_SEPARATOR.
+	     Note we start at the end with the final package dot. */
 	  for (; i >= 0;  i--)
 	    {
-	      if (buf[i] == '.')
-		buf[i] = DIR_SEPARATOR;
+	      char c = class_name[i];
+	      if (c == '.')
+		c = DIR_SEPARATOR;
+	      buf[i] = c;
 	    }
 	  sfname_id = get_identifier (buf);
+	  free (buf);
 	  sfname = IDENTIFIER_POINTER (sfname_id);
 	}
     }
@@ -526,11 +530,17 @@ read_class (tree name)
 
   if (jcf == NULL)
     {
+      const char* path_name;
       this_jcf.zipd = NULL;
       jcf = &this_jcf;
-      if (find_class (IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name),
-		      &this_jcf, 1) == 0)
+      
+      path_name = find_class (IDENTIFIER_POINTER (name),
+			      IDENTIFIER_LENGTH (name),
+			      &this_jcf, 1);
+      if (path_name == 0)
 	return 0;
+      else
+	free((char *) path_name);
     }
 
   current_jcf = jcf;
@@ -538,6 +548,7 @@ read_class (tree name)
   if (current_jcf->java_source)
     {
       const char *filename = current_jcf->filename;
+      char *real_path;
       tree given_file, real_file;
       FILE *finput;
       int generate;
@@ -547,7 +558,9 @@ read_class (tree name)
 
       given_file = get_identifier (filename);
       filename = IDENTIFIER_POINTER (given_file);
-      real_file = get_identifier (lrealpath (filename));
+      real_path = lrealpath (filename);
+      real_file = get_identifier (real_path);
+      free (real_path);
 
       generate = IS_A_COMMAND_LINE_FILENAME_P (given_file);
       output_class = current_class = NULL_TREE;
@@ -610,8 +623,14 @@ void
 load_class (tree class_or_name, int verbose)
 {
   tree name, saved;
-  int class_loaded;
-  tree class_decl;
+  int class_loaded = 0;
+  tree class_decl = NULL_TREE;
+  bool is_compiled_class = false;
+
+  /* We've already failed, don't try again.  */
+  if (TREE_CODE (class_or_name) == RECORD_TYPE
+      && TYPE_DUMMY (class_or_name))
+    return;
 
   /* class_or_name can be the name of the class we want to load */
   if (TREE_CODE (class_or_name) == IDENTIFIER_NODE)
@@ -624,41 +643,93 @@ load_class (tree class_or_name, int verbose)
   else
     name = DECL_NAME (TYPE_NAME (class_or_name));
 
+  class_decl = IDENTIFIER_CLASS_VALUE (name);
+  if (class_decl != NULL_TREE)
+    {
+      tree type = TREE_TYPE (class_decl);
+      is_compiled_class
+	= ((TYPE_JCF (type) && JCF_SEEN_IN_ZIP (TYPE_JCF (type)))
+	   || CLASS_FROM_CURRENTLY_COMPILED_P (type));
+    }
+
   /* If the class is from source code, then it must already be loaded.  */
   class_decl = IDENTIFIER_CLASS_VALUE (name);
   if (class_decl && CLASS_FROM_SOURCE_P (TREE_TYPE (class_decl)))
     return;
 
   saved = name;
-  while (1)
+  
+  /* If flag_verify_invocations is unset, we don't try to load a class
+     unless we're looking for Object (which is fixed by the ABI) or
+     it's a class that we're going to compile.  */
+  if (flag_verify_invocations
+      || class_or_name == object_type_node
+      || is_compiled_class
+      || TREE_CODE (class_or_name) == IDENTIFIER_NODE)
     {
-      char *separator;
-
-      if ((class_loaded = read_class (name)))
-	break;
-
-      /* We failed loading name. Now consider that we might be looking
-	 for a inner class. */
-      if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
-	  || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
+      while (1)
 	{
-	  int c = *separator;
-	  *separator = '\0';
-	  name = get_identifier (IDENTIFIER_POINTER (name));
-	  *separator = c;
+	  char *separator;
 
-	  /* Otherwise we might get infinite recursion, if say we have
-	     String.class but not String$CaseInsensitiveComparator.class. */
-	  if (current_jcf && current_jcf->java_source == 0)
+	  /* We've already loaded it.  */
+	  if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE)
+	    {
+	      tree tmp_decl = IDENTIFIER_CLASS_VALUE (name);
+	      if (CLASS_PARSED_P (TREE_TYPE (tmp_decl)))
+		break;
+	    }
+	
+	  if (read_class (name))
+	    break;
+
+	  /* We failed loading name. Now consider that we might be looking
+	     for a inner class. */
+	  if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
+	      || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
+	    {
+	      int c = *separator;
+	      *separator = '\0';
+	      name = get_identifier (IDENTIFIER_POINTER (name));
+	      *separator = c;
+	    }
+	  /* Otherwise, we failed, we bail. */
+	  else
 	    break;
 	}
-      /* Otherwise, we failed, we bail. */
-      else
-	break;
-    }
 
-  if (!class_loaded && verbose)
-    error ("cannot find file for class %s", IDENTIFIER_POINTER (saved));
+      {
+	/* have we found the class we're looking for?  */
+	tree type_decl = IDENTIFIER_CLASS_VALUE (saved);
+	tree type = type_decl ? TREE_TYPE (type_decl) : NULL;
+	class_loaded = type && CLASS_PARSED_P (type);
+      }	      
+    }
+  
+  if (!class_loaded)
+    {
+      if (flag_verify_invocations || ! flag_indirect_dispatch
+	  || flag_emit_class_files)
+	{
+	  if (verbose)
+	    error ("cannot find file for class %s", IDENTIFIER_POINTER (saved));
+	}
+      else if (verbose)
+	{
+	  /* This is just a diagnostic during testing, not a real problem.  */
+	  if (!quiet_flag)
+	    warning (0, "cannot find file for class %s", 
+		     IDENTIFIER_POINTER (saved));
+	  
+	  /* Fake it.  */
+	  if (TREE_CODE (class_or_name) == RECORD_TYPE)
+	    {
+	      set_super_info (0, class_or_name, object_type_node, 0);
+	      TYPE_DUMMY (class_or_name) = 1;
+	      /* We won't be able to output any debug info for this class.  */
+	      DECL_IGNORED_P (TYPE_NAME (class_or_name)) = 1;
+	    }
+	}
+    }
 }
 
 /* Parse the .class file JCF. */
@@ -752,6 +823,20 @@ load_inner_classes (tree cur_class)
 }
 
 static void
+duplicate_class_warning (const char *filename)
+{
+  location_t warn_loc;
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_RENAME, 0, filename, 0);
+  warn_loc = linemap_line_start (&line_table, 0, 1);
+#else
+  warn_loc.file = filename;
+  warn_loc.line = 0;
+#endif
+  warning (0, "%Hduplicate class will only be compiled once", &warn_loc);
+}
+
+static void
 parse_class_file (void)
 {
   tree method;
@@ -760,11 +845,8 @@ parse_class_file (void)
   java_layout_seen_class_methods ();
 
   input_location = DECL_SOURCE_LOCATION (TYPE_NAME (current_class));
+  file_start_location = input_location;
   (*debug_hooks->start_source_file) (input_line, input_filename);
-
-  /* Currently we always have to emit calls to _Jv_InitClass when
-     compiling from class files.  */
-  always_initialize_class_p = 1;
 
   gen_indirect_dispatch_tables (current_class);
 
@@ -775,7 +857,7 @@ parse_class_file (void)
     {
       JCF *jcf = current_jcf;
 
-      if (METHOD_ABSTRACT (method))
+      if (METHOD_ABSTRACT (method) || METHOD_DUMMY (method))
 	continue;
 
       if (METHOD_NATIVE (method))
@@ -847,6 +929,21 @@ parse_class_file (void)
 
       give_name_to_locals (jcf);
 
+      /* Bump up start_label_pc_this_method so we get a unique label number
+	 and reset highest_label_pc_this_method. */
+      if (highest_label_pc_this_method >= 0)
+	{
+	  /* We adjust to the next multiple of 1000.  This is just a frill
+	     so the last 3 digits of the label number match the bytecode
+	     offset, which might make debugging marginally more convenient. */
+	  start_label_pc_this_method
+	    = ((((start_label_pc_this_method + highest_label_pc_this_method)
+		 / 1000)
+		+ 1)
+	       * 1000);
+	  highest_label_pc_this_method = -1;
+	}
+
       /* Convert bytecode to trees.  */
       expand_byte_code (jcf, method);
 
@@ -911,6 +1008,7 @@ static void
 parse_source_file_2 (void)
 {
   int save_error_count = java_error_count;
+  flag_verify_invocations = true;
   java_complete_class ();	    /* Parse unsatisfied class decl. */
   java_parse_abort_on_error ();
 }
@@ -965,7 +1063,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
   int filename_count = 0;
   location_t save_location = input_location;
-  char *list, *next;
+  char *file_list = NULL, *list, *next;
   tree node;
   FILE *finput = NULL;
   int in_quotes = 0;
@@ -1003,6 +1101,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	}
       fclose (finput);
       finput = NULL;
+      file_list = list;
     }
   else
     list = (char *) main_input_filename;
@@ -1054,19 +1153,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  /* Exclude file that we see twice on the command line. */
 	     
 	  if (IS_A_COMMAND_LINE_FILENAME_P (node))
-	    {
-	      location_t warn_loc;
-#ifdef USE_MAPPED_LOCATION
-	      linemap_add (&line_table, LC_RENAME, 0,
-			   IDENTIFIER_POINTER (node), 0);
-	      warn_loc = linemap_line_start (&line_table, 0, 1);
-#else
-	      warn_loc.file = IDENTIFIER_POINTER (node);
-	      warn_loc.line = 0;
-#endif
-	      warning ("%Hsource file seen twice on command line and "
-		       "will be compiled only once", &warn_loc);
-	    }
+	    duplicate_class_warning (IDENTIFIER_POINTER (node));
 	  else
 	    {
 	      tree file_decl = build_decl (TRANSLATION_UNIT_DECL, node, NULL);
@@ -1078,8 +1165,11 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       list = next;
     }
 
+  if (file_list != NULL)
+    free (file_list);
+
   if (filename_count == 0)
-    warning ("no input file specified");
+    warning (0, "no input file specified");
 
   if (resource_name)
     {
@@ -1099,13 +1189,16 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   for (node = current_file_list; node; node = TREE_CHAIN (node))
     {
       unsigned char magic_string[4];
+      char *real_path;
       uint32 magic = 0;
       tree name = DECL_NAME (node);
       tree real_file;
       const char *filename = IDENTIFIER_POINTER (name);
 
       /* Skip already parsed files */
-      real_file = get_identifier (lrealpath (filename));
+      real_path = lrealpath (filename);
+      real_file = get_identifier (real_path);
+      free (real_path);
       if (HAS_BEEN_ALREADY_PARSED_P (real_file))
 	continue;
 
@@ -1138,6 +1231,12 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  jcf_parse (current_jcf);
 	  DECL_SOURCE_LOCATION (node) = file_start_location;
 	  TYPE_JCF (current_class) = current_jcf;
+	  if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
+	    {
+	      /* We've already compiled this class.  */
+	      duplicate_class_warning (filename);
+	      continue;
+	    }
 	  CLASS_FROM_CURRENTLY_COMPILED_P (current_class) = 1;
 	  TREE_TYPE (node) = current_class;
 	}
@@ -1160,10 +1259,6 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
 #endif
 	  parse_zip_file_entries ();
-	  /*
-	  for (each entry)
-	    CLASS_FROM_CURRENTLY_COMPILED_P (current_class) = 1;
-	  */
 	}
       else
 	{
@@ -1196,7 +1291,12 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       input_location = DECL_SOURCE_LOCATION (node);
       if (CLASS_FILE_P (node))
 	{
+	  /* FIXME: These two flags really should be independent.  We
+	     should be able to compile fully binary compatible, but
+	     with flag_verify_invocations on.  */
+	  flag_verify_invocations = ! flag_indirect_dispatch;
 	  output_class = current_class = TREE_TYPE (node);
+
 	  current_jcf = TYPE_JCF (current_class);
 	  layout_class (current_class);
 	  load_inner_classes (current_class);
@@ -1232,13 +1332,15 @@ compute_class_name (struct ZipDirectory *zdir)
   char *class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
   char *class_name;
   int i;
-  int filename_length;
+  int filename_length = zdir->filename_length;
 
-  while (strncmp (class_name_in_zip_dir, "./", 2) == 0)
-    class_name_in_zip_dir += 2;
+  while (filename_length > 2 && strncmp (class_name_in_zip_dir, "./", 2) == 0)
+    {
+      class_name_in_zip_dir += 2;
+      filename_length -= 2;
+    }
 
-  filename_length = (strlen (class_name_in_zip_dir)
-		     - strlen (".class"));
+  filename_length -= strlen (".class");
   class_name = ALLOC (filename_length + 1);
   memcpy (class_name, class_name_in_zip_dir, filename_length);
   class_name [filename_length] = '\0';
@@ -1299,6 +1401,22 @@ parse_zip_file_entries (void)
 	    FREE (class_name);
 	    current_jcf = TYPE_JCF (class);
 	    output_class = current_class = class;
+
+	    if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
+	      {
+	        /* We've already compiled this class.  */
+		duplicate_class_warning (current_jcf->filename);
+		break;
+	      }
+	    
+	    CLASS_FROM_CURRENTLY_COMPILED_P (current_class) = 1;
+
+	    if (TYPE_DUMMY (class))
+	      {
+		/* This is a dummy class, and now we're compiling it
+		   for real.  */
+		abort ();
+	      }
 
 	    /* This is for a corner case where we have a superclass
 	       but no superclass fields.  

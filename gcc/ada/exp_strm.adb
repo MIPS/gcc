@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,27 +16,28 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Atree;   use Atree;
-with Einfo;   use Einfo;
-with Namet;   use Namet;
-with Nlists;  use Nlists;
-with Nmake;   use Nmake;
-with Rtsfind; use Rtsfind;
-with Sinfo;   use Sinfo;
-with Snames;  use Snames;
-with Stand;   use Stand;
-with Tbuild;  use Tbuild;
-with Ttypes;  use Ttypes;
-with Exp_Tss; use Exp_Tss;
-with Uintp;   use Uintp;
+with Atree;    use Atree;
+with Einfo;    use Einfo;
+with Exp_Tss;  use Exp_Tss;
+with Namet;    use Namet;
+with Nlists;   use Nlists;
+with Nmake;    use Nmake;
+with Rtsfind;  use Rtsfind;
+with Sem_Util; use Sem_Util;
+with Sinfo;    use Sinfo;
+with Snames;   use Snames;
+with Stand;    use Stand;
+with Tbuild;   use Tbuild;
+with Ttypes;   use Ttypes;
+with Uintp;    use Uintp;
 
 package body Exp_Strm is
 
@@ -446,13 +447,22 @@ package body Exp_Strm is
       U_Type  : constant Entity_Id  := Underlying_Type (P_Type);
       Rt_Type : constant Entity_Id  := Root_Type (U_Type);
       FST     : constant Entity_Id  := First_Subtype (U_Type);
-      P_Size  : constant Uint       := Esize (FST);
-      Res     : Node_Id;
       Strm    : constant Node_Id    := First (Expressions (N));
       Targ    : constant Node_Id    := Next (Strm);
+      P_Size  : Uint;
+      Res     : Node_Id;
       Lib_RE  : RE_Id;
 
    begin
+      --  Compute the size of the stream element. This is either the size of
+      --  the first subtype or if given the size of the Stream_Size attribute.
+
+      if Is_Elementary_Type (FST) and then Has_Stream_Size_Clause (FST) then
+         P_Size := Static_Integer (Expression (Stream_Size_Clause (FST)));
+      else
+         P_Size := Esize (FST);
+      end if;
+
       --  Check first for Boolean and Character. These are enumeration types,
       --  but we treat them specially, since they may require special handling
       --  in the transfer protocol. However, this special handling only applies
@@ -474,20 +484,24 @@ package body Exp_Strm is
       then
          Lib_RE := RE_I_WC;
 
+      elsif Rt_Type = Standard_Wide_Wide_Character
+        and then Has_Stream_Standard_Rep (U_Type)
+      then
+         Lib_RE := RE_I_WWC;
+
       --  Floating point types
 
       elsif Is_Floating_Point_Type (U_Type) then
-
-         if Rt_Type = Standard_Short_Float then
+         if P_Size <= Standard_Short_Float_Size then
             Lib_RE := RE_I_SF;
 
-         elsif Rt_Type = Standard_Float then
+         elsif P_Size <= Standard_Float_Size then
             Lib_RE := RE_I_F;
 
-         elsif Rt_Type = Standard_Long_Float then
+         elsif P_Size <= Standard_Long_Float_Size then
             Lib_RE := RE_I_LF;
 
-         else pragma Assert (Rt_Type = Standard_Long_Long_Float);
+         else
             Lib_RE := RE_I_LLF;
          end if;
 
@@ -578,12 +592,12 @@ package body Exp_Strm is
 
       --  Call the function, and do an unchecked conversion of the result
       --  to the actual type of the prefix. If the target is a discriminant,
-      --  set target type to force a constraint check (13.13.2 (35)).
+      --  and we are in the body of the default implementation of a 'Read
+      --  attribute, set target type to force a constraint check (13.13.2(35)).
 
-      if Nkind (Targ) = N_Selected_Component
-        and then Present (Entity (Selector_Name (Targ)))
-        and then Ekind (Entity (Selector_Name (Targ)))
-          = E_Discriminant
+      if Nkind (Targ) = N_Identifier
+        and then Is_Internal_Name (Chars (Targ))
+        and then Is_TSS (Scope (Entity (Targ)), TSS_Stream_Read)
       then
          Res :=
            Unchecked_Convert_To (Base_Type (P_Type),
@@ -615,13 +629,22 @@ package body Exp_Strm is
       U_Type  : constant Entity_Id  := Underlying_Type (P_Type);
       Rt_Type : constant Entity_Id  := Root_Type (U_Type);
       FST     : constant Entity_Id  := First_Subtype (U_Type);
-      P_Size  : constant Uint       := Esize (FST);
       Strm    : constant Node_Id    := First (Expressions (N));
       Item    : constant Node_Id    := Next (Strm);
+      P_Size  : Uint;
       Lib_RE  : RE_Id;
       Libent  : Entity_Id;
 
    begin
+      --  Compute the size of the stream element. This is either the size of
+      --  the first subtype or if given the size of the Stream_Size attribute.
+
+      if Is_Elementary_Type (FST) and then Has_Stream_Size_Clause (FST) then
+         P_Size := Static_Integer (Expression (Stream_Size_Clause (FST)));
+      else
+         P_Size := Esize (FST);
+      end if;
+
       --  Find the routine to be called
 
       --  Check for First Boolean and Character. These are enumeration types,
@@ -645,20 +668,21 @@ package body Exp_Strm is
       then
          Lib_RE := RE_W_WC;
 
+      elsif Rt_Type = Standard_Wide_Wide_Character
+        and then Has_Stream_Standard_Rep (U_Type)
+      then
+         Lib_RE := RE_W_WWC;
+
       --  Floating point types
 
       elsif Is_Floating_Point_Type (U_Type) then
-
-         if Rt_Type = Standard_Short_Float then
+         if P_Size <= Standard_Short_Float_Size then
             Lib_RE := RE_W_SF;
-
-         elsif Rt_Type = Standard_Float then
+         elsif P_Size <= Standard_Float_Size then
             Lib_RE := RE_W_F;
-
-         elsif Rt_Type = Standard_Long_Float then
+         elsif P_Size <= Standard_Long_Float_Size then
             Lib_RE := RE_W_LF;
-
-         else pragma Assert (Rt_Type = Standard_Long_Long_Float);
+         else
             Lib_RE := RE_W_LLF;
          end if;
 
@@ -679,12 +703,10 @@ package body Exp_Strm is
       --  be outside the range of a 32-bit signed integer, so this must be
       --  treated as 32-bit unsigned.
 
-      --  Similarly, if we have
+      --  Similarly, the representation is also unsigned if we have:
 
       --     type W is range -1 .. +254;
       --     for W'Size use 8;
-
-      --  then the representation is also unsigned.
 
       elsif not Is_Unsigned_Type (FST)
         and then
@@ -697,16 +719,12 @@ package body Exp_Strm is
       then
          if P_Size <= Standard_Short_Short_Integer_Size then
             Lib_RE := RE_W_SSI;
-
          elsif P_Size <= Standard_Short_Integer_Size then
             Lib_RE := RE_W_SI;
-
          elsif P_Size <= Standard_Integer_Size then
             Lib_RE := RE_W_I;
-
          elsif P_Size <= Standard_Long_Integer_Size then
             Lib_RE := RE_W_LI;
-
          else
             Lib_RE := RE_W_LLI;
          end if;
@@ -725,16 +743,12 @@ package body Exp_Strm is
       then
          if P_Size <= Standard_Short_Short_Integer_Size then
             Lib_RE := RE_W_SSU;
-
          elsif P_Size <= Standard_Short_Integer_Size then
             Lib_RE := RE_W_SU;
-
          elsif P_Size <= Standard_Integer_Size then
             Lib_RE := RE_W_U;
-
          elsif P_Size <= Standard_Long_Integer_Size then
             Lib_RE := RE_W_LU;
-
          else
             Lib_RE := RE_W_LLU;
          end if;
@@ -772,34 +786,42 @@ package body Exp_Strm is
       Decl : out Node_Id;
       Pnam : out Entity_Id)
    is
-      Stms  : List_Id;
-      Disc  : Entity_Id;
-      Comp  : Node_Id;
+      Out_Formal : Node_Id;
+      --  Expression denoting the out formal parameter
+
+      Dcls : constant List_Id := New_List;
+      --  Declarations for the 'Read body
+
+      Stms : List_Id := New_List;
+      --  Statements for the 'Read body
+
+      Disc : Entity_Id;
+      --  Entity of the discriminant being processed
+
+      Tmp_For_Disc : Entity_Id;
+      --  Temporary object used to read the value of Disc
+
+      Tmps_For_Discs : constant List_Id := New_List;
+      --  List of object declarations for temporaries holding the read values
+      --  for the discriminants.
+
+      Cstr : constant List_Id := New_List;
+      --  List of constraints to be applied on temporary record
+
+      Discriminant_Checks : constant List_Id := New_List;
+      --  List of discriminant checks to be performed if the actual object
+      --  is constrained.
+
+      Tmp : constant Entity_Id := Make_Defining_Identifier (Loc, Name_V);
+      --  Temporary record must hide formal (assignments to components of the
+      --  record are always generated with V as the identifier for the record).
+
+      Constrained_Stms : List_Id := New_List;
+      --  Statements within the block where we have the constrained temporary
 
    begin
-      Stms := New_List;
+
       Disc := First_Discriminant (Typ);
-
-      --  Generate Reads for the discriminants of the type.
-
-      while Present (Disc) loop
-         Comp :=
-           Make_Selected_Component (Loc,
-             Prefix => Make_Identifier (Loc, Name_V),
-             Selector_Name => New_Occurrence_Of (Disc, Loc));
-
-         Set_Assignment_OK (Comp);
-
-         Append_To (Stms,
-           Make_Attribute_Reference (Loc,
-             Prefix => New_Occurrence_Of (Etype (Disc), Loc),
-               Attribute_Name => Name_Read,
-               Expressions => New_List (
-                 Make_Identifier (Loc, Name_S),
-                 Comp)));
-
-         Next_Discriminant (Disc);
-      end loop;
 
       --  A mutable type cannot be a tagged type, so we generate a new name
       --  for the stream procedure.
@@ -807,29 +829,112 @@ package body Exp_Strm is
       Pnam :=
         Make_Defining_Identifier (Loc,
           Chars => Make_TSS_Name_Local (Typ, TSS_Stream_Read));
+
+      Out_Formal :=
+        Make_Selected_Component (Loc,
+          Prefix => New_Occurrence_Of (Pnam, Loc),
+          Selector_Name => Make_Identifier (Loc, Name_V));
+
+      --  Generate Reads for the discriminants of the type. The discriminants
+      --  need to be read before the rest of the components, so that
+      --  variants are initialized correctly. The discriminants must be read
+      --  into temporary variables so an incomplete Read (interrupted by an
+      --  exception, for example) does not alter the passed object.
+
+      while Present (Disc) loop
+         Tmp_For_Disc := Make_Defining_Identifier (Loc,
+                           New_External_Name (Chars (Disc), "D"));
+
+         Append_To (Tmps_For_Discs,
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Tmp_For_Disc,
+             Object_Definition   => New_Occurrence_Of (Etype (Disc), Loc)));
+         Set_No_Initialization (Last (Tmps_For_Discs));
+
+         Append_To (Stms,
+           Make_Attribute_Reference (Loc,
+             Prefix => New_Occurrence_Of (Etype (Disc), Loc),
+             Attribute_Name => Name_Read,
+             Expressions => New_List (
+               Make_Identifier (Loc, Name_S),
+               New_Occurrence_Of (Tmp_For_Disc, Loc))));
+
+         Append_To (Cstr,
+           Make_Discriminant_Association (Loc,
+             Selector_Names => New_List (New_Occurrence_Of (Disc, Loc)),
+             Expression     => New_Occurrence_Of (Tmp_For_Disc, Loc)));
+
+         Append_To (Discriminant_Checks,
+           Make_Raise_Constraint_Error (Loc,
+             Condition =>
+               Make_Op_Ne (Loc,
+                 Left_Opnd  => New_Occurrence_Of (Tmp_For_Disc, Loc),
+                 Right_Opnd =>
+                   Make_Selected_Component (Loc,
+                     Prefix => New_Copy_Tree (Out_Formal),
+                     Selector_Name => New_Occurrence_Of (Disc, Loc))),
+             Reason => CE_Discriminant_Check_Failed));
+         Next_Discriminant (Disc);
+      end loop;
+
+      --  Generate reads for the components of the record (including
+      --  those that depend on discriminants).
+
       Build_Record_Read_Write_Procedure (Loc, Typ, Decl, Pnam, Name_Read);
 
-      --  Read the discriminants before the rest of the components, so
-      --  that discriminant values are properly set of variants, etc.
-      --  If this is an empty record with discriminants, there are no
-      --  previous statements. If this is an unchecked union, the stream
-      --  procedure is erroneous, because there are no discriminants to read.
+      --  If Typ has controlled components (i.e. if it is classwide
+      --  or Has_Controlled), or components constrained using the discriminants
+      --  of Typ, then we need to ensure that all component assignments
+      --  are performed on an object that has been appropriately constrained
+      --  prior to being initialized. To this effect, we wrap the component
+      --  assignments in a block where V is a constrained temporary.
+
+      Append_To (Dcls,
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Tmp,
+          Object_Definition   =>
+            Make_Subtype_Indication (Loc,
+              Subtype_Mark => New_Occurrence_Of (Typ, Loc),
+              Constraint =>
+                Make_Index_Or_Discriminant_Constraint (Loc,
+                  Constraints => Cstr))));
+
+      Constrained_Stms := Statements (Handled_Statement_Sequence (Decl));
+      Append_To (Stms,
+        Make_Block_Statement (Loc,
+          Declarations => Dcls,
+          Handled_Statement_Sequence => Parent (Constrained_Stms)));
+
+      Append_To (Constrained_Stms,
+        Make_Implicit_If_Statement (Pnam,
+          Condition =>
+            Make_Attribute_Reference (Loc,
+              Prefix => New_Copy_Tree (Out_Formal),
+              Attribute_Name => Name_Constrained),
+          Then_Statements => Discriminant_Checks));
+
+      Append_To (Constrained_Stms,
+        Make_Assignment_Statement (Loc,
+          Name => Out_Formal,
+          Expression => Make_Identifier (Loc, Name_V)));
 
       if Is_Unchecked_Union (Typ) then
+
+         --  If this is an unchecked union, the stream procedure is erroneous,
+         --  because there are no discriminants to read.
+
+         --  This should generate a warning ???
+
          Stms :=
            New_List (
              Make_Raise_Program_Error (Loc,
                Reason => PE_Unchecked_Union_Restriction));
       end if;
 
-      if Is_Non_Empty_List (
-        Statements (Handled_Statement_Sequence (Decl)))
-      then
-         Insert_List_Before
-           (First (Statements (Handled_Statement_Sequence (Decl))), Stms);
-      else
-         Set_Statements (Handled_Statement_Sequence (Decl), Stms);
-      end if;
+      Set_Declarations (Decl, Tmps_For_Discs);
+      Set_Handled_Statement_Sequence (Decl,
+        Make_Handled_Sequence_Of_Statements (Loc,
+          Statements => Stms));
    end Build_Mutable_Record_Read_Procedure;
 
    ------------------------------------------
@@ -849,7 +954,7 @@ package body Exp_Strm is
       Stms := New_List;
       Disc := First_Discriminant (Typ);
 
-      --  Generate Writes for the discriminants of the type.
+      --  Generate Writes for the discriminants of the type
 
       while Present (Disc) loop
 
@@ -1110,6 +1215,11 @@ package body Exp_Strm is
       Stms : List_Id;
       Typt : Entity_Id;
 
+      In_Limited_Extension : Boolean := False;
+      --  Set to True while processing the record extension definition
+      --  for an extension of a limited type (for which an ancestor type
+      --  has an explicit Nam attribute definition).
+
       function Make_Component_List_Attributes (CL : Node_Id) return List_Id;
       --  Returns a sequence of attributes to process the components that
       --  are referenced in the given component list.
@@ -1191,7 +1301,29 @@ package body Exp_Strm is
       --------------------------
 
       function Make_Field_Attribute (C : Entity_Id) return Node_Id is
+         Field_Typ : constant Entity_Id := Stream_Base_Type (Etype (C));
+
+         TSS_Names : constant array (Name_Input .. Name_Write) of
+                       TSS_Name_Type :=
+                        (Name_Read   => TSS_Stream_Read,
+                         Name_Write  => TSS_Stream_Write,
+                         Name_Input  => TSS_Stream_Input,
+                         Name_Output => TSS_Stream_Output,
+                         others      => TSS_Null);
+         pragma Assert (TSS_Names (Nam) /= TSS_Null);
+
       begin
+         if In_Limited_Extension
+           and then Is_Limited_Type (Field_Typ)
+           and then No (Find_Inherited_TSS (Field_Typ, TSS_Names (Nam)))
+         then
+            --  The declaration is illegal per 13.13.2(9/1), and this is
+            --  enforced in Exp_Ch3.Check_Stream_Attributes. Keep the
+            --  caller happy by returning a null statement.
+
+            return Make_Null_Statement (Loc);
+         end if;
+
          return
            Make_Attribute_Reference (Loc,
              Prefix =>
@@ -1268,6 +1400,10 @@ package body Exp_Strm is
 
       if Nkind (Rdef) = N_Derived_Type_Definition then
          Rdef := Record_Extension_Part (Rdef);
+
+         if Is_Limited_Type (Typt) then
+            In_Limited_Extension := True;
+         end if;
       end if;
 
       if Present (Component_List (Rdef)) then

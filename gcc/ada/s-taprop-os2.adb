@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                 GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS              --
+--                  GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                --
 --                                                                          --
 --    S Y S T E M . T A S K _ P R I M I T I V E S . O P E R A T I O N S     --
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2005, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -112,7 +112,7 @@ package body System.Task_Primitives.Operations is
    -- Local Data  --
    -----------------
 
-   --  The OS/2 DosAllocThreadLocalMemory API is used to allocate our TCB_Ptr.
+   --  The OS/2 DosAllocThreadLocalMemory API is used to allocate our TCB_Ptr
 
    --  This API reserves a small range of virtual addresses that is backed
    --  by different physical memory for each running thread. In this case we
@@ -141,7 +141,7 @@ package body System.Task_Primitives.Operations is
    --  Used mainly in Single_Lock mode, but also to protect All_Tasks_List
 
    Environment_Task_Id : Task_Id;
-   --  A variable to hold Task_Id for the environment task.
+   --  A variable to hold Task_Id for the environment task
 
    -----------------------
    -- Local Subprograms --
@@ -223,7 +223,7 @@ package body System.Task_Primitives.Operations is
       Self_ID : Task_Id renames Thread_Local_Data_Ptr.Self_ID;
 
    begin
-      --  Check that the thread local data has been initialized.
+      --  Check that the thread local data has been initialized
 
       pragma Assert
         ((Thread_Local_Data_Ptr /= null
@@ -458,7 +458,7 @@ package body System.Task_Primitives.Operations is
       Count : aliased ULONG; -- Used to store dummy result
 
    begin
-      --  Must reset Cond BEFORE L is unlocked.
+      --  Must reset Cond BEFORE L is unlocked
 
       Sem_Must_Not_Fail
         (DosResetEventSem (Self_ID.Common.LL.CV, Count'Unchecked_Access));
@@ -475,7 +475,7 @@ package body System.Task_Primitives.Operations is
       Sem_Must_Not_Fail
         (DosWaitEventSem (Self_ID.Common.LL.CV, SEM_INDEFINITE_WAIT));
 
-      --  Since L was previously accquired, lock operation should not fail.
+      --  Since L was previously accquired, lock operation should not fail
 
       if Single_Lock then
          Lock_RTS;
@@ -516,7 +516,7 @@ package body System.Task_Primitives.Operations is
       Count      : aliased ULONG;  --  Used to store dummy result
 
    begin
-      --  Must reset Cond BEFORE Self_ID is unlocked.
+      --  Must reset Cond BEFORE Self_ID is unlocked
 
       Sem_Must_Not_Fail
         (DosResetEventSem (Self_ID.Common.LL.CV,
@@ -611,7 +611,7 @@ package body System.Task_Primitives.Operations is
          Write_Lock (Self_ID);
       end if;
 
-      --  Must reset Cond BEFORE Self_ID is unlocked.
+      --  Must reset Cond BEFORE Self_ID is unlocked
 
       Sem_Must_Not_Fail
         (DosResetEventSem (Self_ID.Common.LL.CV,
@@ -767,7 +767,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Enter_Task (Self_ID : Task_Id) is
    begin
-      --  Initialize thread local data. Must be done first.
+      --  Initialize thread local data. Must be done first
 
       Thread_Local_Data_Ptr.Self_ID := Self_ID;
       Thread_Local_Data_Ptr.Lock_Prio_Level := 0;
@@ -927,7 +927,7 @@ package body System.Task_Primitives.Operations is
 
       T.Common.LL.Wrapper := To_PFNTHREAD (Wrapper);
 
-      --  The OS implicitly gives the new task the priority of this task.
+      --  The OS implicitly gives the new task the priority of this task
 
       T.Common.LL.Current_Priority := Self.Common.LL.Current_Priority;
 
@@ -1007,10 +1007,152 @@ package body System.Task_Primitives.Operations is
    begin
       null;
 
-      --  Task abortion not implemented yet.
+      --  Task abort not implemented yet.
       --  Should perform other action ???
 
    end Abort_Task;
+
+   ----------------
+   -- Initialize --
+   ----------------
+
+   procedure Initialize (S : in out Suspension_Object) is
+      Result : Interfaces.C.int;
+   begin
+      --  Initialize internal state. It is always initialized to False (ARM
+      --  D.10 par. 6).
+
+      S.State := False;
+      S.Waiting := False;
+
+      --  Initialize internal mutex
+      if DosCreateMutexSem
+        (ICS.Null_Ptr, S.L'Unchecked_Access, 0, False32) /= NO_ERROR
+      then
+         raise Storage_Error;
+      end if;
+
+      pragma Assert (S.L /= 0, "Error creating Mutex");
+
+      --  Initialize internal condition variable
+
+      if DosCreateEventSem
+        (ICS.Null_Ptr, S.CV'Unchecked_Access, 0, True32) /= NO_ERROR
+      then
+         Must_Not_Fail (DosCloseMutexSem (S.L));
+
+         raise Storage_Error;
+      end if;
+
+      pragma Assert (S.CV /= 0, "Error creating Condition Variable");
+   end Initialize;
+
+   --------------
+   -- Finalize --
+   --------------
+
+   procedure Finalize (S : in out Suspension_Object) is
+   begin
+      --  Destroy internal mutex
+
+      Must_Not_Fail (DosCloseMutexSem (S.L'Access));
+
+      --  Destroy internal condition variable
+
+      Must_Not_Fail (DosCloseEventSem (S.CV'Access));
+   end Finalize;
+
+   -------------------
+   -- Current_State --
+   -------------------
+
+   function Current_State (S : Suspension_Object) return Boolean is
+   begin
+      --  We do not want to use lock on this read operation. State is marked
+      --  as Atomic so that we ensure that the value retrieved is correct.
+
+      return S.State;
+   end Current_State;
+
+   ---------------
+   -- Set_False --
+   ---------------
+
+   procedure Set_False (S : in out Suspension_Object) is
+   begin
+      Must_Not_Fail (DosRequestMutexSem (S.L, SEM_INDEFINITE_WAIT));
+
+      S.State := False;
+
+      Must_Not_Fail (DosReleaseMutexSem (S.L));
+   end Set_False;
+
+   --------------
+   -- Set_True --
+   --------------
+
+   procedure Set_True (S : in out Suspension_Object) is
+   begin
+      Must_Not_Fail (DosRequestMutexSem (S.L, SEM_INDEFINITE_WAIT));
+
+      --  If there is already a task waiting on this suspension object then
+      --  we resume it, leaving the state of the suspension object to False,
+      --  as it is specified in ARM D.10 par. 9. Otherwise, it just leaves
+      --  the state to True.
+
+      if S.Waiting then
+         S.Waiting := False;
+         S.State := False;
+
+         Sem_Must_Not_Fail (DosPostEventSem (S.CV));
+      else
+         S.State := True;
+      end if;
+
+      Must_Not_Fail (DosReleaseMutexSem (S.L));
+   end Set_True;
+
+   ------------------------
+   -- Suspend_Until_True --
+   ------------------------
+
+   procedure Suspend_Until_True (S : in out Suspension_Object) is
+      Count : aliased ULONG; -- Used to store dummy result
+   begin
+      Must_Not_Fail (DosRequestMutexSem (S.L, SEM_INDEFINITE_WAIT));
+
+      if S.Waiting then
+         --  Program_Error must be raised upon calling Suspend_Until_True
+         --  if another task is already waiting on that suspension object
+         --  (ARM D.10 par. 10).
+
+         Must_Not_Fail (DosReleaseMutexSem (S.L));
+
+         raise Program_Error;
+      else
+         --  Suspend the task if the state is False. Otherwise, the task
+         --  continues its execution, and the state of the suspension object
+         --  is set to False (ARM D.10 par. 9).
+
+         if S.State then
+            S.State := False;
+
+            Must_Not_Fail (DosReleaseMutexSem (S.L));
+         else
+            S.Waiting := True;
+
+            --  Must reset Cond BEFORE L is unlocked
+
+            Sem_Must_Not_Fail
+              (DosResetEventSem (S.CV, Count'Unchecked_Access));
+
+            Must_Not_Fail (DosReleaseMutexSem (S.L));
+
+            Sem_Must_Not_Fail
+              (DosWaitEventSem (S.CV, SEM_INDEFINITE_WAIT));
+         end if;
+      end if;
+   end Suspend_Until_True;
 
    ----------------
    -- Check_Exit --
@@ -1103,9 +1245,9 @@ package body System.Task_Primitives.Operations is
       Environment_Task_Id := Environment_Task;
 
       Initialize_Lock (Single_RTS_Lock'Access, RTS_Lock_Level);
-      --  Initialize the lock used to synchronize chain of all ATCBs.
+      --  Initialize the lock used to synchronize chain of all ATCBs
 
-      --  Set ID of environment task.
+      --  Set ID of environment task
 
       Thread_Local_Data_Ptr.Self_ID := Environment_Task;
       Environment_Task.Common.LL.Thread := 1; --  By definition

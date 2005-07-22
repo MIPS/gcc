@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -56,6 +56,11 @@ package Stylesw is
    --  This can be set True by using the -gnatg or -gnatyb switches. If
    --  it is True, then spaces at the end of lines are not permitted.
 
+   Style_Check_Blank_Lines : Boolean := False;
+   --  This can be set True by using the -gnatg or -gnatyu switches. If
+   --  it is True, then multiple blank lines are not permitted, and there
+   --  may not be a blank line at the end of the file.
+
    Style_Check_Comments : Boolean := False;
    --  This can be set True by using the -gnatg or -gnatyc switches. If
    --  it is True, then comments are style checked as follows:
@@ -83,6 +88,11 @@ package Stylesw is
    --
    --  Note: the reason for the last two conditions is to allow "boxed"
    --  comments where only a single space separates the comment characters.
+
+   Style_Check_DOS_Line_Terminator : Boolean := False;
+   --  This can be set true by using the -gnatg or -gnatyd switches. If
+   --  it is True, then the line terminator must be a single LF, without an
+   --  associated CR (e.g. DOS line terminator sequence CR/LF not allowed).
 
    Style_Check_End_Labels : Boolean := False;
    --  This can be set True by using the -gnatg or -gnatye switches. If
@@ -144,6 +154,11 @@ package Stylesw is
    --  This can be set True by using -gnatyLnnn with a value other than
    --  zero (a value of zero resets it to False). If True, it activates
    --  checking the maximum nesting level against Style_Max_Nesting_Level.
+
+   Style_Check_Order_Subprograms : Boolean := False;
+   --  This can be set True by using the -gnatg or -gnatyo switch. If it
+   --  is True, then names of subprogram bodies must be in alphabetical
+   --  order (not taking casing into account).
 
    Style_Check_Pragma_Casing : Boolean := False;
    --  This can be set True by using the -gnatg or -gnatyp switches. If
@@ -216,10 +231,10 @@ package Stylesw is
    --  where horizontal tabs are permitted, a horizontal tab is acceptable
    --  for meeting the requirement for a space.
 
-   Style_Check_Subprogram_Order : Boolean := False;
-   --  This can be set True by using the -gnatg or -gnatyo switch. If it
-   --  is True, then names of subprogram bodies must be in alphabetical
-   --  order (not taking casing into account).
+   Style_Check_Xtra_Parens : Boolean := False;
+   --  This can be set True by using the -gnatg or -gnatyx switch. If true,
+   --  then it is not allowed to enclose entire conditional expressions
+   --  in parentheses (C style).
 
    Style_Max_Line_Length : Int := 0;
    --  Value used to check maximum line length. Gets reset as a result of
@@ -237,7 +252,7 @@ package Stylesw is
 
    procedure Set_Default_Style_Check_Options;
    --  This procedure is called to set the default style checking options
-   --  in response to a -gnatg switch or -gnaty with no suboptions.
+   --  in response to a -gnaty switch with no suboptions.
 
    procedure Set_Style_Check_Options
      (Options  : String;

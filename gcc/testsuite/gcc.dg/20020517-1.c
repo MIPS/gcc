@@ -2,8 +2,8 @@
    was not sign-extended for QImode.  */
 /* { dg-do run } */
 /* { dg-options "-O2" } */
-/* { dg-options "-O2 -mtune=i686" { target i?86-*-* } } */
-/* { dg-forbid-option "-m64" { target i?86-*-* } } */
+/* { dg-options "-O2 -mtune=i686" { target { i?86-*-* && ilp32 } } } */
+/* { dg-options "-O2 -mtune=i686" { target { x86_64-*-* && ilp32 } } } */
 
 #include <limits.h>
 

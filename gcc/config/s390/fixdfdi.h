@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifdef L_fixunsdfdi
 #define EXPD(fp)	(((fp.l.upper) >> 20) & 0x7FF)
@@ -55,7 +55,7 @@ __fixunsdfdi (double a1)
 
     dl1.d = a1;
 
-    /* +/- 0, denormalized, negativ */
+    /* +/- 0, denormalized, negative */
 
     if (!EXPD (dl1) || SIGND(dl1))
       return 0;
@@ -199,7 +199,7 @@ __fixunssfdi (float a1)
 
     fl1.f = a1;
 
-    /* +/- 0, denormalized, negativ */
+    /* +/- 0, denormalized, negative */
 
     if (!EXP (fl1) || SIGN(fl1))
       return 0;

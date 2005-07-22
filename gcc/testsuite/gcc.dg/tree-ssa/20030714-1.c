@@ -14,7 +14,8 @@ struct rtx_def
   enum rtx_code code:16;
   unsigned frame_related:1;
 };
-static rtx
+
+rtx
 find_base_value (src)
      rtx src;
 {
@@ -41,3 +42,5 @@ find_base_value (src)
 
 /* There should be three loads of ->code.  */
 /* { dg-final { scan-tree-dump-times "->code" 3 "dom3"} } */
+
+/* { dg-final { cleanup-tree-dump "dom3" } } */

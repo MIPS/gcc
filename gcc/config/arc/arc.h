@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* ??? This is an old port, and is undoubtedly suffering from bit rot.  */
 
@@ -72,78 +72,11 @@ Boston, MA 02111-1307, USA.  */
 
 #define ENDFILE_SPEC "crtfini.o%s"
 
-/* Run-time compilation parameters selecting different hardware subsets.  */
-
-extern int target_flags;
-
-/* Mangle all user symbols for the specified cpu.
-   ARC's can be shipped in which a collection of cpus are coupled together.
-   Each CPU may be different in some way, and thus we may need to distinguish
-   code compiled for one to ensure it isn't linked with code compiled for
-   another.  */
-#define TARGET_MASK_MANGLE_CPU 1
-#define TARGET_MANGLE_CPU (target_flags & TARGET_MASK_MANGLE_CPU)
-
-#if 0
-/* Mangle libgcc symbols by adding a suffix for the specified cpu.  */
-#define TARGET_MASK_MANGLE_CPU_LIBGCC 2
-#define TARGET_MANGLE_CPU_LIBGCC (target_flags & TARGET_MASK_MANGLE_CPU_LIBGCC)
-#endif
-
-/* Align loops to 32 byte boundaries (cache line size).  */
-#define TARGET_MASK_ALIGN_LOOPS 4
-#define TARGET_ALIGN_LOOPS (target_flags & TARGET_MASK_ALIGN_LOOPS)
-
-/* Big Endian.  */
-#define TARGET_MASK_BIG_ENDIAN 8
-#define TARGET_BIG_ENDIAN (target_flags & TARGET_MASK_BIG_ENDIAN)
-
-/* Turn off conditional execution optimization,
-   so we can see how well it does, or in case it's buggy.  */
-#define TARGET_MASK_NO_COND_EXEC 0x10
-#define TARGET_NO_COND_EXEC (target_flags & TARGET_MASK_NO_COND_EXEC)
-
-/* Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
-
-#define TARGET_SWITCHES \
-{ \
-    { "mangle-cpu",		TARGET_MASK_MANGLE_CPU },		\
-    { "no-mangle-cpu",		-TARGET_MASK_MANGLE_CPU },		\
-/*  { "mangle-cpu-libgcc",	TARGET_MASK_MANGLE_CPU_LIBGCC }, */	\
-/*  { "no-mangle-cpu-libgcc",	-TARGET_MASK_MANGLE_CPU_LIBGCC }, */	\
-    { "align-loops",		TARGET_MASK_ALIGN_LOOPS },		\
-    { "no-align-loops",		-TARGET_MASK_ALIGN_LOOPS },		\
-    { "big-endian",		TARGET_MASK_BIG_ENDIAN },		\
-    { "little-endian",		-TARGET_MASK_BIG_ENDIAN },		\
-    { "no-cond-exec",		TARGET_MASK_NO_COND_EXEC },		\
-    SUBTARGET_SWITCHES							\
-    { "", TARGET_DEFAULT }						\
-}
-
-#define TARGET_DEFAULT (0)
-
-#define SUBTARGET_SWITCHES
-
 /* Instruction set characteristics.
    These are internal macros, set by the appropriate -mcpu= option.  */
 
 /* Nonzero means the cpu has a barrel shifter.  */
 #define TARGET_SHIFTER 0
-
-extern const char *arc_cpu_string;
-extern const char *arc_text_string,*arc_data_string,*arc_rodata_string;
-
-#define TARGET_OPTIONS \
-{					\
-  { "cpu=",	&arc_cpu_string, 0},	\
-  { "text=",	&arc_text_string, 0},	\
-  { "data=",	&arc_data_string, 0},	\
-  { "rodata=",	&arc_rodata_string, 0},	\
-}
 
 /* Which cpu we're compiling for.  */
 extern int arc_cpu_type;
@@ -523,11 +456,11 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    pointer to a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to non-zero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -680,21 +613,6 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 (PASS_IN_REG_P ((CUM), (MODE), (TYPE))					\
  ? gen_rtx_REG ((MODE), ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE)))	\
  : 0)
-
-/* A C expression for the number of words, at the beginning of an
-   argument, must be put in registers.  The value must be zero for
-   arguments that are passed entirely in registers or that are entirely
-   pushed on the stack.
-
-   On some machines, certain arguments must be passed partially in
-   registers and partially in memory.  On these machines, typically the
-   first @var{n} words of arguments are passed in registers, and the rest
-   on the stack.  If a multi-word argument (a @code{double} or a
-   structure) crosses that boundary, its first few words must be passed
-   in registers and the rest must be pushed.  This macro tells the
-   compiler when this occurs, and how many of the words should go in
-   registers.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -981,22 +899,6 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
    is not defined.  */
 /* This register is call-saved on the ARC.  */
 /*#define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED*/
-
-/* By generating position-independent code, when two different programs (A
-   and B) share a common library (libC.a), the text of the library can be
-   shared whether or not the library is linked at the same address for both
-   programs.  In some of these environments, position-independent code
-   requires not only the use of different addressing modes, but also
-   special code to enable the use of these addressing modes.
-
-   The FINALIZE_PIC macro serves as a hook to emit these special
-   codes once the function is being compiled into assembly code, but not
-   before.  (It is not done before, because in the case of compiling an
-   inline function, it would lead to multiple PIC prologues being
-   included in functions which used inline functions and were compiled to
-   assembly language.)  */
-
-#define FINALIZE_PIC arc_finalize_pic ()
 
 /* A C expression that is nonzero if X is a legitimate immediate
    operand on the target machine when generating position independent code.

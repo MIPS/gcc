@@ -1,4 +1,5 @@
-@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
+@c 2003, 2004, 2005
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -725,7 +726,7 @@ Stored in the @code{integrated} field and printed as @samp{/i}.
 @item MEM_READONLY_P (@var{x})
 Nonzero in a @code{mem}, if the memory is statically allocated and read-only.
 
-Read-only in this context never modified during the lifetime of the
+Read-only in this context means never modified during the lifetime of the
 program, not necessarily in ROM or in write-disabled pages.  A common
 example of the later is a shared library's global offset table.  This
 table is initialized by the runtime loader, so the memory is technically
@@ -1190,7 +1191,8 @@ Algol or Pascal function variables including a static chain.
 @findex MODE_CC
 @item MODE_CC
 Modes representing condition code values.  These are @code{CCmode} plus
-any modes listed in the @code{EXTRA_CC_MODES} macro.  @xref{Jump Patterns},
+any @code{CC_MODE} modes listed in the @file{@var{machine}-modes.def}.  
+@xref{Jump Patterns},
 also see @ref{Condition Code}.
 
 @findex MODE_RANDOM
@@ -1285,6 +1287,9 @@ The simplest RTL expressions are those that represent constant values.
 This type of expression represents the integer value @var{i}.  @var{i}
 is customarily accessed with the macro @code{INTVAL} as in
 @code{INTVAL (@var{exp})}, which is equivalent to @code{XWINT (@var{exp}, 0)}.
+
+Constants generated for modes with fewer bits than @code{HOST_WIDE_INT}
+must be sign extended to full width (e.g., with @code{gen_int_mode}).
 
 @findex const0_rtx
 @findex const1_rtx
@@ -1386,7 +1391,7 @@ The @code{symbol_ref} contains a mode, which is usually @code{Pmode}.
 Usually that is the only mode for which a symbol is directly valid.
 
 @findex label_ref
-@item (label_ref @var{label})
+@item (label_ref:@var{mode} @var{label})
 Represents the value of an assembler label for code.  It contains one
 operand, an expression, which must be a @code{code_label} or a @code{note}
 of type @code{NOTE_INSN_DELETED_LABEL} that appears in the instruction
@@ -1394,6 +1399,9 @@ sequence to identify the place where the label should go.
 
 The reason for using a distinct expression type for code label
 references is so that jump optimization can distinguish them.
+
+The @code{label_ref} contains a mode, which is usually @code{Pmode}.
+Usually that is the only mode for which a label is directly valid.
 
 @item (const:@var{m} @var{exp})
 Represents a constant that is the result of an assembly-time
@@ -1497,9 +1505,9 @@ value of @code{FIRST_PARM_OFFSET}.
 @findex VIRTUAL_STACK_VARS_REGNUM
 @cindex @code{FRAME_GROWS_DOWNWARD} and virtual registers
 @item VIRTUAL_STACK_VARS_REGNUM
-If @code{FRAME_GROWS_DOWNWARD} is defined, this points to immediately
-above the first variable on the stack.  Otherwise, it points to the
-first variable on the stack.
+If @code{FRAME_GROWS_DOWNWARD} is defined to a non-zero value, this points
+to immediately above the first variable on the stack.  Otherwise, it points
+to the first variable on the stack.
 
 @cindex @code{STARTING_FRAME_OFFSET} and virtual registers
 @cindex @code{FRAME_POINTER_REGNUM} and virtual registers
@@ -1884,7 +1892,10 @@ the quotient.
 @item (smin:@var{m} @var{x} @var{y})
 @itemx (smax:@var{m} @var{x} @var{y})
 Represents the smaller (for @code{smin}) or larger (for @code{smax}) of
-@var{x} and @var{y}, interpreted as signed integers in mode @var{m}.
+@var{x} and @var{y}, interpreted as signed values in mode @var{m}.
+When used with floating point, if both operands are zeros, or if either
+operand is @code{NaN}, then it is unspecified which of the two operands
+is returned as the result.
 
 @findex umin
 @findex umax
@@ -2132,9 +2143,6 @@ for insn attributes.  @xref{Insn Attributes}.
 @cindex bit-fields
 
 Special expression codes exist to represent bit-field instructions.
-These types of expressions are lvalues in RTL; they may appear
-on the left side of an assignment, indicating insertion of a value
-into the specified bit-field.
 
 @table @code
 @findex sign_extract
@@ -2158,11 +2166,18 @@ in the @code{insv} or @code{extv} pattern.
 The mode @var{m} is the same as the mode that would be used for
 @var{loc} if it were a register.
 
+A @code{sign_extract} can not appear as an lvalue, or part thereof,
+in RTL.
+
 @findex zero_extract
 @item (zero_extract:@var{m} @var{loc} @var{size} @var{pos})
 Like @code{sign_extract} but refers to an unsigned or zero-extended
 bit-field.  The same sequence of bits are extracted, but they
 are filled to an entire word with zeros instead of by sign-extension.
+
+Unlike @code{sign_extract}, this type of expressions can be lvalues
+in RTL; they may appear on the left side of an assignment, indicating
+insertion of a value into the specified bit-field.
 @end table
 
 @node Vector Operations
@@ -2365,10 +2380,15 @@ rest of the register receives an undefined value.  Likewise, if
 the mode of the register, the rest of the register can be changed in
 an undefined way.
 
-If @var{lval} is a @code{strict_low_part} or @code{zero_extract}
-of a @code{subreg}, then the part of the register specified by the
-machine mode of the @code{subreg} is given the value @var{x} and
-the rest of the register is not changed.
+If @var{lval} is a @code{strict_low_part} of a subreg, then the part
+of the register specified by the machine mode of the @code{subreg} is
+given the value @var{x} and the rest of the register is not changed.
+
+If @var{lval} is a @code{zero_extract}, then the referenced part of
+the bit-field (a memory or register reference) specified by the
+@code{zero_extract} is given the value @var{x} and the rest of the
+bit-field is not changed.  Note that @code{sign_extract} can not
+appear in @var{lval}.
 
 If @var{lval} is @code{(cc0)}, it has no machine mode, and @var{x} may
 be either a @code{compare} expression or a value that may have any mode.
@@ -3096,9 +3116,6 @@ Appears near the end of the function body, just before the label that
 does not suffice for returning).  This note may be deleted by jump
 optimization.
 
-@findex NOTE_INSN_SETJMP
-@item NOTE_INSN_SETJMP
-Appears following each call to @code{setjmp} or a related function.
 @end table
 
 These codes are printed symbolically when they appear in debugging dumps.
@@ -3279,6 +3296,11 @@ of this note indicates to other optimizations that this this branching
 instruction should not be ``collapsed'' into a simpler branching
 construct.  It is used when the optimization to partition basic blocks
 into hot and cold sections is turned on.
+
+@findex REG_SETJMP
+@item REG_SETJMP 
+Appears attached to each @code{CALL_INSN} to @code{setjmp} or a 
+related function.
 @end table
 
 The following notes describe attributes of outputs of an insn:
@@ -3501,7 +3523,7 @@ on these machines should have a body which is a @code{parallel}
 that contains both the @code{call} expression and @code{clobber}
 expressions that indicate which registers are destroyed.  Similarly,
 if the call instruction requires some register other than the stack
-pointer that is not explicitly mentioned it its RTL, a @code{use}
+pointer that is not explicitly mentioned in its RTL, a @code{use}
 subexpression should mention that register.
 
 Functions that are called are assumed to modify all registers listed in

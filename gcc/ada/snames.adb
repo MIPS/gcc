@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -106,8 +106,6 @@ package body Snames is
      "float_io#" &
      "integer_io#" &
      "modular_io#" &
-     "a_textio#" &
-     "a_witeio#" &
      "const#" &
      "<error>#" &
      "go#" &
@@ -121,6 +119,7 @@ package body Snames is
      "system#" &
      "text_io#" &
      "wide_text_io#" &
+     "wide_wide_text_io#" &
      "no_dsa#" &
      "garlic_dsa#" &
      "polyorb_dsa#" &
@@ -170,6 +169,7 @@ package body Snames is
      "ada_83#" &
      "ada_95#" &
      "ada_05#" &
+     "assertion_policy#" &
      "c_pass_by_copy#" &
      "compile_time_warning#" &
      "component_alignment#" &
@@ -192,8 +192,7 @@ package body Snames is
      "no_strict_aliasing#" &
      "normalize_scalars#" &
      "polling#" &
-     "persistent_data#" &
-     "persistent_object#" &
+     "persistent_bss#" &
      "profile#" &
      "profile_warnings#" &
      "propagate_exceptions#" &
@@ -255,7 +254,6 @@ package body Snames is
      "inline_always#" &
      "inline_generic#" &
      "inspection_point#" &
-     "interface#" &
      "interface_name#" &
      "interrupt_handler#" &
      "interrupt_priority#" &
@@ -264,6 +262,8 @@ package body Snames is
      "keep_names#" &
      "link_with#" &
      "linker_alias#" &
+     "linker_constructor#" &
+     "linker_destructor#" &
      "linker_options#" &
      "linker_section#" &
      "list#" &
@@ -275,14 +275,15 @@ package body Snames is
      "obsolescent#" &
      "optimize#" &
      "optional_overriding#" &
-     "overriding#" &
      "pack#" &
      "page#" &
      "passive#" &
      "preelaborate#" &
+     "preelaborate_05#" &
      "priority#" &
      "psect_object#" &
      "pure#" &
+     "pure_05#" &
      "pure_function#" &
      "remote_call_interface#" &
      "remote_types#" &
@@ -324,8 +325,10 @@ package body Snames is
      "dll#" &
      "win32#" &
      "as_is#" &
+     "attribute_name#" &
      "body_file_name#" &
      "boolean_entry_barriers#" &
+     "check#" &
      "casing#" &
      "code#" &
      "component#" &
@@ -336,6 +339,7 @@ package body Snames is
      "dot_replacement#" &
      "dynamic#" &
      "entity#" &
+     "entry_count#" &
      "external_name#" &
      "first_optional_parameter#" &
      "form#" &
@@ -344,6 +348,8 @@ package body Snames is
      "gnat#" &
      "gpl#" &
      "ieee_float#" &
+     "ignore#" &
+     "info#" &
      "internal#" &
      "link_name#" &
      "lowercase#" &
@@ -351,20 +357,22 @@ package body Snames is
      "max_entry_queue_length#" &
      "max_size#" &
      "mechanism#" &
+     "message#" &
      "mixedcase#" &
      "modified_gpl#" &
      "name#" &
      "nca#" &
      "no#" &
-     "on#" &
-     "parameter_types#" &
-     "reference#" &
+     "no_dependence#" &
      "no_dynamic_attachment#" &
      "no_dynamic_interrupts#" &
      "no_requeue#" &
      "no_requeue_statements#" &
      "no_task_attributes#" &
      "no_task_attributes_package#" &
+     "on#" &
+     "parameter_types#" &
+     "reference#" &
      "restricted#" &
      "result_mechanism#" &
      "result_type#" &
@@ -375,6 +383,7 @@ package body Snames is
      "semaphore#" &
      "simple_barriers#" &
      "spec_file_name#" &
+     "state#" &
      "static#" &
      "stack_size#" &
      "subunit_file_name#" &
@@ -392,6 +401,7 @@ package body Snames is
      "user#" &
      "vax_float#" &
      "vms#" &
+     "vtable_ptr#" &
      "working_storage#" &
      "abort_signal#" &
      "access#" &
@@ -449,6 +459,7 @@ package body Snames is
      "max_size_in_storage_elements#" &
      "maximum_alignment#" &
      "mechanism_code#" &
+     "mod#" &
      "model_emin#" &
      "model_epsilon#" &
      "model_mantissa#" &
@@ -476,6 +487,7 @@ package body Snames is
      "small#" &
      "storage_size#" &
      "storage_unit#" &
+     "stream_size#" &
      "tag#" &
      "target_name#" &
      "terminated#" &
@@ -493,6 +505,7 @@ package body Snames is
      "value_size#" &
      "version#" &
      "wchar_t_size#" &
+     "wide_wide_width#" &
      "wide_width#" &
      "width#" &
      "word_size#" &
@@ -514,7 +527,9 @@ package body Snames is
      "truncation#" &
      "value#" &
      "wide_image#" &
+     "wide_wide_image#" &
      "wide_value#" &
+     "wide_wide_value#" &
      "output#" &
      "read#" &
      "write#" &
@@ -569,7 +584,6 @@ package body Snames is
      "is#" &
      "limited#" &
      "loop#" &
-     "mod#" &
      "new#" &
      "not#" &
      "null#" &
@@ -605,6 +619,7 @@ package body Snames is
      "exception_message#" &
      "exception_name#" &
      "file#" &
+     "generic_dispatching_constructor#" &
      "import_address#" &
      "import_largest_value#" &
      "import_value#" &
@@ -626,16 +641,24 @@ package body Snames is
      "requeue#" &
      "tagged#" &
      "raise_exception#" &
+     "ada_roots#" &
      "binder#" &
+     "binder_driver#" &
      "body_suffix#" &
      "builder#" &
      "compiler#" &
+     "compiler_driver#" &
+     "compiler_kind#" &
+     "compute_dependency#" &
      "cross_reference#" &
+     "default_linker#" &
      "default_switches#" &
+     "dependency_option#" &
      "exec_dir#" &
      "executable#" &
      "executable_suffix#" &
      "extends#" &
+     "externally_built#" &
      "finder#" &
      "global_configuration_pragmas#" &
      "gnatls#" &
@@ -643,6 +666,8 @@ package body Snames is
      "implementation#" &
      "implementation_exceptions#" &
      "implementation_suffix#" &
+     "include_option#" &
+     "language_processing#" &
      "languages#" &
      "library_dir#" &
      "library_auto_init#" &
@@ -675,7 +700,10 @@ package body Snames is
      "specification_suffix#" &
      "switches#" &
      "unaligned_valid#" &
-      "#";
+     "interface#" &
+     "overriding#" &
+     "synchronized#" &
+     "#";
 
    ---------------------
    -- Generated Names --
@@ -720,15 +748,18 @@ package body Snames is
    --    xxxDF   deep finalize routine for type xxx                 (Exp_TSS)
    --    xxxDI   deep initialize routine for type xxx               (Exp_TSS)
    --    xxxEQ   composite equality routine for record type xxx     (Exp_TSS)
+   --    xxxFA   PolyORB/DSA From_Any converter for type xxx        (Exp_TSS)
    --    xxxIP   initialization procedure for type xxx              (Exp_TSS)
-   --    xxxRA   RAs type access routine for type xxx               (Exp_TSS)
-   --    xxxRD   RAs type dereference routine for type xxx          (Exp_TSS)
+   --    xxxRA   RAS type access routine for type xxx               (Exp_TSS)
+   --    xxxRD   RAS type dereference routine for type xxx          (Exp_TSS)
    --    xxxRP   Rep to Pos conversion for enumeration type xxx     (Exp_TSS)
    --    xxxSA   array/slice assignment for controlled comp. arrays (Exp_TSS)
    --    xxxSI   stream input attribute subprogram for type xxx     (Exp_TSS)
    --    xxxSO   stream output attribute subprogram for type xxx    (Exp_TSS)
    --    xxxSR   stream read attribute subprogram for type xxx      (Exp_TSS)
    --    xxxSW   stream write attribute subprogram for type xxx     (Exp_TSS)
+   --    xxxTA   PolyORB/DSA To_Any converter for type xxx          (Exp_TSS)
+   --    xxxTC   PolyORB/DSA Typecode for type xxx                  (Exp_TSS)
 
    --  Implicit type names
 
@@ -803,6 +834,8 @@ package body Snames is
    begin
       if N = Name_AST_Entry then
          return Pragma_AST_Entry;
+      elsif N = Name_Interface then
+         return Pragma_Interface;
       elsif N = Name_Storage_Size then
          return Pragma_Storage_Size;
       elsif N = Name_Storage_Unit then
@@ -975,6 +1008,7 @@ package body Snames is
    begin
       return N in First_Pragma_Name .. Last_Pragma_Name
         or else N = Name_AST_Entry
+        or else N = Name_Interface
         or else N = Name_Storage_Size
         or else N = Name_Storage_Unit;
    end Is_Pragma_Name;

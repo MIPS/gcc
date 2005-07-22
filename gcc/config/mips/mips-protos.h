@@ -1,6 +1,6 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -20,8 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_MIPS_PROTOS_H
 #define GCC_MIPS_PROTOS_H
@@ -61,6 +61,17 @@ Boston, MA 02111-1307, USA.  */
        An UNSPEC wrapper around a function's address.  It represents the
        offset of _gp from the start of the function.
 
+   SYMBOL_TLS
+       A thread-local symbol.
+
+   SYMBOL_TLSGD
+   SYMBOL_TLSLDM
+   SYMBOL_DTPREL
+   SYMBOL_GOTTPREL
+   SYMBOL_TPREL
+       UNSPEC wrappers around SYMBOL_TLS, corresponding to the
+       thread-local storage relocation operators.
+
    SYMBOL_64_HIGH
        For a 64-bit symbolic address X, this is the value of
        (%highest(X) << 16) + %higher(X).
@@ -82,6 +93,12 @@ enum mips_symbol_type {
   SYMBOL_GOTOFF_GLOBAL,
   SYMBOL_GOTOFF_CALL,
   SYMBOL_GOTOFF_LOADGP,
+  SYMBOL_TLS,
+  SYMBOL_TLSGD,
+  SYMBOL_TLSLDM,
+  SYMBOL_DTPREL,
+  SYMBOL_GOTTPREL,
+  SYMBOL_TPREL,
   SYMBOL_64_HIGH,
   SYMBOL_64_MID,
   SYMBOL_64_LOW
@@ -141,8 +158,7 @@ extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
 extern struct rtx_def *function_arg (const CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, int);
-extern int function_arg_partial_nregs (const CUMULATIVE_ARGS *,
-				       enum machine_mode, tree, int);
+extern int function_arg_boundary (enum machine_mode, tree);
 extern bool mips_pad_arg_upward (enum machine_mode, tree);
 extern bool mips_pad_reg_upward (enum machine_mode, tree);
 extern void mips_va_start (tree, rtx);
@@ -168,7 +184,7 @@ extern void mips_declare_common_object (FILE *, const char *,
 					const char *, unsigned HOST_WIDE_INT,
 					unsigned int, bool);
 extern void mips_declare_object (FILE *, const char *, const char *,
-				 const char *, ...);
+				 const char *, ...) ATTRIBUTE_PRINTF_4;
 extern void mips_declare_object_name (FILE *, const char *, tree);
 extern void mips_finish_declare_object (FILE *, tree, int, int);
 
@@ -190,7 +206,6 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, int);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
-extern bool mips_valid_pointer_mode (enum machine_mode);
 extern int build_mips16_call_stub (rtx, rtx, rtx, int);
 extern int mips_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);
@@ -207,5 +222,6 @@ extern rtx mips_prefetch_cookie (rtx, rtx);
 extern void irix_asm_output_align (FILE *, unsigned);
 extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
+extern bool mips_use_ins_ext_p (rtx, rtx, rtx);
 
 #endif /* ! GCC_MIPS_PROTOS_H */

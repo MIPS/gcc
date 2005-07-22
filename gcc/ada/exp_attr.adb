@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -122,13 +122,6 @@ package body Exp_Attr is
    --  A reference to a type within its own scope is resolved to a reference
    --  to the current instance of the type in its initialization procedure.
 
-   function Find_Inherited_TSS
-     (Typ : Entity_Id;
-      Nam : TSS_Name_Type) return Entity_Id;
-   --  Returns the TSS of name Nam of Typ, or of its closest ancestor defining
-   --  such a TSS. Empty is returned is neither Typ nor any of its ancestors
-   --  have such a TSS.
-
    function Find_Stream_Subprogram
      (Typ : Entity_Id;
       Nam : TSS_Name_Type) return Entity_Id;
@@ -137,6 +130,11 @@ package body Exp_Attr is
    --  appropriate TSS from the type itself, or from its closest ancestor
    --  defining it, is returned. In both cases, inheritance of representation
    --  aspects is thus taken into account.
+
+   function Get_Stream_Convert_Pragma (T : Entity_Id) return Node_Id;
+   --  Given a type, find a corresponding stream convert pragma that applies to
+   --  the implementation base type of this type (Typ). If found, return the
+   --  pragma node, otherwise return Empty if no pragma is found.
 
    function Is_Constrained_Packed_Array (Typ : Entity_Id) return Boolean;
    --  Utility for array attributes, returns true on packed constrained
@@ -297,9 +295,11 @@ package body Exp_Attr is
 
       --  The generated call is given the provided set of parameters, and then
       --  wrapped in a conversion which converts the result to the target type
+      --  We use the base type as the target because a range check may be
+      --  required.
 
       Rewrite (N,
-        Unchecked_Convert_To (Etype (N),
+        Unchecked_Convert_To (Base_Type (Etype (N)),
           Make_Function_Call (Loc,
             Name => Fnm,
             Parameter_Associations => Args)));
@@ -490,12 +490,15 @@ package body Exp_Attr is
    --  Start of processing for Expand_N_Attribute_Reference
 
    begin
-      --  Do required validity checking
+      --  Do required validity checking, if enabled. Do not apply check to
+      --  output parameters of an Asm instruction, since the value of this
+      --  is not set till after the attribute has been elaborated.
 
-      if Validity_Checks_On and Validity_Check_Operands then
+      if Validity_Checks_On and then Validity_Check_Operands
+        and then Id /= Attribute_Asm_Output
+      then
          declare
             Expr : Node_Id;
-
          begin
             Expr := First (Expressions (N));
             while Present (Expr) loop
@@ -623,6 +626,16 @@ package body Exp_Attr is
                      Rewrite (N, Conversion);
                      Analyze_And_Resolve (N, Typ);
                   end if;
+
+               --  Ada 2005 (AI-251): If the designated type is an interface,
+               --  then rewrite the referenced object as a conversion to force
+               --  the displacement of the pointer to the secondary dispatch
+               --  table.
+
+               elsif Is_Interface (Directly_Designated_Type (Btyp)) then
+                  Conversion := Convert_To (Typ, New_Copy_Tree (Ref_Object));
+                  Rewrite (N, Conversion);
+                  Analyze_And_Resolve (N, Typ);
                end if;
             end;
 
@@ -909,12 +922,9 @@ package body Exp_Attr is
          if Pent = Standard_Standard
            or else Pent = Standard_ASCII
          then
-            Name_Buffer (1 .. Verbose_Library_Version'Length) :=
-              Verbose_Library_Version;
-            Name_Len := Verbose_Library_Version'Length;
             Rewrite (N,
               Make_String_Literal (Loc,
-                Strval => String_From_Name_Buffer));
+                Strval => Verbose_Library_Version));
 
          --  All other cases
 
@@ -996,7 +1006,7 @@ package body Exp_Attr is
       -- Callable --
       --------------
 
-      --  Transforms 'Callable attribute into a call to the Callable function.
+      --  Transforms 'Callable attribute into a call to the Callable function
 
       when Attribute_Callable => Callable :
       begin
@@ -1106,6 +1116,7 @@ package body Exp_Attr is
 
       when Attribute_Constrained => Constrained : declare
          Formal_Ent : constant Entity_Id := Param_Entity (Pref);
+         Typ        : constant Entity_Id := Etype (Pref);
 
       begin
          --  Reference to a parameter where the value is passed as an extra
@@ -1189,15 +1200,20 @@ package body Exp_Attr is
 
          --  Prefix is not an entity name. These are also cases where
          --  we can always tell at compile time by looking at the form
-         --  and type of the prefix.
+         --  and type of the prefix. If an explicit dereference of an
+         --  object with constrained partial view, this is unconstrained
+         --  (Ada 2005 AI-363).
 
          else
             Rewrite (N,
               New_Reference_To (
                 Boolean_Literals (
                   not Is_Variable (Pref)
-                    or else Nkind (Pref) = N_Explicit_Dereference
-                    or else Is_Constrained (Etype (Pref))),
+                    or else
+                     (Nkind (Pref) = N_Explicit_Dereference
+                        and then
+                          not Has_Constrained_Partial_View (Base_Type (Typ)))
+                    or else Is_Constrained (Typ)),
                 Loc));
          end if;
 
@@ -1665,7 +1681,7 @@ package body Exp_Attr is
 
       --    taskV!(Prefix)._Task_Id, converted to the type Task_Id defined
 
-      --  in Ada.Task_Identification.
+      --  in Ada.Task_Identification
 
       when Attribute_Identity => Identity : declare
          Id_Kind : Entity_Id;
@@ -1804,9 +1820,7 @@ package body Exp_Attr is
             --  from which it is derived. The extra conversion is required
             --  for the derived case.
 
-            Prag :=
-              Get_Rep_Pragma
-                (Implementation_Base_Type (P_Type), Name_Stream_Convert);
+            Prag := Get_Stream_Convert_Pragma (P_Type);
 
             if Present (Prag) then
                Arg2  := Next (First (Pragma_Argument_Associations (Prag)));
@@ -1867,10 +1881,16 @@ package body Exp_Attr is
                   --  initialize a dummy tag object:
 
                   --    Dnn : Ada.Tags.Tag
-                  --             := Internal_Tag (String'Input (Strm));
+                  --           := Descendant_Tag (String'Input (Strm), P_Type);
 
                   --  This dummy object is used only to provide a controlling
-                  --  argument for the eventual _Input call.
+                  --  argument for the eventual _Input call. Descendant_Tag is
+                  --  called rather than Internal_Tag to ensure that we have a
+                  --  tag for a type that is descended from the prefix type and
+                  --  declared at the same accessibility level (the exception
+                  --  Tag_Error will be raised otherwise). The level check is
+                  --  required for Ada 2005 because tagged types can be
+                  --  extended in nested scopes (AI-344).
 
                   Dnn :=
                     Make_Defining_Identifier (Loc,
@@ -1884,7 +1904,7 @@ package body Exp_Attr is
                       Expression =>
                         Make_Function_Call (Loc,
                           Name =>
-                            New_Occurrence_Of (RTE (RE_Internal_Tag), Loc),
+                            New_Occurrence_Of (RTE (RE_Descendant_Tag), Loc),
                           Parameter_Associations => New_List (
                             Make_Attribute_Reference (Loc,
                               Prefix =>
@@ -1892,15 +1912,18 @@ package body Exp_Attr is
                               Attribute_Name => Name_Input,
                               Expressions => New_List (
                                 Relocate_Node
-                                  (Duplicate_Subexpr (Strm)))))));
+                                  (Duplicate_Subexpr (Strm)))),
+                            Make_Attribute_Reference (Loc,
+                              Prefix => New_Reference_To (P_Type, Loc),
+                              Attribute_Name => Name_Tag))));
 
                   Insert_Action (N, Decl);
 
                   --  Now we need to get the entity for the call, and construct
                   --  a function call node, where we preset a reference to Dnn
-                  --  as the controlling argument (doing an unchecked
-                  --  conversion to the classwide tagged type to make it
-                  --  look like a real tagged object).
+                  --  as the controlling argument (doing an unchecked convert
+                  --  to the class-wide tagged type to make it look like a real
+                  --  tagged object).
 
                   Fname := Find_Prim_Op (Rtyp, TSS_Stream_Input);
                   Cntrl := Unchecked_Convert_To (P_Type,
@@ -1914,9 +1937,9 @@ package body Exp_Attr is
             elsif Is_Tagged_Type (U_Type) then
                Fname := Find_Prim_Op (U_Type, TSS_Stream_Input);
 
-            --  All other record type cases, including protected records.
-            --  The latter only arise for expander generated code for
-            --  handling shared passive partition access.
+            --  All other record type cases, including protected records. The
+            --  latter only arise for expander generated code for handling
+            --  shared passive partition access.
 
             else
                pragma Assert
@@ -1969,9 +1992,9 @@ package body Exp_Attr is
             end if;
          end if;
 
-         --  If we fall through, Fname is the function to be called. The
-         --  result is obtained by calling the appropriate function, then
-         --  converting the result. The conversion does a subtype check.
+         --  If we fall through, Fname is the function to be called. The result
+         --  is obtained by calling the appropriate function, then converting
+         --  the result. The conversion does a subtype check.
 
          Call :=
            Make_Function_Call (Loc,
@@ -2083,10 +2106,10 @@ package body Exp_Attr is
       --  function Leading_Part in Fat_xxx (where xxx is the root type)
 
       --  Note: strictly, we should have special case code to deal with
-      --  absurdly large positive arguments (greater than Integer'Last),
-      --  which result in returning the first argument unchanged, but it
-      --  hardly seems worth the effort. We raise constraint error for
-      --  absurdly negative arguments which is fine.
+      --  absurdly large positive arguments (greater than Integer'Last), which
+      --  result in returning the first argument unchanged, but it hardly seems
+      --  worth the effort. We raise constraint error for absurdly negative
+      --  arguments which is fine.
 
       when Attribute_Leading_Part =>
          Expand_Fpt_Attribute_RI (N);
@@ -2278,9 +2301,9 @@ package body Exp_Attr is
       -- Mantissa --
       --------------
 
-      --  The only case that can get this far is the dynamic case of the
-      --  old Ada 83 Mantissa attribute for the fixed-point case. For this
-      --  case, we expand:
+      --  The only case that can get this far is the dynamic case of the old
+      --  Ada 83 Mantissa attribute for the fixed-point case. For this case, we
+      --  expand:
 
       --    typ'Mantissa
 
@@ -2321,6 +2344,88 @@ package body Exp_Attr is
 
          Analyze_And_Resolve (N, Typ);
       end Mantissa;
+
+      ---------
+      -- Mod --
+      ---------
+
+      when Attribute_Mod => Mod_Case : declare
+         Arg  : constant Node_Id := Relocate_Node (First (Exprs));
+         Hi   : constant Node_Id := Type_High_Bound (Etype (Arg));
+         Modv : constant Uint    := Modulus (Btyp);
+
+      begin
+
+         --  This is not so simple. The issue is what type to use for the
+         --  computation of the modular value.
+
+         --  The easy case is when the modulus value is within the bounds
+         --  of the signed integer type of the argument. In this case we can
+         --  just do the computation in that signed integer type, and then
+         --  do an ordinary conversion to the target type.
+
+         if Modv <= Expr_Value (Hi) then
+            Rewrite (N,
+              Convert_To (Btyp,
+                Make_Op_Mod (Loc,
+                  Left_Opnd  => Arg,
+                  Right_Opnd => Make_Integer_Literal (Loc, Modv))));
+
+         --  Here we know that the modulus is larger than type'Last of the
+         --  integer type. There are two cases to consider:
+
+         --    a) The integer value is non-negative. In this case, it is
+         --    returned as the result (since it is less than the modulus).
+
+         --    b) The integer value is negative. In this case, we know that the
+         --    result is modulus + value, where the value might be as small as
+         --    -modulus. The trouble is what type do we use to do the subtract.
+         --    No type will do, since modulus can be as big as 2**64, and no
+         --    integer type accomodates this value. Let's do bit of algebra
+
+         --         modulus + value
+         --      =  modulus - (-value)
+         --      =  (modulus - 1) - (-value - 1)
+
+         --    Now modulus - 1 is certainly in range of the modular type.
+         --    -value is in the range 1 .. modulus, so -value -1 is in the
+         --    range 0 .. modulus-1 which is in range of the modular type.
+         --    Furthermore, (-value - 1) can be expressed as -(value + 1)
+         --    which we can compute using the integer base type.
+
+         --  Once this is done we analyze the conditional expression without
+         --  range checks, because we know everything is in range, and we
+         --  want to prevent spurious warnings on either branch.
+
+         else
+            Rewrite (N,
+              Make_Conditional_Expression (Loc,
+                Expressions => New_List (
+                  Make_Op_Ge (Loc,
+                    Left_Opnd  => Duplicate_Subexpr (Arg),
+                    Right_Opnd => Make_Integer_Literal (Loc, 0)),
+
+                  Convert_To (Btyp,
+                    Duplicate_Subexpr_No_Checks (Arg)),
+
+                  Make_Op_Subtract (Loc,
+                    Left_Opnd =>
+                      Make_Integer_Literal (Loc,
+                        Intval => Modv - 1),
+                    Right_Opnd =>
+                      Convert_To (Btyp,
+                        Make_Op_Minus (Loc,
+                          Right_Opnd =>
+                            Make_Op_Add (Loc,
+                              Left_Opnd  => Duplicate_Subexpr_No_Checks (Arg),
+                              Right_Opnd =>
+                                Make_Integer_Literal (Loc,
+                                  Intval => 1))))))));
+
+         end if;
+
+         Analyze_And_Resolve (N, Btyp, All_Checks);
+      end Mod_Case;
 
       -----------
       -- Model --
@@ -2375,14 +2480,12 @@ package body Exp_Attr is
 
             --     strmtyp'Output (Stream, strmwrite (acttyp (Item)));
 
-            --  where strmwrite is the given Write function that converts
-            --  an argument of type sourcetyp or a type acctyp, from which
-            --  it is derived to type strmtyp. The conversion to acttyp is
-            --  required for the derived case.
+            --  where strmwrite is the given Write function that converts an
+            --  argument of type sourcetyp or a type acctyp, from which it is
+            --  derived to type strmtyp. The conversion to acttyp is required
+            --  for the derived case.
 
-            Prag :=
-              Get_Rep_Pragma
-                (Implementation_Base_Type (P_Type), Name_Stream_Convert);
+            Prag := Get_Stream_Convert_Pragma (P_Type);
 
             if Present (Prag) then
                Arg3 :=
@@ -2443,7 +2546,43 @@ package body Exp_Attr is
 
                begin
                   --  The code is:
-                  --  String'Output (Strm, External_Tag (Item'Tag))
+                  --  if Get_Access_Level (Item'Tag)
+                  --       /= Get_Access_Level (P_Type'Tag)
+                  --  then
+                  --     raise Tag_Error;
+                  --  end if;
+                  --  String'Output (Strm, External_Tag (Item'Tag));
+
+                  --  Ada 2005 (AI-344): Check that the accessibility level
+                  --  of the type of the output object is not deeper than
+                  --  that of the attribute's prefix type.
+
+                  if Ada_Version >= Ada_05 then
+                     Insert_Action (N,
+                       Make_Implicit_If_Statement (N,
+                         Condition =>
+                           Make_Op_Ne (Loc,
+                             Left_Opnd  =>
+                               Make_Function_Call (Loc,
+                                 Name =>
+                                   New_Reference_To
+                                     (RTE (RE_Get_Access_Level), Loc),
+                                 Parameter_Associations =>
+                                   New_List (Make_Attribute_Reference (Loc,
+                                               Prefix         =>
+                                                 Relocate_Node (
+                                                   Duplicate_Subexpr (Item,
+                                                     Name_Req => True)),
+                                               Attribute_Name =>
+                                                  Name_Tag))),
+                             Right_Opnd =>
+                               Make_Integer_Literal
+                                 (Loc, Type_Access_Level (P_Type))),
+                         Then_Statements =>
+                           New_List (Make_Raise_Statement (Loc,
+                                       New_Occurrence_Of (
+                                         RTE (RE_Tag_Error), Loc)))));
+                  end if;
 
                   Insert_Action (N,
                     Make_Attribute_Reference (Loc,
@@ -2469,9 +2608,9 @@ package body Exp_Attr is
             elsif Is_Tagged_Type (U_Type) then
                Pname := Find_Prim_Op (U_Type, TSS_Stream_Output);
 
-            --  All other record type cases, including protected records.
-            --  The latter only arise for expander generated code for
-            --  handling shared passive partition access.
+--              --  All other record type cases, including protected records.
+--              --  The latter only arise for expander generated code for
+--              --  handling shared passive partition access.
 
             else
                pragma Assert
@@ -2782,10 +2921,10 @@ package body Exp_Attr is
 
             --     Item := sourcetyp (strmread (strmtyp'Input (Stream)));
 
-            --  where strmread is the given Read function that converts
-            --  an argument of type strmtyp to type sourcetyp or a type
-            --  from which it is derived. The conversion to sourcetyp
-            --  is required in the latter case.
+            --  where strmread is the given Read function that converts an
+            --  argument of type strmtyp to type sourcetyp or a type from which
+            --  it is derived. The conversion to sourcetyp is required in the
+            --  latter case.
 
             --  A special case arises if Item is a type conversion in which
             --  case, we have to expand to:
@@ -2795,9 +2934,7 @@ package body Exp_Attr is
             --  where Itemx is the expression of the type conversion (i.e.
             --  the actual object), and typex is the type of Itemx.
 
-            Prag :=
-              Get_Rep_Pragma
-                (Implementation_Base_Type (P_Type), Name_Stream_Convert);
+            Prag := Get_Stream_Convert_Pragma (P_Type);
 
             if Present (Prag) then
                Arg2  := Next (First (Pragma_Argument_Associations (Prag)));
@@ -2870,9 +3007,9 @@ package body Exp_Attr is
             elsif Is_Tagged_Type (U_Type) then
                Pname := Find_Prim_Op (U_Type, TSS_Stream_Read);
 
-            --  All other record type cases, including protected records.
-            --  The latter only arise for expander generated code for
-            --  handling shared passive partition access.
+            --  All other record type cases, including protected records. The
+            --  latter only arise for expander generated code for handling
+            --  shared passive partition access.
 
             else
                pragma Assert
@@ -2924,36 +3061,35 @@ package body Exp_Attr is
       -- Round --
       -----------
 
-      --  The handling of the Round attribute is quite delicate. The
-      --  processing in Sem_Attr introduced a conversion to universal
-      --  real, reflecting the semantics of Round, but we do not want
-      --  anything to do with universal real at runtime, since this
-      --  corresponds to using floating-point arithmetic.
+      --  The handling of the Round attribute is quite delicate. The processing
+      --  in Sem_Attr introduced a conversion to universal real, reflecting the
+      --  semantics of Round, but we do not want anything to do with universal
+      --  real at runtime, since this corresponds to using floating-point
+      --  arithmetic.
 
-      --  What we have now is that the Etype of the Round attribute
-      --  correctly indicates the final result type. The operand of
-      --  the Round is the conversion to universal real, described
-      --  above, and the operand of this conversion is the actual
-      --  operand of Round, which may be the special case of a fixed
-      --  point multiplication or division (Etype = universal fixed)
+      --  What we have now is that the Etype of the Round attribute correctly
+      --  indicates the final result type. The operand of the Round is the
+      --  conversion to universal real, described above, and the operand of
+      --  this conversion is the actual operand of Round, which may be the
+      --  special case of a fixed point multiplication or division (Etype =
+      --  universal fixed)
 
-      --  The exapander will expand first the operand of the conversion,
-      --  then the conversion, and finally the round attribute itself,
-      --  since we always work inside out. But we cannot simply process
-      --  naively in this order. In the semantic world where universal
-      --  fixed and real really exist and have infinite precision, there
-      --  is no problem, but in the implementation world, where universal
-      --  real is a floating-point type, we would get the wrong result.
+      --  The exapander will expand first the operand of the conversion, then
+      --  the conversion, and finally the round attribute itself, since we
+      --  always work inside out. But we cannot simply process naively in this
+      --  order. In the semantic world where universal fixed and real really
+      --  exist and have infinite precision, there is no problem, but in the
+      --  implementation world, where universal real is a floating-point type,
+      --  we would get the wrong result.
 
-      --  So the approach is as follows. First, when expanding a multiply
-      --  or divide whose type is universal fixed, we do nothing at all,
-      --  instead deferring the operation till later.
+      --  So the approach is as follows. First, when expanding a multiply or
+      --  divide whose type is universal fixed, we do nothing at all, instead
+      --  deferring the operation till later.
 
       --  The actual processing is done in Expand_N_Type_Conversion which
-      --  handles the special case of Round by looking at its parent to
-      --  see if it is a Round attribute, and if it is, handling the
-      --  conversion (or its fixed multiply/divide child) in an appropriate
-      --  manner.
+      --  handles the special case of Round by looking at its parent to see if
+      --  it is a Round attribute, and if it is, handling the conversion (or
+      --  its fixed multiply/divide child) in an appropriate manner.
 
       --  This means that by the time we get to expanding the Round attribute
       --  itself, the Round is nothing more than a type conversion (and will
@@ -3047,9 +3183,9 @@ package body Exp_Attr is
                   Rewrite (Pref, New_Occurrence_Of (Etype (Pref), Loc));
                end if;
 
-               --  For a scalar type for which no size was
-               --  explicitly given, VADS_Size means Object_Size. This is the
-               --  other respect in which VADS_Size differs from Size.
+               --  For a scalar type for which no size was explicitly given,
+               --  VADS_Size means Object_Size. This is the other respect in
+               --  which VADS_Size differs from Size.
 
                if Is_Scalar_Type (Etype (Pref))
                  and then No (Size_Clause (Etype (Pref)))
@@ -3074,7 +3210,7 @@ package body Exp_Attr is
             Rewrite (Prefix (N), New_Occurrence_Of (Entity (Pref), Loc));
             return;
 
-         --  For x'Size applied to an object of a class wide type, transform
+         --  For x'Size applied to an object of a class-wide type, transform
          --  X'Size into a call to the primitive operation _Size applied to X.
 
          elsif Is_Class_Wide_Type (Ptyp) then
@@ -3104,9 +3240,9 @@ package body Exp_Attr is
          elsif Nkind (Pref) = N_Indexed_Component then
             Siz := Component_Size (Etype (Prefix (Pref)));
 
-         --  For a record component, we can do Size in the front end
-         --  if there is a component clause, or if the record is packed
-         --  and the component's size is known at compile time.
+         --  For a record component, we can do Size in the front end if there
+         --  is a component clause, or if the record is packed and the
+         --  component's size is known at compile time.
 
          elsif Nkind (Pref) = N_Selected_Component then
             declare
@@ -3153,8 +3289,7 @@ package body Exp_Attr is
          --  Common processing for record and array component case
 
          if Siz /= 0 then
-            Rewrite (N,
-              Make_Integer_Literal (Loc, Siz));
+            Rewrite (N, Make_Integer_Literal (Loc, Siz));
 
             Analyze_And_Resolve (N, Typ);
 
@@ -3285,6 +3420,29 @@ package body Exp_Attr is
          end if;
       end Storage_Size;
 
+      -----------------
+      -- Stream_Size --
+      -----------------
+
+      when Attribute_Stream_Size => Stream_Size : declare
+         Ptyp : constant Entity_Id := Etype (Pref);
+         Size : Int;
+
+      begin
+         --  If we have a Stream_Size clause for this type use it, otherwise
+         --  the Stream_Size if the size of the type.
+
+         if Has_Stream_Size_Clause (Ptyp) then
+            Size := UI_To_Int
+              (Static_Integer (Expression (Stream_Size_Clause (Ptyp))));
+         else
+            Size := UI_To_Int (Esize (Ptyp));
+         end if;
+
+         Rewrite (N, Make_Integer_Literal (Loc, Intval => Size));
+         Analyze_And_Resolve (N, Typ);
+      end Stream_Size;
+
       ----------
       -- Succ --
       ----------
@@ -3408,7 +3566,8 @@ package body Exp_Attr is
             if not Java_VM then
                Rewrite (N,
                  Unchecked_Convert_To (RTE (RE_Tag),
-                   New_Reference_To (Access_Disp_Table (Ttyp), Loc)));
+                   New_Reference_To
+                     (Node (First_Elmt (Access_Disp_Table (Ttyp))), Loc)));
                Analyze_And_Resolve (N, RTE (RE_Tag));
             end if;
 
@@ -3417,7 +3576,7 @@ package body Exp_Attr is
               Make_Selected_Component (Loc,
                 Prefix => Relocate_Node (Pref),
                 Selector_Name =>
-                  New_Reference_To (Tag_Component (Ttyp), Loc)));
+                  New_Reference_To (First_Tag_Component (Ttyp), Loc)));
             Analyze_And_Resolve (N, RTE (RE_Tag));
          end if;
       end Tag;
@@ -3426,7 +3585,7 @@ package body Exp_Attr is
       -- Terminated --
       ----------------
 
-      --  Transforms 'Terminated attribute into a call to Terminated function.
+      --  Transforms 'Terminated attribute into a call to Terminated function
 
       when Attribute_Terminated => Terminated :
       begin
@@ -3785,9 +3944,9 @@ package body Exp_Attr is
             Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
 
          --  For biased representations, we will be doing an unchecked
-         --  conversion without unbiasing the result. That means that
-         --  the range test has to take this into account, and the
-         --  proper form of the test is:
+         --  conversion without unbiasing the result. That means that the range
+         --  test has to take this into account, and the proper form of the
+         --  test is:
 
          --    Btyp!(Pref) < Btyp!(Ptyp'Range_Length)
 
@@ -3828,18 +3987,18 @@ package body Exp_Attr is
 
          --  Unsigned types. Note: it is safe to consider only whether the
          --  subtype is unsigned, since we will in that case be doing all
-         --  unsigned comparisons based on the subtype range. Since we use
-         --  the actual subtype object size, this is appropriate.
+         --  unsigned comparisons based on the subtype range. Since we use the
+         --  actual subtype object size, this is appropriate.
 
          --  For example, if we have
 
          --    subtype x is integer range 1 .. 200;
          --    for x'Object_Size use 8;
 
-         --  Now the base type is signed, but objects of this type are 8
-         --  bits unsigned, and doing an unsigned test of the range 1 to
-         --  200 is correct, even though a value greater than 127 looks
-         --  signed to a signed comparison.
+         --  Now the base type is signed, but objects of this type are bits
+         --  unsigned, and doing an unsigned test of the range 1 to 200 is
+         --  correct, even though a value greater than 127 looks signed to a
+         --  signed comparison.
 
          elsif Is_Unsigned_Type (Ptyp) then
             if Esize (Ptyp) <= 32 then
@@ -3919,6 +4078,39 @@ package body Exp_Attr is
          Analyze_And_Resolve (N, Standard_Wide_String);
       end Wide_Image;
 
+      ---------------------
+      -- Wide_Wide_Image --
+      ---------------------
+
+      --  We expand typ'Wide_Wide_Image (X) into
+
+      --    String_To_Wide_Wide_String
+      --      (typ'Image (X), Wide_Character_Encoding_Method)
+
+      --  This works in all cases because String_To_Wide_Wide_String converts
+      --  any wide character escape sequences resulting from the Image call to
+      --  the proper Wide_Character equivalent
+
+      --  not quite right for typ = Wide_Wide_Character ???
+
+      when Attribute_Wide_Wide_Image => Wide_Wide_Image :
+      begin
+         Rewrite (N,
+           Make_Function_Call (Loc,
+             Name => New_Reference_To
+               (RTE (RE_String_To_Wide_Wide_String), Loc),
+             Parameter_Associations => New_List (
+               Make_Attribute_Reference (Loc,
+                 Prefix         => Pref,
+                 Attribute_Name => Name_Image,
+                 Expressions    => Exprs),
+
+               Make_Integer_Literal (Loc,
+                 Intval => Int (Wide_Character_Encoding_Method)))));
+
+         Analyze_And_Resolve (N, Standard_Wide_Wide_String);
+      end Wide_Wide_Image;
+
       ----------------
       -- Wide_Value --
       ----------------
@@ -3957,6 +4149,53 @@ package body Exp_Attr is
          Analyze_And_Resolve (N, Typ);
       end Wide_Value;
 
+      ---------------------
+      -- Wide_Wide_Value --
+      ---------------------
+
+      --  We expand typ'Wide_Value_Value (X) into
+
+      --    typ'Value
+      --      (Wide_Wide_String_To_String (X, Wide_Character_Encoding_Method))
+
+      --  Wide_Wide_String_To_String is a runtime function that converts its
+      --  wide string argument to String, converting any non-translatable
+      --  characters into appropriate escape sequences. This preserves the
+      --  required semantics of Wide_Wide_Value in all cases, and results in a
+      --  very simple implementation approach.
+
+      --  It's not quite right where typ = Wide_Wide_Character, because the
+      --  encoding method may not cover the whole character type ???
+
+      when Attribute_Wide_Wide_Value => Wide_Wide_Value :
+      begin
+         Rewrite (N,
+           Make_Attribute_Reference (Loc,
+             Prefix         => Pref,
+             Attribute_Name => Name_Value,
+
+             Expressions    => New_List (
+               Make_Function_Call (Loc,
+                 Name =>
+                   New_Reference_To (RTE (RE_Wide_Wide_String_To_String), Loc),
+
+                 Parameter_Associations => New_List (
+                   Relocate_Node (First (Exprs)),
+                   Make_Integer_Literal (Loc,
+                     Intval => Int (Wide_Character_Encoding_Method)))))));
+
+         Analyze_And_Resolve (N, Typ);
+      end Wide_Wide_Value;
+
+      ---------------------
+      -- Wide_Wide_Width --
+      ---------------------
+
+      --  Wide_Wide_Width attribute is handled in separate unit Exp_Imgv
+
+      when Attribute_Wide_Wide_Width =>
+         Exp_Imgv.Expand_Width_Attribute (N, Wide_Wide);
+
       ----------------
       -- Wide_Width --
       ----------------
@@ -3964,7 +4203,7 @@ package body Exp_Attr is
       --  Wide_Width attribute is handled in separate unit Exp_Imgv
 
       when Attribute_Wide_Width =>
-         Exp_Imgv.Expand_Width_Attribute (N, Wide => True);
+         Exp_Imgv.Expand_Width_Attribute (N, Wide);
 
       -----------
       -- Width --
@@ -3973,7 +4212,7 @@ package body Exp_Attr is
       --  Width attribute is handled in separate unit Exp_Imgv
 
       when Attribute_Width =>
-         Exp_Imgv.Expand_Width_Attribute (N, Wide => False);
+         Exp_Imgv.Expand_Width_Attribute (N, Normal);
 
       -----------
       -- Write --
@@ -4012,14 +4251,12 @@ package body Exp_Attr is
 
             --     strmtyp'Output (Stream, strmwrite (acttyp (Item)));
 
-            --  where strmwrite is the given Write function that converts
-            --  an argument of type sourcetyp or a type acctyp, from which
-            --  it is derived to type strmtyp. The conversion to acttyp is
-            --  required for the derived case.
+            --  where strmwrite is the given Write function that converts an
+            --  argument of type sourcetyp or a type acctyp, from which it is
+            --  derived to type strmtyp. The conversion to acttyp is required
+            --  for the derived case.
 
-            Prag :=
-              Get_Rep_Pragma
-                (Implementation_Base_Type (P_Type), Name_Stream_Convert);
+            Prag := Get_Stream_Convert_Pragma (P_Type);
 
             if Present (Prag) then
                Arg3 :=
@@ -4098,22 +4335,22 @@ package body Exp_Attr is
          Rewrite_Stream_Proc_Call (Pname);
       end Write;
 
-      --  Component_Size is handled by Gigi, unless the component size is
-      --  known at compile time, which is always true in the packed array
-      --  case. It is important that the packed array case is handled in
-      --  the front end (see Eval_Attribute) since Gigi would otherwise
-      --  get confused by the equivalent packed array type.
+      --  Component_Size is handled by Gigi, unless the component size is known
+      --  at compile time, which is always true in the packed array case. It is
+      --  important that the packed array case is handled in the front end (see
+      --  Eval_Attribute) since Gigi would otherwise get confused by the
+      --  equivalent packed array type.
 
       when Attribute_Component_Size =>
          null;
 
       --  The following attributes are handled by Gigi (except that static
-      --  cases have already been evaluated by the semantics, but in any
-      --  case Gigi should not count on that).
+      --  cases have already been evaluated by the semantics, but in any case
+      --  Gigi should not count on that).
 
-      --  In addition Gigi handles the non-floating-point cases of Pred
-      --  and Succ (including the fixed-point cases, which can just be
-      --  treated as integer increment/decrement operations)
+      --  In addition Gigi handles the non-floating-point cases of Pred and
+      --  Succ (including the fixed-point cases, which can just be treated as
+      --  integer increment/decrement operations)
 
       --  Gigi also handles the non-class-wide cases of Size
 
@@ -4241,44 +4478,7 @@ package body Exp_Attr is
                     New_Reference_To (Base_Type (Etype (Prefix (N))), Loc),
                   Attribute_Name => Cnam)),
           Reason => CE_Overflow_Check_Failed));
-
    end Expand_Pred_Succ;
-
-   ------------------------
-   -- Find_Inherited_TSS --
-   ------------------------
-
-   function Find_Inherited_TSS
-     (Typ : Entity_Id;
-      Nam : TSS_Name_Type) return Entity_Id
-   is
-      Btyp : Entity_Id := Typ;
-      Proc : Entity_Id;
-
-   begin
-      loop
-         Btyp := Base_Type (Btyp);
-         Proc :=  TSS (Btyp, Nam);
-
-         exit when Present (Proc)
-           or else not Is_Derived_Type (Btyp);
-
-         --  If Typ is a derived type, it may inherit attributes from
-         --  some ancestor.
-
-         Btyp := Etype (Btyp);
-      end loop;
-
-      if No (Proc) then
-
-         --  If nothing else, use the TSS of the root type
-
-         Proc := TSS (Base_Type (Underlying_Type (Typ)), Nam);
-      end if;
-
-      return Proc;
-
-   end Find_Inherited_TSS;
 
    ----------------------------
    -- Find_Stream_Subprogram --
@@ -4286,8 +4486,14 @@ package body Exp_Attr is
 
    function Find_Stream_Subprogram
      (Typ : Entity_Id;
-      Nam : TSS_Name_Type) return Entity_Id is
+      Nam : TSS_Name_Type) return Entity_Id
+   is
+      Ent : constant Entity_Id := TSS (Typ, Nam);
    begin
+      if Present (Ent) then
+         return Ent;
+      end if;
+
       if Is_Tagged_Type (Typ)
         and then Is_Derived_Type (Typ)
       then
@@ -4325,6 +4531,46 @@ package body Exp_Attr is
 
       return Etype (Indx);
    end Get_Index_Subtype;
+
+   -------------------------------
+   -- Get_Stream_Convert_Pragma --
+   -------------------------------
+
+   function Get_Stream_Convert_Pragma (T : Entity_Id) return Node_Id is
+      Typ : Entity_Id;
+      N   : Node_Id;
+
+   begin
+      --  Note: we cannot use Get_Rep_Pragma here because of the peculiarity
+      --  that a stream convert pragma for a tagged type is not inherited from
+      --  its parent. Probably what is wrong here is that it is basically
+      --  incorrect to consider a stream convert pragma to be a representation
+      --  pragma at all ???
+
+      N := First_Rep_Item (Implementation_Base_Type (T));
+      while Present (N) loop
+         if Nkind (N) = N_Pragma and then Chars (N) = Name_Stream_Convert then
+
+            --  For tagged types this pragma is not inherited, so we
+            --  must verify that it is defined for the given type and
+            --  not an ancestor.
+
+            Typ :=
+              Entity (Expression (First (Pragma_Argument_Associations (N))));
+
+            if not Is_Tagged_Type (T)
+              or else T = Typ
+              or else (Is_Private_Type (Typ) and then T = Full_View (Typ))
+            then
+               return N;
+            end if;
+         end if;
+
+         Next_Rep_Item (N);
+      end loop;
+
+      return Empty;
+   end Get_Stream_Convert_Pragma;
 
    ---------------------------------
    -- Is_Constrained_Packed_Array --

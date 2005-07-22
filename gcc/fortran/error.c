@@ -1,5 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Handle the inevitable errors.  A major catch here is that things
    flagged as errors in one match subroutine can conceivably be legal
@@ -28,12 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-
-#include <string.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "flags.h"
 #include "gfortran.h"
 
@@ -92,7 +86,20 @@ error_char (char c)
   else
     {
       if (c != 0)
-	fputc (c, stderr);
+	{
+	  /* We build up complete lines before handing things
+	     over to the library in order to speed up error printing.  */
+	  static char line[MAX_ERROR_MESSAGE + 1];
+	  static int index = 0;
+
+	  line[index++] = c;
+	  if (c == '\n' || index == MAX_ERROR_MESSAGE)
+	    {
+	      line[index] = '\0';
+	      fputs (line, stderr);
+	      index = 0;
+	    }
+	}
     }
 }
 
@@ -111,7 +118,7 @@ error_string (const char *p)
    locus.  Calls error_printf() recursively, but the recursion is at
    most one level deep.  */
 
-static void error_printf (const char *, ...) ATTRIBUTE_PRINTF_1;
+static void error_printf (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 
 static void
 show_locus (int offset, locus * loc)
@@ -307,7 +314,7 @@ separate:
 #define IBUF_LEN 30
 #define MAX_ARGS 10
 
-static void
+static void ATTRIBUTE_GCC_GFC(2,0)
 error_print (const char *type, const char *format0, va_list argp)
 {
   char c, *p, int_buf[IBUF_LEN], c_arg[MAX_ARGS], *cp_arg[MAX_ARGS];
@@ -479,7 +486,7 @@ gfc_warning (const char *format, ...)
 /* Possibly issue a warning/error about use of a nonstandard (or deleted)
    feature.  An error/warning will be issued if the currently selected
    standard does not contain the requested bits.  Return FAILURE if
-   and error is generated.  */
+   an error is generated.  */
 
 try
 gfc_notify_std (int std, const char *format, ...)

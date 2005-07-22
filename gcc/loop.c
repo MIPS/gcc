@@ -1,6 +1,7 @@
 /* Perform various loop optimizations, including strength reduction.
-   Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the loop optimization pass of the compiler.
    It finds invariant computations within loops and moves them
@@ -65,6 +66,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "optabs.h"
 #include "cfgloop.h"
 #include "ggc.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* Get the loop info pointer of a loop.  */
 #define LOOP_INFO(LOOP) ((struct loop_info *) (LOOP)->aux)
@@ -82,8 +85,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    of an insn added during loop, since these don't have LUIDs.  */
 
 #define INSN_LUID(INSN)			\
-  (INSN_UID (INSN) < max_uid_for_loop ? uid_luid[INSN_UID (INSN)] \
-   : (abort (), -1))
+  (gcc_assert (INSN_UID (INSN) < max_uid_for_loop), uid_luid[INSN_UID (INSN)])
 
 #define REGNO_FIRST_LUID(REGNO)			\
   (REGNO_FIRST_UID (REGNO) < max_uid_for_loop	\
@@ -424,7 +426,7 @@ struct loop_info
 #ifndef HAVE_prefetch
 #define HAVE_prefetch 0
 #define CODE_FOR_prefetch 0
-#define gen_prefetch(a,b,c) (abort(), NULL_RTX)
+#define gen_prefetch(a,b,c) (gcc_unreachable (), NULL_RTX)
 #endif
 
 /* Give up the prefetch optimizations once we exceed a given threshold.
@@ -652,6 +654,14 @@ static void record_giv (const struct loop *, struct induction *, rtx, rtx,
 			rtx, rtx, rtx, rtx, int, enum g_types, int, int,
 			rtx *);
 static void update_giv_derive (const struct loop *, rtx);
+static HOST_WIDE_INT get_monotonic_increment (struct iv_class *);
+static bool biased_biv_fits_mode_p (const struct loop *, struct iv_class *,
+				    HOST_WIDE_INT, enum machine_mode,
+				    unsigned HOST_WIDE_INT);
+static bool biv_fits_mode_p (const struct loop *, struct iv_class *,
+			     HOST_WIDE_INT, enum machine_mode, bool);
+static bool extension_within_bounds_p (const struct loop *, struct iv_class *,
+				       HOST_WIDE_INT, rtx);
 static void check_ext_dependent_givs (const struct loop *, struct iv_class *);
 static int basic_induction_var (const struct loop *, rtx, enum machine_mode,
 				rtx, rtx, rtx *, rtx *, rtx **);
@@ -849,7 +859,7 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
   /* Now find all register lifetimes.  This must be done after
      find_and_verify_loops, because it might reorder the insns in the
      function.  */
-  reg_scan (f, max_reg_before_loop, 1);
+  reg_scan (f, max_reg_before_loop);
 
   /* This must occur after reg_scan so that registers created by gcse
      will have entries in the register tables.
@@ -860,8 +870,7 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
 
   /* See if we went too far.  Note that get_max_uid already returns
      one more that the maximum uid of all insn.  */
-  if (get_max_uid () > max_uid_for_loop)
-    abort ();
+  gcc_assert (get_max_uid () <= max_uid_for_loop);
   /* Now reset it to the actual size we need.  See above.  */
   max_uid_for_loop = get_max_uid ();
 
@@ -1119,12 +1128,16 @@ scan_loop (struct loop *loop, int flags)
 	in_libcall--;
       if (NONJUMP_INSN_P (p))
 	{
+	  /* Do not scan past an optimization barrier.  */
+	  if (GET_CODE (PATTERN (p)) == ASM_INPUT)
+	    break;
 	  temp = find_reg_note (p, REG_LIBCALL, NULL_RTX);
 	  if (temp)
 	    in_libcall++;
 	  if (! in_libcall
 	      && (set = single_set (p))
 	      && REG_P (SET_DEST (set))
+	      && SET_DEST (set) != frame_pointer_rtx
 #ifdef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
 	      && SET_DEST (set) != pic_offset_table_rtx
 #endif
@@ -2105,7 +2118,7 @@ rtx_equal_for_loop_p (rtx x, rtx y, struct loop_movables *movables,
 	     contain anything but integers and other rtx's,
 	     except for within LABEL_REFs and SYMBOL_REFs.  */
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return 1;
@@ -2298,21 +2311,26 @@ move_movables (struct loop *loop, struct loop_movables *movables,
 
 		  for (count = m->consec; count >= 0; count--)
 		    {
-		      /* If this is the first insn of a library call sequence,
-			 something is very wrong.  */
-		      if (!NOTE_P (p)
-			  && (temp = find_reg_note (p, REG_LIBCALL, NULL_RTX)))
-			abort ();
-
-		      /* If this is the last insn of a libcall sequence, then
-			 delete every insn in the sequence except the last.
-			 The last insn is handled in the normal manner.  */
-		      if (!NOTE_P (p)
-			  && (temp = find_reg_note (p, REG_RETVAL, NULL_RTX)))
+		      if (!NOTE_P (p))
 			{
-			  temp = XEXP (temp, 0);
-			  while (temp != p)
-			    temp = delete_insn (temp);
+			  /* If this is the first insn of a library
+			     call sequence, something is very
+			     wrong.  */
+			  gcc_assert (!find_reg_note
+				      (p, REG_LIBCALL, NULL_RTX));
+
+			  /* If this is the last insn of a libcall
+			     sequence, then delete every insn in the
+			     sequence except the last.  The last insn
+			     is handled in the normal manner.  */
+			  temp = find_reg_note (p, REG_RETVAL, NULL_RTX);
+			  
+			  if (temp)
+			    {
+			      temp = XEXP (temp, 0);
+			      while (temp != p)
+				temp = delete_insn (temp);
+			    }
 			}
 
 		      temp = p;
@@ -2476,8 +2494,7 @@ move_movables (struct loop *loop, struct loop_movables *movables,
 					<< GET_MODE_BITSIZE (m->savemode)))
 				      - 1),
 			     reg, 1, OPTAB_LIB_WIDEN);
-			  if (tem == 0)
-			    abort ();
+			  gcc_assert (tem);
 			  if (tem != reg)
 			    emit_move_insn (reg, tem);
 			  sequence = get_insns ();
@@ -2765,8 +2782,7 @@ replace_call_address (rtx x, rtx reg, rtx addr)
     case MEM:
       /* If this MEM uses a reg other than the one we expected,
 	 something is wrong.  */
-      if (XEXP (x, 0) != reg)
-	abort ();
+      gcc_assert (XEXP (x, 0) == reg);
       XEXP (x, 0) = addr;
       return;
 
@@ -3079,8 +3095,7 @@ find_and_verify_loops (rtx f, struct loops *loops)
 	    break;
 
 	  case NOTE_INSN_LOOP_END:
-	    if (! current_loop)
-	      abort ();
+	    gcc_assert (current_loop);
 
 	    current_loop->end = insn;
 	    current_loop = current_loop->outer;
@@ -3268,6 +3283,7 @@ find_and_verify_loops (rtx f, struct loops *loops)
 		    if (invert_jump (p, new_label, 1))
 		      {
 			rtx q, r;
+			bool only_notes;
 
 			/* If no suitable BARRIER was found, create a suitable
 			   one before TARGET.  Since TARGET is a fall through
@@ -3292,8 +3308,10 @@ find_and_verify_loops (rtx f, struct loops *loops)
 
 			/* Include the BARRIER after INSN and copy the
 			   block after LOC.  */
-			if (squeeze_notes (&new_label, &last_insn_to_move))
-			  abort ();
+			only_notes = squeeze_notes (&new_label,
+						    &last_insn_to_move);
+			gcc_assert (!only_notes);
+			
 			reorder_insns (new_label, last_insn_to_move, loc);
 
 			/* All those insns are now in TARGET_LOOP.  */
@@ -3328,8 +3346,7 @@ find_and_verify_loops (rtx f, struct loops *loops)
 
 			    /* If we didn't find it, then something is
 			       wrong.  */
-			    if (! r)
-			      abort ();
+			    gcc_assert (r);
 			  }
 
 			/* P is now a jump outside the loop, so it must be put
@@ -3845,7 +3862,6 @@ count_one_set (struct loop_regs *regs, rtx insn, rtx x, rtx *last_set)
       rtx dest = SET_DEST (x);
       while (GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == ZERO_EXTRACT
-	     || GET_CODE (dest) == SIGN_EXTRACT
 	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
       if (REG_P (dest))
@@ -4027,7 +4043,7 @@ rtx_equal_for_prefetch_p (rtx x, rtx y)
 	     contain anything but integers and other rtx's,
 	     except for within LABEL_REFs and SYMBOL_REFs.  */
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return 1;
@@ -4113,7 +4129,7 @@ emit_prefetch_instructions (struct loop *loop)
   struct prefetch_info info[MAX_PREFETCHES];
   struct loop_ivs *ivs = LOOP_IVS (loop);
 
-  if (!HAVE_prefetch)
+  if (!HAVE_prefetch || PREFETCH_BLOCK == 0)
     return;
 
   /* Consider only loops w/o calls.  When a call is done, the loop is probably
@@ -4644,12 +4660,18 @@ for_each_insn_in_loop (struct loop *loop, loop_insn_callback fncall)
   int not_every_iteration = 0;
   int maybe_multiple = 0;
   int past_loop_latch = 0;
+  bool exit_test_is_entry = false;
   rtx p;
 
-  /* If loop_scan_start points to the loop exit test, we have to be wary of
-     subversive use of gotos inside expression statements.  */
+  /* If loop_scan_start points to the loop exit test, the loop body
+     cannot be counted on running on every iteration, and we have to
+     be wary of subversive use of gotos inside expression
+     statements.  */
   if (prev_nonnote_insn (loop->scan_start) != prev_nonnote_insn (loop->start))
-    maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
+    {
+      exit_test_is_entry = true;
+      maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
+    }
 
   /* Scan through loop and update NOT_EVERY_ITERATION and MAYBE_MULTIPLE.  */
   for (p = next_insn_in_loop (loop, loop->scan_start);
@@ -4707,10 +4729,12 @@ for_each_insn_in_loop (struct loop *loop, loop_insn_callback fncall)
          beginning, don't set not_every_iteration for that.
          This can be any kind of jump, since we want to know if insns
          will be executed if the loop is executed.  */
-	  && !(JUMP_LABEL (p) == loop->top
-	       && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
-		    && any_uncondjump_p (p))
-		   || (NEXT_INSN (p) == loop->end && any_condjump_p (p)))))
+	  && (exit_test_is_entry
+	      || !(JUMP_LABEL (p) == loop->top
+		   && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
+			&& any_uncondjump_p (p))
+		       || (NEXT_INSN (p) == loop->end
+			   && any_condjump_p (p))))))
 	{
 	  rtx label = 0;
 
@@ -4953,10 +4977,9 @@ fold_rtx_mult_add (rtx mult1, rtx mult2, rtx add1, enum machine_mode mode)
 
   /* The modes must all be the same.  This should always be true.  For now,
      check to make sure.  */
-  if ((GET_MODE (mult1) != mode && GET_MODE (mult1) != VOIDmode)
-      || (GET_MODE (mult2) != mode && GET_MODE (mult2) != VOIDmode)
-      || (GET_MODE (add1) != mode && GET_MODE (add1) != VOIDmode))
-    abort ();
+  gcc_assert (GET_MODE (mult1) == mode || GET_MODE (mult1) == VOIDmode);
+  gcc_assert (GET_MODE (mult2) == mode || GET_MODE (mult2) == VOIDmode);
+  gcc_assert (GET_MODE (add1) == mode || GET_MODE (add1) == VOIDmode);
 
   /* Ensure that if at least one of mult1/mult2 are constant, then mult2
      will be a constant.  */
@@ -5054,7 +5077,7 @@ reg_dead_after_loop (const struct loop *loop, rtx reg)
   /* HACK: Must also search the loop fall through exit, create a label_ref
      here which points to the loop->end, and append the loop_number_exit_labels
      list to it.  */
-  label = gen_rtx_LABEL_REF (VOIDmode, loop->end);
+  label = gen_rtx_LABEL_REF (Pmode, loop->end);
   LABEL_NEXTREF (label) = loop->exit_labels;
 
   for (; label; label = LABEL_NEXTREF (label))
@@ -5459,9 +5482,45 @@ loop_givs_rescan (struct loop *loop, struct iv_class *bl, rtx *reg_map)
 	mark_reg_pointer (v->new_reg, 0);
 
       if (v->giv_type == DEST_ADDR)
-	/* Store reduced reg as the address in the memref where we found
-	   this giv.  */
-	validate_change (v->insn, v->location, v->new_reg, 0);
+	{
+	  /* Store reduced reg as the address in the memref where we found
+	     this giv.  */
+	  if (validate_change_maybe_volatile (v->insn, v->location,
+					      v->new_reg))
+	    /* Yay, it worked!  */;
+	  /* Not replaceable; emit an insn to set the original
+	     giv reg from the reduced giv.  */
+	  else if (REG_P (*v->location))
+	    loop_insn_emit_before (loop, 0, v->insn,
+				   gen_move_insn (*v->location,
+						  v->new_reg));
+	  else if (GET_CODE (*v->location) == PLUS
+		   && REG_P (XEXP (*v->location, 0))
+		   && CONSTANT_P (XEXP (*v->location, 1)))
+	    {
+	      rtx tem;
+	      start_sequence ();
+	      tem = expand_simple_binop (GET_MODE (*v->location), MINUS,
+					 v->new_reg, XEXP (*v->location, 1),
+					 NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	      emit_move_insn (XEXP (*v->location, 0), tem);
+	      tem = get_insns ();
+	      end_sequence ();
+	      loop_insn_emit_before (loop, 0, v->insn, tem);
+	    }
+	  else
+	    {
+	      /* If it wasn't a reg, create a pseudo and use that.  */
+	      rtx reg, seq;
+	      start_sequence ();
+	      reg = force_reg (v->mode, *v->location);
+	      seq = get_insns ();
+	      end_sequence ();
+	      loop_insn_emit_before (loop, 0, v->insn, seq);
+	      if (!validate_change_maybe_volatile (v->insn, v->location, reg))
+		gcc_unreachable ();
+	    }
+	}
       else if (v->replaceable)
 	{
 	  reg_map[REGNO (v->dest_reg)] = v->new_reg;
@@ -5791,9 +5850,8 @@ loop_iterations (struct loop *loop)
      will propagate a new pseudo into the old iteration register but
      this will be marked by having the REG_USERVAR_P bit set.  */
 
-  if ((unsigned) REGNO (iteration_var) >= ivs->n_regs
-      && ! REG_USERVAR_P (iteration_var))
-    abort ();
+  gcc_assert ((unsigned) REGNO (iteration_var) < ivs->n_regs
+	      || REG_USERVAR_P (iteration_var));
 
   /* Determine the initial value of the iteration variable, and the amount
      that it is incremented each loop.  Use the tables constructed by
@@ -5850,8 +5908,7 @@ loop_iterations (struct loop *loop)
 
   if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
     {
-      if (REGNO (iteration_var) >= ivs->n_regs)
-	abort ();
+      gcc_assert (REGNO (iteration_var) < ivs->n_regs);
 
       /* Grab initial value, only useful if it is a constant.  */
       bl = REG_IV_CLASS (ivs, REGNO (iteration_var));
@@ -5872,8 +5929,7 @@ loop_iterations (struct loop *loop)
       struct induction *v = REG_IV_INFO (ivs, REGNO (iteration_var));
       rtx biv_initial_value;
 
-      if (REGNO (v->src_reg) >= ivs->n_regs)
-	abort ();
+      gcc_assert (REGNO (v->src_reg) < ivs->n_regs);
 
       if (!v->always_executed || v->maybe_multiple)
 	{
@@ -5980,7 +6036,7 @@ loop_iterations (struct loop *loop)
       compare_dir = 0;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* If the comparison value is an invariant register, then try to find
@@ -6232,18 +6288,17 @@ loop_iterations (struct loop *loop)
      unsigned, because they can be as large as 2^n - 1.  */
 
   inc = INTVAL (increment);
+  gcc_assert (inc);
   if (inc > 0)
     {
       abs_diff = INTVAL (final_value) - INTVAL (initial_value);
       abs_inc = inc;
     }
-  else if (inc < 0)
+  else
     {
       abs_diff = INTVAL (initial_value) - INTVAL (final_value);
       abs_inc = -inc;
     }
-  else
-    abort ();
 
   /* Given that iteration_var is going to iterate over its own mode,
      not HOST_WIDE_INT, disregard higher bits that might have come
@@ -6672,7 +6727,7 @@ valid_initial_value_p (rtx x, rtx insn, int call_seen, rtx loop_start)
      some machines, don't use any hard registers at all.  */
   if (REGNO (x) < FIRST_PSEUDO_REGISTER
       && (SMALL_REGISTER_CLASSES
-	  || (call_used_regs[REGNO (x)] && call_seen)))
+	  || (call_seen && call_used_regs[REGNO (x)])))
     return 0;
 
   /* Don't use registers that have been clobbered before the start of the
@@ -6953,19 +7008,15 @@ record_giv (const struct loop *loop, struct induction *v, rtx insn,
   /* Add the giv to the class of givs computed from one biv.  */
 
   bl = REG_IV_CLASS (ivs, REGNO (src_reg));
-  if (bl)
-    {
-      v->next_iv = bl->giv;
-      bl->giv = v;
-      /* Don't count DEST_ADDR.  This is supposed to count the number of
-	 insns that calculate givs.  */
-      if (type == DEST_REG)
-	bl->giv_count++;
-      bl->total_benefit += benefit;
-    }
-  else
-    /* Fatal error, biv missing for this giv?  */
-    abort ();
+  gcc_assert (bl);
+  v->next_iv = bl->giv;
+  bl->giv = v;
+  
+  /* Don't count DEST_ADDR.  This is supposed to count the number of
+     insns that calculate givs.  */
+  if (type == DEST_REG)
+    bl->giv_count++;
+  bl->total_benefit += benefit;
 
   if (type == DEST_ADDR)
     {
@@ -7180,8 +7231,7 @@ final_giv_value (const struct loop *loop, struct induction *v)
     }
 
   /* Replaceable giv's should never reach here.  */
-  if (v->replaceable)
-    abort ();
+  gcc_assert (!v->replaceable);
 
   /* Check to see if the biv is dead at all loop exits.  */
   if (reg_dead_after_loop (loop, v->dest_reg))
@@ -7591,9 +7641,8 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
 					dest_reg, insn,
 					inc_val, mult_val, location);
 
-	  while (GET_CODE (dest) == SIGN_EXTRACT
+	  while (GET_CODE (dest) == SUBREG
 		 || GET_CODE (dest) == ZERO_EXTRACT
-		 || GET_CODE (dest) == SUBREG
 		 || GET_CODE (dest) == STRICT_LOW_PART)
 	    dest = XEXP (dest, 0);
 	  if (dest == x)
@@ -7611,9 +7660,9 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
     case CONST_INT:
     case SYMBOL_REF:
     case CONST:
-      /* convert_modes aborts if we try to convert to or from CCmode, so just
+      /* convert_modes dies if we try to convert to or from CCmode, so just
          exclude that case.  It is very unlikely that a condition code value
-	 would be a useful iterator anyways.  convert_modes aborts if we try to
+	 would be a useful iterator anyways.  convert_modes dies if we try to
 	 convert a float mode to non-float or vice versa too.  */
       if (loop->level == 1
 	  && GET_MODE_CLASS (mode) == GET_MODE_CLASS (GET_MODE (dest_reg))
@@ -7746,7 +7795,7 @@ general_induction_var (const struct loop *loop, rtx x, rtx *src_reg,
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Remove any enclosing USE from ADD_VAL and MULT_VAL (there will be
@@ -7865,7 +7914,7 @@ simplify_giv_expr (const struct loop *loop, rtx x, rtx *ext_val, int *benefit)
 				 ext_val, benefit);
 
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
 
       /* Each argument must be either REG, PLUS, or MULT.  Convert REG to
@@ -8006,7 +8055,7 @@ simplify_giv_expr (const struct loop *loop, rtx x, rtx *ext_val, int *benefit)
 				    ext_val, benefit);
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
     case ASHIFT:
@@ -8606,6 +8655,173 @@ combine_givs_p (struct induction *g1, struct induction *g2)
   return NULL_RTX;
 }
 
+/* See if BL is monotonic and has a constant per-iteration increment.
+   Return the increment if so, otherwise return 0.  */
+
+static HOST_WIDE_INT
+get_monotonic_increment (struct iv_class *bl)
+{
+  struct induction *v;
+  rtx incr;
+
+  /* Get the total increment and check that it is constant.  */
+  incr = biv_total_increment (bl);
+  if (incr == 0 || GET_CODE (incr) != CONST_INT)
+    return 0;
+
+  for (v = bl->biv; v != 0; v = v->next_iv)
+    {
+      if (GET_CODE (v->add_val) != CONST_INT)
+	return 0;
+
+      if (INTVAL (v->add_val) < 0 && INTVAL (incr) >= 0)
+	return 0;
+
+      if (INTVAL (v->add_val) > 0 && INTVAL (incr) <= 0)
+	return 0;
+    }
+  return INTVAL (incr);
+}
+
+
+/* Subroutine of biv_fits_mode_p.  Return true if biv BL, when biased by
+   BIAS, will never exceed the unsigned range of MODE.  LOOP is the loop
+   to which the biv belongs and INCR is its per-iteration increment.  */
+
+static bool
+biased_biv_fits_mode_p (const struct loop *loop, struct iv_class *bl,
+			HOST_WIDE_INT incr, enum machine_mode mode,
+			unsigned HOST_WIDE_INT bias)
+{
+  unsigned HOST_WIDE_INT initial, maximum, span, delta;
+
+  /* We need to be able to manipulate MODE-size constants.  */
+  if (HOST_BITS_PER_WIDE_INT < GET_MODE_BITSIZE (mode))
+    return false;
+
+  /* The number of loop iterations must be constant.  */
+  if (LOOP_INFO (loop)->n_iterations == 0)
+    return false;
+
+  /* So must the biv's initial value.  */
+  if (bl->initial_value == 0 || GET_CODE (bl->initial_value) != CONST_INT)
+    return false;
+
+  initial = bias + INTVAL (bl->initial_value);
+  maximum = GET_MODE_MASK (mode);
+
+  /* Make sure that the initial value is within range.  */
+  if (initial > maximum)
+    return false;
+
+  /* Set up DELTA and SPAN such that the number of iterations * DELTA
+     (calculated to arbitrary precision) must be <= SPAN.  */
+  if (incr < 0)
+    {
+      delta = -incr;
+      span = initial;
+    }
+  else
+    {
+      delta = incr;
+      /* Handle the special case in which MAXIMUM is the largest
+	 unsigned HOST_WIDE_INT and INITIAL is 0.  */
+      if (maximum + 1 == initial)
+	span = LOOP_INFO (loop)->n_iterations * delta;
+      else
+	span = maximum + 1 - initial;
+    }
+  return (span / LOOP_INFO (loop)->n_iterations >= delta);
+}
+
+
+/* Return true if biv BL will never exceed the bounds of MODE.  LOOP is
+   the loop to which BL belongs and INCR is its per-iteration increment.
+   UNSIGNEDP is true if the biv should be treated as unsigned.  */
+
+static bool
+biv_fits_mode_p (const struct loop *loop, struct iv_class *bl,
+		 HOST_WIDE_INT incr, enum machine_mode mode, bool unsignedp)
+{
+  struct loop_info *loop_info;
+  unsigned HOST_WIDE_INT bias;
+
+  /* A biv's value will always be limited to its natural mode.
+     Larger modes will observe the same wrap-around.  */
+  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (bl->biv->src_reg)))
+    mode = GET_MODE (bl->biv->src_reg);
+
+  loop_info = LOOP_INFO (loop);
+
+  bias = (unsignedp ? 0 : (GET_MODE_MASK (mode) >> 1) + 1);
+  if (biased_biv_fits_mode_p (loop, bl, incr, mode, bias))
+    return true;
+
+  if (mode == GET_MODE (bl->biv->src_reg)
+      && bl->biv->src_reg == loop_info->iteration_var
+      && loop_info->comparison_value
+      && loop_invariant_p (loop, loop_info->comparison_value))
+    {
+      /* If the increment is +1, and the exit test is a <, the BIV
+         cannot overflow.  (For <=, we have the problematic case that
+         the comparison value might be the maximum value of the range.)  */
+      if (incr == 1)
+	{
+	  if (loop_info->comparison_code == LT)
+	    return true;
+	  if (loop_info->comparison_code == LTU && unsignedp)
+	    return true;
+	}
+
+      /* Likewise for increment -1 and exit test >.  */
+      if (incr == -1)
+	{
+	  if (loop_info->comparison_code == GT)
+	    return true;
+	  if (loop_info->comparison_code == GTU && unsignedp)
+	    return true;
+	}
+    }
+  return false;
+}
+
+
+/* Given that X is an extension or truncation of BL, return true
+   if it is unaffected by overflow.  LOOP is the loop to which
+   BL belongs and INCR is its per-iteration increment.  */
+
+static bool
+extension_within_bounds_p (const struct loop *loop, struct iv_class *bl,
+			   HOST_WIDE_INT incr, rtx x)
+{
+  enum machine_mode mode;
+  bool signedp, unsignedp;
+
+  switch (GET_CODE (x))
+    {
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      mode = GET_MODE (XEXP (x, 0));
+      signedp = (GET_CODE (x) == SIGN_EXTEND);
+      unsignedp = (GET_CODE (x) == ZERO_EXTEND);
+      break;
+
+    case TRUNCATE:
+      /* We don't know whether this value is being used as signed
+	 or unsigned, so check the conditions for both.  */
+      mode = GET_MODE (x);
+      signedp = unsignedp = true;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return ((!signedp || biv_fits_mode_p (loop, bl, incr, mode, false))
+	  && (!unsignedp || biv_fits_mode_p (loop, bl, incr, mode, true)));
+}
+
+
 /* Check each extension dependent giv in this class to see if its
    root biv is safe from wrapping in the interior mode, which would
    make the giv illegal.  */
@@ -8613,185 +8829,30 @@ combine_givs_p (struct induction *g1, struct induction *g2)
 static void
 check_ext_dependent_givs (const struct loop *loop, struct iv_class *bl)
 {
-  struct loop_info *loop_info = LOOP_INFO (loop);
-  int ze_ok = 0, se_ok = 0, info_ok = 0;
-  enum machine_mode biv_mode = GET_MODE (bl->biv->src_reg);
-  HOST_WIDE_INT start_val;
-  unsigned HOST_WIDE_INT u_end_val = 0;
-  unsigned HOST_WIDE_INT u_start_val = 0;
-  rtx incr = pc_rtx;
   struct induction *v;
+  HOST_WIDE_INT incr;
 
-  /* Make sure the iteration data is available.  We must have
-     constants in order to be certain of no overflow.  */
-  if (loop_info->n_iterations > 0
-      && bl->initial_value
-      && GET_CODE (bl->initial_value) == CONST_INT
-      && (incr = biv_total_increment (bl))
-      && GET_CODE (incr) == CONST_INT
-      /* Make sure the host can represent the arithmetic.  */
-      && HOST_BITS_PER_WIDE_INT >= GET_MODE_BITSIZE (biv_mode))
-    {
-      unsigned HOST_WIDE_INT abs_incr, total_incr;
-      HOST_WIDE_INT s_end_val;
-      int neg_incr;
-
-      info_ok = 1;
-      start_val = INTVAL (bl->initial_value);
-      u_start_val = start_val;
-
-      neg_incr = 0, abs_incr = INTVAL (incr);
-      if (INTVAL (incr) < 0)
-	neg_incr = 1, abs_incr = -abs_incr;
-      total_incr = abs_incr * loop_info->n_iterations;
-
-      /* Check for host arithmetic overflow.  */
-      if (total_incr / loop_info->n_iterations == abs_incr)
-	{
-	  unsigned HOST_WIDE_INT u_max;
-	  HOST_WIDE_INT s_max;
-
-	  u_end_val = start_val + (neg_incr ? -total_incr : total_incr);
-	  s_end_val = u_end_val;
-	  u_max = GET_MODE_MASK (biv_mode);
-	  s_max = u_max >> 1;
-
-	  /* Check zero extension of biv ok.  */
-	  if (start_val >= 0
-	      /* Check for host arithmetic overflow.  */
-	      && (neg_incr
-		  ? u_end_val < u_start_val
-		  : u_end_val > u_start_val)
-	      /* Check for target arithmetic overflow.  */
-	      && (neg_incr
-		  ? 1 /* taken care of with host overflow */
-		  : u_end_val <= u_max))
-	    {
-	      ze_ok = 1;
-	    }
-
-	  /* Check sign extension of biv ok.  */
-	  /* ??? While it is true that overflow with signed and pointer
-	     arithmetic is undefined, I fear too many programmers don't
-	     keep this fact in mind -- myself included on occasion.
-	     So leave alone with the signed overflow optimizations.  */
-	  if (start_val >= -s_max - 1
-	      /* Check for host arithmetic overflow.  */
-	      && (neg_incr
-		  ? s_end_val < start_val
-		  : s_end_val > start_val)
-	      /* Check for target arithmetic overflow.  */
-	      && (neg_incr
-		  ? s_end_val >= -s_max - 1
-		  : s_end_val <= s_max))
-	    {
-	      se_ok = 1;
-	    }
-	}
-    }
-
-  /* If we know the BIV is compared at run-time against an 
-     invariant value, and the increment is +/- 1, we may also 
-     be able to prove that the BIV cannot overflow.  */
-  else if (bl->biv->src_reg == loop_info->iteration_var
-           && loop_info->comparison_value
-           && loop_invariant_p (loop, loop_info->comparison_value)
-           && (incr = biv_total_increment (bl))
-           && GET_CODE (incr) == CONST_INT)
-    {
-      /* If the increment is +1, and the exit test is a <,
-         the BIV cannot overflow.  (For <=, we have the 
-         problematic case that the comparison value might
-         be the maximum value of the range.)  */
-       if (INTVAL (incr) == 1)
-         {
-           if (loop_info->comparison_code == LT)
-             se_ok = ze_ok = 1;
-           else if (loop_info->comparison_code == LTU)
-             ze_ok = 1;
-         }
-
-       /* Likewise for increment -1 and exit test >.  */
-       if (INTVAL (incr) == -1)
-         {
-           if (loop_info->comparison_code == GT)
-             se_ok = ze_ok = 1;
-           else if (loop_info->comparison_code == GTU)
-             ze_ok = 1;
-         }
-    }
+  incr = get_monotonic_increment (bl);
 
   /* Invalidate givs that fail the tests.  */
   for (v = bl->giv; v; v = v->next_iv)
     if (v->ext_dependent)
       {
-	enum rtx_code code = GET_CODE (v->ext_dependent);
-	int ok = 0;
-
-	switch (code)
-	  {
-	  case SIGN_EXTEND:
-	    ok = se_ok;
-	    break;
-	  case ZERO_EXTEND:
-	    ok = ze_ok;
-	    break;
-
-	  case TRUNCATE:
-	    /* We don't know whether this value is being used as either
-	       signed or unsigned, so to safely truncate we must satisfy
-	       both.  The initial check here verifies the BIV itself;
-	       once that is successful we may check its range wrt the
-	       derived GIV.  This works only if we were able to determine
-	       constant start and end values above.  */
-	    if (se_ok && ze_ok && info_ok)
-	      {
-		enum machine_mode outer_mode = GET_MODE (v->ext_dependent);
-		unsigned HOST_WIDE_INT max = GET_MODE_MASK (outer_mode) >> 1;
-
-		/* We know from the above that both endpoints are nonnegative,
-		   and that there is no wrapping.  Verify that both endpoints
-		   are within the (signed) range of the outer mode.  */
-		if (u_start_val <= max && u_end_val <= max)
-		  ok = 1;
-	      }
-	    break;
-
-	  default:
-	    abort ();
-	  }
-
-	if (ok)
+	if (incr != 0
+	    && extension_within_bounds_p (loop, bl, incr, v->ext_dependent))
 	  {
 	    if (loop_dump_stream)
-	      {
-		fprintf (loop_dump_stream,
-			 "Verified ext dependent giv at %d of reg %d\n",
-			 INSN_UID (v->insn), bl->regno);
-	      }
+	      fprintf (loop_dump_stream,
+		       "Verified ext dependent giv at %d of reg %d\n",
+		       INSN_UID (v->insn), bl->regno);
 	  }
 	else
 	  {
 	    if (loop_dump_stream)
-	      {
-		const char *why;
+	      fprintf (loop_dump_stream,
+		       "Failed ext dependent giv at %d\n",
+		       INSN_UID (v->insn));
 
-		if (info_ok)
-		  why = "biv iteration values overflowed";
-		else
-		  {
-		    if (incr == pc_rtx)
-		      incr = biv_total_increment (bl);
-		    if (incr == const1_rtx)
-		      why = "biv iteration info incomplete; incr by 1";
-		    else
-		      why = "biv iteration info incomplete";
-		  }
-
-		fprintf (loop_dump_stream,
-			 "Failed ext dependent giv at %d, %s\n",
-			 INSN_UID (v->insn), why);
-	      }
 	    v->ignore = 1;
 	    bl->all_reduced = 0;
 	  }
@@ -8882,7 +8943,7 @@ combine_givs (struct loop_regs *regs, struct iv_class *bl)
       /* If a DEST_REG GIV is used only once, do not allow it to combine
 	 with anything, for in doing so we will gain nothing that cannot
 	 be had by simply letting the GIV with which we would have combined
-	 to be reduced on its own.  The losage shows up in particular with
+	 to be reduced on its own.  The lossage shows up in particular with
 	 DEST_ADDR targets on hosts with reg+reg addressing, though it can
 	 be seen elsewhere as well.  */
       if (g1->giv_type == DEST_REG
@@ -9202,7 +9263,9 @@ product_cheap_p (rtx a, rtx b)
   end_sequence ();
 
   win = 1;
-  if (INSN_P (tmp))
+  if (tmp == NULL_RTX)
+    ;
+  else if (INSN_P (tmp))
     {
       n_insns = 0;
       while (tmp != NULL_RTX)
@@ -11088,8 +11151,7 @@ try_copy_prop (const struct loop *loop, rtx replacement, unsigned int regno)
 	  && REG_P (SET_DEST (set))
 	  && REGNO (SET_DEST (set)) == regno)
 	{
-	  if (init_insn)
-	    abort ();
+	  gcc_assert (!init_insn);
 
 	  init_insn = insn;
 	  if (REGNO_FIRST_UID (regno) == INSN_UID (insn))
@@ -11122,8 +11184,7 @@ try_copy_prop (const struct loop *loop, rtx replacement, unsigned int regno)
 	    }
 	}
     }
-  if (! init_insn)
-    abort ();
+  gcc_assert (init_insn);
   if (apply_change_group ())
     {
       if (loop_dump_stream)
@@ -11624,7 +11685,7 @@ loop_giv_dump (const struct induction *v, FILE *file, int verbose)
 	  fprintf (file, " ext tr");
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -11753,3 +11814,66 @@ debug_loops (const struct loops *loops)
 {
   flow_loops_dump (loops, stderr, loop_dump_aux, 1);
 }
+
+static bool
+gate_handle_loop_optimize (void)
+{
+  return (optimize > 0 && flag_loop_optimize);
+}
+
+/* Move constant computations out of loops.  */
+static void
+rest_of_handle_loop_optimize (void)
+{
+  int do_prefetch;
+
+  /* CFG is no longer maintained up-to-date.  */
+  free_bb_for_insn ();
+  profile_status = PROFILE_ABSENT;
+  
+  do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
+  
+  if (flag_rerun_loop_opt)
+    {
+      cleanup_barriers ();
+      
+      /* We only want to perform unrolling once.  */
+      loop_optimize (get_insns (), dump_file, 0);
+      
+      /* The first call to loop_optimize makes some instructions
+         trivially dead.  We delete those instructions now in the
+         hope that doing so will make the heuristics in loop work
+         better and possibly speed up compilation.  */
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  
+      /* The regscan pass is currently necessary as the alias
+         analysis code depends on this information.  */
+      reg_scan (get_insns (), max_reg_num ());
+    } 
+  cleanup_barriers ();
+  loop_optimize (get_insns (), dump_file, do_prefetch);
+      
+  /* Loop can create trivially dead instructions.  */
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  find_basic_blocks (get_insns ());
+}
+
+struct tree_opt_pass pass_loop_optimize =
+{
+  "old-loop",                           /* name */
+  gate_handle_loop_optimize,            /* gate */   
+  rest_of_handle_loop_optimize,         /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_LOOP,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'L'                                   /* letter */
+};
+
+

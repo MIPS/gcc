@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2004, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -176,7 +176,7 @@ known_alignment (tree exp)
     case PLUS_EXPR:
     case MINUS_EXPR:
       /* If two address are added, the alignment of the result is the
-	 minimum of the two aligments.  */
+	 minimum of the two alignments.  */
       lhs = known_alignment (TREE_OPERAND (exp, 0));
       rhs = known_alignment (TREE_OPERAND (exp, 1));
       this_alignment = MIN (lhs, rhs);
@@ -504,7 +504,7 @@ nonbinary_modular_operation (enum tree_code op_code, tree type, tree lhs,
     rhs = fold (build2 (MINUS_EXPR, type, modulus, rhs)), op_code = MINUS_EXPR;
 
   /* For the logical operations, we only need PRECISION bits.  For
-     addition and subraction, we need one more and for multiplication we
+     addition and subtraction, we need one more and for multiplication we
      need twice as many.  But we never want to make a size smaller than
      our size. */
   if (op_code == PLUS_EXPR || op_code == MINUS_EXPR)
@@ -660,13 +660,16 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	 might indicate a conversion between a root type and a class-wide
 	 type, which we must not remove.  */
       while (TREE_CODE (right_operand) == VIEW_CONVERT_EXPR
-	     && ((TREE_CODE (right_type) == RECORD_TYPE
+	     && (((TREE_CODE (right_type) == RECORD_TYPE
+		   || TREE_CODE (right_type) == UNION_TYPE)
 		  && !TYPE_JUSTIFIED_MODULAR_P (right_type)
 		  && !TYPE_ALIGN_OK (right_type)
 		  && !TYPE_IS_FAT_POINTER_P (right_type))
 		 || TREE_CODE (right_type) == ARRAY_TYPE)
-	     && (((TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-		   == RECORD_TYPE)
+	     && ((((TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		    == RECORD_TYPE)
+		   || (TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		       == UNION_TYPE))
 		  && !(TYPE_JUSTIFIED_MODULAR_P
 		       (TREE_TYPE (TREE_OPERAND (right_operand, 0))))
 		  && !(TYPE_ALIGN_OK
@@ -676,9 +679,9 @@ build_binary_op (enum tree_code op_code, tree result_type,
 		 || (TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
 		     == ARRAY_TYPE))
 	     && (0 == (best_type
-		       == find_common_type (right_type,
-					    TREE_TYPE (TREE_OPERAND
-						       (right_operand, 0))))
+		       = find_common_type (right_type,
+					   TREE_TYPE (TREE_OPERAND
+					   (right_operand, 0))))
 		 || right_type != best_type))
 	{
 	  right_operand = TREE_OPERAND (right_operand, 0);
@@ -695,7 +698,9 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	operation_type = best_type;
 
       /* If a class-wide type may be involved, force use of the RHS type.  */
-      if (TREE_CODE (right_type) == RECORD_TYPE && TYPE_ALIGN_OK (right_type))
+      if ((TREE_CODE (right_type) == RECORD_TYPE
+	   || TREE_CODE (right_type) == UNION_TYPE)
+	  && TYPE_ALIGN_OK (right_type))
 	operation_type = right_type;
 
       /* Ensure everything on the LHS is valid.  If we have a field reference,
@@ -1087,7 +1092,8 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	      int unsignedp, volatilep;
 
 	      inner = get_inner_reference (operand, &bitsize, &bitpos, &offset,
-					   &mode, &unsignedp, &volatilep);
+					   &mode, &unsignedp, &volatilep,
+					   false);
 
 	      /* If INNER is a padding type whose field has a self-referential
 		 size, convert to that inner type.  We know the offset is zero
@@ -1424,7 +1430,8 @@ tree
 build_call_raise (int msg)
 {
   tree fndecl = gnat_raise_decls[msg];
-  const char *str = Debug_Flag_NN ? "" : ref_filename;
+  const char *str
+    = (Debug_Flag_NN || Exception_Locations_Suppressed) ? "" : ref_filename;
   int len = strlen (str) + 1;
   tree filename = build_string (len, str);
 
@@ -1745,11 +1752,15 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
    initial value is INIT, if INIT is nonzero.  Convert the expression to
    RESULT_TYPE, which must be some type of pointer.  Return the tree.
    GNAT_PROC and GNAT_POOL optionally give the procedure to call and
-   the storage pool to use.  */
+   the storage pool to use.  GNAT_NODE is used to provide an error
+   location for restriction violations messages.  If IGNORE_INIT_TYPE is
+   true, ignore the type of INIT for the purpose of determining the size;
+   this will cause the maximum size to be allocated if TYPE is of
+   self-referential size.  */
 
 tree
 build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
-                 Entity_Id gnat_pool, Node_Id gnat_node)
+                 Entity_Id gnat_pool, Node_Id gnat_node, bool ignore_init_type)
 {
   tree size = TYPE_SIZE_UNIT (type);
   tree result;
@@ -1833,7 +1844,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 
   /* If we have an initializing expression, see if its size is simpler
      than the size from the type.  */
-  if (init && TYPE_SIZE_UNIT (TREE_TYPE (init))
+  if (!ignore_init_type && init && TYPE_SIZE_UNIT (TREE_TYPE (init))
       && (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (init))) == INTEGER_CST
 	  || CONTAINS_PLACEHOLDER_P (size)))
     size = TYPE_SIZE_UNIT (TREE_TYPE (init));
@@ -1844,7 +1855,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
      the maximum size.  */
   if (CONTAINS_PLACEHOLDER_P (size))
     {
-      if (init)
+      if (!ignore_init_type && init)
 	size = substitute_placeholder_in_expr (size, init);
       else
 	size = max_size (size, true);

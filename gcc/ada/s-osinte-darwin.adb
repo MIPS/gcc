@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
+--                 GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                 --
 --                                                                          --
 --                   S Y S T E M . O S _ I N T E R F A C E                  --
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---           Copyright (C) 1999-2004 Free Software Foundation, Inc.         --
+--           Copyright (C) 1999-2005 Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -78,7 +78,7 @@ package body System.OS_Interface is
       end if;
 
       return timespec'(tv_sec => S,
-        tv_nsec => long (Long_Long_Integer (F * 10#1#E9)));
+        tv_nsec => int32_t (Long_Long_Integer (F * 10#1#E9)));
    end To_Timespec;
 
    ----------------
@@ -86,11 +86,11 @@ package body System.OS_Interface is
    ----------------
 
    function To_Timeval (D : Duration) return struct_timeval is
-      S : long;
+      S : int32_t;
       F : Duration;
 
    begin
-      S := long (Long_Long_Integer (D));
+      S := int32_t (D);
       F := D - Duration (S);
 
       --  If F has negative value due to a round-up, adjust for positive F
@@ -101,8 +101,9 @@ package body System.OS_Interface is
          F := F + 1.0;
       end if;
 
-      return struct_timeval'(tv_sec => S,
-        tv_usec => long (Long_Long_Integer (F * 10#1#E6)));
+      return struct_timeval'
+               (Tv_Sec  => S,
+                tv_usec => int32_t (Long_Long_Integer (F * 10#1#E6)));
    end To_Timeval;
 
    -------------------

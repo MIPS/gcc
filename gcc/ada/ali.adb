@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -84,6 +84,7 @@ package body ALI is
       --  Initialize all tables
 
       ALIs.Init;
+      No_Deps.Init;
       Units.Init;
       Withs.Init;
       Sdep.Init;
@@ -199,7 +200,7 @@ package body ALI is
       --  quote.
 
       function Get_Nat return Nat;
-      --  Skip blanks, then scan out an unsigned integer value in Nat range.
+      --  Skip blanks, then scan out an unsigned integer value in Nat range
 
       function Get_Stamp return Time_Stamp_Type;
       --  Skip blanks, then scan out a time stamp
@@ -212,7 +213,7 @@ package body ALI is
       --  at end of line). Also skips past any following blank lines.
 
       procedure Skip_Line;
-      --  Skip rest of current line and any following blank lines.
+      --  Skip rest of current line and any following blank lines
 
       procedure Skip_Space;
       --  Skip past white space (blanks or horizontal tab)
@@ -438,6 +439,7 @@ package body ALI is
                  or else Nextc = '(' or else Nextc = ')'
                  or else Nextc = '{' or else Nextc = '}'
                  or else Nextc = '<' or else Nextc = '>'
+                 or else Nextc = '[' or else Nextc = ']'
                  or else Nextc = '=';
             end if;
          end loop;
@@ -653,6 +655,7 @@ package body ALI is
         Ofile_Full_Name            => Full_Object_File_Name,
         Queuing_Policy             => ' ',
         Restrictions               => Restrictions_Initial,
+        SAL_Interface              => False,
         Sfile                      => No_Name,
         Task_Dispatching_Policy    => ' ',
         Time_Slice_Value           => -1,
@@ -660,7 +663,6 @@ package body ALI is
         Unit_Exception_Table       => False,
         Ver                        => (others => ' '),
         Ver_Len                    => 0,
-        Interface                  => False,
         Zero_Cost_Exceptions       => False);
 
       --  Now we acquire the input lines from the ALI file. Note that the
@@ -877,7 +879,7 @@ package body ALI is
                --  Processing for SL
 
                if C = 'L' then
-                  ALIs.Table (Id).Interface := True;
+                  ALIs.Table (Id).SAL_Interface := True;
 
                --  Processing for SS
 
@@ -948,7 +950,7 @@ package body ALI is
       C := Getc;
       Check_Unknown_Line;
 
-      --  Acquire restrictions line
+      --  Acquire first restrictions line
 
       while C /= 'R' loop
          if Ignore_Errors then
@@ -974,7 +976,7 @@ package body ALI is
             --  Save cumulative restrictions in case we have a fatal error
 
             Bad_R_Line : exception;
-            --  Signal bad restrictions line
+            --  Signal bad restrictions line (raised on unexpected character)
 
          begin
             Checkc (' ');
@@ -998,7 +1000,7 @@ package body ALI is
                      null;
 
                   when others =>
-                     Fatal_Error;
+                     raise Bad_R_Line;
                end case;
             end loop;
 
@@ -1031,7 +1033,7 @@ package body ALI is
                      end;
 
                   when others =>
-                     Fatal_Error;
+                     raise Bad_R_Line;
                end case;
 
                --  Acquire restrictions violations information
@@ -1078,7 +1080,7 @@ package body ALI is
                      end if;
 
                   when others =>
-                     Fatal_Error;
+                     raise Bad_R_Line;
                end case;
             end loop;
 
@@ -1095,6 +1097,7 @@ package body ALI is
                if Ignore_Errors then
                   Cumulative_Restrictions := Save_R;
                   ALIs.Table (Id).Restrictions := Restrictions_Initial;
+                  Skip_Eol;
 
                --  In normal mode, this is a fatal error
 
@@ -1105,9 +1108,23 @@ package body ALI is
          end Scan_Restrictions;
       end if;
 
-      --  Acquire 'I' lines if present
+      --  Acquire additional restrictions (No_Dependence) lines if present
 
       C := Getc;
+      while C = 'R' loop
+         if Ignore ('R') then
+            Skip_Line;
+         else
+            Skip_Space;
+            No_Deps.Append ((Id, Get_Name));
+         end if;
+
+         Skip_Eol;
+         C := Getc;
+      end loop;
+
+      --  Acquire 'I' lines if present
+
       Check_Unknown_Line;
 
       while C = 'I' loop
@@ -1178,7 +1195,8 @@ package body ALI is
          Units.Table (Units.Last).First_With      := Withs.Last + 1;
          Units.Table (Units.Last).First_Arg       := First_Arg;
          Units.Table (Units.Last).Elab_Position   := 0;
-         Units.Table (Units.Last).Interface       := ALIs.Table (Id).Interface;
+         Units.Table (Units.Last).SAL_Interface   := ALIs.Table (Id).
+                                                       SAL_Interface;
          Units.Table (Units.Last).Body_Needed_For_SAL := False;
 
          if Debug_Flag_U then
@@ -1274,7 +1292,6 @@ package body ALI is
                   Fatal_Error_Ignore;
                end if;
 
-
             --  DE parameter (Dynamic elaboration checks)
 
             elsif C = 'D' then
@@ -1360,7 +1377,6 @@ package body ALI is
                   Fatal_Error_Ignore;
                end if;
 
-
             --  PR/PU/PK parameters
 
             elsif C = 'P' then
@@ -1443,7 +1459,7 @@ package body ALI is
                Withs.Table (Withs.Last).Elaborate          := False;
                Withs.Table (Withs.Last).Elaborate_All      := False;
                Withs.Table (Withs.Last).Elab_All_Desirable := False;
-               Withs.Table (Withs.Last).Interface          := False;
+               Withs.Table (Withs.Last).SAL_Interface      := False;
 
                --  Generic case with no object file available
 
@@ -1870,6 +1886,31 @@ package body ALI is
                   XE.Col    := Get_Nat;
                   XE.Lib    := (Getc = '*');
                   XE.Entity := Get_Name;
+
+                  --  Handle the information about generic instantiations
+
+                  if Nextc = '[' then
+                     Skipc; --  Opening '['
+                     N := Get_Nat;
+
+                     if Nextc /= '|' then
+                        XE.Iref_File_Num := Current_File_Num;
+                        XE.Iref_Line     := N;
+                     else
+                        XE.Iref_File_Num :=
+                          Sdep_Id (N + Nat (First_Sdep_Entry) - 1);
+                        Skipc;
+                        XE.Iref_Line := Get_Nat;
+                     end if;
+
+                     if Getc /= ']' then
+                        Fatal_Error;
+                     end if;
+
+                  else
+                     XE.Iref_File_Num := No_Sdep_Id;
+                     XE.Iref_Line     := 0;
+                  end if;
 
                   Current_File_Num := XS.File_Num;
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -34,6 +34,8 @@ with Lib;      use Lib;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
+with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
@@ -83,7 +85,7 @@ package body Sem_Ch13 is
    --  operational attributes.
 
    function Address_Aliased_Entity (N : Node_Id) return Entity_Id;
-   --  If expression N is of the form E'Address, return E.
+   --  If expression N is of the form E'Address, return E
 
    procedure Mark_Aliased_Address_As_Volatile (N : Node_Id);
    --  This is used for processing of an address representation clause. If
@@ -203,6 +205,8 @@ package body Sem_Ch13 is
 
    procedure Analyze_At_Clause (N : Node_Id) is
    begin
+      Check_Restriction (No_Obsolescent_Features, N);
+
       if Warn_On_Obsolescent_Feature then
          Error_Msg_N
            ("at clause is an obsolescent feature ('R'M 'J.7(2))?", N);
@@ -240,6 +244,137 @@ package body Sem_Ch13 is
       --  disallow Storage_Size for derived task types, but that is also
       --  clearly unintentional.
 
+      procedure Analyze_Stream_TSS_Definition (TSS_Nam : TSS_Name_Type);
+      --  Common processing for 'Read, 'Write, 'Input and 'Output attribute
+      --  definition clauses.
+
+      procedure Analyze_Stream_TSS_Definition (TSS_Nam : TSS_Name_Type) is
+         Subp : Entity_Id := Empty;
+         I    : Interp_Index;
+         It   : Interp;
+         Pnam : Entity_Id;
+
+         Is_Read : constant Boolean := (TSS_Nam = TSS_Stream_Read);
+
+         function Has_Good_Profile (Subp : Entity_Id) return Boolean;
+         --  Return true if the entity is a subprogram with an appropriate
+         --  profile for the attribute being defined.
+
+         ----------------------
+         -- Has_Good_Profile --
+         ----------------------
+
+         function Has_Good_Profile (Subp : Entity_Id) return Boolean is
+            F              : Entity_Id;
+            Is_Function    : constant Boolean := (TSS_Nam = TSS_Stream_Input);
+            Expected_Ekind : constant array (Boolean) of Entity_Kind :=
+                               (False => E_Procedure, True => E_Function);
+            Typ            : Entity_Id;
+
+         begin
+            if Ekind (Subp) /= Expected_Ekind (Is_Function) then
+               return False;
+            end if;
+
+            F := First_Formal (Subp);
+
+            if No (F)
+              or else Ekind (Etype (F)) /= E_Anonymous_Access_Type
+              or else Designated_Type (Etype (F)) /=
+                               Class_Wide_Type (RTE (RE_Root_Stream_Type))
+            then
+               return False;
+            end if;
+
+            if not Is_Function then
+               Next_Formal (F);
+
+               declare
+                  Expected_Mode : constant array (Boolean) of Entity_Kind :=
+                                    (False => E_In_Parameter,
+                                     True  => E_Out_Parameter);
+               begin
+                  if Parameter_Mode (F) /= Expected_Mode (Is_Read) then
+                     return False;
+                  end if;
+               end;
+
+               Typ := Etype (F);
+
+            else
+               Typ := Etype (Subp);
+            end if;
+
+            return Base_Type (Typ) = Base_Type (Ent)
+              and then No (Next_Formal (F));
+
+         end Has_Good_Profile;
+
+      --  Start of processing for Analyze_Stream_TSS_Definition
+
+      begin
+         FOnly := True;
+
+         if not Is_Type (U_Ent) then
+            Error_Msg_N ("local name must be a subtype", Nam);
+            return;
+         end if;
+
+         Pnam := TSS (Base_Type (U_Ent), TSS_Nam);
+
+         if Present (Pnam) and then Has_Good_Profile (Pnam) then
+            Error_Msg_Sloc := Sloc (Pnam);
+            Error_Msg_Name_1 := Attr;
+            Error_Msg_N ("% attribute already defined #", Nam);
+            return;
+         end if;
+
+         Analyze (Expr);
+
+         if Is_Entity_Name (Expr) then
+            if not Is_Overloaded (Expr) then
+               if Has_Good_Profile (Entity (Expr)) then
+                  Subp := Entity (Expr);
+               end if;
+
+            else
+               Get_First_Interp (Expr, I, It);
+
+               while Present (It.Nam) loop
+                  if Has_Good_Profile (It.Nam) then
+                     Subp := It.Nam;
+                     exit;
+                  end if;
+
+                  Get_Next_Interp (I, It);
+               end loop;
+            end if;
+         end if;
+
+         if Present (Subp) then
+            if Is_Abstract (Subp) then
+               Error_Msg_N ("stream subprogram must not be abstract", Expr);
+               return;
+            end if;
+
+            Set_Entity (Expr, Subp);
+            Set_Etype (Expr, Etype (Subp));
+
+            if TSS_Nam = TSS_Stream_Input then
+               New_Stream_Function (N, U_Ent, Subp, TSS_Nam);
+            else
+               New_Stream_Procedure (N, U_Ent, Subp, TSS_Nam,
+                                     Out_P => Is_Read);
+            end if;
+
+         else
+            Error_Msg_Name_1 := Attr;
+            Error_Msg_N ("incorrect expression for% attribute", Expr);
+         end if;
+      end Analyze_Stream_TSS_Definition;
+
+   --  Start of processing for Analyze_Attribute_Definition_Clause
+
    begin
       Analyze (Nam);
       Ent := Entity (Nam);
@@ -248,26 +383,26 @@ package body Sem_Ch13 is
          return;
       end if;
 
-      --  Rep clause applies to full view of incomplete type or private type
-      --  if we have one (if not, this is a premature use of the type).
-      --  However, certain semantic checks need to be done on the specified
-      --  entity (i.e. the private view), so we save it in Ent.
+      --  Rep clause applies to full view of incomplete type or private type if
+      --  we have one (if not, this is a premature use of the type). However,
+      --  certain semantic checks need to be done on the specified entity (i.e.
+      --  the private view), so we save it in Ent.
 
       if Is_Private_Type (Ent)
         and then Is_Derived_Type (Ent)
         and then not Is_Tagged_Type (Ent)
         and then No (Full_View (Ent))
       then
-         --  If this is a private type whose completion is a derivation
-         --  from another private type, there is no full view, and the
-         --  attribute belongs to the type itself, not its underlying parent.
+         --  If this is a private type whose completion is a derivation from
+         --  another private type, there is no full view, and the attribute
+         --  belongs to the type itself, not its underlying parent.
 
          U_Ent := Ent;
 
       elsif Ekind (Ent) = E_Incomplete_Type then
 
-         --  The attribute applies to the full view, set the entity
-         --  of the attribute definition accordingly.
+         --  The attribute applies to the full view, set the entity of the
+         --  attribute definition accordingly.
 
          Ent := Underlying_Type (Ent);
          U_Ent := Ent;
@@ -297,7 +432,6 @@ package body Sem_Ch13 is
       then
          Error_Msg_N ("cannot specify attribute for subtype", Nam);
          return;
-
       end if;
 
       --  Switch on particular attribute
@@ -354,6 +488,8 @@ package body Sem_Ch13 is
                   Error_Msg_N
                     ("\?only one task can be declared of this type", N);
                end if;
+
+               Check_Restriction (No_Obsolescent_Features, N);
 
                if Warn_On_Obsolescent_Feature then
                   Error_Msg_N
@@ -663,94 +799,9 @@ package body Sem_Ch13 is
          -- Input --
          -----------
 
-         when Attribute_Input => Input : declare
-            Subp : Entity_Id := Empty;
-            I    : Interp_Index;
-            It   : Interp;
-            Pnam : Entity_Id;
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean;
-            --  Return true if the entity is a function with an appropriate
-            --  profile for the Input attribute.
-
-            ----------------------
-            -- Has_Good_Profile --
-            ----------------------
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean is
-               F  : Entity_Id;
-               Ok : Boolean := False;
-
-            begin
-               if Ekind (Subp) = E_Function then
-                  F := First_Formal (Subp);
-
-                  if Present (F) and then No (Next_Formal (F)) then
-                     if Ekind (Etype (F)) = E_Anonymous_Access_Type
-                       and then
-                         Designated_Type (Etype (F)) =
-                           Class_Wide_Type (RTE (RE_Root_Stream_Type))
-                     then
-                        Ok := Base_Type (Etype (Subp)) = Base_Type (Ent);
-                     end if;
-                  end if;
-               end if;
-
-               return Ok;
-            end Has_Good_Profile;
-
-         --  Start of processing for Input attribute definition
-
-         begin
-            FOnly := True;
-
-            if not Is_Type (U_Ent) then
-               Error_Msg_N ("local name must be a subtype", Nam);
-               return;
-
-            else
-               Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Input);
-
-               if Present (Pnam)
-                 and then Base_Type (Etype (Pnam)) = Base_Type (U_Ent)
-               then
-                  Error_Msg_Sloc := Sloc (Pnam);
-                  Error_Msg_N ("input attribute already defined #", Nam);
-                  return;
-               end if;
-            end if;
-
-            Analyze (Expr);
-
-            if Is_Entity_Name (Expr) then
-               if not Is_Overloaded (Expr) then
-                  if Has_Good_Profile (Entity (Expr)) then
-                     Subp := Entity (Expr);
-                  end if;
-
-               else
-                  Get_First_Interp (Expr, I, It);
-
-                  while Present (It.Nam) loop
-                     if Has_Good_Profile (It.Nam) then
-                        Subp := It.Nam;
-                        exit;
-                     end if;
-
-                     Get_Next_Interp (I, It);
-                  end loop;
-               end if;
-            end if;
-
-            if Present (Subp) then
-               Set_Entity (Expr, Subp);
-               Set_Etype (Expr, Etype (Subp));
-               New_Stream_Function (N, U_Ent, Subp,  TSS_Stream_Input);
-            else
-               Error_Msg_N ("incorrect expression for input attribute", Expr);
-               return;
-            end if;
-         end Input;
+         when Attribute_Input =>
+            Analyze_Stream_TSS_Definition (TSS_Stream_Input);
+            Set_Has_Specified_Stream_Input (Ent);
 
          -------------------
          -- Machine_Radix --
@@ -826,198 +877,17 @@ package body Sem_Ch13 is
          -- Output --
          ------------
 
-         when Attribute_Output => Output : declare
-            Subp : Entity_Id := Empty;
-            I    : Interp_Index;
-            It   : Interp;
-            Pnam : Entity_Id;
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean;
-            --  Return true if the entity is a procedure with an
-            --  appropriate profile for the output attribute.
-
-            ----------------------
-            -- Has_Good_Profile --
-            ----------------------
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean is
-               F  : Entity_Id;
-               Ok : Boolean := False;
-
-            begin
-               if Ekind (Subp) = E_Procedure then
-                  F := First_Formal (Subp);
-
-                  if Present (F) then
-                     if Ekind (Etype (F)) = E_Anonymous_Access_Type
-                       and then
-                         Designated_Type (Etype (F)) =
-                           Class_Wide_Type (RTE (RE_Root_Stream_Type))
-                     then
-                        Next_Formal (F);
-                        Ok :=  Present (F)
-                          and then Parameter_Mode (F) = E_In_Parameter
-                          and then Base_Type (Etype (F)) = Base_Type (Ent)
-                          and then No (Next_Formal (F));
-                     end if;
-                  end if;
-               end if;
-
-               return Ok;
-            end Has_Good_Profile;
-
-         --  Start of processing for Output attribute definition
-
-         begin
-            FOnly := True;
-
-            if not Is_Type (U_Ent) then
-               Error_Msg_N ("local name must be a subtype", Nam);
-               return;
-
-            else
-               Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Output);
-
-               if Present (Pnam)
-                 and then
-                   Base_Type (Etype (Next_Formal (First_Formal (Pnam))))
-                                                        = Base_Type (U_Ent)
-               then
-                  Error_Msg_Sloc := Sloc (Pnam);
-                  Error_Msg_N ("output attribute already defined #", Nam);
-                  return;
-               end if;
-            end if;
-
-            Analyze (Expr);
-
-            if Is_Entity_Name (Expr) then
-               if not Is_Overloaded (Expr) then
-                  if Has_Good_Profile (Entity (Expr)) then
-                     Subp := Entity (Expr);
-                  end if;
-
-               else
-                  Get_First_Interp (Expr, I, It);
-
-                  while Present (It.Nam) loop
-                     if Has_Good_Profile (It.Nam) then
-                        Subp := It.Nam;
-                        exit;
-                     end if;
-
-                     Get_Next_Interp (I, It);
-                  end loop;
-               end if;
-            end if;
-
-            if Present (Subp) then
-               Set_Entity (Expr, Subp);
-               Set_Etype (Expr, Etype (Subp));
-               New_Stream_Procedure (N, U_Ent, Subp, TSS_Stream_Output);
-            else
-               Error_Msg_N ("incorrect expression for output attribute", Expr);
-               return;
-            end if;
-         end Output;
+         when Attribute_Output =>
+            Analyze_Stream_TSS_Definition (TSS_Stream_Output);
+            Set_Has_Specified_Stream_Output (Ent);
 
          ----------
          -- Read --
          ----------
 
-         when Attribute_Read => Read : declare
-            Subp : Entity_Id := Empty;
-            I    : Interp_Index;
-            It   : Interp;
-            Pnam : Entity_Id;
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean;
-            --  Return true if the entity is a procedure with an appropriate
-            --  profile for the Read attribute.
-
-            ----------------------
-            -- Has_Good_Profile --
-            ----------------------
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean is
-               F     : Entity_Id;
-               Ok    : Boolean := False;
-
-            begin
-               if Ekind (Subp) = E_Procedure then
-                  F := First_Formal (Subp);
-
-                  if Present (F) then
-                     if Ekind (Etype (F)) = E_Anonymous_Access_Type
-                       and then
-                         Designated_Type (Etype (F)) =
-                           Class_Wide_Type (RTE (RE_Root_Stream_Type))
-                     then
-                        Next_Formal (F);
-                        Ok :=  Present (F)
-                          and then Parameter_Mode (F) = E_Out_Parameter
-                          and then Base_Type (Etype (F)) = Base_Type (Ent)
-                          and then No (Next_Formal (F));
-                     end if;
-                  end if;
-               end if;
-
-               return Ok;
-            end Has_Good_Profile;
-
-         --  Start of processing for Read attribute definition
-
-         begin
-            FOnly := True;
-
-            if not Is_Type (U_Ent) then
-               Error_Msg_N ("local name must be a subtype", Nam);
-               return;
-
-            else
-               Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Read);
-
-               if Present (Pnam)
-                 and then Base_Type (Etype (Next_Formal (First_Formal (Pnam))))
-                   = Base_Type (U_Ent)
-               then
-                  Error_Msg_Sloc := Sloc (Pnam);
-                  Error_Msg_N ("read attribute already defined #", Nam);
-                  return;
-               end if;
-            end if;
-
-            Analyze (Expr);
-
-            if Is_Entity_Name (Expr) then
-               if not Is_Overloaded (Expr) then
-                  if Has_Good_Profile (Entity (Expr)) then
-                     Subp := Entity (Expr);
-                  end if;
-
-               else
-                  Get_First_Interp (Expr, I, It);
-
-                  while Present (It.Nam) loop
-                     if Has_Good_Profile (It.Nam) then
-                        Subp := It.Nam;
-                        exit;
-                     end if;
-
-                     Get_Next_Interp (I, It);
-                  end loop;
-               end if;
-            end if;
-
-            if Present (Subp) then
-               Set_Entity (Expr, Subp);
-               Set_Etype (Expr, Etype (Subp));
-               New_Stream_Procedure (N, U_Ent, Subp, TSS_Stream_Read, True);
-            else
-               Error_Msg_N ("incorrect expression for read attribute", Expr);
-               return;
-            end if;
-         end Read;
+         when Attribute_Read =>
+            Analyze_Stream_TSS_Definition (TSS_Stream_Read);
+            Set_Has_Specified_Stream_Read (Ent);
 
          ----------
          -- Size --
@@ -1187,6 +1057,8 @@ package body Sem_Ch13 is
 
          begin
             if Is_Task_Type (U_Ent) then
+               Check_Restriction (No_Obsolescent_Features, N);
+
                if Warn_On_Obsolescent_Feature then
                   Error_Msg_N
                     ("storage size clause for task is an " &
@@ -1356,6 +1228,45 @@ package body Sem_Ch13 is
             end if;
          end Storage_Pool;
 
+         -----------------
+         -- Stream_Size --
+         -----------------
+
+         when Attribute_Stream_Size => Stream_Size : declare
+            Size : constant Uint := Static_Integer (Expr);
+
+         begin
+            if Has_Stream_Size_Clause (U_Ent) then
+               Error_Msg_N ("Stream_Size already given for &", Nam);
+
+            elsif Is_Elementary_Type (U_Ent) then
+               if Size /= System_Storage_Unit
+                    and then
+                  Size /= System_Storage_Unit * 2
+                    and then
+                  Size /= System_Storage_Unit * 4
+                     and then
+                  Size /= System_Storage_Unit * 8
+               then
+                  Error_Msg_Uint_1 := UI_From_Int (System_Storage_Unit);
+                  Error_Msg_N
+                    ("stream size for elementary type must be a"
+                       & " power of 2 and at least ^", N);
+
+               elsif RM_Size (U_Ent) > Size then
+                  Error_Msg_Uint_1 := RM_Size (U_Ent);
+                  Error_Msg_N
+                    ("stream size for elementary type must be a"
+                       & " power of 2 and at least ^", N);
+               end if;
+
+               Set_Has_Stream_Size_Clause (U_Ent);
+
+            else
+               Error_Msg_N ("Stream_Size cannot be given for &", Nam);
+            end if;
+         end Stream_Size;
+
          ----------------
          -- Value_Size --
          ----------------
@@ -1390,108 +1301,15 @@ package body Sem_Ch13 is
          -- Write --
          -----------
 
-         --  Write attribute definition clause
-         --  check for class-wide case will be performed later
-
-         when Attribute_Write => Write : declare
-            Subp : Entity_Id := Empty;
-            I    : Interp_Index;
-            It   : Interp;
-            Pnam : Entity_Id;
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean;
-            --  Return true if the entity is a procedure with an
-            --  appropriate profile for the write attribute.
-
-            ----------------------
-            -- Has_Good_Profile --
-            ----------------------
-
-            function Has_Good_Profile (Subp : Entity_Id) return Boolean is
-               F     : Entity_Id;
-               Ok    : Boolean := False;
-
-            begin
-               if Ekind (Subp) = E_Procedure then
-                  F := First_Formal (Subp);
-
-                  if Present (F) then
-                     if Ekind (Etype (F)) = E_Anonymous_Access_Type
-                       and then
-                         Designated_Type (Etype (F)) =
-                           Class_Wide_Type (RTE (RE_Root_Stream_Type))
-                     then
-                        Next_Formal (F);
-                        Ok :=  Present (F)
-                          and then Parameter_Mode (F) = E_In_Parameter
-                          and then Base_Type (Etype (F)) = Base_Type (Ent)
-                          and then No (Next_Formal (F));
-                     end if;
-                  end if;
-               end if;
-
-               return Ok;
-            end Has_Good_Profile;
-
-         --  Start of processing for Write attribute definition
-
-         begin
-            FOnly := True;
-
-            if not Is_Type (U_Ent) then
-               Error_Msg_N ("local name must be a subtype", Nam);
-               return;
-            end if;
-
-            Pnam := TSS (Base_Type (U_Ent), TSS_Stream_Write);
-
-            if Present (Pnam)
-              and then Base_Type (Etype (Next_Formal (First_Formal (Pnam))))
-                = Base_Type (U_Ent)
-            then
-               Error_Msg_Sloc := Sloc (Pnam);
-               Error_Msg_N ("write attribute already defined #", Nam);
-               return;
-            end if;
-
-            Analyze (Expr);
-
-            if Is_Entity_Name (Expr) then
-               if not Is_Overloaded (Expr) then
-                  if Has_Good_Profile (Entity (Expr)) then
-                     Subp := Entity (Expr);
-                  end if;
-
-               else
-                  Get_First_Interp (Expr, I, It);
-
-                  while Present (It.Nam) loop
-                     if Has_Good_Profile (It.Nam) then
-                        Subp := It.Nam;
-                        exit;
-                     end if;
-
-                     Get_Next_Interp (I, It);
-                  end loop;
-               end if;
-            end if;
-
-            if Present (Subp) then
-               Set_Entity (Expr, Subp);
-               Set_Etype (Expr, Etype (Subp));
-               New_Stream_Procedure (N, U_Ent, Subp, TSS_Stream_Write);
-            else
-               Error_Msg_N ("incorrect expression for write attribute", Expr);
-               return;
-            end if;
-         end Write;
+         when Attribute_Write =>
+            Analyze_Stream_TSS_Definition (TSS_Stream_Write);
+            Set_Has_Specified_Stream_Write (Ent);
 
          --  All other attributes cannot be set
 
          when others =>
             Error_Msg_N
               ("attribute& cannot be set with definition clause", N);
-
       end case;
 
       --  The test for the type being frozen must be performed after
@@ -1661,10 +1479,11 @@ package body Sem_Ch13 is
          Error_Msg_N ("duplicate enumeration rep clause ignored", N);
          return;
 
-      --  Don't allow rep clause if root type is standard [wide_]character
+      --  Don't allow rep clause for standard [wide_[wide_]]character
 
       elsif Root_Type (Enumtype) = Standard_Character
         or else Root_Type (Enumtype) = Standard_Wide_Character
+        or else Root_Type (Enumtype) = Standard_Wide_Wide_Character
       then
          Error_Msg_N ("enumeration rep clause not allowed for this type", N);
          return;
@@ -1955,6 +1774,8 @@ package body Sem_Ch13 is
             pragma Warnings (Off, Mod_Val);
 
          begin
+            Check_Restriction (No_Obsolescent_Features, Mod_Clause (N));
+
             if Warn_On_Obsolescent_Feature then
                Error_Msg_N
                  ("mod clause is an obsolescent feature ('R'M 'J.8)?", N);
@@ -2131,7 +1952,7 @@ package body Sem_Ch13 is
                        ("component clause previously given#", CC);
 
                   else
-                     --  Update Fbit and Lbit to the actual bit number.
+                     --  Update Fbit and Lbit to the actual bit number
 
                      Fbit := Fbit + UI_From_Int (SSU) * Posit;
                      Lbit := Lbit + UI_From_Int (SSU) * Posit;
@@ -2647,7 +2468,7 @@ package body Sem_Ch13 is
                   return;
                end if;
 
-               --  Otherwise look at the identifier and see if it is OK.
+               --  Otherwise look at the identifier and see if it is OK
 
                if Ekind (Ent) = E_Named_Integer
                     or else
@@ -3206,7 +3027,7 @@ package body Sem_Ch13 is
          raise Program_Error;
       end if;
 
-      --  Fall through with Hi and Lo set. Deal with biased case.
+      --  Fall through with Hi and Lo set. Deal with biased case
 
       if (Biased and then not Is_Fixed_Point_Type (T))
         or else Has_Biased_Representation (T)
@@ -3325,7 +3146,7 @@ package body Sem_Ch13 is
           Specification => Build_Spec,
           Name => New_Reference_To (Subp, Loc));
 
-      if Is_Tagged_Type (Ent) and then not Is_Limited_Type (Ent) then
+      if Is_Tagged_Type (Ent) then
          Set_TSS (Base_Type (Ent), Subp_Id);
       else
          Insert_Action (N, Subp_Decl);
@@ -3403,23 +3224,13 @@ package body Sem_Ch13 is
           Specification => Build_Spec,
           Name => New_Reference_To (Subp, Loc));
 
-      if Is_Tagged_Type (Ent) and then not Is_Limited_Type (Ent) then
+      if Is_Tagged_Type (Ent) then
          Set_TSS (Base_Type (Ent), Subp_Id);
       else
          Insert_Action (N, Subp_Decl);
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
    end New_Stream_Procedure;
-
-   ---------------------
-   -- Record_Rep_Item --
-   ---------------------
-
-   procedure Record_Rep_Item (T : Entity_Id; N : Node_Id) is
-   begin
-      Set_Next_Rep_Item (N, First_Rep_Item (T));
-      Set_First_Rep_Item (T, N);
-   end Record_Rep_Item;
 
    ------------------------
    -- Rep_Item_Too_Early --

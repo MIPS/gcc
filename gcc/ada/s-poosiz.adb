@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -153,8 +153,15 @@ package body System.Pool_Size is
    ----------------
 
    procedure Initialize  (Pool : in out Stack_Bounded_Pool) is
+
+      --  Define the appropriate alignment for allocations. This is the
+      --  maximum of the requested alignment, and the alignment required
+      --  for Storage_Count values. The latter test is to ensure that we
+      --  can properly reference the linked list pointers for free lists.
+
       Align : constant SSE.Storage_Count :=
-        SSE.Storage_Count'Max (SSE.Storage_Count'Alignment, Pool.Alignment);
+                SSE.Storage_Count'Max
+                  (SSE.Storage_Count'Alignment, Pool.Alignment);
 
    begin
       if Pool.Elmt_Size = 0 then
@@ -165,7 +172,7 @@ package body System.Pool_Size is
          Pool.First_Empty := 1;
 
          --  Compute the size to allocate given the size of the element and
-         --  the possible Alignment clause
+         --  the possible alignment requirement as defined above.
 
          Pool.Aligned_Elmt_Size :=
            SSE.Storage_Count'Max (SC_Size,
@@ -178,8 +185,7 @@ package body System.Pool_Size is
    ------------------
 
    function  Storage_Size
-     (Pool : Stack_Bounded_Pool)
-      return SSE.Storage_Count
+     (Pool : Stack_Bounded_Pool) return SSE.Storage_Count
    is
    begin
       return Pool.Pool_Size;
@@ -205,20 +211,17 @@ package body System.Pool_Size is
 
       function Size
         (Pool  : Stack_Bounded_Pool;
-         Chunk : SSE.Storage_Count)
-         return SSE.Storage_Count;
+         Chunk : SSE.Storage_Count) return SSE.Storage_Count;
       --  Fetch the field 'size' of a chunk of available storage
 
       function Next
         (Pool  : Stack_Bounded_Pool;
-         Chunk : SSE.Storage_Count)
-         return  SSE.Storage_Count;
+         Chunk : SSE.Storage_Count) return SSE.Storage_Count;
       --  Fetch the field 'next' of a chunk of available storage
 
       function Chunk_Of
         (Pool : Stack_Bounded_Pool;
-         Addr : System.Address)
-         return SSE.Storage_Count;
+         Addr : System.Address) return SSE.Storage_Count;
       --  Give the chunk number in the pool from its Address
 
       --------------
@@ -284,8 +287,7 @@ package body System.Pool_Size is
 
       function Chunk_Of
         (Pool : Stack_Bounded_Pool;
-         Addr : System.Address)
-         return SSE.Storage_Count
+         Addr : System.Address) return SSE.Storage_Count
       is
       begin
          return 1 + abs (Addr - Pool.The_Pool (1)'Address);
@@ -339,8 +341,7 @@ package body System.Pool_Size is
 
       function Next
         (Pool  : Stack_Bounded_Pool;
-         Chunk : SSE.Storage_Count)
-         return  SSE.Storage_Count
+         Chunk : SSE.Storage_Count) return SSE.Storage_Count
       is
       begin
          pragma Warnings (Off);
@@ -397,8 +398,7 @@ package body System.Pool_Size is
 
       function Size
         (Pool  : Stack_Bounded_Pool;
-         Chunk : SSE.Storage_Count)
-         return  SSE.Storage_Count
+         Chunk : SSE.Storage_Count) return SSE.Storage_Count
       is
       begin
          pragma Warnings (Off);

@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2005 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -34,7 +34,12 @@ enum gnat_tree_code {
 #undef DEFTREECODE
 
 /* Ada uses the lang_decl and lang_type fields to hold a tree.  */
-union lang_tree_node GTY((desc ("0"))) {union tree_node GTY((tag ("0"))) t; };
+union lang_tree_node
+  GTY((desc ("0"),
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.t)")))
+{
+  union tree_node GTY((tag ("0"))) t;
+};
 struct lang_decl GTY(()) {tree t; };
 struct lang_type GTY(()) {tree t; };
 
@@ -59,7 +64,8 @@ struct lang_type GTY(()) {tree t; };
 
 /* For RECORD_TYPE, UNION_TYPE, and QUAL_UNION_TYPE, nonzero if this is a
    record being used as a fat pointer (only true for RECORD_TYPE).  */
-#define TYPE_IS_FAT_POINTER_P(NODE) TYPE_LANG_FLAG_0 (NODE)
+#define TYPE_IS_FAT_POINTER_P(NODE) \
+  TYPE_LANG_FLAG_0 (RECORD_OR_UNION_CHECK (NODE))
 
 #define TYPE_FAT_POINTER_P(NODE)  \
   (TREE_CODE (NODE) == RECORD_TYPE && TYPE_IS_FAT_POINTER_P (NODE))
@@ -153,6 +159,9 @@ struct lang_type GTY(()) {tree t; };
 /* For a RECORD_TYPE, nonzero if this was made just to supply needed
    padding or alignment.  */
 #define TYPE_IS_PADDING_P(NODE) TYPE_LANG_FLAG_5 (RECORD_TYPE_CHECK (NODE))
+
+/* For a UNION_TYPE, nonzero if this is an unchecked union.  */
+#define TYPE_UNCHECKED_UNION_P(NODE) TYPE_LANG_FLAG_6 (UNION_TYPE_CHECK (NODE))
 
 /* This field is only defined for FUNCTION_TYPE nodes. If the Ada
    subprogram contains no parameters passed by copy in/copy out then this
@@ -251,6 +260,9 @@ struct lang_type GTY(()) {tree t; };
 /* Nonzero in a PARM_DECL if we are to pass by descriptor.  */
 #define DECL_BY_DESCRIPTOR_P(NODE) DECL_LANG_FLAG_5 (PARM_DECL_CHECK (NODE))
 
+/* Nonzero in a VAR_DECL if it is a pointer renaming a global object.  */
+#define DECL_RENAMING_GLOBAL_P(NODE) DECL_LANG_FLAG_5 (VAR_DECL_CHECK (NODE))
+
 /* In a CONST_DECL, points to a VAR_DECL that is allocatable to
    memory.  Used when a scalar constant is aliased or has its
    address taken.  */
@@ -265,6 +277,14 @@ struct lang_type GTY(()) {tree t; };
   GET_DECL_LANG_SPECIFIC (FIELD_DECL_CHECK (NODE))
 #define SET_DECL_ORIGINAL_FIELD(NODE, X) \
   SET_DECL_LANG_SPECIFIC (FIELD_DECL_CHECK (NODE), X)
+
+/* In a VAR_DECL, points to the object being renamed if the VAR_DECL is a
+   renaming pointer, otherwise 0.  Note that this object is guaranteed to
+   be protected against multiple evaluations.  */
+#define DECL_RENAMED_OBJECT(NODE) \
+  GET_DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE))
+#define SET_DECL_RENAMED_OBJECT(NODE, X) \
+  SET_DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE), X)
 
 /* In a FIELD_DECL corresponding to a discriminant, contains the
    discriminant number.  */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -48,7 +48,7 @@
 
 --  WARNING: There is a C version of this package. Any changes to this
 --  source file must be properly reflected in this C header file sinfo.h
---  which is created automatically from sinfo.ads using xsinfo.spt.
+--  which is created automatically from sinfo.ads using xsinfo.adb.
 
 with Types;  use Types;
 with Uintp;  use Uintp;
@@ -650,7 +650,9 @@ package Sinfo is
    --    Procedure calls, the Controlling_Argument is one of the actuals.
    --    For a function that has a dispatching result, it is an entity in
    --    the context of the call that can provide a tag, or else it is the
-   --    tag of the root type of the class.
+   --    tag of the root type of the class. It can also specify a tag
+   --    directly rather than being a tagged object. The latter is needed
+   --    by the implementations of AI-239 and AI-260.
 
    --  Conversion_OK (Flag14-Sem)
    --    A flag set on type conversion nodes to indicate that the conversion
@@ -669,6 +671,13 @@ package Sinfo is
    --    entry declarations of protected types, and in generic units. It
    --    points to the defining entity for the corresponding body (NOT the
    --    node for the body itself).
+
+   --  Corresponding_Formal_Spec (Node3-Sem)
+   --  This field is set in subprogram renaming declarations, where it points
+   --  to the defining entity for a formal subprogram in the case where the
+   --  renaming corresponds to a generic formal subprogram association in an
+   --  instantiation. The field is Empty if the renaming does not correspond
+   --  to such a formal association.
 
    --  Corresponding_Generic_Association (Node5-Sem)
    --    This field is defined for object declarations and object renaming
@@ -888,7 +897,7 @@ package Sinfo is
    --    Note: if the Is_Overloaded flag is set, then Etype points to
    --    an essentially arbitrary choice from the possible set of types.
 
-   --  Exception_Junk (Flag11-Sem)
+   --  Exception_Junk (Flag7-Sem)
    --    This flag is set in a various nodes appearing in a statement
    --    sequence to indicate that the corresponding node is an artifact
    --    of the generated code for exception handling, and should be
@@ -1308,16 +1317,6 @@ package Sinfo is
    --    is used for properly setting out of range values for use by pragmas
    --    Initialize_Scalars and Normalize_Scalars.
 
-   --  OK_For_Stream (Flag4-Sem)
-   --    Present in N_Attribute_Definition clauses for stream attributes. If
-   --    set, indicates that the attribute is permitted even though the type
-   --    involved is a limited type. In the case of a protected type, the
-   --    result is to stream all components (including discriminants) in
-   --    lexical order. For other limited types, the effect is simply to
-   --    use the corresponding stream routine for the full type. This flag
-   --    is used for internally generated code, where the streaming of these
-   --    types is required, even though not normally allowed by the language.
-
    --  Original_Discriminant (Node2-Sem)
    --    Present in identifiers. Used in references to discriminants that
    --    appear in generic units. Because the names of the discriminants
@@ -1421,7 +1420,7 @@ package Sinfo is
    --    be rounded to the nearest integer (breaking ties away from zero),
    --    rather than truncated towards zero as usual. These rounded integer
    --    operations are the result of expansion of rounded fixed-point
-   --    divide, conersion and multiplication operations.
+   --    divide, conversion and multiplication operations.
 
    --  Scope (Node3-Sem)
    --    Present in defining identifiers, defining character literals and
@@ -1467,12 +1466,6 @@ package Sinfo is
    --    Used in an N_Validate_Unchecked_Conversion node to point to the
    --    target type entity for the unchecked conversion instantiation
    --    which gigi must do size validation for.
-
-   --  Task_Body_Procedure (Node2-Sem)
-   --    Present in task type declaration nodes. Points to the entity for
-   --    the task body procedure (as further described in Exp_Ch9, task
-   --    bodies are expanded into procedures). A convenient function to
-   --    retrieve this field is Sem_Util.Get_Task_Body_Procedure.
 
    --  Then_Actions (List3-Sem)
    --    This field is present in conditional expression nodes. During code
@@ -1666,6 +1659,12 @@ package Sinfo is
       --  using the standard literal format. Such literals are listed by
       --  Sprint using the notation [numerator / denominator].
 
+      --  Note: the value of an integer literal node created by the front end
+      --  is never outside the range of values of the base type. However, it
+      --  can be the case that the value is outside the range of the
+      --  particular subtype. This happens in the case of integer overflows
+      --  with checks suppressed.
+
       --  N_Integer_Literal
       --  Sloc points to literal
       --  Original_Entity (Node2-Sem) If not Empty, holds Named_Number that
@@ -1709,7 +1708,7 @@ package Sinfo is
       --  N_Character_Literal
       --  Sloc points to literal
       --  Chars (Name1) contains the Name_Id for the identifier
-      --  Char_Literal_Value (Char_Code2) contains the literal value
+      --  Char_Literal_Value (Uint2) contains the literal value
       --  Entity (Node4-Sem)
       --  Associated_Node (Node4-Sem)
       --  Has_Private_View (Flag11-Sem) set in generic units.
@@ -1766,6 +1765,11 @@ package Sinfo is
       --  Pragma_Argument_Associations (List2) (set to No_List if none)
       --  Debug_Statement (Node3) (set to Empty if not Debug, Assert)
       --  Next_Rep_Item (Node4-Sem)
+
+      --  Note: we should have a section on what pragmas are passed on to
+      --  the back end to be processed. This section should note that pragma
+      --  Psect_Object is always converted to Common_Object, but there are
+      --  undoubtedly many other similar notes required ???
 
       --------------------------------------
       -- 2.8  Pragma Argument Association --
@@ -1868,7 +1872,7 @@ package Sinfo is
       --    ENUMERATION_TYPE_DEFINITION  | INTEGER_TYPE_DEFINITION
       --  | REAL_TYPE_DEFINITION         | ARRAY_TYPE_DEFINITION
       --  | RECORD_TYPE_DEFINITION       | ACCESS_TYPE_DEFINITION
-      --  | DERIVED_TYPE_DEFINITION
+      --  | DERIVED_TYPE_DEFINITION      | INTERFACE_TYPE_DEFINITION
 
       --------------------------------
       -- 3.2.2  Subtype Declaration --
@@ -1883,10 +1887,10 @@ package Sinfo is
       --  N_Subtype_Declaration
       --  Sloc points to SUBTYPE
       --  Defining_Identifier (Node1)
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Null_Exclusion_Present (Flag11)
       --  Subtype_Indication (Node5)
       --  Generic_Parent_Type (Node4-Sem) (set for an actual derived type).
-      --  Exception_Junk (Flag11-Sem)
+      --  Exception_Junk (Flag7-Sem)
 
       -------------------------------
       -- 3.2.2  Subtype Indication --
@@ -1954,6 +1958,8 @@ package Sinfo is
       --    DEFINING_IDENTIFIER_LIST : [aliased] [constant]
       --      [NULL_EXCLUSION] SUBTYPE_INDICATION [:= EXPRESSION];
       --  | DEFINING_IDENTIFIER_LIST : [aliased] [constant]
+      --      ACCESS_DEFINITION [:= EXPRESSION];
+      --  | DEFINING_IDENTIFIER_LIST : [aliased] [constant]
       --      ARRAY_TYPE_DEFINITION [:= EXPRESSION];
       --  | SINGLE_TASK_DECLARATION
       --  | SINGLE_PROTECTED_DECLARATION
@@ -1990,13 +1996,17 @@ package Sinfo is
       --  extra temporary (with Is_True_Constant set False), and initialize
       --  this temporary as required (the temporary itself is not atomic).
 
+      --  Note: there is not node kind for object definition. Instead, the
+      --  corresponding field holds a subtype indication, an array type
+      --  definition, or (Ada 2005, AI-406) an access definition.
+
       --  N_Object_Declaration
       --  Sloc points to first identifier
       --  Defining_Identifier (Node1)
       --  Aliased_Present (Flag4) set if ALIASED appears
       --  Constant_Present (Flag17) set if CONSTANT appears
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
-      --  Object_Definition (Node4) subtype indication/array type definition
+      --  Null_Exclusion_Present (Flag11)
+      --  Object_Definition (Node4) subtype indic./array type def./ access def.
       --  Expression (Node3) (set to Empty if not present)
       --  Handler_List_Entry (Node2-Sem)
       --  Corresponding_Generic_Association (Node5-Sem)
@@ -2004,7 +2014,7 @@ package Sinfo is
       --  Prev_Ids (Flag6) (set to False if no previous identifiers in list)
       --  No_Initialization (Flag13-Sem)
       --  Assignment_OK (Flag15-Sem)
-      --  Exception_Junk (Flag11-Sem)
+      --  Exception_Junk (Flag7-Sem)
       --  Delay_Finalize_Attach (Flag14-Sem)
       --  Is_Subprogram_Descriptor (Flag16-Sem)
 
@@ -2043,7 +2053,7 @@ package Sinfo is
 
       --  DERIVED_TYPE_DEFINITION ::=
       --    [abstract] new [NULL_EXCLUSION] parent_SUBTYPE_INDICATION
-      --    [RECORD_EXTENSION_PART]
+      --    [[and INTERFACE_LIST] RECORD_EXTENSION_PART]
 
       --  Note: ABSTRACT, record extension part not permitted in Ada 83 mode
 
@@ -2052,9 +2062,20 @@ package Sinfo is
       --  N_Derived_Type_Definition
       --  Sloc points to NEW
       --  Abstract_Present (Flag4)
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Null_Exclusion_Present (Flag11) (set to False if not present)
       --  Subtype_Indication (Node5)
       --  Record_Extension_Part (Node3) (set to Empty if not present)
+      --  Limited_Present (Flag17) set in interfaces
+      --  Task_Present (Flag5) set in task interfaces
+      --  Protected_Present (Flag6) set in protected interfaces
+      --  Synchronized_Present (Flag7) set in interfaces
+      --  Interface_List (List2) (set to No_List if none)
+      --  Interface_Present (Flag16) set in abstract interfaces
+
+      --  Note: The attributes Limited_Present, Task_Present, Protected_Present
+      --        Synchronized_Present, Interface_List and Interface_Present are
+      --        used for abstract interfaces (see comment in the definition
+      --        of INTERFACE_TYPE_DEFINITION)
 
       ---------------------------
       -- 3.5  Range Constraint --
@@ -2154,7 +2175,7 @@ package Sinfo is
 
       --  INTEGER_TYPE_DEFINITION ::=
       --    SIGNED_INTEGER_TYPE_DEFINITION
-      --    MODULAR_TYPE_DEFINITION
+      --  | MODULAR_TYPE_DEFINITION
 
       -------------------------------------------
       -- 3.5.4  Signed Integer Type Definition --
@@ -2163,17 +2184,17 @@ package Sinfo is
       --  SIGNED_INTEGER_TYPE_DEFINITION ::=
       --    range static_SIMPLE_EXPRESSION .. static_SIMPLE_EXPRESSION
 
-      --  Note: the Low_Bound and High_Bound fields are set to Empty for
-      --  integer types defined in package Standard.
+      --  Note: the Low_Bound and High_Bound fields are set to Empty
+      --  for integer types defined in package Standard.
 
       --  N_Signed_Integer_Type_Definition
       --  Sloc points to RANGE
       --  Low_Bound (Node1)
       --  High_Bound (Node2)
 
-      -----------------------------------------
-      -- 3.5.4  Unsigned Range Specification --
-      -----------------------------------------
+      ------------------------------------
+      -- 3.5.4  Modular Type Definition --
+      ------------------------------------
 
       --  MODULAR_TYPE_DEFINITION ::= mod static_EXPRESSION
 
@@ -2230,9 +2251,6 @@ package Sinfo is
       --    delta static_EXPRESSION REAL_RANGE_SPECIFICATION
 
       --  Note: In Ada 83, the EXPRESSION must be a SIMPLE_EXPRESSION
-
-      --  Note: the Delta_Expression and Real_Range_Specification fields
-      --  are set to Empty for fixed point types declared in Standard.
 
       --  N_Ordinary_Fixed_Point_Definition
       --  Sloc points to DELTA
@@ -2347,7 +2365,7 @@ package Sinfo is
       --  N_Component_Definition
       --  Sloc points to ALIASED, ACCESS or to first token of subtype mark
       --  Aliased_Present (Flag4)
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Null_Exclusion_Present (Flag11)
       --  Subtype_Indication (Node5) (set to Empty if not present)
       --  Access_Definition (Node3) (set to Empty if not present)
 
@@ -2420,9 +2438,8 @@ package Sinfo is
       --  N_Discriminant_Specification
       --  Sloc points to first identifier
       --  Defining_Identifier (Node1)
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
-      --  Discriminant_Type (Node5) subtype mark or
-      --    access parameter definition
+      --  Null_Exclusion_Present (Flag11)
+      --  Discriminant_Type (Node5) subtype mark or access parameter definition
       --  Expression (Node3) (set to Empty if no default expression)
       --  More_Ids (Flag5) (set to False if no more identifiers in list)
       --  Prev_Ids (Flag6) (set to False if no previous identifiers in list)
@@ -2508,6 +2525,16 @@ package Sinfo is
       --  Limited_Present (Flag17)
       --  Component_List (Node1) empty in null record case
       --  Null_Present (Flag13) set in null record case
+      --  Task_Present (Flag5) set in task interfaces
+      --  Protected_Present (Flag6) set in protected interfaces
+      --  Synchronized_Present (Flag7) set in interfaces
+      --  Interface_Present (Flag16) set in abstract interfaces
+      --  Interface_List (List2) (set to No_List if none)
+
+      --  Note: The attributes Task_Present, Protected_Present, Synchronized
+      --        _Present, Interface_List and Interface_Present are
+      --        used for abstract interfaces (see comment in the definition
+      --        of INTERFACE_TYPE_DEFINITION)
 
       -------------------------
       -- 3.8  Component List --
@@ -2634,6 +2661,19 @@ package Sinfo is
 
       --  Note: record extension parts are not permitted in Ada 83 mode
 
+      --------------------------------------
+      -- 3.9.4  Interface Type Definition --
+      --------------------------------------
+
+      --  INTERFACE_TYPE_DEFINITION ::=
+      --    [limited | task | protected | synchronized]
+      --    interface [interface_list]
+
+      --  Note: Interfaces are implemented with N_Record_Definition and
+      --        N_Derived_Type_Definition nodes because most of the support
+      --        for the analysis of abstract types has been reused to
+      --        analyze abstract interfaces.
+
       ----------------------------------
       -- 3.10  Access Type Definition --
       ----------------------------------
@@ -2659,7 +2699,7 @@ package Sinfo is
       --  N_Access_To_Object_Definition
       --  Sloc points to ACCESS
       --  All_Present (Flag15)
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Null_Exclusion_Present (Flag11)
       --  Subtype_Indication (Node5)
       --  Constant_Present (Flag17)
 
@@ -2688,15 +2728,15 @@ package Sinfo is
 
       --  N_Access_Function_Definition
       --  Sloc points to ACCESS
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
-      --  Protected_Present (Flag15)
+      --  Null_Exclusion_Present (Flag11)
+      --  Protected_Present (Flag6)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Subtype_Mark (Node4) result subtype
 
       --  N_Access_Procedure_Definition
       --  Sloc points to ACCESS
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
-      --  Protected_Present (Flag15)
+      --  Null_Exclusion_Present (Flag11)
+      --  Protected_Present (Flag6)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
 
       -----------------------------
@@ -2711,7 +2751,7 @@ package Sinfo is
 
       --  N_Access_Definition
       --  Sloc points to ACCESS
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Null_Exclusion_Present (Flag11)
       --  All_Present (Flag15)
       --  Constant_Present (Flag17)
       --  Subtype_Mark (Node4)
@@ -2722,7 +2762,7 @@ package Sinfo is
       -----------------------------------------
 
       --  INCOMPLETE_TYPE_DECLARATION ::=
-      --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART];
+      --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART] [IS TAGGED];
 
       --  N_Incomplete_Type_Declaration
       --  Sloc points to TYPE
@@ -2731,6 +2771,7 @@ package Sinfo is
       --   discriminant part, or if the discriminant part is an
       --   unknown discriminant part)
       --  Unknown_Discriminants_Present (Flag13) set if (<>) discriminant
+      --  Tagged_Present (Flag15)
 
       ----------------------------
       -- 3.11  Declarative Part --
@@ -2916,11 +2957,11 @@ package Sinfo is
       --  i.e. digits, access, delta, range, the Attribute_Name field contains
       --  the corresponding name, even though no identifier is involved.
 
-      --  The flag OK_For_Stream is used in generated code to indicate that
-      --  a stream attribute is permissible for a limited type, and results
-      --  in the use of the stream attribute for the underlying full type,
-      --  or in the case of a protected type, the components (including any
-      --  disriminants) are merely streamed in order.
+      --  Note: the generated code may contain stream attributes applied to
+      --  limited types for which no stream routines exist officially. In such
+      --  case, the result is to use the stream attribute for the underlying
+      --  full type, or in the case of a protected type, the components
+      --  (including any disriminants) are merely streamed in order.
 
       --  See Exp_Attr for a complete description of which attributes are
       --  passed onto Gigi, and which are handled entirely by the front end.
@@ -2947,7 +2988,6 @@ package Sinfo is
       --  Associated_Node (Node4-Sem)
       --  Do_Overflow_Check (Flag17-Sem)
       --  Redundant_Use (Flag13-Sem)
-      --  OK_For_Stream (Flag4-Sem)
       --  Must_Be_Byte_Aligned (Flag14)
       --  plus fields for expression
 
@@ -3512,7 +3552,7 @@ package Sinfo is
       --  N_Allocator
       --  Sloc points to NEW
       --  Expression (Node3) subtype indication or qualified expression
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Null_Exclusion_Present (Flag11)
       --  Storage_Pool (Node1-Sem)
       --  Procedure_To_Call (Node4-Sem)
       --  No_Initialization (Flag13-Sem)
@@ -3589,7 +3629,7 @@ package Sinfo is
       --  N_Label
       --  Sloc points to <<
       --  Identifier (Node1) direct name of statement identifier
-      --  Exception_Junk (Flag11-Sem)
+      --  Exception_Junk (Flag7-Sem)
 
       -------------------------------
       -- 5.1  Statement Identifier --
@@ -3829,7 +3869,7 @@ package Sinfo is
       --  N_Goto_Statement
       --  Sloc points to GOTO
       --  Name (Node2)
-      --  Exception_Junk (Flag11-Sem)
+      --  Exception_Junk (Flag7-Sem)
 
       ---------------------------------
       -- 6.1  Subprogram Declaration --
@@ -3860,8 +3900,10 @@ package Sinfo is
       -----------------------------------
 
       --  SUBPROGRAM_SPECIFICATION ::=
+      --    [[not] overriding]
       --    procedure DEFINING_PROGRAM_UNIT_NAME PARAMETER_PROFILE
-      --  | function DEFINING_DESIGNATOR PARAMETER_AND_RESULT_PROFILE
+      --  | [[not] overriding]
+      --    function DEFINING_DESIGNATOR PARAMETER_AND_RESULT_PROFILE
 
       --  Note: there are no separate nodes for the profiles, instead the
       --  information appears directly in the following nodes.
@@ -3873,6 +3915,8 @@ package Sinfo is
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Subtype_Mark (Node4) for return type
       --  Generic_Parent (Node5-Sem)
+      --  Must_Override (Flag14) set if overriding indicator present
+      --  Must_Not_Override (Flag15) set if not_overriding indicator present
 
       --  N_Procedure_Specification
       --  Sloc points to PROCEDURE
@@ -3880,6 +3924,11 @@ package Sinfo is
       --  Elaboration_Boolean (Node2-Sem)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Generic_Parent (Node5-Sem)
+      --  Null_Present (Flag13) set for null procedure case (Ada 2005 feature)
+      --  Must_Override (Flag14) set if overriding indicator present
+      --  Must_Not_Override (Flag15) set if not_overriding indicator present
+
+      --  Note: overriding indicator is an Ada 2005 feature
 
       ---------------------
       -- 6.1  Designator --
@@ -3899,7 +3948,7 @@ package Sinfo is
       --   parent library unit package name is present.
       --  Identifier (Node1)
 
-      --  Note that the identifier can also be an operator symbol here.
+      --  Note that the identifier can also be an operator symbol here
 
       ------------------------------
       -- 6.1  Defining Designator --
@@ -4027,7 +4076,7 @@ package Sinfo is
       --  Defining_Identifier (Node1)
       --  In_Present (Flag15)
       --  Out_Present (Flag17)
-      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Null_Exclusion_Present (Flag11)
       --  Parameter_Type (Node2) subtype mark or access definition
       --  Expression (Node3) (set to Empty if no default expression present)
       --  Do_Accessibility_Check (Flag13-Sem)
@@ -4266,7 +4315,8 @@ package Sinfo is
 
       --  PRIVATE_EXTENSION_DECLARATION ::=
       --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
-      --      [abstract] new ancestor_SUBTYPE_INDICATION with private;
+      --      [abstract] new ancestor_SUBTYPE_INDICATION
+      --      [and INTERFACE_LIST] with private;
 
       --  Note: private extension declarations are not allowed in Ada 83 mode
 
@@ -4278,6 +4328,7 @@ package Sinfo is
       --  Unknown_Discriminants_Present (Flag13) set if (<>) discriminant
       --  Abstract_Present (Flag4)
       --  Subtype_Indication (Node5)
+      --  Interface_List (List2) (set to No_List if none)
 
       ---------------------
       -- 8.4  Use Clause --
@@ -4380,6 +4431,7 @@ package Sinfo is
       --  Name (Node2)
       --  Parent_Spec (Node4-Sem)
       --  Corresponding_Spec (Node5-Sem)
+      --  Corresponding_Formal_Spec (Node3-Sem)
       --  From_Default (Flag6-Sem)
 
       -----------------------------------------
@@ -4418,14 +4470,14 @@ package Sinfo is
 
       --  TASK_TYPE_DECLARATION ::=
       --    task type DEFINING_IDENTIFIER [KNOWN_DISCRIMINANT_PART]
-      --      [is TASK_DEFINITITION];
+      --      [is [new INTERFACE_LIST with] TASK_DEFINITITION];
 
       --  N_Task_Type_Declaration
       --  Sloc points to TASK
       --  Defining_Identifier (Node1)
-      --  Task_Body_Procedure (Node2-Sem)
       --  Discriminant_Specifications (List4) (set to No_List if no
       --   discriminant part)
+      --  Interface_List (List2) (set to No_List if none)
       --  Task_Definition (Node3) (set to Empty if not present)
       --  Corresponding_Body (Node5-Sem)
 
@@ -4434,11 +4486,13 @@ package Sinfo is
       ----------------------------------
 
       --  SINGLE_TASK_DECLARATION ::=
-      --    task DEFINING_IDENTIFIER [is TASK_DEFINITION];
+      --    task DEFINING_IDENTIFIER
+      --      [is [new INTERFACE_LIST with] TASK_DEFINITITION];
 
       --  N_Single_Task_Declaration
       --  Sloc points to TASK
       --  Defining_Identifier (Node1)
+      --  Interface_List (List2) (set to No_List if none)
       --  Task_Definition (Node3) (set to Empty if not present)
 
       --------------------------
@@ -4481,7 +4535,7 @@ package Sinfo is
       --      HANDLED_SEQUENCE_OF_STATEMENTS
       --    end [task_IDENTIFIER];
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Task_Body
       --  Sloc points to TASK
@@ -4499,7 +4553,7 @@ package Sinfo is
 
       --  PROTECTED_TYPE_DECLARATION ::=
       --    protected type DEFINING_IDENTIFIER [KNOWN_DISCRIMINANT_PART]
-      --      is PROTECTED_DEFINITION;
+      --      is [new INTERFACE_LIST with] PROTECTED_DEFINITION;
 
       --  Note: protected type declarations are not permitted in Ada 83 mode
 
@@ -4508,6 +4562,7 @@ package Sinfo is
       --  Defining_Identifier (Node1)
       --  Discriminant_Specifications (List4) (set to No_List if no
       --   discriminant part)
+      --  Interface_List (List2) (set to No_List if none)
       --  Protected_Definition (Node3)
       --  Corresponding_Body (Node5-Sem)
 
@@ -4516,13 +4571,15 @@ package Sinfo is
       ---------------------------------------
 
       --  SINGLE_PROTECTED_DECLARATION ::=
-      --    protected DEFINING_IDENTIFIER is PROTECTED_DEFINITION;
+      --    protected DEFINING_IDENTIFIER
+      --      is [new INTERFACE_LIST with] PROTECTED_DEFINITION;
 
       --  Note: single protected declarations are not allowed in Ada 83 mode
 
       --  N_Single_Protected_Declaration
       --  Sloc points to PROTECTED
       --  Defining_Identifier (Node1)
+      --  Interface_List (List2) (set to No_List if none)
       --  Protected_Definition (Node3)
 
       -------------------------------
@@ -4569,7 +4626,7 @@ package Sinfo is
 
       --  Note: protected bodies are not allowed in Ada 83 mode
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Protected_Body
       --  Sloc points to PROTECTED
@@ -4594,6 +4651,7 @@ package Sinfo is
       ------------------------------
 
       --  ENTRY_DECLARATION ::=
+      --    [[not] overriding]
       --    entry DEFINING_IDENTIFIER
       --      [(DISCRETE_SUBTYPE_DEFINITION)] PARAMETER_PROFILE;
 
@@ -4603,6 +4661,10 @@ package Sinfo is
       --  Discrete_Subtype_Definition (Node4) (set to Empty if not present)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Corresponding_Body (Node5-Sem)
+      --  Must_Override (Flag14) set if overriding indicator present
+      --  Must_Not_Override (Flag15) set if not_overriding indicator present
+
+      --  Note: overriding indicator is an Ada 2005 feature
 
       -----------------------------
       -- 9.5.2  Accept statement --
@@ -4614,7 +4676,7 @@ package Sinfo is
       --        HANDLED_SEQUENCE_OF_STATEMENTS
       --    end [entry_IDENTIFIER]];
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  Note: there are no explicit declarations allowed in an accept
       --  statement. However, the implicit declarations for any statement
@@ -4653,7 +4715,7 @@ package Sinfo is
       --  the ENTRY_BODY_FORMAL_PART to avoid the N_Entry_Body node getting
       --  too full (it would otherwise have too many fields)
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Entry_Body
       --  Sloc points to ENTRY
@@ -4676,7 +4738,7 @@ package Sinfo is
       --  formal part itself. Also this means that the barrier condition
       --  always has somewhere to be stored.
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Entry_Body_Formal_Part
       --  Sloc points to first token
@@ -4697,7 +4759,7 @@ package Sinfo is
       --  ENTRY_INDEX_SPECIFICATION ::=
       --    for DEFINING_IDENTIFIER in DISCRETE_SUBTYPE_DEFINITION
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Entry_Index_Specification
       --  Sloc points to FOR
@@ -4713,7 +4775,7 @@ package Sinfo is
       --  The parser may generate a procedure call for this construct. The
       --  semantic pass must correct this misidentification where needed.
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Entry_Call_Statement
       --  Sloc points to first token of name
@@ -4730,7 +4792,7 @@ package Sinfo is
 
       --  Note: requeue statements are not permitted in Ada 83 mode
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Requeue_Statement
       --  Sloc points to REQUEUE
@@ -4753,7 +4815,7 @@ package Sinfo is
 
       --  Note: delay until statements are not permitted in Ada 83 mode
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Delay_Until_Statement
       --  Sloc points to DELAY
@@ -4765,7 +4827,7 @@ package Sinfo is
 
       --  DELAY_RELATIVE_STATEMENT ::= delay delay_EXPRESSION;
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Delay_Relative_Statement
       --  Sloc points to DELAY
@@ -4796,7 +4858,7 @@ package Sinfo is
       --      SEQUENCE_OF_STATEMENTS]
       --    end select;
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  Note: the guard expression, if present, appears in the node for
       --  the select alternative.
@@ -4831,7 +4893,7 @@ package Sinfo is
       --  ACCEPT_ALTERNATIVE ::=
       --    ACCEPT_STATEMENT [SEQUENCE_OF_STATEMENTS]
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Accept_Alternative
       --  Sloc points to ACCEPT
@@ -4848,7 +4910,7 @@ package Sinfo is
       --  DELAY_ALTERNATIVE ::=
       --    DELAY_STATEMENT [SEQUENCE_OF_STATEMENTS]
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Delay_Alternative
       --  Sloc points to DELAY
@@ -4863,7 +4925,7 @@ package Sinfo is
 
       --  TERMINATE_ALTERNATIVE ::= terminate;
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Terminate_Alternative
       --  Sloc points to TERMINATE
@@ -4882,7 +4944,7 @@ package Sinfo is
       --      DELAY_ALTERNATIVE
       --    end select;
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Timed_Entry_Call
       --  Sloc points to SELECT
@@ -4896,7 +4958,7 @@ package Sinfo is
       --  ENTRY_CALL_ALTERNATIVE ::=
       --    ENTRY_CALL_STATEMENT [SEQUENCE_OF_STATEMENTS]
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Entry_Call_Alternative
       --  Sloc points to first token of entry call statement
@@ -4915,7 +4977,7 @@ package Sinfo is
       --      SEQUENCE_OF_STATEMENTS
       --    end select;
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Conditional_Entry_Call
       --  Sloc points to SELECT
@@ -4935,7 +4997,7 @@ package Sinfo is
 
       --  Note: asynchronous select is not permitted in Ada 83 mode
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Asynchronous_Select
       --  Sloc points to SELECT
@@ -4949,7 +5011,7 @@ package Sinfo is
       --  TRIGGERING_ALTERNATIVE ::=
       --    TRIGGERING_STATEMENT [SEQUENCE_OF_STATEMENTS]
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Triggering_Alternative
       --  Sloc points to first token of triggering statement
@@ -4969,7 +5031,7 @@ package Sinfo is
 
       --  ABORTABLE_PART ::= SEQUENCE_OF_STATEMENTS
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Abortable_Part
       --  Sloc points to ABORT
@@ -4981,7 +5043,7 @@ package Sinfo is
 
       --  ABORT_STATEMENT ::= abort task_NAME {, task_NAME};
 
-      --  Gigi restriction: This node never appears.
+      --  Gigi restriction: This node never appears
 
       --  N_Abort_Statement
       --  Sloc points to ABORT
@@ -5329,7 +5391,7 @@ package Sinfo is
       --  is true even in the case of an accept statement (see description of
       --  the N_Accept_Statement node).
 
-      --  End_Label refers to the containing construct.
+      --  End_Label refers to the containing construct
 
       -----------------------------
       -- 11.2  Exception Handler --
@@ -5375,9 +5437,14 @@ package Sinfo is
 
       --  RAISE_STATEMENT ::= raise [exception_NAME];
 
+      --  In Ada 2005, we have
+
+      --  RAISE_STATEMENT ::= raise; | raise exception_NAME [with EXPRESSION];
+
       --  N_Raise_Statement
       --  Sloc points to RAISE
       --  Name (Node2) (set to Empty if no exception name present)
+      --  Expression (Node3) (set to Empty if no expression present)
 
       -------------------------------
       -- 12.1  Generic Declaration --
@@ -5447,9 +5514,11 @@ package Sinfo is
       --  GENERIC_INSTANTIATION ::=
       --    package DEFINING_PROGRAM_UNIT_NAME is
       --      new generic_package_NAME [GENERIC_ACTUAL_PART];
-      --  | procedure DEFINING_PROGRAM_UNIT_NAME is
+      --  | [[not] overriding]
+      --    procedure DEFINING_PROGRAM_UNIT_NAME is
       --      new generic_procedure_NAME [GENERIC_ACTUAL_PART];
-      --  | function DEFINING_DESIGNATOR is
+      --  | [[not] overriding]
+      --    function DEFINING_DESIGNATOR is
       --      new generic_function_NAME [GENERIC_ACTUAL_PART];
 
       --  N_Package_Instantiation
@@ -5470,6 +5539,8 @@ package Sinfo is
       --  Generic_Associations (List3) (set to No_List if no
       --   generic actual part)
       --  Instance_Spec (Node5-Sem)
+      --  Must_Override (Flag14) set if overriding indicator present
+      --  Must_Not_Override (Flag15) set if not_overriding indicator present
       --  ABE_Is_Certain (Flag18-Sem)
 
       --  N_Function_Instantiation
@@ -5480,7 +5551,11 @@ package Sinfo is
       --   generic actual part)
       --  Parent_Spec (Node4-Sem)
       --  Instance_Spec (Node5-Sem)
+      --  Must_Override (Flag14) set if overriding indicator present
+      --  Must_Not_Override (Flag15) set if not_overriding indicator present
       --  ABE_Is_Certain (Flag18-Sem)
+
+      --  Note: overriding indicator is an Ada 2005 feature
 
       ------------------------------
       -- 12.3 Generic Actual Part --
@@ -5573,6 +5648,7 @@ package Sinfo is
       --  | FORMAL_DECIMAL_FIXED_POINT_DEFINITION
       --  | FORMAL_ARRAY_TYPE_DEFINITION
       --  | FORMAL_ACCESS_TYPE_DEFINITION
+      --  | FORMAL_INTERFACE_TYPE_DEFINITION
 
       ---------------------------------------------
       -- 12.5.1  Formal Private Type Definition --
@@ -5594,8 +5670,7 @@ package Sinfo is
       --------------------------------------------
 
       --  FORMAL_DERIVED_TYPE_DEFINITION ::=
-      --    [abstract] new SUBTYPE_MARK [with private]
-
+      --    [abstract] new SUBTYPE_MARK [[and INTERFACE_LIST] with private]
       --  Note: this construct is not allowed in Ada 83 mode
 
       --  N_Formal_Derived_Type_Definition
@@ -5603,6 +5678,7 @@ package Sinfo is
       --  Subtype_Mark (Node4)
       --  Private_Present (Flag15)
       --  Abstract_Present (Flag4)
+      --  Interface_List (List2) (set to No_List if none)
 
       ---------------------------------------------
       -- 12.5.2  Formal Discrete Type Definition --
@@ -5672,14 +5748,44 @@ package Sinfo is
 
       --  FORMAL_ACCESS_TYPE_DEFINITION ::= ACCESS_TYPE_DEFINITION
 
+      ----------------------------------------------
+      -- 12.5.5  Formal Interface Type Definition --
+      ----------------------------------------------
+
+      --  FORMAL_INTERFACE_TYPE_DEFINITION ::= INTERFACE_TYPE_DEFINITION
+
       -----------------------------------------
       -- 12.6  Formal Subprogram Declaration --
       -----------------------------------------
 
       --  FORMAL_SUBPROGRAM_DECLARATION ::=
+      --    FORMAL_CONCRETE_SUBPROGRAM_DECLARATION
+      --  | FORMAL_ABSTRACT_SUBPROGRAM_DECLARATION
+
+      --------------------------------------------------
+      -- 12.6  Formal Concrete Subprogram Declaration --
+      --------------------------------------------------
+
+      --  FORMAL_CONCRETE_SUBPROGRAM_DECLARATION ::=
       --    with SUBPROGRAM_SPECIFICATION [is SUBPROGRAM_DEFAULT];
 
-      --  N_Formal_Subprogram_Declaration
+      --  N_Formal_Concrete_Subprogram_Declaration
+      --  Sloc points to WITH
+      --  Specification (Node1)
+      --  Default_Name (Node2) (set to Empty if no subprogram default)
+      --  Box_Present (Flag15)
+
+      --  Note: if no subprogram default is present, then Name is set
+      --  to Empty, and Box_Present is False.
+
+      --------------------------------------------------
+      -- 12.6  Formal Abstract Subprogram Declaration --
+      --------------------------------------------------
+
+      --  FORMAL_ABSTRACT_SUBPROGRAM_DECLARATION ::=
+      --    with SUBPROGRAM_SPECIFICATION is abstract [SUBPROGRAM_DEFAULT];
+
+      --  N_Formal_Abstract_Subprogram_Declaration
       --  Sloc points to WITH
       --  Specification (Node1)
       --  Default_Name (Node2) (set to Empty if no subprogram default)
@@ -5695,8 +5801,9 @@ package Sinfo is
       --  SUBPROGRAM_DEFAULT ::= DEFAULT_NAME | <>
 
       --  There is no separate node in the tree for a subprogram default.
-      --  Instead the parent (N_Formal_Subprogram_Declaration) node contains
-      --  the default name or box indication, as needed.
+      --  Instead the parent (N_Formal_Concrete_Subprogram_Declaration
+      --  or N_Formal_Abstract_Subprogram_Declaration) node contains the
+      --  default name or box indication, as needed.
 
       ------------------------
       -- 12.6  Default Name --
@@ -6086,7 +6193,7 @@ package Sinfo is
       --  an expanded name node to a selected component node to be done
       --  easily, see Sinfo.CN.Change_Selected_Component_To_Expanded_Name.
 
-      --  There is no special sprint syntax for an expanded name.
+      --  There is no special sprint syntax for an expanded name
 
       --  N_Expanded_Name
       --  Sloc points to the period
@@ -6342,7 +6449,7 @@ package Sinfo is
       --  with all checks off, regardless of the current setting of scope
       --  suppress flags.
 
-      --  Sprint syntax: `(expression).
+      --  Sprint syntax: `(expression)
 
       --  Note: this node is always removed from the tree (and replaced by
       --  its constituent expression) on completion of analysis, so it only
@@ -6372,7 +6479,7 @@ package Sinfo is
       --  clearly a function call to an instantiation of Unchecked_Conversion
       --  is not a variable in any case.
 
-      --  Sprint syntax: subtype-mark!(expression).
+      --  Sprint syntax: subtype-mark!(expression)
 
       --  N_Unchecked_Type_Conversion
       --  Sloc points to related node in source
@@ -6460,6 +6567,7 @@ package Sinfo is
       N_Unused_At_Start,
 
       --  N_Representation_Clause
+
       N_At_Clause,
       N_Component_Clause,
       N_Enumeration_Representation_Clause,
@@ -6467,35 +6575,43 @@ package Sinfo is
       N_Record_Representation_Clause,
 
       --  N_Representation_Clause, N_Has_Chars
+
       N_Attribute_Definition_Clause,
 
       --  N_Has_Chars
+
       N_Empty,
       N_Pragma,
       N_Pragma_Argument_Association,
 
       --  N_Has_Etype
+
       N_Error,
 
       --  N_Entity, N_Has_Etype, N_Has_Chars
+
       N_Defining_Character_Literal,
       N_Defining_Identifier,
       N_Defining_Operator_Symbol,
 
       --  N_Subexpr, N_Has_Etype, N_Has_Chars, N_Has_Entity
+
       N_Expanded_Name,
 
       --  N_Direct_Name, N_Subexpr, N_Has_Etype,
       --  N_Has_Chars, N_Has_Entity
+
       N_Identifier,
       N_Operator_Symbol,
 
       --  N_Direct_Name, N_Subexpr, N_Has_Etype,
       --  N_Has_Chars, N_Has_Entity
+
       N_Character_Literal,
 
       --  N_Binary_Op, N_Op, N_Subexpr,
       --  N_Has_Etype, N_Has_Chars, N_Has_Entity
+
       N_Op_Add,
       N_Op_Concat,
       N_Op_Expon,
@@ -6511,11 +6627,12 @@ package Sinfo is
 
       --  N_Binary_Op, N_Op, N_Subexpr, N_Has_Etype
       --  N_Has_Entity, N_Has_Chars, N_Op_Boolean
+
       N_Op_And,
 
       --  N_Binary_Op, N_Op, N_Subexpr, N_Has_Etype
-      --  N_Has_Entity, N_Has_Chars, N_Op_Boolean,
-      --  N_Op_Compare
+      --  N_Has_Entity, N_Has_Chars, N_Op_Boolean, N_Op_Compare
+
       N_Op_Eq,
       N_Op_Ge,
       N_Op_Gt,
@@ -6525,11 +6642,13 @@ package Sinfo is
 
       --  N_Binary_Op, N_Op, N_Subexpr, N_Has_Etype
       --  N_Has_Entity, N_Has_Chars, N_Op_Boolean
+
       N_Op_Or,
       N_Op_Xor,
 
       --  N_Binary_Op, N_Op, N_Subexpr, N_Has_Etype,
       --  N_Op_Shift, N_Has_Chars, N_Has_Entity
+
       N_Op_Rotate_Left,
       N_Op_Rotate_Right,
       N_Op_Shift_Left,
@@ -6538,15 +6657,18 @@ package Sinfo is
 
       --  N_Unary_Op, N_Op, N_Subexpr, N_Has_Etype,
       --  N_Has_Chars, N_Has_Entity
+
       N_Op_Abs,
       N_Op_Minus,
       N_Op_Not,
       N_Op_Plus,
 
       --  N_Subexpr, N_Has_Etype, N_Has_Entity
+
       N_Attribute_Reference,
 
       --  N_Subexpr, N_Has_Etype
+
       N_And_Then,
       N_Conditional_Expression,
       N_Explicit_Dereference,
@@ -6583,9 +6705,11 @@ package Sinfo is
       N_Unchecked_Type_Conversion,
 
       --  N_Has_Etype
+
       N_Subtype_Indication,
 
       --  N_Declaration
+
       N_Component_Declaration,
       N_Entry_Declaration,
       N_Formal_Object_Declaration,
@@ -6600,40 +6724,44 @@ package Sinfo is
       N_Subtype_Declaration,
 
       --  N_Subprogram_Specification, N_Declaration
+
       N_Function_Specification,
       N_Procedure_Specification,
 
-      --  (nothing special)
-      N_Entry_Index_Specification,
-      N_Freeze_Entity,
-
       --  N_Access_To_Subprogram_Definition
+
       N_Access_Function_Definition,
       N_Access_Procedure_Definition,
 
-      --  N_Later_Decl_Item,
+      --  N_Later_Decl_Item
+
       N_Task_Type_Declaration,
 
       --  N_Body_Stub, N_Later_Decl_Item
+
       N_Package_Body_Stub,
       N_Protected_Body_Stub,
       N_Subprogram_Body_Stub,
       N_Task_Body_Stub,
 
       --  N_Generic_Instantiation, N_Later_Decl_Item
+
       N_Function_Instantiation,
       N_Package_Instantiation,
       N_Procedure_Instantiation,
 
       --  N_Unit_Body, N_Later_Decl_Item, N_Proper_Body
+
       N_Package_Body,
       N_Subprogram_Body,
 
       --  N_Later_Decl_Item, N_Proper_Body
+
       N_Protected_Body,
       N_Task_Body,
 
       --  N_Later_Decl_Item
+
       N_Implicit_Label_Declaration,
       N_Package_Declaration,
       N_Single_Task_Declaration,
@@ -6641,25 +6769,30 @@ package Sinfo is
       N_Use_Package_Clause,
 
       --  N_Generic_Declaration, N_Later_Decl_Item
+
       N_Generic_Package_Declaration,
       N_Generic_Subprogram_Declaration,
 
       --  N_Array_Type_Definition
+
       N_Constrained_Array_Definition,
       N_Unconstrained_Array_Definition,
 
       --  N_Renaming_Declaration
+
       N_Exception_Renaming_Declaration,
       N_Object_Renaming_Declaration,
       N_Package_Renaming_Declaration,
       N_Subprogram_Renaming_Declaration,
 
       --  N_Generic_Renaming_Declarations, N_Renaming_Declaration
+
       N_Generic_Function_Renaming_Declaration,
       N_Generic_Package_Renaming_Declaration,
       N_Generic_Procedure_Renaming_Declaration,
 
       --  N_Statement_Other_Than_Procedure_Call
+
       N_Abort_Statement,
       N_Accept_Statement,
       N_Assignment_Statement,
@@ -6682,10 +6815,12 @@ package Sinfo is
       N_Timed_Entry_Call,
 
       --  N_Statement_Other_Than_Procedure_Call, N_Has_Condition
+
       N_Exit_Statement,
       N_If_Statement,
 
       --  N_Has_Condition
+
       N_Accept_Alternative,
       N_Delay_Alternative,
       N_Elsif_Part,
@@ -6693,7 +6828,13 @@ package Sinfo is
       N_Iteration_Scheme,
       N_Terminate_Alternative,
 
+      --  N_Formal_Subprogram_Declaration
+
+      N_Formal_Abstract_Subprogram_Declaration,
+      N_Formal_Concrete_Subprogram_Declaration,
+
       --  Other nodes (not part of any subtype class)
+
       N_Abortable_Part,
       N_Abstract_Subprogram_Declaration,
       N_Access_Definition,
@@ -6715,6 +6856,7 @@ package Sinfo is
       N_Enumeration_Type_Definition,
       N_Entry_Body,
       N_Entry_Call_Alternative,
+      N_Entry_Index_Specification,
       N_Exception_Declaration,
       N_Exception_Handler,
       N_Floating_Point_Definition,
@@ -6727,7 +6869,7 @@ package Sinfo is
       N_Formal_Package_Declaration,
       N_Formal_Private_Type_Definition,
       N_Formal_Signed_Integer_Type_Definition,
-      N_Formal_Subprogram_Declaration,
+      N_Freeze_Entity,
       N_Generic_Association,
       N_Handled_Sequence_Of_Statements,
       N_Index_Or_Discriminant_Constraint,
@@ -6793,6 +6935,10 @@ package Sinfo is
    subtype N_Entity is Node_Kind range
      N_Defining_Character_Literal ..
      N_Defining_Operator_Symbol;
+
+   subtype N_Formal_Subprogram_Declaration is Node_Kind range
+     N_Formal_Abstract_Subprogram_Declaration ..
+     N_Formal_Concrete_Subprogram_Declaration;
 
    subtype N_Generic_Declaration is Node_Kind range
      N_Generic_Package_Declaration ..
@@ -7003,7 +7149,7 @@ package Sinfo is
      (N : Node_Id) return Boolean;    -- Flag15
 
    function Char_Literal_Value
-     (N : Node_Id) return Char_Code;  -- Char_Code2
+     (N : Node_Id) return Uint;       -- Uint2
 
    function Chars
      (N : Node_Id) return Name_Id;    -- Name1
@@ -7070,6 +7216,9 @@ package Sinfo is
 
    function Corresponding_Body
      (N : Node_Id) return Node_Id;    -- Node5
+
+   function Corresponding_Formal_Spec
+     (N : Node_Id) return Node_Id;    -- Node3
 
    function Corresponding_Generic_Association
      (N : Node_Id) return Node_Id;    -- Node5
@@ -7225,7 +7374,7 @@ package Sinfo is
      (N : Node_Id) return List_Id;    -- List5
 
    function Exception_Junk
-     (N : Node_Id) return Boolean;    -- Flag11
+     (N : Node_Id) return Boolean;    -- Flag7
 
    function Explicit_Actual_Parameter
      (N : Node_Id) return Node_Id;    -- Node3
@@ -7331,6 +7480,12 @@ package Sinfo is
 
    function Identifier
      (N : Node_Id) return Node_Id;    -- Node1
+
+   function Interface_List
+     (N : Node_Id) return List_Id;    -- List2
+
+   function Interface_Present
+     (N : Node_Id) return Boolean;    -- Flag16
 
    function Implicit_With
      (N : Node_Id) return Boolean;    -- Flag16
@@ -7443,6 +7598,12 @@ package Sinfo is
    function Must_Not_Freeze
      (N : Node_Id) return Boolean;    -- Flag8
 
+   function Must_Not_Override
+     (N : Node_Id) return Boolean;    -- Flag15
+
+   function Must_Override
+     (N : Node_Id) return Boolean;    -- Flag14
+
    function Name
      (N : Node_Id) return Node_Id;    -- Node2
 
@@ -7480,16 +7641,13 @@ package Sinfo is
      (N : Node_Id) return Boolean;    -- Flag13
 
    function Null_Exclusion_Present
-     (N : Node_Id) return Boolean;    -- Flag9
+     (N : Node_Id) return Boolean;    -- Flag11
 
    function Null_Record_Present
      (N : Node_Id) return Boolean;    -- Flag17
 
    function Object_Definition
      (N : Node_Id) return Node_Id;    -- Node4
-
-   function OK_For_Stream
-     (N : Node_Id) return Boolean;    -- Flag4
 
    function Original_Discriminant
      (N : Node_Id) return Node_Id;    -- Node2
@@ -7558,7 +7716,7 @@ package Sinfo is
      (N : Node_Id) return Node_Id;    -- Node3
 
    function Protected_Present
-     (N : Node_Id) return Boolean;    -- Flag15
+     (N : Node_Id) return Boolean;    -- Flag6
 
    function Raises_Constraint_Error
      (N : Node_Id) return Boolean;    -- Flag7
@@ -7638,17 +7796,20 @@ package Sinfo is
    function Subtype_Marks
      (N : Node_Id) return List_Id;    -- List2
 
+   function Synchronized_Present
+     (N : Node_Id) return Boolean;    -- Flag7
+
    function Tagged_Present
      (N : Node_Id) return Boolean;    -- Flag15
 
    function Target_Type
      (N : Node_Id) return Entity_Id;  -- Node2
 
-   function Task_Body_Procedure
-     (N : Node_Id) return Entity_Id;  -- Node2
-
    function Task_Definition
      (N : Node_Id) return Node_Id;    -- Node3
+
+   function Task_Present
+     (N : Node_Id) return Boolean;    -- Flag5
 
    function Then_Actions
      (N : Node_Id) return List_Id;    -- List2
@@ -7798,7 +7959,7 @@ package Sinfo is
      (N : Node_Id; Val : Boolean := True);    -- Flag5
 
    procedure Set_Char_Literal_Value
-     (N : Node_Id; Val : Char_Code);          -- Char_Code2
+     (N : Node_Id; Val : Uint);               -- Uint2
 
    procedure Set_Chars
      (N : Node_Id; Val : Name_Id);            -- Name1
@@ -7865,6 +8026,9 @@ package Sinfo is
 
    procedure Set_Corresponding_Body
      (N : Node_Id; Val : Node_Id);            -- Node5
+
+   procedure Set_Corresponding_Formal_Spec
+     (N : Node_Id; Val : Node_Id);            -- Node3
 
    procedure Set_Corresponding_Generic_Association
      (N : Node_Id; Val : Node_Id);            -- Node5
@@ -8017,7 +8181,7 @@ package Sinfo is
      (N : Node_Id; Val : List_Id);            -- List5
 
    procedure Set_Exception_Junk
-     (N : Node_Id; Val : Boolean := True);    -- Flag11
+     (N : Node_Id; Val : Boolean := True);    -- Flag7
 
    procedure Set_Expansion_Delayed
      (N : Node_Id; Val : Boolean := True);    -- Flag11
@@ -8123,6 +8287,12 @@ package Sinfo is
 
    procedure Set_Identifier
      (N : Node_Id; Val : Node_Id);            -- Node1
+
+   procedure Set_Interface_List
+     (N : Node_Id; Val : List_Id);            -- List2
+
+   procedure Set_Interface_Present
+     (N : Node_Id; Val : Boolean := True);    -- Flag16
 
    procedure Set_Implicit_With
      (N : Node_Id; Val : Boolean := True);    -- Flag16
@@ -8235,6 +8405,12 @@ package Sinfo is
    procedure Set_Must_Not_Freeze
      (N : Node_Id; Val : Boolean := True);    -- Flag8
 
+   procedure Set_Must_Not_Override
+     (N : Node_Id; Val : Boolean := True);    -- Flag15
+
+   procedure Set_Must_Override
+     (N : Node_Id; Val : Boolean := True);    -- Flag14
+
    procedure Set_Name
      (N : Node_Id; Val : Node_Id);            -- Node2
 
@@ -8272,16 +8448,13 @@ package Sinfo is
      (N : Node_Id; Val : Boolean := True);    -- Flag13
 
    procedure Set_Null_Exclusion_Present
-     (N : Node_Id; Val : Boolean := True);    -- Flag9
+     (N : Node_Id; Val : Boolean := True);    -- Flag11
 
    procedure Set_Null_Record_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag17
 
    procedure Set_Object_Definition
      (N : Node_Id; Val : Node_Id);            -- Node4
-
-   procedure Set_OK_For_Stream
-     (N : Node_Id; Val : Boolean := True);    -- Flag4
 
    procedure Set_Original_Discriminant
      (N : Node_Id; Val : Node_Id);            -- Node2
@@ -8350,7 +8523,7 @@ package Sinfo is
      (N : Node_Id; Val : Node_Id);            -- Node3
 
    procedure Set_Protected_Present
-     (N : Node_Id; Val : Boolean := True);    -- Flag15
+     (N : Node_Id; Val : Boolean := True);    -- Flag6
 
    procedure Set_Raises_Constraint_Error
      (N : Node_Id; Val : Boolean := True);    -- Flag7
@@ -8430,17 +8603,20 @@ package Sinfo is
    procedure Set_Subtype_Marks
      (N : Node_Id; Val : List_Id);            -- List2
 
+   procedure Set_Synchronized_Present
+     (N : Node_Id; Val : Boolean := True);    -- Flag7
+
    procedure Set_Tagged_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag15
 
    procedure Set_Target_Type
      (N : Node_Id; Val : Entity_Id);          -- Node2
 
-   procedure Set_Task_Body_Procedure
-     (N : Node_Id; Val : Entity_Id);          -- Node2
-
    procedure Set_Task_Definition
      (N : Node_Id; Val : Node_Id);            -- Node3
+
+   procedure Set_Task_Present
+     (N : Node_Id; Val : Boolean := True);    -- Flag5
 
    procedure Set_Then_Actions
      (N : Node_Id; Val : List_Id);            -- List2
@@ -8570,6 +8746,7 @@ package Sinfo is
    pragma Inline (Controlling_Argument);
    pragma Inline (Conversion_OK);
    pragma Inline (Corresponding_Body);
+   pragma Inline (Corresponding_Formal_Spec);
    pragma Inline (Corresponding_Generic_Association);
    pragma Inline (Corresponding_Integer_Value);
    pragma Inline (Corresponding_Spec);
@@ -8658,6 +8835,8 @@ package Sinfo is
    pragma Inline (High_Bound);
    pragma Inline (Identifier);
    pragma Inline (Implicit_With);
+   pragma Inline (Interface_List);
+   pragma Inline (Interface_Present);
    pragma Inline (Includes_Infinities);
    pragma Inline (In_Present);
    pragma Inline (Instance_Spec);
@@ -8694,6 +8873,8 @@ package Sinfo is
    pragma Inline (More_Ids);
    pragma Inline (Must_Be_Byte_Aligned);
    pragma Inline (Must_Not_Freeze);
+   pragma Inline (Must_Not_Override);
+   pragma Inline (Must_Override);
    pragma Inline (Name);
    pragma Inline (Names);
    pragma Inline (Next_Entity);
@@ -8709,7 +8890,6 @@ package Sinfo is
    pragma Inline (Null_Exclusion_Present);
    pragma Inline (Null_Record_Present);
    pragma Inline (Object_Definition);
-   pragma Inline (OK_For_Stream);
    pragma Inline (Original_Discriminant);
    pragma Inline (Original_Entity);
    pragma Inline (Others_Discrete_Choices);
@@ -8759,10 +8939,11 @@ package Sinfo is
    pragma Inline (Subtype_Indication);
    pragma Inline (Subtype_Mark);
    pragma Inline (Subtype_Marks);
+   pragma Inline (Synchronized_Present);
    pragma Inline (Tagged_Present);
    pragma Inline (Target_Type);
-   pragma Inline (Task_Body_Procedure);
    pragma Inline (Task_Definition);
+   pragma Inline (Task_Present);
    pragma Inline (Then_Actions);
    pragma Inline (Then_Statements);
    pragma Inline (Triggering_Alternative);
@@ -8832,6 +9013,7 @@ package Sinfo is
    pragma Inline (Set_Controlling_Argument);
    pragma Inline (Set_Conversion_OK);
    pragma Inline (Set_Corresponding_Body);
+   pragma Inline (Set_Corresponding_Formal_Spec);
    pragma Inline (Set_Corresponding_Generic_Association);
    pragma Inline (Set_Corresponding_Integer_Value);
    pragma Inline (Set_Corresponding_Spec);
@@ -8920,6 +9102,8 @@ package Sinfo is
    pragma Inline (Set_Identifier);
    pragma Inline (Set_Implicit_With);
    pragma Inline (Set_Includes_Infinities);
+   pragma Inline (Set_Interface_List);
+   pragma Inline (Set_Interface_Present);
    pragma Inline (Set_In_Present);
    pragma Inline (Set_Instance_Spec);
    pragma Inline (Set_Intval);
@@ -8955,6 +9139,8 @@ package Sinfo is
    pragma Inline (Set_More_Ids);
    pragma Inline (Set_Must_Be_Byte_Aligned);
    pragma Inline (Set_Must_Not_Freeze);
+   pragma Inline (Set_Must_Not_Override);
+   pragma Inline (Set_Must_Override);
    pragma Inline (Set_Name);
    pragma Inline (Set_Names);
    pragma Inline (Set_Next_Entity);
@@ -8969,7 +9155,6 @@ package Sinfo is
    pragma Inline (Set_Null_Exclusion_Present);
    pragma Inline (Set_Null_Record_Present);
    pragma Inline (Set_Object_Definition);
-   pragma Inline (Set_OK_For_Stream);
    pragma Inline (Set_Original_Discriminant);
    pragma Inline (Set_Original_Entity);
    pragma Inline (Set_Others_Discrete_Choices);
@@ -9019,10 +9204,11 @@ package Sinfo is
    pragma Inline (Set_Subtype_Indication);
    pragma Inline (Set_Subtype_Mark);
    pragma Inline (Set_Subtype_Marks);
+   pragma Inline (Set_Synchronized_Present);
    pragma Inline (Set_Tagged_Present);
    pragma Inline (Set_Target_Type);
-   pragma Inline (Set_Task_Body_Procedure);
    pragma Inline (Set_Task_Definition);
+   pragma Inline (Set_Task_Present);
    pragma Inline (Set_Then_Actions);
    pragma Inline (Set_Then_Statements);
    pragma Inline (Set_Triggering_Alternative);

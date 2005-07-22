@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* This file contains two passes of the compiler: reg_scan and reg_class.
@@ -172,11 +172,11 @@ unsigned int reg_class_size[N_REG_CLASSES];
 
 /* For each reg class, table listing all the containing classes.  */
 
-enum reg_class reg_class_superclasses[N_REG_CLASSES][N_REG_CLASSES];
+static enum reg_class reg_class_superclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* For each reg class, table listing all the classes contained in it.  */
 
-enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
+static enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* For each pair of reg classes,
    a largest reg class contained in their union.  */
@@ -191,6 +191,10 @@ enum reg_class reg_class_superunion[N_REG_CLASSES][N_REG_CLASSES];
 /* Array containing all of the register names.  */
 
 const char * reg_names[] = REGISTER_NAMES;
+
+/* Array containing all of the register class names.  */
+
+const char * reg_class_names[] = REG_CLASS_NAMES;
 
 /* For each hard register, the widest mode object that it can contain.
    This will be a MODE_INT mode if the register can hold integers.  Otherwise
@@ -292,9 +296,6 @@ init_reg_sets (void)
   memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
   memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
   memset (global_regs, 0, sizeof global_regs);
-
-  /* Do any additional initialization regsets may need.  */
-  INIT_ONCE_REG_SET ();
 
 #ifdef REG_ALLOC_ORDER
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -777,7 +778,7 @@ fix_register (const char *name, int fixed, int call_used)
     }
   else
     {
-      warning ("unknown register name: %s", name);
+      warning (0, "unknown register name: %s", name);
     }
 }
 
@@ -791,12 +792,12 @@ globalize_reg (int i)
 
   if (global_regs[i])
     {
-      warning ("register used for two global register variables");
+      warning (0, "register used for two global register variables");
       return;
     }
 
   if (call_used_regs[i] && ! fixed_regs[i])
-    warning ("call-clobbered register used for global register variable");
+    warning (0, "call-clobbered register used for global register variable");
 
   global_regs[i] = 1;
 
@@ -928,7 +929,6 @@ regclass_init (void)
 static void
 dump_regclass (FILE *dump)
 {
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
   int i;
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
@@ -1351,7 +1351,6 @@ regclass (rtx f, int nregs, FILE *dump)
 	      && (reg_pref[i].prefclass != (int) best
 		  || reg_pref[i].altclass != (int) alt))
 	    {
-	      static const char *const reg_class_names[] = REG_CLASS_NAMES;
 	      fprintf (dump, "  Register %i", i);
 	      if (alt == ALL_REGS || best == ALL_REGS)
 		fprintf (dump, " pref %s\n", reg_class_names[(int) best]);
@@ -2181,7 +2180,6 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	  reg_pref_buffer = xmalloc (regno_allocated
 				     * sizeof (struct reg_pref));
 	}
-
       else
 	{
 	  VARRAY_GROW (reg_n_info, regno_allocated);
@@ -2257,9 +2255,6 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 
   if (renumber_p)
     reg_renumber = renumber;
-
-  /* Tell the regset code about the new number of registers.  */
-  MAX_REGNO_REG_SET (num_regs, new_p, renumber_p);
 }
 
 /* Free up the space allocated by allocate_reg_info.  */
@@ -2310,7 +2305,7 @@ int max_parallel;
 static int max_set_parallel;
 
 void
-reg_scan (rtx f, unsigned int nregs, int repeat ATTRIBUTE_UNUSED)
+reg_scan (rtx f, unsigned int nregs)
 {
   rtx insn;
 
@@ -2581,14 +2576,6 @@ reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 
  lose:
   return 0;
-}
-
-/* Release any memory allocated by register sets.  */
-
-void
-regset_release_memory (void)
-{
-  bitmap_release_memory ();
 }
 
 #ifdef CANNOT_CHANGE_MODE_CLASS

@@ -1,5 +1,5 @@
 /* Definitions for target OS TPF for GNU compiler, for IBM S/390 hardware
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by P.J. Darcy (darcypj@us.ibm.com),
                   Hartmut Penner (hpenner@de.ibm.com), and
                   Ulrich Weigand (uweigand@de.ibm.com).
@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef _TPF_H
 #define _TPF_H
@@ -58,10 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    Also, enable TPF profiling support and the standard backchain by default.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT		(MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT \
-				 | MASK_TPF_PROFILING)
-#undef TARGET_DEFAULT_BACKCHAIN
-#define TARGET_DEFAULT_BACKCHAIN "1"
-
+				 | MASK_TPF_PROFILING | MASK_BACKCHAIN)
 /* Exception handling.  */
 
 /* Select a format to encode pointers in exception handling data.  */
@@ -103,6 +100,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* The GNU C++ standard library requires that these macros be defined.  */
 #undef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
+
+#undef  ASM_SPEC
+#define ASM_SPEC "%{m31&m64}%{mesa&mzarch}%{march=*}"
 
 #undef  LIB_SPEC
 #define LIB_SPEC "%{pthread:-lpthread} -lc"

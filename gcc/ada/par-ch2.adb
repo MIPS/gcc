@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -33,7 +33,14 @@ package body Ch2 is
 
    --  Local functions, used only in this chapter
 
-   function P_Pragma_Argument_Association return Node_Id;
+   procedure Scan_Pragma_Argument_Association
+     (Identifier_Seen : in out Boolean;
+      Association     : out Node_Id);
+   --  Scans out a pragma argument association. Identifier_Seen is true on
+   --  entry if a previous association had an identifier, and gets set True if
+   --  the scanned association has an identifier (this is used to check the
+   --  rule that no associations without identifiers can follow an association
+   --  which has an identifier). The result is returned in Association.
 
    ---------------------
    -- 2.3  Identifier --
@@ -54,6 +61,22 @@ package body Ch2 is
       --  All set if we do indeed have an identifier
 
       if Token = Tok_Identifier then
+
+         --  Ada 2005 (AI-284): Compiling in Ada95 mode we warn that INTERFACE,
+         --  OVERRIDING, and SYNCHRONIZED are new reserved words.
+
+         if Ada_Version = Ada_95
+           and then Warn_On_Ada_2005_Compatibility
+         then
+            if Token_Name = Name_Overriding
+              or else Token_Name = Name_Synchronized
+              or else (Token_Name = Name_Interface
+                        and then Prev_Token /= Tok_Pragma)
+            then
+               Error_Msg_N ("& is a reserved word in Ada 2005?", Token_Node);
+            end if;
+         end if;
+
          Ident_Node := Token_Node;
          Scan; -- past Identifier
          return Ident_Node;
@@ -216,6 +239,10 @@ package body Ch2 is
       Arg_Count : Int := 0;
       --  Number of argument associations processed
 
+      Identifier_Seen : Boolean := False;
+      --  Set True if an identifier is encountered for a pragma argument. Used
+      --  to check that there are no more arguments without identifiers.
+
       Pragma_Node   : Node_Id;
       Pragma_Name   : Name_Id;
       Semicolon_Loc : Source_Ptr;
@@ -251,9 +278,21 @@ package body Ch2 is
          Style.Check_Pragma_Name;
       end if;
 
-      Ident_Node := P_Identifier;
+      --  Ada 2005 (AI-284): INTERFACE is a new reserved word but it is
+      --  allowed as a pragma name.
+
+      if Ada_Version >= Ada_05
+        and then Token = Tok_Interface
+      then
+         Pragma_Name := Name_Interface;
+         Ident_Node  := Token_Node;
+         Scan; -- past INTERFACE
+      else
+         Ident_Node := P_Identifier;
+         Delete_Node (Ident_Node);
+      end if;
+
       Set_Chars (Pragma_Node, Pragma_Name);
-      Delete_Node (Ident_Node);
 
       --  See if special INTERFACE/IMPORT check is required
 
@@ -278,7 +317,7 @@ package body Ch2 is
 
          loop
             Arg_Count := Arg_Count + 1;
-            Assoc_Node := P_Pragma_Argument_Association;
+            Scan_Pragma_Argument_Association (Identifier_Seen, Assoc_Node);
 
             if Arg_Count = 2
               and then (Interface_Check_Required or else Import_Check_Required)
@@ -411,14 +450,16 @@ package body Ch2 is
 
    --  Error recovery: cannot raise Error_Resync
 
-   function P_Pragma_Argument_Association return Node_Id is
+   procedure Scan_Pragma_Argument_Association
+     (Identifier_Seen : in out Boolean;
+      Association     : out Node_Id)
+   is
       Scan_State      : Saved_Scan_State;
-      Pragma_Arg_Node : Node_Id;
       Identifier_Node : Node_Id;
 
    begin
-      Pragma_Arg_Node := New_Node (N_Pragma_Argument_Association, Token_Ptr);
-      Set_Chars (Pragma_Arg_Node, No_Name);
+      Association := New_Node (N_Pragma_Argument_Association, Token_Ptr);
+      Set_Chars (Association, No_Name);
 
       if Token = Tok_Identifier then
          Identifier_Node := Token_Node;
@@ -426,17 +467,24 @@ package body Ch2 is
          Scan; -- past Identifier
 
          if Token = Tok_Arrow then
+            Identifier_Seen := True;
             Scan; -- past arrow
-            Set_Chars (Pragma_Arg_Node, Chars (Identifier_Node));
+            Set_Chars (Association, Chars (Identifier_Node));
             Delete_Node (Identifier_Node);
+
+            --  Case of argument with no identifier
+
          else
             Restore_Scan_State (Scan_State); -- to Identifier
+
+            if Identifier_Seen then
+               Error_Msg_SC
+                 ("|pragma argument identifier required here ('R'M' 2.8(4))");
+            end if;
          end if;
       end if;
 
-      Set_Expression (Pragma_Arg_Node, P_Expression);
-      return Pragma_Arg_Node;
-
-   end P_Pragma_Argument_Association;
+      Set_Expression (Association, P_Expression);
+   end Scan_Pragma_Argument_Association;
 
 end Ch2;

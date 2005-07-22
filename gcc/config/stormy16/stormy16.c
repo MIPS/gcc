@@ -1,5 +1,5 @@
 /* Xstormy16 target functions.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -64,34 +64,6 @@ static bool xstormy16_return_in_memory (tree, tree);
    stored from the compare operation.  */
 struct rtx_def * xstormy16_compare_op0;
 struct rtx_def * xstormy16_compare_op1;
-
-/* Return 1 if this is a LT, GE, LTU, or GEU operator.  */
-
-int
-xstormy16_ineqsi_operator (register rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-  
-  return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (code == LT || code == GE || code == LTU || code == GEU));
-}
-
-/* Return 1 if this is an EQ or NE operator.  */
-
-int
-equality_operator (register rtx op, enum machine_mode mode)
-{
-  return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (GET_CODE (op) == EQ || GET_CODE (op) == NE));
-}
-
-/* Return 1 if this is a comparison operator but not an EQ or NE operator.  */
-
-int
-inequality_operator (register rtx op, enum machine_mode mode)
-{
-  return comparison_operator (op, mode) && ! equality_operator (op, mode);
-}
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
@@ -174,8 +146,7 @@ xstormy16_emit_cbranch (enum rtx_code code, rtx loc)
   enum machine_mode mode;
   
   mode = GET_MODE (op0);
-  if (mode != HImode && mode != SImode)
-    abort ();
+  gcc_assert (mode == HImode || mode == SImode);
 
   if (mode == SImode
       && (code == GT || code == LE || code == GTU || code == LEU))
@@ -278,8 +249,7 @@ xstormy16_split_cbranch (enum machine_mode mode, rtx label, rtx comparison,
   seq = get_insns ();
   end_sequence ();
 
-  if (! INSN_P (seq))
-    abort ();
+  gcc_assert (INSN_P (seq));
 
   last_insn = seq;
   while (NEXT_INSN (last_insn) != NULL_RTX)
@@ -352,7 +322,7 @@ xstormy16_output_cbranch_hi (rtx op, const char *label, int reversed, rtx insn)
     case LEU:  ccode = "ls";  break;
       
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (need_longbranch)
@@ -402,7 +372,7 @@ xstormy16_output_cbranch_si (rtx op, const char *label, int reversed, rtx insn)
 
       /* The missing codes above should never be generated.  */
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   switch (code)
@@ -411,8 +381,7 @@ xstormy16_output_cbranch_si (rtx op, const char *label, int reversed, rtx insn)
       {
 	int regnum;
 	
-	if (GET_CODE (XEXP (op, 0)) != REG)
-	  abort ();
+	gcc_assert (GET_CODE (XEXP (op, 0)) == REG);
       
 	regnum = REGNO (XEXP (op, 0));
 	sprintf (prevop, "or %s,%s", reg_names[regnum], reg_names[regnum+1]);
@@ -424,7 +393,7 @@ xstormy16_output_cbranch_si (rtx op, const char *label, int reversed, rtx insn)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (need_longbranch)
@@ -525,7 +494,7 @@ xs_hi_general_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if ((GET_CODE (x) == CONST_INT) 
    && ((INTVAL (x) >= 32768) || (INTVAL (x) < -32768)))
-    error ("Constant halfword load operand out of range.");
+    error ("constant halfword load operand out of range");
   return general_operand (x, mode);
 }
 
@@ -535,7 +504,7 @@ xs_hi_nonmemory_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if ((GET_CODE (x) == CONST_INT) 
    && ((INTVAL (x) >= 32768) || (INTVAL (x) < -32768)))
-    error ("Constant arithmetic operand out of range.");
+    error ("constant arithmetic operand out of range");
   return nonmemory_operand (x, mode);
 }
 
@@ -576,28 +545,6 @@ xstormy16_below100_symbol (rtx x,
   return 0;
 }
 
-/* Predicate for MEMs that can use special 8-bit addressing.  */
-int
-xstormy16_below100_operand (rtx x, enum machine_mode mode)
-{
-  if (GET_MODE (x) != mode)
-    return 0;
-  if (GET_CODE (x) == MEM)
-    x = XEXP (x, 0);
-  else if (GET_CODE (x) == SUBREG
-	   && GET_CODE (XEXP (x, 0)) == MEM
-	   && !MEM_VOLATILE_P (XEXP (x, 0)))
-    x = XEXP (XEXP (x, 0), 0);
-  else
-    return 0;
-  if (GET_CODE (x) == CONST_INT)
-    {
-      HOST_WIDE_INT i = INTVAL (x);
-      return (i >= 0x7f00 && i < 0x7fff);
-    }
-  return xstormy16_below100_symbol (x, HImode);
-}
-
 /* Likewise, but only for non-volatile MEMs, for patterns where the
    MEM will get split into smaller sized accesses.  */
 int
@@ -606,52 +553,6 @@ xstormy16_splittable_below100_operand (rtx x, enum machine_mode mode)
   if (GET_CODE (x) == MEM && MEM_VOLATILE_P (x))
     return 0;
   return xstormy16_below100_operand (x, mode);
-}
-
-int
-xstormy16_below100_or_register (rtx x, enum machine_mode mode)
-{
-  return (xstormy16_below100_operand (x, mode)
-	  || register_operand (x, mode));
-}
-
-int
-xstormy16_splittable_below100_or_register (rtx x, enum machine_mode mode)
-{
-  if (GET_CODE (x) == MEM && MEM_VOLATILE_P (x))
-    return 0;
-  return (xstormy16_below100_operand (x, mode)
-	  || register_operand (x, mode));
-}
-
-/* Predicate for constants with exactly one bit set.  */
-int
-xstormy16_onebit_set_operand (rtx x, enum machine_mode mode)
-{
-  HOST_WIDE_INT i;
-  if (GET_CODE (x) != CONST_INT)
-    return 0;
-  i = INTVAL (x);
-  if (mode == QImode)
-    i &= 0xff;
-  if (mode == HImode)
-    i &= 0xffff;
-  return exact_log2 (i) != -1;
-}
-
-/* Predicate for constants with exactly one bit not set.  */
-int
-xstormy16_onebit_clr_operand (rtx x, enum machine_mode mode)
-{
-  HOST_WIDE_INT i;
-  if (GET_CODE (x) != CONST_INT)
-    return 0;
-  i = ~ INTVAL (x);
-  if (mode == QImode)
-    i &= 0xff;
-  if (mode == HImode)
-    i &= 0xffff;
-  return exact_log2 (i) != -1;
 }
 
 /* Expand an 8-bit IOR.  This either detects the one case we can
@@ -875,15 +776,6 @@ short_memory_operand (rtx x, enum machine_mode mode)
   return (GET_CODE (XEXP (x, 0)) != PLUS);
 }
 
-int
-nonimmediate_nonstack_operand (rtx op, enum machine_mode mode)
-{
-  /* 'Q' is for pushes, 'R' for pops.  */
-  return (nonimmediate_operand (op, mode) 
-	  && ! xstormy16_extra_constraint_p (op, 'Q')
-	  && ! xstormy16_extra_constraint_p (op, 'R'));
-}
-
 /* Splitter for the 'move' patterns, for modes not directly implemented
    by hardware.  Emit insns to copy a value of mode MODE from SRC to
    DEST.
@@ -904,21 +796,16 @@ xstormy16_split_move (enum machine_mode mode, rtx dest, rtx src)
   rtx auto_inc_reg_rtx = NULL_RTX;
   
   /* Check initial conditions.  */
-  if (! reload_completed
-      || mode == QImode || mode == HImode
-      || ! nonimmediate_operand (dest, mode)
-      || ! general_operand (src, mode))
-    abort ();
+  gcc_assert (reload_completed
+	      && mode != QImode && mode != HImode
+	      && nonimmediate_operand (dest, mode)
+	      && general_operand (src, mode));
 
   /* This case is not supported below, and shouldn't be generated.  */
-  if (GET_CODE (dest) == MEM
-      && GET_CODE (src) == MEM)
-    abort ();
+  gcc_assert (GET_CODE (dest) != MEM || GET_CODE (src) != MEM);
 
   /* This case is very very bad after reload, so trap it now.  */
-  if (GET_CODE (dest) == SUBREG
-      || GET_CODE (src) == SUBREG)
-    abort ();
+  gcc_assert (GET_CODE (dest) != SUBREG && GET_CODE (src) != SUBREG);
 
   /* The general idea is to copy by words, offsetting the source and
      destination.  Normally the least-significant word will be copied
@@ -975,12 +862,12 @@ xstormy16_split_move (enum machine_mode mode, rtx dest, rtx src)
 	   && reg_overlap_mentioned_p (dest, src))
     {
       int regno;
-      if (GET_CODE (dest) != REG)
-	abort ();
+      
+      gcc_assert (GET_CODE (dest) == REG);
       regno = REGNO (dest);
       
-      if (! refers_to_regno_p (regno, regno + num_words, mem_operand, 0))
-	abort ();
+      gcc_assert (refers_to_regno_p (regno, regno + num_words,
+				     mem_operand, 0));
       
       if (refers_to_regno_p (regno, regno + 1, mem_operand, 0))
 	direction = -1;
@@ -992,7 +879,7 @@ xstormy16_split_move (enum machine_mode mode, rtx dest, rtx src)
 	   (set (reg:DI r0) (mem:DI (reg:HI r1)))
 	   which we'd need to support by doing the set of the second word
 	   last.  */
-	abort ();
+	gcc_unreachable ();
     }
 
   end = direction < 0 ? -1 : num_words;
@@ -1015,9 +902,8 @@ xstormy16_split_move (enum machine_mode mode, rtx dest, rtx src)
 	MEM_VOLATILE_P (w_dest) = 1;
       
       /* The simplify_subreg calls must always be able to simplify.  */
-      if (GET_CODE (w_src) == SUBREG
-	  || GET_CODE (w_dest) == SUBREG)
-	abort ();
+      gcc_assert (GET_CODE (w_src) != SUBREG
+		  && GET_CODE (w_dest) != SUBREG);
       
       insn = emit_insn (gen_rtx_SET (VOIDmode, w_dest, w_src));
       if (auto_inc_reg_rtx)
@@ -1180,7 +1066,7 @@ xstormy16_initial_elimination_offset (int from, int to)
   else if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     result = -(layout.sp_minus_fp + layout.fp_minus_ap);
   else
-    abort ();
+    gcc_unreachable ();
 
   return result;
 }
@@ -1221,7 +1107,7 @@ xstormy16_expand_prologue (void)
   layout = xstormy16_compute_stack_layout ();
 
   if (layout.locals_size >= 32768)
-    error ("Local variable memory requirements exceed capacity.");
+    error ("local variable memory requirements exceed capacity");
 
   /* Save the argument registers if necessary.  */
   if (layout.stdarg_save_size)
@@ -1761,25 +1647,22 @@ xstormy16_encode_section_info (tree decl,
 
       rtl = r;
       rtlname = XEXP (rtl, 0);
-      if (GET_CODE (rtlname) == SYMBOL_REF)
-	oldname = XSTR (rtlname, 0);
-      else if (GET_CODE (rtlname) == MEM
-	       && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-	oldname = XSTR (XEXP (rtlname, 0), 0);
-      else
-	abort ();
+      if (GET_CODE (rtlname) == MEM)
+	rtlname = XEXP (rtlname, 0);
+      gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+      oldname = XSTR (rtlname, 0);
 
       if (DECL_INITIAL (decl))
 	{
 	  newsection = ".data_below100";
-	  DECL_SECTION_NAME (decl) = build_string (strlen (newsection), newsection);
+	  DECL_SECTION_NAME (decl) = build_string (strlen (newsection),
+						   newsection);
 	}
 
       newname = alloca (strlen (oldname) + 4);
       sprintf (newname, "@b.%s", oldname);
       idp = get_identifier (newname);
-      XEXP (rtl, 0) =
-	gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
+      XEXP (rtl, 0) = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
     }
 }
 
@@ -1874,8 +1757,7 @@ xstormy16_print_operand_address (FILE *file, rtx address)
 
   if (GET_CODE (address) == PLUS)
     {
-      if (GET_CODE (XEXP (address, 1)) != CONST_INT)
-	abort ();
+      gcc_assert (GET_CODE (XEXP (address, 1)) == CONST_INT);
       offset = INTVAL (XEXP (address, 1));
       address = XEXP (address, 0);
     }
@@ -1887,8 +1769,7 @@ xstormy16_print_operand_address (FILE *file, rtx address)
   if (pre_dec || post_inc)
     address = XEXP (address, 0);
   
-  if (GET_CODE (address) != REG)
-    abort ();
+  gcc_assert (GET_CODE (address) == REG);
 
   fputc ('(', file);
   if (pre_dec)
@@ -2074,7 +1955,7 @@ xstormy16_output_addr_vec (FILE *file, rtx label ATTRIBUTE_UNUSED, rtx table)
 { 
   int vlen, idx;
   
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
 
   vlen = XVECLEN (table, 0);
   for (idx = 0; idx < vlen; idx++)
@@ -2102,8 +1983,7 @@ xstormy16_expand_call (rtx retval, rtx dest, rtx counter)
   rtx call, temp;
   enum machine_mode mode;
 
-  if (GET_CODE (dest) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (dest) == MEM);
   dest = XEXP (dest, 0);
 
   if (! CONSTANT_P (dest)
@@ -2225,7 +2105,7 @@ xstormy16_expand_arith (enum machine_mode mode, enum rtx_code code,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       
       firstloop = 0;
@@ -2236,18 +2116,6 @@ xstormy16_expand_arith (enum machine_mode mode, enum rtx_code code,
      something that does nothing and can be optimized away.  */
   if (firstloop)
     emit (gen_nop ());
-}
-
-/* Return 1 if OP is a shift operator.  */
-
-int
-shift_operator (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  enum rtx_code code = GET_CODE (op);
-
-  return (code == ASHIFT
-	  || code == ASHIFTRT
-	  || code == LSHIFTRT);
 }
 
 /* The shift operations are split at output time for constant values;
@@ -2264,10 +2132,8 @@ xstormy16_output_shift (enum machine_mode mode, enum rtx_code code,
   const char *r0, *r1, *rt;
   static char r[64];
 
-  if (GET_CODE (size_r) != CONST_INT
-      || GET_CODE (x) != REG
-      || mode != SImode)
-    abort ();
+  gcc_assert (GET_CODE (size_r) == CONST_INT
+	      && GET_CODE (x) == REG && mode == SImode);
   size = INTVAL (size_r) & (GET_MODE_BITSIZE (mode) - 1);
 
   if (size == 0)
@@ -2291,7 +2157,7 @@ xstormy16_output_shift (enum machine_mode mode, enum rtx_code code,
 	  sprintf (r, "shr %s,#1 | rrc %s,#1", r1, r0);
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       return r;
     }
@@ -2311,7 +2177,7 @@ xstormy16_output_shift (enum machine_mode mode, enum rtx_code code,
 	  sprintf (r, "mov %s,%s | mov %s,#0", r0, r1, r1);
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       return r;
     }
@@ -2332,7 +2198,7 @@ xstormy16_output_shift (enum machine_mode mode, enum rtx_code code,
 		   r0, r1, r1, r0, (int) size - 16);
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       return r;
     }
@@ -2361,7 +2227,7 @@ xstormy16_output_shift (enum machine_mode mode, enum rtx_code code,
 	       r0, rt);
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return r;
 }
@@ -2410,7 +2276,7 @@ xstormy16_handle_interrupt_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2431,14 +2297,16 @@ xstormy16_handle_below100_attribute (tree *node,
       && TREE_CODE (*node) != POINTER_TYPE
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("%<__BELOW100__%> attribute only applies to variables");
+      warning (OPT_Wattributes,
+	       "%<__BELOW100__%> attribute only applies to variables");
       *no_add_attrs = true;
     }
   else if (args == NULL_TREE && TREE_CODE (*node) == VAR_DECL)
     {
       if (! (TREE_PUBLIC (*node) || TREE_STATIC (*node)))
 	{
-	  warning ("__BELOW100__ attribute not allowed with auto storage class.");
+	  warning (OPT_Wattributes, "__BELOW100__ attribute not allowed "
+		   "with auto storage class");
 	  *no_add_attrs = true;
 	}
     }
@@ -2483,7 +2351,7 @@ xstormy16_init_builtins (void)
 	    case 'S': arg = short_unsigned_type_node; break;
 	    case 'l': arg = long_integer_type_node; break;
 	    case 'L': arg = long_unsigned_type_node; break;
-	    default: abort();
+	    default: gcc_unreachable ();
 	    }
 	  if (a == 0)
 	    ret_type = arg;
@@ -2570,9 +2438,12 @@ xstormy16_expand_builtin(tree exp, rtx target,
 static void
 combine_bnp (rtx insn)
 {
-  int insn_code, regno, need_extend, mask;
+  int insn_code, regno, need_extend;
+  unsigned int mask;
   rtx cond, reg, and, load, qireg, mem;
   enum machine_mode load_mode = QImode;
+  enum machine_mode and_mode = QImode;
+  rtx shift = NULL_RTX;
 
   insn_code = recog_memoized (insn);
   if (insn_code != CODE_FOR_cbranchhi
@@ -2613,15 +2484,14 @@ combine_bnp (rtx insn)
       for (and = prev_real_insn (insn); and; and = prev_real_insn (and))
 	{
 	  int and_code = recog_memoized (and);
+
 	  if (and_code == CODE_FOR_extendqihi2
-	      && rtx_equal_p (XEXP (PATTERN (and), 0), reg)
-	      && rtx_equal_p (XEXP (XEXP (PATTERN (and), 1), 0), qireg))
-	    {
-	      break;
-	    }
+	      && rtx_equal_p (SET_DEST (PATTERN (and)), reg)
+	      && rtx_equal_p (XEXP (SET_SRC (PATTERN (and)), 0), qireg))
+	    break;
 	
 	  if (and_code == CODE_FOR_movhi_internal
-	      && rtx_equal_p (XEXP (PATTERN (and), 0), reg))
+	      && rtx_equal_p (SET_DEST (PATTERN (and)), reg))
 	    {
 	      /* This is for testing bit 15.  */
 	      and = insn;
@@ -2630,6 +2500,7 @@ combine_bnp (rtx insn)
 
 	  if (reg_mentioned_p (reg, and))
 	    return;
+
 	  if (GET_CODE (and) != NOTE
 	      && GET_CODE (and) != INSN)
 	    return;
@@ -2641,44 +2512,84 @@ combine_bnp (rtx insn)
       for (and = prev_real_insn (insn); and; and = prev_real_insn (and))
 	{
 	  if (recog_memoized (and) == CODE_FOR_andhi3
-	      && rtx_equal_p (XEXP (PATTERN (and), 0), reg)
-	      && rtx_equal_p (XEXP (XEXP (PATTERN (and), 1), 0), reg))
-	    {
-	      break;
-	    }
+	      && rtx_equal_p (SET_DEST (PATTERN (and)), reg)
+	      && rtx_equal_p (XEXP (SET_SRC (PATTERN (and)), 0), reg))
+	    break;
 	
 	  if (reg_mentioned_p (reg, and))
 	    return;
+
 	  if (GET_CODE (and) != NOTE
 	      && GET_CODE (and) != INSN)
 	    return;
+	}
+
+      if (and)
+	{
+	  /* Some mis-optimizations by GCC can generate a RIGHT-SHIFT
+	     followed by an AND like this:
+
+               (parallel [(set (reg:HI r7) (lshiftrt:HI (reg:HI r7) (const_int 3)))
+                          (clobber (reg:BI carry))]
+
+               (set (reg:HI r7) (and:HI (reg:HI r7) (const_int 1)))
+	      
+	     Attempt to detect this here.  */
+	  for (shift = prev_real_insn (and); shift; shift = prev_real_insn (shift))
+	    {
+	      if (recog_memoized (shift) == CODE_FOR_lshrhi3
+		  && rtx_equal_p (SET_DEST (XVECEXP (PATTERN (shift), 0, 0)), reg)
+		  && rtx_equal_p (XEXP (SET_SRC (XVECEXP (PATTERN (shift), 0, 0)), 0), reg))
+		break;
+		
+	      if (reg_mentioned_p (reg, shift)
+		  || (GET_CODE (shift) != NOTE
+		      && GET_CODE (shift) != INSN))
+		{
+		  shift = NULL_RTX;
+		  break;
+		}
+	    }
 	}
     }
   if (!and)
     return;
 
-  for (load = prev_real_insn (and); load; load = prev_real_insn (load))
+  for (load = shift ? prev_real_insn (shift) : prev_real_insn (and);
+       load;
+       load = prev_real_insn (load))
     {
       int load_code = recog_memoized (load);
+
       if (load_code == CODE_FOR_movhi_internal
-	  && rtx_equal_p (XEXP (PATTERN (load), 0), reg)
-	  && xstormy16_below100_operand (XEXP (PATTERN (load), 1), HImode)
-	  && ! MEM_VOLATILE_P (XEXP (PATTERN (load), 1)))
+	  && rtx_equal_p (SET_DEST (PATTERN (load)), reg)
+	  && xstormy16_below100_operand (SET_SRC (PATTERN (load)), HImode)
+	  && ! MEM_VOLATILE_P (SET_SRC (PATTERN (load))))
 	{
 	  load_mode = HImode;
 	  break;
 	}
 
       if (load_code == CODE_FOR_movqi_internal
-	  && rtx_equal_p (XEXP (PATTERN (load), 0), qireg)
-	  && xstormy16_below100_operand (XEXP (PATTERN (load), 1), QImode))
+	  && rtx_equal_p (SET_DEST (PATTERN (load)), qireg)
+	  && xstormy16_below100_operand (SET_SRC (PATTERN (load)), QImode))
 	{
 	  load_mode = QImode;
 	  break;
 	}
-	
+
+      if (load_code == CODE_FOR_zero_extendqihi2
+	  && rtx_equal_p (SET_DEST (PATTERN (load)), reg)
+	  && xstormy16_below100_operand (XEXP (SET_SRC (PATTERN (load)), 0), QImode))
+	{
+	  load_mode = QImode;
+	  and_mode = HImode;
+	  break;
+	}
+
       if (reg_mentioned_p (reg, load))
 	return;
+
       if (GET_CODE (load) != NOTE
 	  && GET_CODE (load) != INSN)
 	return;
@@ -2686,19 +2597,33 @@ combine_bnp (rtx insn)
   if (!load)
     return;
 
-  if (!need_extend)
+  mem = SET_SRC (PATTERN (load));
+
+  if (need_extend)
     {
-      if (!xstormy16_onebit_set_operand (XEXP (XEXP (PATTERN (and), 1), 1), load_mode))
-	return;
-      mask = (int) INTVAL (XEXP (XEXP (PATTERN (and), 1), 1));
+      mask = (load_mode == HImode) ? 0x8000 : 0x80;
+
+      /* If the mem includes a zero-extend operation and we are
+	 going to generate a sign-extend operation then move the
+	 mem inside the zero-extend.  */
+      if (GET_CODE (mem) == ZERO_EXTEND)
+	mem = XEXP (mem, 0);
     }
   else
-    mask = (load_mode == HImode) ? 0x8000 : 0x80;
+    {
+      if (!xstormy16_onebit_set_operand (XEXP (SET_SRC (PATTERN (and)), 1), load_mode))
+	return;
 
-  mem = XEXP (PATTERN (load), 1);
+      mask = (int) INTVAL (XEXP (SET_SRC (PATTERN (and)), 1));
+
+      if (shift)
+	mask <<= INTVAL (XEXP (SET_SRC (XVECEXP (PATTERN (shift), 0, 0)), 1));
+    }
+
   if (load_mode == HImode)
     {
       rtx addr = XEXP (mem, 0);
+
       if (! (mask & 0xff))
 	{
 	  addr = plus_constant (addr, 1);
@@ -2710,11 +2635,16 @@ combine_bnp (rtx insn)
   if (need_extend)
     XEXP (cond, 0) = gen_rtx_SIGN_EXTEND (HImode, mem);
   else
-    XEXP (cond, 0) = gen_rtx_AND (QImode, mem, GEN_INT (mask));
+    XEXP (cond, 0) = gen_rtx_AND (and_mode, mem, GEN_INT (mask));
+
   INSN_CODE (insn) = -1;
   delete_insn (load);
+
   if (and != insn)
     delete_insn (and);
+
+  if (shift != NULL_RTX)
+    delete_insn (shift);
 }
 
 static void

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -32,6 +32,8 @@
 
 with Fname.UF; use Fname.UF;
 with Osint;    use Osint;
+with Rident;   use Rident;
+with Restrict; use Restrict;
 with Stringt;  use Stringt;
 with Stylesw;  use Stylesw;
 with Uintp;    use Uintp;
@@ -41,6 +43,7 @@ separate (Par)
 
 function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
    Pragma_Name : constant Name_Id    := Chars (Pragma_Node);
+   Prag_Id     : constant Pragma_Id  := Get_Pragma_Id (Pragma_Name);
    Pragma_Sloc : constant Source_Ptr := Sloc (Pragma_Node);
    Arg_Count   : Nat;
    Arg_Node    : Node_Id;
@@ -82,6 +85,14 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
    procedure Check_Required_Identifier (Arg : Node_Id; Id : Name_Id);
    --  Same as Check_Optional_Identifier, except that the name is required
    --  to be present and to match the given Id value.
+
+   procedure Process_Restrictions_Or_Restriction_Warnings;
+   --  Common processing for Restrictions and Restriction_Warnings pragmas.
+   --  This routine only processes the case of No_Obsolescent_Features,
+   --  which is the only restriction that has syntactic effects. No general
+   --  error checking is done, since this will be done in Sem_Prag. The
+   --  other case processed is pragma Restrictions No_Dependence, since
+   --  otherwise this is done too late.
 
    ----------
    -- Arg1 --
@@ -196,9 +207,40 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
       end if;
    end Check_Required_Identifier;
 
-   ----------
-   -- Prag --
-   ----------
+   --------------------------------------------------
+   -- Process_Restrictions_Or_Restriction_Warnings --
+   --------------------------------------------------
+
+   procedure Process_Restrictions_Or_Restriction_Warnings is
+      Arg  : Node_Id;
+      Id   : Name_Id;
+      Expr : Node_Id;
+
+   begin
+      Arg := Arg1;
+      while Present (Arg) loop
+         Id := Chars (Arg);
+         Expr := Expression (Arg);
+
+         if Id = No_Name
+           and then Nkind (Expr) = N_Identifier
+           and then Get_Restriction_Id (Chars (Expr)) = No_Obsolescent_Features
+         then
+            Set_Restriction (No_Obsolescent_Features, Pragma_Node);
+            Restriction_Warnings (No_Obsolescent_Features) :=
+              Prag_Id = Pragma_Restriction_Warnings;
+
+         elsif Id = Name_No_Dependence then
+            Set_Restriction_No_Dependence
+              (Unit => Expr,
+               Warn  => Prag_Id = Pragma_Restriction_Warnings);
+         end if;
+
+         Next (Arg);
+      end loop;
+   end Process_Restrictions_Or_Restriction_Warnings;
+
+--  Start if processing for Prag
 
 begin
    Error_Msg_Name_1 := Pragma_Name;
@@ -207,7 +249,7 @@ begin
    --  it is a semantic error, not a syntactic one (we have already checked
    --  the syntax for the unrecognized pragma as required by (RM 2.8(11)).
 
-   if not Is_Pragma_Name (Chars (Pragma_Node)) then
+   if Prag_Id = Unknown_Pragma then
       return Pragma_Node;
    end if;
 
@@ -234,7 +276,7 @@ begin
 
    --  Remaining processing is pragma dependent
 
-   case Get_Pragma_Id (Pragma_Name) is
+   case Prag_Id is
 
       ------------
       -- Ada_83 --
@@ -246,6 +288,7 @@ begin
 
       when Pragma_Ada_83 =>
          Ada_Version := Ada_83;
+         Ada_Version_Explicit := Ada_Version;
 
       ------------
       -- Ada_95 --
@@ -257,6 +300,7 @@ begin
 
       when Pragma_Ada_95 =>
          Ada_Version := Ada_95;
+         Ada_Version_Explicit := Ada_Version;
 
       ------------
       -- Ada_05 --
@@ -264,10 +308,14 @@ begin
 
       --  This pragma must be processed at parse time, since we want to set
       --  the Ada version properly at parse time to recognize the appropriate
-      --  Ada version syntax.
+      --  Ada version syntax. However, it is only the zero argument form that
+      --  must be processed at parse time.
 
       when Pragma_Ada_05 =>
-         Ada_Version := Ada_05;
+         if Arg_Count = 0 then
+            Ada_Version := Ada_05;
+            Ada_Version_Explicit := Ada_Version;
+         end if;
 
       -----------
       -- Debug --
@@ -325,6 +373,8 @@ begin
             Ada_Version := Ada_Version_Type'Min (Ada_Version, Ada_95);
          end if;
 
+         Ada_Version_Explicit := Ada_Version;
+
       ----------------
       -- List (2.8) --
       ----------------
@@ -368,6 +418,38 @@ begin
          Check_Arg_Count (0);
          List_Pragmas.Increment_Last;
          List_Pragmas.Table (List_Pragmas.Last) := (Page, Semi);
+
+         ------------------
+         -- Restrictions --
+         ------------------
+
+         --  pragma Restrictions (RESTRICTION {, RESTRICTION});
+
+         --  RESTRICTION ::=
+         --    restriction_IDENTIFIER
+         --  | restriction_parameter_IDENTIFIER => EXPRESSION
+
+         --  We process the case of No_Obsolescent_Features, since this has
+         --  a syntactic effect that we need to detect at parse time (the use
+         --  of replacement characters such as colon for pound sign).
+
+         when Pragma_Restrictions =>
+            Process_Restrictions_Or_Restriction_Warnings;
+
+         --------------------------
+         -- Restriction_Warnings --
+         --------------------------
+
+         --  pragma Restriction_Warnings (RESTRICTION {, RESTRICTION});
+
+         --  RESTRICTION ::=
+         --    restriction_IDENTIFIER
+         --  | restriction_parameter_IDENTIFIER => EXPRESSION
+
+         --  See above comment for pragma Restrictions
+
+         when Pragma_Restriction_Warnings =>
+            Process_Restrictions_Or_Restriction_Warnings;
 
       ----------------------------------------------------------
       -- Source_File_Name and Source_File_Name_Project (GNAT) --
@@ -907,6 +989,7 @@ begin
       --  entirely in Sem_Prag, and no further checking is done by Par.
 
       when Pragma_Abort_Defer                  |
+           Pragma_Assertion_Policy             |
            Pragma_AST_Entry                    |
            Pragma_All_Calls_Remote             |
            Pragma_Annotate                     |
@@ -971,6 +1054,8 @@ begin
            Pragma_License                      |
            Pragma_Link_With                    |
            Pragma_Linker_Alias                 |
+           Pragma_Linker_Constructor           |
+           Pragma_Linker_Destructor            |
            Pragma_Linker_Options               |
            Pragma_Linker_Section               |
            Pragma_Locking_Policy               |
@@ -986,25 +1071,23 @@ begin
            Pragma_Normalize_Scalars            |
            Pragma_Optimize                     |
            Pragma_Optional_Overriding          |
-           Pragma_Overriding                   |
            Pragma_Pack                         |
            Pragma_Passive                      |
            Pragma_Polling                      |
-           Pragma_Persistent_Data              |
-           Pragma_Persistent_Object            |
+           Pragma_Persistent_BSS               |
            Pragma_Preelaborate                 |
+           Pragma_Preelaborate_05              |
            Pragma_Priority                     |
            Pragma_Profile                      |
            Pragma_Profile_Warnings             |
            Pragma_Propagate_Exceptions         |
            Pragma_Psect_Object                 |
            Pragma_Pure                         |
+           Pragma_Pure_05                      |
            Pragma_Pure_Function                |
            Pragma_Queuing_Policy               |
            Pragma_Remote_Call_Interface        |
            Pragma_Remote_Types                 |
-           Pragma_Restrictions                 |
-           Pragma_Restriction_Warnings         |
            Pragma_Restricted_Run_Time          |
            Pragma_Ravenscar                    |
            Pragma_Reviewable                   |

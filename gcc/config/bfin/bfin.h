@@ -48,7 +48,7 @@ extern int target_flags;
 /* Generate DSP instructions, like DSP halfword loads */
 #define TARGET_DSP			(1)
 
-#define TARGET_DEFAULT (MASK_SPECLD_ANOMALY | MASK_CSYNC_ANOMALY)
+#define TARGET_DEFAULT MASK_CSYNC
 
 /* Maximum number of library ids we permit */
 #define MAX_LIBRARY_ID 255
@@ -530,16 +530,10 @@ typedef enum {
 
 #define FUNCTION_ARG_REGISTERS { REG_R0, REG_R1, REG_R2, -1 }
 
-/* Flags for the call/call_value rtl operations set up by function_arg */
-#define CALL_NORMAL		0x00000000	/* no special processing */
-#define CALL_LONG		0x00000001	/* always call indirect */
-#define CALL_SHORT		0x00000002	/* always call by symbol */
-
 typedef struct {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int *arg_regs;		/* array of register -1 terminated */
-  int call_cookie;		/* Do special things for this call */
 } CUMULATIVE_ARGS;
 
 /* Define where to put the arguments to a function.

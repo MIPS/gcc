@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --                       S Y S T E M . W C H _ S T W                        --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-1998 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -31,8 +31,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains the routine used to convert strings to wide
---  strings for use by wide character attributes (value, image etc.)
+--  This package contains the routine used to convert strings to wide (wide)
+--  strings for use by wide (wide) character attributes (value, image etc.)
 
 with System.WCh_Con;
 
@@ -40,9 +40,8 @@ package System.WCh_StW is
 pragma Pure (WCh_StW);
 
    function String_To_Wide_String
-     (S    : String;
-      EM   : System.WCh_Con.WC_Encoding_Method)
-      return Wide_String;
+     (S  : String;
+      EM : System.WCh_Con.WC_Encoding_Method) return Wide_String;
    --  This routine simply takes its argument and converts it to wide string
    --  format. In the context of the Wide_Image attribute, the argument is
    --  the corresponding 'Image attribute. Any wide character escape sequences
@@ -56,5 +55,10 @@ pragma Pure (WCh_StW);
    --  the argument string. EM indicates the wide character encoding method.
    --  Note: in the WCEM_Brackets case, the brackets escape sequence is used
    --  only for codes greater than 16#FF#.
+
+   function String_To_Wide_Wide_String
+     (S  : String;
+      EM : System.WCh_Con.WC_Encoding_Method) return Wide_Wide_String;
+   --  Same function with Wide_Wide_String output
 
 end System.WCh_StW;

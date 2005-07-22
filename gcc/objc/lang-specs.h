@@ -1,5 +1,5 @@
 /* Definitions for specs for Objective-C.
-   Copyright (C) 1998, 1999, 2002, 2002, 2003
+   Copyright (C) 1998, 1999, 2002, 2002, 2003, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,16 +16,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This is the contribution to the `default_compilers' array in gcc.c for
    objc.  */
 
   {".m", "@objective-c", 0, 0, 0},
   {"@objective-c",
-     "%{E|M|MM:%(trad_capable_cpp)\
-          -lang-objc %(cpp_options) %(cpp_debug_options)}\
+     "%{E|M|MM:cc1obj -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}\
+          %(cpp_options) %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\
 	%{traditional|ftraditional|traditional-cpp:\
 %eGNU Objective C no longer supports traditional compilation}\

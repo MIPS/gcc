@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GFC_TRANS_H
 #define GFC_TRANS_H
@@ -75,7 +75,7 @@ typedef struct gfc_se
 gfc_se;
 
 
-/* Scalarisation State chain.  Created by walking an expression tree before
+/* Scalarization State chain.  Created by walking an expression tree before
    creating the scalarization loops. Then passed as part of a gfc_se structure
    to translate the expression inside the loop.  Note that these chains are
    terminated by gfc_se_terminator, not NULL.  A NULL pointer in a gfc_se
@@ -106,7 +106,7 @@ typedef struct gfc_ss_info
   tree stride[GFC_MAX_DIMENSIONS];
   tree delta[GFC_MAX_DIMENSIONS];
 
-  /* Translation from scalariser dimensions to actual dimensions.
+  /* Translation from scalarizer dimensions to actual dimensions.
      actual = dim[scalarizer]  */
   int dim[GFC_MAX_DIMENSIONS];
 }
@@ -118,7 +118,7 @@ typedef enum
      scalarization loop.  */
   GFC_SS_SCALAR,
 
-  /* Like GFC_SS_SCALAR except it evaluates a pointer the the expression.
+  /* Like GFC_SS_SCALAR except it evaluates a pointer to the expression.
      Used for elemental function parameters.  */
   GFC_SS_REFERENCE,
 
@@ -191,7 +191,7 @@ typedef struct gfc_ss
   struct gfc_ss *loop_chain;
   struct gfc_ss *next;
 
-  /* This is used by assignments requiring teporaries. The bits specify which
+  /* This is used by assignments requiring temporaries. The bits specify which
      loops the terms appear in.  This will be 1 for the RHS expressions,
      2 for the LHS expressions, and 3(=1|2) for the temporary.  */
   unsigned useflags:2;
@@ -213,7 +213,7 @@ typedef struct gfc_loopinfo
 
   /* All the SS involved with this loop.  */
   gfc_ss *ss;
-  /* The SS describing the teporary used in an assignment.  */
+  /* The SS describing the temporary used in an assignment.  */
   gfc_ss *temp_ss;
 
   /* The scalarization loop index variables.  */
@@ -251,8 +251,8 @@ gfc_saved_var;
 /* Advance the SS chain to the next term.  */
 void gfc_advance_se_ss_chain (gfc_se *);
 
-/* Call this to initialise a gfc_se structure before use
-   first parameter is structure to initialise, second is
+/* Call this to initialize a gfc_se structure before use
+   first parameter is structure to initialize, second is
    parent to get scalarization data from, or NULL.  */
 void gfc_init_se (gfc_se *, gfc_se *);
 
@@ -272,7 +272,7 @@ void gfc_conv_string_parameter (gfc_se * se);
 tree gfc_chainon_list (tree, tree);
 
 /* When using the gfc_conv_* make sure you understand what they do, i.e.
-   when a POST chain may be created, and what the retured expression may be
+   when a POST chain may be created, and what the returned expression may be
    used for.  Note that character strings have special handling.  This
    should not be a problem as most statements/operations only deal with
    numeric/logical types.  */
@@ -289,6 +289,8 @@ void gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr);
 void gfc_conv_expr_reference (gfc_se * se, gfc_expr *);
 /* Equivalent to convert(type, gfc_conv_expr_val(se, expr)).  */
 void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
+/* Find the decl containing the auxiliary variables for assigned variables.  */
+void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
 /* If the value is not constant, Create a temporary and copy the value.  */
 tree gfc_evaluate_now (tree, stmtblock_t *);
 
@@ -299,7 +301,7 @@ void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
 int gfc_is_intrinsic_libcall (gfc_expr *);
 
 /* Also used to CALL subroutines.  */
-void gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
+int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
 /* Generate code for a scalar assignment.  */
@@ -330,7 +332,7 @@ void gfc_add_modify_expr (stmtblock_t *, tree, tree);
 
 /* Initialize a statement block.  */
 void gfc_init_block (stmtblock_t *);
-/* Start a new satement block.  Like gfc_init_block but also starts a new
+/* Start a new statement block.  Like gfc_init_block but also starts a new
    variable scope.  */
 void gfc_start_block (stmtblock_t *);
 /* Finish a statement block.  Also closes the scope if the block was created
@@ -391,7 +393,10 @@ void gfc_shadow_sym (gfc_symbol *, tree, gfc_saved_var *);
 /* Restore the original variable.  */
 void gfc_restore_sym (gfc_symbol *, gfc_saved_var *);
 
-/* Allocate the lang-spcific part of a decl node.  */
+/* Returns true if a variable of specified size should go on the stack.  */
+int gfc_can_put_var_on_stack (tree);
+
+/* Allocate the lang-specific part of a decl node.  */
 void gfc_allocate_lang_decl (tree);
 
 /* Advance along a TREE_CHAIN.  */
@@ -553,6 +558,8 @@ struct lang_decl		GTY(())
 #define GFC_TYPE_ARRAY_RANK(node) (TYPE_LANG_SPECIFIC(node)->rank)
 #define GFC_TYPE_ARRAY_SIZE(node) (TYPE_LANG_SPECIFIC(node)->size)
 #define GFC_TYPE_ARRAY_OFFSET(node) (TYPE_LANG_SPECIFIC(node)->offset)
+/* Code should use gfc_get_dtype instead of accesig this directly.  It may
+   not be known when the type is created.  */
 #define GFC_TYPE_ARRAY_DTYPE(node) (TYPE_LANG_SPECIFIC(node)->dtype)
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
@@ -567,7 +574,4 @@ struct lang_decl		GTY(())
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
                                                 arg1, arg2, arg3)
-
-/* flag for alternative return labels.  */
-extern int has_alternate_specifier;  /* for caller */
 #endif /* GFC_TRANS_H */

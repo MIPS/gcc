@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -730,7 +730,6 @@ package body Exp_Ch11 is
             end;
          end if;
 
-
          --  If an exception occurrence is present, then we must declare it
          --  and initialize it from the value stored in the TSD
 
@@ -921,7 +920,9 @@ package body Exp_Ch11 is
       --  Lang component: 'A'
 
       Append_To (L,
-        Make_Character_Literal (Loc, Name_uA, Get_Char_Code ('A')));
+        Make_Character_Literal (Loc,
+          Chars              =>  Name_uA,
+          Char_Literal_Value =>  UI_From_Int (Character'Pos ('A'))));
 
       --  Name_Length component: Nam'Length
 
@@ -1065,6 +1066,29 @@ package body Exp_Ch11 is
       Str   : String_Id;
 
    begin
+      --  If a string expression is present, then the raise statement is
+      --  converted to a call:
+
+      --     Raise_Exception (exception-name'Identity, string);
+
+      --  and there is nothing else to do
+
+      if Present (Expression (N)) then
+         Rewrite (N,
+           Make_Procedure_Call_Statement (Loc,
+             Name => New_Occurrence_Of (RTE (RE_Raise_Exception), Loc),
+             Parameter_Associations => New_List (
+               Make_Attribute_Reference (Loc,
+                 Prefix => Name (N),
+                 Attribute_Name => Name_Identity),
+               Expression (N))));
+         Analyze (N);
+         return;
+      end if;
+
+      --  Remaining processing is for the case where no string expression
+      --  is present.
+
       --  There is no expansion needed for statement "raise <exception>;" when
       --  compiling for the JVM since the JVM has a built-in exception
       --  mechanism. However we need the keep the expansion for "raise;"
@@ -1149,7 +1173,6 @@ package body Exp_Ch11 is
 
                Name_Buffer (Name_Len) := ASCII.NUL;
             end if;
-
 
             if Opt.Exception_Locations_Suppressed then
                Name_Len := 0;

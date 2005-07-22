@@ -1,5 +1,6 @@
-// { dg-do compile { target i?86-*-* } }
-// { dg-forbid-option "-m64" }
+// { dg-do compile { target i?86-*-* x86_64-*-* } }
+// { dg-require-effective-target ilp32 }
+
 
 struct A {
   virtual void f ();

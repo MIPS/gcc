@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #undef ASM_SPEC	/* We have a GAS assembler.  */
@@ -33,11 +33,6 @@ Boston, MA 02111-1307, USA.  */
       builtin_define ("__FILENAME_MAX__=128");	\
     }						\
   while (0)
-
-/* This declaration should be present.  */
-extern int target_flags;
-
-#define TARGET_SWITCHES {{"",0, NULL}}
 
 #define TARGET_VERSION fprintf (stderr, " (ip2k, GNU assembler syntax)")
 
@@ -183,8 +178,6 @@ extern int target_flags;
 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,/*r192..r223*/\
 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,/*r224..r255*/\
 1,1,1,1}
-
-#define NON_SAVING_SETJMP 0
 
 #define REG_ALLOC_ORDER {			\
     0x88,0x89,0x8a,0x8b,0x8c,0x8d,0x8e,0x8f,	\

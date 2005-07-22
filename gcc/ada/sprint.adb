@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -164,6 +164,9 @@ package body Sprint is
    --  in its Sloc field, from the current location in the debug source file
    --  that is currently being written. Note that Debug_Node is always empty
    --  if a debug source file is not being written.
+
+   procedure Sprint_And_List (List : List_Id);
+   --  Print the given list with items separated by vertical "and"
 
    procedure Sprint_Bar_List (List : List_Id);
    --  Print the given list with items separated by vertical bars
@@ -480,16 +483,32 @@ package body Sprint is
    end Source_Dump;
 
    ---------------------
+   -- Sprint_And_List --
+   ---------------------
+
+   procedure Sprint_And_List (List : List_Id) is
+      Node : Node_Id;
+   begin
+      if Is_Non_Empty_List (List) then
+         Node := First (List);
+         loop
+            Sprint_Node (Node);
+            Next (Node);
+            exit when Node = Empty;
+            Write_Str (" and ");
+         end loop;
+      end if;
+   end Sprint_And_List;
+
+   ---------------------
    -- Sprint_Bar_List --
    ---------------------
 
    procedure Sprint_Bar_List (List : List_Id) is
       Node : Node_Id;
-
    begin
       if Is_Non_Empty_List (List) then
          Node := First (List);
-
          loop
             Sprint_Node (Node);
             Next (Node);
@@ -509,7 +528,6 @@ package body Sprint is
    begin
       if Is_Non_Empty_List (List) then
          Node := First (List);
-
          loop
             Sprint_Node (Node);
             Next (Node);
@@ -520,7 +538,6 @@ package body Sprint is
             then
                Write_Str (", ");
             end if;
-
          end loop;
       end if;
    end Sprint_Comma_List;
@@ -938,7 +955,7 @@ package body Sprint is
             end if;
 
             Write_Char_Sloc (''');
-            Write_Char_Code (Char_Literal_Value (Node));
+            Write_Char_Code (UI_To_CC (Char_Literal_Value (Node)));
             Write_Char (''');
 
          when N_Code_Statement =>
@@ -1146,8 +1163,16 @@ package body Sprint is
 
             Sprint_Node (Subtype_Indication (Node));
 
-            if Present (Record_Extension_Part (Node)) then
+            if Present (Interface_List (Node)) then
+               Sprint_And_List (Interface_List (Node));
                Write_Str_With_Col_Check (" with ");
+            end if;
+
+            if Present (Record_Extension_Part (Node)) then
+               if No (Interface_List (Node)) then
+                  Write_Str_With_Col_Check (" with ");
+               end if;
+
                Sprint_Node (Record_Extension_Part (Node));
             end if;
 
@@ -1363,6 +1388,34 @@ package body Sprint is
                Write_Str_With_Col_Check (" with private");
             end if;
 
+         when N_Formal_Abstract_Subprogram_Declaration =>
+            Write_Indent_Str_Sloc ("with ");
+            Sprint_Node (Specification (Node));
+
+            Write_Str_With_Col_Check (" is abstract");
+
+            if Box_Present (Node) then
+               Write_Str_With_Col_Check (" <>");
+            elsif Present (Default_Name (Node)) then
+               Write_Str_With_Col_Check (" ");
+               Sprint_Node (Default_Name (Node));
+            end if;
+
+            Write_Char (';');
+
+         when N_Formal_Concrete_Subprogram_Declaration =>
+            Write_Indent_Str_Sloc ("with ");
+            Sprint_Node (Specification (Node));
+
+            if Box_Present (Node) then
+               Write_Str_With_Col_Check (" is <>");
+            elsif Present (Default_Name (Node)) then
+               Write_Str_With_Col_Check (" is ");
+               Sprint_Node (Default_Name (Node));
+            end if;
+
+            Write_Char (';');
+
          when N_Formal_Discrete_Type_Definition =>
             Write_Str_With_Col_Check_Sloc ("<>");
 
@@ -1423,19 +1476,6 @@ package body Sprint is
 
          when N_Formal_Signed_Integer_Type_Definition =>
             Write_Str_With_Col_Check_Sloc ("range <>");
-
-         when N_Formal_Subprogram_Declaration =>
-            Write_Indent_Str_Sloc ("with ");
-            Sprint_Node (Specification (Node));
-
-            if Box_Present (Node) then
-               Write_Str_With_Col_Check (" is <>");
-            elsif Present (Default_Name (Node)) then
-               Write_Str_With_Col_Check (" is ");
-               Sprint_Node (Default_Name (Node));
-            end if;
-
-            Write_Char (';');
 
          when N_Formal_Type_Declaration =>
             Write_Indent_Str_Sloc ("type ");
@@ -2134,7 +2174,15 @@ package body Sprint is
             Write_Indent_Str_Sloc ("protected type ");
             Write_Id (Defining_Identifier (Node));
             Write_Discr_Specs (Node);
-            Write_Str (" is");
+
+            if Present (Interface_List (Node)) then
+               Write_Str (" is new ");
+               Sprint_And_List (Interface_List (Node));
+               Write_Str (" with ");
+            else
+               Write_Str (" is");
+            end if;
+
             Sprint_Node (Protected_Definition (Node));
             Write_Id (Defining_Identifier (Node));
             Write_Char (';');
@@ -2385,6 +2433,13 @@ package body Sprint is
          when N_Subprogram_Declaration =>
             Write_Indent;
             Sprint_Node_Sloc (Specification (Node));
+
+            if Nkind (Specification (Node)) = N_Procedure_Specification
+              and then Null_Present (Specification (Node))
+            then
+               Write_Str_With_Col_Check (" is null");
+            end if;
+
             Write_Char (';');
 
          when N_Subprogram_Info =>
@@ -2456,8 +2511,18 @@ package body Sprint is
             Write_Id (Defining_Identifier (Node));
             Write_Discr_Specs (Node);
 
+            if Present (Interface_List (Node)) then
+               Write_Str (" is new ");
+               Sprint_And_List (Interface_List (Node));
+            end if;
+
             if Present (Task_Definition (Node)) then
-               Write_Str (" is");
+               if No (Interface_List (Node)) then
+                  Write_Str (" is");
+               else
+                  Write_Str (" with ");
+               end if;
+
                Sprint_Node (Task_Definition (Node));
                Write_Id (Defining_Identifier (Node));
             end if;

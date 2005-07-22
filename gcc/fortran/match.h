@@ -1,5 +1,5 @@
 /* All matcher functions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #ifndef GFC_MATCH_H
@@ -107,6 +107,8 @@ match gfc_match_derived_decl (void);
 
 match gfc_match_implicit_none (void);
 match gfc_match_implicit (void);
+
+void gfc_set_constant_character_len (int, gfc_expr *);
 
 /* Matchers for attribute declarations */
 match gfc_match_allocatable (void);

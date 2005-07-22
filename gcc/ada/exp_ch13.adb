@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -243,6 +243,7 @@ package body Exp_Ch13 is
       In_Other_Scope : Boolean;
       In_Outer_Scope : Boolean;
       Decl           : Node_Id;
+      Delete         : Boolean := False;
 
    begin
       --  For object, with address clause, check alignment is OK
@@ -317,7 +318,7 @@ package body Exp_Ch13 is
       --  If type, freeze the type
 
       if Is_Type (E) then
-         Freeze_Type (N);
+         Delete := Freeze_Type (N);
 
          --  And for enumeration type, build the enumeration tables
 
@@ -386,6 +387,13 @@ package body Exp_Ch13 is
 
             Next (Decl);
          end loop;
+      end if;
+
+      --  If we are to delete this N_Freeze_Entity, do so by rewriting so that
+      --  a loop on all nodes being inserted will work propertly.
+
+      if Delete then
+         Rewrite (N, Make_Null_Statement (Sloc (N)));
       end if;
 
       if In_Other_Scope then

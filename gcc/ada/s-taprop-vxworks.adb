@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                 GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS              --
+--                  GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                --
 --                                                                          --
 --     S Y S T E M . T A S K _ P R I M I T I V E S . O P E R A T I O N S    --
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2005, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -91,12 +91,12 @@ package body System.Task_Primitives.Operations is
    -- Local Data --
    ----------------
 
-   --  The followings are logically constants, but need to be initialized
-   --  at run time.
+   --  The followings are logically constants, but need to be initialized at
+   --  run time.
 
    Single_RTS_Lock : aliased RTS_Lock;
-   --  This is a lock to allow only one thread of control in the RTS at
-   --  a time; it is used to execute in mutual exclusion from all other tasks.
+   --  This is a lock to allow only one thread of control in the RTS at a
+   --  time; it is used to execute in mutual exclusion from all other tasks.
    --  Used mainly in Single_Lock mode, but also to protect All_Tasks_List
 
    ATCB_Key : aliased System.Address := System.Null_Address;
@@ -109,12 +109,12 @@ package body System.Task_Primitives.Operations is
    --  targets.
 
    Environment_Task_Id : Task_Id;
-   --  A variable to hold Task_Id for the environment task.
+   --  A variable to hold Task_Id for the environment task
 
    Unblocked_Signal_Mask : aliased sigset_t;
    --  The set of signals that should unblocked in all tasks
 
-   --  The followings are internal configuration constants needed.
+   --  The followings are internal configuration constants needed
 
    Time_Slice_Val : Integer;
    pragma Import (C, Time_Slice_Val, "__gl_time_slice_val");
@@ -126,12 +126,12 @@ package body System.Task_Primitives.Operations is
    pragma Import (C, Dispatching_Policy, "__gl_task_dispatching_policy");
 
    FIFO_Within_Priorities : constant Boolean := Dispatching_Policy = 'F';
-   --  Indicates whether FIFO_Within_Priorities is set.
+   --  Indicates whether FIFO_Within_Priorities is set
 
    Mutex_Protocol : Priority_Type;
 
    Foreign_Task_Elaborated : aliased Boolean := True;
-   --  Used to identified fake tasks (i.e., non-Ada Threads).
+   --  Used to identified fake tasks (i.e., non-Ada Threads)
 
    --------------------
    -- Local Packages --
@@ -145,23 +145,23 @@ package body System.Task_Primitives.Operations is
 
       procedure Set (Self_Id : Task_Id);
       pragma Inline (Set);
-      --  Set the self id for the current task.
+      --  Set the self id for the current task
 
       function Self return Task_Id;
       pragma Inline (Self);
-      --  Return a pointer to the Ada Task Control Block of the calling task.
+      --  Return a pointer to the Ada Task Control Block of the calling task
 
    end Specific;
 
    package body Specific is separate;
-   --  The body of this package is target specific.
+   --  The body of this package is target specific
 
    ---------------------------------
    -- Support for foreign threads --
    ---------------------------------
 
    function Register_Foreign_Thread (Thread : Thread_Id) return Task_Id;
-   --  Allocate and Initialize a new ATCB for the current Thread.
+   --  Allocate and Initialize a new ATCB for the current Thread
 
    function Register_Foreign_Thread
      (Thread : Thread_Id) return Task_Id is separate;
@@ -171,7 +171,7 @@ package body System.Task_Primitives.Operations is
    -----------------------
 
    procedure Abort_Handler (signo : Signal);
-   --  Handler for the abort (SIGABRT) signal to handle asynchronous abortion.
+   --  Handler for the abort (SIGABRT) signal to handle asynchronous abort
 
    procedure Install_Signal_Handlers;
    --  Install the default signal handlers for the current task
@@ -409,7 +409,8 @@ package body System.Task_Primitives.Operations is
    begin
       pragma Assert (Self_ID = Self);
 
-      --  Release the mutex before sleeping.
+      --  Release the mutex before sleeping
+
       if Single_Lock then
          Result := semGive (Single_RTS_Lock.Mutex);
       else
@@ -418,15 +419,16 @@ package body System.Task_Primitives.Operations is
 
       pragma Assert (Result = 0);
 
-      --  Perform a blocking operation to take the CV semaphore.
-      --  Note that a blocking operation in VxWorks will reenable
-      --  task scheduling. When we are no longer blocked and control
-      --  is returned, task scheduling will again be disabled.
+      --  Perform a blocking operation to take the CV semaphore. Note that a
+      --  blocking operation in VxWorks will reenable task scheduling. When we
+      --  are no longer blocked and control is returned, task scheduling will
+      --  again be disabled.
 
       Result := semTake (Self_ID.Common.LL.CV, WAIT_FOREVER);
       pragma Assert (Result = 0);
 
-      --  Take the mutex back.
+      --  Take the mutex back
+
       if Single_Lock then
          Result := semTake (Single_RTS_Lock.Mutex, WAIT_FOREVER);
       else
@@ -440,9 +442,8 @@ package body System.Task_Primitives.Operations is
    -- Timed_Sleep --
    -----------------
 
-   --  This is for use within the run-time system, so abort is
-   --  assumed to be already deferred, and the caller should be
-   --  holding its own ATCB lock.
+   --  This is for use within the run-time system, so abort is assumed to be
+   --  already deferred, and the caller should be holding its own ATCB lock.
 
    procedure Timed_Sleep
      (Self_ID  : Task_Id;
@@ -467,9 +468,9 @@ package body System.Task_Primitives.Operations is
       if Mode = Relative then
          Absolute := Orig + Time;
 
-         --  Systematically add one since the first tick will delay
-         --  *at most* 1 / Rate_Duration seconds, so we need to add one to
-         --  be on the safe side.
+         --  Systematically add one since the first tick will delay *at most*
+         --  1 / Rate_Duration seconds, so we need to add one to be on the
+         --  safe side.
 
          Ticks := To_Clock_Ticks (Time);
 
@@ -484,7 +485,8 @@ package body System.Task_Primitives.Operations is
 
       if Ticks > 0 then
          loop
-            --  Release the mutex before sleeping.
+            --  Release the mutex before sleeping
+
             if Single_Lock then
                Result := semGive (Single_RTS_Lock.Mutex);
             else
@@ -493,14 +495,15 @@ package body System.Task_Primitives.Operations is
 
             pragma Assert (Result = 0);
 
-            --  Perform a blocking operation to take the CV semaphore.
-            --  Note that a blocking operation in VxWorks will reenable
-            --  task scheduling. When we are no longer blocked and control
-            --  is returned, task scheduling will again be disabled.
+            --  Perform a blocking operation to take the CV semaphore. Note
+            --  that a blocking operation in VxWorks will reenable task
+            --  scheduling. When we are no longer blocked and control is
+            --  returned, task scheduling will again be disabled.
 
             Result := semTake (Self_ID.Common.LL.CV, Ticks);
 
             if Result = 0 then
+
                --  Somebody may have called Wakeup for us
 
                Wakeup := True;
@@ -508,10 +511,11 @@ package body System.Task_Primitives.Operations is
             else
                if errno /= S_objLib_OBJ_TIMEOUT then
                   Wakeup := True;
+
                else
-                  --  If Ticks = int'last, it was most probably truncated
-                  --  so let's make another round after recomputing Ticks
-                  --  from the the absolute time.
+                  --  If Ticks = int'last, it was most probably truncated so
+                  --  let's make another round after recomputing Ticks from
+                  --  the the absolute time.
 
                   if Ticks /= int'Last then
                      Timedout := True;
@@ -525,7 +529,8 @@ package body System.Task_Primitives.Operations is
                end if;
             end if;
 
-            --  Take the mutex back.
+            --  Take the mutex back
+
             if Single_Lock then
                Result := semTake (Single_RTS_Lock.Mutex, WAIT_FOREVER);
             else
@@ -540,7 +545,8 @@ package body System.Task_Primitives.Operations is
       else
          Timedout := True;
 
-         --  Should never hold a lock while yielding.
+         --  Should never hold a lock while yielding
+
          if Single_Lock then
             Result := semGive (Single_RTS_Lock.Mutex);
             taskDelay (0);
@@ -558,8 +564,8 @@ package body System.Task_Primitives.Operations is
    -- Timed_Delay --
    -----------------
 
-   --  This is for use in implementing delay statements, so
-   --  we assume the caller is holding no locks.
+   --  This is for use in implementing delay statements, so we assume the
+   --  caller is holding no locks.
 
    procedure Timed_Delay
      (Self_ID  : Task_Id;
@@ -582,9 +588,8 @@ package body System.Task_Primitives.Operations is
 
          if Ticks > 0 and then Ticks < int'Last then
 
-            --  The first tick will delay anytime between 0 and
-            --  1 / sysClkRateGet seconds, so we need to add one to
-            --  be on the safe side.
+            --  First tick will delay anytime between 0 and 1 / sysClkRateGet
+            --  seconds, so we need to add one to be on the safe side.
 
             Ticks := Ticks + 1;
          end if;
@@ -595,7 +600,9 @@ package body System.Task_Primitives.Operations is
       end if;
 
       if Ticks > 0 then
-         --  Modifying State and Pending_Priority_Change, locking the TCB.
+
+         --  Modifying State and Pending_Priority_Change, locking the TCB
+
          if Single_Lock then
             Result := semTake (Single_RTS_Lock.Mutex, WAIT_FOREVER);
          else
@@ -630,6 +637,7 @@ package body System.Task_Primitives.Operations is
             Result := semTake (Self_ID.Common.LL.CV, Ticks);
 
             if Result /= 0 then
+
                --  If Ticks = int'last, it was most probably truncated
                --  so let's make another round after recomputing Ticks
                --  from the the absolute time.
@@ -749,6 +757,7 @@ package body System.Task_Primitives.Operations is
       if FIFO_Within_Priorities then
 
          --  Annex D requirement [RM D.2.2 par. 9]:
+
          --    If the task drops its priority due to the loss of inherited
          --    priority, it is added at the head of the ready queue for its
          --    new active priority.
@@ -794,7 +803,7 @@ package body System.Task_Primitives.Operations is
    procedure Enter_Task (Self_ID : Task_Id) is
       procedure Init_Float;
       pragma Import (C, Init_Float, "__gnat_init_float");
-      --  Properly initializes the FPU for PPC/MIPS systems.
+      --  Properly initializes the FPU for PPC/MIPS systems
 
    begin
       Self_ID.Common.LL.Thread := taskIdSelf;
@@ -802,7 +811,8 @@ package body System.Task_Primitives.Operations is
 
       Init_Float;
 
-      --  Install the signal handlers.
+      --  Install the signal handlers
+
       --  This is called for each task since there is no signal inheritance
       --  between VxWorks tasks.
 
@@ -892,28 +902,26 @@ package body System.Task_Primitives.Operations is
          Adjusted_Stack_Size := size_t (Stack_Size);
       end if;
 
-      --  Ask for 4 extra bytes of stack space so that the ATCB
-      --  pointer can be stored below the stack limit, plus extra
-      --  space for the frame of Task_Wrapper.  This is so the user
-      --  gets the amount of stack requested exclusive of the needs
-      --  of the runtime.
+      --  Ask for four extra bytes of stack space so that the ATCB pointer can
+      --  be stored below the stack limit, plus extra space for the frame of
+      --  Task_Wrapper. This is so the user gets the amount of stack requested
+      --  exclusive of the needs
       --
-      --  We also have to allocate n more bytes for the task name
-      --  storage and enough space for the Wind Task Control Block
-      --  which is around 0x778 bytes.  VxWorks also seems to carve out
-      --  additional space, so use 2048 as a nice round number.
-      --  We might want to increment to the nearest page size in
-      --  case we ever support VxVMI.
+      --  We also have to allocate n more bytes for the task name storage and
+      --  enough space for the Wind Task Control Block which is around 0x778
+      --  bytes. VxWorks also seems to carve out additional space, so use 2048
+      --  as a nice round number. We might want to increment to the nearest
+      --  page size in case we ever support VxVMI.
       --
-      --  XXX - we should come back and visit this so we can
-      --        set the task name to something appropriate.
+      --  XXX - we should come back and visit this so we can set the task name
+      --        to something appropriate.
 
       Adjusted_Stack_Size := Adjusted_Stack_Size + 2048;
 
       --  Since the initial signal mask of a thread is inherited from the
-      --  creator, and the Environment task has all its signals masked, we
-      --  do not need to manipulate caller's signal mask at this point.
-      --  All tasks in RTS will have All_Tasks_Mask initially.
+      --  creator, and the Environment task has all its signals masked, we do
+      --  not need to manipulate caller's signal mask at this point. All tasks
+      --  in RTS will have All_Tasks_Mask initially.
 
       if T.Common.Task_Image_Len = 0 then
          T.Common.LL.Thread := taskSpawn
@@ -926,6 +934,7 @@ package body System.Task_Primitives.Operations is
       else
          declare
             Name : aliased String (1 .. T.Common.Task_Image_Len + 1);
+
          begin
             Name (1 .. Name'Last - 1) :=
               T.Common.Task_Image (1 .. T.Common.Task_Image_Len);
@@ -1001,12 +1010,153 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Task (T : Task_Id) is
       Result : int;
-
    begin
       Result := kill (T.Common.LL.Thread,
-        Signal (Interrupt_Management.Abort_Task_Signal));
+                      Signal (Interrupt_Management.Abort_Task_Signal));
       pragma Assert (Result = 0);
    end Abort_Task;
+
+   ----------------
+   -- Initialize --
+   ----------------
+
+   procedure Initialize (S : in out Suspension_Object) is
+   begin
+      --  Initialize internal state. It is always initialized to False (ARM
+      --  D.10 par. 6).
+
+      S.State := False;
+      S.Waiting := False;
+
+      --  Initialize internal mutex
+
+      --  Use simpler binary semaphore instead of VxWorks
+      --  mutual exclusion semaphore, because we don't need
+      --  the fancier semantics and their overhead.
+
+      S.L := semBCreate (SEM_Q_FIFO, SEM_FULL);
+
+      --  Initialize internal condition variable
+
+      S.CV := semBCreate (SEM_Q_FIFO, SEM_EMPTY);
+   end Initialize;
+
+   --------------
+   -- Finalize --
+   --------------
+
+   procedure Finalize (S : in out Suspension_Object) is
+      Result : STATUS;
+   begin
+      --  Destroy internal mutex
+
+      Result := semDelete (S.L);
+      pragma Assert (Result = OK);
+
+      --  Destroy internal condition variable
+
+      Result := semDelete (S.CV);
+      pragma Assert (Result = OK);
+   end Finalize;
+
+   -------------------
+   -- Current_State --
+   -------------------
+
+   function Current_State (S : Suspension_Object) return Boolean is
+   begin
+      --  We do not want to use lock on this read operation. State is marked
+      --  as Atomic so that we ensure that the value retrieved is correct.
+
+      return S.State;
+   end Current_State;
+
+   ---------------
+   -- Set_False --
+   ---------------
+
+   procedure Set_False (S : in out Suspension_Object) is
+      Result  : STATUS;
+   begin
+      Result := semTake (S.L, WAIT_FOREVER);
+      pragma Assert (Result = OK);
+
+      S.State := False;
+
+      Result := semGive (S.L);
+      pragma Assert (Result = OK);
+   end Set_False;
+
+   --------------
+   -- Set_True --
+   --------------
+
+   procedure Set_True (S : in out Suspension_Object) is
+      Result : STATUS;
+   begin
+      Result := semTake (S.L, WAIT_FOREVER);
+      pragma Assert (Result = OK);
+
+      --  If there is already a task waiting on this suspension object then
+      --  we resume it, leaving the state of the suspension object to False,
+      --  as it is specified in ARM D.10 par. 9. Otherwise, it just leaves
+      --  the state to True.
+
+      if S.Waiting then
+         S.Waiting := False;
+         S.State := False;
+
+         Result := semGive (S.CV);
+         pragma Assert (Result = OK);
+      else
+         S.State := True;
+      end if;
+
+      Result := semGive (S.L);
+      pragma Assert (Result = OK);
+   end Set_True;
+
+   ------------------------
+   -- Suspend_Until_True --
+   ------------------------
+
+   procedure Suspend_Until_True (S : in out Suspension_Object) is
+      Result : STATUS;
+   begin
+      Result := semTake (S.L, WAIT_FOREVER);
+
+      if S.Waiting then
+         --  Program_Error must be raised upon calling Suspend_Until_True
+         --  if another task is already waiting on that suspension object
+         --  (ARM D.10 par. 10).
+
+         Result := semGive (S.L);
+         pragma Assert (Result = OK);
+
+         raise Program_Error;
+      else
+         --  Suspend the task if the state is False. Otherwise, the task
+         --  continues its execution, and the state of the suspension object
+         --  is set to False (ARM D.10 par. 9).
+
+         if S.State then
+            S.State := False;
+
+            Result := semGive (S.L);
+            pragma Assert (Result = 0);
+         else
+            S.Waiting := True;
+
+            --  Release the mutex before sleeping
+
+            Result := semGive (S.L);
+            pragma Assert (Result = OK);
+
+            Result := semTake (S.CV, WAIT_FOREVER);
+            pragma Assert (Result = 0);
+         end if;
+      end if;
+   end Suspend_Until_True;
 
    ----------------
    -- Check_Exit --
@@ -1127,7 +1277,7 @@ package body System.Task_Primitives.Operations is
 
       Environment_Task_Id := Environment_Task;
 
-      --  Initialize the lock used to synchronize chain of all ATCBs.
+      --  Initialize the lock used to synchronize chain of all ATCBs
 
       Initialize_Lock (Single_RTS_Lock'Access, RTS_Lock_Level);
 

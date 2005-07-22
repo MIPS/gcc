@@ -1,22 +1,22 @@
 /* Local factoring (code hoisting/sinking) on SSA trees.
    Copyright (C) 2004 Free Software Foundation, Inc.
-
+ 
 This file is part of GCC.
-
+ 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
-
+ 
 GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-
+ 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -60,19 +60,19 @@ block_equal (const void *p1, const void *p2)
 
   if (bb1->index != bb2->index)
     return 0;
-  if (block_hash (p1) != block_hash (p2))
-    abort ();
+
+  gcc_assert (block_hash (p1) == block_hash (p2));
 
   return 1;
 }
 
-/* Compare the set of pred/succ blocks of DECORATOR1->CURR and 
+/* Compare the set of pred/succ blocks of DECORATOR1->CURR and
    DECORATOR1->CURR. If it isn't different return true.  */
 static bool
 compare_blocks (bb_decorator decorator1, bb_decorator decorator2,
-		enum lfact_direction alg)
+                enum lfact_direction alg)
 {
-  VEC (edge) * ev;
+  VEC(edge,gc) * ev;
   edge e;
   edge_iterator ei;
   basic_block bb1 = decorator1->curr;
@@ -83,7 +83,7 @@ compare_blocks (bb_decorator decorator1, bb_decorator decorator2,
   if ((alg == LFD_HOISTING
        && decorator1->num_pred_bb != decorator2->num_pred_bb)
       || (alg != LFD_HOISTING
-	  && decorator1->num_succ_bb != decorator2->num_succ_bb))
+          && decorator1->num_succ_bb != decorator2->num_succ_bb))
     return false;
 
   ev = DIR_EDGES (bb1, alg);
@@ -121,15 +121,15 @@ collect_sibling (bb_decorator decorator, enum lfact_direction alg)
   for (first = decorator; first; first = first->next_decorator)
     {
       for (second = first->next_decorator; second;
-	   second = second->next_decorator)
-	{
-	  if (compare_blocks (first, second, alg))
-	    {
-	      first->next_sibling = second;
-	      second->prev_sibling = first;
-	      break;
-	    }
-	}
+           second = second->next_decorator)
+        {
+          if (compare_blocks (first, second, alg))
+            {
+              first->next_sibling = second;
+              second->prev_sibling = first;
+              break;
+            }
+        }
     }
 }
 
@@ -142,7 +142,7 @@ delete_siblings (bb_decorator first)
   for (temp = first; temp; temp = temp->next_sibling)
     {
       if (last)
-	last->next_sibling = NULL;
+        last->next_sibling = NULL;
       last = temp;
       temp->prev_sibling = NULL;
     }
@@ -171,28 +171,74 @@ collect_full_sibling (bb_decorator decorator, enum lfact_direction alg)
   for (temp = decorator; temp; temp = temp->next_decorator)
     {
       if (!temp->prev_sibling && temp->next_sibling)
-	{
-	  unsigned long num_of_sibling = 0;
-	  bb_decorator temp2;
-	  VEC (edge) * ev;
-	  VEC (edge) * fv;
-	  edge f;
-	  edge_iterator ei;
+        {
+          unsigned long num_of_sibling = 0;
+          bb_decorator temp2;
+          VEC(edge,gc) * ev;
+          VEC(edge,gc) * fv;
+          edge f;
+          edge_iterator ei;
 
-	  for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
-	    num_of_sibling++;
+          for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
+            num_of_sibling++;
 
-	  ev = DIR_EDGES (temp->curr, alg);
-	  FOR_EACH_EDGE (f, ei, ev)
-	  {
-	    fv = INVDIR_EDGES (DIR_BLOCKS (f, alg), alg);
-	    if (EDGE_COUNT (fv) != num_of_sibling)
-	      {
-		delete_siblings (temp);
-		break;
-	      }
-	  }
-	}
+          ev = DIR_EDGES (temp->curr, alg);
+          FOR_EACH_EDGE (f, ei, ev)
+          {
+            fv = INVDIR_EDGES (DIR_BLOCKS (f, alg), alg);
+            if (EDGE_COUNT (fv) != num_of_sibling)
+              {
+                delete_siblings (temp);
+                break;
+              }
+          }
+        }
+    }
+}
+
+void
+collect_family_sibling(bb_decorator decorator, enum lfact_direction alg)
+{
+  bb_decorator temp, temp2;
+  htab_t bb_table = htab_create (100, block_hash, block_equal, NULL);
+  void **slot;
+
+  collect_sibling (decorator, alg);
+
+  for (temp = decorator; temp; temp = temp->next_decorator)
+    {
+      if (!temp->prev_sibling && temp->next_sibling)
+        {
+          htab_empty(bb_table);
+          for (temp2=temp; temp2; temp2 = temp2->next_sibling)
+            {
+              slot = htab_find_slot (bb_table, temp2->curr, INSERT);
+              *slot = temp2->curr;
+            }
+
+          for (temp2=temp; temp2; temp2=temp2->next_sibling)
+            {
+              VEC(edge,gc) * ev;
+              edge e;
+              edge_iterator ei;
+              int bad_siblingset=0;
+
+              ev = DIR_EDGES (temp2->curr, alg);
+              FOR_EACH_EDGE (e, ei, ev)
+              {
+                if (!htab_find (bb_table, INVDIR_BLOCKS (e, alg)))
+                  {
+                    htab_delete(bb_table);
+                    delete_siblings(temp);
+                    bad_siblingset=1;
+                    break;
+                  }
+              }
+
+              if (bad_siblingset)
+                break;
+            }
+        }
     }
 }
 
@@ -221,7 +267,7 @@ cost_analyzer (bb_decorator decorator, enum lfact_direction alg)
   for (temp = decorator; temp; temp = temp->next_decorator)
     {
       if ((!temp->prev_sibling) && temp->next_sibling)
-	cost_analyzer_1 (temp, alg);
+        cost_analyzer_1 (temp, alg);
     }
 }
 
@@ -241,8 +287,8 @@ init_factoring (bb_decorator decorator)
     temp = xcalloc (1, sizeof (struct bb_decorator_def));
     if (!temp)
       {
-	out_of_mem = 1;
-	break;
+        out_of_mem = 1;
+        break;
       }
 
     temp->curr = bb;
@@ -252,8 +298,8 @@ init_factoring (bb_decorator decorator)
       decorator = temp;
     else
       {
-	last->next_decorator = temp;
-	temp->prev_decorator = last;
+        last->next_decorator = temp;
+        temp->prev_decorator = last;
       }
     last = temp;
   }
@@ -267,19 +313,20 @@ init_factoring (bb_decorator decorator)
 
 /* Dump function.  */
 void
-dump_siblings (FILE * fp, bb_decorator decorator)
+dump_siblings (FILE * fp, bb_decorator decorator, enum lfact_direction alg)
 {
   bb_decorator temp;
   for (temp = decorator; temp; temp = temp->next_decorator)
     {
       if ((!temp->prev_sibling) && temp->next_sibling)
-	{
-	  bb_decorator temp2;
-	  fprintf (fp, "The next basic blocks may contain statements, which are hoistable. \n");
-	  for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
-	    fprintf (fp, "%d ", temp2->curr->index);
-	  fprintf (fp, "\n");
-	}
+        {
+          bb_decorator temp2;
+          fprintf (fp, "The next basic blocks may contain statements, which are %s. \n",
+                   alg==LFD_HOISTING ? "hoistable" : "sinkable");
+          for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
+            fprintf (fp, "%d ", temp2->curr->index);
+          fprintf (fp, "\n");
+        }
     }
   fprintf (fp, "----------------\n\n\n");
 }

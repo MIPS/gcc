@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "flags.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 
 /* Bitmap manipulation routines.  */
@@ -313,6 +314,24 @@ sbitmap_difference (sbitmap dst, sbitmap a, sbitmap b)
   if (dst != a && i != dst_size)
     for (; i < dst_size; i++)
       *dstp++ = *ap++;
+}
+
+/* Return true if there are any bits set in A are also set in B.
+   Return false otherwise.  */
+
+bool
+sbitmap_any_common_bits (sbitmap a, sbitmap b)
+{
+  sbitmap_ptr ap = a->elms;
+  sbitmap_ptr bp = b->elms;
+  unsigned int i, n;
+
+  n = MIN (a->size, b->size);
+  for (i = 0; i < n; i++)
+    if ((*ap++ & *bp++) != 0)
+      return true;
+
+  return false;
 }
 
 /* Set DST to be (A and B).
@@ -636,8 +655,9 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->preds); ix++)
+  for (ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {
+      e = EDGE_PRED (b, ix);
       if (e->src== ENTRY_BLOCK_PTR)
 	continue;
 
@@ -671,8 +691,10 @@ int
 sbitmap_first_set_bit (sbitmap bmap)
 {
   unsigned int n;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (bmap, 0, n, { return n; });
+  EXECUTE_IF_SET_IN_SBITMAP (bmap, 0, n, sbi)
+    return n;
   return -1;
 }
 

@@ -1,5 +1,5 @@
 /* Nested function decomposition for trees.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -148,21 +148,34 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
   return tmp_var;
 }
 
-/* Take the address of EXP.  Mark it for addressability as necessary.  */
+/* Take the address of EXP to be used within function CONTEXT.
+   Mark it for addressability as necessary.  */
 
 tree
-build_addr (tree exp)
+build_addr (tree exp, tree context)
 {
   tree base = exp;
+  tree save_context;
+  tree retval;
 
-  while (TREE_CODE (base) == REALPART_EXPR || TREE_CODE (base) == IMAGPART_EXPR
-	 || handled_component_p (base))
+  while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
 
   if (DECL_P (base))
     TREE_ADDRESSABLE (base) = 1;
 
-  return build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (exp)), exp);
+  /* Building the ADDR_EXPR will compute a set of properties for
+     that ADDR_EXPR.  Those properties are unfortunately context
+     specific.  ie, they are dependent on CURRENT_FUNCTION_DECL.
+
+     Temporarily set CURRENT_FUNCTION_DECL to the desired context,
+     build the ADDR_EXPR, then restore CURRENT_FUNCTION_DECL.  That
+     way the properties are for the ADDR_EXPR are computed properly.  */
+  save_context = current_function_decl;
+  current_function_decl = context;
+  retval = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (exp)), exp);
+  current_function_decl = save_context;;
+  return retval;
 }
 
 /* Insert FIELD into TYPE, sorted by alignment requirements.  */
@@ -377,6 +390,23 @@ tsi_gimplify_val (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
     return init_tmp_var (info, exp, tsi);
 }
 
+/* Similarly, but copy from the temporary and insert the statement
+   after the iterator.  */
+
+static tree
+save_tmp_var (struct nesting_info *info, tree exp,
+	      tree_stmt_iterator *tsi)
+{
+  tree t, stmt;
+
+  t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
+  stmt = build (MODIFY_EXPR, TREE_TYPE (t), exp, t);
+  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (tsi_stmt (*tsi)));
+  tsi_link_after (tsi, stmt, TSI_SAME_STMT);
+
+  return t;
+}
+
 /* Build or return the type used to represent a nested function trampoline.  */
 
 static GTY(()) tree trampoline_type;
@@ -518,6 +548,7 @@ struct walk_stmt_info
   tree_stmt_iterator tsi;
   struct nesting_info *info;
   bool val_only;
+  bool is_lhs;
   bool changed;
 };
 
@@ -568,12 +599,18 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
       break;
 
     case MODIFY_EXPR:
-      /* The immediate arguments of a MODIFY_EXPR may use COMPONENT_REF.  */
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), wi->callback, wi, NULL);
-      wi->val_only = false;
+      /* A formal temporary lhs may use a COMPONENT_REF rhs.  */
+      wi->val_only = !is_gimple_formal_tmp_var (TREE_OPERAND (t, 0));
       walk_tree (&TREE_OPERAND (t, 1), wi->callback, wi, NULL);
+
+      /* If the rhs is appropriate for a memory, we may use a
+	 COMPONENT_REF on the lhs.  */
+      wi->val_only = !is_gimple_mem_rhs (TREE_OPERAND (t, 1));
+      wi->is_lhs = true;
+      walk_tree (&TREE_OPERAND (t, 0), wi->callback, wi, NULL);
+
       wi->val_only = true;
+      wi->is_lhs = false;
       break;
 
     default:
@@ -612,8 +649,49 @@ walk_all_functions (walk_tree_fn callback, struct nesting_info *root)
     }
   while (root);
 }
-
 
+/* We have to check for a fairly pathological case.  The operands of function
+   nested function are to be interpreted in the context of the enclosing
+   function.  So if any are variably-sized, they will get remapped when the
+   enclosing function is inlined.  But that remapping would also have to be
+   done in the types of the PARM_DECLs of the nested function, meaning the
+   argument types of that function will disagree with the arguments in the
+   calls to that function.  So we'd either have to make a copy of the nested
+   function corresponding to each time the enclosing function was inlined or
+   add a VIEW_CONVERT_EXPR to each such operand for each call to the nested
+   function.  The former is not practical.  The latter would still require
+   detecting this case to know when to add the conversions.  So, for now at
+   least, we don't inline such an enclosing function.
+
+   We have to do that check recursively, so here return indicating whether
+   FNDECL has such a nested function.  ORIG_FN is the function we were
+   trying to inline to use for checking whether any argument is variably
+   modified by anything in it.
+
+   It would be better to do this in tree-inline.c so that we could give
+   the appropriate warning for why a function can't be inlined, but that's
+   too late since the nesting structure has already been flattened and
+   adding a flag just to record this fact seems a waste of a flag.  */
+
+static bool
+check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
+{
+  struct cgraph_node *cgn = cgraph_node (fndecl);
+  tree arg;
+
+  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
+    {
+      for (arg = DECL_ARGUMENTS (cgn->decl); arg; arg = TREE_CHAIN (arg))
+	if (variably_modified_type_p (TREE_TYPE (arg), 0), orig_fndecl)
+	  return true;
+
+      if (check_for_nested_with_variably_modified (cgn->decl, orig_fndecl))
+	return true;
+    }
+
+  return false;
+}
+
 /* Construct our local datastructure describing the function nesting
    tree rooted by CGN.  */
 
@@ -632,6 +710,11 @@ create_nesting_tree (struct cgraph_node *cgn)
       info->inner = sub;
     }
 
+  /* See discussion at check_for_nested_with_variably_modified for a
+     discussion of why this has to be here.  */
+  if (check_for_nested_with_variably_modified (info->context, info->context))
+    DECL_UNINLINABLE (info->context) = true;
+
   return info;
 }
 
@@ -647,7 +730,7 @@ get_static_chain (struct nesting_info *info, tree target_context,
 
   if (info->context == target_context)
     {
-      x = build_addr (info->frame_decl);
+      x = build_addr (info->frame_decl, target_context);
     }
   else
     {
@@ -744,8 +827,14 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	      x = init_tmp_var (info, x, &wi->tsi);
 	      x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
 	    }
+
 	  if (wi->val_only)
-	    x = init_tmp_var (info, x, &wi->tsi);
+	    {
+	      if (wi->is_lhs)
+		x = save_tmp_var (info, x, &wi->tsi);
+	      else
+		x = init_tmp_var (info, x, &wi->tsi);
+	    }
 
 	  *tp = x;
 	}
@@ -757,6 +846,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	{
 	  *walk_subtrees = 1;
 	  wi->val_only = true;
+	  wi->is_lhs = false;
 	}
       break;
 
@@ -773,16 +863,22 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       {
 	bool save_val_only = wi->val_only;
 
-	wi->changed = false;
 	wi->val_only = false;
+	wi->is_lhs = false;
+	wi->changed = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
 	wi->val_only = true;
 
 	if (wi->changed)
 	  {
+	    tree save_context;
+
 	    /* If we changed anything, then TREE_INVARIANT is be wrong,
 	       since we're no longer directly referencing a decl.  */
+	    save_context = current_function_decl;
+	    current_function_decl = info->context;
 	    recompute_tree_invarant_for_addr_expr (t);
+	    current_function_decl = save_context;
 
 	    /* If the callback converted the address argument in a context
 	       where we only accept variables (and min_invariant, presumably),
@@ -803,9 +899,8 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	 anything that describes the references.  Otherwise, we lose track
 	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
       wi->val_only = true;
-      for (; handled_component_p (t)
-	   || TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR;
-	   tp = &TREE_OPERAND (t, 0), t = *tp)
+      wi->is_lhs = false;
+      for (; handled_component_p (t); tp = &TREE_OPERAND (t, 0), t = *tp)
 	{
 	  if (TREE_CODE (t) == COMPONENT_REF)
 	    walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi,
@@ -837,6 +932,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	{
 	  *walk_subtrees = 1;
           wi->val_only = true;
+	  wi->is_lhs = false;
 	}
       break;
     }
@@ -879,8 +975,15 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	  wi->changed = true;
 
 	  x = get_frame_field (info, info->context, field, &wi->tsi);
+
 	  if (wi->val_only)
-	    x = init_tmp_var (info, x, &wi->tsi);
+	    {
+	      if (wi->is_lhs)
+		x = save_tmp_var (info, x, &wi->tsi);
+	      else
+		x = init_tmp_var (info, x, &wi->tsi);
+	    }
+
 	  *tp = x;
 	}
       break;
@@ -889,18 +992,24 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       {
 	bool save_val_only = wi->val_only;
 
-	wi->changed = false;
 	wi->val_only = false;
+	wi->is_lhs = false;
+	wi->changed = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
 	wi->val_only = save_val_only;
 
 	/* If we converted anything ... */
 	if (wi->changed)
 	  {
+	    tree save_context;
+
 	    /* Then the frame decl is now addressable.  */
 	    TREE_ADDRESSABLE (info->frame_decl) = 1;
 	    
+	    save_context = current_function_decl;
+	    current_function_decl = info->context;
 	    recompute_tree_invarant_for_addr_expr (t);
+	    current_function_decl = save_context;
 
 	    /* If we are in a context where we only accept values, then
 	       compute the address into a temporary.  */
@@ -920,9 +1029,8 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	 anything that describes the references.  Otherwise, we lose track
 	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
       wi->val_only = true;
-      for (; handled_component_p (t)
-	   || TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR;
-	   tp = &TREE_OPERAND (t, 0), t = *tp)
+      wi->is_lhs = false;
+      for (; handled_component_p (t); tp = &TREE_OPERAND (t, 0), t = *tp)
 	{
 	  if (TREE_CODE (t) == COMPONENT_REF)
 	    walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi,
@@ -954,6 +1062,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	{
 	  *walk_subtrees = 1;
 	  wi->val_only = true;
+	  wi->is_lhs = false;
 	}
       break;
     }
@@ -1007,10 +1116,10 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
   /* Build: __builtin_nl_goto(new_label, &chain->nl_goto_field).  */
   field = get_nl_goto_field (i);
   x = get_frame_field (info, target_context, field, &wi->tsi);
-  x = build_addr (x);
+  x = build_addr (x, target_context);
   x = tsi_gimplify_val (info, x, &wi->tsi);
   arg = tree_cons (NULL, x, NULL);
-  x = build_addr (new_label);
+  x = build_addr (new_label, target_context);
   arg = tree_cons (NULL, x, arg);
   x = implicit_built_in_decls[BUILT_IN_NONLOCAL_GOTO];
   x = build_function_call_expr (x, arg);
@@ -1105,7 +1214,7 @@ convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
 
       /* Compute the address of the field holding the trampoline.  */
       x = get_frame_field (info, target_context, x, &wi->tsi);
-      x = build_addr (x);
+      x = build_addr (x, target_context);
       x = tsi_gimplify_val (info, x, &wi->tsi);
       arg = tree_cons (NULL, x, NULL);
 
@@ -1218,7 +1327,12 @@ finalize_nesting_tree_1 (struct nesting_info *root)
      out at this time.  */
   if (root->frame_type)
     {
+      /* In some cases the frame type will trigger the -Wpadded warning.
+	 This is not helpful; suppress it. */
+      int save_warn_padded = warn_padded;
+      warn_padded = 0;
       layout_type (root->frame_type);
+      warn_padded = save_warn_padded;
       layout_decl (root->frame_decl, 0);
     }
 
@@ -1237,7 +1351,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	    continue;
 
 	  if (use_pointer_in_frame (p))
-	    x = build_addr (p);
+	    x = build_addr (p, context);
 	  else
 	    x = p;
 
@@ -1273,15 +1387,15 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	  if (DECL_NO_STATIC_CHAIN (i->context))
 	    x = null_pointer_node;
 	  else
-	    x = build_addr (root->frame_decl);
+	    x = build_addr (root->frame_decl, context);
 	  arg = tree_cons (NULL, x, NULL);
 
-	  x = build_addr (i->context);
+	  x = build_addr (i->context, context);
 	  arg = tree_cons (NULL, x, arg);
 
 	  x = build (COMPONENT_REF, TREE_TYPE (field),
 		     root->frame_decl, field, NULL_TREE);
-	  x = build_addr (x);
+	  x = build_addr (x, context);
 	  arg = tree_cons (NULL, x, arg);
 
 	  x = implicit_built_in_decls[BUILT_IN_INIT_TRAMPOLINE];

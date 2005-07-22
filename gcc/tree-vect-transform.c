@@ -596,8 +596,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
             t = tree_cons (NULL_TREE, def, t);
           }
 
-	/* FIXME: use build_constructor directly.  */
-        vec_inv = build_constructor_from_list (vectype, t);
+        vec_inv = build_constructor (vectype, t);
         return vect_init_vector (stmt, vec_inv);
       }
 
@@ -772,7 +771,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
   if (TREE_CODE (init_val) == INTEGER_CST || TREE_CODE (init_val) == REAL_CST)
     vec = build_vector (vectype, t);
   else
-    vec = build_constructor_from_list (vectype, t);
+    vec = build_constructor (vectype, t);
     
   if (!need_epilog_adjust)
     {
@@ -925,7 +924,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
     }
   else
     {
-      enum tree_code shift_code = 0;
+      enum tree_code shift_code;
       bool have_whole_vector_shift = true;
       enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1)); /* CHECKME */
       int bit_offset;

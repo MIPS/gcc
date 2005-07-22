@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha on Cray
    T3E running Unicos/Mk.
-   Copyright (C) 2001, 2002, 2004
+   Copyright (C) 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Roman Lechtchinsky (rl@cs.tu-berlin.de)
 
@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef TARGET_ABI_UNICOSMK
 #define TARGET_ABI_UNICOSMK 1
@@ -96,7 +96,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* The stack frame grows downward.  */
 
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine. This is somewhat
@@ -210,11 +210,6 @@ do {								\
   ++(CUM).num_args;						\
 } while(0)
 
-/* An argument is passed either entirely in registers or entirely on stack.  */
- 
-#undef FUNCTION_ARG_PARTIAL_NREGS
-/* #define FUNCTION_ARG_PARTIAL_NREGS(CUM,MODE,TYPE,NAMED) 0 */
-
 /* This ensures that $15 increments/decrements in leaf functions won't get
    eliminated.  */
 
@@ -235,7 +230,7 @@ do { fprintf (FILE, "\tbr $1,0\n");			\
 /* We don't support nested functions (yet).  */
 
 #undef TRAMPOLINE_TEMPLATE
-#define TRAMPOLINE_TEMPLATE(FILE) abort ()
+#define TRAMPOLINE_TEMPLATE(FILE) gcc_unreachable ()
 
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction. On Unicos/Mk, we don't support relative case
@@ -379,7 +374,7 @@ ssib_section (void)		\
    (Unicos/Mk does not use such vectors yet).  */
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) abort ()
+#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) gcc_unreachable ()
 
 /* We can't output case vectors in the same section as the function code
    because CAM doesn't allow data definitions in code sections. Thus, we
@@ -389,7 +384,7 @@ ssib_section (void)		\
 #define ASM_OUTPUT_ADDR_VEC(LAB,VEC) \
   unicosmk_defer_case_vector ((LAB),(VEC))
 
-#define ASM_OUTPUT_ADDR_DIFF_VEC(LAB,VEC) abort ()
+#define ASM_OUTPUT_ADDR_DIFF_VEC(LAB,VEC) gcc_unreachable ()
 
 /* This is how to output an assembler line that says to advance the location
    counter to a multiple of 2**LOG bytes. Annoyingly, CAM always uses zeroes

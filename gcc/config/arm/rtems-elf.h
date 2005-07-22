@@ -15,8 +15,8 @@
  
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Run-time Target Specification.  */
 #undef TARGET_VERSION
@@ -29,3 +29,11 @@
 	builtin_define ("__rtems__");		\
 	builtin_assert ("system=rtems");	\
     } while (0)
+
+/*
+ * The default in gcc now is soft-float, but gcc misses it to 
+ * pass it to the assembler.
+ */
+#undef SUBTARGET_EXTRA_ASM_SPEC
+#define SUBTARGET_EXTRA_ASM_SPEC "\
+  %{!mhard-float: %{!msoft-float:-mfpu=softfpa}}"

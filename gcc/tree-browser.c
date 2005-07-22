@@ -16,14 +16,13 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "tree.h"
 #include "tree-inline.h"
 #include "diagnostic.h"
@@ -53,11 +52,7 @@ struct tb_command {
 };
 
 #define DEFTBCODE(code, str, help) { help, str, sizeof(str) - 1, code },
-#ifdef HOST_EBCDIC
-static struct tb_command tb_commands[] =
-#else
 static const struct tb_command tb_commands[] =
-#endif
 {
 #include "tree-browser.def"
 };
@@ -77,11 +72,7 @@ struct tb_tree_code {
 };
 
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS) { SYM, STRING, sizeof (STRING) - 1 },
-#ifdef HOST_EBCDIC
-static struct tb_tree_code tb_tree_codes[] =
-#else
 static const struct tb_tree_code tb_tree_codes[] =
-#endif
 {
 #include "tree.def"
 };
@@ -309,8 +300,7 @@ browse_tree (tree begin)
 	  break;
 
 	case TB_DOMAIN:
-	  if (head && (TREE_CODE (head) == ARRAY_TYPE
-		       || TREE_CODE (head) == SET_TYPE))
+	  if (head && TREE_CODE (head) == ARRAY_TYPE)
 	    TB_SET_HEAD (TYPE_DOMAIN (head));
 	  else
 	    TB_WF;
@@ -319,13 +309,6 @@ browse_tree (tree begin)
 	case TB_VALUES:
 	  if (head && TREE_CODE (head) == ENUMERAL_TYPE)
 	    TB_SET_HEAD (TYPE_VALUES (head));
-	  else
-	    TB_WF;
-	  break;
-
-	case TB_ARG_TYPE_AS_WRITTEN:
-	  if (head && TREE_CODE (head) == PARM_DECL)
-	    TB_SET_HEAD (DECL_ARG_TYPE_AS_WRITTEN (head));
 	  else
 	    TB_WF;
 	  break;

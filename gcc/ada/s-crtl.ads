@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 2003 Free Software Foundation, Inc.              --
+--          Copyright (C) 2003-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -41,6 +41,9 @@ pragma Preelaborate (CRTL);
    subtype chars is System.Address;
    --  Pointer to null-terminated array of characters
 
+   subtype DIRs is System.Address;
+   --  Corresponds to the C type DIR*
+
    subtype FILEs is System.Address;
    --  Corresponds to the C type FILE*
 
@@ -58,6 +61,15 @@ pragma Preelaborate (CRTL);
 
    procedure clearerr (stream : FILEs);
    pragma Import (C, clearerr, "clearerr");
+
+   function closedir (directory : DIRs) return Integer;
+   pragma Import (C, closedir, "closedir");
+
+   function dup  (handle : int) return int;
+   pragma Import (C, dup, "dup");
+
+   function dup2 (from, to : int) return int;
+   pragma Import (C, dup2, "dup2");
 
    function fclose (stream : FILEs) return int;
    pragma Import (C, fclose, "fclose");
@@ -124,6 +136,15 @@ pragma Preelaborate (CRTL);
    procedure mktemp (template : chars);
    pragma Import (C, mktemp, "mktemp");
 
+   function opendir (file_name : String) return DIRs;
+   pragma Import (C, opendir, "opendir");
+
+   function pclose (stream : System.Address) return int;
+   pragma Import (C, pclose, "pclose");
+
+   function popen (command, mode : System.Address) return System.Address;
+   pragma Import (C, popen, "popen");
+
    function read (fd : int; buffer : chars; nbytes : int) return int;
    pragma Import (C, read, "read");
 
@@ -133,6 +154,9 @@ pragma Preelaborate (CRTL);
 
    procedure rewind (stream : FILEs);
    pragma Import (C, rewind, "rewind");
+
+   procedure rmdir (dir_name : String);
+   pragma Import (C, rmdir, "rmdir");
 
    function setvbuf
      (stream : FILEs;

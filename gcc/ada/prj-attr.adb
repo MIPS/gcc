@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -82,6 +82,8 @@ package body Prj.Attr is
      "lVmain#" &
      "LVlanguages#" &
      "SVmain_language#" &
+     "LVada_roots#" &
+     "SVexternally_built#" &
 
    --  package Naming
 
@@ -183,6 +185,17 @@ package body Prj.Attr is
      "SVvcs_kind#" &
      "SVvcs_file_check#" &
      "SVvcs_log_check#" &
+
+   --  package Language_Processing
+
+     "Planguage_processing#" &
+     "Lacompiler_driver#" &
+     "Sacompiler_kind#" &
+     "Ladependency_option#" &
+     "Lacompute_dependency#" &
+     "Lainclude_option#" &
+     "Sabinder_driver#" &
+     "SVdefault_linker#" &
 
      "#";
 

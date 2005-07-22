@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -281,7 +281,7 @@ package body Ada.Characters.Handling is
    -- Is_Alphanumeric --
    ---------------------
 
-   function Is_Alphanumeric (Item : in Character) return Boolean is
+   function Is_Alphanumeric (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Alphanum) /= 0;
    end Is_Alphanumeric;
@@ -290,7 +290,7 @@ package body Ada.Characters.Handling is
    -- Is_Basic --
    --------------
 
-   function Is_Basic (Item : in Character) return Boolean is
+   function Is_Basic (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Basic) /= 0;
    end Is_Basic;
@@ -299,7 +299,7 @@ package body Ada.Characters.Handling is
    -- Is_Character --
    ------------------
 
-   function Is_Character (Item : in Wide_Character) return Boolean is
+   function Is_Character (Item : Wide_Character) return Boolean is
    begin
       return Wide_Character'Pos (Item) < 256;
    end Is_Character;
@@ -308,7 +308,7 @@ package body Ada.Characters.Handling is
    -- Is_Control --
    ----------------
 
-   function Is_Control (Item : in Character) return Boolean is
+   function Is_Control (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Control) /= 0;
    end Is_Control;
@@ -317,7 +317,7 @@ package body Ada.Characters.Handling is
    -- Is_Digit --
    --------------
 
-   function Is_Digit (Item : in Character) return Boolean is
+   function Is_Digit (Item : Character) return Boolean is
    begin
       return Item in '0' .. '9';
    end Is_Digit;
@@ -326,7 +326,7 @@ package body Ada.Characters.Handling is
    -- Is_Graphic --
    ----------------
 
-   function Is_Graphic (Item : in Character) return Boolean is
+   function Is_Graphic (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Graphic) /= 0;
    end Is_Graphic;
@@ -335,7 +335,7 @@ package body Ada.Characters.Handling is
    -- Is_Hexadecimal_Digit --
    --------------------------
 
-   function Is_Hexadecimal_Digit (Item : in Character) return Boolean is
+   function Is_Hexadecimal_Digit (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Hex_Digit) /= 0;
    end Is_Hexadecimal_Digit;
@@ -344,7 +344,7 @@ package body Ada.Characters.Handling is
    -- Is_ISO_646 --
    ----------------
 
-   function Is_ISO_646 (Item : in Character) return Boolean is
+   function Is_ISO_646 (Item : Character) return Boolean is
    begin
       return Item in ISO_646;
    end Is_ISO_646;
@@ -352,7 +352,7 @@ package body Ada.Characters.Handling is
    --  Note: much more efficient coding of the following function is possible
    --  by testing several 16#80# bits in a complete word in a single operation
 
-   function Is_ISO_646 (Item : in String) return Boolean is
+   function Is_ISO_646 (Item : String) return Boolean is
    begin
       for J in Item'Range loop
          if Item (J) not in ISO_646 then
@@ -367,7 +367,7 @@ package body Ada.Characters.Handling is
    -- Is_Letter --
    ---------------
 
-   function Is_Letter (Item : in Character) return Boolean is
+   function Is_Letter (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Letter) /= 0;
    end Is_Letter;
@@ -376,7 +376,7 @@ package body Ada.Characters.Handling is
    -- Is_Lower --
    --------------
 
-   function Is_Lower (Item : in Character) return Boolean is
+   function Is_Lower (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Lower) /= 0;
    end Is_Lower;
@@ -385,7 +385,7 @@ package body Ada.Characters.Handling is
    -- Is_Special --
    ----------------
 
-   function Is_Special (Item : in Character) return Boolean is
+   function Is_Special (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Special) /= 0;
    end Is_Special;
@@ -394,7 +394,7 @@ package body Ada.Characters.Handling is
    -- Is_String --
    ---------------
 
-   function Is_String (Item : in Wide_String) return Boolean is
+   function Is_String (Item : Wide_String) return Boolean is
    begin
       for J in Item'Range loop
          if Wide_Character'Pos (Item (J)) >= 256 then
@@ -409,7 +409,7 @@ package body Ada.Characters.Handling is
    -- Is_Upper --
    --------------
 
-   function Is_Upper (Item : in Character) return Boolean is
+   function Is_Upper (Item : Character) return Boolean is
    begin
       return (Char_Map (Item) and Upper) /= 0;
    end Is_Upper;
@@ -418,12 +418,12 @@ package body Ada.Characters.Handling is
    -- To_Basic --
    --------------
 
-   function To_Basic (Item : in Character) return Character is
+   function To_Basic (Item : Character) return Character is
    begin
       return Value (Basic_Map, Item);
    end To_Basic;
 
-   function To_Basic (Item : in String) return String is
+   function To_Basic (Item : String) return String is
       Result : String (1 .. Item'Length);
 
    begin
@@ -439,9 +439,8 @@ package body Ada.Characters.Handling is
    ------------------
 
    function To_Character
-     (Item       : in Wide_Character;
-      Substitute : in Character := ' ')
-      return       Character
+     (Item       : Wide_Character;
+      Substitute : Character := ' ') return Character
    is
    begin
       if Is_Character (Item) then
@@ -456,9 +455,8 @@ package body Ada.Characters.Handling is
    ----------------
 
    function To_ISO_646
-     (Item       : in Character;
-      Substitute : in ISO_646 := ' ')
-      return       ISO_646
+     (Item       : Character;
+      Substitute : ISO_646 := ' ') return ISO_646
    is
    begin
       if Item in ISO_646 then
@@ -469,9 +467,8 @@ package body Ada.Characters.Handling is
    end To_ISO_646;
 
    function To_ISO_646
-     (Item       : in String;
-      Substitute : in ISO_646 := ' ')
-      return       String
+     (Item       : String;
+      Substitute : ISO_646 := ' ') return String
    is
       Result : String (1 .. Item'Length);
 
@@ -491,12 +488,12 @@ package body Ada.Characters.Handling is
    -- To_Lower --
    --------------
 
-   function To_Lower (Item : in Character) return Character is
+   function To_Lower (Item : Character) return Character is
    begin
       return Value (Lower_Case_Map, Item);
    end To_Lower;
 
-   function To_Lower (Item : in String) return String is
+   function To_Lower (Item : String) return String is
       Result : String (1 .. Item'Length);
 
    begin
@@ -512,9 +509,8 @@ package body Ada.Characters.Handling is
    ---------------
 
    function To_String
-     (Item       : in Wide_String;
-      Substitute : in Character := ' ')
-     return        String
+     (Item       : Wide_String;
+      Substitute : Character := ' ') return String
    is
       Result : String (1 .. Item'Length);
 
@@ -522,6 +518,7 @@ package body Ada.Characters.Handling is
       for J in Item'Range loop
          Result (J - (Item'First - 1)) := To_Character (Item (J), Substitute);
       end loop;
+
       return Result;
    end To_String;
 
@@ -530,16 +527,14 @@ package body Ada.Characters.Handling is
    --------------
 
    function To_Upper
-     (Item : in Character)
-     return  Character
+     (Item : Character) return Character
    is
    begin
       return Value (Upper_Case_Map, Item);
    end To_Upper;
 
    function To_Upper
-     (Item : in String)
-      return String
+     (Item : String) return String
    is
       Result : String (1 .. Item'Length);
 
@@ -556,8 +551,7 @@ package body Ada.Characters.Handling is
    -----------------------
 
    function To_Wide_Character
-     (Item : in Character)
-      return Wide_Character
+     (Item : Character) return Wide_Character
    is
    begin
       return Wide_Character'Val (Character'Pos (Item));
@@ -568,8 +562,7 @@ package body Ada.Characters.Handling is
    --------------------
 
    function To_Wide_String
-     (Item : in String)
-      return Wide_String
+     (Item : String) return Wide_String
    is
       Result : Wide_String (1 .. Item'Length);
 
@@ -580,4 +573,5 @@ package body Ada.Characters.Handling is
 
       return Result;
    end To_Wide_String;
+
 end Ada.Characters.Handling;

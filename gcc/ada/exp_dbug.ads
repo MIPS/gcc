@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -354,8 +354,8 @@ package Exp_Dbug is
       --  calls from other operations on the same object. The locking operation
       --  simply acquires the lock, and then calls the non-locking version.
       --  The names of all of these have a prefix constructed from the name of
-      --  the type, the string "PT", and a suffix which is P or N, depending on
-      --  whether this is the protected/non-locking version of the operation.
+      --  the type, and a suffix which is P or N, depending on whether this is
+      --  the protected/non-locking version of the operation.
 
       --  Operations generated for protected entries follow the same encoding.
       --  Each entry results in two suprograms: a procedure that holds the
@@ -376,14 +376,14 @@ package Exp_Dbug is
 
       --  the following operations are created:
 
-      --    lockPT_getN
-      --    lockPT_getP,
+      --    lock_getN
+      --    lock_getP,
 
-      --    lockPT_setN
-      --    lockPT_setP
+      --    lock_setN
+      --    lock_setP
 
-      --    lockPT_update1sE
-      --    lockPT_udpate2sB
+      --    lock_update1sE
+      --    lock_udpate2sB
 
    ----------------------------------------------------
    -- Conversion between Entities and External Names --
@@ -432,8 +432,9 @@ package Exp_Dbug is
    --        or is defined within an overloaded subprogram.
    --    - the string "___" followed by Suffix
    --
-   --  If this procedure is called in the ASIS mode, it does nothing. See the
-   --  comments in the body for more details.
+   --  Note that a call to this procedure has no effect if we are not
+   --  generating code, since the necessary information for computing the
+   --  proper encoded name is not available in this case.
 
    --------------------------------------------
    -- Subprograms for Handling Qualification --
@@ -923,11 +924,13 @@ package Exp_Dbug is
    -------------------------------------------------
 
    procedure Get_Encoded_Name (E : Entity_Id);
-   --  If the entity is a typename, store the external name of
-   --  the entity as in Get_External_Name, followed by three underscores
-   --  plus the type encoding in Name_Buffer with the length in Name_Len,
-   --  and an ASCII.NUL character stored following the name.
-   --  Otherwise set Name_Buffer and Name_Len to hold the entity name.
+   --  If the entity is a typename, store the external name of the entity as in
+   --  Get_External_Name, followed by three underscores plus the type encoding
+   --  in Name_Buffer with the length in Name_Len, and an ASCII.NUL character
+   --  stored following the name. Otherwise set Name_Buffer and Name_Len to
+   --  hold the entity name. Note that a call to this procedure has no effect
+   --  if we are not generating code, since the necessary information for
+   --  computing the proper encoded name is not available in this case.
 
    --------------
    -- Renaming --

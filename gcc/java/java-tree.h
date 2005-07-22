@@ -1,6 +1,6 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -71,7 +71,7 @@ struct JCF;
       IS_CRAFTED_STRING_BUFFER_P (in CALL_EXPR)
       IS_INIT_CHECKED (in SAVE_EXPR)
    6: CAN_COMPLETE_NORMALLY (in statement nodes)
-      OUTER_FIELD_ACCESS_IDENTIFIER_P (in IDENTIFIER_NODE)
+      NESTED_FIELD_ACCESS_IDENTIFIER_P (in IDENTIFIER_NODE)
 
    Usage of TYPE_LANG_FLAG_?:
    0: CLASS_ACCESS0_GENERATED_P (in RECORD_TYPE)
@@ -182,14 +182,6 @@ extern int flag_extraneous_semicolon;
 
 extern int flag_force_classes_archive_check;
 
-/* When nonzero, we emit xref strings. Values of the flag for xref
-   backends are defined in xref.h.  */
-
-extern int flag_emit_xref;
-
-/* When doing xrefs, tell when not to fold.   */
-extern int do_not_fold;
-
 /* Resource name.  */
 extern const char *resource_name;
 
@@ -227,6 +219,9 @@ extern int flag_indirect_dispatch;
 /* When zero, don't generate runtime array store checks. */
 extern int flag_store_check;
 
+/* When nonzero, use the new bytecode verifier.  */
+extern int flag_new_verifier;
+
 /* Encoding used for source files.  */
 extern const char *current_encoding;
 
@@ -236,6 +231,14 @@ extern GTY(()) struct JCF * current_jcf;
 /* Set to nonzero value in order to emit class initialization code
    before static field references.  */
 extern int always_initialize_class_p;
+
+extern int flag_verify_invocations;
+
+/* Largest pc so far in this method that has been passed to lookup_label. */
+extern int highest_label_pc_this_method;
+
+/* Base value for this method to add to pc to get generated label. */
+extern int start_label_pc_this_method;
 
 typedef struct CPool constant_pool;
 
@@ -269,6 +272,7 @@ typedef struct CPool constant_pool;
 
 extern GTY(()) tree java_lang_cloneable_identifier_node;
 extern GTY(()) tree java_io_serializable_identifier_node;
+extern GTY(()) tree gcj_abi_version;
 
 enum java_tree_index
 {
@@ -367,9 +371,13 @@ enum java_tree_index
   JTI_OTABLE_PTR_TYPE,
   JTI_ATABLE_TYPE,
   JTI_ATABLE_PTR_TYPE,
+  JTI_ITABLE_TYPE,
+  JTI_ITABLE_PTR_TYPE,
   JTI_SYMBOL_TYPE,
   JTI_SYMBOLS_ARRAY_TYPE,
   JTI_SYMBOLS_ARRAY_PTR_TYPE,
+  JTI_ASSERTION_ENTRY_TYPE,
+  JTI_ASSERTION_TABLE_TYPE,
 
   JTI_END_PARAMS_NODE,
 
@@ -384,10 +392,12 @@ enum java_tree_index
   JTI_SOFT_MULTIANEWARRAY_NODE,
   JTI_SOFT_BADARRAYINDEX_NODE,
   JTI_SOFT_NULLPOINTER_NODE,
+  JTI_SOFT_ABSTRACTMETHOD_NODE,
   JTI_SOFT_CHECKARRAYSTORE_NODE,
   JTI_SOFT_MONITORENTER_NODE,
   JTI_SOFT_MONITOREXIT_NODE,
   JTI_SOFT_LOOKUPINTERFACEMETHOD_NODE,
+  JTI_SOFT_LOOKUPINTERFACEMETHODBYNAME_NODE,
   JTI_SOFT_LOOKUPJNIMETHOD_NODE,
   JTI_SOFT_GETJNIENVNEWFRAME_NODE,
   JTI_SOFT_JNIPOPSYSTEMFRAME_NODE,
@@ -597,18 +607,24 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_OTABLE_TYPE]
 #define atable_type \
   java_global_trees[JTI_ATABLE_TYPE]
+#define itable_type \
+  java_global_trees[JTI_ITABLE_TYPE]
 #define otable_ptr_type \
   java_global_trees[JTI_OTABLE_PTR_TYPE]
 #define atable_ptr_type \
   java_global_trees[JTI_ATABLE_PTR_TYPE]
+#define itable_ptr_type \
+  java_global_trees[JTI_ITABLE_PTR_TYPE]
 #define symbol_type \
   java_global_trees[JTI_SYMBOL_TYPE]
 #define symbols_array_type \
   java_global_trees[JTI_SYMBOLS_ARRAY_TYPE]
 #define symbols_array_ptr_type \
-  java_global_trees[JTI_SYMBOLS_ARRAY_PTR_TYPE]
-#define class_refs_decl \
-  Jjava_global_trees[TI_CLASS_REFS_DECL]
+  java_global_trees[JTI_SYMBOLS_ARRAY_PTR_TYPE]  
+#define assertion_entry_type \
+  java_global_trees[JTI_ASSERTION_ENTRY_TYPE]
+#define assertion_table_type \
+  java_global_trees[JTI_ASSERTION_TABLE_TYPE]
 
 #define end_params_node \
   java_global_trees[JTI_END_PARAMS_NODE]
@@ -636,6 +652,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_BADARRAYINDEX_NODE]
 #define soft_nullpointer_node \
   java_global_trees[JTI_SOFT_NULLPOINTER_NODE]
+#define soft_abstractmethod_node \
+  java_global_trees[JTI_SOFT_ABSTRACTMETHOD_NODE]
 #define soft_checkarraystore_node \
   java_global_trees[JTI_SOFT_CHECKARRAYSTORE_NODE]
 #define soft_monitorenter_node \
@@ -644,6 +662,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_MONITOREXIT_NODE]
 #define soft_lookupinterfacemethod_node \
   java_global_trees[JTI_SOFT_LOOKUPINTERFACEMETHOD_NODE]
+#define soft_lookupinterfacemethodbyname_node \
+  java_global_trees[JTI_SOFT_LOOKUPINTERFACEMETHODBYNAME_NODE]
 #define soft_lookupjnimethod_node \
   java_global_trees[JTI_SOFT_LOOKUPJNIMETHOD_NODE]
 #define soft_getjnienvnewframe_node \
@@ -674,6 +694,9 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 
 #define wfl_operator \
   java_global_trees[JTI_WFL_OPERATOR]
+
+/* The decl for "_Jv_ResolvePoolEntry".  */
+extern GTY(()) tree soft_resolvepoolentry_node;
 
 extern const char *cyclic_inheritance_report;
 
@@ -711,15 +734,10 @@ union lang_tree_node
 #define IDENTIFIER_LOCAL_VALUE(NODE)    \
   (((struct lang_identifier *)(NODE))->local_value)
 
-/* Given an identifier NODE, get the corresponding (non-handle) class.
-   For get_identifier ("java.lang.Number"), the result is
-   the struct whose DECL_ASSEMBLER_NAME is "Classjava_lang_Number". */
+/* Given an identifier NODE, get the corresponding class.
+   E.g. IDENTIFIER_CLASS_VALUE(get_identifier ("java.lang.Number"))
+   is the corresponding RECORD_TYPE. */
 #define IDENTIFIER_CLASS_VALUE(NODE) IDENTIFIER_GLOBAL_VALUE(NODE)
-
-/* Given an identifier NODE, get the corresponding handle class.
-   For get_identifier ("java.lang.Number"), the result is
-   the struct whose DECL_ASSEMBLER_NAME is "Hjava_lang_Number". */
-#define IDENTIFIER_HANDLECLASS_VALUE(NODE) ???
 
 /* Given a signature of a reference (or array) type, or a method, return the
    corresponding type (if one has been allocated).
@@ -809,6 +827,9 @@ union lang_tree_node
 #define DECL_FIXED_CONSTRUCTOR_P(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.fixed_ctor)
 
+#define DECL_LOCAL_CNI_METHOD_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE)->u.f.local_cni)
+
 /* A constructor that calls this. */
 #define DECL_INIT_CALLS_THIS(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.init_calls_this)
@@ -829,11 +850,11 @@ union lang_tree_node
 #define FIELD_THISN(DECL) DECL_LANG_FLAG_7 (VAR_OR_FIELD_CHECK (DECL))
 
 /* In a LABEL_DECL, a TREE_VEC that saves the type_map at that point. */
-#define LABEL_TYPE_STATE(NODE) (DECL_INITIAL (LABEL_DECL_CHECK (NODE)))
+#define LABEL_TYPE_STATE(NODE) (LABEL_DECL_CHECK (NODE)->label_decl.java_field_1)
 
 /* In the label of a subroutine, a dummy label that records the
    state following a merge of all the ret instructions in this subroutine. */
-#define LABEL_RETURN_LABEL(DECL) DECL_ARGUMENTS(DECL)
+#define LABEL_RETURN_LABEL(DECL) (LABEL_DECL_CHECK (DECL)->label_decl.java_field_2)
 
 /* In the label of a sub-routine, records the type state at return.
    A local may be TYPE_UNUSED, which means that the local is not
@@ -848,14 +869,14 @@ union lang_tree_node
 
 /* In the label of a sub-routine, a chain of the return location labels. */
 #define LABEL_RETURN_LABELS(node) \
-  (LABEL_DECL_CHECK (LABEL_RETURN_LABEL (node))->decl.result)
+  (LABEL_DECL_CHECK (LABEL_RETURN_LABEL (node))->label_decl.java_field_3)
 
 /* In a LABEL_DECL, the next pending label.
    See pending_blocks in expr.c. */
-#define LABEL_PENDING_CHAIN(NODE) (LABEL_DECL_CHECK (NODE)->decl.result)
+#define LABEL_PENDING_CHAIN(NODE) (LABEL_DECL_CHECK (NODE)->label_decl.java_field_3)
 
 /* In a LABEL_DECL, the corresponding bytecode program counter. */
-#define LABEL_PC(NODE) (LABEL_DECL_CHECK (NODE)->decl.u2.i)
+#define LABEL_PC(NODE) (LABEL_DECL_CHECK (NODE)->label_decl.java_field_4)
 
 /* Used during verification to mark the label has "changed". (See JVM Spec). */
 #define LABEL_CHANGED(NODE) DECL_LANG_FLAG_6 (LABEL_DECL_CHECK (NODE))
@@ -884,16 +905,16 @@ union lang_tree_node
 #define DECL_LOCAL_START_PC(NODE)  (DECL_LANG_SPECIFIC (NODE)->u.v.start_pc)
 /* The end (bytecode) pc for the valid range of this local variable. */
 #define DECL_LOCAL_END_PC(NODE)    (DECL_LANG_SPECIFIC (NODE)->u.v.end_pc)
-/* For a VAR_DECLor PARM_DECL, used to chain decls with the same
+/* For a VAR_DECL or PARM_DECL, used to chain decls with the same
    slot_number in decl_map. */
 #define DECL_LOCAL_SLOT_CHAIN(NODE) (DECL_LANG_SPECIFIC(NODE)->u.v.slot_chain)
 /* For a FIELD_DECL, holds the name of the access method. Used to
-   read/write the content of the field from an inner class.  */
-#define FIELD_INNER_ACCESS(DECL) \
+   read/write the content of the field across nested class boundaries.  */
+#define FIELD_NESTED_ACCESS(DECL) \
   (DECL_LANG_SPECIFIC (VAR_OR_FIELD_CHECK (DECL))->u.v.am)
-/* Safely tests whether FIELD_INNER_ACCESS exists or not. */
-#define FIELD_INNER_ACCESS_P(DECL) \
-  DECL_LANG_SPECIFIC (DECL) && FIELD_INNER_ACCESS (DECL)
+/* Safely tests whether FIELD_NESTED_ACCESS exists or not.  */
+#define FIELD_NESTED_ACCESS_P(DECL) \
+  DECL_LANG_SPECIFIC (DECL) && FIELD_NESTED_ACCESS (DECL)
 /* True if a final field was initialized upon its declaration
    or in an initializer.  Set after definite assignment.  */
 #define DECL_FIELD_FINAL_IUD(NODE)  (DECL_LANG_SPECIFIC (NODE)->u.v.final_iud)
@@ -922,6 +943,12 @@ union lang_tree_node
     (DECL_LANG_SPECIFIC (NODE)->u.v.freed)
 #define LOCAL_SLOT_P(NODE) \
     (DECL_LANG_SPECIFIC (NODE)->u.v.local_slot)
+
+#define DECL_CLASS_FIELD_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE)->u.v.class_field)
+#define DECL_VTABLE_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE)->u.v.vtable)
+
 /* Create a DECL_LANG_SPECIFIC if necessary. */
 #define MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC(T)			\
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
@@ -942,7 +969,7 @@ union lang_tree_node
    that specifies if this decl is definitively assigned.
    The value -1 means the variable has been definitely assigned (and not
    definitely unassigned).  The value -2 means we already reported an error. */
-#define DECL_BIT_INDEX(DECL) VAR_OR_FIELD_CHECK (DECL)->decl.pointer_alias_set
+#define DECL_BIT_INDEX(DECL) VAR_OR_FIELD_CHECK (DECL)->decl_common.pointer_alias_set
 
 /* DECL_LANG_SPECIFIC for FUNCTION_DECLs. */
 struct lang_decl_func GTY(())
@@ -984,6 +1011,8 @@ struct lang_decl_func GTY(())
   unsigned int invisible : 1;	/* Set for methods we generate
 				   internally but which shouldn't be
 				   written to the .class file.  */
+  unsigned int dummy : 1;
+  unsigned int local_cni : 1;	/* Decl needs mangle_local_cni_method.  */
 };
 
 struct treetreehash_entry GTY(())
@@ -991,6 +1020,22 @@ struct treetreehash_entry GTY(())
   tree key;
   tree value;
 };
+
+/* These represent the possible assertion_code's that can be emitted in the
+   type assertion table.  */
+enum
+{
+  JV_ASSERT_END_OF_TABLE = 0,     /* Last entry in table.  */
+  JV_ASSERT_TYPES_COMPATIBLE = 1, /* Operand A is assignable to Operand B.  */
+  JV_ASSERT_IS_INSTANTIABLE = 2   /* Operand A is an instantiable class.  */
+};
+
+typedef struct type_assertion GTY(())
+{
+  int assertion_code; /* 'opcode' for the type of this assertion. */
+  tree op1;           /* First operand. */
+  tree op2;           /* Second operand. */
+} type_assertion;
 
 extern tree java_treetreehash_find (htab_t, tree);
 extern tree * java_treetreehash_new (htab_t, tree);
@@ -1011,6 +1056,8 @@ struct lang_decl_var GTY(())
   unsigned int cif : 1;		/* True: decl is a class initialization flag */
   unsigned int freed : 1;		/* Decl is no longer in scope.  */
   unsigned int local_slot : 1;	/* Decl is a temporary in the stack frame.  */
+  unsigned int class_field : 1; /* Decl needs mangle_class_field.  */
+  unsigned int vtable : 1;	/* Decl needs mangle_vtable.  */
 };
 
 /* This is what 'lang_decl' really points to.  */
@@ -1043,6 +1090,9 @@ struct lang_decl GTY(())
 #define TYPE_II_STMT_LIST(T)     (TYPE_LANG_SPECIFIC (T)->ii_block)
 /* The decl of the synthetic method `class$' used to handle `.class'
    for non primitive types when compiling to bytecode. */
+
+#define TYPE_DUMMY(T)		(TYPE_LANG_SPECIFIC(T)->dummy_class)
+
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC (T)->dot_class)
 #define TYPE_PACKAGE_LIST(T)     (TYPE_LANG_SPECIFIC (T)->package_list)
 #define TYPE_IMPORT_LIST(T)      (TYPE_LANG_SPECIFIC (T)->import_list)
@@ -1060,10 +1110,16 @@ struct lang_decl GTY(())
 #define TYPE_OTABLE_SYMS_DECL(T) (TYPE_LANG_SPECIFIC (T)->otable_syms_decl)
 #define TYPE_OTABLE_DECL(T)      (TYPE_LANG_SPECIFIC (T)->otable_decl)
 
+#define TYPE_ITABLE_METHODS(T)   (TYPE_LANG_SPECIFIC (T)->itable_methods)
+#define TYPE_ITABLE_SYMS_DECL(T) (TYPE_LANG_SPECIFIC (T)->itable_syms_decl)
+#define TYPE_ITABLE_DECL(T)      (TYPE_LANG_SPECIFIC (T)->itable_decl)
+
 #define TYPE_CTABLE_DECL(T)      (TYPE_LANG_SPECIFIC (T)->ctable_decl)
 #define TYPE_CATCH_CLASSES(T)    (TYPE_LANG_SPECIFIC (T)->catch_classes)
+#define TYPE_VERIFY_METHOD(T)    (TYPE_LANG_SPECIFIC (T)->verify_method)
 
 #define TYPE_TO_RUNTIME_MAP(T)   (TYPE_LANG_SPECIFIC (T)->type_to_runtime_map)
+#define TYPE_ASSERTIONS(T)   	 (TYPE_LANG_SPECIFIC (T)->type_assertions)
 
 struct lang_type GTY(())
 {
@@ -1092,18 +1148,31 @@ struct lang_type GTY(())
   tree atable_decl;		/* The static address table.  */
   tree atable_syms_decl;
 
+  tree itable_methods;          /* List of interfaces methods referred
+				   to by this class.  */
+  tree itable_decl;		/* The interfaces table.  */
+  tree itable_syms_decl;
+
   tree ctable_decl;             /* The table of classes for the runtime
 				   type matcher.  */
   tree catch_classes;
+
+  tree verify_method;		/* The verify method for this class.
+				   Used in split verification.  */
 
   htab_t GTY ((param_is (struct treetreehash_entry))) type_to_runtime_map;   
                                 /* The mapping of classes to exception region
 				   markers.  */
 
+  htab_t GTY ((param_is (struct type_assertion))) type_assertions;
+				/* Table of type assertions to be evaluated 
+  				   by the runtime when this class is loaded. */
+
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
   unsigned strictfp:1;		/* `strictfp' class.  */
   unsigned assertions:1;	/* Any method uses `assert'.  */
+  unsigned dummy_class:1;		/* Not a real class, just a placeholder.  */
 };
 
 #define JCF_u4 unsigned long
@@ -1162,7 +1231,6 @@ extern tree ident_subst (const char *, int, const char *, int, int,
 extern tree identifier_subst (const tree, const char *, int, int,
 			      const char *);
 extern int global_bindings_p (void);
-extern int kept_level_p (void);
 extern tree getdecls (void);
 extern void pushlevel (int);
 extern tree poplevel (int,int, int);
@@ -1198,6 +1266,7 @@ extern void initialize_builtins (void);
 extern tree lookup_name (tree);
 extern tree build_known_method_ref (tree, tree, tree, tree, tree);
 extern tree build_class_init (tree, tree);
+extern int attach_init_test_initialization_flags (void **, void *);
 extern tree build_invokevirtual (tree, tree);
 extern tree build_invokeinterface (tree, tree);
 extern tree build_jni_stub (tree);
@@ -1213,7 +1282,6 @@ extern tree build_newarray (int, tree);
 extern tree build_anewarray (tree, tree);
 extern tree build_new_array (tree, tree);
 extern tree build_java_array_length_access (tree);
-extern tree build_java_arraynull_check (tree, tree, tree);
 extern tree build_java_indirect_ref (tree, tree, int);
 extern tree java_check_reference (tree, int);
 extern tree build_get_class (tree);
@@ -1236,18 +1304,16 @@ extern int common_enclosing_context_p (tree, tree);
 extern int common_enclosing_instance_p (tree, tree);
 extern int enclosing_context_p (tree, tree);
 extern tree build_result_decl (tree);
-extern void emit_handlers (void);
 extern void set_method_index (tree decl, tree method_index);
 extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
-extern void register_class (void);
 extern int alloc_name_constant (int, tree);
+extern int alloc_constant_fieldref (tree, tree);
 extern void emit_register_classes (tree *);
-extern tree emit_symbol_table (tree, tree, tree, tree, tree);
+extern tree emit_symbol_table (tree, tree, tree, tree, tree, int);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
-extern void parse_error_context (tree cl, const char *msgid, ...);
 extern void finish_class (void);
 extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);
@@ -1259,9 +1325,12 @@ extern int alloc_class_constant (tree);
 extern void init_expr_processing (void);
 extern void push_super_field (tree, tree);
 extern void init_class_processing (void);
+extern void add_type_assertion (tree, int, tree, tree);
 extern int can_widen_reference_to (tree, tree);
 extern int class_depth (tree);
 extern int verify_jvm_instructions (struct JCF *, const unsigned char *, long);
+extern int verify_jvm_instructions_new (struct JCF *, const unsigned char *,
+					long);
 extern void maybe_pushlevels (int);
 extern void maybe_poplevels (int);
 extern void force_poplevels (int);
@@ -1274,6 +1343,7 @@ extern void push_type (tree);
 extern void load_type_state (tree);
 extern void add_interface (tree, tree);
 extern tree force_evaluation_order (tree);
+extern tree java_create_object (tree);
 extern int verify_constant_pool (struct JCF *);
 extern void start_java_method (tree);
 extern void end_java_method (void);
@@ -1317,11 +1387,9 @@ extern void init_jcf_parse (void);
 extern void init_src_parse (void);
 
 extern int cxx_keyword_p (const char *, int);
-extern tree java_mangle_decl (struct obstack *, tree);
+extern void java_mangle_decl (tree);
 extern tree java_mangle_class_field (struct obstack *, tree);
-extern tree java_mangle_class_field_from_string (struct obstack *, char *);
 extern tree java_mangle_vtable (struct obstack *, tree);
-extern const char *lang_printable_name_wls (tree, int);
 extern void append_gpp_mangled_name (const char *, int);
 
 extern void add_predefined_file (tree);
@@ -1362,6 +1430,8 @@ extern tree builtin_function (const char *, tree, int, enum built_in_class,
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
+
+#define METHOD_DUMMY(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.dummy)
 
 #define METHOD_PUBLIC(DECL) DECL_LANG_FLAG_1 (FUNCTION_DECL_CHECK (DECL))
 #define METHOD_PRIVATE(DECL) TREE_PRIVATE (FUNCTION_DECL_CHECK (DECL))
@@ -1627,9 +1697,9 @@ extern tree *type_map;
 /* True if NODE (a statement) can complete normally. */
 #define CAN_COMPLETE_NORMALLY(NODE) TREE_LANG_FLAG_6 (NODE)
 
-/* True if NODE (an IDENTIFIER) bears the name of a outer field from
-   inner class access function.  */
-#define OUTER_FIELD_ACCESS_IDENTIFIER_P(NODE) \
+/* True if NODE (an IDENTIFIER) bears the name of an outer field from
+   inner class (or vice versa) access function.  */
+#define NESTED_FIELD_ACCESS_IDENTIFIER_P(NODE) \
   TREE_LANG_FLAG_6 (IDENTIFIER_NODE_CHECK (NODE))
 
 /* True if NODE belongs to an inner class TYPE_DECL node.
@@ -1800,7 +1870,8 @@ enum
 
   JV_STATE_PRELOADING = 1,	/* Can do _Jv_FindClass.  */
   JV_STATE_LOADING = 3,		/* Has super installed.  */
-  JV_STATE_LOADED = 5,		/* Is complete.  */
+  JV_STATE_READ = 4,		/* Has been completely defined.  */
+  JV_STATE_LOADED = 5,		/* Has Miranda methods defined.  */
 
   JV_STATE_COMPILED = 6,	/* This was a compiled class.  */
 
@@ -1815,6 +1886,16 @@ enum
 
 #undef DEBUG_JAVA_BINDING_LEVELS
 
+/* In a LABELED_BLOCK_EXPR node.  */
+#define LABELED_BLOCK_LABEL(NODE) \
+  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 0)
+#define LABELED_BLOCK_BODY(NODE) \
+  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 1)
+
+/* In an EXIT_BLOCK_EXPR node.  */
+#define EXIT_BLOCK_LABELED_BLOCK(NODE) \
+  TREE_OPERAND_CHECK_CODE (NODE, EXIT_BLOCK_EXPR, 0)
+
 /* In an EXPR_WITH_FILE_LOCATION node.  */
 #define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
   (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
@@ -1825,8 +1906,8 @@ enum
 #define EXPR_WFL_LINECOL(NODE) ((NODE)->exp.locus)
 #define EXPR_WFL_FILENAME(NODE) EXPR_FILENAME (NODE)
 #define EXPR_WFL_LINENO(NODE) EXPR_LINENO (NODE)
-extern tree build_expr_wfl              PARAMS ((tree, source_location));
-extern tree expr_add_location           PARAMS ((tree, source_location, bool));
+extern tree build_expr_wfl (tree, source_location);
+extern tree expr_add_location (tree, source_location, bool);
 #define build_unknown_wfl(NODE) build_expr_wfl(NODE, UNKNOWN_LOCATION)
 #else
 #define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
@@ -1841,11 +1922,13 @@ extern tree expr_add_location           PARAMS ((tree, source_location, bool));
 #define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
   (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
 
-extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
+extern tree build_expr_wfl (tree, const char *, int, int);
 #define build_unknown_wfl(NODE) build_expr_wfl(NODE, NULL, 0, 0)
 #endif
 
-extern void java_genericize		PARAMS ((tree));
-extern int java_gimplify_expr		PARAMS ((tree *, tree *, tree *));
+extern void java_genericize (tree);
+extern int java_gimplify_expr (tree *, tree *, tree *);
+
+extern tree extract_field_decl (tree);
 
 #endif /* ! GCC_JAVA_TREE_H */

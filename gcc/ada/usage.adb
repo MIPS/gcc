@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,6 +26,7 @@
 
 with Hostparm;
 with Namet;          use Namet;
+with Opt;            use Opt;
 with Osint;          use Osint;
 with Output;         use Output;
 with System.WCh_Con; use System.WCh_Con;
@@ -345,6 +346,10 @@ begin
    Write_Line ("Enable selected warning modes, xx = list of parameters:");
    Write_Line ("        a    turn on all optional warnings (except d,h,l)");
    Write_Line ("        A    turn off all optional warnings");
+   Write_Line ("        b    turn on warnings for bad fixed value " &
+                                                  "(not multiple of small)");
+   Write_Line ("        B*   turn off warnings for bad fixed value " &
+                                                  "(not multiple of small)");
    Write_Line ("        c    turn on warnings for constant conditional");
    Write_Line ("        C*   turn off warnings for constant conditional");
    Write_Line ("        d    turn on warnings for implicit dereference");
@@ -385,7 +390,9 @@ begin
    Write_Line ("        v*   turn on warnings for unassigned variable");
    Write_Line ("        V    turn off warnings for unassigned variable");
    Write_Line ("        x*   turn on warnings for export/import");
-   Write_Line ("        X*   turn off warnings for export/import");
+   Write_Line ("        X    turn off warnings for export/import");
+   Write_Line ("        y*   turn on warnings for Ada 2005 incompatibility");
+   Write_Line ("        Y    turn off warnings for Ada 2005 incompatibility");
    Write_Line ("        z*   turn on size/align warnings for " &
                                                   "unchecked conversion");
    Write_Line ("        Z    turn off size/align warnings for " &
@@ -422,14 +429,14 @@ begin
    --  Lines for -gnaty switch
 
    Write_Switch_Char ("y");
-   Write_Line ("Enable all style checks except 'o', indent=3");
-
+   Write_Line ("Enable default style checks (same as -gnaty3abcefhiklmnprst)");
    Write_Switch_Char ("yxx");
    Write_Line ("Enable selected style checks xx = list of parameters:");
    Write_Line ("        1-9  check indentation");
    Write_Line ("        a    check attribute casing");
    Write_Line ("        b    check no blanks at end of lines");
    Write_Line ("        c    check comment format");
+   Write_Line ("        d    check no DOS line terminators");
    Write_Line ("        e    check end/exit labels present");
    Write_Line ("        f    check no form feeds/vertical tabs in source");
    Write_Line ("        h    check no horizontal tabs in source");
@@ -445,6 +452,8 @@ begin
    Write_Line ("        r    check casing for identifier references");
    Write_Line ("        s    check separate subprogram specs present");
    Write_Line ("        t    check token separation rules");
+   Write_Line ("        u    check no unnecessary blank lines");
+   Write_Line ("        x    check extra parens around conditionals");
 
    --  Lines for -gnatyN switch
 
@@ -465,5 +474,25 @@ begin
 
    Write_Switch_Char ("83");
    Write_Line ("Enforce Ada 83 restrictions");
+
+   --  Line for -gnat95 switch
+
+   Write_Switch_Char ("95");
+
+   if Ada_Version_Default = Ada_95 then
+      Write_Line ("Ada 95 mode (default)");
+   else
+      Write_Line ("Enforce Ada 95 restrictions");
+   end if;
+
+   --  Line for -gnat05 switch
+
+   Write_Switch_Char ("05");
+
+   if Ada_Version_Default = Ada_05 then
+      Write_Line ("Ada 2005 mode (default)");
+   else
+      Write_Line ("Allow Ada 2005 extensions");
+   end if;
 
 end Usage;

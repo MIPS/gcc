@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -103,7 +103,7 @@ package ALI is
       --  Length of characters stored in Ver. Not set if V lines are
       --  ignored as a result of the Ignore_Lines parameter.
 
-      Interface : Boolean;
+      SAL_Interface : Boolean;
       --  Set True when this is an interface to a standalone library
 
       First_Unit : Unit_Id;
@@ -332,7 +332,7 @@ package ALI is
       --  Set True if IS qualifier appears in ALI file, indicating that
       --  an Initialize_Scalars pragma applies to the unit.
 
-      Interface : Boolean;
+      SAL_Interface : Boolean;
       --  Set True when this is an interface to a standalone library
 
       Body_Needed_For_SAL : Boolean;
@@ -475,7 +475,7 @@ package ALI is
       Elab_All_Desirable : Boolean;
       --  Indicates presence of ED parameter
 
-      Interface : Boolean := False;
+      SAL_Interface : Boolean := False;
       --  True if the Unit is an Interface of a Stand-Alone Library
 
    end record;
@@ -580,6 +580,29 @@ package ALI is
      Key        => String_Ptr,
      Hash       => SHash,
      Equal      => SEq);
+
+   -------------------------
+   -- No_Dependency Table --
+   -------------------------
+
+   --  Each R line for a No_Dependency Restriction generates an entry in
+   --  this No_Dependency table.
+
+   type No_Dep_Record is record
+      ALI_File : ALI_Id;
+      --  ALI File containing tne entry
+
+      No_Dep_Unit : Name_Id;
+      --  Id for names table entry including entire name, including periods
+   end record;
+
+   package No_Deps is new Table.Table (
+     Table_Component_Type => No_Dep_Record,
+     Table_Index_Type     => Integer,
+     Table_Low_Bound      => 0,
+     Table_Initial        => 200,
+     Table_Increment      => 400,
+     Table_Name           => "No_Deps");
 
    ------------------------------------
    -- Sdep (Source Dependency) Table --
@@ -708,6 +731,16 @@ package ALI is
       Entity : Name_Id;
       --  Name of entity
 
+      Iref_File_Num : Sdep_Id;
+      --  This field is set to the dependency reference for the file containing
+      --  the generic entity that this one instantiates, or to No_Sdep_Id if
+      --  the current entity is not an instantiation
+
+      Iref_Line : Nat;
+      --  This field is set to the line number in Iref_File_Num of the generic
+      --  entity that this one instantiates, or to zero if the current entity
+      --  is not an instantiation.
+
       Rref_Line : Nat;
       --  This field is set to the line number of a renaming reference if
       --  one is present, or to zero if no renaming reference is present
@@ -792,6 +825,11 @@ package ALI is
 
       --  Note: for instantiation references, Rtype is set to ' ', and Col is
       --  set to zero. One or more such entries can follow any other reference.
+      --  When there is more than one such entry, this is to be read as:
+      --     e.g. ref1  ref2  ref3
+      --     ref1 is a reference to an entity that was instantied at ref2.
+      --     ref2 itself is also the result of an instantiation, that took
+      --     place at ref3
    end record;
 
    package Xref is new Table.Table (
@@ -807,7 +845,7 @@ package ALI is
    --------------------------------------
 
    procedure Initialize_ALI;
-   --  Initialize the ALI tables. Also resets all switch values to defaults.
+   --  Initialize the ALI tables. Also resets all switch values to defaults
 
    function Scan_ALI
      (F             : File_Name_Type;
@@ -825,7 +863,8 @@ package ALI is
    --
    --    Ignore_ED is normally False. If set to True, it indicates that
    --    all ED (elaboration desirable) indications in the ALI file are
-   --    to be ignored.
+   --    to be ignored. This parameter is obsolete now that the -f switch
+   --    is removed from gnatbind, and should be removed ???
    --
    --    Err determines the action taken on an incorrectly formatted file.
    --    If Err is False, then an error message is output, and the program

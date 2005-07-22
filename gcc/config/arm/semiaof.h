@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #define TARGET_OS_CPP_BUILTINS()		\
     do {					\
@@ -31,6 +31,8 @@
 #define LIB_SPEC "%{Eb: armlib_h.32b%s}%{!Eb: armlib_h.32l%s}"
 
 #define TARGET_VERSION fputs (" (ARM/semi-hosted)", stderr);
+
+#define TARGET_DEFAULT_FLOAT_ABI ARM_FLOAT_ABI_HARD
 
 #define TARGET_DEFAULT (0)
 

@@ -1,11 +1,7 @@
-/* { dg-do compile { target powerpc*-*-* i?86-*-* x86_64-*-* } } */
-/* { dg-options "-S -O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-S -O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
-
-#include <stdarg.h>
-#include "tree-vect.h"
-
-#define N 16
+/* { dg-do compile } */
+/* ??? Using "long" isn't quite right; we're testing vectors of pointers here.
+   But since no extant target supports sizeof(long) != sizeof(void*)...  */
+/* { dg-require-effective-target vect_long } */
 
 char **      _M_allocate();
 void
@@ -17,5 +13,5 @@ _M_fill_insert(unsigned int __n)
      *__new_start = __tmp;
 }
 
-
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

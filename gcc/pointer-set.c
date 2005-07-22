@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -92,9 +92,7 @@ void pointer_set_destroy (struct pointer_set_t *pset)
 
 /* Returns nonzero if PSET contains P.  P must be nonnull.
 
-   Collisions are resolved by linear probing.  More complicated
-   collision management schemes are only useful when the load factor
-   significantly exceeds 0.5, and we never let that happen.  */
+   Collisions are resolved by linear probing.  */
 int
 pointer_set_contains (struct pointer_set_t *pset, void *p)
 {
@@ -103,15 +101,15 @@ pointer_set_contains (struct pointer_set_t *pset, void *p)
   while (true)
     {
       if (pset->slots[n] == p)
-	return 1;
+       return 1;
       else if (pset->slots[n] == 0)
-	return 0;
+       return 0;
       else
-	{
-	  ++n;
-	  if (n == pset->n_slots)
-	    n = 0;
-	}
+       {
+         ++n;
+         if (n == pset->n_slots)
+           n = 0;
+       }
     }
 }
 

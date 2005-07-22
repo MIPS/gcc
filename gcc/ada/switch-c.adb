@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -485,7 +485,7 @@ package body Switch.C is
                System_Extend_Unit := Empty;
                Warning_Mode := Treat_As_Error;
 
-               --  Set default warnings (basically -gnatwa)
+               --  Set default warnings for -gnatg (same set as -gnatwa)
 
                Check_Unreferenced           := True;
                Check_Unreferenced_Formals   := True;
@@ -493,6 +493,7 @@ package body Switch.C is
                Constant_Condition_Warnings  := True;
                Implementation_Unit_Warnings := True;
                Ineffective_Inline_Warnings  := True;
+               Warn_On_Bad_Fixed_Value      := True;
                Warn_On_Constant             := True;
                Warn_On_Export_Import        := True;
                Warn_On_Modified_Unread      := True;
@@ -502,7 +503,7 @@ package body Switch.C is
                Warn_On_Unchecked_Conversion := True;
                Warn_On_Unrecognized_Pragma  := True;
 
-               Set_Default_Style_Check_Options;
+               Set_Style_Check_Options ("3abcdefhiklmnprstu");
 
             --  Processing for G switch
 
@@ -762,6 +763,8 @@ package body Switch.C is
                         Constant_Condition_Warnings     := True;
                         Implementation_Unit_Warnings    := True;
                         Ineffective_Inline_Warnings     := True;
+                        Warn_On_Ada_2005_Compatibility  := True;
+                        Warn_On_Bad_Fixed_Value         := True;
                         Warn_On_Constant                := True;
                         Warn_On_Export_Import           := True;
                         Warn_On_Modified_Unread         := True;
@@ -779,6 +782,8 @@ package body Switch.C is
                         Elab_Warnings                   := False;
                         Implementation_Unit_Warnings    := False;
                         Ineffective_Inline_Warnings     := False;
+                        Warn_On_Ada_2005_Compatibility  := False;
+                        Warn_On_Bad_Fixed_Value         := False;
                         Warn_On_Constant                := False;
                         Warn_On_Dereference             := False;
                         Warn_On_Export_Import           := False;
@@ -789,6 +794,12 @@ package body Switch.C is
                         Warn_On_Redundant_Constructs    := False;
                         Warn_On_Unchecked_Conversion    := False;
                         Warn_On_Unrecognized_Pragma     := False;
+
+                     when 'b' =>
+                        Warn_On_Bad_Fixed_Value         := True;
+
+                     when 'B' =>
+                        Warn_On_Bad_Fixed_Value         := False;
 
                      when 'c' =>
                         Constant_Condition_Warnings     := True;
@@ -899,6 +910,12 @@ package body Switch.C is
                      when 'X' =>
                         Warn_On_Export_Import           := False;
 
+                     when 'y' =>
+                        Warn_On_Ada_2005_Compatibility  := True;
+
+                     when 'Y' =>
+                        Warn_On_Ada_2005_Compatibility  := False;
+
                      when 'z' =>
                         Warn_On_Unchecked_Conversion    := True;
 
@@ -963,6 +980,7 @@ package body Switch.C is
                Ptr := Ptr + 1;
                Extensions_Allowed := True;
                Ada_Version := Ada_Version_Type'Last;
+               Ada_Version_Explicit := Ada_Version;
 
             --  Processing for y switch
 
@@ -1058,6 +1076,7 @@ package body Switch.C is
                else
                   Ptr := Ptr + 1;
                   Ada_Version := Ada_83;
+                  Ada_Version_Explicit := Ada_Version;
                end if;
 
             --  Processing for 95 switch
@@ -1074,6 +1093,7 @@ package body Switch.C is
                else
                   Ptr := Ptr + 1;
                   Ada_Version := Ada_95;
+                  Ada_Version_Explicit := Ada_Version;
                end if;
 
             --  Processing for 05 switch
@@ -1090,6 +1110,7 @@ package body Switch.C is
                else
                   Ptr := Ptr + 1;
                   Ada_Version := Ada_05;
+                  Ada_Version_Explicit := Ada_Version;
                end if;
 
             --  Ignore extra switch character

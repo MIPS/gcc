@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Driver configuration */
@@ -58,14 +58,8 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_CPP_BUILTINS() do {	\
   builtin_define_std ("xstormy16");	\
   builtin_assert ("machine=xstormy16");	\
+  builtin_assert ("cpu=xstormy16");     \
 } while (0)
-
-/* This declaration should be present.  */
-extern int target_flags;
-
-#define TARGET_SWITCHES					\
-  {{ "sim", 0, "Provide libraries for the simulator" },	\
-   { "", 0, "" }}
 
 #define TARGET_VERSION fprintf (stderr, " (xstormy16 cpu core)");
 
@@ -343,7 +337,7 @@ enum reg_class
    because we don't have any pre-increment ones.  */
 #define STACK_PUSH_CODE POST_INC
 
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD 0
 
 #define ARGS_GROW_DOWNWARD 1
 
@@ -415,8 +409,6 @@ enum reg_class
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
 	xstormy16_function_arg (CUM, MODE, TYPE, NAMED)
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* For this platform, the value of CUMULATIVE_ARGS is the number of words
    of arguments that have been passed in registers so far.  */
@@ -810,18 +802,6 @@ do  {						\
 
 
 /* Miscellaneous Parameters.  */
-
-#define PREDICATE_CODES					\
-  {"shift_operator", {ASHIFT, ASHIFTRT, LSHIFTRT }},	\
-  {"equality_operator", {EQ, NE }},			\
-  {"inequality_operator", {GE, GT, LE, LT, GEU, GTU, LEU, LTU }}, \
-  {"xstormy16_ineqsi_operator", {LT, GE, LTU, GEU }}, \
-  {"xstormy16_below100_operand", {MEM }}, \
-  {"xstormy16_below100_or_register", {MEM, REG }}, \
-  {"xstormy16_splittable_below100_or_register", {MEM, REG }}, \
-  {"xstormy16_onebit_clr_operand", {CONST_INT }}, \
-  {"xstormy16_onebit_set_operand", {CONST_INT }}, \
-  {"nonimmediate_nonstack_operand", {REG, MEM}},
 
 #define CASE_VECTOR_MODE SImode
 

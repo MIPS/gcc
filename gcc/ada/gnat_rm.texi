@@ -8,7 +8,7 @@
 @c                                                                            o
 @c                              G N A T _ RM                                  o
 @c                                                                            o
-@c              Copyright (C) 1995-2004 Free Software Foundation              o
+@c              Copyright (C) 1995-2005 Free Software Foundation              o
 @c                                                                            o
 @c                                                                            o
 @c  GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).    o
@@ -69,7 +69,7 @@ GNAT, The GNU Ada 95 Compiler@*
 GCC version @value{version-GCC}@*
 
 @noindent
-Ada Core Technologies, Inc.
+AdaCore
 
 @menu
 * About This Guide::
@@ -102,6 +102,7 @@ Implementation Defined Pragmas
 * Pragma Abort_Defer::
 * Pragma Ada_83::
 * Pragma Ada_95::
+* Pragma Ada_05::
 * Pragma Annotate::
 * Pragma Assert::
 * Pragma Ast_Entry::
@@ -148,6 +149,8 @@ Implementation Defined Pragmas
 * Pragma License::
 * Pragma Link_With::
 * Pragma Linker_Alias::
+* Pragma Linker_Constructor::
+* Pragma Linker_Destructor::
 * Pragma Linker_Section::
 * Pragma Long_Float::
 * Pragma Machine_Attribute::
@@ -156,6 +159,7 @@ Implementation Defined Pragmas
 * Pragma Normalize_Scalars::
 * Pragma Obsolescent::
 * Pragma Passive::
+* Pragma Persistent_BSS::
 * Pragma Polling::
 * Pragma Profile (Ravenscar)::
 * Pragma Profile (Restricted)::
@@ -248,6 +252,7 @@ The Implementation of Standard I/O
 * Sequential_IO::
 * Text_IO::
 * Wide_Text_IO::
+* Wide_Wide_Text_IO::
 * Stream_IO::
 * Shared Files::
 * Open Modes::
@@ -259,6 +264,8 @@ The GNAT Library
 * Ada.Characters.Latin_9 (a-chlat9.ads)::
 * Ada.Characters.Wide_Latin_1 (a-cwila1.ads)::
 * Ada.Characters.Wide_Latin_9 (a-cwila9.ads)::
+* Ada.Characters.Wide_Wide_Latin_1 (a-czila1.ads)::
+* Ada.Characters.Wide_Wide_Latin_9 (a-czila9.ads)::
 * Ada.Command_Line.Remove (a-colire.ads)::
 * Ada.Command_Line.Environment (a-colien.ads)::
 * Ada.Direct_IO.C_Streams (a-diocst.ads)::
@@ -268,8 +275,10 @@ The GNAT Library
 * Ada.Streams.Stream_IO.C_Streams (a-ssicst.ads)::
 * Ada.Strings.Unbounded.Text_IO (a-suteio.ads)::
 * Ada.Strings.Wide_Unbounded.Wide_Text_IO (a-swuwti.ads)::
+* Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO (a-szuzti.ads)::
 * Ada.Text_IO.C_Streams (a-tiocst.ads)::
 * Ada.Wide_Text_IO.C_Streams (a-wtcstr.ads)::
+* Ada.Wide_Wide_Text_IO.C_Streams (a-ztcstr.ads)::
 * GNAT.Array_Split (g-arrspl.ads)::
 * GNAT.AWK (g-awk.ads)::
 * GNAT.Bounded_Buffers (g-boubuf.ads)::
@@ -332,6 +341,7 @@ The GNAT Library
 * GNAT.Traceback (g-traceb.ads)::
 * GNAT.Traceback.Symbolic (g-trasym.ads)::
 * GNAT.Wide_String_Split (g-wistsp.ads)::
+* GNAT.Wide_Wide_String_Split (g-zistsp.ads)::
 * Interfaces.C.Extensions (i-cexten.ads)::
 * Interfaces.C.Streams (i-cstrea.ads)::
 * Interfaces.CPP (i-cpp.ads)::
@@ -365,6 +375,11 @@ Wide_Text_IO
 
 * Wide_Text_IO Stream Pointer Positioning::
 * Wide_Text_IO Reading and Writing Non-Regular Files::
+
+Wide_Wide_Text_IO
+
+* Wide_Wide_Text_IO Stream Pointer Positioning::
+* Wide_Wide_Text_IO Reading and Writing Non-Regular Files::
 
 Interfacing to Other Languages
 
@@ -509,7 +524,7 @@ of project files.
 @ref{Obsolescent Features} documents implementation dependent features,
 including pragmas and attributes, which are considered obsolescent, since
 there are other preferred ways of achieving the same results. These
-obsolescent forms are retained for backwards compatibilty.
+obsolescent forms are retained for backwards compatibility.
 
 @end itemize
 
@@ -618,6 +633,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Abort_Defer::
 * Pragma Ada_83::
 * Pragma Ada_95::
+* Pragma Ada_05::
 * Pragma Annotate::
 * Pragma Assert::
 * Pragma Ast_Entry::
@@ -664,6 +680,8 @@ consideration, the use of these pragmas should be minimized.
 * Pragma License::
 * Pragma Link_With::
 * Pragma Linker_Alias::
+* Pragma Linker_Constructor::
+* Pragma Linker_Destructor::
 * Pragma Linker_Section::
 * Pragma Long_Float::
 * Pragma Machine_Attribute::
@@ -672,6 +690,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Normalize_Scalars::
 * Pragma Obsolescent::
 * Pragma Passive::
+* Pragma Persistent_BSS::
 * Pragma Polling::
 * Pragma Profile (Ravenscar)::
 * Pragma Profile (Restricted)::
@@ -768,6 +787,24 @@ This mode is set automatically for the @code{Ada} and @code{System}
 packages and their children, so you need not specify it in these
 contexts.  This pragma is useful when writing a reusable component that
 itself uses Ada 95 features, but which is intended to be usable from
+either Ada 83 or Ada 95 programs.
+
+@node Pragma Ada_05
+@unnumberedsec Pragma Ada_05
+@findex Ada_05
+@noindent
+Syntax:
+@smallexample @c ada
+pragma Ada_05;
+@end smallexample
+
+@noindent
+A configuration pragma that establishes Ada 2005 mode for the unit to which
+it applies, regardless of the mode set by the command line switches.
+This mode is set automatically for the @code{Ada} and @code{System}
+packages and their children, so you need not specify it in these
+contexts.  This pragma is useful when writing a reusable component that
+itself uses Ada 2005 features, but which is intended to be usable from
 either Ada 83 or Ada 95 programs.
 
 @node Pragma Annotate
@@ -947,7 +984,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Common_Object (
-     [Internal =>] LOCAL_NAME,
+     [Internal =>] local_NAME,
   [, [External =>] EXTERNAL_SYMBOL]
   [, [Size     =>] EXTERNAL_SYMBOL] );
 
@@ -960,7 +997,7 @@ EXTERNAL_SYMBOL ::=
 This pragma enables the shared use of variables stored in overlaid
 linker areas corresponding to the use of @code{COMMON}
 in Fortran.  The single
-object @var{local_name} is assigned to the area designated by
+object @var{local_NAME} is assigned to the area designated by
 the @var{External} argument.
 You may define a record to correspond to a series
 of fields.  The @var{size} argument
@@ -1005,7 +1042,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Complex_Representation
-        ([Entity =>] LOCAL_NAME);
+        ([Entity =>] local_NAME);
 @end smallexample
 
 @noindent
@@ -1029,7 +1066,7 @@ Syntax:
 @smallexample @c ada
 pragma Component_Alignment (
      [Form =>] ALIGNMENT_CHOICE
-  [, [Name =>] type_LOCAL_NAME]);
+  [, [Name =>] type_local_NAME]);
 
 ALIGNMENT_CHOICE ::=
   Component_Size
@@ -1076,7 +1113,7 @@ alignment).
 @end table
 
 @noindent
-If the @code{Name} parameter is present, @var{type_local_name} must
+If the @code{Name} parameter is present, @var{type_local_NAME} must
 refer to a local record or array type, and the specified alignment
 choice applies to the specified type.  The use of
 @code{Component_Alignment} together with a pragma @code{Pack} causes the
@@ -1140,7 +1177,7 @@ would be used system-wide.
 Syntax:
 
 @smallexample @c ada
-pragma CPP_Class ([Entity =>] LOCAL_NAME);
+pragma CPP_Class ([Entity =>] local_NAME);
 @end smallexample
 
 @noindent
@@ -1171,7 +1208,7 @@ See @ref{Interfacing to C++} for related information.
 Syntax:
 
 @smallexample @c ada
-pragma CPP_Constructor ([Entity =>] LOCAL_NAME);
+pragma CPP_Constructor ([Entity =>] local_NAME);
 @end smallexample
 
 @noindent
@@ -1502,7 +1539,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Export_Exception (
-     [Internal =>] LOCAL_NAME,
+     [Internal =>] local_NAME,
   [, [External =>] EXTERNAL_SYMBOL,]
   [, [Form     =>] Ada | VMS]
   [, [Code     =>] static_integer_EXPRESSION]);
@@ -1531,7 +1568,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Export_Function (
-     [Internal         =>] LOCAL_NAME,
+     [Internal         =>] local_NAME,
   [, [External         =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types  =>] PARAMETER_TYPES]
   [, [Result_Type      =>] result_SUBTYPE_MARK]
@@ -1607,7 +1644,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Export_Object
-      [Internal =>] LOCAL_NAME,
+      [Internal =>] local_NAME,
    [, [External =>] EXTERNAL_SYMBOL]
    [, [Size     =>] EXTERNAL_SYMBOL]
 
@@ -1632,7 +1669,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Export_Procedure (
-     [Internal        =>] LOCAL_NAME
+     [Internal        =>] local_NAME
   [, [External        =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types =>] PARAMETER_TYPES]
   [, [Mechanism       =>] MECHANISM]);
@@ -1712,7 +1749,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Export_Valued_Procedure (
-     [Internal        =>] LOCAL_NAME
+     [Internal        =>] local_NAME
   [, [External        =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types =>] PARAMETER_TYPES]
   [, [Mechanism       =>] MECHANISM]);
@@ -1744,7 +1781,7 @@ MECHANISM_NAME ::=
 
 @noindent
 This pragma is identical to @code{Export_Procedure} except that the
-first parameter of @var{local_name}, which must be present, must be of
+first parameter of @var{local_NAME}, which must be present, must be of
 mode @code{OUT}, and externally the subprogram is treated as a function
 with this parameter as the result of the function.  GNAT provides for
 this capability to allow the use of @code{OUT} and @code{IN OUT}
@@ -1926,7 +1963,7 @@ to enforce the upper casing of all external symbols.
 Syntax:
 
 @smallexample @c ada
-pragma Finalize_Storage_Only (first_subtype_LOCAL_NAME);
+pragma Finalize_Storage_Only (first_subtype_local_NAME);
 @end smallexample
 
 @noindent
@@ -1993,7 +2030,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Import_Exception (
-     [Internal =>] LOCAL_NAME,
+     [Internal =>] local_NAME,
   [, [External =>] EXTERNAL_SYMBOL,]
   [, [Form     =>] Ada | VMS]
   [, [Code     =>] static_integer_EXPRESSION]);
@@ -2020,7 +2057,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Import_Function (
-     [Internal                 =>] LOCAL_NAME,
+     [Internal                 =>] local_NAME,
   [, [External                 =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types          =>] PARAMETER_TYPES]
   [, [Result_Type              =>] SUBTYPE_MARK]
@@ -2102,7 +2139,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Import_Object
-     [Internal =>] LOCAL_NAME,
+     [Internal =>] local_NAME,
   [, [External =>] EXTERNAL_SYMBOL],
   [, [Size     =>] EXTERNAL_SYMBOL]);
 
@@ -2128,7 +2165,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Import_Procedure (
-     [Internal                 =>] LOCAL_NAME,
+     [Internal                 =>] local_NAME,
   [, [External                 =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types          =>] PARAMETER_TYPES]
   [, [Mechanism                =>] MECHANISM]
@@ -2174,7 +2211,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Import_Valued_Procedure (
-     [Internal                 =>] LOCAL_NAME,
+     [Internal                 =>] local_NAME,
   [, [External                 =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types          =>] PARAMETER_TYPES]
   [, [Mechanism                =>] MECHANISM]
@@ -2209,7 +2246,7 @@ CLASS_NAME ::= ubs | ubsb | uba | s | sb | a | nca
 
 @noindent
 This pragma is identical to @code{Import_Procedure} except that the
-first parameter of @var{local_name}, which must be present, must be of
+first parameter of @var{local_NAME}, which must be present, must be of
 mode @code{OUT}, and externally the subprogram is treated as a function
 with this parameter as the result of the function.  The purpose of this
 capability is to allow the use of @code{OUT} and @code{IN OUT}
@@ -2250,9 +2287,13 @@ as will any declaration of a scalar variable.  For composite variables,
 whether the variable is initialized may also depend on whether the package
 in which the type of the variable is declared is compiled with the pragma.
 
-The other important difference is that there is control over the value used
-for initializing scalar objects.  At bind time, you can select whether to
-initialize with invalid values (like Normalize_Scalars), or with high or
+The other important difference is that you can control the value used
+for initializing scalar objects.  At bind time, you can select several
+options for initialization. You can
+initialize with invalid values (similar to Normalize_Scalars, though for
+Initialize_Scalars it is not always possible to determine the invalid
+values in complex cases like signed component fields with non-standard
+sizes). You can also initialize with high or
 low values, or with a specified bit pattern.  See the users guide for binder
 options for specifying these cases.
 
@@ -2262,6 +2303,10 @@ for initializing otherwise uninitialized values, to test if your program
 behavior depends on the choice.  Of course the behavior should not change,
 and if it does, then most likely you have an erroneous reference to an
 uninitialized value.
+
+It is even possible to change the value at execution time eliminating even
+the need to rebind with a different switch using an environment variable.
+See the GNAT users guide for details.
 
 Note that pragma @code{Initialize_Scalars} is particularly useful in
 conjunction with the enhanced validity checking that is now provided
@@ -2317,7 +2362,7 @@ Syntax:
 @smallexample @c ada
 pragma Interface (
      [Convention    =>] convention_identifier,
-     [Entity =>] local_name
+     [Entity =>] local_NAME
   [, [External_Name =>] static_string_expression],
   [, [Link_Name     =>] static_string_expression]);
 @end smallexample
@@ -2338,7 +2383,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Interface_Name (
-     [Entity        =>] LOCAL_NAME
+     [Entity        =>] local_NAME
   [, [External_Name =>] static_string_EXPRESSION]
   [, [Link_Name     =>] static_string_EXPRESSION]);
 @end smallexample
@@ -2356,7 +2401,7 @@ least one of @var{External_Name} or @var{Link_Name}.
 Syntax:
 
 @smallexample @c ada
-pragma Interrupt_Handler (procedure_LOCAL_NAME);
+pragma Interrupt_Handler (procedure_local_NAME);
 @end smallexample
 
 @noindent
@@ -2452,11 +2497,11 @@ and in the case of the signal used to implement the @code{abort} statement.
 Syntax:
 
 @smallexample @c ada
-pragma Keep_Names ([On =>] enumeration_first_subtype_LOCAL_NAME);
+pragma Keep_Names ([On =>] enumeration_first_subtype_local_NAME);
 @end smallexample
 
 @noindent
-The @var{LOCAL_NAME} argument
+The @var{local_NAME} argument
 must refer to an enumeration first subtype
 in the current declarative part. The effect is to retain the enumeration
 literal names for use by @code{Image} and @code{Value} even if a global
@@ -2595,13 +2640,91 @@ Syntax:
 
 @smallexample @c ada
 pragma Linker_Alias (
-  [Entity =>] LOCAL_NAME
-  [Alias  =>] static_string_EXPRESSION);
+  [Entity =>] local_NAME
+  [Target =>] static_string_EXPRESSION);
 @end smallexample
 
 @noindent
-This pragma establishes a linker alias for the given named entity.  For
-further details on the exact effect, consult the GCC manual.
+@var{local_NAME} must refer to an object that is declared at the library
+level. This pragma establishes the given entity as a linker alias for the
+given target. It is equivalent to @code{__attribute__((alias))} in GNU C
+and causes @var{local_NAME} to be emitted as an alias for the symbol
+@var{static_string_EXPRESSION} in the object file, that is to say no space
+is reserved for @var{local_NAME} by the assembler and it will be resolved
+to the same address as @var{static_string_EXPRESSION} by the linker.
+
+The actual linker name for the target must be used (e.g. the fully
+encoded name with qualification in Ada, or the mangled name in C++),
+or it must be declared using the C convention with @code{pragma Import}
+or @code{pragma Export}.
+
+Not all target machines support this pragma. On some of them it is accepted
+only if @code{pragma Weak_External} has been applied to @var{local_NAME}.
+
+@smallexample @c ada
+--  Example of the use of pragma Linker_Alias
+
+package p is
+  i : Integer := 1;
+  pragma Export (C, i);
+
+  new_name_for_i : Integer;
+  pragma Linker_Alias (new_name_for_i, "i");
+end p; 
+@end smallexample
+
+@node Pragma Linker_Constructor
+@unnumberedsec Pragma Linker_Constructor
+@findex Linker_Constructor
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Linker_Constructor (procedure_LOCAL_NAME);
+@end smallexample
+
+@noindent
+@var{procedure_local_NAME} must refer to a parameterless procedure that
+is declared at the library level. A procedure to which this pragma is
+applied will be treated as an initialization routine by the linker.
+It is equivalent to @code{__attribute__((constructor))} in GNU C and
+causes @var{procedure_LOCAL_NAME} to be invoked before the entry point
+of the executable is called (or immediately after the shared library is
+loaded if the procedure is linked in a shared library), in particular
+before the Ada run-time environment is set up.
+
+Because of these specific contexts, the set of operations such a procedure
+can perform is very limited and the type of objects it can manipulate is
+essentially restricted to the elementary types. In particular, it must only
+contain code to which pragma Restrictions (No_Elaboration_Code) applies.
+
+This pragma is used by GNAT to implement auto-initialization of shared Stand
+Alone Libraries, which provides a related capability without the restrictions
+listed above. Where possible, the use of Stand Alone Libraries is preferable
+to the use of this pragma.
+
+@node Pragma Linker_Destructor
+@unnumberedsec Pragma Linker_Destructor
+@findex Linker_Destructor
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Linker_Destructor (procedure_LOCAL_NAME);
+@end smallexample
+
+@noindent
+@var{procedure_local_NAME} must refer to a parameterless procedure that
+is declared at the library level. A procedure to which this pragma is
+applied will be treated as a finalization routine by the linker.
+It is equivalent to @code{__attribute__((destructor))} in GNU C and
+causes @var{procedure_LOCAL_NAME} to be invoked after the entry point
+of the executable has exited (or immediately before the shared library
+is unloaded if the procedure is linked in a shared library), in particular
+after the Ada run-time environment is shut down.
+
+See @code{pragma Linker_Constructor} for the set of restrictions that apply
+because of these specific contexts.
 
 @node Pragma Linker_Section
 @unnumberedsec Pragma Linker_Section
@@ -2611,13 +2734,46 @@ Syntax:
 
 @smallexample @c ada
 pragma Linker_Section (
-  [Entity  =>] LOCAL_NAME
+  [Entity  =>] local_NAME
   [Section =>] static_string_EXPRESSION);
 @end smallexample
 
 @noindent
-This pragma specifies the name of the linker section for the given entity.
-For further details on the exact effect, consult the GCC manual.
+@var{local_NAME} must refer to an object that is declared at the library
+level. This pragma specifies the name of the linker section for the given
+entity. It is equivalent to @code{__attribute__((section))} in GNU C and
+causes @var{local_NAME} to be placed in the @var{static_string_EXPRESSION}
+section of the executable (assuming the linker doesn't rename the section).
+
+The compiler normally places library-level objects in standard sections
+depending on their type: procedures and functions generally go in the
+@code{.text} section, initialized variables in the @code{.data} section
+and uninitialized variables in the @code{.bss} section.
+
+Other, special sections may exist on given target machines to map special
+hardware, for example I/O ports or flash memory. This pragma is a means to
+defer the final layout of the executable to the linker, thus fully working
+at the symbolic level with the compiler.
+
+Some file formats do not support arbitrary sections so not all target
+machines support this pragma. The use of this pragma may cause a program
+execution to be erroneous if it is used to place an entity into an
+inappropriate section (e.g. a modified variable into the @code{.text}
+section). See also @code{pragma Persistent_BSS}.
+
+@smallexample @c ada
+--  Example of the use of pragma Linker_Section
+
+package IO_Card is
+  Port_A : Integer;
+  pragma Volatile (Port_A);
+  pragma Linker_Section (Port_A, ".bss.port_a");
+
+  Port_B : Integer;
+  pragma Volatile (Port_B);
+  pragma Linker_Section (Port_B, ".bss.port_b");
+end IO_Card;
+@end smallexample
 
 @node Pragma Long_Float
 @unnumberedsec Pragma Long_Float
@@ -2652,19 +2808,18 @@ Syntax:
 @smallexample @c ada
 pragma Machine_Attribute (
   [Attribute_Name =>] string_EXPRESSION,
-  [Entity         =>] LOCAL_NAME);
+  [Entity         =>] local_NAME);
 @end smallexample
 
 @noindent
-Machine dependent attributes can be specified for types and/or
-declarations.  Currently only subprogram entities are supported.  This
-pragma is semantically equivalent to
+Machine-dependent attributes can be specified for types and/or
+declarations.  This pragma is semantically equivalent to
 @code{__attribute__((@var{string_expression}))} in GNU C,
 where @code{@var{string_expression}} is
-recognized by the GNU C macros @code{VALID_MACHINE_TYPE_ATTRIBUTE} and
-@code{VALID_MACHINE_DECL_ATTRIBUTE} which are defined in the
-configuration header file @file{tm.h} for each machine.  See the GCC
-manual for further information.
+recognized by the target macro @code{TARGET_ATTRIBUTE_TABLE} which is
+defined for each machine.  See the GCC manual for further information.
+It is not possible to specify attributes defined by other languages,
+only attributes defined by the machine the code is intended to run on.
 
 @node Pragma Main_Storage
 @unnumberedsec Pragma Main_Storage
@@ -2695,7 +2850,7 @@ also has no effect in DEC Ada 83 for OpenVMS Alpha Systems.
 Syntax:
 
 @smallexample @c ada
-pragma No_Return (procedure_LOCAL_NAME);
+pragma No_Return (procedure_local_NAME);
 @end smallexample
 
 @noindent
@@ -2730,45 +2885,60 @@ are as follows:
 @item Standard.Character
 @noindent
 Objects whose root type is Standard.Character are initialized to
-Character'Last.  This will be out of range of the subtype only if
-the subtype range excludes this value.
+Character'Last unless the subtype range excludes NUL (in which case
+NUL is used). This choice will always generate an invalid value if
+one exists.
 
 @item Standard.Wide_Character
 @noindent
 Objects whose root type is Standard.Wide_Character are initialized to
-Wide_Character'Last.  This will be out of range of the subtype only if
-the subtype range excludes this value.
+Wide_Character'Last unless the subtype range excludes NUL (in which case
+NUL is used). This choice will always generate an invalid value if
+one exists.
+
+@item Standard.Wide_Wide_Character
+@noindent
+Objects whose root type is Standard.Wide_Wide_Character are initialized to
+the invalid value 16#FFFF_FFFF# unless the subtype range excludes NUL (in
+which case NUL is used). This choice will always generate an invalid value if
+one exists.
 
 @item Integer types
 @noindent
-Objects of an integer type are initialized to base_type'First, where
-base_type is the base type of the object type.  This will be out of range
-of the subtype only if the subtype range excludes this value.  For example,
-if you declare the subtype:
+Objects of an integer type are treated differently depending on whether
+negative values are present in the subtype. If no negative values are
+present, then all one bits is used as the initial value except in the
+special case where zero is excluded from the subtype, in which case
+all zero bits are used. This choice will always generate an invalid
+value if one exists.
 
-@smallexample @c ada
-subtype Ityp is integer range 1 .. 10;
-@end smallexample
+For subtypes with negative values present, the largest negative number
+is used, except in the unusual case where this largest negative number
+is in the subtype, and the largest positive number is not, in which case
+the largest positive value is used. This choice will always generate
+an invalid value if one exists.
 
-@noindent
-then objects of type x will be initialized to Integer'First, a negative
-number that is certainly outside the range of subtype @code{Ityp}.
+@item Floating-Point Types
+Objects of all floating-point types are initialized to all 1-bits. For
+standard IEEE format, this corresponds to a NaN (not a number) which is
+indeed an invalid value.
 
-@item Real types
-Objects of all real types (fixed and floating) are initialized to
-base_type'First, where base_Type is the base type of the object type.
-This will be out of range of the subtype only if the subtype range
-excludes this value.
+@item Fixed-Point Types
+Objects of all fixed-point types are treated as described above for integers,
+with the rules applying to the underlying integer value used to represent
+the fixed-point value.
 
 @item Modular types
-Objects of a modular type are initialized to typ'Last.  This will be out
-of range of the subtype only if the subtype excludes this value.
+Objects of a modular type are initialized to all one bits, except in
+the special case where zero is excluded from the subtype, in which
+case all zero bits are used. This choice will always generate an
+invalid value if one exists.
 
 @item Enumeration types
 Objects of an enumeration type are initialized to all one-bits, i.e.@: to
-the value @code{2 ** typ'Size - 1}.  This will be out of range of the
-enumeration subtype in all cases except where the subtype contains
-exactly 2**8, 2**16, or 2**32 elements.
+the value @code{2 ** typ'Size - 1} unless the subtype excludes the literal
+whose Pos value is zero, in which case a code of zero is used. This choice
+will always generate an invalid value if one exists.
 
 @end table
 
@@ -2779,7 +2949,7 @@ exactly 2**8, 2**16, or 2**32 elements.
 Syntax:
 
 @smallexample @c ada
-pragma Obsolescent [(static_string_EXPRESSION)];
+pragma Obsolescent [(static_string_EXPRESSION [,Ada_05])];
 @end smallexample
 
 @noindent
@@ -2794,6 +2964,17 @@ The effect of this pragma is to output a warning message that the
 subprogram is obsolescent if the appropriate warning option in the
 compiler is activated. If a parameter is present, then a second
 warning message is given containing this text.
+
+In addition, a call to such a program is considered a violation of
+pragma Restrictions (No_Obsolescent_Features).
+
+If the optional second parameter is present (which must be exactly
+the identifier Ada_05, no other argument is allowed), then the
+indication of obsolescence applies only when compiling in Ada 2005
+mode. This is primarily intended for dealing with the situations
+in the predefined library where subprograms have become defined
+as obsolescent in Ada 2005 (e.g. in Ada.Characters.Handling), but
+may be used anywhere.
 
 @node Pragma Passive
 @unnumberedsec Pragma Passive
@@ -2815,6 +2996,37 @@ and that optimization of context switch with this task is permitted and
 desired.  If the argument @code{No} is present, the task must not be
 optimized.  GNAT does not attempt to optimize any tasks in this manner
 (since protected objects are available in place of passive tasks).
+
+@node Pragma Persistent_BSS
+@unnumberedsec Pragma Persistent_BSS
+@findex Persistent_BSS
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Persistent_BSS [local_NAME]
+@end smallexample
+
+@noindent
+This pragma allows selected objects to be placed in the @code{.persistent_bss}
+section. On some targets the linker and loader provide for special
+treatment of this section, allowing a program to be reloaded without
+affecting the contents of this data (hence the name persistent).
+
+There are two forms of usage. If an argument is given, it must be the
+local name of a library level object, with no explicit initialization
+and whose type is potentially persistent. If no argument is given, then
+the pragma is a configuration pragma, and applies to all library level
+objects with no explicit initialization of potentially persistent types.
+
+A potentially persistent type is a scalar type, or a non-tagged,
+non-discriminated record, all of whose components have no explicit
+initialization and are themselves of a potentially persistent type,
+or an array, all of whose constraints are static, and whose component
+type is potentially persistent.
+
+If this pragma is used on a target where this feature is not supported,
+then the pragma will be ignored. See also @code{pragma Linker_Section}.
 
 @node Pragma Polling
 @unnumberedsec Pragma Polling
@@ -3044,7 +3256,7 @@ limited set of tasking functionality permitted by this set of restrictions.
 Syntax:
 
 @smallexample @c ada
-pragma Propagate_Exceptions (subprogram_LOCAL_NAME);
+pragma Propagate_Exceptions (subprogram_local_NAME);
 @end smallexample
 
 @noindent
@@ -3084,7 +3296,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Psect_Object (
-     [Internal =>] LOCAL_NAME,
+     [Internal =>] local_NAME,
   [, [External =>] EXTERNAL_SYMBOL]
   [, [Size     =>] EXTERNAL_SYMBOL]);
 
@@ -3103,7 +3315,7 @@ This pragma is identical in effect to pragma @code{Common_Object}.
 Syntax:
 
 @smallexample @c ada
-pragma Pure_Function ([Entity =>] function_LOCAL_NAME);
+pragma Pure_Function ([Entity =>] function_local_NAME);
 @end smallexample
 
 @noindent
@@ -3277,7 +3489,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Stream_Convert (
-  [Entity =>] type_LOCAL_NAME,
+  [Entity =>] type_local_NAME,
   [Read   =>] function_NAME,
   [Write  =>] function_NAME);
 @end smallexample
@@ -3351,7 +3563,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Style_Checks (string_LITERAL | ALL_CHECKS |
-                     On | Off [, LOCAL_NAME]);
+                     On | Off [, local_NAME]);
 @end smallexample
 
 @noindent
@@ -3572,7 +3784,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Task_Storage (
-  [Task_Type =>] LOCAL_NAME,
+  [Task_Type =>] local_NAME,
   [Top_Guard =>] static_integer_EXPRESSION);
 @end smallexample
 
@@ -3591,7 +3803,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Thread_Body (
-  [Entity =>] LOCAL_NAME,
+  [Entity =>] local_NAME,
  [[Secondary_Stack_Size =>] static_integer_EXPRESSION)];
 @end smallexample
 
@@ -3676,7 +3888,7 @@ following the normal rules for procedure calls in Ada.
 Syntax:
 
 @smallexample @c ada
-pragma Unchecked_Union (first_subtype_LOCAL_NAME);
+pragma Unchecked_Union (first_subtype_local_NAME);
 @end smallexample
 
 @noindent
@@ -3791,7 +4003,7 @@ compilations of units where universal addressing of the data is desired.
 Syntax:
 
 @smallexample @c ada
-pragma Unreferenced (local_Name @{, local_Name@});
+pragma Unreferenced (local_NAME @{, local_NAME@});
 @end smallexample
 
 @noindent
@@ -3809,13 +4021,19 @@ and that this is deliberate. It can also be useful in the case of
 objects declared only for their initialization or finalization side
 effects.
 
-If @code{local_Name} identifies more than one matching homonym in the
+If @code{local_NAME} identifies more than one matching homonym in the
 current scope, then the entity most recently declared is the one to which
 the pragma applies.
 
 The left hand side of an assignment does not count as a reference for the
 purpose of this pragma. Thus it is fine to assign to an entity for which
 pragma Unreferenced is given.
+
+Note that if a warning is desired for all calls to a given subprogram,
+regardless of whether they occur in the same unit as the subprogram
+declaration, then this pragma should not be used (calls from another
+unit would not be flagged); pragma Obsolescent can be used instead
+for this purpose (@xref{Pragma Obsolescent}).
 
 @node Pragma Unreserve_All_Interrupts
 @unnumberedsec Pragma Unreserve_All_Interrupts
@@ -3979,7 +4197,7 @@ Dec Ada 83.
 Syntax:
 
 @smallexample @c ada
-pragma Warnings (On | Off [, LOCAL_NAME]);
+pragma Warnings (On | Off [, local_NAME]);
 @end smallexample
 
 @noindent
@@ -3992,7 +4210,7 @@ setting of the command line switches.
 
 The form with a single argument is a configuration pragma.
 
-If the @var{local_name} parameter is present, warnings are suppressed for
+If the @var{local_NAME} parameter is present, warnings are suppressed for
 the specified entity.  This suppression is effective from the point where
 it occurs till the end of the extended scope of the variable (similar to
 the scope of @code{Suppress}).
@@ -4004,13 +4222,49 @@ the scope of @code{Suppress}).
 Syntax:
 
 @smallexample @c ada
-pragma Weak_External ([Entity =>] LOCAL_NAME);
+pragma Weak_External ([Entity =>] local_NAME);
 @end smallexample
 
 @noindent
-This pragma specifies that the given entity should be marked as a weak
-external (one that does not have to be resolved) for the linker.  For
-further details, consult the GCC manual.
+@var{local_NAME} must refer to an object that is declared at the library
+level. This pragma specifies that the given entity should be marked as a
+weak symbol for the linker. It is equivalent to @code{__attribute__((weak))}
+in GNU C and causes @var{local_NAME} to be emitted as a weak symbol instead
+of a regular symbol, that is to say a symbol that does not have to be
+resolved by the linker if used in conjunction with a pragma Import.
+
+When a weak symbol is not resolved by the linker, its address is set to
+zero. This is useful in writing interfaces to external modules that may
+or may not be linked in the final executable, for example depending on
+configuration settings.
+
+If a program references at run time an entity to which this pragma has been
+applied, and the corresponding symbol was not resolved at link time, then
+the execution of the program is erroneous. It is not erroneous to take the
+Address of such an entity, for example to guard potential references,
+as shown in the example below.
+
+Some file formats do not support weak symbols so not all target machines
+support this pragma. 
+
+@smallexample @c ada
+--  Example of the use of pragma Weak_External
+
+package External_Module is
+  key : Integer;
+  pragma Import (C, key);
+  pragma Weak_External (key);
+  function Present return boolean;
+end External_Module;
+
+with System; use System;
+package body External_Module is
+  function Present return boolean is
+  begin
+    return key'Address /= System.Null_Address;
+  end Present;
+end External_Module;
+@end smallexample
 
 @node Implementation Defined Attributes
 @chapter Implementation Defined Attributes
@@ -4764,7 +5018,7 @@ subprogram yields a value that can be called as long as the subprogram
 is in scope (normal Ada 95 accessibility rules restrict this usage).
 
 It is possible to use @code{Unrestricted_Access} for any type, but care
-must be excercised if it is used to create pointers to unconstrained
+must be exercised if it is used to create pointers to unconstrained
 objects. In this case, the resulting pointer has the same scope as the
 context of the attribute, and may not be returned to some enclosing
 scope. For instance, a function cannot use @code{Unrestricted_Access}
@@ -5102,24 +5356,18 @@ representation item for a given entity if each non-static expression in
 the representation item is a name that statically denotes a constant
 declared before the entity.
 @end cartouche
-Followed.  GNAT does not support non-static expressions in representation
-clauses unless they are constants declared before the entity.  For
-example:
+Followed.  In fact, GNAT goes beyond the recommended level of support
+by allowing nonstatic expressions in some representation clauses even
+without the need to declare constants initialized with the values of
+such expressions.
+For example:
 
 @smallexample @c ada
-X : Some_Type;
-for X'Address use To_address (16#2000#);
+  X : Integer;
+  Y : Float;
+  for Y'Address use X'Address;>>
 @end smallexample
 
-@noindent
-will be rejected, since the To_Address expression is non-static.  Instead
-write:
-
-@smallexample @c ada
-X_Address : constant Address : = To_Address (16#2000#);
-X         : Some_Type;
-for X'Address use X_Address;
-@end smallexample
 
 @sp 1
 @cartouche
@@ -7085,8 +7333,12 @@ user-defined storage pool.
 
 @item No_Streams
 @findex No_Streams
-This restriction ensures at compile time that there are no implicit or
-explicit dependencies on the package @code{Ada.Streams}.
+This restriction ensures at compile/bind time that there are no
+stream objects created (and therefore no actual stream operations).
+This restriction does not forbid dependences on the package
+@code{Ada.Streams}. So it is permissible to with
+@code{Ada.Streams} (or another package that does so itself)
+as long as no actual stream objects are created.
 
 @item No_Task_Attributes_Package
 @findex No_Task_Attributes_Package
@@ -7108,8 +7360,9 @@ to be output either by the compiler or binder.
 @item No_Wide_Characters
 @findex No_Wide_Characters
 This restriction ensures at compile time that no uses of the types
-@code{Wide_Character} or @code{Wide_String}
-appear, and that no wide character literals
+@code{Wide_Character} or @code{Wide_String} or corresponding wide
+wide types
+appear, and that no wide or wide wide string or character literals
 appear in the program (that is literals representing characters not in
 type @code{Character}.
 
@@ -9514,15 +9767,34 @@ thus the same lack of restriction applies.  For example, if you declare:
 then a component clause for a component of type R may start on any
 specified bit boundary, and may specify a value of 49 bits or greater.
 
-Packed bit arrays that are longer than 64 bits must always be placed
-on a storage unit (byte) boundary. Any component clause that does not
+For packed bit arrays that are longer than 64 bits, there are two
+cases. If the component size is a power of 2 (1,2,4,8,16,32 bits),
+including the important case of single bits or boolean values, then
+there are no limitations on placement of such components, and they
+may start and end at arbitrary bit boundaries.
+
+If the component size is not a power of 2 (e.g. 3 or 5), then
+an array of this type longer than 64 bits must always be placed on
+on a storage unit (byte) boundary and occupy an integral number
+of storage units (bytes). Any component clause that does not
 meet this requirement will be rejected.
 
-The rules for other types are different for GNAT 3 and GNAT 5 versions
-(based on GCC 2 and GCC 3 respectively). In GNAT 5, larger components
-(other than packed arrays)
-may also be placed on arbitrary boundaries, so for example, the following
-is permitted:
+Any aliased component, or component of an aliased type, must
+have its normal alignment and size. A component clause that
+does not meet this requirement will be rejected.
+
+The tag field of a tagged type always occupies an address sized field at
+the start of the record.  No component clause may attempt to overlay this
+tag. When a tagged type appears as a component, the tag field must have
+proper alignment
+
+In the case of a record extension T1, of a type T, no component clause applied
+to the type T1 can specify a storage location that would overlap the first
+T'Size bytes of the record.
+
+For all other component types, including non-bit-packed arrays,
+the component can be placed at an arbitrary bit boundary,
+so for example, the following is permitted:
 
 @smallexample @c ada
    type R is array (1 .. 10) of Boolean;
@@ -9542,22 +9814,12 @@ is permitted:
 @end smallexample
 
 @noindent
+Note: the above rules apply to recent releases of GNAT 5.
 In GNAT 3, there are more severe restrictions on larger components.
 For non-primitive types, including packed arrays with a size greater than
 64 bits, component clauses must respect the alignment requirement of the
 type, in particular, always starting on a byte boundary, and the length
 must be a multiple of the storage unit.
-
-The following rules regarding tagged types are enforced in both GNAT 3 and
-GNAT 5:
-
-The tag field of a tagged type always occupies an address sized field at
-the start of the record.  No component clause may attempt to overlay this
-tag.
-
-In the case of a record extension T1, of a type T, no component clause applied
-to the type T1 can specify a storage location that would overlap the first
-T'Size bytes of the record.
 
 @node Enumeration Clauses
 @section Enumeration Clauses
@@ -10282,6 +10544,16 @@ packages without @samp{Wide_} in the name, but operate with the types
 @code{Wide_String} and @code{Wide_Character} instead of @code{String}
 and @code{Character}.
 
+@item Ada.Strings.Wide_Wide_Bounded (A.4.7)
+@itemx Ada.Strings.Wide_Wide_Fixed (A.4.7)
+@itemx Ada.Strings.Wide_Wide_Maps (A.4.7)
+@itemx Ada.Strings.Wide_Wide_Maps.Constants (A.4.7)
+@itemx Ada.Strings.Wide_Wide_Unbounded (A.4.7)
+These packages provide analogous capabilities to the corresponding
+packages without @samp{Wide_} in the name, but operate with the types
+@code{Wide_Wide_String} and @code{Wide_Wide_Character} instead
+of @code{String} and @code{Character}.
+
 @item Ada.Synchronous_Task_Control (D.10)
 This package provides some standard facilities for controlling task
 communication in a synchronous manner.
@@ -10470,7 +10742,71 @@ types are @code{Wide_Character} and @code{Wide_String} instead of
 This package is similar to @code{Ada.Text_IO.Streams}, except that the
 types are @code{Wide_Character} and @code{Wide_String} instead of
 @code{Character} and @code{String}.
+
+@item Ada.Wide_Wide_Text_IO (A.11)
+This package is similar to @code{Ada.Text_IO}, except that the external
+file supports wide character representations, and the internal types are
+@code{Wide_Character} and @code{Wide_String} instead of @code{Character}
+and @code{String}.  It contains generic subpackages listed next.
+
+@item Ada.Wide_Wide_Text_IO.Decimal_IO
+Provides input-output facilities for decimal fixed-point types
+
+@item Ada.Wide_Wide_Text_IO.Enumeration_IO
+Provides input-output facilities for enumeration types.
+
+@item Ada.Wide_Wide_Text_IO.Fixed_IO
+Provides input-output facilities for ordinary fixed-point types.
+
+@item Ada.Wide_Wide_Text_IO.Float_IO
+Provides input-output facilities for float types.  The following
+predefined instantiations of this generic package are available:
+
+@table @code
+@item Short_Float
+@code{Short_Float_Wide_Wide_Text_IO}
+@item Float
+@code{Float_Wide_Wide_Text_IO}
+@item Long_Float
+@code{Long_Float_Wide_Wide_Text_IO}
 @end table
+
+@item Ada.Wide_Wide_Text_IO.Integer_IO
+Provides input-output facilities for integer types.  The following
+predefined instantiations of this generic package are available:
+
+@table @code
+@item Short_Short_Integer
+@code{Ada.Short_Short_Integer_Wide_Wide_Text_IO}
+@item Short_Integer
+@code{Ada.Short_Integer_Wide_Wide_Text_IO}
+@item Integer
+@code{Ada.Integer_Wide_Wide_Text_IO}
+@item Long_Integer
+@code{Ada.Long_Integer_Wide_Wide_Text_IO}
+@item Long_Long_Integer
+@code{Ada.Long_Long_Integer_Wide_Wide_Text_IO}
+@end table
+
+@item Ada.Wide_Wide_Text_IO.Modular_IO
+Provides input-output facilities for modular (unsigned) types
+
+@item Ada.Wide_Wide_Text_IO.Complex_IO (G.1.3)
+This package is similar to @code{Ada.Text_IO.Complex_IO}, except that the
+external file supports wide character representations.
+
+@item Ada.Wide_Wide_Text_IO.Editing (F.3.4)
+This package is similar to @code{Ada.Text_IO.Editing}, except that the
+types are @code{Wide_Character} and @code{Wide_String} instead of
+@code{Character} and @code{String}.
+
+@item Ada.Wide_Wide_Text_IO.Streams (A.12.3)
+This package is similar to @code{Ada.Text_IO.Streams}, except that the
+types are @code{Wide_Character} and @code{Wide_String} instead of
+@code{Character} and @code{String}.
+@end table
+
+
 
 @node The Implementation of Standard I/O
 @chapter The Implementation of Standard I/O
@@ -10511,6 +10847,7 @@ these additional facilities are also described in this chapter.
 * Sequential_IO::
 * Text_IO::
 * Wide_Text_IO::
+* Wide_Wide_Text_IO::
 * Stream_IO::
 * Shared Files::
 * Open Modes::
@@ -10530,13 +10867,19 @@ Ada.Text_IO
 @item
 Ada.Text_IO.Complex_IO
 @item
-Ada.Text_IO.Text_Streams,
+Ada.Text_IO.Text_Streams
 @item
 Ada.Wide_Text_IO
 @item
-Ada.Wide_Text_IO.Complex_IO,
+Ada.Wide_Text_IO.Complex_IO
 @item
 Ada.Wide_Text_IO.Text_Streams
+@item
+Ada.Wide_Wide_Text_IO
+@item
+Ada.Wide_Wide_Text_IO.Complex_IO
+@item
+Ada.Wide_Wide_Text_IO.Text_Streams
 @item
 Ada.Stream_IO
 @item
@@ -10904,6 +11247,10 @@ The package @code{Ada.Strings.Wide_Unbounded.Wide_Text_IO} in library
 files @file{a-swuwti.ads} and @file{a-swuwti.adb} provides similar extended
 @code{Wide_Text_IO} functionality for unbounded wide strings.
 
+The package @code{Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO} in library
+files @file{a-szuzti.ads} and @file{a-szuzti.adb} provides similar extended
+@code{Wide_Wide_Text_IO} functionality for unbounded wide wide strings.
+
 @node Wide_Text_IO
 @section Wide_Text_IO
 
@@ -11066,6 +11413,148 @@ to a normal program using @code{Wide_Text_IO}.  However, this discrepancy
 can be observed if the wide text file shares a stream with another file.
 
 @node Wide_Text_IO Reading and Writing Non-Regular Files
+@subsection Reading and Writing Non-Regular Files
+
+@noindent
+As in the case of Text_IO, when a non-regular file is read, it is
+assumed that the file contains no page marks (any form characters are
+treated as data characters), and @code{End_Of_Page} always returns
+@code{False}.  Similarly, the end of file indication is not sticky, so
+it is possible to read beyond an end of file.
+
+@node Wide_Wide_Text_IO
+@section Wide_Wide_Text_IO
+
+@noindent
+@code{Wide_Wide_Text_IO} is similar in most respects to Text_IO, except that
+both input and output files may contain special sequences that represent
+wide wide character values.  The encoding scheme for a given file may be
+specified using a FORM parameter:
+
+@smallexample
+WCEM=@var{x}
+@end smallexample
+
+@noindent
+as part of the FORM string (WCEM = wide character encoding method),
+where @var{x} is one of the following characters
+
+@table @samp
+@item h
+Hex ESC encoding
+@item u
+Upper half encoding
+@item s
+Shift-JIS encoding
+@item e
+EUC Encoding
+@item 8
+UTF-8 encoding
+@item b
+Brackets encoding
+@end table
+
+@noindent
+The encoding methods match those that
+can be used in a source
+program, but there is no requirement that the encoding method used for
+the source program be the same as the encoding method used for files,
+and different files may use different encoding methods.
+
+The default encoding method for the standard files, and for opened files
+for which no WCEM parameter is given in the FORM string matches the
+wide character encoding specified for the main program (the default
+being brackets encoding if no coding method was specified with -gnatW).
+
+@table @asis
+
+@item UTF-8 Coding
+A wide character is represented using
+UCS Transformation Format 8 (UTF-8) as defined in Annex R of ISO
+10646-1/Am.2.  Depending on the character value, the representation
+is a one, two, three, or four byte sequence:
+
+@smallexample
+16#000000#-16#00007f#: 2#0xxxxxxx#
+16#000080#-16#0007ff#: 2#110xxxxx# 2#10xxxxxx#
+16#000800#-16#00ffff#: 2#1110xxxx# 2#10xxxxxx# 2#10xxxxxx#
+16#010000#-16#10ffff#: 2#11110xxx# 2#10xxxxxx# 2#10xxxxxx# 2#10xxxxxx#
+@end smallexample
+
+@noindent
+where the xxx bits correspond to the left-padded bits of the
+21-bit character value.  Note that all lower half ASCII characters
+are represented as ASCII bytes and all upper half characters and
+other wide characters are represented as sequences of upper-half
+characters.
+
+@item Brackets Coding
+In this encoding, a wide wide character is represented by the following eight
+character sequence if is in wide character range
+
+@smallexample
+[ " a b c d " ]
+@end smallexample
+
+and by the following ten character sequence if not
+
+@smallexample
+[ " a b c d e f " ]
+@end smallexample
+
+@noindent
+where @code{a}, @code{b}, @code{c}, @code{d}, @code{e}, and @code{f}
+are the four or six hexadecimal
+characters (using uppercase letters) of the wide wide character code.  For
+example, @code{["01A345"]} is used to represent the wide wide character
+with code @code{16#01A345#}.
+
+This scheme is compatible with use of the full Wide_Wide_Character set.
+On input, brackets coding can also be used for upper half characters,
+e.g.@: @code{["C1"]} for lower case a.  However, on output, brackets notation
+is only used for wide characters with a code greater than @code{16#FF#}.
+
+@end table
+
+@noindent
+If is also possible to use the other Wide_Character encoding methods,
+such as Shift-JIS, but the other schemes cannot support the full range
+of wide wide characters.
+An attempt to output a character that cannot
+be represented using the encoding scheme for the file causes
+Constraint_Error to be raised.  An invalid wide character sequence on
+input also causes Constraint_Error to be raised.
+
+@menu
+* Wide_Wide_Text_IO Stream Pointer Positioning::
+* Wide_Wide_Text_IO Reading and Writing Non-Regular Files::
+@end menu
+
+@node Wide_Wide_Text_IO Stream Pointer Positioning
+@subsection Stream Pointer Positioning
+
+@noindent
+@code{Ada.Wide_Wide_Text_IO} is similar to @code{Ada.Text_IO} in its handling
+of stream pointer positioning (@pxref{Text_IO}).  There is one additional
+case:
+
+If @code{Ada.Wide_Wide_Text_IO.Look_Ahead} reads a character outside the
+normal lower ASCII set (i.e.@: a character in the range:
+
+@smallexample @c ada
+Wide_Wide_Character'Val (16#0080#) .. Wide_Wide_Character'Val (16#10FFFF#)
+@end smallexample
+
+@noindent
+then although the logical position of the file pointer is unchanged by
+the @code{Look_Ahead} call, the stream is physically positioned past the
+wide character sequence.  Again this is to avoid the need for buffering
+or backup, and all @code{Wide_Wide_Text_IO} routines check the internal
+indication that this situation has occurred so that this is not visible
+to a normal program using @code{Wide_Wide_Text_IO}.  However, this discrepancy
+can be observed if the wide text file shares a stream with another file.
+
+@node Wide_Wide_Text_IO Reading and Writing Non-Regular Files
 @subsection Reading and Writing Non-Regular Files
 
 @noindent
@@ -11395,6 +11884,17 @@ operations.
         Form : in String := "");
  end Ada.Wide_Text_IO.C_Streams;
 
+  with Interfaces.C_Streams;
+  package Ada.Wide_Wide_Text_IO.C_Streams is
+     function C_Stream (F : File_Type)
+        return Interfaces.C_Streams.FILEs;
+     procedure Open
+       (File : in out File_Type;
+        Mode : in File_Mode;
+        C_Stream : in Interfaces.C_Streams.FILEs;
+        Form : in String := "");
+ end Ada.Wide_Wide_Text_IO.C_Streams;
+
  with Interfaces.C_Streams;
  package Ada.Stream_IO.C_Streams is
     function C_Stream (F : File_Type)
@@ -11408,7 +11908,7 @@ operations.
 @end smallexample
 
 @noindent
-In each of these five packages, the @code{C_Stream} function obtains the
+In each of these six packages, the @code{C_Stream} function obtains the
 @code{FILE} pointer from a currently opened Ada file.  It is then
 possible to use the @code{Interfaces.C_Streams} package to operate on
 this stream, or the stream can be passed to a C program which can
@@ -11462,6 +11962,8 @@ of GNAT, and will generate a warning message.
 * Ada.Characters.Latin_9 (a-chlat9.ads)::
 * Ada.Characters.Wide_Latin_1 (a-cwila1.ads)::
 * Ada.Characters.Wide_Latin_9 (a-cwila9.ads)::
+* Ada.Characters.Wide_Wide_Latin_1 (a-czila1.ads)::
+* Ada.Characters.Wide_Wide_Latin_9 (a-czila9.ads)::
 * Ada.Command_Line.Remove (a-colire.ads)::
 * Ada.Command_Line.Environment (a-colien.ads)::
 * Ada.Direct_IO.C_Streams (a-diocst.ads)::
@@ -11471,8 +11973,10 @@ of GNAT, and will generate a warning message.
 * Ada.Streams.Stream_IO.C_Streams (a-ssicst.ads)::
 * Ada.Strings.Unbounded.Text_IO (a-suteio.ads)::
 * Ada.Strings.Wide_Unbounded.Wide_Text_IO (a-swuwti.ads)::
+* Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO (a-szuzti.ads)::
 * Ada.Text_IO.C_Streams (a-tiocst.ads)::
 * Ada.Wide_Text_IO.C_Streams (a-wtcstr.ads)::
+* Ada.Wide_Wide_Text_IO.C_Streams (a-ztcstr.ads)::
 * GNAT.Array_Split (g-arrspl.ads)::
 * GNAT.AWK (g-awk.ads)::
 * GNAT.Bounded_Buffers (g-boubuf.ads)::
@@ -11529,12 +12033,14 @@ of GNAT, and will generate a warning message.
 * GNAT.Spitbol.Table_VString (g-sptavs.ads)::
 * GNAT.Strings (g-string.ads)::
 * GNAT.String_Split (g-strspl.ads)::
+* GNAT.UTF_32 (g-utf_32.ads)::
 * GNAT.Table (g-table.ads)::
 * GNAT.Task_Lock (g-tasloc.ads)::
 * GNAT.Threads (g-thread.ads)::
 * GNAT.Traceback (g-traceb.ads)::
 * GNAT.Traceback.Symbolic (g-trasym.ads)::
 * GNAT.Wide_String_Split (g-wistsp.ads)::
+* GNAT.Wide_Wide_String_Split (g-zistsp.ads)::
 * Interfaces.C.Extensions (i-cexten.ads)::
 * Interfaces.C.Streams (i-cstrea.ads)::
 * Interfaces.CPP (i-cpp.ads)::
@@ -11594,6 +12100,34 @@ This child of @code{Ada.Characters}
 provides a set of definitions corresponding to those in the
 GNAT defined package @code{Ada.Characters.Latin_9} but with the
 types of the constants being @code{Wide_Character}
+instead of @code{Character}.  The provision of such a package
+is specifically authorized by the Ada Reference Manual
+(RM A.3(27)).
+
+@node Ada.Characters.Wide_Wide_Latin_1 (a-czila1.ads)
+@section @code{Ada.Characters.Wide_Wide_Latin_1} (@file{a-czila1.ads})
+@cindex @code{Ada.Characters.Wide_Wide_Latin_1} (@file{a-czila1.ads})
+@cindex Latin_1 constants for Wide_Wide_Character
+
+@noindent
+This child of @code{Ada.Characters}
+provides a set of definitions corresponding to those in the
+RM-defined package @code{Ada.Characters.Latin_1} but with the
+types of the constants being @code{Wide_Wide_Character}
+instead of @code{Character}.  The provision of such a package
+is specifically authorized by the Ada Reference Manual
+(RM A.3(27)).
+
+@node Ada.Characters.Wide_Wide_Latin_9 (a-czila9.ads)
+@section @code{Ada.Characters.Wide_Wide_Latin_9} (@file{a-czila9.ads})
+@cindex @code{Ada.Characters.Wide_Wide_Latin_9} (@file{a-czila9.ads})
+@cindex Latin_9 constants for Wide_Wide_Character
+
+@noindent
+This child of @code{Ada.Characters}
+provides a set of definitions corresponding to those in the
+GNAT defined package @code{Ada.Characters.Latin_9} but with the
+types of the constants being @code{Wide_Wide_Character}
 instead of @code{Character}.  The provision of such a package
 is specifically authorized by the Ada Reference Manual
 (RM A.3(27)).
@@ -11696,6 +12230,17 @@ This package provides subprograms for Text_IO for unbounded
 wide strings, avoiding the necessity for an intermediate operation
 with ordinary wide strings.
 
+@node Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO (a-szuzti.ads)
+@section @code{Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO} (@file{a-szuzti.ads})
+@cindex @code{Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO} (@file{a-szuzti.ads})
+@cindex @code{Unbounded_Wide_Wide_String}, IO support
+@cindex @code{Text_IO}, extensions for unbounded wide wide strings
+
+@noindent
+This package provides subprograms for Text_IO for unbounded
+wide wide strings, avoiding the necessity for an intermediate operation
+with ordinary wide wide strings.
+
 @node Ada.Text_IO.C_Streams (a-tiocst.ads)
 @section @code{Ada.Text_IO.C_Streams} (@file{a-tiocst.ads})
 @cindex @code{Ada.Text_IO.C_Streams} (@file{a-tiocst.ads})
@@ -11717,6 +12262,18 @@ This package provides subprograms that allow interfacing between
 C streams and @code{Wide_Text_IO}.  The stream identifier can be
 extracted from a file opened on the Ada side, and an Ada file
 can be constructed from a stream opened on the C side.
+
+@node Ada.Wide_Wide_Text_IO.C_Streams (a-ztcstr.ads)
+@section @code{Ada.Wide_Wide_Text_IO.C_Streams} (@file{a-ztcstr.ads})
+@cindex @code{Ada.Wide_Wide_Text_IO.C_Streams} (@file{a-ztcstr.ads})
+@cindex C Streams, Interfacing with @code{Wide_Wide_Text_IO}
+
+@noindent
+This package provides subprograms that allow interfacing between
+C streams and @code{Wide_Wide_Text_IO}.  The stream identifier can be
+extracted from a file opened on the Ada side, and an Ada file
+can be constructed from a stream opened on the C side.
+
 
 @node GNAT.Array_Split (g-arrspl.ads)
 @section @code{GNAT.Array_Split} (@file{g-arrspl.ads})
@@ -12165,7 +12722,7 @@ collisions occur and each item can be retrieved from the table in one
 probe (perfect property). The hash table size corresponds to the exact
 size of the key set and no larger (minimal property). The key set has to
 be know in advance (static property). The hash functions are also order
-preservering. If w2 is inserted after w1 in the generator, their
+preserving. If w2 is inserted after w1 in the generator, their
 hashcode are in the same order. These hashing functions are very
 convenient for use with realtime applications.
 
@@ -12332,10 +12889,26 @@ defines a string access and an array of string access types.
 @cindex String splitter
 
 @noindent
-Useful string-manipulation routines: given a set of separators, split
+Useful string manipulation routines: given a set of separators, split
 a string wherever the separators appear, and provide direct access
 to the resulting slices. This package is instantiated from
 @code{GNAT.Array_Split}.
+
+@node GNAT.UTF_32 (g-utf_32.ads)
+@section @code{GNAT.UTF_32} (@file{g-table.ads})
+@cindex @code{GNAT.UTF_32} (@file{g-table.ads})
+@cindex Wide character codes
+
+@noindent
+This is a package intended to be used in conjunction with the
+@code{Wide_Character} type in Ada 95 and the
+@code{Wide_Wide_Character} type in Ada 2005 (available
+in @code{GNAT} in Ada 2005 mode). This package contains
+Unicode categorization routines, as well as lexical
+categorization routines corresponding to the Ada 2005
+lexical rules for identifiers and strings, and also a
+lower case to upper case fold routine corresponding to
+the Ada 2005 rules for identifier equivalence.
 
 @node GNAT.Table (g-table.ads)
 @section @code{GNAT.Table} (@file{g-table.ads})
@@ -12376,7 +12949,7 @@ Provides facilities for creating and destroying threads with explicit calls.
 These threads are known to the GNAT run-time system.  These subprograms are
 exported C-convention procedures intended to be called from foreign code.
 By using these primitives rather than directly calling operating systems
-routines, compatibility with the Ada tasking runt-time is provided.
+routines, compatibility with the Ada tasking run-time is provided.
 
 @node GNAT.Traceback (g-traceb.ads)
 @section @code{GNAT.Traceback} (@file{g-traceb.ads})
@@ -12402,8 +12975,19 @@ name and line number information.
 @cindex Wide_String splitter
 
 @noindent
-Useful wide_string-manipulation routines: given a set of separators, split
-a wide_string wherever the separators appear, and provide direct access
+Useful wide string manipulation routines: given a set of separators, split
+a wide string wherever the separators appear, and provide direct access
+to the resulting slices. This package is instantiated from
+@code{GNAT.Array_Split}.
+
+@node GNAT.Wide_Wide_String_Split (g-zistsp.ads)
+@section @code{GNAT.Wide_Wide_String_Split} (@file{g-zistsp.ads})
+@cindex @code{GNAT.Wide_Wide_String_Split} (@file{g-zistsp.ads})
+@cindex Wide_Wide_String splitter
+
+@noindent
+Useful wide wide string manipulation routines: given a set of separators, split
+a wide wide string wherever the separators appear, and provide direct access
 to the resulting slices. This package is instantiated from
 @code{GNAT.Array_Split}.
 
@@ -12555,7 +13139,7 @@ example see the body of @code{GNAT.Tables}).
 @node System.Partition_Interface (s-parint.ads)
 @section @code{System.Partition_Interface} (@file{s-parint.ads})
 @cindex @code{System.Partition_Interface} (@file{s-parint.ads})
-@cindex Partition intefacing functions
+@cindex Partition interfacing functions
 
 @noindent
 This package provides facilities for partition interfacing.  It
@@ -12606,7 +13190,7 @@ to support the @code{Task_Info} pragma
 
 @noindent
 This package provides routines for converting between
-wide characters and a representation as a value of type
+wide and wide wide characters and a representation as a value of type
 @code{Standard.String}, using a specified wide character
 encoding method.  It uses definitions in
 package @code{System.Wch_Con}.
@@ -12719,13 +13303,13 @@ inter-operability between Ada tagged types and C class definitions.
 See @ref{Implementation Defined Pragmas}, for more details.
 
 @table @code
-@item pragma CPP_Class ([Entity =>] @var{local_name})
+@item pragma CPP_Class ([Entity =>] @var{local_NAME})
 The argument denotes an entity in the current declarative region that is
 declared as a tagged or untagged record type.  It indicates that the type
 corresponds to an externally declared C++ class type, and is to be laid
 out the same way that C++ would lay out the type.
 
-@item pragma CPP_Constructor ([Entity =>] @var{local_name})
+@item pragma CPP_Constructor ([Entity =>] @var{local_NAME})
 This pragma identifies an imported function (imported in the usual way
 with pragma @code{Import}) as corresponding to a C++ constructor.
 
@@ -13382,7 +13966,7 @@ Word : Rec;
 @end group
 @end smallexample
 
-@noindent 
+@noindent
 Such an object is said to be @emph{unconstrained}.
 The discriminant of the object
 can be modified by a full assignment to the object, as long as it preserves the
@@ -14219,7 +14803,7 @@ of the @command{gnatls} utility to be used to retrieve information about the
 predefined path; e.g., @code{"gnatls"}, @code{"powerpc-wrs-vxworks-gnatls"}.
 
 @item VCS_Kind
-This is a simple atribute. Is value is a string used to specify the
+This is a simple attribute. Its value is a string used to specify the
 Version Control System (VCS) to be used for this project, e.g CVS, RCS
 ClearCase or Perforce.
 

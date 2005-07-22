@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-1997 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -20,8 +20,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -35,38 +35,39 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-
 package Ada.Characters.Handling is
 pragma Preelaborate (Handling);
+pragma Pure_05 (Handling);
+--  In accordance with Ada 2005 AI-362
 
    ----------------------------------------
    -- Character Classification Functions --
    ----------------------------------------
 
-   function Is_Control           (Item : in Character) return Boolean;
-   function Is_Graphic           (Item : in Character) return Boolean;
-   function Is_Letter            (Item : in Character) return Boolean;
-   function Is_Lower             (Item : in Character) return Boolean;
-   function Is_Upper             (Item : in Character) return Boolean;
-   function Is_Basic             (Item : in Character) return Boolean;
-   function Is_Digit             (Item : in Character) return Boolean;
-   function Is_Decimal_Digit     (Item : in Character) return Boolean
-                                                          renames Is_Digit;
-   function Is_Hexadecimal_Digit (Item : in Character) return Boolean;
-   function Is_Alphanumeric      (Item : in Character) return Boolean;
-   function Is_Special           (Item : in Character) return Boolean;
+   function Is_Control           (Item : Character) return Boolean;
+   function Is_Graphic           (Item : Character) return Boolean;
+   function Is_Letter            (Item : Character) return Boolean;
+   function Is_Lower             (Item : Character) return Boolean;
+   function Is_Upper             (Item : Character) return Boolean;
+   function Is_Basic             (Item : Character) return Boolean;
+   function Is_Digit             (Item : Character) return Boolean;
+   function Is_Decimal_Digit     (Item : Character) return Boolean
+     renames Is_Digit;
+   function Is_Hexadecimal_Digit (Item : Character) return Boolean;
+   function Is_Alphanumeric      (Item : Character) return Boolean;
+   function Is_Special           (Item : Character) return Boolean;
 
    ---------------------------------------------------
    -- Conversion Functions for Character and String --
    ---------------------------------------------------
 
-   function To_Lower (Item : in Character) return Character;
-   function To_Upper (Item : in Character) return Character;
-   function To_Basic (Item : in Character) return Character;
+   function To_Lower (Item : Character) return Character;
+   function To_Upper (Item : Character) return Character;
+   function To_Basic (Item : Character) return Character;
 
-   function To_Lower (Item : in String) return String;
-   function To_Upper (Item : in String) return String;
-   function To_Basic (Item : in String) return String;
+   function To_Lower (Item : String) return String;
+   function To_Upper (Item : String) return String;
+   function To_Basic (Item : String) return String;
 
    ----------------------------------------------------------------------
    -- Classifications of and Conversions Between Character and ISO 646 --
@@ -75,42 +76,64 @@ pragma Preelaborate (Handling);
    subtype ISO_646 is
      Character range Character'Val (0) .. Character'Val (127);
 
-   function Is_ISO_646 (Item : in Character) return Boolean;
-   function Is_ISO_646 (Item : in String)    return Boolean;
+   function Is_ISO_646 (Item : Character) return Boolean;
+   function Is_ISO_646 (Item : String)    return Boolean;
 
    function To_ISO_646
-     (Item       : in Character;
-      Substitute : in ISO_646 := ' ')
-      return       ISO_646;
+     (Item       : Character;
+      Substitute : ISO_646 := ' ') return ISO_646;
 
    function To_ISO_646
-     (Item      : in String;
-      Substitute : in ISO_646 := ' ')
-      return       String;
+     (Item       : String;
+      Substitute : ISO_646 := ' ') return String;
 
    ------------------------------------------------------
    -- Classifications of Wide_Character and Characters --
    ------------------------------------------------------
 
-   function Is_Character (Item : in Wide_Character) return Boolean;
-   function Is_String    (Item : in Wide_String)    return Boolean;
+   --  Ada 2005 AI 395: these functions are moved to Ada.Characters.Conversions
+   --  and are considered obsolete in Ada.Characters.Handling. We deal with
+   --  this by using the special Ada_05 form of pragma Obsolescent which is
+   --  only active in Ada_05 mode.
+
+   function Is_Character (Item : Wide_Character) return Boolean;
+   pragma Obsolescent
+     ("(Ada 2005) use Ada.Characters.Conversions.Is_Character", Ada_05);
+
+   function Is_String (Item : Wide_String) return Boolean;
+   pragma Obsolescent
+     ("(Ada 2005) use Ada.Characters.Conversions.Is_String", Ada_05);
 
    ------------------------------------------------------
    -- Conversions between Wide_Character and Character --
    ------------------------------------------------------
 
+   --  Ada 2005 AI 395: these functions are moved to Ada.Characters.Conversions
+   --  and are considered obsolete in Ada.Characters.Handling. We deal with
+   --  this by using the special Ada_05 form of pragma Obsolescent which is
+   --  only active in Ada_05 mode.
+
    function To_Character
-     (Item       : in Wide_Character;
-      Substitute : in Character := ' ')
-      return       Character;
+     (Item       : Wide_Character;
+      Substitute : Character := ' ') return Character;
+   pragma Obsolescent
+     ("(Ada 2005) use Ada.Characters.Conversions.To_Character", Ada_05);
 
    function To_String
-     (Item       : in Wide_String;
-      Substitute : in Character := ' ')
-      return       String;
+     (Item       : Wide_String;
+      Substitute : Character := ' ') return String;
+   pragma Obsolescent
+     ("(Ada 2005) use Ada.Characters.Conversions.To_String", Ada_05);
 
-   function To_Wide_Character (Item : in Character) return Wide_Character;
-   function To_Wide_String    (Item : in String)    return Wide_String;
+   function To_Wide_Character
+     (Item : Character) return Wide_Character;
+   pragma Obsolescent
+     ("(Ada 2005) use Ada.Characters.Conversions.To_Wide_Character", Ada_05);
+
+   function To_Wide_String
+     (Item : String)return Wide_String;
+   pragma Obsolescent
+     ("(Ada 2005) use Ada.Characters.Conversions.To_Wide_String", Ada_05);
 
 private
    pragma Inline (Is_Control);

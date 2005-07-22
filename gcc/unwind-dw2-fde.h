@@ -26,13 +26,15 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_UNWIND_DW2_FDE_H
 #define GCC_UNWIND_DW2_FDE_H
 
+#ifndef HIDE_EXPORTS
 #pragma GCC visibility push(default)
+#endif
 
 struct fde_vector
 {
@@ -179,6 +181,8 @@ last_fde (struct object *obj __attribute__ ((__unused__)), const fde *f)
 #endif
 }
 
+#ifndef HIDE_EXPORTS
 #pragma GCC visibility pop
+#endif
 
 #endif /* unwind-dw2-fde.h */

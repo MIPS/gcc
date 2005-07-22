@@ -1,5 +1,5 @@
 ;; Scheduling for the Intel P6 family of processors
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.  */
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.  */
 
 ;; The P6 family includes the Pentium Pro, Pentium II, Pentium III, Celeron
 ;; and Xeon lines of CPUs.  The DFA scheduler description in this file is
@@ -687,7 +687,7 @@
 
 (define_insn_reservation "ppro_sse_div_V4SF_load" 48
 			 (and (eq_attr "cpu" "pentiumpro")
-			      (and (eq_attr "memory" "none")
+			      (and (eq_attr "memory" "load")
 				   (and (eq_attr "mode" "V4SF")
 					(eq_attr "type" "ssediv"))))
 			 "decoder0,(p2+p0)*2,p0*32")
@@ -696,14 +696,14 @@
 			 (and (eq_attr "cpu" "pentiumpro")
 			      (and (eq_attr "memory" "none")
 				   (and (eq_attr "mode" "V4SF")
-					(eq_attr "type" "sselog"))))
+					(eq_attr "type" "sselog,sselog1"))))
 			 "decodern,p1")
 
 (define_insn_reservation "ppro_sse_log_V4SF_load" 2
 			 (and (eq_attr "cpu" "pentiumpro")
-			      (and (eq_attr "memory" "none")
+			      (and (eq_attr "memory" "load")
 				   (and (eq_attr "mode" "V4SF")
-					(eq_attr "type" "sselog"))))
+					(eq_attr "type" "sselog,sselog1"))))
 			 "decoder0,(p2+p1)")
 
 (define_insn_reservation "ppro_sse_mov_V4SF" 1

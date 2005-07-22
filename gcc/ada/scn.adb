@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -28,9 +28,12 @@ with Atree;    use Atree;
 with Csets;    use Csets;
 with Namet;    use Namet;
 with Opt;      use Opt;
+with Restrict; use Restrict;
+with Rident;   use Rident;
 with Scans;    use Scans;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
+with Uintp;    use Uintp;
 
 package body Scn is
 
@@ -42,8 +45,8 @@ package body Scn is
    --  keyword as an identifier once for a given keyword).
 
    procedure Check_End_Of_Line;
-   --  Called when end of line encountered. Checks that line is not
-   --  too long, and that other style checks for the end of line are met.
+   --  Called when end of line encountered. Checks that line is not too long,
+   --  and that other style checks for the end of line are met.
 
    function Determine_License return License_Type;
    --  Scan header of file and check that it has an appropriate GNAT-style
@@ -62,7 +65,7 @@ package body Scn is
       case Token is
          when Tok_Char_Literal =>
             Token_Node := New_Node (N_Character_Literal, Token_Ptr);
-            Set_Char_Literal_Value (Token_Node, Character_Code);
+            Set_Char_Literal_Value (Token_Node, UI_From_CC (Character_Code));
             Set_Chars (Token_Node, Token_Name);
 
          when Tok_Identifier =>
@@ -320,6 +323,20 @@ package body Scn is
          Used_As_Identifier (J) := False;
       end loop;
    end Initialize_Scanner;
+
+   -----------------------
+   -- Obsolescent_Check --
+   -----------------------
+
+   procedure Obsolescent_Check (S : Source_Ptr) is
+   begin
+      --  This is a pain in the neck case, since we normally need a node to
+      --  call Check_Restrictions, and all we have is a source pointer. The
+      --  easiest thing is to construct a dummy node. A bit kludgy, but this
+      --  is a marginal case. It's not worth trying to do things more cleanly.
+
+      Check_Restriction (No_Obsolescent_Features, New_Node (N_Empty, S));
+   end Obsolescent_Check;
 
    ------------------------------
    -- Scan_Reserved_Identifier --

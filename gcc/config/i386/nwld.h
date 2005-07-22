@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef	LIB_SPEC
 #define LIB_SPEC "-lc --def-file libc.def%s"
@@ -57,3 +57,6 @@ void nwld_named_section_asm_out_destructor (rtx, int);
 
 #undef  EH_FRAME_SECTION_NAME
 #define EH_FRAME_SECTION_NAME ".eh_frame"TARGET_SUB_SECTION_SEPARATOR
+
+/* nwld does not currently support stabs debug info */
+#undef DBX_DEBUGGING_INFO

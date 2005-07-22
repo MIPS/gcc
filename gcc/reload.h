@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* If secondary reloads are the same for inputs and outputs, define those
@@ -170,6 +170,13 @@ extern rtx *reg_equiv_memory_loc;
 extern rtx *reg_equiv_address;
 extern rtx *reg_equiv_mem;
 
+/* Element N is the list of insns that initialized reg N from its equivalent
+   constant or memory slot.  */
+extern GTY((length("reg_equiv_init_size"))) rtx *reg_equiv_init;
+
+/* The size of the previous array, for GC purposes.  */
+extern GTY(()) int reg_equiv_init_size;
+
 /* All the "earlyclobber" operands of the current insn
    are recorded here.  */
 extern int n_earlyclobbers;
@@ -192,13 +199,6 @@ extern char indirect_symref_ok;
 extern char double_reg_address_ok;
 
 extern int num_not_at_initial_offset;
-
-struct needs
-{
-  /* [0] is normal, [1] is nongroup.  */
-  short regs[2][N_REG_CLASSES];
-  short groups[N_REG_CLASSES];
-};
 
 #if defined SET_HARD_REG_BIT && defined CLEAR_REG_SET
 /* This structure describes instructions which are relevant for reload.
@@ -228,9 +228,6 @@ struct insn_chain
 
   /* Indicates which registers have already been used for spills.  */
   HARD_REG_SET used_spill_regs;
-
-  /* Describe the needs for reload registers of this insn.  */
-  struct needs need;
 
   /* Nonzero if find_reloads said the insn requires reloading.  */
   unsigned int need_reload:1;

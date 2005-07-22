@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -41,7 +41,6 @@
 #include "tree.h"
 #include "real.h"
 #include "rtl.h"
-#include "errors.h"
 #include "diagnostic.h"
 #include "expr.h"
 #include "libfuncs.h"
@@ -94,7 +93,6 @@ static bool gnat_post_options		(const char **);
 static HOST_WIDE_INT gnat_get_alias_set	(tree);
 static void gnat_print_decl		(FILE *, tree, int);
 static void gnat_print_type		(FILE *, tree, int);
-static int gnat_types_compatible_p	(tree, tree);
 static const char *gnat_printable_name	(tree, int);
 static tree gnat_eh_runtime_type	(tree);
 static int gnat_eh_type_covers		(tree, tree);
@@ -130,20 +128,18 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_PUSHDECL		lhd_return_tree
 #undef  LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL gnat_finish_incomplete_decl
+#undef	LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
+#define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef  LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
 #undef  LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR		gnat_expand_expr
 #undef  LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE	gnat_mark_addressable
-#undef  LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION gnat_truthvalue_conversion
 #undef  LANG_HOOKS_PRINT_DECL
 #define LANG_HOOKS_PRINT_DECL		gnat_print_decl
 #undef  LANG_HOOKS_PRINT_TYPE
 #define LANG_HOOKS_PRINT_TYPE		gnat_print_type
-#undef  LANG_HOOKS_TYPES_COMPATIBLE_P
-#define LANG_HOOKS_TYPES_COMPATIBLE_P	gnat_types_compatible_p
 #undef  LANG_HOOKS_TYPE_MAX_SIZE
 #define LANG_HOOKS_TYPE_MAX_SIZE	gnat_type_max_size
 #undef  LANG_HOOKS_DECL_PRINTABLE_NAME
@@ -218,17 +214,26 @@ extern char **gnat_argv;
 
 
 /* Declare functions we use as part of startup.  */
-extern void __gnat_initialize	(void);
-extern void adainit		(void);
-extern void _ada_gnat1drv	(void);
+extern void __gnat_initialize           (void *);
+extern void __gnat_install_SEH_handler  (void *);
+extern void adainit		        (void);
+extern void _ada_gnat1drv	        (void);
 
 /* The parser for the language.  For us, we process the GNAT tree.  */
 
 static void
 gnat_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
+  int seh[2];
+
   /* call the target specific initializations */
-  __gnat_initialize();
+  __gnat_initialize (NULL);
+
+  /* ??? call the SEH initialization routine, this is to workaround a
+  bootstrap path problem. The call below should be removed at some point and
+  the seh pointer passed to __gnat_initialize() above.  */
+
+  __gnat_install_SEH_handler((void *)seh);
 
   /* Call the front-end elaboration procedures */
   adainit ();
@@ -251,7 +256,6 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
   const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
   char *q;
-  unsigned int i;
 
   if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
     {
@@ -290,13 +294,13 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argc++;
       break;
 
-    case OPT_fRTS:
+    case OPT_fRTS_:
       gnat_argv[gnat_argc] = xstrdup ("-fRTS");
       gnat_argc++;
       break;
 
     case OPT_gant:
-      warning ("%<-gnat%> misspelled as %<-gant%>");
+      warning (0, "%<-gnat%> misspelled as %<-gant%>");
 
       /* ... fall through ... */
 
@@ -306,17 +310,13 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argv[gnat_argc][0] = '-';
       strcpy (gnat_argv[gnat_argc] + 1, arg);
       gnat_argc++;
+      break;
 
-      if (arg[0] == 'O')
-	for (i = 1; i < save_argc - 1; i++)
-	  if (!strncmp (save_argv[i], "-gnatO", 6))
-	    if (save_argv[++i][0] != '-')
-	      {
-		/* Preserve output filename as GCC doesn't save it for GNAT. */
-		gnat_argv[gnat_argc] = xstrdup (save_argv[i]);
-		gnat_argc++;
-		break;
-	      }
+    case OPT_gnatO:
+      gnat_argv[gnat_argc] = xstrdup ("-O");
+      gnat_argc++;
+      gnat_argv[gnat_argc] = xstrdup (arg);
+      gnat_argc++;
       break;
     }
 
@@ -352,10 +352,9 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (!flag_no_inline)
     flag_no_inline = 1;
   if (flag_inline_functions)
-    {
-      flag_inline_trees = 2;
-      flag_inline_functions = 0;
-    }
+    flag_inline_trees = 2;
+
+  flag_tree_salias = 0;
 
   return false;
 }
@@ -465,6 +464,7 @@ gnat_init_gcc_eh (void)
   eh_personality_libfunc = init_one_libfunc ("__gnat_eh_personality");
   lang_eh_type_covers = gnat_eh_type_covers;
   lang_eh_runtime_type = gnat_eh_runtime_type;
+  default_init_unwind_resume_libfunc ();
 
   /* Turn on -fexceptions and -fnon-call-exceptions. The first one triggers
      the generation of the necessary exception runtime tables. The second one
@@ -499,7 +499,12 @@ gnat_print_decl (FILE *file, tree node, int indent)
       break;
 
     case FIELD_DECL:
-      print_node (file, "original field", DECL_ORIGINAL_FIELD (node),
+      print_node (file, "original_field", DECL_ORIGINAL_FIELD (node),
+		  indent + 4);
+      break;
+
+    case VAR_DECL:
+      print_node (file, "renamed_object", DECL_RENAMED_OBJECT (node),
 		  indent + 4);
       break;
 
@@ -555,27 +560,6 @@ gnat_print_type (FILE *file, tree node, int indent)
     default:
       break;
     }
-}
-
-/* We consider two types compatible if they have the same main variant,
-   but we also consider two array types compatible if they have the same
-   component type and bounds.
-
-   ??? We may also want to generalize to considering lots of integer types
-   compatible, but we need to understand the effects of alias sets first.  */
-
-static int
-gnat_types_compatible_p (tree x, tree y)
-{
-  if (TREE_CODE (x) == ARRAY_TYPE && TREE_CODE (y) == ARRAY_TYPE
-      && gnat_types_compatible_p (TREE_TYPE (x), TREE_TYPE (y))
-      && operand_equal_p (TYPE_MIN_VALUE (TYPE_DOMAIN (x)),
-			  TYPE_MIN_VALUE (TYPE_DOMAIN (y)), 0)
-      && operand_equal_p (TYPE_MAX_VALUE (TYPE_DOMAIN (x)),
-			  TYPE_MAX_VALUE (TYPE_DOMAIN (y)), 0))
-    return 1;
-  else
-    return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
 
 static const char *
@@ -650,6 +634,14 @@ gnat_expand_body (tree gnu_decl)
     return;
 
   tree_rest_of_compilation (gnu_decl);
+
+  if (DECL_STATIC_CONSTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (gnu_decl), 0),
+                                 DEFAULT_INIT_PRIORITY);
+
+  if (DECL_STATIC_DESTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (gnu_decl), 0),
+                                DEFAULT_INIT_PRIORITY);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been

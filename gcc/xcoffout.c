@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Output xcoff-format symbol table data.  The main functionality is contained
    in dbxout.c.  This file implements the sdbout-like parts of the xcoff
@@ -184,7 +184,7 @@ xcoff_assign_fundamental_type_number (tree decl)
 /* Print an error message for unrecognized stab codes.  */
 
 #define UNKNOWN_STAB(STR)	\
-  internal_error ("no sclass for %s stab (0x%x)\n", STR, stab)
+  internal_error ("no sclass for %s stab (0x%x)", STR, stab)
 
 /* Conversion routine from BSD stabs to AIX storage classes.  */
 
@@ -405,22 +405,18 @@ xcoffout_end_block (unsigned int line, unsigned int n)
 void
 xcoffout_declare_function (FILE *file, tree decl, const char *name)
 {
-  int i;
+  size_t len;
 
   if (*name == '*')
     name++;
-  else
-    for (i = 0; name[i]; ++i)
-      {
-	if (name[i] == '[')
-	  {
-	    char *n = alloca (i + 1);
-	    strncpy (n, name, i);
-	    n[i] = '\0';
-	    name = n;
-	    break;
-	  }
-      }
+  len = strlen (name);
+  if (name[len - 1] == ']')
+    {
+      char *n = alloca (len - 3);
+      memcpy (n, name, len - 4);
+      n[len - 4] = '\0';
+      name = n;
+    }
 
   /* Any pending .bi or .ei must occur before the .function pseudo op.
      Otherwise debuggers will think that the function is in the previous

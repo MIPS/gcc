@@ -1,13 +1,13 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --                      S Y S T E M . W W D _ C H A R                       --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---        Copyright (C) 1992,1993,1994 Free Software Foundation, Inc.       --
---                                                                          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--                                                                           --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
 -- ware  Foundation;  either version 2,  or (at your option) any later ver- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -31,13 +31,17 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains the routine used for Character'Wide_Width
+--  This package contains the routine used for Character'Wide_[Wide_]Width
 
 package System.WWd_Char is
 pragma Pure (WWd_Char);
 
    function Wide_Width_Character (Lo, Hi : Character) return Natural;
    --  Compute Wide_Width attribute for non-static type derived from
+   --  Character. The arguments are the low and high bounds for the type.
+
+   function Wide_Wide_Width_Character (Lo, Hi : Character) return Natural;
+   --  Compute Wide_Wide_Width attribute for non-static type derived from
    --  Character. The arguments are the low and high bounds for the type.
 
 end System.WWd_Char;

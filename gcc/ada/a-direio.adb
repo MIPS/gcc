@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --                        A D A . D I R E C T _ I O                         --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -183,9 +183,15 @@ package body Ada.Direct_IO is
       --  For a non-constrained variant record type, we read into an
       --  intermediate buffer, since we may have the case of discriminated
       --  records where a discriminant check is required, and we may need
-      --  to assign only part of the record buffer originally written
+      --  to assign only part of the record buffer originally written.
 
+      --  Note: we have to turn warnings on/off because this use of
+      --  the Constrained attribute is an obsolescent feature.
+
+      pragma Warnings (Off);
       if not Element_Type'Constrained then
+         pragma Warnings (On);
+
          declare
             Buf : Element_Type;
 
@@ -205,7 +211,13 @@ package body Ada.Direct_IO is
    begin
       --  Same processing for unconstrained case as above
 
+      --  Note: we have to turn warnings on/off because this use of
+      --  the Constrained attribute is an obsolescent feature.
+
+      pragma Warnings (Off);
       if not Element_Type'Constrained then
+         pragma Warnings (On);
+
          declare
             Buf : Element_Type;
 

@@ -1,8 +1,9 @@
 /* PR optimization/8555 */
 /* { dg-do compile } */
 /* { dg-options "-O -ffast-math -funroll-loops" } */
-/* { dg-options "-march=pentium3 -O -ffast-math -funroll-loops" { target i?86-*-* } } */
-/* { dg-forbid-option "-m64" { target i?86-*-* } } */
+/* { dg-options "-march=pentium3 -O -ffast-math -funroll-loops" { target { i?86-*-* && ilp32 } } } */
+/* { dg-options "-march=pentium3 -O -ffast-math -funroll-loops" { target { x86_64-*-* && ilp32 } } } */
+
 
 float foo (float *a, int i)
 {

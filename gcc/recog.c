@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -39,6 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "reload.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -107,22 +109,6 @@ init_recog (void)
   volatile_ok = 1;
 }
 
-/* Try recognizing the instruction INSN,
-   and return the code number that results.
-   Remember the code so that repeated calls do not
-   need to spend the time for actual rerecognition.
-
-   This function is the normal interface to instruction recognition.
-   The automatically-generated function `recog' is normally called
-   through this one.  (The only exception is in combine.c.)  */
-
-int
-recog_memoized_1 (rtx insn)
-{
-  if (INSN_CODE (insn) < 0)
-    INSN_CODE (insn) = recog (PATTERN (insn), insn, 0);
-  return INSN_CODE (insn);
-}
 
 /* Check that X is an insn-body for an `asm' with operands
    and that the operands mentioned in it are legitimate.  */
@@ -251,6 +237,46 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
     return apply_change_group ();
 }
 
+
+/* Function to be passed to for_each_rtx to test whether a piece of
+   RTL contains any mem/v.  */
+static int
+volatile_mem_p (rtx *x, void *data ATTRIBUTE_UNUSED)
+{
+  return (MEM_P (*x) && MEM_VOLATILE_P (*x));
+}
+
+/* Same as validate_change, but doesn't support groups, and it accepts
+   volatile mems if they're already present in the original insn.  */
+
+int
+validate_change_maybe_volatile (rtx object, rtx *loc, rtx new)
+{
+  int result;
+
+  if (validate_change (object, loc, new, 0))
+    return 1;
+
+  if (volatile_ok
+      /* If there isn't a volatile MEM, there's nothing we can do.  */
+      || !for_each_rtx (&PATTERN (object), volatile_mem_p, 0)
+      /* Make sure we're not adding or removing volatile MEMs.  */
+      || for_each_rtx (loc, volatile_mem_p, 0)
+      || for_each_rtx (&new, volatile_mem_p, 0)
+      || !insn_invalid_p (object))
+    return 0;
+
+  volatile_ok = 1;
+
+  gcc_assert (!insn_invalid_p (object));
+
+  result = validate_change (object, loc, new, 0);
+
+  volatile_ok = 0;
+
+  return result;
+}
+
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
 
@@ -310,11 +336,11 @@ num_changes_pending (void)
   return num_changes;
 }
 
-/* Apply a group of changes previously issued with `validate_change'.
+/* Tentatively apply the changes numbered NUM and up.
    Return 1 if all changes are valid, zero otherwise.  */
 
-int
-apply_change_group (void)
+static int
+verify_changes (int num)
 {
   int i;
   rtx last_validated = NULL_RTX;
@@ -328,7 +354,7 @@ apply_change_group (void)
      we also require that the operands meet the constraints for
      the insn.  */
 
-  for (i = 0; i < num_changes; i++)
+  for (i = num; i < num_changes; i++)
     {
       rtx object = changes[i].object;
 
@@ -392,17 +418,38 @@ apply_change_group (void)
       last_validated = object;
     }
 
-  if (i == num_changes)
+  return (i == num_changes);
+}
+
+/* A group of changes has previously been issued with validate_change and
+   verified with verify_changes.  Update the BB_DIRTY flags of the affected
+   blocks, and clear num_changes.  */
+
+void
+confirm_change_group (void)
+{
+  int i;
+  basic_block bb;
+
+  for (i = 0; i < num_changes; i++)
+    if (changes[i].object
+	&& INSN_P (changes[i].object)
+	&& (bb = BLOCK_FOR_INSN (changes[i].object)))
+      bb->flags |= BB_DIRTY;
+
+  num_changes = 0;
+}
+
+/* Apply a group of changes previously issued with `validate_change'.
+   If all changes are valid, call confirm_change_group and return 1,
+   otherwise, call cancel_changes and return 0.  */
+
+int
+apply_change_group (void)
+{
+  if (verify_changes (0))
     {
-      basic_block bb;
-
-      for (i = 0; i < num_changes; i++)
-	if (changes[i].object
-	    && INSN_P (changes[i].object)
-	    && (bb = BLOCK_FOR_INSN (changes[i].object)))
-	  bb->flags |= BB_DIRTY;
-
-      num_changes = 0;
+      confirm_change_group ();
       return 1;
     }
   else
@@ -411,6 +458,7 @@ apply_change_group (void)
       return 0;
     }
 }
+
 
 /* Return the number of changes so far in the current group.  */
 
@@ -2249,6 +2297,7 @@ constrain_operands (int strict)
 
   do
     {
+      int seen_earlyclobber_at = -1;
       int opno;
       int lose = 0;
       funny_match_index = 0;
@@ -2311,6 +2360,8 @@ constrain_operands (int strict)
 
 	      case '&':
 		earlyclobber[opno] = 1;
+		if (seen_earlyclobber_at < 0)
+		  seen_earlyclobber_at = opno;
 		break;
 
 	      case '0':  case '1':  case '2':  case '3':  case '4':
@@ -2559,8 +2610,10 @@ constrain_operands (int strict)
 	  /* See if any earlyclobber operand conflicts with some other
 	     operand.  */
 
-	  if (strict > 0)
-	    for (eopno = 0; eopno < recog_data.n_operands; eopno++)
+	  if (strict > 0  && seen_earlyclobber_at >= 0)
+	    for (eopno = seen_earlyclobber_at;
+		 eopno < recog_data.n_operands;
+		 eopno++)
 	      /* Ignore earlyclobber operands now in memory,
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */
@@ -2975,7 +3028,6 @@ peep2_find_free_register (int from, int to, const char *class_str,
 void
 peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 {
-  regset_head rs_heads[MAX_INSNS_PER_PEEP2 + 2];
   rtx insn, prev;
   regset live;
   int i;
@@ -2985,12 +3037,13 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   bool changed;
 #endif
   bool do_cleanup_cfg = false;
+  bool do_global_life_update = false;
   bool do_rebuild_jump_labels = false;
 
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
-    peep2_insn_data[i].live_before = INITIALIZE_REG_SET (rs_heads[i]);
-  live = INITIALIZE_REG_SET (rs_heads[i]);
+    peep2_insn_data[i].live_before = ALLOC_REG_SET (&reg_obstack);
+  live = ALLOC_REG_SET (&reg_obstack);
 
 #ifdef HAVE_conditional_execution
   blocks = sbitmap_alloc (last_basic_block);
@@ -3003,6 +3056,8 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   FOR_EACH_BB_REVERSE (bb)
     {
       struct propagate_block_info *pbi;
+      reg_set_iterator rsi;
+      unsigned int j;
 
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
@@ -3013,7 +3068,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      COPY_REG_SET (live, bb->global_live_at_end);
+      COPY_REG_SET (live, bb->il.rtl->global_live_at_end);
       COPY_REG_SET (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
 #ifdef HAVE_conditional_execution
@@ -3079,7 +3134,6 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			  {
 			  case REG_NORETURN:
 			  case REG_SETJMP:
-			  case REG_ALWAYS_RETURN:
 			    REG_NOTES (new_insn)
 			      = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 						   XEXP (note, 0),
@@ -3224,6 +3278,15 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 	    break;
 	}
 
+      /* Some peepholes can decide the don't need one or more of their
+	 inputs.  If this happens, local life update is not enough.  */
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->il.rtl->global_live_at_start, live,
+				      0, j, rsi)
+	{
+	  do_global_life_update = true;
+	  break;
+	}
+
       free_propagate_block_info (pbi);
     }
 
@@ -3240,8 +3303,10 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   if (do_cleanup_cfg)
     {
       cleanup_cfg (0);
-      update_life_info (0, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
+      do_global_life_update = true;
     }
+  if (do_global_life_update)
+    update_life_info (0, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
 #ifdef HAVE_conditional_execution
   else
     {
@@ -3355,3 +3420,122 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
 
   return true;
 }
+
+static bool
+gate_handle_peephole2 (void)
+{
+  return (optimize > 0 && flag_peephole2);
+}
+
+static void
+rest_of_handle_peephole2 (void)
+{
+#ifdef HAVE_peephole2
+  peephole2_optimize (dump_file);
+#endif
+}
+
+struct tree_opt_pass pass_peephole2 =
+{
+  "peephole2",                          /* name */
+  gate_handle_peephole2,                /* gate */
+  rest_of_handle_peephole2,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_PEEPHOLE2,                         /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'z'                                   /* letter */
+};
+
+static void
+rest_of_handle_split_all_insns (void)
+{
+  split_all_insns (1);
+}
+
+struct tree_opt_pass pass_split_all_insns =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_split_all_insns,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+/* The placement of the splitting that we do for shorten_branches
+   depends on whether regstack is used by the target or not.  */
+static bool
+gate_do_final_split (void)
+{
+#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
+  return 1;
+#else
+  return 0;
+#endif 
+}
+
+struct tree_opt_pass pass_split_for_shorten_branches =
+{
+  NULL,                                 /* name */
+  gate_do_final_split,                  /* gate */
+  split_all_insns_noflow,               /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
+static bool
+gate_handle_split_before_regstack (void)
+{
+#if defined (HAVE_ATTR_length) && defined (STACK_REGS)
+  /* If flow2 creates new instructions which need splitting
+     and scheduling after reload is not done, they might not be
+     split until final which doesn't allow splitting
+     if HAVE_ATTR_length.  */
+# ifdef INSN_SCHEDULING
+  return (optimize && !flag_schedule_insns_after_reload);
+# else
+  return (optimize);
+# endif
+#else
+  return 0;
+#endif
+}
+
+struct tree_opt_pass pass_split_before_regstack =
+{
+  NULL,                                 /* name */
+  gate_handle_split_before_regstack,    /* gate */
+  rest_of_handle_split_all_insns,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};

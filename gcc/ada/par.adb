@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -50,8 +50,10 @@ with Tbuild;   use Tbuild;
 -- Par --
 ---------
 
-function Par (Configuration_Pragmas : Boolean) return List_Id is
-
+function Par
+  (Configuration_Pragmas : Boolean;
+   From_Limited_With     : Boolean := False) return List_Id
+is
    Num_Library_Units : Natural := 0;
    --  Count number of units parsed (relevant only in syntax check only mode,
    --  since in semantics check mode only a single unit is permitted anyway)
@@ -600,6 +602,17 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  Scan out a defining identifier. The parameter C controls the
       --  treatment of errors in case a reserved word is scanned. See the
       --  declaration of this type for details.
+
+      function P_Interface_Type_Definition
+        (Is_Synchronized : Boolean) return Node_Id;
+      --  Ada 2005 (AI-251): Parse the interface type definition part. The
+      --  parameter Is_Synchronized is True in case of task interfaces,
+      --  protected interfaces, and synchronized interfaces; it is used to
+      --  generate a record_definition node. In the rest of cases (limited
+      --  interfaces and interfaces) we generate a record_definition node if
+      --  the list of interfaces is empty; otherwise we generate a
+      --  derived_type_definition node (the first interface in this list is the
+      --  ancestor interface).
 
       function P_Null_Exclusion return Boolean;
       --  Ada 2005 (AI-231): Parse the null-excluding part. True indicates
@@ -1208,7 +1221,6 @@ begin
 
    if Configuration_Pragmas then
       declare
-         Ecount  : constant Int     := Serious_Errors_Detected;
          Pragmas : constant List_Id := Empty_List;
          P_Node  : Node_Id;
 
@@ -1224,20 +1236,29 @@ begin
             else
                P_Node := P_Pragma;
 
-               if Serious_Errors_Detected > Ecount then
-                  return Error_List;
-               end if;
+               if Nkind (P_Node) = N_Pragma then
 
-               if Chars (P_Node) > Last_Configuration_Pragma_Name
-                 and then Chars (P_Node) /= Name_Source_Reference
-               then
-                  Error_Msg_SC
-                    ("only configuration pragmas allowed " &
-                     "in configuration file");
-                  return Error_List;
-               end if;
+                  --  Give error if bad pragma
 
-               Append (P_Node, Pragmas);
+                  if Chars (P_Node) > Last_Configuration_Pragma_Name
+                    and then Chars (P_Node) /= Name_Source_Reference
+                  then
+                     if Is_Pragma_Name (Chars (P_Node)) then
+                        Error_Msg_N
+                          ("only configuration pragmas allowed " &
+                           "in configuration file", P_Node);
+                     else
+                        Error_Msg_N
+                          ("unrecognized pragma in configuration file",
+                           P_Node);
+                     end if;
+
+                  --  Pragma is OK config pragma, so collect it
+
+                  else
+                     Append (P_Node, Pragmas);
+                  end if;
+               end if;
             end if;
          end loop;
       end;
@@ -1299,9 +1320,9 @@ begin
                end if;
             end;
 
-            --  Here if we are not skipping a file in multiple unit per file
-            --  mode. Parse the unit that we are interested in. Note that in
-            --  check syntax mode we are interested in all units in the file.
+         --  Here if we are not skipping a file in multiple unit per file
+         --  mode. Parse the unit that we are interested in. Note that in
+         --  check syntax mode we are interested in all units in the file.
 
          else
             declare
@@ -1336,25 +1357,38 @@ begin
 
                      Name := Uname (Uname'First .. Uname'Last - 2);
 
-                     if (Name = "ada"                    or else
-                         Name = "calendar"               or else
-                         Name = "interfaces"             or else
-                         Name = "system"                 or else
-                         Name = "machine_code"           or else
-                         Name = "unchecked_conversion"   or else
-                         Name = "unchecked_deallocation"
-                           or else (Name'Length > 4
-                                     and then
-                                       Name (Name'First .. Name'First + 3) =
-                                                                 "ada.")
-                           or else (Name'Length > 11
-                                     and then
-                                       Name (Name'First .. Name'First + 10) =
-                                                                 "interfaces.")
-                           or else (Name'Length > 7
-                                     and then
-                                       Name (Name'First .. Name'First + 6) =
-                                                                 "system."))
+                     if Name = "ada"                    or else
+                        Name = "calendar"               or else
+                        Name = "interfaces"             or else
+                        Name = "system"                 or else
+                        Name = "machine_code"           or else
+                        Name = "unchecked_conversion"   or else
+                        Name = "unchecked_deallocation"
+                     then
+                        Error_Msg
+                          ("language defined units may not be recompiled",
+                           Sloc (Unit (Comp_Unit_Node)));
+
+                     elsif Name'Length > 4
+                       and then
+                         Name (Name'First .. Name'First + 3) = "ada."
+                     then
+                        Error_Msg
+                          ("descendents of package Ada " &
+                             "may not be compiled",
+                           Sloc (Unit (Comp_Unit_Node)));
+
+                     elsif Name'Length > 11
+                       and then
+                         Name (Name'First .. Name'First + 10) = "interfaces."
+                     then
+                        Error_Msg
+                          ("descendents of package Interfaces " &
+                             "may not be compiled",
+                           Sloc (Unit (Comp_Unit_Node)));
+
+                     elsif Name'Length > 7
+                       and then Name (Name'First .. Name'First + 6) = "system."
                        and then Name /= "system.rpc"
                        and then
                          (Name'Length < 11
@@ -1362,7 +1396,8 @@ begin
                                                                  "system.rpc.")
                      then
                         Error_Msg
-                          ("language defined units may not be recompiled",
+                          ("descendents of package System " &
+                             "may not be compiled",
                            Sloc (Unit (Comp_Unit_Node)));
                      end if;
                   end;

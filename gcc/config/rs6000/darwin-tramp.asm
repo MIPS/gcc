@@ -1,6 +1,6 @@
 /*  Special support for trampolines
  *
- *   Copyright (C) 1996, 1997, 2000, 2004 Free Software Foundation, Inc.
+ *   Copyright (C) 1996, 1997, 2000, 2004, 2005 Free Software Foundation, Inc.
  *   Written By Michael Meissner
  * 
  * This file is free software; you can redistribute it and/or modify it
@@ -23,8 +23,8 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; see the file COPYING.  If not, write to
- * the Free Software Foundation, 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  * 
  *  As a special exception, if you link this library with files
  *  compiled with GCC to produce an executable, this does not cause the
@@ -33,29 +33,7 @@
  *  executable file might be covered by the GNU General Public License.
  */ 
 
-/* Some 32/64 macros, donated from /usr/include/architecture/ppc . */
-
-#if defined(__ppc64__)
-#define MODE_CHOICE(x, y) y
-#else
-#define MODE_CHOICE(x, y) x
-#endif
-
-#define cmpg    MODE_CHOICE(cmpw, cmpd)
-#define lg      MODE_CHOICE(lwz, ld)
-#define stg     MODE_CHOICE(stw, std)
-#define lgx     MODE_CHOICE(lwzx, ldx)
-#define stgx    MODE_CHOICE(stwx, stdx)
-#define lgu     MODE_CHOICE(lwzu, ldu)
-#define stgu    MODE_CHOICE(stwu, stdu)
-#define lgux    MODE_CHOICE(lwzux, ldux)
-#define stgux   MODE_CHOICE(stwux, stdux)
-#define lgwa    MODE_CHOICE(lwz, lwa)
-
-#define g_long  MODE_CHOICE(long, quad)         /* usage is ".g_long" */
-
-#define GPR_BYTES       MODE_CHOICE(4,8)        /* size of a GPR in bytes */
-#define LOG2_GPR_BYTES  MODE_CHOICE(2,3)        /* log2(GPR_BYTES) */
+#include "darwin-asm.h"
 
 /* Set up trampolines.  */
 
@@ -90,11 +68,11 @@ LCF0:
         mflr	r11
         addis	r7,r11,ha16(LTRAMP-LCF0)
 	lg	r7,lo16(LTRAMP-LCF0)(r7)
-	subi	r7,r7,GPR_BYTES
+	subi	r7,r7,4
 	li	r8,trampoline_size	/* verify trampoline big enough */
 	cmpg	cr1,r8,r4
 	srwi	r4,r4,2			/* # words to move (insns always 4-byte) */
-	addi	r9,r3,-GPR_BYTES	/* adjust pointer for lgu */
+	addi	r9,r3,-4	/* adjust pointer for lgu */
 	mtctr	r4
 	blt	cr1,Labort
 
@@ -102,8 +80,8 @@ LCF0:
 
 	/* Copy the instructions to the stack */
 Lmove:
-	lgu	r10,GPR_BYTES(r7)
-	stgu	r10,GPR_BYTES(r9)
+	lwzu	r10,4(r7)
+	stwu	r10,4(r9)
 	bdnz	Lmove
 
 	/* Store correct function and static chain */

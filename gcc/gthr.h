@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -29,7 +29,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_GTHR_H
 #define GCC_GTHR_H
 
+#ifndef HIDE_EXPORTS
 #pragma GCC visibility push(default)
+#endif
 
 /* If this file is compiled with threads support, it must
        #define __GTHREADS 1
@@ -83,7 +85,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    number.  If the operation is not supported, -1 is returned.
 
    Currently supported threads packages are
-     POSIX threads with -D_PTHREADS
+     TPF threads with -D__tpf__
+     POSIX/Unix98 threads with -D_PTHREADS
+     POSIX/Unix95 threads with -D_PTHREADS95
      DCE threads with -D_DCE_THREADS
      Solaris/UI threads with -D_SOLARIS_THREADS
 */
@@ -93,6 +97,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gthr-tpf.h"
 #elif _PTHREADS
 #include "gthr-posix.h"
+#elif _PTHREADS95
+#include "gthr-posix95.h"
 #elif _DCE_THREADS
 #include "gthr-dce.h"
 #elif _SOLARIS_THREADS
@@ -112,6 +118,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gthr-single.h"
 #endif
 
+#ifndef HIDE_EXPORTS
 #pragma GCC visibility pop
+#endif
 
 #endif /* ! GCC_GTHR_H */

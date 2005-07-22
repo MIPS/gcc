@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -153,6 +153,16 @@ package body Types is
    end Get_Hex_String;
 
    ------------------------
+   -- Get_Wide_Character --
+   ------------------------
+
+   function Get_Wide_Character (C : Char_Code) return Wide_Character is
+   begin
+      pragma Assert (C <= 65535);
+      return Wide_Character'Val (C);
+   end Get_Wide_Character;
+
+   ------------------------
    -- In_Character_Range --
    ------------------------
 
@@ -160,6 +170,15 @@ package body Types is
    begin
       return (C <= 255);
    end In_Character_Range;
+
+   -----------------------------
+   -- In_Wide_Character_Range --
+   -----------------------------
+
+   function In_Wide_Character_Range (C : Char_Code) return Boolean is
+   begin
+      return (C <= 65535);
+   end In_Wide_Character_Range;
 
    ---------------------
    -- Make_Time_Stamp --

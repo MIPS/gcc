@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This pass implements list scheduling within basic blocks.  It is
    run twice: (1) after flow analysis, but before register allocation,
@@ -53,7 +53,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -66,6 +65,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "sched-int.h"
 #include "target.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* Define when we want to do count REG_DEAD notes before and after scheduling
    for sanity checking.  We can't do that when conditional execution is used,
@@ -292,7 +293,6 @@ is_cfg_nonregular (void)
 {
   basic_block b;
   rtx insn;
-  RTX_CODE code;
 
   /* If we have a label that could be the target of a nonlocal goto, then
      the cfg is not well structured.  */
@@ -303,11 +303,6 @@ is_cfg_nonregular (void)
   if (forced_labels)
     return 1;
 
-  /* If this function has a computed jump, then we consider the cfg
-     not well structured.  */
-  if (current_function_has_computed_jump)
-    return 1;
-
   /* If we have exception handlers, then we consider the cfg not well
      structured.  ?!?  We should be able to handle this now that flow.c
      computes an accurate cfg for EH.  */
@@ -316,24 +311,23 @@ is_cfg_nonregular (void)
 
   /* If we have non-jumping insns which refer to labels, then we consider
      the cfg not well structured.  */
-  /* Check for labels referred to other thn by jumps.  */
   FOR_EACH_BB (b)
-    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
+    FOR_BB_INSNS (b, insn)
       {
-	code = GET_CODE (insn);
-	if (INSN_P (insn) && code != JUMP_INSN)
+	/* Check for labels referred by non-jump insns.  */
+	if (NONJUMP_INSN_P (insn) || CALL_P (insn))
 	  {
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
-
 	    if (note
 		&& ! (JUMP_P (NEXT_INSN (insn))
 		      && find_reg_note (NEXT_INSN (insn), REG_LABEL,
 					XEXP (note, 0))))
 	      return 1;
 	  }
-
-	if (insn == BB_END (b))
-	  break;
+	/* If this function has a computed jump, then we consider the cfg
+	   not well structured.  */
+	else if (JUMP_P (insn) && computed_jump_p (insn))
+	  return 1;
       }
 
   /* Unreachable loops with more than one basic block are detected
@@ -345,8 +339,8 @@ is_cfg_nonregular (void)
   FOR_EACH_BB (b)
     {
       if (EDGE_COUNT (b->preds) == 0
-	  || (EDGE_PRED (b, 0)->src == b
-	      && EDGE_COUNT (b->preds) == 1))
+	  || (single_pred_p (b)
+	      && single_pred (b) == b))
 	return 1;
     }
 
@@ -359,7 +353,8 @@ is_cfg_nonregular (void)
 static void
 extract_edgelst (sbitmap set, edgelst *el)
 {
-  int i;
+  unsigned int i;
+  sbitmap_iterator sbi;
 
   /* edgelst table space is reused in each call to extract_edgelst.  */
   edgelst_last = 0;
@@ -368,11 +363,11 @@ extract_edgelst (sbitmap set, edgelst *el)
   el->nr_members = 0;
 
   /* Iterate over each word in the bitset.  */
-  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i,
-  {
-    edgelst_table[edgelst_last++] = rgn_edges[i];
-    el->nr_members++;
-  });
+  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i, sbi)
+    {
+      edgelst_table[edgelst_last++] = rgn_edges[i];
+      el->nr_members++;
+    }
 }
 
 /* Functions for the construction of regions.  */
@@ -545,7 +540,7 @@ find_rgns (void)
 
   /* DFS traversal to find inner loops in the cfg.  */
 
-  current_edge = ei_start (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->succs);
+  current_edge = ei_start (single_succ (ENTRY_BLOCK_PTR)->succs);
   sp = -1;
 
   while (1)
@@ -735,8 +730,8 @@ find_rgns (void)
 		  FOR_EACH_BB (jbb)
 		    /* Leaf nodes have only a single successor which must
 		       be EXIT_BLOCK.  */
-		    if (EDGE_COUNT (jbb->succs) == 1
-			&& EDGE_SUCC (jbb, 0)->dest == EXIT_BLOCK_PTR)
+		    if (single_succ_p (jbb)
+			&& single_succ (jbb) == EXIT_BLOCK_PTR)
 		      {
 			queue[++tail] = jbb->index;
 			SET_BIT (in_queue, jbb->index);
@@ -998,6 +993,7 @@ compute_trg_info (int trg)
   edgelst el;
   int i, j, k, update_idx;
   basic_block block;
+  sbitmap visited;
   edge_iterator ei;
   edge e;
 
@@ -1006,6 +1002,8 @@ compute_trg_info (int trg)
   sp->is_valid = 1;
   sp->is_speculative = 0;
   sp->src_prob = 100;
+
+  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
 
   for (i = trg + 1; i < current_nr_blocks; i++)
     {
@@ -1044,12 +1042,14 @@ compute_trg_info (int trg)
 	     overrunning the end of the bblst_table.  */
 
 	  update_idx = 0;
+	  sbitmap_zero (visited);
 	  for (j = 0; j < el.nr_members; j++)
 	    {
 	      block = el.first_member[j]->src;
 	      FOR_EACH_EDGE (e, ei, block->succs)
 		{
-		  if (!(e->dest->flags & BB_VISITED))
+		  if (!TEST_BIT (visited,
+				 e->dest->index - (INVALID_BLOCK + 1)))
 		    {
 		      for (k = 0; k < el.nr_members; k++)
 			if (e == el.first_member[k])
@@ -1058,16 +1058,14 @@ compute_trg_info (int trg)
 		      if (k >= el.nr_members)
 			{
 			  bblst_table[bblst_last++] = e->dest;
-			  e->dest->flags |= BB_VISITED;
+			  SET_BIT (visited,
+				   e->dest->index - (INVALID_BLOCK + 1));
 			  update_idx++;
 			}
 		    }
 		}
 	    }
 	  sp->update_bbs.nr_members = update_idx;
-
-	  FOR_ALL_BB (block)
-	    block->flags &= ~BB_VISITED;
 
 	  /* Make sure we didn't overrun the end of bblst_table.  */
 	  gcc_assert (bblst_last <= bblst_size);
@@ -1080,6 +1078,8 @@ compute_trg_info (int trg)
 	  sp->src_prob = 0;
 	}
     }
+
+  sbitmap_free (visited);
 }
 
 /* Print candidates info, for debugging purposes.  Callable from debugger.  */
@@ -1147,8 +1147,8 @@ check_live_1 (int src, rtx x)
   if (reg == 0)
     return 1;
 
-  while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == ZERO_EXTRACT
-	 || GET_CODE (reg) == SIGN_EXTRACT
+  while (GET_CODE (reg) == SUBREG
+	 || GET_CODE (reg) == ZERO_EXTRACT
 	 || GET_CODE (reg) == STRICT_LOW_PART)
     reg = XEXP (reg, 0);
 
@@ -1186,7 +1186,8 @@ check_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
 
-		  if (REGNO_REG_SET_P (b->global_live_at_start, regno + j))
+		  if (REGNO_REG_SET_P (b->il.rtl->global_live_at_start,
+				       regno + j))
 		    {
 		      return 0;
 		    }
@@ -1200,7 +1201,7 @@ check_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
 
-	      if (REGNO_REG_SET_P (b->global_live_at_start, regno))
+	      if (REGNO_REG_SET_P (b->il.rtl->global_live_at_start, regno))
 		{
 		  return 0;
 		}
@@ -1224,8 +1225,8 @@ update_live_1 (int src, rtx x)
   if (reg == 0)
     return;
 
-  while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == ZERO_EXTRACT
-	 || GET_CODE (reg) == SIGN_EXTRACT
+  while (GET_CODE (reg) == SUBREG
+	 || GET_CODE (reg) == ZERO_EXTRACT
 	 || GET_CODE (reg) == STRICT_LOW_PART)
     reg = XEXP (reg, 0);
 
@@ -1259,7 +1260,8 @@ update_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-		  SET_REGNO_REG_SET (b->global_live_at_start, regno + j);
+		  SET_REGNO_REG_SET (b->il.rtl->global_live_at_start,
+				     regno + j);
 		}
 	    }
 	}
@@ -1269,7 +1271,7 @@ update_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-	      SET_REGNO_REG_SET (b->global_live_at_start, regno);
+	      SET_REGNO_REG_SET (b->il.rtl->global_live_at_start, regno);
 	    }
 	}
     }
@@ -1326,7 +1328,7 @@ update_live (rtx insn, int src)
   (bb_from == bb_to							\
    || IS_RGN_ENTRY (bb_from)						\
    || (TEST_BIT (ancestor_edges[bb_to],					\
-	 EDGE_TO_BIT (EDGE_PRED (BASIC_BLOCK (BB_TO_BLOCK (bb_from)), 0)))))
+	 EDGE_TO_BIT (single_pred_edge (BASIC_BLOCK (BB_TO_BLOCK (bb_from)))))))
 
 /* Turns on the fed_by_spec_load flag for insns fed by load_insn.  */
 
@@ -2325,11 +2327,7 @@ schedule_region (int rgn)
 
 	  for (note = REG_NOTES (head); note; note = XEXP (note, 1))
 	    if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
-	      {
-		remove_note (head, note);
-		note = XEXP (note, 1);
-		remove_note (head, note);
-	      }
+	      remove_note (head, note);
 	}
 
       /* Remove remaining note insns from the block, save them in
@@ -2592,3 +2590,95 @@ schedule_insns (FILE *dump_file)
   sbitmap_free (large_region_blocks);
 }
 #endif
+
+static bool
+gate_handle_sched (void)
+{
+#ifdef INSN_SCHEDULING
+  return flag_schedule_insns;
+#else
+  return 0;
+#endif
+}
+
+/* Run instruction scheduler.  */
+static void
+rest_of_handle_sched (void)
+{
+#ifdef INSN_SCHEDULING
+  /* Do control and data sched analysis,
+     and write some of the results to dump file.  */
+
+  schedule_insns (dump_file);
+#endif
+}
+
+static bool
+gate_handle_sched2 (void)
+{
+#ifdef INSN_SCHEDULING
+  return optimize > 0 && flag_schedule_insns_after_reload;
+#else
+  return 0;
+#endif
+}
+
+/* Run second scheduling pass after reload.  */
+static void
+rest_of_handle_sched2 (void)
+{
+#ifdef INSN_SCHEDULING
+  /* Do control and data sched analysis again,
+     and write some more of the results to dump file.  */
+
+  split_all_insns (1);
+
+  if (flag_sched2_use_superblocks || flag_sched2_use_traces)
+    {
+      schedule_ebbs (dump_file);
+      /* No liveness updating code yet, but it should be easy to do.
+         reg-stack recomputes the liveness when needed for now.  */
+      count_or_remove_death_notes (NULL, 1);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+    }
+  else
+    schedule_insns (dump_file);
+#endif
+}
+
+struct tree_opt_pass pass_sched =
+{
+  "sched1",                             /* name */
+  gate_handle_sched,                    /* gate */
+  rest_of_handle_sched,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SCHED,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'S'                                   /* letter */
+};
+
+struct tree_opt_pass pass_sched2 =
+{
+  "sched2",                             /* name */
+  gate_handle_sched2,                   /* gate */
+  rest_of_handle_sched2,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SCHED2,                            /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'R'                                   /* letter */
+};
+

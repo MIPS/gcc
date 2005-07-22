@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -100,12 +100,13 @@ package Uintp is
    --  gigi processing.
 
    procedure Tree_Read;
-   --  Initializes internal tables from current tree file using Tree_Read.
-   --  Note that Initialize should not be called if Tree_Read is used.
-   --  Tree_Read includes all necessary initialization.
+   --  Initializes internal tables from current tree file using the relevant
+   --  Table.Tree_Read routines. Note that Initialize should not be called if
+   --  Tree_Read is used. Tree_Read includes all necessary initialization.
 
    procedure Tree_Write;
-   --  Writes out internal tables to current tree file using Tree_Write.
+   --  Writes out internal tables to current tree file using the relevant
+   --  Table.Tree_Write routines.
 
    function UI_Abs (Right : Uint) return Uint;
    pragma Inline (UI_Abs);
@@ -221,14 +222,21 @@ package Uintp is
    --  Returns difference of two integer values
 
    function UI_From_Dint (Input : Dint) return Uint;
-   --  Converts Dint value to universal integer form.
+   --  Converts Dint value to universal integer form
 
    function UI_From_Int (Input : Int) return Uint;
-   --  Converts Int value to universal integer form.
+   --  Converts Int value to universal integer form
+
+   function UI_From_CC (Input : Char_Code) return Uint;
+   --  Converts Char_Code value to universal integer form
 
    function UI_To_Int (Input : Uint) return Int;
-   --  Converts universal integer value to Int. Fatal error
-   --  if value is not in appropriate range.
+   --  Converts universal integer value to Int. Fatal error if value is not in
+   --  appropriate range.
+
+   function UI_To_CC (Input : Uint) return Char_Code;
+   --  Converts universal integer value to Char_Code. Fatal error if value is
+   --  not in Char_Code range.
 
    function Num_Bits (Input : Uint) return Nat;
    --  Approximate number of binary bits in given universal integer.

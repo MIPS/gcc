@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* GCC always defines __STDC__.  HP C++ compilers don't define it.  This
    causes trouble when sys/stdsyms.h is included.  As a work around,
@@ -77,12 +77,6 @@ Boston, MA 02111-1307, USA.  */
 	  }								\
     }									\
   while (0)
-
-#undef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS                                               \
-  { "unix=",                    &pa_unix_string,                        \
-    N_("Specify UNIX standard for predefines and linking.\n"            \
-       "Supported value is 93."), 0}
 
 #define CPP_SPEC "%{threads: -D_REENTRANT -D_DCE_THREADS}"
 
@@ -147,10 +141,3 @@ Boston, MA 02111-1307, USA.  */
    better than the assembler shipped with older versions of hpux.  */
 #undef NEW_HP_ASSEMBLER
 #define NEW_HP_ASSEMBLER 1
-
-/* CVS GAS as of 4/28/04 supports a comdat parameter for the .nsubspa
-   directive.  This provides one only linkage semantics even though we
-   don't have weak support.  */
-#undef SUPPORTS_ONE_ONLY
-#define SUPPORTS_ONE_ONLY (TARGET_GAS)
-#undef MAKE_DECL_ONE_ONLY

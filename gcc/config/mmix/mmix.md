@@ -1,5 +1,5 @@
 ;; GCC machine description for MMIX
-;; Copyright (C) 2000, 2001, 2002, 2003, 2004
+;; Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
 ;; Free Software Foundation, Inc.
 ;; Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
@@ -17,8 +17,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; The original PO technology requires these to be ordered by speed,
 ;; so that assigner will pick the fastest.
@@ -40,7 +40,11 @@
    (MMIX_rR_REGNUM 260)
    (MMIX_fp_rO_OFFSET -24)]
 )
+
+;; Operand and operator predicates.
 
+(include "predicates.md")
+
 ;; FIXME: Can we remove the reg-to-reg for smaller modes?  Shouldn't they
 ;; be synthesized ok?
 (define_insn "movqi"
@@ -758,7 +762,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   [(set (match_operand:DI 0 "register_operand" "=r,r,r,r")
 	(if_then_else:DI
 	 (match_operator 2 "mmix_foldable_comparison_operator"
-			 [(match_operand 3 "register_operand" "r,r,r,r")
+			 [(match_operand:DI 3 "register_operand" "r,r,r,r")
 			  (const_int 0)])
 	 (match_operand:DI 1 "mmix_reg_or_8bit_operand" "rI,0 ,rI,GM")
 	 (match_operand:DI 4 "mmix_reg_or_8bit_operand" "0 ,rI,GM,rI")))]
@@ -769,7 +773,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
    ZS%d2 %0,%3,%1
    ZS%D2 %0,%3,%4")
 
-(define_insn "*movdicc_real"
+(define_insn "*movdicc_real_reversible"
   [(set
     (match_operand:DI 0 "register_operand"	   "=r ,r ,r ,r")
     (if_then_else:DI
@@ -779,12 +783,27 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
       (const_int 0)])
      (match_operand:DI 1 "mmix_reg_or_8bit_operand" "rI,0 ,rI,GM")
      (match_operand:DI 4 "mmix_reg_or_8bit_operand" "0 ,rI,GM,rI")))]
-  ""
+  "REVERSIBLE_CC_MODE (GET_MODE (operands[3]))"
   "@
    CS%d2 %0,%3,%1
    CS%D2 %0,%3,%4
    ZS%d2 %0,%3,%1
    ZS%D2 %0,%3,%4")
+
+(define_insn "*movdicc_real_nonreversible"
+  [(set
+    (match_operand:DI 0 "register_operand"	   "=r ,r")
+    (if_then_else:DI
+     (match_operator
+      2 "mmix_comparison_operator"
+      [(match_operand 3 "mmix_reg_cc_operand"	    "r ,r")
+      (const_int 0)])
+     (match_operand:DI 1 "mmix_reg_or_8bit_operand" "rI,rI")
+     (match_operand:DI 4 "mmix_reg_or_0_operand" "0 ,GM")))]
+  "!REVERSIBLE_CC_MODE (GET_MODE (operands[3]))"
+  "@
+   CS%d2 %0,%3,%1
+   ZS%d2 %0,%3,%1")
 
 (define_insn "*movdfcc_real_foldable"
   [(set
@@ -792,7 +811,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
     (if_then_else:DF
      (match_operator
       2 "mmix_foldable_comparison_operator"
-      [(match_operand 3 "register_operand"	 "r  ,r  ,r  ,r")
+      [(match_operand:DI 3 "register_operand"	 "r  ,r  ,r  ,r")
       (const_int 0)])
      (match_operand:DF 1 "mmix_reg_or_0_operand" "rGM,0  ,rGM,GM")
      (match_operand:DF 4 "mmix_reg_or_0_operand" "0  ,rGM,GM ,rGM")))]
@@ -803,7 +822,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
    ZS%d2 %0,%3,%1
    ZS%D2 %0,%3,%4")
 
-(define_insn "*movdfcc_real"
+(define_insn "*movdfcc_real_reversible"
   [(set
     (match_operand:DF 0 "register_operand"	"=r  ,r  ,r  ,r")
     (if_then_else:DF
@@ -813,12 +832,27 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
       (const_int 0)])
      (match_operand:DF 1 "mmix_reg_or_0_operand" "rGM,0  ,rGM,GM")
      (match_operand:DF 4 "mmix_reg_or_0_operand" "0  ,rGM,GM ,rGM")))]
-  ""
+  "REVERSIBLE_CC_MODE (GET_MODE (operands[3]))"
   "@
    CS%d2 %0,%3,%1
    CS%D2 %0,%3,%4
    ZS%d2 %0,%3,%1
    ZS%D2 %0,%3,%4")
+
+(define_insn "*movdfcc_real_nonreversible"
+  [(set
+    (match_operand:DF 0 "register_operand"	"=r  ,r")
+    (if_then_else:DF
+     (match_operator
+      2 "mmix_comparison_operator"
+      [(match_operand 3 "mmix_reg_cc_operand"	 "r  ,r")
+      (const_int 0)])
+     (match_operand:DF 1 "mmix_reg_or_0_operand" "rGM,rGM")
+     (match_operand:DF 4 "mmix_reg_or_0_operand" "0  ,GM")))]
+  "!REVERSIBLE_CC_MODE (GET_MODE (operands[3]))"
+  "@
+   CS%d2 %0,%3,%1
+   ZS%d2 %0,%3,%1")
 
 ;; FIXME: scc patterns will probably help, I just skip them
 ;; right now.  Revisit.
@@ -998,7 +1032,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "mmix_foldable_comparison_operator"
-			 [(match_operand 2 "register_operand" "r")
+			 [(match_operand:DI 2 "register_operand" "r")
 			  (const_int 0)])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
@@ -1020,7 +1054,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "mmix_foldable_comparison_operator"
-			 [(match_operand 2 "register_operand" "r")
+			 [(match_operand:DI 2 "register_operand" "r")
 			  (const_int 0)])
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
@@ -1048,6 +1082,16 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   ""
   "
 {
+  /* The caller checks that the operand is generally valid as an
+     address, but at -O0 nothing makes sure that it's also a valid
+     call address for a *call*; a mmix_symbolic_or_address_operand.
+     Force into a register if it isn't.  */
+  if (!mmix_symbolic_or_address_operand (XEXP (operands[0], 0),
+					 GET_MODE (XEXP (operands[0], 0))))
+    operands[0]
+      = replace_equiv_address (operands[0],
+			       force_reg (Pmode, XEXP (operands[0], 0)));
+
   /* Since the epilogue 'uses' the return address, and it is clobbered
      in the call, and we set it back after every call (all but one setting
      will be optimized away), integrity is maintained.  */
@@ -1075,6 +1119,16 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   ""
   "
 {
+  /* The caller checks that the operand is generally valid as an
+     address, but at -O0 nothing makes sure that it's also a valid
+     call address for a *call*; a mmix_symbolic_or_address_operand.
+     Force into a register if it isn't.  */
+  if (!mmix_symbolic_or_address_operand (XEXP (operands[1], 0),
+					 GET_MODE (XEXP (operands[1], 0))))
+    operands[1]
+      = replace_equiv_address (operands[1],
+			       force_reg (Pmode, XEXP (operands[1], 0)));
+
   /* Since the epilogue 'uses' the return address, and it is clobbered
      in the call, and we set it back after every call (all but one setting
      will be optimized away), integrity is maintained.  */
@@ -1186,7 +1240,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 ;; the frame-pointer would be located).
 ;; In the nonlocal goto receiver, we unwind the register stack by a series
 ;; of "pop 0,0" until rO equals the saved value.  (If it goes lower, we
-;; should call abort.)
+;; should die with a trap.)
 (define_expand "nonlocal_goto_receiver"
   [(parallel [(unspec_volatile [(const_int 0)] 1)
 	      (clobber (scratch:DI))

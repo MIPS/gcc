@@ -1,0 +1,50 @@
+2005-07-11  Gabor Loki  <loki@gcc.gnu.org>
+
+	Merge 2005-07-11
+	Add sequence abstraction for tree
+	* BASE-VER : Add cfo-branch suffix for version info.
+	* cfgbuild.c (make_edges) : Add extra checks for computed gotos and
+	labels with side effect.
+	* ChangeLog : Move CFO logs into ChangeLog.cfo file.
+	* ChangeLog.cfo : New file. Add CFO logs.
+	* common.opt : New flag: ftree-seqabstr.
+	* fact-common.c, fact-common.h: Update for merge.
+	* Makefile.in : Update for merge. Added rtl-factoring.o, tree-seqabstr.o
+	Remove rtl-lfact.o, seqabstr.o.
+	* passes.c (init_optimization_passes) : Add ftree-seqabstr, and 
+	update rtl-lfact, rtl-seqabstr and tree-lfact for merge.
+	* rtl-lfact.c, seqabstr.c: Remove. Merge into rtl-factoring.c.
+	* rtl-factoring.c : New file. Merge rtl-lfact.c and seqabstr.c.
+	* tree-cfg.c (cleanup_dead_labels) : Do not remove labels with side 
+	effect.
+	* tree-pass.c : Update for merge. Add new objects: pass_tree_seqabstr.
+	* tree-ssa-lfact.c : Update for merge. Added sinking part of algorithms.
+	* tree-seqabstr.c: New file. Tree version of the sequence abstraction.
+
+2005-01-17  Gabor Loki  <loki@gcc.gnu.org>
+
+	* fact-common.c (collect_full_sibling) : Fix the sibling counting.
+
+2004-11-25  Gabor Loki  <loki@gcc.gnu.org>
+
+	* Makefile.in (seqabstr.o): Depend on $(PARAMS_H) $(EXPR_H) $(TM_P_H).
+	* tree-dump.c,tree.h,passes.c(rest_of_factoring): Dump local factoring.
+	* seqabstr.c : Fix indirect jumps, label storing and register 
+	allocation.
+
+2004-11-15  Gabor Loki  <loki@gcc.gnu.org>
+
+	Open cfo-branch
+	* Makefile.in: Added fact-common.o, rtl-fact.o, tree-ssa-lfact.o,
+	seqabstr.o
+	* fact-common.c, fact-common.h: New files. Common interface.
+	* rtl-lfact.c, tree-ssa-lfact.c : New files. Local factoring.
+	* seqabstr.c: New file. Sequence abstraction.
+	* cfgcleanup.c (outgoing_edges_match): Extra checks.
+	* passes.c (rest_of_handle_seqabstr, rest_of_factoring): New functions.
+	(rest_of_compilation): New passes.
+	* common.opt, tree.h: New options.
+	* timevar.def: Same.
+	* tree-dump.c: Same.
+	* tree-optimize.c, tree-pass.h: New passes.
+	* opts.c (decode_options): Set factoring flags as default for -Os.

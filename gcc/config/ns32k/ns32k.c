@@ -1,5 +1,6 @@
 /* Subroutines for assembler code output on the NS32000.
-   Copyright (C) 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004
+   Copyright (C) 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -64,6 +65,7 @@ const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
 
 static const char *const ns32k_out_reg_names[] = OUTPUT_REGISTER_NAMES;
 
+static bool ns32k_handle_option (size_t, const char *, int);
 static rtx gen_indexed_expr (rtx, rtx, rtx);
 static const char *singlemove_string (rtx *);
 static void move_tail (rtx[], int, int);
@@ -74,6 +76,8 @@ static void ns32k_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static bool ns32k_rtx_costs (rtx, int, int, int *);
 static int ns32k_address_cost (rtx);
 static rtx ns32k_struct_value_rtx (tree, int);
+static int ns32k_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				    tree, bool);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -92,6 +96,11 @@ static rtx ns32k_struct_value_rtx (tree, int);
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ns32k_output_function_epilogue
 
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION ns32k_handle_option
+
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS ns32k_rtx_costs
 #undef TARGET_ADDRESS_COST
@@ -100,10 +109,42 @@ static rtx ns32k_struct_value_rtx (tree, int);
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX ns32k_struct_value_rtx
 
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES ns32k_arg_partial_bytes
+
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
+
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+ns32k_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED,
+		     int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_m32081:
+      target_flags &= ~MASK_32381;
+      return true;
+
+    case OPT_msoft_float:
+      target_flags &= ~(MASK_32081 | MASK_32381);
+      return true;
+
+    case OPT_m32332:
+      target_flags &= ~MASK_32532;
+      return true;
+
+    case OPT_m32032:
+      target_flags &= ~(MASK_32332 | MASK_32532);
+      return true;
+
+    default:
+      return true;
+    }
+}
 
 /* Generate the assembly code for function entry.  FILE is a stdio
    stream to output the code to.  SIZE is an int: how many units of
@@ -1065,7 +1106,7 @@ ns32k_handle_fntype_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1638,4 +1679,28 @@ ns32k_notice_update_cc (rtx exp, rtx insn ATTRIBUTE_UNUSED)
       && cc_status.value2
       && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
     abort ();
+}
+
+/* Implement TARGET_ARG_PARTIAL_BYTES.  */
+
+static int
+ns32k_arg_partial_bytes (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
+			 tree type, bool named ATTRIBUTE_UNUSED)
+{
+  int cum = *pcum;
+
+  if (TARGET_REGPARM && cum < 8)
+    {
+      HOST_WIDE_INT size;
+
+      if (mode == BLKmode)
+	size = int_size_in_bytes (type);
+      else
+	size = GET_MODE_SIZE (mode);
+
+      if (8 < cum + size)
+	return 8 - cum;
+    }
+
+  return 0;
 }

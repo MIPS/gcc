@@ -1,6 +1,6 @@
 /* Generate code from machine description to recognize rtl as insns.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 
 /* This program is used to produce insn-recog.c, which contains a
@@ -226,6 +226,9 @@ static int error_count;
 #define TRISTATE_NOT(a)				\
   ((a) == I ? I : !(a))
 
+/* 0 means no warning about that code yet, 1 means warned.  */
+static char did_you_mean_codes[NUM_RTX_CODE];
+
 /* Recursively calculate the set of rtx codes accepted by the
    predicate expression EXP, writing the result to CODES.  */
 static void
@@ -285,14 +288,31 @@ compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
 	while ((code = scan_comma_elt (&next_code)) != 0)
 	  {
 	    size_t n = next_code - code;
+	    int found_it = 0;
 	    
 	    for (i = 0; i < NUM_RTX_CODE; i++)
 	      if (!strncmp (code, GET_RTX_NAME (i), n)
 		  && GET_RTX_NAME (i)[n] == '\0')
 		{
 		  codes[i] = Y;
+		  found_it = 1;
 		  break;
 		}
+	    if (!found_it)
+	      {
+		message_with_line (pattern_lineno, "match_code \"%.*s\" matches nothing",
+				   (int) n, code);
+		error_count ++;
+		for (i = 0; i < NUM_RTX_CODE; i++)
+		  if (!strncasecmp (code, GET_RTX_NAME (i), n)
+		      && GET_RTX_NAME (i)[n] == '\0'
+		      && !did_you_mean_codes[i])
+		    {
+		      did_you_mean_codes[i] = 1;
+		      message_with_line (pattern_lineno, "(did you mean \"%s\"?)", GET_RTX_NAME (i));
+		    }
+	      }
+
 	  }
       }
       break;
@@ -2093,7 +2113,7 @@ write_cond (struct decision_test *p, int depth,
       break;
 
     case DT_c_test:
-      printf ("(%s)", p->u.c_test);
+      print_c_condition (p->u.c_test);
       break;
 
     case DT_accept_insn:

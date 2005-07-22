@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 # GCC testsuite that uses the `dg.exp' driver.
 
@@ -23,7 +23,8 @@ load_lib g++-dg.exp
 # isn't, everything will fail with the "not supported" message.
 
 set comp_output [g++_target_compile \
-		"$srcdir/$subdir/trivial.C" "trivial.S" assembly ""]
+		"$srcdir/$subdir/trivial.C" "trivialx.S" assembly ""]
+remove-build-file "trivialx.S"
 if { [string match "*not supported*" $comp_output] } {
   return 0
 }

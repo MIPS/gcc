@@ -1,5 +1,5 @@
 /* Pragma related interfaces.
-   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_C_PRAGMA_H
 #define GCC_C_PRAGMA_H
@@ -53,16 +53,19 @@ extern struct cpp_reader* parse_in;
 
 extern void init_pragma (void);
 
-/* Front-end wrapper for pragma registration to avoid dragging
+/* Front-end wrappers for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
 extern void c_register_pragma (const char *, const char *,
 			       void (*) (struct cpp_reader *));
+extern void c_register_pragma_with_expansion (const char *, const char *,
+					      void (*) (struct cpp_reader *));
 extern void maybe_apply_pragma_weak (tree);
+extern void maybe_apply_pending_pragma_weaks (void);
 extern tree maybe_apply_renaming_pragma (tree, tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
 extern enum cpp_ttype c_lex (tree *);
-extern enum cpp_ttype c_lex_with_flags (tree *, unsigned char *);
+extern enum cpp_ttype c_lex_with_flags (tree *, location_t *, unsigned char *);
 
 /* If 1, then lex strings into the execution character set.  
    If 0, lex strings into the host character set.

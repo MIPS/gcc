@@ -1,5 +1,5 @@
 /* Dependency analysis
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* dependency.c -- Expression dependency analysis code.  */
 /* There's probably quite a bit of duplication in this file.  We currently
@@ -277,11 +277,11 @@ gfc_check_dependency (gfc_expr * expr1, gfc_expr * expr2, gfc_expr ** vars,
   switch (expr2->expr_type)
     {
     case EXPR_OP:
-      n = gfc_check_dependency (expr1, expr2->op1, vars, nvars);
+      n = gfc_check_dependency (expr1, expr2->value.op.op1, vars, nvars);
       if (n)
 	return n;
-      if (expr2->op2)
-	return gfc_check_dependency (expr1, expr2->op2, vars, nvars);
+      if (expr2->value.op.op2)
+	return gfc_check_dependency (expr1, expr2->value.op.op2, vars, nvars);
       return 0;
 
     case EXPR_VARIABLE:
@@ -382,7 +382,7 @@ get_deps (mpz_t x1, mpz_t x2, mpz_t y)
    (l_start:l_end:l_stride) -> (0:no_of_elements)
    (r_start:r_end:r_stride) -> (X1:X2)
    Where r_end is implicit as both sections must have the same number of
-   elelments.
+   elements.
    Returns 0 on success, 1 of the transformation failed.  */
 /* TODO: Should this be (0:no_of_elements-1) */
 

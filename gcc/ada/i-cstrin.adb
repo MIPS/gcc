@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -250,7 +250,13 @@ package body Interfaces.C.Strings is
       Check  : Boolean := True)
    is
    begin
-      Update (Item, Offset, To_C (Str), Check);
+      --  Note: in RM 95, the Append_Nul => False parameter is omitted. But
+      --  this has the unintended consequence of truncating the string after
+      --  an update. As discussed in Ada 2005 AI-242, this was unintended,
+      --  and should be corrected. Since this is a clear error, it seems
+      --  appropriate to apply the correction in Ada 95 mode as well.
+
+      Update (Item, Offset, To_C (Str, Append_Nul => False), Check);
    end Update;
 
    -----------

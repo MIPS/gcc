@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2005 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -78,6 +78,8 @@ extern OS_Time __gnat_file_time_fd                  (int);
 extern void   __gnat_set_file_time_name		   (char *, time_t);
 extern void   __gnat_get_env_value_ptr             (char *, int *,
 						    char **);
+extern int    __gnat_dup			   (int);
+extern int    __gnat_dup2			   (int, int);
 extern int    __gnat_file_exists		   (char *);
 extern int    __gnat_is_regular_file               (char *);
 extern int    __gnat_is_absolute_path              (char *,int);
@@ -91,7 +93,6 @@ extern int    __gnat_is_symbolic_link		   (char *name);
 extern int    __gnat_portable_spawn                (char *[]);
 extern int    __gnat_portable_no_block_spawn       (char *[]);
 extern int    __gnat_portable_wait                 (int *);
-extern int    __gnat_waitpid			   (int);
 extern char  *__gnat_locate_exec                   (char *, char *);
 extern char  *__gnat_locate_exec_on_path	   (char *);
 extern char  *__gnat_locate_regular_file           (char *, char *);
@@ -147,6 +148,9 @@ extern void   __gnat_set_binary_mode		   (int);
 extern void   __gnat_set_text_mode		   (int);
 extern char  *__gnat_ttyname			   (int);
 extern int    __gnat_lseek			   (int, long, int);
+extern int    __gnat_set_close_on_exec		   (int, int);
+extern int    __gnat_dup			   (int);
+extern int    __gnat_dup2			   (int, int);
 
 #ifdef __MINGW32__
 extern void   __gnat_plist_init                    (void);
@@ -163,4 +167,7 @@ extern int get_gcc_version		     (void);
 /* This function offers a hook for libgnarl to set the
    locking subprograms for libgcc_eh. */
 extern void __gnatlib_install_locks	     (void (*) (void),
-					      void (*) (void));
+                                          void (*) (void));
+
+extern int __gnat_binder_supports_auto_init (void);
+extern int __gnat_sals_init_using_constructors (void);

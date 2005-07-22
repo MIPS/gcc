@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -685,7 +685,24 @@ package body Exp_Pakd is
       --  because the expression will not be further analyzed, and Gigi
       --  considers the two types equivalent in any case.
 
+      --  This is not strictly the case ??? If the reference is an actual
+      --  in a call, the expansion of the prefix is delayed, and must be
+      --  reanalyzed, see Reset_Packed_Prefix. On the other hand, if the
+      --  prefix is a simple array reference, reanalysis can produce spurious
+      --  type errors when the PAT type is replaced again with the original
+      --  type of the array. The following is correct and minimal, but the
+      --  handling of more complex packed expressions in actuals is confused.
+      --  It is likely that the problem only remains for actuals in calls.
+
       Set_Etype (Aexp, Packed_Array_Type (Act_ST));
+
+      if Is_Entity_Name (Aexp)
+        or else
+           (Nkind (Aexp) = N_Indexed_Component
+             and then Is_Entity_Name (Prefix (Aexp)))
+      then
+         Set_Analyzed (Aexp);
+      end if;
    end Convert_To_PAT_Type;
 
    ------------------------------
@@ -834,12 +851,15 @@ package body Exp_Pakd is
 
       --  If our immediate ancestor subtype is constrained, and it already
       --  has a packed array type, then just share the same type, since the
-      --  bounds must be the same.
+      --  bounds must be the same. If the ancestor is not an array type but
+      --  a private type, as can happen with multiple instantiations, create
+      --  a new packed type, to avoid privacy issues.
 
       if Ekind (Typ) = E_Array_Subtype then
          Ancest := Ancestor_Subtype (Typ);
 
          if Present (Ancest)
+           and then Is_Array_Type (Ancest)
            and then Is_Constrained (Ancest)
            and then Present (Packed_Array_Type (Ancest))
          then
@@ -1199,9 +1219,13 @@ package body Exp_Pakd is
 
          --  Currently the code in this unit requires that packed arrays
          --  represented by non-modular arrays of bytes be on a byte
-         --  boundary.
+         --  boundary for bit sizes handled by System.Pack_nn units.
+         --  That's because these units assume the array being accessed
+         --  starts on a byte boundary.
 
-         Set_Must_Be_On_Byte_Boundary (Typ);
+         if Get_Id (UI_To_Int (Csize)) /= RE_Null then
+            Set_Must_Be_On_Byte_Boundary (Typ);
+         end if;
       end if;
    end Create_Packed_Array_Type;
 
@@ -1330,7 +1354,7 @@ package body Exp_Pakd is
 
          --      the "or ..." is omitted if rhs is constant and all 0 bits
 
-         --      rhs is converted to the appropriate type.
+         --      rhs is converted to the appropriate type
 
          --      The result is converted back to the array type, since
          --      otherwise we lose knowledge of the packed nature.
@@ -1528,7 +1552,7 @@ package body Exp_Pakd is
 
          --    Set_nn (Arr'address, Subscr, Bits_nn!(Rhs))
 
-         --  where Subscr is the computed linear subscript.
+         --  where Subscr is the computed linear subscript
 
          declare
             Bits_nn : constant Entity_Id := RTE (Bits_Id (Csiz));
@@ -1539,7 +1563,7 @@ package body Exp_Pakd is
          begin
             if No (Bits_nn) then
 
-               --  Error, most likely High_Integrity_Mode restriction.
+               --  Error, most likely High_Integrity_Mode restriction
 
                return;
             end if;
@@ -1757,7 +1781,7 @@ package body Exp_Pakd is
       --  convert to the base type, since this would be unconstrained, and
       --  hence not have a corresponding packed array type set.
 
-      --  Note that both operands must be modular for this code to be used.
+      --  Note that both operands must be modular for this code to be used
 
       if Is_Modular_Integer_Type (PAT)
            and then
@@ -1899,7 +1923,7 @@ package body Exp_Pakd is
          return;
       end if;
 
-      --  Remaining processing is for the bit-packed case.
+      --  Remaining processing is for the bit-packed case
 
       Obj := Relocate_Node (Prefix (N));
       Convert_To_Actual_Subtype (Obj);
@@ -1950,7 +1974,7 @@ package body Exp_Pakd is
 
          --    Component_Type!(Get_nn (Arr'address, Subscr))
 
-         --  where Subscr is the computed linear subscript.
+         --  where Subscr is the computed linear subscript
 
          declare
             Get_nn : Entity_Id;

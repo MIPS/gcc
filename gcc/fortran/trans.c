@@ -1,5 +1,5 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -16,20 +16,18 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-gimple.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "defaults.h"
 #include "real.h"
-#include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-stmt.h"
@@ -154,7 +152,7 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 	      || AGGREGATE_TYPE_P (TREE_TYPE (lhs)));
 #endif
 
-  tmp = fold (build2_v (MODIFY_EXPR, lhs, rhs));
+  tmp = fold_build2 (MODIFY_EXPR, void_type_node, lhs, rhs);
   gfc_add_expr_to_block (pblock, tmp);
 }
 
@@ -316,7 +314,7 @@ gfc_build_array_ref (tree base, tree offset)
 }
 
 
-/* Given a funcion declaration FNDECL and an argument list ARGLIST,
+/* Given a function declaration FNDECL and an argument list ARGLIST,
    build a CALL_EXPR.  */
 
 tree
@@ -439,9 +437,9 @@ gfc_get_backend_locus (locus * loc)
 {
   loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
 #ifdef USE_MAPPED_LOCATION
-  loc->lb->location = input_location; // FIXME adjust??
+  loc->lb->location = input_location;
 #else
-  loc->lb->linenum = input_line - 1;
+  loc->lb->linenum = input_line;
 #endif
   loc->lb->file = gfc_current_backend_file;
 }

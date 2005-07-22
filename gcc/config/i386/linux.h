@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Output at beginning of assembler file.  */
 /* The .file command should always begin the output.  */
@@ -182,3 +182,11 @@ Boston, MA 02111-1307, USA.  */
 #define NEED_INDICATE_EXEC_STACK 1
 
 #define MD_UNWIND_SUPPORT "config/i386/linux-unwind.h"
+
+/* This macro may be overridden in i386/k*bsd-gnu.h.  */
+#define REG_NAME(reg) reg
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* i386 glibc provides __stack_chk_guard in %gs:0x14.  */
+#define TARGET_THREAD_SSP_OFFSET	0x14
+#endif

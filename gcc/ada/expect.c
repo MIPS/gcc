@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *           Copyright (C) 2001-2004 Ada Core Technologies, Inc.            *
+ *           Copyright (C) 2001-2005 Ada Core Technologies, Inc.            *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -43,6 +43,16 @@
 #include "system.h"
 #endif
 
+#include <sys/types.h>
+
+#ifdef __MINGW32__
+#if OLD_MINGW
+#include <sys/wait.h>
+#endif
+#else
+#include <sys/wait.h>
+#endif
+
 /* This file provides the low level functionalities needed to implement Expect
    capabilities in GNAT.Expect.
    Implementations for unix and windows systems is provided.
@@ -50,6 +60,11 @@
 
 #ifdef _AIX
 /* Work around the fact that gcc/cpp does not define "__unix__" under AiX.  */
+#define __unix__
+#endif
+
+#ifdef __APPLE__
+/* Work around the fact that gcc/cpp does not define "__unix__" on Darwin.  */
 #define __unix__
 #endif
 
@@ -67,8 +82,30 @@ __gnat_kill (int pid, int sig)
     {
       process_handle = OpenProcess (PROCESS_TERMINATE, FALSE, pid);
       if (process_handle != NULL)
-	TerminateProcess (process_handle, 0);
+	{
+	  TerminateProcess (process_handle, 0);
+	  CloseHandle (process_handle);
+	}
     }
+}
+
+int
+__gnat_waitpid (int pid)
+{
+  HANDLE process_handle;
+  DWORD exitcode = 1;
+  DWORD res;
+
+  process_handle = OpenProcess (PROCESS_QUERY_INFORMATION, FALSE, pid);
+
+  if (process_handle != NULL)
+    {
+      res = WaitForSingleObject (process_handle, INFINITE);
+      GetExitCodeProcess (process_handle, &exitcode);
+      CloseHandle (process_handle);
+    }
+
+  return (int) exitcode;
 }
 
 int
@@ -147,10 +184,21 @@ __gnat_expect_poll (int *fd, int num_fd, int timeout, int *is_set)
 #include <unixio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <descrip.h>
+#include <vms/descrip.h>
 #include <stdio.h>
-#include <stsdef.h>
-#include <iodef.h>
+#include <vms/stsdef.h>
+#include <vms/iodef.h>
+
+int
+__gnat_waitpid (int pid)
+{
+  int status = 0;
+
+  waitpid (pid, &status, 0);
+  status = WEXITSTATUS (status);
+
+  return status;
+}
 
 int
 __gnat_pipe (int *fd)
@@ -293,6 +341,17 @@ __gnat_kill (int pid, int sig)
 }
 
 int
+__gnat_waitpid (int pid)
+{
+  int status = 0;
+
+  waitpid (pid, &status, 0);
+  status = WEXITSTATUS (status);
+
+  return status;
+}
+
+int
 __gnat_pipe (int *fd)
 {
   return pipe (fd);
@@ -397,6 +456,12 @@ __gnat_expect_poll (int *fd, int num_fd, int timeout, int *is_set)
 void
 __gnat_kill (int pid, int sig)
 {
+}
+
+int
+__gnat_waitpid (int pid, int sig)
+{
+  return 0;
 }
 
 int

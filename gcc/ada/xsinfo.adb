@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,15 +16,15 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Program to construct C header file a-sinfo.h (C version of sinfo.ads spec,
+--  Program to construct C header file sinfo.h (C version of sinfo.ads spec,
 --  for use by Gigi, contains all definitions and access functions, but does
 --  not contain set procedures, since Gigi never modifies the GNAT tree)
 
@@ -34,14 +34,14 @@
 
 --    Output files:
 
---       a-sinfo.h     Corresponding c header file
+--       sinfo.h       Corresponding c header file
 
 --  Note: this program assumes that sinfo.ads has passed the error checks
 --  which are carried out by the CSinfo utility, so it does not duplicate
 --  these checks and assumes the soruce is correct.
 
 --  An optional argument allows the specification of an output file name to
---  override the default a-sinfo.h file name for the generated output file.
+--  override the default sinfo.h file name for the generated output file.
 
 with Ada.Command_Line;              use Ada.Command_Line;
 with Ada.Strings.Unbounded;         use Ada.Strings.Unbounded;
@@ -88,9 +88,12 @@ procedure XSinfo is
 
    M : Match_Result;
 
-
    procedure Getline;
-   --  Get non-comment, non-blank line. Also skips "for " rep clauses.
+   --  Get non-comment, non-blank line. Also skips "for " rep clauses
+
+   -------------
+   -- Getline --
+   -------------
 
    procedure Getline is
    begin
@@ -118,7 +121,7 @@ begin
    if Argument_Count > 0 then
       Create (Ofile, Out_File, Argument (1));
    else
-      Create (Ofile, Out_File, "a-sinfo.h");
+      Create (Ofile, Out_File, "sinfo.h");
    end if;
 
    Open (InS, In_File, "sinfo.ads");

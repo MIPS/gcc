@@ -1,5 +1,5 @@
 /* Calculate (post)dominators in slightly super-linear time.
-   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Matz (matz@ifh.de).
 
    This file is part of GCC.
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This file implements the well known algorithm from Lengauer and Tarjan
    to compute the dominators in a control flow graph.  A basic block D is said
@@ -30,7 +30,7 @@
 
    The algorithm computes this dominator tree implicitly by computing for
    each block its immediate dominator.  We use tree balancing and path
-   compression, so its the O(e*a(e,v)) variant, where a(e,v) is the very
+   compression, so it's the O(e*a(e,v)) variant, where a(e,v) is the very
    slowly growing functional inverse of the Ackerman function.  */
 
 #include "config.h"
@@ -39,8 +39,9 @@
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
-#include "errors.h"
+#include "toplev.h"
 #include "et-forest.h"
 
 /* Whether the dominators and the postdominators are available.  */
@@ -169,7 +170,7 @@ init_dom_info (struct dom_info *di, enum cdi_direction dir)
   di->dfsnum = 1;
   di->nodes = 0;
 
-  di->fake_exit_edge = dir ? BITMAP_XMALLOC () : NULL;
+  di->fake_exit_edge = dir ? BITMAP_ALLOC (NULL) : NULL;
 }
 
 #undef init_ar
@@ -190,7 +191,7 @@ free_dom_info (struct dom_info *di)
   free (di->set_child);
   free (di->dfs_order);
   free (di->dfs_to_bb);
-  BITMAP_XFREE (di->fake_exit_edge);
+  BITMAP_FREE (di->fake_exit_edge);
 }
 
 /* The nonrecursive variant of creating a DFS tree.  DI is our working
@@ -371,7 +372,7 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
 
   di->nodes = di->dfsnum - 1;
 
-  /* This aborts e.g. when there is _no_ path from ENTRY to EXIT at all.  */
+  /* Make sure there is a path from ENTRY to EXIT at all.  */
   gcc_assert (di->nodes == (unsigned int) n_basic_blocks + 1);
 }
 
@@ -658,11 +659,11 @@ free_dominance_info (enum cdi_direction dir)
 
   FOR_ALL_BB (bb)
     {
-      delete_from_dominance_info (dir, bb);
+      et_free_tree_force (bb->dom[dir]);
+      bb->dom[dir] = NULL;
     }
 
-  /* If there are any nodes left, something is wrong.  */
-  gcc_assert (!n_bbs_in_dom_tree[dir]);
+  n_bbs_in_dom_tree[dir] = 0;
 
   dom_computed[dir] = DOM_NONE;
 }
@@ -745,15 +746,15 @@ get_dominated_by_region (enum cdi_direction dir, basic_block *region,
   basic_block dom;
 
   for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 1;
+    region[i]->flags |= BB_DUPLICATED;
   for (i = 0; i < n_region; i++)
     for (dom = first_dom_son (dir, region[i]);
 	 dom;
 	 dom = next_dom_son (dir, dom))
-      if (!dom->rbi->duplicated)
+      if (!(dom->flags & BB_DUPLICATED))
 	doms[n_doms++] = dom;
   for (i = 0; i < n_region; i++)
-    region[i]->rbi->duplicated = 0;
+    region[i]->flags &= ~BB_DUPLICATED;
 
   return n_doms;
 }
@@ -795,6 +796,27 @@ nearest_common_dominator (enum cdi_direction dir, basic_block bb1, basic_block b
 
   return et_nca (bb1->dom[dir], bb2->dom[dir])->data;
 }
+
+
+/* Find the nearest common dominator for the basic blocks in BLOCKS,
+   using dominance direction DIR.  */
+
+basic_block
+nearest_common_dominator_for_set (enum cdi_direction dir, bitmap blocks)
+{
+  unsigned i, first;
+  bitmap_iterator bi;
+  basic_block dom;
+  
+  first = bitmap_first_set_bit (blocks);
+  dom = BASIC_BLOCK (first);
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)
+    if (dom != BASIC_BLOCK (i))
+      dom = nearest_common_dominator (dir, dom, BASIC_BLOCK (i));
+
+  return dom;
+}
+
 
 /* Return TRUE in case BB1 is dominated by BB2.  */
 bool

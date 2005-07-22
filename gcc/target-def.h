@@ -1,5 +1,5 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -68,6 +68,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #ifndef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL default_internal_label
+#endif
+
+#ifndef TARGET_ARM_TTYPE
+#define TARGET_ASM_TTYPE hook_bool_rtx_false
 #endif
 
 #ifndef TARGET_ASM_ASSEMBLE_VISIBILITY
@@ -137,6 +141,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_HAVE_NAMED_SECTIONS false
 #endif
 
+#ifndef TARGET_INVALID_WITHIN_DOLOOP
+#define TARGET_INVALID_WITHIN_DOLOOP default_invalid_within_doloop
+#endif
+
 #ifndef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS false
 #endif
@@ -187,6 +195,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_MARK_DECL_PRESERVED hook_void_constcharptr
 #endif
 
+#ifndef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL NULL
+#endif
+
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
 			TARGET_ASM_ALIGNED_SI_OP,		\
@@ -209,6 +221,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
                         TARGET_ASM_EMIT_UNWIND_LABEL,           \
 			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
+			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
@@ -228,7 +241,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
                         TARGET_ASM_FILE_START,                  \
                         TARGET_ASM_FILE_END,			\
 			TARGET_ASM_EXTERNAL_LIBCALL,            \
-                        TARGET_ASM_MARK_DECL_PRESERVED}
+                        TARGET_ASM_MARK_DECL_PRESERVED,		\
+			TARGET_ASM_OUTPUT_DWARF_DTPREL}
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -273,16 +287,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_DFA_NEW_CYCLE,					\
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
-#ifndef TARGET_VECTORIZE_MISALIGNED_MEM_OK
-#define TARGET_VECTORIZE_MISALIGNED_MEM_OK default_vect_misaligned_mem_ok
-#endif
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
-#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE 0
 
 #define TARGET_VECTORIZE                                                \
-  {TARGET_VECTORIZE_MISALIGNED_MEM_OK,                                  \
-   TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
-   TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE}
+  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
+
+#define TARGET_DEFAULT_TARGET_FLAGS 0
+
+#define TARGET_HANDLE_OPTION hook_bool_size_t_constcharptr_int_true
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
@@ -298,7 +310,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
-#define TARGET_FOLD_BUILTIN hook_tree_tree_bool_null
+#define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
+#define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -339,6 +352,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED hook_bool_bool_false
 #define TARGET_CANNOT_FORCE_CONST_MEM hook_bool_rtx_false
 #define TARGET_CANNOT_COPY_INSN_P NULL
+#define TARGET_COMMUTATIVE_P hook_bool_rtx_commutative_p
 #define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
@@ -349,6 +363,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
+#define TARGET_ALLOCATE_INITIAL_VALUE NULL
 
 #ifndef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS hook_void_void
@@ -362,6 +377,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
 
+#ifndef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
+#define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN hook_invalid_arg_for_unprototyped_fn
+#endif
+
+#define TARGET_INVALID_CONVERSION hook_constcharptr_tree_tree_null
+#define TARGET_INVALID_UNARY_OP hook_constcharptr_int_tree_null
+#define TARGET_INVALID_BINARY_OP hook_constcharptr_int_tree_tree_null
+
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
 #define TARGET_CC_MODES_COMPATIBLE default_cc_modes_compatible
@@ -372,14 +395,24 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_GET_PCH_VALIDITY default_get_pch_validity
 #define TARGET_PCH_VALID_P default_pch_valid_p
+#define TARGET_CHECK_PCH_TARGET_FLAGS NULL
 
 #define TARGET_DEFAULT_SHORT_ENUMS hook_bool_void_false
 
 #define TARGET_BUILTIN_SETJMP_FRAME_VALUE default_builtin_setjmp_frame_value
 
-#define TARGET_MD_ASM_CLOBBERS hook_tree_tree_identity
+#define TARGET_MD_ASM_CLOBBERS hook_tree_tree_tree_tree_3rd_identity
 
 #define TARGET_DWARF_CALLING_CONVENTION hook_int_tree_0
+
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC 0
+
+#define TARGET_STDARG_OPTIMIZE_HOOK 0
+
+#define TARGET_STACK_PROTECT_GUARD  default_stack_protect_guard
+#define TARGET_STACK_PROTECT_FAIL   default_external_stack_protect_fail
+
+#define TARGET_ARM_EABI_UNWINDER false
 
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
@@ -398,9 +431,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
 #define TARGET_PASS_BY_REFERENCE hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
-#define TARGET_LATE_RTL_PROLOGUE_EPILOGUE false
+
+#define TARGET_RELAXED_ORDERING false
+
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size_or_pad
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
+#define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -416,9 +452,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
    TARGET_SPLIT_COMPLEX_ARG,					\
    TARGET_MUST_PASS_IN_STACK,					\
-   TARGET_CALLEE_COPIES						\
+   TARGET_CALLEE_COPIES,					\
+   TARGET_ARG_PARTIAL_BYTES,					\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN			\
    }
 
+#ifndef TARGET_UNWIND_TABLES_DEFAULT
+#define TARGET_UNWIND_TABLES_DEFAULT false
+#endif
 
 #ifndef TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME
 #define TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME 0
@@ -458,8 +499,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE hook_bool_void_true
 #endif
 
-#ifndef TARGET_CXX_EXPORT_CLASS_DATA
-#define TARGET_CXX_EXPORT_CLASS_DATA hook_bool_void_false
+#ifndef TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
+#define TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY hook_void_tree
+#endif
+
+#ifndef TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT
+#define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT hook_bool_void_true
+#endif
+
+#ifndef TARGET_CXX_USE_AEABI_ATEXIT
+#define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
 #define TARGET_CXX				\
@@ -471,7 +520,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
     TARGET_CXX_IMPORT_EXPORT_CLASS,		\
     TARGET_CXX_CDTOR_RETURNS_THIS,		\
     TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
-    TARGET_CXX_EXPORT_CLASS_DATA		\
+    TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
+    TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
+    TARGET_CXX_USE_AEABI_ATEXIT,		\
   }
 
 /* The whole shebang.  */
@@ -480,6 +531,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\
+  TARGET_DEFAULT_TARGET_FLAGS,			\
+  TARGET_HANDLE_OPTION,				\
   TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
@@ -492,6 +545,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
   TARGET_FOLD_BUILTIN,				\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
@@ -501,6 +555,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED,	\
   TARGET_CANNOT_FORCE_CONST_MEM,		\
   TARGET_CANNOT_COPY_INSN_P,			\
+  TARGET_COMMUTATIVE_P,				\
   TARGET_DELEGITIMIZE_ADDRESS,			\
   TARGET_FUNCTION_OK_FOR_SIBCALL,		\
   TARGET_IN_SMALL_DATA_P,			\
@@ -514,6 +569,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_VECTOR_OPAQUE_P,			\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\
+  TARGET_ALLOCATE_INITIAL_VALUE,		\
   TARGET_DWARF_REGISTER_SPAN,                   \
   TARGET_FIXED_CONDITION_CODE_REGS,		\
   TARGET_CC_MODES_COMPATIBLE,			\
@@ -522,12 +578,22 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
+  TARGET_CHECK_PCH_TARGET_FLAGS,		\
   TARGET_DEFAULT_SHORT_ENUMS,			\
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_DWARF_CALLING_CONVENTION,              \
+  TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
+  TARGET_STDARG_OPTIMIZE_HOOK,			\
+  TARGET_STACK_PROTECT_GUARD,			\
+  TARGET_STACK_PROTECT_FAIL,			\
+  TARGET_INVALID_WITHIN_DOLOOP,			\
   TARGET_CALLS,					\
+  TARGET_INVALID_CONVERSION,			\
+  TARGET_INVALID_UNARY_OP,			\
+  TARGET_INVALID_BINARY_OP,			\
   TARGET_CXX,					\
+  TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
@@ -537,7 +603,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
   TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
   TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
-  TARGET_LATE_RTL_PROLOGUE_EPILOGUE,		\
+  TARGET_RELAXED_ORDERING,			\
+  TARGET_ARM_EABI_UNWINDER			\
 }
 
 #include "hooks.h"

@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -72,7 +72,7 @@ void
 verify_flow_info (void)
 {
   size_t *edge_checksum;
-  int num_bb_notes, err = 0;
+  int err = 0;
   basic_block bb, last_bb_seen;
   basic_block *last_visited;
 
@@ -162,7 +162,7 @@ verify_flow_info (void)
 	}
       if (n_fallthru > 1)
 	{
-	  error ("Wrong amount of branch edges after unconditional jump %i", bb->index);
+	  error ("wrong amount of branch edges after unconditional jump %i", bb->index);
 	  err = 1;
 	}
 
@@ -178,6 +178,20 @@ verify_flow_info (void)
 	      fputc ('\n', stderr);
 	      err = 1;
 	    }
+
+	  if (ei.index != e->dest_idx)
+	    {
+	      error ("basic block %d pred edge is corrupted", bb->index);
+	      error ("its dest_idx should be %d, not %d",
+		     ei.index, e->dest_idx);
+	      fputs ("Predecessor: ", stderr);
+	      dump_edge_info (stderr, e, 0);
+	      fputs ("\nSuccessor: ", stderr);
+	      dump_edge_info (stderr, e, 1);
+	      fputc ('\n', stderr);
+	      err = 1;
+	    }
+
 	  edge_checksum[e->dest->index + 2] -= (size_t) e;
 	}
     }
@@ -201,7 +215,6 @@ verify_flow_info (void)
 	err = 1;
       }
 
-  num_bb_notes = 0;
   last_bb_seen = ENTRY_BLOCK_PTR;
 
   /* Clean up.  */
@@ -272,7 +285,7 @@ redirect_edge_and_branch (edge e, basic_block dest)
   edge ret;
 
   if (!cfg_hooks->redirect_edge_and_branch)
-    internal_error ("%s does not support redirect_edge_and_branch.",
+    internal_error ("%s does not support redirect_edge_and_branch",
 		    cfg_hooks->name);
 
   ret = cfg_hooks->redirect_edge_and_branch (e, dest);
@@ -290,7 +303,7 @@ redirect_edge_and_branch_force (edge e, basic_block dest)
   basic_block ret;
 
   if (!cfg_hooks->redirect_edge_and_branch_force)
-    internal_error ("%s does not support redirect_edge_and_branch_force.",
+    internal_error ("%s does not support redirect_edge_and_branch_force",
 		    cfg_hooks->name);
 
   ret = cfg_hooks->redirect_edge_and_branch_force (e, dest);
@@ -308,7 +321,7 @@ split_block (basic_block bb, void *i)
   basic_block new_bb;
 
   if (!cfg_hooks->split_block)
-    internal_error ("%s does not support split_block.", cfg_hooks->name);
+    internal_error ("%s does not support split_block", cfg_hooks->name);
 
   new_bb = cfg_hooks->split_block (bb, i);
   if (!new_bb)
@@ -344,7 +357,7 @@ move_block_after (basic_block bb, basic_block after)
   bool ret;
 
   if (!cfg_hooks->move_block_after)
-    internal_error ("%s does not support move_block_after.", cfg_hooks->name);
+    internal_error ("%s does not support move_block_after", cfg_hooks->name);
 
   ret = cfg_hooks->move_block_after (bb, after);
 
@@ -357,7 +370,7 @@ void
 delete_basic_block (basic_block bb)
 {
   if (!cfg_hooks->delete_basic_block)
-    internal_error ("%s does not support delete_basic_block.", cfg_hooks->name);
+    internal_error ("%s does not support delete_basic_block", cfg_hooks->name);
 
   cfg_hooks->delete_basic_block (bb);
 
@@ -389,23 +402,23 @@ split_edge (edge e)
   bool irr = (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
 
   if (!cfg_hooks->split_edge)
-    internal_error ("%s does not support split_edge.", cfg_hooks->name);
+    internal_error ("%s does not support split_edge", cfg_hooks->name);
 
   ret = cfg_hooks->split_edge (e);
   ret->count = count;
   ret->frequency = freq;
-  EDGE_SUCC (ret, 0)->probability = REG_BR_PROB_BASE;
-  EDGE_SUCC (ret, 0)->count = count;
+  single_succ_edge (ret)->probability = REG_BR_PROB_BASE;
+  single_succ_edge (ret)->count = count;
 
   if (irr)
     {
       ret->flags |= BB_IRREDUCIBLE_LOOP;
-      EDGE_PRED (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
-      EDGE_SUCC (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_pred_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_succ_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
   if (dom_computed[CDI_DOMINATORS])
-    set_immediate_dominator (CDI_DOMINATORS, ret, EDGE_PRED (ret, 0)->src);
+    set_immediate_dominator (CDI_DOMINATORS, ret, single_pred (ret));
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
     {
@@ -418,22 +431,22 @@ split_edge (edge e)
 	 ret, provided that all other predecessors of e->dest are
 	 dominated by e->dest.  */
 
-      if (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest)
-	  == EDGE_PRED (ret, 0)->src)
+      if (get_immediate_dominator (CDI_DOMINATORS, single_succ (ret))
+	  == single_pred (ret))
 	{
 	  edge_iterator ei;
-	  FOR_EACH_EDGE (f, ei, EDGE_SUCC (ret, 0)->dest->preds)
+	  FOR_EACH_EDGE (f, ei, single_succ (ret)->preds)
 	    {
-	      if (f == EDGE_SUCC (ret, 0))
+	      if (f == single_succ_edge (ret))
 		continue;
 
 	      if (!dominated_by_p (CDI_DOMINATORS, f->src,
-				   EDGE_SUCC (ret, 0)->dest))
+				   single_succ (ret)))
 		break;
 	    }
 
 	  if (!f)
-	    set_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest, ret);
+	    set_immediate_dominator (CDI_DOMINATORS, single_succ (ret), ret);
 	}
     };
 
@@ -450,7 +463,7 @@ create_basic_block (void *head, void *end, basic_block after)
   basic_block ret;
 
   if (!cfg_hooks->create_basic_block)
-    internal_error ("%s does not support create_basic_block.", cfg_hooks->name);
+    internal_error ("%s does not support create_basic_block", cfg_hooks->name);
 
   ret = cfg_hooks->create_basic_block (head, end, after);
 
@@ -478,7 +491,7 @@ can_merge_blocks_p (basic_block bb1, basic_block bb2)
   bool ret;
 
   if (!cfg_hooks->can_merge_blocks_p)
-    internal_error ("%s does not support can_merge_blocks_p.", cfg_hooks->name);
+    internal_error ("%s does not support can_merge_blocks_p", cfg_hooks->name);
 
   ret = cfg_hooks->can_merge_blocks_p (bb1, bb2);
 
@@ -489,7 +502,7 @@ void
 predict_edge (edge e, enum br_predictor predictor, int probability)
 {
   if (!cfg_hooks->predict_edge)
-    internal_error ("%s does not support predict_edge.", cfg_hooks->name);
+    internal_error ("%s does not support predict_edge", cfg_hooks->name);
 
   cfg_hooks->predict_edge (e, predictor, probability);
 }
@@ -498,7 +511,7 @@ bool
 predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
   if (!cfg_hooks->predict_edge)
-    internal_error ("%s does not support predicted_by_p.", cfg_hooks->name);
+    internal_error ("%s does not support predicted_by_p", cfg_hooks->name);
 
   return cfg_hooks->predicted_by_p (bb, predictor);
 }
@@ -512,7 +525,7 @@ merge_blocks (basic_block a, basic_block b)
   edge_iterator ei;
 
   if (!cfg_hooks->merge_blocks)
-    internal_error ("%s does not support merge_blocks.", cfg_hooks->name);
+    internal_error ("%s does not support merge_blocks", cfg_hooks->name);
 
   cfg_hooks->merge_blocks (a, b);
 
@@ -532,7 +545,6 @@ merge_blocks (basic_block a, basic_block b)
 
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
   b->preds = b->succs = NULL;
-  a->global_live_at_end = b->global_live_at_end;
 
   if (dom_computed[CDI_DOMINATORS])
     redirect_immediate_dominators (CDI_DOMINATORS, b, a);
@@ -558,7 +570,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   basic_block dummy, jump;
 
   if (!cfg_hooks->make_forwarder_block)
-    internal_error ("%s does not support make_forwarder_block.",
+    internal_error ("%s does not support make_forwarder_block",
 		    cfg_hooks->name);
 
   fallthru = split_block_after_labels (bb);
@@ -644,9 +656,9 @@ tidy_fallthru_edges (void)
 	 merge the flags for the duplicate edges.  So we do not want to
 	 check that the edge is not a FALLTHRU edge.  */
 
-      if (EDGE_COUNT (b->succs) == 1)
+      if (single_succ_p (b))
 	{
-	  s = EDGE_SUCC (b, 0);
+	  s = single_succ_edge (b);
 	  if (! (s->flags & EDGE_COMPLEX)
 	      && s->dest == c
 	      && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
@@ -661,10 +673,9 @@ bool
 can_duplicate_block_p (basic_block bb)
 {
   edge e;
-  edge_iterator ei;
 
   if (!cfg_hooks->can_duplicate_block_p)
-    internal_error ("%s does not support can_duplicate_block_p.",
+    internal_error ("%s does not support can_duplicate_block_p",
 		    cfg_hooks->name);
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
@@ -672,9 +683,9 @@ can_duplicate_block_p (basic_block bb)
 
   /* Duplicating fallthru block to exit would require adding a jump
      and splitting the real last BB.  */
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-       return false;
+  e = find_edge (bb, EXIT_BLOCK_PTR);
+  if (e && (e->flags & EDGE_FALLTHRU))
+    return false;
 
   return cfg_hooks->can_duplicate_block_p (bb);
 }
@@ -691,7 +702,7 @@ duplicate_block (basic_block bb, edge e)
   edge_iterator ei;
 
   if (!cfg_hooks->duplicate_block)
-    internal_error ("%s does not support duplicate_block.",
+    internal_error ("%s does not support duplicate_block",
 		    cfg_hooks->name);
 
   if (bb->count < new_count)
@@ -744,8 +755,8 @@ duplicate_block (basic_block bb, edge e)
       new_bb->frequency = bb->frequency;
     }
 
-  new_bb->rbi->original = bb;
-  bb->rbi->copy = new_bb;
+  set_bb_original (new_bb, bb);
+  set_bb_copy (bb, new_bb);
 
   return new_bb;
 }
@@ -791,3 +802,86 @@ flow_call_edges_add (sbitmap blocks)
 
   return (cfg_hooks->flow_call_edges_add) (blocks);
 }
+
+/* This function is called immediately after edge E is added to the
+   edge vector E->dest->preds.  */
+
+void
+execute_on_growing_pred (edge e)
+{
+  if (cfg_hooks->execute_on_growing_pred)
+    cfg_hooks->execute_on_growing_pred (e);
+}
+
+/* This function is called immediately before edge E is removed from
+   the edge vector E->dest->preds.  */
+
+void
+execute_on_shrinking_pred (edge e)
+{
+  if (cfg_hooks->execute_on_shrinking_pred)
+    cfg_hooks->execute_on_shrinking_pred (e);
+}
+
+/* This is used inside loop versioning when we want to insert 
+   stmts/insns on the edges, which have a different behavior 
+   in tree's and in RTL, so we made a CFG hook.  */
+void
+lv_flush_pending_stmts (edge e)
+{
+  if (cfg_hooks->flush_pending_stmts)
+    cfg_hooks->flush_pending_stmts (e);
+}
+
+/* Loop versioning uses the duplicate_loop_to_header_edge to create
+   a new version of the loop basic-blocks, the parameters here are
+   exactly the same as in duplicate_loop_to_header_edge or
+   tree_duplicate_loop_to_header_edge; while in tree-ssa there is
+   additional work to maintain ssa information that's why there is
+   a need to call the tree_duplicate_loop_to_header_edge rather
+   than duplicate_loop_to_header_edge when we are in tree mode.  */
+bool
+cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge e,
+					struct loops *loops, unsigned int ndupl,
+					sbitmap wont_exit, edge orig,
+					edge *to_remove,
+					unsigned int *n_to_remove, int flags)
+{
+  gcc_assert (cfg_hooks->cfg_hook_duplicate_loop_to_header_edge);
+  return cfg_hooks->cfg_hook_duplicate_loop_to_header_edge (loop, e, loops, 							    
+							    ndupl, wont_exit,
+							    orig, to_remove,
+							    n_to_remove, flags);
+}
+
+/* Conditional jumps are represented differently in trees and RTL,
+   this hook takes a basic block that is known to have a cond jump
+   at its end and extracts the taken and not taken eges out of it
+   and store it in E1 and E2 respectively.  */
+void
+extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
+{
+  gcc_assert (cfg_hooks->extract_cond_bb_edges);
+  cfg_hooks->extract_cond_bb_edges (b, e1, e2);
+}
+
+/* Responsible for updating the ssa info (PHI nodes) on the
+   new condition basic block that guards the versioned loop.  */
+void
+lv_adjust_loop_header_phi (basic_block first, basic_block second,
+			   basic_block new, edge e)
+{
+  if (cfg_hooks->lv_adjust_loop_header_phi)
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+}
+
+/* Conditions in trees and RTL are different so we need
+   a different handling when we add the condition to the
+   versioning code.  */
+void
+lv_add_condition_to_bb (basic_block first, basic_block second,
+			basic_block new, void *cond)
+{
+  gcc_assert (cfg_hooks->lv_add_condition_to_bb);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+}  

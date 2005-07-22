@@ -1,5 +1,6 @@
 /* Miscellaneous stuff that doesn't fit anywhere else.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -16,15 +17,12 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-
+#include "system.h"
 #include "gfortran.h"
 
 
@@ -161,6 +159,9 @@ gfc_basic_typename (bt type)
     case BT_CHARACTER:
       p = "CHARACTER";
       break;
+    case BT_HOLLERITH:
+      p = "HOLLERITH";
+      break;
     case BT_DERIVED:
       p = "DERIVED";
       break;
@@ -208,6 +209,9 @@ gfc_typename (gfc_typespec * ts)
       break;
     case BT_CHARACTER:
       sprintf (buffer, "CHARACTER(%d)", ts->kind);
+      break;
+    case BT_HOLLERITH:
+      sprintf (buffer, "HOLLERITH");
       break;
     case BT_DERIVED:
       sprintf (buffer, "TYPE(%s)", ts->derived->name);
@@ -278,12 +282,10 @@ gfc_intent_string (sym_intent i)
 void
 gfc_init_1 (void)
 {
-
   gfc_error_init_1 ();
   gfc_scanner_init_1 ();
   gfc_arith_init_1 ();
   gfc_intrinsic_init_1 ();
-  gfc_iresolve_init_1 ();
   gfc_simplify_init_1 ();
 }
 
@@ -306,10 +308,8 @@ gfc_init_2 (void)
 void
 gfc_done_1 (void)
 {
-
   gfc_scanner_done_1 ();
   gfc_intrinsic_done_1 ();
-  gfc_iresolve_done_1 ();
   gfc_arith_done_1 ();
 }
 

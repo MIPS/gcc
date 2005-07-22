@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -75,6 +75,10 @@ procedure Gnatbind is
 
    Mapping_File : String_Ptr := null;
 
+   function Gnatbind_Supports_Auto_Init return Boolean;
+   --  Indicates if automatic initialization of elaboration procedure
+   --  through the constructor mechanism is possible on the platform.
+
    procedure List_Applicable_Restrictions;
    --  List restrictions that apply to this partition if option taken
 
@@ -82,6 +86,18 @@ procedure Gnatbind is
    --  Scan and process binder specific arguments. Argv is a single argument.
    --  All the one character arguments are still handled by Switch. This
    --  routine handles -aO -aI and -I-.
+
+   ---------------------------------
+   -- Gnatbind_Supports_Auto_Init --
+   ---------------------------------
+
+   function Gnatbind_Supports_Auto_Init return Boolean is
+      function gnat_binder_supports_auto_init return Integer;
+      pragma Import (C, gnat_binder_supports_auto_init,
+                     "__gnat_binder_supports_auto_init");
+   begin
+      return gnat_binder_supports_auto_init /= 0;
+   end Gnatbind_Supports_Auto_Init;
 
    ----------------------------------
    -- List_Applicable_Restrictions --
@@ -120,7 +136,7 @@ procedure Gnatbind is
          Max_Storage_At_Blocking  => True,
          --  Not checkable at compile time
 
-         others                   => False);
+         others => False);
 
       Additional_Restrictions_Listed : Boolean := False;
       --  Set True if we have listed header for restrictions
@@ -337,8 +353,8 @@ procedure Gnatbind is
             Opt.Bind_Alternate_Main_Name := True;
             Opt.Alternate_Main_Name := new String'(Argv (3 .. Argv'Last));
 
-         --  All other options are single character and are handled
-         --  by Scan_Binder_Switches.
+         --  All other options are single character and are handled by
+         --  Scan_Binder_Switches.
 
          else
             Scan_Binder_Switches (Argv);
@@ -393,6 +409,16 @@ begin
       Next_Arg := Next_Arg + 1;
    end loop Scan_Args;
 
+   if Use_Pragma_Linker_Constructor then
+      if Bind_Main_Program then
+         Fail ("switch -a must be used in conjunction with -n or -Lxxx");
+
+      elsif not Gnatbind_Supports_Auto_Init then
+         Fail ("automatic initialisation of elaboration " &
+               "not supported on this platform");
+      end if;
+   end if;
+
    --  Test for trailing -o switch
 
    if Opt.Output_File_Name_Present
@@ -438,10 +464,10 @@ begin
    Osint.Add_Default_Search_Dirs;
 
    --  Carry out package initializations. These are initializations which
-   --  might logically be performed at elaboration time, but Namet at
-   --  least can't be done that way (because it is used in the Compiler),
-   --  and we decide to be consistent. Like elaboration, the order in
-   --  which these calls are made is in some cases important.
+   --  might logically be performed at elaboration time, but Namet at least
+   --  can't be done that way (because it is used in the Compiler), and we
+   --  decide to be consistent. Like elaboration, the order in which these
+   --  calls are made is in some cases important.
 
    Csets.Initialize;
    Namet.Initialize;
@@ -480,7 +506,8 @@ begin
       Write_Eol;
       Write_Str ("GNATBIND ");
       Write_Str (Gnat_Version_String);
-      Write_Str (" Copyright 1995-2004 Free Software Foundation, Inc.");
+      Write_Eol;
+      Write_Str ("Copyright 1995-2005 Free Software Foundation, Inc.");
       Write_Eol;
    end if;
 
@@ -538,7 +565,7 @@ begin
             Id := Scan_ALI
                     (F             => Main_Lib_File,
                      T             => Text,
-                     Ignore_ED     => Force_RM_Elaboration_Order,
+                     Ignore_ED     => False,
                      Err           => False,
                      Ignore_Errors => Debug_Flag_I);
          end;
@@ -561,7 +588,7 @@ begin
       --  ALI files.
 
       for Index in ALIs.First .. ALIs.Last loop
-         ALIs.Table (Index).Interface := False;
+         ALIs.Table (Index).SAL_Interface := False;
       end loop;
 
       --  Add System.Standard_Library to list to ensure that these files are
@@ -583,7 +610,7 @@ begin
               Scan_ALI
                 (F             => Std_Lib_File,
                  T             => Text,
-                 Ignore_ED     => Force_RM_Elaboration_Order,
+                 Ignore_ED     => False,
                  Err           => False,
                  Ignore_Errors => Debug_Flag_I);
          end;
@@ -596,17 +623,6 @@ begin
       for Index in ALIs.First .. ALIs.Last loop
          Read_ALI (Index);
       end loop;
-
-      --  Warn if -f switch used
-
-      if Force_RM_Elaboration_Order then
-         Error_Msg
-           ("?-f is obsolescent and should not be used");
-         Error_Msg
-           ("?may result in missing run-time elaboration checks");
-         Error_Msg
-           ("?use -gnatE, pragma Suppress (Elaboration_Check) instead");
-      end if;
 
       --  Quit if some file needs compiling
 
@@ -653,7 +669,7 @@ begin
                Write_Eol;
 
                for J in Elab_Order.First .. Elab_Order.Last loop
-                  if not Units.Table (Elab_Order.Table (J)).Interface then
+                  if not Units.Table (Elab_Order.Table (J)).SAL_Interface then
                      Write_Str ("   ");
                      Write_Unit_Name
                        (Units.Table (Elab_Order.Table (J)).Uname);
@@ -679,7 +695,7 @@ begin
          Total_Warnings := Total_Warnings + Warnings_Detected;
    end;
 
-   --  All done. Set proper exit status.
+   --  All done. Set proper exit status
 
    Finalize_Binderr;
    Namet.Finalize;

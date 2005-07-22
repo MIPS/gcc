@@ -1,5 +1,5 @@
 /* Definitions for computing resource usage of specific insns.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -27,7 +27,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "function.h"
 #include "regs.h"
 #include "flags.h"
@@ -300,13 +299,12 @@ mark_referenced_resources (rtx x, struct resources *res,
     case SET:
       /* Usually, the first operand of SET is set, not referenced.  But
 	 registers used to access memory are referenced.  SET_DEST is
-	 also referenced if it is a ZERO_EXTRACT or SIGN_EXTRACT.  */
+	 also referenced if it is a ZERO_EXTRACT.  */
 
       mark_referenced_resources (SET_SRC (x), res, 0);
 
       x = SET_DEST (x);
-      if (GET_CODE (x) == SIGN_EXTRACT
-	  || GET_CODE (x) == ZERO_EXTRACT
+      if (GET_CODE (x) == ZERO_EXTRACT
 	  || GET_CODE (x) == STRICT_LOW_PART)
 	mark_referenced_resources (x, res, 0);
       else if (GET_CODE (x) == SUBREG)
@@ -836,10 +834,10 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 static bool
 return_insn_p (rtx insn)
 {
-  if (GET_CODE (insn) == JUMP_INSN && GET_CODE (PATTERN (insn)) == RETURN)
+  if (JUMP_P (insn) && GET_CODE (PATTERN (insn)) == RETURN)
     return true;
 
-  if (GET_CODE (insn) == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
+  if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
     return return_insn_p (XVECEXP (PATTERN (insn), 0, 0));
 
   return false;
@@ -967,7 +965,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
      TARGET.  Otherwise, we must assume everything is live.  */
   if (b != -1)
     {
-      regset regs_live = BASIC_BLOCK (b)->global_live_at_start;
+      regset regs_live = BASIC_BLOCK (b)->il.rtl->global_live_at_start;
       unsigned int j;
       unsigned int regno;
       rtx start_insn, stop_insn;

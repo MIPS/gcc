@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -149,7 +149,7 @@ package body Sem_Ch5 is
          elsif Nkind (N) = N_Indexed_Component then
             Diagnose_Non_Variable_Lhs (Prefix (N));
 
-         --  Another special case for assignment to discriminant.
+         --  Another special case for assignment to discriminant
 
          elsif Nkind (N) = N_Selected_Component then
             if Present (Entity (Selector_Name (N)))
@@ -339,6 +339,29 @@ package body Sem_Ch5 is
       --  to avoid scoping issues in the back-end.
 
       T1 := Etype (Lhs);
+
+      --  Ada 2005 (AI-50217, AI-326): Check wrong dereference of incomplete
+      --  type. For example:
+
+      --    limited with P;
+      --    package Pkg is
+      --      type Acc is access P.T;
+      --    end Pkg;
+
+      --    with Pkg; use Acc;
+      --    procedure Example is
+      --       A, B : Acc;
+      --    begin
+      --       A.all := B.all;  -- ERROR
+      --    end Example;
+
+      if Nkind (Lhs) = N_Explicit_Dereference
+        and then Ekind (T1) = E_Incomplete_Type
+      then
+         Error_Msg_N ("invalid use of incomplete type", Lhs);
+         return;
+      end if;
+
       Set_Assignment_Type (Lhs, T1);
 
       Resolve (Rhs, T1);
@@ -357,6 +380,17 @@ package body Sem_Ch5 is
       else
          Wrong_Type (Rhs, Etype (Lhs));
          return;
+      end if;
+
+      --  Ada 2005 (AI-326): In case of explicit dereference of incomplete
+      --  types, use the non-limited view if available
+
+      if Nkind (Rhs) = N_Explicit_Dereference
+        and then Ekind (T2) = E_Incomplete_Type
+        and then Is_Tagged_Type (T2)
+        and then Present (Non_Limited_View (T2))
+      then
+         T2 := Non_Limited_View (T2);
       end if;
 
       Set_Assignment_Type (Rhs, T2);
@@ -400,6 +434,17 @@ package body Sem_Ch5 is
          Propagate_Tag (Lhs, Rhs);
       end if;
 
+      --  Ada 2005 (AI-230 and AI-385): When the lhs type is an anonymous
+      --  access type, apply an implicit conversion of the rhs to that type
+      --  to force appropriate static and run-time accessibility checks.
+
+      if Ada_Version >= Ada_05
+        and then Ekind (T1) = E_Anonymous_Access_Type
+      then
+         Rewrite (Rhs, Convert_To (T1, Relocate_Node (Rhs)));
+         Analyze_And_Resolve (Rhs, T1);
+      end if;
+
       --  Ada 2005 (AI-231)
 
       if Ada_Version >= Ada_05
@@ -410,8 +455,10 @@ package body Sem_Ch5 is
                      and then Can_Never_Be_Null (Entity (Lhs)))
                    or else Can_Never_Be_Null (Etype (Lhs)))
       then
-         Error_Msg_N
-           ("(Ada 2005) NULL not allowed in null-excluding objects", Lhs);
+         Apply_Compile_Time_Constraint_Error
+           (N      => Lhs,
+            Msg    => "(Ada 2005) NULL not allowed in null-excluding objects?",
+            Reason => CE_Null_Not_Allowed);
       end if;
 
       if Is_Scalar_Type (T1) then
@@ -739,9 +786,30 @@ package body Sem_Ch5 is
    begin
       Unblocked_Exit_Count := 0;
       Exp := Expression (N);
-      Analyze_And_Resolve (Exp, Any_Discrete);
+      Analyze (Exp);
+
+      --  The expression must be of any discrete type. In rare cases, the
+      --  expander constructs a case statement whose expression has a private
+      --  type whose full view is discrete. This can happen when generating
+      --  a stream operation for a variant type after the type is frozen,
+      --  when the partial of view of the type of the discriminant is private.
+      --  In that case, use the full view to analyze case alternatives.
+
+      if not Is_Overloaded (Exp)
+        and then not Comes_From_Source (N)
+        and then Is_Private_Type (Etype (Exp))
+        and then Present (Full_View (Etype (Exp)))
+        and then Is_Discrete_Type (Full_View (Etype (Exp)))
+      then
+         Resolve (Exp, Etype (Exp));
+         Exp_Type := Full_View (Etype (Exp));
+
+      else
+         Analyze_And_Resolve (Exp, Any_Discrete);
+         Exp_Type := Etype (Exp);
+      end if;
+
       Check_Unset_Reference (Exp);
-      Exp_Type  := Etype (Exp);
       Exp_Btype := Base_Type (Exp_Type);
 
       --  The expression must be of a discrete type which must be determinable
@@ -939,7 +1007,7 @@ package body Sem_Ch5 is
    -- Analyze_If_Statement --
    --------------------------
 
-   --  A special complication arises in the analysis of if statements.
+   --  A special complication arises in the analysis of if statements
 
    --  The expander has circuitry to completely delete code that it
    --  can tell will not be executed (as a result of compile time known
@@ -1105,11 +1173,141 @@ package body Sem_Ch5 is
    ------------------------------
 
    procedure Analyze_Iteration_Scheme (N : Node_Id) is
+
+      procedure Process_Bounds (R : Node_Id);
+      --  If the iteration is given by a range, create temporaries and
+      --  assignment statements block to capture the bounds and perform
+      --  required finalization actions in case a bound includes a function
+      --  call that uses the temporary stack. We first pre-analyze a copy of
+      --  the range in order to determine the expected type, and analyze and
+      --  resolve the original bounds.
+
       procedure Check_Controlled_Array_Attribute (DS : Node_Id);
       --  If the bounds are given by a 'Range reference on a function call
       --  that returns a controlled array, introduce an explicit declaration
       --  to capture the bounds, so that the function result can be finalized
       --  in timely fashion.
+
+      --------------------
+      -- Process_Bounds --
+      --------------------
+
+      procedure Process_Bounds (R : Node_Id) is
+         Loc          : constant Source_Ptr := Sloc (N);
+         R_Copy       : constant Node_Id := New_Copy_Tree (R);
+         Lo           : constant Node_Id := Low_Bound  (R);
+         Hi           : constant Node_Id := High_Bound (R);
+         New_Lo_Bound : Node_Id := Empty;
+         New_Hi_Bound : Node_Id := Empty;
+         Typ          : Entity_Id;
+
+         function One_Bound
+           (Original_Bound : Node_Id;
+            Analyzed_Bound : Node_Id) return Node_Id;
+         --  Create one declaration followed by one assignment statement
+         --  to capture the value of bound. We create a separate assignment
+         --  in order to force the creation of a block in case the bound
+         --  contains a call that uses the secondary stack.
+
+         ---------------
+         -- One_Bound --
+         ---------------
+
+         function One_Bound
+           (Original_Bound : Node_Id;
+            Analyzed_Bound : Node_Id) return Node_Id
+         is
+            Assign : Node_Id;
+            Id     : Entity_Id;
+            Decl   : Node_Id;
+
+         begin
+            --  If the bound is a constant or an object, no need for a separate
+            --  declaration. If the bound is the result of previous expansion
+            --  it is already analyzed and should not be modified. Note that
+            --  the Bound will be resolved later, if needed, as part of the
+            --  call to Make_Index (literal bounds may need to be resolved to
+            --  type Integer).
+
+            if Analyzed (Original_Bound) then
+               return Original_Bound;
+
+            elsif Nkind (Analyzed_Bound) = N_Integer_Literal
+              or else Is_Entity_Name (Analyzed_Bound)
+            then
+               Analyze_And_Resolve (Original_Bound, Typ);
+               return Original_Bound;
+
+            else
+               Analyze_And_Resolve (Original_Bound, Typ);
+            end if;
+
+            Id :=
+              Make_Defining_Identifier (Loc,
+                Chars => New_Internal_Name ('S'));
+
+            Decl :=
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Id,
+                Object_Definition   => New_Occurrence_Of (Typ, Loc));
+
+            Insert_Before (Parent (N), Decl);
+            Analyze (Decl);
+
+            Assign :=
+              Make_Assignment_Statement (Loc,
+                Name        => New_Occurrence_Of (Id, Loc),
+                Expression  => Relocate_Node (Original_Bound));
+
+            Insert_Before (Parent (N), Assign);
+            Analyze (Assign);
+
+            Rewrite (Original_Bound, New_Occurrence_Of (Id, Loc));
+
+            if Nkind (Assign) = N_Assignment_Statement then
+               return Expression (Assign);
+            else
+               return Original_Bound;
+            end if;
+         end One_Bound;
+
+      --  Start of processing for Process_Bounds
+
+      begin
+         --  Determine expected type of range by analyzing separate copy.
+
+         Set_Parent (R_Copy, Parent (R));
+         Pre_Analyze_And_Resolve (R_Copy);
+         Typ := Etype (R_Copy);
+
+         --  If the type of the discrete range is Universal_Integer, then
+         --  the bound's type must be resolved to Integer, and any object
+         --  used to hold the bound must also have type Integer.
+
+         if Typ = Universal_Integer then
+            Typ := Standard_Integer;
+         end if;
+
+         Set_Etype (R, Typ);
+
+         New_Lo_Bound := One_Bound (Lo, Low_Bound  (R_Copy));
+         New_Hi_Bound := One_Bound (Hi, High_Bound (R_Copy));
+
+         --  Propagate staticness to loop range itself, in case the
+         --  corresponding subtype is static.
+
+         if New_Lo_Bound /= Lo
+           and then Is_Static_Expression (New_Lo_Bound)
+         then
+            Rewrite  (Low_Bound (R), New_Copy (New_Lo_Bound));
+         end if;
+
+         if New_Hi_Bound /= Hi
+           and then Is_Static_Expression (New_Hi_Bound)
+         then
+            Rewrite (High_Bound (R), New_Copy (New_Hi_Bound));
+         end if;
+      end Process_Bounds;
 
       --------------------------------------
       -- Check_Controlled_Array_Attribute --
@@ -1212,9 +1410,16 @@ package body Sem_Ch5 is
                      end if;
                   end;
 
-                  --  Now analyze the subtype definition
+                  --  Now analyze the subtype definition. If it is
+                  --  a range, create temporaries for bounds.
 
-                  Analyze (DS);
+                  if Nkind (DS) = N_Range
+                    and then Expander_Active
+                  then
+                     Process_Bounds (DS);
+                  else
+                     Analyze (DS);
+                  end if;
 
                   if DS = Error then
                      return;
@@ -1238,6 +1443,7 @@ package body Sem_Ch5 is
                   end if;
 
                   Check_Controlled_Array_Attribute (DS);
+
                   Make_Index (DS, LP);
 
                   Set_Ekind          (Id, E_Loop_Parameter);
@@ -1451,7 +1657,7 @@ package body Sem_Ch5 is
             Analyze (Identifier (S));
             Lab := Entity (Identifier (S));
 
-            --  If we found a label mark it as reachable.
+            --  If we found a label mark it as reachable
 
             if Ekind (Lab) = E_Label then
                Generate_Definition (Lab);

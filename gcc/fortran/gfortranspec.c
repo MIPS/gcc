@@ -1,6 +1,6 @@
 /* Specific flags and argument handling of the Fortran front-end.
-   Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004 Free Software
-   Foundation, Inc.
+   Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free
+   Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 /* This file is copied more or less verbatim from g77.  */
 /* This file contains a filter for the main `gcc' driver, which is
    replicated for the `gfortran' driver by adding this filter.  The purpose
@@ -228,7 +228,7 @@ append_arg (const char *arg)
     }
 
   if (g77_newargc == newargsize)
-    fatal ("overflowed output arg list for `%s'", arg);
+    fatal ("overflowed output arg list for '%s'", arg);
 
   g77_newargv[g77_newargc++] = arg;
 }
@@ -347,7 +347,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	case OPTION_version:
 	  printf ("\
 GNU Fortran 95 (GCC %s)\n\
-Copyright (C) 2004 Free Software Foundation, Inc.\n\
+Copyright (C) 2005 Free Software Foundation, Inc.\n\
 \n\
 GNU Fortran comes with NO WARRANTY, to the extent permitted by law.\n\
 You may redistribute copies of GNU Fortran\n\
@@ -372,7 +372,7 @@ For more information about these matters, see the file named COPYING\n\
       if (i + skip < argc)
 	i += skip;
       else
-	fatal ("argument to `%s' missing", argv[i]);
+	fatal ("argument to '%s' missing", argv[i]);
     }
 
   if ((n_outfiles != 0) && (n_infiles == 0))
