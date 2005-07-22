@@ -5144,7 +5144,11 @@ finish_struct_1 (tree t)
   dump_class_hierarchy (t);
   
   /* Finish debugging output for this type.  */
+  /* APPLE LOCAL 4167759 */
+  cp_set_decl_ignore_flag (t, 1);
   rest_of_type_compilation (t, ! LOCAL_CLASS_P (t));
+  /* APPLE LOCAL 4167759 */
+  cp_set_decl_ignore_flag (t, 0);
 }
 
 /* When T was built up, the member declarations were added in reverse
@@ -7934,4 +7938,38 @@ has_empty_operator_delete_p (tree class)
 }
 /* APPLE LOCAL end KEXT double destructor */
 
+/* APPLE LOCAL begin 4167759 */
+/* Set DECL_IGNORED_P flag for ctors and dtors associated 
+   with TYPE using VALUE.  */
+
+void cp_set_decl_ignore_flag (tree type, int value)
+{
+  tree m;
+  tree methods = TYPE_METHODS (type);
+
+  if (!flag_limit_debug_info)
+    return;
+
+  if (methods == NULL_TREE)
+    return;
+
+  if (TREE_CODE (methods) != TREE_VEC)
+    m = methods;
+  else if (TREE_VEC_ELT (methods, 0) != NULL_TREE)
+    m = TREE_VEC_ELT (methods, 0);
+  else
+    m = TREE_VEC_ELT (methods, 1);
+
+  for (; m; m = TREE_CHAIN (m))
+    {
+
+      if (DECL_NAME (m) == base_ctor_identifier
+        || DECL_NAME (m) == complete_ctor_identifier
+        || DECL_NAME (m) == complete_dtor_identifier
+        || DECL_NAME (m) == base_dtor_identifier
+        || DECL_NAME (m) == deleting_dtor_identifier)
+      DECL_IGNORED_P (m) = value;
+    }
+}
+/* APPLE LOCAL end 4167759 */
 #include "gt-cp-class.h"

@@ -1,5 +1,13 @@
 2005-07-22  Devang Patel  <dpatel@apple.com>
 
+	Radar 4167759
+	* class.c (finish_struct_1): Limit debug info for ctors/dtors.
+	(cp_set_decl_ignore_flag): New.
+	* cp-tree.h (cp_set_decl_ignore_flag): New.
+	* search.c (note_debug_info_needed): Limit debug info for ctors/dtors.
+
+2005-07-22  Devang Patel  <dpatel@apple.com>
+
 	Radar 4182972
 	* name-lookup.c (pushtag): Update comment.
 	* decl.c (grokdeclarator): Generate debug info for anonymous aggregate

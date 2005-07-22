@@ -332,6 +332,8 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-vect@r{[}-@var{n}@r{]} @gol
 @c APPLE LOCAL end lno
 -ftree-vectorizer-verbose=@var{n} @gol
+@c APPLE LOCAL 4167759
+-flimit-debug-info @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -3596,6 +3598,12 @@ without GDB extensions.  This is the format used by DBX on most BSD
 systems.  On MIPS, Alpha and System V Release 4 systems this option
 produces stabs debugging output which is not understood by DBX or SDB@.
 On System V Release 4 systems this option requires the GNU assembler.
+
+@c APPLE LOCAL begin 4167759
+@item -flimit-debug-info
+@opindex -flimit-debug-info
+Limit debug information produced to reduce size of debug binary.
+@c APPLE LOCAL end 4167759
 
 @item -feliminate-unused-debug-symbols
 @opindex feliminate-unused-debug-symbols

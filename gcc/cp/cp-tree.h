@@ -3758,7 +3758,8 @@ extern tree cp_fold_obj_type_ref		(tree, tree);
 extern void set_linkage_according_to_type       (tree, tree);
 extern void determine_key_method                (tree);
 extern void check_for_override                  (tree, tree);
-
+/* APPLE LOCAL 4167759 */
+extern void cp_set_decl_ignore_flag             (tree, int);
 /* in cvt.c */
 extern tree convert_to_reference (tree, tree, int, int, tree);
 extern tree convert_from_reference (tree);
