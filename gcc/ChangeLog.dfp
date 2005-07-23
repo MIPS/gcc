@@ -1,3 +1,8 @@
+2005-07-23  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/dfp-bit.c (DFP_EQ, DFP_NE, DFP_LT, DFP_GT, DFP_LE, DFP_GE):
+	Return the correct value for this particular function.
+
 2005-07-21  Janis Johnson  <janis187@us.ibm.com>
 
 	* optabs.c (init_optabs): Initialize ufloat_optab.

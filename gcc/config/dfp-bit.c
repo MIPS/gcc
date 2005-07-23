@@ -192,7 +192,10 @@ DFP_MINUS (DFP_C_TYPE arg)
 int
 DFP_EQ (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0);
+  int stat;
+  stat = dfp_compare_op (decNumberCompare, arg_a, arg_b);
+  /* For EQ return zero for true, nonzero for false.  */
+  return stat != 0;
 }
 #endif /* L_eq */
 
@@ -200,7 +203,10 @@ DFP_EQ (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 int
 DFP_NE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) != 0);
+  int stat;
+  stat = dfp_compare_op (decNumberCompare, arg_a, arg_b);
+  /* For NE return nonzero for true, zero for false.  */
+  return stat != 0;
 }
 #endif /* L_ne */
 
@@ -208,7 +214,10 @@ DFP_NE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 int
 DFP_LT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1);
+  int stat;
+  stat = dfp_compare_op (decNumberCompare, arg_a, arg_b);
+  /* For LT return -1 (<0) for true, 1 for false.  */
+  return (stat == -1) ? -1 : 1;
 }
 #endif /* L_lt */
 
@@ -216,7 +225,10 @@ DFP_LT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 int
 DFP_GT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return !(dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1);
+  int stat;
+  stat = dfp_compare_op (decNumberCompare, arg_a, arg_b);
+  /* For GT return 1 (>0) for true, -1 for false.  */
+  return (stat == 1) ? 1 : -1;
 }
 #endif
 
@@ -224,8 +236,10 @@ DFP_GT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 int
 DFP_LE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return !((dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1)
-	  || (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0));
+  int stat;
+  stat = dfp_compare_op (decNumberCompare, arg_a, arg_b);
+  /* For LE return 0 (<= 0) for true, 1 for false.  */
+  return stat == 1;
 }
 #endif /* L_le */
 
@@ -233,7 +247,9 @@ DFP_LE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 int
 DFP_GE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  return !((dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1)
-	  || (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0));
+  int stat;
+  stat = dfp_compare_op (decNumberCompare, arg_a, arg_b);
+  /* For GE return 1 (>=0) for true, -1 for false.  */
+  return (stat != -1) ? 1 : -1;
 }
 #endif /* L_ge */
