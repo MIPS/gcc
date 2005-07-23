@@ -1,5 +1,8 @@
 2005-07-23  Janis Johnson  <janis187@us.ibm.com>
 
+	* optabs.c (expand_binop, can_compare_p, emit_cmp_and_jump_insn_1,
+	prepare_float_lib_cmp): Try compatible wider modes.
+
 	* config/dfp-bit.c (DFP_EQ, DFP_NE, DFP_LT, DFP_GT, DFP_LE, DFP_GE):
 	Return the correct value for this particular function.
 

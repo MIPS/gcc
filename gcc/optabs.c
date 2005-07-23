@@ -1204,9 +1204,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       {
 	if (binoptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
 	    || (binoptab == smul_optab
-		&& GET_MODE_WIDER_MODE (wider_mode) != VOIDmode
+		&& GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode) != VOIDmode
 		&& (((unsignedp ? umul_widen_optab : smul_widen_optab)
-		     ->handlers[(int) GET_MODE_WIDER_MODE (wider_mode)].insn_code)
+		     ->handlers[(int) GET_MODE_COMPATIBLE_WIDER_MODE
+						(wider_mode)].insn_code)
 		    != CODE_FOR_nothing)))
 	  {
 	    rtx xop0 = op0, xop1 = op1;
@@ -3353,7 +3354,7 @@ can_compare_p (enum rtx_code code, enum machine_mode mode,
       if (purpose == ccp_store_flag
 	  && cstore_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
 	return 1;
-      mode = GET_MODE_WIDER_MODE (mode);
+      mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
     }
   while (mode != VOIDmode);
 
@@ -3609,7 +3610,7 @@ emit_cmp_and_jump_insn_1 (rtx x, rtx y, enum machine_mode mode,
 	  && class != MODE_COMPLEX_FLOAT)
 	break;
 
-      wider_mode = GET_MODE_WIDER_MODE (wider_mode);
+      wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode);
     }
   while (wider_mode != VOIDmode);
 
@@ -3692,7 +3693,9 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
   rtx libfunc = 0;
   bool reversed_p = false;
 
-  for (mode = orig_mode; mode != VOIDmode; mode = GET_MODE_WIDER_MODE (mode))
+  for (mode = orig_mode;
+       mode != VOIDmode;
+       mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode))
     {
       if ((libfunc = code_to_optab[comparison]->handlers[mode].libfunc))
 	break;
