@@ -1,5 +1,15 @@
 2005-07-23  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/conversions-2.c: Temporarily make compile-only.
+	* gcc.dg/dfp/conversions-3.c: Ditto.
+	* gcc.dg/dfp/conversions-4.c: Ditto.
+	* gcc.dg/dfp/conversions-5.c: Ditto.
+	* gcc.dg/dfp/conversions-6.c: Ditto.
+	* gcc.dg/dfp/conversions-7.c: Ditto.
+	* gcc.dg/dfp/conversions-8.c: Ditto.
+	* gcc.dg/dfp/conversions-9.c: Ditto.
+
+
 	* gcc.dg/dfp/compare.h: New.
 	* gcc.dg/dfp/compare-1.c: New test.
 	* gcc.dg/dfp/compare-2.c: New test.
