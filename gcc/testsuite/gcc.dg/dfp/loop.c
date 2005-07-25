@@ -2,14 +2,14 @@
 /* { dg-options "-std=gnu99" } */
 
 #include <stdio.h>
-extern void abort (void);
+#include <stdlib.h>
 
 int main()
 {
   int i;
   _Decimal32 d;
 
-  for (d = 1.1df, i=0; d <= 1.5df; d+= 0.1df, i++)
+  for (d = 1.1df, i=0; d <= 1.5df; d += 0.1df, i++)
     ;
 
   if (i != 5)

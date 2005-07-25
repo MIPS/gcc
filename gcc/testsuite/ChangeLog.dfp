@@ -1,3 +1,8 @@
+2005-07-25  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/dfp/loop.c: Include <stdlib.h> instead of prototyping
+	abort ().  Additionally tweak some whitespace.
+
 2005-07-23  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/dfp/conversions-2.c: Temporarily make compile-only.
@@ -8,7 +13,6 @@
 	* gcc.dg/dfp/conversions-7.c: Ditto.
 	* gcc.dg/dfp/conversions-8.c: Ditto.
 	* gcc.dg/dfp/conversions-9.c: Ditto.
-
 
 	* gcc.dg/dfp/compare.h: New.
 	* gcc.dg/dfp/compare-1.c: New test.
