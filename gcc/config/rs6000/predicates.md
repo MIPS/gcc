@@ -195,9 +195,8 @@
       && mode != DImode)
     return 1;
 
-  /* All decimal floats are currently soft.   Consider them easy. */
   if (DECIMAL_FLOAT_MODE_P (mode))
-    return 1;
+    return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
   if (flag_pic && DEFAULT_ABI == ABI_V4)
