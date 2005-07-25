@@ -3,7 +3,7 @@
 
 /* Compare floating point constants against each other. */
 #include <stdio.h>
-extern void abort (void);
+#include <stdlib.h>
 
 int main()
 {

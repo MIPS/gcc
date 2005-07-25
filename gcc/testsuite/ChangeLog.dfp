@@ -2,6 +2,20 @@
 
 	* gcc.dg/dfp/loop.c: Include <stdlib.h> instead of prototyping
 	abort ().  Additionally tweak some whitespace.
+	* gcc.dg/dfp/compare.h: Ditto, include <stdlib.h>.
+	* gcc.dg/dfp/constants-arith-1.c: Ditto.
+	* gcc.dg/dfp/constants-compare.c: Ditto.
+	* gcc.dg/dfp/conversions-1.c: Ditto.
+	* gcc.dg/dfp/conversions-3.c: Ditto.
+	* gcc.dg/dfp/conversions-4.c: Ditto.
+	* gcc.dg/dfp/conversions-5.c: Ditto.
+	* gcc.dg/dfp/conversions-6.c: Ditto.
+	* gcc.dg/dfp/conversions-7.c: Ditto.
+	* gcc.dg/dfp/conversions-8.c: Ditto.
+	* gcc.dg/dfp/conversions-9.c: Ditto.
+	* gcc.dg/dfp/decfloat-constants.c: Ditto.
+	* gcc.dg/dfp/inf-1.c: Ditto.
+	* gcc.dg/dfp/nan-1.c: Ditto.
 
 2005-07-23  Janis Johnson  <janis187@us.ibm.com>
 

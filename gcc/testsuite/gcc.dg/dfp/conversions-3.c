@@ -4,7 +4,7 @@
 
 /* Test various conversions involving decimal floating types. */
 #include <stdio.h>
-extern void abort (void);
+#include <stdlib.h>
 
 volatile _Decimal32 d32;
 volatile _Decimal64 d64;

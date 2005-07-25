@@ -3,7 +3,7 @@
 
 /* A few simple checks on arithmetic operations. */
 #include <stdio.h>
-extern void abort (void);
+#include <stdlib.h>
 
 int main()
 {

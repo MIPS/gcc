@@ -1,7 +1,7 @@
 /* Basic test of runtime comparisons using simple values that are not
    affected by rounding.  */
 
-extern void abort (void);
+#include <stdlib.h>
 
 static int failcnt;
 

@@ -2,8 +2,9 @@
 /* { dg-options "-std=gnu99" } */
 
 /* Make sure we are exporting the right values to decfloat.h. */
-extern void abort (void);
-int main()
+#include <stdlib.h>
+
+int main ()
 {
   
   if (__DEC32_MANT_DIG__ != 7) abort();

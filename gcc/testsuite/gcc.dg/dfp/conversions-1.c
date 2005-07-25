@@ -3,7 +3,7 @@
 
 /* Test various conversions involving decimal floating types. */
 #include <stdio.h>
-extern void abort (void);
+#include <stdlib.h>
 
 /* Assertion that constant C is of type T.  */
 #define ASSERT_CONST_TYPE(C, T)                 \

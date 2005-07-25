@@ -3,7 +3,7 @@
 /* { dg-options "-std=gnu99" } */
 
 /* Test various conversions involving decimal floating types. */
-extern void abort (void);
+#include <stdlib.h>
 
 _Decimal32 d32;
 _Decimal64 d64;
