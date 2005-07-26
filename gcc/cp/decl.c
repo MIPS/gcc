@@ -9237,19 +9237,8 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
   tree t;
   tree decl;
   if (scope == ts_global)
-    {
-      /* First try ordinary name lookup, ignoring hidden class name
-	 injected via friend declaration.  */
-      decl = lookup_name (name, 2);
-      /* If that fails, the name will be placed in the smallest
-	 non-class, non-function-prototype scope according to 3.3.1/5.
-	 We may already have a hidden name declared as friend in this
-	 scope.  So lookup again but not ignoring hidden name.
-	 If we find one, that name will be made visible rather than
-	 creating a new tag.  */
-      if (!decl)
-	decl = lookup_type_scope (name, ts_within_enclosing_non_class);
-    }
+    /* APPLE LOCAL 4184203 */
+    decl = lookup_name (name, 2);
   else
     decl = lookup_type_scope (name, scope);
 
@@ -9409,7 +9398,10 @@ xref_tag (enum tag_types tag_code, tree name,
 	{
 	  t = make_aggr_type (code);
 	  TYPE_CONTEXT (t) = context;
-	  t = pushtag (name, t, scope);
+	  /* APPLE LOCAL begin 4184203 */
+	  /* pushtag only cares whether SCOPE is zero or not.  */
+	  t = pushtag (name, t, scope != ts_current);
+	  /* APPLE LOCAL end 4184203 */
 	}
     }
   else
@@ -9423,20 +9415,8 @@ xref_tag (enum tag_types tag_code, tree name,
 	  error ("redeclaration of %qT as a non-template", t);
 	  t = error_mark_node;
 	}
-
-      /* Make injected friend class visible.  */
-      if (scope != ts_within_enclosing_non_class
-	  && hidden_name_p (TYPE_NAME (t)))
-	{
-	  DECL_ANTICIPATED (TYPE_NAME (t)) = 0;
-	  DECL_FRIEND_P (TYPE_NAME (t)) = 0;
-
-	  if (TYPE_TEMPLATE_INFO (t))
-	    {
-	      DECL_ANTICIPATED (TYPE_TI_TEMPLATE (t)) = 0;
-	      DECL_FRIEND_P (TYPE_TI_TEMPLATE (t)) = 0;
-	    }
-     	}
+      /* APPLE LOCAL 4184203 */
+      /* Remove code to make friend class visible */
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -9678,7 +9658,8 @@ start_enum (tree name)
 	name = make_anon_name ();
 
       enumtype = make_node (ENUMERAL_TYPE);
-      enumtype = pushtag (name, enumtype, /*tag_scope=*/ts_current);
+      /* APPLE LOCAL 4184203 */
+      enumtype = pushtag (name, enumtype, 0);
     }
 
   return enumtype;

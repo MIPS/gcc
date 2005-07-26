@@ -15091,7 +15091,12 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
     }
 
   /* If the lookup failed, let our caller know.  */
-  if (!decl || decl == error_mark_node)
+  /* APPLE LOCAL begin 4184203 */
+  if (!decl
+      || decl == error_mark_node
+      || (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_ANTICIPATED (decl)))
+    /* APPLE LOCAL end 4184203 */
     return error_mark_node;
 
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */
