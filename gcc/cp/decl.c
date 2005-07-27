@@ -3498,7 +3498,52 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
   else if (declspecs->type == error_mark_node)
     error_p = true;
   if (declared_type == NULL_TREE && ! saw_friend && !error_p)
-    pedwarn ("declaration does not declare anything");
+    /* APPLE LOCAL begin 4168392 */
+    {
+      /* If '-fms-extensions' is on and the compiler encounters an anonymous
+	 field declaration like
+
+	   T;
+
+	 where T denotes a struct, class or union type, we transform it to
+	 an anonymous struct/union like
+
+	   struct/union {
+	     <fields from T>
+	   };
+
+	 that the rest of C++ already knows how to handle. */
+      if (flag_ms_extensions && current_class_type && DECL_P (declspecs->type)
+	  && IS_AGGR_TYPE_CODE (TREE_CODE (TREE_TYPE (declspecs->type))))
+	{
+	  tree fields, field;
+
+	  declared_type
+	    = make_aggr_type (TREE_CODE (TREE_TYPE (declspecs->type)));
+	  SET_IS_AGGR_TYPE (declared_type, 1);
+	  TYPE_CONTEXT (declared_type) = current_class_type;
+	  xref_basetypes (declared_type, NULL_TREE);
+	  fields
+	    = nreverse (copy_list (TYPE_FIELDS (TREE_TYPE (declspecs->type))));
+
+	  for (field = fields; field; field = TREE_CHAIN (field))
+	    {
+	      if (TREE_CODE (field) == TYPE_DECL)
+		fields = TREE_CHAIN (field);
+	      else
+		DECL_CONTEXT (field) = NULL_TREE;
+	    }
+
+	  finish_builtin_struct (declared_type,
+				 IDENTIFIER_POINTER (make_anon_name ()),
+				 fields, TREE_TYPE (declspecs->type));
+
+	  goto finish_anon_aggr;
+	}
+
+      pedwarn ("declaration does not declare anything");
+    }
+    /* APPLE LOCAL end 4168392 */
   /* Check for an anonymous union.  */
   else if (declared_type && IS_AGGR_TYPE_CODE (TREE_CODE (declared_type))
 	   && TYPE_ANONYMOUS_P (declared_type))
@@ -3524,12 +3569,23 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
           error ("missing type-name in typedef-declaration");
           return NULL_TREE;
         }
+      /* APPLE LOCAL begin 4168392 */
+
+     finish_anon_aggr:
+      /* APPLE LOCAL end 4168392 */
       /* Anonymous unions are objects, so they can have specifiers.  */;
       SET_ANON_AGGR_TYPE_P (declared_type);
 
       if (TREE_CODE (declared_type) != UNION_TYPE && pedantic
 	  && !in_system_header)
-	pedwarn ("ISO C++ prohibits anonymous structs");
+	/* APPLE LOCAL begin 4168392 */
+	{
+	  if (flag_ms_extensions)
+	    warning ("ISO C++ prohibits anonymous structs");
+	  else
+	    pedwarn ("ISO C++ prohibits anonymous structs");
+	}
+	/* APPLE LOCAL end 4168392 */
     }
 
   else

@@ -1,3 +1,11 @@
+2005-07-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4168392
+	* g++.dg/ext/anon-struct3.C: Anonymous aggregate fields
+	may use typedefs.
+	* g++.dg/ext/apple-r4168392.C: New.
+	* gcc.dg/apple-r4168392.c: New.
+
 2005-07-26  Dale Johannesen  <dalej@apple.com>
 
         * gcc.apple/4182984.c:  New.

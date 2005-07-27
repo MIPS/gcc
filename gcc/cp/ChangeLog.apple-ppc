@@ -1,3 +1,11 @@
+2005-07-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4168392
+	* decl.c (check_tag_decl): In '-fms-extensions' mode,
+	turn anonymous fields of aggregate (struct or union) type
+	into anonymous aggregates.  For structs, issue a warning
+	if in '-pedantic' mode.
+
 2005-07-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 4184203
