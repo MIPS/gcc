@@ -1,0 +1,10 @@
+2005-07-27  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	Branch created (killloop-branchpoint)
+	* common.opt (floop-optimize2): Removed.
+	(fmove-loop-invariants): Enabled by default.
+	* loop-init.c (gate_handle_loop2): Do not check flag_loop_optimize2.
+	Check flag_branch_on_count_reg only if HAVE_doloop_end.
+	* opts.c (decode_options): Do not enable flag_loop_optimize.
+	* toplev.c (process_options): Do not handle flag_loop_optimize2.
+	* doc/invoke.texi: Remove -floop-optimize2 documentation.

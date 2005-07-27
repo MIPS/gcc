@@ -520,7 +520,6 @@ decode_options (unsigned int argc, const char **argv)
 #endif
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
-      flag_loop_optimize = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
       flag_ipa_pure_const = 1;
