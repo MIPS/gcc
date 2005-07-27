@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline 2005-07-26 */
 // Copyright (C) 2005 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 7 Jul 2005 <nathan@codesourcery.com>
 
@@ -15,3 +16,4 @@ const X *x;
 int main () { 
   f (*x, &X::g);  // {  dg-error "no matching function" }
 } 
+/* APPLE LOCAL end mainline 2005-07-26 */

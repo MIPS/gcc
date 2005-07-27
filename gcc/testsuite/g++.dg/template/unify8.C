@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline 2005-07-26 */
 // { dg-do link }
 
 // Copyright (C) 2005 Free Software Foundation, Inc.
@@ -18,3 +19,4 @@ const X *x;
 int main () { 
   f (*x, &X::g); 
 }
+/* APPLE LOCAL end mainline 2005-07-26 */

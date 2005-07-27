@@ -9149,9 +9149,11 @@ fn_type_unification (tree fn,
      because the standard doesn't seem to explicitly prohibit it.  Our
      callers must be ready to deal with unification failures in any
      event.  */
+/* APPLE LOCAL begin mainline 2005-07-26 */
   result = type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn), 
 				  targs, parms, args, /*subr=*/0,
-				  strict, /*allow_incomplete*/1, len);
+				  strict, 0, len);
+/* APPLE LOCAL end mainline 2005-07-26 */
 
   if (result == 0) 
     /* All is well so far.  Now, check:
@@ -9255,11 +9257,15 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
   return result;
 }
 
+/* APPLE LOCAL begin mainline 2005-07-26 */
 /* Most parms like fn_type_unification.
 
    If SUBR is 1, we're being called recursively (to unify the
    arguments of a function or method parameter of a function
-   template).  */
+   template).  If IS_METHOD is true, XPARMS are the parms of a
+   member function, and special rules apply to cv qualification
+   deduction on the this parameter. */
+/* APPLE LOCAL end mainline 2005-07-26 */
 
 static int
 type_unification_real (tree tparms, 
@@ -9268,7 +9274,8 @@ type_unification_real (tree tparms,
                        tree xargs, 
                        int subr,
 		       unification_kind_t strict, 
-                       int allow_incomplete, 
+/* APPLE LOCAL mainline 2005-07-26 */
+                       int is_method, 
                        int xlen)
 {
   tree parm, arg;
@@ -9327,6 +9334,28 @@ type_unification_real (tree tparms,
 	/* We can't deduce anything from this, but we might get all the
 	   template args from other function args.  */
 	continue;
+
+/* APPLE LOCAL begin mainline 2005-07-26 */
+     if (is_method)
+       {
+         /* The cv qualifiers on the this pointer argument must match
+            exactly.  We cannot deduce a T as const X against a const
+            member function for instance.  */
+         gcc_assert (TREE_CODE (parm) == POINTER_TYPE);
+         gcc_assert (TREE_CODE (arg) == POINTER_TYPE);
+         /* The restrict qualifier will be on the pointer.  */
+         if (cp_type_quals (parm) != cp_type_quals (arg))
+           return 1;
+         parm = TREE_TYPE (parm);
+         arg = TREE_TYPE (arg);
+         if (cp_type_quals (parm) != cp_type_quals (arg))
+           return 1;
+
+        parm = TYPE_MAIN_VARIANT (parm);
+        arg = TYPE_MAIN_VARIANT (arg);
+        is_method = 0;
+      }
+/* APPLE LOCAL end mainline 2005-07-26 */
 
       /* Conversions will be performed on a function argument that
 	 corresponds with a function parameter that contains only
@@ -9414,8 +9443,9 @@ type_unification_real (tree tparms,
 	      && !saw_undeduced++)
 	    goto again;
 
-	  if (!allow_incomplete)
-	    error ("incomplete type unification");
+/* APPLE LOCAL begin mainline 2005-07-26 */
+/* Use of allow_incomplete is removed here. */
+/* APPLE LOCAL end mainline 2005-07-26 */
 	  return 2;
 	}
   return 0;
@@ -10242,9 +10272,12 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       if (unify (tparms, targs, TREE_TYPE (parm),
 		 TREE_TYPE (arg), UNIFY_ALLOW_NONE))
 	return 1;
+/* APPLE LOCAL begin mainline 2005-07-26 */
       return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
 				    TYPE_ARG_TYPES (arg), 1, 
-				    DEDUCE_EXACT, 0, -1);
+				    DEDUCE_EXACT, 
+				    TREE_CODE (parm) == METHOD_TYPE, -1);
+/* APPLE LOCAL end mainline 2005-07-26 */
 
     case OFFSET_TYPE:
       /* Unify a pointer to member with a pointer to member function, which
