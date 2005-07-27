@@ -20,9 +20,6 @@
 
 // 27.3 Standard iostream objects
 
-// XXX cygwin does not support mkfifo
-// { dg-do run { xfail *-*-cygwin* } }
-
 #include <fstream>
 #include <iostream>
 #include <unistd.h>
@@ -32,10 +29,16 @@
 #include <sys/stat.h>
 #include <testsuite_hooks.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // Check that cout.flush() is called when last ios_base::Init is destroyed.
 void test07()
 {
   using namespace std;
+  using namespace __gnu_test;
   bool test __attribute__((unused)) = true;
 
   const char* name = "tmp_fifo4";
@@ -43,7 +46,7 @@ void test07()
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);  
-  mkfifo(name, S_IRWXU);
+  try_mkfifo(name, S_IRWXU);
   
   int child = fork();
   VERIFY( child != -1 );
@@ -52,7 +55,8 @@ void test07()
     {
       filebuf fbout;
       sleep(1);
-      fbout.open(name, ios_base::out);
+      fbout.open(name, ios_base::in|ios_base::out);
+      VERIFY ( fbout.is_open() );
       cout.rdbuf(&fbout);
       fbout.sputc('a');
       sleep(2);
@@ -76,3 +80,5 @@ main()
   test07();
   return 0;
 }
+
+#endif // _NEWLIB_VERSION

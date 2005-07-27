@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -284,6 +284,111 @@ cxx_incomplete_type_error (tree value, tree type)
 }
 
 
+/* The recursive part of split_nonconstant_init.  DEST is an lvalue
+   expression to which INIT should be assigned.  INIT is a CONSTRUCTOR.
+   PCODE is a pointer to the tail of a chain of statements being emitted.
+   The return value is the new tail of that chain after new statements
+   are generated.  */
+
+static tree *
+split_nonconstant_init_1 (tree dest, tree init, tree *pcode)
+{
+  tree *pelt, elt, type = TREE_TYPE (dest);
+  tree sub, code, inner_type = NULL;
+  bool array_type_p = false;
+
+  pelt = &CONSTRUCTOR_ELTS (init);
+  switch (TREE_CODE (type))
+    {
+    case ARRAY_TYPE:
+      inner_type = TREE_TYPE (type);
+      array_type_p = true;
+      /* FALLTHRU */
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      while ((elt = *pelt))
+	{
+	  tree field_index = TREE_PURPOSE (elt);
+	  tree value = TREE_VALUE (elt);
+
+	  if (!array_type_p)
+	    inner_type = TREE_TYPE (field_index);
+
+	  if (TREE_CODE (value) == CONSTRUCTOR)
+	    {
+	      if (array_type_p)
+	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	      else
+	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+
+	      pcode = split_nonconstant_init_1 (sub, value, pcode);
+	    }
+	  else if (!initializer_constant_valid_p (value, inner_type))
+	    {
+	      *pelt = TREE_CHAIN (elt);
+
+	      if (array_type_p)
+	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	      else
+	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+
+	      code = build (MODIFY_EXPR, inner_type, sub, value);
+	      code = build_stmt (EXPR_STMT, code);
+
+	      *pcode = code;
+	      pcode = &TREE_CHAIN (code);
+	      continue;
+	    }
+	  pelt = &TREE_CHAIN (elt);
+	}
+      break;
+
+    case VECTOR_TYPE:
+      if (!initializer_constant_valid_p (init, type))
+	{
+	  tree cons = copy_node (init);
+	  CONSTRUCTOR_ELTS (init) = NULL;
+	  code = build (MODIFY_EXPR, type, dest, cons);
+	  code = build_stmt (EXPR_STMT, code);
+	  *pcode = code;
+	  pcode = &TREE_CHAIN (code);
+	}
+      break;
+
+    default:
+      abort ();
+    }
+
+  return pcode;
+}
+
+/* A subroutine of store_init_value.  Splits non-constant static 
+   initializer INIT into a constant part and generates code to
+   perform the non-constant part of the initialization to DEST.
+   Returns the code for the runtime init.  */
+
+static tree
+split_nonconstant_init (tree dest, tree init)
+{
+  tree code;
+
+  if (TREE_CODE (init) == CONSTRUCTOR)
+    {
+      code = build_stmt (COMPOUND_STMT, NULL_TREE);
+      split_nonconstant_init_1 (dest, init, &COMPOUND_BODY (code));
+      code = build1 (STMT_EXPR, void_type_node, code);
+      TREE_SIDE_EFFECTS (code) = 1;
+      DECL_INITIAL (dest) = init;
+      TREE_READONLY (dest) = 0;
+    }
+  else
+    code = build (INIT_EXPR, TREE_TYPE (dest), dest, init);
+
+  return code;
+}
+
 /* Perform appropriate conversions on the initial value of a variable,
    store it in the declaration DECL,
    and print any error messages that are appropriate.
@@ -299,14 +404,13 @@ cxx_incomplete_type_error (tree value, tree type)
    into a CONSTRUCTOR and use standard initialization techniques.
    Perhaps a warning should be generated?
 
-   Returns value of initializer if initialization could not be
-   performed for static variable.  In that case, caller must do
-   the storing.  */
+   Returns code to be executed if initialization could not be performed
+   for static variable.  In that case, caller must emit the code.  */
 
 tree
 store_init_value (tree decl, tree init)
 {
-  register tree value, type;
+  tree value, type;
 
   /* If variable's type was invalidly declared, just ignore it.  */
 
@@ -343,28 +447,18 @@ store_init_value (tree decl, tree init)
 	init = build_x_compound_expr_from_list (init, "initializer");
     }
 
-  /* End of special C++ code.  */
-
   /* Digest the specified initializer into an expression.  */
   value = digest_init (type, init, (tree *) 0);
-
-  /* Store the expression if valid; else report error.  */
-
-  if (TREE_CODE (value) == ERROR_MARK)
-    ;
-  /* Other code expects that initializers for objects of types that need
-     constructing never make it into DECL_INITIAL, and passes 'init' to
-     build_aggr_init without checking DECL_INITIAL.  So just return.  */
-  else if (TYPE_NEEDS_CONSTRUCTING (type))
-    return value;
-  else if (TREE_STATIC (decl)
-	   && (! TREE_CONSTANT (value)
-	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
-    return value;
-  
-  /* Store the VALUE in DECL_INITIAL.  If we're building a
-     statement-tree we will actually expand the initialization later
-     when we output this function.  */
+  /* If the initializer is not a constant, fill in DECL_INITIAL with
+     the bits that are constant, and then return an expression that
+     will perform the dynamic initialization.  */
+  if (value != error_mark_node
+      && (! TREE_CONSTANT (value)
+	  || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
+    return split_nonconstant_init (decl, value);
+  /* If the value is a constant, just put it in DECL_INITIAL.  If DECL
+     is an automatic variable, the middle end will turn this into a
+     dynamic initialization later.  */
   DECL_INITIAL (decl) = value;
   return NULL_TREE;
 }
@@ -470,8 +564,7 @@ digest_init (tree type, tree init, tree* tail)
 	  if (TYPE_DOMAIN (type) != 0
 	      && TREE_CONSTANT (TYPE_SIZE (type)))
 	    {
-	      register int size
-		= TREE_INT_CST_LOW (TYPE_SIZE (type));
+	      int size = TREE_INT_CST_LOW (TYPE_SIZE (type));
 	      size = (size + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
 	      /* In C it is ok to subtract 1 from the length of the string
 		 because it's ok to ignore the terminating null char that is
@@ -577,11 +670,11 @@ digest_init (tree type, tree init, tree* tail)
 static tree
 process_init_constructor (tree type, tree init, tree* elts)
 {
-  register tree tail;
+  tree tail;
   /* List of the elements of the result constructor,
      in reverse order.  */
-  register tree members = NULL;
-  register tree next1;
+  tree members = NULL;
+  tree next1;
   tree result;
   int allconstant = 1;
   int allsimple = 1;
@@ -605,8 +698,8 @@ process_init_constructor (tree type, tree init, tree* elts)
 
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == VECTOR_TYPE)
     {
-      register long len;
-      register int i;
+      long len;
+      int i;
 
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
@@ -616,7 +709,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 		   - TREE_INT_CST_LOW (TYPE_MIN_VALUE (domain))
 		   + 1);
 	  else
-	    len = -1;  /* Take as many as there are */
+	    len = -1;  /* Take as many as there are.  */
 	}
       else
 	{
@@ -696,7 +789,7 @@ process_init_constructor (tree type, tree init, tree* elts)
     }
   else if (TREE_CODE (type) == RECORD_TYPE)
     {
-      register tree field;
+      tree field;
 
       if (tail)
 	{
@@ -817,7 +910,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 	   /* If the initializer was empty, use default zero initialization.  */
 	   && tail)
     {
-      register tree field = TYPE_FIELDS (type);
+      tree field = TYPE_FIELDS (type);
 
       /* Find the first named field.  ANSI decided in September 1990
 	 that only named fields count here.  */
@@ -990,7 +1083,8 @@ build_x_arrow (tree expr)
   if (IS_AGGR_TYPE (type))
     {
       while ((expr = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, expr,
-				   NULL_TREE, NULL_TREE)))
+				   NULL_TREE, NULL_TREE,
+				   /*overloaded_p=*/NULL)))
 	{
 	  if (expr == error_mark_node)
 	    return error_mark_node;
@@ -1132,7 +1226,7 @@ build_functional_cast (tree exp, tree parms)
 
   if (! IS_AGGR_TYPE (type))
     {
-      /* this must build a C cast */
+      /* This must build a C cast.  */
       if (parms == NULL_TREE)
 	parms = integer_zero_node;
       else

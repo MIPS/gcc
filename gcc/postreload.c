@@ -1,6 +1,6 @@
 /* Perform simple optimizations to clean up the result of reload.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -117,6 +117,19 @@ reload_cse_simplify (rtx insn, rtx testreg)
       int i;
       int count = 0;
       rtx value = NULL_RTX;
+
+      /* Registers mentioned in the clobber list for an asm cannot be reused
+	 within the body of the asm.  Invalidate those registers now so that
+	 we don't try to substitute values for them.  */
+      if (asm_noperands (body) >= 0)
+	{
+	  for (i = XVECLEN (body, 0) - 1; i >= 0; --i)
+	    {
+	      rtx part = XVECEXP (body, 0, i);
+	      if (GET_CODE (part) == CLOBBER && REG_P (XEXP (part, 0)))
+		cselib_invalidate_rtx (XEXP (part, 0));
+	    }
+	}
 
       /* If every action in a PARALLEL is a noop, we can delete
 	 the entire PARALLEL.  */
@@ -388,6 +401,8 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
     {
       cselib_val *v;
       struct elt_loc_list *l;
+      rtx op;
+      enum machine_mode mode;
 
       CLEAR_HARD_REG_SET (equiv_regs[i]);
 
@@ -395,11 +410,67 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	 right, so avoid the problem here.  Likewise if we have a constant
          and the insn pattern doesn't tell us the mode we need.  */
       if (GET_CODE (recog_data.operand[i]) == CODE_LABEL
+	  || (GET_CODE (recog_data.operand[i]) == NOTE
+	      && NOTE_LINE_NUMBER (recog_data.operand[i]) == NOTE_INSN_DELETED_LABEL)
 	  || (CONSTANT_P (recog_data.operand[i])
 	      && recog_data.operand_mode[i] == VOIDmode))
 	continue;
 
-      v = cselib_lookup (recog_data.operand[i], recog_data.operand_mode[i], 0);
+      op = recog_data.operand[i];
+      mode = GET_MODE (op);
+#ifdef LOAD_EXTEND_OP
+      if (GET_CODE (op) == MEM
+	  && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
+	  && LOAD_EXTEND_OP (mode) != NIL)
+	{
+	  rtx set = single_set (insn);
+
+	  /* We might have multiple sets, some of which do implict
+	     extension.  Punt on this for now.  */
+	  if (! set)
+	    continue;
+	  /* If the destination is a also MEM or a STRICT_LOW_PART, no
+	     extension applies.
+	     Also, if there is an explicit extension, we don't have to
+	     worry about an implicit one.  */
+	  else if (GET_CODE (SET_DEST (set)) == MEM
+		   || GET_CODE (SET_DEST (set)) == STRICT_LOW_PART
+		   || GET_CODE (SET_SRC (set)) == ZERO_EXTEND
+		   || GET_CODE (SET_SRC (set)) == SIGN_EXTEND)
+	    ; /* Continue ordinary processing.  */
+#ifdef CANNOT_CHANGE_MODE_CLASS
+	  /* If the register cannot change mode to word_mode, it follows that
+	     it cannot have been used in word_mode.  */
+	  else if (GET_CODE (SET_DEST (set)) == REG
+		   && CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
+						word_mode,
+						REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
+	    ; /* Continue ordinary processing.  */
+#endif
+	  /* If this is a straight load, make the extension explicit.  */
+	  else if (GET_CODE (SET_DEST (set)) == REG
+		   && recog_data.n_operands == 2
+		   && SET_SRC (set) == op
+		   && SET_DEST (set) == recog_data.operand[1-i])
+	    {
+	      validate_change (insn, recog_data.operand_loc[i],
+			       gen_rtx_fmt_e (LOAD_EXTEND_OP (mode),
+					      word_mode, op),
+			       1);
+	      validate_change (insn, recog_data.operand_loc[1-i],
+			       gen_rtx_REG (word_mode, REGNO (SET_DEST (set))),
+			       1);
+	      if (! apply_change_group ())
+		return 0;
+	      return reload_cse_simplify_operands (insn, testreg);
+	    }
+	  else
+	    /* ??? There might be arithmetic operations with memory that are
+	       safe to optimize, but is it worth the trouble?  */
+	    continue;
+	}
+#endif /* LOAD_EXTEND_OP */
+      v = cselib_lookup (op, recog_data.operand_mode[i], 0);
       if (! v)
 	continue;
 
@@ -664,7 +735,7 @@ reload_combine (void)
 
   FOR_EACH_BB_REVERSE (bb)
     {
-      insn = bb->head;
+      insn = BB_HEAD (bb);
       if (GET_CODE (insn) == CODE_LABEL)
 	{
 	  HARD_REG_SET live;
@@ -718,7 +789,9 @@ reload_combine (void)
 	 ... (MEM (PLUS (REGZ) (REGY)))... .
 
 	 First, check that we have (set (REGX) (PLUS (REGX) (REGY)))
-	 and that we know all uses of REGX before it dies.  */
+	 and that we know all uses of REGX before it dies.  
+	 Also, explicitly check that REGX != REGY; our life information
+	 does not yet show whether REGY changes in this insn.  */
       set = single_set (insn);
       if (set != NULL_RTX
 	  && GET_CODE (SET_DEST (set)) == REG
@@ -728,6 +801,7 @@ reload_combine (void)
 	  && GET_CODE (SET_SRC (set)) == PLUS
 	  && GET_CODE (XEXP (SET_SRC (set), 1)) == REG
 	  && rtx_equal_p (XEXP (SET_SRC (set), 0), SET_DEST (set))
+	  && !rtx_equal_p (XEXP (SET_SRC (set), 1), SET_DEST (set))
 	  && last_label_ruid < reg_state[REGNO (SET_DEST (set))].use_ruid)
 	{
 	  rtx reg = SET_DEST (set);
@@ -1196,14 +1270,12 @@ reload_cse_move2add (rtx first)
 		  else if (rtx_cost (new_src, PLUS) < rtx_cost (src, SET)
 			   && have_add2_insn (reg, new_src))
 		    {
-		      rtx newpat = gen_add2_insn (reg, new_src);
-		      if (INSN_P (newpat) && NEXT_INSN (newpat) == NULL_RTX)
-			newpat = PATTERN (newpat);
-		      /* If it was the first insn of a sequence or
-			 some other emitted insn, validate_change will
-			 reject it.  */
-		      validate_change (insn, &PATTERN (insn),
-				       newpat, 0);
+		      rtx newpat = gen_rtx_SET (VOIDmode,
+						reg,
+						gen_rtx_PLUS (GET_MODE (reg),
+						 	      reg,
+						 	      new_src));
+		      validate_change (insn, &PATTERN (insn), newpat, 0);
 		    }
 		  else
 		    {
@@ -1285,10 +1357,11 @@ reload_cse_move2add (rtx first)
 				< COSTS_N_INSNS (1) + rtx_cost (src3, SET))
 			       && have_add2_insn (reg, new_src))
 			{
-			  rtx newpat = gen_add2_insn (reg, new_src);
-			  if (INSN_P (newpat)
-			      && NEXT_INSN (newpat) == NULL_RTX)
-			    newpat = PATTERN (newpat);
+			  rtx newpat = gen_rtx_SET (VOIDmode,
+						    reg,
+						    gen_rtx_PLUS (GET_MODE (reg),
+						 		  reg,
+								  new_src));
 			  success
 			    = validate_change (next, &PATTERN (next),
 					       newpat, 0);
@@ -1321,13 +1394,14 @@ reload_cse_move2add (rtx first)
 
       /* If INSN is a conditional branch, we try to extract an
 	 implicit set out of it.  */
-      if (any_condjump_p (insn) && onlyjump_p (insn))
+      if (any_condjump_p (insn))
 	{
 	  rtx cnd = fis_get_condition (insn);
 
 	  if (cnd != NULL_RTX
 	      && GET_CODE (cnd) == NE
 	      && GET_CODE (XEXP (cnd, 0)) == REG
+	      && !reg_set_p (XEXP (cnd, 0), insn)
 	      /* The following two checks, which are also in
 		 move2add_note_store, are intended to reduce the
 		 number of calls to gen_rtx_SET to avoid memory

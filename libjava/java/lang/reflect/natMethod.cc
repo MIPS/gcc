@@ -1,6 +1,6 @@
 // natMethod.cc - Native code for Method class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003 Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003, 2005 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -343,6 +343,8 @@ _Jv_CallAnyMethodA (jobject obj,
 		    jvalue *result,
 		    jboolean is_jni_call)
 {
+  using namespace java::lang::reflect;
+  
 #ifdef USE_LIBFFI
   JvAssert (! is_constructor || ! obj);
   JvAssert (! is_constructor || return_type);
@@ -351,7 +353,7 @@ _Jv_CallAnyMethodA (jobject obj,
   // constructor does need a `this' argument, but it is one we create.
   jboolean needs_this = false;
   if (is_constructor
-      || ! java::lang::reflect::Modifier::isStatic(meth->accflags))
+      || ! Modifier::isStatic(meth->accflags))
     needs_this = true;
 
   int param_count = parameter_types->length;
@@ -462,16 +464,34 @@ _Jv_CallAnyMethodA (jobject obj,
       break;
     }
 
-  void *ncode;
+  void *ncode = meth->ncode;
 
+  // FIXME: If a vtable index is -1 at this point it is invalid, so we
+  // have to use the ncode.  
+  //
+  // This can happen because methods in final classes don't have
+  // vtable entries, but _Jv_isVirtualMethod() doesn't know that.  We
+  // could solve this problem by allocating a vtable index for methods
+  // in final classes.
   if (is_virtual_call)
-    {
+    { 
       _Jv_VTable *vtable = *(_Jv_VTable **) obj;
-      ncode = vtable->get_method (meth->index);
-    }
-  else
-    {
-      ncode = meth->ncode;
+      if ((_Jv_ushort)-1 == meth->index)
+	{
+	  if (ncode == NULL)
+	    // We have no vtable index, and we have no code pointer.
+	    // Look method up by name.
+	    ncode = _Jv_LookupInterfaceMethod (vtable->clas, 
+					       meth->name,
+					       meth->signature);
+	}
+      else
+	{ 
+	  // We have an index.  If METH is not final, use virtual
+	  // dispatch.
+	  if (! Modifier::isFinal (meth->accflags))
+	    ncode = vtable->get_method (meth->index);
+	}
     }
 
   try

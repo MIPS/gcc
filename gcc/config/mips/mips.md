@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -53,26 +53,22 @@
    (UNSPEC_LDR			23)
    (UNSPEC_SDL			24)
    (UNSPEC_SDR			25)
+   (UNSPEC_LOADGP		26)
+   (UNSPEC_LOAD_CALL		27)
+   (UNSPEC_GP			29)
 
-   ;; Constants used in relocation unspecs.  RELOC_GOT_PAGE and RELOC_GOT_DISP
-   ;; are really only available for n32 and n64.  However, it is convenient
-   ;; to reuse them for SVR4 PIC, where they represent the local and global
-   ;; forms of R_MIPS_GOT16.
-   (RELOC_GOT_HI		100)
-   (RELOC_GOT_LO		101)
-   (RELOC_GOT_PAGE		102)
-   (RELOC_GOT_DISP		103)
-   (RELOC_CALL16		104)
-   (RELOC_CALL_HI		105)
-   (RELOC_CALL_LO		106)
-   (RELOC_LOADGP_HI		107)
-   (RELOC_LOADGP_LO		108)])
+   (UNSPEC_ADDRESS_FIRST	100)
+
+   (FAKE_CALL_REGNO		79)])
 
 ;; ....................
 ;;
 ;;	Attributes
 ;;
 ;; ....................
+
+(define_attr "got" "unset,xgot_high,load"
+  (const_string "unset"))
 
 ;; For jal instructions, this attribute is DIRECT when the target address
 ;; is symbolic and INDIRECT when it is a register.
@@ -125,8 +121,8 @@
 ;; nop		no operation
 (define_attr "type"
   "unknown,branch,jump,call,load,store,prefetch,prefetchx,move,condmove,xfer,hilo,const,arith,darith,imul,imadd,idiv,icmp,fadd,fmul,fmadd,fdiv,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,multi,nop"
-  (cond [(eq_attr "jal" "!unset")
-	 (const_string "call")]
+  (cond [(eq_attr "jal" "!unset") (const_string "call")
+	 (eq_attr "got" "load") (const_string "load")]
 	(const_string "unknown")))
 
 ;; Main data type used by the insn
@@ -178,6 +174,11 @@
 		     (const_int 0))
 		 (const_int 24)
 		 ] (const_int 12))
+
+	  (eq_attr "got" "load")
+	  (const_int 4)
+	  (eq_attr "got" "xgot_high")
+	  (const_int 8)
 
 	  (eq_attr "type" "const")
 	  (symbol_ref "mips_const_insns (operands[1]) * 4")
@@ -265,7 +266,8 @@
 
 ;; Describe a user's asm statement.
 (define_asm_attributes
-  [(set_attr "type" "multi")])
+  [(set_attr "type" "multi")
+   (set_attr "can_delay" "no")])
 
 ;; .........................
 ;;
@@ -883,7 +885,7 @@
       rtx tmp = gen_reg_rtx (DImode);
 
       emit_move_insn (tmp, operands[1]);
-      emit_insn (gen_addsi3 (tmp, tmp, operands[2]));
+      emit_insn (gen_adddi3 (tmp, tmp, operands[2]));
       emit_move_insn (operands[0], tmp);
       DONE;
     }
@@ -976,7 +978,7 @@
 
 (define_insn "adddi3_internal_2"
   [(set (match_operand:DI 0 "register_operand" "=d,d,d")
-	(plus:DI (match_operand:DI 1 "register_operand" "%d,%d,%d")
+	(plus:DI (match_operand:DI 1 "register_operand" "%d,d,d")
 		 (match_operand:DI 2 "small_int" "P,J,N")))
    (clobber (match_operand:SI 3 "register_operand" "=d,d,d"))]
   "!TARGET_64BIT && !TARGET_DEBUG_G_MODE && !TARGET_MIPS16"
@@ -2373,7 +2375,7 @@
 {
   if (const_float_1_operand (operands[1], DFmode))
     if (!(ISA_HAS_FP4 && flag_unsafe_math_optimizations))
-      FAIL;
+      operands[1] = force_reg (DFmode, operands[1]);
 })
 
 ;; This pattern works around the early SB-1 rev2 core "F1" erratum:
@@ -2423,7 +2425,7 @@
 {
   if (const_float_1_operand (operands[1], SFmode))
     if (!(ISA_HAS_FP4 && flag_unsafe_math_optimizations))
-      FAIL;
+      operands[1] = force_reg (SFmode, operands[1]);
 })
 
 ;; This pattern works around the early SB-1 rev2 core "F1" erratum (see
@@ -3841,7 +3843,7 @@ dsrl\t%3,%3,1\n\
 
   real_2expN (&offset, 31);
 
-  if (reg1)			/* turn off complaints about unreached code */
+  if (reg1)			/* Turn off complaints about unreached code.  */
     {
       emit_move_insn (reg1, CONST_DOUBLE_FROM_REAL_VALUE (offset, DFmode));
       do_pending_stack_adjust ();
@@ -3864,7 +3866,7 @@ dsrl\t%3,%3,1\n\
 
       emit_label (label2);
 
-      /* allow REG_NOTES to be set on last insn (labels don't have enough
+      /* Allow REG_NOTES to be set on last insn (labels don't have enough
 	 fields, and can't be used for REG_NOTES anyway).  */
       emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
       DONE;
@@ -3907,7 +3909,7 @@ dsrl\t%3,%3,1\n\
 
   emit_label (label2);
 
-  /* allow REG_NOTES to be set on last insn (labels don't have enough
+  /* Allow REG_NOTES to be set on last insn (labels don't have enough
      fields, and can't be used for REG_NOTES anyway).  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
   DONE;
@@ -3949,7 +3951,7 @@ dsrl\t%3,%3,1\n\
 
   emit_label (label2);
 
-  /* allow REG_NOTES to be set on last insn (labels don't have enough
+  /* Allow REG_NOTES to be set on last insn (labels don't have enough
      fields, and can't be used for REG_NOTES anyway).  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
   DONE;
@@ -3991,7 +3993,7 @@ dsrl\t%3,%3,1\n\
 
   emit_label (label2);
 
-  /* allow REG_NOTES to be set on last insn (labels don't have enough
+  /* Allow REG_NOTES to be set on last insn (labels don't have enough
      fields, and can't be used for REG_NOTES anyway).  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
   DONE;
@@ -4058,22 +4060,25 @@ dsrl\t%3,%3,1\n\
 ;; refers to just the first or the last byte (depending on endianness).
 ;; We therefore use two memory operands to each instruction, one to
 ;; describe the rtl effect and one to use in the assembly output.
+;;
+;; Operands 0 and 1 are the rtl-level target and source respectively.
+;; This allows us to use the standard length calculations for the "load"
+;; and "store" type attributes.
 
 (define_insn "mov_lwl"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")]
+	(unspec:SI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")]
 		   UNSPEC_LWL))]
   "!TARGET_MIPS16"
   "lwl\t%0,%2"
   [(set_attr "type" "load")
-   (set_attr "mode" "SI")
-   (set_attr "hazard" "none")])
+   (set_attr "mode" "SI")])
 
 (define_insn "mov_lwr"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")
+	(unspec:SI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")
 		    (match_operand:SI 3 "register_operand" "0")]
 		   UNSPEC_LWR))]
   "!TARGET_MIPS16"
@@ -4085,7 +4090,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_swl"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")]
+		     (match_operand:QI 2 "memory_operand" "m")]
 		    UNSPEC_SWL))]
   "!TARGET_MIPS16"
   "swl\t%z1,%2"
@@ -4095,7 +4100,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_swr"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
 	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")
+		     (match_operand:QI 2 "memory_operand" "m")
 		     (match_dup 0)]
 		    UNSPEC_SWR))]
   "!TARGET_MIPS16"
@@ -4106,8 +4111,8 @@ dsrl\t%3,%3,1\n\
 
 (define_insn "mov_ldl"
   [(set (match_operand:DI 0 "register_operand" "=d")
-	(unspec:DI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")]
+	(unspec:DI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")]
 		   UNSPEC_LDL))]
   "TARGET_64BIT && !TARGET_MIPS16"
   "ldl\t%0,%2"
@@ -4116,8 +4121,8 @@ dsrl\t%3,%3,1\n\
 
 (define_insn "mov_ldr"
   [(set (match_operand:DI 0 "register_operand" "=d")
-	(unspec:DI [(match_operand:BLK 1 "general_operand" "m")
-		    (match_operand:QI 2 "general_operand" "m")
+	(unspec:DI [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")
 		    (match_operand:DI 3 "register_operand" "0")]
 		   UNSPEC_LDR))]
   "TARGET_64BIT && !TARGET_MIPS16"
@@ -4129,7 +4134,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_sdl"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")]
+		     (match_operand:QI 2 "memory_operand" "m")]
 		    UNSPEC_SDL))]
   "TARGET_64BIT && !TARGET_MIPS16"
   "sdl\t%z1,%2"
@@ -4139,7 +4144,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "mov_sdr"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
 	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "general_operand" "m")
+		     (match_operand:QI 2 "memory_operand" "m")
 		     (match_dup 0)]
 		    UNSPEC_SDR))]
   "TARGET_64BIT && !TARGET_MIPS16"
@@ -4147,31 +4152,109 @@ dsrl\t%3,%3,1\n\
   [(set_attr "type" "store")
    (set_attr "mode" "DI")])
 
+;; Insns to fetch a global symbol from a big GOT.
 
-;; Instructions for loading a relocation expression using "lui".
+(define_insn_and_split "*xgot_hisi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(high:SI (match_operand:SI 1 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (high:SI (match_dup 2)))
+   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 3)))]
+{
+  operands[2] = mips_gotoff_global (operands[1]);
+  operands[3] = pic_offset_table_rtx;
+}
+  [(set_attr "got" "xgot_high")])
 
-(define_insn "luisi"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(match_operand 1 "const_arith_operand" "")] UNSPEC_HIGH))]
-  ""
-  "lui\t%0,%1"
-  [(set_attr "type" "arith")])
+(define_insn_and_split "*xgot_losi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (match_operand:SI 1 "register_operand" "d")
+		   (match_operand:SI 2 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 3))]
+  { operands[3] = mips_load_got_global (operands[1], operands[2]); }
+  [(set_attr "got" "load")])
 
-(define_insn "luidi"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(match_operand 1 "const_arith_operand" "")] UNSPEC_HIGH))]
-  "TARGET_64BIT"
-  "lui\t%0,%1"
-  [(set_attr "type" "arith")])
+(define_insn_and_split "*xgot_hidi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(high:DI (match_operand:DI 1 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (high:DI (match_dup 2)))
+   (set (match_dup 0) (plus:DI (match_dup 0) (match_dup 3)))]
+{
+  operands[2] = mips_gotoff_global (operands[1]);
+  operands[3] = pic_offset_table_rtx;
+}
+  [(set_attr "got" "xgot_high")])
 
+(define_insn_and_split "*xgot_lodi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "d")
+		   (match_operand:DI 2 "global_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 3))]
+  { operands[3] = mips_load_got_global (operands[1], operands[2]); }
+  [(set_attr "got" "load")])
+
+;; Insns to fetch a global symbol from a normal GOT.
+
+(define_insn_and_split "*got_dispsi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(match_operand:SI 1 "global_got_operand" ""))]
+  "TARGET_EXPLICIT_RELOCS && !TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_global (pic_offset_table_rtx, operands[1]); }
+  [(set_attr "got" "load")])
+
+(define_insn_and_split "*got_dispdi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(match_operand:DI 1 "global_got_operand" ""))]
+  "TARGET_EXPLICIT_RELOCS && !TARGET_XGOT"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_global (pic_offset_table_rtx, operands[1]); }
+  [(set_attr "got" "load")])
+
+;; Insns for loading the high part of a local symbol.
+
+(define_insn_and_split "*got_pagesi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(high:SI (match_operand:SI 1 "local_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_page (operands[1]); }
+  [(set_attr "got" "load")])
+
+(define_insn_and_split "*got_pagedi"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(high:DI (match_operand:DI 1 "local_got_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 2))]
+  { operands[2] = mips_load_got_page (operands[1]); }
+  [(set_attr "got" "load")])
 
 ;; Instructions for adding the low 16 bits of an address to a register.
 ;; Operand 2 is the address: print_operand works out which relocation
 ;; should be applied.
 
 (define_insn "*lowsi"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(lo_sum:SI (match_operand:SI 1 "register_operand" "r")
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (match_operand:SI 1 "register_operand" "d")
 		   (match_operand:SI 2 "immediate_operand" "")))]
   "!TARGET_MIPS16"
   "addiu\t%0,%1,%R2"
@@ -4179,8 +4262,8 @@ dsrl\t%3,%3,1\n\
    (set_attr "mode"	"SI")])
 
 (define_insn "*lowdi"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "d")
 		   (match_operand:DI 2 "immediate_operand" "")))]
   "!TARGET_MIPS16 && TARGET_64BIT"
   "daddiu\t%0,%1,%R2"
@@ -5014,8 +5097,7 @@ dsrl\t%3,%3,1\n\
   return mips_output_move (operands[0], operands[1]);
 }
   [(set_attr "type"	"xfer,load")
-   (set_attr "mode"	"SF")
-   (set_attr "length"	"4")])
+   (set_attr "mode"	"SF")])
 
 ;; Load the high word of operand 0 from operand 1, preserving the value
 ;; in the low word.
@@ -5030,8 +5112,7 @@ dsrl\t%3,%3,1\n\
   return mips_output_move (operands[0], operands[1]);
 }
   [(set_attr "type"	"xfer,load")
-   (set_attr "mode"	"SF")
-   (set_attr "length"	"4")])
+   (set_attr "mode"	"SF")])
 
 ;; Store the high word of operand 1 in operand 0.  The corresponding
 ;; low-word move is done in the normal way.
@@ -5045,8 +5126,27 @@ dsrl\t%3,%3,1\n\
   return mips_output_move (operands[0], operands[1]);
 }
   [(set_attr "type"	"xfer,store")
-   (set_attr "mode"	"SF")
-   (set_attr "length"	"4")])
+   (set_attr "mode"	"SF")])
+
+;; Insn to initialize $gp for n32/n64 abicalls.  Operand 0 is the offset
+;; of _gp from the start of this function.  Operand 1 is the incoming
+;; function address.
+(define_insn_and_split "loadgp"
+  [(unspec_volatile [(match_operand 0 "" "")
+		     (match_operand 1 "register_operand" "")] UNSPEC_LOADGP)]
+  "TARGET_ABICALLS && TARGET_NEWABI"
+  "#"
+  ""
+  [(set (match_dup 2) (match_dup 3))
+   (set (match_dup 2) (match_dup 4))
+   (set (match_dup 2) (match_dup 5))]
+{
+  operands[2] = pic_offset_table_rtx;
+  operands[3] = gen_rtx_HIGH (Pmode, operands[0]);
+  operands[4] = gen_rtx_PLUS (Pmode, operands[2], operands[1]);
+  operands[5] = gen_rtx_LO_SUM (Pmode, operands[2], operands[0]);
+}
+  [(set_attr "length" "12")])
 
 ;; The use of gp is hidden when not using explicit relocations.
 ;; This blockage instruction prevents the gp load from being
@@ -6770,7 +6870,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -6783,7 +6883,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 
@@ -6887,7 +6987,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -6900,7 +7000,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sne_si_zero"
@@ -6983,7 +7083,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -6996,7 +7096,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) != 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sgt_si"
@@ -7044,7 +7144,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7054,7 +7154,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sge_si"
@@ -7113,7 +7213,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7123,7 +7223,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "slt_si"
@@ -7181,7 +7281,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7194,7 +7294,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 32767)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sle_si_const"
@@ -7307,7 +7407,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7320,7 +7420,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) != 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sgtu_si"
@@ -7368,7 +7468,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7378,7 +7478,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sgeu_si"
@@ -7437,7 +7537,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7447,7 +7547,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sltu_si"
@@ -7505,7 +7605,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7518,7 +7618,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 32767)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sleu_si_const"
@@ -7665,6 +7765,24 @@ srl\t%M0,%M1,%2\n\
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
+(define_insn "sungt_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(ungt:CC (match_operand:DF 1 "register_operand" "f")
+	         (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "c.ult.d\t%Z0%2,%1"
+  [(set_attr "type" "fcmp")
+   (set_attr "mode" "FPSW")])
+
+(define_insn "sunge_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unge:CC (match_operand:DF 1 "register_operand" "f")
+	         (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "c.ule.d\t%Z0%2,%1"
+  [(set_attr "type" "fcmp")
+   (set_attr "mode" "FPSW")])
+
 (define_insn "seq_df"
   [(set (match_operand:CC 0 "register_operand" "=z")
 	(eq:CC (match_operand:DF 1 "register_operand" "f")
@@ -7743,6 +7861,24 @@ srl\t%M0,%M1,%2\n\
 		 (match_operand:SF 2 "register_operand" "f")))]
   "TARGET_HARD_FLOAT"
   "c.ule.s\t%Z0%1,%2"
+  [(set_attr "type" "fcmp")
+   (set_attr "mode" "FPSW")])
+
+(define_insn "sungt_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(ungt:CC (match_operand:SF 1 "register_operand" "f")
+	         (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT"
+  "c.ult.s\t%Z0%2,%1"
+  [(set_attr "type" "fcmp")
+   (set_attr "mode" "FPSW")])
+
+(define_insn "sunge_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unge:CC (match_operand:SF 1 "register_operand" "f")
+	         (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT"
+  "c.ule.s\t%Z0%2,%1"
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
@@ -8025,8 +8161,15 @@ srl\t%M0,%M1,%2\n\
    (clobber (match_operand:SI 2 "register_operand" "=d"))
    (clobber (reg:SI 31))]
   "TARGET_EMBEDDED_PIC"
-  "%(bal\t%S1\;sll\t%2,%0,2\n%~%S1:\;addu\t%2,%2,$31%)\;\
-lw\t%2,%1-%S1(%2)\;addu\t%2,%2,$31\;%*j\t%2%/"
+  {
+    if (set_nomacro)
+      return "%(bal\\t%S1\;sll\\t%2,%0,2\\n%~%S1:\;addu\\t%2,%2,$31%)\;\\
+.set macro\;lw\\t%2,%1-%S1(%2)\;.set nomacro\;addu\\t%2,%2,$31\\n\\t%*j\\t%2%/";
+    return
+  "%(bal\\t%S1\;sll\\t%2,%0,2\\n%~%S1:\;addu\\t%2,%2,$31%)\;\\
+lw\\t%2,%1-%S1(%2)\;addu\\t%2,%2,$31\\n\\t%*j\\t%2%/"
+    ;
+  }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"24")])
@@ -8042,8 +8185,15 @@ lw\t%2,%1-%S1(%2)\;addu\t%2,%2,$31\;%*j\t%2%/"
    (clobber (match_operand:DI 2 "register_operand" "=d"))
    (clobber (reg:DI 31))]
   "TARGET_EMBEDDED_PIC"
-  "%(bal\t%S1\;sll\t%2,%0,3\n%~%S1:\;daddu\t%2,%2,$31%)\;\
-ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
+  {
+    if (set_nomacro)
+      return "%(bal\\t%S1\;sll\\t%2,%0,3\\n%~%S1:\;daddu\\t%2,%2,$31%)\;\\
+.set macro\;ld\\t%2,%1-%S1(%2)\;.set nomacro\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2%/";
+    return
+  "%(bal\\t%S1\;sll\\t%2,%0,3\\n%~%S1:\;daddu\\t%2,%2,$31%)\;\\
+ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2%/"
+    ;
+  }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"24")])
@@ -8154,8 +8304,8 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 ;; Normal return.
 
 (define_insn "return_internal"
-  [(use (match_operand 0 "pmode_register_operand" ""))
-   (return)]
+  [(return)
+   (use (match_operand 0 "pmode_register_operand" ""))]
   ""
   "%*j\t%0%/"
   [(set_attr "type"	"jump")
@@ -8235,6 +8385,42 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 ;;	FUNCTION CALLS
 ;;
 ;;  ....................
+
+;; Instructions to load a call address from the GOT.  The address might
+;; point to a function or to a lazy binding stub.  In the latter case,
+;; the stub will use the dynamic linker to resolve the function, which
+;; in turn will change the GOT entry to point to the function's real
+;; address.
+;;
+;; This means that every call, even pure and constant ones, can
+;; potentially modify the GOT entry.  And once a stub has been called,
+;; we must not call it again.
+;;
+;; We represent this restriction using an imaginary fixed register that
+;; acts like a GOT version number.  By making the register call-clobbered,
+;; we tell the target-independent code that the address could be changed
+;; by any call insn.
+(define_insn "load_callsi"
+  [(set (match_operand:SI 0 "register_operand" "=c")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")
+		    (match_operand:SI 2 "immediate_operand" "")
+		    (reg:SI FAKE_CALL_REGNO)]
+		   UNSPEC_LOAD_CALL))]
+  "TARGET_ABICALLS"
+  "lw\t%0,%R2(%1)"
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])
+
+(define_insn "load_calldi"
+  [(set (match_operand:DI 0 "register_operand" "=c")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand:DI 2 "immediate_operand" "")
+		    (reg:DI FAKE_CALL_REGNO)]
+		   UNSPEC_LOAD_CALL))]
+  "TARGET_ABICALLS"
+  "ld\t%0,%R2(%1)"
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])
 
 ;; Sibling calls.  All these patterns use jump instructions.
 
@@ -9038,3 +9224,9 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
   [(set_attr "type"	"branch")
    (set_attr "mode"	"none")
    (set_attr "length"	"8")])
+
+(define_split
+  [(match_operand 0 "small_data_pattern" "")]
+  "reload_completed"
+  [(match_dup 0)]
+  { operands[0] = mips_rewrite_small_data (operands[0]); })

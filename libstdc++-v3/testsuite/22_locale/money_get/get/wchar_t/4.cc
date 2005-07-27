@@ -1,6 +1,6 @@
 // 2001-09-12 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,8 +28,6 @@
 void test04()
 {
   using namespace std;
-  typedef money_base::part part;
-  typedef money_base::pattern pattern;
   typedef istreambuf_iterator<wchar_t> iterator_type;
 
   bool test __attribute__((unused)) = true;
@@ -37,19 +35,7 @@ void test04()
   // basic construction
   locale loc_c = locale::classic();
   locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
-  VERIFY( loc_c != loc_de );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
-
-  // cache the moneypunct facets
-  typedef moneypunct<wchar_t, true> __money_true;
-  typedef moneypunct<wchar_t, false> __money_false;
-
-  // sanity check the data is correct.
-  const wstring empty;
+  VERIFY( loc_c != loc_hk );
 
   // input less than frac_digits
   const long double digits4 = -1.0;
@@ -69,7 +55,7 @@ void test04()
   ios_base::iostate err03 = ios_base::goodbit;
   mon_get.get(is_it03, end, true, iss, err03, result3);
   VERIFY( result3 == digits4 );
-  VERIFY( err03 == ios_base::goodbit );
+  VERIFY( err03 == ios_base::eofbit );
 }
 
 int main()

@@ -170,9 +170,17 @@ extern const char *cris_elinux_stacksize_str;
    %{!melinux:%{!maout|melf:%{!fno-vtable-gc:-fvtable-gc}}}}}".  */
 #define CC1PLUS_SPEC ""
 
+#ifdef HAVE_AS_MUL_BUG_ABORT_OPTION
+#define MAYBE_AS_NO_MUL_BUG_ABORT \
+ "%{mno-mul-bug-workaround:-no-mul-bug-abort} "
+#else
+#define MAYBE_AS_NO_MUL_BUG_ABORT
+#endif
+
 /* Override previous definitions (linux.h).  */
 #undef ASM_SPEC
 #define ASM_SPEC \
+ MAYBE_AS_NO_MUL_BUG_ABORT \
  "%{v:-v}\
   %(asm_subtarget)"
 
@@ -251,13 +259,15 @@ extern const char *cris_elinux_stacksize_str;
       builtin_define_std ("CRIS");		\
       builtin_define_std ("GNU_CRIS");		\
       builtin_define ("__CRIS_ABI_version=2");	\
+      builtin_assert ("cpu=cris");		\
+      builtin_assert ("machine=cris");		\
     }						\
   while (0)
 
 /* This needs to be at least 32 bits.  */
 extern int target_flags;
 
-/* Currently this just affects aligment.  FIXME:  Redundant with
+/* Currently this just affects alignment.  FIXME:  Redundant with
    TARGET_ALIGN_BY_32, or put machine stuff here?  */
 #define TARGET_MASK_SVINTO 1
 #define TARGET_SVINTO (target_flags & TARGET_MASK_SVINTO)
@@ -323,8 +333,34 @@ extern int target_flags;
 #define TARGET_MASK_AVOID_GOTPLT 8192
 #define TARGET_AVOID_GOTPLT (target_flags & TARGET_MASK_AVOID_GOTPLT)
 
+/* Whether or not to work around multiplication instruction hardware bug
+   when generating code for models where it may be present.  From the
+   trouble report for Etrax 100 LX: "A multiply operation may cause
+   incorrect cache behaviour under some specific circumstances. The
+   problem can occur if the instruction following the multiply instruction
+   causes a cache miss, and multiply operand 1 (source operand) bits
+   [31:27] matches the logical mapping of the mode register address
+   (0xb0....), and bits [9:2] of operand 1 matches the TLB register
+   address (0x258-0x25f).  There is such a mapping in kernel mode or when
+   the MMU is off.  Normally there is no such mapping in user mode, and
+   the problem will therefore probably not occur in Linux user mode
+   programs."
+
+   We have no sure-fire way to know from within GCC that we're compiling a
+   user program.  For example, -fpic/PIC is used in libgcc which is linked
+   into the kernel.  However, the workaround option -mno-mul-bug can be
+   safely used per-package when compiling programs.  The same goes for
+   general user-only libraries such as glibc, since there's no user-space
+   driver-like program that gets a mapping of I/O registers (all on the
+   same page, including the TLB registers).  */
+#define TARGET_MASK_MUL_BUG 16384
+#define TARGET_MUL_BUG (target_flags & TARGET_MASK_MUL_BUG)
+
 #define TARGET_SWITCHES							\
  {									\
+  {"mul-bug-workaround",		 TARGET_MASK_MUL_BUG,		\
+   N_("Work around bug in multiplication instruction")},		\
+  {"no-mul-bug-workaround",		-TARGET_MASK_MUL_BUG, ""},	\
   /* No "no-etrax" as it does not really imply any model.		\
      On the other hand, "etrax" implies the common (and large)		\
      subset matching all models.  */					\
@@ -402,7 +438,7 @@ extern int target_flags;
 # define TARGET_DEFAULT \
  (TARGET_MASK_SIDE_EFFECT_PREFIXES + TARGET_MASK_STACK_ALIGN \
   + TARGET_MASK_CONST_ALIGN + TARGET_MASK_DATA_ALIGN \
-  + TARGET_MASK_PROLOGUE_EPILOGUE)
+  + TARGET_MASK_PROLOGUE_EPILOGUE + TARGET_MASK_MUL_BUG)
 #endif
 
 /* For the cris-*-elf subtarget.  */
@@ -475,13 +511,13 @@ extern int target_flags;
 #define UNITS_PER_WORD 4
 
 /* A combination of defining PROMOTE_MODE, PROMOTE_FUNCTION_ARGS,
-   PROMOTE_FOR_CALL_ONLY and *not* defining PROMOTE_PROTOTYPES gives the
+   and *not* defining PROMOTE_PROTOTYPES or PROMOTE_MODE gives the
    best code size and speed for gcc, ipps and products in gcc-2.7.2.  */
 #define CRIS_PROMOTED_MODE(MODE, UNSIGNEDP, TYPE) \
  (GET_MODE_CLASS (MODE) == MODE_INT && GET_MODE_SIZE (MODE) < 4) \
   ? SImode : MODE
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)  \
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)  \
   (MODE) = CRIS_PROMOTED_MODE (MODE, UNSIGNEDP, TYPE)
 
 #define PROMOTE_FUNCTION_ARGS
@@ -492,7 +528,6 @@ extern int target_flags;
    FIXME: Report this when cris.h is part of GCC, so others can easily
    see the problem.  Maybe check other systems that define
    PROMOTE_FUNCTION_RETURN.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* We will be using prototype promotion, so they will be 32 bit.  */
 #define PARM_BOUNDARY 32
@@ -848,7 +883,7 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 
 /* If we would ever need an exact mapping between canonical register
    number and dwarf frame register, we would either need to include all
-   registers in the gcc decription (with some marked fixed of course), or
+   registers in the gcc description (with some marked fixed of course), or
    an inverse mapping from dwarf register to gcc register.  There is one
    need in dwarf2out.c:expand_builtin_init_dwarf_reg_sizes.  Right now, I
    don't see that we need exact correspondence between DWARF *frame*
@@ -953,7 +988,7 @@ struct cum_args {int regs;};
 
 /* The regs member is an integer, the number of arguments got into
    registers so far.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL)	  \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
  ((CUM).regs = 0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\
@@ -1495,7 +1530,8 @@ call_ ## FUNC (void)						\
  cris_print_operand (FILE, X, CODE)
 
 /* For delay-slot handling.  */
-#define PRINT_OPERAND_PUNCT_VALID_P(CODE) (CODE == '#')
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE)	\
+ ((CODE) == '#' || (CODE) == '!')
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR)	\
    cris_print_operand_address (FILE, ADDR)

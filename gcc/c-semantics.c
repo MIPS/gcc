@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the common
    tree codes used in the GNU C and C++ compilers (see c-common.def
    for the standard codes).
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Benjamin Chelf (chelf@codesourcery.com).
 
 This file is part of GCC.
@@ -430,7 +430,6 @@ genrtl_while_stmt (tree t)
 {
   tree cond = WHILE_COND (t);
 
-  emit_nop ();
   emit_line_note (input_location);
   expand_start_loop (1);
   genrtl_do_pushlevel ();
@@ -467,7 +466,6 @@ genrtl_do_stmt_1 (tree cond, tree body)
     }
   else if (integer_nonzerop (cond))
     {
-      emit_nop ();
       emit_line_note (input_location);
       expand_start_loop (1);
 
@@ -478,7 +476,6 @@ genrtl_do_stmt_1 (tree cond, tree body)
     }
   else
     {
-      emit_nop ();
       emit_line_note (input_location);
       expand_start_loop_continue_elsewhere (1);
 
@@ -542,7 +539,6 @@ genrtl_for_stmt (tree t)
   expand_stmt (FOR_INIT_STMT (t));
 
   /* Expand the initialization.  */
-  emit_nop ();
   emit_line_note (input_location);
   if (FOR_EXPR (t))
     expand_start_loop_continue_elsewhere (1);
@@ -592,7 +588,7 @@ genrtl_break_stmt (void)
 {
   emit_line_note (input_location);
   if ( ! expand_exit_something ())
-    error ("break statement not within loop or switch");
+    abort ();
 }
 
 /* Build a continue statement node and return it.  */
@@ -610,7 +606,7 @@ genrtl_continue_stmt (void)
 {
   emit_line_note (input_location);
   if (! expand_continue_loop (0))
-    error ("continue statement not within a loop");
+    abort ();
 }
 
 /* Generate the RTL for T, which is a SCOPE_STMT.  */
@@ -941,6 +937,9 @@ expand_unreachable_if_stmt (tree t)
       return true;
     }
 
+  /* Account for declarations as conditions.  */
+  expand_cond (IF_COND (t));
+
   if (THEN_CLAUSE (t) && ELSE_CLAUSE (t))
     {
       n = expand_unreachable_stmt (THEN_CLAUSE (t), 0);
@@ -973,7 +972,9 @@ expand_unreachable_if_stmt (tree t)
 /* Expand an unreachable statement list.  This function skips all
    statements preceding the first potentially reachable label and
    then returns the label (or, in same cases, the statement after
-   one containing the label).  */
+   one containing the label).  This function returns NULL_TREE if
+   the end of the given statement list is unreachable, and a
+   non-NULL value, possibly error_mark_node, otherwise.  */
 static tree
 expand_unreachable_stmt (tree t, int warn)
 {
@@ -1023,7 +1024,7 @@ expand_unreachable_stmt (tree t, int warn)
 
 	case IF_STMT:
 	  if (expand_unreachable_if_stmt (t))
-	    return TREE_CHAIN (t);
+	    return TREE_CHAIN (t) ? TREE_CHAIN (t) : error_mark_node;
 	  break;
 
 	case WHILE_STMT:
@@ -1031,7 +1032,7 @@ expand_unreachable_stmt (tree t, int warn)
 	     no need to rotate the loop, instead the WHILE_STMT can be
 	     expanded like a DO_STMT.  */
 	  genrtl_do_stmt_1 (WHILE_COND (t), WHILE_BODY (t));
-	  return TREE_CHAIN (t);
+	  return TREE_CHAIN (t) ? TREE_CHAIN (t) : error_mark_node;
 
 	case COMPOUND_STMT:
 	  {
@@ -1040,7 +1041,7 @@ expand_unreachable_stmt (tree t, int warn)
 	    if (n != NULL_TREE)
 	      {
 		expand_stmt (n);
-		return TREE_CHAIN (t);
+		return TREE_CHAIN (t) ? TREE_CHAIN (t) : error_mark_node;
 	      }
 	    warn = false;
 	    break;

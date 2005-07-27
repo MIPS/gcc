@@ -13,7 +13,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:0:0
+libtool_VERSION=6:3:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -56,8 +56,9 @@ fi
 #  foreign:  we don't follow the normal rules for GNU packages (no COPYING
 #            file in the top srcdir, etc, etc), so stop complaining.
 #  no-dependencies:  turns off auto dependency generation (just for now)
-#  -Wall:  turns on all automake warnings
-AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall])
+#  -Wall:  turns on all automake warnings...
+#  -Wno-portability:  ...except this one, since GNU make is now required.
+AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall -Wno-portability])
 
 # Runs configure.host, finds CC, CXX, and assorted other critical bits.  Sets
 # up critical shell variables.
@@ -77,13 +78,13 @@ GLIBCXX_ENABLE_HOSTED
 
 # Check for support bits and g++ features that don't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
-GLIBCXX_ENABLE_LIBUNWIND_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
 
 # Enable all the variable C++ runtime options.  
 # NB: C_MBCHAR must come early.
 GLIBCXX_ENABLE_CSTDIO
 GLIBCXX_ENABLE_CLOCALE
+GLIBCXX_ENABLE_ALLOCATOR
 GLIBCXX_ENABLE_CHEADERS($c_model)  dnl c_model from configure.host
 GLIBCXX_ENABLE_C_MBCHAR([yes])
 GLIBCXX_ENABLE_C99([yes])
@@ -93,9 +94,10 @@ GLIBCXX_ENABLE_CONCEPT_CHECKS([no])
 GLIBCXX_ENABLE_DEBUG_FLAGS(["-g3 -O0"])
 GLIBCXX_ENABLE_DEBUG([no])
 GLIBCXX_ENABLE_CXX_FLAGS
+GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING([no])
 
 # No surprises, no surprises...
-if test $atomicity_include_dir = cpu/generic ; then
+if test $atomicity_dir = cpu/generic ; then
   AC_MSG_WARN([No native atomic operations are provided for this platform.])
   if test $target_thread_file = single; then
     AC_MSG_WARN([They cannot be faked when thread support is disabled.])
@@ -192,7 +194,6 @@ else
 
     # GLIBCXX_CHECK_STDLIB_SUPPORT
     AC_DEFINE(HAVE_STRTOF)        
-    AC_DEFINE(HAVE_STRTOLD)        
     # AC_FUNC_MMAP
     AC_DEFINE(HAVE_MMAP)
 
@@ -220,6 +221,9 @@ else
     AC_DEFINE(HAVE_SQRTF)
     AC_DEFINE(HAVE_TANF)
     AC_DEFINE(HAVE_TANHF)
+
+    AC_DEFINE(HAVE_S_ISREG)
+    AC_DEFINE(HAVE_S_IFREG)
   else
     m4_include([crossconfig.m4])
   fi
@@ -265,10 +269,23 @@ GLIBCXX_CONFIGURE_TESTSUITE
 # Propagate the target-specific source directories through the build chain.
 # (Nothing currently uses cpu_include_dir directly; only atomicity_include_dir 
 # uses it, and it only gets used in this file.)
-ATOMICITY_INC_SRCDIR=config/${atomicity_include_dir}
+ATOMICITY_SRCDIR=config/${atomicity_dir}
+ATOMIC_WORD_SRCDIR=config/${atomic_word_dir}
 OS_INC_SRCDIR=config/${os_include_dir}
-AC_SUBST(ATOMICITY_INC_SRCDIR)
+ABI_TWEAKS_SRCDIR=config/${abi_tweaks_dir}
+AC_SUBST(ATOMICITY_SRCDIR)
+AC_SUBST(ATOMIC_WORD_SRCDIR)
+AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
+
+# For SymbianOS, we use a highly cut-down libsupc++. This lets us
+# conditionalise libsupc++'s Makefile.am to include only the necessary sources.
+case "$target" in
+  *arm*-symbianelf)
+  LIBSUPCXX_PRONLY=yes;;
+  *);;
+esac
+AM_CONDITIONAL(LIBSUPCXX_PRONLY, test $LIBSUPCXX_PRONLY = yes)
 
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)
@@ -276,7 +293,7 @@ AC_SUBST(OS_INC_SRCDIR)
 # from GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT:
 #AM_CONDITIONAL(GLIBCXX_BUILD_LIBMATH,  test $need_libmath = yes)
 GLIBCXX_EVALUATE_CONDITIONALS
- 
+
 AC_CACHE_SAVE
 
 if test ${multilib} = yes; then

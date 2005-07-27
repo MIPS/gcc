@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
-@c 2002, 2003 Free Software Foundation, Inc.
+@c 2002, 2003, 2004 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -181,7 +181,7 @@ this pattern.  @xref{Insn Attributes}.
 
 Here is an actual example of an instruction pattern, for the 68000/68020.
 
-@example
+@smallexample
 (define_insn "tstsi"
   [(set (cc0)
         (match_operand:SI 0 "general_operand" "rm"))]
@@ -192,12 +192,12 @@ Here is an actual example of an instruction pattern, for the 68000/68020.
     return \"tstl %0\";
   return \"cmpl #0,%0\";
 @}")
-@end example
+@end smallexample
 
 @noindent
 This can also be written using braced strings:
 
-@example
+@smallexample
 (define_insn "tstsi"
   [(set (cc0)
         (match_operand:SI 0 "general_operand" "rm"))]
@@ -207,7 +207,7 @@ This can also be written using braced strings:
     return "tstl %0";
   return "cmpl #0,%0";
 @})
-@end example
+@end smallexample
 
 This is an instruction that sets the condition codes based on the value of
 a general operand.  It has no condition, so any insn whose RTL description
@@ -1256,8 +1256,10 @@ instruction is defined:
   @dots{})
 @end smallexample
 @end ifset
-GCC can only handle one commutative pair in an asm; if you use more, 
-the compiler may fail.
+GCC can only handle one commutative pair in an asm; if you use more,
+the compiler may fail.  Note that you need not use the modifier if
+the two alternatives are strictly identical; this would only waste
+time in the reload pass.
 
 @cindex @samp{#} in constraint
 @item #
@@ -1340,6 +1342,9 @@ available on some particular machines.
 @item f
 Floating-point register
 
+@item w
+VFP floating-point register
+
 @item F
 One of the floating-point constants 0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0
 or 10.0
@@ -1375,6 +1380,15 @@ An item in the constant pool
 @item S
 A symbol in the text segment of the current file
 @end table
+
+@item Uv
+A memory reference suitable for VFP load/store insns (reg+constant offset)
+
+@item Uy
+A memory reference suitable for iWMMXt load/store instructions.
+
+@item Uq
+A memory reference suitable for for the ARMv4 ldrsb instruction.
 
 @item AVR family---@file{avr.h}
 @table @code
@@ -1439,13 +1453,16 @@ Constant integer 1
 A floating point constant 0.0
 @end table
 
-@item IBM RS6000---@file{rs6000.h}
+@item PowerPC and IBM RS6000---@file{rs6000.h}
 @table @code
 @item b
 Address base register
 
 @item f
 Floating point register
+
+@item v
+Vector register
 
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register
@@ -1825,11 +1842,11 @@ Non-pointer registers (not @samp{SP}, @samp{DP}, @samp{IP})
 Non-SP registers (everything except @samp{SP})
 
 @item R
-Indirect thru @samp{IP} - Avoid this except for @code{QImode}, since we
+Indirect through @samp{IP} - Avoid this except for @code{QImode}, since we
 can't access extra bytes
 
 @item S
-Indirect thru @samp{SP} or @samp{DP} with short displacement (0..127)
+Indirect through @samp{SP} or @samp{DP} with short displacement (0..127)
 
 @item T
 Data-section immediate value
@@ -2196,13 +2213,52 @@ Unsigned 12-bit constant (0--4095)
 Signed 16-bit constant (@minus{}32768--32767)
 
 @item L
-Unsigned 16-bit constant (0--65535)
+Value appropriate as displacement.
+@table @code
+       @item (0..4095)
+       for short displacement
+       @item (-524288..524287)
+       for long displacement
+@end table
+
+@item M
+Constant integer with a value of 0x7fffffff.
+
+@item N
+Multiple letter constraint followed by 4 parameter letters.
+@table @code
+         @item 0..9:
+         number of the part counting from most to least significant
+         @item H,Q:
+         mode of the part
+         @item D,S,H:
+         mode of the containing operand
+         @item 0,F:
+         value of the other parts (F - all bits set)
+@end table
+The constraint matches if the specified part of a constant
+has a value different from it's other parts.
 
 @item Q
-Memory reference without index register
+Memory reference without index register and with short displacement.
+
+@item R
+Memory reference with index register and short displacement.
 
 @item S
-Symbolic constant suitable for use with the @code{larl} instruction
+Memory reference without index register but with long displacement.
+
+@item T
+Memory reference with index register and long displacement.
+
+@item U
+Pointer with short displacement.
+
+@item W
+Pointer with long displacement.
+
+@item Y
+Shift count operand.
 
 @end table
 
@@ -3387,7 +3443,7 @@ built.  It is intended to handle non-trivial actions needed along
 the abnormal return path.
 
 The address of the exception handler to which the function should return
-is passed as operand to this pattern.  It will normally need to copied by 
+is passed as operand to this pattern.  It will normally need to copied by
 the pattern to some special register or memory location.
 If the pattern needs to determine the location of the target call
 frame in order to do so, it may use @code{EH_RETURN_STACKADJ_RTX},
@@ -3474,6 +3530,12 @@ the values of operands 1 and 2.
 
 @end table
 
+@end ifset
+@c Each of the following nodes are wrapped in separate
+@c "@ifset INTERNALS" to work around memory limits for the default
+@c configuration in older tetex distributions.  Known to not work:
+@c tetex-1.0.7, known to work: tetex-2.0.2.
+@ifset INTERNALS
 @node Pattern Ordering
 @section When the Order of Patterns Matters
 @cindex Pattern Ordering
@@ -3497,6 +3559,8 @@ Instead of using this pattern ordering it would be possible to make the
 pattern for convert-a-byte smart enough to deal properly with any
 constant value.
 
+@end ifset
+@ifset INTERNALS
 @node Dependent Patterns
 @section Interdependence of Patterns
 @cindex Dependent Patterns
@@ -3506,24 +3570,24 @@ Every machine description must have a named pattern for each of the
 conditional branch names @samp{b@var{cond}}.  The recognition template
 must always have the form
 
-@example
+@smallexample
 (set (pc)
      (if_then_else (@var{cond} (cc0) (const_int 0))
                    (label_ref (match_operand 0 "" ""))
                    (pc)))
-@end example
+@end smallexample
 
 @noindent
 In addition, every machine description must have an anonymous pattern
 for each of the possible reverse-conditional branches.  Their templates
 look like
 
-@example
+@smallexample
 (set (pc)
      (if_then_else (@var{cond} (cc0) (const_int 0))
                    (pc)
                    (label_ref (match_operand 0 "" ""))))
-@end example
+@end smallexample
 
 @noindent
 They are necessary because jump optimization can turn direct-conditional
@@ -3533,7 +3597,7 @@ It is often convenient to use the @code{match_operator} construct to
 reduce the number of patterns that must be specified for branches.  For
 example,
 
-@example
+@smallexample
 (define_insn ""
   [(set (pc)
         (if_then_else (match_operator 0 "comparison_operator"
@@ -3542,20 +3606,20 @@ example,
                       (label_ref (match_operand 1 "" ""))))]
   "@var{condition}"
   "@dots{}")
-@end example
+@end smallexample
 
 In some cases machines support instructions identical except for the
 machine mode of one or more operands.  For example, there may be
 ``sign-extend halfword'' and ``sign-extend byte'' instructions whose
 patterns are
 
-@example
+@smallexample
 (set (match_operand:SI 0 @dots{})
      (extend:SI (match_operand:HI 1 @dots{})))
 
 (set (match_operand:SI 0 @dots{})
      (extend:SI (match_operand:QI 1 @dots{})))
-@end example
+@end smallexample
 
 @noindent
 Constant integers do not specify a machine mode, so an instruction to
@@ -3577,6 +3641,8 @@ instructions.  Instead, they should be generated from the same pattern
 that supports register-register add insns by examining the operands and
 generating the appropriate machine instruction.
 
+@end ifset
+@ifset INTERNALS
 @node Jump Patterns
 @section Defining Jump Instruction Patterns
 @cindex jump instruction patterns
@@ -3690,6 +3756,8 @@ discussed above, we have the pattern
 The @code{SELECT_CC_MODE} macro on the SPARC returns @code{CC_NOOVmode}
 for comparisons whose argument is a @code{plus}.
 
+@end ifset
+@ifset INTERNALS
 @node Looping Patterns
 @section Defining Looping Instruction Patterns
 @cindex looping instruction patterns
@@ -3795,6 +3863,8 @@ be derived from it), however, in many cases the loop induction variable
 may become redundant and removed by the flow pass.
 
 
+@end ifset
+@ifset INTERNALS
 @node Insn Canonicalizations
 @section Canonicalization of Instructions
 @cindex canonicalization of instructions
@@ -3829,7 +3899,7 @@ first operand.
 @item
 In combinations of @code{neg}, @code{mult}, @code{plus}, and
 @code{minus}, the @code{neg} operations (if any) will be moved inside
-the operations as far as possible.  For instance, 
+the operations as far as possible.  For instance,
 @code{(neg (mult A B))} is canonicalized as @code{(mult (neg A) B)}, but
 @code{(plus (mult (neg A) B) C)} is canonicalized as
 @code{(minus A (mult B C))}.
@@ -3868,26 +3938,26 @@ A machine that has an instruction that performs a bitwise logical-and of one
 operand with the bitwise negation of the other should specify the pattern
 for that instruction as
 
-@example
+@smallexample
 (define_insn ""
   [(set (match_operand:@var{m} 0 @dots{})
         (and:@var{m} (not:@var{m} (match_operand:@var{m} 1 @dots{}))
                      (match_operand:@var{m} 2 @dots{})))]
   "@dots{}"
   "@dots{}")
-@end example
+@end smallexample
 
 @noindent
 Similarly, a pattern for a ``NAND'' instruction should be written
 
-@example
+@smallexample
 (define_insn ""
   [(set (match_operand:@var{m} 0 @dots{})
         (ior:@var{m} (not:@var{m} (match_operand:@var{m} 1 @dots{}))
                      (not:@var{m} (match_operand:@var{m} 2 @dots{}))))]
   "@dots{}"
   "@dots{}")
-@end example
+@end smallexample
 
 In both cases, it is not necessary to include patterns for the many
 logically equivalent RTL expressions.
@@ -3902,9 +3972,9 @@ and @code{(not:@var{m} (xor:@var{m} @var{x} @var{y}))}.
 The sum of three items, one of which is a constant, will only appear in
 the form
 
-@example
+@smallexample
 (plus:@var{m} (plus:@var{m} @var{x} @var{y}) @var{constant})
-@end example
+@end smallexample
 
 @item
 On machines that do not use @code{cc0},
@@ -3920,6 +3990,8 @@ will be written using @code{zero_extract} rather than the equivalent
 
 @end itemize
 
+@end ifset
+@ifset INTERNALS
 @node Expander Definitions
 @section Defining RTL Sequences for Code Generation
 @cindex expander definitions
@@ -4137,6 +4209,8 @@ at the end, emit an insn to copy the result of the operation into
 itself.  Such an insn will generate no code, but it can avoid problems
 in the compiler.
 
+@end ifset
+@ifset INTERNALS
 @node Insn Splitting
 @section Defining How to Split Instructions
 @cindex insn splitting
@@ -4370,6 +4444,8 @@ functionality as two separate @code{define_insn} and @code{define_split}
 patterns.  It exists for compactness, and as a maintenance tool to prevent
 having to ensure the two patterns' templates match.
 
+@end ifset
+@ifset INTERNALS
 @node Including Patterns
 @section Including Patterns in Machine Descriptions.
 @cindex insn includes
@@ -4444,6 +4520,8 @@ one @option{-I} option, the directories are scanned in left-to-right
 order; the standard default directory come after.
 
 
+@end ifset
+@ifset INTERNALS
 @node Peephole Definitions
 @section Machine-Specific Peephole Optimizers
 @cindex peephole optimizer definitions
@@ -4474,6 +4552,8 @@ targets that do scheduling.
 * define_peephole2::    RTL to RTL Peephole Optimizers
 @end menu
 
+@end ifset
+@ifset INTERNALS
 @node define_peephole
 @subsection RTL to Text Peephole Optimizers
 @findex define_peephole
@@ -4665,6 +4745,8 @@ then the way to mention this insn in a peephole is as follows:
   @dots{})
 @end smallexample
 
+@end ifset
+@ifset INTERNALS
 @node define_peephole2
 @subsection RTL to RTL Peephole Optimizers
 @findex define_peephole2
@@ -4750,6 +4832,8 @@ If we had not added the @code{(match_dup 4)} in the middle of the input
 sequence, it might have been the case that the register we chose at the
 beginning of the sequence is killed by the first or second @code{set}.
 
+@end ifset
+@ifset INTERNALS
 @node Insn Attributes
 @section Instruction Attributes
 @cindex insn attributes
@@ -4773,6 +4857,8 @@ to track the condition codes.
 * Processor pipeline description:: Specifying information for insn scheduling.
 @end menu
 
+@end ifset
+@ifset INTERNALS
 @node Defining Attributes
 @subsection Defining Attributes and their Values
 @cindex defining attributes and their values
@@ -4808,7 +4894,7 @@ specified for an attribute, the following are defined:
 A @samp{#define} is written for the symbol @samp{HAVE_ATTR_@var{name}}.
 
 @item
-An enumeral class is defined for @samp{attr_@var{name}} with
+An enumerated class is defined for @samp{attr_@var{name}} with
 elements of the form @samp{@var{upper-name}_@var{upper-value}} where
 the attribute name and value are first converted to uppercase.
 
@@ -4837,6 +4923,8 @@ If the attribute takes numeric values, no @code{enum} type will be
 defined and the function to obtain the attribute's value will return
 @code{int}.
 
+@end ifset
+@ifset INTERNALS
 @node Expressions
 @subsection Attribute Expressions
 @cindex attribute expressions
@@ -5046,6 +5134,8 @@ for numeric attributes, as @code{eq_attr} and @code{attr_flag}
 produce more efficient code for non-numeric attributes.
 @end table
 
+@end ifset
+@ifset INTERNALS
 @node Tagging Insns
 @subsection Assigning Attribute Values to Insns
 @cindex tagging insns
@@ -5151,6 +5241,8 @@ string.  Therefore, the value of the @code{length} attribute specified
 in a @code{define_asm_attributes} should be the maximum possible length
 of a single machine instruction.
 
+@end ifset
+@ifset INTERNALS
 @node Attr Example
 @subsection Example of Attribute Specifications
 @cindex attribute specifications example
@@ -5206,6 +5298,8 @@ performed on quantities smaller than a machine word clobber the condition
 code since they will set the condition code to a value corresponding to the
 full-word result.
 
+@end ifset
+@ifset INTERNALS
 @node Insn Lengths
 @subsection Computing the Length of an Insn
 @cindex insn lengths, computing
@@ -5247,12 +5341,6 @@ Lengths are measured in addressable storage units (bytes).
 The following macros can be used to refine the length computation:
 
 @table @code
-@findex FIRST_INSN_ADDRESS
-@item FIRST_INSN_ADDRESS
-When the @code{length} insn attribute is used, this macro specifies the
-value to be assigned to the address of the first insn in a function.  If
-not specified, 0 is used.
-
 @findex ADJUST_INSN_LENGTH
 @item ADJUST_INSN_LENGTH (@var{insn}, @var{length})
 If defined, modifies the length assigned to instruction @var{insn} as a
@@ -5296,6 +5384,8 @@ as follows:
                       (const_int 6)))])
 @end smallexample
 
+@end ifset
+@ifset INTERNALS
 @node Constant Attributes
 @subsection Constant Attributes
 @cindex constant attributes
@@ -5325,6 +5415,8 @@ the value of a constant attribute may use the @code{symbol_ref} form,
 but may not use either the @code{match_operand} form or @code{eq_attr}
 forms involving insn attributes.
 
+@end ifset
+@ifset INTERNALS
 @node Delay Slots
 @subsection Delay Slot Scheduling
 @cindex delay slots, defining
@@ -5400,6 +5492,8 @@ branch is true, we might represent this as follows:
 @end smallexample
 @c the above is *still* too long.  --mew 4feb93
 
+@end ifset
+@ifset INTERNALS
 @node Processor pipeline description
 @subsection Specifying processor pipeline description
 @cindex processor pipeline description
@@ -5446,13 +5540,13 @@ processors.
 The task of exploiting more processor parallelism is solved by an
 instruction scheduler.  For a better solution to this problem, the
 instruction scheduler has to have an adequate description of the
-processor parallelism (or @dfn{pipeline description}).  Currently GCC 
+processor parallelism (or @dfn{pipeline description}).  Currently GCC
 provides two alternative ways to describe processor parallelism,
 both described below.  The first method is outlined in the next section;
 it was once the only method provided by GCC, and thus is used in a number
 of exiting ports.  The second, and preferred method, specifies functional
 unit reservations for groups of instructions with the aid of @dfn{regular
-expressions}.  This is called the @dfn{automaton based description}.	
+expressions}.  This is called the @dfn{automaton based description}.
 
 The GCC instruction scheduler uses a @dfn{pipeline hazard recognizer} to
 figure out the possibility of the instruction issue by the processor
@@ -5485,6 +5579,8 @@ choose the best one.
 * Comparison of the two descriptions:: Drawbacks of the old pipeline description
 @end menu
 
+@end ifset
+@ifset INTERNALS
 @node Old pipeline description
 @subsubsection Specifying Function Units
 @cindex old pipeline description
@@ -5599,14 +5695,17 @@ single or double precision, but not both, the following could be specified:
 
 @strong{Note:} The scheduler attempts to avoid function unit conflicts
 and uses all the specifications in the @code{define_function_unit}
-expression.  It has recently come to our attention that these
+expression.  It has recently been discovered that these
 specifications may not allow modeling of some of the newer
 ``superscalar'' processors that have insns using multiple pipelined
 units.  These insns will cause a potential conflict for the second unit
 used during their execution and there is no way of representing that
-conflict.  We welcome any examples of how function unit conflicts work
-in such processors and suggestions for their representation.
+conflict.  Any examples of how function unit conflicts work
+in such processors and suggestions for their representation would be
+welcomed.
 
+@end ifset
+@ifset INTERNALS
 @node Automaton pipeline description
 @subsubsection Describing instruction pipeline characteristics
 @cindex automaton based pipeline description
@@ -5621,7 +5720,7 @@ The following optional construction describes names of automata
 generated and used for the pipeline hazards recognition.  Sometimes
 the generated finite state automaton used by the pipeline hazard
 recognizer is large.  If we use more than one automaton and bind functional
-units to the automata, the total size of the automata is usually 
+units to the automata, the total size of the automata is usually
 less than the size of the single automaton.  If there is no one such
 construction, only one finite state automaton is generated.
 
@@ -5735,7 +5834,7 @@ expression according to the following syntax:
 
        allof = allof "+" repeat
              | repeat
- 
+
        repeat = element "*" number
               | element
 
@@ -5963,6 +6062,14 @@ nondeterministic treatment means trying all alternatives, some of them
 may be rejected by reservations in the subsequent insns.  You can not
 query functional unit reservations in nondeterministic automaton
 states.
+
+@item
+@dfn{progress} means output of a progress bar showing how many states
+were generated so far for automaton being processed.  This is useful
+during debugging a @acronym{DFA} description.  If you see too many
+generated states, you could interrupt the generator of the pipeline
+hazard recognizer and try to figure out a reason for generation of the
+huge automaton.
 @end itemize
 
 As an example, consider a superscalar @acronym{RISC} machine which can
@@ -6021,6 +6128,8 @@ construction
 @end smallexample
 
 
+@end ifset
+@ifset INTERNALS
 @node Comparison of the two descriptions
 @subsubsection Drawbacks of the old pipeline description
 @cindex old pipeline description
@@ -6034,7 +6143,7 @@ construction
 The old instruction level parallelism description and the pipeline
 hazards recognizer based on it have the following drawbacks in
 comparison with the @acronym{DFA}-based ones:
-  
+
 @itemize @bullet
 @item
 Each functional unit is believed to be reserved at the instruction
@@ -6074,6 +6183,8 @@ In an automaton based pipeline hazard recognizer, speed is not dependent
 on processor complexity.
 @end itemize
 
+@end ifset
+@ifset INTERNALS
 @node Conditional Execution
 @section Conditional Execution
 @cindex conditional execution
@@ -6154,6 +6265,8 @@ generates a new pattern
   "(%3) add %2,%1,%0")
 @end smallexample
 
+@end ifset
+@ifset INTERNALS
 @node Constant Definitions
 @section Constant Definitions
 @cindex constant definitions

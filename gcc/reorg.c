@@ -1,6 +1,6 @@
 /* Perform instruction reorganizations for delay slot filling.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -1621,7 +1621,7 @@ try_merge_delay_insns (rtx insn, rtx thread)
    If we are not careful, this routine can take up a significant fraction
    of the total compilation time (4%), but only wins rarely.  Hence we
    speed this routine up by making two passes.  The first pass goes back
-   until it hits a label and sees if it find an insn with an identical
+   until it hits a label and sees if it finds an insn with an identical
    pattern.  Only in this (relatively rare) event does it check for
    data conflicts.
 
@@ -2358,7 +2358,9 @@ fill_simple_delay_slots (int non_jumps_p)
 	      && eligible_for_delay (insn, slots_filled, next_trial, flags)
 	      && ! can_throw_internal (trial))
 	    {
-	      rtx new_label = next_active_insn (next_trial);
+	      /* See comment in relax_delay_slots about necessity of using
+		 next_real_insn here.  */
+	      rtx new_label = next_real_insn (next_trial);
 
 	      if (new_label != 0)
 		new_label = get_label_before (new_label);
@@ -2427,10 +2429,8 @@ fill_simple_delay_slots (int non_jumps_p)
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
       SET_HARD_REG_BIT (needed.regs, HARD_FRAME_POINTER_REGNUM);
 #endif
-#ifdef EXIT_IGNORE_STACK
       if (! EXIT_IGNORE_STACK
 	  || current_function_sp_is_unchanging)
-#endif
 	SET_HARD_REG_BIT (needed.regs, STACK_POINTER_REGNUM);
     }
   else
@@ -3085,7 +3085,9 @@ relax_delay_slots (rtx first)
 	  && (target_label = JUMP_LABEL (insn)) != 0)
 	{
 	  target_label = follow_jumps (target_label);
-	  target_label = prev_label (next_active_insn (target_label));
+	  /* See comment further down why we must use next_real_insn here,
+	     instead of next_active_insn.  */
+	  target_label = prev_label (next_real_insn (target_label));
 
 	  if (target_label == 0)
 	    target_label = find_end_label ();

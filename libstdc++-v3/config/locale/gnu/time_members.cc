@@ -1,6 +1,6 @@
 // std::time_get, std::time_put implementation, GNU version -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -46,14 +46,18 @@ namespace std
 	   const tm* __tm) const
     {
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
-      __strftime_l(__s, __maxlen, __format, __tm, _M_c_locale_timepunct);
+      const size_t __len = __strftime_l(__s, __maxlen, __format, __tm,
+					_M_c_locale_timepunct);
 #else
       char* __old = strdup(setlocale(LC_ALL, NULL));
       setlocale(LC_ALL, _M_name_timepunct);
-      strftime(__s, __maxlen, __format, __tm);
+      const size_t __len = strftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __old);
       free(__old);
 #endif
+      // Make sure __s is null terminated.
+      if (__len == 0)
+	__s[0] = '\0';
     }
 
   template<> 
@@ -117,7 +121,7 @@ namespace std
 	  _M_data->_M_amonth04 = "Apr";
 	  _M_data->_M_amonth05 = "May";
 	  _M_data->_M_amonth06 = "Jun";
-	  _M_data->_M_amonth07 = "July";
+	  _M_data->_M_amonth07 = "Jul";
 	  _M_data->_M_amonth08 = "Aug";
 	  _M_data->_M_amonth09 = "Sep";
 	  _M_data->_M_amonth10 = "Oct";
@@ -194,14 +198,18 @@ namespace std
 	   const tm* __tm) const
     {
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
-      __wcsftime_l(__s, __maxlen, __format, __tm, _M_c_locale_timepunct);
+      const size_t __len = __wcsftime_l(__s, __maxlen, __format, __tm,
+					_M_c_locale_timepunct);
 #else
       char* __old = strdup(setlocale(LC_ALL, NULL));
       setlocale(LC_ALL, _M_name_timepunct);
-      wcsftime(__s, __maxlen, __format, __tm);
+      const size_t __len = wcsftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __old);
       free(__old);
 #endif
+      // Make sure __s is null terminated.
+      if (__len == 0)
+	__s[0] = L'\0';
     }
 
   template<> 
@@ -265,7 +273,7 @@ namespace std
 	  _M_data->_M_amonth04 = L"Apr";
 	  _M_data->_M_amonth05 = L"May";
 	  _M_data->_M_amonth06 = L"Jun";
-	  _M_data->_M_amonth07 = L"July";
+	  _M_data->_M_amonth07 = L"Jul";
 	  _M_data->_M_amonth08 = L"Aug";
 	  _M_data->_M_amonth09 = L"Sep";
 	  _M_data->_M_amonth10 = L"Oct";

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -67,6 +67,8 @@ Boston, MA 02111-1307, USA.  */
 	  builtin_define ("_IEEE_FP");			\
 	if (TARGET_IEEE_WITH_INEXACT)			\
 	  builtin_define ("_IEEE_FP_INEXACT");		\
+	if (TARGET_LONG_DOUBLE_128)			\
+	  builtin_define ("__LONG_DOUBLE_128__");	\
 							\
 	/* Macros dependent on the C dialect.  */	\
 	SUBTARGET_LANGUAGE_CPP_BUILTINS();		\
@@ -229,6 +231,11 @@ extern int alpha_tls_size;
 #define MASK_SMALL_TEXT (1 << 15)
 #define TARGET_SMALL_TEXT (target_flags & MASK_SMALL_TEXT)
 
+/* This means use IEEE quad-format for long double.  Assumes the 
+   presence of the GEM support library routines.  */
+#define MASK_LONG_DOUBLE_128 (1 << 16)
+#define TARGET_LONG_DOUBLE_128 (target_flags & MASK_LONG_DOUBLE_128)
+
 /* This means that the processor is an EV5, EV56, or PCA56.
    Unlike alpha_cpu this is not affected by -mtune= setting.  */
 #define MASK_CPU_EV5	(1 << 28)
@@ -261,7 +268,7 @@ extern int alpha_tls_size;
 #define TARGET_CAN_FAULT_IN_PROLOGUE 0
 #endif
 #ifndef TARGET_HAS_XFLOATING_LIBS
-#define TARGET_HAS_XFLOATING_LIBS 0
+#define TARGET_HAS_XFLOATING_LIBS TARGET_LONG_DOUBLE_128
 #endif
 #ifndef TARGET_PROFILING_NEEDS_GP
 #define TARGET_PROFILING_NEEDS_GP 0
@@ -322,6 +329,10 @@ extern int alpha_tls_size;
     {"large-text", -MASK_SMALL_TEXT, ""},				\
     {"tls-kernel", MASK_TLS_KERNEL,					\
      N_("Emit rdval instead of rduniq for thread pointer")},		\
+    {"long-double-128", MASK_LONG_DOUBLE_128,				\
+     N_("Use 128-bit long double")},					\
+    {"long-double-64", -MASK_LONG_DOUBLE_128,				\
+     N_("Use 64-bit long double")},					\
     {"", TARGET_DEFAULT | TARGET_CPU_DEFAULT				\
 	 | TARGET_DEFAULT_EXPLICIT_RELOCS, ""} }
 
@@ -438,7 +449,18 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
-#define LONG_DOUBLE_TYPE_SIZE 64
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
+
+/* Define this to set long double type size to use in libgcc2.c, which can
+   not depend on target_flags.  */
+#ifdef __LONG_DOUBLE_128__
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
+#else
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+#endif
+
+/* Work around target_flags dependency in ada/targtyps.c.  */
+#define WIDEST_HARDWARE_FP_SIZE 64
 
 #define	WCHAR_TYPE "unsigned int"
 #define	WCHAR_TYPE_SIZE 32
@@ -490,7 +512,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 #define PARM_BOUNDARY 64
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY 64
+#define STACK_BOUNDARY 128
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -579,44 +601,30 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
 /* List the order in which to allocate registers.  Each register must be
-   listed once, even those in FIXED_REGISTERS.
+   listed once, even those in FIXED_REGISTERS.  */
 
-   We allocate in the following order:
-   $f10-$f15		(nonsaved floating-point register)
-   $f22-$f30		(likewise)
-   $f21-$f16		(likewise, but input args)
-   $f0			(nonsaved, but return value)
-   $f1			(nonsaved, but immediate before saved)
-   $f2-$f9		(saved floating-point registers)
-   $1-$8		(nonsaved integer registers)
-   $22-$25		(likewise)
-   $28			(likewise)
-   $0			(likewise, but return value)
-   $21-$16		(likewise, but input args)
-   $27			(procedure value in OSF, nonsaved in NT)
-   $9-$14		(saved integer registers)
-   $26			(return PC)
-   $15			(frame pointer)
-   $29			(global pointer)
-   $30, $31, $f31	(stack pointer and always zero/ap & fp)  */
-
-#define REG_ALLOC_ORDER		\
-  {42, 43, 44, 45, 46, 47,		\
-   54, 55, 56, 57, 58, 59, 60, 61, 62,	\
-   53, 52, 51, 50, 49, 48,		\
-   32, 33,				\
-   34, 35, 36, 37, 38, 39, 40, 41,	\
-   1, 2, 3, 4, 5, 6, 7, 8,		\
-   22, 23, 24, 25,			\
-   28,					\
-   0,					\
-   21, 20, 19, 18, 17, 16,		\
-   27,					\
-   9, 10, 11, 12, 13, 14,		\
-   26,					\
-   15,					\
-   29,					\
-   30, 31, 63 }
+#define REG_ALLOC_ORDER { \
+   1, 2, 3, 4, 5, 6, 7, 8,	/* nonsaved integer registers */	\
+   22, 23, 24, 25, 28,		/* likewise */				\
+   0,				/* likewise, but return value */	\
+   21, 20, 19, 18, 17, 16,	/* likewise, but input args */		\
+   27,				/* likewise, but OSF procedure value */	\
+									\
+   42, 43, 44, 45, 46, 47,	/* nonsaved floating-point registers */	\
+   54, 55, 56, 57, 58, 59,	/* likewise */				\
+   60, 61, 62,			/* likewise */				\
+   32, 33,			/* likewise, but return values */	\
+   53, 52, 51, 50, 49, 48,	/* likewise, but input args */		\
+									\
+   9, 10, 11, 12, 13, 14,	/* saved integer registers */		\
+   26,				/* return address */			\
+   15,				/* hard frame pointer */		\
+									\
+   34, 35, 36, 37, 38, 39,	/* saved floating-point registers */	\
+   40, 41,			/* likewise */				\
+									\
+   29, 30, 31, 63		/* gp, sp, ap, sfp */			\
+}
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -628,12 +636,12 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On Alpha, the integer registers can hold any mode.  The floating-point
-   registers can hold 32-bit and 64-bit integers as well, but not 16-bit
-   or 8-bit values.  */
+   registers can hold 64-bit integers as well, but not smaller values.  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE) 				\
   ((REGNO) >= 32 && (REGNO) <= 62 					\
-   ? GET_MODE_UNIT_SIZE (MODE) == 8 || GET_MODE_UNIT_SIZE (MODE) == 4	\
+   ? (MODE) == SFmode || (MODE) == DFmode || (MODE) == DImode		\
+     || (MODE) == SCmode || (MODE) == DCmode				\
    : 1)
 
 /* Value is 1 if MODE is a supported vector mode.  */
@@ -694,11 +702,6 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
    current_file functions.  Moreover, we do not expose the ldgp
    until after reload, so we're probably safe.  */
 /* #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED */
-
-/* Register in which address to store a structure value
-   arrives in the function.  On the Alpha, the address is passed
-   as a hidden argument.  */
-#define STRUCT_VALUE 0
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -818,7 +821,7 @@ enum reg_class {
 
    'U' is a symbolic operand.
 
-   'W' is a vector zero.   */
+   'W' is a vector zero.  */
 
 #define EXTRA_CONSTRAINT  alpha_extra_constraint
 
@@ -1022,7 +1025,8 @@ extern int alpha_memory_latency;
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)  (CUM) = 0
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
+  (CUM) = 0
 
 /* Define intermediate macro to compute the size (in registers) of an argument
    for the Alpha.  */
@@ -1186,6 +1190,7 @@ do {						\
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, 26)
 #define DWARF_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (26)
 #define DWARF_ALT_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (64)
+#define DWARF_ZERO_REG 31
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N)	((N) < 4 ? (N) + 16 : INVALID_REGNUM)
@@ -1679,10 +1684,6 @@ do {						\
   {"some_small_symbolic_operand", {SET, PARALLEL, PREFETCH, UNSPEC,	\
 				   UNSPEC_VOLATILE}},
 
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = alpha_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   alpha_va_start (valist, nextarg)
@@ -1840,6 +1841,3 @@ do {							\
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS 1
-
-/* Pass complex arguments independently.  */
-#define SPLIT_COMPLEX_ARGS 1

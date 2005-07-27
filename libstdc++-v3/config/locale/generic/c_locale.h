@@ -1,6 +1,6 @@
 // Wrapper for underlying C-language localization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,7 +39,6 @@
 #pragma GCC system_header
 
 #include <clocale>
-#include <cstdlib>   // get std::malloc
 #include <cstring>   // get std::strlen
 #include <cstdio>    // get std::snprintf or std::sprintf
 
@@ -58,28 +57,28 @@ namespace std
     __convert_from_v(char* __out, 
 		     const int __size __attribute__((__unused__)),
 		     const char* __fmt,
-		     _Tv __v, const __c_locale&, int __prec = -1)
+		     _Tv __v, const __c_locale&, int __prec)
     {
-      char* __old = std::setlocale(LC_ALL, NULL);
-      char* __sav = static_cast<char*>(std::malloc(std::strlen(__old) + 1));
-      if (__sav)
-        std::strcpy(__sav, __old);
-      std::setlocale(LC_ALL, "C");
+      char* __old = std::setlocale(LC_NUMERIC, NULL);
+      char* __sav = NULL;
+      if (std::strcmp(__old, "C"))
+	{
+	  __sav = new char[std::strlen(__old) + 1];
+	  std::strcpy(__sav, __old);
+	  std::setlocale(LC_NUMERIC, "C");
+	}
 
-      int __ret;
 #ifdef _GLIBCXX_USE_C99
-      if (__prec >= 0)
-        __ret = std::snprintf(__out, __size, __fmt, __prec, __v);
-      else
-        __ret = std::snprintf(__out, __size, __fmt, __v);
+      const int __ret = std::snprintf(__out, __size, __fmt, __prec, __v);
 #else
-      if (__prec >= 0)
-        __ret = std::sprintf(__out, __fmt, __prec, __v);
-      else
-        __ret = std::sprintf(__out, __fmt, __v);
+      const int __ret = std::sprintf(__out, __fmt, __prec, __v);
 #endif
-      std::setlocale(LC_ALL, __sav);
-      std::free(__sav);
+      
+      if (__sav)
+	{
+	  std::setlocale(LC_NUMERIC, __sav);
+	  delete [] __sav;
+	}
       return __ret;
     }
 }

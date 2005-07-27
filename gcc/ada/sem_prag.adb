@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -432,8 +432,7 @@ package body Sem_Prag is
 
       function Is_Before_First_Decl
         (Pragma_Node : Node_Id;
-         Decls       : List_Id)
-         return        Boolean;
+         Decls       : List_Id) return Boolean;
       --  Return True if Pragma_Node is before the first declarative item in
       --  Decls where Decls is the list of declarative items.
 
@@ -1122,7 +1121,6 @@ package body Sem_Prag is
             when N_Index_Or_Discriminant_Constraint =>
                declare
                   IDC : Entity_Id := First (Constraints (Constr));
-
                begin
                   while Present (IDC) loop
                      Check_Static_Constraint (IDC);
@@ -1506,8 +1504,7 @@ package body Sem_Prag is
 
       function Is_Before_First_Decl
         (Pragma_Node : Node_Id;
-         Decls       : List_Id)
-         return        Boolean
+         Decls       : List_Id) return Boolean
       is
          Item : Node_Id := First (Decls);
 
@@ -2185,8 +2182,7 @@ package body Sem_Prag is
 
          function Same_Base_Type
           (Ptype  : Node_Id;
-           Formal : Entity_Id)
-           return Boolean;
+           Formal : Entity_Id) return Boolean;
          --  Determines if Ptype references the type of Formal. Note that
          --  only the base types need to match according to the spec. Ptype
          --  here is the argument from the pragma, which is either a type
@@ -2196,7 +2192,10 @@ package body Sem_Prag is
          -- Same_Base_Type --
          --------------------
 
-         function Same_Base_Type (Ptype, Formal : Entity_Id) return Boolean is
+         function Same_Base_Type
+           (Ptype  : Node_Id;
+            Formal : Entity_Id) return Boolean
+         is
             Ftyp : constant Entity_Id := Base_Type (Etype (Formal));
             Pref : Node_Id;
 
@@ -2764,6 +2763,7 @@ package body Sem_Prag is
 
                   declare
                      Decl : constant Node_Id := Unit_Declaration_Node (Def_Id);
+
                   begin
                      if Present (Decl)
                        and then Nkind (Decl) = N_Subprogram_Declaration
@@ -2823,9 +2823,8 @@ package body Sem_Prag is
          if Nkind (Parent (N)) = N_Compilation_Unit_Aux then
             declare
                Cunit : constant Node_Id := Parent (Parent (N));
-
             begin
-               Set_Body_Required    (Cunit, False);
+               Set_Body_Required (Cunit, False);
             end;
          end if;
       end Process_Import_Or_Interface;
@@ -2858,7 +2857,7 @@ package body Sem_Prag is
          ----------------------------
 
          function Back_End_Cannot_Inline (Subp : Entity_Id) return Boolean is
-            Decl : Node_Id := Unit_Declaration_Node (Subp);
+            Decl : constant Node_Id := Unit_Declaration_Node (Subp);
 
          begin
             if Nkind (Decl) = N_Subprogram_Body then
@@ -2869,10 +2868,21 @@ package body Sem_Prag is
             elsif Nkind (Decl) = N_Subprogram_Declaration
               and then Present (Corresponding_Body (Decl))
             then
-               return
-                 Present (Exception_Handlers
-                   (Handled_Statement_Sequence
-                     (Unit_Declaration_Node (Corresponding_Body (Decl)))));
+               --  If the subprogram is a renaming as body, the body is
+               --  just a call to the renamed subprogram, and inlining is
+               --  trivially possible.
+
+               if Nkind (Unit_Declaration_Node (Corresponding_Body (Decl))) =
+                                            N_Subprogram_Renaming_Declaration
+               then
+                  return False;
+
+               else
+                  return
+                    Present (Exception_Handlers
+                      (Handled_Statement_Sequence
+                        (Unit_Declaration_Node (Corresponding_Body (Decl)))));
+               end if;
             else
                --  If body is not available, assume the best, the check is
                --  performed again when compiling enclosing package bodies.
@@ -3288,7 +3298,9 @@ package body Sem_Prag is
             --  suppress check for any check id value.
 
             if C = All_Checks then
-               Scope_Suppress := (others => Suppress_Case);
+               for J in Scope_Suppress'Range loop
+                  Scope_Suppress (J) := Suppress_Case;
+               end loop;
             else
                Scope_Suppress (C) := Suppress_Case;
             end if;
@@ -3701,11 +3713,9 @@ package body Sem_Prag is
 
       declare
          Arg_Node : Node_Id;
-
       begin
          Arg_Count := 0;
          Arg_Node := Arg1;
-
          while Present (Arg_Node) loop
             Arg_Count := Arg_Count + 1;
             Next (Arg_Node);
@@ -4179,7 +4189,8 @@ package body Sem_Prag is
 
                if Expander_Active then
                   declare
-                     Temp : Node_Id := New_Copy_Tree (Expression (Arg2));
+                     Temp : constant Node_Id :=
+                              New_Copy_Tree (Expression (Arg2));
                   begin
                      Set_Parent (Temp, N);
                      Pre_Analyze_And_Resolve (Temp, RTE (RE_Interrupt_ID));
@@ -4480,7 +4491,6 @@ package body Sem_Prag is
          when Pragma_Convention => Convention : declare
             C : Convention_Id;
             E : Entity_Id;
-
          begin
             Check_Ada_83_Warning;
             Check_Arg_Count (2);
@@ -5287,7 +5297,8 @@ package body Sem_Prag is
             end if;
 
             Process_Eliminate_Pragma
-              (Unit_Name,
+              (N,
+               Unit_Name,
                Entity,
                Parameter_Types,
                Result_Type,
@@ -7372,9 +7383,13 @@ package body Sem_Prag is
             No_Run_Time_Mode           := True;
             Configurable_Run_Time_Mode := True;
 
-            if Ttypes.System_Word_Size = 32 then
-               Duration_32_Bits_On_Target := True;
-            end if;
+            declare
+               Word32 : constant Boolean := Ttypes.System_Word_Size = 32;
+            begin
+               if Word32 then
+                  Duration_32_Bits_On_Target := True;
+               end if;
+            end;
 
             Restrictions (No_Finalization)       := True;
             Restrictions (No_Exception_Handlers) := True;
@@ -7477,7 +7492,9 @@ package body Sem_Prag is
                   Error_Pragma
                     ("pragma% ignored, cannot pack aliased components?");
 
-               elsif Has_Atomic_Components (Typ) then
+               elsif Has_Atomic_Components (Typ)
+                 or else Is_Atomic (Component_Type (Typ))
+               then
                   Error_Pragma
                     ("?pragma% ignored, cannot pack atomic components");
 
@@ -9080,6 +9097,80 @@ package body Sem_Prag is
             end if;
          end Task_Storage;
 
+         -----------------
+         -- Thread_Body --
+         -----------------
+
+         --  pragma Thread_Body
+         --    (  [Entity =>]               LOCAL_NAME
+         --     [,[Secondary_Stack_Size =>] static_integer_EXPRESSION]);
+
+         when Pragma_Thread_Body => Thread_Body : declare
+            Id : Node_Id;
+            SS : Node_Id;
+            E  : Entity_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_At_Least_N_Arguments (1);
+            Check_At_Most_N_Arguments (2);
+            Check_Optional_Identifier (Arg1, Name_Entity);
+            Check_Arg_Is_Local_Name (Arg1);
+
+            Id := Expression (Arg1);
+
+            if not Is_Entity_Name (Id)
+              or else not Is_Subprogram (Entity (Id))
+            then
+               Error_Pragma_Arg ("subprogram name required", Arg1);
+            end if;
+
+            E := Entity (Id);
+
+            --  Go to renamed subprogram if present, since Thread_Body applies
+            --  to the actual renamed entity, not to the renaming entity.
+
+            if Present (Alias (E))
+              and then Nkind (Parent (Declaration_Node (E))) =
+                         N_Subprogram_Renaming_Declaration
+            then
+               E := Alias (E);
+            end if;
+
+            --  Various error checks
+
+            if Nkind (Parent (Declaration_Node (E))) = N_Subprogram_Body then
+               Error_Pragma
+                 ("pragma% requires separate spec and must come before body");
+
+            elsif Rep_Item_Too_Early (E, N)
+                 or else
+               Rep_Item_Too_Late (E, N)
+            then
+               raise Pragma_Exit;
+
+            elsif Is_Thread_Body (E) then
+               Error_Pragma_Arg
+                 ("only one thread body pragma allowed", Arg1);
+
+            elsif Present (Homonym (E))
+              and then Scope (Homonym (E)) = Current_Scope
+            then
+               Error_Pragma_Arg
+                 ("thread body subprogram must not be overloaded", Arg1);
+            end if;
+
+            Set_Is_Thread_Body (E);
+
+            --  Deal with secondary stack argument
+
+            if Arg_Count = 2 then
+               Check_Optional_Identifier (Arg2, Name_Secondary_Stack_Size);
+               SS := Expression (Arg2);
+               Analyze_And_Resolve (SS, Any_Integer);
+            end if;
+         end Thread_Body;
+
          ----------------
          -- Time_Slice --
          ----------------
@@ -9286,7 +9377,7 @@ package body Sem_Prag is
 
                      declare
                         Sindic : constant Node_Id :=
-                                   Subtype_Indication (Comp);
+                          Subtype_Indication (Component_Definition (Comp));
 
                      begin
                         if Nkind (Sindic) = N_Subtype_Indication then
@@ -9555,6 +9646,16 @@ package body Sem_Prag is
                   E_Id := Expression (Arg2);
                   Analyze (E_Id);
 
+                  --  In the expansion of an inlined body, a reference to
+                  --  the formal may be wrapped in a conversion if the actual
+                  --  is a conversion. Retrieve the real entity name.
+
+                  if In_Instance_Body
+                    and then Nkind (E_Id) = N_Unchecked_Type_Conversion
+                  then
+                     E_Id := Expression (E_Id);
+                  end if;
+
                   if not Is_Entity_Name (E_Id) then
                      Error_Pragma_Arg
                        ("second argument of pragma% must be entity name",
@@ -9684,7 +9785,7 @@ package body Sem_Prag is
    --  than appearence as any argument is insignificant, a positive value
    --  indicates that appearence in that parameter position is significant.
 
-   Sig_Flags : array (Pragma_Id) of Int :=
+   Sig_Flags : constant array (Pragma_Id) of Int :=
      (Pragma_AST_Entry                    => -1,
       Pragma_Abort_Defer                  => -1,
       Pragma_Ada_83                       => -1,
@@ -9810,6 +9911,7 @@ package body Sem_Prag is
       Pragma_Task_Info                    => -1,
       Pragma_Task_Name                    => -1,
       Pragma_Task_Storage                 =>  0,
+      Pragma_Thread_Body                  => +2,
       Pragma_Time_Slice                   => -1,
       Pragma_Title                        => -1,
       Pragma_Unchecked_Union              => -1,

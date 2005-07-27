@@ -1,7 +1,7 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -125,19 +125,24 @@ make_thunk (tree function, bool this_adjusting,
      will be a BINFO.  */
   for (thunk = DECL_THUNKS (function); thunk; thunk = TREE_CHAIN (thunk))
     if (DECL_THIS_THUNK_P (thunk) == this_adjusting
- 	&& THUNK_FIXED_OFFSET (thunk) == d
- 	&& (this_adjusting
- 	    ? (!THUNK_VIRTUAL_OFFSET (thunk) == !virtual_offset
- 	       && (!virtual_offset
- 		   || tree_int_cst_equal (THUNK_VIRTUAL_OFFSET (thunk), 
- 					  virtual_offset)))
- 	    : THUNK_VIRTUAL_OFFSET (thunk) == virtual_offset))
+	&& THUNK_FIXED_OFFSET (thunk) == d
+	&& !virtual_offset == !THUNK_VIRTUAL_OFFSET (thunk)
+	&& (!virtual_offset
+	    || (this_adjusting
+		? tree_int_cst_equal (THUNK_VIRTUAL_OFFSET (thunk),
+				      virtual_offset)
+		: THUNK_VIRTUAL_OFFSET (thunk) == virtual_offset)))
       return thunk;
   
   /* All thunks must be created before FUNCTION is actually emitted;
      the ABI requires that all thunks be emitted together with the
      function to which they transfer control.  */
   my_friendly_assert (!TREE_ASM_WRITTEN (function), 20021025);
+  /* Likewise, we can only be adding thunks to a function declared in
+     the class currently being laid out.  */
+  my_friendly_assert (TYPE_SIZE (DECL_CONTEXT (function))
+		      && TYPE_BEING_DEFINED (DECL_CONTEXT (function)),
+		      20031211);
 
   thunk = build_decl (FUNCTION_DECL, NULL_TREE, TREE_TYPE (function));
   DECL_LANG_SPECIFIC (thunk) = DECL_LANG_SPECIFIC (function);
@@ -154,6 +159,7 @@ make_thunk (tree function, bool this_adjusting,
   THUNK_TARGET (thunk) = function;
   THUNK_FIXED_OFFSET (thunk) = d;
   THUNK_VIRTUAL_OFFSET (thunk) = virtual_offset;
+  THUNK_ALIAS (thunk) = NULL_TREE;
   
   /* The thunk itself is not a constructor or destructor, even if
      the thing it is thunking to is.  */
@@ -213,7 +219,7 @@ finish_thunk (tree thunk)
 	if (DECL_NAME (cov_probe) == name)
 	  {
 	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
-	    THUNK_ALIAS (thunk) = (THUNK_ALIAS_P (cov_probe)
+	    THUNK_ALIAS (thunk) = (THUNK_ALIAS (cov_probe)
 				   ? THUNK_ALIAS (cov_probe) : cov_probe);
 	    break;
 	  }
@@ -280,6 +286,11 @@ make_alias_for_thunk (tree function)
   tree alias;
   char buf[256];
 
+#if defined (TARGET_IS_PE_COFF)
+  if (DECL_ONE_ONLY (function))
+    return function;
+#endif
+
   ASM_GENERATE_INTERNAL_LABEL (buf, "LTHUNK", thunk_labelno);
   thunk_labelno++;
   alias = build_decl (FUNCTION_DECL, get_identifier (buf),
@@ -335,7 +346,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
   /* We should never be using an alias, always refer to the
      aliased thunk.  */
-  my_friendly_assert (!THUNK_ALIAS_P (thunk_fndecl), 20031023);
+  my_friendly_assert (!THUNK_ALIAS (thunk_fndecl), 20031023);
 
   if (TREE_ASM_WRITTEN (thunk_fndecl))
     return;
@@ -346,6 +357,10 @@ use_thunk (tree thunk_fndecl, bool emit_p)
        There's no need to process this thunk again.  */
     return;
 
+  if (DECL_THUNK_P (function))
+    /* The target is itself a thunk, process it now.  */
+    use_thunk (function, emit_p);
+  
   /* Thunks are always addressable; they only appear in vtables.  */
   TREE_ADDRESSABLE (thunk_fndecl) = 1;
 
@@ -353,7 +368,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      this translation unit.  */
   TREE_ADDRESSABLE (function) = 1;
   mark_used (function);
-  mark_referenced (DECL_ASSEMBLER_NAME (function));
   if (!emit_p)
     return;
 
@@ -383,6 +397,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   /* The linkage of the function may have changed.  FIXME in linkage
      rewrite.  */
   TREE_PUBLIC (thunk_fndecl) = TREE_PUBLIC (function);
+  DECL_VISIBILITY (thunk_fndecl) = DECL_VISIBILITY (function);
+  DECL_VISIBILITY_SPECIFIED (thunk_fndecl) = DECL_VISIBILITY_SPECIFIED (function);
 
   if (flag_syntax_only)
     {
@@ -392,7 +408,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
   push_to_top_level ();
 
-#ifdef ASM_OUTPUT_DEF
+#if defined (ASM_OUTPUT_DEF) \
+  && !defined (TARGET_IS_PE_COFF)
   if (targetm.have_named_sections)
     {
       resolve_unique_section (function, 0, flag_function_sections);
@@ -480,6 +497,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	t = tree_cons (NULL_TREE, a, t);
       t = nreverse (t);
       t = build_call (alias, t);
+      CALL_FROM_THUNK_P (t) = 1;
+      t = force_target_expr (TREE_TYPE (t), t);
       if (!this_adjusting)
 	t = thunk_adjust (t, /*this_adjusting=*/0,
 			  fixed_offset, virtual_offset);
@@ -569,14 +588,14 @@ do_build_copy_constructor (tree fndecl)
 
       for (; fields; fields = TREE_CHAIN (fields))
 	{
-	  tree init;
+	  tree init = parm;
 	  tree field = fields;
 	  tree expr_type;
 
 	  if (TREE_CODE (field) != FIELD_DECL)
 	    continue;
 
-	  init = parm;
+	  expr_type = TREE_TYPE (field);
 	  if (DECL_NAME (field))
 	    {
 	      if (VFIELD_NAME_P (DECL_NAME (field)))
@@ -586,9 +605,7 @@ do_build_copy_constructor (tree fndecl)
 	      if (IDENTIFIER_CLASS_VALUE (DECL_NAME (field)) != field)
 		continue;
 	    }
-	  else if ((t = TREE_TYPE (field)) != NULL_TREE
-		   && ANON_AGGR_TYPE_P (t)
-		   && TYPE_FIELDS (t) != NULL_TREE)
+	  else if (ANON_AGGR_TYPE_P (expr_type) && TYPE_FIELDS (expr_type))
 	    /* Just use the field; anonymous types can't have
 	       nontrivial copy ctors or assignment ops.  */;
 	  else
@@ -599,14 +616,19 @@ do_build_copy_constructor (tree fndecl)
 	     the field is "T", then the type will usually be "const
 	     T".  (There are no cv-qualified variants of reference
 	     types.)  */
-	  expr_type = TREE_TYPE (field);
 	  if (TREE_CODE (expr_type) != REFERENCE_TYPE)
-	    expr_type = cp_build_qualified_type (expr_type, cvquals);
+	    {
+	      int quals = cvquals;
+	      
+	      if (DECL_MUTABLE_P (field))
+		quals &= ~TYPE_QUAL_CONST;
+	      expr_type = cp_build_qualified_type (expr_type, quals);
+	    }
+	  
 	  init = build (COMPONENT_REF, expr_type, init, field);
 	  init = build_tree_list (NULL_TREE, init);
 
-	  member_init_list
-	    = tree_cons (field, init, member_init_list);
+	  member_init_list = tree_cons (field, init, member_init_list);
 	}
       finish_mem_initializers (member_init_list);
     }
@@ -661,25 +683,26 @@ do_build_assign_ref (tree fndecl)
 	   fields; 
 	   fields = TREE_CHAIN (fields))
 	{
-	  tree comp, init, t;
+	  tree comp = current_class_ref;
+	  tree init = parm;
 	  tree field = fields;
+	  tree expr_type;
+	  int quals;
 
 	  if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
 	    continue;
 
-	  if (CP_TYPE_CONST_P (TREE_TYPE (field)))
+	  expr_type = TREE_TYPE (field);
+	  if (CP_TYPE_CONST_P (expr_type))
 	    {
               error ("non-static const member `%#D', can't use default assignment operator", field);
 	      continue;
 	    }
-	  else if (TREE_CODE (TREE_TYPE (field)) == REFERENCE_TYPE)
+	  else if (TREE_CODE (expr_type) == REFERENCE_TYPE)
 	    {
 	      error ("non-static reference member `%#D', can't use default assignment operator", field);
 	      continue;
 	    }
-
-	  comp = current_class_ref;
-	  init = parm;
 
 	  if (DECL_NAME (field))
 	    {
@@ -690,24 +713,27 @@ do_build_assign_ref (tree fndecl)
 	      if (IDENTIFIER_CLASS_VALUE (DECL_NAME (field)) != field)
 		continue;
 	    }
-	  else if ((t = TREE_TYPE (field)) != NULL_TREE
-		   && ANON_AGGR_TYPE_P (t)
-		   && TYPE_FIELDS (t) != NULL_TREE)
+	  else if (ANON_AGGR_TYPE_P (expr_type) && TYPE_FIELDS (expr_type))
 	    /* Just use the field; anonymous types can't have
 	       nontrivial copy ctors or assignment ops.  */;
 	  else
 	    continue;
 
 	  comp = build (COMPONENT_REF, TREE_TYPE (field), comp, field);
-	  init = build (COMPONENT_REF,
-	                cp_build_qualified_type (TREE_TYPE (field), cvquals),
-	                init, field);
+
+	  /* Compute the type of init->field  */
+	  quals = cvquals;
+	  if (DECL_MUTABLE_P (field))
+	    quals &= ~TYPE_QUAL_CONST;
+	  expr_type = cp_build_qualified_type (expr_type, quals);
+	  
+	  init = build (COMPONENT_REF, expr_type, init, field);
 
 	  if (DECL_NAME (field))
-	    finish_expr_stmt (build_modify_expr (comp, NOP_EXPR, init));
+	    init = build_modify_expr (comp, NOP_EXPR, init);
 	  else
-	    finish_expr_stmt (build (MODIFY_EXPR, TREE_TYPE (comp), comp,
-				     init));
+	    init = build (MODIFY_EXPR, TREE_TYPE (comp), comp, init);
+	  finish_expr_stmt (init);
 	}
     }
   finish_return_stmt (current_class_ref);

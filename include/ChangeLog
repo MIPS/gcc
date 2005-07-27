@@ -1,3 +1,53 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-01-12  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* demangle.h: Instead of checking ANSI_PROTOTYPES, just include
+	"libiberty.h".
+
+	* demangle.h: If ANSI_PROTOTYPES is defined, include <stddef.h>.
+
+	* demangle.h (enum demangle_component_type): Define.
+	(struct demangle_operator_info): Declare.
+	(struct demangle_builtin_type_info): Declare.
+	(struct demangle_component): Define.
+	(cplus_demangle_fill_component): Declare.
+	(cplus_demangle_fill_name): Declare.
+	(cplus_demangle_fill_builtin_type): Declare.
+	(cplus_demangle_fill_operator): Declare.
+	(cplus_demangle_fill_extended_operator): Declare.
+	(cplus_demangle_fill_ctor, cplus_demangle_fill_dtor): Declare.
+	(cplus_demangle_v3_components): Declare.
+	(cplus_demangle_print): Declare.
+
+2003-12-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* include/fibheap.h (fibnode): Use __extension__ for
+	bit-fields mark and degree if __GNUC__.
+
+2003-12-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* include/fibheap.h (fibnode): Use unsigned long int for
+	bit-fields if __GNUC__ is defined.
+
 2003-10-22  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* obstack.h: Merge the following change from gnulib:

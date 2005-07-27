@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.    */
+Boston, MA 02111-1307, USA.  */
 
 #undef OBJECT_FORMAT_COFF
 #undef EXTENDED_COFF
@@ -215,7 +215,7 @@ extern void sdata_section (void);
 
 #undef  SECTION_FUNCTION_TEMPLATE
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)	\
-void FN ()					\
+void FN (void)					\
 {						\
   if (in_section != ENUM)			\
     {						\
@@ -389,7 +389,7 @@ void FN ()					\
 /* Provide a STARTFILE_SPEC appropriate for ELF.  Here we add the
    (even more) magical crtbegin.o file which provides part of the
    support for getting C++ file-scope static object constructed
-   before entering `main'.   */
+   before entering `main'.  */
 
 #undef	STARTFILE_SPEC
 #ifdef HAVE_LD_PIE

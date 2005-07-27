@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -183,9 +183,6 @@ struct function GTY(())
 
   /* For function.c.  */
 
-  /* Name of this function.  */
-  const char *name;
-
   /* Points to the FUNCTION_DECL of this function.  */
   tree decl;
 
@@ -269,6 +266,11 @@ struct function GTY(())
      Jumping to this label serves as a "return" instruction
      on machines which require execution of the epilogue on all returns.  */
   rtx x_return_label;
+
+  /* Label that will go on the end of function epilogue.
+     Jumping to this label serves as a "naked return" instruction
+     on machines which require execution of the epilogue on all returns.  */
+  rtx x_naked_return_label;
 
   /* Label and register for unswitching computed gotos.  */
   rtx computed_goto_common_label;
@@ -455,9 +457,10 @@ struct function GTY(())
   /* Nonzero if the function being compiled issues a computed jump.  */
   unsigned int has_computed_jump : 1;
 
-  /* Nonzero if the current function is a thunk (a lightweight function that
-     just adjusts one of its arguments and forwards to another function), so
-     we should try to cut corners where we can.  */
+  /* Nonzero if the current function is a thunk, i.e., a lightweight
+     function implemented by the output_mi_thunk hook) that just
+     adjusts one of its arguments and forwards to another
+     function.  */
   unsigned int is_thunk : 1;
 
   /* This bit is used by the exception handling logic.  It is set if all
@@ -519,6 +522,9 @@ struct function GTY(())
 /* The function currently being compiled.  */
 extern GTY(()) struct function *cfun;
 
+/* Pointer to chain of `struct function' for containing functions.  */
+extern GTY(()) struct function *outer_function_chain;
+
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
 
@@ -526,7 +532,6 @@ extern int virtuals_instantiated;
 extern int trampolines_created;
 
 /* For backward compatibility... eventually these should all go away.  */
-#define current_function_name (cfun->name)
 #define current_function_pops_args (cfun->pops_args)
 #define current_function_returns_struct (cfun->returns_struct)
 #define current_function_returns_pcc_struct (cfun->returns_pcc_struct)
@@ -563,6 +568,7 @@ extern int trampolines_created;
 #define parm_reg_stack_loc (cfun->x_parm_reg_stack_loc)
 #define cleanup_label (cfun->x_cleanup_label)
 #define return_label (cfun->x_return_label)
+#define naked_return_label (cfun->x_naked_return_label)
 #define save_expr_regs (cfun->x_save_expr_regs)
 #define stack_slot_list (cfun->x_stack_slot_list)
 #define parm_birth_insn (cfun->x_parm_birth_insn)
@@ -629,7 +635,12 @@ extern rtx get_arg_pointer_save_area (struct function *);
 
 extern void init_virtual_regs (struct emit_status *);
 
+/* Returns the name of the current function.  */
+extern const char *current_function_name (void);
+
 /* Called once, at initialization, to initialize function.c.  */
 extern void init_function_once (void);
+
+extern void do_warn_unused_parameter (tree);
 
 #endif  /* GCC_FUNCTION_H */

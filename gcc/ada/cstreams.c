@@ -76,29 +76,25 @@
 #endif
 
 int
-__gnat_feof (stream)
-     FILE *stream;
+__gnat_feof (FILE *stream)
 {
   return (feof (stream));
 }
 
 int
-__gnat_ferror (stream)
-     FILE *stream;
+__gnat_ferror (FILE *stream)
 {
    return (ferror (stream));
 }
 
 int
-__gnat_fileno (stream)
-     FILE *stream;
+__gnat_fileno (FILE *stream)
 {
    return (fileno (stream));
 }
 
 int
-__gnat_is_regular_file_fd (fd)
-     int fd;
+__gnat_is_regular_file_fd (int fd)
 {
   int ret;
   struct stat statbuf;
@@ -179,9 +175,9 @@ __gnat_full_name (char *nam, char *buffer)
 #elif defined (MSDOS)
   _fixpath (nam, buffer);
 
-#elif defined (sgi)
+#elif defined (sgi) || defined (__FreeBSD__)
 
-  /* Use realpath function which resolves links and references to .. and ..
+  /* Use realpath function which resolves links and references to . and ..
      on those Unix systems that support it. Note that GNU/Linux provides it but
      cannot handle more than 5 symbolic links in a full name, so we use the
      getcwd approach instead. */

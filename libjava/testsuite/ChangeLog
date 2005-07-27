@@ -1,3 +1,97 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-01-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* lib/libjava.exp: Add LD_LIBRARY_PATH_32/64 to get proper
+	path setting for Ssolaris 32/64-bit testing.
+	Reorganize LD_LIBRARY_PATH setting.
+
+2004-01-09  Andrew Haley  <aph@redhat.com>
+
+	* lib/libjava.exp (bytecompile_file): Log compile command.
+
+2004-01-07  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR libgcj/13011:
+	* libjava.jar/simple.jar: Add a working MANIFEST.MF.
+
+2003-12-03  Ralph Loader  <rcl@ihug.co.nz>
+
+	PR java/12374:
+	* libjava.compile/PR12374.java: New file.
+
+2003-12-01  Jeff Sturm  <jsturm@one-point.com>
+
+	PR optimization/13024
+	* libjava.compile/PR13024.java: New file.
+
+	PR java/13237
+	* libjava.compile/PR13237.java: New file.
+
+2003-11-18  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* libjava.jar/jar.exp: Cleanup files and reset CLASSPATH.
+
+2003-11-17  Jeff Sturm  <jsturm@one-point.com>
+
+	* libjava.compile/PR12857.java: New test case.
+
+2003-11-14  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jar/simple.jar: Replaced.
+
+2003-11-13  Tom Fitzsimmons  <fitzsim@redhat.com>
+
+	* libjava.jni/jniutf.c: New file.
+	* libjava.jni/jniutf.java: New file.
+	* libjava.jni/jniutf.out: New file.
+
+2003-11-11  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/12915:
+	* libjava.lang/PR12915.java: New file.
+	* libjava.lang/PR12915.out: New file.
+
+	* libjava.jacks/jacks.exp (gcj_jacks_write): Enable "assert"
+	constraint.
+	* libjava.jacks/jacks.xfail: Added new xfails.
+
+2003-11-10  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/12996:
+	* libjava.jar/simple.jar: New file.
+	* libjava.jar/simple.xfail: New file.
+	* libjava.jar/simple.out: New file.
+	* libjava.jar/simple.java: New file.
+	* libjava.jar/jar.exp: New file.
+
+2003-11-08  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated.
+
+2003-11-03  Jeff Sturm  <jsturm@one-point.com>
+
+	PR java/12866:
+	* libjava.compile/InnerExcept.java: New File.
+
 2003-10-22  Tom Tromey  <tromey@redhat.com>
 
 	PR libgcj/12416:

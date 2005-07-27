@@ -50,7 +50,7 @@ proc g77_version { } {
 	set tmp [remote_exec host "$compiler -v"]
 	set status [lindex $tmp 0];
 	set output [lindex $tmp 1];
-	regexp "version.*$" $output version
+	regexp " version \[^\n\r\]*" $output version
 	if { $status == 0 && [info exists version] } then {
 	    if [is_remote host] {
 		clone_output "$compiler $version\n"
@@ -103,7 +103,7 @@ proc g77_link_flags { paths } {
 	  if { "$mldir" == "." } {
 	    continue
 	  }
-	  if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] == 1 } {
+	  if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] >= 1 } {
 	    append ld_library_path ":${rootme}/${mldir}"
 	  }
 	}
@@ -120,6 +120,7 @@ proc g77_link_flags { paths } {
     setenv  SHLIB_PATH          $ld_library_path
     setenv  LD_LIBRARYN32_PATH  $ld_library_path
     setenv  LD_LIBRARY64_PATH   $ld_library_path
+    setenv  DYLD_LIBRARY_PATH   $ld_library_path
 
     return "$flags"
 }

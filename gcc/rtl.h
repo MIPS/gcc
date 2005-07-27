@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GCC
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -249,10 +249,10 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
 /* Define macros to access the `code' field of the rtx.  */
 
 #define GET_CODE(RTX)	    ((enum rtx_code) (RTX)->code)
-#define PUT_CODE(RTX, CODE) ((RTX)->code = (ENUM_BITFIELD(rtx_code)) (CODE))
+#define PUT_CODE(RTX, CODE) ((RTX)->code = (CODE))
 
 #define GET_MODE(RTX)	    ((enum machine_mode) (RTX)->mode)
-#define PUT_MODE(RTX, MODE) ((RTX)->mode = (ENUM_BITFIELD(machine_mode)) (MODE))
+#define PUT_MODE(RTX, MODE) ((RTX)->mode = (MODE))
 
 /* RTL vector.  These appear inside RTX's when there is a need
    for a variable number of things.  The principle use is inside
@@ -1452,11 +1452,13 @@ extern rtx emit_copy_of_insn_after (rtx, rtx);
 extern void set_reg_attrs_from_mem (rtx, rtx);
 extern void set_mem_attrs_from_reg (rtx, rtx);
 extern void set_reg_attrs_for_parm (rtx, rtx);
+extern int mem_expr_equal_p (tree, tree);
 
 /* In rtl.c */
 extern rtx rtx_alloc (RTX_CODE);
 extern rtvec rtvec_alloc (int);
 extern rtx copy_rtx (rtx);
+extern void dump_rtx_statistics (void);
 
 /* In emit-rtl.c */
 extern rtx copy_rtx_if_shared (rtx);
@@ -1484,7 +1486,6 @@ extern rtx gen_highpart_mode (enum machine_mode, enum machine_mode, rtx);
 extern rtx gen_realpart (enum machine_mode, rtx);
 extern rtx gen_imagpart (enum machine_mode, rtx);
 extern rtx operand_subword (rtx, unsigned int, int, enum machine_mode);
-extern rtx constant_subword (rtx, int, enum machine_mode);
 
 /* In emit-rtl.c */
 extern rtx operand_subword_force (rtx, unsigned int, enum machine_mode);
@@ -1506,10 +1507,10 @@ extern void push_to_sequence (rtx);
 extern void end_sequence (void);
 extern void push_to_full_sequence (rtx, rtx);
 extern void end_full_sequence (rtx*, rtx*);
-
-/* In varasm.c  */
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
+
+/* In varasm.c  */
 extern rtx force_const_mem (enum machine_mode, rtx);
 
 /* In varasm.c  */
@@ -1530,19 +1531,25 @@ extern rtx assign_temp (tree, int, int, int);
 
 /* In emit-rtl.c */
 extern rtx emit_insn_before (rtx, rtx);
+extern rtx emit_insn_before_noloc (rtx, rtx);
 extern rtx emit_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_before (rtx, rtx);
+extern rtx emit_jump_insn_before_noloc (rtx, rtx);
 extern rtx emit_jump_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_before (rtx, rtx);
+extern rtx emit_call_insn_before_noloc (rtx, rtx);
 extern rtx emit_call_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_barrier_before (rtx);
 extern rtx emit_label_before (rtx, rtx);
 extern rtx emit_note_before (int, rtx);
 extern rtx emit_insn_after (rtx, rtx);
+extern rtx emit_insn_after_noloc (rtx, rtx);
 extern rtx emit_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_after (rtx, rtx);
+extern rtx emit_jump_insn_after_noloc (rtx, rtx);
 extern rtx emit_jump_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_after (rtx, rtx);
+extern rtx emit_call_insn_after_noloc (rtx, rtx);
 extern rtx emit_call_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_barrier_after (rtx);
 extern rtx emit_label_after (rtx, rtx);
@@ -1725,6 +1732,7 @@ extern int insns_safe_to_move_p (rtx, rtx, rtx *);
 extern int loc_mentioned_in_p (rtx *, rtx);
 extern rtx find_first_parameter_load (rtx, rtx);
 extern bool keep_with_call_p (rtx);
+extern bool label_is_jump_target_p (rtx, rtx);
 
 /* flow.c */
 
@@ -1742,7 +1750,7 @@ rtx alloc_EXPR_LIST			(int, rtx, rtx);
 /* regclass.c */
 
 /* Maximum number of parallel sets and clobbers in any insn in this fn.
-   Always at least 3, since the combiner could put that many togetherm
+   Always at least 3, since the combiner could put that many together
    and we want this to remain correct for all the remaining passes.  */
 
 extern int max_parallel;
@@ -1985,7 +1993,7 @@ struct cse_basic_block_data;
    N times that of a fast register-to-register instruction.  */
 #define COSTS_N_INSNS(N) ((N) * 4)
 
-/* Maximum cost of a rtl expression.  This value has the special meaning
+/* Maximum cost of an rtl expression.  This value has the special meaning
    not to use an rtx with this cost under any circumstances.  */
 #define MAX_COST INT_MAX
 
@@ -1997,6 +2005,7 @@ extern int cse_main (rtx, int, int, FILE *);
 #endif
 extern void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
 				    int, int, int);
+extern void cse_condition_code_reg (void);
 
 /* In jump.c */
 extern int comparison_dominates_p (enum rtx_code, enum rtx_code);
@@ -2036,6 +2045,7 @@ extern void delete_insns_since (rtx);
 extern void mark_reg_pointer (rtx, int);
 extern void mark_user_reg (rtx);
 extern void reset_used_flags (rtx);
+extern void set_used_flags (rtx);
 extern void reorder_insns (rtx, rtx, rtx);
 extern void reorder_insns_nobb (rtx, rtx, rtx);
 extern int get_max_uid (void);
@@ -2048,9 +2058,10 @@ extern void pop_topmost_sequence (void);
 extern int subreg_realpart_p (rtx);
 extern void reverse_comparison (rtx);
 extern void set_new_first_and_last_insn (rtx, rtx);
-extern void set_new_first_and_last_label_num (int, int);
 extern void set_new_last_label_num (int);
 extern void unshare_all_rtl_again (rtx);
+extern void unshare_all_rtl_in_chain (rtx);
+extern void verify_rtl_sharing (void);
 extern void set_first_insn (rtx);
 extern void set_last_insn (rtx);
 extern void link_cc0_insns (rtx);
@@ -2084,7 +2095,7 @@ extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
 #endif
 /* In web.c */
-extern void web_main			PARAMS ((void));
+extern void web_main (void);
 
 /* In sched.c.  */
 #ifdef BUFSIZ
@@ -2130,6 +2141,7 @@ extern void purge_hard_subreg_sets (rtx);
 /* In stmt.c */
 extern void set_file_and_line_for_stmt (location_t);
 extern void expand_null_return (void);
+extern void expand_naked_return (void);
 extern void emit_jump (rtx);
 extern int preserve_subexpressions_p (void);
 
@@ -2187,6 +2199,8 @@ extern void regclass (rtx, int, FILE *);
 extern void reg_scan (rtx, unsigned int, int);
 extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
+extern void init_subregs_of_mode (void);
+extern void record_subregs_of_mode (rtx);
 #ifdef HARD_CONST
 extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 					 enum machine_mode, unsigned int);
@@ -2291,6 +2305,8 @@ extern void end_alias_analysis (void);
 extern rtx addr_side_effect_eval (rtx, int, int);
 extern bool memory_modified_in_insn_p (rtx, rtx);
 extern rtx find_base_term (rtx);
+extern rtx get_reg_known_value (unsigned int);
+extern bool get_reg_known_equiv_p (unsigned int);
 
 /* In sibcall.c */
 typedef enum {
@@ -2320,6 +2336,6 @@ extern void if_convert (int);
 extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
 /* In tracer.c */
-extern void tracer (void);
+extern void tracer (unsigned int);
 
 #endif /* ! GCC_RTL_H */

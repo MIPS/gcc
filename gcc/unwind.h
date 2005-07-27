@@ -1,5 +1,5 @@
 /* Exception handling and frame unwind runtime interface routines.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -27,6 +27,16 @@
 
 /* This is derived from the C++ ABI for IA-64.  Where we diverge
    for cross-architecture compatibility are noted with "@@@".  */
+
+#ifndef _UNWIND_H
+#define _UNWIND_H
+
+#pragma GCC visibility push(default)
+
+#if defined(__arm__) && !defined(__USING_SJLJ_EXCEPTIONS__)
+/* The arm unwinder provides its own version of this file.  */
+#include "unwind-arm.h"
+#else
 
 #ifdef __cplusplus
 extern "C" {
@@ -225,3 +235,9 @@ extern void * _Unwind_FindEnclosingFunction (void *pc);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* arm unwinder */
+
+#pragma GCC visibility pop
+
+#endif /* unwind.h */

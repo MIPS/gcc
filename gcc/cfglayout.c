@@ -89,9 +89,9 @@ skip_insns_after_block (basic_block bb)
 
   next_head = NULL_RTX;
   if (bb->next_bb != EXIT_BLOCK_PTR)
-    next_head = bb->next_bb->head;
+    next_head = BB_HEAD (bb->next_bb);
 
-  for (last_insn = insn = bb->end; (insn = NEXT_INSN (insn)) != 0; )
+  for (last_insn = insn = BB_END (bb); (insn = NEXT_INSN (insn)) != 0; )
     {
       if (insn == next_head)
 	break;
@@ -148,7 +148,7 @@ skip_insns_after_block (basic_block bb)
      created by removing the basic block originally following
      NOTE_INSN_LOOP_BEG.  In such case reorder the notes.  */
 
-  for (insn = last_insn; insn != bb->end; insn = prev)
+  for (insn = last_insn; insn != BB_END (bb); insn = prev)
     {
       prev = PREV_INSN (insn);
       if (GET_CODE (insn) == NOTE)
@@ -172,7 +172,7 @@ skip_insns_after_block (basic_block bb)
 static rtx
 label_for_bb (basic_block bb)
 {
-  rtx label = bb->head;
+  rtx label = BB_HEAD (bb);
 
   if (GET_CODE (label) != CODE_LABEL)
     {
@@ -214,13 +214,13 @@ record_effective_endpoints (void)
     {
       rtx end;
 
-      if (PREV_INSN (bb->head) && next_insn != bb->head)
+      if (PREV_INSN (BB_HEAD (bb)) && next_insn != BB_HEAD (bb))
 	bb->rbi->header = unlink_insn_chain (next_insn,
-					      PREV_INSN (bb->head));
+					      PREV_INSN (BB_HEAD (bb)));
       end = skip_insns_after_block (bb);
-      if (NEXT_INSN (bb->end) && bb->end != end)
-	bb->rbi->footer = unlink_insn_chain (NEXT_INSN (bb->end), end);
-      next_insn = NEXT_INSN (bb->end);
+      if (NEXT_INSN (BB_END (bb)) && BB_END (bb) != end)
+	bb->rbi->footer = unlink_insn_chain (NEXT_INSN (BB_END (bb)), end);
+      next_insn = NEXT_INSN (BB_END (bb));
     }
 
   cfg_layout_function_footer = next_insn;
@@ -598,11 +598,11 @@ fixup_reorder_chain (void)
 	    insn = NEXT_INSN (insn);
 	}
       if (insn)
-	NEXT_INSN (insn) = bb->head;
+	NEXT_INSN (insn) = BB_HEAD (bb);
       else
-	set_first_insn (bb->head);
-      PREV_INSN (bb->head) = insn;
-      insn = bb->end;
+	set_first_insn (BB_HEAD (bb));
+      PREV_INSN (BB_HEAD (bb)) = insn;
+      insn = BB_END (bb);
       if (bb->rbi->footer)
 	{
 	  NEXT_INSN (insn) = bb->rbi->footer;
@@ -649,7 +649,7 @@ fixup_reorder_chain (void)
 	else if (! (e->flags & EDGE_EH))
 	  e_taken = e;
 
-      bb_end_insn = bb->end;
+      bb_end_insn = BB_END (bb);
       if (GET_CODE (bb_end_insn) == JUMP_INSN)
 	{
 	  if (any_condjump_p (bb_end_insn))
@@ -675,9 +675,9 @@ fixup_reorder_chain (void)
 
 		  e_fake = unchecked_make_edge (bb, e_fall->dest, 0);
 
-		  if (!redirect_jump (bb->end, block_label (bb), 0))
+		  if (!redirect_jump (BB_END (bb), block_label (bb), 0))
 		    abort ();
-		  note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX);
+		  note = find_reg_note (BB_END (bb), REG_BR_PROB, NULL_RTX);
 		  if (note)
 		    {
 		      int prob = INTVAL (XEXP (note, 0));
@@ -784,7 +784,7 @@ fixup_reorder_chain (void)
 	  if (bb->rbi->original)
 	    fprintf (rtl_dump_file, "duplicate of %i ",
 		     bb->rbi->original->index);
-	  else if (forwarder_block_p (bb) && GET_CODE (bb->head) != CODE_LABEL)
+	  else if (forwarder_block_p (bb) && GET_CODE (BB_HEAD (bb)) != CODE_LABEL)
 	    fprintf (rtl_dump_file, "compensation ");
 	  else
 	    fprintf (rtl_dump_file, "bb %i ", bb->index);
@@ -865,6 +865,18 @@ fixup_fallthru_exit_predecessor (void)
     {
       basic_block c = ENTRY_BLOCK_PTR->next_bb;
 
+      /* If the very first block is the one with the fall-through exit
+	 edge, we have to split that block.  */
+      if (c == bb)
+	{
+	  bb = split_block (bb, NULL)->dest;
+	  cfg_layout_initialize_rbi (bb);
+	  bb->rbi->next = c->rbi->next;
+	  c->rbi->next = bb;
+	  bb->rbi->footer = c->rbi->footer;
+	  c->rbi->footer = NULL;
+	}
+
       while (c->rbi->next != bb)
 	c = c->rbi->next;
 
@@ -896,18 +908,18 @@ cfg_layout_can_duplicate_bb_p (basic_block bb)
   /* Do not attempt to duplicate tablejumps, as we need to unshare
      the dispatch table.  This is difficult to do, as the instructions
      computing jump destination may be hoisted outside the basic block.  */
-  if (tablejump_p (bb->end, NULL, NULL))
+  if (tablejump_p (BB_END (bb), NULL, NULL))
     return false;
 
   /* Do not duplicate blocks containing insns that can't be copied.  */
   if (targetm.cannot_copy_insn_p)
     {
-      rtx insn = bb->head;
+      rtx insn = BB_HEAD (bb);
       while (1)
 	{
 	  if (INSN_P (insn) && (*targetm.cannot_copy_insn_p) (insn))
 	    return false;
-	  if (insn == bb->end)
+	  if (insn == BB_END (bb))
 	    break;
 	  insn = NEXT_INSN (insn);
 	}
@@ -1028,7 +1040,7 @@ cfg_layout_duplicate_bb (basic_block bb, edge e)
     abort ();
 #endif
 
-  insn = duplicate_insn_chain (bb->head, bb->end);
+  insn = duplicate_insn_chain (BB_HEAD (bb), BB_END (bb));
   new_bb = create_basic_block (insn,
 			       insn ? get_last_insn () : NULL,
 			       EXIT_BLOCK_PTR->prev_bb);
@@ -1118,10 +1130,14 @@ cfg_layout_initialize_rbi (basic_block bb)
 }
 
 /* Main entry point to this module - initialize the datastructures for
-   CFG layout changes.  It keeps LOOPS up-to-date if not null.  */
+   CFG layout changes.  It keeps LOOPS up-to-date if not null.
+
+   FLAGS is a set of additional flags to pass to cleanup_cfg().  It should
+   include CLEANUP_UPDATE_LIFE if liveness information must be kept up
+   to date.  */
 
 void
-cfg_layout_initialize (void)
+cfg_layout_initialize (unsigned int flags)
 {
   basic_block bb;
 
@@ -1137,7 +1153,7 @@ cfg_layout_initialize (void)
 
   record_effective_endpoints ();
 
-  cleanup_cfg (CLEANUP_CFGLAYOUT);
+  cleanup_cfg (CLEANUP_CFGLAYOUT | flags);
 }
 
 /* Splits superblocks.  */
@@ -1253,7 +1269,7 @@ end:
 void
 copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
 	  edge *edges, unsigned n_edges, edge *new_edges,
-	  struct loop *base, struct loops *loops)
+	  struct loop *base)
 {
   unsigned i, j;
   basic_block bb, new_bb, dom_bb;
@@ -1268,7 +1284,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       bb->rbi->duplicated = 1;
       /* Add to loop.  */
       add_bb_to_loop (new_bb, bb->loop_father->copy);
-      add_to_dominance_info (loops->cfg.dom, new_bb);
+      add_to_dominance_info (CDI_DOMINATORS, new_bb);
       /* Possibly set header.  */
       if (bb->loop_father->header == bb && bb->loop_father != base)
 	new_bb->loop_father->header = new_bb;
@@ -1283,11 +1299,11 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       bb = bbs[i];
       new_bb = new_bbs[i];
 
-      dom_bb = get_immediate_dominator (loops->cfg.dom, bb);
+      dom_bb = get_immediate_dominator (CDI_DOMINATORS, bb);
       if (dom_bb->rbi->duplicated)
 	{
 	  dom_bb = dom_bb->rbi->copy;
-	  set_immediate_dominator (loops->cfg.dom, new_bb, dom_bb);
+	  set_immediate_dominator (CDI_DOMINATORS, new_bb, dom_bb);
 	}
     }
 

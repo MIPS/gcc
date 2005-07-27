@@ -1,3 +1,86 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2005-05-08  Richard Henderson  <rth@redhat.com>
+
+	Backport from mainline:
+	2005-02-07  Hans Boehm  <Hans.Boehm@hp.com>
+	* pthread_stop_world.c (GC_stop_world): Handle EINTR from sem_wait.
+
+2005-04-17  David S. Miller  <davem@davemloft.net>
+
+	* include/private/gcconfig.h (sparc-linux): Use LINUX_STACKBOTTOM.
+	* os_dep.c (GC_linux_stack_base): Check for bug present in some
+	Sparc glibc variants where __libc_stack_end is erroneously set
+	to "1".  Fallback to procfs code in that case.
+
+2005-04-11  Richard Henderson  <rth@redhat.com>
+
+	* include/private/gcconfig.h (alpha-linux): Use LINUX_STACKBOTTOM.
+
+2005-02-22  Bryce McKinlay  <mckinlay@redhat.com>
+
+        PR libgcj/19823
+        * configure.host: Set gc_use_mmap on *-linux*.
+        * configure.in: Define USE_MMAP if gc_use_mmap is set.
+        * configure: Rebuilt.
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-04-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/14326
+	Backport from mainline:
+
+	* include/private/gcconfig.h (PREFETCH): Use __builtin_prefetch
+	for gcc >= 3.0.
+	(PREFETCH_FOR_WRITE): Likewise.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-02-22  Matthias Klose  <doko@debian.org>
+
+	* config.guess: Update from version 2002-01-10 to 2004-02-16.
+	* config.sub: Update from version 2002-01-02 to 2004-02-16.
+
+2004-01-20  Andrew Haley  <aph@redhat.com>
+
+	* include/private/gcconfig.h (USE_MMAP): Define for all Linux.
+
+	* configure.in: Comment change.
+
+2004-01-16  Andrew Haley  <aph@redhat.com>
+
+	* configure.in (NO_EXECUTE_PERMISSION): Remove global declaration;
+	add for ia64; remove for MIPS.
+	* configure: Regnerated.
+	
+2004-01-14  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.in: Add in AC_PREREQ(2.13)
+
+2004-01-07  Dave Jones <davej@redhat.com>
+ 
+	* malloc.c (GC_generic_malloc): Correct initialization typo.
+	* mallocx.c (GC_generic_malloc_ignore_off_page): Ditto.
+
+2003-10-31  Richard Earnshaw  <rearnsha@arm.com>
+
+	* include/private/gcconfig.h: Re-install change of 2003-04-16.
+
 2003-10-20  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* mips_sgi_mach_dep.s: Use _ABIO32 instead of external

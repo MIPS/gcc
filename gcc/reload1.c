@@ -1,6 +1,6 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -77,10 +77,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    reload needs, spilling, assigning reload registers to use for
    fixing up each insn, and generating the new insns to copy values
    into the reload registers.  */
-
-#ifndef LOCAL_REGNO
-#define LOCAL_REGNO(REGNO)  0
-#endif
 
 /* During reload_as_needed, element N contains a REG rtx for the hard reg
    into which reg N has been reloaded (perhaps for a previous insn).  */
@@ -141,6 +137,11 @@ static HARD_REG_SET reg_reloaded_valid;
 /* Indicate if the register was dead at the end of the reload.
    This is only valid if reg_reloaded_contents is set and valid.  */
 static HARD_REG_SET reg_reloaded_dead;
+
+/* Indicate whether the register's current value is one that is not
+   safe to retain across a call, even for registers that are normally
+   call-saved.  */
+static HARD_REG_SET reg_reloaded_call_part_clobbered;
 
 /* Number of spill-regs so far; number of valid elements of spill_regs.  */
 static int n_spills;
@@ -293,12 +294,12 @@ struct elim_table
 {
   int from;			/* Register number to be eliminated.  */
   int to;			/* Register number used as replacement.  */
-  int initial_offset;		/* Initial difference between values.  */
+  HOST_WIDE_INT initial_offset;	/* Initial difference between values.  */
   int can_eliminate;		/* Nonzero if this elimination can be done.  */
   int can_eliminate_previous;	/* Value of CAN_ELIMINATE in previous scan over
 				   insns made by reload.  */
-  int offset;			/* Current offset between the two regs.  */
-  int previous_offset;		/* Offset at end of previous insn.  */
+  HOST_WIDE_INT offset;		/* Current offset between the two regs.  */
+  HOST_WIDE_INT previous_offset;/* Offset at end of previous insn.  */
   int ref_outside_mem;		/* "to" has been referenced outside a MEM.  */
   rtx from_rtx;			/* REG rtx for the register to be eliminated.
 				   We cannot simply compare the number since
@@ -352,7 +353,7 @@ static int num_eliminable_invariants;
 
 static int first_label_num;
 static char *offsets_known_at;
-static int (*offsets_at)[NUM_ELIMINABLE_REGS];
+static HOST_WIDE_INT (*offsets_at)[NUM_ELIMINABLE_REGS];
 
 /* Number of labels in the current function.  */
 
@@ -673,6 +674,17 @@ reload (rtx first, int global)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	regs_ever_live[i] = 1;
 
+#ifdef NON_SAVING_SETJMP
+  /* A function that calls setjmp should save and restore all the
+     call-saved registers on a system where longjmp clobbers them.  */
+  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
+    {
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (! call_used_regs[i])
+	  regs_ever_live[i] = 1;
+    }
+#endif
+
   /* Find all the pseudo registers that didn't get hard regs
      but do have known equivalent constants or memory slots.
      These include parameters (known equivalent to parameter slots)
@@ -698,9 +710,7 @@ reload (rtx first, int global)
   /* Look for REG_EQUIV notes; record what each pseudo is equivalent to.
      Also find all paradoxical subregs and find largest such for each pseudo.
      On machines with small register classes, record hard registers that
-     are used for user variables.  These can never be used for spills.
-     Also look for a "constant" REG_SETJMP.  This means that all
-     caller-saved registers must be marked live.  */
+     are used for user variables.  These can never be used for spills.  */
 
   num_eliminable_invariants = 0;
   for (insn = first; insn; insn = NEXT_INSN (insn))
@@ -713,12 +723,6 @@ reload (rtx first, int global)
       if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE
 	  && GET_MODE (insn) != VOIDmode)
 	PUT_MODE (insn, VOIDmode);
-
-      if (GET_CODE (insn) == CALL_INSN
-	  && find_reg_note (insn, REG_SETJMP, NULL))
-	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	  if (! call_used_regs[i])
-	    regs_ever_live[i] = 1;
 
       if (set != 0 && GET_CODE (SET_DEST (set)) == REG)
 	{
@@ -743,8 +747,18 @@ reload (rtx first, int global)
 		     that is not a legitimate memory operand.  As later
 		     stages of reload assume that all addresses found
 		     in the reg_equiv_* arrays were originally legitimate,
-		     we ignore such REG_EQUIV notes.  */
-		  if (memory_operand (x, VOIDmode))
+		     we ignore such REG_EQUIV notes.
+
+		     It also can happen that a REG_EQUIV note contains a MEM
+		     that carries the /u flag, for example when GCSE turns
+		     the load of a constant into a move from a pseudo that
+		     already contains the constant and attaches a REG_EQUAL
+		     note to the insn, which is later promoted to REQ_EQUIV
+		     by local-alloc.  If the destination pseudo happens not
+		     to be assigned to a hard reg, it will be replaced by
+		     the MEM as the destination of the move, thus generating
+		     a store to a possibly read-only memory location.  */
+		  if (memory_operand (x, VOIDmode) && ! RTX_UNCHANGING_P (x))
 		    {
 		      /* Always unshare the equivalence, so we can
 			 substitute into this insn without touching the
@@ -816,7 +830,7 @@ reload (rtx first, int global)
      allocate would occasionally cause it to exceed the stack limit and
      cause a core dump.  */
   offsets_known_at = xmalloc (num_labels);
-  offsets_at = xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (int));
+  offsets_at = xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (HOST_WIDE_INT));
 
   /* Alter each pseudo-reg rtx to contain its hard reg number.
      Assign stack slots to the pseudos that lack hard regs or equivalents.
@@ -1248,6 +1262,14 @@ reload (rtx first, int global)
      created shared rtx.  Subsequent passes would get confused
      by this, so unshare everything here.  */
   unshare_all_rtl_again (first);
+
+#ifdef STACK_BOUNDARY
+  /* init_emit has set the alignment of the hard frame pointer
+     to STACK_BOUNDARY.  It is very likely no longer valid if
+     the hard frame pointer was used for register allocation.  */
+  if (!frame_pointer_needed)
+    REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_UNIT;
+#endif
 
   return failure;
 }
@@ -2897,7 +2919,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	      {
 		rtx base = SET_SRC (old_set);
 		rtx base_insn = insn;
-		int offset = 0;
+		HOST_WIDE_INT offset = 0;
 
 		while (base != ep->to_rtx)
 		  {
@@ -2980,7 +3002,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
       && REGNO (XEXP (SET_SRC (old_set), 0)) < FIRST_PSEUDO_REGISTER)
     {
       rtx reg = XEXP (SET_SRC (old_set), 0);
-      int offset = INTVAL (XEXP (SET_SRC (old_set), 1));
+      HOST_WIDE_INT offset = INTVAL (XEXP (SET_SRC (old_set), 1));
 
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == reg && ep->can_eliminate)
@@ -3263,7 +3285,7 @@ mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
 static void
 verify_initial_elim_offsets (void)
 {
-  int t;
+  HOST_WIDE_INT t;
 
 #ifdef ELIMINABLE_REGS
   struct elim_table *ep;
@@ -3302,6 +3324,14 @@ set_initial_elim_offsets (void)
   num_not_at_initial_offset = 0;
 }
 
+/* Subroutine of set_initial_label_offsets called via for_each_eh_label.  */
+
+static void
+set_initial_eh_label_offset (rtx label)
+{
+  set_label_offsets (label, NULL_RTX, 1);
+}
+
 /* Initialize the known label offsets.
    Set a known offset for each forced label to be at the initial offset
    of each elimination.  We do this because we assume that all
@@ -3318,6 +3348,8 @@ set_initial_label_offsets (void)
   for (x = forced_labels; x; x = XEXP (x, 1))
     if (XEXP (x, 0))
       set_label_offsets (XEXP (x, 0), NULL_RTX, 1);
+
+  for_each_eh_label (set_initial_eh_label_offset);
 }
 
 /* Set all elimination offsets to the known values for the code label given
@@ -3436,7 +3468,6 @@ init_elim_table (void)
   /* Does this function require a frame pointer?  */
 
   frame_pointer_needed = (! flag_omit_frame_pointer
-#ifdef EXIT_IGNORE_STACK
 			  /* ?? If EXIT_IGNORE_STACK is set, we will not save
 			     and restore sp for alloca.  So we can't eliminate
 			     the frame pointer in that case.  At some point,
@@ -3444,7 +3475,6 @@ init_elim_table (void)
 			     sp-adjusting insns for this case.  */
 			  || (current_function_calls_alloca
 			      && EXIT_IGNORE_STACK)
-#endif
 			  || FRAME_POINTER_REQUIRED);
 
   num_eliminable = 0;
@@ -3752,6 +3782,7 @@ reload_as_needed (int live_known)
   reg_last_reload_reg = xcalloc (max_regno, sizeof (rtx));
   reg_has_output_reload = xmalloc (max_regno);
   CLEAR_HARD_REG_SET (reg_reloaded_valid);
+  CLEAR_HARD_REG_SET (reg_reloaded_call_part_clobbered);
 
   set_initial_elim_offsets ();
 
@@ -3999,9 +4030,13 @@ reload_as_needed (int live_known)
 	CLEAR_HARD_REG_SET (reg_reloaded_valid);
 
       /* Don't assume a reload reg is still good after a call insn
-	 if it is a call-used reg.  */
+	 if it is a call-used reg, or if it contains a value that will
+         be partially clobbered by the call.  */
       else if (GET_CODE (insn) == CALL_INSN)
+	{
 	AND_COMPL_HARD_REG_SET (reg_reloaded_valid, call_used_reg_set);
+	AND_COMPL_HARD_REG_SET (reg_reloaded_valid, reg_reloaded_call_part_clobbered);
+	}
     }
 
   /* Clean up.  */
@@ -4056,6 +4091,7 @@ forget_old_reloads_1 (rtx x, rtx ignored ATTRIBUTE_UNUSED,
 	    || ! TEST_HARD_REG_BIT (reg_is_output_reload, regno + i))
 	  {
 	    CLEAR_HARD_REG_BIT (reg_reloaded_valid, regno + i);
+	    CLEAR_HARD_REG_BIT (reg_reloaded_call_part_clobbered, regno + i);
 	    spill_reg_store[regno + i] = 0;
 	  }
     }
@@ -4300,6 +4336,7 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
       /* In use for anything means we can't use it for RELOAD_OTHER.  */
       if (TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno))
 	return 0;
 
@@ -4478,6 +4515,7 @@ reload_reg_reaches_end_p (unsigned int regno, int opnum, enum reload_type type)
 	  return 0;
 
       return (! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used, regno));
 
@@ -5374,19 +5412,18 @@ choose_reload_regs (struct insn_chain *chain)
 		    need_mode = mode;
 		  else
 		    need_mode
-		      = smallest_mode_for_size (GET_MODE_SIZE (mode) + byte,
+		      = smallest_mode_for_size (GET_MODE_BITSIZE (mode)
+						+ byte * BITS_PER_UNIT,
 						GET_MODE_CLASS (mode));
 
-		  if (
-#ifdef CANNOT_CHANGE_MODE_CLASS
-		      (!REG_CANNOT_CHANGE_MODE_P (i, GET_MODE (last_reg),
-						  need_mode)
-		       &&
-#endif
-		      (GET_MODE_SIZE (GET_MODE (last_reg))
+		  if ((GET_MODE_SIZE (GET_MODE (last_reg))
 		       >= GET_MODE_SIZE (need_mode))
 #ifdef CANNOT_CHANGE_MODE_CLASS
-		      )
+		      /* Verify that the register in "i" can be obtained
+			 from LAST_REG.  */
+		      && !REG_CANNOT_CHANGE_MODE_P (REGNO (last_reg),
+						    GET_MODE (last_reg),
+						    mode)
 #endif
 		      && reg_reloaded_contents[i] == regno
 		      && TEST_HARD_REG_BIT (reg_reloaded_valid, i)
@@ -6787,6 +6824,10 @@ do_input_reload (struct insn_chain *chain, struct reload *rl, int j)
      actually no need to store the old value in it.  */
 
   if (optimize
+      /* Only attempt this for input reloads; for RELOAD_OTHER we miss
+	 that there may be multiple uses of the previous output reload.
+	 Restricting to RELOAD_FOR_INPUT is mostly paranoia.  */
+      && rl->when_needed == RELOAD_FOR_INPUT
       && (reload_inherited[j] || reload_override_in[j])
       && rl->reg_rtx
       && GET_CODE (rl->reg_rtx) == REG
@@ -7038,7 +7079,10 @@ emit_reload_insns (struct insn_chain *chain)
 		 If consecutive registers are used, clear them all.  */
 
 	      for (k = 0; k < nr; k++)
+  	        {
 		CLEAR_HARD_REG_BIT (reg_reloaded_valid, i + k);
+  		  CLEAR_HARD_REG_BIT (reg_reloaded_call_part_clobbered, i + k);
+  		}
 
 	      /* Maybe the spill reg contains a copy of reload_out.  */
 	      if (rld[r].out != 0
@@ -7085,6 +7129,8 @@ emit_reload_insns (struct insn_chain *chain)
 			   : nregno + k);
 		      reg_reloaded_insn[i + k] = insn;
 		      SET_HARD_REG_BIT (reg_reloaded_valid, i + k);
+		      if (HARD_REGNO_CALL_PART_CLOBBERED (i + k, GET_MODE (out)))
+			SET_HARD_REG_BIT (reg_reloaded_call_part_clobbered, i + k);
 		    }
 		}
 
@@ -7102,14 +7148,16 @@ emit_reload_insns (struct insn_chain *chain)
 		{
 		  int nregno;
 		  int nnr;
+		  rtx in;
 
 		  if (GET_CODE (rld[r].in) == REG
 		      && REGNO (rld[r].in) >= FIRST_PSEUDO_REGISTER)
-		    nregno = REGNO (rld[r].in);
+		    in = rld[r].in;
 		  else if (GET_CODE (rld[r].in_reg) == REG)
-		    nregno = REGNO (rld[r].in_reg);
+		    in = rld[r].in_reg;
 		  else
-		    nregno = REGNO (XEXP (rld[r].in_reg, 0));
+		    in = XEXP (rld[r].in_reg, 0);
+		  nregno = REGNO (in);
 
 		  nnr = (nregno >= FIRST_PSEUDO_REGISTER ? 1
 			 : HARD_REGNO_NREGS (nregno,
@@ -7141,6 +7189,8 @@ emit_reload_insns (struct insn_chain *chain)
 			   : nregno + k);
 		      reg_reloaded_insn[i + k] = insn;
 		      SET_HARD_REG_BIT (reg_reloaded_valid, i + k);
+		      if (HARD_REGNO_CALL_PART_CLOBBERED (i + k, GET_MODE (in)))
+			SET_HARD_REG_BIT (reg_reloaded_call_part_clobbered, i + k);
 		    }
 		}
 	    }
@@ -7227,6 +7277,10 @@ emit_reload_insns (struct insn_chain *chain)
 		      reg_reloaded_insn[src_regno + nr] = store_insn;
 		      CLEAR_HARD_REG_BIT (reg_reloaded_dead, src_regno + nr);
 		      SET_HARD_REG_BIT (reg_reloaded_valid, src_regno + nr);
+		      if (HARD_REGNO_CALL_PART_CLOBBERED (src_regno + nr, 
+							  GET_MODE (src_reg)))
+			SET_HARD_REG_BIT (reg_reloaded_call_part_clobbered, 
+					  src_regno + nr);
 		      SET_HARD_REG_BIT (reg_is_output_reload, src_regno + nr);
 		      if (note)
 			SET_HARD_REG_BIT (reg_reloaded_died, src_regno);
@@ -7234,6 +7288,10 @@ emit_reload_insns (struct insn_chain *chain)
 			CLEAR_HARD_REG_BIT (reg_reloaded_died, src_regno);
 		    }
 		  reg_last_reload_reg[nregno] = src_reg;
+		  /* We have to set reg_has_output_reload here, or else 
+		     forget_old_reloads_1 will clear reg_last_reload_reg
+		     right away.  */
+		  reg_has_output_reload[nregno] = 1;
 		}
 	    }
 	  else
@@ -7956,9 +8014,10 @@ fixup_abnormal_edges (void)
 	      == (EDGE_ABNORMAL | EDGE_EH))
 	    break;
 	}
-      if (e && GET_CODE (bb->end) != CALL_INSN && !can_throw_internal (bb->end))
+      if (e && GET_CODE (BB_END (bb)) != CALL_INSN
+	  && !can_throw_internal (BB_END (bb)))
 	{
-	  rtx insn = bb->end, stop = NEXT_INSN (bb->end);
+	  rtx insn = BB_END (bb), stop = NEXT_INSN (BB_END (bb));
 	  rtx next;
 	  for (e = bb->succ; e; e = e->succ_next)
 	    if (e->flags & EDGE_FALLTHRU)
@@ -7967,11 +8026,11 @@ fixup_abnormal_edges (void)
 	     be already deleted.  */
 	  while ((GET_CODE (insn) == INSN || GET_CODE (insn) == NOTE)
 		 && !can_throw_internal (insn)
-		 && insn != bb->head)
+		 && insn != BB_HEAD (bb))
 	    insn = PREV_INSN (insn);
 	  if (GET_CODE (insn) != CALL_INSN && !can_throw_internal (insn))
 	    abort ();
-	  bb->end = insn;
+	  BB_END (bb) = insn;
 	  inserted = true;
 	  insn = NEXT_INSN (insn);
 	  while (insn && insn != stop)

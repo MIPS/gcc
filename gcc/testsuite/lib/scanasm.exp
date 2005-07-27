@@ -48,11 +48,14 @@ proc dg-scan { name positive testcase output_file orig_args } {
     set text [read $fd]
     close $fd
 
-    set match [regexp -- [lindex $orig_args 0] $text]
+    set pattern [lindex $orig_args 0]
+    set printable_pattern [string map {\t \\t \n \\n \r \\r \\ \\\\} $pattern]
+
+    set match [regexp -- $pattern $text]
     if { $match == $positive } {
-	pass "$testcase $name [lindex $orig_args 0]"
+	pass "$testcase $name $printable_pattern"
     } else {
-	fail "$testcase $name [lindex $orig_args 0]"
+	fail "$testcase $name $printable_pattern"
     }
 }
 
@@ -74,6 +77,32 @@ proc scan-assembler-not { args } {
     set output_file "[file rootname [file tail $testcase]].s"
 
     dg-scan "scan-assembler-not" 0 $testcase $output_file $args
+}
+
+# Check that a symbol is defined as a hidden symbol in the .s file
+# produced by the compiler.
+
+proc scan-hidden { args } {
+    upvar 2 name testcase
+    set output_file "[file rootname [file tail $testcase]].s"
+
+    set symbol [lindex $args 0]
+    set args [lreplace $args 0 0 "hidden\[ \t_\]*$symbol"]
+
+    dg-scan "scan-hidden" 1 $testcase $output_file $args
+}
+
+# Check that a symbol is not defined as a hidden symbol in the .s file
+# produced by the compiler.
+
+proc scan-not-hidden { args } {
+    upvar 2 name testcase
+    set output_file "[file rootname [file tail $testcase]].s"
+
+    set symbol [lindex $args 0]
+    set args [lreplace $args 0 0 "hidden\[ \t_\]*$symbol"]
+
+    dg-scan "scan-not-hidden" 0 $testcase $output_file $args
 }
 
 # Look for a pattern in OUTPUT_FILE.  See dg-scan for details.

@@ -31,27 +31,21 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the VxWorks/Cert version of this package
+--  This is a dummy version of this package.
 
 with Unchecked_Conversion;
 
+with System.Threads.Initialization;
+
 package body System.Threads is
-
-   Current_ATSD  : aliased System.Address := System.Null_Address;
-   pragma Export (C, Current_ATSD, "__gnat_current_atsd");
-
-   function From_Address is
-      new Unchecked_Conversion (Address, ATSD_Access);
 
    -----------------------
    -- Get_Current_Excep --
    -----------------------
 
    function Get_Current_Excep return EOA is
-      CTSD : ATSD_Access := From_Address (Current_ATSD);
    begin
-      pragma Assert (Current_ATSD /= System.Null_Address);
-      return CTSD.Current_Excep'Access;
+      return null;
    end Get_Current_Excep;
 
    ------------------------
@@ -59,10 +53,8 @@ package body System.Threads is
    ------------------------
 
    function  Get_Jmpbuf_Address return  Address is
-      CTSD : ATSD_Access := From_Address (Current_ATSD);
    begin
-      pragma Assert (Current_ATSD /= System.Null_Address);
-      return CTSD.Jmpbuf_Address;
+      return Null_Address;
    end Get_Jmpbuf_Address;
 
    ------------------------
@@ -70,10 +62,8 @@ package body System.Threads is
    ------------------------
 
    function  Get_Sec_Stack_Addr return  Address is
-      CTSD : ATSD_Access := From_Address (Current_ATSD);
    begin
-      pragma Assert (Current_ATSD /= System.Null_Address);
-      return CTSD.Sec_Stack_Addr;
+      return Null_Address;
    end Get_Sec_Stack_Addr;
 
    ------------------------
@@ -81,10 +71,9 @@ package body System.Threads is
    ------------------------
 
    procedure Set_Jmpbuf_Address (Addr : Address) is
-      CTSD : ATSD_Access := From_Address (Current_ATSD);
+      pragma Unreferenced (Addr);
    begin
-      pragma Assert (Current_ATSD /= System.Null_Address);
-      CTSD.Jmpbuf_Address := Addr;
+      null;
    end Set_Jmpbuf_Address;
 
    ------------------------
@@ -92,10 +81,46 @@ package body System.Threads is
    ------------------------
 
    procedure Set_Sec_Stack_Addr (Addr : Address) is
-      CTSD : ATSD_Access := From_Address (Current_ATSD);
+      pragma Unreferenced (Addr);
    begin
-      pragma Assert (Current_ATSD /= System.Null_Address);
-      CTSD.Sec_Stack_Addr := Addr;
+      null;
    end Set_Sec_Stack_Addr;
+
+   -----------------------
+   -- Thread_Body_Enter --
+   -----------------------
+
+   procedure Thread_Body_Enter
+     (Sec_Stack_Address    : System.Address;
+      Sec_Stack_Size       : Natural;
+      Process_ATSD_Address : System.Address)
+   is
+      pragma Unreferenced (Sec_Stack_Address);
+      pragma Unreferenced (Sec_Stack_Size);
+      pragma Unreferenced (Process_ATSD_Address);
+   begin
+      null;
+   end Thread_Body_Enter;
+
+   ----------------------------------
+   -- Thread_Body_Exceptional_Exit --
+   ----------------------------------
+
+   procedure Thread_Body_Exceptional_Exit
+     (EO : Ada.Exceptions.Exception_Occurrence)
+   is
+      pragma Unreferenced (EO);
+   begin
+      null;
+   end Thread_Body_Exceptional_Exit;
+
+   -----------------------
+   -- Thread_Body_Leave --
+   -----------------------
+
+   procedure Thread_Body_Leave is
+   begin
+      null;
+   end Thread_Body_Leave;
 
 end System.Threads;

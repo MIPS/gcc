@@ -47,7 +47,7 @@ update_lineno (const char *l, size_t len)
 
 ID	[[:alpha:]_][[:alnum:]_]*
 WS	[[:space:]]+
-IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT|bool|size_t|CHAR_BITFIELD
+IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT|bool|size_t|BOOL_BITFIELD
 ITYPE	{IWORD}({WS}{IWORD})*
 
 %x in_struct in_struct_comment in_comment in_yacc_escape
@@ -146,7 +146,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
   update_lineno (yytext, yyleng);
 }
 
-[^[:alnum:]_]typedef{WS}{ID}{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?PARAMS {
+[^[:alnum:]_]typedef{WS}{ID}{WS}?"*"?{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?PARAMS {
   char *namestart;
   size_t namelen;
   struct type *t;
@@ -162,7 +162,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
   update_lineno (yytext, yyleng);
 }
 
-[^[:alnum:]_]typedef{WS}{ID}{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?"(" {
+[^[:alnum:]_]typedef{WS}{ID}{WS}?"*"?{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?"(" {
   char *namestart;
   size_t namelen;
   struct type *t;

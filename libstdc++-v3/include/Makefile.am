@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+## Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -92,7 +92,7 @@ bits_srcdir = ${glibcxx_srcdir}/include/bits
 bits_builddir = ./bits
 bits_headers = \
 	${bits_srcdir}/allocator.h \
-	${bits_srcdir}/allocator_traits.h \
+	${bits_srcdir}/atomicity.h \
 	${bits_srcdir}/basic_ios.h \
 	${bits_srcdir}/basic_ios.tcc \
 	${bits_srcdir}/basic_string.h \
@@ -101,8 +101,8 @@ bits_headers = \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
+	${bits_srcdir}/concurrence.h \
 	${bits_srcdir}/cpp_type_traits.h \
-	${bits_srcdir}/demangle.h \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/fstream.tcc \
 	${bits_srcdir}/functexcept.h \
@@ -202,6 +202,7 @@ ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/bitmap_allocator.h \
 	${ext_srcdir}/debug_allocator.h \
 	${ext_srcdir}/enc_filebuf.h \
 	${ext_srcdir}/stdio_filebuf.h \
@@ -223,7 +224,6 @@ ext_headers = \
 	${ext_srcdir}/slist \
 	${ext_srcdir}/hash_fun.h \
 	${ext_srcdir}/hashtable.h
-
 
 # This is the common subset of files that all three "C" header models use.
 c_base_srcdir = $(C_INCLUDE_DIR)
@@ -290,6 +290,34 @@ c_compatibility_headers = \
 	${c_compatibility_srcdir}/wchar.h \
 	${c_compatibility_srcdir}/wctype.h
 
+# Debug mode headers
+debug_srcdir = ${glibcxx_srcdir}/include/debug
+debug_builddir = ./debug
+debug_headers = \
+	${debug_srcdir}/bitset \
+	${debug_srcdir}/debug.h \
+	${debug_srcdir}/deque \
+	${debug_srcdir}/formatter.h \
+	${debug_srcdir}/hash_map \
+	${debug_srcdir}/hash_map.h \
+	${debug_srcdir}/hash_multimap.h \
+	${debug_srcdir}/hash_multiset.h \
+	${debug_srcdir}/hash_set \
+	${debug_srcdir}/hash_set.h \
+	${debug_srcdir}/list \
+	${debug_srcdir}/map \
+	${debug_srcdir}/map.h \
+	${debug_srcdir}/multimap.h \
+	${debug_srcdir}/multiset.h \
+	${debug_srcdir}/safe_base.h \
+	${debug_srcdir}/safe_iterator.h \
+	${debug_srcdir}/safe_iterator.tcc \
+	${debug_srcdir}/safe_sequence.h \
+	${debug_srcdir}/set \
+	${debug_srcdir}/set.h \
+	${debug_srcdir}/string \
+	${debug_srcdir}/vector
+
 # Some of the different "C" header models need extra files.
 # Some "C" header schemes require the "C" compatibility headers.
 # For --enable-cheaders=c_std
@@ -312,7 +340,8 @@ host_headers = \
 	${host_srcdir}/ctype_inline.h \
 	${host_srcdir}/ctype_noninline.h \
 	${host_srcdir}/os_defines.h \
-	${glibcxx_srcdir}/$(ATOMICITY_INC_SRCDIR)/atomicity.h 
+	${glibcxx_srcdir}/$(ATOMIC_WORD_SRCDIR)/atomic_word.h \
+	${glibcxx_srcdir}/$(ABI_TWEAKS_SRCDIR)/cxxabi_tweaks.h
 
 # Non-installed host_header files.
 host_headers_noinst = \
@@ -322,6 +351,7 @@ host_headers_noinst = \
 host_headers_extra = \
 	${host_builddir}/basic_file.h \
 	${host_builddir}/c++config.h \
+	${host_builddir}/c++allocator.h \
 	${host_builddir}/c++io.h \
 	${host_builddir}/c++locale.h \
 	${host_builddir}/messages_members.h \
@@ -350,7 +380,7 @@ endif
 # CLEANFILES and all-local are kept up-to-date.
 allstamped = \
 	stamp-std stamp-bits stamp-c_base stamp-c_compatibility \
-	stamp-backward stamp-ext stamp-host
+	stamp-backward stamp-ext stamp-debug stamp-host
 
 # List of all files that are created by explicit building, editing, or
 # catenation.
@@ -429,6 +459,15 @@ stamp-ext: ${ext_headers}
 	fi ;\
 	$(STAMP) stamp-ext
 
+stamp-debug: ${debug_headers}
+	@if [ ! -d "${debug_builddir}" ]; then \
+	  mkdir -p ${debug_builddir} ;\
+	fi ;\
+	if [ ! -f stamp-debug ]; then \
+	  (cd ${debug_builddir} && @LN_S@ $? . || true) ;\
+	fi ;\
+	$(STAMP) stamp-debug
+
 stamp-${host_alias}:
 	@if [ ! -d ${host_builddir} ]; then \
 	  mkdir -p ${host_builddir} ;\
@@ -442,6 +481,7 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  (cd ${host_builddir} ;\
 	  $(LN_S) ${host_headers} . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_H) basic_file.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(ALLOCATOR_H) c++allocator.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CSTDIO_H) c++io.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_H) c++locale.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\
@@ -468,6 +508,7 @@ uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
 
 ${host_builddir}/gthr.h: ${toplevel_srcdir}/gcc/gthr.h stamp-${host_alias}
 	sed -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCXX_\1/g' \
+	    -e 's/_GLIBCXX_SUPPORTS_WEAK/__GXX_WEAK__/g' \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
 	    < ${toplevel_srcdir}/gcc/gthr.h > $@
 
@@ -481,14 +522,16 @@ ${host_builddir}/gthr-posix.h: ${toplevel_srcdir}/gcc/gthr-posix.h \
 				   stamp-${host_alias}
 	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCXX_\1/g' \
-	    -e 's/\(${uppercase}*WEAK\)/_GLIBCXX_\1/g' \
+	    -e 's/SUPPORTS_WEAK/__GXX_WEAK__/g' \
+	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
 	    < ${toplevel_srcdir}/gcc/gthr-posix.h > $@
 
 ${host_builddir}/gthr-default.h: ${toplevel_srcdir}/gcc/${glibcxx_thread_h} \
 				   stamp-${host_alias}
 	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCXX_\1/g' \
-	    -e 's/\(${uppercase}*WEAK\)/_GLIBCXX_\1/g' \
+	    -e 's/SUPPORTS_WEAK/__GXX_WEAK__/g' \
+	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
 	    < ${toplevel_srcdir}/gcc/${glibcxx_thread_h} > $@
 
@@ -513,7 +556,13 @@ ${pch_input}: ${allstamped} ${host_builddir}/c++config.h ${pch_source}
 if GLIBCXX_HOSTED
 install-data-local: install-headers ${pch_install}
 else
+if LIBSUPCXX_PRONLY
+# Don't install any headers if we're only putting eh_personality in
+# libsupc++ (e.g. on SymbianOS)
+install-data-local:
+else
 install-data-local: install-freestanding-headers
+endif
 endif
 
 # This is a subset of the full install-headers rule.  We only need <cstddef>,
@@ -556,6 +605,9 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${std_builddir}
 	for file in ${std_headers_rename}; do \
 	  $(INSTALL_DATA) ${std_builddir}/$${file} $(DESTDIR)${gxx_include_dir}/${std_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${debug_builddir}
+	for file in ${debug_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${debug_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${host_builddir}
 	for file in ${host_headers} ${host_headers_extra} \
 	 ${thread_host_headers}; do \

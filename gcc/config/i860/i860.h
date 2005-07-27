@@ -464,7 +464,7 @@ struct cumulative_args { int ints, floats; };
    when the function gets a structure-value-address as an
    invisible first argument.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).ints = ((FNTYPE) != 0 && aggregate_value_p (TREE_TYPE ((FNTYPE)), 0) \
 		? 4 : 0),			\
   (CUM).floats = 0)
@@ -570,10 +570,6 @@ struct cumulative_args { int ints, floats; };
 /* Generate necessary RTL for __builtin_saveregs().  */
 #define EXPAND_BUILTIN_SAVEREGS() \
   i860_saveregs()
-
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = i860_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \

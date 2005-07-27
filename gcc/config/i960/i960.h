@@ -817,10 +817,6 @@ enum reg_class { NO_REGS, GLOBAL_REGS, LOCAL_REGS, LOCAL_OR_GLOBAL_REGS,
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL) \
   i960_setup_incoming_varargs(&CUM,MODE,TYPE,&PRETEND_SIZE,NO_RTL)
 
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = i960_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   i960_va_start (valist, nextarg)
@@ -857,7 +853,7 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 
    On 80960, the offset always starts at 0; the first parm reg is g0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   ((CUM).ca_nregparms = 0, (CUM).ca_nstackparms = 0)
 
 /* Update the data in CUM to advance over an argument

@@ -4,6 +4,10 @@ dnl
 
 # Base decisions on target environment.
 case "${host}" in
+  arm*-*-symbianelf*)
+    # This is a freestanding configuration; there is nothing to do here.
+    ;;
+
   *-darwin*)
     # Darwin versions vary, but the linker should work in a cross environment,
     # so we just check for all the features here.
@@ -42,6 +46,22 @@ case "${host}" in
     AC_DEFINE(HAVE_MMAP)
     ;;
 
+  *djgpp)
+    AC_CHECK_HEADERS([float.h ieeefp.h inttypes.h locale.h \
+      memory.h stdint.h stdlib.h strings.h string.h unistd.h \
+      wchar.h wctype.h machine/endian.h sys/ioctl.h sys/param.h \
+      sys/resource.h sys/stat.h sys/time.h sys/types.h sys/uio.h])
+    GLIBCXX_CHECK_COMPILER_FEATURES
+    GLIBCXX_CHECK_LINKER_FEATURES
+    GLIBCXX_CHECK_MATH_SUPPORT
+    GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
+    GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
+    GLIBCXX_CHECK_WCHAR_T_SUPPORT
+    GLIBCXX_CHECK_STDLIB_SUPPORT
+    GLIBCXX_CHECK_S_ISREG_OR_S_IFREG
+    AC_DEFINE(HAVE_WRITEV)
+    ;;
+
   *-freebsd*)
     AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
       machine/endian.h machine/param.h sys/machine.h sys/types.h \
@@ -53,7 +73,6 @@ case "${host}" in
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
     GLIBCXX_CHECK_WCHAR_T_SUPPORT
     AC_DEFINE(HAVE_LC_MESSAGES)
-    AC_DEFINE(HAVE_LRAND48)
     AC_DEFINE(HAVE_GETPAGESIZE)
     AC_DEFINE(HAVE_SETENV)
     AC_DEFINE(HAVE_SIGSETJMP)
@@ -123,32 +142,95 @@ case "${host}" in
 	;;
     esac
     ;;
-  *-linux* | *-uclinux* | *-gnu*)
+  *-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-knetbsd*-gnu)
     AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
       machine/endian.h machine/param.h sys/machine.h sys/types.h \
-      fp.h locale.h float.h inttypes.h])
+      fp.h float.h endian.h inttypes.h locale.h float.h stdint.h])
     SECTION_FLAGS='-ffunction-sections -fdata-sections'
     AC_SUBST(SECTION_FLAGS)
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
     GLIBCXX_CHECK_WCHAR_T_SUPPORT
+
+    # For LFS.
+    AC_DEFINE(HAVE_INT64_T)
+    case "$target" in
+      *-uclinux*)
+        # Don't enable LFS with uClibc
+        ;;
+      *)
+        AC_DEFINE(_GLIBCXX_USE_LFS)
+    esac
+
+    # For showmanyc_helper().
+    AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h)
+    GLIBCXX_CHECK_POLL
+    GLIBCXX_CHECK_S_ISREG_OR_S_IFREG
+
+    # For xsputn_2().
+    AC_CHECK_HEADERS(sys/uio.h)
+    GLIBCXX_CHECK_WRITEV
+
+    AC_DEFINE(HAVE_ACOSF)
+    AC_DEFINE(HAVE_ASINF)
+    AC_DEFINE(HAVE_ATANF)
+    AC_DEFINE(HAVE_ATAN2F)
+    AC_DEFINE(HAVE_CEILF)
     AC_DEFINE(HAVE_COPYSIGN)
     AC_DEFINE(HAVE_COPYSIGNF)
+    AC_DEFINE(HAVE_COSF)
+    AC_DEFINE(HAVE_COSHF)
+    AC_DEFINE(HAVE_EXPF)
+    AC_DEFINE(HAVE_FABSF)
     AC_DEFINE(HAVE_FINITE)
     AC_DEFINE(HAVE_FINITEF)
+    AC_DEFINE(HAVE_FLOORF)
+    AC_DEFINE(HAVE_FMODF)
     AC_DEFINE(HAVE_FREXPF)
+    AC_DEFINE(HAVE_HYPOT)
     AC_DEFINE(HAVE_HYPOTF)
     AC_DEFINE(HAVE_ISINF)
     AC_DEFINE(HAVE_ISINFF)
     AC_DEFINE(HAVE_ISNAN)
     AC_DEFINE(HAVE_ISNANF)
+    AC_DEFINE(HAVE_LOGF)
+    AC_DEFINE(HAVE_LOG10F)
+    AC_DEFINE(HAVE_MODFF)
+    AC_DEFINE(HAVE_SINF)
+    AC_DEFINE(HAVE_SINHF)
     AC_DEFINE(HAVE_SINCOS)
     AC_DEFINE(HAVE_SINCOSF)
+    AC_DEFINE(HAVE_SQRTF)
+    AC_DEFINE(HAVE_TANF)
+    AC_DEFINE(HAVE_TANHF)
     if test x"long_double_math_on_this_cpu" = x"yes"; then
+      AC_DEFINE(HAVE_ACOSL)
+      AC_DEFINE(HAVE_ASINL)
+      AC_DEFINE(HAVE_ATANL)
+      AC_DEFINE(HAVE_ATAN2L)
+      AC_DEFINE(HAVE_CEILL)
+      AC_DEFINE(HAVE_COPYSIGNL)
+      AC_DEFINE(HAVE_COSL)
+      AC_DEFINE(HAVE_COSHL)
+      AC_DEFINE(HAVE_EXPL)
+      AC_DEFINE(HAVE_FABSL)
       AC_DEFINE(HAVE_FINITEL)
+      AC_DEFINE(HAVE_FLOORL)
+      AC_DEFINE(HAVE_FMODL)
+      AC_DEFINE(HAVE_FREXPL)
       AC_DEFINE(HAVE_HYPOTL)
       AC_DEFINE(HAVE_ISINFL)
       AC_DEFINE(HAVE_ISNANL)
+      AC_DEFINE(HAVE_LOGL)
+      AC_DEFINE(HAVE_LOG10L)
+      AC_DEFINE(HAVE_MODFL)
+      AC_DEFINE(HAVE_POWL)
+      AC_DEFINE(HAVE_SINL)
+      AC_DEFINE(HAVE_SINHL)
+      AC_DEFINE(HAVE_SINCOSL)
+      AC_DEFINE(HAVE_SQRTL)
+      AC_DEFINE(HAVE_TANL)
+      AC_DEFINE(HAVE_TANHL)
     fi
     ;;
   *-mingw32*)
@@ -217,7 +299,6 @@ case "${host}" in
          AC_DEFINE(HAVE_S_ISREG)
          AC_DEFINE(HAVE_LC_MESSAGES)
          AC_DEFINE(HAVE_BTOWC)
-         AC_DEFINE(HAVE_DRAND48)
          AC_DEFINE(HAVE_FGETWC)
          AC_DEFINE(HAVE_FGETWS)
          AC_DEFINE(HAVE_FINITE)
@@ -315,14 +396,46 @@ case "${host}" in
         AC_DEFINE(HAVE___BUILTIN_SINF)
        ;;
     esac
-    AC_DEFINE(HAVE_STRTOF)
-    AC_DEFINE(HAVE_STRTOLD)
+    case "$target" in
+      *-*-solaris2.10)
+      # These two C99 functions are present only in Solaris >= 10
+      AC_DEFINE(HAVE_STRTOF)
+      AC_DEFINE(HAVE_STRTOLD)
+     ;;
+    esac
     AC_DEFINE(HAVE_MMAP) 
     AC_DEFINE(HAVE_COPYSIGN)
     AC_DEFINE(HAVE_ISNAN)
     AC_DEFINE(HAVE_ISNANF)
     AC_DEFINE(HAVE_MODFF)
     AC_DEFINE(HAVE_HYPOT)
+    ;;
+  *-tpf)
+    AC_CHECK_HEADERS([nan.h endian.h machine/endian.h  \
+      sys/param.h sys/types.h locale.h float.h inttypes.h])
+    SECTION_FLAGS='-ffunction-sections -fdata-sections'
+    AC_SUBST(SECTION_FLAGS)
+    GLIBCXX_CHECK_LINKER_FEATURES
+    GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
+    GLIBCXX_CHECK_WCHAR_T_SUPPORT
+    AC_DEFINE(HAVE_COPYSIGN)
+    AC_DEFINE(HAVE_COPYSIGNF)
+    AC_DEFINE(HAVE_FINITE)
+    AC_DEFINE(HAVE_FINITEF)
+    AC_DEFINE(HAVE_FREXPF)
+    AC_DEFINE(HAVE_HYPOTF)
+    AC_DEFINE(HAVE_ISINF)
+    AC_DEFINE(HAVE_ISINFF)
+    AC_DEFINE(HAVE_ISNAN)
+    AC_DEFINE(HAVE_ISNANF)
+    AC_DEFINE(HAVE_SINCOS)
+    AC_DEFINE(HAVE_SINCOSF)
+    if test x"long_double_math_on_this_cpu" = x"yes"; then
+      AC_DEFINE(HAVE_FINITEL)
+      AC_DEFINE(HAVE_HYPOTL)
+      AC_DEFINE(HAVE_ISINFL)
+      AC_DEFINE(HAVE_ISNANL)
+    fi
     ;;
   *-vxworks)
     AC_DEFINE(HAVE_MMAP)

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
@@ -117,7 +117,7 @@ extern GTY(()) int mn10300_unspec_int_label_counter;
    would improve performance.  */
 #define FUNCTION_BOUNDARY 8
 
-/* No data type wants to be aligned rounder than this.   */
+/* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT	32
 
 /* Alignment of field after `int : 0' in a structure.  */
@@ -281,7 +281,7 @@ enum reg_class {
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
 { "NO_REGS", "DATA_REGS", "ADDRESS_REGS", \
@@ -563,7 +563,7 @@ struct cum_arg {int nbytes; };
 
    On the MN10300, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).nbytes = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -605,7 +605,7 @@ struct cum_arg {int nbytes; };
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.   */
+   otherwise, FUNC is 0.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
   gen_rtx_REG (TYPE_MODE (VALTYPE), POINTER_TYPE_P (VALTYPE) \
@@ -630,7 +630,7 @@ struct cum_arg {int nbytes; };
    is passed to a function.  On the MN10300 it's passed as
    the first parameter.  */
 
-#define STRUCT_VALUE FIRST_DATA_REGNUM
+#define STRUCT_VALUE 0
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -823,7 +823,7 @@ struct cum_arg {int nbytes; };
    GO_IF_LEGITIMATE_ADDRESS.
 
    It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.   */
+   opportunities to optimize the output.  */
 
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)  \
 { rtx orig_x = (X);				\
@@ -1110,8 +1110,10 @@ struct cum_arg {int nbytes; };
 
 #define FILE_ASM_OP "\t.file\n"
 
-#define PREDICATE_CODES \
-  {"const_1f_operand", {CONST_INT, CONST_DOUBLE}},
+#define PREDICATE_CODES					\
+  {"const_1f_operand", {CONST_INT, CONST_DOUBLE}},	\
+  {"const_8bit_operand", {CONST_INT}},			\
+  {"call_address_operand", {SYMBOL_REF, REG, UNSPEC}},
 
 typedef struct mn10300_cc_status_mdep
   {

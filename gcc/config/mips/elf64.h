@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  MIPS R4000 version with
    GOFAST floating point library.
-   Copyright (C) 1994, 1995, 1996, 1997, 1999, 2000, 2002
+   Copyright (C) 1994, 1995, 1996, 1997, 1999, 2000, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -19,14 +19,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-#define DWARF2_DEBUGGING_INFO 1
-
-#undef  PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
-#undef  SUBTARGET_ASM_DEBUGGING_SPEC
-#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
 
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be

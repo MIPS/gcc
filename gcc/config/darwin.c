@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
+#include "errors.h"
 
 static int machopic_data_defined_p (const char *);
 static void update_non_lazy_ptrs (const char *);
@@ -899,10 +900,6 @@ machopic_finish (FILE *asm_out_file)
       if (! TREE_USED (temp))
 	continue;
 
-      /* If the symbol is actually defined, we don't need a stub.  */
-      if (sym_name[0] == '!' && sym_name[1] == 'T')
-	continue;
-
       sym_name = darwin_strip_name_encoding (sym_name);
 
       sym = alloca (strlen (sym_name) + 2);
@@ -1009,7 +1006,7 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
       && !DECL_EXTERNAL (decl)
       && ((TREE_STATIC (decl)
 	   && (!DECL_COMMON (decl) || !TREE_PUBLIC (decl)))
-	  || (DECL_INITIAL (decl)
+	  || (!DECL_COMMON (decl) && DECL_INITIAL (decl)
 	      && DECL_INITIAL (decl) != error_mark_node)))
     defined = 1;
 
@@ -1091,37 +1088,6 @@ update_non_lazy_ptrs (const char *name)
 		= (unsigned char *) name;
 	      break;
 	    }
-	}
-    }
-}
-
-/* Function NAME is being defined, and its label has just been output.
-   If there's already a reference to a stub for this function, we can
-   just emit the stub label now and we don't bother emitting the stub later.  */
-
-void
-machopic_output_possible_stub_label (FILE *file, const char *name)
-{
-  tree temp;
-
-  /* Ensure we're looking at a section-encoded name.  */
-  if (name[0] != '!' || (name[1] != 't' && name[1] != 'T'))
-    return;
-
-  for (temp = machopic_stubs;
-       temp != NULL_TREE;
-       temp = TREE_CHAIN (temp))
-    {
-      const char *sym_name;
-
-      sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
-      if (sym_name[0] == '!' && sym_name[1] == 'T'
-	  && ! strcmp (name+2, sym_name+2))
-	{
-	  ASM_OUTPUT_LABEL (file, IDENTIFIER_POINTER (TREE_PURPOSE (temp)));
-	  /* Avoid generating a stub for this.  */
-	  TREE_USED (temp) = 0;
-	  break;
 	}
     }
 }
@@ -1322,6 +1288,29 @@ darwin_globalize_label (FILE *stream, const char *name)
 {
   if (!!strncmp (name, "_OBJC_", 6))
     default_globalize_label (stream, name);
+}
+
+/* Emit an assembler directive to set visibility for a symbol.  The
+   only supported visibilities are VISIBILITY_DEFAULT and
+   VISIBILITY_HIDDEN; the latter corresponds to Darwin's "private
+   extern".  There is no MACH-O equivalent of ELF's
+   VISIBILITY_INTERNAL or VISIBILITY_PROTECTED. */
+
+void 
+darwin_assemble_visibility (tree decl, int vis)
+{
+  if (vis == VISIBILITY_DEFAULT)
+    ;
+  else if (vis == VISIBILITY_HIDDEN)
+    {
+      fputs ("\t.private_extern ", asm_out_file);
+      assemble_name (asm_out_file,
+		     (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl))));
+      fputs ("\n", asm_out_file);
+    }
+  else
+    warning ("internal and protected visibility attributes not supported"
+	     "in this configuration; ignored");
 }
 
 /* Output a difference of two labels that will be an assembly time

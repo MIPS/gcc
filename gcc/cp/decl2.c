@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -156,36 +156,6 @@ grok_method_quals (tree ctype, tree function, tree quals)
   return this_quals;
 }
 
-/* Warn when -fexternal-templates is used and #pragma
-   interface/implementation is not used all the times it should be,
-   inform the user.  */
-
-void
-warn_if_unknown_interface (tree decl)
-{
-  static int already_warned = 0;
-  if (already_warned++)
-    return;
-
-  if (flag_alt_external_templates)
-    {
-      tree til = tinst_for_decl ();
-      location_t saved_loc = input_location;
-
-      if (til)
-	{
-	  input_line = TINST_LINE (til);
-	  input_filename = TINST_FILE (til);
-	}
-      warning ("template `%#D' instantiated in file without #pragma interface",
-		  decl);
-      input_location = saved_loc;
-    }
-  else
-    cp_warning_at ("template `%#D' defined in file without #pragma interface",
-		   decl);
-}
-
 /* A subroutine of the parser, to handle a component list.  */
 
 void
@@ -259,7 +229,7 @@ maybe_retrofit_in_chrg (tree fn)
 
   /* When processing templates we can't know, in general, whether or
      not we're going to have virtual baseclasses.  */
-  if (uses_template_parms (fn))
+  if (processing_template_decl)
     return;
 
   /* We don't need an in-charge parameter for constructors that don't
@@ -366,11 +336,10 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags, tree quals)
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
       c_apply_type_quals_to_decl (this_quals, parm);
-      TREE_CHAIN (parm) = last_function_parms;
-      last_function_parms = parm;
+      TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
+      DECL_ARGUMENTS (function) = parm;
     }
 
-  DECL_ARGUMENTS (function) = last_function_parms;
   DECL_CONTEXT (function) = ctype;
 
   if (flags == DTOR_FLAG)
@@ -410,7 +379,8 @@ grok_array_decl (tree array_expr, tree index_exp)
   /* If they have an `operator[]', use that.  */
   if (IS_AGGR_TYPE (type) || IS_AGGR_TYPE (TREE_TYPE (index_exp)))
     expr = build_new_op (ARRAY_REF, LOOKUP_NORMAL,
-			 array_expr, index_exp, NULL_TREE);
+			 array_expr, index_exp, NULL_TREE,
+			 /*overloaded_p=*/NULL);
   else
     {
       tree p1, p2, i1, i2;
@@ -462,18 +432,14 @@ grok_array_decl (tree array_expr, tree index_exp)
 /* Given the cast expression EXP, checking out its validity.   Either return
    an error_mark_node if there was an unavoidable error, return a cast to
    void for trying to delete a pointer w/ the value 0, or return the
-   call to delete.  If DOING_VEC is 1, we handle things differently
-   for doing an array delete.  If DOING_VEC is 2, they gave us the
-   array size as an argument to delete.
+   call to delete.  If DOING_VEC is true, we handle things differently
+   for doing an array delete.
    Implements ARM $5.3.4.  This is called from the parser.  */
 
 tree
-delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
+delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
 {
   tree t, type;
-  /* For a regular vector delete (aka, no size argument) we will pass
-     this down as a NULL_TREE into build_vec_delete.  */
-  tree maxindex = NULL_TREE;
 
   if (exp == error_mark_node)
     return exp;
@@ -483,10 +449,17 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       t = build_min (DELETE_EXPR, void_type_node, exp, size);
       DELETE_EXPR_USE_GLOBAL (t) = use_global_delete;
       DELETE_EXPR_USE_VEC (t) = doing_vec;
+      TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
 
   exp = convert_from_reference (exp);
+
+  /* An array can't have been allocated by new, so complain.  */
+  if (TREE_CODE (exp) == VAR_DECL
+      && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
+    warning ("deleting array `%#D'", exp);
+
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
   if (t == NULL_TREE || t == error_mark_node)
@@ -494,12 +467,6 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       error ("type `%#T' argument given to `delete', expected pointer",
 		TREE_TYPE (exp));
       return error_mark_node;
-    }
-
-  if (doing_vec == 2)
-    {
-      maxindex = cp_build_binary_op (MINUS_EXPR, size, integer_one_node);
-      pedwarn ("anachronistic use of array size in vector delete");
     }
 
   type = TREE_TYPE (t);
@@ -520,18 +487,13 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       doing_vec = 0;
     }
 
-  /* An array can't have been allocated by new, so complain.  */
-  if (TREE_CODE (t) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL
-      && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == ARRAY_TYPE)
-    warning ("deleting array `%#D'", TREE_OPERAND (t, 0));
-
   /* Deleting a pointer with the value zero is valid and has no effect.  */
   if (integer_zerop (t))
     return build1 (NOP_EXPR, void_type_node, t);
 
   if (doing_vec)
-    return build_vec_delete (t, maxindex, sfk_deleting_destructor,
+    return build_vec_delete (t, /*maxindex=*/NULL_TREE, 
+			     sfk_deleting_destructor,
 			     use_global_delete);
   else
     return build_delete (type, t, sfk_deleting_destructor,
@@ -622,12 +584,20 @@ check_java_method (tree method)
   bool jerr = false;
   tree arg_types = TYPE_ARG_TYPES (TREE_TYPE (method));
   tree ret_type = TREE_TYPE (TREE_TYPE (method));
+
   if (!acceptable_java_type (ret_type))
     {
       error ("Java method '%D' has non-Java return type `%T'",
 		method, ret_type);
       jerr = true;
     }
+
+  arg_types = TREE_CHAIN (arg_types);
+  if (DECL_HAS_IN_CHARGE_PARM_P (method))
+    arg_types = TREE_CHAIN (arg_types);
+  if (DECL_HAS_VTT_PARM_P (method))
+    arg_types = TREE_CHAIN (arg_types);
+  
   for (; arg_types != NULL_TREE; arg_types = TREE_CHAIN (arg_types))
     {
       tree type = TREE_VALUE (arg_types);
@@ -643,10 +613,12 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   CNAME is the same here as it is for grokclassfn above.  */
+   CNAME is the same here as it is for grokclassfn above.
+   TEMPLATE_HEADER_P is true when this declaration comes with a
+   template header.  */
 
 tree
-check_classfn (tree ctype, tree function)
+check_classfn (tree ctype, tree function, bool template_header_p)
 {
   int ix;
   int is_template;
@@ -669,7 +641,7 @@ check_classfn (tree ctype, tree function)
 
   /* OK, is this a definition of a member template?  */
   is_template = (TREE_CODE (function) == TEMPLATE_DECL
-		 || (processing_template_decl - template_class_depth (ctype)));
+		 || template_header_p);
 
   ix = lookup_fnfields_1 (complete_type (ctype),
 			  DECL_CONSTRUCTOR_P (function) ? ctor_identifier :
@@ -681,9 +653,10 @@ check_classfn (tree ctype, tree function)
       tree methods = CLASSTYPE_METHOD_VEC (ctype);
       tree fndecls, fndecl = 0;
       bool is_conv_op;
+      bool pop_p;
       const char *format = NULL;
       
-      push_scope (ctype);
+      pop_p = push_scope (ctype);
       for (fndecls = TREE_VEC_ELT (methods, ix);
 	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
@@ -719,7 +692,8 @@ check_classfn (tree ctype, tree function)
 		      == DECL_TI_TEMPLATE (fndecl))))
 	    break;
 	}
-      pop_scope (ctype);
+      if (pop_p)
+	pop_scope (ctype);
       if (fndecls)
 	return OVL_CURRENT (fndecls);
       error ("prototype for `%#D' does not match any in class `%T'",
@@ -872,10 +846,8 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
     init = NULL_TREE;
 
   value = grokdeclarator (declarator, declspecs, FIELD, init != 0, &attrlist);
-  if (! value || value == error_mark_node)
+  if (! value || error_operand_p (value))
     /* friend or constructor went bad.  */
-    return value;
-  if (TREE_TYPE (value) == error_mark_node)
     return error_mark_node;
 
   if (TREE_CODE (value) == TYPE_DECL && init)
@@ -971,7 +943,11 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 
   if (processing_template_decl
       && (TREE_CODE (value) == VAR_DECL || TREE_CODE (value) == FUNCTION_DECL))
-    value = push_template_decl (value);
+    {
+      value = push_template_decl (value);
+      if (error_operand_p (value))
+	return error_mark_node;
+    }
 
   if (attrlist)
     cplus_decl_attributes (&value, attrlist, 0);
@@ -1000,7 +976,7 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 	  /* This must override the asm specifier which was placed
 	     by grokclassfn.  Lay this out fresh.  */
 	  SET_DECL_RTL (value, NULL_RTX);
-	  SET_DECL_ASSEMBLER_NAME (value, get_identifier (asmspec));
+	  change_decl_assembler_name (value, get_identifier (asmspec));
 	}
       if (!DECL_FRIEND_P (value))
 	grok_special_member_properties (value);
@@ -1025,8 +1001,7 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 tree
 grokbitfield (tree declarator, tree declspecs, tree width)
 {
-  register tree value = grokdeclarator (declarator, declspecs, BITFIELD,
-					0, NULL);
+  tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, NULL);
 
   if (! value) return NULL_TREE; /* friends went bad.  */
 
@@ -1228,9 +1203,15 @@ build_anon_union_vars (tree object)
 void
 finish_anon_union (tree anon_union_decl)
 {
-  tree type = TREE_TYPE (anon_union_decl);
+  tree type;
   tree main_decl;
-  bool public_p = TREE_PUBLIC (anon_union_decl);
+  bool public_p;
+
+  if (anon_union_decl == error_mark_node)
+    return;
+
+  type = TREE_TYPE (anon_union_decl);
+  public_p = TREE_PUBLIC (anon_union_decl);
 
   /* The VAR_DECL's context is the same as the TYPE's context.  */
   DECL_CONTEXT (anon_union_decl) = DECL_CONTEXT (TYPE_NAME (type));
@@ -1295,12 +1276,12 @@ coerce_new_type (tree type)
   {
     case 2:
       args = tree_cons (NULL_TREE, size_type_node, args);
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1:
       type = build_exception_variant
               (build_function_type (ptr_type_node, args),
                TYPE_RAISES_EXCEPTIONS (type));
-      /* FALLTHROUGH */
+      /* Fall through.  */
     default:;
   }
   return type;
@@ -1329,12 +1310,12 @@ coerce_delete_type (tree type)
   {
     case 2:
       args = tree_cons (NULL_TREE, ptr_type_node, args);
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1:
       type = build_exception_variant
               (build_function_type (void_type_node, args),
                TYPE_RAISES_EXCEPTIONS (type));
-      /* FALLTHROUGH */
+      /* Fall through.  */
     default:;
   }
 
@@ -1454,6 +1435,20 @@ maybe_make_one_only (tree decl)
     }
 }
 
+/* DECL is a class data object that will be emitted in this
+   translation unit.  Set DECL_VISIBILITY, if appropriate.  */
+ 
+static void
+determine_class_data_visibility (tree decl)
+{
+  if (!TREE_PUBLIC (decl)
+      || DECL_REALLY_EXTERN (decl)
+      || DECL_VISIBILITY_SPECIFIED (decl))
+    return;
+
+  targetm.cxx.determine_class_data_visibility (decl);
+}
+
 /* Set TREE_PUBLIC and/or DECL_EXTERN on the vtable DECL,
    based on TYPE and other static flags.
 
@@ -1477,6 +1472,21 @@ import_export_vtable (tree decl, tree type, int final)
       TREE_PUBLIC (decl) = 1;
       DECL_EXTERNAL (decl) = CLASSTYPE_INTERFACE_ONLY (type);
       DECL_INTERFACE_KNOWN (decl) = 1;
+      /* The generic C++ ABI says that class data is always COMDAT,
+	 even if there is a key function.  Some variants (e.g., the
+	 ARM EABI) says that class data only has COMDAT linkage if the
+	 the class data might be emitted in more than one translation
+	 unit.  */
+      if (!DECL_EXTERNAL (decl)
+	  && (!CLASSTYPE_KEY_METHOD (type)
+	      || targetm.cxx.class_data_always_comdat ()))
+	{
+	  comdat_linkage (decl);
+	  /* Mark the DECL as used, so that it will be emitted, even
+	     if there are no references to it.  */
+	  TREE_USED (decl) = 1;
+	  mark_referenced (DECL_ASSEMBLER_NAME (decl));
+	}
     }
   else
     {
@@ -1484,7 +1494,12 @@ import_export_vtable (tree decl, tree type, int final)
 	 functions in our class, or if we come from a template.  */
 
       int found = (CLASSTYPE_TEMPLATE_INSTANTIATION (type)
-		   || CLASSTYPE_KEY_METHOD (type) != NULL_TREE);
+		   || CLASSTYPE_KEY_METHOD (type) != NULL_TREE
+		   /* On targets where the key function is not
+		      permitted to be inline, we cannot determine
+		      whether or not the vtable should be emitted
+		      until end-of-file.  */
+		   || !targetm.cxx.key_method_may_be_inline ());
 
       if (final || ! found)
 	{
@@ -1497,6 +1512,12 @@ import_export_vtable (tree decl, tree type, int final)
 	  DECL_EXTERNAL (decl) = 1;
 	}
     }
+
+  /* Construction virtual tables are not exported because they cannot
+     be referred to from other object files; their name is not
+     standardized by the ABI.  */
+  if (!DECL_CONSTRUCTION_VTABLE_P (decl))
+    determine_class_data_visibility (decl);
 }
 
 /* Determine whether or not we want to specifically import or export CTYPE,
@@ -1579,7 +1600,6 @@ maybe_emit_vtables (tree ctype)
 {
   tree vtbl;
   tree primary_vtbl;
-  bool needed = false;
 
   /* If the vtables for this class have already been emitted there is
      nothing more to do.  */
@@ -1590,13 +1610,21 @@ maybe_emit_vtables (tree ctype)
   if (TREE_TYPE (primary_vtbl) == void_type_node)
     return false;
 
+  /* On some targets, we cannot determine the key method until the end
+     of the translation unit -- which is when this function is
+     called.  */
+  if (!targetm.cxx.key_method_may_be_inline ())
+    determine_key_method (ctype);
+
   import_export_class (ctype);
-  import_export_vtable (primary_vtbl, ctype, 1);
 
   /* See if any of the vtables are needed.  */
   for (vtbl = CLASSTYPE_VTABLES (ctype); vtbl; vtbl = TREE_CHAIN (vtbl))
-    if (!DECL_EXTERNAL (vtbl) && DECL_NEEDED_P (vtbl))
-      break;
+    {
+      import_export_vtable (vtbl, ctype, 1);
+      if (!DECL_EXTERNAL (vtbl) && DECL_NEEDED_P (vtbl))
+	break;
+    }
   if (!vtbl)
     {
       /* If the references to this class' vtables are optimized away,
@@ -1607,9 +1635,6 @@ maybe_emit_vtables (tree ctype)
 	note_debug_info_needed (ctype);
       return false;
     }
-  else if (TREE_PUBLIC (vtbl) && !DECL_COMDAT (vtbl))
-    needed = true;
-  
 
   /* The ABI requires that we emit all of the vtables if we emit any
      of them.  */
@@ -1619,12 +1644,15 @@ maybe_emit_vtables (tree ctype)
       import_export_vtable (vtbl, ctype, 1);
       mark_vtable_entries (vtbl);
 
-      /* If we know that DECL is needed, mark it as such for the varpool.  */
-      if (needed)
-	cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
+      /* We know that DECL is needed; mark it as such for the varpool.  */
+      cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
 
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
-	store_init_value (vtbl, DECL_INITIAL (vtbl));
+	{
+	  /* It had better be all done at compile-time.  */
+	  if (store_init_value (vtbl, DECL_INITIAL (vtbl)))
+	    abort ();
+	}
 
       if (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG)
 	{
@@ -1652,10 +1680,6 @@ maybe_emit_vtables (tree ctype)
 	  DECL_IGNORED_P (vtbl) = 1;
 	}
 
-      /* Always make vtables weak.  */
-      if (flag_weak)
-	comdat_linkage (vtbl);
-
       rest_of_decl_compilation (vtbl, NULL, 1, 1);
 
       /* Because we're only doing syntax-checking, we'll never end up
@@ -1669,6 +1693,72 @@ maybe_emit_vtables (tree ctype)
   note_debug_info_needed (ctype);
 
   return true;
+}
+
+/* Like c_determine_visibility, but with additional C++-specific
+   behavior.  */
+
+void
+determine_visibility (tree decl)
+{
+  tree class_type;
+
+  /* Cloned constructors and destructors get the same visibility as
+     the underlying function.  That should be set up in
+     maybe_clone_body.  */
+  my_friendly_assert (!DECL_CLONED_FUNCTION_P (decl), 20040804);
+
+  /* Give the common code a chance to make a determination.  */
+  if (c_determine_visibility (decl))
+    return;
+
+  /* If DECL is a member of a class, visibility specifiers on the
+     class can influence the visibility of the DECL.  */
+  if (DECL_CLASS_SCOPE_P (decl))
+    class_type = DECL_CONTEXT (decl);
+  else if (TREE_CODE (decl) == VAR_DECL
+	   && DECL_TINFO_P (decl)
+	   && CLASS_TYPE_P (TREE_TYPE (DECL_NAME (decl))))
+    class_type = TREE_TYPE (DECL_NAME (decl));
+  else
+    {
+      /* Virtual tables have DECL_CONTEXT set to their associated class,
+	 so they are automatically handled above.  */
+      my_friendly_assert (!(TREE_CODE (decl) == VAR_DECL
+			    && DECL_VTABLE_OR_VTT_P (decl)), 20040803);
+      /* Entities not associated with any class just get the
+	 visibility specified by their attributes.  */
+      return;
+    }
+
+  /* By default, static data members and function members receive
+     the visibility of their containing class.  */
+  if (class_type)
+    {
+      if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+	  && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+	{
+	  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	}
+      else if (TREE_CODE (decl) == FUNCTION_DECL
+	       && DECL_DECLARED_INLINE_P (decl)
+	       && visibility_options.inlines_hidden)
+	{
+	  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	}
+      else if (CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
+	{
+	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
+	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	}
+      else if (!DECL_VISIBILITY_SPECIFIED (decl))
+	{
+	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
+	  DECL_VISIBILITY_SPECIFIED (decl) = 0;
+	}
+    }
 }
 
 /* Determines the proper settings of TREE_PUBLIC and DECL_EXTERNAL for an
@@ -1749,29 +1839,27 @@ import_export_tinfo (tree decl, tree type, bool is_in_library)
   
   if (IS_AGGR_TYPE (type))
     import_export_class (type);
-      
-  if (IS_AGGR_TYPE (type) && CLASSTYPE_INTERFACE_KNOWN (type)
+ 
+  if (CLASS_TYPE_P (type)
+      && CLASSTYPE_INTERFACE_KNOWN (type)
       && TYPE_POLYMORPHIC_P (type)
       /* If -fno-rtti, we're not necessarily emitting this stuff with
-	 the class, so go ahead and emit it now.  This can happen when
-	 a class is used in exception handling.  */
+	 the class.  This can happen when a class is used in exception
+	 handling.  */ 
       && flag_rtti)
-    {
-      DECL_NOT_REALLY_EXTERN (decl) = !CLASSTYPE_INTERFACE_ONLY (type);
-      DECL_COMDAT (decl) = 0;
-    }
+    DECL_NOT_REALLY_EXTERN (decl) = !CLASSTYPE_INTERFACE_ONLY (type);
   else
-    {
-      DECL_NOT_REALLY_EXTERN (decl) = 1;
-      DECL_COMDAT (decl) = 1;
-    }
+    DECL_NOT_REALLY_EXTERN (decl) = 1;
 
-  /* Now override some cases.  */
-  if (flag_weak)
-    DECL_COMDAT (decl) = 1;
+  if (DECL_NOT_REALLY_EXTERN (decl) 
+      && (!(CLASS_TYPE_P (type) && CLASSTYPE_KEY_METHOD (type))
+	  || targetm.cxx.class_data_always_comdat ()))
+    comdat_linkage (decl);
   else if (is_in_library)
     DECL_COMDAT (decl) = 0;
-  
+
+  determine_class_data_visibility (decl);
+
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
 
@@ -1823,7 +1911,7 @@ get_guard (tree decl)
 
       /* We use a type that is big enough to contain a mutex as well
 	 as an integer counter.  */
-      guard_type = long_long_integer_type_node;
+      guard_type = targetm.cxx.guard_type ();
       guard = build_decl (VAR_DECL, sname, guard_type);
       
       /* The guard should have the same linkage as what it guards.  */
@@ -1847,15 +1935,18 @@ get_guard (tree decl)
 static tree
 get_guard_bits (tree guard)
 {
-  /* We only set the first byte of the guard, in order to leave room
-     for a mutex in the high-order bits.  */
-  guard = build1 (ADDR_EXPR, 
-		  build_pointer_type (TREE_TYPE (guard)),
-		  guard);
-  guard = build1 (NOP_EXPR, 
-		  build_pointer_type (char_type_node), 
-		  guard);
-  guard = build1 (INDIRECT_REF, char_type_node, guard);
+  if (!targetm.cxx.guard_mask_bit ())
+    {
+      /* We only set the first byte of the guard, in order to leave room
+	 for a mutex in the high-order bits.  */
+      guard = build1 (ADDR_EXPR, 
+		      build_pointer_type (TREE_TYPE (guard)),
+		      guard);
+      guard = build1 (NOP_EXPR, 
+		      build_pointer_type (char_type_node), 
+		      guard);
+      guard = build1 (INDIRECT_REF, char_type_node, guard);
+    }
 
   return guard;
 }
@@ -1870,6 +1961,16 @@ get_guard_cond (tree guard)
 
   /* Check to see if the GUARD is zero.  */
   guard = get_guard_bits (guard);
+
+  /* Mask off all but the low bit.  */
+  if (targetm.cxx.guard_mask_bit ())
+    {
+      guard_value = integer_one_node;
+      if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
+	guard_value = convert (TREE_TYPE (guard), guard_value);
+	guard = cp_build_binary_op (BIT_AND_EXPR, guard, guard_value);
+    }
+
   guard_value = integer_zero_node;
   if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
     guard_value = convert (TREE_TYPE (guard), guard_value);
@@ -2595,6 +2696,7 @@ finish_file (void)
       /* If there are templates that we've put off instantiating, do
 	 them now.  */
       instantiate_pending_templates ();
+      ggc_collect ();
 
       /* Write out virtual tables as required.  Note that writing out
   	 the virtual table for a template class may cause the
@@ -3027,13 +3129,20 @@ mark_used (tree decl)
 
 	 However, if instantiating this function might help us mark
 	 the current function TREE_NOTHROW, we go ahead and
-	 instantiate it now.  */
+	 instantiate it now.  
+	 
+	 This is not needed for unit-at-a-time since we reorder the functions
+	 in topological order anyway.
+	 */
       defer = (!flag_exceptions
+	       || flag_unit_at_a_time
+	       || !optimize
 	       || TREE_CODE (decl) != FUNCTION_DECL
 	       /* If the called function can't throw, we don't need to
 		  generate its body to find that out.  */
 	       || TREE_NOTHROW (decl)
 	       || !cfun
+	       || !current_function_decl
 	       /* If we already know the current function can't throw,
 		  then we don't need to work hard to prove it.  */
 	       || TREE_NOTHROW (current_function_decl)

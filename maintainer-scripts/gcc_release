@@ -157,20 +157,22 @@ EOF
   fi
 
   # Tag the sources.
+  EXPORTDATE=""
   if [ -n "${TAG}" ]; then
     inform "Tagging sources as ${TAG}"
     ${CVS} rtag -r ${CVSBRANCH} -F ${TAG} gcc || \
       error "Could not tag sources"
     EXPORTTAG="-r${TAG}"
-    EXPORTDATE=""
   else
     if [ ${CVSBRANCH} != "HEAD" ]; then
       EXPORTTAG="-r${CVSBRANCH}"
+      # It does not work to use both "-r" and "-D" with
+      # "cvs export" so EXPORTDATE is not set here.
     else
       # HEAD is the default branch, no need to specify it.
       EXPORTTAG=""
+      EXPORTDATE="-D`date -u +"%Y-%m-%d %H:%M"` UTC"
     fi
-    EXPORTDATE="-D`date -u +"%Y-%m-%d %H:%M"` UTC"
   fi
 
   # Export the current sources.
@@ -227,7 +229,7 @@ EOF
     ${SOURCE_DIRECTORY}/gcc/doc/install.texi2html
 
     # Regenerate the NEWS file.
-    contrib/gennews > gcc/NEWS || \
+    contrib/gennews > NEWS || \
       error "Could not regenerate NEWS files"
 
     # Now, we must build the compiler in order to create any generated
@@ -239,23 +241,13 @@ EOF
     contrib/gcc_build -d ${SOURCE_DIRECTORY} -o ${OBJECT_DIRECTORY} \
       -c "--enable-generated-files-in-srcdir" build || \
       error "Could not rebuild GCC"
-
-    # Regenerate the Fotran NEWS and BUGS files.
-    (cd ${OBJECT_DIRECTORY}/gcc && make f77.rebuilt) || \
-      error "Could not regenerate Fortran NEWS and BUGS files"
   fi
 
   # Move message catalogs to source directory.
   mv ../objdir/gcc/po/*.gmo gcc/po/
 
-  # Create a `.brik' file to use for checking the validity of the
-  # release.
-  changedir "${SOURCE_DIRECTORY}"
-  BRIK_FILE=`mktemp /tmp/gcc_release.XXXXXXX`
-  ((find . -type f | sort > $BRIK_FILE) && \
-       brik -Gb -f ${BRIK_FILE} > .brik && \
-       rm ${BRIK_FILE}) || \
-     error "Could not compute brik checksum"
+  # Create a "MD5SUMS" file to use for checking the validity of the release.
+  find . -type f |sed -e 's:^\./::' -e '/MD5SUMS/d' |sort |xargs md5sum >MD5SUMS
 }
 
 # Buid a single tarfile.  The first argument is the name of the name
@@ -396,7 +388,7 @@ announce_snapshot() {
   inform "Updating links and READMEs on the FTP server"
   
   TEXT_DATE=`date --date=$DATE +%B\ %d,\ %Y`
-  cd ~ftp/pub/gcc/snapshots
+  changedir ~ftp/pub/gcc/snapshots
   sed -e "s%@DATE@%$DATE%g" \
     -e "s%@TEXT_DATE@%$TEXT_DATE%g" \
     -e "s%@LAST_DATE@%$LAST_DATE%g" \
@@ -543,7 +535,7 @@ while getopts "d:fr:u:t:p:s:l" ARG; do
 	  FTP_PATH=~ftp/pub/gcc
 	  PATH=~:/usr/local/bin:$PATH;;
     p)    OLD_TARS="${OLD_TARS} ${OPTARG}"
-          if [ -d ${OPTARG} ]; then
+          if [ ! -f ${OPTARG} ]; then
 	    error "-p argument must name a tarball"
 	  fi;;
     \?)   usage;;

@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM with PE obj format.
-   Copyright (C) 1995, 1996, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1999, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Doug Evans (dje@cygnus.com).
    
    This file is part of GCC.
@@ -39,18 +40,10 @@
 
 /* Get tree.c to declare a target-specific specialization of
    merge_decl_attributes.  */
-#define TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 1
 
-/* Support the __declspec keyword by turning them into attributes.
-   We currently only support: naked, dllimport, and dllexport.
-   Note that the current way we do this may result in a collision with
-   predefined attributes later on.  This can be solved by using one attribute,
-   say __declspec__, and passing args to it.  The problem with that approach
-   is that args are not accumulated: each new appearance would clobber any
-   existing args.  */
 #undef  SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC "-D__pe__ -D__declspec(x)=__attribute__((x))"
-
+#define SUBTARGET_CPP_SPEC "-D__pe__"
 
 /* Experimental addition for pr 7885.
    Ignore dllimport for functions.  */
@@ -65,18 +58,12 @@
   N_("Ignore dllimport attribute for functions") },		\
 { "no-nop-fun-dllimport",	- TARGET_FLAG_NOP_FUN, "" },
 
-/* Defaulting to APCS-26 support is a legacy issue.   It has been done
-   that way for a long time, so changing it will probably break some
-   people's worlds.  Support for APCS-32 is now enabled as a multilib,
-   and at some point in the future APCS-32 may become the default.
-   Possibly when chips that support APCS-26 are no longer made.  */
-
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT	(ARM_FLAG_SOFT_FLOAT | TARGET_FLAG_NOP_FUN)
+#define TARGET_DEFAULT	(TARGET_FLAG_NOP_FUN)
 
 #undef  MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \
-  { "marm", "mlittle-endian", "msoft-float", "mapcs-26", "mno-thumb-interwork" }  
+  { "marm", "mlittle-endian", "msoft-float", "mno-thumb-interwork" }  
 
 #undef  WCHAR_TYPE
 #define WCHAR_TYPE 	"short unsigned int"
@@ -187,7 +174,7 @@
 
 #define DRECTVE_SECTION_FUNCTION \
 void									\
-drectve_section ()							\
+drectve_section (void)							\
 {									\
   if (in_section != in_drectve)						\
     {									\
@@ -203,11 +190,8 @@ drectve_section ()							\
    ASM_DECLARE_OBJECT_NAME and then switch back to the original section
    afterwards.  */
 #define SWITCH_TO_SECTION_FUNCTION				\
-static void switch_to_section PARAMS ((enum in_section, tree)); \
 static void							\
-switch_to_section (section, decl)				\
-     enum in_section section;					\
-     tree decl;							\
+switch_to_section (enum in_section section, tree decl)		\
 {								\
   switch (section)						\
     {								\
@@ -221,3 +205,4 @@ switch_to_section (section, decl)				\
       default: abort (); break;					\
     }								\
 }
+

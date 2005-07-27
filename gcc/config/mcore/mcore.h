@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Motorola M*CORE Processor.
-   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -35,19 +35,11 @@
    merge_decl_attributes.  */
 #define TARGET_DLLIMPORT_DECL_ATTRIBUTES
 
-/* Support the __declspec keyword by turning them into attributes.
-   We currently only support: dllexport and dllimport.
-   Note that the current way we do this may result in a collision with
-   predefined attributes later on.  This can be solved by using one attribute,
-   say __declspec__, and passing args to it.  The problem with that approach
-   is that args are not accumulated: each new appearance would clobber any
-   existing args.  */
 #define TARGET_CPU_CPP_BUILTINS()					  \
   do									  \
     {									  \
       builtin_define ("__mcore__");					  \
       builtin_define ("__MCORE__");					  \
-      builtin_define ("__declspec(x)=__attribute__((x))");		  \
       if (TARGET_LITTLE_END)						  \
         builtin_define ("__MCORELE__");					  \
       else								  \
@@ -367,7 +359,7 @@ extern int mcore_stack_increment;
    Aside from that, you can include as many other registers as you like.  */
 
 /* RBE: r15 {link register} not available across calls,
-   But we don't mark it that way here...  */
+   But we don't mark it that way here....  */
 #define CALL_USED_REGISTERS \
  /*  r0  r1  r2  r3  r4  r5  r6  r7  r8  r9  r10 r11 r12 r13 r14 r15 ap  c   fp x19 */ \
    { 1,  1,  1,  1,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1, 1}
@@ -474,7 +466,7 @@ enum reg_class
 
 #define N_REG_CLASSES  (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 #define REG_CLASS_NAMES  \
 {			\
   "NO_REGS",		\
@@ -710,7 +702,7 @@ extern const enum reg_class reg_class_from_letter[];
 
    On MCore, the offset always starts at 0: the first parm reg is always
    the same reg.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)  \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -959,7 +951,7 @@ extern const enum reg_class reg_class_from_letter[];
    shouldn't be put through pseudo regs where they can be cse'd.
    Desirable on machines where ordinary constants are expensive
    but a CALL with constant address is cheap.  */
-/* why is this defined??? -- dac */
+/* Why is this defined??? -- dac */
 #define NO_FUNCTION_CSE 1
 
 /* Chars and shorts should be passed as ints.  */
@@ -1177,7 +1169,7 @@ extern long mcore_current_compilation_timestamp;
 
 
 /* This says how to output an assembler line
-   to define a local common symbol...  */
+   to define a local common symbol....  */
 #undef  ASM_OUTPUT_LOCAL
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
   (fputs ("\t.lcomm\t", FILE),				\

@@ -1,5 +1,5 @@
 /* gtktextareapeer.c -- Native implementation of GtkTextAreaPeer
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,13 +42,18 @@ exception statement from your version. */
 #define TEXT_FROM_SW(obj) (GTK_TEXT_VIEW(GTK_SCROLLED_WINDOW (obj)->container.child))
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_create
-  (JNIEnv *env, jobject obj, jint scroll)
+  (JNIEnv *env, jobject obj,
+   jint textview_width, jint textview_height,  jint scroll)
 {
   GtkWidget *text, *sw;
+
+  /* Create global reference and save it for future use */
+  NSA_SET_GLOBAL_REF (env, obj);
 
   gdk_threads_enter ();
 
   text = gtk_text_view_new ();
+  gtk_widget_set_size_request (text, textview_width, textview_height);
   gtk_widget_show (text);
 
   sw = gtk_scrolled_window_new (NULL, NULL);
@@ -64,38 +69,15 @@ Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_create
       || scroll == AWT_TEXTAREA_SCROLLBARS_VERTICAL_ONLY) ? 
        GTK_POLICY_ALWAYS : GTK_POLICY_NEVER);
 
+  gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (text),
+			       (scroll == AWT_TEXTAREA_SCROLLBARS_BOTH
+				|| scroll == AWT_TEXTAREA_SCROLLBARS_HORIZONTAL_ONLY)
+			       ? GTK_WRAP_NONE : GTK_WRAP_WORD);
+
   gdk_threads_leave ();
 
   NSA_SET_PTR (env, obj, sw);
 }
-
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_gtkTextGetSize
-  (JNIEnv *env, jobject obj, jintArray jdims)
-{
-  void *ptr;
-  jint *dims;
-  GtkWidget *text;
-  GtkRequisition requisition;
-
-  ptr = NSA_GET_PTR (env, obj);
-
-  dims = (*env)->GetIntArrayElements (env, jdims, 0);  
-  dims[0] = dims[1] = 0;
-
-  gdk_threads_enter ();
-
-  text = GTK_WIDGET (TEXT_FROM_SW (ptr));
-
-  gtk_widget_size_request(GTK_WIDGET (text), &requisition);
-  dims[0] = requisition.width;
-  dims[1] = requisition.height;
-
-  gdk_threads_leave ();
-  
-  (*env)->ReleaseIntArrayElements (env, jdims, dims, 0);
-}
-
 
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_insert
@@ -189,4 +171,52 @@ Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_gtkSetFont
   gdk_threads_leave();
 
   (*env)->ReleaseStringUTFChars (env, name, font_name);
+}
+
+JNIEXPORT jint JNICALL
+Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_getHScrollbarHeight
+  (JNIEnv *env, jobject obj)
+{
+  void *ptr;
+  GtkScrolledWindow *sw;
+  GtkRequisition requisition;
+  jint height = 0;
+  jint spacing = 0;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+  sw = GTK_SCROLLED_WINDOW (ptr);
+
+  gtk_widget_size_request (sw->hscrollbar, &requisition);
+  gtk_widget_style_get (GTK_WIDGET (sw), "scrollbar_spacing", &spacing, NULL);
+  height = requisition.height + spacing;
+
+  gdk_threads_leave ();
+
+  return height;
+}
+
+JNIEXPORT jint JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_getVScrollbarWidth
+  (JNIEnv *env, jobject obj)
+{
+  void *ptr;
+  GtkScrolledWindow *sw;
+  GtkRequisition requisition;
+  jint width = 0;
+  jint spacing = 0;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+  sw = GTK_SCROLLED_WINDOW (ptr);
+
+  gtk_widget_size_request (sw->vscrollbar, &requisition);
+  gtk_widget_style_get (GTK_WIDGET (sw), "scrollbar_spacing", &spacing, NULL);
+  width = requisition.width + spacing;
+
+  gdk_threads_leave ();
+
+  return width;
 }

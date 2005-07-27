@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -61,6 +61,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
+#include "except.h"
 
 void
 default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
@@ -68,6 +69,14 @@ default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 #ifdef ASM_OUTPUT_EXTERNAL_LIBCALL
   ASM_OUTPUT_EXTERNAL_LIBCALL(asm_out_file, fun);
 #endif
+}
+
+enum machine_mode
+default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
+{
+  if (m1 == m2)
+    return m1;
+  return VOIDmode;
 }
 
 bool
@@ -108,9 +117,6 @@ default_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED, int incoming)
 #ifdef STRUCT_VALUE_INCOMING
       rv = STRUCT_VALUE_INCOMING;
 #else
-#ifdef STRUCT_VALUE_INCOMING_REGNUM
-      rv = gen_rtx_REG (Pmode, STRUCT_VALUE_INCOMING_REGNUM);
-#else
 #ifdef STRUCT_VALUE
       rv = STRUCT_VALUE;
 #else
@@ -118,7 +124,6 @@ default_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED, int incoming)
       abort();
 #else
       rv = gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
-#endif
 #endif
 #endif
 #endif
@@ -185,20 +190,79 @@ default_strict_argument_naming (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 bool
 default_pretend_outgoing_varargs_named(CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
-#ifdef PRETEND_OUTGOING_VARARGS_NAMED
-  return PRETEND_OUTGOING_VARARGS_NAMED;
-#else
 #ifdef SETUP_INCOMING_VARARGS
   return 1;
 #else
   return (targetm.calls.setup_incoming_varargs != default_setup_incoming_varargs);
 #endif
-#endif
 }
 
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
+
 bool
 hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
 {
   return true;
+}
+
+/* Generic hook that takes a machine mode and returns true.  */
+
+bool
+hook_bool_machine_mode_true (enum machine_mode a ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+
+/* The generic C++ ABI specifies this is a 64-bit value.  */
+tree
+default_cxx_guard_type (void)
+{
+  return long_long_integer_type_node;
+}
+
+
+/* Returns the size of the cookie to use when allocating an array
+   whose elements have the indicated TYPE.  Assumes that it is already
+   known that a cookie is needed.  */
+
+tree
+default_cxx_get_cookie_size (tree type)
+{
+  tree cookie_size;
+
+  /* We need to allocate an additional max (sizeof (size_t), alignof
+     (true_type)) bytes.  */
+  tree sizetype_size;
+  tree type_align;
+  
+  sizetype_size = size_in_bytes (sizetype);
+  type_align = size_int (TYPE_ALIGN_UNIT (type));
+  if (INT_CST_LT_UNSIGNED (type_align, sizetype_size))
+    cookie_size = sizetype_size;
+  else
+    cookie_size = type_align;
+
+  return cookie_size;
+}
+
+
+/* Return the name of the function used to exit from a cleanup handler.  */
+
+const char *
+default_unwind_resume_name (void)
+{
+  return USING_SJLJ_EXCEPTIONS ? "_Unwind_SjLj_Resume"
+			       : "_Unwind_Resume";
+}
+
+
+/* Emit any directives required to unwind this instruction.  */
+
+void
+default_unwind_emit (FILE * stream ATTRIBUTE_UNUSED,
+		     rtx insn ATTRIBUTE_UNUSED)
+{
+  /* Should never happen.  */
+  abort ();
 }

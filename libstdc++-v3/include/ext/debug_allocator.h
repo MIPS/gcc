@@ -1,6 +1,6 @@
 // Allocators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -41,99 +41,81 @@
  */
 
 /** @file ext/debug_allocator.h
- *  This file is a GNU extension to the Standard C++ Library. 
+ *  This file is a GNU extension to the Standard C++ Library.
  *  You should only include this header if you are using GCC 3 or later.
  */
 
 #ifndef _DEBUG_ALLOCATOR_H
 #define _DEBUG_ALLOCATOR_H 1
 
-#include <bits/allocator_traits.h>
+#include <cstdlib>
 
 namespace __gnu_cxx
 {
   /**
-   *  @if maint
-   *  An adaptor for an underlying allocator (_Alloc) to check the size
-   *  arguments for debugging.
+   *  @brief  A meta-allocator with debugging bits, as per [20.4].
    *
-   *  "There is some evidence that this can confuse Purify." - SGI comment
+   *  This is precisely the allocator defined in the C++ Standard. 
+   *    - all allocation calls operator new
+   *    - all deallocation calls operator delete
    *
-   *  This adaptor is "SGI" style.  The _Alloc parameter must also be "SGI".
-   *  @endif
    *  (See @link Allocators allocators info @endlink for more.)
    */
   template<typename _Alloc>
-    class __debug_alloc
+    class debug_allocator
     {
+    public:
+      typedef typename _Alloc::size_type       	size_type;
+      typedef typename _Alloc::difference_type	difference_type;
+      typedef typename _Alloc::pointer       	pointer;
+      typedef typename _Alloc::const_pointer    const_pointer;
+      typedef typename _Alloc::reference       	reference;
+      typedef typename _Alloc::const_reference  const_reference;
+      typedef typename _Alloc::value_type       value_type;
+
     private:
-      // Size of space used to store size.  Note that this must be
-      // large enough to preserve alignment.
-      enum {_S_extra = 8};
+      // _M_extra is the number of objects that correspond to the
+      // extra space where debug information is stored.
+      size_type 		_M_extra;
+      
+      _Alloc			_M_allocator;
 
     public:
-      static void*
-      allocate(size_t __n)
+      debug_allocator()
       {
-        char* __result = (char*)_Alloc::allocate(__n + (int) _S_extra);
-        *(size_t*)__result = __n;
-        return __result + (int) _S_extra;
+	const size_t __obj_size = sizeof(value_type);
+	_M_extra = (sizeof(size_type) + __obj_size - 1) / __obj_size; 
+      }
+      
+      pointer
+      allocate(size_type __n)
+      {
+        pointer __res = _M_allocator.allocate(__n + _M_extra);      
+	size_type* __ps = reinterpret_cast<size_type*>(__res);
+	*__ps = __n;
+        return __res + _M_extra;
       }
 
-      static void
-      deallocate(void* __p, size_t __n)
+      pointer
+      allocate(size_type __n, const void* __hint)
       {
-        char* __real_p = (char*)__p - (int) _S_extra;
-        if (*(size_t*)__real_p != __n)
+        pointer __res = _M_allocator.allocate(__n + _M_extra, __hint);
+	size_type* __ps = reinterpret_cast<size_type*>(__res);
+	*__ps = __n;
+        return __res + _M_extra;
+      }
+
+      void
+      deallocate(pointer __p, size_type __n)
+      {
+	if (!__p)
+	  abort();
+	pointer __real_p = __p - _M_extra;
+        if (*reinterpret_cast<size_type*>(__real_p) != __n)
           abort();
-        _Alloc::deallocate(__real_p, __n + (int) _S_extra);
+        _M_allocator.deallocate(__real_p, __n + _M_extra);
       }
     };
-
-  //@{
-  /** Comparison operators for all of the predifined SGI-style allocators.
-   *  This ensures that __allocator<malloc_alloc> (for example) will work
-   *  correctly.  As required, all allocators compare equal.
-   */
-  template<typename _Alloc>
-    inline bool
-    operator==(const __debug_alloc<_Alloc>&, const __debug_alloc<_Alloc>&)
-    { return true; }
-
-  template<typename _Alloc>
-    inline bool
-    operator!=(const __debug_alloc<_Alloc>&, const __debug_alloc<_Alloc>&)
-    { return false; }
-  //@}
 } // namespace __gnu_cxx
-
-namespace std
-{
-  //@{
-  /// Versions for the predefined "SGI" style allocators.
-  template<typename _Tp, typename _Alloc>
-    struct _Alloc_traits<_Tp, __gnu_cxx::__debug_alloc<_Alloc> >
-    {
-      static const bool _S_instanceless = true;
-      typedef __gnu_cxx::__debug_alloc<_Alloc>		base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-  //@}
-
-  //@{
-  /// Versions for the __allocator adaptor used with the predefined
-  /// "SGI" style allocators.
-  template<typename _Tp, typename _Tp1, typename _Alloc>
-    struct _Alloc_traits<_Tp, __allocator<_Tp1, 
-					  __gnu_cxx::__debug_alloc<_Alloc> > >
-    {
-      static const bool _S_instanceless = true;
-      typedef __gnu_cxx::__debug_alloc<_Alloc>		base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-  //@}
-} // namespace std
 
 #endif

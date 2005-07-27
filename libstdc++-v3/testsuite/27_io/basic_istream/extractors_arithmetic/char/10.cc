@@ -20,9 +20,7 @@
 
 // 27.6.1.2.2 arithmetic extractors
 
-#include <cstdio> // for printf
 #include <istream>
-#include <ostream>
 #include <sstream>
 #include <locale>
 #include <testsuite_hooks.h>
@@ -127,13 +125,13 @@ bool test10() {
   is_05 >> f;
   VERIFY( f == 0 );
   is_05 >> f;
-  VERIFY( f == 0 );
-  VERIFY( is_05.rdstate() == std::ios_base::failbit );
+  VERIFY( f == 5.0 );
+  VERIFY( is_05.rdstate() == std::ios_base::goodbit );
   is_05.clear();
   is_05 >> c;
   VERIFY( c == 'a' );
   is_05 >> f;
-  VERIFY( f == 0 );
+  VERIFY( f == 5.0 );
   VERIFY( is_05.rdstate() == std::ios_base::failbit );
   is_05.clear();
   is_05.ignore();

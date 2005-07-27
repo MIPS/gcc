@@ -1,6 +1,6 @@
 ;; Machine description for the TMS320C[34]x for GCC
 ;; Copyright (C) 1994, 1995, 1996, 1997, 1998,
-;; 1999, 2000, 2002 Free Software Foundation, Inc.
+;; 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
 ;;            and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl)
@@ -157,7 +157,7 @@
 ;  a register satisying the 'f' constraint is used as a dst operand,
 ;  the CC gets clobbered (except for LDFcond).
 
-;  The ! in front of the 'b' constaint says to GCC to disparage the
+;  The ! in front of the 'b' constraint says to GCC to disparage the
 ;  use of this constraint.  The 'b' constraint applies only to the SP.
 
 ;  Note that we deal with the condition code CC like some of the RISC
@@ -173,7 +173,7 @@
 ;  delayed branch slots.
 
 ;  Since the C[34]x has many instructions that set the CC, we pay the
-;  price of having to explicity define which insns clobber the CC
+;  price of having to explicitly define which insns clobber the CC
 ;  (rather than using the macro NOTICE_UPDATE_CC). 
 
 ;  Note that many patterns say that the CC is clobbered when in fact
@@ -5653,7 +5653,7 @@
   "0"
   "")
 
-(define_expand "movstrqi_small2"
+(define_expand "movstrqi_small"
   [(parallel [(set (mem:BLK (match_operand:BLK 0 "src_operand" ""))
                    (mem:BLK (match_operand:BLK 1 "src_operand" "")))
               (use (match_operand:QI 2 "immediate_operand" ""))
@@ -5713,71 +5713,51 @@
 ; operand 3 is the shared alignment
 ; operand 4 is a scratch register
 
-(define_insn "movstrqi_small"
-  [(set (mem:BLK (match_operand:QI 0 "addr_reg_operand" "+a"))
-        (mem:BLK (match_operand:QI 1 "addr_reg_operand" "+a")))
-   (use (match_operand:QI 2 "immediate_operand" "i"))
-   (use (match_operand:QI 3 "immediate_operand" ""))
-   (clobber (match_operand:QI 4 "ext_low_reg_operand" "=&q"))
-   (clobber (match_dup 0))
-   (clobber (match_dup 1))]
-  ""
-  "*
- {
-   int i;
-   int len = INTVAL (operands[2]);
-   int first = 1;
-
-   for (i = 0; i < len; i++)
-    {
-      if (first)
-        output_asm_insn (\"ldiu\\t*%1++,%4\", operands);
-      else
-        output_asm_insn (\"|| ldi\\t*%1++,%4\", operands);
-      output_asm_insn (\"sti\\t%4,*%0++\", operands);
-      first = 0;
-    } 
-  return \"\";
-  }
-  "
-  [(set_attr "type" "multi")])
-
 (define_insn "movstrqi_large"
-  [(set (mem:BLK (match_operand:QI 0 "addr_reg_operand" "+a"))
-        (mem:BLK (match_operand:QI 1 "addr_reg_operand" "+a")))
+  [(set (mem:BLK (match_operand:QI 0 "addr_reg_operand" "a"))
+        (mem:BLK (match_operand:QI 1 "addr_reg_operand" "a")))
    (use (match_operand:QI 2 "immediate_operand" "i"))
    (use (match_operand:QI 3 "immediate_operand" ""))
    (clobber (match_operand:QI 4 "ext_low_reg_operand" "=&q"))
-   (clobber (match_dup 0))
-   (clobber (match_dup 1))
+   (clobber (match_scratch:QI 5 "=0"))
+   (clobber (match_scratch:QI 6 "=1"))
    (clobber (reg:QI 25))
    (clobber (reg:QI 26))
    (clobber (reg:QI 27))]
   ""
   "*
  {
+   int i;
    int len = INTVAL (operands[2]);
 
    output_asm_insn (\"ldiu\\t*%1++,%4\", operands);
-   if (TARGET_RPTS_CYCLES (len))
+   if (len < 8)
      {
-        output_asm_insn (\"rpts\\t%2-2\", operands);  
-        output_asm_insn (\"sti\\t%4,*%0++\", operands);
-        output_asm_insn (\"|| ldi\\t*%1++,%4\", operands);
-        return \"sti\\t%4,*%0++\";
+       for (i = 1; i < len; i++)
+	 {
+           output_asm_insn (\"sti\\t%4,*%0++\", operands);
+           output_asm_insn (\"|| ldi\\t*%1++,%4\", operands);
+         } 
      }
    else
      {
-        output_asm_insn (\"ldiu\\t%2-2,rc\", operands);
-        output_asm_insn (\"rptb\\t$+1\", operands);  
-        output_asm_insn (\"sti\\t%4,*%0++\", operands);
-        output_asm_insn (\"|| ldi\\t*%1++,%4\", operands);
-
-        return \"sti\\t%4,*%0++\";
+       if (TARGET_RPTS_CYCLES (len))
+         {
+           output_asm_insn (\"rpts\\t%2-2\", operands);  
+           output_asm_insn (\"sti\\t%4,*%0++\", operands);
+           output_asm_insn (\"|| ldi\\t*%1++,%4\", operands);
+         }
+       else
+         {
+           output_asm_insn (\"ldiu\\t%2-2,rc\", operands);
+           output_asm_insn (\"rptb\\t$+1\", operands);  
+           output_asm_insn (\"sti\\t%4,*%0++\", operands);
+           output_asm_insn (\"|| ldi\\t*%1++,%4\", operands);
+	 }
      }
-  }
-  "
-  [(set_attr "type" "multi")])
+   return \"sti\\t%4,*%0++\";
+ }"
+ [(set_attr "type" "multi")])
 
 ; Operand 2 is the count, operand 3 is the alignment.
 (define_expand "movstrqi"
@@ -5799,14 +5779,8 @@
    operands[0] = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
    operands[1] = copy_to_mode_reg (Pmode, XEXP (operands[1], 0));
    tmp = gen_reg_rtx (QImode);
-   if (INTVAL (operands[2]) < 8)
-     emit_insn (gen_movstrqi_small2 (operands[0], operands[1], operands[2],
-                                    operands[3], tmp));
-   else
-     {
-      emit_insn (gen_movstrqi_large (operands[0], operands[1], operands[2],
-                                     operands[3], tmp));
-     }
+   emit_insn (gen_movstrqi_large (operands[0], operands[1], operands[2],
+                                  operands[3], tmp));
    DONE;
  }")
 
@@ -6265,7 +6239,7 @@
 ;
 ; MULF
 ;
-; The C3x MPYF only uses 24 bit precision while the C4x uses 32 bit precison.
+; The C3x MPYF only uses 24-bit precision while the C4x uses 32-bit precision.
 ;
 (define_expand "mulhf3"
   [(parallel [(set (match_operand:HF 0 "reg_operand" "=h")
@@ -7320,7 +7294,7 @@
  "stf\\t%1,*%0++\\n\\tstf\\t%2,*%0++")
 
 
-; The following two peepholes remove an unecessary load
+; The following two peepholes remove an unnecessary load
 ; often found at the end of a function.  These peepholes
 ; could be generalized to other binary operators.  They shouldn't
 ; be required if we run a post reload mop-up pass.

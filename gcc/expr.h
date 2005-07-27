@@ -1,6 +1,6 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,6 +65,30 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
 /* Allow the compiler to defer stack pops.  See inhibit_defer_pop for
    more information.  */
 #define OK_DEFER_POP (inhibit_defer_pop -= 1)
+
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction sequences, we will do a movstr or libcall instead.  */
+
+#ifndef MOVE_RATIO
+#if defined (HAVE_movstrqi) || defined (HAVE_movstrhi) || defined (HAVE_movstrsi) || defined (HAVE_movstrdi) || defined (HAVE_movstrti)
+#define MOVE_RATIO 2
+#else
+/* If we are optimizing for space (-Os), cut down the default move ratio.  */
+#define MOVE_RATIO (optimize_size ? 3 : 15)
+#endif
+#endif
+
+/* If a clear memory operation would take CLEAR_RATIO or more simple
+   move-instruction sequences, we will do a clrstr or libcall instead.  */
+
+#ifndef CLEAR_RATIO
+#if defined (HAVE_clrstrqi) || defined (HAVE_clrstrhi) || defined (HAVE_clrstrsi) || defined (HAVE_clrstrdi) || defined (HAVE_clrstrti)
+#define CLEAR_RATIO 2
+#else
+/* If we are optimizing for space, cut down the default clear ratio.  */
+#define CLEAR_RATIO (optimize_size ? 3 : 15)
+#endif
+#endif
 
 enum direction {none, upward, downward};
 
@@ -164,11 +188,6 @@ do {							\
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
 #endif
 
-/* Define to nonzero if complex arguments should be split into their
-   corresponding components.  */
-#ifndef SPLIT_COMPLEX_ARGS
-#define SPLIT_COMPLEX_ARGS 0
-#endif
 tree split_complex_types (tree);
 tree split_complex_values (tree);
 
@@ -331,6 +350,7 @@ extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
 
 /* Functions from builtins.c:  */
 extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+extern tree std_build_builtin_va_list (void);
 extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx std_expand_builtin_va_arg (tree, tree);
 extern rtx expand_builtin_va_arg (tree, tree);
@@ -497,11 +517,17 @@ extern tree find_placeholder (tree, tree *);
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
    In the case of a void EXP, const0_rtx is returned.  */
-extern rtx expand_expr (tree, rtx, enum machine_mode, enum expand_modifier);
+#define expand_expr(EXP, TARGET, MODE, MODIFIER) \
+  expand_expr_real((EXP), (TARGET), (MODE), (MODIFIER), NULL)
+extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
+			     enum expand_modifier, rtx *);
 
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
 extern void init_pending_stack_adjust (void);
+
+/* Discard any pending stack adjustment.  */
+extern void discard_pending_stack_adjust (void);
 
 /* When exiting from function, if safe, clear out any pending stack adjust
    so the adjustment won't get done.  */
@@ -561,6 +587,8 @@ extern rtx trampoline_address (tree);
 extern rtx hard_function_value (tree, tree, int);
 
 extern rtx prepare_call_address (rtx, tree, rtx *, int, int);
+
+extern bool shift_return_value (enum machine_mode mode, bool, rtx);
 
 extern rtx expand_call (tree, rtx, int);
 

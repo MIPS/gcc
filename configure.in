@@ -1,5 +1,5 @@
 #   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-#   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+#   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -78,10 +78,17 @@ AC_SUBST(TOPLEVEL_CONFIGURE_ARGUMENTS)
 
 moveifchange=${srcdir}/move-if-change
 
+srcpwd=`cd ${srcdir} ; ${PWDCMD-pwd}`
+
+# We pass INSTALL explicitly to sub-makes.  Make sure that it is not
+# a relative path.
+if test "$INSTALL" = "${srcdir}/install-sh -c"; then
+  INSTALL="${srcpwd}/install-sh -c"
+fi
+
 # Set srcdir to "." if that's what it is.
 # This is important for multilib support.
 pwd=`${PWDCMD-pwd}`
-srcpwd=`cd ${srcdir} ; ${PWDCMD-pwd}`
 if test "${pwd}" = "${srcpwd}" ; then
   srcdir=.
 fi
@@ -248,8 +255,8 @@ esac
 
 # If both --with-headers and --with-libs are specified, default to
 # --without-newlib.
-if test x"${with_headers}" != x && test x"${with_headers} != xno \
-   && test x"${with_libs}" != x && test x"${with_libs} != xno ; then
+if test x"${with_headers}" != x && test x"${with_headers}" != xno \
+   && test x"${with_libs}" != x && test x"${with_libs}" != xno ; then
   if test x"${with_newlib}" = x ; then
     with_newlib=no
   fi
@@ -369,6 +376,9 @@ case "${target}" in
         *) ;;
     esac
     ;;
+  *-*-uclinux*)
+    noconfigdirs="$noconfigdirs target-newlib target-libgloss target-rda ${libgcj}"
+    ;;
   *-*-vxworks*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss target-libiberty ${libgcj}"
     ;;
@@ -419,8 +429,11 @@ case "${target}" in
   arm-*-coff | strongarm-*-coff | xscale-*-coff)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
-  arm-*-elf* | strongarm-*-elf* | xscale-*-elf*)
+  arm-*-elf* | strongarm-*-elf* | xscale-*-elf* | arm*-*-eabi* )
     noconfigdirs="$noconfigdirs target-libffi target-qthreads"
+    ;;
+  arm*-*-symbianelf*)
+    noconfigdirs="$noconfigdirs ${libgcj} target-libiberty"
     ;;
   arm-*-pe*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
@@ -501,7 +514,7 @@ case "${target}" in
     ;;
   ia64*-**-hpux*)
     # No gdb or ld support yet.
-    noconfigdirs="$noconfigdirs tix readline mmalloc libgui itcl gdb ld"
+    noconfigdirs="$noconfigdirs ${libgcj} tix readline mmalloc libgui itcl gdb ld"
     ;;
   i[[3456789]]86-*-coff | i[[3456789]]86-*-elf)
     noconfigdirs="$noconfigdirs ${libgcj}"
@@ -649,6 +662,9 @@ case "${target}" in
     ;;
   mipstx39-*-*)
     noconfigdirs="$noconfigdirs gprof ${libgcj}"   # same as generic mips
+    ;;
+  mips64*-*-linux*)
+    noconfigdirs="$noconfigdirs target-newlib ${libgcj}"
     ;;
   mips*-*-linux*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
@@ -930,6 +946,15 @@ case "$host" in
 esac
 
 copy_dirs=
+
+AC_ARG_WITH([build-sysroot], 
+  [  --with-build-sysroot=sysroot
+                          use sysroot as the system root during the build],
+  [if test x"$withval" != x ; then
+     SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
+   fi],
+  [SYSROOT_CFLAGS_FOR_TARGET=])
+AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
 
 # Handle --with-headers=XXX.  If the value is not "yes", the contents of
 # the named directory are copied to $(tooldir)/sys-include.
@@ -1247,7 +1272,7 @@ fi
 # Default to using --with-stabs for certain targets.
 if test x${with_stabs} = x ; then
   case "${target}" in
-  mips*-*-irix6*)
+  mips*-*-irix[[56]]*)
     ;;
   mips*-*-* | alpha*-*-osf*)
     with_stabs=yes;
@@ -1606,10 +1631,25 @@ case "${host}" in
   ;;
 esac
 
+# If no --enable-shared nor --disable-shared is specified, we set up
+# LD_LIBRARY_PATH when we build for gcc.
+case $enable_shared in
+"")
+  if test -d ${srcdir}/gcc; then
+    set_lib_path=yes
+  else 
+    set_lib_path=no
+  fi
+  ;;
+*)
+  set_lib_path=$enable_shared
+  ;;
+esac
+
 # If --enable-shared was set, we must set LD_LIBRARY_PATH so that the
 # binutils tools will find libbfd.so.
-case "${enable_shared}" in
-  no | "") SET_LIB_PATH= ;;
+case "${set_lib_path}" in
+  no) SET_LIB_PATH= ;;
   *) SET_LIB_PATH="\$(REALLY_SET_LIB_PATH)" ;;
 esac
 
@@ -1769,21 +1809,21 @@ AC_SUBST_FILE(serialization_dependencies)
 # at the end of the argument list.
 # These will be expanded by make, so quote '$'.
 cat <<\EOF_SED > conftestsed
-s/ --no[[^ ]]* / /
-s/ --c[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --sr[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --ho[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --bu[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --t[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --program-[[pst]][[a-z-]]*[[= ]][[^ ]]* / /
-s/ -cache-file[[= ]][[^ ]]* / /
-s/ -srcdir[[= ]][[^ ]]* / /
-s/ -host[[= ]][[^ ]]* / /
-s/ -build[[= ]][[^ ]]* / /
-s/ -target[[= ]][[^ ]]* / /
-s/ -program-prefix[[= ]][[^ ]]* / /
-s/ -program-suffix[[= ]][[^ ]]* / /
-s/ -program-transform-name[[= ]][[^ ]]* / /
+s/ --no[[^ ]]*/ /g
+s/ --c[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --sr[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --ho[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --bu[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --t[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --program-[[pst]][[a-z-]]*[[= ]][[^ ]]*//g
+s/ -cache-file[[= ]][[^ ]]*//g
+s/ -srcdir[[= ]][[^ ]]*//g
+s/ -host[[= ]][[^ ]]*//g
+s/ -build[[= ]][[^ ]]*//g
+s/ -target[[= ]][[^ ]]*//g
+s/ -program-prefix[[= ]][[^ ]]*//g
+s/ -program-suffix[[= ]][[^ ]]*//g
+s/ -program-transform-name[[= ]][[^ ]]*//g
 s/ [[^' -][^ ]*] / /
 s/^ *//;s/ *$//
 s,\$,$$,g
@@ -1823,7 +1863,9 @@ case "${cache_file}" in
   cache_file_option="--cache-file=../${cache_file}" ;;
 esac
 
-host_configargs="${cache_file_option} --build=${build_alias} --host=${host_alias} --target=${target_alias} ${extra_host_args} ${baseargs}"
+# Host dirs don't like to share a cache file either, horribly enough.
+# This seems to be due to autoconf 2.5x stupidity.
+host_configargs="--cache-file=./config.cache --build=${build_alias} --host=${host_alias} --target=${target_alias} ${extra_host_args} ${baseargs}"
 
 target_configargs=${baseargs}
 
@@ -1847,8 +1889,17 @@ if test x${with_newlib} != xno && echo " ${target_configdirs} " | grep " newlib 
   target_configargs="--with-newlib ${target_configargs}"
 fi
 
+# Different target subdirs use different values of certain variables
+# (notably CXX).  Worse, multilibs use *lots* of different values.
+# Worse yet, autoconf 2.5x makes some of these 'precious', meaning that
+# it doesn't automatically accept command-line overrides of them.
+# This means it's not safe for target subdirs to share a cache file,
+# which is disgusting, but there you have it.  Hopefully this can be
+# fixed in future.  It's still worthwhile to use a cache file for each
+# directory.  I think.
+
 # Pass the appropriate --host, --build, and --cache-file arguments.
-target_configargs="--cache-file=../config.cache --host=${target_alias} --build=${build_alias} ${target_configargs}"
+target_configargs="--cache-file=./config.cache --host=${target_alias} --build=${build_alias} ${target_configargs}"
 
 # provide a proper gxx_include_dir.
 # Note, if you change the default, make sure to fix both here and in
@@ -1962,7 +2013,7 @@ GCJ_FOR_TARGET=$GCJ_FOR_TARGET' $(FLAGS_FOR_TARGET)'
 
 # Don't use libstdc++-v3's flags to configure/build itself.
 libstdcxx_flags='`test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags --build-includes` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
-raw_libstdcxx_flags=' -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
+raw_libstdcxx_flags='-L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
 
 if test "x${CXX_FOR_TARGET+set}" = xset; then
   if test "x${RAW_CXX_FOR_TARGET+set}" != xset; then
@@ -2127,5 +2178,25 @@ else
 fi	
 MAINT=$MAINTAINER_MODE_TRUE
 AC_SUBST(MAINT)dnl
+
+# If gcc is built natively with shared library enabled, set
+# $RPATH_ENVVAR to make sure the newly built gcc shared librares are
+# used.
+SET_GCC_LIB_PATH=
+if test -d ${srcdir}/gcc && test x${is_cross_compiler} = xno; then
+  case "${set_lib_path}" in
+    no) ;;
+    *)
+      eval "d=\$$RPATH_ENVVAR"
+      if test x"$d" != x; then
+	d="$pwd/gcc:$d"
+      else
+	d="$pwd/gcc"
+    fi
+    SET_GCC_LIB_PATH="\$(RPATH_ENVVAR)=$d; export \$(RPATH_ENVVAR);"
+    ;;
+  esac
+fi
+AC_SUBST(SET_GCC_LIB_PATH)
 
 AC_OUTPUT(Makefile)

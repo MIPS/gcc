@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,6 +20,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern void default_external_libcall (rtx);
 
+extern enum machine_mode default_cc_modes_compatible (enum machine_mode,
+						      enum machine_mode);
+
 extern bool default_promote_function_args (tree);
 extern bool default_promote_function_return (tree);
 extern bool default_promote_prototypes (tree);
@@ -33,3 +36,9 @@ extern bool default_strict_argument_naming (CUMULATIVE_ARGS *);
 extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 
 extern bool hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS *);
+extern bool hook_bool_machine_mode_true (enum machine_mode);
+extern tree default_cxx_guard_type (void);
+extern tree default_cxx_get_cookie_size (tree);
+extern const char * default_unwind_resume_name (void);
+
+extern void default_unwind_emit (FILE *, rtx);

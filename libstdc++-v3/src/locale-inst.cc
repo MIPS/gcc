@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,11 +44,35 @@ namespace std
   // moneypunct, money_get, and money_put
   template class moneypunct<C, false>;
   template class moneypunct<C, true>;
-  template struct __moneypunct_cache<C>;
+  template struct __moneypunct_cache<C, false>;
+  template struct __moneypunct_cache<C, true>;
   template class moneypunct_byname<C, false>;
   template class moneypunct_byname<C, true>;
   template class money_get<C, istreambuf_iterator<C> >;
   template class money_put<C, ostreambuf_iterator<C> >;
+  template
+    istreambuf_iterator<C>
+    money_get<C, istreambuf_iterator<C> >::
+    _M_extract<true>(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		     ios_base&, ios_base::iostate&, string&) const;
+
+  template
+    istreambuf_iterator<C>
+    money_get<C, istreambuf_iterator<C> >::
+    _M_extract<false>(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		      ios_base&, ios_base::iostate&, string&) const;
+
+  template
+    ostreambuf_iterator<C>
+    money_put<C, ostreambuf_iterator<C> >::
+    _M_insert<true>(ostreambuf_iterator<C>, ios_base&, C, 
+		    const string_type&) const;
+
+  template
+    ostreambuf_iterator<C>
+    money_put<C, ostreambuf_iterator<C> >::
+    _M_insert<false>(ostreambuf_iterator<C>, ios_base&, C, 
+		     const string_type&) const;
 
   // numpunct, numpunct_byname, num_get, and num_put
   template class numpunct<C>;
@@ -55,6 +80,50 @@ namespace std
   template class numpunct_byname<C>;
   template class num_get<C, istreambuf_iterator<C> >;
   template class num_put<C, ostreambuf_iterator<C> >; 
+  template
+    istreambuf_iterator<C>
+    num_get<C, istreambuf_iterator<C> >::
+    _M_extract_int(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		   ios_base&, ios_base::iostate&,
+		   long&) const;
+
+  template
+    istreambuf_iterator<C>
+    num_get<C, istreambuf_iterator<C> >::
+    _M_extract_int(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		   ios_base&, ios_base::iostate&, 
+		   unsigned short&) const;
+
+  template
+    istreambuf_iterator<C>
+    num_get<C, istreambuf_iterator<C> >::
+    _M_extract_int(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		   ios_base&, ios_base::iostate&,
+		   unsigned int&) const;
+
+  template
+    istreambuf_iterator<C>
+    num_get<C, istreambuf_iterator<C> >::
+    _M_extract_int(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		   ios_base&, ios_base::iostate&,
+		   unsigned long&) const;
+
+#ifdef _GLIBCXX_USE_LONG_LONG
+  template
+    istreambuf_iterator<C>
+    num_get<C, istreambuf_iterator<C> >::
+    _M_extract_int(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		   ios_base&, ios_base::iostate&,
+		   long long&) const;
+
+  template
+    istreambuf_iterator<C>
+    num_get<C, istreambuf_iterator<C> >::
+    _M_extract_int(istreambuf_iterator<C>, istreambuf_iterator<C>,
+		   ios_base&, ios_base::iostate&,
+		   unsigned long long&) const;
+#endif
+
   template
     ostreambuf_iterator<C>
     num_put<C, ostreambuf_iterator<C> >::
@@ -228,12 +297,8 @@ namespace std
   // locale functions.
   template
     C*
-    __add_grouping<C>(C*, C, char const*, char const*, 
+    __add_grouping<C>(C*, C, char const*, size_t, 
 			 C const*, C const*);
-
-  template
-    bool
-    __verify_grouping<C>(const basic_string<C>&, basic_string<C>&);
 
   template class __pad<C, char_traits<C> >;
 

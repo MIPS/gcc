@@ -1,5 +1,5 @@
 /* Configuration for an i386 running MS-DOS with DJGPP.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -57,9 +57,9 @@ Boston, MA 02111-1307, USA.  */
 #undef TEXT_SECTION_ASM_OP
 #define TEXT_SECTION_ASM_OP "\t.section .text"
 
-/* Define standard DJGPP installation paths.                             */
+/* Define standard DJGPP installation paths.  */
 /* We override default /usr or /usr/local part with /dev/env/DJDIR which */
-/* points to actual DJGPP installation directory.                        */
+/* points to actual DJGPP installation directory.  */
 
 /* Standard include directory */
 #undef STANDARD_INCLUDE_DIR

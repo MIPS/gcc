@@ -1,5 +1,6 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -60,7 +61,7 @@ static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
 	     real_inv_br_prob_base, real_one_half, real_bb_freq_max;
 
 /* Random guesstimation given names.  */
-#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 10 - 1)
+#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 100 - 1)
 #define PROB_EVEN		(REG_BR_PROB_BASE / 2)
 #define PROB_VERY_LIKELY	(REG_BR_PROB_BASE - PROB_VERY_UNLIKELY)
 #define PROB_ALWAYS		(REG_BR_PROB_BASE)
@@ -72,10 +73,8 @@ static void estimate_loops_at_level (struct loop *loop);
 static void propagate_freq (struct loop *);
 static void estimate_bb_frequencies (struct loops *);
 static void counts_to_freqs (void);
-static void process_note_predictions (basic_block, int *, dominance_info,
-				      dominance_info);
-static void process_note_prediction (basic_block, int *, dominance_info,
-				     dominance_info, int, int);
+static void process_note_predictions (basic_block, int *);
+static void process_note_prediction (basic_block, int *, int, int);
 static bool last_basic_block_p (basic_block);
 static void compute_function_frequency (void);
 static void choose_function_section (void);
@@ -154,9 +153,9 @@ static bool
 predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
   rtx note;
-  if (!INSN_P (bb->end))
+  if (!INSN_P (BB_END (bb)))
     return false;
-  for (note = REG_NOTES (bb->end); note; note = XEXP (note, 1))
+  for (note = REG_NOTES (BB_END (bb)); note; note = XEXP (note, 1))
     if (REG_NOTE_KIND (note) == REG_BR_PRED
 	&& INTVAL (XEXP (XEXP (note, 0), 0)) == (int)predictor)
       return true;
@@ -199,7 +198,7 @@ void
 predict_edge (edge e, enum br_predictor predictor, int probability)
 {
   rtx last_insn;
-  last_insn = e->src->end;
+  last_insn = BB_END (e->src);
 
   /* We can store the branch prediction information only about
      conditional jumps.  */
@@ -393,13 +392,12 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 void
 estimate_probability (struct loops *loops_info)
 {
-  dominance_info dominators, post_dominators;
   basic_block bb;
   unsigned i;
 
   connect_infinite_loops_to_exit ();
-  dominators = calculate_dominance_info (CDI_DOMINATORS);
-  post_dominators = calculate_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
 
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
@@ -412,11 +410,10 @@ estimate_probability (struct loops *loops_info)
       struct loop_desc desc;
       unsigned HOST_WIDE_INT niter;
 
-      flow_loop_scan (loops_info, loop, LOOP_EXIT_EDGES);
+      flow_loop_scan (loop, LOOP_EXIT_EDGES);
       exits = loop->num_exits;
 
-      if (simple_loop_p (loops_info, loop, &desc)
-	  && desc.const_iter)
+      if (simple_loop_p (loop, &desc) && desc.const_iter)
 	{
 	  int prob;
 	  niter = desc.niter + 1;
@@ -445,7 +442,7 @@ estimate_probability (struct loops *loops_info)
 	     statements construct loops via "non-loop" constructs
 	     in the source language and are better to be handled
 	     separately.  */
-	  if (!can_predict_insn_p (bb->end)
+	  if (!can_predict_insn_p (BB_END (bb))
 	      || predicted_by_p (bb, PRED_CONTINUE))
 	    continue;
 
@@ -471,12 +468,15 @@ estimate_probability (struct loops *loops_info)
 		    - predictor_info [(int) PRED_LOOP_EXIT].hitrate)
 		   / exits);
 	}
+      
+      /* Free basic blocks from get_loop_body.  */
+      free (bbs);
     }
 
   /* Attempt to predict conditional jumps using a number of heuristics.  */
   FOR_EACH_BB (bb)
     {
-      rtx last_insn = bb->end;
+      rtx last_insn = BB_END (bb);
       rtx cond, earliest;
       edge e;
 
@@ -500,8 +500,8 @@ estimate_probability (struct loops *loops_info)
 	  /* Look for block we are guarding (ie we dominate it,
 	     but it doesn't postdominate us).  */
 	  if (e->dest != EXIT_BLOCK_PTR && e->dest != bb
-	      && dominated_by_p (dominators, e->dest, e->src)
-	      && !dominated_by_p (post_dominators, e->src, e->dest))
+	      && dominated_by_p (CDI_DOMINATORS, e->dest, e->src)
+	      && !dominated_by_p (CDI_POST_DOMINATORS, e->src, e->dest))
 	    {
 	      rtx insn;
 
@@ -509,7 +509,7 @@ estimate_probability (struct loops *loops_info)
 		 is improbable.  This is because such calls are often used
 		 to signal exceptional situations such as printing error
 		 messages.  */
-	      for (insn = e->dest->head; insn != NEXT_INSN (e->dest->end);
+	      for (insn = BB_HEAD (e->dest); insn != NEXT_INSN (BB_END (e->dest));
 		   insn = NEXT_INSN (insn))
 		if (GET_CODE (insn) == CALL_INSN
 		    /* Constant and pure calls are hardly used to signalize
@@ -613,13 +613,12 @@ estimate_probability (struct loops *loops_info)
 
   /* Attach the combined probability to each conditional jump.  */
   FOR_EACH_BB (bb)
-    if (GET_CODE (bb->end) == JUMP_INSN
-	&& any_condjump_p (bb->end)
+    if (GET_CODE (BB_END (bb)) == JUMP_INSN
+	&& any_condjump_p (BB_END (bb))
 	&& bb->succ->succ_next != NULL)
-      combine_predictions_for_insn (bb->end, bb);
+      combine_predictions_for_insn (BB_END (bb), bb);
 
-  free_dominance_info (post_dominators);
-  free_dominance_info (dominators);
+  free_dominance_info (CDI_POST_DOMINATORS);
 
   remove_fake_edges ();
   estimate_bb_frequencies (loops_info);
@@ -719,10 +718,7 @@ last_basic_block_p (basic_block bb)
    on demand, so -1 may be there in case this was not needed yet).  */
 
 static void
-process_note_prediction (basic_block bb, int *heads,
-			 dominance_info dominators,
-			 dominance_info post_dominators, int pred,
-			 int flags)
+process_note_prediction (basic_block bb, int *heads, int pred, int flags)
 {
   edge e;
   int y;
@@ -736,18 +732,18 @@ process_note_prediction (basic_block bb, int *heads,
          find first dominator that we do not post-dominate (we are
          using already known members of heads array).  */
       basic_block ai = bb;
-      basic_block next_ai = get_immediate_dominator (dominators, bb);
+      basic_block next_ai = get_immediate_dominator (CDI_DOMINATORS, bb);
       int head;
 
       while (heads[next_ai->index] < 0)
 	{
-	  if (!dominated_by_p (post_dominators, next_ai, bb))
+	  if (!dominated_by_p (CDI_POST_DOMINATORS, next_ai, bb))
 	    break;
 	  heads[next_ai->index] = ai->index;
 	  ai = next_ai;
-	  next_ai = get_immediate_dominator (dominators, next_ai);
+	  next_ai = get_immediate_dominator (CDI_DOMINATORS, next_ai);
 	}
-      if (!dominated_by_p (post_dominators, next_ai, bb))
+      if (!dominated_by_p (CDI_POST_DOMINATORS, next_ai, bb))
 	head = next_ai->index;
       else
 	head = heads[next_ai->index];
@@ -765,11 +761,11 @@ process_note_prediction (basic_block bb, int *heads,
 
   /* Now find the edge that leads to our branch and aply the prediction.  */
 
-  if (y == last_basic_block || !can_predict_insn_p (BASIC_BLOCK (y)->end))
+  if (y == last_basic_block || !can_predict_insn_p (BB_END (BASIC_BLOCK (y))))
     return;
   for (e = BASIC_BLOCK (y)->succ; e; e = e->succ_next)
     if (e->dest->index >= 0
-	&& dominated_by_p (post_dominators, e->dest, bb))
+	&& dominated_by_p (CDI_POST_DOMINATORS, e->dest, bb))
       predict_edge_def (e, pred, taken);
 }
 
@@ -778,9 +774,7 @@ process_note_prediction (basic_block bb, int *heads,
    process_note_prediction.  */
 
 static void
-process_note_predictions (basic_block bb, int *heads,
-			  dominance_info dominators,
-			  dominance_info post_dominators)
+process_note_predictions (basic_block bb, int *heads)
 {
   rtx insn;
   edge e;
@@ -790,8 +784,8 @@ process_note_predictions (basic_block bb, int *heads,
   int was_bb_head = 0;
   int noreturn_block = 1;
 
-  for (insn = bb->end; insn;
-       was_bb_head |= (insn == bb->head), insn = PREV_INSN (insn))
+  for (insn = BB_END (bb); insn;
+       was_bb_head |= (insn == BB_HEAD (bb)), insn = PREV_INSN (insn))
     {
       if (GET_CODE (insn) != NOTE)
 	{
@@ -813,8 +807,6 @@ process_note_predictions (basic_block bb, int *heads,
 	  /* Process single prediction note.  */
 	  process_note_prediction (bb,
 				   heads,
-				   dominators,
-				   post_dominators,
 				   alg, (int) NOTE_PREDICTION_FLAGS (insn));
 	  delete_insn (insn);
 	}
@@ -827,10 +819,7 @@ process_note_predictions (basic_block bb, int *heads,
       /* This block ended from other reasons than because of return.
          If it is because of noreturn call, this should certainly not
          be taken.  Otherwise it is probably some error recovery.  */
-      process_note_prediction (bb,
-			       heads,
-			       dominators,
-			       post_dominators, PRED_NORETURN, NOT_TAKEN);
+      process_note_prediction (bb, heads, PRED_NORETURN, NOT_TAKEN);
     }
 }
 
@@ -841,15 +830,14 @@ void
 note_prediction_to_br_prob (void)
 {
   basic_block bb;
-  dominance_info post_dominators, dominators;
   int *heads;
 
   /* To enable handling of noreturn blocks.  */
   add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
 
-  post_dominators = calculate_dominance_info (CDI_POST_DOMINATORS);
-  dominators = calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
 
   heads = xmalloc (sizeof (int) * last_basic_block);
   memset (heads, -1, sizeof (int) * last_basic_block);
@@ -858,10 +846,10 @@ note_prediction_to_br_prob (void)
   /* Process all prediction notes.  */
 
   FOR_EACH_BB (bb)
-    process_note_predictions (bb, heads, dominators, post_dominators);
+    process_note_predictions (bb, heads);
 
-  free_dominance_info (post_dominators);
-  free_dominance_info (dominators);
+  free_dominance_info (CDI_POST_DOMINATORS);
+  free_dominance_info (CDI_DOMINATORS);
   free (heads);
 
   remove_fake_edges ();
@@ -878,8 +866,8 @@ typedef struct block_info_def
   /* To keep queue of basic blocks to process.  */
   basic_block next;
 
-  /* True if block needs to be visited in prop_freqency.  */
-  int tovisit:1;
+  /* True if block needs to be visited in propagate_freq.  */
+  unsigned int tovisit:1;
 
   /* Number of predecessors we need to visit first.  */
   int npredecessors;
@@ -893,7 +881,7 @@ typedef struct edge_info_def
      then computed as 1 / (1 - back_edge_prob).  */
   sreal back_edge_prob;
   /* True if the edge is an loopback edge in the natural loop.  */
-  int back_edge:1;
+  unsigned int back_edge:1;
 } *edge_info;
 
 #define BLOCK_INFO(B)	((block_info) (B)->aux)
@@ -1105,7 +1093,7 @@ expensive_function_p (int threshold)
     {
       rtx insn;
 
-      for (insn = bb->head; insn != NEXT_INSN (bb->end);
+      for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
 	   insn = NEXT_INSN (insn))
 	if (active_insn_p (insn))
 	  {
@@ -1149,7 +1137,7 @@ estimate_bb_frequencies (struct loops *loops)
          notes.  */
       FOR_EACH_BB (bb)
 	{
-	  rtx last_insn = bb->end;
+	  rtx last_insn = BB_END (bb);
 
 	  if (!can_predict_insn_p (last_insn))
 	    {

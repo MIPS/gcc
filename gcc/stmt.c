@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -361,6 +361,7 @@ struct stmt_status GTY(())
      record the expr's type and its RTL value here.  */
   tree x_last_expr_type;
   rtx x_last_expr_value;
+  rtx x_last_expr_alt_rtl;
 
   /* Nonzero if within a ({...}) grouping, in which case we must
      always compute a value for each expr-stmt in case it is the last one.  */
@@ -383,6 +384,7 @@ struct stmt_status GTY(())
 #define current_block_start_count (cfun->stmt->x_block_start_count)
 #define last_expr_type (cfun->stmt->x_last_expr_type)
 #define last_expr_value (cfun->stmt->x_last_expr_value)
+#define last_expr_alt_rtl (cfun->stmt->x_last_expr_alt_rtl)
 #define expr_stmts_for_value (cfun->stmt->x_expr_stmts_for_value)
 #define emit_locus (cfun->stmt->x_emit_locus)
 #define goto_fixup_chain (cfun->stmt->x_goto_fixup_chain)
@@ -526,9 +528,9 @@ expand_computed_goto (tree exp)
     {
       cfun->computed_goto_common_reg = copy_to_mode_reg (Pmode, x);
       cfun->computed_goto_common_label = gen_label_rtx ();
-      emit_label (cfun->computed_goto_common_label);
 
       do_pending_stack_adjust ();
+      emit_label (cfun->computed_goto_common_label);
       emit_indirect_jump (cfun->computed_goto_common_reg);
 
       current_function_has_computed_jump = 1;
@@ -646,6 +648,13 @@ expand_goto (tree label)
       else
 #endif
 	{
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   gen_rtx_SCRATCH (VOIDmode))));
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   hard_frame_pointer_rtx)));
+
 	  /* Restore frame pointer for containing function.
 	     This sets the actual hard register used for the frame pointer
 	     to the location of the function's incoming static chain info.
@@ -1261,6 +1270,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
   const char *orig_constraint = constraint;
   size_t c_len = strlen (constraint);
   size_t j;
+  bool saw_match = false;
 
   /* Assume the constraint doesn't allow the use of either
      a register or memory.  */
@@ -1311,6 +1321,8 @@ parse_input_constraint (const char **constraint_p, int input_num,
 	{
 	  char *end;
 	  unsigned long match;
+
+	  saw_match = true;
 
 	  match = strtoul (constraint + j, &end, 10);
 	  if (match >= (unsigned long) noutputs)
@@ -1375,6 +1387,9 @@ parse_input_constraint (const char **constraint_p, int input_num,
 #endif
 	break;
       }
+
+  if (saw_match && !*allows_reg)
+    warning ("matching constraint does not allow a register");
 
   return true;
 }
@@ -1704,13 +1719,16 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
 	      if (CONSTANT_P (op))
 		{
-		  op = force_const_mem (TYPE_MODE (type), op);
-		  op = validize_mem (op);
+		  rtx mem = force_const_mem (TYPE_MODE (type), op);
+		  if (mem)
+		    op = validize_mem (mem);
+		  else
+		    op = force_reg (TYPE_MODE (type), op);
 		}
-	      else if (GET_CODE (op) == REG
-		       || GET_CODE (op) == SUBREG
-		       || GET_CODE (op) == ADDRESSOF
-		       || GET_CODE (op) == CONCAT)
+	      if (GET_CODE (op) == REG
+		  || GET_CODE (op) == SUBREG
+		  || GET_CODE (op) == ADDRESSOF
+		  || GET_CODE (op) == CONCAT)
 		{
 		  tree qual_type = build_qualified_type (type,
 							 (TYPE_QUALS (type)
@@ -2120,6 +2138,7 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
 {
   rtx value;
   tree type;
+  rtx alt_rtl = NULL;
 
   if (want_value == -1)
     want_value = expr_stmts_for_value != 0;
@@ -2146,8 +2165,8 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
   /* The call to `expand_expr' could cause last_expr_type and
      last_expr_value to get reset.  Therefore, we set last_expr_value
      and last_expr_type *after* calling expand_expr.  */
-  value = expand_expr (exp, want_value ? NULL_RTX : const0_rtx,
-		       VOIDmode, 0);
+  value = expand_expr_real (exp, want_value ? NULL_RTX : const0_rtx,
+			    VOIDmode, 0, &alt_rtl);
   type = TREE_TYPE (exp);
 
   /* If all we do is reference a volatile value in memory,
@@ -2183,6 +2202,7 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
   if (want_value)
     {
       last_expr_value = value;
+      last_expr_alt_rtl = alt_rtl;
       last_expr_type = type;
     }
 
@@ -2302,6 +2322,7 @@ clear_last_expr (void)
 {
   last_expr_type = NULL_TREE;
   last_expr_value = NULL_RTX;
+  last_expr_alt_rtl = NULL_RTX;
 }
 
 /* Begin a statement-expression, i.e., a series of statements which
@@ -2349,6 +2370,7 @@ expand_end_stmt_expr (tree t)
   if (! last_expr_value || ! last_expr_type)
     {
       last_expr_value = const0_rtx;
+      last_expr_alt_rtl = NULL_RTX;
       last_expr_type = void_type_node;
     }
   else if (GET_CODE (last_expr_value) != REG && ! CONSTANT_P (last_expr_value))
@@ -2359,6 +2381,7 @@ expand_end_stmt_expr (tree t)
 
   TREE_TYPE (t) = last_expr_type;
   RTL_EXPR_RTL (t) = last_expr_value;
+  RTL_EXPR_ALT_RTL (t) = last_expr_alt_rtl;
   RTL_EXPR_SEQUENCE (t) = get_insns ();
 
   rtl_expr_chain = tree_cons (NULL_TREE, t, rtl_expr_chain);
@@ -2874,6 +2897,26 @@ expand_null_return (void)
   expand_null_return_1 (last_insn);
 }
 
+/* Generate RTL to return directly from the current function.
+   (That is, we bypass any return value.)  */
+
+void
+expand_naked_return (void)
+{
+  rtx last_insn, end_label;
+
+  last_insn = get_last_insn ();
+  end_label = naked_return_label;
+
+  clear_pending_stack_adjust ();
+  do_pending_stack_adjust ();
+  clear_last_expr ();
+
+  if (end_label == 0)
+    end_label = naked_return_label = gen_label_rtx ();
+  expand_goto_internal (NULL_TREE, end_label, last_insn);
+}
+
 /* Try to guess whether the value of return means error code.  */
 static enum br_predictor
 return_prediction (rtx val)
@@ -2901,6 +2944,7 @@ return_prediction (rtx val)
     }
   return PRED_NO_PREDICTION;
 }
+
 
 /* Generate RTL to return from the current function, with value VAL.  */
 
@@ -3066,7 +3110,7 @@ expand_return (tree retval)
     {
       int i;
       unsigned HOST_WIDE_INT bitpos, xbitpos;
-      unsigned HOST_WIDE_INT big_endian_correction = 0;
+      unsigned HOST_WIDE_INT padding_correction = 0;
       unsigned HOST_WIDE_INT bytes
 	= int_size_in_bytes (TREE_TYPE (retval_rhs));
       int n_regs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -3083,25 +3127,33 @@ expand_return (tree retval)
 	  return;
 	}
 
-      /* Structures whose size is not a multiple of a word are aligned
-	 to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
-	 machine, this means we must skip the empty high order bytes when
-	 calculating the bit offset.  */
-      if (BYTES_BIG_ENDIAN
-	  && bytes % UNITS_PER_WORD)
-	big_endian_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
-						  * BITS_PER_UNIT));
+      /* If the structure doesn't take up a whole number of words, see
+	 whether the register value should be padded on the left or on
+	 the right.  Set PADDING_CORRECTION to the number of padding
+	 bits needed on the left side.
+
+	 In most ABIs, the structure will be returned at the least end of
+	 the register, which translates to right padding on little-endian
+	 targets and left padding on big-endian targets.  The opposite
+	 holds if the structure is returned at the most significant
+	 end of the register.  */
+      if (bytes % UNITS_PER_WORD != 0
+	  && (targetm.calls.return_in_msb (TREE_TYPE (retval_rhs))
+	      ? !BYTES_BIG_ENDIAN
+	      : BYTES_BIG_ENDIAN))
+	padding_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
+					       * BITS_PER_UNIT));
 
       /* Copy the structure BITSIZE bits at a time.  */
-      for (bitpos = 0, xbitpos = big_endian_correction;
+      for (bitpos = 0, xbitpos = padding_correction;
 	   bitpos < bytes * BITS_PER_UNIT;
 	   bitpos += bitsize, xbitpos += bitsize)
 	{
 	  /* We need a new destination pseudo each time xbitpos is
-	     on a word boundary and when xbitpos == big_endian_correction
+	     on a word boundary and when xbitpos == padding_correction
 	     (the first time through).  */
 	  if (xbitpos % BITS_PER_WORD == 0
-	      || xbitpos == big_endian_correction)
+	      || xbitpos == padding_correction)
 	    {
 	      /* Generate an appropriate register.  */
 	      dst = gen_reg_rtx (word_mode);
@@ -3128,21 +3180,25 @@ expand_return (tree retval)
 			   BITS_PER_WORD);
 	}
 
-      /* Find the smallest integer mode large enough to hold the
-	 entire structure and use that mode instead of BLKmode
-	 on the USE insn for the return register.  */
-      for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-	   tmpmode != VOIDmode;
-	   tmpmode = GET_MODE_WIDER_MODE (tmpmode))
-	/* Have we found a large enough mode?  */
-	if (GET_MODE_SIZE (tmpmode) >= bytes)
-	  break;
+      tmpmode = GET_MODE (result_rtl);
+      if (tmpmode == BLKmode)
+	{
+	  /* Find the smallest integer mode large enough to hold the
+	     entire structure and use that mode instead of BLKmode
+	     on the USE insn for the return register.  */
+	  for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+	       tmpmode != VOIDmode;
+	       tmpmode = GET_MODE_WIDER_MODE (tmpmode))
+	    /* Have we found a large enough mode?  */
+	    if (GET_MODE_SIZE (tmpmode) >= bytes)
+	      break;
 
-      /* No suitable mode found.  */
-      if (tmpmode == VOIDmode)
-	abort ();
+	  /* No suitable mode found.  */
+	  if (tmpmode == VOIDmode)
+	    abort ();
 
-      PUT_MODE (result_rtl, tmpmode);
+	  PUT_MODE (result_rtl, tmpmode);
+	}
 
       if (GET_MODE_SIZE (tmpmode) < GET_MODE_SIZE (word_mode))
 	result_reg_mode = word_mode;
@@ -3174,6 +3230,7 @@ expand_return (tree retval)
       val = expand_expr (retval_rhs, val, GET_MODE (val), 0);
       val = force_not_mem (val);
       emit_queue ();
+
       /* Return the calculated value, doing cleanups first.  */
       expand_value_return (val);
     }
@@ -3183,6 +3240,7 @@ expand_return (tree retval)
 	 calculate value into hard return reg.  */
       expand_expr (retval, const0_rtx, VOIDmode, 0);
       emit_queue ();
+
       expand_value_return (result_rtl);
     }
 }
@@ -3487,6 +3545,14 @@ expand_nl_handler_label (rtx slot, rtx before_insn)
 static void
 expand_nl_goto_receiver (void)
 {
+    /* Clobber the FP when we get here, so we have to make sure it's
+     marked as used by this function.  */
+  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+
+  /* Mark the static chain as clobbered here so life information
+     doesn't get messed up for it.  */
+  emit_insn (gen_rtx_CLOBBER (VOIDmode, static_chain_rtx));
+
 #ifdef HAVE_nonlocal_goto
   if (! HAVE_nonlocal_goto)
 #endif
@@ -3535,6 +3601,13 @@ expand_nl_goto_receiver (void)
   if (HAVE_nonlocal_goto_receiver)
     emit_insn (gen_nonlocal_goto_receiver ());
 #endif
+
+  /* @@@ This is a kludge.  Not all machine descriptions define a blockage
+     insn, but we must not allow the code we just generated to be reordered
+     by scheduling.  Specifically, the update of the frame pointer must
+     happen immediately, not later.  So emit an ASM_INPUT to act as blockage
+     insn.  */
+  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 }
 
 /* Make handlers for nonlocal gotos taking place in the function calls in
@@ -3706,6 +3779,7 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
       /* Don't let cleanups affect ({...}) constructs.  */
       int old_expr_stmts_for_value = expr_stmts_for_value;
       rtx old_last_expr_value = last_expr_value;
+      rtx old_last_expr_alt_rtl = last_expr_alt_rtl;
       tree old_last_expr_type = last_expr_type;
       expr_stmts_for_value = 0;
 
@@ -3722,6 +3796,7 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
 
       expr_stmts_for_value = old_expr_stmts_for_value;
       last_expr_value = old_last_expr_value;
+      last_expr_alt_rtl = old_last_expr_alt_rtl;
       last_expr_type = old_last_expr_type;
 
       /* Restore the stack level.  */

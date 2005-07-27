@@ -21,117 +21,331 @@ Boston, MA 02111-1307, USA.  */
 
 #include "pex-common.h"
 
-#ifdef HAVE_STRING_H
-#include <string.h>
-#endif
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
-
-#include <process.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <io.h>
 #include <fcntl.h>
-#include <signal.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-/* mingw32 headers may not define the following.  */
+static const char *this_program;
 
-#ifndef _P_WAIT
-#  define _P_WAIT	0
-#  define _P_NOWAIT	1
-#  define _P_OVERLAY	2
-#  define _P_NOWAITO	3
-#  define _P_DETACH	4
+#define xclose(fd) do {					\
+  if (fd != -1)						\
+    {							\
+      _close (fd);					\
+      fd = -1;						\
+    }							\
+} while (0)
 
-#  define WAIT_CHILD		0
-#  define WAIT_GRANDCHILD	1
-#endif
-
-/* This is a kludge to get around the Microsoft C spawn functions' propensity
-   to remove the outermost set of double quotes from all arguments.  */
-
-static const char * const *
-fix_argv (argvec)
-     char **argvec;
+/* Returns a string containing a text error message, after a Windows
+   "system call" failed.  Caller is responsible for deallocating it
+   (with LocalFree()).  */
+static char *
+get_last_error_as_text ()
 {
-  int i;
-  char * command0 = argvec[0];
+  DWORD last_error = GetLastError();
+  LPSTR result;
 
-  /* Ensure that the executable pathname uses Win32 backslashes.  */
-  for (; *command0 != '\0'; command0++)
-    if (*command0 == '/')
-      *command0 = '\\';
- 
-  for (i = 1; argvec[i] != 0; i++)
+  /* We assume the error message belongs to 'the system' as opposed
+     to some module (which we would have to load, and we don't know
+     which one it is).  */
+  DWORD flags = (FORMAT_MESSAGE_ALLOCATE_BUFFER
+		 | FORMAT_MESSAGE_IGNORE_INSERTS
+		 | FORMAT_MESSAGE_FROM_SYSTEM);
+
+  /* Default language.  */
+  DWORD langid = MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT);
+
+  /* Yes, you are supposed to cast LPSTR* to LPSTR in the fifth
+     argument.  This interface is intrinsically type-unsafe.  */
+  FormatMessageA(flags, 0, last_error, langid, (LPSTR) &result, 0, 0);
+
+  return result;
+}
+  
+static char *
+argv_to_cmdline(argv)
+     char *const *argv;
+{
+  char *cmdline;
+  char *p;
+  size_t cmdline_len;
+  int i, j;
+
+  cmdline_len = 0;
+  for (i = 0; argv[i]; i++)
     {
-      int len, j;
-      char *temp, *newtemp;
-
-      temp = argvec[i];
-      len = strlen (temp);
-      for (j = 0; j < len; j++)
-        {
-          if (temp[j] == '"')
-            {
-              newtemp = xmalloc (len + 2);
-              strncpy (newtemp, temp, j);
-              newtemp [j] = '\\';
-              strncpy (&newtemp [j+1], &temp [j], len-j);
-              newtemp [len+1] = 0;
-              temp = newtemp;
-              len++;
-              j++;
-            }
-        }
-
-        argvec[i] = temp;
-      }
-
-  for (i = 0; argvec[i] != 0; i++)
-    {
-      if (strpbrk (argvec[i], " \t"))
-        {
-	  int len, trailing_backslash;
-	  char *temp;
-
-	  len = strlen (argvec[i]);
-	  trailing_backslash = 0;
-
-	  /* There is an added complication when an arg with embedded white
-	     space ends in a backslash (such as in the case of -iprefix arg
-	     passed to cpp). The resulting quoted strings gets misinterpreted
-	     by the command interpreter -- it thinks that the ending quote
-	     is escaped by the trailing backslash and things get confused. 
-	     We handle this case by escaping the trailing backslash, provided
-	     it was not escaped in the first place.  */
-	  if (len > 1 
-	      && argvec[i][len-1] == '\\' 
-	      && argvec[i][len-2] != '\\')
-	    {
-	      trailing_backslash = 1;
-	      ++len;			/* to escape the final backslash. */
-	    }
-
-	  len += 2;			/* and for the enclosing quotes. */
-
-	  temp = xmalloc (len + 1);
-	  temp[0] = '"';
-	  strcpy (temp + 1, argvec[i]);
-	  if (trailing_backslash)
-	    temp[len-2] = '\\';
-	  temp[len-1] = '"';
-	  temp[len] = '\0';
-
-	  argvec[i] = temp;
-	}
+      /* We quote every last argument.  This simplifies the problem;
+	 we need only escape embedded double-quote and backslash
+	 characters.  */
+      for (j = 0; argv[i][j]; j++)
+	if (argv[i][j] == '\\' || argv[i][j] == '"')
+	  cmdline_len++;
+      cmdline_len += j;
+      cmdline_len += 3;  /* for leading and trailing quotes and space */
     }
 
-  return (const char * const *) argvec;
+  cmdline = xmalloc (cmdline_len);
+  p = cmdline;
+  for (i = 0; argv[i]; i++)
+    {
+      *p++ = '"';
+      for (j = 0; argv[i][j]; j++)
+	{
+	  if (argv[i][j] == '\\' || argv[i][j] == '"')
+	    *p++ = '\\';
+	  *p++ = argv[i][j];
+	}
+      *p++ = '"';
+      *p++ = ' ';
+    }
+  p[-1] = '\0';
+  return cmdline;
 }
 
-/* Win32 supports pipes */
+static const char *const
+std_suffixes[] = {
+  ".com",
+  ".exe",
+  ".bat",
+  ".cmd",
+  0
+};
+static const char *const
+no_suffixes[] = {
+  "",
+  0
+};
+
+static char *
+find_executable (program, search)
+     const char *program;
+     int search;
+{
+  char *full_executable;
+  char *e;
+  size_t fe_len;
+  const char *path = 0;
+  const char *const *ext;
+  const char *p, *q;
+  size_t proglen = strlen (program);
+  int has_extension = !!strchr (program, '.');
+  int has_slash = (strchr (program, '/') || strchr (program, '\\'));
+  HANDLE h;
+
+  if (has_slash)
+    search = 0;
+
+  if (search)
+    path = getenv ("PATH");
+  if (!path)
+    path = "";
+
+  fe_len = 0;
+  for (p = path; *p; p = q)
+    {
+      q = p;
+      while (*q != ';' && *q != '\0')
+	q++;
+      if ((size_t)(q - p) > fe_len)
+	fe_len = q - p;
+      if (*q == ';')
+	q++;
+    }
+  fe_len = fe_len + 1 + proglen + (has_extension ? 1 : 5);
+  full_executable = xmalloc (fe_len);
+
+  p = path;
+  do
+    {
+      q = p;
+      while (*q != ';' && *q != '\0')
+	q++;
+
+      e = full_executable;
+      memcpy (e, p, q - p);
+      e += (q - p);
+      if (q - p)
+	*e++ = '\\';
+      strcpy (e, program);
+
+      if (*q == ';')
+	q++;
+
+      for (e = full_executable; *e; e++)
+	if (*e == '/')
+	  *e = '\\';
+
+      /* At this point, e points to the terminating NUL character for
+         full_executable.  */
+      for (ext = has_extension ? no_suffixes : std_suffixes; *ext; ext++)
+	{
+	  /* Remove any current extension.  */
+	  *e = '\0';
+	  /* Add the new one.  */
+	  strcat (full_executable, *ext);
+
+	  /* Attempt to open this file.  */
+	  h = CreateFile (full_executable, GENERIC_READ,
+			  FILE_SHARE_READ | FILE_SHARE_WRITE,
+			  0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+	  if (h != INVALID_HANDLE_VALUE)
+	    goto found;
+	}
+      p = q;
+    }
+  while (*p);
+  free (full_executable);
+  return 0;
+
+ found:
+  CloseHandle (h);
+  return full_executable;
+}
+
+/* Tries to duplicate a handle. Returns true for successful duplication, or
+   if GetStdHandle returns 0 or INVALID_HANDLE_VALUE. Returns false on
+   error.  */
+
+static int
+maybe_duplicate_handle (HANDLE *dest, int fd, DWORD type, HANDLE me)
+{
+  if (fd == -1)
+    {
+      HANDLE std_handle = GetStdHandle (type);
+      if (std_handle != INVALID_HANDLE_VALUE
+	  && std_handle != 0)
+	{
+	  if (!DuplicateHandle (me, std_handle, me, dest, 0, TRUE,
+		                DUPLICATE_SAME_ACCESS))
+	    return 0;
+	}
+    }
+  else
+    {
+      if (!DuplicateHandle (me, (HANDLE)_get_osfhandle (fd), me, dest, 0, TRUE,
+	                    DUPLICATE_SAME_ACCESS))
+	return 0;
+    }
+  return 1;
+}
+
+int
+pexec (program, argv, search, stdin_fd, stdout_fd, stderr_fd)
+     const char *program;
+     char *const *argv;
+     int search;
+     int stdin_fd;
+     int stdout_fd;
+     int stderr_fd;
+{
+  char *cmdline = argv_to_cmdline (argv);
+  char *executable = find_executable (program, search);
+  STARTUPINFO si;
+  PROCESS_INFORMATION pinf;
+  HANDLE me;
+
+  /* Canonicalize file descriptor arguments.  */
+  stdin_fd  = (stdin_fd == STDIN_FILE_NO)   ? -1 : stdin_fd;
+  stdout_fd = (stdout_fd == STDOUT_FILE_NO) ? -1 : stdout_fd;
+  stderr_fd = (stderr_fd == STDERR_FILE_NO) ? -1 : stderr_fd;
+
+  memset (&si, 0, sizeof si);
+  si.cb = sizeof si;
+  si.dwFlags = STARTF_USESTDHANDLES;
+  si.hStdInput = INVALID_HANDLE_VALUE;
+  si.hStdOutput = INVALID_HANDLE_VALUE;
+  si.hStdError = INVALID_HANDLE_VALUE;
+
+  me = GetCurrentProcess();
+
+  if (!maybe_duplicate_handle (&si.hStdInput, stdin_fd, STD_INPUT_HANDLE, me))
+    goto cleanup;
+
+  if (!maybe_duplicate_handle (&si.hStdOutput, stdout_fd, STD_OUTPUT_HANDLE,
+	                       me))
+    goto cleanup;
+
+  if (!maybe_duplicate_handle (&si.hStdError, stderr_fd, STD_ERROR_HANDLE, me))
+    goto cleanup;
+
+  if (!CreateProcess (executable, cmdline,
+		     0, 0, TRUE, 0, 0, 0,
+		     &si, &pinf))
+    goto cleanup;
+
+  CloseHandle (pinf.hThread);
+  
+ done:
+  /* Close file descriptors passed to the child (whether or not we
+     managed to create a child).  */
+  xclose (stdin_fd);
+  xclose (stdout_fd);
+  if (stderr_fd != stdout_fd)
+    xclose (stderr_fd);
+  if (si.hStdInput != INVALID_HANDLE_VALUE)
+    CloseHandle (si.hStdInput);
+  if (si.hStdOutput != INVALID_HANDLE_VALUE)
+    CloseHandle (si.hStdOutput);
+  if (si.hStdError != INVALID_HANDLE_VALUE)
+    CloseHandle (si.hStdError);
+
+  free (executable);
+  free (cmdline);
+
+  /* Treat the process handle as an integer.  It would be cleaner to
+     define a pid_t type that would be used by all libiberty callers;
+     that type would be HANDLE under Windows.  However, that would
+     require changing a lot of existing code.  */
+  if (sizeof (HANDLE) != sizeof (int))
+    abort ();
+  return (int) pinf.hProcess;
+
+ cleanup:
+  {
+    /* Error strings on win32 include newlines.  */
+    char *errstr = get_last_error_as_text ();
+    fprintf (stderr, "%s tried to spawn %s but failed: %s",
+	     this_program, program, errstr);
+    LocalFree (errstr);
+  }
+  /* Fortuitously, INVALID_HANDLE_VALUE is -1, which is the
+     conventional error return value for pwait.  */
+  pinf.hProcess = INVALID_HANDLE_VALUE;
+  goto done;
+}
+
+/* MSVCRT's _pipe() creates pipes that can be inherited, which is not
+   what we want, so we go directly to CreatePipe().  */
+int
+pmkpipe (thepipe)
+     int thepipe[2];
+{
+  HANDLE read_port;
+  HANDLE write_port;
+
+  if (!CreatePipe (&read_port, &write_port, 0, 0))
+    return -1;
+
+  thepipe[0] = _open_osfhandle ((long)read_port, _O_RDONLY);
+  thepipe[1] = _open_osfhandle ((long)write_port, _O_WRONLY);
+  if (thepipe[0] == -1 || thepipe[1] == -1)
+    {
+      if (thepipe[0] == -1)
+	CloseHandle (read_port);
+      else
+	_close (thepipe[0]);
+      if (thepipe[1] == -1)
+	CloseHandle (write_port);
+      else
+	_close (thepipe[1]);
+      return -1;
+    }
+  return 0;
+}
+
 int
 pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
      const char *program;
@@ -141,88 +355,63 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
      char **errmsg_fmt, **errmsg_arg;
      int flags;
 {
+  /* Pipe waiting from last process, to be used as input for the next
+     one.  Value is -1 if no pipe is waiting (i.e. the next command is
+     the first of a group).  */
+  static int last_pipe_input = -1;
+
   int pid;
-  int pdes[2];
-  int org_stdin = -1;
-  int org_stdout = -1;
-  int input_desc, output_desc;
+  int pdesc[2];
+  int serrno;
+  int child_stdin = -2, child_stdout = -2;
 
-  /* Pipe waiting from last process, to be used as input for the next one.
-     Value is STDIN_FILE_NO if no pipe is waiting
-     (i.e. the next command is the first of a group).  */
-  static int last_pipe_input;
-
-  /* If this is the first process, initialize.  */
+  /* If this is the first process, last_pipe_input ought to be -1.  */
   if (flags & PEXECUTE_FIRST)
-    last_pipe_input = STDIN_FILE_NO;
+    if (last_pipe_input != -1)
+      abort ();
 
-  input_desc = last_pipe_input;
+  child_stdin = last_pipe_input;
 
-  /* If this isn't the last process, make a pipe for its output,
-     and record it as waiting to be the input to the next process.  */
-  if (! (flags & PEXECUTE_LAST))
+  /* If this is the last process, don't do anything with its output
+     pipe.  */
+  if (flags & PEXECUTE_LAST)
+    child_stdout = -1;
+  else
     {
-      if (_pipe (pdes, 256, O_BINARY) < 0)
+      /* Create a pipe to go between this process and the next one in
+	 the pipeline.  */
+      if (pmkpipe (pdesc))
 	{
 	  *errmsg_fmt = "pipe";
 	  *errmsg_arg = NULL;
 	  return -1;
 	}
-      output_desc = pdes[WRITE_PORT];
-      last_pipe_input = pdes[READ_PORT];
-    }
-  else
-    {
-      /* Last process.  */
-      output_desc = STDOUT_FILE_NO;
-      last_pipe_input = STDIN_FILE_NO;
+      last_pipe_input = pdesc[READ_PORT];
+      child_stdout = pdesc[WRITE_PORT];
     }
 
-  if (input_desc != STDIN_FILE_NO)
-    {
-      org_stdin = dup (STDIN_FILE_NO);
-      dup2 (input_desc, STDIN_FILE_NO);
-      close (input_desc); 
-    }
+  pid = pexec (program, argv, (flags & PEXECUTE_SEARCH),
+	       child_stdin, child_stdout, -1);
 
-  if (output_desc != STDOUT_FILE_NO)
-    {
-      org_stdout = dup (STDOUT_FILE_NO);
-      dup2 (output_desc, STDOUT_FILE_NO);
-      close (output_desc);
-    }
+  serrno = errno;
+  xclose (child_stdin);
+  xclose (child_stdout);
 
-  pid = (flags & PEXECUTE_SEARCH ? _spawnvp : _spawnv)
-    (_P_NOWAIT, program, fix_argv(argv));
+  /* To prevent a file descriptor leak, close last_pipe_input if pexec
+     failed.  */
+  if (pid == -1)
+    xclose (last_pipe_input);
 
-  if (input_desc != STDIN_FILE_NO)
-    {
-      dup2 (org_stdin, STDIN_FILE_NO);
-      close (org_stdin);
-    }
-
-  if (output_desc != STDOUT_FILE_NO)
-    {
-      dup2 (org_stdout, STDOUT_FILE_NO);
-      close (org_stdout);
-    }
+  errno = serrno;
 
   if (pid == -1)
     {
-      *errmsg_fmt = install_error_msg;
-      *errmsg_arg = (char*) program;
-      return -1;
+      *errmsg_fmt = "spawn";
+      *errmsg_arg = NULL;
     }
 
   return pid;
 }
-
-/* MS CRTDLL doesn't return enough information in status to decide if the
-   child exited due to a signal or not, rather it simply returns an
-   integer with the exit code of the child; eg., if the child exited with 
-   an abort() call and didn't have a handler for SIGABRT, it simply returns
-   with status = 3. We fix the status code to conform to the usual WIF*
-   macros. Note that WIFSIGNALED will never be true under CRTDLL. */
 
 int
 pwait (pid, status, flags)
@@ -230,21 +419,22 @@ pwait (pid, status, flags)
      int *status;
      int flags ATTRIBUTE_UNUSED;
 {
-  int termstat;
+  /* The return value from pexecute is actually a HANDLE.  */
+  HANDLE proch = (HANDLE) pid;
+  if (WaitForSingleObject (proch, INFINITE) != WAIT_OBJECT_0)
+    {
+      CloseHandle (proch);
+      return -1;
+    }
 
-  pid = _cwait (&termstat, pid, WAIT_CHILD);
-
-  /* ??? Here's an opportunity to canonicalize the values in STATUS.
-     Needed?  */
-
-  /* cwait returns the child process exit code in termstat.
-     A value of 3 indicates that the child caught a signal, but not
-     which one.  Since only SIGABRT, SIGFPE and SIGINT do anything, we
-     report SIGABRT.  */
-  if (termstat == 3)
-    *status = SIGABRT;
-  else
-    *status = (((termstat) & 0xff) << 8);
-
+  GetExitCodeProcess (proch, (DWORD *)status);
+  CloseHandle (proch);
   return pid;
+}
+
+void
+pexec_set_program_name (name)
+     const char *name;
+{
+  this_program = name;
 }

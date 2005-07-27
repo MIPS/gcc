@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -123,8 +123,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    This pass must update information that subsequent passes expect to
    be correct.  Namely: reg_n_refs, reg_n_sets, reg_n_deaths,
-   reg_n_calls_crossed, and reg_live_length.  Also, BLOCK_HEAD,
-   BLOCK_END.
+   reg_n_calls_crossed, and reg_live_length.  Also, BB_HEAD, BB_END.
 
    The information in the line number notes is carefully retained by
    this pass.  Notes that refer to the starting and ending of
@@ -733,7 +732,7 @@ actual_hazard_this_instance (int unit, int instance, rtx insn, int clock, int co
    at time CLOCK.  The scheduler using only DFA description should
    never use the following function.  */
 
-HAIFA_INLINE static void
+static void
 schedule_unit (int unit, rtx insn, int clock)
 {
   int i;
@@ -765,7 +764,7 @@ schedule_unit (int unit, rtx insn, int clock)
    was COST.  The scheduler using only DFA description should never
    use the following function.  */
 
-HAIFA_INLINE static int
+static int
 actual_hazard (int unit, rtx insn, int clock, int cost)
 {
   int i;
@@ -973,7 +972,7 @@ priority (rtx insn)
 }
 
 /* Macros and functions for keeping the priority queue sorted, and
-   dealing with queueing and dequeueing of instructions.  */
+   dealing with queuing and dequeuing of instructions.  */
 
 #define SCHED_SORT(READY, N_READY)                                   \
 do { if ((N_READY) == 2)				             \
@@ -1432,8 +1431,8 @@ void
 get_block_head_tail (int b, rtx *headp, rtx *tailp)
 {
   /* HEAD and TAIL delimit the basic block being scheduled.  */
-  rtx head = BLOCK_HEAD (b);
-  rtx tail = BLOCK_END (b);
+  rtx head = BB_HEAD (BASIC_BLOCK (b));
+  rtx tail = BB_END (BASIC_BLOCK (b));
 
   /* Don't include any notes or labels at the beginning of the
      basic block, or notes at the ends of basic blocks.  */
@@ -1872,7 +1871,7 @@ ok_for_early_queue_removal (rtx insn)
 
 
 /* Remove insns from the queue, before they become "ready" with respect
-   to FU latency considerations.   */
+   to FU latency considerations.  */
 
 static int 
 early_queue_to_ready (state_t state, struct ready_list *ready)
@@ -2394,6 +2393,7 @@ schedule_block (int b, int rgn_n_insns)
 	{
 	  rtx insn;
 	  int cost;
+	  bool asm_p = false;
 
 	  if (sched_verbose >= 2)
 	    {
@@ -2451,9 +2451,9 @@ schedule_block (int b, int rgn_n_insns)
 	      memcpy (temp_state, curr_state, dfa_state_size);
 	      if (recog_memoized (insn) < 0)
 		{
-		  if (!first_cycle_insn_p
-		      && (GET_CODE (PATTERN (insn)) == ASM_INPUT
-			  || asm_noperands (PATTERN (insn)) >= 0))
+		  asm_p = (GET_CODE (PATTERN (insn)) == ASM_INPUT
+			   || asm_noperands (PATTERN (insn)) >= 0);
+		  if (!first_cycle_insn_p && asm_p)
 		    /* This is asm insn which is tryed to be issued on the
 		       cycle not first.  Issue it on the next cycle.  */
 		    cost = 1;
@@ -2563,11 +2563,15 @@ schedule_block (int b, int rgn_n_insns)
 					       insn, can_issue_more);
 	  /* A naked CLOBBER or USE generates no instruction, so do
 	     not count them against the issue rate.  */
-	  else if (GET_CODE (PATTERN (insn)) != USE
-		   && GET_CODE (PATTERN (insn)) != CLOBBER)
+	  else if (INSN_P (insn) && (GET_CODE (PATTERN (insn)) != USE
+				     && GET_CODE (PATTERN (insn)) != CLOBBER))
 	    can_issue_more--;
 
 	  advance = schedule_insn (insn, &ready, clock_var);
+
+	  /* After issuing an asm insn we should start a new cycle.  */
+	  if (advance == 0 && asm_p)
+	    advance = 1;
 	  if (advance != 0)
 	    break;
 
@@ -2791,7 +2795,7 @@ sched_init (FILE *dump_file)
   h_i_d[0].luid = 0;
   luid = 1;
   FOR_EACH_BB (b)
-    for (insn = b->head;; insn = NEXT_INSN (insn))
+    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
       {
 	INSN_LUID (insn) = luid;
 
@@ -2803,7 +2807,7 @@ sched_init (FILE *dump_file)
 	if (GET_CODE (insn) != NOTE)
 	  ++luid;
 
-	if (insn == b->end)
+	if (insn == BB_END (b))
 	  break;
       }
 
@@ -2825,7 +2829,7 @@ sched_init (FILE *dump_file)
 
       FOR_EACH_BB (b)
 	{
-	  for (line = b->head; line; line = PREV_INSN (line))
+	  for (line = BB_HEAD (b); line; line = PREV_INSN (line))
 	    if (GET_CODE (line) == NOTE && NOTE_LINE_NUMBER (line) > 0)
 	      {
 		line_note_head[b->index] = line;
@@ -2833,7 +2837,7 @@ sched_init (FILE *dump_file)
 	      }
 	  /* Do a forward search as well, since we won't get to see the first
 	     notes in a basic block.  */
-	  for (line = b->head; line; line = NEXT_INSN (line))
+	  for (line = BB_HEAD (b); line; line = NEXT_INSN (line))
 	    {
 	      if (INSN_P (line))
 		break;
@@ -2852,16 +2856,16 @@ sched_init (FILE *dump_file)
   /* ??? Add a NOTE after the last insn of the last basic block.  It is not
      known why this is done.  */
 
-  insn = EXIT_BLOCK_PTR->prev_bb->end;
+  insn = BB_END (EXIT_BLOCK_PTR->prev_bb);
   if (NEXT_INSN (insn) == 0
       || (GET_CODE (insn) != NOTE
 	  && GET_CODE (insn) != CODE_LABEL
 	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
 	  && GET_CODE (NEXT_INSN (insn)) != BARRIER))
     {
-      emit_note_after (NOTE_INSN_DELETED, EXIT_BLOCK_PTR->prev_bb->end);
+      emit_note_after (NOTE_INSN_DELETED, BB_END (EXIT_BLOCK_PTR->prev_bb));
       /* Make insn to appear outside BB.  */
-      EXIT_BLOCK_PTR->prev_bb->end = PREV_INSN (EXIT_BLOCK_PTR->prev_bb->end);
+      BB_END (EXIT_BLOCK_PTR->prev_bb) = PREV_INSN (BB_END (EXIT_BLOCK_PTR->prev_bb));
     }
 
   /* Compute INSN_REG_WEIGHT for all blocks.  We must do this before

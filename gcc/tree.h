@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -210,6 +210,8 @@ struct tree_common GTY(())
        TREE_PROTECTED in
            BLOCK
 	   ..._DECL
+       CALL_FROM_THUNK_P in
+           CALL_EXPR 
 
    side_effects_flag:
 
@@ -258,10 +260,14 @@ struct tree_common GTY(())
        TREE_NOTHROW in
            CALL_EXPR, FUNCTION_DECL
 
+       TYPE_ALIGN_OK in
+	   ..._TYPE
+
    deprecated_flag:
 
 	TREE_DEPRECATED in
 	   ..._DECL
+
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -270,8 +276,7 @@ struct tree_common GTY(())
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
 #define TREE_CODE(NODE) ((enum tree_code) (NODE)->common.code)
-#define TREE_SET_CODE(NODE, VALUE) \
-((NODE)->common.code = (ENUM_BITFIELD (tree_code)) (VALUE))
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros abort with a fatal error.  */
@@ -621,6 +626,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
    argument list.  */
 #define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
 
+/* In a CALL_EXPR, means that the call is the jump from a thunk to the
+   thunked-to function.  */
+#define CALL_FROM_THUNK_P(NODE) ((NODE)->common.protected_flag)
+
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
    of this type is aligned at least to the alignment of the type, even if it
@@ -792,6 +801,7 @@ struct tree_vec GTY(())
 /* In a RTL_EXPR node.  */
 #define RTL_EXPR_SEQUENCE(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 0)
 #define RTL_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 1)
+#define RTL_EXPR_ALT_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 2)
 
 /* In a WITH_CLEANUP_EXPR node.  */
 #define WITH_CLEANUP_EXPR_RTL(NODE) \
@@ -1343,12 +1353,7 @@ struct tree_type GTY(())
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_CHECK (NODE)->decl.mode)
-/* Holds the RTL expression for the value of a variable or function.  If
-   PROMOTED_MODE is defined, the mode of this expression may not be same
-   as DECL_MODE.  In that case, DECL_MODE contains the mode corresponding
-   to the variable's data type, while the mode
-   of DECL_RTL is the mode actually used to contain the data.
-
+/* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
 #define DECL_RTL(NODE)					\
@@ -1491,6 +1496,13 @@ struct tree_type GTY(())
 #define DECL_DECLARED_INLINE_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.declared_inline_flag)
 
+/* Value of the decls's visibility attribute */
+#define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
+
+/* Nonzero means that the decl had its visibility specified rather than
+   being inferred.  */
+#define DECL_VISIBILITY_SPECIFIED(NODE) (DECL_CHECK (NODE)->decl.visibility_specified)
+
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
 
@@ -1619,17 +1631,22 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-   the approximate number of statements in this function.  There is
-   no need for this number to be exact; it is only used in various
-   heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
   (! DECL_CONTEXT (EXP)						\
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
+
+/* Enumerate visibility settings.  */
+#ifndef SYMBOL_VISIBILITY_DEFINED
+#define SYMBOL_VISIBILITY_DEFINED
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
+#endif
 
 struct function;
 
@@ -1672,8 +1689,8 @@ struct tree_decl GTY(())
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned unused : 3;
-  /* three unused bits.  */
+  ENUM_BITFIELD(symbol_visibility) visibility : 2;
+  unsigned visibility_specified : 1;
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -1804,6 +1821,10 @@ enum tree_index
   TI_BITSIZE_ONE,
   TI_BITSIZE_UNIT,
 
+  TI_PUBLIC,
+  TI_PROTECTED,
+  TI_PRIVATE,
+
   TI_BOOLEAN_FALSE,
   TI_BOOLEAN_TRUE,
 
@@ -1889,9 +1910,9 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
 
 /* Base access nodes.  */
-#define access_public_node		NULL_TREE
-#define access_protected_node		size_zero_node
-#define access_private_node		size_one_node
+#define access_public_node		global_trees[TI_PUBLIC]
+#define access_protected_node	        global_trees[TI_PROTECTED]
+#define access_private_node		global_trees[TI_PRIVATE]
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
@@ -2007,15 +2028,6 @@ enum tls_model {
 
 extern enum tls_model flag_tls_default;
 
-/* Enumerate visibility settings.  */
-
-enum symbol_visibility
-{
-  VISIBILITY_DEFAULT,
-  VISIBILITY_INTERNAL,
-  VISIBILITY_HIDDEN,
-  VISIBILITY_PROTECTED
-};
 
 /* A pointer-to-function member type looks like:
 
@@ -2272,10 +2284,13 @@ extern tree lookup_attribute (const char *, tree);
 
 extern tree merge_attributes (tree, tree);
 
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 /* Given two Windows decl attributes lists, possibly including
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes (tree, tree);
+
+/* Handle a "dllimport" or "dllexport" attribute.  */
+extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
 #endif
 
 /* Return a version of the TYPE, qualified as indicated by the
@@ -2707,7 +2722,7 @@ extern tree get_file_function_name_long (const char *);
 extern tree get_set_constructor_bits (tree, char *, int);
 extern tree get_set_constructor_bytes (tree, unsigned char *, int);
 extern tree get_callee_fndecl (tree);
-extern void set_decl_assembler_name (tree);
+extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern tree lhd_unsave_expr_now (tree);
 
@@ -2842,6 +2857,8 @@ extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree, int);
 extern void expand_pending_sizes (tree);
+extern tree make_vector (enum machine_mode, tree, int);
+extern tree reconstruct_complex_type (tree, tree);
 
 extern int real_onep (tree);
 extern int real_twop (tree);
@@ -2936,6 +2953,7 @@ extern rtx emit_line_note (location_t);
 #define ECF_LIBCALL_BLOCK	4096
 
 extern int flags_from_decl_or_type (tree);
+extern int call_expr_flags (tree);
 
 extern int setjmp_call_p (tree);
 extern bool alloca_call_p (tree);
@@ -2969,10 +2987,10 @@ extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
 extern void variable_section (tree, int);
 enum tls_model decl_tls_model (tree);
-enum symbol_visibility decl_visibility (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void notice_global_symbol (tree);
+extern void process_pending_assemble_output_defs (void);
 
 /* In stmt.c */
 extern void emit_nop (void);

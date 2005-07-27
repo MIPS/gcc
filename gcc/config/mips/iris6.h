@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  IRIX version 6.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -267,19 +267,20 @@ Boston, MA 02111-1307, USA.  */
 /* Must pass -show instead of -v.  */
 /* Must pass -G 0 to the assembler, otherwise we may get warnings about
    GOT overflow.  */
-/* ??? We pass -w to disable all assembler warnings.  The `label should be
-   inside .ent/.end block' warning that we get for DWARF II debug info labels
-   is particularly annoying.  */
+/* Must pass -w to the assembler to quiet warnings about .ent/.end for dwarf2.  */
+#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GAS) == 0
+/* We have a separate file for gas.  */
 #undef SUBTARGET_MIPS_AS_ASM_SPEC
 #define SUBTARGET_MIPS_AS_ASM_SPEC "%{v:-show} -G 0 -w"
 
 #undef SUBTARGET_ASM_DEBUGGING_SPEC
-#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0 %(mdebug_asm_spec)"
+#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
 
 /* The MIPS assembler occasionally misoptimizes.  Since GCC should be
    doing scheduling anyhow, just turn off optimization in the assembler.  */
 #undef SUBTARGET_ASM_OPTIMIZING_SPEC
 #define SUBTARGET_ASM_OPTIMIZING_SPEC "-O0"
+#endif
 
 /* The assembler now accepts .section pseudo-ops, but it does not allow
    one to change the section in the middle of a function, so we can't use
@@ -287,6 +288,7 @@ Boston, MA 02111-1307, USA.  */
    and dtor lists this way, so we use -init and -fini to invoke the
    do_global_* functions instead of running collect2.  */
 
+#undef BSS_SECTION_ASM_OP
 #define BSS_SECTION_ASM_OP_32	"\t.data"
 #define BSS_SECTION_ASM_OP_64	"\t.section\t.bss"
 #define BSS_SECTION_ASM_OP			\
@@ -301,10 +303,6 @@ Boston, MA 02111-1307, USA.  */
   (mips_abi != ABI_32 && mips_abi != ABI_O64	\
    ? READONLY_DATA_SECTION_ASM_OP_64		\
    : READONLY_DATA_SECTION_ASM_OP_32)
-
-/* Switch into a generic section.  */
-#undef TARGET_ASM_NAMED_SECTION
-#define TARGET_ASM_NAMED_SECTION  irix_asm_named_section
 
 /* The default definition in defaults.h cannot cope with the runtime-variable
    definition of DWARF2_UNWIND_INFO above, so define here explicitly.  */
@@ -335,46 +333,6 @@ Boston, MA 02111-1307, USA.  */
 
 #endif /* _MIPS_SIM == _ABIO32 && !GAS */
 
-/* Define functions to read the name and flags of the current section.
-   They are used by irix_asm_output_align.  */
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS						\
-const char *								\
-current_section_name (void)						\
-{									\
-  switch (in_section)							\
-    {									\
-    case no_section:	return NULL;					\
-    case in_text:	return ".text";					\
-    case in_data:	return ".data";					\
-    case in_bss:	return ".bss";					\
-    case in_readonly_data:						\
-      if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
-	return ".rodata";						\
-      else								\
-	return ".rdata";						\
-    case in_named:							\
-      return in_named_name;						\
-    }									\
-  abort ();								\
-}									\
-									\
-unsigned int								\
-current_section_flags (void)						\
-{									\
-  switch (in_section)							\
-    {									\
-    case no_section:	return 0;					\
-    case in_text:	return SECTION_CODE;				\
-    case in_data:	return SECTION_WRITE;				\
-    case in_bss:	return SECTION_WRITE | SECTION_BSS;		\
-    case in_readonly_data: return 0;					\
-    case in_named:	return get_named_section_flags (in_named_name);	\
-    }									\
-  abort ();								\
-}
-
 /* SGI assembler needs all sorts of extra help to do alignment properly.  */
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN irix_asm_output_align
@@ -399,7 +357,7 @@ do								\
 while (0)
 
 /* ??? SGI assembler gives warning whenever .lcomm is used.  */
-#undef ASM_OUTPUT_LOCAL
+#undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(STREAM, NAME, SIZE, ALIGN)		   \
 do									   \
   {									   \
@@ -411,7 +369,8 @@ do									   \
 	ASM_OUTPUT_SKIP (STREAM, SIZE);					   \
       }									   \
     else								   \
-      mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (int)(SIZE)); \
+      mips_declare_common_object (STREAM, NAME, "\n\t.lcomm\t",		   \
+				  SIZE, ALIGN, false);			   \
   }									   \
 while (0)
 
@@ -422,12 +381,6 @@ while (0)
 
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
-
-/* Define the `__builtin_va_list' type for the ABI.  On IRIX 6, this
-   type is `char *'.  */
-#undef BUILD_VA_LIST_TYPE
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = build_pointer_type (char_type_node)
 
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
@@ -442,8 +395,8 @@ while (0)
 /* Profiling is supported via libprof1.a not -lc_p as in IRIX 3.  */
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC \
+#undef IRIX_STARTFILE_SPEC
+#define IRIX_STARTFILE_SPEC \
   "%{!shared: \
      %{mabi=32:%{pg:gcrt1.o%s} \
        %{!pg:%{p:mcrt1.o%s libprof1.a%s}%{!p:crt1.o%s}}} \
@@ -467,8 +420,10 @@ while (0)
            %{!p:/usr/lib32/mips4/crt1.o%s}}} \
        %{!mips4:%{pg:/usr/lib32/mips3/gcrt1.o%s} \
          %{!pg:%{p:/usr/lib32/mips3/mcrt1.o%s /usr/lib32/mips3/libprof1.a%s} \
-           %{!p:/usr/lib32/mips3/crt1.o%s}}}}} \
-   crtbegin.o%s"
+           %{!p:/usr/lib32/mips3/crt1.o%s}}}}}"
+
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC "%(irix_startfile_spec) crtbegin.o%s"
 
 #undef LIB_SPEC
 #define LIB_SPEC \
@@ -487,10 +442,9 @@ while (0)
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#undef ENDFILE_SPEC
-#define ENDFILE_SPEC \
-  "crtend.o%s \
-   %{!shared: \
+#undef IRIX_ENDFILE_SPEC
+#define IRIX_ENDFILE_SPEC \
+  "%{!shared: \
      %{mabi=32:crtn.o%s}\
      %{mabi=n32:%{mips4:/usr/lib32/mips4/crtn.o%s}\
        %{!mips4:/usr/lib32/mips3/crtn.o%s}}\
@@ -498,6 +452,9 @@ while (0)
        %{!mips4:/usr/lib64/mips3/crtn.o%s}}\
      %{!mabi*:%{mips4:/usr/lib32/mips4/crtn.o%s}\
        %{!mips4:/usr/lib32/mips3/crtn.o%s}}}"
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC "crtend.o%s %(irix_endfile_spec)"
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */

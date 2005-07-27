@@ -1,5 +1,5 @@
 /* Definitions for SH running NetBSD using ELF
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
 This file is part of GCC.
@@ -93,6 +93,8 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_DEFAULT \
   (TARGET_CPU_DEFAULT | USERMODE_BIT | TARGET_ENDIAN_DEFAULT)
 
+/* Define because we use the label and we do not need them.  */
+#define NO_PROFILE_COUNTERS
  
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(STREAM,LABELNO)				\

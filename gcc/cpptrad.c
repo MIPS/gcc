@@ -1,5 +1,5 @@
 /* CPP Library - traditional lexical analysis and macro expansion.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
    Contributed by Neil Booth, May 2002
 
 This program is free software; you can redistribute it and/or modify it
@@ -158,7 +158,7 @@ copy_comment (cpp_reader *pfile, const uchar *cur, int in_define)
     unterminated = _cpp_skip_block_comment (pfile);
     
   if (unterminated)
-    cpp_error_with_line (pfile, DL_ERROR, from_line, 0,
+    cpp_error_with_line (pfile, CPP_DL_ERROR, from_line, 0,
 			 "unterminated comment");
 
   /* Comments in directives become spaces so that tokens are properly
@@ -350,6 +350,7 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
   unsigned int c, paren_depth = 0, quote;
   enum ls lex_state = ls_none;
   bool header_ok;
+  const uchar *start_of_input_line;
 
   fmacro.buff = NULL;
 
@@ -359,6 +360,9 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
   RLIMIT (pfile->context) = pfile->buffer->rlimit;
   pfile->out.cur = pfile->out.base;
   pfile->out.first_line = pfile->line;
+  /* start_of_input_line is needed to make sure that directives really,
+     really start at the first character of the line.  */
+  start_of_input_line = pfile->buffer->cur;
  new_context:
   context = pfile->context;
   cur = CUR (context);
@@ -581,7 +585,7 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
 	  break;
 
 	case '#':
-	  if (out - 1 == pfile->out.base
+	  if (cur - 1 == start_of_input_line
 	      /* A '#' from a macro doesn't start a directive.  */
 	      && !pfile->context->prev
 	      && !pfile->state.in_directive)
@@ -667,7 +671,7 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
     _cpp_release_buff (pfile, fmacro.buff);
 
   if (lex_state == ls_fun_close)
-    cpp_error_with_line (pfile, DL_ERROR, fmacro.line, 0,
+    cpp_error_with_line (pfile, CPP_DL_ERROR, fmacro.line, 0,
 			 "unterminated argument list invoking macro \"%s\"",
 			 NODE_NAME (fmacro.node));
   return result;
@@ -736,7 +740,7 @@ recursive_macro (cpp_reader *pfile, cpp_hashnode *node)
     }
 
   if (recursing)
-    cpp_error (pfile, DL_ERROR,
+    cpp_error (pfile, CPP_DL_ERROR,
 	       "detected recursion whilst expanding macro \"%s\"",
 	       NODE_NAME (node));
 
@@ -903,6 +907,9 @@ scan_parameters (cpp_reader *pfile, cpp_macro *macro)
       break;
     }
 
+  if (!ok)
+    cpp_error (pfile, CPP_DL_ERROR, "syntax error in macro parameter list");
+
   CUR (pfile->context) = cur + (*cur == ')');
 
   return ok;
@@ -978,14 +985,17 @@ _cpp_create_trad_definition (cpp_reader *pfile, cpp_macro *macro)
   /* Is this a function-like macro?  */
   if (* CUR (context) == '(')
     {
+      bool ok = scan_parameters (pfile, macro);
+
+      /* Remember the params so we can clear NODE_MACRO_ARG flags.  */
+      macro->params = (cpp_hashnode **) BUFF_FRONT (pfile->a_buff);
+
       /* Setting macro to NULL indicates an error occurred, and
 	 prevents unnecessary work in _cpp_scan_out_logical_line.  */
-      if (!scan_parameters (pfile, macro))
+      if (!ok)
 	macro = NULL;
       else
 	{
-	  /* Success.  Commit the parameter array.  */
-	  macro->params = (cpp_hashnode **) BUFF_FRONT (pfile->a_buff);
 	  BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->params[macro->paramc];
 	  macro->fun_like = 1;
 	}

@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -266,7 +266,8 @@ hook_get_alias_set_0 (tree t ATTRIBUTE_UNUSED)
 rtx
 lhd_expand_expr (tree t ATTRIBUTE_UNUSED, rtx r ATTRIBUTE_UNUSED,
 		 enum machine_mode mm ATTRIBUTE_UNUSED,
-		 int em ATTRIBUTE_UNUSED)
+		 int em ATTRIBUTE_UNUSED,
+		 rtx *a ATTRIBUTE_UNUSED)
 {
   abort ();
 }
@@ -420,7 +421,8 @@ lhd_tree_inlining_end_inlining (tree fn ATTRIBUTE_UNUSED)
 tree
 lhd_tree_inlining_convert_parm_for_inlining (tree parm ATTRIBUTE_UNUSED,
 					     tree value,
-					     tree fndecl ATTRIBUTE_UNUSED)
+					     tree fndecl ATTRIBUTE_UNUSED,
+					     int argnum ATTRIBUTE_UNUSED)
 {
   return value;
 }
@@ -484,6 +486,14 @@ lhd_decl_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Return the COMDAT group into which DECL should be placed.  */
+
+const char *
+lhd_comdat_group (tree decl)
+{
+  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+}
+
 /* lang_hooks.decls.final_write_globals: perform final processing on
    global variables.  */
 void
@@ -544,7 +554,6 @@ lhd_print_error_function (diagnostic_context *context, const char *file)
 	      (context->printer, "In function `%s':",
 	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
 	}
-      pp_newline (context->printer);
 
       diagnostic_set_last_function (context);
       pp_flush (context->printer);

@@ -1,6 +1,6 @@
 /* ieee754-df.S double-precision floating point support for ARM
 
-   Copyright (C) 2003  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
    Contributed by Nicolas Pitre (nico@cam.org)
 
    This file is free software; you can redistribute it and/or modify it
@@ -59,24 +59,33 @@
 #ifdef L_negdf2
 
 ARM_FUNC_START negdf2
+ARM_FUNC_ALIAS aeabi_dneg negdf2
 	@ flip sign bit
 	eor	xh, xh, #0x80000000
 	RET
 
+	FUNC_END aeabi_dneg
 	FUNC_END negdf2
 
 #endif
 
 #ifdef L_addsubdf3
 
-ARM_FUNC_START subdf3
+ARM_FUNC_START aeabi_drsub
+
+	eor	xh, xh, #0x80000000	@ flip sign bit of first arg
+	b	1f	
+
+	ARM_FUNC_START subdf3
+ARM_FUNC_ALIAS aeabi_dsub subdf3
 	@ flip sign bit of second arg
 	eor	yh, yh, #0x80000000
-#if defined(__thumb__) && !defined(__THUMB_INTERWORK__)
+#if defined(__INTERWORKING_STUBS__)
 	b	1f			@ Skip Thumb-code prologue
 #endif
 
 ARM_FUNC_START adddf3
+ARM_FUNC_ALIAS aeabi_dadd adddf3
 
 1:	@ Compare both args, return zero if equal but the sign.
 	teq	xl, yl
@@ -373,10 +382,13 @@ LSYM(Lad_i):
 	movne	xl, #0
 	RETLDM	"r4, r5"
 
+	FUNC_END aeabi_dsub
 	FUNC_END subdf3
+	FUNC_END aeabi_dadd
 	FUNC_END adddf3
 
 ARM_FUNC_START floatunsidf
+ARM_FUNC_ALIAS aeabi_ui2d floatunsidf
 	teq	r0, #0
 	moveq	r1, #0
 	RETc(eq)
@@ -388,9 +400,11 @@ ARM_FUNC_START floatunsidf
 	mov	xh, #0
 	b	LSYM(Lad_l)
 
+	FUNC_END aeabi_ui2d
 	FUNC_END floatunsidf
 
 ARM_FUNC_START floatsidf
+ARM_FUNC_ALIAS aeabi_i2d floatsidf
 	teq	r0, #0
 	moveq	r1, #0
 	RETc(eq)
@@ -403,9 +417,12 @@ ARM_FUNC_START floatsidf
 	mov	xh, #0
 	b	LSYM(Lad_l)
 
+	FUNC_END aeabi_i2d
 	FUNC_END floatsidf
 
 ARM_FUNC_START extendsfdf2
+ARM_FUNC_ALIAS aeabi_f2d extendsfdf2
+	
 	movs	r2, r0, lsl #1
 	beq	1f			@ value is 0.0 or -0.0
 	mov	xh, r2, asr #3		@ stretch exponent
@@ -429,14 +446,92 @@ ARM_FUNC_START extendsfdf2
 	bic	xh, xh, #0x80000000
 	b	LSYM(Lad_l)
 
+	FUNC_END aeabi_f2d
 	FUNC_END extendsfdf2
+
+ARM_FUNC_START floatundidf
+ARM_FUNC_ALIAS aeabi_ul2d floatundidf
+	
+	orrs	r2, r0, r1
+#if !defined (__VFP_FP__) && !defined(__SOFTFP__)
+	mvfeqd	f0, #0.0
+#endif
+	RETc(eq)
+#if !defined (__VFP_FP__) && !defined(__SOFTFP__)
+	@ For hard FPA code we want to return via the tail below so that
+	@ we can return the result in f0 as well as in r0/r1 for backwards
+	@ compatibility.
+	adr	ip, 1f
+	stmfd	sp!, {r4, r5, ip, lr}
+#else
+	stmfd	sp!, {r4, r5, lr}
+#endif
+	mov	r5, #0
+	b	2f
+
+ARM_FUNC_START floatdidf
+ARM_FUNC_ALIAS aeabi_l2d floatdidf
+	orrs	r2, r0, r1
+#if !defined (__VFP_FP__) && !defined(__SOFTFP__)
+	mvfeqd	f0, #0.0
+#endif
+	RETc(eq)
+#if !defined (__VFP_FP__) && !defined(__SOFTFP__)
+	@ For hard FPA code we want to return via the tail below so that
+	@ we can return the result in f0 as well as in r0/r1 for backwards
+	@ compatibility.
+	adr	ip, 1f
+	stmfd	sp!, {r4, r5, ip, lr}
+#else
+	stmfd	sp!, {r4, r5, lr}
+#endif
+	ands	r5, ah, #0x80000000	@ sign bit in r5
+	bpl	2f
+	rsbs	al, al, #0
+	rsc	ah, ah, #0
+2:
+	mov	r4, #(0x400 << 20)	@ initial exponent
+	add	r4, r4, #((52 - 1) << 20)
+#if !defined (__VFP_FP__) && !defined(__ARMEB__)
+	@ FPA little-endian: must swap the word order.
+	mov	ip, al
+	mov	xh, ah
+	mov	xl, ip
+#endif
+	movs	ip, xh, lsr #23
+	beq	LSYM(Lad_p)
+	@ The value's too big.  Scale it down a bit...
+	mov	r2, #3
+	movs	ip, ip, lsr #3
+	addne	r2, r2, #3
+	movs	ip, ip, lsr #3
+	addne	r2, r2, #3
+	rsb	r3, r2, #32
+	mov	ip, xl, lsl r3
+	mov	xl, xl, lsr r2
+	orr	xl, xl, xh, lsl r3
+	mov	xh, xh, lsr r2
+	add	r4, r4, r2, lsl #20
+	b	LSYM(Lad_p)
+#if !defined (__VFP_FP__) && !defined(__SOFTFP__)
+1:
+	@ Legacy code expects the result to be returned in f0.  Copy it
+	@ there as well.
+	stmfd	sp!, {r0, r1}
+	ldfd	f0, [sp], #8
+	RETLDM
+#endif
+	FUNC_END floatdidf
+	FUNC_END aeabi_l2d
+	FUNC_END floatundidf
+	FUNC_END aeabi_ul2d
 
 #endif /* L_addsubdf3 */
 
 #ifdef L_muldivdf3
 
 ARM_FUNC_START muldf3
-
+ARM_FUNC_ALIAS aeabi_dmul muldf3
 	stmfd	sp!, {r4, r5, r6, lr}
 
 	@ Mask out exponents.
@@ -659,8 +754,8 @@ LSYM(Lml_r):
 	orr	r3, r3, xh, lsl r5
 	mov	xl, xh, lsr r4
 	bic	xh, xh, #0x7fffffff
-	adds	xl, xl, r3, lsr #31
-	adc	xh, xh, #0
+	bic	xl, xl, xh, lsr r4
+	add	xl, xl, r3, lsr #31
 	orrs	r6, r6, lr
 	teqeq	r3, #0x80000000
 	biceq	xl, xl, #1
@@ -722,10 +817,12 @@ LSYM(Lml_n):
 	orr	xh, xh, #0x00f80000
 	RETLDM	"r4, r5, r6"
 
+	FUNC_END aeabi_dmul
 	FUNC_END muldf3
 
 ARM_FUNC_START divdf3
-
+ARM_FUNC_ALIAS aeabi_ddiv divdf3
+	
 	stmfd	sp!, {r4, r5, r6, lr}
 
 	@ Mask out exponents.
@@ -934,25 +1031,26 @@ LSYM(Ldv_s):
 	bne	LSYM(Lml_z)		@ 0 / <non_zero> -> 0
 	b	LSYM(Lml_n)		@ 0 / 0 -> NAN
 
+	FUNC_END aeabi_ddiv
 	FUNC_END divdf3
 
 #endif /* L_muldivdf3 */
 
 #ifdef L_cmpdf2
 
-FUNC_START gedf2
 ARM_FUNC_START gtdf2
+ARM_FUNC_ALIAS gedf2 gtdf2
 	mov	ip, #-1
 	b	1f
 
-FUNC_START ledf2
 ARM_FUNC_START ltdf2
+ARM_FUNC_ALIAS ledf2 ltdf2
 	mov	ip, #1
 	b	1f
 
-FUNC_START nedf2
-FUNC_START eqdf2
 ARM_FUNC_START cmpdf2
+ARM_FUNC_ALIAS nedf2 cmpdf2
+ARM_FUNC_ALIAS eqdf2 cmpdf2
 	mov	ip, #1			@ how should we specify unordered here?
 
 1:	stmfd	sp!, {r4, r5, lr}
@@ -1013,11 +1111,78 @@ ARM_FUNC_START cmpdf2
 	FUNC_END eqdf2
 	FUNC_END cmpdf2
 
+ARM_FUNC_START aeabi_cdrcmple
+	mov	ip, r0
+	mov	r0, r2
+	mov	r2, ip
+	mov	ip, r1
+	mov	r1, r3
+	mov	r3, ip
+	b	6f
+	
+ARM_FUNC_START aeabi_cdcmpeq
+ARM_FUNC_ALIAS aeabi_cdcmple aeabi_cdcmpeq
+	@ The status-returning routines are required to preserve all
+	@ registers except ip, lr, and cpsr.
+6:	stmfd	sp!, {r0, r1, r2, r3, lr}
+	ARM_CALL cmpdf2
+	@ Set the Z flag correctly, and the C flag unconditionally.
+	cmp	 r0, #0
+	@ Clear the C flag if the return value was -1, indicating
+	@ that the first operand was smaller than the second.
+	cmnmi	 r0, #0
+	RETLDM   "r0, r1, r2, r3"
+	FUNC_END aeabi_cdcmple
+	FUNC_END aeabi_cdcmpeq
+	
+ARM_FUNC_START	aeabi_dcmpeq
+	str	lr, [sp, #-4]!
+	ARM_CALL aeabi_cdcmple
+	moveq	r0, #1	@ Equal to.
+	movne	r0, #0	@ Less than, greater than, or unordered.
+	RETLDM
+	FUNC_END aeabi_dcmpeq
+
+ARM_FUNC_START	aeabi_dcmplt
+	str	lr, [sp, #-4]!
+	ARM_CALL aeabi_cdcmple
+	movcc	r0, #1	@ Less than.
+	movcs	r0, #0	@ Equal to, greater than, or unordered.
+	RETLDM
+	FUNC_END aeabi_dcmplt
+
+ARM_FUNC_START	aeabi_dcmple
+	str	lr, [sp, #-4]!
+	ARM_CALL aeabi_cdcmple
+	movls	r0, #1  @ Less than or equal to.
+	movhi	r0, #0	@ Greater than or unordered.
+	RETLDM
+	FUNC_END aeabi_dcmple
+
+ARM_FUNC_START	aeabi_dcmpge
+	str	lr, [sp, #-4]!
+	ARM_CALL aeabi_cdrcmple
+	movls	r0, #1	@ Operand 2 is less than or equal to operand 1.
+	movhi	r0, #0	@ Operand 2 greater than operand 1, or unordered.
+	RETLDM
+	FUNC_END aeabi_dcmpge
+
+ARM_FUNC_START	aeabi_dcmpgt
+	str	lr, [sp, #-4]!
+	ARM_CALL aeabi_cdrcmple
+	movcc	r0, #1	@ Operand 2 is less than operand 1.
+	movcs	r0, #0  @ Operand 2 is greater than or equal to operand 1,
+			@ or they are unordered.
+	RETLDM
+	FUNC_END aeabi_dcmpgt
+		
 #endif /* L_cmpdf2 */
 
 #ifdef L_unorddf2
 
 ARM_FUNC_START unorddf2
+ARM_FUNC_ALIAS aeabi_dcmpun unorddf2
+	
 	str	lr, [sp, #-4]!
 	mov	ip, #0x7f000000
 	orr	ip, ip, #0x00f00000
@@ -1037,6 +1202,7 @@ ARM_FUNC_START unorddf2
 3:	mov	r0, #1			@ arguments are unordered.
 	RETLDM
 
+	FUNC_END aeabi_dcmpun
 	FUNC_END unorddf2
 
 #endif /* L_unorddf2 */
@@ -1044,6 +1210,7 @@ ARM_FUNC_START unorddf2
 #ifdef L_fixdfsi
 
 ARM_FUNC_START fixdfsi
+ARM_FUNC_ALIAS aeabi_d2iz fixdfsi
 	orrs	ip, xl, xh, lsl #1
 	beq	1f			@ value is 0.
 
@@ -1084,6 +1251,7 @@ ARM_FUNC_START fixdfsi
 4:	mov	r0, #0			@ How should we convert NAN?
 	RET
 
+	FUNC_END aeabi_d2iz
 	FUNC_END fixdfsi
 
 #endif /* L_fixdfsi */
@@ -1091,6 +1259,7 @@ ARM_FUNC_START fixdfsi
 #ifdef L_fixunsdfsi
 
 ARM_FUNC_START fixunsdfsi
+ARM_FUNC_ALIAS aeabi_d2uiz fixunsdfsi
 	orrs	ip, xl, xh, lsl #1
 	movcss	r0, #0			@ value is negative
 	RETc(eq)			@ or 0 (xl, xh overlap r0)
@@ -1127,6 +1296,7 @@ ARM_FUNC_START fixunsdfsi
 4:	mov	r0, #0			@ How should we convert NAN?
 	RET
 
+	FUNC_END aeabi_d2uiz
 	FUNC_END fixunsdfsi
 
 #endif /* L_fixunsdfsi */
@@ -1134,6 +1304,7 @@ ARM_FUNC_START fixunsdfsi
 #ifdef L_truncdfsf2
 
 ARM_FUNC_START truncdfsf2
+ARM_FUNC_ALIAS aeabi_d2f truncdfsf2
 	orrs	r2, xl, xh, lsl #1
 	moveq	r0, r2, rrx
 	RETc(eq)			@ value is 0.0 or -0.0
@@ -1219,6 +1390,7 @@ ARM_FUNC_START truncdfsf2
 	and	xh, xh, #0x80000000
 	b	5b
 
+	FUNC_END aeabi_d2f
 	FUNC_END truncdfsf2
 
 #endif /* L_truncdfsf2 */

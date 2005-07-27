@@ -1,5 +1,5 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -86,7 +86,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
    } while (0)
 #endif
 
-/* choose a reasonable default for ASM_OUTPUT_ASCII.  */
+/* Choose a reasonable default for ASM_OUTPUT_ASCII.  */
 
 #ifndef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(MYFILE, MYSTRING, MYLENGTH) \
@@ -137,6 +137,12 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 	fprintf (FILE, "\n");						\
   } while (0)
 #endif
+#endif
+
+/* Decide whether to defer emitting the assembler output for an equate
+   of two values.  The default is to not defer output.  */
+#ifndef TARGET_DEFERRED_OUTPUT_DEFS
+#define TARGET_DEFERRED_OUTPUT_DEFS(DECL,TARGET) false
 #endif
 
 /* This is how to output the definition of a user-level label named
@@ -382,12 +388,22 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #define POINTER_SIZE BITS_PER_WORD
 #endif
 
-#ifndef BUILD_VA_LIST_TYPE
-#define BUILD_VA_LIST_TYPE(X) ((X) = ptr_type_node)
-#endif
-
 #ifndef PIC_OFFSET_TABLE_REGNUM
 #define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
+#endif
+
+#ifndef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 0
+#endif
+
+#ifndef TARGET_DECLSPEC
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+/* If the target supports the "dllimport" attribute, users are
+   probably used to the "__declspec" syntax.  */
+#define TARGET_DECLSPEC 1
+#else
+#define TARGET_DECLSPEC 0
+#endif
 #endif
 
 /* By default, the preprocessor should be invoked the same way in C++
@@ -489,7 +505,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
    PREFERRED_DEBUGGING_TYPE to choose a format in a system-dependent way.
 
    This is one long line cause VAXC can't handle a \-newline.  */
-#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) + defined (VMS_DEBUGGING_INFO))
+#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) + defined (VMS_DEBUGGING_INFO))
 #ifndef PREFERRED_DEBUGGING_TYPE
 You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif /* no PREFERRED_DEBUGGING_TYPE */
@@ -576,6 +592,13 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef FLOAT_LIB_COMPARE_RETURNS_BOOL
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
+#endif
+
+/* True if the targets integer-comparision fucntions return { 0, 1, 2
+   } to indicate { <, ==, > }.  False if { -1, 0, 1 } is used
+   instead.  The libgcc routines are biased.  */
+#ifndef TARGET_LIB_INT_CMP_BIASED
+#define TARGET_LIB_INT_CMP_BIASED (true)
 #endif
 
 /* If FLOAT_WORDS_BIG_ENDIAN is not defined in the header files,
@@ -683,10 +706,15 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define STACK_POINTER_OFFSET    0
 #endif
 
-/* How to print out a register name.  */
-#ifndef PRINT_REG
-#define PRINT_REG(RTX, CODE, FILE) \
-  fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
+#ifndef LOCAL_REGNO
+#define LOCAL_REGNO(REGNO)  0
+#endif
+
+/* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
+   the stack pointer does not matter.  The value is tested only in
+   functions that have frame pointers.  */
+#ifndef EXIT_IGNORE_STACK
+#define EXIT_IGNORE_STACK 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -60,8 +60,7 @@ package body GNAT.Directory_Operations is
 
    function Base_Name
      (Path   : Path_Name;
-      Suffix : String    := "")
-      return   String
+      Suffix : String := "") return String
    is
       function Get_File_Names_Case_Sensitive return Integer;
       pragma Import
@@ -73,8 +72,7 @@ package body GNAT.Directory_Operations is
 
       function Basename
         (Path   : Path_Name;
-         Suffix : String    := "")
-         return String;
+         Suffix : String := "") return String;
       --  This function does the job. The only difference between Basename
       --  and Base_Name (the parent function) is that the former is case
       --  sensitive, while the latter is not. Path and Suffix are adjusted
@@ -87,8 +85,7 @@ package body GNAT.Directory_Operations is
 
       function Basename
         (Path   : Path_Name;
-         Suffix : String    := "")
-         return   String
+         Suffix : String    := "") return String
       is
          Cut_Start : Natural :=
                        Strings.Fixed.Index
@@ -123,11 +120,17 @@ package body GNAT.Directory_Operations is
                        Base_Name.Path (Cut_Start - Offset .. Cut_End - Offset);
             --  Here we use Base_Name.Path to keep the original casing
 
+            Has_Drive_Letter : constant Boolean :=
+                                 OS_Lib.Path_Separator /= ':';
+            --  If Path separator is not ':' then we are on a DOS based OS
+            --  where this character is used as a drive letter separator.
+
          begin
             if BN = "." or else BN = ".." then
                return "";
 
-            elsif BN'Length > 2
+            elsif Has_Drive_Letter
+              and then BN'Length > 2
               and then Characters.Handling.Is_Letter (BN (BN'First))
               and then BN (BN'First + 1) = ':'
             then
@@ -221,8 +224,7 @@ package body GNAT.Directory_Operations is
 
    function Expand_Path
      (Path : Path_Name;
-      Mode : Environment_Style := System_Default)
-      return Path_Name
+      Mode : Environment_Style := System_Default) return Path_Name
    is
       Environment_Variable_Char : Character;
       pragma Import (C, Environment_Variable_Char, "__gnat_environment_char");
@@ -513,8 +515,7 @@ package body GNAT.Directory_Operations is
 
    function Format_Pathname
      (Path  : Path_Name;
-      Style : Path_Style := System_Default)
-      return  String
+      Style : Path_Style := System_Default) return String
    is
       N_Path       : String   := Path;
       K            : Positive := N_Path'First;
@@ -630,8 +631,7 @@ package body GNAT.Directory_Operations is
       C_File_Name : constant String := Dir_Name & ASCII.NUL;
 
       function opendir
-        (File_Name : String)
-         return      Dir_Type_Value;
+        (File_Name : String) return Dir_Type_Value;
       pragma Import (C, opendir, "opendir");
 
    begin
@@ -662,8 +662,7 @@ package body GNAT.Directory_Operations is
 
       function readdir_gnat
         (Directory : System.Address;
-         Buffer    : System.Address)
-         return      System.Address;
+         Buffer    : System.Address) return System.Address;
       pragma Import (C, readdir_gnat, "__gnat_readdir");
 
       function strlen (S : Address) return Integer;

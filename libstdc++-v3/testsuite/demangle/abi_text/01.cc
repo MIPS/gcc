@@ -36,7 +36,7 @@ int main()
   // standard text
   // verify_demangle("U4_farrVKPi", "int* volatile const restrict _far");
   // new __cxa_demangle
-  verify_demangle("U4_farrVKPi", "int* restrict volatile const _far");
+  verify_demangle("U4_farrVKPi", "int* const volatile restrict _far");
 
   return 0;
 }

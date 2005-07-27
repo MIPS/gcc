@@ -1,7 +1,7 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -289,6 +289,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   unsigned HOST_WIDE_INT bitpos = bitnum % unit;
   rtx op0 = str_rtx;
   int byte_offset;
+  rtx orig_value;
 
   enum machine_mode op_mode = mode_for_extraction (EP_insv, 3);
 
@@ -313,6 +314,53 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   value = protect_from_queue (value, 0);
 
+  /* Use vec_extract patterns for extracting parts of vectors whenever
+     available.  */
+  if (VECTOR_MODE_P (GET_MODE (op0))
+      && GET_CODE (op0) != MEM
+      && (vec_set_optab->handlers[(int)GET_MODE (op0)].insn_code
+	  != CODE_FOR_nothing)
+      && fieldmode == GET_MODE_INNER (GET_MODE (op0))
+      && bitsize == GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
+      && !(bitnum % GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))))
+    {
+      enum machine_mode outermode = GET_MODE (op0);
+      enum machine_mode innermode = GET_MODE_INNER (outermode);
+      int icode = (int) vec_set_optab->handlers[(int) outermode].insn_code;
+      int pos = bitnum / GET_MODE_BITSIZE (innermode);
+      rtx rtxpos = GEN_INT (pos);
+      rtx src = value;
+      rtx dest = op0;
+      rtx pat, seq;
+      enum machine_mode mode0 = insn_data[icode].operand[0].mode;
+      enum machine_mode mode1 = insn_data[icode].operand[1].mode;
+      enum machine_mode mode2 = insn_data[icode].operand[2].mode;
+
+      start_sequence ();
+
+      if (! (*insn_data[icode].operand[1].predicate) (src, mode1))
+	src = copy_to_mode_reg (mode1, src);
+
+      if (! (*insn_data[icode].operand[2].predicate) (rtxpos, mode2))
+	rtxpos = copy_to_mode_reg (mode1, rtxpos);
+
+      /* We could handle this, but we should always be called with a pseudo
+	 for our targets and all insns should take them as outputs.  */
+      if (! (*insn_data[icode].operand[0].predicate) (dest, mode0)
+	  || ! (*insn_data[icode].operand[1].predicate) (src, mode1)
+	  || ! (*insn_data[icode].operand[2].predicate) (rtxpos, mode2))
+	abort ();
+      pat = GEN_FCN (icode) (dest, src, rtxpos);
+      seq = get_insns ();
+      end_sequence ();
+      if (pat)
+	{
+	  emit_insn (seq);
+	  emit_insn (pat);
+	  return dest;
+	}
+    }
+
   if (flag_force_mem)
     {
       int old_generating_concat_p = generating_concat_p;
@@ -326,17 +374,13 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
      If the target is memory, storing any naturally aligned field can be
      done with a simple store.  For targets that support fast unaligned
-     memory, any naturally sized, unit aligned field can be done directly.
-
-     It's okay if the requested bitsize is greater than fieldmode's
-     bitsize; that just means the mode has padding bits.  */
+     memory, any naturally sized, unit aligned field can be done directly.  */
 
   byte_offset = (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
                 + (offset * UNITS_PER_WORD);
 
   if (bitpos == 0
-      && GET_MODE_BITSIZE (fieldmode) != 0
-      && bitsize >= GET_MODE_BITSIZE (fieldmode)
+      && bitsize == GET_MODE_BITSIZE (fieldmode)
       && (GET_CODE (op0) != MEM
 	  ? ((GET_MODE_SIZE (fieldmode) >= UNITS_PER_WORD
 	     || GET_MODE_SIZE (GET_MODE (op0)) == GET_MODE_SIZE (fieldmode))
@@ -525,6 +569,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      corresponding size.  This can occur on a machine with 64 bit registers
      that uses SFmode for float.  This can also occur for unaligned float
      structure fields.  */
+  orig_value = value;
   if (GET_MODE_CLASS (GET_MODE (value)) != MODE_INT
       && GET_MODE_CLASS (GET_MODE (value)) != MODE_PARTIAL_INT)
     value = gen_lowpart ((GET_MODE (value) == VOIDmode
@@ -591,7 +636,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  /* Fetch that unit, store the bitfield in it, then store
 	     the unit.  */
 	  tempreg = copy_to_reg (op0);
-	  store_bit_field (tempreg, bitsize, bitpos, fieldmode, value,
+	  store_bit_field (tempreg, bitsize, bitpos, fieldmode, orig_value,
 			   total_size);
 	  emit_move_insn (op0, tempreg);
 	  return value;
@@ -1033,13 +1078,65 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (GET_CODE (op0) == REG
       && mode == GET_MODE (op0)
       && bitnum == 0
-      && GET_MODE_BITSIZE (GET_MODE (op0)) != 0
-      && bitsize >= GET_MODE_BITSIZE (GET_MODE (op0)))
+      && bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
     {
-      /* We're trying to extract a full register from itself.
-         (If the requested bitsize is greater than the bitsize of op0,
-         that just means op0's mode has padding bits.)  */
+      /* We're trying to extract a full register from itself.  */
       return op0;
+    }
+
+  /* Use vec_extract patterns for extracting parts of vectors whenever
+     available.  */
+  if (VECTOR_MODE_P (GET_MODE (op0))
+      && GET_CODE (op0) != MEM
+      && (vec_extract_optab->handlers[(int)GET_MODE (op0)].insn_code
+	  != CODE_FOR_nothing)
+      && ((bitsize + bitnum) / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
+	  == bitsize / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))))
+    {
+      enum machine_mode outermode = GET_MODE (op0);
+      enum machine_mode innermode = GET_MODE_INNER (outermode);
+      int icode = (int) vec_extract_optab->handlers[(int) outermode].insn_code;
+      int pos = bitnum / GET_MODE_BITSIZE (innermode);
+      rtx rtxpos = GEN_INT (pos);
+      rtx src = op0;
+      rtx dest = NULL, pat, seq;
+      enum machine_mode mode0 = insn_data[icode].operand[0].mode;
+      enum machine_mode mode1 = insn_data[icode].operand[1].mode;
+      enum machine_mode mode2 = insn_data[icode].operand[2].mode;
+
+      if (innermode == tmode || innermode == mode)
+	dest = target;
+
+      if (!dest)
+	dest = gen_reg_rtx (innermode);
+
+      start_sequence ();
+
+      if (! (*insn_data[icode].operand[0].predicate) (dest, mode0))
+	dest = copy_to_mode_reg (mode0, dest);
+
+      if (! (*insn_data[icode].operand[1].predicate) (src, mode1))
+	src = copy_to_mode_reg (mode1, src);
+
+      if (! (*insn_data[icode].operand[2].predicate) (rtxpos, mode2))
+	rtxpos = copy_to_mode_reg (mode1, rtxpos);
+
+      /* We could handle this, but we should always be called with a pseudo
+	 for our targets and all insns should take them as outputs.  */
+      if (! (*insn_data[icode].operand[0].predicate) (dest, mode0)
+	  || ! (*insn_data[icode].operand[1].predicate) (src, mode1)
+	  || ! (*insn_data[icode].operand[2].predicate) (rtxpos, mode2))
+	abort ();
+
+      pat = GEN_FCN (icode) (dest, src, rtxpos);
+      seq = get_insns ();
+      end_sequence ();
+      if (pat)
+	{
+	  emit_insn (seq);
+	  emit_insn (pat);
+	  return dest;
+	}
     }
 
   /* Make sure we are playing with integral modes.  Pun with subregs
@@ -1086,13 +1183,18 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      If that's wrong, the solution is to test for it and set TARGET to 0
      if needed.  */
 
-  mode1  = (VECTOR_MODE_P (tmode)
-	    ? mode
-	    : mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0));
+  /* Only scalar integer modes can be converted via subregs.  There is an
+     additional problem for FP modes here in that they can have a precision
+     which is different from the size.  mode_for_size uses precision, but
+     we want a mode based on the size, so we must avoid calling it for FP
+     modes.  */
+  mode1  = (SCALAR_INT_MODE_P (tmode)
+	    ? mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0)
+	    : mode);
 
   if (((bitsize >= BITS_PER_WORD && bitsize == GET_MODE_BITSIZE (mode)
 	&& bitpos % BITS_PER_WORD == 0)
-       || (mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0) != BLKmode
+       || (mode1 != BLKmode
 	   /* ??? The big endian test here is wrong.  This is correct
 	      if the value is in a register, and if mode_for_size is not
 	      the same mode as op0.  This causes us to get unnecessarily
@@ -3989,10 +4091,24 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	target = 0;
 
       if (quotient == 0)
-	/* No divide instruction either.  Use library for remainder.  */
-	remainder = sign_expand_binop (compute_mode, umod_optab, smod_optab,
-				       op0, op1, target,
-				       unsignedp, OPTAB_LIB_WIDEN);
+	{
+	  /* No divide instruction either.  Use library for remainder.  */
+	  remainder = sign_expand_binop (compute_mode, umod_optab, smod_optab,
+					 op0, op1, target,
+					 unsignedp, OPTAB_LIB_WIDEN);
+	  /* No remainder function.  Try a quotient-and-remainder
+	     function, keeping the remainder.  */
+	  if (!remainder)
+	    {
+	      remainder = gen_reg_rtx (compute_mode);
+	      if (!expand_twoval_binop_libfunc 
+		  (unsignedp ? udivmod_optab : sdivmod_optab,
+		   op0, op1,
+		   NULL_RTX, remainder,
+		   unsignedp ? UMOD : MOD))
+		remainder = NULL_RTX;
+	    }
+	}
       else
 	{
 	  /* We divided.  Now finish doing X - Y * (X / Y).  */

@@ -53,14 +53,15 @@ i860 port		Jason Eckhardt		jle@rice.edu
 i960 port		Jim Wilson		wilson@specifixinc.com
 ia64 port		Jim Wilson		wilson@specifixinc.com
 ip2k port		Denis Chertykov		denisc@overta.ru
+iq2000 port		Stan Cox		scox@redhat.com
 m32r port		Nick Clifton		nickc@redhat.com
 m68hc11 port		Stephane Carrez		stcarrez@nerim.fr
 m68k port (?)		Jeff Law		law@redhat.com
 m68k-motorola-sysv port	Philippe De Muyter	phdm@macqel.be
 mcore port		Nick Clifton		nickc@redhat.com
 mips port               Eric Christopher        echristo@redhat.com
+mips port		Richard Sandiford	rsandifo@redhat.com
 mmix port		Hans-Peter Nilsson	hp@bitrange.com
-mn10200 port		Jeff Law		law@redhat.com
 mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
 ns32k port		Ian Dall		ian@beware.dropbear.id.au
@@ -75,8 +76,10 @@ sh port			Alexandre Oliva		aoliva@redhat.com
 sparc port		Richard Henderson	rth@redhat.com
 sparc port		David S. Miller		davem@redhat.com
 sparc port		Jakub Jelinek		jakub@redhat.com
+sparc port		Eric Botcazou		ebotcazou@libertysurf.fr
 v850 port		Nick Clifton		nickc@redhat.com
 vax port		Dave Anglin		dave.anglin@nrc.ca
+vax port		Matt Thomas		matt@3am-software.com
 x86-64 port		Jan Hubicka		jh@suse.cz
 xstormy16 port		Geoffrey Keating	geoffk@geoffk.org
 xtensa port		Bob Wilson		bob.wilson@acm.org
@@ -99,8 +102,8 @@ Ada front end		Arnaud Charlet		charlet@act-europe.fr
 fortran			Richard Henderson	rth@redhat.com
 fortran			Toon Moene		toon@moene.indiv.nluug.nl
 fortran 95		Paul Brook		paul@nowt.org
-fortran 95		Steven Bosscher		steven@gcc.gnu.org
-fortran	95		Toon Moene		toon@moene.indiv.nluug.nl
+fortran 95		Steven Bosscher		stevenb@suse.de
+fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
 c++			Jason Merrill		jason@redhat.com
 c++                     Mark Mitchell		mark@codesourcery.com
 cpplib			Dave Brolley		brolley@redhat.com
@@ -115,6 +118,8 @@ mercury			Fergus Henderson	fjh@cs.mu.oz.au
 objective-c		Stan Shebs		shebs@apple.com
 objective-c		Ovidiu Predescu		ovidiu@cup.hp.com
 objective-c		Ziemowit Laski		zlaski@apple.com
+libobjc			Nicola Pero		n.pero@mi.flashnet.it
+libobjc			Andrew Pinski		pinskia@physics.uc.edu
 alias analysis		John Carr		jfc@mit.edu
 loop unrolling		Jim Wilson		wilson@specifixinc.com
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
@@ -123,9 +128,10 @@ scheduler (+ haifa)	Michael Meissner	gnu@the-meissners.org
 scheduler (+ haifa)	Jeff Law		law@redhat.com
 reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
+callgraph		Jan Hubicka		jh@suse.cz
 debugging code		Jim Wilson		wilson@specifixinc.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
-c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
+c++ runtime libs	Paolo Carlini		pcarlini@suse.de
 c++ runtime libs        Gabriel Dos Reis        gdr@integrable-solutions.net
 c++ runtime libs	Ulrich Drepper		drepper@redhat.com
 c++ runtime libs	Phil Edwards		pme@gcc.gnu.org
@@ -146,6 +152,7 @@ diagnostic messages	Gabriel Dos Reis	gdr@integrable-solutions.net
 windows, cygwin, mingw	Christopher Faylor	cgf@redhat.com
 DJGPP			DJ Delorie		dj@delorie.com
 libiberty		DJ Delorie		dj@redhat.com
+libiberty		Ian Lance Taylor	ian@wasabisystems.com
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Nathanael Nerode	neroden@gcc.gnu.org
 build machinery (*.in)	Alexandre Oliva		aoliva@redhat.com
@@ -172,6 +179,7 @@ in changes outside of the parts of the compiler they maintain.
 			Write After Approval	(last name alphabetical order)
 
 Matt Austern                                    austern@apple.com
+Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
 Daniel Berlin					dan@dberlin.org
@@ -181,13 +189,13 @@ Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
-Eric Botcazou					ebotcazou@libertysurf.fr
 Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Kevin Buettner					kevinb@redhat.com
 Andrew Cagney					cagney@redhat.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
+R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
 David Daney					ddaney@avtrex.com
 Chris Demetriou					cgd@broadcom.com
@@ -201,13 +209,14 @@ Doug Evans					dje@transmeta.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
-Laurent Guerby					guerby@acm.org
+Laurent Guerby					laurent@guerby.net
 Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mh@suse.com
 Falk Hueffner					falk@debian.org
 Bernardo Innocenti				bernie@develer.com
+Daniel Jacobowitz				dan@debian.org
 Andreas Jaeger					aj@suse.de
 Fariborz Jahanian				fjahanian@apple.com
 Dale Johannesen 				dalej@apple.com
@@ -219,6 +228,7 @@ Jeff Knaggs					jknaggs@redhat.com
 Matt Kraai					kraai@alumni.cmu.edu
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
+James Lemke					jim@wasabisystems.com
 Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com
@@ -234,19 +244,19 @@ Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
 Dorit Naishlos                                  dorit@il.ibm.com
 Adam Nemet					anemet@lnxw.com
+Dan Nicolaescu					dann@ics.uci.edu
 Diego Novillo					dnovillo@redhat.com
 David O'Brien					obrien@FreeBSD.org
 Turly O'Connor					turly@apple.com
 Jeffrey D. Oldham				oldham@codesourcery.com
 Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
 Devang Patel					dpatel@apple.com
-Nicola Pero					n.pero@mi.flashnet.it
 Graeme Peterson					gp@qnx.com
 Alexandre Petit-Bianco				apbianco@redhat.com
-Andrew Pinski					pinskia@physics.uc.edu
 Nicolas Pitre					nico@cam.org
 Sebastian Pop                                   s.pop@laposte.net
 Clinton Popetz					cpopetz@cpopetz.com
+Jerry Quinn					jlquinn@optonline.net
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Volker Reichelt					reichelt@igpm.rwth-aachen.de
 Tom Rix						trix@redhat.com
@@ -255,7 +265,6 @@ Gavin Romig-Koch				gavin@redhat.com
 Ira Ruben					ira@apple.com
 Douglas Rupp					rupp@gnat.com
 Alex Samuel					samuel@codesourcery.com
-Richard Sandiford				rsandifo@redhat.com
 Andreas Schwab					schwab@suse.de
 Svein Seldal                                    svein.seldal@solidas.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
@@ -265,24 +274,18 @@ Richard Stallman				rms@gnu.org
 Graham Stott					graham.stott@btinternet.com
 Mike Stump					mrs@apple.com
 Jeff Sturm					jsturm@gcc.gnu.org
-Ian Taylor					ian@wasabisystems.com
-Michael Tiemann					tiemann@redhat.com
 Kresten Krab Thorup				krab@gcc.gnu.org
+Michael Tiemann					tiemann@redhat.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org
 Carlo Wood					carlo@alinoe.com
-Josef Zlomek					zlomekj@suse.cz
+Josef Zlomek					josef.zlomek@email.cz
 
 Bug database only accounts
 
-Giovanni Bajo					giovannibajo@libero.it
 James Dennett					jdennett@acm.org
 Christian Ehrhardt				ehrhardt@mathematik.uni-ulm.de
 Dara Hazeghi					dhazeghi@yahoo.com
-
-Peter Bienstman(?)
-Benjamin Chelf(?)
-Mark Galassi(?)

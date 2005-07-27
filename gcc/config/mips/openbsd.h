@@ -1,5 +1,5 @@
 /* Configuration for  a Mips ABI32 OpenBSD target.
-   Copyright (C) 1999, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_CPP_SPEC OBSD_CPP_SPEC
 
 /* Needed for ELF (inspired by netbsd-elf).  */
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX	"."
 

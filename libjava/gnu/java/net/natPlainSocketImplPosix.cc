@@ -117,7 +117,6 @@ gnu::java::net::PlainSocketImpl::bind (::java::net::InetAddress *host, jint lpor
   
   if (_Jv_bind (native_fd, ptr, len) == 0)
     {
-      address = host;
       socklen_t addrlen = sizeof(u);
 
       if (lport != 0)
@@ -409,7 +408,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(void)
       // that means we've timed out.
       if (sel_retval == 0)
         throw new ::java::net::SocketTimeoutException
-          (JvNewStringUTF ("read timed out") );
+          (JvNewStringUTF ("Read timed out") );
       // If select returns ok we know we either got signalled or read some data...
       // either way we need to try to read.
     }
@@ -423,7 +422,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(void)
     {
       ::java::io::InterruptedIOException *iioe =
         new ::java::io::InterruptedIOException
-        (JvNewStringUTF("read interrupted"));
+        (JvNewStringUTF("Read interrupted"));
       iioe->bytesTransferred = r == -1 ? 0 : r;
       throw iioe;
     }
@@ -479,7 +478,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer, jint 
         {
           ::java::net::SocketTimeoutException *timeoutException =
             new ::java::net::SocketTimeoutException
-            (JvNewStringUTF ("read timed out"));
+            (JvNewStringUTF ("Read timed out"));
 	  throw timeoutException;
         }
     }
@@ -494,7 +493,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer, jint 
     {
       ::java::io::InterruptedIOException *iioe =
         new ::java::io::InterruptedIOException
-        (JvNewStringUTF ("read interrupted"));
+        (JvNewStringUTF ("Read interrupted"));
       iioe->bytesTransferred = r == -1 ? 0 : r;
       throw iioe;
     }
@@ -622,18 +621,18 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
         if (::setsockopt (native_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &val,
                           val_len) != 0)
           goto error;
-        break;
+        return;
       
       case _Jv_SO_BROADCAST_ :
         throw new ::java::net::SocketException
           (JvNewStringUTF ("SO_BROADCAST not valid for TCP"));
-        break;
+        return;
 	
       case _Jv_SO_OOBINLINE_ :
         if (::setsockopt (native_fd, SOL_SOCKET, SO_OOBINLINE, (char *) &val,
                           val_len) != 0)
           goto error;
-        break;
+        return;
 
       case _Jv_SO_LINGER_ :
 #ifdef SO_LINGER
@@ -676,18 +675,18 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
       case _Jv_IP_MULTICAST_IF2_ :
         throw new ::java::net::SocketException (
           JvNewStringUTF ("IP_MULTICAST_IF2: not valid for TCP"));
-        break;
+        return;
 	
       case _Jv_IP_MULTICAST_LOOP_ :
         throw new ::java::net::SocketException (
           JvNewStringUTF ("IP_MULTICAST_LOOP: not valid for TCP"));
-        break;
+        return;
 	
       case _Jv_IP_TOS_ :
         if (::setsockopt (native_fd, SOL_SOCKET, IP_TOS, (char *) &val,
                           val_len) != 0)
           goto error;    
-        break;
+        return;
 	
       case _Jv_SO_REUSEADDR_ :
         throw new ::java::net::SocketException (

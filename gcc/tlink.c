@@ -463,11 +463,20 @@ recompile_files (void)
 	}
       fclose (stream);
       fclose (output);
-      rename (outname, f->key);
+      /* On Windows "rename" returns -1 and sets ERRNO to EACCESS if
+	 the new file name already exists.  Therefore, we explicitly
+	 remove the old file first.  */
+      if (remove (f->key) == -1)
+	fatal_perror ("removing .rpo file");
+      if (rename (outname, f->key) == -1)
+	fatal_perror ("renaming .rpo file");
 
       obstack_grow (&temporary_obstack, "cd ", 3);
       obstack_grow (&temporary_obstack, f->dir, strlen (f->dir));
-      obstack_grow (&temporary_obstack, "; ", 2);
+      /* Using ";" as a separator between commands does not work with
+	 the Windows command shell.  Therefore, we use "&&" which
+	 should work everywhere.  */
+      obstack_grow (&temporary_obstack, " && ", 4);
       obstack_grow (&temporary_obstack, c_file_name, strlen (c_file_name));
       obstack_1grow (&temporary_obstack, ' ');
       obstack_grow (&temporary_obstack, f->args, strlen (f->args));

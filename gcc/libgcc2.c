@@ -63,13 +63,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 DWtype
 __negdi2 (DWtype u)
 {
-  DWunion w;
-  DWunion uu;
-
-  uu.ll = u;
-
-  w.s.low = -uu.s.low;
-  w.s.high = -uu.s.high - ((UWtype) w.s.low > 0);
+  const DWunion uu = {.ll = u};
+  const DWunion w = { {.low = -uu.s.low,
+		       .high = -uu.s.high - ((UWtype) -uu.s.low > 0) } };
 
   return w.ll;
 }
@@ -77,26 +73,34 @@ __negdi2 (DWtype u)
 
 #ifdef L_addvsi3
 Wtype
-__addvsi3 (Wtype a, Wtype b)
+__addvSI3 (Wtype a, Wtype b)
 {
-  Wtype w;
-
-  w = a + b;
+  const Wtype w = a + b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
 
   return w;
 }
+#ifdef COMPAT_SIMODE_TRAPPING_ARITHMETIC
+SItype
+__addvsi3 (SItype a, SItype b)
+{
+  const SItype w = a + b;
+
+  if (b >= 0 ? w < a : w > a)
+    abort ();
+
+  return w;
+}
+#endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 #endif
 
 #ifdef L_addvdi3
 DWtype
-__addvdi3 (DWtype a, DWtype b)
+__addvDI3 (DWtype a, DWtype b)
 {
-  DWtype w;
-
-  w = a + b;
+  const DWtype w = a + b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
@@ -107,26 +111,34 @@ __addvdi3 (DWtype a, DWtype b)
 
 #ifdef L_subvsi3
 Wtype
-__subvsi3 (Wtype a, Wtype b)
+__subvSI3 (Wtype a, Wtype b)
 {
-  DWtype w;
-
-  w = a - b;
+  const Wtype w = a - b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
 
   return w;
 }
+#ifdef COMPAT_SIMODE_TRAPPING_ARITHMETIC
+SItype
+__subvsi3 (SItype a, SItype b)
+{
+  const SItype w = a - b;
+
+  if (b >= 0 ? w > a : w < a)
+    abort ();
+
+  return w;
+}
+#endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 #endif
 
 #ifdef L_subvdi3
 DWtype
-__subvdi3 (DWtype a, DWtype b)
+__subvDI3 (DWtype a, DWtype b)
 {
-  DWtype w;
-
-  w = a - b;
+  const DWtype w = a - b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
@@ -138,43 +150,61 @@ __subvdi3 (DWtype a, DWtype b)
 #ifdef L_mulvsi3
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 Wtype
-__mulvsi3 (Wtype a, Wtype b)
+__mulvSI3 (Wtype a, Wtype b)
 {
-  DWtype w;
+  const DWtype w = (DWtype) a * (DWtype) b;
 
-  w = (DWtype) a * (DWtype) b;
-
-  if (((a >= 0) == (b >= 0))
-      ? (UDWtype) w > (UDWtype) (((DWtype) 1 << (WORD_SIZE - 1)) - 1)
-      : (UDWtype) w < (UDWtype) ((DWtype) -1 << (WORD_SIZE - 1)))
+  if ((Wtype) (w >> WORD_SIZE) != (Wtype) w >> (WORD_SIZE - 1))
     abort ();
 
   return w;
 }
+#ifdef COMPAT_SIMODE_TRAPPING_ARITHMETIC
+#undef WORD_SIZE
+#define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
+SItype
+__mulvsi3 (SItype a, SItype b)
+{
+  const DItype w = (DItype) a * (DItype) b;
+
+  if ((SItype) (w >> WORD_SIZE) != (SItype) w >> (WORD_SIZE-1))
+    abort ();
+
+  return w;
+}
+#endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 #endif
 
 #ifdef L_negvsi2
 Wtype
-__negvsi2 (Wtype a)
+__negvSI2 (Wtype a)
 {
-  Wtype w;
-
-  w  = -a;
+  const Wtype w = -a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
 
    return w;
 }
+#ifdef COMPAT_SIMODE_TRAPPING_ARITHMETIC
+SItype
+__negvsi2 (SItype a)
+{
+  const SItype w = -a;
+
+  if (a >= 0 ? w > 0 : w < 0)
+    abort ();
+
+   return w;
+}
+#endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 #endif
 
 #ifdef L_negvdi2
 DWtype
-__negvdi2 (DWtype a)
+__negvDI2 (DWtype a)
 {
-  DWtype w;
-
-  w  = -a;
+  const DWtype w = -a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -185,9 +215,27 @@ __negvdi2 (DWtype a)
 
 #ifdef L_absvsi2
 Wtype
-__absvsi2 (Wtype a)
+__absvSI2 (Wtype a)
 {
   Wtype w = a;
+
+  if (a < 0)
+#ifdef L_negvsi2
+    w = __negvSI2 (a);
+#else
+    w = -a;
+
+  if (w < 0)
+    abort ();
+#endif
+
+   return w;
+}
+#ifdef COMPAT_SIMODE_TRAPPING_ARITHMETIC
+SItype
+__absvsi2 (SItype a)
+{
+  SItype w = a;
 
   if (a < 0)
 #ifdef L_negvsi2
@@ -201,17 +249,18 @@ __absvsi2 (Wtype a)
 
    return w;
 }
+#endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 #endif
 
 #ifdef L_absvdi2
 DWtype
-__absvdi2 (DWtype a)
+__absvDI2 (DWtype a)
 {
   DWtype w = a;
 
   if (a < 0)
 #ifdef L_negvdi2
-    w = __negvdi2 (a);
+    w = __negvDI2 (a);
 #else
     w = -a;
 
@@ -226,14 +275,12 @@ __absvdi2 (DWtype a)
 #ifdef L_mulvdi3
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 DWtype
-__mulvdi3 (DWtype u, DWtype v)
+__mulvDI3 (DWtype u, DWtype v)
 {
   /* The unchecked multiplication needs 3 Wtype x Wtype multiplications,
      but the checked multiplication needs only two.  */
-  DWunion uu, vv;
-
-  uu.ll = u;
-  vv.ll = v;
+  const DWunion uu = {.ll = u};
+  const DWunion vv = {.ll = v};
 
   if (__builtin_expect (uu.s.high == uu.s.low >> (WORD_SIZE - 1), 1))
     {
@@ -247,10 +294,11 @@ __mulvdi3 (DWtype u, DWtype v)
       else
 	{
 	  /* Two multiplications.  */
-	  DWunion w0, w1;
+	  DWunion w0 = {.ll = (UDWtype) (UWtype) uu.s.low
+			* (UDWtype) (UWtype) vv.s.low};
+	  DWunion w1 = {.ll = (UDWtype) (UWtype) uu.s.low
+			* (UDWtype) (UWtype) vv.s.high};
 
-	  w0.ll = (UDWtype) (UWtype) uu.s.low * (UDWtype) (UWtype) vv.s.low;
-	  w1.ll = (UDWtype) (UWtype) uu.s.low * (UDWtype) (UWtype) vv.s.high;
 	  if (vv.s.high < 0)
 	    w1.s.high -= uu.s.low;
 	  if (uu.s.low < 0)
@@ -269,10 +317,11 @@ __mulvdi3 (DWtype u, DWtype v)
 	{
 	  /* v fits into a single Wtype.  */
 	  /* Two multiplications.  */
-	  DWunion w0, w1;
+	  DWunion w0 = {.ll = (UDWtype) (UWtype) uu.s.low
+			* (UDWtype) (UWtype) vv.s.low};
+	  DWunion w1 = {.ll = (UDWtype) (UWtype) uu.s.high
+			* (UDWtype) (UWtype) vv.s.low};
 
-	  w0.ll = (UDWtype) (UWtype) uu.s.low * (UDWtype) (UWtype) vv.s.low;
-	  w1.ll = (UDWtype) (UWtype) uu.s.high * (UDWtype) (UWtype) vv.s.low;
 	  if (uu.s.high < 0)
 	    w1.s.high -= vv.s.low;
 	  if (vv.s.low < 0)
@@ -293,10 +342,8 @@ __mulvdi3 (DWtype u, DWtype v)
 		{
 		  if (uu.s.high == 0 && vv.s.high == 0)
 		    {
-		      DWtype w;
-
-		      w = (UDWtype) (UWtype) uu.s.low
-			  * (UDWtype) (UWtype) vv.s.low;
+		      const DWtype w = (UDWtype) (UWtype) uu.s.low
+			* (UDWtype) (UWtype) vv.s.low;
 		      if (__builtin_expect (w >= 0, 1))
 			return w;
 		    }
@@ -305,10 +352,9 @@ __mulvdi3 (DWtype u, DWtype v)
 		{
 		  if (uu.s.high == 0 && vv.s.high == (Wtype) -1)
 		    {
-		      DWunion ww;
+		      DWunion ww = {.ll = (UDWtype) (UWtype) uu.s.low
+				    * (UDWtype) (UWtype) vv.s.low};
 
-		      ww.ll = (UDWtype) (UWtype) uu.s.low
-			      * (UDWtype) (UWtype) vv.s.low;
 		      ww.s.high -= uu.s.low;
 		      if (__builtin_expect (ww.s.high < 0, 1))
 			return ww.ll;
@@ -321,10 +367,9 @@ __mulvdi3 (DWtype u, DWtype v)
 		{
 		  if (uu.s.high == (Wtype) -1 && vv.s.high == 0)
 		    {
-		      DWunion ww;
+		      DWunion ww = {.ll = (UDWtype) (UWtype) uu.s.low
+				    * (UDWtype) (UWtype) vv.s.low};
 
-		      ww.ll = (UDWtype) (UWtype) uu.s.low
-			      * (UDWtype) (UWtype) vv.s.low;
 		      ww.s.high -= vv.s.low;
 		      if (__builtin_expect (ww.s.high < 0, 1))
 			return ww.ll;
@@ -334,10 +379,9 @@ __mulvdi3 (DWtype u, DWtype v)
 		{
 		  if (uu.s.high == (Wtype) -1 && vv.s.high == (Wtype) - 1)
 		    {
-		      DWunion ww;
+		      DWunion ww = {.ll = (UDWtype) (UWtype) uu.s.low
+				    * (UDWtype) (UWtype) vv.s.low};
 
-		      ww.ll = (UDWtype) (UWtype) uu.s.low
-			      * (UDWtype) (UWtype) vv.s.low;
 		      ww.s.high -= uu.s.low;
 		      ww.s.high -= vv.s.low;
 		      if (__builtin_expect (ww.s.high >= 0, 1))
@@ -360,16 +404,13 @@ __mulvdi3 (DWtype u, DWtype v)
 DWtype
 __lshrdi3 (DWtype u, word_type b)
 {
-  DWunion w;
-  word_type bm;
-  DWunion uu;
-
   if (b == 0)
     return u;
 
-  uu.ll = u;
+  const DWunion uu = {.ll = u};
+  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  DWunion w;
 
-  bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   if (bm <= 0)
     {
       w.s.high = 0;
@@ -377,7 +418,7 @@ __lshrdi3 (DWtype u, word_type b)
     }
   else
     {
-      UWtype carries = (UWtype) uu.s.high << bm;
+      const UWtype carries = (UWtype) uu.s.high << bm;
 
       w.s.high = (UWtype) uu.s.high >> b;
       w.s.low = ((UWtype) uu.s.low >> b) | carries;
@@ -391,16 +432,13 @@ __lshrdi3 (DWtype u, word_type b)
 DWtype
 __ashldi3 (DWtype u, word_type b)
 {
-  DWunion w;
-  word_type bm;
-  DWunion uu;
-
   if (b == 0)
     return u;
 
-  uu.ll = u;
+  const DWunion uu = {.ll = u};
+  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  DWunion w;
 
-  bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   if (bm <= 0)
     {
       w.s.low = 0;
@@ -408,7 +446,7 @@ __ashldi3 (DWtype u, word_type b)
     }
   else
     {
-      UWtype carries = (UWtype) uu.s.low >> bm;
+      const UWtype carries = (UWtype) uu.s.low >> bm;
 
       w.s.low = (UWtype) uu.s.low << b;
       w.s.high = ((UWtype) uu.s.high << b) | carries;
@@ -422,16 +460,13 @@ __ashldi3 (DWtype u, word_type b)
 DWtype
 __ashrdi3 (DWtype u, word_type b)
 {
-  DWunion w;
-  word_type bm;
-  DWunion uu;
-
   if (b == 0)
     return u;
 
-  uu.ll = u;
+  const DWunion uu = {.ll = u};
+  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  DWunion w;
 
-  bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   if (bm <= 0)
     {
       /* w.s.high = 1..1 or 0..0 */
@@ -440,7 +475,7 @@ __ashrdi3 (DWtype u, word_type b)
     }
   else
     {
-      UWtype carries = (UWtype) uu.s.high << bm;
+      const UWtype carries = (UWtype) uu.s.high << bm;
 
       w.s.high = uu.s.high >> b;
       w.s.low = ((UWtype) uu.s.low >> b) | carries;
@@ -452,7 +487,6 @@ __ashrdi3 (DWtype u, word_type b)
 
 #ifdef L_ffssi2
 #undef int
-extern int __ffsSI2 (UWtype u);
 int
 __ffsSI2 (UWtype u)
 {
@@ -468,14 +502,12 @@ __ffsSI2 (UWtype u)
 
 #ifdef L_ffsdi2
 #undef int
-extern int __ffsDI2 (DWtype u);
 int
 __ffsDI2 (DWtype u)
 {
-  DWunion uu;
+  const DWunion uu = {.ll = u};
   UWtype word, count, add;
 
-  uu.ll = u;
   if (uu.s.low != 0)
     word = uu.s.low, add = 0;
   else if (uu.s.high != 0)
@@ -492,13 +524,10 @@ __ffsDI2 (DWtype u)
 DWtype
 __muldi3 (DWtype u, DWtype v)
 {
-  DWunion w;
-  DWunion uu, vv;
+  const DWunion uu = {.ll = u};
+  const DWunion vv = {.ll = v};
+  DWunion w = {.ll = __umulsidi3 (uu.s.low, vv.s.low)};
 
-  uu.ll = u,
-  vv.ll = v;
-
-  w.ll = __umulsidi3 (uu.s.low, vv.s.low);
   w.s.high += ((UWtype) uu.s.low * (UWtype) vv.s.high
 	       + (UWtype) uu.s.high * (UWtype) vv.s.low);
 
@@ -649,7 +678,6 @@ const UQItype __clz_tab[] =
 
 #ifdef L_clzsi2
 #undef int
-extern int __clzSI2 (UWtype x);
 int
 __clzSI2 (UWtype x)
 {
@@ -663,15 +691,13 @@ __clzSI2 (UWtype x)
 
 #ifdef L_clzdi2
 #undef int
-extern int __clzDI2 (UDWtype x);
 int
 __clzDI2 (UDWtype x)
 {
-  DWunion uu;
+  const DWunion uu = {.ll = x};
   UWtype word;
   Wtype ret, add;
 
-  uu.ll = x;
   if (uu.s.high)
     word = uu.s.high, add = 0;
   else
@@ -684,7 +710,6 @@ __clzDI2 (UDWtype x)
 
 #ifdef L_ctzsi2
 #undef int
-extern int __ctzSI2 (UWtype x);
 int
 __ctzSI2 (UWtype x)
 {
@@ -698,15 +723,13 @@ __ctzSI2 (UWtype x)
 
 #ifdef L_ctzdi2
 #undef int
-extern int __ctzDI2 (UDWtype x);
 int
 __ctzDI2 (UDWtype x)
 {
-  DWunion uu;
+  const DWunion uu = {.ll = x};
   UWtype word;
   Wtype ret, add;
 
-  uu.ll = x;
   if (uu.s.low)
     word = uu.s.low, add = 0;
   else
@@ -738,7 +761,6 @@ const UQItype __popcount_tab[] =
 
 #ifdef L_popcountsi2
 #undef int
-extern int __popcountSI2 (UWtype x);
 int
 __popcountSI2 (UWtype x)
 {
@@ -753,7 +775,6 @@ __popcountSI2 (UWtype x)
 
 #ifdef L_popcountdi2
 #undef int
-extern int __popcountDI2 (UDWtype x);
 int
 __popcountDI2 (UDWtype x)
 {
@@ -768,7 +789,6 @@ __popcountDI2 (UDWtype x)
 
 #ifdef L_paritysi2
 #undef int
-extern int __paritySI2 (UWtype x);
 int
 __paritySI2 (UWtype x)
 {
@@ -790,15 +810,11 @@ __paritySI2 (UWtype x)
 
 #ifdef L_paritydi2
 #undef int
-extern int __parityDI2 (UDWtype x);
 int
 __parityDI2 (UDWtype x)
 {
-  DWunion uu;
-  UWtype nx;
-
-  uu.ll = x;
-  nx = uu.s.low ^ uu.s.high;
+  const DWunion uu = {.ll = x};
+  UWtype nx = uu.s.low ^ uu.s.high;
 
 #if W_TYPE_SIZE > 64
 # error "fill out the table"
@@ -825,15 +841,12 @@ static inline __attribute__ ((__always_inline__))
 UDWtype
 __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 {
-  DWunion ww;
-  DWunion nn, dd;
+  const DWunion nn = {.ll = n};
+  const DWunion dd = {.ll = d};
   DWunion rr;
   UWtype d0, d1, n0, n1, n2;
   UWtype q0, q1;
   UWtype b, bm;
-
-  nn.ll = n;
-  dd.ll = d;
 
   d0 = dd.s.low;
   d1 = dd.s.high;
@@ -1034,8 +1047,7 @@ __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 	}
     }
 
-  ww.s.low = q0;
-  ww.s.high = q1;
+  const DWunion ww = {{.low = q0, .high = q1}};
   return ww.ll;
 }
 #endif
@@ -1045,11 +1057,9 @@ DWtype
 __divdi3 (DWtype u, DWtype v)
 {
   word_type c = 0;
-  DWunion uu, vv;
+  DWunion uu = {.ll = u};
+  DWunion vv = {.ll = v};
   DWtype w;
-
-  uu.ll = u;
-  vv.ll = v;
 
   if (uu.s.high < 0)
     c = ~c,
@@ -1071,11 +1081,9 @@ DWtype
 __moddi3 (DWtype u, DWtype v)
 {
   word_type c = 0;
-  DWunion uu, vv;
+  DWunion uu = {.ll = u};
+  DWunion vv = {.ll = v};
   DWtype w;
-
-  uu.ll = u;
-  vv.ll = v;
 
   if (uu.s.high < 0)
     c = ~c,
@@ -1115,9 +1123,8 @@ __udivdi3 (UDWtype n, UDWtype d)
 word_type
 __cmpdi2 (DWtype a, DWtype b)
 {
-  DWunion au, bu;
-
-  au.ll = a, bu.ll = b;
+  const DWunion au = {.ll = a};
+  const DWunion bu = {.ll = b};
 
   if (au.s.high < bu.s.high)
     return 0;
@@ -1135,9 +1142,8 @@ __cmpdi2 (DWtype a, DWtype b)
 word_type
 __ucmpdi2 (DWtype a, DWtype b)
 {
-  DWunion au, bu;
-
-  au.ll = a, bu.ll = b;
+  const DWunion au = {.ll = a};
+  const DWunion bu = {.ll = b};
 
   if ((UWtype) au.s.high < (UWtype) bu.s.high)
     return 0;
@@ -1158,17 +1164,14 @@ __ucmpdi2 (DWtype a, DWtype b)
 DWtype
 __fixunstfDI (TFtype a)
 {
-  TFtype b;
-  UDWtype v;
-
   if (a < 0)
     return 0;
 
   /* Compute high word of result, as a flonum.  */
-  b = (a / HIGH_WORD_COEFF);
+  const TFtype b = (a / HIGH_WORD_COEFF);
   /* Convert that to fixed (but not to DWtype!),
      and shift it into the high word.  */
-  v = (UWtype) b;
+  UDWtype v = (UWtype) b;
   v <<= WORD_SIZE;
   /* Remove high part from the TFtype, leaving the low part as flonum.  */
   a -= (TFtype)v;
@@ -1200,17 +1203,14 @@ __fixtfdi (TFtype a)
 DWtype
 __fixunsxfDI (XFtype a)
 {
-  XFtype b;
-  UDWtype v;
-
   if (a < 0)
     return 0;
 
   /* Compute high word of result, as a flonum.  */
-  b = (a / HIGH_WORD_COEFF);
+  const XFtype b = (a / HIGH_WORD_COEFF);
   /* Convert that to fixed (but not to DWtype!),
      and shift it into the high word.  */
-  v = (UWtype) b;
+  UDWtype v = (UWtype) b;
   v <<= WORD_SIZE;
   /* Remove high part from the XFtype, leaving the low part as flonum.  */
   a -= (XFtype)v;
@@ -1242,17 +1242,15 @@ __fixxfdi (XFtype a)
 DWtype
 __fixunsdfDI (DFtype a)
 {
-  UWtype hi, lo;
-
   /* Get high part of result.  The division here will just moves the radix
      point and will not cause any rounding.  Then the conversion to integral
      type chops result as desired.  */
-  hi = a / HIGH_WORD_COEFF;
+  const UWtype hi = a / HIGH_WORD_COEFF;
 
   /* Get low part of result.  Convert `hi' to floating type and scale it back,
      then subtract this from the number being converted.  This leaves the low
      part.  Convert that to integral type.  */
-  lo = (a - ((DFtype) hi) * HIGH_WORD_COEFF);
+  const UWtype lo = (a - ((DFtype) hi) * HIGH_WORD_COEFF);
 
   /* Assemble result from the two parts.  */
   return ((UDWtype) hi << WORD_SIZE) | lo;
@@ -1279,18 +1277,17 @@ __fixunssfDI (SFtype original_a)
   /* Convert the SFtype to a DFtype, because that is surely not going
      to lose any bits.  Some day someone else can write a faster version
      that avoids converting to DFtype, and verify it really works right.  */
-  DFtype a = original_a;
-  UWtype hi, lo;
+  const DFtype a = original_a;
 
   /* Get high part of result.  The division here will just moves the radix
      point and will not cause any rounding.  Then the conversion to integral
      type chops result as desired.  */
-  hi = a / HIGH_WORD_COEFF;
+  const UWtype hi = a / HIGH_WORD_COEFF;
 
   /* Get low part of result.  Convert `hi' to floating type and scale it back,
      then subtract this from the number being converted.  This leaves the low
      part.  Convert that to integral type.  */
-  lo = (a - ((DFtype) hi) * HIGH_WORD_COEFF);
+  const UWtype lo = (a - ((DFtype) hi) * HIGH_WORD_COEFF);
 
   /* Assemble result from the two parts.  */
   return ((UDWtype) hi << WORD_SIZE) | lo;
@@ -1315,9 +1312,7 @@ __fixsfdi (SFtype a)
 XFtype
 __floatdixf (DWtype u)
 {
-  XFtype d;
-
-  d = (Wtype) (u >> WORD_SIZE);
+  XFtype d = (Wtype) (u >> WORD_SIZE);
   d *= HIGH_HALFWORD_COEFF;
   d *= HIGH_HALFWORD_COEFF;
   d += (UWtype) (u & (HIGH_WORD_COEFF - 1));
@@ -1334,9 +1329,7 @@ __floatdixf (DWtype u)
 TFtype
 __floatditf (DWtype u)
 {
-  TFtype d;
-
-  d = (Wtype) (u >> WORD_SIZE);
+  TFtype d = (Wtype) (u >> WORD_SIZE);
   d *= HIGH_HALFWORD_COEFF;
   d *= HIGH_HALFWORD_COEFF;
   d += (UWtype) (u & (HIGH_WORD_COEFF - 1));
@@ -1353,9 +1346,7 @@ __floatditf (DWtype u)
 DFtype
 __floatdidf (DWtype u)
 {
-  DFtype d;
-
-  d = (Wtype) (u >> WORD_SIZE);
+  DFtype d = (Wtype) (u >> WORD_SIZE);
   d *= HIGH_HALFWORD_COEFF;
   d *= HIGH_HALFWORD_COEFF;
   d += (UWtype) (u & (HIGH_WORD_COEFF - 1));
@@ -1376,11 +1367,6 @@ __floatdidf (DWtype u)
 SFtype
 __floatdisf (DWtype u)
 {
-  /* Do the calculation in DFmode
-     so that we don't lose any of the precision of the high word
-     while multiplying it.  */
-  DFtype f;
-
   /* Protect against double-rounding error.
      Represent any low-order bits, that might be truncated in DFmode,
      by a bit that won't be lost.  The bit can go in anywhere below the
@@ -1401,7 +1387,10 @@ __floatdisf (DWtype u)
 	    }
 	}
     }
-  f = (Wtype) (u >> WORD_SIZE);
+  /* Do the calculation in DFmode
+     so that we don't lose any of the precision of the high word
+     while multiplying it.  */
+  DFtype f = (Wtype) (u >> WORD_SIZE);
   f *= HIGH_HALFWORD_COEFF;
   f *= HIGH_HALFWORD_COEFF;
   f += (UWtype) (u & (HIGH_WORD_COEFF - 1));
@@ -1510,7 +1499,7 @@ __gcc_bcmp (const unsigned char *s1, const unsigned char *s2, size_t size)
 {
   while (size > 0)
     {
-      unsigned char c1 = *s1++, c2 = *s2++;
+      const unsigned char c1 = *s1++, c2 = *s2++;
       if (c1 != c2)
 	return c1 - c2;
       size--;
@@ -1556,6 +1545,19 @@ __clear_cache (char *beg __attribute__((__unused__)),
 }
 
 #endif /* L_clear_cache */
+
+#ifdef L_enable_execute_stack
+/* Attempt to turn on execute permission for the stack.  */
+
+#ifdef ENABLE_EXECUTE_STACK
+  ENABLE_EXECUTE_STACK
+#else
+void
+__enable_execute_stack (void *addr __attribute__((__unused__)))
+{}
+#endif /* ENABLE_EXECUTE_STACK */
+
+#endif /* L_enable_execute_stack */
 
 #ifdef L_trampoline
 
@@ -1612,6 +1614,7 @@ TRANSFER_FROM_TRAMPOLINE
 #ifdef L__main
 
 #include "gbl-ctors.h"
+
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
    give the same symbol without quotes for an alternative entry point.  You
@@ -1621,7 +1624,7 @@ TRANSFER_FROM_TRAMPOLINE
 #define SYMBOL__MAIN __main
 #endif
 
-#ifdef INIT_SECTION_ASM_OP
+#if defined (INIT_SECTION_ASM_OP) || defined (INIT_ARRAY_SECTION_ASM_OP)
 #undef HAS_INIT_SECTION
 #define HAS_INIT_SECTION
 #endif
@@ -1690,8 +1693,9 @@ __do_global_ctors (void)
    For systems which support a .init section we use the .init section
    to run __do_global_ctors, so we need not do anything here.  */
 
+extern void SYMBOL__MAIN (void);
 void
-SYMBOL__MAIN ()
+SYMBOL__MAIN (void)
 {
   /* Support recursive calls to `main': run initializers just once.  */
   static int initialized;

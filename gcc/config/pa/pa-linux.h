@@ -56,12 +56,8 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
-	builtin_define ("__gnu_linux__");	\
-	builtin_define_std ("linux");		\
-	builtin_define_std ("unix");		\
+	LINUX_TARGET_OS_CPP_BUILTINS();		\
 	builtin_assert ("machine=bigendian");	\
-	builtin_assert ("system=posix");	\
-	builtin_assert ("system=unix");		\
     }						\
   while (0)
 
@@ -121,14 +117,14 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
   if (TARGET_BIG_SWITCH)					\
-    fprintf (FILE, "\tstw %%r1,-16(%%r30)\n\tldil LR'.L%d,%%r1\n\tbe RR'.L%d(%%sr4,%%r1)\n\tldw -16(%%r30),%%r1\n", VALUE, VALUE);		\
+    fprintf (FILE, "\t.word .L%d\n", VALUE);			\
   else								\
     fprintf (FILE, "\tb .L%d\n\tnop\n", VALUE)
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   if (TARGET_BIG_SWITCH)					\
-    fprintf (FILE, "\tstw %%r1,-16(%%r30)\n\tldw T'.L%d(%%r19),%%r1\n\tbv %%r0(%%r1)\n\tldw -16(%%r30),%%r1\n", VALUE);				\
+    fprintf (FILE, "\t.word .L%d-.L%d\n", VALUE, REL);		\
   else								\
     fprintf (FILE, "\tb .L%d\n\tnop\n", VALUE)
 

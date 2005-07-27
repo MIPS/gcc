@@ -1,6 +1,6 @@
 // -*- C++ -*- C math library.
 
-// Copyright (C) 2000, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,10 +32,10 @@
 #ifndef _GLIBCXX_CMATH_TCC
 #define _GLIBCXX_CMATH_TCC 1
 
-namespace std 
+namespace std
 {
   template<typename _Tp>
-    _Tp
+    inline _Tp
     __cmath_power(_Tp __x, unsigned int __n)
     {
       _Tp __y = __n % 2 ? __x : 1;

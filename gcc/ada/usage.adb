@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -235,7 +235,7 @@ begin
    --  Line for -gnatN switch
 
    Write_Switch_Char ("N");
-   Write_Line ("Full (frontend) inlining of subprograqms");
+   Write_Line ("Full (frontend) inlining of subprograms");
 
    --  Line for -gnato switch
 
@@ -276,6 +276,11 @@ begin
 
    Write_Switch_Char ("s");
    Write_Line ("Syntax check only");
+
+   --  Lines for -gnatS switch
+
+   Write_Switch_Char ("S");
+   Write_Line ("Print listing of package Standard");
 
    --  Lines for -gnatt switch
 
@@ -334,7 +339,7 @@ begin
 
    Write_Switch_Char ("wxx");
    Write_Line ("Enable selected warning modes, xx = list of parameters:");
-   Write_Line ("        a    turn on all optional warnings (except b,d,h,l)");
+   Write_Line ("        a    turn on all optional warnings (except d,h,l)");
    Write_Line ("        A    turn off all optional warnings");
    Write_Line ("        c    turn on warnings for constant conditional");
    Write_Line ("        C*   turn off warnings for constant conditional");

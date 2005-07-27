@@ -99,7 +99,13 @@ Boston, MA 02111-1307, USA.  */
    Note that an option name with a prefix that matches another option
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
-   match with the longer one.  */
+   match with the longer one.
+
+   The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
+   in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
+   command-line option translations specific to the particular target
+   architecture.  */
+
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -126,7 +132,8 @@ Boston, MA 02111-1307, USA.  */
   { "-multi_module", "-Zmulti_module" },  \
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
-  { "-unexported_symbols_list", "-Zunexported_symbols_list" }
+  { "-unexported_symbols_list", "-Zunexported_symbols_list" },  \
+  SUBTARGET_OPTION_TRANSLATE_TABLE
 
 /* These compiler options take n arguments.  */
 
@@ -192,10 +199,10 @@ Boston, MA 02111-1307, USA.  */
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
-    %{L*} %(link_libgcc) %o %{fprofile-arcs:-lgcov} \
+    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} \
-    %{!--help:%{!no-c++filt|c++filt:| c++filt3 }} }}}}}}}}"
+    %{!--help:%{!no-c++filt|c++filt:| c++filt }} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -390,9 +397,6 @@ do { text_section ();							\
         || DECL_INITIAL (DECL))                                         \
       (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
     ASM_OUTPUT_LABEL (FILE, xname);                                     \
-    /* Avoid generating stubs for functions we've just defined by	\
-       outputting any required stub name label now.  */			\
-    machopic_output_possible_stub_label (FILE, xname);			\
   } while (0)
 
 #define ASM_DECLARE_CONSTANT_NAME(FILE, NAME, EXP, SIZE)	\
@@ -707,6 +711,13 @@ objc_section_init (void)			\
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP ".globl "
 #define TARGET_ASM_GLOBALIZE_LABEL darwin_globalize_label
+
+/* Emit an assembler directive to set visibility for a symbol.  Used
+   to support visibility attribute and Darwin's private extern
+   feature. */
+#undef TARGET_ASM_ASSEMBLE_VISIBILITY
+#define TARGET_ASM_ASSEMBLE_VISIBILITY darwin_assemble_visibility
+
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\

@@ -31,7 +31,6 @@
 #include <bits/c++config.h>
 #include "unwind-cxx.h"
 
-
 using namespace __cxxabiv1;
 
 
@@ -56,14 +55,15 @@ __gxx_exception_cleanup (_Unwind_Reason_Code code, _Unwind_Exception *exc)
 
 
 extern "C" void
-__cxa_throw (void *obj, std::type_info *tinfo, void (*dest) (void *))
+__cxxabiv1::__cxa_throw (void *obj, std::type_info *tinfo, 
+			 void (*dest) (void *))
 {
   __cxa_exception *header = __get_exception_header_from_obj (obj);
   header->exceptionType = tinfo;
   header->exceptionDestructor = dest;
   header->unexpectedHandler = __unexpected_handler;
   header->terminateHandler = __terminate_handler;
-  header->unwindHeader.exception_class = __gxx_exception_class;
+  __GXX_INIT_EXCEPTION_CLASS(header->unwindHeader.exception_class);
   header->unwindHeader.exception_cleanup = __gxx_exception_cleanup;
 
   __cxa_eh_globals *globals = __cxa_get_globals ();
@@ -81,7 +81,7 @@ __cxa_throw (void *obj, std::type_info *tinfo, void (*dest) (void *))
 }
 
 extern "C" void
-__cxa_rethrow ()
+__cxxabiv1::__cxa_rethrow ()
 {
   __cxa_eh_globals *globals = __cxa_get_globals ();
   __cxa_exception *header = globals->caughtExceptions;
@@ -90,7 +90,7 @@ __cxa_rethrow ()
   if (header)
     {
       // Tell __cxa_end_catch this is a rethrow.
-      if (header->unwindHeader.exception_class != __gxx_exception_class)
+      if (!__is_gxx_exception_class(header->unwindHeader.exception_class))
 	globals->caughtExceptions = 0;
       else
 	header->handlerCount = -header->handlerCount;
@@ -98,7 +98,7 @@ __cxa_rethrow ()
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
       _Unwind_SjLj_Resume_or_Rethrow (&header->unwindHeader);
 #else
-#ifdef _LIBUNWIND_STD_ABI
+#if defined(_LIBUNWIND_STD_ABI) || defined (__ARM_EABI_UNWINDER__)
       _Unwind_RaiseException (&header->unwindHeader);
 #else
       _Unwind_Resume_or_Rethrow (&header->unwindHeader);

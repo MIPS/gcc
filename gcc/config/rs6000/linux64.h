@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -52,8 +53,11 @@
 #undef PROCESSOR_DEFAULT64
 #define PROCESSOR_DEFAULT64 PROCESSOR_PPC630
 
-#undef	TARGET_RELOCATABLE
-#define	TARGET_RELOCATABLE (!TARGET_64BIT && (target_flags & MASK_RELOCATABLE))
+/* We don't need to generate entries in .fixup, except when
+   -mrelocatable or -mrelocatable-lib is given.  */
+#undef RELOCATABLE_NEEDS_FIXUP
+#define RELOCATABLE_NEEDS_FIXUP \
+  (target_flags & target_flags_explicit & MASK_RELOCATABLE)
 
 #undef	RS6000_ABI_NAME
 #define	RS6000_ABI_NAME (TARGET_64BIT ? "aixdesc" : "sysv")
@@ -74,26 +78,36 @@
 	      rs6000_current_abi = ABI_AIX;			\
 	      error (INVALID_64BIT, "call");			\
 	    }							\
-	  if (TARGET_RELOCATABLE)				\
+	  if (target_flags & MASK_RELOCATABLE)			\
 	    {							\
 	      target_flags &= ~MASK_RELOCATABLE;		\
 	      error (INVALID_64BIT, "relocatable");		\
 	    }							\
-	  if (TARGET_EABI)					\
+	  if (target_flags & MASK_EABI)				\
 	    {							\
 	      target_flags &= ~MASK_EABI;			\
 	      error (INVALID_64BIT, "eabi");			\
 	    }							\
-	  if (TARGET_PROTOTYPE)					\
+	  if (target_flags & MASK_PROTOTYPE)			\
 	    {							\
 	      target_flags &= ~MASK_PROTOTYPE;			\
 	      error (INVALID_64BIT, "prototype");		\
+	    }							\
+          if ((target_flags & MASK_POWERPC64) == 0)		\
+	    {							\
+	      target_flags |= MASK_POWERPC64;			\
+	      error ("-m64 requires a PowerPC64 cpu");		\
 	    }							\
 	}							\
       else							\
 	{							\
 	  if (!RS6000_BI_ARCH_P)				\
 	    error (INVALID_32BIT, "32");			\
+	  if (TARGET_PROFILE_KERNEL)				\
+	    {							\
+	      target_flags &= ~MASK_PROFILE_KERNEL;		\
+	      error (INVALID_32BIT, "profile-kernel");		\
+	    }							\
 	}							\
     }								\
   while (0)
@@ -177,10 +191,12 @@
 #define	TARGET_EABI		0
 #undef	TARGET_PROTOTYPE
 #define	TARGET_PROTOTYPE	0
+#undef RELOCATABLE_NEEDS_FIXUP
+#define RELOCATABLE_NEEDS_FIXUP 0
 
 #endif
 
-#define	MASK_PROFILE_KERNEL	0x00080000
+#define	MASK_PROFILE_KERNEL	0x00100000
 
 /* Non-standard profiling for kernels, which just saves LR then calls
    _mcount without worrying about arg saves.  The idea is to change
@@ -201,9 +217,6 @@
 #define PROFILE_HOOK(LABEL) \
   do { if (TARGET_64BIT) output_profile_hook (LABEL); } while (0)
 
-/* We don't need to generate entries in .fixup.  */
-#undef RELOCATABLE_NEEDS_FIXUP
-
 /* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
@@ -218,19 +231,17 @@
    : (COMPUTED))
 
 /* PowerPC64 Linux increases natural record alignment to doubleword if
-   the first field is an FP double.  */
+   the first field is an FP double, only if in power alignment mode.  */
 #undef  ROUND_TYPE_ALIGN
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)		\
-  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)			\
-   : (TARGET_64BIT						\
-      && (TREE_CODE (STRUCT) == RECORD_TYPE			\
-	  || TREE_CODE (STRUCT) == UNION_TYPE			\
-	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-      && TYPE_FIELDS (STRUCT) != 0				\
-      && TARGET_ALIGN_NATURAL == 0				\
-      && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode)		\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)			\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)		\
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)				\
+   : (TARGET_64BIT							\
+      && (TREE_CODE (STRUCT) == RECORD_TYPE				\
+	  || TREE_CODE (STRUCT) == UNION_TYPE				\
+	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)			\
+      && TARGET_ALIGN_NATURAL == 0)					\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Indicate that jump tables go in the text section.  */
@@ -278,9 +289,13 @@
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
-/* Override sysv4.h  */
-#undef	CPP_SYSV_SPEC
-#define	CPP_SYSV_SPEC ""
+/* Linux doesn't support saving and restoring 64-bit regs in a 32-bit
+   process.  */
+#define OS_MISSING_POWERPC64 !TARGET_64BIT
+
+/* glibc has float and long double forms of math functions.  */
+#undef  TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS 1
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()            		\
@@ -536,175 +551,13 @@ while (0)
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET (!TARGET_64BIT)
 
-#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+#define TARGET_ASM_FILE_END rs6000_elf_end_indicate_exec_stack
+
+#define TARGET_HAS_F_SETLKW
 
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
-/* Do code reading to identify a signal frame, and set the frame
-   state data appropriately.  See unwind-dw2.c for the structs.  */
-
 #ifdef IN_LIBGCC2
-#include <signal.h>
-#include <sys/ucontext.h>
-
-#ifdef __powerpc64__
-enum { SIGNAL_FRAMESIZE = 128 };
-#else
-enum { SIGNAL_FRAMESIZE = 64 };
-#endif
-#endif
-
-#ifdef __powerpc64__
-
-/* If the current unwind info (FS) does not contain explicit info
-   saving R2, then we have to do a minor amount of code reading to
-   figure out if it was saved.  The big problem here is that the
-   code that does the save/restore is generated by the linker, so
-   we have no good way to determine at compile time what to do.  */
-
-#define MD_FROB_UPDATE_CONTEXT(CTX, FS)					\
-  do {									\
-    if ((FS)->regs.reg[2].how == REG_UNSAVED)				\
-      {									\
-	unsigned int *insn						\
-	  = (unsigned int *)						\
-	    _Unwind_GetGR ((CTX), LINK_REGISTER_REGNUM);		\
-	if (*insn == 0xE8410028)					\
-	  _Unwind_SetGRPtr ((CTX), 2, (CTX)->cfa + 40);			\
-      }									\
-  } while (0)
-
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  do {									\
-    unsigned char *pc_ = (CONTEXT)->ra;					\
-    struct sigcontext *sc_;						\
-    long new_cfa_;							\
-    int i_;								\
-									\
-    /* addi r1, r1, 128; li r0, 0x0077; sc  (sigreturn) */		\
-    /* addi r1, r1, 128; li r0, 0x00AC; sc  (rt_sigreturn) */		\
-    if (*(unsigned int *) (pc_+0) != 0x38210000 + SIGNAL_FRAMESIZE	\
-	|| *(unsigned int *) (pc_+8) != 0x44000002)			\
-      break;								\
-    if (*(unsigned int *) (pc_+4) == 0x38000077)			\
-      {									\
-	struct sigframe {						\
-	  char gap[SIGNAL_FRAMESIZE];					\
-	  struct sigcontext sigctx;					\
-	} *rt_ = (CONTEXT)->cfa;					\
-	sc_ = &rt_->sigctx;						\
-      }									\
-    else if (*(unsigned int *) (pc_+4) == 0x380000AC)			\
-      {									\
-	struct rt_sigframe {						\
-	  int tramp[6];							\
-	  struct siginfo *pinfo;					\
-	  struct ucontext *puc;						\
-	} *rt_ = (struct rt_sigframe *) pc_;				\
-	sc_ = &rt_->puc->uc_mcontext;					\
-      }									\
-    else								\
-      break;								\
-    									\
-    new_cfa_ = sc_->regs->gpr[STACK_POINTER_REGNUM];			\
-    (FS)->cfa_how = CFA_REG_OFFSET;					\
-    (FS)->cfa_reg = STACK_POINTER_REGNUM;				\
-    (FS)->cfa_offset = new_cfa_ - (long) (CONTEXT)->cfa;		\
-    									\
-    for (i_ = 0; i_ < 32; i_++)						\
-      if (i_ != STACK_POINTER_REGNUM)					\
-	{	    							\
-	  (FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
-	  (FS)->regs.reg[i_].loc.offset 				\
-	    = (long)&(sc_->regs->gpr[i_]) - new_cfa_;			\
-	}								\
-									\
-    (FS)->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;	\
-    (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
-      = (long)&(sc_->regs->link) - new_cfa_;				\
-									\
-    /* The unwinder expects the IP to point to the following insn,	\
-       whereas the kernel returns the address of the actual		\
-       faulting insn. We store NIP+4 in an unused register slot to	\
-       get the same result for multiple evaluation of the same signal	\
-       frame.  */							\
-    sc_->regs->gpr[47] = sc_->regs->nip + 4;  				\
-    (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
-    (FS)->regs.reg[CR0_REGNO].loc.offset 				\
-      = (long)&(sc_->regs->gpr[47]) - new_cfa_;				\
-    (FS)->retaddr_column = CR0_REGNO;					\
-    goto SUCCESS;							\
-  } while (0)
-
-#else
-
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  do {									\
-    unsigned char *pc_ = (CONTEXT)->ra;					\
-    struct sigcontext *sc_;						\
-    long new_cfa_;							\
-    int i_;								\
-									\
-    /* li r0, 0x7777; sc  (sigreturn old)  */				\
-    /* li r0, 0x0077; sc  (sigreturn new)  */				\
-    /* li r0, 0x6666; sc  (rt_sigreturn old)  */			\
-    /* li r0, 0x00AC; sc  (rt_sigreturn new)  */			\
-    if (*(unsigned int *) (pc_+4) != 0x44000002)			\
-      break;								\
-    if (*(unsigned int *) (pc_+0) == 0x38007777				\
-	|| *(unsigned int *) (pc_+0) == 0x38000077)			\
-      {									\
-	struct sigframe {						\
-	  char gap[SIGNAL_FRAMESIZE];					\
-	  struct sigcontext sigctx;					\
-	} *rt_ = (CONTEXT)->cfa;					\
-	sc_ = &rt_->sigctx;						\
-      }									\
-    else if (*(unsigned int *) (pc_+0) == 0x38006666			\
-	     || *(unsigned int *) (pc_+0) == 0x380000AC)		\
-      {									\
-	struct rt_sigframe {						\
-	  char gap[SIGNAL_FRAMESIZE];					\
-	  unsigned long _unused[2];					\
-	  struct siginfo *pinfo;					\
-	  void *puc;							\
-	  struct siginfo info;						\
-	  struct ucontext uc;						\
-	} *rt_ = (CONTEXT)->cfa;					\
-	sc_ = &rt_->uc.uc_mcontext;					\
-      }									\
-    else								\
-      break;								\
-    									\
-    new_cfa_ = sc_->regs->gpr[STACK_POINTER_REGNUM];			\
-    (FS)->cfa_how = CFA_REG_OFFSET;					\
-    (FS)->cfa_reg = STACK_POINTER_REGNUM;				\
-    (FS)->cfa_offset = new_cfa_ - (long) (CONTEXT)->cfa;		\
-    									\
-    for (i_ = 0; i_ < 32; i_++)						\
-      if (i_ != STACK_POINTER_REGNUM)					\
-	{	    							\
-	  (FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
-	  (FS)->regs.reg[i_].loc.offset 				\
-	    = (long)&(sc_->regs->gpr[i_]) - new_cfa_;			\
-	}								\
-									\
-    (FS)->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;	\
-    (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
-      = (long)&(sc_->regs->link) - new_cfa_;				\
-									\
-    /* The unwinder expects the IP to point to the following insn,	\
-       whereas the kernel returns the address of the actual		\
-       faulting insn. We store NIP+4 in an unused register slot to	\
-       get the same result for multiple evaluation of the same signal	\
-       frame.  */							\
-    sc_->regs->gpr[47] = sc_->regs->nip + 4;  				\
-    (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
-    (FS)->regs.reg[CR0_REGNO].loc.offset 				\
-      = (long)&(sc_->regs->gpr[47]) - new_cfa_;				\
-    (FS)->retaddr_column = CR0_REGNO;					\
-    goto SUCCESS;							\
-  } while (0)
-
+#include "config/rs6000/linux-unwind.h"
 #endif

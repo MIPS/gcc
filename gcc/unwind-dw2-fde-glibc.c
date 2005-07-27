@@ -46,13 +46,14 @@
 #define NO_BASE_OF_ENCODED_VALUE
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
+#include "unwind-compat.h"
 #include "gthr.h"
 
 #if !defined(inhibit_libc) && defined(HAVE_LD_EH_FRAME_HDR) \
     && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
 	|| (__GLIBC__ == 2 && __GLIBC_MINOR__ == 2 && defined(DT_CONFIG)))
 
-static fde * _Unwind_Find_registered_FDE (void *pc, struct dwarf_eh_bases *bases);
+static const fde * _Unwind_Find_registered_FDE (void *pc, struct dwarf_eh_bases *bases);
 
 #define _Unwind_Find_FDE _Unwind_Find_registered_FDE
 #include "unwind-dw2-fde.c"
@@ -68,7 +69,7 @@ struct unw_eh_callback_data
   void *tbase;
   void *dbase;
   void *func;
-  fde *ret;
+  const fde *ret;
 };
 
 struct unw_eh_frame_hdr
@@ -261,11 +262,11 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
   return 1;
 }
 
-fde *
+const fde *
 _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
 {
   struct unw_eh_callback_data data;
-  fde *ret;
+  const fde *ret;
 
   ret = _Unwind_Find_registered_FDE (pc, bases);
   if (ret != NULL)
@@ -293,4 +294,8 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
 /* Prevent multiple include of header files.  */
 #define _Unwind_Find_FDE _Unwind_Find_FDE
 #include "unwind-dw2-fde.c"
+#endif
+
+#if defined (USE_GAS_SYMVER) && defined (SHARED) && defined (USE_LIBUNWIND_EXCEPTIONS)
+alias (_Unwind_Find_FDE);
 #endif

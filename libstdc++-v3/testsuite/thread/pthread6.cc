@@ -72,12 +72,17 @@ thread_main (void*)
   return 0;
 }
 
+#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template class __gnu_cxx::__mt_alloc<std::_Rb_tree_node<std::pair<unsigned int const, std::string> > >;
+#endif
+
 int
 main (void)
 {
   pthread_t tid[max_thread_count];
 
-#if defined(__sun) && defined(__svr4__)
+#if defined(__sun) && defined(__svr4__) && _XOPEN_VERSION >= 500
   pthread_setconcurrency (max_thread_count);
 #endif
 

@@ -37,13 +37,13 @@ void
 set_Wformat (int setting)
 {
   warn_format = setting;
-  warn_format_y2k = setting;
   warn_format_extra_args = setting;
   warn_format_zero_length = setting;
   if (setting != 1)
     {
       warn_format_nonliteral = setting;
       warn_format_security = setting;
+      warn_format_y2k = setting;
     }
   /* Make sure not to disable -Wnonnull if -Wformat=0 is specified.  */
   if (setting)
@@ -755,23 +755,23 @@ static const format_flag_pair strfmon_flag_pairs[] =
 static const format_char_info print_char_table[] =
 {
   /* C89 conversion specifiers.  */
-  { "di",  0, STD_C89, { T89_I,   T99_SC,  T89_S,   T89_L,   T9L_LL,  TEX_LL,  T99_SST, T99_PD,  T99_IM  }, "-wp0 +'I", "i"  },
-  { "oxX", 0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_ULL, T99_ST,  T99_UPD, T99_UIM }, "-wp0#",    "i"  },
-  { "u",   0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_ULL, T99_ST,  T99_UPD, T99_UIM }, "-wp0'I",   "i"  },
-  { "fgG", 0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#'", ""   },
-  { "eE",  0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#",  ""   },
-  { "c",   0, STD_C89, { T89_I,   BADLEN,  BADLEN,  T94_WI,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-w",       ""   },
-  { "s",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  T94_W,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-wp",      "cR" },
-  { "p",   1, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-w",       "c"  },
-  { "n",   1, STD_C89, { T89_I,   T99_SC,  T89_S,   T89_L,   T9L_LL,  BADLEN,  T99_SST, T99_PD,  T99_IM  }, "",         "W"  },
+  { "di",  0, STD_C89, { T89_I,   T99_SC,  T89_S,   T89_L,   T9L_LL,  TEX_LL,  T99_SST, T99_PD,  T99_IM  }, "-wp0 +'I",  "i"  },
+  { "oxX", 0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_ULL, T99_ST,  T99_UPD, T99_UIM }, "-wp0#",     "i"  },
+  { "u",   0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_ULL, T99_ST,  T99_UPD, T99_UIM }, "-wp0'I",    "i"  },
+  { "fgG", 0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#'I", ""   },
+  { "eE",  0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#I",  ""   },
+  { "c",   0, STD_C89, { T89_I,   BADLEN,  BADLEN,  T94_WI,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-w",        ""   },
+  { "s",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  T94_W,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-wp",       "cR" },
+  { "p",   1, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-w",        "c"  },
+  { "n",   1, STD_C89, { T89_I,   T99_SC,  T89_S,   T89_L,   T9L_LL,  BADLEN,  T99_SST, T99_PD,  T99_IM  }, "",          "W"  },
   /* C99 conversion specifiers.  */
-  { "F",   0, STD_C99, { T99_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T99_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#'", ""   },
-  { "aA",  0, STD_C99, { T99_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T99_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#",  ""   },
+  { "F",   0, STD_C99, { T99_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T99_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#'I", ""   },
+  { "aA",  0, STD_C99, { T99_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T99_LD,  BADLEN,  BADLEN,  BADLEN  }, "-wp0 +#",   ""   },
   /* X/Open conversion specifiers.  */
-  { "C",   0, STD_EXT, { TEX_WI,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-w",       ""   },
-  { "S",   1, STD_EXT, { TEX_W,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-wp",      "R"  },
+  { "C",   0, STD_EXT, { TEX_WI,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-w",        ""   },
+  { "S",   1, STD_EXT, { TEX_W,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-wp",       "R"  },
   /* GNU conversion specifiers.  */
-  { "m",   0, STD_EXT, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-wp",      ""   },
+  { "m",   0, STD_EXT, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "-wp",       ""   },
   { NULL,  0, 0, NOLENGTHS, NULL, NULL }
 };
 
@@ -2518,9 +2518,27 @@ init_dynamic_asm_fprintf_info (void)
 	 length modifier to work, one must have issued: "typedef
 	 HOST_WIDE_INT __gcc_host_wide_int__;" in one's source code
 	 prior to using that modifier.  */
-      if (!(hwi = maybe_get_identifier ("__gcc_host_wide_int__"))
-	  || !(hwi = DECL_ORIGINAL_TYPE (identifier_global_value (hwi))))
+      hwi = maybe_get_identifier ("__gcc_host_wide_int__");
+      if (!hwi)
+	{
+	  error ("'__gcc_host_wide_int__' is not defined as a type");
+	  return;
+	}
+      hwi = identifier_global_value (hwi);
+      if (!hwi || TREE_CODE (hwi) != TYPE_DECL)
+	{
+	  error ("'__gcc_host_wide_int__' is not defined as a type");
+	  return;
+	}
+      hwi = DECL_ORIGINAL_TYPE (hwi);
+      if (!hwi)
 	abort ();
+      if (hwi != long_integer_type_node && hwi != long_long_integer_type_node)
+	{
+	  error ("'__gcc_host_wide_int__' is not defined as 'long'"
+		 " or 'long long'");
+	  return;
+	}
 
       /* Create a new (writable) copy of asm_fprintf_length_specs.  */
       new_asm_fprintf_length_specs = xmemdup (asm_fprintf_length_specs,
@@ -2563,19 +2581,71 @@ init_dynamic_diag_info (void)
 	 However we don't force a hard ICE because we may see only one
 	 or the other type.  */
       if ((loc = maybe_get_identifier ("location_t")))
-	loc = TREE_TYPE (identifier_global_value (loc));
+	{
+	  loc = identifier_global_value (loc);
+	  if (loc)
+	    {
+	      if (TREE_CODE (loc) != TYPE_DECL)
+		{
+		  error ("'location_t' is not defined as a type");
+		  loc = 0;
+		}
+	      else
+		loc = TREE_TYPE (loc);
+	    }
+	}
 
       /* We need to grab the underlying `union tree_node' so peek into
 	 an extra type level.  */
       if ((t = maybe_get_identifier ("tree")))
-	t = TREE_TYPE (TREE_TYPE (identifier_global_value (t)));
+	{
+	  t = identifier_global_value (t);
+	  if (t)
+	    {
+	      if (TREE_CODE (t) != TYPE_DECL)
+		{
+		  error ("'tree' is not defined as a type");
+		  t = 0;
+		}
+	      else if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
+		{
+		  error ("'tree' is not defined as a pointer type");
+		  t = 0;
+		}
+	      else
+		t = TREE_TYPE (TREE_TYPE (t));
+	    }
+	}
     
       /* Find the underlying type for HOST_WIDE_INT.  For the %w
 	 length modifier to work, one must have issued: "typedef
 	 HOST_WIDE_INT __gcc_host_wide_int__;" in one's source code
 	 prior to using that modifier.  */
       if ((hwi = maybe_get_identifier ("__gcc_host_wide_int__")))
-	hwi = DECL_ORIGINAL_TYPE (identifier_global_value (hwi));
+	{
+	  hwi = identifier_global_value (hwi);
+	  if (hwi)
+	    {
+	      if (TREE_CODE (hwi) != TYPE_DECL)
+		{
+		  error ("'__gcc_host_wide_int__' is not defined as a type");
+		  hwi = 0;
+		}
+	      else
+		{
+		  hwi = DECL_ORIGINAL_TYPE (hwi);
+		  if (!hwi)
+		    abort ();
+		  if (hwi != long_integer_type_node
+		      && hwi != long_long_integer_type_node)
+		    {
+		      error ("'__gcc_host_wide_int__' is not defined"
+			     " as 'long' or 'long long'");
+		      hwi = 0;
+		    }
+		}
+	    }
+	}
       
       /* Assign the new data for use.  */
 

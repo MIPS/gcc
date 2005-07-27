@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -73,6 +73,7 @@ compilation is specified by a string called a "spec".  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "multilib.h" /* before tm.h */
 #include "tm.h"
 #include <signal.h>
 #if ! defined( SIGCHLD ) && defined( SIGCLD )
@@ -339,7 +340,7 @@ static void display_help (void);
 static void add_preprocessor_option (const char *, int);
 static void add_assembler_option (const char *, int);
 static void add_linker_option (const char *, int);
-static void process_command (int, const char *const *);
+static void process_command (int, const char **);
 static int execute (void);
 static void alloc_args (void);
 static void clear_args (void);
@@ -466,6 +467,8 @@ or with constant text in a single argument.
  %G     process LIBGCC_SPEC as a spec.
  %M     output multilib_dir with directory separators replaced with "_";
 	if multilib_dir is not set or is ".", output "".
+ %R     Output the concatenation of target_system_root and
+        target_sysroot_suffix. 
  %S     process STARTFILE_SPEC as a spec.  A capital S is actually used here.
  %E     process ENDFILE_SPEC as a spec.  A capital E is actually used here.
  %C     process CPP_SPEC as a spec.
@@ -676,7 +679,7 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(link_libgcc) %o %{fprofile-arcs:-lgcov}\
+    %{static:} %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
@@ -693,6 +696,10 @@ proper position among the other output files.  */
 
 #ifndef STARTFILE_PREFIX_SPEC
 # define STARTFILE_PREFIX_SPEC ""
+#endif
+
+#ifndef SYSROOT_SPEC
+# define SYSROOT_SPEC "--sysroot=%R"
 #endif
 
 #ifndef SYSROOT_SUFFIX_SPEC
@@ -720,6 +727,7 @@ static const char *linker_name_spec = LINKER_NAME;
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
+static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
 
@@ -745,7 +753,7 @@ static const char *cpp_unique_options =
  %{MMD:-MMD %{!o:%b.d}%{o*:%.d%*}}\
  %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
- %{trigraphs} %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -754,8 +762,9 @@ static const char *cpp_unique_options =
    options used to set target flags.  Those special target flags settings may
    in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %1 %{m*} %{std*} %{ansi} %{W*&pedantic*} %{w} %{f*}\
- %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}";
+"%(cpp_unique_options) %1 %{m*} %{std*&ansi&trigraphs} %{W*&pedantic*} %{w}\
+ %{f*} %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*}\
+ %{undef}";
 
 /* This contains cpp options which are not passed when the preprocessor
    output will be used by another program.  */
@@ -765,8 +774,8 @@ static const char *cpp_debug_options = "%{d*}";
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- -auxbase%{c|S:%{o*:-strip %*}%{!o*: %b}}%{!c:%{!S: %b}}\
- %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
+ %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
+ %{g*} %{O*} %{W*&pedantic*} %{w} %{std*&ansi&trigraphs}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
@@ -791,7 +800,6 @@ static const char *multilib_select;
 static const char *multilib_matches;
 static const char *multilib_defaults;
 static const char *multilib_exclusions;
-#include "multilib.h"
 
 /* Check whether a particular argument is a default argument.  */
 
@@ -912,7 +920,7 @@ static const struct compiler default_compilers[] =
 		cc1 %(cpp_unique_options) %(cc1_options)}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
-   "%{!E:%e-E required when input is from standard input}\
+   "%{!E:%e-E or -x required when input is from standard input}\
     %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0},
   {".h", "@c-header", 0},
   {"@c-header",
@@ -1068,6 +1076,7 @@ static const struct option_map option_map[] =
    {"--static", "-static", 0},
    {"--std", "-std=", "aj"},
    {"--symbolic", "-symbolic", 0},
+   {"--sysroot", "--sysroot=", "aj"}, 
    {"--time", "-time", 0},
    {"--trace-includes", "-H", 0},
    {"--traditional", "-traditional", 0},
@@ -1487,6 +1496,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix_1",	&md_startfile_prefix_1),
   INIT_STATIC_SPEC ("startfile_prefix_spec",	&startfile_prefix_spec),
+  INIT_STATIC_SPEC ("sysroot_spec",             &sysroot_spec),
   INIT_STATIC_SPEC ("sysroot_suffix_spec",	&sysroot_suffix_spec),
   INIT_STATIC_SPEC ("sysroot_hdrs_suffix_spec",	&sysroot_hdrs_suffix_spec),
 };
@@ -1531,6 +1541,12 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 
   buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
 		"}%{!static:%{!static-libgcc:",
+#ifdef HAVE_LD_AS_NEEDED
+		"%{!shared-libgcc:", static_name,
+		" --as-needed ", shared_name, " --no-as-needed}"
+		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
+		"}",
+#else
 		"%{!shared:%{!shared-libgcc:", static_name, " ",
 		eh_name, "}%{shared-libgcc:", shared_name, " ",
 		static_name, "}}%{shared:",
@@ -1539,6 +1555,7 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		"}%{!shared-libgcc:", static_name, "}",
 #else
 		shared_name,
+#endif
 #endif
 		"}}}", NULL);
 
@@ -1638,7 +1655,16 @@ init_spec (void)
 #endif
 			    ,
 			    "-lgcc",
-			    "-lgcc_eh");
+			    "-lgcc_eh"
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+# ifdef HAVE_LD_STATIC_DYNAMIC
+			    " %{!static:-Bstatic} -lunwind %{!static:-Bdynamic}"
+# else
+			    " -lunwind"
+# endif
+#endif
+			    );
+
 	    p += 5;
 	    in_sep = 0;
 	  }
@@ -1654,7 +1680,11 @@ init_spec (void)
 #endif
 			    ,
 			    "libgcc.a%s",
-			    "libgcc_eh.a%s");
+			    "libgcc_eh.a%s"
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
+#endif
+			    );
 	    p += 10;
 	    in_sep = 0;
 	  }
@@ -2678,7 +2708,14 @@ execute (void)
 	}
       fflush (stderr);
       if (verbose_only_flag != 0)
-	return 0;
+        {
+	  /* verbose_only_flag should act as if the spec was
+	     executed, so increment execution_count before
+	     returning.  This prevents spurious warnings about
+	     unused linker input files, etc.  */
+	  execution_count++;
+	  return 0;
+        }
 #ifdef DEBUG
       notice ("\nGo ahead? (y or n) ");
       fflush (stderr);
@@ -2809,7 +2846,7 @@ execute (void)
 		    fatal ("\
 Internal error: %s (program %s)\n\
 Please submit a full bug report.\n\
-See %s for instructions.",
+Send email to %s for instructions.",
 			   strsignal (WTERMSIG (status)), commands[j].prog,
 			   bug_report_url);
 		  signal_count++;
@@ -2988,6 +3025,9 @@ display_help (void)
   fputs (_("  -time                    Time the execution of each subprocess\n"), stdout);
   fputs (_("  -specs=<file>            Override built-in specs with the contents of <file>\n"), stdout);
   fputs (_("  -std=<standard>          Assume that the input sources are for <standard>\n"), stdout);
+  fputs (_("\
+  --sysroot=<directory>    Use <directory> as the root directory for headers\n\
+                           for headers and libraries\n"), stdout);
   fputs (_("  -B <directory>           Add <directory> to the compiler's search paths\n"), stdout);
   fputs (_("  -b <machine>             Run gcc for target <machine>, if installed\n"), stdout);
   fputs (_("  -V <version>             Run gcc version number <version>, if installed\n"), stdout);
@@ -3061,7 +3101,7 @@ add_linker_option (const char *option, int len)
    Store its length in `n_switches'.  */
 
 static void
-process_command (int argc, const char *const *argv)
+process_command (int argc, const char **argv)
 {
   int i;
   const char *temp;
@@ -3299,10 +3339,10 @@ process_command (int argc, const char *const *argv)
     }
 
   /* Convert new-style -- options to old-style.  */
-  translate_options (&argc, &argv);
+  translate_options (&argc, (const char *const **) &argv);
 
   /* Do language-specific adjustment/addition of flags.  */
-  lang_specific_driver (&argc, &argv, &added_libraries);
+  lang_specific_driver (&argc, (const char *const **) &argv, &added_libraries);
 
   /* Scan argv twice.  Here, the first time, just count how many switches
      there will be in their vector, and how many input files in theirs.
@@ -3334,8 +3374,8 @@ process_command (int argc, const char *const *argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  fputs (_("Copyright (C) 2003 Free Software Foundation, Inc.\n"),
-		 stdout);
+	  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n",
+		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 		 stdout);
@@ -3856,6 +3896,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-fhelp"))
 	;
+      else if (! strncmp (argv[i], "--sysroot=", strlen ("--sysroot=")))
+	{
+	  target_system_root = argv[i] + strlen ("--sysroot=");
+	  target_system_root_changed = 1;
+	}
       else if (argv[i][0] == '+' && argv[i][1] == 'e')
 	{
 	  /* Compensate for the +e options to the C++ front-end;
@@ -4082,29 +4127,41 @@ set_collect_gcc_options (void)
       if (switches[i].live_cond == SWITCH_IGNORE)
 	continue;
 
-      obstack_grow (&collect_obstack, "'-", 2);
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#define QUOTE_STR "\""
+#define QUOTE_CHAR '"'
+#define QUOTED_QUOTE_STR "\"\\\"\""
+#else
+#define QUOTE_STR "\'"
+#define QUOTE_CHAR '\''
+#define QUOTED_QUOTE_STR "'\\''"
+#endif
+
+      obstack_grow (&collect_obstack, QUOTE_STR "-", 2);
       q = switches[i].part1;
-      while ((p = strchr (q, '\'')))
+      while ((p = strchr (q, QUOTE_CHAR)))
 	{
 	  obstack_grow (&collect_obstack, q, p - q);
-	  obstack_grow (&collect_obstack, "'\\''", 4);
+	  obstack_grow (&collect_obstack, QUOTED_QUOTE_STR, 
+			strlen (QUOTED_QUOTE_STR));
 	  q = ++p;
 	}
       obstack_grow (&collect_obstack, q, strlen (q));
-      obstack_grow (&collect_obstack, "'", 1);
+      obstack_grow (&collect_obstack, QUOTE_STR, 1);
 
       for (args = switches[i].args; args && *args; args++)
 	{
-	  obstack_grow (&collect_obstack, " '", 2);
+	  obstack_grow (&collect_obstack, " " QUOTE_STR, 2);
 	  q = *args;
-	  while ((p = strchr (q, '\'')))
+	  while ((p = strchr (q, QUOTE_CHAR)))
 	    {
 	      obstack_grow (&collect_obstack, q, p - q);
-	      obstack_grow (&collect_obstack, "'\\''", 4);
+	      obstack_grow (&collect_obstack, QUOTED_QUOTE_STR,
+			    strlen (QUOTED_QUOTE_STR));
 	      q = ++p;
 	    }
 	  obstack_grow (&collect_obstack, q, strlen (q));
-	  obstack_grow (&collect_obstack, "'", 1);
+	  obstack_grow (&collect_obstack, QUOTE_STR, 1);
 	}
     }
   obstack_grow (&collect_obstack, "\0", 1);
@@ -5889,10 +5946,10 @@ fatal_error (int signum)
   kill (getpid (), signum);
 }
 
-extern int main (int, const char *const *);
+extern int main (int, const char **);
 
 int
-main (int argc, const char *const *argv)
+main (int argc, const char **argv)
 {
   size_t i;
   int value;
@@ -6063,6 +6120,17 @@ main (int argc, const char *const *argv)
         error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC.");
       else if (argbuf_index == 1)
         target_sysroot_suffix = xstrdup (argbuf[argbuf_index -1]);
+    }
+
+  /* Pass the --sysroot option to the linker, which is assumed to be
+     GNU ld.  If there is a sysroot_suffix_spec, it has already been
+     processed by this point, so target_system_root really is the
+     system root we should be using.  */
+  if (target_system_root)
+    {
+      obstack_grow (&obstack, "%(sysroot_spec) ", strlen ("%(sysroot_spec) "));
+      obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+      set_spec ("link", obstack_finish (&obstack));
     }
 
   /* Process sysroot_hdrs_suffix_spec.  */

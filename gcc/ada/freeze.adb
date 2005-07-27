@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -124,7 +124,12 @@ package body Freeze is
    --  a subprogram type (i.e. an access to a subprogram).
 
    function Is_Fully_Defined (T : Entity_Id) return Boolean;
-   --  true if T is not private, or has a full view.
+   --  True if T is not private and has no private components, or has a full
+   --  view. Used to determine whether the designated type of an access type
+   --  should be frozen when the access type is frozen. This is done when an
+   --  allocator is frozen, or an expression that may involve attributes of
+   --  the designated type. Otherwise freezing the access type does not freeze
+   --  the designated type.
 
    procedure Process_Default_Expressions
      (E     : Entity_Id;
@@ -1812,16 +1817,19 @@ package body Freeze is
          --  fields with component clauses, where we must check the size.
          --  This is not done till the freeze point, since for fixed-point
          --  types, we do not know the size until the type is frozen.
+         --  Similar processing applies to bit packed arrays.
 
          if Is_First_Subtype (Rec) then
             Comp := First_Component (Rec);
 
             while Present (Comp) loop
                if Present (Component_Clause (Comp))
-                 and then Is_Fixed_Point_Type (Etype (Comp))
+                 and then (Is_Fixed_Point_Type (Etype (Comp))
+                             or else
+                           Is_Bit_Packed_Array (Etype (Comp)))
                then
                   Check_Size
-                    (Component_Clause (Comp),
+                    (Component_Name (Component_Clause (Comp)),
                      Etype (Comp),
                      Esize (Comp),
                      Junk);
@@ -2122,14 +2130,21 @@ package body Freeze is
                --  inherited the indication from elsewhere (e.g. an address
                --  clause, which is not good enough in RM terms!)
 
-               if Present (Get_Rep_Pragma (E, Name_Atomic))            or else
-                  Present (Get_Rep_Pragma (E, Name_Atomic_Components)) or else
-                  Present (Get_Rep_Pragma (E, Name_Volatile))          or else
-                  Present (Get_Rep_Pragma (E, Name_Volatile_Components))
+               if Present (Get_Rep_Pragma (E, Name_Atomic))
+                    or else
+                  Present (Get_Rep_Pragma (E, Name_Atomic_Components))
                then
                   Error_Msg_N
-                    ("stand alone atomic/volatile constant must be imported",
-                     E);
+                    ("stand alone atomic constant must be " &
+                     "imported ('R'M 'C.6(13))", E);
+
+               elsif Present (Get_Rep_Pragma (E, Name_Volatile))
+                       or else
+                     Present (Get_Rep_Pragma (E, Name_Volatile_Components))
+               then
+                  Error_Msg_N
+                    ("stand alone volatile constant must be " &
+                     "imported ('R'M 'C.6(13))", E);
                end if;
             end if;
 
@@ -2375,6 +2390,29 @@ package body Freeze is
                   if Unknown_Alignment (E) then
                      Set_Alignment (E, Alignment (Base_Type (E)));
                   end if;
+               end if;
+
+               --  For bit-packed arrays, check the size
+
+               if Is_Bit_Packed_Array (E)
+                 and then Known_Esize (E)
+               then
+                  declare
+                     Discard : Boolean;
+                     SizC    : constant Node_Id := Size_Clause (E);
+
+                  begin
+                     --  It is not clear if it is possible to have no size
+                     --  clause at this stage, but this is not worth worrying
+                     --  about. Post the error on the entity name in the size
+                     --  clause if present, else on the type entity itself.
+
+                     if Present (SizC) then
+                        Check_Size (Name (SizC), E, Esize (E), Discard);
+                     else
+                        Check_Size (E, E, Esize (E), Discard);
+                     end if;
+                  end;
                end if;
 
                --  Check one common case of a size given where the array
@@ -4142,6 +4180,20 @@ package body Freeze is
          end if;
       end if;
 
+      --  Reset the Pure indication on an imported subprogram unless an
+      --  explicit Pure_Function pragma was present. We do this because
+      --  otherwise it is an insidious error to call a non-pure function
+      --  from a pure unit and have calls mysteriously optimized away.
+      --  What happens here is that the Import can bypass the normal
+      --  check to ensure that pure units call only pure subprograms.
+
+      if Is_Imported (E)
+        and then Is_Pure (E)
+        and then not Has_Pragma_Pure_Function (E)
+      then
+         Set_Is_Pure (E, False);
+      end if;
+
       --  For non-foreign convention subprograms, this is where we create
       --  the extra formals (for accessibility level and constrained bit
       --  information). We delay this till the freeze point precisely so
@@ -4246,15 +4298,38 @@ package body Freeze is
    --  Is_Fully_Defined --
    -----------------------
 
-   --  Should this be in Sem_Util ???
-
    function Is_Fully_Defined (T : Entity_Id) return Boolean is
    begin
       if Ekind (T) = E_Class_Wide_Type then
          return Is_Fully_Defined (Etype (T));
-      else
-         return not Is_Private_Type (T)
-           or else Present (Full_View (Base_Type (T)));
+
+      elsif Is_Array_Type (T) then
+         return Is_Fully_Defined (Component_Type (T));
+
+      elsif Is_Record_Type (T)
+        and not Is_Private_Type (T)
+      then
+         --  Verify that the record type has no components with
+         --  private types without completion.
+
+         declare
+            Comp : Entity_Id;
+
+         begin
+            Comp := First_Component (T);
+
+            while Present (Comp) loop
+               if not Is_Fully_Defined (Etype (Comp)) then
+                  return False;
+               end if;
+
+               Next_Component (Comp);
+            end loop;
+            return True;
+         end;
+
+      else return not Is_Private_Type (T)
+        or else Present (Full_View (Base_Type (T)));
       end if;
    end Is_Fully_Defined;
 

@@ -29,8 +29,16 @@
 // the GNU General Public License.
 
 #include "new"
+#include <cstdlib>
 
-extern "C" void free (void *);
+#if _GLIBCXX_HOSTED
+using std::free;
+#else
+// In a freestanding environment, "free" may not be available.  In
+// that case, it may make sense not to define "operator delete" at
+// all.  For now, we assume that "free" will work.
+extern "C" void free(void *);
+#endif
 
 void
 operator delete (void *ptr) throw ()

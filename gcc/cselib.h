@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2003 Free Software Foundation, Inc.
+   1999, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,6 +49,7 @@ struct elt_loc_list GTY(())
   struct elt_loc_list *next;
   /* An rtl expression that holds the value.  */
   rtx loc;
+  rtx canon_loc;
   /* The insn that made the equivalence.  */
   rtx setting_insn;
   /* True when setting insn is inside libcall.  */
@@ -71,3 +72,4 @@ extern enum machine_mode cselib_reg_set_mode (rtx);
 extern int rtx_equal_for_cselib_p (rtx, rtx);
 extern int references_value_p (rtx, int);
 extern rtx cselib_subst_to_values (rtx);
+extern void cselib_invalidate_rtx (rtx);

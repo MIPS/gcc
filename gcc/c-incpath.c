@@ -187,12 +187,12 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	{
 	  /* Dirs that don't exist are silently ignored, unless verbose.  */
 	  if (errno != ENOENT)
-	    cpp_errno (pfile, DL_ERROR, cur->name);
+	    cpp_errno (pfile, CPP_DL_ERROR, cur->name);
 	  else
 	    reason = REASON_NOENT;
 	}
       else if (!S_ISDIR (st.st_mode))
-	cpp_error_with_line (pfile, DL_ERROR, 0, 0,
+	cpp_error_with_line (pfile, CPP_DL_ERROR, 0, 0,
 			     "%s: not a directory", cur->name);
       else
 	{
@@ -304,6 +304,16 @@ void
 add_path (char *path, int chain, int cxx_aware)
 {
   struct cpp_dir *p;
+
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM)
+  /* Convert all backslashes to slashes.  The native CRT stat()
+     function does not recognise a directory that ends in a backslash
+     (unless it is a drive root dir, such "c:\").  Forward slashes,
+     trailing or otherwise, cause no problems for stat().  */
+  char* c;
+  for (c = path; *c; c++)
+    if (*c == '\\') *c = '/';
+#endif
 
   p = xmalloc (sizeof (struct cpp_dir));
   p->next = NULL;

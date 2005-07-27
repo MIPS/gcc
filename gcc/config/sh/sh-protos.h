@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
@@ -97,22 +97,19 @@ extern int sh_insn_length_adjustment (rtx);
 extern int sh_can_redirect_branch (rtx, rtx);
 extern void sh_expand_unop_v2sf (enum rtx_code, rtx, rtx);
 extern void sh_expand_binop_v2sf (enum rtx_code, rtx, rtx, rtx);
+extern int sh_expand_t_scc (enum rtx_code code, rtx target);
 #ifdef TREE_CODE
 extern void sh_va_start (tree, rtx);
 extern rtx sh_va_arg (tree, tree);
 #endif /* TREE_CODE */
 #endif /* RTX_CODE */
 
-#ifdef TREE_CODE
-extern tree sh_build_va_list (void);
-#endif /* TREE_CODE */
-
 extern const char *output_jump_label_table (void);
 extern int sh_handle_pragma (int (*)(void), void (*)(int), const char *);
 extern struct rtx_def *get_fpscr_rtx (void);
 extern int sh_media_register_for_return (void);
 extern void sh_expand_prologue (void);
-extern void sh_expand_epilogue (void);
+extern void sh_expand_epilogue (bool);
 extern int sh_need_epilogue (void);
 extern void sh_set_return_address (rtx, rtx);
 extern int initial_elimination_offset (int, int);
@@ -128,6 +125,7 @@ extern bool sh_cannot_change_mode_class
 extern void sh_mark_label (rtx, int);
 extern int sh_register_move_cost
   (enum machine_mode mode, enum reg_class, enum reg_class);
+extern int check_use_sfunc_addr (rtx, rtx);
 
 #ifdef HARD_CONST
 extern void fpscr_set_from_mem (int, HARD_REG_SET);
@@ -142,5 +140,7 @@ extern rtx sh_get_pr_initial_val (void);
 extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
+extern const char *sh_pch_valid_p (const void *data_p, size_t sz);
+extern bool sh_promote_prototypes (tree);
 
 #endif /* ! GCC_SH_PROTOS_H */

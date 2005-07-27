@@ -155,7 +155,7 @@ static int *containing_rgn;
 
 void debug_regions (void);
 static void find_single_block_region (void);
-static void find_rgns (struct edge_list *, dominance_info);
+static void find_rgns (struct edge_list *);
 static int too_large (int, int *, int *);
 
 extern void debug_live (int, int);
@@ -343,7 +343,7 @@ is_cfg_nonregular (void)
      the cfg not well structured.  */
   /* Check for labels referred to other thn by jumps.  */
   FOR_EACH_BB (b)
-    for (insn = b->head;; insn = NEXT_INSN (insn))
+    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
       {
 	code = GET_CODE (insn);
 	if (GET_RTX_CLASS (code) == 'i' && code != JUMP_INSN)
@@ -357,7 +357,7 @@ is_cfg_nonregular (void)
 	      return 1;
 	  }
 
-	if (insn == b->end)
+	if (insn == BB_END (b))
 	  break;
       }
 
@@ -558,8 +558,8 @@ static int
 too_large (int block, int *num_bbs, int *num_insns)
 {
   (*num_bbs)++;
-  (*num_insns) += (INSN_LUID (BLOCK_END (block)) -
-		   INSN_LUID (BLOCK_HEAD (block)));
+  (*num_insns) += (INSN_LUID (BB_END (BASIC_BLOCK (block))) -
+		   INSN_LUID (BB_HEAD (BASIC_BLOCK (block))));
   if ((*num_bbs > MAX_RGN_BLOCKS) || (*num_insns > MAX_RGN_INSNS))
     return 1;
   else
@@ -613,7 +613,7 @@ too_large (int block, int *num_bbs, int *num_insns)
    of edge tables.  That would simplify it somewhat.  */
 
 static void
-find_rgns (struct edge_list *edge_list, dominance_info dom)
+find_rgns (struct edge_list *edge_list)
 {
   int *max_hdr, *dfs_nr, *stack, *degree;
   char no_loops = 1;
@@ -827,7 +827,7 @@ find_rgns (struct edge_list *edge_list, dominance_info dom)
 		    {
 		      /* Now verify that the block is dominated by the loop
 			 header.  */
-		      if (!dominated_by_p (dom, jbb, bb))
+		      if (!dominated_by_p (CDI_DOMINATORS, jbb, bb))
 			break;
 		    }
 		}
@@ -852,8 +852,8 @@ find_rgns (struct edge_list *edge_list, dominance_info dom)
 
 	      /* Estimate # insns, and count # blocks in the region.  */
 	      num_bbs = 1;
-	      num_insns = (INSN_LUID (bb->end)
-			   - INSN_LUID (bb->head));
+	      num_insns = (INSN_LUID (BB_END (bb))
+			   - INSN_LUID (BB_HEAD (bb)));
 
 	      /* Find all loop latches (blocks with back edges to the loop
 		 header) or all the leaf blocks in the cfg has no loops.
@@ -1839,28 +1839,28 @@ can_schedule_ready_p (rtx insn)
 
       /* Update source block boundaries.  */
       b1 = BLOCK_FOR_INSN (insn);
-      if (insn == b1->head && insn == b1->end)
+      if (insn == BB_HEAD (b1) && insn == BB_END (b1))
 	{
 	  /* We moved all the insns in the basic block.
 	     Emit a note after the last insn and update the
 	     begin/end boundaries to point to the note.  */
 	  rtx note = emit_note_after (NOTE_INSN_DELETED, insn);
-	  b1->head = note;
-	  b1->end = note;
+	  BB_HEAD (b1) = note;
+	  BB_END (b1) = note;
 	}
-      else if (insn == b1->end)
+      else if (insn == BB_END (b1))
 	{
 	  /* We took insns from the end of the basic block,
 	     so update the end of block boundary so that it
 	     points to the first insn we did not move.  */
-	  b1->end = PREV_INSN (insn);
+	  BB_END (b1) = PREV_INSN (insn);
 	}
-      else if (insn == b1->head)
+      else if (insn == BB_HEAD (b1))
 	{
 	  /* We took insns from the start of the basic block,
 	     so update the start of block boundary so that
 	     it points to the first insn we did not move.  */
-	  b1->head = NEXT_INSN (insn);
+	  BB_HEAD (b1) = NEXT_INSN (insn);
 	}
     }
   else
@@ -2036,7 +2036,7 @@ add_branch_dependences (rtx head, rtx tail)
      end since moving them results in worse register allocation.  Uses remain
      at the end to ensure proper register allocation.
 
-     cc0 setters remaim at the end because they can't be moved away from
+     cc0 setters remain at the end because they can't be moved away from
      their cc0 user.
 
      Insns setting CLASS_LIKELY_SPILLED_P registers (usually return values)
@@ -2516,10 +2516,10 @@ schedule_region (int rgn)
       sched_rgn_n_insns += sched_n_insns;
 
       /* Update target block boundaries.  */
-      if (head == BLOCK_HEAD (b))
-	BLOCK_HEAD (b) = current_sched_info->head;
-      if (tail == BLOCK_END (b))
-	BLOCK_END (b) = current_sched_info->tail;
+      if (head == BB_HEAD (BASIC_BLOCK (b)))
+	BB_HEAD (BASIC_BLOCK (b)) = current_sched_info->head;
+      if (tail == BB_END (BASIC_BLOCK (b)))
+	BB_END (BASIC_BLOCK (b)) = current_sched_info->tail;
 
       /* Clean up.  */
       if (current_nr_blocks > 1)
@@ -2597,7 +2597,6 @@ init_regions (void)
 	}
       else
 	{
-	  dominance_info dom;
 	  struct edge_list *edge_list;
 
 	  /* The scheduler runs after estimate_probabilities; therefore, we
@@ -2607,7 +2606,7 @@ init_regions (void)
 	  edge_list = create_edge_list ();
 
 	  /* Compute the dominators and post dominators.  */
-	  dom = calculate_dominance_info (CDI_DOMINATORS);
+	  calculate_dominance_info (CDI_DOMINATORS);
 
 	  /* build_control_flow will return nonzero if it detects unreachable
 	     blocks or any other irregularity with the cfg which prevents
@@ -2615,7 +2614,7 @@ init_regions (void)
 	  if (build_control_flow (edge_list) != 0)
 	    find_single_block_region ();
 	  else
-	    find_rgns (edge_list, dom);
+	    find_rgns (edge_list);
 
 	  if (sched_verbose >= 3)
 	    debug_regions ();
@@ -2625,7 +2624,7 @@ init_regions (void)
 
 	  /* For now.  This will move as more and more of haifa is converted
 	     to using the cfg code in flow.c.  */
-	  free_dominance_info (dom);
+	  free_dominance_info (CDI_DOMINATORS);
 	}
     }
 

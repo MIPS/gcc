@@ -1,6 +1,6 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -185,19 +185,28 @@ enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
    pair of the file number and the type number within the file.
    This is a stack of input files.  */
 
-struct dbx_file GTY(())
+struct dbx_file
 {
   struct dbx_file *next;
   int file_number;
   int next_type_number;
-  enum binclstatus bincl_status;      /* Keep track of lazy bincl.  */
-  const char *pending_bincl_name;     /* Name of bincl.  */
-  struct dbx_file *prev;              /* Chain to traverse all pending bincls.  */
+  enum binclstatus bincl_status;  /* Keep track of lazy bincl.  */
+  const char *pending_bincl_name; /* Name of bincl.  */
+  struct dbx_file *prev;          /* Chain to traverse all pending bincls.  */
 };
 
-/* This is the top of the stack.  */
+/* This is the top of the stack.  
+   
+   This is not saved for PCH, because restoring a PCH should not change it.
+   next_file_number does have to be saved, because the PCH may use some
+   file numbers; however, just before restoring a PCH, next_file_number
+   should always be 0 because we should not have needed any file numbers
+   yet.  */
 
-static GTY(()) struct dbx_file *current_file;
+#if (defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)) \
+    && defined (DBX_USE_BINCL)
+static struct dbx_file *current_file;
+#endif
 
 /* This is the next file number to use.  */
 
@@ -425,12 +434,25 @@ static void
 dbxout_function_end (void)
 {
   char lscope_label_name[100];
+
+  /* The Lscope label must be emitted even if we aren't doing anything
+     else; dbxout_block needs it.  */
   /* Convert Ltext into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
      labels.  */
   ASM_GENERATE_INTERNAL_LABEL (lscope_label_name, "Lscope", scope_labelno);
   (*targetm.asm_out.internal_label) (asmfile, "Lscope", scope_labelno);
   scope_labelno++;
+
+  /* The N_FUN tag at the end of the function is a GNU extension,
+     which may be undesirable, and is unnecessary if we do not have
+     named sections.  */
+  if (!use_gnu_debug_info_extensions
+#if defined(NO_DBX_FUNCTION_END)
+      || NO_DBX_FUNCTION_END
+#endif
+      || !targetm.have_named_sections)
+    return;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
      symbol and an empty string.  */
@@ -513,7 +535,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = ggc_alloc (sizeof *current_file);
+  current_file = xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -625,7 +647,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = ggc_alloc (sizeof *n);
+  struct dbx_file *n = xmalloc (sizeof *n);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -765,12 +787,7 @@ dbxout_function_decl (tree decl)
 #ifdef DBX_OUTPUT_FUNCTION_END
   DBX_OUTPUT_FUNCTION_END (asmfile, decl);
 #endif
-  if (use_gnu_debug_info_extensions
-#if defined(NO_DBX_FUNCTION_END)
-      && ! NO_DBX_FUNCTION_END
-#endif
-      && targetm.have_named_sections)
-    dbxout_function_end ();
+  dbxout_function_end ();
 }
 
 #endif /* DBX_DEBUGGING_INFO  */
@@ -855,6 +872,11 @@ dbxout_type_fields (tree type)
      field that we can support.  */
   for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
     {
+
+      /* If on of the nodes is an error_mark or its type is then return early. */
+      if (tem == error_mark_node || TREE_TYPE (tem) == error_mark_node)
+	return;
+
       /* Omit here local type decls until we know how to support them.  */
       if (TREE_CODE (tem) == TYPE_DECL
 	  /* Omit fields whose position or size are variable or too large to
@@ -1664,8 +1686,10 @@ dbxout_type (tree type, int full)
 	    if (use_gnu_debug_info_extensions)
 	      {
 		have_used_extensions = 1;
-		putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
-		putc (access == access_public_node ? '2' : '0', asmfile);
+                putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
+                putc (access == access_public_node ? '2' :
+                      (access == access_protected_node ? '1' :'0'),
+                      asmfile);
 		CHARS (2);
 		if (TREE_VIA_VIRTUAL (child)
 		    && strcmp (lang_hooks.name, "GNU C++") == 0)
@@ -2033,11 +2057,6 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
   /* "Intercept" dbxout_symbol() calls like we do all debug_hooks.  */
   ++debug_nesting;
 
-  /* Cast avoids warning in old compilers.  */
-  current_sym_code = (STAB_CODE_TYPE) 0;
-  current_sym_value = 0;
-  current_sym_addr = 0;
-
   /* Ignore nameless syms, but don't ignore type tags.  */
 
   if ((DECL_NAME (decl) == 0 && TREE_CODE (decl) != TYPE_DECL)
@@ -2338,7 +2357,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 		}
 	      else if (TREE_CODE (TREE_TYPE (decl)) == REAL_TYPE)
 		{
-		  /* don't know how to do this yet.  */
+		  /* Don't know how to do this yet.  */
 		}
 	      break;
 	    }
@@ -2428,6 +2447,37 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 
 	  letter = decl_function_context (decl) ? 'V' : 'S';
 
+	  /* Some ports can transform a symbol ref into a label ref,
+	     because the symbol ref is too far away and has to be
+	     dumped into a constant pool.  Alternatively, the symbol
+	     in the constant pool might be referenced by a different
+	     symbol.  */
+	  if (GET_CODE (current_sym_addr) == SYMBOL_REF
+	      && CONSTANT_POOL_ADDRESS_P (current_sym_addr))
+	    {
+	      bool marked;
+	      rtx tmp = get_pool_constant_mark (current_sym_addr, &marked);
+
+	      if (GET_CODE (tmp) == SYMBOL_REF)
+		{
+		  current_sym_addr = tmp;
+		  if (CONSTANT_POOL_ADDRESS_P (current_sym_addr))
+		    get_pool_constant_mark (current_sym_addr, &marked);
+		  else
+		    marked = true;
+		}
+	      else if (GET_CODE (tmp) == LABEL_REF)
+		{
+		  current_sym_addr = tmp;
+		  marked = true;
+		}
+
+	      /* If all references to the constant pool were optimized
+		 out, we just ignore the symbol.  */
+	      if (!marked)
+		return 0;
+	    }
+
 	  /* This should be the same condition as in assemble_variable, but
 	     we don't have access to dont_output_data here.  So, instead,
 	     we rely on the fact that error_mark_node initializers always
@@ -2442,21 +2492,6 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	    current_sym_code = DBX_STATIC_CONST_VAR_CODE;
 	  else
 	    {
-	      /* Some ports can transform a symbol ref into a label ref,
-		 because the symbol ref is too far away and has to be
-		 dumped into a constant pool.  Alternatively, the symbol
-		 in the constant pool might be referenced by a different
-		 symbol.  */
-	      if (GET_CODE (current_sym_addr) == SYMBOL_REF
-		  && CONSTANT_POOL_ADDRESS_P (current_sym_addr))
-		{
-		  rtx tmp = get_pool_constant (current_sym_addr);
-
-		  if (GET_CODE (tmp) == SYMBOL_REF
-		      || GET_CODE (tmp) == LABEL_REF)
-		    current_sym_addr = tmp;
-		}
-
 	      /* Ultrix `as' seems to need this.  */
 #ifdef DBX_STATIC_STAB_DATA_SECTION
 	      data_section ();
@@ -2564,10 +2599,6 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       else
 	dbxout_symbol_location (decl, subtype, "$real", XEXP (home, 0));
 
-      /* Cast avoids warning in old compilers.  */
-      current_sym_code = (STAB_CODE_TYPE) 0;
-      current_sym_value = 0;
-      current_sym_addr = 0;
       dbxout_prepare_symbol (decl);
 
       if (WORDS_BIG_ENDIAN)
@@ -2607,9 +2638,11 @@ dbxout_symbol_name (tree decl, const char *suffix, int letter)
 {
   const char *name;
 
-  if (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
-    /* One slight hitch: if this is a VAR_DECL which is a static
-       class member, we must put out the mangled name instead of the
+  if (DECL_CONTEXT (decl) 
+      && (TYPE_P (DECL_CONTEXT (decl))
+	  || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL))
+    /* One slight hitch: if this is a VAR_DECL which is a class member
+       or a namespace member, we must put out the mangled name instead of the
        DECL_NAME.  Note also that static member (variable) names DO NOT begin
        with underscores in .stabs directives.  */
     name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -2635,6 +2668,14 @@ dbxout_prepare_symbol (tree decl ATTRIBUTE_UNUSED)
 
   dbxout_source_file (asmfile, filename);
 #endif
+
+  /* Initialize variables used to communicate each symbol's debug
+     information to dbxout_finish_symbol with zeroes.  */
+
+  /* Cast avoids warning in old compilers.  */
+  current_sym_code = (STAB_CODE_TYPE) 0;
+  current_sym_value = 0;
+  current_sym_addr = 0;
 }
 
 static void
@@ -3004,6 +3045,46 @@ dbxout_args (tree args)
     }
 }
 
+/* Subroutine of dbxout_block.  Emit an N_LBRAC stab referencing LABEL.
+   BEGIN_LABEL is the name of the beginning of the function, which may
+   be required.  */
+static void
+dbx_output_lbrac (const char *label,
+		  const char *begin_label ATTRIBUTE_UNUSED)
+{
+#ifdef DBX_OUTPUT_LBRAC
+  DBX_OUTPUT_LBRAC (asmfile, label);
+#else
+  fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_LBRAC);
+  assemble_name (asmfile, label);
+#if DBX_BLOCKS_FUNCTION_RELATIVE
+  putc ('-', asmfile);
+  assemble_name (asmfile, begin_label);
+#endif
+  fprintf (asmfile, "\n");
+#endif
+}
+
+/* Subroutine of dbxout_block.  Emit an N_RBRAC stab referencing LABEL.
+   BEGIN_LABEL is the name of the beginning of the function, which may
+   be required.  */
+static void
+dbx_output_rbrac (const char *label,
+		  const char *begin_label ATTRIBUTE_UNUSED)
+{
+#ifdef DBX_OUTPUT_RBRAC
+  DBX_OUTPUT_RBRAC (asmfile, label);
+#else
+  fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_RBRAC);
+  assemble_name (asmfile, label);
+#if DBX_BLOCKS_FUNCTION_RELATIVE
+  putc ('-', asmfile);
+  assemble_name (asmfile, begin_label);
+#endif
+  fprintf (asmfile, "\n");
+#endif
+}
+
 /* Output everything about a symbol block (a BLOCK node
    that represents a scope level),
    including recursive output of contained blocks.
@@ -3024,15 +3105,11 @@ dbxout_args (tree args)
 static void
 dbxout_block (tree block, int depth, tree args)
 {
-  int blocknum = -1;
-
-#if DBX_BLOCKS_FUNCTION_RELATIVE
   const char *begin_label;
   if (current_function_func_begin_label != NULL_TREE)
     begin_label = IDENTIFIER_POINTER (current_function_func_begin_label);
   else
     begin_label = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
-#endif
 
   while (block)
     {
@@ -3040,6 +3117,7 @@ dbxout_block (tree block, int depth, tree args)
       if (TREE_USED (block) && TREE_ASM_WRITTEN (block))
 	{
 	  int did_output;
+	  int blocknum = BLOCK_NUMBER (block);
 
 	  /* In dbx format, the syms of a block come before the N_LBRAC.
 	     If nothing is output, we don't need the N_LBRAC, either.  */
@@ -3053,11 +3131,20 @@ dbxout_block (tree block, int depth, tree args)
 	     the block.  Use the block's tree-walk order to generate
 	     the assembler symbols LBBn and LBEn
 	     that final will define around the code in this block.  */
-	  if (depth > 0 && did_output)
+	  if (did_output)
 	    {
 	      char buf[20];
-	      blocknum = BLOCK_NUMBER (block);
-	      ASM_GENERATE_INTERNAL_LABEL (buf, "LBB", blocknum);
+	      const char *scope_start;
+
+	      if (depth == 0)
+		/* The outermost block doesn't get LBB labels; use
+		   the function symbol.  */
+		scope_start = begin_label;
+	      else
+		{
+		  ASM_GENERATE_INTERNAL_LABEL (buf, "LBB", blocknum);
+		  scope_start = buf;
+		}
 
 	      if (BLOCK_HANDLER_BLOCK (block))
 		{
@@ -3067,44 +3154,30 @@ dbxout_block (tree block, int depth, tree args)
 		    {
 		      fprintf (asmfile, "%s\"%s:C1\",%d,0,0,", ASM_STABS_OP,
 			       IDENTIFIER_POINTER (DECL_NAME (decl)), N_CATCH);
-		      assemble_name (asmfile, buf);
+		      assemble_name (asmfile, scope_start);
 		      fprintf (asmfile, "\n");
 		      decl = TREE_CHAIN (decl);
 		    }
 		}
-
-#ifdef DBX_OUTPUT_LBRAC
-	      DBX_OUTPUT_LBRAC (asmfile, buf);
-#else
-	      fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_LBRAC);
-	      assemble_name (asmfile, buf);
-#if DBX_BLOCKS_FUNCTION_RELATIVE
-	      putc ('-', asmfile);
-	      assemble_name (asmfile, begin_label);
-#endif
-	      fprintf (asmfile, "\n");
-#endif
+	      dbx_output_lbrac (scope_start, begin_label);
 	    }
 
 	  /* Output the subblocks.  */
 	  dbxout_block (BLOCK_SUBBLOCKS (block), depth + 1, NULL_TREE);
 
 	  /* Refer to the marker for the end of the block.  */
-	  if (depth > 0 && did_output)
+	  if (did_output)
 	    {
-	      char buf[20];
-	      ASM_GENERATE_INTERNAL_LABEL (buf, "LBE", blocknum);
-#ifdef DBX_OUTPUT_RBRAC
-	      DBX_OUTPUT_RBRAC (asmfile, buf);
-#else
-	      fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_RBRAC);
-	      assemble_name (asmfile, buf);
-#if DBX_BLOCKS_FUNCTION_RELATIVE
-	      putc ('-', asmfile);
-	      assemble_name (asmfile, begin_label);
-#endif
-	      fprintf (asmfile, "\n");
-#endif
+	      char buf[100];
+	      if (depth == 0)
+		/* The outermost block doesn't get LBE labels;
+		   use the "scope" label which will be emitted
+		   by dbxout_function_end.  */
+		ASM_GENERATE_INTERNAL_LABEL (buf, "Lscope", scope_labelno);
+	      else
+		ASM_GENERATE_INTERNAL_LABEL (buf, "LBE", blocknum);
+
+	      dbx_output_rbrac (buf, begin_label);
 	    }
 	}
       block = BLOCK_CHAIN (block);

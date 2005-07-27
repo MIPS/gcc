@@ -5654,7 +5654,7 @@ build_message_expr (tree mess)
 
 /* Look up method SEL_NAME that would be suitable for receiver
    of type 'id' (if IS_CLASS is zero) or 'Class' (if IS_CLASS is
-   non-zero), and report on any duplicates.  */
+   nonzero), and report on any duplicates.  */
 
 static tree
 lookup_method_in_hash_lists (tree sel_name, int is_class)
@@ -5890,21 +5890,18 @@ build_objc_method_call (int super_flag, tree method_prototype,
 
   if (flag_next_runtime)
     {
-#ifdef STRUCT_VALUE
       /* If we are returning a struct in memory, and the address
 	 of that memory location is passed as a hidden first
 	 argument, then change which messenger entry point this
 	 expr will call.  NB: Note that sender_cast remains
 	 unchanged (it already has a struct return type).  */
-      if ((TREE_CODE (ret_type) == RECORD_TYPE
-	   || TREE_CODE (ret_type) == UNION_TYPE)
-#if defined (DEFAULT_PCC_STRUCT_RETURN) && DEFAULT_PCC_STRUCT_RETURN == 0
-	   && RETURN_IN_MEMORY (ret_type)
-#endif
-	   && STRUCT_VALUE == 0)
+      if (!targetm.calls.struct_value_rtx (0, 0)
+	  && (TREE_CODE (ret_type) == RECORD_TYPE
+	      || TREE_CODE (ret_type) == UNION_TYPE)
+	  && targetm.calls.return_in_memory (ret_type, 0))
 	sender = (super_flag ? umsg_super_stret_decl :
 		flag_nil_receivers ? umsg_stret_decl : umsg_nonnil_stret_decl);
-#endif
+
       method_params = tree_cons (NULL_TREE, lookup_object,
 				 tree_cons (NULL_TREE, selector,
 					    method_params));
@@ -6487,15 +6484,9 @@ is_ivar (tree decl_chain, tree ident)
 int
 is_private (tree decl)
 {
-  if (TREE_PRIVATE (decl)
-      && ! is_ivar (CLASS_IVARS (implementation_template), DECL_NAME (decl)))
-    {
-      error ("instance variable `%s' is declared private",
-	     IDENTIFIER_POINTER (DECL_NAME (decl)));
-      return 1;
-    }
-  else
-    return 0;
+  return (TREE_PRIVATE (decl)
+	  && ! is_ivar (CLASS_IVARS (implementation_template),
+			DECL_NAME (decl)));
 }
 
 /* We have an instance variable reference;, check to see if it is public.  */
@@ -6533,7 +6524,14 @@ is_public (tree expr, tree identifier)
 			   == CATEGORY_IMPLEMENTATION_TYPE))
 		      && (CLASS_NAME (objc_implementation_context)
 			  == OBJC_TYPE_NAME (basetype))))
-		return ! is_private (decl);
+		{
+		  int private = is_private (decl);
+
+		  if (private)
+		    error ("instance variable `%s' is declared private",
+			   IDENTIFIER_POINTER (DECL_NAME (decl)));
+		  return !private;
+		}
 
 	      /* The 2.95.2 compiler sometimes allowed C functions to access
 		 non-@public ivars.  We will let this slide for now...  */
@@ -7391,6 +7389,7 @@ encode_type (tree type, int curtype, int format)
 	{
 	case 32:  c = 'f'; break;
 	case 64:
+	case 96:
 	case 128: c = 'd'; break;
 	default: abort ();
 	}
@@ -9084,7 +9083,7 @@ lookup_objc_ivar (tree id)
   else if (objc_method_context && (decl = is_ivar (objc_ivar_chain, id)))
     {
       if (is_private (decl))
-	return error_mark_node;
+	return 0;
       else
         return build_ivar_reference (id);
     }

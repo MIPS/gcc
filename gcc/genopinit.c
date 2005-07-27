@@ -1,6 +1,6 @@
 /* Generate code to initialize optabs from machine description.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -152,7 +152,10 @@ static const char * const optabs[] =
   "movstr_optab[$A] = CODE_FOR_$(movstr$a$)",
   "clrstr_optab[$A] = CODE_FOR_$(clrstr$a$)",
   "cmpstr_optab[$A] = CODE_FOR_$(cmpstr$a$)",
-  "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)" };
+  "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)",
+  "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
+  "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
+  "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)" };
 
 static void gen_insn (rtx);
 

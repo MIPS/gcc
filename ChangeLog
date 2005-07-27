@@ -1,3 +1,273 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2005-05-08  Matt Kraai  <kraai@ftbfs.org>
+
+	* README.SCO: Update the URL.
+
+2005-03-08  Daniel Jacobowitz  <dan@debian.org>
+
+	* configure.in: Use an absolute path to install-sh.
+	* configure: Regenerated.
+
+2005-01-12  David Edelsohn  <edelsohn@gnu.org>
+	    Andreas Schwab  <schwab@suse.de>
+
+	PR bootstrap/18033
+	* config-ml.in: Eval option if surrounded by single quotes.
+
+2005-01-06  Laurent GUERBY <laurent@guerby.net>
+
+	* MAINTAINERS: Update my email address.
+	
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-11-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR other/17783
+	* configure.in: Set up LD_LIBRARY_PATH by default for gcc.
+	* configure: Regenerated.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* README.SCO: Update per FSF instructions.
+
+2004-10-06  Josef Zlomek  <josef.zlomek@email.cz>
+
+	* MAINTAINERS: Update my e-mail address.
+
+2004-09-24  Michael Roth  <mroth@nessie.de>
+
+	* configure.in (--without-headers): Add missing double quotes.
+	* configure: Regenerate.
+
+2004-09-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/17369
+	* Makefile.tpl (REALLY_SET_LIB_PATH): Add @SET_GCC_LIB_PATH@.
+	(configure-target-[+module+]): Add @SET_GCC_LIB_PATH@. Set and
+	export SET_GCC_LIB_PATH_CMD.
+	(configure-gcc): Likewise.
+	* Makefile.in: Regenerated.
+
+	* configure.in (SET_GCC_LIB_PATH): Set and substitute.
+	* configure: Regenerated.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-08 John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/16344
+	* Makefile.tpl (profiledbootstrap): Build runtime libraries with
+	feedback based compiler.
+	* Makefile.in: Rebuilt.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/14760
+	* configure.in: When computing baseargs, strip *all* copies of
+	offending options.  Also, don't match/substitute the trailing space,
+	so that this actually works when two similar options are separated by
+	only one space.
+	* configure: Regenerate.
+
+2004-05-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR bootstrap/15120
+	* libtool.m4 (lt_cv_deplibs_check_method): Use pass_all on sh*.
+	* */configure: Rebuilt.
+ 
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-03-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* ltconfig: Disable building static libraries if building shared
+	libraries on AIX 5L.
+
+2004-03-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in (mips64*-*-linux*): Override mips*-*-linux* case
+	and disable libgcj.
+	* configure: Regenerated.
+
+2004-02-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/11932
+	* mkinstalldirs: Update to version 2004-02-15.20
+
+2004-02-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-02-22  Matthias Klose  <doko@debian.org>
+
+	* config.guess: Update from version 2003-10-16 to 2004-02-16.
+	* config.sub: Update from version 2003-11-03 to 2004-02-16.
+
+2004-02-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* MAINTAINERS: Add Nicola Pero and myself as libobjc
+	maintainers.
+
+2004-02-14  Jerry Quinn  <jlquinn@optonline.net>
+
+	* MAINTAINERS: Added myself to write-after-approval.
+
+2004-02-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Alphabetize.
+
+2004-02-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Partial merge from upstream:
+	* ltmain.in: When setting IFS to '~', be careful about user
+	arguments that contain '~'.
+
+2004-02-05  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Don't pass --with-stabs on IRIX 5 either.
+	* configure: Regenerate.
+
+2004-01-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* MAINTAINERS: Update my email address.
+
+2004-01-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* MAINTAINERS: Remove entries without email address.
+
+2004-01-15  Daniel Jacobowitz  <drow@mvista.com>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-01-15  Steven Bosscher  <stevenb@suse.de>
+
+	* MAINTAINERS: Update my email address.
+
+2004-01-14  Loren J. Rittle <ljrittle@acm.org>
+
+	* Makefile.def (target_modules) [libtermcap, libiberty, zlib]: Stage.
+	* Makefile.tpl (configure-target-[+module+]): Support stage.
+	* Makefile.in: Rebuilt.
+
+2004-01-12  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* MAINTAINERS: Add myself as a libiberty MAINTAINER.
+
+2004-01-10  Richard Sandiford  <rsandifo@redhat.com>
+
+	* MAINTAINERS: Add myself as a MIPS maintainer.
+
+2004-01-04  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Use ./config.cache, not config.cache.
+	* configure: Regenerate.
+	* Makefile.tpl: Special-casing not needed for GCC any more.
+	* Makefile.in: Regenerate.
+
+	* configure.in: Don't share a cache file for host dirs.
+	* configure: Regenerate.
+
+	* config-ml.in: Don't mess with the cache file.
+
+2004-01-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* MAINTAINERS: Move myself from 'Write After Approval' to
+	'CPU Port Maintainers' section as SPARC maintainer.
+
+2004-01-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Make GCC use a separate config.cache.
+	* Makefile.in: Regenerate.
+
+	PR bootstrap/11932, PR bootstrap/11933
+	(I don't know if it will fix either of them, but it relates
+	to them.)
+	* configure.in: Don't use shared config.cache for target
+	directories.
+	* configure: Regenerate.
+
+2004-01-02  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	* MAINTAINERS: Add myself to 'Write After Approval' section.
+
+2003-12-31  Roger Sayle  <roger@eyesopen.com>
+
+	* configure.in (ia64*-*-hpux*): Disable building java libraries.
+	* configure: Regenerated.
+
+2003-12-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Remove the mn10200 maintainer.
+
+2003-12-21  Bernardo Innocenti  <bernie@develer.com>
+ 
+ 	* configure.in (*-*-uclinux): Exclude newlib, libgloss and rda.
+ 	* configure: Regenerated.
+
+2003-12-16  Jan Hubicka  <jh@suse.cz>
+
+	* MAINTAINERS: Add myself as callgraph maintainer.
+
+2003-12-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* configure.in (raw_libstdcxx_flags): Remove the leading space.
+	* configure: Regenerate.
+
+2003-12-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* MAINTAINERS: Move myself from 'Bug database only accounts' to
+	'Write After Approval' section. Update email.
+
+2003-12-01  James Lemke <jim@wasabisystems.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-11-20  Matt Thomas  <matt@3am-software.com>
+
+	* MAINTAINERS: Add myself as a vax port maintainer.
+
+2003-11-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.tpl (BASE_FLAGS_TO_PASS): Pass along CONFIG_SHELL.
+	(configure-build-[+module+], configure-[+module+]): Likewise.
+	(configure-target-[+module+], configure-gcc, config.status): Likewise.
+	* Makefile.in: Regenerate.
+
+2003-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* libtool.m4: Sync darwin bits from libtool cvs to build a gcc with
+	shared/dylibed libraries.
+	* ltmain.sh: Likewise.
+	* ltcf-c.sh: Likewise, disable shared library build for OS-X < 10.3.
+	* ltcf-cxx.sh: Likewise.
+	* ltcf-gcj.sh: Likewise.
+	* ltconfig: Likewise.
+
+2003-11-17  Stan Cox  <scox@redhat.com>
+
+	* MAINTAINERS: Add myself as iq2000 port maintainer.
+
+2003-11-14  Arnaud Charlet  <charlet@act-europe.fr>
+
+        * Makefile.tpl (EXTRA_GCC_FLAGS): Pass BOOT_ADAFLAGS.
+        * Makefile.in: Regenerate.
+
+2003-11-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config.sub: Update to 2003-11-03 version.
+
 2003-10-20  Phil Edwards  <phil@codesourcery.com>
 
 	* configure.in (*-*-vxworks):  Add target-libiberty to noconfdirs.

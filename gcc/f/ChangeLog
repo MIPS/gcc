@@ -1,3 +1,236 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2004-12-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Change GCC 3.5 to GCC 4.0
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-21  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/17541
+	* bld.c (ffebld_constant_new_real2_val): Fix typo,
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-09-02  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR fortran/17180
+	* malloc.c (MALLOC_ALIGNMENT): Rename into MAX_ALIGNMENT
+	and use a host-based heuristics to determine it.
+	(ROUNDED_AREA_SIZE): Adjust.
+
+2004-09-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR fortran/17180
+	* malloc.c (MALLOC_ALIGNMENT): New constant.
+	(ROUNDED_AREA_SIZE): Likewise.
+	(malloc_kill_area_): Use ROUNDED_AREA_SIZE.
+	(malloc_find_inpool_): Likewise.
+	(malloc_new_inpool_): Likewise.
+	(malloc_resize_inpool_): Likewise.
+
+2004-07-12  Bud Davis  <bdavis9659@comcast.net>
+
+	* bld.c (ffebld_constant_new_character1, ffebld_constant_new_complex{1,2},
+	ffebld_constant_new_hollerith, ffebld_constant_new_integer1,
+	ffebld_constant_new_integer{1,2,3,4}_val, ffebld_constant_new_logical1,
+	ffebld_constant_new_logical{1,2,3,4}_val, ffebld_constant_new_real{1,2},
+	ffebld_constant_new_typeless_ov):
+	Fill and use `rlink' and `llink' pointers in _ffebld_ struct.
+	* bld.h (struct _ffebld_): remove 'next' pointer, add
+	`rlink, llink' pointers; remove `negate' entry.
+	* malloc.c (malloc_kill_area_): Adapt for new `mallocArea' pointer.
+	(malloc_display_): Adapt.
+	(malloc_new_inpool_): Set it.
+	(malloc_resize_inpool_): Ditto.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-17  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Note that GCC 3.4.x is the last version
+	of GCC to contain g77.
+
+2004-05-18  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* bugs.texi, news.texi: Don't reference mainline versions.
+
+2004-05-16  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* g77.texi (Floating-point Errors): Fix typo.
+
+2004-05-07  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* g77.texi (Floating-point Errors): Avoid referencing 
+	http://www.linuxsupportline.com/~billm/ which as has been hijacked;
+	add a reference to the official IEEE 754 site.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-03-21  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g77.texi: Update link to "G++ and GCC".
+
+2004-03-14  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* g77.texi (Aligned Data): Remove obsolete paragraph including a
+	broken link.
+	(Floating-point Errors): Remove links to http://www.validgh.com/
+	which was "hijacked".
+	(Language): Fix link to Fortran books.
+	(Projects): Remove obsolete paragraph including a broken link to
+	ftp://alpha.gnu.org/gnu/g77/projects/.
+	(Trouble): Remove obsolete paragraph including a broken link to
+	ftp://alpha.gnu.org/g77.plan.
+
+	* invoke.texi (Overall Options): Remove broken reference to
+	rat7.uue (which was of dubious copyright status anyways).
+
+	* root.texi (www-burley): Fix URL.
+
+2004-03-06  Roger Sayle  <roger@eyesopen.com>
+
+	* parse.c (ffe_parse_file): Handle the case that main_input_filename
+	is NULL.
+
+2004-02-24  Michael Matz  <matz@suse.de>
+
+	* Make-lang.in (sta.o-warn): Delete.
+	* sta.c (ffesta_save_): Don't break aliasing rules.
+
+2004-02-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* Make-lang.in (g77spec.o): Depend on intl.h.
+	* g77spec.c: Include intl.h.
+	(lang_specific_driver): Allow translation of the copyright
+	symbol but not the rest of the copyright message.  Allow
+	translation of the message about warranty.
+
+2004-02-15  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/14129
+	* lex.c (ffelex_cfelex_): Avoid calling xrealloc on a local stack
+	allocated array.
+
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/g77.dvi): Use $(abs_docdir). 
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(TEXI_G77_FILES): Define.
+	(f77.rebuilt): Delete.
+	(f77.srcextra): Add dependencies on f/BUGS and f/NEWS.
+	(f77.srcman, f77.srcinfo, f77.man, f77.info): New rules.
+	(doc/g77.info, doc/g77.dvi): Depend on TEXI_G77_FILES.  Always build in
+	doc directory.  Use $(MAKEINFOFLAGS).
+	(info, dvi, generated_manpages): Update to look in doc directory.
+	(f/BUGS, f/NEWS): Generate in build directory.
+	(f77.mostlyclean): Delete BUGS and NEWS from build directory.
+	(f77.maintainer-clean): Adjust to delete from source directory.
+	(f77.install-man): Revamp rule.
+
+2004-01-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (G77_INSTALL_NAME): Define via a immediate $(shell)
+	instead of deferred backquote.
+
+2004-01-15  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (f77.srcextra): Dummy entry.
+
+2004-01-13  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	PR fortran/6491
+	* expr.c (ffeexpr_reduce_): When handling AND, OR, and XOR, and
+	when using -fugly-logint, if both operands are logical, convert
+	the result back to logical.
+	(ffeexpr_reduced_ugly2log_): Add bothlogical parameter.  Change
+	all callers.  Convert logical operands to integer.
+
+2004-01-12  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* README: Remove.
+
+2004-01-07  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* com.h (ffecom_gfrt_basictype): Correct return type.
+
+2003-12-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/12632
+	* com.c (ffecom_subscript_check_): Take as an extra argument the
+	(possibly NULL) decl of the array.  Don't create unnecessary tree
+	nodes if the array index is known to be safe at compile-time.
+	If the array index is unsafe, force the array decl into memory to
+	avoid RTL expansion problems.
+	(ffecom_array_ref_): Update calls to ffecom_subscript_check_.
+	(ffecom_char_args_x_): Likewise.
+
+2003-12-06  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (G77_CROSS_NAME): Delete.
+	(g77.install_common, g77.install-man, g77.uninstall): Adjust for above.
+
+2003-11-30  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (f77.rebuilt): Fix dependency on g77.info.
+
+2003-11-24  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/12633
+	* expr.c (ffeexpr_reduced_ugly2log_): Revert
+	change allowing logical .and. logical to be
+	integer in expressions when -fugly-logint.
+
+2003-11-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* .cvsignore: Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (f77.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (check-f77, lang_checks): Add.
+
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (f77.tags): Create TAGS.sub files in each directory
+	and TAGS files that include them for each front end.
+
+2003-11-12  Andreas Jaeger  <aj@suse.de>
+
+	* intdoc.in (Signal Intrinsic (subroutine)): Fix texinfo warning
+	using @code.
+	* intdoc.texi: Regenerated.
+
+2003-11-03  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (dvi): Move targets to $(docobjdir).
+	(g77.dvi): Simplify rule.
+	(g77.info): Sinplify rule.
+	(g77.1): Delete.
+	(g77.pod): New intermediate rule.
+
+2003-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* com.c (ffecom_sym_transform_): Set tree type of offset
+	to ssizetype.
+
 2003-10-21  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Make-lang.in (f/g77.1): Honor $(docobjdir).

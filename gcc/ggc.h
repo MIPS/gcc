@@ -141,8 +141,17 @@ extern void init_stringpool (void);
 /* A GC implementation must provide these functions.  They are internal
    to the GC system.  */
 
+/* Forward declare the zone structure.  Only ggc_zone implements this.  */
+struct alloc_zone;
+
 /* Initialize the garbage collector.  */
 extern void init_ggc (void);
+
+/* Start a new GGC zone.  */
+extern struct alloc_zone *new_ggc_zone (const char *);
+
+/* Free a complete GGC zone, destroying everything in it.  */
+extern void destroy_ggc_zone (struct alloc_zone *);
 
 /* Start a new GGC context.  Memory allocated in previous contexts
    will not be collected while the new context is active.  */
@@ -193,8 +202,6 @@ extern void ggc_pch_read (FILE *, void *);
 
 /* Allocation.  */
 
-/* Zone structure.  */
-struct alloc_zone;
 /* For single pass garbage.  */
 extern struct alloc_zone *garbage_zone;
 /* For regular rtl allocations.  */
@@ -206,7 +213,7 @@ extern struct alloc_zone *tree_zone;
 extern void *ggc_alloc (size_t);
 /* Allocate an object into the specified allocation zone.  */
 extern void *ggc_alloc_zone (size_t, struct alloc_zone *);
-/* Allocate an object of the specified type and size. */
+/* Allocate an object of the specified type and size.  */
 extern void *ggc_alloc_typed (enum gt_types_enum, size_t);
 /* Like ggc_alloc, but allocates cleared memory.  */
 extern void *ggc_alloc_cleared (size_t);

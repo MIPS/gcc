@@ -1,6 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -137,6 +137,9 @@ static HOST_WIDE_INT const_alias_set;
 
 static const char *strip_reg_name (const char *);
 static int contains_pointers_p (tree);
+#ifdef ASM_OUTPUT_EXTERNAL
+static bool incorporeal_function_p (tree);
+#endif
 static void decode_addr_const (tree, struct addr_const *);
 static hashval_t const_desc_hash (const void *);
 static int const_desc_eq (const void *, const void *);
@@ -231,11 +234,7 @@ text_section (void)
   if (in_section != in_text)
     {
       in_section = in_text;
-#ifdef TEXT_SECTION
-      TEXT_SECTION ();
-#else
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
-#endif
     }
 }
 
@@ -384,17 +383,19 @@ set_named_section_flags (const char *section, unsigned int flags)
   return true;
 }
 
-/* Tell assembler to change to section NAME with attributes FLAGS.  */
+/* Tell assembler to change to section NAME with attributes FLAGS.  If
+   DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with which
+   this section is associated.  */
 
 void
-named_section_flags (const char *name, unsigned int flags)
+named_section_real (const char *name, unsigned int flags, tree decl)
 {
   if (in_section != in_named || strcmp (name, in_named_name) != 0)
     {
       if (! set_named_section_flags (name, flags))
 	abort ();
 
-      (*targetm.asm_out.named_section) (name, flags);
+      (*targetm.asm_out.named_section) (name, flags, decl);
 
       if (flags & SECTION_FORGET)
 	in_section = no_section;
@@ -435,7 +436,7 @@ named_section (tree decl, const char *name, int reloc)
 	error ("%J%D causes a section type conflict", decl, decl);
     }
 
-  named_section_flags (name, flags);
+  named_section_real (name, flags, decl);
 }
 
 /* If required, set DECL_SECTION_NAME to a unique name.  */
@@ -460,13 +461,7 @@ bss_section (void)
 {
   if (in_section != in_bss)
     {
-#ifdef SHARED_BSS_SECTION_ASM_OP
-      if (flag_shared_data)
-	fprintf (asm_out_file, "%s\n", SHARED_BSS_SECTION_ASM_OP);
-      else
-#endif
-	fprintf (asm_out_file, "%s\n", BSS_SECTION_ASM_OP);
-
+      fprintf (asm_out_file, "%s\n", BSS_SECTION_ASM_OP);
       in_section = in_bss;
     }
 }
@@ -791,7 +786,7 @@ make_decl_rtl (tree decl, const char *asmspec)
       char *starred = alloca (strlen (asmspec) + 2);
       starred[0] = '*';
       strcpy (starred + 1, asmspec);
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (starred));
+      change_decl_assembler_name (decl, get_identifier (starred));
     }
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -1132,7 +1127,7 @@ assemble_start_function (tree decl, const char *fnname)
       maybe_assemble_visibility (decl);
     }
 
-  /* Do any machine/system dependent processing of the function name */
+  /* Do any machine/system dependent processing of the function name.  */
 #ifdef ASM_DECLARE_FUNCTION_NAME
   ASM_DECLARE_FUNCTION_NAME (asm_out_file, fnname, current_function_decl);
 #else
@@ -1599,6 +1594,29 @@ contains_pointers_p (tree type)
     }
 }
 
+#ifdef ASM_OUTPUT_EXTERNAL
+/* True if DECL is a function decl for which no out-of-line copy exists.
+   It is assumed that DECL's assembler name has been set.  */
+
+static bool
+incorporeal_function_p (tree decl)
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
+    {
+      const char *name;
+
+      if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA)
+	return true;
+
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      if (strncmp (name, "__builtin_", strlen ("__builtin_")) == 0)
+	return true;
+    }
+  return false;
+}
+#endif
+
 /* Output something to declare an external symbol to the assembler.
    (Most assemblers don't need this, so we normally output nothing.)
    Do nothing if DECL is not external.  */
@@ -1619,7 +1637,8 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
       rtx rtl = DECL_RTL (decl);
 
       if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
-	  && ! SYMBOL_REF_USED (XEXP (rtl, 0)))
+	  && !SYMBOL_REF_USED (XEXP (rtl, 0))
+	  && !incorporeal_function_p (decl))
 	{
 	  /* Some systems do require some output.  */
 	  SYMBOL_REF_USED (XEXP (rtl, 0)) = 1;
@@ -1845,6 +1864,9 @@ default_assemble_integer (rtx x ATTRIBUTE_UNUSED,
 			  int aligned_p ATTRIBUTE_UNUSED)
 {
   const char *op = integer_asm_op (size, aligned_p);
+  /* Avoid GAS bugs for values > word size.  */
+  if (size > UNITS_PER_WORD)
+    return false;
   return op && (assemble_integer_with_op (op, x), true);
 }
 
@@ -2040,7 +2062,7 @@ struct rtx_const GTY(())
 
 /* Uniquize all constants that appear in memory.
    Each constant in memory thus far output is recorded
-   in `const_hash_table'.  */
+   in `const_desc_table'.  */
 
 struct constant_descriptor_tree GTY(())
 {
@@ -2087,9 +2109,18 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      p = TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
+      if (flag_writable_strings)
+	{
+	  p = (char *) &exp;
+	  len = sizeof exp;
+	}
+      else
+	{
+	  p = TREE_STRING_POINTER (exp);
+	  len = TREE_STRING_LENGTH (exp);
+	}
       break;
+
     case COMPLEX_CST:
       return (const_hash_1 (TREE_REALPART (exp)) * 5
 	      + const_hash_1 (TREE_IMAGPART (exp)));
@@ -2204,7 +2235,7 @@ compare_constant (const tree t1, const tree t2)
 
     case STRING_CST:
       if (flag_writable_strings)
-	return 0;
+	return t1 == t2;
 
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
@@ -2324,7 +2355,8 @@ compare_constant (const tree t1, const tree t2)
 }
 
 /* Make a copy of the whole tree structure for a constant.  This
-   handles the same types of nodes that compare_constant handles.  */
+   handles the same types of nodes that compare_constant handles.
+   Writable string constants are never copied.  */
 
 static tree
 copy_constant (tree exp)
@@ -2340,9 +2372,12 @@ copy_constant (tree exp)
       else
 	return copy_node (exp);
 
+    case STRING_CST:
+      if (flag_writable_strings)
+	return exp;
+      /* FALLTHROUGH */
     case INTEGER_CST:
     case REAL_CST:
-    case STRING_CST:
       return copy_node (exp);
 
     case COMPLEX_CST:
@@ -2449,7 +2484,7 @@ build_constant_desc (tree exp)
    If DEFER is nonzero, this constant can be deferred and output only
    if referenced in the function after all optimizations.
 
-   The const_hash_table records which constants already have label strings.  */
+   `const_desc_table' records which constants already have label strings.  */
 
 rtx
 output_constant_def (tree exp, int defer)
@@ -2677,7 +2712,7 @@ decode_rtx_const (enum machine_mode mode, rtx x, struct rtx_const *value)
 	      break;
 	    case rvc_normal:
 	      value->un.du.exp = r->exp;
-	      /* FALLTHRU */
+	      /* Fall through.  */
 	    case rvc_nan:
 	      memcpy (value->un.du.sig, r->sig, sizeof (r->sig));
 	      break;
@@ -2737,7 +2772,7 @@ decode_rtx_const (enum machine_mode mode, rtx x, struct rtx_const *value)
 	            break;
 	          case rvc_normal:
 	            d->exp = r->exp;
-	            /* FALLTHRU */
+	            /* Fall through.  */
 	          case rvc_nan:
 	            memcpy (d->sig, r->sig, sizeof (r->sig));
 	            break;
@@ -2915,7 +2950,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   hash = const_hash_rtx (mode, x);
   for (desc = const_rtx_hash_table[hash]; desc; desc = desc->next)
     if (compare_constant_rtx (mode, x, desc))
-      return desc->rtl;
+      return copy_rtx (desc->rtl);
 
   /* No constant equal to X is known to have been output.
      Make a constant descriptor to enter X in the hash table
@@ -2983,7 +3018,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
   current_function_uses_const_pool = 1;
 
-  return def;
+  return copy_rtx (def);
 }
 
 /* Given a SYMBOL_REF with CONSTANT_POOL_ADDRESS_P true, return a pointer to
@@ -3105,7 +3140,7 @@ output_constant_pool (const char *fnname ATTRIBUTE_UNUSED,
 	      || GET_CODE (XEXP (XEXP (x, 0), 0)) != LABEL_REF)
 	    break;
 	  tmp = XEXP (XEXP (x, 0), 0);
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case LABEL_REF:
 	  tmp = XEXP (x, 0);
@@ -3526,60 +3561,61 @@ initializer_constant_valid_p (tree value, tree endtype)
 
     case CONVERT_EXPR:
     case NOP_EXPR:
-      /* Allow conversions between pointer types.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+      {
+	tree src;
+	tree src_type;
+	tree dest_type;
 
-      /* Allow conversions between real types.  */
-      if (FLOAT_TYPE_P (TREE_TYPE (value))
-	  && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+	src = TREE_OPERAND (value, 0);
+	src_type = TREE_TYPE (src);
+	dest_type = TREE_TYPE (value);
 
-      /* Allow length-preserving conversions between integer types.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+	/* Allow conversions between pointer types, floating-point
+	   types, and offset types.  */
+	if ((POINTER_TYPE_P (dest_type) && POINTER_TYPE_P (src_type))
+	    || (FLOAT_TYPE_P (dest_type) && FLOAT_TYPE_P (src_type))
+	    || (TREE_CODE (dest_type) == OFFSET_TYPE
+		&& TREE_CODE (src_type) == OFFSET_TYPE))
+	  return initializer_constant_valid_p (src, endtype);
 
-      /* Allow conversions between other integer types only if
-	 explicit value.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	{
-	  tree inner = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						     endtype);
-	  if (inner == null_pointer_node)
-	    return null_pointer_node;
-	  break;
-	}
+	/* Allow length-preserving conversions between integer types.  */
+	if (INTEGRAL_TYPE_P (dest_type) && INTEGRAL_TYPE_P (src_type)
+	    && (TYPE_PRECISION (dest_type) == TYPE_PRECISION (src_type)))
+	  return initializer_constant_valid_p (src, endtype);
 
-      /* Allow (int) &foo provided int is as wide as a pointer.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
+	/* Allow conversions between other integer types only if
+	   explicit value.  */
+	if (INTEGRAL_TYPE_P (dest_type) && INTEGRAL_TYPE_P (src_type))
+	  {
+	    tree inner = initializer_constant_valid_p (src, endtype);
+	    if (inner == null_pointer_node)
+	      return null_pointer_node;
+	    break;
+	  }
 
-      /* Likewise conversions from int to pointers, but also allow
-	 conversions from 0.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	{
-	  if (integer_zerop (TREE_OPERAND (value, 0)))
-	    return null_pointer_node;
-	  else if (TYPE_PRECISION (TREE_TYPE (value))
-		   <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0))))
-	    return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						 endtype);
-	}
+	/* Allow (int) &foo provided int is as wide as a pointer.  */
+	if (INTEGRAL_TYPE_P (dest_type) && POINTER_TYPE_P (src_type)
+	    && (TYPE_PRECISION (dest_type) >= TYPE_PRECISION (src_type)))
+	  return initializer_constant_valid_p (src, endtype);
 
-      /* Allow conversions to union types if the value inside is okay.  */
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
+	/* Likewise conversions from int to pointers, but also allow
+	   conversions from 0.  */
+	if ((POINTER_TYPE_P (dest_type)
+	     || TREE_CODE (dest_type) == OFFSET_TYPE)
+	    && INTEGRAL_TYPE_P (src_type))
+	  {
+	    if (integer_zerop (src))
+	      return null_pointer_node;
+	    else if (TYPE_PRECISION (dest_type) <= TYPE_PRECISION (src_type))
+	      return initializer_constant_valid_p (src, endtype);
+	  }
+
+	/* Allow conversions to struct or union types if the value
+	   inside is okay.  */
+	if (TREE_CODE (dest_type) == RECORD_TYPE
+	    || TREE_CODE (dest_type) == UNION_TYPE)
+	  return initializer_constant_valid_p (src, endtype);
+      }
       break;
 
     case PLUS_EXPR:
@@ -4353,19 +4389,69 @@ globalize_decl (tree decl)
   (*targetm.asm_out.globalize_label) (asm_out_file, name);
 }
 
+/* Some targets do not allow a forward or undefined reference in a
+   ASM_OUTPUT_DEF.  Thus, a mechanism is needed to defer the output
+   of this assembler code.  The output_def_pair struct holds the
+   declaration and target for a deferred output define.  */
+struct output_def_pair GTY(())
+{
+  tree decl;
+  tree target;
+};
+typedef struct output_def_pair *output_def_pair;
+
+/* Variable array of deferred output defines.  */
+static GTY ((param_is (struct output_def_pair))) varray_type output_defs;
+
+#ifdef ASM_OUTPUT_DEF
+/* Output the assembler code for a define (equate) using ASM_OUTPUT_DEF
+   or ASM_OUTPUT_DEF_FROM_DECLS.  The function defines the symbol whose
+   tree node is DECL to have the value of the tree node TARGET.  */
+
+static void
+assemble_output_def (tree decl ATTRIBUTE_UNUSED, tree target ATTRIBUTE_UNUSED)
+{
+#ifdef ASM_OUTPUT_DEF_FROM_DECLS
+  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
+#else
+  ASM_OUTPUT_DEF (asm_out_file,
+		  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+		  IDENTIFIER_POINTER (target));
+#endif
+}
+#endif
+
+/* Process the varray of pending assembler defines.  */
+
+void
+process_pending_assemble_output_defs (void)
+{
+#ifdef ASM_OUTPUT_DEF
+  size_t i;
+  output_def_pair p;
+
+  if (!output_defs)
+    return;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (output_defs); i++)
+    {
+      p = VARRAY_GENERIC_PTR (output_defs, i);
+      assemble_output_def (p->decl, p->target);
+    }
+
+  output_defs = NULL;
+#endif
+}
+
 /* Emit an assembler directive to make the symbol for DECL an alias to
    the symbol for TARGET.  */
 
 void
 assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
 {
-  const char *name;
-
   /* We must force creation of DECL_RTL for debug info generation, even though
      we don't use it here.  */
   make_decl_rtl (decl, NULL);
-
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
 #ifdef ASM_OUTPUT_DEF
   /* Make name accessible from other files, if appropriate.  */
@@ -4376,21 +4462,45 @@ assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
       maybe_assemble_visibility (decl);
     }
 
-#ifdef ASM_OUTPUT_DEF_FROM_DECLS
-  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
-#else
-  ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));
-#endif
+  if (TARGET_DEFERRED_OUTPUT_DEFS (decl, target))
+    {
+      output_def_pair p;
+
+      if (!output_defs)
+	VARRAY_GENERIC_PTR_INIT (output_defs, 10, "output defs");
+	
+      p = ggc_alloc (sizeof (struct output_def_pair));
+      p->decl = decl;
+      p->target = target;
+      VARRAY_PUSH_GENERIC_PTR (output_defs, p);
+    }
+  else
+    assemble_output_def (decl, target);
 #else /* !ASM_OUTPUT_DEF */
 #if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
-  if (! DECL_WEAK (decl))
+  if (DECL_WEAK (decl))
+    {
+      const char *name;
+      tree *p, t;
+
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+#ifdef ASM_WEAKEN_DECL
+      ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
+#else
+      ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
+#endif
+      /* Remove this function from the pending weak list so that
+	 we do not emit multiple .weak directives for it.  */
+      for (p = &weak_decls; (t = *p) ; )
+	if (DECL_ASSEMBLER_NAME (decl)
+	    == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
+	  *p = TREE_CHAIN (t);
+	else
+	  p = &TREE_CHAIN (t);
+    }
+  else
     warning ("only weak aliases are supported in this configuration");
 
-#ifdef ASM_WEAKEN_DECL
-  ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
-#else
-  ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
-#endif
 #else
   warning ("alias definitions not supported in this configuration; ignored");
 #endif
@@ -4430,7 +4540,7 @@ default_assemble_visibility (tree decl, int vis)
 static void
 maybe_assemble_visibility (tree decl)
 {
-  enum symbol_visibility vis = decl_visibility (decl);
+  enum symbol_visibility vis = DECL_VISIBILITY (decl);
 
   if (vis != VISIBILITY_DEFAULT)
     (* targetm.asm_out.visibility) (decl, vis);
@@ -4460,16 +4570,16 @@ make_decl_one_only (tree decl)
 
   TREE_PUBLIC (decl) = 1;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
-    DECL_COMMON (decl) = 1;
-  else if (SUPPORTS_ONE_ONLY)
+  if (SUPPORTS_ONE_ONLY)
     {
 #ifdef MAKE_DECL_ONE_ONLY
       MAKE_DECL_ONE_ONLY (decl);
 #endif
       DECL_ONE_ONLY (decl) = 1;
     }
+  else if (TREE_CODE (decl) == VAR_DECL
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    DECL_COMMON (decl) = 1;
   else if (SUPPORTS_WEAK)
     DECL_WEAK (decl) = 1;
   else
@@ -4530,30 +4640,6 @@ decl_tls_model (tree decl)
     kind = flag_tls_default;
 
   return kind;
-}
-
-enum symbol_visibility
-decl_visibility (tree decl)
-{
-  tree attr = lookup_attribute ("visibility", DECL_ATTRIBUTES (decl));
-
-  if (attr)
-    {
-      const char *which = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
-
-      if (strcmp (which, "default") == 0)
-	return VISIBILITY_DEFAULT;
-      if (strcmp (which, "internal") == 0)
-	return VISIBILITY_INTERNAL;
-      if (strcmp (which, "hidden") == 0)
-	return VISIBILITY_HIDDEN;
-      if (strcmp (which, "protected") == 0)
-	return VISIBILITY_PROTECTED;
-
-      abort ();
-    }
-
-  return VISIBILITY_DEFAULT;
 }
 
 /* Select a set of attributes for section NAME based on the properties
@@ -4623,7 +4709,8 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
 
 void
 default_no_named_section (const char *name ATTRIBUTE_UNUSED,
-			  unsigned int flags ATTRIBUTE_UNUSED)
+			  unsigned int flags ATTRIBUTE_UNUSED,
+			  tree decl ATTRIBUTE_UNUSED)
 {
   /* Some object formats don't support named sections at all.  The
      front-end should already have flagged this as an error.  */
@@ -4631,11 +4718,17 @@ default_no_named_section (const char *name ATTRIBUTE_UNUSED,
 }
 
 void
-default_elf_asm_named_section (const char *name, unsigned int flags)
+default_elf_asm_named_section (const char *name, unsigned int flags,
+			       tree decl ATTRIBUTE_UNUSED)
 {
   char flagchars[10], *f = flagchars;
 
-  if (! named_section_first_declaration (name))
+  /* If we have already declared this section, we can use an
+     abbreviated form to switch back to it -- unless this section is
+     part of a COMDAT groups, in which case GAS requires the full
+     declaration every time.  */
+  if (!(HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+      && ! named_section_first_declaration (name))
     {
       fprintf (asm_out_file, "\t.section\t%s\n", name);
       return;
@@ -4655,6 +4748,8 @@ default_elf_asm_named_section (const char *name, unsigned int flags)
     *f++ = 'S';
   if (flags & SECTION_TLS)
     *f++ = 'T';
+  if (HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+    *f++ = 'G';
   *f = '\0';
 
   fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
@@ -4662,23 +4757,35 @@ default_elf_asm_named_section (const char *name, unsigned int flags)
   if (!(flags & SECTION_NOTYPE))
     {
       const char *type;
+      const char *format;
 
       if (flags & SECTION_BSS)
 	type = "nobits";
       else
 	type = "progbits";
 
-      fprintf (asm_out_file, ",@%s", type);
+      format = ",@%s";
+#ifdef ASM_COMMENT_START
+      /* On platforms that use "@" as the assembly comment character,
+	 use "%" instead.  */
+      if (strcmp (ASM_COMMENT_START, "@") == 0)
+	format = ",%%%s";
+#endif
+      fprintf (asm_out_file, format, type);
 
       if (flags & SECTION_ENTSIZE)
 	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
+      if (HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+	fprintf (asm_out_file, ",%s,comdat", 
+		 lang_hooks.decls.comdat_group (decl));
     }
 
   putc ('\n', asm_out_file);
 }
 
 void
-default_coff_asm_named_section (const char *name, unsigned int flags)
+default_coff_asm_named_section (const char *name, unsigned int flags, 
+				tree decl ATTRIBUTE_UNUSED)
 {
   char flagchars[8], *f = flagchars;
 
@@ -4692,9 +4799,10 @@ default_coff_asm_named_section (const char *name, unsigned int flags)
 }
 
 void
-default_pe_asm_named_section (const char *name, unsigned int flags)
+default_pe_asm_named_section (const char *name, unsigned int flags,
+			      tree decl)
 {
-  default_coff_asm_named_section (name, flags);
+  default_coff_asm_named_section (name, flags, decl);
 
   if (flags & SECTION_LINKONCE)
     {
@@ -4965,7 +5073,8 @@ default_unique_section (tree decl, int reloc)
 void
 default_unique_section_1 (tree decl, int reloc, int shlib)
 {
-  bool one_only = DECL_ONE_ONLY (decl);
+  /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
+  bool one_only = DECL_ONE_ONLY (decl) && !HAVE_GAS_COMDAT_GROUP;
   const char *prefix, *name;
   size_t nlen, plen;
   char *string;
@@ -5130,8 +5239,8 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Static variables are always local.  */
   else if (! TREE_PUBLIC (exp))
     local_p = true;
-  /* A variable is local if the user tells us so.  */
-  else if (decl_visibility (exp) != VISIBILITY_DEFAULT)
+  /* A variable is local if the user explicitly tells us so.  */
+  else if (DECL_VISIBILITY_SPECIFIED (exp) && DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* Otherwise, variables defined outside this object may not be local.  */
   else if (DECL_EXTERNAL (exp))
@@ -5139,6 +5248,9 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Linkonce and weak data are never local.  */
   else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
     local_p = false;
+  /* If none of the above and visibility is not default, make local.  */
+  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+    local_p = true;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules.  */
   else if (shlib)

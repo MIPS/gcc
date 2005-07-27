@@ -1,5 +1,5 @@
 /* Write out a Java(TM) class file.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -559,9 +559,9 @@ localvar_alloc (tree decl, struct jcf_partial *state)
   struct jcf_block *start_label = get_jcf_label_here (state);
   int wide = TYPE_IS_WIDE (TREE_TYPE (decl));
   int index;
-  register struct localvar_info *info;
-  register struct localvar_info **ptr = localvar_buffer;
-  register struct localvar_info **limit
+  struct localvar_info *info;
+  struct localvar_info **ptr = localvar_buffer;
+  struct localvar_info **limit
     = (struct localvar_info**) state->localvars.ptr;
   for (index = 0;  ptr < limit;  index++, ptr++)
     {
@@ -602,8 +602,8 @@ maybe_free_localvar (tree decl, struct jcf_partial *state, int really)
 {
   struct jcf_block *end_label = get_jcf_label_here (state);
   int index = DECL_LOCAL_INDEX (decl);
-  register struct localvar_info **ptr = &localvar_buffer [index];
-  register struct localvar_info *info = *ptr;
+  struct localvar_info **ptr = &localvar_buffer [index];
+  struct localvar_info *info = *ptr;
   int wide = TYPE_IS_WIDE (TREE_TYPE (decl));
 
   info->end_label = end_label;
@@ -3383,9 +3383,11 @@ make_class_file_name (tree clas)
       if (s == NULL)
 	break;
       *s = '\0';
+      /* Try to make directory if it doesn't already exist.  */
       if (stat (r, &sb) == -1
-	  /* Try to make it.  */
-	  && mkdir (r, 0755) == -1)
+	  && mkdir (r, 0755) == -1
+	  /* The directory might have been made by another process.  */
+	  && errno != EEXIST)
 	fatal_error ("can't create directory %s: %m", r);
 
       *s = sep;

@@ -1,5 +1,5 @@
 // -*- C++ -*- Manage the thread-local exception globals.
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2004 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -48,7 +48,17 @@ static void
 get_globals_dtor (void *ptr)
 {
   if (ptr)
-    std::free (ptr);
+    {
+      __cxa_exception *exn, *next;
+      exn = ((__cxa_eh_globals *) ptr)->caughtExceptions;
+      while (exn)
+	{
+	  next = exn->nextException;
+	  _Unwind_DeleteException (&exn->unwindHeader);
+	  exn = next;
+	}
+      std::free (ptr);
+    }
 }
 
 static void
@@ -69,7 +79,7 @@ get_globals_init_once ()
 #endif
 
 extern "C" __cxa_eh_globals *
-__cxa_get_globals_fast ()
+__cxxabiv1::__cxa_get_globals_fast () throw()
 {
 #if __GTHREADS
   if (use_thread_key)
@@ -82,7 +92,7 @@ __cxa_get_globals_fast ()
 }
 
 extern "C" __cxa_eh_globals *
-__cxa_get_globals ()
+__cxxabiv1::__cxa_get_globals () throw()
 {
 #if __GTHREADS
   __cxa_eh_globals *g;

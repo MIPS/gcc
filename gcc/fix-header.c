@@ -1,6 +1,6 @@
 /* fix-header.c - Make C header file suitable for C++.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -604,9 +604,8 @@ read_scan_file (char *in_fname, int argc, char **argv)
   options->inhibit_errors = 1;
   cpp_post_options (scan_in);
 
-  if (!cpp_find_main_file (scan_in, in_fname))
+  if (!cpp_read_main_file (scan_in, in_fname))
     exit (FATAL_EXIT_CODE);
-  cpp_push_main_file (scan_in);
 
   cpp_change_file (scan_in, LC_RENAME, "<built-in>");
   cpp_init_builtins (scan_in, true);
@@ -645,7 +644,7 @@ read_scan_file (char *in_fname, int argc, char **argv)
     }
 
   if (i < argc)
-    cpp_error (scan_in, DL_ERROR, "invalid option `%s'", argv[i]);
+    cpp_error (scan_in, CPP_DL_ERROR, "invalid option `%s'", argv[i]);
   if (cpp_errors (scan_in))
     exit (FATAL_EXIT_CODE);
 

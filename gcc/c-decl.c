@@ -1,6 +1,6 @@
 /* Process declarations and variables for C compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -61,7 +61,6 @@ enum decl_context
   FUNCDEF,			/* Function definition */
   PARM,				/* Declaration of parm before function body */
   FIELD,			/* Declaration inside struct or union */
-  BITFIELD,			/* Likewise but with specified width */
   TYPENAME};			/* Typename (inside cast or sizeof)  */
 
 
@@ -125,6 +124,10 @@ static GTY(()) struct stmt_tree_s c_stmt_tree;
 /* The current scope statement stack.  */
 
 static GTY(()) tree c_scope_stmt_stack;
+
+/* State saving variables.  */
+int c_in_iteration_stmt;
+int c_in_case_stmt;
 
 /* A list of external DECLs that appeared at block scope when there was
    some other global meaning for that identifier.  */
@@ -227,21 +230,21 @@ struct c_scope GTY(())
 
   /* True if we are currently filling this scope with parameter
      declarations.  */
-  bool parm_flag : 1;
+  BOOL_BITFIELD parm_flag : 1;
 
   /* True if we already complained about forward parameter decls
      in this scope.  This prevents double warnings on
      foo (int a; int b; ...)  */
-  bool warned_forward_parm_decls : 1;
+  BOOL_BITFIELD warned_forward_parm_decls : 1;
 
   /* True if this is the outermost block scope of a function body.
      This scope contains the parameters, the local variables declared
      in the outermost block, and all the labels (except those in
      nested functions, or declared at block scope with __label__).  */
-  bool function_body : 1;
+  BOOL_BITFIELD function_body : 1;
 
   /* True means make a BLOCK for this scope no matter what.  */
-  bool keep : 1;
+  BOOL_BITFIELD keep : 1;
 };
 
 /* The scope currently in effect.  */
@@ -303,15 +306,12 @@ tree static_ctors, static_dtors;
 
 static struct c_scope *make_scope (void);
 static void pop_scope (void);
-static tree match_builtin_function_types (tree, tree);
-static int duplicate_decls (tree, tree, int, int);
-static int redeclaration_error_message (tree, tree);
 static tree make_label (tree, location_t);
 static void bind_label (tree, tree, struct c_scope *);
 static void implicit_decl_warning (tree);
 static tree lookup_tag (enum tree_code, tree, int);
 static tree lookup_name_current_level (tree);
-static tree grokdeclarator (tree, tree, enum decl_context, int);
+static tree grokdeclarator (tree, tree, enum decl_context, int, tree *);
 static tree grokparms (tree, int);
 static void layout_array_type (tree);
 static void store_parm_decls_newstyle (void);
@@ -321,6 +321,7 @@ static void c_expand_body_1 (tree, int);
 static tree any_external_decl (tree);
 static void record_external_decl (tree);
 static void warn_if_shadowing (tree, tree);
+static void check_bitfield_type_and_width (tree *, tree *, const char *);
 static void clone_underlying_type (tree);
 static bool flexible_array_type_p (tree);
 static hashval_t link_hash_hash	(const void *);
@@ -425,13 +426,13 @@ void
 objc_mark_locals_volatile (void *enclosing_blk)
 {
   struct c_scope *scope;
-  
-  for (scope = current_scope; 
+
+  for (scope = current_scope;
        scope && scope != enclosing_blk;
        scope = scope->outer)
     {
       tree decl;
-      
+
       for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
 	{
 	  DECL_REGISTER (decl) = 0;
@@ -440,9 +441,9 @@ objc_mark_locals_volatile (void *enclosing_blk)
       /* Do not climb up past the current function.  */
       if (scope->function_body)
 	break;
-    }	
-}     
-  
+    }
+}
+
 /* Nonzero if we are currently in the global scope.  */
 
 int
@@ -537,7 +538,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
   tree decl;
   tree p;
 
-  /* The following line does not use |= due to a bug in HP's C compiler */
+  /* The following line does not use |= due to a bug in HP's C compiler.  */
   scope->function_body = scope->function_body | functionbody;
 
   if (keep == KEEP_MAYBE)
@@ -672,7 +673,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
     IDENTIFIER_TAG_VALUE (TREE_PURPOSE (p)) = TREE_VALUE (p);
 
   /* Dispose of the block that we just made inside some higher level.  */
-  if (scope->function_body)
+  if (scope->function_body && current_function_decl)
     DECL_INITIAL (current_function_decl) = block;
   else if (scope->outer)
     {
@@ -751,12 +752,12 @@ pushtag (tree name, tree type)
   TYPE_CONTEXT (type) = DECL_CONTEXT (TYPE_STUB_DECL (type));
 }
 
-/* Subroutine of duplicate_decls.  Allow harmless mismatches in return
+/* Subroutine of compare_decls.  Allow harmless mismatches in return
    and argument types provided that the type modes match.  This function
    return a unified type given a suitable match, and 0 otherwise.  */
 
 static tree
-match_builtin_function_types (tree oldtype, tree newtype)
+match_builtin_function_types (tree newtype, tree oldtype)
 {
   tree newrettype, oldrettype;
   tree newargs, oldargs;
@@ -791,567 +792,597 @@ match_builtin_function_types (tree oldtype, tree newtype)
   return build_type_attribute_variant (trytype, TYPE_ATTRIBUTES (oldtype));
 }
 
-/* Handle when a new declaration NEWDECL
-   has the same name as an old one OLDDECL
-   in the same binding contour.
-   Prints an error message if appropriate.
-
-   If safely possible, alter OLDDECL to look like NEWDECL, and return 1.
-   Otherwise, return 0.
-
-   When DIFFERENT_BINDING_LEVEL is true, NEWDECL is an external declaration,
-   and OLDDECL is in an outer scope and should thus not be changed.  */
-
-static int
-duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
-		 int different_tu)
+/* Subroutine of diagnose_mismathed_decls.  Check for function type
+   mismatch involving an empty arglist vs a nonempty one and give clearer
+   diagnostics. */
+static void
+diagnose_arglist_conflict (tree newdecl, tree olddecl,
+			   tree newtype, tree oldtype)
 {
-  int types_match = comptypes (TREE_TYPE (newdecl), TREE_TYPE (olddecl),
-			       COMPARE_STRICT);
-  int new_is_definition = (TREE_CODE (newdecl) == FUNCTION_DECL
-			   && DECL_INITIAL (newdecl) != 0);
-  tree oldtype = TREE_TYPE (olddecl);
-  tree newtype = TREE_TYPE (newdecl);
-  int errmsg = 0;
+  tree t;
 
-  if (DECL_P (olddecl))
+  if (TREE_CODE (olddecl) != FUNCTION_DECL
+      || !comptypes (TREE_TYPE (oldtype), TREE_TYPE (newtype), COMPARE_STRICT)
+      || !((TYPE_ARG_TYPES (oldtype) == 0 && DECL_INITIAL (olddecl) == 0)
+	   ||
+	   (TYPE_ARG_TYPES (newtype) == 0 && DECL_INITIAL (newdecl) == 0)))
+    return;
+
+  t = TYPE_ARG_TYPES (oldtype);
+  if (t == 0)
+    t = TYPE_ARG_TYPES (newtype);
+  for (; t; t = TREE_CHAIN (t))
     {
-      if (TREE_CODE (newdecl) == FUNCTION_DECL
-	  && TREE_CODE (olddecl) == FUNCTION_DECL
-	  && (DECL_UNINLINABLE (newdecl) || DECL_UNINLINABLE (olddecl)))
+      tree type = TREE_VALUE (t);
+
+      if (TREE_CHAIN (t) == 0
+	  && TYPE_MAIN_VARIANT (type) != void_type_node)
 	{
-	  if (DECL_DECLARED_INLINE_P (newdecl)
-	      && DECL_UNINLINABLE (newdecl)
-	      && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
-	    /* Already warned elsewhere.  */;
-	  else if (DECL_DECLARED_INLINE_P (olddecl)
-		   && DECL_UNINLINABLE (olddecl)
-		   && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
-	    /* Already warned.  */;
-	  else if (DECL_DECLARED_INLINE_P (newdecl)
-		   && ! DECL_DECLARED_INLINE_P (olddecl)
-		   && DECL_UNINLINABLE (olddecl)
-		   && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
-	    {
-	      warning ("%Jfunction '%D' redeclared as inline",
-		       newdecl, newdecl);
-	      warning ("%Jprevious declaration of function '%D' "
-                       "with attribute noinline", olddecl, olddecl);
-	    }
-	  else if (DECL_DECLARED_INLINE_P (olddecl)
-		   && DECL_UNINLINABLE (newdecl)
-		   && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
-	    {
-	      warning ("%Jfunction '%D' redeclared with attribute noinline",
-                       newdecl, newdecl);
-	      warning ("%Jprevious declaration of function '%D' was inline",
-                       olddecl, olddecl);
-	    }
+	  inform ("a parameter list with an ellipsis can't match "
+		  "an empty parameter name list declaration");
+	  break;
 	}
 
-      DECL_ATTRIBUTES (newdecl)
-	= (*targetm.merge_decl_attributes) (olddecl, newdecl);
+      if (c_type_promotes_to (type) != type)
+	{
+	  inform ("an argument type that has a default promotion can't match "
+		  "an empty parameter name list declaration");
+	  break;
+	}
+    }
+}
+
+/* Another subroutine of diagnose_mismatched_decls.  OLDDECL is an
+   old-style function definition, NEWDECL is a prototype declaration.
+   Diagnose inconsistencies in the argument list.  Returns TRUE if
+   the prototype is compatible, FALSE if not.  */
+static bool
+validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
+{
+  tree newargs, oldargs;
+  int i;
+
+  /* ??? Elsewhere TYPE_MAIN_VARIANT is not used in this context.  */
+#define END_OF_ARGLIST(t) (TYPE_MAIN_VARIANT (t) == void_type_node)
+
+  oldargs = TYPE_ACTUAL_ARG_TYPES (oldtype);
+  newargs = TYPE_ARG_TYPES (newtype);
+  i = 1;
+
+  for (;;)
+    {
+      tree oldargtype = TREE_VALUE (oldargs);
+      tree newargtype = TREE_VALUE (newargs);
+
+      if (END_OF_ARGLIST (oldargtype) && END_OF_ARGLIST (newargtype))
+	break;
+
+      /* Reaching the end of just one list means the two decls don't
+	 agree on the number of arguments.  */
+      if (END_OF_ARGLIST (oldargtype))
+	{
+	  error ("%Jprototype for '%D' declares more arguments "
+		 "than previous old-style definition", newdecl, newdecl);
+	  return false;
+	}
+      else if (END_OF_ARGLIST (newargtype))
+	{
+	  error ("%Jprototype for '%D' declares fewer arguments "
+		 "than previous old-style definition", newdecl, newdecl);
+	  return false;
+	}
+
+      /* Type for passing arg must be consistent with that declared
+	 for the arg.  */
+      else if (! comptypes (oldargtype, newargtype, COMPARE_STRICT))
+	{
+	  error ("%Jprototype for '%D' declares arg %d with incompatible type",
+		 newdecl, newdecl, i);
+	  return false;
+	}
+
+      oldargs = TREE_CHAIN (oldargs);
+      newargs = TREE_CHAIN (newargs);
+      i++;
     }
 
-  if (TREE_CODE (newtype) == ERROR_MARK
-      || TREE_CODE (oldtype) == ERROR_MARK)
-    types_match = 0;
+  /* If we get here, no errors were found, but do issue a warning
+     for this poor-style construct.  */
+  warning ("%Jprototype for '%D' follows non-prototype definition",
+	   newdecl, newdecl);
+  return true;
+#undef END_OF_ARGLIST
+}
 
-  /* New decl is completely inconsistent with the old one =>
-     tell caller to replace the old one.
-     This is always an error except in the case of shadowing a builtin.  */
+/* Subroutine of diagnose_mismatched_decls.  Report the location of DECL,
+   first in a pair of mismatched declarations, using the diagnostic
+   function DIAG.  */
+static void
+locate_old_decl (tree decl, void (*diag)(const char *, ...))
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
+    ;
+  else if (DECL_INITIAL (decl))
+    diag (N_("%Jprevious definition of '%D' was here"), decl, decl);
+  else if (C_DECL_IMPLICIT (decl))
+    diag (N_("%Jprevious implicit declaration of '%D' was here"), decl, decl);
+  else
+    diag (N_("%Jprevious declaration of '%D' was here"), decl, decl);
+}
+
+/* Subroutine of duplicate_decls.  Compare NEWDECL to OLDDECL.
+   Returns true if the caller should proceed to merge the two, false
+   if OLDDECL should simply be discarded.  As a side effect, issues
+   all necessary diagnostics for invalid or poor-style combinations.
+   If it returns true, writes the types of NEWDECL and OLDDECL to
+   *NEWTYPEP and *OLDTYPEP - these may have been adjusted from
+   TREE_TYPE (NEWDECL, OLDDECL) respectively.  */
+
+static bool
+diagnose_mismatched_decls (tree newdecl, tree olddecl,
+			   tree *newtypep, tree *oldtypep)
+{
+  tree newtype, oldtype;
+  bool pedwarned = false;
+  bool warned = false;
+
+  /* If we have error_mark_node for either decl or type, just discard
+     the previous decl - we're in an error cascade already.  */
+  if (olddecl == error_mark_node || newdecl == error_mark_node)
+    return false;
+  *oldtypep = oldtype = TREE_TYPE (olddecl);
+  *newtypep = newtype = TREE_TYPE (newdecl);
+  if (oldtype == error_mark_node || newtype == error_mark_node)
+    return false;
+
+  /* Two different categories of symbol altogether.  This is an error
+     unless OLDDECL is a builtin.  OLDDECL will be discarded in any case.  */
   if (TREE_CODE (olddecl) != TREE_CODE (newdecl))
     {
-      if (TREE_CODE (olddecl) == FUNCTION_DECL
-	  && DECL_BUILT_IN (olddecl))
-	{
-	  /* If you declare a built-in or predefined function name as static,
-	     the old definition is overridden,
-	     but optionally warn this was a bad choice of name.  */
-	  if (!TREE_PUBLIC (newdecl))
-	    {
-	      if (warn_shadow)
-		warning ("%Jshadowing built-in function '%D'",
-			 newdecl, newdecl);
-	    }
-	  else
-	    warning ("%Jbuilt-in function '%D' declared as non-function",
-                     newdecl, newdecl);
-	}
-      else
+      if (TREE_CODE (olddecl) != FUNCTION_DECL
+          || !DECL_BUILT_IN (olddecl) || !C_DECL_INVISIBLE (olddecl))
 	{
 	  error ("%J'%D' redeclared as different kind of symbol",
 		 newdecl, newdecl);
-	  error ("%Jprevious declaration of '%D'", olddecl, olddecl);
+	  locate_old_decl (olddecl, error);
 	}
-
-      return 0;
+      else if (TREE_PUBLIC (newdecl))
+	warning ("%Jbuilt-in function '%D' declared as non-function",
+		 newdecl, newdecl);
+      else if (warn_shadow)
+	warning ("%Jshadowing built-in function '%D'",
+		 newdecl, newdecl);
+      return false;
     }
 
-  /* For real parm decl following a forward decl, return 1 so old decl
-     will be reused.  Only allow this to happen once.  */
-  if (types_match && TREE_CODE (newdecl) == PARM_DECL
-      && TREE_ASM_WRITTEN (olddecl) && ! TREE_ASM_WRITTEN (newdecl))
+  if (!comptypes (oldtype, newtype, COMPARE_STRICT))
     {
-      TREE_ASM_WRITTEN (olddecl) = 0;
-      return 1;
-    }
-
-  /* The new declaration is the same kind of object as the old one.
-     The declarations may partially match.  Print warnings if they don't
-     match enough.  Ultimately, copy most of the information from the new
-     decl to the old one, and keep using the old one.  */
-
-  if (TREE_CODE (olddecl) == FUNCTION_DECL && DECL_BUILT_IN (olddecl))
-    {
-      /* A function declaration for a built-in function.  */
-      if (!TREE_PUBLIC (newdecl))
-	{
-	  /* If you declare a built-in function name as static, the
-	     built-in definition is overridden,
-	     but optionally warn this was a bad choice of name.  */
-	  if (warn_shadow)
-	    warning ("%Jshadowing built-in function '%D'", newdecl, newdecl);
-	  /* Discard the old built-in function.  */
-	  return 0;
-	}
-      if (!types_match)
+      if (TREE_CODE (olddecl) == FUNCTION_DECL
+	  && DECL_BUILT_IN (olddecl) && C_DECL_INVISIBLE (olddecl))
 	{
 	  /* Accept harmless mismatch in function types.
 	     This is for the ffs and fprintf builtins.  */
-	  tree trytype = match_builtin_function_types (oldtype, newtype);
+	  tree trytype = match_builtin_function_types (newtype, oldtype);
 
-	  if (trytype)
+	  if (trytype && comptypes (newtype, trytype, COMPARE_STRICT))
+	    *oldtypep = oldtype = trytype;
+	  else
 	    {
-	      types_match = comptypes (newtype, trytype, COMPARE_STRICT);
-	      if (types_match)
-		oldtype = trytype;
-	      if (! different_binding_level)
-		TREE_TYPE (olddecl) = oldtype;
+	      /* If types don't match for a built-in, throw away the
+		 built-in.  No point in calling locate_old_decl here, it
+		 won't print anything. */
+	      warning ("%Jconflicting types for built-in function '%D'",
+		       newdecl, newdecl);
+	      return false;
 	    }
 	}
-      if (!types_match)
+      else if (TREE_CODE (olddecl) == FUNCTION_DECL
+	       && DECL_SOURCE_LINE (olddecl) == 0)
 	{
-	  /* If types don't match for a built-in, throw away the built-in.  */
-	  warning ("%Jconflicting types for built-in function '%D'",
-		   newdecl, newdecl);
-	  return 0;
-	}
-    }
-  else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	   && DECL_SOURCE_LINE (olddecl) == 0)
-    {
-      /* A function declaration for a predeclared function
-	 that isn't actually built in.  */
-      if (!TREE_PUBLIC (newdecl))
-	{
-	  /* If you declare it as static, the
-	     default definition is overridden.  */
-	  return 0;
-	}
-      else if (!types_match)
-	{
-	  /* If the types don't match, preserve volatility indication.
-	     Later on, we will discard everything else about the
-	     default declaration.  */
+	  /* A conflicting function declaration for a predeclared
+	     function that isn't actually built in.  Objective C uses
+	     these.  The new declaration silently overrides everything
+	     but the volatility (i.e. noreturn) indication.  See also
+	     below.  FIXME: Make Objective C use normal builtins.  */
 	  TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
+	  return false;
+	}
+      /* Permit void foo (...) to match int foo (...) if the latter is
+	 the definition and implicit int was used.  See
+	 c-torture/compile/920625-2.c.  */
+      else if (TREE_CODE (newdecl) == FUNCTION_DECL && DECL_INITIAL (newdecl)
+	       && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == void_type_node
+	       && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == integer_type_node
+	       && C_FUNCTION_IMPLICIT_INT (newdecl))
+	{
+	  pedwarn ("%Jconflicting types for '%D'", newdecl, newdecl);
+	  /* Make sure we keep void as the return type.  */
+	  TREE_TYPE (newdecl) = *newtypep = newtype = oldtype;
+	  C_FUNCTION_IMPLICIT_INT (newdecl) = 0;
+	  pedwarned = true;
+	}
+      else
+	{
+	  error ("%Jconflicting types for '%D'", newdecl, newdecl);
+	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
+	  locate_old_decl (olddecl, error);
+	  return false;
 	}
     }
-  /* Permit char *foo () to match void *foo (...) if not pedantic,
-     if one of them came from a system header file.  */
-  else if (!types_match
-	   && TREE_CODE (olddecl) == FUNCTION_DECL
-	   && TREE_CODE (newdecl) == FUNCTION_DECL
-	   && TREE_CODE (TREE_TYPE (oldtype)) == POINTER_TYPE
-	   && TREE_CODE (TREE_TYPE (newtype)) == POINTER_TYPE
-	   && (DECL_IN_SYSTEM_HEADER (olddecl)
-	       || DECL_IN_SYSTEM_HEADER (newdecl))
-	   && ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (newtype))) == void_type_node
-		&& TYPE_ARG_TYPES (oldtype) == 0
-		&& self_promoting_args_p (TYPE_ARG_TYPES (newtype))
-		&& TREE_TYPE (TREE_TYPE (oldtype)) == char_type_node)
-	       ||
-	       (TREE_TYPE (TREE_TYPE (newtype)) == char_type_node
-		&& TYPE_ARG_TYPES (newtype) == 0
-		&& self_promoting_args_p (TYPE_ARG_TYPES (oldtype))
-		&& TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (oldtype))) == void_type_node)))
-    {
-      if (pedantic)
-	pedwarn ("%Jconflicting types for '%D'", newdecl, newdecl);
-      /* Make sure we keep void * as ret type, not char *.  */
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (oldtype))) == void_type_node)
-	TREE_TYPE (newdecl) = newtype = oldtype;
 
-      /* Set DECL_IN_SYSTEM_HEADER, so that if we see another declaration
-	 we will come back here again.  */
-      DECL_IN_SYSTEM_HEADER (newdecl) = 1;
-    }
-  /* Permit void foo (...) to match int foo (...) if the latter is the
-     definition and implicit int was used.  See c-torture/compile/920625-2.c.  */
-  else if (!types_match	&& new_is_definition
-	   && TREE_CODE (olddecl) == FUNCTION_DECL
-	   && TREE_CODE (newdecl) == FUNCTION_DECL
-	   && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == void_type_node
-	   && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == integer_type_node
-	   && C_FUNCTION_IMPLICIT_INT (newdecl))
+  /* Redeclaration of a type is a constraint violation (6.7.2.3p1),
+     but silently ignore the redeclaration if either is in a system
+     header.  (Conflicting redeclarations were handled above.)  */
+  if (TREE_CODE (newdecl) == TYPE_DECL)
     {
-      pedwarn ("%Jconflicting types for '%D'", newdecl, newdecl);
-      /* Make sure we keep void as the return type.  */
-      TREE_TYPE (newdecl) = newtype = oldtype;
-      C_FUNCTION_IMPLICIT_INT (newdecl) = 0;
+      if (DECL_IN_SYSTEM_HEADER (newdecl) || DECL_IN_SYSTEM_HEADER (olddecl))
+	return true;  /* allow OLDDECL to continue in use */
+      
+      error ("%Jredefinition of typedef '%D'", newdecl, newdecl);
+      locate_old_decl (olddecl, error);
+      return false;
     }
-  else if (!types_match
-	   /* Permit char *foo (int, ...); followed by char *foo ();
-	      if not pedantic.  */
-	   && ! (TREE_CODE (olddecl) == FUNCTION_DECL
-		 && ! pedantic
-		 /* Return types must still match.  */
-		 && comptypes (TREE_TYPE (oldtype),
-			       TREE_TYPE (newtype), COMPARE_STRICT)
-		 && TYPE_ARG_TYPES (newtype) == 0))
+
+  /* Function declarations can either be 'static' or 'extern' (no
+     qualifier is equivalent to 'extern' - C99 6.2.2p5) and therefore
+     can never conflict with each other on account of linkage (6.2.2p4).
+     Multiple definitions are not allowed (6.9p3,5) but GCC permits
+     two definitions if one is 'extern inline' and one is not.  The non-
+     extern-inline definition supersedes the extern-inline definition.  */
+  else if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
-      error ("%Jconflicting types for '%D'", newdecl, newdecl);
-      /* Check for function type mismatch
-	 involving an empty arglist vs a nonempty one.  */
-      if (TREE_CODE (olddecl) == FUNCTION_DECL
-	  && comptypes (TREE_TYPE (oldtype),
-			TREE_TYPE (newtype), COMPARE_STRICT)
-	  && ((TYPE_ARG_TYPES (oldtype) == 0
-	       && DECL_INITIAL (olddecl) == 0)
-	      ||
-	      (TYPE_ARG_TYPES (newtype) == 0
-	       && DECL_INITIAL (newdecl) == 0)))
+      /* If you declare a built-in function name as static, or
+	 define the built-in with an old-style definition (so we
+	 can't validate the argument list) the built-in definition is
+	 overridden, but optionally warn this was a bad choice of name.  */
+      if (DECL_BUILT_IN (olddecl)
+	  && C_DECL_INVISIBLE (olddecl)
+	  && (!TREE_PUBLIC (newdecl)
+	      || (DECL_INITIAL (newdecl)
+		  && !TYPE_ARG_TYPES (TREE_TYPE (newdecl)))))
 	{
-	  /* Classify the problem further.  */
-	  tree t = TYPE_ARG_TYPES (oldtype);
-	  if (t == 0)
-	    t = TYPE_ARG_TYPES (newtype);
-	  for (; t; t = TREE_CHAIN (t))
+	  if (warn_shadow)
+	    warning ("%Jshadowing built-in function '%D'", newdecl, newdecl);
+	  /* Discard the old built-in function.  */
+	  return false;
+	}
+      
+      if (DECL_INITIAL (newdecl))
+	{
+	  if (DECL_INITIAL (olddecl)
+	      && !(DECL_DECLARED_INLINE_P (olddecl)
+		   && DECL_EXTERNAL (olddecl)
+		   && !(DECL_DECLARED_INLINE_P (newdecl)
+			&& DECL_EXTERNAL (newdecl))))
 	    {
-	      tree type = TREE_VALUE (t);
-
-	      if (TREE_CHAIN (t) == 0
-		  && TYPE_MAIN_VARIANT (type) != void_type_node)
-		{
-		  error ("a parameter list with an ellipsis can't match an empty parameter name list declaration");
-		  break;
-		}
-
-	      if (c_type_promotes_to (type) != type)
-		{
-		  error ("an argument type that has a default promotion can't match an empty parameter name list declaration");
-		  break;
-		}
+	      error ("%Jredefinition of '%D'", newdecl, newdecl);
+	      locate_old_decl (olddecl, error);
+	      return false;
 	    }
 	}
-      if (C_DECL_IMPLICIT (olddecl))
-	error ("%Jprevious implicit declaration of '%D'", olddecl, olddecl);
-      else
-	error ("%Jprevious declaration of '%D'", olddecl, olddecl);
+      /* If we have a prototype after an old-style function definition,
+	 the argument types must be checked specially.  */
+      else if (DECL_INITIAL (olddecl)
+	       && !TYPE_ARG_TYPES (oldtype) && TYPE_ARG_TYPES (newtype)
+	       && TYPE_ACTUAL_ARG_TYPES (oldtype)
+	       && !validate_proto_after_old_defn (newdecl, newtype, oldtype))
+	{
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
+      /* Mismatched non-static and static is considered poor style.
+         We only diagnose static then non-static if -Wtraditional,
+	 because it is the most convenient way to get some effects
+	 (see e.g.  what unwind-dw2-fde-glibc.c does to the definition
+	 of _Unwind_Find_FDE in unwind-dw2-fde.c).  Revisit?  */
+      if (TREE_PUBLIC (olddecl) && !TREE_PUBLIC (newdecl))
+	{
+	  /* A static function declaration for a predeclared function
+	     that isn't actually built in, silently overrides the
+	     default.  Objective C uses these.  See also above.
+	     FIXME: Make Objective C use normal builtins.  */
+	  if (TREE_CODE (olddecl) == FUNCTION_DECL
+	      && DECL_SOURCE_LINE (olddecl) == 0)
+	    return false;
+	  else
+	    {
+	      warning ("%Jstatic declaration of '%D' follows "
+		       "non-static declaration", newdecl, newdecl);
+	      warned = true;
+	    }
+	}
+      else if (TREE_PUBLIC (newdecl) && !TREE_PUBLIC (olddecl)
+	       && warn_traditional)
+	{
+	  warning ("%Jnon-static declaration of '%D' follows "
+		   "static declaration", newdecl, newdecl);
+	  warned = true;
+	}
+    }
+  else if (TREE_CODE (newdecl) == VAR_DECL)
+    {
+      /* Only variables can be thread-local, and all declarations must
+	 agree on this property.  */
+      if (DECL_THREAD_LOCAL (newdecl) != DECL_THREAD_LOCAL (olddecl))
+	{
+	  if (DECL_THREAD_LOCAL (newdecl))
+	    error ("%Jthread-local declaration of '%D' follows "
+		   "non-thread-local declaration", newdecl, newdecl);
+	  else
+	    error ("%Jnon-thread-local declaration of '%D' follows "
+		   "thread-local declaration", newdecl, newdecl);
 
-      /* This is safer because the initializer might contain references
-	 to variables that were declared between olddecl and newdecl. This
-	 will make the initializer invalid for olddecl in case it gets
-	 assigned to olddecl below.  */
-      if (TREE_CODE (newdecl) == VAR_DECL)
-	DECL_INITIAL (newdecl) = 0;
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
+
+      /* Multiple initialized definitions are not allowed (6.9p3,5).  */
+      if (DECL_INITIAL (newdecl) && DECL_INITIAL (olddecl))
+	{
+	  error ("%Jredefinition of '%D'", newdecl, newdecl);
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
+
+      /* Objects declared at file scope: if at least one is 'extern',
+	 it's fine (6.2.2p4); otherwise the linkage must agree (6.2.2p7).  */
+      if (DECL_FILE_SCOPE_P (newdecl))
+	{
+	  if (!DECL_EXTERNAL (newdecl)
+	      && !DECL_EXTERNAL (olddecl)
+	      && TREE_PUBLIC (newdecl) != TREE_PUBLIC (olddecl))
+	    {
+	      if (TREE_PUBLIC (newdecl))
+		error ("%Jnon-static declaration of '%D' follows "
+		       "static declaration", newdecl, newdecl);
+	      else
+		error ("%Jstatic declaration of '%D' follows "
+		       "non-static declaration", newdecl, newdecl);
+
+	      locate_old_decl (olddecl, error);
+	      return false;
+	    }
+	}
+      /* Two objects with the same name declared at the same block
+	 scope must both be external references (6.7p3).  */
+      else if (DECL_CONTEXT (newdecl) == DECL_CONTEXT (olddecl)
+	       && (!DECL_EXTERNAL (newdecl) || !DECL_EXTERNAL (olddecl)))
+	{
+	  if (DECL_EXTERNAL (newdecl))
+	    error ("%Jextern declaration of '%D' follows "
+		   "declaration with no linkage", newdecl, newdecl);
+	  else if (DECL_EXTERNAL (olddecl))
+	    error ("%Jdeclaration of '%D' with no linkage follows "
+		   "extern declaration", newdecl, newdecl);
+	  else
+	    error ("%Jredeclaration of '%D' with no linkage",
+		   newdecl, newdecl);
+
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
     }
-  /* TLS cannot follow non-TLS declaration.  */
-  else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
-	   && !DECL_THREAD_LOCAL (olddecl) && DECL_THREAD_LOCAL (newdecl))
+
+  /* warnings */
+  /* All decls must agree on a visibility.  */
+  if (DECL_VISIBILITY_SPECIFIED (newdecl) && DECL_VISIBILITY_SPECIFIED (olddecl)
+      && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
-      error ("%Jthread-local declaration of '%D' follows non thread-local "
-             "declaration", newdecl, newdecl);
-      error ("%Jprevious declaration of '%D'", olddecl, olddecl);
+      warning ("%Jredeclaration of '%D' with different visibility "
+	       "(old visibility preserved)", newdecl, newdecl);
+      warned = true;
     }
-  /* non-TLS declaration cannot follow TLS declaration.  */
-  else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
-	   && DECL_THREAD_LOCAL (olddecl) && !DECL_THREAD_LOCAL (newdecl))
+
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
-      error ("%Jnon thread-local declaration of '%D' follows "
-             "thread-local declaration", newdecl, newdecl);
-      error ("%Jprevious declaration of '%D'", olddecl, olddecl);
+      /* Diagnose inline __attribute__ ((noinline)) which is silly.  */
+      if (DECL_DECLARED_INLINE_P (newdecl)
+	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
+	{
+	  warning ("%Jinline declaration of '%D' follows "
+		   "declaration with attribute noinline", newdecl, newdecl);
+	  warned = true;
+	}
+      else if (DECL_DECLARED_INLINE_P (olddecl)
+	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
+	{
+	  warning ("%Jdeclaration of '%D' with attribute noinline follows "
+		   "inline declaration ", newdecl, newdecl);
+	  warned = true;
+	}
+
+      /* Inline declaration after use or definition.
+	 ??? Should we still warn about this now we have unit-at-a-time
+	 mode and can get it right?  */
+      if (DECL_DECLARED_INLINE_P (newdecl) && !DECL_DECLARED_INLINE_P (olddecl))
+	{
+	  if (TREE_USED (olddecl))
+	    {
+	      warning ("%J'%D' declared inline after being called",
+		       olddecl, olddecl);
+	      warned = true;
+	    }
+	  else if (DECL_INITIAL (olddecl))
+	    {
+	      warning ("%J'%D' declared inline after its definition",
+		       olddecl, olddecl);
+	      warned = true;
+	    }
+	}
+    }
+  else /* PARM_DECL, VAR_DECL */
+    {
+      /* Redeclaration of a PARM_DECL is invalid unless this is the
+	 real position of a forward-declared parameter (GCC extension).  */
+      if (TREE_CODE (newdecl) == PARM_DECL
+	  && (!TREE_ASM_WRITTEN (olddecl) || TREE_ASM_WRITTEN (newdecl)))
+	{
+	  error ("%Jredefinition of parameter '%D'", newdecl, newdecl);
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
+
+      /* These bits are only type qualifiers when applied to objects.  */
+      if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
+	{
+	  if (TREE_THIS_VOLATILE (newdecl))
+	    pedwarn ("%Jvolatile declaration of '%D' follows "
+		     "non-volatile declaration", newdecl, newdecl);
+	  else
+	    pedwarn ("%Jnon-volatile declaration of '%D' follows "
+		     "volatile declaration", newdecl, newdecl);
+	  pedwarned = true;
+	}
+      if (TREE_READONLY (newdecl) != TREE_READONLY (olddecl))
+	{
+	  if (TREE_READONLY (newdecl))
+	    pedwarn ("%Jconst declaration of '%D' follows "
+		     "non-const declaration", newdecl, newdecl);
+	  else
+	    pedwarn ("%Jnon-const declaration of '%D' follows "
+		     "const declaration", newdecl, newdecl);
+	  pedwarned = true;
+	}
+    }
+
+  /* Optional warning for completely redundant decls.  */
+  if (!warned && !pedwarned
+      && warn_redundant_decls
+      /* Don't warn about a function declaration followed by a
+	 definition.  */
+      && !(TREE_CODE (newdecl) == FUNCTION_DECL
+	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
+      /* Don't warn about redundant redeclarations of builtins. */
+      && !(TREE_CODE (newdecl) == FUNCTION_DECL
+	   && !DECL_BUILT_IN (newdecl)
+	   && DECL_BUILT_IN (olddecl)
+	   && C_DECL_INVISIBLE (olddecl))
+      /* Don't warn about an extern followed by a definition.  */
+      && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl))
+      /* Don't warn about forward parameter decls.  */
+      && !(TREE_CODE (newdecl) == PARM_DECL
+	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl)))
+    {
+      warning ("%Jredundant redeclaration of '%D'", newdecl, newdecl);
+      warned = true;
+    }
+
+  /* Report location of previous decl/defn in a consistent manner.  */
+  if (warned || pedwarned)
+    locate_old_decl (olddecl, pedwarned ? pedwarn : warning);
+
+  return true;
+}
+
+/* Subroutine of duplicate_decls.  NEWDECL has been found to be
+   consistent with OLDDECL, but carries new information.  Merge the
+   new information into OLDDECL.  This function issues no
+   diagnostics.  */
+
+static void
+merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
+{
+  int new_is_definition = (TREE_CODE (newdecl) == FUNCTION_DECL
+			   && DECL_INITIAL (newdecl) != 0);
+
+  /* For real parm decl following a forward decl, return 1 so old decl
+     will be reused.  Only allow this to happen once.  */
+  if (TREE_CODE (newdecl) == PARM_DECL
+      && TREE_ASM_WRITTEN (olddecl) && ! TREE_ASM_WRITTEN (newdecl))
+    {
+      TREE_ASM_WRITTEN (olddecl) = 0;
+      return;
+    }
+
+  DECL_ATTRIBUTES (newdecl)
+    = (*targetm.merge_decl_attributes) (olddecl, newdecl);
+
+  /* Merge the data types specified in the two decls.  */
+  TREE_TYPE (newdecl)
+    = TREE_TYPE (olddecl)
+    = common_type (newtype, oldtype);
+
+  /* Lay the type out, unless already done.  */
+  if (oldtype != TREE_TYPE (newdecl))
+    {
+      if (TREE_TYPE (newdecl) != error_mark_node)
+	layout_type (TREE_TYPE (newdecl));
+      if (TREE_CODE (newdecl) != FUNCTION_DECL
+	  && TREE_CODE (newdecl) != TYPE_DECL
+	  && TREE_CODE (newdecl) != CONST_DECL)
+	layout_decl (newdecl, 0);
     }
   else
     {
-      errmsg = redeclaration_error_message (newdecl, olddecl);
-      if (errmsg)
-	{
-	  switch (errmsg)
-	    {
-	    case 1:
-	      error ("%Jredefinition of '%D'", newdecl, newdecl);
-	      break;
-	    case 2:
-	      error ("%Jredeclaration of '%D'", newdecl, newdecl);
-	      break;
-	    case 3:
-	      error ("%Jconflicting declarations of '%D'", newdecl, newdecl);
-	      break;
-	    default:
-	      abort ();
-	    }
-
-          if (DECL_INITIAL (olddecl)
-              && current_scope == global_scope)
-            error ("%J'%D' previously defined here", olddecl, olddecl);
-          else
-            error ("%J'%D' previously declared here", olddecl, olddecl);
-	  return 0;
-	}
-      else if (TREE_CODE (newdecl) == TYPE_DECL
-               && (DECL_IN_SYSTEM_HEADER (olddecl)
-                   || DECL_IN_SYSTEM_HEADER (newdecl)))
-	{
-	  warning ("%Jredefinition of '%D'", newdecl, newdecl);
-          if (DECL_INITIAL (olddecl) && current_scope == global_scope)
-            warning ("%J'%D' previously defined here", olddecl, olddecl);
-          else
-            warning ("%J'%D' previously declared here", olddecl, olddecl);
-	}
-      else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	       && DECL_INITIAL (olddecl) != 0
-	       && TYPE_ARG_TYPES (oldtype) == 0
-	       && TYPE_ARG_TYPES (newtype) != 0
-	       && TYPE_ACTUAL_ARG_TYPES (oldtype) != 0)
-	{
-	  tree type, parm;
-	  int nargs;
-	  /* Prototype decl follows defn w/o prototype.  */
-
-	  for (parm = TYPE_ACTUAL_ARG_TYPES (oldtype),
-	       type = TYPE_ARG_TYPES (newtype),
-	       nargs = 1;
-	       ;
-	       parm = TREE_CHAIN (parm), type = TREE_CHAIN (type), nargs++)
-	    {
-	      if (TYPE_MAIN_VARIANT (TREE_VALUE (parm)) == void_type_node
-		  && TYPE_MAIN_VARIANT (TREE_VALUE (type)) == void_type_node)
-		{
-		  warning ("%Jprototype for '%D' follows", newdecl, newdecl);
-		  warning ("%Jnon-prototype definition here", olddecl);
-		  break;
-		}
-	      if (TYPE_MAIN_VARIANT (TREE_VALUE (parm)) == void_type_node
-		  || TYPE_MAIN_VARIANT (TREE_VALUE (type)) == void_type_node)
-		{
-		  error ("%Jprototype for '%D' follows and number of "
-                         "arguments doesn't match", newdecl, newdecl);
-		  error ("%Jnon-prototype definition here", olddecl);
-		  errmsg = 1;
-		  break;
-		}
-	      /* Type for passing arg must be consistent
-		 with that declared for the arg.  */
-	      if (! comptypes (TREE_VALUE (parm), TREE_VALUE (type),
-			       COMPARE_STRICT))
-		{
-		  error ("%Jprototype for '%D' follows and argument %d "
-                         "doesn't match", newdecl, newdecl, nargs);
-		  error ("%Jnon-prototype definition here", olddecl);
-		  errmsg = 1;
-		  break;
-		}
-	    }
-	}
-      /* Warn about mismatches in various flags.  */
-      else
-	{
-	  /* Warn if function is now inline
-	     but was previously declared not inline and has been called.  */
-	  if (TREE_CODE (olddecl) == FUNCTION_DECL
-	      && ! DECL_DECLARED_INLINE_P (olddecl)
-	      && DECL_DECLARED_INLINE_P (newdecl)
-	      && TREE_USED (olddecl))
-	    warning ("%J'%D' declared inline after being called",
-		     newdecl, newdecl);
-	  if (TREE_CODE (olddecl) == FUNCTION_DECL
-	      && ! DECL_DECLARED_INLINE_P (olddecl)
-	      && DECL_DECLARED_INLINE_P (newdecl)
-	      && DECL_INITIAL (olddecl) != 0)
-	    warning ("%J'%D' declared inline after its definition",
-		     newdecl, newdecl);
-
-	  /* If pedantic, warn when static declaration follows a non-static
-	     declaration.  Otherwise, do so only for functions.	 */
-	  if ((pedantic || TREE_CODE (olddecl) == FUNCTION_DECL)
-	      && TREE_PUBLIC (olddecl)
-	      && !TREE_PUBLIC (newdecl))
-	    warning ("%Jstatic declaration for '%D' follows non-static",
-		     newdecl, newdecl);
-
-	  /* If warn_traditional, warn when a non-static function
-	     declaration follows a static one.	*/
-	  if (warn_traditional && !in_system_header
-	      && TREE_CODE (olddecl) == FUNCTION_DECL
-	      && !TREE_PUBLIC (olddecl)
-	      && TREE_PUBLIC (newdecl))
-	    warning ("%Jnon-static declaration for '%D' follows static",
-		     newdecl, newdecl);
-
-	  /* Warn when const declaration follows a non-const
-	     declaration, but not for functions.  */
-	  if (TREE_CODE (olddecl) != FUNCTION_DECL
-	      && !TREE_READONLY (olddecl)
-	      && TREE_READONLY (newdecl))
-	    warning ("%Jconst declaration for '%D' follows non-const",
-		     newdecl, newdecl);
-	  /* These bits are logically part of the type, for variables.
-	     But not for functions
-	     (where qualifiers are not valid ANSI anyway).  */
-	  else if (pedantic && TREE_CODE (olddecl) != FUNCTION_DECL
-	      && (TREE_READONLY (newdecl) != TREE_READONLY (olddecl)
-		  || TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl)))
-	    pedwarn ("%Jtype qualifiers for '%D' conflict with previous "
-		     "declaration", newdecl, newdecl);
-	}
+      /* Since the type is OLDDECL's, make OLDDECL's size go with.  */
+      DECL_SIZE (newdecl) = DECL_SIZE (olddecl);
+      DECL_SIZE_UNIT (newdecl) = DECL_SIZE_UNIT (olddecl);
+      DECL_MODE (newdecl) = DECL_MODE (olddecl);
+      if (TREE_CODE (olddecl) != FUNCTION_DECL)
+	if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
+	  {
+	    DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+	    DECL_USER_ALIGN (newdecl) |= DECL_ALIGN (olddecl);
+	  }
     }
 
-  /* Optionally warn about more than one declaration for the same name.  */
-  if (errmsg == 0 && warn_redundant_decls && DECL_SOURCE_LINE (olddecl) != 0
-      /* Don't warn about a function declaration
-	 followed by a definition.  */
-      && !(TREE_CODE (newdecl) == FUNCTION_DECL && DECL_INITIAL (newdecl) != 0
-	   && DECL_INITIAL (olddecl) == 0)
-      /* Don't warn about extern decl followed by (tentative) definition.  */
-      && !(DECL_EXTERNAL (olddecl) && ! DECL_EXTERNAL (newdecl)))
+  /* Keep the old rtl since we can safely use it.  */
+  COPY_DECL_RTL (olddecl, newdecl);
+
+  /* Merge the type qualifiers.  */
+  if (TREE_READONLY (newdecl))
+    TREE_READONLY (olddecl) = 1;
+
+  if (TREE_THIS_VOLATILE (newdecl))
     {
-      warning ("%Jredundant redeclaration of '%D' in same scope",
-	       newdecl, newdecl);
-      warning ("%Jprevious declaration of '%D'", olddecl, olddecl);
+      TREE_THIS_VOLATILE (olddecl) = 1;
+      if (TREE_CODE (newdecl) == VAR_DECL)
+	make_var_volatile (newdecl);
     }
 
-  /* Copy all the DECL_... slots specified in the new decl
-     except for any that we copy here from the old type.
+  /* Keep source location of definition rather than declaration.  */
+  if (DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
+    DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
 
-     Past this point, we don't change OLDTYPE and NEWTYPE
-     even if we change the types of NEWDECL and OLDDECL.  */
+  /* Merge the unused-warning information.  */
+  if (DECL_IN_SYSTEM_HEADER (olddecl))
+    DECL_IN_SYSTEM_HEADER (newdecl) = 1;
+  else if (DECL_IN_SYSTEM_HEADER (newdecl))
+    DECL_IN_SYSTEM_HEADER (olddecl) = 1;
 
-  if (types_match)
+  /* Merge the initialization information.  */
+   if (DECL_INITIAL (newdecl) == 0)
+    DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
+
+  /* Merge the section attribute.
+     We want to issue an error if the sections conflict but that must be
+     done later in decl_attributes since we are called before attributes
+     are assigned.  */
+  if (DECL_SECTION_NAME (newdecl) == NULL_TREE)
+    DECL_SECTION_NAME (newdecl) = DECL_SECTION_NAME (olddecl);
+
+  /* Copy the assembler name.
+     Currently, it can only be defined in the prototype.  */
+  COPY_DECL_ASSEMBLER_NAME (olddecl, newdecl);
+
+  /* Use visibility of whichever declaration had it specified */
+  if (DECL_VISIBILITY_SPECIFIED (olddecl))
     {
-      /* When copying info to olddecl, we store into write_olddecl
-	 instead.  This allows us to avoid modifying olddecl when
-	 different_binding_level is true.  */
-      tree write_olddecl = different_binding_level ? newdecl : olddecl;
-
-      /* Merge the data types specified in the two decls.  */
-      if (TREE_CODE (newdecl) != FUNCTION_DECL || !DECL_BUILT_IN (olddecl))
-	{
-	  if (different_binding_level)
-	    {
-	      if (TYPE_ARG_TYPES (oldtype) != 0
-		  && TYPE_ARG_TYPES (newtype) == 0)
-		TREE_TYPE (newdecl) = common_type (newtype, oldtype);
-	      else
-		TREE_TYPE (newdecl)
-		  = build_type_attribute_variant
-		    (newtype,
-		     merge_attributes (TYPE_ATTRIBUTES (newtype),
-				       TYPE_ATTRIBUTES (oldtype)));
-	    }
-	  else
-	    TREE_TYPE (newdecl)
-	      = TREE_TYPE (olddecl)
-		= common_type (newtype, oldtype);
-	}
-
-      /* Lay the type out, unless already done.  */
-      if (oldtype != TREE_TYPE (newdecl))
-	{
-	  if (TREE_TYPE (newdecl) != error_mark_node)
-	    layout_type (TREE_TYPE (newdecl));
-	  if (TREE_CODE (newdecl) != FUNCTION_DECL
-	      && TREE_CODE (newdecl) != TYPE_DECL
-	      && TREE_CODE (newdecl) != CONST_DECL)
-	    layout_decl (newdecl, 0);
-	}
-      else
-	{
-	  /* Since the type is OLDDECL's, make OLDDECL's size go with.  */
-	  DECL_SIZE (newdecl) = DECL_SIZE (olddecl);
-	  DECL_SIZE_UNIT (newdecl) = DECL_SIZE_UNIT (olddecl);
-	  DECL_MODE (newdecl) = DECL_MODE (olddecl);
-	  if (TREE_CODE (olddecl) != FUNCTION_DECL)
-	    if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
-	      {
-		DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
-		DECL_USER_ALIGN (newdecl) |= DECL_ALIGN (olddecl);
-	      }
-	}
-
-      /* Keep the old rtl since we can safely use it.  */
-      COPY_DECL_RTL (olddecl, newdecl);
-
-      /* Merge the type qualifiers.  */
-      if (TREE_READONLY (newdecl))
-	TREE_READONLY (write_olddecl) = 1;
-
-      if (TREE_THIS_VOLATILE (newdecl))
-	{
-	  TREE_THIS_VOLATILE (write_olddecl) = 1;
-	  if (TREE_CODE (newdecl) == VAR_DECL
-	      /* If an automatic variable is re-declared in the same
-		 function scope, but the old declaration was not
-		 volatile, make_var_volatile() would crash because the
-		 variable would have been assigned to a pseudo, not a
-		 MEM.  Since this duplicate declaration is invalid
-		 anyway, we just skip the call.  */
-	      && errmsg == 0)
-	    make_var_volatile (newdecl);
-	}
-
-      /* Keep source location of definition rather than declaration.  */
-      /* When called with different_binding_level set, keep the old
-	 information so that meaningful diagnostics can be given.  */
-      if (DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0
-	  && ! different_binding_level)
-	DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
-
-      /* Merge the unused-warning information.  */
-      if (DECL_IN_SYSTEM_HEADER (olddecl))
-	DECL_IN_SYSTEM_HEADER (newdecl) = 1;
-      else if (DECL_IN_SYSTEM_HEADER (newdecl))
-	DECL_IN_SYSTEM_HEADER (write_olddecl) = 1;
-
-      /* Merge the initialization information.  */
-      /* When called with different_binding_level set, don't copy over
-	 DECL_INITIAL, so that we don't accidentally change function
-	 declarations into function definitions.  */
-      if (DECL_INITIAL (newdecl) == 0 && ! different_binding_level)
-	DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
-
-      /* Merge the section attribute.
-         We want to issue an error if the sections conflict but that must be
-	 done later in decl_attributes since we are called before attributes
-	 are assigned.  */
-      if (DECL_SECTION_NAME (newdecl) == NULL_TREE)
-	DECL_SECTION_NAME (newdecl) = DECL_SECTION_NAME (olddecl);
-
-      /* Copy the assembler name.
-	 Currently, it can only be defined in the prototype.  */
-      COPY_DECL_ASSEMBLER_NAME (olddecl, newdecl);
-
-      if (TREE_CODE (newdecl) == FUNCTION_DECL)
-	{
-	  DECL_STATIC_CONSTRUCTOR(newdecl) |= DECL_STATIC_CONSTRUCTOR(olddecl);
-	  DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
-	  DECL_NO_LIMIT_STACK (newdecl) |= DECL_NO_LIMIT_STACK (olddecl);
-	  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
-	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
-	  TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
-	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
-	  DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
-	  DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
-	}
+      DECL_VISIBILITY (newdecl) = DECL_VISIBILITY (olddecl);
+      DECL_VISIBILITY_SPECIFIED (newdecl) = 1;
     }
-  /* If cannot merge, then use the new type and qualifiers,
-     and don't preserve the old rtl.  */
-  else if (! different_binding_level)
+
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
-      TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
-      TREE_READONLY (olddecl) = TREE_READONLY (newdecl);
-      TREE_THIS_VOLATILE (olddecl) = TREE_THIS_VOLATILE (newdecl);
-      TREE_SIDE_EFFECTS (olddecl) = TREE_SIDE_EFFECTS (newdecl);
+      DECL_STATIC_CONSTRUCTOR(newdecl) |= DECL_STATIC_CONSTRUCTOR(olddecl);
+      DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
+      DECL_NO_LIMIT_STACK (newdecl) |= DECL_NO_LIMIT_STACK (olddecl);
+      DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
+	|= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
+      TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
+      TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
+      DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
+      DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
     }
 
   /* Merge the storage class information.  */
@@ -1363,8 +1394,6 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
       TREE_PUBLIC (newdecl) &= TREE_PUBLIC (olddecl);
       /* This is since we don't automatically
 	 copy the attributes of NEWDECL into OLDDECL.  */
-      /* No need to worry about different_binding_level here because
-	 then TREE_PUBLIC (newdecl) was true.  */
       TREE_PUBLIC (olddecl) = TREE_PUBLIC (newdecl);
       /* If this clears `static', clear it in the identifier too.  */
       if (! TREE_PUBLIC (olddecl))
@@ -1372,24 +1401,15 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
     }
   if (DECL_EXTERNAL (newdecl))
     {
-      if (! different_binding_level || different_tu)
-	{
-	  /* Don't mess with these flags on local externs; they remain
-	     external even if there's a declaration at file scope which
-	     isn't.  */
-	  TREE_STATIC (newdecl) = TREE_STATIC (olddecl);
-	  DECL_EXTERNAL (newdecl) = DECL_EXTERNAL (olddecl);
-	}
+      TREE_STATIC (newdecl) = TREE_STATIC (olddecl);
+      DECL_EXTERNAL (newdecl) = DECL_EXTERNAL (olddecl);
+
       /* An extern decl does not override previous storage class.  */
       TREE_PUBLIC (newdecl) = TREE_PUBLIC (olddecl);
       if (! DECL_EXTERNAL (newdecl))
 	{
 	  DECL_CONTEXT (newdecl) = DECL_CONTEXT (olddecl);
 	  DECL_COMMON (newdecl) = DECL_COMMON (olddecl);
-	  /* If we have two non-EXTERNAL file-scope decls that are
-	     the same, only one of them should be written out.  */
-	  if (different_tu)
-	    TREE_ASM_WRITTEN (newdecl) = 1;
 	}
     }
   else
@@ -1408,8 +1428,9 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	{
 	  if (TREE_USED (olddecl)
 	      /* In unit-at-a-time mode we never inline re-defined extern
-	         inline functions. */
-	      && !flag_unit_at_a_time)
+	         inline functions.  */
+	      && !flag_unit_at_a_time
+	      && cgraph_function_possibly_inlined_p (olddecl))
 	    (*debug_hooks->outlining_inline_function) (olddecl);
 
 	  /* The new defn must not be inline.  */
@@ -1430,37 +1451,18 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 
       if (DECL_BUILT_IN (olddecl))
 	{
-	  /* Get rid of any built-in function if new arg types don't match it
-	     or if we have a function definition.  */
-	  if (! types_match || new_is_definition)
-	    {
-	      if (! different_binding_level)
-		{
-		  TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
-		  DECL_BUILT_IN_CLASS (olddecl) = NOT_BUILT_IN;
-		}
-	    }
-	  else
-	    {
-	      /* If redeclaring a builtin function, and not a definition,
-		 it stays built in.  */
-	      DECL_BUILT_IN_CLASS (newdecl) = DECL_BUILT_IN_CLASS (olddecl);
-	      DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
-	    }
+	  /* If redeclaring a builtin function, it stays built in.  */
+	  DECL_BUILT_IN_CLASS (newdecl) = DECL_BUILT_IN_CLASS (olddecl);
+	  DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
 	}
 
       /* Also preserve various other info from the definition.  */
       if (! new_is_definition)
 	{
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
-	  /* When called with different_binding_level set, don't copy over
-	     DECL_INITIAL, so that we don't accidentally change function
-	     declarations into function definitions.  */
-	  if (! different_binding_level)
-	    DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
+	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 	  DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl);
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
-	  DECL_ESTIMATED_INSNS (newdecl) = DECL_ESTIMATED_INSNS (olddecl);
 	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 
 	  /* Set DECL_INLINE on the declaration if we've got a body
@@ -1469,9 +1471,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	    {
 	      DECL_INLINE (newdecl) = 1;
 	      DECL_ABSTRACT_ORIGIN (newdecl)
-		= (different_binding_level
-		   ? DECL_ORIGIN (olddecl)
-		   : DECL_ABSTRACT_ORIGIN (olddecl));
+		= DECL_ABSTRACT_ORIGIN (olddecl);
 	    }
 	}
       else
@@ -1483,23 +1483,19 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	    DECL_INLINE (newdecl) = 1;
 	}
     }
-  if (different_binding_level)
-    return 0;
 
   /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
-     But preserve OLDDECL's DECL_UID.  */
+     But preserve OLDDECL's DECL_UID and C_DECL_INVISIBLE.  */
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
+    unsigned olddecl_invisible = C_DECL_INVISIBLE (olddecl);
 
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
     DECL_UID (olddecl) = olddecl_uid;
+    C_DECL_INVISIBLE (olddecl) = olddecl_invisible;
   }
-
-  /* NEWDECL contains the merged attribute lists.
-     Update OLDDECL to be the same.  */
-  DECL_ATTRIBUTES (olddecl) = DECL_ATTRIBUTES (newdecl);
 
   /* If OLDDECL had its DECL_RTL instantiated, re-invoke make_decl_rtl
      so that encode_section_info has a chance to look at the new decl
@@ -1509,10 +1505,28 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	  || (TREE_CODE (olddecl) == VAR_DECL
 	      && TREE_STATIC (olddecl))))
     make_decl_rtl (olddecl, NULL);
-
-  return 1;
 }
 
+/* Handle when a new declaration NEWDECL has the same name as an old
+   one OLDDECL in the same binding contour.  Prints an error message
+   if appropriate.
+
+   If safely possible, alter OLDDECL to look like NEWDECL, and return
+   true.  Otherwise, return false.  */
+
+static bool
+duplicate_decls (tree newdecl, tree olddecl)
+{
+  tree newtype, oldtype;
+
+  if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype))
+    return false;
+
+  merge_decls (newdecl, olddecl, newtype, oldtype);
+  return true;
+}
+  
+
 /* Return any external DECL associated with ID, whether or not it is
    currently in scope.  */
 
@@ -1552,8 +1566,6 @@ record_external_decl (tree decl)
 static void
 warn_if_shadowing (tree x, tree old)
 {
-  const char *name;
-
   /* Nothing to shadow?  */
   if (old == 0
       /* Shadow warnings not wanted?  */
@@ -1567,16 +1579,19 @@ warn_if_shadowing (tree x, tree old)
 	 It would be nice to avoid warning in any function
 	 declarator in a declaration, as opposed to a definition,
 	 but there is no way to tell it's not a definition.  */
-      || (TREE_CODE (x) == PARM_DECL && current_scope->outer->parm_flag))
+      || (TREE_CODE (x) == PARM_DECL && current_scope->outer->parm_flag)
+      /* Shadow warnings only apply to local variables and parameters.  */
+      || (TREE_CODE (x) != PARM_DECL && DECL_FILE_SCOPE_P (x)))
     return;
 
-  name = IDENTIFIER_POINTER (DECL_NAME (x));
   if (TREE_CODE (old) == PARM_DECL)
-    shadow_warning (SW_PARAM, name, old);
+    warning ("%Jdeclaration of '%D' shadows a parameter", x, x);
   else if (DECL_FILE_SCOPE_P (old))
-    shadow_warning (SW_GLOBAL, name, old);
+    warning ("%Jdeclaration of '%D' shadows a global declaration", x, x);
   else
-    shadow_warning (SW_LOCAL, name, old);
+    warning ("%Jdeclaration of '%D' shadows a previous local", x, x);
+
+  warning ("%Jshadowed declaration is here", old);
 }
 
 
@@ -1677,7 +1692,7 @@ pushdecl (tree x)
     DECL_CONTEXT (x) = current_file_decl;
   else
     DECL_CONTEXT (x) = current_function_decl;
-  
+
   if (name)
     {
       tree old;
@@ -1690,7 +1705,7 @@ pushdecl (tree x)
 		 IDENTIFIER_POINTER (name));
 
       old = lookup_name_current_level (name);
-      if (old && duplicate_decls (x, old, 0, false))
+      if (old && duplicate_decls (x, old))
 	{
 	  /* For PARM_DECLs, old may be a forward declaration.
 	     If so, we want to remove it from its old location
@@ -1712,14 +1727,13 @@ pushdecl (tree x)
       if (DECL_EXTERNAL (x) || scope == global_scope)
 	{
 	  /* Find and check against a previous, not-in-scope, external
-	     decl for this identifier.  (C99 s???: If two declarations
-	     with external linkage, referring to the same object, have
-	     incompatible types, the behavior is undefined).  */
-	  tree ext = any_external_decl (name);
+	     decl for this identifier.  (C99 6.2.7p2: All declarations
+	     that refer to the same object or function shall have
+	     compatible type; otherwise, the behavior is undefined.)  */
+ 	  tree ext = any_external_decl (name);
 	  if (ext)
 	    {
-	      if (duplicate_decls (x, ext, scope != global_scope, 
-				   false))
+	      if (duplicate_decls (x, ext))
 		x = copy_node (ext);
 	    }
 	  else
@@ -1734,13 +1748,15 @@ pushdecl (tree x)
 	 scope ends.  Take care not to do this if we are replacing an
 	 older decl in the same scope (i.e.  duplicate_decls returned
 	 false, above).  */
-      if (scope != global_scope
-	  && IDENTIFIER_SYMBOL_VALUE (name)
-	  && IDENTIFIER_SYMBOL_VALUE (name) != old)
+      if (scope != global_scope)
 	{
-	  warn_if_shadowing (x, IDENTIFIER_SYMBOL_VALUE (name));
-	  scope->shadowed = tree_cons (name, IDENTIFIER_SYMBOL_VALUE (name),
-				       scope->shadowed);
+	  tree inherited_decl = lookup_name (name);
+	  if (inherited_decl && inherited_decl != old)
+	    {
+	      warn_if_shadowing (x, inherited_decl);
+	      scope->shadowed = tree_cons (name, inherited_decl,
+					   scope->shadowed);
+	    }
 	}
 
       /* Install the new declaration in the requested scope.  */
@@ -1870,69 +1886,6 @@ implicit_decl_warning (tree id)
     error ("implicit declaration of function `%s'", name);
   else if (mesg_implicit_function_declaration == 1)
     warning ("implicit declaration of function `%s'", name);
-}
-
-/* Return zero if the declaration NEWDECL is valid
-   when the declaration OLDDECL (assumed to be for the same name)
-   has already been seen.
-   Otherwise return 1 if NEWDECL is a redefinition, 2 if it is a redeclaration,
-   and 3 if it is a conflicting declaration.  */
-
-static int
-redeclaration_error_message (tree newdecl, tree olddecl)
-{
-  if (TREE_CODE (newdecl) == TYPE_DECL)
-    {
-      /* Do not complain about type redeclarations where at least one
-	 declaration was in a system header.  */
-      if (DECL_IN_SYSTEM_HEADER (olddecl) || DECL_IN_SYSTEM_HEADER (newdecl))
-	return 0;
-      return 1;
-    }
-  else if (TREE_CODE (newdecl) == FUNCTION_DECL)
-    {
-      /* Declarations of functions can insist on internal linkage
-	 but they can't be inconsistent with internal linkage,
-	 so there can be no error on that account.
-	 However defining the same name twice is no good.  */
-      if (DECL_INITIAL (olddecl) != 0 && DECL_INITIAL (newdecl) != 0
-	  /* However, defining once as extern inline and a second
-	     time in another way is ok.  */
-	  && ! (DECL_DECLARED_INLINE_P (olddecl) && DECL_EXTERNAL (olddecl)
-	       && ! (DECL_DECLARED_INLINE_P (newdecl)
-		     && DECL_EXTERNAL (newdecl))))
-	return 1;
-      return 0;
-    }
-  else if (DECL_FILE_SCOPE_P (newdecl))
-    {
-      /* Objects declared at file scope:  */
-      /* If at least one is a reference, it's ok.  */
-      if (DECL_EXTERNAL (newdecl) || DECL_EXTERNAL (olddecl))
-	return 0;
-      /* Reject two definitions.  */
-      if (DECL_INITIAL (olddecl) != 0 && DECL_INITIAL (newdecl) != 0)
-	return 1;
-      /* Now we have two tentative defs, or one tentative and one real def.  */
-      /* Insist that the linkage match.  */
-      if (TREE_PUBLIC (olddecl) != TREE_PUBLIC (newdecl))
-	return 3;
-      return 0;
-    }
-  else if (current_scope->parm_flag
-	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl))
-    return 0;
-  else
-    {
-      /* Newdecl has block scope.  If olddecl has block scope also, then
-	 reject two definitions, and reject a definition together with an
-	 external reference.  Otherwise, it is OK, because newdecl must
-	 be an extern reference to olddecl.  */
-      if (!(DECL_EXTERNAL (newdecl) && DECL_EXTERNAL (olddecl))
-	  && DECL_CONTEXT (newdecl) == DECL_CONTEXT (olddecl))
-	return 2;
-      return 0;
-    }
 }
 
 /* Issue an error message for a reference to an undeclared variable
@@ -2250,7 +2203,7 @@ c_init_decl_processing (void)
   tree endlink;
   tree ptr_ftype_void, ptr_ftype_ptr;
   location_t save_loc = input_location;
-  
+
   /* Adds some ggc roots, and reserved words for c-parse.in.  */
   c_parse_init ();
 
@@ -2523,7 +2476,8 @@ groktypename (tree typename)
 
   split_specs_attrs (TREE_PURPOSE (typename), &specs, &attrs);
 
-  typename = grokdeclarator (TREE_VALUE (typename), specs, TYPENAME, 0);
+  typename = grokdeclarator (TREE_VALUE (typename), specs, TYPENAME, 0,
+			     NULL);
 
   /* Apply attributes.  */
   decl_attributes (&typename, attrs, 0);
@@ -2540,7 +2494,7 @@ groktypename_in_parm_context (tree typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 PARM, 0);
+			 PARM, 0, NULL);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -2570,7 +2524,7 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
     deprecated_state = DEPRECATED_SUPPRESS;
 
   decl = grokdeclarator (declarator, declspecs,
-			 NORMAL, initialized);
+			 NORMAL, initialized, NULL);
 
   deprecated_state = DEPRECATED_NORMAL;
 
@@ -2757,7 +2711,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		    || TREE_CODE (decl) == FIELD_DECL))
     objc_check_decl (decl);
 
-  /* Deduce size of array from initialization, if not already known */
+  /* Deduce size of array from initialization, if not already known.  */
   if (TREE_CODE (type) == ARRAY_TYPE
       && TYPE_DOMAIN (type) == 0
       && TREE_CODE (decl) != TYPE_DECL)
@@ -2870,12 +2824,18 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 #endif
 	}
       SET_DECL_RTL (decl, NULL_RTX);
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (starred));
+      change_decl_assembler_name (decl, get_identifier (starred));
     }
 
   /* If #pragma weak was used, mark the decl weak now.  */
   if (current_scope == global_scope)
     maybe_apply_pragma_weak (decl);
+
+  /* If this is a variable definition, determine its ELF visibility.  */
+  if (TREE_CODE (decl) == VAR_DECL 
+      && TREE_STATIC (decl) 
+      && !DECL_EXTERNAL (decl))
+    c_determine_visibility (decl);
 
   /* Output the assembler code and/or RTL code for variables and functions,
      unless the type is an undefined structure or union.
@@ -2920,7 +2880,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		warning ("%Jignoring asm-specifier for non-static local "
                          "variable '%D'", decl, decl);
 	      else
-		SET_DECL_ASSEMBLER_NAME (decl, get_identifier (asmspec));
+		change_decl_assembler_name (decl, get_identifier (asmspec));
 	    }
 
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
@@ -2984,6 +2944,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		= init_one_libfunc (USING_SJLJ_EXCEPTIONS
 				    ? "__gcc_personality_sj0"
 				    : "__gcc_personality_v0");
+	      default_init_unwind_resume_libfunc ();
 	      using_eh_for_cleanups ();
 	    }
 
@@ -3006,7 +2967,8 @@ push_parm_decl (tree parm)
   immediate_size_expand = 0;
 
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
-			 TREE_PURPOSE (TREE_PURPOSE (parm)), PARM, 0);
+			 TREE_PURPOSE (TREE_PURPOSE (parm)),
+			 PARM, 0, NULL);
   decl_attributes (&decl, TREE_VALUE (parm), 0);
 
   decl = pushdecl (decl);
@@ -3201,6 +3163,77 @@ flexible_array_type_p (tree type)
   }
 }
 
+/* Performs sanity checks on the TYPE and WIDTH of the bit-field NAME,
+   replacing with appropriate values if they are invalid.  */
+static void
+check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
+{
+  tree type_mv;
+  unsigned int max_width;
+  unsigned HOST_WIDE_INT w;
+  const char *name = orig_name ? orig_name: _("<anonymous>");
+
+  /* Necessary?  */
+  STRIP_NOPS (*width);
+
+  /* Detect and ignore out of range field width and process valid
+     field widths.  */
+  if (TREE_CODE (*width) != INTEGER_CST)
+    {
+      error ("bit-field `%s' width not an integer constant", name);
+      *width = integer_one_node;
+    }
+  else
+    {
+      constant_expression_warning (*width);
+      if (tree_int_cst_sgn (*width) < 0)
+	{
+	  error ("negative width in bit-field `%s'", name);
+	  *width = integer_one_node;
+	}
+      else if (integer_zerop (*width) && orig_name)
+	{
+	  error ("zero width for bit-field `%s'", name);
+	  *width = integer_one_node;
+	}
+    }
+
+  /* Detect invalid bit-field type.  */
+  if (TREE_CODE (*type) != INTEGER_TYPE
+      && TREE_CODE (*type) != BOOLEAN_TYPE
+      && TREE_CODE (*type) != ENUMERAL_TYPE)
+    {
+      error ("bit-field `%s' has invalid type", name);
+      *type = unsigned_type_node;
+    }
+
+  type_mv = TYPE_MAIN_VARIANT (*type);
+  if (pedantic
+      && type_mv != integer_type_node
+      && type_mv != unsigned_type_node
+      && type_mv != boolean_type_node)
+    pedwarn ("type of bit-field `%s' is a GCC extension", name);
+
+  if (type_mv == boolean_type_node)
+    max_width = CHAR_TYPE_SIZE;
+  else
+    max_width = TYPE_PRECISION (*type);
+
+  if (0 < compare_tree_int (*width, max_width))
+    {
+      error ("width of `%s' exceeds its type", name);
+      w = max_width;
+      *width = build_int_2 (w, 0);
+    }
+  else
+    w = tree_low_cst (*width, 1);
+
+  if (TREE_CODE (*type) == ENUMERAL_TYPE
+      && (w < min_precision (TYPE_MIN_VALUE (*type), TREE_UNSIGNED (*type))
+	  || w < min_precision (TYPE_MAX_VALUE (*type), TREE_UNSIGNED (*type))))
+    warning ("`%s' is narrower than values of its type", name);
+}
+
 /* Given declspecs and a declarator,
    determine the name and type of the object declared
    and construct a ..._DECL node for it.
@@ -3220,8 +3253,9 @@ flexible_array_type_p (tree type)
      TYPENAME if for a typename (in a cast or sizeof).
       Don't make a DECL node; just return the ..._TYPE node.
      FIELD for a struct or union field; make a FIELD_DECL.
-     BITFIELD for a field with specified width.
    INITIALIZED is 1 if the decl has an initializer.
+   WIDTH is non-NULL for bit-fields, and is a pointer to an INTEGER_CST node
+   representing the width of the bit-field.
 
    In the TYPENAME case, DECLARATOR is really an absolute declarator.
    It may also be so in the PARM case, for a prototype where the
@@ -3232,7 +3266,7 @@ flexible_array_type_p (tree type)
 
 static tree
 grokdeclarator (tree declarator, tree declspecs,
-		enum decl_context decl_context, int initialized)
+		enum decl_context decl_context, int initialized, tree *width)
 {
   int specbits = 0;
   tree spec;
@@ -3247,19 +3281,17 @@ grokdeclarator (tree declarator, tree declspecs,
   int explicit_char = 0;
   int defaulted_int = 0;
   tree typedef_decl = 0;
-  const char *name;
+  const char *name, *orig_name;
   tree typedef_type = 0;
   int funcdef_flag = 0;
   enum tree_code innermost_code = ERROR_MARK;
-  int bitfield = 0;
   int size_varies = 0;
   tree decl_attr = NULL_TREE;
   tree array_ptr_quals = NULL_TREE;
   int array_parm_static = 0;
   tree returned_attrs = NULL_TREE;
-
-  if (decl_context == BITFIELD)
-    bitfield = 1, decl_context = FIELD;
+  bool bitfield = width != NULL;
+  tree element_type;
 
   if (decl_context == FUNCDEF)
     funcdef_flag = 1, decl_context = NORMAL;
@@ -3292,6 +3324,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	default:
 	  abort ();
 	}
+    orig_name = name;
     if (name == 0)
       name = "type name";
   }
@@ -3361,7 +3394,7 @@ grokdeclarator (tree declarator, tree declspecs,
 		{
 		  if (i == RID_CONST || i == RID_VOLATILE || i == RID_RESTRICT)
 		    {
-		      if (!flag_isoc99)
+		      if (pedantic && !flag_isoc99)
 			pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
 		    }
 		  else
@@ -3524,7 +3557,7 @@ grokdeclarator (tree declarator, tree declspecs,
     }
 
   /* Decide whether an integer type is signed or not.
-     Optionally treat bitfields as signed by default.  */
+     Optionally treat bit-fields as signed by default.  */
   if (specbits & 1 << (int) RID_UNSIGNED
       || (bitfield && ! flag_signed_bitfields
 	  && (explicit_int || defaulted_int || explicit_char
@@ -3600,17 +3633,29 @@ grokdeclarator (tree declarator, tree declspecs,
      two ways a declaration can become qualified.  One is something
      like `const int i' where the `const' is explicit.  Another is
      something like `typedef const int CI; CI i' where the type of the
-     declaration contains the `const'.  */
-  constp = !! (specbits & 1 << (int) RID_CONST) + TYPE_READONLY (type);
-  restrictp = !! (specbits & 1 << (int) RID_RESTRICT) + TYPE_RESTRICT (type);
-  volatilep = !! (specbits & 1 << (int) RID_VOLATILE) + TYPE_VOLATILE (type);
+     declaration contains the `const'.  A third possibility is that
+     there is a type qualifier on the element type of a typedefed
+     array type, in which case we should extract that qualifier so
+     that c_apply_type_quals_to_decls receives the full list of
+     qualifiers to work with (C90 is not entirely clear about whether
+     duplicate qualifiers should be diagnosed in this case, but it
+     seems most appropriate to do so).  */
+  element_type = strip_array_types (type);
+  constp = !! (specbits & 1 << (int) RID_CONST) + TYPE_READONLY (element_type);
+  restrictp
+    = !! (specbits & 1 << (int) RID_RESTRICT) + TYPE_RESTRICT (element_type);
+  volatilep
+    = !! (specbits & 1 << (int) RID_VOLATILE) + TYPE_VOLATILE (element_type);
   inlinep = !! (specbits & (1 << (int) RID_INLINE));
-  if (constp > 1 && ! flag_isoc99)
-    pedwarn ("duplicate `const'");
-  if (restrictp > 1 && ! flag_isoc99)
-    pedwarn ("duplicate `restrict'");
-  if (volatilep > 1 && ! flag_isoc99)
-    pedwarn ("duplicate `volatile'");
+  if (pedantic && !flag_isoc99)
+    {
+      if (constp > 1)
+	pedwarn ("duplicate `const'");
+      if (restrictp > 1)
+	pedwarn ("duplicate `restrict'");
+      if (volatilep > 1)
+	pedwarn ("duplicate `volatile'");
+    }
   if (! flag_gen_aux_info && (TYPE_QUALS (type)))
     type = TYPE_MAIN_VARIANT (type);
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)
@@ -3797,7 +3842,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	      type = error_mark_node;
 	    }
 
-	  if (pedantic && flexible_array_type_p (type))
+	  if (pedantic && !in_system_header && flexible_array_type_p (type))
 	    pedwarn ("invalid use of structure with flexible array member");
 
 	  if (size == error_mark_node)
@@ -3943,7 +3988,17 @@ grokdeclarator (tree declarator, tree declspecs,
 	}
       else if (TREE_CODE (declarator) == CALL_EXPR)
 	{
+	  /* Say it's a definition only for the declarator closest to
+	     the identifier, apart possibly from some attributes.  */
+	  bool really_funcdef = false;
 	  tree arg_types;
+	  if (funcdef_flag)
+	    {
+	      tree t = TREE_OPERAND (declarator, 0);
+	      while (TREE_CODE (t) == TREE_LIST)
+		t = TREE_VALUE (t);
+	      really_funcdef = (TREE_CODE (t) == IDENTIFIER_NODE);
+	    }
 
 	  /* Declaring a function type.
 	     Make sure we have a valid type for the function to return.  */
@@ -3969,11 +4024,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	     inner layer of declarator.  */
 
 	  arg_types = grokparms (TREE_OPERAND (declarator, 1),
-				 funcdef_flag
-				 /* Say it's a definition
-				    only for the CALL_EXPR
-				    closest to the identifier.  */
-				 && TREE_CODE (TREE_OPERAND (declarator, 0)) == IDENTIFIER_NODE);
+				 really_funcdef);
 	  /* Type qualifiers before the return type of the function
 	     qualify the return type, not the function type.  */
 	  if (type_quals)
@@ -4063,12 +4114,15 @@ grokdeclarator (tree declarator, tree declspecs,
 
 	      if (erred)
 		error ("invalid type modifier within pointer declarator");
-	      if (constp > 1 && ! flag_isoc99)
-		pedwarn ("duplicate `const'");
-	      if (volatilep > 1 && ! flag_isoc99)
-		pedwarn ("duplicate `volatile'");
-	      if (restrictp > 1 && ! flag_isoc99)
-		pedwarn ("duplicate `restrict'");
+	      if (pedantic && !flag_isoc99)
+		{
+		  if (constp > 1)
+		    pedwarn ("duplicate `const'");
+		  if (volatilep > 1)
+		    pedwarn ("duplicate `volatile'");
+		  if (restrictp > 1)
+		    pedwarn ("duplicate `restrict'");
+		}
 
 	      type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 			    | (restrictp ? TYPE_QUAL_RESTRICT : 0)
@@ -4083,6 +4137,10 @@ grokdeclarator (tree declarator, tree declspecs,
     }
 
   /* Now TYPE has the actual type.  */
+
+  /* Check the type and width of a bit-field.  */
+  if (bitfield)
+    check_bitfield_type_and_width (&type, width, orig_name);
 
   /* Did array size calculations overflow?  */
 
@@ -4380,7 +4438,7 @@ grokdeclarator (tree declarator, tree declspecs,
 
 	/* It is invalid to create an `extern' declaration for a
 	   variable if there is a global declaration that is
-	   `static'.  */
+	   `static' and the global declaration is not visible.  */
 	if (extern_ref && current_scope != global_scope)
 	  {
 	    tree global_decl;
@@ -4388,6 +4446,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	    global_decl = identifier_global_value (declarator);
 	    if (global_decl
 		&& TREE_CODE (global_decl) == VAR_DECL
+		&& lookup_name (declarator) != global_decl
 		&& !TREE_PUBLIC (global_decl))
 	      error ("variable previously declared `static' redeclared "
 		     "`extern'");
@@ -4637,7 +4696,7 @@ get_parm_info (int void_at_end)
 	default: abort ();
 	}
 
-      if (TREE_PURPOSE (decl)) 
+      if (TREE_PURPOSE (decl))
 	/* The first %s will be one of 'struct', 'union', or 'enum'.  */
 	warning ("\"%s %s\" declared inside parameter list",
 		 keyword, IDENTIFIER_POINTER (TREE_PURPOSE (decl)));
@@ -4752,7 +4811,7 @@ start_struct (enum tree_code code, tree name)
 
 /* Process the specs, declarator (NULL if omitted) and width (NULL if omitted)
    of a structure component, returning a FIELD_DECL node.
-   WIDTH is non-NULL for bit fields only, and is an INTEGER_CST node.
+   WIDTH is non-NULL for bit-fields only, and is an INTEGER_CST node.
 
    This is done during the parsing of the struct declaration.
    The FIELD_DECL nodes are chained together and the lot of them
@@ -4807,7 +4866,8 @@ grokfield (tree declarator, tree declspecs, tree width)
 	}
     }
 
-  value = grokdeclarator (declarator, declspecs, width ? BITFIELD : FIELD, 0);
+  value = grokdeclarator (declarator, declspecs, FIELD, 0,
+			  width ? &width : NULL);
 
   finish_decl (value, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
@@ -4954,72 +5014,12 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	error ("nested redefinition of `%s'",
 	       IDENTIFIER_POINTER (TYPE_NAME (t)));
 
-      /* Detect invalid bit-field size.  */
-      if (DECL_INITIAL (x))
-	STRIP_NOPS (DECL_INITIAL (x));
       if (DECL_INITIAL (x))
 	{
-	  if (TREE_CODE (DECL_INITIAL (x)) == INTEGER_CST)
-	    constant_expression_warning (DECL_INITIAL (x));
-	  else
-	    {
-	      error ("%Jbit-field '%D' width not an integer constant", x, x);
-	      DECL_INITIAL (x) = NULL;
-	    }
-	}
-
-      /* Detect invalid bit-field type.  */
-      if (DECL_INITIAL (x)
-	  && TREE_CODE (TREE_TYPE (x)) != INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (x)) != BOOLEAN_TYPE
-	  && TREE_CODE (TREE_TYPE (x)) != ENUMERAL_TYPE)
-	{
-	  error ("%Jbit-field '%D' has invalid type", x, x);
-	  DECL_INITIAL (x) = NULL;
-	}
-
-      if (DECL_INITIAL (x) && pedantic
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (x)) != integer_type_node
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (x)) != unsigned_type_node
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (x)) != boolean_type_node
-	  /* Accept an enum that's equivalent to int or unsigned int.  */
-	  && !(TREE_CODE (TREE_TYPE (x)) == ENUMERAL_TYPE
-	       && (TYPE_PRECISION (TREE_TYPE (x))
-		   == TYPE_PRECISION (integer_type_node))))
-	pedwarn ("%Jbit-field '%D' type invalid in ISO C", x, x);
-
-      /* Detect and ignore out of range field width and process valid
-	 field widths.  */
-      if (DECL_INITIAL (x))
-	{
-	  int max_width
-	    = (TYPE_MAIN_VARIANT (TREE_TYPE (x)) == boolean_type_node
-	       ? CHAR_TYPE_SIZE : TYPE_PRECISION (TREE_TYPE (x)));
-
-	  if (tree_int_cst_sgn (DECL_INITIAL (x)) < 0)
-	    error ("%Jnegative width in bit-field '%D'", x, x);
-	  else if (0 < compare_tree_int (DECL_INITIAL (x), max_width))
-	    pedwarn ("%Jwidth of '%D' exceeds its type", x, x);
-	  else if (integer_zerop (DECL_INITIAL (x)) && DECL_NAME (x) != 0)
-	    error ("%Jzero width for bit-field '%D'", x, x);
-	  else
-	    {
-	      /* The test above has assured us that TREE_INT_CST_HIGH is 0.  */
-	      unsigned HOST_WIDE_INT width
-		= tree_low_cst (DECL_INITIAL (x), 1);
-
-	      if (TREE_CODE (TREE_TYPE (x)) == ENUMERAL_TYPE
-		  && (width < min_precision (TYPE_MIN_VALUE (TREE_TYPE (x)),
-					     TREE_UNSIGNED (TREE_TYPE (x)))
-		      || (width
-			  < min_precision (TYPE_MAX_VALUE (TREE_TYPE (x)),
-					   TREE_UNSIGNED (TREE_TYPE (x))))))
-		warning ("%J'%D' is narrower than values of its type", x, x);
-
-	      DECL_SIZE (x) = bitsize_int (width);
-	      DECL_BIT_FIELD (x) = 1;
-	      SET_DECL_C_BIT_FIELD (x);
-	    }
+	  unsigned HOST_WIDE_INT width = tree_low_cst (DECL_INITIAL (x), 1);
+	  DECL_SIZE (x) = bitsize_int (width);
+	  DECL_BIT_FIELD (x) = 1;
+	  SET_DECL_C_BIT_FIELD (x);
 	}
 
       DECL_INITIAL (x) = 0;
@@ -5031,14 +5031,23 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  && TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (x))) == NULL_TREE)
 	{
 	  if (TREE_CODE (t) == UNION_TYPE)
-	    error ("%Jflexible array member in union", x);
+	    {
+	      error ("%Jflexible array member in union", x);
+	      TREE_TYPE (x) = error_mark_node;
+	    }
 	  else if (TREE_CHAIN (x) != NULL_TREE)
-	    error ("%Jflexible array member not at end of struct", x);
+	    {
+	      error ("%Jflexible array member not at end of struct", x);
+	      TREE_TYPE (x) = error_mark_node;
+	    }
 	  else if (! saw_named_field)
-	    error ("%Jflexible array member in otherwise empty struct", x);
+	    {
+	      error ("%Jflexible array member in otherwise empty struct", x);
+	      TREE_TYPE (x) = error_mark_node;
+	    }
 	}
 
-      if (pedantic && TREE_CODE (t) == RECORD_TYPE
+      if (pedantic && !in_system_header && TREE_CODE (t) == RECORD_TYPE
 	  && flexible_array_type_p (TREE_TYPE (x)))
 	pedwarn ("%Jinvalid use of structure with flexible array member", x);
 
@@ -5055,7 +5064,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
   layout_type (t);
 
-  /* Delete all zero-width bit-fields from the fieldlist */
+  /* Delete all zero-width bit-fields from the fieldlist.  */
   {
     tree *fieldlistp = &fieldlist;
     while (*fieldlistp)
@@ -5071,7 +5080,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
   TYPE_FIELDS (t) = fieldlist;
 
   /* If there are lots of fields, sort so we can look through them fast.
-    We arbitrarily consider 16 or more elts to be "a lot".  */
+     We arbitrarily consider 16 or more elts to be "a lot".  */
 
   {
     int len = 0;
@@ -5088,23 +5097,23 @@ finish_struct (tree t, tree fieldlist, tree attributes)
         tree *field_array;
         struct lang_type *space;
         struct sorted_fields_type *space2;
-        
+
         len += list_length (x);
-  
+
         /* Use the same allocation policy here that make_node uses, to
           ensure that this lives as long as the rest of the struct decl.
           All decls in an inline function need to be saved.  */
-  
+
         space = ggc_alloc (sizeof (struct lang_type));
         space2 = ggc_alloc (sizeof (struct sorted_fields_type) + len * sizeof (tree));
-        
+
         len = 0;
 	space->s = space2;
 	field_array = &space2->elts[0];
         for (x = fieldlist; x; x = TREE_CHAIN (x))
           {
             field_array[len++] = x;
-          
+
             /* If there is anonymous struct or union, break out of the loop.  */
             if (DECL_NAME (x) == NULL)
               break;
@@ -5119,7 +5128,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
           }
       }
   }
-  
+
   for (x = TYPE_MAIN_VARIANT (t); x; x = TYPE_NEXT_VARIANT (x))
     {
       TYPE_FIELDS (x) = TYPE_FIELDS (t);
@@ -5132,7 +5141,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
      make it one, warn and turn off the flag.  */
   if (TREE_CODE (t) == UNION_TYPE
       && TYPE_TRANSPARENT_UNION (t)
-      && TYPE_MODE (t) != DECL_MODE (TYPE_FIELDS (t)))
+      && (!TYPE_FIELDS (t) || TYPE_MODE (t) != DECL_MODE (TYPE_FIELDS (t))))
     {
       TYPE_TRANSPARENT_UNION (t) = 0;
       warning ("union cannot be made transparent");
@@ -5284,9 +5293,19 @@ finish_enum (tree enumtype, tree values, tree attributes)
 
   TYPE_MIN_VALUE (enumtype) = minnode;
   TYPE_MAX_VALUE (enumtype) = maxnode;
-  TYPE_PRECISION (enumtype) = precision;
   TREE_UNSIGNED (enumtype) = unsign;
   TYPE_SIZE (enumtype) = 0;
+
+  /* If the precision of the type was specific with an attribute and it
+     was too small, give an error.  Otherwise, use it.  */
+  if (TYPE_PRECISION (enumtype))
+    {
+      if (precision > TYPE_PRECISION (enumtype))
+	error ("specified mode too small for enumeral values");
+    }
+  else
+    TYPE_PRECISION (enumtype) = precision;
+
   layout_type (enumtype);
 
   if (values != error_mark_node)
@@ -5438,11 +5457,13 @@ start_function (tree declspecs, tree declarator, tree attributes)
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
+  c_in_iteration_stmt = 0;
+  c_in_case_stmt = 0;
 
   /* Don't expand any sizes in the return type of the function.  */
   immediate_size_expand = 0;
 
-  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1);
+  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -6052,11 +6073,13 @@ finish_function (void)
  	}
     }
 
-  BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
+    BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
   /* Must mark the RESULT_DECL as being in this function.  */
 
-  DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
+  if (DECL_RESULT (fndecl) && DECL_RESULT (fndecl) != error_mark_node)
+    DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
 
   if (MAIN_NAME_P (DECL_NAME (fndecl)) && flag_hosted)
     {
@@ -6156,6 +6179,9 @@ c_expand_body_1 (tree fndecl, int nested_p)
       /* Squirrel away our current state.  */
       push_function_context ();
     }
+    
+  /* Finalize the ELF visibility for the function.  */
+  c_determine_visibility (fndecl);
 
   tree_rest_of_compilation (fndecl, nested_p);
 
@@ -6187,7 +6213,9 @@ c_expand_body_1 (tree fndecl, int nested_p)
 void
 c_expand_body (tree fndecl)
 {
-  c_expand_body_1 (fndecl, 0);
+
+  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
+    c_expand_body_1 (fndecl, 0);
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99
@@ -6251,20 +6279,6 @@ check_for_loop_decls (void)
     }
 }
 
-/* Save and restore the variables in this file and elsewhere
-   that keep track of the progress of compilation of the current function.
-   Used for nested functions.  */
-
-struct language_function GTY(())
-{
-  struct c_language_function base;
-  int returns_value;
-  int returns_null;
-  int returns_abnormally;
-  int warn_about_return_type;
-  int extern_inline;
-};
-
 /* Save and reinitialize the variables
    used during compilation of a C function.  */
 
@@ -6277,6 +6291,8 @@ c_push_function_context (struct function *f)
 
   p->base.x_stmt_tree = c_stmt_tree;
   p->base.x_scope_stmt_stack = c_scope_stmt_stack;
+  p->x_in_iteration_stmt = c_in_iteration_stmt;
+  p->x_in_case_stmt = c_in_case_stmt;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
   p->returns_abnormally = current_function_returns_abnormally;
@@ -6303,6 +6319,8 @@ c_pop_function_context (struct function *f)
 
   c_stmt_tree = p->base.x_stmt_tree;
   c_scope_stmt_stack = p->base.x_scope_stmt_stack;
+  c_in_iteration_stmt = p->x_in_iteration_stmt;
+  c_in_case_stmt = p->x_in_case_stmt;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
   current_function_returns_abnormally = p->returns_abnormally;
@@ -6510,7 +6528,7 @@ merge_translation_unit_decls (void)
   tree decl;
   htab_t link_hash_table;
   tree block;
-  
+
   /* Create the BLOCK that poplevel would have created, but don't
      actually call poplevel since that's expensive.  */
   block = make_node (BLOCK);
@@ -6551,7 +6569,7 @@ merge_translation_unit_decls (void)
 		DECL_EXTERNAL (decl) = 1;
 	      else if (DECL_COMMON (old_decl) || DECL_ONE_ONLY (old_decl))
 		DECL_EXTERNAL (old_decl) = 1;
-	      
+
 	      if (DECL_EXTERNAL (decl))
 		{
 		  DECL_INITIAL (decl) = NULL_TREE;
@@ -6585,13 +6603,13 @@ merge_translation_unit_decls (void)
 	{
 	  tree global_decl;
 	  global_decl = htab_find (link_hash_table, decl);
-	  
+
 	  if (! global_decl)
 	    continue;
-	  
+
 	  /* Print any appropriate error messages, and partially merge
 	     the decls.  */
-	  (void) duplicate_decls (decl, global_decl, true, true);
+	  (void) duplicate_decls (decl, global_decl);
 	}
 
   htab_delete (link_hash_table);
@@ -6603,7 +6621,7 @@ void
 c_write_global_declarations(void)
 {
   tree link;
-  
+
   for (link = current_file_decl; link; link = TREE_CHAIN (link))
     {
       tree globals = BLOCK_VARS (DECL_INITIAL (link));
@@ -6611,16 +6629,16 @@ c_write_global_declarations(void)
       tree *vec = xmalloc (sizeof (tree) * len);
       int i;
       tree decl;
-      
+
       /* Process the decls in the order they were written.  */
 
       for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
 	vec[i] = decl;
-      
+
       wrapup_global_declarations (vec, len);
-      
+
       check_global_declarations (vec, len);
-      
+
       /* Clean up.  */
       free (vec);
     }
@@ -6633,7 +6651,7 @@ c_reset_state (void)
 {
   tree link;
   tree file_scope_decl;
-  
+
   /* Pop the global scope.  */
   if (current_scope != global_scope)
       current_scope = global_scope;

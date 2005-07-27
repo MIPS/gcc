@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -818,8 +818,8 @@ package body Sem_Util is
    begin
       if Ekind (T) = E_Incomplete_Type then
 
-         --  If the type is available through a limited_with_clause,
-         --  verify that its full view has been analyzed.
+         --  Ada0Y (AI-50217): If the type is available through a limited
+         --  with_clause, verify that its full view has been analyzed.
 
          if From_With_Type (T)
            and then Present (Non_Limited_View (T))
@@ -3219,8 +3219,9 @@ package body Sem_Util is
       ------------------------------
 
       function Has_Dependent_Constraint (Comp : Entity_Id) return Boolean is
-         Comp_Decl  : constant Node_Id   := Parent (Comp);
-         Subt_Indic : constant Node_Id   := Subtype_Indication (Comp_Decl);
+         Comp_Decl  : constant Node_Id := Parent (Comp);
+         Subt_Indic : constant Node_Id :=
+                        Subtype_Indication (Component_Definition (Comp_Decl));
          Constr     : Node_Id;
          Assn       : Node_Id;
 
@@ -3554,13 +3555,13 @@ package body Sem_Util is
 
    function Is_Fully_Initialized_Variant (Typ : Entity_Id) return Boolean is
       Loc           : constant Source_Ptr := Sloc (Typ);
+      Constraints   : constant List_Id    := New_List;
+      Components    : constant Elist_Id   := New_Elmt_List;
       Comp_Elmt     : Elmt_Id;
       Comp_Id       : Node_Id;
       Comp_List     : Node_Id;
       Discr         : Entity_Id;
       Discr_Val     : Node_Id;
-      Constraints   : List_Id := New_List;
-      Components    : Elist_Id := New_Elmt_List;
       Report_Errors : Boolean;
 
    begin
@@ -6038,13 +6039,14 @@ package body Sem_Util is
    -----------------------
 
    function Type_Access_Level (Typ : Entity_Id) return Uint is
-      Btyp : Entity_Id := Base_Type (Typ);
+      Btyp : Entity_Id;
 
    begin
       --  If the type is an anonymous access type we treat it as being
       --  declared at the library level to ensure that names such as
       --  X.all'access don't fail static accessibility checks.
 
+      Btyp := Base_Type (Typ);
       if Ekind (Btyp) in Access_Kind then
          if Ekind (Btyp) = E_Anonymous_Access_Type then
             return Scope_Depth (Standard_Standard);
@@ -6370,6 +6372,12 @@ package body Sem_Util is
          then
             Error_Msg_N (
               "operator of the type is not directly visible!", Expr);
+
+         elsif Ekind (Found_Type) = E_Void
+           and then Present (Parent (Found_Type))
+           and then Nkind (Parent (Found_Type)) = N_Full_Type_Declaration
+         then
+            Error_Msg_NE ("found premature usage of}!", Expr, Found_Type);
 
          else
             Error_Msg_NE ("found}!", Expr, Found_Type);

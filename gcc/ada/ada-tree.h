@@ -72,9 +72,13 @@ struct lang_type GTY(())
 #define TYPE_FAT_POINTER_P(NODE)  \
   (TREE_CODE (NODE) == RECORD_TYPE && TYPE_IS_FAT_POINTER_P (NODE))
 
-/* For integral types, nonzero if this is a packed array type.  Such
-   types should not be extended to a larger size.  */
+/* For integral types and array types, nonzero if this is a packed array type.
+   Such types should not be extended to a larger size.  */
 #define TYPE_PACKED_ARRAY_TYPE_P(NODE) TYPE_LANG_FLAG_0 (NODE)
+
+#define TYPE_IS_PACKED_ARRAY_TYPE_P(NODE) \
+  ((TREE_CODE (NODE) == INTEGER_TYPE || TREE_CODE (NODE) == ARRAY_TYPE) \
+   && TYPE_PACKED_ARRAY_TYPE_P (NODE))
 
 /* For INTEGER_TYPE, nonzero if this is a modular type with a modulus that
    is not equal to two to the power of its mode's size.  */
@@ -174,14 +178,14 @@ struct lang_type GTY(())
 #define TYPE_INDEX_TYPE(NODE)	\
   (&TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE))->t.generic)
 #define SET_TYPE_INDEX_TYPE(NODE, X)	\
-  (TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)) = (struct lang_type *)(X))
+  (TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)) = (struct lang_type *) (X))
 
 /* For an INTEGER_TYPE with TYPE_VAX_FLOATING_POINT_P, stores the
    Digits_Value.  */
-#define TYPE_DIGITS_VALUE(NODE)  \
-  ((long) TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)))
+#define TYPE_DIGITS_VALUE(NODE) \
+  (&TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE))->t.generic)
 #define SET_TYPE_DIGITS_VALUE(NODE, X)  \
-  (TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)) = (struct lang_type *)(size_t)(X))
+  (TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)) = (struct lang_type *) (X))
 
 /* For INTEGER_TYPE, stores the RM_Size of the type.  */
 #define TYPE_RM_SIZE_INT(NODE)	TYPE_VALUES (INTEGER_TYPE_CHECK (NODE))
@@ -271,7 +275,17 @@ struct lang_type GTY(())
    discriminant number.  */
 #define DECL_DISCRIMINANT_NUMBER(NODE) DECL_INITIAL (FIELD_DECL_CHECK (NODE))
 
-/* This is a horrible kludge to store the loop_id of a loop into a tree
-   node.  We need to find some other place to store it!  */
+/* This is the loop id for a GNAT_LOOP_ID node.  */
 #define TREE_LOOP_ID(NODE) \
-  (((union lang_tree_node *)TREE_CHECK (NODE, GNAT_LOOP_ID))->loop_id.loop_id)
+  ((union lang_tree_node *) TREE_CHECK (NODE, GNAT_LOOP_ID))->loop_id.loop_id
+
+/* Define fields and macros for statements.
+
+   Start by defining which tree codes are used for statements.  */
+#define IS_STMT(NODE)		(TREE_CODE_CLASS (TREE_CODE (NODE)) == 's')
+
+/* We store the Sloc in statement nodes.  */
+#define TREE_SLOC(NODE)		TREE_COMPLEXITY (STMT_CHECK (NODE))
+
+/* There is just one field in an EXPR_STMT: the expression.  */
+#define EXPR_STMT_EXPR(NODE)	TREE_OPERAND_CHECK_CODE (NODE, EXPR_STMT, 0)

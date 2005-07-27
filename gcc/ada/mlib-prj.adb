@@ -25,12 +25,14 @@
 ------------------------------------------------------------------------------
 
 with ALI;      use ALI;
+with Gnatvsn;  use Gnatvsn;
 with Hostparm;
 with MLib.Fil; use MLib.Fil;
 with MLib.Tgt; use MLib.Tgt;
 with MLib.Utl; use MLib.Utl;
 with Namet;    use Namet;
 with Opt;
+with Osint;    use Osint;
 with Output;   use Output;
 with Prj.Com;  use Prj.Com;
 with Prj.Env;  use Prj.Env;
@@ -576,7 +578,7 @@ package body MLib.Prj is
                      for W in Unit_Data.First_With .. Unit_Data.Last_With loop
                         Afile := Withs.Table (W).Afile;
 
-                        if Library_ALIs.Get (Afile)
+                        if Afile /= No_Name and then Library_ALIs.Get (Afile)
                           and then not Processed_ALIs.Get (Afile)
                         then
                            if not Interface_ALIs.Get (Afile) then
@@ -805,6 +807,49 @@ package body MLib.Prj is
             Add_Argument
               (B_Start & Get_Name_String (Data.Library_Name) & ".adb");
             Add_Argument ("-L" & Get_Name_String (Data.Library_Name));
+
+            --  Check if Binder'Default_Switches ("Ada) is defined. If it is,
+            --  add these switches to call gnatbind.
+
+            declare
+               Binder_Package : constant Package_Id :=
+                                  Value_Of
+                                    (Name        => Name_Binder,
+                                     In_Packages => Data.Decl.Packages);
+
+            begin
+               if Binder_Package /= No_Package then
+                  declare
+                     Defaults : constant Array_Element_Id :=
+                                  Value_Of
+                                    (Name      => Name_Default_Switches,
+                                     In_Arrays =>
+                                       Packages.Table
+                                         (Binder_Package).Decl.Arrays);
+                     Switches : Variable_Value := Nil_Variable_Value;
+
+                     Switch : String_List_Id := Nil_String;
+
+                  begin
+                     if Defaults /= No_Array_Element then
+                        Switches :=
+                          Value_Of
+                            (Index => Name_Ada, In_Array => Defaults);
+
+                        if not Switches.Default then
+                           Switch := Switches.Values;
+
+                           while Switch /= Nil_String loop
+                              Add_Argument
+                                (Get_Name_String
+                                   (String_Elements.Table (Switch).Value));
+                              Switch := String_Elements.Table (Switch).Next;
+                           end loop;
+                        end if;
+                     end if;
+                  end;
+               end if;
+            end;
 
             --  Get all the ALI files of the project file
 
@@ -1122,7 +1167,12 @@ package body MLib.Prj is
 
          if Libgnarl_Needed then
             Opts.Increment_Last;
-            Opts.Table (Opts.Last) := new String'("-lgnarl");
+
+            if The_Build_Mode = Static then
+               Opts.Table (Opts.Last) := new String'("-lgnarl");
+            else
+               Opts.Table (Opts.Last) := new String'(Shared_Lib ("gnarl"));
+            end if;
          end if;
 
          if Libdecgnat_Needed then
@@ -1134,7 +1184,12 @@ package body MLib.Prj is
          end if;
 
          Opts.Increment_Last;
-         Opts.Table (Opts.Last) := new String'("-lgnat");
+
+         if The_Build_Mode = Static then
+            Opts.Table (Opts.Last) := new String'("-lgnat");
+         else
+            Opts.Table (Opts.Last) := new String'(Shared_Lib ("gnat"));
+         end if;
 
          --  If Path Option is supported, add the necessary switch with the
          --  content of Rpath. As Rpath contains at least libgnat directory
@@ -1313,6 +1368,7 @@ package body MLib.Prj is
                   Interfaces    => Arguments (1 .. Argument_Number),
                   Lib_Filename  => Lib_Filename.all,
                   Lib_Dir       => Lib_Dirpath.all,
+                  Symbol_Data   => Data.Symbol_Data,
                   Driver_Name   => Driver_Name,
                   Lib_Address   => DLL_Address.all,
                   Lib_Version   => Lib_Version.all,
@@ -1673,10 +1729,11 @@ package body MLib.Prj is
       --  For fopen
 
       Status : Interfaces.C_Streams.int;
+      pragma Unreferenced (Status);
       --  For fclose
 
-      Begin_Info : String := "--  BEGIN Object file/option list";
-      End_Info   : String := "--  END Object file/option list   ";
+      Begin_Info : constant String := "--  BEGIN Object file/option list";
+      End_Info   : constant String := "--  END Object file/option list   ";
 
       Next_Line : String (1 .. 1000);
       --  Current line value
@@ -1749,18 +1806,30 @@ package body MLib.Prj is
 
       if Next_Line (1 .. Nlast) /= End_Info then
          loop
-            --  Disregard -static and -shared, as -shared will be used
+            --  Ignore -static and -shared, since -shared will be used
             --  in any case.
 
-            --  Disregard -lgnat, -lgnarl and -ldecgnat as they will be added
+            --  Ignore -lgnat, -lgnarl and -ldecgnat as they will be added
             --  later, because they are also needed for non Stand-Alone shared
             --  libraries.
+
+            --  Also ignore the shared libraries which are :
+
+            --  UNIX / Windows    VMS
+            --  -lgnat-<version>  -lgnat_<version>  (7 + version'length chars)
+            --  -lgnarl-<version> -lgnarl_<version> (8 + version'length chars)
 
             if Next_Line (1 .. Nlast) /= "-static" and then
                Next_Line (1 .. Nlast) /= "-shared" and then
                Next_Line (1 .. Nlast) /= "-ldecgnat" and then
                Next_Line (1 .. Nlast) /= "-lgnarl" and then
-               Next_Line (1 .. Nlast) /= "-lgnat"
+               Next_Line (1 .. Nlast) /= "-lgnat" and then
+               Next_Line
+                 (1 .. Natural'Min (Nlast, 8 + Library_Version'Length)) /=
+                   Shared_Lib ("gnarl") and then
+               Next_Line
+                 (1 .. Natural'Min (Nlast, 7 + Library_Version'Length)) /=
+                   Shared_Lib ("gnat")
             then
                if Next_Line (1) /= '-' then
 
@@ -1794,6 +1863,7 @@ package body MLib.Prj is
       end if;
 
       Status := fclose (Fd);
+      --  Is it really right to ignore any close error ???
    end Process_Binder_File;
 
    ------------------

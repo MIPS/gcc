@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -121,7 +121,7 @@ extern int target_flags;
 #define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
 #define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
 #define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
-#define MASK_PNI		0x00010000	/* Support PNI regs/builtins */
+#define MASK_SSE3		0x00010000	/* Support SSE3 regs/builtins */
 #define MASK_3DNOW		0x00020000	/* Support 3Dnow builtins */
 #define MASK_3DNOW_A		0x00040000	/* Support Athlon 3Dnow builtins */
 #define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
@@ -303,7 +303,7 @@ extern int x86_prefetch_sse;
 
 #define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
-#define TARGET_PNI ((target_flags & MASK_PNI) != 0)
+#define TARGET_SSE3 ((target_flags & MASK_SSE3) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
 			     && (ix86_fpmath & FPMATH_387))
@@ -320,7 +320,7 @@ extern int x86_prefetch_sse;
 
 /* WARNING: Do not mark empty strings for translation, as calling
             gettext on an empty string does NOT return an empty
-            string. */
+            string.  */
 
 
 #define TARGET_SWITCHES							      \
@@ -333,6 +333,8 @@ extern int x86_prefetch_sse;
   { "486",			 0, "" /*Deprecated.*/},		      \
   { "pentium",			 0, "" /*Deprecated.*/},		      \
   { "pentiumpro",		 0, "" /*Deprecated.*/},		      \
+  { "pni",			 0, "" /*Deprecated.*/},		      \
+  { "no-pni",			 0, "" /*Deprecated.*/},		      \
   { "intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "no-intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "rtd",			 MASK_RTD,				      \
@@ -399,10 +401,10 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
   { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
-  { "pni",			 MASK_PNI,				      \
-    N_("Support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
-  { "no-pni",			 -MASK_PNI,				      \
-    N_("Do not support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
+  { "sse3",			 MASK_SSE3,				      \
+    N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
+  { "no-sse3",			 -MASK_SSE3,				      \
+    N_("Do not support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -445,6 +447,10 @@ extern int x86_prefetch_sse;
    redefines this to 1.  */
 #define TARGET_MACHO 0
 
+/* Subtargets may reset this to 1 in order to enable 96-bit long double
+   with the rounding mode forced to 53 bits.  */
+#define TARGET_96_ROUND_53_LONG_DOUBLE 0
+
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
    initializer with a subgrouping for each command option.
@@ -477,9 +483,9 @@ extern int x86_prefetch_sse;
   { "cmodel=", &ix86_cmodel_string,				\
     N_("Use given x86-64 code model"), 0},			\
   { "debug-arg", &ix86_debug_arg_string,			\
-    "" /* Undocumented. */, 0},					\
+    "" /* Undocumented.  */, 0},				\
   { "debug-addr", &ix86_debug_addr_string,			\
-    "" /* Undocumented. */, 0},					\
+    "" /* Undocumented.  */, 0},				\
   { "asm=", &ix86_asm_string,					\
     N_("Use given assembler dialect"), 0},			\
   { "tls-dialect=", &ix86_tls_dialect_string,			\
@@ -528,6 +534,10 @@ extern int x86_prefetch_sse;
 %{mcpu=*:-mtune=%* \
 %n`-mcpu=' is deprecated. Use `-mtune=' or '-march=' instead.\n}} \
 %<mcpu=* \
+%{mpni:-msse3 \
+%n`-mpni' is deprecated. Use `-msse3' instead.\n} \
+%{mno-pni:-mno-sse3 \
+%n`-mno-pni' is deprecated. Use `-mno-sse3' instead.\n} \
 %{mintel-syntax:-masm=intel \
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
 %{mno-intel-syntax:-masm=att \
@@ -546,12 +556,11 @@ extern int x86_prefetch_sse;
       if (TARGET_64BIT)						\
 	{							\
 	  builtin_assert ("cpu=x86_64");			\
+	  builtin_assert ("machine=x86_64");			\
 	  builtin_define ("__amd64");				\
 	  builtin_define ("__amd64__");				\
 	  builtin_define ("__x86_64");				\
 	  builtin_define ("__x86_64__");			\
-	  builtin_define ("__amd64");				\
-	  builtin_define ("__amd64__");				\
 	}							\
       else							\
 	{							\
@@ -617,8 +626,11 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE__");				\
       if (TARGET_SSE2)						\
 	builtin_define ("__SSE2__");				\
-      if (TARGET_PNI)						\
-	builtin_define ("__PNI__");				\
+      if (TARGET_SSE3)						\
+	{							\
+	  builtin_define ("__SSE3__");				\
+	  builtin_define ("__PNI__");				\
+	}							\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -691,11 +703,15 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_athlon 11
 #define TARGET_CPU_DEFAULT_athlon_sse 12
 #define TARGET_CPU_DEFAULT_k8 13
+#define TARGET_CPU_DEFAULT_pentium_m 14
+#define TARGET_CPU_DEFAULT_prescott 15
+#define TARGET_CPU_DEFAULT_nocona 16
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
-				  "athlon", "athlon-4", "k8"}
+				  "athlon", "athlon-4", "k8", \
+				  "pentium-m", "prescott", "nocona"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -721,16 +737,7 @@ extern int x86_prefetch_sse;
 
 /* target machine storage layout */
 
-/* Define for XFmode or TFmode extended real floating point support.
-   The XFmode is specified by i386 ABI, while TFmode may be faster
-   due to alignment and simplifications in the address calculations.  */
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_128BIT_LONG_DOUBLE ? 128 : 96)
-#define MAX_LONG_DOUBLE_TYPE_SIZE 128
-#ifdef __x86_64__
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
-#else
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
-#endif
+#define LONG_DOUBLE_TYPE_SIZE 96
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
    FPU, assume that the fpcw is set to extended precision; when using
@@ -900,8 +907,7 @@ extern int x86_prefetch_sse;
 
 #define STACK_REGS
 #define IS_STACK_MODE(MODE)					\
-  ((MODE) == DFmode || (MODE) == SFmode || (MODE) == XFmode	\
-   || (MODE) == TFmode)
+  ((MODE) == DFmode || (MODE) == SFmode || (MODE) == XFmode)	\
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -1049,22 +1055,19 @@ do {									\
 #define HARD_REGNO_NREGS(REGNO, MODE)   \
   (FP_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
    ? (COMPLEX_MODE_P (MODE) ? 2 : 1)					\
-   : ((MODE) == TFmode							\
+   : ((MODE) == XFmode							\
       ? (TARGET_64BIT ? 2 : 3)						\
-      : (MODE) == TCmode						\
+      : (MODE) == XCmode						\
       ? (TARGET_64BIT ? 4 : 6)						\
       : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
 
 #define VALID_SSE2_REG_MODE(MODE) \
     ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \
-     || (MODE) == V2DImode)
+     || (MODE) == V2DImode || (MODE) == DFmode)
 
 #define VALID_SSE_REG_MODE(MODE)					\
     ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode						\
-     /* Always accept SSE2 modes so that xmmintrin.h compiles.  */	\
-     || VALID_SSE2_REG_MODE (MODE)					\
-     || (TARGET_SSE2 && ((MODE) == DFmode || VALID_MMX_REG_MODE (MODE))))
+     || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
     ((MODE) == V2SFmode || (MODE) == SFmode)
@@ -1079,21 +1082,20 @@ do {									\
      : VALID_MMX_REG_MODE_3DNOW (MODE) && TARGET_3DNOW ? 1 : 0)
 
 #define VALID_FP_MODE_P(MODE)						\
-    ((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode		\
-     || (!TARGET_64BIT && (MODE) == XFmode)				\
-     || (MODE) == SCmode || (MODE) == DCmode || (MODE) == TCmode	\
-     || (!TARGET_64BIT && (MODE) == XCmode))
+    ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
+     || (MODE) == SCmode || (MODE) == DCmode || (MODE) == XCmode)	\
 
 #define VALID_INT_MODE_P(MODE)						\
     ((MODE) == QImode || (MODE) == HImode || (MODE) == SImode		\
      || (MODE) == DImode						\
      || (MODE) == CQImode || (MODE) == CHImode || (MODE) == CSImode	\
      || (MODE) == CDImode						\
-     || (TARGET_64BIT && ((MODE) == TImode || (MODE) == CTImode)))
+     || (TARGET_64BIT && ((MODE) == TImode || (MODE) == CTImode		\
+         || (MODE) == TFmode || (MODE) == TCmode)))
 
 /* Return true for modes passed in SSE registers.  */
 #define SSE_REG_MODE_P(MODE) \
- ((MODE) == TImode || (MODE) == V16QImode				\
+ ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 
@@ -1323,7 +1325,7 @@ enum reg_class
 #define Q_CLASS_P(CLASS) \
   reg_class_subset_p ((CLASS), Q_REGS)
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
 {  "NO_REGS",				\
@@ -1437,11 +1439,6 @@ enum reg_class
 
 #define CC_REG_P(X) (REG_P (X) && CC_REGNO_P (REGNO (X)))
 #define CC_REGNO_P(X) ((X) == FLAGS_REG || (X) == FPSR_REG)
-
-/* Indicate whether hard register numbered REG_NO should be converted
-   to SSA form.  */
-#define CONVERT_HARD_REGISTER_TO_SSA_P(REG_NO) \
-  ((REG_NO) == FLAGS_REG || (REG_NO) == ARG_POINTER_REGNUM)
 
 /* The class value for index registers, and the one for base regs.  */
 
@@ -1568,15 +1565,12 @@ enum reg_class
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
 /* On the 80386, this is the size of MODE in words,
-   except in the FP regs, where a single reg is always enough.
-   The TFmodes are really just 80bit values, so we use only 3 registers
-   to hold them, instead of 4, as the size would suggest.
- */
+   except in the FP regs, where a single reg is always enough.  */
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
  (!MAYBE_INTEGER_CLASS_P (CLASS)					\
   ? (COMPLEX_MODE_P (MODE) ? 2 : 1)					\
-  : ((GET_MODE_SIZE ((MODE) == TFmode ? XFmode : (MODE))		\
-     + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+  : (((((MODE) == XFmode ? 12 : GET_MODE_SIZE (MODE)))			\
+      + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* A C expression whose value is nonzero if pseudos that have been
    assigned to registers of class CLASS would likely be spilled
@@ -1601,7 +1595,9 @@ enum reg_class
    || ((CLASS) == BREG)							\
    || ((CLASS) == AD_REGS)						\
    || ((CLASS) == SIREG)						\
-   || ((CLASS) == DIREG))
+   || ((CLASS) == DIREG)						\
+   || ((CLASS) == FP_TOP_REG)						\
+   || ((CLASS) == FP_SECOND_REG))
 
 /* Return a class of registers that cannot change FROM mode to TO mode.
   
@@ -1761,7 +1757,12 @@ typedef struct ix86_args {
   int fastcall;		/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
+  int warn_sse;			/* True when we want to warn about SSE ABI.  */
+  int warn_mmx;			/* True when we want to warn about MMX ABI.  */
   int sse_regno;		/* next available sse register number */
+  int mmx_words;		/* # mmx words passed so far */
+  int mmx_nregs;		/* # mmx registers available for passing */
+  int mmx_regno;		/* next available mmx register number */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
 } CUMULATIVE_ARGS;
 
@@ -1769,7 +1770,7 @@ typedef struct ix86_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME), (FNDECL))
 
 /* Update the data in CUM to advance over an argument
@@ -1827,10 +1828,6 @@ typedef struct ix86_args {
 #define SETUP_INCOMING_VARARGS(CUM, MODE, TYPE, PRETEND_SIZE, NO_RTL)	\
   ix86_setup_incoming_varargs (&(CUM), (MODE), (TYPE), &(PRETEND_SIZE), \
 			       (NO_RTL))
-
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  ((VALIST) = ix86_build_va_list ())
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
@@ -2553,7 +2550,9 @@ enum ix86_builtins
 
 #define REGPARM_MAX (TARGET_64BIT ? 6 : 3)
 
-#define SSE_REGPARM_MAX (TARGET_64BIT ? 8 : 0)
+#define SSE_REGPARM_MAX (TARGET_64BIT ? 8 : (TARGET_SSE ? 3 : 0))
+
+#define MMX_REGPARM_MAX (TARGET_64BIT ? 0 : (TARGET_MMX ? 3 : 0))
 
 
 /* Specify the machine mode that this machine uses
@@ -2742,9 +2741,8 @@ do {							\
    For non floating point regs, the following are the HImode names.
 
    For float regs, the stack top is sometimes referred to as "%st(0)"
-   instead of just "%st".  PRINT_REG handles this with the "y" code.  */
+   instead of just "%st".  PRINT_OPERAND handles this with the "y" code.  */
 
-#undef  HI_REGISTER_NAMES
 #define HI_REGISTER_NAMES						\
 {"ax","dx","cx","bx","si","di","bp","sp",				\
  "st","st(1)","st(2)","st(3)","st(4)","st(5)","st(6)","st(7)",		\
@@ -2894,17 +2892,6 @@ do {									\
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) \
   ((CODE) == '*' || (CODE) == '+' || (CODE) == '&')
 
-/* Print the name of a register based on its machine mode and number.
-   If CODE is 'w', pretend the mode is HImode.
-   If CODE is 'b', pretend the mode is QImode.
-   If CODE is 'k', pretend the mode is SImode.
-   If CODE is 'q', pretend the mode is DImode.
-   If CODE is 'h', pretend the reg is the `high' byte register.
-   If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.  */
-
-#define PRINT_REG(X, CODE, FILE)  \
-  print_reg ((X), (CODE), (FILE))
-
 #define PRINT_OPERAND(FILE, X, CODE)  \
   print_operand ((FILE), (X), (CODE))
 
@@ -2916,70 +2903,6 @@ do {						\
   if (! output_addr_const_extra (FILE, (X)))	\
     goto FAIL;					\
 } while (0);
-
-/* Print the name of a register for based on its machine mode and number.
-   This macro is used to print debugging output.
-   This macro is different from PRINT_REG in that it may be used in
-   programs that are not linked with aux-output.o.  */
-
-#define DEBUG_PRINT_REG(X, CODE, FILE)			\
-  do { static const char * const hi_name[] = HI_REGISTER_NAMES;	\
-       static const char * const qi_name[] = QI_REGISTER_NAMES;	\
-       fprintf ((FILE), "%d ", REGNO (X));		\
-       if (REGNO (X) == FLAGS_REG)			\
-	 { fputs ("flags", (FILE)); break; }		\
-       if (REGNO (X) == DIRFLAG_REG)			\
-	 { fputs ("dirflag", (FILE)); break; }		\
-       if (REGNO (X) == FPSR_REG)			\
-	 { fputs ("fpsr", (FILE)); break; }		\
-       if (REGNO (X) == ARG_POINTER_REGNUM)		\
-	 { fputs ("argp", (FILE)); break; }		\
-       if (REGNO (X) == FRAME_POINTER_REGNUM)		\
-	 { fputs ("frame", (FILE)); break; }		\
-       if (STACK_TOP_P (X))				\
-	 { fputs ("st(0)", (FILE)); break; }		\
-       if (FP_REG_P (X))				\
-	 { fputs (hi_name[REGNO(X)], (FILE)); break; }	\
-       if (REX_INT_REG_P (X))				\
-	 {						\
-	   switch (GET_MODE_SIZE (GET_MODE (X)))	\
-	     {						\
-	     default:					\
-	     case 8:					\
-	       fprintf ((FILE), "r%i", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     case 4:					\
-	       fprintf ((FILE), "r%id", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     case 2:					\
-	       fprintf ((FILE), "r%iw", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     case 1:					\
-	       fprintf ((FILE), "r%ib", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     }						\
-	   break;					\
-	 }						\
-       switch (GET_MODE_SIZE (GET_MODE (X)))		\
-	 {						\
-	 case 8:					\
-	   fputs ("r", (FILE));				\
-	   fputs (hi_name[REGNO (X)], (FILE));		\
-	   break;					\
-	 default:					\
-	   fputs ("e", (FILE));				\
-	 case 2:					\
-	   fputs (hi_name[REGNO (X)], (FILE));		\
-	   break;					\
-	 case 1:					\
-	   fputs (qi_name[REGNO (X)], (FILE));		\
-	   break;					\
-	 }						\
-     } while (0)
 
 /* a letter which is not needed by the normal asm syntax, which
    we can use for operand syntax in the extended asm */
@@ -3006,7 +2929,6 @@ do {						\
   {"x86_64_zext_immediate_operand", {CONST_INT, CONST_DOUBLE, CONST,	\
 				       SYMBOL_REF, LABEL_REF}},		\
   {"shiftdi_operand", {SUBREG, REG, MEM}},				\
-  {"const_int_1_operand", {CONST_INT}},					\
   {"const_int_1_31_operand", {CONST_INT}},				\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
   {"aligned_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
@@ -3069,7 +2991,8 @@ do {						\
   {"zero_extended_scalar_load_operand", {MEM}},				\
   {"vector_move_operand", {CONST_VECTOR, SUBREG, REG, MEM}},		\
   {"no_seg_address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF, \
-			      LABEL_REF, SUBREG, REG, MEM, PLUS, MULT}},
+			      LABEL_REF, SUBREG, REG, MEM, PLUS, MULT}}, \
+  {"compare_operator", {COMPARE}},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
@@ -3231,7 +3154,7 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
    scheduling just increases amount of live registers at time and in
    the turn amount of fxch instructions needed.
 
-   ??? Maybe Pentium chips benefits from renaming, someone can try...  */
+   ??? Maybe Pentium chips benefits from renaming, someone can try....  */
 
 #define HARD_REGNO_RENAME_OK(SRC, TARGET)  \
    ((SRC) < FIRST_STACK_REG || (SRC) > LAST_STACK_REG)

@@ -120,7 +120,6 @@ opendir_in_zip (const char *zipfile, int is_system)
   zipf->next = SeenZipFiles;
   zipf->name = (char*)(zipf+1);
   strcpy (zipf->name, zipfile);
-  SeenZipFiles = zipf;
   fd = open (zipfile, O_RDONLY | O_BINARY);
   zipf->fd = fd;
   if (fd < 0)
@@ -140,6 +139,8 @@ opendir_in_zip (const char *zipfile, int is_system)
       if (read_zip_archive (zipf) != 0)
 	return NULL;
     }
+
+  SeenZipFiles = zipf;
   return zipf;
 }
 
@@ -619,7 +620,7 @@ jcf_print_char (FILE *stream, int ch)
 /* Print UTF8 string at STR of length LENGTH bytes to STREAM. */
 
 void
-jcf_print_utf8 (FILE *stream, register const unsigned char *str, int length)
+jcf_print_utf8 (FILE *stream, const unsigned char *str, int length)
 {
   const unsigned char * limit = str + length;
   while (str < limit)
@@ -713,7 +714,7 @@ format_uint (char *buffer, uint64 value, int base)
 {
 #define WRITE_BUF_SIZE (4 + sizeof(uint64) * 8)
   char buf[WRITE_BUF_SIZE];
-  register char *buf_ptr = buf+WRITE_BUF_SIZE; /* End of buf. */
+  char *buf_ptr = buf+WRITE_BUF_SIZE; /* End of buf. */
   int chars_written;
   int i;
 

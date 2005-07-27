@@ -19,6 +19,9 @@
 # If the first parameter is --list, a list of the generated files and
 # their dependencies will be printed; --help prints this message.
 #
+# If the first parameter is --silent, this script prints nothing other
+# than error messages; the second parameter is then interpreted as above.
+#
 # Examples:
 #
 # contrib/gcc_update -r gcc_latest_snapshot
@@ -29,7 +32,7 @@
 # contrib/gcc_update --list
 #
 #
-# (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation
+# (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation
 # Originally by Gerald Pfeifer <pfeifer@dbai.tuwien.ac.at>, August 1998.
 #
 # This script is Free Software, and it can be copied, distributed and
@@ -51,43 +54,34 @@ UPDATE_OPTIONS=-Pd
 # Arrange for the value of $0 to be available for functions
 self=$0
 
+# This function prints its arguments to standard output unless
+# "silent" is set.
+unset silent
+chat () {
+    if [ -z "$silent" ]; then
+        echo "$@"
+    fi
+}
+
 # This function prints a list of all generated files, along with their
 # dependencies.  Note that only one target is supported per line: the
 # colon is stripped from the output.
 files_and_dependencies () {
     sed -e 's/ *#.*//' -e '/^$/d' -e 's/://' <<\EOF
-# All automake dependencies within texinfo
-# In fact, not all, since we do not care about sub-directories that
-# we do not build.  In particular, *.po and *.gmo are not touched.
-texinfo/aclocal.m4: texinfo/configure.in texinfo/acinclude.m4
-texinfo/Makefile.in: texinfo/Makefile.am texinfo/configure.in texinfo/aclocal.m4
-texinfo/configure: texinfo/configure.in texinfo/aclocal.m4
-texinfo/stamp-h.in: texinfo/configure.in texinfo/aclocal.m4 texinfo/acconfig.h
-texinfo/lib/Makefile.in: texinfo/lib/Makefile.am texinfo/configure.in texinfo/aclocal.m4
-texinfo/makeinfo/Makefile.in: texinfo/makeinfo/Makefile.am texinfo/configure.in texinfo/aclocal.m4
-texinfo/util/Makefile.in: texinfo/util/Makefile.am texinfo/configure.in texinfo/aclocal.m4
 # intl library
 intl/plural.c: intl/plural.y
 intl/configure: intl/configure.in intl/aclocal.m4
 intl/config.h.in: intl/configure.in intl/aclocal.m4
 # Now, proceed to gcc automatically generated files
-gcc/configure: gcc/configure.in
-gcc/cstamp-h.in: gcc/configure.in
+gcc/configure: gcc/configure.ac
+gcc/cstamp-h.in: gcc/configure.ac
 gcc/config.in: gcc/cstamp-h.in
 gcc/fixinc/fixincl.x: gcc/fixinc/fixincl.tpl gcc/fixinc/inclhack.def
+gcc/config/arm/arm-tune.md: gcc/config/arm/arm-cores.def gcc/config/arm/gentune.sh
 # And then, language-specific files
 gcc/f/intdoc.texi: gcc/f/intdoc.in gcc/f/intdoc.c gcc/f/intrin.h gcc/f/intrin.def
 gcc/cp/cfns.h: gcc/cp/cfns.gperf
 gcc/java/keyword.h: gcc/java/keyword.gperf
-gcc/ada/treeprs.ads: gcc/ada/treeprs.adt gcc/ada/sinfo.ads gcc/ada/xtreeprs.adb
-gcc/ada/einfo.h: gcc/ada/einfo.ads gcc/ada/einfo.adb gcc/ada/xeinfo.adb
-gcc/ada/sinfo.h: gcc/ada/sinfo.ads gcc/ada/xsinfo.adb
-gcc/ada/nmake.adb: gcc/ada/sinfo.ads gcc/ada/nmake.adt gcc/ada/xnmake.adb
-gcc/ada/nmake.ads: gcc/ada/sinfo.ads gcc/ada/nmake.adt gcc/ada/xnmake.adb
-gcc/ada/gnat_ug_unx.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_vms.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_vxw.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_w32.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
 # testsuite
 # Without this, _Pragma3.c can have a false negative.
 gcc/testsuite/gcc.dg/cpp/_Pragma3.c: gcc/testsuite/gcc.dg/cpp/mi1c.h
@@ -101,20 +95,19 @@ libf2c/libU77/configure: libf2c/libU77/configure.in
 libf2c/libU77/stamp-h.in: libf2c/libU77/configure.in libf2c/libU77/acconfig.h
 libobjc/configure: libobjc/configure.in
 # fastjar
-fastjar/aclocal.m4: fastjar/configure.in
-fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.in fastjar/aclocal.m4
-fastjar/configure: fastjar/configure.in fastjar/aclocal.m4
-fastjar/stamp-h.in: fastjar/configure.in fastjar/aclocal.m4
+fastjar/aclocal.m4: fastjar/configure.ac
+fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.ac fastjar/aclocal.m4
+fastjar/configure: fastjar/configure.ac fastjar/aclocal.m4
 boehm-gc/aclocal.m4: boehm-gc/configure.in boehm-gc/acinclude.m4
 boehm-gc/Makefile.in: boehm-gc/Makefile.am boehm-gc/configure.in boehm-gc/aclocal.m4
 boehm-gc/configure: boehm-gc/configure.in boehm-gc/aclocal.m4
 libjava/aclocal.m4: libjava/configure.in libjava/acinclude.m4
 libjava/Makefile.in: libjava/Makefile.am libjava/configure.in libjava/aclocal.m4
 libjava/configure: libjava/configure.in libjava/aclocal.m4
-libjava/libltdl/aclocal.m4: libjava/libltdl/configure.in libjava/libltdl/acinclude.m4
-libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.in libjava/libltdl/aclocal.m4
-libjava/libltdl/configure: libjava/libltdl/configure.in libjava/libltdl/aclocal.m4
-libjava/libltdl/stamp-h.in: libjava/libltdl/configure.in libjava/libltdl/aclocal.m4 libjava/libltdl/acconfig.h
+libjava/libltdl/aclocal.m4: libjava/libltdl/configure.ac libjava/libltdl/acinclude.m4
+libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
+libjava/libltdl/configure: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
+libjava/libltdl/config-h.in: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
 configure: configure.in config/acx.m4
@@ -134,10 +127,19 @@ touch_files () {
     echo ':' >> Makefile.$$
     echo '	@for f in $? $@; do test -f $$f || exit 0; done; \' >> Makefile.$$
     echo '	echo Touching $@...; \' >> Makefile.$$
-    echo '	echo Touching $@... 1>&2; \' >> Makefile.$$
+    chat '	echo Touching $@... 1>&2; \' >> Makefile.$$
     echo '	touch $@' >> Makefile.$$
     files_and_dependencies | sed 's,[^ ]* ,,;s,$, :,' >> Makefile.$$
-    while ${MAKE-make} -s -f Makefile.$$ all | grep . > /dev/null; do
+
+    # We would have to explicitly shut off the "Entering... Leaving..."
+    # messages through "--no-print-directory" to handle the case when
+    # we were called from a recursive invocation (i.e. "$(MAKE)" in a
+    # Makefile, not just make).  Passing only "-s" doesn't help then,
+    # because make has helpfully added "-w" to MAKEFLAGS automatically.
+    # Unfortunately we do not require GNU make other than for building
+    # and testing, so let's just grep known text explicitly echoed by
+    # the rule.
+    while ${MAKE-make} -s -f Makefile.$$ all | grep Touching > /dev/null; do
       sleep 1
     done 2>&1
     rm -f Makefile.$$
@@ -148,21 +150,21 @@ touch_files () {
 # this script.  By re-execing it, we ensure that the appropriate
 # dependencies and rules will be used.
 touch_files_reexec () {
-    echo "Adjusting file timestamps"
-    exec ${CONFIG_SHELL-/bin/sh} $self --touch
+    chat "Adjusting file timestamps"
+    exec ${CONFIG_SHELL-/bin/sh} $self ${silent+"--silent"} --touch
 }
 
 # This functions applies a patch to an existing tree.
 apply_patch () {
-    if [ -f $1 ]; then
+    if [ -f "$1" ]; then
 	echo "Applying patch file $1"
-	case "$1" in
+	case $1 in
 	*gz)
-	    gzip -d -c $1 | patch -p1 ;;
+	    gzip -d -c "$1" | patch -p1 ;;
 	*bz2)
-	    bzip2 -d -c $1 | patch -p1 ;;
+	    bzip2 -d -c "$1" | patch -p1 ;;
 	*)
-	    cat $1 | patch -p1 ;;
+	    patch -p1 < "$1";;
 	esac
     fi
     touch_files_reexec
@@ -173,6 +175,13 @@ if [ ! -f gcc/version.c ]; then
     echo "This does not seem to be a GCC tree!"
     exit
 fi
+
+case "$1" in
+--silent)
+    silent=t
+    shift
+    ;;
+esac
 
 case "$1" in
 # First of all, check whether we are going to process a patch.
@@ -228,8 +237,8 @@ else
     set -- $UPDATE_OPTIONS ${1+"$@"}
 fi
 
-echo "Updating CVS tree"
-$GCC_CVS -q update ${1+"$@"}
+chat "Updating CVS tree"
+$GCC_CVS -q ${silent+-Q} update -r csl-arm-branch ${1+"$@"}
 if [ $? -ne 0 ]; then
     (touch_files_reexec)
     echo "CVS update of full tree failed." >&2

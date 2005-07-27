@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -231,7 +231,7 @@ init_operators (void)
 struct resword
 {
   const char *const word;
-  const ENUM_BITFIELD(rid) rid : 16;
+  ENUM_BITFIELD(rid) const rid : 16;
   const unsigned int disable   : 16;
 };
 
@@ -266,6 +266,8 @@ static const struct resword reswords[] =
   { "__inline__",	RID_INLINE,	0 },
   { "__label__",	RID_LABEL,	0 },
   { "__null",		RID_NULL,	0 },
+  { "__offsetof",       RID_OFFSETOF,   0 },
+  { "__offsetof__",     RID_OFFSETOF,   0 },
   { "__real",		RID_REALPART,	0 },
   { "__real__",		RID_REALPART,	0 },
   { "__restrict",	RID_RESTRICT,	0 },
@@ -403,21 +405,7 @@ cxx_init (void)
 
   current_function_decl = NULL;
 
-  class_type_node = build_int_2 (class_type, 0);
-  TREE_TYPE (class_type_node) = class_type_node;
-  ridpointers[(int) RID_CLASS] = class_type_node;
-
-  record_type_node = build_int_2 (record_type, 0);
-  TREE_TYPE (record_type_node) = record_type_node;
-  ridpointers[(int) RID_STRUCT] = record_type_node;
-
-  union_type_node = build_int_2 (union_type, 0);
-  TREE_TYPE (union_type_node) = union_type_node;
-  ridpointers[(int) RID_UNION] = union_type_node;
-
-  enum_type_node = build_int_2 (enum_type, 0);
-  TREE_TYPE (enum_type_node) = enum_type_node;
-  ridpointers[(int) RID_ENUM] = enum_type_node;
+  class_type_node = ridpointers[(int) RID_CLASS];
 
   cxx_init_decl_processing ();
 
@@ -448,18 +436,9 @@ cxx_init (void)
 void
 extract_interface_info (void)
 {
-  struct c_fileinfo *finfo = 0;
+  struct c_fileinfo *finfo;
 
-  if (flag_alt_external_templates)
-    {
-      tree til = tinst_for_decl ();
-
-      if (til)
-	finfo = get_fileinfo (TINST_FILE (til));
-    }
-  if (!finfo)
-    finfo = get_fileinfo (input_filename);
-
+  finfo = get_fileinfo (input_filename);
   interface_only = finfo->interface_only;
   interface_unknown = finfo->interface_unknown;
 }
@@ -747,7 +726,8 @@ retrofit_lang_decl (tree t)
     ld->u.f.u3sel = TREE_CODE (t) == FUNCTION_DECL ? 1 : 0;
 
   DECL_LANG_SPECIFIC (t) = ld;
-  if (current_lang_name == lang_name_cplusplus)
+  if (current_lang_name == lang_name_cplusplus
+      || decl_linkage (t) == lk_none)
     SET_DECL_LANGUAGE (t, lang_cplusplus);
   else if (current_lang_name == lang_name_c)
     SET_DECL_LANGUAGE (t, lang_c);
@@ -836,7 +816,7 @@ copy_type (tree type)
 tree
 cxx_make_type (enum tree_code code)
 {
-  register tree t = make_node (code);
+  tree t = make_node (code);
 
   /* Create lang_type structure.  */
   if (IS_AGGR_TYPE_CODE (code)

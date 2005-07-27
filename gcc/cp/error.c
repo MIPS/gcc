@@ -331,7 +331,7 @@ dump_type (tree t, int flags)
                      ? DECL_ORIGINAL_TYPE (t) : TREE_TYPE (t), flags);
           break;
         }
-      /* else fallthrough */
+      /* Else fall through.  */
 
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
@@ -359,6 +359,7 @@ dump_type (tree t, int flags)
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       {
 	tree args = TYPE_TI_ARGS (t);
+	dump_qualifiers (t, after);
 	pp_tree_identifier (cxx_pp, TYPE_IDENTIFIER (t));
 	pp_template_argument_list_start (cxx_pp);
         dump_template_argument_list (args, flags);
@@ -644,7 +645,7 @@ dump_type_suffix (tree t, int flags)
       dump_type_suffix (TREE_TYPE (t), flags);
       break;
 
-      /* Can only be reached through function pointer */
+      /* Can only be reached through function pointer.  */
     case FUNCTION_TYPE:
     case METHOD_TYPE:
       {
@@ -788,9 +789,10 @@ dump_decl (tree t, int flags)
 	  dump_type (DECL_CONTEXT (t), flags);
 	  break;
 	}
-      /* else fall through */
+      /* Else fall through.  */
     case FIELD_DECL:
     case PARM_DECL:
+    case ALIAS_DECL:
       dump_simple_decl (t, TREE_TYPE (t), flags);
       break;
 
@@ -805,7 +807,7 @@ dump_decl (tree t, int flags)
       else
         {
           dump_scope (CP_DECL_CONTEXT (t), flags);
-          if (DECL_NAME (t) == anonymous_namespace_name)
+          if (DECL_NAME (t) == NULL_TREE)
             pp_identifier (cxx_pp, "<unnamed>");
           else
             pp_tree_identifier (cxx_pp, DECL_NAME (t));
@@ -813,9 +815,7 @@ dump_decl (tree t, int flags)
       break;
 
     case SCOPE_REF:
-      dump_decl (TREE_OPERAND (t, 0), flags & ~TFF_DECL_SPECIFIERS);
-      pp_colon_colon (cxx_pp); 
-      dump_decl (TREE_OPERAND (t, 1), flags);
+      pp_expression (cxx_pp, t);
       break;
 
     case ARRAY_REF:
@@ -939,6 +939,13 @@ dump_decl (tree t, int flags)
       dump_expr (t, flags);
       break;
 
+    case TEMPLATE_TYPE_PARM:
+      if (flags & TFF_DECL_SPECIFIERS)
+        pp_cxx_declaration (cxx_pp, t);
+      else
+        pp_type_id (cxx_pp, t);
+      break;
+
     default:
       pp_unsupported_tree (cxx_pp, t);
       /* Fallthrough to error.  */
@@ -1050,7 +1057,7 @@ dump_function_decl (tree t, int flags)
 
   if (DECL_CLASS_SCOPE_P (t))
     cname = DECL_CONTEXT (t);
-  /* this is for partially instantiated template methods */
+  /* This is for partially instantiated template methods.  */
   else if (TREE_CODE (fntype) == METHOD_TYPE)
     cname = TREE_TYPE (TREE_VALUE (parmtypes));
 
@@ -1269,7 +1276,7 @@ dump_template_parms (tree info, int primary, int flags)
   pp_template_argument_list_end (cxx_pp);
 }
 
-/* Print out a list of initializers (subr of dump_expr) */
+/* Print out a list of initializers (subr of dump_expr).  */
 
 static void
 dump_expr_list (tree l, int flags)
@@ -1309,6 +1316,11 @@ dump_expr (tree t, int flags)
     case STRING_CST:
     case REAL_CST:
        pp_c_constant (pp_c_base (cxx_pp), t);
+      break;
+
+    case THROW_EXPR:
+      pp_identifier (cxx_pp, "throw");
+      dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
     case PTRMEM_CST:
@@ -1475,6 +1487,7 @@ dump_expr (tree t, int flags)
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
+    case RDIV_EXPR:
       dump_binary_op ("/", t, flags);
       break;
 
@@ -1596,7 +1609,7 @@ dump_expr (tree t, int flags)
 	        pp_right_paren (cxx_pp);
 	      break;
 	    }
-	  /* else FALLTHRU */
+	  /* Else fall through.  */
 	}
       dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
       break;
@@ -1722,9 +1735,7 @@ dump_expr (tree t, int flags)
       break;
 
     case SCOPE_REF:
-      dump_type (TREE_OPERAND (t, 0), flags);
-      pp_colon_colon (cxx_pp);
-      dump_expr (TREE_OPERAND (t, 1), flags | TFF_EXPR_IN_PARENS);
+      pp_expression (cxx_pp, t);
       break;
 
     case CAST_EXPR:
@@ -2395,6 +2406,9 @@ cp_error_at (const char *msgid, ...)
   va_end (ap);
 
   va_start (ap, msgid);
+  diagnostic_set_info (&diagnostic, msgid, &ap,
+                       input_location, DK_ERROR);
+  cp_diagnostic_starter (global_dc, &diagnostic);
   diagnostic_set_info (&diagnostic, msgid, &ap,
                        location_of (here), DK_ERROR);
   report_diagnostic (&diagnostic);

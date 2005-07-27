@@ -1,5 +1,6 @@
 /* Output routines for Motorola MCore processor
-   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -137,7 +138,7 @@ const struct attribute_spec mcore_attribute_table[];
 static tree       mcore_handle_naked_attribute  (tree *, tree, tree, int, bool *);
 #ifdef OBJECT_FORMAT_ELF
 static void	  mcore_asm_named_section       (const char *,
-							unsigned int);
+						 unsigned int, tree);
 #endif
 static void       mcore_unique_section	        (tree, int);
 static void mcore_encode_section_info		(tree, rtx, int);
@@ -582,7 +583,7 @@ mcore_gen_compare_reg (enum rtx_code code)
       code = LEU;
       /* Drop through.  */
       
-    case LEU:	/* Use normal condition, reversed cmphs. */
+    case LEU:	/* Use normal condition, reversed cmphs.  */
       if (GET_CODE (op1) == CONST_INT && INTVAL (op1) != 0)
 	op1 = force_reg (SImode, op1);
       break;
@@ -681,7 +682,7 @@ const_ok_for_mcore (int value)
   if ((value & (value - 1)) == 0)
     return 1;
   
-  /* Try exact power of two - 1. */
+  /* Try exact power of two - 1.  */
   if ((value & (value + 1)) == 0)
     return 1;
   
@@ -1383,7 +1384,7 @@ mcore_general_movsrc_operand (rtx op, enum machine_mode mode)
   return general_operand (op, mode);
 }
 
-/* Nonzero if OP can be destination of a simple move operation. */
+/* Nonzero if OP can be destination of a simple move operation.  */
 
 int
 mcore_general_movdst_operand (rtx op, enum machine_mode mode)
@@ -1961,7 +1962,7 @@ layout_mcore_frame (struct mcore_frame * infp)
   infp->reg_mask = calc_live_regs (& n);
   infp->reg_size = n * 4;
 
-  /* And the rest of it... locals and space for overflowed outbounds. */
+  /* And the rest of it... locals and space for overflowed outbounds.  */
   infp->local_size = get_frame_size ();
   infp->outbound_size = current_function_outgoing_args_size;
 
@@ -2570,7 +2571,7 @@ is_cond_candidate (rtx insn)
                GET_MODE (XEXP (src, 0)) == SImode)
 	return COND_DEC_INSN;
 
-      /* some insns that we don't bother with:
+      /* Some insns that we don't bother with:
 	 (set (rx:DI) (ry:DI))
 	 (set (rx:DI) (const_int 0))
       */            
@@ -2757,7 +2758,7 @@ conditionalize_block (rtx first)
       
       code = GET_CODE (insn);
 
-      /* Look for the label at the start of block 3. */
+      /* Look for the label at the start of block 3.  */
       if (code == CODE_LABEL && CODE_LABEL_NUMBER (insn) == br_lab_num)
 	break;
 
@@ -2805,7 +2806,7 @@ conditionalize_block (rtx first)
       if (INSN_DELETED_P (insn))
 	continue;
       
-      /* Try to form a conditional variant of the instruction and emit it. */
+      /* Try to form a conditional variant of the instruction and emit it.  */
       if ((newinsn = emit_new_cond_insn (insn, cond)))
 	{
 	  if (end_blk_2_insn == insn)
@@ -2945,7 +2946,7 @@ mcore_reload_class (rtx x, enum reg_class class)
 int
 mcore_is_same_reg (rtx x, rtx y)
 {
-  /* Strip any and all of the subreg wrappers. */
+  /* Strip any and all of the subreg wrappers.  */
   while (GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
   
@@ -3288,7 +3289,7 @@ mcore_dllimport_p (tree decl)
 }
 
 /* We must mark dll symbols specially.  Definitions of dllexport'd objects
-   install some info in the .drective (PE) or .exports (ELF) sections.   */
+   install some info in the .drective (PE) or .exports (ELF) sections.  */
 
 static void
 mcore_encode_section_info (tree decl, rtx rtl ATTRIBUTE_UNUSED, int first ATTRIBUTE_UNUSED)
@@ -3423,7 +3424,9 @@ mcore_naked_function_p (void)
 
 #ifdef OBJECT_FORMAT_ELF
 static void
-mcore_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
+mcore_asm_named_section (const char *name, 
+			 unsigned int flags ATTRIBUTE_UNUSED,
+			 tree decl ATTRIBUTE_UNUSED)
 {
   fprintf (asm_out_file, "\t.section %s\n", name);
 }

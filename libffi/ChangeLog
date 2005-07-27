@@ -1,6 +1,329 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2005-05-08  Richard Henderson  <rth@redhat.com>
+
+	PR libffi/21285
+	* src/alpha/osf.S: Update unwind into to match code.
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* testsuite/lib/libffi-dg.exp: Accept more than one multilib libgcc.
+
+2004-09-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/17465
+	* testsuite/lib/libffi-dg.exp: Don't use global ld_library_path.
+	Set up LD_LIBRARY_PATH, SHLIB_PATH, LD_LIBRARYN32_PATH,
+	LD_LIBRARY64_PATH, LD_LIBRARY_PATH_32, LD_LIBRARY_PATH_64 and
+	DYLD_LIBRARY_PATH.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/ia64/unix.S (ffi_call_unix): Insert group barrier break
+	fp_done.
+	(ffi_closure_UNIX): Fix f14/f15 adjustment if FLOAT_SZ is ever
+	changed from 8.
+
+2004-04-26  Joe Buck <jbuck@welsh-buck.org>
+
+	Bug 15093
+	* configure.in: Test for existence of mmap and sys/mman.h before
+	checking blacklist.  Fix suggested by Jim Wilson.
+	* configure: Regenerate.
+	
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-03-12  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/powerpc/ffi.c (ffi_prep_args64): Correct long double handling.
+	(ffi_prep_cif_machdep <FFI_LINUX64>): Correct long double function
+	return and long double arg handling.
+	(ffi_closure_helper_LINUX64): Formatting.  Delete unused "ng" var.
+	Use "end_pfr" instead of "nf".  Correct long double handling.
+	Localise "temp".
+	* src/powerpc/linux64.S (ffi_call_LINUX64): Save f2 long double
+	return value.
+	* src/powerpc/linux64_closure.S (ffi_closure_LINUX64): Allocate
+	space for long double return value.  Adjust stack frame and offsets.
+	Load f2 long double return.
+	* testsuite/libffi.call/cls_align_longdouble.c: Pass -mlong-double-128
+	for powerpc64-*-*.
+	* testsuite/libffi.call/float.c: Likewise.
+	* testsuite/libffi.call/float2.c: Likewise.
+
+	* src/types.c: Use 16 byte long double for POWERPC64.
+	(pointer): POWERPC64 has 8 byte pointers.
+
+2004-01-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* src/sparc/ffi.c (ffi_prep_args_v9): Shift the parameter array
+	when the structure return address is passed in %o0.
+	(ffi_V9_return_struct): Rename into ffi_v9_layout_struct.
+	(ffi_v9_layout_struct): Align the field following a nested structure
+	on a word boundary.  Use memmove instead of memcpy.
+	(ffi_call): Update call to ffi_V9_return_struct.
+	(ffi_prep_closure): Define 'ctx' only for V8.
+	(ffi_closure_sparc_inner): Clone into ffi_closure_sparc_inner_v8
+	and ffi_closure_sparc_inner_v9.
+	(ffi_closure_sparc_inner_v8): Return long doubles by reference.
+	Always skip the structure return address.  For structures and long
+	doubles, copy the argument directly.
+	(ffi_closure_sparc_inner_v9): Skip the structure return address only
+	if required.  Shift the maximum floating-point slot accordingly.  For
+	big structures, copy the argument directly; otherwise, left-justify the
+	argument and call ffi_v9_layout_struct to lay out the structure on
+	the stack.
+	* src/sparc/v8.S: Undef STACKFRAME before defining it.
+	(ffi_closure_v8): Pass the structure return address.  Update call to
+	ffi_closure_sparc_inner_v8.  Short-circuit FFI_TYPE_INT handling.
+	Skip the 'unimp' insn when returning long doubles and structures.
+	* src/sparc/v9.S: Undef STACKFRAME before defining it.
+	(ffi_closure_v9): Increase the frame size by 2 words.  Short-circuit
+	FFI_TYPE_INT handling.  Load structures both in integers and
+	floating-point registers on return.
+	* README: Update status of the SPARC port.
+
+2004-01-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/pyobjc-tc.c (main): Treat result value
+	as of type ffi_arg.
+	* testsuite/libffi.call/struct3.c (main): Fix CHECK.
+
+2004-01-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* testsuite/libffi.call/cls_uint.c (cls_ret_uint_fn): Treat result
+	value as of type ffi_arg, not unsigned int.
+
+2004-01-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libffi-dg.exp: Set LD_LIBRARY_PATH_32 for
+	Solaris.
+
+2004-01-08  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/libffi.call/ffitest.h (allocate_mmap): Cast MAP_FAILED
+	to void *.
+
+2003-12-10  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libffi.call/cls_align_pointer.c: Cast pointers to
+	size_t instead of int.
+
+2003-12-04  Hosaka Yuji  <hos@tamanegi.org>
+
+	* testsuite/libffi.call/many_win32.c: Include <float.h>.
+	* testsuite/libffi.call/many_win32.c (main): Replace variable
+	int i with unsigned long ul.
+
+	* testsuite/libffi.call/cls_align_uint64.c: New test case.
+	* testsuite/libffi.call/cls_align_sint64.c: Likewise.
+	* testsuite/libffi.call/cls_align_uint32.c: Likewise.
+	* testsuite/libffi.call/cls_align_sint32.c: Likewise.
+	* testsuite/libffi.call/cls_align_uint16.c: Likewise.
+	* testsuite/libffi.call/cls_align_sint16.c: Likewise.
+	* testsuite/libffi.call/cls_align_float.c: Likewise.
+	* testsuite/libffi.call/cls_align_double.c: Likewise.
+	* testsuite/libffi.call/cls_align_longdouble.c: Likewise.
+	* testsuite/libffi.call/cls_align_pointer.c: Likewise.
+
+2003-12-02  Hosaka Yuji  <hos@tamanegi.org>
+
+	PR other/13221
+	* src/x86/ffi.c (ffi_prep_args, ffi_prep_incoming_args_SYSV):
+	Align arguments to 32 bits.
+
+2003-12-01  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR other/13221
+	* testsuite/libffi.call/cls_multi_sshort.c: New test case.
+	* testsuite/libffi.call/cls_multi_sshortchar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_schar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_ushortchar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_ushort.c: Likewise.
+
+	* testsuite/libffi.special/unwindtest.cc: Cosmetics.
+
+2003-11-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* testsuite/libffi.call/ffitest.h: Include <fcntl.h>.
+	* testsuite/libffi.special/ffitestcxx.h: Likewise.
+
+2003-11-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.in: Rebuilt.
+	* configure: Likewise.
+	* testsuite/libffi.special/unwindtest.cc: Convert the mmap to
+	the right type.
+
+2003-11-21  Andreas Jaeger  <aj@suse.de>
+	    Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* acinclude.m4: Add AC_FUNC_MMAP_BLACKLIST.
+	* configure.in: Call AC_FUNC_MMAP_BLACKLIST.
+	* Makefile.in: Rebuilt.
+	* aclocal.m4: Likewise.
+	* configure: Likewise.
+	* fficonfig.h.in: Likewise.
+	* testsuite/lib/libffi-dg.exp: Add include dir.
+	* testsuite/libffi.call/ffitest.h: Add MMAP definitions.
+	* testsuite/libffi.special/ffitestcxx.h: Likewise.
+	* testsuite/libffi.call/closure_fn0.c: Use MMAP functionality
+	for ffi_closure if available.
+	* testsuite/libffi.call/closure_fn1.c: Likewise.
+	* testsuite/libffi.call/closure_fn2.c: Likewise.
+	* testsuite/libffi.call/closure_fn3.c: Likewise.
+	* testsuite/libffi.call/closure_fn4.c: Likewise.
+	* testsuite/libffi.call/closure_fn5.c: Likewise.
+	* testsuite/libffi.call/cls_12byte.c: Likewise.
+	* testsuite/libffi.call/cls_16byte.c: Likewise.
+	* testsuite/libffi.call/cls_18byte.c: Likewise.
+	* testsuite/libffi.call/cls_19byte.c: Likewise.
+	* testsuite/libffi.call/cls_1_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte1.c: Likewise.
+	* testsuite/libffi.call/cls_24byte.c: Likewise.
+	* testsuite/libffi.call/cls_2byte.c: Likewise.
+	* testsuite/libffi.call/cls_3_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_3byte1.c: Likewise.
+	* testsuite/libffi.call/cls_3byte2.c: Likewise.
+	* testsuite/libffi.call/cls_4_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_4byte.c: Likewise.
+	* testsuite/libffi.call/cls_5byte.c: Likewise.
+	* testsuite/libffi.call/cls_64byte.c: Likewise.
+	* testsuite/libffi.call/cls_6byte.c: Likewise.
+	* testsuite/libffi.call/cls_7byte.c: Likewise.
+	* testsuite/libffi.call/cls_8byte.c: Likewise.
+	* testsuite/libffi.call/cls_9byte1.c: Likewise.
+	* testsuite/libffi.call/cls_9byte2.c: Likewise.
+	* testsuite/libffi.call/cls_double.c: Likewise.
+	* testsuite/libffi.call/cls_float.c: Likewise.
+	* testsuite/libffi.call/cls_schar.c: Likewise.
+	* testsuite/libffi.call/cls_sint.c: Likewise.
+	* testsuite/libffi.call/cls_sshort.c: Likewise.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/nested_struct.c: Likewise.
+	* testsuite/libffi.call/nested_struct1.c: Likewise.
+	* testsuite/libffi.call/nested_struct2.c: Likewise.
+	* testsuite/libffi.call/nested_struct3.c: Likewise.
+	* testsuite/libffi.call/problem1.c: Likewise.
+	* testsuite/libffi.special/unwindtest.cc: Likewise.
+
+2003-11-20  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libffi-dg.exp: Make the -lgcc_s conditional.
+
+2003-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libffi-dg.exp: Add DYLD_LIBRARY_PATH for darwin.
+	Add -lgcc_s to additional flags.
+
+2003-11-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.in, include/Makefile.am: PR libgcj/11147, install
+	the ffitarget.h header file in a gcc versioned and target
+	dependent place.
+	* configure: Regenerated.
+	* Makefile.in, include/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2003-11-09  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/closure_fn0.c: Print result and check
+	with dg-output to make debugging easier.
+	* testsuite/libffi.call/closure_fn1.c: Likewise.
+	* testsuite/libffi.call/closure_fn2.c: Likewise.
+	* testsuite/libffi.call/closure_fn3.c: Likewise.
+	* testsuite/libffi.call/closure_fn4.c: Likewise.
+	* testsuite/libffi.call/closure_fn5.c: Likewise.
+	* testsuite/libffi.call/cls_12byte.c: Likewise.
+	* testsuite/libffi.call/cls_16byte.c: Likewise.
+	* testsuite/libffi.call/cls_18byte.c: Likewise.
+	* testsuite/libffi.call/cls_19byte.c: Likewise.
+	* testsuite/libffi.call/cls_1_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte1.c: Likewise.
+	* testsuite/libffi.call/cls_24byte.c: Likewise.
+	* testsuite/libffi.call/cls_2byte.c: Likewise.
+	* testsuite/libffi.call/cls_3_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_3byte1.c: Likewise.
+	* testsuite/libffi.call/cls_3byte2.c: Likewise.
+	* testsuite/libffi.call/cls_4_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_4byte.c: Likewise.
+	* testsuite/libffi.call/cls_5byte.c: Likewise.
+	* testsuite/libffi.call/cls_64byte.c: Likewise.
+	* testsuite/libffi.call/cls_6byte.c: Likewise.
+	* testsuite/libffi.call/cls_7byte.c: Likewise.
+	* testsuite/libffi.call/cls_8byte.c: Likewise.
+	* testsuite/libffi.call/cls_9byte1.c: Likewise.
+	* testsuite/libffi.call/cls_9byte2.c: Likewise.
+	* testsuite/libffi.call/cls_double.c: Likewise.
+	* testsuite/libffi.call/cls_float.c: Likewise.
+	* testsuite/libffi.call/cls_schar.c: Likewise.
+	* testsuite/libffi.call/cls_sint.c: Likewise.
+	* testsuite/libffi.call/cls_sshort.c: Likewise.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/problem1.c: Likewise.
+
+	* testsuite/libffi.special/unwindtest.cc: Make ffi_closure
+	static.
+
+2003-11-08  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/cls_9byte2.c: New test case.
+	* testsuite/libffi.call/cls_9byte1.c: Likewise.
+	* testsuite/libffi.call/cls_64byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte1.c: Likewise.
+	* testsuite/libffi.call/cls_19byte.c: Likewise.
+	* testsuite/libffi.call/cls_18byte.c: Likewise.
+	* testsuite/libffi.call/closure_fn4.c: Likewise.
+	* testsuite/libffi.call/closure_fn5.c: Likewise.
+	* testsuite/libffi.call/cls_schar.c: Likewise.
+	* testsuite/libffi.call/cls_sint.c: Likewise.
+	* testsuite/libffi.call/cls_sshort.c: Likewise.
+	* testsuite/libffi.call/nested_struct2.c: Likewise.
+	* testsuite/libffi.call/nested_struct3.c: Likewise.
+
+2003-11-08  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/cls_double.c: Do a check on the result.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/return_sc.c: Cleanup whitespaces.
+
+2003-11-06  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/prep_cif.c (ffi_prep_cif): Move the validity check after
+	the initialization.
+
 2003-10-23  Andreas Tobler  <a.tobler@schweiz.ch>
 
-	* src/java_raw_api.c (ffi_java_ptrarray_to_raw): Replace 
+	* src/java_raw_api.c (ffi_java_ptrarray_to_raw): Replace
 	FFI_ASSERT(FALSE) with FFI_ASSERT(0).
 
 2003-10-22  David Daney  <ddaney@avtrex.com>
@@ -430,7 +753,7 @@
 
 2003-03-03  Andreas Tobler <a.tobler@schweiz.ch>
 
-        * src/powerpc/darwin_closure.S: Recode to fit dynamic libraries.
+	* src/powerpc/darwin_closure.S: Recode to fit dynamic libraries.
 
 2003-02-06  Andreas Tobler <a.tobler@schweiz.ch>
 
@@ -449,12 +772,12 @@
 2003-01-31  Christian Cornelssen  <ccorn@cs.tu-berlin.de>,
 	    Andreas Schwab  <schwab@suse.de>
 
-        * configure.in: Adjust command to source config-ml.in to account
+	* configure.in: Adjust command to source config-ml.in to account
 	for changes to the libffi_basedir definition.
 	(libffi_basedir): Remove ${srcdir} from value and include trailing
 	slash if nonempty.
 	
-        * configure: Regenerate.
+	* configure: Regenerate.
 
 2003-01-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
@@ -503,12 +826,12 @@
 2003-01-13 Andreas Tobler <a.tobler@schweiz.ch>
 
 	* libffi/src/ffitest.c
-         add closure testcases
+	 add closure testcases
 
 2003-01-13 Kevin B. Hendricks <khendricks@ivey.uwo.ca>
 
 	* libffi/src/powerpc/ffi.c
-         fix alignment bug for float (4 byte aligned iso 8 byte)
+	 fix alignment bug for float (4 byte aligned iso 8 byte)
 
 2003-01-09  Geoffrey Keating  <geoffk@apple.com>
 

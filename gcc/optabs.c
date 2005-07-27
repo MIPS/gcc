@@ -1,6 +1,6 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1869,6 +1869,40 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   return 0;
 }
 
+
+/* Like expand_binop, but return a constant rtx if the result can be
+ * calculated at compile time.  The arguments and return value are
+ * otherwise the same as for expand_binop.  */
+
+static rtx
+simplify_expand_binop (enum machine_mode mode, optab binoptab,
+                           rtx op0, rtx op1, rtx target, int unsignedp,
+                                                  enum optab_methods methods)
+{
+  if (CONSTANT_P (op0) && CONSTANT_P (op1))
+    return simplify_gen_binary (binoptab->code, mode, op0, op1);
+  else
+    return expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods);
+}
+
+/* Like simplify_expand_binop, but always put the result in TARGET.
+ * Return true if the expansion succeeded.  */
+
+bool
+force_expand_binop (enum machine_mode mode, optab binoptab,
+                    rtx op0, rtx op1, rtx target, int unsignedp,
+                    enum optab_methods methods)
+{
+  rtx x = simplify_expand_binop (mode, binoptab, op0, op1,
+                                 target, unsignedp, methods);
+  if (x == 0)
+    return false;
+  if (x != target)
+    emit_move_insn (target, x);
+  return true;
+}
+
+
 /* Like expand_binop, but for open-coding vectors binops.  */
 
 static rtx
@@ -2278,6 +2312,58 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
   delete_insns_since (entry_last);
   return 0;
 }
+
+/* Expand the two-valued library call indicated by BINOPTAB, but
+   preserve only one of the values.  If TARG0 is non-NULL, the first
+   value is placed into TARG0; otherwise the second value is placed
+   into TARG1.  Exactly one of TARG0 and TARG1 must be non-NULL.  The
+   value stored into TARG0 or TARG1 is equivalent to (CODE OP0 OP1).
+   This routine assumes that the value returned by the library call is
+   as if the return value was of an integral mode twice as wide as the
+   mode of OP0.  Returns 1 if the call was successful.  */
+
+bool
+expand_twoval_binop_libfunc (optab binoptab, rtx op0, rtx op1, 
+			     rtx targ0, rtx targ1, enum rtx_code code)
+{
+  enum machine_mode mode;
+  enum machine_mode libval_mode;
+  rtx libval;
+  rtx insns;
+  
+  /* Exactly one of TARG0 or TARG1 should be non-NULL.  */
+  if (!((targ0 != NULL_RTX) ^ (targ1 != NULL_RTX)))
+    abort ();
+
+  op0 = protect_from_queue (op0, 0);
+  op1 = protect_from_queue (op1, 0);
+
+  mode = GET_MODE (op0);
+  if (!binoptab->handlers[(int) mode].libfunc)
+    return false;
+
+  /* The value returned by the library function will have twice as
+     many bits as the nominal MODE.  */
+  libval_mode = smallest_mode_for_size (2 * GET_MODE_BITSIZE (mode), 
+					MODE_INT);
+  start_sequence ();
+  libval = emit_library_call_value (binoptab->handlers[(int) mode].libfunc,
+				    NULL_RTX, LCT_CONST, 
+				    libval_mode, 2,
+				    op0, mode, 
+				    op1, mode);
+  /* Get the part of VAL containing the value that we want.  */
+  libval = simplify_gen_subreg (mode, libval, libval_mode,
+				targ0 ? 0 : GET_MODE_SIZE (mode));
+  insns = get_insns ();
+  end_sequence ();
+  /* Move the into the desired location.  */
+  emit_libcall_block (insns, targ0 ? targ0 : targ1, libval, 
+		      gen_rtx_fmt_ee (code, mode, op0, op1));
+  
+  return true;
+}
+
 
 /* Wrapper around expand_unop which takes an rtx code to specify
    the operation to perform, not an optab pointer.  All other
@@ -3651,6 +3737,16 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       return;
     }
 
+  /* Don't allow operands to the compare to trap, as that can put the
+     compare and branch in different basic blocks.  */
+  if (flag_non_call_exceptions)
+    {
+      if (may_trap_p (x))
+	x = force_reg (mode, x);
+      if (may_trap_p (y))
+	y = force_reg (mode, y);
+    }
+
   *px = x;
   *py = y;
   if (can_compare_p (*pcomparison, mode, purpose))
@@ -3671,12 +3767,19 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       result = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST_MAKE_BLOCK,
 					word_mode, 2, x, mode, y, mode);
 
-      /* Integer comparison returns a result that must be compared against 1,
-	 so that even if we do an unsigned compare afterward,
-	 there is still a value that can represent the result "less than".  */
       *px = result;
-      *py = const1_rtx;
       *pmode = word_mode;
+      if (TARGET_LIB_INT_CMP_BIASED)
+	/* Integer comparison returns a result that must be compared
+	   against 1, so that even if we do an unsigned compare
+	   afterward, there is still a value that can represent the
+	   result "less than".  */
+	*py = const1_rtx;
+      else
+	{
+	  *py = const0_rtx;
+	  *punsignedp = 1;
+	}
       return;
     }
 
@@ -3850,12 +3953,14 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
 {
   enum rtx_code comparison = *pcomparison;
   enum rtx_code swapped = swap_condition (comparison);
+  enum rtx_code reversed = reverse_condition_maybe_unordered (comparison);
   rtx x = protect_from_queue (*px, 0);
   rtx y = protect_from_queue (*py, 0);
   enum machine_mode orig_mode = GET_MODE (x);
   enum machine_mode mode;
   rtx value, target, insns, equiv;
   rtx libfunc = 0;
+  bool reversed_p = false;
 
   for (mode = orig_mode; mode != VOIDmode; mode = GET_MODE_WIDER_MODE (mode))
     {
@@ -3869,8 +3974,16 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
 	  comparison = swapped;
 	  break;
 	}
-    }
 
+      if ((libfunc = code_to_optab[reversed]->handlers[mode].libfunc)
+	  && FLOAT_LIB_COMPARE_RETURNS_BOOL (mode, reversed))
+	{
+	  comparison = reversed;
+	  reversed_p = true;
+	  break;
+	}
+    }
+ 
   if (mode == VOIDmode)
     abort ();
 
@@ -3946,10 +4059,9 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
   target = gen_reg_rtx (word_mode);
   emit_libcall_block (insns, target, value, equiv);
 
-
   if (comparison == UNORDERED
       || FLOAT_LIB_COMPARE_RETURNS_BOOL (mode, comparison))
-    comparison = NE;
+    comparison = reversed_p ? EQ : NE;
 
   *px = target;
   *py = const0_rtx;
@@ -5271,6 +5383,9 @@ init_optabs (void)
   cstore_optab = init_optab (UNKNOWN);
   push_optab = init_optab (UNKNOWN);
 
+  vec_extract_optab = init_optab (UNKNOWN);
+  vec_set_optab = init_optab (UNKNOWN);
+  vec_init_optab = init_optab (UNKNOWN);
   /* Conversions.  */
   sext_optab = init_convert_optab (SIGN_EXTEND);
   zext_optab = init_convert_optab (ZERO_EXTEND);
@@ -5342,7 +5457,8 @@ init_optabs (void)
   init_integral_libfuncs (popcount_optab, "popcount", '2');
   init_integral_libfuncs (parity_optab, "parity", '2');
 
-  /* Comparison libcalls for integers MUST come in pairs, signed/unsigned.  */
+  /* Comparison libcalls for integers MUST come in pairs,
+     signed/unsigned.  */
   init_integral_libfuncs (cmp_optab, "cmp", '2');
   init_integral_libfuncs (ucmp_optab, "ucmp", '2');
   init_floating_libfuncs (cmp_optab, "cmp", '2');
@@ -5357,9 +5473,12 @@ init_optabs (void)
   init_floating_libfuncs (unord_optab, "unord", '2');
 
   /* Conversions.  */
-  init_interclass_conv_libfuncs (sfloat_optab, "float", MODE_INT, MODE_FLOAT);
-  init_interclass_conv_libfuncs (sfix_optab, "fix",     MODE_FLOAT, MODE_INT);
-  init_interclass_conv_libfuncs (ufix_optab, "fixuns",  MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (sfloat_optab, "float", 
+				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (sfix_optab, "fix",     
+				 MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (ufix_optab, "fixuns",  
+				 MODE_FLOAT, MODE_INT);
 
   /* sext_optab is also used for FLOAT_EXTEND.  */
   init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
@@ -5371,7 +5490,7 @@ init_optabs (void)
     abs_optab->handlers[TYPE_MODE (complex_double_type_node)].libfunc
       = init_one_libfunc ("cabs");
 
-  /* The ffs function op[1erates on `int'.  */
+  /* The ffs function operates on `int'.  */
   ffs_optab->handlers[(int) mode_for_size (INT_TYPE_SIZE, MODE_INT, 0)].libfunc
     = init_one_libfunc ("ffs");
 
@@ -5385,9 +5504,6 @@ init_optabs (void)
   bzero_libfunc = init_one_libfunc ("bzero");
   setbits_libfunc = init_one_libfunc ("__setbits");
 
-  unwind_resume_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
-					    ? "_Unwind_SjLj_Resume"
-					    : "_Unwind_Resume");
 #ifndef DONT_USE_BUILTIN_SETJMP
   setjmp_libfunc = init_one_libfunc ("__builtin_setjmp");
   longjmp_libfunc = init_one_libfunc ("__builtin_longjmp");
@@ -5414,6 +5530,64 @@ init_optabs (void)
   /* Allow the target to add more libcalls or rename some, etc.  */
   targetm.init_libfuncs ();
 }
+
+#ifdef DEBUG
+
+/* Print information about the current contents of the optabs on
+   STDERR.  */
+
+static void
+debug_optab_libfuncs (void)
+{
+  int i;
+  int j;
+  int k;
+
+  /* Dump the arithmetic optabs.  */
+  for (i = 0; i != (int) OTI_MAX; i++) 
+    for (j = 0; j < NUM_MACHINE_MODES; ++j)
+      {
+	optab o;
+	struct optab_handlers *h;
+
+	o = optab_table[i];
+	h = &o->handlers[j];
+	if (h->libfunc)
+	  {
+	    if (GET_CODE (h->libfunc) != SYMBOL_REF)
+	      abort ();
+	    fprintf (stderr, "%s\t%s:\t%s\n", 
+		     GET_RTX_NAME (o->code),
+		     GET_MODE_NAME (j),
+		     XSTR (h->libfunc, 0));
+	  }
+      }
+
+  /* Dump the conversion optabs.  */
+  for (i = 0; i < (int) CTI_MAX; ++i)
+    for (j = 0; j < NUM_MACHINE_MODES; ++j)
+      for (k = 0; k < NUM_MACHINE_MODES; ++k)
+	{
+	  convert_optab o;
+	  struct optab_handlers *h;
+
+	  o = &convert_optab_table[i];
+	  h = &o->handlers[j][k];
+	  if (h->libfunc)
+	    {
+	      if (GET_CODE (h->libfunc) != SYMBOL_REF)
+		abort ();
+	      fprintf (stderr, "%s\t%s\t%s:\t%s\n", 
+		       GET_RTX_NAME (o->code),
+		       GET_MODE_NAME (j),
+		       GET_MODE_NAME (k),
+		       XSTR (h->libfunc, 0));
+	    }
+	}
+}
+
+#endif /* DEBUG */
+
 
 /* Generate insns to trap with code TCODE if OP1 and OP2 satisfy condition
    CODE.  Return 0 on failure.  */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -53,35 +53,43 @@ with Interfaces.C;
 with System.OS_Interface;
 --  used for various Constants, Signal and types
 
-with Ada.Exceptions;
---  used for Raise_Exception
-
 package body System.Interrupt_Management is
 
-   use Ada.Exceptions;
    use System.OS_Interface;
    use type Interfaces.C.int;
 
-   type Interrupt_List is array (Interrupt_ID range <>) of Interrupt_ID;
-   Exception_Interrupts : constant Interrupt_List (1 .. 4) :=
-     (SIGFPE, SIGILL, SIGSEGV, SIGBUS);
+   type Signal_List is array (Signal_ID range <>) of Signal_ID;
+   Exception_Signals : constant Signal_List (1 .. 4) :=
+                         (SIGFPE, SIGILL, SIGSEGV, SIGBUS);
 
-   --  Keep these variables global so that they are initialized only once.
+   --  Keep these variables global so that they are initialized only once
+   --  What are "these variables" ???, I see only one
 
    Exception_Action : aliased struct_sigaction;
 
-   ----------------------
-   -- Notify_Exception --
-   ----------------------
+   procedure Map_And_Raise_Exception (signo : Signal);
+   pragma Import (C, Map_And_Raise_Exception, "__gnat_map_signal");
+   --  Map signal to Ada exception and raise it.  Different versions
+   --  of VxWorks need different mappings.
+
+   -----------------------
+   -- Local Subprograms --
+   -----------------------
 
    procedure Notify_Exception (signo : Signal);
    --  Identify the Ada exception to be raised using
    --  the information when the system received a synchronous signal.
 
+   ----------------------
+   -- Notify_Exception --
+   ----------------------
+
    procedure Notify_Exception (signo : Signal) is
       Mask   : aliased sigset_t;
-      Result : int;
       My_Id  : t_id;
+
+      Result : int;
+      pragma Unreferenced (Result);
 
    begin
       Result := pthread_sigmask (SIG_SETMASK, null, Mask'Unchecked_Access);
@@ -98,20 +106,7 @@ package body System.Interrupt_Management is
          Result := taskResume (My_Id);
       end if;
 
-      case signo is
-         when SIGFPE =>
-            Raise_Exception (Constraint_Error'Identity, "SIGFPE");
-         when SIGILL =>
-            Raise_Exception (Constraint_Error'Identity, "SIGILL");
-         when SIGSEGV =>
-            Raise_Exception
-              (Program_Error'Identity,
-               "stack overflow or erroneous memory access");
-         when SIGBUS =>
-            Raise_Exception (Program_Error'Identity, "SIGBUS");
-         when others =>
-            Raise_Exception (Program_Error'Identity, "unhandled signal");
-      end case;
+      Map_And_Raise_Exception (signo);
    end Notify_Exception;
 
    ---------------------------
@@ -126,10 +121,10 @@ package body System.Interrupt_Management is
       old_act : aliased struct_sigaction;
 
    begin
-      for J in Exception_Interrupts'Range loop
+      for J in Exception_Signals'Range loop
          Result :=
            sigaction
-             (Signal (Exception_Interrupts (J)), Exception_Action'Access,
+             (Signal (Exception_Signals (J)), Exception_Action'Access,
               old_act'Unchecked_Access);
          pragma Assert (Result = 0);
       end loop;
@@ -160,15 +155,15 @@ begin
       --  Change this if you want to use another signal for task abort.
       --  SIGTERM might be a good one.
 
-      Abort_Task_Interrupt := SIGABRT;
+      Abort_Task_Signal := SIGABRT;
 
       Exception_Action.sa_handler := Notify_Exception'Address;
       Exception_Action.sa_flags := SA_ONSTACK;
       Result := sigemptyset (mask'Access);
       pragma Assert (Result = 0);
 
-      for J in Exception_Interrupts'Range loop
-         Result := sigaddset (mask'Access, Signal (Exception_Interrupts (J)));
+      for J in Exception_Signals'Range loop
+         Result := sigaddset (mask'Access, Signal (Exception_Signals (J)));
          pragma Assert (Result = 0);
       end loop;
 
@@ -185,5 +180,15 @@ begin
             Reserve (J) := True;
          end if;
       end loop;
+
+      --  Add exception signals to the set of unmasked signals
+
+      for J in Exception_Signals'Range loop
+         Keep_Unmasked (Exception_Signals (J)) := True;
+      end loop;
+
+      --  The abort signal must also be unmasked
+
+      Keep_Unmasked (Abort_Task_Signal) := True;
    end;
 end System.Interrupt_Management;

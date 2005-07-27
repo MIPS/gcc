@@ -1,5 +1,5 @@
 /* Preprocess only, using cpplib.
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -292,7 +292,7 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED, fileline line,
 	  const cpp_string *str)
 {
   maybe_print_line (print.map, line);
-  fprintf (print.outf, "#ident \"%s\"\n", str->text);
+  fprintf (print.outf, "#ident %s\n", str->text);
   print.line++;
 }
 
@@ -334,6 +334,22 @@ cb_include (cpp_reader *pfile ATTRIBUTE_UNUSED, fileline line,
   print.line++;
 }
 
+/* Callback called when -fworking-director and -E to emit working
+   diretory in cpp output file. */
+
+void
+pp_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
+{
+  size_t to_file_len = strlen (dir);
+  unsigned char *to_file_quoted = alloca (to_file_len * 4 + 1);
+  unsigned char *p;
+
+  /* cpp_quote_string does not nul-terminate, so we have to do it ourselves. */
+  p = cpp_quote_string (to_file_quoted, (unsigned char *) dir, to_file_len);
+  *p = '\0';
+  fprintf (print.outf, "# 1 \"%s//\"\n", to_file_quoted);
+}
+
 /* The file name, line number or system header flags have changed, as
    described in MAP.  From this point on, the old print.map might be
    pointing to freed memory, and so must not be dereferenced.  */
@@ -343,7 +359,7 @@ pp_file_change (const struct line_map *map)
 {
   const char *flags = "";
 
-  if (flag_no_line_commands || flag_no_output)
+  if (flag_no_line_commands)
     return;
 
   if (map != NULL)

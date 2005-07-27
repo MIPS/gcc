@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -654,6 +654,9 @@ package body Exp_Ch4 is
 
       Comp : RE_Id;
 
+      Byte_Addressable : constant Boolean := System_Storage_Unit = Byte'Size;
+      --  True for byte addressable target
+
       function Length_Less_Than_4 (Opnd : Node_Id) return Boolean;
       --  Returns True if the length of the given operand is known to be
       --  less than 4. Returns False if this length is known to be four
@@ -705,7 +708,7 @@ package body Exp_Ch4 is
       --  addressing of array components.
 
       if not Is_Bit_Packed_Array (Typ1)
-        and then System_Storage_Unit = Byte'Size
+        and then Byte_Addressable
         and then not Java_VM
       then
          --  The call we generate is:
@@ -1472,7 +1475,7 @@ package body Exp_Ch4 is
    --  their base type, Ind_Typ their index type, and Arr_Typ the original
    --  array type to which the concatenantion operator applies, then the
    --  following subprogram is constructed:
-   --
+
    --  [function Cnn (S1 : Base_Typ; ...; Sn : Base_Typ) return Base_Typ is
    --      L : Ind_Typ;
    --   begin
@@ -1489,7 +1492,7 @@ package body Exp_Ch4 is
    --      else
    --         return Sn;
    --      end if;
-   --
+
    --      declare
    --         P : Ind_Typ;
    --         H : Ind_Typ :=
@@ -1516,9 +1519,9 @@ package body Exp_Ch4 is
    --               P := Ind_Typ'Succ (P);
    --            end loop;
    --         end if;
-   --
+
    --         ...
-   --
+
    --         if Sn'Length /= 0 then
    --            P := Sn'First;
    --            loop
@@ -1528,7 +1531,7 @@ package body Exp_Ch4 is
    --               P := Ind_Typ'Succ (P);
    --            end loop;
    --         end if;
-   --
+
    --         return R;
    --      end;
    --   end Cnn;]
@@ -1598,7 +1601,9 @@ package body Exp_Ch4 is
       --  Builds reference to identifier L.
 
       function L_Pos return Node_Id;
-      --  Builds expression Ind_Typ'Pos (L).
+      --  Builds expression Integer_Type'(Ind_Typ'Pos (L)).
+      --  We qualify the expression to avoid universal_integer computations
+      --  whenever possible, in the expression for the upper bound H.
 
       function L_Succ return Node_Id;
       --  Builds expression Ind_Typ'Succ (L).
@@ -1743,12 +1748,31 @@ package body Exp_Ch4 is
       -----------
 
       function L_Pos return Node_Id is
+         Target_Type : Entity_Id;
+
       begin
+         --  If the index type is an enumeration type, the computation
+         --  can be done in standard integer. Otherwise, choose a large
+         --  enough integer type.
+
+         if Is_Enumeration_Type (Ind_Typ)
+           or else Root_Type (Ind_Typ) = Standard_Integer
+           or else Root_Type (Ind_Typ) = Standard_Short_Integer
+           or else Root_Type (Ind_Typ) = Standard_Short_Short_Integer
+         then
+            Target_Type := Standard_Integer;
+         else
+            Target_Type := Root_Type (Ind_Typ);
+         end if;
+
          return
-           Make_Attribute_Reference (Loc,
-             Prefix         => New_Reference_To (Ind_Typ, Loc),
-             Attribute_Name => Name_Pos,
-             Expressions    => New_List (L));
+           Make_Qualified_Expression (Loc,
+              Subtype_Mark => New_Reference_To (Target_Type, Loc),
+              Expression   =>
+                Make_Attribute_Reference (Loc,
+                  Prefix         => New_Reference_To (Ind_Typ, Loc),
+                  Attribute_Name => Name_Pos,
+                  Expressions    => New_List (L)));
       end L_Pos;
 
       ------------
@@ -3713,7 +3737,8 @@ package body Exp_Ch4 is
                   exit when Chars (Node (Prim)) = Name_Op_Eq
                     and then Etype (First_Formal (Node (Prim))) =
                              Etype (Next_Formal (First_Formal (Node (Prim))))
-                    and then Etype (Node (Prim)) = Standard_Boolean;
+                    and then
+                      Base_Type (Etype (Node (Prim))) = Standard_Boolean;
 
                   Next_Elmt (Prim);
                   pragma Assert (Present (Prim));
@@ -5311,10 +5336,36 @@ package body Exp_Ch4 is
       Pfx  : constant Node_Id    := Prefix (N);
       Ptp  : Entity_Id           := Etype (Pfx);
 
+      function Is_Procedure_Actual (N : Node_Id) return Boolean;
+      --  Check whether context is a procedure call, in which case
+      --  expansion of a bit-packed slice is deferred until the call
+      --  itself is expanded.
+
       procedure Make_Temporary;
       --  Create a named variable for the value of the slice, in
       --  cases where the back-end cannot handle it properly, e.g.
       --  when packed types or unaligned slices are involved.
+
+      -------------------------
+      -- Is_Procedure_Actual --
+      -------------------------
+
+      function Is_Procedure_Actual (N : Node_Id) return Boolean is
+         Par : Node_Id := Parent (N);
+
+      begin
+         while Present (Par)
+           and then Nkind (Par) not in N_Statement_Other_Than_Procedure_Call
+         loop
+            if Nkind (Par) = N_Procedure_Call_Statement then
+               return True;
+            else
+               Par := Parent (Par);
+            end if;
+         end loop;
+
+         return False;
+      end Is_Procedure_Actual;
 
       --------------------
       -- Make_Temporary --
@@ -5400,26 +5451,35 @@ package body Exp_Ch4 is
       --       is caught elsewhere, and the expansion would intefere
       --       with generating the error message).
 
-      if Is_Packed (Typ)
-        and then Nkind (Parent (N)) /= N_Assignment_Statement
-        and then (Nkind (Parent (Parent (N))) /= N_Assignment_Statement
-                     or else
-                  Parent (N) /= Name (Parent (Parent (N))))
-        and then Nkind (Parent (N)) /= N_Indexed_Component
-        and then not Is_Renamed_Object (N)
-        and then Nkind (Parent (N)) /= N_Procedure_Call_Statement
-        and then (Nkind (Parent (N)) /= N_Attribute_Reference
-                    or else
-                  Attribute_Name (Parent (N)) /= Name_Address)
-      then
-         Make_Temporary;
+      if not Is_Packed (Typ) then
 
-      --  Same transformation for actuals in a function call, where
-      --  Expand_Actuals is not used.
+         --  Apply transformation for actuals of a function call,
+         --  where Expand_Actuals is not used.
 
-      elsif Nkind (Parent (N)) = N_Function_Call
-        and then Is_Possibly_Unaligned_Slice (N)
+         if Nkind (Parent (N)) = N_Function_Call
+           and then Is_Possibly_Unaligned_Slice (N)
+         then
+            Make_Temporary;
+         end if;
+
+      elsif Nkind (Parent (N)) = N_Assignment_Statement
+        or else (Nkind (Parent (Parent (N))) = N_Assignment_Statement
+                   and then Parent (N) = Name (Parent (Parent (N))))
       then
+         return;
+
+      elsif Nkind (Parent (N)) = N_Indexed_Component
+        or else Is_Renamed_Object (N)
+        or else Is_Procedure_Actual (N)
+      then
+         return;
+
+      elsif Nkind (Parent (N)) = N_Attribute_Reference
+        and then Attribute_Name (Parent (N)) = Name_Address
+      then
+         return;
+
+      else
          Make_Temporary;
       end if;
    end Expand_N_Slice;

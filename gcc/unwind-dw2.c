@@ -1,5 +1,5 @@
 /* DWARF2 exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -34,6 +34,9 @@
 #include "tm.h"
 #include "dwarf2.h"
 #include "unwind.h"
+#ifdef __USING_SJLJ_EXCEPTIONS__
+# define NO_SIZE_OF_ENCODED_VALUE
+#endif
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
@@ -104,7 +107,7 @@ typedef struct
 	REG_UNSAVED,
 	REG_SAVED_OFFSET,
 	REG_SAVED_REG,
-	REG_SAVED_EXP,
+	REG_SAVED_EXP
       } how;
     } reg[DWARF_FRAME_REGISTERS+1];
 
@@ -120,7 +123,7 @@ typedef struct
   enum {
     CFA_UNSET,
     CFA_REG_OFFSET,
-    CFA_EXP,
+    CFA_EXP
   } cfa_how;
 
   /* The PC described by the current frame state.  */
@@ -130,7 +133,7 @@ typedef struct
   _Unwind_Personality_Fn personality;
   _Unwind_Sword data_align;
   _Unwind_Word code_align;
-  unsigned char retaddr_column;
+  _Unwind_Word retaddr_column;
   unsigned char fde_encoding;
   unsigned char lsda_encoding;
   unsigned char saw_z;
@@ -184,6 +187,11 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 {
   int size;
   void *ptr;
+
+#ifdef DWARF_ZERO_REG
+  if (index == DWARF_ZERO_REG)
+    return 0;
+#endif
 
   index = DWARF_REG_TO_UNWIND_COLUMN (index);
   if (index >= (int) sizeof(dwarf_reg_size_table))
@@ -287,7 +295,7 @@ void *
 _Unwind_FindEnclosingFunction (void *pc)
 {
   struct dwarf_eh_bases bases;
-  struct dwarf_fde *fde = _Unwind_Find_FDE (pc-1, &bases);
+  const struct dwarf_fde *fde = _Unwind_Find_FDE (pc-1, &bases);
   if (fde)
     return bases.func;
   else
@@ -313,7 +321,7 @@ _Unwind_GetTextRelBase (struct _Unwind_Context *context)
    or NULL if we encountered an undecipherable augmentation.  */
 
 static const unsigned char *
-extract_cie_info (struct dwarf_cie *cie, struct _Unwind_Context *context,
+extract_cie_info (const struct dwarf_cie *cie, struct _Unwind_Context *context,
 		  _Unwind_FrameState *fs)
 {
   const unsigned char *aug = cie->augmentation;
@@ -334,7 +342,10 @@ extract_cie_info (struct dwarf_cie *cie, struct _Unwind_Context *context,
      data alignment and return address column.  */
   p = read_uleb128 (p, &fs->code_align);
   p = read_sleb128 (p, &fs->data_align);
-  fs->retaddr_column = *p++;
+  if (cie->version == 1)
+    fs->retaddr_column = *p++;
+  else
+    p = read_uleb128 (p, &fs->retaddr_column);
   fs->lsda_encoding = DW_EH_PE_omit;
 
   /* If the augmentation starts with 'z', then a uleb128 immediately
@@ -674,6 +685,10 @@ execute_stack_op (const unsigned char *op_ptr, const unsigned char *op_end,
 	case DW_OP_mul:
 	case DW_OP_or:
 	case DW_OP_plus:
+	case DW_OP_shl:
+	case DW_OP_shr:
+	case DW_OP_shra:
+	case DW_OP_xor:
 	case DW_OP_le:
 	case DW_OP_ge:
 	case DW_OP_eq:
@@ -998,8 +1013,8 @@ execute_cfa_program (const unsigned char *insn_ptr,
 static _Unwind_Reason_Code
 uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 {
-  struct dwarf_fde *fde;
-  struct dwarf_cie *cie;
+  const struct dwarf_fde *fde;
+  const struct dwarf_cie *cie;
   const unsigned char *aug, *insn, *end;
 
   memset (fs, 0, sizeof (*fs));
@@ -1362,5 +1377,24 @@ uw_identify_context (struct _Unwind_Context *context)
 
 
 #include "unwind.inc"
+
+#if defined (USE_GAS_SYMVER) && defined (SHARED) && defined (USE_LIBUNWIND_EXCEPTIONS)
+alias (_Unwind_Backtrace);
+alias (_Unwind_DeleteException);
+alias (_Unwind_FindEnclosingFunction);
+alias (_Unwind_ForcedUnwind);
+alias (_Unwind_GetDataRelBase);
+alias (_Unwind_GetTextRelBase);
+alias (_Unwind_GetCFA);
+alias (_Unwind_GetGR);
+alias (_Unwind_GetIP);
+alias (_Unwind_GetLanguageSpecificData);
+alias (_Unwind_GetRegionStart);
+alias (_Unwind_RaiseException);
+alias (_Unwind_Resume);
+alias (_Unwind_Resume_or_Rethrow);
+alias (_Unwind_SetGR);
+alias (_Unwind_SetIP);
+#endif
 
 #endif /* !USING_SJLJ_EXCEPTIONS */

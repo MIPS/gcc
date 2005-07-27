@@ -82,13 +82,13 @@ fix = {
 
 	#if defined(__FD_ZERO) && !defined(__GLIBC__)
 	#undef __FD_ZERO
-	# define __FD_ZERO(fdsetp) \\
-	  do { \\
-	    int __d0, __d1; \\
-		__asm__ __volatile__("cld ; rep ; stosl" \\
-        	: "=&c" (__d0), "=&D" (__d1) \\
-        	: "a" (0), "0" (__FDSET_LONGS), \\
-		  "1" ((__fd_set *) (fdsetp)) :"memory"); \\
+	# define __FD_ZERO(fdsetp) \
+	  do { \
+	    int __d0, __d1; \
+	        __asm__ __volatile__("cld ; rep ; stosl" \
+	        : "=&c" (__d0), "=&D" (__d1) \
+	        : "a" (0), "0" (__FDSET_LONGS), \
+	          "1" ((__fd_set *) (fdsetp)) :"memory"); \
 	  } while (0)
 	#endif
 
@@ -494,6 +494,20 @@ fix = {
 
 
 /*
+ *  sys/wait.h on AIX 5.2 defines macros that have both signed and
+ *  unsigned types in conditional expressions.
+ */
+fix = {
+    hackname  = aix_syswait_2;
+    files     = sys/wait.h;
+    select    = '\? (\(\(\(\(unsigned[^)]*\)[^)]*\) >> [^)]*\) \& 0xff\) : -1)';
+    c_fix     = format;
+    c_fix_arg = "? (int)%1";
+    test_text = "#define WSTOPSIG(__x)    (int)(WIFSTOPPED(__x) ? ((((unsigned int)__x) >> 8) & 0xff) : -1)";
+};
+
+
+/*
  *  sys/signal.h on some versions of AIX uses volatile in the typedef of
  *  sig_atomic_t, which causes gcc to generate a warning about duplicate
  *  volatile when a sig_atomic_t variable is declared volatile, as
@@ -523,11 +537,50 @@ fix = {
 
 
 /*
- *  Obey __PRAGMA_EXTERN_PREFIX for Tru64 UNIX V5 <sys/stat.h>.
+ *  Obey __PRAGMA_EXTERN_PREFIX for Tru64 UNIX V4/5 headers.
  */
 fix = {
     hackname  = alpha___extern_prefix;
+    select    = "(.*)(defined\\(__DECC\\)|def[ \t]*__DECC)[ \t]*\n(#[ \t]*pragma[ \t]*extern_prefix.*)";
+
+    mach      = "alpha*-dec-osf*";
+    c_fix     = format;
+    c_fix_arg = "%1 (defined(__DECC) || defined(__PRAGMA_EXTERN_PREFIX))\n%3";
+
+    test_text = "#ifdef  __DECC\n"
+		"#pragma extern_prefix \"_P\"\n"
+		"#   if defined(__DECC)\n"
+		"#     pragma extern_prefix \"_E\"\n"
+		"# if !defined(_LIBC_POLLUTION_H_) && defined(__DECC)\n"
+		"#  pragma extern_prefix \"\"";
+};
+
+
+/*
+ *  Obey __PRAGMA_EXTERN_PREFIX for Tru64 UNIX V4/5 <standards.h>.
+ */
+fix = {
+    hackname  = alpha___extern_prefix_standards;
+    files     = standards.h;
+    select    = ".*!defined\\(_LIBC_POLLUTION_H_\\) && !defined\\(__DECC\\)";
+
+    mach      = "alpha*-dec-osf*";
+    c_fix     = format;
+    c_fix_arg = "%0 && !defined(__PRAGMA_EXTERN_PREFIX)";
+
+    test_text = "#if (_ISO_C_SOURCE>=19990L) && !defined(_LIBC_POLLUTION_H_) && !defined(__DECC)";
+};
+
+
+/*
+ *  Obey __PRAGMA_EXTERN_PREFIX for Tru64 UNIX V5 <sys/mount.h> and
+ *  <sys/stat.h>.  The tests for __DECC are special in various ways, so
+ *  alpha__extern_prefix cannot be used.
+ */
+fix = {
+    hackname  = alpha___extern_prefix_sys_stat;
     files     = sys/stat.h;
+    files     = sys/mount.h;
     select    = "#[ \t]*if[ \t]*defined\\(__DECC\\)";
 
     mach      = "alpha*-dec-osf5*";
@@ -549,6 +602,37 @@ fix = {
     c_fix     = format;
     c_fix_arg = "%1(EX)";
     test_text = '#define assert(EX) (((int) (EX)) ? (void)0 : __assert(#EX, __FILE__, __LINE__))';
+};
+
+
+/*
+ *  Fix #defines under Alpha OSF/1:
+ *  The following files contain '#pragma extern_prefix "_FOO"' followed by
+ *  a '#define something(x,y,z) _FOOsomething(x,y,z)'.  The intent of these
+ *  statements is to reduce namespace pollution.  While these macros work
+ *  properly in most cases, they don't allow you to take a pointer to the
+ *  "something" being modified.  To get around this limitation, change these
+ *  statements to be of the form '#define something _FOOsomething'.
+ *
+ *  sed ain't egrep, lesson 2463:  sed can use self-referential
+ *  regular expressions.  In the substitute expression below,
+ *  "\\1" and "\\2" refer to subexpressions found earlier in the
+ *  same match.  So, we continue to use sed.  "extern_prefix" will
+ *  be a rare match anyway...
+ */
+fix = {
+    hackname = alpha_bad_lval;
+
+    select   = "^[ \t]*#[ \t]*pragma[ \t]+extern_prefix";
+    mach      = "alpha*-dec-osf*";
+
+    sed      =
+        "s/^[ \t]*#[ \t]*define[ \t][ \t]*\\([^(]*\\)\\(([^)]*)\\)[ \t]*"
+               "\\(_.*\\)\\1\\2[ \t]*$/#define \\1 \\3\\1/";
+
+    test_text = '#pragma extern_prefix "_FOO"'"\n"
+                "#define something(x,y,z) _FOOsomething(x,y,z)\n"
+                "#define mumble _FOOmumble";
 };
 
 
@@ -585,14 +669,17 @@ fix = {
 fix = {
     hackname  = alpha_pthread;
     files     = pthread.h;
-    select    = "(#[ \t]*if defined \\(_PTHREAD_ENV_DECC\\) || defined \\(_PTHREAD_ENV_EPCC\\))\n"
+    select    = "((#[ \t]*if)([ \t]*defined[ \t]*\\(_PTHREAD_ENV_DECC\\)|def _PTHREAD_ENV_DECC)(.*))\n"
 		"(#[ \t]*define _PTHREAD_USE_PTDNAM_)";
 
     mach      = "alpha*-dec-osf*";
     c_fix     = format;
-    c_fix_arg = "%1 || defined (__PRAGMA_EXTERN_PREFIX)\n%2";
+    c_fix_arg = "%2 defined (_PTHREAD_ENV_DECC)%4 || defined (__PRAGMA_EXTERN_PREFIX)\n%5";
 
     test_text = "#  if defined (_PTHREAD_ENV_DECC) || defined (_PTHREAD_ENV_EPCC)\n"
+		"#   define _PTHREAD_USE_PTDNAM_\n"
+		"#  endif\n"
+		"#  ifdef _PTHREAD_ENV_DECC\n"
 		"#   define _PTHREAD_USE_PTDNAM_\n"
 		"#  endif";
 };
@@ -618,6 +705,50 @@ fix = {
 		"#endif";
 };
 
+/*
+ * Compaq Tru64 v5.1 defines all of its PTHREAD_*_INITIALIZER macros
+ * incorrectly, specifying less fields in the initializers than are
+ * defined in the corresponding structure types.  Use of these macros
+ * in user code results in spurious warnings.
+ */
+fix = {
+    hackname  = alpha_pthread_init;
+    files     = pthread.h;
+    select    = ' \* @\(#\).RCSfile: pthread\.h,v \$'
+                ' .Revision: 1\.1\.33\.21 \$ \(DEC\)'
+                ' .Date: 2000/08/15 15:30:13 \$';
+    mach      = "alpha*-dec-osf*";
+    sed       = "s@MVALID\\(.*\\)A}@MVALID\\1A, 0, 0, 0, 0, 0, 0 }@\n"
+                "s@MVALID\\(.*\\)_}@MVALID\\1_, 0, 0, 0, 0 }@\n"
+                "s@CVALID\\(.*\\)A}@CVALID\\1A, 0, 0, 0, 0 }@\n"
+                "s@CVALID\\(.*\\)_}@CVALID\\1_, 0, 0 }@\n"
+                "s@WVALID\\(.*\\)A}@WVALID\\1A, 0, 0, 0, 0, 0, 0, 0, 0, 0 }@\n"
+                "s@WVALID\\(.*\\)_}@WVALID\\1_, 0, 0, 0, 0, 0, 0, 0 }@\n";
+    test_text = "/*\n"
+                " * @(#)_RCSfile: pthread.h,v \\$ "
+                "_Revision: 1.1.33.21 \\$ (DEC) "
+                "_Date: 2000/08/15 15:30:13 \\$\n"
+                " */\n"
+"#ifndef _PTHREAD_NOMETER_STATIC\n"
+"# define PTHREAD_MUTEX_INITIALIZER \\\n"
+"    {_PTHREAD_MSTATE_CONFIG, _PTHREAD_MVALID | _PTHREAD_MVF_STA}\n"
+"# define PTHREAD_COND_INITIALIZER \\\n"
+"    {_PTHREAD_CSTATE_SLOW, _PTHREAD_CVALID | _PTHREAD_CVF_STA}\n"
+"# define PTHREAD_MUTEX_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {_PTHREAD_MSTATE_CONFIG, _PTHREAD_MVALID | _PTHREAD_MVF_STA, _n_, _a_}\n"
+"# define PTHREAD_COND_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {_PTHREAD_CSTATE_SLOW, _PTHREAD_CVALID | _PTHREAD_CVF_STA, _n_, _a_}\n"
+"#else\n"
+"# define PTHREAD_MUTEX_INITIALIZER {0, _PTHREAD_MVALID | _PTHREAD_MVF_STA}\n"
+"# define PTHREAD_MUTEX_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {0, _PTHREAD_MVALID | _PTHREAD_MVF_STA, _n_, _a_}\n"
+"# define PTHREAD_COND_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {0, _PTHREAD_CVALID | _PTHREAD_CVF_STA, _n_, _a_}\n"
+"#endif\n\n"
+"#define PTHREAD_RWLOCK_INITIALIZER {_PTHREAD_RWVALID | _PTHREAD_RWVF_STA}\n"
+"#define PTHREAD_RWLOCK_INITWITHNAME_NP(_n_,_a_) \\\n"
+"        {_PTHREAD_RWVALID | _PTHREAD_RWVF_STA, _n_, _a_}\n";
+};
 
 /*
  *  Fix return value of sbrk in unistd.h on Alpha OSF/1 V2.0
@@ -630,6 +761,23 @@ fix = {
     c_fix     = format;
     c_fix_arg = "void *sbrk(";
     test_text = "extern char* sbrk(ptrdiff_t increment);";
+};
+
+
+/*
+ *  Change external names of wcstok/wcsftime via asm instead of macros on
+ *  Tru64 UNIX V4.0.
+ */
+fix = {
+    hackname = alpha_wchar;
+    files    = wchar.h;
+
+    mach     = "alpha*-dec-osf4*";
+    select   = "#define wcstok wcstok_r";
+    sed      = "s@#define wcstok wcstok_r@extern wchar_t *wcstok __((wchar_t *, const wchar_t *, wchar_t **)) __asm__(\"wcstok_r\");@";
+    sed      = "s@#define wcsftime __wcsftime_isoc@extern size_t   wcsftime __((wchar_t *, size_t, const wchar_t *, const struct tm *)) __asm__(\"__wcsftime_isoc\");@";
+    test_text = "#define wcstok wcstok_r\n"
+		"#define wcsftime __wcsftime_isoc";
 };
 
 
@@ -694,51 +842,6 @@ fix = {
     c_fix_arg = "#ifndef __cplusplus\n%0\n#endif";
 
     test_text = "typedef unsigned short\twchar_t \t; /* wchar_t\n type */";
-};
-
-
-/*
- *  Fix #defines under Alpha OSF/1:
- *  The following files contain '#pragma extern_prefix "_FOO"' followed by
- *  a '#define something(x,y,z) _FOOsomething(x,y,z)'.  The intent of these
- *  statements is to reduce namespace pollution.  While these macros work
- *  properly in most cases, they don't allow you to take a pointer to the
- *  "something" being modified.  To get around this limitation, change these
- *  statements to be of the form '#define something _FOOsomething'.
- *
- *  sed ain't egrep, lesson 2463:  sed can use self-referential
- *  regular expressions.  In the substitute expression below,
- *  "\\1" and "\\2" refer to subexpressions found earlier in the
- *  same match.  So, we continue to use sed.  "extern_prefix" will
- *  be a rare match anyway...
- */
-fix = {
-    hackname = bad_lval;
-
-    select   = "^[ \t]*#[ \t]*pragma[ \t]+extern_prefix";
-
-    files    = libgen.h;
-    files    = dirent.h;
-    files    = ftw.h;
-    files    = grp.h;
-    files    = ndbm.h;
-    files    = pthread.h;
-    files    = pwd.h;
-    files    = signal.h;
-    files    = standards.h;
-    files    = stdlib.h;
-    files    = string.h;
-    files    = stropts.h;
-    files    = time.h;
-    files    = unistd.h;
-
-    sed      =
-        "s/^[ \t]*#[ \t]*define[ \t][ \t]*\\([^(]*\\)\\(([^)]*)\\)[ \t]*"
-               "\\(_.*\\)\\1\\2[ \t]*$/#define \\1 \\3\\1/";
-
-    test_text = '#pragma extern_prefix "_FOO"'"\n"
-                "#define something(x,y,z) _FOOsomething(x,y,z)\n"
-                "#define mumble _FOOmumble";
 };
 
 
@@ -919,6 +1022,24 @@ fix = {
 
 
 /*
+ *  __private_extern__ doesn't exist in FSF GCC.  Even if it did,
+ *  why would you ever put it in a system header file?
+ */
+fix = {
+  hackname  = darwin_private_extern;
+  mach      = "*-*-darwin*";
+  files     = mach-o/dyld.h;
+  select    = "__private_extern__ [a-z_]+ _dyld_";
+  c_fix     = format;
+  c_fix_arg = "extern";
+  c_fix_arg = "__private_extern__";
+  test_text = "__private_extern__ int _dyld_func_lookup(\n"
+	      "const char *dyld_func_name,\n"
+	      "unsigned long *address);\n";
+};
+
+
+/*
  *  Fix <c_asm.h> on Digital UNIX V4.0:
  *  It contains a prototype for a DEC C internal asm() function,
  *  clashing with gcc's asm keyword.  So protect this with __DECC.
@@ -964,6 +1085,26 @@ fix = {
     c_fix_arg = 'ecd_cursor';
 
     test_text = "#ifdef ecd.cursor\n#error bogus\n#endif /* ecd+cursor */";
+};
+
+
+/*
+ *  math.h on SunOS 4 puts the declaration of matherr before the definition
+ *  of struct exception, so the prototype (added by fixproto) causes havoc.
+ *  This must appear before the math_exception fix.
+ */
+fix = {
+    hackname  = exception_structure;
+    files     = math.h;
+
+    /*  If matherr has a prototype already, the header needs no fix.  */
+    bypass    = 'matherr.*(struct exception|__MATH_EXCEPTION)';
+    select    = matherr;
+
+    c_fix     = wrap;
+    c_fix_arg = "struct exception;\n";
+
+    test_text = "extern int matherr();";
 };
 
 
@@ -1154,6 +1295,28 @@ fix = {
 
     test_text = "#  if defined(_SB_CTYPE_MACROS) && !defined(__lint)\n"
 		"     extern unsigned int *__SB_masks;\n";
+};
+
+
+/*
+ *  Fix hpux 10.X missing stdio declarations
+ */
+fix = {
+    hackname = hpux10_stdio_declarations;
+    files    = stdio.h;
+    select   = "^#[ \t]*define _iob[ \t]*__iob";
+    bypass   = "^[ \t]*extern[ \t]*int[ \t]*vsnprintf[ \t]*\\(";
+    c_fix     = format;
+    c_fix_arg = "%0\n\n"
+	"#  if defined(__STDC__) || defined(__cplusplus)\n"
+	"     extern int snprintf(char *, size_t, const char *, ...);\n"
+	"     extern int vsnprintf(char *, size_t, const char *, __va_list);\n"
+	"#  else /* not __STDC__) || __cplusplus */\n"
+	"     extern int snprintf();\n"
+	"     extern int vsnprintf();\n"
+	"#  endif /* __STDC__) || __cplusplus */\n";
+
+    test_text = "#  define _iob __iob\n";
 };
 
 
@@ -1455,6 +1618,52 @@ fix = {
 
     test_text = "#ifdef __c99\n#  define __restrict restrict";
 };
+
+/*
+ * IRIX 6.5.22 <internal/math_core.h> uses the SGI c99 __generic() intrinsic
+ * to define the fpclasify, isfinite, isinf, isnan, isnormal and signbit 
+ * functions.
+ *
+ * This was probably introduced around IRIX 6.5.18
+ */
+fix = {
+    hackname  = irix___generic1;
+    files     = internal/math_core.h;
+    mach      = "mips-sgi-irix6.5";
+    select    = "#define ([a-z]+)\\(x\\) *__generic.*";
+
+    c_fix     = format;
+    c_fix_arg = "extern int %1(double);\n"
+		"extern int %1f(float);\n"
+		"extern int %1l(long double);\n"
+		"#define %1(x) (sizeof(x) == sizeof(double) ? _%1(x) \\\n"
+		"               : sizeof(x) == sizeof(float) ? _%1f(x) \\\n"
+		"               : _%1l(x))\n";
+
+    test_text = 
+      "#define isnan(x) __generic(x,,, _isnan, _isnanf, _isnanl,,,)(x)\n";
+};
+
+
+/* Likewise <internal/math_core.h> on IRIX 6.5.19 and later uses the SGI
+   compiler's __generic intrinsic to define isgreater, isgreaterequal,
+   isless, islessequal, islessgreater and isunordered functions.  */
+fix = {
+    hackname  = irix___generic2;
+    files     = internal/math_core.h;
+    mach      = "mips-sgi-irix6.5";
+    select    = "#define ([a-z]+)\\(x,y\\) *__generic.*";
+
+    c_fix     = format;
+    c_fix_arg = "#define %1(x,y) \\\n"
+		"  ((sizeof(x)<=4 && sizeof(y)<=4) ? _%1f(x,y) \\\n"
+		"   : (sizeof(x)<=8 && sizeof(y)<=8) ? _%1(x,y) \\\n"
+		"   : _%1l(x,y))\n";
+
+    test_text = 
+      "#define isless(x,y)         __generic(x,y,, _isless, _islessf, _islessl,,,)(x,y)";
+};
+
 
 /*
  *  IRIX 5.2's <sys/asm.h> contains an asm comment with a contraction
@@ -1768,11 +1977,10 @@ fix = {
 
 /*
  *  Some math.h files define struct exception (it's in the System V
- *  Interface Definition), which conflicts with
- *  the class exception defined in the C++ file std/stdexcept.h.  We
- *  redefine it to __math_exception.  This is not a great fix, but I
- *  haven't been able to think of anything better.
- *  Note that we have to put the #ifdef/#endif blocks at beginning
+ *  Interface Definition), which conflicts with the class exception defined
+ *  in the C++ file std/stdexcept.h.  We redefine it to __math_exception.
+ *  This is not a great fix, but I haven't been able to think of anything
+ *  better.  Note that we have to put the #ifdef/#endif blocks at beginning
  *  and end of file, because fixproto runs after us and may insert
  *  additional references to struct exception.
  */
@@ -1780,7 +1988,13 @@ fix = {
     hackname  = math_exception;
     files     = math.h;
     select    = "struct exception";
-    bypass    = '__cplusplus';
+    /*
+     * This should be bypassed on __cplusplus, but some supposedly C++ C++
+     * aware headers, such as Solaris 8 and 9, don't wrap their struct
+     * exception either.  So currently we bypass only for glibc, based on a
+     * comment in the fixed glibc header.  Ick.
+     */
+    bypass    = 'We have a problem when using C\+\+';
     c_fix     = wrap;
 
     c_fix_arg = "#ifdef __cplusplus\n"
@@ -2116,6 +2330,31 @@ fix = {
     c_fix_arg = "(extern int\t.*), fread\\(\\), fwrite\\(\\)(.*)";
 
     test_text = "extern int\tfclose(), fflush(), fread(), fwrite(), foo();";
+};
+
+
+/*
+ *  Fix casts as lvalues in glibc's <rpc/xdr.h>.
+ */
+fix = {
+    hackname  = rpc_xdr_lvalue_cast_a;
+    files     = rpc/xdr.h;
+    select    = "#define[ \t]*IXDR_GET_LONG.*\\\\\n.*__extension__.*";
+    c_fix     = format;
+    c_fix_arg = "#define IXDR_GET_LONG(buf) ((long)IXDR_GET_U_INT32(buf))";
+    test_text = "#define IXDR_GET_LONG(buf) \\\\\n"
+                "\t((long)ntohl((u_long)*__extension__((u_int32_t*)(buf))++))";
+};
+
+
+fix = {
+    hackname  = rpc_xdr_lvalue_cast_b;
+    files     = rpc/xdr.h;
+    select    = "#define[ \t]*IXDR_PUT_LONG.*\\\\\n.*__extension__.*";
+    c_fix     = format;
+    c_fix_arg = "#define IXDR_PUT_LONG(buf, v) ((long)IXDR_PUT_INT32(buf, (long)(v)))";
+    test_text = "#define IXDR_PUT_LONG(buf, v) \\\\\n"
+                "\t(*__extension__((u_int32_t*)(buf))++ = (long)htonl((u_long)(v)))";
 };
 
 
@@ -2469,8 +2708,7 @@ fix = {
      * instead of va_list.
      * Don't claim to have defined va_list.
      */
-    sed = "s@ va_list @ __gnuc_va_list @\n"
-          "s@ va_list)@ __gnuc_va_list)@\n"
+    sed = "s@[ \t]va_list\\([ \t)]\\)@ __gnuc_va_list\\1@\n"
 	  "s@(va_list)&@(__gnuc_va_list)\\&@\n"
           "s@ _VA_LIST_));@ __gnuc_va_list));@\n"
           "s@ __VA_LIST__));@ __gnuc_va_list));@\n"
@@ -2718,25 +2956,6 @@ fix = {
           "#else\n%0\n#endif";
 
     test_text = "void\t(*signal())();";
-};
-
-
-/*
- *  math.h on SunOS 4 puts the declaration of matherr before the definition
- *  of struct exception, so the prototype (added by fixproto) causes havoc.
- */
-fix = {
-    hackname  = sunos_matherr_decl;
-    files     = math.h;
-
-    /*  If matherr has a prototype already, the header needs no fix.  */
-    bypass    = 'matherr.*(struct exception|__MATH_EXCEPTION)';
-    select    = matherr;
-
-    c_fix     = wrap;
-    c_fix_arg = "struct exception;\n";
-
-    test_text = "extern int matherr();";
 };
 
 
@@ -3032,6 +3251,9 @@ fix = {
 
     select    =
     'profil\(unsigned short \*, unsigned int, unsigned int, unsigned int\)';
+    /* The fix is wrong on IRIX 5/6 and creates a conflict with another
+       prototype in <sys/profil.h>.  */
+    bypass    = 'Silicon Graphics';
     c_fix     = format;
     c_fix_arg = 'profil(unsigned short *, size_t, int, unsigned int)';
 
@@ -3353,6 +3575,24 @@ fix = {
 
 
 /*
+ *  parameters not const on Ultrix V4.3.
+ */
+fix = {
+    hackname  = ultrix_const3;
+    files     = stdio.h;
+    select    = 'fdopen\( .*, char \*';
+
+    c_fix     = format;
+    c_fix_arg = "%1 const %3 *__";
+    c_fix_arg = "([ \t*](fdopen)\\(.*)"
+                "[ \t]+(char|void) \\*__";
+
+    test_text =
+    "extern FILE *	fdopen( int __filedes, char *__type );\n";
+};
+
+
+/*
  * Ultrix V4.[35] puts the declaration of uname before the definition
  * of struct utsname, so the prototype (added by fixproto) causes havoc.
  */
@@ -3383,6 +3623,19 @@ fix = {
 
     test_text =
     "#ifdef KERNEL\t&& defined( mumbojumbo )\nint oops;\n#endif";
+};
+
+
+/*
+ *  Add once-only latch to Ultrix V4.3 locale.h.
+ */
+fix = {
+    hackname = ultrix_locale;
+    files  = locale.h;
+    select = "@\\(#\\)locale\\.h.*6\\.1.*\\(ULTRIX\\)";
+    c_fix  = wrap;
+    test_text =
+    "@(#)locale.h   6.1     (ULTRIX)\n";
 };
 
 
@@ -3466,6 +3719,31 @@ fix = {
 
 
 /*
+ *  Add missing declarations to Ultrix V4.3 stdlib.h.
+ */
+fix = {
+    hackname = ultrix_stdlib;
+    files  = stdlib.h;
+    select = "@\\(#\\)stdlib\\.h.*6\\.1.*\\(ULTRIX\\)";
+
+    sed    = "/^char.*getenv( const char .* );.*$/a\\\n"
+    "int\t\tsetenv( const char *__name, const char *__val, int __ovrwrt );\\\n"
+    "void\t\tunsetenv( const char *__name );\\\n"
+    "int\t\tputenv( char *__s );\n";
+
+    sed    = "/^char.*getenv();.*$/a\\\n"
+    "int\tsetenv();\\\n"
+    "void\tunsetenv();\\\n"
+    "int\tputenv();\n";
+
+    test_text =
+    "@(#)stdlib.h      6.1     (ULTRIX)\n"
+    "char *		getenv( const char *__name );\n"
+    "char	*getenv();\n";
+};
+
+
+/*
  *  Add once-only latch to Ultrix V4.3 strings.h.
  */
 fix = {
@@ -3475,6 +3753,91 @@ fix = {
     c_fix  = wrap;
     test_text =
     "@(#)strings.h   6.1     (ULTRIX)\n";
+};
+
+
+/*
+ *  Add missing declarations to Ultrix V4.3 strings.h.
+ */
+fix = {
+    hackname = ultrix_strings2;
+    files  = strings.h;
+    select = "@\\(#\\)strings\\.h.*6\\.1.*\\(ULTRIX\\)";
+
+    sed    = "/^.*strncmp( const .* );.*/a\\\n"
+    "\\\n"
+    "extern int\\\n"
+    "\tstrcasecmp( const char *__s1, const char *__s2),\\\n"
+    "\tstrncasecmp( const char *__s1, const char *__s2, size_t __n );\n";
+
+    sed    = "/^.*strncmp();.*/a\\\n"
+    "extern int\\\n"
+    "\tstrcasecmp(),\\\n"
+    "\tstrncasecmp();\n";
+
+    test_text =
+    "@(#)strings.h      6.1     (ULTRIX)\n"
+    "\tstrncmp( const char *__s1, const char *__s2, size_t __n );\n"
+    "\tstrncmp();\n";
+};
+
+
+/*
+ *  Add missing declarations to Ultrix V4.3 sys/time.h.
+ */
+fix = {
+    hackname = ultrix_sys_time;
+    files  = sys/time.h;
+    select = "@\\(#\\)time\\.h.*6\\.1.*\\(ULTRIX\\)";
+
+    sed    = "/^extern.*time_t.*time( time_t .* );.*$/a\\\n"
+    "\\\n"
+    "extern int adjtime(struct timeval *, struct timeval *);\\\n"
+    "extern int getitimer(int, struct itimerval *);\\\n"
+    "extern int setitimer(int, struct itimerval *, struct itimerval *);\\\n"
+    "extern int gettimeofday(struct timeval *, struct timezone *);\\\n"
+    "extern int settimeofday(struct timeval *, struct timezone *);\\\n"
+    "extern void profil(const void *, size_t, size_t, unsigned int);\\\n"
+    "extern int stime(const time_t *);\\\n"
+    "extern int utimes(const char *, const struct timeval[2]);\\\n"
+    "extern int select(int, fd_set *, fd_set *, fd_set *, struct timeval *);\n";
+
+    sed    = "/^extern.*double.*difftime();.*$/a\\\n"
+    "extern\tint adjtime();\\\n"
+    "extern\tint getitimer();\\\n"
+    "extern\tint setitimer();\\\n"
+    "extern\tint gettimeofday();\\\n"
+    "extern\tint settimeofday();\\\n"
+    "extern\tvoid profil();\\\n"
+    "extern\tint stime();\\\n"
+    "extern\tint utimes();\\\n"
+    "extern\tint select();\n";
+
+    test_text =
+    "@(#)time.h      6.1     (ULTRIX)\n"
+    "extern time_t		time( time_t *__tloc );\n"
+    "extern double difftime();\n";
+};
+
+
+/*
+ *  Add missing declarations to Ultrix V4.3 unistd.h.
+ */
+fix = {
+    hackname = ultrix_unistd;
+    files  = unistd.h;
+    select = "@\\(#\\)unistd\\.h.*6\\.1.*\\(ULTRIX\\)";
+
+    sed    = "/^[ \t]*getgroups(),.*$/a\\\n"
+    "\tgetpagesize(),\n";
+
+    sed    = "/^[ \t]*fork(),.*$/a\\\n"
+    "\tvfork(),\n";
+
+    test_text =
+    "@(#)unistd.h      6.1     (ULTRIX)\n"
+    "\tgetgroups(),\n"
+    "\tfork(),\n";
 };
 
 

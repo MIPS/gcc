@@ -1,6 +1,6 @@
 ;; Machine description for DEC Alpha for GNU C compiler
 ;; Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-;; 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+;; 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
 ;; This file is part of GCC.
@@ -30,7 +30,7 @@
    (UNSPEC_INSXH	2)
    (UNSPEC_MSKXH	3)
    (UNSPEC_CVTQL	4)
-   (UNSPEC_NT_LDA	5)
+   (UNSPEC_CVTLQ	5)
    (UNSPEC_UMK_LAUM	6)
    (UNSPEC_UMK_LALM	7)
    (UNSPEC_UMK_LAL	8)
@@ -77,6 +77,7 @@
    (UNSPECV_PLDGP2	11)	; prologue ldgp
    (UNSPECV_SET_TP	12)
    (UNSPECV_RPCC	13)
+   (UNSPECV_SETJMPR_ER	14)	; builtin_setjmp_receiver fragment
   ])
 
 ;; Where necessary, the suffixes _le and _be are used to distinguish between
@@ -97,8 +98,8 @@
 ;; separately.
 
 (define_attr "type"
-  "ild,fld,ldsym,ist,fst,ibr,callpal,fbr,jsr,iadd,ilog,shift,icmov,fcmov,icmp,imul,\
-fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
+  "ild,fld,ldsym,ist,fst,ibr,callpal,fbr,jsr,iadd,ilog,shift,icmov,fcmov,
+   icmp,imul,fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   (const_string "iadd"))
 
 ;; Describe a user's asm statement.
@@ -154,6 +155,14 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	]
 	(const_string "no")))
 
+;; The CANNOT_COPY attribute marks instructions with relocations that
+;; cannot easily be duplicated.  This includes insns with gpdisp relocs
+;; since they have to stay in 1-1 correspondence with one another.  This
+;; also includes jsr insns, since they must stay in correspondence with
+;; the immediately following gpdisp instructions.
+
+(define_attr "cannot_copy" "false,true"
+  (const_string "false"))
 
 ;; Include scheduling descriptions.
   
@@ -177,41 +186,36 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   ""
   "")
 
-(define_insn "*extendsidi2_nofix"
-  [(set (match_operand:DI 0 "register_operand" "=r,r,*f,?*f")
+(define_insn "*cvtlq"
+  [(set (match_operand:DI 0 "register_operand" "=f")
+	(unspec:DI [(match_operand:SF 1 "reg_or_0_operand" "fG")]
+		   UNSPEC_CVTLQ))]
+  ""
+  "cvtlq %1,%0"
+  [(set_attr "type" "fadd")])
+
+(define_insn "*extendsidi2_1"
+  [(set (match_operand:DI 0 "register_operand" "=r,r,!*f")
 	(sign_extend:DI
-	  (match_operand:SI 1 "nonimmediate_operand" "r,m,*f,m")))]
-  "! TARGET_FIX"
+	  (match_operand:SI 1 "nonimmediate_operand" "r,m,m")))]
+  ""
   "@
    addl $31,%1,%0
    ldl %0,%1
-   cvtlq %1,%0
    lds %0,%1\;cvtlq %0,%0"
-  [(set_attr "type" "iadd,ild,fadd,fld")
-   (set_attr "length" "*,*,*,8")])
+  [(set_attr "type" "iadd,ild,fld")
+   (set_attr "length" "*,*,8")])
 
-(define_insn "*extendsidi2_fix"
-  [(set (match_operand:DI 0 "register_operand" "=r,r,r,?*f,?*f")
-	(sign_extend:DI
-	  (match_operand:SI 1 "nonimmediate_operand" "r,m,*f,*f,m")))]
-  "TARGET_FIX"
-  "@
-   addl $31,%1,%0
-   ldl %0,%1
-   ftois %1,%0
-   cvtlq %1,%0
-   lds %0,%1\;cvtlq %0,%0"
-  [(set_attr "type" "iadd,ild,ftoi,fadd,fld")
-   (set_attr "length" "*,*,*,*,8")])
-
-;; Due to issues with CLASS_CANNOT_CHANGE_SIZE, we cannot use a subreg here.
 (define_split
   [(set (match_operand:DI 0 "hard_fp_register_operand" "")
 	(sign_extend:DI (match_operand:SI 1 "memory_operand" "")))]
   "reload_completed"
   [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0) (sign_extend:DI (match_dup 2)))]
-  "operands[2] = gen_rtx_REG (SImode, REGNO (operands[0]));")
+   (set (match_dup 0) (unspec:DI [(match_dup 2)] UNSPEC_CVTLQ))]
+{
+  operands[1] = adjust_address (operands[1], SFmode, 0);
+  operands[2] = gen_rtx_REG (SFmode, REGNO (operands[0]));
+})
 
 ;; Optimize sign-extension of SImode loads.  This shows up in the wake of
 ;; reload when converting fp->int.
@@ -223,28 +227,6 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
         (sign_extend:DI (match_dup 0)))]
   "true_regnum (operands[0]) == true_regnum (operands[2])
    || peep2_reg_dead_p (2, operands[0])"
-  [(set (match_dup 2)
-	(sign_extend:DI (match_dup 1)))]
-  "")
-
-(define_peephole2
-  [(set (match_operand:SI 0 "hard_int_register_operand" "")
-        (match_operand:SI 1 "hard_fp_register_operand" ""))
-   (set (match_operand:DI 2 "hard_int_register_operand" "")
-        (sign_extend:DI (match_dup 0)))]
-  "TARGET_FIX
-   && (true_regnum (operands[0]) == true_regnum (operands[2])
-       || peep2_reg_dead_p (2, operands[0]))"
-  [(set (match_dup 2)
-	(sign_extend:DI (match_dup 1)))]
-  "")
-
-(define_peephole2
-  [(set (match_operand:DI 0 "hard_fp_register_operand" "")
-        (sign_extend:DI (match_operand:SI 1 "hard_fp_register_operand" "")))
-   (set (match_operand:DI 2 "hard_int_register_operand" "")
-        (match_dup 0))]
-  "TARGET_FIX && peep2_reg_dead_p (2, operands[0])"
   [(set (match_dup 2)
 	(sign_extend:DI (match_dup 1)))]
   "")
@@ -457,9 +439,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 ;; and if we split before reload, we will require additional instructions.
 
 (define_insn "*adddi_fp_hack"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-        (plus:DI (match_operand:DI 1 "reg_no_subreg_operand" "r")
-		 (match_operand:DI 2 "const_int_operand" "n")))]
+  [(set (match_operand:DI 0 "register_operand" "=r,r,r")
+        (plus:DI (match_operand:DI 1 "reg_no_subreg_operand" "r,r,r")
+		 (match_operand:DI 2 "const_int_operand" "K,L,n")))]
   "NONSTRICT_REG_OK_FP_BASE_P (operands[1])
    && INTVAL (operands[2]) >= 0
    /* This is the largest constant an lda+ldah pair can add, minus
@@ -473,7 +455,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			   + max_reg_num () * UNITS_PER_WORD
 			   + current_function_pretend_args_size)
 	      - current_function_pretend_args_size))"
-  "#")
+  "@
+   lda %0,%2(%1)
+   ldah %0,%h2(%1)
+   #")
 
 ;; Don't do this if we are adjusting SP since we don't want to do it
 ;; in two steps.  Don't split FP sources for the reason listed above.
@@ -2326,8 +2311,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 ;; processing, it is cheaper to do the truncation in the int regs.
 
 (define_insn "*cvtql"
-  [(set (match_operand:SI 0 "register_operand" "=f")
-	(unspec:SI [(match_operand:DI 1 "reg_or_0_operand" "fG")]
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(unspec:SF [(match_operand:DI 1 "reg_or_0_operand" "fG")]
 		   UNSPEC_CVTQL))]
   "TARGET_FP"
   "cvtql%/ %R1,%0"
@@ -2341,14 +2326,16 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	  (match_operator:DI 4 "fix_operator" 
 	    [(match_operand:DF 1 "reg_or_0_operand" "fG")]) 0))
    (clobber (match_scratch:DI 2 "=&f"))
-   (clobber (match_scratch:SI 3 "=&f"))]
+   (clobber (match_scratch:SF 3 "=&f"))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "#"
   "&& reload_completed"
   [(set (match_dup 2) (match_op_dup 4 [(match_dup 1)]))
-   (set (match_dup 3) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
-   (set (match_dup 0) (match_dup 3))]
-  ""
+   (set (match_dup 3) (unspec:SF [(match_dup 2)] UNSPEC_CVTQL))
+   (set (match_dup 5) (match_dup 3))]
+{
+  operands[5] = adjust_address (operands[0], SFmode, 0);
+}
   [(set_attr "type" "fadd")
    (set_attr "trap" "yes")])
 
@@ -2362,10 +2349,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "#"
   "&& reload_completed"
   [(set (match_dup 2) (match_op_dup 3 [(match_dup 1)]))
-   (set (match_dup 4) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
-   (set (match_dup 0) (match_dup 4))]
-  ;; Due to REG_CANNOT_CHANGE_SIZE issues, we cannot simply use SUBREG.
-  "operands[4] = gen_rtx_REG (SImode, REGNO (operands[2]));"
+   (set (match_dup 4) (unspec:SF [(match_dup 2)] UNSPEC_CVTQL))
+   (set (match_dup 5) (match_dup 4))]
+{
+  operands[4] = gen_rtx_REG (SFmode, REGNO (operands[2]));
+  operands[5] = adjust_address (operands[0], SFmode, 0);
+}
   [(set_attr "type" "fadd")
    (set_attr "trap" "yes")])
 
@@ -2412,14 +2401,16 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	    [(float_extend:DF
 	       (match_operand:SF 1 "reg_or_0_operand" "fG"))]) 0))
    (clobber (match_scratch:DI 2 "=&f"))
-   (clobber (match_scratch:SI 3 "=&f"))]
+   (clobber (match_scratch:SF 3 "=&f"))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "#"
   "&& reload_completed"
   [(set (match_dup 2) (match_op_dup 4 [(float_extend:DF (match_dup 1))]))
-   (set (match_dup 3) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
-   (set (match_dup 0) (match_dup 3))]
-  ""
+   (set (match_dup 3) (unspec:SF [(match_dup 2)] UNSPEC_CVTQL))
+   (set (match_dup 5) (match_dup 3))]
+{
+  operands[5] = adjust_address (operands[0], SFmode, 0);
+}
   [(set_attr "type" "fadd")
    (set_attr "trap" "yes")])
 
@@ -2434,10 +2425,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "#"
   "&& reload_completed"
   [(set (match_dup 2) (match_op_dup 3 [(float_extend:DF (match_dup 1))]))
-   (set (match_dup 4) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
-   (set (match_dup 0) (match_dup 4))]
-  ;; Due to REG_CANNOT_CHANGE_SIZE issues, we cannot simply use SUBREG.
-  "operands[4] = gen_rtx_REG (SImode, REGNO (operands[2]));"
+   (set (match_dup 4) (unspec:SF [(match_dup 2)] UNSPEC_CVTQL))
+   (set (match_dup 5) (match_dup 4))]
+{
+  operands[4] = gen_rtx_REG (SFmode, REGNO (operands[2]));
+  operands[5] = adjust_address (operands[0], SFmode, 0);
+}
   [(set_attr "type" "fadd")
    (set_attr "trap" "yes")])
 
@@ -2508,6 +2501,35 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (set_attr "round_suffix" "normal")
    (set_attr "trap_suffix" "sui")])
 
+(define_insn_and_split "*floatsisf2_ieee"
+  [(set (match_operand:SF 0 "register_operand" "=&f")
+	(float:SF (match_operand:SI 1 "memory_operand" "m")))
+   (clobber (match_scratch:DI 2 "=&f"))
+   (clobber (match_scratch:SF 3 "=&f"))]
+  "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 3) (match_dup 1))
+   (set (match_dup 2) (unspec:DI [(match_dup 3)] UNSPEC_CVTLQ))
+   (set (match_dup 0) (float:SF (match_dup 2)))]
+{
+  operands[1] = adjust_address (operands[1], SFmode, 0);
+})
+
+(define_insn_and_split "*floatsisf2"
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(float:SF (match_operand:SI 1 "memory_operand" "m")))]
+  "TARGET_FP"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (unspec:DI [(match_dup 0)] UNSPEC_CVTLQ))
+   (set (match_dup 0) (float:SF (match_dup 2)))]
+{
+  operands[1] = adjust_address (operands[1], SFmode, 0);
+  operands[2] = gen_rtx_REG (DImode, REGNO (operands[0]));
+})
+
 (define_insn "*floatdidf_ieee"
   [(set (match_operand:DF 0 "register_operand" "=&f")
 	(float:DF (match_operand:DI 1 "reg_no_subreg_operand" "f")))]
@@ -2527,6 +2549,36 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (set_attr "trap" "yes")
    (set_attr "round_suffix" "normal")
    (set_attr "trap_suffix" "sui")])
+
+(define_insn_and_split "*floatsidf2_ieee"
+  [(set (match_operand:DF 0 "register_operand" "=&f")
+	(float:DF (match_operand:SI 1 "memory_operand" "m")))
+   (clobber (match_scratch:DI 2 "=&f"))
+   (clobber (match_scratch:SF 3 "=&f"))]
+  "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 3) (match_dup 1))
+   (set (match_dup 2) (unspec:DI [(match_dup 3)] UNSPEC_CVTLQ))
+   (set (match_dup 0) (float:DF (match_dup 2)))]
+{
+  operands[1] = adjust_address (operands[1], SFmode, 0);
+})
+
+(define_insn_and_split "*floatsidf2"
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(float:DF (match_operand:SI 1 "memory_operand" "m")))]
+  "TARGET_FP"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 3) (match_dup 1))
+   (set (match_dup 2) (unspec:DI [(match_dup 3)] UNSPEC_CVTLQ))
+   (set (match_dup 0) (float:DF (match_dup 2)))]
+{
+  operands[1] = adjust_address (operands[1], SFmode, 0);
+  operands[2] = gen_rtx_REG (DImode, REGNO (operands[0]));
+  operands[3] = gen_rtx_REG (SFmode, REGNO (operands[0]));
+})
 
 (define_expand "floatditf2"
   [(use (match_operand:TF 0 "register_operand" ""))
@@ -4670,7 +4722,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
    && ! samegp_function_operand (operands[0], Pmode)
-   && peep2_regno_dead_p (1, 29)"
+   && (peep2_regno_dead_p (1, 29)
+       || find_reg_note (insn, REG_NORETURN, NULL_RTX))"
   [(parallel [(call (mem:DI (match_dup 2))
 		    (match_dup 1))
 	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
@@ -4700,7 +4753,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
    && ! samegp_function_operand (operands[0], Pmode)
-   && ! peep2_regno_dead_p (1, 29)"
+   && ! (peep2_regno_dead_p (1, 29)
+         || find_reg_note (insn, REG_NORETURN, NULL_RTX))"
   [(parallel [(call (mem:DI (match_dup 2))
 		    (match_dup 1))
 	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
@@ -4740,7 +4794,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (match_operand 3 "const_int_operand" ""))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "jsr $26,(%0),%2%J3"
-  [(set_attr "type" "jsr")])
+  [(set_attr "type" "jsr")
+   (set_attr "cannot_copy" "true")])
 
 ;; We output a nop after noreturn calls at the very end of the function to
 ;; ensure that the return address always remains in the caller's code range,
@@ -5157,10 +5212,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     operands[1] = force_reg (TFmode, operands[1]);
 })
 
-(define_insn "*movsi_nofix"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m,*f,*f,m")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ,*fJ,m,*f"))]
-  "(TARGET_ABI_OSF || TARGET_ABI_UNICOSMK) && ! TARGET_FIX
+(define_insn "*movsi"
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m")
+	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ"))]
+  "(TARGET_ABI_OSF || TARGET_ABI_UNICOSMK)
    && (register_operand (operands[0], SImode)
        || reg_or_0_operand (operands[1], SImode))"
   "@
@@ -5168,36 +5223,13 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    lda %0,%1($31)
    ldah %0,%h1($31)
    ldl %0,%1
-   stl %r1,%0
-   cpys %R1,%R1,%0
-   ld%, %0,%1
-   st%, %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ild,ist,fcpys,fld,fst")])
+   stl %r1,%0"
+  [(set_attr "type" "ilog,iadd,iadd,ild,ist")])
 
-(define_insn "*movsi_fix"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m,*f,*f,m,r,*f")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ,*fJ,m,*f,*f,r"))]
-  "TARGET_ABI_OSF && TARGET_FIX
-   && (register_operand (operands[0], SImode)
-       || reg_or_0_operand (operands[1], SImode))"
-  "@
-   bis $31,%r1,%0
-   lda %0,%1($31)
-   ldah %0,%h1($31)
-   ldl %0,%1
-   stl %r1,%0
-   cpys %R1,%R1,%0
-   ld%, %0,%1
-   st%, %R1,%0
-   ftois %1,%0
-   itofs %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ild,ist,fcpys,fld,fst,ftoi,itof")])
-
-(define_insn "*movsi_nt_vms_nofix"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,m")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,s,m,rJ,*fJ,m,*f"))]
+(define_insn "*movsi_nt_vms"
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,m")
+	(match_operand:SI 1 "input_operand" "rJ,K,L,s,m,rJ"))]
   "(TARGET_ABI_WINDOWS_NT || TARGET_ABI_OPEN_VMS)
-    && !TARGET_FIX
     && (register_operand (operands[0], SImode)
         || reg_or_0_operand (operands[1], SImode))"
   "@
@@ -5206,32 +5238,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    ldah %0,%h1
    lda %0,%1
    ldl %0,%1
-   stl %r1,%0
-   cpys %R1,%R1,%0
-   ld%, %0,%1
-   st%, %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")])
-
-(define_insn "*movsi_nt_vms_fix"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,m,r,*f")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,s,m,rJ,*fJ,m,*f,*f,r"))]
-  "(TARGET_ABI_WINDOWS_NT || TARGET_ABI_OPEN_VMS)
-    && TARGET_FIX
-    && (register_operand (operands[0], SImode)
-        || reg_or_0_operand (operands[1], SImode))"
-  "@
-   bis $31,%1,%0
-   lda %0,%1
-   ldah %0,%h1
-   lda %0,%1
-   ldl %0,%1
-   stl %r1,%0
-   cpys %R1,%R1,%0
-   ld%, %0,%1
-   st%, %R1,%0
-   ftois %1,%0
-   itofs %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")])
+   stl %r1,%0"
+  [(set_attr "type" "ilog,iadd,iadd,ldsym,ild,ist")])
 
 (define_insn "*movhi_nobwx"
   [(set (match_operand:HI 0 "register_operand" "=r,r")
@@ -5706,7 +5714,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_expand "aligned_loadqi"
   [(set (match_operand:SI 3 "register_operand" "")
 	(match_operand:SI 1 "memory_operand" ""))
-   (set (subreg:DI (match_operand:QI 0 "register_operand" "") 0)
+   (set (match_operand:DI 0 "register_operand" "")
 	(zero_extract:DI (subreg:DI (match_dup 3) 0)
 			 (const_int 8)
 			 (match_operand:DI 2 "const_int_operand" "")))]
@@ -5717,7 +5725,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_expand "aligned_loadhi"
   [(set (match_operand:SI 3 "register_operand" "")
 	(match_operand:SI 1 "memory_operand" ""))
-   (set (subreg:DI (match_operand:HI 0 "register_operand" "") 0)
+   (set (match_operand:DI 0 "register_operand" "")
 	(zero_extract:DI (subreg:DI (match_dup 3) 0)
 			 (const_int 16)
 			 (match_operand:DI 2 "const_int_operand" "")))]
@@ -5733,7 +5741,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 ;; operand 3 can overlap the input and output registers.
 
 (define_expand "unaligned_loadqi"
-  [(use (match_operand:QI 0 "register_operand" ""))
+  [(use (match_operand:DI 0 "register_operand" ""))
    (use (match_operand:DI 1 "address_operand" ""))
    (use (match_operand:DI 2 "register_operand" ""))
    (use (match_operand:DI 3 "register_operand" ""))]
@@ -5754,7 +5762,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			(const_int -8))))
    (set (match_operand:DI 3 "register_operand" "")
 	(match_dup 1))
-   (set (subreg:DI (match_operand:QI 0 "register_operand" "") 0)
+   (set (match_operand:DI 0 "register_operand" "")
 	(zero_extract:DI (match_dup 2)
 			 (const_int 8)
 			 (ashift:DI (match_dup 3) (const_int 3))))]
@@ -5767,7 +5775,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			(const_int -8))))
    (set (match_operand:DI 3 "register_operand" "")
 	(match_dup 1))
-   (set (subreg:DI (match_operand:QI 0 "register_operand" "") 0)
+   (set (match_operand:DI 0 "register_operand" "")
 	(zero_extract:DI (match_dup 2)
 			 (const_int 8)
 			 (minus:DI
@@ -5777,7 +5785,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "")
 
 (define_expand "unaligned_loadhi"
-  [(use (match_operand:QI 0 "register_operand" ""))
+  [(use (match_operand:DI 0 "register_operand" ""))
    (use (match_operand:DI 1 "address_operand" ""))
    (use (match_operand:DI 2 "register_operand" ""))
    (use (match_operand:DI 3 "register_operand" ""))]
@@ -5798,7 +5806,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			(const_int -8))))
    (set (match_operand:DI 3 "register_operand" "")
 	(match_dup 1))
-   (set (subreg:DI (match_operand:QI 0 "register_operand" "") 0)
+   (set (match_operand:DI 0 "register_operand" "")
 	(zero_extract:DI (match_dup 2)
 			 (const_int 16)
 			 (ashift:DI (match_dup 3) (const_int 3))))]
@@ -5811,7 +5819,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			(const_int -8))))
    (set (match_operand:DI 3 "register_operand" "")
 	(plus:DI (match_dup 1) (const_int 1)))
-   (set (subreg:DI (match_operand:QI 0 "register_operand" "") 0)
+   (set (match_operand:DI 0 "register_operand" "")
 	(zero_extract:DI (match_dup 2)
 			 (const_int 16)
 			 (minus:DI
@@ -6006,9 +6014,6 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 {
   rtx scratch, seq;
 
-  if (GET_CODE (operands[1]) != MEM)
-    abort ();
-
   if (aligned_memory_operand (operands[1], QImode))
     {
       seq = gen_reload_inqi_help (operands[0], operands[1],
@@ -6027,8 +6032,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	scratch = gen_rtx_REG (DImode, REGNO (operands[2]));
 
       addr = get_unaligned_address (operands[1], 0);
-      seq = gen_unaligned_loadqi (operands[0], addr, scratch,
-			  gen_rtx_REG (DImode, REGNO (operands[0])));
+      operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
+      seq = gen_unaligned_loadqi (operands[0], addr, scratch, operands[0]);
       alpha_set_memflags (seq, operands[1]);
     }
   emit_insn (seq);
@@ -6042,9 +6047,6 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "! TARGET_BWX"
 {
   rtx scratch, seq;
-
-  if (GET_CODE (operands[1]) != MEM)
-    abort ();
 
   if (aligned_memory_operand (operands[1], HImode))
     {
@@ -6064,8 +6066,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	scratch = gen_rtx_REG (DImode, REGNO (operands[2]));
 
       addr = get_unaligned_address (operands[1], 0);
-      seq = gen_unaligned_loadhi (operands[0], addr, scratch,
-			  gen_rtx_REG (DImode, REGNO (operands[0])));
+      operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
+      seq = gen_unaligned_loadhi (operands[0], addr, scratch, operands[0]);
       alpha_set_memflags (seq, operands[1]);
     }
   emit_insn (seq);
@@ -6078,9 +6080,6 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (match_operand:TI 2 "register_operand" "=&r")])]
   "! TARGET_BWX"
 {
-  if (GET_CODE (operands[0]) != MEM)
-    abort ();
-
   if (aligned_memory_operand (operands[0], QImode))
     {
       emit_insn (gen_reload_outqi_help
@@ -6113,9 +6112,6 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (match_operand:TI 2 "register_operand" "=&r")])]
   "! TARGET_BWX"
 {
-  if (GET_CODE (operands[0]) != MEM)
-    abort ();
-
   if (aligned_memory_operand (operands[0], HImode))
     {
       emit_insn (gen_reload_outhi_help
@@ -6146,71 +6142,47 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 ;; always get a proper address for a stack slot during reload_foo
 ;; expansion, so we must delay our address manipulations until after.
 
-(define_insn "reload_inqi_help"
+(define_insn_and_split "reload_inqi_help"
   [(set (match_operand:QI 0 "register_operand" "=r")
         (match_operand:QI 1 "memory_operand" "m"))
    (clobber (match_operand:SI 2 "register_operand" "=r"))]
   "! TARGET_BWX && (reload_in_progress || reload_completed)"
-  "#")
-
-(define_insn "reload_inhi_help"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-        (match_operand:HI 1 "memory_operand" "m"))
-   (clobber (match_operand:SI 2 "register_operand" "=r"))]
-  "! TARGET_BWX && (reload_in_progress || reload_completed)"
-  "#")
-
-(define_insn "reload_outqi_help"
-  [(set (match_operand:QI 0 "memory_operand" "=m")
-        (match_operand:QI 1 "register_operand" "r"))
-   (clobber (match_operand:SI 2 "register_operand" "=r"))
-   (clobber (match_operand:SI 3 "register_operand" "=r"))]
-  "! TARGET_BWX && (reload_in_progress || reload_completed)"
-  "#")
-
-(define_insn "reload_outhi_help"
-  [(set (match_operand:HI 0 "memory_operand" "=m")
-        (match_operand:HI 1 "register_operand" "r"))
-   (clobber (match_operand:SI 2 "register_operand" "=r"))
-   (clobber (match_operand:SI 3 "register_operand" "=r"))]
-  "! TARGET_BWX && (reload_in_progress || reload_completed)"
-  "#")
-
-(define_split
-  [(set (match_operand:QI 0 "register_operand" "")
-        (match_operand:QI 1 "memory_operand" ""))
-   (clobber (match_operand:SI 2 "register_operand" ""))]
+  "#"
   "! TARGET_BWX && reload_completed"
   [(const_int 0)]
 {
   rtx aligned_mem, bitnum;
   get_aligned_mem (operands[1], &aligned_mem, &bitnum);
-
+  operands[0] = gen_lowpart (DImode, operands[0]);
   emit_insn (gen_aligned_loadqi (operands[0], aligned_mem, bitnum,
 				 operands[2]));
   DONE;
 })
 
-(define_split
-  [(set (match_operand:HI 0 "register_operand" "")
-        (match_operand:HI 1 "memory_operand" ""))
-   (clobber (match_operand:SI 2 "register_operand" ""))]
+(define_insn_and_split "reload_inhi_help"
+  [(set (match_operand:HI 0 "register_operand" "=r")
+        (match_operand:HI 1 "memory_operand" "m"))
+   (clobber (match_operand:SI 2 "register_operand" "=r"))]
+  "! TARGET_BWX && (reload_in_progress || reload_completed)"
+  "#"
   "! TARGET_BWX && reload_completed"
   [(const_int 0)]
 {
   rtx aligned_mem, bitnum;
   get_aligned_mem (operands[1], &aligned_mem, &bitnum);
-
+  operands[0] = gen_lowpart (DImode, operands[0]);
   emit_insn (gen_aligned_loadhi (operands[0], aligned_mem, bitnum,
 				 operands[2]));
   DONE;
 })
 
-(define_split
-  [(set (match_operand:QI 0 "memory_operand" "")
-        (match_operand:QI 1 "register_operand" ""))
-   (clobber (match_operand:SI 2 "register_operand" ""))
-   (clobber (match_operand:SI 3 "register_operand" ""))]
+(define_insn_and_split "reload_outqi_help"
+  [(set (match_operand:QI 0 "memory_operand" "=m")
+        (match_operand:QI 1 "register_operand" "r"))
+   (clobber (match_operand:SI 2 "register_operand" "=r"))
+   (clobber (match_operand:SI 3 "register_operand" "=r"))]
+  "! TARGET_BWX && (reload_in_progress || reload_completed)"
+  "#"
   "! TARGET_BWX && reload_completed"
   [(const_int 0)]
 {
@@ -6221,11 +6193,13 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   DONE;
 })
 
-(define_split
-  [(set (match_operand:HI 0 "memory_operand" "")
-        (match_operand:HI 1 "register_operand" ""))
-   (clobber (match_operand:SI 2 "register_operand" ""))
-   (clobber (match_operand:SI 3 "register_operand" ""))]
+(define_insn_and_split "reload_outhi_help"
+  [(set (match_operand:HI 0 "memory_operand" "=m")
+        (match_operand:HI 1 "register_operand" "r"))
+   (clobber (match_operand:SI 2 "register_operand" "=r"))
+   (clobber (match_operand:SI 3 "register_operand" "=r"))]
+  "! TARGET_BWX && (reload_in_progress || reload_completed)"
+  "#"
   "! TARGET_BWX && reload_completed"
   [(const_int 0)]
 {
@@ -6814,7 +6788,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			     (match_operand 2 "const_int_operand" "")]
 			    UNSPECV_LDGP1))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "ldah %0,0(%1)\t\t!gpdisp!%2")
+  "ldah %0,0(%1)\t\t!gpdisp!%2"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*ldgp_er_2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6822,7 +6797,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 		    (match_operand 2 "const_int_operand" "")]
 		   UNSPEC_LDGP2))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "lda %0,0(%1)\t\t!gpdisp!%2")
+  "lda %0,0(%1)\t\t!gpdisp!%2"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*prologue_ldgp_er_2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6830,7 +6806,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			     (match_operand 2 "const_int_operand" "")]
 		   	    UNSPECV_PLDGP2))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "lda %0,0(%1)\t\t!gpdisp!%2\n$%~..ng:")
+  "lda %0,0(%1)\t\t!gpdisp!%2\n$%~..ng:"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*prologue_ldgp_1"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6838,7 +6815,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			     (match_operand 2 "const_int_operand" "")]
 			    UNSPECV_LDGP1))]
   ""
-  "ldgp %0,0(%1)\n$%~..ng:")
+  "ldgp %0,0(%1)\n$%~..ng:"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*prologue_ldgp_2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6888,17 +6866,6 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   DONE;
 })
 
-;; In creating a large stack frame, NT _must_ use ldah+lda to load
-;; the frame size into a register.  We use this pattern to ensure
-;; we get lda instead of addq.
-(define_insn "nt_lda"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(match_dup 0)
-		    (match_operand:DI 1 "const_int_operand" "n")]
-		   UNSPEC_NT_LDA))]
-  ""
-  "lda %0,%1(%0)")
-
 (define_expand "builtin_longjmp"
   [(use (match_operand:DI 0 "register_operand" "r"))]
   "TARGET_ABI_OSF"
@@ -6934,70 +6901,44 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "jmp $31,(%0),0"
   [(set_attr "type" "ibr")])
 
-(define_insn "*builtin_setjmp_receiver_er_sl_1"
-  [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)]
-  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && TARGET_AS_CAN_SUBTRACT_LABELS"
-  "lda $27,$LSJ%=-%l0($27)\n$LSJ%=:")
-  
-(define_insn "*builtin_setjmp_receiver_er_1"
-  [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)]
-  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "br $27,$LSJ%=\n$LSJ%=:"
-  [(set_attr "type" "ibr")])
-
-(define_split
-  [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)]
-  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF
-   && prev_nonnote_insn (insn) == operands[0]"
-  [(const_int 0)]
-  "
-{
-  emit_note (NOTE_INSN_DELETED);
-  DONE;
-}")
-
-(define_insn "*builtin_setjmp_receiver_1"
+(define_expand "builtin_setjmp_receiver"
   [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)]
   "TARGET_ABI_OSF"
-  "br $27,$LSJ%=\n$LSJ%=:\;ldgp $29,0($27)"
-  [(set_attr "length" "12")
-   (set_attr "type" "multi")])
+  "")
 
-(define_expand "builtin_setjmp_receiver_er"
-  [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)
+(define_insn_and_split "*builtin_setjmp_receiver_1"
+  [(unspec_volatile [(match_operand 0 "" "")] UNSPECV_SETJMPR)]
+  "TARGET_ABI_OSF"
+{
+  if (TARGET_EXPLICIT_RELOCS)
+    return "#";
+  else
+    return "br $27,$LSJ%=\n$LSJ%=:\;ldgp $29,0($27)";
+}
+  "&& TARGET_EXPLICIT_RELOCS && reload_completed"
+  [(unspec_volatile [(match_dup 0)] UNSPECV_SETJMPR_ER)
    (set (match_dup 1)
 	(unspec_volatile:DI [(match_dup 2) (match_dup 3)] UNSPECV_LDGP1))
    (set (match_dup 1)
 	(unspec:DI [(match_dup 1) (match_dup 3)] UNSPEC_LDGP2))]
-  ""
 {
   operands[1] = pic_offset_table_rtx;
   operands[2] = gen_rtx_REG (Pmode, 27);
   operands[3] = GEN_INT (alpha_next_sequence_number++);
-})
+}
+  [(set_attr "length" "12")
+   (set_attr "type" "multi")])
 
-(define_expand "builtin_setjmp_receiver"
-  [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)]
-  "TARGET_ABI_OSF"
-{
-  if (TARGET_EXPLICIT_RELOCS)
-    {
-      emit_insn (gen_builtin_setjmp_receiver_er (operands[0]));
-      DONE;
-    }
-})
+(define_insn "*builtin_setjmp_receiver_er_sl_1"
+  [(unspec_volatile [(match_operand 0 "" "")] UNSPECV_SETJMPR_ER)]
+  "TARGET_ABI_OSF && TARGET_EXPLICIT_RELOCS && TARGET_AS_CAN_SUBTRACT_LABELS"
+  "lda $27,$LSJ%=-%l0($27)\n$LSJ%=:")
 
-(define_expand "exception_receiver_er"
-  [(set (match_dup 0)
-	(unspec_volatile:DI [(match_dup 1) (match_dup 2)] UNSPECV_LDGP1))
-   (set (match_dup 0)
-	(unspec:DI [(match_dup 0) (match_dup 2)] UNSPEC_LDGP2))]
-  ""
-{
-  operands[0] = pic_offset_table_rtx;
-  operands[1] = gen_rtx_REG (Pmode, 26);
-  operands[2] = GEN_INT (alpha_next_sequence_number++);
-})
+(define_insn "*builtin_setjmp_receiver_er_1"
+  [(unspec_volatile [(match_operand 0 "" "")] UNSPECV_SETJMPR_ER)]
+  "TARGET_ABI_OSF && TARGET_EXPLICIT_RELOCS"
+  "br $27,$LSJ%=\n$LSJ%=:"
+  [(set_attr "type" "ibr")])
 
 (define_expand "exception_receiver"
   [(unspec_volatile [(match_dup 0)] UNSPECV_EHR)]
@@ -7005,27 +6946,37 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 {
   if (TARGET_LD_BUGGY_LDGP)
     operands[0] = alpha_gp_save_rtx ();
-  else if (TARGET_EXPLICIT_RELOCS)
-    {
-      emit_insn (gen_exception_receiver_er ());
-      DONE;
-    }
   else
     operands[0] = const0_rtx;
 })
 
-(define_insn "*exception_receiver_1"
-  [(unspec_volatile [(const_int 0)] UNSPECV_EHR)]
-  "! TARGET_LD_BUGGY_LDGP"
-  "ldgp $29,0($26)"
-  [(set_attr "length" "8")
-   (set_attr "type" "multi")])
-
 (define_insn "*exception_receiver_2"
   [(unspec_volatile [(match_operand:DI 0 "memory_operand" "m")] UNSPECV_EHR)]
-  "TARGET_LD_BUGGY_LDGP"
+  "TARGET_ABI_OSF && TARGET_LD_BUGGY_LDGP"
   "ldq $29,%0"
   [(set_attr "type" "ild")])
+
+(define_insn_and_split "*exception_receiver_1"
+  [(unspec_volatile [(const_int 0)] UNSPECV_EHR)]
+  "TARGET_ABI_OSF"
+{
+  if (TARGET_EXPLICIT_RELOCS)
+    return "ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*";
+  else
+    return "ldgp $29,0($26)";
+}
+  "&& TARGET_EXPLICIT_RELOCS && reload_completed"
+  [(set (match_dup 0)
+	(unspec_volatile:DI [(match_dup 1) (match_dup 2)] UNSPECV_LDGP1))
+   (set (match_dup 0)
+	(unspec:DI [(match_dup 0) (match_dup 2)] UNSPEC_LDGP2))]
+{
+  operands[0] = pic_offset_table_rtx;
+  operands[1] = gen_rtx_REG (Pmode, 26);
+  operands[2] = GEN_INT (alpha_next_sequence_number++);
+}
+  [(set_attr "length" "8")
+   (set_attr "type" "multi")])
 
 (define_expand "nonlocal_goto_receiver"
   [(unspec_volatile [(const_int 0)] UNSPECV_BLOCKAGE)
@@ -7900,7 +7851,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
    && ! samegp_function_operand (operands[1], Pmode)
-   && peep2_regno_dead_p (1, 29)"
+   && (peep2_regno_dead_p (1, 29)
+       || find_reg_note (insn, REG_NORETURN, NULL_RTX))"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
 			 (match_dup 2)))
@@ -7932,7 +7884,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
    && ! samegp_function_operand (operands[1], Pmode)
-   && ! peep2_regno_dead_p (1, 29)"
+   && ! (peep2_regno_dead_p (1, 29)
+         || find_reg_note (insn, REG_NORETURN, NULL_RTX))"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
 			 (match_dup 2)))
@@ -7974,7 +7927,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (match_operand 4 "" ""))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "jsr $26,(%1),%3%J4"
-  [(set_attr "type" "jsr")])
+  [(set_attr "type" "jsr")
+   (set_attr "cannot_copy" "true")])
 
 (define_insn "*call_value_osf_1_noreturn"
   [(set (match_operand 0 "" "")

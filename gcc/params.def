@@ -39,7 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    of a function counted in internal gcc instructions (not in
    real machine instructions) that is eligible for inlining
    by the tree inliner.
-   The default value is 100.
+   The default value is 500.
    Only functions marked inline (or methods defined in the class
    definition for C++) are affected by this, unless you set the
    -finline-functions (included in -O3) compiler option.
@@ -59,30 +59,11 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
    that is applied to functions marked inlined (or defined in the
    class declaration in C++) given by the "max-inline-insns-single"
    parameter.
-   The default value is 100.  */
+   The default value is 150.  */
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 	  "max-inline-insns-auto",
 	  "The maximum number of instructions when automatically inlining",
-	  150)
-
-/* The repeated inlining limit.  After this number of instructions 
-   (in the internal gcc representation, not real machine instructions)
-   got inlined by repeated inlining, gcc starts to decrease the maximum
-   number of inlinable instructions in the tree inliner.
-   This is done by a linear function, see "max-inline-slope" parameter.
-   It is necessary in order to limit the compile-time resources, that 
-   could otherwise become very high.
-   It is recommended to set this value to twice the value of the single
-   function limit (set by the "max-inline-insns-single" parameter) or
-   higher.  The default value is 200.
-   Higher values mean that more inlining is done, resulting in
-   better performance of the code, at the expense of higher 
-   compile-time resource (time, memory) requirements and larger
-   binaries.  */
-DEFPARAM (PARAM_MAX_INLINE_INSNS,
-	  "max-inline-insns",
-	  "The maximum number of instructions by repeated inlining before gcc starts to throttle inlining",
-	  200)
+	  100)
 
 /* For languages that (still) use the RTL inliner, we can specify
    limits for the RTL inliner separately.
@@ -129,7 +110,7 @@ DEFPARAM(PARAM_MAX_PENDING_LIST_LENGTH,
 DEFPARAM(PARAM_LARGE_FUNCTION_INSNS,
 	 "large-function-insns",
 	 "The size of function body to be considered large",
-	 10000)
+	 3000)
 DEFPARAM(PARAM_LARGE_FUNCTION_GROWTH,
 	 "large-function-growth",
 	 "Maximal growth due to inlining of large function (in percent)",
@@ -152,7 +133,12 @@ DEFPARAM(PARAM_MAX_GCSE_PASSES,
 	1)
 
 /* This parameter limits the number of insns in a loop that will be unrolled,
-   and by how much the loop is unrolled.  */
+   and by how much the loop is unrolled.
+   
+   This limit should be at most half of the peeling limits:  loop unroller
+   decides to not unroll loops that iterate fewer than 2*number of allowed
+   unrollings and thus we would have loops that are neither peeled or unrooled
+   otherwise.  */
 DEFPARAM(PARAM_MAX_UNROLLED_INSNS,
 	 "max-unrolled-insns",
 	 "The maximum number of instructions to consider to unroll in a loop",
@@ -172,7 +158,7 @@ DEFPARAM(PARAM_MAX_UNROLL_TIMES,
 DEFPARAM(PARAM_MAX_PEELED_INSNS,
 	"max-peeled-insns",
 	"The maximum number of insns of a peeled loop",
-	120)
+	400)
 /* The maximum number of peelings of a single loop.  */
 DEFPARAM(PARAM_MAX_PEEL_TIMES,
 	"max-peel-times",
@@ -182,7 +168,7 @@ DEFPARAM(PARAM_MAX_PEEL_TIMES,
 DEFPARAM(PARAM_MAX_COMPLETELY_PEELED_INSNS,
 	"max-completely-peeled-insns",
 	"The maximum number of insns of a completely peeled loop",
-	120)
+	400)
 /* The maximum number of peelings of a single loop that is peeled completely.  */
 DEFPARAM(PARAM_MAX_COMPLETELY_PEEL_TIMES,
 	"max-completely-peel-times",
@@ -192,7 +178,7 @@ DEFPARAM(PARAM_MAX_COMPLETELY_PEEL_TIMES,
 DEFPARAM(PARAM_MAX_ONCE_PEELED_INSNS,
 	"max-once-peeled-insns",
 	"The maximum number of insns of a peeled loop that rolls only once",
-	200)
+	400)
 
 /* The maximum number of insns of an unswitched loop.  */
 DEFPARAM(PARAM_MAX_UNSWITCH_INSNS,
@@ -257,6 +243,20 @@ DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "The maximum length of path considered in cse",
 	 10)
 
+DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
+	 "max-cselib-memory-locations",
+	 "The maximum memory locations recorded by cselib",
+	 500)
+
+DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
+	 "max-last-value-rtl",
+	 "The maximum number of RTL nodes that can be recorded as \
+combiner's last value",
+	 10000)
+
+  /* INTEGER_CST nodes are shared for values [{-1,0} .. N) for
+     {signed,unsigned} integral types.  This determines N.
+     Experimentation shows 256 to be a good value.  */
 #ifdef ENABLE_GC_ALWAYS_COLLECT
 # define GGC_MIN_EXPAND_DEFAULT 0
 # define GGC_MIN_HEAPSIZE_DEFAULT 0
@@ -278,6 +278,11 @@ DEFPARAM(GGC_MIN_HEAPSIZE,
 
 #undef GGC_MIN_EXPAND_DEFAULT
 #undef GGC_MIN_HEAPSIZE_DEFAULT
+
+DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
+	 "max-reload-search-insns",
+	 "The maximum number of instructions to search backward when looking for equivalent reload",
+	 100)
 
 /*
 Local variables:

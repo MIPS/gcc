@@ -1,6 +1,6 @@
 /* real.c - software floating point emulation.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -57,7 +57,7 @@
 
    Both of these requirements are easily satisfied.  The largest target
    significand is 113 bits; we store at least 160.  The smallest
-   denormal number fits in 17 exponent bits; we store 29.
+   denormal number fits in 17 exponent bits; we store 27.
 
    Note that the decimal string conversion routines are sensitive to
    rounding errors.  Since the raw arithmetic routines do not themselves
@@ -640,6 +640,9 @@ do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
   r->class = rvc_normal;
   r->sign = sign;
   r->exp = exp;
+  /* Zero out the remaining fields.  */
+  r->signalling = 0;
+  r->canonical = 0;
 
   /* Re-normalize the result.  */
   normalize (r);
@@ -858,6 +861,8 @@ do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
   else
     rr = r;
 
+  /* Make sure all fields in the result are initialized.  */
+  get_zero (rr, 0);
   rr->class = rvc_normal;
   rr->sign = sign;
 
@@ -1767,7 +1772,7 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
   else if (*str == '+')
     str++;
 
-  if (str[0] == '0' && str[1] == 'x')
+  if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
     {
       /* Hexadecimal floating point.  */
       int pos = SIGNIFICAND_BITS - 4, d;
@@ -1958,6 +1963,7 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
     get_zero (r, 0);
   else
     {
+      memset (r, 0, sizeof (*r));
       r->class = rvc_normal;
       r->sign = high < 0 && !unsigned_p;
       r->exp = 2 * HOST_BITS_PER_WIDE_INT;
@@ -1975,7 +1981,6 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	{
 	  r->sig[SIGSZ-1] = high;
 	  r->sig[SIGSZ-2] = low;
-	  memset (r->sig, 0, sizeof(long)*(SIGSZ-2));
 	}
       else if (HOST_BITS_PER_LONG*2 == HOST_BITS_PER_WIDE_INT)
 	{
@@ -1983,8 +1988,6 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	  r->sig[SIGSZ-2] = high;
 	  r->sig[SIGSZ-3] = low >> (HOST_BITS_PER_LONG - 1) >> 1;
 	  r->sig[SIGSZ-4] = low;
-	  if (SIGSZ > 4)
-	    memset (r->sig, 0, sizeof(long)*(SIGSZ-4));
 	}
       else
 	abort ();
@@ -2534,9 +2537,10 @@ encode_ieee_single (const struct real_format *fmt, long *buf,
 		    const REAL_VALUE_TYPE *r)
 {
   unsigned long image, sig, exp;
+  unsigned long sign = r->sign;
   bool denormal = (r->sig[SIGSZ-1] & SIG_MSB) == 0;
 
-  image = r->sign << 31;
+  image = sign << 31;
   sig = (r->sig[SIGSZ-1] >> (HOST_BITS_PER_LONG - 24)) & 0x7fffff;
 
   switch (r->class)
@@ -2905,20 +2909,14 @@ const struct real_format mips_double_format =
   };
 
 
-/* IEEE extended double precision format.  This comes in three
-   flavors: Intel's as a 12 byte image, Intel's as a 16 byte image,
-   and Motorola's.  */
+/* IEEE extended real format.  This comes in three flavors: Intel's as
+   a 12 byte image, Intel's as a 16 byte image, and Motorola's.  Intel
+   12- and 16-byte images may be big- or little endian; Motorola's is
+   always big endian.  */
 
-static void encode_ieee_extended (const struct real_format *fmt,
-				  long *, const REAL_VALUE_TYPE *);
-static void decode_ieee_extended (const struct real_format *,
-				  REAL_VALUE_TYPE *, const long *);
-
-static void encode_ieee_extended_128 (const struct real_format *fmt,
-				      long *, const REAL_VALUE_TYPE *);
-static void decode_ieee_extended_128 (const struct real_format *,
-				      REAL_VALUE_TYPE *, const long *);
-
+/* Helper subroutine which converts from the internal format to the
+   12-byte little-endian Intel format.  Functions below adjust this
+   for the other possible formats.  */
 static void
 encode_ieee_extended (const struct real_format *fmt, long *buf,
 		      const REAL_VALUE_TYPE *r)
@@ -3026,20 +3024,65 @@ encode_ieee_extended (const struct real_format *fmt, long *buf,
       abort ();
     }
 
-  if (FLOAT_WORDS_BIG_ENDIAN)
-    buf[0] = image_hi << 16, buf[1] = sig_hi, buf[2] = sig_lo;
-  else
-    buf[0] = sig_lo, buf[1] = sig_hi, buf[2] = image_hi;
+  buf[0] = sig_lo, buf[1] = sig_hi, buf[2] = image_hi;
 }
 
+/* Convert from the internal format to the 12-byte Motorola format
+   for an IEEE extended real.  */
 static void
-encode_ieee_extended_128 (const struct real_format *fmt, long *buf,
-			  const REAL_VALUE_TYPE *r)
+encode_ieee_extended_motorola (const struct real_format *fmt, long *buf,
+			       const REAL_VALUE_TYPE *r)
 {
-  buf[3 * !FLOAT_WORDS_BIG_ENDIAN] = 0;
-  encode_ieee_extended (fmt, buf+!!FLOAT_WORDS_BIG_ENDIAN, r);
+  long intermed[3];
+  encode_ieee_extended (fmt, intermed, r);
+
+  /* Motorola chips are assumed always to be big-endian.  Also, the
+     padding in a Motorola extended real goes between the exponent and
+     the mantissa.  At this point the mantissa is entirely within
+     elements 0 and 1 of intermed, and the exponent entirely within
+     element 2, so all we have to do is swap the order around, and
+     shift element 2 left 16 bits.  */
+  buf[0] = intermed[2] << 16;
+  buf[1] = intermed[1];
+  buf[2] = intermed[0];
 }
 
+/* Convert from the internal format to the 12-byte Intel format for
+   an IEEE extended real.  */
+static void
+encode_ieee_extended_intel_96 (const struct real_format *fmt, long *buf,
+			       const REAL_VALUE_TYPE *r)
+{
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    {
+      /* All the padding in an Intel-format extended real goes at the high
+	 end, which in this case is after the mantissa, not the exponent.
+	 Therefore we must shift everything down 16 bits.  */
+      long intermed[3];
+      encode_ieee_extended (fmt, intermed, r);
+      buf[0] = ((intermed[2] << 16) | ((unsigned long)(intermed[1] & 0xFFFF0000) >> 16));
+      buf[1] = ((intermed[1] << 16) | ((unsigned long)(intermed[0] & 0xFFFF0000) >> 16));
+      buf[2] =  (intermed[0] << 16);
+    }
+  else
+    /* encode_ieee_extended produces what we want directly.  */
+    encode_ieee_extended (fmt, buf, r);
+}
+
+/* Convert from the internal format to the 16-byte Intel format for
+   an IEEE extended real.  */
+static void
+encode_ieee_extended_intel_128 (const struct real_format *fmt, long *buf,
+				const REAL_VALUE_TYPE *r)
+{
+  /* All the padding in an Intel-format extended real goes at the high end.  */
+  encode_ieee_extended_intel_96 (fmt, buf, r);
+  buf[3] = 0;
+}
+
+/* As above, we have a helper function which converts from 12-byte
+   little-endian Intel format to internal format.  Functions below
+   adjust for the other possible formats.  */
 static void
 decode_ieee_extended (const struct real_format *fmt, REAL_VALUE_TYPE *r,
 		      const long *buf)
@@ -3048,10 +3091,7 @@ decode_ieee_extended (const struct real_format *fmt, REAL_VALUE_TYPE *r,
   bool sign;
   int exp;
 
-  if (FLOAT_WORDS_BIG_ENDIAN)
-    image_hi = buf[0] >> 16, sig_hi = buf[1], sig_lo = buf[2];
-  else
-    sig_lo = buf[0], sig_hi = buf[1], image_hi = buf[2];
+  sig_lo = buf[0], sig_hi = buf[1], image_hi = buf[2];
   sig_lo &= 0xffffffff;
   sig_hi &= 0xffffffff;
   image_hi &= 0xffffffff;
@@ -3128,17 +3168,62 @@ decode_ieee_extended (const struct real_format *fmt, REAL_VALUE_TYPE *r,
     }
 }
 
+/* Convert from the internal format to the 12-byte Motorola format
+   for an IEEE extended real.  */
 static void
-decode_ieee_extended_128 (const struct real_format *fmt, REAL_VALUE_TYPE *r,
-			  const long *buf)
+decode_ieee_extended_motorola (const struct real_format *fmt, REAL_VALUE_TYPE *r,
+			       const long *buf)
 {
-  decode_ieee_extended (fmt, r, buf+!!FLOAT_WORDS_BIG_ENDIAN);
+  long intermed[3];
+
+  /* Motorola chips are assumed always to be big-endian.  Also, the
+     padding in a Motorola extended real goes between the exponent and
+     the mantissa; remove it.  */
+  intermed[0] = buf[2];
+  intermed[1] = buf[1];
+  intermed[2] = (unsigned long)buf[0] >> 16;
+
+  decode_ieee_extended (fmt, r, intermed);
+}
+
+/* Convert from the internal format to the 12-byte Intel format for
+   an IEEE extended real.  */
+static void
+decode_ieee_extended_intel_96 (const struct real_format *fmt, REAL_VALUE_TYPE *r,
+			       const long *buf)
+{
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    {
+      /* All the padding in an Intel-format extended real goes at the high
+	 end, which in this case is after the mantissa, not the exponent.
+	 Therefore we must shift everything up 16 bits.  */
+      long intermed[3];
+
+      intermed[0] = (((unsigned long)buf[2] >> 16) | (buf[1] << 16));
+      intermed[1] = (((unsigned long)buf[1] >> 16) | (buf[0] << 16));
+      intermed[2] =  ((unsigned long)buf[0] >> 16);
+
+      decode_ieee_extended (fmt, r, intermed);
+    }
+  else
+    /* decode_ieee_extended produces what we want directly.  */
+    decode_ieee_extended (fmt, r, buf);
+}
+
+/* Convert from the internal format to the 16-byte Intel format for
+   an IEEE extended real.  */
+static void
+decode_ieee_extended_intel_128 (const struct real_format *fmt, REAL_VALUE_TYPE *r,
+				const long *buf)
+{
+  /* All the padding in an Intel-format extended real goes at the high end.  */
+  decode_ieee_extended_intel_96 (fmt, r, buf);
 }
 
 const struct real_format ieee_extended_motorola_format =
   {
-    encode_ieee_extended,
-    decode_ieee_extended,
+    encode_ieee_extended_motorola,
+    decode_ieee_extended_motorola,
     2,
     1,
     64,
@@ -3155,8 +3240,8 @@ const struct real_format ieee_extended_motorola_format =
 
 const struct real_format ieee_extended_intel_96_format =
   {
-    encode_ieee_extended,
-    decode_ieee_extended,
+    encode_ieee_extended_intel_96,
+    decode_ieee_extended_intel_96,
     2,
     1,
     64,
@@ -3173,8 +3258,8 @@ const struct real_format ieee_extended_intel_96_format =
 
 const struct real_format ieee_extended_intel_128_format =
   {
-    encode_ieee_extended_128,
-    decode_ieee_extended_128,
+    encode_ieee_extended_intel_128,
+    decode_ieee_extended_intel_128,
     2,
     1,
     64,
@@ -3193,8 +3278,8 @@ const struct real_format ieee_extended_intel_128_format =
    to 53 bits instead of 64, e.g. FreeBSD.  */
 const struct real_format ieee_extended_intel_96_round_53_format =
   {
-    encode_ieee_extended,
-    decode_ieee_extended,
+    encode_ieee_extended_intel_96,
+    decode_ieee_extended_intel_96,
     2,
     1,
     53,
@@ -3227,58 +3312,34 @@ static void
 encode_ibm_extended (const struct real_format *fmt, long *buf,
 		     const REAL_VALUE_TYPE *r)
 {
-  REAL_VALUE_TYPE u, v;
+  REAL_VALUE_TYPE u, normr, v;
   const struct real_format *base_fmt;
 
   base_fmt = fmt->qnan_msb_set ? &ieee_double_format : &mips_double_format;
 
-  switch (r->class)
+  /* Renormlize R before doing any arithmetic on it.  */
+  normr = *r;
+  if (normr.class == rvc_normal)
+    normalize (&normr);
+
+  /* u = IEEE double precision portion of significand.  */
+  u = normr;
+  round_for_format (base_fmt, &u);
+  encode_ieee_double (base_fmt, &buf[0], &u);
+
+  if (u.class == rvc_normal)
     {
-    case rvc_zero:
-      /* Both doubles have sign bit set.  */
-      buf[0] = FLOAT_WORDS_BIG_ENDIAN ? r->sign << 31 : 0;
-      buf[1] = FLOAT_WORDS_BIG_ENDIAN ? 0 : r->sign << 31;
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      break;
-
-    case rvc_inf:
-    case rvc_nan:
-      /* Both doubles set to Inf / NaN.  */
-      encode_ieee_double (base_fmt, &buf[0], r);
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      return;
-
-    case rvc_normal:
-      /* u = IEEE double precision portion of significand.  */
-      u = *r;
-      clear_significand_below (&u, SIGNIFICAND_BITS - 53);
-
-      normalize (&u);
-      /* If the upper double is zero, we have a denormal double, so
-	 move it to the first double and leave the second as zero.  */
-      if (u.class == rvc_zero)
-	{
-	  v = u;
-	  u = *r;
-	  normalize (&u);
-	}
-      else
-	{
-	  /* v = remainder containing additional 53 bits of significand.  */
-	  do_add (&v, r, &u, 1);
-	  round_for_format (base_fmt, &v);
-	}
-
-      round_for_format (base_fmt, &u);
-
-      encode_ieee_double (base_fmt, &buf[0], &u);
+      do_add (&v, &normr, &u, 1);
+      /* Call round_for_format since we might need to denormalize.  */
+      round_for_format (base_fmt, &v);
       encode_ieee_double (base_fmt, &buf[2], &v);
-      break;
-
-    default:
-      abort ();
+    }
+  else
+    {
+      /* Inf, NaN, 0 are all representable as doubles, so the
+	 least-significant part can be 0.0.  */
+      buf[2] = 0;
+      buf[3] = 0;
     }
 }
 

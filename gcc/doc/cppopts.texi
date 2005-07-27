@@ -1,4 +1,4 @@
-@c Copyright (c) 1999, 2000, 2001, 2002, 2003
+@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004
 @c Free Software Foundation, Inc.
 @c This is part of the CPP and GCC manuals.
 @c For copying conditions, see the file gcc.texi.
@@ -17,10 +17,14 @@ Predefine @var{name} as a macro, with definition @code{1}.
 
 @item -D @var{name}=@var{definition}
 Predefine @var{name} as a macro, with definition @var{definition}.
-There are no restrictions on the contents of @var{definition}, but if
-you are invoking the preprocessor from a shell or shell-like program you
-may need to use the shell's quoting syntax to protect characters such as
-spaces that have a meaning in the shell syntax.
+The contents of @var{definition} are tokenized and processed as if
+they appeared during translation phase three in a @samp{#define}
+directive.  In particular, the definition will be truncated by
+embedded newline characters.
+
+If you are invoking the preprocessor from a shell or shell-like
+program you may need to use the shell's quoting syntax to protect
+characters such as spaces that have a meaning in the shell syntax.
 
 If you wish to define a function-like macro on the command line, write
 its argument list with surrounding parentheses before the equals sign
@@ -255,11 +259,11 @@ files without updating the @file{Makefile} to match.
 
 This is typical output:
 
-@example
+@smallexample
 test.o: test.c test.h
 
 test.h:
-@end example
+@end smallexample
 
 @item -MT @var{target}
 @opindex MT
@@ -275,9 +279,9 @@ argument to @option{-MT}, or use multiple @option{-MT} options.
 
 For example, @option{@w{-MT '$(objpfx)foo.o'}} might give
 
-@example
+@smallexample
 $(objpfx)foo.o: foo.c
-@end example
+@end smallexample
 
 @item -MQ @var{target}
 @opindex MQ
@@ -285,9 +289,9 @@ $(objpfx)foo.o: foo.c
 Same as @option{-MT}, but it quotes any characters which are special to
 Make.  @option{@w{-MQ '$(objpfx)foo.o'}} gives
 
-@example
+@smallexample
 $$(objpfx)foo.o: foo.c
-@end example
+@end smallexample
 
 The default target is automatically quoted, as if it were given with
 @option{-MQ}.
@@ -456,7 +460,10 @@ Append @var{dir} to the prefix specified previously with
 path.  @option{-iwithprefixbefore} puts it in the same place @option{-I}
 would; @option{-iwithprefix} puts it where @option{-idirafter} would.
 
-Use of these options is discouraged.
+@item -isysroot @var{dir}
+@opindex isysroot
+This option is like the @option{--sysroot} option, but applies only to
+header files.  See the @option{--sysroot} option for more information.
 
 @item -isystem @var{dir}
 @opindex isystem
@@ -513,6 +520,16 @@ corresponds to the width of @code{wchar_t}.  As with
 by the system's @code{iconv} library routine; however, you will have
 problems with encodings that do not fit exactly in @code{wchar_t}.
 
+@item -finput-charset=@var{charset}
+@opindex finput-charset
+Set the input character set, used for translation from the character
+set of the input file to the source character set used by GCC. If the
+locale does not specify, or GCC cannot get this information from the
+locale, the default is UTF-8. This can be overridden by either the locale
+or this command line option. Currently the command line option takes
+precedence if there's a conflict. @var{charset} can be any encoding
+supported by the system's @code{iconv} library routine.
+
 @item -fworking-directory
 @opindex fworking-directory
 @opindex fno-working-directory
@@ -565,9 +582,9 @@ preprocessor, including predefined macros.  This gives you a way of
 finding out what is predefined in your version of the preprocessor.
 Assuming you have no file @file{foo.h}, the command
 
-@example
+@smallexample
 touch foo.h; cpp -dM foo.h
-@end example
+@end smallexample
 
 @noindent
 will show all the predefined macros.

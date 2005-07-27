@@ -1,6 +1,6 @@
-// Allocators -*- C++ -*-
+// Allocator that wraps "C" malloc -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,137 +27,92 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/*
- * Copyright (c) 1996-1997
- * Silicon Graphics Computer Systems, Inc.
- *
- * Permission to use, copy, modify, distribute and sell this software
- * and its documentation for any purpose is hereby granted without fee,
- * provided that the above copyright notice appear in all copies and
- * that both that copyright notice and this permission notice appear
- * in supporting documentation.  Silicon Graphics makes no
- * representations about the suitability of this software for any
- * purpose.  It is provided "as is" without express or implied warranty.
- */
-
-/** @file ext/debug_allocator.h
- *  This file is a GNU extension to the Standard C++ Library. 
- *  You should only include this header if you are using GCC 3 or later.
- */
-
 #ifndef _MALLOC_ALLOCATOR_H
 #define _MALLOC_ALLOCATOR_H 1
 
-#include <bits/allocator_traits.h>
+#include <new>
 
 namespace __gnu_cxx
 {
   /**
-   *  @if maint
-   *  A malloc-based allocator.  Typically slower than the
-   *  __pool_alloc (below).  Typically thread-safe and more
-   *  storage efficient.  The template argument is unused and is only present
-   *  to permit multiple instantiations (but see __pool_alloc
-   *  for caveats).  "SGI" style, plus __set_malloc_handler for OOM conditions.
-   *  @endif
+   *  @brief  An allocator that uses malloc
+   *
+   *  This is precisely the allocator defined in the C++ Standard. 
+   *    - all allocation calls malloc
+   *    - all deallocation calls free
+   *
    *  (See @link Allocators allocators info @endlink for more.)
    */
-  template<int __inst>
-    class __malloc_alloc
+  template<typename _Tp>
+    class malloc_allocator
     {
-    private:
-      static void* _S_oom_malloc(size_t);
-      static void (* __malloc_alloc_oom_handler)();
-
     public:
-      static void*
-      allocate(size_t __n)
+      typedef size_t     size_type;
+      typedef ptrdiff_t  difference_type;
+      typedef _Tp*       pointer;
+      typedef const _Tp* const_pointer;
+      typedef _Tp&       reference;
+      typedef const _Tp& const_reference;
+      typedef _Tp        value_type;
+
+      template<typename _Tp1>
+        struct rebind
+        { typedef malloc_allocator<_Tp1> other; };
+
+      malloc_allocator() throw() { }
+
+      malloc_allocator(const malloc_allocator&) throw() { }
+
+      template<typename _Tp1>
+        malloc_allocator(const malloc_allocator<_Tp1>&) throw() { }
+
+      ~malloc_allocator() throw() { }
+
+      pointer
+      address(reference __x) const { return &__x; }
+
+      const_pointer
+      address(const_reference __x) const { return &__x; }
+
+      // NB: __n is permitted to be 0.  The C++ standard says nothing
+      // about what the return value is when __n == 0.
+      pointer
+      allocate(size_type __n, const void* = 0)
       {
-        void* __result = malloc(__n);
-        if (__builtin_expect(__result == 0, 0))
-	  __result = _S_oom_malloc(__n);
-        return __result;
+	pointer __ret = static_cast<_Tp*>(malloc(__n * sizeof(_Tp)));
+	if (!__ret)
+	  throw std::bad_alloc();
+	return __ret;
       }
 
-      static void
-      deallocate(void* __p, size_t /* __n */)
-      { free(__p); }
+      // __p is not permitted to be a null pointer.
+      void
+      deallocate(pointer __p, size_type)
+      { free(static_cast<void*>(__p)); }
 
-      static void (* __set_malloc_handler(void (*__f)()))()
-      {
-        void (* __old)() = __malloc_alloc_oom_handler;
-        __malloc_alloc_oom_handler = __f;
-        return __old;
-      }
+      size_type
+      max_size() const throw() 
+      { return size_t(-1) / sizeof(_Tp); }
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 402. wrong new expression in [some_] allocator::construct
+      void 
+      construct(pointer __p, const _Tp& __val) 
+      { ::new(__p) value_type(__val); }
+
+      void 
+      destroy(pointer __p) { __p->~_Tp(); }
     };
 
-  // malloc_alloc out-of-memory handling
-  template<int __inst>
-    void (* __malloc_alloc<__inst>::__malloc_alloc_oom_handler)() = 0;
-
-  template<int __inst>
-    void*
-    __malloc_alloc<__inst>::
-    _S_oom_malloc(size_t __n)
-    {
-      void (* __my_malloc_handler)();
-      void* __result;
-
-      for (;;)
-        {
-          __my_malloc_handler = __malloc_alloc_oom_handler;
-          if (__builtin_expect(__my_malloc_handler == 0, 0))
-            __throw_bad_alloc();
-          (*__my_malloc_handler)();
-          __result = malloc(__n);
-          if (__result)
-            return __result;
-        }
-    }
-  //@{
-  /** Comparison operators for all of the predifined SGI-style allocators.
-   *  This ensures that __allocator<malloc_alloc> (for example) will work
-   *  correctly.  As required, all allocators compare equal.
-   */
-  template<int inst>
+  template<typename _Tp>
     inline bool
-    operator==(const __malloc_alloc<inst>&, const __malloc_alloc<inst>&)
+    operator==(const malloc_allocator<_Tp>&, const malloc_allocator<_Tp>&)
     { return true; }
-
-  template<int __inst>
+  
+  template<typename _Tp>
     inline bool
-    operator!=(const __malloc_alloc<__inst>&, const __malloc_alloc<__inst>&)
+    operator!=(const malloc_allocator<_Tp>&, const malloc_allocator<_Tp>&)
     { return false; }
-  //@}
 } // namespace __gnu_cxx
-
-namespace std
-{
-  //@{
-  /// Versions for the predefined "SGI" style allocators.
-  template<typename _Tp, int __inst>
-    struct _Alloc_traits<_Tp, __gnu_cxx::__malloc_alloc<__inst> >
-    {
-      static const bool _S_instanceless = true;
-      typedef __gnu_cxx:: __malloc_alloc<__inst>	base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-  //@}
-
-  //@{
-  /// Versions for the __allocator adaptor used with the predefined
-  /// "SGI" style allocators.
-  template<typename _Tp, typename _Tp1, int __inst>
-    struct _Alloc_traits<_Tp, __allocator<_Tp1, 
-					  __gnu_cxx::__malloc_alloc<__inst> > >
-    {
-      static const bool _S_instanceless = true;
-      typedef __gnu_cxx:: __malloc_alloc<__inst>	base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-  //@}
-} // namespace std
 
 #endif

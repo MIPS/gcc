@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -88,9 +88,10 @@ enum rid
   RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
   RID_TEMPLATE, RID_NULL,     RID_CATCH,
   RID_DELETE,   RID_FALSE,    RID_NAMESPACE,
-  RID_NEW,      RID_OPERATOR, RID_THIS,
-  RID_THROW,    RID_TRUE,     RID_TRY,
-  RID_TYPENAME, RID_TYPEID,   RID_USING,
+  RID_NEW,      RID_OFFSETOF, RID_OPERATOR, 
+  RID_THIS,     RID_THROW,    RID_TRUE,     
+  RID_TRY,      RID_TYPENAME, RID_TYPEID,   
+  RID_USING,
 
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
@@ -221,7 +222,8 @@ struct c_common_identifier GTY(())
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
 
-/* In a RECORD_TYPE, a sorted array of the fields of the type, not a tree for size reasons.  */
+/* In a RECORD_TYPE, a sorted array of the fields of the type, not a
+   tree for size reasons.  */
 struct sorted_fields_type GTY(())
 {
   int len;
@@ -328,8 +330,6 @@ extern void (*lang_expand_function_end) (void);
 extern int (*lang_missing_noreturn_ok_p) (tree);
 
 extern int yyparse (void);
-extern void free_parser_stacks (void);
-
 extern stmt_tree current_stmt_tree (void);
 extern tree *current_scope_stmt_stack (void);
 extern void begin_stmt_tree (tree *);
@@ -345,8 +345,6 @@ extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);
 
-enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
-extern void shadow_warning (enum sw_kind, const char *, tree);
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
@@ -552,7 +550,7 @@ extern int flag_isoc94;
 
 extern int flag_isoc99;
 
-/* Nonzero means that we have builtin functions, and main is an int */
+/* Nonzero means that we have builtin functions, and main is an int.  */
 
 extern int flag_hosted;
 
@@ -673,17 +671,6 @@ extern int flag_no_gnu_keywords;
 
 extern int flag_implement_inlines;
 
-/* Nonzero means do emit exported implementations of templates, instead of
-   multiple static copies in each file that needs a definition.  */
-
-extern int flag_external_templates;
-
-/* Nonzero means that the decision to emit or not emit the implementation of a
-   template depends on where the template is instantiated, rather than where
-   it is defined.  */
-
-extern int flag_alt_external_templates;
-
 /* Nonzero means that implicit instantiations will be emitted if needed.  */
 
 extern int flag_implicit_templates;
@@ -772,21 +759,6 @@ extern int flag_permissive;
    assertions and optimize accordingly, but not check them.  */
 
 extern int flag_enforce_eh_specs;
-
-/*  The version of the C++ ABI in use.  The following values are
-    allowed:
-
-    0: The version of the ABI believed most conformant with the 
-       C++ ABI specification.  This ABI may change as bugs are
-       discovered and fixed.  Therefore, 0 will not necessarily
-       indicate the same ABI in different versions of G++.
-
-    1: The version of the ABI first used in G++ 3.2.
-
-    Additional positive integers will be assigned as new versions of
-    the ABI become the default version of the ABI.  */
-
-extern int flag_abi_version;
 
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
@@ -943,6 +915,7 @@ extern void constant_expression_warning (tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
+extern bool c_determine_visibility (tree);
 
 /* Read the rest of the current #-directive line.  */
 extern char *get_directive_line (void);
@@ -1289,7 +1262,7 @@ extern tree finish_label_address_expr (tree);
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
 
-extern rtx c_expand_expr (tree, rtx, enum machine_mode, int);
+extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
 extern int c_safe_from_p (rtx, tree);
 
@@ -1330,6 +1303,7 @@ extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
 extern bool c_decl_uninit (tree t);
+extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
 /* The following have been moved here from c-tree.h, since they're needed
    in the ObjC++ world, too.  What is more, stub-objc.c could use a few
@@ -1348,5 +1322,6 @@ extern void objc_mark_locals_volatile (void *);
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
+extern void pp_dir_change (cpp_reader *, const char *);
 
 #endif /* ! GCC_C_COMMON_H */

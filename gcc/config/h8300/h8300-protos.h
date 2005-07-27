@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
-   Hitachi H8/300 version
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Renesas H8/300 version
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -39,7 +39,7 @@ extern const char *output_simode_bld (int, rtx[]);
 extern void print_operand_address (FILE *, rtx);
 extern void print_operand (FILE *, rtx, int);
 extern void final_prescan_insn (rtx, rtx *, int);
-extern int do_movsi (rtx[]);
+extern int h8300_expand_movsi (rtx[]);
 extern void notice_update_cc (rtx, rtx);
 extern const char *output_logical_op (enum machine_mode, rtx *);
 extern unsigned int compute_logical_op_length (enum machine_mode,
@@ -79,6 +79,7 @@ extern int h8300_eightbit_constant_address_p (rtx);
 extern int h8300_tiny_constant_address_p (rtx);
 extern int byte_accesses_mergeable_p (rtx, rtx);
 extern int same_cmp_preceding_p (rtx);
+extern int same_cmp_following_p (rtx);
 
 /* Used in builtins.c */
 extern rtx h8300_return_addr_rtx (int, rtx);

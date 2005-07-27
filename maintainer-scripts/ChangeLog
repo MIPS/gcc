@@ -1,3 +1,66 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2004-11-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release: Check "-p" argument more carefully.
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-05-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* gcc_release (build_sources): Generate the NEWS file in toplevel.
+
+2004-05-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_release (build_sources): Change CRCs from brik to md5sum.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-04-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release (build_sources): Do not use "-r" and "-D" at the
+	same time with "cvs export".
+
+2004-03-14  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (announce_snapshot): Use changedir instead of
+	plain cd.
+	
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_release (build_sources): Delete call to make f77.rebuilt.
+
+2004-01-03  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_web_docs: Create tarballs of documentation sources and
+	HTML docs.
+
+2004-01-02  Gerald Pfeifer  <gp@suse.de>
+
+	* update_version: Add some documentation.
+	
+2004-01-02  Pop Sébastian  <pop@gauvain.u-strasbg.fr>
+
+	* update_version (ADD_BRANCHES): Add lno-branch.
+
+2003-11-02  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* maintainer-addresses: New script.
+
 2003-10-24  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* gcc_release (build_sources): Use --enable-generated-files-in-srcdir.

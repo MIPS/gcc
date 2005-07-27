@@ -1,6 +1,6 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -55,6 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "predict.h"
 #include "timevar.h"
+#include "target.h"
 
 /* Optimize jump y; x: ... y: jumpif... x?
    Don't know if it is worth bothering with.  */
@@ -311,6 +312,23 @@ duplicate_loop_exit_test (rtx loop_start)
   int max_reg = max_reg_num ();
   rtx *reg_map = 0;
   rtx loop_pre_header_label;
+  int loop_depth;
+
+  /* If EXITCODE is not in the loop, then this optimization is not
+     safe; we will emit a VTOP note entirely outside the loop.  */
+  for (insn = loop_start, loop_depth = 0; 
+       insn != exitcode; 
+       insn = NEXT_INSN (insn))
+    {
+      if (GET_CODE (insn) != NOTE)
+	continue;
+
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
+	++loop_depth;
+      else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
+	       && --loop_depth == 0)
+	return 0;
+    }
 
   /* Scan the exit code.  We do not perform this optimization if any insn:
 
@@ -318,6 +336,7 @@ duplicate_loop_exit_test (rtx loop_start)
 	 is a CODE_LABEL
 	 has a REG_RETVAL or REG_LIBCALL note (hard to adjust)
 	 is a NOTE_INSN_LOOP_BEG because this means we have a nested loop
+         is not copyable
 
      We also do not do this if we find an insn with ASM_OPERANDS.  While
      this restriction should not be necessary, copying an insn with
@@ -331,6 +350,10 @@ duplicate_loop_exit_test (rtx loop_start)
 	     && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END);
        insn = NEXT_INSN (insn))
     {
+      if (targetm.cannot_copy_insn_p
+	  && (*targetm.cannot_copy_insn_p) (insn))
+	return 0;
+
       switch (GET_CODE (insn))
 	{
 	case CODE_LABEL:

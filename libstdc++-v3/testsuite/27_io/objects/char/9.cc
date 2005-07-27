@@ -1,6 +1,6 @@
 // 2003-05-01  Petur Runolfsson  <peturr02@ru.is>
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,8 +35,8 @@ void test09()
 
   freopen(name, "r", stdin);
  
-  // The number of unread characters should be 4 (a, b, c, \\n)
-  VERIFY( 4 == std::cin.rdbuf()->in_avail() );
+  // basic_streambuf::showmanyc returns 0.
+  VERIFY( 0 == std::cin.rdbuf()->in_avail() );
 }
 
 int 

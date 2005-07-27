@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -44,8 +44,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cselib.h"
 #include "df.h"
 
-extern char *reg_known_equiv_p;
-extern rtx *reg_known_value;
 
 static regset_head reg_pending_sets_head;
 static regset_head reg_pending_clobbers_head;
@@ -80,16 +78,17 @@ static enum reg_pending_barrier_mode reg_pending_barrier;
    has enough entries to represent a dependency on any other insn in
    the insn chain.  All bitmap for true dependencies cache is
    allocated then the rest two ones are also allocated.  */
-static sbitmap *true_dependency_cache;
-static sbitmap *anti_dependency_cache;
-static sbitmap *output_dependency_cache;
+static bitmap_head *true_dependency_cache;
+static bitmap_head *anti_dependency_cache;
+static bitmap_head *output_dependency_cache;
+int cache_size;
 
 /* To speed up checking consistency of formed forward insn
    dependencies we use the following cache.  Another possible solution
    could be switching off checking duplication of insns in forward
    dependencies.  */
 #ifdef ENABLE_CHECKING
-static sbitmap *forward_dependency_cache;
+static bitmap_head *forward_dependency_cache;
 #endif
 
 static int deps_may_trap_p (rtx);
@@ -112,10 +111,12 @@ deps_may_trap_p (rtx mem)
 {
   rtx addr = XEXP (mem, 0);
 
-  if (REG_P (addr)
-      && REGNO (addr) >= FIRST_PSEUDO_REGISTER
-      && reg_known_value[REGNO (addr)])
-    addr = reg_known_value[REGNO (addr)];
+  if (REG_P (addr) && REGNO (addr) >= FIRST_PSEUDO_REGISTER)
+    {
+      rtx t = get_reg_known_value (REGNO (addr));
+      if (t)
+	addr = t;
+    }
   return rtx_addr_can_trap_p (addr);
 }
 
@@ -244,13 +245,14 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
 
       if (anti_dependency_cache == NULL || output_dependency_cache == NULL)
 	abort ();
-      if (TEST_BIT (true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem)))
+      if (bitmap_bit_p (&true_dependency_cache[INSN_LUID (insn)],
+			INSN_LUID (elem)))
 	/* Do nothing (present_set_type is already 0).  */
 	;
-      else if (TEST_BIT (anti_dependency_cache[INSN_LUID (insn)],
+      else if (bitmap_bit_p (&anti_dependency_cache[INSN_LUID (insn)],
 			 INSN_LUID (elem)))
 	present_dep_type = REG_DEP_ANTI;
-      else if (TEST_BIT (output_dependency_cache[INSN_LUID (insn)],
+      else if (bitmap_bit_p (&output_dependency_cache[INSN_LUID (insn)],
 			 INSN_LUID (elem)))
 	present_dep_type = REG_DEP_OUTPUT;
       else
@@ -271,12 +273,12 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
 	  if (true_dependency_cache != NULL)
 	    {
 	      if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
-		RESET_BIT (anti_dependency_cache[INSN_LUID (insn)],
-			   INSN_LUID (elem));
+		bitmap_clear_bit (&anti_dependency_cache[INSN_LUID (insn)],
+				  INSN_LUID (elem));
 	      else if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT
 		       && output_dependency_cache)
-		RESET_BIT (output_dependency_cache[INSN_LUID (insn)],
-			   INSN_LUID (elem));
+		bitmap_clear_bit (&output_dependency_cache[INSN_LUID (insn)],
+				  INSN_LUID (elem));
 	      else
 		abort ();
 	    }
@@ -293,14 +295,14 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
 	  if (true_dependency_cache != NULL)
 	    {
 	      if ((int) REG_NOTE_KIND (link) == 0)
-		SET_BIT (true_dependency_cache[INSN_LUID (insn)],
-			 INSN_LUID (elem));
+		bitmap_set_bit (&true_dependency_cache[INSN_LUID (insn)],
+				INSN_LUID (elem));
 	      else if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
-		SET_BIT (anti_dependency_cache[INSN_LUID (insn)],
-			 INSN_LUID (elem));
+		bitmap_set_bit (&anti_dependency_cache[INSN_LUID (insn)],
+				INSN_LUID (elem));
 	      else if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
-		SET_BIT (output_dependency_cache[INSN_LUID (insn)],
-			 INSN_LUID (elem));
+		bitmap_set_bit (&output_dependency_cache[INSN_LUID (insn)],
+				INSN_LUID (elem));
 	    }
 #endif
 	  return 0;
@@ -319,11 +321,11 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
   if (true_dependency_cache != NULL)
     {
       if ((int) dep_type == 0)
-	SET_BIT (true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
+	bitmap_set_bit (&true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
       else if (dep_type == REG_DEP_ANTI)
-	SET_BIT (anti_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
+	bitmap_set_bit (&anti_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
       else if (dep_type == REG_DEP_OUTPUT)
-	SET_BIT (output_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
+	bitmap_set_bit (&output_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem));
     }
 #endif
   return 1;
@@ -395,7 +397,7 @@ add_insn_mem_dependence (struct deps *deps, rtx *insn_list, rtx *mem_list,
       mem = shallow_copy_rtx (mem);
       XEXP (mem, 0) = cselib_subst_to_values (XEXP (mem, 0));
     }
-  link = alloc_EXPR_LIST (VOIDmode, mem, *mem_list);
+  link = alloc_EXPR_LIST (VOIDmode, canon_rtx (mem), *mem_list);
   *mem_list = link;
 
   deps->pending_lists_length++;
@@ -521,10 +523,12 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	  /* Pseudos that are REG_EQUIV to something may be replaced
 	     by that during reloading.  We need only add dependencies for
 	     the address in the REG_EQUIV note.  */
-	  if (!reload_completed
-	      && reg_known_equiv_p[regno]
-	      && GET_CODE (reg_known_value[regno]) == MEM)
-	    sched_analyze_2 (deps, XEXP (reg_known_value[regno], 0), insn);
+	  if (!reload_completed && get_reg_known_equiv_p (regno))
+	    {
+	      rtx t = get_reg_known_value (regno);
+	      if (GET_CODE (t) == MEM)
+	        sched_analyze_2 (deps, XEXP (t, 0), insn);
+	    }
 
 	  /* Don't let it cross a call after scheduling if it doesn't
 	     already cross one.  */
@@ -543,6 +547,7 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	  cselib_lookup (XEXP (t, 0), Pmode, 1);
 	  XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
 	}
+      t = canon_rtx (t);
 
       if (deps->pending_lists_length > MAX_PENDING_LIST_LENGTH)
 	{
@@ -656,10 +661,12 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	    /* Pseudos that are REG_EQUIV to something may be replaced
 	       by that during reloading.  We need only add dependencies for
 	       the address in the REG_EQUIV note.  */
-	    if (!reload_completed
-		&& reg_known_equiv_p[regno]
-		&& GET_CODE (reg_known_value[regno]) == MEM)
-	      sched_analyze_2 (deps, XEXP (reg_known_value[regno], 0), insn);
+	    if (!reload_completed && get_reg_known_equiv_p (regno))
+	      {
+		rtx t = get_reg_known_value (regno);
+		if (GET_CODE (t) == MEM)
+		  sched_analyze_2 (deps, XEXP (t, 0), insn);
+	      }
 
 	    /* If the register does not already cross any calls, then add this
 	       insn to the sched_before_next_call list so that it will still
@@ -684,6 +691,7 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	    cselib_lookup (XEXP (t, 0), Pmode, 1);
 	    XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
 	  }
+	t = canon_rtx (t);
 	pending = deps->pending_read_insns;
 	pending_mem = deps->pending_read_mems;
 	while (pending)
@@ -1345,14 +1353,14 @@ add_forward_dependence (rtx from, rtx to, enum reg_note dep_type)
   if (GET_CODE (from) == NOTE
       || INSN_DELETED_P (from)
       || (forward_dependency_cache != NULL
-	  && TEST_BIT (forward_dependency_cache[INSN_LUID (from)],
-		       INSN_LUID (to)))
+	  && bitmap_bit_p (&forward_dependency_cache[INSN_LUID (from)],
+			   INSN_LUID (to)))
       || (forward_dependency_cache == NULL
 	  && find_insn_list (to, INSN_DEPEND (from))))
     abort ();
   if (forward_dependency_cache != NULL)
-    SET_BIT (forward_dependency_cache[INSN_LUID (from)],
-	     INSN_LUID (to));
+    bitmap_bit_p (&forward_dependency_cache[INSN_LUID (from)],
+		  INSN_LUID (to));
 #endif
 
   new_link = alloc_INSN_LIST (to, INSN_DEPEND (from));
@@ -1457,16 +1465,23 @@ init_dependency_caches (int luid)
      what we consider "very high".  */
   if (luid / n_basic_blocks > 100 * 5)
     {
-      true_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (true_dependency_cache, luid);
-      anti_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (anti_dependency_cache, luid);
-      output_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (output_dependency_cache, luid);
+      int i;
+      true_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
+      anti_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
+      output_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
 #ifdef ENABLE_CHECKING
-      forward_dependency_cache = sbitmap_vector_alloc (luid, luid);
-      sbitmap_vector_zero (forward_dependency_cache, luid);
+      forward_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
 #endif
+      for (i = 0; i < luid; i++)
+	{
+	  bitmap_initialize (&true_dependency_cache[i], 0);
+	  bitmap_initialize (&anti_dependency_cache[i], 0);
+	  bitmap_initialize (&output_dependency_cache[i], 0);
+#ifdef ENABLE_CHECKING
+	  bitmap_initialize (&forward_dependency_cache[i], 0);
+#endif
+	}
+      cache_size = luid;
     }
 }
 
@@ -1477,14 +1492,25 @@ free_dependency_caches (void)
 {
   if (true_dependency_cache)
     {
-      sbitmap_vector_free (true_dependency_cache);
+      int i;
+
+      for (i = 0; i < cache_size; i++)
+	{
+	  bitmap_clear (&true_dependency_cache[i]);
+	  bitmap_clear (&anti_dependency_cache[i]);
+	  bitmap_clear (&output_dependency_cache[i]);
+#ifdef ENABLE_CHECKING
+	  bitmap_clear (&forward_dependency_cache[i]);
+#endif
+	}
+      free (true_dependency_cache);
       true_dependency_cache = NULL;
-      sbitmap_vector_free (anti_dependency_cache);
+      free (anti_dependency_cache);
       anti_dependency_cache = NULL;
-      sbitmap_vector_free (output_dependency_cache);
+      free (output_dependency_cache);
       output_dependency_cache = NULL;
 #ifdef ENABLE_CHECKING
-      sbitmap_vector_free (forward_dependency_cache);
+      free (forward_dependency_cache);
       forward_dependency_cache = NULL;
 #endif
     }

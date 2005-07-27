@@ -39,7 +39,7 @@ int
 is_friend (tree type, tree supplicant)
 {
   int declp;
-  register tree list;
+  tree list;
   tree context;
 
   if (supplicant == NULL_TREE || type == NULL_TREE)
@@ -60,25 +60,15 @@ is_friend (tree type, tree supplicant)
 	      tree friends = FRIEND_DECLS (list);
 	      for (; friends ; friends = TREE_CHAIN (friends))
 		{
-		  if (TREE_VALUE (friends) == NULL_TREE)
+		  tree friend = TREE_VALUE (friends);
+
+		  if (friend == NULL_TREE)
 		    continue;
 
-		  if (supplicant == TREE_VALUE (friends))
+		  if (supplicant == friend)
 		    return 1;
 
-		  /* Temporarily, we are more lenient to deal with
-		     nested friend functions, for which there can be
-		     more than one FUNCTION_DECL, despite being the
-		     same function.  When that's fixed, this bit can
-		     go.  */
-		  if (DECL_FUNCTION_MEMBER_P (supplicant)
-		      && same_type_p (TREE_TYPE (supplicant),
-				      TREE_TYPE (TREE_VALUE (friends))))
-		    return 1;
-
-		  if (TREE_CODE (TREE_VALUE (friends)) == TEMPLATE_DECL
-		      && is_specialization_of (supplicant, 
-					       TREE_VALUE (friends)))
+		  if (is_specialization_of_friend (supplicant, friend))
 		    return 1;
 		}
 	      break;
@@ -158,12 +148,8 @@ add_friend (tree type, tree decl, bool complain)
 	      if (decl == TREE_VALUE (friends))
 		{
 		  if (complain)
-		    {
-		      warning ("`%D' is already a friend of class `%T'",
-			       decl, type);
-		      cp_warning_at ("previous friend declaration of `%D'",
-				     TREE_VALUE (friends));
-		    }
+		    warning ("`%D' is already a friend of class `%T'",
+			     decl, type);
 		  return;
 		}
 	    }
@@ -178,7 +164,11 @@ add_friend (tree type, tree decl, bool complain)
     }
 
   if (DECL_CLASS_SCOPE_P (decl))
-    perform_or_defer_access_check (TYPE_BINFO (DECL_CONTEXT (decl)), decl);
+    {
+      tree class_binfo = TYPE_BINFO (DECL_CONTEXT (decl));
+      if (!uses_template_parms (BINFO_TYPE (class_binfo)))
+	perform_or_defer_access_check (class_binfo, decl);
+    }
 
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
@@ -328,22 +318,16 @@ make_friend_class (tree type, tree friend_type, bool complain)
 
    DECL is the FUNCTION_DECL that the friend is.
 
-   In case we are parsing a friend which is part of an inline
-   definition, we will need to store PARM_DECL chain that comes
-   with it into the DECL_ARGUMENTS slot of the FUNCTION_DECL.
-
    FLAGS is just used for `grokclassfn'.
 
    QUALS say what special qualifies should apply to the object
    pointed to by `this'.  */
 
 tree
-do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
+do_friend (tree ctype, tree declarator, tree decl,
 	   tree attrlist, enum overload_flags flags, tree quals,
 	   int funcdef_flag)
 {
-  int is_friend_template = 0;
-
   /* Every decl that gets here is a friend of something.  */
   DECL_FRIEND_P (decl) = 1;
 
@@ -357,39 +341,70 @@ do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
   if (TREE_CODE (decl) != FUNCTION_DECL)
     abort ();
 
-  is_friend_template = PROCESSING_REAL_TEMPLATE_DECL_P ();
-
   if (ctype)
     {
+      /* CLASS_TEMPLATE_DEPTH counts the number of template headers for
+	 the enclosing class.  FRIEND_DEPTH counts the number of template
+	 headers used for this friend declaration.  TEMPLATE_MEMBER_P is
+	 true if a template header in FRIEND_DEPTH is intended for
+	 DECLARATOR.  For example, the code
+
+	   template <class T> struct A {
+	     template <class U> struct B {
+	       template <class V> template <class W>
+		 friend void C<V>::f(W);
+	     };
+	   };
+
+	 will eventually give the following results
+
+	 1. CLASS_TEMPLATE_DEPTH equals 2 (for `T' and `U').
+	 2. FRIEND_DEPTH equals 2 (for `V' and `W').
+	 3. TEMPLATE_MEMBER_P is true (for `W').  */
+
+      int class_template_depth = template_class_depth (current_class_type);
+      int friend_depth = processing_template_decl - class_template_depth;
+      /* We will figure this out later.  */
+      bool template_member_p = false;
+
       tree cname = TYPE_NAME (ctype);
       if (TREE_CODE (cname) == TYPE_DECL)
 	cname = DECL_NAME (cname);
 
       /* A method friend.  */
-      if (flags == NO_SPECIAL && ctype && declarator == cname)
+      if (flags == NO_SPECIAL && declarator == cname)
 	DECL_CONSTRUCTOR_P (decl) = 1;
 
       /* This will set up DECL_ARGUMENTS for us.  */
       grokclassfn (ctype, decl, flags, quals);
 
-      if (is_friend_template)
-	decl = DECL_TI_TEMPLATE (push_template_decl (decl));
-      else if (DECL_TEMPLATE_INFO (decl))
-	;
-      else if (template_class_depth (current_class_type))
-	decl = push_template_decl_real (decl, /*is_friend=*/1);
+      if (friend_depth)
+	{
+	  if (!uses_template_parms_level (ctype, class_template_depth
+						 + friend_depth))
+	    template_member_p = true;
+	}
 
-      /* We can't do lookup in a type that involves template
-	 parameters.  Instead, we rely on tsubst_friend_function
-	 to check the validity of the declaration later.  */
-      if (processing_template_decl)
-	add_friend (current_class_type, decl, /*complain=*/true);
       /* A nested class may declare a member of an enclosing class
 	 to be a friend, so we do lookup here even if CTYPE is in
 	 the process of being defined.  */
-      else if (COMPLETE_TYPE_P (ctype) || TYPE_BEING_DEFINED (ctype))
+      if (class_template_depth
+	  || COMPLETE_TYPE_P (ctype)
+	  || TYPE_BEING_DEFINED (ctype))
 	{
-	  decl = check_classfn (ctype, decl);
+	  if (DECL_TEMPLATE_INFO (decl))
+	    /* DECL is a template specialization.  No need to
+	       build a new TEMPLATE_DECL.  */
+	    ;
+	  else if (class_template_depth)
+	    /* We rely on tsubst_friend_function to check the
+	       validity of the declaration later.  */
+	    decl = push_template_decl_real (decl, /*is_friend=*/1);
+	  else
+	    decl = check_classfn (ctype, decl, template_member_p);
+
+	  if (template_member_p && decl && TREE_CODE (decl) == FUNCTION_DECL)
+	    decl = DECL_TI_TEMPLATE (decl);
 
 	  if (decl)
 	    add_friend (current_class_type, decl, /*complain=*/true);
@@ -402,12 +417,13 @@ do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
      @@ or possibly a friend from a base class ?!?  */
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
+      int is_friend_template = PROCESSING_REAL_TEMPLATE_DECL_P ();
+
       /* Friends must all go through the overload machinery,
 	 even though they may not technically be overloaded.
 
 	 Note that because classes all wind up being top-level
 	 in their scope, their friend wind up in top-level scope as well.  */
-      DECL_ARGUMENTS (decl) = parmdecls;
       if (funcdef_flag)
 	SET_DECL_FRIEND_CONTEXT (decl, current_class_type);
 
@@ -459,6 +475,9 @@ do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
 	    }
 	}
 
+      if (decl == error_mark_node)
+	return error_mark_node;
+      
       add_friend (current_class_type, 
 		  is_friend_template ? DECL_TI_TEMPLATE (decl) : decl,
 		  /*complain=*/true);

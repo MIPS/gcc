@@ -57,6 +57,10 @@ Boston, MA 02111-1307, USA.  */
   
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE	(TARGET_64BIT ? 32 : BITS_PER_WORD)
+
+#undef  SUBTARGET_EXTRA_SPECS	/* i386.h bogusly defines it.  */
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
     
 /* Provide a STARTFILE_SPEC appropriate for FreeBSD.  Here we add
    the magical crtbegin.o file (see crtstuff.c) which provides part 
@@ -105,7 +109,7 @@ Boston, MA 02111-1307, USA.  */
     %{!shared: \
       %{!static: \
         %{rdynamic:-export-dynamic} \
-	%{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}} \
+        %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }} \
     %{static:-Bstatic}} \
   %{symbolic:-Bsymbolic}"
 
@@ -134,12 +138,5 @@ Boston, MA 02111-1307, USA.  */
 
 /* FreeBSD sets the rounding precision of the FPU to 53 bits.  Let the
    compiler get the contents of <float.h> and std::numeric_limits correct.  */
-#define SUBTARGET_OVERRIDE_OPTIONS			\
-  do {							\
-    if (!TARGET_64BIT) {				\
-      REAL_MODE_FORMAT (XFmode)				\
-	= &ieee_extended_intel_96_round_53_format;	\
-      REAL_MODE_FORMAT (TFmode)				\
-	= &ieee_extended_intel_96_round_53_format;	\
-    }							\
-  } while (0)
+#undef TARGET_96_ROUND_53_LONG_DOUBLE
+#define TARGET_96_ROUND_53_LONG_DOUBLE (!TARGET_64BIT)

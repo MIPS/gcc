@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Testing performance utilities for the C++ library testsuite.
 //
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,16 +43,33 @@
 #elif defined (__FreeBSD__)
 extern "C"
 {
-  struct mallinfo { int uordblks; };
-  struct mallinfo mallinfo(void)
-    { struct mallinfo m = { (((size_t) sbrk (0) + 1023) / 1024) }; return m; }
+  struct mallinfo
+  {
+    int uordblks;
+    int hblkhd;
+  };
+
+  struct mallinfo
+  mallinfo(void)
+  {
+    struct mallinfo m = { (((size_t) sbrk (0) + 1023) / 1024), 0 };
+    return m;
+  }
 }
-#else
+#elif !defined (__hpux__)
 extern "C"
 {
-  struct mallinfo { int uordblks; };
-  struct mallinfo empty = { 0 };
-  struct mallinfo mallinfo(void) { return empty; }
+  struct mallinfo
+  {
+    int uordblks;
+    int hblkhd;
+  };
+
+  struct mallinfo empty = { 0, 0 };
+
+  struct mallinfo
+  mallinfo(void)
+  { return empty; }
 }
 #endif
 
@@ -101,9 +118,9 @@ namespace __gnu_test
 
   class resource_counter
   {
-    int		who;
-    rusage	rusage_begin;
-    rusage	rusage_end;
+    int                 who;
+    rusage	        rusage_begin;
+    rusage	        rusage_end;
     struct mallinfo  	allocation_begin;
     struct mallinfo  	allocation_end;
 
@@ -139,7 +156,8 @@ namespace __gnu_test
 
     int
     allocated_memory() const
-    { return allocation_end.uordblks - allocation_begin.uordblks; }
+    { return ((allocation_end.uordblks - allocation_begin.uordblks)
+	      + (allocation_end.hblkhd - allocation_begin.hblkhd)); }
     
     long 
     hard_page_fault() const
@@ -183,17 +201,46 @@ namespace __gnu_test
 
     std::ofstream out(name, std::ios_base::app);
 
+#ifdef __GTHREADS
+    if (__gthread_active_p ())
+      testname.append ("-thread");
+#endif
+
     out.setf(std::ios_base::left);
     out << std::setw(25) << testname << tab;
-    out << std::setw(10) << comment << tab;
+    out << std::setw(25) << comment << tab;
 
     out.setf(std::ios_base::right);
     out << std::setw(4) << t.real_time() << "r" << space;
     out << std::setw(4) << t.user_time() << "u" << space;
     out << std::setw(4) << t.system_time() << "s" << space;
-    out << std::setw(4) << r.allocated_memory() << "mem" << space;
+    out << std::setw(8) << r.allocated_memory() << "mem" << space;
     out << std::setw(4) << r.hard_page_fault() << "pf" << space;
     
+    out << std::endl;
+    out.close();
+  }
+
+  void
+  report_header(const std::string file, const std::string header)
+  {
+    const char space = ' ';
+    const char tab = '\t';
+    const char* name = "libstdc++-performance.sum";
+    std::string::const_iterator i = file.begin() + file.find_last_of('/') + 1;
+    std::string testname(i, file.end());
+
+    std::ofstream out(name, std::ios_base::app);
+
+#ifdef __GTHREADS
+    if (__gthread_active_p ())
+      testname.append ("-thread");
+#endif
+
+    out.setf(std::ios_base::left);
+    out << std::setw(25) << testname << tab;
+    out << std::setw(40) << header << tab;
+
     out << std::endl;
     out.close();
   }

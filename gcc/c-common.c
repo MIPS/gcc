@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -386,7 +386,7 @@ int flag_isoc94;
 
 int flag_isoc99;
 
-/* Nonzero means that we have builtin functions, and main is an int */
+/* Nonzero means that we have builtin functions, and main is an int.  */
 
 int flag_hosted = 1;
 
@@ -510,17 +510,6 @@ int flag_no_gnu_keywords;
 
 int flag_implement_inlines = 1;
 
-/* Nonzero means do emit exported implementations of templates, instead of
-   multiple static copies in each file that needs a definition.  */
-
-int flag_external_templates;
-
-/* Nonzero means that the decision to emit or not emit the implementation of a
-   template depends on where the template is instantiated, rather than where
-   it is defined.  */
-
-int flag_alt_external_templates;
-
 /* Nonzero means that implicit instantiations will be emitted if needed.  */
 
 int flag_implicit_templates = 1;
@@ -609,21 +598,6 @@ int flag_permissive;
    assertions and optimize accordingly, but not check them.  */
 
 int flag_enforce_eh_specs = 1;
-
-/*  The version of the C++ ABI in use.  The following values are
-    allowed:
-
-    0: The version of the ABI believed most conformant with the
-       C++ ABI specification.  This ABI may change as bugs are
-       discovered and fixed.  Therefore, 0 will not necessarily
-       indicate the same ABI in different versions of G++.
-
-    1: The version of the ABI first used in G++ 3.2.
-
-    Additional positive integers will be assigned as new versions of
-    the ABI become the default version of the ABI.  */
-
-int flag_abi_version = 1;
 
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
@@ -793,7 +767,6 @@ static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 						 bool *);
-static tree vector_size_helper (tree, tree);
 
 static void check_function_nonnull (tree, tree);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -859,7 +832,7 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_deprecated_attribute },
   { "vector_size",	      1, 1, false, true, false,
 			      handle_vector_size_attribute },
-  { "visibility",	      1, 1, true,  false, false,
+  { "visibility",	      1, 1, false, false, false,
 			      handle_visibility_attribute },
   { "tls_model",	      1, 1, true,  false, false,
 			      handle_tls_model_attribute },
@@ -1062,7 +1035,13 @@ finish_fname_decls (void)
       tree *p = &DECL_SAVED_TREE (current_function_decl);
       /* Skip the dummy EXPR_STMT and any EH_SPEC_BLOCK.  */
       while (TREE_CODE (*p) != COMPOUND_STMT)
-	p = &TREE_CHAIN (*p);
+       {
+         if (TREE_CODE (*p) == EXPR_STMT)
+           p = &TREE_CHAIN (*p);
+         else
+           p = &TREE_OPERAND(*p, 0);
+       }
+
       p = &COMPOUND_BODY (*p);
       if (TREE_CODE (*p) == SCOPE_STMT)
 	p = &TREE_CHAIN (*p);
@@ -1158,7 +1137,7 @@ fname_decl (unsigned int rid, tree id)
       input_line = saved_lineno;
     }
   if (!ix && !current_function_decl)
-    pedwarn ("%J'%D' is not defined outside of function scope", decl, decl);
+    pedwarn ("'%D' is not defined outside of function scope", decl);
 
   return decl;
 }
@@ -2531,12 +2510,6 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 	pedwarn ("pointer to member function used in arithmetic");
       size_exp = integer_one_node;
     }
-  else if (TREE_CODE (TREE_TYPE (result_type)) == OFFSET_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("pointer to a member used in arithmetic");
-      size_exp = integer_one_node;
-    }
   else
     size_exp = size_in_bytes (TREE_TYPE (result_type));
 
@@ -2793,6 +2766,9 @@ static tree builtin_function_2 (const char *, const char *, tree, tree,
 tree
 c_build_qualified_type (tree type, int type_quals)
 {
+  if (type == error_mark_node)
+    return type;
+  
   if (TREE_CODE (type) == ARRAY_TYPE)
     return build_array_type (c_build_qualified_type (TREE_TYPE (type),
 						     type_quals),
@@ -2818,6 +2794,9 @@ void
 c_apply_type_quals_to_decl (int type_quals, tree decl)
 {
   tree type = TREE_TYPE (decl);
+  
+  if (type == error_mark_node)
+    return;
 
   if (((type_quals & TYPE_QUAL_CONST)
        || (type && TREE_CODE (type) == REFERENCE_TYPE))
@@ -2968,7 +2947,8 @@ c_sizeof_or_alignof_type (tree type, enum tree_code op, int complain)
   else if (!COMPLETE_TYPE_P (type))
     {
       if (complain)
-	error ("invalid application of `%s' to an incomplete type", op_name);
+	error ("invalid application of `%s' to incomplete type `%T' ", 
+	       op_name, type);
       value = size_zero_node;
     }
   else
@@ -4057,8 +4037,9 @@ finish_label_address_expr (tree label)
 /* Hook used by expand_expr to expand language-specific tree codes.  */
 
 rtx
-c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
-     /* Actually enum_modifier.  */
+c_expand_expr (tree exp, rtx target, enum machine_mode tmode, 
+	       int modifier /* Actually enum_modifier.  */,
+	       rtx *alt_rtl)
 {
   switch (TREE_CODE (exp))
     {
@@ -4067,7 +4048,6 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	tree rtl_expr;
 	rtx result;
 	bool preserve_result = false;
-	bool return_target = false;
 
 	if (STMT_EXPR_WARN_UNUSED_RESULT (exp) && target == const0_rtx)
 	  {
@@ -4115,30 +4095,18 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	    if (TREE_CODE (last) == SCOPE_STMT
 		&& TREE_CODE (expr) == EXPR_STMT)
 	      {
-		if (target && TREE_CODE (EXPR_STMT_EXPR (expr)) == VAR_DECL
-		    && DECL_RTL_IF_SET (EXPR_STMT_EXPR (expr)) == target)
-		  /* If the last expression is a variable whose RTL is the
-		     same as our target, just return the target; if it
-		     isn't valid expanding the decl would produce different
-		     RTL, and store_expr would try to do a copy.  */
-		  return_target = true;
-		else
-		  {
-		    /* Otherwise, note that we want the value from the last
-		       expression.  */
-		    TREE_ADDRESSABLE (expr) = 1;
-		    preserve_result = true;
-		  }
+		/* Otherwise, note that we want the value from the last
+		   expression.  */
+		TREE_ADDRESSABLE (expr) = 1;
+		preserve_result = true;
 	      }
 	  }
 
 	expand_stmt (STMT_EXPR_STMT (exp));
 	expand_end_stmt_expr (rtl_expr);
 
-	result = expand_expr (rtl_expr, target, tmode, modifier);
-	if (return_target)
-	  result = target;
-	else if (preserve_result && GET_CODE (result) == MEM)
+	result = expand_expr_real (rtl_expr, target, tmode, modifier, alt_rtl);
+	if (preserve_result && GET_CODE (result) == MEM)
 	  {
 	    if (GET_MODE (result) != BLKmode)
 	      result = copy_to_reg (result);
@@ -4163,7 +4131,7 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	   literal, then return the variable.  */
 	tree decl = COMPOUND_LITERAL_EXPR_DECL (exp);
 	emit_local_var (decl);
-	return expand_expr (decl, target, tmode, modifier);
+	return expand_expr_real (decl, target, tmode, modifier, alt_rtl);
       }
 
     default:
@@ -4295,21 +4263,6 @@ c_init_attributes (void)
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
-}
-
-/* Output a -Wshadow warning MSGCODE about NAME, and give the location
-   of the previous declaration DECL.  */
-void
-shadow_warning (enum sw_kind msgcode, const char *name, tree decl)
-{
-  static const char *const msgs[] = {
-    /* SW_PARAM  */ N_("declaration of \"%s\" shadows a parameter"),
-    /* SW_LOCAL  */ N_("declaration of \"%s\" shadows a previous local"),
-    /* SW_GLOBAL */ N_("declaration of \"%s\" shadows a global declaration")
-  };
-
-  warning (msgs[msgcode], name);
-  warning ("%Jshadowed declaration is here", decl);
 }
 
 /* Attribute handlers common to C front ends.  */
@@ -4689,7 +4642,10 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
       else
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))
-	    mode = (enum machine_mode) j;
+	    {
+	      mode = (enum machine_mode) j;
+	      break;
+	    }
 
       if (mode == VOIDmode)
 	error ("unknown machine mode `%s'", p);
@@ -4722,8 +4678,44 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 							mode);
 	      *node = ptr_type;
 	    }
+	  else if (TREE_CODE (type) == ENUMERAL_TYPE)
+	    {
+	      /* For enumeral types, copy the precision from the integer
+		 type returned above.  If not an INTEGER_TYPE, we can't use
+		 this mode for this type.  */
+	      if (TREE_CODE (typefm) != INTEGER_TYPE)
+		{
+		  error ("cannot use mode %qs for enumeral types", p);
+		  return NULL_TREE;
+		}
+
+	      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+		type = build_type_copy (type);
+
+	      /* We cannot use layout_type here, because that will attempt
+		 to re-layout all variants, corrupting our original.  */
+	      TYPE_PRECISION (type) = TYPE_PRECISION (typefm);
+	      TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (typefm);
+	      TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (typefm);
+	      TYPE_SIZE (type) = TYPE_SIZE (typefm);
+	      TYPE_SIZE_UNIT (type) = TYPE_SIZE_UNIT (typefm);
+	      TYPE_MODE (type) = TYPE_MODE (typefm);
+	      if (!TYPE_USER_ALIGN (type))
+		TYPE_ALIGN (type) = TYPE_ALIGN (typefm);
+
+	      *node = type;
+	    }
+	  else if (VECTOR_MODE_P (mode)
+		   ? TREE_CODE (type) != TREE_CODE (TREE_TYPE (typefm))
+		   : TREE_CODE (type) != TREE_CODE (typefm))
+		   
+	    {
+	      error ("mode `%s' applied to inappropriate type", p);
+	      return NULL_TREE;
+	    }
 	  else
-	  *node = typefm;
+	    *node = typefm;
+
 	  /* No need to layout the type here.  The caller should do this.  */
 	}
     }
@@ -4929,35 +4921,95 @@ handle_visibility_attribute (tree *node, tree name, tree args,
 			     bool *no_add_attrs)
 {
   tree decl = *node;
+  tree id = TREE_VALUE (args);
 
-  if (decl_function_context (decl) != 0 || ! TREE_PUBLIC (decl))
+  *no_add_attrs = true;
+
+  if (TYPE_P (*node))
+    {
+      if (TREE_CODE (*node) != RECORD_TYPE && TREE_CODE (*node) != UNION_TYPE)
+       {
+         warning ("`%s' attribute ignored on non-class types",
+                  IDENTIFIER_POINTER (name));
+         return NULL_TREE;
+       }
+    }
+  else if (decl_function_context (decl) != 0 || ! TREE_PUBLIC (decl))
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
+      return NULL_TREE;
     }
-  else
-    {
-      tree id;
 
-      id = TREE_VALUE (args);
-      if (TREE_CODE (id) != STRING_CST)
-	{
-	  error ("visibility arg not a string");
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
-      if (strcmp (TREE_STRING_POINTER (id), "hidden")
-	  && strcmp (TREE_STRING_POINTER (id), "protected")
-	  && strcmp (TREE_STRING_POINTER (id), "internal")
-	  && strcmp (TREE_STRING_POINTER (id), "default"))
-	{
-	  error ("visibility arg must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
+  if (TREE_CODE (id) != STRING_CST)
+    {
+      error ("visibility arg not a string");
+      return NULL_TREE;
     }
+  
+  /*  If this is a type, set the visibility on the type decl.  */
+  if (TYPE_P (decl))
+    {
+      decl = TYPE_NAME (decl);
+      if (! decl)
+        return NULL_TREE;
+    }
+
+  if (strcmp (TREE_STRING_POINTER (id), "default") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+  else if (strcmp (TREE_STRING_POINTER (id), "internal") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_INTERNAL;
+  else if (strcmp (TREE_STRING_POINTER (id), "hidden") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;  
+  else if (strcmp (TREE_STRING_POINTER (id), "protected") == 0)
+    DECL_VISIBILITY (decl) = VISIBILITY_PROTECTED;
+  else
+    error ("visibility arg must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
+  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+
+  /* For decls only, go ahead and attach the attribute to the node as well.
+     This is needed so we can determine whether we have VISIBILITY_DEFAULT
+     because the visibility was not specified, or because it was explicitly
+     overridden from the class visibility.  */
+  if (DECL_P (*node))
+    *no_add_attrs = false;
 
   return NULL_TREE;
+}
+
+/* Determine the ELF symbol visibility for DECL, which is either a
+   variable or a function.  It is an error to use this function if a
+   definition of DECL is not available in this translation unit.
+   Returns true if the final visibility has been determined by this
+   function; false if the caller is free to make additional
+   modifications.  */
+
+bool
+c_determine_visibility (tree decl)
+{
+  my_friendly_assert (TREE_CODE (decl) == VAR_DECL
+		      || TREE_CODE (decl) == FUNCTION_DECL, 
+		      20040805);
+
+  /* If the user explicitly specified the visibility with an
+     attribute, honor that.  DECL_VISIBILITY will have been set during
+     the processing of the attribute.  We check for an explicit
+     attribute, rather than just checking DECL_VISIBILITY_SPECIFIED,
+     to distinguish the use of an attribute from the use of a "#pragma
+     GCC visibility push(...)"; in the latter case we still want other
+     considerations to be able to overrule the #pragma.  */
+  if (lookup_attribute ("visibility", DECL_ATTRIBUTES (decl)))
+    return true;
+
+  /* Anything that is exported must have default visibility.  */
+  if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+      && lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)))
+    {
+      DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+      return true;
+    }
+
+  return false;
 }
 
 /* Handle an "tls_model" attribute; arguments as in
@@ -5293,55 +5345,9 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
     }
 
   /* Build back pointers if needed.  */
-  *node = vector_size_helper (*node, new_type);
+  *node = reconstruct_complex_type (*node, new_type);
 
   return NULL_TREE;
-}
-
-/* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a
-   better way.
-
-   If we requested a pointer to a vector, build up the pointers that
-   we stripped off while looking for the inner type.  Similarly for
-   return values from functions.
-
-   The argument "type" is the top of the chain, and "bottom" is the
-   new type which we will point to.  */
-
-static tree
-vector_size_helper (tree type, tree bottom)
-{
-  tree inner, outer;
-
-  if (POINTER_TYPE_P (type))
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_pointer_type (inner);
-    }
-  else if (TREE_CODE (type) == ARRAY_TYPE)
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_array_type (inner, TYPE_DOMAIN (type));
-    }
-  else if (TREE_CODE (type) == FUNCTION_TYPE)
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
-    }
-  else if (TREE_CODE (type) == METHOD_TYPE)
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
-					  inner, 
-					  TYPE_ARG_TYPES (type));
-    }
-  else
-    return bottom;
-
-  TREE_READONLY (outer) = TREE_READONLY (type);
-  TREE_THIS_VOLATILE (outer) = TREE_THIS_VOLATILE (type);
-
-  return outer;
 }
 
 /* Handle the "nonnull" attribute.  */
@@ -5775,20 +5781,39 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     return NULL;
   switch (TREE_CODE (x))
     { 
-    /* Reconginze assignments of large structures and constructors of
+    /* Recognize assignments of large structures and constructors of
        big arrays.  */
     case MODIFY_EXPR:
     case CONSTRUCTOR:
       {
-	int size = int_size_in_bytes (TREE_TYPE (x));
+	HOST_WIDE_INT size;
 
-	if (!size || size > MOVE_MAX_PIECES)
+	size = int_size_in_bytes (TREE_TYPE (x));
+
+	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
 	  *count += 10;
 	else
-	  *count += 2 * (size + MOVE_MAX - 1) / MOVE_MAX;
-	return NULL;
+	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
       }
       break;
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (x);
+
+	if (decl && DECL_BUILT_IN (decl))
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_CONSTANT_P:
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    case BUILT_IN_EXPECT:
+	      return NULL_TREE;
+	    default:
+	      break;
+	    }
+	*count += 10;
+	break;
+      }
     /* Few special cases of expensive operations.  This is usefull
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
@@ -5800,7 +5825,6 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-    case CALL_EXPR:
       *count += 10;
       break;
     /* Various containers that will produce no code themselves.  */
@@ -5892,6 +5916,38 @@ c_decl_uninit (tree t)
   if (walk_tree_without_duplicates (&DECL_INITIAL (t), c_decl_uninit_1, t))
     return true;
   return false;
+}
+
+/* Issue the error given by MSGID, indicating that it occurred before
+   TOKEN, which had the associated VALUE.  */
+
+void
+c_parse_error (const char *msgid, enum cpp_ttype token, tree value)
+{
+  const char *string = _(msgid);
+
+  if (token == CPP_EOF)
+    error ("%s at end of input", string);
+  else if (token == CPP_CHAR || token == CPP_WCHAR)
+    {
+      unsigned int val = TREE_INT_CST_LOW (value);
+      const char *const ell = (token == CPP_CHAR) ? "" : "L";
+      if (val <= UCHAR_MAX && ISGRAPH (val))
+	error ("%s before %s'%c'", string, ell, val);
+      else
+	error ("%s before %s'\\x%x'", string, ell, val);
+    }
+  else if (token == CPP_STRING
+	   || token == CPP_WSTRING)
+    error ("%s before string constant", string);
+  else if (token == CPP_NUMBER)
+    error ("%s before numeric constant", string);
+  else if (token == CPP_NAME)
+    error ("%s before \"%s\"", string, IDENTIFIER_POINTER (value));
+  else if (token < N_TTYPES)
+    error ("%s before '%s' token", string, cpp_type2name (token));
+  else
+    error ("%s", string);
 }
 
 #include "gt-c-common.h"

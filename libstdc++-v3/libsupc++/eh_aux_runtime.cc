@@ -34,9 +34,8 @@
 #include "unwind-cxx.h"
 #include "exception_defines.h"
 
-
 extern "C" void
-__cxa_bad_cast ()
+__cxxabiv1::__cxa_bad_cast ()
 {
 #ifdef __EXCEPTIONS  
   throw std::bad_cast();
@@ -46,7 +45,7 @@ __cxa_bad_cast ()
 }
 
 extern "C" void
-__cxa_bad_typeid ()
+__cxxabiv1::__cxa_bad_typeid ()
 {
 #ifdef __EXCEPTIONS  
   throw std::bad_typeid();

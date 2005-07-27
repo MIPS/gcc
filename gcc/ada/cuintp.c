@@ -57,14 +57,12 @@
    resulting node.  */
 
 tree
-UI_To_gnu (Input, type)
-     Uint Input;
-     tree type;
+UI_To_gnu (Uint Input, tree type)
 {
   tree gnu_ret;
 
   if (Input <= Uint_Direct_Last)
-    gnu_ret = convert (type, build_int_2 (Input - Uint_Direct_Bias, 
+    gnu_ret = convert (type, build_int_2 (Input - Uint_Direct_Bias,
 					  Input < Uint_Direct_Bias ? -1 : 0));
   else
     {

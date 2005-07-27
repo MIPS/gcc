@@ -1,3 +1,454 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2004-12-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR java/14104
+	Backport from mainline
+	2004-03-31  Andrew Haley  <aph@redhat.com>
+	* jcf-io.c (opendir_in_zip): Tidy up error handling.
+
+2004-12-07  Tom Tromey  <tromey@redhat.com>
+
+	PR java/14853:
+	* java-tree.h (extract_field_decl): Declare.
+	* parse.y (extract_field_decl): Renamed from
+	strip_out_static_field_access_decl.  No longer static.
+	* check-init.c (get_variable_decl): Unwrap COMPOUND_EXPRs.
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR java/14315
+	Backport from mainline:
+
+	2004-03-23  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (make_class_file_name): Don't report if mkdir
+	failed with EEXIST.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-04-12  Michael Chastain  <mec.gnu@mindspring.com>
+
+	PR bootstrap/14893:
+	* Make-lang.in (java.install-man): Install from either build
+	tree or source tree, whichever has the file first.
+
+2004-03-23  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Extensions): Document GCJ_PROPERTIES.
+
+2004-03-06  Roger Sayle  <roger@eyesopen.com>
+
+	* jcf-parse.c (java_parse_file): Handle the case that input_filename
+	is NULL.
+
+2004-02-26  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (check_interface_throws_clauses): Check for
+	!METHOD_INVISIBLE (iface_method).
+	* class.c (layout_class_methods): Check for CLASS_INTERFACE as
+	well as CLASS_ABSTRACT.
+	
+2004-02-22  Matthias Klose  <doko@debian.org>
+
+	Taken from mainline:
+
+	2004-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in: Install man pages under the same names
+	(possibly transformed) as the program they document.
+
+	2004-02-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (java.install-man): Add extra dependencies.
+
+2004-02-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c: Update copyright.
+
+2004-02-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	Make-lang.in (po-generated):  Delete.
+
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/gcj.dvi): Use $(abs_docdir).
+
+2004-01-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* expr.c (build_field_ref): Move variable
+	definition up.
+
+2004-01-28  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_field_ref): Widen field offset.
+
+2004-01-27  Andrew Haley  <aph@redhat.com>
+
+	java/13273
+	* parse.y (check_interface_throws_clauses): Make sure class_decl
+	has been loaded.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(java.info, java.srcinfo, java.man, java.srcman): New rules.
+	(java.install-man): Revamp rule.
+
+2004-01-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (JAVA_INSTALL_NAME, JAVA_TARGET_INSTALL_NAME,
+	GCJH_TARGET_INSTALL_NAME): Define via a immediate $(shell)
+	instead of deferred backquote.
+
+2004-01-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* typeck.c (find_method_in_interfaces): Move variable
+	definition up.
+
+2004-01-16  Andrew Haley  <aph@redhat.com>
+
+	PR java/13273:
+	* typeck.c (shallow_find_method): New.
+	(find_method_in_superclasses): New.
+	(find_method_in_interfaces): New.
+	(lookup_do): Rewrite.
+	* java-tree.h (SEARCH_ONLY_INTERFACE): Delete.
+
+	* jcf-parse.c (read_class): Save and restore output_class.
+	* decl.c (java_expand_body): Set output_class from fndecl.
+
+2004-01-15  Michael Chastain  <mec.gnu@mindspring.com>
+
+	* class.c (gen_indirect_dispatch_tables): Fix string length
+	calculations.
+
+2004-01-15  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (parse.c, parse-scan.c): Always build in doc directory.
+	(java.srcextra): Copy above back to source directory if requested.
+	(po-generated): Delete reference to $(parsedir).
+	(java/parse.o, java/parse-scan.o): Delete reference to $(parsedir).
+	Use implicit rule.
+
+2004-01-14  Jan Hubicka  <jh@suse.cz>
+
+	* lang.c (java_estimate_num_insns_1): Fix bug in MODIFY_EXPR cost
+	estimation.
+
+2004-01-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* java-tree.h (java_expand_expr): Change prototype.
+	* expr.c (java_expand_expr): Add alt_rtl parameter.
+
+2004-01-09  Andrew Haley  <aph@redhat.com>
+
+	PR java/12755:
+	* parse.y (java_fix_constructors):  Set output_class.
+	(java_reorder_fields): Likewise.
+	(java_layout_classes): Likewise.
+	(java_expand_classes): Generate indirect dispatch tables.
+	(java_expand_classes): Set output_class.
+	(java_finish_classes): Likewise.
+	* lang.c (java_init): Turn on always_initialize_class_p if we're
+	using indirect dis[atch.
+	(java_decl_ok_for_sibcall): Use output_class, not current_class.
+	(java_get_callee_fndecl): Use class local atable.
+	* jcf-parse.c
+	(always_initialize_class_p): Decl moved to java-tree.h.
+	(HANDLE_CLASS_INFO): Set output_class.
+	(read_class): Likewise.
+	(parse_class_file): Call gen_indirect_dispatch_tables.
+	(parse_zip_file_entries): Set output_class.
+	(java_parse_file): Set output_class.  Don't emit symbol tables.
+	* java-tree.h (output_class): New.
+	Remove global declarations for otable, atable, and ctable.
+	(always_initialize_class_p): moved here from decl.c.
+	(DECL_OWNER): New.
+	(TYPE_ATABLE_METHODS, TYPE_ATABLE_SYMS_DECL, TYPE_ATABLE_DECL,
+	TYPE_OTABLE_METHODS, TYPE_OTABLE_SYMS_DECL, TYPE_OTABLE_DECL,
+	TYPE_CTABLE_DECL, TYPE_CATCH_CLASSES): New.
+	(struct lang_type): Add otable_methods, otable_decl,
+	otable_syms_decl, atable_methods, atable_decl, atable_syms_decl,
+	ctable_decl, catch_classes, type_to_runtime_map.
+	* expr.c (build_field_ref): Make otable, atable, and ctable class
+	local rather than global.
+	(build_known_method_ref): Likewise.
+	(build_invokeinterface): Likewise.
+	(java_expand_expr): Pass runtime type (rather than actual type) to
+	expand_start_catch.
+	* except.c (prepare_eh_table_type): Create TYPE_TO_RUNTIME_MAP for
+	this class.  Look up each class in that map to delete duplicates.
+	(expand_end_java_handler): Pass runtime type (rather than actual
+	type) to expand_start_catch.
+	* decl.c: (always_initialize_class_p): Decl moved to java-tree.h.
+	(do_nothing): New.
+	(java_init_decl_processing): Rearrange things.  Remove global
+	declarations of otable, atable, and ctable.
+	(java_init_decl_processing): Make lang_eh_runtime_type do_nothing.
+	(java_expand_body): Set output_class.
+	* constants.c (build_constant_data_ref): Use output_class, not
+	current_class.
+	(alloc_name_constant): Likewise.
+	* class.c (gen_indirect_dispatch_tables): New.
+	(build_class_ref): Generate hard reference to superclass, even if
+	using indirect dispatch.
+	(build_static_field_ref): Use class local atable.
+	(make_class_data): Generate hard reference to superclass, even if
+	using indirect dispatch.
+	Generate symbolic references to interfaces when using indirect
+	dispatch.
+	(make_class_data): Emit otable, atable, and ctable.
+	Make otable, atable, and ctable class local rather than global.
+	(emit_catch_table): Make otable, atable, and ctable class local
+	rather than global.
+
+2003-12-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* parse.y (catch_clause_parameter): Fix typo.
+
+	PR java/13404
+	* parse.y: (catch_clause_parameter): Return early if $3, aka
+	formal_parameter, is null.
+
+2003-12-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c: Remove uses of "register" specifier in
+	declarations of arguments and local variables.
+	* decl.c: Likewise.
+	* expr.c: Likewise.
+	* gjavah.c: Likewise.
+	* jcf-dump.c: Likewise.
+	* jcf-io.c: Likewise.
+	* jcf-parse.c: Likewise.
+	* jcf-write.c: Likewise.
+	* keyword.h: Likewise.
+	* parse.y: Likewise.
+	* typeck.c: Likewise.
+	* verify.c: Likewise.
+
+2003-12-06  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (GCJ_CROSS_NAME): Delete.
+	(java.install_common, java.install-man): Adjust for above.
+	(java.uninstall): Likewise.
+
+2003-12-03  Michael Koch  <konqueror@gmx.de>
+
+	* class.c (make_class_data):
+	Push field value to 'hack_signers' instead of 'signers'.
+	* decl.c (java_init_decl_processing):
+	Push field 'hack_signers' instead of 'signers'.
+
+2003-12-03  Zack Weinberg  <zack@codesourcery.com>
+
+	* lex.h: Check both HAVE_ICONV and HAVE_ICONV_H before
+	including iconv.h.
+
+2003-12-03  Ralph Loader  <rcl@ihug.co.nz>
+
+	PR java/12374:
+	* parse.y (qualify_ambiguous_name): Remove lots of broken
+	field access processing - there's no need to do that here,
+	because we have resolve_field_access.  Remove
+	RESOLVE_EXPRESSION_NAME_P as it isn't used anywhere else.
+	* java-tree.h: Remove RESOLVE_EXPRESSION_NAME_P as it isn't
+	used.
+
+2003-12-01  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/13237
+	* parse.y (java_complete_lhs): Save location prior to patching
+	CALL_EXPR.
+
+2003-11-25  Mohan Embar  <gnustuff@thisiscool.com>
+
+	PR java/12548
+	* resource.c (write_resource_constructor): Append
+	"_resource" to constructor identifier name.
+
+2003-11-25  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/13183.
+	* constants.c (cpool_for_class): New function.
+	(outgoing_cpool): Remove global variable.
+	(alloc_name_constant): Use cpool_for_class.
+	(build_constants_constructor): Likewise.
+	* decl.c (java_expand_body): Set current_class.
+	* java-tree.h (outgoing_cpool) Remove declaration.
+	(init_outgoing_cpool): Likewise.
+	* jcf-parse.c (init_outgoing_cpool): Remove function.
+	(parse_class_file): Don't call init_outgoing_cpool.
+	* parse.y (java_complete_expand_methods): Don't call
+	init_outgoing_cpool.  Don't save outgoing_cpool.
+	(java_expand_classes): Don't restore outgoing_cpool.
+	(java_finish_classes): Likewise.
+
+2003-11-24  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* Make-lang.in: (java.install-common) Add
+	symlink for $(target_noncanonical)-gcjh for
+	native builds.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (java.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (check-java): Add.
+
+2003-11-19  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/13024.
+	* except.c (prepare_eh_table_type): Allocate variable-sized
+	buffer `buf' with alloca.
+
+2003-11-17  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/12857.
+
+	decl.c (java_init_decl_processing): Don't initialize
+	class_not_found_type_node, no_class_def_found_type_node.
+
+	java-tree.h (JTI_CLASS_NOT_FOUND_TYPE_NODE,
+	JTI_NO_CLASS_DEF_FOUND_TYPE_NODE): Remove from java_tree_index.
+	(class_not_found_type_node, no_class_def_found_type_node):
+	Don't define.
+
+	parse.y (build_dot_class_method_invocation): Add this_class
+	argument.  Qualify method invocations to a different class.
+	(create_new_parser_context): Initialize saved_data_ctx to 0.
+	(java_parser_context_save_global): Initialize saved_data_ctx to 1.
+	(build_dot_class_method): Don't load classes.  Register
+	incomplete types.
+	(build_incomplete_class_ref): Special cases for interfaces
+	and inner classes.  Move build_dot_class_method call to here...
+	(patch_incomplete_class_ref): ...from here.  Pass current_class
+	to build_dot_class_method_invocation.
+	(build_assertion): Pass class_type to
+	build_dot_class_method_invocation.
+	(encapsulate_with_try_catch): Handle EXPR_WITH_FILE_LOCATION node.
+
+2003-11-17  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/12739.
+	* java-tree.h (BLOCK_EMPTY_P): Define.
+	* parse.y (java_complete_lhs): Check for empty blocks
+	in TRY_FINALLY_EXPR case.
+
+2003-11-17  Andrew Haley  <aph@redhat.com>
+
+	* java-tree.h (LOCAL_VAR_OUT_OF_SCOPE_P): New.
+	(struct lang_decl_var:freed): New variable.
+	* decl.c (poplevel): Mark local vars that have gone out of scope.
+	(push_jvm_slot): Don't use the RTL of a var that has gone out of
+	scope.
+
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (java.tags): Create TAGS.sub files in each directory
+	and TAGS files that include them for each front end.
+
+2003-11-15  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (print_stub_or_jni): Pass `env' to FatalError.
+
+2003-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/12547
+	* lang.c (java_tree_inlining_walk_subtrees): Just walk
+	BLOCK_EXPR_BODY directly.
+
+2003-11-12  Andrew Haley  <aph@redhat.com>
+
+	PR java/11045
+	* parse.y (fold_constant_for_init): Check that we really do have a
+	constant.
+
+	PR java/11533
+	* lang.c (merge_init_test_initialization): Clear DECL_INITIAL for
+	init_test_decls being inlined.
+
+	PR java/12890:
+	* parse.y (do_resolve_class): Check return value from
+	breakdown_qualified().
+
+2003-11-11  Tom Tromey  <tromey@redhat.com>
+
+	PR java/12915:
+	* parse.y (merge_string_cste): Handle case where we have a
+	pointer that happens to be zero, not null_pointer_node.
+
+2003-11-10  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (classify_zip_file): Correctly compare
+	filename_length against length of manifest file's name.
+
+2003-11-08  Tom Tromey  <tromey@redhat.com>
+
+	PR java/12894:
+	* jcf-parse.c (classify_zip_file): Only skip MANIFEST.MF file.
+
+2003-11-06  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (java_stack_swap): Make sure destination stack slots are
+	of the correct type.
+
+2003-11-03  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (dvi): Move targets to $(docobjdir).
+	(gcj.dvi): Simplify rule and adjust target.
+	(gcj.info): Simplify rule.
+	(gcj.pod): New intermediate rule.
+	(gcjh.pod): Likewise.
+	(jv-scan.pod): Likewise.
+	(jcf-dump.pod): Likewise.
+	(gij.pod): Likewise.
+	(jv-convert.pod): Likewise.
+	(rmic.pod): Likewise.
+	(rmiregistry.pod): Likewise.
+	(gcj.1): Delete.
+	(gcjh.1): Delete.
+	(jv-scan.1): Delete.
+	(jcf-dump.1): Delete.
+	(gij.1): Delete.
+	(jv-convert.1): Delete.
+	(rmic.1): Delete.
+	(rmiregistry.1): Delete.
+
+2003-11-02  Jeff Sturm  <jsturm@one-point.com>
+
+	Fixes PR java/12866.
+	* parse.y (resolve_qualified_expression_name): Move test
+	for outer field access methods from here...
+	(check_thrown_exceptions) ...to here.
+
+2003-11-01  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* .cvsignore: Delete.
+
+2003-10-28  Frank Ch. Eigler  <fche@redhat.com>
+
+	* verify.c (verify_jvm_instructions): Don't warn about legal
+	eh binding regions generated for example by jdk 1.4.1.
+
 2003-10-24  David S. Miller  <davem@redhat.com>
 
 	* jcf-parse.c (jcf_parse): Fix args to fatal_error().
@@ -117,7 +568,7 @@
 	(atable_syms_decl): New.
 	(enum java_tree_index): Add JTI_ATABLE_METHODS, JTI_ATABLE_DECL,
 	JTI_ATABLE_SYMS_DECL.  Rename JTI_METHOD_SYMBOL* to JTI_SYMBOL*.
-	(symbol_*type): Rename method_symbol* to symbol*type.	
+	(symbol_*type): Rename method_symbol* to symbol*type.
 	(emit_offset_symbol_table): Delete.
 	(emit_symbol_table): New.
 	(get_symbol_table_index): New.
@@ -134,7 +585,7 @@
 	(emit_symbol_table): Rename from emit_offset_symbol_table.
 	Parameterize to allow re-use by different types of symbol table.
 	(build_symbol_entry): Renamed from build_method_symbols_entry.
-	
+
 2003-09-30  Roger Sayle  <roger@eyesopen.com>
 
 	* jcf-write.c (generate_bytecode_insns): Implement evaluate-once
@@ -197,17 +648,17 @@
 
 2003-09-21  Richard Henderson  <rth@redhat.com>
 
-	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y, 
+	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y,
 	resource.c: Revert.
 
 2003-09-21  Richard Henderson  <rth@redhat.com>
 
-	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y, 
+	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y,
 	resource.c: Update for DECL_SOURCE_LOCATION rename and change to const.
 
 2003-09-20  Richard Henderson  <rth@redhat.com>
 
-        * check-init.c, class.c, decl.c, expr.c: Use %J in diagnostics.
+	* check-init.c, class.c, decl.c, expr.c: Use %J in diagnostics.
 
 2003-09-18  Roger Sayle  <roger@eyesopen.com>
 
@@ -233,18 +684,18 @@
 
 2003-09-16  Bryce McKinlay  <bryce@mckinlay.net.nz>
 
-	* class.c (add_miranda_methods): Ensure super-interfaces are laid 
+	* class.c (add_miranda_methods): Ensure super-interfaces are laid
 	out. Fix for PR java/12254.
 
 2003-09-11  Richard Henderson  <rth@redhat.com>
 
-        * parse.y (source_end_java_method): Update for new
-        cgraph_finalize_function argument.
+	* parse.y (source_end_java_method): Update for new
+	cgraph_finalize_function argument.
 
 2003-09-09  Richard Henderson  <rth@redhat.com>
 
-        * parse.y (source_end_java_method): Update call to
-        cgraph_finalize_function.
+	* parse.y (source_end_java_method): Update call to
+	cgraph_finalize_function.
 
 2003-09-03  Jeff Sturm  <jsturm@one-point.com>
 
@@ -292,8 +743,8 @@
 
 2003-08-20  Andrew Haley  <aph@redhat.com>
 
-        * except.c (prepare_eh_table_type): Use new encoding for exception
-        handlers when using -fno-assume-compiled.
+	* except.c (prepare_eh_table_type): Use new encoding for exception
+	handlers when using -fno-assume-compiled.
 
 2003-08-13  Tom Tromey  <tromey@redhat.com>
 

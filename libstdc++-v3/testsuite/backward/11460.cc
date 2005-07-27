@@ -1,4 +1,5 @@
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// { dg-options "-Wno-deprecated" }
+// Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,8 +19,6 @@
 
 #include <strstream>
 #include <testsuite_hooks.h>
-
-// { dg-options "-Wno-deprecated" }
 
 class Buf : public std::strstreambuf
 {

@@ -1,3 +1,75 @@
+2005-05-19  Release Manager
+
+	* GCC 3.4.4 released.
+
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-07  Kelley Cook  <kcook@gcc.gnu.org>
+
+	PR other/15194
+	* configure.ac: Add check for long long.
+	* jartool.h: Check for long long before using it.
+	* configure: Regenerate
+	* config.h.in: Regenerate.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-04-12  Kelley Cook  <kcook@gcc.gnu.org>
+
+	PR bootstrap/14905
+	* configure.ac: Parse --enable-generated-files-in-srcdir.
+	* Makefile.am: Copy man and info files to srcdir if requested.
+	* configure: Regenerate.
+	* Makefile.in Regenerate.
+
+2004-01-09  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.in: Rename file to ...
+	* configure.ac: ... this.  Add in AC_PREREQ(2.57)
+	* config.h.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* Makefile.in: Regenerate.
+
+2004-01-07  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jartool.c (make_manifest): Fix off-by-one bug when creating
+	an empty MANIFEST.MF.
+
+2003-12-01  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Define AM_MAKINFOFLAGS.  Remove Automake 1.4 hack.
+	* Makefile.in: Regenerate with automake 1.7.6 & autoconf 2.57 tools.
+	* aclocal.m4, config.h.in, configure: Likewise.
+	* install-sh, missing, mkinstalldirs, stamp-h.in: Remove.
+
+2003-11-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* .cvsignore: Delete.
+
+2003-10-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am (my_make_i_flags): Add $(srcdir) and update comment
+	to match.
+	(fastjar.info): Update target to write to build directory.
+	(%.1): New implicit rule from a .pod file.
+	(jar.1): Delete.
+	(grepjar.1): Delete.
+	(jar.pod): New intermediate rule.
+	(grepjar.pod): Likewise.
+	* Makefile.in: Regenerate.
+
 2003-08-13  Matthias Klose  <doko@debian.org>
 
 	* fastjar.texi: License manual under the GPL.

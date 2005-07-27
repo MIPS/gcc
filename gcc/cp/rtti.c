@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -120,7 +120,7 @@ init_rtti_processing (void)
   push_namespace (std_identifier);
   type_info_type_node 
     = xref_tag (class_type, get_identifier ("type_info"),
-		/*attributes=*/NULL_TREE, true, false);
+		true, false);
   pop_namespace ();
   const_type_info_type = build_qualified_type (type_info_type_node, 
 					       TYPE_QUAL_CONST);
@@ -354,17 +354,15 @@ get_tinfo_decl (tree type)
       TREE_READONLY (d) = 1;
       TREE_STATIC (d) = 1;
       DECL_EXTERNAL (d) = 1;
-      DECL_COMDAT (d) = 1;
+      DECL_TINFO_P (d) = 1;
       TREE_PUBLIC (d) = 1;
       SET_DECL_ASSEMBLER_NAME (d, name);
-
-      pushdecl_top_level_and_finish (d, NULL_TREE);
-
+      /* Remember the type it is for.  */
+      TREE_TYPE (name) = type;
       if (CLASS_TYPE_P (type))
 	CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
 
-      /* Remember the type it is for.  */
-      TREE_TYPE (name) = type;
+      pushdecl_top_level_and_finish (d, NULL_TREE);
 
       /* Add decl to the global array of tinfo decls.  */
       my_friendly_assert (unemitted_tinfo_decls != 0, 20030312);
@@ -635,7 +633,6 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      push_nested_namespace (ns);
 	      tinfo_ptr = xref_tag (class_type,
 				    get_identifier ("__class_type_info"),
-				    /*attributes=*/NULL_TREE,
 				    true, false);
 	      
 	      tinfo_ptr = build_pointer_type
@@ -752,19 +749,20 @@ tinfo_base_init (tree desc, tree target)
                      NULL_TREE);
     tree name_string = tinfo_name (target);
 
+    /* Determine the name of the variable -- and remember with which
+       type it is associated.  */
     name_name = mangle_typeinfo_string_for_type (target);
+    TREE_TYPE (name_name) = target;
+
     name_decl = build_lang_decl (VAR_DECL, name_name, name_type);
-    
+    SET_DECL_ASSEMBLER_NAME (name_decl, name_name);
     DECL_ARTIFICIAL (name_decl) = 1;
     TREE_READONLY (name_decl) = 1;
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
+    DECL_TINFO_P (name_decl) = 1;
     TREE_PUBLIC (name_decl) = 1;
-    comdat_linkage (name_decl);
-    /* External name of the string containing the type's name has a
-       special name.  */
-    SET_DECL_ASSEMBLER_NAME (name_decl,
-			     mangle_typeinfo_string_for_type (target));
+    import_export_tinfo (name_decl, target, typeinfo_in_lib_p (target));
     DECL_INITIAL (name_decl) = name_string;
     mark_used (name_decl);
     pushdecl_top_level_and_finish (name_decl, name_string);
@@ -777,7 +775,7 @@ tinfo_base_init (tree desc, tree target)
   
       push_nested_namespace (abi_node);
       real_type = xref_tag (class_type, TINFO_REAL_NAME (desc),
-			    /*attributes=*/NULL_TREE, true, false);
+			    true, false);
       pop_nested_namespace (abi_node);
   
       if (!COMPLETE_TYPE_P (real_type))
@@ -1065,7 +1063,7 @@ get_pseudo_ti_init (tree type, tree var_desc, bool *non_public_p)
 	      else
 		offset = BINFO_OFFSET (base_binfo);
               
-              /* combine offset and flags into one field */
+              /* Combine offset and flags into one field.  */
               offset = cp_build_binary_op (LSHIFT_EXPR, offset,
 					   build_int_2 (8, 0));
               offset = cp_build_binary_op (BIT_IOR_EXPR, offset,
@@ -1373,7 +1371,6 @@ emit_support_tinfos (void)
   push_nested_namespace (abi_node);
   bltn_type = xref_tag (class_type,
 			get_identifier ("__fundamental_type_info"), 
-			/*attributes=*/NULL_TREE,
 			true, false);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))

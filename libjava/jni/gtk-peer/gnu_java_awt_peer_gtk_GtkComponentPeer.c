@@ -40,17 +40,24 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 #include <gtk/gtkprivate.h>
 
+static GtkWidget *find_fg_color_widget (GtkWidget *widget);
+static GtkWidget *find_bg_color_widget (GtkWidget *widget);
+
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkGenericPeer_dispose
   (JNIEnv *env, jobject obj)
 {
   void *ptr;
 
+  /* Remove entries from state tables */
+  NSA_DEL_GLOBAL_REF (env, obj);
   ptr = NSA_DEL_PTR (env, obj);
 
+  gdk_threads_enter ();
+  
   /* For now the native state for any object must be a widget.
      However, a subclass could override dispose() if required.  */
-  gdk_threads_enter ();
   gtk_widget_destroy (GTK_WIDGET (ptr));
+
   gdk_threads_leave ();
 }
 
@@ -162,29 +169,69 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreen
 }
 
 /*
- * Find the preferred size of a widget.
+ * Find this widget's current size.
  */
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetDimensions
-    (JNIEnv *env, jobject obj, jintArray jdims)
+  (JNIEnv *env, jobject obj, jintArray jdims)
 {
-    void *ptr;
-    jint *dims;
-    GtkRequisition req;
+  void *ptr;
+  jint *dims;
+  GtkRequisition requisition;
 
-    ptr = NSA_GET_PTR (env, obj);
-    dims = (*env)->GetIntArrayElements (env, jdims, 0);  
+  ptr = NSA_GET_PTR (env, obj);
 
-    gdk_threads_enter ();
+  dims = (*env)->GetIntArrayElements (env, jdims, 0);  
+  dims[0] = dims[1] = 0;
 
-    gtk_signal_emit_by_name (GTK_OBJECT (ptr), "size_request", &req);
+  gdk_threads_enter ();
 
-    dims[0] = req.width;
-    dims[1] = req.height;
+  gtk_widget_size_request (GTK_WIDGET (ptr), &requisition);
 
-    gdk_threads_leave ();
+  dims[0] = requisition.width;
+  dims[1] = requisition.height;
 
-    (*env)->ReleaseIntArrayElements(env, jdims, dims, 0);
+  gdk_threads_leave ();
+
+  (*env)->ReleaseIntArrayElements (env, jdims, dims, 0);
+}
+
+/*
+ * Find this widget's preferred size.
+ */
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetPreferredDimensions
+  (JNIEnv *env, jobject obj, jintArray jdims)
+{
+  void *ptr;
+  jint *dims;
+  GtkRequisition current_req;
+  GtkRequisition natural_req;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  dims = (*env)->GetIntArrayElements (env, jdims, 0);  
+  dims[0] = dims[1] = 0;
+
+  gdk_threads_enter ();
+
+  /* Save the widget's current size request. */
+  gtk_widget_size_request (GTK_WIDGET (ptr), &current_req);
+
+  /* Get the widget's "natural" size request. */
+  gtk_widget_set_size_request (GTK_WIDGET (ptr), -1, -1);
+  gtk_widget_size_request (GTK_WIDGET (ptr), &natural_req);
+
+  /* Reset the widget's size request. */
+  gtk_widget_set_size_request (GTK_WIDGET (ptr),
+			       current_req.width, current_req.height);
+
+  dims[0] = natural_req.width;
+  dims[1] = natural_req.height;
+
+  gdk_threads_leave ();
+
+  (*env)->ReleaseIntArrayElements (env, jdims, dims, 0);
 }
 
 JNIEXPORT void JNICALL 
@@ -299,7 +346,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetBackground
 
   gdk_threads_enter ();
 
-  widget = GTK_WIDGET (ptr);
+  widget = find_bg_color_widget (GTK_WIDGET (ptr));
 
   gtk_widget_modify_bg (widget, GTK_STATE_NORMAL, &normal_color);
   gtk_widget_modify_bg (widget, GTK_STATE_ACTIVE, &active_color);
@@ -324,9 +371,11 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetForeground
 
   gdk_threads_enter ();
 
-  widget = GTK_WIDGET (ptr);
+  widget = find_fg_color_widget (GTK_WIDGET (ptr));
 
   gtk_widget_modify_fg (widget, GTK_STATE_NORMAL, &color);
+  gtk_widget_modify_fg (widget, GTK_STATE_ACTIVE, &color);
+  gtk_widget_modify_fg (widget, GTK_STATE_PRELIGHT, &color);
 
   gdk_threads_leave ();
 }
@@ -526,7 +575,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_set__Ljava_lang_String_2Ljava_lang_O
   (*env)->ReleaseStringUTFChars (env, jname, name);
 }
 
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectHooks
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectJObject
   (JNIEnv *env, jobject obj)
 {
   void *ptr;
@@ -534,11 +583,71 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectHooks
   ptr = NSA_GET_PTR (env, obj);
 
   gdk_threads_enter ();
+
   gtk_widget_realize (GTK_WIDGET (ptr));
 
-  if(GTK_IS_BUTTON(ptr))
-    connect_awt_hook (env, obj, 1, GTK_BUTTON(ptr)->event_window);
-  else
-    connect_awt_hook (env, obj, 1, GTK_WIDGET (ptr)->window);
+  connect_awt_hook (env, obj, 1, GTK_WIDGET (ptr)->window);
+
   gdk_threads_leave ();
 }
+
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectSignals
+  (JNIEnv *env, jobject obj)
+{
+  void *ptr = NSA_GET_PTR (env, obj);
+  jobject *gref = NSA_GET_GLOBAL_REF (env, obj);
+  g_assert (gref);
+
+  gdk_threads_enter ();
+
+  gtk_widget_realize (GTK_WIDGET (ptr));
+  
+  /* FIXME: We could check here if this is a scrolled window with a
+     single child that does not have an associated jobject.  This
+     means that it is one of our wrapped widgets like List or TextArea
+     and thus we could connect the signal to the child without having
+     to specialize this method. */
+
+  /* Connect EVENT signal, which happens _before_ any specific signal. */
+
+  g_signal_connect (GTK_OBJECT (ptr), "event", 
+                    G_CALLBACK (pre_event_handler), *gref);
+
+  gdk_threads_leave ();
+}
+
+static GtkWidget *
+find_fg_color_widget (GtkWidget *widget)
+{
+  GtkWidget *fg_color_widget;
+
+  if (GTK_IS_EVENT_BOX (widget))
+    fg_color_widget = gtk_bin_get_child (GTK_BIN(widget));
+  else
+    fg_color_widget = widget;
+
+  return fg_color_widget;
+}
+
+static GtkWidget *
+find_bg_color_widget (GtkWidget *widget)
+{
+  GtkWidget *bg_color_widget;
+
+  if (GTK_IS_WINDOW (widget))
+    {
+      GtkWidget *vbox;
+      GList* children;
+
+      children = gtk_container_get_children(GTK_CONTAINER(widget));
+      vbox = children->data;
+
+      children = gtk_container_get_children(GTK_CONTAINER(vbox));
+      bg_color_widget = children->data;
+    }
+  else
+    bg_color_widget = widget;
+
+  return bg_color_widget;
+}
+

@@ -417,6 +417,10 @@ package Lib is
    function Num_Units return Nat;
    --  Number of units currently in unit table
 
+   procedure Remove_Unit (U : Unit_Number_Type);
+   --  Remove unit U from unit table. Currently this is effective only
+   --  if U is the last unit currently stored in the unit table.
+
    function Entity_Is_In_Main_Unit (E : Entity_Id) return Boolean;
    --  Returns True if the entity E is declared in the main unit, or, in
    --  its corresponding spec, or one of its subunits. Entities declared
@@ -462,8 +466,7 @@ package Lib is
    --  and False otherwise.
 
    function In_Extended_Main_Code_Unit
-     (N    : Node_Or_Entity_Id)
-      return Boolean;
+     (N : Node_Or_Entity_Id) return Boolean;
    --  Return True if the node is in the generated code of the extended main
    --  unit, defined as the main unit, its specification (if any), and all
    --  its subunits (considered recursively). Units for which this enquiry
@@ -472,15 +475,12 @@ package Lib is
    --  If the main unit is itself a subunit, then the extended main unit
    --  includes its parent unit, and the parent unit spec if it is separate.
 
-   function In_Extended_Main_Code_Unit
-     (Loc :  Source_Ptr)
-      return Boolean;
+   function In_Extended_Main_Code_Unit (Loc : Source_Ptr) return Boolean;
    --  Same function as above, but argument is a source pointer rather
    --  than a node.
 
    function In_Extended_Main_Source_Unit
-     (N    : Node_Or_Entity_Id)
-      return Boolean;
+     (N : Node_Or_Entity_Id) return Boolean;
    --  Return True if the node is in the source text of the extended main
    --  unit, defined as the main unit, its specification (if any), and all
    --  its subunits (considered recursively). Units for which this enquiry
@@ -490,9 +490,7 @@ package Lib is
    --  a subunit, then the extended main unit includes its parent unit,
    --  and the parent unit spec if it is separate.
 
-   function In_Extended_Main_Source_Unit
-     (Loc :  Source_Ptr)
-      return Boolean;
+   function In_Extended_Main_Source_Unit (Loc : Source_Ptr) return Boolean;
    --  Same function as above, but argument is a source pointer rather
    --  than a node.
 
@@ -515,8 +513,7 @@ package Lib is
    --  could not have been built without making a unit table entry.
 
    function Get_Cunit_Entity_Unit_Number
-     (E    : Entity_Id)
-      return Unit_Number_Type;
+     (E : Entity_Id) return Unit_Number_Type;
    --  Return unit number of the unit whose compilation unit spec entity is
    --  the one passed as an argument. This must always succeed since the
    --  entity could not have been built without making a unit table entry.
@@ -590,7 +587,7 @@ package Lib is
    --  function returns True if the given generic unit entity E is for a
    --  generic unit that should be separately compiled, and false otherwise.
    --
-   --  Now GNAT can compile any generic unit including predefifined ones, but
+   --  Now GNAT can compile any generic unit including predefined ones, but
    --  because of the backward compatibility (to keep the ability to use old
    --  compiler versions to build GNAT) compiling library generics is an
    --  option. That is, now GNAT compiles a library generic as an ordinary
@@ -603,8 +600,7 @@ package Lib is
    --  compiled with the current approach.
 
    function Generic_Separately_Compiled
-     (Sfile : File_Name_Type)
-      return  Boolean;
+     (Sfile : File_Name_Type) return  Boolean;
    --  Same as the previous function, but works directly on a unit file name.
 
 private

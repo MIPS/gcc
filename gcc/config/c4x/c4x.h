@@ -81,14 +81,6 @@
     }						\
   while (0)
 
-/* Name of the c4x assembler.  */
-
-#define ASM_PROG "c4x-as"
-
-/* Name of the c4x linker.  */
-
-#define LD_PROG "c4x-ld"
-
 /* Define assembler options.  */
 
 #define ASM_SPEC "\
@@ -1113,7 +1105,7 @@ typedef struct c4x_args
 }
 CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (c4x_init_cumulative_args (&CUM, FNTYPE, LIBNAME))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
