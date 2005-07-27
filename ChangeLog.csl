@@ -1,3 +1,48 @@
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/mt-linux (CXXFLAGS): Include SYSROOT_CFLAGS_FOR_TARGET.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-07-26  Mark Mitchell  <mark@codesourcery.com>
+	* Makefile.tpl (SYSROOT_CFLAGS_FOR_TARGET): New variable.
+	(CFLAGS_FOR_TARGET): Use it.
+	(CXXFLAGS_FOR_TARGET): Likewise.
+	* Makefile.in: Regenerated.
+	* configure.in (--with-build-sysroot): New option.
+	* configure: Regenerated.
+
+	2005-07-25  Mark Mitchell  <mark@codesourcery.com>
+	* gcc.c (option_map): Add --sysroot.
+	(process_command): Handle --sysroot.
+	(display_help): Document it.
+	* doc/cppopts.tex (-isysroot): Document.
+	* doc/invoke.texi (--sysroot): Document.
+	* doc/install.texi (--with-build-sysroot): Document.
+
+	* Makefile.in (inhibit_libc): New variable.
+	(INHIBIT_LIBC_CFLAGS): Likewise.
+	(LIBGCC2_CFLAGS): Include
+	$(INHIBIT_LIBC_CFLAGS).
+	(CRTSTUFF_CFLAGS): Include $(INHIBIT_LIBC_CFLAGS).
+	($(T)crtbegin.o): Do not use @inhibit_libc@.
+	($(T)crtend.o): Likewise.
+	($(T)crtbeginS.o): Do not use @inhibit_libc@.
+	($(T)crtendS.o): Likewise.
+	($(T)crtbeginT.o): Do not use @inhibit_libc@.
+	($(T)crtendT.o): Likewise.
+	(stmp-fixinc): Do not complain about missing headers if
+	inhibit_libc.
+	* configure.ac (inhibit_libc): Set it to true/false.
+	(--with-build-sysroot): New option.  Use it to set
+	SYSTEM_HEADER_DIR. 
+	* configure: Regenerated.
+
+	2005-07-26  Mark Mitchell  <mark@codesourcery.com>
+	* doc/install.texi (--with-build-sysroot): Fix grammatical error.
+	Clarify use of "build" in name.
+
 2005-07-18  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc/config.gcc (powerpc-wrs-linux-gnu): Add 64-bit support.

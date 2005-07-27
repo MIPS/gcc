@@ -309,6 +309,7 @@ in the following sections.
 -include @var{file}  -imacros @var{file} @gol
 -iprefix @var{file}  -iwithprefix @var{dir} @gol
 -iwithprefixbefore @var{dir}  -isystem @var{dir} @gol
+-isysroot @var{dir} @gol
 -M  -MM  -MF  -MG  -MP  -MQ  -MT  -nostdinc  @gol
 -P  -fworking-directory  -remap @gol
 -trigraphs  -undef  -U@var{macro}  -Wp,@var{option} @gol
@@ -328,7 +329,8 @@ in the following sections.
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
-@gccoptlist{-B@var{prefix}  -I@var{dir}  -I-  -L@var{dir}  -specs=@var{file}}
+@gccoptlist{-B@var{prefix}  -I@var{dir}  -I-  -L@var{dir}
+-specs=@var{file} --sysroot=@var{dir}}
 
 @item Target Options
 @c I wrote this xref this way to avoid overfull hbox. -- rms
@@ -5284,6 +5286,23 @@ program uses when determining what switches to pass to @file{cc1},
 @file{cc1plus}, @file{as}, @file{ld}, etc.  More than one
 @option{-specs=@var{file}} can be specified on the command line, and they
 are processed in order, from left to right.
+
+@item --sysroot=@var{dir}
+@opindex sysroot
+Use @var{dir} as the logical root directory for headers and libraries.
+For example, if the compiler would normally search for headers in
+@file{/usr/include} and libraries in @file{/usr/lib}, it will instead
+search @file{@var{dir}/usr/include} and @file{@var{dir}/usr/lib}.  
+
+If you use both this option and the @option{-isysroot} option, then
+the @option{--sysroot} option will apply to libraries, but the
+@option{-isysroot} option will apply to header files.
+ 
+The GNU linker (beginning with version 2.16) has the necessary support
+for this option.  If your linker does not support this option, the
+header file aspect of @option{--sysroot} will still work, but the
+library aspect will not.
+
 @end table
 
 @c man end
