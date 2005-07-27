@@ -1,3 +1,10 @@
+2005-07-22  Devang Patel  <dpatel@apple.com>
+
+	Radar 4182972
+	* name-lookup.c (pushtag): Do not set DECL_IGNORED_P bit.
+	* decl.c (grokdeclarator): Do not generate debug info for anonymous 
+	aggregate type when it receives real name.
+
 2005-07-26  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4168392

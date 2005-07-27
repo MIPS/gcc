@@ -4681,12 +4681,8 @@ pushtag (tree name, tree type, int globalize)
 	  else
 	    d = pushdecl_with_scope (d, b);
 
-	  /* APPLE LOCAL begin 4182972 */
-	  /* If it gets a name from typedef, resent DECL_IGNORED_P flag
-	     and invoke debug_hooks again.  */
-	  /* APPLE LOCAL end 4182972 */
-	  if (ANON_AGGRNAME_P (name))
-	    DECL_IGNORED_P (d) = 1;
+	  /* APPLE LOCAL mainline */
+	  /* Do not set DECL_IGNORED_P */
 
 	  TYPE_CONTEXT (type) = DECL_CONTEXT (d);
 
