@@ -83,7 +83,7 @@ static const struct mode_data blank_mode = {
   0, "<unknown>", MAX_MODE_CLASS,
   -1U, -1U, -1U, -1U,
   0, 0, 0, 0, 0, 0,
-  "<unknown>", 0
+  "<unknown>", 0, 0
 };
 
 static htab_t modes_by_name;

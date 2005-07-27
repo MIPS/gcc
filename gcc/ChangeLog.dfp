@@ -1,3 +1,7 @@
+2005-07-27  Ben Elliston  <bje@au.ibm.com>
+
+	* genmodes.c (blank_mode): Initialise counter member to 0.
+
 2005-07-25  Ben Elliston  <bje@au.ibm.com>
 
 	* config/dfp-bit.c (dfp_unary_op): Don't trap (C adopted qNaNs).
