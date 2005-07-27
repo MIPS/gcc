@@ -1,3 +1,61 @@
+2005-07-26  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 22591
+	* tree-ssa-alias.c (may_alias_p): Remove shortcut that tests
+	whether a pointer of type T * may point to objects of type T *.
+
+2005-07-26  Bernardo Innocenti  <bernie@develer.com>
+
+	Backport from mainline:
+	2005-07-12  Peter Barada  <peter@the-baradas.com>
+	PR middle-end/16719
+	PR middle-end/18421
+	* config/m68k/m68k.h (HARD_REGNO_MODE_OK): Disallow bytes
+	in address registers.
+	* config/m68k/m68k.c (hard_regno_mode_ok): Likewise.
+	* config/m68k/m68k.md: Replace 's' with 'i' in 4th
+	alternative of addsi3_5200.
+
+2005-07-25  Manfred Hollstein  <mh@suse.com>
+
+	* calls.c (store_one_arg): Fix unsigned comparison warning.
+
+2005-07-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* calls.c (store_one_arg): Check for sibling call MEM arguments
+	from already clobbered incoming argument area.
+
+2005-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* dwarf2out.c (gen_variable_die): Treat un-emitted COMDAT
+	variables as declarations, rather than definitions.
+
+2005-07-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/21828
+	* toplev.c (check_global_declarations): Do not mark undefined
+	variables as DECL_IGNORED_P.
+	* varasm.c (first_global_object_name): GTY it.
+	(weak_global_object_name): Likewise.
+	(notice_global_symbol): Use ggc_strdup, not xstrdup, when creating
+	a string to go into {weak,first}_global_object_name.
+
+2005-07-21  Uros Bizjak  <uros@kss-loka.si>
+
+        PR target/21149
+        * config/i386/i386.md (sse_movhlps): Fix vec_select values.
+
+2005-07-21  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/22576
+	* config/i386/i386.md (cmpxf): Change operand constraints
+	to "nonmemory_operand".
+
+2005-07-21  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/22167
+	* gcse.c (hoist_code): Fix hoist_exprs[] check.
+
 2005-07-20  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* config.gcc: Add support for *-*-freebsd7, *-*-freebsd8,

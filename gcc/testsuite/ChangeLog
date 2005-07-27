@@ -1,3 +1,56 @@
+2005-07-26  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 22591
+	* gcc.dg/tree-ssa/pr22591.c: New test.
+	* gcc.dg/tree-ssa/20030807-7.c: XFAIL everywhere.
+
+2005-07-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20050713-1.c: New test.
+
+	PR fortran/20063
+	* gfortran.fortran-torture/execute/data_4.f90: New test.
+
+2005-07-25  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/pr15332.f: Fix dejagnu command.
+	* gfortran.dg/reshape_rank7.f90: Ditto.
+
+2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        * gfortran.fortran-torture/execute/nan_inf_fmt.f90: Revise test to
+        include case of field width of zero. 
+
+2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        PR libgfortran/21875
+        * gfortran.dg/fmt_read_bz_bn.f90: Revised test to include case
+        with trailing blanks on normal formatted read.
+
+2005-07-23 Paul Thomas <pault@gcc.gnu.org>
+
+	* gfortran.dg/io_invalid_1.f90: Match test case to modified error
+	message.
+
+2005-07-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/21828
+	* gcc.dg/debug/dwarf2/dwarf-uninit.c: New test.
+
+2005-07-22 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/16940
+	* gfortran.dg/module_interface.f90: New test.
+
+2005-07-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.c-torture/compile/20050721-1.c: New test for 3.4 fix.
+
+2005-07-21  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/22167
+	* g++.dg/opt/pr22167.C: New test.
+
 2005-07-19  Steve Ellcey  <sje@cup.hp.com>
 
 	Backport from mainline.
