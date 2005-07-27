@@ -1,5 +1,10 @@
 2005-07-27  Ben Elliston  <bje@au.ibm.com>
 
+	* real.c (real_maxval): decimal_real_maxval has no return value.
+	Return explicitly in the base 10 case.
+
+2005-07-27  Ben Elliston  <bje@au.ibm.com>
+
 	* genmodes.c (blank_mode): Initialise counter member to 0.
 
 2005-07-25  Ben Elliston  <bje@au.ibm.com>
