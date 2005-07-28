@@ -191,15 +191,19 @@ namespace _GLIBCXX_STD
       : _M_t(__x._M_t) { }
 
       /**
-       * @brief %Set move constructor
-       * @param x A %set of identical element and allocator types
+       *  @brief %Set move constructor
+       *  @param x A %set of identical element and allocator types
        *
-       * The newly-constructed %set contains the exact contents of @a x.
-       * The contents of x are a valid, but unspecified set.
+       *  The newly-constructed %set contains the exact contents of @a x.
+       *  The contents of x are a valid, but unspecified set. This
+       *  constructor is templated to avoid it being used while deducing
+       *  the things convertible to set, and will only compile when the 
+       *  input set has identical type.
        */
-      set(__gnu_cxx::__rvalref<set> __x)
-      : _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
-      {	this->swap(__x.__ref); }
+      template<typename _Set>
+	set(__gnu_cxx::__rvalref<_Set> __x)
+	: _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
+	{	this->swap(__x.__ref); }
 
       /**
        *  @brief  Set assignment operator.
@@ -220,14 +224,17 @@ namespace _GLIBCXX_STD
        *  @param x A %set of identical element and allocator types.
        *
        *  The contents of @a x are moved into this set (without copying).
-       *  @a x is a valid, but unspecified set.
+       *  @a x is a valid, but unspecified set. This operator is templated
+       *  to avoid it being used while deducing the things convertible to
+       *  set, and will only compile when the input set has identical type.
        */
-      set&
-      operator=(__gnu_cxx::__rvalref<set> __x)
-      { 
-	this->swap(__x.__ref); 
-	return *this;
-      }
+      template<typename _Set>
+	set&
+	operator=(__gnu_cxx::__rvalref<_Set> __x)
+	{ 
+	  this->swap(__x.__ref); 
+	  return *this;
+	}
 
       // accessors:
 

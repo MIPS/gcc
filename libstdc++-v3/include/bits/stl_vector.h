@@ -235,15 +235,19 @@ namespace _GLIBCXX_STD
       }
 
       /**
-       * @brief %Vector move constructor
-       * @param x A %vector of identical element and allocator types
+       *  @brief %Vector move constructor
+       *  @param x A %vector of identical element and allocator types
        *
-       * The newly-constructed %vector contains the exact contents of @a x.
-       * The contents of x are a valid, but unspecified vector.
+       *  The newly-constructed %vector contains the exact contents of @a x.
+       *  The contents of x are a valid, but unspecified vector. This
+       *  constructor is templated to avoid it being used while deducing
+       *  the things convertible to vector, and will only compile
+       *  when the input vector has identical type.
        */
-      vector(__gnu_cxx::__rvalref<vector> __x)
-      : _Base(__x.__ref.get_allocator())
-      {	this->swap(__x.__ref); }
+      template<typename _Vector>
+	vector(__gnu_cxx::__rvalref<_Vector> __x)
+	: _Base(__x.__ref.get_allocator())
+	{ this->swap(__x.__ref); }
 
       /**
        *  @brief  Builds a %vector from a range.
@@ -297,14 +301,18 @@ namespace _GLIBCXX_STD
        *  @param x A %vector of identical element and allocator types.
        *
        *  The contents of @a x are moved into this vector (without copying).
-       *  @a x is a valid, but unspecified vector.
+       *  @a x is a valid, but unspecified vector. This operator is templated
+       *  to avoid it being used while deducing the things convertible
+       *  to vector, and will only compile when the input vector has 
+       *  identical type. 
        */
-      vector&
-      operator=(__gnu_cxx::__rvalref<vector> __x)
-      { 
-        this->swap(__x.__ref); 
-        return *this;
-      }
+      template<typename _Vector>
+	vector&
+	operator=(__gnu_cxx::__rvalref<_Vector> __x)
+	{ 
+	  this->swap(__x.__ref); 
+	  return *this;
+	}
 
       /**
        *  @brief  Assigns a given value to a %vector.

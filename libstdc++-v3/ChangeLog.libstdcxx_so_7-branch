@@ -1,3 +1,28 @@
+2005-07-28  Chris Jefferson <chris@bubblescope.net>
+	    Jonathan Wakely  <redi@gcc.gnu.org>
+
+	(http://gcc.gnu.org/ml/libstdc++/2005-07/msg00041.html)
+	* include/bits/stl_bvector.h (vector::vector(__rvalref)): Fix typo,
+	template constructor.
+	(vector::operator=(__rvalref)): Template.
+	* include/bits/stl_vector.h: Template rvalref constructor and rvalref
+	operator=.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* testsuite/23_containers/deque/moveable2.cc: New.
+	* testsuite/23_containers/list/moveable2.cc: New.
+	* testsuite/23_containers/map/moveable2.cc: New.
+	* testsuite/23_containers/multimap/moveable2.cc: New.
+	* testsuite/23_containers/multiset/moveable2.cc: New.
+	* testsuite/23_containers/set/moveable2.cc: New.
+	* testsuite/23_containers/list/moveable2.cc: New.
+	* testsuite/23_containers/vector/moveable2.cc: New.
+	* testsuite/23_containers/vector/moveable.cc: Tweak.
+
 2005-07-15  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/moveable.h: Rename __is_moveable::value -> __value.

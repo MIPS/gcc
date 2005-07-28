@@ -25,46 +25,21 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// This test tests the internal "moveable" extension
-// NOTE: This makes use of the fact that we know how moveable
-// is implemented on vector (via swap). If the implementation changed
-// this test may begin to fail.
+// { dg-do compile }
 
-#include <vector>
-#include <testsuite_hooks.h>
+#include <map>
 
-
-void test01()
+struct A
 {
-  bool test __attribute__((unused)) = true;
+    template <typename B> operator B() const
+    {
+        return B();
+    }
+};
 
-  std::vector<int> a,b;
-  a.push_back(1);
-  b = __gnu_cxx::__move(a);
-  VERIFY( b.size() == 1 && b[0] == 1 && a.size() == 0 );
-
-  std::vector<int> c(__gnu_cxx::__move(b));
-  VERIFY( c.size() == 1 && c[0] == 1 );
-  VERIFY( b.size() == 0 );
-}
-
-void test02()
+void function(void)
 {
-  bool test __attribute__((unused)) = true;
-  
-  std::vector<bool> a,b;
-  a.push_back(1);
-  b = __gnu_cxx::__move(a);
-  VERIFY( b.size() == 1 && b[0] == 1 && a.size() == 0 );
-
-  std::vector<bool> c(__gnu_cxx::__move(b));
-  VERIFY( c.size() == 1 && c[0] == 1 );
-  VERIFY( b.size() == 0 );
-}
-
-int main(void)
-{
-  test01();
-  test02();
-  return 0;
+  A a;
+  std::multimap<int,int> v;
+  v = a;
 }

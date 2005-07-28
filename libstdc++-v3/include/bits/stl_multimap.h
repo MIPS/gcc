@@ -183,15 +183,19 @@ namespace _GLIBCXX_STD
       : _M_t(__x._M_t) { }
 
       /**
-       * @brief %Multimap move constructor
-       * @param x A %Multimap of identical element and allocator types
+       *  @brief %Multimap move constructor
+       *  @param x A %Multimap of identical element and allocator types
        *
-       * The newly-constructed %multimap contains the exact contents of @a x.
-       * The contents of x are a valid, but unspecified multimap.
+       *  The newly-constructed %multimap contains the exact contents of @a x.
+       *  The contents of x are a valid, but unspecified multimap. This
+       *  constructor is templated to avoid it being used while deducing
+       *  the things convertible to multimap, and will only compile when the 
+       *  input multimap has identical type.
        */
-      multimap(__gnu_cxx::__rvalref<multimap> __x)
-      : _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
-      {	this->swap(__x.__ref); }
+      template<typename _Multimap>
+	multimap(__gnu_cxx::__rvalref<_Multimap> __x)
+	: _M_t(__x.__ref._M_t.key_comp(), __x.__ref.get_allocator())
+	{ this->swap(__x.__ref); }
 
       /**
        *  @brief  Builds a %multimap from a range.
@@ -239,14 +243,18 @@ namespace _GLIBCXX_STD
        *  @param x A %multimap of identical element and allocator types.
        *
        *  The contents of @a x are moved into this multimap (without copying).
-       *  @a x is a valid, but unspecified multimap.
+       *  @a x is a valid, but unspecified multimap. This operator is 
+       *  templated to avoid it being used while deducing the things 
+       *  convertible to multimap, and will only compile when the 
+       *  input multimap has identical type.
        */
-      multimap&
-      operator=(__gnu_cxx::__rvalref<multimap> __x)
-      { 
-	this->swap(__x.__ref); 
-	return *this;
-      }
+      template<typename _Multimap>
+	multimap&
+	operator=(__gnu_cxx::__rvalref<_Multimap> __x)
+	{ 
+	  this->swap(__x.__ref); 
+	  return *this;
+        }
 
       /// Get a copy of the memory allocation object.
       allocator_type

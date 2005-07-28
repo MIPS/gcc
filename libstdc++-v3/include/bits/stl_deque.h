@@ -690,15 +690,19 @@ namespace _GLIBCXX_STD
 				    _M_get_Tp_allocator()); }
 
       /**
-       * @brief %Deque move constructor
-       * @param x A %deque of identical element and allocator types
+       *  @brief %Deque move constructor
+       *  @param x A %deque of identical element and allocator types
        *
-       * The newly-constructed %deque contains the exact contents of @a x.
-       * The contents of x are a valid, but unspecified deque.
+       *  The newly-constructed %deque contains the exact contents of @a x.
+       *  The contents of x are a valid, but unspecified deque.
+       *  This constructor is templated to avoid it being used while deducing
+       *  the things convertible to deque, and will only compile when the 
+       *  input deque has identical type.
        */
-      deque(__gnu_cxx::__rvalref<deque> __x)
-      : _Base(__x.__ref.get_allocator(), 0)
-      {	this->swap(__x.__ref); }
+      template<typename _Deque>
+	deque(__gnu_cxx::__rvalref<_Deque> __x)
+	: _Base(__x.__ref.get_allocator(), 0)
+	{	this->swap(__x.__ref); }
 
 
       /**
@@ -749,14 +753,17 @@ namespace _GLIBCXX_STD
        *  @param x A %deque of identical element and allocator types.
        *
        *  The contents of @a x are moved into this deque (without copying).
-       *  @a x is a valid, but unspecified deque.
+       *  @a x is a valid, but unspecified deque. This operator is templated
+       *  to avoid it being used while deducing the things convertible to 
+       *  deque, and will only compile when the input deque has identical type.
        */
-      deque&
-      operator=(__gnu_cxx::__rvalref<deque> __x)
-      { 
-	this->swap(__x.__ref); 
-	return *this;
-      }
+      template<typename _Deque>
+	deque&
+	operator=(__gnu_cxx::__rvalref<_Deque> __x)
+	{ 
+	  this->swap(__x.__ref); 
+	  return *this;
+	}
 
       /**
        *  @brief  Assigns a given value to a %deque.

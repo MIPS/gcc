@@ -183,15 +183,19 @@ namespace _GLIBCXX_STD
       : _M_t(__x._M_t) { }
 
       /**
-       * @brief %Multiset move constructor
-       * @param x A %multiset of identical element and allocator types
+       *  @brief %Multiset move constructor
+       *  @param x A %multiset of identical element and allocator types
        *
-       * The newly-constructed %multiset contains the exact contents of @a x.
-       * The contents of x are a valid, but unspecified multiset.
+       *  The newly-constructed %multiset contains the exact contents of @a x.
+       *  The contents of x are a valid, but unspecified multiset. This
+       *  constructor is templated to avoid it being used while deducing
+       *  the things convertible to multiset, and will only compile when the 
+       *  input multiset has identical type.
        */
-      multiset(__gnu_cxx::__rvalref<multiset> __x)
-      : _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
-      {	this->swap(__x.__ref); }
+      template<typename _Multiset>
+	multiset(__gnu_cxx::__rvalref<_Multiset> __x)
+	: _M_t(__x.__ref._M_t.key_comp(), __x.__ref.get_allocator())
+	{	this->swap(__x.__ref); }
 
       /**
        *  @brief  %Multiset assignment operator.
@@ -212,14 +216,18 @@ namespace _GLIBCXX_STD
        *  @param x A %multiset of identical element and allocator types.
        *
        *  The contents of @a x are moved into this multiset (without copying).
-       *  @a x is a valid, but unspecified multiset.
+       *  @a x is a valid, but unspecified multiset. This  constructor is
+       *  templated to avoid it being used while deducing the things
+       *  convertible to multiset, and will only compile when the 
+       *  input multiset has identical type.
        */
-      multiset&
-      operator=(__gnu_cxx::__rvalref<multiset> __x)
-      { 
-	this->swap(__x.__ref); 
-	return *this;
-      }
+      template<typename _Multiset>
+	multiset&
+	operator=(__gnu_cxx::__rvalref<_Multiset> __x)
+	{ 
+	  this->swap(__x.__ref); 
+	  return *this;
+        }
 
       // accessors:
 

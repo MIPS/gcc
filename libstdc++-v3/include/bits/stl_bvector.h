@@ -648,9 +648,15 @@ template<typename _Alloc>
       std::copy(__x.begin(), __x.end(), this->_M_impl._M_start);
     }
 
-    vector(__gnu_cxx::__rvalref<vector> __x)
-    : _Bvector_base<_Alloc>(__x.get_allocator())
-    { this->swap(__x.__ref); }
+    /**
+     *  This constructor is templated to avoid it being used while deducing
+     *  the things convertible to vector, and will only compile when the 
+     *  input vector has identical type.
+     */
+    template<typename _Vector>
+      vector(__gnu_cxx::__rvalref<_Vector> __x)
+      : _Bvector_base<_Alloc>(__x.__ref.get_allocator())
+      { this->swap(__x.__ref); }
 
     // Check whether it's an integral type.  If so, it's not an iterator.
     template<class _Integer>
@@ -695,12 +701,18 @@ template<typename _Alloc>
       return *this;
     }
 
-    vector&
-    operator=(__gnu_cxx::__rvalref<vector> __x)
-    { 
-      this->swap(__x.__ref); 
-      return *this;
-    }
+    /**
+     *  This operator is templated to avoid it being used while deducing
+     *  the things convertible to vector, and will only compile when the 
+     *  input vector has identical type.
+     */
+    template<typename _Vector>
+      vector&
+      operator=(__gnu_cxx::__rvalref<_Vector> __x)
+      { 
+	this->swap(__x.__ref); 
+	return *this;
+      }
 
     // assign(), a generalized assignment member function.  Two
     // versions: one that takes a count, and one that takes a range.

@@ -169,15 +169,19 @@ namespace _GLIBCXX_STD
       : _M_t(__x._M_t) { }
 
       /**
-       * @brief %Map move constructor
-       * @param x A %map of identical element and allocator types
+       *  @brief %Map move constructor
+       *  @param x A %map of identical element and allocator types
        *
-       * The newly-constructed %map contains the exact contents of @a x.
-       * The contents of x are a valid, but unspecified map.
+       *  The newly-constructed %map contains the exact contents of @a x.
+       *  The contents of x are a valid, but unspecified map. This
+       *  constructor is templated to avoid it being used while deducing
+       *  the things convertible to map, and will only compile when the 
+       *  input map has identical type.
        */
-      map(__gnu_cxx::__rvalref<map> __x)
-      : _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
-      {	this->swap(__x.__ref); }
+      template<typename _Map>
+	map(__gnu_cxx::__rvalref<_Map> __x)
+	: _M_t(__x.__ref._M_t.key_comp(), __x.__ref.get_allocator())
+	{ this->swap(__x.__ref); }
 
       /**
        *  @brief  Builds a %map from a range.
@@ -225,14 +229,17 @@ namespace _GLIBCXX_STD
        *  @param x A %map of identical element and allocator types.
        *
        *  The contents of @a x are moved into this map (without copying).
-       *  @a x is a valid, but unspecified map.
+       *  @a x is a valid, but unspecified map. This operator is templated
+       *  to avoid it being used while deducing the things convertible to
+       *  map, and will only compile when the input map has identical type.
        */
-      map&
-      operator=(__gnu_cxx::__rvalref<map> __x)
-      { 
-	this->swap(__x.__ref); 
-	return *this;
-      }
+      template<typename _Map>
+	map&
+	operator=(__gnu_cxx::__rvalref<_Map> __x)
+	{ 
+	  this->swap(__x.__ref); 
+	  return *this;
+	}
 
       /// Get a copy of the memory allocation object.
       allocator_type

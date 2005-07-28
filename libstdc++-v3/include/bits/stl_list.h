@@ -491,15 +491,19 @@ namespace _GLIBCXX_STD
       { this->insert(begin(), __x.begin(), __x.end()); }
 
       /**
-       * @brief %List move constructor
-       * @param x A %list of identical element and allocator types
+       *  @brief %List move constructor
+       *  @param x A %list of identical element and allocator types
        *
-       * The newly-constructed %list contains the exact contents of @a x.
-       * The contents of x are a valid, but unspecified list.
+       *  The newly-constructed %list contains the exact contents of @a x.
+       *  The contents of x are a valid, but unspecified list. This
+       *  constructor is templated to avoid it being used while deducing
+       *  the things convertible to list, and will only compile when the 
+       *  input list has identical type.
        */
-      list(__gnu_cxx::__rvalref<list> __x)
-      : _Base(__x.__ref.get_allocator())
-      { this->swap(__x.__ref); }
+      template<typename _List>
+	list(__gnu_cxx::__rvalref<_List> __x)
+	: _Base(__x.__ref.get_allocator())
+	{ this->swap(__x.__ref); }
 
       /**
        *  @brief  Builds a %list from a range.
@@ -544,14 +548,17 @@ namespace _GLIBCXX_STD
        *  @param x A %list of identical element and allocator types.
        *
        *  The contents of @a x are moved into this list (without copying).
-       *  @a x is a valid, but unspecified list.
+       *  @a x is a valid, but unspecified list. This operator is templated
+       *  to avoid it being used while deducing the things convertible to
+       *  list, and will only compile when the input list has identical type.
        */
-      list&
-      operator=(__gnu_cxx::__rvalref<list> __x)
-      { 
-	this->swap(__x.__ref); 
-	return *this;
-      }
+      template<typename _List>
+	list&
+	operator=(__gnu_cxx::__rvalref<_List> __x)
+	{ 
+	  this->swap(__x.__ref); 
+	  return *this;
+	}
 
       /**
        *  @brief  Assigns a given value to a %list.
