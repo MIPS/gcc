@@ -1,3 +1,93 @@
+2005-07-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* fortran/f95-lang.c (language_function): Remove
+	named_labels, shadowed_labels, returns_value, returns_abnormally,
+	warn_about_return_type, and extern_inline fields.
+	(named_labels): Remove variable.
+	(gfc_init_decl_processing): Remove setting of named_labels.
+
+2005-07-27  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR fortran/22503
+	* resolve.c (resolve_operator): Improve diagnostic for comparison
+	of logicals with invalid operator.
+
+2005-07-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/20063
+	* data.c (gfc_assign_data_value_range): Call
+	create_character_initializer if last_ts is a character type.
+
+2005-07-22  Manfred Hollstein  <mh@suse.com>
+
+	* match.c (gfc_match_symbol): Fix uninitialised warnings.
+	* matchexp.c (gfc_match_expr): Likewise.
+
+2005-07-20  Giovanni Bajo  <giovannibajo@libero.it>
+
+	Make CONSTRUCTOR use VEC to store initializers.
+	* trans-array.c (gfc_build_null_descriptor,
+	gfc_trans_array_constructor_value, gfc_conv_array_initializer):
+	Update to cope with VEC in CONSTRUCTOR_ELTS.
+	* trans-common.c (create_common): Likewise.
+	* trans-expr.c (gfc_conv_structure): Likewise.
+	* trans-stmt.c (gfc_trans_character_select): Use
+	build_constructor_from_list instead of build_constructor.
+
+2005-07-19 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/16940
+	* resolve.c (resolve_symbol): A symbol with FL_UNKNOWN
+	is matched against interfaces in parent namespaces. If there
+	the symtree is set to point to the interface.
+
+2005-07-16  David Edelsohn  <edelsohn@gnu.org>
+
+	PR fortran/21730
+	* decl.c (do_parm): Adjust character initializer to character length
+	of symbol before assigning.
+
+2005-07-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* trans-types.c (MAX_REAL_KINDS): Increase from 4 to 5.
+
+2005-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.h (MAX_ERROR_MESSAGE): Remove.
+	(gfc_error_buf): Add allocated and index fields.  Change message
+	field from array to a pointer.
+	* error.c (use_warning_buffer, error_ptr, warning_ptr): Remove.
+	(cur_error_buffer): New variable.
+	(error_char): Use cur_error_buffer->{message,index} instead of
+	{warning,error}_{buffer.message,ptr}.  Reallocate message buffer
+	if too small.
+	(gfc_warning, gfc_notify_std, gfc_error, gfc_error_now): Setup
+	cur_error_buffer and its index rather than {warning,error}_ptr
+	and use_warning_buffer.
+	(gfc_warning_check, gfc_error_check): Don't print anything if
+	message is NULL.
+	(gfc_push_error): Allocate saved message with xstrdup.
+	(gfc_pop_error): Free saved message with gfc_free.
+	(gfc_free_error): New function.
+	* primary.c (match_complex_constant): Call gfc_free_error if
+	gfc_pop_error will not be called.
+	* match.c (gfc_match_st_function): Likewise.
+
+	PR fortran/22417
+	* scanner.c (preprocessor_line): Don't treat flag 3 as the start of a new
+	file.  Fix file left but not entered warning.
+
+2005-07-14  Feng Wang  <fengwang@nudt.edu.cn>
+	Steven G. Kargl  <kargls@comcast.net>
+
+	* array.c (resolve_character_array_constructor): Allocate gfc_charlen
+	for the array and attach to namespace list for automatic deallocation.
+
+2005-07-13  Andreas Schwab  <schwab@suse.de>
+
+	* Make-lang.in (fortran/dependency.o): Depend on
+	$(GFORTRAN_TRANS_DEPS).
+
 2005-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-stmt.c (gfc_trans_forall_loop): Clear maskindex before

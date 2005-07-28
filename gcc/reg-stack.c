@@ -172,6 +172,7 @@
 #include "ggc.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "target.h"
 
 /* We use this array to cache info about insns, because otherwise we
    spend too much time in stack_regs_mentioned_p.
@@ -227,7 +228,7 @@ enum emit_where
 static basic_block current_block;
 
 /* In the current_block, whether we're processing the first register
-   stack or call instruction, i.e. the the regstack is currently the
+   stack or call instruction, i.e. the regstack is currently the
    same as BLOCK_INFO(current_block)->stack_in.  */
 static bool starting_stack_p;
 
@@ -667,14 +668,8 @@ stack_result (tree decl)
 
   result = DECL_RTL_IF_SET (DECL_RESULT (decl));
   if (result != 0)
-    {
-#ifdef FUNCTION_OUTGOING_VALUE
-      result
-	= FUNCTION_OUTGOING_VALUE (TREE_TYPE (DECL_RESULT (decl)), decl);
-#else
-      result = FUNCTION_VALUE (TREE_TYPE (DECL_RESULT (decl)), decl);
-#endif
-    }
+    result = targetm.calls.function_value (TREE_TYPE (DECL_RESULT (decl)),
+					   decl, true);
 
   return result != 0 && STACK_REG_P (result) ? result : 0;
 }

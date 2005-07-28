@@ -5987,6 +5987,9 @@ tsubst_template_parms (tree parms, tree args, tsubst_flags_t complain)
 	  tree parm_decl = TREE_VALUE (tuple);
 
 	  parm_decl = tsubst (parm_decl, args, complain, NULL_TREE);
+	  if (TREE_CODE (parm_decl) == PARM_DECL
+	      && invalid_nontype_parm_type_p (TREE_TYPE (parm_decl), complain))
+	    parm_decl = error_mark_node;
 	  default_value = tsubst_template_arg (default_value, args,
 					       complain, NULL_TREE);
 
@@ -8003,13 +8006,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	return t;
 
     case CONSTRUCTOR:
-      {
-	r = build_constructor
-	  (tsubst (TREE_TYPE (t), args, complain, in_decl),
-	   tsubst_copy (CONSTRUCTOR_ELTS (t), args, complain, in_decl));
-	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
-	return r;
-      }
+      /* This is handled by tsubst_copy_and_build.  */
+      gcc_unreachable ();
 
     case VA_ARG_EXPR:
       return build_x_va_arg (tsubst_copy (TREE_OPERAND (t, 0), args, complain,
@@ -8811,38 +8809,35 @@ tsubst_copy_and_build (tree t,
 
     case CONSTRUCTOR:
       {
+	VEC(constructor_elt,gc) *n;
+	constructor_elt *ce;
+	unsigned HOST_WIDE_INT idx;
 	tree r;
-	tree elts;
 	tree type = tsubst (TREE_TYPE (t), args, complain, in_decl);
-	bool purpose_p;
+	bool process_index_p;
 
 	/* digest_init will do the wrong thing if we let it.  */
 	if (type && TYPE_PTRMEMFUNC_P (type))
 	  return t;
 
-	r = NULL_TREE;
-	/* We do not want to process the purpose of aggregate
+	/* We do not want to process the index of aggregate
 	   initializers as they are identifier nodes which will be
 	   looked up by digest_init.  */
-	purpose_p = !(type && IS_AGGR_TYPE (type));
-	for (elts = CONSTRUCTOR_ELTS (t);
-	     elts;
-	     elts = TREE_CHAIN (elts))
-	  {
-	    tree purpose = TREE_PURPOSE (elts);
-	    tree value = TREE_VALUE (elts);
+	process_index_p = !(type && IS_AGGR_TYPE (type));
 
-	    if (purpose && purpose_p)
-	      purpose = RECUR (purpose);
-	    value = RECUR (value);
-	    r = tree_cons (purpose, value, r);
+	n = VEC_copy (constructor_elt, gc, CONSTRUCTOR_ELTS (t));
+	for (idx = 0; VEC_iterate (constructor_elt, n, idx, ce); idx++)
+	  {
+	    if (ce->index && process_index_p)
+	      ce->index = RECUR (ce->index);
+	    ce->value = RECUR (ce->value);
 	  }
 
-	r = build_constructor (NULL_TREE, nreverse (r));
+	r = build_constructor (NULL_TREE, n);
 	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
 
 	if (type)
-	  return digest_init (type, r, 0);
+	  return digest_init (type, r);
 	return r;
       }
 
@@ -11007,7 +11002,8 @@ do_decl_instantiation (tree decl, tree storage)
 
   mark_decl_instantiated (result, extern_p);
   if (! extern_p)
-    instantiate_decl (result, /*defer_ok=*/1, /*undefined_ok=*/0);
+    instantiate_decl (result, /*defer_ok=*/1, 
+		      /*expl_inst_class_mem_p=*/false);
 }
 
 void
@@ -11044,7 +11040,8 @@ instantiate_class_member (tree decl, int extern_p)
 {
   mark_decl_instantiated (decl, extern_p);
   if (! extern_p)
-    instantiate_decl (decl, /*defer_ok=*/1, /* undefined_ok=*/1);
+    instantiate_decl (decl, /*defer_ok=*/1, 
+		      /*expl_inst_class_mem_p=*/true);
 }
 
 /* Perform an explicit instantiation of template class T.  STORAGE, if
@@ -11340,14 +11337,12 @@ template_for_substitution (tree decl)
    DEFER_OK is nonzero, then we don't have to actually do the
    instantiation now; we just have to do it sometime.  Normally it is
    an error if this is an explicit instantiation but D is undefined.
-   If UNDEFINED_OK is nonzero, then instead we treat it as an implicit
-   instantiation.  UNDEFINED_OK is nonzero only if we are being used
-   to instantiate the members of an explicitly instantiated class
-   template.  */
-
+   EXPL_INST_CLASS_MEM_P is true iff D is a member of an
+   explicitly instantiated class template.  */
 
 tree
-instantiate_decl (tree d, int defer_ok, int undefined_ok)
+instantiate_decl (tree d, int defer_ok, 
+		  bool expl_inst_class_mem_p)
 {
   tree tmpl = DECL_TI_TEMPLATE (d);
   tree gen_args;
@@ -11436,9 +11431,14 @@ instantiate_decl (tree d, int defer_ok, int undefined_ok)
 
   input_location = DECL_SOURCE_LOCATION (d);
 
-  if (! pattern_defined && DECL_EXPLICIT_INSTANTIATION (d) && undefined_ok)
+  /* If D is a member of an explicitly instantiated class template,
+     and no definition is available, treat it like an implicit
+     instantiation.  */ 
+  if (!pattern_defined && expl_inst_class_mem_p 
+      && DECL_EXPLICIT_INSTANTIATION (d)) 
     {
       DECL_NOT_REALLY_EXTERN (d) = 0;
+      DECL_INTERFACE_KNOWN (d) = 0;
       SET_DECL_IMPLICIT_INSTANTIATION (d);
     }
 
@@ -11675,8 +11675,9 @@ instantiate_pending_templates (int retries)
 			 fn;
 			 fn = TREE_CHAIN (fn))
 		      if (! DECL_ARTIFICIAL (fn))
-			instantiate_decl (fn, /*defer_ok=*/0,
-					  /*undefined_ok=*/0);
+			instantiate_decl (fn, 
+					  /*defer_ok=*/0,
+					  /*expl_inst_class_mem_p=*/false);
 		  if (COMPLETE_TYPE_P (instantiation))
 		    reconsider = 1;
 		}
@@ -11696,9 +11697,10 @@ instantiate_pending_templates (int retries)
 	      if (!DECL_TEMPLATE_SPECIALIZATION (instantiation)
 		  && !DECL_TEMPLATE_INSTANTIATED (instantiation))
 		{
-		  instantiation = instantiate_decl (instantiation,
-						    /*defer_ok=*/0,
-						    /*undefined_ok=*/0);
+		  instantiation 
+		    = instantiate_decl (instantiation,
+					/*defer_ok=*/0,
+					/*expl_inst_class_mem_p=*/false);
 		  if (DECL_TEMPLATE_INSTANTIATED (instantiation))
 		    reconsider = 1;
 		}

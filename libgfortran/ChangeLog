@@ -1,9 +1,76 @@
+2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* io/write.c (write_float): Revise output of IEEE exceptional
+	values to comply with F95 and F2003 standards.
+
+2005-07-22 Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR libfortran/22570
+	* io/unit.c (init_units): Replace BLANK_ZERO with
+	BLANK_UNSPECIFIED.
+
+2005-07-22 Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR libfortran/21875  (FM111.f)
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO
+	or BLANK_NULL are active.
+	(read_decimal): Interpret ' ' character correctly for BZ or BN.
+	(read_radix): Interpret ' ' character correctly for BZ or BN.
+	(read_f): Interpret ' ' character correctly for BZ or BN.
+
+2005-07-22 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/22570
+	* read.c (read_x): Correct the condition for doing the
+	x-editing during formatted input.
+	* transfer.c (formatted_transfer): Cast offset difference
+	as int, clean-up arithmetic with new variable, bytes_used,
+	zero counters for FMT_SLASH, 
+	(data_transfer_init) Zero X- and T-editing counters
+	unconditionally.
+	(next_record_w) Zero X- and T-editing counters.
+	unconditionally.
+
+2005-07-17  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* io/write.c (write_float): Fix field width checks for
+	printing 'Infinity' or 'Inf'.
+	(output_float): Fix typo in comment.
+
+2005-07-12 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/16435
+	* transfer.c (formatted_transfer): Correct the problems
+	with X- and T-editting that caused TLs followed by TRs
+	to overwrite data, which caused NIST FM908.FOR to fail
+	on many tests.
+	(data_transfer_init): Zero X- and T-editting counters at
+	the start of formatted IO.
+	* write.c (write_x): Write specified number of skips with
+	specified number of spaces at the end.
+
+2005-07-13 Paul Thomas  <pault@gcc.gnu.org>
+
+	* io/read.c (read_complex): Prevent X formatting during reads
+	from going beyond EOR to fix NIST fm908.FOR failure.
+	* io/list_read.c (read_complex): Allow complex data in list-
+	directed reads to have eols either side of the comma to
+	fix NIST FM906.FOR failure.
+
+2005-07-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21593
+	* io/unix.c:  Add member special_file to type unix_stream.
+	(fd_truncate):  Don't call ftruncate or chsize if
+	s refers to a special file.
+	(fd_to_stream):  initialize s->special_file.
+
 2005-07-11  David Edelsohn  <edelsohn@gnu.org>
 
-        PR libgfortran/22412
-        * io/write.c (otoa): Bias p by SCRATCH_SIZE, not
-        sizeof (SCRATCH_SIZE).
-        (btoa): Same.
+	PR libgfortran/22412
+	* io/write.c (otoa): Bias p by SCRATCH_SIZE, not
+	sizeof (SCRATCH_SIZE).
+	(btoa): Same.
 
 2005-07-09  Jerry DeLisle  <jvdelisle@verizon.net>
 
@@ -21,7 +88,7 @@
 	PR libfortran/22217
 	* io/write.c (extract_unit):  New function; extract
 	ints as unsigned signed int of the correct size.
-	* io/write.c (write_int):  Use it.
+	(write_int):  Use it.
 	* runtime/error.c:  Adjust copyright years.
 	Adjust size of buffer to maximum that can occur.
 
@@ -127,17 +194,17 @@
 
 2005-06-25  Thomas Koenig  <Thomas.Koenig@online.de>
 
-        PR libfortran/22144
-        * m4/cshift1.m4: Remove const from argument ret.
-        Populate return array descriptor if ret->data is NULL.
-        * m4/eoshift1.m4: Likewise.
-        * m4/eoshift3.m4: Likewise.
-        * generated/cshift1_4.c:  Regenerated.
-        * generated/cshift1_8.c:  Regenerated.
-        * generated/eoshift1_4.c:  Regenerated.
-        * generated/eoshift1_8.c:  Regenerated.
-        * generated/eoshift3_4.c:  Regenerated.
-        * generated/eoshift3_8.c:  Regenerated.
+	PR libfortran/22144
+	* m4/cshift1.m4: Remove const from argument ret.
+	Populate return array descriptor if ret->data is NULL.
+	* m4/eoshift1.m4: Likewise.
+	* m4/eoshift3.m4: Likewise.
+	* generated/cshift1_4.c:  Regenerated.
+	* generated/cshift1_8.c:  Regenerated.
+	* generated/eoshift1_4.c:  Regenerated.
+	* generated/eoshift1_8.c:  Regenerated.
+	* generated/eoshift3_4.c:  Regenerated.
+	* generated/eoshift3_8.c:  Regenerated.
 
 2005-06-24  Jerry DeLisle <jvdelisle@verizon.net>
 
@@ -890,7 +957,7 @@
 	(finalize_transfer):  If there is an EOR condition, raise the error.
 
 2005-04-09  Bud Davis  <bdavis@gfortran.org>
-            Steven G. Kargl <kargls@comcast.net>
+	    Steven G. Kargl <kargls@comcast.net>
 
 	PR fortran/19872
 	* io/transfer.c (data_transfer_init): truncate an existing
@@ -1005,7 +1072,7 @@
 	the scale factor, but it needs to be restored afterwards.
 
 2005-04-03  Dale Ranta  <dir@lanl.gov>
-            Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20068
 	PR libfortran/20125
@@ -1155,7 +1222,7 @@
 
 2005-02-19  Steven G. Kargl  <kargls@comcast.net>
 
-      *  intrinsic/date_and_time.c: Fix conformance problems.
+	*  intrinsic/date_and_time.c: Fix conformance problems.
 
 2005-02-01  Paul Thomas <paulthomas2@wanadoo.fr>
 
@@ -2294,7 +2361,7 @@
 	(random_r8): fix infinite loop.
 
 2004-06-12  Bud Davis  <bdavis9659@comcast.net>
-      Steve Kargl  <sgk@troutmask.apl.washington.edu>
+	    Steve Kargl  <sgk@troutmask.apl.washington.edu>
 
 	PR gfortran/15292
 	* intrinsics/c99_functions.c: New file.

@@ -447,6 +447,8 @@ gfc_match_symbol (gfc_symbol ** matched_symbol, int host_assoc)
       else
         *matched_symbol = NULL;
     }
+  else
+    *matched_symbol = NULL;
   return m;
 }
 
@@ -2650,6 +2652,8 @@ gfc_match_st_function (void)
   m = gfc_match (" = %e%t", &expr);
   if (m == MATCH_NO)
     goto undo_error;
+
+  gfc_free_error (&old_error);
   if (m == MATCH_ERROR)
     return m;
 

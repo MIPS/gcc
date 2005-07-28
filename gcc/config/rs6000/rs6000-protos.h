@@ -82,6 +82,7 @@ extern int rs6000_emit_vector_cond_expr (rtx, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
 extern void rs6000_emit_sync (enum rtx_code, enum machine_mode,
 			      rtx, rtx, rtx, rtx, bool);
+extern void rs6000_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_split_compare_and_swap (rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_split_lock_test_and_set (rtx, rtx, rtx, rtx);
 extern void rs6000_emit_swdivsf (rtx, rtx, rtx);
@@ -114,6 +115,7 @@ extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int, int);
 extern int function_arg_boundary (enum machine_mode, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
+extern tree altivec_resolve_overloaded_builtin (tree, tree);
 extern rtx rs6000_function_value (tree, tree);
 extern rtx rs6000_libcall_value (enum machine_mode);
 extern rtx rs6000_va_arg (tree, tree);

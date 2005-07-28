@@ -1,3 +1,7 @@
+2005-07-28  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge.
+
 2005-07-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c (gimplify_gomp_parallel): Really remove.

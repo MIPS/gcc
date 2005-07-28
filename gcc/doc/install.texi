@@ -398,6 +398,8 @@ snapshots of the development sources are also available via FTP@.
 Necessary when regenerating @file{Makefile} dependencies in libiberty.
 Necessary when regenerating @file{libiberty/functions.texi}.
 Necessary when generating manpages from Texinfo manuals.
+Necessary when targetting Darwin, building libstdc++,
+and not using @option{--disable-symvers}.
 Used by various scripts to generate some files included in CVS (mainly
 Unicode-related and rarely changing) from source tables.
 
@@ -1227,6 +1229,20 @@ in case @option{--with-sysroot} is not given an argument, is
 @option{$@{gcc_tooldir@}/sys-root}.  If the specified directory is a
 subdirectory of @option{$@{exec_prefix@}}, then it will be found relative to
 the GCC binaries if the installation tree is moved.
+
+@item --with-build-sysroot
+@itemx --with-build-sysroot=@var{dir}
+Tells GCC to consider @var{dir} as the system root (see
+@option{--with-sysroot}) while building target libraries, instead of
+the directory specified with @option{--with-sysroot}.  This option is
+only useful when you are already using @option{--with-sysroot}.  You
+can use @option{--with-build-sysroot} when you are configuring with
+@option{--prefix} set to a directory that is different from the one in
+which you are installing GCC and your target libraries.  
+
+This option affects the system root for the compiler used to build
+target libraries (which runs on the build system); it does not affect
+the compiler which is used to build GCC itself.
 
 @item --with-headers
 @itemx --with-headers=@var{dir}
@@ -2244,9 +2260,9 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#x-ibm-aix,,*-ibm-aix*}
 @item
-@uref{#ip2k-x-elf,,ip2k-*-elf}
-@item
 @uref{#iq2000-x-elf,,iq2000-*-elf}
+@item
+@uref{#m32c-x-elf,,m32c-*-elf}
 @item
 @uref{#m32r-x-elf,,m32r-*-elf}
 @item
@@ -3178,19 +3194,16 @@ switch and using the configure option @option{--with-cpu-@var{cpu_type}}.
 @html
 <hr />
 @end html
-@heading @anchor{ip2k-x-elf}ip2k-*-elf
-Ubicom IP2022 micro controller.
-This configuration is intended for embedded systems.
-There are no standard Unix configurations.
-
-Use @samp{configure --target=ip2k-elf --enable-languages=c} to configure GCC@.
+@heading @anchor{iq2000-x-elf}iq2000-*-elf
+Vitesse IQ2000 processors.  These are used in embedded
+applications.  There are no standard Unix configurations.
 
 @html
 <hr />
 @end html
-@heading @anchor{iq2000-x-elf}iq2000-*-elf
-Vitesse IQ2000 processors.  These are used in embedded
-applications.  There are no standard Unix configurations.
+@heading @anchor{m32c-x-elf}m32c-*-elf
+Renesas M32C processor.
+This configuration is intended for embedded systems.
 
 @html
 <hr />
@@ -3573,6 +3586,14 @@ single bug.  It has been fixed on the 2.15 branch in the CVS repository.
 You can obtain a working version by checking out the binutils-2_15-branch
 from the CVS repository or applying the patch
 @uref{http://sources.redhat.com/ml/binutils-cvs/2004-09/msg00036.html} to the
+release.
+
+We recommend using GNU binutils 2.16 or later in conjunction with GCC 4.x.
+However, for Solaris 10 and above, an additional patch is required in order
+for the GNU linker to be able to cope with a new flavor of shared libraries.
+You can obtain a working version by checking out the binutils-2_16-branch
+from the CVS repository or applying the patch
+@uref{http://sourceware.org/ml/binutils-cvs/2005-07/msg00122.html} to the
 release.
 
 Sun bug 4296832 turns up when compiling X11 headers with GCC 2.95 or

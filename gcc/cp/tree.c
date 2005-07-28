@@ -2123,6 +2123,11 @@ decl_linkage (tree decl)
   /* Things that are TREE_PUBLIC have external linkage.  */
   if (TREE_PUBLIC (decl))
     return lk_external;
+  
+  /* Linkage of a CONST_DECL depends on the linkage of the enumeration 
+     type.  */
+  if (TREE_CODE (decl) == CONST_DECL)
+    return decl_linkage (TYPE_NAME (TREE_TYPE (decl)));
 
   /* Some things that are not TREE_PUBLIC have external linkage, too.
      For example, on targets that don't have weak symbols, we make all
@@ -2236,7 +2241,7 @@ stabilize_init (tree init, tree *initp)
       if (TREE_CODE (t) == COMPOUND_EXPR)
 	t = expr_last (t);
       if (TREE_CODE (t) == CONSTRUCTOR
-	  && CONSTRUCTOR_ELTS (t) == NULL_TREE)
+	  && EMPTY_CONSTRUCTOR_P (t))
 	{
 	  /* Default-initialization.  */
 	  *initp = NULL_TREE;

@@ -1738,8 +1738,6 @@ perform_koenig_lookup (tree fn, tree args)
 	/* The unqualified name could not be resolved.  */
 	fn = unqualified_fn_lookup_error (identifier);
     }
-  else
-    fn = identifier;
 
   return fn;
 }
@@ -2011,20 +2009,19 @@ finish_unary_op_expr (enum tree_code code, tree expr)
    the INITIALIZER_LIST is being cast.  */
 
 tree
-finish_compound_literal (tree type, tree initializer_list)
+finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 {
   tree compound_literal;
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
   /* Mark it as a compound-literal.  */
-  TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
   if (processing_template_decl)
     TREE_TYPE (compound_literal) = type;
   else
     {
       /* Check the initialization.  */
-      compound_literal = digest_init (type, compound_literal, NULL);
+      compound_literal = digest_init (type, compound_literal);
       /* If the TYPE was an array type with an unknown bound, then we can
 	 figure out the dimension now.  For example, something like:
 
@@ -2036,6 +2033,7 @@ finish_compound_literal (tree type, tree initializer_list)
 				compound_literal, 1);
     }
 
+  TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
   return compound_literal;
 }
 

@@ -335,10 +335,10 @@ dump_variable (FILE *file, tree var)
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
 
-  if (ann->default_def)
+  if (default_def (var))
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, dump_flags);
+      print_generic_expr (file, default_def (var), dump_flags);
     }
 
   if (ann->may_aliases)
@@ -566,6 +566,20 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
 
 /* Lookup UID in the referenced_vars hashtable and return the associated
+   variable or NULL if it is not there.  */
+
+tree 
+referenced_var_lookup_if_exists (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = htab_find_with_hash (referenced_vars, &in, uid);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */
 
 tree 
@@ -693,6 +707,9 @@ mark_new_vars_to_rename (tree stmt)
   bool found_exposed_symbol = false;
   int v_may_defs_before, v_may_defs_after;
   int v_must_defs_before, v_must_defs_after;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
 
   vars_in_vops_to_rename = BITMAP_ALLOC (NULL);
 

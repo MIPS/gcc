@@ -41,6 +41,7 @@
    (UNSPEC_EH_RETURN_EPILOGUE	6)
    (UNSPEC_GOT			7)
    (UNSPEC_LDD			8)
+   (UNSPEC_OPTIONAL_MEMBAR	9)
 
    (UNSPEC_GETTLSOFF			200)
    (UNSPEC_TLS_LOAD_GOTTLSOFF12		201)
@@ -86,7 +87,9 @@
    (FDPIC_REG			15)
    ])
 
-
+(define_mode_macro IMODE [QI HI SI DI])
+(define_mode_attr IMODEsuffix [(QI "b") (HI "h") (SI "") (DI "d")])
+(define_mode_attr BREADsuffix [(QI "ub") (HI "uh") (SI "") (DI "d")])
 
 ;; ::::::::::::::::::::
 ;; ::
@@ -2162,7 +2165,21 @@
   else
     FAIL;
 }")
+
 
+;; The "membar" part of a __builtin_read* or __builtin_write* function.
+;; Operand 0 is a volatile reference to the memory that the function reads
+;; or writes.  Operand 1 is the address being accessed, or zero if the
+;; address isn't a known constant.  Operand 2 describes the __builtin
+;; function (either FRV_IO_READ or FRV_IO_WRITE).
+(define_insn "optional_membar_<mode>"
+  [(set (match_operand:IMODE 0 "memory_operand" "=m")
+	(unspec:IMODE [(match_operand 1 "const_int_operand" "")
+		       (match_operand 2 "const_int_operand" "")]
+		      UNSPEC_OPTIONAL_MEMBAR))]
+  ""
+  "membar"
+  [(set_attr "length" "4")])
 
 ;; ::::::::::::::::::::
 ;; ::

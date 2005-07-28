@@ -598,7 +598,7 @@ proper position among the other output files.  */
 #define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
  --wrap=mmap --wrap=munmap --wrap=alloca\
-} %{fmudflapth: --wrap=pthread_create --wrap=pthread_join --wrap=pthread_exit\
+} %{fmudflapth: --wrap=pthread_create\
 }} %{fmudflap|fmudflapth: --wrap=main}"
 #endif
 #ifndef MFLIB_SPEC
@@ -1120,6 +1120,7 @@ static const struct option_map option_map[] =
    {"--static", "-static", 0},
    {"--std", "-std=", "aj"},
    {"--symbolic", "-symbolic", 0},
+   {"--sysroot", "--sysroot=", "aj"}, 
    {"--time", "-time", 0},
    {"--trace-includes", "-H", 0},
    {"--traditional", "-traditional", 0},
@@ -2936,6 +2937,13 @@ static struct switchstr *switches;
 
 static int n_switches;
 
+/* Language is one of three things:
+
+   1) The name of a real programming language.
+   2) NULL, indicating that no one has figured out
+   what it is yet.
+   3) '*', indicating that the file should be passed
+   to the linker.  */
 struct infile
 {
   const char *name;
@@ -3057,6 +3065,9 @@ display_help (void)
   fputs (_("  -time                    Time the execution of each subprocess\n"), stdout);
   fputs (_("  -specs=<file>            Override built-in specs with the contents of <file>\n"), stdout);
   fputs (_("  -std=<standard>          Assume that the input sources are for <standard>\n"), stdout);
+  fputs (_("\
+  --sysroot=<directory>    Use <directory> as the root directory for headers\n\
+                           for headers and libraries\n"), stdout);
   fputs (_("  -B <directory>           Add <directory> to the compiler's search paths\n"), stdout);
   fputs (_("  -b <machine>             Run gcc for target <machine>, if installed\n"), stdout);
   fputs (_("  -V <version>             Run gcc version number <version>, if installed\n"), stdout);
@@ -3919,6 +3930,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-fhelp"))
 	;
+      else if (! strncmp (argv[i], "--sysroot=", strlen ("--sysroot=")))
+	{
+	  target_system_root = argv[i] + strlen ("--sysroot=");
+	  target_system_root_changed = 1;
+	}
       else if (argv[i][0] == '+' && argv[i][1] == 'e')
 	{
 	  /* Compensate for the +e options to the C++ front-end;
@@ -6553,11 +6569,21 @@ main (int argc, const char **argv)
       clear_failure_queue ();
     }
 
-  /* Reset the output file name to the first input file name, for use
-     with %b in LINK_SPEC on a target that prefers not to emit a.out
-     by default.  */
+  /* Reset the input file name to the first compile/object file name, for use
+     with %b in LINK_SPEC. We use the first input file that we can find
+     a compiler to compile it instead of using infiles.language since for 
+     languages other than C we use aliases that we then lookup later.  */
   if (n_infiles > 0)
-    set_input (infiles[0].name);
+    {
+      int i;
+
+      for (i = 0; i < n_infiles ; i++)
+	if (infiles[i].language && infiles[i].language[0] != '*')
+	  {
+	    set_input (infiles[i].name);
+	    break;
+	  }
+    }
 
   if (error_count == 0)
     {

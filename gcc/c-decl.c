@@ -1908,27 +1908,28 @@ warn_if_shadowing (tree new_decl)
 
 	if (old_decl == error_mark_node)
 	  {
-	    warning (0, "declaration of %q+D shadows previous non-variable",
-		     new_decl);
+	    warning (OPT_Wshadow, "declaration of %q+D shadows previous "
+		     "non-variable", new_decl);
 	    break;
 	  }
 	else if (TREE_CODE (old_decl) == PARM_DECL)
-	  warning (0, "declaration of %q+D shadows a parameter", new_decl);
-	else if (DECL_FILE_SCOPE_P (old_decl))
-	  warning (0, "declaration of %q+D shadows a global declaration",
+	  warning (OPT_Wshadow, "declaration of %q+D shadows a parameter",
 		   new_decl);
+	else if (DECL_FILE_SCOPE_P (old_decl))
+	  warning (OPT_Wshadow, "declaration of %q+D shadows a global "
+		   "declaration", new_decl);
 	else if (TREE_CODE (old_decl) == FUNCTION_DECL
 		 && DECL_BUILT_IN (old_decl))
 	  {
-	    warning (0, "declaration of %q+D shadows a built-in function",
-		     new_decl);
+	    warning (OPT_Wshadow, "declaration of %q+D shadows "
+		     "a built-in function", new_decl);
 	    break;
 	  }
 	else
-	  warning (0, "declaration of %q+D shadows a previous local",
+	  warning (OPT_Wshadow, "declaration of %q+D shadows a previous local",
 		   new_decl);
 
-	warning (0, "%Jshadowed declaration is here", old_decl);
+	warning (OPT_Wshadow, "%Jshadowed declaration is here", old_decl);
 
 	break;
       }
@@ -3774,6 +3775,30 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
 	warning (0, "%qs is narrower than values of its type", name);
     }
 }
+
+/* Build a bit-field integer type for the given WIDTH and UNSIGNEDP.  */
+static tree
+c_build_bitfield_integer_type (unsigned HOST_WIDE_INT width, int unsignedp)
+{
+  /* Extended integer types of the same width as a standard type have
+     lesser rank, so those of the same width as int promote to int or
+     unsigned int and are valid for printf formats expecting int or
+     unsigned int.  To avoid such special cases, avoid creating
+     extended integer types for bit-fields if a standard integer type
+     is available.  */
+  if (width == TYPE_PRECISION (integer_type_node))
+    return unsignedp ? unsigned_type_node : integer_type_node;
+  if (width == TYPE_PRECISION (signed_char_type_node))
+    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
+  if (width == TYPE_PRECISION (short_integer_type_node))
+    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
+  if (width == TYPE_PRECISION (long_integer_type_node))
+    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
+  if (width == TYPE_PRECISION (long_long_integer_type_node))
+    return (unsignedp ? long_long_unsigned_type_node
+	    : long_long_integer_type_node);
+  return build_nonstandard_integer_type (width, unsignedp);
+}
 
 /* Given declspecs and a declarator,
    determine the name and type of the object declared
@@ -5376,7 +5401,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  if (width != TYPE_PRECISION (type))
 	    {
 	      TREE_TYPE (*fieldlistp)
-	        = build_nonstandard_integer_type (width, TYPE_UNSIGNED (type));
+		= c_build_bitfield_integer_type (width, TYPE_UNSIGNED (type));
 	      DECL_MODE (*fieldlistp) = TYPE_MODE (TREE_TYPE (*fieldlistp));
 	    }
 	  DECL_INITIAL (*fieldlistp) = 0;

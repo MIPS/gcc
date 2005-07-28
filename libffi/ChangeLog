@@ -1,3 +1,45 @@
+2005-07-22  SUGIOKA Toshinobu  <sugioka@itonet.co.jp>
+
+	* src/sh/sysv.S (ffi_call_SYSV): Stop argument popping correctly
+	on sh3.
+	(ffi_closure_SYSV): Change the stack layout for sh3 struct argument.
+	* src/sh/ffi.c (ffi_prep_args): Fix sh3 argument copy, when it is
+	partially on register.
+	(ffi_closure_helper_SYSV): Likewise.
+	(ffi_prep_cif_machdep): Don't set too many cif->flags.
+
+2005-07-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* src/sh/ffi.c (ffi_call): Handle small structures correctly.
+	Remove empty line.
+	* src/sh64/ffi.c (simple_type): Remove.
+	(return_type): Handle small structures correctly.
+	(ffi_prep_args): Likewise.
+	(ffi_call): Likewise.
+	(ffi_closure_helper_SYSV): Likewise.
+	* src/sh64/sysv.S (ffi_call_SYSV): Handle 1, 2 and 4-byte return.
+	Emit position independent code if PIC and remove wrong datalabel
+	prefixes from EH data.
+
+2005-07-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am (nodist_libffi_la_SOURCES): Add POWERPC_FREEBSD.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+	* configure.ac: Add POWERPC_FREEBSD rules.
+	* configure: Regenerate.
+	* src/powerpc/ffitarget.h: Add POWERPC_FREEBSD rules.
+	(FFI_SYSV_TYPE_SMALL_STRUCT): Define.
+	* src/powerpc/ffi.c: Add flags to handle small structure returns
+	in ffi_call_SYSV.
+	(ffi_prep_cif_machdep): Handle small structures for SYSV 4 ABI.
+	Aka FFI_SYSV.
+	(ffi_closure_helper_SYSV): Likewise.
+	* src/powerpc/ppc_closure.S: Add return types for small structures.
+	* src/powerpc/sysv.S: Add bits to handle small structures for
+	final SYSV 4 ABI.
+
 2005-07-10  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* testsuite/libffi.call/cls_5_1_byte.c: New test file.

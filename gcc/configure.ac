@@ -330,7 +330,6 @@ if test $ac_cv_prog_cc_w_no_long_long = yes \
    && test $ac_cv_prog_cc_w_no_variadic_macros = yes ; then
   strict1_warn="-pedantic -Wno-long-long -Wno-variadic-macros"
 fi
-AC_SUBST(strict1_warn)
 
 # Add -Wold-style-definition if it's accepted
 AC_CACHE_CHECK(
@@ -347,6 +346,21 @@ if test $ac_cv_prog_cc_w_old_style_definition = yes ; then
   strict1_warn="${strict1_warn} -Wold-style-definition"
 fi
 
+# Add -Wmissing-format-attribute if it's accepted
+AC_CACHE_CHECK(
+  [whether ${CC} accepts -Wmissing-format-attribute],
+  [ac_cv_prog_cc_w_missing_format_attribute],
+  [save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wmissing-format-attribute"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
+                    [ac_cv_prog_cc_w_missing_format_attribute=yes],
+                    [ac_cv_prog_cc_w_missing_format_attribute=no])
+  CFLAGS="$save_CFLAGS"
+  ])
+if test $ac_cv_prog_cc_w_missing_format_attribute = yes ; then
+  strict1_warn="${strict1_warn} -Wmissing-format-attribute"
+fi
+
 # Enable -Werror, period.
 AC_ARG_ENABLE(werror_always, 
 [  --enable-werror-always         enable -Werror always], [],
@@ -355,6 +369,8 @@ if test x${enable_werror_always} = xyes ; then
   strict1_warn="${strict1_warn} -Werror"
   WERROR=-Werror
 fi
+
+AC_SUBST(strict1_warn)
 
 # If the native compiler is GCC, we can enable warnings even in stage1.  
 # That's useful for people building cross-compilers, or just running a
@@ -665,6 +681,10 @@ AC_ARG_ENABLE(shared,
 ], [enable_shared=yes])
 AC_SUBST(enable_shared)
 
+AC_ARG_WITH(build-sysroot, 
+  [  --with-build-sysroot=sysroot
+                          use sysroot as the system root during the build])
+
 AC_ARG_WITH(sysroot,
 [  --with-sysroot[=DIR] Search for usr/lib, usr/include, et al, within DIR.],
 [
@@ -675,7 +695,12 @@ AC_ARG_WITH(sysroot,
    
  TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
  CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR)'
-
+ if test "x$with_build_sysroot" != x; then
+   build_system_header_dir=$with_build_sysroot'$(NATIVE_SYSTEM_HEADER_DIR)'
+ else
+   build_system_header_dir='$(CROSS_SYSTEM_HEADER_DIR)'
+ fi
+ 
  if test "x$exec_prefix" = xNONE; then
   if test "x$prefix" = xNONE; then
    test_prefix=/usr/local
@@ -1627,7 +1652,7 @@ if test x$host != x$target
 then
 	CROSS="-DCROSS_COMPILE"
 	ALL=all.cross
-	SYSTEM_HEADER_DIR='$(CROSS_SYSTEM_HEADER_DIR)'
+	SYSTEM_HEADER_DIR=$build_system_header_dir
 	case "$host","$target" in
 	# Darwin crosses can use the host system's libraries and headers,
 	# because of the fat library support.  Of course, it must be the
@@ -1661,11 +1686,11 @@ fi
 # then define inhibit_libc in LIBGCC2_CFLAGS.
 # This prevents libgcc2 from containing any code which requires libc
 # support.
-inhibit_libc=
+inhibit_libc=false
 if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
        test x$with_newlib = xyes ; } &&
      { test "x$with_headers" = x || test "x$with_headers" = xno ; } ; then
-       inhibit_libc=-Dinhibit_libc
+       inhibit_libc=true
 fi
 AC_SUBST(inhibit_libc)
 

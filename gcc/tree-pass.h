@@ -222,10 +222,10 @@ extern struct tree_opt_pass pass_referenced_vars;
 extern struct tree_opt_pass pass_sra;
 extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
-extern struct tree_opt_pass pass_loop;
-extern struct tree_opt_pass pass_loop_init;
+extern struct tree_opt_pass pass_tree_loop;
+extern struct tree_opt_pass pass_tree_loop_init;
 extern struct tree_opt_pass pass_lim;
-extern struct tree_opt_pass pass_unswitch;
+extern struct tree_opt_pass pass_tree_unswitch;
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_scev_cprop;
 extern struct tree_opt_pass pass_empty_loop;
@@ -234,7 +234,7 @@ extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
 extern struct tree_opt_pass pass_iv_optimize;
-extern struct tree_opt_pass pass_loop_done;
+extern struct tree_opt_pass pass_tree_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
 extern struct tree_opt_pass pass_build_ssa;
@@ -281,10 +281,14 @@ extern struct tree_opt_pass pass_uncprop;
 extern struct tree_opt_pass pass_return_slot;
 extern struct tree_opt_pass pass_reassoc;
 extern struct tree_opt_pass pass_rebuild_cgraph_edges;
+extern struct tree_opt_pass pass_eliminate_useless_stores;
 
 /* IPA Passes */
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_early_ipa_inline;
+extern struct tree_opt_pass pass_ipa_reference;
+extern struct tree_opt_pass pass_ipa_pure_const;
+extern struct tree_opt_pass pass_ipa_type_escape;
 extern struct tree_opt_pass pass_early_local_passes;
 
 extern struct tree_opt_pass pass_all_optimizations;
@@ -311,7 +315,15 @@ extern struct tree_opt_pass pass_cfg;
 extern struct tree_opt_pass pass_profiling;
 extern struct tree_opt_pass pass_rtl_ifcvt;
 extern struct tree_opt_pass pass_tracer;
+
 extern struct tree_opt_pass pass_loop2;
+extern struct tree_opt_pass pass_rtl_loop_init;
+extern struct tree_opt_pass pass_rtl_move_loop_invariants;
+extern struct tree_opt_pass pass_rtl_unswitch;
+extern struct tree_opt_pass pass_rtl_unroll_and_peel_loops;
+extern struct tree_opt_pass pass_rtl_doloop;
+extern struct tree_opt_pass pass_rtl_loop_done;
+
 extern struct tree_opt_pass pass_web;
 extern struct tree_opt_pass pass_cse2;
 extern struct tree_opt_pass pass_life;

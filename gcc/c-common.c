@@ -505,6 +505,7 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
@@ -571,6 +572,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  { "flatten",                0, 0, true,  false, false,
+                              handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
 			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
@@ -4151,6 +4154,28 @@ handle_always_inline_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "flatten" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_flatten_attribute (tree *node, tree name,
+                          tree args ATTRIBUTE_UNUSED,
+                          int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+
 /* Handle a "used" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -5234,7 +5259,8 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
       }
       
       if (typelist || !params)
-	warning (0, "not enough variable arguments to fit a sentinel");
+	warning (OPT_Wformat,
+		 "not enough variable arguments to fit a sentinel");
       else
         {
 	  tree sentinel, end;
@@ -5256,7 +5282,8 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
 	    }
 	  if (pos > 0)
 	    {
-	      warning (0, "not enough variable arguments to fit a sentinel");
+	      warning (OPT_Wformat,
+		       "not enough variable arguments to fit a sentinel");
 	      return;
 	    }
 
@@ -5277,7 +5304,7 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
 		 We warn with -Wstrict-null-sentinel, though.  */
               && (warn_strict_null_sentinel
 		  || null_node != TREE_VALUE (sentinel)))
-	    warning (0, "missing sentinel in function call");
+	    warning (OPT_Wformat, "missing sentinel in function call");
 	}
     }
 }
@@ -5319,8 +5346,8 @@ check_nonnull_arg (void * ARG_UNUSED (ctx), tree param,
     return;
 
   if (integer_zerop (param))
-    warning (0, "null argument where non-null required (argument %lu)",
-	     (unsigned long) param_num);
+    warning (OPT_Wnonnull, "null argument where non-null required "
+	     "(argument %lu)", (unsigned long) param_num);
 }
 
 /* Helper for nonnull attribute handling; fetch the operand number
@@ -5480,11 +5507,11 @@ check_function_arguments (tree attrs, tree params, tree typelist)
 
   /* Check for errors in format strings.  */
 
-  if (warn_format)
-    {
+  if (warn_format || warn_missing_format_attribute)
       check_function_format (attrs, params);
-      check_function_sentinel (attrs, params, typelist);
-    }
+
+  if (warn_format)
+    check_function_sentinel (attrs, params, typelist);
 }
 
 /* Generic argument checking recursion routine.  PARAM is the argument to
@@ -5913,9 +5940,9 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)
 	{
-	  tree elts = CONSTRUCTOR_ELTS (initial_value);
+	  VEC(constructor_elt,gc) *v = CONSTRUCTOR_ELTS (initial_value);
 
-	  if (elts == NULL)
+	  if (VEC_empty (constructor_elt, v))
 	    {
 	      if (pedantic)
 		failure = 3;
@@ -5924,15 +5951,21 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	  else
 	    {
 	      tree curindex;
+	      unsigned HOST_WIDE_INT cnt;
+	      constructor_elt *ce;
 
-	      if (TREE_PURPOSE (elts))
-		maxindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+	      if (VEC_index (constructor_elt, v, 0)->index)
+		maxindex = fold_convert (sizetype,
+					 VEC_index (constructor_elt,
+						    v, 0)->index);
 	      curindex = maxindex;
 
-	      for (elts = TREE_CHAIN (elts); elts; elts = TREE_CHAIN (elts))
+	      for (cnt = 1;
+		   VEC_iterate (constructor_elt, v, cnt, ce);
+		   cnt++)
 		{
-		  if (TREE_PURPOSE (elts))
-		    curindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+		  if (ce->index)
+		    curindex = fold_convert (sizetype, ce->index);
 		  else
 		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
 
@@ -6173,6 +6206,32 @@ same_scalar_type_ignoring_signedness (tree t1, tree t2)
      TYPE_MAIN_VARIANT.  */
   return lang_hooks.types.signed_type (t1)
     == lang_hooks.types.signed_type (t2);
+}
+
+/* Check for missing format attributes on function pointers.  LTYPE is
+   the new type or left-hand side type.  RTYPE is the old type or
+   right-hand side type.  Returns TRUE if LTYPE is missing the desired
+   attribute.  */
+
+bool
+check_missing_format_attribute (tree ltype, tree rtype)
+{
+  tree const ttr = TREE_TYPE (rtype), ttl = TREE_TYPE (ltype);
+  tree ra;
+
+  for (ra = TYPE_ATTRIBUTES (ttr); ra; ra = TREE_CHAIN (ra))
+    if (is_attribute_p ("format", TREE_PURPOSE (ra)))
+      break;
+  if (ra)
+    {
+      tree la;
+      for (la = TYPE_ATTRIBUTES (ttl); la; la = TREE_CHAIN (la))
+	if (is_attribute_p ("format", TREE_PURPOSE (la)))
+	  break;
+      return !la;
+    }
+  else
+    return false;
 }
 
 #include "gt-c-common.h"

@@ -1,3 +1,456 @@
+2005-07-27  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR rtl-optimization/23047
+	* gcc.c-torture/execute/pr23047.c: New test.
+	* gcc.c-torture/execute/pr23047.x: New.
+
+2005-07-27  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR tree-optimization/22493
+	* gcc.c-torture/execute/pr22493-1.c: New test.
+	* gcc.c-torture/execute/pr22493-1.x: New.
+	* gcc.c-torture/execute/vrp-1.c: New test.
+	* gcc.c-torture/execute/vrp-2.c: New test.
+	* gcc.c-torture/execute/vrp-2.c: New test.
+
+2005-07-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.target/frv/all-builtin-read8.c: Delete.
+	* gcc.target/frv/all-builtin-read16.c: Delete.
+	* gcc.target/frv/all-builtin-read32.c: Delete.
+	* gcc.target/frv/all-builtin-read64.c: Delete.
+	* gcc.target/frv/all-builtin-write8.c: Delete.
+	* gcc.target/frv/all-builtin-write16.c: Delete.
+	* gcc.target/frv/all-builtin-write32.c: Delete.
+	* gcc.target/frv/all-builtin-write64.c: Delete.
+	* gcc.target/frv/all-read-write-1.c: New.
+
+2005-07-27  Jeff Law  <law@redhat.com>
+
+        * gcc.c-torture/execute/pr22630.c: New test.
+
+2005-07-27  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/23073
+	* gcc.dg/vect/nodump-pr23073.c: New test.
+	* gcc.dg/vect/vect.exp: Allow running some tests without dump flags.
+
+2005-07-27  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimize/22348
+	* gcc.c-torture/execute/pr22348.c: New.
+
+2005-07-27  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/salias-1.c: New testcase.
+
+2005-07-27  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR fortran/22503
+	* gfortran.dg/logical_comp.f90: New test.
+
+2005-07-27  Jan Hubicka  <jh@suse.cz>
+
+	* inliner-1.c: Add cleanup of dumps.
+	* val-prof-*.c: Likewise.
+	* update-tailcall.c: New.
+
+2005-07-26  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 22591
+	* gcc.dg/tree-ssa/pr22591.c: New test.
+	* gcc.dg/tree-ssa/20030807-7.c: XFAIL everywhere.
+
+2005-07-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libobjc/22606
+	* objc.dg/try-catch-11.m: New test.
+
+2005-07-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22486
+	* gcc.dg/tree-ssa/upcast-1.c: New testcase.
+
+2005-07-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/22484
+	* testsuite/g++.dg/opt/loop2.C: New test.
+
+2005-07-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/reassoc-3.c: New test.
+	* gcc.dg/tree-ssa/reassoc-4.c: New test.
+
+2005-07-25  Adam Nemet  <anemet@lnxw.com>
+
+        * lib/profopt.exp (profopt-execute): Check for profiling data
+        files on the target.
+
+2005-07-25  Richard Guenther  <rguenther@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/flatten-1.c: Use longer function names
+	for matching of asm labels.
+
+2005-07-25  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/20050719-1.c: Add return 0;.
+
+2005-07-25  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/22624
+	* gcc.dg/tree-ssa/flatten-2.c: Fix label patterns.
+
+2005-07-25  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect.exp: Change verbosity level to 4.
+	* gfortran.dg/vect/vect.exp, g++.dg/vect/vect.exp: Likewise.
+	* gcc.dg/vect/pr20122.c: Add vectorizable version of the loop.
+	* gcc.dg/vect/vect-100.c: New test.
+	* gcc.dg/vect/vect-101.c, gcc.dg/vect/vect-102.c,
+	gcc.dg/vect/vect-103.c, gcc.dg/vect/vect-104.c,
+	gcc.dg/vect/vect-105.c, gcc.dg/vect/vect-115.c: Likewise.
+	* gcc.dg/vect/vect-116.c: Renamed (from vect-100.c).
+	* gcc.dg/vect/vect-43.c: Add vectorizable version of the loop.
+	* gcc.dg/vect/vect-91.c: Now 3 loops are vectorizable.
+	* gfortran.dg/vect/vect-4.f90: Now vectorizable.
+	* gfortran.dg/vect/pr19049.f90: New testcase.
+	* g++.dg/vect/pr21218.cc, gcc.dg/tree-ssa/ltrans-8.c: Likewise.
+
+2005-07-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20050713-1.c: New test.
+
+	PR fortran/20063
+	* gfortran.fortran-torture/execute/data_4.f90: New test.
+
+	PR middle-end/20303
+	* gcc.dg/visibility-d.c: New test.
+
+2005-07-25  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/reshape_rank7.f90: Fix dejagnu commands.
+	* gfortran.dg/underflow.f90: Ditto.
+
+2005-07-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/warn/miss-format-1.C, g++.dg/warn/miss-format-2.C,
+	g++.dg/warn/miss-format-3.C, g++.dg/warn/miss-format-4.C,
+	g++.dg/warn/miss-format-5.C, g++.dg/warn/miss-format-6.C: New.
+
+2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        * gfortran.fortran-torture/execute/nan_inf_fmt.f90: Revise test to
+        include case of field width of zero. 
+
+2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        PR libgfortran/21875
+        * gfortran.dg/fmt_read_bz_bn.f90: Revised test to include case
+        with trailing blanks on normal formatted read.
+
+2005-07-23  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.target/mips/mips32-dsp-type.c: New test.
+	* gcc.target/mips/mips32-dsp.c: New test.
+
+2005-07-23  Oyvind Harboe  <oyvind.harboe@zylin.com>
+
+	PR testsuite/21073
+	* g++.old-deja/g++.mike/p3060d.C: Fix type of VoidObjMemberFunc.
+
+	PR testsuite/20454
+	* gcc.dg/20001117-1.c: Fix type of __cyg_profile_func_enter
+	and __cyg_profile_func_exit.
+
+2005-07-22  David Edelsohn  <edelsohn@gnu.org>
+
+	* gfortran.dg/comma_format_extension_3.f: Fix typo.
+	* gfortran.dg/comma_format_extension_4.f: Same.
+	* gfortran.dg/pr15332.f: Same.
+	* gfortran.dg/pr21730.f: Same.
+
+2005-07-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/opt/vrp2.C: Fix testcase.
+
+	PR tree-opt/22625
+	* g++.dg/opt/vrp2.C: New test.
+
+2005-07-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/21828
+	* gcc.dg/debug/dwarf2/dwarf-uninit.c: New test.
+
+2005-07-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20050719-1.c: New test.
+
+2005-07-22  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* gcc.dg/bfin-longcall-1.c: New file.
+	* gcc.dg/bfin-longcall-2.c: New file.
+
+2005-07-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.c-torture/compile/20050721-1.c: New test for 3.4 fix.
+
+2005-07-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/19055
+	* gcc.dg/tree-ssa/pr19055.c: New test.
+	* gcc.dg/tree-ssa/pr19055-2.c: New test.
+
+2005-07-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/22358
+	* g++.dg/other/pr22358.C: New test.
+
+2005-07-21  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/2922
+	* g++.dg/lookup/two-stage5.C: New test from bug comments.
+	
+2005-07-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/15938
+	* g++.dg/init/union2.C: New test.
+
+2005-07-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/22393
+	* gcc.dg/complex-4.c: New test.
+
+2005-07-21  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/22522
+	* gcc.dg/tree-ssa/flatten-1.c: Use correct regexp for
+	scanning for asm labels.
+	* gcc.dg/tree-ssa/flatten-2.c: Likewise.
+
+2005-07-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/22085
+	* gcc.dg/altivec-pr22085.c: New.
+
+2005-07-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/19210
+        * gcc.dg/tree-ssa/pr19210-1.c: New.
+        * gcc.dg/tree-ssa/pr19210-2.c: New.
+
+2005-07-21  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/22167
+	* g++.dg/opt/pr22167.C: New test.
+
+2005-07-20  Douglas Gregor <doug.gregor@gmail.com>
+
+	PR c++/2922
+	* g++.dg/lookup/two-stage2.C: New.
+	* g++.dg/lookup/two-stage3.C: New.
+	* g++.dg/lookup/two-stage4.C: New. Illustrates how we have not yet
+	fixed two-stage name lookup for operators.
+	* g++.dg/template/call3.C: Compiler now produces an appropriate
+	error message. 
+	* g++.dg/template/crash37.C: Compiler now describes bla() on line
+	14 as a candidate. 
+	* g++.dg/template/ptrmem4.C: Compiler produces different error
+	message.
+	* g++.old-deja/g++.other/pmf3.C: Compiler now describes
+	connect_to_method as a candidate.
+	
+2005-07-20  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/fold-alloc-1.c: New test.
+
+2005-07-20  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.dg/20020312-2.c, gcc.dg/sibcall-3.c, gcc.dg/sibcall-4.c,
+	gcc.dg/cpp/assert4.c: Don't mention obsolete ports.
+
+2005-07-19  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/fold-abs-1.c: New test.
+	* gcc.dg/fold-abs-2.c: New test.
+	* gcc.dg/fold-abs-3.c: New test.
+
+2005-07-20  Giovanni Bajo  <giovannibajo@libero.it>
+
+	Make CONSTRUCTOR use VEC to store initializers.
+	* g++.dg/ext/complit3.C: Check for specific error messages.
+	* g++.dg/init/brace2.C: Update error message.
+	* g++.dg/warn/Wbraces2.C: Likewise.
+
+2005-07-19 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/16940
+	* gfortran.dg/module_interface_1.f90: New test.
+
+2005-07-19  Danny Berlin <dberlin@dberlin.org>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* gcc.dg/tree-ssa/sra-2.c: Changed back to -O1 and added xfail.
+
+2005-07-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/format/miss-1.c, gcc.dg/format/miss-2.c: Don't
+	specify -Wformat for these tests.
+	* gcc.dg/format/miss-3.c, gcc.dg/format/miss-4.c,
+	gcc.dg/format/miss-5.c, gcc.dg/format/miss-6.c: New.
+	* gcc.dg/format/opt-6.c: Delete.
+
+2005-07-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/sra-2.c: Pass --param sra-max-structure-size.
+	* gcc.dg/tree-ssa/sra-3.c: Likewise.
+
+2005-07-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/alias-2.c: New test.
+
+2005-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22263
+	* g++.dg/template/explicit7.C: New test.
+
+2005-07-17  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* gfortran.fortran-torture/execute/nan_inf_fmt.f90: Change case of field
+	width of 8 to +Inf and -Inf.
+    
+2005-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22139
+	* g++.dg/template/friend36.C: New test.
+
+2005-07-16  David Edelsohn  <edelsohn@gnu.org>
+
+	PR fortran/21730
+	* gfortran.dg/pr21730.f: New test.
+
+2005-07-16  Danny Berlin <dberlin@dberlin.org>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* gcc.dg/tree-ssa/ssa-dce-2.c: Changed dg-options to run at -O2
+	since pure const detection cannot run at -O1 in c compiler.
+	* gcc.dg/tree-ssa/20030714-1.c Changed scanning patterns because we
+	can now optimize this case properly.
+	* gcc.dg/tree-ssa/sra-2.c: Changed to -O3 and removed xfail
+	because we now pass.
+	* gcc.dg/vect/vect-92.c: Removed out of bounds array access.
+
+2005-07-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/22421
+	* gcc.dg/format/bitfld-1.c: New test.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22204
+	* g++.dg/rtti/repo1.C: New test.
+
+2005-07-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/22398
+	* gcc.c-torture/compile/pr22398.c: New test.
+
+2005-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22132
+	* g++.dg/expr/cast4.C: New test.
+
+2005-07-15  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/flatten-1.c: New testcase.
+	* gcc.dg/tree-ssa/flatten-2.c: Likewise.
+
+2005-07-15  Steven Bosscher  <stevenb@suse.de>
+
+	PR tree-optimization/22230
+	* gcc.dg/tree-ssa/pr22230.c: New test.
+
+2005-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/g77/cpp6.f: New test.
+
+	PR fortran/22417
+	* gfortran.dg/g77/cpp5.F: New test.
+	* gfortran.dg/g77/cpp5.h: New file.
+	* gfortran.dg/g77/cpp5inc.h: New file.
+
+2005-07-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/16435
+	* gfortran.dg/tl_editting.f90: New.
+	* gfortran.dg/g77/f77-edit-x-out.f: Remove XFAIL.
+
+2005-07-14  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/char_array_constructor.f90: New test.
+
+2005-07-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/past_eor.f90: New.
+	* gfortran.dg/complex_read.f90: New.
+
+2005-07-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/pr22051-2.c: Tweak expected output to allow
+	additional casts.
+
+	* gcc.dg/tree-ssa/pr22321.c: New test
+
+2005-07-13  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/21921
+	* gcc.dg/tree-ssa/pr21921.c: New.
+
+2005-07-12  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimizatio/22442
+	* gcc.dg/tree-ssa/loop-11.c: New test.
+
+2005-07-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/21840
+	* gcc.c-torture/compile/pr21840.c: New test.
+
+2005-07-12  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/pr22379.c: New test.
+
+2005-07-11  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21593
+	gfortran.dg/dev_null.f90:  Remove outdated comment about
+	PR libfortran/21593.
+
+
+2005-07-12  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.target/i386/compress-float-sse.c:  New.
+	* gcc.target/i386/compress-float-sse-pic.c:  New.
+	* gcc.target/i386/compress-float-387.c:  New.
+	* gcc.target/i386/compress-float-387-pic.c:  New.
+	* gcc.dg/compress-float-ppc.c:  New.
+	* gcc.dg/compress-float-ppc-pic.c:  New.
+
+2005-07-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21593
+	gfortran.dg/dev_null.f90:  Remove targets.
+
+2005-07-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/22335
+	* gcc.dg/pr22335-1.c: New test.
+	* gcc.dg/pr22335-2.c: New test.
+
+2005-07-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20172
+	* g++.dg/template/nontype12.C : New test.
+
 2005-07-12  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* gcc.dg/tree-ssa/loop-10.c: New test.

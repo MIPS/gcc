@@ -2056,8 +2056,24 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define DECL_DEFERRED_FN(DECL) \
   (DECL_LANG_SPECIFIC (DECL)->decl_flags.deferred)
 
-/* For a VAR_DECL, FUNCTION_DECL, TYPE_DECL or TEMPLATE_DECL:
-   template-specific information.  */
+/* If non-NULL for a VAR_DECL, FUNCTION_DECL, TYPE_DECL or
+   TEMPLATE_DECL, the entity is a template specialization.  In that
+   case, DECL_TEMPLATE_INFO is a TREE_LIST, whose TREE_PURPOSE is the
+   TEMPLATE_DECL of which this entity is a specialization.  The TREE_
+   TREE_VALUE is the template arguments used to specialize the
+   template.  
+
+   In general, DECL_TEMPLATE_INFO is non-NULL only if
+   DECL_USE_TEMPLATE is non-zero.  However, for friends, we sometimes
+   have DECL_TEMPLATE_INFO even when DECL_USE_TEMPLATE is zero.
+   Consider:
+
+      template <typename T> struct S { friend void f(T) {} };
+
+   In this case, S<int>::f is, from the point of view of the compiler,
+   an instantiation of a template -- but, from the point of view of
+   the language, each instantiation of S results in a wholly unrelated
+   global function f.  */ 
 #define DECL_TEMPLATE_INFO(NODE) \
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
@@ -2401,9 +2417,10 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define BRACE_ENCLOSED_INITIALIZER_P(NODE) \
   (TREE_CODE (NODE) == CONSTRUCTOR && !TREE_TYPE (NODE))
 
-#define EMPTY_CONSTRUCTOR_P(NODE) (TREE_CODE (NODE) == CONSTRUCTOR	   \
-				   && CONSTRUCTOR_ELTS (NODE) == NULL_TREE \
-				   && ! TREE_HAS_CONSTRUCTOR (NODE))
+#define EMPTY_CONSTRUCTOR_P(NODE) (TREE_CODE (NODE) == CONSTRUCTOR \
+				   && VEC_empty (constructor_elt, \
+						 CONSTRUCTOR_ELTS (NODE)) \
+				   && !TREE_HAS_CONSTRUCTOR (NODE))
 
 /* Nonzero means that an object of this type can not be initialized using
    an initializer list.  */
@@ -3981,7 +3998,7 @@ extern int more_specialized_fn			(tree, tree, int);
 extern void mark_class_instantiated		(tree, int);
 extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		(tree, tree, tsubst_flags_t);
-extern tree instantiate_decl			(tree, int, int);
+extern tree instantiate_decl			(tree, int, bool);
 extern int push_tinst_level			(tree);
 extern void pop_tinst_level			(void);
 extern int more_specialized_class		(tree, tree, tree);
@@ -4152,7 +4169,7 @@ extern tree finish_increment_expr		(tree, enum tree_code);
 extern tree finish_this_expr			(void);
 extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
 extern tree finish_unary_op_expr		(enum tree_code, tree);
-extern tree finish_compound_literal		(tree, tree);
+extern tree finish_compound_literal		(tree, VEC(constructor_elt,gc) *);
 extern tree finish_fname			(tree);
 extern void finish_translation_unit		(void);
 extern tree finish_template_type_parm		(tree, tree);
@@ -4289,6 +4306,7 @@ extern tree build_modify_expr			(tree, enum tree_code, tree);
 extern tree convert_for_initialization		(tree, tree, tree, int,
 						 const char *, tree, int);
 extern int comp_ptr_ttypes			(tree, tree);
+extern bool comp_ptr_ttypes_const               (tree, tree);
 extern int ptr_reasonably_similar		(tree, tree);
 extern tree build_ptrmemfunc			(tree, tree, int, bool);
 extern int cp_type_quals			(tree);
@@ -4331,7 +4349,7 @@ extern void complete_type_check_abstract	(tree);
 extern int abstract_virtuals_error		(tree, tree);
 
 extern tree store_init_value			(tree, tree);
-extern tree digest_init				(tree, tree, tree *);
+extern tree digest_init				(tree, tree);
 extern tree build_scoped_ref			(tree, tree, tree *);
 extern tree build_x_arrow			(tree);
 extern tree build_m_component_ref		(tree, tree);

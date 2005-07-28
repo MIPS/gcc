@@ -2165,75 +2165,134 @@ An integer constant with all bits set except exactly one.
 Any SYMBOL_REF.
 @end table
 
-@item IP2K---@file{ip2k.h}
-@table @code
-@item a
-@samp{DP} or @samp{IP} registers (general address)
+@item M32C---@file{m32c.c}
 
-@item f
-@samp{IP} register
+@item Rsp
+@itemx Rfb
+@itemx Rsb
+@samp{$sp}, @samp{$fb}, @samp{$sb}.
 
-@item j
-@samp{IPL} register
+@item Rcr
+Any control register, when they're 16 bits wide (nothing if control
+registers are 24 bits wide)
 
-@item k
-@samp{IPH} register
+@item Rcl
+Any control register, when they're 24 bits wide.
 
-@item b
-@samp{DP} register
+@item R0w
+@itemx R1w
+@itemx R2w
+@itemx R3w
+$r0, $r1, $r2, $r3.
 
-@item y
-@samp{DPH} register
+@item R02
+$r0 or $r2, or $r2r0 for 32 bit values.
 
-@item z
-@samp{DPL} register
+@item R13
+$r1 or $r3, or $r3r1 for 32 bit values.
 
-@item q
-@samp{SP} register
+@item Rdi
+A register that can hold a 64 bit value.
 
-@item c
-@samp{DP} or @samp{SP} registers (offsettable address)
+@item Rhl
+$r0 or $r1 (registers with addressable high/low bytes)
 
-@item d
-Non-pointer registers (not @samp{SP}, @samp{DP}, @samp{IP})
+@item R23
+$r2 or $r3
 
-@item u
-Non-SP registers (everything except @samp{SP})
+@item Raa
+Address registers
 
-@item R
-Indirect through @samp{IP}---Avoid this except for @code{QImode}, since we
-can't access extra bytes
+@item Raw
+Address registers when they're 16 bits wide.
 
-@item S
-Indirect through @samp{SP} or @samp{DP} with short displacement (0..127)
+@item Ral
+Address registers when they're 24 bits wide.
 
-@item T
-Data-section immediate value
+@item Rqi
+Registers that can hold QI values.
 
-@item I
-Integers from @minus{}255 to @minus{}1
+@item Rad
+Registers that can be used with displacements ($a0, $a1, $sb).
 
-@item J
-Integers from 0 to 7---valid bit number in a register
+@item Rsi
+Registers that can hold 32 bit values.
 
-@item K
-Integers from 0 to 127---valid displacement for addressing mode
+@item Rhi
+Registers that can hold 16 bit values.
 
-@item L
-Integers from 1 to 127
+@item Rhc
+Registers chat can hold 16 bit values, including all control
+registers.
 
-@item M
-Integer @minus{}1
+@item Rra
+$r0 through R1, plus $a0 and $a1.
 
-@item N
-Integer 1
+@item Rfl
+The flags register.
 
-@item O
-Zero
+@item Rmm
+The memory-based pseudo-registers $mem0 through $mem15.
 
-@item P
-Integers from 0 to 255
-@end table
+@item Rpi
+Registers that can hold pointers (16 bit registers for r8c, m16c; 24
+bit registers for m32cm, m32c).
+
+@item Rpa
+Matches multiple registers in a PARALLEL to form a larger register.
+Used to match function return values.
+
+@item Is3
+-8 @dots{} 7
+
+@item IS1
+-128 @dots{} 127
+
+@item IS2
+-32768 @dots{} 32767
+
+@item IU2
+0 @dots{} 65535
+
+@item In4
+-8 @dots{} -1 or 1 @dots{} 8
+
+@item In5
+-16 @dots{} -1 or 1 @dots{} 16
+
+@item In4
+-8 @dots{} -1 or 1 @dots{} 8
+
+@item IM2
+-65536 @dots{} -1
+
+@item Ilb
+An 8 bit value with exactly one bit set.
+
+@item Ilw
+A 16 bit value with exactly one bit set.
+
+@item Sd
+The common src/dest memory addressing modes.
+
+@item Sa
+Memory addressed using $a0 or $a1.
+
+@item Si
+Memory addressed with immediate addresses.
+
+@item Ss
+Memory addressed using the stack pointer ($sp).
+
+@item Sf
+Memory addressed using the frame base register ($fb).
+
+@item Ss
+Memory addressed using the small base register ($sb).
+
+@item S1
+$r1h
+
 
 @item MIPS---@file{mips.h}
 @table @code
@@ -3269,8 +3328,8 @@ operand.
 
 The use for multiple @code{setmem@var{m}} is as for @code{movmem@var{m}}.
 
-@cindex @code{cmpstr@var{m}} instruction pattern
-@item @samp{cmpstr@var{m}}
+@cindex @code{cmpstrn@var{m}} instruction pattern
+@item @samp{cmpstrn@var{m}}
 String compare instruction, with five operands.  Operand 0 is the output;
 it has mode @var{m}.  The remaining four operands are like the operands
 of @samp{movmem@var{m}}.  The two memory blocks specified are compared
@@ -3280,6 +3339,25 @@ at a time since either string may end in the first byte and reading past
 that may access an invalid page or segment and cause a fault.  The
 effect of the instruction is to store a value in operand 0 whose sign
 indicates the result of the comparison.
+
+@cindex @code{cmpstr@var{m}} instruction pattern
+@item @samp{cmpstr@var{m}}
+String compare instruction, without known maximum length.  Operand 0 is the
+output; it has mode @var{m}.  The second and third operand are the blocks of
+memory to be compared; both are @code{mem:BLK} with an address in mode
+@code{Pmode}.
+
+The fourth operand is the known shared alignment of the source and
+destination, in the form of a @code{const_int} rtx.  Thus, if the
+compiler knows that both source and destination are word-aligned,
+it may provide the value 4 for this operand.
+
+The two memory blocks specified are compared byte by byte in lexicographic
+order starting at the beginning of each string.  The instruction is not allowed
+to prefetch more than one byte at a time since either string may end in the
+first byte and reading past that may access an invalid page or segment and
+cause a fault.  The effect of the instruction is to store a value in operand 0
+whose sign indicates the result of the comparison.
 
 @cindex @code{cmpmem@var{m}} instruction pattern
 @item @samp{cmpmem@var{m}}

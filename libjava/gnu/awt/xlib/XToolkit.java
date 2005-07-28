@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002, 2003  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2003, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -26,8 +26,10 @@ import gnu.gcj.xlib.Display;
 import gnu.gcj.xlib.Screen;
 import gnu.gcj.xlib.Visual;
 import gnu.java.awt.ClasspathToolkit;
+import gnu.java.awt.EmbeddedWindow;
 import gnu.java.awt.peer.ClasspathFontPeer;
 import gnu.java.awt.peer.ClasspathTextLayoutPeer;
+import gnu.java.awt.peer.EmbeddedWindowPeer;
 
 public class XToolkit extends ClasspathToolkit
 {
@@ -444,14 +446,22 @@ public class XToolkit extends ClasspathToolkit
     throw new java.lang.UnsupportedOperationException ();
   }
 
+  public EmbeddedWindowPeer createEmbeddedWindow (EmbeddedWindow w)
+  {
+    throw new java.lang.UnsupportedOperationException ();
+  }
+
   public boolean nativeQueueEmpty() 
-  { 
-    return eventLoop.isIdle(); 
+  {
+    // Tell EventQueue the native queue is empty, because XEventLoop
+    // separately ensures that native events are posted to AWT.
+    return true;
   }
 
   public void wakeNativeQueue() 
   {
-    eventLoop.interrupt();
+    // Not implemented, because the native queue is always awake.
+    // (i.e. it's polled in a thread separate from the AWT dispatch thread)
   }
 
   /** Checks the native event queue for events.  If blocking, waits until an
@@ -464,6 +474,18 @@ public class XToolkit extends ClasspathToolkit
    */
   public void iterateNativeQueue(java.awt.EventQueue locked, boolean block) 
   {
-    eventLoop.postNextEvent(block);
-  }
+    // There is nothing to do here except block, because XEventLoop 
+    // iterates the queue in a dedicated thread.
+    if (block)
+    {
+      try
+      {
+        queue.wait ();
+      }
+      catch (InterruptedException ie)
+      {
+        // InterruptedException intentionally ignored
+      }
+    }
+  }; 
 }

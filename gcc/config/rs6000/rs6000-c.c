@@ -38,8 +38,6 @@
 
 
 
-static tree altivec_resolve_overloaded_builtin (tree, tree);
-
 /* Handle the machine specific pragma longcall.  Its syntax is
 
    # pragma longcall ( TOGGLE )
@@ -50,10 +48,10 @@ static tree altivec_resolve_overloaded_builtin (tree, tree);
    whether or not new function declarations receive a longcall
    attribute by default.  */
 
-#define SYNTAX_ERROR(gmsgid) do {			\
-  warning (0, gmsgid);					\
-  warning (0, "ignoring malformed #pragma longcall");	\
-  return;						\
+#define SYNTAX_ERROR(gmsgid) do {					\
+  warning (OPT_Wpragmas, gmsgid);					\
+  warning (OPT_Wpragmas, "ignoring malformed #pragma longcall");	\
+  return;								\
 } while (0)
 
 void
@@ -75,7 +73,7 @@ rs6000_pragma_longcall (cpp_reader *pfile ATTRIBUTE_UNUSED)
     SYNTAX_ERROR ("number must be 0 or 1");
 
   if (c_lex (&x) != CPP_EOF)
-    warning (0, "junk at end of #pragma longcall");
+    warning (OPT_Wpragmas, "junk at end of #pragma longcall");
 
   rs6000_default_long_calls = (n == integer_one_node);
 }
@@ -143,8 +141,6 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
   /* Let the compiled code know if 'f' class registers will not be available.  */
   if (TARGET_SOFT_FLOAT || !TARGET_FPRS)
     builtin_define ("__NO_FPRS__");
-
-  targetm.resolve_overloaded_builtin = altivec_resolve_overloaded_builtin;
 }
 
 
@@ -2470,7 +2466,7 @@ altivec_build_resolved_builtin (tree *args, int n,
 /* Implementation of the resolve_overloaded_builtin target hook, to
    support Altivec's overloaded builtins.  */
 
-static tree
+tree
 altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
 {
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);

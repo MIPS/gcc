@@ -172,8 +172,8 @@ is_sra_scalar_type (tree type)
    instantiated, just that if we decide to break up the type into
    separate pieces that it can be done.  */
 
-static bool
-type_can_be_decomposed_p (tree type)
+bool
+sra_type_can_be_decomposed_p (tree type)
 {
   unsigned int cache = TYPE_UID (TYPE_MAIN_VARIANT (type)) * 2;
   tree t;
@@ -275,7 +275,7 @@ decl_can_be_decomposed_p (tree var)
     }
 
   /* We must be able to decompose the variable's type.  */
-  if (!type_can_be_decomposed_p (TREE_TYPE (var)))
+  if (!sra_type_can_be_decomposed_p (TREE_TYPE (var)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -296,7 +296,7 @@ type_can_instantiate_all_elements (tree type)
 {
   if (is_sra_scalar_type (type))
     return true;
-  if (!type_can_be_decomposed_p (type))
+  if (!sra_type_can_be_decomposed_p (type))
     return false;
 
   switch (TREE_CODE (type))
@@ -1642,6 +1642,8 @@ generate_element_init_1 (struct sra_elt *elt, tree init, tree *list_p)
   enum tree_code init_code;
   struct sra_elt *sub;
   tree t;
+  unsigned HOST_WIDE_INT idx;
+  tree value, purpose;
 
   /* We can be passed DECL_INITIAL of a static variable.  It might have a
      conversion, which we strip off here.  */
@@ -1675,11 +1677,8 @@ generate_element_init_1 (struct sra_elt *elt, tree init, tree *list_p)
       break;
 
     case CONSTRUCTOR:
-      for (t = CONSTRUCTOR_ELTS (init); t ; t = TREE_CHAIN (t))
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), idx, purpose, value)
 	{
-	  tree purpose = TREE_PURPOSE (t);
-	  tree value = TREE_VALUE (t);
-
 	  if (TREE_CODE (purpose) == RANGE_EXPR)
 	    {
 	      tree lower = TREE_OPERAND (purpose, 0);
@@ -1769,7 +1768,7 @@ insert_edge_copies (tree stmt, basic_block bb)
 
 /* Helper function to insert LIST before BSI, and set up line number info.  */
 
-static void
+void
 sra_insert_before (block_stmt_iterator *bsi, tree list)
 {
   tree stmt = bsi_stmt (*bsi);
@@ -1781,7 +1780,7 @@ sra_insert_before (block_stmt_iterator *bsi, tree list)
 
 /* Similarly, but insert after BSI.  Handles insertion onto edges as well.  */
 
-static void
+void
 sra_insert_after (block_stmt_iterator *bsi, tree list)
 {
   tree stmt = bsi_stmt (*bsi);
@@ -2138,6 +2137,16 @@ debug_sra_elt_name (struct sra_elt *elt)
   fputc ('\n', stderr);
 }
 
+void 
+sra_init_cache (void)
+{
+  if (sra_type_decomp_cache) 
+    return;
+
+  sra_type_decomp_cache = BITMAP_ALLOC (NULL);
+  sra_type_inst_cache = BITMAP_ALLOC (NULL);
+}
+
 /* Main entry point.  */
 
 static void
@@ -2147,8 +2156,7 @@ tree_sra (void)
   gcc_obstack_init (&sra_obstack);
   sra_candidates = BITMAP_ALLOC (NULL);
   needs_copy_in = BITMAP_ALLOC (NULL);
-  sra_type_decomp_cache = BITMAP_ALLOC (NULL);
-  sra_type_inst_cache = BITMAP_ALLOC (NULL);
+  sra_init_cache ();
   sra_map = htab_create (101, sra_elt_hash, sra_elt_eq, NULL);
 
   /* Scan.  If we find anything, instantiate and scalarize.  */

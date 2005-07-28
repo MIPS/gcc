@@ -691,24 +691,46 @@ read_f (fnode * f, char *dest, int length)
   p++;
   w--;
 
-  while (w > 0)
+  if (g.blank_status == BLANK_UNSPECIFIED) /* Normal processing of exponent */
     {
-      if (*p == ' ')
+      while (w > 0 && isdigit (*p))
         {
-          if (g.blank_status == BLANK_ZERO) *p = '0';
-          if (g.blank_status == BLANK_NULL)
-            {
-              p++;
-              w--;
-              continue;
-            }
+          exponent = 10 * exponent + *p - '0';
+          p++;
+          w--;
         }
-      if (!isdigit (*p))
-        goto bad_float;
         
-      exponent = 10 * exponent + *p - '0';
-      p++;
-      w--;
+      /* Only allow trailing blanks */
+
+      while (w > 0)
+        {
+          if (*p != ' ')
+  	  goto bad_float;
+          p++;
+          w--;
+        }
+    }    
+  else  /* BZ or BN status is enabled */
+    {
+      while (w > 0)
+        {
+          if (*p == ' ')
+            {
+              if (g.blank_status == BLANK_ZERO) *p = '0';
+              if (g.blank_status == BLANK_NULL)
+                {
+                  p++;
+                  w--;
+                  continue;
+                }
+            }
+          else if (!isdigit (*p))
+            goto bad_float;
+
+          exponent = 10 * exponent + *p - '0';
+          p++;
+          w--;
+        }
     }
 
   exponent = exponent * exponent_sign;
@@ -787,5 +809,11 @@ read_x (fnode * f)
   int n;
 
   n = f->u.n;
-  read_block (&n);
+
+  if ((current_unit->flags.pad == PAD_NO || is_internal_unit ())
+      && current_unit->bytes_left < n)
+    n = current_unit->bytes_left;
+
+  if (n > 0)
+    read_block (&n);
 }

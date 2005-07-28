@@ -175,7 +175,10 @@ rest_of_decl_compilation (tree decl,
 
       timevar_pop (TV_VARCONST);
     }
-  else if (TREE_CODE (decl) == TYPE_DECL)
+  else if (TREE_CODE (decl) == TYPE_DECL
+	   /* Like in rest_of_type_compilation, avoid confusing the debug
+	      information machinery when there are errors.  */
+	   && !(sorrycount || errorcount))
     {
       timevar_push (TV_SYMOUT);
       debug_hooks->type_decl (decl, !top_level);
@@ -431,6 +434,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_early_ipa_inline);
   NEXT_PASS (pass_early_local_passes);
   NEXT_PASS (pass_ipa_inline);
+  NEXT_PASS (pass_ipa_reference);
+  NEXT_PASS (pass_ipa_pure_const); 
+  NEXT_PASS (pass_ipa_type_escape);
   *p = NULL;
 
   /* All passes needed to lower the function into shape optimizers can operate
@@ -475,6 +481,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_return_slot);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
+  NEXT_PASS (pass_eliminate_useless_stores);
 
   /* Initial scalar cleanups.  */
   NEXT_PASS (pass_ccp);
@@ -520,7 +527,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_sink_code);
-  NEXT_PASS (pass_loop);
+  NEXT_PASS (pass_tree_loop);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_copy_prop);
   NEXT_PASS (pass_cd_dce);
@@ -548,11 +555,11 @@ init_optimization_passes (void)
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   *p = NULL;
 
-  p = &pass_loop.sub;
-  NEXT_PASS (pass_loop_init);
+  p = &pass_tree_loop.sub;
+  NEXT_PASS (pass_tree_loop_init);
   NEXT_PASS (pass_copy_prop);
   NEXT_PASS (pass_lim);
-  NEXT_PASS (pass_unswitch);
+  NEXT_PASS (pass_tree_unswitch);
   NEXT_PASS (pass_scev_cprop);
   NEXT_PASS (pass_empty_loop);
   NEXT_PASS (pass_record_bounds);
@@ -566,9 +573,18 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lower_vector_ssa);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
-  NEXT_PASS (pass_loop_done);
+  NEXT_PASS (pass_tree_loop_done);
   *p = NULL;
 
+  p = &pass_loop2.sub;
+  NEXT_PASS (pass_rtl_loop_init);
+  NEXT_PASS (pass_rtl_move_loop_invariants);
+  NEXT_PASS (pass_rtl_unswitch);
+  NEXT_PASS (pass_rtl_unroll_and_peel_loops);
+  NEXT_PASS (pass_rtl_doloop);
+  NEXT_PASS (pass_rtl_loop_done);
+  *p = NULL;
+  
   p = &pass_rest_of_compilation.sub;
   NEXT_PASS (pass_remove_unnecessary_notes);
   NEXT_PASS (pass_init_function);
@@ -587,6 +603,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_profiling);
   NEXT_PASS (pass_rtl_ifcvt);
   NEXT_PASS (pass_tracer);
+  /* Perform loop optimizations.  It might be better to do them a bit
+     sooner, but we want the profile feedback to work more
+     efficiently.  */
   NEXT_PASS (pass_loop2);
   NEXT_PASS (pass_web);
   NEXT_PASS (pass_cse2);

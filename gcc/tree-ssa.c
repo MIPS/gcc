@@ -231,7 +231,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
   TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
-      && var_ann (SSA_NAME_VAR (ssa_name))->default_def == ssa_name)
+      && default_def (SSA_NAME_VAR (ssa_name)) == ssa_name)
     ; /* Default definitions have empty statements.  Nothing to do.  */
   else if (!def_bb)
     {
@@ -902,6 +902,15 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
+
+  /* Don't lose casts between pointers to volatile and non-volatile
+     qualified types.  Doing so would result in changing the semantics
+     of later accesses.  */
+  else if (POINTER_TYPE_P (inner_type)
+           && POINTER_TYPE_P (outer_type)
+	   && TYPE_VOLATILE (TREE_TYPE (outer_type))
+	      != TYPE_VOLATILE (TREE_TYPE (inner_type)))
+    return false;
 
   /* Pointers/references are equivalent if their pointed to types
      are effectively the same.  This allows to strip conversions between
