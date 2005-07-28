@@ -1,5 +1,13 @@
 2005-07-27  Mark Mitchell  <mark@codesourcery.com>
 
+	Backport:
+	2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+	* Makefile.tpl (EXTRA_TARGET_FLAGS): Set LDFLAGS=LDFLAGS_FOR_TARGET.
+	* Makefile.def (flags_to_pass): Add LDFLAGS_FOR_TARGET. 
+	* Makefile.in: Regenerated.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
 	* config/mt-linux (CXXFLAGS): Include SYSROOT_CFLAGS_FOR_TARGET.
 
 2005-07-27  Mark Mitchell  <mark@codesourcery.com>
