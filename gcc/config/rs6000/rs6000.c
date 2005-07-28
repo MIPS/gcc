@@ -15306,13 +15306,17 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow
      FP constants.  */
-  if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == TFmode)
+  if (GET_CODE (x) == CONST_DOUBLE &&
+      (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode))
     {
       REAL_VALUE_TYPE rv;
       long k[4];
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+      if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
+	REAL_VALUE_TO_TARGET_DECIMAL128 (rv, k);
+      else
+	REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
 
       if (TARGET_64BIT)
 	{
@@ -15341,13 +15345,18 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	  return;
 	}
     }
-  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
+  else if (GET_CODE (x) == CONST_DOUBLE &&
+	   (GET_MODE (x) == DFmode || GET_MODE (x) == DDmode))
     {
       REAL_VALUE_TYPE rv;
       long k[2];
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
+
+      if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
+	REAL_VALUE_TO_TARGET_DECIMAL64 (rv, k);
+      else
+	REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
 
       if (TARGET_64BIT)
 	{
@@ -15372,13 +15381,17 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	  return;
 	}
     }
-  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == SFmode)
+  else if (GET_CODE (x) == CONST_DOUBLE &&
+	   (GET_MODE (x) == SFmode || GET_MODE (x) == SDmode))
     {
       REAL_VALUE_TYPE rv;
       long l;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+      if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
+	REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+      else
+	REAL_VALUE_TO_TARGET_SINGLE (rv, l);
 
       if (TARGET_64BIT)
 	{

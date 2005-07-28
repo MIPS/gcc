@@ -1,3 +1,11 @@
+2005-07-28  Ben Elliston  <bje@au.ibm.com>
+
+	* real.h (REAL_VALUE_TO_TARGET_DECIMAL128): New.
+	(REAL_VALUE_TO_TARGET_DECIMAL64): Likewise.
+	(REAL_VALUE_TO_TARGET_DECIMAL32): Likewise.
+	* config/rs6000/rs6000.c (output_toc): Output TOC entries for
+	decimal float modes.
+
 2005-07-27  Ben Elliston  <bje@au.ibm.com>
 
 	* real.c (real_maxval): decimal_real_maxval has no return value.

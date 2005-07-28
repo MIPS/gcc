@@ -308,6 +308,20 @@ extern const struct real_format real_internal_format;
 #define REAL_VALUE_FROM_UNSIGNED_INT(r, lo, hi, mode) \
   real_from_integer (&(r), mode, lo, hi, 1)
 
+/* Decimal floating point support.
+   FIXME: Don't hardwire modes, use mode_for_size ().  */
+
+/* IN is a REAL_VALUE_TYPE.  OUT is an array of longs.  */
+#define REAL_VALUE_TO_TARGET_DECIMAL128(IN, OUT) \
+  real_to_target (OUT, &(IN), TDmode)
+
+#define REAL_VALUE_TO_TARGET_DECIMAL64(IN, OUT) \
+  real_to_target (OUT, &(IN), DDmode)
+
+/* IN is a REAL_VALUE_TYPE.  OUT is a long.  */
+#define REAL_VALUE_TO_TARGET_DECIMAL32(IN, OUT) \
+  ((OUT) = real_to_target (NULL, &(IN), SDmode))
+
 extern REAL_VALUE_TYPE real_value_truncate (enum machine_mode,
 					    REAL_VALUE_TYPE);
 
