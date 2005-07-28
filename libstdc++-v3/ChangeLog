@@ -1,3 +1,143 @@
+2005-07-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Handle darwin-export,
+	and make it the default for Darwin.
+	* scripts/make-exports.pl: New.
+	* src/Makefile.am: Update for changes to GLIBCXX_ENABLE_SYMVERS.
+	Handle darwin-export.
+	* configure: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-07-25  Dave Odell  <evilalias@hotmail.com>
+
+	PR libstdc++/23053
+	* include/tr1/hashtable (hashtable<>::find_node): Const-ify.
+	* testsuite/tr1/6_containers/unordered/hashtable/23053.cc: New.
+
+2005-07-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22515
+	* include/bits/basic_string.h: Declare the specialization
+	operator>>(basic_istream<char>&, basic_string<char>&).
+	* include/std/std_istream.h: Declate the specialization
+	operator>>(basic_istream<char>&, char*).
+	* include/std/std_streambuf.h (basic_streambuf): Add friend
+	declarations for the above.
+	* src/istream.cc: Define the above.
+	* testsuite/27_io/basic_istream/extractors_character/char/4.cc: New.
+	* testsuite/27_io/basic_istream/extractors_character/wchar_t/4.cc:
+	Likewise.
+	* testsuite/performance/27_io/ifstream_extract_chars.cc: Likewise.
+
+2005-07-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf.tcc (xsgetn, xsputn): Use streamsize
+	instead of size_t.
+	* src/streambuf.cc (__copy_streambufs): Likewise.
+
+2005-07-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/ctype_members.cc (do_is(mask, wchar_t)):
+	Speed-up for the common case of mask == ctype_base::space;
+	otherwise, exit the loop earlier if the mask is one of the
+	elementary ones.
+
+2005-07-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21193 (float, double, long double)
+	* include/tr1/functional (hash<float>, hash<double>):
+	Reimplement exploiting the Fnv_hash<>::hash helper.
+	(hash<long double>): Reimplement using frexp (in this
+	case, due to random padding bits, the former approach
+	is not generally viable).
+
+2005-07-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21193 (string & wstring)
+	* include/tr1/functional (hash<string>, hash<wstring>):
+	Reimplement using the FNV hash.
+
+	* include/tr1/functional: Trivial formatting fixes.
+
+2005-07-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/ostream.tcc (basic_ostream<>::operator<<(long),
+	basic_ostream<>::operator<<(long long)): Don't deal with oct
+	and hex and casts to unsigned here...
+	* include/bits/locale_facets.tcc (__int_to_char(_CharT*, long,
+	const _CharT*, ios_base::fmtflags), __int_to_char(_CharT*, long
+	long, const _CharT*, ios_base::fmtflags)): ... do that here,
+	instead, as per Table 57.
+	(num_put<>::_M_insert_int): Tidy treatment of numeric base and
+	sign.
+	* include/std/std_ostream.h (operator<<(short), operator<<(int)):
+	Adjust logic, as per the letter of the resolution of DR117 [WP].
+	* testsuite/22_locale/num_put/put/char/10.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/10.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/7.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/7.cc:
+	Likewise.
+
+2005-07-07  David Edelsohn  <edelsohn@gnu.org>
+
+	* testsuite/ext/pb_assoc/example/tree_order_statistics_join.cc:
+	Change map_t to map_type.
+
+2005-07-05  Paolo Carlini  <pcarlini@suse.de>
+
+	Add class __versa_string, a versatile "basic_string-type" class:
+	an additional, non-standard, template parameter allows to specify
+	the preferred base class. Two are provided: __rc_string_base,
+	which implements a behavior very similar to our standard string,
+	and __sso_string_base, not reference-counted and optimized for
+	short strings. 
+	* include/ext/rc_string_base.h: New.
+	* include/ext/sso_string_base.h: Likewise.
+	* include/ext/vstring.h: Likewise.
+	* include/ext/vstring.tcc: Likewise.
+	* include/ext/vstring_fwd.h: Likewise.
+	* include/ext/vstring_util.h: Likewise.
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* testsuite/ext/vstring/explicit_instantiation/1.cc: New.
+	* testsuite/ext/vstring/explicit_instantiation/2.cc: Likewise.
+	* testsuite/ext/vstring/explicit_instantiation/char/1.cc: Likewise.
+	* testsuite/ext/vstring/explicit_instantiation/wchar_t/1.cc: Likewise.
+
+	* Makefile.in: Regenerate with autotools 1.9.3 (to date, the version
+	officially used by v3).
+	* aclocal.m4: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2005-07-01  Paolo Carlini  <pcarlini@suse.de>
+
+        Port from libstdcxx_so_7-branch:
+	2004-10-28  Chris Jefferson  <chris@bubblescope.net>
+
+	PR libstdc++/17441
+	* include/bit/stl_algo.h (find(,,,input_iterator_tag),
+	find(,,,random_access_interator_tag),
+	find_if(,,,input_iterator_tag),
+	find_if(,,,random_access_iterator_tag)): Uglify function name.
+	(find, find_if): Use new uglified specialisation names.
+	* testsuite/25_algorithms/find/17441.cc: New.
+
+2005-06-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* include/ext/pb_assoc/detail/hash_fn/mask_based_range_hashing.hpp
+	(PB_ASSOC_CLASS_C_DEC::s_highest_bit_1): Cast constant 1 to target
+	type before shifting.
+
 2005-06-29  Paolo Carlini  <pcarlini@suse.de>
 	    
 	PR libstdc++/21244 (cont^2)

@@ -661,7 +661,7 @@
 /* Define if the compiler is configured for setjmp/longjmp exceptions. */
 #undef _GLIBCXX_SJLJ_EXCEPTIONS
 
-/* Define to use symbol versioning in the shared library. */
+/* Define to use GNU symbol versioning in the shared library. */
 #undef _GLIBCXX_SYMVER
 
 /* Define symbol versioning in assember directives. If symbol

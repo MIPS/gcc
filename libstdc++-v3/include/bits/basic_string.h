@@ -2087,6 +2087,10 @@ namespace std
     operator>>(basic_istream<_CharT, _Traits>& __is,
 	       basic_string<_CharT, _Traits, _Alloc>& __str);
 
+  template<>
+    basic_istream<char>&
+    operator>>(basic_istream<char>& __is, basic_string<char>& __str);
+
   /**
    *  @brief  Write string to a stream.
    *  @param os  Output stream.

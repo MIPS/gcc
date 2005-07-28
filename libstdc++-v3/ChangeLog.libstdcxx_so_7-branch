@@ -1,3 +1,9 @@
+2005-07-28  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20050728.
+
+        (Not merged ext/vstring)
+
 2005-07-28  Chris Jefferson <chris@bubblescope.net>
 	    Jonathan Wakely  <redi@gcc.gnu.org>
 

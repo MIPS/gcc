@@ -461,7 +461,7 @@ ext_headers = \
 	${ext_srcdir}/rope \
 	${ext_srcdir}/ropeimpl.h \
 	${ext_srcdir}/slist \
-	${ext_srcdir}/typelist.h 
+	${ext_srcdir}/typelist.h
 
 
 tr1_srcdir = ${glibcxx_srcdir}/include/tr1
