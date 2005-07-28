@@ -23,6 +23,17 @@
 3843157: g++.dg/pascal-strings-2.C (test for excess errors)
 4096269: g++.dg/eh/uncaught1.C execution test
 4178461: g++.old-deja/g++.other/string2.C execution test
+4194030: g++.dg/lookup/hidden-class1.C  (test for errors, line 7)
+4194030: g++.dg/lookup/hidden-class5.C  (test for errors, line 9)
+4194030: g++.dg/lookup/hidden-class7.C  (test for errors, line 13)
+4194030: g++.dg/lookup/hidden-class8.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-class9.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-temp-class1.C  (test for errors, line 7)
+4194030: g++.dg/lookup/hidden-temp-class10.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-temp-class11.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-temp-class4.C  (test for errors, line 9)
+4194030: g++.dg/lookup/hidden-temp-class6.C (test for excess errors)
+4194030: g++.dg/lookup/hidden-temp-class7.C  (test for errors, line 13)
 #
 # The following tests fail only when the c++ suite is run through Obj-C++.
 3904139: g++.dg/ext/fnname3.C execution test
