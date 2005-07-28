@@ -1,0 +1,6 @@
+2005-07-28  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/version.c (version_string): Use "Sourcery G++" as the
+	release name.
+	(bug_report_url): Use our support tracker.
+
