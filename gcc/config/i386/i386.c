@@ -1672,13 +1672,13 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
   /* APPLE LOCAL begin disable strict aliasing; breaks too much existing code.  */
 #if TARGET_MACHO
   flag_strict_aliasing = 0;
-  /* APPLE LOCAL begin inline intrinsics with -Os 4037817 */
+  /* APPLE LOCAL begin -Os 4178585 */
   if (optimize_size)
     {
-      set_param_value ("max-inline-insns-single", 30);
-      set_param_value ("max-inline-insns-auto", 30);
+      set_param_value ("max-inline-insns-single", 90);
+      set_param_value ("max-inline-insns-auto", 90);
     }
-  /* APPLE LOCAL end inline intrinsics with -Os 4037817 */
+  /* APPLE LOCAL end -Os 4178585 */
 #endif
   /* APPLE LOCAL end disable strict aliasing; breaks too much existing code.  */
   /* For -O2 and beyond, turn off -fschedule-insns by default.  It tends to

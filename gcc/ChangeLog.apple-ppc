@@ -1,3 +1,11 @@
+2005-07-28  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4178585
+	* config/rs6000/rs6000.c (optimization_options): Override -Os
+	inlining default, set to 90.
+	* config/i386/i386.c (optimization_options): Raise from 30 to
+	match above.
+
 2005-07-26  Dale Johannesen  <dalej@apple.com>
 
 	* postreload-gcse.c (alloc_mem):  Start CUID numbering at 1.

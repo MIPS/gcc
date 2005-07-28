@@ -1968,6 +1968,13 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 	 turned on when <fenv.h> is included (see darwin_pragma_fenv
 	 in darwin-c.c).  */
       flag_trapping_math = 0;
+      /* APPLE LOCAL begin -Os 4178585 */
+      if (optimize_size)
+	{
+	  set_param_value ("max-inline-insns-single", 90);
+	  set_param_value ("max-inline-insns-auto", 90);
+	}
+      /* APPLE LOCAL end -Os 4178585 */
     }
   /* APPLE LOCAL end tweak default optimizations */
 }
