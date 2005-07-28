@@ -2098,6 +2098,16 @@ check_explicit_specialization (tree declarator,
 	  TREE_PRIVATE (decl) = TREE_PRIVATE (gen_tmpl);
 	  TREE_PROTECTED (decl) = TREE_PROTECTED (gen_tmpl);
 
+	  /* APPLE LOCAL begin mainline 4.1 4182971 */
+	  /* The specialization has the same visibility as the
+	     template it specializes.  */
+	  if (DECL_VISIBILITY_SPECIFIED (gen_tmpl))
+	    {
+	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (gen_tmpl);
+	    }
+	  /* APPLE LOCAL end mainline 4.1 4182971 */
+
 	  if (is_friend && !have_def)
 	    /* This is not really a declaration of a specialization.
 	       It's just the name of an instantiation.  But, it's not
@@ -4612,6 +4622,13 @@ lookup_template_class (tree d1,
 	= TREE_PROTECTED (TYPE_STUB_DECL (template_type));
       DECL_IN_SYSTEM_HEADER (type_decl)
 	= DECL_IN_SYSTEM_HEADER (template);
+      /* APPLE LOCAL begin mainline 4.1 4182971 */
+      if (CLASSTYPE_VISIBILITY_SPECIFIED (template_type))
+	{
+	  DECL_VISIBILITY_SPECIFIED (type_decl) = 1;
+	  DECL_VISIBILITY (type_decl) = CLASSTYPE_VISIBILITY (template_type);
+	}
+      /* APPLE LOCAL end mainline 4.1 4182971 */
 
       /* Set up the template information.  We have to figure out which
 	 template is the immediate parent if this is a full
@@ -5531,6 +5548,13 @@ instantiate_class_template (tree type)
   TYPE_FOR_JAVA (type) = TYPE_FOR_JAVA (pattern); /* For libjava's JArray<T> */
   if (ANON_AGGR_TYPE_P (pattern))
     SET_ANON_AGGR_TYPE_P (type);
+  /* APPLE LOCAL begin mainline 4.1 4182971 */
+  if (CLASSTYPE_VISIBILITY_SPECIFIED (pattern))
+    {
+      CLASSTYPE_VISIBILITY_SPECIFIED (type) = 1;
+      CLASSTYPE_VISIBILITY (type) = CLASSTYPE_VISIBILITY (pattern);
+    }
+  /* APPLE LOCAL end mainline 4.1 4182971 */
 
   pbinfo = TYPE_BINFO (pattern);
 
