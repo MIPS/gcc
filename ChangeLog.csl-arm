@@ -1,3 +1,12 @@
+2005-07-29  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-07-29  Mark Mitchell  <mark@codesourcery.com>
+	PR bootstrap/23131
+	* configure.ac (SYSTEM_HEADER_DIR): Avoid setting to empty
+	string. 
+	* configure: Regenerated.
+	
 2005-07-27  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:
