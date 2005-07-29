@@ -61,6 +61,8 @@
 #if TARGET_MACHO
 #include "gstab.h"  /* for N_SLINE */
 #endif
+/* APPLE LOCAL -Os 4178585 */
+#include "params.h"
 
 /* APPLE LOCAL begin pascal strings */
 #include "../../libcpp/internal.h"
