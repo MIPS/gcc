@@ -1,3 +1,8 @@
+2005-07-29  Devang Patel  <dpatel@apple.com>
+
+	Radar 4134283
+	* gcc.dg/debug-globals-1.c: New test.
+
 2005-07-26  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4168392

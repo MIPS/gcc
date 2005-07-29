@@ -130,6 +130,10 @@ tree c_cont_label;
 
 static GTY(()) tree all_translation_units;
 
+/* APPLE LOCAL begin 4134283 */
+/* Outermost block.  */
+static GTY(()) tree ext_block;
+/* APPLE LOCAL end 4134283 */
 /* A list of decls to be made automatically visible in each file scope.  */
 static GTY(()) tree visible_builtins;
 
@@ -7700,7 +7704,8 @@ c_write_global_declarations_1 (tree globals)
 void
 c_write_global_declarations (void)
 {
-  tree ext_block, t;
+  /* APPLE LOCAL 4134283 */
+  tree t;
 
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
@@ -7716,6 +7721,11 @@ c_write_global_declarations (void)
   external_scope = 0;
   gcc_assert (!current_scope);
 
+  /* APPLE LOCAL begin 4134283 */
+  /* We're done parsing; proceed to optimize and emit assembly.
+     FIXME: shouldn't be the front end's responsibility to call this.  */
+  cgraph_optimize ();
+  /* APPLE LOCAL end 4134283 */
   /* Process all file scopes in this compilation, and the external_scope,
      through wrapup_global_declarations and check_global_declarations.  */
   for (t = all_translation_units; t; t = TREE_CHAIN (t))
@@ -7728,9 +7738,8 @@ c_write_global_declarations (void)
   build_cdtor ('I', static_ctors); static_ctors = 0;
   build_cdtor ('D', static_dtors); static_dtors = 0;
 
-  /* We're done parsing; proceed to optimize and emit assembly.
-     FIXME: shouldn't be the front end's responsibility to call this.  */
-  cgraph_optimize ();
+  /* APPLE LOCAL 4134283 */
+  /* Do cgraph_optimize() before writing globals.  */
 }
 
 /* APPLE LOCAL begin CW asm blocks */
