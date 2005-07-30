@@ -1945,6 +1945,8 @@ rs6000_parse_tls_size_option (void)
     error ("bad value %qs for -mtls-size switch", rs6000_tls_size_string);
 }
 
+/* APPLE LOCAL begin outwit script - cvs diff is inconsistent about
+   which of the }'s in the next 2 functions represents a local change */
 void
 optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 {
@@ -2010,6 +2012,7 @@ reset_optimization_options (int level ATTRIBUTE_UNUSED,
     }
 }
 /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end outwit script */
 
 /* Do anything needed at the start of the asm file.  */
 
