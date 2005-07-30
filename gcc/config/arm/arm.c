@@ -5092,7 +5092,7 @@ cirrus_shift_const (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 }
 
 
-/* Return TRUE if OP is a valid VFP memory address pattern.
+/* Return TRUE if OP is a valid coprocessor memory address pattern.
    WB if true if writeback address modes are allowed.  */
 
 int

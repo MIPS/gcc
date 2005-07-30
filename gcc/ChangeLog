@@ -1,3 +1,7 @@
+2005-07-11  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_coproc_mem_operand): Fix inaccurate comment.
+
 2005-06-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* loop-unswitch.c (unswitch_single_loop): Disable if condition is
