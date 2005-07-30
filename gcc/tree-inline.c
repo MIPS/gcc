@@ -114,6 +114,12 @@ typedef struct inline_data
      gimple form when we insert the inlined function.   It is not
      used when we are not dealing with gimple trees.  */
   tree_stmt_iterator tsi;
+
+  /* APPLE LOCAL begin radar 4152603 */
+  /* Set location of each copied statement to call_location. */
+  bool call_location_p;
+  location_t call_location;
+  /* APPLE LOCAL end radar 4152603 */
 } inline_data;
 
 /* Prototypes.  */
@@ -636,6 +642,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  recompute_tree_invarant_for_addr_expr (*tp);
 	  *walk_subtrees = 0;
 	}
+      /* APPLE LOCAL begin radar 4152603 */
+      if (id->call_location_p && EXPR_P (*tp))
+	SET_EXPR_LOCATION (*tp, id->call_location);
+      /* APPLE LOCAL end radar 4152603 */
     }
 
   /* Keep iterating.  */
@@ -1615,6 +1625,14 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   st = id->decl_map;
   id->decl_map = splay_tree_new (splay_tree_compare_pointers,
 				 NULL, NULL);
+
+  /* APPLE LOCAL begin radar 4152603 */
+  if (lookup_attribute ("nodebug", DECL_ATTRIBUTES (fn)) != NULL)
+    {
+      id->call_location_p = true;
+      id->call_location = input_location;
+    }
+  /* APPLE LOCAL end radar 4152603 */
 
   /* Initialize the parameters.  */
   args = TREE_OPERAND (t, 1);

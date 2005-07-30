@@ -614,6 +614,8 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+/* APPLE LOCAL radar 4152603 */
+static tree handle_nodebug_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
@@ -679,6 +681,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  /* APPLE LOCAL begin radar 4152603 */
+  { "nodebug",                0, 0, true,  false, false,
+			      handle_nodebug_attribute },
+  /* APPLE LOCAL end radar 4152603 */
   { "used",                   0, 0, true,  false, false,
 			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
@@ -4197,6 +4203,28 @@ handle_always_inline_attribute (tree *node, tree name,
 
   return NULL_TREE;
 }
+
+/* APPLE LOCAL begin radar 4152603 */
+/* Handle a "nodebug" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_nodebug_attribute (tree *node, tree name,
+                          tree ARG_UNUSED (args),
+                          int ARG_UNUSED (flags),
+                          bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    DECL_IGNORED_P (*node) = 1;
+  else
+    {
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+/* APPLE LOCAL end radar 4152603 */
 
 /* Handle a "used" attribute; arguments as in
    struct attribute_spec.handler.  */

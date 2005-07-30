@@ -1,3 +1,19 @@
+2005-07-30  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4152603
+        * c-common.c (c_common_att): New entry added for "nodebug".
+        (handle_nodebug_attribute): New function.
+        * tree-inline.c (call_location_p, call_location): New fields in
+        struct inline_data.
+        (copy_body_r): Set new location of copied tree, if available.
+        (expand_call_inline): If callee's '__nodebug__' attribute is
+        set, use caller's input_location for copied trees.
+        * config/i386/emmintrin.h: All intrinsic functions have
+        "__nodebug__" Added to their declarations.
+        * config/i386/mmintrin.h: Ditto.
+        * config/i386/pmmintrin.h: Ditto.
+        * config/i386/xmmintrin.h: Ditto.
+	
 2005-07-29  Devang Patel  <dpatel@apple.com>
 
 	Radar 4134283
