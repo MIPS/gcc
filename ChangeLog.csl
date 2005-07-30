@@ -1,3 +1,11 @@
+2005-07-30  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	PR bootstrap/23131
+	* configure.ac (SYSTEM_HEADER_DIR): Avoid setting to empty
+	string. 
+	* configure: Regenerated.
+
 2005-07-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc/version.c (version_string): Use "Sourcery G++" as the
