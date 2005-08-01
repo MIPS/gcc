@@ -1,3 +1,8 @@
+2005-08-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4168568
+	* c-incpatch.c (hmap_construct_pathname): Remove case mismatch warning.
+
 2005-07-30  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4152603
