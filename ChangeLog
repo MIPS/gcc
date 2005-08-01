@@ -1,3 +1,39 @@
+2005-07-28  Ben Elliston  <bje@au.ibm.com>
+
+	* MAINTAINERS: Update for removed CPU targets.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.tpl (EXTRA_TARGET_FLAGS): Set LDFLAGS=LDFLAGS_FOR_TARGET.
+	* Makefile.def (flags_to_pass): Add LDFLAGS_FOR_TARGET. 
+	* Makefile.in: Regenerated.
+
+2005-07-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.tpl (SYSROOT_CFLAGS_FOR_TARGET): New variable.
+	(CFLAGS_FOR_TARGET): Use it.
+	(CXXFLAGS_FOR_TARGET): Likewise.
+	* Makefile.in: Regenerated.
+	* configure.in (--with-build-sysroot): New option.
+	* configure: Regenerated.
+
+2005-07-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl: Wrap install between unstage and stage
+	* Makefile.in: Regenerate.
+
+2005-07-21  Eric Christopher  <echristo@apple.com>
+
+	* MAINTAINERS: Update affiliation.
+
+2005-07-21  Paul Woegerer  <paul.woegerer@nsc.com>
+
+	* MAINTAINERS: Add self as crx port maintainer.
+
+2005-07-20  DJ Delorie  <dj@redhat.com>
+
+	* MAINTAINERS: Add self as m32c maintainer.
+
 2005-07-16  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* all files: Update FSF address.

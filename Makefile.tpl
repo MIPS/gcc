@@ -365,11 +365,12 @@ USUAL_AS_FOR_TARGET = ` \
   fi`
 
 CC_FOR_TARGET = @CC_FOR_TARGET@
+SYSROOT_CFLAGS_FOR_TARGET = @SYSROOT_CFLAGS_FOR_TARGET@
 # During gcc bootstrap, if we use some random cc for stage1 then
 # CFLAGS will be just -g.  We want to ensure that TARGET libraries
 # (which we know are built with gcc) are built with optimizations so
 # prepend -O2 when setting CFLAGS_FOR_TARGET.
-CFLAGS_FOR_TARGET = -O2 $(CFLAGS)
+CFLAGS_FOR_TARGET = -O2 $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET)
 # If GCC_FOR_TARGET is not overriden on the command line, then this
 # variable is passed down to the gcc Makefile, where it is used to
 # build libgcc2.a.  We define it here so that it can itself be
@@ -383,7 +384,7 @@ CXX_FOR_TARGET = @CXX_FOR_TARGET@
 RAW_CXX_FOR_TARGET = @RAW_CXX_FOR_TARGET@
 CXX_FOR_TARGET_FOR_RECURSIVE_MAKE = @CXX_FOR_TARGET_FOR_RECURSIVE_MAKE@
 RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE = @RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE@
-CXXFLAGS_FOR_TARGET = $(CXXFLAGS)
+CXXFLAGS_FOR_TARGET = $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET)
 LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
 
 DLLTOOL_FOR_TARGET=@DLLTOOL_FOR_TARGET@
@@ -568,6 +569,7 @@ EXTRA_TARGET_FLAGS = \
 	'CXXFLAGS=$$(CXXFLAGS_FOR_TARGET)' \
 	'DLLTOOL=$$(DLLTOOL_FOR_TARGET)' \
 	'LD=$$(LD_FOR_TARGET)' \
+	'LDFLAGS=$$(LDFLAGS_FOR_TARGET)' \
 	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
 	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
 	'NM=$$(NM_FOR_TARGET)' \
@@ -747,7 +749,7 @@ mail-report-with-warnings.log: warning.log
 # Installation targets.
 
 .PHONY: install uninstall
-install: installdirs install-host install-target
+install: unstage installdirs install-host install-target stage
 
 .PHONY: install-host-nogcc
 install-host-nogcc: [+

@@ -3623,6 +3623,28 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	      stack_usage_map[i] = 1;
 
 	  NO_DEFER_POP;
+
+	  if (flags & ECF_CONST)
+	    {
+	      rtx use;
+
+	      /* Indicate argument access so that alias.c knows that these
+		 values are live.  */
+	      if (argblock)
+		use = plus_constant (argblock,
+				     argvec[argnum].locate.offset.constant);
+	      else
+		/* When arguments are pushed, trying to tell alias.c where
+		   exactly this argument is won't work, because the
+		   auto-increment causes confusion.  So we merely indicate
+		   that we access something with a known mode somewhere on
+		   the stack.  */
+	        use = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
+				    gen_rtx_SCRATCH (Pmode));
+	      use = gen_rtx_MEM (argvec[argnum].mode, use);
+	      use = gen_rtx_USE (VOIDmode, use);
+	      call_fusage = gen_rtx_EXPR_LIST (VOIDmode, use, call_fusage);
+	    }
 	}
     }
 
@@ -4052,6 +4074,43 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
       if (arg->pass_on_stack)
 	stack_arg_under_construction--;
+    }
+
+  /* Check for overlap with already clobbered argument area.  */
+  if ((flags & ECF_SIBCALL) && MEM_P (arg->value))
+    {
+      int i = -1;
+      unsigned HOST_WIDE_INT k;
+      rtx x = arg->value;
+
+      if (XEXP (x, 0) == current_function_internal_arg_pointer)
+	i = 0;
+      else if (GET_CODE (XEXP (x, 0)) == PLUS
+	       && XEXP (XEXP (x, 0), 0) ==
+		  current_function_internal_arg_pointer
+	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	i = INTVAL (XEXP (XEXP (x, 0), 1));
+      else
+	i = -1;
+
+      if (i >= 0)
+	{
+#ifdef ARGS_GROW_DOWNWARD
+	  i = -i - arg->locate.size.constant;
+#endif
+	  if (arg->locate.size.constant > 0)
+	    {
+	      unsigned HOST_WIDE_INT sc = arg->locate.size.constant;
+
+	      for (k = 0; k < sc; k++)
+		if (i + k < stored_args_map->n_bits
+		    && TEST_BIT (stored_args_map, i + k))
+		  {
+		    sibcall_failure = 1;
+		    break;
+		  }
+	    }
+	}
     }
 
   /* Don't allow anything left on stack from computation

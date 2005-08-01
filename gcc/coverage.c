@@ -410,32 +410,6 @@ coverage_counter_alloc (unsigned counter, unsigned num)
   return 1;
 }
 
-/* Generate a MEM rtl to access COUNTER NO.  */
-
-rtx
-rtl_coverage_counter_ref (unsigned counter, unsigned no)
-{
-  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
-  rtx ref;
-
-  gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
-  no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
-  if (!ctr_labels[counter])
-      {
-        ctr_labels[counter] = gen_rtx_SYMBOL_REF (Pmode,
-			       ggc_strdup (IDENTIFIER_POINTER (DECL_NAME
-			       (tree_ctr_tables[counter]))));
-        SYMBOL_REF_FLAGS (ctr_labels[counter]) = SYMBOL_FLAG_LOCAL;
-      }
-  ref = plus_constant (ctr_labels[counter],
-		       GCOV_TYPE_SIZE / BITS_PER_UNIT * no);
-  ref = gen_rtx_MEM (mode, ref);
-  set_mem_alias_set (ref, new_alias_set ());
-  MEM_NOTRAP_P (ref) = 1;
-
-  return ref;
-}
-
 /* Generate a tree to access COUNTER NO.  */
 
 tree
@@ -672,10 +646,13 @@ build_fn_info_value (const struct function_list *function, tree type)
 	array_value = tree_cons (NULL_TREE, counters, array_value);
       }
 
-  array_value = build_constructor (TREE_TYPE (fields), nreverse (array_value));
+  /* FIXME: use build_constructor directly.  */
+  array_value = build_constructor_from_list (TREE_TYPE (fields),
+					     nreverse (array_value));
   value = tree_cons (fields, array_value, value);
 
-  value = build_constructor (type, nreverse (value));
+  /* FIXME: use build_constructor directly.  */
+  value = build_constructor_from_list (type, nreverse (value));
 
   return value;
 }
@@ -768,7 +745,8 @@ build_ctr_info_value (unsigned int counter, tree type)
 		     build1 (ADDR_EXPR, TREE_TYPE (fields), fn),
 		     value);
 
-  value = build_constructor (type, nreverse (value));
+  /* FIXME: use build_constructor directly.  */
+  value = build_constructor_from_list (type, nreverse (value));
 
   return value;
 }
@@ -856,7 +834,9 @@ build_gcov_info (void)
       array_type = build_index_type (build_int_cst (NULL_TREE, n_fns - 1));
       array_type = build_array_type (fn_info_type, array_type);
 
-      fn_info_value = build_constructor (array_type, nreverse (fn_info_value));
+      /* FIXME: use build_constructor directly.  */
+      fn_info_value = build_constructor_from_list (array_type,
+						   nreverse (fn_info_value));
       fn_info_value = build1 (ADDR_EXPR, fn_info_ptr_type, fn_info_value);
     }
   else
@@ -894,8 +874,9 @@ build_gcov_info (void)
       ctr_info_value = tree_cons (NULL_TREE,
 				  build_ctr_info_value (ix, ctr_info_type),
 				  ctr_info_value);
-  ctr_info_value = build_constructor (ctr_info_ary_type,
-				      nreverse (ctr_info_value));
+  /* FIXME: use build_constructor directly.  */
+  ctr_info_value = build_constructor_from_list (ctr_info_ary_type,
+				                nreverse (ctr_info_value));
 
   field = build_decl (FIELD_DECL, NULL_TREE, ctr_info_ary_type);
   TREE_CHAIN (field) = fields;
@@ -904,7 +885,8 @@ build_gcov_info (void)
 
   finish_builtin_struct (type, "__gcov_info", fields, NULL_TREE);
 
-  value = build_constructor (type, nreverse (value));
+  /* FIXME: use build_constructor directly.  */
+  value = build_constructor_from_list (type, nreverse (value));
 
   return value;
 }

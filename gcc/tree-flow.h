@@ -606,6 +606,7 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
 extern void new_type_alias (tree, tree);
@@ -659,7 +660,6 @@ bool fold_stmt_inplace (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
-bool expr_computes_nonzero (tree);
 tree vrp_evaluate_conditional (tree, bool);
 void simplify_stmt_using_ranges (tree);
 
@@ -723,7 +723,7 @@ void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
-				struct tree_niter_desc *niter);
+				struct tree_niter_desc *niter, bool);
 tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
@@ -738,6 +738,8 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void split_loop_exit_edge (edge);
+void compute_phi_arg_on_exit (edge, tree, tree);
+unsigned force_expr_to_var_cost (tree);
 basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);

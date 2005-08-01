@@ -936,7 +936,9 @@ static tree
 fold_const_aggregate_ref (tree t)
 {
   prop_value_t *value;
-  tree base, ctor, idx, field, elt;
+  tree base, ctor, idx, field;
+  unsigned HOST_WIDE_INT cnt;
+  tree cfield, cval;
 
   switch (TREE_CODE (t))
     {
@@ -993,13 +995,9 @@ fold_const_aggregate_ref (tree t)
 	}
 
       /* Whoo-hoo!  I'll fold ya baby.  Yeah!  */
-      for (elt = CONSTRUCTOR_ELTS (ctor);
-	   (elt && !tree_int_cst_equal (TREE_PURPOSE (elt), idx));
-	   elt = TREE_CHAIN (elt))
-	;
-
-      if (elt)
-	return TREE_VALUE (elt);
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
+	if (tree_int_cst_equal (cfield, idx))
+	  return cval;
       break;
 
     case COMPONENT_REF:
@@ -1035,11 +1033,11 @@ fold_const_aggregate_ref (tree t)
 
       field = TREE_OPERAND (t, 1);
 
-      for (elt = CONSTRUCTOR_ELTS (ctor); elt; elt = TREE_CHAIN (elt))
-	if (TREE_PURPOSE (elt) == field
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
+	if (cfield == field
 	    /* FIXME: Handle bit-fields.  */
-	    && ! DECL_BIT_FIELD (TREE_PURPOSE (elt)))
-	  return TREE_VALUE (elt);
+	    && ! DECL_BIT_FIELD (cfield))
+	  return cval;
       break;
 
     default:
@@ -2234,7 +2232,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 }
 
 
-/* Fold the statement pointed by STMT_P.  In some cases, this function may
+/* Fold the statement pointed to by STMT_P.  In some cases, this function may
    replace the whole statement with a new one.  Returns true iff folding
    makes any changes.  */
 
@@ -2337,6 +2335,7 @@ fold_stmt_inplace (tree stmt)
     return changed;
 
   new_rhs = fold (rhs);
+  STRIP_USELESS_TYPE_CONVERSION (new_rhs);
   if (new_rhs == rhs)
     return changed;
 

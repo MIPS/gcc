@@ -463,7 +463,7 @@ debug_dfa_stats (void)
 }
 
 
-/* Collect DFA statistics and store them in the structure pointed by
+/* Collect DFA statistics and store them in the structure pointed to by
    DFA_STATS_P.  */
 
 static void
@@ -707,6 +707,9 @@ mark_new_vars_to_rename (tree stmt)
   bool found_exposed_symbol = false;
   int v_may_defs_before, v_may_defs_after;
   int v_must_defs_before, v_must_defs_after;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
 
   vars_in_vops_to_rename = BITMAP_ALLOC (NULL);
 

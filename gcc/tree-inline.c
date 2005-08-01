@@ -421,6 +421,7 @@ remap_block (tree *block, inline_data *id)
   new_block = make_node (BLOCK);
   TREE_USED (new_block) = TREE_USED (old_block);
   BLOCK_ABSTRACT_ORIGIN (new_block) = old_block;
+  BLOCK_SOURCE_LOCATION (new_block) = BLOCK_SOURCE_LOCATION (old_block);
   *block = new_block;
 
   /* Remap its variables.  */
@@ -751,7 +752,7 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 		  edge = cgraph_edge (id->current_node, orig_stmt);
 		  if (edge)
 		    cgraph_clone_edge (edge, id->node, stmt,
-				       REG_BR_PROB_BASE, 1);
+				       REG_BR_PROB_BASE, 1, true);
 		}
 	    }
 	  /* If you think we can abort here, you are wrong.
@@ -1528,7 +1529,7 @@ inlinable_function_p (tree fn)
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	sorry (inline_forbidden_reason, fn);
       else if (do_warning)
-	warning (0, inline_forbidden_reason, fn);
+	warning (OPT_Winline, inline_forbidden_reason, fn);
 
       inlinable = false;
     }
@@ -2025,8 +2026,8 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
      statement expression is the return type of the function call.  */
   id->block = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (id->block) = fn;
+  BLOCK_SOURCE_LOCATION (id->block) = input_location;
   add_lexical_block (TREE_BLOCK (stmt), id->block);
-
 
   /* Local declarations will be replaced by their equivalents in this
      map.  */
@@ -2395,7 +2396,22 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       if (TREE_CODE (*tp) == BIND_EXPR)
 	BIND_EXPR_BLOCK (*tp) = NULL_TREE;
     }
+  else if (code == CONSTRUCTOR)
+    {
+      /* CONSTRUCTOR nodes need special handling because
+         we need to duplicate the vector of elements.  */
+      tree new;
 
+      new = copy_node (*tp);
+
+      /* Propagate mudflap marked-ness.  */
+      if (flag_mudflap && mf_marked_p (*tp))
+        mf_mark (new);
+
+      CONSTRUCTOR_ELTS (new) = VEC_copy (constructor_elt, gc,
+					 CONSTRUCTOR_ELTS (*tp));
+      *tp = new;
+    }
   else if (TREE_CODE_CLASS (code) == tcc_type)
     *walk_subtrees = 0;
   else if (TREE_CODE_CLASS (code) == tcc_declaration)

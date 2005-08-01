@@ -2087,6 +2087,14 @@ check_explicit_specialization (tree declarator,
 	  TREE_PRIVATE (decl) = TREE_PRIVATE (gen_tmpl);
 	  TREE_PROTECTED (decl) = TREE_PROTECTED (gen_tmpl);
 
+	  /* The specialization has the same visibility as the
+	     template it specializes.  */
+	  if (DECL_VISIBILITY_SPECIFIED (gen_tmpl))
+	    {
+	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (gen_tmpl);
+	    }
+
 	  if (is_friend && !have_def)
 	    /* This is not really a declaration of a specialization.
 	       It's just the name of an instantiation.  But, it's not
@@ -4606,6 +4614,11 @@ lookup_template_class (tree d1,
 	= TREE_PROTECTED (TYPE_STUB_DECL (template_type));
       DECL_IN_SYSTEM_HEADER (type_decl)
 	= DECL_IN_SYSTEM_HEADER (template);
+      if (CLASSTYPE_VISIBILITY_SPECIFIED (template_type))
+	{
+	  DECL_VISIBILITY_SPECIFIED (type_decl) = 1;
+	  DECL_VISIBILITY (type_decl) = CLASSTYPE_VISIBILITY (template_type);
+	}
 
       /* Set up the template information.  We have to figure out which
 	 template is the immediate parent if this is a full
@@ -5525,6 +5538,11 @@ instantiate_class_template (tree type)
   TYPE_FOR_JAVA (type) = TYPE_FOR_JAVA (pattern); /* For libjava's JArray<T> */
   if (ANON_AGGR_TYPE_P (pattern))
     SET_ANON_AGGR_TYPE_P (type);
+  if (CLASSTYPE_VISIBILITY_SPECIFIED (pattern))
+    {
+      CLASSTYPE_VISIBILITY_SPECIFIED (type) = 1;
+      CLASSTYPE_VISIBILITY (type) = CLASSTYPE_VISIBILITY (pattern);
+    }
 
   pbinfo = TYPE_BINFO (pattern);
 
@@ -8006,13 +8024,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	return t;
 
     case CONSTRUCTOR:
-      {
-	r = build_constructor
-	  (tsubst (TREE_TYPE (t), args, complain, in_decl),
-	   tsubst_copy (CONSTRUCTOR_ELTS (t), args, complain, in_decl));
-	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
-	return r;
-      }
+      /* This is handled by tsubst_copy_and_build.  */
+      gcc_unreachable ();
 
     case VA_ARG_EXPR:
       return build_x_va_arg (tsubst_copy (TREE_OPERAND (t, 0), args, complain,
@@ -8814,38 +8827,35 @@ tsubst_copy_and_build (tree t,
 
     case CONSTRUCTOR:
       {
+	VEC(constructor_elt,gc) *n;
+	constructor_elt *ce;
+	unsigned HOST_WIDE_INT idx;
 	tree r;
-	tree elts;
 	tree type = tsubst (TREE_TYPE (t), args, complain, in_decl);
-	bool purpose_p;
+	bool process_index_p;
 
 	/* digest_init will do the wrong thing if we let it.  */
 	if (type && TYPE_PTRMEMFUNC_P (type))
 	  return t;
 
-	r = NULL_TREE;
-	/* We do not want to process the purpose of aggregate
+	/* We do not want to process the index of aggregate
 	   initializers as they are identifier nodes which will be
 	   looked up by digest_init.  */
-	purpose_p = !(type && IS_AGGR_TYPE (type));
-	for (elts = CONSTRUCTOR_ELTS (t);
-	     elts;
-	     elts = TREE_CHAIN (elts))
-	  {
-	    tree purpose = TREE_PURPOSE (elts);
-	    tree value = TREE_VALUE (elts);
+	process_index_p = !(type && IS_AGGR_TYPE (type));
 
-	    if (purpose && purpose_p)
-	      purpose = RECUR (purpose);
-	    value = RECUR (value);
-	    r = tree_cons (purpose, value, r);
+	n = VEC_copy (constructor_elt, gc, CONSTRUCTOR_ELTS (t));
+	for (idx = 0; VEC_iterate (constructor_elt, n, idx, ce); idx++)
+	  {
+	    if (ce->index && process_index_p)
+	      ce->index = RECUR (ce->index);
+	    ce->value = RECUR (ce->value);
 	  }
 
-	r = build_constructor (NULL_TREE, nreverse (r));
+	r = build_constructor (NULL_TREE, n);
 	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
 
 	if (type)
-	  return digest_init (type, r, 0);
+	  return digest_init (type, r);
 	return r;
       }
 

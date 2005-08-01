@@ -72,7 +72,7 @@ typedef enum conversion_rank {
 
 /* An implicit conversion sequence, in the sense of [over.best.ics].
    The first conversion to be performed is at the end of the chain.
-   That conversion is always an cr_identity conversion.  */
+   That conversion is always a cr_identity conversion.  */
 
 typedef struct conversion conversion;
 struct conversion {
@@ -1701,7 +1701,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 
 	  if (IS_AGGR_TYPE (c1) && DERIVED_FROM_P (c2, c1)
 	      && (TYPE_PTRMEMFUNC_P (type2)
-		  || is_complete (TREE_TYPE (TREE_TYPE (type2)))))
+		  || is_complete (TYPE_PTRMEM_POINTED_TO_TYPE (type2))))
 	    break;
 	}
       return;
@@ -4544,7 +4544,7 @@ convert_default_arg (tree type, tree arg, tree fn, int parmnum)
 
   if (TREE_CODE (arg) == CONSTRUCTOR)
     {
-      arg = digest_init (type, arg, 0);
+      arg = digest_init (type, arg);
       arg = convert_for_initialization (0, type, arg, LOOKUP_NORMAL,
 					"default argument", fn, parmnum);
     }
@@ -4601,6 +4601,17 @@ convert_for_arg_passing (tree type, tree val)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
 				   TYPE_SIZE (integer_type_node)))
     val = perform_integral_promotions (val);
+  if (warn_missing_format_attribute)
+    {
+      tree rhstype = TREE_TYPE (val);
+      const enum tree_code coder = TREE_CODE (rhstype);
+      const enum tree_code codel = TREE_CODE (type);
+      if ((codel == POINTER_TYPE || codel == REFERENCE_TYPE)
+	  && coder == codel
+	  && check_missing_format_attribute (type, rhstype))
+	warning (OPT_Wmissing_format_attribute,
+		 "argument of function call might be a candidate for a format attribute");
+    }
   return val;
 }
 

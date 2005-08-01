@@ -145,7 +145,6 @@ static void store_constructor (tree, rtx, int, HOST_WIDE_INT);
 static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT, enum machine_mode,
 			tree, tree, int);
 
-static unsigned HOST_WIDE_INT highest_pow2_factor (tree);
 static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (tree, tree);
 
 static int is_aligning_offset (tree, tree);
@@ -4408,17 +4407,16 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 			    HOST_WIDE_INT *p_elt_count,
 			    bool *p_must_clear)
 {
+  unsigned HOST_WIDE_INT idx;
   HOST_WIDE_INT nz_elts, nc_elts, elt_count;
-  tree list;
+  tree value, purpose;
 
   nz_elts = 0;
   nc_elts = 0;
   elt_count = 0;
 
-  for (list = CONSTRUCTOR_ELTS (ctor); list; list = TREE_CHAIN (list))
+  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, purpose, value)
     {
-      tree value = TREE_VALUE (list);
-      tree purpose = TREE_PURPOSE (list);
       HOST_WIDE_INT mult;
 
       mult = 1;
@@ -4492,14 +4490,16 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
       tree init_sub_type;
       bool clear_this = true;
 
-      list = CONSTRUCTOR_ELTS (ctor);
-      if (list)
+      if (!VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (ctor)))
 	{
 	  /* We don't expect more than one element of the union to be
 	     initialized.  Not sure what we should do otherwise... */
-          gcc_assert (TREE_CHAIN (list) == NULL);
+          gcc_assert (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (ctor))
+		      == 1);
 
-          init_sub_type = TREE_TYPE (TREE_VALUE (list));
+          init_sub_type = TREE_TYPE (VEC_index (constructor_elt,
+						CONSTRUCTOR_ELTS (ctor),
+						0)->value);
 
 	  /* ??? We could look at each element of the union, and find the
 	     largest element.  Which would avoid comparing the size of the
@@ -4709,7 +4709,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
       {
-	tree elt;
+	unsigned HOST_WIDE_INT idx;
+	tree field, value;
 
 	/* If size is zero or the target is already cleared, do nothing.  */
 	if (size == 0 || cleared)
@@ -4741,7 +4742,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	   register whose mode size isn't equal to SIZE since
 	   clear_storage can't handle this case.  */
 	else if (size > 0
-		 && ((list_length (CONSTRUCTOR_ELTS (exp))
+		 && (((int)VEC_length (constructor_elt, CONSTRUCTOR_ELTS (exp))
 		      != fields_length (type))
 		     || mostly_zeros_p (exp))
 		 && (!REG_P (target)
@@ -4757,11 +4758,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
 	/* Store each element of the constructor into the
 	   corresponding field of TARGET.  */
-
-	for (elt = CONSTRUCTOR_ELTS (exp); elt; elt = TREE_CHAIN (elt))
+	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), idx, field, value)
 	  {
-	    tree field = TREE_PURPOSE (elt);
-	    tree value = TREE_VALUE (elt);
 	    enum machine_mode mode;
 	    HOST_WIDE_INT bitsize;
 	    HOST_WIDE_INT bitpos = 0;
@@ -4867,8 +4865,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
       }
     case ARRAY_TYPE:
       {
-	tree elt;
-	int i;
+	tree value, index;
+	unsigned HOST_WIDE_INT i;
 	int need_to_clear;
 	tree domain;
 	tree elttype = TREE_TYPE (type);
@@ -4898,18 +4896,20 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	  need_to_clear = 1;
 	else
 	  {
+	    unsigned HOST_WIDE_INT idx;
+	    tree index, value;
 	    HOST_WIDE_INT count = 0, zero_count = 0;
 	    need_to_clear = ! const_bounds_p;
 	    
 	    /* This loop is a more accurate version of the loop in
 	       mostly_zeros_p (it handles RANGE_EXPR in an index).  It
 	       is also needed to check for missing elements.  */
-	    for (elt = CONSTRUCTOR_ELTS (exp);
-		 elt != NULL_TREE && ! need_to_clear;
-		 elt = TREE_CHAIN (elt))
+	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), idx, index, value)
 	      {
-		tree index = TREE_PURPOSE (elt);
 		HOST_WIDE_INT this_node_count;
+
+		if (need_to_clear)
+		  break;
 		
 		if (index != NULL_TREE && TREE_CODE (index) == RANGE_EXPR)
 		  {
@@ -4930,7 +4930,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		  this_node_count = 1;
 		
 		count += this_node_count;
-		if (mostly_zeros_p (TREE_VALUE (elt)))
+		if (mostly_zeros_p (value))
 		  zero_count += this_node_count;
 	      }
 	    
@@ -4959,16 +4959,12 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	/* Store each element of the constructor into the
 	   corresponding element of TARGET, determined by counting the
 	   elements.  */
-	for (elt = CONSTRUCTOR_ELTS (exp), i = 0;
-	     elt;
-	     elt = TREE_CHAIN (elt), i++)
+	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), i, index, value)
 	  {
 	    enum machine_mode mode;
 	    HOST_WIDE_INT bitsize;
 	    HOST_WIDE_INT bitpos;
 	    int unsignedp;
-	    tree value = TREE_VALUE (elt);
-	    tree index = TREE_PURPOSE (elt);
 	    rtx xtarget = target;
 	    
 	    if (cleared && initializer_zerop (value))
@@ -5128,7 +5124,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
     case VECTOR_TYPE:
       {
-	tree elt;
+	unsigned HOST_WIDE_INT idx;
+	constructor_elt *ce;
 	int i;
 	int need_to_clear;
 	int icode = 0;
@@ -5168,18 +5165,17 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	else
 	  {
 	    unsigned HOST_WIDE_INT count = 0, zero_count = 0;
+	    tree value;
 	    
-	    for (elt = CONSTRUCTOR_ELTS (exp);
-		 elt != NULL_TREE;
-		 elt = TREE_CHAIN (elt))
+	    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value)
 	      {
 		int n_elts_here = tree_low_cst
 		  (int_const_binop (TRUNC_DIV_EXPR,
-				    TYPE_SIZE (TREE_TYPE (TREE_VALUE (elt))),
+				    TYPE_SIZE (TREE_TYPE (value)),
 				    TYPE_SIZE (elttype), 0), 1);
 		
 		count += n_elts_here;
-		if (mostly_zeros_p (TREE_VALUE (elt)))
+		if (mostly_zeros_p (value))
 		  zero_count += n_elts_here;
 	      }
 
@@ -5203,20 +5199,19 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
         /* Store each element of the constructor into the corresponding
 	   element of TARGET, determined by counting the elements.  */
-	for (elt = CONSTRUCTOR_ELTS (exp), i = 0;
-	     elt;
-	     elt = TREE_CHAIN (elt), i += bitsize / elt_size)
+	for (idx = 0, i = 0;
+	     VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (exp), idx, ce);
+	     idx++, i += bitsize / elt_size)
 	  {
-	    tree value = TREE_VALUE (elt);
-	    tree index = TREE_PURPOSE (elt);
 	    HOST_WIDE_INT eltpos;
+	    tree value = ce->value;
 	    
 	    bitsize = tree_low_cst (TYPE_SIZE (TREE_TYPE (value)), 1);
 	    if (cleared && initializer_zerop (value))
 	      continue;
 	    
-	    if (index != 0)
-	      eltpos = tree_low_cst (index, 1);
+	    if (ce->index)
+	      eltpos = tree_low_cst (ce->index, 1);
 	    else
 	      eltpos = i;
 	    
@@ -6061,7 +6056,7 @@ safe_from_p (rtx x, tree exp, int top_p)
 /* Return the highest power of two that EXP is known to be a multiple of.
    This is used in updating alignment of MEMs in array references.  */
 
-static unsigned HOST_WIDE_INT
+unsigned HOST_WIDE_INT
 highest_pow2_factor (tree exp)
 {
   unsigned HOST_WIDE_INT c0, c1;
@@ -6743,8 +6738,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  || GET_MODE_CLASS (TYPE_MODE (TREE_TYPE (exp))) == MODE_VECTOR_FLOAT)
 	return const_vector_from_tree (exp);
       else
-	return expand_expr (build1 (CONSTRUCTOR, TREE_TYPE (exp),
-				    TREE_VECTOR_CST_ELTS (exp)),
+	return expand_expr (build_constructor_from_list
+			    (TREE_TYPE (exp),
+			     TREE_VECTOR_CST_ELTS (exp)),
 			    ignore ? const0_rtx : target, tmode, modifier);
 
     case CONST_DECL:
@@ -6842,10 +6838,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 subexpressions.  */
       if (ignore)
 	{
-	  tree elt;
+	  unsigned HOST_WIDE_INT idx;
+	  tree value;
 
-	  for (elt = CONSTRUCTOR_ELTS (exp); elt; elt = TREE_CHAIN (elt))
-	    expand_expr (TREE_VALUE (elt), const0_rtx, VOIDmode, 0);
+	  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value)
+	    expand_expr (value, const0_rtx, VOIDmode, 0);
 
 	  return const0_rtx;
 	}
@@ -7007,16 +7004,17 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    && ! TREE_SIDE_EFFECTS (array)
 	    && TREE_CODE (index) == INTEGER_CST)
 	  {
-	    tree elem;
+	    unsigned HOST_WIDE_INT ix;
+	    tree field, value;
 
-	    for (elem = CONSTRUCTOR_ELTS (array);
-		 (elem && !tree_int_cst_equal (TREE_PURPOSE (elem), index));
-		 elem = TREE_CHAIN (elem))
-	      ;
-
-	    if (elem && !TREE_SIDE_EFFECTS (TREE_VALUE (elem)))
-	      return expand_expr (fold (TREE_VALUE (elem)), target, tmode,
-				  modifier);
+	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (array), ix,
+				      field, value)
+	      if (tree_int_cst_equal (field, index))
+		{
+		  if (!TREE_SIDE_EFFECTS (value))
+		    return expand_expr (fold (value), target, tmode, modifier);
+		  break;
+		}
 	  }
 
 	else if (optimize >= 1
@@ -7034,17 +7032,18 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 		if (TREE_CODE (init) == CONSTRUCTOR)
 		  {
-		    tree elem;
+		    unsigned HOST_WIDE_INT ix;
+		    tree field, value;
 
-		    for (elem = CONSTRUCTOR_ELTS (init);
-			 (elem
-			  && !tree_int_cst_equal (TREE_PURPOSE (elem), index));
-			 elem = TREE_CHAIN (elem))
-		      ;
-
-		    if (elem && !TREE_SIDE_EFFECTS (TREE_VALUE (elem)))
-		      return expand_expr (fold (TREE_VALUE (elem)), target,
-					  tmode, modifier);
+		    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), ix,
+					      field, value)
+		      if (tree_int_cst_equal (field, index))
+			{
+			  if (!TREE_SIDE_EFFECTS (value))
+			    return expand_expr (fold (value), target, tmode,
+						modifier);
+			  break;
+			}
 		  }
 		else if (TREE_CODE (init) == STRING_CST
 			 && 0 > compare_tree_int (index,
@@ -7068,11 +7067,12 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 appropriate field if it is present.  */
       if (TREE_CODE (TREE_OPERAND (exp, 0)) == CONSTRUCTOR)
 	{
-	  tree elt;
+	  unsigned HOST_WIDE_INT idx;
+	  tree field, value;
 
-	  for (elt = CONSTRUCTOR_ELTS (TREE_OPERAND (exp, 0)); elt;
-	       elt = TREE_CHAIN (elt))
-	    if (TREE_PURPOSE (elt) == TREE_OPERAND (exp, 1)
+	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (TREE_OPERAND (exp, 0)),
+				    idx, field, value)
+	    if (field == TREE_OPERAND (exp, 1)
 		/* We can normally use the value of the field in the
 		   CONSTRUCTOR.  However, if this is a bitfield in
 		   an integral mode that we can fit in a HOST_WIDE_INT,
@@ -7080,24 +7080,21 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		   since this is done implicitly by the constructor.  If
 		   the bitfield does not meet either of those conditions,
 		   we can't do this optimization.  */
-		&& (! DECL_BIT_FIELD (TREE_PURPOSE (elt))
-		    || ((GET_MODE_CLASS (DECL_MODE (TREE_PURPOSE (elt)))
-			 == MODE_INT)
-			&& (GET_MODE_BITSIZE (DECL_MODE (TREE_PURPOSE (elt)))
+		&& (! DECL_BIT_FIELD (field)
+		    || ((GET_MODE_CLASS (DECL_MODE (field)) == MODE_INT)
+			&& (GET_MODE_BITSIZE (DECL_MODE (field))
 			    <= HOST_BITS_PER_WIDE_INT))))
 	      {
-		if (DECL_BIT_FIELD (TREE_PURPOSE (elt))
+		if (DECL_BIT_FIELD (field)
 		    && modifier == EXPAND_STACK_PARM)
 		  target = 0;
-		op0 = expand_expr (TREE_VALUE (elt), target, tmode, modifier);
-		if (DECL_BIT_FIELD (TREE_PURPOSE (elt)))
+		op0 = expand_expr (value, target, tmode, modifier);
+		if (DECL_BIT_FIELD (field))
 		  {
-		    HOST_WIDE_INT bitsize
-		      = TREE_INT_CST_LOW (DECL_SIZE (TREE_PURPOSE (elt)));
-		    enum machine_mode imode
-		      = TYPE_MODE (TREE_TYPE (TREE_PURPOSE (elt)));
+		    HOST_WIDE_INT bitsize = TREE_INT_CST_LOW (DECL_SIZE (field));
+		    enum machine_mode imode = TYPE_MODE (TREE_TYPE (field));
 
-		    if (TYPE_UNSIGNED (TREE_TYPE (TREE_PURPOSE (elt))))
+		    if (TYPE_UNSIGNED (TREE_TYPE (field)))
 		      {
 			op1 = GEN_INT (((HOST_WIDE_INT) 1 << bitsize) - 1);
 			op0 = expand_and (imode, op0, op1, target);

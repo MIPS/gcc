@@ -1,3 +1,29 @@
+2005-07-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* getopt.c: Include ansidecl.h before system headers.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	* getopt.c: Include "ansidecl.h".
+	(_getopt_initialize): Mark argc and argv parameters as unused.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	* regex.c (regcomp): Change type of `i' from unsigned to int.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	Recover patch lost in the sourceware repository:
+	2005-07-09  Ben Elliston  <bje@au.ibm.com>
+	* memcpy.c: Remove ANSI_PROTOTYPES conditional code.
+	* memmove.c: Likewise.
+	* objalloc.c: Likewise.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	* configure.ac: Check for a getopt(3) declaration.
+	* configure, config.in: Regenerate.
+
 2005-07-15  Ben Elliston  <bje@au.ibm.com>
 
 	* regex.c (TRANSLATE): Cast rhs of ternary expression to char.

@@ -248,7 +248,7 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
 	  /* When declared inline, defer even the uninlinable functions.
 	     This allows them to be eliminated when unused.  */
 	  && !DECL_DECLARED_INLINE_P (decl) 
-	  && (!node->local.inlinable || !cgraph_default_inline_p (node))))
+	  && (!node->local.inlinable || !cgraph_default_inline_p (node, NULL))))
     return true;
 
   return false;
@@ -1123,7 +1123,8 @@ cgraph_function_and_variable_visibility (void)
     {
       if (node->reachable
 	  && (DECL_COMDAT (node->decl)
-	      || (TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl))))
+	      || (!flag_whole_program
+		  && TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl))))
 	node->local.externally_visible = true;
       if (!node->local.externally_visible && node->analyzed
 	  && !DECL_EXTERNAL (node->decl))
@@ -1139,6 +1140,7 @@ cgraph_function_and_variable_visibility (void)
   for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
     {
       if (vnode->needed
+	  && !flag_whole_program
 	  && (DECL_COMDAT (vnode->decl) || TREE_PUBLIC (vnode->decl)))
 	vnode->externally_visible = 1;
       if (!vnode->externally_visible)

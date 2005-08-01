@@ -5299,7 +5299,8 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
       }
       
       if (typelist || !params)
-	warning (0, "not enough variable arguments to fit a sentinel");
+	warning (OPT_Wformat,
+		 "not enough variable arguments to fit a sentinel");
       else
         {
 	  tree sentinel, end;
@@ -5321,7 +5322,8 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
 	    }
 	  if (pos > 0)
 	    {
-	      warning (0, "not enough variable arguments to fit a sentinel");
+	      warning (OPT_Wformat,
+		       "not enough variable arguments to fit a sentinel");
 	      return;
 	    }
 
@@ -5342,7 +5344,7 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
 		 We warn with -Wstrict-null-sentinel, though.  */
               && (warn_strict_null_sentinel
 		  || null_node != TREE_VALUE (sentinel)))
-	    warning (0, "missing sentinel in function call");
+	    warning (OPT_Wformat, "missing sentinel in function call");
 	}
     }
 }
@@ -5384,8 +5386,8 @@ check_nonnull_arg (void * ARG_UNUSED (ctx), tree param,
     return;
 
   if (integer_zerop (param))
-    warning (0, "null argument where non-null required (argument %lu)",
-	     (unsigned long) param_num);
+    warning (OPT_Wnonnull, "null argument where non-null required "
+	     "(argument %lu)", (unsigned long) param_num);
 }
 
 /* Helper for nonnull attribute handling; fetch the operand number
@@ -5978,9 +5980,9 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)
 	{
-	  tree elts = CONSTRUCTOR_ELTS (initial_value);
+	  VEC(constructor_elt,gc) *v = CONSTRUCTOR_ELTS (initial_value);
 
-	  if (elts == NULL)
+	  if (VEC_empty (constructor_elt, v))
 	    {
 	      if (pedantic)
 		failure = 3;
@@ -5989,15 +5991,21 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	  else
 	    {
 	      tree curindex;
+	      unsigned HOST_WIDE_INT cnt;
+	      constructor_elt *ce;
 
-	      if (TREE_PURPOSE (elts))
-		maxindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+	      if (VEC_index (constructor_elt, v, 0)->index)
+		maxindex = fold_convert (sizetype,
+					 VEC_index (constructor_elt,
+						    v, 0)->index);
 	      curindex = maxindex;
 
-	      for (elts = TREE_CHAIN (elts); elts; elts = TREE_CHAIN (elts))
+	      for (cnt = 1;
+		   VEC_iterate (constructor_elt, v, cnt, ce);
+		   cnt++)
 		{
-		  if (TREE_PURPOSE (elts))
-		    curindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+		  if (ce->index)
+		    curindex = fold_convert (sizetype, ce->index);
 		  else
 		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
 
@@ -6238,6 +6246,32 @@ same_scalar_type_ignoring_signedness (tree t1, tree t2)
      TYPE_MAIN_VARIANT.  */
   return lang_hooks.types.signed_type (t1)
     == lang_hooks.types.signed_type (t2);
+}
+
+/* Check for missing format attributes on function pointers.  LTYPE is
+   the new type or left-hand side type.  RTYPE is the old type or
+   right-hand side type.  Returns TRUE if LTYPE is missing the desired
+   attribute.  */
+
+bool
+check_missing_format_attribute (tree ltype, tree rtype)
+{
+  tree const ttr = TREE_TYPE (rtype), ttl = TREE_TYPE (ltype);
+  tree ra;
+
+  for (ra = TYPE_ATTRIBUTES (ttr); ra; ra = TREE_CHAIN (ra))
+    if (is_attribute_p ("format", TREE_PURPOSE (ra)))
+      break;
+  if (ra)
+    {
+      tree la;
+      for (la = TYPE_ATTRIBUTES (ttl); la; la = TREE_CHAIN (la))
+	if (is_attribute_p ("format", TREE_PURPOSE (la)))
+	  break;
+      return !la;
+    }
+  else
+    return false;
 }
 
 #include "gt-c-common.h"

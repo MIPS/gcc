@@ -1,3 +1,49 @@
+2005-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* include/std/std_valarray.h: Fix grammar in comments.
+
+2005-07-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Handle darwin-export,
+	and make it the default for Darwin.
+	* scripts/make-exports.pl: New.
+	* src/Makefile.am: Update for changes to GLIBCXX_ENABLE_SYMVERS.
+	Handle darwin-export.
+	* configure: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-07-25  Dave Odell  <evilalias@hotmail.com>
+
+	PR libstdc++/23053
+	* include/tr1/hashtable (hashtable<>::find_node): Const-ify.
+	* testsuite/tr1/6_containers/unordered/hashtable/23053.cc: New.
+
+2005-07-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22515
+	* include/bits/basic_string.h: Declare the specialization
+	operator>>(basic_istream<char>&, basic_string<char>&).
+	* include/std/std_istream.h: Declate the specialization
+	operator>>(basic_istream<char>&, char*).
+	* include/std/std_streambuf.h (basic_streambuf): Add friend
+	declarations for the above.
+	* src/istream.cc: Define the above.
+	* testsuite/27_io/basic_istream/extractors_character/char/4.cc: New.
+	* testsuite/27_io/basic_istream/extractors_character/wchar_t/4.cc:
+	Likewise.
+	* testsuite/performance/27_io/ifstream_extract_chars.cc: Likewise.
+
+2005-07-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf.tcc (xsgetn, xsputn): Use streamsize
+	instead of size_t.
+	* src/streambuf.cc (__copy_streambufs): Likewise.
+
 2005-07-18  Paolo Carlini  <pcarlini@suse.de>
 
 	* config/locale/gnu/ctype_members.cc (do_is(mask, wchar_t)):

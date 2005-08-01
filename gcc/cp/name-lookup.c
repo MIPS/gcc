@@ -399,7 +399,7 @@ pop_binding (tree id, tree decl)
     }
 }
 
-/* BINDING records an existing declaration for a namein the current scope.
+/* BINDING records an existing declaration for a name in the current scope.
    But, DECL is another declaration for that same identifier in the
    same scope.  This is the `struct stat' hack whereby a non-typedef
    class name or enum-name can be bound at the same level as some other
@@ -4497,34 +4497,18 @@ tree
 lookup_arg_dependent (tree name, tree fns, tree args)
 {
   struct arg_lookup k;
-  tree fn = NULL_TREE;
 
   timevar_push (TV_NAME_LOOKUP);
   k.name = name;
   k.functions = fns;
   k.classes = NULL_TREE;
 
-  /* We've already looked at some namespaces during normal unqualified
-     lookup -- but we don't know exactly which ones.  If the functions
-     we found were brought into the current namespace via a using
-     declaration, we have not really checked the namespace from which
-     they came.  Therefore, we check all namespaces here -- unless the
-     function we have is from the current namespace.  Even then, we
-     must check all namespaces if the function is a local
-     declaration; any other declarations present at namespace scope
-     should be visible during argument-dependent lookup.  */
-  if (fns)
-    fn = OVL_CURRENT (fns);
-  if (fn && TREE_CODE (fn) == FUNCTION_DECL
-      && (CP_DECL_CONTEXT (fn) != current_decl_namespace ()
-	  || DECL_LOCAL_FUNCTION_P (fn)))
-    k.namespaces = NULL_TREE;
-  else
-    /* Setting NAMESPACES is purely an optimization; it prevents
-       adding functions which are already in FNS.  Adding them would
-       be safe -- "joust" will eliminate the duplicates -- but
-       wasteful.  */
-    k.namespaces = build_tree_list (current_decl_namespace (), NULL_TREE);
+  /* We previously performed an optimization here by setting
+     NAMESPACES to the current namespace when it was safe. However, DR
+     164 says that namespaces that were already searched in the first
+     stage of template processing are searched again (potentially
+     picking up later definitions) in the second stage. */
+  k.namespaces = NULL_TREE;
 
   arg_assoc_args (&k, args);
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, k.functions);
@@ -4608,7 +4592,7 @@ maybe_process_template_type_declaration (tree type, int is_friend,
 		{
 		  maybe_add_class_template_decl_list (current_class_type,
 						      type, /*friend_p=*/0);
-		  /* Put this UDT in the table of UDTs for the class.  */
+		  /* Put this UTD in the table of UTDs for the class.  */
 		  if (CLASSTYPE_NESTED_UTDS (current_class_type) == NULL)
 		    CLASSTYPE_NESTED_UTDS (current_class_type) =
 		      binding_table_new (SCOPE_DEFAULT_HT_SIZE);
@@ -4731,10 +4715,6 @@ pushtag (tree name, tree type, tag_scope scope)
 
 	  if (d == error_mark_node)
 	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
-
-	  /* FIXME what if it gets a name from typedef?  */
-	  if (ANON_AGGRNAME_P (name))
-	    DECL_IGNORED_P (d) = 1;
 
 	  TYPE_CONTEXT (type) = DECL_CONTEXT (d);
 

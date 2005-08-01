@@ -91,7 +91,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    To vectorize stmt S2, the vectorizer first finds the stmt that defines
    the operand 'b' (S1), and gets the relevant vector def 'vb' from the
-   vector stmt VS1 pointed by STMT_VINFO_VEC_STMT (stmt_info (S1)). The
+   vector stmt VS1 pointed to by STMT_VINFO_VEC_STMT (stmt_info (S1)). The
    resulting sequence would be:
 
    VS1: vb = px[i];
@@ -640,6 +640,10 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
     {
       orig_phi = update_phi;
       orig_def = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
+      /* This loop-closed-phi actually doesn't represent a use
+         out of the loop - the phi arg is a constant.  */ 
+      if (TREE_CODE (orig_def) != SSA_NAME)
+        continue;
       orig_def_new_name = get_current_def (orig_def);
       arg = NULL_TREE;
 
@@ -1142,7 +1146,8 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   add_bb_to_loop (bb_before_second_loop, first_loop->outer);
 
   pre_condition =
-    fold_build2 (LE_EXPR, boolean_type_node, first_niters, integer_zero_node);
+    fold_build2 (LE_EXPR, boolean_type_node, first_niters, 
+                 build_int_cst (TREE_TYPE (first_niters), 0));
   skip_e = slpeel_add_loop_guard (bb_before_first_loop, pre_condition,
                                   bb_before_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard1 (skip_e, first_loop,
@@ -1346,14 +1351,6 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
     STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
   else
     STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
-  STMT_VINFO_MEMTAG (res) = NULL;
-  STMT_VINFO_PTR_INFO (res) = NULL;
-  STMT_VINFO_SUBVARS (res) = NULL;
-  STMT_VINFO_VECT_DR_BASE_ADDRESS (res) = NULL;
-  STMT_VINFO_VECT_INIT_OFFSET (res) = NULL_TREE;
-  STMT_VINFO_VECT_STEP (res) = NULL_TREE;
-  STMT_VINFO_VECT_BASE_ALIGNED_P (res) = false;
-  STMT_VINFO_VECT_MISALIGNMENT (res) = NULL_TREE;
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
 
   return res;
@@ -1406,10 +1403,8 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
   LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_WRITES (res), 20,
-			   "loop_write_datarefs");
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_READS (res), 20,
-			   "loop_read_datarefs");
+  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREFS (res), 20, "loop_datarefs");
+  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DDRS (res), 20, "loop_ddrs");
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
 
   return res;
@@ -1469,36 +1464,10 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
     }
 
   free (LOOP_VINFO_BBS (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_READS (loop_vinfo));
+  varray_clear (LOOP_VINFO_DATAREFS (loop_vinfo));
+  varray_clear (LOOP_VINFO_DDRS (loop_vinfo));
 
   free (loop_vinfo);
-}
-
-
-/* Function vect_strip_conversions
-
-   Strip conversions that don't narrow the mode.  */
-
-tree 
-vect_strip_conversion (tree expr)
-{
-  tree to, ti, oprnd0;
-  
-  while (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
-    {
-      to = TREE_TYPE (expr);
-      oprnd0 = TREE_OPERAND (expr, 0);
-      ti = TREE_TYPE (oprnd0);
- 
-      if (!INTEGRAL_TYPE_P (to) || !INTEGRAL_TYPE_P (ti))
-	return NULL_TREE;
-      if (GET_MODE_SIZE (TYPE_MODE (to)) < GET_MODE_SIZE (TYPE_MODE (ti)))
-	return NULL_TREE;
-      
-      expr = oprnd0;
-    }
-  return expr; 
 }
 
 
@@ -1792,7 +1761,7 @@ reduction_code_for_scalar_code (enum tree_code code,
   
    such that:
    1. operation is commutative and associative and it is safe to 
-      change the the order of the computation.
+      change the order of the computation.
    2. no uses for a2 in the loop (a2 is used out of the loop)
    3. no uses of a1 in the loop besides the reduction operation.
 
