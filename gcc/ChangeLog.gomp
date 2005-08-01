@@ -1,3 +1,12 @@
+2005-08-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimple-low.c (create_gomp_fn): Call create_tmp_var_name to
+	create a new function name.
+	(create_gomp_parallel_start): Fix contexts for block vars and
+	function argument.
+	(lower_gomp_expr): Fix type of first argument in call to
+	GOMP_parallel_start.
+
 2005-07-28  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge.

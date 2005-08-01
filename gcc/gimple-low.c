@@ -294,9 +294,7 @@ remap_locals_in_gomp_body (tree gomp_expr, tree gomp_fn)
 static tree
 create_gomp_fn (tree gomp_expr)
 {
-  char *fn_name;
-  static unsigned int num = 0;
-  tree fn_type, fn_body, fn_decl, res_decl;
+  tree fn_name, fn_type, fn_body, fn_decl, res_decl;
   tree fn_data_arg;
 
   /* Enclose the body in a BIND_EXPR, if it doesn't have one already.  */
@@ -308,9 +306,9 @@ create_gomp_fn (tree gomp_expr)
     }
 
   /* Build the declaration of the new function.  */
-  ASM_FORMAT_PRIVATE_NAME (fn_name, "__gomp_fn", num++);
+  fn_name = create_tmp_var_name ("__gomp_fn");
   fn_type = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
-  fn_decl = build_fn_decl (fn_name, fn_type);
+  fn_decl = build_fn_decl (IDENTIFIER_POINTER (fn_name), fn_type);
   res_decl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
 
   /* Initialize attributes for the result and the function.  */
@@ -329,11 +327,13 @@ create_gomp_fn (tree gomp_expr)
 
   DECL_INITIAL (fn_decl) = make_node (BLOCK);
   TREE_USED (DECL_INITIAL (fn_decl)) = 1;
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (fn_decl)) = fn_decl;
   gcc_assert (TREE_CODE (fn_body) == BIND_EXPR);
   DECL_SAVED_TREE (fn_decl) = fn_body;
 
   /* Add the argument DATA.  */
   fn_data_arg = build_decl (PARM_DECL, get_identifier ("data"), ptr_type_node);
+  DECL_CONTEXT (fn_data_arg) = fn_decl;
   DECL_ARGUMENTS (fn_decl) = fn_data_arg;
 
   /* Add FN_DECL to the call graph.  */
@@ -353,12 +353,15 @@ create_gomp_parallel_start (tree fn, tree data, tree num_threads)
 {
   tree lib_fn, args, type;
 
+  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+
   type = build_function_type_list (void_type_node,
-				   TREE_TYPE (fn),
+				   build_pointer_type (TREE_TYPE (fn)),
 				   ptr_type_node,
 				   unsigned_type_node,
 				   NULL_TREE);
 
+  fn = build_addr (fn, current_function_decl);
   lib_fn = build_fn_decl ("GOMP_parallel_start", type);
   args = tree_cons (NULL_TREE, fn,
 		    tree_cons (NULL_TREE, data,
@@ -403,7 +406,7 @@ lower_gomp_expr (tree_stmt_iterator *tsi)
   TREE_ADDRESSABLE (data_arg) = 1;
 
   /* Build a new function out of the pragma's body and add it to the
-     call graph as a nested function of the current function.  */
+     call graph.  */
   fn = create_gomp_fn (stmt);
 
   /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...) to PRE_P.  FIXME,
