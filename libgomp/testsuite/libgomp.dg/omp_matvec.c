@@ -67,5 +67,6 @@ printf("\nResults by thread/row:\n");
 
 printf("\nMatrix-vector total - sum of all c[] = %.2f\n\n",total);
 
+  return 0;
 }
 

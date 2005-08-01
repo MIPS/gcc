@@ -60,4 +60,5 @@ for (i=0; i<N; i++)
 
   }  /* end of parallel section */
 
+  return 0;
 }

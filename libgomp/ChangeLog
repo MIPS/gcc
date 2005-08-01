@@ -1,3 +1,15 @@
+2005-08-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/libgomp.dg/dg.exp: Use -O2 for now.
+	* testsuite/libgomp.dg/omp_hello.c: Fix return code
+	* testsuite/libgomp.dg/omp_matvec.c: Likewise.
+	* testsuite/libgomp.dg/omp_orphan.c: Likewise
+	* testsuite/libgomp.dg/omp_reduction.c: Likewise
+	* testsuite/libgomp.dg/omp_workshare1.c: Likewise
+	* testsuite/libgomp.dg/omp_workshare2.c: Likewise
+	* testsuite/libgomp.dg/omp_workshare3.c: Likewise
+	* testsuite/libgomp.dg/omp_workshare4.c: Likewise
+
 2005-07-07  Eric Christopher  <echristo@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
 

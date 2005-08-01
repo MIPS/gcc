@@ -43,6 +43,5 @@ chunk = CHUNKSIZE;
 
   }  /* end of parallel section */
 
+  return 0;
 }
-
-

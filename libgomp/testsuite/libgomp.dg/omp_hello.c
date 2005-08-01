@@ -35,5 +35,5 @@ int nthreads, tid;
 
   }  /* All threads join master thread and disband */
 
+  return 0;
 }
-

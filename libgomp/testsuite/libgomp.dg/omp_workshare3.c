@@ -37,5 +37,5 @@ chunk = CHUNKSIZE;
     }
   }  /* end of parallel for construct */
 
+  return 0;
 }
-

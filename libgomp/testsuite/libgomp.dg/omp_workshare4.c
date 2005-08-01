@@ -44,6 +44,5 @@ first_time = 'y';
     printf("tid= %d i= %d c[i]= %f\n", tid, i, c[i]);
     }
 
+  return 0;
 }
-
-

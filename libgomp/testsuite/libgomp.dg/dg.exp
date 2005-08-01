@@ -2,7 +2,7 @@ load_lib libgomp-dg.exp
 
 # If a testcase doesn't have special options, use these.
 if ![info exists DEFAULT_CFLAGS] then {
-    set DEFAULT_CFLAGS "-fopenmp"
+    set DEFAULT_CFLAGS "-O2 -fopenmp"
 }
 
 # Initialize dg.
