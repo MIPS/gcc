@@ -1,3 +1,41 @@
+2005-08-01  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* common.opt: Add -fcheck-data-deps.
+	* lambda-code.c (lambda_vector_lexico_pos): Moved ...
+	* lambda.h (lambda_vector_lexico_pos): ... here.
+	Make it static inline.
+	* timevar.def (TV_CHECK_DATA_DEPS): New.
+	* tree-data-ref.c (compute_subscript_distance,
+	initialize_data_dependence_relation, compute_affine_dependence):
+	Make static.
+	(initialize_data_dependence_relation): Initialize DDR_CSYS, 
+	DDR_POLYHEDRON, DDR_OMEGA to NULL.  Initialize DDR_SIZE_VECT,
+	DDR_DIST_VECT, DDR_DIR_VECT to allocated data.
+	(analyze_subscript_affine_affine, analyze_overlapping_iterations):
+	Correctly print the ending parenthesis in the dump file.
+	(subscript_dependence_tester): Moved after
+	build_classic_dist_vector and build_classic_dir_vector.
+	Computes the classic representations.  Takes a new parameter.
+	(build_classic_dist_vector): Add an extra check for ensuring that 
+	the output is a lexicographically vector.
+	(build_classic_dist_vector, build_classic_dir_vector): Don't
+	initialize the DDR_SIZE_VECT, DDR_DIST_VECT and DDR_DIR_VECT.
+	(compute_affine_dependence): Add code for flag_check_data_deps.
+	(compute_all_dependences): Move the call compute_subscript_distance
+	to a lower level, in subscript_dependence_tester.
+	(compute_data_dependences_for_loop): Move the calls 
+	build_classic_dist_vector and build_classic_dir_vector in 
+	subscript_dependence_tester.
+	(tree_check_data_deps): New.
+	* tree-data-ref.h (initialize_data_dependence_relation,
+	compute_affine_dependence, compute_subscript_distance,
+	build_classic_dist_vector): Remove extern declarations.
+	* tree-flow.h (tree_check_data_deps): Declared.
+	* tree-optimize.c: Schedule pass_check_data_deps.
+	* tree-pass.h (pass_check_data_deps): Declared.
+	* tree-ssa-loop.c (check_data_deps, gate_check_data_deps): New.
+	(pass_check_data_deps): Instantiated.
+
 2005-07-18  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* Makefile.in (polyhedron.o): Add missing dependences.

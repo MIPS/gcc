@@ -228,12 +228,6 @@ struct data_dependence_relation
 
 
 extern tree find_data_references_in_loop (struct loop *, tree, varray_type *);
-extern struct data_dependence_relation *initialize_data_dependence_relation 
-(struct data_reference *, struct data_reference *);
-extern void compute_affine_dependence (struct data_dependence_relation *);
-extern void compute_subscript_distance (struct data_dependence_relation *);
-extern bool build_classic_dist_vector (struct data_dependence_relation *, int, 
-				       int);
 
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (struct loop *, tree, bool,

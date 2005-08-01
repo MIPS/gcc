@@ -676,7 +676,7 @@ dump_data_dependence_relation (FILE *outf,
 	}
       if (DDR_DIST_VECT (ddr))
 	{
-	  fprintf (outf, "  distance_vect:  ");
+	  fprintf (outf, "  distance_vect:   ");
 	  print_lambda_vector (outf, DDR_DIST_VECT (ddr), DDR_SIZE_VECT (ddr));
 	}
       if (DDR_DIR_VECT (ddr))
@@ -1931,7 +1931,7 @@ all_chrecs_equal_p (tree chrec)
 /* Determine for each subscript in the data dependence relation DDR
    the distance.  */
 
-void
+static void
 compute_subscript_distance (struct data_dependence_relation *ddr)
 {
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -1981,11 +1981,14 @@ compute_subscript_distance (struct data_dependence_relation *ddr)
     }
 }
 
-/* Initialize a ddr.  */
+/* Initialize a data dependence relation between data accesses A and
+   B.  NB_LOOPS is the number of loops surrounding the references: the
+   size of the classic distance/direction vectors.  */
 
-struct data_dependence_relation *
+static struct data_dependence_relation *
 initialize_data_dependence_relation (struct data_reference *a, 
-				     struct data_reference *b)
+				     struct data_reference *b,
+				     int nb_loops)
 {
   struct data_dependence_relation *res;
   bool differ_p, known_dependence;
@@ -1994,13 +1997,15 @@ initialize_data_dependence_relation (struct data_reference *a,
   res = xmalloc (sizeof (struct data_dependence_relation));
   DDR_A (res) = a;
   DDR_B (res) = b;
+  DDR_CSYS (res) = NULL;
+  DDR_POLYHEDRON (res) = NULL;
+  DDR_OMEGA (res) = NULL;
 
   if (a == NULL || b == NULL)
     {
       DDR_ARE_DEPENDENT (res) = chrec_dont_know;    
       return res;
     }
-  
   
   /* When the dimensions of two arrays A and B differ, we directly 
      initialize the relation to "there is no dependence": chrec_known. 
@@ -2033,10 +2038,10 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_AFFINE_P (res) = true;
   DDR_ARE_DEPENDENT (res) = NULL_TREE;       
   DDR_SUBSCRIPTS_VECTOR_INIT (res, DR_NUM_DIMENSIONS (a));
-  DDR_SIZE_VECT (res) = 0;
-  DDR_DIST_VECT (res) = NULL;
-  DDR_DIR_VECT (res) = NULL;
-	  
+  DDR_SIZE_VECT (res) = nb_loops;
+  DDR_DIST_VECT (res) = lambda_vector_new (nb_loops);
+  DDR_DIR_VECT (res) = lambda_vector_new (nb_loops);
+
   for (i = 0; i < DR_NUM_DIMENSIONS (a); i++)
     {
       struct subscript *subscript;
@@ -2648,7 +2653,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;
 	      *last_conflicts = chrec_dont_know;
-	      return;
+	      goto end_analyze_subs_aa;
 	    }
 
 	  niter_a = int_cst_value (numiter_a);
@@ -2679,7 +2684,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 	  *overlaps_b = chrec_dont_know;
 	  *last_conflicts = chrec_dont_know;
 	}
-      return;
+      goto end_analyze_subs_aa;
     }
 
   /* U.A = S */
@@ -2745,7 +2750,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;
 	      *last_conflicts = chrec_dont_know;
-	      return;
+	      goto end_analyze_subs_aa;
 	    }
 
 	  niter_a = int_cst_value (numiter_a);
@@ -2860,7 +2865,7 @@ analyze_subscript_affine_affine (tree chrec_a,
       *last_conflicts = chrec_dont_know;
     }
 
-
+end_analyze_subs_aa:  
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "  (overlaps_a = ");
@@ -2868,10 +2873,8 @@ analyze_subscript_affine_affine (tree chrec_a,
       fprintf (dump_file, ")\n  (overlaps_b = ");
       print_generic_expr (dump_file, *overlaps_b, 0);
       fprintf (dump_file, ")\n");
+      fprintf (dump_file, ")\n");
     }
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
 }
 
 /* Returns true when analyze_subscript_affine_affine can be used for
@@ -3160,7 +3163,7 @@ analyze_overlapping_iterations (tree chrec_a,
       fprintf (dump_file, "(analyze_overlapping_iterations \n");
       fprintf (dump_file, "  (chrec_a = ");
       print_generic_expr (dump_file, chrec_a, 0);
-      fprintf (dump_file, ")\n  chrec_b = ");
+      fprintf (dump_file, ")\n  (chrec_b = ");
       print_generic_expr (dump_file, chrec_b, 0);
       fprintf (dump_file, ")\n");
     }
@@ -3219,66 +3222,13 @@ analyze_overlapping_iterations (tree chrec_a,
       fprintf (dump_file, ")\n  (overlap_iterations_b = ");
       print_generic_expr (dump_file, *overlap_iterations_b, 0);
       fprintf (dump_file, ")\n");
+      fprintf (dump_file, ")\n");
     }
 }
 
 
 
 /* This section contains the affine functions dependences detector.  */
-
-/* Computes the conflicting iterations, and initialize DDR.  */
-
-static void
-subscript_dependence_tester (struct data_dependence_relation *ddr)
-{
-  unsigned int i;
-  struct data_reference *dra = DDR_A (ddr);
-  struct data_reference *drb = DDR_B (ddr);
-  tree last_conflicts;
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(subscript_dependence_tester \n");
-  
-  for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
-    {
-      tree overlaps_a, overlaps_b;
-      struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
-      
-      analyze_overlapping_iterations (DR_ACCESS_FN (dra, i), 
-				      DR_ACCESS_FN (drb, i),
-				      &overlaps_a, &overlaps_b, 
-				      &last_conflicts);
-      
-      if (chrec_contains_undetermined (overlaps_a)
- 	  || chrec_contains_undetermined (overlaps_b))
- 	{
- 	  finalize_ddr_dependent (ddr, chrec_dont_know);
-	  dependence_stats.num_dependence_undetermined++;
-	  goto subs_test_end;
- 	}
-      
-      else if (overlaps_a == chrec_known
- 	       || overlaps_b == chrec_known)
- 	{
- 	  finalize_ddr_dependent (ddr, chrec_known);
-	  dependence_stats.num_dependence_independent++;
-	  goto subs_test_end;
- 	}
-      
-      else
- 	{
- 	  SUB_CONFLICTS_IN_A (subscript) = overlaps_a;
- 	  SUB_CONFLICTS_IN_B (subscript) = overlaps_b;
-	  SUB_LAST_CONFLICT (subscript) = last_conflicts;
- 	}
-    }
-
-  dependence_stats.num_dependence_dependent++;
-
- subs_test_end:;
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-}
 
 /* Compute the classic per loop distance vector.
 
@@ -3290,14 +3240,15 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
    starting at FIRST_LOOP_DEPTH. 
    Return TRUE otherwise.  */
 
-bool
+static bool
 build_classic_dist_vector (struct data_dependence_relation *ddr, 
-			   int nb_loops, int first_loop_depth)
+			   int first_loop_depth)
 {
   unsigned i;
   lambda_vector dist_v, init_v;
+  int nb_loops = DDR_SIZE_VECT (ddr);
   
-  dist_v = lambda_vector_new (nb_loops);
+  dist_v = DDR_DIST_VECT (ddr);
   init_v = lambda_vector_new (nb_loops);
   lambda_vector_clear (dist_v, nb_loops);
   lambda_vector_clear (init_v, nb_loops);
@@ -3450,8 +3401,28 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
       }
   }
   
-  DDR_DIST_VECT (ddr) = dist_v;
-  DDR_SIZE_VECT (ddr) = nb_loops;
+  /* Verify a basic constraint: classic distance vectors should always
+     be lexicographically positive.  */
+  if (!lambda_vector_lexico_pos (DDR_DIST_VECT (ddr),
+				 DDR_SIZE_VECT (ddr)))
+    {
+      if (DDR_SIZE_VECT (ddr) == 1)
+	/* This one is simple to fix, and can be fixed.
+	   Multidimensional arrays cannot be fixed that simply.  */
+	lambda_vector_negate (DDR_DIST_VECT (ddr), DDR_DIST_VECT (ddr),
+			      DDR_SIZE_VECT (ddr));
+      else
+	{
+	  /* This is not valid: I should implement the delta test for
+	     properly fixing all this.  */
+	  fprintf (stderr, "Distance vectors should be lexico positive:\n");
+	  print_lambda_vector (stderr, DDR_DIST_VECT (ddr),
+			       DDR_SIZE_VECT (ddr));
+	  fprintf (stderr, "Data dependence relation is:\n");
+	  dump_data_dependence_relation (stderr, ddr);
+	  gcc_unreachable ();
+	}
+    }
   return true;
 }
 
@@ -3467,12 +3438,13 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 
 static bool
 build_classic_dir_vector (struct data_dependence_relation *ddr, 
-			  int nb_loops, int first_loop_depth)
+			  int first_loop_depth)
 {
   unsigned i;
   lambda_vector dir_v, init_v;
+  int nb_loops = DDR_SIZE_VECT (ddr);
   
-  dir_v = lambda_vector_new (nb_loops);
+  dir_v = DDR_DIR_VECT (ddr);
   init_v = lambda_vector_new (nb_loops);
   lambda_vector_clear (dir_v, nb_loops);
   lambda_vector_clear (init_v, nb_loops);
@@ -3633,9 +3605,66 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
       }
   }
   
-  DDR_DIR_VECT (ddr) = dir_v;
-  DDR_SIZE_VECT (ddr) = nb_loops;
   return true;
+}
+
+/* Computes the conflicting iterations, and initialize DDR.  */
+
+static void
+subscript_dependence_tester (struct data_dependence_relation *ddr,
+			     int loop_nest_depth)
+{
+  unsigned int i;
+  struct data_reference *dra = DDR_A (ddr);
+  struct data_reference *drb = DDR_B (ddr);
+  tree last_conflicts;
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(subscript_dependence_tester \n");
+  
+  for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
+    {
+      tree overlaps_a, overlaps_b;
+      struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
+      
+      analyze_overlapping_iterations (DR_ACCESS_FN (dra, i), 
+				      DR_ACCESS_FN (drb, i),
+				      &overlaps_a, &overlaps_b, 
+				      &last_conflicts);
+      
+      if (chrec_contains_undetermined (overlaps_a)
+ 	  || chrec_contains_undetermined (overlaps_b))
+ 	{
+ 	  finalize_ddr_dependent (ddr, chrec_dont_know);
+	  dependence_stats.num_dependence_undetermined++;
+	  goto subs_test_end;
+ 	}
+      
+      else if (overlaps_a == chrec_known
+ 	       || overlaps_b == chrec_known)
+ 	{
+ 	  finalize_ddr_dependent (ddr, chrec_known);
+	  dependence_stats.num_dependence_independent++;
+	  goto subs_test_end;
+ 	}
+      
+      else
+ 	{
+ 	  SUB_CONFLICTS_IN_A (subscript) = overlaps_a;
+ 	  SUB_CONFLICTS_IN_B (subscript) = overlaps_b;
+	  SUB_LAST_CONFLICT (subscript) = last_conflicts;
+ 	}
+    }
+
+  dependence_stats.num_dependence_dependent++;
+
+ subs_test_end:;
+  compute_subscript_distance (ddr);
+  if (build_classic_dist_vector (ddr, loop_nest_depth))
+    build_classic_dir_vector (ddr, loop_nest_depth);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
 }
 
 /* Returns true when all the access functions of A are affine or
@@ -3980,9 +4009,6 @@ omega_dependence_tester (struct data_dependence_relation *ddr)
 {
   enum omega_result res;
 
-  dump_file = stderr;
-  dump_flags = 31;
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(omega_dependence_tester \n");
@@ -4041,8 +4067,9 @@ omega_dependence_tester (struct data_dependence_relation *ddr)
    relation the first time we detect a CHREC_KNOWN element for a given
    subscript.  */
 
-void
-compute_affine_dependence (struct data_dependence_relation *ddr)
+static void
+compute_affine_dependence (struct data_dependence_relation *ddr,
+			   int loop_nest_depth)
 {
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
@@ -4065,7 +4092,65 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
       if (access_functions_are_affine_or_constant_p (dra)
 	  && access_functions_are_affine_or_constant_p (drb))
 	{
-	  if (0)
+	  if (flag_check_data_deps)
+	    {
+	      /* Compute the dependences using the first algorithm.  */
+	      subscript_dependence_tester (ddr, loop_nest_depth);
+
+	      if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+		{
+		  bool maybe_dependent;
+		  lambda_vector dir_v, dist_v;
+
+		  /* Save the classic representations for the first DD
+		     analyzer.  */
+		  dist_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
+		  lambda_vector_copy (DDR_DIST_VECT (ddr), dist_v,
+				      DDR_SIZE_VECT (ddr));
+		  dir_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
+		  lambda_vector_copy (DDR_DIR_VECT (ddr), dir_v,
+				      DDR_SIZE_VECT (ddr));
+
+		  if (!init_csys_for_ddr (ddr, &maybe_dependent))
+		    /* FIXME: Why is this edge taken?  Because we have
+		       already computed the dependence, the problem
+		       should be simple enough.  */
+		    goto csys_dont_know;
+
+		  if (maybe_dependent)
+		    {
+		      /* Compute the same information using Omega.  */
+		      omega_dependence_tester (ddr);
+
+		      /* Check that we get the same information.  */
+		      if (!lambda_vector_equal (dist_v, DDR_DIST_VECT (ddr),
+						DDR_SIZE_VECT (ddr)))
+			{
+			  fprintf (stderr, "Dist vectors from the first dependence analyzer:\n");
+			  print_lambda_vector (stderr, dist_v, DDR_SIZE_VECT (ddr));
+			  fprintf (stderr, "Omega dist vectors are not the same:\n");
+			  print_lambda_vector (stderr, DDR_DIST_VECT (ddr),
+					       DDR_SIZE_VECT (ddr));
+			  fprintf (stderr, "Data dependence relation is:\n");
+			  dump_data_dependence_relation (stderr, ddr);
+			  gcc_unreachable ();
+			}
+		      if (!lambda_vector_equal (dir_v, DDR_DIR_VECT (ddr),
+						DDR_SIZE_VECT (ddr)))
+			{
+			  fprintf (stderr, "Dir vectors from the first dependence analyzer:\n");
+			  print_lambda_vector (stderr, dir_v, DDR_SIZE_VECT (ddr));
+			  fprintf (stderr, "Omega dir vectors are not the same:\n");
+			  print_lambda_vector (stderr, DDR_DIR_VECT (ddr),
+					       DDR_SIZE_VECT (ddr));
+			  fprintf (stderr, "Data dependence relation is:\n");
+			  dump_data_dependence_relation (stderr, ddr);
+			  gcc_unreachable ();
+			}
+		    }
+		}
+	    }
+	  else if (0)
 	    {
 	      bool maybe_dependent;
 
@@ -4081,7 +4166,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 		}
 	    }
 	  else
-	    subscript_dependence_tester (ddr);
+	    subscript_dependence_tester (ddr, loop_nest_depth);
 	}
       
       /* As a last case, if the dependence cannot be determined, or if
@@ -4119,7 +4204,8 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 static void 
 compute_all_dependences (varray_type datarefs, 
 			 varray_type *dependence_relations,
-                         bool compute_self_and_read_read_dependences)
+                         bool compute_self_and_read_read_dependences,
+			 unsigned nb_loops, unsigned loop_nest_depth)
 {
   unsigned int i, j, N, offset = 1;
 
@@ -4140,11 +4226,10 @@ compute_all_dependences (varray_type datarefs,
 	if (DR_IS_READ (a) && DR_IS_READ (b)
             && !compute_self_and_read_read_dependences)
 	  continue;
-	ddr = initialize_data_dependence_relation (a, b);
+	ddr = initialize_data_dependence_relation (a, b, nb_loops);
 
 	VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
-	compute_affine_dependence (ddr);
-	compute_subscript_distance (ddr);
+	compute_affine_dependence (ddr, loop_nest_depth);
       }
 }
 
@@ -4254,8 +4339,7 @@ compute_data_dependences_for_loop (struct loop *loop,
 				   varray_type *datarefs,
 				   varray_type *dependence_relations)
 {
-  unsigned int i, nb_loops;
-  varray_type allrelations;
+  unsigned int nb_loops;
   struct loop *loop_nest = loop;
 
   while (loop_nest && loop_nest->outer && loop_nest->outer->outer)
@@ -4273,27 +4357,15 @@ compute_data_dependences_for_loop (struct loop *loop,
 
       /* Insert a single relation into dependence_relations:
 	 chrec_dont_know.  */
-      ddr = initialize_data_dependence_relation (NULL, NULL);
+      ddr = initialize_data_dependence_relation (NULL, NULL, nb_loops);
       VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
-      build_classic_dist_vector (ddr, nb_loops, loop->depth);
-      build_classic_dir_vector (ddr, nb_loops, loop->depth);
       return;
     }
 
-  VARRAY_GENERIC_PTR_INIT (allrelations, 1, "Data dependence relations");
-  compute_all_dependences (*datarefs, &allrelations,
-                           compute_self_and_read_read_dependences);
+  compute_all_dependences (*datarefs, dependence_relations,
+                           compute_self_and_read_read_dependences,
+			   nb_loops, loop_nest->depth);
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (allrelations); i++)
-    {
-      struct data_dependence_relation *ddr;
-      ddr = VARRAY_GENERIC_PTR (allrelations, i);
-      if (build_classic_dist_vector (ddr, nb_loops, loop_nest->depth))
-	{
-	  VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
-	  build_classic_dir_vector (ddr, nb_loops, loop_nest->depth);
-	}
-    }
   if (dump_file && (dump_flags & TDF_STATS))
     {
       fprintf (dump_file, "Dependence tester statistics:\n");
@@ -4484,3 +4556,35 @@ free_data_refs (varray_type datarefs)
   varray_clear (datarefs);
 }
 
+/* Computes all the data dependences and check that the results of
+   several analyzers are the same.  */
+
+void
+tree_check_data_deps (struct loops *loops)
+{
+  unsigned int i;
+
+  analyze_all_data_dependences (loops);
+
+  /* Check the data deps for each loop nest.  Even if this computes
+     several times the DD for some nested loop, the check is not
+     redundant because the context changes: there are more or less
+     loops, more or less levels, etc.  */
+  for (i = 1; i < loops->num; i++)
+    {
+      varray_type datarefs;
+      varray_type dependence_relations;
+      int nb_data_refs = 10;
+
+      VARRAY_GENERIC_PTR_INIT (datarefs, nb_data_refs, "datarefs");
+      VARRAY_GENERIC_PTR_INIT (dependence_relations, 
+			       nb_data_refs * nb_data_refs,
+			       "dependence_relations");
+      compute_data_dependences_for_loop (loops->parray[i], NULL_TREE,
+					 false, &datarefs,
+					 &dependence_relations);
+
+      free_dependence_relations (dependence_relations);
+      free_data_refs (datarefs);
+    }
+}

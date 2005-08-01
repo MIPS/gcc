@@ -762,6 +762,9 @@ void insert_edge_copies (tree, basic_block);
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);
 
+/* In tree-data-ref.c  */
+extern void tree_check_data_deps (struct loops *);
+
 /* In tree-elim-checks.c  */
 extern void eliminate_redundant_checks (struct loops *);
 

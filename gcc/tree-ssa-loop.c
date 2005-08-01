@@ -263,6 +263,40 @@ struct tree_opt_pass pass_linear_transform =
   0				        /* letter */	
 };
 
+/* Check the correctness of the data dependence analyzers.  */
+
+static void
+check_data_deps (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_check_data_deps (current_loops);
+}
+
+static bool
+gate_check_data_deps (void)
+{
+  return flag_check_data_deps != 0;
+}
+
+struct tree_opt_pass pass_check_data_deps =
+{
+  "checkdd",				/* name */
+  gate_check_data_deps,	        	/* gate */
+  check_data_deps,       		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_CHECK_DATA_DEPS,  	        	/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0				        /* letter */	
+};
+
 /* Canonical induction variable creation pass.  */
 
 static void

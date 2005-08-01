@@ -575,5 +575,25 @@ lambda_vector_exchange (lambda_vector v1, lambda_vector v2, int size)
     }
 }
 
+/* Returns true when the vector V is lexicographically positive, in
+   other words, when the first nonzero element is positive.  */
+
+static inline bool
+lambda_vector_lexico_pos (lambda_vector v, 
+			  unsigned n)
+{
+  unsigned i;
+  for (i = 0; i < n; i++)
+    {
+      if (v[i] == 0)
+	continue;
+      if (v[i] < 0)
+	return false;
+      if (v[i] > 0)
+	return true;
+    }
+  return true;
+}
+
 #endif /* LAMBDA_H  */
 
