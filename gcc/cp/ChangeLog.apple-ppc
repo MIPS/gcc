@@ -1,3 +1,13 @@
+2005-08-02  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4185810
+	* parser.c (cp_parser_compound_statement): Continue
+	parsing even if the initial '{' is missing; an error
+	message is already being produced.
+	(cp_parser_statement_seq_opt): In addition to '}' and
+	end-of-file, a statement sequence may also be terminated
+	by a stray 'else' or '@end'.
+
 2005-07-22  Devang Patel  <dpatel@apple.com>
 
 	Radar 4182972

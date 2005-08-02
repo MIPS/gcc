@@ -6635,8 +6635,10 @@ cp_parser_compound_statement (cp_parser *parser, tree in_statement_expr,
   tree compound_stmt;
 
   /* Consume the `{'.  */
-  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
-    return error_mark_node;
+  /* APPLE LOCAL begin 4185810 */
+  cp_parser_require (parser, CPP_OPEN_BRACE, "`{'");
+
+  /* APPLE LOCAL end 4185810 */
   /* Begin the compound-statement.  */
   compound_stmt = begin_compound_stmt (in_try ? BCS_TRY_BLOCK : 0);
   /* APPLE LOCAL begin CW asm blocks */
@@ -6688,9 +6690,17 @@ cp_parser_statement_seq_opt (cp_parser* parser, tree in_statement_expr)
   /* Scan statements until there aren't any more.  */
   while (true)
     {
-      /* If we're looking at a `}', then we've run out of statements.  */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
-	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
+      /* APPLE LOCAL begin 4185810 */
+      /* If we are looking at a `}', then we have run out of
+	 statements; the same is true if we have reached the end
+	 of file, or have stumbled upon a stray 'else' or '@end'.  */
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+      if (token->type == CPP_CLOSE_BRACE || token->type == CPP_EOF
+	  || (token->type == CPP_KEYWORD
+	      && (token->keyword == RID_ELSE
+		  || token->keyword == RID_AT_END)))
+      /* APPLE LOCAL end 4185810 */
 	break;
 
       /* Parse the statement.  */
