@@ -1,5 +1,4 @@
-/* Make the test compile-only until runtime conversions are supported.  */
-/* { dg-do compile } */
+/* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
 /* Test various conversions involving decimal floating types. */

@@ -1,5 +1,16 @@
 2005-08-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* Makefile.in (D32PBIT_FUNCS, D64PBIT_FUNCS, D128PBIT_FUNCS):
+	Add to the list of functions.
+	* config/dfp-bit.c (DFP_TO_DFP, DFP_TO_INT, INT_TO_DFP, DFP_TO_BFP,
+	BFP_TO_DFP): New template functions.
+	* config/dfp-bit.h (FROM_STRING, TO_STRING): New.
+	(WIDTH_TO, DFP_C_TYPE_TO, DFP_TYPE_TO, TO_ENCODED_TO): New.
+	(INT_KIND, INT_TYPE, INT_FMT, STR_TO_INT): New.
+	(BFP_KIND, BFP_TYPE, BFP_FMT, STR_TO_BFP): New.
+	(DFP_TO_DFP, INT_TO_DFP, DFP_TO_INT, BFP_TO_DFP, DFP_TO_BFP): Define
+	and prototype.
+
 	* dfp-bit.h (CONTEXT_INIT): Define.
 	(CONTEXT_ROUND): Define.
 	(CONTEXT_TRAPS): Define.

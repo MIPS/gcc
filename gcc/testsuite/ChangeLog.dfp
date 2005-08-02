@@ -1,3 +1,14 @@
+2005-08-02  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/conversions-2.c: Change to execute.
+	* gcc.dg/dfp/conversions-3.c: Ditto.
+	* gcc.dg/dfp/conversions-5.c: Change to execute, fix typos.
+	* gcc.dg/dfp/conversions-6.c: Change to execute, fix to expect
+	behavior from IEEE 754r draft.
+	* gcc.dg/dfp/conversions-7.c: Change to execute.
+	* gcc.dg/dfp/conversions-8.c: Ditto.
+	* gcc.dg/dfp/conversions-9.c: Ditto.
+
 2005-07-25  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/loop.c: Include <stdlib.h> instead of prototyping

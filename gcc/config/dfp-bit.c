@@ -33,14 +33,18 @@ Boston, MA 02111-1307, USA.  */
 
 /* This implements IEEE 754R decimal floating point arithmetic, but
    does not provide a mechanism for setting the rounding mode, or for
-   generating or handling exceptions.
+   generating or handling exceptions.  Conversions between decimal
+   floating point types and other types depend on C library functions.
 
    Contributed by Ben Elliston  <bje@au.ibm.com>.  */
 
 /* The intended way to use this file is to make two copies, add `#define '
    to one copy, then compile both copies and add them to libgcc.a.  */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "tconfig.h"
 #include "coretypes.h"
@@ -259,3 +263,176 @@ DFP_GE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   return (stat != -1) ? 1 : -1;
 }
 #endif /* L_ge */
+
+#define BUFMAX 128
+
+#if defined (L_sd_to_dd) || defined (L_sd_to_td) || defined (L_dd_to_sd) \
+ || defined (L_dd_to_td) || defined (L_td_to_sd) || defined (L_td_to_dd)
+DFP_C_TYPE_TO
+DFP_TO_DFP (DFP_C_TYPE f)
+{
+  union {
+    DFP_C_TYPE f;
+    DFP_TYPE s;
+  } uf;
+  union {
+    DFP_C_TYPE_TO f;
+    DFP_TYPE_TO s;
+  } ut;
+  decNumber d;
+  decContext context;
+
+  decContextDefault (&context, CONTEXT_INIT);
+  context.round = CONTEXT_ROUND;
+  context.traps = CONTEXT_TRAPS;
+
+  uf.f = f;
+  TO_INTERNAL (&uf.s, &d);
+  TO_ENCODED (&ut.s, &d, &context);
+  return ut.f;
+}
+#endif
+
+#if defined (L_sd_to_si) || defined (L_dd_to_si) || defined (L_td_to_si) \
+  || defined (L_sd_to_di) || defined (L_dd_to_di) || defined (L_td_to_di) \
+  || defined (L_sd_to_usi) || defined (L_dd_to_usi) || defined (L_td_to_usi) \
+  || defined (L_sd_to_udi) || defined (L_dd_to_udi) || defined (L_td_to_udi)
+INT_TYPE
+DFP_TO_INT (DFP_C_TYPE x)
+{
+  /* decNumber's decimal* types have the same format as C's _Decimal*
+     types, but they have different calling conventions.  */
+  union {
+    DFP_C_TYPE f;
+    DFP_TYPE s;
+  } u;
+  char buf[BUFMAX];
+  char *pos;
+  decNumber qval, n1, n2;
+  decContext context;
+
+  decContextDefault (&context, CONTEXT_INIT);
+  /* Need non-default rounding mode here.  */
+  context.round = DEC_ROUND_DOWN;
+  context.traps = CONTEXT_TRAPS;
+
+  u.f = x;
+  TO_INTERNAL (&u.s, &n1);
+  /* Rescale if the exponent is less than zero.  */
+  decNumberToIntegralValue (&n2, &n1, &context);
+  /* Get a value to use for the quanitize call.  */
+  decNumberFromString (&qval, (char *) "1.0", &context);
+  /* Force the exponent to zero.  */
+  decNumberQuantize (&n1, &n2, &qval, &context);
+  /* This is based on text in N1107 secton 5.1; it might turn out to be
+     undefined behavior instead.  */
+  if (context.status & DEC_Invalid_operation)
+    {
+#if defined (L_sd_to_si) || defined (L_dd_to_si) || defined (L_td_to_si)
+      if (decNumberIsNegative(&n2))
+        return INT_MIN;
+      else
+        return INT_MAX;
+#elif defined (L_sd_to_di) || defined (L_dd_to_di) || defined (L_td_to_di)
+      if (decNumberIsNegative(&n2))
+        /* Find a defined constant that will work here.  */
+        return (-9223372036854775807LL - 1LL);
+      else
+        /* Find a defined constant that will work here.  */
+        return 9223372036854775807LL;
+#elif defined (L_sd_to_usi) || defined (L_dd_to_usi) || defined (L_td_to_usi)
+      return UINT_MAX;
+#elif defined (L_sd_to_udi) || defined (L_dd_to_udi) || defined (L_td_to_udi)
+        /* Find a defined constant that will work here.  */
+      return 18446744073709551615ULL;
+#endif
+    }
+  /* Get a string, which at this point will not include an exponent.  */
+  decNumberToString (&n1, buf);
+  /* Ignore the fractional part.  */
+  pos = strchr (buf, '.');
+  if (pos)
+    *pos = 0;
+  /* Use a C library function to convert to the integral type.  */
+  return STR_TO_INT (buf, NULL, 10);
+}
+#endif
+
+#if defined (L_si_to_sd) || defined (L_si_to_dd) || defined (L_si_to_td) \
+  || defined (L_di_to_sd) || defined (L_di_to_dd) || defined (L_di_to_td) \
+  || defined (L_usi_to_sd) || defined (L_usi_to_dd) || defined (L_usi_to_td) \
+  || defined (L_udi_to_sd) || defined (L_udi_to_dd) || defined (L_udi_to_td)
+DFP_C_TYPE
+INT_TO_DFP (INT_TYPE i)
+{
+  /* decNumber's decimal* types have the same format as C's _Decimal*
+     types, but they have different calling conventions.  */
+  union {
+    DFP_C_TYPE f;
+    DFP_TYPE s;
+  } u;
+  char buf[BUFMAX];
+  decContext context;
+
+  decContextDefault (&context, CONTEXT_INIT);
+  context.round = CONTEXT_ROUND;
+  context.traps = CONTEXT_TRAPS;
+
+  /* Use a C library function to get a floating point string.  */
+  sprintf (buf, INT_FMT ".0", i);
+  /* Convert from the floating point string to a decimal* type.  */
+  FROM_STRING (&u.s, buf, &context);
+  if ((context.status & DEC_Inexact) != 0)
+    {
+      DFP_RAISE (DEC_Inexact);
+    }
+  return u.f;
+}
+#endif
+
+#if defined (L_sd_to_sf) || defined (L_dd_to_sf) || defined (L_td_to_sf) \
+ || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df)
+BFP_TYPE
+DFP_TO_BFP (DFP_C_TYPE x)
+{
+  /* decNumber's decimal* types have the same format as C's _Decimal*
+     types, but they have different calling conventions.  */
+  union {
+    DFP_C_TYPE f;
+    DFP_TYPE s;
+  } u;
+  char buf[BUFMAX];
+
+  u.f = x;
+  /* Write the value to a string.  */
+  TO_STRING (&u.s, buf);
+  /* Read it as the binary floating point type and return that.  */
+  return STR_TO_BFP (buf, NULL);
+}
+#endif
+                                                                                
+#if defined (L_sf_to_sd) || defined (L_sf_to_dd) || defined (L_sf_to_td) \
+ || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td)
+DFP_C_TYPE
+BFP_TO_DFP (BFP_TYPE x)
+{
+  /* decNumber's decimal* types have the same format as C's _Decimal*
+     types, but they have different calling conventions.  */
+  union {
+    DFP_C_TYPE f;
+    DFP_TYPE s;
+  } u;
+  char buf[BUFMAX];
+  decContext context;
+
+  decContextDefault (&context, CONTEXT_INIT);
+  context.round = CONTEXT_ROUND;
+  context.traps = CONTEXT_TRAPS;
+
+  /* Use a C library function to write the floating point value to a string.  */
+  sprintf (buf, BFP_FMT, x);
+  /* Convert from the floating point string to a decimal* type.  */
+  FROM_STRING (&u.s, buf, &context);
+  return u.f;
+}
+#endif
