@@ -1,3 +1,12 @@
+2005-08-02  Janis Johnson  <janis187@us.ibm.com>
+
+	* dfp-bit.h (CONTEXT_INIT): Define.
+	(CONTEXT_ROUND): Define.
+	(CONTEXT_TRAPS): Define.
+	* dfp-bit.c (dfp_unary_op): Use them.
+	(dfp_binary_op): Ditto.
+	(dfp_compare_op): Ditto.
+
 2005-07-28  Ben Elliston  <bje@au.ibm.com>
 
 	* real.h (REAL_VALUE_TO_TARGET_DECIMAL128): New.

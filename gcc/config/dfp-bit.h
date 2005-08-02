@@ -58,6 +58,26 @@
 #error invalid decimal float word width
 #endif
 
+/* We define __DEC_EVAL_METHOD__ to 2, saying that we evaluate all
+   operations and constants to the range and precision of the _Decimal32
+   type.  Make it so.  */
+#define CONTEXT_INIT DEC_INIT_DECIMAL128
+                                                                                
+/* Define a rounding mode to use everywhere, using the default for
+   decNumber which is also the default in the draft IEEE 754r.  */
+#if 1
+#define CONTEXT_ROUND DEC_ROUND_HALF_EVEN
+#define CONTEXT_TRAPS 0
+#else
+/* For testing we can replace the constant with a variable reference,
+   which currently must be defined in a separate shared library linked
+   with tests.  */
+extern int __dfp_round;
+#define CONTEXT_ROUND __dfp_round
+extern int __dfp_traps;
+#define CONTEXT_TRAPS __dfp_traps
+#endif
+
 #include "decNumber.h"
 
 #if WIDTH == 32

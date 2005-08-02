@@ -68,10 +68,9 @@ dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
 
   memcpy (&a, &arg, sizeof (a));
 
-  decContextDefault (&context, DEC_INIT_BASE);
-  context.digits = 5; /* FIXME: DECNUMDIGITS */
-  /* Quiet NaNs for C.  */
-  context.traps = 0;
+  decContextDefault (&context, CONTEXT_INIT);
+  context.round = CONTEXT_ROUND;
+  context.traps = CONTEXT_TRAPS;
 
   TO_INTERNAL (&a, &arg1);
 
@@ -96,10 +95,9 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   memcpy (&a, &arg_a, sizeof (a));
   memcpy (&b, &arg_b, sizeof (b));
 
-  decContextDefault (&context, DEC_INIT_BASE);
-  context.digits = 5; /* FIXME: DECNUMDIGITS */
-  /* Quiet NaNs for C.  */
-  context.traps = 0;
+  decContextDefault (&context, CONTEXT_INIT);
+  context.round = CONTEXT_ROUND;
+  context.traps = CONTEXT_TRAPS;
 
   TO_INTERNAL (&a, &arg1);
   TO_INTERNAL (&b, &arg2);
@@ -125,11 +123,9 @@ dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   memcpy (&a, &arg_a, sizeof (a));
   memcpy (&b, &arg_b, sizeof (b));
 
-  decContextDefault (&context, DEC_INIT_BASE);
-  context.digits = 20; /* FIXME: DECNUMDIGITS */
-
-  /* Quiet NaNs for C.  */
-  context.traps = 0;
+  decContextDefault (&context, CONTEXT_INIT);
+  context.round = CONTEXT_ROUND;
+  context.traps = CONTEXT_TRAPS;
 
   TO_INTERNAL (&a, &arg1);
   TO_INTERNAL (&b, &arg2);
