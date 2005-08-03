@@ -1,10 +1,9 @@
-2005-08-02  Mark Mitchell  <mark@codesourcery.com>
+2005-08-03  Mark Mitchell  <mark@codesourcery.com>
 
-	Backport:
-	2005-08-02  Mark Mitchell  <mark@codesourcery.com>
-	* config/i386/t-mingw32 (NATIVE_SYSTEM_HEADER_DIR): Set it.
+	* gcc/config/sparc/sparc.c (sparc_elf_asm_named_section): Use the
+	default_elf_asm_named_section routine if HAVE_GAS_COMDAT_GROUP.
 
-2005-08-01  Mark Mitchell  <mark@codesourcery.com>
+2005-08-03  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:
 	2004-12-22  Mark Mitchell  <mark@codesourcery.com>
@@ -13,6 +12,12 @@
 	2004-12-20  Mark Mitchell  <mark@codesourcery.com>
 	* Makefile.in (install-common): Do not install the specs file
 	unless SPECS is defined.
+
+2005-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-08-02  Mark Mitchell  <mark@codesourcery.com>
+	* config/i386/t-mingw32 (NATIVE_SYSTEM_HEADER_DIR): Set it.
 
 2005-07-30  Mark Mitchell  <mark@codesourcery.com>
 

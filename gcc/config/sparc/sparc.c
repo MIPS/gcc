@@ -8683,10 +8683,17 @@ static void
 sparc_elf_asm_named_section (const char *name, unsigned int flags,
 			     tree decl)
 {
-  if (flags & SECTION_MERGE)
-    {
-      /* entsize cannot be expressed in this section attributes
+  if (/* entsize cannot be expressed in this section attributes
 	 encoding style.  */
+      flags & SECTION_MERGE
+      /* If we're generating a COMDAT section, we must use the normal 
+	 GAS syntax.  On this branch, MAKE_DECL_ONE_ONLY does not set
+	 DECL_WEAK if HAVE_GAS_COMDAT_GROUP is true, so we *must* emit
+	 groups as COMDAT.  In mainline GCC, COMDAST is just ignored
+	 on Solaris, and we rely on the fact that the symbol is marked
+	 weak.  */
+      || (HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE)))
+    {
       default_elf_asm_named_section (name, flags, decl);
       return;
     }
