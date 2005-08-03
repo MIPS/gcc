@@ -1,3 +1,9 @@
+2005-08-03  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4174833
+	* obj-c++.dg/stabs-1.mm: New.
+	* objc.dg/stabs-2.m: New.
+
 2005-08-02 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4188876

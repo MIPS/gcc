@@ -1,3 +1,9 @@
+2005-08-03  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4174833
+	* dbxout.c (dbxout_type_fields): For Objective-C classes,
+	recursively output fields for superclasses first.
+
 2005-08-03 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4188876

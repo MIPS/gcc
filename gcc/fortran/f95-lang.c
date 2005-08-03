@@ -161,6 +161,14 @@ int cw_asm_state;
 int cw_asm_in_operands;
 /* APPLE LOCAL end CW asm blocks */
 
+/* APPLE LOCAL begin 4174833 */
+tree
+objc_is_class_name (tree ARG_UNUSED (arg))
+{
+  return 0;
+}
+
+/* APPLE LOCAL end 4174833 */
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
    that have names.  Here so we can clear out their names' definitions
    at the end of the function.  */

@@ -1519,6 +1519,25 @@ dbxout_type_fields (tree type)
 	     but not before the first field.  */
 	  if (tem != TYPE_FIELDS (type))
 	    CONTIN;
+	  /* APPLE LOCAL begin 4174833 */
+	  /* If we are outputting fields for an Objective-C class, we need
+	     to output all fields in superclasses as well; gdb does not
+	     currently grok Objective-C type hierarchies.  */
+	  else if (TREE_CODE (TREE_TYPE (tem)) == RECORD_TYPE
+		   && !strncmp (lang_hooks.name, "GNU Objective-C", 15))
+	    {
+	      /* NB: Non-C-based languages will need to provide a stub
+		 for objc_is_class_name().  */
+	      extern tree objc_is_class_name (tree);
+
+	      if (objc_is_class_name (TYPE_NAME (type))
+		  && objc_is_class_name (TYPE_NAME (TREE_TYPE (tem))))
+		{
+		  dbxout_type_fields (TREE_TYPE (tem));
+		  continue;
+		}
+	    }
+	  /* APPLE LOCAL end 4174833 */
 
 	  if (DECL_NAME (tem))
 	    stabstr_I (DECL_NAME (tem));
