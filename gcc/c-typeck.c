@@ -5337,6 +5337,16 @@ pop_init_level (int implicit)
     {
       if (constructor_erroneous)
 	ret.value = error_mark_node;
+      /* APPLE LOCAL begin radar 4188876 */
+      else if (!constructor_constant
+		&& TREE_CODE (constructor_type) == VECTOR_TYPE && constructor_decl
+		&& (TREE_CODE (TREE_TYPE (constructor_decl)) == RECORD_TYPE 
+		    || TREE_CODE (TREE_TYPE (constructor_decl)) == UNION_TYPE))
+	{
+          error ("Initializer is a non-const vector type");
+	  ret.value = error_mark_node;
+	}
+      /* APPLE LOCAL end radar 4188876 */
       else
 	{
 	  ret.value = build_constructor (constructor_type,

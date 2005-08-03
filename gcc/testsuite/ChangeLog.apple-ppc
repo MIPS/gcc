@@ -1,3 +1,8 @@
+2005-08-02 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4188876
+	* gcc.apple/vector-field-init.c: New.
+
 2005-08-02  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4185810

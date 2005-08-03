@@ -1,3 +1,9 @@
+2005-08-03 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4188876
+	* c-typeck.c (pop_init_level): Issue diagnostic on non-constant
+	vector initializers.
+
 2005-08-03 Dale Johannesen  <dalej@apple.com>
 
 	* loop.c (scan_loop):  Disable optimizations of loops that
