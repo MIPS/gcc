@@ -18,21 +18,3 @@ EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
 # because then __FRAME_END__ might not be the last thing in .eh_frame
 # section.
 CRTSTUFF_T_CFLAGS = -fno-omit-frame-pointer -fno-asynchronous-unwind-tables
-
-# Build decimal floating point support routines.
-
-D32PBIT  = dfp32-bit.c
-D64PBIT  = dfp64-bit.c
-D128PBIT = dfp128-bit.c
-
-dfp32-bit.c: $(srcdir)/config/dfp-bit.c
-	echo '#define WIDTH 32' > $@
-	cat $< >> $@
-
-dfp64-bit.c: $(srcdir)/config/dfp-bit.c
-	echo '#define WIDTH 64' > $@
-	cat $< >> $@
-
-dfp128-bit.c: $(srcdir)/config/dfp-bit.c
-	echo '#define WIDTH 128' > $@
-	cat $< >> $@
