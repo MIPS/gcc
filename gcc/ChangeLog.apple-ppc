@@ -1,3 +1,8 @@
+2005-08-03 Dale Johannesen  <dalej@apple.com>
+
+	* loop.c (scan_loop):  Disable optimizations of loops that
+	start with a jump into their middle.
+
 2005-08-01  Devang Patel  <dpatel@apple.com>
 
 	Radar 4168568
