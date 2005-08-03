@@ -2924,12 +2924,11 @@ install-common: native $(EXTRA_PARTS) lang.install-common installdirs
 	    chmod a-x $(DESTDIR)$(libsubdir)/$$file; \
 	  else true; fi; \
 	done
-# Don't mess with specs if it doesn't exist yet.
-	-if [ -f specs ] ; then \
-	  rm -f $(DESTDIR)$(libsubdir)/specs; \
-	  $(INSTALL_DATA) $(SPECS) $(DESTDIR)$(libsubdir)/specs; \
-	  chmod a-x $(DESTDIR)$(libsubdir)/specs; \
-	fi
+# We no longer install the specs file because its presence makes the
+# driver slower, and because people who need it can recreate it by
+# using -dumpspecs.  We remove any old version because it would
+# otherwise override the specs built into the driver.
+	rm -f $(DESTDIR)$(libsubdir)/specs
 # Install protoize if it was compiled.
 	-if [ -f protoize$(exeext) ]; then \
 	  rm -f $(DESTDIR)$(bindir)/$(PROTOIZE_INSTALL_NAME)$(exeext); \
