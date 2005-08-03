@@ -1,5 +1,7 @@
 2005-08-03  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/t-linux: New.
+
 	Revert this incorrect patch:
 
 	2005-04-08  Ben Elliston  <bje@au.ibm.com>
