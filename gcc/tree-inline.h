@@ -33,6 +33,7 @@ int estimate_move_cost (tree type);
 void push_cfun (struct function *new_cfun);
 void pop_cfun (void);
 int estimate_num_insns (tree expr);
+void remap_locals_in_gomp_body (tree, tree);
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.

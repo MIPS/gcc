@@ -1,3 +1,16 @@
+2005-08-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* cgraph.c (cgraph_add_new_function): When unit at a time is
+	disabled, just add the new function to the graph and mark it
+	as needed.
+	* gimple-low.c (struct remap_locals_d, add_decls_to_set,
+	build_remap_info, remap_locals_r, remap_locals_in_gomp_body):
+	Move ...
+	* tree-inline.c: ... here.
+	(move_decl_to): New local function.
+	(remap_locals_r): Call it.
+	* tree-inline.h (remap_locals_in_gomp_body): Declare.
+
 2005-08-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimple-low.c (create_gomp_fn): Call create_tmp_var_name to
