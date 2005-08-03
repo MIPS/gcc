@@ -5324,9 +5324,8 @@ assign_parms (tree fndecl)
 #endif
 #endif
 
-  current_function_args_size
-    = ((current_function_args_size + STACK_BYTES - 1)
-       / STACK_BYTES) * STACK_BYTES;
+  current_function_args_size = CEIL_ROUND (current_function_args_size,
+					   PARM_BOUNDARY / BITS_PER_UNIT);
 
 #ifdef ARGS_GROW_DOWNWARD
   current_function_arg_offset_rtx

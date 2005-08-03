@@ -1,5 +1,10 @@
 2005-08-03  Paul Brook  <paul@codesourcery.com>
 
+	* function.c (assign_parms): Round current_function_args_size
+	to PARM_BOUNDARY, not STACK_BOUNDARY.
+
+2005-08-03  Paul Brook  <paul@codesourcery.com>
+
 	* combine.c (can_change_dest_mode): New function.
 	(try_combine, simplify_set): Use it.
 
