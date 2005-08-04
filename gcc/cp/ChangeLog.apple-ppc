@@ -1,5 +1,11 @@
 2005-07-25 Fariborz Jahanian <fjahanian@apple.com>
 
+	Radar 4205577
+	* cp/parser.c (cp_parser_cw_asm_postfix_expression) .align can also
+	be preceeded by a label_decl (because of recent changes).
+	
+2005-07-25 Fariborz Jahanian <fjahanian@apple.com>
+
         Radar 4187916
         * cp-tree.h (can_convert_arg, fn_type_unification): New argument.
         * call.c (add_template_candidate_real): Pass down 'flags' to

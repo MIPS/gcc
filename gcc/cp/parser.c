@@ -17320,7 +17320,8 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	     directive, such as .align. Bail out early. */
 	  if (TREE_CODE (postfix_expression) == INTEGER_CST
 	      || TREE_CODE (postfix_expression) == IDENTIFIER_NODE
-	      || TREE_CODE (postfix_expression) == COMPOUND_EXPR)
+	      || TREE_CODE (postfix_expression) == COMPOUND_EXPR
+	      || TREE_CODE (postfix_expression) == LABEL_DECL)
 	    return postfix_expression;
 
 	case CPP_DEREF:
