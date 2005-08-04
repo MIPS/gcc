@@ -1,3 +1,8 @@
+2005-08-04  Devang Patel  <dpatel@apple.com>
+
+	Radar 4178746
+	* obj-c++.dg/debug-1.mm: Fix.
+
 2005-08-03  Dale Johannesen  <dalej@apple.com>
 
 	* gcc.apple/3501055.c:  New.

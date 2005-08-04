@@ -26,4 +26,4 @@ int B::m()
   return 1;
 }
 
-/* { dg-final { scan-assembler "B:Tt\\(0,45\\)=s16!1,10-96" } } */
+/* { dg-final { scan-assembler "B:Tt\\(\[0-9\],\[0-9\]*\\)=s16!1,10-96" } } */
