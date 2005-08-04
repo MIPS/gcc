@@ -5911,7 +5911,8 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
       tree n;
 
       if (!force 
-	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn))
+	  /* APPLE LOCAL radar 4187916 */
+	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn, LOOKUP_NORMAL))
 	error ("invalid conversion to type %qT from type %qT", 
                to_type, pfn_type);
 

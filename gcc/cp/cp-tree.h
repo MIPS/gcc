@@ -3685,7 +3685,8 @@ extern tree build_special_member_call (tree, tree, tree, tree, int);
 extern tree build_new_op (enum tree_code, int, tree, tree, tree, bool *);
 extern tree build_op_delete_call (enum tree_code, tree, tree, bool, tree);
 extern bool can_convert (tree, tree);
-extern bool can_convert_arg (tree, tree, tree);
+/* APPLE LOCAL radar 4187916 */
+extern bool can_convert_arg (tree, tree, tree, int);
 extern bool can_convert_arg_bad (tree, tree, tree);
 extern bool enforce_access (tree, tree);
 extern tree convert_default_arg (tree, tree, tree, int);
@@ -4025,7 +4026,8 @@ extern int uses_template_parms			(tree);
 extern int uses_template_parms_level		(tree, int);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
-extern int fn_type_unification                  (tree, tree, tree, tree, tree, unification_kind_t, int);
+/* APPLE LOCAL radar 4187916 */
+extern int fn_type_unification                  (tree, tree, tree, tree, tree, unification_kind_t, int, int);
 extern void mark_decl_instantiated		(tree, int);
 extern int more_specialized_fn			(tree, tree, int);
 extern void mark_class_instantiated		(tree, int);

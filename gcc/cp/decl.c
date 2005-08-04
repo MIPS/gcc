@@ -4396,7 +4396,8 @@ reshape_init (tree type, tree *initp)
      initializer is considered for the initialization of the first
      member of the subaggregate.  */
   if (!brace_enclosed_p
-      && can_convert_arg (type, TREE_TYPE (old_init_value), old_init_value))
+      /* APPLE LOCAL radar 4187916 */
+      && can_convert_arg (type, TREE_TYPE (old_init_value), old_init_value, LOOKUP_NORMAL))
     {
       *initp = TREE_CHAIN (old_init);
       TREE_CHAIN (old_init) = NULL_TREE;
@@ -8515,7 +8516,8 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   if (!TREE_TYPE (arg)
-      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg))
+      /* APPLE LOCAL radar 4187916 */
+      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg, LOOKUP_NORMAL))
     {
       if (decl)
 	error ("default argument for %q#D has type %qT",

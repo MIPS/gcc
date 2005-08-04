@@ -111,8 +111,11 @@ static tree add_to_template_args (tree, tree);
 static tree add_outermost_template_args (tree, tree);
 static bool check_instantiated_args (tree, tree, tsubst_flags_t);
 static int maybe_adjust_types_for_deduction (unification_kind_t, tree*, tree*); 
+/* APPLE LOCAL begin mainline 2005-07-26 */
 static int  type_unification_real (tree, tree, tree, tree,
-				   int, unification_kind_t, int, int);
+				   /* APPLE LOCAL radar 4187916 */
+				   int, unification_kind_t, int, int, int);
+/* APPLE LOCAL end mainline 2005-07-26 */
 static void note_template_header (int);
 static tree convert_nontype_argument_function (tree, tree);
 static tree convert_nontype_argument (tree, tree);
@@ -9094,7 +9097,9 @@ fn_type_unification (tree fn,
                      tree args, 
                      tree return_type,
 		     unification_kind_t strict, 
-                     int len)
+                     int len,
+		     /* APPLE LOCAL radar 4187916 */
+		     int flags)
 {
   tree parms;
   tree fntype;
@@ -9176,7 +9181,8 @@ fn_type_unification (tree fn,
 /* APPLE LOCAL begin mainline 2005-07-26 */
   result = type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn), 
 				  targs, parms, args, /*subr=*/0,
-				  strict, 0, len);
+				  /* APPLE LOCAL radar 4187916 */
+				  strict, 0, len, flags);
 /* APPLE LOCAL end mainline 2005-07-26 */
 
   if (result == 0) 
@@ -9288,7 +9294,7 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
    arguments of a function or method parameter of a function
    template).  If IS_METHOD is true, XPARMS are the parms of a
    member function, and special rules apply to cv qualification
-   deduction on the this parameter. */
+   deduction on the this parameter.  */
 /* APPLE LOCAL end mainline 2005-07-26 */
 
 static int
@@ -9299,8 +9305,10 @@ type_unification_real (tree tparms,
                        int subr,
 		       unification_kind_t strict, 
 /* APPLE LOCAL mainline 2005-07-26 */
-                       int is_method, 
-                       int xlen)
+		       int is_method,
+                       int xlen,
+		       /* APPLE LOCAL radar 4187916 */
+		       int flags)
 {
   tree parm, arg;
   int i;
@@ -9365,22 +9373,21 @@ type_unification_real (tree tparms,
          /* The cv qualifiers on the this pointer argument must match
             exactly.  We cannot deduce a T as const X against a const
             member function for instance.  */
-         gcc_assert (TREE_CODE (parm) == POINTER_TYPE);
-         gcc_assert (TREE_CODE (arg) == POINTER_TYPE);
-         /* The restrict qualifier will be on the pointer.  */
-         if (cp_type_quals (parm) != cp_type_quals (arg))
-           return 1;
-         parm = TREE_TYPE (parm);
-         arg = TREE_TYPE (arg);
-         if (cp_type_quals (parm) != cp_type_quals (arg))
-           return 1;
-
-        parm = TYPE_MAIN_VARIANT (parm);
-        arg = TYPE_MAIN_VARIANT (arg);
-        is_method = 0;
+  	 gcc_assert (TREE_CODE (parm) == POINTER_TYPE);
+  	 gcc_assert (TREE_CODE (arg) == POINTER_TYPE);
+  	 /* The restrict qualifier will be on the pointer.  */
+  	 if (cp_type_quals (parm) != cp_type_quals (arg))
+    	   return 1;
+  	 parm = TREE_TYPE (parm);
+  	 arg = TREE_TYPE (arg);
+  	 if (cp_type_quals (parm) != cp_type_quals (arg))
+    	   return 1;
+  
+  	parm = TYPE_MAIN_VARIANT (parm);
+  	arg = TYPE_MAIN_VARIANT (arg);
+  	is_method = 0;
       }
 /* APPLE LOCAL end mainline 2005-07-26 */
-
       /* Conversions will be performed on a function argument that
 	 corresponds with a function parameter that contains only
 	 non-deducible template parameters and explicitly specified
@@ -9398,7 +9405,8 @@ type_unification_real (tree tparms,
 	  if (same_type_p (parm, type))
 	    continue;
 	  if (strict != DEDUCE_EXACT
-	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg))
+	      /* APPLE LOCAL radar 4187916 */
+	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg, flags))
 	    continue;
 	  /* APPLE LOCAL end mainline 4.1 2005-06-17 4122333 */
 	  
@@ -10298,9 +10306,9 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	return 1;
 /* APPLE LOCAL begin mainline 2005-07-26 */
       return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
-				    TYPE_ARG_TYPES (arg), 1, 
-				    DEDUCE_EXACT, 
-				    TREE_CODE (parm) == METHOD_TYPE, -1);
+				    TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT, 
+				    /* APPLE LOCAL radar 4187916 */
+				    TREE_CODE (parm) == METHOD_TYPE, -1, LOOKUP_NORMAL);
 /* APPLE LOCAL end mainline 2005-07-26 */
 
     case OFFSET_TYPE:
@@ -10692,7 +10700,8 @@ get_bindings_real (tree fn,
 			   decl_arg_types,
 			   (check_rettype || DECL_CONV_FN_P (fn)
 	                    ? TREE_TYPE (decl_type) : NULL_TREE),
-			   deduce, len);
+			   /* APPLE LOCAL radar 4187916 */
+			   deduce, len, LOOKUP_NORMAL);
 
   if (i != 0)
     return NULL_TREE;

@@ -2231,7 +2231,8 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 
   i = fn_type_unification (tmpl, explicit_targs, targs,
 			   args_without_in_chrg,
-			   return_type, strict, -1);
+			   /* APPLE LOCAL radar 4187916 */
+			   return_type, strict, -1, flags);
 
   if (i != 0)
     return NULL;
@@ -6369,13 +6370,15 @@ tourney (struct z_candidate *candidates)
 bool
 can_convert (tree to, tree from)
 {
-  return can_convert_arg (to, from, NULL_TREE);
+  /* APPLE LOCAL radar 4187916 */
+  return can_convert_arg (to, from, NULL_TREE, LOOKUP_NORMAL);
 }
 
 /* Returns nonzero if ARG (of type FROM) can be converted to TO.  */
 
 bool
-can_convert_arg (tree to, tree from, tree arg)
+/* APPLE LOCAL radar 4187916 */
+can_convert_arg (tree to, tree from, tree arg, int flags)
 {
   conversion *t;
   void *p;
@@ -6386,7 +6389,8 @@ can_convert_arg (tree to, tree from, tree arg)
 
   /* APPLE LOCAL begin mainline 4.0.2 */
   t  = implicit_conversion (to, from, arg, /*c_cast_p=*/false, 
-			    LOOKUP_NORMAL);
+			    /* APPLE LOCAL radar 4187916 */
+			    flags);
   /* APPLE LOCAL end mainline 4.0.2 */
   ok_p = (t && !t->bad_p);
 
