@@ -1231,14 +1231,25 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 
   /* Narrow down the class of register wanted if that is
      desirable on this machine for efficiency.  */
+  /* APPLE LOCAL begin 3501055 etc */
+  {
+    enum reg_class preferred_class = class;
+
   if (in != 0)
-    class = PREFERRED_RELOAD_CLASS (in, class);
+      preferred_class = PREFERRED_RELOAD_CLASS (in, class);
 
   /* Output reloads may need analogous treatment, different in detail.  */
 #ifdef PREFERRED_OUTPUT_RELOAD_CLASS
   if (out != 0)
-    class = PREFERRED_OUTPUT_RELOAD_CLASS (out, class);
+      preferred_class = PREFERRED_OUTPUT_RELOAD_CLASS (out, preferred_class);
 #endif
+
+    /* Discard what the target said if we cannot do it.  */
+    if (preferred_class != NO_REGS
+        || (optional && type == RELOAD_FOR_OUTPUT))
+      class = preferred_class;
+  }
+  /* APPLE LOCAL end 3501055 etc */
 
   /* Make sure we use a class that can handle the actual pseudo
      inside any subreg.  For example, on the 386, QImode regs
@@ -1964,7 +1975,13 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 
   /* Narrow down the reg class, the same way push_reload will;
      otherwise we might find a dummy now, but push_reload won't.  */
-  class = PREFERRED_RELOAD_CLASS (in, class);
+  /* APPLE LOCAL begin 3501055 etc */
+  {
+    enum reg_class preferred_class = PREFERRED_RELOAD_CLASS (in, class);
+    if (class != NO_REGS)
+      class = preferred_class;
+  }
+  /* APPLE LOCAL begin 3501055 etc */
 
   /* See if OUT will do.  */
   if (REG_P (out)
@@ -3470,18 +3487,6 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		    losers++;
 		}
 
-	      /* If we can't reload this value at all, reject this
-		 alternative.  Note that we could also lose due to
-		 LIMIT_RELOAD_RELOAD_CLASS, but we don't check that
-		 here.  */
-
-	      if (! CONSTANT_P (operand)
-		  && (enum reg_class) this_alternative[i] != NO_REGS
-		  && (PREFERRED_RELOAD_CLASS (operand,
-					      (enum reg_class) this_alternative[i])
-		      == NO_REGS))
-		bad = 1;
-
 	      /* Alternative loses if it requires a type of reload not
 		 permitted for this insn.  We can always reload SCRATCH
 		 and objects with a REG_UNUSED note.  */
@@ -3492,6 +3497,30 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      else if (modified[i] != RELOAD_WRITE && no_input_reloads
 		       && ! const_to_mem)
 		bad = 1;
+
+	      /* APPLE LOCAL begin 3501055 etc */
+	      /* If we can't reload this value at all, reject this
+		 alternative.  Note that we could also lose due to
+		 LIMIT_RELOAD_CLASS, but we don't check that
+		 here.  */
+
+	      if (! CONSTANT_P (operand)
+		  && (enum reg_class) this_alternative[i] != NO_REGS)
+		{
+		  if (PREFERRED_RELOAD_CLASS 
+		    (operand, (enum reg_class) this_alternative[i])
+		      == NO_REGS)
+		    reject = 600;
+
+#ifdef PREFERRED_OUTPUT_RELOAD_CLASS
+		  if (operand_type[i] == RELOAD_FOR_OUTPUT
+		      && PREFERRED_OUTPUT_RELOAD_CLASS
+		       (operand, (enum reg_class) this_alternative[i])
+			 == NO_REGS)
+		    reject = 600;
+#endif
+		}
+	      /* APPLE LOCAL end 3501055 etc */
 
 	      /* We prefer to reload pseudos over reloading other things,
 		 since such reloads may be able to be eliminated later.

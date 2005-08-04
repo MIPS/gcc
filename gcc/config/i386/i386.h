@@ -1566,6 +1566,14 @@ enum reg_class
 #define PREFERRED_RELOAD_CLASS(X, CLASS) \
    ix86_preferred_reload_class ((X), (CLASS))
 
+/* APPLE LOCAL begin 3501055 mainline candidate */
+/* Discourage putting floating-point values in SSE registers unless
+   SSE math is being used, and likewise for the 387 registers.  */
+
+#define PREFERRED_OUTPUT_RELOAD_CLASS(X, CLASS) \
+   ix86_preferred_output_reload_class ((X), (CLASS))
+/* APPLE LOCAL end 3501055 mainline candidate */
+
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.  */
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) \

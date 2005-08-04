@@ -1,3 +1,26 @@
+2005-08-03  Dale Johannesen  <dalej@apple.com>
+
+	* reload.c (push_reload): Better handling for 
+	PREFERRED_OUTPUT_RELOAD_CLASS.
+	(find_dummy_reload):  Ditto.
+	(find_reloads):  Ditto.
+	* regclass.c (struct reg_pref):  Redocument prefclass.
+	(regclass):  Allow for memory being better than	any regclass.
+	(record_reg_classes):  Allow for prefclass being NO_REGS.
+	* i386.c (ix86_preferred_reload_class):  Improved handling for SSE.
+	(ix86_preferred_output_reload_class):  New.
+	* i386.h (PREFERRED_OUTPUT_RELOAD_CLASS):  New.
+	* i386.md (cmpfp_i_mixed, cmpfp_iu_mixed, pushsf, pushsf_rex64,
+	movsf_1, pushdf_nointeger, pushdf_integer, movdf_nointeger, 
+	movdf_integer, pushxf_integer, movxf_integer, extendsfdf2_mixed,
+	truncxfsf2_mixed, truncxfsf2_i387, truncxfdf2_mixed, 
+	truncxfdf2_i387, floatsisf2_mixed, floatdisf2_mixed, floatsidf2_mixed,
+	floatdidf2_mixed, absnegsf2_mixed, absnegdf2_mixed, fp_jcc_1_mixed,
+	fp_jcc_2_mixed, fop_sf_comm_mixed, fop_sf_1_mixed, fop_df_comm_mixed,
+	fop_df_1_mixed, sqrtsf2_mixed, sqrtdf2_mixed, movsfcc_1_387,
+	movdfcc_1, movdfcc_1_rex64):  Remove register hints.
+	* i386-protos.h (ix86_preferred_output_reload_class):  New.
+
 2005-08-03  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4174833

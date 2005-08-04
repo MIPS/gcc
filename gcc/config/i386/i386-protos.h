@@ -190,6 +190,8 @@ extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 extern bool ix86_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
+/* APPLE LOCAL 3501055 mainline candidate */
+extern enum reg_class ix86_preferred_output_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern void emit_i387_cw_initialization (rtx, rtx, int);
 extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
