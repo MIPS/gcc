@@ -1981,7 +1981,7 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
     if (class != NO_REGS)
       class = preferred_class;
   }
-  /* APPLE LOCAL begin 3501055 etc */
+  /* APPLE LOCAL end 3501055 etc */
 
   /* See if OUT will do.  */
   if (REG_P (out)
@@ -3486,6 +3486,9 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  if (this_alternative[i] != (int) NO_REGS)
 		    losers++;
 		}
+
+	      /* APPLE LOCAL 3501055 etc */
+	      /* Block of code here modified and moved down */
 
 	      /* Alternative loses if it requires a type of reload not
 		 permitted for this insn.  We can always reload SCRATCH
