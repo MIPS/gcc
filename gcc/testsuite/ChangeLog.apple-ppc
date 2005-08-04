@@ -1,3 +1,7 @@
+2005-08-03  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.apple/3501055.c:  New.
+
 2005-08-03  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4174833
