@@ -1,5 +1,5 @@
 /* APPLE LOCAL begin radar 4188876 */
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-faltivec" } */
 extern void abort();
 int routine(void) 
