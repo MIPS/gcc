@@ -7738,7 +7738,7 @@ c_write_global_declarations (void)
   build_cdtor ('I', static_ctors); static_ctors = 0;
   build_cdtor ('D', static_dtors); static_dtors = 0;
 
-  /* APPLE LOCAL end 4134283 */
+  /* APPLE LOCAL begin 4134283 */
   /* Do cgraph_optimize() before writing globals.  */
 }
 /* APPLE LOCAL end 4134283 bogus */
