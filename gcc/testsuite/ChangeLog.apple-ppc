@@ -1,3 +1,8 @@
+2005-08-04  Devang Patel  <dpatel@apple.com>
+
+	Radar 4196953
+	* gcc.dg/debug-lsym-[1-4].c: New.
+
 2005-08-04  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4174833

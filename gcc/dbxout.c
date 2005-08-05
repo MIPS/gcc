@@ -1832,7 +1832,12 @@ dbxout_type (tree type, int full)
 #endif
     }
 
-  if (flag_debug_only_used_symbols)
+  /* APPLE LOCAL begin 4196953 */
+  /* Output the number of this type, to refer to it.  */
+  dbxout_type_index (type);
+
+  if (flag_debug_only_used_symbols && !full)
+    /* APPLE LOCAL end 4196953 */
     {
       if ((TREE_CODE (type) == RECORD_TYPE
 	   || TREE_CODE (type) == UNION_TYPE
@@ -1841,14 +1846,24 @@ dbxout_type (tree type, int full)
 	  && TYPE_STUB_DECL (type)
 	  && DECL_P (TYPE_STUB_DECL (type))
 	  && ! DECL_IGNORED_P (TYPE_STUB_DECL (type)))
-	debug_queue_symbol (TYPE_STUB_DECL (type));
+	/* APPLE LOCAL begin 4196953 */
+	{
+	  debug_queue_symbol (TYPE_STUB_DECL (type));
+	  return;
+	}
+        /* APPLE LOCAL end 4196953 */
       else if (TYPE_NAME (type)
 	       && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL)
-	debug_queue_symbol (TYPE_NAME (type));
+	/* APPLE LOCAL begin 4196953 */
+	{
+	  debug_queue_symbol (TYPE_NAME (type));
+	  return;
+	}
+        /* APPLE LOCAL end 4196953 */
     }
 
-  /* Output the number of this type, to refer to it.  */
-  dbxout_type_index (type);
+  /* APPLE LOCAL 4196953 */
+  /* Move dbxout_out_index () call few lines above.  */
 
 #ifdef DBX_TYPE_DEFINED
   if (DBX_TYPE_DEFINED (type))

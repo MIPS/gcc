@@ -1,3 +1,8 @@
+2005-08-04  Devang Patel  <dpatel@apple.com>
+
+	Radar 4196953
+	* dbxout.c (dbxout_type): Emit type defs in new LSYM stab.
+
 2005-08-04  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4174833
