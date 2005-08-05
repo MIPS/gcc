@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline 4090984 */
 /* { dg-options "-O3 -fno-inline" } */
 struct foo { int a, b, c; };
 void abort(void);
