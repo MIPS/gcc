@@ -1,3 +1,10 @@
+2005-08-05  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/loop.c (combine_movables): Require the modes to be the same.
+	(move_movables): Remove handling of cases where the replacement
+	had a different mode to the original.
+	* gcc/testsuite/gcc.c-torture/compile/pr23233-1.c: New test.
+
 2005-07-29  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:
