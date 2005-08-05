@@ -1,3 +1,9 @@
+2005-08-04  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4174833
+	* dbxout.c (dbxout_type): For Objective-C classes, do not
+	output superclass metadata before outputting the fields.
+
 2005-08-03  Dale Johannesen  <dalej@apple.com>
 
 	* reload.c (push_reload): Better handling for 
