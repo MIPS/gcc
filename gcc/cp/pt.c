@@ -9097,9 +9097,10 @@ fn_type_unification (tree fn,
                      tree args, 
                      tree return_type,
 		     unification_kind_t strict, 
+		     /* APPLE LOCAL begin radar 4187916 */
                      int len,
-		     /* APPLE LOCAL radar 4187916 */
 		     int flags)
+		     /* APPLE LOCAL end radar 4187916 */
 {
   tree parms;
   tree fntype;
