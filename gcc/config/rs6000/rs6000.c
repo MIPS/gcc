@@ -15945,6 +15945,10 @@ rs6000_emit_prologue (void)
   /* APPLE LOCAL special ObjC method use of R12 */
   int objc_method_using_pic = 0;
 
+  /* APPLE LOCAL begin CW asm block */
+  if (cfun->cw_asm_function && cfun->cw_asm_frame_size == -2)
+    return;
+  /* APPLE LOCAL end CW asm block */
   /* APPLE LOCAL begin special ObjC method use of R12 */
 #if TARGET_MACHO
   if (DEFAULT_ABI == ABI_DARWIN 
@@ -16726,6 +16730,21 @@ rs6000_emit_epilogue (int sibcall)
   enum machine_mode reg_mode = Pmode;
   int reg_size = TARGET_32BIT ? 4 : 8;
   int i;
+
+  /* APPLE LOCAL begin CW asm block */
+  if (cfun->cw_asm_function && cfun->cw_asm_frame_size == -2)
+    {
+      
+      rtvec p = rtvec_alloc (2);
+
+      RTVEC_ELT (p, 0) = gen_rtx_RETURN (VOIDmode);
+      RTVEC_ELT (p, 1) = gen_rtx_USE (VOIDmode,
+				      gen_rtx_REG (Pmode,
+						   LINK_REGISTER_REGNUM));
+      emit_jump_insn (gen_rtx_PARALLEL (VOIDmode, p));
+      return;
+    }
+  /* APPLE LOCAL end CW asm block */
 
   info = rs6000_stack_info ();
 

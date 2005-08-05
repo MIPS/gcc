@@ -1,3 +1,10 @@
+2005-08-04 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4205758
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): No prologue code
+	with CW nofralloc directive.
+	(rs6000_emit_epilogue): No epilogue code with CW nofralloc directive.
+
 2005-08-05  Dale Johannesen  <dalej@apple.com>
 
 	* cfgexpand.c (construct_init_block):  Roll in fix
