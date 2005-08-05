@@ -1,3 +1,8 @@
+2005-08-05  Dale Johannesen  <dalej@apple.com>
+
+	* cfgexpand.c (construct_init_block):  Roll in fix
+	for PR 21562 from mainline.
+
 2005-08-05  Stuart Hastings  <stuart@apple.com>
 
 	Radars 4037817, 4178585, 4200438
