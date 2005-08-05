@@ -1,3 +1,9 @@
+2005-08-05  Stuart Hastings  <stuart@apple.com>
+
+	Radars 4037817, 4178585, 4200438
+	* rs6000.c (optimization_options): Set -Os inlining heuristics to 30,30.
+	* i386.c (optimization_options): Likewise.
+
 2005-08-04  Devang Patel  <dpatel@apple.com>
 
 	Radar 4196953
