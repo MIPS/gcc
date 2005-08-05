@@ -7738,10 +7738,10 @@ c_write_global_declarations (void)
   build_cdtor ('I', static_ctors); static_ctors = 0;
   build_cdtor ('D', static_dtors); static_dtors = 0;
 
-  /* APPLE LOCAL 4134283 */
+  /* APPLE LOCAL end 4134283 */
   /* Do cgraph_optimize() before writing globals.  */
 }
-
+/* APPLE LOCAL end 4134283 bogus */
 /* APPLE LOCAL begin CW asm blocks */
 /* Look for a struct or union tag, but quietly; don't complain if neither
    is found, and don't autocreate. Used to identify struct/union tags

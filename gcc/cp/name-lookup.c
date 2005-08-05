@@ -4657,6 +4657,7 @@ pushtag (tree name, tree type, int globalize)
 
 	  d = create_implicit_typedef (name, type);
 	  DECL_CONTEXT (d) = FROB_CONTEXT (context);
+
 	  if (! in_class)
 	    set_identifier_type_value_with_scope (name, d, b);
 
