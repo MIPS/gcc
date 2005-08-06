@@ -987,7 +987,8 @@ dbxout_function_end (tree decl)
 				
 #endif
 
-  if (!NO_DBX_BNSYM_ENSYM && !flag_debug_only_used_symbols)
+  /* APPLE LOCAL Essenstial Symbols */
+  if (!NO_DBX_BNSYM_ENSYM)
     dbxout_stabd (N_ENSYM, 0);
 }
 #endif /* DBX_DEBUGGING_INFO */
@@ -1333,8 +1334,8 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
 {
   if (use_gnu_debug_info_extensions
       && !NO_DBX_FUNCTION_END
-      && !NO_DBX_BNSYM_ENSYM
-      && !flag_debug_only_used_symbols)
+      /* APPLE LOCAL Essential Symbols */
+      && !NO_DBX_BNSYM_ENSYM)
     dbxout_stabd (N_BNSYM, 0);
 
   dbxout_source_line (lineno, filename);

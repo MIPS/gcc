@@ -1,3 +1,8 @@
+2005-08-05  Devang Patel  <dpatel@apple.com>
+
+	* dbxout.c (dbxout_function_end): Enable N_ENSYM in -gused mode.
+	(dbxout_begin_prologue): Enable N_BNSYM in -gused mode.
+
 2005-08-05  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4200438
