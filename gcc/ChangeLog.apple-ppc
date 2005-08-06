@@ -1,3 +1,10 @@
+2005-08-05  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4200438
+	* opts.c (set_flags_from_O): Set inline heuristic according to input language.
+	* rs6000.c (optimization_options): Remove -Os inline heuristic fudging.
+	* i386.c (optimization_options): Likewise.
+
 2005-08-04 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4205758

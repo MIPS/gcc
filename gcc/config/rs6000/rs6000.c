@@ -61,8 +61,6 @@
 #if TARGET_MACHO
 #include "gstab.h"  /* for N_SLINE */
 #endif
-/* APPLE LOCAL -Os 4178585 */
-#include "params.h"
 
 /* APPLE LOCAL begin pascal strings */
 #include "../../libcpp/internal.h"
@@ -1972,13 +1970,6 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 	 turned on when <fenv.h> is included (see darwin_pragma_fenv
 	 in darwin-c.c).  */
       flag_trapping_math = 0;
-      /* APPLE LOCAL begin -Os 4037817, 4178585, 4200438 */
-      if (optimize_size)
-	{
-	  set_param_value ("max-inline-insns-single", 30);
-	  set_param_value ("max-inline-insns-auto", 30);
-	}
-      /* APPLE LOCAL end -Os 4037817, 4178585, 4200438 */
     }
   /* APPLE LOCAL end tweak default optimizations */
 }

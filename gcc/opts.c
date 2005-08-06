@@ -581,9 +581,16 @@ void set_flags_from_O (unsigned int cmdline)
     {
       if (cmdline)
 	{
+          /* APPLE LOCAL begin 4200438 */
+	  /* Set inlining heuristic at 450 for C and ObjC; 30 for every other language.  */
+	  int estimated_insns =  (!strcmp (lang_hooks.name, "GNU C")
+				  || !strcmp (lang_hooks.name, "GNU Objective-C"))
+	    ? 450 : 30;
 	  /* Inlining of very small functions usually reduces total size.  */
-	  set_param_value ("max-inline-insns-single", 5);
-	  set_param_value ("max-inline-insns-auto", 5);
+	  set_param_value ("max-inline-insns-single", estimated_insns);
+	  set_param_value ("max-inline-insns-auto", estimated_insns);
+	  /* APPLE LOCAL end 4200438 */
+					
 	  flag_inline_functions = 1;
 
 	  /* We want to crossjump as much as possible.  */
