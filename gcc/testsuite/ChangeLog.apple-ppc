@@ -1,3 +1,7 @@
+2005-08-08  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/cpp/headermaps-2.c: New.
+
 2005-08-05  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/debug-bnsym-1.c: New.
