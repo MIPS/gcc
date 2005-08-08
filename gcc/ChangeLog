@@ -1,3 +1,98 @@
+2005-08-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa64-regs.h (CONDITIONAL_REGISTER_USAGE): Fix loop upper bound.
+
+2005-08-05  Richard Henderson  <rth@redhat.com>
+
+        PR 21728
+        * tree-cfg.c (remove_bb): Transmute DECL_NONLOCAL labels into
+        FORCED_LABEL labels.
+
+2005-08-04  Richard Henderson  <rth@redhat.com>
+
+        PR 21529
+        * params.def (PARAM_SRA_MAX_STRUCTURE_COUNT): New.
+        * params.h (SRA_MAX_STRUCTURE_COUNT): New.
+        * tree-sra.c (decide_block_copy): Use it.  Disable element copy
+        if we'd have to instantiate too many members.
+
+2005-08-04  Richard Henderson  <rth@redhat.com>
+
+	PR 21291
+	* tree-outof-ssa.c (coalesce_asm_operands): New.
+	(coalesce_ssa_name): Use it.  Split out ...
+	(coalesce_phi_operands, coalesce_result_decls): ... these.
+
+2005-08-04  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Binaries): Remove broken link to
+	Sinix/Reliant Unix binaries.
+
+2005-08-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (function_value): Handle small aggregates on 32-bit targets.
+	(function_arg): Pass small aggregates in general registers on 32-bit
+	targets.
+	* som.h (MEMBER_TYPE_FORCES_BLK): Delete define.
+
+2005-08-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR tree-optimization/19899
+	* Makefile.in (tree-scalar-evolution.o): Add real.h.
+	* tree-scalar-evolution.c: Include real.h.
+	(add_to_evolution): Build constant -1 of correct type.
+
+2005-08-03  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Specific): Adjust link to openavr.org.
+	(Specific): Remove broken reference to GCC 2.8.1 for OS/2.
+	(Binaries): Adjust HP-UX Porting Center link.
+	(Binaries): Adjust Free Software Foundation ordering link.
+
+2005-08-02  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (tree_expr_nonnegative_p): frexp(x, &e) is
+	positive if its first argument is positive.
+
+2005-08-02  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 23192
+	* tree-ssa-alias.c (add_pointed_to_var): If VALUE is of the
+	form &(*PTR), take points-to information from PTR.
+	Give up by marking PTR as pointing anywhere if VALUE is
+	not recognized.
+
+2005-08-01  Ian Lance Taylor  <ian@airs.com>
+
+	* config/host-linux.c (linux_gt_pch_get_address): Add new name
+	randomize_va_space for virtual address randomization control.
+
+2005-08-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/22311
+	* c-typeck.c (build_binary_op): Use common_type wrapper on
+	shortened types.
+	(common_type): Update comment.
+
+2005-07-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/21723
+	* pa.md: Remove fcpy alternative from movhi and movqi patterns.
+	* pa32-regs.h (HARD_REGNO_NREGS): Return two floating point registers
+	for complex modes when generating code for PA 1.0.
+	(VALID_FP_MODE_P): New macro.
+	(HARD_REGNO_MODE_OK): Use VALID_FP_MODE_P.  Use non-overlapping register
+	sets for all general and floating point modes.  Align wide floating
+	point modes to even register boundaries to comply with architectural
+	requirements.
+	(CLASS_MAX_NREGS): Update to align with change to HARD_REGNO_NREGS.
+	* pa64-regs.h (HARD_REGNO_NREGS): Update comment and formatting.
+	(VALID_FP_MODE_P): New macro.
+	(HARD_REGNO_MODE_OK): Use VALID_FP_MODE_P.  Use non-overlapping register
+	sets for all general and floating point modes.  Align wide floating
+	point modes to even register boundaries to comply with architectural
+	requirements.
+
 2005-07-29  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/sysv4.h (TARGET_ASM_EXCEPTION_SECTION): Delete.
@@ -1453,6 +1548,11 @@
 	PR middle-end/20491
 	* config/ia64/ia64.c (rtx_needs_barrier): Recurse instead of
 	falling through from SUBREG case to REG.
+
+2005-04-15  David S. Miller  <davem@davemloft.net>
+
+	PR target/20673
+	* config/sparc/sparc.h (sparc_hard_reg_printed): Mark as GTY(()).
 
 2005-04-15  Dave Korn <dave.korn@artimi.com>
 

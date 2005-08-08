@@ -1,3 +1,39 @@
+2005-08-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* primary.c (match_hollerith_constant): Fix typo.
+
+2005-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/18833
+	PR fortran/20850
+	* primary.c (match_varspec): If equiv_flag, don't look at sym's
+	attributes, call gfc_match_array_ref up to twice and don't do any
+	substring or component processing.
+	* resolve.c (resolve_equivalence): Transform REF_ARRAY into
+	REF_SUBSTRING or nothing if needed.  Check that substrings
+	don't have zero length.
+
+2005-08-05  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22010
+	Port from g95.
+	* module.c (mio_namelist): New function. Correct to set
+	namelist_tail and to give error on renaming namelist by use
+	association.
+	(mio_symbol): Call mio_namelist.
+
+2005-08-04  Paul Brook  <paul@codesourcery.com>
+
+	* trans-expr.c (gfc_conv_expr, gfc_conv_expr_type): Update comments.
+	(gfc_conv_expr_lhs): Fix assertion.
+	(gfc_conv_expr_val): Merge post block.  Set se.expr to new value.
+	* trans.h: Move and update comments.
+
+2005-07-31  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* intrinsic.texi: Backport from 4.1 branch.
+
 2005-07-27  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR fortran/22503
