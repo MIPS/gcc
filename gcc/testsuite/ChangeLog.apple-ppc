@@ -1,6 +1,11 @@
 2005-08-08  Devang Patel  <dpatel@apple.com>
 
-	* gcc.dg/cpp/headermaps-2.c: New.
+	Radar 4208760
+	* gcc.apple/ppc-ignore-options-2.c: New.
+
+2005-08-08  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/cpp/headermaps-2.c: Remove.
 
 2005-08-05  Devang Patel  <dpatel@apple.com>
 

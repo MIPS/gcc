@@ -1,3 +1,8 @@
+2005-08-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 4208760
+	* config/rs6000.darwin.h (CC1_SPEC): Ignore -msse3.
+
 2005-08-05  Devang Patel  <dpatel@apple.com>
 
 	* dbxout.c (dbxout_function_end): Enable N_ENSYM in -gused mode.
