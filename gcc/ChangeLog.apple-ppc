@@ -1,3 +1,8 @@
+2005-08-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 4200243
+	* config/i386/i386.c (override_options): Check RC_FORCE_SSE3 env. variable.
+
 2005-08-08  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4206991
