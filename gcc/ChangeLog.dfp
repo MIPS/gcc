@@ -1,3 +1,8 @@
+2005-08-08  Janis Johnson  <janis187@us.ibm.com>
+
+	* c-common.c (shorten_compare): Convert DFP/BFP operands to a
+	common type.
+
 2005-08-03  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/t-linux: New.
