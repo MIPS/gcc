@@ -1,4 +1,4 @@
-/* APPLE LOCAL mainline 4.0.2 4203511 */
+/* APPLE LOCAL file mainline 4.0.2 4203511 */
 /* { dg-do run } */
 /* APPLE LOCAL darwin needs -fstrict-aliasing */
 /* { dg-options "-O2 -fstrict-aliasing" } */
