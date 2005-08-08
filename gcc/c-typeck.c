@@ -590,18 +590,15 @@ c_common_type (tree t1, tree t2)
 
   if (code1 == REAL_TYPE && code2 == REAL_TYPE)
     {
-      if (t1 == dfloat128_type_node)
-	return t1;
-      else if (t2 == dfloat128_type_node)
-	return t2;
-      else if (t1 == dfloat64_type_node)
-	return t1;
-      else if (t2 == dfloat64_type_node)
-	return t2;
-      else if (t1 == dfloat32_type_node)
-	return t1;
-      else if (t2 == dfloat32_type_node)
-	return t2;
+      if (TYPE_MAIN_VARIANT (t1) == dfloat128_type_node
+	  || TYPE_MAIN_VARIANT (t2) == dfloat128_type_node)
+	return dfloat128_type_node;
+      else if (TYPE_MAIN_VARIANT (t1) == dfloat64_type_node
+	       || TYPE_MAIN_VARIANT (t2) == dfloat64_type_node)
+	return dfloat64_type_node;
+      else if (TYPE_MAIN_VARIANT (t1) == dfloat32_type_node
+	       || TYPE_MAIN_VARIANT (t2) == dfloat32_type_node)
+	return dfloat32_type_node;
     }
 
   /* Both real or both integers; use the one with greater precision.  */

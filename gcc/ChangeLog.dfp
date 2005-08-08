@@ -1,5 +1,7 @@
 2005-08-08  Janis Johnson  <janis187@us.ibm.com>
 
+	* c-typeck.c (c_common_type): Fix checks for DFP types.
+
 	* c-common.c (shorten_compare): Convert DFP/BFP operands to a
 	common type.
 
