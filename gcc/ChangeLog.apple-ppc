@@ -1,3 +1,9 @@
+2005-08-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4206991
+	* config/i386/i386.c (ix86_preferred_reload_class):
+	Disallow int constants in SSE registers.
+
 2005-08-08  Devang Patel  <dpatel@apple.com>
 
 	Radar 4208760

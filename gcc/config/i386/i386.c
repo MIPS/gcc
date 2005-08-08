@@ -15230,8 +15230,11 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
     {
       if (MAYBE_MMX_CLASS_P (class))
         return NO_REGS;
+      /* APPLE LOCAL begin 4206991 */
       if (MAYBE_SSE_CLASS_P (class)
-	  && (VECTOR_MODE_P (mode) || mode == TImode || is_sse_math_mode))
+	  && (VECTOR_MODE_P (mode) || mode == TImode || is_sse_math_mode
+	      || GET_CODE (x) == CONST_INT))
+      /* APPLE LOCAL end 4206991 */
         return NO_REGS;
     }
 
