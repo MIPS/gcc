@@ -1543,10 +1543,6 @@ override_options (void)
   if (!TARGET_80387)
     target_flags |= MASK_NO_FANCY_MATH_387;
 
-  /* APPLE LOCAL begin 4200243 */
-  if (getenv ("RC_FORCE_SSE3"))
-    target_flags |= MASK_SSE3;
-  /* APPLE LOCAL end 4200243 */
   /* Turn on SSE2 builtins for -msse3.  */
   if (TARGET_SSE3)
     target_flags |= MASK_SSE2;
@@ -1707,6 +1703,10 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
 #ifdef SUBTARGET_OPTIMIZATION_OPTIONS
   SUBTARGET_OPTIMIZATION_OPTIONS;
 #endif
+  /* APPLE LOCAL begin 4200243 */
+  if (getenv ("RC_FORCE_SSE3"))
+    target_flags |= MASK_SSE3;
+  /* APPLE LOCAL end 4200243 */
 }
 
 /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
