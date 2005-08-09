@@ -9309,8 +9309,8 @@ type_unification_real (tree tparms,
 		       int is_method,
 /* APPLE LOCAL begin radar 4187916 */
                        int xlen,
-/* APPLE LOCAL end radar 4187916 */
 		       int flags)
+/* APPLE LOCAL end radar 4187916 */
 {
   tree parm, arg;
   int i;
