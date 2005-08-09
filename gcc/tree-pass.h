@@ -286,6 +286,7 @@ extern struct tree_opt_pass pass_eliminate_useless_stores;
 /* IPA Passes */
 extern struct tree_opt_pass pass_ipa_cp;
 extern struct tree_opt_pass pass_ipa_inline;
+extern struct tree_opt_pass pass_ipa_alias;
 extern struct tree_opt_pass pass_early_ipa_inline;
 extern struct tree_opt_pass pass_ipa_reference;
 extern struct tree_opt_pass pass_ipa_pure_const;

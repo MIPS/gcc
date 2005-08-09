@@ -30,6 +30,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
 #include "ipa-reference.h"
+#include "ipa-prop.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -244,6 +245,11 @@ struct var_ann_d GTY(())
      variables modified by function calls.  This field is only used
      for FUNCTION_DECLs.  */
   ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
+
+  /* Relevant only for FUNCTION_DECL. Pointer to array of enums 
+     that for each pair of function's formal parameters contains 
+     their aliasing as culculated by ipaa.  */
+  enum alias_info_d * GTY ((skip)) ipa_alias;
 
   /* If this variable is a structure, this fields holds a list of
      symbols representing each of the fields of the structure.  */

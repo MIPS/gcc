@@ -955,6 +955,10 @@ funit-at-a-time
 Common Report Var(flag_unit_at_a_time)
 Compile whole compilation unit at a time
 
+fipa-alias
+Common Report Var(flag_ipa_alias)
+Perform IPA constant propagation
+
 funroll-loops
 Common Report Var(flag_unroll_loops)
 Perform loop unrolling when iteration count is known

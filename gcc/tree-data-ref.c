@@ -136,6 +136,19 @@ ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b,
 {  
   tree tag_a, tag_b;
 
+  if (TREE_CODE (SSA_NAME_VAR (ptr_a)) == PARM_DECL 
+      && TREE_CODE (SSA_NAME_VAR (ptr_b)) == PARM_DECL)
+    {
+      enum alias_info_d alias = 
+	ipaa_get_aliasing_of_formals (SSA_NAME_VAR (ptr_a), 
+				      SSA_NAME_VAR (ptr_b));
+      if (alias == NON_ALIAS)
+	{
+	  *aliased = false;
+	  return true;
+	}
+    }
+
   tag_a = get_var_ann (SSA_NAME_VAR (ptr_a))->type_mem_tag;
   if (!tag_a)
     tag_a = DR_MEMTAG (dra);

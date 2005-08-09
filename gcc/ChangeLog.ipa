@@ -1,0 +1,33 @@
+2005-08-08  Olga Golovanevsky  <olga@il.ibm.com>
+	
+	* common.opt (flag_ipa_alias): New flag.
+	* ipa-prop.c (ipa_methodlist_init_empty): New function.
+	(ipa_callsite_tree, ipa_method_is_modified): Non-static.
+	(ipa_callsite_compute_param): Check for valid index.
+	(ipa_method_compute_tree_map, ipa_method_compute_modify): 
+	Exit if count is 0.
+	(ipa_calc_formals_counts): New function.
+	* ipa_prop.h (ipaa_aliasing, ipaa_num_pairs_args): 
+	New fields in ipa_node structure.
+	(ipaa_num_pairs_arg, ipaa_aliasing): New field in 
+	ipa_edge structure.
+	(alias_info_d): New enums.
+	(ipaa_driver): New declaration.
+	(IS_VALID_TREE_MAP_INDEX): New macro.
+	(ipa_callsite_tree, ipa_methodlist_init_empty, 
+	ipa_method_is_modified, ipaa_func_tree_alias_info_print, 
+	ipa_calc_formals_counts, ipaa_get_aliasing_of_formals): 
+	New declarations. 
+	* timervar.def (TV_IPA_ALIAS_ANALYSIS): New time var.
+	* tree-flow.h (ipa-prop.h): New include file.
+	(ipa_alias): New field in var_ann_d struct. 
+	* passes.c (pass_ipa_alias) : New ipa pass.
+	* tree-pass.h (pass_ipa_alias): New ipa pass structure.
+	* tree-ssa-alias.c (ipa-prop.h): New include file.
+	(may_alias_p): User ipaa interface to disambiguate formals.
+	* tree-data-ref.c: (ptr_ptr_may_alias_p): User ipaa 
+	interface to disambiguate formals.
+	* Makefile.in (ipaa.c) : Added to GTFILES.
+	(ipa-alias.o): Added as target and into OBJS-archive.
+	(IPA_PROP_H): New variable, added to TREE_FLOW_H.
+	* ipa-alias.c New file.

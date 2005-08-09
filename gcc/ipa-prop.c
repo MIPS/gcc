@@ -104,6 +104,15 @@ ipa_methodlist_init (void)
   return wl;
 }
 
+/* Initializing a worklist to be empty.  */
+ipa_methodlist_p
+ipa_methodlist_init_empty (void)
+{
+  ipa_methodlist_p wl = NULL;
+
+  return wl;
+}
+
 /* Add method MT to the worklist. Set worklist element WL  
    to point to MT.  */
 void
@@ -149,7 +158,7 @@ ipa_method_formal_count_set (struct cgraph_node *mt, int i)
 }
 
 /* Return whether I-th formal of MT is modified in MT.  */
-static inline bool
+inline bool
 ipa_method_is_modified (struct cgraph_node *mt, int i)
 {
   return IPA_NODE_REF (mt)->ipa_mod[i];
@@ -207,6 +216,9 @@ ipa_method_compute_tree_map (struct cgraph_node *mt)
   tree fnargs;
   tree parm;
   int param_num;
+
+  if (ipa_method_formal_count (mt) == 0)
+    return;
 
   ipa_method_tree_map_create (mt);
   fndecl = mt->decl;
@@ -291,6 +303,9 @@ ipa_method_compute_modify (struct cgraph_node *mt)
   struct function *func;
   block_stmt_iterator bsi;
   tree stmt, parm_tree;
+
+  if (ipa_method_formal_count (mt) == 0)
+    return;
 
   ipa_method_modify_init (mt);
   decl = mt->decl;
@@ -392,7 +407,7 @@ ipa_callsite_param_map_create (struct cgraph_edge *cs)
 }
 
 /* Return the call expr tree related to callsite CS.  */
-static inline tree
+inline tree
 ipa_callsite_tree (struct cgraph_edge *cs)
 {
   return cs->call_stmt;
@@ -453,7 +468,7 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
 	{
 	  mt = ipa_callsite_caller (cs);
 	  i = ipa_method_tree_map (mt, TREE_VALUE (arg));
-	  if (i < 0 || ipa_method_is_modified (mt, i))
+	  if (!IS_VALID_TREE_MAP_INDEX (i) || ipa_method_is_modified (mt, i))
 	    ipa_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
 	  else
 	    {
@@ -673,4 +688,39 @@ ipa_method_modify_print (FILE * f)
 	    fprintf (f, " param [%d] false \n", i);
 	}
     }
+}
+
+/* For each function in compilation unit this function 
+   calcualtes a number of formals it contains. The info 
+   calculated is stored in ipa_arg_num and ipa_param_num fields of 
+   ipa_node and ipa_edge respectively. If a function 
+   has a variable number of formals, these fields are zeroed.  */
+void
+ipa_calc_formals_counts (void)
+{
+  struct cgraph_node *node;
+  struct cgraph_edge *cs;
+
+  for (node = cgraph_nodes; node; node = node->next)
+      ipa_method_formal_compute_count (node);
+
+  for (node = cgraph_nodes; node; node = node->next)
+    for (cs = node->callees; cs; cs = cs->next_callee)
+      {
+	ipa_callsite_compute_count (cs);
+	/* Handles the cases of functions with 
+	   a variable number of parameters.  */    
+	if (ipa_callsite_param_count (cs)
+	    != ipa_method_formal_count (cs->callee))
+	  {
+	    ipa_method_formal_count_set (cs->callee, 0);
+	  }
+      }
+
+  /* Synchronize results for functions with their caller.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    for (cs = node->callers; cs != NULL; cs = cs->next_caller)
+      ipa_callsite_param_count_set (cs, 
+				    ipa_method_formal_count (node));
+    
 }

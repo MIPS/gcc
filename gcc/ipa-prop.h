@@ -22,6 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define IPA_PROP_H
 
 #include "tree.h"
+#include "cgraph.h"
 
 /* The following definitions and interfaces are used by
    interprocedural analyses.  */
@@ -58,6 +59,24 @@ enum cvalue_type
   CONST_VALUE_REF,
   TOP
 };
+
+/* This enum contains different typed of aliasing 
+   of formals that ipaa capable to calculate:
+   DO_NOT_KNOW - means that no info exist about 
+   how this pair was called; 
+   MUST_ALIAS - this pair was always called aliased;
+   NON_ALIAS - this pair was always called unaliased;
+   MAY_ALIAS - means that at least once this pair was 
+   called aliased and at least once unaliased.  */
+enum alias_info_d
+{
+  DO_NOT_KNOW,			/* top */
+  MUST_ALIAS,
+  NON_ALIAS,
+  MAY_ALIAS			/* bottom */
+};
+
+typedef enum alias_info_d ipaa_alias_info; 
 
 /* Represents the value of either jump function or cval.
    value represnts a constant.
@@ -107,6 +126,10 @@ struct ipa_replace_map
 #define IPA_NODE_REF(MT) ((struct ipa_node *)(MT)->aux)
 #define IPA_EDGE_REF(EDGE) ((struct ipa_edge *)(EDGE)->aux)
 
+/* This macro checks validity of index returned by 
+   ipa_method_tree_map function.  */
+#define IS_VALID_TREE_MAP_INDEX(I) ((I) != -1)
+
 /* ipa_node stores information related to a method and
    its formal parameters. It is pointed to by a field in the
    method's corresponding cgraph_node.
@@ -120,12 +143,17 @@ struct ipa_node
      this method's parameters would not be analyzed by the different
      stages of IPA CP.  */
   int ipa_arg_num;
+  /* Number of pairs of formal parameters.  */
+  int ipaa_num_pairs_args;
   /* Array of cvals.  */
   struct ipcp_formal *ipcp_cval;
   /* Mapping each parameter to its PARM_DECL tree.  */
   tree *ipa_param_tree;
   /* Indicating which parameter is modified in its method.  */
   bool *ipa_mod;
+  /* This array contains number of combinations between
+     pairs of formals of the function.  */
+  ipaa_alias_info *ipaa_aliasing;
   /* Only for versioned nodes this field would not be NULL,
      it points to the node that IPA cp cloned from.  */
   struct cgraph_node *ipcp_orig_node;
@@ -143,8 +171,14 @@ struct ipa_edge
      this callsite's parameters would not be analyzed by the different
      stages of IPA CP.  */
   int ipa_param_num;
+  /* Number of pairs of actual parameters.When ipa_param_num is set to 0, 
+     the ipaa_num_pairs_args is set to 0 too.  */
+  int ipaa_num_pairs_args;
   /* Array of the callsite's jump function of each parameter.  */
   struct ipa_jump_func *ipa_param_map;
+  /* This array contains number of combinations between
+     pairs of formals of the callsite function.  */
+  ipaa_alias_info *ipaa_aliasing;
 };
 
 /* A methodlist element (referred to also as methodlist node). It is used 
@@ -162,6 +196,7 @@ typedef struct ipa_methodlist *ipa_methodlist_p;
 
 /* ipa_methodlist interface.  */
 ipa_methodlist_p ipa_methodlist_init (void);
+ipa_methodlist_p ipa_methodlist_init_empty (void);
 bool ipa_methodlist_not_empty (ipa_methodlist_p);
 void ipa_add_method (ipa_methodlist_p *, struct cgraph_node *);
 struct cgraph_node *ipa_remove_method (ipa_methodlist_p *);
@@ -173,6 +208,7 @@ struct ipa_jump_func *ipa_callsite_param (struct cgraph_edge *, int);
 struct cgraph_node *ipa_callsite_callee (struct cgraph_edge *);
 void ipa_callsite_compute_param (struct cgraph_edge *);
 void ipa_callsite_compute_count (struct cgraph_edge *);
+inline tree ipa_callsite_tree (struct cgraph_edge *);
 
 /* ipa_method interface.  */
 int ipa_method_formal_count (struct cgraph_node *);
@@ -181,6 +217,7 @@ tree ipa_method_get_tree (struct cgraph_node *, int);
 void ipa_method_compute_tree_map (struct cgraph_node *);
 void ipa_method_formal_compute_count (struct cgraph_node *);
 void ipa_method_compute_modify (struct cgraph_node *);
+inline bool ipa_method_is_modified (struct cgraph_node *, int);
 
 /* jump function interface.  */
 enum jump_func_type get_type (struct ipa_jump_func *);
@@ -194,11 +231,18 @@ void ipa_edges_create (void);
 void ipa_edges_free (void);
 void ipa_nodes_free (void);
 
-
 /* Debugging interface.  */
 void ipa_method_tree_print (FILE *);
 void ipa_method_modify_print (FILE *);
+void ipaa_func_tree_alias_info_print (tree, FILE *);
+
+/* ipa general calculations.  */
+void ipa_calc_formals_counts (void);
 
 void ipcp_driver (void);
+void ipaa_driver (void);
+
+/* ipaa external interface.  */
+enum alias_info_d ipaa_get_aliasing_of_formals (tree, tree);
 
 #endif /* IPA_PROP_H */

@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #include "ipa-type-escape.h"
 #include "vec.h"
 #include "bitmap.h"
+#include "ipa-prop.h"
 
 /* Obstack used to hold grouping bitmaps and other temporary bitmaps used by
    aliasing  */
@@ -1503,6 +1504,19 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       alias_stats.alias_noalias++;
       alias_stats.simple_resolved++;
       return false;
+    }
+
+  /* If PTR and VAR are two formal of the same function,
+     their mutual aliasing is calculated by ipaa.  */
+  if (TREE_CODE (ptr) == PARM_DECL && TREE_CODE (var) == PARM_DECL)
+    {
+      enum alias_info_d alias = ipaa_get_aliasing_of_formals (ptr, var);
+      if (alias == NON_ALIAS)
+	{
+	  alias_stats.alias_noalias++;
+	  alias_stats.simple_resolved++;
+	  return false;
+	}
     }
 
   m_ann = var_ann (mem);
