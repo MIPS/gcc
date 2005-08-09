@@ -862,6 +862,7 @@ static void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 static tree ix86_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool ix86_scalar_mode_supported_p (enum machine_mode);
 static bool ix86_vector_mode_supported_p (enum machine_mode);
+static bool ix86_decimal_float_supported_p (void);
 
 static int ix86_address_cost (rtx);
 static bool ix86_cannot_force_const_mem (rtx);
@@ -1072,6 +1073,9 @@ static void init_ext_80387_constants (void);
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
+
+#undef TARGET_DECIMAL_FLOAT_SUPPORTED_P
+#define TARGET_DECIMAL_FLOAT_SUPPORTED_P ix86_decimal_float_supported_p
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
@@ -2527,6 +2531,8 @@ classify_argument (enum machine_mode mode, tree type,
   /* Classification of atomic types.  */
   switch (mode)
     {
+    case SDmode:
+    case DDmode:
     case DImode:
     case SImode:
     case HImode:
@@ -2559,6 +2565,7 @@ classify_argument (enum machine_mode mode, tree type,
       classes[1] = X86_64_X87UP_CLASS;
       return 2;
     case TFmode:
+    case TDmode:
       classes[0] = X86_64_SSE_CLASS;
       classes[1] = X86_64_SSEUP_CLASS;
       return 2;
@@ -3334,6 +3341,7 @@ ix86_libcall_value (enum machine_mode mode)
 	case DFmode:
 	case DCmode:
 	case TFmode:
+	case TDmode:
 	  return gen_rtx_REG (mode, FIRST_SSE_REG);
 	case XFmode:
 	case XCmode:
@@ -3354,6 +3362,9 @@ static int
 ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
 {
   gcc_assert (!TARGET_64BIT);
+
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return 0;
 
   /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
      we prevent this case when mmx is not available.  */
@@ -15670,6 +15681,9 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   /* We handle both integer and floats in the general purpose registers.  */
   else if (VALID_INT_MODE_P (mode))
     return 1;
+  /* Ditto for decimal float modes.  */
+  else if (DECIMAL_FLOAT_MODE_P (mode))
+    return 1;
   else if (VALID_FP_MODE_P (mode))
     return 1;
   /* Lots of MMX code casts 8 byte vector modes to DImode.  If we then go
@@ -17699,6 +17713,13 @@ ix86_stack_protect_fail (void)
   return TARGET_64BIT
 	 ? default_external_stack_protect_fail ()
 	 : default_hidden_stack_protect_fail ();
+}
+
+/* Target hook for decimal_float_supported_p.  */
+static bool
+ix86_decimal_float_supported_p (void)
+{
+  return true;
 }
 
 #include "gt-i386.h"

@@ -575,7 +575,8 @@ extern int x86_prefetch_sse;
 
 /* Decide whether a variable of mode MODE should be 128 bit aligned.  */
 #define ALIGN_MODE_128(MODE) \
- ((MODE) == XFmode || (MODE) == TFmode || SSE_REG_MODE_P (MODE))
+ ((MODE) == XFmode || (MODE) == TFmode || (MODE) == TDmode \
+	|| SSE_REG_MODE_P (MODE))
 
 /* The published ABIs say that doubles should be aligned on word
    boundaries, so lower the alignment for structure fields unless
@@ -832,7 +833,7 @@ do {									\
 
 #define VALID_SSE_REG_MODE(MODE)					\
     ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode || (MODE) == TFmode)
+     || (MODE) == SFmode || (MODE) == TFmode || (MODE) == TDmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
     ((MODE) == V2SFmode || (MODE) == SFmode)
@@ -860,6 +861,7 @@ do {									\
 /* Return true for modes passed in SSE registers.  */
 #define SSE_REG_MODE_P(MODE) \
  ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
+   || (MODE) == TDmode							\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 

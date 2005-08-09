@@ -1,5 +1,20 @@
 2005-08-09  Ben Elliston  <bje@au.ibm.com>
 
+	* i386.h (ALIGN_MODE_128): Add TDmode.
+	(VALID_SSE_REG): Likewise.
+	(SSE_REG_MODE): Likewise.
+	* i386.c (ix86_decimal_float_supported_p): Add prototype.
+	(TARGET_DECIMAL_FLOAT_SUPPORTED_P): Define.
+	(classify_argument): Handle SDmode, DDmode and TDmode.
+	(ix86_libcall_value): Handle TDmode.
+	(ix86_value_regno): Handle decimal float modes.
+	(ix86_hard_regno_mode_ok): Likewise.
+	(ix86_decimal_float_mode_supported_p): Implement.
+	* i386.md (movsd, movdd, movtd): New expanders.
+	(movsd_gprs, movdd_gprs, movdd_sse, movtd_sse): New insns.
+
+2005-08-09  Ben Elliston  <bje@au.ibm.com>
+
 	* dfp.c (encode_decimal32): Type pun via uint32_t.
 	(encode_decimal64, encode_decimal128): Likewise.
 
