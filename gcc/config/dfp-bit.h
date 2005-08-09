@@ -210,9 +210,11 @@ typedef float DFtype __attribute__ ((mode (DF)));
 
 #if WIDTH == 128 || WIDTH_TO == 128
 #include "decimal128.h"
-#elif WIDTH == 64 || WIDTH_TO == 64
+#endif
+#if WIDTH == 64 || WIDTH_TO == 64
 #include "decimal64.h"
-#elif WIDTH == 32 || WIDTH_TO == 32
+#endif
+#if WIDTH == 32 || WIDTH_TO == 32
 #include "decimal32.h"
 #endif
 
@@ -270,10 +272,10 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #define DFP_TO_DFP	__extendddtd2
 #endif
 #elif WIDTH == 128
-#define DFP_TO_DFP	__trunctdsd2
 #if WIDTH_TO == 32
+#define DFP_TO_DFP	__trunctdsd2
+#elif WIDTH_TO == 64
 #define DFP_TO_DFP	__trunctddd2
-#elif WIDTH == 64
 #endif
 #endif
 

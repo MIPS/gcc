@@ -1,3 +1,9 @@
+2005-08-09  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (D32PBIT_FUNCS, D64PBIT_FUNCS, D128_BIT_FUNCS):
+	Add DFP<->DFP runtime conversions.
+	* config/dfp-bit.h (DFP_TO_DFP): Fix errors in definitions.
+
 2005-08-09  Ben Elliston  <bje@au.ibm.com>
 
 	* i386.h (ALIGN_MODE_128): Add TDmode.

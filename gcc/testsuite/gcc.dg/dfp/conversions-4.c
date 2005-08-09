@@ -1,5 +1,4 @@
-/* Make the test compile-only until runtime conversions are supported.  */
-/* { dg-do compile } */
+/* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
 /* Test various conversions involving decimal floating types. */
@@ -45,39 +44,42 @@ int main()
     abort();
 
   /* Test demotion to non-representable decimal floating type. */
-  /* Assumes a default rounding mode of 'near'.  The rules are a 
-     bit odd in that if off by one digit, it rounds to the maximum
-     value, but otherwise to HUGE_VAL. */
-  d64 = 9.9999991E96DD;
+  /* Assumes a default rounding mode of 'near'.  This uses the rules
+     describe in the 27 July 2005 draft of IEEE 754r, which are much
+     more clear that what's described in draft 5 of N1107.  */
+
+  /* Rounds to what _Decimal32 can handle.  */
+  d64 = 9.99999949E96DD;
   d32 = d64;
   if (d32 != __DEC32_MAX__)
     abort();
 
-  d64 = 9.99999912E96DD;
+  /* Rounds to more than _Decimal32 can handle.  */
+  d64 = 9.9999995E96DD;
   d32 = d64;
   if (d32 != __builtin_infd32())
     abort();
 
-  /* One digit more than _Decimal32 can handle. */
-  d128 = 9.9999991E96DD;
+  /* Rounds to what _Decimal32 can handle.  */
+  d128 = 9.99999949E96DD;
   d32 = d128;
   if (d32 != __DEC32_MAX__)
     abort();
 
-  /* Two digits more than _Decimal32 can handle. */
-  d128= 9.99999912E96DD;
+  /* Rounds to more than _Decimal32 can handle.  */
+  d128= 9.9999995E96DD;
   d32 = d128;
   if (d32 != __builtin_infd32())
     abort();
 
-  /* One digit more that _Decimal64 can handle. */
-  d128 = 9.9999999999999991E384DL;
+  /* Rounds to what _Decimal64 can handle.  */
+  d128 = 9.99999999999999949E384DL;
   d64 = d128;
   if (d64 != __DEC64_MAX__)
     abort();
 
-  /* Two digits more than _Decimal64 can handle. */
-  d128 = 9.99999999999999912E384DL;
+  /* Rounds to more than _Decimal64 can handle.  */
+  d128 = 9.9999999999999995E384DL;
   d64 = d128;
   if (d64 != __builtin_infd64())
     abort();
