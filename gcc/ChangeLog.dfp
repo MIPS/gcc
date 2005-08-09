@@ -1,3 +1,13 @@
+2005-08-09  Ben Elliston  <bje@au.ibm.com>
+
+	* dfp.c (encode_decimal32): Type pun via uint32_t.
+	(encode_decimal64, encode_decimal128): Likewise.
+
+2005-08-09  Ben Elliston  <bje@au.ibm.com>
+
+	Not to be merged:
+	* gdbinit.in: Don't set complaints.
+
 2005-08-08  Janis Johnson  <janis187@us.ibm.com>
 
 	* c-typeck.c (c_common_type): Fix checks for DFP types.
