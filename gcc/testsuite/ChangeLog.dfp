@@ -1,3 +1,7 @@
+2005-08-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/scalar-return-dfp_y.c: Use suffix for DFP constants.
+
 2005-08-09  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/dfp/conversions-4.c: Change to execute, fix to expect

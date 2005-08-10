@@ -62,6 +62,6 @@ testva##NAME (int n, ...)					\
   return rslt;							\
 }
 
-T(d32, _Decimal32, 1.2)
-T(d64, _Decimal64, 12.34)
-T(d128, _Decimal128, 123.456)
+T(d32, _Decimal32, 1.2df)
+T(d64, _Decimal64, 12.34dd)
+T(d128, _Decimal128, 123.456dl)
