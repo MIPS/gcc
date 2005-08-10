@@ -23,10 +23,13 @@
 3884894: 27_io/ios_base/storage/2.cc execution test
 4079184: demangle/abi_examples/01.cc execution test
 4079184: demangle/abi_examples/02.cc execution test
-4177177: 27_io/ios_base/cons/assign_neg.cc  (test for errors, line 41)
-4177177: 27_io/ios_base/cons/assign_neg.cc (test for excess errors)
-4177177: 27_io/ios_base/cons/copy_neg.cc  (test for errors, line 41)
-4177177: 27_io/ios_base/cons/copy_neg.cc (test for excess errors)
+#4177177: 27_io/ios_base/cons/assign_neg.cc  (test for errors, line 41)
+#4177177: 27_io/ios_base/cons/assign_neg.cc (test for excess errors)
+#4177177: 27_io/ios_base/cons/copy_neg.cc  (test for errors, line 41)
+#4177177: 27_io/ios_base/cons/copy_neg.cc (test for excess errors)
+4207783: 27_io/basic_filebuf/underflow/char/10097.cc execution test
+4207783: 27_io/objects/char/9661-1.cc execution test
+4207783: 27_io/objects/wchar_t/9661-1.cc execution test
 #
 # the following failures are for x86 only
 #4125564: 22_locale/money_put/put/char/4.cc execution test

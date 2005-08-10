@@ -309,7 +309,7 @@
 4087344: gcc.dg/i386-ssetype-5.c scan-assembler pandn[^\\n]*magic
 4087344: gcc.dg/i386-ssetype-5.c scan-assembler pxor[^\\n]*magic
 4087344: gcc.dg/i386-ssetype-5.c scan-assembler por[^\\n]*magic
-4087344: gcc.dg/i386-cvt-1.c scan-assembler cvttsd2si[^\\n]*xmm
-4087344: gcc.dg/i386-cvt-1.c scan-assembler cvttss2si[^\\n]*xmm
-4087344: gcc.misc-tests/i386-pf-none-1.c  -march=i686  scan-assembler-not fetch
-4087344: gcc.misc-tests/i386-pf-none-1.c  -march=pentium2  scan-assembler-not fetch
+4189611: gcc.dg/i386-cvt-1.c scan-assembler cvttsd2si[^\\n]*xmm
+4189611: gcc.dg/i386-cvt-1.c scan-assembler cvttss2si[^\\n]*xmm
+4189611: gcc.misc-tests/i386-pf-none-1.c  -march=i686  scan-assembler-not fetch
+4189611: gcc.misc-tests/i386-pf-none-1.c  -march=pentium2  scan-assembler-not fetch
