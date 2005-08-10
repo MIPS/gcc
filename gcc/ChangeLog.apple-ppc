@@ -1,3 +1,9 @@
+2005-08-09  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4209014
+	* opts.c (set_flags_from_O): Limit auto-inlined functions to 30 insns.
+	* invoke.texi: Adjust documentation to match.
+
 2005-08-08  Devang Patel  <dpatel@apple.com>
 
 	Radar 4200243

@@ -4642,9 +4642,10 @@ use -mstring.
 
 @c APPLE LOCAL begin 4200438
 On Darwin, @option{-Os} sets the inlining limits according to the
-input language; for C and Objective-C, functions up to 450 ``estimated
-insns'' in size can be inlined, and for C++ and Objective-C++, the
-limit is 90 ``estimated insns''.
+input language; for C and Objective-C functions that are marked
+@code{inline}, functions up to 450 ``estimated insns'' in size can be
+inlined, and for C++ and Objective-C++, the limit is 30 ``estimated
+insns''.
 @c APPLE LOCAL end 4200438
 
 If you use multiple @option{-O} options, with or without level numbers,
