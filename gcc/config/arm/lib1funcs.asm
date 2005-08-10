@@ -637,6 +637,7 @@ LSYM(Lgot_result):
 #ifdef L_udivsi3
 
 	FUNC_START udivsi3
+	FUNC_ALIAS aeabi_uidiv udivsi3
 
 #ifdef __thumb__
 
@@ -747,6 +748,7 @@ LSYM(Lover10):
 #ifdef L_divsi3
 
 	FUNC_START divsi3	
+	FUNC_ALIAS aeabi_idiv divsi3
 
 #ifdef __thumb__
 	cmp	divisor, #0
