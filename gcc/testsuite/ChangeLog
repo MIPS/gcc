@@ -1,3 +1,33 @@
+2005-08-10  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/22143
+	gfortran.dg/shift-kind.f90:  New testcase.
+
+2005-08-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20646
+	* g++.dg/other/mult-stor1.C: New test.
+
+2005-08-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/pr18299-1.c: Move to ...
+	* gcc.c-torture/compile/pr18299-1.c: Here.
+
+2005-08-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+        * gfortran/fortran.torture/execute/character_passing.f90:
+        Fix types for LSAME.
+
+2005-08-08  Josh Conner  <jconner@apple.com>
+
+	PR rtl-optimization/23241
+	* gcc.dg/char-compare.c: New test.
+
+2005-08-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22508
+	* g++.dg/init/new13.C: New test.
+
 2005-08-08  Richard Sandiford  <richard@codesourcery.com>
 
 	PR middle-end/21964

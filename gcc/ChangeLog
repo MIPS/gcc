@@ -1,20 +1,62 @@
+2005-08-10  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	PR 23309
+	* config/m32r/m32r.c (m32r_reload_lr): Fix off by one error when
+	deciding which instruction sequence to use.
+
+2005-08-09  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	Mostly from Jie Zhang (jie.zhang@analog.com)
+	* config.gcc: Add bfin-uclinux.
+	* config/bfin/uclinux.h: New file.
+	* config/bfin/bfin-modes.def: Update FSF address.
+	* config/bfin/bfin-protos.h: Likewise.
+	* config/bfin/bfin.md: Likewise.
+	* config/bfin/bfin.opt: Likewise.
+	* config/bfin/crti.s: Likewise.
+	* config/bfin/crtn.s: Likewise.
+	* config/bfin/lib1funcs.asm: Likewise.
+	* config/bfin/predicates.md: Likewise.
+	* config/bfin/bfin.c: Likewise.
+	(bfin_return_in_memory): Update to match Visual DSP compiler.
+	* config/bfin/bfin.h: Update FSF address.
+	(ASM_OUTPUT_ALIGN): Write alignment in bytes, not log thereof.
+	* config/bfin/elf.h (NO_IMPLICIT_EXTERN_C): Define.
+
+2005-08-08  Richard Henderson  <rth@redhat.com>
+
+	PR 22439
+	* gimplify.c (gimplify_one_sizepos): Preserve the original type.
+
+2005-08-08  Josh Conner  <jconner@apple.com>
+
+	PR rtl-optimization/23241
+	* combine.c (simplify_comparison): Fix error in determining
+	whether to lift a subreg from comparison.
+
+2005-08-08  Richard Henderson  <rth@redhat.com>
+
+	PR 21894
+	* tree-nested.c (convert_local_reference): Save and restore val_only
+	around component_ref and friends.  Clear walk_subtrees by default.
+
 2005-08-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* pa64-regs.h (CONDITIONAL_REGISTER_USAGE): Fix loop upper bound.
 
 2005-08-05  Richard Henderson  <rth@redhat.com>
 
-        PR 21728
-        * tree-cfg.c (remove_bb): Transmute DECL_NONLOCAL labels into
-        FORCED_LABEL labels.
+	PR 21728
+	* tree-cfg.c (remove_bb): Transmute DECL_NONLOCAL labels into
+	FORCED_LABEL labels.
 
 2005-08-04  Richard Henderson  <rth@redhat.com>
 
-        PR 21529
-        * params.def (PARAM_SRA_MAX_STRUCTURE_COUNT): New.
-        * params.h (SRA_MAX_STRUCTURE_COUNT): New.
-        * tree-sra.c (decide_block_copy): Use it.  Disable element copy
-        if we'd have to instantiate too many members.
+	PR 21529
+	* params.def (PARAM_SRA_MAX_STRUCTURE_COUNT): New.
+	* params.h (SRA_MAX_STRUCTURE_COUNT): New.
+	* tree-sra.c (decide_block_copy): Use it.  Disable element copy
+	if we'd have to instantiate too many members.
 
 2005-08-04  Richard Henderson  <rth@redhat.com>
 

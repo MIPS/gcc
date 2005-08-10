@@ -332,6 +332,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_INT,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
+  GFC_ISYM_ISATTY,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
   GFC_ISYM_KILL,
@@ -1767,6 +1768,7 @@ int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
 try gfc_resolve_iterator (gfc_iterator *, bool);
 try gfc_resolve_index (gfc_expr *, int);
+try gfc_resolve_dim_arg (gfc_expr *);
 
 /* array.c */
 void gfc_free_array_spec (gfc_array_spec *);
