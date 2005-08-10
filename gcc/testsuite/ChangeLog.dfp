@@ -1,5 +1,9 @@
 2005-08-10  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/compat/scalar-return-dfp_x.c: Use suffix for DFP constants.
+	* gcc.dg/compat/scalar-by-value-dfp_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-dfp_y.c: Ditto.
+
 	* gcc.dg/compat/scalar-return-dfp_y.c: Use suffix for DFP constants.
 
 2005-08-09  Janis Johnson  <janis187@us.ibm.com>
