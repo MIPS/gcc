@@ -185,6 +185,13 @@ case ${target} in
  | sparclite-*-elf*	\
  | sparc86x-*-elf*	\
  | sparc-*-openbsd*	\
+ | i860-*-sysv4*	\
+ | ip2k-*-elf		\
+ | ns32k-*-netbsdelf*	\
+ | ns32k-*-netbsd*	\
+ | c4x-*		\
+ | tic4x-*		\
+ | hppa1.1-*-rtems*	\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -228,6 +235,7 @@ esac
 # machines.
 tm_p_file=
 cpu_type=`echo ${target} | sed 's/-.*$//'`
+cpu_is_64bit=
 case ${target} in
 alpha*-*-*)
 	cpu_type=alpha
@@ -242,6 +250,9 @@ strongarm*-*-*)
 arm*-*-*)
 	cpu_type=arm
 	extra_headers="mmintrin.h"
+	;;
+bfin*-*)
+	cpu_type=bfin
 	;;
 ep9312*-*-*)
 	cpu_type=arm
@@ -284,6 +295,11 @@ powerpc*-*-*)
 	cpu_type=rs6000
 	extra_headers="ppc-asm.h altivec.h spe.h"
 	need_64bit_hwint=yes
+	case x$with_cpu in
+	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[345]|xrs64a)
+		cpu_is_64bit=yes
+		;;
+	esac
 	;;
 rs6000*-*-*)
 	need_64bit_hwint=yes
@@ -713,6 +729,16 @@ avr-*-*)
 	tm_file="avr/avr.h dbxelf.h"
 	use_fixproto=yes
 	;;
+bfin*-elf*)
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h"
+        tmake_file=bfin/t-bfin-elf
+        use_collect2=no
+        ;;  
+bfin*-*)
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h"
+        tmake_file=bfin/t-bfin
+        use_collect2=no
+        ;;  
 c4x-*-rtems* | tic4x-*-rtems*)
 	tmake_file="c4x/t-c4x t-rtems c4x/t-rtems"
 	tm_file="c4x/c4x.h c4x/rtems.h rtems.h"
@@ -755,9 +781,13 @@ frv-*-*linux*)
 	         linux.h frv/linux.h frv/frv-abi.h"
 	tmake_file="${tmake_file} frv/t-frv frv/t-linux"
 	;;
-h8300-*-rtems*)
+h8300-*-rtemscoff*)
 	tmake_file="h8300/t-h8300 t-rtems h8300/t-rtems"
 	tm_file="h8300/h8300.h dbxcoff.h h8300/coff.h h8300/rtems.h rtems.h"
+	;;
+h8300-*-rtems*)
+	tmake_file="h8300/t-h8300 h8300/t-elf t-rtems h8300/t-rtems"
+	tm_file="h8300/h8300.h dbxelf.h elfos.h h8300/elf.h h8300/rtems.h rtems.h"
 	;;
 h8300-*-elf*)
 	tmake_file="h8300/t-h8300 h8300/t-elf"
@@ -857,7 +887,7 @@ hppa*64*-*-hpux11*)
 			 pa/pa64-regs.h pa/pa-hpux.h pa/pa-hpux11.h"
 	fi
 	case ${target} in
-	*-*-hpux11.11)
+	*-*-hpux11.[1-9]*)
 		tm_file="${tm_file} pa/pa-hpux1111.h pa/pa-64.h pa/pa64-hpux.h"
 		;;
 	*)
@@ -896,6 +926,10 @@ hppa[12]*-*-hpux11*)
 	;;
 i[34567]86-*-darwin*)
 	tm_file="${tm_file} i386/darwin.h"
+	# APPLE LOCAL 4099000
+	tmake_file="${tmake_file} i386/t-darwin"
+	# APPLE LOCAL 4126124
+	need_64bit_hwint=yes
 	;;
 i[34567]86-*-elf*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h"
@@ -1054,12 +1088,12 @@ i[34567]86-*-solaris2*)
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
 	case ${target} in
-	*-*-solaris2.[789] | *-*-solaris2.1[0-9])
+	*-*-solaris2.[789] | *-*-solaris2.1[0-9]*)
 		tm_file="$tm_file tm-dwarf2.h"
 		;;
 	esac
 	case ${target} in
-	*-*-solaris2.1[0-9])
+	*-*-solaris2.1[0-9]*)
 		tm_file="${tm_file} i386/x86-64.h i386/sol2-10.h"
 		tm_defines="${tm_defines} TARGET_BI_ARCH=1"
 		tmake_file="$tmake_file i386/t-sol2-10"
@@ -1519,21 +1553,16 @@ pdp11-*-bsd)
 pdp11-*-*)
 	use_fixproto=yes
 	;;
-avr-*-*)
-	use_fixproto=yes
-	;;
 # port not yet contributed
 #powerpc-*-openbsd*)
 #	tmake_file="${tmake_file} rs6000/t-fprules "
 #	extra_headers=
 #	;;
 powerpc64-*-linux*)
-	tm_file="rs6000/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
-	case x$with_cpu in
-	x|xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[345]|xrs64a)
-		tm_file="${tm_file} rs6000/default64.h";;
-	esac
-	tm_file="${tm_file} rs6000/linux64.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
+	test x$with_cpu != x || cpu_is_64bit=yes
+	test x$cpu_is_64bit != xyes || tm_file="${tm_file} rs6000/default64.h"
+	tm_file="rs6000/biarch64.h ${tm_file} rs6000/linux64.h"
 	tmake_file="rs6000/t-fprules ${tmake_file} rs6000/t-ppccomm rs6000/t-linux64"
 	;;
 powerpc64-*-gnu*)
@@ -1549,6 +1578,11 @@ powerpc-*-beos*)
 powerpc-*-darwin*)
 	tm_file="${tm_file} rs6000/darwin.h"
 	tmake_file="${tmake_file} rs6000/t-darwin"
+	case ${target} in
+	  *-darwin1[0-9]*) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
+	  *-darwin[0-7]*) ;;
+	  *-darwin[8-9]*) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
+	esac
 	extra_headers=altivec.h
 	;;
 powerpc*-*-freebsd*)
@@ -1607,8 +1641,20 @@ powerpc-*-linux*spe*)
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
 	;;
 powerpc-*-linux*)
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
+	case ${enable_targets}:${cpu_is_64bit} in
+	    *powerpc64* | all:* | *:yes)
+		if test x$cpu_is_64bit = xyes; then
+		    tm_file="${tm_file} rs6000/default64.h"
+		fi
+		tm_file="rs6000/biarch64.h ${tm_file} rs6000/linux64.h"
+		tmake_file="$tmake_file rs6000/t-linux64"
+		;;
+	    *)
+		tm_file="${tm_file} rs6000/linux.h"
+		;;
+	esac
 	;;
 powerpc-*-gnu-gnualtivec*)
 	tm_file="${cpu_type}/${cpu_type}.h elfos.h svr4.h freebsd-spec.h gnu.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxaltivec.h rs6000/gnu.h"
@@ -1959,7 +2005,7 @@ sparc-*-solaris2*)
 			tm_file="${tm_file} sparc/sol26-sld.h"
 		fi
 		;;
-	*-*-solaris2.[789] | *-*-solaris2.1[0-9])
+	*-*-solaris2.[789] | *-*-solaris2.1[0-9]*)
 		tm_file="sparc/biarch64.h ${tm_file} sparc/sol2-bi.h tm-dwarf2.h"
 		if test x$gnu_ld = xyes; then
 			tm_file="${tm_file} sparc/sol2-gld-bi.h"
@@ -2308,24 +2354,24 @@ if test x$with_float = x; then
 	esac
 fi
 
-	# Similarly for --with-schedule.
-	if test x$with_schedule = x; then
-		case ${target} in
-		hppa1* | parisc1*)
-			# Override default PA8000 scheduling model.
-			with_schedule=7100LC
-			;;
-		esac
-	fi
+# Similarly for --with-schedule.
+if test x$with_schedule = x; then
+	case ${target} in
+	hppa1* | parisc1*)
+		# Override default PA8000 scheduling model.
+		with_schedule=7100LC
+		;;
+	esac
+fi
 
-	# Validate and mark as valid any --with options supported
-	# by this target.  In order to use a particular --with option
-	# you must list it in supported_defaults; validating the value
-	# is optional.  This case statement should set nothing besides
-	# supported_defaults.
+# Validate and mark as valid any --with options supported
+# by this target.  In order to use a particular --with option
+# you must list it in supported_defaults; validating the value
+# is optional.  This case statement should set nothing besides
+# supported_defaults.
 
-	supported_defaults=
-	case "${target}" in
+supported_defaults=
+case "${target}" in
 	alpha*-*-*)
 		supported_defaults="cpu tune"
 		for which in cpu tune; do
@@ -2533,13 +2579,12 @@ fi
 				eval $with_which=
 				;;
 			"" | common \
-			| power | power2 | power3 | power4 \
-			| powerpc | powerpc64 \
+			| power | power[2345] | powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
 			| 601 | 602 | 603 | 603e | ec603e | 604 \
 			| 604e | 620 | 630 | 740 | 750 | 7400 | 7450 \
-			| 8540 | 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5)
+			| 854[08] | 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5)
 				# OK
 				;;
 			*)
@@ -2638,11 +2683,11 @@ fi
 			;;
 		esac
 		;;
-	esac
+esac
 
-	# Set some miscellaneous flags for particular targets.
-	target_cpu_default2=
-	case ${target} in
+# Set some miscellaneous flags for particular targets.
+target_cpu_default2=
+case ${target} in
 	alpha*-*-*)
 		if test x$gas = xyes
 		then
@@ -2763,44 +2808,45 @@ fi
 			;;
 		esac
 		;;
-	esac
+esac
 
-	t=
-	all_defaults="abi cpu arch tune schedule float mode fpu divide"
-	for option in $all_defaults
-	do
-		eval "val=\$with_$option"
-		if test -n "$val"; then
-			case " $supported_defaults " in
-			*" $option "*)
-				;;
-			*)
-				echo "This target does not support --with-$option." 2>&1
-				exit 1
-				;;
-			esac
+t=
+all_defaults="abi cpu arch tune schedule float mode fpu divide"
+for option in $all_defaults
+do
+	eval "val=\$with_$option"
+	if test -n "$val"; then
+		case " $supported_defaults " in
+		*" $option "*)
+			;;
+		*)
+			echo "This target does not support --with-$option." 2>&1
+			exit 1
+			;;
+		esac
 
-			if test "x$t" = x
-			then
-				t="{ \"$option\", \"$val\" }"
-			else
-				t="${t}, { \"$option\", \"$val\" }"
-			fi
-		fi
-	done
-	if test "x$t" = x
-	then
-		configure_default_options="{ { NULL, NULL} }"
-	else
-		configure_default_options="{ ${t} }"
-	fi
-
-	if test "$target_cpu_default2" != ""
-	then
-		if test "$target_cpu_default" != ""
+		if test "x$t" = x
 		then
-			target_cpu_default="(${target_cpu_default}|${target_cpu_default2})"
+			t="{ \"$option\", \"$val\" }"
 		else
-			target_cpu_default=$target_cpu_default2
+			t="${t}, { \"$option\", \"$val\" }"
 		fi
 	fi
+done
+
+if test "x$t" = x
+then
+	configure_default_options="{ { NULL, NULL} }"
+else
+	configure_default_options="{ ${t} }"
+fi
+
+if test "$target_cpu_default2" != ""
+then
+	if test "$target_cpu_default" != ""
+	then
+		target_cpu_default="(${target_cpu_default}|${target_cpu_default2})"
+	else
+		target_cpu_default=$target_cpu_default2
+	fi
+fi

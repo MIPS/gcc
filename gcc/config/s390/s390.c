@@ -2557,8 +2557,11 @@ s390_secondary_output_reload_class (enum reg_class class,
                     : (mode == DImode || mode == DFmode))
       && reg_classes_intersect_p (GENERAL_REGS, class)
       && GET_CODE (out) == MEM
-      && !offsettable_memref_p (out)
-      && !s_operand (out, VOIDmode))
+      && GET_CODE (XEXP (out, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (out, 0), 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (out, 0), 1)) == CONST_INT
+      && !DISP_IN_RANGE (INTVAL (XEXP (XEXP (out, 0), 1))
+			 + GET_MODE_SIZE (mode) - 1))
     return ADDR_REGS;
 
   if (reg_classes_intersect_p (CC_REGS, class))
@@ -5437,7 +5440,7 @@ s390_alloc_pool (void)
   pool->label = gen_label_rtx ();
   pool->first_insn = NULL_RTX;
   pool->pool_insn = NULL_RTX;
-  pool->insns = BITMAP_XMALLOC ();
+  pool->insns = BITMAP_ALLOC (NULL);
   pool->size = 0;
 
   return pool;
@@ -5464,7 +5467,7 @@ s390_free_pool (struct constant_pool *pool)
       free (c);
     }
 
-  BITMAP_XFREE (pool->insns);
+  BITMAP_FREE (pool->insns);
   free (pool);
 }
 
@@ -5821,7 +5824,7 @@ s390_chunkify_start (void)
   /* Find all labels that are branched into
      from an insn belonging to a different chunk.  */
 
-  far_labels = BITMAP_XMALLOC ();
+  far_labels = BITMAP_ALLOC (NULL);
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
@@ -5918,7 +5921,7 @@ s390_chunkify_start (void)
       }
 
 
-  BITMAP_XFREE (far_labels);
+  BITMAP_FREE (far_labels);
 
 
   /* Recompute insn addresses.  */
@@ -6119,6 +6122,10 @@ s390_optimize_prologue (void)
 
 	  if (GET_CODE (base) != REG || off < 0)
 	    continue;
+	  if (cfun_frame_layout.first_save_gpr != -1
+	      && (cfun_frame_layout.first_save_gpr < first
+		  || cfun_frame_layout.last_save_gpr > last))
+	    continue;
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
 	    continue;
@@ -6140,7 +6147,8 @@ s390_optimize_prologue (void)
 	  continue;
 	}
 
-      if (GET_CODE (PATTERN (insn)) == SET
+      if (cfun_frame_layout.first_save_gpr == -1
+	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == REG
 	  && (REGNO (SET_SRC (PATTERN (insn))) == BASE_REGNUM
 	      || (!TARGET_CPU_ZARCH
@@ -6158,16 +6166,6 @@ s390_optimize_prologue (void)
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
 	    continue;
-	  if (cfun_frame_layout.first_save_gpr != -1)
-	    {
-	      new_insn = save_gprs (base, 
-				    off + (cfun_frame_layout.first_save_gpr 
-					   - first) * UNITS_PER_WORD, 
-				    cfun_frame_layout.first_save_gpr,
-				    cfun_frame_layout.last_save_gpr);
-	      new_insn = emit_insn_before (new_insn, insn);
-	      INSN_ADDRESSES_NEW (new_insn, -1);
-	    }
 
 	  remove_insn (insn);
 	  continue;
@@ -6184,6 +6182,10 @@ s390_optimize_prologue (void)
 	  off = INTVAL (offset);
 
 	  if (GET_CODE (base) != REG || off < 0)
+	    continue;
+	  if (cfun_frame_layout.first_restore_gpr != -1
+	      && (cfun_frame_layout.first_restore_gpr < first
+		  || cfun_frame_layout.last_restore_gpr > last))
 	    continue;
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
@@ -6206,7 +6208,8 @@ s390_optimize_prologue (void)
 	  continue;
 	}
 
-      if (GET_CODE (PATTERN (insn)) == SET
+      if (cfun_frame_layout.first_restore_gpr == -1
+	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_DEST (PATTERN (insn))) == REG
 	  && (REGNO (SET_DEST (PATTERN (insn))) == BASE_REGNUM
 	      || (!TARGET_CPU_ZARCH
@@ -6224,16 +6227,6 @@ s390_optimize_prologue (void)
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
 	    continue;
-	  if (cfun_frame_layout.first_restore_gpr != -1)
-	    {
-	      new_insn = restore_gprs (base, 
-				       off + (cfun_frame_layout.first_restore_gpr 
-					      - first) * UNITS_PER_WORD,
-				       cfun_frame_layout.first_restore_gpr,
-				       cfun_frame_layout.last_restore_gpr);
-	      new_insn = emit_insn_before (new_insn, insn);
-	      INSN_ADDRESSES_NEW (new_insn, -1);
-	    }
 
 	  remove_insn (insn);
 	  continue;

@@ -320,6 +320,10 @@ edge
 split_block (basic_block bb, void *i)
 {
   basic_block new_bb;
+  /* APPLE LOCAL begin lno */
+  bool irr = (bb->flags & BB_IRREDUCIBLE_LOOP) != 0;
+  int flags = EDGE_FALLTHRU;
+  /* APPLE LOCAL end lno */
 
   if (!cfg_hooks->split_block)
     internal_error ("%s does not support split_block.", cfg_hooks->name);
@@ -331,7 +335,14 @@ split_block (basic_block bb, void *i)
   new_bb->count = bb->count;
   new_bb->frequency = bb->frequency;
   new_bb->loop_depth = bb->loop_depth;
-
+  /* APPLE LOCAL begin lno */
+  if (irr)
+    {
+      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+      flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+  /* APPLE LOCAL end lno */
+ 
   if (dom_info_available_p (CDI_DOMINATORS))
     {
       redirect_immediate_dominators (CDI_DOMINATORS, bb, new_bb);
@@ -450,6 +461,15 @@ split_edge (edge e)
 	    set_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest, ret);
 	}
     };
+
+  /* APPLE LOCAL begin lno */
+  if (irr)
+    {
+      ret->flags |= BB_IRREDUCIBLE_LOOP;
+      EDGE_PRED (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      EDGE_SUCC (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+  /* APPLE LOCAL end lno */
 
   return ret;
 }
@@ -570,6 +590,8 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   edge e, fallthru;
   edge_iterator ei;
   basic_block dummy, jump;
+  /* APPLE LOCAL lno */
+  bool fst_irr = false;
 
   if (!cfg_hooks->make_forwarder_block)
     internal_error ("%s does not support make_forwarder_block.",
@@ -584,6 +606,8 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
     {
       if (redirect_edge_p (e))
 	{
+      /* APPLE LOCAL lno */
+       fst_irr |= (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
 	  ei_next (&ei);
 	  continue;
 	}
@@ -602,6 +626,14 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       if (jump)
 	new_bb_cbk (jump);
     }
+
+  /* APPLE LOCAL begin lno */
+  if (!fst_irr)
+    {
+      dummy->flags &= ~BB_IRREDUCIBLE_LOOP;
+      fallthru->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+    }
+  /* APPLE LOCAL end lno */
 
   if (dom_info_available_p (CDI_DOMINATORS))
     {

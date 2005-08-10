@@ -35,6 +35,8 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "timevar.h"
+/* APPLE LOCAL lno */
+#include "cfgloop.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
 #include "domwalk.h"
@@ -181,7 +183,7 @@ static struct opt_stats_d opt_stats;
    of the form SSA_NAME COND CONST we create a new vrp_element to record
    how the condition affects the possible values SSA_NAME may have.
 
-   Each record contains the condition tested (COND), and the the range of
+   Each record contains the condition tested (COND), and the range of
    values the variable may legitimately have if COND is true.  Note the
    range of values may be a smaller range than COND specifies if we have
    recorded other ranges for this variable.  Each record also contains the
@@ -367,7 +369,14 @@ static void
 tree_ssa_dominator_optimize (void)
 {
   struct dom_walk_data walk_data;
+  /* APPLE LOCAL lno */
+  struct loops *loops;
   unsigned int i;
+
+  /* APPLE LOCAL begin lno */
+  /* Compute the natural loops.  */
+  loops = loop_optimizer_init (NULL);
+  /* APPLE LOCAL end lno */
 
   memset (&opt_stats, 0, sizeof (opt_stats));
 
@@ -383,8 +392,8 @@ tree_ssa_dominator_optimize (void)
   nonzero_vars_stack = VEC_alloc (tree_on_heap, 20);
   vrp_variables_stack = VEC_alloc (tree_on_heap, 20);
   stmts_to_rescan = VEC_alloc (tree_on_heap, 20);
-  nonzero_vars = BITMAP_XMALLOC ();
-  need_eh_cleanup = BITMAP_XMALLOC ();
+  nonzero_vars = BITMAP_ALLOC (NULL);
+  need_eh_cleanup = BITMAP_ALLOC (NULL);
 
   /* Setup callbacks for the generic dominator tree walker.  */
   walk_data.walk_stmts_backward = false;
@@ -481,6 +490,10 @@ tree_ssa_dominator_optimize (void)
     }
   while (optimize > 1 && cfg_altered);
 
+  /* APPLE LOCAL begin lno */
+  loop_optimizer_finalize (loops, NULL);
+  /* APPLE LOCAL end lno */
+
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
     dump_dominator_optimization_stats (dump_file);
@@ -497,8 +510,8 @@ tree_ssa_dominator_optimize (void)
   fini_walk_dominator_tree (&walk_data);
 
   /* Free nonzero_vars.  */
-  BITMAP_XFREE (nonzero_vars);
-  BITMAP_XFREE (need_eh_cleanup);
+  BITMAP_FREE (nonzero_vars);
+  BITMAP_FREE (need_eh_cleanup);
   
   VEC_free (tree_on_heap, block_defs_stack);
   VEC_free (tree_on_heap, avail_exprs_stack);
@@ -1398,7 +1411,7 @@ record_cond (tree cond, tree value)
 
 /* Build a new conditional using NEW_CODE, OP0 and OP1 and store
    the new conditional into *p, then store a boolean_true_node
-   into the the *(p + 1).  */
+   into *(p + 1).  */
    
 static void
 build_and_record_new_cond (enum tree_code new_code, tree op0, tree op1, tree *p)
@@ -1662,8 +1675,11 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
+	  /* APPLE LOCAL begin lno */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
+	  /* APPLE LOCAL end lno */
 	{
 	  tree rhs_def_operand;
 
@@ -1689,7 +1705,11 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
+      /* APPLE LOCAL begin lno */
+      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
+	  /* APPLE LOCAL end lno */
 	{
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);
@@ -1929,6 +1949,18 @@ find_equivalent_equality_comparison (tree cond)
     {
       tree def_rhs = TREE_OPERAND (def_stmt, 1);
 
+
+      /* If either operand to the comparison is a pointer to
+	 a function, then we can not apply this optimization
+	 as some targets require function pointers to be
+	 canonicalized and in this case this optimization would
+	 eliminate a necessary canonicalization.  */
+      if ((POINTER_TYPE_P (TREE_TYPE (op0))
+	   && TREE_CODE (TREE_TYPE (TREE_TYPE (op0))) == FUNCTION_TYPE)
+	  || (POINTER_TYPE_P (TREE_TYPE (op1))
+	      && TREE_CODE (TREE_TYPE (TREE_TYPE (op1))) == FUNCTION_TYPE))
+	return NULL;
+	      
       /* Now make sure the RHS of the MODIFY_EXPR is a typecast.  */
       if ((TREE_CODE (def_rhs) == NOP_EXPR
 	   || TREE_CODE (def_rhs) == CONVERT_EXPR)
@@ -1940,6 +1972,16 @@ find_equivalent_equality_comparison (tree cond)
 
 	  if (TYPE_PRECISION (def_rhs_inner_type)
 	      > TYPE_PRECISION (TREE_TYPE (def_rhs)))
+	    return NULL;
+
+	  /* If the inner type of the conversion is a pointer to
+	     a function, then we can not apply this optimization
+	     as some targets require function pointers to be
+	     canonicalized.  This optimization would result in
+	     canonicalization of the pointer when it was not originally
+	     needed/intended.  */
+	  if (POINTER_TYPE_P (def_rhs_inner_type)
+	      && TREE_CODE (TREE_TYPE (def_rhs_inner_type)) == FUNCTION_TYPE)
 	    return NULL;
 
 	  /* What we want to prove is that if we convert OP1 to
@@ -3189,15 +3231,18 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
   tree op1 = TREE_OPERAND (cond, 1);
   tree high, low, type;
   int inverted;
-  
+
+  type = TREE_TYPE (op1);
+
   /* Experiments have shown that it's rarely, if ever useful to
      record ranges for enumerations.  Presumably this is due to
      the fact that they're rarely used directly.  They are typically
      cast into an integer type and used that way.  */
-  if (TREE_CODE (TREE_TYPE (op1)) != INTEGER_TYPE)
+  if (TREE_CODE (type) != INTEGER_TYPE
+      /* We don't know how to deal with types with variable bounds.  */
+      || TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
+      || TREE_CODE (TYPE_MAX_VALUE (type)) != INTEGER_CST)
     return 0;
-
-  type = TREE_TYPE (op1);
 
   switch (TREE_CODE (cond))
     {

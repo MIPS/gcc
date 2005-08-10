@@ -1,0 +1,21 @@
+# APPLE LOCAL file testsuite
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be an
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar is closed.
+###
+###------------------------------------------------------------------
+#4055183: objc.dg/stubify-1.m scan-assembler (bl|call)\tL_objc_msgSend\\$stub\n
+#4055183: objc.dg/stubify-1.m scan-assembler (bl|call)\tL_bogonic\\$stub\n
+#4055183: objc.dg/stubify-1.m scan-assembler-not \\$non_lazy_ptr
+#4055183: objc.dg/stubify-2.m scan-file-not symbol_ref.*"objc_msgSend"
+#4087344: objc.dg/stret-2.m scan-assembler objc_msgSend_stret
+#4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSend[^_S]
+#4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSendSuper[^_]
+#4087344: objc.dg/symtab-1.m scan-assembler L_OBJC_SYMBOLS.*:\n\t.long\t0\n\t.long\t0\n\t.short\t2\n\t.short\t0\n\t.long\tL_OBJC_CLASS_Derived.*\n\t.long\tL_OBJC_CLASS_Base.*\n
+

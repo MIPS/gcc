@@ -160,7 +160,8 @@ static int issue_rate;
    N=3: rtl at abort point, control-flow, regions info.
    N=5: dependences info.  */
 
-static int sched_verbose_param = 0;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 int sched_verbose = 0;
 
 /* Debugging file.  All printouts are sent to dump, which is always set,
@@ -170,17 +171,8 @@ FILE *sched_dump = 0;
 /* Highest uid before scheduling.  */
 static int old_max_uid;
 
-/* fix_sched_param() is called from toplev.c upon detection
-   of the -fsched-verbose=N option.  */
-
-void
-fix_sched_param (const char *param, const char *val)
-{
-  if (!strcmp (param, "verbose"))
-    sched_verbose_param = atoi (val);
-  else
-    warning ("fix_sched_param: unknown param: %s", param);
-}
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 struct haifa_insn_data *h_i_d;
 

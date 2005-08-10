@@ -474,6 +474,10 @@ extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
 extern void debug_loop_ir (void);
+/* APPLE LOCAL begin lno */
+extern void tree_debug_loop (struct loop *);
+extern void tree_debug_loops (void);
+/* APPLE LOCAL end lno */
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
@@ -657,6 +661,9 @@ bool empty_block_p (basic_block);
 
 /* In tree-ssa-loop*.c  */
 
+/* APPLE LOCAL begin loops-to-memset  */
+void tree_ssa_memset (struct loops *);
+/* APPLE LOCAL end loops-to-memset  */
 void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
@@ -703,6 +710,13 @@ enum move_pos
     MOVE_POSSIBLE		/* Unlimited movement.  */
   };
 extern enum move_pos movement_possibility (tree);
+
+/* APPLE LOCAL begin lno */
+/* In tree-ssa-loop*.c  */
+struct loops *tree_loop_optimizer_init (FILE *);
+void tree_ssa_prefetch_arrays (struct loops *);
+void mark_maybe_infinite_loops (struct loops *);
+/* APPLE LOCAL end lno */
 
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (tree);

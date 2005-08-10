@@ -383,6 +383,10 @@ pop_type_0 (tree type, char **messagep)
  fail:
   {
     char *temp = xstrdup (lang_printable_name (type, 0));
+    /* If the stack contains a multi-word type, keep popping the stack until 
+       the real type is found.  */
+    while (t == void_type_node)
+      t = stack_type_map[--stack_pointer];
     *messagep = concat ("expected type '", temp,
 			"' but stack contains '", lang_printable_name (t, 0),
 			"'", NULL);
@@ -814,15 +818,6 @@ build_java_array_length_access (tree node)
   tree array_type = TREE_TYPE (type);
   HOST_WIDE_INT length;
 
-  /* JVM spec: If the arrayref is null, the arraylength instruction
-     throws a NullPointerException.  The only way we could get a node
-     of type ptr_type_node at this point is `aconst_null; arraylength'
-     or something equivalent.  */
-  if (!flag_new_verifier && type == ptr_type_node)
-    return build3 (CALL_EXPR, int_type_node, 
-		   build_address_of (soft_nullpointer_node),
-		   NULL_TREE, NULL_TREE);
-
   if (!is_array_type_p (type))
     {
       /* With the new verifier, we will see an ordinary pointer type
@@ -1225,21 +1220,11 @@ expand_java_arrayload (tree lhs_type_node)
   index_node = save_expr (index_node);
   array_node = save_expr (array_node);
 
-  if (TREE_TYPE (array_node) == ptr_type_node)
-    /* The only way we could get a node of type ptr_type_node at this
-       point is `aconst_null; arraylength' or something equivalent, so
-       unconditionally throw NullPointerException.  */
-    load_node = build3 (CALL_EXPR, lhs_type_node, 
-			build_address_of (soft_nullpointer_node),
-			NULL_TREE, NULL_TREE);
-  else
-    {
-      lhs_type_node = build_java_check_indexed_type (array_node,
-						     lhs_type_node);
-      load_node = build_java_arrayaccess (array_node,
-					  lhs_type_node,
-					  index_node);
-    }
+  lhs_type_node = build_java_check_indexed_type (array_node,
+						 lhs_type_node);
+  load_node = build_java_arrayaccess (array_node,
+				      lhs_type_node,
+				      index_node);
   if (INTEGRAL_TYPE_P (lhs_type_node) && TYPE_PRECISION (lhs_type_node) <= 32)
     load_node = fold (build1 (NOP_EXPR, int_type_node, load_node));
   push_value (load_node);
@@ -2730,7 +2715,8 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
     }
 
   field_ref = build_field_ref (field_ref, self_type, field_name);
-  if (is_static)
+  if (is_static
+      && ! flag_indirect_dispatch)
     field_ref = build_class_init (self_type, field_ref);
   if (is_putting)
     {
@@ -3499,7 +3485,8 @@ maybe_adjust_start_pc (struct JCF *jcf, int code_offset,
    For method invocation, we modify the arguments so that a
    left-to-right order evaluation is performed. Saved expressions
    will, in CALL_EXPR order, be reused when the call will be expanded.
-*/
+
+   We also promote outgoing args if needed.  */
 
 tree
 force_evaluation_order (tree node)
@@ -3533,7 +3520,18 @@ force_evaluation_order (tree node)
       /* This reverses the evaluation order. This is a desired effect. */
       for (cmp = NULL_TREE; arg; arg = TREE_CHAIN (arg))
 	{
-	  tree saved = save_expr (force_evaluation_order (TREE_VALUE (arg)));
+	  /* Promote types smaller than integer.  This is required by
+	     some ABIs.  */
+	  tree saved;
+	  tree type = TREE_TYPE (TREE_VALUE (arg));
+	  if (targetm.calls.promote_prototypes (type)
+	      && INTEGRAL_TYPE_P (type)
+	      && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
+				      TYPE_SIZE (integer_type_node)))
+	    TREE_VALUE (arg) 
+	      = fold_convert (integer_type_node, TREE_VALUE (arg));
+
+	  saved = save_expr (force_evaluation_order (TREE_VALUE (arg)));
 	  cmp = (cmp == NULL_TREE ? saved :
 		 build2 (COMPOUND_EXPR, void_type_node, cmp, saved));
 	  TREE_VALUE (arg) = saved;

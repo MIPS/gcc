@@ -113,21 +113,21 @@ static rtx expand_builtin_strspn (tree, rtx, enum machine_mode);
 static rtx expand_builtin_strcspn (tree, rtx, enum machine_mode);
 static rtx expand_builtin_memcpy (tree, rtx, enum machine_mode);
 static rtx expand_builtin_mempcpy (tree, tree, rtx, enum machine_mode, int);
-static rtx expand_builtin_memmove (tree, tree, rtx, enum machine_mode);
-static rtx expand_builtin_bcopy (tree, tree);
+static rtx expand_builtin_memmove (tree, tree, rtx, enum machine_mode, tree);
+static rtx expand_builtin_bcopy (tree);
 static rtx expand_builtin_strcpy (tree, rtx, enum machine_mode);
 static rtx expand_builtin_stpcpy (tree, rtx, enum machine_mode);
 static rtx builtin_strncpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 static rtx expand_builtin_strncpy (tree, rtx, enum machine_mode);
 static rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 static rtx builtin_memset_gen_str (void *, HOST_WIDE_INT, enum machine_mode);
-static rtx expand_builtin_memset (tree, rtx, enum machine_mode);
+static rtx expand_builtin_memset (tree, rtx, enum machine_mode, tree);
 static rtx expand_builtin_bzero (tree);
 static rtx expand_builtin_strlen (tree, rtx, enum machine_mode);
-static rtx expand_builtin_strstr (tree, rtx, enum machine_mode);
-static rtx expand_builtin_strpbrk (tree, rtx, enum machine_mode);
-static rtx expand_builtin_strchr (tree, rtx, enum machine_mode);
-static rtx expand_builtin_strrchr (tree, rtx, enum machine_mode);
+static rtx expand_builtin_strstr (tree, tree, rtx, enum machine_mode);
+static rtx expand_builtin_strpbrk (tree, tree, rtx, enum machine_mode);
+static rtx expand_builtin_strchr (tree, tree, rtx, enum machine_mode);
+static rtx expand_builtin_strrchr (tree, tree, rtx, enum machine_mode);
 static rtx expand_builtin_alloca (tree, rtx);
 static rtx expand_builtin_unop (enum machine_mode, tree, rtx, rtx, optab);
 static rtx expand_builtin_frame_address (tree, tree);
@@ -165,7 +165,7 @@ static tree fold_builtin_bitop (tree);
 static tree fold_builtin_memcpy (tree);
 static tree fold_builtin_mempcpy (tree, tree, int);
 static tree fold_builtin_memmove (tree, tree);
-static tree fold_builtin_strchr (tree);
+static tree fold_builtin_strchr (tree, tree);
 static tree fold_builtin_memcmp (tree);
 static tree fold_builtin_strcmp (tree);
 static tree fold_builtin_strncmp (tree);
@@ -179,9 +179,9 @@ static tree fold_builtin_abs (tree, tree);
 static tree fold_builtin_unordered_cmp (tree, enum tree_code, enum tree_code);
 static tree fold_builtin_1 (tree, bool);
 
-static tree fold_builtin_strpbrk (tree);
-static tree fold_builtin_strstr (tree);
-static tree fold_builtin_strrchr (tree);
+static tree fold_builtin_strpbrk (tree, tree);
+static tree fold_builtin_strstr (tree, tree);
+static tree fold_builtin_strrchr (tree, tree);
 static tree fold_builtin_strcat (tree);
 static tree fold_builtin_strncat (tree);
 static tree fold_builtin_strspn (tree);
@@ -453,10 +453,15 @@ builtin_save_expr (tree exp)
    address located within it (depending on FNDECL_CODE).  */
 
 static rtx
-expand_builtin_return_addr (enum built_in_function fndecl_code, int count,
-			    rtx tem)
+expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
 {
   int i;
+
+#ifdef INITIAL_FRAME_ADDRESS_RTX
+  rtx tem = INITIAL_FRAME_ADDRESS_RTX;
+#else
+  rtx tem = hard_frame_pointer_rtx;
+#endif
 
   /* Some machines need special handling before we can access
      arbitrary frames.  For example, on the sparc, we must first flush
@@ -973,12 +978,8 @@ expand_builtin_prefetch (tree arglist)
 static rtx
 get_memory_rtx (tree exp)
 {
-  rtx addr = expand_expr (exp, NULL_RTX, ptr_mode, EXPAND_SUM);
-  rtx mem;
-
-  addr = convert_memory_address (Pmode, addr);
-
-  mem = gen_rtx_MEM (BLKmode, memory_address (BLKmode, addr));
+  rtx addr = expand_expr (exp, NULL_RTX, ptr_mode, EXPAND_NORMAL);
+  rtx mem = gen_rtx_MEM (BLKmode, memory_address (BLKmode, addr));
 
   /* Get an expression we can use to find the attributes to assign to MEM.
      If it is an ADDR_EXPR, use the operand.  Otherwise, dereference it if
@@ -2373,6 +2374,8 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
   tree arg0, arg1;
   rtx op0, op1;
   enum machine_mode mode;
+  /* APPLE LOCAL mainline 2005-03-30 */
+  enum machine_mode mode2;
 
   if (! validate_arglist (arglist, REAL_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -2404,19 +2407,24 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
 
   /* Emit a libcall to libgcc.  */
 
+  /* APPLE LOCAL begin mainline 2005-03-30 */
+  /* Mode of the 2nd argument must match that of an int. */
+  mode2 = mode_for_size (INT_TYPE_SIZE, MODE_INT, 0);
+
   if (target == NULL_RTX)
     target = gen_reg_rtx (mode);
 
   op0 = expand_expr (arg0, subtarget, mode, 0);
   if (GET_MODE (op0) != mode)
     op0 = convert_to_mode (mode, op0, 0);
-  op1 = expand_expr (arg1, 0, word_mode, 0);
-  if (GET_MODE (op1) != word_mode)
-    op1 = convert_to_mode (word_mode, op1, 0);
+  op1 = expand_expr (arg1, 0, mode2, 0);
+  if (GET_MODE (op1) != mode2)
+    op1 = convert_to_mode (mode2, op1, 0);
 
   target = emit_library_call_value (powi_optab->handlers[(int) mode].libfunc,
 				    target, LCT_CONST_MAKE_BLOCK, mode, 2,
-				    op0, mode, op1, word_mode);
+				    op0, mode, op1, mode2);
+  /* APPLE LOCAL end mainline 2005-03-30 */
 
   return target;
 }
@@ -2534,11 +2542,11 @@ expand_builtin_strlen (tree arglist, rtx target,
    in TARGET, if convenient (and in mode MODE if that's convenient).  */
 
 static rtx
-expand_builtin_strstr (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_strstr (tree arglist, tree type, rtx target, enum machine_mode mode)
 {
   if (validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     {
-      tree result = fold_builtin_strstr (arglist);
+      tree result = fold_builtin_strstr (arglist, type);
       if (result)
 	return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
@@ -2550,11 +2558,11 @@ expand_builtin_strstr (tree arglist, rtx target, enum machine_mode mode)
    in TARGET, if convenient (and in mode MODE if that's convenient).  */
 
 static rtx
-expand_builtin_strchr (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_strchr (tree arglist, tree type, rtx target, enum machine_mode mode)
 {
   if (validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     {
-      tree result = fold_builtin_strchr (arglist);
+      tree result = fold_builtin_strchr (arglist, type);
       if (result)
 	return expand_expr (result, target, mode, EXPAND_NORMAL);
 
@@ -2568,11 +2576,11 @@ expand_builtin_strchr (tree arglist, rtx target, enum machine_mode mode)
    in TARGET, if convenient (and in mode MODE if that's convenient).  */
 
 static rtx
-expand_builtin_strrchr (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_strrchr (tree arglist, tree type, rtx target, enum machine_mode mode)
 {
   if (validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     {
-      tree result = fold_builtin_strrchr (arglist);
+      tree result = fold_builtin_strrchr (arglist, type);
       if (result)
 	return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
@@ -2584,11 +2592,11 @@ expand_builtin_strrchr (tree arglist, rtx target, enum machine_mode mode)
    in TARGET, if convenient (and in mode MODE if that's convenient).  */
 
 static rtx
-expand_builtin_strpbrk (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_strpbrk (tree arglist, tree type, rtx target, enum machine_mode mode)
 {
   if (validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     {
-      tree result = fold_builtin_strpbrk (arglist);
+      tree result = fold_builtin_strpbrk (arglist, type);
       if (result)
 	return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
@@ -2674,7 +2682,8 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 
       /* Copy word part most expediently.  */
       dest_addr = emit_block_move (dest_mem, src_mem, len_rtx,
-				   BLOCK_OP_NORMAL);
+				   CALL_EXPR_TAILCALL (exp)
+				   ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL);
 
       if (dest_addr == 0)
 	{
@@ -2781,7 +2790,7 @@ expand_builtin_mempcpy (tree arglist, tree type, rtx target, enum machine_mode m
 
 static rtx
 expand_builtin_memmove (tree arglist, tree type, rtx target,
-			enum machine_mode mode)
+			enum machine_mode mode, tree orig_exp)
 {
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -2813,11 +2822,13 @@ expand_builtin_memmove (tree arglist, tree type, rtx target,
 	 normal memcpy.  */
       if (readonly_data_expr (src))
         {
-	  tree const fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	  tree fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
 	  if (!fn)
 	    return 0;
-	  return expand_expr (build_function_call_expr (fn, arglist),
-			      target, mode, EXPAND_NORMAL);
+	  fn = build_function_call_expr (fn, arglist);
+	  if (TREE_CODE (fn) == CALL_EXPR)
+	    CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (orig_exp);
+	  return expand_expr (fn, target, mode, EXPAND_NORMAL);
 	}
 
       /* If length is 1 and we can expand memcpy call inline,
@@ -2839,8 +2850,10 @@ expand_builtin_memmove (tree arglist, tree type, rtx target,
    if we failed the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_bcopy (tree arglist, tree type)
+expand_builtin_bcopy (tree exp)
 {
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree type = TREE_TYPE (exp);
   tree src, dest, size, newarglist;
 
   if (!validate_arglist (arglist,
@@ -2860,7 +2873,7 @@ expand_builtin_bcopy (tree arglist, tree type)
   newarglist = tree_cons (NULL_TREE, src, newarglist);
   newarglist = tree_cons (NULL_TREE, dest, newarglist);
 
-  return expand_builtin_memmove (newarglist, type, const0_rtx, VOIDmode);
+  return expand_builtin_memmove (newarglist, type, const0_rtx, VOIDmode, exp);
 }
 
 #ifndef HAVE_movstr
@@ -3152,7 +3165,8 @@ builtin_memset_gen_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
    convenient).  */
 
 static rtx
-expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
+		       tree orig_exp)
 {
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -3238,7 +3252,9 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode)
 
       dest_mem = get_memory_rtx (dest);
       set_mem_align (dest_mem, dest_align);
-      dest_addr = clear_storage (dest_mem, len_rtx);
+      dest_addr = clear_storage (dest_mem, len_rtx,
+				 CALL_EXPR_TAILCALL (orig_exp)
+				 ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL);
 
       if (dest_addr == 0)
 	{
@@ -3254,8 +3270,9 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode)
    if we failed the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_bzero (tree arglist)
+expand_builtin_bzero (tree exp)
 {
+  tree arglist = TREE_OPERAND (exp, 1);
   tree dest, size, newarglist;
 
   if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -3273,7 +3290,7 @@ expand_builtin_bzero (tree arglist)
   newarglist = tree_cons (NULL_TREE, integer_zero_node, newarglist);
   newarglist = tree_cons (NULL_TREE, dest, newarglist);
 
-  return expand_builtin_memset (newarglist, const0_rtx, VOIDmode);
+  return expand_builtin_memset (newarglist, const0_rtx, VOIDmode, exp);
 }
 
 /* Expand expression EXP, which is a call to the memcmp built-in function.
@@ -3412,7 +3429,7 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
     tree len, len1, len2;
     rtx arg1_rtx, arg2_rtx, arg3_rtx;
     rtx result, insn;
-    tree fndecl;
+    tree fndecl, fn;
 
     int arg1_align
       = get_pointer_alignment (arg1, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
@@ -3496,8 +3513,10 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
     arglist = build_tree_list (NULL_TREE, arg2);
     arglist = tree_cons (NULL_TREE, arg1, arglist);
     fndecl = get_callee_fndecl (exp);
-    exp = build_function_call_expr (fndecl, arglist);
-    return expand_call (exp, target, target == const0_rtx);
+    fn = build_function_call_expr (fndecl, arglist);
+    if (TREE_CODE (fn) == CALL_EXPR)
+      CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+    return expand_call (fn, target, target == const0_rtx);
   }
 #endif
   return 0;
@@ -3534,7 +3553,7 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
     tree len, len1, len2;
     rtx arg1_rtx, arg2_rtx, arg3_rtx;
     rtx result, insn;
-    tree fndecl;
+    tree fndecl, fn;
 
     int arg1_align
       = get_pointer_alignment (arg1, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
@@ -3624,8 +3643,10 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
     arglist = tree_cons (NULL_TREE, arg2, arglist);
     arglist = tree_cons (NULL_TREE, arg1, arglist);
     fndecl = get_callee_fndecl (exp);
-    exp = build_function_call_expr (fndecl, arglist);
-    return expand_call (exp, target, target == const0_rtx);
+    fn = build_function_call_expr (fndecl, arglist);
+    if (TREE_CODE (fn) == CALL_EXPR)
+      CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+    return expand_call (fn, target, target == const0_rtx);
   }
 #endif
   return 0;
@@ -4221,8 +4242,7 @@ expand_builtin_frame_address (tree fndecl, tree arglist)
     {
       rtx tem
 	= expand_builtin_return_addr (DECL_FUNCTION_CODE (fndecl),
-				      tree_low_cst (TREE_VALUE (arglist), 1),
-				      hard_frame_pointer_rtx);
+				      tree_low_cst (TREE_VALUE (arglist), 1));
 
       /* Some ports cannot access arbitrary stack frames.  */
       if (tem == NULL)
@@ -4556,15 +4576,16 @@ build_string_literal (int len, const char *str)
   return t;
 }
 
-/* Expand a call to printf or printf_unlocked with argument list ARGLIST.
+/* Expand EXP, a call to printf or printf_unlocked.
    Return 0 if a normal call should be emitted rather than transforming
    the function inline.  If convenient, the result should be placed in
    TARGET with mode MODE.  UNLOCKED indicates this is a printf_unlocked
    call.  */
 static rtx
-expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
+expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
 		       bool unlocked)
 {
+  tree arglist = TREE_OPERAND (exp, 1);
   tree fn_putchar = unlocked
 		    ? implicit_built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED]
 		    : implicit_built_in_decls[BUILT_IN_PUTCHAR];
@@ -4655,19 +4676,22 @@ expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
 
   if (!fn)
     return 0;
-  return expand_expr (build_function_call_expr (fn, arglist),
-		      target, mode, EXPAND_NORMAL);
+  fn = build_function_call_expr (fn, arglist);
+  if (TREE_CODE (fn) == CALL_EXPR)
+    CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+  return expand_expr (fn, target, mode, EXPAND_NORMAL);
 }
 
-/* Expand a call to fprintf or fprintf_unlocked with argument list ARGLIST.
+/* Expand EXP, a call to fprintf or fprintf_unlocked.
    Return 0 if a normal call should be emitted rather than transforming
    the function inline.  If convenient, the result should be placed in
    TARGET with mode MODE.  UNLOCKED indicates this is a fprintf_unlocked
    call.  */
 static rtx
-expand_builtin_fprintf (tree arglist, rtx target, enum machine_mode mode,
+expand_builtin_fprintf (tree exp, rtx target, enum machine_mode mode,
 		        bool unlocked)
 {
+  tree arglist = TREE_OPERAND (exp, 1);
   tree fn_fputc = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED]
 			   : implicit_built_in_decls[BUILT_IN_FPUTC];
   tree fn_fputs = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTS_UNLOCKED]
@@ -4749,8 +4773,10 @@ expand_builtin_fprintf (tree arglist, rtx target, enum machine_mode mode,
 
   if (!fn)
     return 0;
-  return expand_expr (build_function_call_expr (fn, arglist),
-		      target, mode, EXPAND_NORMAL);
+  fn = build_function_call_expr (fn, arglist);
+  if (TREE_CODE (fn) == CALL_EXPR)
+    CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+  return expand_expr (fn, target, mode, EXPAND_NORMAL);
 }
 
 /* Expand a call to sprintf with argument list ARGLIST.  Return 0 if
@@ -4855,7 +4881,7 @@ expand_builtin_profile_func (bool exitp)
 
   emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this, Pmode,
 		     expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
-						 0, hard_frame_pointer_rtx),
+						 0),
 		     Pmode);
 
   return const0_rtx;
@@ -5482,27 +5508,27 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRSTR:
-      target = expand_builtin_strstr (arglist, target, mode);
+      target = expand_builtin_strstr (arglist, TREE_TYPE (exp), target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRPBRK:
-      target = expand_builtin_strpbrk (arglist, target, mode);
+      target = expand_builtin_strpbrk (arglist, TREE_TYPE (exp), target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_INDEX:
     case BUILT_IN_STRCHR:
-      target = expand_builtin_strchr (arglist, target, mode);
+      target = expand_builtin_strchr (arglist, TREE_TYPE (exp), target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_RINDEX:
     case BUILT_IN_STRRCHR:
-      target = expand_builtin_strrchr (arglist, target, mode);
+      target = expand_builtin_strrchr (arglist, TREE_TYPE (exp), target, mode);
       if (target)
 	return target;
       break;
@@ -5520,25 +5546,26 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_MEMMOVE:
-      target = expand_builtin_memmove (arglist, TREE_TYPE (exp), target, mode);
+      target = expand_builtin_memmove (arglist, TREE_TYPE (exp), target,
+				       mode, exp);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_BCOPY:
-      target = expand_builtin_bcopy (arglist, TREE_TYPE (exp));
+      target = expand_builtin_bcopy (exp);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMSET:
-      target = expand_builtin_memset (arglist, target, mode);
+      target = expand_builtin_memset (arglist, target, mode, exp);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_BZERO:
-      target = expand_builtin_bzero (arglist);
+      target = expand_builtin_bzero (exp);
       if (target)
 	return target;
       break;
@@ -5615,13 +5642,13 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       return const0_rtx;
 
     case BUILT_IN_PRINTF:
-      target = expand_builtin_printf (arglist, target, mode, false);
+      target = expand_builtin_printf (exp, target, mode, false);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_PRINTF_UNLOCKED:
-      target = expand_builtin_printf (arglist, target, mode, true);
+      target = expand_builtin_printf (exp, target, mode, true);
       if (target)
 	return target;
       break;
@@ -5638,13 +5665,13 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_FPRINTF:
-      target = expand_builtin_fprintf (arglist, target, mode, false);
+      target = expand_builtin_fprintf (exp, target, mode, false);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_FPRINTF_UNLOCKED:
-      target = expand_builtin_fprintf (arglist, target, mode, true);
+      target = expand_builtin_fprintf (exp, target, mode, true);
       if (target)
 	return target;
       break;
@@ -5725,6 +5752,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (target)
 	return target;
       break;
+
+    /* APPLE LOCAL begin lno */
+    case BUILT_IN_MAYBE_INFINITE_LOOP:
+      /* This is just a fake statement that expands to nothing.  */
+      return const0_rtx;
+    /* APPLE LOCAL end lno */
 
     default:	/* just do library call, if unknown builtin */
       break;
@@ -5826,10 +5859,17 @@ fold_builtin_constant_p (tree arglist)
   /* If we know this is a constant, emit the constant of one.  */
   if (CONSTANT_CLASS_P (arglist)
       || (TREE_CODE (arglist) == CONSTRUCTOR
-	  && TREE_CONSTANT (arglist))
-      || (TREE_CODE (arglist) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (arglist, 0)) == STRING_CST))
+	  && TREE_CONSTANT (arglist)))
     return integer_one_node;
+  if (TREE_CODE (arglist) == ADDR_EXPR)
+    {
+       tree op = TREE_OPERAND (arglist, 0);
+       if (TREE_CODE (op) == STRING_CST
+	   || (TREE_CODE (op) == ARRAY_REF
+	       && integer_zerop (TREE_OPERAND (op, 1))
+	       && TREE_CODE (TREE_OPERAND (op, 0)) == STRING_CST))
+	 return integer_one_node;
+    }
 
   /* If this expression has side effects, show we don't know it to be a
      constant.  Likewise if it's a pointer or aggregate type since in
@@ -7619,11 +7659,18 @@ fold_builtin_isdigit (tree arglist)
   else
     {
       /* Transform isdigit(c) -> (unsigned)(c) - '0' <= 9.  */
-      /* According to the C standard, isdigit is unaffected by locale.  */
-      tree arg = TREE_VALUE (arglist);
-      arg = fold_convert (unsigned_type_node, arg);
+      /* According to the C standard, isdigit is unaffected by locale.
+	 However, it definitely is affected by the target character set.  */
+      tree arg;
+      unsigned HOST_WIDE_INT target_digit0
+	= lang_hooks.to_target_charset ('0');
+
+      if (target_digit0 == 0)
+	return NULL_TREE;
+
+      arg = fold_convert (unsigned_type_node, TREE_VALUE (arglist));
       arg = build2 (MINUS_EXPR, unsigned_type_node, arg,
-		    build_int_cst (unsigned_type_node, TARGET_DIGIT0));
+		    build_int_cst (unsigned_type_node, target_digit0));
       arg = build2 (LE_EXPR, integer_type_node, arg,
 		    build_int_cst (unsigned_type_node, 9));
       arg = fold (arg);
@@ -7832,6 +7879,44 @@ fold_builtin_unordered_cmp (tree exp,
 		       fold (build2 (code, type, arg0, arg1))));
 }
 
+/* Fold a call to one of the external complex multiply libcalls.  */
+
+static tree
+fold_builtin_complex_mul (tree type, tree arglist)
+{
+  tree ar, ai, br, bi;
+
+  if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, REAL_TYPE,
+			 REAL_TYPE, VOID_TYPE))
+    return NULL;
+
+  ar = TREE_VALUE (arglist); arglist = TREE_CHAIN (arglist);
+  ai = TREE_VALUE (arglist); arglist = TREE_CHAIN (arglist);
+  br = TREE_VALUE (arglist); arglist = TREE_CHAIN (arglist);
+  bi = TREE_VALUE (arglist);
+
+  return fold_complex_mult_parts (type, ar, ai, br, bi);
+}
+
+/* Fold a call to one of the external complex division libcalls.  */
+
+static tree
+fold_builtin_complex_div (tree type, tree arglist)
+{
+  tree ar, ai, br, bi;
+
+  if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, REAL_TYPE,
+			 REAL_TYPE, VOID_TYPE))
+    return NULL;
+
+  ar = TREE_VALUE (arglist); arglist = TREE_CHAIN (arglist);
+  ai = TREE_VALUE (arglist); arglist = TREE_CHAIN (arglist);
+  br = TREE_VALUE (arglist); arglist = TREE_CHAIN (arglist);
+  bi = TREE_VALUE (arglist);
+
+  return fold_complex_div_parts (type, ar, ai, br, bi, RDIV_EXPR);
+}
+
 /* Used by constant folding to simplify calls to builtin functions.  EXP is
    the CALL_EXPR of a call to a builtin function.  IGNORE is true if the
    result of the function call is ignored.  This function returns NULL_TREE
@@ -7843,11 +7928,13 @@ fold_builtin_1 (tree exp, bool ignore)
   tree fndecl = get_callee_fndecl (exp);
   tree arglist = TREE_OPERAND (exp, 1);
   tree type = TREE_TYPE (TREE_TYPE (fndecl));
+  enum built_in_function fcode;
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.fold_builtin (exp, ignore);
 
-  switch (DECL_FUNCTION_CODE (fndecl))
+  fcode = DECL_FUNCTION_CODE (fndecl);
+  switch (fcode)
     {
     case BUILT_IN_FPUTS:
       return fold_builtin_fputs (arglist, ignore, false, NULL_TREE);
@@ -7856,7 +7943,7 @@ fold_builtin_1 (tree exp, bool ignore)
       return fold_builtin_fputs (arglist, ignore, true, NULL_TREE);
 
     case BUILT_IN_STRSTR:
-      return fold_builtin_strstr (arglist);
+      return fold_builtin_strstr (arglist, type);
 
     case BUILT_IN_STRCAT:
       return fold_builtin_strcat (arglist);
@@ -7872,11 +7959,11 @@ fold_builtin_1 (tree exp, bool ignore)
 
     case BUILT_IN_STRCHR:
     case BUILT_IN_INDEX:
-      return fold_builtin_strchr (arglist);
+      return fold_builtin_strchr (arglist, type);
 
     case BUILT_IN_STRRCHR:
     case BUILT_IN_RINDEX:
-      return fold_builtin_strrchr (arglist);
+      return fold_builtin_strrchr (arglist, type);
 
     case BUILT_IN_STRCPY:
       return fold_builtin_strcpy (exp, NULL_TREE);
@@ -7891,7 +7978,7 @@ fold_builtin_1 (tree exp, bool ignore)
       return fold_builtin_strncmp (arglist);
 
     case BUILT_IN_STRPBRK:
-      return fold_builtin_strpbrk (arglist);
+      return fold_builtin_strpbrk (arglist, type);
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
@@ -8177,7 +8264,17 @@ fold_builtin_1 (tree exp, bool ignore)
       break;
 
     default:
-      break;
+      if (fcode >= BUILT_IN_COMPLEX_MUL_MIN
+	  && fcode <= BUILT_IN_COMPLEX_MUL_MAX)
+	return fold_builtin_complex_mul (type, arglist);
+      if (fcode >= BUILT_IN_COMPLEX_DIV_MIN
+	  && fcode <= BUILT_IN_COMPLEX_DIV_MAX)
+	return fold_builtin_complex_div (type, arglist);
+      /* APPLE LOCAL begin constant cfstrings */
+      /* Don't just do the library call if it's unknown, try using
+	 our target version, then call the library call if that doesn't work. */
+      return (*targetm.expand_tree_builtin) (fndecl, arglist,NULL_TREE);
+      /* APPLE LOCAL end constant cfstrings */
     }
 
   return 0;
@@ -8326,7 +8423,7 @@ readonly_data_expr (tree exp)
    form of the builtin function call.  */
 
 static tree
-fold_builtin_strstr (tree arglist)
+fold_builtin_strstr (tree arglist, tree type)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -8344,13 +8441,15 @@ fold_builtin_strstr (tree arglist)
       if (p1 != NULL)
 	{
 	  const char *r = strstr (p1, p2);
+	  tree tem;
 
 	  if (r == NULL)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  tem = fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			      s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  return fold_convert (type, tem);
 	}
 
       if (p2[0] == '\0')
@@ -8390,7 +8489,7 @@ fold_builtin_strstr (tree arglist)
    form of the builtin function call.  */
 
 static tree
-fold_builtin_strchr (tree arglist)
+fold_builtin_strchr (tree arglist, tree type)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -8407,6 +8506,7 @@ fold_builtin_strchr (tree arglist)
 	{
 	  char c;
 	  const char *r;
+	  tree tem;
 
 	  if (target_char_cast (s2, &c))
 	    return 0;
@@ -8417,8 +8517,9 @@ fold_builtin_strchr (tree arglist)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  tem = fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			      s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  return fold_convert (type, tem);
 	}
       return 0;
     }
@@ -8442,7 +8543,7 @@ fold_builtin_strchr (tree arglist)
    form of the builtin function call.  */
 
 static tree
-fold_builtin_strrchr (tree arglist)
+fold_builtin_strrchr (tree arglist, tree type)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -8460,6 +8561,7 @@ fold_builtin_strrchr (tree arglist)
 	{
 	  char c;
 	  const char *r;
+	  tree tem;
 
 	  if (target_char_cast (s2, &c))
 	    return 0;
@@ -8470,8 +8572,9 @@ fold_builtin_strrchr (tree arglist)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  tem = fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			      s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  return fold_convert (type, tem);
 	}
 
       if (! integer_zerop (s2))
@@ -8504,7 +8607,7 @@ fold_builtin_strrchr (tree arglist)
    form of the builtin function call.  */
 
 static tree
-fold_builtin_strpbrk (tree arglist)
+fold_builtin_strpbrk (tree arglist, tree type)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -8522,13 +8625,15 @@ fold_builtin_strpbrk (tree arglist)
       if (p1 != NULL)
 	{
 	  const char *r = strpbrk (p1, p2);
+	  tree tem;
 
 	  if (r == NULL)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  tem = fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			      s1, build_int_cst (TREE_TYPE (s1), r - p1)));
+	  return fold_convert (type, tem);
 	}
 
       if (p2[0] == '\0')

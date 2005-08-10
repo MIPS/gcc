@@ -117,7 +117,8 @@ extern void split_ti (rtx[], int, rtx[], rtx[]);
 extern const char *output_set_got (rtx);
 extern const char *output_387_binary_op (rtx, rtx*);
 extern const char *output_387_reg_move (rtx, rtx*);
-extern const char *output_fix_trunc (rtx, rtx*);
+/* APPLE LOCAL mainline 2005-03-16 4054919 */
+extern const char *output_fix_trunc (rtx, rtx*, int);
 extern const char *output_fp_compare (rtx, rtx*, int, int);
 
 extern void i386_output_dwarf_dtprel (FILE*, int, rtx);
@@ -186,7 +187,11 @@ extern int ix86_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);
 extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					 enum machine_mode, int);
+extern bool ix86_cannot_change_mode_class (enum machine_mode,
+					   enum machine_mode, enum reg_class);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
+/* APPLE LOCAL 3501055 mainline candidate */
+extern enum reg_class ix86_preferred_output_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern void emit_i387_cw_initialization (rtx, rtx, int);
 extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);

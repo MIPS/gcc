@@ -104,6 +104,13 @@ extern int target_flags;
 #endif
 #endif
 
+/* APPLE LOCAL begin mainline 2005-04-11 4010614 */
+#ifndef TARGET_FPMATH_DEFAULT
+#define TARGET_FPMATH_DEFAULT \
+  (TARGET_64BIT && TARGET_SSE ? FPMATH_SSE : FPMATH_387)
+#endif
+/* APPLE LOCAL end mainline 2005-04-11 4010614 */
+
 /* Masks for the -m switches */
 #define MASK_80387		0x00000001	/* Hardware floating point */
 #define MASK_RTD		0x00000002	/* Use ret that pops args */
@@ -129,7 +136,8 @@ extern int target_flags;
 #define MASK_MS_BITFIELD_LAYOUT 0x00200000	/* Use native (MS) bitfield layout */
 #define MASK_TLS_DIRECT_SEG_REFS 0x00400000	/* Avoid adding %gs:0  */
 
-/* Unused:			0x03e0000	*/
+/* APPLE LOCAL dynamic-no-pic */
+/* Unused:			0x03000000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -229,7 +237,8 @@ extern int target_flags;
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
-extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
+/* APPLE LOCAL mainline 2005-03-16 4054919 */
+extern const int x86_use_bit_test, x86_cmove, x86_fisttp, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
@@ -258,6 +267,8 @@ extern int x86_prefetch_sse;
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
+/* APPLE LOCAL mainline 2005-03-16 4054919 */
+#define TARGET_FISTTP (x86_fisttp & (1 << ix86_arch))
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
@@ -792,7 +803,15 @@ extern int x86_prefetch_sse;
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY BITS_PER_WORD
+/* APPLE LOCAL begin compiler should obey -mpreferred-stack-boundary (radar 3232990) */
+/* prefer * #define STACK_BOUNDARY ((ix86_preferred_stack_boundary > 128) ? 128 : ix86_preferred_stack_boundary) */
+/*  We're going to extremes to yield a result of indeterminite
+    signedness here; this macro will be expanded in signed and
+    unsigned contexts, and mixed signedness induces fatal
+    warnings.  Radar 3941684.  */
+#define STACK_BOUNDARY ((ix86_preferred_stack_boundary >=  128) ? 128 : \
+			(ix86_preferred_stack_boundary == 64) ? 64 : 32)
+/* APPLE LOCAL end compiler should obey -mpreferred-stack-boundary (radar 3232990) */
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
@@ -843,7 +862,8 @@ extern int x86_prefetch_sse;
 #define BIGGEST_FIELD_ALIGNMENT 32
 #endif
 #else
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+/* APPLE LOCAL Macintosh alignment */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED, FIRST_FIELD_P) \
    x86_field_alignment (FIELD, COMPUTED)
 #endif
 
@@ -1031,14 +1051,14 @@ do {									\
 	int i;								\
         for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
           if (TEST_HARD_REG_BIT (reg_class_contents[(int)MMX_REGS], i))	\
-	    fixed_regs[i] = call_used_regs[i] = 1;		 	\
+	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
       }									\
     if (! TARGET_SSE)							\
       {									\
 	int i;								\
         for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
           if (TEST_HARD_REG_BIT (reg_class_contents[(int)SSE_REGS], i))	\
-	    fixed_regs[i] = call_used_regs[i] = 1;		 	\
+	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
       }									\
     if (! TARGET_80387 && ! TARGET_FLOAT_RETURNS_IN_80387)		\
       {									\
@@ -1047,7 +1067,15 @@ do {									\
         COPY_HARD_REG_SET (x, reg_class_contents[(int)FLOAT_REGS]);	\
         for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
           if (TEST_HARD_REG_BIT (x, i)) 				\
-	    fixed_regs[i] = call_used_regs[i] = 1;			\
+	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
+      }									\
+    if (! TARGET_64BIT)							\
+      {									\
+	int i;								\
+	for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)		\
+	  reg_names[i] = "";						\
+	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
+	  reg_names[i] = "";						\
       }									\
   } while (0)
 
@@ -1106,11 +1134,6 @@ do {									\
  ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
-
-/* Return true for modes passed in MMX registers.  */
-#define MMX_REG_MODE_P(MODE) \
- ((MODE) == V8QImode || (MODE) == V4HImode || (MODE) == V2SImode	\
-   || (MODE) == V2SFmode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
@@ -1543,6 +1566,14 @@ enum reg_class
 #define PREFERRED_RELOAD_CLASS(X, CLASS) \
    ix86_preferred_reload_class ((X), (CLASS))
 
+/* APPLE LOCAL begin 3501055 mainline candidate */
+/* Discourage putting floating-point values in SSE registers unless
+   SSE math is being used, and likewise for the 387 registers.  */
+
+#define PREFERRED_OUTPUT_RELOAD_CLASS(X, CLASS) \
+   ix86_preferred_output_reload_class ((X), (CLASS))
+/* APPLE LOCAL end 3501055 mainline candidate */
+
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.  */
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) \
@@ -1594,19 +1625,10 @@ enum reg_class
    || ((CLASS) == FP_TOP_REG)						\
    || ((CLASS) == FP_SECOND_REG))
 
-/* Return a class of registers that cannot change FROM mode to TO mode.
+/* Return a class of registers that cannot change FROM mode to TO mode.  */
 
-   x87 registers can't do subreg as all values are reformated to extended
-   precision.  XMM registers does not support with nonzero offsets equal
-   to 4, 8 and 12 otherwise valid for integer registers. Since we can't
-   determine these, prohibit all nonparadoxical subregs changing size.  */
-
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
-  (GET_MODE_SIZE (TO) < GET_MODE_SIZE (FROM)		\
-   ? reg_classes_intersect_p (FLOAT_SSE_REGS, (CLASS))	\
-     || MAYBE_MMX_CLASS_P (CLASS) 			\
-   : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
-   ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+  ix86_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -2203,7 +2225,7 @@ do {							\
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
-/* In order to refer to the first 8 regs as 32 bit regs prefix an "e"
+/* In order to refer to the first 8 regs as 32 bit regs, prefix an "e".
    For non floating point regs, the following are the HImode names.
 
    For float regs, the stack top is sometimes referred to as "%st(0)"
@@ -2228,9 +2250,7 @@ do {							\
   { "rax", 0 }, { "rdx", 1 }, { "rcx", 2 }, { "rbx", 3 },	\
   { "rsi", 4 }, { "rdi", 5 }, { "rbp", 6 }, { "rsp", 7 },	\
   { "al", 0 }, { "dl", 1 }, { "cl", 2 }, { "bl", 3 },		\
-  { "ah", 0 }, { "dh", 1 }, { "ch", 2 }, { "bh", 3 },		\
-  { "mm0", 8},  { "mm1", 9},  { "mm2", 10}, { "mm3", 11},	\
-  { "mm4", 12}, { "mm5", 13}, { "mm6", 14}, { "mm7", 15} }
+  { "ah", 0 }, { "dh", 1 }, { "ch", 2 }, { "bh", 3 } }
 
 /* Note we are omitting these since currently I don't know how
 to get gcc to use these, since they want the same but different

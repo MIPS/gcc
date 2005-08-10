@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "ggc.h"
 #include "langhooks.h"
+/* APPLE LOCAL mainline */
+#include "tree-iterator.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -79,6 +81,12 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -217,6 +225,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -252,6 +266,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" readonly", file);
   if (!TYPE_P (node) && TREE_CONSTANT (node))
     fputs (" constant", file);
+  else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
+    fputs (" sizes-gimplified", file);
+
   if (TREE_INVARIANT (node))
     fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
@@ -274,6 +291,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" static", file);
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
+  /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) */
+  if (TREE_UNAVAILABLE (node))
+    fputs (" unavailable", file);
+  /* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
   if (TREE_VISITED (node))
     fputs (" visited", file);
   if (TREE_LANG_FLAG_0 (node))
@@ -318,7 +339,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fputs (" regdecl", file);
       if (DECL_NONLOCAL (node))
 	fputs (" nonlocal", file);
-
+      /* APPLE LOCAL begin CW asm blocks */
+      if (DECL_CW_ASM_FUNCTION (node))
+        fputs (" asm-function", file);
+      if (DECL_CW_ASM_NORETURN (node))
+        fputs (" asm-noreturn", file);
+      if (DECL_CW_ASM_FRAME_SIZE (node) != (unsigned int)-2)
+        fprintf (file, " asm-frame-size %d", DECL_CW_ASM_FRAME_SIZE (node));
+      /* APPLE LOCAL end CW asm blocks */
       if (TREE_CODE (node) == TYPE_DECL && TYPE_DECL_SUPPRESS_DEBUG (node))
 	fputs (" suppress-debug", file);
 
@@ -707,6 +735,30 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		print_node_brief (file, temp, TREE_VEC_ELT (node, i), 0);
 	      }
 	  break;
+
+	/* APPLE LOCAL begin mainline */
+    	case STATEMENT_LIST:
+	  fprintf (file, " head " HOST_PTR_PRINTF " tail " HOST_PTR_PRINTF " stmts",
+		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
+	  {
+	    tree_stmt_iterator i;
+	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
+	      {
+		/* Not printing the addresses of the (not-a-tree)
+		   'struct tree_stmt_list_node's.  */
+		fprintf (file, " " HOST_PTR_PRINTF, (void *)tsi_stmt (i));
+	      }
+	    fprintf (file, "\n");
+	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
+	      {
+		/* Not printing the addresses of the (not-a-tree)
+		   'struct tree_stmt_list_node's.  */
+		print_node (file, "stmt", tsi_stmt (i), indent + 4);
+	      }
+	  }
+	  print_node (file, "chain", TREE_CHAIN (node), indent + 4);
+	  break;
+	/* APPLE LOCAL end mainline */
 
 	case BLOCK:
 	  print_node (file, "vars", BLOCK_VARS (node), indent + 4);

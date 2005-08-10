@@ -47,6 +47,8 @@ extern int reg_or_neg_short_operand (rtx, enum machine_mode);
 extern int reg_or_aligned_short_operand (rtx, enum machine_mode);
 extern int reg_or_u_short_operand (rtx, enum machine_mode);
 extern int reg_or_cint_operand (rtx, enum machine_mode);
+/* APPLE LOCAL radar 3869444 (also in  mainline) */
+extern int scc_operand (rtx, enum machine_mode);
 extern int reg_or_arith_cint_operand (rtx, enum machine_mode);
 extern int reg_or_add_cint64_operand (rtx, enum machine_mode);
 extern int reg_or_sub_cint64_operand (rtx, enum machine_mode);
@@ -84,6 +86,10 @@ extern int call_operand (rtx, enum machine_mode);
 extern int current_file_function_operand (rtx, enum machine_mode);
 extern int input_operand (rtx, enum machine_mode);
 extern int small_data_operand (rtx, enum machine_mode);
+/* APPLE LOCAL begin 4119059 */
+extern int s5bit_cint_operand (rtx, enum machine_mode);
+extern int u5bit_cint_operand (rtx, enum machine_mode);
+/* APPLE LOCAL end 4119059 */
 extern int s8bit_cint_operand (rtx, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern int expand_block_clear (rtx[]);
@@ -121,7 +127,7 @@ extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 extern void rs6000_emit_sCOND (enum rtx_code, rtx);
 extern void rs6000_emit_cbranch (enum rtx_code, rtx);
 extern char * output_cbranch (rtx, const char *, int, rtx);
-extern char * output_e500_flip_eq_bit (rtx, rtx);
+extern char * output_e500_flip_gt_bit (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);
 extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx);
 extern int rs6000_emit_vector_cond_expr (rtx, rtx, rtx, rtx, rtx, rtx);
@@ -206,11 +212,20 @@ extern int rs6000_tls_symbol_ref (rtx, enum machine_mode);
 extern void rs6000_output_dwarf_dtprel (FILE*, int, rtx);
 extern int rs6000_hard_regno_nregs (int, enum machine_mode);
 extern void rs6000_conditional_register_usage (void);
+/* APPLE LOCAL AltiVec */
+extern tree rs6000_fold_builtin (tree, bool);
+/* APPLE LOCAL CW asm blocks */
+extern const char *rs6000_cw_asm_register_name (const char *, char *);
 
 /* Declare functions in rs6000-c.c */
 
 extern void rs6000_pragma_longcall (struct cpp_reader *);
 extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
+
+/* APPLE LOCAL begin AltiVec */
+extern struct cpp_hashnode *rs6000_macro_to_expand (struct cpp_reader *,
+						    const struct cpp_token *);
+/* APPLE LOCAL end AltiVec */
 
 #if TARGET_MACHO
 char *output_call (rtx, rtx *, int, int);

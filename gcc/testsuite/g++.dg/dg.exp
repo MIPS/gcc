@@ -39,6 +39,9 @@ set tests [prune $tests $srcdir/$subdir/gcov/*]
 set tests [prune $tests $srcdir/$subdir/pch/*]
 set tests [prune $tests $srcdir/$subdir/special/*]
 set tests [prune $tests $srcdir/$subdir/tls/*]
+set tests [prune $tests $srcdir/$subdir/vect/*]
+# APPLE LOCAL ss2
+set tests [prune $tests $srcdir/$subdir/ss/*]
 
 # Main loop.
 dg-runtest $tests "" $DEFAULT_CXXFLAGS

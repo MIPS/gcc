@@ -131,7 +131,8 @@ copy_loop_headers (void)
   basic_block *bbs;
   unsigned n_bbs;
 
-  loops = loop_optimizer_init (dump_file);
+  /* APPLE LOCAL lno */
+  loops = tree_loop_optimizer_init (dump_file);
   if (!loops)
     return;
   rewrite_into_loop_closed_ssa ();

@@ -107,6 +107,8 @@ foo (int n)
 
 
   /* Test 3 - no target support for integer mult.  */
+  /* APPLE LOCAL mainline 2005-04-18 */
+  /* This loop is vectorized on platforms that support vect_int_mult.  */
   for (i = 0; i < N; i++)
     {
       ia[i] = ib[i] * ic[i];
@@ -133,6 +135,8 @@ foo (int n)
 
 
   /* Test 6 - condition in loop.  */
+  /* APPLE LOCAL mainline 2005-04-18 */
+  /* This loop is vectorized on platformst that support vect_condition.  */
   for (i = 0; i < N; i++){
     a[i] = (b[i] > 0 ? b[i] : 0);
   }
@@ -181,4 +185,10 @@ foo (int n)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized " 3 "vect"} } */
-/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 3 "vect"} } */
+/* APPLE LOCAL begin AV */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 3 "vect" { xfail powerpc*-*-* i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target powerpc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 2 "vect" { target powerpc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target i?86-*-* x86_64-*-* ia64-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 2 "vect" { target i?86-*-* x86_64-*-* ia64-*-* } } } */
+/* APPLE LOCAL end AV */

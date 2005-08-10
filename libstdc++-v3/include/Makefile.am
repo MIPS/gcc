@@ -228,11 +228,24 @@ tr1_srcdir = ${glibcxx_srcdir}/include/tr1
 tr1_builddir = ./tr1
 tr1_headers = \
 	${tr1_srcdir}/array \
+	${tr1_srcdir}/bind_repeat.h \
+	${tr1_srcdir}/bind_iterate.h \
+	${tr1_srcdir}/boost_shared_ptr.h \
+	${tr1_srcdir}/mu_iterate.h \
 	${tr1_srcdir}/functional \
+	${tr1_srcdir}/functional_iterate.h \
+	${tr1_srcdir}/memory \
+	${tr1_srcdir}/ref_fwd.h \
+	${tr1_srcdir}/ref_wrap_iterate.h \
+	${tr1_srcdir}/repeat.h \
 	${tr1_srcdir}/tuple \
+	${tr1_srcdir}/tuple_iterate.h \
 	${tr1_srcdir}/utility \
 	${tr1_srcdir}/type_traits \
-	${tr1_srcdir}/type_traits_fwd.h
+	${tr1_srcdir}/type_traits_fwd.h \
+	${tr1_srcdir}/hashtable \
+	${tr1_srcdir}/unordered_set \
+	${tr1_srcdir}/unordered_map
 
 
 # This is the common subset of files that all three "C" header models use.
@@ -354,8 +367,10 @@ host_headers = \
 	${glibcxx_srcdir}/$(ABI_TWEAKS_SRCDIR)/cxxabi_tweaks.h
 
 # Non-installed host_header files.
+COMPATIBILITY_H = config/abi/compatibility.h
 host_headers_noinst = \
-	${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H)
+	${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) \
+	${glibcxx_srcdir}/$(COMPATIBILITY_H)
 
 # These host_headers_extra files are all built with ad hoc naming rules.
 host_headers_extra = \
@@ -505,6 +520,7 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  $(LN_S) ${glibcxx_srcdir}/$(CSTDIO_H) c++io.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_H) c++locale.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(COMPATIBILITY_H) . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CMESSAGES_H) messages_members.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CTIME_H) time_members.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CCODECVT_H) codecvt_specializations.h || true);\

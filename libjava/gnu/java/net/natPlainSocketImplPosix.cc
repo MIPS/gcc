@@ -405,6 +405,11 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer, jint 
 static jint
 read_helper (jint native_fd, jint timeout, jbyte *bytes, jint count)
 {
+  // If zero bytes were requested, short circuit so that recv
+  // doesn't signal EOF.
+  if (count == 0)
+    return 0;
+    
   // Do timeouts via select.
   if (timeout > 0 && native_fd >= 0 && native_fd < FD_SETSIZE)
     {
@@ -641,6 +646,7 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
 	if (::setsockopt (native_fd, SOL_SOCKET, SO_REUSEADDR, (char *) &val,
 	    val_len) != 0)
 	  goto error;
+	return;
 #else
         throw new ::java::lang::InternalError (
           JvNewStringUTF ("SO_REUSEADDR not supported"));

@@ -255,6 +255,11 @@ insn_prefetch_values_to_profile (rtx insn, histogram_values *values)
   address = XEXP (mem, 0);
   if (side_effects_p (address))
     return false;
+
+  /* APPLE LOCAL begin should be in FSF, and has been submitted.  */
+  if (GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+  /* APPLE LOCAL end should be in FSF, and has been submitted.  */
       
   if (CONSTANT_P (address))
     return false;

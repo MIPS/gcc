@@ -115,7 +115,8 @@ extern unsigned char *_cpp_unaligned_alloc (cpp_reader *, size_t);
 #define BUFF_LIMIT(BUFF) ((BUFF)->limit)
 
 /* #include types.  */
-enum include_type {IT_INCLUDE, IT_INCLUDE_NEXT, IT_IMPORT, IT_CMDLINE};
+/* APPLE LOCAL pch distcc --mrs */
+enum include_type {IT_INCLUDE, IT_INCLUDE_PCH, IT_INCLUDE_NEXT, IT_IMPORT, IT_CMDLINE};
 
 union utoken
 {
@@ -171,6 +172,11 @@ struct cpp_context
 
   /* True if utoken element is token, else ptoken.  */
   bool direct_p;
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* True if this expansion is at the beginning of a line.  */
+  bool bol_p;
+  /* APPLE LOCAL end CW asm blocks */
 };
 
 struct lexer_state
@@ -341,6 +347,9 @@ struct cpp_reader
   struct _cpp_file *all_files;
 
   struct _cpp_file *main_file;
+  /* APPLE LOCAL begin predictive compilation */
+  bool   is_main_file;
+  /* APPLE LOCAL end predictive compilation */
 
   /* File and directory hash table.  */
   struct htab *file_hash;
@@ -472,6 +481,10 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 
 /* Macros.  */
 
+/* APPLE LOCAL begin warning in system headers */
+#define CPP_IN_SYSTEM_HEADER(PFILE) ((PFILE)->line_table && (PFILE)->line_table->maps && (PFILE)->line_table->maps->sysp)
+/* APPLE LOCAL end warning in system headers */
+
 static inline int cpp_in_system_header (cpp_reader *);
 static inline int
 cpp_in_system_header (cpp_reader *pfile)
@@ -564,13 +577,43 @@ extern unsigned char *_cpp_copy_replacement_text (const cpp_macro *,
 extern size_t _cpp_replacement_text_len (const cpp_macro *);
 
 /* In charset.c.  */
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+
+/* The normalization state at this point in the sequence.
+   It starts initialized to all zeros, and at the end
+   'level' is the normalization level of the sequence.  */
+
+struct normalize_state 
+{
+  /* The previous character.  */
+  cppchar_t previous;
+  /* The combining class of the previous character.  */
+  unsigned char prev_class;
+  /* The lowest normalization level so far.  */
+  enum cpp_normalize_level level;
+};
+#define INITIAL_NORMALIZE_STATE { 0, 0, normalized_KC }
+#define NORMALIZE_STATE_RESULT(st) ((st)->level)
+
+/* We saw a character that matches ISIDNUM(), update a
+   normalize_state appropriately.  */
+#define NORMALIZE_STATE_UPDATE_IDNUM(st) \
+  ((st)->previous = 0, (st)->prev_class = 0)
+
 extern cppchar_t _cpp_valid_ucn (cpp_reader *, const unsigned char **,
-				 const unsigned char *, int);
+				 const unsigned char *, int,
+				 struct normalize_state *state);
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 extern void _cpp_destroy_iconv (cpp_reader *);
 extern unsigned char *_cpp_convert_input (cpp_reader *, const char *,
 					  unsigned char *, size_t, size_t,
 					  off_t *);
 extern const char *_cpp_default_encoding (void);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+extern cpp_hashnode * _cpp_interpret_identifier (cpp_reader *pfile,
+						 const unsigned char *id,
+						 size_t len);
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 
 /* Utility routines and macros.  */
 #define DSC(str) (const unsigned char *)str, sizeof str - 1

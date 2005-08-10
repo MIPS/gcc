@@ -501,6 +501,23 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
   return assign_stack_local_1 (mode, size, align, cfun);
 }
 
+/* APPLE LOCAL begin new function for rs6000 consumption */
+/* Wrapper around assign_stack_local_1;  assign a local stack slot for the
+   current function, then set the mem_alias to a new alias set.
+   This can be used only in situations where the target code can
+   guarantee that the slot is used in a way that cannot conflict
+   with anything else.  */
+
+rtx
+assign_stack_local_with_alias (enum machine_mode mode, HOST_WIDE_INT size, 
+			       int align)
+{
+  rtx mem = assign_stack_local_1 (mode, size, align, cfun);
+  set_mem_alias_set (mem, new_alias_set ());
+  return mem;
+}
+/* APPLE LOCAL end new function for rs6000 consumption */
+
 
 /* Removes temporary slot TEMP from LIST.  */
 
@@ -1992,7 +2009,6 @@ struct assign_parm_data_one
   struct locate_and_pad_arg_data locate;
   int partial;
   BOOL_BITFIELD named_arg : 1;
-  BOOL_BITFIELD last_named : 1;
   BOOL_BITFIELD passed_pointer : 1;
   BOOL_BITFIELD on_stack : 1;
   BOOL_BITFIELD loaded_in_reg : 1;
@@ -2136,24 +2152,15 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
 
   memset (data, 0, sizeof (*data));
 
-  /* Set LAST_NAMED if this is last named arg before last anonymous args.  */
-  if (current_function_stdarg)
-    {
-      tree tem;
-      for (tem = TREE_CHAIN (parm); tem; tem = TREE_CHAIN (tem))
-	if (DECL_NAME (tem))
-	  break;
-      if (tem == 0)
-	data->last_named = true;
-    }
-
-  /* Set NAMED_ARG if this arg should be treated as a named arg.  For
-     most machines, if this is a varargs/stdarg function, then we treat
-     the last named arg as if it were anonymous too.  */
-  if (targetm.calls.strict_argument_naming (&all->args_so_far))
-    data->named_arg = 1;
+  /* NAMED_ARG is a mis-nomer.  We really mean 'non-varadic'. */
+  if (!current_function_stdarg)
+    data->named_arg = 1;  /* No varadic parms.  */
+  else if (TREE_CHAIN (parm))
+    data->named_arg = 1;  /* Not the last non-varadic parm. */
+  else if (targetm.calls.strict_argument_naming (&all->args_so_far))
+    data->named_arg = 1;  /* Only varadic ones are unnamed.  */
   else
-    data->named_arg = !data->last_named;
+    data->named_arg = 0;  /* Treat as varadic.  */
 
   nominal_type = TREE_TYPE (parm);
   passed_type = DECL_ARG_TYPE (parm);
@@ -3055,7 +3062,8 @@ assign_parms (tree fndecl)
   struct assign_parm_data_all all;
   tree fnargs, parm;
   rtx internal_arg_pointer;
-  int varargs_setup = 0;
+  /* APPLE LOCAL AltiVec */
+  int pass, last_pass;
 
   /* If the reg that the virtual arg pointer will be translated into is
      not a fixed reg or is the stack pointer, make a copy of the virtual
@@ -3075,58 +3083,63 @@ assign_parms (tree fndecl)
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
 
-  for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
+  /* APPLE LOCAL begin AltiVec */
+  last_pass = 1;
+
+  for (pass = 1; pass <= last_pass; pass++)
     {
-      struct assign_parm_data_one data;
+      for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
+        {
+          struct assign_parm_data_one data;
 
-      /* Extract the type of PARM; adjust it according to ABI.  */
-      assign_parm_find_data_types (&all, parm, &data);
+          tree type = TREE_TYPE (parm);
+          /* In 1st iteration over actual arguments, only consider non-vectors.
+             During 2nd iteration, finish off with vector parameters. */
+          if (!current_function_stdarg && targetm.calls.skip_vec_args (type, pass, &last_pass))
+            continue;
 
-      /* Early out for errors and void parameters.  */
-      if (data.passed_mode == VOIDmode)
-	{
-	  SET_DECL_RTL (parm, const0_rtx);
-	  DECL_INCOMING_RTL (parm) = DECL_RTL (parm);
-	  continue;
-	}
+          /* Extract the type of PARM; adjust it according to ABI.  */
+          assign_parm_find_data_types (&all, parm, &data);
 
-      /* Handle stdargs.  LAST_NAMED is a slight mis-nomer; it's also true
-	 for the unnamed dummy argument following the last named argument.
-	 See ABI silliness wrt strict_argument_naming and NAMED_ARG.  So
-	 we only want to do this when we get to the actual last named
-	 argument, which will be the first time LAST_NAMED gets set.  */
-      if (data.last_named && !varargs_setup)
-	{
-	  varargs_setup = true;
-	  assign_parms_setup_varargs (&all, &data, false);
-	}
+          /* Early out for errors and void parameters.  */
+          if (data.passed_mode == VOIDmode)
+	    {
+	      SET_DECL_RTL (parm, const0_rtx);
+	      DECL_INCOMING_RTL (parm) = DECL_RTL (parm);
+	      continue;
+	    }
 
-      /* Find out where the parameter arrives in this function.  */
-      assign_parm_find_entry_rtl (&all, &data);
+	  if (current_function_stdarg && !TREE_CHAIN (parm))
+	    assign_parms_setup_varargs (&all, &data, false);
 
-      /* Find out where stack space for this parameter might be.  */
-      if (assign_parm_is_stack_parm (&all, &data))
-	{
-	  assign_parm_find_stack_rtl (parm, &data);
-	  assign_parm_adjust_entry_rtl (&data);
-	}
+          /* Find out where the parameter arrives in this function.  */
+          assign_parm_find_entry_rtl (&all, &data);
 
-      /* Record permanently how this parm was passed.  */
-      set_decl_incoming_rtl (parm, data.entry_parm);
+          /* Find out where stack space for this parameter might be.  */
+          if (assign_parm_is_stack_parm (&all, &data))
+	    {
+	      assign_parm_find_stack_rtl (parm, &data);
+	      assign_parm_adjust_entry_rtl (&data);
+	    }
 
-      /* Update info on where next arg arrives in registers.  */
-      FUNCTION_ARG_ADVANCE (all.args_so_far, data.promoted_mode,
-			    data.passed_type, data.named_arg);
+          /* Record permanently how this parm was passed.  */
+          set_decl_incoming_rtl (parm, data.entry_parm);
 
-      assign_parm_adjust_stack_rtl (&data);
+          /* Update info on where next arg arrives in registers.  */
+          FUNCTION_ARG_ADVANCE (all.args_so_far, data.promoted_mode,
+			        data.passed_type, data.named_arg);
 
-      if (assign_parm_setup_block_p (&data))
-	assign_parm_setup_block (&all, parm, &data);
-      else if (data.passed_pointer || use_register_for_decl (parm))
-	assign_parm_setup_reg (&all, parm, &data);
-      else
-	assign_parm_setup_stack (&all, parm, &data);
+          assign_parm_adjust_stack_rtl (&data);
+
+          if (assign_parm_setup_block_p (&data))
+	    assign_parm_setup_block (&all, parm, &data);
+          else if (data.passed_pointer || use_register_for_decl (parm))
+	    assign_parm_setup_reg (&all, parm, &data);
+          else
+	    assign_parm_setup_stack (&all, parm, &data);
+        }
     }
+    /* APPLE LOCAL end AltiVec */
 
   if (targetm.calls.split_complex_arg && fnargs != all.orig_fnargs)
     assign_parms_unsplit_complex (&all, fnargs);
@@ -3160,6 +3173,8 @@ assign_parms (tree fndecl)
   current_function_pretend_args_size = all.pretend_args_size;
   all.stack_args_size.constant += all.extra_pretend_bytes;
   current_function_args_size = all.stack_args_size.constant;
+  /* APPLE LOCAL sibcall optimization stomped CW frames (radar 3007352) */
+  cfun->unrounded_args_size = all.stack_args_size.constant;
 
   /* Adjust function incoming argument size for alignment and
      minimum length.  */
@@ -3194,6 +3209,10 @@ assign_parms (tree fndecl)
 
   current_function_args_info = all.args_so_far;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+   return;
+  /* APPLE LOCAL end CW asm blocks */
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
      to include tree.h.  Do this here so it gets done when an inlined
@@ -4026,6 +4045,14 @@ init_function_start (tree subr)
 {
   prepare_function_start (subr);
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (DECL_CW_ASM_FUNCTION (subr))
+    {
+      cfun->cw_asm_function = 1;
+      cfun->cw_asm_noreturn = DECL_CW_ASM_NORETURN (subr);
+      cfun->cw_asm_frame_size = DECL_CW_ASM_FRAME_SIZE (subr);
+    }
+  /* APPLE LOCAL end CW asm blocks */
   /* Prevent ever trying to delete the first instruction of a
      function.  Also tell final how to output a linenum before the
      function prologue.  Note linenums could be missing, e.g. when
@@ -4460,6 +4487,10 @@ expand_function_end (void)
   if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
     sjlj_emit_function_exit_after (get_last_insn ());
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+    return;
+  /* APPLE LOCAL end CW asm blocks */ 
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */

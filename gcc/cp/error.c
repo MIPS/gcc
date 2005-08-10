@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -613,6 +613,8 @@ dump_type_suffix (tree t, int flags)
 	if (TREE_CODE (t) == METHOD_TYPE)
           pp_cxx_cv_qualifier_seq
             (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))));
+        else
+          pp_cxx_cv_qualifier_seq(cxx_pp, t);
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (t), flags);
 	dump_type_suffix (TREE_TYPE (t), flags);
 	break;
@@ -1813,16 +1815,12 @@ dump_expr (tree t, int flags)
       dump_decl (t, flags);
       break;
 
+    case BIND_EXPR:
     case STMT_EXPR:
+    case STATEMENT_LIST:
       /* We don't yet have a way of dumping statements in a
 	 human-readable format.  */
       pp_string (cxx_pp, "({...})");
-      break;
-
-    case BIND_EXPR:
-      pp_cxx_left_brace (cxx_pp);
-      dump_expr (TREE_OPERAND (t, 1), flags & ~TFF_EXPR_IN_PARENS);
-      pp_cxx_right_brace (cxx_pp);
       break;
 
     case LOOP_EXPR:
@@ -2203,7 +2201,7 @@ print_instantiation_full_context (diagnostic_context *context)
       else
 	{
 	  if (current_function_decl == TINST_DECL (p))
-	    /* Avoid redundancy with the the "In function" line.  */;
+	    /* Avoid redundancy with the "In function" line.  */;
 	  else
 	    pp_verbatim (context->printer,
                          "%s: In instantiation of %qs:\n",
@@ -2321,13 +2319,13 @@ cp_printer (pretty_printer *pp, text_info *text)
    behavior of cp_*_at.  */
 
 static tree
-locate_error (const char *msgid, va_list ap)
+locate_error (const char *gmsgid, va_list ap)
 {
   tree here = 0, t;
   int plus = 0;
   const char *f;
 
-  for (f = msgid; *f; f++)
+  for (f = gmsgid; *f; f++)
     {
       plus = 0;
       if (*f == '%')
@@ -2383,57 +2381,57 @@ locate_error (const char *msgid, va_list ap)
 
 
 void
-cp_error_at (const char *msgid, ...)
+cp_error_at (const char *gmsgid, ...)
 {
   tree here;
   diagnostic_info diagnostic;
   va_list ap;
 
-  va_start (ap, msgid);
-  here = locate_error (msgid, ap);
+  va_start (ap, gmsgid);
+  here = locate_error (gmsgid, ap);
   va_end (ap);
 
-  va_start (ap, msgid);
-  diagnostic_set_info (&diagnostic, msgid, &ap,
+  va_start (ap, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &ap,
                        input_location, DK_ERROR);
   cp_diagnostic_starter (global_dc, &diagnostic);
-  diagnostic_set_info (&diagnostic, msgid, &ap,
+  diagnostic_set_info (&diagnostic, gmsgid, &ap,
                        location_of (here), DK_ERROR);
   report_diagnostic (&diagnostic);
   va_end (ap);
 }
 
 void
-cp_warning_at (const char *msgid, ...)
+cp_warning_at (const char *gmsgid, ...)
 {
   tree here;
   diagnostic_info diagnostic;
   va_list ap;
 
-  va_start (ap, msgid);
-  here = locate_error (msgid, ap);
+  va_start (ap, gmsgid);
+  here = locate_error (gmsgid, ap);
   va_end (ap);
 
-  va_start (ap, msgid);
-  diagnostic_set_info (&diagnostic, msgid, &ap,
+  va_start (ap, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &ap,
                        location_of (here), DK_WARNING);
   report_diagnostic (&diagnostic);
   va_end (ap);
 }
 
 void
-cp_pedwarn_at (const char *msgid, ...)
+cp_pedwarn_at (const char *gmsgid, ...)
 {
   tree here;
   diagnostic_info diagnostic;
   va_list ap;
 
-  va_start (ap, msgid);
-  here = locate_error (msgid, ap);
+  va_start (ap, gmsgid);
+  here = locate_error (gmsgid, ap);
   va_end (ap);
 
-  va_start (ap, msgid);
-  diagnostic_set_info (&diagnostic, msgid, &ap,
+  va_start (ap, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &ap,
                        location_of (here), pedantic_error_kind());
   report_diagnostic (&diagnostic);
   va_end (ap);

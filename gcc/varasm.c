@@ -902,7 +902,6 @@ make_decl_rtl (tree decl)
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
-
   if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
       reg_number = decode_reg_name (name);
@@ -945,6 +944,7 @@ make_decl_rtl (tree decl)
 	      /* Make this register global, so not usable for anything
 		 else.  */
 #ifdef ASM_DECLARE_REGISTER_GLOBAL
+	      name = IDENTIFIER_POINTER (DECL_NAME (decl));
 	      ASM_DECLARE_REGISTER_GLOBAL (asm_out_file, decl, reg_number, name);
 #endif
 	      nregs = hard_regno_nregs[reg_number][DECL_MODE (decl)];
@@ -1236,8 +1236,18 @@ assemble_start_function (tree decl, const char *fnname)
 
   if (flag_reorder_blocks_and_partition)
     {
+      /* APPLE LOCAL begin hot/cold partitioning */
+      /* We don't want to print out the label for the cold section here,
+	 just fix the alignment.  Therefore play games with 
+	 unlikely_section_label_printed to get this behavior.  */
+      
+      unlikely_section_label_printed = true;
+      /* APPLE LOCAL end hot/cold partitioning */
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
+      /* APPLE LOCAL begin hot/cold partitioning */
+      unlikely_section_label_printed = false;
+      /* APPLE LOCAL end hot/cold partitioning */
     }
 
   resolve_unique_section (decl, 0, flag_function_sections);
@@ -1576,6 +1586,11 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (flag_syntax_only)
     return;
 
+  /* APPLE LOCAL begin duplicate decls in multiple files.  */
+  if (DECL_DUPLICATE_DECL (decl))
+    return;
+  /* APPLE LOCAL end duplicate decls in multiple files.  */
+
   app_disable ();
 
   if (! dont_output_data
@@ -1698,6 +1713,27 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* Switch to the appropriate section.  */
   resolve_unique_section (decl, reloc, flag_data_sections);
   variable_section (decl, reloc);
+
+  /* APPLE LOCAL begin zerofill 20020218 --turly  */
+#ifdef ASM_OUTPUT_ZEROFILL
+  /* We need a ZEROFILL COALESCED option!  */
+  if (!DECL_COMMON (decl)
+      && ! dont_output_data
+      && ! DECL_ONE_ONLY (decl)
+      && ! DECL_WEAK (decl)
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    {
+      ASM_OUTPUT_ZEROFILL (asm_out_file, name,
+			   tree_low_cst (DECL_SIZE_UNIT (decl), 1),
+			   floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT));
+
+      /********************************/
+      /* NOTE THE EARLY RETURN HERE!! */
+      /********************************/
+      return;
+    }
+#endif
+  /* APPLE LOCAL end zerofill 20020218 --turly  */
 
   /* dbxout.c needs to know this.  */
   if (in_text_section () || in_unlikely_text_section ())
@@ -1883,7 +1919,17 @@ void
 mark_decl_referenced (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
-    cgraph_mark_needed_node (cgraph_node (decl));
+    {
+      /* Extern inline functions don't become needed when referenced.
+	 If we know a method will be emitted in other TU and no new
+	 functions can be marked reachable, just use the external
+	 definition.  */
+      struct cgraph_node *node = cgraph_node (decl);
+      if (!DECL_EXTERNAL (decl)
+	  && (!node->local.vtable_method || !cgraph_global_info_ready
+	      || !node->local.finalized))
+	cgraph_mark_needed_node (node);
+    }
   else if (TREE_CODE (decl) == VAR_DECL)
     cgraph_varpool_mark_needed_node (cgraph_varpool_node (decl));
   /* else do nothing - we can get various sorts of CST nodes here,
@@ -2258,6 +2304,11 @@ struct constant_descriptor_tree GTY(())
 
   /* The value of the constant.  */
   tree value;
+
+  /* Hash of value.  Computing the hash from value each time
+     hashfn is called can't work properly, as that means recursive
+     use of the hash table during hash table expansion.  */
+  hashval_t hash;
 };
 
 static GTY((param_is (struct constant_descriptor_tree)))
@@ -2271,7 +2322,7 @@ static void maybe_output_constant_def_contents (struct constant_descriptor_tree 
 static hashval_t
 const_desc_hash (const void *ptr)
 {
-  return const_hash_1 (((struct constant_descriptor_tree *)ptr)->value);
+  return ((struct constant_descriptor_tree *)ptr)->hash;
 }
 
 static hashval_t
@@ -2296,8 +2347,19 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      p = TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings 
+	  && !darwin_constant_cfstring_p (exp))
+      {
+        p = (char *) &exp;
+        len = sizeof exp;
+      }
+      else
+      {
+        p = TREE_STRING_POINTER (exp);
+        len = TREE_STRING_LENGTH (exp);
+      }
+      /* APPLE LOCAL end fwritable strings  */
       break;
 
     case COMPLEX_CST:
@@ -2366,8 +2428,11 @@ const_hash_1 (const tree exp)
 static int
 const_desc_eq (const void *p1, const void *p2)
 {
-  return compare_constant (((struct constant_descriptor_tree *)p1)->value,
-			   ((struct constant_descriptor_tree *)p2)->value);
+  const struct constant_descriptor_tree *c1 = p1;
+  const struct constant_descriptor_tree *c2 = p2;
+  if (c1->hash != c2->hash)
+    return 0;
+  return compare_constant (c1->value, c2->value);
 }
 
 /* Compare t1 and t2, and return 1 only if they are known to result in
@@ -2402,6 +2467,13 @@ compare_constant (const tree t1, const tree t2)
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
     case STRING_CST:
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings 
+	  && !darwin_constant_cfstring_p (t1)
+	  && !darwin_constant_cfstring_p (t2))
+	return t1 == t2;
+      /* APPLE LOCAL end fwritable strings  */
+
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
 
@@ -2583,7 +2655,12 @@ build_constant_desc (tree exp)
   struct constant_descriptor_tree *desc;
 
   desc = ggc_alloc (sizeof (*desc));
-  desc->value = copy_constant (exp);
+  /* APPLE LOCAL begin fwritable strings  */
+  if (flag_writable_strings && TREE_CODE (exp) == STRING_CST)
+    desc->value = exp;
+  else
+    desc->value = copy_constant (exp);
+  /* APPLE LOCAL end fwritable strings  */
 
   /* Propagate marked-ness to copied constant.  */
   if (flag_mudflap && mf_marked_p (exp))
@@ -2640,12 +2717,14 @@ output_constant_def (tree exp, int defer)
   /* Look up EXP in the table of constant descriptors.  If we didn't find
      it, create a new one.  */
   key.value = exp;
-  loc = htab_find_slot (const_desc_htab, &key, INSERT);
+  key.hash = const_hash_1 (exp);
+  loc = htab_find_slot_with_hash (const_desc_htab, &key, key.hash, INSERT);
 
   desc = *loc;
   if (desc == 0)
     {
       desc = build_constant_desc (exp);
+      desc->hash = key.hash;
       *loc = desc;
     }
 
@@ -2669,9 +2748,11 @@ maybe_output_constant_def_contents (struct constant_descriptor_tree *desc,
     /* Already output; don't do it again.  */
     return;
 
-  /* We can always defer constants as long as the context allows
-     doing so.  */
-  if (defer)
+  /* APPLE LOCAL begin fwritable strings  */
+  /* The only constants that cannot safely be deferred, assuming the
+     context allows it, are strings under flag_writable_strings.  */
+  if (defer && (TREE_CODE (exp) != STRING_CST || !flag_writable_strings))
+  /* APPLE LOCAL end fwritable strings  */
     {
       /* Increment n_deferred_constants if it exists.  It needs to be at
 	 least as large as the number of constants actually referred to
@@ -2748,7 +2829,8 @@ lookup_constant_def (tree exp)
   struct constant_descriptor_tree key;
 
   key.value = exp;
-  desc = htab_find (const_desc_htab, &key);
+  key.hash = const_hash_1 (exp);
+  desc = htab_find_with_hash (const_desc_htab, &key, key.hash);
 
   return (desc ? desc->rtl : NULL_RTX);
 }
@@ -3468,6 +3550,8 @@ initializer_constant_valid_p (tree value, tree endtype)
     {
     case CONSTRUCTOR:
       if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
+	   /* APPLE LOCAL AltiVec */
+	   || TREE_CODE (TREE_TYPE (value)) == VECTOR_TYPE
 	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
 	  && TREE_CONSTANT (value)
 	  && CONSTRUCTOR_ELTS (value))
@@ -3523,63 +3607,61 @@ initializer_constant_valid_p (tree value, tree endtype)
 
     case CONVERT_EXPR:
     case NOP_EXPR:
-      /* Allow conversions between pointer types.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+      {
+	tree src;
+	tree src_type;
+	tree dest_type;
 
-      /* Allow conversions between real types.  */
-      if (FLOAT_TYPE_P (TREE_TYPE (value))
-	  && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+	src = TREE_OPERAND (value, 0);
+	src_type = TREE_TYPE (src);
+	dest_type = TREE_TYPE (value);
 
-      /* Allow length-preserving conversions between integer types.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+	/* Allow conversions between pointer types, floating-point
+	   types, and offset types.  */
+	if ((POINTER_TYPE_P (dest_type) && POINTER_TYPE_P (src_type))
+	    || (FLOAT_TYPE_P (dest_type) && FLOAT_TYPE_P (src_type))
+	    || (TREE_CODE (dest_type) == OFFSET_TYPE
+		&& TREE_CODE (src_type) == OFFSET_TYPE))
+	  return initializer_constant_valid_p (src, endtype);
 
-      /* Allow conversions between other integer types only if
-	 explicit value.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	{
-	  tree inner = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						     endtype);
-	  if (inner == null_pointer_node)
-	    return null_pointer_node;
-	  break;
-	}
+	/* Allow length-preserving conversions between integer types.  */
+	if (INTEGRAL_TYPE_P (dest_type) && INTEGRAL_TYPE_P (src_type)
+	    && (TYPE_PRECISION (dest_type) == TYPE_PRECISION (src_type)))
+	  return initializer_constant_valid_p (src, endtype);
 
-      /* Allow (int) &foo provided int is as wide as a pointer.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
+	/* Allow conversions between other integer types only if
+	   explicit value.  */
+	if (INTEGRAL_TYPE_P (dest_type) && INTEGRAL_TYPE_P (src_type))
+	  {
+	    tree inner = initializer_constant_valid_p (src, endtype);
+	    if (inner == null_pointer_node)
+	      return null_pointer_node;
+	    break;
+	  }
 
-      /* Likewise conversions from int to pointers, but also allow
-	 conversions from 0.  */
-      if ((POINTER_TYPE_P (TREE_TYPE (value))
-	   || TREE_CODE (TREE_TYPE (value)) == OFFSET_TYPE)
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	{
-	  if (integer_zerop (TREE_OPERAND (value, 0)))
-	    return null_pointer_node;
-	  else if (TYPE_PRECISION (TREE_TYPE (value))
-		   <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0))))
-	    return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						 endtype);
-	}
+	/* Allow (int) &foo provided int is as wide as a pointer.  */
+	if (INTEGRAL_TYPE_P (dest_type) && POINTER_TYPE_P (src_type)
+	    && (TYPE_PRECISION (dest_type) >= TYPE_PRECISION (src_type)))
+	  return initializer_constant_valid_p (src, endtype);
 
-      /* Allow conversions to struct or union types if the value
-	 inside is okay.  */
-      if (TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE
-	  || TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
+	/* Likewise conversions from int to pointers, but also allow
+	   conversions from 0.  */
+	if ((POINTER_TYPE_P (dest_type)
+	     || TREE_CODE (dest_type) == OFFSET_TYPE)
+	    && INTEGRAL_TYPE_P (src_type))
+	  {
+	    if (integer_zerop (src))
+	      return null_pointer_node;
+	    else if (TYPE_PRECISION (dest_type) <= TYPE_PRECISION (src_type))
+	      return initializer_constant_valid_p (src, endtype);
+	  }
+
+	/* Allow conversions to struct or union types if the value
+	   inside is okay.  */
+	if (TREE_CODE (dest_type) == RECORD_TYPE
+	    || TREE_CODE (dest_type) == UNION_TYPE)
+	  return initializer_constant_valid_p (src, endtype);
+      }
       break;
 
     case PLUS_EXPR:
@@ -4217,7 +4299,21 @@ void
 merge_weak (tree newdecl, tree olddecl)
 {
   if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
-    return;
+    {
+      if (DECL_WEAK (newdecl) && SUPPORTS_WEAK)
+        {
+          tree *pwd;
+          /* We put the NEWDECL on the weak_decls list at some point
+             and OLDDECL as well.  Keep just OLDDECL on the list.  */
+	  for (pwd = &weak_decls; *pwd; pwd = &TREE_CHAIN (*pwd))
+	    if (TREE_VALUE (*pwd) == newdecl)
+	      {
+	        *pwd = TREE_CHAIN (*pwd);
+		break;
+	      }
+        }
+      return;
+    }
 
   if (DECL_WEAK (newdecl))
     {
@@ -4355,66 +4451,71 @@ globalize_decl (tree decl)
   targetm.asm_out.globalize_label (asm_out_file, name);
 }
 
-/* Some targets do not allow a forward or undefined reference in a
-   ASM_OUTPUT_DEF.  Thus, a mechanism is needed to defer the output of
-   this assembler code.  The following struct holds the declaration
-   and target for a deferred output define.  */
-struct output_def_pair GTY(())
+/* We have to be able to tell cgraph about the needed-ness of the target
+   of an alias.  This requires that the decl have been defined.  Aliases
+   that preceed their definition have to be queued for later processing.  */
+
+struct alias_pair GTY(())
 {
   tree decl;
   tree target;
 };
-typedef struct output_def_pair *output_def_pair;
+typedef struct alias_pair *alias_pair;
 
 /* Define gc'd vector type.  */
-DEF_VEC_GC_P(output_def_pair);
+DEF_VEC_GC_P(alias_pair);
 
-/* Vector of output_def_pair pointers.  */
-static GTY(()) VEC(output_def_pair) *output_defs;
+static GTY(()) VEC(alias_pair) *alias_pairs;
 
-#ifdef ASM_OUTPUT_DEF
-/* Output the assembler code for a define (equate) using ASM_OUTPUT_DEF
-   or ASM_OUTPUT_DEF_FROM_DECLS.  The function defines the symbol whose
-   tree node is DECL to have the value of the tree node TARGET.  */
+/* Given an assembly name, find the decl it is associated with.  At the
+   same time, mark it needed for cgraph.  */
+
+static tree
+find_decl_and_mark_needed (tree decl, tree target)
+{
+  struct cgraph_node *fnode = NULL;
+  struct cgraph_varpool_node *vnode = NULL;
+
+  /* C++ thunk emitting code produces aliases late in the game.
+     Avoid confusing cgraph code in that case.  */
+  if (!cgraph_global_info_ready)
+    {
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  fnode = cgraph_node_for_asm (target);
+	  if (fnode == NULL)
+	    vnode = cgraph_varpool_node_for_asm (target);
+	}
+      else
+	{
+	  vnode = cgraph_varpool_node_for_asm (target);
+	  if (vnode == NULL)
+	    fnode = cgraph_node_for_asm (target);
+	}
+    }
+
+  if (fnode)
+    {
+      cgraph_mark_needed_node (fnode);
+      return fnode->decl;
+    }
+  else if (vnode)
+    {
+      cgraph_varpool_mark_needed_node (vnode);
+      return vnode->decl;
+    }
+  else 
+    return NULL_TREE;
+}
 
 static void
-assemble_output_def (tree decl ATTRIBUTE_UNUSED, tree target ATTRIBUTE_UNUSED)
+do_assemble_alias (tree decl, tree target)
 {
-#ifdef ASM_OUTPUT_DEF_FROM_DECLS
-  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
-#else
-  ASM_OUTPUT_DEF (asm_out_file,
-		  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
-		  IDENTIFIER_POINTER (target));
-#endif
-}
-#endif
+  if (TREE_ASM_WRITTEN (decl))
+    return;
 
-/* Process the vector of pending assembler defines.  */
-
-void
-process_pending_assemble_output_defs (void)
-{
-#ifdef ASM_OUTPUT_DEF
-  unsigned i;
-  output_def_pair p;
-
-  for (i = 0; VEC_iterate (output_def_pair, output_defs, i, p); i++)
-    assemble_output_def (p->decl, p->target);
-
-  output_defs = NULL;
-#endif
-}
-
-/* Emit an assembler directive to make the symbol for DECL an alias to
-   the symbol for TARGET.  */
-
-void
-assemble_alias (tree decl, tree target)
-{
-  /* We must force creation of DECL_RTL for debug info generation, even though
-     we don't use it here.  */
-  make_decl_rtl (decl);
+  TREE_ASM_WRITTEN (decl) = 1;
+  TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
 
 #ifdef ASM_OUTPUT_DEF
   /* Make name accessible from other files, if appropriate.  */
@@ -4425,88 +4526,125 @@ assemble_alias (tree decl, tree target)
       maybe_assemble_visibility (decl);
     }
 
-  if (TARGET_DEFERRED_OUTPUT_DEFS (decl, target))
-    {
-      output_def_pair p;
+# ifdef ASM_OUTPUT_DEF_FROM_DECLS
+  ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
+# else
+  ASM_OUTPUT_DEF (asm_out_file,
+		  IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+		  IDENTIFIER_POINTER (target));
+# endif
+#elif defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
+  {
+    const char *name;
+    tree *p, t;
 
-      p = ggc_alloc (sizeof (struct output_def_pair));
+    name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+# ifdef ASM_WEAKEN_DECL
+    ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
+# else
+    ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
+# endif
+    /* Remove this function from the pending weak list so that
+       we do not emit multiple .weak directives for it.  */
+    for (p = &weak_decls; (t = *p) ; )
+      if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
+	*p = TREE_CHAIN (t);
+      else
+	p = &TREE_CHAIN (t);
+  }
+#endif
+}
+
+/* First pass of completing pending aliases.  Make sure that cgraph knows
+   which symbols will be required.  */
+
+void
+finish_aliases_1 (void)
+{
+  unsigned i;
+  alias_pair p;
+
+  for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
+    {
+      tree target_decl;
+
+      target_decl = find_decl_and_mark_needed (p->decl, p->target);
+      if (target_decl == NULL)
+	error ("%J%qD aliased to undefined symbol %qE",
+	       p->decl, p->decl, p->target);
+      else if (DECL_EXTERNAL (target_decl))
+	error ("%J%qD aliased to external symbol %qE",
+	       p->decl, p->decl, p->target);
+    }
+}
+
+/* Second pass of completing pending aliases.  Emit the actual assembly.
+   This happens at the end of compilation and thus it is assured that the
+   target symbol has been emitted.  */
+
+void
+finish_aliases_2 (void)
+{
+  unsigned i;
+  alias_pair p;
+
+  for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
+    do_assemble_alias (p->decl, p->target);
+
+  alias_pairs = NULL;
+}
+
+/* Emit an assembler directive to make the symbol for DECL an alias to
+   the symbol for TARGET.  */
+
+void
+assemble_alias (tree decl, tree target)
+{
+  tree target_decl;
+
+#if !defined (ASM_OUTPUT_DEF)
+# if !defined(ASM_OUTPUT_WEAK_ALIAS) && !defined (ASM_WEAKEN_DECL)
+  error ("%Jalias definitions not supported in this configuration", decl);
+  return;
+# else
+  if (!DECL_WEAK (decl))
+    {
+      error ("%Jonly weak aliases are supported in this configuration", decl);
+      return;
+    }
+# endif
+#endif
+
+  /* We must force creation of DECL_RTL for debug info generation, even though
+     we don't use it here.  */
+  make_decl_rtl (decl);
+  TREE_USED (decl) = 1;
+
+  /* A quirk of the initial implementation of aliases required that the user
+     add "extern" to all of them.  Which is silly, but now historical.  Do
+     note that the symbol is in fact locally defined.  */
+  DECL_EXTERNAL (decl) = 0;
+
+  /* Allow aliases to aliases.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    cgraph_node (decl)->alias = true;
+  else
+    cgraph_varpool_node (decl)->alias = true;
+
+  /* If the target has already been emitted, we don't have to queue the
+     alias.  This saves a tad o memory.  */
+  target_decl = find_decl_and_mark_needed (decl, target);
+  if (target_decl && TREE_ASM_WRITTEN (target_decl))
+    do_assemble_alias (decl, target);
+  else
+    {
+      alias_pair p;
+
+      p = ggc_alloc (sizeof (struct alias_pair));
       p->decl = decl;
       p->target = target;
-      VEC_safe_push (output_def_pair, output_defs, p);
+      VEC_safe_push (alias_pair, alias_pairs, p);
     }
-  else
-    assemble_output_def (decl, target);
-#else /* !ASM_OUTPUT_DEF */
-#if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
-  if (DECL_WEAK (decl))
-    {
-      const char *name;
-      tree *p, t;
-
-      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-#ifdef ASM_WEAKEN_DECL
-      ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
-#else
-      ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
-#endif
-      /* Remove this function from the pending weak list so that
-	 we do not emit multiple .weak directives for it.  */
-      for (p = &weak_decls; (t = *p) ; )
-	if (DECL_ASSEMBLER_NAME (decl)
-	    == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
-	  *p = TREE_CHAIN (t);
-	else
-	  p = &TREE_CHAIN (t);
-    }
-  else
-    warning ("only weak aliases are supported in this configuration");
-
-#else
-  warning ("alias definitions not supported in this configuration; ignored");
-#endif
-#endif
-
-  /* Tell cgraph that the aliased symbol is needed.  We *could* be more
-     specific and tell cgraph about the relationship between the two
-     symbols, but given that aliases virtually always exist for a reason,
-     it doesn't seem worthwhile.  */
-  if (flag_unit_at_a_time)
-    {
-      struct cgraph_node *fnode = NULL;
-      struct cgraph_varpool_node *vnode = NULL;
-
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  fnode = cgraph_node_for_asm (target);
-	  if (fnode != NULL)
-	    cgraph_mark_needed_node (fnode);
-	  else
-	    {
-	      vnode = cgraph_varpool_node_for_asm (target);
-	      if (vnode != NULL)
-		cgraph_varpool_mark_needed_node (vnode);
-	    }
-	}
-      else
-	{
-	  vnode = cgraph_varpool_node_for_asm (target);
-	  if (vnode != NULL)
-	    cgraph_varpool_mark_needed_node (vnode);
-	  else
-	    {
-	      fnode = cgraph_node_for_asm (target);
-	      if (fnode != NULL)
-		cgraph_mark_needed_node (fnode);
-	    }
-	}
-
-      if (fnode == NULL && vnode == NULL)
-	warning ("%qD aliased to undefined symbol %qE", decl, target);
-    }
-
-  TREE_USED (decl) = 1;
-  TREE_ASM_WRITTEN (decl) = 1;
-  TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
 }
 
 /* Emit an assembler directive to set symbol for DECL visibility to
@@ -4839,7 +4977,8 @@ default_select_section (tree decl, int reloc,
 	readonly = true;
     }
   else if (TREE_CODE (decl) == STRING_CST)
-    readonly = true;
+    /* APPLE LOCAL fwritable strings  */
+    readonly = !flag_writable_strings;
   else if (! (flag_pic && reloc))
     readonly = true;
 
@@ -4898,6 +5037,10 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
     {
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings)
+	return SECCAT_DATA;
+      /* APPLE LOCAL end fwritable strings  */
       if (flag_mudflap) /* or !flag_merge_constants */
         return SECCAT_RODATA;
       else

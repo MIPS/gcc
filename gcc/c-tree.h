@@ -25,10 +25,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "diagnostic.h"
 
+/* APPLE LOCAL begin mainline */
+/* Definition of 'struct lang_identifier' has been moved here from c-decl.c.
+   so that ObjC can see it.  */
+   
+/* Each C symbol points to three linked lists of c_binding structures.
+   These describe the values of the identifier in the three different
+   namespaces defined by the language.  */
+
+struct lang_identifier GTY(())
+{
+  struct c_common_identifier common_id;
+  struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
+  struct c_binding *tag_binding;    /* struct/union/enum tags */
+  struct c_binding *label_binding;  /* labels */
+  tree interface_value;             /* ObjC interface, if any */
+};
+/* APPLE LOCAL end mainline */
+
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
 #define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
-  (sizeof (struct c_common_identifier) + 3 * sizeof (void *))
+  /* APPLE LOCAL mainline */ \
+  (sizeof (struct c_common_identifier) + 4 * sizeof (void *))
 
 /* For gc purposes, return the most likely link for the longest chain.  */
 #define C_LANG_TREE_NODE_CHAIN_NEXT(T)				\
@@ -93,7 +112,13 @@ struct lang_type GTY(())
 
 /* For FUNCTION_DECLs, evaluates true if the decl is built-in but has
    been declared.  */
-#define C_DECL_DECLARED_BUILTIN(EXP) DECL_LANG_FLAG_3 (EXP)
+#define C_DECL_DECLARED_BUILTIN(EXP)		\
+  DECL_LANG_FLAG_3 (FUNCTION_DECL_CHECK (EXP))
+
+/* For FUNCTION_DECLs, evaluates true if the decl is built-in, has a
+   built-in prototype and does not have a non-built-in prototype.  */
+#define C_DECL_BUILTIN_PROTOTYPE(EXP)		\
+  DECL_LANG_FLAG_6 (FUNCTION_DECL_CHECK (EXP))
 
 /* Record whether a decl was declared register.  This is strictly a
    front-end flag, whereas DECL_REGISTER is used for code generation;
@@ -104,7 +129,30 @@ struct lang_type GTY(())
    unevaluated operand of sizeof / typeof / alignof.  This is only
    used for functions declared static but not defined, though outside
    sizeof and typeof it is set for other function decls as well.  */
-#define C_DECL_USED(EXP) DECL_LANG_FLAG_5 (EXP)
+#define C_DECL_USED(EXP) DECL_LANG_FLAG_5 (FUNCTION_DECL_CHECK (EXP))
+
+/* Record whether a label was defined in a statement expression which
+   has finished and so can no longer be jumped to.  */
+#define C_DECL_UNJUMPABLE_STMT_EXPR(EXP)	\
+  DECL_LANG_FLAG_6 (LABEL_DECL_CHECK (EXP))
+
+/* Record whether a label was the subject of a goto from outside the
+   current level of statement expression nesting and so cannot be
+   defined right now.  */
+#define C_DECL_UNDEFINABLE_STMT_EXPR(EXP)	\
+  DECL_LANG_FLAG_7 (LABEL_DECL_CHECK (EXP))
+
+/* Record whether a label was defined in the scope of an identifier
+   with variably modified type which has finished and so can no longer
+   be jumped to.  */
+#define C_DECL_UNJUMPABLE_VM(EXP)	\
+  DECL_LANG_FLAG_3 (LABEL_DECL_CHECK (EXP))
+
+/* Record whether a label was the subject of a goto from outside the
+   current level of scopes of identifiers with variably modified type
+   and so cannot be defined right now.  */
+#define C_DECL_UNDEFINABLE_VM(EXP)	\
+  DECL_LANG_FLAG_5 (LABEL_DECL_CHECK (EXP))
 
 /* Nonzero for a decl which either doesn't exist or isn't a prototype.
    N.B. Could be simplified if all built-in decls had complete prototypes
@@ -223,6 +271,16 @@ struct c_declspecs {
   BOOL_BITFIELD explicit_signed_p : 1;
   /* Whether the specifiers include a deprecated typedef.  */
   BOOL_BITFIELD deprecated_p : 1;
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  /* Whether the specifiers include a unavailable typedef.  */
+  BOOL_BITFIELD unavailable_p : 1;
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
+  /* APPLE LOCAL begin private extern */
+  /* Whether the specifiers include __private_extern.  */
+  BOOL_BITFIELD private_extern_p : 1;
+  /* APPLE LOCAL end private extern */
+  /* APPLE LOCAL CW asm blocks */
+  BOOL_BITFIELD cw_asm_specbit : 1;
   /* Whether the type defaulted to "int" because there were no type
      specifiers.  */
   BOOL_BITFIELD default_int_p;
@@ -345,6 +403,45 @@ struct language_function GTY(())
   int extern_inline;
 };
 
+/* Save lists of labels used or defined in particular contexts.
+   Allocated on the parser obstack.  */
+
+struct c_label_list
+{
+  /* The label at the head of the list.  */
+  tree label;
+  /* The rest of the list.  */
+  struct c_label_list *next;
+};
+
+/* Statement expression context.  */
+
+struct c_label_context_se
+{
+  /* The labels defined at this level of nesting.  */
+  struct c_label_list *labels_def;
+  /* The labels used at this level of nesting.  */
+  struct c_label_list *labels_used;
+  /* The next outermost context.  */
+  struct c_label_context_se *next;
+};
+
+/* Context of variably modified declarations.  */
+
+struct c_label_context_vm
+{
+  /* The labels defined at this level of nesting.  */
+  struct c_label_list *labels_def;
+  /* The labels used at this level of nesting.  */
+  struct c_label_list *labels_used;
+  /* The scope of this context.  Multiple contexts may be at the same
+     numbered scope, since each variably modified declaration starts a
+     new context.  */
+  unsigned scope;
+  /* The next outermost context.  */
+  struct c_label_context_vm *next;
+};
+
 
 /* in c-parse.in */
 extern void c_parse_init (void);
@@ -373,7 +470,6 @@ extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
-extern int  complete_array_type (tree, tree, int);
 extern void declare_parm_level (void);
 extern void undeclared_variable (tree);
 extern tree declare_label (tree);
@@ -448,6 +544,8 @@ extern int in_sizeof;
 extern int in_typeof;
 
 extern struct c_switch *c_switch_stack;
+extern struct c_label_context_se *label_context_stack_se;
+extern struct c_label_context_vm *label_context_stack_vm;
 
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (tree, tree);
@@ -501,6 +599,13 @@ extern tree c_finish_return (tree);
 extern tree c_finish_bc_stmt (tree *, bool);
 extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);
+extern void c_begin_vm_scope (unsigned int);
+extern void c_end_vm_scope (unsigned int);
+
+/* APPLE LOCAL begin CW asm blocks */
+extern tree get_structure_offset (tree, tree);
+extern tree lookup_struct_or_union_tag (tree);
+/* APPLE LOCAL end CW asm blocks */
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */

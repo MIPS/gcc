@@ -145,7 +145,8 @@ init_expmed (void)
   memset (&all, 0, sizeof all);
 
   PUT_CODE (&all.reg, REG);
-  REGNO (&all.reg) = 10000;
+  /* Avoid using hard regs in ways which may be unsupported.  */
+  REGNO (&all.reg) = LAST_VIRTUAL_REGISTER + 1;
 
   PUT_CODE (&all.plus, PLUS);
   XEXP (&all.plus, 0) = &all.reg;
@@ -669,7 +670,15 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  /* Fetch that unit, store the bitfield in it, then store
 	     the unit.  */
 	  tempreg = copy_to_reg (op0);
-	  store_bit_field (tempreg, bitsize, bitpos, fieldmode, orig_value);
+	  /* APPLE LOCAL begin do not use float fieldmode */
+	  /* If value was float, we munged it to be int above, so it
+	     is never appropriate to use a float fieldmode here. */
+	  store_bit_field (tempreg, bitsize, bitpos, 
+	      (GET_MODE_CLASS (fieldmode) != MODE_INT
+		&& GET_MODE_CLASS (fieldmode) != MODE_PARTIAL_INT)
+	      ? GET_MODE (orig_value) : fieldmode,
+	    orig_value);
+	  /* APPLE LOCAL end do not use float fieldmode */
 	  emit_move_insn (op0, tempreg);
 	  return value;
 	}
@@ -2231,9 +2240,8 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 	      tree type = TREE_TYPE (amount);
 	      tree new_amount = make_tree (type, op1);
 	      tree other_amount
-		= fold (build2 (MINUS_EXPR, type, convert
-				(type, build_int_cst
-				 (NULL_TREE, GET_MODE_BITSIZE (mode))),
+		= fold (build2 (MINUS_EXPR, type, 
+				build_int_cst (type, GET_MODE_BITSIZE (mode)),
 				amount));
 
 	      shifted = force_reg (mode, shifted);
@@ -4871,17 +4879,15 @@ make_tree (tree type, rtx x)
 
     case LSHIFTRT:
       t = lang_hooks.types.unsigned_type (type);
-      return fold (convert (type,
-			    build2 (RSHIFT_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (type, XEXP (x, 1)))));
+      return fold_convert (type, build2 (RSHIFT_EXPR, t,
+			    		 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (type, XEXP (x, 1))));
 
     case ASHIFTRT:
       t = lang_hooks.types.signed_type (type);
-      return fold (convert (type,
-			    build2 (RSHIFT_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (type, XEXP (x, 1)))));
+      return fold_convert (type, build2 (RSHIFT_EXPR, t,
+					 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (type, XEXP (x, 1))));
 
     case DIV:
       if (TREE_CODE (type) != REAL_TYPE)
@@ -4889,22 +4895,20 @@ make_tree (tree type, rtx x)
       else
 	t = type;
 
-      return fold (convert (type,
-			    build2 (TRUNC_DIV_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (t, XEXP (x, 1)))));
+      return fold_convert (type, build2 (TRUNC_DIV_EXPR, t,
+				    	 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (t, XEXP (x, 1))));
     case UDIV:
       t = lang_hooks.types.unsigned_type (type);
-      return fold (convert (type,
-			    build2 (TRUNC_DIV_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (t, XEXP (x, 1)))));
+      return fold_convert (type, build2 (TRUNC_DIV_EXPR, t,
+				    	 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (t, XEXP (x, 1))));
 
     case SIGN_EXTEND:
     case ZERO_EXTEND:
       t = lang_hooks.types.type_for_mode (GET_MODE (XEXP (x, 0)),
 					  GET_CODE (x) == ZERO_EXTEND);
-      return fold (convert (type, make_tree (t, XEXP (x, 0))));
+      return fold_convert (type, make_tree (t, XEXP (x, 0)));
 
     default:
       t = build_decl (VAR_DECL, NULL_TREE, type);

@@ -301,14 +301,17 @@ INSTALL_HEADERS_DIR = @build_install_headers_dir@
 
 # Header files that are made available under the same name
 # to programs compiled with GCC.
+# APPLE LOCAL begin radar 2872232 add tgmath.h
 USER_H = $(srcdir)/ginclude/float.h \
 	 $(srcdir)/ginclude/iso646.h \
 	 $(srcdir)/ginclude/stdarg.h \
 	 $(srcdir)/ginclude/stdbool.h \
 	 $(srcdir)/ginclude/stddef.h \
+	 $(srcdir)/ginclude/tgmath.h \
 	 $(srcdir)/ginclude/varargs.h \
 	 $(srcdir)/unwind.h \
 	 $(EXTRA_HEADERS)
+# APPLE LOCAL end radar 2872232 add tgmath.h
 
 # The GCC to use for compiling libgcc.a and crt*.o.
 # Usually the one we just built.
@@ -518,11 +521,14 @@ INSTALL_LIBGCC = install-libgcc
 # Options to use when compiling libgcc2.a.
 #
 LIBGCC2_DEBUG_CFLAGS = -g
-LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
+# APPLE LOCAL control opt level.  --ilr
+LIBGCC2_CFLAGS = $(LIBGCC2_OPT) $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
 LIBGCC2_INCLUDES =
+# APPLE LOCAL control opt level.  --ilr
+LIBGCC2_OPT = -O2
 
 # Additional target-dependent options for compiling libgcc2.a.
 TARGET_LIBGCC2_CFLAGS =
@@ -634,6 +640,24 @@ PROTOIZE_INSTALL_NAME := $(shell echo protoize|sed '$(program_transform_name)')
 UNPROTOIZE_INSTALL_NAME := $(shell echo unprotoize|sed '$(program_transform_name)')
 GCOV_INSTALL_NAME := $(shell echo gcov|sed '$(program_transform_name)')
 GCCBUG_INSTALL_NAME := $(shell echo gccbug|sed '$(program_transform_name)')
+
+# APPLE LOCAL begin order files  --ilr
+# When configure --enable-build_gcc is specified then we know that the
+# makefile was created as a result of using build_gcc.  For such builds
+# we want to use the order files in the order-files directory.  The
+# makefile will test ORDER_FILES.  If it is not null then the appropriate
+# order file is added to the cc1* link.
+#ORDER_FILES = @enable_build_gcc@
+### ORDER FILES ARE CURRENTLY DISABLED.  TO ENABLE THEM REMOVE THE LINE ###
+### BELOW AND UNCOMMENT THE LINE ABOVE.                                 ###
+ORDER_FILES =
+ifeq ($(ORDER_FILES),yes)
+CC1_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1.order ]; then \
+		     echo -sectorder __TEXT __text $(srcdir)/../order-files/cc1.order -e start ; fi`
+else
+CC1_ORDER_FLAGS =
+endif
+# APPLE LOCAL end order files  --ilr
 
 # Setup the testing framework, if you have one
 EXPECT = `if [ -f $${rootme}/../expect/expect ] ; then \
@@ -891,6 +915,7 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
 C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
+# APPLE LOCAL begin lno, loops-to-memset
 OBJS-common = \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o			   \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
@@ -902,12 +927,14 @@ OBJS-common = \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o tree-ssa-loop.o \
  tree-ssa-loop-niter.o tree-ssa-loop-manip.o tree-ssa-threadupdate.o	   \
- tree-vectorizer.o tree-ssa-loop-ivcanon.o tree-ssa-propagate.o	 	   \
+ tree-vectorizer.o tree-vect-analyze.o tree-vect-transform.o		   \
+ tree-ssa-loop-ivcanon.o tree-ssa-propagate.o	 	   		   \
  tree-ssa-loop-ivopts.o tree-if-conv.o tree-ssa-loop-unswitch.o		   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
+ tree-ssa-loop-prefetch.o  tree-ssa-loop-memset.o \
  dbxout.o ddg.o tree-ssa-loop-ch.o loop-invariant.o tree-ssa-loop-im.o	   \
  debug.o df.o diagnostic.o dojump.o dominance.o loop-doloop.o		   \
  dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o loop-iv.o		   \
@@ -929,6 +956,7 @@ OBJS-common = \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o          \
  lambda-trans.o	lambda-code.o tree-loop-linear.o
+# APPLE LOCAL end lno, loops-to-memset
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
@@ -949,14 +977,16 @@ STAGECOPYSTUFF = insn-flags.h insn-config.h insn-codes.h \
  genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-gen.h
 
 # Files to be moved away after each stage in building.
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 STAGEMOVESTUFF = *$(objext) s-* \
- xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
+ xgcc$(exeext) cpp$(exeext) cc1$(exeext) cc1*-dummy$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  $(SPECS) collect2$(exeext) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
- *.[0-9][0-9].* *.[si] libbackend.a libgcc.mk \
+ *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 
 # Defined in libgcc2.c, included only in the static library.
 LIB2FUNCS_ST = _eprintf __gcc_bcmp
@@ -1182,9 +1212,22 @@ $(SPECS): xgcc$(exeext)
 gcc-cross: xgcc$(exeext)
 	cp xgcc$(exeext) gcc-cross$(exeext)
 
-cc1$(exeext): $(C_OBJS) $(BACKEND) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cc1$(exeext) \
-		$(C_OBJS) $(BACKEND) $(LIBS)
+# APPLE LOCAL begin order files  --ilr
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+cc1-dummy$(exeext): $(C_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) dummy-checksum.o \
+	  $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS)
+
+cc1-checksum.c : cc1-dummy$(exeext) build/genchecksum$(exeext)
+	build/genchecksum$(exeext) cc1-dummy$(exeext) > $@
+
+cc1-checksum.o : cc1-checksum.c
+
+cc1$(exeext): $(C_OBJS) cc1-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) cc1-checksum.o \
+	  $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS)
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
+# APPLE LOCAL end order files  --ilr
 
 # Build the version of limits.h that we will install.
 xlimits.h: glimits.h limitx.h limity.h
@@ -1222,7 +1265,8 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	DPBIT_FUNCS='$(DPBIT_FUNCS)' \
 	TPBIT='$(TPBIT)' \
 	TPBIT_FUNCS='$(TPBIT_FUNCS)' \
-	MULTILIBS=`$(GCC_FOR_TARGET) --print-multi-lib` \
+	APPLE_LOCAL='APPLE LOCAL libcc_kext' \
+	MULTILIBS="`$(GCC_FOR_TARGET) --print-multi-lib` static;@static@fno-pic kext;@Dmalloc=kern_os_malloc@Dfree=kern_os_free@DLIBCC_KEXT@static@fno-pic@fno-exceptions@fno-non-call-exceptions$(KEXT_EXTRA_FLAGS)" \
 	EXTRA_MULTILIB_PARTS='$(EXTRA_MULTILIB_PARTS)' \
 	SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_INSTALL='$(SHLIB_INSTALL)' \
@@ -1382,10 +1426,14 @@ c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     c-objc-common.h c-pragma.h
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(GGC_H) $(C_COMMON_H)
+# APPLE LOCAL begin 4133801
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) debug.h $(C_TREE_H) $(C_COMMON_H) real.h c-incpath.h cppdefault.h \
     $(C_PRAGMA_H) input.h intl.h $(FLAGS_H) toplev.h output.h \
-    $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
+    $(CPPLIB_H) $(EXPR_H) $(TM_P_H) langhooks.h
+# APPLE LOCAL end 4133801
+# APPLE LOCAL AltiVec
+c-lex.o: $(TARGET_H) ../libcpp/internal.h
 c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(C_COMMON_H) $(TREE_H) $(CPPLIB_H) $(srcdir)/../libcpp/internal.h $(TM_P_H) $(C_PRAGMA_H)
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
@@ -1430,6 +1478,8 @@ c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(TARGET_H) $(C_TREE_H) tree-iterator.h langhooks.h tree-mudflap.h \
 	intl.h opts.h real.h $(CPPLIB_H) tree-inline.h $(HASHTAB_H) \
 	builtins.def
+# APPLE LOCAL 64bit shorten warning 3865314
+c-common.o : options.h
 
 c-pretty-print.o : c-pretty-print.c $(C_PRETTY_PRINT_H) \
 	$(C_COMMON_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) real.h \
@@ -1445,6 +1495,8 @@ c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)		\
 c-cppbuiltin.o : c-cppbuiltin.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(TREE_H) version.h $(C_COMMON_H) $(C_PRAGMA_H) $(FLAGS_H) toplev.h \
 	langhooks.h output.h except.h real.h $(TARGET_H) $(TM_P_H)
+# APPLE LOCAL pascal strings
+c-cppbuiltin.o : ../libcpp/include/cpplib.h ../libcpp/internal.h
 
 # A file used by all variants of C and some other languages.
 
@@ -1501,6 +1553,16 @@ gccspec.o: gccspec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H)
 
 cppspec.o: cppspec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H)
 
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+build/genchecksum$(build_exeext) : build/genchecksum.o $(BUILD_LIBDEPS)
+	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ \
+	 build/genchecksum.o $(BUILD_LIBS)
+
+build/genchecksum.o : genchecksum.c $(BCONFIG_H) $(SYSTEM_H) $(MD5_H)
+
+dummy-checksum.o : dummy-checksum.c
+
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 tree-check.h: s-check ; @true
 s-check : build/gencheck$(build_exeext)
 	$(RUN_GEN) build/gencheck$(build_exeext) > tmp-check.h
@@ -1545,7 +1607,8 @@ options.h: optionlist $(srcdir)/opt-functions.awk $(srcdir)/opth-gen.awk
 	$(AWK) -f $(srcdir)/opt-functions.awk -f $(srcdir)/opth-gen.awk \
 	       < $< > $@
 
-options.o: options.c options.h opts.h intl.h
+# APPLE LOCAL optimization pragmas 3124235/3420242
+options.o: options.c options.h opts.h intl.h config.h system.h hwint.h coretypes.h
 
 dumpvers: dumpvers.c
 
@@ -1576,12 +1639,15 @@ prefix.o: prefix.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) Makefile prefix.h
 	-DPREFIX=\"$(prefix)\" \
 	  -c $(srcdir)/prefix.c $(OUTPUT_OPTION)
 
+# APPLE LOCAL begin AltiVec
 convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(FLAGS_H) \
-   convert.h toplev.h langhooks.h
-
+   convert.h toplev.h langhooks.h c-tree.h c-common.h
+# APPLE LOCAL end AltiVec
+# APPLE LOCAL begin 4133801
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h $(INTEGRATE_H) langhooks.h \
-   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h
+   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h debug.h
+# APPLE LOCAL end 4133801
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(FLAGS_H) function.h $(PARAMS_H) \
    toplev.h $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h \
@@ -1636,11 +1702,14 @@ tree-ssa-propagate.o : tree-ssa-propagate.c $(TREE_FLOW_H) $(CONFIG_H) \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) $(BASIC_BLOCK_H) tree-pass.h langhooks.h \
    tree-ssa-propagate.h vec.h gt-tree-ssa-propagate.h
+# APPLE LOCAL begin lno
 tree-ssa-dom.o : tree-ssa-dom.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    $(BASIC_BLOCK_H) domwalk.h real.h tree-pass.h $(FLAGS_H) langhooks.h \
-   tree-ssa-propagate.h
+   tree-ssa-propagate.h \
+   cfgloop.h
+# APPLE LOCAL end lno
 tree-ssa-threadupdate.o : tree-ssa-threadupdate.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    diagnostic.h errors.h function.h $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1696,14 +1765,20 @@ tree-ssa-operands.o : tree-ssa-operands.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_H) $(FLAGS_H) function.h except.h langhooks.h \
    $(GGC_H) tree-pass.h gt-tree-eh.h
+# APPLE LOCAL begin lno
 tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
-   tree-pass.h $(FLAGS_H) tree-inline.h $(SCEV_H)
+   tree-pass.h $(FLAGS_H) tree-inline.h $(SCEV_H) function.h
 tree-ssa-loop-unswitch.o : tree-ssa-loop-unswitch.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) domwalk.h $(PARAMS_H)\
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h
+tree-ssa-loop-prefetch.o : tree-ssa-loop-prefetch.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) varray.h $(EXPR_H) \
+   output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
+   tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H)
+# APPLE LOCAL end lno
 tree-ssa-loop-niter.o : tree-ssa-loop-niter.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h $(PARAMS_H) tree-inline.h \
    output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) $(FLAGS_H) \
@@ -1712,6 +1787,12 @@ tree-ssa-loop-ivcanon.o : tree-ssa-loop-ivcanon.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(PARAMS_H) tree-inline.h \
    output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) $(FLAGS_H) \
    tree-pass.h $(SCEV_H)
+# APPLE LOCAL begin loops-to-memset
+tree-ssa-loop-memset.o : tree-ssa-loop-memset.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h $(PARAMS_H) tree-inline.h \
+   output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) flags.h \
+   tree-pass.h $(SCEV_H)
+# APPLE LOCAL end loops-to-memset
 tree-ssa-loop-ch.o : tree-ssa-loop-ch.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) tree-inline.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1720,11 +1801,13 @@ tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) varray.h $(EXPR_H) \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
-   cfgloop.h $(PARAMS_H) sbitmap.h
+   cfgloop.h $(PARAMS_H) sbitmap.h langhooks.h
+# APPLE LOCAL begin lno added tree-inline.h $(FLAGS_H)
 tree-ssa-loop-manip.o : tree-ssa-loop-manip.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
-   tree-pass.h cfglayout.h $(SCEV_H)
+   tree-pass.h cfglayout.h $(SCEV_H) tree-inline.h $(FLAGS_H)
+# APPLE LOCAL end lno added tree-inline.h $(FLAGS_H)
 tree-ssa-loop-im.o : tree-ssa-loop-im.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) domwalk.h $(PARAMS_H)\
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1733,12 +1816,14 @@ tree-ssa-alias.o : tree-ssa-alias.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) tree-inline.h $(FLAGS_H) \
    function.h $(TIMEVAR_H) convert.h $(TM_H) coretypes.h \
    langhooks.h $(TREE_DUMP_H) tree-pass.h params.h
+# APPLE LOCAL begin optimization pragmas 3124235/3420242
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h $(FLAGS_H) \
    $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) toplev.h function.h \
    langhooks.h $(FLAGS_H) $(CGRAPH_H) tree-inline.h tree-mudflap.h $(GGC_H) \
-   $(CGRAPH_H) tree-pass.h
+   $(CGRAPH_H) tree-pass.h opts.h
+# APPLE LOCAL end optimization pragmas 3124235/3420242
 c-gimplify.o : c-gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h $(TREE_GIMPLE_H) varray.h $(FLAGS_H) \
    langhooks.h toplev.h rtl.h $(TREE_FLOW_H) langhooks-def.h \
@@ -1765,10 +1850,18 @@ tree-data-ref.o: tree-data-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
    tree-data-ref.h $(SCEV_H) tree-pass.h $(LAMBDA_H)
+tree-vect-analyze.o: tree-vect-analyze.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
+   $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
+   tree-vectorizer.h tree-data-ref.h $(SCEV_H) $(EXPR_H)
+tree-vect-transform.o: tree-vect-transform.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
+   $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h target.h tree-pass.h $(EXPR_H) \
+   tree-vectorizer.h tree-data-ref.h $(SCEV_H) langhooks.h toplev.h
 tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h $(EXPR_H) \
-   tree-vectorizer.h tree-data-ref.h $(SCEV_H)
+   tree-vectorizer.h tree-data-ref.h $(SCEV_H) input.h target.h cfglayout.h
 tree-loop-linear.o: tree-loop-linear.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h \
@@ -2501,13 +2594,16 @@ genprognames=genconfig genflags gencodes genemit genopinit genrecog \
 genprogs=$(genprognames:%=build/%$(build_exeext))
 
 # Object files used in those programs.
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 genobjnames=$(genprognames:%=%.o) read-rtl.o gensupport.o genattrtab.o \
         genautomata.o gengenrtl.o genmodes.o genpreds.o gengtype.o \
 	genconstants.o gen-protos.o scan.o fix-header.o scan-decls.o \
 	gencheck.o dummy-conditions.o genconditions.o errors.o ggc-none.o \
 	min-insn-modes.o rtl.o print-rtl.o varray.o gcov-iov.o \
-	insn-conditions.o gengtype-lex.o gengtype-yacc.o genmddeps.o
+	insn-conditions.o gengtype-lex.o gengtype-yacc.o genmddeps.o \
+	genchecksum.o
 
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 genobjs=$(genobjnames:%=build/%)
 
 $(genprogs): %$(build_exeext): %.o  $(BUILD_RTL) $(BUILD_SUPPORT) \
@@ -2956,11 +3052,13 @@ srcinfo: $(INFOFILES)
 
 TEXI_CPP_FILES = cpp.texi fdl.texi cppenv.texi cppopts.texi
 
+# APPLE LOCAL begin GPL compliance
 TEXI_GCC_FILES = gcc.texi gcc-common.texi frontends.texi standards.texi \
 	 invoke.texi extend.texi md.texi objc.texi gcov.texi trouble.texi \
 	 bugreport.texi service.texi contribute.texi compat.texi funding.texi \
 	 gnu.texi gpl.texi fdl.texi contrib.texi cppenv.texi cppopts.texi \
-	 implement-c.texi
+	 implement-c.texi sourcecode.texi
+# APPLE LOCAL end GPL compliance
 
 TEXI_GCCINT_FILES = gccint.texi gcc-common.texi contribute.texi makefile.texi \
 	 configterms.texi portability.texi interface.texi passes.texi \
@@ -3120,6 +3218,10 @@ mostlyclean: lang.mostlyclean
 # Delete files generated by gengtype.c
 	-rm -f gtype-*
 	-rm -f gt-*
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+# Delete genchecksum outputs
+	-rm -f *-checksum.c
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 
 # Delete all files made by compilation
 # that don't exist in the distribution.
@@ -3193,7 +3295,8 @@ install: install-common $(INSTALL_HEADERS) $(INSTALL_LIBGCC) \
     lang.install-normal install-driver
 
 # Handle cpp installation.
-install-cpp: cpp$(exeext)
+# APPLE LOCAL install-cpp bug
+install-cpp: cpp$(exeext) installdirs
 	-rm -f $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext)
 	-$(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext)
 	-if [ x$(cpp_install_dir) != x ]; then \
@@ -3305,7 +3408,8 @@ $(DESTDIR)$(infodir)/%.info: doc/%.info installdirs
 	else true; fi;
 
 # Install the man pages.
-install-man: installdirs lang.install-man \
+ # APPLE LOCAL mainline 4.1 2005-06-16
+install-man: lang.install-man \
 	$(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext) \
 	$(DESTDIR)$(man1dir)/$(CPP_INSTALL_NAME)$(man1ext) \
 	$(DESTDIR)$(man1dir)/$(GCOV_INSTALL_NAME)$(man1ext) \
@@ -3313,22 +3417,26 @@ install-man: installdirs lang.install-man \
 	$(DESTDIR)$(man7dir)/gfdl$(man7ext) \
 	$(DESTDIR)$(man7dir)/gpl$(man7ext)
 
-$(DESTDIR)$(man7dir)/%$(man7ext): doc/%.7
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man7dir)/%$(man7ext): doc/%.7 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
 
-$(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext): doc/gcc.1
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext): doc/gcc.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
 
-$(DESTDIR)$(man1dir)/$(CPP_INSTALL_NAME)$(man1ext): doc/cpp.1
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man1dir)/$(CPP_INSTALL_NAME)$(man1ext): doc/cpp.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
 
-$(DESTDIR)$(man1dir)/$(GCOV_INSTALL_NAME)$(man1ext): doc/gcov.1
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man1dir)/$(GCOV_INSTALL_NAME)$(man1ext): doc/gcov.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
@@ -3883,28 +3991,39 @@ slowcompare slowcompare3 slowcompare4 slowcompare-lean slowcompare3-lean slowcom
 fastcompare fastcompare3 fastcompare4 fastcompare-lean fastcompare3-lean fastcompare4-lean \
  gnucompare  gnucompare3  gnucompare4  gnucompare-lean  gnucompare3-lean  gnucompare4-lean: force
 	-rm -f .bad_compare
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
-	for dir in . $(SUBDIRS); do \
+	for dir in . $(SUBDIRS) libgcc; do \
 	  if [ "`echo $$dir/*$(objext)`" != "$$dir/*$(objext)" ] ; then \
 	    for file in $$dir/*$(objext); do \
-	      case "$@" in \
-		slowcompare* ) \
-		  tail +16c ./$$file > tmp-foo1; \
-		  tail +16c stage$$stage/$$file > tmp-foo2 \
-		    && (cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 || echo $$file differs >> .bad_compare) || true; \
+	      case $$file in \
+		./cc*-checksum$(objext) | libgcc/* ) \
+		    tail +16c ./$$file > tmp-foo1 \
+		    && tail +16c stage$$stage/$$file > tmp-foo2 \
+		    && ( cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
+			 || echo warning: $$file differs || true ) \
 		  ;; \
-		fastcompare* ) \
-		  cmp $$file stage$$stage/$$file 16 16 > /dev/null 2>&1; \
-		  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
-		  ;; \
-		gnucompare* ) \
-		  cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
-		  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
-		  ;; \
+		*)  case "$@" in \
+		  slowcompare* ) \
+		    tail +16c ./$$file > tmp-foo1; \
+		    tail +16c stage$$stage/$$file > tmp-foo2 \
+		      && (cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
+			  || echo $$file differs >> .bad_compare) || true; \
+		    ;; \
+		  fastcompare* ) \
+		    cmp $$file stage$$stage/$$file 16 16 > /dev/null 2>&1; \
+		    test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
+		    ;; \
+		  gnucompare* ) \
+		    cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
+		    test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
+		    ;; \
+	        esac ; \
 	      esac ; \
 	    done; \
 	  else true; fi; \
 	done
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 	-rm -f tmp-foo*
 	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
 	if [ -f .bad_compare ]; then \

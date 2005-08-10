@@ -994,6 +994,11 @@ compute_trg_info (int trg)
   edge_iterator ei;
   edge e;
 
+  /* APPLE LOCAL begin lno */
+  el.nr_members = 0;
+  el.first_member = 0;
+  /* APPLE LOCAL end lno */
+
   /* Define some of the fields for the target bb as well.  */
   sp = candidate_table + trg;
   sp->is_valid = 1;

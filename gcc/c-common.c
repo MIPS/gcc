@@ -47,6 +47,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-mudflap.h"
 #include "opts.h"
 #include "real.h"
+/* APPLE LOCAL 64bit shorten warning 3865314 */
+#include "options.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -158,6 +160,13 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
 	tree char_array_type_node;
 
+   ** APPLE LOCAL begin pascal strings **
+   Type `unsigned char[SOMENUMBER]'.
+   Used for pascal-type strings ("\pstring").
+
+	tree pascal_string_type_node;
+   ** APPLE LOCAL end pascal strings **
+
    Type `int[SOMENUMBER]' or something like it.
    Used when an array of int needed and the size is irrelevant.
 
@@ -254,12 +263,24 @@ int flag_short_double;
 
 int flag_short_wchar;
 
+/* APPLE LOCAL begin lvalue cast */
+/* Nonzero means allow assignment, increment or decrement of casts of
+   lvalues (e.g., '((foo *)p)++') if both the lvalue and its cast are
+   of POD type with identical size and alignment.  */
+int flag_lvalue_cast_assign = 1;
+/* APPLE LOCAL end lvalue cast */
+
 /* Nonzero means allow Microsoft extensions without warnings or errors.  */
 int flag_ms_extensions;
 
 /* Nonzero means don't recognize the keyword `asm'.  */
 
 int flag_no_asm;
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Nonzero means accept CW-style asm blocks.  */
+int flag_cw_asm_blocks;
+/* APPLE LOCAL end CW asm blocks */
 
 /* Nonzero means give string constants the type `const char *', as mandated
    by the standard.  */
@@ -283,6 +304,12 @@ int warn_unknown_pragmas; /* Tri state variable.  */
    (*printf, *scanf, strftime, strfmon, etc.).  */
 
 int warn_format;
+
+/* Warn about using __null (as NULL in C++) as sentinel.  For code compiled
+   with GCC this doesn't matter as __null is guaranteed to have the right
+   size.  */
+
+int warn_strict_null_sentinel;
 
 /* Zero means that faster, ...NonNil variants of objc_msgSend...
    calls will be used in ObjC; passing nil receivers to such calls
@@ -330,6 +357,12 @@ int flag_hosted = 1;
 
 int warn_main;
 
+/* APPLE LOCAL begin disable_typechecking_for_spec_flag */
+/* This makes type conflicts a warning, instead of an error,
+   to work around some problems with SPEC.  */
+
+int disable_typechecking_for_spec_flag;
+/* APPLE LOCAL end disable_typechecking_for_spec_flag */
 
 /* ObjC language option variables.  */
 
@@ -346,6 +379,13 @@ int flag_next_runtime = 1;
 #else
 int flag_next_runtime = 0;
 #endif
+
+/* APPLE LOCAL begin mainline */
+/* Generate special '- .cxx_construct' and '- .cxx_destruct' methods
+   to initialize any non-POD ivars in ObjC++ classes.  */
+
+int flag_objc_call_cxx_cdtors = 0;
+/* APPLE LOCAL end mainline */
 
 /* Tells the compiler that this is a special run.  Do not perform any
    compiling, instead we are to test some platform dependent features
@@ -459,6 +499,23 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
+/* APPLE LOCAL begin private extern  Radar 2872481 --ilr */
+/* Nonzero if -fpreproceessed specified.  This is needed by
+   init_reswords() so that it can make __private_extern__ have the
+   same rid code as extern when -fpreprocessed is specified.  Normally
+   there is a -D on the command line for this.  But if -fpreprocessed
+   was specified then macros aren't expanded.  So we fake the token
+   value out using the rid code.  */
+int flag_preprocessed = 0;
+/* APPLE LOCAL end private extern  Radar 2872481 --ilr */
+
+/* APPLE LOCAL begin structor thunks */
+/* Nonzero if we prefer to clone con/de/structors.  Alternative is to
+   gen multiple tiny thunk-esque things that call/jump to a unified
+   con/de/structor.  This is a classic size/speed tradeoff.  */
+int flag_clone_structors = 0;
+/* APPLE LOCAL end structor thunks */
+
 /* Nonzero means to generate thread-safe code for initializing local
    statics.  */
 
@@ -511,6 +568,45 @@ static int constant_fits_type_p (tree, tree);
 static tree check_case_value (tree);
 static bool check_case_bounds (tree, tree, tree *, tree *);
 
+/* APPLE LOCAL begin CW asm blocks */
+/* State variable telling the lexer what to do.  */
+enum cw_asm_states cw_asm_state = cw_asm_none;
+
+/* True in an asm block while parsing a decl.  */
+int cw_asm_in_decl;
+
+/* This is true exactly within the interior of an asm block.  It is
+   not quite the same as any of the states of cw_asm_state.  */
+int inside_cw_asm_block;
+
+/* An additional state variable, true when the next token returned
+   should be a BOL, false otherwise.  */
+int cw_asm_at_bol;
+
+/* True when the lexer/parser is handling operands.  */
+int cw_asm_in_operands;
+
+/* Count used for synthetic labels derived from asm block labels.  */
+static GTY(()) int cw_asm_labelno;
+
+/* Working buffer for building the assembly string.  */
+static char *cw_asm_buffer;
+
+/* An array tracking which variables to list as inputs and outputs.  */
+static GTY(()) varray_type cw_asm_operands;
+static GTY(()) varray_type cw_asm_operands_arg;
+
+/* Two arrays used as a map from user-supplied labels, local to an asm
+   block, to unique global labels that the assembler will like.  */
+static GTY(()) varray_type cw_asm_labels;
+static GTY(()) varray_type cw_asm_labels_uniq;
+
+static int cw_asm_expr_val (tree arg);
+static void print_cw_asm_operand (char *, tree, unsigned, tree *, tree *, bool, bool);
+static int cw_asm_get_register_var (tree, unsigned, bool);
+static tree cw_asm_identifier (tree expr);
+/* APPLE LOCAL end CW asm blocks */
+
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
 static tree handle_common_attribute (tree *, tree, tree, int, bool *);
@@ -518,6 +614,8 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+/* APPLE LOCAL radar 4152603 */
+static tree handle_nodebug_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
@@ -542,6 +640,9 @@ static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
 static tree handle_deprecated_attribute (tree *, tree, tree, int,
 					 bool *);
+/* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
+static tree handle_unavailable_attribute (tree *, tree, tree, int,  bool *);
+/* APPLE LOCAL end "unavailable" attribute --ilr */
 static tree handle_vector_size_attribute (tree *, tree, tree, int,
 					  bool *);
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
@@ -580,6 +681,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  /* APPLE LOCAL begin radar 4152603 */
+  { "nodebug",                0, 0, true,  false, false,
+			      handle_nodebug_attribute },
+  /* APPLE LOCAL end radar 4152603 */
   { "used",                   0, 0, true,  false, false,
 			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
@@ -613,6 +718,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_pure_attribute },
   { "deprecated",             0, 0, false, false, false,
 			      handle_deprecated_attribute },
+  /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
+  { "unavailable",            0, 0, false, false, false,
+			      handle_unavailable_attribute },
+  /* APPLE LOCAL end "unavailable" attribute --ilr */
   { "vector_size",	      1, 1, false, true, false,
 			      handle_vector_size_attribute },
   { "visibility",	      1, 1, false, false, false,
@@ -746,7 +855,8 @@ fname_as_string (int pretty_p)
       strname.text = (unsigned char *) namep;
       strname.len = len - 1;
 
-      if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
+      /* APPLE LOCAL pascal strings add extra flag */
+      if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false, false))
 	{
 	  XDELETEVEC (namep);
 	  return (char *) cstr.text;
@@ -835,6 +945,8 @@ fix_string_type (tree value)
 {
   const int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
   const int wide_flag = TREE_TYPE (value) == wchar_array_type_node;
+  /* APPLE LOCAL pascal strings */
+  const int pascal_flag = TREE_TYPE (value) == pascal_string_type_node;
   const int nchars_max = flag_isoc99 ? 4095 : 509;
   int length = TREE_STRING_LENGTH (value);
   int nchars;
@@ -847,7 +959,8 @@ fix_string_type (tree value)
     pedwarn ("string length %qd is greater than the length %qd ISO C%d compilers are required to support",
 	     nchars - 1, nchars_max, flag_isoc99 ? 99 : 89);
 
-  e_type = wide_flag ? wchar_type_node : char_type_node;
+  /* APPLE LOCAL pascal strings */
+  e_type = wide_flag ? wchar_type_node : (pascal_flag ? unsigned_char_type_node : char_type_node);
   /* Create the array type for the string constant.  flag_const_strings
      says make the string constant an array of const char so that
      copying it to a non-const pointer will get a warning.  For C++,
@@ -861,13 +974,16 @@ fix_string_type (tree value)
      unconditionally.  */
   i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
   a_type = build_array_type (e_type, i_type);
-  if (flag_const_strings)
+  /* APPLE LOCAL fwritable strings  */
+  if (flag_const_strings && ! flag_writable_strings)
     a_type = c_build_qualified_type (a_type, TYPE_QUAL_CONST);
 
   TREE_TYPE (value) = a_type;
-  TREE_CONSTANT (value) = 1;
-  TREE_INVARIANT (value) = 1;
-  TREE_READONLY (value) = 1;
+  /* APPLE LOCAL begin fwritable strings  */
+  TREE_CONSTANT (value) = !flag_writable_strings;
+  TREE_INVARIANT (value) = !flag_writable_strings;
+  TREE_READONLY (value) = !flag_writable_strings;
+  /* APPLE LOCAL end fwritable strings  */
   TREE_STATIC (value) = 1;
   return value;
 }
@@ -981,6 +1097,14 @@ tree
 convert_and_check (tree type, tree expr)
 {
   tree t = convert (type, expr);
+  /* APPLE LOCAL begin 64bit shorten warning 3865314 */
+  if (warn_shorten_64_to_32
+      && TYPE_PRECISION (TREE_TYPE (expr)) == 64
+      && TYPE_PRECISION (type) == 32)
+    {
+      warning ("implicit conversion shortens 64-bit value into a 32-bit value");
+    }
+  /* APPLE LOCAL end 64bit shorten warning 3865314 */
   if (TREE_CODE (t) == INTEGER_CST)
     {
       if (TREE_OVERFLOW (t))
@@ -1606,10 +1730,14 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
     return void_type_node;
 
   if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
-    return unsignedp ? make_unsigned_type (mode) : make_signed_type (mode);
+    return (unsignedp
+	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
+	    : make_signed_type (GET_MODE_PRECISION (mode)));
 
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
-    return unsignedp ? make_unsigned_type (mode) : make_signed_type (mode);
+    return (unsignedp
+	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
+	    : make_signed_type (GET_MODE_PRECISION (mode)));
 
   if (COMPLEX_MODE_P (mode))
     {
@@ -2315,33 +2443,33 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 tree
 c_common_truthvalue_conversion (tree expr)
 {
-  if (TREE_CODE (expr) == ERROR_MARK)
-    return expr;
-
-  if (TREE_CODE (expr) == FUNCTION_DECL)
-    expr = build_unary_op (ADDR_EXPR, expr, 0);
-
   switch (TREE_CODE (expr))
     {
     case EQ_EXPR:   case NE_EXPR:   case UNEQ_EXPR: case LTGT_EXPR:
     case LE_EXPR:   case GE_EXPR:   case LT_EXPR:   case GT_EXPR:
     case UNLE_EXPR: case UNGE_EXPR: case UNLT_EXPR: case UNGT_EXPR:
     case ORDERED_EXPR: case UNORDERED_EXPR:
+      if (TREE_TYPE (expr) == truthvalue_type_node)
+	return expr;
+      return build2 (TREE_CODE (expr), truthvalue_type_node,
+		     TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
+
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
-      if (TREE_TYPE (expr) != truthvalue_type_node)
-	return build2 (TREE_CODE (expr), truthvalue_type_node,
-		       TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
-      return expr;
+      if (TREE_TYPE (expr) == truthvalue_type_node)
+	return expr;
+      return build2 (TREE_CODE (expr), truthvalue_type_node,
+		 lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)),
+		 lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 1)));
 
     case TRUTH_NOT_EXPR:
-      if (TREE_TYPE (expr) != truthvalue_type_node)
-	return build1 (TREE_CODE (expr), truthvalue_type_node,
-		       TREE_OPERAND (expr, 0));
-      return expr;
+      if (TREE_TYPE (expr) == truthvalue_type_node)
+	return expr;
+      return build1 (TREE_CODE (expr), truthvalue_type_node,
+		 lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)));
 
     case ERROR_MARK:
       return expr;
@@ -2356,6 +2484,10 @@ c_common_truthvalue_conversion (tree expr)
       return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
 	     ? truthvalue_true_node
 	     : truthvalue_false_node;
+
+    case FUNCTION_DECL:
+      expr = build_unary_op (ADDR_EXPR, expr, 0);
+      /* Fall through.  */
 
     case ADDR_EXPR:
       {
@@ -3064,6 +3196,10 @@ c_common_nodes_and_builtins (void)
      array type.  */
   char_array_type_node
     = build_array_type (char_type_node, array_domain_type);
+  /* APPLE LOCAL begin pascal strings */
+  pascal_string_type_node
+    = build_array_type (unsigned_char_type_node, array_domain_type);
+  /* APPLE LOCAL end pascal strings */
 
   /* Likewise for arrays of ints.  */
   int_array_type_node
@@ -3261,6 +3397,11 @@ c_common_nodes_and_builtins (void)
     mudflap_init ();
 
   main_identifier_node = get_identifier ("main");
+
+  /* Create the built-in __null node.  It is important that this is
+     not shared.  */
+  null_node = make_node (INTEGER_CST);
+  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
 }
 
 /* Look up the function in built_in_decls that corresponds to DECL
@@ -3299,7 +3440,9 @@ typedef struct disabled_builtin
 } disabled_builtin;
 static disabled_builtin *disabled_builtins = NULL;
 
-static bool builtin_function_disabled_p (const char *);
+/* APPLE LOCAL begin IMA built-in decl merging fix (radar 3645899) */
+bool builtin_function_disabled_p (const char *);
+/* APPLE LOCAL end */
 
 /* Disable a built-in function specified by -fno-builtin-NAME.  If NAME
    begins with "__builtin_", give an error.  */
@@ -3321,8 +3464,10 @@ disable_builtin_function (const char *name)
 
 /* Return true if the built-in function NAME has been disabled, false
    otherwise.  */
-
-static bool
+/* APPLE LOCAL begin IMA built-in decl merging fix (radar 3645899) */
+/* Remove static */
+bool
+/* APPLE LOCAL end */
 builtin_function_disabled_p (const char *name)
 {
   disabled_builtin *p;
@@ -4058,6 +4203,28 @@ handle_always_inline_attribute (tree *node, tree name,
 
   return NULL_TREE;
 }
+
+/* APPLE LOCAL begin radar 4152603 */
+/* Handle a "nodebug" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_nodebug_attribute (tree *node, tree name,
+                          tree ARG_UNUSED (args),
+                          int ARG_UNUSED (flags),
+                          bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    DECL_IGNORED_P (*node) = 1;
+  else
+    {
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+/* APPLE LOCAL end radar 4152603 */
 
 /* Handle a "used" attribute; arguments as in
    struct attribute_spec.handler.  */
@@ -4887,6 +5054,70 @@ handle_deprecated_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
+/* Handle a "unavailable" attribute; arguments as in
+   struct attribute_spec.handler.  */
+   
+static tree
+handle_unavailable_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED,
+			      bool *no_add_attrs)
+{
+  tree type = NULL_TREE;
+  int warn = 0;
+  const char *what = NULL;
+  
+  if (DECL_P (*node))
+    {
+      tree decl = *node;
+      type = TREE_TYPE (decl);
+      
+      if (TREE_CODE (decl) == TYPE_DECL
+      	  || TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || TREE_CODE (decl) == FIELD_DECL)
+	{
+	  TREE_DEPRECATED (decl) = 1;
+	  TREE_UNAVAILABLE (decl) = 1;
+	}
+      else
+	warn = 1;
+    }
+  else if (TYPE_P (*node))
+    {
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	*node = build_variant_type_copy (*node);
+      TREE_DEPRECATED (*node) = 1;
+      TREE_UNAVAILABLE (*node) = 1;
+      type = *node;
+    }
+  else
+    warn = 1;
+  
+  if (warn)
+    {
+      *no_add_attrs = true;
+      if (type && TYPE_NAME (type))
+	{
+	  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+	    what = IDENTIFIER_POINTER (TYPE_NAME (*node));
+	  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+		   && DECL_NAME (TYPE_NAME (type)))
+	    what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+	}
+      if (what)
+	warning ("`%s' attribute ignored for `%s'",
+		 IDENTIFIER_POINTER (name), what);
+      else
+	warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+    }
+
+  return NULL_TREE;
+}
+/* APPLE LOCAL end "unavailable" attribute --ilr */
+
 /* Handle a "vector_size" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -5107,8 +5338,15 @@ check_function_sentinel (tree attrs, tree params)
 	    }
 
 	  /* Validate the sentinel.  */
-	  if (!POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (sentinel)))
-	      || !integer_zerop (TREE_VALUE (sentinel)))
+	  if ((!POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (sentinel)))
+	       || !integer_zerop (TREE_VALUE (sentinel)))
+	      /* Although __null (in C++) is only an integer we allow it
+		 nevertheless, as we are guaranteed that it's exactly
+		 as wide as a pointer, and we don't want to force
+		 users to cast the NULL they have written there.
+		 We warn with -Wstrict-null-sentinel, though.  */
+              && (warn_strict_null_sentinel
+		  || null_node != TREE_VALUE (sentinel)))
 	    warning ("missing sentinel in function call");
 	}
     }
@@ -5493,51 +5731,51 @@ catenate_strings (const char *lhs, const char *rhs_start, int rhs_size)
   return result;
 }
 
-/* Issue the error given by MSGID, indicating that it occurred before
+/* Issue the error given by GMSGID, indicating that it occurred before
    TOKEN, which had the associated VALUE.  */
 
 void
-c_parse_error (const char *msgid, enum cpp_ttype token, tree value)
+c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
 {
 #define catenate_messages(M1, M2) catenate_strings ((M1), (M2), sizeof (M2))
 
   char *message = NULL;
 
   if (token == CPP_EOF)
-    message = catenate_messages (msgid, " at end of input");
+    message = catenate_messages (gmsgid, " at end of input");
   else if (token == CPP_CHAR || token == CPP_WCHAR)
     {
       unsigned int val = TREE_INT_CST_LOW (value);
       const char *const ell = (token == CPP_CHAR) ? "" : "L";
       if (val <= UCHAR_MAX && ISGRAPH (val))
-        message = catenate_messages (msgid, " before %s'%c'");
+        message = catenate_messages (gmsgid, " before %s'%c'");
       else
-        message = catenate_messages (msgid, " before %s'\\x%x'");
+        message = catenate_messages (gmsgid, " before %s'\\x%x'");
 
       error (message, ell, val);
       free (message);
       message = NULL;
     }
   else if (token == CPP_STRING || token == CPP_WSTRING)
-    message = catenate_messages (msgid, " before string constant");
+    message = catenate_messages (gmsgid, " before string constant");
   else if (token == CPP_NUMBER)
-    message = catenate_messages (msgid, " before numeric constant");
+    message = catenate_messages (gmsgid, " before numeric constant");
   else if (token == CPP_NAME)
     {
-      message = catenate_messages (msgid, " before %qs");
+      message = catenate_messages (gmsgid, " before %qs");
       error (message, IDENTIFIER_POINTER (value));
       free (message);
       message = NULL;
     }
   else if (token < N_TTYPES)
     {
-      message = catenate_messages (msgid, " before %qs token");
+      message = catenate_messages (gmsgid, " before %qs token");
       error (message, cpp_type2name (token));
       free (message);
       message = NULL;
     }
   else
-    error (msgid);
+    error (gmsgid);
 
   if (message)
     {
@@ -5620,6 +5858,27 @@ c_warn_unused_result (tree *top_p)
     }
 }
 
+/* Convert a character from the host to the target execution character
+   set.  cpplib handles this, mostly.  */
+
+HOST_WIDE_INT
+c_common_to_target_charset (HOST_WIDE_INT c)
+{
+  /* Character constants in GCC proper are sign-extended under -fsigned-char,
+     zero-extended under -fno-signed-char.  cpplib insists that characters
+     and character constants are always unsigned.  Hence we must convert
+     back and forth.  */
+  cppchar_t uc = ((cppchar_t)c) & ((((cppchar_t)1) << CHAR_BIT)-1);
+
+  uc = cpp_host_to_exec_charset (parse_in, uc);
+
+  if (flag_signed_char)
+    return ((HOST_WIDE_INT)uc) << (HOST_BITS_PER_WIDE_INT - CHAR_TYPE_SIZE)
+			       >> (HOST_BITS_PER_WIDE_INT - CHAR_TYPE_SIZE);
+  else
+    return uc;
+}
+
 /* Build the result of __builtin_offsetof.  EXPR is a nested sequence of
    component references, with an INDIRECT_REF at the bottom; much like
    the traditional rendering of offsetof as a macro.  Returns the folded
@@ -5685,14 +5944,79 @@ fold_offsetof (tree expr)
   return convert (size_type_node, fold_offsetof_1 (expr));
 }
 
-/* Return nonzero if REF is an lvalue valid for this language;
-   otherwise, print an error message and return zero.  USE says
-   how the lvalue is being used and so selects the error message.  */
+/* APPLE LOCAL begin non lvalue assign */
+/* Return nonzero if the expression pointed to by REF is an lvalue
+   valid for this language; otherwise, print an error message and return
+   zero.  USE says how the lvalue is being used and so selects the error
+   message.  If -fnon-lvalue-assign has been specified, certain
+   non-lvalue expression shall be rewritten as lvalues and stored back
+   at the location pointed to by REF.  */
 
 int
-lvalue_or_else (tree ref, enum lvalue_use use)
+lvalue_or_else (tree *ref, enum lvalue_use use)
 {
-  int win = lvalue_p (ref);
+  tree r = *ref;
+  int win = lvalue_p (r);
+
+  /* If -fnon-lvalue-assign is specified, we shall allow assignments
+     to certain constructs that are not (stricly speaking) lvalues.  */
+  if (!win && flag_non_lvalue_assign)
+    {
+      /* (1) Assignment to casts of lvalues, as long as both the lvalue and
+	     the cast are POD types with identical size and alignment.  */
+      if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR
+	   || TREE_CODE (r) == NON_LVALUE_EXPR)
+	  && (use == lv_assign || use == lv_increment || use == lv_decrement
+	      || use == lv_addressof)
+	  /* APPLE LOCAL non lvalue assign */
+	  && lvalue_or_else (&TREE_OPERAND (r, 0), use))
+	{
+	  tree cast_to = TREE_TYPE (r);
+	  tree cast_from = TREE_TYPE (TREE_OPERAND (r, 0));
+
+	  if (simple_cst_equal (TYPE_SIZE (cast_to), TYPE_SIZE (cast_from))
+	      && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
+	    {
+	      /* Rewrite '(cast_to)ref' as '*(cast_to *)&ref' so
+		 that the back-end need not think too hard...  */
+	      *ref
+		= build_indirect_ref
+		  (convert (build_pointer_type (cast_to),
+			    build_unary_op
+			    (ADDR_EXPR, TREE_OPERAND (r, 0), 0)), 0);
+
+	      goto allow_as_lvalue;
+	    }
+	}
+      /* (2) Assignment to conditional expressions, as long as both
+	     alternatives are already lvalues.  */
+      else if (TREE_CODE (r) == COND_EXPR
+	       /* APPLE LOCAL non lvalue assign */
+	       && lvalue_or_else (&TREE_OPERAND (r, 1), use)
+	       /* APPLE LOCAL non lvalue assign */
+	       && lvalue_or_else (&TREE_OPERAND (r, 2), use))
+	{
+	  /* Rewrite 'cond ? lv1 : lv2' as '*(cond ? &lv1 : &lv2)' to
+	     placate the back-end.  */
+	  *ref
+	    = build_indirect_ref
+	      (build_conditional_expr
+	       (TREE_OPERAND (r, 0),
+		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 1), 0),
+		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 2), 0)),
+	       0);
+
+	 allow_as_lvalue:
+	  win = 1;
+	  if (warn_non_lvalue_assign)
+	    warning ("%s not really an lvalue; "
+		     "this will be a hard error in the future",
+		     (use == lv_addressof
+		      ? "argument to '&'"
+		      : "target of assignment"));
+	}
+    } 
+/* APPLE LOCAL end non-lvalue assign */
 
   if (!win)
     {
@@ -5720,5 +6044,957 @@ lvalue_or_else (tree ref, enum lvalue_use use)
 
   return win;
 }
+
+/* *PTYPE is an incomplete array.  Complete it with a domain based on
+   INITIAL_VALUE.  If INITIAL_VALUE is not present, use 1 if DO_DEFAULT
+   is true.  Return 0 if successful, 1 if INITIAL_VALUE can't be deciphered,
+   2 if INITIAL_VALUE was NULL, and 3 if INITIAL_VALUE was empty.  */
+
+int
+complete_array_type (tree *ptype, tree initial_value, bool do_default)
+{
+  tree maxindex, type, main_type, elt, unqual_elt;
+  int failure = 0, quals;
+
+  maxindex = size_zero_node;
+  if (initial_value)
+    {
+      if (TREE_CODE (initial_value) == STRING_CST)
+	{
+	  int eltsize
+	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
+	  maxindex = size_int (TREE_STRING_LENGTH (initial_value)/eltsize - 1);
+	}
+      else if (TREE_CODE (initial_value) == CONSTRUCTOR)
+	{
+	  tree elts = CONSTRUCTOR_ELTS (initial_value);
+
+	  if (elts == NULL)
+	    {
+	      if (pedantic)
+		failure = 3;
+	      maxindex = integer_minus_one_node;
+	    }
+	  else
+	    {
+	      tree curindex;
+
+	      if (TREE_PURPOSE (elts))
+		maxindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+	      curindex = maxindex;
+
+	      for (elts = TREE_CHAIN (elts); elts; elts = TREE_CHAIN (elts))
+		{
+		  if (TREE_PURPOSE (elts))
+		    curindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+		  else
+		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
+
+		  if (tree_int_cst_lt (maxindex, curindex))
+		    maxindex = curindex;
+		}
+	    }
+	}
+      else
+	{
+	  /* Make an error message unless that happened already.  */
+	  if (initial_value != error_mark_node)
+	    failure = 1;
+	}
+    }
+  else
+    {
+      failure = 2;
+      if (!do_default)
+	return failure;
+    }
+
+  type = *ptype;
+  elt = TREE_TYPE (type);
+  quals = TYPE_QUALS (strip_array_types (elt));
+  if (quals == 0)
+    unqual_elt = elt;
+  else
+    unqual_elt = c_build_qualified_type (elt, TYPE_UNQUALIFIED);
+
+  /* Using build_distinct_type_copy and modifying things afterward instead
+     of using build_array_type to create a new type preserves all of the
+     TYPE_LANG_FLAG_? bits that the front end may have set.  */
+  main_type = build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+  TREE_TYPE (main_type) = unqual_elt;
+  TYPE_DOMAIN (main_type) = build_index_type (maxindex);
+  layout_type (main_type);
+
+  if (quals == 0)
+    type = main_type;
+  else
+    type = c_build_qualified_type (main_type, quals);
+
+  *ptype = type;
+  return failure;
+}
+
+/* APPLE LOCAL begin AltiVec */
+/* Convert the incoming expression EXPR into a vector constructor of
+   type VECTOR_TYPE, casting the individual vector elements as appropriate.  */
+
+tree
+vector_constructor_from_expr (tree expr, tree vector_type)
+{
+  tree list = NULL_TREE, elttype = TREE_TYPE (vector_type);
+  int index;
+  bool final;
+  int all_constant = TREE_CONSTANT (expr);
+
+  /* If we already have a vector expression, then the user probably
+     wants to convert it to another.  */
+  if (TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE)
+    return convert (vector_type, expr);
+
+  /* Walk through the compound expression, gathering initializers.  */
+  final = false;
+  for (index = 0; !final; ++index)
+    {
+      tree elem;
+
+      if (TREE_CODE (expr) == COMPOUND_EXPR)
+	{
+	  elem = TREE_OPERAND (expr, 1);
+	  expr = TREE_OPERAND (expr, 0);
+	}
+      else
+        {
+	  final = true;
+	  elem = expr;
+	}
+
+      while (TREE_CODE (elem) == COMPOUND_EXPR && TREE_CONSTANT (elem))
+	elem = TREE_OPERAND (elem, 1);
+      while (TREE_CODE (elem) == CONVERT_EXPR)
+	elem = TREE_OPERAND (elem, 0);
+
+      list = chainon (list,
+		      build_tree_list (NULL_TREE,
+				       convert (elttype, fold (elem))));
+    }
+
+  list = nreverse (list);
+
+  list = build_constructor (vector_type, list);
+  if (c_dialect_cxx ())
+    TREE_LANG_FLAG_4 (list) = 1;  /* TREE_HAS_CONSTRUCTOR */
+
+  TREE_CONSTANT (list) = all_constant;
+  
+  return list;
+}
+/* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Perform the default conversion of functions to pointers; simplified
+   version for use with functions mentioned in CW-style asm.
+   Return the result of converting EXP.  For any other expression, just
+   return EXP.  */
+
+static tree
+cw_asm_default_function_conversion (tree exp)
+{
+  tree type = TREE_TYPE (exp);
+  enum tree_code code = TREE_CODE (type);
+
+  /* Strip NON_LVALUE_EXPRs and no-op conversions, since we aren't using as
+     an lvalue. 
+
+     Do not use STRIP_NOPS here!  It will remove conversions from pointer
+     to integer and cause infinite recursion.  */
+  while (TREE_CODE (exp) == NON_LVALUE_EXPR
+	 || (TREE_CODE (exp) == NOP_EXPR
+	     && TREE_TYPE (TREE_OPERAND (exp, 0)) == TREE_TYPE (exp)))
+    exp = TREE_OPERAND (exp, 0);
+
+  if (code == FUNCTION_TYPE)
+    return build_unary_op (ADDR_EXPR, exp, 0);
+
+  return exp;
+}
+
+/* The constraints table for CW style assembly.  Things not listed are
+   usually considered as "+b", "+v" or "+f" depending upon context.  */
+
+struct cw_op_constraint
+{
+    const char *opcode;
+    unsigned argnum;
+    const char *constraint;
+};
+
+/* Comparison function for bsearch to find an opcode/argument number
+   in the opcode constraint table.  */
+
+static int
+cw_op_comp (const void *a, const void *b)
+{
+  const struct cw_op_constraint *x = a;
+  const struct cw_op_constraint *y = b;
+  int c = strcmp (x->opcode, y->opcode);
+  if (c)
+    return c;
+  if (x->argnum < y->argnum)
+    return -1;
+  if (x->argnum > y->argnum)
+    return 1;
+  return 0;
+}
+
+/* We lookup the OPCODE and return the constraint for the ARGNUM
+   argument.  This is used only for otherwise ambiguous cases.  */
+
+static const char*
+cw_constraint_for (const char *opcode, unsigned argnum)
+{
+  /* This table must be sorted.  */
+  static struct cw_op_constraint db[] = {
+    { "la", 2, "m" },
+    { "lbz", 2, "m" },
+    { "lbzu", 2, "m" },
+    { "ld", 2, "m" },
+    { "ldu", 2, "m" },
+    { "lfd", 2, "m" },
+    { "lfdu", 2, "m" },
+    { "lfs", 2, "m" },
+    { "lfsu", 2, "m" },
+    { "lha", 2, "m" },
+    { "lhau", 2, "m" },
+    { "lhz", 2, "m" },
+    { "lhzu", 2, "m" },
+    { "lmw", 2, "m" },
+    { "lwa", 2, "m" },
+    { "lwz", 2, "m" },
+    { "lwzu", 2, "m" },
+    { "stb", 2, "m" },
+    { "stbu", 2, "m" },
+    { "std", 2, "m" },
+    { "stdu", 2, "m" },
+    { "stfd", 2, "m" },
+    { "stfdu", 2, "m" },
+    { "stfs", 2, "m" },
+    { "stfsu", 2, "m" },
+    { "sth", 2, "m" },
+    { "sthu", 2, "m" },
+    { "stmw", 2, "m" },
+    { "stw", 2, "m" },
+    { "stwu", 2, "m" },
+  };
+  struct cw_op_constraint key;
+  struct cw_op_constraint *r;
+
+  key.opcode = opcode;
+  key.argnum = argnum;
+  r = bsearch (&key, db, sizeof (db) / sizeof (db[0]), sizeof (db[0]), cw_op_comp);
+
+  /* Any explicitly listed contraint is always used.  */
+  if (r)
+    return r->constraint;
+
+  return NULL;
+}
+
+/* Return true iff the opcode wants memory to be stable.  We arrange
+   for a memory clobber in these instances.  */
+static bool
+cw_memory_clobber (const char *opcode)
+{
+  return strncmp (opcode, "st", 2) == 0
+    || (strncmp (opcode, "l", 1) == 0 && (strcmp (opcode, "la") != 0
+					  && strcmp (opcode, "li") != 0
+					  && strcmp (opcode, "lis") != 0))
+    || strcmp (opcode, "sc") == 0
+    || strncmp (opcode, "td", 2) == 0
+    || strcmp (opcode, "trap") == 0
+    || strncmp (opcode, "tw", 2) == 0;
+}
+
+/* MUST_BE_REG is true, iff we know the operand must be a register.  */
+
+static void
+cw_process_arg (const char *opcodename, tree var, unsigned argnum,
+		bool must_be_reg,
+		tree *outputsp, tree*inputsp, tree*uses)
+{
+  const char *s;
+  bool was_output = true;
+  tree str, one;
+
+  if (must_be_reg)
+    s = "+b";
+  else
+    s = cw_constraint_for (opcodename, argnum);
+
+  if (TREE_CODE (var) == FUNCTION_DECL)
+    {
+      str = build_string (1, "s");
+      was_output = false;
+    }
+  else
+    {
+      /* This is PowerPC-specific.  */
+      if (s)
+	{
+	  str = build_string (strlen (s), s);
+	  was_output = ((s[0] == '=') | (s[0] == '+'));
+	}
+      else if (TREE_CODE (TREE_TYPE (var)) == REAL_TYPE)
+	str = build_string (2, "+f");
+      else 
+	if (TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
+	  str = build_string (2, "+v");
+	else
+	  str = build_string (2, "+b");
+    }
+
+  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
+  if (was_output)
+    *outputsp = chainon (*outputsp, one);
+  else
+    *inputsp = chainon (*inputsp, one);
+  if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
+    {
+       /* Remove from 'uses' list any hard register which is going to be on
+	  an input or output list. */
+       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (var));
+       int regno = decode_reg_name (name);
+       if (regno >= 0)
+	 {
+	   tree tail, pred;
+	   for (tail = *uses, pred = *uses; tail; tail = TREE_CHAIN (tail))
+	     {
+	      if (regno == decode_reg_name (TREE_STRING_POINTER (TREE_VALUE (tail))))
+		break;
+	      else
+		pred = tail;
+	     }
+	   if (tail)
+	     {
+	       if (tail == pred)
+		 *uses = TREE_CHAIN (tail);
+	       else
+		{
+		  TREE_CHAIN (pred) = TREE_CHAIN (tail);
+		}
+	     }
+	 }
+    }
+  else if (TREE_CODE (var) == VAR_DECL && !strcmp(TREE_STRING_POINTER (str), "m") )
+    TREE_ADDRESSABLE (var) = 1;
+}
+
+/* CW identifier may include '.', '+' or '-'. Except that an operator
+   can only end in a '.'. This routine creates a new valid operator
+   parsed as a CW identifier. */
+
+static tree
+cw_asm_identifier (tree expr)
+{
+  const char *opcodename = IDENTIFIER_POINTER (expr);
+  int len = IDENTIFIER_LENGTH (expr);
+  int i;
+  for (i = 0; i < len; i++)
+     if (opcodename[i] == '.')
+       break;
+  if (i+1 < len) /* operator. is ok */
+   {
+      char *buf = (char *) alloca (IDENTIFIER_LENGTH (expr) + 1);
+      strncpy (buf, opcodename, i);
+      buf[i] = ' ';
+      strcpy (buf+i+1, opcodename + i);
+      return get_identifier (buf);
+   }
+  return expr; 
+}
+
+/* Build an asm statement from CW-syntax bits.  */
+tree
+cw_asm_stmt (tree expr, tree args, int lineno)
+{
+  tree sexpr;
+  tree arg, tail;
+  tree inputs, outputs, clobbers, uses, label;
+  tree stmt;
+  unsigned int n;
+  const char *opcodename;
+
+  cw_asm_in_operands = 0;
+  VARRAY_TREE_INIT (cw_asm_operands, 30, "cw_asm_operands");
+  VARRAY_UINT_INIT (cw_asm_operands_arg, 30, "cw_asm_operands");
+  outputs = NULL_TREE;
+  inputs = NULL_TREE;
+  clobbers = NULL_TREE;
+  uses = NULL_TREE;
+  label = NULL_TREE;
+
+  STRIP_NOPS (expr);
+
+  if (TREE_CODE (expr) == ADDR_EXPR)
+    expr = TREE_OPERAND (expr, 0);
+
+  expr = cw_asm_identifier (expr);
+
+  opcodename = IDENTIFIER_POINTER (expr);
+
+  /* Handle special directives specially.  */
+  if (strcmp (opcodename, "entry") == 0)
+    return cw_asm_entry (expr, NULL_TREE, TREE_VALUE (args));
+  else if (strcmp (opcodename, "fralloc") == 0)
+    {
+      /* The correct default size is target-specific, so leave this as
+	 a cookie for the backend.  */
+      DECL_CW_ASM_FRAME_SIZE (current_function_decl) = -1;
+      if (args)
+	{
+	  arg = TREE_VALUE (args);
+	  STRIP_NOPS (arg);
+	  if (TREE_CODE (arg) == INTEGER_CST)
+	    {
+	      int intval = tree_low_cst (arg, 0);
+	      if (intval >= 0)
+		DECL_CW_ASM_FRAME_SIZE (current_function_decl) = intval;
+	      else
+		error ("fralloc argument must be nonnegative");
+	    }
+	  else
+	    error ("fralloc argument is not an integer");
+	}
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "frfree") == 0)
+    {
+      DECL_CW_ASM_NORETURN (current_function_decl) = 1;
+      /* Create a default-size frame retroactively.  */
+      if (DECL_CW_ASM_FRAME_SIZE (current_function_decl) == (unsigned int)-2)
+	DECL_CW_ASM_FRAME_SIZE (current_function_decl) = (unsigned int)-1;
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "nofralloc") == 0)
+    {
+      DECL_CW_ASM_NORETURN (current_function_decl) = 1;
+      DECL_CW_ASM_FRAME_SIZE (current_function_decl) = -2;
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "machine") == 0)
+    {
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "opword") == 0)
+    {
+      opcodename = ".long";
+    }
+
+  if (cw_asm_buffer == NULL)
+    cw_asm_buffer = xmalloc (4000);
+
+  /* Build .file "file-name" directive. */
+  sprintf(cw_asm_buffer, "%s \"%s\"", ".file", input_filename);
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
+  ASM_VOLATILE_P (stmt) = 1;
+  (void)add_stmt (stmt);
+
+  /* Build .line "line-number" directive. */
+  sprintf(cw_asm_buffer, "%s %d", ".line", lineno);
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
+  ASM_VOLATILE_P (stmt) = 1;
+  (void)add_stmt (stmt);
+
+  cw_asm_buffer[0] = '\0';
+  strncat (cw_asm_buffer, opcodename, IDENTIFIER_LENGTH (expr));
+  strcat (cw_asm_buffer, " ");
+  n = 1;
+  /* Iterate through operands, "printing" each into the asm string.  */
+  for (tail = args; tail; tail = TREE_CHAIN (tail))
+    {
+      arg = TREE_VALUE (tail);
+      if (tail != args)
+	strcat (cw_asm_buffer, ",");
+      print_cw_asm_operand (cw_asm_buffer, arg, n, &uses, &label, false, false);
+      ++n;
+    }
+
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+
+  /* Treat each C function seen as a input, and all parms/locals as
+     both inputs and outputs.  */
+  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_operands); ++n)
+    {
+      tree var = VARRAY_TREE (cw_asm_operands, n);
+      unsigned argnum = VARRAY_UINT (cw_asm_operands_arg, n);
+      bool must_be_reg;
+      must_be_reg = argnum & 1;
+      argnum >>= 1;
+
+      cw_process_arg (opcodename, var, argnum,
+		      must_be_reg, &outputs, &inputs, &uses);
+    }
+
+  clobbers = uses;
+  if (cw_memory_clobber (opcodename))
+    {
+      /* To not clobber all of memory, we would need to know what
+	 memory locations were accessed; for now, punt.  */
+      clobbers = tree_cons (NULL_TREE,
+			    build_string (6, "memory"),
+			    clobbers);
+    }
+
+  /* Perform default conversions on function inputs. 
+     Don't do this for other types as it would screw up operands
+     expected to be in memory.  */
+  for (tail = inputs; tail; tail = TREE_CHAIN (tail))
+    TREE_VALUE (tail) = cw_asm_default_function_conversion (TREE_VALUE (tail));
+
+  /* Treat as volatile always.  */
+  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses, label);
+  ASM_VOLATILE_P (stmt) = 1;
+  stmt = add_stmt (stmt);
+  return stmt;
+}
+
+/* Compute the offset of a field, in bytes.  Round down for bit
+   offsets, but that's OK for use in asm code.  */
+
+static int
+cw_asm_field_offset (tree arg)
+{
+  return (tree_low_cst (DECL_FIELD_OFFSET (arg), 0)
+	  + tree_low_cst (DECL_FIELD_BIT_OFFSET (arg), 0)  / BITS_PER_UNIT);
+}
+
+/* Compute the int value for the expression. */
+
+static int
+cw_asm_expr_val (tree arg)
+{
+  if (TREE_CODE (arg) == FIELD_DECL)
+    return cw_asm_field_offset (arg);
+
+  if (TREE_CODE (arg) == INTEGER_CST)
+    return int_cst_value (arg);
+
+  if (TREE_CODE (arg) == REAL_CST)
+    return int_cst_value (convert (integer_type_node, arg));
+
+  if (TREE_CODE (arg) == PLUS_EXPR)
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 
+	   + cw_asm_expr_val (TREE_OPERAND (arg, 1));
+
+  if (TREE_CODE (arg) == MINUS_EXPR)
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 
+	   - cw_asm_expr_val (TREE_OPERAND (arg, 1));
+
+  if (TREE_CODE (arg) == NEGATE_EXPR)
+    return - cw_asm_expr_val (TREE_OPERAND (arg, 0));
+
+  if (TREE_CODE (arg) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST
+      && TREE_INT_CST_LOW (TREE_OPERAND (arg, 1)) == 0)
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0));
+
+  error ("invalid operand for arithmetic in assembly block");
+  return 0;
+}
+
+/* Print an operand according to its tree type.  MUST_BE_REG is true,
+   iff we know the operand must be a register.  MUST_NOT_BE_REG is true,
+   iff we know the operand must not be a register.  */
+
+static void
+print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
+		      tree *uses, tree *label,
+		      bool must_be_reg, bool must_not_be_reg)
+{
+  int idnum;
+  HOST_WIDE_INT bitsize, bitpos;
+  tree offset;
+  enum machine_mode mode;
+  int unsignedp, volatilep;
+  tree op0;
+
+  STRIP_NOPS (arg);
+
+  switch (TREE_CODE (arg))
+    {
+    case INTEGER_CST:
+      sprintf (buf + strlen (buf), HOST_WIDE_INT_PRINT_DEC, tree_low_cst (arg, 0));
+      break;
+
+    case LABEL_DECL:
+      *label = arg;
+      arg = DECL_NAME (arg);
+      /* Fall thru */
+
+    case IDENTIFIER_NODE:
+      strncat (buf, IDENTIFIER_POINTER (arg), IDENTIFIER_LENGTH (arg));
+      {
+	int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
+        if (regno >= 0)
+	  {
+	    tree tail;
+	    for (tail = *uses; tail; tail = TREE_CHAIN (tail))
+	      if (regno == decode_reg_name (TREE_STRING_POINTER (TREE_VALUE (tail))))
+		break;
+	    if (!tail)
+	      {
+                const char *id = IDENTIFIER_POINTER (arg);
+	        *uses = tree_cons (NULL_TREE,
+			           build_string (strlen (id), id),
+			           *uses);
+	      }
+	  }
+      }
+      break;
+
+    case VAR_DECL:
+    case PARM_DECL:
+      /* Named non-stack variables always refer to the address of that
+	 variable.  */
+      if (TREE_CODE (arg) == VAR_DECL
+	  && TREE_STATIC (arg)
+	  && MEM_P (DECL_RTL (arg)))
+	{
+	  /* See assemble_name for details.  */
+	  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg));
+	  const char *real_name;
+	  tree id;
+
+	  mark_referenced (DECL_ASSEMBLER_NAME (arg));
+	  real_name = targetm.strip_name_encoding (name);
+	  id = maybe_get_identifier (real_name);
+	  if (id)
+	    mark_referenced (id);
+
+	  if (name[0] == '*')
+	    strncat (buf, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg)) + 1,
+		     IDENTIFIER_LENGTH (DECL_ASSEMBLER_NAME (arg)) - 1);
+	  else
+	    {
+	      sprintf (buf + strlen (buf), "%s", user_label_prefix);
+	      strncat (buf, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg)),
+		       IDENTIFIER_LENGTH (DECL_ASSEMBLER_NAME (arg)));
+	    }
+
+	  mark_decl_referenced (arg);
+	}
+      else if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg)) >= 0)
+	{
+	  strcat (buf, "%");
+	  sprintf (buf + strlen (buf), "%d", idnum);
+	}
+      break;
+
+    case FUNCTION_DECL:
+      if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg)) >= 0)
+	{
+	  strcat (buf, "%z");
+	  sprintf (buf + strlen (buf), "%d", idnum);
+	}
+      break;
+
+    case COMPOUND_EXPR:
+      /* "Compound exprs" are really offset+register constructs.  */
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+			    false, true);
+      strcat (buf, "(");
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
+			    ! must_not_be_reg, must_not_be_reg);
+      strcat (buf, ")");
+      break;
+
+    case MINUS_EXPR:
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL 
+	  && TREE_CODE (TREE_OPERAND (arg, 1)) == LABEL_DECL)
+	{
+	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+				false, true);
+	  strcat (buf, "-");
+	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, 
+				uses, label, false, true);
+	  break;
+	}
+      /* Fall Thru */
+    case PLUS_EXPR:
+      sprintf (buf + strlen (buf), "%d", cw_asm_expr_val (arg));
+      break;
+
+    case FIELD_DECL:
+      sprintf (buf + strlen (buf), "%d", cw_asm_field_offset (arg));
+      break;
+
+    case COMPONENT_REF:
+      get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep, false);
+      /* Convert bit pos to byte pos, rounding down (this is asm,
+	 after all). */
+      /* APPLE LOCAL 32-bit HOST_WIDE_INT */
+      sprintf (buf + strlen (buf), "%lld", (long long int) (bitpos / BITS_PER_UNIT));
+      strcat (buf, "(");
+      op0 = TREE_OPERAND (arg, 0);
+      /* Catch a couple different flavors of component refs.  */
+      if (TREE_CODE (op0) == VAR_DECL)
+	print_cw_asm_operand (buf, op0, argnum, uses, label, true, false);
+      else
+	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses, label, true, false);
+      strcat (buf, ")");
+      break;
+
+    case ARRAY_REF:
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) != INTEGER_CST
+	  || TREE_INT_CST_LOW (TREE_OPERAND (arg, 1)) != 0)
+        error ("array references, other than [0], not supported");
+      else
+	sprintf (buf + strlen (buf), "%d", cw_asm_field_offset (TREE_OPERAND (arg, 0)));
+      break;
+
+    case NEGATE_EXPR:
+      strcat (buf, "-");
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+			    must_be_reg, must_not_be_reg);
+      break;
+
+    default:
+      /* Something is wrong, most likely a user error.  */
+      error ("block assembly operand not recognized");
+      break;
+    }
+}
+
+/* Given an identifier name, come up with the index to use for the %0,
+   %1, etc in the asm string.  MUST_BE_REG is true, iff we know the
+   operand must be a register.  */
+
+static int
+cw_asm_get_register_var (tree var, unsigned argnum, bool must_be_reg)
+{
+  unsigned int n;
+
+  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_operands); ++n)
+    {
+      if (var == VARRAY_TREE (cw_asm_operands, n))
+	return n;
+    }
+
+  VARRAY_PUSH_TREE (cw_asm_operands, var);
+  VARRAY_PUSH_UINT (cw_asm_operands_arg, (argnum<<1) + must_be_reg);
+  return VARRAY_ACTIVE_SIZE (cw_asm_operands) - 1;
+}
+
+tree
+cw_asm_reg_name (tree id)
+{
+#ifdef CW_ASM_REGISTER_NAME
+  char buf[100];
+  const char *newname = CW_ASM_REGISTER_NAME (IDENTIFIER_POINTER (id), buf);
+  if (newname)
+    return get_identifier (newname);
+#else
+  if (decode_reg_name (IDENTIFIER_POINTER (id)) >= 0)
+    return id;
+#endif
+  return NULL_TREE;
+}
+
+/* Build an asm label from CW-syntax bits.  */
+tree
+cw_asm_label (tree labid, int atsign)
+{
+  tree sexpr;
+  tree inputs = NULL_TREE, outputs = NULL_TREE, clobbers = NULL_TREE;
+  tree stmt;
+  tree label;
+
+  STRIP_NOPS (labid);
+
+  if (atsign)
+    labid = prepend_char_identifier (labid, '@');
+
+  if (cw_asm_buffer == NULL)
+    cw_asm_buffer = xmalloc (4000);
+
+  cw_asm_buffer[0] = '\0';
+  label = get_cw_asm_label (labid);
+  strcat (cw_asm_buffer, IDENTIFIER_POINTER (DECL_NAME (label)));
+  strcat (cw_asm_buffer, ":");
+
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+
+  /* Simple asm statements are treated as volatile.  */
+  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, NULL_TREE, label);
+  ASM_VOLATILE_P (stmt) = 1;
+  stmt = add_stmt (stmt);
+  return stmt;
+}
+
+/* Create a new identifier with an 'ch' stuck on the front.  */
+
+tree
+prepend_char_identifier (tree ident, char ch)
+{
+  char *buf = (char *) alloca (IDENTIFIER_LENGTH (ident) + 20);
+  buf[0] = ch;
+  strcpy (buf + 1, IDENTIFIER_POINTER (ident));
+  return get_identifier (buf);
+}
+
+/* In CW assembly, '.', '-' and '+ can follow identifiers, and are
+   part of them.  This routine joins a normal C identifier with such a
+   suffix.  */
+
+tree
+cw_get_identifier (tree id, const char *str)
+{
+  char *buf;
+  int len = strlen (str);
+  buf = (char *) alloca (IDENTIFIER_LENGTH (id) + len + 1);
+  memcpy (buf, IDENTIFIER_POINTER (id), IDENTIFIER_LENGTH (id));
+  memcpy (buf + IDENTIFIER_LENGTH (id), str, len);
+  buf[IDENTIFIER_LENGTH (id) + len] = 0;
+  return get_identifier (buf);
+}
+
+void
+clear_cw_asm_labels (void)
+{
+  if (!cw_asm_labels)
+    VARRAY_TREE_INIT (cw_asm_labels, 40, "cw_asm_labels");
+  if (!cw_asm_labels_uniq)
+    VARRAY_TREE_INIT (cw_asm_labels_uniq, 40, "cw_asm_labels_uniq");
+  VARRAY_POP_ALL (cw_asm_labels);
+  VARRAY_POP_ALL (cw_asm_labels_uniq);
+}
+
+static GTY(()) tree cw_ha16;
+static GTY(()) tree cw_hi16;
+static GTY(()) tree cw_lo16;
+
+/* Given a label identifier and a flag indicating whether it had an @
+   preceding it, return a synthetic and unique label that the
+   assembler will like.  */
+
+tree
+get_cw_asm_label (tree labid)
+{
+  unsigned int n;
+  const char *labname;
+  char *buf;
+  tree newid;
+
+  if (!cw_ha16)
+    {
+      cw_ha16 = define_label (input_location, get_identifier ("ha16"));
+      cw_hi16 = define_label (input_location, get_identifier ("hi16"));
+      cw_lo16 = define_label (input_location, get_identifier ("lo16"));
+    }
+
+  /* lo16(), ha16() and hi16() should be left unmolested.  */
+  if (labid == DECL_NAME (cw_lo16))
+    return cw_lo16;
+  else if (labid == DECL_NAME (cw_ha16))
+    return cw_ha16;
+  else if (labid == DECL_NAME (cw_hi16))
+    return cw_hi16;
+
+  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_labels); ++n)
+    {
+      if (labid == VARRAY_TREE (cw_asm_labels, n))
+	return VARRAY_TREE (cw_asm_labels_uniq, n);
+    }
+  /* Not already seen, make up a label.  */
+  VARRAY_PUSH_TREE (cw_asm_labels, labid);
+  buf = (char *) alloca (IDENTIFIER_LENGTH (labid) + 20);
+  sprintf (buf, "LASM%d$", cw_asm_labelno++);
+  /* Assembler won't like a leading @-sign, so make it into a $ if
+     seen.  */
+  labname = IDENTIFIER_POINTER (labid);
+  if (*labname == '@')
+    {
+      strcat (buf, "$");
+      ++labname;
+    }
+  strcat (buf, labname);
+  newid = get_identifier (buf);
+  newid = define_label (input_location, newid);
+  VARRAY_PUSH_TREE (cw_asm_labels_uniq, newid);
+  return newid;
+}
+
+/* The "offset(reg)" in assembly doesn't have an appropriate tree
+   node, so borrow COMPOUND_EXPR and just detect it when emitting the
+   assembly statement.  */
+
+tree
+cw_asm_build_register_offset (tree offset, tree regname)
+{
+  tree t;
+
+  t = make_node (COMPOUND_EXPR);
+  /* No type is associated with this construct.  */
+  TREE_TYPE (t) = NULL_TREE;
+  TREE_OPERAND (t, 0) = offset;
+  TREE_OPERAND (t, 1) = regname;
+  return t;
+}
+
+/* Given some bits of info from the parser, determine if this is a
+   valid entry statement, and then generate traditional asm statements
+   to create the label. The entry may be either static or extern.  */
+tree
+cw_asm_entry (tree keyword, tree scspec, tree fn)
+{
+  int externify = 0;
+  tree stmt, inputs, str, one, strlab;
+
+  /* Validate all the arguments.  The keyword arg should be "entry",
+     but we don't make it a reserved word and parse as a plain old
+     identifier, so need to check it here.  */
+  if (strcmp (IDENTIFIER_POINTER (keyword), "entry") != 0)
+    {
+      error ("invalid asm entry statement syntax");
+      return error_mark_node;
+    }
+  if (scspec == NULL || strcmp (IDENTIFIER_POINTER (scspec), "extern") == 0)
+    externify = 1;
+  else if (strcmp (IDENTIFIER_POINTER (scspec), "static") == 0)
+    /* accept, but do nothing special */ ;
+  else
+    {
+      error ("entry point storage class much be `static' or `extern'");
+      return error_mark_node;
+    }
+  if (fn == NULL_TREE || TREE_CODE (fn) != FUNCTION_DECL)
+    {
+      error ("entry point not recognized as a function");
+      return error_mark_node;
+    }
+
+  fn = cw_asm_default_function_conversion (fn);
+  str = build_string (1, "s");
+  one = build_tree_list (build_tree_list (NULL_TREE, str), fn);
+  inputs = chainon (NULL_TREE, one);
+
+  if (externify)
+    {
+      strlab = build_string (9, ".globl %0");
+      /* Treat as volatile always.  */
+      stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE, NULL_TREE);
+      ASM_VOLATILE_P (stmt) = 1;
+      stmt = add_stmt (stmt);
+    }
+
+  strlab = build_string (3, "%0:");
+  /* Treat as volatile always.  */
+  stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE, NULL_TREE);
+  ASM_VOLATILE_P (stmt) = 1;
+  stmt = add_stmt (stmt);
+  return stmt;
+}
+/* APPLE LOCAL end CW asm blocks */
 
 #include "gt-c-common.h"

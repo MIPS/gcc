@@ -75,8 +75,6 @@ extern int target_flags;
 
 #define MASK_ILP32      0x00000020      /* Generate ILP32 code.  */
 
-#define MASK_B_STEP	0x00000040	/* Emit code for Itanium B step.  */
-
 #define MASK_REG_NAMES	0x00000080	/* Use in/loc/out register names.  */
 
 #define MASK_NO_SDATA   0x00000100	/* Disable sdata/scommon/sbss.  */
@@ -112,8 +110,6 @@ extern int target_flags;
 #define TARGET_VOL_ASM_STOP	(target_flags & MASK_VOL_ASM_STOP)
 
 #define TARGET_ILP32            (target_flags & MASK_ILP32)
-
-#define TARGET_B_STEP		(target_flags & MASK_B_STEP)
 
 #define TARGET_REG_NAMES	(target_flags & MASK_REG_NAMES)
 
@@ -196,8 +192,6 @@ extern int ia64_tls_size;
       N_("Emit stop bits before and after volatile extended asms") },	\
   { "no-volatile-asm-stop", -MASK_VOL_ASM_STOP,				\
       N_("Don't emit stop bits before and after volatile extended asms") }, \
-  { "b-step",		MASK_B_STEP,					\
-      N_("Emit code for Itanium (TM) processor B step")},		\
   { "register-names",	MASK_REG_NAMES,					\
       N_("Use in/loc/out register names")},				\
   { "no-sdata",		MASK_NO_SDATA,					\
@@ -626,7 +620,7 @@ while (0)
 
 #define CALL_REALLY_USED_REGISTERS \
 { /* General registers.  */				\
-  1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1,	\
+  0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
@@ -635,7 +629,7 @@ while (0)
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,	\
   /* Floating-point registers.  */			\
-  1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
@@ -644,7 +638,7 @@ while (0)
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   /* Predicate registers.  */				\
-  1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
@@ -1582,10 +1576,7 @@ do {									\
 /* A C expression that is nonzero if X is a legitimate constant for an
    immediate operand on the target machine.  */
 
-#define LEGITIMATE_CONSTANT_P(X) \
-  (GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode	\
-   || GET_MODE (X) == DImode || CONST_DOUBLE_OK_FOR_G (X))	\
-
+#define LEGITIMATE_CONSTANT_P(X) ia64_legitimate_constant_p (X)
 
 /* Condition Code Status */
 
@@ -2199,6 +2190,9 @@ struct machine_function GTY(())
 
   /* The number of varargs registers to save.  */
   int n_varargs;
+
+  /* The number of the next unwind state to copy.  */
+  int state_num;
 };
 
 

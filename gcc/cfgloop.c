@@ -1,5 +1,5 @@
 /* Natural loop discovery code for GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
+#include "function.h"
 #include "basic-block.h"
 #include "toplev.h"
 #include "cfgloop.h"
@@ -510,6 +511,10 @@ establish_preds (struct loop *loop)
   struct loop *ploop, *father = loop->outer;
 
   loop->depth = father->depth + 1;
+
+  /* Remember the current loop depth if it is the largest seen so far.  */
+  cfun->max_loop_depth = MAX (cfun->max_loop_depth, loop->depth);
+
   if (loop->pred)
     free (loop->pred);
   loop->pred = xmalloc (sizeof (struct loop *) * loop->depth);
@@ -819,6 +824,10 @@ flow_loops_find (struct loops *loops, int flags)
 
   memset (loops, 0, sizeof *loops);
 
+  /* We are going to recount the maximum loop depth,
+     so throw away the last count.  */
+  cfun->max_loop_depth = 0;
+
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
   if (n_basic_blocks == 0)
@@ -960,7 +969,13 @@ flow_loops_find (struct loops *loops, int flags)
 
       loops->num = num_loops;
       initialize_loops_parallel_p (loops);
+/* APPLE LOCAL begin lno */
     }
+  else
+    {
+      free_dominance_info (CDI_DOMINATORS);
+    }
+/* APPLE LOCAL end lno */
 
   sbitmap_free (headers);
 
@@ -1103,7 +1118,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
-  visited = BITMAP_XMALLOC ();
+  visited = BITMAP_ALLOC (NULL);
 
   bb = loop->header;
   while (i < loop->num_nodes)
@@ -1135,7 +1150,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
       bb = blocks[vc++];
     }
   
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
   return blocks;
 }
 
@@ -1213,7 +1228,7 @@ remove_bb_from_loops (basic_block bb)
      loop->pred[i]->num_nodes--;
    bb->loop_father = NULL;
    bb->loop_depth = 0;
- }
+}
 
 /* Finds nearest common ancestor in loop tree for given loops.  */
 struct loop *

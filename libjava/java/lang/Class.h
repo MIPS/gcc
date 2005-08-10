@@ -32,6 +32,7 @@ extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
 // This must be predefined with "C" linkage.
 extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
                                                int meth_idx);
+extern "C" void *_Jv_ResolvePoolEntry (jclass this_class, jint index);
 
 // These are the possible values for the `state' field of the class
 // structure.  Note that ordering is important here.  Whenever the
@@ -228,14 +229,15 @@ void _Jv_InitNewClassFields (jclass klass);
 
 // Friend functions and classes in prims.cc
 void _Jv_InitPrimClass (jclass, char *, char, int);
-jstring _Jv_GetMethodString (jclass, _Jv_Utf8Const *);
+jstring _Jv_GetMethodString (jclass, _Jv_Method *, jclass = NULL);
 
 jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 			  jint flags);
 jclass _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
 jboolean _Jv_IsInterpretedClass (jclass);
+
+#ifdef INTERPRETER
 void _Jv_InitField (jobject, jclass, int);
 
 class _Jv_ClassReader;	
@@ -454,7 +456,7 @@ private:
   // in prims.cc
   friend void ::_Jv_InitPrimClass (jclass, char *, char, int);
 
-  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Utf8Const *);
+  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Method *, jclass);
 
   friend jboolean (::_Jv_CheckAccess) (jclass self_klass, jclass other_klass,
 				   jint flags);
@@ -466,8 +468,9 @@ private:
   friend jclass (::_Jv_GetArrayClass) (jclass klass,
 				       java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
   friend jboolean (::_Jv_IsInterpretedClass) (jclass);
+
+#ifdef INTERPRETER
   friend void ::_Jv_InitField (jobject, jclass, int);
 
   friend class ::_Jv_ClassReader;	
@@ -489,6 +492,8 @@ private:
   friend class ::_Jv_InterpreterEngine;
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);
+
+  friend void *::_Jv_ResolvePoolEntry (jclass this_class, jint index);
 
   // Chain for class pool.  This also doubles as the ABI version
   // number.  It is only used for this purpose at class registration

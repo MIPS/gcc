@@ -367,7 +367,9 @@ enum insn_note {
   NOTE_INSN_MAX
 };
 
-static const char *const note_insn_name[NOTE_INSN_MAX] = {
+/* We must allocate one more entry here, as we use NOTE_INSN_MAX as the
+   default field for line number notes.  */
+static const char *const note_insn_name[NOTE_INSN_MAX+1] = {
 #define DEF_INSN_NOTE(NAME) #NAME,
 #include "insn-notes.def"
 #undef DEF_INSN_NOTE
@@ -1236,6 +1238,17 @@ get_output_file_with_visibility (const char *input_file)
     output_name = "gt-c-common.h", for_name = "c-common.c";
   else if (strcmp (basename, "c-tree.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
+  /* APPLE LOCAL begin mainline */
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "cp-tree.h") == 0)
+    output_name = "gt-cp-tree.h", for_name = "cp/tree.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "decl.h") == 0)
+    output_name = "gt-cp-decl.h", for_name = "cp/decl.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "name-lookup.h") == 0)
+    output_name = "gt-cp-name-lookup.h", for_name = "cp/name-lookup.c";
+  /* APPLE LOCAL end mainline */
   else if (strncmp (basename, "objc", 4) == 0 && IS_DIR_SEPARATOR (basename[4])
 	   && strcmp (basename + 5, "objc-act.h") == 0)
     output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";

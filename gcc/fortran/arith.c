@@ -152,9 +152,6 @@ gfc_arith_error (arith code)
     case ARITH_DIV0:
       p = "Division by zero";
       break;
-    case ARITH_0TO0:
-      p = "Indeterminate form 0 ** 0";
-      break;
     case ARITH_INCOMMENSURATE:
       p = "Array operands are incommensurate";
       break;
@@ -989,33 +986,23 @@ gfc_arith_power (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   result = gfc_constant_result (op1->ts.type, op1->ts.kind, &op1->where);
 
   if (power == 0)
-    {				/* Handle something to the zeroth power */
+    {				
+      /* Handle something to the zeroth power.   Since we're dealing
+	 with integral exponents, there is no ambiguity in the
+         limiting procedure used to determine the value of 0**0.  */
       switch (op1->ts.type)
 	{
 	case BT_INTEGER:
-	  if (mpz_sgn (op1->value.integer) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpz_set_ui (result->value.integer, 1);
+	  mpz_set_ui (result->value.integer, 1);
 	  break;
 
 	case BT_REAL:
-	  if (mpfr_sgn (op1->value.real) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
 	  break;
 
 	case BT_COMPLEX:
-	  if (mpfr_sgn (op1->value.complex.r) == 0
-	      && mpfr_sgn (op1->value.complex.i) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    {
-	      mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
-	      mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
-	    }
-
+	  mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
 	  break;
 
 	default:
@@ -1598,10 +1585,10 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
       temp.expr_type = EXPR_OP;
       gfc_clear_ts (&temp.ts);
-      temp.operator = operator;
+      temp.value.op.operator = operator;
 
-      temp.op1 = op1;
-      temp.op2 = op2;
+      temp.value.op.op1 = op1;
+      temp.value.op.op2 = op2;
 
       gfc_type_convert_binary (&temp);
 
@@ -1671,10 +1658,10 @@ runtime:
   result->ts = temp.ts;
 
   result->expr_type = EXPR_OP;
-  result->operator = operator;
+  result->value.op.operator = operator;
 
-  result->op1 = op1;
-  result->op2 = op2;
+  result->value.op.op1 = op1;
+  result->value.op.op2 = op2;
 
   result->where = op1->where;
 

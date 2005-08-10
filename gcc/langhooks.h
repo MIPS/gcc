@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -253,6 +253,11 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) (void);
 
+  /* APPLE LOCAL begin mainline */
+  /* Called at the end of the translation unit.  */
+  void (*finish_file) PARAMS ((void));
+  /* APPLE LOCAL end mainline */
+  
   /* Parses the entire file.  The argument is nonzero to cause bison
      parsers to dump debugging information during parsing.  */
   void (*parse_file) (int);
@@ -374,6 +379,15 @@ struct lang_hooks
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
 
+  /* Convert a character from the host's to the target's character
+     set.  The character should be in what C calls the "basic source
+     character set" (roughly, the set of characters defined by plain
+     old ASCII).  The default is to return the character unchanged,
+     which is correct in most circumstances.  Note that both argument
+     and result should be sign-extended under -fsigned-char,
+     zero-extended under -fno-signed-char.  */
+  HOST_WIDE_INT (*to_target_charset) (HOST_WIDE_INT);
+
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a
      table of attributes specific to the language, a table of
@@ -382,6 +396,10 @@ struct lang_hooks
   const struct attribute_spec *attribute_table;
   const struct attribute_spec *common_attribute_table;
   const struct attribute_spec *format_attribute_table;
+
+  /* APPLE LOCAL begin kext identify vtables */
+  int (*vtable_p)	    (tree);
+  /* APPLE LOCAL end kext identify vtables */
 
   /* Function-related language hooks.  */
   struct lang_hooks_for_functions function;
@@ -415,6 +433,11 @@ struct lang_hooks
   tree (*builtin_function) (const char *name, tree type, int function_code,
 			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
+
+  /* APPLE LOCAL begin 4133801 */
+  void (*start_source_file) (int n, const char *s);
+  void (*end_source_file) (int n, const char *s);
+  /* APPLE LOCAL end 4133801 */
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

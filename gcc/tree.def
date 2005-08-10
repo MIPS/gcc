@@ -855,7 +855,10 @@ DEFTREECODE (RESX_EXPR, "resx_expr", tcc_statement, 1)
    STRING_CST for the instruction (e.g., "mov x, y"). ASM_OUTPUTS,
    ASM_INPUTS, and ASM_CLOBBERS represent the outputs, inputs, and clobbers
    for the statement.  */
-DEFTREECODE (ASM_EXPR, "asm_expr", tcc_statement, 4)
+/* APPLE LOCAL begin CW asm blocks. */
+/* Two additional fields ASM_USES, and ASM_LABEL for uses and labels. */
+DEFTREECODE (ASM_EXPR, "asm_expr", tcc_statement, 6)
+/* APPLE LOCAL end CW asm blocks. */
 
 /* Variable references for SSA analysis.  New SSA names are created every
    time a variable is assigned a new value.  The SSA builder uses SSA_NAME
@@ -895,6 +898,11 @@ DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", tcc_expression, 3)
 /* Used to chain children of container statements together.
    Use the interface in tree-iterator.h to access this node.  */
 DEFTREECODE (STATEMENT_LIST, "statement_list", tcc_exceptional, 0)
+
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
+/* Used during vectorization to represent computation idioms.  */
+DEFTREECODE (MULT_UCH_EXPR, "mult_uch", '2', 2)
+/* APPLE LOCAL end AV vmul_uch --haifa  */
 
 /* Value handles.  Artificial nodes to represent expressions in
    partial redundancy elimination (tree-ssa-pre.c).  These nodes are

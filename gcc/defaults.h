@@ -36,19 +36,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 		  obstack_chunk_alloc,			\
 		  obstack_chunk_free)
 
-/* Define default standard character escape sequences.  */
-#ifndef TARGET_BELL
-#  define TARGET_BELL 007
-#  define TARGET_BS 010
-#  define TARGET_CR 015
-#  define TARGET_DIGIT0 060
-#  define TARGET_ESC 033
-#  define TARGET_FF 014
-#  define TARGET_NEWLINE 012
-#  define TARGET_TAB 011
-#  define TARGET_VT 013
-#endif
-
 /* Store in OUTPUT a string (made with alloca) containing an
    assembler-name for a local static variable or function named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -768,7 +755,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define REGISTER_MOVE_COST(m, x, y) 2
 #endif
 
-/* Determine whether the the entire c99 runtime
+/* Determine whether the entire c99 runtime
    is present in the runtime library.  */
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0

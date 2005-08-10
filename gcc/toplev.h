@@ -85,6 +85,8 @@ extern void announce_function (tree);
 extern void error_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warning_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warn_deprecated_use (tree);
+/* APPLE LOCAL "unavailable" attribute (radar 2809697) */
+extern void warn_unavailable_use (tree);
 
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
@@ -120,21 +122,11 @@ extern int target_flags_explicit;
 extern bool user_defined_section_attribute;
 
 /* See toplev.c.  */
-extern int flag_loop_optimize;
-extern int flag_crossjumping;
-extern int flag_if_conversion;
-extern int flag_if_conversion2;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
 extern int flag_keep_static_consts;
-extern int flag_peel_loops;
-extern int flag_rerun_cse_after_loop;
-extern int flag_thread_jumps;
-extern int flag_tracer;
-extern int flag_unroll_loops;
-extern int flag_unroll_all_loops;
-extern int flag_unswitch_loops;
-extern int flag_cprop_registers;
 extern int time_report;
 extern int flag_tree_based_profiling;
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* Things to do with target switches.  */
 extern void display_target_options (void);

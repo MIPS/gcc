@@ -87,7 +87,14 @@ DEFTIMEVAR (TV_TREE_DSE		     , "tree DSE")
 DEFTIMEVAR (TV_TREE_MERGE_PHI	     , "PHI merge")
 DEFTIMEVAR (TV_TREE_LOOP	     , "tree loop optimization")
 DEFTIMEVAR (TV_TREE_LOOP_BOUNDS	     , "tree record loop bounds")
+/* APPLE LOCAL begin lno */
+DEFTIMEVAR (TV_MARK_MILOOPS	     , "mark maybe infinite loops")
+DEFTIMEVAR (TV_TREE_PREFETCH	     , "tree prefetching")
+DEFTIMEVAR (TV_DEP_GRAPH             , "data dependences graph")
+/* APPLE LOCAL end lno */
 DEFTIMEVAR (TV_LIM                   , "loop invariant motion")
+/* APPLE LOCAL lno */
+DEFTIMEVAR (TV_UNSWITCH              , "loop unswitching")
 DEFTIMEVAR (TV_TREE_LOOP_IVCANON     , "tree canonical iv creation")
 DEFTIMEVAR (TV_TREE_LOOP_UNSWITCH    , "tree loop unswitching")
 DEFTIMEVAR (TV_COMPLETE_UNROLL       , "complete unrolling")
@@ -147,6 +154,8 @@ DEFTIMEVAR (TV_SHORTEN_BRANCH        , "shorten branches")
 DEFTIMEVAR (TV_REG_STACK             , "reg stack")
 DEFTIMEVAR (TV_FINAL                 , "final")
 DEFTIMEVAR (TV_SYMOUT                , "symout")
+/* APPLE LOCAL overload resolution */
+DEFTIMEVAR (TV_OV_RESOLUTION	     , "overload resolution")
 DEFTIMEVAR (TV_VAR_TRACKING          , "variable tracking")
 
 /* Everything else in rest_of_compilation not included above.  */

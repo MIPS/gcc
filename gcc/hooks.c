@@ -149,10 +149,12 @@ hook_void_tree (tree a ATTRIBUTE_UNUSED)
 {
 }
 
+/* APPLE LOCAL begin 3739318 FSF Candidate.  */
 void
 hook_void_constcharptr (const char *a ATTRIBUTE_UNUSED)
 {
 }
+/* APPLE LOCAL end 3739318 FSF Candidate.  */
 
 void
 hook_void_tree_treeptr (tree a ATTRIBUTE_UNUSED, tree *b ATTRIBUTE_UNUSED)
@@ -233,6 +235,24 @@ hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
 {
   return NULL;
 }
+
+/* APPLE LOCAL begin constant cfstrings */
+/* Generic hook that takes a tree and returns NULL.  */
+tree
+hook_tree_tree_null (tree a ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+/* Generic hook that takes three trees and returns NULL.  */
+tree
+hook_tree_tree_tree_tree_null (tree a ATTRIBUTE_UNUSED,
+			       tree b ATTRIBUTE_UNUSED,
+			       tree c ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+/* APPLE LOCAL end constant cfstrings */
 
 tree
 hook_tree_tree_bool_null (tree t ATTRIBUTE_UNUSED, bool ignore ATTRIBUTE_UNUSED)

@@ -285,8 +285,7 @@ perform_deferred_access_checks (void)
 {
   tree deferred_check;
 
-  for (deferred_check = (VEC_last (deferred_access, deferred_access_stack)
-			 ->deferred_access_checks);
+  for (deferred_check = get_deferred_access_checks ();
        deferred_check;
        deferred_check = TREE_CHAIN (deferred_check))
     /* Check access.  */
@@ -401,7 +400,8 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-static tree
+/* APPLE LOCAL mainline */
+tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -1166,7 +1166,8 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	     otherwise we'll get an error.  Gross, but ...  */
 	  STRIP_NOPS (operand);
 
-	  if (!lvalue_or_else (operand, lv_asm))
+	  /* APPLE LOCAL non-lvalue assign */
+	  if (!lvalue_or_else (&operand, lv_asm))
 	    operand = error_mark_node;
 
 	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
@@ -1225,7 +1226,8 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 
   r = build_stmt (ASM_EXPR, string,
 		  output_operands, input_operands,
-		  clobbers);
+  /* APPLE LOCAL CW asm blocks. */
+		  clobbers, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (r) = volatile_p;
   r = maybe_cleanup_point_expr_void (r);
   return add_stmt (r);
@@ -1524,6 +1526,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
 
+  if (error_operand_p (expr))
+    return error_mark_node;
+  
   if (expr)
     {
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -1994,7 +1999,8 @@ finish_compound_literal (tree type, tree initializer_list)
 
 	 implies that the array has two elements.  */
       if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	complete_array_type (type, compound_literal, 1);
+	cp_complete_array_type (&TREE_TYPE (compound_literal),
+				compound_literal, 1);
     }
 
   return compound_literal;
@@ -2123,16 +2129,8 @@ begin_class_definition (tree t)
   if (t == error_mark_node || ! IS_AGGR_TYPE (t))
     {
       t = make_aggr_type (RECORD_TYPE);
+      /* APPLE LOCAL 4184203 */
       pushtag (make_anon_name (), t, 0);
-    }
-
-  /* If this type was already complete, and we see another definition,
-     that's an error.  */
-  if (COMPLETE_TYPE_P (t))
-    {
-      error ("redefinition of %q#T", t);
-      cp_error_at ("previous definition of %q#T", t);
-      return error_mark_node;
     }
 
   /* Update the location of the decl.  */
@@ -2141,6 +2139,7 @@ begin_class_definition (tree t)
   if (TYPE_BEING_DEFINED (t))
     {
       t = make_aggr_type (TREE_CODE (t));
+      /* APPLE LOCAL 4184203 */
       pushtag (TYPE_IDENTIFIER (t), t, 0);
     }
   maybe_process_partial_specialization (t);
@@ -2441,6 +2440,27 @@ finish_id_expression (tree id_expression,
       if (decl == error_mark_node)
 	{
 	  /* Name lookup failed.  */
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* CW assembly has automagical handling of register names.
+	     It's also handy to assume undeclared names as labels,
+	     although it would be better to have a second pass and
+	     complain about names in the block that are not
+	     labels.  */
+	  if (inside_cw_asm_block)
+	    {
+	      tree new_id;
+	      if ((new_id = cw_asm_reg_name (id_expression)))
+		return new_id;
+#ifdef CW_ASM_SPECIAL_LABEL
+	      if ((new_id = CW_ASM_SPECIAL_LABEL (id_expression)))
+		return new_id;
+#endif
+	      /* Assume undeclared symbols are labels. */
+	      new_id = get_cw_asm_label (id_expression);
+	      return new_id;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
+
 	  if (scope 
 	      && (!TYPE_P (scope) 
 		  || (!dependent_type_p (scope)
@@ -2485,6 +2505,15 @@ finish_id_expression (tree id_expression,
       *error_msg = "missing template arguments";
       return error_mark_node;
     }
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Accept raw type decls, which will be used in offset-getting
+     expressions like "type.field(r3)".  */
+  else if (TREE_CODE (decl) == TYPE_DECL && inside_cw_asm_block)
+    {
+      *idk = CP_ID_KIND_NONE;
+      return decl;
+    }
+  /* APPLE LOCAL end CW asm blocks */
   else if (TREE_CODE (decl) == TYPE_DECL
 	   || TREE_CODE (decl) == NAMESPACE_DECL)
     {
@@ -2630,11 +2659,6 @@ finish_id_expression (tree id_expression,
 	     need.  */
 	  if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
 	    return id_expression;
-	  /* Since this name was dependent, the expression isn't
-	     constant -- yet.  No error is issued because it might be
-	     constant when things are instantiated.  */
-	  if (integral_constant_expression_p)
-	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
@@ -2732,7 +2756,11 @@ finish_id_expression (tree id_expression,
 	}
       else if (is_overloaded_fn (decl))
 	{
-	  tree first_fn = OVL_CURRENT (decl);
+	  /* APPLE LOCAL begin C++ */
+	  tree first_fn = OVL_CURRENT (BASELINK_P (decl)
+				       ? BASELINK_FUNCTIONS (decl)
+				       : decl);
+	  /* APPLE LOCAL end C++ */
 
 	  if (TREE_CODE (first_fn) == TEMPLATE_DECL)
 	    first_fn = DECL_TEMPLATE_RESULT (first_fn);
@@ -2760,9 +2788,9 @@ finish_id_expression (tree id_expression,
 	      if (context != NULL_TREE && context != current_function_decl
 		  && ! TREE_STATIC (decl))
 		{
-		  error ("use of %s from containing function",
-			 (TREE_CODE (decl) == VAR_DECL
-			  ? "%<auto%> variable" : "parameter"));
+		  error (TREE_CODE (decl) == VAR_DECL
+			 ? "use of %<auto%> variable from containing function"
+			 : "use of parameter from containing function");
 		  cp_error_at ("  %q#D declared here", decl);
 		  return error_mark_node;
 		}

@@ -655,6 +655,11 @@ sort_mem_initializers (tree t, tree mem_inits)
 void
 emit_mem_initializers (tree mem_inits)
 {
+  /* We will already have issued an error message about the fact that
+     the type is incomplete.  */
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  
   /* Sort the mem-initializers into the order in which the
      initializations should be performed.  */
   mem_inits = sort_mem_initializers (current_class_type, mem_inits);
@@ -1417,14 +1422,6 @@ build_offset_ref (tree type, tree name, bool address_p)
       return error_mark_node;
     }
 
-  if (processing_template_decl)
-    {
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, orig_name);
-      else
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, name);
-    }
-
   if (TREE_CODE (member) == TYPE_DECL)
     {
       TREE_USED (member) = 1;
@@ -1554,9 +1551,6 @@ build_offset_ref (tree type, tree name, bool address_p)
       return member;
     }
 
-  /* In member functions, the form `type::name' is no longer
-     equivalent to `this->type::name', at least not until
-     resolve_offset_ref.  */
   member = build2 (OFFSET_REF, TREE_TYPE (member), decl, member);
   PTRMEM_OK_P (member) = 1;
   return member;
@@ -1570,17 +1564,17 @@ build_offset_ref (tree type, tree name, bool address_p)
 tree
 integral_constant_value (tree decl)
 {
-  if ((TREE_CODE (decl) == CONST_DECL
-      || (TREE_CODE (decl) == VAR_DECL
-	  /* And so are variables with a 'const' type -- unless they
-	     are also 'volatile'.  */
-	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
-	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
-      && DECL_INITIAL (decl)
-      && DECL_INITIAL (decl) != error_mark_node
-      && TREE_TYPE (DECL_INITIAL (decl))
-      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
-    return DECL_INITIAL (decl);
+  while ((TREE_CODE (decl) == CONST_DECL
+	  || (TREE_CODE (decl) == VAR_DECL
+	      /* And so are variables with a 'const' type -- unless they
+		 are also 'volatile'.  */
+	      && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
+	 && DECL_INITIAL (decl)
+	 && DECL_INITIAL (decl) != error_mark_node
+	 && TREE_TYPE (DECL_INITIAL (decl))
+	 && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (DECL_INITIAL (decl))))
+    decl = DECL_INITIAL (decl);
   return decl;
 }
 
@@ -1762,7 +1756,7 @@ build_new_1 (tree exp)
      from ELT_TYPE for a multi-dimensional array; ELT_TYPE is never an
      ARRAY_TYPE, but TYPE may be an ARRAY_TYPE.  */
   tree type;
-  /* A pointer type pointing to to the FULL_TYPE.  */
+  /* A pointer type pointing to the FULL_TYPE.  */
   tree full_pointer_type;
   tree outer_nelts = NULL_TREE;
   tree nelts = NULL_TREE;
@@ -2396,6 +2390,9 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   tree atype = TREE_TYPE (base);
   /* The type of an element in the array.  */
   tree type = TREE_TYPE (atype);
+  /* The element type reached after removing all outer array 
+     types.  */
+  tree inner_elt_type;
   /* The type of a pointer to an element in the array.  */
   tree ptype;
   tree stmt_expr;
@@ -2411,15 +2408,17 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
+  inner_elt_type = strip_array_types (atype);
   if (init
       && (from_array == 2
-	  ? (!CLASS_TYPE_P (type) || !TYPE_HAS_COMPLEX_ASSIGN_REF (type))
+	  ? (!CLASS_TYPE_P (inner_elt_type) 
+	     || !TYPE_HAS_COMPLEX_ASSIGN_REF (inner_elt_type))
 	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
 	      that might throw and require us to clean up.  */
 	   && (CONSTRUCTOR_ELTS (init) == NULL_TREE
-	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (target_type (type))))
+	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (inner_elt_type)))
 	  || from_array))
     {
       /* Do non-default initialization of POD arrays resulting from
@@ -2610,14 +2609,12 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
       /* Flatten multi-dimensional array since build_vec_delete only
 	 expects one-dimensional array.  */
       if (TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  m = cp_build_binary_op (MULT_EXPR, m,
-				  array_type_nelts_total (type));
-	  type = strip_array_types (type);
-	}
+	m = cp_build_binary_op (MULT_EXPR, m,
+				array_type_nelts_total (type));
 
       finish_cleanup_try_block (try_block);
-      e = build_vec_delete_1 (rval, m, type, sfk_base_destructor,
+      e = build_vec_delete_1 (rval, m, 
+			      inner_elt_type, sfk_base_destructor,
 			      /*use_global_delete=*/0);
       finish_cleanup (e, try_block);
     }
@@ -2837,6 +2834,16 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  build_op_delete_call (DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
 				/*global_p=*/false, NULL_TREE);
 	}
+      /* APPLE LOCAL begin KEXT double destructor  --matt 20020501  */
+      /* If we're compiling a class in kext compatibility mode we
+	 don't have a non-deleting destructor, so we unconditionally
+	 generate a reference to the deleting variety.  */
+      if (flag_apple_kext && has_apple_kext_compatibility_attr_p (type))
+	{
+	  gcc_assert (auto_delete != sfk_base_destructor);
+	  auto_delete = sfk_deleting_destructor;
+	}
+      /* APPLE LOCAL end KEXT double destructor  --matt 20020501  */
 
       expr = build_dtor_call (build_indirect_ref (addr, NULL),
 			      auto_delete, flags);

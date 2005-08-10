@@ -144,6 +144,11 @@ proc gcc_target_compile { source dest type options } {
     if [target_info exists gcc,timeout] {
 	lappend options "timeout=[target_info gcc,timeout]"
     }
+    # APPLE LOCAL begin testsuite multiply defined
+    if [ istarget *-*-darwin* ] {
+	lappend options "ldflags=-Wl,-multiply_defined,suppress"
+    }
+    # APPLE LOCAL end testsuite multiply defined
     lappend options "compiler=$GCC_UNDER_TEST"
     set options [dg-additional-files-options $options $source]
     return [target_compile $source $dest $type $options]

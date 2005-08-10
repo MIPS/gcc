@@ -38,6 +38,28 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "flags.h"
 
+/* TODO:  Support for predicated code motion.  I.e.
+
+   while (1)
+     {
+       if (cond)
+	 {
+	   a = inv;
+	   something;
+	 }
+     }
+
+   Where COND and INV are is invariants, but evaluating INV may trap or be
+   invalid from some other reason if !COND.  This may be transformed to
+
+   if (cond)
+     a = inv;
+   while (1)
+     {
+       if (cond)
+	 something;
+     }  */
+
 /* A type for the list of statements that have to be moved in order to be able
    to hoist an invariant computation.  */
 
@@ -144,12 +166,26 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	  return cbck (*addr_p, nxt, data);
 
 	case BIT_FIELD_REF:
-	case VIEW_CONVERT_EXPR:
+	/* APPLE LOCAL begin 4175845 */
+	/* VIEW_CONVERT_EXPR removed */
+	/* APPLE LOCAL end 4175845 */
 	case ARRAY_RANGE_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
+
+	/* APPLE LOCAL begin 4175845 */
+	case VIEW_CONVERT_EXPR:
+	  nxt = &TREE_OPERAND (*addr_p, 0);
+	  /* Copying struct as integers, followed by copy prop,
+	     can produce a constant here.  Likely other things
+	     can too; in any event it is a legitimate thing to
+	     happen and should be handled.  */
+	  if (TREE_CODE (*nxt) == INTEGER_CST)
+	    return true;
+	  break;
+	/* APPLE LOCAL end 4175845 */
 
 	case COMPONENT_REF:
 	  /* If the component has varying offset, it behaves like index
@@ -172,6 +208,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case PARM_DECL:
 	case STRING_CST:
 	case RESULT_DECL:
+	case VECTOR_CST:
 	  return true;
 
 	default:
@@ -227,6 +264,28 @@ movement_possibility (tree stmt)
       || tree_could_trap_p (rhs))
     return MOVE_PRESERVE_EXECUTION;
 
+  if (get_call_expr_in (stmt))
+    {
+      /* While pure or const call is guaranteed to have no side effects, we
+	 cannot move it arbitrarily.  Consider code like
+
+	 char *s = something ();
+
+	 while (1)
+	   {
+	     if (s)
+	       t = strlen (s);
+	     else
+	       t = 0;
+	   }
+
+	 Here the strlen call cannot be moved out of the loop, even though
+	 s is invariant.  In addition to possibly creating a call with
+	 invalid arguments, moving out a function call that is not executed
+	 may cause performance regressions in case the call is costly and
+	 not executed at all.  */
+      return MOVE_PRESERVE_EXECUTION;
+    }
   return MOVE_POSSIBLE;
 }
 

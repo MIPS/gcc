@@ -42,6 +42,7 @@ arm port		Richard Earnshaw	rearnsha@arm.com
 arm port		Paul Brook		paul@codesourcery.com
 avr port		Denis Chertykov		denisc@overta.ru
 avr port		Marek Michalkiewicz	marekm@amelek.gda.pl
+bfin port		Bernd Schmidt		bernd.schmidt@analog.com
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
 fr30 port		Nick Clifton		nickc@redhat.com
@@ -122,6 +123,7 @@ objective-c		Stan Shebs		shebs@apple.com
 objective-c		Ovidiu Predescu		ovidiu@cup.hp.com
 objective-c		Ziemowit Laski		zlaski@apple.com
 treelang                Tim Josling             tej@melbpc.org.au
+treelang                James A. Morrison	phython@gcc.gnu.org
 
 			Various Maintainers
 
@@ -161,6 +163,7 @@ build status lists	Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
+i18n			Joseph Myers		jsm@polyomino.org.uk
 diagnostic messages	Gabriel Dos Reis	gdr@integrable-solutions.net
 libiberty		DJ Delorie		dj@redhat.com
 libiberty		Ian Lance Taylor	ian@airs.com
@@ -193,6 +196,7 @@ in changes outside of the parts of the compiler they maintain.
 
 Mark G. Adams                                   mark.g.adams@sympatico.ca
 Matt Austern                                    austern@apple.com
+David Ayers					d.ayers@inode.at
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
@@ -216,6 +220,7 @@ Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
+François-Xavier Coudert				coudert@clipper.ens.fr
 David Daney					ddaney@avtrex.com
 Bud Davis					bdavis9659@comcast.net
 Chris Demetriou					cgd@broadcom.com
@@ -229,6 +234,7 @@ Brian Ford					ford@vss.fsi.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
+Doug Gregor					doug.gregor@gmail.com
 Richard Guenther				rguenth@gcc.gnu.org
 Laurent Guerby					laurent@guerby.net
 Mostafa Hagog					hagog@gcc.gnu.org
@@ -242,11 +248,13 @@ Daniel Jacobowitz				dan@debian.org
 Andreas Jaeger					aj@suse.de
 Fariborz Jahanian				fjahanian@apple.com
 Klaus Kaempf					kkaempf@progis.de
+Steve Kargl					sgk@troutmask.apl.washington.edu
 Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Michael Koch					konqueror@gmx.de
+Thomas Koenig					Thomas.Koenig@online.de
 Matt Kraai					kraai@ftbfs.org
 Scott Robert Ladd				scott.ladd@coyotegulch.com
 Razya Ladelsky					razya@gcc.gnu.org
@@ -268,7 +276,6 @@ Greg McGary					gkm@gnu.org
 Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
-James A. Morrison				ja2morri@uwaterloo.ca
 Dorit Naishlos                                  dorit@il.ibm.com
 Adam Nemet					anemet@lnxw.com
 Dan Nicolaescu					dann@ics.uci.edu
@@ -287,6 +294,7 @@ Volker Reichelt					reichelt@igpm.rwth-aachen.de
 Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
 Gavin Romig-Koch				gavin@redhat.com
+Ira Rosen                                       irar@il.ibm.com
 Ira Ruben					ira@apple.com
 Douglas Rupp					rupp@gnat.com
 Matthew Sachs					msachs@apple.com
@@ -305,6 +313,7 @@ Caroline Tice					ctice@apple.com
 Michael Tiemann					tiemann@redhat.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
+Feng Wang					fengwang@nudt.edu.cn
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org

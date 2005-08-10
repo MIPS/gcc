@@ -29,6 +29,9 @@ extern rtx default_expand_builtin_saveregs (void);
 extern void default_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int);
 extern rtx default_builtin_setjmp_frame_value (void);
 extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
+/* APPLE LOCAL begin Altivec */
+extern bool default_skip_vec_args (tree, int, int*);
+/* APPLE LOCAL end Altivec */
 
 extern enum machine_mode default_eh_return_filter_mode (void);
 extern unsigned HOST_WIDE_INT default_shift_truncation_mask
@@ -58,3 +61,7 @@ extern bool hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
   (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
 extern int hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
   (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
+/* APPLE LOCAL begin mainline 2005-04-14 */
+extern const char *hook_invalid_arg_for_unprototyped_fn
+  (tree, tree, tree);
+/* APPLE LOCAL end mainline 2005-04-14 */

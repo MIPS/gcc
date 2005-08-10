@@ -20,7 +20,7 @@
 #undef _GLIBCXX_USE_C99_MATH
 
 // Define if C99 complex math functions should be used in std::complex.
-#undef _GLIBCXX_USE_C99_COMPLEX_MATH
+#undef _GLIBCXX_USE_C99_COMPLEX
 
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCXX_USE_WCHAR_T
@@ -33,17 +33,6 @@
 
 // Define to use symbol versioning in the shared library.
 #undef _GLIBCXX_SYMVER
-
-// Define symbol versioning in assember directives. If symbol
-// versioning is beigng used, and the assembler supports this kind of
-// thing, then use it.
-// NB: _GLIBCXX_AT_AT is a hack to work around quoting issues in m4.
-#if _GLIBCXX_SYMVER
-  #define _GLIBCXX_ASM_SYMVER(cur, old, version) \
-   asm (".symver " #cur "," #old _GLIBCXX_AT_AT #version);
-#else
-  #define _GLIBCXX_ASM_SYMVER(cur, old, version)
-#endif
 
 // Define if LFS support is available.
 #undef _GLIBCXX_USE_LFS

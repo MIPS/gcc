@@ -474,6 +474,66 @@
   DONE;
 }")
 
+;; APPLE LOCAL begin 3972875 mainline 2005-04-18 
+;; 32 bit integer multiplication
+;; A_high = Operand_0 & 0xFFFF0000 >> 16
+;; A_low = Operand_0 & 0xFFFF
+;; B_high = Operand_1 & 0xFFFF0000 >> 16
+;; B_low = Operand_1 & 0xFFFF
+;; result = A_low * B_low + (A_high * B_low + B_high * A_low) << 16
+
+;; (define_insn "mulv4si3"
+;;   [(set (match_operand:V4SI 0 "register_operand" "=v")
+;;         (mult:V4SI (match_operand:V4SI 1 "register_operand" "v")
+;;                    (match_operand:V4SI 2 "register_operand" "v")))]
+(define_expand "mulv4si3"
+  [(use (match_operand:V4SI 0 "register_operand" ""))
+   (use (match_operand:V4SI 1 "register_operand" ""))
+   (use (match_operand:V4SI 2 "register_operand" ""))]
+   "TARGET_ALTIVEC"
+   "
+ {
+   rtx zero;
+   rtx swap;
+   rtx small_swap;
+   rtx sixteen;
+   rtx one;
+   rtx two;
+   rtx low_product;
+   rtx high_product;
+       
+   zero = gen_reg_rtx (V4SImode);
+   emit_insn (gen_altivec_vspltisw (zero, const0_rtx));
+ 
+   sixteen = gen_reg_rtx (V4SImode);   
+   emit_insn (gen_altivec_vspltisw (sixteen,  gen_rtx_CONST_INT (V4SImode, -16)));
+ 
+   swap = gen_reg_rtx (V4SImode);
+   emit_insn (gen_altivec_vrlw (swap, operands[2], sixteen));
+ 
+   one = gen_reg_rtx (V8HImode);
+   convert_move (one, operands[1], 0);
+ 
+   two = gen_reg_rtx (V8HImode);
+   convert_move (two, operands[2], 0);
+ 
+   small_swap = gen_reg_rtx (V8HImode);
+   convert_move (small_swap, swap, 0);
+ 
+   low_product = gen_reg_rtx (V4SImode);
+   emit_insn (gen_altivec_vmulouh (low_product, one, two));
+ 
+   high_product = gen_reg_rtx (V4SImode);
+   emit_insn (gen_altivec_vmsumuhm (high_product, one, small_swap, zero));
+ 
+   emit_insn (gen_altivec_vslw (high_product, high_product, sixteen));
+ 
+   emit_insn (gen_addv4si3 (operands[0], high_product, low_product));
+   
+   DONE;
+ }")
+;; APPLE LOCAL end 3972875 mainline 2005-04-18
+
 ;; Fused multiply subtract 
 (define_insn "altivec_vnmsubfp"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
@@ -608,27 +668,44 @@
   "vmladduhm %0,%1,%2,%3"
   [(set_attr "type" "veccomplex")])
 
+;; APPLE LOCAL begin radar 4110116
 (define_insn "altivec_vmrghb"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (vec_merge:V16QI (vec_select:V16QI (match_operand:V16QI 1 "register_operand" "v")
-					   (parallel [(const_int 8)
-					   	      (const_int 9)
-					   	      (const_int 10)
-					   	      (const_int 11)
-					   	      (const_int 12)
-					   	      (const_int 13)
-						      (const_int 14)
-						      (const_int 15)
-					   	      (const_int 0)
+					   (parallel [(const_int 0)
+					   	      (const_int 8)
 					   	      (const_int 1)
+					   	      (const_int 9)
 					   	      (const_int 2)
-					   	      (const_int 3)
+					   	      (const_int 10)
+						      (const_int 3)
+						      (const_int 11)
 					   	      (const_int 4)
+					   	      (const_int 12)
 					   	      (const_int 5)
+					   	      (const_int 13)
 					   	      (const_int 6)
+					   	      (const_int 14)
+					   	      (const_int 7)
+						      (const_int 15)]))
+                        (vec_select:V16QI (match_operand:V16QI 2 "register_operand" "v")
+					   (parallel [(const_int 8)
+					   	      (const_int 0)
+					   	      (const_int 9)
+					   	      (const_int 1)
+					   	      (const_int 10)
+					   	      (const_int 2)
+						      (const_int 11)
+						      (const_int 3)
+					   	      (const_int 12)
+					   	      (const_int 4)
+					   	      (const_int 13)
+					   	      (const_int 5)
+					   	      (const_int 14)
+					   	      (const_int 6)
+					   	      (const_int 15)
 						      (const_int 7)]))
-                      (match_operand:V16QI 2 "register_operand" "v")
-		      (const_int 255)))]
+		      (const_int 21845)))]
   "TARGET_ALTIVEC"
   "vmrghb %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -636,16 +713,24 @@
 (define_insn "altivec_vmrghh"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
         (vec_merge:V8HI (vec_select:V8HI (match_operand:V8HI 1 "register_operand" "v")
-					   (parallel [(const_int 4)
-					   	      (const_int 5)
-					   	      (const_int 6)
-					   	      (const_int 7)
-					   	      (const_int 0)
+					   (parallel [(const_int 0)
+					   	      (const_int 4)
 					   	      (const_int 1)
+					   	      (const_int 5)
 					   	      (const_int 2)
+					   	      (const_int 6)
+					   	      (const_int 3)
+					   	      (const_int 7)]))
+                        (vec_select:V8HI (match_operand:V8HI 2 "register_operand" "v")
+					   (parallel [(const_int 4)
+					   	      (const_int 0)
+					   	      (const_int 5)
+					   	      (const_int 1)
+					   	      (const_int 6)
+					   	      (const_int 2)
+					   	      (const_int 7)
 					   	      (const_int 3)]))
-                      (match_operand:V8HI 2 "register_operand" "v")
-		      (const_int 15)))]
+		      (const_int 85)))]
   "TARGET_ALTIVEC"
   "vmrghh %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -653,70 +738,103 @@
 (define_insn "altivec_vmrghw"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (vec_merge:V4SI (vec_select:V4SI (match_operand:V4SI 1 "register_operand" "v")
+					 (parallel [(const_int 0)
+					 	    (const_int 2)
+						    (const_int 1)
+						    (const_int 3)]))
+                        (vec_select:V4SI (match_operand:V4SI 2 "register_operand" "v")
 					 (parallel [(const_int 2)
-					 	    (const_int 3)
-						    (const_int 0)
+					 	    (const_int 0)
+						    (const_int 3)
 						    (const_int 1)]))
-                      (match_operand:V4SI 2 "register_operand" "v")
-		      (const_int 12)))]
+		      (const_int 5)))]
   "TARGET_ALTIVEC"
   "vmrghw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
 (define_insn "altivec_vmrglb"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
-        (vec_merge:V16QI (vec_select:V16QI (match_operand:V16QI 2 "register_operand" "v")
-					   (parallel [(const_int 0)
-					   	      (const_int 1)
-					   	      (const_int 2)
-					   	      (const_int 3)
-					   	      (const_int 4)
-					   	      (const_int 5)
-						      (const_int 6)
-						      (const_int 7)
-					   	      (const_int 8)
+        (vec_merge:V16QI (vec_select:V16QI (match_operand:V16QI 1 "register_operand" "v")
+					   (parallel [(const_int 8)
+					   	      (const_int 0)
 					   	      (const_int 9)
+					   	      (const_int 1)
 					   	      (const_int 10)
-					   	      (const_int 11)
+					   	      (const_int 2)
+						      (const_int 11)
+						      (const_int 3)
 					   	      (const_int 12)
+					   	      (const_int 4)
 					   	      (const_int 13)
+					   	      (const_int 5)
 					   	      (const_int 14)
+					   	      (const_int 6)
+					   	      (const_int 15)
+						      (const_int 7)]))
+                      (vec_select:V16QI (match_operand:V16QI 2 "register_operand" "v")
+					   (parallel [(const_int 0)
+					   	      (const_int 8)
+					   	      (const_int 1)
+					   	      (const_int 9)
+					   	      (const_int 2)
+					   	      (const_int 10)
+						      (const_int 3)
+						      (const_int 11)
+					   	      (const_int 4)
+					   	      (const_int 12)
+					   	      (const_int 5)
+					   	      (const_int 13)
+					   	      (const_int 6)
+					   	      (const_int 14)
+					   	      (const_int 7)
 						      (const_int 15)]))
-                      (match_operand:V16QI 1 "register_operand" "v")
-		      (const_int 255)))]
+		      (const_int 21845)))]
   "TARGET_ALTIVEC"
   "vmrglb %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
 (define_insn "altivec_vmrglh"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
-        (vec_merge:V8HI (vec_select:V8HI (match_operand:V8HI 2 "register_operand" "v")
-					   (parallel [(const_int 0)
-					   	      (const_int 1)
-					   	      (const_int 2)
-					   	      (const_int 3)
-					   	      (const_int 4)
+        (vec_merge:V8HI (vec_select:V8HI (match_operand:V8HI 1 "register_operand" "v")
+					   (parallel [(const_int 4)
+					   	      (const_int 0)
 					   	      (const_int 5)
+					   	      (const_int 1)
 					   	      (const_int 6)
+					   	      (const_int 2)
+					   	      (const_int 7)
+					   	      (const_int 3)]))
+                        (vec_select:V8HI (match_operand:V8HI 2 "register_operand" "v")
+					   (parallel [(const_int 0)
+					   	      (const_int 4)
+					   	      (const_int 1)
+					   	      (const_int 5)
+					   	      (const_int 2)
+					   	      (const_int 6)
+					   	      (const_int 3)
 					   	      (const_int 7)]))
-                      (match_operand:V8HI 1 "register_operand" "v")
-		      (const_int 15)))]
+		      (const_int 85)))]
   "TARGET_ALTIVEC"
   "vmrglh %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
 (define_insn "altivec_vmrglw"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (vec_merge:V4SI (vec_select:V4SI (match_operand:V4SI 2 "register_operand" "v")
+        (vec_merge:V4SI (vec_select:V4SI (match_operand:V4SI 1 "register_operand" "v")
+					 (parallel [(const_int 2)
+					 	    (const_int 0)
+						    (const_int 3)
+						    (const_int 1)]))
+                        (vec_select:V4SI (match_operand:V4SI 2 "register_operand" "v")
 					 (parallel [(const_int 0)
-					 	    (const_int 1)
-						    (const_int 2)
+					 	    (const_int 2)
+						    (const_int 1)
 						    (const_int 3)]))
-                      (match_operand:V4SI 1 "register_operand" "v")
-		      (const_int 12)))]
+		      (const_int 5)))]
   "TARGET_ALTIVEC"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
+;; APPLE LOCAL end radar 4110116
 
 (define_insn "altivec_vmuleub"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
@@ -968,21 +1086,23 @@
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vsr<VI_char>"
+; APPLE LOCAL begin mainline 2005-04-05 3972515 
+(define_insn "lshr<mode>3"
   [(set (match_operand:VI 0 "register_operand" "=v")
-        (unspec:VI [(match_operand:VI 1 "register_operand" "v")
-                    (match_operand:VI 2 "register_operand" "v")] 112))]
+        (lshiftrt:VI (match_operand:VI 1 "register_operand" "v")
+                    (match_operand:VI 2 "register_operand" "v") ))]
   "TARGET_ALTIVEC"
   "vsr<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "altivec_vsra<VI_char>"
+(define_insn "ashr<mode>3"
   [(set (match_operand:VI 0 "register_operand" "=v")
-        (unspec:VI [(match_operand:VI 1 "register_operand" "v")
-                    (match_operand:VI 2 "register_operand" "v")] 115))]
+        (ashiftrt:VI (match_operand:VI 1 "register_operand" "v")
+                    (match_operand:VI 2 "register_operand" "v") ))]
   "TARGET_ALTIVEC"
   "vsra<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
+; APPLE LOCAL end mainline 2005-04-05 3972515 
 
 (define_insn "altivec_vsr"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
@@ -1041,7 +1161,8 @@
         (vec_duplicate:V16QI
 	 (vec_select:QI (match_operand:V16QI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+;; APPLE LOCAL 4119059
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vspltb %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1051,7 +1172,8 @@
 	(vec_duplicate:V8HI
 	 (vec_select:HI (match_operand:V8HI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+;; APPLE LOCAL 411959
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vsplth %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1061,7 +1183,8 @@
 	(vec_duplicate:V4SI
 	 (vec_select:SI (match_operand:V4SI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+;; APPLE LOCAL 4119059
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vspltw %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1069,7 +1192,8 @@
 (define_insn "altivec_vspltisb"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
 	(vec_duplicate:V16QI
-	 (match_operand:QI 1 "immediate_operand" "i")))]
+;; APPLE LOCAL 4119059
+	 (match_operand:QI 1 "s5bit_cint_operand" "")))]
   "TARGET_ALTIVEC"
   "vspltisb %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1077,7 +1201,8 @@
 (define_insn "altivec_vspltish"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
 	(vec_duplicate:V8HI
-	 (sign_extend:HI (match_operand:QI 1 "immediate_operand" "i"))))]
+;; APPLE LOCAL 4119059
+	 (sign_extend:HI (match_operand:QI 1 "s5bit_cint_operand" ""))))]
   "TARGET_ALTIVEC"
   "vspltish %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1085,7 +1210,8 @@
 (define_insn "altivec_vspltisw"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
 	(vec_duplicate:V4SI
-	 (sign_extend:SI (match_operand:QI 1 "immediate_operand" "i"))))]
+;; APPLE LOCAL 4119059
+	 (sign_extend:SI (match_operand:QI 1 "s5bit_cint_operand" ""))))]
   "TARGET_ALTIVEC"
   "vspltisw %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1094,7 +1220,8 @@
   [(set (match_operand:V4SF 0 "register_operand" "=v")
 	(vec_duplicate:V4SF
 	 (float:SF (sign_extend:SI
-		    (match_operand:QI 1 "immediate_operand" "i")))))]
+;; APPLE LOCAL 4119059
+		    (match_operand:QI 1 "s5bit_cint_operand" "")))))]
   "TARGET_ALTIVEC"
   "vspltisw %0,%1"
   [(set_attr "type" "vecperm")])

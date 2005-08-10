@@ -264,19 +264,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the result of the expression is copied to a new register, and the redundant
    expression is deleted by replacing it with this new register.  Classic GCSE
    doesn't have this problem as much as it computes the reaching defs of
-   each register in each block and thus can try to use an existing register.
-
-   **********************
-
-   A fair bit of simplicity is created by creating small functions for simple
-   tasks, even when the function is only called in one place.  This may
-   measurably slow things down [or may not] by creating more function call
-   overhead than is necessary.  The source is laid out so that it's trivial
-   to make the affected functions inline so that one can measure what speed
-   up, if any, can be achieved, and maybe later when things settle things can
-   be rearranged.
-
-   Help stamp out big monolithic functions!  */
+   each register in each block and thus can try to use an existing
+   register.  */
 
 /* GCSE global vars.  */
 
@@ -500,6 +489,10 @@ static bitmap modify_mem_list_set;
 
 /* This array parallels modify_mem_list, but is kept canonicalized.  */
 static rtx * canon_modify_mem_list;
+
+/* Bitmap indexed by block numbers to record which blocks contain
+   function calls.  */
+static bitmap blocks_with_calls;
 
 /* Various variables for statistics gathering.  */
 
@@ -739,6 +732,17 @@ gcse_main (rtx f, FILE *file)
       changed = one_cprop_pass (pass + 1, 0, 0);
       timevar_pop (TV_CPROP1);
 
+      /* APPLE LOCAL begin div by const */
+      /* div by const optimization can introduce new instructions.
+	 All this stuff needs to be recomputed. */
+      free_gcse_mem ();
+      max_gcse_regno = max_reg_num ();
+      alloc_gcse_mem (f);
+      free_reg_set_mem ();
+      alloc_reg_set_mem (max_reg_num ());
+      compute_sets (f);
+      /* APPLE LOCAL end div by const */
+
       if (optimize_size)
 	/* Do nothing.  */ ;
       else
@@ -958,7 +962,7 @@ alloc_gcse_mem (rtx f)
       CUID_INSN (i++) = insn;
 
   /* Allocate vars to track sets of regs.  */
-  reg_set_bitmap = BITMAP_XMALLOC ();
+  reg_set_bitmap = BITMAP_ALLOC (NULL);
 
   /* Allocate vars to track sets of regs, memory per block.  */
   reg_set_in_block = sbitmap_vector_alloc (last_basic_block, max_gcse_regno);
@@ -966,7 +970,8 @@ alloc_gcse_mem (rtx f)
      basic block.  */
   modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
   canon_modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
-  modify_mem_list_set = BITMAP_XMALLOC ();
+  modify_mem_list_set = BITMAP_ALLOC (NULL);
+  blocks_with_calls = BITMAP_ALLOC (NULL);
 }
 
 /* Free memory allocated by alloc_gcse_mem.  */
@@ -977,11 +982,12 @@ free_gcse_mem (void)
   free (uid_cuid);
   free (cuid_insn);
 
-  BITMAP_XFREE (reg_set_bitmap);
+  BITMAP_FREE (reg_set_bitmap);
 
   sbitmap_vector_free (reg_set_in_block);
   free_modify_mem_tables ();
-  BITMAP_XFREE (modify_mem_list_set);
+  BITMAP_FREE (modify_mem_list_set);
+  BITMAP_FREE (blocks_with_calls);
 }
 
 /* Compute the local properties of each recorded expression.
@@ -1971,6 +1977,7 @@ record_last_mem_set_info (rtx insn)
 	 need to insert a pair of items, as canon_list_insert does.  */
       canon_modify_mem_list[bb] =
 	alloc_INSN_LIST (insn, canon_modify_mem_list[bb]);
+      bitmap_set_bit (blocks_with_calls, bb);
     }
   else
     note_stores (PATTERN (insn), canon_list_insert, (void*) insn);
@@ -2197,6 +2204,7 @@ clear_modify_mem_tables (void)
       free_insn_expr_list_list (canon_modify_mem_list + i);
     }
   bitmap_clear (modify_mem_list_set);
+  bitmap_clear (blocks_with_calls);
 }
 
 /* Release memory used by modify_mem_list_set.  */
@@ -2460,41 +2468,51 @@ compute_transp (rtx x, int indx, sbitmap *bmap, int set_p)
       return;
 
     case MEM:
-      FOR_EACH_BB (bb)
-	{
-	  rtx list_entry = canon_modify_mem_list[bb->index];
+      {
+	bitmap_iterator bi;
+	unsigned bb_index;
 
-	  while (list_entry)
-	    {
-	      rtx dest, dest_addr;
+	/* First handle all the blocks with calls.  We don't need to
+	   do any list walking for them.  */
+	EXECUTE_IF_SET_IN_BITMAP (blocks_with_calls, 0, bb_index, bi)
+	  {
+	    if (set_p)
+	      SET_BIT (bmap[bb_index], indx);
+	    else
+	      RESET_BIT (bmap[bb_index], indx);
+	  }
 
-	      if (CALL_P (XEXP (list_entry, 0)))
-		{
-		  if (set_p)
-		    SET_BIT (bmap[bb->index], indx);
-		  else
-		    RESET_BIT (bmap[bb->index], indx);
-		  break;
-		}
-	      /* LIST_ENTRY must be an INSN of some kind that sets memory.
-		 Examine each hunk of memory that is modified.  */
+	/* Now iterate over the blocks which have memory modifications
+	   but which do not have any calls.  */
+	EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set, blocks_with_calls,
+					0, bb_index, bi)
+	  {
+	    rtx list_entry = canon_modify_mem_list[bb_index];
 
-	      dest = XEXP (list_entry, 0);
-	      list_entry = XEXP (list_entry, 1);
-	      dest_addr = XEXP (list_entry, 0);
+	    while (list_entry)
+	      {
+		rtx dest, dest_addr;
 
-	      if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
-					 x, rtx_addr_varies_p))
-		{
-		  if (set_p)
-		    SET_BIT (bmap[bb->index], indx);
-		  else
-		    RESET_BIT (bmap[bb->index], indx);
-		  break;
-		}
-	      list_entry = XEXP (list_entry, 1);
-	    }
-	}
+		/* LIST_ENTRY must be an INSN of some kind that sets memory.
+		   Examine each hunk of memory that is modified.  */
+
+		dest = XEXP (list_entry, 0);
+		list_entry = XEXP (list_entry, 1);
+		dest_addr = XEXP (list_entry, 0);
+
+		if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
+					   x, rtx_addr_varies_p))
+		  {
+		    if (set_p)
+		      SET_BIT (bmap[bb_index], indx);
+		    else
+		      RESET_BIT (bmap[bb_index], indx);
+		    break;
+		  }
+		list_entry = XEXP (list_entry, 1);
+	      }
+	  }
+      }
 
       x = XEXP (x, 0);
       goto repeat;
@@ -2946,6 +2964,64 @@ cprop_insn (rtx insn, int alter_jumps)
 	      if (INSN_DELETED_P (insn))
 		return 1;
 	    }
+	  /* APPLE LOCAL begin div by const */
+	  /* Look for int div by constant and expand if found. */
+	  if ( GET_CODE (insn) == INSN
+	       && GET_CODE (PATTERN (insn)) == SET
+	       && ( GET_CODE (XEXP (PATTERN (insn), 1)) == DIV 
+		    || GET_CODE (XEXP (PATTERN (insn), 1)) == UDIV)
+	       && GET_MODE (XEXP (PATTERN (insn), 1)) == SImode
+	       && GET_CODE (XEXP (XEXP (PATTERN (insn), 1), 1)) == CONST_INT )
+	    {
+	      rtx seq, result, target;
+	      target = XEXP (PATTERN (insn), 0);
+	      start_sequence ();
+	      result = expand_divmod (0, TRUNC_DIV_EXPR, SImode,
+		    XEXP (XEXP (PATTERN (insn), 1), 0),
+		    XEXP (XEXP (PATTERN (insn), 1), 1),
+		    target,
+		    GET_CODE (XEXP (PATTERN (insn), 1))==DIV ? 0 : 1);
+	      if ( result != target )
+		emit_move_insn (target, result);
+	      seq = get_insns ();
+	      end_sequence ();
+	      emit_insn_after (seq, insn);
+	      PUT_CODE (insn, NOTE);
+	      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+	      NOTE_SOURCE_FILE (insn) = 0;
+	      update_bb_for_insn (BLOCK_FOR_INSN (insn));
+	      changed = 1;
+	      break;
+	    }
+	  else if ( GET_CODE (insn) == INSN
+		   && GET_CODE (PATTERN (insn)) == SET
+		   && (note = find_reg_equal_equiv_note (insn))
+		   && (GET_CODE (XEXP (note, 0)) == DIV
+		       || GET_CODE (XEXP (note, 0)) == UDIV)
+		   && GET_MODE (XEXP (note, 0)) == SImode
+		   && GET_CODE (XEXP (XEXP (note, 0), 1)) == CONST_INT )
+	    {
+	      rtx seq, result, target;
+	      target = XEXP (PATTERN (insn), 0);
+	      start_sequence ();
+	      result = expand_divmod (0, TRUNC_DIV_EXPR, SImode,
+		    XEXP (XEXP (note, 0), 0),
+		    XEXP (XEXP (note, 0), 1),
+		    target,
+		    GET_CODE (XEXP (note, 0))==DIV ? 0 : 1);
+	      if ( result != target )
+		emit_move_insn (target, result);
+	      seq = get_insns ();
+	      end_sequence ();
+	      emit_insn_after (seq, insn);
+	      PUT_CODE (insn, NOTE);
+	      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+	      NOTE_SOURCE_FILE (insn) = 0;
+	      update_bb_for_insn (BLOCK_FOR_INSN (insn));
+	      changed = 1;
+	      break;
+	    }
+	  /* APPLE LOCAL end div by const */
 	}
       else if (REG_P (src)
 	       && REGNO (src) >= FIRST_PSEUDO_REGISTER
@@ -4123,7 +4199,7 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
 		    if (! occr->deleted_p)
 		      continue;
 
-		    /* Insert this expression on this edge if if it would
+		    /* Insert this expression on this edge if it would
 		       reach the deleted occurrence in BB.  */
 		    if (!TEST_BIT (inserted[e], j))
 		      {
@@ -5839,7 +5915,7 @@ find_loads (rtx x, rtx store_pattern, int after)
 
 /* Check if INSN kills the store pattern X (is aliased with it).
    AFTER is true if we are checking the case when store X occurs
-   after the insn.  Return true if it it does.  */
+   after the insn.  Return true if it does.  */
 
 static bool
 store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)

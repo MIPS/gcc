@@ -1,3 +1,107 @@
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-06-22  Eric Christopher  <echristo@redhat.com>
+
+	PR bootstrap/17383
+	* configure.in: Reject building in the source directory.
+	* configure: Regenerate.
+
+2005-06-06  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* configure.in: Don't add another '/mpfr' to the directory given
+	in --with-mpfr-dir.
+	* configure: Regenerate.
+
+2005-05-13  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline:
+	* ltconfig: Define file_list_spec.  Pass file_list_spec and
+	with_gnu_ld to libtool.
+	* ltcf-c.sh (aix[45]): Define file_list_spec.
+	* ltcf-cxx.sh (aix[45]): Same.
+	* ltcf-gcj.sh (aix[45]): Same.
+	* ltmain.sh: If command exceeds max_cmd_len and file_list_spec
+	exists, write list of input files to temporary file.
+
+2005-05-08  Matt Kraai  <kraai@ftbfs.org>
+
+	* README.SCO: Update the URL.
+
+2005-05-06  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR target/21325
+	* configure.in (powerpc-*-darwin*): Remove ${libgcj} from noconfigdirs.
+	* configure: Regenerated.
+
+2005-04-25  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* MAINTAINERS: Add self as Blackfin maintainer
+	* config.sub: Import from master version.
+
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-04-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in (powerpc-*-darwin*): Add ${libgcj} to noconfigdirs.
+	* configure: Regenerated.
+
+2005-04-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate after change to config/acx.m4.
+
+2005-04-14  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* MAINTAINERS (Various Maintainers): Add self as i18n maintainer.
+
+2005-04-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+        * MAINTAINERS (Write After Approval): Add myself.
+
+2005-03-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in (RPATH_ENVVAR): Set to DYLD_LIBRARY_PATH on Darwin.
+	* configure: Regenerate.
+
+2005-03-14  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-03-03  David Ayers  <d.ayers@inode.at>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR libgcj/20160
+	* ltmain.sh: Avoid creating archives with components that have
+	duplicate basenames.
+
+2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
+
+	* MAINTAINERS (Language Front Ends Maintainers): Add myself as
+	treelang maintainer.
+	(Write After Approval): Remove myself.
+
+2005-02-23  Paul Schlie  <schlie@comcast.net>
+
+	* configure.in: Allow darwin targeted ports to build tk, itcl and
+	libgui.
+	* configure: Regenerate.
+
+2005-02-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libgcj/10353
+	* configure.in (noconfigdirs) <sparc-*-solaris2.[0-6]>: Add libgcj.
+	* configure: Regenerate.
+
+2005-02-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2005-02-10  Ian Lance Taylor  <ian@airs.com>
 
 	* MAINTAINERS: Update my e-mail address.

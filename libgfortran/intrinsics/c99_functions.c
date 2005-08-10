@@ -154,6 +154,14 @@ log10f(float x)
 }
 #endif
 
+#ifndef HAVE_SCALBN
+double
+scalbn(double x, int y)
+{
+  return x * pow(FLT_RADIX, y);
+}
+#endif
+
 #ifndef HAVE_SCALBNF
 float
 scalbnf(float x, int y)
@@ -202,6 +210,28 @@ tanhf(float x)
 }
 #endif
 
+#ifndef HAVE_TRUNC
+double
+trunc(double x)
+{
+  if (!isfinite (x))
+    return x;
+
+  if (x < 0.0)
+    return - floor (-x);
+  else
+    return floor (x);
+}
+#endif
+
+#ifndef HAVE_TRUNCF
+float
+truncf(float x)
+{
+  return (float) trunc (x);
+}
+#endif
+
 #ifndef HAVE_NEXTAFTERF
 /* This is a portable implementation of nextafterf that is intended to be
    independent of the floating point format or its in memory representation.
@@ -218,6 +248,8 @@ nextafterf(float x, float y)
     return x + y;
   if (x == y)
     return x;
+  if (!isfinite (x))
+    return x > 0 ? __FLT_MAX__ : - __FLT_MAX__;
 
   /* absx = fabsf (x);  */
   absx = (x < 0.0) ? -x : x;

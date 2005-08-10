@@ -580,7 +580,22 @@ copy_to_mode_reg (enum machine_mode mode, rtx x)
 
   gcc_assert (GET_MODE (x) == mode || GET_MODE (x) == VOIDmode);
   if (x != temp)
+    /* APPLE LOCAL begin Don't assign PARALLEL pattern to psuedo register */
+  {
+    tree exp = (current_function_decl != NULL_TREE) ? 
+	       DECL_RESULT (current_function_decl) : NULL_TREE;
+    if (exp != NULL_TREE && DECL_RTL_IF_SET (exp) == x
+	&& GET_CODE (x) == PARALLEL)
+      {
+	tree type = TREE_TYPE (exp);
+	rtx memloc = assign_temp (type, 1, 1, 1);
+	memloc = validize_mem (memloc); 
+	emit_group_store (memloc, x, type, int_size_in_bytes (type));
+	x = memloc;
+      }
     emit_move_insn (temp, x);
+  }
+  /* APPLE LOCAL end Don't assign PARALLEL pattern to psuedo register */
   return temp;
 }
 

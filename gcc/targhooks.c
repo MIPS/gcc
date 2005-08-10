@@ -129,6 +129,16 @@ default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 	  != default_setup_incoming_varargs);
 }
 
+/* APPLE LOCAL begin Altivec */
+bool
+default_skip_vec_args(tree type ATTRIBUTE_UNUSED,
+		      int pass ATTRIBUTE_UNUSED,
+		      int* last_pass ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+/* APPLE LOCAL end Altivec */
+
 enum machine_mode
 default_eh_return_filter_mode (void)
 {
@@ -288,3 +298,14 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 {
   return 0;
 }
+/* APPLE LOCAL begin mainline 2005-04-14 */
+
+const char *
+hook_invalid_arg_for_unprototyped_fn (
+      tree typelist ATTRIBUTE_UNUSED,
+      tree funcdecl ATTRIBUTE_UNUSED,
+      tree val ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+/* APPLE LOCAL end mainline 2005-04-14 */

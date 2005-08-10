@@ -65,7 +65,6 @@ typedef struct priority_info_s {
 
 static void mark_vtable_entries (tree);
 static bool maybe_emit_vtables (tree);
-static tree build_anon_union_vars (tree);
 static bool acceptable_java_type (tree);
 static tree start_objects (int, int);
 static void finish_objects (int, int, tree);
@@ -299,7 +298,7 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags,
       this_quals |= TYPE_QUAL_CONST;
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
-      c_apply_type_quals_to_decl (this_quals, parm);
+      cp_apply_type_quals_to_decl (this_quals, parm);
       TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
       DECL_ARGUMENTS (function) = parm;
     }
@@ -878,7 +877,16 @@ grokfield (const cp_declarator *declarator,
 	value = push_template_decl (value);
 
       if (attrlist)
-	cplus_decl_attributes (&value, attrlist, 0);
+	{
+	  /* Avoid storing attributes in template parameters:
+	     tsubst is not ready to handle them.  */
+	  tree type = TREE_TYPE (value);
+	  if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
+	      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+	    sorry ("applying attributes to template parameters is not implemented");
+	  else
+	    cplus_decl_attributes (&value, attrlist, 0);
+	}
 
       return value;
     }
@@ -1063,14 +1071,13 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
 }
 
-/* Walks through the namespace- or function-scope anonymous union OBJECT,
-   building appropriate ALIAS_DECLs.  Returns one of the fields for use in
-   the mangled name.  */
+/* Walks through the namespace- or function-scope anonymous union
+   OBJECT, with the indicated TYPE, building appropriate ALIAS_DECLs.
+   Returns one of the fields for use in the mangled name.  */
 
 static tree
-build_anon_union_vars (tree object)
+build_anon_union_vars (tree type, tree object)
 {
-  tree type = TREE_TYPE (object);
   tree main_decl = NULL_TREE;
   tree field;
 
@@ -1118,7 +1125,7 @@ build_anon_union_vars (tree object)
 	  decl = pushdecl (decl);
 	}
       else if (ANON_AGGR_TYPE_P (TREE_TYPE (field)))
-	decl = build_anon_union_vars (ref);
+	decl = build_anon_union_vars (TREE_TYPE (field), ref);
       else
 	decl = 0;
 
@@ -1158,7 +1165,7 @@ finish_anon_union (tree anon_union_decl)
       return;
     }
 
-  main_decl = build_anon_union_vars (anon_union_decl);
+  main_decl = build_anon_union_vars (type, anon_union_decl);
   if (main_decl == NULL_TREE)
     {
       warning ("anonymous union with no members");
@@ -1773,29 +1780,43 @@ import_export_decl (tree decl)
       else if (CLASSTYPE_INTERFACE_KNOWN (type)
 	       && CLASSTYPE_INTERFACE_ONLY (type))
 	import_p = true;
-      else if (TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+      else if ((!flag_weak || TARGET_WEAK_NOT_IN_ARCHIVE_TOC)
 	       && !CLASSTYPE_USE_TEMPLATE (type)
 	       && CLASSTYPE_KEY_METHOD (type)
 	       && !DECL_DECLARED_INLINE_P (CLASSTYPE_KEY_METHOD (type)))
 	/* The ABI requires that all virtual tables be emitted with
 	   COMDAT linkage.  However, on systems where COMDAT symbols
 	   don't show up in the table of contents for a static
-	   archive, the linker will report errors about undefined
-	   symbols because it will not see the virtual table
-	   definition.  Therefore, in the case that we know that the
-	   virtual table will be emitted in only one translation
-	   unit, we make the virtual table an ordinary definition
-	   with external linkage.  */
+	   archive, or on systems without weak symbols (where we
+	   approximate COMDAT linkage by using internal linkage), the
+	   linker will report errors about undefined symbols because
+	   it will not see the virtual table definition.  Therefore,
+	   in the case that we know that the virtual table will be
+	   emitted in only one translation unit, we make the virtual
+	   table an ordinary definition with external linkage.  */
 	DECL_EXTERNAL (decl) = 0;
       else if (CLASSTYPE_INTERFACE_KNOWN (type))
 	{
 	  /* TYPE is being exported from this translation unit, so DECL
-	     should be defined here.  The ABI requires COMDAT
-	     linkage.  Normally, we only emit COMDAT things when they
-	     are needed; make sure that we realize that this entity is
-	     indeed needed.  */
-	  comdat_p = true;
-	  mark_needed (decl);
+	     should be defined here.  */ 
+	  if (!flag_weak && CLASSTYPE_EXPLICIT_INSTANTIATION (type))
+	    /* If a class is declared in a header with the "extern
+	       template" extension, then it will not be instantiated,
+	       even in translation units that would normally require
+	       it.  Often such classes are explicitly instantiated in
+	       one translation unit.  Therefore, the explicit
+	       instantiation must be made visible to other translation
+	       units.  */
+	    DECL_EXTERNAL (decl) = 0;
+	  else
+	    {
+	      /* The ABI requires COMDAT linkage.  Normally, we only
+		 emit COMDAT things when they are needed; make sure
+		 that we realize that this entity is indeed
+		 needed.  */
+	      comdat_p = true;
+	      mark_needed (decl);
+	    }
 	}
       else if (!flag_implicit_templates
 	       && CLASSTYPE_IMPLICIT_INSTANTIATION (type))
@@ -1823,7 +1844,14 @@ import_export_decl (tree decl)
 	      comdat_p = true;
 	      if (CLASSTYPE_INTERFACE_KNOWN (type)
 		  && !CLASSTYPE_INTERFACE_ONLY (type))
-		mark_needed (decl);
+		{
+		  mark_needed (decl);
+		  if (!flag_weak)
+		    {
+		      comdat_p = false;
+		      DECL_EXTERNAL (decl) = 0;
+		    }
+		}
 	    }
 	}
       else
@@ -2069,6 +2097,14 @@ start_objects (int method_type, int initp)
     DECL_GLOBAL_DTOR_P (current_function_decl) = 1;
   DECL_LANG_SPECIFIC (current_function_decl)->decl_flags.u2sel = 1;
 
+  /* APPLE LOCAL begin static structors in __StaticInit section */
+#ifdef STATIC_INIT_SECTION
+  if ( ! flag_apple_kext)
+    DECL_SECTION_NAME (current_function_decl) = 
+      build_string (strlen (STATIC_INIT_SECTION), STATIC_INIT_SECTION);
+#endif
+  /* APPLE LOCAL end static structors in __StaticInit section */
+
   body = begin_compound_stmt (BCS_FN_BODY);
 
   /* We cannot allow these functions to be elided, even if they do not
@@ -2174,6 +2210,14 @@ start_static_storage_duration_function (unsigned count)
 			       type);
   TREE_PUBLIC (ssdf_decl) = 0;
   DECL_ARTIFICIAL (ssdf_decl) = 1;
+
+  /* APPLE LOCAL begin static structors in __StaticInit section */
+#ifdef STATIC_INIT_SECTION
+  if ( ! flag_apple_kext)
+    DECL_SECTION_NAME (ssdf_decl) = build_string (strlen (STATIC_INIT_SECTION),
+						  STATIC_INIT_SECTION);
+#endif
+  /* APPLE LOCAL end static structors in __StaticInit section */
 
   /* Put this function in the list of functions to be called from the
      static constructors and destructors.  */
@@ -2430,7 +2474,7 @@ do_static_initialization (tree decl, tree init)
   if (init)
     finish_expr_stmt (init);
 
-  /* If we're using __cxa_atexit, register a a function that calls the
+  /* If we're using __cxa_atexit, register a function that calls the
      destructor for the object.  */
   if (flag_use_cxa_atexit)
     finish_expr_stmt (register_dtor_fn (decl));
@@ -2568,6 +2612,17 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
   /* We emit the function lazily, to avoid generating empty
      global constructors and destructors.  */
   body = NULL_TREE;
+
+  /* APPLE LOCAL begin mainline */
+  /* For Objective-C++, we may need to initialize metadata found in this module.
+     This must be done _before_ any other static initializations.  */
+  if (c_dialect_objc () && (priority == DEFAULT_INIT_PRIORITY)
+      && constructor_p && objc_static_init_needed_p ())
+    {
+      body = start_objects (function_key, priority);
+      static_ctors = objc_generate_static_init_call (static_ctors);
+    }
+  /* APPLE LOCAL end mainline */
 
   /* Call the static storage duration function with appropriate
      arguments.  */
@@ -2710,6 +2765,10 @@ cp_finish_file (void)
   /* Bad parse errors.  Just forget about it.  */
   if (! global_bindings_p () || current_class_type || decl_namespace_list)
     return;
+
+  /* APPLE LOCAL begin 4133801 */
+  cp_flush_lexer_file_stack ();
+  /* APPLE LOCAL end 4133801 */
 
   if (pch_file)
     c_common_write_pch ();
@@ -2880,6 +2939,10 @@ cp_finish_file (void)
 		 finish_function doesn't clean things up, and we end
 		 up with CURRENT_FUNCTION_DECL set.  */
 	      push_to_top_level ();
+	      /* The decl's location will mark where it was first
+	         needed.  Save that so synthesize method can indicate
+	         where it was needed from, in case of error  */
+	      input_location = DECL_SOURCE_LOCATION (decl);
 	      synthesize_method (decl);
 	      pop_from_top_level ();
 	      reconsider = true;
@@ -2943,6 +3006,22 @@ cp_finish_file (void)
 	     back end.  */
 	  if (DECL_NOT_REALLY_EXTERN (decl) && decl_needed_p (decl))
 	    DECL_EXTERNAL (decl) = 0;
+	  /* APPLE LOCAL begin  write used class statics  20020226 --turly  */
+#ifdef MACHOPIC_VAR_REFERRED_TO_P
+	  else
+	  if (TREE_USED (decl) && DECL_INITIAL (decl) != 0
+	      && DECL_INITIAL (decl) != error_mark_node
+	      && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR
+	      && DECL_EXTERNAL (decl)
+	      && MACHOPIC_VAR_REFERRED_TO_P (IDENTIFIER_POINTER (
+						DECL_ASSEMBLER_NAME (decl))))
+	    {
+	      /* Force a local copy of this decl to be written.  */
+	      DECL_EXTERNAL (decl) = 0;
+	      TREE_PUBLIC (decl) = 0;
+	    }
+#endif
+	  /* APPLE LOCAL end  write used class statics  20020226 --turly  */
 	}
       if (pending_statics
 	  && wrapup_global_declarations (&VARRAY_TREE (pending_statics, 0),
@@ -3150,6 +3229,14 @@ mark_used (tree decl)
     {
       if (DECL_DEFERRED_FN (decl))
 	return;
+      
+      /* Remember the current location for a function we will end up
+         synthesizing.  Then we can inform the user where it was
+         required in the case of error.  */
+      if (DECL_ARTIFICIAL (decl) && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl)
+	  && !DECL_THUNK_P (decl))
+	DECL_SOURCE_LOCATION (decl) = input_location;
+      
       note_vague_linkage_fn (decl);
     }
   
@@ -3167,14 +3254,6 @@ mark_used (tree decl)
 	 pointing to the class location.  */
       && current_function_decl)
     {
-      /* Put the function definition at the position where it is needed,
-	 rather than within the body of the class.  That way, an error
-	 during the generation of the implicit body points at the place
-	 where the attempt to generate the function occurs, giving the
-	 user a hint as to why we are attempting to generate the
-	 function.  */
-      DECL_SOURCE_LOCATION (decl) = input_location;
-
       synthesize_method (decl);
       /* If we've already synthesized the method we don't need to
 	 instantiate it, so we can return right away.  */

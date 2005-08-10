@@ -1,6 +1,8 @@
 /* Copyright (C) 2001 Free Software Foundation, Inc.  */
 
 /* { dg-do preprocess } */
+/* APPLE LOCAL -Wextra-tokens */
+/* { dg-options "-Wextra-tokens" } */
 
 /* Tests that excess tokens in skipped conditional blocks don't warn.  */
 

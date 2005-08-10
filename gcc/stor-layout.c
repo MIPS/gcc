@@ -72,6 +72,15 @@ static GTY(()) tree pending_sizes;
 /* Show that REFERENCE_TYPES are internal and should be Pmode.  Called only
    by front end.  */
 
+/* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff  */
+/* Keep track of whether we are laying out the first declared member
+   of a C++ class.  We need this flag to handle the case of classes
+   with v-tables where the test to see if the offset in the record
+   is zero is not sufficient to determine if we are dealing with the
+   first declared member.  */
+int darwin_align_is_first_member_of_class = 0;
+/* APPLE LOCAL end Macintosh alignment 2002-5-24 --ff  */
+
 void
 internal_reference_types (void)
 {
@@ -415,6 +424,12 @@ layout_decl (tree decl, unsigned int known_align)
 	      || DECL_SIZE_UNIT (decl) == 0
 	      || TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST))
 	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), BITS_PER_UNIT);
+/* APPLE LOCAL begin Macintosh alignment 2002-2-12 --ff */
+#ifdef PEG_ALIGN_FOR_MAC68K
+      else if (TARGET_ALIGN_MAC68K)
+	DECL_ALIGN (decl) = PEG_ALIGN_FOR_MAC68K (DECL_ALIGN (decl));
+#endif
+/* APPLE LOCAL end Macintosh alignment 2002-2-12 --ff */
 
       if (! DECL_USER_ALIGN (decl) && ! DECL_PACKED (decl))
 	{
@@ -426,7 +441,10 @@ layout_decl (tree decl, unsigned int known_align)
 	    = MIN (DECL_ALIGN (decl), (unsigned) BIGGEST_FIELD_ALIGNMENT);
 #endif
 #ifdef ADJUST_FIELD_ALIGN
-	  DECL_ALIGN (decl) = ADJUST_FIELD_ALIGN (decl, DECL_ALIGN (decl));
+      /* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff */
+	  DECL_ALIGN (decl) = ADJUST_FIELD_ALIGN (decl, DECL_ALIGN (decl),
+						  known_align == 0);
+      /* APPLE LOCAL end Macintosh alignment 2002-5-24 --ff */
 #endif
 	}
 
@@ -663,6 +681,23 @@ update_alignment_for_field (record_layout_info rli, tree field,
 		 && DECL_BIT_FIELD_TYPE (field)
 		 && ! integer_zerop (TYPE_SIZE (type)));
 
+  /* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff */
+#ifdef ADJUST_FIELD_ALIGN
+  if (! user_align && TREE_CODE (rli->t) == RECORD_TYPE)
+    /* The third argument to ADJUST_FIELD_ALIGN indicates whether
+       we are dealing with the first field of the structure.  
+       Only adjust the alignment for structs. For unions, every
+       field is the 'first' field and thus holds to its
+       natural alignment. Alignment of union is later deterimined 
+       by the maximum alignment among all its fields. */
+    desired_align = 
+      ADJUST_FIELD_ALIGN (field, desired_align,
+			  (darwin_align_is_first_member_of_class 
+			   || (integer_zerop (rli->offset)
+			       && integer_zerop (rli->bitpos))));
+#endif
+  /* APPLE LOCAL end Macintosh alignment 2002-5-24 --ff */
+
   /* Record must have at least as much alignment as any field.
      Otherwise, the alignment of the field within the record is
      meaningless.  */
@@ -701,13 +736,24 @@ update_alignment_for_field (record_layout_info rli, tree field,
 
 #ifdef ADJUST_FIELD_ALIGN
 	  if (! TYPE_USER_ALIGN (type))
-	    type_align = ADJUST_FIELD_ALIGN (field, type_align);
+	    /* APPLE LOCAL begin Macintosh alignment */
+	    type_align = ADJUST_FIELD_ALIGN (field, type_align,
+					     (darwin_align_is_first_member_of_class 
+					      || (integer_zerop (rli->offset)
+						  && integer_zerop (rli->bitpos))));
+	  /* APPLE LOCAL end Macintosh alignment */
 #endif
 
 	  if (maximum_field_alignment != 0)
 	    type_align = MIN (type_align, maximum_field_alignment);
 	  else if (DECL_PACKED (field))
 	    type_align = MIN (type_align, BITS_PER_UNIT);
+/* APPLE LOCAL begin Macintosh alignment 2002-2-12 --ff */
+#ifdef PEG_ALIGN_FOR_MAC68K
+	  else if (TARGET_ALIGN_MAC68K)
+	    type_align = PEG_ALIGN_FOR_MAC68K (type_align);
+#endif
+/* APPLE LOCAL end Macintosh alignment 2002-2-12 --ff */
 
 	  /* The alignment of the record is increased to the maximum
 	     of the current alignment, the alignment indicated on the
@@ -894,6 +940,11 @@ place_field (record_layout_info rli, tree field)
       && DECL_BIT_FIELD (field)
       && ! DECL_PACKED (field)
       && maximum_field_alignment == 0
+/* APPLE LOCAL begin Macintosh alignment 2002-2-12 --ff */
+#ifdef PEG_ALIGN_FOR_MAC68K
+      && ! TARGET_ALIGN_MAC68K
+#endif
+/* APPLE LOCAL end Macintosh alignment 2002-2-12 --ff */
       && ! integer_zerop (DECL_SIZE (field))
       && host_integerp (DECL_SIZE (field), 1)
       && host_integerp (rli->offset, 1)
@@ -907,7 +958,12 @@ place_field (record_layout_info rli, tree field)
 
 #ifdef ADJUST_FIELD_ALIGN
       if (! TYPE_USER_ALIGN (type))
-	type_align = ADJUST_FIELD_ALIGN (field, type_align);
+	/* APPLE LOCAL begin Macintosh alignment */
+	type_align = ADJUST_FIELD_ALIGN (field, type_align,
+					 (darwin_align_is_first_member_of_class 
+					  || (integer_zerop (rli->offset)
+					      && integer_zerop (rli->bitpos))));
+      /* APPLE LOCAL end Macintosh alignment */
 #endif
 
       /* A bit field may not span more units of alignment of its type
@@ -939,7 +995,12 @@ place_field (record_layout_info rli, tree field)
 
 #ifdef ADJUST_FIELD_ALIGN
       if (! TYPE_USER_ALIGN (type))
-	type_align = ADJUST_FIELD_ALIGN (field, type_align);
+	/* APPLE LOCAL begin Macintosh alignment */
+	type_align = ADJUST_FIELD_ALIGN (field, type_align,
+					 (darwin_align_is_first_member_of_class 
+					  || (integer_zerop (rli->offset)
+					      && integer_zerop (rli->bitpos))));
+      /* APPLE LOCAL end Macintosh alignment */
 #endif
 
       if (maximum_field_alignment != 0)
@@ -948,6 +1009,12 @@ place_field (record_layout_info rli, tree field)
 	 statement, so this code is unreachable currently.  */
       else if (DECL_PACKED (field))
 	type_align = MIN (type_align, BITS_PER_UNIT);
+/* APPLE LOCAL begin Macintosh alignment 2002-2-12 --ff */
+#ifdef PEG_ALIGN_FOR_MAC68K
+      else if (TARGET_ALIGN_MAC68K)
+	type_align = PEG_ALIGN_FOR_MAC68K (type_align);
+#endif
+/* APPLE LOCAL end Macintosh alignment 2002-2-12 --ff */
 
       /* A bit field may not span the unit of alignment of its type.
 	 Advance to next boundary if necessary.  */
@@ -1109,8 +1176,27 @@ place_field (record_layout_info rli, tree field)
 
   /* Offset so far becomes the position of this field after normalizing.  */
   normalize_rli (rli);
+  /* APPLE LOCAL begin reverse_bitfields */
+  if (targetm.reverse_bitfields_p (rli->t) && DECL_BIT_FIELD_TYPE (field))
+    {
+      /* If we've gone into the next word, move "offset" forward and
+	 adjust "bitpos" to compensate.  */
+      while ( !INT_CST_LT_UNSIGNED (rli->bitpos, TYPE_SIZE (TREE_TYPE (field))))
+	{
+	  rli->offset = size_binop (PLUS_EXPR, rli->offset, 
+				    TYPE_SIZE_UNIT (TREE_TYPE (field)));
+	  rli->bitpos = size_binop (MINUS_EXPR, rli->bitpos,
+				    TYPE_SIZE (TREE_TYPE (field)));
+	}
+      DECL_FIELD_BIT_OFFSET (field) = size_binop (MINUS_EXPR, 
+	    size_binop (MINUS_EXPR, 
+			TYPE_SIZE (TREE_TYPE (field)), DECL_SIZE (field)),
+	    rli->bitpos);
+    }
+  else
+    DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
   DECL_FIELD_OFFSET (field) = rli->offset;
-  DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
+  /* APPLE LOCAL end reverse bitfields */
   SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
 
   /* If this field ended up more aligned than we thought it would be (we
@@ -1298,14 +1384,23 @@ compute_record_mode (tree type)
 #endif /* MEMBER_TYPE_FORCES_BLK  */
     }
 
-  TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
-
-  /* If we only have one real field; use its mode if that mode's size
-     matches the type's size.  This only applies to RECORD_TYPE.  This
-     does not apply to unions.  */
+  /* APPLE LOCAL begin 8-byte-struct hack */
+  /* If we only have one real field; use its mode.  This only applies to
+     RECORD_TYPE.  This does not apply to unions.  */
   if (TREE_CODE (type) == RECORD_TYPE && mode != VOIDmode
-      && GET_MODE_SIZE (mode) == GET_MODE_SIZE (TYPE_MODE (type)))
+      && GET_MODE_SIZE (mode) == GET_MODE_SIZE (mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1)))
     TYPE_MODE (type) = mode;
+#if defined RS6000_VARARGS_AREA
+  /* Make 8-byte structs BLKmode instead of DImode, which fixes both
+     struct-return methods and attempts to use floats in kernel code.
+     This should probably become a generic macro similar to
+     MEMBER_TYPE_FORCES_BLK above.  */
+  else if (mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1) == DImode)
+    ;
+#endif
+  else
+    TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
+  /* APPLE LOCAL end 8-byte-struct hack */
 
   /* If structure's known alignment is less than what the scalar
      mode would need, and it matters, then stick with BLKmode.  */

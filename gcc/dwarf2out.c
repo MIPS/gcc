@@ -1703,8 +1703,103 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	  {
 	    int regno;
 
-	    gcc_assert (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT);
-	    offset = INTVAL (XEXP (XEXP (dest, 0), 1));
+	    /* APPLE LOCAL  begin 'reg + index' case.  */
+	    offset = 0x696b6c6c;
+
+	    if (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT)
+	      offset = INTVAL (XEXP (XEXP (dest, 0), 1));
+	    /* If it's a 'reg + index', we need to find out what value
+	       the index reg has at this point.  (This can happen
+	       because some architectures have registers which can
+	       only be stored using a "reg + index" mode.)
+
+	       This method of finding out the index value is VERY
+	       FRAGILE.  Ideally we'd try to add a note to the save
+	       insn, but...  */
+	    else if (GET_CODE (XEXP (XEXP (dest, 0), 1)) == REG)
+	      {
+	        unsigned the_reg = REGNO (XEXP (XEXP (dest, 0), 1));
+	        rtx insn;
+
+	        /* The REG_FRAME_RELATED_EXPR can sometimes be
+		   out-of-date after the optimiser/inliner has done
+		   its stuff.  For example,
+
+		   (insn: (set (mem:V16QI (plus:SI (reg/f:SI 1 r1)
+					  (reg:SI 6 r6)) [0 S16 A8])
+			  (reg:V16QI 108 v31))
+		          ...
+		          (expr_list:REG_FRAME_RELATED_EXPR
+				       (set (mem:V16QI (plus:SI (reg/f:SI 1 r1)
+						       (reg:SI 0 r0)) [0 S16 A8])
+				            (reg:V16QI 108 v31))
+
+		   Note that the optimiser has used R6 instead of the original
+		   R0 to store the SP offset.  Alas, we blindly look for R0
+		   here, since DEST is the REG_FRAME_RELATED_EXPR, so we need
+		   to check for that.
+
+		   This needs a rework from scratch, but it'll do for now.  */
+
+		insn = XEXP (XEXP (XEXP (PATTERN (current_output_insn),
+					 0), 0), 1);
+		if (GET_CODE (insn) == REG)
+		  the_reg = REGNO (insn);
+
+		insn = PREV_INSN (current_output_insn);
+		for (; insn != NULL; insn = PREV_INSN (insn))
+		  {
+		    if (GET_CODE (insn) != INSN
+			|| PATTERN (insn) == NULL)
+		      ;
+		    else if (GET_CODE (PATTERN (insn)) == SET)
+		      {
+			rtx p = PATTERN (insn);
+			if (SET_DEST (p) != NULL
+			    && GET_CODE (SET_DEST (p)) == REG
+			    && REGNO (SET_DEST (p)) == the_reg)
+			  {
+			    if (GET_CODE (SET_SRC (p)) == CONST_INT)
+			      {
+				offset = INTVAL (SET_SRC (p));
+				break;
+			      }
+			    else
+			      abort ();
+			  }
+		      }
+		    else
+		      /* A label?  All bets are off.  */
+		      if (GET_CODE (PATTERN (insn)) == CODE_LABEL)
+			abort ();
+		  }
+
+		/* DEST can also be something like:
+
+		     (mem:V16QI (plus:SI (plus:SI (reg/f:SI 1 r1)
+						  (const_int 147792 [0x24150]))
+					 (reg:SI 0 r0)) [0 S16 A8])
+
+		   This is handled here by adjusting the offset appropriately.  */
+
+		insn = XEXP (XEXP (dest, 0), 0);
+		if (GET_CODE (insn) == PLUS && GET_CODE (XEXP (insn, 0)) == REG
+		    && GET_CODE (XEXP (insn, 1)) == CONST_INT)
+		  {
+		    gcc_assert (offset != 0x696b6c6c);
+		    offset += INTVAL (XEXP (insn, 1));
+
+		    /* Set DEST to be the inner PLUS so that
+		       REGNO (XEXP (XEXP (dest, 0), 0) will be sensible.  */
+
+		    dest = XEXP (dest, 0);
+		  }
+	      }
+	    else
+	      abort ();
+	    gcc_assert (offset != 0x696b6c6c);
+	    /* APPLE LOCAL  end 'reg + index' case.  */
+
 	    if (GET_CODE (XEXP (dest, 0)) == MINUS)
 	      offset = -offset;
 
@@ -2069,6 +2164,7 @@ output_call_frame_info (int for_eh)
   int fde_encoding = DW_EH_PE_absptr;
   int per_encoding = DW_EH_PE_absptr;
   int lsda_encoding = DW_EH_PE_absptr;
+  int return_reg;
 
   /* Don't emit a CIE if there won't be any FDEs.  */
   if (fde_table_in_use == 0)
@@ -2207,10 +2303,11 @@ output_call_frame_info (int for_eh)
   dw2_asm_output_data_sleb128 (DWARF_CIE_DATA_ALIGNMENT,
 			       "CIE Data Alignment Factor");
 
+  return_reg = DWARF2_FRAME_REG_OUT (DWARF_FRAME_RETURN_COLUMN, for_eh);
   if (DW_CIE_VERSION == 1)
-    dw2_asm_output_data (1, DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+    dw2_asm_output_data (1, return_reg, "CIE RA Column");
   else
-    dw2_asm_output_data_uleb128 (DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+    dw2_asm_output_data_uleb128 (return_reg, "CIE RA Column");
 
   if (augmentation[0])
     {
@@ -2468,7 +2565,12 @@ void
 dwarf2out_frame_finish (void)
 {
   /* Output call frame information.  */
-  if (write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+  if (write_symbols == DWARF2_DEBUG
+      || write_symbols == VMS_AND_DWARF2_DEBUG
+#ifdef DWARF2_FRAME_INFO
+      || DWARF2_FRAME_INFO
+#endif
+      )
     output_call_frame_info (0);
 
 #ifndef TARGET_UNWIND_INFO
@@ -3444,7 +3546,8 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_abstract_function,	/* outlining_inline_function */
   debug_nothing_rtx,		/* label */
   debug_nothing_int,		/* handle_pch */
-  dwarf2out_var_location
+  dwarf2out_var_location,
+  1                             /* start_end_main_source_file */
 };
 #endif
 
@@ -4117,7 +4220,7 @@ static char ranges_section_label[2 * MAX_ARTIFICIAL_LABEL_BYTES];
 #endif
 
 /* We allow a language front-end to designate a function that is to be
-   called to "demangle" any name before it it put into a DIE.  */
+   called to "demangle" any name before it is put into a DIE.  */
 
 static const char *(*demangle_name_func) (const char *);
 
@@ -10156,26 +10259,22 @@ tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
   tree init = DECL_INITIAL (decl);
   tree type = TREE_TYPE (decl);
 
-  if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init
-      && initializer_constant_valid_p (init, type) == null_pointer_node)
-    /* OK */;
-  else
+  if (!init)
     return;
-
-  switch (TREE_CODE (type))
-    {
-    case INTEGER_TYPE:
-      if (host_integerp (init, 0))
-	add_AT_unsigned (var_die, DW_AT_const_value,
-			 tree_low_cst (init, 0));
-      else
-	add_AT_long_long (var_die, DW_AT_const_value,
-			  TREE_INT_CST_HIGH (init),
-			  TREE_INT_CST_LOW (init));
-      break;
-
-    default:;
-    }
+  if (!TREE_READONLY (decl) || TREE_THIS_VOLATILE (decl))
+    return;
+  if (TREE_CODE (type) != INTEGER_TYPE)
+    return;
+  if (TREE_CODE (init) != INTEGER_CST)
+    return;
+  
+  if (host_integerp (init, 0))
+    add_AT_unsigned (var_die, DW_AT_const_value,
+		     tree_low_cst (init, 0));
+  else
+    add_AT_long_long (var_die, DW_AT_const_value,
+		      TREE_INT_CST_HIGH (init),
+		      TREE_INT_CST_LOW (init));
 }
 
 /* Generate a DW_AT_name attribute given some string value to be included as
@@ -10518,7 +10617,7 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
      here.  */
 
   if (origin_die)
-      add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
+    add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
 }
 
 /* We do not currently support the pure_virtual attribute.  */
@@ -11148,13 +11247,27 @@ gen_type_die_for_member (tree type, tree member, dw_die_ref context_die)
   if (TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (type))
       && ! lookup_decl_die (member))
     {
+      dw_die_ref type_die;
       gcc_assert (!decl_ultimate_origin (member));
 
       push_decl_scope (type);
+      type_die = lookup_type_die (type);
       if (TREE_CODE (member) == FUNCTION_DECL)
-	gen_subprogram_die (member, lookup_type_die (type));
+	gen_subprogram_die (member, type_die);
+      else if (TREE_CODE (member) == FIELD_DECL)
+	{
+	  /* Ignore the nameless fields that are used to skip bits but handle
+	     C++ anonymous unions and structs.  */
+	  if (DECL_NAME (member) != NULL_TREE
+	      || TREE_CODE (TREE_TYPE (member)) == UNION_TYPE
+	      || TREE_CODE (TREE_TYPE (member)) == RECORD_TYPE)
+	    {
+	      gen_type_die (member_declared_type (member), type_die);
+	      gen_field_die (member, type_die);
+	    }
+	}
       else
-	gen_variable_die (member, lookup_type_die (type));
+	gen_variable_die (member, type_die);
 
       pop_decl_scope ();
     }
@@ -11512,8 +11625,13 @@ gen_variable_die (tree decl, dw_die_ref context_die)
      copy decls and set the DECL_ABSTRACT flag on them instead of
      sharing them.
 
-     ??? Duplicated blocks have been rewritten to use .debug_ranges.  */
-  else if (old_die && TREE_STATIC (decl)
+     ??? Duplicated blocks have been rewritten to use .debug_ranges.
+
+     ??? The declare_in_namespace support causes us to get two DIEs for one
+     variable, both of which are declarations.  We want to avoid considering
+     one to be a specification, so we must test that this DIE is not a
+     declaration.  */
+  else if (old_die && TREE_STATIC (decl) && ! declaration
 	   && get_AT_flag (old_die, DW_AT_declaration) == 1)
     {
       /* This is a definition of a C++ class level static.  */
@@ -12435,7 +12553,7 @@ is_redundant_typedef (tree decl)
   return 0;
 }
 
-/* Returns the DIE for decl or aborts.  */
+/* Returns the DIE for decl or else.  */
 
 static dw_die_ref
 force_decl_die (tree decl)
@@ -12488,8 +12606,7 @@ force_decl_die (tree decl)
 	  gcc_unreachable ();
 	}
 
-      /* See if we can find the die for this deci now.
-	 If not then abort.  */
+      /* We should be able to find the die for this decl now.  */
       if (!decl_die)
 	decl_die = lookup_decl_die (decl);
       gcc_assert (decl_die);
@@ -12498,7 +12615,7 @@ force_decl_die (tree decl)
   return decl_die;
 }
 
-/* Returns the DIE for decl or aborts.  */
+/* Returns the DIE for decl or else.  */
 
 static dw_die_ref
 force_type_die (tree type)
@@ -12551,6 +12668,12 @@ declare_in_namespace (tree thing, dw_die_ref context_die)
   dw_die_ref ns_context;
 
   if (debug_info_level <= DINFO_LEVEL_TERSE)
+    return;
+
+  /* If this decl is from an inlined function, then don't try to emit it in its
+     namespace, as we will get confused.  It would have already been emitted
+     when the abstract instance of the inline function was emitted anyways.  */
+  if (DECL_P (thing) && DECL_ABSTRACT_ORIGIN (thing))
     return;
 
   ns_context = setup_namespace_context (thing, context_die);
@@ -12840,7 +12963,29 @@ dwarf2out_imported_module_or_decl (tree decl, tree context)
   if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
     at_import_die = force_type_die (TREE_TYPE (decl));
   else
-    at_import_die = force_decl_die (decl);
+    {
+      at_import_die = lookup_decl_die (decl);
+      if (!at_import_die)
+	{
+	  /* If we're trying to avoid duplicate debug info, we may not have
+	     emitted the member decl for this field.  Emit it now.  */
+	  if (TREE_CODE (decl) == FIELD_DECL)
+	    {
+	      tree type = DECL_CONTEXT (decl);
+	      dw_die_ref type_context_die;
+
+	      if (TYPE_CONTEXT (type))
+		if (TYPE_P (TYPE_CONTEXT (type)))
+		  type_context_die = force_type_die (TYPE_CONTEXT (type));
+	      else
+		type_context_die = force_decl_die (TYPE_CONTEXT (type));
+	      else
+		type_context_die = comp_unit_die;
+	      gen_type_die_for_member (type, decl, type_context_die);
+	    }
+	  at_import_die = force_decl_die (decl);
+	}
+    }
 
   /* OK, now we have DIEs for decl as well as scope. Emit imported die.  */
   if (TREE_CODE (decl) == NAMESPACE_DECL)
@@ -13795,11 +13940,10 @@ dwarf2out_finish (const char *filename)
       output_ranges ();
     }
 
-  /* Have to end the primary source file.  */
+  /* Have to end the macro section.  */
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
       named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
-      dw2_asm_output_data (1, DW_MACINFO_end_file, "End file");
       dw2_asm_output_data (1, 0, "End compilation unit");
     }
 

@@ -864,10 +864,12 @@ init_cse_reg_info (unsigned int nregs)
 	}
 
       /* Reallocate the table with NEW_SIZE entries.  */
-      cse_reg_info_table = xrealloc (cse_reg_info_table,
-				     (sizeof (struct cse_reg_info)
-				      * new_size));
+      if (cse_reg_info_table)
+	free (cse_reg_info_table);
+      cse_reg_info_table = xmalloc (sizeof (struct cse_reg_info)
+				     * new_size);
       cse_reg_info_table_size = new_size;
+      cse_reg_info_table_first_uninitialized = 0;
     }
 
   /* Do we have all of the first NREGS entries initialized?  */
@@ -1232,7 +1234,24 @@ insert_regs (rtx x, struct table_elt *classp, int modified)
 	      if (REG_P (classp->exp)
 		  && GET_MODE (classp->exp) == GET_MODE (x))
 		{
-		  make_regs_eqv (regno, REGNO (classp->exp));
+		  unsigned c_regno = REGNO (classp->exp);
+
+		  gcc_assert (REGNO_QTY_VALID_P (c_regno));
+
+		  /* Suppose that 5 is hard reg and 100 and 101 are
+		     pseudos.  Consider
+
+		     (set (reg:si 100) (reg:si 5))
+		     (set (reg:si 5) (reg:si 100))
+		     (set (reg:di 101) (reg:di 5))
+
+		     We would now set REG_QTY (101) = REG_QTY (5), but the
+		     entry for 5 is in SImode.  When we use this later in
+		     copy propagation, we get the register in wrong mode.  */
+		  if (qty_table[REG_QTY (c_regno)].mode != GET_MODE (x))
+		    continue;
+
+		  make_regs_eqv (regno, c_regno);
 		  return 1;
 		}
 
@@ -3562,8 +3581,31 @@ fold_rtx (rtx x, rtx insn)
 		if (offset >= 0
 		    && (offset / GET_MODE_SIZE (GET_MODE (table))
 			< XVECLEN (table, 0)))
-		  return XVECEXP (table, 0,
-				  offset / GET_MODE_SIZE (GET_MODE (table)));
+		  {
+		    rtx label = XVECEXP
+		      (table, 0, offset / GET_MODE_SIZE (GET_MODE (table)));
+		    rtx set;
+
+		    /* If we have an insn that loads the label from
+		       the jumptable into a reg, we don't want to set
+		       the reg to the label, because this may cause a
+		       reference to the label to remain after the
+		       label is removed in some very obscure cases (PR
+		       middle-end/18628).  */
+		    if (!insn)
+		      return label;
+
+		    set = single_set (insn);
+
+		    if (! set || SET_SRC (set) != x)
+		      return x;
+
+		    /* If it's a jump, it's safe to reference the label.  */
+		    if (SET_DEST (set) == pc_rtx)
+		      return label;
+
+		    return x;
+		  }
 	      }
 	    if (table_insn && JUMP_P (table_insn)
 		&& GET_CODE (PATTERN (table_insn)) == ADDR_DIFF_VEC)
@@ -4900,6 +4942,9 @@ cse_insn (rtx insn, rtx libcall_insn)
       rtx src_eqv_here;
       rtx src_const = 0;
       rtx src_related = 0;
+      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+      rtx zero_sign_extended_src = NULL_RTX;
+      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
       struct table_elt *src_const_elt = 0;
       int src_cost = MAX_COST;
       int src_eqv_cost = MAX_COST;
@@ -5033,7 +5078,35 @@ cse_insn (rtx insn, rtx libcall_insn)
          REG_NOTE.  */
 
       if (!sets[i].src_volatile)
+      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+      {
 	elt = lookup (src, sets[i].src_hash, mode);
+	if (!elt 
+	    && (GET_CODE(src) == ZERO_EXTEND || GET_CODE(src) == SIGN_EXTEND) 
+	    && GET_CODE (XEXP (src, 0)) == MEM)
+	{
+	  unsigned mem_hash;
+	  rtx nsrc = XEXP (src, 0);
+	  enum machine_mode nmode = GET_MODE(nsrc);
+          do_not_record = 0;
+          hash_arg_in_memory = 0;
+	  mem_hash = HASH (nsrc, nmode);
+	  elt = lookup (nsrc, mem_hash, nmode);
+	  if (elt)
+	  {
+	    sets[i].src = nsrc;
+	    sets[i].src_hash = mem_hash;
+	    sets[i].src_volatile = do_not_record;
+	    sets[i].src_in_memory = hash_arg_in_memory;
+	    zero_sign_extended_src = src;
+	    src = nsrc;
+	    mode = GET_MODE (src) == VOIDmode ? GET_MODE (dest) : GET_MODE (src);
+	    sets[i].mode = mode;
+	    src_folded = fold_rtx (src, insn);
+	  }
+	}
+      }
+      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 
       sets[i].src_elt = elt;
 
@@ -5062,6 +5135,26 @@ cse_insn (rtx insn, rtx libcall_insn)
 	for (p = elt->first_same_value; p; p = p->next_same_value)
 	  if (p->is_const)
 	    {
+	      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+	      /* If we're looking at a MEM under a SIGN/ZERO_EXTEND,
+		 constants match only if the high bits match.  */
+	      if (zero_sign_extended_src)
+		{
+		  rtx truncated_const, trial;
+		  truncated_const = gen_rtx_TRUNCATE (
+		    GET_MODE (XEXP (zero_sign_extended_src, 0)), 
+		    copy_rtx (p->exp));
+		  if (GET_CODE (zero_sign_extended_src) == ZERO_EXTEND)
+		    trial = gen_rtx_ZERO_EXTEND (
+			GET_MODE (zero_sign_extended_src), truncated_const);
+		  else
+		    trial = gen_rtx_SIGN_EXTEND (
+			GET_MODE (zero_sign_extended_src), truncated_const);
+		  trial = fold_rtx (trial, NULL_RTX);
+		  if (!rtx_equal_p (trial, p->exp))
+		    continue;
+		}
+	      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 	      src_const = p->exp;
 	      src_const_elt = elt;
 	      break;
@@ -5437,6 +5530,26 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   && preferable (src_related_cost, src_related_regcost,
 				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = copy_rtx (src_related), src_related_cost = MAX_COST;
+	  /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+	  else if (zero_sign_extended_src)
+	    {
+	      rtx truncated_const;
+	      if (elt->is_const)
+	        truncated_const = gen_rtx_TRUNCATE (
+		  GET_MODE (XEXP (zero_sign_extended_src, 0)),
+		  copy_rtx (elt->exp));
+	      else
+	        truncated_const= copy_rtx (elt->exp);
+	      trial = GET_CODE(zero_sign_extended_src) == ZERO_EXTEND 
+		      ? gen_rtx_ZERO_EXTEND (GET_MODE(zero_sign_extended_src),
+					     truncated_const)
+		      : gen_rtx_SIGN_EXTEND (GET_MODE(zero_sign_extended_src),
+					     truncated_const);
+	      trial = fold_rtx (trial, NULL_RTX);
+	      elt = elt->next_same_value;
+	      src_elt_cost = MAX_COST;
+	    }
+	  /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 	  else
 	    {
 	      trial = copy_rtx (elt->exp);
@@ -5527,6 +5640,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 	}
 
       src = SET_SRC (sets[i].rtl);
+      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+      if (zero_sign_extended_src
+	  && (GET_CODE (src) == GET_CODE (zero_sign_extended_src)))
+        src = XEXP (src, 0);
+      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 
       /* In general, it is good to have a SET with SET_SRC == SET_DEST.
 	 However, there is an important exception:  If both are registers
@@ -5603,7 +5721,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  && ! (GET_CODE (src_const) == CONST
 		&& GET_CODE (XEXP (src_const, 0)) == MINUS
 		&& GET_CODE (XEXP (XEXP (src_const, 0), 0)) == LABEL_REF
-		&& GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF))
+		/* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */	    
+		&& (GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF
+		    || rtx_equal_p ((XEXP (XEXP (src_const, 0), 1)), 
+				     const0_rtx))))
+		/* APPLE LOCAL end */
 	{
 	  /* We only want a REG_EQUAL note if src_const != src.  */
 	  if (! rtx_equal_p (src, src_const))
@@ -7282,8 +7404,9 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
   counts = xcalloc (nreg, sizeof (int));
-  for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
-    count_reg_usage (insn, counts, 1);
+  for (insn = insns; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      count_reg_usage (insn, counts, 1);
 
   /* Go from the last insn to the first and delete insns that only set unused
      registers or copy a register to itself.  As we delete an insn, remove
@@ -7292,15 +7415,13 @@ delete_trivially_dead_insns (rtx insns, int nreg)
      The first jump optimization pass may leave a real insn as the last
      insn in the function.   We must not skip that insn or we may end
      up deleting code that is not really dead.  */
-  insn = get_last_insn ();
-  if (! INSN_P (insn))
-    insn = prev_real_insn (insn);
-
-  for (; insn; insn = prev)
+  for (insn = get_last_insn (); insn; insn = prev)
     {
       int live_insn = 0;
 
-      prev = prev_real_insn (insn);
+      prev = PREV_INSN (insn);
+      if (!INSN_P (insn))
+	continue;
 
       /* Don't delete any insns that are part of a libcall block unless
 	 we can delete the whole libcall block.
@@ -7328,7 +7449,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 	  ndead++;
 	}
 
-      if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
+      if (in_libcall && find_reg_note (insn, REG_LIBCALL, NULL_RTX))
 	{
 	  in_libcall = 0;
 	  dead_libcall = 0;

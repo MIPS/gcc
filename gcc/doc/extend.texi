@@ -54,6 +54,10 @@ extensions, accepted by GCC in C89 mode and in C++.
 * C++ Comments::        C++ comments are recognized.
 * Dollar Signs::        Dollar sign is allowed in identifiers.
 * Character Escapes::   @samp{\e} stands for the character @key{ESC}.
+@c APPLE LOCAL begin pascal strings
+* Pascal Strings::      Constructing string literals with a Pascal-style 
+                         length byte.
+@c APPLE LOCAL end pascal strings
 * Variable Attributes::	Specifying attributes of variables.
 * Type Attributes::	Specifying attributes of types.
 * Alignment::           Inquiring about the alignment of a type or variable.
@@ -63,6 +67,8 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Constraints::         Constraints for asm operands
 * Asm Labels::          Specifying the assembler name to use for a C symbol.
 * Explicit Reg Vars::   Defining variables residing in specified registers.
+@c APPLE LOCAL CW asm blocks
+* Asm Blocks and Functions:: Block and functions of assembly code.
 * Alternate Keywords::  @code{__const__}, @code{__asm__}, etc., for header files.
 * Incomplete Enums::    @code{enum foo;}, with details to follow.
 * Function Names::	Printable strings which are the name of the current
@@ -186,6 +192,29 @@ statement-expressions of this form in header files that are designed to
 work with C++.  (Note that some versions of the GNU C Library contained
 header files using statement-expression that lead to precisely this
 bug.)
+
+Jumping into a statement expression with @code{goto} or using a
+@code{switch} statement outside the statement expression with a
+@code{case} or @code{default} label inside the statement expression is
+not permitted.  Jumping into a statement expression with a computed
+@code{goto} (@pxref{Labels as Values}) yields undefined behavior.
+Jumping out of a statement expression is permitted, but if the
+statement expression is part of a larger expression then it is
+unspecified which other subexpressions of that expression have been
+evaluated except where the language definition requires certain
+subexpressions to be evaluated before or after the statement
+expression.  In any case, as with a function call the evaluation of a
+statement expression is not interleaved with the evaluation of other
+parts of the containing expression.  For example,
+
+@smallexample
+  foo (), ((@{ bar1 (); goto a; 0; @}) + bar2 ()), baz();
+@end smallexample
+
+@noindent
+will call @code{foo} and @code{bar1} and will not call @code{baz} but
+may or may not call @code{bar2}.  If @code{bar2} is called, it will be
+called after @code{foo} and before @code{bar1}
 
 @node Local Labels
 @section Locally Declared Labels
@@ -449,8 +478,10 @@ bar (int *array, int offset, int size)
 @end group
 @end smallexample
 
+@c APPLE LOCAL begin mainline 2005-03-04
 A nested function always has no linkage.  Declaring one with
 @code{extern} or @code{static} is erroneous.  If you need to declare the nested function
+@c APPLE LOCAL end mainline 2005-03-04
 before its definition, use @code{auto} (which is otherwise meaningless
 for function declarations).
 
@@ -1527,7 +1558,8 @@ void f () __attribute__ ((weak, alias ("__f")));
 @end smallexample
 
 declares @samp{f} to be a weak alias for @samp{__f}.  In C++, the
-mangled name for the target must be used.
+mangled name for the target must be used.  It is an error if @samp{__f}
+is not defined in the same translation unit.
 
 Not all target machines support this attribute.
 
@@ -1549,7 +1581,7 @@ useful to override the effects of the @option{-mrtd} switch.
 @cindex @code{const} function attribute
 Many functions do not examine any values except their arguments, and
 have no effects except the return value.  Basically this is just slightly
-more strict class than the @code{pure} attribute above, since function is not
+more strict class than the @code{pure} attribute below, since function is not
 allowed to read global memory.
 
 @cindex pointer arguments
@@ -1699,6 +1731,13 @@ on data in the eight bit data area.  Note the eight bit data area is limited to
 You must use GAS and GLD from GNU binutils version 2.7 or later for
 this attribute to work correctly.
 
+@item exception_handler
+@cindex exception handler functions on the Blackfin processor
+Use this attribute on the Blackfin to indicate that the specified function
+is an exception handler.  The compiler will generate function entry and
+exit sequences suitable for use in an exception handler when this
+attribute is present.
+
 @item far
 @cindex functions which handle memory bank switching
 On 68HC11 and 68HC12 the @code{far} attribute causes the compiler to
@@ -1847,8 +1886,8 @@ that the specified function is an interrupt handler.  The compiler will
 generate function entry and exit sequences suitable for use in an
 interrupt handler when this attribute is present.
 
-Note, interrupt handlers for the m68k, H8/300, H8/300H, H8S, and SH processors
-can be specified via the @code{interrupt_handler} attribute.
+Note, interrupt handlers for the Blackfin, m68k, H8/300, H8/300H, H8S, and
+SH processors can be specified via the @code{interrupt_handler} attribute.
 
 Note, on the AVR, interrupts will be enabled inside the function.
 
@@ -1862,12 +1901,20 @@ void f () __attribute__ ((interrupt ("IRQ")));
 Permissible values for this parameter are: IRQ, FIQ, SWI, ABORT and UNDEF@.
 
 @item interrupt_handler
-@cindex interrupt handler functions on the m68k, H8/300 and SH processors
-Use this attribute on the m68k, H8/300, H8/300H, H8S, and SH to indicate that
-the specified function is an interrupt handler.  The compiler will generate
-function entry and exit sequences suitable for use in an interrupt
-handler when this attribute is present.
+@cindex interrupt handler functions on the Blackfin, m68k, H8/300 and SH processors
+Use this attribute on the Blackfin, m68k, H8/300, H8/300H, H8S, and SH to
+indicate that the specified function is an interrupt handler.  The compiler
+will generate function entry and exit sequences suitable for use in an
+interrupt handler when this attribute is present.
 
+@item kspisusp
+@cindex User stack pointer in interrupts on the Blackfin
+When used together with @code{interrupt_handler}, @code{exception_handler}
+or @code{nmi_handler}, code will be generated to load the stack pointer
+from the USP register in the function prologue.
+
+@c APPLE LOCAL Apple customers doesn't care about ARM options.
+@ignore
 @item long_call/short_call
 @cindex indirect calls on ARM
 This attribute specifies how a particular function is called on
@@ -1878,6 +1925,8 @@ function by first loading its address into a register and then using the
 contents of that register.   The @code{short_call} attribute always places
 the offset to the function from the call site into the @samp{BL}
 instruction directly.
+@c APPLE LOCAL Apple customers don't care about ARM options.
+@end ignore
 
 @item longcall/shortcall
 @cindex functions called via pointer on the RS/6000 and PowerPC
@@ -1945,6 +1994,19 @@ On 68HC11 and 68HC12 the @code{near} attribute causes the compiler to
 use the normal calling convention based on @code{jsr} and @code{rts}.
 This attribute can be used to cancel the effect of the @option{-mlong-calls}
 option.
+
+@item nesting
+@cindex Allow nesting in an interrupt handler on the Blackfin processor.
+Use this attribute together with @code{interrupt_handler},
+@code{exception_handler} or @code{nmi_handler} to indicate that the function
+entry code should enable nested interrupts or exceptions.
+
+@item nmi_handler
+@cindex NMI handler functions on the Blackfin processor
+Use this attribute on the Blackfin to indicate that the specified function
+is an NMI handler.  The compiler will generate function entry and
+exit sequences suitable for use in an NMI handler when this
+attribute is present.
 
 @item no_instrument_function
 @cindex @code{no_instrument_function} function attribute
@@ -2034,6 +2096,8 @@ typedef void voidfn ();
 volatile voidfn fatal;
 @end smallexample
 
+This approach does not work in GNU C++.
+
 @item nothrow
 @cindex @code{nothrow} function attribute
 The @code{nothrow} attribute is used to inform the compiler that a
@@ -2088,8 +2152,8 @@ disabled with the linker or the loader if desired, to avoid the
 problem.)
 
 @item saveall
-@cindex save all registers on the H8/300, H8/300H, and H8S
-Use this attribute on the H8/300, H8/300H, and H8S to indicate that
+@cindex save all registers on the Blackfin, H8/300, H8/300H, and H8S
+Use this attribute on the Blackfin, H8/300, H8/300H, and H8S to indicate that
 all registers except the stack pointer should be saved in the prologue
 regardless of whether they are used or not.
 
@@ -2573,7 +2637,7 @@ int isroot P((uid_t));
 
 /* @r{Old-style function definition.}  */
 int
-isroot (x)   /* ??? lossage here ??? */
+isroot (x)   /* @r{??? lossage here ???} */
      uid_t x;
 @{
   return x == 0;
@@ -2639,6 +2703,62 @@ machines, typically because the target assembler does not allow them.
 
 You can use the sequence @samp{\e} in a string or character constant to
 stand for the ASCII character @key{ESC}.
+
+@c APPLE LOCAL begin pascal strings
+@node Pascal Strings
+@section Constructing String Literals with a Pascal-style Length Byte
+@cindex Pascal length byte
+@cindex Pascal strings
+
+Specifying the @w{@option{-fpascal-strings}} option will cause the
+compiler to recognize and construct Pascal-style string literals.  This
+functionality is disabled by default; furthermore, its use in new code
+is discouraged.
+
+Pascal string literals take the form @samp{"\pstring"}.  The special
+escape sequence @samp{\p} denotes the Pascal length byte for the string,
+and will be replaced at compile time with the number of characters that
+follow.  The @samp{\p} may only appear at the beginning of a string
+literal, and may @emph{not} appear in wide string literals or as an
+integral constant.
+
+As is the case with C string literals, Pascal string literals are
+terminated with a NUL character; this character is @emph{not} counted
+when computing the value of the length byte.  The maximum @samp{unsigned
+char} value that can be stored in the length byte is also the maximum
+permissible length for the Pascal literal itself.  On most target
+platforms, this value is 255 (excluding both the length byte and the
+terminating NUL).
+
+Pascal-style literals are treated by the compiler as being of type
+@samp{const unsigned char []} in C++ and @samp{unsigned char []} (or
+@samp{const unsigned char []}, if the @w{@option{-Wwrite-strings}}
+option is given) in C.  Pascal string literals may be used as static
+initializers for @samp{char} arrays (whose elements need not be
+@samp{unsigned} or @samp{const}).  They may also be converted to
+@samp{const unsigned char *} and, in the C language to @samp{const char
+*} of any signedness (In C, if the @w{@option{-Wwrite-strings}} is not
+given, then @samp{const} may be omitted as well).  For example:
+
+@example
+const unsigned char a[] = "\pHello";
+char b[] = "\pGoodbye";
+const unsigned char *c = "\pHello";
+const signed char *d = "\pHello";    /* error in C++ */
+char *e = "\pHi";  /* error in C++; warning in C with -Wwrite-strings */
+unsigned char *f = "\pHello";      /* error in C++ */
+@end example
+
+@noindent
+In all other respects, Pascal-style string literals behave the same as
+ordinary string literals.  For example, if a program attempts to modify
+the conents of a Pascal-style string literal at run-time, the behaviour
+is undefined, unless the @w{@option{-fwritable-strings}} option is used.
+
+Pascal-style literals are useful for calling external routines that
+expect Pascal strings as arguments, as is true with some Apple MacOS
+Toolbox calls.
+@c APPLE LOCAL end pascal strings
 
 @node Alignment
 @section Inquiring on Alignment of Types or Variables
@@ -2852,13 +2972,13 @@ int init_data __attribute__ ((section ("INITDATA"))) = 0;
 
 main()
 @{
-  /* Initialize stack pointer */
+  /* @r{Initialize stack pointer} */
   init_sp (stack + sizeof (stack));
 
-  /* Initialize initialized data */
+  /* @r{Initialize initialized data} */
   memcpy (&init_data, &data, &edata - &data);
 
-  /* Turn on the serial ports */
+  /* @r{Turn on the serial ports} */
   init_duart (&a);
   init_duart (&b);
 @}
@@ -2897,8 +3017,8 @@ int foo __attribute__((section ("shared"), shared)) = 0;
 int
 main()
 @{
-  /* Read and write foo.  All running
-     copies see the same value.  */
+  /* @r{Read and write foo.  All running
+     copies see the same value.}  */
   return 0;
 @}
 @end smallexample
@@ -3169,7 +3289,7 @@ struct my_unpacked_struct
     int i;
  @};
 
-struct my_packed_struct __attribute__ ((__packed__))
+struct __attribute__ ((__packed__)) my_packed_struct
   @{
      char c;
      int  i;
@@ -3462,7 +3582,7 @@ GCC does not inline any functions when not optimizing unless you specify
 the @samp{always_inline} attribute for the function, like this:
 
 @smallexample
-/* Prototype.  */
+/* @r{Prototype.}  */
 inline void foo (const char) __attribute__((always_inline));
 @end smallexample
 
@@ -3632,7 +3752,7 @@ example for the VAX:
 
 @smallexample
 asm volatile ("movc3 %0,%1,%2"
-              : /* no outputs */
+              : /* @r{no outputs} */
               : "g" (from), "g" (to), "g" (count)
               : "r0", "r1", "r2", "r3", "r4", "r5");
 @end smallexample
@@ -4194,6 +4314,85 @@ register int *p2 asm ("r1") = @dots{};
 @end smallexample
 In those cases, a solution is to use a temporary variable for
 each arbitrary expression.   @xref{Example of asm with clobbered asm reg}.
+
+@c APPLE LOCAL begin CW asm blocks
+@node Asm Blocks and Functions
+@section Blocks and Functions of Assembly Language
+
+(This feature is APPLE ONLY.)
+
+In addition to writing single statements in assembly, you can also
+define blocks and entire functions to use a mixed assembly and C
+syntax.  The syntax follows that used in Metrowerks' CodeWarrior.
+This extension must be explicitly enabled with the
+@option{-fasm-blocks} option.
+
+The block syntax consists of @code{asm} followed by braces, with the
+assembly instructions on separate lines.  (However, @code{';'} may be
+used to put several instructions on one line.)  You write labels with
+either a preceding @code{'@@'} or a trailing @code{':'} (or both, if
+you prefer); labels are always local to the asm block, and there is no
+way for a label in one block to refer to a label in another block.
+Comments and lexical rules are as for standard C/C++.
+
+@verbatim
+int foo (int arg) {
+  register int bar;
+  asm {
+    li bar, 42
+    add bar, arg, bar ; nop ; ; nop
+  }
+  return bar;
+}
+@end verbatim
+
+The function syntax uses @code{asm} as a keyword in the function
+definition.  In this form, C declarations may appear at the beginning
+of the function body, in order to declare variables that you want to
+use in the body, but may not be used after the first assembly opcode
+or label (even in C99 or C++).
+
+@verbatim
+asm int baz (int arg1) {
+    register int loc1, loc2;
+    @123
+    li loc1,4 * 89
+    nand. r5,arg1,loc1
+    ble- cr0, @123
+    otherlab: nop
+    mr r3,r5
+}
+@end verbatim
+
+Note that the compiler just passes the instructions through to the
+assembler with only necessary changes, such as a substitution of
+globally unique labels.  Assembly syntax errors will therefore be
+reported by the assembler.
+
+Also note that the use of literal registers (such as r3) in functions
+may not work properly with functions that are being inlined.
+
+The following instructions are assumed to affect memory: @code{l...}
+except @code{la}, @code{li} and @code{lis} (all memory loads),
+@code{st...} (all memory stores), @code{sc}, @code{td...},
+@code{trap}, @code{tw...}.  All other instructions are assumed to not
+affect memory.
+
+The following instructions take a memory operand (address operand) as
+their second operand, all other instructions are assumed to not:
+
+@code{la}, @code{lbzu}, @code{ld}, @code{ldu}, @code{lfd},
+@code{lfdu}, @code{lfs}, @code{lfsu}, @code{lha}, @code{lhau},
+@code{lhz}, @code{lhzu}, @code{lmw}, @code{lwa}, @code{lwz},
+@code{lwzu}, @code{stb}, @code{stbu}, @code{std}, @code{stdu},
+@code{stfd}, @code{stfdu}, @code{stfs}, @code{stfsu}, @code{sth},
+@code{sthu}, @code{stmw}, @code{stw}, @code{stwu}.
+
+Arguments that require substitution beyond vector registers, floating
+point registers, general registers are not supported; an example
+would be trying to use the compiler to allocate condition code
+registers instead of just writting a specific condition code register.
+@c APPLE LOCAL end CW asm blocks
 
 @node Alternate Keywords
 @section Alternate Keywords
@@ -5247,11 +5446,11 @@ type is @code{long double}.
 @deftypefn {Built-in Function} double __builtin_inf (void)
 Similar to @code{__builtin_huge_val}, except a warning is generated
 if the target floating-point format does not support infinities.
-This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 @end deftypefn
 
 @deftypefn {Built-in Function} float __builtin_inff (void)
 Similar to @code{__builtin_inf}, except the return type is @code{float}.
+This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 @end deftypefn
 
 @deftypefn {Built-in Function} {long double} __builtin_infl (void)
@@ -7448,7 +7647,11 @@ vector unsigned short vec_vmuloub (vector unsigned char,
                                    vector unsigned char);
 
 vector float vec_nmsub (vector float, vector float, vector float);
+@c APPLE LOCAL begin fixhtml --mrs
+@end smallexample
 
+@smallexample
+@c APPLE LOCAL end fixhtml --mrs
 vector float vec_nor (vector float, vector float);
 vector signed int vec_nor (vector signed int, vector signed int);
 vector unsigned int vec_nor (vector unsigned int, vector unsigned int);
@@ -8566,6 +8769,7 @@ for further explanation.
 * Solaris Pragmas::
 * Symbol-Renaming Pragmas::
 * Structure-Packing Pragmas::
+* Weak Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -8647,7 +8851,33 @@ This pragma declares variables to be possibly unused.  GCC will not
 produce warnings for the listed variables.  The effect is similar to
 that of the @code{unused} attribute, except that this pragma may appear
 anywhere within the variables' scopes.
+
+@c APPLE LOCAL begin optimization pragmas 3124235/3420242
+@item optimization_level @{ 0 | 1 | 2 | 3 | reset @}
+@item optimize_for_size @{ on | off | reset @}
+@item GCC optimization_level @{ 0 | 1 | 2 | 3 | reset @}
+@item GCC optimize_for_size @{ on | off | reset @}
+@cindex pragma, optimization_level
+(These pragmas are APPLE ONLY.)
+
+These pragmas set the current optimization level, similar but not identical
+to -O0 through -O3, or -Os, on the command line.  These pragmas form a
+stack; the "reset" argument pops the stack, restoring the optimization level
+to what it was before the previous optimization pragma.  The optimization
+level in effect at the beginning of each function definition is applied to
+that function.  Currently, the pragmas will not affect optimizations whose
+implementation is based on whole-file analysis; this notably includes
+inlining and strict aliasing.  Also, the feature currently doesn't apply
+to functions whose body is within a class definition (that is, such
+functions are compiled with the command line options).
+
+The versions without "GCC" have the same syntax and similar effect as 
+CodeWarrior pragmas (although since the optimizations performed by
+the compilers are not identical, the effect of the options won't be
+either).  These may be convenient for existing code.  The versions
+with "GCC" are recommended for new code.
 @end table
+@c APPLE LOCAL end optimization pragmas 3124235/3420242
 
 @node Solaris Pragmas
 @subsection Solaris Pragmas
@@ -8748,7 +8978,7 @@ way of knowing that that happened.)
 @node Structure-Packing Pragmas
 @subsection Structure-Packing Pragmas
 
-For compatibility with Win32, GCC supports as set of @code{#pragma}
+For compatibility with Win32, GCC supports a set of @code{#pragma}
 directives which change the maximum alignment of members of structures,
 unions, and classes subsequently defined.  The @var{n} value below always
 is required to be a small power of two and specifies the new alignment
@@ -8768,6 +8998,28 @@ stack; thus it is possible to have @code{#pragma pack(push)} followed by
 multiple @code{#pragma pack(@var{n})} instances and finalized by a single
 @code{#pragma pack(pop)}.
 @end enumerate
+
+@node Weak Pragmas
+@subsection Weak Pragmas
+
+For compatibility with SVR4, GCC supports a set of @code{#pragma}
+directives for declaring symbols to be weak, and defining weak
+aliases.
+
+@table @code
+@item #pragma weak @var{symbol}
+@cindex pragma, weak
+This pragma declares @var{symbol} to be weak, as if the declaration
+had the attribute of the same name.  The pragma may appear before
+or after the declaration of @var{symbol}, but must appear before 
+either its first use or its definition.  It is not an error for
+@var{symbol} to never be defined at all.
+
+@item #pragma weak @var{symbol1} = @var{symbol2}
+This pragma declares @var{symbol1} to be a weak alias of @var{symbol2}.
+It is an error if @var{symbol2} is not defined in the current
+translation unit.
+@end table
 
 @node Unnamed Fields
 @section Unnamed struct/union fields within structs/unions
@@ -9093,7 +9345,6 @@ test specifically for GNU C++ (@pxref{Common Predefined Macros,,
 Predefined Macros,cpp,The GNU C Preprocessor}).
 
 @menu
-* Min and Max::		C++ Minimum and maximum operators.
 * Volatiles::		What constitutes an access to a volatile object.
 * Restricted Pointers:: C99 restricted pointers and references.
 * Vague Linkage::       Where G++ puts inlines, vtables and such.
@@ -9109,51 +9360,6 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
 @end menu
-
-@node Min and Max
-@section Minimum and Maximum Operators in C++
-
-It is very convenient to have operators which return the ``minimum'' or the
-``maximum'' of two arguments.  In GNU C++ (but not in GNU C),
-
-@table @code
-@item @var{a} <? @var{b}
-@findex <?
-@cindex minimum operator
-is the @dfn{minimum}, returning the smaller of the numeric values
-@var{a} and @var{b};
-
-@item @var{a} >? @var{b}
-@findex >?
-@cindex maximum operator
-is the @dfn{maximum}, returning the larger of the numeric values @var{a}
-and @var{b}.
-@end table
-
-These operations are not primitive in ordinary C++, since you can
-use a macro to return the minimum of two things in C++, as in the
-following example.
-
-@smallexample
-#define MIN(X,Y) ((X) < (Y) ? : (X) : (Y))
-@end smallexample
-
-@noindent
-You might then use @w{@samp{int min = MIN (i, j);}} to set @var{min} to
-the minimum value of variables @var{i} and @var{j}.
-
-However, side effects in @code{X} or @code{Y} may cause unintended
-behavior.  For example, @code{MIN (i++, j++)} will fail, incrementing
-the smaller counter twice.  The GNU C @code{typeof} extension allows you
-to write safe macros that avoid this kind of problem (@pxref{Typeof}).
-However, writing @code{MIN} and @code{MAX} as macros also forces you to
-use function-call notation for a fundamental arithmetic operation.
-Using GNU C++ extensions, you can write @w{@samp{int min = i <? j;}}
-instead.
-
-Since @code{<?} and @code{>?} are built into the compiler, they properly
-handle expressions with side-effects;  @w{@samp{int min = i++ <? j++;}}
-works correctly.
 
 @node Volatiles
 @section When is a Volatile Object Accessed?
@@ -9800,6 +10006,11 @@ G++ allows a virtual function returning @samp{void *} to be overridden
 by one returning a different pointer type.  This extension to the
 covariant return type rules is now deprecated and will be removed from a
 future version.
+
+The G++ minimum and maximum operators (@samp{<?} and @samp{>?}) and
+their compound forms (@samp{<?=}) and @samp{>?=}) have been deprecated
+and will be removed in a future version.  Code using these operators
+should be modified to use @code{std::min} and @code{std::max} instead.
 
 The named return value extension has been deprecated, and is now
 removed from G++.

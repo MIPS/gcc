@@ -33,6 +33,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "convert.h"
 #include "c-common.h"
+/* APPLE LOCAL begin IMA aggregate types */
+#include "c-tree.h"
+/* APPLE LOCAL end IMA aggregate types */
 #include "langhooks.h"
 #include "toplev.h"
 

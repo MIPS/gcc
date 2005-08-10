@@ -277,7 +277,8 @@ build_round_expr (stmtblock_t * pblock, tree arg, tree type)
    however the RTL expander only actually supports FIX_TRUNC_EXPR.  */
 
 static tree
-build_fix_expr (stmtblock_t * pblock, tree arg, tree type, int op)
+build_fix_expr (stmtblock_t * pblock, tree arg, tree type,
+               enum tree_code op)
 {
   switch (op)
     {
@@ -300,14 +301,15 @@ build_fix_expr (stmtblock_t * pblock, tree arg, tree type, int op)
 
 /* Round a real value using the specified rounding mode.
    We use a temporary integer of that same kind size as the result.
-   Values larger than can be represented by this kind are unchanged, as
-   will not be accurate enough to represent the rounding.
+   Values larger than those that can be represented by this kind are
+   unchanged, as thay will not be accurate enough to represent the
+   rounding.
     huge = HUGE (KIND (a))
     aint (a) = ((a > huge) || (a < -huge)) ? a : (real)(int)a
    */
 
 static void
-gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree type;
   tree itype;
@@ -337,17 +339,21 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, int op)
 	}
       break;
 
-    case FIX_FLOOR_EXPR:
+    case FIX_TRUNC_EXPR:
       switch (kind)
 	{
 	case 4:
-	  n = BUILT_IN_FLOORF;
+	  n = BUILT_IN_TRUNCF;
 	  break;
 
 	case 8:
-	  n = BUILT_IN_FLOOR;
+	  n = BUILT_IN_TRUNC;
 	  break;
 	}
+      break;
+
+    default:
+      gcc_unreachable ();
     }
 
   /* Evaluate the argument.  */
@@ -1032,8 +1038,8 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
 }
 
 
-/* Create a symbol node for this intrinsic.  The symbol form the frontend
-   is for the generic name.  */
+/* Create a symbol node for this intrinsic.  The symbol from the frontend
+   has the generic name.  */
 
 static gfc_symbol *
 gfc_get_symbol_for_expr (gfc_expr * expr)
@@ -1793,7 +1799,7 @@ gfc_conv_intrinsic_ishft (gfc_se * se, gfc_expr * expr)
      numbers, and we try to be compatible with other compilers, most
      notably g77, here.  */
   rshift = fold_convert (type, build2 (RSHIFT_EXPR, utype, 
-				       convert (type, arg), width));
+				       convert (utype, arg), width));
 
   tmp = fold (build2 (GE_EXPR, boolean_type_node, arg2,
 		      build_int_cst (TREE_TYPE (arg2), 0)));
@@ -2649,11 +2655,10 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
 }
 
 
-/* Generate code for the IARGC intrinsic.  If args_only is true this is
-   actually the COMMAND_ARGUMENT_COUNT intrinsic, so return IARGC - 1.  */
+/* Generate code for the IARGC intrinsic.  */
 
 static void
-gfc_conv_intrinsic_iargc (gfc_se * se, gfc_expr * expr, bool args_only)
+gfc_conv_intrinsic_iargc (gfc_se * se, gfc_expr * expr)
 {
   tree tmp;
   tree fndecl;
@@ -2667,8 +2672,6 @@ gfc_conv_intrinsic_iargc (gfc_se * se, gfc_expr * expr, bool args_only)
   type = gfc_typenode_for_spec (&expr->ts);
   tmp = fold_convert (type, tmp);
 
-  if (args_only)
-    tmp = build2 (MINUS_EXPR, type, tmp, build_int_cst (type, 1));
   se->expr = tmp;
 }
 
@@ -2827,7 +2830,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_COMMAND_ARGUMENT_COUNT:
-      gfc_conv_intrinsic_iargc (se, expr, TRUE);
+      gfc_conv_intrinsic_iargc (se, expr);
       break;
 
     case GFC_ISYM_CONJG:
@@ -2869,7 +2872,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_IARGC:
-      gfc_conv_intrinsic_iargc (se, expr, FALSE);
+      gfc_conv_intrinsic_iargc (se, expr);
       break;
 
     case GFC_ISYM_IEOR:
@@ -2980,6 +2983,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_bound (se, expr, 1);
       break;
 
+    case GFC_ISYM_CHDIR:
     case GFC_ISYM_DOT_PRODUCT:
     case GFC_ISYM_ETIME:
     case GFC_ISYM_FNUM:
@@ -2988,12 +2992,20 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_GETGID:
     case GFC_ISYM_GETPID:
     case GFC_ISYM_GETUID:
+    case GFC_ISYM_HOSTNM:
+    case GFC_ISYM_KILL:
+    case GFC_ISYM_IERRNO:
     case GFC_ISYM_IRAND:
+    case GFC_ISYM_LINK:
     case GFC_ISYM_MATMUL:
     case GFC_ISYM_RAND:
+    case GFC_ISYM_RENAME:
     case GFC_ISYM_SECOND:
     case GFC_ISYM_STAT:
+    case GFC_ISYM_SYMLNK:
     case GFC_ISYM_SYSTEM:
+    case GFC_ISYM_TIME:
+    case GFC_ISYM_TIME8:
     case GFC_ISYM_UMASK:
     case GFC_ISYM_UNLINK:
       gfc_conv_intrinsic_funcall (se, expr);

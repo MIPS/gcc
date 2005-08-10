@@ -153,6 +153,9 @@ build_exc_ptr (void)
   return build0 (EXC_PTR_EXPR, ptr_type_node);
 }
 
+/* APPLE LOCAL 4093536 */
+/* Remove do_get_exception_ptr() function.  */
+
 /* Build up a call to __cxa_begin_catch, to tell the runtime that the
    exception has been handled.  */
 
@@ -378,6 +381,8 @@ initialize_handler_parm (tree decl, tree exp)
 
 /* Call this to start a catch block.  DECL is the catch parameter.  */
 
+/* APPLE LOCAL begin 4093536  */
+/* Undo PR 10606 */
 tree
 expand_start_catch_block (tree decl)
 {
@@ -439,7 +444,7 @@ expand_start_catch_block (tree decl)
 
   return type;
 }
-
+/* APPLE LOCAL end 4093536  */
 
 /* Call this to end a catch block.  Its responsible for emitting the
    code to handle jumping back to the correct place, and for emitting

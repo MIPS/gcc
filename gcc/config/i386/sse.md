@@ -274,6 +274,27 @@
   [(set_attr "type" "ssecvt")
    (set_attr "mode" "V2DF")])
 
+;; APPLE LOCAL begin 4099020, 4121692
+(define_insn "sse_loadqv4si"
+  [(set (match_operand:V4SI 0 "register_operand" "=rx")
+	(unspec:V4SI [(zero_extend:V4SI (match_operand:V2SI 1 "memory_operand" "m"))] UNSPEC_LDQ))]
+  "TARGET_SSE"
+  "movq\t{%1, %0|%0, %1}")
+
+(define_insn "sse_storeqv4si"
+  [(set (match_operand:V2SI 0 "memory_operand" "=m")
+	(unspec:V2SI [(subreg:V2SI (match_operand:V4SI 1 "register_operand" "x") 0)] UNSPEC_STOQ))]
+  "TARGET_SSE"
+  "movq\t{%1, %0|%0, %1}")
+
+(define_insn "sse_movqv4si"
+  [(set (match_operand:V4SI 0 "register_operand" "=x")
+	(unspec:V4SI [(zero_extend:V4SI (subreg:V2SI
+		(match_operand:V4SI 1 "register_operand" "x") 0))] UNSPEC_MOVQ))]
+  "TARGET_SSE"
+  "movq\t{%1, %0|%0, %1}")
+;; APPLE LOCAL end 4099020, 4121692
+
 (define_insn "sse3_lddqu"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
 	(unspec:V16QI [(match_operand:V16QI 1 "memory_operand" "m")]
@@ -937,23 +958,26 @@
   [(set_attr "type" "ssemov")
    (set_attr "mode" "V4SF,V2SF,V2SF")])
 
+; APPLE LOCAL begin radar 4099352
 (define_insn "sse_movlhps"
-  [(set (match_operand:V4SF 0 "nonimmediate_operand"     "=x,x,o")
+  [(set (match_operand:V4SF 0 "nonimmediate_operand"     "=x,x,x,o")
 	(vec_select:V4SF
 	  (vec_concat:V8SF
-	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,0,0")
-	    (match_operand:V4SF 2 "nonimmediate_operand" " x,m,x"))
+	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,0,0,0")
+	    (match_operand:V4SF 2 "vector_move_operand" " C,x,m,x"))
 	  (parallel [(const_int 0)
 		     (const_int 1)
 		     (const_int 4)
 		     (const_int 5)])))]
   "TARGET_SSE && ix86_binary_operator_ok (UNKNOWN, V4SFmode, operands)"
   "@
+   xorps\t%0, %0
    movlhps\t{%2, %0|%0, %2}
    movhps\t{%2, %0|%0, %2}
    movlps\t{%2, %H0|%H0, %2}"
   [(set_attr "type" "ssemov")
-   (set_attr "mode" "V4SF,V2SF,V2SF")])
+   (set_attr "mode" "V4SF,V4SF,V2SF,V2SF")])
+; APPLE LOCAL end radar 4099352
 
 (define_insn "sse_unpckhps"
   [(set (match_operand:V4SF 0 "register_operand" "=x")

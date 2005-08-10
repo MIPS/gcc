@@ -1,6 +1,6 @@
 /* Allocate registers for pseudo-registers that span basic blocks.
    Copyright (C) 1987, 1988, 1991, 1994, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -36,6 +36,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "output.h"
 #include "toplev.h"
+
+/* APPLE LOCAL begin rewrite weight computation */
+/* The rewritten weight computation works fine on Darwin, but causes
+   bootstrap compares to fail on Linux.  */
+#ifdef CONFIG_DARWIN_H
+#define REWRITE_WEIGHT_COMPUTATION
+#endif
+/* APPLE LOCAL end rewrite weight computation */
 
 /* This pass of the compiler performs global register allocation.
    It assigns hard register numbers to all the pseudo registers
@@ -225,6 +233,18 @@ static HARD_REG_SET regs_used_so_far;
 
 static int local_reg_n_refs[FIRST_PSEUDO_REGISTER];
 
+/* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+/* Overall weight of each hard reg, as used by local alloc.
+   This was formerly computed once as 
+   SUM(REG_FREQ(i))/SUM(REG_LIVE_LENGTH(i)) where the sums
+   are computed over all uses.  But that computation produces very
+   wrong answers when a reg is used both inside and outside a loop.
+   Now it is computed as
+   SUM (REG_FREQ(i)/REG_LIVE_LENGTH(i)) over all uses. */
+
+static double local_reg_weight[FIRST_PSEUDO_REGISTER];
+#else
 /* Frequency of uses of given hard reg.  */
 static int local_reg_freq[FIRST_PSEUDO_REGISTER];
 
@@ -232,6 +252,8 @@ static int local_reg_freq[FIRST_PSEUDO_REGISTER];
    This is actually the sum of the live lengths of the specific regs.  */
 
 static int local_reg_live_length[FIRST_PSEUDO_REGISTER];
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+/* APPLE LOCAL end rewrite weight computation */
 
 /* Set to 1 a bit in a vector TABLE of HARD_REG_SETs, for vector
    element I, and hard register number J.  */
@@ -493,9 +515,17 @@ global_alloc (FILE *file)
   /* Calculate amount of usage of each hard reg by pseudos
      allocated by local-alloc.  This is to see if we want to
      override it.  */
+  /* APPLE LOCAL begin rewrite weight computation */
+#ifndef REWRITE_WEIGHT_COMPUTATION
   memset (local_reg_live_length, 0, sizeof local_reg_live_length);
+#endif /* REWRITE_WEIGHT_COMPUTATION */
   memset (local_reg_n_refs, 0, sizeof local_reg_n_refs);
+#ifdef REWRITE_WEIGHT_COMPUTATION
+  memset (local_reg_weight, 0, sizeof local_reg_weight);
+#else
   memset (local_reg_freq, 0, sizeof local_reg_freq);
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+  /* APPLE LOCAL end rewrite weight computation */
   for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     if (reg_renumber[i] >= 0)
       {
@@ -506,15 +536,29 @@ global_alloc (FILE *file)
 	for (j = regno; j < endregno; j++)
 	  {
 	    local_reg_n_refs[j] += REG_N_REFS (i);
+	    /* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+	    if ( REG_LIVE_LENGTH (i) > 0 )
+	      local_reg_weight[j] += (double)REG_FREQ (i) 
+				    / (double) REG_LIVE_LENGTH (i);
+#else
 	    local_reg_freq[j] += REG_FREQ (i);
 	    local_reg_live_length[j] += REG_LIVE_LENGTH (i);
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+	    /* APPLE LOCAL end rewrite weight computation */
 	  }
       }
 
   /* We can't override local-alloc for a reg used not just by local-alloc.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (regs_ever_live[i])
+      /* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+      local_reg_n_refs[i] = 0;
+#else
       local_reg_n_refs[i] = 0, local_reg_freq[i] = 0;
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+      /* APPLE LOCAL end rewrite weight computation */
 
   allocno_row_words = (max_allocno + INT_BITS - 1) / INT_BITS;
 
@@ -1265,6 +1309,15 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 #endif
 	      )
 	    {
+	      /* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+	      /* We explicitly evaluate the divide result into a temporary
+		 variable so as to avoid excess precision problems that occur
+		 on an i386-unknown-sysv4.2 (unixware) host.  */
+	      double tmp = ((double) allocno[num].freq
+			    / allocno[num].live_length);
+#else
+	    /* APPLE LOCAL end rewrite weight computation */
 	      /* We explicitly evaluate the divide results into temporary
 		 variables so as to avoid excess precision problems that occur
 		 on an i386-unknown-sysv4.2 (unixware) host.  */
@@ -1273,8 +1326,15 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 			    / local_reg_live_length[regno]);
 	      double tmp2 = ((double) allocno[num].freq
 			     / allocno[num].live_length);
+	      /* APPLE LOCAL begin rewrite weight computation */
+#endif /* REWRITE_WEIGHT_COMPUTATION */
 
+#ifdef REWRITE_WEIGHT_COMPUTATION
+	      if (local_reg_weight[regno] < tmp)
+#else
 	      if (tmp1 < tmp2)
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+		/* APPLE LOCAL end rewrite weight computation */
 		{
 		  /* Hard reg REGNO was used less in total by local regs
 		     than it would be used by this one allocno!  */
@@ -1321,7 +1381,11 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	  SET_HARD_REG_BIT (regs_used_so_far, j);
 	  /* This is no longer a reg used just by local regs.  */
 	  local_reg_n_refs[j] = 0;
+	  /* APPLE LOCAL begin rewrite weight computation */
+#ifndef REWRITE_WEIGHT_COMPUTATION
 	  local_reg_freq[j] = 0;
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+	  /* APPLE LOCAL end rewrite weight computation */
 	}
       /* For each other pseudo-reg conflicting with this one,
 	 mark it as conflicting with the hard regs this one occupies.  */
@@ -2033,21 +2097,21 @@ allocate_bb_info (void)
   bitmap init;
 
   alloc_aux_for_blocks (sizeof (struct bb_info));
-  init = BITMAP_XMALLOC ();
+  init = BITMAP_ALLOC (NULL);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     bitmap_set_bit (init, i);
   FOR_EACH_BB (bb)
     {
       bb_info = bb->aux;
-      bb_info->earlyclobber = BITMAP_XMALLOC ();
-      bb_info->avloc = BITMAP_XMALLOC ();
-      bb_info->killed = BITMAP_XMALLOC ();
-      bb_info->live_pavin = BITMAP_XMALLOC ();
-      bb_info->live_pavout = BITMAP_XMALLOC ();
+      bb_info->earlyclobber = BITMAP_ALLOC (NULL);
+      bb_info->avloc = BITMAP_ALLOC (NULL);
+      bb_info->killed = BITMAP_ALLOC (NULL);
+      bb_info->live_pavin = BITMAP_ALLOC (NULL);
+      bb_info->live_pavout = BITMAP_ALLOC (NULL);
       bitmap_copy (bb_info->live_pavin, init);
       bitmap_copy (bb_info->live_pavout, init);
     }
-  BITMAP_XFREE (init);
+  BITMAP_FREE (init);
 }
 
 /* The function frees the allocated info of all basic blocks.  */
@@ -2061,11 +2125,11 @@ free_bb_info (void)
   FOR_EACH_BB (bb)
     {
       bb_info = BB_INFO (bb);
-      BITMAP_XFREE (bb_info->live_pavout);
-      BITMAP_XFREE (bb_info->live_pavin);
-      BITMAP_XFREE (bb_info->killed);
-      BITMAP_XFREE (bb_info->avloc);
-      BITMAP_XFREE (bb_info->earlyclobber);
+      BITMAP_FREE (bb_info->live_pavout);
+      BITMAP_FREE (bb_info->live_pavin);
+      BITMAP_FREE (bb_info->killed);
+      BITMAP_FREE (bb_info->avloc);
+      BITMAP_FREE (bb_info->earlyclobber);
     }
   free_aux_for_blocks ();
 }
@@ -2297,7 +2361,7 @@ calculate_reg_pav (void)
 
   VARRAY_BB_INIT (bbs, n_basic_blocks, "basic blocks");
   VARRAY_BB_INIT (new_bbs, n_basic_blocks, "basic blocks for the next iter.");
-  temp_bitmap = BITMAP_XMALLOC ();
+  temp_bitmap = BITMAP_ALLOC (NULL);
   FOR_EACH_BB (bb)
     {
       VARRAY_PUSH_BB (bbs, bb);
@@ -2351,7 +2415,7 @@ calculate_reg_pav (void)
       VARRAY_POP_ALL (new_bbs);
     }
   sbitmap_free (wset);
-  BITMAP_XFREE (temp_bitmap);
+  BITMAP_FREE (temp_bitmap);
 }
 
 /* The function modifies partial availability information for two
@@ -2373,7 +2437,7 @@ modify_reg_pav (void)
   CLEAR_HARD_REG_SET (stack_hard_regs);
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
     SET_HARD_REG_BIT(stack_hard_regs, i);
-  stack_regs = BITMAP_XMALLOC ();
+  stack_regs = BITMAP_ALLOC (NULL);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
       COPY_HARD_REG_SET (used, reg_class_contents[reg_preferred_class (i)]);
@@ -2405,7 +2469,7 @@ modify_reg_pav (void)
 #endif
     }
 #ifdef STACK_REGS
-  BITMAP_XFREE (stack_regs);
+  BITMAP_FREE (stack_regs);
 #endif
 }
 

@@ -411,6 +411,10 @@
 ;; generated from the same template.
 (define_code_macro fcond [unordered uneq unlt unle eq lt le])
 
+;; This code macro is used for comparisons that can be implemented
+;; by swapping the operands.
+(define_code_macro swapped_fcond [ge gt unge ungt])
+
 ;; <u> expands to an empty string when doing a signed operation and
 ;; "u" when doing an unsigned operation.
 (define_code_attr u [(sign_extend "") (zero_extend "u")])
@@ -436,6 +440,12 @@
 			 (eq "eq")
 			 (lt "lt")
 			 (le "le")])
+
+;; Similar, but for swapped conditions.
+(define_code_attr swapped_fcond [(ge "le")
+				 (gt "lt")
+				 (unge "ule")
+				 (ungt "ult")])
 
 ;; .........................
 ;;
@@ -3729,14 +3739,39 @@ beq\t%2,%.,1b\;\
 ;;
 ;; We cope with this by making the mflo and mfhi patterns use both HI and LO.
 ;; Operand 1 is the register we want, operand 2 is the other one.
+;;
+;; When generating VR4120 or VR4130 code, we use macc{,hi} and
+;; dmacc{,hi} instead of mfhi and mflo.  This avoids both the normal
+;; MIPS III hi/lo hazards and the errata related to -mfix-vr4130.
 
-(define_insn "mfhilo_<mode>"
+(define_expand "mfhilo_<mode>"
+  [(set (match_operand:GPR 0 "register_operand")
+	(unspec:GPR [(match_operand:GPR 1 "register_operand")
+		     (match_operand:GPR 2 "register_operand")]
+		    UNSPEC_MFHILO))])
+
+(define_insn "*mfhilo_<mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
 	(unspec:GPR [(match_operand:GPR 1 "register_operand" "h,l")
 		     (match_operand:GPR 2 "register_operand" "l,h")]
 		    UNSPEC_MFHILO))]
-  ""
+  "!ISA_HAS_MACCHI"
   "mf%1\t%0"
+  [(set_attr "type" "mfhilo")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*mfhilo_<mode>_macc"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+	(unspec:GPR [(match_operand:GPR 1 "register_operand" "h,l")
+		     (match_operand:GPR 2 "register_operand" "l,h")]
+		    UNSPEC_MFHILO))]
+  "ISA_HAS_MACCHI"
+{
+  if (REGNO (operands[1]) == HI_REGNUM)
+    return "<d>macchi\t%0,%.,%.";
+  else
+    return "<d>macc\t%0,%.,%.";
+}
   [(set_attr "type" "mfhilo")
    (set_attr "mode" "<MODE>")])
 
@@ -4549,21 +4584,12 @@ beq\t%2,%.,1b\;\
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
-(define_insn "sgt_<mode>"
+(define_insn "s<code>_<mode>"
   [(set (match_operand:CC 0 "register_operand" "=z")
-	(gt:CC (match_operand:SCALARF 1 "register_operand" "f")
-	       (match_operand:SCALARF 2 "register_operand" "f")))]
+	(swapped_fcond:CC (match_operand:SCALARF 1 "register_operand" "f")
+		          (match_operand:SCALARF 2 "register_operand" "f")))]
   ""
-  "c.lt.<fmt>\t%Z0%2,%1"
-  [(set_attr "type" "fcmp")
-   (set_attr "mode" "FPSW")])
-
-(define_insn "sge_<mode>"
-  [(set (match_operand:CC 0 "register_operand" "=z")
-	(ge:CC (match_operand:SCALARF 1 "register_operand" "f")
-	       (match_operand:SCALARF 2 "register_operand" "f")))]
-  ""
-  "c.le.<fmt>\t%Z0%2,%1"
+  "c.<swapped_fcond>.<fmt>\t%Z0%2,%1"
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 

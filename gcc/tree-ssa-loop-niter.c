@@ -1395,3 +1395,86 @@ free_numbers_of_iterations_estimates (struct loops *loops)
 	free_numbers_of_iterations_estimates_loop (loop);
     }
 }
+
+
+/* APPLE LOCAL begin lno */
+/*
+   
+   Removal of loops in DCE.
+
+*/
+
+/* If we are able to prove that the LOOP always exits, turn off the
+   EDGE_DFS_BACK flag from its latch edge.  */
+
+static void
+unmark_surely_finite_loop (struct loop *loop)
+{
+  edge *exits;
+  unsigned i, n_exits;
+  struct tree_niter_desc niter_desc;
+
+  exits = get_loop_exit_edges (loop, &n_exits);
+  for (i = 0; i < n_exits; i++)
+    if (number_of_iterations_exit (loop, exits[i], &niter_desc))
+      {
+	loop_latch_edge (loop)->flags &= ~EDGE_DFS_BACK;
+	return;
+      }
+}
+
+/* Emit special statements preventing removal of possibly infinite loops in
+   CD_DCE to the latches of LOOPS for that we are not able to prove that they
+   iterate just finite number of times.  */
+
+void
+mark_maybe_infinite_loops (struct loops *loops)
+{
+  unsigned i;
+  struct loop *loop;
+  basic_block bb;
+  edge e;
+  tree stmt;
+  bool inserted = false;
+  block_stmt_iterator bsi;
+
+  mark_dfs_back_edges ();
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (loop)
+	unmark_surely_finite_loop (loop);
+    }
+
+  FOR_EACH_BB (bb)
+    {
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	if (e->flags & EDGE_DFS_BACK)
+	  {
+	    stmt = build_function_call_expr (built_in_decls[BUILT_IN_MAYBE_INFINITE_LOOP],
+					     NULL);
+
+	    if (!(e->flags & EDGE_ABNORMAL))
+	      {
+		bsi_insert_on_edge (e, stmt);
+		inserted = true;
+		continue;
+	      }
+
+	    /* We cannot insert on abnormal edge, so insert to the basic block
+	       at its start.  */
+	    bsi = bsi_last (e->src);
+	    if (!bsi_end_p (bsi)
+		&& stmt_ends_bb_p (bsi_stmt (bsi)))
+	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	    else
+	      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+	  }
+    }
+
+  if (inserted)
+    loop_commit_inserts ();
+}
+/* APPLE LOCAL end lno */

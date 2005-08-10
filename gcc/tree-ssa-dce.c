@@ -283,6 +283,15 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
   tree op, def;
   ssa_op_iter iter;
 
+  /* With non-call exceptions, we have to assume that all statements could
+     throw.  If a statement may throw, it is inherently necessary.  */
+  if (flag_non_call_exceptions
+      && tree_could_throw_p (stmt))
+    {
+      mark_stmt_necessary (stmt, true);
+      return;
+    }
+
   /* Statements that are implicitly live.  Most function calls, asm and return
      statements are required.  Labels and BIND_EXPR nodes are kept because
      they are control flow, and we have no way of knowing whether they can be
@@ -708,7 +717,10 @@ eliminate_unnecessary_stmts (void)
     {
       /* Remove dead PHI nodes.  */
       remove_dead_phis (bb);
+    }
 
+  FOR_EACH_BB (bb)
+    {
       /* Remove dead statements.  */
       for (i = bsi_start (bb); ! bsi_end_p (i) ; )
 	{
@@ -795,6 +807,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
   if (is_ctrl_stmt (t))
     {
       basic_block post_dom_bb;
+
       /* The post dominance info has to be up-to-date.  */
       gcc_assert (dom_computed[CDI_POST_DOMINATORS] == DOM_OK);
       /* Get the immediate post dominator of bb.  */
@@ -808,9 +821,20 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	  return;
 	}
 
-      /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
-      redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
-      PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+      /* If the post dominator block has PHI nodes, we might be unable
+	 to compute the right PHI args for them.  Since the control
+	 statement is unnecessary, all edges can be regarded as
+	 equivalent, but we have to get rid of the condition, since it
+	 might reference a variable that was determined to be
+	 unnecessary and thus removed.  */
+      if (phi_nodes (post_dom_bb))
+	post_dom_bb = EDGE_SUCC (bb, 0)->dest;
+      else
+	{
+	  /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
+	  redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
+	  PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+	}
       EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
       EDGE_SUCC (bb, 0)->count = bb->count;
 
@@ -879,7 +903,7 @@ tree_dce_init (bool aggressive)
       control_dependence_map 
 	= xmalloc (last_basic_block * sizeof (bitmap));
       for (i = 0; i < last_basic_block; ++i)
-	control_dependence_map[i] = BITMAP_XMALLOC ();
+	control_dependence_map[i] = BITMAP_ALLOC (NULL);
 
       last_stmt_necessary = sbitmap_alloc (last_basic_block);
       sbitmap_zero (last_stmt_necessary);
@@ -901,7 +925,7 @@ tree_dce_done (bool aggressive)
       int i;
 
       for (i = 0; i < last_basic_block; ++i)
-	BITMAP_XFREE (control_dependence_map[i]);
+	BITMAP_FREE (control_dependence_map[i]);
       free (control_dependence_map);
 
       sbitmap_free (visited_control_parents);

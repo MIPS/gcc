@@ -752,6 +752,63 @@ java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
   #undef WALK_SUBTREE
 }
 
+/* APPLE LOCAL begin AltiVec */
+/* Placeholders to make linking work, remove when altivec support is correct */
+
+int comptypes (tree type1, tree type2);
+
+int
+comptypes (tree type1, tree type2)
+{
+  register tree t1 = type1;
+  register tree t2 = type2;
+  if (t1 == t2 || !t1 || !t2
+      || TREE_CODE (t1) == ERROR_MARK || TREE_CODE (t2) == ERROR_MARK)
+    return 1;
+  return 0;
+}
+
+tree default_conversion (tree exp);
+
+tree
+default_conversion (tree exp)
+{
+  return exp;
+}
+
+tree lang_build_type_variant (tree type, int constp ATTRIBUTE_UNUSED, int volatilep ATTRIBUTE_UNUSED);
+
+tree
+lang_build_type_variant (tree type, int constp ATTRIBUTE_UNUSED, int volatilep ATTRIBUTE_UNUSED)
+{
+  return type;
+}
+/* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin constant cfstrings */
+enum { blabla } c_language;
+const char *constant_string_class_name = "die die";
+int flag_next_runtime = 1;
+/* APPLE LOCAL end constant cfstrings */
+
+/* APPLE LOCAL disable_typechecking_for_spec_flag */
+int disable_typechecking_for_spec_flag = 0;
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Dummies needed because we use them from cpplib, yuck.  */
+int flag_cw_asm_blocks;
+int cw_asm_state;
+int cw_asm_in_operands;
+/* APPLE LOCAL end CW asm blocks */
+
+/* APPLE LOCAL begin 4174833 */
+tree
+objc_is_class_name (tree ARG_UNUSED (arg))
+{
+  return 0;
+}
+/* APPLE LOCAL end 4174833 */
+
 /* Every call to a static constructor has an associated boolean
    variable which is in the outermost scope of the calling method.
    This variable is used to avoid multiple calls to the static

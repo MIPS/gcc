@@ -300,17 +300,15 @@ match_boz_constant (gfc_expr ** result)
   match_digits (0, radix, buffer);
   gfc_next_char ();  /* Eat delimiter.  */
 
-  kind = get_kind ();
-  if (kind == -1)
-    return MATCH_ERROR;
-  if (kind == -2)
-    kind = gfc_default_integer_kind;
-  else if (pedantic 
-	   && (gfc_notify_std (GFC_STD_GNU, "Extension: Kind parameter "
-			       "suffix to boz literal constant at %C.")
-	       == FAILURE))
-    return MATCH_ERROR;
 
+  /* In section 5.2.5 and following C567 in the Fortran 2003 standard, we find
+     "If a data-stmt-constant is a boz-literal-constant, the corresponding
+     variable shall be of type integer.  The boz-literal-constant is treated
+     as if it were an int-literal-constant with a kind-param that specifies
+     the representation method with the largest decimal exponent range
+     supported by the processor."  */
+
+  kind = gfc_max_integer_kind;
   e = gfc_convert_integer (buffer, kind, radix, &gfc_current_locus);
 
   if (gfc_range_check (e) != ARITH_OK)
@@ -639,7 +637,7 @@ next_string_char (char delimiter)
   if (c == '\n')
     return -2;
 
-  if (c == '\\')
+  if (gfc_option.flag_backslash && c == '\\')
     {
       old_locus = gfc_current_locus;
 
@@ -1076,7 +1074,17 @@ match_complex_constant (gfc_expr ** result)
 
   m = gfc_match_char (')');
   if (m == MATCH_NO)
+    {
+      /* Give the matcher for implied do-loops a chance to run.  This
+	 yields a much saner error message for (/ (i, 4=i, 6) /).  */
+      if (gfc_peek_char () == '=')
+	{
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
+      else
     goto syntax;
+    }
 
   if (m == MATCH_ERROR)
     goto cleanup;
@@ -1273,7 +1281,7 @@ match_keyword_arg (gfc_actual_arglist * actual, gfc_actual_arglist * base)
   if (name[0] != '\0')
     {
       for (a = base; a; a = a->next)
-	if (strcmp (a->name, name) == 0)
+	if (a->name != NULL && strcmp (a->name, name) == 0)
 	  {
 	    gfc_error
 	      ("Keyword '%s' at %C has already appeared in the current "
@@ -1282,7 +1290,7 @@ match_keyword_arg (gfc_actual_arglist * actual, gfc_actual_arglist * base)
 	  }
     }
 
-  strcpy (actual->name, name);
+  actual->name = gfc_get_string (name);
   return MATCH_YES;
 
 cleanup:
@@ -1507,6 +1515,9 @@ check_substring:
 
 	  if (primary->expr_type == EXPR_CONSTANT)
 	    primary->expr_type = EXPR_SUBSTRING;
+
+	  if (substring)
+	    primary->ts.cl = NULL;
 
 	  break;
 
@@ -1981,6 +1992,8 @@ gfc_match_rvalue (gfc_expr ** result)
 		}
 
 	      e->ts = sym->ts;
+	      if (e->ref)
+		e->ts.cl = NULL;
 	      m = MATCH_YES;
 	      break;
 	    }
