@@ -4292,8 +4292,11 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	{
 	  /* Historically, the compiler has treated a bare
 	     reference to a volatile lvalue as forcing a load.  */
-	  tree tmp = create_tmp_var (TREE_TYPE (*expr_p), "vol");
-	  *expr_p = build (MODIFY_EXPR, TREE_TYPE (tmp), tmp, *expr_p);
+	  /* APPLE LOCAL begin mainline 4.0.2 4098854 */
+	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
+	  tree tmp = create_tmp_var (type, "vol");
+	  *expr_p = build (MODIFY_EXPR, type, tmp, *expr_p);
+	  /* APPLE LOCAL end mainline 4.0.2 4098854 */
 	}
       else
 	/* We can't do anything useful with a volatile reference to
