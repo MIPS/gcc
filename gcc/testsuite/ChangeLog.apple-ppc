@@ -1,3 +1,8 @@
+2005-08-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3893122
+	* g++.dg/apple-r3893112.C:  New.
+
 2005-08-10  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4209014
