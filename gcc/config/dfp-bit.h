@@ -154,22 +154,18 @@ extern void __dfp_raise (int);
     STR_TO_INT: The function to read the integer from a string.  */
 
 #if INT_KIND == 1
-typedef int SItype __attribute__ ((mode (SI)));
 #define INT_TYPE SItype
 #define INT_FMT "%d"
 #define STR_TO_INT strtol
 #elif INT_KIND == 2
-typedef int DItype __attribute__ ((mode (DI)));
 #define INT_TYPE DItype
 #define INT_FMT "%lld"
 #define STR_TO_INT strtoll
 #elif INT_KIND == 3
-typedef unsigned int USItype __attribute__ ((mode (SI)));
 #define INT_TYPE USItype
 #define INT_FMT "%u"
 #define STR_TO_INT strtoul
 #elif INT_KIND == 4
-typedef unsigned int UDItype __attribute__ ((mode (DI)));
 #define INT_TYPE UDItype
 #define INT_FMT "%llu"
 #define STR_TO_INT strtoull
@@ -353,6 +349,20 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #endif
 #endif
 
+/* Some handy typedefs.  */
+
+typedef int SItype __attribute__ ((mode (SI)));
+typedef int DItype __attribute__ ((mode (DI)));
+typedef unsigned int USItype __attribute__ ((mode (SI)));
+typedef unsigned int UDItype __attribute__ ((mode (DI)));
+
+/* The type of the result of a decimal float comparison.  This must
+   match `word_mode' in GCC for the target.  Default to SItype.  */
+
+#ifndef CMPtype
+#define CMPtype SItype
+#endif
+
 /* Prototypes.  */
 
 #if defined (L_mul_sd) || defined (L_mul_dd) || defined (L_mul_td)
@@ -369,27 +379,27 @@ extern DFP_C_TYPE DFP_SUB (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
-extern int DFP_EQ (DFP_C_TYPE, DFP_C_TYPE);
+extern CMPtype DFP_EQ (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_ne_sd) || defined (L_ne_dd) || defined (L_ne_td)
-extern int DFP_NE (DFP_C_TYPE, DFP_C_TYPE);
+extern CMPtype DFP_NE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_lt_sd) || defined (L_lt_dd) || defined (L_lt_td)
-extern int DFP_LT (DFP_C_TYPE, DFP_C_TYPE);
+extern CMPtype DFP_LT (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_gt_sd) || defined (L_gt_dd) || defined (L_gt_td)
-extern int DFP_GT (DFP_C_TYPE, DFP_C_TYPE);
+extern CMPtype DFP_GT (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_le_sd) || defined (L_le_dd) || defined (L_le_td)
-extern int DFP_LE (DFP_C_TYPE, DFP_C_TYPE);
+extern CMPtype DFP_LE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_ge_sd) || defined (L_ge_dd) || defined (L_ge_td)
-extern int DFP_GE (DFP_C_TYPE, DFP_C_TYPE);
+extern CMPtype DFP_GE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_sd_to_dd) || defined (L_sd_to_td) || defined (L_dd_to_sd) \

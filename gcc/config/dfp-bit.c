@@ -179,7 +179,7 @@ DFP_DIVIDE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 #endif /* L_div */
 
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
-int
+CMPtype
 DFP_EQ (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   int stat;
@@ -190,7 +190,7 @@ DFP_EQ (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 #endif /* L_eq */
 
 #if defined (L_ne_sd) || defined (L_ne_dd) || defined (L_ne_td)
-int
+CMPtype
 DFP_NE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   int stat;
@@ -201,7 +201,7 @@ DFP_NE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 #endif /* L_ne */
 
 #if defined (L_lt_sd) || defined (L_lt_dd) || defined (L_lt_td)
-int
+CMPtype
 DFP_LT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   int stat;
@@ -212,7 +212,7 @@ DFP_LT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 #endif /* L_lt */
 
 #if defined (L_gt_sd) || defined (L_gt_dd) || defined (L_gt_td)
-int
+CMPtype
 DFP_GT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   int stat;
@@ -223,7 +223,7 @@ DFP_GT (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 #endif
 
 #if defined (L_le_sd) || defined (L_le_dd) || defined (L_le_td)
-int
+CMPtype
 DFP_LE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   int stat;
@@ -234,7 +234,7 @@ DFP_LE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 #endif /* L_le */
 
 #if defined (L_ge_sd) || defined (L_ge_dd) || defined (L_ge_td)
-int
+CMPtype
 DFP_GE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   int stat;

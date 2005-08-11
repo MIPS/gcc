@@ -1,5 +1,15 @@
 2005-08-11  Ben Elliston  <bje@au.ibm.com>
 
+	* config/dfp-bit.h (SItype, DItype, USItype, UDItype): Declare
+	these typedefs unconditionally, not based on INT_KIND.
+	(CMPtype): New macro.
+	(DFP_EQ, DFP_NE, DFP_LT, DFP_GT, DFP_LE, DFP_GE): Return CMPtype.
+	* config/dfp-bit.c (DFP_EQ, DFP_NE, DFP_LT, DFP_GT, DFP_LE,
+	DFP_GE): Set the return type to CMPtype, which is defined in
+	config/dfp-bit.h.
+
+2005-08-11  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.c (DFP_PLUS, DFP_MINUS): Remove unused functions.
 
 2005-08-11  Ben Elliston  <bje@au.ibm.com>
