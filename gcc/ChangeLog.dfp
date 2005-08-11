@@ -1,5 +1,16 @@
 2005-08-11  Ben Elliston  <bje@au.ibm.com>
 
+	* Makefile.in (D32PBIT_FUNCS, D64PBIT_FUNCS, D128_BIT_FUNCS):
+	Add BFP<->DFP runtime conversions for XFmode.
+	* config/dfp-bit.h (BFP_KIND): Handle a value of 3 for XFmode.
+	(BFP_TO_DFP, DFP_TO_BFP): Add __routine names for XFmode.
+	Define BFP_KIND to 3 when L_{sd,dd,td}_to_xf or L_xf_to_{sd,dd,td}
+	are defined.
+	* config/dfp-bit.c (DFP_TO_BFP): Include when L_{sd,dd,td}_to_XF.
+	(BFP_TO_DFP): Likewise, include when L_xf_to_{sd,dd,td} is set.
+
+2005-08-11  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h (SItype, DItype, USItype, UDItype): Declare
 	these typedefs unconditionally, not based on INT_KIND.
 	(CMPtype): New macro.

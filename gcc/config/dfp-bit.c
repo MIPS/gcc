@@ -371,7 +371,8 @@ INT_TO_DFP (INT_TYPE i)
 #endif
 
 #if defined (L_sd_to_sf) || defined (L_dd_to_sf) || defined (L_td_to_sf) \
- || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df)
+ || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df) \
+ || defined (L_sd_to_xf) || defined (L_dd_to_xf) || defined (L_td_to_xf)
 BFP_TYPE
 DFP_TO_BFP (DFP_C_TYPE x)
 {
@@ -392,7 +393,8 @@ DFP_TO_BFP (DFP_C_TYPE x)
 #endif
                                                                                 
 #if defined (L_sf_to_sd) || defined (L_sf_to_dd) || defined (L_sf_to_td) \
- || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td)
+ || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td) \
+ || defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)
 DFP_C_TYPE
 BFP_TO_DFP (BFP_TYPE x)
 {

@@ -180,6 +180,9 @@ extern void __dfp_raise (int);
 #elif defined (L_sd_to_df) || defined (L_dd_to_df ) || defined (L_td_to_df) \
  ||   defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td)
 #define BFP_KIND 2
+#elif defined (L_sd_to_xf) || defined (L_dd_to_xf ) || defined (L_td_to_xf) \
+ ||   defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)
+#define BFP_KIND 3
 #endif
 
 /*  If BFP_KIND is defined, define additional macros:
@@ -197,12 +200,20 @@ extern float strtof (const char *, char **);
 #define BFP_TYPE SFtype
 #define BFP_FMT "%e"
 #define STR_TO_BFP strtof
+
 #elif BFP_KIND == 2
 typedef float DFtype __attribute__ ((mode (DF)));
 #define BFP_TYPE DFtype
 #define BFP_FMT "%e"
 #define STR_TO_BFP strtod
-#endif
+
+#elif BFP_KIND == 3
+typedef float XFtype __attribute__ ((mode (XF)));
+#define BFP_TYPE XFtype
+#define BFP_FMT "%e"
+#define STR_TO_BFP strtod
+
+#endif /* BFP_KIND */
 
 #if WIDTH == 128 || WIDTH_TO == 128
 #include "decimal128.h"
@@ -213,7 +224,6 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #if WIDTH == 32 || WIDTH_TO == 32
 #include "decimal32.h"
 #endif
-
 #include "decNumber.h"
 
 /* Names of arithmetic functions.  */
@@ -330,7 +340,11 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #elif BFP_KIND == 2
 #define BFP_TO_DFP	__truncdfsd2
 #define DFP_TO_BFP	__extendsddf2
-#endif
+#elif BFP_KIND == 3
+#define BFP_TO_DFP	__truncxfsd2
+#define DFP_TO_BFP	__extendsdxf2
+#endif /* BFP_KIND */
+
 #elif WIDTH == 64
 #if BFP_KIND == 1
 #define BFP_TO_DFP	__extendsfdd2
@@ -338,7 +352,11 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #elif BFP_KIND == 2
 #define BFP_TO_DFP	__extenddfdd2
 #define DFP_TO_BFP	__truncdddf2
-#endif
+#elif BFP_KIND == 3
+#define BFP_TO_DFP	__truncxfdd2
+#define DFP_TO_BFP	__extendddxf2
+#endif /* BFP_KIND */
+
 #elif WIDTH == 128
 #if BFP_KIND == 1
 #define BFP_TO_DFP	__extendsftd2
@@ -346,8 +364,12 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #elif BFP_KIND == 2
 #define BFP_TO_DFP	__extenddftd2
 #define DFP_TO_BFP	__trunctddf2
-#endif
-#endif
+#elif BFP_KIND == 3
+#define BFP_TO_DFP	__extendxftd2
+#define DFP_TO_BFP	__trunctdxf2
+#endif /* BFP_KIND */
+
+#endif /* WIDTH */
 
 /* Some handy typedefs.  */
 
