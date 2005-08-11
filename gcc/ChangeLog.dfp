@@ -1,3 +1,16 @@
+2005-08-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/dfp-bit.h (TO_ENCODED_TO): Replace redefinition of TO_ENCODED
+	for DFP to DFP convertions.
+	(CAST_FOR_FMT): New.
+	(BPF macros): Don't define for XF mode if target does not support it.
+	(DFP_TO_BFP, BFP_TO_DFP): Skip prototypes for XF mode if target
+	does not support it.
+	* config/dfp-bit.c (DFP_TO_DFP): Use TO_ENCODED_TO.
+	(INT_TO_DFP): Use CAST_FOR_FMT.
+	(DFP_TO_BFP, BFP_TO_DFP): Skip definitions for XF mode if target
+	does not support it.
+
 2005-08-11  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/t-linux: Remove.

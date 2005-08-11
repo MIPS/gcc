@@ -268,7 +268,7 @@ DFP_TO_DFP (DFP_C_TYPE f)
 
   uf.f = f;
   TO_INTERNAL (&uf.s, &d);
-  TO_ENCODED (&ut.s, &d, &context);
+  TO_ENCODED_TO (&ut.s, &d, &context);
   return ut.f;
 }
 #endif
@@ -359,7 +359,7 @@ INT_TO_DFP (INT_TYPE i)
   context.traps = CONTEXT_TRAPS;
 
   /* Use a C library function to get a floating point string.  */
-  sprintf (buf, INT_FMT ".0", i);
+  sprintf (buf, INT_FMT ".0", CAST_FOR_FMT(i));
   /* Convert from the floating point string to a decimal* type.  */
   FROM_STRING (&u.s, buf, &context);
   if ((context.status & DEC_Inexact) != 0)
@@ -372,7 +372,8 @@ INT_TO_DFP (INT_TYPE i)
 
 #if defined (L_sd_to_sf) || defined (L_dd_to_sf) || defined (L_td_to_sf) \
  || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df) \
- || defined (L_sd_to_xf) || defined (L_dd_to_xf) || defined (L_td_to_xf)
+ || ((defined (L_sd_to_xf) || defined (L_dd_to_xf) || defined (L_td_to_xf)) \
+     && LIBGCC2_HAS_XF_MODE)
 BFP_TYPE
 DFP_TO_BFP (DFP_C_TYPE x)
 {
@@ -394,7 +395,8 @@ DFP_TO_BFP (DFP_C_TYPE x)
                                                                                 
 #if defined (L_sf_to_sd) || defined (L_sf_to_dd) || defined (L_sf_to_td) \
  || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td) \
- || defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)
+ || ((defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)) \
+     && LIBGCC2_HAS_XF_MODE)
 DFP_C_TYPE
 BFP_TO_DFP (BFP_TYPE x)
 {

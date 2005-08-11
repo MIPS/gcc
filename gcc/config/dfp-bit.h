@@ -107,25 +107,22 @@ extern void __dfp_raise (int);
 
    IEEE_TYPE_TO: the corresponding (encoded) IEEE754R type.
 
-   TO_ENCODED: the name of the decNumber function to convert an
+   TO_ENCODED_TO: the name of the decNumber function to convert an
    internally represented decNumber into the encoded representation
    for the destination.  */
 
 #if WIDTH_TO == 32
 #define DFP_C_TYPE_TO	_Decimal32
 #define IEEE_TYPE_TO	decimal32
-#undef TO_ENCODED
-#define TO_ENCODED	decimal32FromNumber
+#define TO_ENCODED_TO	decimal32FromNumber
 #elif WIDTH_TO == 64
 #define DFP_C_TYPE_TO	_Decimal64
 #define IEEE_TYPE_TO	decimal64
-#undef TO_ENCODED
-#define TO_ENCODED	decimal64FromNumber
+#define TO_ENCODED_TO	decimal64FromNumber
 #elif WIDTH_TO == 128
 #define DFP_C_TYPE_TO	_Decimal128
 #define IEEE_TYPE_TO	decimal128
-#undef TO_ENCODED
-#define TO_ENCODED	decimal128FromNumber
+#define TO_ENCODED_TO	decimal128FromNumber
 #endif
 
 /* Conversions between decimal float types and integral types use INT_KIND
@@ -151,23 +148,30 @@ extern void __dfp_raise (int);
 
     INT_FMT: The format string for writing the integer to a string.
 
+    CAST_FOR_FMT: Cast variable of INT_KIND to C type for sprintf.
+    This works for ILP32 and LP64, won't for other type size systems.
+
     STR_TO_INT: The function to read the integer from a string.  */
 
 #if INT_KIND == 1
 #define INT_TYPE SItype
 #define INT_FMT "%d"
+#define CAST_FOR_FMT(A) (int)A
 #define STR_TO_INT strtol
 #elif INT_KIND == 2
 #define INT_TYPE DItype
 #define INT_FMT "%lld"
+#define CAST_FOR_FMT(A) (long long)A
 #define STR_TO_INT strtoll
 #elif INT_KIND == 3
 #define INT_TYPE USItype
 #define INT_FMT "%u"
+#define CAST_FOR_FMT(A) (unsigned int)A
 #define STR_TO_INT strtoul
 #elif INT_KIND == 4
 #define INT_TYPE UDItype
 #define INT_FMT "%llu"
+#define CAST_FOR_FMT(A) (unsigned long long)A
 #define STR_TO_INT strtoull
 #endif
 
@@ -208,10 +212,13 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #define STR_TO_BFP strtod
 
 #elif BFP_KIND == 3
+#if LIBGCC2_HAS_XF_MODE
+/* These aren't used if XF mode is not supported.  */
 typedef float XFtype __attribute__ ((mode (XF)));
 #define BFP_TYPE XFtype
 #define BFP_FMT "%e"
 #define STR_TO_BFP strtod
+#endif
 
 #endif /* BFP_KIND */
 
@@ -444,12 +451,16 @@ extern DFP_C_TYPE INT_TO_DFP (INT_TYPE);
 #endif
 
 #if defined (L_sd_to_sf) || defined (L_dd_to_sf) || defined (L_td_to_sf) \
- || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df)
+ || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df) \
+ || ((defined (L_sd_to_xf) || defined (L_dd_to_xf) || defined (L_td_to_xf)) \
+     && LIBGCC2_HAS_XF_MODE)
 extern BFP_TYPE DFP_TO_BFP (DFP_C_TYPE);
 #endif
 
 #if defined (L_sf_to_sd) || defined (L_sf_to_dd) || defined (L_sf_to_td) \
- || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td)
+ || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td) \
+ || ((defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)) \
+     && LIBGCC2_HAS_XF_MODE)
 extern DFP_C_TYPE BFP_TO_DFP (BFP_TYPE);
 #endif
 
