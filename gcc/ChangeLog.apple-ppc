@@ -1,3 +1,9 @@
+2005-08-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3893112
+	* config/rs6000/rs6000.c (params.h):  Include.
+	(optimization_options):  Set sra-max-structure-size.
+
 2005-08-09  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4209014

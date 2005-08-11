@@ -53,6 +53,8 @@
 #include "cfglayout.h"
 #include "sched-int.h"
 #include "tree-gimple.h"
+/* APPLE begin 3893112 */
+#include "params.h"
 /* APPLE LOCAL mainline 2005-04-14 */
 #include "intl.h"
 #if TARGET_XCOFF
@@ -1970,6 +1972,11 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 	 turned on when <fenv.h> is included (see darwin_pragma_fenv
 	 in darwin-c.c).  */
       flag_trapping_math = 0;
+      /* APPLE LOCAL begin 3893112 */
+      /* This value may be temporary; dje will have an opinion at some point.
+	 36 is what x86 uses and ppc should be at least as big.  */
+      set_param_value ("sra-max-structure-size", 36);
+      /* APPLE LOCAL end 3893112 */
     }
   /* APPLE LOCAL end tweak default optimizations */
 }
