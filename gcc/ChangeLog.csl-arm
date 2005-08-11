@@ -1,5 +1,10 @@
 2005-08-11  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/arm.c (arm_unwind_emit_stm): Correct format bugs.
+	(arm_unwind_emit_set): Ditto.
+
+2005-08-11  Paul Brook  <paul@codesourcery.com>
+
 	Backport from mainline.
 	2004-10-02  Ian Lance Taylor  <ian@wasabisystems.com>
 	* arm.c (output_call_mem): Add missing \t.
