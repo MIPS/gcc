@@ -68,7 +68,7 @@ dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
   DFP_C_TYPE result;
   decContext context;
   decNumber arg1, res;
-  DFP_TYPE a, encoded_result;
+  IEEE_TYPE a, encoded_result;
 
   memcpy (&a, &arg, sizeof (a));
 
@@ -94,7 +94,7 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   DFP_C_TYPE result;
   decContext context;
   decNumber arg1, arg2, res;
-  DFP_TYPE a, b, encoded_result;
+  IEEE_TYPE a, b, encoded_result;
 
   memcpy (&a, &arg_a, sizeof (a));
   memcpy (&b, &arg_b, sizeof (b));
@@ -119,7 +119,7 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 static inline int
 dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
-  DFP_TYPE a, b;
+  IEEE_TYPE a, b;
   decContext context;
   decNumber arg1, arg2, res;
   int result;
@@ -273,11 +273,11 @@ DFP_TO_DFP (DFP_C_TYPE f)
 {
   union {
     DFP_C_TYPE f;
-    DFP_TYPE s;
+    IEEE_TYPE s;
   } uf;
   union {
     DFP_C_TYPE_TO f;
-    DFP_TYPE_TO s;
+    IEEE_TYPE_TO s;
   } ut;
   decNumber d;
   decContext context;
@@ -304,7 +304,7 @@ DFP_TO_INT (DFP_C_TYPE x)
      types, but they have different calling conventions.  */
   union {
     DFP_C_TYPE f;
-    DFP_TYPE s;
+    IEEE_TYPE s;
   } u;
   char buf[BUFMAX];
   char *pos;
@@ -369,7 +369,7 @@ INT_TO_DFP (INT_TYPE i)
      types, but they have different calling conventions.  */
   union {
     DFP_C_TYPE f;
-    DFP_TYPE s;
+    IEEE_TYPE s;
   } u;
   char buf[BUFMAX];
   decContext context;
@@ -399,7 +399,7 @@ DFP_TO_BFP (DFP_C_TYPE x)
      types, but they have different calling conventions.  */
   union {
     DFP_C_TYPE f;
-    DFP_TYPE s;
+    IEEE_TYPE s;
   } u;
   char buf[BUFMAX];
 
@@ -420,7 +420,7 @@ BFP_TO_DFP (BFP_TYPE x)
      types, but they have different calling conventions.  */
   union {
     DFP_C_TYPE f;
-    DFP_TYPE s;
+    IEEE_TYPE s;
   } u;
   char buf[BUFMAX];
   decContext context;
