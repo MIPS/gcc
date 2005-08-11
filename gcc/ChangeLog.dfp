@@ -1,5 +1,9 @@
 2005-08-11  Ben Elliston  <bje@au.ibm.com>
 
+	* config/dfp-bit.c (DFP_PLUS, DFP_MINUS): Remove unused functions.
+
+2005-08-11  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h (DFP_TYPE): Rename to IEEE_TYPE.
 	(DFP_TYPE_TO): Likewise, rename to IEEE_TYPE_TO.
 	* config/dfp-bit.c: Update all users.

@@ -178,26 +178,6 @@ DFP_DIVIDE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 }
 #endif /* L_div */
 
-#if 0
-
-#if defined(L_plus_sd) || defined(L_plus_dd) || defined(L_plus_td)
-DFP_C_TYPE
-DFP_PLUS (DFP_C_TYPE arg)
-{
-  return dfp_unary_op (decNumberPlus, arg);
-}
-#endif /* L_plus */
-
-#if defined(L_minus_sd) || defined(L_minus_dd) || defined(L_minus_td)
-DFP_C_TYPE
-DFP_MINUS (DFP_C_TYPE arg)
-{
-  return dfp_unary_op (decNumberMinus, arg);
-}
-#endif /* L_minus */
-
-#endif /* 0 */
-
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
 int
 DFP_EQ (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
