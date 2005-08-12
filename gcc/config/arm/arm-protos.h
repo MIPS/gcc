@@ -33,6 +33,7 @@ extern const char *arm_output_epilogue (rtx);
 extern void arm_expand_prologue (void);
 extern const char *arm_strip_name_encoding (const char *);
 extern void arm_asm_output_labelref (FILE *, const char *);
+extern void thumb2_asm_output_opcode (FILE *);
 extern unsigned long arm_current_func_type (void);
 extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
 							     unsigned int);
@@ -56,7 +57,8 @@ extern int legitimate_pic_operand_p (rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern rtx legitimize_tls_address (rtx, unsigned int, rtx);
 extern int arm_legitimate_address_p  (enum machine_mode, rtx, RTX_CODE, int);
-extern int thumb_legitimate_address_p (enum machine_mode, rtx, int);
+extern int thumb1_legitimate_address_p (enum machine_mode, rtx, int);
+extern int thumb2_legitimate_address_p  (enum machine_mode, rtx, int);
 extern int thumb_legitimate_offset_p (enum machine_mode, HOST_WIDE_INT);
 extern rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
@@ -93,6 +95,7 @@ extern int const_shift_operand (rtx, enum machine_mode);
 extern int arm_comparison_operator (rtx, enum machine_mode);
 extern int shiftable_operator (rtx, enum machine_mode);
 extern int shift_operator (rtx, enum machine_mode);
+extern int thumb_16bit_operator (rtx, enum machine_mode);
 extern int equality_operator (rtx, enum machine_mode);
 extern int minmax_operator (rtx, enum machine_mode);
 extern int cc_register (rtx, enum machine_mode);
@@ -152,7 +155,6 @@ extern void arm_poke_function_name (FILE *, const char *);
 extern void arm_print_operand (FILE *, rtx, int);
 extern void arm_print_operand_address (FILE *, rtx);
 extern void arm_final_prescan_insn (rtx);
-extern int arm_go_if_legitimate_address (enum machine_mode, rtx);
 extern int arm_debugger_arg_offset (int, rtx);
 extern int arm_is_longcall_p (rtx, int, int);
 extern int    arm_emit_vector_const (FILE *, rtx);
@@ -161,6 +163,7 @@ extern const char *vfp_output_fstmx (rtx *);
 extern void arm_set_return_address (rtx, rtx);
 extern bool arm_output_addr_const_extra (FILE *, rtx);
 extern int arm_eliminable_register (rtx);
+extern const char *arm_output_shift(rtx *, bool);
 
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
@@ -192,21 +195,21 @@ extern int arm_float_words_big_endian (void);
 /* Thumb functions.  */
 extern void arm_init_expanders (void);
 extern const char *thumb_unexpanded_epilogue (void);
-extern void thumb_expand_prologue (void);
-extern void thumb_expand_epilogue (void);
+extern void thumb1_expand_prologue (void);
+extern void thumb1_expand_epilogue (void);
 #ifdef TREE_CODE
 extern int is_called_in_ARM_mode (tree);
 #endif
 extern int thumb_shiftable_const (unsigned HOST_WIDE_INT);
 #ifdef RTX_CODE
-extern void thumb_final_prescan_insn (rtx);
+extern void thumb1_final_prescan_insn (rtx);
+extern void thumb2_final_prescan_insn (rtx);
 extern const char *thumb_load_double_from_address (rtx *);
 extern const char *thumb_output_move_mem_multiple (int, rtx *);
 extern const char *thumb_call_via_reg (rtx);
 extern void thumb_expand_movstrqi (rtx *);
-extern int thumb_cmp_operand (rtx, enum machine_mode);
+extern int thumb1_cmp_operand (rtx, enum machine_mode);
 extern int thumb_cbrch_target_operand (rtx, enum machine_mode);
-extern int thumb_go_if_legitimate_address (enum machine_mode, rtx);
 extern rtx arm_return_addr (int, rtx);
 extern void thumb_reload_out_hi (rtx *);
 extern void thumb_reload_in_hi (rtx *);

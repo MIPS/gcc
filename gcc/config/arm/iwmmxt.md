@@ -1,3 +1,4 @@
+;; ??? This file needs auditing for thumb2
 ;; Patterns for the Intel Wireless MMX technology architecture.
 ;; Copyright (C) 2003 Free Software Foundation, Inc.
 ;; Contributed by Red Hat.

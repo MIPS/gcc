@@ -1,3 +1,4 @@
+;; ??? This file needs auditing for thumb2
 ;; ARM VFP coprocessor Machine Description
 ;; Copyright (C) 2003 Free Software Foundation, Inc.
 ;; Written by CodeSourcery, LLC.

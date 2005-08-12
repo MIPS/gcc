@@ -39,6 +39,8 @@ extern char arm_arch_name[];
 	builtin_define ("__APCS_32__");			\
 	if (TARGET_THUMB)				\
 	  builtin_define ("__thumb__");			\
+	if (TARGET_THUMB2)				\
+	  builtin_define ("__thumb2__");		\
 							\
 	if (TARGET_BIG_END)				\
 	  {						\
@@ -277,8 +279,8 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_MAVERICK			(arm_fp_model == ARM_FP_MODEL_MAVERICK)
 #define TARGET_VFP			(arm_fp_model == ARM_FP_MODEL_VFP)
 #define TARGET_IWMMXT			(arm_arch_iwmmxt)
-#define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_ARM)
-#define TARGET_IWMMXT_ABI (TARGET_ARM && arm_abi == ARM_ABI_IWMMXT)
+#define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_32BIT)
+#define TARGET_IWMMXT_ABI (TARGET_32BIT && arm_abi == ARM_ABI_IWMMXT)
 #define TARGET_BIG_END			(target_flags & ARM_FLAG_BIG_END)
 #define TARGET_INTERWORK		(target_flags & ARM_FLAG_INTERWORK)
 #define TARGET_LITTLE_WORDS		(target_flags & ARM_FLAG_LITTLE_WORDS)
@@ -301,6 +303,18 @@ extern GTY(()) rtx aof_pic_label;
 
 #define TARGET_HARD_TP			(target_thread_pointer == TP_CP15)
 #define TARGET_SOFT_TP			(target_thread_pointer == TP_SOFT)
+
+/* Only 16-bit thumb code.  */
+#define TARGET_THUMB1			(TARGET_THUMB && !arm_arch_thumb2)
+/* Arm or Thumb-2 32-bit code.  */
+#define TARGET_32BIT			(TARGET_ARM || arm_arch_thumb2)
+/* 32-bit Thumb-2 code.  */
+#define TARGET_THUMB2			(TARGET_THUMB && arm_arch_thumb2)
+
+/* We could use unified syntax for arm mode, but for now we just use it
+   for Thumb-2.  */
+#define TARGET_UNIFIED_ASM TARGET_THUMB2
+
 
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
@@ -556,6 +570,9 @@ extern int arm_tune_xscale;
 
 /* Nonzero if this chip is an ARM6 or an ARM7.  */
 extern int arm_is_6_or_7;
+
+/* Nonzero if chip supports Thumb 2.  */
+extern int arm_arch_thumb2;
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (ARM_FLAG_APCS_FRAME)
@@ -868,7 +885,7 @@ extern const char * structure_size_string;
 {								\
   int regno;							\
 								\
-  if (TARGET_SOFT_FLOAT || TARGET_THUMB || !TARGET_FPA)		\
+  if (TARGET_SOFT_FLOAT || TARGET_THUMB1 || !TARGET_FPA)	\
     {								\
       for (regno = FIRST_FPA_REGNUM;				\
 	   regno <= LAST_FPA_REGNUM; ++regno)			\
@@ -880,6 +897,7 @@ extern const char * structure_size_string;
       /* When optimizing for size, it's better not to use	\
 	 the HI regs, because of the overhead of stacking 	\
 	 them.  */						\
+      /* ??? Is this still true for thumb2?  */			\
       for (regno = FIRST_HI_REGNUM;				\
 	   regno <= LAST_HI_REGNUM; ++regno)			\
 	fixed_regs[regno] = call_used_regs[regno] = 1;		\
@@ -888,10 +906,10 @@ extern const char * structure_size_string;
   /* The link register can be clobbered by any branch insn,	\
      but we have no way to track that at present, so mark	\
      it as unavailable.  */					\
-  if (TARGET_THUMB)						\
+  if (TARGET_THUMB1)						\
     fixed_regs[LR_REGNUM] = call_used_regs[LR_REGNUM] = 1;	\
 								\
-  if (TARGET_ARM && TARGET_HARD_FLOAT)				\
+  if (TARGET_32BIT && TARGET_HARD_FLOAT)			\
     {								\
       if (TARGET_MAVERICK)					\
 	{							\
@@ -1034,7 +1052,7 @@ extern const char * structure_size_string;
 /* The native (Norcroft) Pascal compiler for the ARM passes the static chain
    as an invisible last argument (possible since varargs don't exist in
    Pascal), so the following is not true.  */
-#define STATIC_CHAIN_REGNUM	(TARGET_ARM ? 12 : 9)
+#define STATIC_CHAIN_REGNUM	(TARGET_32BIT ? 12 : 9)
 
 /* Define this to be where the real frame pointer is if it is not possible to
    work out the offset between the frame pointer and the automatic variables
@@ -1122,7 +1140,7 @@ extern const char * structure_size_string;
    On the ARM regs are UNITS_PER_WORD bits wide; FPA regs can hold any FP
    mode.  */
 #define HARD_REGNO_NREGS(REGNO, MODE)  	\
-  ((TARGET_ARM 				\
+  ((TARGET_32BIT			\
     && REGNO >= FIRST_FPA_REGNUM	\
     && REGNO != FRAME_POINTER_REGNUM	\
     && REGNO != ARG_POINTER_REGNUM)	\
@@ -1269,8 +1287,8 @@ enum reg_class
      || (CLASS) == CC_REG)
 				      
 /* The class value for index registers, and the one for base regs.  */
-#define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
-#define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
+#define INDEX_REG_CLASS  (TARGET_THUMB1 ? LO_REGS : GENERAL_REGS)
+#define BASE_REG_CLASS   (TARGET_THUMB1 ? LO_REGS : GENERAL_REGS)
 
 /* For the Thumb the high registers cannot be used as base registers
    when addressing quantities in QI or HI mode; if we don't know the
@@ -1278,14 +1296,14 @@ enum reg_class
    conservative, since we can't support SP+reg addressing, and we
    can't fix up any bad substitutions.  */
 #define MODE_BASE_REG_CLASS(MODE)					\
-    (TARGET_ARM ? GENERAL_REGS :					\
+    (TARGET_32BIT ? GENERAL_REGS :					\
      (((MODE) == SImode && !reload_completed) ? BASE_REGS : LO_REGS))
 
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
    but prevents the compiler from extending the lifetime of these
    registers.  */
-#define SMALL_REGISTER_CLASSES   TARGET_THUMB
+#define SMALL_REGISTER_CLASSES   TARGET_THUMB1
 
 /* Get reg_class from a letter such as appears in the machine description.
    We only need constraint `f' for FPA_REGS (`r' == GENERAL_REGS) for the
@@ -1324,7 +1342,17 @@ enum reg_class
 		 || (((VALUE) & ((VALUE) - 1)) == 0))	\
    : 0)
 
-#define CONST_OK_FOR_THUMB_LETTER(VAL, C)		\
+/* ??? This is cunrrently a copy of the arm code.  thumb2 is different.  */
+#define CONST_OK_FOR_THUMB2_LETTER(VALUE, C)  		\
+  ((C) == 'I' ? const_ok_for_arm (VALUE) :		\
+   (C) == 'J' ? ((VALUE) < 4096 && (VALUE) > -4096) :	\
+   (C) == 'K' ? (const_ok_for_arm (~(VALUE))) :		\
+   (C) == 'L' ? (const_ok_for_arm (-(VALUE))) :		\
+   (C) == 'M' ? (((VALUE >= 0 && VALUE <= 32))		\
+		 || (((VALUE) & ((VALUE) - 1)) == 0))	\
+   : 0)
+
+#define CONST_OK_FOR_THUMB1_LETTER(VAL, C)		\
   ((C) == 'I' ? (unsigned HOST_WIDE_INT) (VAL) < 256 :	\
    (C) == 'J' ? (VAL) > -256 && (VAL) < 0 :		\
    (C) == 'K' ? thumb_shiftable_const (VAL) :		\
@@ -1335,9 +1363,10 @@ enum reg_class
    (C) == 'O' ? ((VAL) >= -508 && (VAL) <= 508)		\
    : 0)
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C)					\
-  (TARGET_ARM ?								\
-   CONST_OK_FOR_ARM_LETTER (VALUE, C) : CONST_OK_FOR_THUMB_LETTER (VALUE, C))
+#define CONST_OK_FOR_LETTER_P(VALUE, C)				\
+  (TARGET_ARM ? CONST_OK_FOR_ARM_LETTER (VALUE, C) :		\
+   TARGET_THUMB2 ? CONST_OK_FOR_THUMB2_LETTER (VALUE, C) :	\
+   CONST_OK_FOR_THUMB1_LETTER (VALUE, C))
      
 /* Constant letter 'G' for the FP immediate constants.
    'H' means the same constant negated.  */
@@ -1346,7 +1375,7 @@ enum reg_class
      (C) == 'H' ? neg_const_double_rtx_ok_for_fpa (X) : 0)
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(X, C)			\
-  (TARGET_ARM ?							\
+  (TARGET_32BIT ?							\
    CONST_DOUBLE_OK_FOR_ARM_LETTER (X, C) : 0)
 
 /* For the ARM, `Q' means that this is a memory operand that is just
@@ -1381,7 +1410,7 @@ enum reg_class
 		 && GET_CODE (XEXP (X, 0)) == LABEL_REF) : 0)
 
 #define EXTRA_CONSTRAINT_STR(X, C, STR)		\
-  (TARGET_ARM					\
+  (TARGET_32BIT					\
    ? EXTRA_CONSTRAINT_STR_ARM (X, C, STR)	\
    : EXTRA_CONSTRAINT_THUMB (X, C))
 
@@ -1418,7 +1447,7 @@ enum reg_class
   ((TARGET_VFP && TARGET_HARD_FLOAT				\
     && (CLASS) == VFP_REGS)					\
    ? vfp_secondary_reload_class (MODE, X)			\
-   : TARGET_ARM							\
+   : TARGET_32BIT						\
    ? (((MODE) == HImode && ! arm_arch4 && true_regnum (X) == -1) \
     ? GENERAL_REGS : NO_REGS)					\
    : THUMB_SECONDARY_OUTPUT_RELOAD_CLASS (CLASS, MODE, X))
@@ -1434,7 +1463,7 @@ enum reg_class
      && (CLASS) == CIRRUS_REGS					\
      && (CONSTANT_P (X) || GET_CODE (X) == SYMBOL_REF))		\
     ? GENERAL_REGS :						\
-  (TARGET_ARM ?							\
+  (TARGET_32BIT ?						\
    (((CLASS) == IWMMXT_REGS || (CLASS) == IWMMXT_GR_REGS)	\
       && CONSTANT_P (X))					\
    ? GENERAL_REGS :						\
@@ -1513,6 +1542,7 @@ enum reg_class
 /* We could probably achieve better results by defining PROMOTE_MODE to help
    cope with the variances between the Thumb's signed and unsigned byte and
    halfword load instructions.  */
+/* ??? This should be safe for thumb2, but we may be able to do better.  */
 #define THUMB_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)	\
 {									\
   if (GET_CODE (X) == PLUS						\
@@ -1548,7 +1578,7 @@ enum reg_class
 
 /* Moves between FPA_REGS and GENERAL_REGS are two memory insns.  */
 #define REGISTER_MOVE_COST(MODE, FROM, TO)		\
-  (TARGET_ARM ?						\
+  (TARGET_32BIT ?						\
    ((FROM) == FPA_REGS && (TO) != FPA_REGS ? 20 :	\
     (FROM) != FPA_REGS && (TO) == FPA_REGS ? 20 :	\
     (FROM) == VFP_REGS && (TO) != VFP_REGS ? 10 :  \
@@ -1608,10 +1638,10 @@ enum reg_class
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 #define LIBCALL_VALUE(MODE)  \
-  (TARGET_ARM && TARGET_HARD_FLOAT_ABI && TARGET_FPA			\
+  (TARGET_32BIT && TARGET_HARD_FLOAT_ABI && TARGET_FPA			\
    && GET_MODE_CLASS (MODE) == MODE_FLOAT				\
    ? gen_rtx_REG (MODE, FIRST_FPA_REGNUM)				\
-   : TARGET_ARM && TARGET_HARD_FLOAT_ABI && TARGET_MAVERICK		\
+   : TARGET_32BIT && TARGET_HARD_FLOAT_ABI && TARGET_MAVERICK		\
      && GET_MODE_CLASS (MODE) == MODE_FLOAT				\
    ? gen_rtx_REG (MODE, FIRST_CIRRUS_FP_REGNUM) 			\
    : TARGET_IWMMXT_ABI && VECTOR_MODE_SUPPORTED_P (MODE)	\
@@ -1630,10 +1660,10 @@ enum reg_class
 /* On a Cirrus chip, mvf0 can return results.  */
 #define FUNCTION_VALUE_REGNO_P(REGNO)  \
   ((REGNO) == ARG_REGISTER (1) \
-   || (TARGET_ARM && ((REGNO) == FIRST_CIRRUS_FP_REGNUM)		\
+   || (TARGET_32BIT && ((REGNO) == FIRST_CIRRUS_FP_REGNUM)		\
        && TARGET_HARD_FLOAT_ABI && TARGET_MAVERICK)			\
    || ((REGNO) == FIRST_IWMMXT_REGNUM && TARGET_IWMMXT_ABI) \
-   || (TARGET_ARM && ((REGNO) == FIRST_FPA_REGNUM)			\
+   || (TARGET_32BIT && ((REGNO) == FIRST_FPA_REGNUM)			\
        && TARGET_HARD_FLOAT_ABI && TARGET_FPA))
 
 /* How large values are returned */
@@ -1926,6 +1956,8 @@ typedef struct
 
 /* Determine if the epilogue should be output as RTL.
    You should override this if you define FUNCTION_EXTRA_EPILOGUE.  */
+/* This is disabled for Thumb-2 because it will confuse the
+   conditional insn counter.  */
 #define USE_RETURN_INSN(ISCOND)				\
   (TARGET_ARM ? use_return_insn (ISCOND, NULL) : 0)
 
@@ -2002,16 +2034,28 @@ typedef struct
   assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);	\
 }
 
-/* On the Thumb we always switch into ARM mode to execute the trampoline.
+/* The Thumb-2 trampoline is similar to the arm implementation.  Unlike
+   16-bit Thumb, we enter the stub in thumb mode.  */
+#define THUMB2_TRAMPOLINE_TEMPLATE(FILE)			\
+{								\
+  asm_fprintf (FILE, "\tldr.w\t%r, [%r, #4]\n",			\
+	       STATIC_CHAIN_REGNUM, PC_REGNUM);			\
+  asm_fprintf (FILE, "\tldr.w\t%r, [%r, #4]\n",			\
+	       PC_REGNUM, PC_REGNUM);				\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);	\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);	\
+}
+
+/* On 16-bit Thumb we always switch into ARM mode to execute the trampoline.
    Why - because it is easier.  This code will always be branched to via
    a BX instruction and since the compiler magically generates the address
    of the function the linker has no opportunity to ensure that the
    bottom bit is set.  Thus the processor will be in ARM mode when it
    reaches this code.  So we duplicate the ARM trampoline code and add
    a switch into Thumb mode as well.  */
-#define THUMB_TRAMPOLINE_TEMPLATE(FILE)		\
+#define THUMB1_TRAMPOLINE_TEMPLATE(FILE)		\
 {						\
-  fprintf (FILE, "\t.code 32\n");		\
+  fprintf (FILE, "\t.code\t32\n");		\
   fprintf (FILE, ".Ltrampoline_start:\n");	\
   asm_fprintf (FILE, "\tldr\t%r, [%r, #8]\n",	\
 	       STATIC_CHAIN_REGNUM, PC_REGNUM);	\
@@ -2022,17 +2066,28 @@ typedef struct
   asm_fprintf (FILE, "\tbx\t%r\n", IP_REGNUM);	\
   fprintf (FILE, "\t.word\t0\n");		\
   fprintf (FILE, "\t.word\t0\n");		\
-  fprintf (FILE, "\t.code 16\n");		\
+  fprintf (FILE, "\t.code\t16\n");		\
 }
 
 #define TRAMPOLINE_TEMPLATE(FILE)		\
   if (TARGET_ARM)				\
     ARM_TRAMPOLINE_TEMPLATE (FILE)		\
+  else if (TARGET_THUMB2)			\
+    THUMB2_TRAMPOLINE_TEMPLATE (FILE)		\
   else						\
-    THUMB_TRAMPOLINE_TEMPLATE (FILE)
-       
+    THUMB1_TRAMPOLINE_TEMPLATE (FILE)
+
+/* Thumb-2 trampolines should be entered in thumb mode, so set the bottom bit
+   of the address.  */
+#define TRAMPOLINE_ADJUST_ADDRESS(ADDR) do				    \
+{									    \
+  if (TARGET_THUMB2)							    \
+    (ADDR) = expand_simple_binop (Pmode, IOR, (ADDR), GEN_INT(1),	    \
+				  gen_reg_rtx (Pmode), 0, OPTAB_LIB_WIDEN); \
+} while(0)
+
 /* Length in units of the trampoline for entering a nested function.  */
-#define TRAMPOLINE_SIZE  (TARGET_ARM ? 16 : 24)
+#define TRAMPOLINE_SIZE  (TARGET_32BIT ? 16 : 24)
 
 /* Alignment required for a trampoline in bits.  */
 #define TRAMPOLINE_ALIGNMENT  32
@@ -2055,11 +2110,11 @@ typedef struct
 {									\
   emit_move_insn (gen_rtx_MEM (SImode,					\
 			       plus_constant (TRAMP,			\
-					      TARGET_ARM ? 8 : 16)),	\
+					      TARGET_32BIT ? 8 : 16)),	\
 		  CXT);							\
   emit_move_insn (gen_rtx_MEM (SImode,					\
 			       plus_constant (TRAMP,			\
-					      TARGET_ARM ? 12 : 20)),	\
+					      TARGET_32BIT ? 12 : 20)),	\
 		  FNADDR);						\
   ARM_EMIT_TRAMPOLINE_CACHE_CLEAR (TRAMP);				\
 }
@@ -2086,20 +2141,20 @@ typedef struct
 #define TEST_REGNO(R, TEST, VALUE) \
   ((R TEST VALUE) || ((unsigned) reg_renumber[R] TEST VALUE))
 
-/*   On the ARM, don't allow the pc to be used.  */
+/* Don't allow the pc to be used.  */
 #define ARM_REGNO_OK_FOR_BASE_P(REGNO)			\
   (TEST_REGNO (REGNO, <, PC_REGNUM)			\
    || TEST_REGNO (REGNO, ==, FRAME_POINTER_REGNUM)	\
    || TEST_REGNO (REGNO, ==, ARG_POINTER_REGNUM))
 
-#define THUMB_REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE)		\
+#define THUMB1_REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE)		\
   (TEST_REGNO (REGNO, <=, LAST_LO_REGNUM)			\
    || (GET_MODE_SIZE (MODE) >= 4				\
        && TEST_REGNO (REGNO, ==, STACK_POINTER_REGNUM)))
 
 #define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE)		\
-  (TARGET_THUMB						\
-   ? THUMB_REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)	\
+  (TARGET_THUMB1					\
+   ? THUMB1_REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)	\
    : ARM_REGNO_OK_FOR_BASE_P (REGNO))
 
 /* For ARM code, we don't care about the mode, but for Thumb, the index
@@ -2121,6 +2176,7 @@ typedef struct
 
 #else
 
+/* ??? Should the TARGET_ARM here also apply to thumb2?  */
 #define CONSTANT_ADDRESS_P(X)  			\
   (GET_CODE (X) == SYMBOL_REF 			\
    && (CONSTANT_POOL_ADDRESS_P (X)		\
@@ -2147,8 +2203,8 @@ typedef struct
 
 #define LEGITIMATE_CONSTANT_P(X)			\
   (!arm_tls_operand_p (X)				\
-   && (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X)	\
-		  : THUMB_LEGITIMATE_CONSTANT_P (X)))
+   && (TARGET_32BIT ? ARM_LEGITIMATE_CONSTANT_P (X)	\
+		    : THUMB_LEGITIMATE_CONSTANT_P (X)))
 
 /* Special characters prefixed to function names
    in order to encode attribute like information.
@@ -2181,6 +2237,11 @@ typedef struct
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
    arm_asm_output_labelref (FILE, NAME)
+
+/* Output IT instructions for conditonally executed Thumb-2 instructions.  */
+#define ASM_OUTPUT_OPCODE(STREAM, PTR)	\
+  if (TARGET_THUMB2)			\
+    thumb2_asm_output_opcode (STREAM);
 
 /* The EABI specifies that constructors should go in .init_array.
    Other targets use .ctors for compatibility.  */
@@ -2251,7 +2312,8 @@ typedef struct
    We have two alternate definitions for each of them.
    The usual definition accepts all pseudo regs; the other rejects
    them unless they have been allocated suitable hard regs.
-   The symbol REG_OK_STRICT causes the latter definition to be used.  */
+   The symbol REG_OK_STRICT causes the latter definition to be used.
+   Thumb-2 has the same restictions as arm.  */
 #ifndef REG_OK_STRICT
 
 #define ARM_REG_OK_FOR_BASE_P(X)		\
@@ -2260,7 +2322,7 @@ typedef struct
    || REGNO (X) == FRAME_POINTER_REGNUM		\
    || REGNO (X) == ARG_POINTER_REGNUM)
 
-#define THUMB_REG_MODE_OK_FOR_BASE_P(X, MODE)	\
+#define THUMB1_REG_MODE_OK_FOR_BASE_P(X, MODE)	\
   (REGNO (X) <= LAST_LO_REGNUM			\
    || REGNO (X) >= FIRST_PSEUDO_REGISTER	\
    || (GET_MODE_SIZE (MODE) >= 4		\
@@ -2275,8 +2337,8 @@ typedef struct
 #define ARM_REG_OK_FOR_BASE_P(X) 		\
   ARM_REGNO_OK_FOR_BASE_P (REGNO (X))
 
-#define THUMB_REG_MODE_OK_FOR_BASE_P(X, MODE)	\
-  THUMB_REGNO_MODE_OK_FOR_BASE_P (REGNO (X), MODE)
+#define THUMB1_REG_MODE_OK_FOR_BASE_P(X, MODE)	\
+  THUMB1_REGNO_MODE_OK_FOR_BASE_P (REGNO (X), MODE)
 
 #define REG_STRICT_P 1
 
@@ -2285,22 +2347,23 @@ typedef struct
 /* Now define some helpers in terms of the above.  */
 
 #define REG_MODE_OK_FOR_BASE_P(X, MODE)		\
-  (TARGET_THUMB					\
-   ? THUMB_REG_MODE_OK_FOR_BASE_P (X, MODE)	\
+  (TARGET_THUMB1				\
+   ? THUMB1_REG_MODE_OK_FOR_BASE_P (X, MODE)	\
    : ARM_REG_OK_FOR_BASE_P (X))
 
 #define ARM_REG_OK_FOR_INDEX_P(X) ARM_REG_OK_FOR_BASE_P (X)
 
-/* For Thumb, a valid index register is anything that can be used in
+/* For 16-bit Thumb, a valid index register is anything that can be used in
    a byte load instruction.  */
-#define THUMB_REG_OK_FOR_INDEX_P(X) THUMB_REG_MODE_OK_FOR_BASE_P (X, QImode)
+#define THUMB1_REG_OK_FOR_INDEX_P(X) \
+  THUMB1_REG_MODE_OK_FOR_BASE_P (X, QImode)
 
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  On the Thumb, the stack pointer
    is not suitable.  */
 #define REG_OK_FOR_INDEX_P(X)			\
-  (TARGET_THUMB					\
-   ? THUMB_REG_OK_FOR_INDEX_P (X)		\
+  (TARGET_THUMB1				\
+   ? THUMB1_REG_OK_FOR_INDEX_P (X)		\
    : ARM_REG_OK_FOR_INDEX_P (X))
 
 
@@ -2321,17 +2384,26 @@ typedef struct
       goto WIN;							\
   }
 
-#define THUMB_GO_IF_LEGITIMATE_ADDRESS(MODE,X,WIN)		\
+/* ??? Implement G_I_L_A for thumb2.  */
+#define THUMB2_GO_IF_LEGITIMATE_ADDRESS(MODE,X,WIN)		\
   {								\
-    if (thumb_legitimate_address_p (MODE, X, REG_STRICT_P))	\
+    if (thumb2_legitimate_address_p (MODE, X, REG_STRICT_P))	\
+      goto WIN;							\
+  }
+
+#define THUMB1_GO_IF_LEGITIMATE_ADDRESS(MODE,X,WIN)		\
+  {								\
+    if (thumb1_legitimate_address_p (MODE, X, REG_STRICT_P))	\
       goto WIN;							\
   }
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, WIN)				\
   if (TARGET_ARM)							\
     ARM_GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN)  			\
-  else /* if (TARGET_THUMB) */						\
-    THUMB_GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN)	
+  else if (TARGET_THUMB2)						\
+    THUMB2_GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN)			\
+  else /* TARGET_THUMB1 */						\
+    THUMB1_GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN)	
 
 
 /* Try machine-dependent ways of modifying an illegitimate address
@@ -2344,7 +2416,12 @@ do {							\
     goto WIN;						\
 } while (0)
 
-#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
+/* ??? Implement LEGITIMIZE_ADDRESS for thumb2.  */
+#define THUMB2_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
+do {							\
+} while (0)
+
+#define THUMB1_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
 do {							\
   X = thumb_legitimize_address (X, OLDX, MODE);		\
 							\
@@ -2356,8 +2433,10 @@ do {							\
 do {							\
   if (TARGET_ARM)					\
     ARM_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
+  else if (TARGET_THUMB2)				\
+    THUMB2_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
   else							\
-    THUMB_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
+    THUMB1_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
 } while (0)
      
 /* Go to LABEL if ADDR (a legitimate address expression)
@@ -2371,7 +2450,7 @@ do {							\
 
 /* Nothing helpful to do for the Thumb */
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)	\
-  if (TARGET_ARM)					\
+  if (TARGET_32BIT)					\
     ARM_GO_IF_MODE_DEPENDENT_ADDRESS (ADDR, LABEL)  			
 
 
@@ -2446,14 +2525,14 @@ do {							\
 
 /* Moves to and from memory are quite expensive */
 #define MEMORY_MOVE_COST(M, CLASS, IN)			\
-  (TARGET_ARM ? 10 :					\
+  (TARGET_32BIT ? 10 :					\
    ((GET_MODE_SIZE (M) < 4 ? 8 : 2 * GET_MODE_SIZE (M))	\
     * (CLASS == LO_REGS ? 1 : 2)))
  
 /* Try to generate sequences that don't involve branches, we can then use
    conditional instructions */
 #define BRANCH_COST \
-  (TARGET_ARM ? 4 : (optimize > 1 ? 1 : 0))
+  (TARGET_32BIT ? 4 : (optimize > 1 ? 1 : 0))
 
 /* Position Independent Code.  */
 /* We decide which register to use based on the compilation options and
@@ -2518,7 +2597,8 @@ extern int making_const_table;
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
 
 #undef  ASM_APP_OFF
-#define ASM_APP_OFF (TARGET_THUMB ? "\t.code\t16\n" : "")
+#define ASM_APP_OFF (TARGET_THUMB1 ? "\t.code\t16\n" : \
+		     TARGET_THUMB2 ? "\t.thumb\n" : "")
 
 /* Output a push or a pop instruction (only used when profiling).  */
 #define ASM_OUTPUT_REG_PUSH(STREAM, REGNO)		\
@@ -2559,11 +2639,13 @@ extern int making_const_table;
     {							\
       if (TARGET_THUMB) 				\
         {						\
-          if (is_called_in_ARM_mode (DECL)      \
-			  || current_function_is_thunk)		\
+          if (is_called_in_ARM_mode (DECL)		\
+	      || (TARGET_THUMB1 && current_function_is_thunk))	\
             fprintf (STREAM, "\t.code 32\n") ;		\
+          else if (TARGET_THUMB1)			\
+           fprintf (STREAM, "\t.code\t16\n\t.thumb_func\n") ;	\
           else						\
-           fprintf (STREAM, "\t.code 16\n\t.thumb_func\n") ;	\
+           fprintf (STREAM, "\t.thumb\n\t.thumb_func\n") ;	\
         }						\
       if (TARGET_POKE_FUNCTION_NAME)			\
         arm_poke_function_name (STREAM, (char *) NAME);	\
@@ -2605,17 +2687,28 @@ extern int making_const_table;
     }
 #endif
 
+/* Add two bytes to the length of conditionally executed Thumb-2
+   instructions for the IT instruction.  */
+#define ADJUST_INSN_LENGTH(insn, length) \
+  if (TARGET_THUMB2 && GET_CODE (PATTERN (insn)) == COND_EXEC) \
+    length += 2;
+
 /* Only perform branch elimination (by making instructions conditional) if
-   we're optimizing.  Otherwise it's of no use anyway.  */
+   we're optimizing.  For Thumb-2 check if any IT instructions need
+   outputting.  */
 #define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS)	\
   if (TARGET_ARM && optimize)				\
     arm_final_prescan_insn (INSN);			\
+  else if (TARGET_THUMB2)				\
+    thumb2_final_prescan_insn (INSN);			\
   else if (TARGET_THUMB)				\
-    thumb_final_prescan_insn (INSN)
+    thumb1_final_prescan_insn (INSN)
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)	\
-  (CODE == '@' || CODE == '|'			\
-   || (TARGET_ARM   && (CODE == '?'))		\
+  (CODE == '@' || CODE == '|' || CODE == '.'	\
+   || CODE == '(' || CODE == ')'		\
+   || (TARGET_32BIT && (CODE == '?'))		\
+   || (TARGET_THUMB2 && (CODE == '!'))		\
    || (TARGET_THUMB && (CODE == '_')))
 
 /* Output an operand of an instruction.  */
@@ -2750,7 +2843,7 @@ extern int making_const_table;
 }
 
 #define PRINT_OPERAND_ADDRESS(STREAM, X)	\
-  if (TARGET_ARM)				\
+  if (TARGET_32BIT)				\
     ARM_PRINT_OPERAND_ADDRESS (STREAM, X)	\
   else						\
     THUMB_PRINT_OPERAND_ADDRESS (STREAM, X)
@@ -2792,6 +2885,7 @@ extern int making_const_table;
   {"s_register_operand", {SUBREG, REG}},				\
   {"arm_general_register_operand", {SUBREG, REG}},			\
   {"arm_hard_register_operand", {REG}},					\
+  {"low_register_operand", {REG}},					\
   {"f_register_operand", {SUBREG, REG}},				\
   {"arm_add_operand",    {SUBREG, REG, CONST_INT}},			\
   {"arm_addimm_operand", {CONST_INT}},					\
@@ -2801,14 +2895,16 @@ extern int making_const_table;
   {"arm_not_operand",    {SUBREG, REG, CONST_INT}},			\
   {"reg_or_int_operand", {SUBREG, REG, CONST_INT}},			\
   {"index_operand",      {SUBREG, REG, CONST_INT}},			\
-  {"thumb_cmp_operand",  {SUBREG, REG, CONST_INT}},			\
-  {"thumb_cmpneg_operand", {CONST_INT}},				\
+  {"thumb1_cmp_operand",  {SUBREG, REG, CONST_INT}},			\
+  {"thumb1_cmpneg_operand", {CONST_INT}},				\
   {"thumb_cbrch_target_operand", {SUBREG, REG, MEM}},			\
   {"offsettable_memory_operand", {MEM}},				\
   {"alignable_memory_operand", {MEM}},					\
   {"shiftable_operator", {PLUS, MINUS, AND, IOR, XOR}},			\
   {"minmax_operator", {SMIN, SMAX, UMIN, UMAX}},			\
   {"shift_operator", {ASHIFT, ASHIFTRT, LSHIFTRT, ROTATERT, MULT}},	\
+  {"thumb_16bit_operator", {PLUS, MINUS, AND, IOR, XOR,			\
+			    ASHIFT, ASHIFTRT, LSHIFTRT, ROTATERT}},	\
   {"di_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE, MEM}},		\
   {"nonimmediate_di_operand", {SUBREG, REG, MEM}},			\
   {"soft_df_operand", {SUBREG, REG, CONST_DOUBLE, MEM}},		\

@@ -1,3 +1,4 @@
+;; ??? This file needs auditing for thumb2
 ;; Cirrus EP9312 "Maverick" ARM floating point co-processor description.
 ;; Copyright (C) 2003 Free Software Foundation, Inc.
 ;; Contributed by Red Hat.

@@ -6765,8 +6765,11 @@ and has length @code{((pc[-3]) & 0xff000000)}.
 
 @item -mthumb
 @opindex mthumb
-Generate code for the 16-bit Thumb instruction set.  The default is to
+Generate code for the Thumb instruction set.  The default is to
 use the 32-bit ARM instruction set.
+This option automatically enables either 16-bit Thumb-1 or
+mixed 16/32-bit Thumb-2 instructions based on the @option{-mcpu=@var{name}}
+and @option{-march=@var{name}} options.
 
 @item -mtpcs-frame
 @opindex mtpcs-frame
