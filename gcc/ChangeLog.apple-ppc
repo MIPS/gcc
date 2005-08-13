@@ -1,3 +1,10 @@
+2005-08-12  Devang Patel  <dpatel@apple.com>
+
+	Radar 4209318
+        * dbxout.c (dbxout_type): Update this function to force type definition
+        in new LSYM stab.
+        (dbxout_symbol): Set TREE_ASM_WRITTEN only if did_output is true.
+
 2005-08-10  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3893112

@@ -1774,6 +1774,8 @@ dbxout_type (tree type, int full)
 
   /* APPLE LOCAL begin vector attribute mainline 2005-04-25  */
   bool vector_type = false;
+  /* APPLE LOCAL 4209318 */
+  bool xref_processed = false;
 
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
@@ -1833,38 +1835,10 @@ dbxout_type (tree type, int full)
 #endif
     }
 
-  /* APPLE LOCAL begin 4196953 */
+  /* APPLE LOCAL 4196953 */
+  /* Move code to queue symbols in gused mode, below */
   /* Output the number of this type, to refer to it.  */
   dbxout_type_index (type);
-
-  if (flag_debug_only_used_symbols && !full)
-    /* APPLE LOCAL end 4196953 */
-    {
-      if ((TREE_CODE (type) == RECORD_TYPE
-	   || TREE_CODE (type) == UNION_TYPE
-	   || TREE_CODE (type) == QUAL_UNION_TYPE
-	   || TREE_CODE (type) == ENUMERAL_TYPE)
-	  && TYPE_STUB_DECL (type)
-	  && DECL_P (TYPE_STUB_DECL (type))
-	  && ! DECL_IGNORED_P (TYPE_STUB_DECL (type)))
-	/* APPLE LOCAL begin 4196953 */
-	{
-	  debug_queue_symbol (TYPE_STUB_DECL (type));
-	  return;
-	}
-        /* APPLE LOCAL end 4196953 */
-      else if (TYPE_NAME (type)
-	       && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL)
-	/* APPLE LOCAL begin 4196953 */
-	{
-	  debug_queue_symbol (TYPE_NAME (type));
-	  return;
-	}
-        /* APPLE LOCAL end 4196953 */
-    }
-
-  /* APPLE LOCAL 4196953 */
-  /* Move dbxout_out_index () call few lines above.  */
 
 #ifdef DBX_TYPE_DEFINED
   if (DBX_TYPE_DEFINED (type))
@@ -1917,30 +1891,127 @@ dbxout_type (tree type, int full)
       }
 #endif
 
-  /* Output a definition now.  */
-  stabstr_C ('=');
-
-  /* Mark it as defined, so that if it is self-referent
-     we will not get into an infinite recursion of definitions.  */
-
-  typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
-
+  /* APPLE LOCAL 4209318 */
+  /* Move code to start type defintion output below.  */
   /* If this type is a variant of some other, hand off.  Types with
      different names are usefully distinguished.  We only distinguish
      cv-qualified types if we're using extensions.  */
   if (TYPE_READONLY (type) > TYPE_READONLY (main_variant))
     {
+      /* APPLE LOCAL 4209318 */
+      stabstr_C ('=');
       stabstr_C ('k');
       dbxout_type (build_type_variant (type, 0, TYPE_VOLATILE (type)), 0);
+      /* APPLE LOCAL 4209318 */
+      typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
       return;
     }
   else if (TYPE_VOLATILE (type) > TYPE_VOLATILE (main_variant))
     {
+      /* APPLE LOCAL 4209318 */
+      stabstr_C ('=');
       stabstr_C ('B');
       dbxout_type (build_type_variant (type, TYPE_READONLY (type), 0), 0);
+      /* APPLE LOCAL 4209318 */
+      typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
       return;
     }
-  else if (main_variant != TYPE_MAIN_VARIANT (type))
+  /* APPLE LOCAL begin 4209318 */
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      /* Output a structure type.  We must use the same test here as we
+	 use in the DBX_NO_XREFS case above.  */
+      if ((TYPE_NAME (type) != 0
+	   && ! (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+		 && DECL_IGNORED_P (TYPE_NAME (type)))
+	   && !full)
+	  || !COMPLETE_TYPE_P (type)
+	  /* No way in DBX fmt to describe a variable size.  */
+	  || ! host_integerp (TYPE_SIZE (type), 1))
+	{
+	  /* If the type is just a cross reference, output one
+	     and mark the type as partially described.
+	     If it later becomes defined, we will output
+	     its real definition.
+	     If the type has a name, don't nest its definition within
+	     another type's definition; instead, output an xref
+	     and let the definition come when the name is defined.  */
+	  stabstr_C ('=');
+	  stabstr_S ((TREE_CODE (type) == RECORD_TYPE) ? "xs" : "xu");
+	  if (TYPE_NAME (type) != 0)
+	    dbxout_type_name (type);
+	  else
+	    {
+	      stabstr_S ("$$");
+	      stabstr_D (anonymous_type_number++);
+	    }
+	  
+	  stabstr_C (':');
+	  typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_XREF;
+	  xref_processed = true;
+	  break;
+	}
+      case ENUMERAL_TYPE:
+	/* We must use the same test here as we use in the DBX_NO_XREFS case
+	   above.  We simplify it a bit since an enum will never have a variable
+	   size.  */
+	if ((TYPE_NAME (type) != 0
+	     && ! (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+		   && DECL_IGNORED_P (TYPE_NAME (type)))
+	     && !full)
+	    || !COMPLETE_TYPE_P (type))
+	  {
+	    stabstr_C ('=');
+	    stabstr_S ("xe");
+	    dbxout_type_name (type);
+	    typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_XREF;
+	    stabstr_C (':');
+	    xref_processed = true;
+	    break;
+	  }
+      default:
+	break;
+    }
+
+  if (flag_debug_only_used_symbols && !full)
+    {
+      if ((TREE_CODE (type) == RECORD_TYPE
+	   || TREE_CODE (type) == UNION_TYPE
+	   || TREE_CODE (type) == QUAL_UNION_TYPE
+	   || TREE_CODE (type) == ENUMERAL_TYPE)
+	  && TYPE_STUB_DECL (type)
+	  && DECL_P (TYPE_STUB_DECL (type))
+	  && ! DECL_IGNORED_P (TYPE_STUB_DECL (type)))
+	{
+	  if (!TYPE_NAME (type))
+	    DECL_NAME (TYPE_STUB_DECL (type)) = get_identifier ("__anon__");
+	  debug_queue_symbol (TYPE_STUB_DECL (type));
+	  return;
+	}
+      else if (TYPE_NAME (type)
+	       && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL)
+	{
+	  debug_queue_symbol (TYPE_NAME (type));
+	  return;
+	}
+    }
+
+  if (!xref_processed)
+    {
+      /* Output a definition now.  */
+      stabstr_C ('=');
+      
+      /* Mark it as defined, so that if it is self-referent
+	 we will not get into an infinite recursion of definitions.  */
+      
+      typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
+    }
+
+  if (main_variant != TYPE_MAIN_VARIANT (type))
+    /* APPLE LOCAL end 4209318 */
     {
       if (flag_debug_only_used_symbols)
         {
@@ -1958,7 +2029,10 @@ dbxout_type (tree type, int full)
       dbxout_type (DECL_ORIGINAL_TYPE (TYPE_NAME (type)), 0);
       return;
     }
-  /* else continue.  */
+  /* APPLE LOCAL begin 4209318 */
+  if (xref_processed)
+    return;
+  /* APPLE LOCAL end 4209318 */
 
   switch (TREE_CODE (type))
     {
@@ -2794,7 +2868,10 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	  }
 
 	/* Prevent duplicate output of a typedef.  */
-	TREE_ASM_WRITTEN (decl) = 1;
+	/* APPLE LOCAL begin 4209318 */
+	if (did_output)
+	  TREE_ASM_WRITTEN (decl) = 1;
+	/* APPLE LOCAL end 4209318 */
 	break;
       }
 
