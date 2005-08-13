@@ -1,8 +1,8 @@
 /* APPLE LOCAL file 4209014 */
 /* { dg-do compile } */
 /* { dg-options "-Os" } */
-/* { dg-final { scan-assembler-not "(call|bl)\t_inlinex25" } } */
-/* { dg-final { scan-assembler "(call|bl)\t_calleex25" } } */
+/* { dg-final { scan-assembler-not "\t(call\t|bl )_inlinex25" } } */
+/* { dg-final { scan-assembler "\t(call\t|bl )_calleex25" } } */
 
 /* Insure non-trivial callees (up to 450 "estimated insns") are
    inlined only if marked 'inline' in C/Obj-C.  */
