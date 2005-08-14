@@ -138,6 +138,9 @@ typedef struct inline_data
   /* Take region number in the function being copied, add this value and
      get eh region number of the duplicate in the function we inline into.  */
   int eh_region_offset;
+
+  /* In early inlining the warnings are supressed.  */
+  bool early_inlining_p;
 } inline_data;
 
 /* Prototypes.  */
@@ -1956,7 +1959,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
     {
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn))
 	  /* Avoid warnings during early inline pass. */
-	  && (!flag_unit_at_a_time || cgraph_global_info_ready))
+	  && !id->early_inlining_p)
 	{
 	  sorry ("inlining failed in call to %q+F: %s", fn, reason);
 	  sorry ("called from here");
@@ -1966,7 +1969,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 	       && strlen (reason)
 	       && !lookup_attribute ("noinline", DECL_ATTRIBUTES (fn))
 	       /* Avoid warnings during early inline pass. */
-	       && (!flag_unit_at_a_time || cgraph_global_info_ready))
+	       && !id->early_inlining_p)
 	{
 	  warning (OPT_Winline, "inlining failed in call to %q+F: %s",
 		   fn, reason);
@@ -2176,7 +2179,7 @@ gimple_expand_calls_inline (basic_block bb, inline_data *id)
 /* Expand calls to inline functions in the body of FN.  */
 
 void
-optimize_inline_calls (tree fn)
+optimize_inline_calls (tree fn, bool early)
 {
   inline_data id;
   tree prev_fn;
@@ -2192,6 +2195,7 @@ optimize_inline_calls (tree fn)
 
   id.current_node = id.node = cgraph_node (fn);
   id.caller = fn;
+  id.early_inlining_p = early;
   /* Or any functions that aren't finished yet.  */
   prev_fn = NULL_TREE;
   if (current_function_decl)

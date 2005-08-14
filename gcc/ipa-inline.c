@@ -505,6 +505,51 @@ cgraph_find_cycles (struct cgraph_node *node, htab_t cycles)
   node->aux = 0;
 }
 
+
+static void
+cgraph_apply_inline_plan (void)
+{
+  struct cgraph_node *node;
+  struct cgraph_node **order =
+    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
+  int order_pos = 0, new_order_pos = 0;
+  int i;
+
+  timevar_push (TV_INTEGRATION);
+  order_pos = cgraph_postorder (order);
+  gcc_assert (order_pos == cgraph_n_nodes);
+
+  /* Garbage collector may remove inline clones we eliminate during
+     optimization.  So we must be sure to not reference them.  */
+  for (i = 0; i < order_pos; i++)
+    if (!order[i]->global.inlined_to)
+      order[new_order_pos++] = order[i];
+
+  for (i = 0; i < new_order_pos; i++)
+    {
+      struct cgraph_edge *e;
+
+      node = order[i];
+      for (e = node->callees; e; e = e->next_callee)
+	if (!e->inline_failed || warn_inline)
+	  break;
+      if (e)
+	{
+	  if (cgraph_preserve_function_body_p (node->decl, true))
+	    save_inline_function_body (node);
+	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+	  tree_register_cfg_hooks ();
+          current_function_decl = node->decl;
+	  optimize_inline_calls (node->decl, false);
+	  node->local.self_insns = node->global.insns;
+	  pop_cfun ();
+	  ggc_collect ();
+	}
+    }
+  free (order);
+  timevar_pop (TV_INTEGRATION);
+}
+
 /* Leafify the cgraph node.  We have to be careful in recursing
    as to not run endlessly in circles of the callgraph.
    We do so by using a hashtab of cycle entering nodes as generated
@@ -1011,6 +1056,10 @@ cgraph_decide_inlining (void)
 	}
     }
 
+  cgraph_remove_unreachable_nodes (false, dump_file);
+  cgraph_apply_inline_plan ();
+  cgraph_remove_unreachable_nodes (false, dump_file);
+
   if (dump_file)
     fprintf (dump_file,
 	     "\nInlined %i calls, eliminated %i functions, "
@@ -1071,12 +1120,12 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node, bool early)
 	  else if (!early)
 	    e->inline_failed = failed_reason;
 	}
-  if (early && inlined)
+  if (inlined || (warn_inline && !early))
     {
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
       tree_register_cfg_hooks ();
       current_function_decl = node->decl;
-      optimize_inline_calls (current_function_decl);
+      optimize_inline_calls (current_function_decl, early);
       node->local.self_insns = node->global.insns;
       current_function_decl = NULL;
       pop_cfun ();

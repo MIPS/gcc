@@ -1039,7 +1039,7 @@ cgraph_expand_function (struct cgraph_node *node)
   gcc_assert (TREE_ASM_WRITTEN (node->decl));
 
   current_function_decl = NULL;
-  if (!cgraph_preserve_function_body_p (node->decl))
+  if (!cgraph_preserve_function_body_p (node->decl, cgraph_global_info_ready))
     {
       DECL_SAVED_TREE (node->decl) = NULL;
       DECL_STRUCT_FUNCTION (node->decl) = NULL;
@@ -1177,12 +1177,14 @@ cgraph_function_and_variable_visibility (void)
 }
 
 /* Return true when function body of DECL still needs to be kept around
-   for later re-use.  */
+   for later re-use.  When GLOBAL is false assume that inlining decisions
+   was not fixed yet and thus any inline candidate might get inlined later
+   on.  */
 bool
-cgraph_preserve_function_body_p (tree decl)
+cgraph_preserve_function_body_p (tree decl, bool global)
 {
   struct cgraph_node *node;
-  if (!cgraph_global_info_ready)
+  if (!global)
     return (DECL_INLINE (decl) && !flag_really_no_inline);
   /* Look if there is any clone around.  */
   for (node = cgraph_node (decl); node; node = node->next_clone)

@@ -1,3 +1,20 @@
+2005-08-14  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_preserve_function_body_p): New argument.
+	* cgraphunit.c (cgraph_expand_function): Update call of
+	cgraph_preserve_function_body_p.
+	(cgraph_preserve_function_body_p): New argument.
+	* ipa-inline.c (cgraph_apply_inline_plan): New function.
+	(cgraph_decide_inlining): Use it; remove unreachable nodes.
+	(cgraph_decide_inlining_incrementally): Update call of
+	optimize_inline_calls.
+	* tree-inline.c (inline_data): New field early_inlining_p.
+	(expand_call_inline): Use it.
+	(optimize_inline_calls): New argument.
+	* tree-inline.h (optimize_inline_calls): Declare.
+	* tree-optimize.c (update_inlined_to_pointers): Kill
+	(tree_rest_of_compilation): Don't perform inlining.
+
 2005-08-13  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_insert_node_to_hashtable): New function.

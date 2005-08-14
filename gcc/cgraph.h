@@ -279,7 +279,7 @@ void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *, const char **reason);
-bool cgraph_preserve_function_body_p (tree);
+bool cgraph_preserve_function_body_p (tree, bool);
 void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
 void cgraph_mark_inline_edge (struct cgraph_edge *e);

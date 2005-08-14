@@ -25,7 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "varray.h"
 /* Function prototypes.  */
 
-void optimize_inline_calls (tree);
+void optimize_inline_calls (tree, bool);
 bool tree_inlinable_function_p (tree);
 tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);

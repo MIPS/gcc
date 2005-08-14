@@ -316,24 +316,6 @@ tree_lowering_passes (tree fn)
   bitmap_obstack_release (NULL);
   pop_cfun ();
 }
-
-/* Update recursively all inlined_to pointers of functions
-   inlined into NODE to INLINED_TO.  */
-static void
-update_inlined_to_pointers (struct cgraph_node *node,
-			    struct cgraph_node *inlined_to)
-{
-  struct cgraph_edge *e;
-  for (e = node->callees; e; e = e->next_callee)
-    {
-      if (e->callee->global.inlined_to)
-	{
-	  e->callee->global.inlined_to = inlined_to;
-	  update_inlined_to_pointers (e->callee, inlined_to);
-	}
-    }
-}
-
 
 /* For functions-as-trees languages, this performs all optimization and
    compilation for FNDECL.  */
@@ -350,12 +332,6 @@ tree_rest_of_compilation (tree fndecl)
 
   node = cgraph_node (fndecl);
 
-  /* We might need the body of this function so that we can expand
-     it inline somewhere else.  This means not lowering some constructs
-     such as exception handling.  */
-  if (cgraph_preserve_function_body_p (fndecl))
-    save_inline_function_body (node);
-
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
   saved_loc = input_location;
@@ -369,19 +345,6 @@ tree_rest_of_compilation (tree fndecl)
   cfun->x_dont_save_pending_sizes_p = 1;
   cfun->after_inlining = true;
 
-  if (flag_inline_trees)
-    {
-      struct cgraph_edge *e;
-      for (e = node->callees; e; e = e->next_callee)
-	if (!e->inline_failed || warn_inline)
-	  break;
-      if (e)
-	{
-	  timevar_push (TV_INTEGRATION);
-	  optimize_inline_calls (fndecl);
-	  timevar_pop (TV_INTEGRATION);
-	}
-    }
   /* We are not going to maintain the cgraph edges up to date.
      Kill it so it won't confuse us.  */
   while (node->callees)
@@ -438,20 +401,17 @@ tree_rest_of_compilation (tree fndecl)
 	}
     }
 
-  if (!flag_inline_trees)
+  DECL_SAVED_TREE (fndecl) = NULL;
+  if (DECL_STRUCT_FUNCTION (fndecl) == 0
+      && !cgraph_node (fndecl)->origin)
     {
-      DECL_SAVED_TREE (fndecl) = NULL;
-      if (DECL_STRUCT_FUNCTION (fndecl) == 0
-	  && !cgraph_node (fndecl)->origin)
-	{
-	  /* Stop pointing to the local nodes about to be freed.
-	     But DECL_INITIAL must remain nonzero so we know this
-	     was an actual function definition.
-	     For a nested function, this is done in c_pop_function_context.
-	     If rest_of_compilation set this to 0, leave it 0.  */
-	  if (DECL_INITIAL (fndecl) != 0)
-	    DECL_INITIAL (fndecl) = error_mark_node;
-	}
+      /* Stop pointing to the local nodes about to be freed.
+	 But DECL_INITIAL must remain nonzero so we know this
+	 was an actual function definition.
+	 For a nested function, this is done in c_pop_function_context.
+	 If rest_of_compilation set this to 0, leave it 0.  */
+      if (DECL_INITIAL (fndecl) != 0)
+	DECL_INITIAL (fndecl) = error_mark_node;
     }
 
   input_location = saved_loc;
