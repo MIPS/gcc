@@ -15,33 +15,55 @@ static int failcnt;
 #define FAILURE abort ();
 #endif
 
-_Decimal32 d32 = 1.0df;
-_Decimal64 d64 = 3.0dd;
-_Decimal128 d128 = 5.0dl;
+_Decimal32 d32;
+_Decimal64 d64;
+_Decimal128 d128;
 
 /* Use some typedefs of decimal float types, too.  */
 typedef _Decimal32 SDtype;
 typedef _Decimal64 DDtype;
 typedef _Decimal128 TDtype;
 
-SDtype d32b = -1.0df;
-DDtype d64b = -4.0dd;
-TDtype d128b = -6.0dl;
+SDtype d32b;
+DDtype d64b;
+TDtype d128b;
+unsigned char uc;
+signed char sc;
+unsigned short us;
+signed short ss;
+unsigned int ui;
+signed int si;
+unsigned long ul;
+signed long sl;
+unsigned long long ull;
+signed long long sll;
+float f;
+double d;
+long double ld;
 
-unsigned char uc = 1;
-signed char sc = -5;
-unsigned short us = 3;
-signed short ss = -4;
-unsigned int ui = 2;
-signed int si = -6;
-unsigned long ul = 3;
-signed long sl = -2;
-unsigned long long ull = 8;
-signed long long sll = -4;
-
-float f = 1.0f;
-double d = -3.0;
-long double ld = 5.0ld;
+void
+inits (void)
+{
+  d32 = 1.0df;
+  d64 = 3.0dd;
+  d128 = 5.0dl;
+  d32b = -1.0df;
+  d64b = -4.0dd;
+  d128b = -6.0dl;
+  uc = 1;
+  sc = -5;
+  us = 3;
+  ss = -4;
+  ui = 2;
+  si = -6;
+  ul = 3;
+  sl = -2;
+  ull = 8;
+  sll = -4;
+  f = 1.0f;
+  d = -3.0;
+  ld = 5.0ld;
+}
 
 void
 compare_ints (void)
@@ -147,8 +169,6 @@ compare_floats (void)
 void
 compare_dfp (void)
 {
-#if 0
-/* DFP<->DFP runtime conversions are not yet available.  */
   if ((d32 > d64) != 0) FAILURE
   if ((d32 > d128b) != 1) FAILURE
 
@@ -157,12 +177,13 @@ compare_dfp (void)
 
   if ((d128 > d32) != 1) FAILURE
   if ((d128 != d64) != 1) FAILURE
-#endif
 }
 
 int
 main ()
 {
+  inits ();
+
   compare_ints ();
   compare_floats ();
   compare_dfp ();

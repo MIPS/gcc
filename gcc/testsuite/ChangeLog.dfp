@@ -1,3 +1,7 @@
+2005-08-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/compare-4.c: Initialize variables in function.
+
 2005-08-10  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/compat/scalar-return-dfp_x.c: Use suffix for DFP constants.
