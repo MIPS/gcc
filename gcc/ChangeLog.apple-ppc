@@ -1,3 +1,10 @@
+2005-08-15  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4214718
+	* c.opt:  Add -Wnested-functions.
+	* c-parse.in:  Warn on nested functions if this is set.
+	* doc/invoke.texi:  Document new flag.
+
 2005-08-15 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4204303
