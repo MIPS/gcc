@@ -69,7 +69,7 @@
 	(ix86_libcall_value): Handle TDmode.
 	(ix86_value_regno): Handle decimal float modes.
 	(ix86_hard_regno_mode_ok): Likewise.
-	(ix86_decimal_float_mode_supported_p): Implement.
+	(ix86_decimal_float_supported_p): Implement.
 	* i386.md (movsd, movdd, movtd): New expanders.
 	(movsd_gprs, movdd_gprs, movdd_sse, movtd_sse): New insns.
 
