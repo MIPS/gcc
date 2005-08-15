@@ -1,5 +1,10 @@
 2005-08-15  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.c (function_arg_advance): Handle SDmode, DDmode
+	and TDmode appropriately.
+
+2005-08-15  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h (BFP_VIA_TYPE): Define for BFP_KIND XFmode.
 	(SFtype, DFtype, XFtype): Declare these typedefs unconditionally.
 	* config/dfp-bit.c (BFP_TO_DFP): Cast input value to BFP_VIA_TYPE,

@@ -2867,6 +2867,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	case SImode:
 	case HImode:
 	case QImode:
+	case SDmode:
 	  cum->words += words;
 	  cum->nregs -= words;
 	  cum->regno += words;
@@ -2886,6 +2887,8 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    break;
 	  /* FALLTHRU */
 
+	case DDmode:
+	case TDmode:
 	case TImode:
 	case V16QImode:
 	case V8HImode:
