@@ -1,5 +1,12 @@
 2005-08-15  Ben Elliston  <bje@au.ibm.com>
 
+	* config/dfp-bit.h (BFP_VIA_TYPE): Define for BFP_KIND XFmode.
+	(SFtype, DFtype, XFtype): Declare these typedefs unconditionally.
+	* config/dfp-bit.c (BFP_TO_DFP): Cast input value to BFP_VIA_TYPE,
+	if defined.
+
+2005-08-15  Ben Elliston  <bje@au.ibm.com>
+
 	* config.gcc (i[34567]86-*-linux*): Append t-linux to $tmake_file.
 	* config/i386/t-linux: New file.
 

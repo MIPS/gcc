@@ -198,7 +198,6 @@ extern void __dfp_raise (int);
     STR_TO_BFP: The function to read the value from a string.  */
 
 #if BFP_KIND == 1
-typedef float SFtype __attribute__ ((mode (SF)));
 /* strtof is declared in <stdlib.h> only for C99.  */
 extern float strtof (const char *, char **);
 #define BFP_TYPE SFtype
@@ -206,7 +205,6 @@ extern float strtof (const char *, char **);
 #define STR_TO_BFP strtof
 
 #elif BFP_KIND == 2
-typedef float DFtype __attribute__ ((mode (DF)));
 #define BFP_TYPE DFtype
 #define BFP_FMT "%e"
 #define STR_TO_BFP strtod
@@ -214,9 +212,9 @@ typedef float DFtype __attribute__ ((mode (DF)));
 #elif BFP_KIND == 3
 #if LIBGCC2_HAS_XF_MODE
 /* These aren't used if XF mode is not supported.  */
-typedef float XFtype __attribute__ ((mode (XF)));
 #define BFP_TYPE XFtype
 #define BFP_FMT "%e"
+#define BFP_VIA_TYPE DFtype
 #define STR_TO_BFP strtod
 #endif
 
@@ -379,6 +377,12 @@ typedef float XFtype __attribute__ ((mode (XF)));
 #endif /* WIDTH */
 
 /* Some handy typedefs.  */
+
+typedef float SFtype __attribute__ ((mode (SF)));
+typedef float DFtype __attribute__ ((mode (DF)));
+#if LIBGCC2_HAS_XF_MODE
+typedef float XFtype __attribute__ ((mode (XF)));
+#endif /* LIBGCC2_HAS_XF_MODE */
 
 typedef int SItype __attribute__ ((mode (SI)));
 typedef int DItype __attribute__ ((mode (DI)));

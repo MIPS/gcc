@@ -414,7 +414,13 @@ BFP_TO_DFP (BFP_TYPE x)
   context.traps = CONTEXT_TRAPS;
 
   /* Use a C library function to write the floating point value to a string.  */
+#ifdef BFP_VIA_TYPE
+  /* FIXME: Is threre a better way to output an XFmode variable in C?  */
+  sprintf (buf, BFP_FMT, (BFP_VIA_TYPE) x);
+#else
   sprintf (buf, BFP_FMT, x);
+#endif
+
   /* Convert from the floating point string to a decimal* type.  */
   FROM_STRING (&u.s, buf, &context);
   return u.f;
