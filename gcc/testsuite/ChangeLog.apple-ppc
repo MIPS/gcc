@@ -1,3 +1,8 @@
+2005-08-15  Mike Stump  <mrs@apple.com>
+
+	Radar 4211978
+	* testsuite/gcc.apple/asm-block-6.c: New.
+
 2005-08-15  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4093475

@@ -17571,4 +17571,22 @@ i386_solaris_elf_named_section (const char *name, unsigned int flags,
   default_elf_asm_named_section (name, flags, decl);
 }
 
+/* APPLE LOCAL begin CW asm blocks */
+/* Translate some register names seen in CW asm into GCC standard
+   forms.  */
+
+const char *
+i386_cw_asm_register_name (const char *regname, char *buf)
+{
+  if (decode_reg_name (regname) >= 0)
+    {
+      if (ASSEMBLER_DIALECT == ASM_INTEL)
+	return regname;
+      sprintf (buf, "%%%%%s", regname);
+      return buf;
+    }
+  return NULL;
+}
+/* APPLE LOCAL end CW asm blocks */
+
 #include "gt-i386.h"

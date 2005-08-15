@@ -232,3 +232,7 @@ extern void darwin_x86_file_end (void);
 
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
 /* APPLE LOCAL end fix-and-continue x86 */
+
+/* APPLE LOCAL begin CW asm blocks */
+#define CW_ASM_REGISTER_NAME(STR, BUF) i386_cw_asm_register_name (STR, BUF)
+/* APPLE LOCAL end CW asm blocks */

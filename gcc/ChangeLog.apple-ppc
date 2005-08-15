@@ -1,3 +1,14 @@
+2005-08-15  Mike Stump  <mrs@apple.com>
+
+	Radar 4211978
+	* c-common.c (swap_operands): Add.
+	(cw_constraint_for): Add x86 support.
+	(cw_process_arg): Add x86 support.
+	(cw_asm_stmt): Add x86 suppport.
+	* config/i386/darwin.h (CW_ASM_REGISTER_NAME): Add.
+	* config/i386/i386-protos.h (i386_cw_asm_register_name): Add.
+	* config/i386/i386.c (i386_cw_asm_register_name): Add.
+
 2005-08-15  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4214718

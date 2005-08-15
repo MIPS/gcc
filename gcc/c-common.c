@@ -6218,6 +6218,39 @@ cw_asm_default_function_conversion (tree exp)
   return exp;
 }
 
+#if defined(TARGET_386)
+/* We canonicalize the oprerands by swapping them if the output style
+   is in ATT syntax.  */
+
+static tree
+canonicalize_operands(const char *opcode, tree args)
+{
+  int noperands;
+
+  if (ASSEMBLER_DIALECT == ASM_INTEL)
+    return args;
+
+  if (strcmp (opcode, "bound") == 0)
+    return args;
+  if (strcmp (opcode, "invlpga") == 0)
+    return args;
+
+#if 0
+  /* GAS also checks the type of the arguments to determine if they
+     need swapping.  */
+  if ((argtype[0]&Imm) && (argtype[1]&Imm))
+    return args;
+#endif
+  noperands = list_length (args);
+  if (noperands == 2 || noperands == 3)
+    {
+      /* Swap first and last (0 and 1 or 0 and 2). */
+      return nreverse (args);
+    }
+  return args;
+}
+#endif
+
 /* The constraints table for CW style assembly.  Things not listed are
    usually considered as "+b", "+v" or "+f" depending upon context.  */
 
@@ -6254,6 +6287,7 @@ cw_constraint_for (const char *opcode, unsigned argnum)
 {
   /* This table must be sorted.  */
   static struct cw_op_constraint db[] = {
+#if defined(TARGET_TOC)
     { "la", 2, "m" },
     { "lbz", 2, "m" },
     { "lbzu", 2, "m" },
@@ -6284,6 +6318,11 @@ cw_constraint_for (const char *opcode, unsigned argnum)
     { "stmw", 2, "m" },
     { "stw", 2, "m" },
     { "stwu", 2, "m" },
+#elif defined(TARGET_386)
+    { "fxch", 1, "+f" },
+    { "movzx", 1, "=r" },
+    { "movzx", 2, "qm" },
+#endif
   };
   struct cw_op_constraint key;
   struct cw_op_constraint *r;
@@ -6326,7 +6365,14 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
   tree str, one;
 
   if (must_be_reg)
-    s = "+b";
+    {
+      /* This is the default constraint used for all instructions.  */
+#if defined(TARGET_TOC)
+      s = "+b";
+#elif defined(TARGET_386)
+      s = "+r";
+#endif
+    }
   else
     s = cw_constraint_for (opcodename, argnum);
 
@@ -6349,7 +6395,14 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 	if (TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
 	  str = build_string (2, "+v");
 	else
-	  str = build_string (2, "+b");
+	  {
+	    /* This is the default constraint used for all instructions.  */
+#if defined(TARGET_TOC)
+	    str = build_string (2, "+b");
+#elif defined(TARGET_386)
+	    str = build_string (2, "+r");
+#endif
+	  }
     }
 
   one = build_tree_list (build_tree_list (NULL_TREE, str), var);
@@ -6422,6 +6475,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   tree stmt;
   unsigned int n;
   const char *opcodename;
+  int opcodelen;
 
   cw_asm_in_operands = 0;
   VARRAY_TREE_INIT (cw_asm_operands, 30, "cw_asm_operands");
@@ -6440,6 +6494,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   expr = cw_asm_identifier (expr);
 
   opcodename = IDENTIFIER_POINTER (expr);
+  opcodelen = IDENTIFIER_LENGTH (expr);
 
   /* Handle special directives specially.  */
   if (strcmp (opcodename, "entry") == 0)
@@ -6507,7 +6562,10 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   (void)add_stmt (stmt);
 
   cw_asm_buffer[0] = '\0';
-  strncat (cw_asm_buffer, opcodename, IDENTIFIER_LENGTH (expr));
+#if defined(TARGET_386)
+  args = canonicalize_operands (opcodename, args);
+#endif
+  strncat (cw_asm_buffer, opcodename, opcodelen);
   strcat (cw_asm_buffer, " ");
   n = 1;
   /* Iterate through operands, "printing" each into the asm string.  */
