@@ -529,10 +529,10 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
   tree vec_inv;
   tree vec_cst;
   tree t = NULL_TREE;
-  tree def, access_fn;
+  tree def;
   int i;
   enum vect_def_type dt;
-  bool is_simple_use, unknown_evolution;
+  bool is_simple_use;
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     {
@@ -594,27 +594,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
         vec_inv = build_constructor (vectype, t);
         return vect_init_vector (stmt, vec_inv);
       }
-    
-    /* Case 2.1: invariant phi.  */
-    case vect_invariant_phi_def:
-      {
-        /* Create 'vec_inv = {inv,inv,..,inv}'  */
-        if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-          fprintf (vect_dump, "Create vector_inv for invariant phi ");
-          
-        access_fn = analyze_scalar_evolution (loop, def, true,
-                                              &unknown_evolution);
-        gcc_assert (!unknown_evolution
-                    && !evolution_part_in_loop_num (access_fn, loop->num));
-        for (i = nunits - 1; i >= 0; --i)
-          {
-            t = tree_cons (NULL_TREE, access_fn, t);
-          }
-       
-        vec_inv = build_constructor (vectype, t);
-        return vect_init_vector (stmt, vec_inv);
-      }
-
+  
     /* Case 3: operand is defined inside the loop.  */
     case vect_loop_def:
       {
@@ -2505,7 +2485,6 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
   basic_block exit_bb = loop->single_exit->dest;
   tree phi, phi1;
   basic_block update_bb = update_e->dest;
-  bool unknown_evolution;
 
   /* gcc_assert (vect_can_advance_ivs_p (loop_vinfo)); */
 
@@ -2545,25 +2524,18 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
           continue; 
         } 
 
-      access_fn = analyze_scalar_evolution (loop, PHI_RESULT (phi), true,
-					    &unknown_evolution); 
+      access_fn = analyze_scalar_evolution (loop, PHI_RESULT (phi)); 
       gcc_assert (access_fn);
 
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
 	{
-	  fprintf (vect_dump, "access funcion for phi: ");
+	  fprintf (vect_dump, "accesses funcion for phi: ");
 	  print_generic_expr (vect_dump, access_fn, TDF_SLIM);
 	}
 
       evolution_part =
 	 unshare_expr (evolution_part_in_loop_num (access_fn, loop->num));
-      if (evolution_part == NULL_TREE)
-	{  
-	  gcc_assert (!unknown_evolution);
-	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	    fprintf (vect_dump, "invariant phi. skip.");
-	  continue;
-       }
+      gcc_assert (evolution_part != NULL_TREE);
       
       /* FORNOW: We do not support IVs whose evolution function is a polynomial
          of degree >= 2 or exponential.  */

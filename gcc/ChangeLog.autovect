@@ -1,3 +1,7 @@
+2005-08-15  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	Reverted 2005-07-05  Ira Rosen  <irar@il.ibm.com>.
+
 2005-08-01  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* common.opt: Add -fcheck-data-deps.

@@ -252,7 +252,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "flags.h"
 
-static tree analyze_scalar_evolution_1 (struct loop *, tree, tree, bool, bool*);
+static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
 static tree resolve_mixers (struct loop *, tree);
 
 /* The cached information about a ssa name VAR, claiming that inside LOOP,
@@ -1361,9 +1361,7 @@ follow_ssa_edge_inner_loop_phi (struct loop *outer_loop,
 				tree *evolution_of_loop)
 {
   struct loop *loop = loop_containing_stmt (loop_phi_node);
-  bool dont_know;
-  tree ev = analyze_scalar_evolution (loop, PHI_RESULT (loop_phi_node), 
-				      false, &dont_know);
+  tree ev = analyze_scalar_evolution (loop, PHI_RESULT (loop_phi_node));
 
   /* Sometimes, the inner loop is too difficult to analyze, and the
      result of the analysis is a symbolic parameter.  */
@@ -1473,7 +1471,6 @@ unify_peeled_chrec (tree loop_phi_node, tree a, tree b)
 {
   tree chrec_b, extrapolate, difference, type;
   struct loop *loop = loop_containing_stmt (loop_phi_node);
-  bool dont_know;
 
   if (a == NULL_TREE 
       || b == NULL_TREE || TREE_CODE (b) != SSA_NAME
@@ -1488,8 +1485,7 @@ unify_peeled_chrec (tree loop_phi_node, tree a, tree b)
 	return chrec_dont_know;
 
       bitmap_set_bit (already_unified, SSA_NAME_VERSION (a));
-      chrec_a = instantiate_parameters (loop, analyze_scalar_evolution (loop, a,
-							    false, &dont_know));
+      chrec_a = instantiate_parameters (loop, analyze_scalar_evolution (loop, a));
       bitmap_clear_bit (already_unified, SSA_NAME_VERSION (a));
       a = chrec_a;
     }
@@ -1499,8 +1495,7 @@ unify_peeled_chrec (tree loop_phi_node, tree a, tree b)
     return chrec_dont_know;
 
   bitmap_set_bit (already_unified, SSA_NAME_VERSION (b));
-  chrec_b = instantiate_parameters (loop, analyze_scalar_evolution (loop, b, 
-							false, &dont_know));
+  chrec_b = instantiate_parameters (loop, analyze_scalar_evolution (loop, b));
   bitmap_clear_bit (already_unified, SSA_NAME_VERSION (b));
   
   if (chrec_b == NULL_TREE 
@@ -1705,13 +1700,12 @@ interpret_loop_phi (struct loop *loop, tree loop_phi_node)
   tree res;
   struct loop *phi_loop = loop_containing_stmt (loop_phi_node);
   tree init_cond;
-  bool dont_know;
   
   if (phi_loop != loop)
     {
       struct loop *subloop;
       tree evolution_fn = analyze_scalar_evolution
-	(phi_loop, PHI_RESULT (loop_phi_node), false, &dont_know);
+	(phi_loop, PHI_RESULT (loop_phi_node));
 
       /* Dive one level deeper.  */
       subloop = superloop_at_depth (phi_loop, loop->depth + 1);
@@ -1737,7 +1731,6 @@ interpret_condition_phi (struct loop *loop, tree condition_phi)
 {
   int i;
   tree res = chrec_not_analyzed_yet;
-  bool dont_know;
   
   for (i = 0; i < PHI_NUM_ARGS (condition_phi); i++)
     {
@@ -1750,7 +1743,7 @@ interpret_condition_phi (struct loop *loop, tree condition_phi)
 	}
 
       branch_chrec = analyze_scalar_evolution
-	(loop, PHI_ARG_DEF (condition_phi, i), false, &dont_know);
+	(loop, PHI_ARG_DEF (condition_phi, i));
       
       res = chrec_merge (res, branch_chrec);
     }
@@ -1767,11 +1760,9 @@ interpret_condition_phi (struct loop *loop, tree condition_phi)
 
 static tree
 interpret_rhs_modify_expr (struct loop *loop,
-			   tree opnd1, tree type,
-			   bool analyze, bool *dont_know)
+			   tree opnd1, tree type)
 {
   tree res, opnd10, opnd11, chrec10, chrec11;
-  bool dont_know10, dont_know11;
   
   if (is_gimple_min_invariant (opnd1))
     return chrec_convert (type, opnd1);
@@ -1781,28 +1772,26 @@ interpret_rhs_modify_expr (struct loop *loop,
     case PLUS_EXPR:
       opnd10 = TREE_OPERAND (opnd1, 0);
       opnd11 = TREE_OPERAND (opnd1, 1);
-      chrec10 = analyze_scalar_evolution (loop, opnd10, analyze, &dont_know10);
-      chrec11 = analyze_scalar_evolution (loop, opnd11, analyze, &dont_know11);
+      chrec10 = analyze_scalar_evolution (loop, opnd10);
+      chrec11 = analyze_scalar_evolution (loop, opnd11);
       chrec10 = chrec_convert (type, chrec10);
       chrec11 = chrec_convert (type, chrec11);
       res = chrec_fold_plus (type, chrec10, chrec11);
-      *dont_know = dont_know10 || dont_know11;
       break;
       
     case MINUS_EXPR:
       opnd10 = TREE_OPERAND (opnd1, 0);
       opnd11 = TREE_OPERAND (opnd1, 1);
-      chrec10 = analyze_scalar_evolution (loop, opnd10, analyze, &dont_know10);
-      chrec11 = analyze_scalar_evolution (loop, opnd11, analyze, &dont_know11);
+      chrec10 = analyze_scalar_evolution (loop, opnd10);
+      chrec11 = analyze_scalar_evolution (loop, opnd11);
       chrec10 = chrec_convert (type, chrec10);
       chrec11 = chrec_convert (type, chrec11);
       res = chrec_fold_minus (type, chrec10, chrec11);
-      *dont_know = dont_know10 || dont_know11;
       break;
 
     case NEGATE_EXPR:
       opnd10 = TREE_OPERAND (opnd1, 0);
-      chrec10 = analyze_scalar_evolution (loop, opnd10, analyze, dont_know);
+      chrec10 = analyze_scalar_evolution (loop, opnd10);
       chrec10 = chrec_convert (type, chrec10);
       res = chrec_fold_minus (type, build_int_cst (type, 0), chrec10);
       break;
@@ -1810,29 +1799,26 @@ interpret_rhs_modify_expr (struct loop *loop,
     case MULT_EXPR:
       opnd10 = TREE_OPERAND (opnd1, 0);
       opnd11 = TREE_OPERAND (opnd1, 1);
-      chrec10 = analyze_scalar_evolution (loop, opnd10, analyze, &dont_know10);
-      chrec11 = analyze_scalar_evolution (loop, opnd11, analyze, &dont_know11);
+      chrec10 = analyze_scalar_evolution (loop, opnd10);
+      chrec11 = analyze_scalar_evolution (loop, opnd11);
       chrec10 = chrec_convert (type, chrec10);
       chrec11 = chrec_convert (type, chrec11);
       res = chrec_fold_multiply (type, chrec10, chrec11);
-      *dont_know = dont_know10 || dont_know11;
       break;
       
     case SSA_NAME:
-      res = chrec_convert (type, analyze_scalar_evolution (loop, opnd1, analyze,
-							   dont_know));
+      res = chrec_convert (type, analyze_scalar_evolution (loop, opnd1));
       break;
       
     case NOP_EXPR:
     case CONVERT_EXPR:
       opnd10 = TREE_OPERAND (opnd1, 0);
-      chrec10 = analyze_scalar_evolution (loop, opnd10, analyze, dont_know);
+      chrec10 = analyze_scalar_evolution (loop, opnd10);
       res = chrec_convert (type, chrec10);
       break;
       
     default:
       res = chrec_dont_know;
-      *dont_know = true;
       break;
     }
   
@@ -1856,32 +1842,19 @@ compute_scalar_evolution_in_loop (struct loop *wrto_loop,
 				  tree ev)
 {
   tree res;
-  bool dont_know;
-
   if (def_loop == wrto_loop)
     return ev;
 
   def_loop = superloop_at_depth (def_loop, wrto_loop->depth + 1);
   res = compute_overall_effect_of_inner_loop (def_loop, ev);
 
-  return analyze_scalar_evolution_1 (wrto_loop, res, chrec_not_analyzed_yet, 
-    false, &dont_know);
+  return analyze_scalar_evolution_1 (wrto_loop, res, chrec_not_analyzed_yet);
 }
 
 /* Helper recursive function.  */
 
-/*
-   If ANALYZE is TRUE, evolution is analyzed even if it was done before
-   and the result is stored in the database.
-           
-   If the evolution of VAR is unknown, DONT_KNOW is set to TRUE. The 
-   evolution part of the returned access function is NULL in such cases. 
-   (It is also NULL, when VAR is loop invariant, but in this case DONT_KNOW 
-   is set to FALSE).
-*/
 static tree
-analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res, 
-			    bool analyze, bool *dont_know)
+analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
 {
   tree def, type = TREE_TYPE (var);
   basic_block bb;
@@ -1891,7 +1864,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res,
     return chrec_dont_know;
 
   if (TREE_CODE (var) != SSA_NAME)
-    return interpret_rhs_modify_expr (loop, var, type, analyze, dont_know);
+    return interpret_rhs_modify_expr (loop, var, type);
 
   def = SSA_NAME_DEF_STMT (var);
   bb = bb_for_stmt (def);
@@ -1905,7 +1878,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res,
       goto set_and_end;
     }
 
-  if (res != chrec_not_analyzed_yet && !analyze)
+  if (res != chrec_not_analyzed_yet)
     {
       if (loop != bb->loop_father)
 	res = compute_scalar_evolution_in_loop 
@@ -1916,8 +1889,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res,
 
   if (loop != def_loop)
     {
-      res = analyze_scalar_evolution_1 (def_loop, var, chrec_not_analyzed_yet,
-					analyze, dont_know);
+      res = analyze_scalar_evolution_1 (def_loop, var, chrec_not_analyzed_yet);
       res = compute_scalar_evolution_in_loop (loop, def_loop, res);
 
       goto set_and_end;
@@ -1926,8 +1898,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res,
   switch (TREE_CODE (def))
     {
     case MODIFY_EXPR:
-      res = interpret_rhs_modify_expr (loop, TREE_OPERAND (def, 1), type, 
-				       analyze, dont_know);
+      res = interpret_rhs_modify_expr (loop, TREE_OPERAND (def, 1), type);
       break;
 
     case PHI_NODE:
@@ -1946,10 +1917,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res,
 
   /* Keep the symbolic form.  */
   if (res == chrec_dont_know)
-    {
-      *dont_know = true;
-      res = var;
-    }
+    res = var;
 
   if (loop == def_loop)
     set_scalar_evolution (var, res);
@@ -1971,19 +1939,10 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res,
    tree chrec_with_symbols = analyze_scalar_evolution (loop_nb, var);
    tree chrec_instantiated = instantiate_parameters 
    (loop_nb, chrec_with_symbols);
-
-   If ANALYZE is TRUE, evolution is analyzed even if it was done before
-   and the result is stored in the database.
-   
-   If the evolution of VAR is unknown, DONT_KNOW is set to TRUE. The 
-   evolution part of the returned access function is NULL in such cases. 
-   (It is also NULL, when VAR is loop invariant, but in this case DONT_KNOW   
-   is set to FALSE).
 */
 
 tree 
-analyze_scalar_evolution (struct loop *loop, tree var, 
-			  bool analyze, bool *dont_know)
+analyze_scalar_evolution (struct loop *loop, tree var)
 {
   tree res;
 
@@ -1996,10 +1955,7 @@ analyze_scalar_evolution (struct loop *loop, tree var,
       fprintf (dump_file, ")\n");
     }
 
-  *dont_know = false;
-
-  res = analyze_scalar_evolution_1 (loop, var, get_scalar_evolution (var), 
-				    analyze, dont_know);
+  res = analyze_scalar_evolution_1 (loop, var, get_scalar_evolution (var));
 
   if (TREE_CODE (var) == SSA_NAME && res == chrec_dont_know)
     res = var;
@@ -2018,12 +1974,12 @@ static tree
 analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
 				  tree version)
 {
-  bool val = false, dont_know;
+  bool val = false;
   tree ev = version;
 
   while (1)
     {
-      ev = analyze_scalar_evolution (use_loop, ev, false, &dont_know);
+      ev = analyze_scalar_evolution (use_loop, ev);
       ev = resolve_mixers (use_loop, ev);
 
       if (use_loop == wrto_loop)
@@ -2088,7 +2044,6 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
   tree res, op0, op1, op2;
   basic_block def_bb;
   struct loop *def_loop;
-  bool dont_know;
  
   if (chrec == NULL_TREE
       || automatically_generated_chrec_p (chrec))
@@ -2142,7 +2097,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
       /* If the analysis yields a parametric chrec, instantiate the
 	 result again.  */
       bitmap_set_bit (already_instantiated, SSA_NAME_VERSION (chrec));
-      res = analyze_scalar_evolution (def_loop, chrec, false, &dont_know);
+      res = analyze_scalar_evolution (def_loop, chrec);
       if (res != chrec_dont_know)
 	res = instantiate_parameters_1 (loop, res, allow_superloop_chrecs,
 					cache);
@@ -2574,7 +2529,6 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
 {
   unsigned int i;
   struct chrec_stats stats;
-  bool dont_know;
   
   reset_chrecs_counters (&stats);
   
@@ -2604,8 +2558,7 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
 	    {
 	      chrec = instantiate_parameters 
 		(loop, 
-		 analyze_scalar_evolution (loop, PHI_RESULT (phi), false,
-                                           &dont_know));
+		 analyze_scalar_evolution (loop, PHI_RESULT (phi)));
 	    
 	      if (dump_file && (dump_flags & TDF_STATS))
 		gather_chrec_stats (chrec, &stats);

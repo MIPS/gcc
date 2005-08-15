@@ -28,7 +28,7 @@ extern tree get_loop_exit_condition (struct loop *);
 extern void scev_initialize (struct loops *loops);
 extern void scev_reset (void);
 extern void scev_finalize (void);
-extern tree analyze_scalar_evolution (struct loop *, tree, bool, bool*);
+extern tree analyze_scalar_evolution (struct loop *, tree);
 extern tree instantiate_parameters (struct loop *, tree);
 extern void gather_stats_on_scev_database (void);
 extern void scev_analysis (void);

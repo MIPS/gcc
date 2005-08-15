@@ -1227,7 +1227,6 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   int extra = 0;
   tree lboundvar, uboundvar, uboundresult;
   use_optype uses;
-  bool unknown_evolution;
 
   /* Find out induction var and exit condition.  */
   inductionvar = find_induction_var_from_exit_cond (loop);
@@ -1286,7 +1285,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
      result of the induction variable phi node.  */
   *ourinductionvar = PHI_RESULT (phi);
   access_fn = instantiate_parameters
-    (loop, analyze_scalar_evolution (loop, PHI_RESULT (phi), false, &unknown_evolution));
+    (loop, analyze_scalar_evolution (loop, PHI_RESULT (phi)));
   if (access_fn == chrec_dont_know)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))

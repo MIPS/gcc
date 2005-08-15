@@ -858,7 +858,6 @@ analyze_array_indexes (struct loop *loop,
 {
   tree opnd0, opnd1;
   tree access_fn;
-  bool unknown_evolution;
   
   opnd0 = TREE_OPERAND (ref, 0);
   opnd1 = TREE_OPERAND (ref, 1);
@@ -868,7 +867,7 @@ analyze_array_indexes (struct loop *loop,
      the computation of access functions that are of no interest for
      the optimizers.  */
   access_fn = instantiate_parameters 
-    (loop, analyze_scalar_evolution (loop, opnd1, false, &unknown_evolution));
+    (loop, analyze_scalar_evolution (loop, opnd1));
 
   if (loop->estimated_nb_iterations == NULL_TREE)
     estimate_niter_from_size_of_data (loop, opnd0, access_fn, stmt);
@@ -936,9 +935,7 @@ analyze_indirect_ref (tree stmt, tree ref, bool is_read)
 {
   struct loop *loop = loop_containing_stmt (stmt);
   tree ptr_ref = TREE_OPERAND (ref, 0);
-  bool unknown_evolution;
-  tree access_fn = analyze_scalar_evolution (loop, ptr_ref, true, 
-					     &unknown_evolution);
+  tree access_fn = analyze_scalar_evolution (loop, ptr_ref);
   tree init = initial_condition_in_loop_num (access_fn, loop->num);
   tree base_address = NULL_TREE, evolution, step = NULL_TREE;
   struct ptr_info_def *pointsto_info = NULL;
@@ -965,11 +962,11 @@ analyze_indirect_ref (tree stmt, tree ref, bool is_read)
       fprintf (dump_file, "\n");
     }
 
-  if (unknown_evolution)
+  if (!expr_invariant_in_loop_p (loop, init))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "\nunknown evolution of ptr.\n");
-    }  
+    if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "\ninitial condition is not loop invariant.\n");	
+    }
   else
     {
       base_address = init;
@@ -1123,7 +1120,6 @@ analyze_offset_expr (tree expr,
   tree right_step = ssize_int (0);
   enum tree_code code;
   tree init, evolution;
-  bool unknown_evolution;
 
   *step = NULL_TREE;
   *misalign = NULL_TREE;
@@ -1148,15 +1144,14 @@ analyze_offset_expr (tree expr,
      access_fn in the current loop.  */
   if (SSA_VAR_P (expr))
     {
-      tree access_fn = analyze_scalar_evolution (loop, expr, true, 
-						 &unknown_evolution);
+      tree access_fn = analyze_scalar_evolution (loop, expr);
 
       if (access_fn == chrec_dont_know)
 	/* No access_fn.  */
 	return false;
 
       init = initial_condition_in_loop_num (access_fn, loop->num);
-      if (init == expr && unknown_evolution)
+      if (init == expr && !expr_invariant_in_loop_p (loop, init))
 	/* Not enough information: may be not loop invariant.  
 	   E.g., for a[b[i]], we get a[D], where D=b[i]. EXPR is D, its 
 	   initial_condition is D, but it depends on i - loop's induction

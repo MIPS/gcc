@@ -383,7 +383,6 @@ try_eliminate_check (tree cond)
   struct loop *loop = loop_containing_stmt (cond);
   tree nb_iters = number_of_iterations_in_loop (loop);
   enum tree_code code;
-  bool unknown_evolution;
 
   if (chrec_contains_undetermined (nb_iters))
     return;
@@ -404,7 +403,7 @@ try_eliminate_check (tree cond)
       /* Matched "if (opnd0)" ie, "if (opnd0 != 0)".  */
       opnd0 = test;
       chrec0 = instantiate_parameters 
-	(loop, analyze_scalar_evolution (loop, opnd0, false, &unknown_evolution));
+	(loop, analyze_scalar_evolution (loop, opnd0));
       if (chrec_contains_undetermined (chrec0))
 	goto end;
 
@@ -422,9 +421,9 @@ try_eliminate_check (tree cond)
       opnd1 = TREE_OPERAND (test, 1);
 
       chrec0 = instantiate_parameters 
-	(loop, analyze_scalar_evolution (loop, opnd0, false, &unknown_evolution));
+	(loop, analyze_scalar_evolution (loop, opnd0));
       chrec1 = instantiate_parameters 
-	(loop, analyze_scalar_evolution (loop, opnd1, false, &unknown_evolution));
+	(loop, analyze_scalar_evolution (loop, opnd1));
 
       if (chrec_contains_undetermined (chrec0)
 	  || chrec_contains_undetermined (chrec1))

@@ -61,7 +61,6 @@ enum dr_alignment_support {
 enum vect_def_type {
   vect_constant_def,
   vect_invariant_def,
-  vect_invariant_phi_def,
   vect_loop_def,
   vect_induction_def,
   vect_reduction_def,
