@@ -1,3 +1,12 @@
+2005-08-15  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4093475
+	* parser.c (cp_parser_objc_interstitial_code): Catch stray
+	'{' and '}' tokens and issue appropriate errors.
+	(cp_parser_objc_method_prototype_list,
+	cp_parser_objc_method_definition_list): Bail out if end-of-file
+	is seen; issue error if trailing '@end' is not seen.
+
 2005-07-25 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4205577

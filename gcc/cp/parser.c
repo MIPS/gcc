@@ -18055,6 +18055,15 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
   /* Allow stray semicolons.  */
   else if (token->type == CPP_SEMICOLON)
     cp_lexer_consume_token (parser->lexer);
+  /* APPLE LOCAL begin 4093475 */
+  /* Other stray characters must generate errors.  */
+  else if (token->type == CPP_OPEN_BRACE || token->type == CPP_CLOSE_BRACE)
+    {
+      cp_lexer_consume_token (parser->lexer);
+      error ("stray `%s' between Objective-C++ methods",
+	     token->type == CPP_OPEN_BRACE ? "{" : "}");
+    }
+  /* APPLE LOCAL end 4093475 */
   /* Finally, try to parse a block-declaration, or a function-definition.  */
   else
     cp_parser_block_declaration (parser, /*statement_p=*/false);
@@ -18078,7 +18087,8 @@ cp_parser_objc_method_prototype_list (cp_parser* parser)
 {
   cp_token *token = cp_lexer_peek_token (parser->lexer);
 
-  while (token->keyword != RID_AT_END)
+  /* APPLE LOCAL 4093475 */
+  while (token->keyword != RID_AT_END && token->type != CPP_EOF)
     {
       if (token->type == CPP_PLUS || token->type == CPP_MINUS)
 	{
@@ -18093,7 +18103,8 @@ cp_parser_objc_method_prototype_list (cp_parser* parser)
       token = cp_lexer_peek_token (parser->lexer);
     }
 
-  cp_lexer_consume_token (parser->lexer);  /* Eat '@end'.  */
+  /* APPLE LOCAL 4093475 */
+  cp_parser_require_keyword (parser, RID_AT_END, "`@end'");
   objc_finish_interface ();
 }
 
@@ -18102,7 +18113,8 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 {
   cp_token *token = cp_lexer_peek_token (parser->lexer);
 
-  while (token->keyword != RID_AT_END)
+  /* APPLE LOCAL 4093475 */
+  while (token->keyword != RID_AT_END && token->type != CPP_EOF)
     {
       tree meth;
 
@@ -18130,7 +18142,8 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
       token = cp_lexer_peek_token (parser->lexer);
     }
 
-  cp_lexer_consume_token (parser->lexer);  /* Eat '@end'.  */
+  /* APPLE LOCAL 4093475 */
+  cp_parser_require_keyword (parser, RID_AT_END, "`@end'");
   objc_finish_implementation ();
 }
 
