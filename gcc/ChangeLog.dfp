@@ -1,5 +1,10 @@
 2005-08-15  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.c (ix86_decimal_float_supported_p): Return true
+	only when TARGET_SSE is true.
+
+2005-08-15  Ben Elliston  <bje@au.ibm.com>
+
 	* config/i386/i386.md (*movdd_gprs): Remove.
 	(*movdd_sse): Apply to TARGET_SSE systems, not just 64-bit
 	systems.  Use movaps instructiosn to move x->x.

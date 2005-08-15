@@ -17728,7 +17728,7 @@ ix86_stack_protect_fail (void)
 static bool
 ix86_decimal_float_supported_p (void)
 {
-  return true;
+  return TARGET_SSE;
 }
 
 #include "gt-i386.h"
