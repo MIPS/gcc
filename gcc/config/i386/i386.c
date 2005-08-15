@@ -2532,7 +2532,6 @@ classify_argument (enum machine_mode mode, tree type,
   switch (mode)
     {
     case SDmode:
-    case DDmode:
     case DImode:
     case SImode:
     case HImode:
@@ -2565,6 +2564,7 @@ classify_argument (enum machine_mode mode, tree type,
       classes[1] = X86_64_X87UP_CLASS;
       return 2;
     case TFmode:
+    case DDmode:
     case TDmode:
       classes[0] = X86_64_SSE_CLASS;
       classes[1] = X86_64_SSEUP_CLASS;
@@ -3021,6 +3021,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
       case V2DImode:
       case V4SFmode:
       case V2DFmode:
+      case DDmode:
+      case TDmode:
 	if (!type || !AGGREGATE_TYPE_P (type))
 	  {
 	    if (!TARGET_SSE && !warnedsse && cum->warn_sse)
@@ -3341,6 +3343,7 @@ ix86_libcall_value (enum machine_mode mode)
 	case DFmode:
 	case DCmode:
 	case TFmode:
+	case DDmode:
 	case TDmode:
 	  return gen_rtx_REG (mode, FIRST_SSE_REG);
 	case XFmode:
@@ -3363,8 +3366,10 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
 {
   gcc_assert (!TARGET_64BIT);
 
-  if (DECIMAL_FLOAT_MODE_P (mode))
+  if (mode == SDmode)
     return 0;
+  else if (mode == DDmode || mode == TDmode)
+    return FIRST_SSE_REG;
 
   /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
      we prevent this case when mmx is not available.  */
@@ -15640,6 +15645,13 @@ ix86_register_move_cost (enum machine_mode mode, enum reg_class class1,
 bool
 ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
+  if (mode == SDmode)
+    return 1;
+  
+  /* All other decimal float modes should be held in SSE registers.  */
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return SSE_REGNO_P (regno);
+
   /* Flags and only flags can only hold CCmode values.  */
   if (CC_REGNO_P (regno))
     return GET_MODE_CLASS (mode) == MODE_CC;
@@ -15680,9 +15692,6 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     }
   /* We handle both integer and floats in the general purpose registers.  */
   else if (VALID_INT_MODE_P (mode))
-    return 1;
-  /* Ditto for decimal float modes.  */
-  else if (DECIMAL_FLOAT_MODE_P (mode))
     return 1;
   else if (VALID_FP_MODE_P (mode))
     return 1;

@@ -1,3 +1,18 @@
+2005-08-15  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386.md (*movdd_gprs): Remove.
+	(*movdd_sse): Apply to TARGET_SSE systems, not just 64-bit
+	systems.  Use movaps instructiosn to move x->x.
+	(*movtd_sse): Likewise, apply to any TARGET_SSE target.
+	* config/i386/i386.c (classify_argument): Hold DDmode arguments in
+	the SSE register class.
+	(function_arg): Handle DDmode, TDmode.
+	(ix86_libcall_value): Treat DDmode like TDmode, using SSE.
+	(ix86_value_regno): Correct the logic for decimal float modes: put
+	SDmode into GPRs, but DDmode and TDmode values into SSE registers.
+	(ix86_hard_regno_mode_ok): Only SSE registers are okay for DDmode
+	and TDmode values.
+
 2005-08-11  Janis Johnson  <janis187@us.ibm.com>
 
 	* config/dfp-bit.h (TO_ENCODED_TO): Replace redefinition of TO_ENCODED
