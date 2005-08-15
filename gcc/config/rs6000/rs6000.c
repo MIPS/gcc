@@ -53,7 +53,7 @@
 #include "cfglayout.h"
 #include "sched-int.h"
 #include "tree-gimple.h"
-/* APPLE LOCAL begin 3893112 */
+/* APPLE LOCAL 3893112 */
 #include "params.h"
 /* APPLE LOCAL mainline 2005-04-14 */
 #include "intl.h"
