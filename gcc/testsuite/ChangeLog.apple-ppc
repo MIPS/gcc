@@ -6,6 +6,13 @@
 2005-08-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4204303
+	* gcc.c-torture/execute/built-in-return-address-1.c: New
+	* gcc.c-torture/execute/builtin_ret_addr_with_dyn_alloc.c:
+	Removed.
+
+2005-08-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4204303
 	* gcc.c-torture/execute/builtin_ret_addr_with_dyn_alloc.c:
 	New test.
 
