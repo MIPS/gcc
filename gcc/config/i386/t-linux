@@ -1,0 +1,21 @@
+# On 32-bit x86 systems, we need to pass -msse to build dfp routines.
+# FIXME: there has to be a "proper" way!
+TARGET_LIBGCC2_CFLAGS += -msse
+
+# Build decimal floating point support routines.
+
+D32PBIT  = dfp32-bit.c
+D64PBIT  = dfp64-bit.c
+D128PBIT = dfp128-bit.c
+
+dfp32-bit.c: $(srcdir)/config/dfp-bit.c
+	echo '#define WIDTH 32' > $@
+	cat $< >> $@
+
+dfp64-bit.c: $(srcdir)/config/dfp-bit.c
+	echo '#define WIDTH 64' > $@
+	cat $< >> $@
+
+dfp128-bit.c: $(srcdir)/config/dfp-bit.c
+	echo '#define WIDTH 128' > $@
+	cat $< >> $@
