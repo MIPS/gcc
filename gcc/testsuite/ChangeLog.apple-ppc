@@ -1,3 +1,9 @@
+2005-08-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4204303
+	* gcc.c-torture/execute/builtin_ret_addr_with_dyn_alloc.c:
+	New test.
+
 2005-08-10  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3893122
