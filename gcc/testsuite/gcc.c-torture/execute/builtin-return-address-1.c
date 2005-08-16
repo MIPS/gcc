@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin radar 4204303 */
 #include <stdio.h>
 #include <string.h>
 extern void abort();
@@ -22,3 +23,4 @@ int main (int argc, const char * argv[]) {
       abort();
     return 0;
 }
+/* APPLE LOCAL end radar 4204303 */

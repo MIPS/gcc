@@ -3562,6 +3562,5 @@ enum rs6000_builtins
   TARGET_BUILTIN_MAX = RS6000_BUILTIN_MAX
   /* APPLE LOCAL end constant cfstrings */
 };
-
 /* APPLE LOCAL radar 4204303 */
 #define INITIAL_FRAME_ADDRESS_RTX stack_pointer_rtx
