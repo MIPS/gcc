@@ -214,7 +214,7 @@ extern float strtof (const char *, char **);
 /* These aren't used if XF mode is not supported.  */
 #define BFP_TYPE XFtype
 #define BFP_FMT "%e"
-#define BFP_VIA_TYPE DFtype
+#define BFP_VIA_TYPE double
 #define STR_TO_BFP strtod
 #endif
 

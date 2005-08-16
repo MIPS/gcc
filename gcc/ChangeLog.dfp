@@ -1,3 +1,7 @@
+2005-08-16  Ben Elliston  <bje@au.ibm.com>
+
+	* config/dfp-bit.h (BFP_VIA_TYPE): Use double not DFtype.
+
 2005-08-15  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.c (function_arg_advance): Handle SDmode, DDmode
