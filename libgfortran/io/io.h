@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include <setjmp.h>
 #include "libgfortran.h"
 
-#define DEFAULT_TEMPDIR "/var/tmp"
+#define DEFAULT_TEMPDIR "/tmp"
 
 /* Basic types used in data transfers.  */
 
@@ -495,6 +495,12 @@ internal_proto(empty_internal_buffer);
 
 extern try flush (stream *);
 internal_proto(flush);
+
+extern int stream_isatty (stream *);
+internal_proto(stream_isatty);
+
+extern char * stream_ttyname (stream *);
+internal_proto(stream_ttyname);
 
 extern int unit_to_fd (int);
 internal_proto(unit_to_fd);

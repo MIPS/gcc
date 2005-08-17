@@ -1,3 +1,101 @@
+2005-08-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23428
+	* io/transfer.c (iolength_transfer):  Remove __attribute__ ((unused))
+	from type.  Return correct length for inquire(iolength=)
+	for complex variables.
+
+2005-08-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/20006
+	* Makefile.am: Add file runtime/compile_options.c.
+	* Makefile.in: Regenerate.
+	* libgfortran.h: Create structure compile_options_t. Define the
+	compile_options variable and GFC_STD_ macros.
+	* runtime/compile_options.c: New file.
+	* runtime/error.c (notify_std): New function.
+	* runtime/main.c (init): Call init_compile_options during
+	initialization.
+	* io/format.c: Use the new notify_std function for the $
+	descriptor extension.
+
+2005-08-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	* Makefile.am: Add file intrinsics/tty.c to Makefile process.
+	* Makefile.in: Regenerate.
+	* io/io.h: Prototypes for new functions stream_isatty and
+	stream_ttyname.
+	* io/unix (stream_isatty, stream_ttyname): New functions to call
+	isatty() and ttyname() on a given unit.
+	* intrinsics/tty.c: New file to implement g77 intrinsics TTYNAM
+	and ISATTY.
+
+2005-08-08  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libfortran/23154
+	* io/transfer.c (data_transfer_init): Initialize
+	current_unit->bytes_left for a read.
+
+2005-08-07  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	PR fortran/22390
+	* io/backspace.c: File removed, contents moved to ...
+	* io/endfile.c: Ditto.
+	* io/rewind.c: Ditto.
+	* io/file_pos.c: New file, ... here.
+	* Makefile.am: Add file_pos.c to list, remove obsolete files.
+	* Makefile.in: Regenerated.
+
+2005-08-07  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/io.h: Change DEFAULT_TEMPDIR to /tmp instead of /var/tmp.
+	* io/unix.c (tempfile): Look at the TEMP environment variable
+	to find the temporary files directory. Whitespace correction.
+
+2005-08-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/unix.c: Add O_RDWR to open() call.
+
+2005-08-04 Paul Thomas  <pault@gcc.gnu.org>
+
+	* transfer.c (data_transfer_init): Truncate file in
+	sequential WRITE when last_record == 0, rather than
+	current_record.  Cures problem on RH9.
+
+2005-08-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* libgfortran.h: When isfinite is not provided by the system,
+	define it as a macro, so that it can accept any floating point
+	type.
+
+2005-08-01  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23178
+	* intrinsics/flush.c (flush_i8): Add function flush_i8. Update
+	copyright years.
+
+2005-07-31  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21787
+	* intrinsics/abort.c (abort): Close units before aborting.
+	Updated copyright years.
+
+2005-07-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/22436
+	* io/write.c (write_real): Add default formats for real(10) and
+	real(16).
+
+2005-07-30 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22570 and related issues.
+	* transfer.c (formatted_transfer): Make sure that there
+	really is data present before X- or T- editing. Move all
+	treatment of tabbing during writes to start of next data
+	producing format. Suppress incorrect zeroing of bytes_left
+	in slash formating. Insert int cast for assignment of a
+	difference of two gfc_offsets.
+
 2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
 
 	* io/write.c (write_float): Revise output of IEEE exceptional
@@ -25,7 +123,7 @@
 	x-editing during formatted input.
 	* transfer.c (formatted_transfer): Cast offset difference
 	as int, clean-up arithmetic with new variable, bytes_used,
-	zero counters for FMT_SLASH, 
+	zero counters for FMT_SLASH,
 	(data_transfer_init) Zero X- and T-editing counters
 	unconditionally.
 	(next_record_w) Zero X- and T-editing counters.
@@ -75,7 +173,7 @@
 2005-07-09  Jerry DeLisle  <jvdelisle@verizon.net>
 
 	PR libfortran/21875  (FM111.f)
-	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or 
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or
 	BLANK_NULL are active.
 	(read_decimal): Interpret ' ' character correctly for BZ or BN.
 	(read_radix): Interpret ' ' character correctly for BZ or BN.

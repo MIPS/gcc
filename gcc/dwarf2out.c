@@ -3982,7 +3982,7 @@ static dw_loc_descr_ref int_loc_descriptor (HOST_WIDE_INT);
 static dw_loc_descr_ref based_loc_descr (unsigned, HOST_WIDE_INT, bool);
 static int is_based_loc (rtx);
 static dw_loc_descr_ref mem_loc_descriptor (rtx, enum machine_mode mode, bool);
-static dw_loc_descr_ref concat_loc_descriptor (rtx, rtx);
+static dw_loc_descr_ref concat_loc_descriptor (rtx, rtx, bool);
 static dw_loc_descr_ref loc_descriptor (rtx, bool);
 static dw_loc_descr_ref loc_descriptor_from_tree_1 (tree, int);
 static dw_loc_descr_ref loc_descriptor_from_tree (tree);
@@ -8643,7 +8643,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
 	 up an entire register.  For now, just assume that it is
 	 legitimate to make the Dwarf info refer to the whole register which
 	 contains the given subreg.  */
-      rtl = SUBREG_REG (rtl);
+      rtl = XEXP (rtl, 0);
 
       /* ... fall through ...  */
 
@@ -8809,11 +8809,11 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
    This is typically a complex variable.  */
 
 static dw_loc_descr_ref
-concat_loc_descriptor (rtx x0, rtx x1)
+concat_loc_descriptor (rtx x0, rtx x1, bool can_use_fbreg)
 {
   dw_loc_descr_ref cc_loc_result = NULL;
-  dw_loc_descr_ref x0_ref = loc_descriptor (x0, false);
-  dw_loc_descr_ref x1_ref = loc_descriptor (x1, false);
+  dw_loc_descr_ref x0_ref = loc_descriptor (x0, can_use_fbreg);
+  dw_loc_descr_ref x1_ref = loc_descriptor (x1, can_use_fbreg);
 
   if (x0_ref == 0 || x1_ref == 0)
     return 0;
@@ -8825,6 +8825,29 @@ concat_loc_descriptor (rtx x0, rtx x1)
   add_loc_descr_op_piece (&cc_loc_result, GET_MODE_SIZE (GET_MODE (x1)));
 
   return cc_loc_result;
+}
+
+/* Return true if DECL's containing function has a frame base attribute.
+   Return false otherwise.  */
+
+static bool
+containing_function_has_frame_base (tree decl)
+{
+  tree declcontext = decl_function_context (decl);
+  dw_die_ref context;
+  dw_attr_ref attr;
+  
+  if (!declcontext)
+    return false;
+
+  context = lookup_decl_die (declcontext);
+  if (!context)
+    return false;
+
+  for (attr = context->die_attr; attr; attr = attr->dw_attr_next)
+    if (attr->dw_attr == DW_AT_frame_base)
+      return true;
+  return false;
 }
 
 /* Output a proper Dwarf location descriptor for a variable or parameter
@@ -8862,7 +8885,8 @@ loc_descriptor (rtx rtl, bool can_use_fbreg)
       break;
 
     case CONCAT:
-      loc_result = concat_loc_descriptor (XEXP (rtl, 0), XEXP (rtl, 1));
+      loc_result = concat_loc_descriptor (XEXP (rtl, 0), XEXP (rtl, 1),
+					  can_use_fbreg);
       break;
 
     case VAR_LOCATION:
@@ -9022,10 +9046,11 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	else
 	  {
 	    enum machine_mode mode;
+	    bool can_use_fb = containing_function_has_frame_base (loc);
 
 	    /* Certain constructs can only be represented at top-level.  */
 	    if (want_address == 2)
-	      return loc_descriptor (rtl, false);
+	      return loc_descriptor (rtl, can_use_fb);
 
 	    mode = GET_MODE (rtl);
 	    if (MEM_P (rtl))
@@ -9033,7 +9058,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 		rtl = XEXP (rtl, 0);
 		have_address = 1;
 	      }
-	    ret = mem_loc_descriptor (rtl, mode, false);
+	    ret = mem_loc_descriptor (rtl, mode, can_use_fb);
 	  }
       }
       break;
@@ -9107,12 +9132,14 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	/* Get an RTL for this, if something has been emitted.  */
 	rtx rtl = lookup_constant_def (loc);
 	enum machine_mode mode;
+	bool can_use_fb;
 
 	if (!rtl || !MEM_P (rtl))
 	  return 0;
+	can_use_fb = containing_function_has_frame_base (loc);
 	mode = GET_MODE (rtl);
 	rtl = XEXP (rtl, 0);
-	ret = mem_loc_descriptor (rtl, mode, false);
+	ret = mem_loc_descriptor (rtl, mode, can_use_fb);
 	have_address = 1;
 	break;
       }
@@ -10076,29 +10103,6 @@ rtl_for_decl_location (tree decl)
   return rtl;
 }
 
-/* Return true if DECL's containing function has a frame base attribute.
-   Return false otherwise.  */
-
-static bool
-containing_function_has_frame_base (tree decl)
-{
-  tree declcontext = decl_function_context (decl);
-  dw_die_ref context;
-  dw_attr_ref attr;
-  
-  if (!declcontext)
-    return false;
-
-  context = lookup_decl_die (declcontext);
-  if (!context)
-    return false;
-
-  for (attr = context->die_attr; attr; attr = attr->dw_attr_next)
-    if (attr->dw_attr == DW_AT_frame_base)
-      return true;
-  return false;
-}
-  
 /* Generate *either* a DW_AT_location attribute or else a DW_AT_const_value
    data attribute for a variable or a parameter.  We generate the
    DW_AT_const_value attribute only in those cases where the given variable
@@ -10234,16 +10238,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       return;
     }
   
-  /* We couldn't get any rtl, and we had no >1 element location list, so try
-     directly generating the location description from the tree.  */
-  descr = loc_descriptor_from_tree (decl);
-  if (descr)
-    {
-      add_AT_location_description (die, attr, descr);
-      return;
-    }
-  
-  /* Lastly, if we have tried to generate the location otherwise, and it
+  /* If we have tried to generate the location otherwise, and it
      didn't work out (we wouldn't be here if we did), and we have a one entry
      location list, try generating a location from that.  */
   if (loc_list && loc_list->first)
@@ -10252,7 +10247,19 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       descr = loc_descriptor (NOTE_VAR_LOCATION (node->var_loc_note), 
 			      can_use_fb);
       if (descr)
-	add_AT_location_description (die, attr, descr);
+	{
+	  add_AT_location_description (die, attr, descr);
+	  return;
+	}
+    }
+
+  /* We couldn't get any rtl, so try directly generating the location
+     description from the tree.  */
+  descr = loc_descriptor_from_tree (decl);
+  if (descr)
+    {
+      add_AT_location_description (die, attr, descr);
+      return;
     }
 }
 
@@ -13081,7 +13088,7 @@ dwarf2out_decl (tree decl)
 	 declarations.  We have to check DECL_INITIAL instead. That's because
 	 the C front-end supports some weird semantics for "extern inline"
 	 function definitions.  These can get inlined within the current
-	 translation unit (an thus, we need to generate Dwarf info for their
+	 translation unit (and thus, we need to generate Dwarf info for their
 	 abstract instances so that the Dwarf info for the concrete inlined
 	 instances can have something to refer to) but the compiler never
 	 generates any out-of-lines instances of such things (despite the fact

@@ -1185,7 +1185,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (temp != 0)
 	{
-	  if (GET_MODE_CLASS (mode) == MODE_INT)
+	  if (GET_MODE_CLASS (mode) == MODE_INT
+	      && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+                                        GET_MODE_BITSIZE (GET_MODE (temp))))
 	    return gen_lowpart (mode, temp);
 	  else
 	    return convert_to_mode (mode, temp, unsignedp);
@@ -1234,7 +1236,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 				 unsignedp, OPTAB_DIRECT);
 	    if (temp)
 	      {
-		if (class != MODE_INT)
+		if (class != MODE_INT
+                    || !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+                                               GET_MODE_BITSIZE (wider_mode)))
 		  {
 		    if (target == 0)
 		      target = gen_reg_rtx (mode);
@@ -1763,7 +1767,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 				   unsignedp, methods);
 	      if (temp)
 		{
-		  if (class != MODE_INT)
+		  if (class != MODE_INT
+		      || !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+						 GET_MODE_BITSIZE (wider_mode)))
 		    {
 		      if (target == 0)
 			target = gen_reg_rtx (mode);
@@ -5491,7 +5497,7 @@ expand_vec_cond_expr (tree vec_cond_expr, rtx target)
   if (icode == CODE_FOR_nothing)
     return 0;
 
-  if (!target)
+  if (!target || !insn_data[icode].operand[0].predicate (target, mode))
     target = gen_reg_rtx (mode);
 
   /* Get comparison rtx.  First expand both cond expr operands.  */

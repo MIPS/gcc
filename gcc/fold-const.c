@@ -2029,7 +2029,7 @@ fold_convert (tree type, tree arg)
     }
 }
 
-/* Return false if expr can be assumed not to be an value, true
+/* Return false if expr can be assumed not to be an lvalue, true
    otherwise.  */
 
 static bool
@@ -3928,6 +3928,15 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
 {
   tree etype = TREE_TYPE (exp);
   tree value;
+
+#ifdef HAVE_canonicalize_funcptr_for_compare
+  /* Disable this optimization for function pointer expressions
+     on targets that require function pointer canonicalization.  */
+  if (HAVE_canonicalize_funcptr_for_compare
+      && TREE_CODE (etype) == POINTER_TYPE
+      && TREE_CODE (TREE_TYPE (etype)) == FUNCTION_TYPE)
+    return NULL_TREE;
+#endif
 
   if (! in_p)
     {
@@ -9310,10 +9319,9 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		    tree st0, st1;
 		    st0 = lang_hooks.types.signed_type (TREE_TYPE (arg0));
 		    st1 = lang_hooks.types.signed_type (TREE_TYPE (arg1));
-		    return fold
-		      (build2 (code == LE_EXPR ? GE_EXPR: LT_EXPR,
-			       type, fold_convert (st0, arg0),
-			       fold_convert (st1, integer_zero_node)));
+		    return fold_build2 (code == LE_EXPR ? GE_EXPR: LT_EXPR,
+			       		type, fold_convert (st0, arg0),
+			       		build_int_cst (st1, 0));
 		  }
 	      }
 	  }
@@ -10107,13 +10115,7 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
       if (TREE_CODE (op0) == ADDR_EXPR
 	  && TREE_CODE (TREE_OPERAND (op0, 0)) == FUNCTION_DECL
 	  && DECL_BUILT_IN (TREE_OPERAND (op0, 0)))
-	{
-	  tree fndecl = TREE_OPERAND (op0, 0);
-	  tree arglist = op1;
-	  tree tmp = fold_builtin (fndecl, arglist, false);
-	  if (tmp)
-	    return tmp;
-	}
+	return fold_builtin (TREE_OPERAND (op0, 0), op1, false);
       return NULL_TREE;
 
     case BIT_FIELD_REF:
@@ -10414,7 +10416,7 @@ recursive_label:
    operand OP0.  */
 
 tree
-fold_build1 (enum tree_code code, tree type, tree op0)
+fold_build1_stat (enum tree_code code, tree type, tree op0 MEM_STAT_DECL)
 {
   tree tem;
 #ifdef ENABLE_FOLD_CHECKING
@@ -10431,7 +10433,7 @@ fold_build1 (enum tree_code code, tree type, tree op0)
   
   tem = fold_unary (code, type, op0);
   if (!tem)
-    tem = build1 (code, type, op0);
+    tem = build1_stat (code, type, op0 PASS_MEM_STAT);
   
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
@@ -10451,7 +10453,8 @@ fold_build1 (enum tree_code code, tree type, tree op0)
    with operands OP0 and OP1.  */
 
 tree
-fold_build2 (enum tree_code code, tree type, tree op0, tree op1)
+fold_build2_stat (enum tree_code code, tree type, tree op0, tree op1
+		  MEM_STAT_DECL)
 {
   tree tem;
 #ifdef ENABLE_FOLD_CHECKING
@@ -10476,7 +10479,7 @@ fold_build2 (enum tree_code code, tree type, tree op0, tree op1)
 
   tem = fold_binary (code, type, op0, op1);
   if (!tem)
-    tem = build2 (code, type, op0, op1);
+    tem = build2_stat (code, type, op0, op1 PASS_MEM_STAT);
   
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
@@ -10504,8 +10507,10 @@ fold_build2 (enum tree_code code, tree type, tree op0, tree op1)
    type TYPE with operands OP0, OP1, and OP2.  */
 
 tree
-fold_build3 (enum tree_code code, tree type, tree op0, tree op1, tree op2)
-{  tree tem;
+fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
+	     MEM_STAT_DECL)
+{
+  tree tem;
 #ifdef ENABLE_FOLD_CHECKING
   unsigned char checksum_before_op0[16],
                 checksum_before_op1[16],
@@ -10535,7 +10540,7 @@ fold_build3 (enum tree_code code, tree type, tree op0, tree op1, tree op2)
   
   tem = fold_ternary (code, type, op0, op1, op2);
   if (!tem)
-    tem =  build3 (code, type, op0, op1, op2);
+    tem =  build3_stat (code, type, op0, op1, op2 PASS_MEM_STAT);
       
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
@@ -10719,7 +10724,7 @@ tree_expr_nonnegative_p (tree t)
     case ABS_EXPR:
       /* We can't return 1 if flag_wrapv is set because
 	 ABS_EXPR<INT_MIN> = INT_MIN.  */
-      if (!flag_wrapv)
+      if (!(flag_wrapv && INTEGRAL_TYPE_P (TREE_TYPE (t))))
         return 1;
       break;
 
@@ -10777,6 +10782,15 @@ tree_expr_nonnegative_p (tree t)
 	}
       return 0;
 
+    case BIT_AND_EXPR:
+    case MAX_EXPR:
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
+	     || tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
+
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case MIN_EXPR:
+    case RDIV_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -10788,19 +10802,21 @@ tree_expr_nonnegative_p (tree t)
     case CEIL_MOD_EXPR:
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
+    case SAVE_EXPR:
+    case NON_LVALUE_EXPR:
+    case FLOAT_EXPR:
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
 
-    case RDIV_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
-	     && tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
+    case COMPOUND_EXPR:
+    case MODIFY_EXPR:
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
 
-    case BIT_AND_EXPR:
+    case BIND_EXPR:
+      return tree_expr_nonnegative_p (expr_last (TREE_OPERAND (t, 1)));
+
+    case COND_EXPR:
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 1))
-	     || tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
-	     && tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
+	     && tree_expr_nonnegative_p (TREE_OPERAND (t, 2));
 
     case NOP_EXPR:
       {
@@ -10828,28 +10844,6 @@ tree_expr_nonnegative_p (tree t)
 	  }
       }
       break;
-
-    case COND_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 1))
-	&& tree_expr_nonnegative_p (TREE_OPERAND (t, 2));
-    case COMPOUND_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
-    case MIN_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
-	&& tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
-    case MAX_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
-	|| tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
-    case MODIFY_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
-    case BIND_EXPR:
-      return tree_expr_nonnegative_p (expr_last (TREE_OPERAND (t, 1)));
-    case SAVE_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
-    case NON_LVALUE_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
-    case FLOAT_EXPR:
-      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
 
     case TARGET_EXPR:
       {
@@ -10904,7 +10898,6 @@ tree_expr_nonnegative_p (tree t)
 	    CASE_BUILTIN_F (BUILT_IN_EXP2)
 	    CASE_BUILTIN_F (BUILT_IN_FABS)
 	    CASE_BUILTIN_F (BUILT_IN_FDIM)
-	    CASE_BUILTIN_F (BUILT_IN_FREXP)
 	    CASE_BUILTIN_F (BUILT_IN_HYPOT)
 	    CASE_BUILTIN_F (BUILT_IN_POW10)
 	    CASE_BUILTIN_I (BUILT_IN_FFS)
@@ -10928,6 +10921,7 @@ tree_expr_nonnegative_p (tree t)
 	    CASE_BUILTIN_F (BUILT_IN_EXPM1)
 	    CASE_BUILTIN_F (BUILT_IN_FLOOR)
 	    CASE_BUILTIN_F (BUILT_IN_FMOD)
+	    CASE_BUILTIN_F (BUILT_IN_FREXP)
 	    CASE_BUILTIN_F (BUILT_IN_LCEIL)
 	    CASE_BUILTIN_F (BUILT_IN_LDEXP)
 	    CASE_BUILTIN_F (BUILT_IN_LFLOOR)

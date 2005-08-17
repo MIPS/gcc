@@ -2830,7 +2830,7 @@ record_unknown_type (tree type, const char* name)
   TYPE_MODE (type) = TYPE_MODE (void_type_node);
 }
 
-/* An string for which we should create an IDENTIFIER_NODE at
+/* A string for which we should create an IDENTIFIER_NODE at
    startup.  */
 
 typedef struct predefined_identifier
@@ -4347,7 +4347,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
      initializer is considered for the initialization of the first
      member of the subaggregate.  */
   if (TREE_CODE (init) != CONSTRUCTOR
-      && can_convert_arg (type, TREE_TYPE (init), init))
+      && can_convert_arg (type, TREE_TYPE (init), init, LOOKUP_NORMAL))
     {
       d->cur++;
       return init;
@@ -7064,7 +7064,10 @@ grokdeclarator (const cp_declarator *declarator,
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
   if (declspecs->multiple_storage_classes_p)
-    error ("multiple storage classes in declaration of %qs", name);
+    {
+      error ("multiple storage classes in declaration of %qs", name);
+      storage_class = sc_none;
+    }
   else if (thread_p
 	   && ((storage_class
 		&& storage_class != sc_extern
@@ -8403,7 +8406,7 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   if (!TREE_TYPE (arg)
-      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg))
+      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg, LOOKUP_NORMAL))
     {
       if (decl)
 	error ("default argument for %q#D has type %qT",

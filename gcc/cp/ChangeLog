@@ -1,3 +1,104 @@
+2005-08-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* name-lookup.c, ptree.c: Delete HOST_PTR_PRINTF.
+
+2005-08-15 Fariborz Jahanian <fjahanian@apple.com>
+
+        * cp-tree.h (can_convert_arg, fn_type_unification): New argument.
+        * call.c (add_template_candidate_real): Pass down 'flags' to
+        fn_type_unification.
+        (can_convert_arg): New 'flags' argument. Pass it to call to
+        implicit_conversion instead of LOOKUP_NORMAL.
+	(can_convert): Add LOOKUP_NORMAL to call to can_convert_arg.
+        * class.c (resolve_address_of_overloaded_function): Ditto.
+        (resolve_address_of_overloaded_function): Ditto.
+        * decl.c (reshape_init, check_default_argument): Ditto.
+        * typeck.c (build_ptrmemfunc): Ditto.
+        * pt.c (type_unification_real): Add 'flags' argument.
+        (fn_type_unification): Pass 'flags' to type_unification_real.
+        (type_unification_real): Pass new 'flags' argument to call to
+        can_convert_arg.
+
+2005-08-12  Giovanni Bajo  <giovannibajo@libero.it>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21799
+	PR c++/8271
+        * pt.c (unify) <METHOD_TYPE>: Check this-pointer cv-qualifiers
+	explicitly.
+	
+2005-08-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21799
+	Revert my 2005-07-08 patch
+	* pt.c (type_unification_real): Remove is_method_argument and
+	assoicated checks.
+	(fn_type_unification, unify): Adjust type_unification_real calls.
+
+2005-08-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23266
+	* decl2.c (grokfield): Check that method is not static before
+	marking it as pure.
+
+2005-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/23219
+	* name-lookup.c (pushtag): Process the template type before
+	altering the identifier lookup fields.  Remove unreachable code
+	creating an empty stub decl.
+
+2005-08-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20646
+	* decl.c (grokdeclarator): Reset storage_class after error.
+
+2005-08-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22508
+	* init.c (build_new_1): Check for empty candidate list.
+
+2005-08-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23191
+	* pt.c (tsubst) <case METHOD_TYPE>: Check for error_mark_node
+	before calling build_exception_variant.
+
+2005-08-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19498
+	* pt.c (tsubst_decl) <case TEMPLATE_DECL>: Return ERROR_MARK_NODE
+	if substitution of template args did not succeed.
+
+2005-08-06  Michael Matz  <matz@suse.de>
+
+	* method.c (use_thunk): Call init_insn_lengths.
+
+2005-08-05  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c++/22514
+	* name-lookup.c (cp_emit_debug_info_for_using): Do nothing if
+	sorrycount or errorcount are nonzero.
+
+2005-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* name-lookup.c (pushtag): Remove accidental commit from:
+	2004-12-21  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/19063
+	* decl.c (grokdeclarator): Return error_mark_node, not
+	void_type_node, to indicate errors.
+	* parser.c (cp_parser_template_parameter_list): Robustify.
+	(cp_parser_template_parameter): Likewise.
+
+2005-08-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c, decl.c, name-lookup.c, pt.c, typeck.c, typeck2.c:
+	Fix comment typos.
+
+2005-07-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	* method.c: Fix a comment typo.
+
 2005-07-28  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/22545

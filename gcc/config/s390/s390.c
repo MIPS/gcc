@@ -224,7 +224,10 @@ struct s390_frame_layout GTY (())
   /* Number of floating point registers f8-f15 which must be saved.  */
   int high_fprs;
 
-  /* Set if return address needs to be saved.  */
+  /* Set if return address needs to be saved.
+     This flag is set by s390_return_addr_rtx if it could not use
+     the initial value of r14 and therefore depends on r14 saved
+     to the stack.  */
   bool save_return_addr_p;
 
   /* Size of stack frame.  */
@@ -263,6 +266,12 @@ struct machine_function GTY(())
 /* Number of GPRs and FPRs used for argument passing.  */
 #define GP_ARG_NUM_REG 5
 #define FP_ARG_NUM_REG (TARGET_64BIT? 4 : 2)
+
+/* A couple of shortcuts.  */
+#define CONST_OK_FOR_J(x) \
+	CONST_OK_FOR_CONSTRAINT_P((x), 'J', "J")
+#define CONST_OK_FOR_K(x) \
+	CONST_OK_FOR_CONSTRAINT_P((x), 'K', "K")
 
 /* Set the has_landing_pad_p flag in struct machine_function to VALUE.  */
 
@@ -443,7 +452,7 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
 	    && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT)
 	  return CCAPmode;
 	if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
-	    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
+	    && CONST_OK_FOR_K (INTVAL (XEXP (op0, 1))))
 	  return CCAPmode;
 	if ((GET_CODE (op0) == PLUS || GET_CODE (op0) == MINUS
 	     || GET_CODE (op1) == NEG)
@@ -492,7 +501,7 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
  	     int a, b; if ((b = a + c) > 0)  
  	   with c as a constant value: c < 0 -> CCAN and c >= 0 -> CCAP  */
 	if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
-	    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
+	    && CONST_OK_FOR_K (INTVAL (XEXP (op0, 1))))
 	  {
 	    if (INTVAL (XEXP((op0), 1)) < 0)
 	      return CCANmode;
@@ -663,6 +672,13 @@ s390_canonicalize_comparison (enum rtx_code *code, rtx *op0, rtx *op1)
       else
 	*code = NE;
       *op0 = XEXP (*op0, 0);
+    }
+
+  /* Prefer register over memory as first operand.  */
+  if (MEM_P (*op0) && REG_P (*op1))
+    {
+      rtx tem = *op0; *op0 = *op1; *op1 = tem;
+      *code = swap_condition (*code);
     }
 }
 
@@ -938,7 +954,8 @@ s390_extract_part (rtx op, enum machine_mode mode, int def)
   unsigned HOST_WIDE_INT value = 0;
   int max_parts = HOST_BITS_PER_WIDE_INT / GET_MODE_BITSIZE (mode);
   int part_bits = GET_MODE_BITSIZE (mode);
-  unsigned HOST_WIDE_INT part_mask = (1 << part_bits) - 1;
+  unsigned HOST_WIDE_INT part_mask
+    = ((unsigned HOST_WIDE_INT)1 << part_bits) - 1;
   int i;
 
   for (i = 0; i < max_parts; i++)
@@ -967,7 +984,8 @@ s390_single_part (rtx op,
 {
   unsigned HOST_WIDE_INT value = 0;
   int n_parts = GET_MODE_SIZE (mode) / GET_MODE_SIZE (part_mode);
-  unsigned HOST_WIDE_INT part_mask = (1 << GET_MODE_BITSIZE (part_mode)) - 1;
+  unsigned HOST_WIDE_INT part_mask
+    = ((unsigned HOST_WIDE_INT)1 << GET_MODE_BITSIZE (part_mode)) - 1;
   int i, part = -1;
 
   if (GET_CODE (op) != CONST_INT)
@@ -1826,8 +1844,9 @@ s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
 
       switch (str[2])
 	{
-	case 'H': part_mode = HImode; break;
-	case 'Q': part_mode = QImode; break;
+  	case 'Q': part_mode = QImode; break;
+ 	case 'H': part_mode = HImode; break;
+ 	case 'S': part_mode = SImode; break;
 	default:  return 0;
 	}
 
@@ -1856,6 +1875,9 @@ s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
 	return 0;
 
       break;
+
+    case 'P':
+      return legitimate_reload_constant_p (GEN_INT (value));
 
     default:
       return 0;
@@ -1925,7 +1947,7 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    rtx left = XEXP (x, 0);
 	    rtx right = XEXP (x, 1);
 	    if (GET_CODE (right) == CONST_INT
-		&& CONST_OK_FOR_CONSTRAINT_P (INTVAL (right), 'K', "K"))
+		&& CONST_OK_FOR_K (INTVAL (right)))
 	      *total = s390_cost->mhi;
 	    else if (GET_CODE (left) == SIGN_EXTEND)
 	      *total = s390_cost->mh;
@@ -1940,7 +1962,7 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    if (TARGET_64BIT)
 	      {
 		if (GET_CODE (right) == CONST_INT
-		    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (right), 'K', "K"))
+		    && CONST_OK_FOR_K (INTVAL (right)))
 		  *total = s390_cost->mghi;
 		else if (GET_CODE (left) == SIGN_EXTEND)
 		  *total = s390_cost->msgf;
@@ -2287,12 +2309,14 @@ legitimate_reload_constant_p (rtx op)
 
   /* Accept l(g)hi operands.  */
   if (GET_CODE (op) == CONST_INT
-      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'K', "K"))
+      && CONST_OK_FOR_K (INTVAL (op)))
     return true;
 
   /* Accept lliXX operands.  */
   if (TARGET_ZARCH
-      && s390_single_part (op, DImode, HImode, 0) >= 0)
+      && GET_CODE (op) == CONST_INT
+      && trunc_int_for_mode (INTVAL (op), word_mode) == INTVAL (op)
+      && s390_single_part (op, word_mode, HImode, 0) >= 0)
   return true;
 
   /* Accept larl operands.  */
@@ -2304,6 +2328,17 @@ legitimate_reload_constant_p (rtx op)
   if (GET_CODE (op) == CONST_DOUBLE
       && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, 'G', "G"))
     return true;
+
+  /* Accept double-word operands that can be split.  */
+  if (GET_CODE (op) == CONST_INT
+      && trunc_int_for_mode (INTVAL (op), word_mode) != INTVAL (op))
+    {
+      enum machine_mode dword_mode = word_mode == SImode ? DImode : TImode;
+      rtx hi = operand_subword (op, 0, 0, dword_mode);
+      rtx lo = operand_subword (op, 1, 0, dword_mode);
+      return legitimate_reload_constant_p (hi)
+	     && legitimate_reload_constant_p (lo);
+    }
 
   /* Everything else cannot be handled without reload.  */
   return false;
@@ -2820,8 +2855,8 @@ legitimize_pic_address (rtx orig, rtx reg)
 
 /* Load the thread pointer into a register.  */
 
-static rtx
-get_thread_pointer (void)
+rtx
+s390_get_thread_pointer (void)
 {
   rtx tp = gen_reg_rtx (Pmode);
 
@@ -2881,7 +2916,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	temp = gen_reg_rtx (Pmode);
 	emit_libcall_block (insn, temp, r2, new);
 
-	new = gen_rtx_PLUS (Pmode, get_thread_pointer (), temp);
+	new = gen_rtx_PLUS (Pmode, s390_get_thread_pointer (), temp);
 	if (reg != 0)
 	  {
 	    s390_load_address (reg, new);
@@ -2904,7 +2939,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	temp = gen_reg_rtx (Pmode);
 	emit_libcall_block (insn, temp, r2, new);
 
-	new = gen_rtx_PLUS (Pmode, get_thread_pointer (), temp);
+	new = gen_rtx_PLUS (Pmode, s390_get_thread_pointer (), temp);
 	base = gen_reg_rtx (Pmode);
 	s390_load_address (base, new);
 
@@ -2991,7 +3026,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	    emit_insn (gen_rtx_SET (Pmode, temp, new));
 	  }
 
-	new = gen_rtx_PLUS (Pmode, get_thread_pointer (), temp);
+	new = gen_rtx_PLUS (Pmode, s390_get_thread_pointer (), temp);
 	if (reg != 0)
 	  {
 	    s390_load_address (reg, new);
@@ -3006,7 +3041,7 @@ legitimize_tls_address (rtx addr, rtx reg)
         temp = gen_reg_rtx (Pmode);
 	emit_move_insn (temp, new);
 
-	new = gen_rtx_PLUS (Pmode, get_thread_pointer (), temp);
+	new = gen_rtx_PLUS (Pmode, s390_get_thread_pointer (), temp);
 	if (reg != 0)
 	  {
 	    s390_load_address (reg, new);
@@ -3746,6 +3781,17 @@ print_shift_count_operand (FILE *file, rtx op)
 {
   HOST_WIDE_INT offset = 0;
 
+  /* Shift count operands are always truncated to the 6 least significant bits and
+     the setmem padding byte to the least 8 significant bits.  Hence we can drop
+     pointless ANDs.  */
+  if (GET_CODE (op) == AND && GET_CODE (XEXP (op, 1)) == CONST_INT)
+    {
+      if ((INTVAL (XEXP (op, 1)) & 63) != 63)
+	gcc_unreachable ();
+
+      op = XEXP (op, 0);
+    }
+
   /* We can have an integer constant, an address register,
      or a sum of the two.  */
   if (GET_CODE (op) == CONST_INT)
@@ -3908,6 +3954,7 @@ print_operand_address (FILE *file, rtx addr)
     'C': print opcode suffix for branch condition.
     'D': print opcode suffix for inverse branch condition.
     'J': print tls_load/tls_gdcall/tls_ldcall suffix
+    'G': print the size of the operand in bytes.
     'O': print only the displacement of a memory reference.
     'R': print only the base register of a memory reference.
     'S': print S-type memory reference (base+displacement).
@@ -3952,6 +3999,10 @@ print_operand (FILE *file, rtx x, int code)
 	}
       else
 	gcc_unreachable ();
+      return;
+
+    case 'G':
+      fprintf (file, "%u", GET_MODE_SIZE (GET_MODE (x)));
       return;
 
     case 'O':
@@ -5804,30 +5855,34 @@ s390_register_info (int clobbered_regs[])
   s390_regs_ever_clobbered (clobbered_regs);
 
   for (i = 0; i < 16; i++)
-    clobbered_regs[i] = clobbered_regs[i] && !global_regs[i];
+    clobbered_regs[i] = clobbered_regs[i] && !global_regs[i] && !fixed_regs[i];
 
   if (frame_pointer_needed)
     clobbered_regs[HARD_FRAME_POINTER_REGNUM] = 1;
 
   if (flag_pic)
     clobbered_regs[PIC_OFFSET_TABLE_REGNUM] 
-    = regs_ever_live[PIC_OFFSET_TABLE_REGNUM];
+      |= regs_ever_live[PIC_OFFSET_TABLE_REGNUM];
 
   clobbered_regs[BASE_REGNUM] 
-    = cfun->machine->base_reg
-      && REGNO (cfun->machine->base_reg) == BASE_REGNUM;
+    |= (cfun->machine->base_reg
+        && REGNO (cfun->machine->base_reg) == BASE_REGNUM);
 
   clobbered_regs[RETURN_REGNUM]
-    = cfun->machine->split_branches_pending_p
-      || cfun_frame_layout.save_return_addr_p;
+    |= (!current_function_is_leaf
+	|| TARGET_TPF_PROFILING
+	|| cfun->machine->split_branches_pending_p
+	|| cfun_frame_layout.save_return_addr_p
+	|| current_function_calls_eh_return
+	|| current_function_stdarg);
 
   clobbered_regs[STACK_POINTER_REGNUM]
-    = !current_function_is_leaf
-      || TARGET_TPF_PROFILING
-      || cfun_save_high_fprs_p
-      || get_frame_size () > 0
-      || current_function_calls_alloca
-      || current_function_stdarg;
+    |= (!current_function_is_leaf
+	|| TARGET_TPF_PROFILING
+	|| cfun_save_high_fprs_p
+	|| get_frame_size () > 0
+	|| current_function_calls_alloca
+	|| current_function_stdarg);
 
   for (i = 6; i < 16; i++)
     if (clobbered_regs[i])
@@ -6018,16 +6073,6 @@ s390_init_frame_layout (void)
   int base_used;
   int clobbered_regs[16];
 
-  /* If return address register is explicitly used, we need to save it.  */
-  s390_regs_ever_clobbered (clobbered_regs);
-
-  if (clobbered_regs[RETURN_REGNUM]
-      || !current_function_is_leaf
-      || TARGET_TPF_PROFILING
-      || current_function_stdarg
-      || current_function_calls_eh_return)
-    cfun_frame_layout.save_return_addr_p = true;
-
   /* On S/390 machines, we may need to perform branch splitting, which
      will require both base and return address register.  We have no
      choice but to assume we're going to need them until right at the
@@ -6043,7 +6088,7 @@ s390_init_frame_layout (void)
       base_used = cfun->machine->split_branches_pending_p
 		  || current_function_uses_const_pool
 		  || (!DISP_IN_RANGE (-frame_size)
-		      && !CONST_OK_FOR_CONSTRAINT_P (-frame_size, 'K', "K"));
+		      && !CONST_OK_FOR_K (-frame_size));
 
       /* Decide which register to use as literal pool base.  In small
 	 leaf functions, try to use an unused call-clobbered register
@@ -6207,7 +6252,7 @@ save_gprs (rtx base, int offset, int first, int last)
      However, we must not emit DWARF records for registers 2..5
      if they are stored for use by variable arguments ...
 
-     ??? Unfortunately, it is not enough to simply not the the
+     ??? Unfortunately, it is not enough to simply not the
      FRAME_RELATED flags for those SETs, because the first SET
      of the PARALLEL is always treated as if it had the flag
      set, even if it does not.  Therefore we emit a new pattern
@@ -6471,7 +6516,7 @@ s390_emit_prologue (void)
 	}
       else
 	{
-	  if (!CONST_OK_FOR_CONSTRAINT_P (INTVAL (frame_off), 'K', "K"))
+	  if (!CONST_OK_FOR_K (INTVAL (frame_off)))
 	    frame_off = force_const_mem (Pmode, frame_off);
 
           insn = emit_insn (gen_add2_insn (stack_pointer_rtx, frame_off));
@@ -6638,7 +6683,7 @@ s390_emit_epilogue (bool sibcall)
 	}
       else
 	{
-	  if (!CONST_OK_FOR_CONSTRAINT_P (INTVAL (frame_off), 'K', "K"))
+	  if (!CONST_OK_FOR_K (INTVAL (frame_off)))
 	    frame_off = force_const_mem (Pmode, frame_off);
 
 	  insn = emit_insn (gen_add2_insn (frame_pointer, frame_off));
@@ -7672,9 +7717,9 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     {
       /* Setup literal pool pointer if required.  */
       if ((!DISP_IN_RANGE (delta)
-	   && !CONST_OK_FOR_CONSTRAINT_P (delta, 'K', "K"))
+	   && !CONST_OK_FOR_K (delta))
 	  || (!DISP_IN_RANGE (vcall_offset)
-	      && !CONST_OK_FOR_CONSTRAINT_P (vcall_offset, 'K', "K")))
+	      && !CONST_OK_FOR_K (vcall_offset)))
 	{
 	  op[5] = gen_label_rtx ();
 	  output_asm_insn ("larl\t%4,%5", op);
@@ -7683,11 +7728,11 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       /* Add DELTA to this pointer.  */
       if (delta)
 	{
-	  if (CONST_OK_FOR_CONSTRAINT_P (delta, 'J', "J"))
+	  if (CONST_OK_FOR_J (delta))
 	    output_asm_insn ("la\t%1,%2(%1)", op);
 	  else if (DISP_IN_RANGE (delta))
 	    output_asm_insn ("lay\t%1,%2(%1)", op);
-	  else if (CONST_OK_FOR_CONSTRAINT_P (delta, 'K', "K"))
+	  else if (CONST_OK_FOR_K (delta))
 	    output_asm_insn ("aghi\t%1,%2", op);
 	  else
 	    {
@@ -7704,7 +7749,7 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	      output_asm_insn ("lg\t%4,0(%1)", op);
 	      output_asm_insn ("ag\t%1,%3(%4)", op);
 	    }
-	  else if (CONST_OK_FOR_CONSTRAINT_P (vcall_offset, 'K', "K"))
+	  else if (CONST_OK_FOR_K (vcall_offset))
 	    {
 	      output_asm_insn ("lghi\t%4,%3", op);
 	      output_asm_insn ("ag\t%4,0(%1)", op);
@@ -7747,9 +7792,9 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       /* Setup base pointer if required.  */
       if (!vcall_offset
 	  || (!DISP_IN_RANGE (delta)
-              && !CONST_OK_FOR_CONSTRAINT_P (delta, 'K', "K"))
+              && !CONST_OK_FOR_K (delta))
 	  || (!DISP_IN_RANGE (delta)
-              && !CONST_OK_FOR_CONSTRAINT_P (vcall_offset, 'K', "K")))
+              && !CONST_OK_FOR_K (vcall_offset)))
 	{
 	  op[5] = gen_label_rtx ();
 	  output_asm_insn ("basr\t%4,0", op);
@@ -7760,11 +7805,11 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       /* Add DELTA to this pointer.  */
       if (delta)
 	{
-	  if (CONST_OK_FOR_CONSTRAINT_P (delta, 'J', "J"))
+	  if (CONST_OK_FOR_J (delta))
 	    output_asm_insn ("la\t%1,%2(%1)", op);
 	  else if (DISP_IN_RANGE (delta))
 	    output_asm_insn ("lay\t%1,%2(%1)", op);
-	  else if (CONST_OK_FOR_CONSTRAINT_P (delta, 'K', "K"))
+	  else if (CONST_OK_FOR_K (delta))
 	    output_asm_insn ("ahi\t%1,%2", op);
 	  else
 	    {
@@ -7776,17 +7821,17 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       /* Perform vcall adjustment.  */
       if (vcall_offset)
         {
-	  if (CONST_OK_FOR_CONSTRAINT_P (vcall_offset, 'J', "J"))
+	  if (CONST_OK_FOR_J (vcall_offset))
 	    {
-	      output_asm_insn ("lg\t%4,0(%1)", op);
+	      output_asm_insn ("l\t%4,0(%1)", op);
 	      output_asm_insn ("a\t%1,%3(%4)", op);
 	    }
 	  else if (DISP_IN_RANGE (vcall_offset))
 	    {
-	      output_asm_insn ("lg\t%4,0(%1)", op);
+	      output_asm_insn ("l\t%4,0(%1)", op);
 	      output_asm_insn ("ay\t%1,%3(%4)", op);
 	    }
-	  else if (CONST_OK_FOR_CONSTRAINT_P (vcall_offset, 'K', "K"))
+	  else if (CONST_OK_FOR_K (vcall_offset))
 	    {
 	      output_asm_insn ("lhi\t%4,%3", op);
 	      output_asm_insn ("a\t%4,0(%1)", op);

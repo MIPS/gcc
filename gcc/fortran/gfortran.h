@@ -192,17 +192,17 @@ typedef enum
   ST_CALL, ST_CASE, ST_CLOSE, ST_COMMON, ST_CONTINUE, ST_CONTAINS, ST_CYCLE,
   ST_DATA, ST_DATA_DECL, ST_DEALLOCATE, ST_DO, ST_ELSE, ST_ELSEIF,
   ST_ELSEWHERE, ST_END_BLOCK_DATA, ST_ENDDO, ST_IMPLIED_ENDDO,
-  ST_END_FILE, ST_END_FORALL, ST_END_FUNCTION, ST_ENDIF, ST_END_INTERFACE,
-  ST_END_MODULE, ST_END_PROGRAM, ST_END_SELECT, ST_END_SUBROUTINE,
-  ST_END_WHERE, ST_END_TYPE, ST_ENTRY, ST_EQUIVALENCE, ST_EXIT, ST_FORALL,
-  ST_FORALL_BLOCK, ST_FORMAT, ST_FUNCTION, ST_GOTO, ST_IF_BLOCK, ST_IMPLICIT,
-  ST_IMPLICIT_NONE, ST_INQUIRE, ST_INTERFACE, ST_PARAMETER, ST_MODULE,
-  ST_MODULE_PROC, ST_NAMELIST, ST_NULLIFY, ST_OPEN, ST_PAUSE, ST_PRIVATE,
-  ST_PROGRAM, ST_PUBLIC, ST_READ, ST_RETURN, ST_REWIND, ST_STOP,
-  ST_SUBROUTINE,
-  ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WRITE, ST_ASSIGNMENT,
-  ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE, ST_SIMPLE_IF,
-  ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT, ST_NONE
+  ST_END_FILE, ST_FLUSH, ST_END_FORALL, ST_END_FUNCTION, ST_ENDIF,
+  ST_END_INTERFACE, ST_END_MODULE, ST_END_PROGRAM, ST_END_SELECT,
+  ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE, ST_ENTRY, ST_EQUIVALENCE,
+  ST_EXIT, ST_FORALL, ST_FORALL_BLOCK, ST_FORMAT, ST_FUNCTION, ST_GOTO,
+  ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE, ST_INQUIRE, ST_INTERFACE,
+  ST_PARAMETER, ST_MODULE, ST_MODULE_PROC, ST_NAMELIST, ST_NULLIFY, ST_OPEN,
+  ST_PAUSE, ST_PRIVATE, ST_PROGRAM, ST_PUBLIC, ST_READ, ST_RETURN, ST_REWIND,
+  ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WRITE,
+  ST_ASSIGNMENT, ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE,
+  ST_SIMPLE_IF, ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT,
+  ST_NONE
 }
 gfc_statement;
 
@@ -335,6 +335,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_INT,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
+  GFC_ISYM_ISATTY,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
   GFC_ISYM_KILL,
@@ -431,9 +432,11 @@ typedef struct
      don't have any code associated, and the backend will turn them into
      thunks to the master function.  */
   unsigned entry:1;
+
   /* Set if this is the master function for a procedure with multiple
      entry points.  */
   unsigned entry_master:1;
+
   /* Set if this is the master function for a function with multiple
      entry points where characteristics of the entry points differ.  */
   unsigned mixed_entry_master:1;
@@ -444,6 +447,11 @@ typedef struct
   /* Set if the symbol has been referenced in an expression.  No further
      modification of type or type parameters is permitted.  */
   unsigned referenced:1;
+
+  /* Set if the is the symbol for the main program.  This is the least
+     cumbersome way to communicate this function property without
+     strcmp'ing with __MAIN everywhere.  */
+  unsigned is_main_program:1;
 
   /* Mutually exclusive multibit attributes.  */
   ENUM_BITFIELD (gfc_access) access:2;
@@ -1325,7 +1333,7 @@ typedef enum
   EXEC_ALLOCATE, EXEC_DEALLOCATE,
   EXEC_OPEN, EXEC_CLOSE,
   EXEC_READ, EXEC_WRITE, EXEC_IOLENGTH, EXEC_TRANSFER, EXEC_DT_END,
-  EXEC_BACKSPACE, EXEC_ENDFILE, EXEC_INQUIRE, EXEC_REWIND
+  EXEC_BACKSPACE, EXEC_ENDFILE, EXEC_INQUIRE, EXEC_REWIND, EXEC_FLUSH
 }
 gfc_exec_op;
 
@@ -1778,6 +1786,7 @@ int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
 try gfc_resolve_iterator (gfc_iterator *, bool);
 try gfc_resolve_index (gfc_expr *, int);
+try gfc_resolve_dim_arg (gfc_expr *);
 
 /* array.c */
 void gfc_free_array_spec (gfc_array_spec *);

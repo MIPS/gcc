@@ -1337,7 +1337,7 @@ enum reg_class
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD  1
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
@@ -2243,7 +2243,8 @@ extern int making_const_table;
 	        || (const_ok_for_arm (- INTVAL (OP1)))))		\
         {								\
           rtx const_op = OP1;						\
-          CODE = arm_canonicalize_comparison ((CODE), &const_op);	\
+          CODE = arm_canonicalize_comparison ((CODE), GET_MODE (OP0),	\
+					      &const_op);		\
           OP1 = const_op;						\
         }								\
     }									\

@@ -1010,6 +1010,11 @@ arm_override_options (void)
       target_flags &= ~MASK_APCS_FRAME;
     }
 
+  /* Callee super interworking implies thumb interworking.  Adding
+     this to the flags here simplifies the logic elsewhere.  */
+  if (TARGET_THUMB && TARGET_CALLEE_INTERWORKING)
+      target_flags |= MASK_INTERWORK;
+
   /* TARGET_BACKTRACE calls leaf_function_p, which causes a crash if done
      from here where no function is being compiled currently.  */
   if ((TARGET_TPCS_FRAME || TARGET_TPCS_LEAF_FRAME) && TARGET_ARM)
@@ -2328,9 +2333,12 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
    immediate value easier to load.  */
 
 enum rtx_code
-arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
+arm_canonicalize_comparison (enum rtx_code code, enum machine_mode mode,
+			     rtx * op1)
 {
   unsigned HOST_WIDE_INT i = INTVAL (*op1);
+  unsigned HOST_WIDE_INT maxval;
+  maxval = (((unsigned HOST_WIDE_INT) 1) << (GET_MODE_BITSIZE(mode) - 1)) - 1;
 
   switch (code)
     {
@@ -2340,7 +2348,7 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
 
     case GT:
     case LE:
-      if (i != ((((unsigned HOST_WIDE_INT) 1) << (HOST_BITS_PER_WIDE_INT - 1)) - 1)
+      if (i != maxval
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
 	  *op1 = GEN_INT (i + 1);
@@ -2350,7 +2358,7 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
 
     case GE:
     case LT:
-      if (i != (((unsigned HOST_WIDE_INT) 1) << (HOST_BITS_PER_WIDE_INT - 1))
+      if (i != ~maxval
 	  && (const_ok_for_arm (i - 1) || const_ok_for_arm (-(i - 1))))
 	{
 	  *op1 = GEN_INT (i - 1);
@@ -4920,7 +4928,7 @@ cirrus_memory_offset (rtx op)
   return 0;
 }
 
-/* Return TRUE if OP is a valid VFP memory address pattern.
+/* Return TRUE if OP is a valid coprocessor memory address pattern.
    WB if true if writeback address modes are allowed.  */
 
 int
@@ -8927,11 +8935,10 @@ thumb_compute_save_reg_mask (void)
     if (regs_ever_live[reg] && !call_used_regs[reg])
       mask |= 1 << reg;
 
-  if (flag_pic && !TARGET_SINGLE_PIC_BASE)
-    mask |= (1 << PIC_OFFSET_TABLE_REGNUM);
-
-  if (TARGET_SINGLE_PIC_BASE)
-    mask &= ~(1 << arm_pic_register);
+  if (flag_pic
+      && !TARGET_SINGLE_PIC_BASE
+      && current_function_uses_pic_offset_table)
+    mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
 
   /* See if we might need r11 for calls to _interwork_r11_call_via_rN().  */
   if (!frame_pointer_needed && CALLER_INTERWORKING_SLOT_SIZE > 0)
@@ -14735,7 +14742,7 @@ arm_unwind_emit_stm (FILE * asm_out_file, rtx p)
   if (reg < 16)
     {
       /* The function prologue may also push pc, but not annotate it as it is
-	 never restored.  We turn this into an stack pointer adjustment.  */
+	 never restored.  We turn this into a stack pointer adjustment.  */
       if (nregs * 4 == offset - 4)
 	{
 	  fprintf (asm_out_file, "\t.pad #4\n");

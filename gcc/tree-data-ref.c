@@ -384,11 +384,18 @@ base_object_differ_p (struct data_reference *a,
 /* Function base_addr_differ_p.
 
    This is the simplest data dependence test: determines whether the
-   data references A and B access the same array/region.  Returns
+   data references DRA and DRB access the same array/region.  Returns
    false when the property is not computable at compile time.
-   Otherwise return true, and DIFFER_P will record the result. This
-   utility will not be necessary when alias_sets_conflict_p will be
-   less conservative.  */
+   Otherwise return true, and DIFFER_P will record the result.
+
+   The algorithm:   
+   1. if (both DRA and DRB are represented as arrays)
+          compare DRA.BASE_OBJECT and DRB.BASE_OBJECT
+   2. else if (both DRA and DRB are represented as pointers)
+          try to prove that DRA.FIRST_LOCATION == DRB.FIRST_LOCATION
+   3. else if (DRA and DRB are represented differently or 2. fails)
+          only try to prove that the bases are surely different
+*/
 
 
 static bool
@@ -409,26 +416,27 @@ base_addr_differ_p (struct data_reference *dra,
 
   gcc_assert (POINTER_TYPE_P (type_a) &&  POINTER_TYPE_P (type_b));
   
-  /* Compare base objects first if possible. If DR_BASE_OBJECT is NULL, it means
-     that the data-ref is of INDIRECT_REF, and alias analysis will be applied to 
-     reveal the dependence.  */
-  if (DR_BASE_OBJECT (dra) && DR_BASE_OBJECT (drb))
+  /* 1. if (both DRA and DRB are represented as arrays)
+            compare DRA.BASE_OBJECT and DRB.BASE_OBJECT.  */
+  if (DR_TYPE (dra) == ARRAY_REF_TYPE && DR_TYPE (drb) == ARRAY_REF_TYPE)
     return base_object_differ_p (dra, drb, differ_p);
 
+
+  /* 2. else if (both DRA and DRB are represented as pointers)
+	    try to prove that DRA.FIRST_LOCATION == DRB.FIRST_LOCATION.  */
   /* If base addresses are the same, we check the offsets, since the access of 
      the data-ref is described by {base addr + offset} and its access function,
      i.e., in order to decide whether the bases of data-refs are the same we 
      compare both base addresses and offsets.  */
-  if (addr_a == addr_b 
-      || (TREE_CODE (addr_a) == ADDR_EXPR && TREE_CODE (addr_b) == ADDR_EXPR
-         && TREE_OPERAND (addr_a, 0) == TREE_OPERAND (addr_b, 0)))
+  if (DR_TYPE (dra) == POINTER_REF_TYPE && DR_TYPE (drb) == POINTER_REF_TYPE
+      && (addr_a == addr_b 
+	  || (TREE_CODE (addr_a) == ADDR_EXPR && TREE_CODE (addr_b) == ADDR_EXPR
+	      && TREE_OPERAND (addr_a, 0) == TREE_OPERAND (addr_b, 0))))
     {
       /* Compare offsets.  */
       tree offset_a = DR_OFFSET (dra); 
       tree offset_b = DR_OFFSET (drb);
       
-      gcc_assert (!DR_BASE_OBJECT (dra) && !DR_BASE_OBJECT (drb));
-
       STRIP_NOPS (offset_a);
       STRIP_NOPS (offset_b);
 
@@ -444,6 +452,9 @@ base_addr_differ_p (struct data_reference *dra,
 	  return true;
 	}
     }
+
+  /*  3. else if (DRA and DRB are represented differently or 2. fails) 
+              only try to prove that the bases are surely different.  */
 
   /* Apply alias analysis.  */
   if (may_alias_p (addr_a, addr_b, dra, drb, &aliased) && !aliased)
@@ -731,23 +742,6 @@ dump_ddrs (FILE *file, varray_type ddrs)
 
 
 
-/* Initialize LOOP->ESTIMATED_NB_ITERATIONS with the lowest safe
-   approximation of the number of iterations for LOOP.  */
-
-static void
-compute_estimated_nb_iterations (struct loop *loop)
-{
-  struct nb_iter_bound *bound;
-  
-  for (bound = loop->bounds; bound; bound = bound->next)
-    if (TREE_CODE (bound->bound) == INTEGER_CST
-	/* Update only when there is no previous estimation.  */
-	&& (chrec_contains_undetermined (loop->estimated_nb_iterations)
-	    /* Or when the current estimation is smaller.  */
-	    || tree_int_cst_lt (bound->bound, loop->estimated_nb_iterations)))
-      loop->estimated_nb_iterations = bound->bound;
-}
-
 /* Estimate the number of iterations from the size of the data and the
    access functions.  */
 
@@ -757,7 +751,7 @@ estimate_niter_from_size_of_data (struct loop *loop,
 				  tree access_fn, 
 				  tree stmt)
 {
-  tree estimation;
+  tree estimation = NULL_TREE;
   tree array_size, data_size, element_size;
   tree init, step;
 
@@ -779,11 +773,28 @@ estimate_niter_from_size_of_data (struct loop *loop,
       && TREE_CODE (init) == INTEGER_CST
       && TREE_CODE (step) == INTEGER_CST)
     {
-      estimation = fold_build2 (CEIL_DIV_EXPR, integer_type_node,
-				fold_build2 (MINUS_EXPR, integer_type_node,
-					     data_size, init), step);
+      tree i_plus_s = fold_build2 (PLUS_EXPR, integer_type_node, init, step);
+      tree sign = fold_build2 (GT_EXPR, boolean_type_node, i_plus_s, init);
 
-      record_estimate (loop, estimation, boolean_true_node, stmt);
+      if (sign == boolean_true_node)
+	estimation = fold_build2 (CEIL_DIV_EXPR, integer_type_node,
+				  fold_build2 (MINUS_EXPR, integer_type_node,
+					       data_size, init), step);
+
+      /* When the step is negative, as in PR23386: (init = 3, step =
+	 0ffffffff, data_size = 100), we have to compute the
+	 estimation as ceil_div (init, 0 - step) + 1.  */
+      else if (sign == boolean_false_node)
+	estimation = 
+	  fold_build2 (PLUS_EXPR, integer_type_node,
+		       fold_build2 (CEIL_DIV_EXPR, integer_type_node,
+				    init,
+				    fold_build2 (MINUS_EXPR, unsigned_type_node,
+						 integer_zero_node, step)),
+		       integer_one_node);
+
+      if (estimation)
+	record_estimate (loop, estimation, boolean_true_node, stmt);
     }
 }
 
@@ -830,7 +841,7 @@ analyze_array_indexes (struct loop *loop,
    set to true when REF is in the right hand side of an
    assignment.  */
 
-static struct data_reference *
+struct data_reference *
 analyze_array (tree stmt, tree ref, bool is_read)
 {
   struct data_reference *res;
@@ -3644,9 +3655,6 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 	  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
 	    loop->parallel_p = false;
 	}
-
-      if (chrec_contains_undetermined (loop->estimated_nb_iterations))
-	compute_estimated_nb_iterations (loop);
     }
 
   free (bbs);

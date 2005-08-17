@@ -435,7 +435,7 @@ Perform redundant load after store elimination in global common subexpression
 elimination
 
 fgcse-after-reload
-Common Report Var(flag_gcse_after_reload) Init(2)
+Common Report Var(flag_gcse_after_reload)
 Perform global common subexpression elimination after register allocation
 has finished
 
@@ -494,6 +494,10 @@ Common RejectNegative Joined UInteger
 finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls
+
+fipa-cp
+Common Report Var(flag_ipa_cp)
+Perform Interprocedural constant propagation
 
 fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0)
@@ -694,7 +698,7 @@ Common Report Var(flag_reorder_functions)
 Reorder functions to improve code placement
 
 frerun-cse-after-loop
-Common Report Var(flag_rerun_cse_after_loop)
+Common Report Var(flag_rerun_cse_after_loop) Init(2)
 Add a common subexpression elimination pass after loop optimizations
 
 frerun-loop-opt

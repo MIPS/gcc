@@ -166,6 +166,7 @@ struct opt_stats_d
   long num_re;
   long num_const_prop;
   long num_copy_prop;
+  long num_iterations;
 };
 
 static struct opt_stats_d opt_stats;
@@ -524,6 +525,8 @@ tree_ssa_dominator_optimize (void)
 	  if (value && !is_gimple_min_invariant (value))
 	    SSA_NAME_VALUE (name) = NULL;
 	}
+
+      opt_stats.num_iterations++;
     }
   while (optimize > 1 && cfg_altered);
 
@@ -845,8 +848,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	    {
 	      struct edge_info *edge_info;
 
-	      update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
-					       e->count, taken_edge);
 	      if (e->aux)
 		edge_info = e->aux;
 	      else
@@ -1355,6 +1356,9 @@ dump_dominator_optimization_stats (FILE *file)
 	   opt_stats.num_const_prop);
   fprintf (file, "    Copies propagated:                        %6ld\n",
 	   opt_stats.num_copy_prop);
+
+  fprintf (file, "\nTotal number of DOM iterations:             %6ld\n",
+	   opt_stats.num_iterations);
 
   fprintf (file, "\nHash table statistics:\n");
 

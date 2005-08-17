@@ -406,6 +406,7 @@ static rtx mips_expand_builtin_compare (enum mips_builtin_type,
 					enum insn_code, enum mips_fp_condition,
 					rtx, tree);
 static rtx mips_expand_builtin_bposge (enum mips_builtin_type, rtx);
+static void mips_encode_section_info (tree, rtx, int);
 
 /* Structure to be filled in by compute_frame_size with register
    save masks, and offsets for the current function.  */
@@ -689,6 +690,13 @@ const enum reg_class mips_regno_to_class[] =
 
 /* Map register constraint character to register class.  */
 enum reg_class mips_char_to_class[256];
+
+/* Table of machine dependent attributes.  */
+const struct attribute_spec mips_attribute_table[] =
+{
+  { "long_call",   0, 0, false, true,  true,  NULL },
+  { NULL,	   0, 0, false, false, false, NULL }
+};
 
 /* A table describing all the processors gcc knows about.  Names are
    matched in the order listed.  The first mention of an ISA level is
@@ -748,6 +756,7 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
+  { "5kf", PROCESSOR_5KF, 64 },
   { "20kc", PROCESSOR_20KC, 64 },
   { "sb1", PROCESSOR_SB1, 64 },
   { "sr71000", PROCESSOR_SR71000, 64 },
@@ -813,7 +822,26 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        4            /* memory_latency */
     },
     { /* 5KC */
-      DEFAULT_COSTS
+      SOFT_FP_COSTS,
+      COSTS_N_INSNS (4),            /* int_mult_si */
+      COSTS_N_INSNS (11),           /* int_mult_di */
+      COSTS_N_INSNS (36),           /* int_div_si */
+      COSTS_N_INSNS (68),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* 5KF */
+      COSTS_N_INSNS (4),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (5),            /* fp_mult_df */
+      COSTS_N_INSNS (17),           /* fp_div_sf */
+      COSTS_N_INSNS (32),           /* fp_div_df */
+      COSTS_N_INSNS (4),            /* int_mult_si */
+      COSTS_N_INSNS (11),           /* int_mult_di */
+      COSTS_N_INSNS (36),           /* int_div_si */
+      COSTS_N_INSNS (68),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
     },
     { /* 20KC */
       DEFAULT_COSTS
@@ -1125,6 +1153,12 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM mips_cannot_force_const_mem
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
+
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE mips_attribute_table
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -6150,7 +6184,7 @@ mips_save_reg_p (unsigned int regno)
 /* Return the bytes needed to compute the frame pointer from the current
    stack pointer.  SIZE is the size (in bytes) of the local variables.
 
-   Mips stack frames look like:
+   MIPS stack frames look like:
 
              Before call		        After call
         +-----------------------+	+-----------------------+
@@ -10697,6 +10731,22 @@ mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
   emit_label (label2);
 
   return target;
+}
+
+/* Set SYMBOL_REF_FLAGS for the SYMBOL_REF inside RTL, which belongs to DECL.
+   FIRST is true if this is the first time handling this decl.  */
+
+static void
+mips_encode_section_info (tree decl, rtx rtl, int first)
+{
+  default_encode_section_info (decl, rtl, first);
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && lookup_attribute ("long_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+    {
+      rtx symbol = XEXP (rtl, 0);
+      SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LONG_CALL;
+    }
 }
 
 #include "gt-mips.h"

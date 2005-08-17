@@ -1,3 +1,27 @@
+2005-08-15  Ulrich Weigand  <weigand@informatik.uni-erlangen.de>
+
+	* mf-hooks3.c (main_seen_p): Remove.
+	(__mf_get_state): Remove attempt to recognize the main thread.
+
+2005-08-15  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* configure.ac: Test for the name of the symbol used for the entry
+	point; define ENTRY_POINT to the result.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* mf-heuristics.c: Replace _start with ENTRY_POINT throughout.
+
+2005-08-14  Ulrich Weigand  <weigand@informatik.uni-erlangen.de>
+
+	* mf-runtime.c (__mf_state_1): Initialize to reentrant.
+	(__mf_init): Set thread state active.
+	* mf-hooks3.c (__mf_pthread_spawner): Always set thread
+	state active.
+	(pthread_create wrapper): Always use thread spawner.
+
+	* testsuite/libmudflap.cth/pass37-frag.c: Increase timeout.
+	* testsuite/libmudflap.cth/pass39-frag.c: Likewise.
+
 2005-07-16  Richard Henderson  <rth@redhat.com>
 
 	* acinclude.m4: New file.

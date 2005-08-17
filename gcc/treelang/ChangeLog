@@ -1,3 +1,13 @@
+2005-08-07  James A. Morrison  <phython@gcc.gnu.org>
+
+	* tree-convert.c (convert): Use fold_build1 instead of
+	fold (build1.
+
+2005-08-06  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR treelang/23072
+	* Make-lang.in: Remove old testing cruft.
+
 2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* all files: Update FSF address in copyright headers.

@@ -577,6 +577,7 @@ make_cond_expr_edges (basic_block bb)
   tree entry = last_stmt (bb);
   basic_block then_bb, else_bb;
   tree then_label, else_label;
+  edge e;
 
   gcc_assert (entry);
   gcc_assert (TREE_CODE (entry) == COND_EXPR);
@@ -587,8 +588,21 @@ make_cond_expr_edges (basic_block bb)
   then_bb = label_to_block (then_label);
   else_bb = label_to_block (else_label);
 
-  make_edge (bb, then_bb, EDGE_TRUE_VALUE);
-  make_edge (bb, else_bb, EDGE_FALSE_VALUE);
+  e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
+#ifdef USE_MAPPED_LOCATION
+  e->goto_locus = EXPR_LOCATION (COND_EXPR_THEN (entry));
+#else
+  e->goto_locus = EXPR_LOCUS (COND_EXPR_THEN (entry));
+#endif
+  e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
+  if (e)
+    {
+#ifdef USE_MAPPED_LOCATION
+      e->goto_locus = EXPR_LOCATION (COND_EXPR_ELSE (entry));
+#else
+      e->goto_locus = EXPR_LOCUS (COND_EXPR_ELSE (entry));
+#endif
+    }
 }
 
 /* Hashing routine for EDGE_TO_CASES.  */
@@ -1259,7 +1273,7 @@ replace_uses_by (tree name, tree val)
       if (TREE_CODE (rhs) == ADDR_EXPR)
 	recompute_tree_invarant_for_addr_expr (rhs);
 
-      update_stmt (stmt);
+      mark_new_vars_to_rename (stmt);
     }
 
   VEC_free (tree, heap, stmts);
@@ -1290,18 +1304,15 @@ tree_merge_blocks (basic_block a, basic_block b)
   if (dump_file)
     fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);
 
-  /* Remove the phi nodes.  */
+  /* Remove all single-valued PHI nodes from block B of the form
+     V_i = PHI <V_j> by propagating V_j to all the uses of V_i.  */
   bsi = bsi_last (a);
   for (phi = phi_nodes (b); phi; phi = phi_nodes (b))
     {
       tree def = PHI_RESULT (phi), use = PHI_ARG_DEF (phi, 0);
       tree copy;
       
-      if (!may_propagate_copy (def, use)
-	  /* Propagating pointers might cause the set of vops for statements
-	     to be changed, and thus require ssa form update.  */
-	  || (is_gimple_reg (def)
-	      && POINTER_TYPE_P (TREE_TYPE (def))))
+      if (!may_propagate_copy (def, use))
 	{
 	  gcc_assert (is_gimple_reg (def));
 
@@ -1316,6 +1327,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	}
       else
 	replace_uses_by (def, use);
+
       remove_phi_node (phi, NULL);
     }
 
@@ -1971,11 +1983,23 @@ remove_bb (basic_block bb)
     {
       tree stmt = bsi_stmt (i);
       if (TREE_CODE (stmt) == LABEL_EXPR
-          && FORCED_LABEL (LABEL_EXPR_LABEL (stmt)))
+          && (FORCED_LABEL (LABEL_EXPR_LABEL (stmt))
+	      || DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt))))
 	{
-	  basic_block new_bb = bb->prev_bb;
-	  block_stmt_iterator new_bsi = bsi_start (new_bb);
+	  basic_block new_bb;
+	  block_stmt_iterator new_bsi;
+
+	  /* A non-reachable non-local label may still be referenced.
+	     But it no longer needs to carry the extra semantics of
+	     non-locality.  */
+	  if (DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
+	    {
+	      DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)) = 0;
+	      FORCED_LABEL (LABEL_EXPR_LABEL (stmt)) = 1;
+	    }
 	  	  
+	  new_bb = bb->prev_bb;
+	  new_bsi = bsi_start (new_bb);
 	  bsi_remove (&i);
 	  bsi_insert_before (&new_bsi, stmt, BSI_NEW_STMT);
 	}
@@ -4478,7 +4502,7 @@ static void print_pred_bbs (FILE *, basic_block bb);
 static void print_succ_bbs (FILE *, basic_block bb);
 
 
-/* Print the predecessors indexes of edge E on FILE.  */
+/* Print on FILE the indexes for the predecessors of basic_block BB.  */
 
 static void
 print_pred_bbs (FILE *file, basic_block bb)
@@ -4487,11 +4511,11 @@ print_pred_bbs (FILE *file, basic_block bb)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->preds)
-    fprintf (file, "bb_%d", e->src->index);
+    fprintf (file, "bb_%d ", e->src->index);
 }
 
 
-/* Print the successors indexes of edge E on FILE.  */
+/* Print on FILE the indexes for the successors of basic_block BB.  */
 
 static void
 print_succ_bbs (FILE *file, basic_block bb)
@@ -4500,7 +4524,7 @@ print_succ_bbs (FILE *file, basic_block bb)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    fprintf (file, "bb_%d", e->src->index);
+    fprintf (file, "bb_%d ", e->dest->index);
 }
 
 

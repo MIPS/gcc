@@ -454,7 +454,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 
   /* On a big-endian machine, if we are allocating more space than we will use,
      use the least significant bytes of those that are allocated.  */
-  if (BYTES_BIG_ENDIAN && mode != BLKmode)
+  if (BYTES_BIG_ENDIAN && mode != BLKmode && GET_MODE_SIZE (mode) < size)
     bigend_correction = size - GET_MODE_SIZE (mode);
 
   /* If we have already instantiated virtual registers, return the actual
@@ -1665,7 +1665,7 @@ instantiate_virtual_regs (void)
 
 struct tree_opt_pass pass_instantiate_virtual_regs =
 {
-  NULL,                                 /* name */
+  "vregs",                              /* name */
   NULL,                                 /* gate */
   instantiate_virtual_regs,             /* execute */
   NULL,                                 /* sub */
@@ -1676,7 +1676,7 @@ struct tree_opt_pass pass_instantiate_virtual_regs =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -3007,9 +3007,8 @@ assign_parms (tree fndecl)
 				    REG_PARM_STACK_SPACE (fndecl));
 #endif
 
-  current_function_args_size
-    = ((current_function_args_size + STACK_BYTES - 1)
-       / STACK_BYTES) * STACK_BYTES;
+  current_function_args_size = CEIL_ROUND (current_function_args_size,
+					   PARM_BOUNDARY / BITS_PER_UNIT);
 
 #ifdef ARGS_GROW_DOWNWARD
   current_function_arg_offset_rtx
@@ -4014,7 +4013,7 @@ stack_protect_prologue (void)
 # define gen_stack_protect_test(x, y, z)	(gcc_unreachable (), NULL_RTX)
 #endif
 
-static void
+void
 stack_protect_epilogue (void)
 {
   tree guard_decl = targetm.stack_protect_guard ();

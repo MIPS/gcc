@@ -83,6 +83,7 @@ tree gfor_fndecl_stop_numeric;
 tree gfor_fndecl_stop_string;
 tree gfor_fndecl_select_string;
 tree gfor_fndecl_runtime_error;
+tree gfor_fndecl_set_std;
 tree gfor_fndecl_in_pack;
 tree gfor_fndecl_in_unpack;
 tree gfor_fndecl_associated;
@@ -1874,14 +1875,17 @@ gfc_build_builtin_function_decls (void)
   tree gfc_logical4_type_node = gfc_get_logical_type (4);
   tree gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
 
+  /* Treat these two internal malloc wrappers as malloc.  */
   gfor_fndecl_internal_malloc =
     gfc_build_library_function_decl (get_identifier (PREFIX("internal_malloc")),
 				     pvoid_type_node, 1, gfc_int4_type_node);
+  DECL_IS_MALLOC (gfor_fndecl_internal_malloc) = 1;
 
   gfor_fndecl_internal_malloc64 =
     gfc_build_library_function_decl (get_identifier
 				     (PREFIX("internal_malloc64")),
 				     pvoid_type_node, 1, gfc_int8_type_node);
+  DECL_IS_MALLOC (gfor_fndecl_internal_malloc64) = 1;
 
   gfor_fndecl_internal_free =
     gfc_build_library_function_decl (get_identifier (PREFIX("internal_free")),
@@ -1906,10 +1910,15 @@ gfc_build_builtin_function_decls (void)
     gfc_build_library_function_decl (get_identifier (PREFIX("stop_numeric")),
 				     void_type_node, 1, gfc_int4_type_node);
 
+  /* Stop doesn't return.  */
+  TREE_THIS_VOLATILE (gfor_fndecl_stop_numeric) = 1;
+
   gfor_fndecl_stop_string =
     gfc_build_library_function_decl (get_identifier (PREFIX("stop_string")),
 				     void_type_node, 2, pchar_type_node,
                                      gfc_int4_type_node);
+  /* Stop doesn't return.  */
+  TREE_THIS_VOLATILE (gfor_fndecl_stop_string) = 1;
 
   gfor_fndecl_pause_numeric =
     gfc_build_library_function_decl (get_identifier (PREFIX("pause_numeric")),
@@ -1930,6 +1939,15 @@ gfc_build_builtin_function_decls (void)
 				     3,
 				     pchar_type_node, pchar_type_node,
 				     gfc_int4_type_node);
+  /* The runtime_error function does not return.  */
+  TREE_THIS_VOLATILE (gfor_fndecl_runtime_error) = 1;
+
+  gfor_fndecl_set_std =
+    gfc_build_library_function_decl (get_identifier (PREFIX("set_std")),
+				    void_type_node,
+				    2,
+				    gfc_int4_type_node,
+				    gfc_int4_type_node);
 
   gfor_fndecl_in_pack = gfc_build_library_function_decl (
         get_identifier (PREFIX("internal_pack")),
@@ -2338,6 +2356,24 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   /* Now generate the code for the body of this function.  */
   gfc_init_block (&body);
+
+  /* If this is the main program and we compile with -pedantic, add a call
+     to set_std to set up the runtime library Fortran language standard
+     parameters.  */
+  if (sym->attr.is_main_program && pedantic)
+    {
+      tree arglist, gfc_int4_type_node;
+
+      gfc_int4_type_node = gfc_get_int_type (4);
+      arglist = gfc_chainon_list (NULL_TREE,
+				  build_int_cst (gfc_int4_type_node,
+						 gfc_option.warn_std));
+      arglist = gfc_chainon_list (arglist,
+				  build_int_cst (gfc_int4_type_node,
+						 gfc_option.allow_std));
+      tmp = gfc_build_function_call (gfor_fndecl_set_std, arglist);
+      gfc_add_expr_to_block (&body, tmp);
+    }
 
   if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node
       && sym->attr.subroutine)

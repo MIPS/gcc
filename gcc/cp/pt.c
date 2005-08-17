@@ -642,7 +642,7 @@ end_explicit_instantiation (void)
   processing_explicit_instantiation = false;
 }
 
-/* A explicit specialization or partial specialization TMPL is being
+/* An explicit specialization or partial specialization TMPL is being
    declared.  Check that the namespace in which the specialization is
    occurring is permissible.  Returns false iff it is invalid to
    specialize TMPL in the current namespace.  */
@@ -6224,6 +6224,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  : DECL_TI_ARGS (DECL_TEMPLATE_RESULT (t));
 	full_args = tsubst_template_args (tmpl_args, args,
 					  complain, in_decl);
+	if (full_args == error_mark_node)
+	  return error_mark_node;
 
 	/* tsubst_template_args doesn't copy the vector if
 	   nothing changed.  But, *something* should have
@@ -7334,6 +7336,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	/* Substitute the exception specification.  */
 	specs = tsubst_exception_specification (t, args, complain,
 						in_decl);
+	if (specs == error_mark_node)
+	  return error_mark_node;
 	if (specs)
 	  fntype = build_exception_variant (fntype, specs);
 	return fntype;
@@ -9115,7 +9119,8 @@ fn_type_unification (tree fn,
 		     tree targs,
 		     tree args,
 		     tree return_type,
-		     unification_kind_t strict)
+		     unification_kind_t strict,
+		     int flags)
 {
   tree parms;
   tree fntype;
@@ -9193,7 +9198,7 @@ fn_type_unification (tree fn,
      event.  */
   result = type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn),
 				  targs, parms, args, /*subr=*/0,
-				  strict, 0);
+				  strict, flags);
 
   if (result == 0)
     /* All is well so far.  Now, check:
@@ -9301,9 +9306,7 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
 
    If SUBR is 1, we're being called recursively (to unify the
    arguments of a function or method parameter of a function
-   template).  If IS_METHOD is true, XPARMS are the parms of a
-   member function, and special rules apply to cv qualification
-   deduction on the this parameter.  */
+   template). */
 
 static int
 type_unification_real (tree tparms,
@@ -9312,7 +9315,7 @@ type_unification_real (tree tparms,
 		       tree xargs,
 		       int subr,
 		       unification_kind_t strict,
-		       int is_method)
+		       int flags)
 {
   tree parm, arg;
   int i;
@@ -9364,26 +9367,6 @@ type_unification_real (tree tparms,
 	   template args from other function args.  */
 	continue;
 
-      if (is_method)
-	{
-	  /* The cv qualifiers on the this pointer argument must match
- 	     exactly.  We cannot deduce a T as const X against a const
- 	     member function for instance.  */
-	  gcc_assert (TREE_CODE (parm) == POINTER_TYPE);
-	  gcc_assert (TREE_CODE (arg) == POINTER_TYPE);
-	  /* The restrict qualifier will be on the pointer.  */
-	  if (cp_type_quals (parm) != cp_type_quals (arg))
-	    return 1;
-	  parm = TREE_TYPE (parm);
-	  arg = TREE_TYPE (arg);
-	  if (cp_type_quals (parm) != cp_type_quals (arg))
-	    return 1;
-	  
-	  parm = TYPE_MAIN_VARIANT (parm);
-	  arg = TYPE_MAIN_VARIANT (arg);
-	  is_method = 0;
-	}
-      
       /* Conversions will be performed on a function argument that
 	 corresponds with a function parameter that contains only
 	 non-deducible template parameters and explicitly specified
@@ -9400,7 +9383,8 @@ type_unification_real (tree tparms,
 	  if (same_type_p (parm, type))
 	    continue;
 	  if (strict != DEDUCE_EXACT
-	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg))
+	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg, 
+				  flags))
 	    continue;
 	  
 	  return 1;
@@ -10284,12 +10268,23 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       if (TREE_CODE (arg) != TREE_CODE (parm))
 	return 1;
 
+      /* CV qualifications for methods can never be deduced, they must
+  	 match exactly.  We need to check them explicitly here,
+  	 because type_unification_real treats them as any other
+  	 cvqualified parameter.  */
+      if (TREE_CODE (parm) == METHOD_TYPE
+	  && (!check_cv_quals_for_unify
+	      (UNIFY_ALLOW_NONE,
+	       TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (arg))),
+	       TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (parm))))))
+	return 1;
+
       if (unify (tparms, targs, TREE_TYPE (parm),
 		 TREE_TYPE (arg), UNIFY_ALLOW_NONE))
 	return 1;
       return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
 				    TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT,
-				    TREE_CODE (parm) == METHOD_TYPE);
+				    LOOKUP_NORMAL);
 
     case OFFSET_TYPE:
       /* Unify a pointer to member with a pointer to member function, which
@@ -10674,7 +10669,7 @@ get_bindings (tree fn, tree decl, tree explicit_args, bool check_rettype)
 			   decl_arg_types,
 			   (check_rettype || DECL_CONV_FN_P (fn)
 			    ? TREE_TYPE (decl_type) : NULL_TREE),
-			   DEDUCE_EXACT))
+			   DEDUCE_EXACT, LOOKUP_NORMAL))
     return NULL_TREE;
 
   return targs;

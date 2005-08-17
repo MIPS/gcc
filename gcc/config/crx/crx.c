@@ -80,7 +80,7 @@
   ((GET_CODE(X) == CONST_INT				\
     && SIGNED_INT_FITS_N_BITS(INTVAL(X),n)) ? 1 : 0)
 
-/* Nonzero if the rtx X is a unsigned const int of n bits */
+/* Nonzero if the rtx X is an unsigned const int of n bits.  */
 #define RTX_UNSIGNED_INT_FITS_N_BITS(X,n)		\
   ((GET_CODE(X) == CONST_INT				\
     && UNSIGNED_INT_FITS_N_BITS(INTVAL(X),n)) ? 1 : 0)
@@ -96,7 +96,7 @@
 /* STATIC VARIABLES							     */
 /*****************************************************************************/
 
-/* Non-zero if the last param processed is passed in a register.  */
+/* Nonzero if the last param processed is passed in a register.  */
 static int last_parm_in_reg;
 
 /* Will hold the number of the last register the prologue saves, -1 if no
@@ -522,7 +522,7 @@ crx_function_arg_advance (CUMULATIVE_ARGS * cum, enum machine_mode mode,
 
 }
 
-/* Implements the macro FUNCTION_ARG_REGNO_P defined in crx.h.  Return non-zero
+/* Implements the macro FUNCTION_ARG_REGNO_P defined in crx.h.  Return nonzero
  * if N is a register used for passing parameters.  */
 
 int
@@ -666,8 +666,8 @@ crx_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 
 /* Return the cost of moving data of mode MODE between a register of class
  * CLASS and memory; IN is zero if the value is to be written to memory,
- * non-zero if it is to be read in. This cost is relative to those in
- * REGISTER_MOVE_COST. */
+ * nonzero if it is to be read in. This cost is relative to those in
+ * REGISTER_MOVE_COST.  */
 
 int
 crx_memory_move_cost (enum machine_mode mode,

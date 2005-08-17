@@ -729,6 +729,15 @@ had been called:
 To aid this dialog, when input is from stdin, errors send their
 messages to stderr and execution continues, even if IOSTAT is set.
 
+PRINT namelist is permitted.  This causes an error if -std=f95 is used.
+@smallexample
+PROGRAM test_print
+  REAL, dimension (4)  ::  x = (/1.0, 2.0, 3.0, 4.0/)
+  NAMELIST /mynml/ x
+  PRINT mynml
+END PROGRAM test_print
+@end smallexample
+
 @node X format descriptor
 @section X format descriptor
 @cindex X format descriptor
@@ -798,7 +807,7 @@ As a GNU extension for backwards compatibility with other compilers,
 and vice versa.  When converting from a LOGICAL to an INTEGER, the numeric
 value of @code{.FALSE.} is zero, and that of @code{.TRUE.} is one.  When
 converting from INTEGER to LOGICAL, the value zero is interpreted as
-@code{.FALSE.} and any non-zero value is interpreted as @code{.TRUE.}.
+@code{.FALSE.} and any nonzero value is interpreted as @code{.TRUE.}.
 
 @smallexample
        INTEGER*4 i

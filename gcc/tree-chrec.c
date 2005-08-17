@@ -30,6 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "real.h"
 #include "diagnostic.h"
 #include "varray.h"
 #include "cfgloop.h"
@@ -119,7 +120,9 @@ chrec_fold_plus_poly_poly (enum tree_code code,
 	  (CHREC_VARIABLE (poly1), 
 	   chrec_fold_minus (type, poly0, CHREC_LEFT (poly1)),
 	   chrec_fold_multiply (type, CHREC_RIGHT (poly1), 
-				build_int_cst_type (type, -1)));
+				SCALAR_FLOAT_TYPE_P (type)
+				? build_real (type, dconstm1)
+				: build_int_cst_type (type, -1)));
     }
   
   if (CHREC_VARIABLE (poly0) > CHREC_VARIABLE (poly1))
@@ -208,7 +211,9 @@ chrec_fold_multiply_poly_poly (tree type,
 						       CHREC_RIGHT (poly1)));
   /* "2*b*d".  */
   t2 = chrec_fold_multiply (type, CHREC_RIGHT (poly0), CHREC_RIGHT (poly1));
-  t2 = chrec_fold_multiply (type, build_int_cst_type (type, 2), t2);
+  t2 = chrec_fold_multiply (type, SCALAR_FLOAT_TYPE_P (type)
+			    ? build_real (type, dconst2)
+			    : build_int_cst_type (type, 2), t2);
 
   var = CHREC_VARIABLE (poly0);
   return build_polynomial_chrec (var, t0,
@@ -284,8 +289,10 @@ chrec_fold_plus_1 (enum tree_code code,
 	    return build_polynomial_chrec 
 	      (CHREC_VARIABLE (op1), 
 	       chrec_fold_minus (type, op0, CHREC_LEFT (op1)),
-	       chrec_fold_multiply (type, CHREC_RIGHT (op1),
-				    build_int_cst_type (type, -1)));
+	       chrec_fold_multiply (type, CHREC_RIGHT (op1), 
+				    SCALAR_FLOAT_TYPE_P (type)
+				    ? build_real (type, dconstm1)
+				    : build_int_cst_type (type, -1)));
 
 	default:
 	  {
@@ -1110,9 +1117,24 @@ chrec_convert (tree type, tree chrec, tree at_stmt)
 
   if (evolution_function_is_affine_p (chrec))
     {
-      tree step = convert_step (current_loops->parray[CHREC_VARIABLE (chrec)],
- 				type, CHREC_LEFT (chrec), CHREC_RIGHT (chrec),
- 				at_stmt);
+      tree step;
+      bool dummy;
+
+      /* Avoid conversion of (signed char) {(uchar)1, +, (uchar)1}_x
+	 when it is not possible to prove that the scev does not wrap.
+	 See PR22236, where a sequence 1, 2, ..., 255 has to be
+	 converted to signed char, but this would wrap: 
+	 1, 2, ..., 127, -128, ...  The result should not be
+	 {(schar)1, +, (schar)1}_x, but instead, we should keep the
+	 conversion: (schar) {(uchar)1, +, (uchar)1}_x.  */
+      if (scev_probably_wraps_p (type, CHREC_LEFT (chrec), CHREC_RIGHT (chrec),
+				 at_stmt,
+				 current_loops->parray[CHREC_VARIABLE (chrec)],
+				 &dummy, &dummy))
+	return fold_convert (type, chrec);
+
+      step = convert_step (current_loops->parray[CHREC_VARIABLE (chrec)], type,
+			   CHREC_LEFT (chrec), CHREC_RIGHT (chrec), at_stmt);
       if (!step)
  	return fold_convert (type, chrec);
 

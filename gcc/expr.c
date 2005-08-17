@@ -2676,9 +2676,12 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
      adjust_address_nv.  Instead of preparing fallback support for an
      invalid address, we call adjust_address_nv directly.  */
   if (MEM_P (cplx))
-    emit_move_insn (adjust_address_nv (cplx, imode,
-				       imag_p ? GET_MODE_SIZE (imode) : 0),
-		    val);
+    {
+      emit_move_insn (adjust_address_nv (cplx, imode,
+					 imag_p ? GET_MODE_SIZE (imode) : 0),
+		      val);
+      return;
+    }
 
   /* If the sub-object is at least word sized, then we know that subregging
      will work.  This special case is important, since store_bit_field
@@ -6588,18 +6591,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       target = 0;
     }
 
-  /* If will do cse, generate all results into pseudo registers
-     since 1) that allows cse to find more things
-     and 2) otherwise cse could produce an insn the machine
-     cannot support.  An exception is a CONSTRUCTOR into a multi-word
-     MEM: that's much more likely to be most efficient into the MEM.
-     Another is a CALL_EXPR which must return in memory.  */
-
-  if (! cse_not_expected && mode != BLKmode && target
-      && (!REG_P (target) || REGNO (target) < FIRST_PSEUDO_REGISTER)
-      && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
-      && ! (code == CALL_EXPR && aggregate_value_p (exp, exp)))
-    target = 0;
 
   switch (code)
     {

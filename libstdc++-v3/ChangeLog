@@ -1,3 +1,35 @@
+2005-08-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* testsuite/26_numerics/cmath/c99_classification_macros_c.cc:
+	xfail on *-*-darwin*.
+
+2005-08-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.ac: Don't use GCC_NO_EXECUTABLES or clear
+	GLIBCXX_IS_NATIVE on Darwin crosses.
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Don't skip configuring
+	the testsuite just because there's no symbol versioning.
+	* configure: Regenerate.
+
+	* acinclude.m4 (GLIBCXX_CHECK_SETRLIMIT_ancilliary): Print
+	status messages.
+	(GLIBCXX_CHECK_S_ISREG_OR_S_IFREG): Likewise.
+	(GLIBCXX_CHECK_POLL): Likewise.
+	(GLIBCXX_CHECK_WRITEV): Likewise.
+	(GLIBCXX_CHECK_INT64_T): Likewise.
+	(GLIBCXX_CHECK_LFS): Likewise.
+	* configure: Regenerate.
+
+2005-07-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* scripts/make_exports.pl: Pass --strip-underscores to c++filt.
+
+2005-07-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/22284
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Revert
+	the change to info.ttype_base.
+	
 2005-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* include/std/std_valarray.h: Fix grammar in comments.

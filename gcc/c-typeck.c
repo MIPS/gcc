@@ -653,7 +653,8 @@ c_common_type (tree t1, tree t2)
     return t2;
 }
 
-/* Wrapper around c_common_type that is used by c-common.c.  ENUMERAL_TYPEs
+/* Wrapper around c_common_type that is used by c-common.c and other
+   front end optimizations that remove promotions.  ENUMERAL_TYPEs
    are allowed here and are converted to their compatible integer types.
    BOOLEAN_TYPEs are allowed here and return either boolean_type_node or
    preferably a non-Boolean type as the common type.  */
@@ -7046,20 +7047,31 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
   /* Diagnose ";" via the special empty statement node that we create.  */
   if (extra_warnings)
     {
-      if (TREE_CODE (then_block) == NOP_EXPR && !TREE_TYPE (then_block))
+      tree *inner_then = &then_block, *inner_else = &else_block;
+
+      if (TREE_CODE (*inner_then) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (*inner_then))
+	inner_then = &STATEMENT_LIST_TAIL (*inner_then)->stmt;
+      if (*inner_else && TREE_CODE (*inner_else) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (*inner_else))
+	inner_else = &STATEMENT_LIST_TAIL (*inner_else)->stmt;
+
+      if (TREE_CODE (*inner_then) == NOP_EXPR && !TREE_TYPE (*inner_then))
 	{
-	  if (!else_block)
+	  if (!*inner_else)
 	    warning (0, "%Hempty body in an if-statement",
-		     EXPR_LOCUS (then_block));
-	  then_block = alloc_stmt_list ();
+		     EXPR_LOCUS (*inner_then));
+
+	  *inner_then = alloc_stmt_list ();
 	}
-      if (else_block
-	  && TREE_CODE (else_block) == NOP_EXPR
-	  && !TREE_TYPE (else_block))
+      if (*inner_else
+	  && TREE_CODE (*inner_else) == NOP_EXPR
+	  && !TREE_TYPE (*inner_else))
 	{
 	  warning (0, "%Hempty body in an else-statement",
-		   EXPR_LOCUS (else_block));
-	  else_block = alloc_stmt_list ();
+		   EXPR_LOCUS (*inner_else));
+
+	  *inner_else = alloc_stmt_list ();
 	}
     }
 
@@ -7118,8 +7130,7 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
             }
  
 	  t = build_and_jump (&blab);
-          exit = build3 (COND_EXPR, void_type_node, cond, exit, t);
-          exit = fold (exit);
+          exit = fold_build3 (COND_EXPR, void_type_node, cond, exit, t);
 	  if (cond_is_first)
             SET_EXPR_LOCATION (exit, start_locus);
 	  else
@@ -7358,7 +7369,13 @@ c_finish_stmt_expr (tree body)
   if (last == error_mark_node
       || (last == BIND_EXPR_BODY (body)
 	  && BIND_EXPR_VARS (body) == NULL))
-    return last;
+    {
+      /* Do not warn if the return value of a statement expression is
+	 unused.  */
+      if (EXPR_P (last))
+	TREE_NO_WARNING (last) = 1;
+      return last;
+    }
 
   /* Extract the type of said expression.  */
   type = TREE_TYPE (last);
@@ -7992,7 +8009,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      && (unsigned0 || !uns))
 	    result_type
 	      = c_common_signed_or_unsigned_type
-	      (unsigned0, c_common_type (TREE_TYPE (arg0), TREE_TYPE (arg1)));
+	      (unsigned0, common_type (TREE_TYPE (arg0), TREE_TYPE (arg1)));
 	  else if (TREE_CODE (arg0) == INTEGER_CST
 		   && (unsigned1 || !uns)
 		   && (TYPE_PRECISION (TREE_TYPE (arg1))

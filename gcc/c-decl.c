@@ -466,7 +466,7 @@ c_print_identifier (FILE *file, tree node, int indent)
     {
       tree rid = ridpointers[C_RID_CODE (node)];
       indent_to (file, indent + 4);
-      fprintf (file, "rid " HOST_PTR_PRINTF " \"%s\"",
+      fprintf (file, "rid %p \"%s\"",
 	       (void *) rid, IDENTIFIER_POINTER (rid));
     }
 }
@@ -1664,18 +1664,18 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  && !C_DECL_BUILTIN_PROTOTYPE (olddecl)))
     DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
 
-  /* Merge the unused-warning information.  */
-  if (DECL_IN_SYSTEM_HEADER (olddecl))
-    DECL_IN_SYSTEM_HEADER (newdecl) = 1;
-  else if (DECL_IN_SYSTEM_HEADER (newdecl))
-    DECL_IN_SYSTEM_HEADER (olddecl) = 1;
-
   /* Merge the initialization information.  */
    if (DECL_INITIAL (newdecl) == 0)
     DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 
    if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
      {
+       /* Merge the unused-warning information.  */
+       if (DECL_IN_SYSTEM_HEADER (olddecl))
+	 DECL_IN_SYSTEM_HEADER (newdecl) = 1;
+       else if (DECL_IN_SYSTEM_HEADER (newdecl))
+	 DECL_IN_SYSTEM_HEADER (olddecl) = 1;
+
        /* Merge the section attribute.
 	  We want to issue an error if the sections conflict but that must be
 	  done later in decl_attributes since we are called before attributes
@@ -1891,13 +1891,7 @@ warn_if_shadowing (tree new_decl)
       /* No shadow warnings for internally generated vars.  */
       || DECL_IS_BUILTIN (new_decl)
       /* No shadow warnings for vars made for inlining.  */
-      || DECL_FROM_INLINE (new_decl)
-      /* Don't warn about the parm names in function declarator
-	 within a function declarator.  It would be nice to avoid
-	 warning in any function declarator in a declaration, as
-	 opposed to a definition, but there is no way to tell
-	 it's not a definition at this point.  */
-      || (TREE_CODE (new_decl) == PARM_DECL && current_scope->outer->parm_flag))
+      || DECL_FROM_INLINE (new_decl))
     return;
 
   /* Is anything being shadowed?  Invisible decls do not count.  */
@@ -2221,7 +2215,8 @@ pushdecl (tree x)
 	}
     }
 
-  warn_if_shadowing (x);
+  if (TREE_CODE (x) != PARM_DECL)
+    warn_if_shadowing (x);
 
  skip_external_and_shadow_checks:
   if (TREE_CODE (x) == TYPE_DECL)
@@ -4389,7 +4384,7 @@ grokdeclarator (const struct c_declarator *declarator,
   if (TREE_CODE (type) == ARRAY_TYPE
       && COMPLETE_TYPE_P (type)
       && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-      && TREE_OVERFLOW (TYPE_SIZE (type)))
+      && TREE_OVERFLOW (TYPE_SIZE_UNIT (type)))
     {
       error ("size of array %qs is too large", name);
       /* If we proceed with the array type as it is, we'll eventually
@@ -4836,6 +4831,9 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
 			     parm, parmno);
 		}
 	    }
+
+	  if (DECL_NAME (parm) && TREE_USED (parm))
+	    warn_if_shadowing (parm);
 	}
       return arg_types;
     }
@@ -6106,8 +6104,12 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
     {
       DECL_CONTEXT (decl) = current_function_decl;
       if (DECL_NAME (decl))
-	bind (DECL_NAME (decl), decl, current_scope,
-	      /*invisible=*/false, /*nested=*/false);
+	{
+	  bind (DECL_NAME (decl), decl, current_scope,
+		/*invisible=*/false, /*nested=*/false);
+	  if (!TREE_USED (decl))
+	    warn_if_shadowing (decl);
+	}
       else
 	error ("%Jparameter name omitted", decl);
     }
@@ -6181,6 +6183,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	      DECL_ARG_TYPE (decl) = integer_type_node;
 	      layout_decl (decl, 0);
 	    }
+	  warn_if_shadowing (decl);
 	}
       /* If no declaration found, default to int.  */
       else
@@ -6189,6 +6192,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	  DECL_ARG_TYPE (decl) = TREE_TYPE (decl);
 	  DECL_SOURCE_LOCATION (decl) = DECL_SOURCE_LOCATION (fndecl);
 	  pushdecl (decl);
+	  warn_if_shadowing (decl);
 
 	  if (flag_isoc99)
 	    pedwarn ("type of %q+D defaults to %<int%>", decl);
