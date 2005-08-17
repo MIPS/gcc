@@ -1,3 +1,9 @@
+2005-08-16  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4218231
+	* c-common (print_cw_asm_operand): Add support for variable
+	component reference.
+
 2005-08-16  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4216812

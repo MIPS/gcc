@@ -6759,19 +6759,29 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case COMPONENT_REF:
-      get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep, false);
-      /* Convert bit pos to byte pos, rounding down (this is asm,
-	 after all). */
-      /* APPLE LOCAL 32-bit HOST_WIDE_INT */
-      sprintf (buf + strlen (buf), "%lld", (long long int) (bitpos / BITS_PER_UNIT));
-      strcat (buf, "(");
+      /* APPLE LOCAL begin radar 4218231 */
       op0 = TREE_OPERAND (arg, 0);
-      /* Catch a couple different flavors of component refs.  */
       if (TREE_CODE (op0) == VAR_DECL)
-	print_cw_asm_operand (buf, op0, argnum, uses, label, true, false);
-      else
+	{
+	  idnum = cw_asm_get_register_var (arg, argnum, false);
+	  if (idnum >= 0)
+	    {
+	      strcat (buf, "%");
+	      sprintf (buf + strlen (buf), "%d", idnum);
+	    }
+        }
+      else {
+        get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep, false);
+        /* Convert bit pos to byte pos, rounding down (this is asm,
+	   after all). */
+        /* APPLE LOCAL 32-bit HOST_WIDE_INT */
+        sprintf (buf + strlen (buf), "%lld", (long long int) (bitpos / BITS_PER_UNIT));
+        strcat (buf, "(");
+        /* Catch a couple different flavors of component refs.  */
 	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses, label, true, false);
-      strcat (buf, ")");
+        strcat (buf, ")");
+      }
+      /* APPLE LOCAL end radar 4218231 */
       break;
 
     case ARRAY_REF:
