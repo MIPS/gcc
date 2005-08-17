@@ -1198,7 +1198,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
      can open-code the operation.  Check for a widening multiply at the
      wider mode as well.  */
 
-  if ((class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class)
       && methods != OPTAB_DIRECT && methods != OPTAB_LIB)
     for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
 	 wider_mode != VOIDmode;
@@ -1731,7 +1731,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   /* Look for a wider mode of the same class for which it appears we can do
      the operation.  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class))
     {
       for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
@@ -1906,7 +1906,7 @@ expand_twoval_unop (optab unoptab, rtx op0, rtx targ0, rtx targ1,
 
   /* It can't be done in this mode.  Can we do it in a wider mode?  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class))
     {
       for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
@@ -2029,7 +2029,7 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
 
   /* It can't be done in this mode.  Can we do it in a wider mode?  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class))
     {
       for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
@@ -2129,7 +2129,7 @@ static rtx
 widen_clz (enum machine_mode mode, rtx op0, rtx target)
 {
   enum mode_class class = GET_MODE_CLASS (mode);
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class))
     {
       enum machine_mode wider_mode;
       for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
@@ -2168,7 +2168,7 @@ static rtx
 expand_parity (enum machine_mode mode, rtx op0, rtx target)
 {
   enum mode_class class = GET_MODE_CLASS (mode);
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class))
     {
       enum machine_mode wider_mode;
       for (wider_mode = mode; wider_mode != VOIDmode;
@@ -2400,7 +2400,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 	goto try_libcall;
     }
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class))
     for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
 	 wider_mode != VOIDmode;
 	 wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
@@ -2538,7 +2538,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
   /* It can't be done in this mode.  Can we do it in a wider mode?  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (MODES_WIDEN_P (class))
     {
       for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
@@ -3612,8 +3612,7 @@ emit_cmp_and_jump_insn_1 (rtx x, rtx y, enum machine_mode mode,
 	  return;
 	}
 
-      if (class != MODE_INT && class != MODE_FLOAT
-	  && class != MODE_COMPLEX_FLOAT)
+      if (!MODES_WIDEN_P (class))
 	break;
 
       wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode);

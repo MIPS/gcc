@@ -1,5 +1,9 @@
 2005-08-17  Janis Johnson  <janis187@us.ibm.com>
 
+	* machmode.h (MODES_WIDEN_P): New.
+	* optabs.c (expand_binop, expand_twoval_unop, widen_clz, expand_parity,
+	expand_unop, emit_cmp_and_jump_insn_1): Use it.
+
 	* c-common.c (handle_vector_size_attribute): Use SCALAR_FLOAT_MODE_P.
 	* cse.c (find_comparison_args, fold_rtx): Ditto.
 	* dwarf2out.c (add_const_value_attribute): Ditto.

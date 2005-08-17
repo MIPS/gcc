@@ -89,6 +89,12 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 #define INCOMPATIBLE_MODES_P(MODE1,MODE2)	\
   (DECIMAL_FLOAT_MODE_P(MODE1) != DECIMAL_FLOAT_MODE_P(MODE2))
 
+/* Nonzero if CLASS modes can be widened.  */
+#define MODES_WIDEN_P(CLASS)			\
+  (CLASS == MODE_INT				\
+   || CLASS == MODE_FLOAT			\
+   || CLASS == MODE_COMPLEX_FLOAT)
+
 /* Get the size in bytes and bits of an object of mode MODE.  */
 
 extern CONST_MODE_SIZE unsigned char mode_size[NUM_MACHINE_MODES];
