@@ -1,3 +1,11 @@
+2005-08-16  Eric Christopher  <echristo@apple.com>
+
+	Radar 4219129
+	* c-common.c (TARGET_CW_OP_CONSTRAINT): New. Add default.
+	(cw_constraint_for): Use.
+	* config/rs6000/rs6000.h: Define.
+	* config/i386/i386.h: Ditto.
+
 2005-08-15  Mike Stump  <mrs@apple.com>
 
 	Radar 4211978

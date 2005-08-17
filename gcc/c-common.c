@@ -5057,7 +5057,7 @@ handle_deprecated_attribute (tree *node, tree name,
 /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
 /* Handle a "unavailable" attribute; arguments as in
    struct attribute_spec.handler.  */
-   
+
 static tree
 handle_unavailable_attribute (tree *node, tree name,
 			      tree args ATTRIBUTE_UNUSED,
@@ -5067,12 +5067,12 @@ handle_unavailable_attribute (tree *node, tree name,
   tree type = NULL_TREE;
   int warn = 0;
   const char *what = NULL;
-  
+
   if (DECL_P (*node))
     {
       tree decl = *node;
       type = TREE_TYPE (decl);
-      
+
       if (TREE_CODE (decl) == TYPE_DECL
       	  || TREE_CODE (decl) == PARM_DECL
 	  || TREE_CODE (decl) == VAR_DECL
@@ -5095,7 +5095,7 @@ handle_unavailable_attribute (tree *node, tree name,
     }
   else
     warn = 1;
-  
+
   if (warn)
     {
       *no_add_attrs = true;
@@ -5308,7 +5308,7 @@ check_function_sentinel (tree attrs, tree params)
         {
 	  tree sentinel, end;
 	  unsigned pos = 0;
-	  
+
 	  if (TREE_VALUE (attr))
 	    {
 	      tree p = TREE_VALUE (TREE_VALUE (attr));
@@ -5521,7 +5521,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 	  *no_add_attrs = true;
 	}
     }
-  
+
   if (args)
     {
       tree position = TREE_VALUE (args);
@@ -5541,7 +5541,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 	    }
 	}
     }
-  
+
   return NULL_TREE;
 }
 
@@ -5782,7 +5782,7 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
       error (message);
       free (message);
     }
-#undef catenate_messages  
+#undef catenate_messages
 }
 
 /* Walk a gimplified function and warn for functions whose return value is
@@ -6015,7 +6015,7 @@ lvalue_or_else (tree *ref, enum lvalue_use use)
 		      ? "argument to '&'"
 		      : "target of assignment"));
 	}
-    } 
+    }
 /* APPLE LOCAL end non-lvalue assign */
 
   if (!win)
@@ -6185,7 +6185,7 @@ vector_constructor_from_expr (tree expr, tree vector_type)
     TREE_LANG_FLAG_4 (list) = 1;  /* TREE_HAS_CONSTRUCTOR */
 
   TREE_CONSTANT (list) = all_constant;
-  
+
   return list;
 }
 /* APPLE LOCAL end AltiVec */
@@ -6203,7 +6203,7 @@ cw_asm_default_function_conversion (tree exp)
   enum tree_code code = TREE_CODE (type);
 
   /* Strip NON_LVALUE_EXPRs and no-op conversions, since we aren't using as
-     an lvalue. 
+     an lvalue.
 
      Do not use STRIP_NOPS here!  It will remove conversions from pointer
      to integer and cause infinite recursion.  */
@@ -6261,6 +6261,12 @@ struct cw_op_constraint
     const char *constraint;
 };
 
+/* Default value of the constraint table.  */
+/* ??? This should be in defaults.h or a CW asm specific header.  */
+#ifndef TARGET_CW_OP_CONSTRAINT
+#define TARGET_CW_OP_CONSTRAINT {}
+#endif
+
 /* Comparison function for bsearch to find an opcode/argument number
    in the opcode constraint table.  */
 
@@ -6286,43 +6292,8 @@ static const char*
 cw_constraint_for (const char *opcode, unsigned argnum)
 {
   /* This table must be sorted.  */
-  static struct cw_op_constraint db[] = {
-#if defined(TARGET_TOC)
-    { "la", 2, "m" },
-    { "lbz", 2, "m" },
-    { "lbzu", 2, "m" },
-    { "ld", 2, "m" },
-    { "ldu", 2, "m" },
-    { "lfd", 2, "m" },
-    { "lfdu", 2, "m" },
-    { "lfs", 2, "m" },
-    { "lfsu", 2, "m" },
-    { "lha", 2, "m" },
-    { "lhau", 2, "m" },
-    { "lhz", 2, "m" },
-    { "lhzu", 2, "m" },
-    { "lmw", 2, "m" },
-    { "lwa", 2, "m" },
-    { "lwz", 2, "m" },
-    { "lwzu", 2, "m" },
-    { "stb", 2, "m" },
-    { "stbu", 2, "m" },
-    { "std", 2, "m" },
-    { "stdu", 2, "m" },
-    { "stfd", 2, "m" },
-    { "stfdu", 2, "m" },
-    { "stfs", 2, "m" },
-    { "stfsu", 2, "m" },
-    { "sth", 2, "m" },
-    { "sthu", 2, "m" },
-    { "stmw", 2, "m" },
-    { "stw", 2, "m" },
-    { "stwu", 2, "m" },
-#elif defined(TARGET_386)
-    { "fxch", 1, "+f" },
-    { "movzx", 1, "=r" },
-    { "movzx", 2, "qm" },
-#endif
+  const struct cw_op_constraint db[] = {
+    TARGET_CW_OP_CONSTRAINT
   };
   struct cw_op_constraint key;
   struct cw_op_constraint *r;
@@ -6358,7 +6329,7 @@ cw_memory_clobber (const char *opcode)
 static void
 cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 		bool must_be_reg,
-		tree *outputsp, tree*inputsp, tree*uses)
+		tree *outputsp, tree *inputsp, tree *uses)
 {
   const char *s;
   bool was_output = true;
@@ -6391,7 +6362,7 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 	}
       else if (TREE_CODE (TREE_TYPE (var)) == REAL_TYPE)
 	str = build_string (2, "+f");
-      else 
+      else
 	if (TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
 	  str = build_string (2, "+v");
 	else
@@ -6462,7 +6433,7 @@ cw_asm_identifier (tree expr)
       strcpy (buf+i+1, opcodename + i);
       return get_identifier (buf);
    }
-  return expr; 
+  return expr;
 }
 
 /* Build an asm statement from CW-syntax bits.  */
@@ -6604,7 +6575,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
 			    clobbers);
     }
 
-  /* Perform default conversions on function inputs. 
+  /* Perform default conversions on function inputs.
      Don't do this for other types as it would screw up operands
      expected to be in memory.  */
   for (tail = inputs; tail; tail = TREE_CHAIN (tail))
@@ -6642,11 +6613,11 @@ cw_asm_expr_val (tree arg)
     return int_cst_value (convert (integer_type_node, arg));
 
   if (TREE_CODE (arg) == PLUS_EXPR)
-    return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0))
 	   + cw_asm_expr_val (TREE_OPERAND (arg, 1));
 
   if (TREE_CODE (arg) == MINUS_EXPR)
-    return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0))
 	   - cw_asm_expr_val (TREE_OPERAND (arg, 1));
 
   if (TREE_CODE (arg) == NEGATE_EXPR)
@@ -6768,13 +6739,13 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case MINUS_EXPR:
-      if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL 
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
 	  && TREE_CODE (TREE_OPERAND (arg, 1)) == LABEL_DECL)
 	{
 	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
 				false, true);
 	  strcat (buf, "-");
-	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, 
+	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum,
 				uses, label, false, true);
 	  break;
 	}

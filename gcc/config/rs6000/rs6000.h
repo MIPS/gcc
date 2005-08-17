@@ -3564,3 +3564,39 @@ enum rs6000_builtins
 };
 /* APPLE LOCAL radar 4204303 */
 #define INITIAL_FRAME_ADDRESS_RTX stack_pointer_rtx
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Table of instructions that need extra constraints.  */
+#undef TARGET_CW_OP_CONSTRAINT
+#define TARGET_CW_OP_CONSTRAINT \
+  { "la", 2, "m" },	\
+  { "lbz", 2, "m" },	\
+  { "lbzu", 2, "m" },	\
+  { "ld", 2, "m" },	\
+  { "ldu", 2, "m" },	\
+  { "lfd", 2, "m" },	\
+  { "lfdu", 2, "m" },	\
+  { "lfs", 2, "m" },	\
+  { "lfsu", 2, "m" },	\
+  { "lha", 2, "m" },	\
+  { "lhau", 2, "m" },	\
+  { "lhz", 2, "m" },	\
+  { "lhzu", 2, "m" },	\
+  { "lmw", 2, "m" },	\
+  { "lwa", 2, "m" },	\
+  { "lwz", 2, "m" },	\
+  { "lwzu", 2, "m" },	\
+  { "stb", 2, "m" },	\
+  { "stbu", 2, "m" },	\
+  { "std", 2, "m" },	\
+  { "stdu", 2, "m" },	\
+  { "stfd", 2, "m" },	\
+  { "stfdu", 2, "m" },	\
+  { "stfs", 2, "m" },	\
+  { "stfsu", 2, "m" },	\
+  { "sth", 2, "m" },	\
+  { "sthu", 2, "m" },	\
+  { "stmw", 2, "m" },	\
+  { "stw", 2, "m" },	\
+  { "stwu", 2, "m" },
+/* APPLE LOCAL end CW asm blocks */

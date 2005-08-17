@@ -1457,7 +1457,7 @@ enum reg_class
 #define BASE_REG_CLASS GENERAL_REGS
 
 /* Unused letters:
-    B                 TU W   
+    B                 TU W
           h jk          vw  z
 */
 
@@ -2515,8 +2515,8 @@ extern rtx ix86_compare_op1;	/* operand 1 for comparisons */
    `OPTIMIZE_MODE_SWITCHING' is defined, you must define this macro to
    return an integer value not larger than the corresponding element
    in `NUM_MODES_FOR_MODE_SWITCHING', to denote the mode that ENTITY
-   must be switched into prior to the execution of INSN. 
-   
+   must be switched into prior to the execution of INSN.
+
    The mode UNINITIALIZED is used to force re-load of possibly previously
    stored control word after function call.  The mode ANY specify that
    function has no requirements on the control word and make no changes
@@ -2583,6 +2583,15 @@ struct machine_function GTY(())
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false
 #define X86_FILE_START_FLTUSED false
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Table of instructions that need extra constraints.  */
+#undef TARGET_CW_OP_CONSTRAINT
+#define TARGET_CW_OP_CONSTRAINT \
+  { "fxch", 1, "+f" },	\
+  { "movzx", 1, "=r" },	\
+  { "movzx", 2, "qm" },
+/* APPLE LOCAL end CW asm blocks */
 
 /*
 Local variables:
