@@ -1438,7 +1438,7 @@ decide_block_copy (struct sra_elt *elt)
 	     need to do a block copy or an element copy but we can use V_C_E
 	     and create an integer variable which has the same mode as the
 	     struct and this is only a copy.
-	     Copies bigger than DImode create problems later, so disallow them. */
+	     Copies bigger than DImode create problems later, so disallow them.  */
 	  if (!elt->is_scalar && TYPE_MODE (elt->type) != BLKmode
 	      && elt->n_uses == 0 && elt->children == NULL
 	      && full_size <= GET_MODE_SIZE (DImode))
@@ -2037,10 +2037,12 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
 
   /* CONSTRUCTOR is defined such that any member not mentioned is assigned
      a zero value.  Initialize the rest of the instantiated elements.  */
+  /* APPLE LOCAL begin 4126812 */
   if (lhs_elt->how_to_copy != integer_copy)
     generate_element_zero (lhs_elt, &list);
 
   if (!result || lhs_elt->how_to_copy == integer_copy)
+  /* APPLE LOCAL end 4126812 */
     {
       /* If we failed to convert the entire initializer, then we must
 	 leave the structure assignment in place and must load values

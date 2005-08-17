@@ -1,3 +1,4 @@
+/* APPLE LOCAL file 4216812 */
 /* { dg-do run } */
 /* { dg-options "-O2" } */
 struct ControlID {
