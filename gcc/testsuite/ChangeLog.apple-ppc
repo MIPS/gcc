@@ -1,3 +1,8 @@
+2005-08-16  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4216812
+	* g++.dg/4216812.C: New.
+
 2005-08-15  Mike Stump  <mrs@apple.com>
 
 	Radar 4211978
