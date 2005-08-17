@@ -1,3 +1,9 @@
+2005-08-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/wrs-linux.h (CC1_SPEC, SUBTARGET_EXTRA_ASM_SPEC,
+	SUBTARGET_EXTRA_LINK_SPEC): Change -tiwmmxt to little-endian.
+	(SUBTARGET_EXTRA_LINK_SPEC): Add initial space.
+
 2005-08-10  Joseph Myers  <joseph@codesourcery.com>
 
 	* cp/decl2.c (import_export_vtable): Also mark decl as used with
