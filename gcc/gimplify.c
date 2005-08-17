@@ -2564,10 +2564,14 @@ gimplify_init_ctor_eval (tree object, tree list, tree *pre_p, bool cleared)
 			purpose, NULL_TREE, NULL_TREE);
 	}
       else
-	cref = build (COMPONENT_REF, TREE_TYPE (purpose),
-		      unshare_expr (object), purpose, NULL_TREE);
+	{
+	  gcc_assert (TREE_CODE (purpose) == FIELD_DECL);
+	  cref = build (COMPONENT_REF, TREE_TYPE (purpose),
+			unshare_expr (object), purpose, NULL_TREE);
+	}
 
-      if (TREE_CODE (value) == CONSTRUCTOR)
+      if (TREE_CODE (value) == CONSTRUCTOR
+	  && TREE_CODE (TREE_TYPE (value)) != VECTOR_TYPE)
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
@@ -4459,7 +4463,9 @@ gimplify_one_sizepos (tree *expr_p, tree *stmt_p)
      type-stripping code with this knowledge because it doesn't matter
      for the bulk of GENERIC/GIMPLE.  It only matters that TYPE_SIZE_UNIT
      and friends retain their "sizetype-ness".  */
-  if (TREE_TYPE (expr) != type && TYPE_IS_SIZETYPE (type))
+  if (TREE_TYPE (expr) != type
+      && TREE_CODE (type) == INTEGER_TYPE
+      && TYPE_IS_SIZETYPE (type))
     {
       tree tmp;
 

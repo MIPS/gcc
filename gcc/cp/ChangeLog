@@ -1,3 +1,23 @@
+2005-08-12  Giovanni Bajo  <giovannibajo@libero.it>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21799
+	PR c++/8271
+        * pt.c (unify) <METHOD_TYPE>: Check this-pointer cv-qualifiers
+	explicitly.
+
+2005-08-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23266
+	* decl2.c (grokfield): Check that method is not static before
+	marking it as pure.
+
+2005-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/23219
+	* name-lookup.c (pushtag): Process the template type before
+	altering the identifier lookup fields.
+
 2005-08-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/20646

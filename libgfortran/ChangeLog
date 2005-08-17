@@ -1,3 +1,24 @@
+2005-08-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23428
+	* io/transfer.c (iolength_transfer):  Return correct length
+	for inquire(iolength=) for complex variables.
+
+2005-08-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/20006
+	* Makefile.am: Add file runtime/compile_options.c.
+	* Makefile.in: Regenerate.
+	* libgfortran.h: Create structure compile_options_t. Define the
+	compile_options variable and GFC_STD_ macros.
+	* runtime/compile_options.c: New file.
+	* runtime/error.c (notify_std): New function.
+	* runtime/main.c (init): Call init_compile_options during
+	initialization.
+	* io/format.c: Use the new notify_std function for the $
+	descriptor extension.
+
 2005-08-07  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 	* Makefile.am: Add file intrinsics/tty.c to Makefile process.
 	* Makefile.in: Regenerate.
@@ -221,7 +242,7 @@
 2005-07-10  Jerry DeLisle  <jvdelisle@verizon.net>
 
 	PR libfortran/21875  (FM111.f)
-	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or 
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or
 	BLANK_NULL are active.
 	(read_decimal): Interpret ' ' character correctly for BZ or BN.
 	(read_radix): Interpret ' ' character correctly for BZ or BN.
@@ -412,7 +433,7 @@
 	Change second, independent use of variable dim to srank.
 
 2005-05-23  Thomas Koenig  <Thomas.Koenig@online.de>
-	
+
 	Backport from mainline:
 	PR libfortran/21354
 	PR libfortran/21075

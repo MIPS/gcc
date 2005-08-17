@@ -1,7 +1,67 @@
+2005-08-16  Ian Lance Taylor  <ian@airs.com>
+
+	PR c++/23337
+	* g++.dg/ext/vector2.C: New.
+
+2005-08-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23428
+	* gfortran.dg/inquire-complex.f90:  New test case.
+
+2005-08-16  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/power.f90: New test.
+
+2005-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23299
+	* g++.dg/opt/pr23299.C: New test.
+
+2005-08-14 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/21432.
+	* gfortran.dg/namelist_print_1.f: New test of functionality of
+	PRINT namelist.
+	* gfortran.dg/namelist_print_2.f: New test to check that PRINT
+	namelist generates error with -std=f95.
+
+2005-08-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.dg/eoshift.f90:  Correct format.
+
+2005-08-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.fortran-torture/execute/character_passing.f90:
+	Fix comment typo.
+
+2005-08-12  Nathan Sidwell  <nathan@codesourcery.com>
+	    Giovanni Bajo  <giovannibajo@libero.it>
+	PR c++/21799
+	PR c++/8271
+
+	* g++.dg/template/unify8.C: New.
+	* g++.dg/template/unify9.C: New.
+	* g++.dg/template/unify10.C: New.
+
+2005-08-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23266
+	* g++.dg/inherit/pure1.C: New test.
+
+2005-08-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	* gfortran.dg/runtime_warning_1.f90: New test.
+
+2005-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/23219
+	* g++.dg/parse/crash28.C: New.
+
 2005-08-10  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/22143
-	gfortran.dg/shift-kind.f90:  New testcase.
+	* gfortran.dg/shift-kind.f90:  New testcase.
 
 2005-08-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
