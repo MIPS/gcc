@@ -1,3 +1,8 @@
+2005-08-15  Devang Patel  <dpatel@apple.com>
+
+	Radar 4215975
+	* gcc.dg/debug-4215975.c: New.
+
 2005-08-16  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4218231

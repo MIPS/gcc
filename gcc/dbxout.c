@@ -200,6 +200,8 @@ static GTY(()) int next_type_number;
 
 static GTY(()) tree preinit_symbols;
 
+/* APPLE LOCAL 4215975 */
+static GTY(()) tree anon_place_holder;
 enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
 
 /* When using N_BINCL in dbx output, each type number is actually a
@@ -1139,6 +1141,8 @@ dbxout_init (const char *input_file_name)
 	dbxout_symbol (TREE_VALUE (t), 0);
       preinit_symbols = 0;
     }
+  /* APPLE LOCAL 4215975 */
+  anon_place_holder = get_identifier ("__anon__");
 }
 
 /* Output any typedef names for types described by TYPE_DECLs in SYMS.  */
@@ -1987,7 +1991,7 @@ dbxout_type (tree type, int full)
 	  && ! DECL_IGNORED_P (TYPE_STUB_DECL (type)))
 	{
 	  if (!TYPE_NAME (type))
-	    DECL_NAME (TYPE_STUB_DECL (type)) = get_identifier ("__anon__");
+	    DECL_NAME (TYPE_STUB_DECL (type)) = anon_place_holder;
 	  debug_queue_symbol (TYPE_STUB_DECL (type));
 	  return;
 	}
@@ -2801,7 +2805,12 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	      dbxout_class_name_qualifiers (decl);
 
 	    /* Output typedef name.  */
-	    stabstr_I (DECL_NAME (decl));
+	    /* APPLE LOCAL begin 4215975 */
+	    if (DECL_NAME (decl) == anon_place_holder)
+	      DECL_NAME (decl) = NULL_TREE;
+	    else
+	      stabstr_I (DECL_NAME (decl));
+	    /* APPLE LOCAL end 4215975 */
 	    stabstr_C (':');
 
 	    /* Short cut way to output a tag also.  */

@@ -1,3 +1,11 @@
+2005-08-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4215975
+	* dbxout.c (anon_place_holder): New.
+	(dbxout_init): Initialize anon_place_holder.
+	(dbxout_type): Use anon_place_holder.
+	(dbxout_symbol): Check anon_place_holder.
+
 2005-08-16  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4218231
