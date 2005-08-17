@@ -1,3 +1,34 @@
+2005-08-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* c-common.c (handle_vector_size_attribute): Use SCALAR_FLOAT_MODE_P.
+	* cse.c (find_comparison_args, fold_rtx): Ditto.
+	* dwarf2out.c (add_const_value_attribute): Ditto.
+	* emit-rtl.c (gen_lowpart_common): Ditto.
+	* expmed.c (expand_mult): Ditto.
+	* expr.c (convert_move): Ditto.
+	* genopinit.c (gen_insn): Ditto.
+	* loop.c (load_mems): Ditto.
+	* optabs.c ( expand_abs_nojump, prepare_cmp_insn): DItto.
+	* recog.c (general_operand, register_operand): Ditto.
+	* reg-stack.c (replace_reg): Ditto.
+	* reload.c (find_equiv_reg): Ditto.
+	* rtlanal.c (may_trap_p, canonicalize_condition): Ditto.
+	* simplify-rtx.c (simplify_const_unary_operation,
+	simplify_binary_operation_1, simplify_const_binary_operation,
+	simplify_relational_operation, simplify_const_relational_operation,
+	simplify_immed_subreg): Ditto.
+	* config/i386/i386.c (ix86_value_regno, ix86_cc_mode
+	ix86_expand_compare): Ditto.
+	* config/rs6000/linux64.h (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Ditto.
+	* config/rs6000/predicates.md (easy_fp_constant, zero_fp_constant,
+	input_operand): Ditto.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok, rs6000_emit_move,
+	function_arg_advance, rs6000_emit_cmove,
+	rs6000_output_function_epilogue, rs6000_libcall_value): Ditto.
+	* config/rs6000/rs6000.h (MODES_TIEABLE_P, SELECT_CC_MODE): Ditto.
+	* config/rs6000/sysv4.h (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Ditto.
+	* config/rs6000/xcoff.h (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Ditto.
+
 2005-08-16  Ben Elliston  <bje@au.ibm.com>
 
 	* config/dfp-bit.h (BFP_VIA_TYPE): Use double not DFtype.
