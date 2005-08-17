@@ -2037,9 +2037,10 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
 
   /* CONSTRUCTOR is defined such that any member not mentioned is assigned
      a zero value.  Initialize the rest of the instantiated elements.  */
-  generate_element_zero (lhs_elt, &list);
+  if (lhs_elt->how_to_copy != integer_copy)
+    generate_element_zero (lhs_elt, &list);
 
-  if (!result)
+  if (!result || lhs_elt->how_to_copy == integer_copy)
     {
       /* If we failed to convert the entire initializer, then we must
 	 leave the structure assignment in place and must load values
