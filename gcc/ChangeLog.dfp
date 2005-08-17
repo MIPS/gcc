@@ -1,4 +1,11 @@
 2005-08-17  Janis Johnson  <janis187@us.ibm.com>
+	    Ben Ellison  <bje@au.ibm.com>
+
+	* decRound.c: New.
+	* mklibgcc.in: Include decRound.c in libgcc.
+	* config/dfp-bit.h (CONTEXT_ROUND): Redefine as call to __decGetRound.
+
+2005-08-17  Janis Johnson  <janis187@us.ibm.com>
 
 	* machmode.h (MODES_WIDEN_P): New.
 	* optabs.c (expand_binop, expand_twoval_unop, widen_clz, expand_parity,
