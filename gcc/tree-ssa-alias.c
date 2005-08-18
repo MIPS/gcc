@@ -52,9 +52,6 @@ Boston, MA 02110-1301, USA.  */
    aliasing  */
 static bitmap_obstack alias_obstack;
 
-/* 'true' after aliases have been computed (see compute_may_aliases).  */
-bool aliases_computed_p;
-
 /* Structure to map a variable to its alias set and keep track of the
    virtual operands that will be needed to represent it.  */
 struct alias_map_d
@@ -115,27 +112,6 @@ static void group_aliases (struct alias_info *);
 static void set_pt_anything (tree ptr);
 
 /* Global declarations.  */
-
-/* Call clobbered variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) is call-clobbered.  */
-bitmap call_clobbered_vars;
-
-/* Addressable variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) has had its address taken.  Note that
-   CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
-   addressable variable is not necessarily call-clobbered (e.g., a
-   local addressable whose address does not escape) and not all
-   call-clobbered variables are addressable (e.g., a local static
-   variable).  */
-bitmap addressable_vars;
-
-/* When the program has too many call-clobbered variables and call-sites,
-   this variable is used to represent the clobbering effects of function
-   calls.  In these cases, all the call clobbered variables in the program
-   are forced to alias this variable.  This reduces compile times by not
-   having to keep track of too many V_MAY_DEF expressions at call sites.  */
-tree global_var;
-
 
 /* Compute may-alias information for every variable referenced in function
    FNDECL.
@@ -472,7 +448,7 @@ init_alias_info (void)
       /* Similarly, clear the set of addressable variables.  In this
 	 case, we can just clear the set because addressability is
 	 only computed here.  */
-      bitmap_clear (addressable_vars);
+      bitmap_clear (cfun->ssa->addressable_vars);
 
       /* Clear flow-insensitive alias information from each symbol.  */
       FOR_EACH_REFERENCED_VAR (var, rvi)
@@ -1240,7 +1216,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
          cleanup passes.  */
       if (TREE_ADDRESSABLE (var))
 	{
-	  if (!bitmap_bit_p (addressable_vars, DECL_UID (var))
+	  if (!bitmap_bit_p (cfun->ssa->addressable_vars, DECL_UID (var))
 	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
@@ -1260,7 +1236,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
 		  for (sv = svars; sv; sv = sv->next)
 		    {	      
-		      if (bitmap_bit_p (addressable_vars, DECL_UID (sv->var)))
+		      if (bitmap_bit_p (cfun->ssa->addressable_vars, DECL_UID (sv->var)))
 			okay_to_mark = false;
 		      mark_sym_for_renaming (sv->var);
 		    }
@@ -1389,7 +1365,7 @@ maybe_create_global_var (struct alias_info *ai)
     {
       /* Count all the call-clobbered variables.  */
       n_clobbered = 0;
-      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, i, bi)
 	{
 	  n_clobbered++;
 	}
@@ -1432,7 +1408,7 @@ maybe_create_global_var (struct alias_info *ai)
   /* Mark all call-clobbered symbols for renaming.  Since the initial
      rewrite into SSA ignored all call sites, we may need to rename
      .GLOBAL_VAR and the call-clobbered variables.   */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, i, bi)
     {
       tree var = referenced_var (i);
 

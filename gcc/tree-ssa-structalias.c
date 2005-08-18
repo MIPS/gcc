@@ -2532,7 +2532,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
   addr_taken = addresses_taken (stmt);
   if (addr_taken)
     {
-      bitmap_ior_into (addressable_vars, addr_taken);
+      bitmap_ior_into (cfun->ssa->addressable_vars, addr_taken);
 
       /* If STMT is an escape point, all the addresses taken by it are
 	 call-clobbered.  */
@@ -2573,7 +2573,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	     so that they can be treated like regular statements?
 	     Currently, they are treated as second-class
 	     statements.  */
-	  add_to_addressable_set (TREE_OPERAND (op, 0), &addressable_vars);
+	  add_to_addressable_set (TREE_OPERAND (op, 0), &cfun->ssa->addressable_vars);
 	  continue;
 	}
 

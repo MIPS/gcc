@@ -155,6 +155,7 @@ struct expr_status GTY(())
 #define apply_args_value (cfun->expr->x_apply_args_value)
 #define forced_labels (cfun->expr->x_forced_labels)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
+struct ssa;
 
 /* This structure can save all the important global and static variables
    describing the status of the current function.  */
@@ -169,6 +170,7 @@ struct function GTY(())
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
   bool after_inlining;
+  struct ssa *ssa;
 
   /* For function.c.  */
 

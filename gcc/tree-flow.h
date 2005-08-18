@@ -40,8 +40,105 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
 
-/* True if the code is in ssa form.  */
-extern bool in_ssa_p;
+/* This structure maintain a sorted list of operands which is created by
+   parse_ssa_operand.  */
+struct opbuild_list_d GTY (())
+{
+  varray_type vars;     /* The VAR_DECLS tree.  */
+  varray_type uid;      /* The sort value for virtual symbols.  */
+  varray_type next;     /* The next index in the sorted list.  */
+  int first;            /* First element in list.  */
+  unsigned num;		/* Number of elements.  */
+};
+
+struct ssa GTY(()) {
+  /* Array of all variables referenced in the function.  */
+  htab_t GTY((param_is (struct int_tree_map))) x_referenced_vars;
+  /* A list of all the noreturn calls passed to modify_stmt.
+     cleanup_control_flow uses it to detect cases where a mid-block
+     indirect call has been turned into a noreturn call.  When this
+     happens, all the instructions after the call are no longer
+     reachable and must be deleted as dead.  */
+  VEC(tree,gc) *x_modified_noreturn_calls;
+  /* Array of all SSA_NAMEs used in the function.  */
+  VEC(tree,gc) *x_ssa_names;
+
+  /* Artificial variable used to model the effects of function calls.  */
+  tree x_global_var;
+
+  /* Call clobbered variables in the function.  If bit I is set, then
+     REFERENCED_VARS (I) is call-clobbered.  */
+  bitmap call_clobbered_vars;
+
+  /* Addressable variables in the function.  If bit I is set, then
+     REFERENCED_VARS (I) has had its address taken.  Note that
+     CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
+     addressable variable is not necessarily call-clobbered (e.g., a
+     local addressable whose address does not escape) and not all
+     call-clobbered variables are addressable (e.g., a local static
+     variable).  */
+  bitmap addressable_vars;
+
+  /* 'true' after aliases have been computed (see compute_may_aliases).  */
+  bool x_aliases_computed_p;
+
+  bool x_in_ssa_p;
+
+  /* Free list of SSA_NAMEs.  */
+  tree x_free_ssanames;
+
+  /* Array for building all the def operands.  */
+  struct opbuild_list_d x_build_defs;
+
+  /* Array for building all the use operands.  */
+  struct opbuild_list_d x_build_uses;
+
+  /* Array for building all the v_may_def operands.  */
+  struct opbuild_list_d x_build_v_may_defs;
+
+  /* Array for building all the vuse operands.  */
+  struct opbuild_list_d x_build_vuses;
+
+  /* Array for building all the v_must_def operands.  */
+  struct opbuild_list_d x_build_v_must_defs;
+
+  struct ssa_operand_memory_d *x_operand_memory;
+  unsigned x_operand_memory_index;
+
+  bool ops_active;
+
+  struct def_optype_d * GTY((skip)) x_free_defs;
+  struct use_optype_d * GTY((skip)) x_free_uses;
+  struct vuse_optype_d * GTY((skip)) x_free_vuses;
+  struct maydef_optype_d * GTY((skip)) x_free_maydefs;
+  struct mustdef_optype_d * GTY((skip)) x_free_mustdefs;
+
+  /* Hashtable holding definition for symbol.  If this field is not NULL, it
+     means that the first reference to this variable in the function is a
+     USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
+     for this variable with an empty defining statement.  */
+  htab_t GTY((param_is (struct int_tree_map))) default_defs;
+};
+#define referenced_vars cfun->ssa->x_referenced_vars
+#define ssa_names cfun->ssa->x_ssa_names
+#define modified_noreturn_calls cfun->ssa->x_modified_noreturn_calls
+#define global_var cfun->ssa->x_global_var
+#define aliases_computed_p cfun->ssa->x_aliases_computed_p
+#define in_ssa_p (cfun->ssa && cfun->ssa->x_in_ssa_p)
+#define free_ssanames (cfun->ssa->x_free_ssanames)
+
+#define build_defs (cfun->ssa->x_build_defs)
+#define build_uses (cfun->ssa->x_build_uses)
+#define build_v_may_defs (cfun->ssa->x_build_v_may_defs)
+#define build_vuses (cfun->ssa->x_build_vuses)
+#define build_v_must_defs (cfun->ssa->x_build_v_must_defs)
+#define operand_memory (cfun->ssa->x_operand_memory)
+#define operand_memory_index (cfun->ssa->x_operand_memory_index)
+#define free_defs (cfun->ssa->x_free_defs)
+#define free_uses (cfun->ssa->x_free_uses)
+#define free_vuses (cfun->ssa->x_free_vuses)
+#define free_maydefs (cfun->ssa->x_free_maydefs)
+#define free_mustdefs (cfun->ssa->x_free_mustdefs)
 
 typedef struct
 {
@@ -231,12 +328,6 @@ struct var_ann_d GTY(())
   /* Used by the root-var object in tree-ssa-live.[ch].  */
   unsigned root_index;
 
-  /* Default definition for this symbol.  If this field is not NULL, it
-     means that the first reference to this variable in the function is a
-     USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
-     for this variable with an empty defining statement.  */
-  tree default_def;
-
   /* During into-ssa and the dominator optimizer, this field holds the
      current version of this variable (an SSA_NAME).  */
   tree current_def;
@@ -334,8 +425,6 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
 };
 
-extern GTY(()) VEC(tree,gc) *modified_noreturn_calls;
-
 typedef union tree_ann_d *tree_ann_t;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
@@ -358,8 +447,6 @@ static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
 static inline bool is_label_stmt (tree);
 static inline bitmap addresses_taken (tree);
-static inline void set_default_def (tree, tree);
-static inline tree default_def (tree);
 
 /*---------------------------------------------------------------------------
                   Structure representing predictions in tree level.
@@ -424,33 +511,13 @@ typedef struct
        VEC_iterate (tree, (VEC), (ITER).i, (VAR)); \
        (ITER).i++)
 
-/* Array of all variables referenced in the function.  */
-extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
-
 extern tree referenced_var_lookup (unsigned int);
 extern tree referenced_var_lookup_if_exists (unsigned int);
 #define num_referenced_vars htab_elements (referenced_vars)
 #define referenced_var(i) referenced_var_lookup (i)
 
-/* Array of all SSA_NAMEs used in the function.  */
-extern GTY(()) VEC(tree,gc) *ssa_names;
-
 #define num_ssa_names (VEC_length (tree, ssa_names))
 #define ssa_name(i) (VEC_index (tree, ssa_names, (i)))
-
-/* Artificial variable used to model the effects of function calls.  */
-extern GTY(()) tree global_var;
-
-/* Call clobbered variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) is call-clobbered.  */
-extern bitmap call_clobbered_vars;
-
-/* Addressable variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) has had its address taken.  */
-extern bitmap addressable_vars;
-
-/* 'true' after aliases have been computed (see compute_may_aliases).  */
-extern bool aliases_computed_p;
 
 /* Macros for showing usage statistics.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10	\
@@ -597,6 +664,9 @@ extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
 
 extern tree make_rename_temp (tree, const char *);
+extern void set_default_def (tree, tree);
+extern tree default_def (tree);
+extern tree default_def_fn (struct function *, tree);
 
 /* In gimple-low.c  */
 extern void record_vars (tree);

@@ -82,9 +82,6 @@ static void add_referenced_var (tree, struct walk_state *);
 
 /* Global declarations.  */
 
-/* Array of all variables referenced in the function.  */
-htab_t referenced_vars;
-
 
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
@@ -210,7 +207,7 @@ tree
 make_rename_temp (tree type, const char *prefix)
 {
   tree t = create_tmp_var (type, prefix);
-  if (referenced_vars)
+  if (cfun->ssa && referenced_vars)
     {
       add_referenced_tmp_var (t);
       mark_sym_for_renaming (t);
@@ -607,6 +604,63 @@ referenced_var_insert (unsigned int uid, tree to)
   h->to = to;
   loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
   *(struct int_tree_map **)  loc = h;
+}
+
+/* Lookup UID in the default_defs hashtable and return the associated
+   variable.  */
+
+tree 
+default_def_fn (struct function *fn, tree var)
+{
+  struct int_tree_map *h, in;
+  gcc_assert (TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL
+	      || TREE_CODE (var) == RESULT_DECL);
+  in.uid = DECL_UID (var);
+  h = htab_find_with_hash (fn->ssa->default_defs, &in, DECL_UID (var));
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+tree 
+default_def (tree var)
+{
+  return default_def_fn (cfun, var);
+}
+
+/* Insert the pair UID, TO into the default_defs hashtable.  */
+
+void
+set_default_def (tree var, tree def)
+{ 
+  struct int_tree_map in;
+  struct int_tree_map *h;
+  void **loc;
+
+  gcc_assert (TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL
+	      || TREE_CODE (var) == RESULT_DECL);
+  in.uid = DECL_UID (var);
+  if (!def && default_def (var))
+    {
+      loc = htab_find_slot_with_hash (cfun->ssa->default_defs, &in, DECL_UID (var), INSERT);
+      htab_remove_elt (cfun->ssa->default_defs, *loc);
+      return;
+    }
+  gcc_assert (TREE_CODE (def) == SSA_NAME);
+  loc = htab_find_slot_with_hash (cfun->ssa->default_defs, &in, DECL_UID (var), INSERT);
+  /* Defalt definition might be changed by tail call optimization.  */
+  if (!*loc)
+    {
+      h = ggc_alloc (sizeof (struct int_tree_map));
+      h->uid = DECL_UID (var);
+      h->to = def;
+      *(struct int_tree_map **)  loc = h;
+    }
+   else
+    {
+      h = *loc;
+      h->to = def;
+    }
 }
 
 /* Add VAR to the list of dereferenced variables.

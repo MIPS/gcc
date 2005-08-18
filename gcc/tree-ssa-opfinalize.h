@@ -68,6 +68,12 @@ FINALIZE_FUNC (tree stmt)
   FINALIZE_BASE_TYPE old_base;
   FINALIZE_TYPE new_list;
 
+#ifdef ENABLE_CHECKING
+  /* Quick check that function contextes are sane or we get memory corruption.  */
+  gcc_assert (!stmt_ann (stmt)->bb
+	      || BASIC_BLOCK (stmt_ann (stmt)->bb->index) == stmt_ann (stmt)->bb);
+#endif
+
   new_list.next = NULL;
   last = &new_list;
 

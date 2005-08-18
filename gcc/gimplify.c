@@ -4868,7 +4868,7 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
 		       gimple_test_f, fb_rvalue);
   gcc_assert (ret != GS_ERROR);
 
-  if (referenced_vars)
+  if (in_ssa_p)
     {
       for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
 	add_referenced_tmp_var (t);

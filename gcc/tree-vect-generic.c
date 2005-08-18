@@ -489,7 +489,8 @@ expand_vector_operations (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  expand_vector_operations_1 (&bsi);
-	  update_stmt_if_modified (bsi_stmt (bsi));
+	  if (in_ssa_p)
+	    update_stmt_if_modified (bsi_stmt (bsi));
 	}
     }
 }

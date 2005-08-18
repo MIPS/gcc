@@ -168,7 +168,8 @@ execute_free_datastructures (void)
 
   /* Remove the ssa structures.  Do it here since this includes statement
      annotations that need to be intact during disband_implicit_edges.  */
-  delete_tree_ssa ();
+  if (cfun->ssa)
+    delete_tree_ssa ();
 }
 
 struct tree_opt_pass pass_free_datastructures =

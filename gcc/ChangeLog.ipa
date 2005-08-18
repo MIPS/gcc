@@ -1,3 +1,66 @@
+2005-08-18  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (tree-ssanames, tree-eh, tree-ssa-operands): Kill GGC
+	file.
+	* function.h (struct function): Add struct ssa.
+	* tree-cfgcleanup (modified_noreturn_calls): Kill.
+	(cleanup_control_flow): Set modified_noreturn_calls only when in SSA.
+	* tree-dfa.c (referenced_vars): Kill.
+	(make_rename_temp): Touch referenced_vars only when in SSA.
+	(default_def_fn, default_def, set_default_def): New.
+	* tree-flow-inline.h (mark_stmt_modified): Only touch noreturn calls
+	when in SSA.
+	(default_def, set_default_def): Kill.
+	(is_call_clobbered, mark_call_clobbered, clear_call_clobbered,
+	mark_non_addressable): Update call_clobbered_vars and operand caches.
+	* tree-flow.h (in_ssa_p): Kill variable.
+	(struct opbuild_list_d): Declare here.
+	(struct ssa): New struct.
+	(referenced_vars, ssa_names, modified_noreturn_calls, global_var,
+	aliases_computed_p, in_ssa_p, free_ssanames, build_defs, build_uses,
+	build_v_may_defs, build_vuses, build_v_must_defs, operand_memory,
+	operand_memory_index, free_defs, free_uses, free_vuses, free_maydefs,
+	free_mustdefs): New macros.
+	(var_ann_d): Kill default_def.
+	(modified_noreturn_calls, referenced_vars, ssa_names, global_var,
+	call_clobbered_vars, addressable_vars, aliases_computed_p): Kill global
+	variable.
+	(set_default_def, default_def): No longer inline.
+	* tree-intossa.c (in_ssa_p): Kill.
+	(rewrite_into_ssa): Set in_ssa_p using x_ field.
+	* tree-optimize.c (execute_free_datastructures): Only kill SSA when
+	present.
+	* tree-outof-ssa.c (rewrite_out_of_ssa): Set in_ssa_p using x_ field.
+	* tree-ssa-alias.c (aliases_computed_p, call_clobbered_vars,
+	addressable_vars, global_var): Kill.
+	(init_alias_info, setup_pointers_and_addressables,
+	maybe_create_global_var): Update name of call clobbered bitmaps.
+	* tree-ssa-operands.c (opbuild_list_d): Kill structure definition.
+	(build_defs, build_uses, build_v_may_defs, build_vuses,
+	build_v_must_defs, ssa_call_clobbered_cache_valid,
+	ssa_ro_call_cache_valid): Kill.
+	(ssa_call_clobbered_cache_valid_for, ssa_ro_call_cache_valid_for): New.
+	(ops_active, operand_memory, operand_memory_index): Kill.
+	(free_defs, free_uses, free_vuses, free_maydefs, free_mustdefs): Kill.
+	(ssa_operands_active): Use cfun->ssa.
+	(init_ssa_operands): Likewise.
+	(fini_ssa_operands): Update clobbered cache.
+	(get_asm_expr_operands, get_call_expr_operands, add_call_clobber_ops,
+	debug_immediate_uses_for): Update.
+	* tree-ssa-operands.h (ssa_call_clobbered_cache_valid,
+	ssa_ro_call_cache_valid): Rename to...
+	(ssa_call_clobbered_cache_valid_for, ssa_ro_call_cache_valid_for): ...
+	this one.
+	* tree-ssa-opfinalize.h (FINALIZE_FUNC): Check datastructure sanity.
+	* tree-ssa-structalias (update_alias_info): Update.
+	* tree-ssa.c (init_tree_ssa): Allocate SSA structure; update for new
+	names.
+	(delete_tree_ssa): Similarly.
+	* tree-ssanames.c (ssa_names, free_ssanames): Kill; do not include
+	gt-tree-ssanames.h
+	* tree-vect-generic.c (expand_vector_operations): Do not update stmt
+	when not in SSA form.
+
 2005-08-14  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.h (cgraph_preserve_function_body_p): New argument.

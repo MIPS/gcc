@@ -165,8 +165,8 @@ extern void dump_immediate_uses_for (FILE *file, tree var);
 extern void debug_immediate_uses (void);
 extern void debug_immediate_uses_for (tree var);
 
-extern bool ssa_call_clobbered_cache_valid;
-extern bool ssa_ro_call_cache_valid;
+extern tree ssa_call_clobbered_cache_valid_for;
+extern tree ssa_ro_call_cache_valid_for;
 
 extern bool ssa_operands_active (void);
 

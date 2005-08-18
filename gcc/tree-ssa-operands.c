@@ -103,38 +103,13 @@ Boston, MA 02110-1301, USA.  */
    to distinguish "reset the world" events from explicit MODIFY_EXPRs.  */
 #define opf_non_specific  (1 << 3)
 
-/* This structure maintain a sorted list of operands which is created by
-   parse_ssa_operand.  */
-struct opbuild_list_d GTY (())
-{
-  varray_type vars;     /* The VAR_DECLS tree.  */
-  varray_type uid;      /* The sort value for virtual symbols.  */
-  varray_type next;     /* The next index in the sorted list.  */
-  int first;            /* First element in list.  */
-  unsigned num;		/* Number of elements.  */
-};
                                                                                 
 #define OPBUILD_LAST     -1
                                                                                 
-
-/* Array for building all the def operands.  */
-static GTY (()) struct opbuild_list_d build_defs;
-
-/* Array for building all the use operands.  */
-static GTY (()) struct opbuild_list_d build_uses;
-
-/* Array for building all the v_may_def operands.  */
-static GTY (()) struct opbuild_list_d build_v_may_defs;
-
-/* Array for building all the vuse operands.  */
-static GTY (()) struct opbuild_list_d build_vuses;
-
-/* Array for building all the v_must_def operands.  */
-static GTY (()) struct opbuild_list_d build_v_must_defs;
-
-/* True if the operands for call clobbered vars are cached and valid.  */
-bool ssa_call_clobbered_cache_valid;
-bool ssa_ro_call_cache_valid;
+/* Points to the function declaration of function cache is valid for
+   (if any)  */
+tree ssa_call_clobbered_cache_valid_for;
+tree ssa_ro_call_cache_valid_for;
 
 /* These arrays are the cached operand vectors for call clobbered calls.  */
 static VEC(tree,heap) *clobbered_v_may_defs;
@@ -143,10 +118,6 @@ static VEC(tree,heap) *ro_call_vuses;
 static bool clobbered_aliased_loads;
 static bool clobbered_aliased_stores;
 static bool ro_call_aliased_loads;
-static bool ops_active = false;
-
-static GTY (()) struct ssa_operand_memory_d *operand_memory = NULL;
-static unsigned operand_memory_index;
 
 static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
@@ -162,12 +133,6 @@ static void add_call_read_ops (tree);
 static void add_stmt_operand (tree *, stmt_ann_t, int);
 static void build_ssa_operands (tree stmt);
                                                                                 
-static def_optype_p free_defs = NULL;
-static use_optype_p free_uses = NULL;
-static vuse_optype_p free_vuses = NULL;
-static maydef_optype_p free_maydefs = NULL;
-static mustdef_optype_p free_mustdefs = NULL;
-
 /* Initialize a virtual operand build LIST called NAME with NUM elements.  */
 
 static inline void
@@ -390,7 +355,7 @@ opbuild_remove_elem (struct opbuild_list_d *list, int elem, int prev)
 bool
 ssa_operands_active (void)
 {
-  return ops_active;
+  return cfun->ssa && cfun->ssa->ops_active;
 }
 
 
@@ -406,7 +371,7 @@ init_ssa_operands (void)
   opbuild_initialize_virtual (&build_v_must_defs, 25, "build_v_must_defs");
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
-  ops_active = true;
+  cfun->ssa->ops_active = true;
 }
 
 
@@ -426,6 +391,8 @@ fini_ssa_operands (void)
   free_vuses = NULL;
   free_maydefs = NULL;
   free_mustdefs = NULL;
+  ssa_call_clobbered_cache_valid_for = NULL;
+  ssa_ro_call_cache_valid_for = NULL;
   while ((ptr = operand_memory) != NULL)
     {
       operand_memory = operand_memory->next;
@@ -435,7 +402,7 @@ fini_ssa_operands (void)
   VEC_free (tree, heap, clobbered_v_may_defs);
   VEC_free (tree, heap, clobbered_vuses);
   VEC_free (tree, heap, ro_call_vuses);
-  ops_active = false;
+  cfun->ssa->ops_active = false;
 }
 
 
@@ -1558,14 +1525,14 @@ get_asm_expr_operands (tree stmt)
 	if (global_var)
 	  add_stmt_operand (&global_var, s_ann, opf_is_def);
 	else
-	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, i, bi)
 	    {
 	      tree var = referenced_var (i);
 	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
 	    }
 
 	/* Now clobber all addressables.  */
-	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
+	EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->addressable_vars, 0, i, bi)
 	    {
 	      tree var = referenced_var (i);
 
@@ -1723,7 +1690,7 @@ get_call_expr_operands (tree stmt, tree expr)
      we avoid adding superfluous virtual operands, which can be a
      significant compile time sink (See PR 15855).  */
   if (aliases_computed_p
-      && !bitmap_empty_p (call_clobbered_vars)
+      && !bitmap_empty_p (cfun->ssa->call_clobbered_vars)
       && !(call_flags & ECF_NOVOPS))
     {
       /* A 'pure' or a 'const' function never call-clobbers anything. 
@@ -1984,7 +1951,7 @@ add_call_clobber_ops (tree stmt, tree callee)
   not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
 
   /* If cache is valid, copy the elements into the build vectors.  */
-  if (ssa_call_clobbered_cache_valid
+  if (ssa_call_clobbered_cache_valid_for == current_function_decl
       && (!not_read_b || bitmap_empty_p (not_read_b))
       && (!not_written_b || bitmap_empty_p (not_written_b)))
     {
@@ -2015,7 +1982,7 @@ add_call_clobber_ops (tree stmt, tree callee)
   memset (&empty_ann, 0, sizeof (struct stmt_ann_d));
 
   /* Add a V_MAY_DEF operand for every call clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var (u);
       if (unmodifiable_var_p (var))
@@ -2075,7 +2042,7 @@ add_call_clobber_ops (tree stmt, tree callee)
       gcc_assert (opbuild_num_elems (&build_v_may_defs) 
 		  == VEC_length (tree, clobbered_v_may_defs));
 
-      ssa_call_clobbered_cache_valid = true;
+      ssa_call_clobbered_cache_valid_for = current_function_decl;
     }
 }
 
@@ -2103,7 +2070,7 @@ add_call_read_ops (tree stmt)
     }
   
   /* If cache is valid, copy the elements into the build vector.  */
-  if (ssa_ro_call_cache_valid)
+  if (ssa_ro_call_cache_valid_for == current_function_decl)
     {
       for (i = VEC_length (tree, ro_call_vuses) - 1; i >=0 ; i--)
 	{
@@ -2122,7 +2089,7 @@ add_call_read_ops (tree stmt)
   memset (&empty_ann, 0, sizeof (struct stmt_ann_d));
 
   /* Add a VUSE for each call-clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var (u);
       add_stmt_operand (&var, &empty_ann, opf_none | opf_non_specific);
@@ -2145,7 +2112,7 @@ add_call_read_ops (tree stmt)
   gcc_assert (opbuild_num_elems (&build_vuses) 
 	      == VEC_length (tree, ro_call_vuses));
 
-  ssa_ro_call_cache_valid = true;
+  ssa_ro_call_cache_valid_for = current_function_decl;
 }
 
 
@@ -2283,4 +2250,3 @@ debug_immediate_uses_for (tree var)
 {
   dump_immediate_uses_for (stderr, var);
 }
-#include "gt-tree-ssa-operands.h"

@@ -54,9 +54,6 @@ Boston, MA 02110-1301, USA.  */
    Graph. ACM Transactions on Programming Languages and Systems,
    13(4):451-490, October 1991.  */
 
-/* True if the code is in ssa form.  */
-bool in_ssa_p;
-
 /* Structure to map a variable VAR to the set of blocks that contain
    definitions for VAR.  */
 struct def_blocks_d
@@ -1773,7 +1770,7 @@ rewrite_into_ssa (void)
   sbitmap_free (interesting_blocks);
 
   timevar_pop (TV_TREE_SSA_OTHER);
-  in_ssa_p = true;
+  cfun->ssa->x_in_ssa_p = true;
 }
 
 

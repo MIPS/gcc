@@ -799,10 +799,13 @@ int_tree_map_hash (const void *item)
 void
 init_tree_ssa (void)
 {
+  cfun->ssa = ggc_alloc_cleared (sizeof (struct ssa));
   referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
 				     int_tree_map_eq, NULL);
-  call_clobbered_vars = BITMAP_ALLOC (NULL);
-  addressable_vars = BITMAP_ALLOC (NULL);
+  cfun->ssa->default_defs = htab_create_ggc (20, int_tree_map_hash, 
+				             int_tree_map_eq, NULL);
+  cfun->ssa->call_clobbered_vars = BITMAP_GGC_ALLOC ();
+  cfun->ssa->addressable_vars = BITMAP_GGC_ALLOC ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
@@ -851,23 +854,40 @@ delete_tree_ssa (void)
   /* Remove annotations from every referenced variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      ggc_free (var->common.ann);
-      var->common.ann = NULL;
+      /* Annotations for static variables are shared across functions.
+	 FIXME: Probably this needs to be cleaned up somehow - most of stuff in
+	 annotations is currently local.  We need to separate out the global
+	 info and probably kill annotations after early passes and rebuild
+	 before late so they don't consume memory during IPA.  */
+      if (!TREE_STATIC (var) && !DECL_EXTERNAL (var))
+	{
+	  ggc_free (var->common.ann);
+	  var->common.ann = NULL;
+	}
+      else
+	{
+	  var_ann_t ann = var_ann (var);
+	  memset ((void *)ann, 0, sizeof (*ann));
+	  ann->common.type = VAR_ANN;
+	}
     }
   htab_delete (referenced_vars);
   referenced_vars = NULL;
 
+  htab_delete (cfun->ssa->default_defs);
+  cfun->ssa->default_defs = NULL;
   fini_ssanames ();
   fini_phinodes ();
 
   global_var = NULL_TREE;
-  BITMAP_FREE (call_clobbered_vars);
-  call_clobbered_vars = NULL;
-  BITMAP_FREE (addressable_vars);
-  addressable_vars = NULL;
+  
+  cfun->ssa->call_clobbered_vars = NULL;
+  
+  cfun->ssa->addressable_vars = NULL;
   modified_noreturn_calls = NULL;
   aliases_computed_p = false;
   gcc_assert (!need_ssa_update_p ());
+  cfun->ssa = NULL;
 }
 
 

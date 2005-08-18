@@ -57,13 +57,6 @@ Boston, MA 02110-1301, USA.  */
    We could also use a zone allocator for these objects since they have
    a very well defined lifetime.  If someone wants to experiment with that
    this is the place to try it.  */
-   
-/* Array of all SSA_NAMEs used in the function.  */
-VEC(tree,gc) *ssa_names;
-
-/* Free list of SSA_NAMEs.  This list is wiped at the end of each function
-   after we leave SSA form.  */
-static GTY (()) tree free_ssanames;
 
 /* Version numbers with special meanings.  We start allocating new version
    numbers after the special ones.  */
@@ -307,5 +300,3 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   SSA_NAME_VAR (ssa_name) = sym;
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
-
-#include "gt-tree-ssanames.h"

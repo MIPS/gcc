@@ -242,7 +242,7 @@ mark_stmt_modified (tree t)
   ann = stmt_ann (t);
   if (ann == NULL)
     ann = create_stmt_ann (t);
-  else if (noreturn_call_p (t))
+  else if (noreturn_call_p (t) && cfun->ssa)
     VEC_safe_push (tree, gc, modified_noreturn_calls, t);
   ann->modified = 1;
 }
@@ -675,23 +675,6 @@ is_label_stmt (tree t)
   return false;
 }
 
-/* Set the default definition for VAR to DEF.  */
-static inline void
-set_default_def (tree var, tree def)
-{
-  var_ann_t ann = get_var_ann (var);
-  ann->default_def = def;
-}
-
-/* Return the default definition for variable VAR, or NULL if none
-   exists.  */
-static inline tree
-default_def (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->default_def : NULL_TREE;
-}
-
 /* PHI nodes should contain only ssa_names and invariants.  A test
    for ssa_name is definitely simpler; don't let invalid contents
    slip in in the meantime.  */
@@ -845,7 +828,7 @@ static inline bool
 is_call_clobbered (tree var)
 {
   return is_global_var (var)
-    || bitmap_bit_p (call_clobbered_vars, DECL_UID (var));
+    || bitmap_bit_p (cfun->ssa->call_clobbered_vars, DECL_UID (var));
 }
 
 /* Mark variable VAR as being clobbered by function calls.  */
@@ -859,9 +842,9 @@ mark_call_clobbered (tree var)
      location in global memory.  */
   if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
     DECL_EXTERNAL (var) = 1;
-  bitmap_set_bit (call_clobbered_vars, DECL_UID (var));
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
+  bitmap_set_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
+  ssa_call_clobbered_cache_valid_for = NULL;
+  ssa_ro_call_cache_valid_for = NULL;
 }
 
 /* Clear the call-clobbered attribute from variable VAR.  */
@@ -871,19 +854,19 @@ clear_call_clobbered (tree var)
   var_ann_t ann = var_ann (var);
   if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
     DECL_EXTERNAL (var) = 0;
-  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
+  bitmap_clear_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
+  ssa_call_clobbered_cache_valid_for = NULL;
+  ssa_ro_call_cache_valid_for = NULL;
 }
 
 /* Mark variable VAR as being non-addressable.  */
 static inline void
 mark_non_addressable (tree var)
 {
-  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
+  bitmap_clear_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
   TREE_ADDRESSABLE (var) = 0;
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
+  ssa_call_clobbered_cache_valid_for = NULL;
+  ssa_ro_call_cache_valid_for = NULL;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
