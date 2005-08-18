@@ -394,15 +394,29 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
   if (flag_cw_asm_blocks_local && cw_asm_state != cw_asm_none && c_lex_depth == 1
       && type != CPP_PADDING)
     {
-      /* "}" switches us out of our special mode.  */
-      if (tok->type == CPP_CLOSE_BRACE && cw_asm_state >= cw_asm_decls)
+      if (cw_asm_state >= cw_asm_decls)
 	{
-	  cw_asm_state = cw_asm_none;
-	  cw_asm_saved_token = tok;
-	  cw_asm_at_bol = 0;
-	  --c_lex_depth;
-	  timevar_pop (TV_CPP);
-	  return CPP_EOL;
+	  /* "}" switches us out of our special mode.  */
+	  if (tok->type == CPP_CLOSE_BRACE)
+	    {
+	      cw_asm_state = cw_asm_none;
+	      cw_asm_saved_token = tok;
+	      cw_asm_at_bol = 0;
+	      --c_lex_depth;
+	      timevar_pop (TV_CPP);
+	      return CPP_EOL;
+	    }
+
+	  /* __asm also ends an instruction in something like: asm nop asm nop */
+	  if (tok->type == CPP_NAME && tok->val.node->rid_code == RID_ASM)
+	    {
+	      cw_asm_state = cw_asm_none;
+	      cw_asm_saved_token = tok;
+	      cw_asm_at_bol = 0;
+	      --c_lex_depth;
+	      timevar_pop (TV_CPP);
+	      return CPP_EOL;
+	    }
 	}
 
       /* This is tricky.  We're only ready to start parsing assembly

@@ -257,7 +257,7 @@ do {									\
 %type <exprtype> cw_asm_primary
 %type <ttype> cw_asm_operands cw_nonnull_asm_operands 
 %type <exprtype> cw_asm_operand
-%type <ttype> cw_asm_stmt single_cw_asm_stmt
+%type <ttype> cw_asm_stmt cw_asm_stmt_nobol single_cw_asm_stmt
 %type <ttype> cw_asm_compstmt cw_asm_compstmt_start 
 /*cw_asm_compstmt_nostart */
 /* APPLE LOCAL end CW asm blocks */
@@ -2095,8 +2095,11 @@ compstmt: compstmt_start compstmt_nostart
 /* APPLE LOCAL begin CW asm blocks */
 /* A CW-style asm statement is recognized by having a BOL token preceding it.  */
 cw_asm_stmt: CW_ASM_BOL save_location cw_asm_stmt_list CW_ASM_EOL
+		{ $$ = NULL_TREE; }
+	;
 
-{ $$ = NULL_TREE; }
+cw_asm_stmt_nobol: save_location cw_asm_stmt_list CW_ASM_EOL
+		{ $$ = NULL_TREE; cw_asm_at_bol = 0; }
 	;
 
 /* A single line may have multiple statements separated by ';'.  */
@@ -2145,6 +2148,10 @@ cw_asm_label:
 		{ cw_asm_label ($2, 1); }
 	| '@' identifier ':'
 		{ cw_asm_label ($2, 1); }
+	| '@' CONSTANT
+		{ cw_asm_label ($2, 1); }
+	| '@' CONSTANT ':'
+		{ cw_asm_label ($2, 1); }
 	;
 
 cw_asm_stmts:
@@ -2170,6 +2177,27 @@ cw_asm_compstmt_start: ASM_KEYWORD '{'
 		    /* This will probably choke badly... */
 		    error ("asm blocks not enabled, use `-fasm-blocks'");
 		  $$ = c_begin_compound_stmt (true);
+		}
+        ;
+
+cw_asm_compstmt: ASM_KEYWORD
+		{
+		  if (flag_cw_asm_blocks)
+		    {
+		      cw_asm_state = cw_asm_asm;
+		      inside_cw_asm_block = 1;
+		      clear_cw_asm_labels ();
+		    }
+		  else
+		    /* This will probably choke badly... */
+		    error ("asm blocks not enabled, use `-fasm-blocks'");
+		  $<ttype>$ = c_begin_compound_stmt (true);
+		}
+		cw_asm_stmt_nobol
+		{
+		  $$ = c_finish_expr_stmt ($3);
+		  inside_cw_asm_block = 0;
+		  $<ttype>$ = c_end_compound_stmt ($<ttype>2, true);
 		}
         ;
 
@@ -2395,9 +2423,9 @@ stmt_nocomp:
 	| switch_statement
 		{ $$ = NULL_TREE; }
 	/* APPLE LOCAL begin CW asm blocks */
-	| cw_asm_compstmt 
+	| cw_asm_compstmt
 		{ $$ = c_finish_expr_stmt ($1); }
-	| cw_asm_stmt 
+	| cw_asm_stmt
 		{ $$ = c_finish_expr_stmt ($1); }
 	/* APPLE LOCAL end CW asm blocks */
 	| BREAK ';'

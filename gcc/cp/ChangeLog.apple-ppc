@@ -1,3 +1,11 @@
+2005-08-18  Mike Stump  <mrs@apple.com>
+
+	Radar 4214021
+	* parser.c (cp_parser_asm_definition): Add asm nop support.
+	(cp_parser_cw_asm_top_statement): Likewise.
+	(cp_parser_cw_asm_declaration_seq_opt): Likewise.
+	(cp_parser_cw_asm_operands): Likewise.
+
 2005-08-15  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4093475

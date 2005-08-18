@@ -2589,6 +2589,7 @@ struct machine_function GTY(())
 #undef TARGET_CW_OP_CONSTRAINT
 #define TARGET_CW_OP_CONSTRAINT \
   { "fxch", 1, "+f" },	\
+  { "jmp", 1, "" },	\
   { "movzx", 1, "=r" },	\
   { "movzx", 2, "qm" },
 /* APPLE LOCAL end CW asm blocks */

@@ -6349,7 +6349,11 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 
   if (TREE_CODE (var) == FUNCTION_DECL)
     {
+#if defined(TARGET_TOC)
       str = build_string (1, "s");
+#elif defined (TARGET_386)
+      str = build_string (strlen (s), s);
+#endif
       was_output = false;
     }
   else
@@ -6714,18 +6718,12 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 	  mark_decl_referenced (arg);
 	}
       else if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg)) >= 0)
-	{
-	  strcat (buf, "%");
-	  sprintf (buf + strlen (buf), "%d", idnum);
-	}
+	sprintf (buf + strlen (buf), "%%%d", idnum);
       break;
 
     case FUNCTION_DECL:
       if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg)) >= 0)
-	{
-	  strcat (buf, "%z");
-	  sprintf (buf + strlen (buf), "%d", idnum);
-	}
+	sprintf (buf + strlen (buf), "%%z%d", idnum);
       break;
 
     case COMPOUND_EXPR:
@@ -6765,10 +6763,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 	{
 	  idnum = cw_asm_get_register_var (arg, argnum, false);
 	  if (idnum >= 0)
-	    {
-	      strcat (buf, "%");
-	      sprintf (buf + strlen (buf), "%d", idnum);
-	    }
+	    sprintf (buf + strlen (buf), "%%%d", idnum);
         }
       else {
         get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep, false);
@@ -6851,11 +6846,20 @@ cw_asm_label (tree labid, int atsign)
 
   STRIP_NOPS (labid);
 
-  if (atsign)
-    labid = prepend_char_identifier (labid, '@');
-
   if (cw_asm_buffer == NULL)
     cw_asm_buffer = xmalloc (4000);
+
+  if (TREE_CODE (labid) == INTEGER_CST)
+    {
+      /* In C, for asm @ 1: nop, we can't switch the lexer
+	 fast enough to see the number as an identifier, so
+	 we also allow INTEGER_CST.  */
+      sprintf (cw_asm_buffer, HOST_WIDE_INT_PRINT_UNSIGNED, tree_low_cst (labid, 0));
+      labid = get_identifier (cw_asm_buffer);
+    }
+
+  if (atsign)
+    labid = prepend_char_identifier (labid, '@');
 
   cw_asm_buffer[0] = '\0';
   label = get_cw_asm_label (labid);

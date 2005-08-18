@@ -2074,6 +2074,8 @@ static tree cw_build_identifier_string
   (cp_parser* parser, const char* str);
 static tree cp_parser_cw_asm_relative_branch
   (cp_parser *parser);
+static tree
+cp_parser_cw_asm_top_statement (cp_parser *parser);
 /* APPLE LOCAL end CW asm blocks */
 
 /* Returns nonzero if we are parsing tentatively.  */
@@ -10957,8 +10959,10 @@ cp_parser_using_directive (cp_parser* parser)
 
    asm-definition:
      asm ( string-literal ) ;
-     APPLE LOCAL CW asm blocks
+     APPLE LOCAL CW begin asm blocks
      asm { asm-line [opt] }
+     asm asm-line
+     APPLE LOCAL CW end asm blocks
 
    GNU Extension:
 
@@ -10992,7 +10996,11 @@ cp_parser_asm_definition (cp_parser* parser)
       if (!((nextup->type == CPP_OPEN_PAREN)
 	    || (nextup->keyword == RID_VOLATILE
 		&& cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_OPEN_PAREN)
-	    || (nextup->type == CPP_OPEN_BRACE)))
+	    || (nextup->type == CPP_OPEN_BRACE)
+	    || (nextup->type == CPP_ATSIGN)
+	    || (nextup->type == CPP_DOT)
+	    || (nextup->type == CPP_NAME
+		&& !cw_asm_typename_or_reserved (nextup->value))))
 	{
 	  /* An asm function - we'll treat the `asm' as if it were a
 	     storage class spec, which will eventually affect function
@@ -11028,6 +11036,22 @@ cp_parser_asm_definition (cp_parser* parser)
 	}
       return;
     }
+  if (cp_lexer_next_token_is (parser->lexer, CPP_DOT)
+      || cp_lexer_next_token_is (parser->lexer, CPP_DOT)
+      || cp_lexer_next_token_is (parser->lexer, CPP_ATSIGN)
+      || cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      if (flag_cw_asm_blocks)
+	{
+	  cp_parser_cw_asm_top_statement (parser);
+	}
+      else
+	{
+	  error ("asm blocks not enabled, use `-fasm-blocks'");
+	}
+      return;
+    }
+
   /* APPLE LOCAL end CW asm blocks */
   /* Look for the opening `('.  */
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
@@ -16752,6 +16776,29 @@ cp_parser_cw_asm_compound_statement (cp_parser *parser)
   return compound_stmt;
 }
 
+static tree
+cp_parser_cw_asm_top_statement (cp_parser *parser)
+{
+  tree compound_stmt;
+
+  cw_asm_state = cw_asm_asm;
+  inside_cw_asm_block = 1;
+  cw_asm_at_bol = 1;
+  clear_cw_asm_labels ();
+  /* Begin the compound-statement.  */
+  compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+  /* Parse a single statement.  */
+  cp_parser_cw_asm_statement (parser);
+  /* Finish the compound-statement.  */
+  finish_compound_stmt (compound_stmt);
+  /* Consume the `}'.  */
+  /* We're done with the block of asm.  */
+  cw_asm_at_bol = 0;
+  inside_cw_asm_block = 0;
+  cw_asm_state = cw_asm_none;
+  return compound_stmt;
+}
+
 static void
 cp_parser_cw_asm_declaration_seq_opt (cp_parser* parser)
 {
@@ -17001,7 +17048,11 @@ cp_parser_cw_asm_statement (cp_parser* parser)
 	    }
 	  else
 	    {
-	      scspec = cp_parser_storage_class_specifier_opt (parser);
+	      if (strcmp (IDENTIFIER_POINTER (aname), "entry") != 0)
+		scspec = 0;
+	      else
+		scspec = cp_parser_storage_class_specifier_opt (parser);
+
 	      if (scspec)
 		{
 		  anothername = cp_parser_cw_asm_operand (parser);
@@ -17033,7 +17084,8 @@ cp_parser_cw_asm_operands (cp_parser *parser)
       if (cp_lexer_cw_bol (parser->lexer)
 	  || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
 	  || cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
-	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF)
+	  || cp_lexer_next_token_is_keyword (parser->lexer, RID_ASM))
 	break;
 
       operand = cp_parser_cw_asm_operand (parser);
