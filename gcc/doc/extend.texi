@@ -1526,7 +1526,8 @@ The keyword @code{__attribute__} allows you to specify special
 attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
-@code{noreturn}, @code{noinline}, @code{always_inline},
+@c APPLE LOCAL nodebug
+@code{noreturn}, @code{noinline}, @code{always_inline}, @code{nodebug}
 @code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
@@ -1568,6 +1569,15 @@ Not all target machines support this attribute.
 Generally, functions are not inlined unless optimization is specified.
 For functions declared inline, this attribute inlines the function even
 if no optimization level was specified.
+
+@c APPLE LOCAL begin nodebug
+@item nodebug
+@cindex @code{nodebug} function attribute
+This attribute prevents debug information to be generated for the function.
+This is to avoid stepping into the function which is of no interest to the
+user how it is implemented. An example is the x86 vector intrinsics.
+This is temporary and will be removed in some future version of the compiler.
+@c APPLE LOCAL end nodebug
 
 @item cdecl
 @cindex functions that do pop the argument stack on the 386
