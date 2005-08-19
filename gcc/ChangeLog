@@ -1,3 +1,7 @@
+2005-08-18  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Add a-c instructions.
+
 2005-07-19  Richard Henderson  <rth@redhat.com>
 
 	PR tree-opt/22278
@@ -61,7 +65,7 @@
 	* doc/invoke.texi (Precompiled Headers): Remove caution.
 	Document that it must be the exact same binary.  Add a few
 	known-safe flags to the list.
-	
+
 2005-06-13  Geoffrey Keating  <geoffk@apple.com>
 
 	* Makefile.in (install-man): Doesn't really depend on installdirs.
@@ -454,7 +458,7 @@
 	NOP_EXPRs with type qualifiers like const.
 
 2005-05-12  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	Fix PR tree-optimization/21532
 	* tree-ssa-pre.c (create_expression_by_pieces): stmt
 	needs to go onto the inserted_exprs list.
@@ -784,7 +788,7 @@
 	html docs.
 
 2005-04-19  Andrew Haley  <aph@redhat.com>
-	
+
 	PR java/21022
 	* dbxout.c (dbxout_type_fields): Check DECL_IGNORED_P before
 	looking at a field's bitpos.
@@ -838,7 +842,7 @@
 2005-04-25  Daniel Berlin  <dberlin@dberlin.org>
 
 	Fix PR tree-optimization/21173
-	
+
 	* tree-ssa-pre.c (create_expression_by_pieces): Call unshare_expr
 	on things we pass to force_gimple_operand.  Don't try to special
 	case min_invariants.
@@ -884,7 +888,7 @@
 	fflush, fgetc, fgets, ferror, fread): Redefine to the associated
 	_unlocked function.
 	(fwrite_unlocked): Fix prototype.
-	
+
 	* configure, config.in: Regenerate.
 
 	* system.h (fopen, fdopen, freopen): Define these to the unlocked
