@@ -1706,8 +1706,8 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
   /* APPLE LOCAL begin 4200243 */
   if (getenv ("RC_FORCE_SSE3"))
     target_flags |= MASK_SSE3;
-  /* APPLE LOCAL end 4200243 */
 }
+/* APPLE LOCAL end 4200243 */
 
 /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
 /* Version of the above for use from #pragma optimization_level.  Only
@@ -16106,10 +16106,8 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   fprintf (file, "%s:\n", lazy_ptr_name);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
   fprintf (file, "\t.long\t%s\n", binder_name);
-  /* APPLE LOCAL end deep branch prediction pic-base.  */
 }
 
-/* APPLE LOCAL begin deep branch prediction pic-base */
 void
 darwin_x86_file_end (void)
 {
