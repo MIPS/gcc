@@ -2585,12 +2585,136 @@ struct machine_function GTY(())
 #define X86_FILE_START_FLTUSED false
 
 /* APPLE LOCAL begin CW asm blocks */
-/* Table of instructions that need extra constraints.  */
+/* Table of instructions that need extra constraints.  Keep this table sorted.  */
 #undef TARGET_CW_OP_CONSTRAINT
 #define TARGET_CW_OP_CONSTRAINT \
-  { "fxch", 1, "+f" },	\
-  { "jmp", 1, "" },	\
-  { "movzx", 1, "=r" },	\
+  { "adc", 1, "i,i,i,r,m" },	\
+  { "adc", 2, "r,m,m,m,r" },	\
+  { "add", 1, "i,i,i,r,m" },	\
+  { "add", 2, "r,m,m,m,r" },	\
+  { "addsd", 1, "m"},		\
+  { "addsd", 2, "x"},		\
+  { "addss", 1, "m"},		\
+  { "addss", 2, "x"},		\
+  { "addsubpd", 1, "m"},	\
+  { "addsubpd", 2, "x"},       	\
+  { "addsubps", 1, "m"},      	\
+  { "addsubps", 2, "x"},	\
+  { "and", 1, "i,i,i,r,m"},	\
+  { "and", 2, "r,m,m,m,r"},	\
+  { "andpd", 1, "m"},		\
+  { "andpd", 2, "x"},		\
+  { "andps", 1, "m"},		\
+  { "andps", 2, "x"},		\
+  { "andnpd", 1, "m"},		\
+  { "andnpd", 2, "x"},		\
+  { "andnps", 1, "m"},		\
+  { "andnps", 2, "x"},		\
+  { "arpl", 2, "m"},		\
+  { "bound", 2, "m"},		\
+  { "bsf", 1, "m"},		\
+  { "bsr", 1, "m"},		\
+  { "bt", 1, "r,i"},		\
+  { "bt", 2, "m,m"},		\
+  { "btc", 1, "r,i"},		\
+  { "btc", 2, "m,m"},		\
+  { "btr", 1, "r,i"},		\
+  { "btr", 2, "m,m"},		\
+  { "bts", 1, "r,i"},		\
+  { "bts", 2, "m,m"},		\
+  { "call", 1, "rsm"},		\
+  { "clflush", 1, "m"},		\
+  { "cmova", 1, "m"},		\
+  { "cmovae", 1, "m"},		\
+  { "cmovb", 1, "m"},		\
+  { "cmovbe", 1, "m"},		\
+  { "cmovc", 1, "m"},		\
+  { "cmove", 1, "m"},		\
+  { "cmovg", 1, "m"},		\
+  { "cmovge", 1, "m"},		\
+  { "cmovl", 1, "m"},		\
+  { "cmovle", 1, "m"},		\
+  { "cmovna", 1, "m"},		\
+  { "cmovnae", 1, "m"},		\
+  { "cmovnb", 1, "m"},		\
+  { "cmovnbe", 1, "m"},		\
+  { "cmovnc", 1, "m"},		\
+  { "cmovne", 1, "m"},		\
+  { "cmovng", 1, "m"},		\
+  { "cmovnge", 1, "m"},		\
+  { "cmovnl", 1, "m"},		\
+  { "cmovnle", 1, "m"},		\
+  { "cmovno", 1, "m"},		\
+  { "cmovnp", 1, "m"},		\
+  { "cmovns", 1, "m"},		\
+  { "cmovnz", 1, "m"},		\
+  { "cmovo", 1, "m"},		\
+  { "cmovp", 1, "m"},		\
+  { "cmovpe", 1, "m"},		\
+  { "cmovpo", 1, "m"},		\
+  { "cmovs", 1, "m"},		\
+  { "cmovz", 1, "m"},		\
+  { "cmp", 1, "i,i,i,r,m"},    	\
+  { "cmp", 2, "r,m,m,m,r"},    	\
+  { "cmppd", 1, "i"},		\
+  { "cmppd", 2, "m"},		\
+  { "cmppd", 3, "x"},		\
+  { "cmpps", 1, "i"},		\
+  { "cmpps", 2, "m"},		\
+  { "cmpps", 3, "x"},		\
+  { "cmpsd", 1, "i"},		\
+  { "cmpsd", 2, "m"},		\
+  { "cmpsd", 3, "x"},		\
+  { "cmpss", 1, "i"},		\
+  { "cmpss", 2, "m"},		\
+  { "cmpss", 3, "x"},		\
+  { "cmpxchg", 2, "m"},		\
+  { "comisd", 1, "m"},		\
+  { "comisd", 2, "x"},		\
+  { "comiss", 1, "m"},		\
+  { "comiss", 2, "x"},		\
+  { "cvtdq2pd", 1, "m"},	\
+  { "cvtdq2pd", 2, "x"},	\
+  { "cvtdq2ps", 1, "m"},	\
+  { "cvtdq2ps", 2, "x"},	\
+  { "cvtpd2pi", 1, "m"},	\
+  { "cvtpd2pi", 2, "y"},	\
+  { "cvtpd2ps", 1, "m"},	\
+  { "cvtpd2ps", 2, "x"},	\
+  { "cvtpi2pd", 1, "m"},	\
+  { "cvtpi2pd", 2, "x"},	\
+  { "cvtpi2ps", 1, "m"},	\
+  { "cvtpi2ps", 2, "x"},	\
+  { "cvtps2dq", 1, "m"},	\
+  { "cvtps2dq", 2, "x"},	\
+  { "cvtps2pd", 1, "m"},	\
+  { "cvtps2pd", 2, "x"},	\
+  { "cvtps2pi", 1, "m"},	\
+  { "cvtps2pi", 2, "y"},	\
+  { "cvtsd2si", 1, "m"},	\
+  { "cvtsd2ss", 1, "m"},	\
+  { "cvtsd2ss", 2, "x"},	\
+  { "cvtsi2sd", 1, "m"},	\
+  { "cvtsi2sd", 2, "x"},	\
+  { "cvtsi2ss", 1, "m"},	\
+  { "cvtsi2ss", 2, "x"},	\
+  { "cvtss2sd", 1, "m"},	\
+  { "cvtss2sd", 2, "x"},	\
+  { "cvtss2si", 1, "m"},	\
+  { "cvtss2si", 2, "x"},	\
+  { "cvttpd2pi", 1, "m"},	\
+  { "cvttpd2pi", 2, "y"},	\
+  { "cvttpd2dq", 1, "m"},	\
+  { "cvttpd2dq", 2, "x"},	\
+  { "cvttps2dq", 1, "m"},	\
+  { "cvttps2dq", 2, "x"},	\
+  { "cvttps2pi", 1, "m"},	\
+  { "cvttps2pi", 2, "y"},	\
+  { "cvttsd2si", 1, "m"},	\
+  { "cvttss2si", 1, "m"},	\
+  { "fxch", 1, "+f" },		\
+  { "jmp", 1, "" },		\
+  { "movzx", 1, "=r" },		\
   { "movzx", 2, "qm" },
 /* APPLE LOCAL end CW asm blocks */
 

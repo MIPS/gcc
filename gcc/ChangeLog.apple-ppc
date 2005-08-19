@@ -1,3 +1,8 @@
+2005-08-18  Eric Christopher  <echristo@apple.com>
+
+	Radar 4223128
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Add a-c instructions.
+
 2005-08-18  Mike Stump  <mrs@apple.com>
 
 	Radar 4214021
@@ -8,7 +13,7 @@
 	(cw_asm_label): Add '@' CONSTANT.
 	(cw_asm_compstmt): Add asm nop support.
 	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Add jmp.
-	
+
 2005-08-17  Devang Patel  <dpatel@apple.com>
 
 	Radar 4215975
@@ -81,7 +86,7 @@
 2005-08-08  Devang Patel  <dpatel@apple.com>
 
 	Radar 4200243
-	* config/i386/i386.c (override_options): Do not check RC_FORCE_SSE3 env. 
+	* config/i386/i386.c (override_options): Do not check RC_FORCE_SSE3 env.
 	variable.
 	(optimization_options): Check RC_FORCE_SSE3 env. variable.
 
@@ -150,7 +155,7 @@
 
 2005-08-03  Dale Johannesen  <dalej@apple.com>
 
-	* reload.c (push_reload): Better handling for 
+	* reload.c (push_reload): Better handling for
 	PREFERRED_OUTPUT_RELOAD_CLASS.
 	(find_dummy_reload):  Ditto.
 	(find_reloads):  Ditto.
@@ -161,9 +166,9 @@
 	(ix86_preferred_output_reload_class):  New.
 	* i386.h (PREFERRED_OUTPUT_RELOAD_CLASS):  New.
 	* i386.md (cmpfp_i_mixed, cmpfp_iu_mixed, pushsf, pushsf_rex64,
-	movsf_1, pushdf_nointeger, pushdf_integer, movdf_nointeger, 
+	movsf_1, pushdf_nointeger, pushdf_integer, movdf_nointeger,
 	movdf_integer, pushxf_integer, movxf_integer, extendsfdf2_mixed,
-	truncxfsf2_mixed, truncxfsf2_i387, truncxfdf2_mixed, 
+	truncxfsf2_mixed, truncxfsf2_i387, truncxfdf2_mixed,
 	truncxfdf2_i387, floatsisf2_mixed, floatdisf2_mixed, floatsidf2_mixed,
 	floatdidf2_mixed, absnegsf2_mixed, absnegdf2_mixed, fp_jcc_1_mixed,
 	fp_jcc_2_mixed, fop_sf_comm_mixed, fop_sf_1_mixed, fop_df_comm_mixed,
@@ -208,7 +213,7 @@
         * config/i386/mmintrin.h: Ditto.
         * config/i386/pmmintrin.h: Ditto.
         * config/i386/xmmintrin.h: Ditto.
-	
+
 2005-07-29  Devang Patel  <dpatel@apple.com>
 
 	Radar 4134283
@@ -248,9 +253,9 @@
 	expression.
 	* config/rs6000/rs6000.c (rs6000_stack_info): Set stack size according to
 	setting of fralloc directive.
-	* rs6000.md (return, return_internal_si): Don't generaate 'blr' with 
+	* rs6000.md (return, return_internal_si): Don't generaate 'blr' with
 	nofralloc.
-	
+
 2005-07-19  Devang Patel  <dpatel@apple.com>
 
 	Radar 4183032
@@ -301,7 +306,7 @@
 	* gcc/config/darwin-proto.h: Likewise.
 
 2005-07-14  Dale Johannesen  <dalej@apple.com>
-	
+
 	Radar 4095526
 	* rs6000.c:  Fix local comment.
 
@@ -329,12 +334,12 @@
 	repository.
 	(final_scan_insn): Same.
 	* passes (rest_of_handle_final): Same.
-	* dbxout.c (dbxout_function_end): Do not disable FUN stabs when symbol 
+	* dbxout.c (dbxout_function_end): Do not disable FUN stabs when symbol
 	separation is ON.
-	(dbxout_begin_prologue): Do not disable BNSYM stabs when symbol separation 
+	(dbxout_begin_prologue): Do not disable BNSYM stabs when symbol separation
 	is ON.
 	(dbxout_source_line): Do not disable SLINE stabs when symbol separation is ON.
-	(dbxout_symbol, dbxout_symbol_location): Do  not disable STSYM and LCSYM stabs 
+	(dbxout_symbol, dbxout_symbol_location): Do  not disable STSYM and LCSYM stabs
 	when symbol separation 	is ON.
 	(dbxout_output_lbrac, dbxout_output_rbrack): Do not disable LBRAC and RBRAC
 	stabs when symbol separation is ON.
@@ -354,12 +359,12 @@
 2005-07-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 4172062
-	* dbxout.c (dbxout_function_end): Disable FUN stabs when symbol 
+	* dbxout.c (dbxout_function_end): Disable FUN stabs when symbol
 	separation is ON.
-	(dbxout_begin_prologue): Disable BNSYM stabs when symbol separation is 
+	(dbxout_begin_prologue): Disable BNSYM stabs when symbol separation is
 	ON.
 	(dbxout_source_line): Disable SLINE stabs when symbol separation is ON.
-	(dbxout_symbol, dbxout_symbol_location): Disable STSYM and LCSYM stabs 
+	(dbxout_symbol, dbxout_symbol_location): Disable STSYM and LCSYM stabs
 	when symbol separation 	is ON.
 	(dbxout_output_lbrac, dbxout_output_rbrack): Disable LBRAC and RBRAC
 	stabs when symbol separation is ON.
@@ -379,11 +384,11 @@
         (scalarize_ldst):  Ditto.
 
 2005-06-30 Devang Patel  <dpatel@apple.com>
-	
+
 	* doc/invoke.texi: Document -fsave-repository.
 
 2005-06-30 Devang Patel  <dpatel@apple.com>
-	
+
 	* c-opts.c (c_common_handle_option): Handle OPT_fsave_repository.
 	Set flag_pch_file.
 	* c.opt (fsave-repository=): New.
@@ -795,32 +800,32 @@
 	* common.opt (falign-jumps, falign-labels, falign-loops):
 	Add PerFunc, VarUint, VarExists.
 	(fbranch-count-reg, fbranch-target-load-optimize,
-	fbranch-target-load-optimize2, fbtr-bb-exclusive, 
+	fbranch-target-load-optimize2, fbtr-bb-exclusive,
 	fcaller-saves, fcprop-registers, fcrossjumping,
 	fcse-follow-jumps, fcse-skip-blocks, fcx-limited-range,
 	fdefer-pop, fdelayed-branch, fdelete-null-pointer-checks,
 	fexpensive-optimizations, ffinite-math-only, ffloat-store,
 	fforce-addr, fforce-mem, ffunction-cse, fgcse, fgcse-lm,
-	fgcse-sm, fgcse-las, fgcse-after-reload, 
+	fgcse-sm, fgcse-las, fgcse-after-reload,
 	fguess-branch-probability, fif-conversion, fif-conversion2,
 	fivopts, floop-optimize, floop-optimize2, fmath-errno,
-	fmodulo-sched, fmove-loop-invariants, 
+	fmodulo-sched, fmove-loop-invariants,
 	freschedule-modulo-scheduled-loops, fomit-frame-pointer,
 	foptimize-register-move, foptimize-sibling-calls, fpeel-loops,
 	fpeephole, fpeephole2, fprefetch-loop-arrays, fregmove,
 	frename-registers, freorder-blocks, freorder-blocks-and-partition,
 	frerun-cse-after-loop, frerun-loop-opt, frounding-math,
-	fsched-interblock, fsched-spec, fsched-spec-load, 
+	fsched-interblock, fsched-spec, fsched-spec-load,
 	fsched-spec-load-dangerous, fsched2-use-superblocks,
 	fsched2-use-traces, fschedule-insns, fschedule-insns2,
-	fsignaling-nans, fsplit-ivs-in-unroller, 
+	fsignaling-nans, fsplit-ivs-in-unroller,
 	fvariable-expansion-in-unroller, fstrength-reduce,
 	fthread-jumps, ftracer, ftrapping-math, ftrapv, ftree-ccp,
 	ftree-ch, ftree-combine-temps, ftree-copyrename, ftree-dce,
 	ftree-dominator-opts, ftree-dse, ftree-fre, ftree-loop-im,
 	ftree-loop-linear, ftree-loop-ivcanon, ftree-loop-memset,
 	ftree-loop-optimize, ftree-pre, ftree-sra, ftree-ter,
-	ftree-lrs, funroll-loops, funroll-all-loops, 
+	ftree-lrs, funroll-loops, funroll-all-loops,
 	funsafe-math-optimizations, funswitch-loops, ftree-vectorize,
 	fweb, fwrapv): Add PerFunc.
 	(fsched-verbose):  Add Var, UInteger, PerFunc, VarUint.
@@ -847,14 +852,14 @@
 	(decode_options):  Split out set_flags_from_O. Save
 	cl_pf_opts_cooked.
 	(common_handle_options):  Remove special cases for
-	align-functions, align-jumps, align-labels, 
+	align-functions, align-jumps, align-labels,
 	align-loops, sched-verbose, sched-stalled-insns-dep.
 	Use access_flag.
 	(cl_perfunc_opts_hash_table, hash_cl_perfunc_opts,
-	cmp_cl_perfunc_opts, make_perfunc_opts, 
+	cmp_cl_perfunc_opts, make_perfunc_opts,
 	func_cl_pf_opts_mapping_hash_table, struct func_cl_pf_opts_mapping,
 	func_cl_pf_opts_mapping_hash, func_cl_pf_opts_mapping_eq,
-	record_func_cl_pf_opts_mapping, restore_func_cl_pf_opts_mapping, 
+	record_func_cl_pf_opts_mapping, restore_func_cl_pf_opts_mapping,
 	copy_func_cl_pf_opts_mapping):  New.
 	* opts.h (set_flags_from_O, record_func_cl_pf_opts_mapping,
 	restore_func_cl_pf_opts_mapping, copy_func_cl_pf_opts_mapping):  New.
@@ -864,7 +869,7 @@
 	(print_switch_values):  Use access_flag.
 	* toplev.h (flag_loop_optimize, flag_crossjumping, flag_if_conversion,
 	flag_if_conversion2, flag_peel_loops, flag_rerun_cse_after_loops,
-	flag_thread_jumps, flag_tracer, flag_unroll_loops, 
+	flag_thread_jumps, flag_tracer, flag_unroll_loops,
 	flag_unroll_all_loops, flag_unswitch_loops, flag_cprop_registers,
 	flag_loop_optimize2):  Remove.
 	* tree-optimize.c (opts.h):  New include.
@@ -943,8 +948,8 @@
 2005-04-15  Caroline Tice  <ctice@apple.com>
 
 	Radar 4078608
-	* config/darwin.c (machopic_select_section): Change name for function 
-	to switch to cold text section to unlikely_text_section 
+	* config/darwin.c (machopic_select_section): Change name for function
+	to switch to cold text section to unlikely_text_section
 	(the correct function name, in varasm.c).
         * config/darwin.h (SECTION_FUNCTION): Remove code that created a second
         (incorrect) function for switching to cold text section.
@@ -994,7 +999,7 @@
 2005-04-07  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4063657 (part 2).
-	* c-common.c (cw_process_arg): Remove from 'uses' list any 
+	* c-common.c (cw_process_arg): Remove from 'uses' list any
 	register which ends up on an output or input list.
 	(cw_asm_stmt): New 'uses' argument is passed to cw_process_arg.
 	'uses' list is added to 'clobber' list.
@@ -1012,7 +1017,7 @@
 	* c-common.c (print_cw_asm_operand): Added a new argument to
 	track use of hard registers. Return any use of hard register
 	to caller in a tree-list form.
-	(cw_asm_stmt): Add tree-list of hard register register uses to 
+	(cw_asm_stmt): Add tree-list of hard register register uses to
 	ASM_EXPR statement tree.
 	(cw_asm_label): Add the extra argument when building ASM_EXPR.
 	(cw_asm_entry): Ditto.
@@ -1020,13 +1025,13 @@
 	* cp/semantics.c (finish_asm_stmt): Ditto.
 	* recog.c (asm_noperands): Bypass USE seen in asm_operand.
 	(decode_asm_operands): Ditto.
-	* stmt.c (expand_asm_operands): Insert list of use of hard 
+	* stmt.c (expand_asm_operands): Insert list of use of hard
 	registers in the asm_operand rtl following the clobber list.
 	(expand_asm_expr): Pass hard register usage tree-list to
 	expand_asm_operands.
 	* tree.def (ASM_EXPR): Tree now takes an extra argument.
 	* tree.h (ASM_USES): New macro defined.
-	
+
 2005-04-02  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4072153
@@ -1066,8 +1071,8 @@
 
 2005-03-22  Devang Patel  <dpatel@apple.com>
 
-        Radar 4023104 
-        * config/darwin-driver.c (dash_capital_m_seen): Remove. 
+        Radar 4023104
+        * config/darwin-driver.c (dash_capital_m_seen): Remove.
         (main) : Do not handle -M options.
 
 2005-03-21  Stuart Hastings  <stuart@apple.com>
@@ -1129,7 +1134,7 @@
 2005-03-09  Devang Patel  <dpatel@apple.com>
 
 	* tree-vectorizer.c (vect_analyze_loop): Reorder data refs alignment analysis.
-	
+
 2005-03-08  Dale Johannesen  <dalej@apple.com>
 
 	* Makefile.in:  Remove useless code from LNO branch.
@@ -1174,18 +1179,18 @@
 	TARGET_VECT_BUILD_VMUL_UCH, TARGET_VECT_SUPPORT_VECTOR_INIT_P,
 	TARGET_VECT_BUILD_VECTOR_INIT, TARGET_GIMPLIFY_VA_ARG_EXPR): Remove.
 	* c-incpath.c (errors.h): Include.
-	
+
 2005-03-06  Devang Patel  <dpatel@apple.com>
 
 	* config/darwin.h (LINK_COMMAND_SPEC): Remove foutput-dbg.
 
 2005-03-06  Devang Patel  <dpatel@apple.com>
 
-	* target-def.h (TARGET_VECT_SUPPORT_MISALIGNED_LOADS,  
+	* target-def.h (TARGET_VECT_SUPPORT_MISALIGNED_LOADS,
 	TARGET_VECT_PERMUTE_MISALIGNED_LOADS, TARGET_VECT_BUILD_BUILTIN_LVSL,
 	TARGET_VECT_BUILD_BUILTIN_LVSR, TARGET_VECT_BUILD_BUILTIN_VPERM,
-	TARGET_VECT_SUPPORT_VMUL_UCH_P, TARGET_VECT_BUILD_VMUL_UCH, 
-	TARGET_VECT_SUPPORT_VECTOR_INIT_P, TARGET_VECT_BUILD_VECTOR_INIT): Remove 
+	TARGET_VECT_SUPPORT_VMUL_UCH_P, TARGET_VECT_BUILD_VMUL_UCH,
+	TARGET_VECT_SUPPORT_VECTOR_INIT_P, TARGET_VECT_BUILD_VECTOR_INIT): Remove
 	redundant macros.
 
 2005-03-06  Devang Patel  <dpatel@apple.com>
@@ -1209,7 +1214,7 @@
 2005-03-06  Devang Patel  <dpatel@apple.com>
 
 	* varray.h (VARRAY_DG_INIT, VARRAY_DG): Remove.
-	
+
 2005-03-04  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4025985 (partial)
@@ -1268,7 +1273,7 @@
 	remapping variables.
 
 2005-02-23  Devang Patel  <dpatel@apple.com>
-	
+
 	Radar 4021019
 	* config/rs6000/darwin.h (CC1_SPEC): Ignore -march=pentium4 and
 	-mcpu=pentium4.
@@ -1386,7 +1391,7 @@
 	influences liveness at the start of the basic block.
 	* basic-block.h (EXECUTE_IF_AND_COMPL_IN_REG_SET): Needs 2 REGSET
 	arguments instead of 1.
-   
+
 2005-02-15  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3876378
@@ -1409,7 +1414,7 @@
         (remove_arch_options): New parameter.
         (add_arch_options): Insert arch specific options.
         (main): Interpret arch specific options.
-        
+
 2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3970655
@@ -1421,15 +1426,15 @@
 	* c-lex.c (c_lex_with_flags): Add '.' to those tokens which
 	can start a CW asm statement.
 	* c-parse.in (cw_identifier): New CW identifier syntax.
-	
+
 2005-02-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3970646
 	* c-common.c (cw_asm_identifier): New routine.
 	(cw_asm_stmt): call cw_asm_identifier on asm operator.
 	* cp/parser.c (cp_parser_cw_asm_relative_branch): New routine.
-	(cp_parser_cw_asm_postfix_expression): Call 
-	cp_parser_cw_asm_relative_branch to parse relative branch 
+	(cp_parser_cw_asm_postfix_expression): Call
+	cp_parser_cw_asm_relative_branch to parse relative branch
 	operand.
 
 2005-02-14  Devang Patel  <dpatel@apple.com>
@@ -1465,7 +1470,7 @@
 2005-02-11  Devang Patel  <dpatel@apple.com>
 
 	Radar 3996800
-        * gcc.c (cpp_uniq_options): Emit '-mconstant-cfstrings' option, 
+        * gcc.c (cpp_uniq_options): Emit '-mconstant-cfstrings' option,
         if needed.
 
 2005-02-09  Dale Johannesen  <dalej@apple.com>
@@ -1659,7 +1664,7 @@
 	  command line so multilib machinery can override
 
 2005-01-20  Dale Johannesen  <dalej@apple.com>
-	
+
 	Radar 3966230
 	* config/rs6000/darwin.md (movsf_low_di):  Make work.
 
@@ -1968,7 +1973,7 @@
 	Radar 3936917
 	* config/rs6000/altivec.md (altivec_vandc): Correct RTL
 	pattern and use its canonical form.
-	
+
 2005-01-03  Stuart Hastings <stuart@apple.com>
 
 	Radar 3830232, Bugzilla 17526
@@ -2022,7 +2027,7 @@
 	* c-common.c (set_builtin_user_assembler_name): New.
 	* c-common.h (set_builtin_user_assembler_name): Declare.
 	* c-decl.c (finish_decl): Use set_builtin_user_assembler_name
-	
+
 2004-12-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3926488
@@ -2036,7 +2041,7 @@
 
 	PR tree-optimization/18009
 	2004-11-03  Dorit Naishlos  <dorit@il.ibm.com>
-	
+
 	* tree-vectorizer.h (enum dr_alignment_support): New type.
 	(MAX_NUMBER_OF_UNALIGNED_DATA_REFS): Removed.
 	(LOOP_UNALIGNED_DR): replaced with LOOP_VINFO_UNALIGNED_DR and holds a
@@ -2044,7 +2049,7 @@
 	* tree-vectorizer.c (new_loop_vec_info): Likewise.
 	(vect_gen_niters_for_prolog_loop): Likewise.
 	(vect_update_inits_of_drs): Likewise.
-	
+
 	(vect_update_inits_of_drs): Setting of DR_MISALIGNMENT moved to
 	vect_enhance_data_refs_alignment.
 	(vect_do_peeling_for_alignment): Likewise.
@@ -2055,29 +2060,29 @@
 	(vect_analyze_data_refs_alignment): Decision on whether and by how much
 	to peel moved to vect_enhance_data_refs_alignment. Call
 	vect_supportable_dr_alignment.
-	
+
 	(vect_compute_data_ref_alignment): Set STMT_VINFO_VECTYPE.
 	(vect_compute_data_refs_alignment): Return bool. Consider return value
 	of vect_compute_data_ref_alignment and return true/false accordingly.
 	(vect_enhance_data_refs_alignment): Consider return value of
 	vect_compute_data_refs_alignment and return true/false accordingly.
-	
+
 	(vect_supportable_dr_alignment): New function.
 	(vectorizable_store): Call vect_supportable_dr_alignment.
 	(vectorizable_load): Call vect_supportable_dr_alignment. Alignment
 	support checks moved from here to vect_supportable_dr_alignment.
-	
+
 	(vect_transform_loop): Avoid 80 columns overflow.
 
 	2004-11-11  Dorit Naishlos  <dorit@il.ibm.com>
-	
+
 	* tree-vectorizer.c (update_phi_nodes_for_guard): Call reverse_phis.
 	(vect_update_ivs_after_vectorizer): Update function documentation.
 	Avoid quadratic behavior and direct write to PHI_ARG_DEF.
 
 	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
 	Andrew Pinski  <pinskia@physics.uc.edu>
-	
+
 	PR tree-opt/18425
 	* tree-vectorize.c (vect_build_loop_niters): Do not insert
 	NULL into the instruction stream. Initialize new_bb to NULL.
@@ -2089,18 +2094,18 @@
 	(vect_transform_loop_bound): Set loop->nb_iterations.
 
 	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
-	
+
 	PR tree-opt/18400
 	* gcc.dg/vect/pr18400.c: New test.
-	
+
 	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
 	Andrew Pinski  <pinskia@physics.uc.edu>
-	
+
 	PR tree-opt/18425
 	* gcc.dg/vect/pr18425.c: New test.
 
 	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
-	
+
 	* gcc.dg/vect/vect-78.c: Now vectorized on powerpc*.
 
 	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
@@ -2122,7 +2127,7 @@
 	(vect_transform_for_unknown_loop_bound): Added missing function
 	declaration.
 
-	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>	
+	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (slpeel_can_duplicate_loop_p): New name for function
 	previously called verify_loop_for_duplication. All conditions compacted
@@ -2146,7 +2151,7 @@
 
 
 	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
-	
+
 	* tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Last two
 	arguments removed.
 	(slpeel_tree_peel_loop_to_edge): Call slpeel_make_loop_iterate_ntimes
@@ -2164,12 +2169,12 @@
 	and unknown loop bound cases.
 
 	2004-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
-	
+
 	* tree-vectorizer.c (slpeel_verify_cfg_after_peeling): Define only
 	if checking is enabled.
 
 	2004-11-22  Dorit Naishlos  <dorit@il.ibm.com>
-	
+
 	PR tree-opt/18544
 	* tree-vectorizer.c (vect_analyze_data_refs): Fail if memtag not found.
 
@@ -2191,7 +2196,7 @@
 	vect_transform_loop_bound.
 
 	2004-11-23  Dorit Naishlos  <dorit@il.ibm.com>
-	
+
 	PR tree-opt/18403
 	PR tree-opt/18505
 	* tree-vectorizer.c (vect_create_data_ref_ptr): Use
@@ -2214,12 +2219,12 @@
 	use gcc_assert.
 	(vect_gen_niters_for_prolog_loop): Likewise.
 	(vect_gen_niters_for_prolog_loo): Likewise.
-	
+
 	(slpeel_make_loop_iterate_ntimes): Use buildN instead of build.
 	(slpeel_add_loop_guard): Likewise.
 	(slpeel_tree_peel_loop_to_edge): Likewise.
 	(vect_do_peeling_for_alignment): Likewise.
-	
+
 	(vect_get_first_index): Missing space.
 
 	2004-11-30  Dorit Naishlos  <dorit@il.ibm.com>
@@ -2234,7 +2239,7 @@
 	tree_low_cst instead of TREE_INT_CST_LOW.
 
 	2004-11-30  Ira Rosen  <irar@il.ibm.com>
-	
+
 	PR tree-opt/18607
 	* tree-vectorizer.c (vect_analyze_data_refs): Use temporary
 	variable for data_reference when looking for memtag.
@@ -2348,7 +2353,7 @@
 	* Makefile.in (c-common.o): Added dependancy for options.h.
 
 2004-12-10 Devang Patel  <dpatel@apple.com>
-	
+
 	Radar 3572046 (related)
 	* tree-ssa-forwprop.c (cast_conversion_assignment_p): New.
 	(replace_use_in_cond_expr): New.
@@ -2415,9 +2420,9 @@
 	* varasm.c (assemble_variable): Don't use .zerofill for weak
 	symbols as it isn't supported in the assembler.  Also, key off
 	!DECL_COMMON directly instead of flag_no_common so that C++ works.
-	
+
 2004-12-08  Devang Patel  <dpatel@apple.com>
-	
+
 	Radar 3903799
 	* config/darwin.h (ASM_SPEC): Supply -force_cpusubtype_ALL.
 
