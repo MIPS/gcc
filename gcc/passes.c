@@ -433,12 +433,12 @@ init_optimization_passes (void)
   p = &all_ipa_passes;
   NEXT_PASS (pass_early_ipa_inline);
   NEXT_PASS (pass_early_local_passes);
-  NEXT_PASS (pass_ipa_cp);
+  /*NEXT_PASS (pass_ipa_cp);*/
   NEXT_PASS (pass_ipa_inline);
-  NEXT_PASS (pass_ipa_alias);
+  /*NEXT_PASS (pass_ipa_alias);
   NEXT_PASS (pass_ipa_reference);
   NEXT_PASS (pass_ipa_pure_const); 
-  NEXT_PASS (pass_ipa_type_escape);
+  NEXT_PASS (pass_ipa_type_escape);*/
   *p = NULL;
 
   /* All passes needed to lower the function into shape optimizers can operate
@@ -459,12 +459,24 @@ init_optimization_passes (void)
   p = &pass_early_local_passes.sub;
   NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_cleanup_cfg);
+  NEXT_PASS (pass_all_early_optimizations);
   NEXT_PASS (pass_rebuild_cgraph_edges);
+  *p = NULL;
+
+  p = &pass_all_early_optimizations.sub;
+  NEXT_PASS (pass_init_datastructures);
+  NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_create_structure_vars);
+  NEXT_PASS (pass_build_ssa);
+  /*NEXT_PASS (pass_may_alias);
+  NEXT_PASS (pass_return_slot);
+  NEXT_PASS (pass_rename_ssa_copies);*/
+  NEXT_PASS (pass_early_warn_uninitialized);
   *p = NULL;
 
   p = &all_passes;
   NEXT_PASS (pass_fixup_cfg);
-  NEXT_PASS (pass_init_datastructures);
+  /*NEXT_PASS (pass_init_datastructures);*/
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_mudflap_2);
@@ -476,13 +488,14 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
-  NEXT_PASS (pass_referenced_vars);
+  /*NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_create_structure_vars);
-  NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_build_ssa);*/
+  NEXT_PASS (pass_all_early_optimizations);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_return_slot);
-  NEXT_PASS (pass_rename_ssa_copies);
-  NEXT_PASS (pass_early_warn_uninitialized);
+  /*NEXT_PASS (pass_rename_ssa_copies);
+  NEXT_PASS (pass_early_warn_uninitialized);*/
   NEXT_PASS (pass_eliminate_useless_stores);
 
   /* Initial scalar cleanups.  */

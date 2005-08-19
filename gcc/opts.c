@@ -536,7 +536,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_fre = 1;
       flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
-      flag_tree_salias = 1;
+      /* THere is problem with local annotations and aliasing run early right now.  */
+      /*flag_tree_salias = 1;*/
       flag_unit_at_a_time = 1;
 
       if (!optimize_size)

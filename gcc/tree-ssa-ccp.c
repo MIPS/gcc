@@ -2018,6 +2018,8 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 
   var = arg;
   def_stmt = SSA_NAME_DEF_STMT (var);
+  if (!def_stmt)
+    return false;
 
   switch (TREE_CODE (def_stmt))
     {

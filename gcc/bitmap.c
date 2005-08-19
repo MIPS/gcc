@@ -224,6 +224,9 @@ bitmap_obstack_release (bitmap_obstack *bit_obstack)
   bit_obstack->elements = NULL;
   bit_obstack->heads = NULL;
   obstack_free (&bit_obstack->obstack, NULL);
+#ifdef ENABLE_CHECKING
+  memset (&bit_obstack->obstack, 0xab, sizeof (*&bit_obstack->obstack));
+#endif
 }
 
 /* Create a new bitmap on an obstack.  If BIT_OBSTACK is NULL, create

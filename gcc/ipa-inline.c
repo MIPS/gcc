@@ -525,6 +525,10 @@ cgraph_apply_inline_plan (void)
     if (!order[i]->global.inlined_to)
       order[new_order_pos++] = order[i];
 
+  /* Initialize the default bitmap obstack.  */
+  bitmap_obstack_initialize (NULL);
+
+
   for (i = 0; i < new_order_pos; i++)
     {
       struct cgraph_edge *e;
@@ -541,6 +545,8 @@ cgraph_apply_inline_plan (void)
 	  tree_register_cfg_hooks ();
           current_function_decl = node->decl;
 	  optimize_inline_calls (node->decl, false);
+	  free_dominance_info (CDI_DOMINATORS);
+	  free_dominance_info (CDI_POST_DOMINATORS);
 	  node->local.self_insns = node->global.insns;
 	  pop_cfun ();
 	  ggc_collect ();
@@ -1122,10 +1128,14 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node, bool early)
 	}
   if (inlined || (warn_inline && !early))
     {
+      /* Initialize the default bitmap obstack.  */
+      bitmap_obstack_initialize (NULL);
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
       tree_register_cfg_hooks ();
       current_function_decl = node->decl;
       optimize_inline_calls (current_function_decl, early);
+      free_dominance_info (CDI_DOMINATORS);
+      free_dominance_info (CDI_POST_DOMINATORS);
       node->local.self_insns = node->global.insns;
       current_function_decl = NULL;
       pop_cfun ();
@@ -1138,7 +1148,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node, bool early)
 static bool
 cgraph_gate_inlining (void)
 {
-  return flag_inline_trees;
+  return flag_inline_trees /*&& 0*/;
 }
 
 struct tree_opt_pass pass_ipa_inline = 

@@ -594,7 +594,7 @@ initialize_inline_failed (struct cgraph_node *node)
 
 /* Rebuild call edges from current function after a passes not aware
    of cgraph updating.  */
-static void
+void
 rebuild_cgraph_edges (void)
 {
   basic_block bb;

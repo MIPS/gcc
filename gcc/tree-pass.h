@@ -294,6 +294,7 @@ extern struct tree_opt_pass pass_ipa_type_escape;
 extern struct tree_opt_pass pass_early_local_passes;
 
 extern struct tree_opt_pass pass_all_optimizations;
+extern struct tree_opt_pass pass_all_early_optimizations;
 extern struct tree_opt_pass pass_cleanup_cfg_post_optimizing;
 extern struct tree_opt_pass pass_free_cfg_annotations;
 extern struct tree_opt_pass pass_free_datastructures;

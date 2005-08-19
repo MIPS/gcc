@@ -1,3 +1,38 @@
+2005-08-19  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (rebuild_cgraph_edges): Declare.
+	* cgraphunit.c (rebuild_cgraph_edges): Rebuild.
+	* ipa-inline.c (cgraph_apply_inline_plan): Initialize bitmaps; free
+	dominance info.
+	(cgraph_decide_inlining_incrementally): Likewise.
+	* opts.c (decode_options): Temporarily disable salias.
+	* passes.c (init_optimization_passes): Temporariliy disable all IPA
+	passes; move SSA construction into early_optimization_passes.
+	* tree-inline.c: Include tree-pass.h
+	(remap_ssa_name): New function.
+	(remap_decl): Initialize SSA structs.
+	(copy_body_r): Handle SSA names; register global vars.
+	(copy_bb): Fold all new statements; update SSA_DEF_STMTs.
+	(copy_edges_for_bb): Update PHI nodes of EH edges.
+	(copy_phis_for_bb): New function.
+	(initialize_cfun): Break out from ...
+	(copy_cfg_body): ... here.
+	(setup_one_parameter): Handle SSA form.
+	(declare_return_variable): Likewise.
+	(expand_call_inline): Initialize calle_cfun early; deal with
+	SSA when replacing original assignment.
+	(optimize_inline_call): Some extra checking and rebuilding.
+	(tree_function_versioning): Use initialize_cfun; do not construct
+	temporary decl; free dominance info.
+	* tree-optimize.c (gate_all_optimizations): FOrce optimizations when in
+	SSA form.
+	(gate_all_early_optimizations): New.
+	(pass_all_early_optimizations): New.
+	(tree_lowering_passes): Do not compact blocks; do early
+	optimizations when called late; free dominance info.
+	* tree-pass.h (pass_all_early_optimizations): Declare.
+	* tree-ssa-ccp (get_maxval_strlen): Allow SSA to not be complette yet.
+
 2005-08-18  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (tree-ssanames, tree-eh, tree-ssa-operands): Kill GGC

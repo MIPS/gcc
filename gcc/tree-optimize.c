@@ -57,8 +57,9 @@ static bool
 gate_all_optimizations (void)
 {
   return (optimize >= 1
-	  /* Don't bother doing anything if the program has errors.  */
-	  && !(errorcount || sorrycount));
+	  /* Don't bother doing anything if the program has errors. 
+	     We have to pass down the queue if we already went into SSA */
+	  && (!(errorcount || sorrycount) || in_ssa_p));
 }
 
 struct tree_opt_pass pass_all_optimizations =
@@ -78,10 +79,51 @@ struct tree_opt_pass pass_all_optimizations =
   0					/* letter */
 };
 
+/* Gate: execute, or not, all of the non-trivial optimizations.  */
+
+static bool
+gate_all_early_local_passes (void)
+{
+  return (optimize >= 1
+	  /* Don't bother doing anything if the program has errors.  */
+	  && !(errorcount || sorrycount));
+}
+
 struct tree_opt_pass pass_early_local_passes =
 {
   NULL,					/* name */
-  gate_all_optimizations,		/* gate */
+  gate_all_early_local_passes,		/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};
+/* Gate: execute, or not, all of the non-trivial optimizations.  */
+
+static bool
+gate_all_early_optimizations (void)
+{
+  return (optimize >= 1
+          /* Sort of Hack: In non-unit-at-a-time we need to run the early
+	     optimizations anyway.  The early optimization pass is run once
+	     in IPA queue and once in late local passes.  In unit-at-a-time
+	     the second invocation will get cgraph_global_info_ready.  */
+          && !cgraph_global_info_ready
+	  /* Don't bother doing anything if the program has errors.  */
+	  && !(errorcount || sorrycount));
+}
+
+struct tree_opt_pass pass_all_early_optimizations =
+{
+  NULL,					/* name */
+  gate_all_early_optimizations,		/* gate */
   NULL,					/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -311,8 +353,10 @@ tree_lowering_passes (tree fn)
   tree_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);
   execute_pass_list (all_lowering_passes);
+  if (cgraph_global_info_ready && optimize)
+    execute_pass_list (pass_all_early_optimizations.sub);
   free_dominance_info (CDI_POST_DOMINATORS);
-  compact_blocks ();
+  free_dominance_info (CDI_DOMINATORS);
   current_function_decl = saved_current_function_decl;
   bitmap_obstack_release (NULL);
   pop_cfun ();
@@ -361,8 +405,6 @@ tree_rest_of_compilation (tree fndecl)
      Kill it so it won't confuse us.  */
   cgraph_node_remove_callees (node);
 
-
-  /* Initialize the default bitmap obstack.  */
   bitmap_obstack_initialize (NULL);
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
   
