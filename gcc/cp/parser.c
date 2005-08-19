@@ -10959,10 +10959,10 @@ cp_parser_using_directive (cp_parser* parser)
 
    asm-definition:
      asm ( string-literal ) ;
-     APPLE LOCAL CW begin asm blocks
+     APPLE LOCAL begin CW asm blocks
      asm { asm-line [opt] }
      asm asm-line
-     APPLE LOCAL CW end asm blocks
+     APPLE LOCAL end CW asm blocks
 
    GNU Extension:
 
