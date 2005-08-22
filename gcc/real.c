@@ -2253,22 +2253,20 @@ real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
 
   fmt = REAL_MODE_FORMAT (mode);
   gcc_assert (fmt);
-
+  memset (r, 0, sizeof (*r));
+  
   if (fmt->b == 10)
+    decimal_real_maxval (r, sign, mode);
+  else
     {
-      decimal_real_maxval (r, sign, mode);
-      return;
+      r->cl = rvc_normal;
+      r->sign = sign;
+      SET_REAL_EXP (r, fmt->emax * fmt->log2_b);
+
+      np2 = SIGNIFICAND_BITS - fmt->p * fmt->log2_b;
+      memset (r->sig, -1, SIGSZ * sizeof (unsigned long));
+      clear_significand_below (r, np2);
     }
-
-  r->cl = rvc_normal;
-  r->sign = sign;
-  r->signalling = 0;
-  r->canonical = 0;
-  SET_REAL_EXP (r, fmt->emax * fmt->log2_b);
-
-  np2 = SIGNIFICAND_BITS - fmt->p * fmt->log2_b;
-  memset (r->sig, -1, SIGSZ * sizeof (unsigned long));
-  clear_significand_below (r, np2);
 }
 
 /* Fills R with 2**N.  */

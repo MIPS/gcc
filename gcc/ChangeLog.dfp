@@ -1,3 +1,8 @@
+2005-08-22  Ben Elliston  <bje@au.ibm.com>
+
+	* real.c (real_maxval): Clear *r before filling in the structure.
+	Simplify logic in this function somewhat.
+
 2005-08-17  Janis Johnson  <janis187@us.ibm.com>
 	    Ben Ellison  <bje@au.ibm.com>
 
