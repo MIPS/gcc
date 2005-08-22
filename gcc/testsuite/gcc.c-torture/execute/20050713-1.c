@@ -1,3 +1,4 @@
+/* APPLE LOCAL file 4225116 mainline */
 /* Test that sibling call is not used if there is an argument overlap.  */
 
 extern void abort (void);

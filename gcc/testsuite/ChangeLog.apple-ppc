@@ -1,3 +1,8 @@
+2005-08-22  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4225116
+	* gcc.c-torture/execute/20050713-1.c:  From mainline.
+
 2005-08-16  Eric Christopher  <echristo@apple.com>
 
 	Radar 4218385
