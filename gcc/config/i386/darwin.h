@@ -208,6 +208,8 @@ extern void darwin_x86_file_end (void);
 #define BASIC_STACK_BOUNDARY (128)
 /* APPLE LOCAL end SSE stack alignment */
 
+/* APPLE LOCAL CW asm blocks */
+extern int flag_cw_asm_blocks;
 /* APPLE LOCAL begin fix-and-continue x86 */
 #undef SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS				\
@@ -222,6 +224,10 @@ extern void darwin_x86_file_end (void);
 	  error ("invalid option %qs", base);			\
 	darwin_fix_and_continue = (base[0] != 'n');		\
       }								\
+    /* APPLE LOCAL begin CW asm blocks */			\
+    if (flag_cw_asm_blocks)					\
+      flag_ms_asms = 1;						\
+    /* APPLE LOCAL end CW asm blocks */				\
   } while (0)
 
 /* True, iff we're generating fast turn around debugging code.  When

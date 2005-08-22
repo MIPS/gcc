@@ -1,3 +1,15 @@
+2005-08-19  Mike Stump  <mrs@apple.com>
+
+	Radar 4211947
+	* parser.c (cp_parser_cw_maybe_skip_comments): Add support for
+	; comments.
+	(cp_parser_asm_definition): Likewise.
+	(cp_parser_cw_skip_to_eol): Likewise.
+	(cp_parser_cw_maybe_skip_comments): Likewise.
+	(cp_parser_cw_asm_top_statement): Likewise.
+	(cp_parser_cw_asm_statement_seq_opt): Likewise.
+	(cp_parser_cw_asm_statement): Likewise.
+
 2005-08-18  Mike Stump  <mrs@apple.com>
 
 	Radar 4214021

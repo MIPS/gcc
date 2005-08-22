@@ -555,6 +555,10 @@ Recognize the \"asm\" keyword
 fasm-blocks
 C ObjC C++ ObjC++
 Handle CW-style assembly blocks
+
+fms-asms
+C ObjC C++ ObjC++ Var(flag_ms_asms)
+When handling assembly blocks, use MW-style assembly blocks
 ; APPLE LOCAL end CW asm blocks
 
 ; APPLE LOCAL begin -fast or -fastf or -fastcp

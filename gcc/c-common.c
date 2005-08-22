@@ -6312,8 +6312,9 @@ cw_constraint_for (const char *opcode, unsigned argnum)
 /* Return true iff the opcode wants memory to be stable.  We arrange
    for a memory clobber in these instances.  */
 static bool
-cw_memory_clobber (const char *opcode)
+cw_memory_clobber (const char *ARG_UNUSED (opcode))
 {
+#if defined(TARGET_TOC)
   return strncmp (opcode, "st", 2) == 0
     || (strncmp (opcode, "l", 1) == 0 && (strcmp (opcode, "la") != 0
 					  && strcmp (opcode, "li") != 0
@@ -6322,6 +6323,9 @@ cw_memory_clobber (const char *opcode)
     || strncmp (opcode, "td", 2) == 0
     || strcmp (opcode, "trap") == 0
     || strncmp (opcode, "tw", 2) == 0;
+#else
+  return true;
+#endif
 }
 
 /* MUST_BE_REG is true, iff we know the operand must be a register.  */

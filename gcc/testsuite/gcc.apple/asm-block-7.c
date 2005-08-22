@@ -8,6 +8,6 @@ void foo() {
   __asm nop __asm nop
   __asm nop
   __asm emms
-    asm @1: @2: @3 foo: nop asm @1: @2: foo: nop
+    asm @1: @2: @3 foo1: nop asm @4: @5: foo2: nop
     asm .word 0
 }

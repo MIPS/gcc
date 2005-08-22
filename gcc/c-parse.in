@@ -2093,22 +2093,43 @@ compstmt: compstmt_start compstmt_nostart
 	;
 
 /* APPLE LOCAL begin CW asm blocks */
+cw_save_location: save_location
+		{ cw_asm_lineno = input_line; }
+	;
+
 /* A CW-style asm statement is recognized by having a BOL token preceding it.  */
-cw_asm_stmt: CW_ASM_BOL save_location cw_asm_stmt_list CW_ASM_EOL
+cw_asm_stmt: CW_ASM_BOL cw_save_location cw_asm_stmt_list CW_ASM_EOL
 		{ $$ = NULL_TREE; }
 	;
 
-cw_asm_stmt_nobol: save_location cw_asm_stmt_list CW_ASM_EOL
-		{ $$ = NULL_TREE; cw_asm_at_bol = 0; }
+cw_asm_stmt_nobol: cw_save_location cw_asm_stmt_list CW_ASM_EOL
+		{
+		  $$ = NULL_TREE;
+		  cw_asm_state = cw_asm_none;
+		  cw_asm_at_bol = 0;
+		}
 	;
 
 /* A single line may have multiple statements separated by ';'.  */
 cw_asm_stmt_list:
 	  /* empty */
 	| single_cw_asm_stmt
-		{}
-	| cw_asm_stmt_list ';' single_cw_asm_stmt
-	| cw_asm_stmt_list ';'
+	  {}
+	| cw_asm_stmt_list ';' cw_maybe_comment single_cw_asm_stmt
+	| cw_asm_stmt_list ';' cw_maybe_comment
+	| cw_asm_stmt_list ASM_KEYWORD single_cw_asm_stmt
+	| cw_asm_stmt_list ASM_KEYWORD cw_maybe_comment
+	;
+
+cw_maybe_comment:
+	  {
+	    if (flag_ms_asms)
+	      {
+		extern void cw_skip_to_eol ();
+		cw_skip_to_eol ();
+		yychar = YYEMPTY;
+	      }
+	  }
 	;
 
 cw_identifier:
@@ -2128,7 +2149,7 @@ cw_identifier:
    and operands.  */
 single_cw_asm_stmt:
 	  cw_identifier
-		{ cw_asm_lineno = input_line; cw_asm_in_operands = 1; }
+		{ cw_asm_in_operands = 1; }
 	  cw_asm_operands
 		{ $$ = cw_asm_stmt ($1, $3, cw_asm_lineno); }
 	| identifier STATIC cw_asm_operand
@@ -2187,6 +2208,12 @@ cw_asm_compstmt: ASM_KEYWORD
 		      cw_asm_state = cw_asm_asm;
 		      inside_cw_asm_block = 1;
 		      clear_cw_asm_labels ();
+		      if (yychar == ';' && flag_ms_asms)
+			{
+			  extern void cw_skip_to_eol ();
+			  cw_skip_to_eol ();
+			  yychar = YYEMPTY;
+			}
 		    }
 		  else
 		    /* This will probably choke badly... */

@@ -2076,6 +2076,8 @@ static tree cp_parser_cw_asm_relative_branch
   (cp_parser *parser);
 static tree
 cp_parser_cw_asm_top_statement (cp_parser *parser);
+static void
+cp_parser_cw_maybe_skip_comments (cp_parser *parser);
 /* APPLE LOCAL end CW asm blocks */
 
 /* Returns nonzero if we are parsing tentatively.  */
@@ -10998,7 +11000,9 @@ cp_parser_asm_definition (cp_parser* parser)
 		&& cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_OPEN_PAREN)
 	    || (nextup->type == CPP_OPEN_BRACE)
 	    || (nextup->type == CPP_ATSIGN)
+	    || (nextup->keyword == RID_ASM)
 	    || (nextup->type == CPP_DOT)
+	    || (nextup->type == CPP_SEMICOLON)
 	    || (nextup->type == CPP_NAME
 		&& !cw_asm_typename_or_reserved (nextup->value))))
 	{
@@ -11027,28 +11031,21 @@ cp_parser_asm_definition (cp_parser* parser)
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
       if (flag_cw_asm_blocks)
-	{
-	  cp_parser_cw_asm_compound_statement (parser);
-	}
+	cp_parser_cw_asm_compound_statement (parser);
       else
-	{
-	  error ("asm blocks not enabled, use `-fasm-blocks'");
-	}
+	error ("asm blocks not enabled, use `-fasm-blocks'");
       return;
     }
   if (cp_lexer_next_token_is (parser->lexer, CPP_DOT)
-      || cp_lexer_next_token_is (parser->lexer, CPP_DOT)
       || cp_lexer_next_token_is (parser->lexer, CPP_ATSIGN)
-      || cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+      || cp_lexer_next_token_is (parser->lexer, CPP_NAME)
+      || cp_lexer_next_token_is_keyword (parser->lexer, RID_ASM)
+      || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
     {
       if (flag_cw_asm_blocks)
-	{
-	  cp_parser_cw_asm_top_statement (parser);
-	}
+	cp_parser_cw_asm_top_statement (parser);
       else
-	{
-	  error ("asm blocks not enabled, use `-fasm-blocks'");
-	}
+	error ("asm blocks not enabled, use `-fasm-blocks'");
       return;
     }
 
@@ -16787,11 +16784,13 @@ cp_parser_cw_asm_top_statement (cp_parser *parser)
   clear_cw_asm_labels ();
   /* Begin the compound-statement.  */
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
-  /* Parse a single statement.  */
-  cp_parser_cw_asm_statement (parser);
+  if (!cp_lexer_cw_bol (parser->lexer))
+    {    
+      /* Parse a line.  */
+      cp_parser_cw_asm_line (parser);
+    }
   /* Finish the compound-statement.  */
   finish_compound_stmt (compound_stmt);
-  /* Consume the `}'.  */
   /* We're done with the block of asm.  */
   cw_asm_at_bol = 0;
   inside_cw_asm_block = 0;
@@ -16859,33 +16858,90 @@ cp_parser_cw_asm_line (cp_parser* parser)
   cp_parser_cw_asm_statement_seq_opt (parser);
 }
 
+/* Skip tokens until the end of line is seen.  */
+
+static void
+cp_parser_cw_skip_to_eol (cp_parser *parser)
+{
+  while (true)
+    {
+      cp_token *token;
+
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+      /* If we've run out of tokens, stop.  */
+      if (token->type == CPP_EOF)
+	break;
+      /* If the next token starts a new line, stop.  */
+      if (cp_lexer_cw_bol (parser->lexer))
+	break;
+      /* Otherwise, consume the token.  */
+      cp_lexer_consume_token (parser->lexer);
+    }
+}
+
+static void
+cp_parser_cw_maybe_skip_comments (cp_parser *parser)
+{
+  if (flag_ms_asms
+      && cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+    {
+      /* Eat the ';', then skip rest of characters on this line. */
+      cp_lexer_consume_token (parser->lexer);
+      cp_parser_cw_skip_to_eol (parser);
+    }
+}
+
+/* Parse an asm line.  The first token cannot be at the beginning of
+   the line.  */
+
 static void
 cp_parser_cw_asm_statement_seq_opt (cp_parser* parser)
 {
+  int check;
   /* Scan statements until there aren't any more.  */
   while (true)
     {
-      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
-	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
-	break;
-
+      check = 0;
       /* Semicolons divide up individual statements.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
-	cp_lexer_consume_token (parser->lexer);
-
-      /* Parse a single statement.  */
-      cp_parser_cw_asm_statement (parser);
-
-      /* We parse at most, one line.  */
-      if (cp_lexer_cw_bol (parser->lexer))
-	break;
-
-      if (!(cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
-	    || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)))
 	{
-	  cp_parser_error (parser, "expected `;' or `}' or end-of-line");
+	  /* ; denotes comments in MS-style asms. */
+	  if (flag_ms_asms)
+	    {
+	      cp_parser_cw_maybe_skip_comments (parser);
+	      return;
+	    }
+	  cp_lexer_consume_token (parser->lexer);
+	}
+      else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_ASM))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	}
+      else
+	{
+	  /* Parse a single statement.  */
+	  cp_parser_cw_asm_statement (parser);
+	  check = 1;
+	}
+
+      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF)
+	  /* We parse at most, one line.  */
+	  || cp_lexer_cw_bol (parser->lexer))
+	return;
+
+      if (check
+	  && !(cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	       || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
+	       || cp_lexer_next_token_is_keyword (parser->lexer, RID_ASM)
+	       || cp_lexer_cw_bol (parser->lexer)))
+	{
+	  cp_parser_error (parser, "expected `;' or `}' `asm' or end-of-line");
 	}
     }
+  if (!cp_lexer_cw_bol (parser->lexer))
+    cp_parser_cw_maybe_skip_comments (parser);
 }
 
 /* Build an identifier comprising the string passed and the
@@ -17064,13 +17120,16 @@ cp_parser_cw_asm_statement (cp_parser* parser)
 		  operands = cp_parser_cw_asm_operands (parser);
 		  cw_asm_stmt (aname, operands, input_line);
 		}
+	      if (cp_lexer_cw_bol (parser->lexer))
+		return;
 	      break;
 	    }
 	}
 
       if (cp_lexer_cw_bol (parser->lexer))
-	break;
+	return;
     }
+  cp_parser_cw_maybe_skip_comments (parser);
 }
 
 tree

@@ -1,3 +1,21 @@
+2005-08-19  Mike Stump  <mrs@apple.com>
+
+	Radar 4211947
+	* c-lex.c (c_lex_with_flags): Add support for ; comments.
+	(cw_skip_to_eol): Likewise.
+	* c-parse.in (cw_asm_stmt_list): Likewise.
+	(cw_maybe_comment): Likewise.
+	(cw_asm_compstmt): Likewise.
+	(cw_save_location): Redo how line numbers are saved.
+	(cw_asm_stmt): Likewise.
+	(cw_asm_stmt_nobol): Likewise.
+	(single_cw_asm_stmt): Likewise.
+	* c.opt (-fms-asms): Add support for ; comments.
+	* config/i386/darwin.h: Likewise.
+
+	* c-common.c (cw_memory_clobber): Assume everything clobbers
+	memory for now.
+
 2005-08-22  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4225116

@@ -69,6 +69,7 @@ int c_lex_string_translate = 1;
 bool c_lex_return_raw_strings = false;
 
 /* APPLE LOCAL begin CW asm blocks */
+void cw_skip_to_eol (void);
 /* This points to the token that we're going to save briefly while
    returning EOL/BOL tokens.  (This is global but static instead
    static in c_lex() so as to avoid pointless init in non-asm
@@ -78,6 +79,18 @@ static const cpp_token *cw_asm_saved_token = NULL;
    in pragma processing for instance, but we don't any of the asm
    special handling to be active then.  */
 static int c_lex_depth;
+
+void
+cw_skip_to_eol (void)
+{
+  const cpp_token *tok;
+  do
+    tok = cpp_get_token (parse_in);
+  while (tok->type != CPP_EOF && !(tok->flags & BOL));
+
+  /* Now put it back.  */
+  _cpp_backup_tokens (parse_in, 1);
+}
 /* APPLE LOCAL end CW asm blocks */
 
 static tree interpret_integer (const cpp_token *, unsigned int);
@@ -394,29 +407,15 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
   if (flag_cw_asm_blocks_local && cw_asm_state != cw_asm_none && c_lex_depth == 1
       && type != CPP_PADDING)
     {
-      if (cw_asm_state >= cw_asm_decls)
+      /* "}" switches us out of our special mode.  */
+      if (tok->type == CPP_CLOSE_BRACE && cw_asm_state >= cw_asm_decls)
 	{
-	  /* "}" switches us out of our special mode.  */
-	  if (tok->type == CPP_CLOSE_BRACE)
-	    {
-	      cw_asm_state = cw_asm_none;
-	      cw_asm_saved_token = tok;
-	      cw_asm_at_bol = 0;
-	      --c_lex_depth;
-	      timevar_pop (TV_CPP);
-	      return CPP_EOL;
-	    }
-
-	  /* __asm also ends an instruction in something like: asm nop asm nop */
-	  if (tok->type == CPP_NAME && tok->val.node->rid_code == RID_ASM)
-	    {
-	      cw_asm_state = cw_asm_none;
-	      cw_asm_saved_token = tok;
-	      cw_asm_at_bol = 0;
-	      --c_lex_depth;
-	      timevar_pop (TV_CPP);
-	      return CPP_EOL;
-	    }
+	  cw_asm_state = cw_asm_none;
+	  cw_asm_saved_token = tok;
+	  cw_asm_at_bol = 0;
+	  --c_lex_depth;
+	  timevar_pop (TV_CPP);
+	  return CPP_EOL;
 	}
 
       /* This is tricky.  We're only ready to start parsing assembly
@@ -435,6 +434,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	  if ((tok->flags & BOL)
 	      && (tok->type == CPP_ATSIGN
 		  || tok->type == CPP_DOT
+		  || (tok->type == CPP_SEMICOLON)
 		  || (tok->type == CPP_NAME
 		      && (*value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node)))
 		      && !cw_asm_typename_or_reserved (*value))))
