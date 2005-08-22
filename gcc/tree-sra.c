@@ -2037,12 +2037,12 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
 
   /* CONSTRUCTOR is defined such that any member not mentioned is assigned
      a zero value.  Initialize the rest of the instantiated elements.  */
-  /* APPLE LOCAL begin 4126812 */
+  /* APPLE LOCAL begin 4216812 */
   if (lhs_elt->how_to_copy != integer_copy)
     generate_element_zero (lhs_elt, &list);
 
   if (!result || lhs_elt->how_to_copy == integer_copy)
-  /* APPLE LOCAL end 4126812 */
+  /* APPLE LOCAL end 4216812 */
     {
       /* If we failed to convert the entire initializer, then we must
 	 leave the structure assignment in place and must load values
