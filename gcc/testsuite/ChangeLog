@@ -1,3 +1,32 @@
+2005-08-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/18715
+	* gcc.dg/switch-warn-3.c: New test.
+
+2005-08-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22233
+	* g++.dg/template/param1.C: New test.
+
+2005-08-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23089
+	* g++.dg/other/incomplete1.C: New test.
+
+2005-08-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/sse-4.c: New test.
+
+2005-08-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/20624
+	* g++.dg/warn/Wreturn-3.C: New test
+
+2005-08-18  Paolo Bonzini  <bonzini@gcc.gnu.org>
+
+	PR c/21562
+	* gcc.c-torture/compile/pr21562.c: New.
+
 2005-08-16  Ian Lance Taylor  <ian@airs.com>
 
 	PR c++/23337
