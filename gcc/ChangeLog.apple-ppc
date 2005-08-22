@@ -1,3 +1,9 @@
+2005-08-22  Mike Stump  <mrs@apple.com>
+
+	Radar 4211954
+	* c-opts.c (c_common_init): Add support for the h suffix to
+	identify hex integers.
+
 2005-08-19  Mike Stump  <mrs@apple.com>
 
 	Radar 4211947

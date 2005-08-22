@@ -1166,6 +1166,10 @@ c_common_init (void)
   cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
   cpp_opts->unsigned_wchar = TYPE_UNSIGNED (wchar_type_node);
   cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
+  /* APPLE LOCAL begin CW asm blocks */
+  if (flag_ms_asms)
+    cpp_opts->h_suffix = true;
+  /* APPLE LOCAL end CW asm blocks */
 
   /* This can't happen until after wchar_precision and bytes_big_endian
      are known.  */

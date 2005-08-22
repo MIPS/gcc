@@ -352,6 +352,12 @@ struct cpp_options
   unsigned char pascal_strings;
   /* APPLE LOCAL end pascal strings */
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Nonzero means accept integer constants with an h suffix to denote
+     hex constants.  An example would be 0ffh.  */
+  unsigned char h_suffix;
+  /* APPLE LOCAL end CW asm blocks */
+
   /* Nonzero means warn about multicharacter charconsts.  */
   unsigned char warn_multichar;
 

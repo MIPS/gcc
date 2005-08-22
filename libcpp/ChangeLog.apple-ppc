@@ -1,3 +1,12 @@
+2005-08-22  Mike Stump  <mrs@apple.com>
+
+	Radar 4211954
+	* expr.c (interpret_int_suffix): Add support for the h suffix to
+	identify hex integers.	
+	(cpp_classify_number): Likewise.
+	(cpp_interpret_integer): Likewise.
+	* include/cpplib.h (struct cpp_options): Likewise.
+	
 2005-06-15  Geoffrey Keating  <geoffk@apple.com>
 
 	* lex.c (warn_about_normalization): Add cast to 'sz'.
