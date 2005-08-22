@@ -1,3 +1,8 @@
+2005-08-22  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4216812
+	* tree-sra.c (scalarize_init):  Add integer_copy handling.
+
 2005-08-09  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4209014
