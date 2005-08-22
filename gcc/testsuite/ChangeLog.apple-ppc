@@ -1,3 +1,9 @@
+2005-08-22  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4209014, 4210936
+	* gcc.apple/inline-limit-1.c: Revised regexp, more comments.
+	* g++.dg/inline-limit-1.C: New.
+
 2005-08-22  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4225116

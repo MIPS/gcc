@@ -1,11 +1,15 @@
-/* APPLE LOCAL file 4209014 */
+/* APPLE LOCAL file 4209014 4210936 */
 /* { dg-do compile } */
 /* { dg-options "-Os" } */
-/* { dg-final { scan-assembler-not "\t(call\t|bl )_inlinex25" } } */
-/* { dg-final { scan-assembler "\t(call\t|bl )_calleex25" } } */
+/* Call to inlinex25 should be inlined.  */
+/* { dg-final { scan-assembler-not "(\tbl|\tcall)\[ 	\]*_?inlinex25" } } */
+/* Call to calleex25 should be called, not inlined.  */
+/* { dg-final { scan-assembler "(\tcall|\tbl)\[	 \]*_?calleex25" } } */
 
-/* Insure non-trivial callees (up to 450 "estimated insns") are
-   inlined only if marked 'inline' in C/Obj-C.  */
+/* Insure non-trivial callees (between 30 and 450 "estimated insns")
+   are inlined only if marked 'inline' in C/Obj-C.  It's unfortunate,
+   but this testcase is expected to require revision every time the
+   GCC inlining heuristics change.  */
 
 extern void bulk (int);	/* CALLs are assumed to generate 10 'estimated insns'.  */
 
