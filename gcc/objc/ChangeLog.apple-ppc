@@ -1,5 +1,13 @@
 2005-08-22  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 4174166
+	* objc-act.c (objc_compare_types): Compare function
+	pointers; indicate success if the right-hand side has
+	a return type that is covariant, and the argument types
+	contravariant, with those of the left side.
+
+2005-08-22  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 4216500
 	* objc-act.c (objc_get_protocol_qualified_type): When looking
 	at a typedef, retrieve the precise type it describes (rather

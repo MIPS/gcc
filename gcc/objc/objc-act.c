@@ -1263,6 +1263,31 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
     }
   while (POINTER_TYPE_P (ltyp) && POINTER_TYPE_P (rtyp));
 
+  /* APPLE LOCAL begin 4174166 */
+  /* We must also handle function pointers, since ObjC is a bit more
+     lenient than C or C++ on this.  */
+  if (TREE_CODE (ltyp) == FUNCTION_TYPE && TREE_CODE (rtyp) == FUNCTION_TYPE)
+    {
+      /* Return types must be covariant.  */
+      if (!comptypes (TREE_TYPE (ltyp), TREE_TYPE (rtyp))
+	  && !objc_compare_types (TREE_TYPE (ltyp), TREE_TYPE (rtyp),
+				  argno, callee))
+      return false;
+
+      /* Argument types must be contravariant.  */
+      for (ltyp = TYPE_ARG_TYPES (ltyp), rtyp = TYPE_ARG_TYPES (rtyp);
+	   ltyp && rtyp; ltyp = TREE_CHAIN (ltyp), rtyp = TREE_CHAIN (rtyp))
+	{
+	  if (!comptypes (TREE_VALUE (rtyp), TREE_VALUE (ltyp))
+	      && !objc_compare_types (TREE_VALUE (rtyp), TREE_VALUE (ltyp),
+				      argno, callee))
+	    return false;
+      }
+
+      return (ltyp == rtyp);
+    }
+
+  /* APPLE LOCAL end 4174166 */
   /* Past this point, we are only interested in ObjC class instances,
      or 'id' or 'Class'.  */
   if (TREE_CODE (ltyp) != RECORD_TYPE || TREE_CODE (rtyp) != RECORD_TYPE)
