@@ -14,7 +14,7 @@
 4125559: 21_strings/basic_string/capacity/wchar_t/18654.cc execution test
 3884894: 23_containers/vector/resize/1.cc execution test
 3378287: 26_numerics/cmath/c99_classification_macros_c.cc (test for excess errors)
-4129761: 26_numerics/complex/13450.cc execution test
+4227568: 26_numerics/complex/13450.cc execution test
 4125559: 27_io/basic_istream/get/char/3.cc execution test
 4125559: 27_io/basic_istream/get/wchar_t/3.cc execution test
 4125559: 27_io/basic_istream/getline/char/6.cc execution test
@@ -37,5 +37,6 @@
 #4125564: 22_locale/num_put/put/char/4.cc execution test
 #4125564: 22_locale/num_put/put/wchar_t/4.cc execution test
 #4125564: 26_numerics/complex/complex_inserters_extractors.cc execution test
-4113425: 26_numerics/complex/complex_value.cc execution test
-4113425: 26_numerics/complex/pow.cc execution test
+4183678: 26_numerics/complex/complex_value.cc execution test
+4183678: 26_numerics/complex/pow.cc execution test
+4129761: 26_numerics/complex/13450.cc execution test
