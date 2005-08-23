@@ -6191,6 +6191,12 @@ vector_constructor_from_expr (tree expr, tree vector_type)
 /* APPLE LOCAL end AltiVec */
 
 /* APPLE LOCAL begin CW asm blocks */
+tree
+cw_build_bracket (tree v1, tree v2)
+{
+  return build2 (BRACKET_EXPR, void_type_node, v1, v2);
+}
+
 /* Perform the default conversion of functions to pointers; simplified
    version for use with functions mentioned in CW-style asm.
    Return the result of converting EXP.  For any other expression, just
@@ -6640,6 +6646,18 @@ cw_asm_expr_val (tree arg)
   return 0;
 }
 
+#if defined(TARGET_386)
+/* Return true iff the operand is suitible for as the offset for a
+   memory instruction.  */
+static bool
+cw_is_offset (tree v)
+{
+  if (TREE_CODE (v) == INTEGER_CST)
+    return true;
+  return false;
+}
+#endif
+
 /* Print an operand according to its tree type.  MUST_BE_REG is true,
    iff we know the operand must be a register.  MUST_NOT_BE_REG is true,
    iff we know the operand must not be a register.  */
@@ -6796,6 +6814,84 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
 			    must_be_reg, must_not_be_reg);
       break;
+
+#if defined(TARGET_386)
+    case BRACKET_EXPR:
+      {
+	tree op2 = TREE_OPERAND (arg, 0);
+	tree op3 = TREE_OPERAND (arg, 1);
+	tree op0 = NULL_TREE, op1 = NULL_TREE;
+
+	if (TREE_CODE (op2) == BRACKET_EXPR)
+	  {
+	    op1 = TREE_OPERAND (op2, 0);
+	    op2 = TREE_OPERAND (op2, 1);
+	    if (TREE_CODE (op1) == BRACKET_EXPR)
+	      {
+		op0 = TREE_OPERAND (op1, 1);
+		op1 = TREE_OPERAND (op1, 0);
+	      }
+	  }
+	if (op0)
+	  {
+	    error ("block assembly operand not recognized");
+	    break;
+	  }
+	if (op2 == NULL_TREE)
+	  {
+	    op2 = op1;
+	    op1 = op0;
+	    op0 = NULL_TREE;
+	  }
+
+      if (ASSEMBLER_DIALECT == ASM_INTEL)
+	strcat (buf, "[");
+
+      if (op1 == 0 &&
+	  cw_is_offset (op2))
+	{
+	  op1 = op2;
+	  op2 = op3;
+	  op3 = NULL_TREE;
+	}
+
+      if (op1)
+	print_cw_asm_operand (buf, op1, argnum, uses, label,
+			      must_be_reg, must_not_be_reg);
+      else
+	strcat (buf, "0");
+      if (ASSEMBLER_DIALECT == ASM_INTEL)
+	strcat (buf, "]");
+      if (ASSEMBLER_DIALECT == ASM_INTEL)
+	strcat (buf, "[");
+      else
+	strcat (buf, "(");
+      print_cw_asm_operand (buf, op2, argnum, uses, label,
+			    must_be_reg, must_not_be_reg);
+      if (op3)
+	{
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
+	    strcat (buf, "][");
+	  else
+	    strcat (buf, ",");
+	  print_cw_asm_operand (buf, op3, argnum, uses, label,
+				must_be_reg, must_not_be_reg);
+	}
+      if (ASSEMBLER_DIALECT == ASM_INTEL)
+	strcat (buf, "]");
+      else
+	strcat (buf, ")");
+	}
+      break;
+      
+    case MULT_EXPR:
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+			    must_be_reg, must_not_be_reg);
+      strcat (buf, "*");
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
+			    must_be_reg, must_not_be_reg);
+	  break;
+#endif
 
     default:
       /* Something is wrong, most likely a user error.  */

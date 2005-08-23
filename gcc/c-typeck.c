@@ -1737,6 +1737,12 @@ build_array_ref (tree array, tree index)
       || TREE_TYPE (index) == error_mark_node)
     return error_mark_node;
 
+  if (inside_cw_asm_block)
+    {
+      if (TREE_CODE (array) == BRACKET_EXPR)
+	return cw_build_bracket (array, index);
+    }
+
   if (TREE_CODE (TREE_TYPE (array)) != ARRAY_TYPE
       && TREE_CODE (TREE_TYPE (array)) != POINTER_TYPE)
     {
@@ -2424,11 +2430,12 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   /* APPLE LOCAL begin CW asm blocks */
   if (inside_cw_asm_block)
     {
-      if (code == MINUS_EXPR && TREE_CODE (arg1.value) == VAR_DECL 
-	  && TREE_CODE (arg2.value) == LABEL_DECL)
+      if ((code == MINUS_EXPR && TREE_CODE (arg1.value) == VAR_DECL 
+	   && TREE_CODE (arg2.value) == LABEL_DECL)
+	  || TREE_CODE (arg1.value) == IDENTIFIER_NODE
+	  || TREE_CODE (arg2.value) == IDENTIFIER_NODE)
 	{
-	  /* PIC address. */
-          result.value = build2 (MINUS_EXPR, TREE_TYPE (arg1.value), arg1.value, arg2.value);
+          result.value = build2 (code, TREE_TYPE (arg1.value), arg1.value, arg2.value);
 	  result.original_code = code;
 	  return result;
 	}

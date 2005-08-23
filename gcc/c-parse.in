@@ -2782,6 +2782,9 @@ cw_asm_primary:
 	| cw_asm_primary '[' cw_asm_expr_no_commas ']'   %prec '.'
 		{ $$.value = build_array_ref ($1.value, $3.value);
                   $$.original_code = ERROR_MARK; }
+	| '[' cw_asm_expr_no_commas ']'   %prec '.'
+		{ $$.value = cw_build_bracket ($2.value, NULL_TREE);
+                  $$.original_code = ERROR_MARK; }
 	| TYPENAME '.' identifier
 		{ $$.value = cw_asm_c_build_component_ref ($1, $3);
                   $$.original_code = ERROR_MARK; }

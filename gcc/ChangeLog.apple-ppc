@@ -1,3 +1,18 @@
+2005-08-23  Mike Stump  <mrs@apple.com>
+
+	Radar 4211971
+	* c-common.c (cw_is_offset): Add support for complex memory
+	addressing.
+	(cw_build_bracket): Likewise.
+	(print_cw_asm_operand): Likewise.
+	* c-common.def (BRACKET_EXPR): Likewise.
+	* c-common.h (cw_build_bracket): Likewise.
+	* c-parse.in (cw_asm_primary): Likewise.
+	* c-typeck.c (build_array_ref): Likewise.
+	(parser_build_binary_op): Likewise.
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Add a few more
+	opcodes.
+
 2005-08-22  Mike Stump  <mrs@apple.com>
 
 	Radar 4211954

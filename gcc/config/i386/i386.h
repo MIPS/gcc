@@ -2714,6 +2714,10 @@ struct machine_function GTY(())
   { "cvttss2si", 1, "m"},	\
   { "fxch", 1, "+f" },		\
   { "jmp", 1, "" },		\
+  { "movaps", 1, "=xm" },	\
+  { "movaps", 2, "x" },	\
+  { "movd", 1, "=x,=mx" },	\
+  { "movd", 2, "xm,x" },	\
   { "movzx", 1, "=r" },		\
   { "movzx", 2, "qm" },
 /* APPLE LOCAL end CW asm blocks */

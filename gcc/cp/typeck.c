@@ -2751,10 +2751,12 @@ build_x_binary_op (enum tree_code code, tree arg1, tree arg2,
   tree expr;
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (inside_cw_asm_block
-      && (TREE_CODE (arg1) == IDENTIFIER_NODE
-          || TREE_CODE (arg2) == IDENTIFIER_NODE))
-    return error_mark_node;
+  if (inside_cw_asm_block)
+    if (TREE_CODE (arg1) == IDENTIFIER_NODE
+	|| TREE_CODE (arg2) == IDENTIFIER_NODE)
+      {
+	return build2 (code, TREE_TYPE (arg1), arg1, arg2);
+      }
   /* APPLE LOCAL end CW asm blocks */
 
   orig_arg1 = arg1;

@@ -1,3 +1,11 @@
+2005-08-23  Mike Stump  <mrs@apple.com>
+
+	Radar 4211971
+	* parser.c (cp_parser_primary_expression): Add support for complex memory
+	addressing.
+	(cp_parser_cw_asm_postfix_expression): Likewise.
+	* typeck.c (build_x_binary_op): Likewise.
+
 2005-08-19  Mike Stump  <mrs@apple.com>
 
 	Radar 4211947

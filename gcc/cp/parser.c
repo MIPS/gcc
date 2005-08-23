@@ -3348,6 +3348,19 @@ cp_parser_primary_expression (cp_parser *parser,
 
       /* Anything else is an error.  */
     default:
+      /* APPLE LOCAL begin CW asm blocks */
+      if (inside_cw_asm_block)
+	{
+	  if (token->type == CPP_OPEN_SQUARE)
+	    {
+	      tree expr;
+	      cp_lexer_consume_token (parser->lexer);
+	      expr = cp_parser_cw_asm_operand (parser);
+	      cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+	      return cw_build_bracket (expr, NULL_TREE);
+	    }
+	}
+      /* APPLE LOCAL end CW asm blocks */
       /* APPLE LOCAL begin mainline */
       /* ...unless we have an Objective-C++ message or string literal, that is.  */
       if (c_dialect_objc () 
@@ -17388,6 +17401,15 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	    index = cp_parser_expression (parser, false);
 	    /* Look for the closing `]'.  */
 	    cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+
+	    if (inside_cw_asm_block)
+	      {
+		if (TREE_CODE (postfix_expression) == BRACKET_EXPR)
+		  {
+		    postfix_expression = cw_build_bracket (postfix_expression, index);
+		    break;
+		  }
+	      }
 
 	    /* Build the ARRAY_REF.  */
 	    postfix_expression
