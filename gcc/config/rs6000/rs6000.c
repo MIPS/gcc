@@ -210,6 +210,10 @@ enum rs6000_abi rs6000_current_abi;
 /* ABI string from -mabi= option.  */
 const char *rs6000_abi_string;
 
+/* From -mrtp option (see vxworks.h).  */
+const char *rs6000_rtp_switch;
+int rs6000_rtp;
+
 /* Debug flags */
 const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */

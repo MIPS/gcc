@@ -464,6 +464,9 @@ enum group_termination
    {"longcall", &rs6000_longcall_switch,				\
     N_("Avoid all range limits on call instructions"), 0},		\
    {"no-longcall", &rs6000_longcall_switch, "", 0},			\
+   {"rtp", &rs6000_rtp_switch,						\
+    N_("Assume the VxWorks RTP environment") },				\
+   {"no-rtp", &rs6000_rtp_switch, "" },					\
    {"warn-altivec-long", &rs6000_warn_altivec_long_switch, \
     N_("Warn about deprecated 'vector long ...' AltiVec type usage"), 0}, \
    {"no-warn-altivec-long", &rs6000_warn_altivec_long_switch, "", 0}, \
@@ -526,6 +529,11 @@ extern const char *rs6000_altivec_vrsave_string;
 extern int rs6000_altivec_vrsave;
 extern const char *rs6000_longcall_switch;
 extern int rs6000_default_long_calls;
+/* Since rs6000.h is out of space in target_flags, we have to do a hack
+   similar to -m[no-]longcall.  This means the macro in vxworks.h needs
+   to be redefined.  */
+extern const char *rs6000_rtp_switch;
+extern int rs6000_rtp;
 extern const char* rs6000_alignment_string;
 extern int rs6000_alignment_flags;
 extern const char *rs6000_sched_restricted_insns_priority_str;
