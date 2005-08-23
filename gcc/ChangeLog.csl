@@ -1,3 +1,12 @@
+2005-08-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* hwint.h (HOST_WIDE_INT_PRINT): Use HOST_LONG_LONG_FORMAT.
+
+	Backport:
+	2004-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* hwint.h (HOST_LONG_LONG_FORMAT): New macro.  Use it throughout.
+	* config/i386/xm-mingw32.h (HOST_LONG_LONG_FORMAT): Define.
+
 2005-08-16  Joseph Myers  <joseph@codesourcery.com>
 
 	* config/arm/wrs-linux.h (CC1_SPEC, SUBTARGET_EXTRA_ASM_SPEC,
