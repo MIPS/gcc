@@ -230,6 +230,10 @@ extern const char *darwin_fix_and_continue_switch;
       else						\
 	builtin_define ("__strong=");			\
       /* APPLE LOCAL end ObjC GC */			\
+      /* APPLE LOCAL begin radar 4224728 */		\
+      if (flag_pic)					\
+	builtin_define ("__PIC__");			\
+      /* APPLE LOCAL end radar 4224728 */               \
     }							\
   while (0)
 
