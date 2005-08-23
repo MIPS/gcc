@@ -1,3 +1,10 @@
+2005-08-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4216500
+	* objc-act.c (objc_get_protocol_qualified_type): When looking
+	at a typedef, retrieve the precise type it describes (rather
+	than merely looking up a class by name).
+
 2005-07-20  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4136935

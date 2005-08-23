@@ -1,3 +1,9 @@
+2005-08-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4216500
+	* obj-c++.dg/proto-lossage-7.mm: New.
+	* objc.dg/proto-lossage-7.m: New.
+
 2005-08-22  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4209014, 4210936
