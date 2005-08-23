@@ -1,3 +1,12 @@
+2005-08-23  Stuart Hastings <stuart@apple.com>
+	    Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4209854
+	* objc-act.c (objc_decay_parm_type): New function.
+	(get_arg_type_list): Decay types for all named arguments.
+	(objc_push_parm): Rebuild the PARM_DECL if its type has
+	been decayed.
+
 2005-08-22  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4174166

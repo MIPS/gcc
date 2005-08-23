@@ -308,6 +308,8 @@ static int objc_types_share_size_and_alignment (tree, tree);
 static int comp_proto_with_proto (tree, tree, int);
 /* APPLE LOCAL end mainline */
 static tree get_arg_type_list (tree, int, int);
+/* APPLE LOCAL 4209854 */
+static tree objc_decay_parm_type (tree);
 static void objc_push_parm (tree);
 #ifdef OBJCPLUS
 static tree objc_get_parm_info (int);
@@ -6291,11 +6293,10 @@ get_arg_type_list (tree meth, int context, int superflag)
     {
       tree arg_type = TREE_VALUE (TREE_TYPE (akey));
 
-      /* Decay arrays and functions into pointers.  */
-      if (TREE_CODE (arg_type) == ARRAY_TYPE)
-	arg_type = build_pointer_type (TREE_TYPE (arg_type));
-      else if (TREE_CODE (arg_type) == FUNCTION_TYPE)
-	arg_type = build_pointer_type (arg_type);
+      /* APPLE LOCAL begin 4209854 */
+      /* Decay argument types for the underlying C function as appropriate.  */
+      arg_type = objc_decay_parm_type (arg_type);
+      /* APPLE LOCAL end 4209854 */
 
       chainon (arglist, build_tree_list (NULL_TREE, arg_type));
     }
@@ -6307,6 +6308,10 @@ get_arg_type_list (tree meth, int context, int superflag)
 	{
 	  tree arg_type = TREE_TYPE (TREE_VALUE (akey));
 
+	  /* APPLE LOCAL begin 4209854 */
+	  arg_type = objc_decay_parm_type (arg_type);
+
+	  /* APPLE LOCAL end 4209854 */
 	  chainon (arglist, build_tree_list (NULL_TREE, arg_type));
 	}
 
@@ -8587,6 +8592,21 @@ encode_field_decl (tree field_decl, int curtype, int format)
     encode_type (TREE_TYPE (field_decl), curtype, format);
 }
 
+/* APPLE LOCAL begin 4209854 */
+/* Decay array and function parameters into pointers.  */
+
+static tree
+objc_decay_parm_type (tree type)
+{
+  if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == FUNCTION_TYPE)
+    type = build_pointer_type (TREE_CODE (type) == ARRAY_TYPE
+			       ? TREE_TYPE (type)
+			       : type);
+
+  return type;
+}
+
+/* APPLE LOCAL end 4209854 */
 static GTY(()) tree objc_parmlist = NULL_TREE;
 
 /* Append PARM to a list of formal parameters of a method, making a necessary
@@ -8595,11 +8615,15 @@ static GTY(()) tree objc_parmlist = NULL_TREE;
 static void
 objc_push_parm (tree parm)
 {
+  /* APPLE LOCAL begin 4209854 */
   /* Decay arrays and functions into pointers.  */
-  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE)
-    TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (TREE_TYPE (parm)));
-  else if (TREE_CODE (TREE_TYPE (parm)) == FUNCTION_TYPE)
-    TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (parm));
+  tree type = objc_decay_parm_type (TREE_TYPE (parm));
+
+  /* If the parameter type has been decayed, a new PARM_DECL needs to be
+     built as well.  */
+  if (type != TREE_TYPE (parm))
+    parm = build_decl (PARM_DECL, DECL_NAME (parm), type);
+  /* APPLE LOCAL end 4209854 */
 
   DECL_ARG_TYPE_AS_WRITTEN (parm) = TREE_TYPE (parm);
   DECL_ARG_TYPE (parm)
