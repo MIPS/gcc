@@ -180,10 +180,10 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
 	  str++;
 	}
     }
-  /* APPLE APPLE begin CW asm blocks */
+  /* APPLE LOCAL begin CW asm blocks */
   if (cpp_get_options (pfile)->h_suffix && limit[-1] == 'h')
     radix = 16;
-  /* APPLE APPLE end CW asm blocks */
+  /* APPLE LOCAL end CW asm blocks */
 
   /* Now scan for a well-formed integer or float.  */
   for (;;)
