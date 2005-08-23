@@ -1,3 +1,13 @@
+2005-08-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* hwint.h (HOST_WIDE_INT_PRINT): Use HOST_LONG_LONG_FORMAT.
+	
+	Backport:
+	2004-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* hwint.h (HOST_LONG_LONG_FORMAT): New macro.  Use it throughout.
+	* config/i386/xm-mingw32.h (HOST_LONG_LONG_FORMAT): Define.
+	* doc/hostconfig.texi (HOST_LONG_LONG_FORMAT): Document.
+
 2005-08-22  Mark Mitchell  <mark@codesourcery.com>
 
 	* configure.in (*-*-vxworks*): Add target-libstdc++-v3 to
