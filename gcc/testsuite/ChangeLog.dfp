@@ -1,3 +1,17 @@
+2005-08-24  Yao Qi  <qiyao@cn.ibm.com>
+
+	* complex-conversion.c: New test case.
+	* complex.c: Likewise.
+	* composite-type.c: Likewise.
+	* conversions-10.c: Likewise.
+	* nan-2.c: Likewise.
+	* nan-3.c: Likewise.
+	* overflow-warn: Likewise.
+	* rounding.c: Likewise.
+	* struct-init.c: Likewise.
+	* struct-union.c: Likewise.
+	* union-init.c: Likewise.
+
 2005-08-23  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/varargs-1.c: New.
