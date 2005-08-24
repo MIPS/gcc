@@ -447,6 +447,7 @@ public abstract class TimeZone implements java.io.Serializable, Cloneable
 	   Calendar.MARCH, -1, Calendar.SUNDAY, 2000 * 3600,
 	   Calendar.OCTOBER, -1, Calendar.SUNDAY, 2000 * 3600);
 	timezones0.put("CET", tz);
+	timezones0.put("CEST", tz);
 	timezones0.put("ECT", tz);
 	timezones0.put("MET", tz);
 	timezones0.put("Africa/Ceuta", tz);
@@ -989,9 +990,13 @@ public abstract class TimeZone implements java.io.Serializable, Cloneable
    * Sets the identifier of this time zone. For instance, PST for
    * Pacific Standard Time.
    * @param id the new time zone ID.
+   * @throws NullPointerException if <code>id</code> is <code>null</code>
    */
   public void setID(String id)
   {
+    if (id == null)
+      throw new NullPointerException();
+    
     this.ID = id;
   }
 
@@ -1102,15 +1107,21 @@ public abstract class TimeZone implements java.io.Serializable, Cloneable
 
     StringBuffer sb = new StringBuffer(9);
     sb.append("GMT");
-    sb.append(offset >= 0 ? '+' : '-');
 
-    offset = Math.abs(offset) / (1000 * 60);
-    int hours = offset / 60;
-    int minutes = offset % 60;
+    offset = offset / (1000 * 60);
+    int hours = Math.abs(offset) / 60;
+    int minutes = Math.abs(offset) % 60;
 
-    sb.append((char) ('0' + hours / 10)).append((char) ('0' + hours % 10));
-    sb.append(':');
-    sb.append((char) ('0' + minutes / 10)).append((char) ('0' + minutes % 10));
+    if (minutes != 0 || hours != 0)
+      {
+	sb.append(offset >= 0 ? '+' : '-');
+	sb.append((char) ('0' + hours / 10));
+	sb.append((char) ('0' + hours % 10));
+	sb.append(':');
+	sb.append((char) ('0' + minutes / 10));
+	sb.append((char) ('0' + minutes % 10));
+      }
+
     return sb.toString();
   }
 

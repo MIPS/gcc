@@ -1,5 +1,5 @@
 /* ThreadGroup -- a group of Threads
-   Copyright (C) 1998, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2001, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,7 +48,7 @@ import java.util.Vector;
  * @author John Keiser
  * @author Tom Tromey
  * @author Bryce McKinlay
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see Thread
  * @since 1.0
  * @status updated to 1.4
@@ -263,7 +263,7 @@ public class ThreadGroup
   public final void checkAccess()
   {
     // Bypass System.getSecurityManager, for bootstrap efficiency.
-    SecurityManager sm = Runtime.securityManager;
+    SecurityManager sm = SecurityManager.current;
     if (sm != null)
       sm.checkAccess(this);
   }

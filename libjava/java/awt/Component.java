@@ -140,7 +140,7 @@ import javax.accessibility.AccessibleStateSet;
  * present but commented out.
  *
  * @author original author unknown
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.0
  * @status still missing 1.4 support
  */
@@ -1080,7 +1080,7 @@ public abstract class Component
    *
    * @return the locale for this component
    * @throws IllegalComponentStateException if it has no locale or parent
-   * @see setLocale(Locale)
+   * @see #setLocale(Locale)
    * @since 1.1
    */
   public Locale getLocale()
@@ -1362,7 +1362,7 @@ public abstract class Component
       peer.setBounds (x, y, width, height);
 
     // Erase old bounds and repaint new bounds for lightweights.
-    if (isLightweight())
+    if (isLightweight() && isShowing ())
       {
         boolean shouldRepaintParent = false;
         boolean shouldRepaintSelf = false;
@@ -1386,13 +1386,16 @@ public abstract class Component
           repaint();
       }
 
-    if (oldx != x || oldy != y)
+    // Only post event if this component is visible and has changed size.
+    if (isShowing ()
+        && (oldx != x || oldy != y))
       {
         ComponentEvent ce = new ComponentEvent(this,
                                                ComponentEvent.COMPONENT_MOVED);
         getToolkit().getSystemEventQueue().postEvent(ce);
       }
-    if (oldwidth != width || oldheight != height)
+    if (isShowing ()
+        && (oldwidth != width || oldheight != height))
       {
         ComponentEvent ce = new ComponentEvent(this,
                                                ComponentEvent.COMPONENT_RESIZED);
@@ -1955,7 +1958,7 @@ public abstract class Component
    * @see Graphics#drawImage(Image, int, int, ImageObserver)
    * @see Graphics#drawImage(Image, int, int, int, int, Color, ImageObserver)
    * @see Graphics#drawImage(Image, int, int, int, int, ImageObserver)
-   * @see ImageObserver#update(Image, int, int, int, int, int)
+   * @see ImageObserver#imageUpdate(Image, int, int, int, int, int)
    */
   public boolean imageUpdate(Image img, int flags, int x, int y, int w, int h)
   {
@@ -2097,7 +2100,7 @@ public abstract class Component
    * @param observer the observer to notify of image loading progress
    * @return the image observer flags indicating the status of the load
    * @see #prepareImage(Image, int, int, ImageObserver)
-   * @see #Toolkit#checkImage(Image, int, int, ImageObserver)
+   * @see Toolkit#checkImage(Image, int, int, ImageObserver)
    * @throws NullPointerException if image is null
    */
   public int checkImage(Image image, ImageObserver observer)
@@ -2115,7 +2118,7 @@ public abstract class Component
    * @param observer the observer to notify of image loading progress
    * @return the image observer flags indicating the status of the load
    * @see #prepareImage(Image, int, int, ImageObserver)
-   * @see #Toolkit#checkImage(Image, int, int, ImageObserver)
+   * @see Toolkit#checkImage(Image, int, int, ImageObserver)
    */
   public int checkImage(Image image, int width, int height,
                         ImageObserver observer)
@@ -2134,7 +2137,7 @@ public abstract class Component
    * @param ignoreRepaint the new setting for ignoring repaint events
    * @see #getIgnoreRepaint()
    * @see BufferStrategy
-   * @see GraphicsDevice.setFullScreenWindow(Window)
+   * @see GraphicsDevice#setFullScreenWindow(Window)
    * @since 1.4
    */
   public void setIgnoreRepaint(boolean ignoreRepaint)
@@ -2250,9 +2253,9 @@ public abstract class Component
    * calls {@link #postEvent}.
    *
    * @param e the event to deliver
-   * @deprecated use {@link #dispatchEvent(AWTEvent)} instead
+   * @deprecated use {@link #dispatchEvent (AWTEvent)} instead
    */
-  public void deliverEvent(Event e)
+  public void deliverEvent (Event e)
   {
     postEvent (e);
   }
@@ -2284,7 +2287,7 @@ public abstract class Component
    * @return true if the event was handled, false otherwise
    * @deprecated use {@link #dispatchEvent(AWTEvent)} instead
    */
-  public boolean postEvent(Event e)
+  public boolean postEvent (Event e)
   {
     boolean handled = handleEvent (e);
 
@@ -3178,8 +3181,8 @@ public abstract class Component
    * AWT 1.0 event handler.
    *
    * This method calls one of the event-specific handler methods.  For
-   * example for key events, either {@link #keyDown (Event evt, int
-   * key)} or {@link keyUp (Event evt, int key)} is called.  A derived
+   * example for key events, either {@link #keyDown(Event,int)}
+   * or {@link #keyUp(Event,int)} is called.  A derived
    * component can override one of these event-specific methods if it
    * only needs to handle certain event types.  Otherwise it can
    * override handleEvent itself and handle any event.
@@ -3188,7 +3191,7 @@ public abstract class Component
    * @return true if the event was handled, false otherwise
    * @deprecated use {@link #processEvent(AWTEvent)} instead
    */
-  public boolean handleEvent(Event evt)
+  public boolean handleEvent (Event evt)
   {
     switch (evt.id)
       {
@@ -3405,9 +3408,15 @@ public abstract class Component
    */
   public void removeNotify()
   {
-    if (peer != null)
-      peer.dispose();
+    // We null our peer field before disposing of it, such that if we're
+    // not the event dispatch thread and the dispatch thread is awoken by
+    // the dispose call, there will be no race checking the peer's null
+    // status.
+
+    ComponentPeer tmp = peer;
     peer = null;
+    if (tmp != null)
+      tmp.dispose();
   }
 
   /**
@@ -3469,8 +3478,8 @@ public abstract class Component
    * Specify whether this component can receive focus. This method also
    * sets the {@link #isFocusTraversableOverridden} field to 1, which
    * appears to be the undocumented way {@link
-   * DefaultFocusTraversalPolicy#accept()} determines whether to respect
-   * the {@link #isFocusable()} method of the component.
+   * DefaultFocusTraversalPolicy#accept(Component)} determines whether to
+   * respect the {@link #isFocusable()} method of the component.
    *
    * @param focusable the new focusable status
    * @since 1.4
@@ -3484,10 +3493,10 @@ public abstract class Component
 
   /**
    * Sets the focus traversal keys for one of the three focus
-   * traversal directions supported by Components: {@link
-   * #KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS}, {@link
-   * #KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS}, or {@link
-   * #KeyboardFocusManager.UP_CYCLE_TRAVERSAL_KEYS}. Normally, the
+   * traversal directions supported by Components:
+   * {@link #KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS},
+   * {@link #KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS}, or
+   * {@link #KeyboardFocusManager.UP_CYCLE_TRAVERSAL_KEYS}. Normally, the
    * default values should match the operating system's native
    * choices. To disable a given traversal, use
    * <code>Collections.EMPTY_SET</code>. The event dispatcher will
@@ -3716,7 +3725,7 @@ public abstract class Component
    * receives a FOCUS_GAINED event.
    *
    * The behaviour of this method is platform-dependent.
-   * {@link #requestFocusInWindow} should be used instead.
+   * {@link #requestFocusInWindow()} should be used instead.
    *
    * @see #requestFocusInWindow ()
    * @see FocusEvent
@@ -3791,7 +3800,7 @@ public abstract class Component
    * receives a FOCUS_GAINED event.
    *
    * The behaviour of this method is platform-dependent.
-   * {@link #requestFocusInWindow} should be used instead.
+   * {@link #requestFocusInWindow()} should be used instead.
    *
    * If the return value is false, the request is guaranteed to fail.
    * If the return value is true, the request will succeed unless it
@@ -3855,9 +3864,9 @@ public abstract class Component
                                                          currentFocusOwner));
                           }
                         else
-                    eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                          eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                      }
                   }
-              }
               }
             else
               // FIXME: need to add a focus listener to our top-level
@@ -3973,9 +3982,9 @@ public abstract class Component
                                                              currentFocusOwner));
                               }
                             else
-                        eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                              eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                          }
                       }
-                  }
                   }
                 else
                   return false;
@@ -4069,8 +4078,8 @@ public abstract class Component
    * However, if this is a Window, the default focus owner in the
    * window in the current focus cycle is focused instead.
    *
-   * @see #requestFocus ()
-   * @see #isFocusCycleRoot ()
+   * @see #requestFocus()
+   * @see #isFocusCycleRoot(Container)
    * @since 1.4
    */
   public void transferFocusUpCycle ()
@@ -4432,7 +4441,9 @@ p   * <li>the set of backward traversal keys
   {
     if (o == null)
       throw new NullPointerException();
+    ComponentOrientation oldOrientation = orientation;
     orientation = o;
+    firePropertyChange("componentOrientation", oldOrientation, o);
   }
 
   /**
@@ -4940,7 +4951,7 @@ p   * <li>the set of backward traversal keys
   /**
    * This class provides accessibility support for subclasses of container.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    * @since 1.3
    * @status updated to 1.4
    */
@@ -5468,7 +5479,7 @@ p   * <li>the set of backward traversal keys
     /**
      * Converts component changes into property changes.
      *
-     * @author Eric Blake <ebb9@email.byu.edu>
+     * @author Eric Blake (ebb9@email.byu.edu)
      * @since 1.3
      * @status updated to 1.4
      */
@@ -5525,7 +5536,7 @@ p   * <li>the set of backward traversal keys
     /**
      * Converts focus changes into property changes.
      *
-     * @author Eric Blake <ebb9@email.byu.edu>
+     * @author Eric Blake (ebb9@email.byu.edu)
      * @since 1.3
      * @status updated to 1.4
      */
@@ -5563,78 +5574,432 @@ p   * <li>the set of backward traversal keys
   } // class AccessibleAWTComponent
 
   /**
-   * This class provides support for blitting offscreen surfaces.
+   * This class provides support for blitting offscreen surfaces to a
+   * component.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @see BufferStrategy
+   *
    * @since 1.4
-   * @XXX Shell class, to allow compilation. This needs documentation and
-   * correct implementation.
    */
   protected class BltBufferStrategy extends BufferStrategy
   {
+    /**
+     * The capabilities of the image buffer.
+     */
     protected BufferCapabilities caps;
+
+    /**
+     * The back buffers used in this strategy.
+     */
     protected VolatileImage[] backBuffers;
+
+    /**
+     * Whether or not the image buffer resources are allocated and
+     * ready to be drawn into.
+     */
     protected boolean validatedContents;
+
+    /**
+     * The width of the back buffers.
+     */
     protected int width;
+
+    /**
+     * The height of the back buffers.
+     */
     protected int height;
-    protected BltBufferStrategy(int num, BufferCapabilities caps)
+
+    /**
+     * The front buffer.
+     */
+    private VolatileImage frontBuffer;
+
+    /**
+     * Creates a blitting buffer strategy.
+     *
+     * @param numBuffers the number of buffers, including the front
+     * buffer
+     * @param caps the capabilities of this strategy
+     */
+    protected BltBufferStrategy(int numBuffers, BufferCapabilities caps)
     {
       this.caps = caps;
-      createBackBuffers(num);
+      createBackBuffers(numBuffers - 1);
+      width = getWidth();
+      height = getHeight();
     }
-    protected void createBackBuffers(int num)
+
+    /**
+     * Initializes the backBuffers field with an array of numBuffers
+     * VolatileImages.
+     *
+     * @param numBuffers the number of backbuffers to create
+     */
+    protected void createBackBuffers(int numBuffers)
     {
-      backBuffers = new VolatileImage[num];
+      GraphicsConfiguration c =
+	GraphicsEnvironment.getLocalGraphicsEnvironment()
+	.getDefaultScreenDevice().getDefaultConfiguration();
+
+      backBuffers = new VolatileImage[numBuffers];
+
+      for (int i = 0; i < numBuffers; i++)
+	backBuffers[i] = c.createCompatibleVolatileImage(width, height);
     }
+
+    /**
+     * Retrieves the capabilities of this buffer strategy.
+     *
+     * @return the capabilities of this buffer strategy
+     */
     public BufferCapabilities getCapabilities()
     {
       return caps;
     }
-    public Graphics getDrawGraphics() { return null; }
-    public void show() {}
-    protected void revalidate() {}
-    public boolean contentsLost() { return false; }
-    public boolean contentsRestored() { return false; }
-  } // class BltBufferStrategy
+
+    /**
+     * Retrieves a graphics object that can be used to draw into this
+     * strategy's image buffer.
+     *
+     * @return a graphics object
+     */
+    public Graphics getDrawGraphics()
+    {
+      // Return the backmost buffer's graphics.
+      return backBuffers[0].getGraphics();
+    }
+
+    /**
+     * Bring the contents of the back buffer to the front buffer.
+     */
+    public void show()
+    {
+      GraphicsConfiguration c =
+	GraphicsEnvironment.getLocalGraphicsEnvironment()
+	.getDefaultScreenDevice().getDefaultConfiguration();
+
+      // draw the front buffer.
+      getGraphics().drawImage(backBuffers[backBuffers.length - 1],
+			      width, height, null);
+
+      BufferCapabilities.FlipContents f = getCapabilities().getFlipContents();
+
+      // blit the back buffers.
+      for (int i = backBuffers.length - 1; i > 0 ; i--)
+	backBuffers[i] = backBuffers[i - 1];
+
+      // create new backmost buffer.
+      if (f == BufferCapabilities.FlipContents.UNDEFINED)
+	backBuffers[0] = c.createCompatibleVolatileImage(width, height);
+
+      // create new backmost buffer and clear it to the background
+      // color.
+      if (f == BufferCapabilities.FlipContents.BACKGROUND)
+	{
+	  backBuffers[0] = c.createCompatibleVolatileImage(width, height);
+	  backBuffers[0].getGraphics().clearRect(0, 0, width, height);
+	}
+
+      // FIXME: set the backmost buffer to the prior contents of the
+      // front buffer.  How do we retrieve the contents of the front
+      // buffer?
+      //
+      //      if (f == BufferCapabilities.FlipContents.PRIOR)
+
+      // set the backmost buffer to a copy of the new front buffer.
+      if (f == BufferCapabilities.FlipContents.COPIED)
+	backBuffers[0] = backBuffers[backBuffers.length - 1];
+    }
+
+    /**
+     * Re-create the image buffer resources if they've been lost.
+     */
+    protected void revalidate()
+    {
+      GraphicsConfiguration c =
+	GraphicsEnvironment.getLocalGraphicsEnvironment()
+	.getDefaultScreenDevice().getDefaultConfiguration();
+
+      for (int i = 0; i < backBuffers.length; i++)
+	{
+	  int result = backBuffers[i].validate(c);
+	  if (result == VolatileImage.IMAGE_INCOMPATIBLE)
+	    backBuffers[i] = c.createCompatibleVolatileImage(width, height);
+	}
+      validatedContents = true;
+    }
+
+    /**
+     * Returns whether or not the image buffer resources have been
+     * lost.
+     *
+     * @return true if the resources have been lost, false otherwise
+     */
+    public boolean contentsLost()
+    {
+      for (int i = 0; i < backBuffers.length; i++)
+	{
+	  if (backBuffers[i].contentsLost())
+	    {
+	      validatedContents = false;
+	      return true;
+	    }
+	}
+      // we know that the buffer resources are valid now because we
+      // just checked them
+      validatedContents = true;
+      return false;
+    }
+
+    /**
+     * Returns whether or not the image buffer resources have been
+     * restored.
+     *
+     * @return true if the resources have been restored, false
+     * otherwise
+     */
+    public boolean contentsRestored()
+    {
+      GraphicsConfiguration c =
+	GraphicsEnvironment.getLocalGraphicsEnvironment()
+	.getDefaultScreenDevice().getDefaultConfiguration();
+
+      boolean imageRestored = false;
+
+      for (int i = 0; i < backBuffers.length; i++)
+	{
+	  int result = backBuffers[i].validate(c);
+	  if (result == VolatileImage.IMAGE_RESTORED)
+	    imageRestored = true;
+	  else if (result == VolatileImage.IMAGE_INCOMPATIBLE)
+	    return false;
+	}
+      // we know that the buffer resources are valid now because we
+      // just checked them
+      validatedContents = true;
+      return imageRestored;
+    }
+  }
 
   /**
-   * This class provides support for flipping component buffers. It is only
-   * designed for use by Canvas and Window.
+   * This class provides support for flipping component buffers. It
+   * can only be used on Canvases and Windows.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
    * @since 1.4
-   * @XXX Shell class, to allow compilation. This needs documentation and
-   * correct implementation.
    */
   protected class FlipBufferStrategy extends BufferStrategy
   {
+    /**
+     * The number of buffers.
+     */
     protected int numBuffers;
+
+    /**
+     * The capabilities of this buffering strategy.
+     */
     protected BufferCapabilities caps;
+
+    /**
+     * An Image reference to the drawing buffer.
+     */
     protected Image drawBuffer;
+
+    /**
+     * A VolatileImage reference to the drawing buffer.
+     */
     protected VolatileImage drawVBuffer;
+
+    /**
+     * Whether or not the image buffer resources are allocated and
+     * ready to be drawn into.
+     */
     protected boolean validatedContents;
-    protected FlipBufferStrategy(int num, BufferCapabilities caps)
+
+    /**
+     * The width of the back buffer.
+     */
+    private int width;
+
+    /**
+     * The height of the back buffer.
+     */
+    private int height;
+
+    /**
+     * Creates a flipping buffer strategy.  The only supported
+     * strategy for FlipBufferStrategy itself is a double-buffer page
+     * flipping strategy.  It forms the basis for more complex derived
+     * strategies.
+     *
+     * @param numBuffers the number of buffers
+     * @param caps the capabilities of this buffering strategy
+     *
+     * @throws AWTException if the requested
+     * number-of-buffers/capabilities combination is not supported
+     */
+    protected FlipBufferStrategy(int numBuffers, BufferCapabilities caps)
       throws AWTException
     {
       this.caps = caps;
-      createBuffers(num, caps);
+      width = getWidth();
+      height = getHeight();
+
+      if (numBuffers > 1)
+	createBuffers(numBuffers, caps);
+      else
+	{
+	  drawVBuffer = peer.createVolatileImage(width, height);
+	  drawBuffer = drawVBuffer;
+	}
     }
-    protected void createBuffers(int num, BufferCapabilities caps)
-      throws AWTException {}
+
+    /**
+     * Creates a multi-buffer flipping strategy.  The number of
+     * buffers must be greater than one and the buffer capabilities
+     * must specify page flipping.
+     *
+     * @param numBuffers the number of flipping buffers; must be
+     * greater than one
+     * @param caps the buffering capabilities; caps.isPageFlipping()
+     * must return true
+     *
+     * @throws IllegalArgumentException if numBuffers is not greater
+     * than one or if the page flipping capability is not requested
+     *
+     * @throws AWTException if the requested flipping strategy is not
+     * supported
+     */
+    protected void createBuffers(int numBuffers, BufferCapabilities caps)
+      throws AWTException
+    {
+      if (numBuffers <= 1)
+	throw new IllegalArgumentException("FlipBufferStrategy.createBuffers:"
+					   + " numBuffers must be greater than"
+					   + " one.");
+
+      if (!caps.isPageFlipping())
+	throw new IllegalArgumentException("FlipBufferStrategy.createBuffers:"
+					   + " flipping must be a specified"
+					   + " capability.");
+
+      peer.createBuffers(numBuffers, caps);
+    }
+
+    /**
+     * Return a direct reference to the back buffer image.
+     *
+     * @return a direct reference to the back buffer image.
+     */
     protected Image getBackBuffer()
     {
-      return drawBuffer;
+      return peer.getBackBuffer();
     }
-    protected void flip(BufferCapabilities.FlipContents flipAction) {}
-    protected void destroyBuffers() {}
+
+    /**
+     * Perform a flip operation to transfer the contents of the back
+     * buffer to the front buffer.
+     */
+    protected void flip(BufferCapabilities.FlipContents flipAction)
+    {
+      peer.flip(flipAction);
+    }
+
+    /**
+     * Release the back buffer's resources.
+     */
+    protected void destroyBuffers()
+    {
+      peer.destroyBuffers();
+    }
+
+    /**
+     * Retrieves the capabilities of this buffer strategy.
+     *
+     * @return the capabilities of this buffer strategy
+     */
     public BufferCapabilities getCapabilities()
     {
       return caps;
     }
-    public Graphics getDrawGraphics() { return null; }
-    protected void revalidate() {}
-    public boolean contentsLost() { return false; }
-    public boolean contentsRestored() { return false; }
-    public void show() {}
-  } // class FlipBufferStrategy
-} // class Component
+
+    /**
+     * Retrieves a graphics object that can be used to draw into this
+     * strategy's image buffer.
+     *
+     * @return a graphics object
+     */
+    public Graphics getDrawGraphics()
+    {
+      return drawVBuffer.getGraphics();
+    }
+
+    /**
+     * Re-create the image buffer resources if they've been lost.
+     */
+    protected void revalidate()
+    {
+      GraphicsConfiguration c =
+	GraphicsEnvironment.getLocalGraphicsEnvironment()
+	.getDefaultScreenDevice().getDefaultConfiguration();
+
+      if (drawVBuffer.validate(c) == VolatileImage.IMAGE_INCOMPATIBLE)
+	drawVBuffer = peer.createVolatileImage(width, height);
+      validatedContents = true;
+    }
+
+    /**
+     * Returns whether or not the image buffer resources have been
+     * lost.
+     *
+     * @return true if the resources have been lost, false otherwise
+     */
+    public boolean contentsLost()
+    {
+      if (drawVBuffer.contentsLost())
+	{
+	  validatedContents = false;
+	  return true;
+	}
+      // we know that the buffer resources are valid now because we
+      // just checked them
+      validatedContents = true;
+      return false;
+    }
+
+    /**
+     * Returns whether or not the image buffer resources have been
+     * restored.
+     *
+     * @return true if the resources have been restored, false
+     * otherwise
+     */
+    public boolean contentsRestored()
+    {
+      GraphicsConfiguration c =
+	GraphicsEnvironment.getLocalGraphicsEnvironment()
+	.getDefaultScreenDevice().getDefaultConfiguration();
+
+      int result = drawVBuffer.validate(c);
+
+      boolean imageRestored = false;
+
+      if (result == VolatileImage.IMAGE_RESTORED)
+	imageRestored = true;
+      else if (result == VolatileImage.IMAGE_INCOMPATIBLE)
+	return false;
+
+      // we know that the buffer resources are valid now because we
+      // just checked them
+      validatedContents = true;
+      return imageRestored;
+    }
+
+    /**
+     * Bring the contents of the back buffer to the front buffer.
+     */
+    public void show()
+    {
+      flip(caps.getFlipContents());
+    }
+  }
+}

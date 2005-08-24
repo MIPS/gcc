@@ -1,5 +1,5 @@
 /* GtkComponentPeer.java -- Implements ComponentPeer with GTK
-   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,6 +39,7 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.AWTEvent;
+import java.awt.AWTException;
 import java.awt.BufferCapabilities;
 import java.awt.Color;
 import java.awt.Component;
@@ -47,14 +48,12 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.ItemSelectable;
-import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
@@ -73,6 +72,9 @@ import java.awt.peer.ComponentPeer;
 public class GtkComponentPeer extends GtkGenericPeer
   implements ComponentPeer
 {
+  VolatileImage backBuffer;
+  BufferCapabilities caps;
+
   Component awtComponent;
 
   Insets insets;
@@ -83,7 +85,7 @@ public class GtkComponentPeer extends GtkGenericPeer
      knows if a parent is disabled.  In that case Component.isEnabled 
      may return true, but our isEnabled will always return false */
   native boolean isEnabled ();
-  native static boolean modalHasGrab ();
+  static native boolean modalHasGrab();
 
   native int[] gtkWidgetGetForeground ();
   native int[] gtkWidgetGetBackground ();
@@ -386,7 +388,7 @@ public class GtkComponentPeer extends GtkGenericPeer
     if (x == 0 && y == 0 && width == 0 && height == 0)
       return;
 
-    q.postEvent (new PaintEvent (awtComponent, PaintEvent.UPDATE,
+    q().postEvent (new PaintEvent (awtComponent, PaintEvent.UPDATE,
                                  new Rectangle (x, y, width, height)));
   }
 
@@ -508,14 +510,14 @@ public class GtkComponentPeer extends GtkGenericPeer
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
 				int clickCount, boolean popupTrigger) 
   {
-    q.postEvent(new MouseEvent(awtComponent, id, when, mods, x, y, 
+    q().postEvent(new MouseEvent(awtComponent, id, when, mods, x, y, 
 			       clickCount, popupTrigger));
   }
 
   protected void postExposeEvent (int x, int y, int width, int height)
   {
     if (!isInRepaint)
-      q.postEvent (new PaintEvent (awtComponent, PaintEvent.PAINT,
+      q().postEvent (new PaintEvent (awtComponent, PaintEvent.PAINT,
                                    new Rectangle (x, y, width, height)));
   }
 
@@ -535,23 +537,23 @@ public class GtkComponentPeer extends GtkGenericPeer
       {
         synchronized (q)
           {
-            q.postEvent (keyEvent);
-            q.postEvent (new KeyEvent (awtComponent, KeyEvent.KEY_TYPED, when, mods,
+            q().postEvent (keyEvent);
+            q().postEvent (new KeyEvent (awtComponent, KeyEvent.KEY_TYPED, when, mods,
                                         KeyEvent.VK_UNDEFINED, keyChar, keyLocation));
           }
       }
     else
-      q.postEvent (keyEvent);
+      q().postEvent (keyEvent);
   }
 
   protected void postFocusEvent (int id, boolean temporary)
   {
-    q.postEvent (new FocusEvent (awtComponent, id, temporary));
+    q().postEvent (new FocusEvent (awtComponent, id, temporary));
   }
 
   protected void postItemEvent (Object item, int stateChange)
   {
-    q.postEvent (new ItemEvent ((ItemSelectable)awtComponent, 
+    q().postEvent (new ItemEvent ((ItemSelectable)awtComponent, 
 				ItemEvent.ITEM_STATE_CHANGED,
 				item, stateChange));
   }
@@ -598,35 +600,63 @@ public class GtkComponentPeer extends GtkGenericPeer
     
   }
 
-  public VolatileImage createVolatileImage (int width, int height)
-  {
-    return null;
-  }
-
   public boolean handlesWheelScrolling ()
   {
     return false;
   }
 
-  public void createBuffers (int x, BufferCapabilities capabilities)
-    throws java.awt.AWTException
-
+  // Convenience method to create a new volatile image on the screen
+  // on which this component is displayed.
+  public VolatileImage createVolatileImage (int width, int height)
   {
-    
+    return new GtkVolatileImage (width, height);
   }
 
+  // Creates buffers used in a buffering strategy.
+  public void createBuffers (int numBuffers, BufferCapabilities caps)
+    throws AWTException
+  {
+    // numBuffers == 2 implies double-buffering, meaning one back
+    // buffer and one front buffer.
+    if (numBuffers == 2)
+      backBuffer = new GtkVolatileImage(awtComponent.getWidth(),
+					awtComponent.getHeight(),
+					caps.getBackBufferCapabilities());
+    else
+      throw new AWTException("GtkComponentPeer.createBuffers:"
+			     + " multi-buffering not supported");
+    this.caps = caps;
+  }
+
+  // Return the back buffer.
   public Image getBackBuffer ()
   {
-    return null;
+    return backBuffer;
   }
 
+  // FIXME: flip should be implemented as a fast native operation
   public void flip (BufferCapabilities.FlipContents contents)
   {
-    
+    getGraphics().drawImage(backBuffer,
+			    awtComponent.getWidth(),
+			    awtComponent.getHeight(),
+			    null);
+
+    // create new back buffer and clear it to the background color.
+    if (contents == BufferCapabilities.FlipContents.BACKGROUND)
+	{
+	  backBuffer = createVolatileImage(awtComponent.getWidth(),
+					   awtComponent.getHeight());
+	  backBuffer.getGraphics().clearRect(0, 0,
+					     awtComponent.getWidth(),
+					     awtComponent.getHeight());
+	}
+    // FIXME: support BufferCapabilities.FlipContents.PRIOR
   }
 
+  // Release the resources allocated to back buffers.
   public void destroyBuffers ()
   {
-    
+    backBuffer.flush();
   }
 }

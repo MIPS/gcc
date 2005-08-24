@@ -89,13 +89,15 @@ public class Area implements Shape, Cloneable
 
   /**
    * Segment vectors containing solid areas and holes
+   * This is package-private to avoid an accessor method.
    */
-  private Vector solids;
+  Vector solids;
 
   /**
    * Segment vectors containing solid areas and holes
+   * This is package-private to avoid an accessor method.
    */
-  private Vector holes;
+  Vector holes;
 
   /**
    * Vector (temporary) storing curve-curve intersections
@@ -1315,9 +1317,10 @@ public class Area implements Shape, Cloneable
    * This is a reasonably accurate method, although the recursion depth
    * is typically around 20, the bounding-box tests allow for significant
    * pruning of the subdivision tree.
+   * 
+   * This is package-private to avoid an accessor method.
    */
-  private Intersection[] cubicCubicIntersect(CubicSegment curve1,
-                                             CubicSegment curve2)
+  Intersection[] cubicCubicIntersect(CubicSegment curve1, CubicSegment curve2)
   {
     Rectangle2D r1 = curve1.getBounds();
     Rectangle2D r2 = curve2.getBounds();
@@ -1349,8 +1352,9 @@ public class Area implements Shape, Cloneable
    * Or null if no intersections are found1
    * This is done through combining the line's equation with the
    * parametric form of the Bezier and solving the resulting quadratic.
+   * This is package-private to avoid an accessor method.
    */
-  private Intersection[] lineQuadIntersect(LineSegment l, QuadSegment c)
+  Intersection[] lineQuadIntersect(LineSegment l, QuadSegment c)
   {
     double[] y = new double[3];
     double[] x = new double[3];
@@ -1453,8 +1457,9 @@ public class Area implements Shape, Cloneable
    * Returns the intersections between a line and a cubic segment
    * This is done through combining the line's equation with the
    * parametric form of the Bezier and solving the resulting quadratic.
+   * This is package-private to avoid an accessor method. 
    */
-  private Intersection[] lineCubicIntersect(LineSegment l, CubicSegment c)
+  Intersection[] lineCubicIntersect(LineSegment l, CubicSegment c)
   {
     double[] y = new double[4];
     double[] x = new double[4];
@@ -1560,8 +1565,9 @@ public class Area implements Shape, Cloneable
   /**
    * Returns the intersection between two lines, or null if there is no
    * intersection.
+   * This is package-private to avoid an accessor method.
    */
-  private Intersection linesIntersect(LineSegment a, LineSegment b)
+  Intersection linesIntersect(LineSegment a, LineSegment b)
   {
     Point2D P1 = a.P1;
     Point2D P2 = a.P2;
@@ -1605,8 +1611,9 @@ public class Area implements Shape, Cloneable
   /**
    * Determines if two points are equal, within an error margin
    * 'snap distance'
+   * This is package-private to avoid an accessor method.
    */
-  private boolean pointEquals(Point2D a, Point2D b)
+  boolean pointEquals(Point2D a, Point2D b)
   {
     return (a.equals(b) || a.distance(b) < PE_EPSILON);
   }
@@ -2631,11 +2638,9 @@ public class Area implements Shape, Cloneable
 
       double P = (y2 - 2 * y1 + y0);
       double Q = 2 * (y1 - y0);
-      double R = y0;
 
       double A = (x2 - 2 * x1 + x0);
       double B = 2 * (x1 - x0);
-      double C = x0;
 
       double area = (B * P - A * Q) / 3.0;
       return (area);
@@ -2937,12 +2942,10 @@ public class Area implements Shape, Cloneable
       double P = y3 - 3 * y2 + 3 * y1 - y0;
       double Q = 3 * (y2 + y0 - 2 * y1);
       double R = 3 * (y1 - y0);
-      double S = y0;
 
       double A = x3 - 3 * x2 + 3 * x1 - x0;
       double B = 3 * (x2 + x0 - 2 * x1);
       double C = 3 * (x1 - x0);
-      double D = x0;
 
       double area = (B * P - A * Q) / 5.0 + (C * P - A * R) / 2.0
                     + (C * Q - B * R) / 3.0;

@@ -23,6 +23,7 @@
 AC_PREREQ(2.59)
 AC_INIT(package-unused, version-unused,, libobjc)
 AC_CONFIG_SRCDIR([objc/objc.h])
+GCC_TOPLEV_SUBDIRS
 
 # We need the following definitions because AC_PROG_LIBTOOL relies on them
 PACKAGE=libobjc
@@ -117,8 +118,6 @@ case $srcdir in
 esac
 AC_SUBST(glibcpp_srcdir)
 
-TL_AC_GCC_VERSION([$srcdir/..])
-
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
 case ${version_specific_libs} in
@@ -127,7 +126,7 @@ case ${version_specific_libs} in
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
     toolexecdir='$(libdir)/gcc/$(target_noncanonical)'
-    toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
+    toolexeclibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
     ;;
   no)
     if test -n "$with_cross_host" &&
@@ -217,18 +216,15 @@ AC_CHECK_HEADERS(sched.h)
 # Miscellanea
 # -----------
 
-# Determine CFLAGS for gthread.
-# FIXME: the current implementation is dependent on the 'r' variable
-# passed down from the top level
-AC_CACHE_CHECK([for gthread cflags],objc_cv_gthread_flags,
-[if test -f "$r"/gcc/Makefile
-then
-  objc_cv_gthread_flags=`grep \^GTHREAD_FLAGS "$r"/gcc/Makefile | awk -F= '{ print $2 }'`
-else
-  AC_MSG_ERROR([not found])
-fi])
-GTHREAD_FLAGS=$objc_cv_gthread_flags
-AC_SUBST(GTHREAD_FLAGS)
+AC_MSG_CHECKING([for thread model used by GCC])
+target_thread_file=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`
+AC_MSG_RESULT([$target_thread_file]) 
+
+if test $target_thread_file != single; then
+  AC_DEFINE(HAVE_GTHR_DEFAULT, 1,
+        [Define if the compiler has a thread header that is non single.])
+fi 
+
 
 AC_MSG_CHECKING([for exception model to use])
 AC_LANG_PUSH(C)

@@ -1,4 +1,4 @@
-/* ImageDecoder.java
+/* ImageDecoder.java --
    Copyright (C) 1999, 2000, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -41,8 +41,8 @@ import java.awt.image.ImageConsumer;
 import java.awt.image.ImageProducer;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.Vector;
 
@@ -74,6 +74,11 @@ public abstract class ImageDecoder implements ImageProducer
     this.url = url;
   }
 
+  public ImageDecoder (InputStream is)
+  {
+    this.input = is;
+  }
+
   public ImageDecoder (byte[] imagedata, int imageoffset, int imagelength)
   {
     data = imagedata;
@@ -99,7 +104,7 @@ public abstract class ImageDecoder implements ImageProducer
   public void startProduction (ImageConsumer ic)
   {
     if (!isConsumer(ic))
-    addConsumer (ic);
+      addConsumer(ic);
 
     Vector list = (Vector) consumers.clone ();
     try 
@@ -108,17 +113,30 @@ public abstract class ImageDecoder implements ImageProducer
 	// ImageDecoder constructors so that exceptions cause
 	// imageComplete to be called with an appropriate error
 	// status.
-	if (url != null)
-	  input = url.openStream();
-	else
-	  {
-	    if (filename != null)
-	      input = new FileInputStream (filename);
-	    else
-	      input = new ByteArrayInputStream (data, offset, length);
-	  }
-
-	produce (list, input);
+        if (input == null)
+          {
+            try 
+              {
+                if (url != null)
+                  input = url.openStream();
+                else
+                  {
+                    if (filename != null)
+                      input = new FileInputStream (filename);
+                    else
+                      input = new ByteArrayInputStream (data, offset, length);
+                  }
+                produce (list, input);
+              } 
+            finally 
+              {
+                input = null;
+              }
+          }
+        else
+          {
+            produce (list, input);
+          }
       }
     catch (Exception e)
       {

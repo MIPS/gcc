@@ -2,20 +2,29 @@
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -31,10 +40,10 @@ export_proto(all_l8);
 void
 all_l8 (gfc_array_l8 *retarray, gfc_array_l8 *array, index_type *pdim)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
-  index_type dstride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
+  index_type dstride[GFC_MAX_DIMENSIONS];
   GFC_LOGICAL_8 *base;
   GFC_LOGICAL_8 *dest;
   index_type rank;
@@ -46,11 +55,11 @@ all_l8 (gfc_array_l8 *retarray, gfc_array_l8 *array, index_type *pdim)
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
+
+  /* TODO:  It should be a front end job to correctly set the strides.  */
+
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   delta = array->dim[dim].stride;
@@ -84,8 +93,17 @@ all_l8 (gfc_array_l8 *retarray, gfc_array_l8 *array, index_type *pdim)
 		 		 * retarray->dim[rank-1].stride
 				 * extent[rank-1]);
       retarray->base = 0;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
     }
-          
+  else
+    {
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+
+      if (rank != GFC_DESCRIPTOR_RANK (retarray))
+	runtime_error ("rank of return array incorrect");
+    }
+
   for (n = 0; n < rank; n++)
     {
       count[n] = 0;

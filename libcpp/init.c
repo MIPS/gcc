@@ -1,6 +1,6 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -137,7 +137,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   /* Initialize this instance of the library if it hasn't been already.  */
   init_library ();
 
-  pfile = xcalloc (1, sizeof (cpp_reader));
+  pfile = XCNEW (cpp_reader);
 
   cpp_set_lang (pfile, lang);
   CPP_OPTION (pfile, warn_multichar) = 1;
@@ -153,6 +153,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   CPP_OPTION (pfile, dollars_in_ident) = 1;
   CPP_OPTION (pfile, warn_dollars) = 1;
   CPP_OPTION (pfile, warn_variadic_macros) = 1;
+  CPP_OPTION (pfile, warn_normalize) = normalized_C;
 
   /* Default CPP arithmetic to something sensible for the host for the
      benefit of dumb users like fix-header.  */
@@ -356,7 +357,7 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->type = NT_MACRO;
       hp->flags |= NODE_BUILTIN | NODE_WARN;
-      hp->value.builtin = b->value;
+      hp->value.builtin = (enum builtin_type) b->value;
     }
 
   if (CPP_OPTION (pfile, cplusplus))
@@ -544,7 +545,7 @@ read_original_directory (cpp_reader *pfile)
 
   if (pfile->cb.dir_change)
     {
-      char *debugdir = alloca (token->val.str.len - 3);
+      char *debugdir = (char *) alloca (token->val.str.len - 3);
 
       memcpy (debugdir, (const char *) token->val.str.text + 1,
 	      token->val.str.len - 4);

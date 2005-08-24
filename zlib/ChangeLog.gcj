@@ -1,3 +1,11 @@
+2005-05-09  Mike Stump  <mrs@apple.com>
+	
+	* configure: Regenerate.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
 2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* configure: Regenerate for libtool change.

@@ -5,6 +5,8 @@ AC_INIT([libjava], [version-unused],, [libjava])
 
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
+GCC_TOPLEV_SUBDIRS
+
 # We use these options to decide which functions to include.
 AC_ARG_WITH(target-subdir,
   AS_HELP_STRING([--with-target-subdir=SUBDIR],
@@ -162,13 +164,6 @@ AM_PROG_GCJ
 AM_PROG_CC_C_O
 AC_CONFIG_SUBDIRS(libltdl)
 
-if test -z "$with_target_subdir" || test "$with_target_subdir" = "."; then
-   COMPPATH=.
-else
-   COMPPATH=..
-fi
-AC_SUBST(COMPPATH)
-
 # The -no-testsuite modules omit the test subdir.
 AM_CONDITIONAL(TESTSUBDIR, test -d $srcdir/testsuite)
 
@@ -207,16 +202,12 @@ if test -z "$enable_hash_synchronization"; then
    enable_hash_synchronization=$enable_hash_synchronization_default
 fi
 
-# Do we allow intermodule optimizations (i.e. compiling many files at once)?
-AC_ARG_ENABLE(libgcj-multifile,
-  AS_HELP_STRING([--enable-libgcj-multifile]
-                 [allow compilation of several files at once]),
-[case "${enableval}" in
-  yes) enable_libgcj_multifile=yes ;;
-  no)  enable_libgcj_multifile=no ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-libgcj-multifile) ;;
-esac],[enable_libgcj_multifile=no])
-AM_CONDITIONAL(ONESTEP, test "$enable_libgcj_multifile" = yes)
+AC_ARG_WITH(java-home,
+  AS_HELP_STRING([--with-java-home=DIRECTORY],
+                 [value of java.home system property]),
+		 [JAVA_HOME="${withval}"], [JAVA_HOME=""])
+AM_CONDITIONAL(JAVA_HOME_SET, test ! -z "$JAVA_HOME")
+AC_SUBST(JAVA_HOME)
 
 # What is the native OS API for MinGW?
 AC_ARG_WITH(win32-nlsapi,
@@ -454,10 +445,10 @@ test -d java/lang || mkdir java/lang
 AC_CONFIG_LINKS(java/lang/ConcreteProcess.java:java/lang/${PLATFORM}Process.java)
 AC_CONFIG_LINKS(java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc)
 
-# Likewise for natInetAddress.cc and natNetworkInterface.cc.
+# Likewise for natInetAddress.cc and natVMNetworkInterface.cc.
 test -d java/net || mkdir java/net
 AC_CONFIG_LINKS(java/net/natInetAddress.cc:java/net/natInetAddress${PLATFORMNET}.cc)
-AC_CONFIG_LINKS(java/net/natNetworkInterface.cc:java/net/natNetworkInterface${PLATFORMNET}.cc)
+AC_CONFIG_LINKS(java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc)
 
 # Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.cc.
 test -d gnu/java || mkdir gnu/java
@@ -715,6 +706,8 @@ AM_CONDITIONAL(USING_NO_THREADS, test "$THREADS" = none)
 
 if test -d sysdep; then true; else mkdir sysdep; fi
 AC_CONFIG_LINKS(sysdep/locks.h:sysdep/$sysdeps_dir/locks.h)
+AC_CONFIG_LINKS(sysdep/backtrace.h:$fallback_backtrace_h)
+AC_CONFIG_LINKS(sysdep/descriptor.h:$descriptor_h)
 
 HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
@@ -724,17 +717,10 @@ if test "$enable_hash_synchronization" = yes && test "$THREADS" != "none"; then
 fi
 AC_SUBST(HASH_SYNC_SPEC)
 
-
 AM_CONDITIONAL(USING_GCC, test "$GCC" = yes)
 
 # We're in the tree with gcc, and need to include some of its headers.
 GCC_UNWIND_INCLUDE='-I$(libgcj_basedir)/../gcc'
-
-TL_AC_GCC_VERSION([$srcdir/..])
-
-# Figure out where generated headers like libgcj-config.h get installed.
-tool_include_dir='$(libdir)/gcc/$(target_noncanonical)/'${gcc_version}/include
-AC_SUBST(tool_include_dir)
 
 if test "x${with_newlib}" = "xyes"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
@@ -759,13 +745,13 @@ if test "x${with_newlib}" = "xyes"; then
    AC_DEFINE(NO_GETUID, 1, [Define if getuid() and friends are missing.])
    PLATFORMNET=NoNet
 else
-   AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep opendir)
-   AC_CHECK_FUNCS(gmtime_r localtime_r readdir_r getpwuid_r getcwd)
-   AC_CHECK_FUNCS(access stat mkdir rename rmdir unlink realpath utime chmod)
-   AC_CHECK_FUNCS(nl_langinfo setlocale)
+   AC_CHECK_FUNCS([strerror ioctl select fstat open fsync sleep opendir \
+                   gmtime_r localtime_r readdir_r getpwuid_r getcwd \
+		   access stat mkdir rename rmdir unlink realpath utime chmod \
+		   nl_langinfo setlocale \
+		   inet_pton uname inet_ntoa \
+		   fork execvp pipe sigaction ftruncate])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
-   AC_CHECK_FUNCS(inet_pton uname inet_ntoa)
-   AC_CHECK_FUNCS(fork execvp pipe sigaction ftruncate)
    AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h) 
    AC_CHECK_FUNC(backtrace, [
      case "$host" in
@@ -1014,6 +1000,11 @@ else
       PKG_CHECK_MODULES(LIBART, libart-2.0 >= 2.1)
       AC_SUBST(LIBART_CFLAGS)
       AC_SUBST(LIBART_LIBS)
+
+      # We require the XTest Extension to support java.awt.Robot.
+      AC_CHECK_LIB([Xtst], [XTestQueryExtension], [true],
+		   [AC_MSG_ERROR([libXtst not found, required by java.awt.Robot])],
+		   [${X_LIBS}])
    fi
 
    # On Solaris, and maybe other architectures, the Boehm collector
@@ -1034,7 +1025,7 @@ NATIVE=yes
 
 # Which gcj do we use?
 which_gcj=default
-built_gcc_dir="`cd ${builddotdot}/../../gcc && ${PWDCMD-pwd}`"
+built_gcc_dir="`cd ${builddotdot}/../../${host_subdir}/gcc && ${PWDCMD-pwd}`"
 if test -n "${with_cross_host}"; then
   # We are being configured with a cross compiler. We can't
   # use ac_exeext, because that is for the target platform.
@@ -1073,8 +1064,8 @@ fi
 case "${which_gcj}" in
    built)
       GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
-      GCJH='$(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh'
-      ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
+      GCJH='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
    ;;
    cross)
       if test "x${with_newlib}" = "xyes"; then
@@ -1084,14 +1075,14 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      ZIP=jar
+      ZIP='$(target_noncanonical)-fastjar'
       GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
       ## In this case, gcj is found outside the build tree.  However, zip is
       ## found in the build tree.
-      ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
       GCJH=gcjh
    ;;
 esac
@@ -1135,9 +1126,9 @@ LT_AC_PROG_GCJ
 
 CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
-AC_COMPILE_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(void *)
 
-AC_C_BIGENDIAN_CROSS
+AC_C_BIGENDIAN
 
 ZLIBS=
 SYS_ZLIBS=
@@ -1157,6 +1148,7 @@ AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
 AC_SUBST(CHECKREFSPEC)
 AC_SUBST(EXCEPTIONSPEC)
+AC_SUBST(BACKTRACESPEC)
 AC_SUBST(IEEESPEC)
 
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes)
@@ -1170,9 +1162,9 @@ case ${version_specific_libs} in
     # Need the gcc compiler version to know where to install libraries
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
-    includedir='${libdir}/gcc/${target_noncanonical}/'$gcc_version/include/
+    includedir='$(libdir)/gcc/$(target_noncanonical)/$(gcc_version)/include/'
     toolexecdir='$(libdir)/gcc/$(target_noncanonical)'
-    toolexecmainlibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
+    toolexecmainlibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
     toolexeclibdir=$toolexecmainlibdir
     ;;
   no)
@@ -1202,15 +1194,21 @@ GCJVERSION=$gcjversion
 AC_SUBST(GCJVERSION)
 AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
 
+AC_DEFINE(JV_VERSION, "1.4.2", [Compatibility version string])
+AC_DEFINE(JV_API_VERSION, "1.4", [API compatibility version string])
+
 TL_AC_GXX_INCLUDE_DIR
 
 # We check for sys/filio.h because Solaris 2.5 defines FIONREAD there.
 # On that system, sys/ioctl.h will not include sys/filio.h unless
 # BSD_COMP is defined; just including sys/filio.h is simpler.
-AC_CHECK_HEADERS(unistd.h bstring.h sys/time.h sys/types.h fcntl.h sys/ioctl.h sys/filio.h sys/stat.h sys/select.h sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h pwd.h sys/config.h stdint.h langinfo.h locale.h)
 # We avoid AC_HEADER_DIRENT since we really only care about dirent.h
 # for now.  If you change this, you also must update natFile.cc.
-AC_CHECK_HEADERS(dirent.h)
+AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
+		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
+		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
+		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
+		  dirent.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1348,15 +1346,6 @@ if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER_AUX=
 fi
 
-# Define here any compiler flags that you need in order to make backtrace() work.
-BACKTRACESPEC=
-case "${host}" in
- x86_64*-*-linux*|i?86-*)
-    BACKTRACESPEC=-fno-omit-frame-pointer
-    ;;
-esac
-AC_SUBST(BACKTRACESPEC)
-
 AC_SUBST(SYSDEP_SOURCES)
 
 if test -z "$SIGNAL_HANDLER_AUX"; then
@@ -1389,6 +1378,9 @@ gnu/classpath/Configuration.java
 gcj/Makefile
 include/Makefile
 testsuite/Makefile
+external/Makefile
+external/sax/Makefile
+external/w3c_dom/Makefile
 ])
 
 AC_CONFIG_COMMANDS([default],
@@ -1399,6 +1391,12 @@ case " $CONFIG_FILES " in
    ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
    ;;
 esac
+for ac_multi_file in $CONFIG_FILES; do
+  case $ac_multi_file in
+  */Makefile)
+    grep "^MULTI[[^ ]]* =" Makefile >> "$ac_multi_file" ;;
+  esac
+done
 ],
 srcdir=${srcdir}
 host=${host}

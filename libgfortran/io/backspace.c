@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -19,6 +28,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
+#include <string.h>
 #include "libgfortran.h"
 #include "io.h"
 
@@ -92,17 +102,19 @@ formatted_backspace (void)
 static void
 unformatted_backspace (void)
 {
-  gfc_offset *p, new;
+  gfc_offset m, new;
   int length;
+  char *p;
 
   length = sizeof (gfc_offset);
 
-  p = (gfc_offset *) salloc_r_at (current_unit->s, &length,
-				file_position (current_unit->s) - length);
+  p = salloc_r_at (current_unit->s, &length,
+		   file_position (current_unit->s) - length);
   if (p == NULL)
     goto io_error;
 
-  new = file_position (current_unit->s) - *p - length;
+  memcpy (&m, p, sizeof (gfc_offset));
+  new = file_position (current_unit->s) - m - 2*length;
   if (sseek (current_unit->s, new) == FAILURE)
     goto io_error;
 
@@ -146,16 +158,23 @@ st_backspace (void)
     u->endfile = AT_ENDFILE;
   else
     {
-      if (u->current_record)
-	next_record (1);
-
       if (file_position (u->s) == 0)
 	goto done;		/* Common special case */
+
+      if (u->mode == WRITING)
+      {
+	flush (u->s);
+	struncate (u->s);
+	u->mode = READING;
+      }
 
       if (u->flags.form == FORM_FORMATTED)
 	formatted_backspace ();
       else
 	unformatted_backspace ();
+
+      u->endfile = NO_ENDFILE;
+      u->current_record = 0;
     }
 
  done:

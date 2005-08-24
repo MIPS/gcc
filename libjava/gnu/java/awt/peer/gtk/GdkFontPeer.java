@@ -1,5 +1,5 @@
 /* GdkFontPeer.java -- Implements FontPeer with GTK+
-   Copyright (C) 1999, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,24 +37,25 @@ exception statement from your version. */
 
 
 package gnu.java.awt.peer.gtk;
-import java.awt.peer.FontPeer;
-import java.awt.*;
-import java.awt.geom.*;
-import java.awt.font.*;
-import java.util.Locale;
-import java.util.Map;
-import java.util.ResourceBundle;
-import java.util.MissingResourceException;
-import java.text.CharacterIterator;
-import java.text.AttributedCharacterIterator;
-import java.text.StringCharacterIterator;
+
 import gnu.classpath.Configuration;
 import gnu.java.awt.peer.ClasspathFontPeer;
 
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.font.FontRenderContext;
+import java.awt.font.GlyphVector;
+import java.awt.font.LineMetrics;
+import java.awt.geom.Rectangle2D;
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
+import java.util.Locale;
+import java.util.Map;
+import java.util.ResourceBundle;
+
 public class GdkFontPeer extends ClasspathFontPeer
 {
-
-  native static void initStaticState ();
+  static native void initStaticState();
   private final int native_state = GtkGenericPeer.getUniqueInteger ();
   private static ResourceBundle bundle;
   
@@ -80,6 +81,9 @@ public class GdkFontPeer extends ClasspathFontPeer
   private native void initState ();
   private native void dispose ();
   private native void setFont (String family, int style, int size, boolean useGraphics2D);
+
+  native void getFontMetrics(double [] metrics);
+  native void getTextMetrics(String str, double [] metrics);
 
   protected void finalize ()
   {
@@ -158,26 +162,33 @@ public class GdkFontPeer extends ClasspathFontPeer
 
   public boolean canDisplay (Font font, char c)
   {
-    throw new UnsupportedOperationException ();
+    // FIXME: inquire with pango
+    return true;
   }
 
   public int canDisplayUpTo (Font font, CharacterIterator i, int start, int limit)
   {
-    throw new UnsupportedOperationException ();
+    // FIXME: inquire with pango
+    return -1;
   }
+  
+  private native GdkGlyphVector getGlyphVector(String txt, 
+                                               Font f, 
+                                               FontRenderContext ctx);
 
   public GlyphVector createGlyphVector (Font font, 
                                         FontRenderContext ctx, 
                                         CharacterIterator i)
   {
-    return new GdkGlyphVector(font, this, ctx, buildString (i));
+    return getGlyphVector(buildString (i), font, ctx);
   }
 
   public GlyphVector createGlyphVector (Font font, 
                                         FontRenderContext ctx, 
                                         int[] glyphCodes)
   {
-    return new GdkGlyphVector (font, this, ctx, glyphCodes);
+    return null;
+    //    return new GdkGlyphVector (font, this, ctx, glyphCodes);
   }
 
   public byte getBaselineFor (Font font, char c)
@@ -259,7 +270,8 @@ public class GdkFontPeer extends ClasspathFontPeer
   public Rectangle2D getStringBounds (Font font, CharacterIterator ci, 
                                       int begin, int limit, FontRenderContext frc)
   {
-    throw new UnsupportedOperationException ();
+    GdkGlyphVector gv = getGlyphVector(buildString (ci, begin, limit), font, frc);
+    return gv.getVisualBounds();
   }
 
   public boolean hasUniformLineMetrics (Font font)

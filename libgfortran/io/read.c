@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -527,9 +536,11 @@ read_f (fnode * f, char *dest, int length)
 
   exponent_sign = 1;
 
-  /* A digit (or a '.') is required at this point */
+  /* A digit, a '.' or a exponent character ('e', 'E', 'd' or 'D')
+     is required at this point */
 
-  if (!isdigit (*p) && *p != '.')
+  if (!isdigit (*p) && *p != '.' && *p != 'd' && *p != 'D'
+      && *p != 'e' && *p != 'E')
     goto bad_float;
 
   /* Remember the position of the first digit.  */
@@ -591,8 +602,6 @@ read_f (fnode * f, char *dest, int length)
 
  bad_float:
   generate_error (ERROR_READ_VALUE, "Bad value during floating point read");
-  if (buffer != scratch)
-     free_mem (buffer);
   return;
 
   /* At this point the start of an exponent has been found */

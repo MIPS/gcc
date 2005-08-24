@@ -1,5 +1,8 @@
 // { dg-do run { xfail *-*-![linux]* } }
-// Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// { dg-require-namedlocale "" }
+
+// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -67,7 +70,7 @@ void test02()
     }   
 
   // "de_DE"
-  locale loc_de = __gnu_test::try_named_locale("de_DE");
+  locale loc_de = locale("de_DE");
   const ctype<wchar_t>& ctype_de = use_facet<ctype<wchar_t> >(loc_de); 
   for (int i = 0; i < max; ++i)
     {
@@ -96,11 +99,6 @@ void test02()
 
   VERIFY( v_c != v_de );
 }
-
-#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
-// Explicitly instantiate for systems with no COMDAT or weak support.
-template class __gnu_cxx::__mt_alloc<std::ctype_base::mask>;
-#endif
 
 int main() 
 {

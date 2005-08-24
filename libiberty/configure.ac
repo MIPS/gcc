@@ -114,7 +114,7 @@ AC_PROG_CC
 AC_PROG_CPP_WERROR
 
 if test x$GCC = xyes; then
-  ac_libiberty_warn_cflags='-W -Wall -Wtraditional -pedantic'
+  ac_libiberty_warn_cflags='-W -Wall -pedantic -Wwrite-strings -Wstrict-prototypes'
 fi
 AC_SUBST(ac_libiberty_warn_cflags)
 
@@ -130,7 +130,7 @@ AC_SUBST(OUTPUT_OPTION)
 
 AC_C_CONST
 AC_C_INLINE
-AC_C_BIGENDIAN_CROSS
+AC_C_BIGENDIAN
 
 dnl When we start using libtool:
 dnl Default to a non shared library.  This may be overridden by the
@@ -159,7 +159,7 @@ AC_SUBST_FILE(host_makefile_frag)
 # It's OK to check for header files.  Although the compiler may not be
 # able to link anything, it had better be able to at least compile
 # something.
-AC_CHECK_HEADERS(sys/file.h sys/param.h limits.h stdlib.h malloc.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h alloca.h sys/pstat.h sys/sysmp.h sys/sysinfo.h machine/hal_sysinfo.h sys/table.h sys/sysctl.h sys/systemcfg.h stdint.h)
+AC_CHECK_HEADERS(sys/file.h sys/param.h limits.h stdlib.h malloc.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h alloca.h sys/pstat.h sys/sysmp.h sys/sysinfo.h machine/hal_sysinfo.h sys/table.h sys/sysctl.h sys/systemcfg.h stdint.h stdio_ext.h)
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIME
 
@@ -225,6 +225,7 @@ funcs="$funcs clock"
 funcs="$funcs ffs"
 funcs="$funcs getcwd"
 funcs="$funcs getpagesize"
+funcs="$funcs gettimeofday"
 funcs="$funcs index"
 funcs="$funcs insque"
 funcs="$funcs memchr"
@@ -247,6 +248,7 @@ funcs="$funcs strcasecmp"
 funcs="$funcs strchr"
 funcs="$funcs strdup"
 funcs="$funcs strncasecmp"
+funcs="$funcs strndup"
 funcs="$funcs strrchr"
 funcs="$funcs strstr"
 funcs="$funcs strtod"
@@ -266,20 +268,21 @@ vars="sys_errlist sys_nerr sys_siglist"
 
 checkfuncs="getrusage on_exit psignal strerror strsignal sysconf times sbrk gettimeofday"
 checkfuncs="$checkfuncs realpath canonicalize_file_name pstat_getstatic pstat_getdynamic sysmp"
-checkfuncs="$checkfuncs getsysinfo table sysctl"
+checkfuncs="$checkfuncs getsysinfo table sysctl wait3 wait4 __fsetlocking"
 
 # These are neither executed nor required, but they help keep
 # autoheader happy without adding a bunch of text to acconfig.h.
 if test "x" = "y"; then
   AC_CHECK_FUNCS(asprintf atexit basename bcmp bcopy bsearch bzero calloc clock \
-  getcwd getpagesize index insque mkstemps memchr memcmp memcpy \
+  getcwd getpagesize gettimeofday index insque mkstemps memchr memcmp memcpy \
   memmove mempcpy memset putenv random rename rindex sigsetmask \
-  strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strrchr strstr \
+  strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strndup strrchr strstr \
   strtod strtol strtoul tmpnam vasprintf vfprintf vprintf \
   vsprintf waitpid getrusage on_exit psignal strerror strsignal \
   sysconf times sbrk gettimeofday ffs snprintf vsnprintf \
-  pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl \
-  realpath canonicalize_file_name)
+  pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl wait3 wait4 \
+  realpath canonicalize_file_name __fsetlocking)
+  AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
   AC_DEFINE(HAVE_SYS_ERRLIST, 1, [Define if you have the sys_errlist variable.])
   AC_DEFINE(HAVE_SYS_NERR,    1, [Define if you have the sys_nerr variable.])
   AC_DEFINE(HAVE_SYS_SIGLIST, 1, [Define if you have the sys_siglist variable.])
@@ -325,7 +328,7 @@ if test -n "${with_target_subdir}"; then
     # dont have to check them here.
 
     # Of the functions in $checkfuncs, newlib only has strerror.
-    AC_DEFINE_NOAUTOHEADER(HAVE_STRERROR)
+    AC_DEFINE(HAVE_STRERROR)
 
     setobjs=yes
 
@@ -355,7 +358,7 @@ if test -n "${with_target_subdir}"; then
 else
 
    # Not a target library, so we set things up to run the test suite.
-   CHECK=check-cplus-dem
+   CHECK=really-check
 
 fi
 
@@ -364,8 +367,8 @@ AC_SUBST(target_header_dir)
 
 case "${host}" in
   *-*-cygwin* | *-*-mingw*)
-    AC_DEFINE_NOAUTOHEADER(HAVE_SYS_ERRLIST)
-    AC_DEFINE_NOAUTOHEADER(HAVE_SYS_NERR)
+    AC_DEFINE(HAVE_SYS_ERRLIST)
+    AC_DEFINE(HAVE_SYS_NERR)
     ;;
 esac
 
@@ -403,7 +406,7 @@ if test -z "${setobjs}"; then
     # don't have to check them here.
 
     # Of the functions in $checkfuncs, VxWorks only has strerror.
-    AC_DEFINE_NOAUTOHEADER(HAVE_STRERROR)
+    AC_DEFINE(HAVE_STRERROR)
 
     setobjs=yes
     ;;
@@ -443,6 +446,11 @@ if test -z "${setobjs}"; then
     # macros, so the test below won't find them.
     libiberty_cv_var_sys_nerr=yes
     libiberty_cv_var_sys_errlist=yes
+    ;;
+
+  *-*-msdosdjgpp*)
+    # vfork and fork are stubs.
+    ac_cv_func_vfork_works=no
     ;;
 
   *-*-uwin*)
@@ -510,6 +518,8 @@ if test -z "${setobjs}"; then
     [AC_MSG_RESULT([no])])
 
   AC_CHECK_FUNCS($checkfuncs)
+  AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
+  AC_CHECK_DECLS([calloc, getenv, malloc, realloc, sbrk])
   libiberty_NEED_DECLARATION(canonicalize_file_name)
 fi
 
@@ -518,7 +528,6 @@ case "${host}" in
      *-*-mingw* | *-*-winnt*)	pexecute=./pex-win32.o  ;;
      *-*-msdosdjgpp*)		pexecute=./pex-djgpp.o  ;;
      *-*-msdos*)		pexecute=./pex-msdos.o  ;;
-     *-*-os2-emx*)		pexecute=./pex-os2.o    ;;
      *)				pexecute=./pex-unix.o   ;;
 esac
 AC_SUBST(pexecute)

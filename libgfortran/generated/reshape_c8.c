@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -97,7 +97,7 @@ reshape_c8 (gfc_array_c8 * ret, gfc_array_c8 * source, shape_type * shape,
 	  ret->dim[n].stride = rs;
 	  rs *= rex;
 	}
-      ret->offset = 0;
+      ret->base = 0;
       ret->data = internal_malloc_size ( rs * sizeof (GFC_COMPLEX_8));
       ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
     }
@@ -174,9 +174,9 @@ reshape_c8 (gfc_array_c8 * ret, gfc_array_c8 * source, shape_type * shape,
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= sizeof (GFC_COMPLEX_8);
-      ssize *= sizeof (GFC_COMPLEX_8);
-      psize *= sizeof (GFC_COMPLEX_8);
+      rsize *= 8;
+      ssize *= 8;
+      psize *= 8;
       reshape_packed ((char *)ret->data, rsize, (char *)source->data,
 		      ssize, pad ? (char *)pad->data : NULL, psize);
       return;

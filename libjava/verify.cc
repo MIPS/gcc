@@ -1,6 +1,6 @@
 // verify.cc - verify bytecode
 
-/* Copyright (C) 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -31,6 +31,7 @@ details.  */
 #include <java/lang/Throwable.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/lang/StringBuffer.h>
+#include <java/lang/NoClassDefFoundError.h>
 
 #ifdef VERIFY_DEBUG
 #include <stdio.h>
@@ -368,7 +369,11 @@ private:
 	= verifier->current_class->getClassLoaderInternal();
       // We might see either kind of name.  Sigh.
       if (data.name->first() == 'L' && data.name->limit()[-1] == ';')
-	data.klass = _Jv_FindClassFromSignature (data.name->chars(), loader);
+	{
+	  data.klass = _Jv_FindClassFromSignature (data.name->chars(), loader);
+	  if (data.klass == NULL)
+	    throw new java::lang::NoClassDefFoundError(data.name->toString());
+	}
       else
 	data.klass = Class::forName (_Jv_NewStringUtf8Const (data.name),
 				     false, loader);
@@ -578,9 +583,11 @@ private:
     //
     // First, when constructing a new object, it is the PC of the
     // `new' instruction which created the object.  We use the special
-    // value UNINIT to mean that this is uninitialized, and the
-    // special value SELF for the case where the current method is
-    // itself the <init> method.
+    // value UNINIT to mean that this is uninitialized.  The special
+    // value SELF is used for the case where the current method is
+    // itself the <init> method.  the special value EITHER is used
+    // when we may optionally allow either an uninitialized or
+    // initialized reference to match.
     //
     // Second, when the key is return_address_type, this holds the PC
     // of the instruction following the `jsr'.
@@ -588,6 +595,7 @@ private:
 
     static const int UNINIT = -2;
     static const int SELF = -1;
+    static const int EITHER = -3;
 
     // Basic constructor.
     type ()
@@ -734,21 +742,49 @@ private:
       if (k.klass == NULL)
 	verifier->verify_fail ("programmer error in type::compatible");
 
-      // An initialized type and an uninitialized type are not
-      // compatible.
-      if (isinitialized () != k.isinitialized ())
-	return false;
-
-      // Two uninitialized objects are compatible if either:
-      // * The PCs are identical, or
-      // * One PC is UNINIT.
-      if (! isinitialized ())
+      // Handle the special 'EITHER' case, which is only used in a
+      // special case of 'putfield'.  Note that we only need to handle
+      // this on the LHS of a check.
+      if (! isinitialized () && pc == EITHER)
 	{
-	  if (pc != k.pc && pc != UNINIT && k.pc != UNINIT)
+	  // If the RHS is uninitialized, it must be an uninitialized
+	  // 'this'.
+	  if (! k.isinitialized () && k.pc != SELF)
 	    return false;
+	}
+      else if (isinitialized () != k.isinitialized ())
+	{
+	  // An initialized type and an uninitialized type are not
+	  // otherwise compatible.
+	  return false;
+	}
+      else
+	{
+	  // Two uninitialized objects are compatible if either:
+	  // * The PCs are identical, or
+	  // * One PC is UNINIT.
+	  if (! isinitialized ())
+	    {
+	      if (pc != k.pc && pc != UNINIT && k.pc != UNINIT)
+		return false;
+	    }
 	}
 
       return klass->compatible(k.klass, verifier);
+    }
+
+    bool equals (const type &other, _Jv_BytecodeVerifier *vfy)
+    {
+      // Only works for reference types.
+      if ((key != reference_type
+	   && key != uninitialized_reference_type)
+	  || (other.key != reference_type
+	      && other.key != uninitialized_reference_type))
+	return false;
+      // Only for single-valued types.
+      if (klass->ref_next || other.klass->ref_next)
+	return false;
+      return klass->equals (other.klass, vfy);
     }
 
     bool isvoid () const
@@ -1963,7 +1999,9 @@ private:
   }
 
   // Return field's type, compute class' type if requested.
-  type check_field_constant (int index, type *class_type = NULL)
+  // If PUTFIELD is true, use the special 'putfield' semantics.
+  type check_field_constant (int index, type *class_type = NULL,
+			     bool putfield = false)
   {
     _Jv_Utf8Const *name, *field_type;
     type ct = handle_field_or_method (index,
@@ -1971,9 +2009,29 @@ private:
 				      &name, &field_type);
     if (class_type)
       *class_type = ct;
+    type result;
     if (field_type->first() == '[' || field_type->first() == 'L')
-      return type (field_type, this);
-    return get_type_val_for_signature (field_type->first());
+      result = type (field_type, this);
+    else
+      result = get_type_val_for_signature (field_type->first());
+
+    // We have an obscure special case here: we can use `putfield' on
+    // a field declared in this class, even if `this' has not yet been
+    // initialized.
+    if (putfield
+	&& ! current_state->this_type.isinitialized ()
+	&& current_state->this_type.pc == type::SELF
+	&& current_state->this_type.equals (ct, this)
+	// We don't look at the signature, figuring that if it is
+	// wrong we will fail during linking.  FIXME?
+	&& _Jv_Linker::has_field_p (current_class, name))
+      // Note that we don't actually know whether we're going to match
+      // against 'this' or some other object of the same type.  So,
+      // here we set things up so that it doesn't matter.  This relies
+      // on knowing what our caller is up to.
+      class_type->set_uninitialized (type::EITHER, this);
+
+    return result;
   }
 
   type check_method_constant (int index, bool is_interface,
@@ -2783,15 +2841,8 @@ private:
 	  case op_putfield:
 	    {
 	      type klass;
-	      type field = check_field_constant (get_ushort (), &klass);
+	      type field = check_field_constant (get_ushort (), &klass, true);
 	      pop_type (field);
-
-	      // We have an obscure special case here: we can use
-	      // `putfield' on a field declared in this class, even if
-	      // `this' has not yet been initialized.
-	      if (! current_state->this_type.isinitialized ()
-		  && current_state->this_type.pc == type::SELF)
-		klass.set_uninitialized (type::SELF, this);
 	      pop_type (klass);
 	    }
 	    break;

@@ -5,11 +5,11 @@
 <table>
 <tbody><tr>
 <td align="left">Doc. no.</td>
-<td align="left">N1709=04-0149</td>
+<td align="left">N1763=05-0023</td>
 </tr>
 <tr>
 <td align="left">Date:</td>
-<td align="left">5 Nov 2004</td>
+<td align="left">2005-03-04</td>
 </tr>
 <tr>
 <td align="left">Project:</td>
@@ -17,10 +17,10 @@
 </tr>
 <tr>
 <td align="left">Reply to:</td>
-<td align="left">Matt Austern &lt;austern@apple.com&gt;</td>
+<td align="left">Matt Austern &lt;austern@google.com&gt;</td>
 </tr>
 </tbody></table>
-<h1>C++ Standard Library Defect Report List (Revision 33)</h1>
+<h1>C++ Standard Library Defect Report List (Revision 35)</h1>
   <p>Reference ISO/IEC IS 14882:1998(E)</p>
   <p>Also see:</p>
     <ul>
@@ -42,6 +42,12 @@
   document.</p>
 <h2>Revision History</h2>
 <ul>
+<li>R35: 
+2005-03 pre-Lillehammer mailing.
+</li>
+<li>R34: 
+2005-01 mid-term mailing.  Added new issues <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#488">488</a>-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#494">494</a>.
+</li>
 <li>R33: 
 2004-11 post-Redmond mailing.  Reflections actions taken in Redmond.
 </li>
@@ -1194,7 +1200,7 @@ initialization/identification system depends...", or (at the
 editor's option) replace it with a place-holder to keep the paragraph
 numbering the same. </p>
 <hr>
-<a name="41"><h3>41.&nbsp;Ios_base needs clear(), exceptions()</h3></a><p><b>Section:</b>&nbsp;27.4.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ios.base"> [lib.ios.base]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Nathan Myers&nbsp; <b>Date:</b>&nbsp;6 Aug 1998</p>
+<a name="41"></a><h3><a name="41">41.&nbsp;Ios_base needs clear(), exceptions()</a></h3><p><b>Section:</b>&nbsp;27.4.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ios.base"> [lib.ios.base]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Nathan Myers&nbsp; <b>Date:</b>&nbsp;6 Aug 1998</p>
 <p>The description of ios_base::iword() and pword() in 27.4.2.4 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ios.members.static"> [lib.ios.members.static]</a>, say that if they fail, they "set badbit,
 which may throw an exception". However, ios_base offers no
 interface to set or to test badbit; those interfaces are defined in
@@ -1656,7 +1662,8 @@ character c by</p>
 
 <p>for any sequences of characters; and the effect of pushing
 back a character c by</p>
-<pre>  ungetc(c, f);
+<pre>
+  ungetc(c, f);
 </pre>
 
 <p>is the same as the effect of</p>
@@ -1808,7 +1815,7 @@ explicitly. </p>
   <p><b>Effects</b>: None.</p>
 </blockquote>
 <hr>
-<a name="55"></a><h3><a name="55">55.&nbsp;Invalid stream position is undefined</a></h3><p><b>Section:</b>&nbsp;27 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.input.output"> [lib.input.output]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Matt Austern&nbsp; <b>Date:</b>&nbsp;26 Jun 1998</p>
+<a name="55"><h3>55.&nbsp;Invalid stream position is undefined</h3></a><p><b>Section:</b>&nbsp;27 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.input.output"> [lib.input.output]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Matt Austern&nbsp; <b>Date:</b>&nbsp;26 Jun 1998</p>
 <p>Several member functions in clause 27 are defined in certain
 circumstances to return an "invalid stream position", a term
 that is defined nowhere in the standard. Two places (27.5.2.4.2,
@@ -2597,7 +2604,7 @@ return value.]</i></p>
 <p>to:</p>
 <pre>   template&lt;class T&gt; complex&lt;T&gt; polar(const T&amp; rho, const T&amp; theta = 0); </pre>
 <hr>
-<a name="80"><h3>80.&nbsp;Global Operators of complex declared twice</h3></a><p><b>Section:</b>&nbsp;26.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.complex.synopsis"> [lib.complex.synopsis]</a>, 26.2.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.complex"> [lib.complex]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Nico Josuttis&nbsp; <b>Date:</b>&nbsp;29 Sep 1998</p>
+<a name="80"></a><h3><a name="80">80.&nbsp;Global Operators of complex declared twice</a></h3><p><b>Section:</b>&nbsp;26.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.complex.synopsis"> [lib.complex.synopsis]</a>, 26.2.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.complex"> [lib.complex]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Nico Josuttis&nbsp; <b>Date:</b>&nbsp;29 Sep 1998</p>
 <p>Both 26.2.1 and 26.2.2 contain declarations of global operators for
 class complex. This redundancy should be removed.</p>
 <p><b>Proposed resolution:</b></p>
@@ -3125,7 +3132,7 @@ replace:</p>
   <pre>bool equal(const istreambuf_iterator&amp; b) const;</pre>
 </blockquote>
 <hr>
-<a name="112"><h3>112.&nbsp;Minor typo in <tt>ostreambuf_iterator</tt> constructor</h3></a><p><b>Section:</b>&nbsp;24.5.4.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.ostreambuf.iter.cons"> [lib.ostreambuf.iter.cons]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Matt Austern&nbsp; <b>Date:</b>&nbsp;20 Oct 1998</p>
+<a name="112"></a><h3><a name="112">112.&nbsp;Minor typo in <tt>ostreambuf_iterator</tt> constructor</a></h3><p><b>Section:</b>&nbsp;24.5.4.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.ostreambuf.iter.cons"> [lib.ostreambuf.iter.cons]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Matt Austern&nbsp; <b>Date:</b>&nbsp;20 Oct 1998</p>
 <p>The <b>requires</b> clause for <tt>ostreambuf_iterator</tt>'s
 constructor from an <tt>ostream_type</tt> (24.5.4.1, paragraph 1)
 reads "<i>s</i> is not null". However, <i>s</i> is a
@@ -3352,7 +3359,7 @@ operator&gt;&gt;(int&amp; val);</pre>
 
 <p><i>[Post-Tokyo: PJP provided the above wording.]</i></p>
 <hr>
-<a name="119"><h3>119.&nbsp;Should virtual functions be allowed to strengthen the exception specification?</h3></a><p><b>Section:</b>&nbsp;17.4.4.8 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.res.on.exception.handling"> [lib.res.on.exception.handling]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Judy Ward&nbsp; <b>Date:</b>&nbsp;15 Dec 1998</p>
+<a name="119"></a><h3><a name="119">119.&nbsp;Should virtual functions be allowed to strengthen the exception specification?</a></h3><p><b>Section:</b>&nbsp;17.4.4.8 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.res.on.exception.handling"> [lib.res.on.exception.handling]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Judy Ward&nbsp; <b>Date:</b>&nbsp;15 Dec 1998</p>
 <p>Section 17.4.4.8 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.res.on.exception.handling"> [lib.res.on.exception.handling]</a> states: </p>
 
 <p>"An implementation may strengthen the exception-specification
@@ -3485,7 +3492,7 @@ different explicit instantiations might be harmless.</p>
   linking.  If there are such changes in the future, it may be
   appropriate to revisit this issue later.</p>
 <hr>
-<a name="122"></a><h3><a name="122">122.&nbsp;streambuf/wstreambuf description should not say they are specializations</a></h3><p><b>Section:</b>&nbsp;27.5.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.streambuf"> [lib.streambuf]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Judy Ward&nbsp; <b>Date:</b>&nbsp;15 Dec 1998</p>
+<a name="122"><h3>122.&nbsp;streambuf/wstreambuf description should not say they are specializations</h3></a><p><b>Section:</b>&nbsp;27.5.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.streambuf"> [lib.streambuf]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Judy Ward&nbsp; <b>Date:</b>&nbsp;15 Dec 1998</p>
 <p>Section 27.5.2 describes the streambuf classes this way: </p>
 
 <blockquote>
@@ -3584,8 +3591,7 @@ is not. For example, look at slice_array. This operator= in Section
 <blockquote>
 
    <p>Change the function declaration</p>
-    <pre>
-      void operator=(const T&amp;);
+    <pre>      void operator=(const T&amp;);
     </pre>
    <p>to</p>
     <pre>      void operator=(const T&amp;) const;
@@ -3748,7 +3754,7 @@ stream state in case of failure.</p>
 <p><b>Rationale:</b></p>
 <p>Setting failbit is the usual error reporting mechanism for streams</p>
 <hr>
-<a name="132"></a><h3><a name="132">132.&nbsp;list::resize description uses random access iterators</a></h3><p><b>Section:</b>&nbsp;23.2.2.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.list.capacity"> [lib.list.capacity]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Howard Hinnant&nbsp; <b>Date:</b>&nbsp;6 Mar 1999</p>
+<a name="132"><h3>132.&nbsp;list::resize description uses random access iterators</h3></a><p><b>Section:</b>&nbsp;23.2.2.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.list.capacity"> [lib.list.capacity]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Howard Hinnant&nbsp; <b>Date:</b>&nbsp;6 Mar 1999</p>
 <p>The description reads:</p>
 
 <p>-1- Effects:</p>
@@ -4318,8 +4324,8 @@ to do nothing.</p>
 <p>Change 27.5.2.4.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.streambuf.virt.buffer"> [lib.streambuf.virt.buffer]</a>, paragraph 3, Default behavior,
 to: "Default behavior: Does nothing. Returns this."</p>
 <hr>
-<a name="159"></a><h3><a name="159">159.&nbsp;Strange use of <tt>underflow()</tt>
-</a></h3><p><b>Section:</b>&nbsp;27.5.2.4.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.streambuf.virt.get"> [lib.streambuf.virt.get]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Dietmar Kühl&nbsp; <b>Date:</b>&nbsp;20 Jul 1999</p>
+<a name="159"><h3>159.&nbsp;Strange use of <tt>underflow()</tt>
+</h3></a><p><b>Section:</b>&nbsp;27.5.2.4.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.streambuf.virt.get"> [lib.streambuf.virt.get]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Dietmar Kühl&nbsp; <b>Date:</b>&nbsp;20 Jul 1999</p>
 <p>The description of the meaning of the result of
 <tt>showmanyc()</tt> seems to be rather strange: It uses calls to
 <tt>underflow()</tt>. Using <tt>underflow()</tt> is strange because
@@ -5934,7 +5940,7 @@ declared above.</pre>
     return 0;
 }</pre>
 <hr>
-<a name="220"><h3>220.&nbsp;~ios_base() usage valid?</h3></a><p><b>Section:</b>&nbsp;27.4.2.7 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ios.base.cons"> [lib.ios.base.cons]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Jonathan Schilling, Howard Hinnant&nbsp; <b>Date:</b>&nbsp;13 Mar 2000</p>
+<a name="220"></a><h3><a name="220">220.&nbsp;~ios_base() usage valid?</a></h3><p><b>Section:</b>&nbsp;27.4.2.7 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ios.base.cons"> [lib.ios.base.cons]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Jonathan Schilling, Howard Hinnant&nbsp; <b>Date:</b>&nbsp;13 Mar 2000</p>
 <p>The pre-conditions for the ios_base destructor are described in 27.4.2.7
 paragraph 2:</p>
 <blockquote>
@@ -6362,7 +6368,7 @@ resolution is the one proposed by Howard.]</i></p>
   to <tt>swap</tt>.  Also, in 26.3.3.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.valarray.transcend"> [lib.valarray.transcend]</a> paragraph 1,
   state that the valarray transcendentals use unqualified lookup.</p>
 <hr>
-<a name="227"></a><h3><a name="227">227.&nbsp;std::swap() should require CopyConstructible or DefaultConstructible arguments</a></h3><p><b>Section:</b>&nbsp;25.2.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.swap"> [lib.alg.swap]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Dave Abrahams&nbsp; <b>Date:</b>&nbsp;09 Apr 2000</p>
+<a name="227"><h3>227.&nbsp;std::swap() should require CopyConstructible or DefaultConstructible arguments</h3></a><p><b>Section:</b>&nbsp;25.2.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.swap"> [lib.alg.swap]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Dave Abrahams&nbsp; <b>Date:</b>&nbsp;09 Apr 2000</p>
 <p>25.2.2 reads:</p>
 <blockquote>
   <p><tt>  template&lt;class T&gt; void swap(T&amp; a, T&amp; b);</tt><br>
@@ -7184,7 +7190,7 @@ member functions, the member sets ios_base::eofbit in err.
 because it was more consistent with the way eof is described for other
 input facets.</p>
 <hr>
-<a name="250"></a><h3><a name="250">250.&nbsp;splicing invalidates iterators</a></h3><p><b>Section:</b>&nbsp;23.2.2.4 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.list.ops"> [lib.list.ops]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Brian Parker &nbsp; <b>Date:</b>&nbsp;14 Jul 2000</p>
+<a name="250"><h3>250.&nbsp;splicing invalidates iterators</h3></a><p><b>Section:</b>&nbsp;23.2.2.4 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.list.ops"> [lib.list.ops]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Brian Parker &nbsp; <b>Date:</b>&nbsp;14 Jul 2000</p>
 <p>
 Section 23.2.2.4 [lib.list.ops] states that
 </p>
@@ -7242,10 +7248,10 @@ iterators into *this, not into x.
 <p>The original proposed resolution said that iterators and references
 would remain "valid".  The new proposed resolution clarifies what that
 means.  Note that this only applies to the case of equal allocators.
-&gt;From 20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a> paragraph 4, the behavior of list when
+From 20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a> paragraph 4, the behavior of list when
 allocators compare nonequal is outside the scope of the standard.</p>
 <hr>
-<a name="251"><h3>251.&nbsp;basic_stringbuf missing allocator_type</h3></a><p><b>Section:</b>&nbsp;27.7.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.stringbuf"> [lib.stringbuf]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;28 Jul 2000</p>
+<a name="251"></a><h3><a name="251">251.&nbsp;basic_stringbuf missing allocator_type</a></h3><p><b>Section:</b>&nbsp;27.7.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.stringbuf"> [lib.stringbuf]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;28 Jul 2000</p>
 <p>The synopsis for the template class <tt>basic_stringbuf</tt>
 doesn't list a typedef for the template parameter
 <tt>Allocator</tt>. This makes it impossible to determine the type of
@@ -7487,8 +7493,8 @@ In section 21.3.4, paragraph 1, change
 <i>pos</i>)</tt>".
 </p>
 <hr>
-<a name="260"><h3>260.&nbsp;Inconsistent return type of <tt>istream_iterator::operator++(int)</tt>
-</h3></a><p><b>Section:</b>&nbsp;24.5.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.istream.iterator.ops"> [lib.istream.iterator.ops]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;27 Aug 2000</p>
+<a name="260"></a><h3><a name="260">260.&nbsp;Inconsistent return type of <tt>istream_iterator::operator++(int)</tt>
+</a></h3><p><b>Section:</b>&nbsp;24.5.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.istream.iterator.ops"> [lib.istream.iterator.ops]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;27 Aug 2000</p>
 <p>The synopsis of istream_iterator::operator++(int) in 24.5.1 shows
 it as returning the iterator by value. 24.5.1.2, p5 shows the same
 operator as returning the iterator by reference. That's incorrect
@@ -8026,7 +8032,7 @@ anything but non-zero.
 Add parentheses like so: rdstate()==(state|ios_base::badbit).
 </p>
 <hr>
-<a name="273"></a><h3><a name="273">273.&nbsp;Missing ios_base qualification on members of a dependent class</a></h3><p><b>Section:</b>&nbsp;27 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.input.output"> [lib.input.output]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;02 Nov 2000</p>
+<a name="273"><h3>273.&nbsp;Missing ios_base qualification on members of a dependent class</h3></a><p><b>Section:</b>&nbsp;27 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.input.output"> [lib.input.output]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;02 Nov 2000</p>
 <p>27.5.2.4.2, p4, and 27.8.1.6, p2, 27.8.1.7, p3, 27.8.1.9, p2,
 27.8.1.10, p3 refer to in and/or out w/o ios_base:: qualification.
 That's incorrect since the names are members of a dependent base
@@ -8090,7 +8096,7 @@ also forbids volatile types and reference types.
 excluded from the PR.]</i></p>
 
 <hr>
-<a name="275"></a><h3><a name="275">275.&nbsp;Wrong type in num_get::get() overloads</a></h3><p><b>Section:</b>&nbsp;22.2.2.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.members"> [lib.facet.num.get.members]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Matt Austern&nbsp; <b>Date:</b>&nbsp;02 Nov 2000</p>
+<a name="275"><h3>275.&nbsp;Wrong type in num_get::get() overloads</h3></a><p><b>Section:</b>&nbsp;22.2.2.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.members"> [lib.facet.num.get.members]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Matt Austern&nbsp; <b>Date:</b>&nbsp;02 Nov 2000</p>
 <p>
 In 22.2.2.1.1, we have a list of overloads for num_get&lt;&gt;::get().
 There are eight overloads, all of which are identical except for the
@@ -9500,7 +9506,7 @@ Table 82.  However, &lt;cstdio&gt; is mentioned several times within
 section 27.8 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.file.streams"> [lib.file.streams]</a>, including 27.8.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.c.files"> [lib.c.files]</a>.]</i></p>
 
 <hr>
-<a name="310"><h3>310.&nbsp;Is errno a macro?</h3></a><p><b>Section:</b>&nbsp;17.4.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.headers"> [lib.headers]</a>, 19.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-diagnostics.html#lib.errno"> [lib.errno]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Steve Clamage&nbsp; <b>Date:</b>&nbsp;21 Mar 2001</p>
+<a name="310"></a><h3><a name="310">310.&nbsp;Is errno a macro?</a></h3><p><b>Section:</b>&nbsp;17.4.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.headers"> [lib.headers]</a>, 19.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-diagnostics.html#lib.errno"> [lib.errno]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Steve Clamage&nbsp; <b>Date:</b>&nbsp;21 Mar 2001</p>
   <p>
   Exactly how should errno be declared in a conforming C++ header?
   </p>
@@ -10443,7 +10449,7 @@ parameter name conveys real normative meaning.
 <hr>
 <a name="338"><h3>338.&nbsp; is whitespace allowed between `-' and a digit?</h3></a><p><b>Section:</b>&nbsp;22.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.categories"> [lib.locale.categories]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;17 Sep 2001</p>
 <p>
-&gt;From Stage 2 processing in 22.2.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.virtuals"> [lib.facet.num.get.virtuals]</a>, p8 and 9 (the
+From Stage 2 processing in 22.2.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.virtuals"> [lib.facet.num.get.virtuals]</a>, p8 and 9 (the
 original text or the text corrected by the proposed resolution of
 issue <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-defects.html#221">221</a>) it seems clear that no whitespace is allowed
 within a number, but 22.2.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.numpunct"> [lib.locale.numpunct]</a>, p2, which gives the
@@ -10500,7 +10506,7 @@ for it to differ gratuitously from the very specific description of
 numeric processing in 22.2.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.virtuals"> [lib.facet.num.get.virtuals]</a>.  The proposed
 resolution removes all mention of "whitespace" from that format.</p>
 <hr>
-<a name="339"><h3>339.&nbsp;definition of bitmask type restricted to clause 27</h3></a><p><b>Section:</b>&nbsp;22.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.category.ctype"> [lib.category.ctype]</a>, 17.3.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.bitmask.types"> [lib.bitmask.types]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;17 September 2001</p>
+<a name="339"></a><h3><a name="339">339.&nbsp;definition of bitmask type restricted to clause 27</a></h3><p><b>Section:</b>&nbsp;22.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.category.ctype"> [lib.category.ctype]</a>, 17.3.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.bitmask.types"> [lib.bitmask.types]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;17 September 2001</p>
 <p>
 The ctype_category::mask type is declared to be an enum in 22.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.category.ctype"> [lib.category.ctype]</a> with p1 then stating that it is a bitmask type, most
 likely referring to the definition of bitmask type in 17.3.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.bitmask.types"> [lib.bitmask.types]</a>, p1. However, the said definition only applies to
@@ -10558,8 +10564,8 @@ following (note, in particluar, the cross-reference to 17.3.2.1.2 in
 consistent with the rest of the standard.]</i></p>
 
 <hr>
-<a name="340"><h3>340.&nbsp;interpretation of <tt>has_facet&lt;Facet&gt;(loc)</tt>
-</h3></a><p><b>Section:</b>&nbsp;22.1.1.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.category"> [lib.locale.category]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;18 Sep 2001</p>
+<a name="340"></a><h3><a name="340">340.&nbsp;interpretation of <tt>has_facet&lt;Facet&gt;(loc)</tt>
+</a></h3><p><b>Section:</b>&nbsp;22.1.1.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.category"> [lib.locale.category]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;18 Sep 2001</p>
 <p>
 It's unclear whether 22.1.1.1.1, p3 says that
 <tt>has_facet&lt;Facet&gt;(loc)</tt> returns true for any <tt>Facet</tt>

@@ -1,3 +1,7 @@
+// { dg-require-namedlocale "" }
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+
 // 2004-04-16  Petur Runolfsson  <peturr02@ru.is>
 
 // Copyright (C) 2004, 2005 Free Software Foundation, Inc.
@@ -34,14 +38,14 @@ void test01()
   using namespace __gnu_test;
   bool test __attribute__((unused)) = true;
 
-  locale loc_us = try_named_locale("en_US");
+  locale loc_us = locale("en_US");
 
   const char* name = "tmp_14975-2";
 
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);  
-  try_mkfifo(name, S_IRWXU);
+  mkfifo(name, S_IRWXU);
   semaphore s1;
 
   int child = fork();

@@ -1,5 +1,5 @@
 /* DefaultSwatchChooserPanel.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -432,7 +432,7 @@ class DefaultSwatchChooserPanel extends AbstractColorChooserPanel
   /**
    * This class is the recent swatch panel. It holds recently selected colors.
    */
-  public static class RecentSwatchPanel extends SwatchPanel
+  static class RecentSwatchPanel extends SwatchPanel
   {
     /** The array for storing recently stored colors. */
     Color[] colors;
@@ -501,10 +501,11 @@ class DefaultSwatchChooserPanel extends AbstractColorChooserPanel
 
     /**
      * This method adds the given color to the beginning of the swatch panel.
+     * Package-private to avoid an accessor method.
      *
      * @param c The color to add.
      */
-    private void addColorToQueue(Color c)
+    void addColorToQueue(Color c)
     {
       if (--start == -1)
 	start = numRows * numCols - 1;

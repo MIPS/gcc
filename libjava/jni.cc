@@ -1,6 +1,6 @@
 // jni.cc - JNI implementation, including the jump table.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation
 
    This file is part of libgcj.
@@ -46,6 +46,7 @@ details.  */
 #include <java/nio/DirectByteBufferImpl$ReadWrite.h>
 #include <java/util/IdentityHashMap.h>
 #include <gnu/gcj/RawData.h>
+#include <java/lang/ClassNotFoundException.h>
 
 #include <gcj/method.h>
 #include <gcj/field.h>
@@ -71,7 +72,7 @@ extern struct JNIInvokeInterface _Jv_JNI_InvokeFunctions;
 
 // Number of slots in the default frame.  The VM must allow at least
 // 16.
-#define FRAME_SIZE 32
+#define FRAME_SIZE 16
 
 // Mark value indicating this is an overflow frame.
 #define MARK_NONE    0
@@ -85,10 +86,13 @@ struct _Jv_JNI_LocalFrame
 {
   // This is true if this frame object represents a pushed frame (eg
   // from PushLocalFrame).
-  int marker :  2;
+  int marker;
+
+  // Flag to indicate some locals were allocated.
+  int allocated_p;
 
   // Number of elements in frame.
-  int size   : 30;
+  int size;
 
   // Next frame in chain.
   _Jv_JNI_LocalFrame *next;
@@ -289,6 +293,7 @@ _Jv_JNI_EnsureLocalCapacity (JNIEnv *env, jint size)
 
   frame->marker = MARK_NONE;
   frame->size = size;
+  frame->allocated_p = 0;
   memset (&frame->vec[0], 0, size * sizeof (jobject));
   frame->next = env->locals;
   env->locals = frame;
@@ -327,6 +332,7 @@ _Jv_JNI_NewLocalRef (JNIEnv *env, jobject obj)
 	      set = true;
 	      done = true;
 	      frame->vec[i] = obj;
+	      frame->allocated_p = 1;
 	      break;
 	    }
 	}
@@ -344,6 +350,7 @@ _Jv_JNI_NewLocalRef (JNIEnv *env, jobject obj)
       _Jv_JNI_EnsureLocalCapacity (env, 16);
       // We know the first element of the new frame will be ok.
       env->locals->vec[0] = obj;
+      env->locals->allocated_p = 1;
     }
 
   mark_for_gc (obj, local_ref_table);
@@ -366,12 +373,14 @@ _Jv_JNI_PopLocalFrame (JNIEnv *env, jobject result, int stop)
       done = (rf->marker == stop);
 
       _Jv_JNI_LocalFrame *n = rf->next;
-      // When N==NULL, we've reached the stack-allocated frame, and we
-      // must not free it.  However, we must be sure to clear all its
-      // elements, since we might conceivably reuse it.
+      // When N==NULL, we've reached the reusable bottom_locals, and we must
+      // not free it.  However, we must be sure to clear all its elements.
       if (n == NULL)
 	{
-	  memset (&rf->vec[0], 0, rf->size * sizeof (jobject));
+	  if (rf->allocated_p)
+	    memset (&rf->vec[0], 0, rf->size * sizeof (jobject));
+	  rf->allocated_p = 0;
+	  rf = NULL;
 	  break;
 	}
 
@@ -412,9 +421,17 @@ _Jv_JNI_check_types (JNIEnv *env, JArray<T> *array, jclass K)
 extern "C" void
 _Jv_JNI_PopSystemFrame (JNIEnv *env)
 {
-  _Jv_JNI_PopLocalFrame (env, NULL, MARK_SYSTEM);
+  // Only enter slow path when we're not at the bottom, or there have been
+  // allocations. Usually this is false and we can just null out the locals
+  // field.
 
-  if (env->ex)
+  if (__builtin_expect ((env->locals->next 
+			 || env->locals->allocated_p), false))
+    _Jv_JNI_PopLocalFrame (env, NULL, MARK_SYSTEM);
+  else
+    env->locals = NULL;
+  
+  if (__builtin_expect (env->ex != NULL, false))
     {
       jthrowable t = env->ex;
       env->ex = NULL;
@@ -1183,11 +1200,11 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
       char s[len + 1];
       for (int i = 0; i <= len; ++i)
 	s[i] = (sig[i] == '/') ? '.' : sig[i];
-      jclass field_class = _Jv_FindClassFromSignature ((char *) s, NULL);
-
-      // FIXME: what if field_class == NULL?
-
       java::lang::ClassLoader *loader = clazz->getClassLoaderInternal ();
+      jclass field_class = _Jv_FindClassFromSignature ((char *) s, loader);
+      if (! field_class)
+	throw new java::lang::ClassNotFoundException(JvNewStringUTF(s));
+
       while (clazz != NULL)
 	{
 	  // We acquire the class lock so that fields aren't resolved
@@ -1830,7 +1847,6 @@ natrehash ()
       nathash =
 	(JNINativeMethod *) _Jv_AllocBytes (nathash_size
 					    * sizeof (JNINativeMethod));
-      memset (nathash, 0, nathash_size * sizeof (JNINativeMethod));
     }
   else
     {
@@ -1840,7 +1856,6 @@ natrehash ()
       nathash =
 	(JNINativeMethod *) _Jv_AllocBytes (nathash_size
 					    * sizeof (JNINativeMethod));
-      memset (nathash, 0, nathash_size * sizeof (JNINativeMethod));
 
       for (int i = 0; i < savesize; ++i)
 	{
@@ -1864,7 +1879,8 @@ nathash_add (const JNINativeMethod *method)
     return;
   // FIXME
   slot->name = strdup (method->name);
-  slot->signature = strdup (method->signature);
+  // This was already strduped in _Jv_JNI_RegisterNatives.
+  slot->signature = method->signature;
   slot->fnPtr = method->fnPtr;
 }
 
@@ -1878,6 +1894,8 @@ _Jv_JNI_RegisterNatives (JNIEnv *env, jclass klass,
   // the nathash table.
   JvSynchronize sync (global_ref_table);
 
+  JNINativeMethod dottedMethod;
+
   // Look at each descriptor given us, and find the corresponding
   // method in the class.
   for (int j = 0; j < nMethods; ++j)
@@ -1889,15 +1907,28 @@ _Jv_JNI_RegisterNatives (JNIEnv *env, jclass klass,
 	{
 	  _Jv_Method *self = &imeths[i];
 
-	  if (! strcmp (self->name->chars (), methods[j].name)
-	      && ! strcmp (self->signature->chars (), methods[j].signature))
+	  // Copy this JNINativeMethod and do a slash to dot
+	  // conversion on the signature.
+	  dottedMethod.name = methods[j].name;
+	  dottedMethod.signature = strdup (methods[j].signature);
+	  dottedMethod.fnPtr = methods[j].fnPtr;
+	  char *c = dottedMethod.signature;
+	  while (*c)
+	    {
+	      if (*c == '/')
+		*c = '.';
+	      c++;
+	    }
+
+	  if (! strcmp (self->name->chars (), dottedMethod.name)
+	      && ! strcmp (self->signature->chars (), dottedMethod.signature))
 	    {
 	      if (! (self->accflags & java::lang::reflect::Modifier::NATIVE))
 		break;
 
 	      // Found a match that is native.
 	      found = true;
-	      nathash_add (&methods[j]);
+	      nathash_add (&dottedMethod);
 
 	      break;
 	    }
@@ -2030,7 +2061,7 @@ extern "C" JNIEnv *
 _Jv_GetJNIEnvNewFrame (jclass klass)
 {
   JNIEnv *env = _Jv_GetCurrentJNIEnv ();
-  if (env == NULL)
+  if (__builtin_expect (env == NULL, false))
     {
       env = (JNIEnv *) _Jv_MallocUnchecked (sizeof (JNIEnv));
       env->p = &_Jv_JNIFunctions;
@@ -2038,25 +2069,68 @@ _Jv_GetJNIEnvNewFrame (jclass klass)
       env->locals = NULL;
       // We set env->ex below.
 
+      // Set up the bottom, reusable frame.
+      env->bottom_locals = (_Jv_JNI_LocalFrame *) 
+	_Jv_MallocUnchecked (sizeof (_Jv_JNI_LocalFrame)
+			     + (FRAME_SIZE
+				* sizeof (jobject)));
+      
+      env->bottom_locals->marker = MARK_SYSTEM;
+      env->bottom_locals->size = FRAME_SIZE;
+      env->bottom_locals->next = NULL;
+      env->bottom_locals->allocated_p = 0;
+      memset (&env->bottom_locals->vec[0], 0, 
+	      env->bottom_locals->size * sizeof (jobject));
+
       _Jv_SetCurrentJNIEnv (env);
     }
 
-  _Jv_JNI_LocalFrame *frame
-    = (_Jv_JNI_LocalFrame *) _Jv_MallocUnchecked (sizeof (_Jv_JNI_LocalFrame)
-						  + (FRAME_SIZE
-						     * sizeof (jobject)));
+  // If we're in a simple JNI call (non-nested), we can just reuse the
+  // locals frame we allocated many calls ago, back when the env was first
+  // built, above.
 
-  frame->marker = MARK_SYSTEM;
-  frame->size = FRAME_SIZE;
-  frame->next = env->locals;
+  if (__builtin_expect (env->locals == NULL, true))
+    env->locals = env->bottom_locals;
 
-  for (int i = 0; i < frame->size; ++i)
-    frame->vec[i] = NULL;
+  else
+    {
+      // Alternatively, we might be re-entering JNI, in which case we can't
+      // reuse the bottom_locals frame, because it is already underneath
+      // us. So we need to make a new one.
 
-  env->locals = frame;
+      _Jv_JNI_LocalFrame *frame
+	= (_Jv_JNI_LocalFrame *) _Jv_MallocUnchecked (sizeof (_Jv_JNI_LocalFrame)
+						      + (FRAME_SIZE
+							 * sizeof (jobject)));
+      
+      frame->marker = MARK_SYSTEM;
+      frame->size = FRAME_SIZE;
+      frame->allocated_p = 0;
+      frame->next = env->locals;
+
+      memset (&frame->vec[0], 0, 
+	      frame->size * sizeof (jobject));
+
+      env->locals = frame;
+    }
+
   env->ex = NULL;
 
   return env;
+}
+
+// Destroy the env's reusable resources. This is called from the thread
+// destructor "finalize_native" in natThread.cc
+void 
+_Jv_FreeJNIEnv (_Jv_JNIEnv *env)
+{
+  if (env == NULL)
+    return;
+
+  if (env->bottom_locals != NULL)
+    _Jv_Free (env->bottom_locals);
+
+  _Jv_Free (env);
 }
 
 // Return the function which implements a particular JNI method.  If
@@ -2274,16 +2348,18 @@ _Jv_JNI_AttachCurrentThread (JavaVM *, jstring name, void **penv,
   env->p = &_Jv_JNIFunctions;
   env->ex = NULL;
   env->klass = NULL;
-  env->locals
+  env->bottom_locals
     = (_Jv_JNI_LocalFrame *) _Jv_MallocUnchecked (sizeof (_Jv_JNI_LocalFrame)
 						  + (FRAME_SIZE
 						     * sizeof (jobject)));
+  env->locals = env->bottom_locals;
   if (env->locals == NULL)
     {
       _Jv_Free (env);
       return JNI_ERR;
     }
 
+  env->locals->allocated_p = 0;
   env->locals->marker = MARK_SYSTEM;
   env->locals->size = FRAME_SIZE;
   env->locals->next = NULL;
@@ -2421,55 +2497,22 @@ JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
 {
   JvAssert (! the_vm);
 
-  _Jv_CreateJavaVM (NULL);
+  jint version = * (jint *) args;
+  // We only support 1.2 and 1.4.
+  if (version != JNI_VERSION_1_2 && version != JNI_VERSION_1_4)
+    return JNI_EVERSION;
+
+  JvVMInitArgs* vm_args = reinterpret_cast<JvVMInitArgs *> (args);
+
+  jint result = _Jv_CreateJavaVM (vm_args);
+  if (result)
+    return result;
 
   // FIXME: synchronize
   JavaVM *nvm = (JavaVM *) _Jv_MallocUnchecked (sizeof (JavaVM));
   if (nvm == NULL)
     return JNI_ERR;
   nvm->functions = &_Jv_JNI_InvokeFunctions;
-
-  // Parse the arguments.
-  if (args != NULL)
-    {
-      jint version = * (jint *) args;
-      // We only support 1.2 and 1.4.
-      if (version != JNI_VERSION_1_2 && version != JNI_VERSION_1_4)
-	return JNI_EVERSION;
-      JavaVMInitArgs *ia = reinterpret_cast<JavaVMInitArgs *> (args);
-      for (int i = 0; i < ia->nOptions; ++i)
-	{
-	  if (! strcmp (ia->options[i].optionString, "vfprintf")
-	      || ! strcmp (ia->options[i].optionString, "exit")
-	      || ! strcmp (ia->options[i].optionString, "abort"))
-	    {
-	      // We are required to recognize these, but for now we
-	      // don't handle them in any way.  FIXME.
-	      continue;
-	    }
-	  else if (! strncmp (ia->options[i].optionString,
-			      "-verbose", sizeof ("-verbose") - 1))
-	    {
-	      // We don't do anything with this option either.  We
-	      // might want to make sure the argument is valid, but we
-	      // don't really care all that much for now.
-	      continue;
-	    }
-	  else if (! strncmp (ia->options[i].optionString, "-D", 2))
-	    {
-	      // FIXME.
-	      continue;
-	    }
-	  else if (ia->ignoreUnrecognized)
-	    {
-	      if (ia->options[i].optionString[0] == '_'
-		  || ! strncmp (ia->options[i].optionString, "-X", 2))
-		continue;
-	    }
-
-	  return JNI_ERR;
-	}
-    }
 
   jint r =_Jv_JNI_AttachCurrentThread (nvm, penv, NULL);
   if (r < 0)

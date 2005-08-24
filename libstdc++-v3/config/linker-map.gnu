@@ -1,6 +1,6 @@
 ## Linker script for GNU ld 2.13.91+ only.
 ##
-## Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
@@ -40,7 +40,7 @@ GLIBCXX_3.4 {
       std::logic_error*;
       std::locale::[A-Za-e]*;
       std::locale::facet::[A-Za-z]*;
-      std::locale::facet::_S_get_c_locale*;	
+      std::locale::facet::_S_get_c_locale*;
       std::locale::facet::_S_clone_c_locale*;
       std::locale::facet::_S_create_c_locale*;
       std::locale::facet::_S_destroy_c_locale*;
@@ -101,6 +101,10 @@ GLIBCXX_3.4 {
     _ZdaPv;
     # operator delete[](void*, std::nothrow_t const&)
     _ZdaPvRKSt9nothrow_t;
+
+    # std::basic_iostream constructors, destructors
+    _ZNSdC*;
+    _ZNSdD*;
 
     # std::locale destructors
     _ZNSt6localeD*;
@@ -295,12 +299,20 @@ GLIBCXX_3.4.4 {
     _ZN9__gnu_cxx6__poolILb[01]EE16_M_reclaim_blockEPc[jm];
     _ZN9__gnu_cxx6__poolILb[01]EE10_M_destroyEv;
 
-    _ZN9__gnu_cxx9free_list12_S_free_listE;
-    _ZN9__gnu_cxx9free_list12_S_bfl_mutexE;
     _ZN9__gnu_cxx9free_list6_M_getE*;
     _ZN9__gnu_cxx9free_list8_M_clearEv;
 
 } GLIBCXX_3.4.3;
+
+GLIBCXX_3.4.5 {
+
+    _ZSt17__copy_streambufsI[cw]St11char_traitsI[cw]EEiPSt15basic_streambuf*;
+    _ZNSt8ios_base17_M_call_callbacksENS_5eventE;
+    _ZNSt8ios_base20_M_dispose_callbacksEv;
+    _ZNSt6locale5facet13_S_get_c_nameEv;
+    _ZN11__gnu_debug13__fancy_abortEPKciS1_S1_;
+
+} GLIBCXX_3.4.4;
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {
@@ -406,3 +418,9 @@ CXXABI_1.3 {
   local:
     *;
 };
+
+CXXABI_1.3.1 {
+
+    __cxa_get_exception_ptr;
+
+} CXXABI_1.3;

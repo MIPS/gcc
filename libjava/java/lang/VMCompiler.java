@@ -1,5 +1,5 @@
 /* VMClassLoader.java -- Reference implementation of compiler interface
-   Copyright (C) 2004 Free Software Foundation
+   Copyright (C) 2004, 2005 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -79,6 +79,24 @@ final class VMCompiler
 
   private static Vector precompiledMapFiles;
 
+  // We create a single MD5 engine and then clone it whenever we want
+  // a new one.  This is simpler than trying to find a new one each
+  // time, and it avoids potential deadlocks due to class loader
+  // oddities.
+  private static final MessageDigest md5Digest;
+
+  static
+  {
+    try
+      {
+	md5Digest = MessageDigest.getInstance("MD5");
+      }
+    catch (NoSuchAlgorithmException _)
+      {
+	md5Digest = null;
+      }
+  }
+
   static
   {
     gcjJitCompiler = System.getProperty("gnu.gcj.jit.compiler");
@@ -123,6 +141,10 @@ final class VMCompiler
 	      catch (java.io.IOException _)
 		{
 		}
+	      catch (java.nio.BufferUnderflowException _)
+		{
+		  // Invalid map file.
+		}
 	    }
 	}
       }
@@ -142,7 +164,8 @@ final class VMCompiler
   {
     Class c = null;
     SharedLibHelper helper 
-      = SharedLibHelper.findHelper (loader, fileName, domain.getCodeSource());
+	= SharedLibHelper.findHelper (loader, fileName, domain.getCodeSource(), 
+				      domain, false);
     c = helper.findClass (className);
     if (c != null)
       {
@@ -174,11 +197,18 @@ final class VMCompiler
 
     try
       {
-	MessageDigest md = MessageDigest.getInstance("MD5");
+	MessageDigest md = (MessageDigest) md5Digest.clone();
 	digest = md.digest(data);
       }
-    catch (NoSuchAlgorithmException _)
+    catch (CloneNotSupportedException _)
       {
+	// Can't happen.
+	return null;
+      }
+    catch (NullPointerException _)
+      {
+	// If md5Digest==null -- but really this should never happen
+	// either, since the MD5 digest is in libgcj.
 	return null;
       }
 
@@ -201,6 +231,11 @@ final class VMCompiler
 	  }
 	catch (Exception _)
 	  {
+	  }
+	catch (UnknownError _)
+	  {
+	    // SharedLibHelper will throw UnknownError if the dlopen
+	    // fails for some reason.  We ignore it and continue on.
 	  }
       }
  

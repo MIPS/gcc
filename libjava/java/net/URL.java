@@ -1,5 +1,5 @@
 /* URL.java -- Uniform Resource Locator Class
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -392,13 +392,14 @@ public final class URL implements Serializable
     // right after the "://".  The second colon is for an optional port value
     // and implies that the host from the context is used if available.
     int colon;
+    int slash = spec.indexOf('/');
     if ((colon = spec.indexOf("://", 1)) > 0
+	&& ((colon < slash || slash < 0))
         && ! spec.regionMatches(colon, "://:", 0, 4))
       context = null;
 
-    int slash;
     if ((colon = spec.indexOf(':')) > 0
-        && (colon < (slash = spec.indexOf('/')) || slash < 0))
+        && (colon < slash || slash < 0))
       {
 	// Protocol specified in spec string.
 	protocol = spec.substring(0, colon).toLowerCase();
@@ -429,9 +430,8 @@ public final class URL implements Serializable
 	authority = context.authority;
       }
     else // Protocol NOT specified in spec. and no context available.
-
-
-      throw new MalformedURLException("Absolute URL required with null context");
+      throw new MalformedURLException("Absolute URL required with null"
+				      + " context: " + spec);
 
     protocol = protocol.trim();
 
@@ -901,7 +901,8 @@ public final class URL implements Serializable
 	  {
 	    systemClassLoader = (ClassLoader) AccessController.doPrivileged
 	      (new PrivilegedAction() {
-		  public Object run() {
+		  public Object run()
+	          {
 		    return ClassLoader.getSystemClassLoader();
 		  }
 		});
@@ -919,7 +920,14 @@ public final class URL implements Serializable
 		Class c = Class.forName(clsName, true, systemClassLoader);
 		ph = (URLStreamHandler) c.newInstance();
 	      }
-	    catch (Throwable t) { /* ignored */ }
+            catch (ThreadDeath death)
+              {
+                throw death;
+              }
+	    catch (Throwable t)
+	      {
+		// Ignored.
+	      }
 	  }
 	 while (ph == null && pkgPrefix.hasMoreTokens());
       }
@@ -946,4 +954,21 @@ public final class URL implements Serializable
   {
     oos.defaultWriteObject();
   }
+
+  /**
+   * Returns the equivalent <code>URI</code> object for this <code>URL</code>.
+   * This is the same as calling <code>new URI(this.toString())</code>.
+   * RFC2396-compliant URLs are guaranteed a successful conversion to
+   * a <code>URI</code> instance.  However, there are some values which
+   * form valid URLs, but which do not also form RFC2396-compliant URIs.
+   *
+   * @throws URISyntaxException if this URL is not RFC2396-compliant,
+   *         and thus can not be successfully converted to a URI.
+   */
+  public URI toURI()
+    throws URISyntaxException
+  {
+    return new URI(toString());
+  }
+
 }

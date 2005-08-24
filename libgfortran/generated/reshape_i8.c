@@ -2,20 +2,29 @@
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-Libgfor is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+Libgfortran is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
 
-Ligbfor is distributed in the hope that it will be useful,
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -38,25 +47,27 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
                       gfc_array_i8 * pad, shape_type * order)
 {
   /* r.* indicates the return array.  */
-  index_type rcount[GFC_MAX_DIMENSIONS - 1];
-  index_type rextent[GFC_MAX_DIMENSIONS - 1];
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rcount[GFC_MAX_DIMENSIONS];
+  index_type rextent[GFC_MAX_DIMENSIONS];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type rdim;
   index_type rsize;
+  index_type rs;
+  index_type rex;
   GFC_INTEGER_8 *rptr;
   /* s.* indicates the source array.  */
-  index_type scount[GFC_MAX_DIMENSIONS - 1];
-  index_type sextent[GFC_MAX_DIMENSIONS - 1];
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type scount[GFC_MAX_DIMENSIONS];
+  index_type sextent[GFC_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type sdim;
   index_type ssize;
   const GFC_INTEGER_8 *sptr;
   /* p.* indicates the pad array.  */
-  index_type pcount[GFC_MAX_DIMENSIONS - 1];
-  index_type pextent[GFC_MAX_DIMENSIONS - 1];
-  index_type pstride[GFC_MAX_DIMENSIONS - 1];
+  index_type pcount[GFC_MAX_DIMENSIONS];
+  index_type pextent[GFC_MAX_DIMENSIONS];
+  index_type pstride[GFC_MAX_DIMENSIONS];
   index_type pdim;
   index_type psize;
   const GFC_INTEGER_8 *pptr;
@@ -65,8 +76,6 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
   int n;
   int dim;
 
-  if (ret->dim[0].stride == 0)
-    ret->dim[0].stride = 1;
   if (source->dim[0].stride == 0)
     source->dim[0].stride = 1;
   if (shape->dim[0].stride == 0)
@@ -76,7 +85,29 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
   if (order && order->dim[0].stride == 0)
     order->dim[0].stride = 1;
 
-  rdim = GFC_DESCRIPTOR_RANK (ret);
+  if (ret->data == NULL)
+    {
+      rdim = shape->dim[0].ubound - shape->dim[0].lbound + 1;
+      rs = 1;
+      for (n=0; n < rdim; n++)
+	{
+	  ret->dim[n].lbound = 0;
+	  rex = shape->data[n * shape->dim[0].stride];
+	  ret->dim[n].ubound =  rex - 1;
+	  ret->dim[n].stride = rs;
+	  rs *= rex;
+	}
+      ret->base = 0;
+      ret->data = internal_malloc_size ( rs * sizeof (GFC_INTEGER_8));
+      ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
+    }
+  else
+    {
+      rdim = GFC_DESCRIPTOR_RANK (ret);
+      if (ret->dim[0].stride == 0)
+	ret->dim[0].stride = 1;
+    }
+
   rsize = 1;
   for (n = 0; n < rdim; n++)
     {
@@ -96,7 +127,7 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
         rsize *= rextent[n];
       else
         rsize = 0;
-      if (rextent[dim] <= 0)
+      if (rextent[n] <= 0)
         return;
     }
 
@@ -118,8 +149,6 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
 
   if (pad)
     {
-      if (pad->dim[0].stride == 0)
-        pad->dim[0].stride = 1;
       pdim = GFC_DESCRIPTOR_RANK (pad);
       psize = 1;
       for (n = 0; n < pdim; n++)

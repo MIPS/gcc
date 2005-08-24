@@ -1,5 +1,5 @@
 /* AssertionError.java -- indication of a failed assertion
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -43,11 +43,11 @@ package java.lang;
  * statement added in JDK 1.4, to indicate that an assertion failed. There
  * are enough constructors to ensure that
  * <code>new AssertionError(<em>expression</em>)</code> will work for all
- * espressions, regardless of type, as if the error message were given by
+ * expressions, regardless of type, as if the error message were given by
  * the string <code>"" + <em>expression</em></code>. This extends Error,
  * because you usually do not want to inadvertently trap an assertion failure.
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.4
  * @status updated to 1.4
  */

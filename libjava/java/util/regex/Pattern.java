@@ -84,8 +84,7 @@ public final class Pattern implements Serializable
     // if ((flags & UNICODE_CASE) != 0) gnuFlags =
     // if ((flags & CANON_EQ) != 0) gnuFlags =
 
-    // Eventually there will be such a thing as JDK 1_4 syntax
-    RESyntax syntax = RESyntax.RE_SYNTAX_PERL5;
+    RESyntax syntax = RESyntax.RE_SYNTAX_JAVA_1_4;
     if ((flags & UNIX_LINES) != 0)
       {
 	// Use a syntax set with \n for linefeeds?
@@ -198,8 +197,11 @@ public final class Pattern implements Serializable
 	  empties++;
 	else
 	  {
-	    while (empties-- > 0)
-	      list.add("");
+	    while (empties > 0)
+	      {
+		list.add("");
+		empties--;
+	      }
 
 	    String text = input.subSequence(start, end).toString();
 	    list.add(text);
@@ -222,8 +224,11 @@ public final class Pattern implements Serializable
 	    int max = limit - list.size();
 	    empties = (empties > max) ? max : empties;
 	  }
-	while (empties-- > 0)
-	  list.add("");
+	while (empties > 0)
+	  {
+	    list.add("");
+	    empties--;
+	  }
       }
 
     // last token at end

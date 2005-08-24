@@ -1,5 +1,5 @@
 /* MenuComponent.java -- Superclass of all AWT menu components
-   Copyright (C) 1999, 2000, 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -55,7 +55,7 @@ import javax.accessibility.AccessibleStateSet;
   * This is the superclass of all menu AWT widgets. 
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
-  * @author Andrew John Hughes <gnu_andrew@member.fsf.org>
+  * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
   */
 public abstract class MenuComponent implements Serializable
 {
@@ -130,7 +130,7 @@ private static final long serialVersionUID = -4536902356223894379L;
    * @see #getAccessibleContext()
    * @serial the accessibility information for this component.
    */
-  private AccessibleContext accessibleContext;
+  AccessibleContext accessibleContext;
 
   /**
    * Was the name of the component set?  This value defaults
@@ -161,8 +161,9 @@ private static final long serialVersionUID = -4536902356223894379L;
    *
    * @see AccessibleAWTMenuComponent#addFocusListener(java.awt.event.FocusListener)
    * @serial ignored.
+   * This is package-private to avoid an accessor method.
    */
-  private transient FocusListener focusListener;
+  transient FocusListener focusListener;
 
 /*************************************************************************/
 
@@ -465,7 +466,7 @@ public AccessibleContext getAccessibleContext()
  * This class provides a base for the accessibility support of menu
  * components.
  *
- * @author Andrew John Hughes <gnu_andrew@member.fsf.org>
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  */
 protected abstract class AccessibleAWTMenuComponent
   extends AccessibleContext

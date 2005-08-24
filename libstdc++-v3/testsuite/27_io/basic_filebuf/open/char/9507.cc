@@ -1,3 +1,5 @@
+// { dg-require-mkfifo "" }
+
 // Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -41,7 +43,7 @@ void test_06()
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);
-  try_mkfifo(name, S_IRWXU);
+  mkfifo(name, S_IRWXU);
   
   std::filebuf fbuf;
   // The use of ios_base::ate implies an attempt to seek on the file
@@ -54,8 +56,10 @@ void test_06()
 			      std::ios_base::in 
 			      | std::ios_base::out
 			      | std::ios_base::ate);
-  VERIFY( !fbuf.is_open() );
-  VERIFY( r == NULL );
+  if (r == NULL)
+    VERIFY( !fbuf.is_open() );
+  else
+    VERIFY( fbuf.is_open() );
 }
 
 int

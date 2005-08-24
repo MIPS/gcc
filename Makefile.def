@@ -37,8 +37,8 @@ host_modules= { module= ash; };
 host_modules= { module= autoconf; };
 host_modules= { module= automake; };
 host_modules= { module= bash; };
-host_modules= { module= bfd; bootstrap=true; };
-host_modules= { module= opcodes; bootstrap=true; };
+host_modules= { module= bfd; lib_path=.; bootstrap=true; };
+host_modules= { module= opcodes; lib_path=.; bootstrap=true; };
 host_modules= { module= binutils; bootstrap=true; };
 host_modules= { module= bison; no_check_cross= true; };
 host_modules= { module= byacc; no_check_cross= true; };
@@ -111,13 +111,14 @@ host_modules= { module= libtermcap; no_check=true;
                 missing=distclean;
                 missing=maintainer-clean; };
 host_modules= { module= utils; no_check=true; };
+host_modules= { module= gnattools; };
 
-target_modules = { module= libstdc++-v3; raw_cxx=true; };
-target_modules = { module= libmudflap; };
+target_modules = { module= libstdc++-v3; lib_path=.libs; raw_cxx=true; };
+target_modules = { module= libmudflap; lib_path=.libs; };
 target_modules = { module= newlib; };
 target_modules = { module= libgfortran; };
 target_modules = { module= libobjc; };
-target_modules = { module= libtermcap; no_check=true; stage=true;
+target_modules = { module= libtermcap; no_check=true;
                    missing=mostlyclean;
                    missing=clean;
                    missing=distclean;
@@ -129,7 +130,7 @@ target_modules = { module= gperf; };
 target_modules = { module= examples; no_check=true; no_install=true; };
 target_modules = { module= libffi; };
 target_modules = { module= libjava; raw_cxx=true; };
-target_modules = { module= zlib; stage=true; };
+target_modules = { module= zlib; };
 target_modules = { module= boehm-gc; };
 target_modules = { module= qthreads; };
 target_modules = { module= rda; };
@@ -171,8 +172,6 @@ flags_to_pass = { flag= infodir ; };
 flags_to_pass = { flag= libdir ; };
 flags_to_pass = { flag= libexecdir ; };
 flags_to_pass = { flag= lispdir ; };
-flags_to_pass = { flag= libstdcxx_incdir ; };
-flags_to_pass = { flag= libsubdir ; };
 flags_to_pass = { flag= localstatedir ; };
 flags_to_pass = { flag= mandir ; };
 flags_to_pass = { flag= oldincludedir ; };
@@ -182,9 +181,6 @@ flags_to_pass = { flag= sharedstatedir ; };
 flags_to_pass = { flag= sysconfdir ; };
 flags_to_pass = { flag= tooldir ; };
 flags_to_pass = { flag= build_tooldir ; };
-flags_to_pass = { flag= gxx_include_dir ; };
-flags_to_pass = { flag= gcc_version ; };
-flags_to_pass = { flag= gcc_version_trigger ; };
 flags_to_pass = { flag= target_alias ; };
 
 // Build tools
@@ -218,6 +214,7 @@ flags_to_pass = { flag= AR_FOR_TARGET ; };
 flags_to_pass = { flag= AS_FOR_TARGET ; };
 flags_to_pass = { flag= CC_FOR_TARGET ; };
 flags_to_pass = { flag= CFLAGS_FOR_TARGET ; };
+flags_to_pass = { flag= CPPFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= CXX_FOR_TARGET ; };
 flags_to_pass = { flag= CXXFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= DLLTOOL_FOR_TARGET ; };
@@ -245,9 +242,9 @@ dependencies = { module=all-build-fixincludes; on=all-build-libiberty; };
 
 // Host modules specific to gcc.
 dependencies = { module=configure-gcc; on=configure-intl; };
-dependencies = { module=configure-gcc; on=configure-binutils; };
-dependencies = { module=configure-gcc; on=configure-gas; };
-dependencies = { module=configure-gcc; on=configure-ld; };
+dependencies = { module=configure-gcc; on=all-binutils; };
+dependencies = { module=configure-gcc; on=all-gas; };
+dependencies = { module=configure-gcc; on=all-ld; };
 dependencies = { module=all-gcc; on=all-libiberty; hard=true; };
 dependencies = { module=all-gcc; on=all-intl; };
 dependencies = { module=all-gcc; on=all-build-texinfo; };
@@ -256,9 +253,6 @@ dependencies = { module=all-gcc; on=all-build-byacc; };
 dependencies = { module=all-gcc; on=all-build-flex; };
 dependencies = { module=all-gcc; on=all-build-libiberty; };
 dependencies = { module=all-gcc; on=all-build-fixincludes; };
-dependencies = { module=all-gcc; on=all-binutils; };
-dependencies = { module=all-gcc; on=all-gas; };
-dependencies = { module=all-gcc; on=all-ld; };
 dependencies = { module=all-gcc; on=all-zlib; };
 dependencies = { module=all-gcc; on=all-libcpp; hard=true; };
 dependencies = { module=all-gcc; on=all-libiberty; };
@@ -271,6 +265,8 @@ dependencies = { module=all-libcpp; on=all-libiberty; hard=true; };
 dependencies = { module=all-libcpp; on=all-intl; };
 
 dependencies = { module=all-fixincludes; on=all-libiberty; };
+
+dependencies = { module=all-gnattools; on=all-target-libada; };
 
 // Host modules specific to gdb.
 dependencies = { module=configure-gdb; on=configure-itcl; };

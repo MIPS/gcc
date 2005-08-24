@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+## Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -150,7 +150,6 @@ bits_headers = \
 	${bits_srcdir}/stl_vector.h \
 	${bits_srcdir}/streambuf.tcc \
 	${bits_srcdir}/stringfwd.h \
-	${bits_srcdir}/type_traits.h \
 	${bits_srcdir}/valarray_array.h \
 	${bits_srcdir}/valarray_array.tcc \
 	${bits_srcdir}/valarray_before.h \
@@ -203,8 +202,8 @@ ext_headers = \
 	${ext_srcdir}/algorithm \
 	${ext_srcdir}/array_allocator.h \
 	${ext_srcdir}/bitmap_allocator.h \
+	${ext_srcdir}/codecvt_specializations.h \
 	${ext_srcdir}/debug_allocator.h \
-	${ext_srcdir}/enc_filebuf.h \
 	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/stdio_sync_filebuf.h \
 	${ext_srcdir}/functional \
@@ -229,11 +228,24 @@ tr1_srcdir = ${glibcxx_srcdir}/include/tr1
 tr1_builddir = ./tr1
 tr1_headers = \
 	${tr1_srcdir}/array \
+	${tr1_srcdir}/bind_repeat.h \
+	${tr1_srcdir}/bind_iterate.h \
+	${tr1_srcdir}/boost_shared_ptr.h \
+	${tr1_srcdir}/mu_iterate.h \
 	${tr1_srcdir}/functional \
+	${tr1_srcdir}/functional_iterate.h \
+	${tr1_srcdir}/memory \
+	${tr1_srcdir}/ref_fwd.h \
+	${tr1_srcdir}/ref_wrap_iterate.h \
+	${tr1_srcdir}/repeat.h \
 	${tr1_srcdir}/tuple \
+	${tr1_srcdir}/tuple_iterate.h \
 	${tr1_srcdir}/utility \
 	${tr1_srcdir}/type_traits \
-	${tr1_srcdir}/type_traits_fwd.h
+	${tr1_srcdir}/type_traits_fwd.h \
+	${tr1_srcdir}/hashtable \
+	${tr1_srcdir}/unordered_set \
+	${tr1_srcdir}/unordered_map
 
 
 # This is the common subset of files that all three "C" header models use.
@@ -309,6 +321,7 @@ debug_headers = \
 	${debug_srcdir}/debug.h \
 	${debug_srcdir}/deque \
 	${debug_srcdir}/formatter.h \
+	${debug_srcdir}/functions.h \
 	${debug_srcdir}/hash_map \
 	${debug_srcdir}/hash_map.h \
 	${debug_srcdir}/hash_multimap.h \
@@ -317,6 +330,7 @@ debug_headers = \
 	${debug_srcdir}/hash_set.h \
 	${debug_srcdir}/list \
 	${debug_srcdir}/map \
+	${debug_srcdir}/macros.h \
 	${debug_srcdir}/map.h \
 	${debug_srcdir}/multimap.h \
 	${debug_srcdir}/multiset.h \
@@ -366,8 +380,7 @@ host_headers_extra = \
 	${host_builddir}/c++io.h \
 	${host_builddir}/c++locale.h \
 	${host_builddir}/messages_members.h \
-	${host_builddir}/time_members.h \
-	${host_builddir}/codecvt_specializations.h
+	${host_builddir}/time_members.h 
 
 thread_host_headers = \
 	${host_builddir}/gthr.h \
@@ -516,8 +529,11 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 # Host includes dynamic.
 ${host_builddir}/c++config.h: ${top_builddir}/config.h \
 				${glibcxx_srcdir}/include/bits/c++config \
-				stamp-${host_alias}
+				stamp-${host_alias} \
+				${toplevel_srcdir}/gcc/DATESTAMP
 	@cat ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
+	sed -e 's/^/#define __GLIBCXX__ /' \
+            < ${toplevel_srcdir}/gcc/DATESTAMP >> $@ ;\
 	sed -e 's/HAVE_/_GLIBCXX_HAVE_/g' \
 	    -e 's/PACKAGE/_GLIBCXX_PACKAGE/g' \
 	    -e 's/VERSION/_GLIBCXX_VERSION/g' \

@@ -5,11 +5,11 @@
 <table>
 <tbody><tr>
 <td align="left">Doc. no.</td>
-<td align="left">N1708=04-0148</td>
+<td align="left">N1762=05-0022</td>
 </tr>
 <tr>
 <td align="left">Date:</td>
-<td align="left">5 Nov 2004</td>
+<td align="left">2005-03-04</td>
 </tr>
 <tr>
 <td align="left">Project:</td>
@@ -17,10 +17,10 @@
 </tr>
 <tr>
 <td align="left">Reply to:</td>
-<td align="left">Matt Austern &lt;austern@apple.com&gt;</td>
+<td align="left">Matt Austern &lt;austern@google.com&gt;</td>
 </tr>
 </tbody></table>
-<h1>C++ Standard Library Active Issues List (Revision 33)</h1>
+<h1>C++ Standard Library Active Issues List (Revision 35)</h1>
   <p>Reference ISO/IEC IS 14882:1998(E)</p>
   <p>Also see:</p>
   <ul>
@@ -88,6 +88,12 @@
   directory as the issues list files.  </p>
 <h2>Revision History</h2>
 <ul>
+<li>R35: 
+2005-03 pre-Lillehammer mailing.
+</li>
+<li>R34: 
+2005-01 mid-term mailing.  Added new issues <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#488">488</a>-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#494">494</a>.
+</li>
 <li>R33: 
 2004-11 post-Redmond mailing.  Reflections actions taken in Redmond.
 </li>
@@ -661,7 +667,7 @@ Matt provided wording.]</i></p>
 ]</i></p>
 
 <hr>
-<a name="197"><h3>197.&nbsp;max_size() underspecified</h3></a><p><b>Section:</b>&nbsp;20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a>, 23.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.container.requirements"> [lib.container.requirements]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Andy Sawyer&nbsp; <b>Date:</b>&nbsp;21 Oct 1999</p>
+<a name="197"></a><h3><a name="197">197.&nbsp;max_size() underspecified</a></h3><p><b>Section:</b>&nbsp;20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a>, 23.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.container.requirements"> [lib.container.requirements]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Andy Sawyer&nbsp; <b>Date:</b>&nbsp;21 Oct 1999</p>
 <p>Must the value returned by max_size() be unchanged from call to call? </p>
 
 <p>Must the value returned from max_size() be meaningful? </p>
@@ -1078,7 +1084,7 @@ copy constructor is potentially invoked during stack unwinding.</p>
 <p>The copy constructor is a more serious problem, becuase failure
 during stack unwinding invokes <tt>terminate</tt>.  The copy
 constructor must be nothrow. <i>Curaçao: Howard thinks this
-requirement is already present.</i></p>
+requirement may already be present.</i></p>
 
 <p>The fundamental problem is that it's difficult to get the nothrow
 requirement to work well with the requirement that the exception
@@ -1110,11 +1116,6 @@ throw, the string must compare equal to the argument.</li>
 exception-derived class is not necessarily a bad thing.  And the
 bad_alloc constructor already has a no throw spec on it (18.4.2.1).</p>
 
-<p>
-The copy constructors of all exception-derived classes already have a
-no throw spec.  Reference 18.6.1,  19.1 and 15.4/13.
-</p>
-
 <p><b>Future:</b></p>
 
 <p>All involved would like to see const char* constructors added, but
@@ -1126,12 +1127,17 @@ mechanism (in a future C++ language).  As they stand, the copy
 constructors might fail via a call to unexpected.  I think what is
 intended here is that the copy constructors can't fail.</p>
 
-<p><i>[Pre-Sydney: reopened at the request of Howard Hinnant.]</i></p>
+<p><i>[Pre-Sydney: reopened at the request of Howard Hinnant.
+  Post-Redmond: James Kanze noticed that the copy constructors of
+  exception-derived classes do not have nothrow clauses.  Those
+  classes have no copy constructors declared, meaning the
+  compiler-generated implicit copy constructors are used, and those
+  compiler-generated constructors might in principle throw anything.]</i></p>
 
 <hr>
 <a name="258"><h3>258.&nbsp;Missing allocator requirement</h3></a><p><b>Section:</b>&nbsp;20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Matt Austern&nbsp; <b>Date:</b>&nbsp;22 Aug 2000</p>
 <p>
-&gt;From lib-7752:
+From lib-7752:
 </p>
 
 <p>
@@ -1304,7 +1310,7 @@ blanket statement in Clause 25, not just a special requirement for
 ]</i></p>
 
 <hr>
-<a name="294"><h3>294.&nbsp;User defined macros and standard headers</h3></a><p><b>Section:</b>&nbsp;17.4.3.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.macro.names"> [lib.macro.names]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;James Kanze&nbsp; <b>Date:</b>&nbsp;11 Jan 2001</p>
+<a name="294"></a><h3><a name="294">294.&nbsp;User defined macros and standard headers</a></h3><p><b>Section:</b>&nbsp;17.4.3.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.macro.names"> [lib.macro.names]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;James Kanze&nbsp; <b>Date:</b>&nbsp;11 Jan 2001</p>
 <p>Paragraph 2 of 17.4.3.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.macro.names"> [lib.macro.names]</a> reads: "A
 translation unit that includes a header shall not contain any macros
 that define names declared in that header." As I read this, it
@@ -2064,7 +2070,7 @@ those terms, does not appear in the standard.]</i></p>
   const basic_filebuf&lt;charT,traits&gt;* rdbuf() const;
 </pre>
 <hr>
-<a name="368"></a><h3><a name="368">368.&nbsp;basic_string::replace has two "Throws" paragraphs</a></h3><p><b>Section:</b>&nbsp;21.3.5.6 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-strings.html#lib.string::replace"> [lib.string::replace]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Beman Dawes&nbsp; <b>Date:</b>&nbsp;3 Jun 2002</p>
+<a name="368"><h3>368.&nbsp;basic_string::replace has two "Throws" paragraphs</h3></a><p><b>Section:</b>&nbsp;21.3.5.6 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-strings.html#lib.string::replace"> [lib.string::replace]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Beman Dawes&nbsp; <b>Date:</b>&nbsp;3 Jun 2002</p>
 <p>
 21.3.5.6 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-strings.html#lib.string::replace"> [lib.string::replace]</a> basic_string::replace, second
 signature, given in paragraph 1, has two "Throws" paragraphs (3 and
@@ -2213,7 +2219,7 @@ including the following example:
     int main () { return i; }
 </pre>
 <hr>
-<a name="371"><h3>371.&nbsp;Stability of multiset and multimap member functions</h3></a><p><b>Section:</b>&nbsp;23.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.container.requirements"> [lib.container.requirements]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Frank Compagner&nbsp; <b>Date:</b>&nbsp;20 Jul 2002</p>
+<a name="371"></a><h3><a name="371">371.&nbsp;Stability of multiset and multimap member functions</a></h3><p><b>Section:</b>&nbsp;23.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.container.requirements"> [lib.container.requirements]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Frank Compagner&nbsp; <b>Date:</b>&nbsp;20 Jul 2002</p>
 <p>
 The requirements for multiset and multimap containers (23.1
 [lib.containers.requirements], 23.1.2 [lib.associative.reqmnts],
@@ -3715,7 +3721,7 @@ basic_filebuf.
 </p>
 
 <hr>
-<a name="422"><h3>422.&nbsp;explicit specializations of member functions of class templates</h3></a><p><b>Section:</b>&nbsp;17.4.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.reserved.names"> [lib.reserved.names]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;18 Sep 2003</p>
+<a name="422"></a><h3><a name="422">422.&nbsp;explicit specializations of member functions of class templates</a></h3><p><b>Section:</b>&nbsp;17.4.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.reserved.names"> [lib.reserved.names]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;18 Sep 2003</p>
 <p>
 It has been suggested that 17.4.3.1, p1 may or may not allow programs to
 explicitly specialize members of standard templates on user-defined types.
@@ -4350,7 +4356,7 @@ implicitly convertible to B.
 
 
 <hr>
-<a name="445"><h3>445.&nbsp;iterator_traits::reference unspecified for some iterator categories</h3></a><p><b>Section:</b>&nbsp;24.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.iterator.traits"> [lib.iterator.traits]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Ready">Ready</a>&nbsp; <b>Submitter:</b>&nbsp;Dave Abrahams&nbsp; <b>Date:</b>&nbsp;9 Dec 2003</p>
+<a name="445"></a><h3><a name="445">445.&nbsp;iterator_traits::reference unspecified for some iterator categories</a></h3><p><b>Section:</b>&nbsp;24.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.iterator.traits"> [lib.iterator.traits]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Ready">Ready</a>&nbsp; <b>Submitter:</b>&nbsp;Dave Abrahams&nbsp; <b>Date:</b>&nbsp;9 Dec 2003</p>
 <p>
 The standard places no restrictions at all on the reference type
 of input, output, or forward iterators (for forward iterators it
@@ -4657,7 +4663,7 @@ Its state is otherwise the same as required for basic_ios&lt;wchar_t&gt;::init
   permit, cout and cerr to be tied on startup.  Pre-Redmond: Bill will
   provide wording.]</i></p>
 <hr>
-<a name="456"></a><h3><a name="456">456.&nbsp;Traditional C header files are overspecified</a></h3><p><b>Section:</b>&nbsp;17.4.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.headers"> [lib.headers]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Bill Plauger&nbsp; <b>Date:</b>&nbsp;30 Jan 2004</p>
+<a name="456"><h3>456.&nbsp;Traditional C header files are overspecified</h3></a><p><b>Section:</b>&nbsp;17.4.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-intro.html#lib.headers"> [lib.headers]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Open">Open</a>&nbsp; <b>Submitter:</b>&nbsp;Bill Plauger&nbsp; <b>Date:</b>&nbsp;30 Jan 2004</p>
 
 <p>The C++ Standard effectively requires that the traditional C headers
 (of the form &lt;xxx.h&gt;) be defined in terms of the newer C++
@@ -4868,7 +4874,7 @@ technique to perform the comparison:</p>
       if it the source and destination types are the same</li>
 </ol>
 <hr>
-<a name="460"><h3>460.&nbsp;Default modes missing from basic_fstream member specifications</h3></a><p><b>Section:</b>&nbsp;27.8.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.fstreams"> [lib.fstreams]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Ready">Ready</a>&nbsp; <b>Submitter:</b>&nbsp;Ben Hutchings&nbsp; <b>Date:</b>&nbsp;1 Apr 2004</p>
+<a name="460"></a><h3><a name="460">460.&nbsp;Default modes missing from basic_fstream member specifications</a></h3><p><b>Section:</b>&nbsp;27.8.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.fstreams"> [lib.fstreams]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Ready">Ready</a>&nbsp; <b>Submitter:</b>&nbsp;Ben Hutchings&nbsp; <b>Date:</b>&nbsp;1 Apr 2004</p>
 <p>
 The second parameters of the non-default constructor and of the open
 member function for basic_fstream, named "mode", are optional
@@ -4893,7 +4899,7 @@ that it is intended to be callable with one argument.
   void open(const char*s,
             ios_base::openmode mode = ios_base::in|ios_base::out);
 <hr>
-<a name="461"><h3>461.&nbsp;time_get hard or impossible to implement</h3></a><p><b>Section:</b>&nbsp;22.2.5.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.time.get.virtuals"> [lib.locale.time.get.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Review">Review</a>&nbsp; <b>Submitter:</b>&nbsp;Bill Plauger&nbsp; <b>Date:</b>&nbsp;23 Mar 2004</p>
+<a name="461"></a><h3><a name="461">461.&nbsp;time_get hard or impossible to implement</a></h3><p><b>Section:</b>&nbsp;22.2.5.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.time.get.virtuals"> [lib.locale.time.get.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Review">Review</a>&nbsp; <b>Submitter:</b>&nbsp;Bill Plauger&nbsp; <b>Date:</b>&nbsp;23 Mar 2004</p>
 <p>
 Template time_get currently contains difficult, if not impossible,
 requirements for do_date_order, do_get_time, and do_get_date. All require
@@ -5268,7 +5274,7 @@ from r-value derived to base).
   want to fix auto_ptr for C++-0x, or remove it and replace it with
   move_ptr and unique_ptr.]</i></p>
 <hr>
-<a name="464"></a><h3><a name="464">464.&nbsp;Suggestion for new member functions in standard containers</a></h3><p><b>Section:</b>&nbsp;23.2.4 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.vector"> [lib.vector]</a>, 23.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.map"> [lib.map]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Review">Review</a>&nbsp; <b>Submitter:</b>&nbsp;Thorsten Ottosen&nbsp; <b>Date:</b>&nbsp;12 May 2004</p>
+<a name="464"><h3>464.&nbsp;Suggestion for new member functions in standard containers</h3></a><p><b>Section:</b>&nbsp;23.2.4 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.vector"> [lib.vector]</a>, 23.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.map"> [lib.map]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Review">Review</a>&nbsp; <b>Submitter:</b>&nbsp;Thorsten Ottosen&nbsp; <b>Date:</b>&nbsp;12 May 2004</p>
 
 <p>To add slightly more convenience to vector&lt;T&gt; and map&lt;Key,T&gt; we should consider to add</p>
 <ol>
@@ -5490,7 +5496,7 @@ the value need not be valid.
 <p><i>[Redmond: 5-4 straw poll in favor of doing this.]</i></p>
 
 <hr>
-<a name="469"></a><h3><a name="469">469.&nbsp;vector&lt;bool&gt; ill-formed relational operators</a></h3><p><b>Section:</b>&nbsp;23.2.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.vector.bool"> [lib.vector.bool]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Ready">Ready</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;28 Jun 2004</p>
+<a name="469"><h3>469.&nbsp;vector&lt;bool&gt; ill-formed relational operators</h3></a><p><b>Section:</b>&nbsp;23.2.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.vector.bool"> [lib.vector.bool]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Ready">Ready</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;28 Jun 2004</p>
 
 <p>
 The overloads of relational operators for vector&lt;bool&gt; specified
@@ -5577,7 +5583,7 @@ ctor was called).
 
 <p><b>Proposed resolution:</b></p>
 <hr>
-<a name="472"><h3>472.&nbsp;Missing "Returns" clause in std::equal_range</h3></a><p><b>Section:</b>&nbsp;25.3.3.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.equal.range"> [lib.equal.range]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Review">Review</a>&nbsp; <b>Submitter:</b>&nbsp;Prateek R Karandikar&nbsp; <b>Date:</b>&nbsp;29 Feb 1900</p>
+<a name="472"></a><h3><a name="472">472.&nbsp;Missing "Returns" clause in std::equal_range</a></h3><p><b>Section:</b>&nbsp;25.3.3.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.equal.range"> [lib.equal.range]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#Review">Review</a>&nbsp; <b>Submitter:</b>&nbsp;Prateek R Karandikar&nbsp; <b>Date:</b>&nbsp;29 Feb 1900</p>
 <p>
 There is no "Returns:" clause for std::equal_range, which returns non-void.
 </p>
@@ -5829,7 +5835,7 @@ as the first line.</p>
 <p>Related issue: <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#478">478</a></p>
 <p><b>Proposed resolution:</b></p>
 <hr>
-<a name="478"><h3>478.&nbsp;Should forward iterator requirements table have a line for r-&gt;m?</h3></a><p><b>Section:</b>&nbsp;24.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.forward.iterators"> [lib.forward.iterators]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Dave Abrahams&nbsp; <b>Date:</b>&nbsp;11 Jul 2004</p>
+<a name="478"></a><h3><a name="478">478.&nbsp;Should forward iterator requirements table have a line for r-&gt;m?</a></h3><p><b>Section:</b>&nbsp;24.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.forward.iterators"> [lib.forward.iterators]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Dave Abrahams&nbsp; <b>Date:</b>&nbsp;11 Jul 2004</p>
 <p>
 The Forward Iterator requirements table contains the following:
 </p>
@@ -5972,98 +5978,6 @@ why swapping two objects of type pair&lt;vector&lt;int&gt;,
 list&lt;double&gt; &gt; should not take O(1).</p>
 <p><b>Proposed resolution:</b></p>
 <hr>
-<a name="483"><h3>483.&nbsp;Heterogeneous equality and EqualityComparable</h3></a><p><b>Section:</b>&nbsp;25.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.nonmodifying"> [lib.alg.nonmodifying]</a>, 25.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.modifying.operations"> [lib.alg.modifying.operations]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Peter Dimov&nbsp; <b>Date:</b>&nbsp;20 Sep 2004</p>
-<p>c++std-lib-14262</p>
-
-<p>[lib.alg.find] requires T to be EqualityComparable:</p>
-
-<pre>template &lt;class InputIterator, class T&gt;
-   InputIterator find(InputIterator first, InputIterator last,
-                      const T&amp; value);
-</pre>
-
-<p>
-However the condition being tested, as specified in the Effects
-clause, is actually *i == value, where i is an InputIterator.
-</p>
-
-<p>
-The two clauses are in agreement only if the type of *i is T, but this
-isn't necessarily the case. *i may have a heterogeneous comparison
-operator that takes a T, or a T may be convertible to the type of *i.
-</p>
-
-<p>Further discussion (c++std-lib-14264): this problem affects a
-  number of algorithsm in clause 25, not just <tt>find</tt>.  We
-  should try to resolve this problem everywhere it appears.</p>
-<p><b>Proposed resolution:</b></p>
-
-<p>[lib.alg.find]:</p>
-<blockquote>
-   Remove [lib.alg.find]/1.
-</blockquote>
-
-<p>[lib.alg.count]:</p>
-<blockquote>
-   Remove [lib.alg.count]/1.
-</blockquote>
-
-<p>[lib.alg.search]:</p>
-<blockquote>
-   Remove "Type T is EqualityComparable (20.1.1), " from [lib.alg.search]/4.
-</blockquote>
-
-<p>[lib.alg.replace]:</p>
-
-<blockquote>
-   <p>
-   Remove [lib.alg.replace]/1.
-   Replace [lb.alg.replace]/2 with:
-   </p>
-
-       <blockquote>
-       For every iterator i in the range [first, last) for which *i == value
-       or pred(*i) holds perform *i = new_value.
-       </blockquote>
-
-   <p>
-   Remove the first sentence of /4.
-   Replace the beginning of /5 with:
-   </p>
-
-       <blockquote>
-       For every iterator i in the range [result, result + (last -
-       first)), assign to *i either...
-       </blockquote>
-
-   <p>(Note the defect here, current text says assign to i, not *i).</p>
-</blockquote>
-
-<p>[lib.alg.fill]:</p>
-
-<blockquote>
-   <p>
-   Remove "Type T is Assignable (23.1), " from /1.
-   Replace /2 with:
-   </p>
-
-       <blockquote>
-       For every iterator i in the range [first, last) or [first, first + n),
-       perform *i = value.
-       </blockquote>
-</blockquote>
-
-<p>[lib.alg.remove]:</p>
-<blockquote>
-   Remove /1.
-   Remove the first sentence of /6.
-</blockquote>
-
-<p><b>Rationale:</b></p>
-<p>Specifying EqualityComparable is redundant where it's correct,
-  because the equality requirements are implicit in the descriptions
-  of the algorithms' behavior.</p>
-<hr>
 <a name="484"><h3>484.&nbsp;Convertible to T</h3></a><p><b>Section:</b>&nbsp;24.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.input.iterators"> [lib.input.iterators]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Chris&nbsp; <b>Date:</b>&nbsp;16 Sep 2004</p>
 <p>From comp.std.c++:</p>
 
@@ -6148,12 +6062,6 @@ to instead allow something more along the lines of:</p>
 are generated. With the exception of '*r++=t', an iterator must always
 be assigned to before it is incremented".</p>
 <hr>
-<a name="486"><h3>486.&nbsp;min/max CopyConstructible requirement is too strict</h3></a><p><b>Section:</b>&nbsp;25.3.7 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.min.max"> [lib.alg.min.max]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Dave Abrahams&nbsp; <b>Date:</b>&nbsp;13 Oct 2004</p>
-<p>A straightforward implementation of these algorithms does not need to
-copy T.</p>
-<p><b>Proposed resolution:</b></p>
-<p>drop the the words "and CopyConstructible" from paragraphs 1 and 4</p>
-<hr>
 <a name="487"><h3>487.&nbsp;Allocator::construct is too limiting</h3></a><p><b>Section:</b>&nbsp;20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Dhruv Matani&nbsp; <b>Date:</b>&nbsp;17 Oct 2004</p>
 <p>
 The standard's version of allocator::construct(pointer,
@@ -6177,6 +6085,961 @@ allocator::construct(), making it:
 Now, the ctor of the class T which matches the one that takes a T1 can
 be called! Doesn't that sound great?
 </p>
+<p><b>Proposed resolution:</b></p>
+<p>
+</p>
+<hr>
+<a name="488"><h3>488.&nbsp;rotate throws away useful information</h3></a><p><b>Section:</b>&nbsp;25.2.10 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.rotate"> [lib.alg.rotate]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Howard Hinnant&nbsp; <b>Date:</b>&nbsp;22 Nov 2004</p>
+<p>
+rotate takes 3 iterators:  first, middle and last which point into a
+sequence, and rearranges the sequence such that the subrange [middle,
+last) is now at the beginning of the sequence and the subrange [first,
+middle) follows.  The return type is void. 
+</p>
+
+<p>
+In many use cases of rotate, the client needs to know where the
+subrange [first, middle) starts after the rotate is performed.  This
+might look like: 
+</p>
+<pre>  rotate(first, middle, last);
+  Iterator i = advance(first, distance(middle, last));
+</pre>
+
+<p>
+Unless the iterators are random access, the computation to find the
+start of the subrange [first, middle) has linear complexity.  However,
+it is not difficult for rotate to return this information with
+negligible additional computation expense.  So the client could code: 
+</p>
+<pre>  Iterator i = rotate(first, middle, last);
+</pre>
+
+<p>
+and the resulting program becomes significantly more efficient.
+</p>
+
+<p>
+While the backwards compatibility hit with this change is not zero, it
+is very small (similar to that of lwg <ire ref="130"></ire>), and there is
+a significant benefit to the change. 
+</p>
+
+<p><b>Proposed resolution:</b></p>
+<p>In 25p2, change:</p>
+<pre>  template&lt;class ForwardIterator&gt;
+    void rotate(ForwardIterator first, ForwardIterator middle,
+                ForwardIterator last);
+</pre>
+
+<p>to:</p>
+
+<pre>  template&lt;class ForwardIterator&gt;
+    ForwardIterator rotate(ForwardIterator first, ForwardIterator middle,
+                           ForwardIterator last);
+</pre>
+
+<p>In 25.2.10, change:</p>
+
+<pre>  template&lt;class ForwardIterator&gt;
+    void rotate(ForwardIterator first, ForwardIterator middle,
+                ForwardIterator last);
+</pre>
+
+<p>to:</p>
+
+<pre>  template&lt;class ForwardIterator&gt;
+    ForwardIterator rotate(ForwardIterator first, ForwardIterator middle,
+                           ForwardIterator last);
+</pre>
+
+<p>In 25.2.10 insert a new paragraph after p1:</p>
+
+<blockquote>
+<p><b>Returns</b>: advance(first, distance(middle, last)).</p>
+</blockquote>
+<hr>
+<a name="489"><h3>489.&nbsp;std::remove / std::remove_if wrongly specified</h3></a><p><b>Section:</b>&nbsp;25.2.7 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.remove"> [lib.alg.remove]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Thomas Mang&nbsp; <b>Date:</b>&nbsp;12 Dec 2004</p>
+<p>In Section 25.2.7 [lib.alg.remove], paragraphs 1 to 5 describe the
+behavior of the mutating sequence operations std::remove and
+std::remove_if. However, the wording does not reflect the intended
+behavior [Note: See definition of intended behavior below] of these
+algorithms, as it is known to the C++ community [1].
+</p>
+
+
+
+<p>1) Analysis of current wording:</p>
+
+
+<p>25.2.7 [lib.alg.remove], paragraph 2:</p>
+
+<p>Current wording says:
+"Effects: Eliminates all the elements referred to by iterator i in the
+range [first, last) for which the following corresponding conditions
+hold: *i == value, pred(*i) != false."</p>
+
+<p>
+This sentences expresses specifically that all elements denoted by the
+(original) range [first, last) for which the corresponding condition
+hold will be eliminated. Since there is no formal definition of the term
+"eliminate" provided, the meaning of "eliminate" in everyday language
+implies that as postcondition, no element in the range denoted by
+[first, last) will hold the corresponding condition on reiteration over
+the range [first, last).
+</p>
+
+<p>
+However, this is neither the intent [Note: See definition of intended
+behavior below] nor a general possible approach. It can be easily proven
+that if all elements of the original range[first, last) will hold the
+condition, it is not possible to substitute them by an element for which
+the condition will not hold.
+</p>
+
+
+<p>25.2.7 [lib.alg.remove], paragraph 3:</p>
+
+<p>
+Current wording says:
+"Returns: The end of the resulting range."
+</p>
+
+<p>
+The resulting range is not specified. In combination with 25.2.7
+[lib.alg.remove], paragraph 2, the only reasonable interpretation of
+this so-called resulting range is the range [first,last) - thus
+returning always the ForwardIterator 'last' parameter.
+</p>
+
+
+<p>
+25.2.7 [lib.alg.remove], paragraph 4:
+</p>
+
+<p>
+Current wording says:
+"Notes: Stable: the relative order of the elements that are not removed
+is the same as their relative order in the original range"
+</p>
+
+<p>
+This sentences makes use of the term "removed", which is neither
+specified, nor used in a previous paragraph (which uses the term
+"eliminate"), nor unamgiuously separated from the name of the algorithm.
+</p>
+
+
+<p>2) Description of intended behavior:</p>
+
+<p>
+For the rest of this Defect Report, it is assumed that the intended
+behavior was that all elements of the range [first, last) which do not
+hold the condition *i == value (std::remove) or  pred(*i) != false
+(std::remove_if)], call them s-elements [Note: s...stay], will be placed
+into a contiguous subrange of [first, last), denoted by the iterators
+[first, return value). The number of elements in the resulting range
+[first, return value) shall be equal to the number of s-elements in the
+original range [first, last). The relative order of the elements in the
+resulting subrange[first, return value) shall be the same as the
+relative order of the corresponding elements in the original range. It
+is undefined whether any elements in the resulting subrange [return
+value, last) will hold the corresponding condition, or not.
+</p>
+
+<p>
+All implementations known to the author of this Defect Report comply
+with this intent. Since the intent  of the behavior (contrary to the
+current wording) is also described in various utility references serving
+the C++ community [1], it is not expected that fixing the paragraphs
+will influence current code - unless the code relies on the behavior as
+it is described by current wording and the implementation indeed
+reflects the current wording, and not the intent.
+</p>
+
+
+
+<p>3) Proposed fixes:</p>
+
+
+<p>Change 25.2.7 [lib.alg.remove], paragraph 2 to:</p>
+
+<p>
+"Effect: Places all the elements referred to by iterator i in the range
+[first, last) for which the following corresponding conditions hold :
+!(*i == value), pred(*i) == false into the subrange [first, k) of the
+original range, where k shall denote a value of type ForwardIterator. It
+is undefined whether any elements in the resulting subrange [k, last)
+will hold the corresponding condition, or not."
+</p>
+
+<p>Comments to the new wording:</p>
+
+<p>
+a) "Places" has no special meaning, and the everyday language meaning
+should fit.
+b) The corresponding conditions were negated compared to the current
+wording, becaue the new wording requires it.
+c) The wording "of the original range" might be redundant, since any
+subrange starting at 'first' and containing no more elements than the
+original range is implicitly a subrange of the original range [first,
+last).
+d) The iterator k was introduced instead of "return value" in order to
+avoid a cyclic dependency on 25.2.7/3. The wording ", where k shall
+denote a value of type ForwardIterator" might be redundant, because it
+follows implicitly by 25.2.7/3.
+e) "Places" does, in the author's opinion, explicitly forbid duplicating
+any element holding the corresponding condition in the original range
+[first, last) within the resulting range [first, k). If there is doubt
+this term might be not unambiguous regarding this, it is suggested that
+k is specified more closely by the following wording: "k shall denote a
+value of type ForwardIterator [Note: see d)] so that k - first is equal
+to the number of elements in the original range [first, last) for which
+the corresponding condition did hold". This could also be expressed as a
+separate paragraph "Postcondition:"
+f) The senctence "It is undefined whether any elements in the resulting
+subrange [k, last) will hold the corresponding condition, or not." was
+added consciously so the term "Places" does not imply if the original
+range [first, last) contains n elements holding the corresponding
+condition, the identical range[first, last) will also contain exactly n
+elements holding the corresponding condition after application of the
+algorithm.
+</p>
+
+<p>
+Change 25.2.7 [lib.alg.remove], paragraph 3 to:
+
+"Returns: The iterator k."
+</p>
+
+<p>
+Change 25.2.7 [lib.alg.remove], paragraph 4 to:
+
+"Notes: Stable: the relative order of the elements that are placed into
+the subrange [first, return value) shall be the same as their relative
+order was in the original range [first, last) prior to application of
+the algorithm."
+</p>
+
+<p>
+Comments to the new wording:
+</p>
+
+<p>
+a) the wording "was ...  prior to application of the algorithm" is used
+to explicitly distinguish the original range not only by means of
+iterators, but also by a 'chronological' factor from the resulting range
+[first, return value). It might be redundant.
+</p>
+
+<p>
+[1]:
+The wording of these references is not always unambiguous, and provided
+examples partially contradict verbal description of the algorithms,
+because the verbal description resembles the problematic wording of
+ISO/IEC 14882:2003.
+</p>
+<p><b>Proposed resolution:</b></p>
+<p>
+</p>
+<hr>
+<a name="490"><h3>490.&nbsp;std::unique wrongly specified</h3></a><p><b>Section:</b>&nbsp;25.2.8 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.alg.unique"> [lib.alg.unique]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Thomas Mang&nbsp; <b>Date:</b>&nbsp;12 Dec 2004</p>
+<p>In Section 25.2.8 [lib.alg.unique], paragraphs 1 to 3 describe the
+behavior of the mutating sequence operation std::unique. However, the
+wording does not reflect the intended behavior [Note: See definition of
+intended behavior below] of these algorithms, as it is known to the C++
+community [1].</p>
+
+
+
+<p>1) Analysis of current wording:</p>
+
+
+<p>25.2.8 [lib.alg.unique], paragraph 1:</p>
+
+<p>
+Current wording says:
+"Effects: Eliminates all but the first element from every consecutive
+group of equal elements referred to by the iterator i in the range
+[first, last) for which the following corresponding conditions hold: *i
+== *(i - 1) or pred(*i, *(i -1)) != false"
+</p>
+
+<p>
+This sentences expresses specifically that all elements denoted by the
+(original) range [first, last) which are not but the first element from
+a consecutive group of equal elements (where equality is defined as *i
+== *(i - 1) or pred(*i, *(i - 1)) ! = false) [Note: See DR 202], call
+them r-elements [Note: r...remove], will be eliminated. Since there is
+no formal definition of the term "eliminate" provided, it is undefined
+how this "elimination" takes place. But the meaning of "eliminate" in
+everyday language seems to disallow explicitly that after application of
+the algorithm, any r-element will remain at any position of the range
+[first, last) [2].
+</p>
+
+<p>
+Another defect in the current wording concerns the iterators used to
+compare two elements for equality: The current wording contains the
+expression "(i - 1)", which is not covered by 25/9 [Note: See DR
+submitted by Thomas Mang regarding invalid iterator arithmetic
+expressions].
+</p>
+
+
+<p>
+25.2.8 [lib.alg.unique], paragraph 2:
+</p>
+<p>Current wording says:
+"Returns: The end of the resulting range."</p>
+
+<p>
+The resulting range is not specified. In combination with 25.2.8
+[lib.alg.unique], paragraph 1, one reasonable interpretation (in the
+author's opinion even the only possible interpretation) of this
+so-called resulting range is the range [first, last) - thus returning
+always the ForwardIterator 'last' parameter.
+</p>
+
+<p>2) Description of intended behavior:</p>
+
+<p>
+For the rest of this Defect Report, it is assumed that the intended
+behavior was that all elements denoted by the original range [first,
+last) which are the first element from a consecutive group of elements
+for which the corresponding conditions: *(i-1) == *i (for the version of
+unique without a predicate argument) or pred(*(i-1), *i) ! = false (for
+the version of unique with a predicate argument) [Note: If such a group
+of elements consists of only a single element, this is also considered
+the first element] [Note: See resolutions of DR 202], call them
+s-elements [Note: s...stay], will be placed into a contiguous subrange
+of [first, last), denoted by the iterators [first, return value). The
+number of elements in the resulting range [first, return value) shall be
+equal to the number of s-elements in the original range [first, last).
+Invalid iterator arithmetic expressions are expected to be resolved as
+proposed in DR submitted by Thomas Mang regarding invalid iterator
+arithmetic expressions. It is also assumed by the author that the
+relative order of the elements in the resulting subrange [first, return
+value) shall be the same as the relative order of the corresponding
+elements (the s-elements) in the original range [Note: If this was not
+intended behavior, the additional proposed paragraph about stable order
+will certainly become obsolete].
+Furthermore, the resolutions of DR 202 are partially considered.
+</p>
+
+<p>
+All implementations known to the author of this Defect Report comply
+with this intent [Note: Except possible effects of DR 202]. Since this
+intent of the behavior (contrary to the current wording) is also
+described in various utility references serving the C++ community [1],
+it is not expected that fixing the paragraphs will influence current
+code [Note: Except possible effects of DR 202] - unless the code relies
+on the behavior as it is described by current wording and the
+implementation indeed reflects the current wording, and not the intent.
+</p>
+
+
+
+<p>3) Proposed fixes:</p>
+
+<p>
+Change 25.2.8 [lib.alg.unique], paragraph 1 to:
+</p>
+
+<p>
+"Effect: Places the first element from every consecutive group of
+elements, referred to by the iterator i in the range [first, last), for
+which the following conditions hold: *(i-1) == *i (for the version of
+unique without a predicate argument) or pred(*(i -1), *i) != false (for
+the version of unique with a predicate argument), into the subrange
+[first, k) of the original range, where k shall denote a value of type
+ForwardIterator."
+</p>
+
+<p>Comments to the new wording:</p>
+
+<p>
+a) The new wording was influenced by the resolutions of DR 202. If DR
+202 is resolved in another way, the proposed wording need also
+additional review.
+b) "Places" has no special meaning, and the everyday language meaning
+should fit.
+c) The expression "(i - 1)" was left, but is expected that DR submitted
+by Thomas Mang regarding invalid iterator arithmetic expressions will
+take this into account.
+d) The wording "(for the version of unique without a predicate
+argument)" and "(for the version of unique with a predicate argument)"
+was added consciously for clarity and is in resemblence with current
+23.2.2.4 [lib.list.ops], paragraph 19. It might be considered redundant.
+e) The wording "of the original range" might be redundant, since any
+subrange starting at first and containing no more elements than the
+original range is implicitly a subrange of the original range [first,
+last).
+f) The iterator k was introduced instead of "return value" in order to
+avoid a cyclic dependency on 25.2.8 [lib.alg.unique], paragraph 2. The
+wording ", where k shall denote a value of type ForwardIterator" might
+be redundant, because it follows implicitly by 25.2.8 [lib.alg.unique],
+paragraph 2.
+g) "Places" does, in the author's opinion, explicitly forbid duplicating
+any s-element in the original range [first, last) within the resulting
+range [first, k). If there is doubt this term might be not unambiguous
+regarding this, it is suggested that k is specified more closely by the
+following wording: "k shall denote a value of type ForwardIterator
+[Note: See f)] so that k - first is equal to the number of elements in
+the original range [first, last) being the first element from every
+consecutive group of elements for which the corresponding condition did
+hold". This could also be expressed as a separate paragraph
+"Postcondition:".
+h) If it is considered that the wording is unclear whether it declares
+the element of a group which consists of only a single element
+implicitly to be the first element of this group [Note: Such an
+interpretation could eventually arise especially in case last - first ==
+1] , the following additional sentence is proposed: "If such a group of
+elements consists of only a single element, this element is also
+considered the first element."
+</p>
+
+<p>
+Change 25.2.8 [lib.alg.unique], paragraph 2 to:
+"Returns: The iterator k."
+</p>
+
+<p>
+Add a separate paragraph "Notes:" as 25.2.8 [lib.alg.unique], paragraph
+2a or 3a, or a separate paragraph "Postcondition:" before 25.2.8
+[lib.alg.unique], paragraph 2 (wording inside {} shall be eliminated if
+the preceding expressions are used, or the preceding expressions shall
+be eliminated if wording inside {} is used):
+</p>
+
+<p>
+"Notes:{Postcondition:} Stable: the relative order of the elements that
+are placed into the subrange [first, return value {k}) shall be the same
+as their relative order was in the original range [first, last) prior to
+application of the algorithm."
+</p>
+
+<p>Comments to the new wording:</p>
+
+<p>
+a) It is assumed by the author that the algorithm was intended to be
+stable.
+In case this was not the intent, this paragraph becomes certainly
+obsolete.
+b) The wording "was ...  prior to application of the algorithm" is used
+to explicitly distinguish the original range not only by means of
+iterators, but also by a 'chronological' factor from the resulting range
+[first, return value). It might be redundant.
+</p>
+
+<p>
+25.2.8 [lib.alg.unique], paragraph 3:
+</p>
+<p>See DR 239.</p>
+
+<p>
+4) References to other DRs:
+</p>
+
+<p>
+See DR 202, but which does not address any of the problems described in
+this Defect Report [Note: This DR is supposed to complement DR 202].
+See DR 239.
+See DR submitted by Thomas Mang regarding invalid iterator arithmetic
+expressions.
+</p>
+
+<p>
+[1]:
+The wording of these references is not always unambiguous, and provided
+examples partially contradict verbal description of the algorithms,
+because the verbal description resembles the problematic wording of
+ISO/IEC 14882:2003.
+</p>
+
+<p>
+[2]:
+Illustration of conforming implementations according to current wording:
+</p>
+
+<p>
+One way the author of this DR considers how this "elimination" could be
+achieved by a conforming implementation according to current wording is
+by substituting each r-element by _any_ s-element [Note: s...stay; any
+non-r-element], since all r-elements are "eliminated".
+</p>
+
+<p>
+In case of a sequence consisting of elements being all 'equal' [Note:
+See DR 202], substituting each r-element by the single s-element is the
+only possible solution according to current wording.
+</p>
+<p><b>Proposed resolution:</b></p>
+<p>
+</p>
+<hr>
+<a name="491"><h3>491.&nbsp;std::list&lt;&gt;::unique incorrectly specified</h3></a><p><b>Section:</b>&nbsp;23.2.2.4 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.list.ops"> [lib.list.ops]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Thomas Mang&nbsp; <b>Date:</b>&nbsp;12 Dec 2004</p>
+<p>In Section 23.2.2.4 [lib.list.ops], paragraphs 19 to 21 describe the
+behavior of the std::list&lt;T, Allocator&gt;::unique operation. However, the
+current wording is defective for various reasons.</p>
+
+
+
+<p>
+1) Analysis of current wording:
+</p>
+
+<p>23.2.2.4 [lib.list.ops], paragraph 19:</p>
+
+<p>
+Current wording says:
+"Effects:  Eliminates all but the first element from every consecutive
+group of equal elements referred to by the iterator i in the range
+[first + 1, last) for which *i == *(i - 1) (for the version of unique
+with no argument) or pred(*i, *(i -1)) (for the version of unique with a
+predicate argument) holds."</p>
+
+<p>
+This sentences makes use of the undefined term "Eliminates". Although it
+is, to a certain degree, reasonable to consider the term "eliminate"
+synonymous with "erase", using "Erase" in the first place, as the
+wording of 23.2.2.4 [lib.list.ops], paragraph 15 does, would be clearer.</p>
+
+<p>
+The range of the elements referred to by iterator i is "[first + 1,
+last)". However, neither "first" nor "last" is defined.</p>
+
+<p>
+The sentence makes three times use of iterator arithmetic expressions (
+"first + 1", "*i == *(i - 1)", "pred(*i, *(i -1))" ) which is not
+defined for bidirectional iterator [see DR submitted by Thomas Mang
+regarding invalid iterator arithmetic expressions].</p>
+
+<p>
+The same problems as pointed out in DR 202 (equivalence relation / order
+of arguments for pred()) apply to this paragraph.</p>
+
+<p>
+23.2.2.4 [lib.list.ops], paragraph 20:
+</p>
+
+<p>
+Current wording says:
+"Throws: Nothing unless an exception in thrown by *i == *(i-1) or
+pred(*i, *(i - 1))"</p>
+
+<p>
+The sentence makes two times use of invalid iterator arithmetic
+expressions ( "*i == *(i - 1)", "pred(*i, *(i -1))" ).
+</p>
+<p>
+[Note: Minor typos: "in" / missing dot at end of sentence.]
+</p>
+
+<p>
+23.2.2.4 [lib.list.ops], paragraph 21:</p>
+
+<p>
+Current wording says:
+"Complexity: If the range (last - first) is not empty, exactly (last -
+first) - 1 applications of the corresponding predicate, otherwise no
+application of the predicate.</p>
+
+<p>
+See DR 315 regarding "(last - first)" not yielding a range.</p>
+
+<p>
+Invalid iterator arithmetic expression "(last - first) - 1" left .</p>
+
+
+<p>2) Description of intended behavior:</p>
+
+<p>
+For the rest of this Defect Report, it is assumed that "eliminate" is
+supposed to be synonymous to "erase", that "first" is equivalent to an
+iterator obtained by a call to begin(), "last" is equivalent to an
+iterator obtained by a call to end(), and that all invalid iterator
+arithmetic expressions are resolved as described in DR submitted by
+Thomas Mang regarding invalid iterator arithmetic expressions.</p>
+
+<p>
+Furthermore, the resolutions of DR 202 are considered regarding
+equivalence relation and order of arguments for a call to pred.</p>
+
+<p>
+All implementations known to the author of this Defect Report comply
+with these assumptions, apart from the impact of the alternative
+resolution of DR 202. Except for the changes implied by the resolutions
+of DR 202, no impact on current code is expected.</p>
+
+<p>
+3) Proposed fixes:</p>
+
+<p>
+Change 23.2.2.4 [lib.list.ops], paragraph 19 to:</p>
+
+<p>
+"Effect: Erases all but the first element from every consecutive group
+of elements, referred to by the iterator i in the range [begin(),
+end()), for which the following conditions hold: *(i-1) == *i (for the
+version of unique with no argument) or pred(*(i-1), *i) != false (for
+the version of unique with a predicate argument)."</p>
+
+<p>
+Comments to the new wording:</p>
+
+<p>
+a) The new wording was influenced by DR 202 and the resolutions
+presented there. If DR 202 is resolved in another way, the proposed
+wording need also additional review.
+b) "Erases" refers in the author's opinion unambiguously to the member
+function "erase". In case there is doubt this might not be unamgibuous,
+a direct reference to the member function "erase" is suggested [Note:
+This would also imply a change of 23.2.2.4 [lib.list.ops], paragraph
+15.].
+c) The expression "(i - 1)" was left, but is expected that DR submitted
+by Thomas Mang regarding invalid iterator arithmetic expressions will
+take this into account.
+d) The wording "(for the version of unique with no argument)" and "(for
+the version of unique with a predicate argument)" was kept consciously
+for clarity.
+e) "begin()" substitutes "first", and "end()" substitutes "last". The
+range need adjustment from "[first + 1, last)" to "[begin(), end())" to
+ensure a valid range in case of an empty list.
+f) If it is considered that the wording is unclear whether it declares
+the element of a group which consists of only a single element
+implicitly to be the first element of this group [Note: Such an
+interpretation could eventually arise especially in case size() == 1] ,
+the following additional sentence is proposed: "If such a group of
+elements consists of only a single element, this element is also
+considered the first element."</p>
+
+<p>
+Change 23.2.2.4 [lib.list.ops], paragraph 20 to:</p>
+
+<p>
+"Throws: Nothing unless an exception is thrown by *(i-1) == *i or
+pred(*(i-1), *i)."</p>
+
+<p>
+Comments to the new wording:</p>
+
+<p>
+a) The wording regarding the conditions is identical to proposed
+23.2.2.4 [lib.list.ops], paragraph 19. If 23.2.2.4 [lib.list.ops],
+paragraph 19 is resolved in another way, the proposed wording need also
+additional review.
+b) The expression "(i - 1)" was left, but is expected that DR submitted
+by Thomas Mang regarding invalid iterator arithmetic expressions will
+take this into account.
+c) Typos fixed.</p>
+
+<p>
+Change 23.2.2.4 [lib.list.ops], paragraph 21 to:</p>
+
+<p>
+"Complexity: If empty() == false, exactly size() - 1 applications of the
+corresponding predicate, otherwise no applications of the corresponding
+predicate."</p>
+
+<p>
+Comments to the new wording:</p>
+
+<p>
+a) The new wording is supposed to also replace the proposed resolution
+of DR 315, which suffers from the problem of undefined "first" / "last".
+</p>
+
+<p>
+5) References to other DRs:</p>
+
+<p>See DR 202.
+See DR 239.
+See DR 315.
+See DR submitted by Thomas Mang regarding invalid iterator arithmetic
+expressions.</p>
+
+<p><b>Proposed resolution:</b></p>
+<p>
+</p>
+<hr>
+<a name="492"><h3>492.&nbsp;Invalid iterator arithmetic expressions</h3></a><p><b>Section:</b>&nbsp;23 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.containers"> [lib.containers]</a>, 24 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.iterators"> [lib.iterators]</a>, 25 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.algorithms"> [lib.algorithms]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Thomas Mang&nbsp; <b>Date:</b>&nbsp;12 Dec 2004</p>
+<p>Various clauses other than clause 25 make use of iterator arithmetic not
+supported by the iterator category in question.
+Algorithms in clause 25 are exceptional because of 25 [lib.algorithms],
+paragraph 9, but this paragraph does not provide semantics to the
+expression "iterator - n", where n denotes a value of a distance type
+between iterators.</p>
+
+<p>1) Examples of current wording:</p>
+
+<p>Current wording outside clause 25:</p>
+
+<p>
+23.2.2.4 [lib.list.ops], paragraphs 19-21: "first + 1", "(i - 1)",
+"(last - first)"
+23.3.1.1 [lib.map.cons], paragraph 4: "last - first"
+23.3.2.1 [lib.multimap.cons], paragraph 4: "last - first"
+23.3.3.1 [lib.set.cons], paragraph 4: "last - first"
+23.3.4.1 [lib.multiset.cons], paragraph 4: "last - first"
+24.4.1 [lib.reverse.iterators], paragraph 1: "(i - 1)"
+</p>
+
+<p>
+[Important note: The list is not complete, just an illustration. The
+same issue might well apply to other paragraphs not listed here.]</p>
+
+<p>None of these expressions is valid for the corresponding iterator
+category.</p>
+
+<p>Current wording in clause 25:</p>
+
+<p>
+25.1.1 [lib.alg.foreach], paragraph 1: "last - 1"
+25.1.3 [lib.alg.find.end], paragraph 2: "[first1, last1 -
+(last2-first2))"
+25.2.8 [lib.alg.unique], paragraph 1: "(i - 1)"
+25.2.8 [lib.alg.unique], paragraph 5: "(i - 1)"
+</p>
+
+<p>
+However, current wording of 25 [lib.algorithms], paragraph 9 covers
+neither of these four cases:</p>
+
+<p>Current wording of 25 [lib.algorithms], paragraph 9:</p>
+
+<p>
+"In the description of the algorithms operator + and - are used for some
+of the iterator categories for which they do not have to be defined. In
+these cases the semantics of a+n is the same as that of</p>
+<pre>{X tmp = a;
+advance(tmp, n);
+return tmp;
+}
+</pre>
+<p>and that of b-a is the same as of return distance(a, b)"</p>
+
+<p>
+This paragrpah does not take the expression "iterator - n" into account,
+where n denotes a value of a distance type between two iterators [Note:
+According to current wording, the expression "iterator - n" would be
+resolved as equivalent to "return distance(n, iterator)"]. Even if the
+expression "iterator - n" were to be reinterpreted as equivalent to
+"iterator + -n" [Note: This would imply that "a" and "b" were
+interpreted implicitly as values of iterator types, and "n" as value of
+a distance type], then 24.3.4/2 interfers because it says: "Requires: n
+may be negative only for random access and bidirectional iterators.",
+and none of the paragraphs quoted above requires the iterators on which
+the algorithms operate to be of random access or bidirectional category.
+</p>
+
+<p>2) Description of intended behavior:</p>
+
+<p>
+For the rest of this Defect Report, it is assumed that the expression
+"iterator1 + n" and "iterator1 - iterator2" has the semantics as
+described in current 25 [lib.algorithms], paragraph 9, but applying to
+all clauses. The expression "iterator1 - n" is equivalent to an
+result-iterator for which the expression "result-iterator + n" yields an
+iterator denoting the same position as iterator1 does. The terms
+"iterator1", "iterator2" and "result-iterator" shall denote the value of
+an iterator type, and the term "n" shall denote a value of a distance
+type between two iterators.</p>
+
+<p>
+All implementations known to the author of this Defect Report comply
+with these assumptions.
+No impact on current code is expected.</p>
+
+<p>3) Proposed fixes:</p>
+
+
+<p>Change 25 [lib.algorithms], paragraph 9 to:</p>
+
+<p>
+"In the description of the algorithms operator + and - are used for some
+of the iterator categories for which they do not have to be defined. In
+this paragraph, a and b denote values of an iterator type, and n denotes
+a value of a distance type between two iterators. In these cases the
+semantics of a+n is the same as that of</p>
+<pre>{X tmp = a;
+advance(tmp, n);
+return tmp;
+}
+</pre>
+<p>,the semantics of a-n denotes the value of an iterator i for which the
+following condition holds:
+advance(i, n) == a,
+and that of b-a is the same as of
+return distance(a, b)".
+</p>
+
+<p>Comments to the new wording:</p>
+
+<p>
+a) The wording " In this paragraph, a and b denote values of an iterator
+type, and n denotes a value of a distance type between two iterators."
+was added so the expressions "b-a" and "a-n" are distinguished regarding
+the types of the values on which they operate.
+b) The wording ",the semantics of a-n denotes the value of an iterator i
+for which the following condition holds: advance(i, n) == a" was added
+to cover the expression 'iterator - n'. The wording "advance(i, n) == a"
+was used to avoid a dependency on the semantics of a+n, as the wording
+"i + n == a" would have implied. However, such a dependency might well
+be deserved.
+c) DR 225 is not considered in the new wording.
+</p>
+
+<p>
+Proposed fixes regarding invalid iterator arithmetic expressions outside
+clause 25:</p>
+
+<p>
+Either
+a) Move modified 25 [lib.algorithms], paragraph 9 (as proposed above)
+before any current invalid iterator arithmetic expression. In that case,
+the first sentence of 25 [lib.algorithms], paragraph 9, need also to be
+modified and could read: "For the rest of this International Standard,
+...." / "In the description of the following clauses including this
+...." / "In the description of the text below ..." etc. - anyways
+substituting the wording "algorithms", which is a straight reference to
+clause 25.
+In that case, 25 [lib.algorithms] paragraph 9 will certainly become
+obsolete.
+Alternatively,
+b) Add an appropiate paragraph similar to resolved 25 [lib.algorithms],
+paragraph 9, to the beginning of each clause containing invalid iterator
+arithmetic expressions.
+Alternatively,
+c) Fix each paragraph (both current wording and possible resolutions of
+DRs) containing invalid iterator arithmetic expressions separately.
+</p>
+
+<p>5) References to other DRs:</p>
+
+<p>
+See DR 225.
+See DR 237. The resolution could then also read "Linear in last -
+first".
+</p>
+<p><b>Proposed resolution:</b></p>
+<p>
+</p>
+<hr>
+<a name="493"><h3>493.&nbsp;Undefined Expression in Input Iterator Note Title</h3></a><p><b>Section:</b>&nbsp;24.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iterators.html#lib.input.iterators"> [lib.input.iterators]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Chris Jefferson&nbsp; <b>Date:</b>&nbsp;13 Dec 2004</p>
+<p>1) In 24.1.1/3, the following text is currently present.</p>
+
+<p>"Note: For input iterators, a==b does not imply ++a=++b (Equality does
+not guarantee the substitution property or referential transparency)."</p>
+
+<p>However, when in Table 72, part of the definition of ++r is given as:</p>
+
+<p>"pre: r is dereferenceable.
+post: any copies of the previous value of r are no longer required
+either to be dereferenceable ..."</p>
+
+<p>While a==b does not imply that b is a copy of a, this statement should
+perhaps still be made more clear.</p>
+
+<p>2) There are no changes to intended behaviour</p>
+
+<p>
+3) This Note should be altered to say "Note: For input iterators a==b,
+when its behaviour is defined ++a==++b may still be false (Equality does
+not guarantee the substitution property or referential transparency).</p>
+
+<p><b>Proposed resolution:</b></p>
+<p>
+</p>
+<hr>
+<a name="494"><h3>494.&nbsp;Wrong runtime complexity for associative container's insert and delete</h3></a><p><b>Section:</b>&nbsp;23.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.associative.reqmts"> [lib.associative.reqmts]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Hans B os&nbsp; <b>Date:</b>&nbsp;19 Dec 2004</p>
+<p>According to [lib.associative.reqmts] table 69, the runtime comlexity
+of insert(p, t) and erase(q) can be done in amortized constant time.</p>
+
+<p>It was my understanding that an associative container could be
+implemented as a balanced binary tree.</p>
+
+<p>For inser(p, t), you 'll have to iterate to p's next node to see if t
+can be placed next to p.  Furthermore, the insertion usually takes
+place at leaf nodes. An insert next to the root node will be done at
+the left of the root next node</p>
+
+<p>So when p is the root node you 'll have to iterate from the root to
+its next node, which  takes O(log(size)) time in a balanced tree.</p>
+
+<p>If you insert all values with insert(root, t) (where root is the
+root of the tree before insertion) then each insert takes O(log(size))
+time.  The amortized complexity per insertion will be O(log(size))
+also.</p>
+
+<p>For erase(q), the normal algorithm for deleting a node that has no
+empty left or right subtree, is to iterate to the next (or previous),
+which is a leaf node. Then exchange the node with the next and delete
+the leaf node.  Furthermore according to DR 130, erase should return
+the next node of the node erased.  Thus erasing the root node,
+requires iterating to the next node.</p>
+
+<p>Now if you empty a map by deleting the root node until the map is
+empty, each operation will take O(log(size)), and the amortized
+complexity is still O(log(size)).</p>
+
+<p>The operations can be done in amortized constant time if iterating
+to the next node can be done in (non amortized) constant time.  This
+can be done by putting all nodes in a double linked list.  This
+requires two extra links per node.  To me this is a bit overkill since
+you can already efficiently insert or erase ranges with erase(first,
+last) and insert(first, last).</p>
+
+<p><b>Proposed resolution:</b></p>
+<p>
+</p>
+<hr>
+<a name="495"><h3>495.&nbsp;Clause 22 template parameter requirements</h3></a><p><b>Section:</b>&nbsp;22 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.localization"> [lib.localization]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;Beman Dawes&nbsp; <b>Date:</b>&nbsp;10 Jan 2005</p>
+<p>It appears that there are no requirements specified for many of the
+template parameters in clause 22. It looks like this issue has never
+come up, except perhaps for Facet.</p>
+
+<p>Clause 22 isn't even listed in 17.3.2.1 [lib.type.descriptions],
+either, which is the wording that allows requirements on template
+parameters to be identified by name.</p>
+
+<p>So one issue is that 17.3.2.1 [lib.type.descriptions] Should be
+changed to cover clause 22. A better change, which will cover us in
+the future, would be to say that it applies to all the library
+clauses. Then if a template gets added to any library clause we are
+covered.</p>
+
+<p>charT, InputIterator, and other names with requirements defined
+elsewhere are fine, assuming the 17.3.2.1 [lib.type.descriptions] fix.
+But there are a few template arguments names which I don't think have
+requirements given elsewhere:</p>
+
+<ul>
+<li>internT and externT.  The fix is to add wording saying that internT
+and externT must meet the same requirements as template arguments
+named charT.</li>
+
+<li>stateT.  I'm not sure about this one. There already is some wording,
+but it seems a bit vague.</li>
+
+<li>Intl.  [lib.locale.moneypunct.byname] The fix for this one is to
+rename "Intl" to "International". The name is important because other
+text identifies the requirements for the name International but not
+for Intl.</li>
+</ul>
+<p><b>Proposed resolution:</b></p>
+<hr>
+<a name="496"><h3>496.&nbsp;Illegal use of "T" in vector&lt;bool&gt;</h3></a><p><b>Section:</b>&nbsp;23.2.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.vector.bool"> [lib.vector.bool]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#New">New</a>&nbsp; <b>Submitter:</b>&nbsp;richard@ex-parrot.com&nbsp; <b>Date:</b>&nbsp;10 Feb 2005</p>
+<p>
+In the synopsis of the std::vector&lt;bool&gt; specialisation in 23.2.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.vector.bool"> [lib.vector.bool]</a>,
+the non-template assign() function has the signature</p>
+
+<pre>  void assign( size_type n, const T&amp; t );
+</pre>
+
+<p>
+The type, T, is not defined in this context and should be replaced by
+bool or value_type.</p>
 <p><b>Proposed resolution:</b></p>
 <p>
 </p>

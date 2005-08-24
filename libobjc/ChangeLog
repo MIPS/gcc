@@ -1,3 +1,74 @@
+2005-05-19  Richard Henderson  <rth@redhat.com>
+
+	* exception.c: Revert last change.
+
+2005-05-19  David Ayers  <d.ayers@inode.at>
+
+	* exception.c: Include tsystem.h for unwind.h.
+
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in: Set gcc_version here.
+	* configure.ac: Do not invoke TL_AC_GCC_VERSION.  Adjust quoting
+	in definition of toolexeclibdir so that $(gcc_version) is expanded
+	by the Makefile.
+	* aclocal.m4, configure: Regenerate.
+
+2005-03-03  David Ayers  <d.ayers@inode.at>
+
+	* objc/hash.h (OBJC_IGNORE_DEPRECATED_API): Update deprecated
+	version reference.  Correct typo.
+
+2005-03-02  David Ayers  <d.ayers@inode.at>
+
+	PR libobjc/19024
+	* Makefile.in (OBJS): Add hash_compat.lo.
+	(OBJS_GC): Add hash_compat_gc.lo.
+	(hash_compat_gc.lo): New target and rule.
+	* objc/hash.h (hash_new, hash_delete, hash_add, hash_remove)
+	(hash_next, hash_value_for_key, hash_is_key_in_hash)
+	(hash_ptr, hash_string, compare_ptrs, compare_strings): Prefix
+	with objc_.  Add deprecated non prefixed inlined versions.
+	(OBJC_IGNORE_DEPRECATED_API): New macro to hide deprecated
+	declarations.
+	* hash.c (hash_new, hash_delete, hash_add, hash_remove, hash_next)
+	(hash_value_for_key, hash_is_key_in_hash): Prefix with objc_ and
+	update callers.
+	* hash_compat.c: New file.
+	* archive.c: Update callers.
+	* init.c: Likewise.
+	* selector.c: Likewise.
+	* libobjc.def: Add objc_ versions of hash functions.
+
+2005-02-28  Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR libobjc/20252
+	* Makefile.in (GTHREAD_FLAGS): Remove.
+	(ALL_CFLAGS): Remove usage of GTHREAD_FLAGS.
+	* thr-objc.c: Include config.h.
+	* configure.ac: Instead of looking at GCC's makefile, figure out if
+	GTHREAD_FLAGS should be defined by looking at the `thread model'
+	of the current gcc.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2005-02-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/17383
+	* configure.ac: Call GCC_TOPLEV_SUBDIRS.
+	(Determine CFLAGS for gthread): Use $host_subdir.
+	* configure: Regenerate.
+	* Makefile.in (host_subdir): New.
+	(INCLUDES): Use it.
+
 2004-12-20  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR libobjc/12035
@@ -33,7 +104,7 @@
 	* aclocal.m4, config.h.in: Regenerate.
 
 2004-10-08  Mike Stump  <mrs@apple.com>
-            Andrew Pinski  <pinskia@physics.uc.edu>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* aclocal.m4: Rename to ...
 	* acinclude.m4: here and also use m4_include instead of sinclude.
@@ -101,7 +172,7 @@
 	zero-sized array.
 	(objc_method): Hoist definition to file scope.
 	(_objc_load_callback, _objc_object_alloc, class_get_class_method,
-	class_get_instance_method, class_create_instance, 
+	class_get_instance_method, class_create_instance,
 	class_get_class_name, class_get_instance_size,
 	class_get_meta_class, class_get_super_class, class_get_version,
 	class_is_class, class_is_meta_class, class_set_version,

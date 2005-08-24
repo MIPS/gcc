@@ -125,6 +125,7 @@ namespace std
 	      int_type __c = __sb->sgetc();
 
 	      // See comment in istream.tcc.
+	      bool __large_ignore = false;
 	      while (true)
 		{
 		  while (_M_gcount < __n
@@ -147,12 +148,18 @@ namespace std
 		    }
 		  if (__n == numeric_limits<streamsize>::max()
 		      && !traits_type::eq_int_type(__c, __eof))
-		    _M_gcount = numeric_limits<streamsize>::min();
+		    {
+		      _M_gcount = numeric_limits<streamsize>::min();
+		      __large_ignore = true;
+		    }
 		  else
 		    break;
 		}
 
-	      if (_M_gcount < __n)
+	      if (__large_ignore)
+		_M_gcount = numeric_limits<streamsize>::max();
+
+	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
@@ -183,6 +190,7 @@ namespace std
 	      __streambuf_type* __sb = this->rdbuf();
 	      int_type __c = __sb->sgetc();
 
+	      bool __large_ignore = false;
 	      while (true)
 		{
 		  while (_M_gcount < __n
@@ -212,18 +220,23 @@ namespace std
 		  if (__n == numeric_limits<streamsize>::max()
 		      && !traits_type::eq_int_type(__c, __eof)
 		      && !traits_type::eq_int_type(__c, __delim))
-		    _M_gcount = numeric_limits<streamsize>::min();
+		    {
+		      _M_gcount = numeric_limits<streamsize>::min();
+		      __large_ignore = true;
+		    }
 		  else
 		    break;
 		}
 
-	      if (_M_gcount == __n)
-		;
-	      else if (traits_type::eq_int_type(__c, __eof))
+	      if (__large_ignore)
+		_M_gcount = numeric_limits<streamsize>::max();
+
+	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
-	      else
+	      else if (traits_type::eq_int_type(__c, __delim))
 		{
-		  ++_M_gcount;
+		  if (_M_gcount < numeric_limits<streamsize>::max())
+		    ++_M_gcount;
 		  __sb->sbumpc();
 		}
 	    }
@@ -405,6 +418,7 @@ namespace std
 	      __streambuf_type* __sb = this->rdbuf();
 	      int_type __c = __sb->sgetc();
 
+	      bool __large_ignore = false;
 	      while (true)
 		{
 		  while (_M_gcount < __n
@@ -427,12 +441,18 @@ namespace std
 		    }
 		  if (__n == numeric_limits<streamsize>::max()
 		      && !traits_type::eq_int_type(__c, __eof))
-		    _M_gcount = numeric_limits<streamsize>::min();
+		    {
+		      _M_gcount = numeric_limits<streamsize>::min();
+		      __large_ignore = true;
+		    }
 		  else
 		    break;
 		}
 
-	      if (_M_gcount < __n)
+	      if (__large_ignore)
+		_M_gcount = numeric_limits<streamsize>::max();
+
+	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
@@ -463,6 +483,7 @@ namespace std
 	      __streambuf_type* __sb = this->rdbuf();
 	      int_type __c = __sb->sgetc();
 
+	      bool __large_ignore = false;
 	      while (true)
 		{
 		  while (_M_gcount < __n
@@ -492,18 +513,23 @@ namespace std
 		  if (__n == numeric_limits<streamsize>::max()
 		      && !traits_type::eq_int_type(__c, __eof)
 		      && !traits_type::eq_int_type(__c, __delim))
-		    _M_gcount = numeric_limits<streamsize>::min();
+		    {
+		      _M_gcount = numeric_limits<streamsize>::min();
+		      __large_ignore = true;
+		    }
 		  else
 		    break;
 		}
 
-	      if (_M_gcount == __n)
-		;
-	      else if (traits_type::eq_int_type(__c, __eof))
+	      if (__large_ignore)
+		_M_gcount = numeric_limits<streamsize>::max();
+
+	      if (traits_type::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
-	      else
+	      else if (traits_type::eq_int_type(__c, __delim))
 		{
-		  ++_M_gcount;
+		  if (_M_gcount < numeric_limits<streamsize>::max())
+		    ++_M_gcount;
 		  __sb->sbumpc();
 		}
 	    }

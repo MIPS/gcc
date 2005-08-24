@@ -1,3 +1,7 @@
+// { dg-require-namedlocale "" }
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+
 // Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -33,12 +37,12 @@ void test01()
   using namespace std;
   using namespace __gnu_test;
 
-  locale loc_fr(__gnu_test::try_named_locale("fr_FR"));
-  locale loc_en(__gnu_test::try_named_locale("en_US"));
+  locale loc_fr(locale("fr_FR"));
+  locale loc_en(locale("en_US"));
 
   const char* name = "tmp_fifo_13171-2";
   unlink(name);
-  try_mkfifo(name, S_IRWXU);
+  mkfifo(name, S_IRWXU);
   semaphore s1, s2;
   
   int child = fork();

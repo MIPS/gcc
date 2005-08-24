@@ -1,21 +1,30 @@
 `/* Implementation of the MATMUL intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -84,14 +93,14 @@ matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b)
           retarray->dim[0].lbound = 0;
           retarray->dim[0].ubound = a->dim[0].ubound - a->dim[0].lbound;
           retarray->dim[0].stride = 1;
-          
+
           retarray->dim[1].lbound = 0;
           retarray->dim[1].ubound = b->dim[1].ubound - b->dim[1].lbound;
           retarray->dim[1].stride = retarray->dim[0].ubound+1;
         }
-          
+
       retarray->data
-	= internal_malloc_size (sizeof (rtype_name) * size0 (retarray));
+	= internal_malloc_size (sizeof (rtype_name) * size0 ((array_t *) retarray));
       retarray->base = 0;
     }
 
@@ -150,7 +159,7 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       /* bystride should never be used for 1-dimensional b.
 	 in case it is we want it to cause a segfault, rather than
 	 an incorrect result. */
-      bystride = 0xDEADBEEF; 
+      bystride = 0xDEADBEEF;
       ycount = 1;
     }
   else
@@ -159,10 +168,6 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       bystride = b->dim[1].stride;
       ycount = b->dim[1].ubound + 1 - b->dim[1].lbound;
     }
-
-  assert (a->base == 0);
-  assert (b->base == 0);
-  assert (retarray->base == 0);
 
   abase = a->data;
   bbase = b->data;
@@ -175,7 +180,7 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       rtype_name *abase_n;
       rtype_name bbase_yn;
 
-      memset (dest, 0, (sizeof (rtype_name) * size0(retarray)));
+      memset (dest, 0, (sizeof (rtype_name) * size0((array_t *) retarray)));
 
       for (y = 0; y < ycount; y++)
 	{

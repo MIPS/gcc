@@ -1,6 +1,6 @@
 // natClass.cc - Implementation of java.lang.Class native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  
    Free Software Foundation
 
    This file is part of libgcj.
@@ -53,15 +53,14 @@ details.  */
 #include <java/lang/SecurityManager.h>
 #include <java/lang/StringBuffer.h>
 #include <java/lang/VMClassLoader.h>
-#include <gnu/gcj/runtime/StackTrace.h>
 #include <gcj/method.h>
-#include <gnu/gcj/runtime/MethodRef.h>
 #include <gnu/gcj/RawData.h>
 #include <java/lang/VerifyError.h>
 
 #include <java-cpool.h>
 #include <java-interp.h>
 #include <java-assert.h>
+#include <java-stack.h>
 #include <execution.h>
 
 
@@ -101,20 +100,10 @@ jclass
 java::lang::Class::forName (jstring className)
 {
   java::lang::ClassLoader *loader = NULL;
-  gnu::gcj::runtime::StackTrace *t 
-    = new gnu::gcj::runtime::StackTrace(4);
-  java::lang::Class *klass = NULL;
-  try
-    {
-      for (int i = 1; !klass; i++)
-	{
-	  klass = t->classAt (i);
-	}
-      loader = klass->getClassLoaderInternal();
-    }
-  catch (::java::lang::ArrayIndexOutOfBoundsException *e)
-    {
-    }
+
+  jclass caller = _Jv_StackTrace::GetCallingClass (&Class::class$);
+  if (caller)
+    loader = caller->getClassLoaderInternal();
 
   return forName (className, true, loader);
 }
@@ -125,21 +114,10 @@ java::lang::Class::getClassLoader (void)
   java::lang::SecurityManager *s = java::lang::System::getSecurityManager();
   if (s != NULL)
     {
-      gnu::gcj::runtime::StackTrace *t 
-	= new gnu::gcj::runtime::StackTrace(4);
-      Class *caller = NULL;
+      jclass caller = _Jv_StackTrace::GetCallingClass (&Class::class$);
       ClassLoader *caller_loader = NULL;
-      try
-	{
-	  for (int i = 1; !caller; i++)
-	    {
-	      caller = t->classAt (i);
-	    }
-	  caller_loader = caller->getClassLoaderInternal();
-	}
-      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
-	{
-	}
+      if (caller)
+	caller_loader = caller->getClassLoaderInternal();
 
       // If the caller has a non-null class loader, and that loader
       // is not this class' loader or an ancestor thereof, then do a
@@ -148,16 +126,16 @@ java::lang::Class::getClassLoader (void)
 	s->checkPermission (new RuntimePermission (JvNewStringLatin1 ("getClassLoader")));
     }
 
-  // The spec requires us to return `null' for primitive classes.  In
-  // other cases we have the option of returning `null' for classes
-  // loaded with the bootstrap loader.  All gcj-compiled classes which
-  // are linked into the application used to return `null' here, but
-  // that confuses some poorly-written applications.  It is a useful
-  // and apparently harmless compatibility hack to simply never return
-  // `null' instead.
-  if (isPrimitive ())
-    return NULL;
-  return loader ? loader : ClassLoader::systemClassLoader;
+  // This particular 'return' has been changed a couple of times over
+  // libgcj's history.  This particular approach is a little weird,
+  // because it means that all classes linked into the application
+  // will see NULL for their class loader.  This may confuse some
+  // applications that aren't expecting this; the solution is to use a
+  // different linking model for these applications.  In the past we
+  // returned the system class loader in this case, but that is
+  // incorrect.  Also, back then we didn't have other linkage models
+  // to fall back on.
+  return loader;
 }
 
 java::lang::reflect::Constructor *
@@ -725,7 +703,20 @@ java::lang::Class::initializeClass (void)
     JvSynchronize sync (this);
 
     if (state < JV_STATE_LINKED)
-      java::lang::VMClassLoader::resolveClass (this);
+      {
+	try
+	  {
+	    _Jv_Linker::wait_for_state(this, JV_STATE_LINKED);
+	  }
+	catch (java::lang::Throwable *x)
+	  {
+	    // Turn into a NoClassDefFoundError.
+	    java::lang::NoClassDefFoundError *result
+	      = new java::lang::NoClassDefFoundError(getName());
+	    result->initCause(x);
+	    throw result;
+	  }
+      }
 
     // Step 2.
     java::lang::Thread *self = java::lang::Thread::currentThread();
@@ -973,13 +964,13 @@ _Jv_LookupInterfaceMethod (jclass klass, _Jv_Utf8Const *name,
 
       if (Modifier::isStatic(meth->accflags))
 	throw new java::lang::IncompatibleClassChangeError
-	  (_Jv_GetMethodString (klass, meth->name));
+	  (_Jv_GetMethodString (klass, meth));
       if (Modifier::isAbstract(meth->accflags))
 	throw new java::lang::AbstractMethodError
-	  (_Jv_GetMethodString (klass, meth->name));
+	  (_Jv_GetMethodString (klass, meth));
       if (! Modifier::isPublic(meth->accflags))
 	throw new java::lang::IllegalAccessError
-	  (_Jv_GetMethodString (klass, meth->name));
+	  (_Jv_GetMethodString (klass, meth));
 
       _Jv_AddMethodToCache (klass, meth);
 

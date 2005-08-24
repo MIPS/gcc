@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -564,13 +564,39 @@ extern unsigned char *_cpp_copy_replacement_text (const cpp_macro *,
 extern size_t _cpp_replacement_text_len (const cpp_macro *);
 
 /* In charset.c.  */
+
+/* The normalization state at this point in the sequence.
+   It starts initialized to all zeros, and at the end
+   'level' is the normalization level of the sequence.  */
+
+struct normalize_state 
+{
+  /* The previous character.  */
+  cppchar_t previous;
+  /* The combining class of the previous character.  */
+  unsigned char prev_class;
+  /* The lowest normalization level so far.  */
+  enum cpp_normalize_level level;
+};
+#define INITIAL_NORMALIZE_STATE { 0, 0, normalized_KC }
+#define NORMALIZE_STATE_RESULT(st) ((st)->level)
+
+/* We saw a character that matches ISIDNUM(), update a
+   normalize_state appropriately.  */
+#define NORMALIZE_STATE_UPDATE_IDNUM(st) \
+  ((st)->previous = 0, (st)->prev_class = 0)
+
 extern cppchar_t _cpp_valid_ucn (cpp_reader *, const unsigned char **,
-				 const unsigned char *, int);
+				 const unsigned char *, int,
+				 struct normalize_state *state);
 extern void _cpp_destroy_iconv (cpp_reader *);
 extern unsigned char *_cpp_convert_input (cpp_reader *, const char *,
 					  unsigned char *, size_t, size_t,
 					  off_t *);
 extern const char *_cpp_default_encoding (void);
+extern cpp_hashnode * _cpp_interpret_identifier (cpp_reader *pfile,
+						 const unsigned char *id,
+						 size_t len);
 
 /* Utility routines and macros.  */
 #define DSC(str) (const unsigned char *)str, sizeof str - 1
@@ -585,6 +611,9 @@ static inline unsigned char *uxstrdup (const unsigned char *);
 static inline unsigned char *ustrchr (const unsigned char *, int);
 static inline int ufputs (const unsigned char *, FILE *);
 
+/* Use a const char for the second parameter since it is usually a literal.  */
+static inline int ustrcspn (const unsigned char *, const char *);
+
 static inline int
 ustrcmp (const unsigned char *s1, const unsigned char *s2)
 {
@@ -595,6 +624,12 @@ static inline int
 ustrncmp (const unsigned char *s1, const unsigned char *s2, size_t n)
 {
   return strncmp ((const char *)s1, (const char *)s2, n);
+}
+
+static inline int
+ustrcspn (const unsigned char *s1, const char *s2)
+{
+  return strcspn ((const char *)s1, s2);
 }
 
 static inline size_t

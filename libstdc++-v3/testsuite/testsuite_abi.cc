@@ -166,9 +166,11 @@ check_version(const symbol& test, bool added)
       known_versions.push_back("GLIBCXX_3.4.2");
       known_versions.push_back("GLIBCXX_3.4.3");
       known_versions.push_back("GLIBCXX_3.4.4");
+      known_versions.push_back("GLIBCXX_3.4.5");
       known_versions.push_back("CXXABI_1.2");
       known_versions.push_back("CXXABI_1.2.1");
       known_versions.push_back("CXXABI_1.3");
+      known_versions.push_back("CXXABI_1.3.1");
     }
   compat_list::iterator begin = known_versions.begin();
   compat_list::iterator end = known_versions.end();
@@ -280,7 +282,7 @@ examine_symbol(const char* name, const char* file)
     { __throw_exception_again; }
 }
 
-void 
+int
 compare_symbols(const char* baseline_file, const char* test_file, 
 		bool verbose)
 {
@@ -392,6 +394,8 @@ compare_symbols(const char* baseline_file, const char* test_file,
   cout << "# of incompatible symbols:\t " << incompatible.size() << endl;
   cout << endl;
   cout << "using: " << baseline_file << endl;
+
+  return !(missing_names.size() || incompatible.size());
 }
 
 

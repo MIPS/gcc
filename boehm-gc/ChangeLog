@@ -1,3 +1,70 @@
+2005-05-25  Andrew Haley  <aph@redhat.com>
+
+	* include/private/gcconfig.h (HBLKSIZE): Define to 4096 on
+	powerpc64-linux.
+
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	* os_dep.c, include/private/gc_locks.h: Import CRIS port by
+	Simon Posnjak from gc6.4.
+	* include/private/gcconfig.h: Ditto.  Add M32R note from gc6.4.
+
+2005-04-17  David S. Miller  <davem@davemloft.net>
+
+	* include/private/gcconfig.h (sparc-linux): Use LINUX_STACKBOTTOM.
+	* os_dep.c (GC_linux_stack_base): Check for bug present in some
+	Sparc glibc variants where __libc_stack_end is erroneously set
+	to "1".  Fallback to procfs code in that case.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-12  Richard Henderson  <rth@redhat.com>
+
+	* include/private/gcconfig.h (alpha-linux): Use LINUX_STACKBOTTOM.
+
+2005-03-23  Mike Stump  <mrs@apple.com>
+
+	* darwin_stop_world.c: Update for -m64 multilib.
+	* include/private/gcconfig.h: Likewise.
+	* powerpc_darwin_mach_dep.s: Likewise.
+
+2005-03-01  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in, include/Makefile.in: Regenerate.
+
+2005-02-26  Richard Earnshaw  <rearnsha@arm.com>
+
+	* dyn_load.c: On NetBSD, include machine/elf_machdep.h and define
+	ELFSIZE in terms of ARCH_ELFSIZE (back-ported from gc7.0alpha1).
+
+2005-02-15  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/19823
+	* configure.host: Set gc_use_mmap on *-linux*.
+	* configure.ac: Define USE_MMAP if gc_use_mmap is set.
+	* include/private/gc_priv.h: Include gc_config.h.
+	* configure, include/gc_config.h.in: Rebuilt.
+
+2005-02-07  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* allchblk.c (GC_allochblk_nth): Dont overlook available space if
+	  GC disabled, correctly convert GC_finalizer_mem_freed to byte,
+	  total_size to words.
+	* dyn_load.c (win32 GC_register_dynamic_libraries): Consider only
+	  MEM_IMAGE regions.
+	* mach_dep.c (GC_with_callee_saves_pushed): separate into new function,
+	  and indent appropriately.
+	* mark_rts.c (GC_approx_sp): Access stack.
+	* pthread_stop_world.c: (GC_suspend_handler): Explicitly push
+	  callee-saves registers when appropriate.
+	  (GC_stop_world): Handle EINTR from sem_wait (sync with Mono GC).
+
 2005-01-01  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* configure.ac (AC_CONFIG_HEADERS): Build both include/gc_config.h 

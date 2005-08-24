@@ -1,21 +1,30 @@
 /* Implementation of the STAT and FSTAT intrinsics.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steven G. Kargl <kargls@comcast.net>.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -64,8 +73,6 @@ stat_i4_sub (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
   char *str;
   struct stat sb;
 
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
-      
   /* If the rank of the array is not 1, abort.  */
   if (GFC_DESCRIPTOR_RANK (sarray) != 1)
     runtime_error ("Array rank of SARRAY is not 1.");
@@ -84,11 +91,11 @@ stat_i4_sub (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
   /* Make a null terminated copy of the string.  */
   str = gfc_alloca (name_len + 1);
   memcpy (str, name, name_len);
-  str[name_len] = '\0'; 
+  str[name_len] = '\0';
 
   val = stat(str, &sb);
 
-  if (val == 0) 
+  if (val == 0)
     {
       /* Device ID  */
       sarray->data[0 * sarray->dim[0].stride] = sb.st_dev;
@@ -107,7 +114,7 @@ stat_i4_sub (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
 
       /* Owner's gid  */
       sarray->data[5 * sarray->dim[0].stride] = sb.st_gid;
-  
+
       /* ID of device containing directory entry for file (0 if not available) */
 #if HAVE_STRUCT_STAT_ST_RDEV
       sarray->data[6 * sarray->dim[0].stride] = sb.st_rdev;
@@ -142,7 +149,7 @@ stat_i4_sub (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
 #endif
     }
 
-  if (status != NULL) 
+  if (status != NULL)
     *status = (val == 0) ? 0 : errno;
 }
 iexport(stat_i4_sub);
@@ -159,8 +166,6 @@ stat_i8_sub (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
   char *str;
   struct stat sb;
 
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
-      
   /* If the rank of the array is not 1, abort.  */
   if (GFC_DESCRIPTOR_RANK (sarray) != 1)
     runtime_error ("Array rank of SARRAY is not 1.");
@@ -179,7 +184,7 @@ stat_i8_sub (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
   /* Make a null terminated copy of the string.  */
   str = gfc_alloca (name_len + 1);
   memcpy (str, name, name_len);
-  str[name_len] = '\0'; 
+  str[name_len] = '\0';
 
   val = stat(str, &sb);
 
@@ -196,13 +201,13 @@ stat_i8_sub (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
 
       /* Number of (hard) links  */
       sarray->data[3 * sarray->dim[0].stride] = sb.st_nlink;
-  
+
       /* Owner's uid  */
       sarray->data[4 * sarray->dim[0].stride] = sb.st_uid;
 
       /* Owner's gid  */
       sarray->data[5 * sarray->dim[0].stride] = sb.st_gid;
-  
+
       /* ID of device containing directory entry for file (0 if not available) */
 #if HAVE_STRUCT_STAT_ST_RDEV
       sarray->data[6 * sarray->dim[0].stride] = sb.st_rdev;
@@ -237,7 +242,7 @@ stat_i8_sub (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
 #endif
     }
 
-  if (status != NULL) 
+  if (status != NULL)
     *status = (val == 0) ? 0 : errno;
 }
 iexport(stat_i8_sub);
@@ -266,13 +271,13 @@ stat_i8 (char *name, gfc_array_i8 *sarray, gfc_charlen_type name_len)
 
 
 /* SUBROUTINE FSTAT(UNIT, SARRAY, STATUS)
-   INTEGER, INTENT(IN) :: UNIT 
+   INTEGER, INTENT(IN) :: UNIT
    INTEGER, INTENT(OUT) :: SARRAY(13)
-   INTEGER, INTENT(OUT), OPTIONAL :: STATUS 
+   INTEGER, INTENT(OUT), OPTIONAL :: STATUS
 
    FUNCTION FSTAT(UNIT, SARRAY)
    INTEGER FSTAT
-   INTEGER, INTENT(IN) :: UNIT 
+   INTEGER, INTENT(IN) :: UNIT
    INTEGER, INTENT(OUT) :: SARRAY(13)  */
 
 extern void fstat_i4_sub (GFC_INTEGER_4 *, gfc_array_i4 *, GFC_INTEGER_4 *);
@@ -284,8 +289,6 @@ fstat_i4_sub (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray, GFC_INTEGER_4 *status)
   int val;
   struct stat sb;
 
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
-      
   /* If the rank of the array is not 1, abort.  */
   if (GFC_DESCRIPTOR_RANK (sarray) != 1)
     runtime_error ("Array rank of SARRAY is not 1.");
@@ -309,7 +312,7 @@ fstat_i4_sub (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray, GFC_INTEGER_4 *status)
 
       /* Inode number  */
       sarray->data[1 * sarray->dim[0].stride] = sb.st_ino;
-  
+
       /* File mode  */
       sarray->data[2 * sarray->dim[0].stride] = sb.st_mode;
 
@@ -321,7 +324,7 @@ fstat_i4_sub (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray, GFC_INTEGER_4 *status)
 
       /* Owner's gid  */
       sarray->data[5 * sarray->dim[0].stride] = sb.st_gid;
-  
+
       /* ID of device containing directory entry for file (0 if not available) */
 #if HAVE_STRUCT_STAT_ST_RDEV
       sarray->data[6 * sarray->dim[0].stride] = sb.st_rdev;
@@ -356,7 +359,7 @@ fstat_i4_sub (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray, GFC_INTEGER_4 *status)
 #endif
     }
 
-  if (status != NULL) 
+  if (status != NULL)
     *status = (val == 0) ? 0 : errno;
 }
 iexport(fstat_i4_sub);
@@ -370,8 +373,6 @@ fstat_i8_sub (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray, GFC_INTEGER_8 *status)
   int val;
   struct stat sb;
 
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
-      
   /* If the rank of the array is not 1, abort.  */
   if (GFC_DESCRIPTOR_RANK (sarray) != 1)
     runtime_error ("Array rank of SARRAY is not 1.");
@@ -407,7 +408,7 @@ fstat_i8_sub (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray, GFC_INTEGER_8 *status)
 
       /* Owner's gid  */
       sarray->data[5 * sarray->dim[0].stride] = sb.st_gid;
-  
+
       /* ID of device containing directory entry for file (0 if not available) */
 #if HAVE_STRUCT_STAT_ST_RDEV
       sarray->data[6 * sarray->dim[0].stride] = sb.st_rdev;
@@ -442,7 +443,7 @@ fstat_i8_sub (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray, GFC_INTEGER_8 *status)
 #endif
     }
 
-  if (status != NULL) 
+  if (status != NULL)
     *status = (val == 0) ? 0 : errno;
 }
 iexport(fstat_i8_sub);

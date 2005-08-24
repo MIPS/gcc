@@ -1,5 +1,5 @@
 /* RandomAccessFile.java -- Class supporting random file I/O
-   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -55,8 +55,8 @@ import java.nio.channels.FileChannel;
  * <code>DataInput</code> and <code>DataOutput</code> interfaces to allow
  * the reading and writing of Java primitives.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Tom Tromey <tromey@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Tom Tromey (tromey@cygnus.com)
  */
 public class RandomAccessFile implements DataOutput, DataInput
 {
@@ -86,12 +86,46 @@ public class RandomAccessFile implements DataOutput, DataInput
    * illegal value
    * @exception SecurityException If the requested access to the file 
    * is not allowed
-   * @exception IOException If any other error occurs
+   * @exception FileNotFoundException If the file is a directory, or 
+   * any other error occurs
    */
   public RandomAccessFile (File file, String mode)
     throws FileNotFoundException
   {
-    this (file.getPath(), mode);
+    int fdmode;
+    if (mode.equals("r"))
+      fdmode = FileChannelImpl.READ;
+    else if (mode.equals("rw"))
+      fdmode = FileChannelImpl.READ | FileChannelImpl.WRITE;
+    else if (mode.equals("rws"))
+      {
+	fdmode = (FileChannelImpl.READ | FileChannelImpl.WRITE
+		  | FileChannelImpl.SYNC);
+      }
+    else if (mode.equals("rwd"))
+      {
+	fdmode = (FileChannelImpl.READ | FileChannelImpl.WRITE
+		  | FileChannelImpl.DSYNC);
+      }
+    else
+      throw new IllegalArgumentException ("invalid mode: " + mode);
+
+    final String fileName = file.getPath();
+
+    // The obligatory SecurityManager stuff
+    SecurityManager s = System.getSecurityManager();
+    if (s != null)
+      {
+        s.checkRead(fileName);
+
+        if ((fdmode & FileChannelImpl.WRITE) != 0)
+          s.checkWrite(fileName);
+      }
+
+    ch = new FileChannelImpl (file, fdmode);
+    fd = new FileDescriptor(ch);
+    out = new DataOutputStream (new FileOutputStream (fd));
+    in = new DataInputStream (new FileInputStream (fd));
   }
 
   /**
@@ -113,43 +147,13 @@ public class RandomAccessFile implements DataOutput, DataInput
    * illegal value
    * @exception SecurityException If the requested access to the file 
    * is not allowed
-   * @exception FileNotFoundException If any other error occurs
+   * @exception FileNotFoundException If the file is a directory or 
+   * any other error occurs
    */
   public RandomAccessFile (String fileName, String mode)
     throws FileNotFoundException
   {
-    int fdmode;
-    if (mode.equals("r"))
-      fdmode = FileChannelImpl.READ;
-    else if (mode.equals("rw"))
-      fdmode = FileChannelImpl.READ | FileChannelImpl.WRITE;
-    else if (mode.equals("rws"))
-      {
-	fdmode = (FileChannelImpl.READ | FileChannelImpl.WRITE
-		  | FileChannelImpl.SYNC);
-      }
-    else if (mode.equals("rwd"))
-      {
-	fdmode = (FileChannelImpl.READ | FileChannelImpl.WRITE
-		  | FileChannelImpl.DSYNC);
-      }
-    else
-      throw new IllegalArgumentException ("invalid mode: " + mode);
-
-    // The obligatory SecurityManager stuff
-    SecurityManager s = System.getSecurityManager();
-    if (s != null)
-      {
-        s.checkRead(fileName);
-
-        if ((fdmode & FileChannelImpl.WRITE) != 0)
-          s.checkWrite(fileName);
-      }
-
-    ch = new FileChannelImpl (fileName, fdmode);
-    fd = new FileDescriptor(ch);
-    out = new DataOutputStream (new FileOutputStream (fd));
-    in = new DataInputStream (new FileInputStream (fd));
+    this (new File(fileName), mode);
   }
 
   /**

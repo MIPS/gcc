@@ -1,5 +1,5 @@
 /* java.lang.Throwable -- Root class for all Exceptions and Errors
-   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -36,6 +36,8 @@ obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
 package java.lang;
+
+import gnu.classpath.SystemProperties;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -98,7 +100,7 @@ import java.io.Serializable;
  * @author John Keiser
  * @author Mark Wielaard
  * @author Tom Tromey
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.0
  * @status updated to 1.4
  */
@@ -170,7 +172,7 @@ public class Throwable implements Serializable
   public Throwable(String message, Throwable cause)
   {
     this(message);
-    initCause(cause);
+    this.cause = cause;
   }
 
   /**
@@ -401,13 +403,7 @@ public class Throwable implements Serializable
    */
   private static class StaticData
   {
-    static final String nl;
-
-    static
-    {
-      // Access package private properties field to prevent Security check.
-      nl = System.properties.getProperty("line.separator");
-    }
+    static final String nl = SystemProperties.getProperty("line.separator");
   }
 
   // Create whole stack trace in a stringbuffer so we don't have to print

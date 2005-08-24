@@ -18,6 +18,13 @@ License along with libgfortran; see the file COPYING.LIB.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* As a special exception, if you link this library with other files,
+   some of which are compiled with GCC, to produce an executable,
+   this library does not by itself cause the resulting executable
+   to be covered by the GNU General Public License.
+   This exception does not however invalidate any other reasons why
+   the executable file might be covered by the GNU General Public License.  */
+
 
 #ifndef C99_PROTOS_H
 #define C99_PROTOS_H
@@ -104,6 +111,14 @@ extern float tanf(float);
 
 #ifndef HAVE_TANHF
 extern float tanhf(float);
+#endif
+
+#ifndef HAVE_TRUNC
+extern double trunc(double x);
+#endif
+
+#ifndef HAVE_TRUNCF
+extern float truncf(float x);
 #endif
 
 #ifndef HAVE_NEXTAFTERF

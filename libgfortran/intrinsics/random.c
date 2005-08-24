@@ -1,22 +1,31 @@
 /* Implementation of the RANDOM intrinsics
-   Copyright 2002, 2004 Free Software Foundation, Inc.
+   Copyright 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Lars Segerlund <seger@linuxmail.org>
    and Steve Kargl.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Ligbfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -244,9 +253,9 @@ iexport(random_r8);
 void
 arandom_r4 (gfc_array_r4 * harv)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   GFC_REAL_4 *dest;
@@ -317,9 +326,9 @@ arandom_r4 (gfc_array_r4 * harv)
 void
 arandom_r8 (gfc_array_r8 * harv)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   GFC_REAL_8 *dest;
@@ -431,7 +440,7 @@ KISS algorithm.  */
 #define GFC_SR(k, n)	((k)^((k)>>(n)))
 
 static const GFC_INTEGER_4 kiss_size = 4;
-#define KISS_DEFAULT_SEED {123456789, 362436069, 521288629, 916191069};
+#define KISS_DEFAULT_SEED {123456789, 362436069, 521288629, 916191069}
 static const GFC_UINTEGER_4 kiss_default_seed[4] = KISS_DEFAULT_SEED;
 static GFC_UINTEGER_4 kiss_seed[4] = KISS_DEFAULT_SEED;
 
@@ -489,9 +498,9 @@ iexport(random_r8);
 void
 arandom_r4 (gfc_array_r4 *x)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   GFC_REAL_4 *dest;
@@ -553,9 +562,9 @@ arandom_r4 (gfc_array_r4 *x)
 void
 arandom_r8 (gfc_array_r8 *x)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   GFC_REAL_8 *dest;
@@ -612,7 +621,7 @@ arandom_r8 (gfc_array_r8 *x)
 }
 
 /* random_seed is used to seed the PRNG with either a default
-   set of seeds or user specified set of seeds.  random_seed 
+   set of seeds or user specified set of seeds.  random_seed
    must be called with no argument or exactly one argument.  */
 
 void

@@ -1,5 +1,5 @@
 /* gtkwindowpeer.c -- Native implementation of GtkWindowPeer
-   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -56,7 +56,7 @@ static Bool property_notify_predicate (Display *display,
                                        XEvent  *xevent,
                                        XPointer arg);
 
-static void window_delete_cb (GtkWidget *widget, GdkEvent *event,
+static gboolean window_delete_cb (GtkWidget *widget, GdkEvent *event,
 			      jobject peer);
 static void window_destroy_cb (GtkWidget *widget, GdkEvent *event,
 			       jobject peer);
@@ -65,8 +65,8 @@ static void window_active_state_change_cb (GtkWidget *widget,
                                            GParamSpec *pspec,
                                            jobject peer);
 static void window_focus_state_change_cb (GtkWidget *widget,
-                                                    GParamSpec *pspec,
-                                                    jobject peer);
+                                          GParamSpec *pspec,
+                                          jobject peer);
 static gboolean window_focus_in_cb (GtkWidget * widget,
                                     GdkEventFocus *event,
                                     jobject peer);
@@ -80,6 +80,7 @@ static jint window_get_new_state (GtkWidget *widget);
 static gboolean window_property_changed_cb (GtkWidget *widget,
 					    GdkEventProperty *event,
 					    jobject peer);
+static void realize_cb (GtkWidget *widget, jobject peer);
 
 /* Union used for type punning. */
 union extents_union
@@ -94,23 +95,14 @@ union atom_list_union
   Atom **atom_list;
 };
 
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkWindowPeer_create 
-  (JNIEnv *env, jobject obj, jint type, jboolean decorated,
-   jint width, jint height, jobject parent, jintArray jinsets)
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_create
+  (JNIEnv *env, jobject obj, jint type, jboolean decorated, jobject parent)
 {
   GtkWidget *window_widget;
   GtkWindow *window;
   void *window_parent;
   GtkWidget *fixed;
-  int top = 0;
-  int left = 0;
-  int bottom = 0;
-  int right = 0;
-  jint *insets;
-
-  insets = (*env)->GetIntArrayElements (env, jinsets, 0);
-  insets[0] = insets[1] = insets[2] = insets[3] = 0;
 
   NSA_SET_GLOBAL_REF (env, obj);
 
@@ -137,30 +129,7 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_create
 
   gtk_widget_show (fixed);
 
-  if (decorated)
-    window_get_frame_extents (window_widget, &top, &left, &bottom, &right);
-
-  gtk_window_set_default_size (window,
-			       MAX (1, width - left - right),
-			       MAX (1, height - top - bottom));
-
-  /* We must set this window's size requisition.  Otherwise when a
-     resize is queued (when gtk_widget_queue_resize is called) the
-     window will snap to its default requisition of 0x0.  If we omit
-     this call, Frames and Dialogs shrink to degenerate 1x1 windows
-     when their resizable property changes. */
-  gtk_widget_set_size_request (window_widget,
-			       MAX (1, width - left - right),
-			       MAX (1, height - top - bottom));
-
-  insets[0] = top;
-  insets[1] = left;
-  insets[2] = bottom;
-  insets[3] = right;
-
   gdk_threads_leave ();
-
-  (*env)->ReleaseIntArrayElements (env, jinsets, insets, 0);
 
   NSA_SET_PTR (env, obj, window_widget);
 }
@@ -278,7 +247,17 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_connectSignals
 		    G_CALLBACK (window_property_changed_cb), *gref);
 
   g_signal_connect_after (G_OBJECT (ptr), "realize",
+                          G_CALLBACK (realize_cb), *gref);
+
+  g_signal_connect_after (G_OBJECT (ptr), "realize",
                           G_CALLBACK (connect_awt_hook_cb), *gref);
+
+
+  /* Realize the window here so that its frame extents are known now.
+     That way Window.pack can operate with the accurate insets
+     returned by the window manager rather than the default
+     estimates. */
+  gtk_widget_realize (GTK_WIDGET (ptr));
 
   gdk_threads_leave ();
 }
@@ -320,7 +299,7 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_setBoundsCallback
 {
   /* Circumvent package-private access to call Window's
      setBoundsCallback method. */
-  (*gdk_env)->CallVoidMethod (gdk_env, window, setBoundsCallbackID,
+  (*gdk_env())->CallVoidMethod (gdk_env(), window, setBoundsCallbackID,
 			      x, y, width, height);
 }
 
@@ -428,9 +407,7 @@ request_frame_extents (GtkWidget *window)
 
   /* Check if the current window manager supports
      _NET_REQUEST_FRAME_EXTENTS. */
-  /* FIXME: The window->window != NULL check is a workaround for bug
-     http://bugzilla.gnome.org/show_bug.cgi?id=17952. */
-  if (gdk_net_wm_supports (request_extents) && window->window != NULL)
+  if (gdk_net_wm_supports (request_extents))
     {
       GdkDisplay *display = gtk_widget_get_display (window);
       Display *xdisplay = GDK_DISPLAY_XDISPLAY (display);
@@ -483,20 +460,28 @@ property_notify_predicate (Display *xdisplay __attribute__((unused)),
   if (event->xany.type == PropertyNotify
       && event->xany.window == *window
       && event->xproperty.atom == extents_atom)
-        return True;
+    return True;
   else
-  return False;
+    return False;
 }
 
-static void
+static gboolean
 window_delete_cb (GtkWidget *widget __attribute__((unused)),
 		  GdkEvent *event __attribute__((unused)),
 		  jobject peer)
 {
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+  gdk_threads_leave ();
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 			      postWindowEventID,
 			      (jint) AWT_WINDOW_CLOSING,
 			      (jobject) NULL, (jint) 0);
+  gdk_threads_enter ();
+
+  /* Prevents that the Window dissappears ("destroy"
+     not being signalled). This is necessary because it
+     should be up to a WindowListener implementation
+     how the AWT Frame responds to close requests. */
+  return TRUE;
 }
 
 static void
@@ -504,20 +489,24 @@ window_destroy_cb (GtkWidget *widget __attribute__((unused)),
 		   GdkEvent *event __attribute__((unused)),
 		   jobject peer)
 {
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+  gdk_threads_leave ();
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 			      postWindowEventID,
 			      (jint) AWT_WINDOW_CLOSED,
 			      (jobject) NULL, (jint) 0);
+  gdk_threads_enter ();
 }
 
 static void
 window_show_cb (GtkWidget *widget __attribute__((unused)),
 		jobject peer)
 {
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+  gdk_threads_leave ();
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 			      postWindowEventID,
 			      (jint) AWT_WINDOW_OPENED,
 			      (jobject) NULL, (jint) 0);
+  gdk_threads_enter ();
 }
 
 static void
@@ -528,47 +517,53 @@ window_active_state_change_cb (GtkWidget *widget __attribute__((unused)),
   /* FIXME: not sure if this is needed or not. */
   /* Remove the unused attributes if you fix the below.  */
 #if 0
-      if (GTK_WINDOW (widget)->is_active)
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
-                                    postWindowEventID,
-                                    (jint) AWT_WINDOW_GAINED_FOCUS,
-                                    (jobject) NULL, (jint) 0);
-      else
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
-                                    postWindowEventID,
-                                    (jint) AWT_WINDOW_DEACTIVATED,
-                                    (jobject) NULL, (jint) 0);
+  gdk_threads_leave ();
+  if (GTK_WINDOW (widget)->is_active)
+    (*gdk_env())->CallVoidMethod (gdk_env(), peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_GAINED_FOCUS,
+                                (jobject) NULL, (jint) 0);
+  else
+    (*gdk_env())->CallVoidMethod (gdk_env(), peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_DEACTIVATED,
+                                (jobject) NULL, (jint) 0);
+  gdk_threads_enter ();
 #endif
-    }
+}
 
 static void
 window_focus_state_change_cb (GtkWidget *widget,
 			      GParamSpec *pspec __attribute__((unused)),
 			      jobject peer)
 {
+  gdk_threads_leave ();
   if (GTK_WINDOW (widget)->has_toplevel_focus)
-    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+    (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                                 postWindowEventID,
                                 (jint) AWT_WINDOW_ACTIVATED,
                                 (jobject) NULL, (jint) 0);
   else
-    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+    (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                                 postWindowEventID,
                                 (jint) AWT_WINDOW_DEACTIVATED,
-                                    (jobject) NULL, (jint) 0);
-    }
+                                (jobject) NULL, (jint) 0);
+  gdk_threads_enter ();
+}
 
 static gboolean
 window_focus_in_cb (GtkWidget * widget  __attribute__((unused)),
 		    GdkEventFocus *event  __attribute__((unused)),
 		    jobject peer)
 {
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+  gdk_threads_leave ();
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                               postWindowEventID,
                               (jint) AWT_WINDOW_GAINED_FOCUS,
                               (jobject) NULL, (jint) 0);
   /* FIXME: somewhere after this is handled, the child window is
      getting an expose event. */
+  gdk_threads_enter ();
   return FALSE;
 }
 
@@ -577,12 +572,14 @@ window_focus_out_cb (GtkWidget * widget __attribute__((unused)),
 		     GdkEventFocus *event __attribute__((unused)),
 		     jobject peer)
 {
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+  gdk_threads_leave ();
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                               postWindowEventID,
                               (jint) AWT_WINDOW_LOST_FOCUS,
                               (jobject) NULL, (jint) 0);
   /* FIXME: somewhere after this is handled, the child window is
      getting an expose event. */
+  gdk_threads_enter ();
   return FALSE;
 }
 
@@ -600,18 +597,22 @@ window_window_state_cb (GtkWidget *widget,
       if (event->window_state.new_window_state & GDK_WINDOW_STATE_ICONIFIED)
 	{
 	  /* We've been iconified. */
-	  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+	  gdk_threads_leave ();
+	  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 				      postWindowEventID,
 				      (jint) AWT_WINDOW_ICONIFIED,
 				      (jobject) NULL, (jint) 0);
+	  gdk_threads_enter ();
 	}
       else
 	{
 	  /* We've been deiconified. */
-	  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+	  gdk_threads_leave ();
+	  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 				      postWindowEventID,
 				      (jint) AWT_WINDOW_DEICONIFIED,
 				      (jobject) NULL, (jint) 0);
+	  gdk_threads_enter ();
 	}
     }
 
@@ -624,10 +625,12 @@ window_window_state_cb (GtkWidget *widget,
 
   new_state |= window_get_new_state (widget);
 
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+  gdk_threads_leave ();
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 			      postWindowEventID,
 			      (jint) AWT_WINDOW_STATE_CHANGED,
 			      (jobject) NULL, new_state);
+  gdk_threads_enter ();
   return TRUE;
 }
 
@@ -680,19 +683,6 @@ window_property_changed_cb (GtkWidget *widget __attribute__((unused)),
   unsigned long *extents;
   union extents_union gu_ex;
 
-  static int id_set = 0;
-  static jmethodID postInsetsChangedEventID;
-
-  if (!id_set)
-    {
-      jclass gtkwindowpeer = (*gdk_env)->FindClass (gdk_env,
-				 "gnu/java/awt/peer/gtk/GtkWindowPeer");
-      postInsetsChangedEventID = (*gdk_env)->GetMethodID (gdk_env,
-						      gtkwindowpeer,
-						      "postInsetsChangedEvent",
-						      "(IIII)V");
-      id_set = 1;
-    }
   gu_ex.extents = &extents;
   if (gdk_atom_intern ("_NET_FRAME_EXTENTS", FALSE) == event->atom
       && gdk_property_get (event->window,
@@ -705,12 +695,50 @@ window_property_changed_cb (GtkWidget *widget __attribute__((unused)),
                            NULL,
                            NULL,
                            gu_ex.gu_extents))
-    (*gdk_env)->CallVoidMethod (gdk_env, peer,
-				postInsetsChangedEventID,
-				(jint) extents[2],  /* top */
-				(jint) extents[0],  /* left */
-				(jint) extents[3],  /* bottom */
-				(jint) extents[1]); /* right */
+    {
+      gdk_threads_leave ();
+      (*gdk_env())->CallVoidMethod (gdk_env(), peer,
+				    postInsetsChangedEventID,
+				    (jint) extents[2],  /* top */
+				    (jint) extents[0],  /* left */
+				    (jint) extents[3],  /* bottom */
+				    (jint) extents[1]); /* right */
+      gdk_threads_enter ();
+    }
+  
 
   return FALSE;
+}
+
+static void
+realize_cb (GtkWidget *widget, jobject peer)
+{
+  jint top = 0;
+  jint left = 0;
+  jint bottom = 0;
+  jint right = 0;
+  jint width = 0;
+  jint height = 0;
+
+  width = (*gdk_env())->CallIntMethod (gdk_env(), peer, windowGetWidthID);
+  height = (*gdk_env())->CallIntMethod (gdk_env(), peer, windowGetHeightID);
+
+  window_get_frame_extents (widget, &top, &left, &bottom, &right);
+
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
+				postInsetsChangedEventID,
+				top, left, bottom, right);
+
+  gtk_window_set_default_size (GTK_WINDOW (widget),
+			       MAX (1, width - left - right),
+			       MAX (1, height - top - bottom));
+
+  /* set the size like we do in nativeSetBounds */
+  gtk_widget_set_size_request (widget,
+			       MAX (1, width - left - right),
+			       MAX (1, height - top - bottom));
+
+  gtk_window_resize (GTK_WINDOW (widget),
+		     MAX (1, width - left - right),
+		     MAX (1, height - top - bottom));
 }

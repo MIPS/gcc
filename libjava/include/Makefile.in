@@ -41,9 +41,7 @@ subdir = include
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/config.h.in $(tool_include__HEADERS)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../config/accross.m4 \
-	$(top_srcdir)/../config/acx.m4 \
-	$(top_srcdir)/../config/gcc-version.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/gxx-include-dir.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lcmessage.m4 \
@@ -91,7 +89,6 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CHECKREFSPEC = @CHECKREFSPEC@
 CLASSPATH_SEPARATOR = @CLASSPATH_SEPARATOR@
-COMPPATH = @COMPPATH@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
@@ -136,6 +133,9 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INTERPRETER = @INTERPRETER@
+JAVA_HOME = @JAVA_HOME@
+JAVA_HOME_SET_FALSE = @JAVA_HOME_SET_FALSE@
+JAVA_HOME_SET_TRUE = @JAVA_HOME_SET_TRUE@
 JC1GCSPEC = @JC1GCSPEC@
 LDFLAGS = @LDFLAGS@
 LIBART_CFLAGS = @LIBART_CFLAGS@
@@ -165,8 +165,6 @@ NATIVE_TRUE = @NATIVE_TRUE@
 NEEDS_DATA_START_FALSE = @NEEDS_DATA_START_FALSE@
 NEEDS_DATA_START_TRUE = @NEEDS_DATA_START_TRUE@
 OBJEXT = @OBJEXT@
-ONESTEP_FALSE = @ONESTEP_FALSE@
-ONESTEP_TRUE = @ONESTEP_TRUE@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -252,18 +250,17 @@ build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
 build_os = @build_os@
+build_subdir = @build_subdir@
 build_vendor = @build_vendor@
 datadir = @datadir@
 exec_prefix = @exec_prefix@
-gcc_version = @gcc_version@
-gcc_version_full = @gcc_version_full@
-gcc_version_trigger = @gcc_version_trigger@
 gxx_include_dir = @gxx_include_dir@
 here = @here@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
+host_subdir = @host_subdir@
 host_vendor = @host_vendor@
 includedir = @includedir@
 infodir = @infodir@
@@ -290,13 +287,17 @@ target_cpu = @target_cpu@
 # autoconf2.13's target_alias
 target_noncanonical = @target_noncanonical@
 target_os = @target_os@
+target_subdir = @target_subdir@
 target_vendor = @target_vendor@
-tool_include_dir = @tool_include_dir@
 toolexecdir = @toolexecdir@
 toolexeclibdir = @toolexeclibdir@
 toolexecmainlibdir = @toolexecmainlibdir@
 AUTOMAKE_OPTIONS = foreign
-tool_include__HEADERS = jni.h jvmpi.h
+
+# May be used by various substitution variables.
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
+tool_include_dir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)/include
+tool_include__HEADERS = jni.h jni_md.h jawt.h jawt_md.h jvmpi.h
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 

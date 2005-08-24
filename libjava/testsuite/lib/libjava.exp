@@ -197,8 +197,8 @@ proc libjava_init { args } {
     # Finally, add the gcc build directory so that we can find the
     # shared libgcc.  This, like much of dejagnu, is hideous.
     set libjava_libgcc_s_path {}
-    
-    if { [string match "powerpc-*-darwin*" $target_triplet] } {
+
+    if { [istarget "*-*-darwin*"] } {
 	set so_extension "dylib"
     } else {
 	set so_extension "so"
@@ -278,6 +278,10 @@ proc libjava_find_gij {} {
     global base_dir objdir
 
     set gijdir [lookfor_file [get_multilibs] libjava];
+    # Fall back if get_multilibs fails.
+    if {$gijdir == ""} {
+      set gijdir "$objdir/.."
+    }
     if {! [file exists $gijdir/gij]} {
 	return ""
     }

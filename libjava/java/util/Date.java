@@ -1,5 +1,5 @@
 /* java.util.Date
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -159,7 +159,7 @@ public class Date
    */
   public Date(int year, int month, int day)
   {
-    time = new GregorianCalendar(year + 1900, month, day).getTimeInMillis();
+    this(year, month, day, 0, 0, 0);
   }
 
   /**
@@ -176,9 +176,7 @@ public class Date
    */
   public Date(int year, int month, int day, int hour, int min)
   {
-    time =
-      new GregorianCalendar(year + 1900, month, day, hour,
-			    min).getTimeInMillis();
+    this(year, month, day, hour, min, 0);
   }
 
   /**
@@ -197,9 +195,9 @@ public class Date
    */
   public Date(int year, int month, int day, int hour, int min, int sec)
   {
-    time =
-      new GregorianCalendar(year + 1900, month, day, hour, min,
-			    sec).getTimeInMillis();
+    GregorianCalendar cal =
+	new GregorianCalendar(year + 1900, month, day, hour, min, sec);
+    time = cal.getTimeInMillis();
   }
 
   /**
@@ -288,7 +286,7 @@ public class Date
   {
     Calendar cal = Calendar.getInstance();
     cal.setTimeInMillis(time);
-    return (cal.get(Calendar.ZONE_OFFSET)
+    return - (cal.get(Calendar.ZONE_OFFSET)
 	    + cal.get(Calendar.DST_OFFSET)) / (60 * 1000);
   }
 
@@ -687,6 +685,7 @@ public class Date
    * <p>
    * A sequence of consecutive alphabetic characters is recognised as a word,
    * and interpreted as follows, in a case-insentive fashion:
+   * <ul>
    * <li>
    * The characters 'AM' or 'PM' restrict the hour value to a value between 0
    * and 12.  In the latter case, 12 is added to the hour value before storage.

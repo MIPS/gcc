@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -21,7 +21,6 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
 #include <java/lang/Package.h>
-#include <gnu/gcj/runtime/StackTrace.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -32,6 +31,7 @@ extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
 // This must be predefined with "C" linkage.
 extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
                                                int meth_idx);
+extern "C" void *_Jv_ResolvePoolEntry (jclass this_class, jint index);
 
 // These are the possible values for the `state' field of the class
 // structure.  Note that ordering is important here.  Whenever the
@@ -212,11 +212,11 @@ class java::io::ObjectStreamClass;
 
 void _Jv_RegisterClassHookDefault (jclass klass);
 void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+void _Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
 void _Jv_UnregisterClass (jclass);
 jclass _Jv_FindClass (_Jv_Utf8Const *name,
 		      java::lang::ClassLoader *loader);
-jclass _Jv_FindClassInCache (_Jv_Utf8Const *name,
-			     java::lang::ClassLoader *loader);
+jclass _Jv_FindClassInCache (_Jv_Utf8Const *name);
 jclass _Jv_PopClass (void);
 void _Jv_PushClass (jclass k);
 void _Jv_NewArrayClass (jclass element,
@@ -228,23 +228,26 @@ void _Jv_InitNewClassFields (jclass klass);
 
 // Friend functions and classes in prims.cc
 void _Jv_InitPrimClass (jclass, char *, char, int);
-jstring _Jv_GetMethodString (jclass, _Jv_Utf8Const *);
+jstring _Jv_GetMethodString (jclass, _Jv_Method *, jclass = NULL);
 
 jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 			  jint flags);
 jclass _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
 jboolean _Jv_IsInterpretedClass (jclass);
+
+void _Jv_CopyClassesToSystemLoader (java::lang::ClassLoader *);
+
+#ifdef INTERPRETER
 void _Jv_InitField (jobject, jclass, int);
 
-class _Jv_ClassReader;	
+class _Jv_ClassReader;
 class _Jv_InterpClass;
 class _Jv_InterpMethod;
 #endif
 
+class _Jv_StackTrace;
 class _Jv_BytecodeVerifier;
-class gnu::gcj::runtime::StackTrace;
 class java::io::VMObjectStreamClass;
 
 void _Jv_sharedlib_register_hook (jclass klass);
@@ -437,11 +440,11 @@ private:
 					     size_t count);
   friend void ::_Jv_RegisterClassHookDefault (jclass klass);
   friend void ::_Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+  friend void ::_Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
   friend void ::_Jv_UnregisterClass (jclass);
   friend jclass (::_Jv_FindClass) (_Jv_Utf8Const *name,
 				   java::lang::ClassLoader *loader);
-  friend jclass (::_Jv_FindClassInCache) (_Jv_Utf8Const *name,
-					  java::lang::ClassLoader *loader);
+  friend jclass (::_Jv_FindClassInCache) (_Jv_Utf8Const *name);
   friend jclass (::_Jv_PopClass) (void);
   friend void ::_Jv_PushClass (jclass k);
   friend void ::_Jv_NewArrayClass (jclass element,
@@ -454,7 +457,7 @@ private:
   // in prims.cc
   friend void ::_Jv_InitPrimClass (jclass, char *, char, int);
 
-  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Utf8Const *);
+  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Method *, jclass);
 
   friend jboolean (::_Jv_CheckAccess) (jclass self_klass, jclass other_klass,
 				   jint flags);
@@ -466,21 +469,22 @@ private:
   friend jclass (::_Jv_GetArrayClass) (jclass klass,
 				       java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
   friend jboolean (::_Jv_IsInterpretedClass) (jclass);
+
+#ifdef INTERPRETER
   friend void ::_Jv_InitField (jobject, jclass, int);
 
   friend class ::_Jv_ClassReader;	
   friend class ::_Jv_InterpClass;
   friend class ::_Jv_InterpMethod;
 #endif
+  friend class ::_Jv_StackTrace;
 
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
 #endif
 
   friend class ::_Jv_BytecodeVerifier;
-  friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
 
   friend class ::_Jv_Linker;
@@ -490,8 +494,14 @@ private:
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);
 
-  // Chain for class pool.
-  jclass next;
+  friend void *::_Jv_ResolvePoolEntry (jclass this_class, jint index);
+
+  friend void ::_Jv_CopyClassesToSystemLoader (java::lang::ClassLoader *);
+
+  // Chain for class pool.  This also doubles as the ABI version
+  // number.  It is only used for this purpose at class registration
+  // time, and only for precompiled classes.
+  jclass next_or_version;
   // Name of class.
   _Jv_Utf8Const *name;
   // Access flags for class.

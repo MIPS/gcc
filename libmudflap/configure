@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT multi_basedir CC ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CFLAGS CPP CPPFLAGS EGREP LN_S RANLIB ac_ct_RANLIB LIBTOOL enable_shared enable_static MF_HAVE_STDINT_H MF_HAVE_UINTPTR_T LIBMUDFLAPTH_TRUE LIBMUDFLAPTH_FALSE build_libmudflapth gcc_version_trigger gcc_version_full gcc_version toolexecdir toolexeclibdir NM ac_ct_NM SECTION_FLAGS LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT multi_basedir CC ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CFLAGS CPP CPPFLAGS EGREP LN_S RANLIB ac_ct_RANLIB LIBTOOL enable_shared enable_static MF_HAVE_STDINT_H MF_HAVE_UINTPTR_T LIBMUDFLAPTH_TRUE LIBMUDFLAPTH_FALSE build_libmudflapth toolexecdir toolexeclibdir NM ac_ct_NM SECTION_FLAGS LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -5437,6 +5437,67 @@ deplibs_check_method=$lt_cv_deplibs_check_method
 
 # Autoconf 2.13's AC_OBJEXT and AC_EXEEXT macros only works for C compilers!
 
+# find the maximum length of command line arguments
+echo "$as_me:$LINENO: checking the maximum length of command line arguments" >&5
+echo $ECHO_N "checking the maximum length of command line arguments... $ECHO_C" >&6
+if test "${lt_cv_sys_max_cmd_len+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+    i=0
+  teststring="ABCD"
+
+  case $build_os in
+  msdosdjgpp*)
+    # On DJGPP, this test can blow up pretty badly due to problems in libc
+    # (any single argument exceeding 2000 bytes causes a buffer overrun
+    # during glob expansion).  Even if it were fixed, the result of this
+    # check would be larger than it should be.
+    lt_cv_sys_max_cmd_len=12288;    # 12K is about right
+    ;;
+
+  cygwin* | mingw*)
+    # On Win9x/ME, this test blows up -- it succeeds, but takes
+    # about 5 minutes as the teststring grows exponentially.
+    # Worse, since 9x/ME are not pre-emptively multitasking,
+    # you end up with a "frozen" computer, even though with patience
+    # the test eventually succeeds (with a max line length of 256k).
+    # Instead, let's just punt: use the minimum linelength reported by
+    # all of the supported platforms: 8192 (on NT/2K/XP).
+    lt_cv_sys_max_cmd_len=8192;
+    ;;
+
+  amigaos*)
+    # On AmigaOS with pdksh, this test takes hours, literally.
+    # So we just punt and use a minimum line length of 8192.
+    lt_cv_sys_max_cmd_len=8192;
+    ;;
+
+  netbsd* | freebsd* | openbsd* | darwin* | dragonfly*)
+    # This has been around since 386BSD, at least.  Likely further.
+    if test -x /sbin/sysctl; then
+      lt_cv_sys_max_cmd_len=`/sbin/sysctl -n kern.argmax`
+    elif test -x /usr/sbin/sysctl; then
+      lt_cv_sys_max_cmd_len=`/usr/sbin/sysctl -n kern.argmax`
+    else
+      lt_cv_sys_max_cmd_len=65536 # usable default for *BSD
+    fi
+    # And add a safety zone
+    lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \/ 4`
+    lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \* 3`
+    ;;
+  esac
+
+fi
+
+if test -n "$lt_cv_sys_max_cmd_len" ; then
+  echo "$as_me:$LINENO: result: $lt_cv_sys_max_cmd_len" >&5
+echo "${ECHO_T}$lt_cv_sys_max_cmd_len" >&6
+else
+  echo "$as_me:$LINENO: result: none" >&5
+echo "${ECHO_T}none" >&6
+fi
+
+
 # Only perform the check for file, if the check method requires it
 case $deplibs_check_method in
 file_magic*)
@@ -5770,7 +5831,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 5773 "configure"' > conftest.$ac_ext
+  echo '#line 5834 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -6509,23 +6570,6 @@ _ACEOF
 fi
 
 
-
-if test "${with_gcc_version_trigger+set}" = set; then
-  gcc_version_trigger=$with_gcc_version_trigger
-else
-  gcc_version_trigger=$srcdir/../gcc/version.c
-fi
-if test -f "${gcc_version_trigger}"; then
-  gcc_version_full=`grep version_string "${gcc_version_trigger}" | sed -e 's/.*"\([^"]*\)".*/\1/'`
-else
-  gcc_version_full=`$CC -v 2>&1 | sed -n 's/^gcc version //p'`
-fi
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-
-
-
-
-
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
 case ${version_specific_libs} in
@@ -6534,7 +6578,7 @@ case ${version_specific_libs} in
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
     toolexecdir='$(libdir)/gcc/$(target_alias)'
-    toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
+    toolexeclibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
     ;;
   no)
     if test -n "$with_cross_host" &&
@@ -6854,7 +6898,7 @@ else
   multilib_arg=
 fi
 
-                                        ac_config_files="$ac_config_files Makefile testsuite/Makefile testsuite/mfconfig.exp"
+                              ac_config_files="$ac_config_files Makefile testsuite/Makefile testsuite/mfconfig.exp"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -7587,9 +7631,6 @@ s,@MF_HAVE_UINTPTR_T@,$MF_HAVE_UINTPTR_T,;t t
 s,@LIBMUDFLAPTH_TRUE@,$LIBMUDFLAPTH_TRUE,;t t
 s,@LIBMUDFLAPTH_FALSE@,$LIBMUDFLAPTH_FALSE,;t t
 s,@build_libmudflapth@,$build_libmudflapth,;t t
-s,@gcc_version_trigger@,$gcc_version_trigger,;t t
-s,@gcc_version_full@,$gcc_version_full,;t t
-s,@gcc_version@,$gcc_version,;t t
 s,@toolexecdir@,$toolexecdir,;t t
 s,@toolexeclibdir@,$toolexeclibdir,;t t
 s,@NM@,$NM,;t t

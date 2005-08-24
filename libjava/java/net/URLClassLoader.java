@@ -1,5 +1,6 @@
 /* URLClassLoader.java --  ClassLoader that loads classes from one or more URLs
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -305,8 +306,6 @@ public class URLClassLoader extends SecureClassLoader
 
     Vector classPath;	// The "Class-Path" attribute of this Jar's manifest
 
-    SoURLLoader soURLLoader;
-
     public JarURLLoader(URLClassLoader classloader, URL baseURL)
     {
       super(classloader, baseURL);
@@ -319,70 +318,44 @@ public class URLClassLoader extends SecureClassLoader
       sb.append("!/");
       String jarURL = sb.toString();
 
-      this.soURLLoader = null;
       this.classPath = null;
       URL baseJarURL = null;
       JarFile jarfile = null;
       try
 	{
-	  baseJarURL
-	    = new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
-	  jarfile
-	    = ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
+	  baseJarURL =
+	    new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
+	  
+	  jarfile =
+	    ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
+	  
+	  Manifest manifest;
+	  Attributes attributes;
+	  String classPathString;
 
-	  if (jarfile != null)
+	  if ((manifest = jarfile.getManifest()) != null
+	      && (attributes = manifest.getMainAttributes()) != null
+	      && ((classPathString 
+		   = attributes.getValue(Attributes.Name.CLASS_PATH)) 
+		  != null))
 	    {
-	      String fileName = baseURL.getFile();
-	      if (fileName != null)
-		{
-		  File f = new File(fileName);
-		  String libDirName = f.getCanonicalFile().getParent()
-		    + File.separator + "GCJLIBS";
-		  File libDir = new File(libDirName);
-		  if (libDir != null && (libDir.isDirectory()))
+	      this.classPath = new Vector();
+	      
+	      StringTokenizer st = new StringTokenizer(classPathString, " ");
+	      while (st.hasMoreElements ()) 
+		{  
+		  String e = st.nextToken ();
+		  try
 		    {
-		      File soFile = new File (libDirName 
-					      + File.separator + f.getName() 
-					      + ".so");
-		      if (soFile != null && soFile.isFile())
-			this.soURLLoader
-			  = new SoURLLoader (classloader, soFile.toURL(),
-					     baseURL);
+		      URL url = new URL(baseURL, e);
+		      this.classPath.add(url);
+		    } 
+		  catch (java.net.MalformedURLException xx)
+		    {
+		      // Give up
 		    }
 		}
-
-	      Manifest manifest;
-	      Attributes attributes;
-	      String classPathString;
-
-	      if ((manifest = jarfile.getManifest()) != null
-		  && (attributes = manifest.getMainAttributes()) != null
-		  && ((classPathString 
-		       = attributes.getValue(Attributes.Name.CLASS_PATH)) 
-		      != null))
-		{
-		  this.classPath = new Vector();
-
-		  StringTokenizer st
-		    = new StringTokenizer 
-		      (classPathString,
-		       System.getProperty ("path.separator", ":"));
-      
-		  while (st.hasMoreElements ()) 
-		    {  
-		      String e = st.nextToken ();
-		      try
-			{
-			  URL url = new URL(baseURL, e);
-			  this.classPath.add(url);
-			} 
-		      catch (java.net.MalformedURLException xx)
-			{
-			  // Give up
-			}
-		    }
-		}
- 	    }
+	    }
 	}
       catch (IOException ioe)
         {
@@ -391,13 +364,6 @@ public class URLClassLoader extends SecureClassLoader
 
       this.baseJarURL = baseJarURL;
       this.jarfile = jarfile;
-    }
-
-    Class getClass(String className)
-    {
-      if (soURLLoader != null)
-	return soURLLoader.getClass(className);
-      return null;
     }
 
     /** get resource with the name "name" in the jar url */
@@ -414,11 +380,6 @@ public class URLClassLoader extends SecureClassLoader
         return new JarURLResource(this, name, je);
       else
         return null;
-    }
-
-    public String toString ()
-    {
-	return "jarfile " + jarfile.getName();
     }
 
     Manifest getManifest()
@@ -461,7 +422,11 @@ public class URLClassLoader extends SecureClassLoader
 
     Certificate[] getCertificates()
     {
-      return entry.getCertificates();
+      // We have to get the entry from the jar file again, because the
+      // certificates will not be available until the entire entry has
+      // been read.
+      return ((JarEntry) ((JarURLLoader) loader).jarfile.getEntry(name))
+        .getCertificates();
     }
 
     URL getURL()
@@ -582,7 +547,7 @@ public class URLClassLoader extends SecureClassLoader
     {
       super(classloader, url, overrideURL);
       helper = SharedLibHelper.findHelper(classloader, url.getFile(),
-					  noCertCodeSource);
+					  noCertCodeSource, true);
     }
 
     Class getClass(String className)
@@ -645,7 +610,7 @@ public class URLClassLoader extends SecureClassLoader
     Resource getResource(String name)
     {
       File file = new File(dir, name);
-      if (file.exists() && ! file.isDirectory())
+      if (file.exists())
         return new FileResource(this, name, file);
       return null;
     }
@@ -663,17 +628,37 @@ public class URLClassLoader extends SecureClassLoader
 
     InputStream getInputStream() throws IOException
     {
+      // Delegate to the URL content handler mechanism to retrieve an
+      // HTML representation of the directory listing if a directory
+      if (file.isDirectory())
+        {
+          URL url = getURL();
+          return url.openStream();
+        }
+      // Otherwise simply return a FileInputStream
       return new FileInputStream(file);
     }
 
     public int getLength()
     {
+      // Delegate to the URL content handler mechanism to retrieve the
+      // length of the HTML representation of the directory listing if
+      // a directory, or -1 if an exception occurs opening the directory.
+      if (file.isDirectory())
+        {
+          URL url = getURL();
+          try
+            {
+              URLConnection connection = url.openConnection();
+              return connection.getContentLength();
+            }
+          catch (IOException e)
+            {
+              return -1;
+            }
+        }
+      // Otherwise simply return the file length
       return (int) file.length();
-    }
-
-    public String toString ()
-    {
-	return "file " +file.getAbsolutePath();
     }
 
     public URL getURL()
@@ -839,6 +824,9 @@ public class URLClassLoader extends SecureClassLoader
         if (newUrl == null)
           return; // Silently ignore...
 
+	// Reset the toString() value.
+	thisString = null;
+
         // Check global cache to see if there're already url loader
         // for this url.
         URLLoader loader = (URLLoader) urlloaders.get(newUrl);
@@ -958,7 +946,7 @@ public class URLClassLoader extends SecureClassLoader
 	resource = loader.getResource(resourceName);
       }
     if (resource == null)
-      throw new ClassNotFoundException(className + " not found in " + urls);
+      throw new ClassNotFoundException(className + " not found in " + this);
 
     // Try to read the class data, create the CodeSource, Package and
     // construct the class (and watch out for those nasty IOExceptions)
@@ -1021,9 +1009,10 @@ public class URLClassLoader extends SecureClassLoader
 
         // And finally construct the class!
         SecurityManager sm = System.getSecurityManager();
+        Class result = null;
         if (sm != null && securityContext != null)
           {
-	    return (Class)AccessController.doPrivileged
+            result = (Class)AccessController.doPrivileged
               (new PrivilegedAction()
                 {
                   public Object run()
@@ -1035,11 +1024,51 @@ public class URLClassLoader extends SecureClassLoader
                 }, securityContext);
           }
         else
-	  return defineClass(className, classData, 0, classData.length, source);
+          result = defineClass(className, classData, 0, classData.length, source);
+
+        super.setSigners(result, resource.getCertificates());
+        return result;
       }
     catch (IOException ioe)
       {
-        throw new ClassNotFoundException(className, ioe);
+	ClassNotFoundException cnfe;
+	cnfe = new ClassNotFoundException(className + " not found in " + this);
+	cnfe.initCause(ioe);
+	throw cnfe;
+      }
+  }
+  
+  // Cached String representation of this URLClassLoader
+  private String thisString;
+  
+  /**
+   * Returns a String representation of this URLClassLoader giving the
+   * actual Class name, the URLs that are searched and the parent
+   * ClassLoader.
+   */
+  public String toString()
+  {
+    synchronized (urlloaders)
+      {
+	if (thisString == null)
+	  {
+	    StringBuffer sb = new StringBuffer();
+	    sb.append(this.getClass().getName());
+	    sb.append("{urls=[" );
+	    URL[] thisURLs = getURLs();
+	    for (int i = 0; i < thisURLs.length; i++)
+	      {
+		sb.append(thisURLs[i]);
+		if (i < thisURLs.length - 1)
+		  sb.append(',');
+	      }
+	    sb.append(']');
+	    sb.append(", parent=");
+	    sb.append(getParent());
+	    sb.append('}');
+	    thisString = sb.toString();
+	  }
+	return thisString;
       }
   }
 

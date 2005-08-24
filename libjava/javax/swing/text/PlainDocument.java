@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.text;
 
 import java.util.ArrayList;
@@ -46,7 +47,7 @@ public class PlainDocument extends AbstractDocument
   public static final String lineLimitAttribute = "lineLimit";
   public static final String tabSizeAttribute = "tabSize";
 
-  private Element rootElement;
+  private BranchElement rootElement;
   private int tabSize;
   
   public PlainDocument()
@@ -58,10 +59,10 @@ public class PlainDocument extends AbstractDocument
   {
     super(content);
     tabSize = 8;
-    rootElement = createDefaultRoot();
+    rootElement = (BranchElement) createDefaultRoot();
   }
 
-  protected void reindex()
+  private void reindex()
   {
     Element[] lines;
     try 
@@ -70,24 +71,23 @@ public class PlainDocument extends AbstractDocument
 
         ArrayList elts = new ArrayList();
         int j = 0;
-        for (int i = str.indexOf('\n', 0); i != -1; i = str.indexOf('\n', i+1))
+        for (int i = str.indexOf('\n', 0); i != -1; i = str.indexOf('\n', i + 1))
           {
-            elts.add(createLeafElement(rootElement, null, j, i));
-            j = i;
+            elts.add(createLeafElement(rootElement, SimpleAttributeSet.EMPTY, j, i + 1));
+            j = i + 1;
           }
         
         if (j < content.length())
-          elts.add(createLeafElement(rootElement, null, j, content.length()));
+          elts.add(createLeafElement(rootElement, SimpleAttributeSet.EMPTY, j, content.length()));
         
         lines = new Element[elts.size()];
         for (int i = 0; i < elts.size(); ++i)
           lines[i] = (Element) elts.get(i);
-        
       }
     catch (BadLocationException e)
       {
         lines = new Element[1];
-        lines[0] = createLeafElement(rootElement, null, 0, 1);
+        lines[0] = createLeafElement(rootElement, SimpleAttributeSet.EMPTY, 0, 1);
       }
 
     ((BranchElement) rootElement).replace(0, rootElement.getElementCount(), lines);
@@ -95,19 +95,62 @@ public class PlainDocument extends AbstractDocument
 
   protected AbstractDocument.AbstractElement createDefaultRoot()
   {
-    rootElement = createBranchElement(null, null);
-    reindex();
-    return (AbstractElement) rootElement;
+    BranchElement root =
+      (BranchElement) createBranchElement(null, SimpleAttributeSet.EMPTY);
+
+    Element[] array = new Element[1];
+    array[0] = createLeafElement(root, SimpleAttributeSet.EMPTY, 0, 1);
+    root.replace(0, 0, array);
+    
+    return root;
   }
 
-  protected void insertUpdate(DefaultDocumentEvent chng, AttributeSet attr)
+  protected void insertUpdate(DefaultDocumentEvent event, AttributeSet attributes)
   {
     reindex();
+
+    super.insertUpdate(event, attributes);
   }
 
-  protected void removeUpdate(DefaultDocumentEvent chng)
+  protected void removeUpdate(DefaultDocumentEvent event)
   {
-    reindex();
+    super.removeUpdate(event);
+
+    int p0 = event.getOffset();
+    int p1 = event.getLength() + p0;
+    int len = event.getLength();
+
+    // check if we must collapse some elements
+    int i1 = rootElement.getElementIndex(p0);
+    int i2 = rootElement.getElementIndex(p1);
+    if (i1 != i2)
+      {
+        Element el1 = rootElement.getElement(i1);
+        Element el2 = rootElement.getElement(i2);
+        int start = el1.getStartOffset();
+        int end = el2.getEndOffset();
+        // collapse elements if the removal spans more than 1 line
+        Element newEl = createLeafElement(rootElement,
+                                          SimpleAttributeSet.EMPTY,
+                                          start, end - len);
+        rootElement.replace(start, end - start, new Element[]{ newEl });
+      }
+    else
+      {
+        // otherwise only adjust indices of the element
+        LeafElement el1 = (LeafElement) rootElement.getElement(i1);
+        el1.end -= len;
+      }
+
+    // reindex remaining elements
+    for (int i = rootElement.getElementIndex(p0) + 1;
+         i < rootElement.getElementCount(); i++)
+      {
+        LeafElement el = (LeafElement) rootElement.getElement(i);
+        el.start -= len;
+        el.end -= len;
+      }
+      
   }
 
   public Element getDefaultRootElement()
@@ -117,6 +160,7 @@ public class PlainDocument extends AbstractDocument
 
   public Element getParagraphElement(int pos)
   {
-    return null;
+    Element root = getDefaultRootElement();
+    return root.getElement(root.getElementIndex(pos));
   }
 }

@@ -1,5 +1,5 @@
 /* Transparency.java -- common transparency modes in graphics
-   Copyright (C) 2000, 2002 Free Software Foundation
+   Copyright (C) 2000, 2002, 2005 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -40,7 +40,7 @@ package java.awt;
 /**
  * A common transparency mode for layering graphics.
  *
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Warren Levy (warrenl@cygnus.com)
  * @since 1.1
  * @status updated to 1.4
  */
@@ -61,7 +61,7 @@ public interface Transparency
   /**
    * Return the transparency type.
    *
-   * @return One of {@see #OPAQUE}, {@see #BITMASK}, or {@see #TRANSLUCENT}.
+   * @return One of {@link #OPAQUE}, {@link #BITMASK}, or {@link #TRANSLUCENT}.
    */
   int getTransparency();
 } // interface Transparency

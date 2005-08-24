@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
+
+/* As a special exception, if you link this library with other files,
+   some of which are compiled with GCC, to produce an executable,
+   this library does not by itself cause the resulting executable
+   to be covered by the GNU General Public License.
+   This exception does not however invalidate any other reasons why
+   the executable file might be covered by the GNU General Public License.  */
 
 #ifndef GFOR_IO_H
 #define GFOR_IO_H
@@ -67,32 +74,75 @@ stream;
 #define sseek(s, pos) ((s)->seek)(s, pos)
 #define struncate(s) ((s)->truncate)(s)
 
-/* Namelist represent object */
-/*
+/* Representation of a namelist object in libgfortran
+
    Namelist Records
-       &groupname  object=value [,object=value].../
+      &GROUPNAME  OBJECT=value[s] [,OBJECT=value[s]].../
      or
-       &groupname  object=value [,object=value]...&groupname
+      &GROUPNAME  OBJECT=value[s] [,OBJECT=value[s]]...&END
 
-  Even more complex, during the execution of a program containing a
-  namelist READ statement, you can specify a question mark character(?)
-  or a question mark character preceded by an equal sign(=?) to get
-  the information of the namelist group. By '?', the name of variables
-  in the namelist will be displayed, by '=?', the name and value of
-  variables will be displayed.
+   The object can be a fully qualified, compound name for an instrinsic
+   type, derived types or derived type components.  So, a substring
+   a(:)%b(4)%ch(2:4)(1:7) has to be treated correctly in namelist
+   read. Hence full information about the structure of the object has
+   to be available to list_read.c and write.
 
-  All these requirements need a new data structure to record all info
-  about the namelist.
-*/
+   These requirements are met by the following data structures.
+
+   nml_loop_spec contains the variables for the loops over index ranges
+   that are encountered.  Since the variables can be negative, ssize_t
+   is used.  */
+
+typedef struct nml_loop_spec
+{
+
+  /* Index counter for this dimension.  */
+  ssize_t idx;
+
+  /* Start for the index counter.  */
+  ssize_t start;
+
+  /* End for the index counter.  */
+  ssize_t end;
+
+  /* Step for the index counter.  */
+  ssize_t step;
+}
+nml_loop_spec;
+
+/* namelist_info type contains all the scalar information about the
+   object and arrays of descriptor_dimension and nml_loop_spec types for
+   arrays.  */
 
 typedef struct namelist_type
 {
-  char * var_name;
-  void * mem_pos;
-  int  value_acquired;
-  int len;
-  int string_length;
+
+  /* Object type, stored as GFC_DTYPE_xxxx.  */
   bt type;
+
+  /* Object name.  */
+  char * var_name;
+
+  /* Address for the start of the object's data.  */
+  void * mem_pos;
+
+  /* Flag to show that a read is to be attempted for this node.  */
+  int touched;
+
+  /* Length of intrinsic type in bytes.  */
+  int len;
+
+  /* Rank of the object.  */
+  int var_rank;
+
+  /* Overall size of the object in bytes.  */
+  index_type size;
+
+  /* Length of character string.  */
+  index_type string_length;
+
+  descriptor_dimension * dim;
+  nml_loop_spec * ls;
   struct namelist_type * next;
 }
 namelist_info;
@@ -158,8 +208,8 @@ unit_mode;
 
 typedef struct
 {
-  int unit;
-  int err, end, eor, list_format;	/* These are flags, not values.  */
+  GFC_INTEGER_4 unit;
+  GFC_INTEGER_4 err, end, eor, list_format; /* These are flags, not values.  */
 
 /* Return values from library statements.  These are returned only if
    the labels are specified in the statement itself and the condition
@@ -176,58 +226,44 @@ typedef struct
   }
   library_return;
 
-  int *iostat, *exist, *opened, *number, *named, rec, *nextrec, *size;
+  GFC_INTEGER_4 *iostat, *exist, *opened, *number, *named;
+  GFC_INTEGER_4 rec;
+  GFC_INTEGER_4 *nextrec, *size;
 
-  int recl_in; 
-  int *recl_out;
+  GFC_INTEGER_4 recl_in;
+  GFC_INTEGER_4 *recl_out;
 
-  int *iolength;
+  GFC_INTEGER_4 *iolength;
 
-  char *file;
-  int file_len;
-  char *status;
-  int status_len;
-  char *access;
-  int access_len;
-  char *form;
-  int form_len;
-  char *blank;
-  int blank_len;
-  char *position;
-  int position_len;
-  char *action;
-  int action_len;
-  char *delim;
-  int delim_len;
-  char *pad;
-  int pad_len;
-  char *format;
-  int format_len;
-  char *advance;
-  int advance_len;
-  char *name;
-  int name_len;
-  char *internal_unit;
-  int internal_unit_len;
-  char *sequential;
-  int sequential_len;
-  char *direct;
-  int direct_len;
-  char *formatted;
-  int formatted_len;
-  char *unformatted;
-  int unformatted_len;
-  char *read;
-  int read_len;
-  char *write;
-  int write_len;
-  char *readwrite;
-  int readwrite_len;
+#define CHARACTER(name) \
+              char * name; \
+              gfc_charlen_type name ## _len
+  CHARACTER (file);
+  CHARACTER (status);
+  CHARACTER (access);
+  CHARACTER (form);
+  CHARACTER (blank);
+  CHARACTER (position);
+  CHARACTER (action);
+  CHARACTER (delim);
+  CHARACTER (pad);
+  CHARACTER (format);
+  CHARACTER (advance);
+  CHARACTER (name);
+  CHARACTER (internal_unit);
+  CHARACTER (sequential);
+  CHARACTER (direct);
+  CHARACTER (formatted);
+  CHARACTER (unformatted);
+  CHARACTER (read);
+  CHARACTER (write);
+  CHARACTER (readwrite);
 
 /* namelist related data */
-  char * namelist_name;
-  int namelist_name_len;
-  int namelist_read_mode;
+  CHARACTER (namelist_name);
+  GFC_INTEGER_4 namelist_read_mode;
+
+#undef CHARACTER
 }
 st_parameter;
 
@@ -252,10 +288,11 @@ typedef struct
 unit_flags;
 
 
-/* The default value of record length is defined here.  This value can
-   be overriden by the OPEN statement or by an environment variable.  */
+/* The default value of record length for preconnected units is defined
+   here. This value can be overriden by an environment variable.
+   Default value is 1 Gb.  */
 
-#define DEFAULT_RECL 10000
+#define DEFAULT_RECL 1073741824
 
 
 typedef struct gfc_unit
@@ -306,7 +343,7 @@ typedef struct
   unit_blank blank_status;
   enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
   int scale_factor;
-  jmp_buf eof_jump;  
+  jmp_buf eof_jump;
 }
 global_t;
 
@@ -401,6 +438,9 @@ internal_proto(input_stream);
 
 extern stream *output_stream (void);
 internal_proto(output_stream);
+
+extern stream *error_stream (void);
+internal_proto(error_stream);
 
 extern int compare_file_filename (stream *, const char *, int);
 internal_proto(compare_file_filename);
@@ -557,13 +597,13 @@ internal_proto(list_formatted_read);
 extern void finish_list_read (void);
 internal_proto(finish_list_read);
 
-extern void init_at_eol();
+extern void init_at_eol (void);
 internal_proto(init_at_eol);
 
-extern void namelist_read();
+extern void namelist_read (void);
 internal_proto(namelist_read);
 
-extern void namelist_write();
+extern void namelist_write (void);
 internal_proto(namelist_write);
 
 /* write.c */

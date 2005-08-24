@@ -1,6 +1,6 @@
 /* Part of CPP library.  (Macro and #define handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -273,7 +273,7 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node)
 
   buf = _cpp_builtin_macro_text (pfile, node);
   len = ustrlen (buf);
-  nbuf = alloca (len + 1);
+  nbuf = (char *) alloca (len + 1);
   memcpy (nbuf, buf, len);
   nbuf[len]='\n';
 
@@ -380,12 +380,12 @@ stringify_arg (cpp_reader *pfile, macro_arg *arg)
 	{
 	  _cpp_buff *buff = _cpp_get_buff (pfile, len);
 	  unsigned char *buf = BUFF_FRONT (buff);
-	  len = cpp_spell_token (pfile, token, buf) - buf;
+	  len = cpp_spell_token (pfile, token, buf, true) - buf;
 	  dest = cpp_quote_string (dest, buf, len);
 	  _cpp_release_buff (pfile, buff);
 	}
       else
-	dest = cpp_spell_token (pfile, token, dest);
+	dest = cpp_spell_token (pfile, token, dest, true);
 
       if (token->type == CPP_OTHER && token->val.str.text[0] == '\\')
 	backslash_count++;
@@ -421,8 +421,8 @@ paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
 
   lhs = *plhs;
   len = cpp_token_len (lhs) + cpp_token_len (rhs) + 1;
-  buf = alloca (len);
-  end = cpp_spell_token (pfile, lhs, buf);
+  buf = (unsigned char *) alloca (len);
+  end = cpp_spell_token (pfile, lhs, buf, false);
 
   /* Avoid comment headers, since they are still processed in stage 3.
      It is simpler to insert a space here, rather than modifying the
@@ -430,7 +430,7 @@ paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
      false doesn't work, since we want to clear the PASTE_LEFT flag.  */
   if (lhs->type == CPP_DIV && rhs->type != CPP_EQ)
     *end++ = ' ';
-  end = cpp_spell_token (pfile, rhs, end);
+  end = cpp_spell_token (pfile, rhs, end, false);
   *end = '\n';
 
   cpp_push_buffer (pfile, buf, end - buf, /* from_stage3 */ true);
@@ -886,7 +886,7 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro, macro_arg
 	{
 	  cpp_token *token = _cpp_temp_token (pfile);
 	  token->type = (*paste_flag)->type;
-	  token->val.str = (*paste_flag)->val.str;
+	  token->val = (*paste_flag)->val;
 	  if (src->flags & PASTE_LEFT)
 	    token->flags = (*paste_flag)->flags | PASTE_LEFT;
 	  else
@@ -910,7 +910,10 @@ padding_token (cpp_reader *pfile, const cpp_token *source)
   cpp_token *result = _cpp_temp_token (pfile);
 
   result->type = CPP_PADDING;
-  result->val.source = source;
+
+  /* Data in GCed data structures cannot be made const so far, so we
+     need a cast here.  */
+  result->val.source = (cpp_token *) source;
   result->flags = 0;
   return result;
 }
@@ -998,7 +1001,7 @@ expand_arg (cpp_reader *pfile, macro_arg *arg)
 
   /* Loop, reading in the arguments.  */
   capacity = 256;
-  arg->expanded = xmalloc (capacity * sizeof (cpp_token *));
+  arg->expanded = XNEWVEC (const cpp_token *, capacity);
 
   push_ptoken_context (pfile, NULL, NULL, arg->first, arg->count + 1);
   for (;;)
@@ -1008,8 +1011,8 @@ expand_arg (cpp_reader *pfile, macro_arg *arg)
       if (arg->expanded_count + 1 >= capacity)
 	{
 	  capacity *= 2;
-	  arg->expanded = xrealloc (arg->expanded,
-				    capacity * sizeof (cpp_token *));
+	  arg->expanded = XRESIZEVEC (const cpp_token *, arg->expanded,
+                                      capacity);
 	}
 
       token = cpp_get_token (pfile);
@@ -1117,7 +1120,7 @@ cpp_get_token (cpp_reader *pfile)
 	  cpp_token *t = _cpp_temp_token (pfile);
 	  t->type = result->type;
 	  t->flags = result->flags | NO_EXPAND;
-	  t->val.str = result->val.str;
+	  t->val = result->val;
 	  result = t;
 	}
 
@@ -1269,7 +1272,8 @@ _cpp_save_parameter (cpp_reader *pfile, cpp_macro *macro, cpp_hashnode *node)
   len = macro->paramc * sizeof (union _cpp_hashnode_value);
   if (len > pfile->macro_buffer_len)
     {
-      pfile->macro_buffer = xrealloc (pfile->macro_buffer, len);
+      pfile->macro_buffer = XRESIZEVEC (unsigned char, pfile->macro_buffer,
+                                        len);
       pfile->macro_buffer_len = len;
     }
   ((union _cpp_hashnode_value *) pfile->macro_buffer)[macro->paramc - 1]
@@ -1416,18 +1420,51 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
       /* Success.  Commit or allocate the parameter array.  */
       if (pfile->hash_table->alloc_subobject)
 	{
-	  cpp_token *tokns = pfile->hash_table->alloc_subobject
-	    (sizeof (cpp_token) * macro->paramc);
-	  memcpy (tokns, macro->params, sizeof (cpp_token) * macro->paramc);
-	  macro->params = tokns;
+	  cpp_hashnode **params =
+            (cpp_hashnode **) pfile->hash_table->alloc_subobject
+            (sizeof (cpp_hashnode *) * macro->paramc);
+	  memcpy (params, macro->params,
+		  sizeof (cpp_hashnode *) * macro->paramc);
+	  macro->params = params;
 	}
       else
 	BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->params[macro->paramc];
       macro->fun_like = 1;
     }
   else if (ctoken->type != CPP_EOF && !(ctoken->flags & PREV_WHITE))
-    cpp_error (pfile, CPP_DL_PEDWARN,
-	       "ISO C requires whitespace after the macro name");
+    {
+      /* While ISO C99 requires whitespace before replacement text
+	 in a macro definition, ISO C90 with TC1 allows there characters
+	 from the basic source character set.  */
+      if (CPP_OPTION (pfile, c99))
+	cpp_error (pfile, CPP_DL_PEDWARN,
+		   "ISO C99 requires whitespace after the macro name");
+      else
+	{
+	  int warntype = CPP_DL_WARNING;
+	  switch (ctoken->type)
+	    {
+	    case CPP_ATSIGN:
+	    case CPP_AT_NAME:
+	    case CPP_OBJC_STRING:
+	      /* '@' is not in basic character set.  */
+	      warntype = CPP_DL_PEDWARN;
+	      break;
+	    case CPP_OTHER:
+	      /* Basic character set sans letters, digits and _.  */
+	      if (strchr ("!\"#%&'()*+,-./:;<=>?[\\]^{|}~",
+			  ctoken->val.str.text[0]) == NULL)
+		warntype = CPP_DL_PEDWARN;
+	      break;
+	    default:
+	      /* All other tokens start with a character from basic
+		 character set.  */
+	      break;
+	    }
+	  cpp_error (pfile, warntype,
+		     "missing whitespace after the macro name");
+	}
+    }
 
   if (macro->fun_like)
     token = lex_expansion_token (pfile, macro);
@@ -1497,8 +1534,9 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
   /* Commit or allocate the memory.  */
   if (pfile->hash_table->alloc_subobject)
     {
-      cpp_token *tokns = pfile->hash_table->alloc_subobject (sizeof (cpp_token)
-							     * macro->count);
+      cpp_token *tokns =
+        (cpp_token *) pfile->hash_table->alloc_subobject (sizeof (cpp_token)
+                                                          * macro->count);
       memcpy (tokns, macro->exp.tokens, sizeof (cpp_token) * macro->count);
       macro->exp.tokens = tokns;
     }
@@ -1517,7 +1555,8 @@ _cpp_create_definition (cpp_reader *pfile, cpp_hashnode *node)
   bool ok;
 
   if (pfile->hash_table->alloc_subobject)
-    macro = pfile->hash_table->alloc_subobject (sizeof (cpp_macro));
+    macro = (cpp_macro *) pfile->hash_table->alloc_subobject
+      (sizeof (cpp_macro));
   else
     macro = (cpp_macro *) _cpp_aligned_alloc (pfile, sizeof (cpp_macro));
   macro->line = pfile->directive_line;
@@ -1662,6 +1701,7 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 	len += NODE_LEN (macro->params[i]) + 1; /* "," */
     }
 
+  /* This should match below where we fill in the buffer.  */
   if (CPP_OPTION (pfile, traditional))
     len += _cpp_replacement_text_len (macro);
   else
@@ -1673,17 +1713,21 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 	  if (token->type == CPP_MACRO_ARG)
 	    len += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	  else
-	    len += cpp_token_len (token) + 1; /* Includes room for ' '.  */
+	    len += cpp_token_len (token);
+
 	  if (token->flags & STRINGIFY_ARG)
 	    len++;			/* "#" */
 	  if (token->flags & PASTE_LEFT)
 	    len += 3;		/* " ##" */
+	  if (token->flags & PREV_WHITE)
+	    len++;              /* " " */
 	}
     }
 
   if (len > pfile->macro_buffer_len)
     {
-      pfile->macro_buffer = xrealloc (pfile->macro_buffer, len);
+      pfile->macro_buffer = XRESIZEVEC (unsigned char,
+                                        pfile->macro_buffer, len);
       pfile->macro_buffer_len = len;
     }
 
@@ -1737,13 +1781,13 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 
 	  if (token->type == CPP_MACRO_ARG)
 	    {
-	      len = NODE_LEN (macro->params[token->val.arg_no - 1]);
 	      memcpy (buffer,
-		      NODE_NAME (macro->params[token->val.arg_no - 1]), len);
-	      buffer += len;
+		      NODE_NAME (macro->params[token->val.arg_no - 1]),
+		      NODE_LEN (macro->params[token->val.arg_no - 1]));
+	      buffer += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	    }
 	  else
-	    buffer = cpp_spell_token (pfile, token, buffer);
+	    buffer = cpp_spell_token (pfile, token, buffer, false);
 
 	  if (token->flags & PASTE_LEFT)
 	    {

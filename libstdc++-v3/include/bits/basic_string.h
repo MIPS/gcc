@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -109,17 +109,19 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     class basic_string
     {
+      typedef typename _Alloc::template rebind<_CharT>::other _CharT_alloc_type;
+
       // Types:
     public:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
       typedef _Alloc					    allocator_type;
-      typedef typename _Alloc::size_type		    size_type;
-      typedef typename _Alloc::difference_type		    difference_type;
-      typedef typename _Alloc::reference		    reference;
-      typedef typename _Alloc::const_reference		    const_reference;
-      typedef typename _Alloc::pointer			    pointer;
-      typedef typename _Alloc::const_pointer		    const_pointer;
+      typedef typename _CharT_alloc_type::size_type	    size_type;
+      typedef typename _CharT_alloc_type::difference_type   difference_type;
+      typedef typename _CharT_alloc_type::reference	    reference;
+      typedef typename _CharT_alloc_type::const_reference   const_reference;
+      typedef typename _CharT_alloc_type::pointer	    pointer;
+      typedef typename _CharT_alloc_type::const_pointer	    const_pointer;
       typedef __gnu_cxx::__normal_iterator<pointer, basic_string>  iterator;
       typedef __gnu_cxx::__normal_iterator<const_pointer, basic_string>
                                                             const_iterator;
@@ -198,7 +200,8 @@ namespace std
 	{ 
 	  this->_M_set_sharable();  // One reference.
 	  this->_M_length = __n;
-	  this->_M_refdata()[__n] = _S_terminal; // grrr. (per 21.3.4)
+	  traits_type::assign(this->_M_refdata()[__n], _S_terminal);
+	  // grrr. (per 21.3.4)
 	  // You cannot leave those LWG people alone for a second.
 	}
 
@@ -695,7 +698,10 @@ namespace std
       reference
       operator[](size_type __pos)
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos < size());
+        // allow pos == size() as v3 extension:
+	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+        // but be strict in pedantic mode:
+	_GLIBCXX_DEBUG_PEDASSERT(__pos < size());
 	_M_leak();
 	return _M_data()[__pos];
       }
@@ -1361,7 +1367,7 @@ namespace std
 	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				   && __i2 <= _M_iend());
 	  __glibcxx_requires_valid_range(__k1, __k2);
-	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
+	  typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	  return _M_replace_dispatch(__i1, __i2, __k1, __k2, _Integral());
 	}
 
@@ -1451,7 +1457,7 @@ namespace std
         static _CharT*
         _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a)
 	{
-	  typedef typename _Is_integer<_InIterator>::_Integral _Integral;
+	  typedef typename std::__is_integer<_InIterator>::__type _Integral;
 	  return _S_construct_aux(__beg, __end, __a, _Integral());
         }
 
@@ -1905,9 +1911,11 @@ namespace std
        *
        *  Returns an integer < 0 if this string is ordered before @a str, 0 if
        *  their values are equivalent, or > 0 if this string is ordered after
-       *  @a str.  If the lengths of @a str and this string are different, the
-       *  shorter one is ordered first.  If they are the same, returns the
-       *  result of traits::compare(data(),str.data(),size());
+       *  @a str.  Determines the effective length rlen of the strings to
+       *  compare as the smallest of size() and str.size().  The function
+       *  then compares the two strings by calling traits::compare(data(),
+       *  str.data(),rlen).  If the result of the comparison is nonzero returns
+       *  it, otherwise the shorter one is ordered first.
       */
       int
       compare(const basic_string& __str) const
@@ -1932,10 +1940,12 @@ namespace std
        *  Form the substring of this string from the @a n characters starting
        *  at @a pos.  Returns an integer < 0 if the substring is ordered
        *  before @a str, 0 if their values are equivalent, or > 0 if the
-       *  substring is ordered after @a str.  If the lengths @a of str and the
-       *  substring are different, the shorter one is ordered first.  If they
-       *  are the same, returns the result of
-       *  traits::compare(substring.data(),str.data(),size());
+       *  substring is ordered after @a str.  Determines the effective length
+       *  rlen of the strings to compare as the smallest of the length of the
+       *  substring and @a str.size().  The function then compares the two
+       *  strings by calling traits::compare(substring.data(),str.data(),rlen).
+       *  If the result of the comparison is nonzero returns it, otherwise the
+       *  shorter one is ordered first.
       */
       int
       compare(size_type __pos, size_type __n, const basic_string& __str) const;
@@ -1954,10 +1964,12 @@ namespace std
        *  starting at @a pos2.  Returns an integer < 0 if this substring is
        *  ordered before the substring of @a str, 0 if their values are
        *  equivalent, or > 0 if this substring is ordered after the substring
-       *  of @a str.  If the lengths of the substring of @a str and this
-       *  substring are different, the shorter one is ordered first.  If they
-       *  are the same, returns the result of
-       *  traits::compare(substring.data(),str.substr(pos2,n2).data(),size());
+       *  of @a str.  Determines the effective length rlen of the strings
+       *  to compare as the smallest of the lengths of the substrings.  The
+       *  function then compares the two strings by calling
+       *  traits::compare(substring.data(),str.substr(pos2,n2).data(),rlen).
+       *  If the result of the comparison is nonzero returns it, otherwise the
+       *  shorter one is ordered first.
       */
       int
       compare(size_type __pos1, size_type __n1, const basic_string& __str,
@@ -1970,9 +1982,12 @@ namespace std
        *
        *  Returns an integer < 0 if this string is ordered before @a s, 0 if
        *  their values are equivalent, or > 0 if this string is ordered after
-       *  @a s.  If the lengths of @a s and this string are different, the
-       *  shorter one is ordered first.  If they are the same, returns the
-       *  result of traits::compare(data(),s,size());
+       *  @a s.  Determines the effective length rlen of the strings to
+       *  compare as the smallest of size() and the length of a string
+       *  constructed from @a s.  The function then compares the two strings
+       *  by calling traits::compare(data(),s,rlen).  If the result of the
+       *  comparison is nonzero returns it, otherwise the shorter one is
+       *  ordered first.
       */
       int
       compare(const _CharT* __s) const;
@@ -1989,10 +2004,13 @@ namespace std
        *  Form the substring of this string from the @a n1 characters starting
        *  at @a pos.  Returns an integer < 0 if the substring is ordered
        *  before @a s, 0 if their values are equivalent, or > 0 if the
-       *  substring is ordered after @a s.  If the lengths of @a s and the
-       *  substring are different, the shorter one is ordered first.  If they
-       *  are the same, returns the result of
-       *  traits::compare(substring.data(),s,size());
+       *  substring is ordered after @a s.  Determines the effective length
+       *  rlen of the strings to compare as the smallest of the length of the 
+       *  substring and the length of a string constructed from @a s.  The
+       *  function then compares the two string by calling
+       *  traits::compare(substring.data(),s,rlen).  If the result of the
+       *  comparison is nonzero returns it, otherwise the shorter one is
+       *  ordered first.
       */
       int
       compare(size_type __pos, size_type __n1, const _CharT* __s) const;
@@ -2009,10 +2027,12 @@ namespace std
        *  at @a pos1.  Form a string from the first @a n2 characters of @a s.
        *  Returns an integer < 0 if this substring is ordered before the string
        *  from @a s, 0 if their values are equivalent, or > 0 if this substring
-       *  is ordered after the string from @a s. If the lengths of this
-       *  substring and @a n2 are different, the shorter one is ordered first.
-       *  If they are the same, returns the result of
-       *  traits::compare(substring.data(),s,size());
+       *  is ordered after the string from @a s.   Determines the effective
+       *  length rlen of the strings to compare as the smallest of the length
+       *  of the substring and @a n2.  The function then compares the two
+       *  strings by calling traits::compare(substring.data(),s,rlen).  If the
+       *  result of the comparison is nonzero returns it, otherwise the shorter
+       *  one is ordered first.
        *
        *  NB: s must have at least n2 characters, '\0' has no special
        *  meaning.

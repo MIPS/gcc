@@ -1,5 +1,5 @@
 /* Utilities.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -45,7 +45,7 @@ import java.awt.Graphics;
  * A set of utilities to deal with text. This is used by several other classes
  * inside this package.
  *
- * @author Roman Kennke <roman@ontographics.com>
+ * @author Roman Kennke (roman@ontographics.com)
  */
 public class Utilities
 {
@@ -92,7 +92,7 @@ public class Utilities
     int ascent = metrics.getAscent();
 
     int pixelWidth = 0;
-    int pos = 0;
+    int pos = s.offset;
     int len = 0;
 
     for (int offset = s.offset; offset < (s.offset + s.count); ++offset)

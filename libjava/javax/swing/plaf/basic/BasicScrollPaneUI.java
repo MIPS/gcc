@@ -1,5 +1,5 @@
 /* BasicScrollPaneUI.java
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -54,13 +54,17 @@ public class BasicScrollPaneUI extends ScrollPaneUI
   implements ScrollPaneConstants
 {
 
-    public static ComponentUI createUI(final JComponent c) 
-    {
-	return new BasicScrollPaneUI();
-    }
+  /** The Scrollpane for which the UI is provided by this class. */
+  protected JScrollPane scrollpane;
+
+  public static ComponentUI createUI(final JComponent c) 
+  {
+    return new BasicScrollPaneUI();
+  }
 
   protected void installDefaults(JScrollPane p)
   {
+    scrollpane = p;
     UIDefaults defaults = UIManager.getLookAndFeelDefaults();
     p.setForeground(defaults.getColor("ScrollPane.foreground"));
     p.setBackground(defaults.getColor("ScrollPane.background"));
@@ -75,11 +79,12 @@ public class BasicScrollPaneUI extends ScrollPaneUI
     p.setBackground(null);
     p.setFont(null);
     p.setBorder(null);
+    scrollpane = null;
   }
     
-    public void installUI(final JComponent c) 
-    {
-	super.installUI(c);
+  public void installUI(final JComponent c) 
+  {
+    super.installUI(c);
     this.installDefaults((JScrollPane)c);
   }
 
@@ -87,29 +92,29 @@ public class BasicScrollPaneUI extends ScrollPaneUI
   {
     super.uninstallUI(c);
     this.uninstallDefaults((JScrollPane)c);
-    }
+  }
+
     
-    
-    public Dimension getMinimumSize(JComponent c) 
-    {
-	JScrollPane p = (JScrollPane ) c;
-        ScrollPaneLayout sl = (ScrollPaneLayout) p.getLayout();
-        return sl.minimumLayoutSize(c);
-    }
+  public Dimension getMinimumSize(JComponent c) 
+  {
+    JScrollPane p = (JScrollPane ) c;
+    ScrollPaneLayout sl = (ScrollPaneLayout) p.getLayout();
+    return sl.minimumLayoutSize(c);
+  }
 
-    public Dimension getPreferredSize(JComponent c) 
-    {
-	JScrollPane p = (JScrollPane ) c;
-        ScrollPaneLayout sl = (ScrollPaneLayout) p.getLayout();
-        return sl.preferredLayoutSize(c);
-    }
+  public Dimension getPreferredSize(JComponent c) 
+  {
+    JScrollPane p = (JScrollPane ) c;
+    ScrollPaneLayout sl = (ScrollPaneLayout) p.getLayout();
+    return sl.preferredLayoutSize(c);
+  }
 
 
-    public void paint(Graphics g, JComponent c)
-    {      
-      // do nothing; the normal painting-of-children algorithm, along with
-      // ScrollPaneLayout, does all the relevant work.
-    }
+  public void paint(Graphics g, JComponent c)
+  {      
+    // do nothing; the normal painting-of-children algorithm, along with
+    // ScrollPaneLayout, does all the relevant work.
+  }
 }
 
 
