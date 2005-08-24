@@ -1,7 +1,8 @@
 /* PR middle-end/15345, c/16450 */
 /* Test whether unused nested functions aren't emitted into the assembly.  */
 /* { dg-do compile } */
-/* { dg-options "-g0" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-g0 -Wno-nested-funcs" } */
 
 int
 fn1 (int x)

@@ -2,7 +2,8 @@
 /* Origin: Waldek Hebisch <hebisch@math.uni.wroc.pl> */
 
 /* { dg-do run } */
-/* { dg-options "-O2" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-O2 -Wno-nested-funcs" } */
 
 /* This used to fail on various versions of Solaris 2 because the
    trampoline couldn't be made executable.  */

@@ -1,7 +1,8 @@
 /* PR 5967, PR 7114 */
 /* { dg-do run } */
 /* { dg-require-profiling "-pg" } */
-/* { dg-options "-O2 -pg" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-O2 -pg -Wno-nested-funcs" } */
 /* { dg-options "-O2 -pg -static" { target hppa*-*-hpux* } } */
 /* { dg-error "profiler" "No profiler support" { target xstormy16-*-* } 0 } */
 /* { dg-error "-pg not supported" "Profiler support missing" { target *-*-sco3.2v5* } 0 } */

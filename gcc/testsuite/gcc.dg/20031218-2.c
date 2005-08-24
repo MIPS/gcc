@@ -1,9 +1,10 @@
-/* Orgin: Richard Sandiford <rsandifo@gcc.gnu.org> 
+/* Orgin: Richard Sandiford <rsandifo@gcc.gnu.org>
    PR debug/12923  ICE in gen_subprogram_die with -O2 -g
    The problem was that this just to ICE with -O2 -g.  */
 
 /* { dg-do compile } */
-/* { dg-options "-O2 -g" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-O2 -g -Wno-nested-funcs" } */
 
 int f1 (int y)
 {

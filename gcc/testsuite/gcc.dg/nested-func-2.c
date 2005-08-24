@@ -3,7 +3,8 @@
    of static variables.  */
 
 /* { dg-do compile } */
-/* { dg-options "" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-Wno-nested-funcs" } */
 
 struct S {
   void (*f)(int);

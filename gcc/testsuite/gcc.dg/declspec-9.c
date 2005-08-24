@@ -4,7 +4,8 @@
    options.  */
 /* Origin: Joseph Myers <jsm@polyomino.org.uk> */
 /* { dg-do compile } */
-/* { dg-options "" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-Wno-nested-funcs" } */
 
 auto void f0 (void) {} /* { dg-warning "warning: function definition declared 'auto'" } */
 register void f1 (void) {} /* { dg-error "error: function definition declared 'register'" } */

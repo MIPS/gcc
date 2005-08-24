@@ -1,3 +1,33 @@
+2005-08-23  Eric Christopher  <echristo@apple.com>
+
+	* objc.dg/nested-func-1.m: Add -Wno-nested-funcs to dg-options.
+	* gcc.dg/noncompile/label-1.c: Ditto.
+	* gcc.dg/wtr-func-def-1.c: Ditto.
+	* gcc.dg/trampoline-1.c: Ditto.
+	* gcc.dg/pr18963-1.c: Ditto.
+	* gcc.dg/pr18596-2.c: Ditto.
+	* gcc.dg/pr18596-1.c: Ditto.
+	* gcc.dg/nested-func-2.c: Ditto.
+	* gcc.dg/nested-func-1.c: Ditto
+	* gcc.dg/nest.c: Ditto.
+	* gcc.dg/declspec-9.c: Ditto.
+	* gcc.dg/declspec-11.c: Ditto. Fix up line tests.
+	* gcc.dg/declspec-10.c: Ditto. Fix up line tests.
+	* gcc.dg/cleanup-7.c: Ditto.
+	* gcc.dg/20050607-1.c: Ditto.
+	* gcc.dg/20031218-3.c: Ditto.
+	* gcc.dg/20031218-2.c: Ditto.
+	* gcc.dg/20030331-2.c: Ditto.
+	* gcc.dg/20021014-1.c: Ditto.
+	* gcc.dg/20011130-1.c: Ditto.
+	* gcc.dg/debug/debug-5.c: Ditto.
+	* gcc.dg/debug/debug-4.c: Ditto.
+	* gcc.dg/debug/debug-3.c: Ditto.
+	* lib/objc.exp (objc_target_compile): Revert previous patch.
+	* lib/gcc.exp (gcc_target_compile): Ditto.
+	* gcc.apple/Wnested-funcs-1.c: New.
+	* gcc.dg/Wnested-funcs-1.c: Ditto.
+
 2005-08-23  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4221664

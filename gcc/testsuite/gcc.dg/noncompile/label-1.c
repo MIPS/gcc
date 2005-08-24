@@ -1,6 +1,7 @@
 /* Test various diagnostics of ill-formed constructs involving labels.  */
 /* { dg-do compile } */
-/* { dg-options "-Wunused" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-Wunused -Wno-nested-funcs" } */
 
 extern void dummy(void);
 
@@ -82,7 +83,7 @@ void i(void)
   auto void nest(void);
 
  l: nest();
-  
+
   void nest(void)
     {
       goto l;  /* { dg-error "used but not defined" "nest use outer label" } */
@@ -98,7 +99,7 @@ void j(void)
   auto void nest(void);
 
  l: nest();
-  
+
   void nest(void)
     {
     l: dummy(); /* { dg-warning "defined but not used" "nest label same name" } */

@@ -2,7 +2,8 @@
    Note, gcc should omit these warnings in system header files.
    Origin: Kaveh R. Ghazi <ghazi@caip.rutgers.edu> 6/30/2002.  */
 /* { dg-do compile } */
-/* { dg-options "-Wtraditional" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-Wtraditional -Wno-nested-funcs" } */
 
 /* Test some simple cases.  */
 

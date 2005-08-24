@@ -1,7 +1,8 @@
 /* Test basic nested C function functionality within ObjC
    methods.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
-/* { dg-options "-lobjc" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-lobjc -Wno-nested-funcs" } */
 /* { dg-do run } */
 #include <stdio.h>
 #include <stdlib.h>

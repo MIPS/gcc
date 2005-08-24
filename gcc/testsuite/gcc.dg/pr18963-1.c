@@ -1,10 +1,11 @@
 /* { dg-do run } */
-/* { dg-options "" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-Wno-nested-funcs" } */
 
 static int barf ();
 
 int foo ()
-{ 
+{
   auto int barf ();
   int j = 4;
 

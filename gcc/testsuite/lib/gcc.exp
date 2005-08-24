@@ -136,11 +136,6 @@ proc gcc_target_compile { source dest type options } {
     if [target_info exists gcc,no_label_values] {
 	lappend options "additional_flags=-DNO_LABEL_VALUES"
     }
-    # APPLE LOCAL begin testsuite nested functions
-    if [ istarget *-*-darwin* ] {
-	lappend options "additional_flags=-Wno-nested-funcs"
-    }
-    # APPLE LOCAL end testsuite nested functions
     # TOOL_OPTIONS must come first, so that it doesn't override testcase
     # specific options.
     if [info exists TOOL_OPTIONS] {
