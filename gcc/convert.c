@@ -212,7 +212,7 @@ convert_to_real (tree type, tree expr)
   /* This code used to transform (float)floor(double d) into
      floorf((float)d).  This is incorrect, because (float)d is
      done as round-to-nearest and can round up to the next integer.  */
-  /* APPLE LOCAL begin 4221664 FSF candidate */
+  /* APPLE LOCAL end 4221664 FSF candidate */
 
   /* Propagate the cast into the operation.  */
   if (itype != type && FLOAT_TYPE_P (type))
