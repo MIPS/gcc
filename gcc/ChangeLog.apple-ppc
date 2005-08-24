@@ -1,3 +1,9 @@
+2005-08-24  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4211430
+	* stmt.c (expand_asm_operands): Make static entry symbol 
+	local and not extern.
+
 2005-08-23  Eric Christopher  <echristo@apple.com>
 
 	Radar 4223128

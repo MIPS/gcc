@@ -915,6 +915,16 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       generating_concat_p = old_generating_concat_p;
       ASM_OPERANDS_INPUT (body, i) = op;
 
+      /* Crude way of detecting an entry static label declaration 
+	 (See cw_asm_entry).  Make this a local symbol. */
+      if (i == 0 && !TREE_CHAIN (tail) 
+	  && strcmp (TREE_STRING_POINTER (string), "%0:") == 0
+	  && GET_CODE (op) == SYMBOL_REF)
+        {
+	  SYMBOL_REF_FLAGS (op) |= SYMBOL_FLAG_LOCAL;
+          SYMBOL_REF_FLAGS (op) &= ~SYMBOL_FLAG_EXTERNAL;
+        }
+
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
 	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
 			     ggc_strdup (constraints[i + noutputs]));

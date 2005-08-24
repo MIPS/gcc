@@ -1,3 +1,9 @@
+2005-08-24  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4211430
+	* gcc.dg/asm-static=entry-1.c
+	* g++.dg/asm-static=entry-1.C
+
 2005-08-23  Eric Christopher  <echristo@apple.com>
 
 	* objc.dg/nested-func-1.m: Add -Wno-nested-funcs to dg-options.
