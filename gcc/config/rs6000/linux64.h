@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -78,7 +78,7 @@ extern int dot_symbols;
 #define	SUBSUBTARGET_OVERRIDE_OPTIONS				\
   do								\
     {								\
-      if (rs6000_alignment_string == 0)				\
+      if (!rs6000_explicit_options.alignment)			\
 	rs6000_alignment_flags = MASK_ALIGN_NATURAL;		\
       if (TARGET_64BIT)						\
 	{							\
@@ -205,22 +205,6 @@ extern int dot_symbols;
 #define RELOCATABLE_NEEDS_FIXUP 0
 
 #endif
-
-#define	MASK_PROFILE_KERNEL	0x00100000
-
-/* Non-standard profiling for kernels, which just saves LR then calls
-   _mcount without worrying about arg saves.  The idea is to change
-   the function prologue as little as possible as it isn't easy to
-   account for arg save/restore code added just for _mcount.  */
-#define TARGET_PROFILE_KERNEL	(target_flags & MASK_PROFILE_KERNEL)
-
-/* Override sysv4.h.  */
-#undef	EXTRA_SUBTARGET_SWITCHES
-#define EXTRA_SUBTARGET_SWITCHES					\
-  {"profile-kernel",	 MASK_PROFILE_KERNEL,				\
-   N_("Call mcount for profiling before a function prologue") },	\
-  {"no-profile-kernel",	-MASK_PROFILE_KERNEL,				\
-   N_("Call mcount for profiling after a function prologue") },
 
 /* We use glibc _mcount for profiling.  */
 #define NO_PROFILE_COUNTERS TARGET_64BIT
@@ -552,7 +536,7 @@ while (0)
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET (!TARGET_64BIT)
 
-#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+#define TARGET_ASM_FILE_END rs6000_elf_end_indicate_exec_stack
 
 #define TARGET_HAS_F_SETLKW
 

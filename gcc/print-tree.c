@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -80,6 +80,12 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -218,6 +224,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -253,6 +265,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" readonly", file);
   if (!TYPE_P (node) && TREE_CONSTANT (node))
     fputs (" constant", file);
+  else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
+    fputs (" sizes-gimplified", file);
+
   if (TREE_INVARIANT (node))
     fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
@@ -709,7 +724,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      }
 	  break;
 
-	case STATEMENT_LIST:
+    	case STATEMENT_LIST:
 	  fprintf (file, " head " HOST_PTR_PRINTF " tail " HOST_PTR_PRINTF " stmts",
 		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
 	  {
@@ -730,7 +745,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  }
 	  print_node (file, "chain", TREE_CHAIN (node), indent + 4);
 	  break;
-	  
+
 	case BLOCK:
 	  print_node (file, "vars", BLOCK_VARS (node), indent + 4);
 	  print_node (file, "supercontext", BLOCK_SUPERCONTEXT (node),

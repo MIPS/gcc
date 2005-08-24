@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -52,7 +52,7 @@ typedef struct param_info
   /* Minimum acceptable value.  */
   int min_value;
   
-  /* Maxiumum acceptable value, if greater than minimum  */
+  /* Maximum acceptable value, if greater than minimum  */
   int max_value;
   
   /* A short description of the option.  */
@@ -89,6 +89,8 @@ typedef enum compiler_param
   (compiler_params[(int) ENUM].value)
 
 /* Macros for the various parameters.  */
+#define SALIAS_MAX_IMPLICIT_FIELDS \
+  PARAM_VALUE (PARAM_SALIAS_MAX_IMPLICIT_FIELDS)
 #define SRA_MAX_STRUCTURE_SIZE \
   PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_SIZE)
 #define SRA_FIELD_STRUCTURE_RATIO \
@@ -147,4 +149,10 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_STRUCT_REORG_DISTANCE_THRESHOLD)
 #define STRUCT_REORG_CACHE_MISS_PENALTY \
   PARAM_VALUE (PARAM_STRUCT_REORG_CACHE_MISS_PENALTY)
+#define MAX_LAST_VALUE_RTL \
+  PARAM_VALUE (PARAM_MAX_LAST_VALUE_RTL)
+#define MIN_VIRTUAL_MAPPINGS \
+  PARAM_VALUE (PARAM_MIN_VIRTUAL_MAPPINGS)
+#define VIRTUAL_MAPPINGS_TO_SYMS_RATIO \
+  PARAM_VALUE (PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO)
 #endif /* ! GCC_PARAMS_H */

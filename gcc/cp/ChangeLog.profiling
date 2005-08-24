@@ -1,3 +1,7 @@
+2005-02-09  Razya Ladelsky  <razya@il.ibm.com>
+
+        * tree.c: (cp_copy_res_decl_for_inlining): change call to copy_decl_for_inlining.
+
 2004-11-17  Stuart Hastings <stuarth@apple.com>
 	    Dale Johannesen  <dalej@apple.com>
 

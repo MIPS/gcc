@@ -1,7 +1,7 @@
 /* Program to dump out a Java(TM) .class file.
    Functionally similar to Sun's javap.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -65,7 +65,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include <getopt.h>
 #include <math.h>
 
-/* Outout file. */
+/* Output file. */
 FILE *out;
 /* Name of output file, if NULL if stdout. */
 char *output_file = NULL;
@@ -320,8 +320,12 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
       if (flag_print_class_info)					    \
 	{								    \
 	  fprintf (out, "\n  inner: ");					    \
-	  print_constant_terse_with_index (out, jcf,			    \
-				inner_class_info_index, CONSTANT_Class);    \
+	  if (inner_class_info_index == 0)				    \
+	    fprintf (out, " (no inner info index)");			    \
+	  else								    \
+	    print_constant_terse_with_index (out, jcf,			    \
+					     inner_class_info_index,	    \
+					     CONSTANT_Class);		    \
 	  if (inner_name_index == 0)					    \
 	    fprintf (out, " (anonymous)");				    \
 	  else if (verbose || flag_print_constant_pool)			    \
@@ -334,13 +338,24 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
 	  fprintf (out, ", access flags: 0x%x", inner_class_access_flags);  \
 	  print_access_flags (out, inner_class_access_flags, 'c');	    \
 	  fprintf (out, ", outer class: ");				    \
-	  print_constant_terse_with_index (out, jcf,			    \
-				outer_class_info_index, CONSTANT_Class);    \
+	  if (outer_class_info_index == 0)				    \
+	    fprintf (out, "(not a member)");				    \
+	  else								    \
+	    print_constant_terse_with_index (out, jcf,			    \
+					     outer_class_info_index,	    \
+					     CONSTANT_Class);		    \
 	}								    \
     }									    \
-      if (flag_print_class_info)					    \
-	fputc ('\n', out);						    \
+  if (flag_print_class_info)						    \
+    fputc ('\n', out);							    \
 }
+
+#define HANDLE_SOURCEDEBUGEXTENSION_ATTRIBUTE(LENGTH) \
+{ int i, n = (LENGTH), c = 0;					  \
+  COMMON_HANDLE_ATTRIBUTE(jcf, attribute_name, attribute_length); \
+  fputc ('\n', out); \
+  for (i = 0;  i < n;  i++) { c = JCF_readu(jcf); fputc(c, out); } \
+  if (c != '\r' && c != '\n') fputc('\n', out); }
 
 #define PROCESS_OTHER_ATTRIBUTE(JCF, INDEX, LENGTH) \
 { COMMON_HANDLE_ATTRIBUTE(JCF, INDEX, LENGTH); \
@@ -924,6 +939,9 @@ main (int argc, char** argv)
 {
   JCF jcf[1];
   int argi, opt;
+
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 

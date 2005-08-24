@@ -1,5 +1,5 @@
 /* Declarations for interface to insn recognizer and insn-output.c.
-   Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -74,7 +74,9 @@ extern void init_recog_no_volatile (void);
 extern int check_asm_operands (rtx);
 extern int asm_operand_ok (rtx, const char *);
 extern int validate_change (rtx, rtx *, rtx, int);
+extern int validate_change_maybe_volatile (rtx, rtx *, rtx);
 extern int insn_invalid_p (rtx);
+extern void confirm_change_group (void);
 extern int apply_change_group (void);
 extern int num_validated_changes (void);
 extern void cancel_changes (int);
@@ -99,7 +101,9 @@ extern int offsettable_address_p (int, enum machine_mode, rtx);
 extern int mode_dependent_address_p (rtx);
 
 extern int recog (rtx, rtx, int *);
+#ifndef GENERATOR_FILE
 static inline int recog_memoized (rtx insn);
+#endif
 extern void add_clobbers (rtx, int);
 extern int added_clobbers_hard_reg_p (int);
 extern void insn_extract (rtx);
@@ -120,6 +124,7 @@ extern rtx peephole2_insns (rtx, rtx, int *);
 extern int store_data_bypass_p (rtx, rtx);
 extern int if_test_bypass_p (rtx, rtx);
 
+#ifndef GENERATOR_FILE
 /* Try recognizing the instruction INSN,
    and return the code number that results.
    Remember the code so that repeated calls do not
@@ -136,6 +141,7 @@ recog_memoized (rtx insn)
     INSN_CODE (insn) = recog (PATTERN (insn), insn, 0);
   return INSN_CODE (insn);
 }
+#endif
 
 /* Nonzero means volatile operands are recognized.  */
 extern int volatile_ok;

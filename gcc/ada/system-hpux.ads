@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                             (HP-UX Version)                              --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -118,6 +118,7 @@ private
    Backend_Divide_Checks     : constant Boolean := False;
    Backend_Overflow_Checks   : constant Boolean := False;
    Command_Line_Args         : constant Boolean := True;
+   Compiler_System_Version   : constant Boolean := False;
    Configurable_Run_Time     : constant Boolean := False;
    Denorm                    : constant Boolean := True;
    Duration_32_Bits          : constant Boolean := False;
@@ -129,7 +130,7 @@ private
    Machine_Rounds            : constant Boolean := True;
    OpenVMS                   : constant Boolean := False;
    Preallocated_Stacks       : constant Boolean := False;
-   Signed_Zeros              : constant Boolean := False;
+   Signed_Zeros              : constant Boolean := True;
    Stack_Check_Default       : constant Boolean := False;
    Stack_Check_Probes        : constant Boolean := False;
    Support_64_Bit_Divides    : constant Boolean := True;

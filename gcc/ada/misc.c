@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -41,7 +41,6 @@
 #include "tree.h"
 #include "real.h"
 #include "rtl.h"
-#include "errors.h"
 #include "diagnostic.h"
 #include "expr.h"
 #include "libfuncs.h"
@@ -137,8 +136,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_EXPAND_EXPR		gnat_expand_expr
 #undef  LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE	gnat_mark_addressable
-#undef  LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION gnat_truthvalue_conversion
 #undef  LANG_HOOKS_PRINT_DECL
 #define LANG_HOOKS_PRINT_DECL		gnat_print_decl
 #undef  LANG_HOOKS_PRINT_TYPE
@@ -217,17 +214,26 @@ extern char **gnat_argv;
 
 
 /* Declare functions we use as part of startup.  */
-extern void __gnat_initialize	(void);
-extern void adainit		(void);
-extern void _ada_gnat1drv	(void);
+extern void __gnat_initialize           (void *);
+extern void __gnat_install_SEH_handler  (void *);
+extern void adainit		        (void);
+extern void _ada_gnat1drv	        (void);
 
 /* The parser for the language.  For us, we process the GNAT tree.  */
 
 static void
 gnat_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
+  int seh[2];
+
   /* call the target specific initializations */
-  __gnat_initialize();
+  __gnat_initialize (NULL);
+
+  /* ??? call the SEH initialization routine, this is to workaround a
+  bootstrap path problem. The call below should be removed at some point and
+  the seh pointer passed to __gnat_initialize() above.  */
+
+  __gnat_install_SEH_handler((void *)seh);
 
   /* Call the front-end elaboration procedures */
   adainit ();
@@ -250,7 +256,6 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
   const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
   char *q;
-  unsigned int i;
 
   if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
     {
@@ -289,13 +294,13 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argc++;
       break;
 
-    case OPT_fRTS:
+    case OPT_fRTS_:
       gnat_argv[gnat_argc] = xstrdup ("-fRTS");
       gnat_argc++;
       break;
 
     case OPT_gant:
-      warning ("%<-gnat%> misspelled as %<-gant%>");
+      warning (0, "%<-gnat%> misspelled as %<-gant%>");
 
       /* ... fall through ... */
 
@@ -305,17 +310,13 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argv[gnat_argc][0] = '-';
       strcpy (gnat_argv[gnat_argc] + 1, arg);
       gnat_argc++;
+      break;
 
-      if (arg[0] == 'O')
-	for (i = 1; i < save_argc - 1; i++)
-	  if (!strncmp (save_argv[i], "-gnatO", 6))
-	    if (save_argv[++i][0] != '-')
-	      {
-		/* Preserve output filename as GCC doesn't save it for GNAT. */
-		gnat_argv[gnat_argc] = xstrdup (save_argv[i]);
-		gnat_argc++;
-		break;
-	      }
+    case OPT_gnatO:
+      gnat_argv[gnat_argc] = xstrdup ("-O");
+      gnat_argc++;
+      gnat_argv[gnat_argc] = xstrdup (arg);
+      gnat_argc++;
       break;
     }
 
@@ -352,6 +353,8 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
     flag_no_inline = 1;
   if (flag_inline_functions)
     flag_inline_trees = 2;
+  
+  flag_tree_salias = 0;
 
   return false;
 }
@@ -495,7 +498,12 @@ gnat_print_decl (FILE *file, tree node, int indent)
       break;
 
     case FIELD_DECL:
-      print_node (file, "original field", DECL_ORIGINAL_FIELD (node),
+      print_node (file, "original_field", DECL_ORIGINAL_FIELD (node),
+		  indent + 4);
+      break;
+
+    case VAR_DECL:
+      print_node (file, "renamed_object", DECL_RENAMED_OBJECT (node),
 		  indent + 4);
       break;
 

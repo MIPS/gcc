@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,6 +29,7 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
+with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Fname;    use Fname;
 with Freeze;   use Freeze;
@@ -49,6 +50,8 @@ with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch4;  use Sem_Ch4;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch12; use Sem_Ch12;
+with Sem_Disp; use Sem_Disp;
+with Sem_Dist; use Sem_Dist;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sem_Type; use Sem_Type;
@@ -1100,10 +1103,11 @@ package body Sem_Ch8 is
       Save_AV     : constant Ada_Version_Type := Ada_Version;
       Nam         : constant Node_Id          := Name (N);
       New_S       : Entity_Id;
-      Old_S       : Entity_Id  := Empty;
+      Old_S       : Entity_Id                 := Empty;
       Rename_Spec : Entity_Id;
-      Is_Actual   : Boolean    := False;
-      Inst_Node   : Node_Id    := Empty;
+      Formal_Spec : constant Node_Id          := Corresponding_Formal_Spec (N);
+      Is_Actual   : constant Boolean          := Present (Formal_Spec);
+      Inst_Node   : Node_Id                   := Empty;
 
       function Original_Subprogram (Subp : Entity_Id) return Entity_Id;
       --  Find renamed entity when the declaration is a renaming_as_body
@@ -1165,13 +1169,79 @@ package body Sem_Ch8 is
       --  is missing an argument when it is analyzed.
 
       if Nkind (Nam) = N_Attribute_Reference then
-         Attribute_Renaming (N);
-         return;
+
+         --  In the case of an abstract formal subprogram association,
+         --  rewrite an actual given by a stream attribute as the name
+         --  of the corresponding stream primitive of the type.
+
+         if Is_Actual and then Is_Abstract (Formal_Spec) then
+            declare
+               Stream_Prim : Entity_Id;
+               Prefix_Type : constant Entity_Id := Entity (Prefix (Nam));
+
+            begin
+               --  The class-wide forms of the stream attributes are not
+               --  primitive dispatching operations (even though they
+               --  internally dispatch to a stream attribute).
+
+               if Is_Class_Wide_Type (Prefix_Type) then
+                  Error_Msg_N
+                    ("attribute must be a primitive dispatching operation",
+                     Nam);
+                  return;
+               end if;
+
+               --  Retrieve the primitive subprogram associated with the
+               --  attribute. This can only be a stream attribute, since
+               --  those are the only ones that are dispatching (and the
+               --  actual for an abstract formal subprogram must be a
+               --  dispatching operation).
+
+               case Attribute_Name (Nam) is
+                  when Name_Input  =>
+                     Stream_Prim :=
+                       Find_Prim_Op (Prefix_Type, TSS_Stream_Input);
+                  when Name_Output =>
+                     Stream_Prim :=
+                       Find_Prim_Op (Prefix_Type, TSS_Stream_Output);
+                  when Name_Read   =>
+                     Stream_Prim :=
+                       Find_Prim_Op (Prefix_Type, TSS_Stream_Read);
+                  when Name_Write  =>
+                     Stream_Prim :=
+                       Find_Prim_Op (Prefix_Type, TSS_Stream_Write);
+                  when others      =>
+                     Error_Msg_N
+                       ("attribute must be a primitive dispatching operation",
+                        Nam);
+                     return;
+               end case;
+
+               --  Rewrite the attribute into the name of its corresponding
+               --  primitive dispatching subprogram. We can then proceed with
+               --  the usual processing for subprogram renamings.
+
+               declare
+                  Prim_Name : constant Node_Id :=
+                                Make_Identifier (Sloc (Nam),
+                                  Chars => Chars (Stream_Prim));
+               begin
+                  Set_Entity (Prim_Name, Stream_Prim);
+                  Rewrite (Nam, Prim_Name);
+                  Analyze (Nam);
+               end;
+            end;
+
+         --  Normal processing for a renaming of an attribute
+
+         else
+            Attribute_Renaming (N);
+            return;
+         end if;
       end if;
 
       --  Check whether this declaration corresponds to the instantiation
-      --  of a formal subprogram. This is indicated by the presence of a
-      --  Corresponding_Spec that is the instantiation declaration.
+      --  of a formal subprogram.
 
       --  If this is an instantiation, the corresponding actual is frozen
       --  and error messages can be made more precise. If this is a default
@@ -1182,9 +1252,8 @@ package body Sem_Ch8 is
       --  is determined in Find_Renamed_Entity. If the entity is an operator,
       --  Find_Renamed_Entity applies additional visibility checks.
 
-      if Present (Corresponding_Spec (N)) then
-         Is_Actual := True;
-         Inst_Node := Unit_Declaration_Node (Corresponding_Spec (N));
+      if Is_Actual then
+         Inst_Node := Unit_Declaration_Node (Formal_Spec);
 
          if Is_Entity_Name (Nam)
            and then Present (Entity (Nam))
@@ -1244,8 +1313,6 @@ package body Sem_Ch8 is
             New_S := Analyze_Subprogram_Specification (Spec);
          end if;
 
-         Set_Corresponding_Spec (N, Empty);
-
       else
          --  Renamed entity must be analyzed first, to avoid being hidden by
          --  new name (which might be the same in a generic instance).
@@ -1273,12 +1340,6 @@ package body Sem_Ch8 is
          Set_Corresponding_Spec (N, Rename_Spec);
          Set_Corresponding_Body (Unit_Declaration_Node (Rename_Spec), New_S);
 
-         --  The body is created when the entity is frozen. If the context
-         --  is generic, freeze_all is not invoked, so we need to indicate
-         --  that the entity has a completion.
-
-         Set_Has_Completion (Rename_Spec, Inside_A_Generic);
-
          if Ada_Version = Ada_83 and then Comes_From_Source (N) then
             Error_Msg_N ("(Ada 83) renaming cannot serve as a body", N);
          end if;
@@ -1288,10 +1349,13 @@ package body Sem_Ch8 is
          Set_Public_Status (New_S);
 
          --  Indicate that the entity in the declaration functions like
-         --  the corresponding body, and is not a new entity.
+         --  the corresponding body, and is not a new entity. The body will
+         --  be constructed later at the freeze point, so indicate that
+         --  the completion has not been seen yet.
 
          Set_Ekind (New_S, E_Subprogram_Body);
          New_S := Rename_Spec;
+         Set_Has_Completion (Rename_Spec, False);
 
       else
          Generate_Definition (New_S);
@@ -1409,6 +1473,22 @@ package body Sem_Ch8 is
 
             Check_Frozen_Renaming (N, Rename_Spec);
 
+            --  Check explicitly that renamed entity is not intrinsic, because
+            --  in in a generic the renamed body is not built. In this case,
+            --  the renaming_as_body is a completion.
+
+            if Inside_A_Generic then
+               if Is_Frozen (Rename_Spec)
+                 and then Is_Intrinsic_Subprogram (Old_S)
+               then
+                  Error_Msg_N
+                    ("subprogram in renaming_as_body cannot be intrinsic",
+                       Name (N));
+               end if;
+
+               Set_Has_Completion (Rename_Spec);
+            end if;
+
          elsif Ekind (Old_S) /= E_Operator then
             Check_Mode_Conformant (New_S, Old_S);
 
@@ -1460,6 +1540,46 @@ package body Sem_Ch8 is
                Set_Has_Delayed_Freeze (New_S, False);
             end if;
 
+            --  If the renaming corresponds to an association for an abstract
+            --  formal subprogram, then various attributes must be set to
+            --  indicate that the renaming is an abstract dispatching operation
+            --  with a controlling type.
+
+            if Is_Actual and then Is_Abstract (Formal_Spec) then
+               --  Mark the renaming as abstract here, so Find_Dispatching_Type
+               --  see it as corresponding to a generic association for a
+               --  formal abstract subprogram
+
+               Set_Is_Abstract (New_S);
+
+               declare
+                  New_S_Ctrl_Type : constant Entity_Id :=
+                                      Find_Dispatching_Type (New_S);
+                  Old_S_Ctrl_Type : constant Entity_Id :=
+                                      Find_Dispatching_Type (Old_S);
+
+               begin
+                  if Old_S_Ctrl_Type /= New_S_Ctrl_Type then
+                     Error_Msg_NE
+                       ("actual must be dispatching subprogram for type&",
+                        Nam, New_S_Ctrl_Type);
+
+                  else
+                     Set_Is_Dispatching_Operation (New_S);
+                     Check_Controlling_Formals (New_S_Ctrl_Type, New_S);
+
+                     --  In the case where the actual in the formal subprogram
+                     --  is itself a formal abstract subprogram association,
+                     --  there's no dispatch table component or position to
+                     --  inherit.
+
+                     if Present (DTC_Entity (Old_S)) then
+                        Set_DTC_Entity  (New_S, DTC_Entity (Old_S));
+                        Set_DT_Position (New_S, DT_Position (Old_S));
+                     end if;
+                  end if;
+               end;
+            end if;
          end if;
 
          if not Is_Actual
@@ -1488,8 +1608,12 @@ package body Sem_Ch8 is
             Set_Has_Delayed_Freeze (New_S, False);
             Freeze_Before (N, New_S);
 
+            --  An abstract subprogram is only allowed as an actual in the case
+            --  where the formal subprogram is also abstract.
+
             if (Ekind (Old_S) = E_Procedure or else Ekind (Old_S) = E_Function)
               and then Is_Abstract (Old_S)
+              and then not Is_Abstract (Formal_Spec)
             then
                Error_Msg_N
                  ("abstract subprogram not allowed as generic actual", Nam);
@@ -1816,9 +1940,7 @@ package body Sem_Ch8 is
         Aname = Name_Val
       then
          if Nkind (N) = N_Subprogram_Renaming_Declaration
-           and then Present (Corresponding_Spec (N))
-           and then Nkind (Unit_Declaration_Node (Corresponding_Spec (N))) =
-                                   N_Formal_Subprogram_Declaration
+           and then Present (Corresponding_Formal_Spec (N))
          then
             Error_Msg_N
               ("generic actual cannot be attribute involving universal type",
@@ -2745,13 +2867,15 @@ package body Sem_Ch8 is
                Case_Str : constant String    := Name_Buffer (1 .. Name_Len);
                Case_Stm : constant Node_Id   := Parent (Parent (N));
                Case_Typ : constant Entity_Id := Etype (Expression (Case_Stm));
+               Case_Rtp : constant Entity_Id := Root_Type (Case_Typ);
 
                Lit : Node_Id;
 
             begin
                if Is_Enumeration_Type (Case_Typ)
-                 and then Case_Typ /= Standard_Character
-                 and then Case_Typ /= Standard_Wide_Character
+                 and then Case_Rtp /= Standard_Character
+                 and then Case_Rtp /= Standard_Wide_Character
+                 and then Case_Rtp /= Standard_Wide_Wide_Character
                then
                   Lit := First_Literal (Case_Typ);
                   Get_Name_String (Chars (Lit));
@@ -3091,6 +3215,30 @@ package body Sem_Ch8 is
                Nvis_Messages;
                return;
 
+            elsif
+              Is_Predefined_File_Name (Unit_File_Name (Current_Sem_Unit))
+            then
+               --  A use-clause in the body of a system file creates a
+               --  conflict with some entity in a user scope, while rtsfind
+               --  is active. Keep only the entity that comes from another
+               --  predefined unit.
+
+               E2 := E;
+               while Present (E2) loop
+                  if Is_Predefined_File_Name
+                    (Unit_File_Name (Get_Source_Unit (Sloc (E2))))
+                  then
+                     E := E2;
+                     goto Found;
+                  end if;
+
+                  E2 := Homonym (E2);
+               end loop;
+
+               --  Entity must exist because predefined unit is correct.
+
+               raise Program_Error;
+
             else
                Nvis_Messages;
                return;
@@ -3155,6 +3303,7 @@ package body Sem_Ch8 is
          if Comes_From_Source (N)
            and then Is_Remote_Access_To_Subprogram_Type (E)
            and then Expander_Active
+           and then Get_PCS_Name /= Name_No_DSA
          then
             Rewrite (N,
               New_Occurrence_Of (Equivalent_Type (E), Sloc (N)));
@@ -3460,7 +3609,7 @@ package body Sem_Ch8 is
                              and then Chars (P) = Chars (Selector)
                            then
                               Id := S;
-                              goto found;
+                              goto Found;
                            end if;
                         end if;
 
@@ -3530,10 +3679,16 @@ package body Sem_Ch8 is
          end if;
       end if;
 
-      <<found>>
+      <<Found>>
       if Comes_From_Source (N)
         and then Is_Remote_Access_To_Subprogram_Type (Id)
+        and then Present (Equivalent_Type (Id))
       then
+         --  If we are not actually generating distribution code (i.e.
+         --  the current PCS is the dummy non-distributed version), then
+         --  the Equivalent_Type will be missing, and Id should be treated
+         --  as a regular access-to-subprogram type.
+
          Id := Equivalent_Type (Id);
          Set_Chars (Selector, Chars (Id));
       end if;
@@ -4494,7 +4649,8 @@ package body Sem_Ch8 is
       loop
          if Is_Character_Type (Id)
            and then (Root_Type (Id) = Standard_Character
-                       or else Root_Type (Id) = Standard_Wide_Character)
+                       or else Root_Type (Id) = Standard_Wide_Character
+                       or else Root_Type (Id) = Standard_Wide_Wide_Character)
            and then Id = Base_Type (Id)
          then
             --  We replace the node with the literal itself, resolve as a
@@ -5562,7 +5718,13 @@ package body Sem_Ch8 is
                --  instance is declared in the wrapper package but will not be
                --  hidden by a use-visible entity.
 
+               --  If Id is called Standard, the predefined package with the
+               --  same name is in the homonym chain. It has to be ignored
+               --  because it has no defined scope (being the only entity in
+               --  the system with this mandated behavior).
+
                elsif not Is_Hidden (Id)
+                 and then Present (Scope (Prev))
                  and then not Is_Wrapper_Package (Scope (Prev))
                  and then Scope_Depth (Scope (Prev)) <
                           Scope_Depth (Current_Instance)

@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,7 +51,6 @@ static void change_scope (rtx, tree, tree);
 void verify_insn_chain (void);
 static void fixup_fallthru_exit_predecessor (void);
 static tree insn_scope (rtx);
-static void update_unlikely_executed_notes (basic_block);
 
 rtx
 unlink_insn_chain (rtx first, rtx last)
@@ -231,7 +230,7 @@ record_effective_endpoints (void)
    locator greater than corresponding block_locators_locs value and smaller
    than the following one.  Similarly for the other properties.  */
 static GTY(()) varray_type block_locators_locs;
-static GTY(()) varray_type block_locators_blocks;
+static GTY(()) VEC(tree,gc) *block_locators_blocks;
 static GTY(()) varray_type line_locators_locs;
 static GTY(()) varray_type line_locators_lines;
 static GTY(()) varray_type file_locators_locs;
@@ -256,7 +255,7 @@ insn_locators_initialize (void)
   prologue_locator = epilogue_locator = 0;
 
   VARRAY_INT_INIT (block_locators_locs, 32, "block_locators_locs");
-  VARRAY_TREE_INIT (block_locators_blocks, 32, "block_locators_blocks");
+  block_locators_blocks = VEC_alloc (tree, gc, 32);
   VARRAY_INT_INIT (line_locators_locs, 32, "line_locators_locs");
   VARRAY_INT_INIT (line_locators_lines, 32, "line_locators_lines");
   VARRAY_INT_INIT (file_locators_locs, 32, "file_locators_locs");
@@ -295,7 +294,7 @@ insn_locators_initialize (void)
 	    {
 	      loc++;
 	      VARRAY_PUSH_INT (block_locators_locs, loc);
-	      VARRAY_PUSH_TREE (block_locators_blocks, block);
+	      VEC_safe_push (tree, gc, block_locators_blocks, block);
 	      last_block = block;
 	    }
 	  if (last_line_number != line_number)
@@ -436,7 +435,7 @@ insn_scope (rtx insn)
 	  break;
 	}
     }
-   return VARRAY_TREE (block_locators_blocks, min);
+  return VEC_index (tree, block_locators_blocks, min);
 }
 
 /* Return line number of the statement specified by the locator.  */
@@ -522,6 +521,12 @@ reemit_insn_block_notes (void)
   for (; insn; insn = next_active_insn (insn))
     {
       tree this_block;
+
+      /* Avoid putting scope notes between jump table and its label.  */
+      if (JUMP_P (insn)
+	  && (GET_CODE (PATTERN (insn)) == ADDR_VEC
+	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC))
+	continue;
 
       this_block = insn_scope (insn);
       /* For sequences compute scope resulting from merging all scopes
@@ -627,7 +632,6 @@ fixup_reorder_chain (void)
       edge e_fall, e_taken, e;
       rtx bb_end_insn;
       basic_block nb;
-      basic_block old_bb;
       edge_iterator ei;
 
       if (EDGE_COUNT (bb->succs) == 0)
@@ -772,36 +776,19 @@ fixup_reorder_chain (void)
 	  nb->rbi->next = bb->rbi->next;
 	  bb->rbi->next = nb;
 	  /* Don't process this new block.  */
-	  old_bb = bb;
 	  bb = nb;
 	  
 	  /* Make sure new bb is tagged for correct section (same as
 	     fall-thru source, since you cannot fall-throu across
 	     section boundaries).  */
-	  BB_COPY_PARTITION (e_fall->src, EDGE_PRED (bb, 0)->src);
+	  BB_COPY_PARTITION (e_fall->src, single_pred (bb));
 	  if (flag_reorder_blocks_and_partition
-	      && targetm.have_named_sections)
-	    {
-	      if (BB_PARTITION (EDGE_PRED (bb, 0)->src) == BB_COLD_PARTITION)
-		{
-		  rtx new_note;
-		  rtx note = BB_HEAD (e_fall->src);
-		  
-		  while (!INSN_P (note)
-			 && note != BB_END (e_fall->src))
-		    note = NEXT_INSN (note);
-		  
-		  new_note = emit_note_before 
-                                          (NOTE_INSN_UNLIKELY_EXECUTED_CODE, 
-					   note);
-		  NOTE_BASIC_BLOCK (new_note) = bb;
-		}
-	      if (JUMP_P (BB_END (bb))
-		  && !any_condjump_p (BB_END (bb))
-  		  && (EDGE_SUCC (bb, 0)->flags & EDGE_CROSSING))
-		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
-		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
-	    }
+	      && targetm.have_named_sections
+	      && JUMP_P (BB_END (bb))
+	      && !any_condjump_p (BB_END (bb))
+	      && (EDGE_SUCC (bb, 0)->flags & EDGE_CROSSING))
+	    REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST
+	      (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	}
     }
 
@@ -836,8 +823,6 @@ fixup_reorder_chain (void)
       bb->index = index;
       BASIC_BLOCK (index) = bb;
 
-      update_unlikely_executed_notes (bb);
-
       bb->prev_bb = prev_bb;
       prev_bb->next_bb = bb;
     }
@@ -857,21 +842,6 @@ fixup_reorder_chain (void)
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
     }
-}
-
-/* Update the basic block number information in any 
-   NOTE_INSN_UNLIKELY_EXECUTED_CODE notes within the basic block.  */
-
-static void
-update_unlikely_executed_notes (basic_block bb)
-{
-  rtx cur_insn;
-
-  for (cur_insn = BB_HEAD (bb); cur_insn != BB_END (bb); 
-       cur_insn = NEXT_INSN (cur_insn)) 
-    if (NOTE_P (cur_insn)
-	&& NOTE_LINE_NUMBER (cur_insn) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
-      NOTE_BASIC_BLOCK (cur_insn) = bb;
 }
 
 /* Perform sanity checks on the insn chain.
@@ -1042,7 +1012,7 @@ duplicate_insn_chain (rtx from, rtx to)
 	      break;
 
 	    case NOTE_INSN_REPEATED_LINE_NUMBER:
-	    case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
+	    case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	      emit_note_copy (insn);
 	      break;
 

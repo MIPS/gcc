@@ -1,6 +1,7 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -188,14 +189,9 @@ struct temp_slot GTY(())
 static rtx assign_stack_local_1 (enum machine_mode, HOST_WIDE_INT, int,
 				 struct function *);
 static struct temp_slot *find_temp_slot_from_address (rtx);
-static void instantiate_decls (tree, int);
-static void instantiate_decls_1 (tree, int);
-static void instantiate_decl (rtx, HOST_WIDE_INT, int);
-static rtx instantiate_new_reg (rtx, HOST_WIDE_INT *);
-static int instantiate_virtual_regs_1 (rtx *, rtx, int);
 static void pad_to_arg_alignment (struct args_size *, int, struct args_size *);
 static void pad_below (struct args_size *, enum machine_mode, tree);
-static void reorder_blocks_1 (rtx, tree, varray_type *);
+static void reorder_blocks_1 (rtx, tree, VEC(tree,heap) **);
 static void reorder_fix_fragments (tree);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
@@ -213,7 +209,6 @@ static rtx keep_stack_depressed (rtx);
 static void prepare_function_start (tree);
 static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
-static void instantiate_virtual_regs_lossage (rtx);
 static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
 
 /* Pointer to chain of `struct function' for containing functions.  */
@@ -241,20 +236,9 @@ find_function_data (tree decl)
    variables.  */
 
 void
-push_function_context_to (tree context)
+push_function_context_to (tree context ATTRIBUTE_UNUSED)
 {
   struct function *p;
-
-  if (context)
-    {
-      if (context == current_function_decl)
-	cfun->contains_functions = 1;
-      else
-	{
-	  struct function *containing = find_function_data (context);
-	  containing->contains_functions = 1;
-	}
-    }
 
   if (cfun == 0)
     init_dummy_function_start ();
@@ -353,7 +337,7 @@ free_after_compilation (struct function *f)
    This size counts from zero.  It is not rounded to PREFERRED_STACK_BOUNDARY;
    the caller may have to do that.  */
 
-HOST_WIDE_INT
+static HOST_WIDE_INT
 get_func_frame_size (struct function *f)
 {
 #ifdef FRAME_GROWS_DOWNWARD
@@ -588,13 +572,13 @@ make_slot_available (struct temp_slot *temp)
    free_temp_slots.  Automatic variables for a block are allocated
    with this flag.  KEEP values of 2 or 3 were needed respectively
    for variables whose lifetime is controlled by CLEANUP_POINT_EXPRs
-   or for SAVE_EXPRs, but they are now unused and will abort.
+   or for SAVE_EXPRs, but they are now unused.
 
    TYPE is the type that will be used for the stack slot.  */
 
 rtx
-assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep,
-			    tree type)
+assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
+			    int keep, tree type)
 {
   unsigned int align;
   struct temp_slot *p, *best_p = 0, *selected = NULL, **pp;
@@ -825,7 +809,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       /* The size of the temporary may be too large to fit into an integer.  */
       /* ??? Not sure this should happen except for user silliness, so limit
 	 this to things that aren't compiler-generated temporaries.  The
-	 rest of the time we'll abort in assign_stack_temp_for_type.  */
+	 rest of the time we'll die in assign_stack_temp_for_type.  */
       if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
@@ -1227,184 +1211,6 @@ static int cfa_offset;
 #endif
 
 
-/* Pass through the INSNS of function FNDECL and convert virtual register
-   references to hard register references.  */
-
-void
-instantiate_virtual_regs (void)
-{
-  rtx insn;
-
-  /* Compute the offsets to use for this function.  */
-  in_arg_offset = FIRST_PARM_OFFSET (current_function_decl);
-  var_offset = STARTING_FRAME_OFFSET;
-  dynamic_offset = STACK_DYNAMIC_OFFSET (current_function_decl);
-  out_arg_offset = STACK_POINTER_OFFSET;
-  cfa_offset = ARG_POINTER_CFA_OFFSET (current_function_decl);
-
-  /* Scan all variables and parameters of this function.  For each that is
-     in memory, instantiate all virtual registers if the result is a valid
-     address.  If not, we do it later.  That will handle most uses of virtual
-     regs on many machines.  */
-  instantiate_decls (current_function_decl, 1);
-
-  /* Initialize recognition, indicating that volatile is OK.  */
-  init_recog ();
-
-  /* Scan through all the insns, instantiating every virtual register still
-     present.  */
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN
-	|| GET_CODE (insn) == CALL_INSN)
-      {
-	instantiate_virtual_regs_1 (&PATTERN (insn), insn, 1);
-	if (INSN_DELETED_P (insn))
-	  continue;
-	instantiate_virtual_regs_1 (&REG_NOTES (insn), NULL_RTX, 0);
-	/* Instantiate any virtual registers in CALL_INSN_FUNCTION_USAGE.  */
-	if (GET_CODE (insn) == CALL_INSN)
-	  instantiate_virtual_regs_1 (&CALL_INSN_FUNCTION_USAGE (insn),
-				      NULL_RTX, 0);
-
-	/* Past this point all ASM statements should match.  Verify that
-	   to avoid failures later in the compilation process.  */
-        if (asm_noperands (PATTERN (insn)) >= 0
-	    && ! check_asm_operands (PATTERN (insn)))
-          instantiate_virtual_regs_lossage (insn);
-      }
-
-  /* Now instantiate the remaining register equivalences for debugging info.
-     These will not be valid addresses.  */
-  instantiate_decls (current_function_decl, 0);
-
-  /* Indicate that, from now on, assign_stack_local should use
-     frame_pointer_rtx.  */
-  virtuals_instantiated = 1;
-}
-
-/* Scan all decls in FNDECL (both variables and parameters) and instantiate
-   all virtual registers in their DECL_RTL's.
-
-   If VALID_ONLY, do this only if the resulting address is still valid.
-   Otherwise, always do it.  */
-
-static void
-instantiate_decls (tree fndecl, int valid_only)
-{
-  tree decl;
-
-  /* Process all parameters of the function.  */
-  for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
-    {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
-      HOST_WIDE_INT size_rtl;
-
-      instantiate_decl (DECL_RTL (decl), size, valid_only);
-
-      /* If the parameter was promoted, then the incoming RTL mode may be
-	 larger than the declared type size.  We must use the larger of
-	 the two sizes.  */
-      size_rtl = GET_MODE_SIZE (GET_MODE (DECL_INCOMING_RTL (decl)));
-      size = MAX (size_rtl, size);
-      instantiate_decl (DECL_INCOMING_RTL (decl), size, valid_only);
-    }
-
-  /* Now process all variables defined in the function or its subblocks.  */
-  instantiate_decls_1 (DECL_INITIAL (fndecl), valid_only);
-}
-
-/* Subroutine of instantiate_decls: Process all decls in the given
-   BLOCK node and all its subblocks.  */
-
-static void
-instantiate_decls_1 (tree let, int valid_only)
-{
-  tree t;
-
-  for (t = BLOCK_VARS (let); t; t = TREE_CHAIN (t))
-    if (DECL_RTL_SET_P (t))
-      instantiate_decl (DECL_RTL (t),
-			int_size_in_bytes (TREE_TYPE (t)),
-			valid_only);
-
-  /* Process all subblocks.  */
-  for (t = BLOCK_SUBBLOCKS (let); t; t = TREE_CHAIN (t))
-    instantiate_decls_1 (t, valid_only);
-}
-
-/* Subroutine of the preceding procedures: Given RTL representing a
-   decl and the size of the object, do any instantiation required.
-
-   If VALID_ONLY is nonzero, it means that the RTL should only be
-   changed if the new address is valid.  */
-
-static void
-instantiate_decl (rtx x, HOST_WIDE_INT size, int valid_only)
-{
-  enum machine_mode mode;
-  rtx addr;
-
-  if (x == 0)
-    return;
-
-  /* If this is a CONCAT, recurse for the pieces.  */
-  if (GET_CODE (x) == CONCAT)
-    {
-      instantiate_decl (XEXP (x, 0), size / 2, valid_only);
-      instantiate_decl (XEXP (x, 1), size / 2, valid_only);
-      return;
-    }
-
-  /* If this is not a MEM, no need to do anything.  Similarly if the
-     address is a constant or a register that is not a virtual register.  */
-  if (!MEM_P (x))
-    return;
-
-  addr = XEXP (x, 0);
-  if (CONSTANT_P (addr)
-      || (REG_P (addr)
-	  && (REGNO (addr) < FIRST_VIRTUAL_REGISTER
-	      || REGNO (addr) > LAST_VIRTUAL_REGISTER)))
-    return;
-
-  /* If we should only do this if the address is valid, copy the address.
-     We need to do this so we can undo any changes that might make the
-     address invalid.  This copy is unfortunate, but probably can't be
-     avoided.  */
-
-  if (valid_only)
-    addr = copy_rtx (addr);
-
-  instantiate_virtual_regs_1 (&addr, NULL_RTX, 0);
-
-  if (valid_only && size >= 0)
-    {
-      unsigned HOST_WIDE_INT decl_size = size;
-
-      /* Now verify that the resulting address is valid for every integer or
-	 floating-point mode up to and including SIZE bytes long.  We do this
-	 since the object might be accessed in any mode and frame addresses
-	 are shared.  */
-
-      for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-	   mode != VOIDmode && GET_MODE_SIZE (mode) <= decl_size;
-	   mode = GET_MODE_WIDER_MODE (mode))
-	if (! memory_address_p (mode, addr))
-	  return;
-
-      for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
-	   mode != VOIDmode && GET_MODE_SIZE (mode) <= decl_size;
-	   mode = GET_MODE_WIDER_MODE (mode))
-	if (! memory_address_p (mode, addr))
-	  return;
-    }
-
-  /* Put back the address now that we have updated it and we either know
-     it is valid or we don't care whether it is valid.  */
-
-  XEXP (x, 0) = addr;
-}
-
 /* Given a piece of RTX and a pointer to a HOST_WIDE_INT, if the RTX
    is a virtual register, return the equivalent hard register and set the
    offset indirectly through the pointer.  Otherwise, return 0.  */
@@ -1426,410 +1232,428 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
   else if (x == virtual_cfa_rtx)
     new = arg_pointer_rtx, offset = cfa_offset;
   else
-    return 0;
+    return NULL_RTX;
 
   *poffset = offset;
   return new;
 }
-
 
-/* Called when instantiate_virtual_regs has failed to update the instruction.
-   Usually this means that non-matching instruction has been emit, however for
-   asm statements it may be the problem in the constraints.  */
-static void
-instantiate_virtual_regs_lossage (rtx insn)
-{
-  gcc_assert (asm_noperands (PATTERN (insn)) >= 0);
-  error_for_asm (insn, "impossible constraint in %<asm%>");
-  delete_insn (insn);
-}
-/* Given a pointer to a piece of rtx and an optional pointer to the
-   containing object, instantiate any virtual registers present in it.
-
-   If EXTRA_INSNS, we always do the replacement and generate
-   any extra insns before OBJECT.  If it zero, we do nothing if replacement
-   is not valid.
-
-   Return 1 if we either had nothing to do or if we were able to do the
-   needed replacement.  Return 0 otherwise; we only return zero if
-   EXTRA_INSNS is zero.
-
-   We first try some simple transformations to avoid the creation of extra
-   pseudos.  */
+/* A subroutine of instantiate_virtual_regs, called via for_each_rtx.
+   Instantiate any virtual registers present inside of *LOC.  The expression
+   is simplified, as much as possible, but is not to be considered "valid"
+   in any sense implied by the target.  If any change is made, set CHANGED
+   to true.  */
 
 static int
-instantiate_virtual_regs_1 (rtx *loc, rtx object, int extra_insns)
+instantiate_virtual_regs_in_rtx (rtx *loc, void *data)
 {
-  rtx x;
-  RTX_CODE code;
-  rtx new = 0;
-  HOST_WIDE_INT offset = 0;
-  rtx temp;
-  rtx seq;
-  int i, j;
-  const char *fmt;
-
-  /* Re-start here to avoid recursion in common cases.  */
- restart:
+  HOST_WIDE_INT offset;
+  bool *changed = (bool *) data;
+  rtx x, new;
 
   x = *loc;
   if (x == 0)
-    return 1;
+    return 0;
 
-  /* We may have detected and deleted invalid asm statements.  */
-  if (object && INSN_P (object) && INSN_DELETED_P (object))
-    return 1;
-
-  code = GET_CODE (x);
-
-  /* Check for some special cases.  */
-  switch (code)
+  switch (GET_CODE (x))
     {
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-    case CONST:
-    case SYMBOL_REF:
-    case CODE_LABEL:
-    case PC:
-    case CC0:
-    case ASM_INPUT:
-    case ADDR_VEC:
-    case ADDR_DIFF_VEC:
-    case RETURN:
-      return 1;
-
-    case SET:
-      /* We are allowed to set the virtual registers.  This means that
-	 the actual register should receive the source minus the
-	 appropriate offset.  This is used, for example, in the handling
-	 of non-local gotos.  */
-      if ((new = instantiate_new_reg (SET_DEST (x), &offset)) != 0)
+    case REG:
+      new = instantiate_new_reg (x, &offset);
+      if (new)
 	{
-	  rtx src = SET_SRC (x);
-
-	  /* We are setting the register, not using it, so the relevant
-	     offset is the negative of the offset to use were we using
-	     the register.  */
-	  offset = - offset;
-	  instantiate_virtual_regs_1 (&src, NULL_RTX, 0);
-
-	  /* The only valid sources here are PLUS or REG.  Just do
-	     the simplest possible thing to handle them.  */
-	  if (!REG_P (src) && GET_CODE (src) != PLUS)
-	    {
-	      instantiate_virtual_regs_lossage (object);
-	      return 1;
-	    }
-
-	  start_sequence ();
-	  if (!REG_P (src))
-	    temp = force_operand (src, NULL_RTX);
-	  else
-	    temp = src;
-	  temp = force_operand (plus_constant (temp, offset), NULL_RTX);
-	  seq = get_insns ();
-	  end_sequence ();
-
-	  emit_insn_before (seq, object);
-	  SET_DEST (x) = new;
-
-	  if (! validate_change (object, &SET_SRC (x), temp, 0)
-	      || ! extra_insns)
-	    instantiate_virtual_regs_lossage (object);
-
-	  return 1;
+	  *loc = plus_constant (new, offset);
+	  if (changed)
+	    *changed = true;
 	}
-
-      instantiate_virtual_regs_1 (&SET_DEST (x), object, extra_insns);
-      loc = &SET_SRC (x);
-      goto restart;
+      return -1;
 
     case PLUS:
-      /* Handle special case of virtual register plus constant.  */
-      if (CONSTANT_P (XEXP (x, 1)))
+      new = instantiate_new_reg (XEXP (x, 0), &offset);
+      if (new)
 	{
-	  rtx old, new_offset;
+	  new = plus_constant (new, offset);
+	  *loc = simplify_gen_binary (PLUS, GET_MODE (x), new, XEXP (x, 1));
+	  if (changed)
+	    *changed = true;
+	  return -1;
+	}
 
-	  /* Check for (plus (plus VIRT foo) (const_int)) first.  */
-	  if (GET_CODE (XEXP (x, 0)) == PLUS)
-	    {
-	      if ((new = instantiate_new_reg (XEXP (XEXP (x, 0), 0), &offset)))
-		{
-		  instantiate_virtual_regs_1 (&XEXP (XEXP (x, 0), 1), object,
-					      extra_insns);
-		  new = gen_rtx_PLUS (Pmode, new, XEXP (XEXP (x, 0), 1));
-		}
-	      else
-		{
-		  loc = &XEXP (x, 0);
-		  goto restart;
-		}
-	    }
-
-#ifdef POINTERS_EXTEND_UNSIGNED
+      /* FIXME -- from old code */
 	  /* If we have (plus (subreg (virtual-reg)) (const_int)), we know
 	     we can commute the PLUS and SUBREG because pointers into the
 	     frame are well-behaved.  */
-	  else if (GET_CODE (XEXP (x, 0)) == SUBREG && GET_MODE (x) == ptr_mode
-		   && GET_CODE (XEXP (x, 1)) == CONST_INT
-		   && 0 != (new
-			    = instantiate_new_reg (SUBREG_REG (XEXP (x, 0)),
-						   &offset))
-		   && validate_change (object, loc,
-				       plus_constant (gen_lowpart (ptr_mode,
-								   new),
-						      offset
-						      + INTVAL (XEXP (x, 1))),
-				       0))
-		return 1;
-#endif
-	  else if ((new = instantiate_new_reg (XEXP (x, 0), &offset)) == 0)
-	    {
-	      /* We know the second operand is a constant.  Unless the
-		 first operand is a REG (which has been already checked),
-		 it needs to be checked.  */
-	      if (!REG_P (XEXP (x, 0)))
-		{
-		  loc = &XEXP (x, 0);
-		  goto restart;
-		}
-	      return 1;
-	    }
-
-	  new_offset = plus_constant (XEXP (x, 1), offset);
-
-	  /* If the new constant is zero, try to replace the sum with just
-	     the register.  */
-	  if (new_offset == const0_rtx
-	      && validate_change (object, loc, new, 0))
-	    return 1;
-
-	  /* Next try to replace the register and new offset.
-	     There are two changes to validate here and we can't assume that
-	     in the case of old offset equals new just changing the register
-	     will yield a valid insn.  In the interests of a little efficiency,
-	     however, we only call validate change once (we don't queue up the
-	     changes and then call apply_change_group).  */
-
-	  old = XEXP (x, 0);
-	  if (offset == 0
-	      ? ! validate_change (object, &XEXP (x, 0), new, 0)
-	      : (XEXP (x, 0) = new,
-		 ! validate_change (object, &XEXP (x, 1), new_offset, 0)))
-	    {
-	      if (! extra_insns)
-		{
-		  XEXP (x, 0) = old;
-		  return 0;
-		}
-
-	      /* Otherwise copy the new constant into a register and replace
-		 constant with that register.  */
-	      temp = gen_reg_rtx (Pmode);
-	      XEXP (x, 0) = new;
-	      if (validate_change (object, &XEXP (x, 1), temp, 0))
-		emit_insn_before (gen_move_insn (temp, new_offset), object);
-	      else
-		{
-		  /* If that didn't work, replace this expression with a
-		     register containing the sum.  */
-
-		  XEXP (x, 0) = old;
-		  new = gen_rtx_PLUS (Pmode, new, new_offset);
-
-		  start_sequence ();
-		  temp = force_operand (new, NULL_RTX);
-		  seq = get_insns ();
-		  end_sequence ();
-
-		  emit_insn_before (seq, object);
-		  if (! validate_change (object, loc, temp, 0)
-		      && ! validate_replace_rtx (x, temp, object))
-		    {
-		      instantiate_virtual_regs_lossage (object);
-		      return 1;
-		    }
-		}
-	    }
-
-	  return 1;
-	}
-
-      /* Fall through to generic two-operand expression case.  */
-    case EXPR_LIST:
-    case CALL:
-    case COMPARE:
-    case MINUS:
-    case MULT:
-    case DIV:      case UDIV:
-    case MOD:      case UMOD:
-    case AND:      case IOR:      case XOR:
-    case ROTATERT: case ROTATE:
-    case ASHIFTRT: case LSHIFTRT: case ASHIFT:
-    case NE:       case EQ:
-    case GE:       case GT:       case GEU:    case GTU:
-    case LE:       case LT:       case LEU:    case LTU:
-      if (XEXP (x, 1) && ! CONSTANT_P (XEXP (x, 1)))
-	instantiate_virtual_regs_1 (&XEXP (x, 1), object, extra_insns);
-      loc = &XEXP (x, 0);
-      goto restart;
-
-    case MEM:
-      /* Most cases of MEM that convert to valid addresses have already been
-	 handled by our scan of decls.  The only special handling we
-	 need here is to make a copy of the rtx to ensure it isn't being
-	 shared if we have to change it to a pseudo.
-
-	 If the rtx is a simple reference to an address via a virtual register,
-	 it can potentially be shared.  In such cases, first try to make it
-	 a valid address, which can also be shared.  Otherwise, copy it and
-	 proceed normally.
-
-	 First check for common cases that need no processing.  These are
-	 usually due to instantiation already being done on a previous instance
-	 of a shared rtx.  */
-
-      temp = XEXP (x, 0);
-      if (CONSTANT_ADDRESS_P (temp)
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	  || temp == arg_pointer_rtx
-#endif
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
-	  || temp == hard_frame_pointer_rtx
-#endif
-	  || temp == frame_pointer_rtx)
-	return 1;
-
-      if (GET_CODE (temp) == PLUS
-	  && CONSTANT_ADDRESS_P (XEXP (temp, 1))
-	  && (XEXP (temp, 0) == frame_pointer_rtx
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
-	      || XEXP (temp, 0) == hard_frame_pointer_rtx
-#endif
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	      || XEXP (temp, 0) == arg_pointer_rtx
-#endif
-	      ))
-	return 1;
-
-      if (temp == virtual_stack_vars_rtx
-	  || temp == virtual_incoming_args_rtx
-	  || (GET_CODE (temp) == PLUS
-	      && CONSTANT_ADDRESS_P (XEXP (temp, 1))
-	      && (XEXP (temp, 0) == virtual_stack_vars_rtx
-		  || XEXP (temp, 0) == virtual_incoming_args_rtx)))
-	{
-	  /* This MEM may be shared.  If the substitution can be done without
-	     the need to generate new pseudos, we want to do it in place
-	     so all copies of the shared rtx benefit.  The call below will
-	     only make substitutions if the resulting address is still
-	     valid.
-
-	     Note that we cannot pass X as the object in the recursive call
-	     since the insn being processed may not allow all valid
-	     addresses.  However, if we were not passed on object, we can
-	     only modify X without copying it if X will have a valid
-	     address.
-
-	     ??? Also note that this can still lose if OBJECT is an insn that
-	     has less restrictions on an address that some other insn.
-	     In that case, we will modify the shared address.  This case
-	     doesn't seem very likely, though.  One case where this could
-	     happen is in the case of a USE or CLOBBER reference, but we
-	     take care of that below.  */
-
-	  if (instantiate_virtual_regs_1 (&XEXP (x, 0),
-					  object ? object : x, 0))
-	    return 1;
-
-	  /* Otherwise make a copy and process that copy.  We copy the entire
-	     RTL expression since it might be a PLUS which could also be
-	     shared.  */
-	  *loc = x = copy_rtx (x);
-	}
-
-      /* Fall through to generic unary operation case.  */
-    case PREFETCH:
-    case SUBREG:
-    case STRICT_LOW_PART:
-    case NEG:          case NOT:
-    case PRE_DEC:      case PRE_INC:      case POST_DEC:    case POST_INC:
-    case SIGN_EXTEND:  case ZERO_EXTEND:
-    case TRUNCATE:     case FLOAT_EXTEND: case FLOAT_TRUNCATE:
-    case FLOAT:        case FIX:
-    case UNSIGNED_FIX: case UNSIGNED_FLOAT:
-    case ABS:
-    case SQRT:
-    case FFS:
-    case CLZ:          case CTZ:
-    case POPCOUNT:     case PARITY:
-      /* These case either have just one operand or we know that we need not
-	 check the rest of the operands.  */
-      loc = &XEXP (x, 0);
-      goto restart;
-
-    case USE:
-    case CLOBBER:
-      /* If the operand is a MEM, see if the change is a valid MEM.  If not,
-	 go ahead and make the invalid one, but do it to a copy.  For a REG,
-	 just make the recursive call, since there's no chance of a problem.  */
-
-      if ((MEM_P (XEXP (x, 0))
-	   && instantiate_virtual_regs_1 (&XEXP (XEXP (x, 0), 0), XEXP (x, 0),
-					  0))
-	  || (REG_P (XEXP (x, 0))
-	      && instantiate_virtual_regs_1 (&XEXP (x, 0), object, 0)))
-	return 1;
-
-      XEXP (x, 0) = copy_rtx (XEXP (x, 0));
-      loc = &XEXP (x, 0);
-      goto restart;
-
-    case REG:
-      /* Try to replace with a PLUS.  If that doesn't work, compute the sum
-	 in front of this insn and substitute the temporary.  */
-      if ((new = instantiate_new_reg (x, &offset)) != 0)
-	{
-	  temp = plus_constant (new, offset);
-	  if (!validate_change (object, loc, temp, 0))
-	    {
-	      if (! extra_insns)
-		return 0;
-
-	      start_sequence ();
-	      temp = force_operand (temp, NULL_RTX);
-	      seq = get_insns ();
-	      end_sequence ();
-
-	      emit_insn_before (seq, object);
-	      if (! validate_change (object, loc, temp, 0)
-		  && ! validate_replace_rtx (x, temp, object))
-	        instantiate_virtual_regs_lossage (object);
-	    }
-	}
-
-      return 1;
+      break;
 
     default:
       break;
     }
 
-  /* Scan all subexpressions.  */
-  fmt = GET_RTX_FORMAT (code);
-  for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
-    if (*fmt == 'e')
-      {
-	if (!instantiate_virtual_regs_1 (&XEXP (x, i), object, extra_insns))
-	  return 0;
-      }
-    else if (*fmt == 'E')
-      for (j = 0; j < XVECLEN (x, i); j++)
-	if (! instantiate_virtual_regs_1 (&XVECEXP (x, i, j), object,
-					  extra_insns))
-	  return 0;
+  return 0;
+}
 
-  return 1;
+/* A subroutine of instantiate_virtual_regs_in_insn.  Return true if X
+   matches the predicate for insn CODE operand OPERAND.  */
+
+static int
+safe_insn_predicate (int code, int operand, rtx x)
+{
+  const struct insn_operand_data *op_data;
+
+  if (code < 0)
+    return true;
+
+  op_data = &insn_data[code].operand[operand];
+  if (op_data->predicate == NULL)
+    return true;
+
+  return op_data->predicate (x, op_data->mode);
+}
+
+/* A subroutine of instantiate_virtual_regs.  Instantiate any virtual
+   registers present inside of insn.  The result will be a valid insn.  */
+
+static void
+instantiate_virtual_regs_in_insn (rtx insn)
+{
+  HOST_WIDE_INT offset;
+  int insn_code, i;
+  bool any_change = false;
+  rtx set, new, x, seq;
+
+  /* There are some special cases to be handled first.  */
+  set = single_set (insn);
+  if (set)
+    {
+      /* We're allowed to assign to a virtual register.  This is interpreted
+	 to mean that the underlying register gets assigned the inverse
+	 transformation.  This is used, for example, in the handling of
+	 non-local gotos.  */
+      new = instantiate_new_reg (SET_DEST (set), &offset);
+      if (new)
+	{
+	  start_sequence ();
+
+	  for_each_rtx (&SET_SRC (set), instantiate_virtual_regs_in_rtx, NULL);
+	  x = simplify_gen_binary (PLUS, GET_MODE (new), SET_SRC (set),
+				   GEN_INT (-offset));
+	  x = force_operand (x, new);
+	  if (x != new)
+	    emit_move_insn (new, x);
+
+	  seq = get_insns ();
+	  end_sequence ();
+
+	  emit_insn_before (seq, insn);
+	  delete_insn (insn);
+	  return;
+	}
+
+      /* Handle a straight copy from a virtual register by generating a
+	 new add insn.  The difference between this and falling through
+	 to the generic case is avoiding a new pseudo and eliminating a
+	 move insn in the initial rtl stream.  */
+      new = instantiate_new_reg (SET_SRC (set), &offset);
+      if (new && offset != 0
+	  && REG_P (SET_DEST (set))
+	  && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
+	{
+	  start_sequence ();
+
+	  x = expand_simple_binop (GET_MODE (SET_DEST (set)), PLUS,
+				   new, GEN_INT (offset), SET_DEST (set),
+				   1, OPTAB_LIB_WIDEN);
+	  if (x != SET_DEST (set))
+	    emit_move_insn (SET_DEST (set), x);
+
+	  seq = get_insns ();
+	  end_sequence ();
+
+	  emit_insn_before (seq, insn);
+	  delete_insn (insn);
+	  return;
+	}
+
+      extract_insn (insn);
+      insn_code = INSN_CODE (insn);
+
+      /* Handle a plus involving a virtual register by determining if the
+	 operands remain valid if they're modified in place.  */
+      if (GET_CODE (SET_SRC (set)) == PLUS
+	  && recog_data.n_operands >= 3
+	  && recog_data.operand_loc[1] == &XEXP (SET_SRC (set), 0)
+	  && recog_data.operand_loc[2] == &XEXP (SET_SRC (set), 1)
+	  && GET_CODE (recog_data.operand[2]) == CONST_INT
+	  && (new = instantiate_new_reg (recog_data.operand[1], &offset)))
+	{
+	  offset += INTVAL (recog_data.operand[2]);
+
+	  /* If the sum is zero, then replace with a plain move.  */
+	  if (offset == 0
+	      && REG_P (SET_DEST (set))
+	      && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
+	    {
+	      start_sequence ();
+	      emit_move_insn (SET_DEST (set), new);
+	      seq = get_insns ();
+	      end_sequence ();
+
+	      emit_insn_before (seq, insn);
+	      delete_insn (insn);
+	      return;
+	    }
+
+	  x = gen_int_mode (offset, recog_data.operand_mode[2]);
+
+	  /* Using validate_change and apply_change_group here leaves
+	     recog_data in an invalid state.  Since we know exactly what
+	     we want to check, do those two by hand.  */
+	  if (safe_insn_predicate (insn_code, 1, new)
+	      && safe_insn_predicate (insn_code, 2, x))
+	    {
+	      *recog_data.operand_loc[1] = recog_data.operand[1] = new;
+	      *recog_data.operand_loc[2] = recog_data.operand[2] = x;
+	      any_change = true;
+
+	      /* Fall through into the regular operand fixup loop in
+		 order to take care of operands other than 1 and 2.  */
+	    }
+	}
+    }
+  else
+    {
+      extract_insn (insn);
+      insn_code = INSN_CODE (insn);
+    }
+
+  /* In the general case, we expect virtual registers to appear only in
+     operands, and then only as either bare registers or inside memories.  */
+  for (i = 0; i < recog_data.n_operands; ++i)
+    {
+      x = recog_data.operand[i];
+      switch (GET_CODE (x))
+	{
+	case MEM:
+	  {
+	    rtx addr = XEXP (x, 0);
+	    bool changed = false;
+
+	    for_each_rtx (&addr, instantiate_virtual_regs_in_rtx, &changed);
+	    if (!changed)
+	      continue;
+
+	    start_sequence ();
+	    x = replace_equiv_address (x, addr);
+	    seq = get_insns ();
+	    end_sequence ();
+	    if (seq)
+	      emit_insn_before (seq, insn);
+	  }
+	  break;
+
+	case REG:
+	  new = instantiate_new_reg (x, &offset);
+	  if (new == NULL)
+	    continue;
+	  if (offset == 0)
+	    x = new;
+	  else
+	    {
+	      start_sequence ();
+
+	      /* Careful, special mode predicates may have stuff in
+		 insn_data[insn_code].operand[i].mode that isn't useful
+		 to us for computing a new value.  */
+	      /* ??? Recognize address_operand and/or "p" constraints
+		 to see if (plus new offset) is a valid before we put
+		 this through expand_simple_binop.  */
+	      x = expand_simple_binop (GET_MODE (x), PLUS, new,
+				       GEN_INT (offset), NULL_RTX,
+				       1, OPTAB_LIB_WIDEN);
+	      seq = get_insns ();
+	      end_sequence ();
+	      emit_insn_before (seq, insn);
+	    }
+	  break;
+
+	case SUBREG:
+	  new = instantiate_new_reg (SUBREG_REG (x), &offset);
+	  if (new == NULL)
+	    continue;
+	  if (offset != 0)
+	    {
+	      start_sequence ();
+	      new = expand_simple_binop (GET_MODE (new), PLUS, new,
+					 GEN_INT (offset), NULL_RTX,
+					 1, OPTAB_LIB_WIDEN);
+	      seq = get_insns ();
+	      end_sequence ();
+	      emit_insn_before (seq, insn);
+	    }
+	  x = simplify_gen_subreg (recog_data.operand_mode[i], new,
+				   GET_MODE (new), SUBREG_BYTE (x));
+	  break;
+
+	default:
+	  continue;
+	}
+
+      /* At this point, X contains the new value for the operand.
+	 Validate the new value vs the insn predicate.  Note that
+	 asm insns will have insn_code -1 here.  */
+      if (!safe_insn_predicate (insn_code, i, x))
+	x = force_reg (insn_data[insn_code].operand[i].mode, x);
+
+      *recog_data.operand_loc[i] = recog_data.operand[i] = x;
+      any_change = true;
+    }
+
+  if (any_change)
+    {
+      /* Propagate operand changes into the duplicates.  */
+      for (i = 0; i < recog_data.n_dups; ++i)
+	*recog_data.dup_loc[i]
+	  = recog_data.operand[(unsigned)recog_data.dup_num[i]];
+
+      /* Force re-recognition of the instruction for validation.  */
+      INSN_CODE (insn) = -1;
+    }
+
+  if (asm_noperands (PATTERN (insn)) >= 0)
+    {
+      if (!check_asm_operands (PATTERN (insn)))
+	{
+	  error_for_asm (insn, "impossible constraint in %<asm%>");
+	  delete_insn (insn);
+	}
+    }
+  else
+    {
+      if (recog_memoized (insn) < 0)
+	fatal_insn_not_found (insn);
+    }
+}
+
+/* Subroutine of instantiate_decls.  Given RTL representing a decl,
+   do any instantiation required.  */
+
+static void
+instantiate_decl (rtx x)
+{
+  rtx addr;
+
+  if (x == 0)
+    return;
+
+  /* If this is a CONCAT, recurse for the pieces.  */
+  if (GET_CODE (x) == CONCAT)
+    {
+      instantiate_decl (XEXP (x, 0));
+      instantiate_decl (XEXP (x, 1));
+      return;
+    }
+
+  /* If this is not a MEM, no need to do anything.  Similarly if the
+     address is a constant or a register that is not a virtual register.  */
+  if (!MEM_P (x))
+    return;
+
+  addr = XEXP (x, 0);
+  if (CONSTANT_P (addr)
+      || (REG_P (addr)
+	  && (REGNO (addr) < FIRST_VIRTUAL_REGISTER
+	      || REGNO (addr) > LAST_VIRTUAL_REGISTER)))
+    return;
+
+  for_each_rtx (&XEXP (x, 0), instantiate_virtual_regs_in_rtx, NULL);
+}
+
+/* Subroutine of instantiate_decls: Process all decls in the given
+   BLOCK node and all its subblocks.  */
+
+static void
+instantiate_decls_1 (tree let)
+{
+  tree t;
+
+  for (t = BLOCK_VARS (let); t; t = TREE_CHAIN (t))
+    if (DECL_RTL_SET_P (t))
+      instantiate_decl (DECL_RTL (t));
+
+  /* Process all subblocks.  */
+  for (t = BLOCK_SUBBLOCKS (let); t; t = TREE_CHAIN (t))
+    instantiate_decls_1 (t);
+}
+
+/* Scan all decls in FNDECL (both variables and parameters) and instantiate
+   all virtual registers in their DECL_RTL's.  */
+
+static void
+instantiate_decls (tree fndecl)
+{
+  tree decl;
+
+  /* Process all parameters of the function.  */
+  for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
+    {
+      instantiate_decl (DECL_RTL (decl));
+      instantiate_decl (DECL_INCOMING_RTL (decl));
+    }
+
+  /* Now process all variables defined in the function or its subblocks.  */
+  instantiate_decls_1 (DECL_INITIAL (fndecl));
+}
+
+/* Pass through the INSNS of function FNDECL and convert virtual register
+   references to hard register references.  */
+
+void
+instantiate_virtual_regs (void)
+{
+  rtx insn;
+
+  /* Compute the offsets to use for this function.  */
+  in_arg_offset = FIRST_PARM_OFFSET (current_function_decl);
+  var_offset = STARTING_FRAME_OFFSET;
+  dynamic_offset = STACK_DYNAMIC_OFFSET (current_function_decl);
+  out_arg_offset = STACK_POINTER_OFFSET;
+  cfa_offset = ARG_POINTER_CFA_OFFSET (current_function_decl);
+
+  /* Initialize recognition, indicating that volatile is OK.  */
+  init_recog ();
+
+  /* Scan through all the insns, instantiating every virtual register still
+     present.  */
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	/* These patterns in the instruction stream can never be recognized.
+	   Fortunately, they shouldn't contain virtual registers either.  */
+	if (GET_CODE (PATTERN (insn)) == USE
+	    || GET_CODE (PATTERN (insn)) == CLOBBER
+	    || GET_CODE (PATTERN (insn)) == ADDR_VEC
+	    || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+	    || GET_CODE (PATTERN (insn)) == ASM_INPUT)
+	  continue;
+
+	instantiate_virtual_regs_in_insn (insn);
+
+	if (INSN_DELETED_P (insn))
+	  continue;
+
+	for_each_rtx (&REG_NOTES (insn), instantiate_virtual_regs_in_rtx, NULL);
+
+	/* Instantiate any virtual registers in CALL_INSN_FUNCTION_USAGE.  */
+	if (GET_CODE (insn) == CALL_INSN)
+	  for_each_rtx (&CALL_INSN_FUNCTION_USAGE (insn),
+			instantiate_virtual_regs_in_rtx, NULL);
+      }
+
+  /* Instantiate the virtual registers in the DECLs for debugging purposes.  */
+  instantiate_decls (current_function_decl);
+
+  /* Indicate that, from now on, assign_stack_local should use
+     frame_pointer_rtx.  */
+  virtuals_instantiated = 1;
 }
 
 /* Return 1 if EXP is an aggregate type (or a value with aggregate type).
@@ -1992,7 +1816,6 @@ struct assign_parm_data_one
   struct locate_and_pad_arg_data locate;
   int partial;
   BOOL_BITFIELD named_arg : 1;
-  BOOL_BITFIELD last_named : 1;
   BOOL_BITFIELD passed_pointer : 1;
   BOOL_BITFIELD on_stack : 1;
   BOOL_BITFIELD loaded_in_reg : 1;
@@ -2136,24 +1959,15 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
 
   memset (data, 0, sizeof (*data));
 
-  /* Set LAST_NAMED if this is last named arg before last anonymous args.  */
-  if (current_function_stdarg)
-    {
-      tree tem;
-      for (tem = TREE_CHAIN (parm); tem; tem = TREE_CHAIN (tem))
-	if (DECL_NAME (tem))
-	  break;
-      if (tem == 0)
-	data->last_named = true;
-    }
-
-  /* Set NAMED_ARG if this arg should be treated as a named arg.  For
-     most machines, if this is a varargs/stdarg function, then we treat
-     the last named arg as if it were anonymous too.  */
-  if (targetm.calls.strict_argument_naming (&all->args_so_far))
-    data->named_arg = 1;
+  /* NAMED_ARG is a mis-nomer.  We really mean 'non-varadic'. */
+  if (!current_function_stdarg)
+    data->named_arg = 1;  /* No varadic parms.  */
+  else if (TREE_CHAIN (parm))
+    data->named_arg = 1;  /* Not the last non-varadic parm. */
+  else if (targetm.calls.strict_argument_naming (&all->args_so_far))
+    data->named_arg = 1;  /* Only varadic ones are unnamed.  */
   else
-    data->named_arg = !data->last_named;
+    data->named_arg = 0;  /* Treat as varadic.  */
 
   nominal_type = TREE_TYPE (parm);
   passed_type = DECL_ARG_TYPE (parm);
@@ -2406,22 +2220,21 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
 
   set_mem_attributes (stack_parm, parm, 1);
 
-  boundary = FUNCTION_ARG_BOUNDARY (data->promoted_mode, data->passed_type);
-  align = 0;
+  boundary = data->locate.boundary;
+  align = BITS_PER_UNIT;
 
   /* If we're padding upward, we know that the alignment of the slot
      is FUNCTION_ARG_BOUNDARY.  If we're using slot_offset, we're
      intentionally forcing upward padding.  Otherwise we have to come
      up with a guess at the alignment based on OFFSET_RTX.  */
-  if (data->locate.where_pad == upward || data->entry_parm)
+  if (data->locate.where_pad != downward || data->entry_parm)
     align = boundary;
   else if (GET_CODE (offset_rtx) == CONST_INT)
     {
       align = INTVAL (offset_rtx) * BITS_PER_UNIT | boundary;
       align = align & -align;
     }
-  if (align > 0)
-    set_mem_align (stack_parm, align);
+  set_mem_align (stack_parm, align);
 
   if (data->entry_parm)
     set_reg_attrs_for_parm (data->entry_parm, stack_parm);
@@ -2493,7 +2306,6 @@ assign_parm_adjust_entry_rtl (struct assign_parm_data_one *data)
 /* A subroutine of assign_parms.  Adjust DATA->STACK_RTL such that it's
    always valid and properly aligned.  */
 
-
 static void
 assign_parm_adjust_stack_rtl (struct assign_parm_data_one *data)
 {
@@ -2502,8 +2314,12 @@ assign_parm_adjust_stack_rtl (struct assign_parm_data_one *data)
   /* If we can't trust the parm stack slot to be aligned enough for its
      ultimate type, don't use that slot after entry.  We'll make another
      stack slot, if we need one.  */
-  if (STRICT_ALIGNMENT && stack_parm
-      && GET_MODE_ALIGNMENT (data->nominal_mode) > MEM_ALIGN (stack_parm))
+  if (stack_parm
+      && ((STRICT_ALIGNMENT
+	   && GET_MODE_ALIGNMENT (data->nominal_mode) > MEM_ALIGN (stack_parm))
+	  || (data->nominal_type
+	      && TYPE_ALIGN (data->nominal_type) > MEM_ALIGN (stack_parm)
+	      && MEM_ALIGN (stack_parm) < PREFERRED_STACK_BOUNDARY)))
     stack_parm = NULL;
 
   /* If parm was passed in memory, and we need to convert it on entry,
@@ -2549,6 +2365,9 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 {
   rtx entry_parm = data->entry_parm;
   rtx stack_parm = data->stack_parm;
+  HOST_WIDE_INT size;
+  HOST_WIDE_INT size_stored;
+  rtx orig_entry_parm = entry_parm;
 
   if (GET_CODE (entry_parm) == PARALLEL)
     entry_parm = emit_group_move_into_temps (entry_parm);
@@ -2556,68 +2375,78 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
   /* If we've a non-block object that's nevertheless passed in parts,
      reconstitute it in register operations rather than on the stack.  */
   if (GET_CODE (entry_parm) == PARALLEL
-      && data->nominal_mode != BLKmode
-      && XVECLEN (entry_parm, 0) > 1
-      && use_register_for_decl (parm))
+      && data->nominal_mode != BLKmode)
     {
-      rtx parmreg = gen_reg_rtx (data->nominal_mode);
+      rtx elt0 = XEXP (XVECEXP (orig_entry_parm, 0, 0), 0);
 
-      push_to_sequence (all->conversion_insns);
-
-      /* For values returned in multiple registers, handle possible
-	 incompatible calls to emit_group_store.
-
-	 For example, the following would be invalid, and would have to
-	 be fixed by the conditional below:
-
-	   emit_group_store ((reg:SF), (parallel:DF))
-	   emit_group_store ((reg:SI), (parallel:DI))
-
-	 An example of this are doubles in e500 v2:
-	   (parallel:DF (expr_list (reg:SI) (const_int 0))
-	                (expr_list (reg:SI) (const_int 4))).  */
-      if (data->nominal_mode != data->passed_mode)
+      if ((XVECLEN (entry_parm, 0) > 1
+	   || hard_regno_nregs[REGNO (elt0)][GET_MODE (elt0)] > 1)
+	  && use_register_for_decl (parm))
 	{
-	  rtx t = gen_reg_rtx (GET_MODE (entry_parm));
-	  emit_group_store (t, entry_parm, NULL_TREE,
-			    GET_MODE_SIZE (GET_MODE (entry_parm)));
-	  convert_move (parmreg, t, 0);
+	  rtx parmreg = gen_reg_rtx (data->nominal_mode);
+
+	  push_to_sequence (all->conversion_insns);
+
+	  /* For values returned in multiple registers, handle possible
+	     incompatible calls to emit_group_store.
+
+	     For example, the following would be invalid, and would have to
+	     be fixed by the conditional below:
+
+	     emit_group_store ((reg:SF), (parallel:DF))
+	     emit_group_store ((reg:SI), (parallel:DI))
+
+	     An example of this are doubles in e500 v2:
+	     (parallel:DF (expr_list (reg:SI) (const_int 0))
+	     (expr_list (reg:SI) (const_int 4))).  */
+	  if (data->nominal_mode != data->passed_mode)
+	    {
+	      rtx t = gen_reg_rtx (GET_MODE (entry_parm));
+	      emit_group_store (t, entry_parm, NULL_TREE,
+				GET_MODE_SIZE (GET_MODE (entry_parm)));
+	      convert_move (parmreg, t, 0);
+	    }
+	  else
+	    emit_group_store (parmreg, entry_parm, data->nominal_type,
+			      int_size_in_bytes (data->nominal_type));
+
+	  all->conversion_insns = get_insns ();
+	  end_sequence ();
+
+	  SET_DECL_RTL (parm, parmreg);
+	  return;
 	}
-      else
-	emit_group_store (parmreg, entry_parm, data->nominal_type,
-			  int_size_in_bytes (data->nominal_type));
+    }
 
-      all->conversion_insns = get_insns ();
-      end_sequence ();
-
-      SET_DECL_RTL (parm, parmreg);
-      return;
+  size = int_size_in_bytes (data->passed_type);
+  size_stored = CEIL_ROUND (size, UNITS_PER_WORD);
+  if (stack_parm == 0)
+    {
+      DECL_ALIGN (parm) = MAX (DECL_ALIGN (parm), BITS_PER_WORD);
+      stack_parm = assign_stack_local (BLKmode, size_stored,
+				       DECL_ALIGN (parm));
+      if (GET_MODE_SIZE (GET_MODE (entry_parm)) == size)
+	PUT_MODE (stack_parm, GET_MODE (entry_parm));
+      set_mem_attributes (stack_parm, parm, 1);
     }
 
   /* If a BLKmode arrives in registers, copy it to a stack slot.  Handle
      calls that pass values in multiple non-contiguous locations.  */
   if (REG_P (entry_parm) || GET_CODE (entry_parm) == PARALLEL)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (data->passed_type);
-      HOST_WIDE_INT size_stored = CEIL_ROUND (size, UNITS_PER_WORD);
       rtx mem;
 
       /* Note that we will be storing an integral number of words.
 	 So we have to be careful to ensure that we allocate an
-	 integral number of words.  We do this below in the
+	 integral number of words.  We do this above when we call
 	 assign_stack_local if space was not allocated in the argument
 	 list.  If it was, this will not work if PARM_BOUNDARY is not
 	 a multiple of BITS_PER_WORD.  It isn't clear how to fix this
 	 if it becomes a problem.  Exception is when BLKmode arrives
 	 with arguments not conforming to word_mode.  */
 
-      if (stack_parm == 0)
-	{
-	  stack_parm = assign_stack_local (BLKmode, size_stored, 0);
-	  data->stack_parm = stack_parm;
-	  PUT_MODE (stack_parm, GET_MODE (entry_parm));
-	  set_mem_attributes (stack_parm, parm, 1);
-	}
+      if (data->stack_parm == 0)
+	;
       else if (GET_CODE (entry_parm) == PARALLEL)
 	;
       else
@@ -2687,7 +2516,16 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	move_block_from_reg (REGNO (entry_parm), mem,
 			     size_stored / UNITS_PER_WORD);
     }
+  else if (data->stack_parm == 0)
+    {
+      push_to_sequence (all->conversion_insns);
+      emit_block_move (stack_parm, data->entry_parm, GEN_INT (size),
+		       BLOCK_OP_NORMAL);
+      all->conversion_insns = get_insns ();
+      end_sequence ();
+    }
 
+  data->stack_parm = stack_parm;
   SET_DECL_RTL (parm, stack_parm);
 }
 
@@ -2888,6 +2726,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 {
   /* Value must be stored in the stack slot STACK_PARM during function
      execution.  */
+  bool to_conversion = false;
 
   if (data->promoted_mode != data->nominal_mode)
     {
@@ -2897,6 +2736,8 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
       emit_move_insn (tempreg, validize_mem (data->entry_parm));
 
       push_to_sequence (all->conversion_insns);
+      to_conversion = true;
+
       data->entry_parm = convert_to_mode (data->nominal_mode, tempreg,
 					  TYPE_UNSIGNED (TREE_TYPE (parm)));
 
@@ -2904,33 +2745,43 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 	/* ??? This may need a big-endian conversion on sparc64.  */
 	data->stack_parm
 	  = adjust_address (data->stack_parm, data->nominal_mode, 0);
-
-      all->conversion_insns = get_insns ();
-      end_sequence ();
     }
 
   if (data->entry_parm != data->stack_parm)
     {
+      rtx src, dest;
+
       if (data->stack_parm == 0)
 	{
 	  data->stack_parm
 	    = assign_stack_local (GET_MODE (data->entry_parm),
 				  GET_MODE_SIZE (GET_MODE (data->entry_parm)),
-				  0);
+				  TYPE_ALIGN (data->passed_type));
 	  set_mem_attributes (data->stack_parm, parm, 1);
 	}
 
-      if (data->promoted_mode != data->nominal_mode)
+      dest = validize_mem (data->stack_parm);
+      src = validize_mem (data->entry_parm);
+
+      if (MEM_P (src))
 	{
-	  push_to_sequence (all->conversion_insns);
-	  emit_move_insn (validize_mem (data->stack_parm),
-			  validize_mem (data->entry_parm));
-	  all->conversion_insns = get_insns ();
-	  end_sequence ();
+	  /* Use a block move to handle potentially misaligned entry_parm.  */
+	  if (!to_conversion)
+	    push_to_sequence (all->conversion_insns);
+	  to_conversion = true;
+
+	  emit_block_move (dest, src,
+			   GEN_INT (int_size_in_bytes (data->passed_type)),
+			   BLOCK_OP_NORMAL);
 	}
       else
-	emit_move_insn (validize_mem (data->stack_parm),
-			validize_mem (data->entry_parm));
+	emit_move_insn (dest, src);
+    }
+
+  if (to_conversion)
+    {
+      all->conversion_insns = get_insns ();
+      end_sequence ();
     }
 
   SET_DECL_RTL (parm, data->stack_parm);
@@ -2968,7 +2819,8 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all, tree fnargs)
 
 	      /* split_complex_arg put the real and imag parts in
 		 pseudos.  Move them to memory.  */
-	      tmp = assign_stack_local (DECL_MODE (parm), size, 0);
+	      tmp = assign_stack_local (DECL_MODE (parm), size,
+					TYPE_ALIGN (TREE_TYPE (parm)));
 	      set_mem_attributes (tmp, parm, 1);
 	      rmem = adjust_address_nv (tmp, inner, 0);
 	      imem = adjust_address_nv (tmp, inner, GET_MODE_SIZE (inner));
@@ -3017,7 +2869,6 @@ assign_parms (tree fndecl)
   struct assign_parm_data_all all;
   tree fnargs, parm;
   rtx internal_arg_pointer;
-  int varargs_setup = 0;
 
   /* If the reg that the virtual arg pointer will be translated into is
      not a fixed reg or is the stack pointer, make a copy of the virtual
@@ -3052,16 +2903,8 @@ assign_parms (tree fndecl)
 	  continue;
 	}
 
-      /* Handle stdargs.  LAST_NAMED is a slight mis-nomer; it's also true
-	 for the unnamed dummy argument following the last named argument.
-	 See ABI silliness wrt strict_argument_naming and NAMED_ARG.  So
-	 we only want to do this when we get to the actual last named
-	 argument, which will be the first time LAST_NAMED gets set.  */
-      if (data.last_named && !varargs_setup)
-	{
-	  varargs_setup = true;
-	  assign_parms_setup_varargs (&all, &data, false);
-	}
+      if (current_function_stdarg && !TREE_CHAIN (parm))
+	assign_parms_setup_varargs (&all, &data, false);
 
       /* Find out where the parameter arrives in this function.  */
       assign_parm_find_entry_rtl (&all, &data);
@@ -3412,6 +3255,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
   locate->where_pad = where_pad;
+  locate->boundary = boundary;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -3591,7 +3435,7 @@ setjmp_vars_warning (tree block)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning ("%Jvariable %qD might be clobbered by %<longjmp%>"
+	warning (0, "%Jvariable %qD might be clobbered by %<longjmp%>"
 		 " or %<vfork%>",
 		 decl, decl);
     }
@@ -3612,7 +3456,7 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning ("%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
+      warning (0, "%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl, decl);
 }
 
@@ -3627,12 +3471,12 @@ void
 reorder_blocks (void)
 {
   tree block = DECL_INITIAL (current_function_decl);
-  varray_type block_stack;
+  VEC(tree,heap) *block_stack;
 
   if (block == NULL_TREE)
     return;
 
-  VARRAY_TREE_INIT (block_stack, 10, "block_stack");
+  block_stack = VEC_alloc (tree, heap, 10);
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
   clear_block_marks (block);
@@ -3647,6 +3491,8 @@ reorder_blocks (void)
 
   /* Remove deleted blocks from the block fragment chains.  */
   reorder_fix_fragments (block);
+
+  VEC_free (tree, heap, block_stack);
 }
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */
@@ -3663,7 +3509,7 @@ clear_block_marks (tree block)
 }
 
 static void
-reorder_blocks_1 (rtx insns, tree current_block, varray_type *p_block_stack)
+reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 {
   rtx insn;
 
@@ -3706,12 +3552,11 @@ reorder_blocks_1 (rtx insns, tree current_block, varray_type *p_block_stack)
 		  BLOCK_SUBBLOCKS (current_block) = block;
 		  current_block = block;
 		}
-	      VARRAY_PUSH_TREE (*p_block_stack, block);
+	      VEC_safe_push (tree, heap, *p_block_stack, block);
 	    }
 	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
 	    {
-	      NOTE_BLOCK (insn) = VARRAY_TOP_TREE (*p_block_stack);
-	      VARRAY_POP (*p_block_stack);
+	      NOTE_BLOCK (insn) = VEC_pop (tree, *p_block_stack);
 	      BLOCK_SUBBLOCKS (current_block)
 		= blocks_nreverse (BLOCK_SUBBLOCKS (current_block));
 	      current_block = BLOCK_SUPERCONTEXT (current_block);
@@ -3899,9 +3744,6 @@ allocate_struct_function (tree fndecl)
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
   cfun = ggc_alloc_cleared (sizeof (struct function));
-  cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
-
-  n_edges = 0;
 
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
@@ -3938,6 +3780,10 @@ allocate_struct_function (tree fndecl)
        && TYPE_ARG_TYPES (fntype) != 0
        && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	   != void_type_node));
+
+  /* Assume all registers in stdarg functions need to be saved.  */
+  cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;
+  cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as
@@ -4004,9 +3850,8 @@ init_function_start (tree subr)
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
-  if (warn_aggregate_return
-      && AGGREGATE_TYPE_P (TREE_TYPE (DECL_RESULT (subr))))
-    warning ("function returns an aggregate");
+  if (AGGREGATE_TYPE_P (TREE_TYPE (DECL_RESULT (subr))))
+    warning (OPT_Waggregate_return, "function returns an aggregate");
 }
 
 /* Make sure all values used by the optimization passes have sane
@@ -4021,13 +3866,6 @@ init_function_for_compilation (void)
   VARRAY_GROW (epilogue, 0);
   VARRAY_GROW (sibcall_epilogue, 0);
 }
-
-/* Expand a call to __main at the beginning of a possible main function.  */
-
-#if defined(INIT_SECTION_ASM_OP) && !defined(INVOKE__main)
-#undef HAS_INIT_SECTION
-#define HAS_INIT_SECTION
-#endif
 
 void
 expand_main_function (void)
@@ -4068,7 +3906,10 @@ expand_main_function (void)
     }
 #endif
 
-#ifndef HAS_INIT_SECTION
+#if (defined(INVOKE__main)				\
+     || (!defined(HAS_INIT_SECTION)			\
+	 && !defined(INIT_SECTION_ASM_OP)		\
+	 && !defined(INIT_ARRAY_SECTION_ASM_OP)))
   emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif
 }
@@ -4329,7 +4170,7 @@ do_warn_unused_parameter (tree fn)
        decl; decl = TREE_CHAIN (decl))
     if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
 	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
-      warning ("%Junused parameter %qD", decl, decl);
+      warning (0, "%Junused parameter %qD", decl, decl);
 }
 
 static GTY(()) rtx initial_trampoline;
@@ -4423,18 +4264,6 @@ expand_function_end (void)
      the function context for sjlj exceptions.  */
   if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
     sjlj_emit_function_exit_after (get_last_insn ());
-
-  /* If we had calls to alloca, and this machine needs
-     an accurate stack pointer to exit the function,
-     insert some code to save and restore the stack pointer.  */
-  if (! EXIT_IGNORE_STACK
-      && current_function_calls_alloca)
-    {
-      rtx tem = 0;
-
-      emit_stack_save (SAVE_FUNCTION, &tem, parm_birth_insn);
-      emit_stack_restore (SAVE_FUNCTION, tem, NULL_RTX);
-    }
 
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
@@ -4562,6 +4391,18 @@ expand_function_end (void)
 
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
+
+  /* If we had calls to alloca, and this machine needs
+     an accurate stack pointer to exit the function,
+     insert some code to save and restore the stack pointer.  */
+  if (! EXIT_IGNORE_STACK
+      && current_function_calls_alloca)
+    {
+      rtx tem = 0;
+
+      emit_stack_save (SAVE_FUNCTION, &tem, parm_birth_insn);
+      emit_stack_restore (SAVE_FUNCTION, tem, NULL_RTX);
+    }
 
   /* ??? This should no longer be necessary since stupid is no longer with
      us, but there are some parts of the compiler (eg reload_combine, and
@@ -4701,34 +4542,35 @@ emit_return_into_block (basic_block bb, rtx line_note)
 
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 
-/* These functions convert the epilogue into a variant that does not modify the
-   stack pointer.  This is used in cases where a function returns an object
-   whose size is not known until it is computed.  The called function leaves the
-   object on the stack, leaves the stack depressed, and returns a pointer to
-   the object.
+/* These functions convert the epilogue into a variant that does not
+   modify the stack pointer.  This is used in cases where a function
+   returns an object whose size is not known until it is computed.
+   The called function leaves the object on the stack, leaves the
+   stack depressed, and returns a pointer to the object.
 
-   What we need to do is track all modifications and references to the stack
-   pointer, deleting the modifications and changing the references to point to
-   the location the stack pointer would have pointed to had the modifications
-   taken place.
+   What we need to do is track all modifications and references to the
+   stack pointer, deleting the modifications and changing the
+   references to point to the location the stack pointer would have
+   pointed to had the modifications taken place.
 
-   These functions need to be portable so we need to make as few assumptions
-   about the epilogue as we can.  However, the epilogue basically contains
-   three things: instructions to reset the stack pointer, instructions to
-   reload registers, possibly including the frame pointer, and an
-   instruction to return to the caller.
+   These functions need to be portable so we need to make as few
+   assumptions about the epilogue as we can.  However, the epilogue
+   basically contains three things: instructions to reset the stack
+   pointer, instructions to reload registers, possibly including the
+   frame pointer, and an instruction to return to the caller.
 
-   If we can't be sure of what a relevant epilogue insn is doing, we abort.
-   We also make no attempt to validate the insns we make since if they are
-   invalid, we probably can't do anything valid.  The intent is that these
-   routines get "smarter" as more and more machines start to use them and
-   they try operating on different epilogues.
+   We must be sure of what a relevant epilogue insn is doing.  We also
+   make no attempt to validate the insns we make since if they are
+   invalid, we probably can't do anything valid.  The intent is that
+   these routines get "smarter" as more and more machines start to use
+   them and they try operating on different epilogues.
 
-   We use the following structure to track what the part of the epilogue that
-   we've already processed has done.  We keep two copies of the SP equivalence,
-   one for use during the insn we are processing and one for use in the next
-   insn.  The difference is because one part of a PARALLEL may adjust SP
-   and the other may use it.  */
+   We use the following structure to track what the part of the
+   epilogue that we've already processed has done.  We keep two copies
+   of the SP equivalence, one for use during the insn we are
+   processing and one for use in the next insn.  The difference is
+   because one part of a PARALLEL may adjust SP and the other may use
+   it.  */
 
 struct epi_info
 {
@@ -4946,7 +4788,7 @@ static void
 handle_epilogue_set (rtx set, struct epi_info *p)
 {
   /* First handle the case where we are setting SP.  Record what it is being
-     set from.  If unknown, abort.  */
+     set from, which we must be able to determine  */
   if (reg_set_p (stack_pointer_rtx, set))
     {
       gcc_assert (SET_DEST (set) == stack_pointer_rtx);
@@ -4981,14 +4823,14 @@ handle_epilogue_set (rtx set, struct epi_info *p)
       return;
     }
 
-  /* Next handle the case where we are setting SP's equivalent register.
-     If we already have a value to set it to, abort.  We could update, but
-     there seems little point in handling that case.  Note that we have
-     to allow for the case where we are setting the register set in
-     the previous part of a PARALLEL inside a single insn.  But use the
-     old offset for any updates within this insn.  We must allow for the case
-     where the register is being set in a different (usually wider) mode than
-     Pmode).  */
+  /* Next handle the case where we are setting SP's equivalent
+     register.  We must not already have a value to set it to.  We
+     could update, but there seems little point in handling that case.
+     Note that we have to allow for the case where we are setting the
+     register set in the previous part of a PARALLEL inside a single
+     insn.  But use the old offset for any updates within this insn.
+     We must allow for the case where the register is being set in a
+     different (usually wider) mode than Pmode).  */
   else if (p->new_sp_equiv_reg != 0 && reg_set_p (p->new_sp_equiv_reg, set))
     {
       gcc_assert (!p->equiv_reg_src
@@ -5113,9 +4955,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       /* Can't deal with multiple successors of the entry block
          at the moment.  Function should always have at least one
          entry point.  */
-      gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1);
+      gcc_assert (single_succ_p (ENTRY_BLOCK_PTR));
 
-      insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
       inserted = 1;
     }
 #endif
@@ -5211,7 +5053,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
-		  if (EDGE_COUNT (bb->succs) == 1)
+		  if (single_succ_p (bb))
 		    {
 		      ei_next (&ei2);
 		      continue;
@@ -5233,7 +5075,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  emit_barrier_after (BB_END (last));
 	  emit_return_into_block (last, epilogue_line_note);
 	  epilogue_end = BB_END (last);
-	  EDGE_SUCC (last, 0)->flags &= ~EDGE_FALLTHRU;
+	  single_succ_edge (last)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
     }
@@ -5308,8 +5150,6 @@ epilogue_done:
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);
-      rtx i;
-      rtx newinsn;
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn))
@@ -5329,8 +5169,7 @@ epilogue_done:
       record_insns (seq, &sibcall_epilogue);
       set_insn_locators (seq, epilogue_locator);
 
-      i = PREV_INSN (insn);
-      newinsn = emit_insn_before (seq, insn);
+      emit_insn_before (seq, insn);
       ei_next (&ei);
     }
 #endif

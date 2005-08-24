@@ -1,5 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -139,24 +140,6 @@ Boston, MA 02111-1307, USA.  */
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
 
-/* Nonzero if the user has chosen to force sizeof(bool) to be 1
-   by providing the -mone-byte-bool switch.  It would be better
-   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
-   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
-   that this switch has no "no-" variant. */
-extern const char *darwin_one_byte_bool;
-  
-extern int darwin_fix_and_continue;
-extern const char *darwin_fix_and_continue_switch;
-
-#undef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS \
-  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
-  {"fix-and-continue", &darwin_fix_and_continue_switch,			\
-   N_("Generate code suitable for fast turn around debugging"), 0},	\
-  {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-   N_("Don't generate code suitable for fast turn around debugging"), 0}
-
 /* These compiler options take n arguments.  */
 
 #undef  WORD_SWITCH_TAKES_ARG
@@ -225,7 +208,7 @@ extern const char *darwin_fix_and_continue_switch;
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
-    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov} \
+    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
@@ -392,7 +375,7 @@ extern const char *darwin_fix_and_continue_switch;
   do {									\
     if (ALIAS)								\
       {									\
-	warning ("alias definitions not supported in Mach-O; ignored");	\
+	warning (0, "alias definitions not supported in Mach-O; ignored");	\
 	break;								\
       }									\
  									\
@@ -551,7 +534,12 @@ extern const char *darwin_fix_and_continue_switch;
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   fputs (&xname[1], FILE);					     \
+	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
+	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))	     \
+	     fprintf (FILE, "\"%s\"", &xname[1]);			     \
+	   else								     \
+	     fputs (&xname[1], FILE); 					     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
@@ -559,6 +547,8 @@ extern const char *darwin_fix_and_continue_switch;
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
+       else if (xname[0] != '"' && name_needs_quotes (xname))		     \
+	 fprintf (FILE, "\"%s\"", xname);				     \
        else								     \
          asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
@@ -585,9 +575,11 @@ extern const char *darwin_fix_and_continue_switch;
 #undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
+    unsigned HOST_WIDE_INT _new_size = SIZE;				\
     fputs (".lcomm ", (FILE));						\
     assemble_name ((FILE), (NAME));					\
-    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
+    if (_new_size == 0) _new_size = 1;					\
+    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", _new_size,	\
 	     floor_log2 ((ALIGN) / BITS_PER_UNIT));			\
     if ((DECL) && ((TREE_STATIC (DECL)					\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
@@ -619,6 +611,10 @@ FUNCTION (void)								\
       if (asm_out_file)							\
 	fputs ("\t" DIRECTIVE "\n", asm_out_file);			\
       in_section = SECTION;						\
+      if ((SECTION == in_text_coal)                                     \
+	  || (SECTION == in_text_unlikely)                              \
+	  || (SECTION == in_text_unlikely_coal))                        \
+        last_text_section = SECTION;                                    \
     }									\
 }									\
 
@@ -657,10 +653,6 @@ static void objc_section_init (void);				\
 SECTION_FUNCTION (text_coal_section,				\
 		  in_text_coal,					\
 		  ".section __TEXT,__textcoal_nt,coalesced,"	\
-		    "pure_instructions", 0)			\
-SECTION_FUNCTION (text_unlikely_section,			\
-		  in_text_unlikely,				\
-		  ".section __TEXT,__text_unlikely,coalesced,"	\
 		    "pure_instructions", 0)			\
 SECTION_FUNCTION (text_unlikely_coal_section,			\
 		  in_text_unlikely_coal,			\

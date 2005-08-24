@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -174,7 +174,20 @@ package body Ch3 is
       --  separate declaration (but not use) of a reserved identifier.
 
       if Token = Tok_Identifier then
-         null;
+
+         --  Ada 2005 (AI-284): Compiling in Ada95 mode we notify
+         --  that interface, overriding, and synchronized are
+         --  new reserved words
+
+         if Ada_Version = Ada_95 then
+            if Token_Name = Name_Overriding
+              or else Token_Name = Name_Synchronized
+              or else (Token_Name = Name_Interface
+                        and then Prev_Token /= Tok_Pragma)
+            then
+               Error_Msg_N ("& is a reserved word in Ada 2005?", Token_Node);
+            end if;
+         end if;
 
       --  If we have a reserved identifier, manufacture an identifier with
       --  a corresponding name after posting an appropriate error message
@@ -228,11 +241,15 @@ package body Ch3 is
    --    ENUMERATION_TYPE_DEFINITION  | INTEGER_TYPE_DEFINITION
    --  | REAL_TYPE_DEFINITION         | ARRAY_TYPE_DEFINITION
    --  | RECORD_TYPE_DEFINITION       | ACCESS_TYPE_DEFINITION
-   --  | DERIVED_TYPE_DEFINITION
+   --  | DERIVED_TYPE_DEFINITION      | INTERFACE_TYPE_DEFINITION
 
    --  INTEGER_TYPE_DEFINITION ::=
    --    SIGNED_INTEGER_TYPE_DEFINITION
    --    MODULAR_TYPE_DEFINITION
+
+   --  INTERFACE_TYPE_DEFINITION ::=
+   --    [limited | task | protected | synchronized ] interface
+   --      [AND interface_list]
 
    --  Error recovery: can raise Error_Resync
 
@@ -243,26 +260,48 @@ package body Ch3 is
    --  function handles only declarations starting with TYPE).
 
    function P_Type_Declaration return Node_Id is
+      Abstract_Present : Boolean;
+      Abstract_Loc     : Source_Ptr;
+      Decl_Node        : Node_Id;
+      Discr_List       : List_Id;
+      Discr_Sloc       : Source_Ptr;
+      End_Labl         : Node_Id;
       Type_Loc         : Source_Ptr;
       Type_Start_Col   : Column_Number;
       Ident_Node       : Node_Id;
-      Decl_Node        : Node_Id;
-      Discr_List       : List_Id;
+      Is_Derived_Iface : Boolean := False;
       Unknown_Dis      : Boolean;
-      Discr_Sloc       : Source_Ptr;
-      Abstract_Present : Boolean;
-      Abstract_Loc     : Source_Ptr;
-      End_Labl         : Node_Id;
 
-      Typedef_Node : Node_Id;
+      Typedef_Node     : Node_Id;
       --  Normally holds type definition, except in the case of a private
       --  extension declaration, in which case it holds the declaration itself
 
    begin
       Type_Loc := Token_Ptr;
       Type_Start_Col := Start_Column;
-      T_Type;
-      Ident_Node := P_Defining_Identifier (C_Is);
+
+      --  If we have TYPE, then proceed ahead and scan identifier
+
+      if Token = Tok_Type then
+         Scan; -- past TYPE
+         Ident_Node := P_Defining_Identifier (C_Is);
+
+      --  Otherwise this is an error case, and we may already have converted
+      --  the current token to a defining identifier, so don't do it again!
+
+      else
+         T_Type;
+
+         if Token = Tok_Identifier
+           and then Nkind (Token_Node) = N_Defining_Identifier
+         then
+            Ident_Node := Token_Node;
+            Scan; -- past defining identifier
+         else
+            Ident_Node := P_Defining_Identifier (C_Is);
+         end if;
+      end if;
+
       Discr_Sloc := Token_Ptr;
 
       if P_Unknown_Discriminant_Part_Opt then
@@ -538,12 +577,6 @@ package body Ch3 is
                TF_Semicolon;
                exit;
 
-            when Tok_Private =>
-               Decl_Node := New_Node (N_Private_Type_Declaration, Type_Loc);
-               Scan; -- past PRIVATE
-               TF_Semicolon;
-               exit;
-
             when Tok_Limited =>
                Scan; -- past LIMITED
 
@@ -571,6 +604,25 @@ package body Ch3 is
 
                   Typedef_Node := P_Record_Definition;
                   Set_Limited_Present (Typedef_Node, True);
+
+               --  Ada 2005 (AI-251): LIMITED INTERFACE
+
+               --  If we are compiling in Ada 83 or Ada 95 mode, "interface"
+               --  is not a reserved word but we force its analysis to
+               --  generate the corresponding usage error.
+
+               elsif Token = Tok_Interface
+                 or else (Token = Tok_Identifier
+                           and then Chars (Token_Node) = Name_Interface)
+               then
+                  Typedef_Node := P_Interface_Type_Definition
+                                    (Is_Synchronized => False);
+                  Abstract_Present := True;
+                  Set_Limited_Present (Typedef_Node);
+
+                  if Nkind (Typedef_Node) = N_Derived_Type_Definition then
+                     Is_Derived_Iface := True;
+                  end if;
 
                --  LIMITED PRIVATE is the only remaining possibility here
 
@@ -619,6 +671,55 @@ package body Ch3 is
                   TF_Semicolon;
                end if;
 
+               exit;
+
+            --  Ada 2005 (AI-251): INTERFACE
+
+            when Tok_Interface =>
+               Typedef_Node := P_Interface_Type_Definition
+                                (Is_Synchronized => False);
+               Abstract_Present := True;
+               TF_Semicolon;
+               exit;
+
+            when Tok_Private =>
+               Decl_Node := New_Node (N_Private_Type_Declaration, Type_Loc);
+               Scan; -- past PRIVATE
+               TF_Semicolon;
+               exit;
+
+            --  Ada 2005 (AI-345)
+
+            when Tok_Protected    |
+                 Tok_Synchronized |
+                 Tok_Task         =>
+
+               declare
+                  Saved_Token : constant Token_Type := Token;
+
+               begin
+                  Scan; -- past TASK, PROTECTED or SYNCHRONIZED
+
+                  Typedef_Node := P_Interface_Type_Definition
+                                   (Is_Synchronized => True);
+
+                  case Saved_Token is
+                     when Tok_Task =>
+                        Set_Task_Present         (Typedef_Node);
+
+                     when Tok_Protected =>
+                        Set_Protected_Present    (Typedef_Node);
+
+                     when Tok_Synchronized =>
+                        Set_Synchronized_Present (Typedef_Node);
+
+                     when others =>
+                        pragma Assert (False);
+                        null;
+                  end case;
+               end;
+
+               TF_Semicolon;
                exit;
 
             --  Anything else is an error
@@ -680,6 +781,7 @@ package body Ch3 is
          if Nkind (Typedef_Node) = N_Record_Definition
            or else (Nkind (Typedef_Node) = N_Derived_Type_Definition
                       and then Present (Record_Extension_Part (Typedef_Node)))
+           or else Is_Derived_Iface
          then
             Set_Abstract_Present (Typedef_Node, Abstract_Present);
 
@@ -1394,7 +1496,7 @@ package body Ch3 is
                Acc_Node := P_Access_Definition (Not_Null_Present);
 
                if Token /= Tok_Renames then
-                  Error_Msg_SC ("'RENAMES' expected");
+                  Error_Msg_SC ("RENAMES expected");
                   raise Error_Resync;
                end if;
 
@@ -1450,7 +1552,7 @@ package body Ch3 is
             Acc_Node := P_Access_Definition (Null_Exclusion_Present => False);
 
             if Token /= Tok_Renames then
-               Error_Msg_SC ("'RENAMES' expected");
+               Error_Msg_SC ("RENAMES expected");
                raise Error_Resync;
             end if;
 
@@ -1570,11 +1672,12 @@ package body Ch3 is
 
    --  DERIVED_TYPE_DEFINITION ::=
    --    [abstract] new [NULL_EXCLUSION] parent_SUBTYPE_INDICATION
-   --    [RECORD_EXTENSION_PART]
+   --    [[AND interface_list] RECORD_EXTENSION_PART]
 
    --  PRIVATE_EXTENSION_DECLARATION ::=
    --     type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
-   --       [abstract] new ancestor_SUBTYPE_INDICATION with PRIVATE;
+   --       [abstract] new ancestor_SUBTYPE_INDICATION
+   --       [AND interface_list] with PRIVATE;
 
    --  RECORD_EXTENSION_PART ::= with RECORD_DEFINITION
 
@@ -1592,6 +1695,7 @@ package body Ch3 is
       Typedef_Node     : Node_Id;
       Typedecl_Node    : Node_Id;
       Not_Null_Present : Boolean := False;
+
    begin
       Typedef_Node := New_Node (N_Derived_Type_Definition, Token_Ptr);
       T_New;
@@ -1605,6 +1709,31 @@ package body Ch3 is
       Set_Null_Exclusion_Present (Typedef_Node, Not_Null_Present);
       Set_Subtype_Indication (Typedef_Node,
          P_Subtype_Indication (Not_Null_Present));
+
+      --  Ada 2005 (AI-251): Deal with interfaces
+
+      if Token = Tok_And then
+         Scan; -- past AND
+
+         if Ada_Version < Ada_05 then
+            Error_Msg_SP
+              ("abstract interface is an Ada 2005 extension");
+            Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
+         end if;
+
+         Set_Interface_List (Typedef_Node, New_List);
+
+         loop
+            Append (P_Qualified_Simple_Name, Interface_List (Typedef_Node));
+            exit when Token /= Tok_And;
+            Scan; -- past AND
+         end loop;
+
+         if Token /= Tok_With then
+            Error_Msg_SC ("WITH expected");
+            raise Error_Resync;
+         end if;
+      end if;
 
       --  Deal with record extension, note that we assume that a WITH is
       --  missing in the case of "type X is new Y record ..." or in the
@@ -3265,6 +3394,94 @@ package body Ch3 is
    --  RECORD_EXTENSION_PART ::= with RECORD_DEFINITION
 
    --  Parsed by P_Derived_Type_Def_Or_Private_Ext_Decl (3.4)
+
+   --------------------------------------
+   -- 3.9.4  Interface Type Definition --
+   --------------------------------------
+
+   --  INTERFACE_TYPE_DEFINITION ::=
+   --    [limited | task | protected | synchronized] interface
+   --      [AND interface_list]
+
+   --  Error recovery: cannot raise Error_Resync
+
+   function P_Interface_Type_Definition
+      (Is_Synchronized : Boolean) return Node_Id
+   is
+      Typedef_Node : Node_Id;
+
+   begin
+      if Ada_Version < Ada_05 then
+         Error_Msg_SP ("abstract interface is an Ada 2005 extension");
+         Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
+      end if;
+
+      Scan; -- past INTERFACE
+
+      --  Ada 2005 (AI-345): In case of synchronized interfaces and
+      --  interfaces with a null list of interfaces we build a
+      --  record_definition node.
+
+      if Is_Synchronized
+        or else Token = Tok_Semicolon
+      then
+         Typedef_Node := New_Node (N_Record_Definition, Token_Ptr);
+
+         Set_Abstract_Present  (Typedef_Node);
+         Set_Tagged_Present    (Typedef_Node);
+         Set_Null_Present      (Typedef_Node);
+         Set_Interface_Present (Typedef_Node);
+
+         if Is_Synchronized
+           and then Token = Tok_And
+         then
+            Scan; -- past AND
+            Set_Interface_List (Typedef_Node, New_List);
+
+            loop
+               Append (P_Qualified_Simple_Name,
+                       Interface_List (Typedef_Node));
+               exit when Token /= Tok_And;
+               Scan; -- past AND
+            end loop;
+         end if;
+
+      --  Ada 2005 (AI-251): In case of not-synchronized interfaces that have
+      --  a list of interfaces we build a derived_type_definition node. This
+      --  simplifies the semantic analysis (and hence further mainteinance)
+
+      else
+         if Token /= Tok_And then
+            Error_Msg_AP ("AND expected");
+         else
+            Scan; -- past AND
+         end if;
+
+         Typedef_Node := New_Node (N_Derived_Type_Definition, Token_Ptr);
+
+         Set_Abstract_Present   (Typedef_Node);
+         Set_Interface_Present  (Typedef_Node);
+         Set_Subtype_Indication (Typedef_Node, P_Qualified_Simple_Name);
+
+         Set_Record_Extension_Part (Typedef_Node,
+           New_Node (N_Record_Definition, Token_Ptr));
+         Set_Null_Present (Record_Extension_Part (Typedef_Node));
+
+         if Token = Tok_And then
+            Set_Interface_List (Typedef_Node, New_List);
+            Scan; -- past AND
+
+            loop
+               Append (P_Qualified_Simple_Name,
+                       Interface_List (Typedef_Node));
+               exit when Token /= Tok_And;
+               Scan; -- past AND
+            end loop;
+         end if;
+      end if;
+
+      return Typedef_Node;
+   end P_Interface_Type_Definition;
 
    ----------------------------------
    -- 3.10  Access Type Definition --

@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
@@ -139,10 +139,11 @@ typedef struct deferred_access GTY(())
   enum deferring_kind deferring_access_checks_kind;
   
 } deferred_access;
-DEF_VEC_GC_O (deferred_access);
+DEF_VEC_O (deferred_access);
+DEF_VEC_ALLOC_O (deferred_access,gc);
 
 /* Data for deferred access checking.  */
-static GTY(()) VEC (deferred_access) *deferred_access_stack;
+static GTY(()) VEC(deferred_access,gc) *deferred_access_stack;
 static GTY(()) unsigned deferred_access_no_check;
 
 /* Save the current deferred access states and start deferred
@@ -159,7 +160,7 @@ push_deferring_access_checks (deferring_kind deferring)
     {
       deferred_access *ptr;
 
-      ptr = VEC_safe_push (deferred_access, deferred_access_stack, NULL);
+      ptr = VEC_safe_push (deferred_access, gc, deferred_access_stack, NULL);
       ptr->deferred_access_checks = NULL_TREE;
       ptr->deferring_access_checks_kind = deferring;
     }
@@ -285,8 +286,7 @@ perform_deferred_access_checks (void)
 {
   tree deferred_check;
 
-  for (deferred_check = (VEC_last (deferred_access, deferred_access_stack)
-			 ->deferred_access_checks);
+  for (deferred_check = get_deferred_access_checks ();
        deferred_check;
        deferred_check = TREE_CHAIN (deferred_check))
     /* Check access.  */
@@ -338,6 +338,32 @@ int
 stmts_are_full_exprs_p (void)
 {
   return current_stmt_tree ()->stmts_are_full_exprs_p;
+}
+
+/* T is a statement.  Add it to the statement-tree.  This is the C++
+   version.  The C/ObjC frontends have a slightly different version of
+   this function.  */
+
+tree
+add_stmt (tree t)
+{
+  enum tree_code code = TREE_CODE (t);
+
+  if (EXPR_P (t) && code != LABEL_EXPR)
+    {
+      if (!EXPR_HAS_LOCATION (t))
+	SET_EXPR_LOCATION (t, input_location);
+
+      /* When we expand a statement-tree, we must know whether or not the
+	 statements are full-expressions.  We record that fact here.  */
+      STMT_IS_FULL_EXPR_P (t) = stmts_are_full_exprs_p ();
+    }
+
+  /* Add T to the statement-tree.  Non-side-effect statements need to be
+     recorded during statement expressions.  */
+  append_to_statement_list_force (t, &cur_stmt_list);
+
+  return t;
 }
 
 /* Returns the stmt_tree (if any) to which statements are currently
@@ -401,7 +427,7 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-static tree
+tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -835,7 +861,7 @@ finish_for_stmt (tree for_stmt)
 tree
 finish_break_stmt (void)
 {
-  return add_stmt (build_break_stmt ());
+  return add_stmt (build_stmt (BREAK_STMT));
 }
 
 /* Finish a continue-statement.  */
@@ -843,7 +869,7 @@ finish_break_stmt (void)
 tree
 finish_continue_stmt (void)
 {
-  return add_stmt (build_continue_stmt ());
+  return add_stmt (build_stmt (CONTINUE_STMT));
 }
 
 /* Begin a switch-statement.  Returns a new SWITCH_STMT if
@@ -858,7 +884,7 @@ begin_switch_stmt (void)
 
   scope = do_pushlevel (sk_block);
   TREE_CHAIN (r) = scope;
-  begin_cond (&SWITCH_COND (r));
+  begin_cond (&SWITCH_STMT_COND (r));
 
   return r;
 }
@@ -902,11 +928,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
-  finish_cond (&SWITCH_COND (switch_stmt), cond);
-  SWITCH_TYPE (switch_stmt) = orig_type;
+  finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
+  SWITCH_STMT_TYPE (switch_stmt) = orig_type;
   add_stmt (switch_stmt);
   push_switch (switch_stmt);
-  SWITCH_BODY (switch_stmt) = push_stmt_list ();
+  SWITCH_STMT_BODY (switch_stmt) = push_stmt_list ();
 }
 
 /* Finish the body of a switch-statement, which may be given by
@@ -917,7 +943,8 @@ finish_switch_stmt (tree switch_stmt)
 {
   tree scope;
 
-  SWITCH_BODY (switch_stmt) = pop_stmt_list (SWITCH_BODY (switch_stmt));
+  SWITCH_STMT_BODY (switch_stmt) =
+    pop_stmt_list (SWITCH_STMT_BODY (switch_stmt));
   pop_switch (); 
   finish_stmt ();
 
@@ -1206,8 +1233,14 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	    {
 	      /* If the operand is going to end up in memory,
 		 mark it addressable.  */
-	      if (!allows_reg && allows_mem && !cxx_mark_addressable (operand))
-		operand = error_mark_node;
+	      if (!allows_reg && allows_mem)
+		{
+		  /* Strip the nops as we allow this case.  FIXME, this really
+		     should be rejected or made deprecated.  */
+		  STRIP_NOPS (operand);
+		  if (!cxx_mark_addressable (operand))
+		    operand = error_mark_node;
+		}
 	    }
 	  else
 	    operand = error_mark_node;
@@ -1517,6 +1550,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
 
+  if (error_operand_p (expr))
+    return error_mark_node;
+  
   if (expr)
     {
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -1824,8 +1860,17 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 				       ? LOOKUP_NONVIRTUAL : 0));
     }
   else if (is_overloaded_fn (fn))
-    /* A call to a namespace-scope function.  */
-    result = build_new_function_call (fn, args);
+    {
+      /* If the function is an overloaded builtin, resolve it.  */
+      if (TREE_CODE (fn) == FUNCTION_DECL
+	  && (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL
+	      || DECL_BUILT_IN_CLASS (fn) == BUILT_IN_MD))
+        result = resolve_overloaded_builtin (fn, args);
+
+      if (!result)
+	/* A call to a namespace-scope function.  */
+	result = build_new_function_call (fn, args);
+    }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
       if (args)
@@ -1842,6 +1887,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
        have an overloaded `operator ()'.  */
     result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
 			   /*overloaded_p=*/NULL);
+
   if (!result)
     /* A call where the function is unknown.  */
     result = build_function_call (fn, args);
@@ -1952,7 +1998,12 @@ finish_unary_op_expr (enum tree_code code, tree expr)
       && TREE_CODE (result) == INTEGER_CST
       && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
-    TREE_NEGATED_INT (result) = 1;
+    {
+      /* RESULT may be a cached INTEGER_CST, so we must copy it before
+	 setting TREE_NEGATED_INT.  */
+      result = copy_node (result);
+      TREE_NEGATED_INT (result) = 1;
+    }
   overflow_warning (result);
   return result;
 }
@@ -1982,7 +2033,8 @@ finish_compound_literal (tree type, tree initializer_list)
 
 	 implies that the array has two elements.  */
       if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	complete_array_type (type, compound_literal, 1);
+	cp_complete_array_type (&TREE_TYPE (compound_literal),
+				compound_literal, 1);
     }
 
   return compound_literal;
@@ -2111,16 +2163,7 @@ begin_class_definition (tree t)
   if (t == error_mark_node || ! IS_AGGR_TYPE (t))
     {
       t = make_aggr_type (RECORD_TYPE);
-      pushtag (make_anon_name (), t, 0);
-    }
-
-  /* If this type was already complete, and we see another definition,
-     that's an error.  */
-  if (COMPLETE_TYPE_P (t))
-    {
-      error ("redefinition of %q#T", t);
-      cp_error_at ("previous definition of %q#T", t);
-      return error_mark_node;
+      pushtag (make_anon_name (), t, /*tag_scope=*/ts_current);
     }
 
   /* Update the location of the decl.  */
@@ -2129,7 +2172,7 @@ begin_class_definition (tree t)
   if (TYPE_BEING_DEFINED (t))
     {
       t = make_aggr_type (TREE_CODE (t));
-      pushtag (TYPE_IDENTIFIER (t), t, 0);
+      pushtag (TYPE_IDENTIFIER (t), t, /*tag_scope=*/ts_current);
     }
   maybe_process_partial_specialization (t);
   pushclass (t);
@@ -2618,11 +2661,6 @@ finish_id_expression (tree id_expression,
 	     need.  */
 	  if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
 	    return id_expression;
-	  /* Since this name was dependent, the expression isn't
-	     constant -- yet.  No error is issued because it might be
-	     constant when things are instantiated.  */
-	  if (integral_constant_expression_p)
-	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
@@ -2633,9 +2671,17 @@ finish_id_expression (tree id_expression,
 	  /* The same is true for FIELD_DECL, but we also need to
 	     make sure that the syntax is correct.  */
 	  else if (TREE_CODE (decl) == FIELD_DECL)
-	    return finish_non_static_data_member
-		     (decl, current_class_ref,
-		      /*qualifying_scope=*/NULL_TREE);
+	    {
+	      /* Since SCOPE is NULL here, this is an unqualified name.
+		 Access checking has been performed during name lookup
+		 already.  Turn off checking to avoid duplicate errors.  */
+	      push_deferring_access_checks (dk_no_check);
+	      decl = finish_non_static_data_member
+		       (decl, current_class_ref,
+			/*qualifying_scope=*/NULL_TREE);
+	      pop_deferring_access_checks ();
+	      return decl;
+	    }
 	  return id_expression;
 	}
 
@@ -2643,7 +2689,8 @@ finish_id_expression (tree id_expression,
          expression.  Enumerators and template parameters have already
          been handled above.  */
       if (integral_constant_expression_p
-	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
+	  && ! DECL_INTEGRAL_CONSTANT_VAR_P (decl)
+	  && ! builtin_valid_in_constant_expr_p (decl))
 	{
 	  if (!allow_non_integral_constant_expression_p)
 	    {
@@ -2700,8 +2747,15 @@ finish_id_expression (tree id_expression,
 	    }
 	}
       else if (TREE_CODE (decl) == FIELD_DECL)
-	decl = finish_non_static_data_member (decl, current_class_ref,
-					      /*qualifying_scope=*/NULL_TREE);
+	{
+	  /* Since SCOPE is NULL here, this is an unqualified name.
+	     Access checking has been performed during name lookup
+	     already.  Turn off checking to avoid duplicate errors.  */
+	  push_deferring_access_checks (dk_no_check);
+	  decl = finish_non_static_data_member (decl, current_class_ref,
+						/*qualifying_scope=*/NULL_TREE);
+	  pop_deferring_access_checks ();
+	}
       else if (is_overloaded_fn (decl))
 	{
 	  tree first_fn = OVL_CURRENT (decl);
@@ -2732,9 +2786,9 @@ finish_id_expression (tree id_expression,
 	      if (context != NULL_TREE && context != current_function_decl
 		  && ! TREE_STATIC (decl))
 		{
-		  error ("use of %s from containing function",
-			 (TREE_CODE (decl) == VAR_DECL
-			  ? "%<auto%> variable" : "parameter"));
+		  error (TREE_CODE (decl) == VAR_DECL
+			 ? "use of %<auto%> variable from containing function"
+			 : "use of parameter from containing function");
 		  cp_error_at ("  %q#D declared here", decl);
 		  return error_mark_node;
 		}

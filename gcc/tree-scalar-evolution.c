@@ -1,5 +1,5 @@
 /* Scalar evolution detector.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -235,7 +235,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 
@@ -922,8 +921,9 @@ set_nb_iterations_in_loop (struct loop *loop,
      count of the loop in order to be compatible with the other
      nb_iter computations in loop-iv.  This also allows the
      representation of nb_iters that are equal to MAX_INT.  */
-  if ((TREE_CODE (res) == INTEGER_CST && TREE_INT_CST_LOW (res) == 0)
-      || TREE_OVERFLOW (res))
+  if (TREE_CODE (res) == INTEGER_CST
+      && (TREE_INT_CST_LOW (res) == 0
+	  || TREE_OVERFLOW (res)))
     res = chrec_dont_know;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1012,7 +1012,7 @@ get_loop_exit_condition (struct loop *loop)
 
 static void 
 get_exit_conditions_rec (struct loop *loop, 
-			 varray_type *exit_conditions)
+			 VEC(tree,heap) **exit_conditions)
 {
   if (!loop)
     return;
@@ -1026,7 +1026,7 @@ get_exit_conditions_rec (struct loop *loop,
       tree loop_condition = get_loop_exit_condition (loop);
       
       if (loop_condition)
-	VARRAY_PUSH_TREE (*exit_conditions, loop_condition);
+	VEC_safe_push (tree, heap, *exit_conditions, loop_condition);
     }
 }
 
@@ -1035,7 +1035,7 @@ get_exit_conditions_rec (struct loop *loop,
 
 static void
 select_loops_exit_conditions (struct loops *loops, 
-			      varray_type *exit_conditions)
+			      VEC(tree,heap) **exit_conditions)
 {
   struct loop *function_body = loops->parray[0];
   
@@ -1065,8 +1065,8 @@ follow_ssa_edge_in_rhs (struct loop *loop,
      - an INTEGER_CST,
      - a PLUS_EXPR, 
      - a MINUS_EXPR,
-     - other cases are not yet handled. 
-  */
+     - an ASSERT_EXPR,
+     - other cases are not yet handled.  */
   switch (TREE_CODE (rhs))
     {
     case NOP_EXPR:
@@ -1246,6 +1246,20 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 	res = false;
       
       break;
+
+    case ASSERT_EXPR:
+      {
+	/* This assignment is of the form: "a_1 = ASSERT_EXPR <a_2, ...>"
+	   It must be handled as a copy assignment of the form a_1 = a_2.  */
+	tree op0 = ASSERT_EXPR_VAR (rhs);
+	if (TREE_CODE (op0) == SSA_NAME)
+	  res = follow_ssa_edge (loop, SSA_NAME_DEF_STMT (op0),
+				 halting_phi, evolution_of_loop);
+	else
+	  res = false;
+	break;
+      }
+
 
     default:
       res = false;
@@ -1644,7 +1658,7 @@ interpret_condition_phi (struct loop *loop, tree condition_phi)
 }
 
 /* Interpret the right hand side of a modify_expr OPND1.  If we didn't
-   analyzed this node before, follow the definitions until ending
+   analyze this node before, follow the definitions until ending
    either on an analyzed modify_expr, or on a loop-phi-node.  On the
    return path, this function propagates evolutions (ala constant copy
    propagation).  OPND1 is not a GIMPLE expression because we could
@@ -1700,6 +1714,11 @@ interpret_rhs_modify_expr (struct loop *loop,
       
     case SSA_NAME:
       res = chrec_convert (type, analyze_scalar_evolution (loop, opnd1));
+      break;
+
+    case ASSERT_EXPR:
+      opnd10 = ASSERT_EXPR_VAR (opnd1);
+      res = chrec_convert (type, analyze_scalar_evolution (loop, opnd10));
       break;
       
     case NOP_EXPR:
@@ -1888,19 +1907,55 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
     }
 }
 
+/* Returns instantiated value for VERSION in CACHE.  */
+
+static tree
+get_instantiated_value (htab_t cache, tree version)
+{
+  struct scev_info_str *info, pattern;
+  
+  pattern.var = version;
+  info = htab_find (cache, &pattern);
+
+  if (info)
+    return info->chrec;
+  else
+    return NULL_TREE;
+}
+
+/* Sets instantiated value for VERSION to VAL in CACHE.  */
+
+static void
+set_instantiated_value (htab_t cache, tree version, tree val)
+{
+  struct scev_info_str *info, pattern;
+  PTR *slot;
+  
+  pattern.var = version;
+  slot = htab_find_slot (cache, &pattern, INSERT);
+
+  if (*slot)
+    info = *slot;
+  else
+    info = *slot = new_scev_info_str (version);
+  info->chrec = val;
+}
+
 /* Analyze all the parameters of the chrec that were left under a symbolic form,
    with respect to LOOP.  CHREC is the chrec to instantiate.  If
    ALLOW_SUPERLOOP_CHRECS is true, replacing loop invariants with
-   outer loop chrecs is done.  */
+   outer loop chrecs is done.  CACHE is the cache of already instantiated
+   values.  */
 
 static tree
 instantiate_parameters_1 (struct loop *loop, tree chrec,
-			  bool allow_superloop_chrecs)
+			  bool allow_superloop_chrecs,
+			  htab_t cache)
 {
   tree res, op0, op1, op2;
   basic_block def_bb;
   struct loop *def_loop;
-  
+ 
   if (chrec == NULL_TREE
       || automatically_generated_chrec_p (chrec))
     return chrec;
@@ -1920,41 +1975,60 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 	      && !flow_bb_inside_loop_p (loop, def_bb)))
 	return chrec;
 
-      /* Don't instantiate the SSA_NAME if it is in a mixer
+      /* We cache the value of instantiated variable to avoid exponential
+	 time complexity due to reevaluations.  We also store the convenient
+	 value in the cache in order to prevent infinite recursion -- we do
+	 not want to instantiate the SSA_NAME if it is in a mixer
 	 structure.  This is used for avoiding the instantiation of
 	 recursively defined functions, such as: 
 
 	 | a_2 -> {0, +, 1, +, a_2}_1  */
-	   
+
+      res = get_instantiated_value (cache, chrec);
+      if (res)
+	return res;
+
+      /* Store the convenient value for chrec in the structure.  If it
+	 is defined outside of the loop, we may just leave it in symbolic
+	 form, otherwise we need to admit that we do not know its behavior
+	 inside the loop.  */
+      res = !flow_bb_inside_loop_p (loop, def_bb) ? chrec : chrec_dont_know;
+      set_instantiated_value (cache, chrec, res);
+
+      /* To make things even more complicated, instantiate_parameters_1
+	 calls analyze_scalar_evolution that may call # of iterations
+	 analysis that may in turn call instantiate_parameters_1 again.
+	 To prevent the infinite recursion, keep also the bitmap of
+	 ssa names that are being instantiated globally.  */
       if (bitmap_bit_p (already_instantiated, SSA_NAME_VERSION (chrec)))
-	{
-	  if (!flow_bb_inside_loop_p (loop, def_bb))
-	    {
-	      /* We may keep the loop invariant in symbolic form.  */
-	      return chrec;
-	    }
-	  else
-	    {
-	      /* Something with unknown behavior in LOOP.  */
-	      return chrec_dont_know;
-	    }
-	}
+	return res;
 
       def_loop = find_common_loop (loop, def_bb->loop_father);
 
       /* If the analysis yields a parametric chrec, instantiate the
-	 result again.  Avoid the cyclic instantiation in mixers.  */
+	 result again.  */
       bitmap_set_bit (already_instantiated, SSA_NAME_VERSION (chrec));
       res = analyze_scalar_evolution (def_loop, chrec);
-      res = instantiate_parameters_1 (loop, res, allow_superloop_chrecs);
+      if (res != chrec_dont_know)
+	res = instantiate_parameters_1 (loop, res, allow_superloop_chrecs,
+					cache);
       bitmap_clear_bit (already_instantiated, SSA_NAME_VERSION (chrec));
+
+      /* Store the correct value to the cache.  */
+      set_instantiated_value (cache, chrec, res);
       return res;
 
     case POLYNOMIAL_CHREC:
       op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op0 == chrec_dont_know)
+	return chrec_dont_know;
+
       op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op1 == chrec_dont_know)
+	return chrec_dont_know;
+
       if (CHREC_LEFT (chrec) != op0
 	  || CHREC_RIGHT (chrec) != op1)
 	chrec = build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
@@ -1962,9 +2036,15 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 
     case PLUS_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op0 == chrec_dont_know)
+	return chrec_dont_know;
+
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op1 == chrec_dont_know)
+	return chrec_dont_know;
+
       if (TREE_OPERAND (chrec, 0) != op0
 	  || TREE_OPERAND (chrec, 1) != op1)
       	chrec = chrec_fold_plus (TREE_TYPE (chrec), op0, op1);
@@ -1972,9 +2052,15 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 
     case MINUS_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op0 == chrec_dont_know)
+	return chrec_dont_know;
+
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op1 == chrec_dont_know)
+	return chrec_dont_know;
+
       if (TREE_OPERAND (chrec, 0) != op0
 	  || TREE_OPERAND (chrec, 1) != op1)
         chrec = chrec_fold_minus (TREE_TYPE (chrec), op0, op1);
@@ -1982,9 +2068,15 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 
     case MULT_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op0 == chrec_dont_know)
+	return chrec_dont_know;
+
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op1 == chrec_dont_know)
+	return chrec_dont_know;
+
       if (TREE_OPERAND (chrec, 0) != op0
 	  || TREE_OPERAND (chrec, 1) != op1)
 	chrec = chrec_fold_multiply (TREE_TYPE (chrec), op0, op1);
@@ -1994,7 +2086,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
       if (op0 == chrec_dont_know)
         return chrec_dont_know;
 
@@ -2017,14 +2109,18 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
     {
     case 3:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op0 == chrec_dont_know)
+	return chrec_dont_know;
+
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op1 == chrec_dont_know)
+	return chrec_dont_know;
+
       op2 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 2),
-				      allow_superloop_chrecs);
-      if (op0 == chrec_dont_know
-	  || op1 == chrec_dont_know
-	  || op2 == chrec_dont_know)
+				      allow_superloop_chrecs, cache);
+      if (op2 == chrec_dont_know)
         return chrec_dont_know;
 
       if (op0 == TREE_OPERAND (chrec, 0)
@@ -2037,11 +2133,13 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 
     case 2:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
+      if (op0 == chrec_dont_know)
+	return chrec_dont_know;
+
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      allow_superloop_chrecs);
-      if (op0 == chrec_dont_know
-	  || op1 == chrec_dont_know)
+				      allow_superloop_chrecs, cache);
+      if (op1 == chrec_dont_know)
         return chrec_dont_know;
 
       if (op0 == TREE_OPERAND (chrec, 0)
@@ -2051,7 +2149,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 	    
     case 1:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      allow_superloop_chrecs);
+				      allow_superloop_chrecs, cache);
       if (op0 == chrec_dont_know)
         return chrec_dont_know;
       if (op0 == TREE_OPERAND (chrec, 0))
@@ -2078,6 +2176,7 @@ instantiate_parameters (struct loop *loop,
 			tree chrec)
 {
   tree res;
+  htab_t cache = htab_create (10, hash_scev_info, eq_scev_info, del_scev_info);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2088,7 +2187,7 @@ instantiate_parameters (struct loop *loop,
       fprintf (dump_file, ")\n");
     }
  
-  res = instantiate_parameters_1 (loop, chrec, true);
+  res = instantiate_parameters_1 (loop, chrec, true, cache);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2096,6 +2195,8 @@ instantiate_parameters (struct loop *loop,
       print_generic_expr (dump_file, res, 0);
       fprintf (dump_file, "))\n");
     }
+
+  htab_delete (cache);
   
   return res;
 }
@@ -2106,7 +2207,10 @@ instantiate_parameters (struct loop *loop,
 static tree
 resolve_mixers (struct loop *loop, tree chrec)
 {
-  return instantiate_parameters_1 (loop, chrec, false);
+  htab_t cache = htab_create (10, hash_scev_info, eq_scev_info, del_scev_info);
+  tree ret = instantiate_parameters_1 (loop, chrec, false, cache);
+  htab_delete (cache);
+  return ret;
 }
 
 /* Entry point for the analysis of the number of iterations pass.  
@@ -2170,16 +2274,16 @@ end:
    from the EXIT_CONDITIONS array.  */
 
 static void 
-number_of_iterations_for_all_loops (varray_type exit_conditions)
+number_of_iterations_for_all_loops (VEC(tree,heap) **exit_conditions)
 {
   unsigned int i;
   unsigned nb_chrec_dont_know_loops = 0;
   unsigned nb_static_loops = 0;
+  tree cond;
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
+  for (i = 0; VEC_iterate (tree, *exit_conditions, i, cond); i++)
     {
-      tree res = number_of_iterations_in_loop 
-	(loop_containing_stmt (VARRAY_TREE (exit_conditions, i)));
+      tree res = number_of_iterations_in_loop (loop_containing_stmt (cond));
       if (chrec_contains_undetermined (res))
 	nb_chrec_dont_know_loops++;
       else
@@ -2322,20 +2426,21 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
    index.  This allows the parallelization of the loop.  */
 
 static void 
-analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
+analyze_scalar_evolution_for_all_loop_phi_nodes (VEC(tree,heap) **exit_conditions)
 {
   unsigned int i;
   struct chrec_stats stats;
+  tree cond;
   
   reset_chrecs_counters (&stats);
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
+  for (i = 0; VEC_iterate (tree, *exit_conditions, i, cond); i++)
     {
       struct loop *loop;
       basic_block bb;
       tree phi, chrec;
       
-      loop = loop_containing_stmt (VARRAY_TREE (exit_conditions, i));
+      loop = loop_containing_stmt (cond);
       bb = loop->header;
       
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
@@ -2413,7 +2518,7 @@ scev_initialize (struct loops *loops)
 
   scalar_evolution_info = htab_create (100, hash_scev_info,
 				       eq_scev_info, del_scev_info);
-  already_instantiated = BITMAP_XMALLOC ();
+  already_instantiated = BITMAP_ALLOC (NULL);
   
   initialize_scalar_evolutions_analyzer ();
 
@@ -2443,10 +2548,13 @@ scev_reset (void)
 }
 
 /* Checks whether OP behaves as a simple affine iv of LOOP in STMT and returns
-   its BASE and STEP if possible.  */
+   its BASE and STEP if possible.  If ALLOW_NONCONSTANT_STEP is true, we
+   want STEP to be invariant in LOOP.  Otherwise we require it to be an
+   integer constant.  */
 
 bool
-simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
+simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step,
+	   bool allow_nonconstant_step)
 {
   basic_block bb = bb_for_stmt (stmt);
   tree type, ev;
@@ -2475,10 +2583,17 @@ simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
     return false;
 
   *step = CHREC_RIGHT (ev);
-  if (TREE_CODE (*step) != INTEGER_CST)
+  if (allow_nonconstant_step)
+    {
+      if (tree_contains_chrecs (*step, NULL)
+	  || chrec_contains_symbols_defined_in_loop (*step, loop->num))
+	return false;
+    }
+  else if (TREE_CODE (*step) != INTEGER_CST)
     return false;
+
   *base = CHREC_LEFT (ev);
-  if (tree_contains_chrecs (*base)
+  if (tree_contains_chrecs (*base, NULL)
       || chrec_contains_symbols_defined_in_loop (*base, loop->num))
     return false;
 
@@ -2490,16 +2605,16 @@ simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
 void
 scev_analysis (void)
 {
-  varray_type exit_conditions;
+  VEC(tree,heap) *exit_conditions;
   
-  VARRAY_GENERIC_PTR_INIT (exit_conditions, 37, "exit_conditions");
+  exit_conditions = VEC_alloc (tree, heap, 37);
   select_loops_exit_conditions (current_loops, &exit_conditions);
 
   if (dump_file && (dump_flags & TDF_STATS))
-    analyze_scalar_evolution_for_all_loop_phi_nodes (exit_conditions);
+    analyze_scalar_evolution_for_all_loop_phi_nodes (&exit_conditions);
   
-  number_of_iterations_for_all_loops (exit_conditions);
-  VARRAY_CLEAR (exit_conditions);
+  number_of_iterations_for_all_loops (&exit_conditions);
+  VEC_free (tree, heap, exit_conditions);
 }
 
 /* Finalize the scalar evolution analysis.  */
@@ -2508,6 +2623,75 @@ void
 scev_finalize (void)
 {
   htab_delete (scalar_evolution_info);
-  BITMAP_XFREE (already_instantiated);
+  BITMAP_FREE (already_instantiated);
 }
 
+/* Replace ssa names for that scev can prove they are constant by the
+   appropriate constants.  Most importantly, this takes care of final
+   value replacement.
+   
+   We only consider SSA names defined by phi nodes; rest is left to the
+   ordinary constant propagation pass.  */
+
+void
+scev_const_prop (void)
+{
+  basic_block bb;
+  tree name, phi, type, ev;
+  struct loop *loop;
+  bitmap ssa_names_to_remove = NULL;
+
+  if (!current_loops)
+    return;
+
+  FOR_EACH_BB (bb)
+    {
+      loop = bb->loop_father;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  name = PHI_RESULT (phi);
+
+	  if (!is_gimple_reg (name))
+	    continue;
+
+	  type = TREE_TYPE (name);
+
+	  if (!POINTER_TYPE_P (type)
+	      && !INTEGRAL_TYPE_P (type))
+	    continue;
+
+	  ev = resolve_mixers (loop, analyze_scalar_evolution (loop, name));
+	  if (!is_gimple_min_invariant (ev)
+	      || !may_propagate_copy (name, ev))
+	    continue;
+
+	  /* Replace the uses of the name.  */
+	  replace_uses_by (name, ev);
+
+	  if (!ssa_names_to_remove)
+	    ssa_names_to_remove = BITMAP_ALLOC (NULL);
+	  bitmap_set_bit (ssa_names_to_remove, SSA_NAME_VERSION (name));
+	}
+    }
+
+  /* Remove the ssa names that were replaced by constants.  We do not remove them
+     directly in the previous cycle, since this invalidates scev cache.  */
+  if (ssa_names_to_remove)
+    {
+      bitmap_iterator bi;
+      unsigned i;
+
+      EXECUTE_IF_SET_IN_BITMAP (ssa_names_to_remove, 0, i, bi)
+	{
+	  name = ssa_name (i);
+	  phi = SSA_NAME_DEF_STMT (name);
+
+	  gcc_assert (TREE_CODE (phi) == PHI_NODE);
+	  remove_phi_node (phi, NULL);
+	}
+
+      BITMAP_FREE (ssa_names_to_remove);
+      scev_reset ();
+    }
+}

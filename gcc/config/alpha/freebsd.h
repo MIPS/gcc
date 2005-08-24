@@ -1,5 +1,5 @@
 /* Definitions for DEC Alpha/AXP running FreeBSD using the ELF format
-   Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
 This file is part of GCC.
@@ -75,7 +75,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_ELF	1
 
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT	(MASK_FP | MASK_FPREGS | MASK_GAS)
+#define TARGET_DEFAULT	(MASK_FPREGS | MASK_GAS)
 
 #undef HAS_INIT_SECTION
 

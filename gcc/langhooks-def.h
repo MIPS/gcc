@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -67,9 +67,8 @@ extern void lhd_register_builtin_type (tree, const char *);
 extern bool lhd_decl_ok_for_sibcall (tree);
 extern const char *lhd_comdat_group (tree);
 extern tree lhd_expr_size (tree);
-extern bool lhd_decl_uninit (tree);
-extern tree lhd_get_callee_fndecl (tree);
 extern size_t lhd_tree_size (enum tree_code);
+extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
 
 /* Declarations of default tree inlining hooks.  */
 extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
@@ -91,7 +90,7 @@ extern tree lhd_optimize_build_pointer_ref (tree, const char *);
 extern tree lhd_optimize_build_array_ref (tree, tree);
 extern tree lhd_optimize_lookup_field (tree, tree);
 extern tree lhd_optimize_build_data_struct (void *, char *, tree);
-extern tree lhd_optimize_sizeof_type (tree, enum tree_code, int);
+extern tree lhd_optimize_sizeof_type (tree, bool, int);
 extern tree lhd_optimize_decl_attributes (tree *, tree, int);
 extern void lhd_optimize_structure_reorg_optimization (void);
 
@@ -133,6 +132,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	builtin_function
+#define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_FINAL	lhd_do_nothing_f
@@ -293,7 +293,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_EXPAND_CONSTANT, \
   LANG_HOOKS_EXPAND_EXPR, \
   LANG_HOOKS_EXPAND_DECL, \
-  LANG_HOOKS_TRUTHVALUE_CONVERSION, \
   LANG_HOOKS_SAFE_FROM_P, \
   LANG_HOOKS_FINISH_INCOMPLETE_DECL, \
   LANG_HOOKS_MARK_ADDRESSABLE, \
@@ -313,6 +312,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
+  LANG_HOOKS_TO_TARGET_CHARSET, \
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \

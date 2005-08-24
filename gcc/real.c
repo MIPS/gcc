@@ -1,6 +1,6 @@
 /* real.c - software floating point emulation.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -640,6 +640,9 @@ do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
   r->cl = rvc_normal;
   r->sign = sign;
   SET_REAL_EXP (r, exp);
+  /* Zero out the remaining fields.  */
+  r->signalling = 0;
+  r->canonical = 0;
 
   /* Re-normalize the result.  */
   normalize (r);
@@ -972,9 +975,10 @@ do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
 }
 
 /* Perform the binary or unary operation described by CODE.
-   For a unary operation, leave OP1 NULL.  */
+   For a unary operation, leave OP1 NULL.  This function returns
+   true if the result may be inexact due to loss of precision.  */
 
-void
+bool
 real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
 		 const REAL_VALUE_TYPE *op1)
 {
@@ -983,20 +987,16 @@ real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
   switch (code)
     {
     case PLUS_EXPR:
-      do_add (r, op0, op1, 0);
-      break;
+      return do_add (r, op0, op1, 0);
 
     case MINUS_EXPR:
-      do_add (r, op0, op1, 1);
-      break;
+      return do_add (r, op0, op1, 1);
 
     case MULT_EXPR:
-      do_multiply (r, op0, op1);
-      break;
+      return do_multiply (r, op0, op1);
 
     case RDIV_EXPR:
-      do_divide (r, op0, op1);
-      break;
+      return do_divide (r, op0, op1);
 
     case MIN_EXPR:
       if (op1->cl == rvc_nan)
@@ -1033,6 +1033,7 @@ real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
     default:
       gcc_unreachable ();
     }
+  return false;
 }
 
 /* Legacy.  Similar, but return the result directly.  */
@@ -1959,6 +1960,7 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
     get_zero (r, 0);
   else
     {
+      memset (r, 0, sizeof (*r));
       r->cl = rvc_normal;
       r->sign = high < 0 && !unsigned_p;
       SET_REAL_EXP (r, 2 * HOST_BITS_PER_WIDE_INT);
@@ -1976,7 +1978,6 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	{
 	  r->sig[SIGSZ-1] = high;
 	  r->sig[SIGSZ-2] = low;
-	  memset (r->sig, 0, sizeof(long)*(SIGSZ-2));
 	}
       else
 	{
@@ -1985,8 +1986,6 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	  r->sig[SIGSZ-2] = high;
 	  r->sig[SIGSZ-3] = low >> (HOST_BITS_PER_LONG - 1) >> 1;
 	  r->sig[SIGSZ-4] = low;
-	  if (SIGSZ > 4)
-	    memset (r->sig, 0, sizeof(long)*(SIGSZ-4));
 	}
 
       normalize (r);
@@ -2118,7 +2117,6 @@ real_nan (REAL_VALUE_TYPE *r, const char *str, int quiet,
   else
     {
       int base = 10, d;
-      bool neg = false;
 
       memset (r, 0, sizeof (*r));
       r->cl = rvc_nan;
@@ -2128,7 +2126,7 @@ real_nan (REAL_VALUE_TYPE *r, const char *str, int quiet,
       while (ISSPACE (*str))
 	str++;
       if (*str == '-')
-	str++, neg = true;
+	str++;
       else if (*str == '+')
 	str++;
       if (*str == '0')
@@ -2653,6 +2651,7 @@ const struct real_format ieee_single_format =
     -125,
     128,
     31,
+    31,
     true,
     true,
     true,
@@ -2670,6 +2669,7 @@ const struct real_format mips_single_format =
     24,
     -125,
     128,
+    31,
     31,
     true,
     true,
@@ -2876,6 +2876,7 @@ const struct real_format ieee_double_format =
     -1021,
     1024,
     63,
+    63,
     true,
     true,
     true,
@@ -2893,6 +2894,7 @@ const struct real_format mips_double_format =
     53,
     -1021,
     1024,
+    63,
     63,
     true,
     true,
@@ -3223,6 +3225,7 @@ const struct real_format ieee_extended_motorola_format =
     -16382,
     16384,
     95,
+    95,
     true,
     true,
     true,
@@ -3241,6 +3244,7 @@ const struct real_format ieee_extended_intel_96_format =
     -16381,
     16384,
     79,
+    79,
     true,
     true,
     true,
@@ -3258,6 +3262,7 @@ const struct real_format ieee_extended_intel_128_format =
     64,
     -16381,
     16384,
+    79,
     79,
     true,
     true,
@@ -3278,6 +3283,7 @@ const struct real_format ieee_extended_intel_96_round_53_format =
     53,
     -16381,
     16384,
+    79,
     79,
     true,
     true,
@@ -3363,6 +3369,7 @@ const struct real_format ibm_extended_format =
     53,
     -1021 + 53,
     1024,
+    127,
     -1,
     true,
     true,
@@ -3381,6 +3388,7 @@ const struct real_format mips_extended_format =
     53,
     -1021 + 53,
     1024,
+    127,
     -1,
     true,
     true,
@@ -3648,6 +3656,7 @@ const struct real_format ieee_quad_format =
     -16381,
     16384,
     127,
+    127,
     true,
     true,
     true,
@@ -3665,6 +3674,7 @@ const struct real_format mips_quad_format =
     113,
     -16381,
     16384,
+    127,
     127,
     true,
     true,
@@ -3963,6 +3973,7 @@ const struct real_format vax_f_format =
     -127,
     127,
     15,
+    15,
     false,
     false,
     false,
@@ -3981,6 +3992,7 @@ const struct real_format vax_d_format =
     -127,
     127,
     15,
+    15,
     false,
     false,
     false,
@@ -3998,6 +4010,7 @@ const struct real_format vax_g_format =
     53,
     -1023,
     1023,
+    15,
     15,
     false,
     false,
@@ -4174,6 +4187,7 @@ const struct real_format i370_single_format =
     -64,
     63,
     31,
+    31,
     false,
     false,
     false, /* ??? The encoding does allow for "unnormals".  */
@@ -4190,6 +4204,7 @@ const struct real_format i370_double_format =
     14,
     14,
     -64,
+    63,
     63,
     63,
     false,
@@ -4399,6 +4414,7 @@ const struct real_format c4x_single_format =
     24,
     -126,
     128,
+    23,
     -1,
     false,
     false,
@@ -4417,6 +4433,7 @@ const struct real_format c4x_extended_format =
     32,
     -126,
     128,
+    31,
     -1,
     false,
     false,
@@ -4460,6 +4477,7 @@ const struct real_format real_internal_format =
     SIGNIFICAND_BITS - 2,
     -MAX_EXP,
     MAX_EXP,
+    -1,
     -1,
     true,
     true,
@@ -4625,6 +4643,8 @@ real_floor (REAL_VALUE_TYPE *r, enum machine_mode mode,
     do_add (&t, &t, &dconstm1, 0);
   if (mode != VOIDmode)
     real_convert (r, mode, &t);
+  else
+    *r = t;
 }
 
 /* Round X to the smallest integer not less then argument, i.e. round
@@ -4641,6 +4661,8 @@ real_ceil (REAL_VALUE_TYPE *r, enum machine_mode mode,
     do_add (&t, &t, &dconst1, 0);
   if (mode != VOIDmode)
     real_convert (r, mode, &t);
+  else
+    *r = t;
 }
 
 /* Round X to the nearest integer, but round halfway cases away from

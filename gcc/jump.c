@@ -1,6 +1,7 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -67,9 +68,7 @@ static void init_label_info (rtx);
 static void mark_all_labels (rtx);
 static void delete_computation (rtx);
 static void redirect_exp_1 (rtx *, rtx, rtx, rtx);
-static int redirect_exp (rtx, rtx, rtx);
-static void invert_exp_1 (rtx);
-static int invert_exp (rtx);
+static int invert_exp_1 (rtx, rtx);
 static int returnjump_p_1 (rtx *, void *);
 static void delete_prior_computation (rtx, rtx);
 
@@ -210,7 +209,7 @@ mark_all_labels (rtx f)
 		  {
 		    /* But a LABEL_REF around the REG_LABEL note, so
 		       that we can canonicalize it.  */
-		    rtx label_ref = gen_rtx_LABEL_REF (VOIDmode,
+		    rtx label_ref = gen_rtx_LABEL_REF (Pmode,
 						       XEXP (label_note, 0));
 
 		    mark_jump_label (label_ref, insn, 0);
@@ -450,6 +449,20 @@ reversed_comparison_code (rtx comparison, rtx insn)
 					 XEXP (comparison, 0),
 					 XEXP (comparison, 1), insn);
 }
+
+/* Return comparison with reversed code of EXP.
+   Return NULL_RTX in case we fail to do the reversal.  */
+rtx
+reversed_comparison (rtx exp, enum machine_mode mode)
+{
+  enum rtx_code reversed_code = reversed_comparison_code (exp, NULL_RTX);
+  if (reversed_code == UNKNOWN)
+    return NULL_RTX;
+  else
+    return simplify_gen_relational (reversed_code, mode, VOIDmode,
+                                    XEXP (exp, 0), XEXP (exp, 1));
+}
+
 
 /* Given an rtx-code for a comparison, return the code for the negated
    comparison.  If no such code exists, return UNKNOWN.
@@ -498,7 +511,7 @@ reverse_condition (enum rtx_code code)
       return UNKNOWN;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -541,7 +554,7 @@ reverse_condition_maybe_unordered (enum rtx_code code)
       return LTGT;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -587,7 +600,7 @@ swap_condition (enum rtx_code code)
       return UNLE;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -618,7 +631,7 @@ unsigned_condition (enum rtx_code code)
       return LEU;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -647,7 +660,7 @@ signed_condition (enum rtx_code code)
       return LE;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1096,8 +1109,7 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
 	    && NOTE_LINE_NUMBER (label) == NOTE_INSN_DELETED_LABEL)
 	  break;
 
-	if (!LABEL_P (label))
-	  abort ();
+	gcc_assert (LABEL_P (label));
 
 	/* Ignore references to labels of containing functions.  */
 	if (LABEL_REF_NONLOCAL_P (x))
@@ -1531,7 +1543,7 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
 	{
 	  rtx n;
 	  if (nlabel)
-	    n = gen_rtx_LABEL_REF (VOIDmode, nlabel);
+	    n = gen_rtx_LABEL_REF (Pmode, nlabel);
 	  else
 	    n = gen_rtx_RETURN (VOIDmode);
 
@@ -1541,7 +1553,10 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
     }
   else if (code == RETURN && olabel == 0)
     {
-      x = gen_rtx_LABEL_REF (VOIDmode, nlabel);
+      if (nlabel)
+	x = gen_rtx_LABEL_REF (Pmode, nlabel);
+      else
+	x = gen_rtx_RETURN (VOIDmode);
       if (loc == &PATTERN (insn))
 	x = gen_rtx_SET (VOIDmode, pc_rtx, x);
       validate_change (insn, loc, x, 1);
@@ -1568,25 +1583,6 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
 	    redirect_exp_1 (&XVECEXP (x, i, j), olabel, nlabel, insn);
 	}
     }
-}
-
-/* Similar, but apply the change group and report success or failure.  */
-
-static int
-redirect_exp (rtx olabel, rtx nlabel, rtx insn)
-{
-  rtx *loc;
-
-  if (GET_CODE (PATTERN (insn)) == PARALLEL)
-    loc = &XVECEXP (PATTERN (insn), 0, 0);
-  else
-    loc = &PATTERN (insn);
-
-  redirect_exp_1 (loc, olabel, nlabel, insn);
-  if (num_validated_changes () == 0)
-    return 0;
-
-  return apply_change_group ();
 }
 
 /* Make JUMP go to NLABEL instead of where it jumps now.  Accrue
@@ -1622,13 +1618,27 @@ int
 redirect_jump (rtx jump, rtx nlabel, int delete_unused)
 {
   rtx olabel = JUMP_LABEL (jump);
-  rtx note;
 
   if (nlabel == olabel)
     return 1;
 
-  if (! redirect_exp (olabel, nlabel, jump))
+  if (! redirect_jump_1 (jump, nlabel) || ! apply_change_group ())
     return 0;
+
+  redirect_jump_2 (jump, olabel, nlabel, delete_unused, 0);
+  return 1;
+}
+
+/* Fix up JUMP_LABEL and label ref counts after OLABEL has been replaced with
+   NLABEL in JUMP.  If DELETE_UNUSED is non-negative, copy a
+   NOTE_INSN_FUNCTION_END found after OLABEL to the place after NLABEL.
+   If DELETE_UNUSED is positive, delete related insn to OLABEL if its ref
+   count has dropped to zero.  */
+void
+redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
+		 int invert)
+{
+  rtx note;
 
   JUMP_LABEL (jump) = nlabel;
   if (nlabel)
@@ -1637,24 +1647,13 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
   /* Update labels in any REG_EQUAL note.  */
   if ((note = find_reg_note (jump, REG_EQUAL, NULL_RTX)) != NULL_RTX)
     {
-      if (nlabel && olabel)
-	{
-	  rtx dest = XEXP (note, 0);
-
-	  if (GET_CODE (dest) == IF_THEN_ELSE)
-	    {
-	      if (GET_CODE (XEXP (dest, 1)) == LABEL_REF
-		  && XEXP (XEXP (dest, 1), 0) == olabel)
-		XEXP (XEXP (dest, 1), 0) = nlabel;
-	      if (GET_CODE (XEXP (dest, 2)) == LABEL_REF
-		  && XEXP (XEXP (dest, 2), 0) == olabel)
-		XEXP (XEXP (dest, 2), 0) = nlabel;
-	    }
-	  else
-	    remove_note (jump, note);
-	}
+      if (!nlabel || (invert && !invert_exp_1 (XEXP (note, 0), jump)))
+	remove_note (jump, note);
       else
-        remove_note (jump, note);
+	{
+	  redirect_exp_1 (&XEXP (note, 0), olabel, nlabel, jump);
+	  confirm_change_group ();
+	}
     }
 
   /* If we're eliding the jump over exception cleanups at the end of a
@@ -1662,31 +1661,24 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
   if (olabel && nlabel
       && NEXT_INSN (olabel)
       && NOTE_P (NEXT_INSN (olabel))
-      && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END)
+      && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END
+      && delete_unused >= 0)
     emit_note_after (NOTE_INSN_FUNCTION_END, nlabel);
 
-  if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused
+  if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused > 0
       /* Undefined labels will remain outside the insn stream.  */
       && INSN_UID (olabel))
     delete_related_insns (olabel);
-
-  return 1;
+  if (invert)
+    invert_br_probabilities (jump);
 }
 
-/* Invert the jump condition of rtx X contained in jump insn, INSN.
-   Accrue the modifications into the change group.  */
-
-static void
-invert_exp_1 (rtx insn)
+/* Invert the jump condition X contained in jump insn INSN.  Accrue the
+   modifications into the change group.  Return nonzero for success.  */
+static int
+invert_exp_1 (rtx x, rtx insn)
 {
-  RTX_CODE code;
-  rtx x = pc_set (insn);
-
-  if (!x)
-    abort ();
-  x = SET_SRC (x);
-
-  code = GET_CODE (x);
+  RTX_CODE code = GET_CODE (x);
 
   if (code == IF_THEN_ELSE)
     {
@@ -1708,30 +1700,16 @@ invert_exp_1 (rtx insn)
 					   GET_MODE (comp), XEXP (comp, 0),
 					   XEXP (comp, 1)),
 			   1);
-	  return;
+	  return 1;
 	}
 
       tem = XEXP (x, 1);
       validate_change (insn, &XEXP (x, 1), XEXP (x, 2), 1);
       validate_change (insn, &XEXP (x, 2), tem, 1);
+      return 1;
     }
   else
-    abort ();
-}
-
-/* Invert the jump condition of conditional jump insn, INSN.
-
-   Return 1 if we can do so, 0 if we cannot find a way to do so that
-   matches a pattern.  */
-
-static int
-invert_exp (rtx insn)
-{
-  invert_exp_1 (insn);
-  if (num_validated_changes () == 0)
     return 0;
-
-  return apply_change_group ();
 }
 
 /* Invert the condition of the jump JUMP, and make it jump to label
@@ -1742,14 +1720,21 @@ invert_exp (rtx insn)
 int
 invert_jump_1 (rtx jump, rtx nlabel)
 {
+  rtx x = pc_set (jump);
   int ochanges;
+  int ok;
 
   ochanges = num_validated_changes ();
-  invert_exp_1 (jump);
+  gcc_assert (x);
+  ok = invert_exp_1 (SET_SRC (x), jump);
+  gcc_assert (ok);
+  
   if (num_validated_changes () == ochanges)
     return 0;
 
-  return redirect_jump_1 (jump, nlabel);
+  /* redirect_jump_1 will fail of nlabel == olabel, and the current use is
+     in Pmode, so checking this is not merely an optimization.  */
+  return nlabel == JUMP_LABEL (jump) || redirect_jump_1 (jump, nlabel);
 }
 
 /* Invert the condition of the jump JUMP, and make it jump to label
@@ -1758,30 +1743,14 @@ invert_jump_1 (rtx jump, rtx nlabel)
 int
 invert_jump (rtx jump, rtx nlabel, int delete_unused)
 {
-  /* We have to either invert the condition and change the label or
-     do neither.  Either operation could fail.  We first try to invert
-     the jump. If that succeeds, we try changing the label.  If that fails,
-     we invert the jump back to what it was.  */
+  rtx olabel = JUMP_LABEL (jump);
 
-  if (! invert_exp (jump))
-    return 0;
-
-  if (redirect_jump (jump, nlabel, delete_unused))
+  if (invert_jump_1 (jump, nlabel) && apply_change_group ())
     {
-      /* Remove REG_EQUAL note if we have one.  */
-      rtx note = find_reg_note (jump, REG_EQUAL, NULL_RTX);
-      if (note)
-	remove_note (jump, note);
-
-      invert_br_probabilities (jump);
-
+      redirect_jump_2 (jump, olabel, nlabel, delete_unused, 1);
       return 1;
     }
-
-  if (! invert_exp (jump))
-    /* This should just be putting it back the way it was.  */
-    abort ();
-
+  cancel_changes (0);
   return 0;
 }
 
@@ -1974,7 +1943,7 @@ rtx_renumbered_equal_p (rtx x, rtx y)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return 1;
@@ -2009,9 +1978,8 @@ true_regnum (rtx x)
 unsigned int
 reg_or_subregno (rtx reg)
 {
-  if (REG_P (reg))
-    return REGNO (reg);
   if (GET_CODE (reg) == SUBREG)
-    return REGNO (SUBREG_REG (reg));
-  abort ();
+    reg = SUBREG_REG (reg);
+  gcc_assert (REG_P (reg));
+  return REGNO (reg);
 }

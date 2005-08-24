@@ -204,7 +204,7 @@ db_indent (int requests)
 
 }
 
-static void
+static void ATTRIBUTE_PRINTF_2
 db (int db_code, char * msg_format, ...)
 {
   if (db_accepted_codes () & db_code)
@@ -264,7 +264,7 @@ db_phases (int phases)
    table which heads a list of possible actions to be taken (see below).
 
    If it is determined that indeed an action should be taken, that
-   is, if one action filter matches the exception beeing propagated,
+   is, if one action filter matches the exception being propagated,
    then control should be transfered to landing-pad.
 
    A null first-action-index indicates that there are only cleanups
@@ -283,7 +283,7 @@ db_phases (int phases)
 
    Non null action-filters provide an index into the ttypes [] table
    (see below), from which information may be retrieved to check if it
-   matches the exception beeing propagated.
+   matches the exception being propagated.
 
    action-filter > 0  means there is a regular handler to be run,
 
@@ -302,7 +302,7 @@ db_phases (int phases)
    A null value indicates a catch-all handler in C++, and an "others"
    handler in Ada.
 
-   Non null values are used to match the exception beeing propagated:
+   Non null values are used to match the exception being propagated:
    In C++ this is a pointer to some rtti data, while in Ada this is an
    exception id.
 
@@ -469,7 +469,7 @@ db_phases (int phases)
 
 /* This is an incomplete "proxy" of the structure of exception objects as
    built by the GNAT runtime library. Accesses to other fields than the common
-   header are performed through subprogram calls to aleviate the need of an
+   header are performed through subprogram calls to alleviate the need of an
    exact counterpart here and potential alignment/size issues for the common
    header. See a-exexpr.adb.  */
 
@@ -611,7 +611,7 @@ get_region_description_for (_Unwind_Context *uw_context,
 typedef enum
 {
   /* Found some call site base data, but need to analyze further
-     before beeing able to decide.  */
+     before being able to decide.  */
   unknown,
 
   /* There is nothing relevant in the context at hand. */
@@ -761,7 +761,7 @@ get_call_site_action_for (_Unwind_Context *uw_context,
 {
   _Unwind_Ptr ip
     = _Unwind_GetIP (uw_context) - 1;
-  /* Substract 1 because GetIP yields a call return address while we are
+  /* Subtract 1 because GetIP yields a call return address while we are
      interested in information for the call point. This does not always yield
      the exact call instruction address but always brings the ip back within
      the corresponding region.
@@ -854,7 +854,7 @@ is_handled_by (_Unwind_Ptr choice, _GNAT_Exception * propagated_exception)
 
   /* Base matching rules: An exception data (id) matches itself, "when
      all_others" matches anything and "when others" matches anything unless
-     explicitely stated otherwise in the propagated occurrence.  */
+     explicitly stated otherwise in the propagated occurrence.  */
 
   bool is_handled =
     choice == E
@@ -970,7 +970,7 @@ get_action_description_for (_Unwind_Context *uw_context,
 
 /* Setup in UW_CONTEXT the eh return target IP and data registers, which will
    be restored with the others and retrieved by the landing pad once the jump
-   occured.  */
+   occurred.  */
 
 static void
 setup_to_install (_Unwind_Context *uw_context,

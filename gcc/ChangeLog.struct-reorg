@@ -1,3 +1,8 @@
+2005-08-24  Caroline Tice  <ctice@apple.com>
+
+	Merge tree-profiling branch, as of 2005-06-10, into 
+	struct-reorg-branch.
+
 2005-06-15  Caroline Tice  <ctice@apple.com>
 
 	* struct-reorg.c (find_and_substitute_types_and_vars): Use

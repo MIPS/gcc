@@ -1,5 +1,5 @@
 /* Base configuration file for all FreeBSD targets.
-   Copyright (C) 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -78,6 +78,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define FBSD_CPP_SPEC "							\
   %(cpp_cpu)								\
+  %(cpp_arch)								\
   %{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__}				\
   %{posix:-D_POSIX_SOURCE}"
 
@@ -118,7 +119,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Provide a LIB_SPEC appropriate for FreeBSD.  Just select the appropriate
    libc, depending on whether we're doing profiling or need threads support.
-   (simular to the default, except no -lg, and no -p).  */
+   (similar to the default, except no -lg, and no -p).  */
 
 #ifdef FBSD_NO_THREADS
 #define FBSD_LIB_SPEC "							\
@@ -129,13 +130,7 @@ is built with the --enable-threads configure-time option.}		\
     %{pg:  -lc_p}							\
   }"
 #else
-#if FBSD_MAJOR >= 5
-#define FBSD_LIB_SPEC "							\
-  %{!shared:								\
-    %{!pg: %{pthread:-lpthread} -lc}					\
-    %{pg:  %{pthread:-lpthread_p} -lc_p}				\
-  }"
-#else
+#if FBSD_MAJOR < 5
 #define FBSD_LIB_SPEC "							\
   %{!shared:								\
     %{!pg:								\
@@ -144,6 +139,12 @@ is built with the --enable-threads configure-time option.}		\
     %{pg:								\
       %{!pthread:-lc_p}							\
       %{pthread:-lc_r_p}}						\
+  }"
+#else
+#define FBSD_LIB_SPEC "							\
+  %{!shared:								\
+    %{!pg: %{pthread:-lpthread} -lc}					\
+    %{pg:  %{pthread:-lpthread_p} -lc_p}				\
   }"
 #endif
 #endif

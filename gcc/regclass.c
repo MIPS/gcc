@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -172,11 +172,11 @@ unsigned int reg_class_size[N_REG_CLASSES];
 
 /* For each reg class, table listing all the containing classes.  */
 
-enum reg_class reg_class_superclasses[N_REG_CLASSES][N_REG_CLASSES];
+static enum reg_class reg_class_superclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* For each reg class, table listing all the classes contained in it.  */
 
-enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
+static enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* For each pair of reg classes,
    a largest reg class contained in their union.  */
@@ -191,6 +191,10 @@ enum reg_class reg_class_superunion[N_REG_CLASSES][N_REG_CLASSES];
 /* Array containing all of the register names.  */
 
 const char * reg_names[] = REGISTER_NAMES;
+
+/* Array containing all of the register class names.  */
+
+const char * reg_class_names[] = REG_CLASS_NAMES;
 
 /* For each hard register, the widest mode object that it can contain.
    This will be a MODE_INT mode if the register can hold integers.  Otherwise
@@ -774,7 +778,7 @@ fix_register (const char *name, int fixed, int call_used)
     }
   else
     {
-      warning ("unknown register name: %s", name);
+      warning (0, "unknown register name: %s", name);
     }
 }
 
@@ -788,12 +792,12 @@ globalize_reg (int i)
 
   if (global_regs[i])
     {
-      warning ("register used for two global register variables");
+      warning (0, "register used for two global register variables");
       return;
     }
 
   if (call_used_regs[i] && ! fixed_regs[i])
-    warning ("call-clobbered register used for global register variable");
+    warning (0, "call-clobbered register used for global register variable");
 
   global_regs[i] = 1;
 
@@ -925,7 +929,6 @@ regclass_init (void)
 static void
 dump_regclass (FILE *dump)
 {
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
   int i;
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
@@ -1348,7 +1351,6 @@ regclass (rtx f, int nregs, FILE *dump)
 	      && (reg_pref[i].prefclass != (int) best
 		  || reg_pref[i].altclass != (int) alt))
 	    {
-	      static const char *const reg_class_names[] = REG_CLASS_NAMES;
 	      fprintf (dump, "  Register %i", i);
 	      if (alt == ALL_REGS || best == ALL_REGS)
 		fprintf (dump, " pref %s\n", reg_class_names[(int) best]);
@@ -2303,7 +2305,7 @@ int max_parallel;
 static int max_set_parallel;
 
 void
-reg_scan (rtx f, unsigned int nregs, int repeat ATTRIBUTE_UNUSED)
+reg_scan (rtx f, unsigned int nregs)
 {
   rtx insn;
 

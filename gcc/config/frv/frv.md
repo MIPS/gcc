@@ -1,5 +1,6 @@
 ;; Frv Machine Description
-;; Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation,
+;; Inc.
 ;; Contributed by Red Hat, Inc.
 
 ;; This file is part of GCC.
@@ -41,6 +42,15 @@
    (UNSPEC_GOT			7)
    (UNSPEC_LDD			8)
 
+   (UNSPEC_GETTLSOFF			200)
+   (UNSPEC_TLS_LOAD_GOTTLSOFF12		201)
+   (UNSPEC_TLS_INDIRECT_CALL		202)
+   (UNSPEC_TLS_TLSDESC_LDD		203)
+   (UNSPEC_TLS_TLSDESC_LDD_AUX		204)
+   (UNSPEC_TLS_TLSOFF_LD		205)
+   (UNSPEC_TLS_LDDI			206)
+   (UNSPEC_TLSOFF_HILO			207)
+
    (R_FRV_GOT12			11)
    (R_FRV_GOTHI			12)
    (R_FRV_GOTLO			13)
@@ -58,7 +68,21 @@
    (R_FRV_GPREL12		25)
    (R_FRV_GPRELHI		26)
    (R_FRV_GPRELLO		27)
+   (R_FRV_GOTTLSOFF_HI		28)
+   (R_FRV_GOTTLSOFF_LO		29)
+   (R_FRV_TLSMOFFHI		30)
+   (R_FRV_TLSMOFFLO           	31)
+   (R_FRV_TLSMOFF12           	32)
+   (R_FRV_TLSDESCHI           	33)
+   (R_FRV_TLSDESCLO           	34)
+   (R_FRV_GOTTLSDESCHI		35)
+   (R_FRV_GOTTLSDESCLO		36)
 
+   (GR8_REG			8)
+   (GR9_REG			9)
+   (GR14_REG			14)
+   ;; LR_REG conflicts with definition in frv.h
+   (LRREG                       169)
    (FDPIC_REG			15)
    ])
 
@@ -330,7 +354,7 @@
 ;; Instruction type
 ;; "unknown" must come last.
 (define_attr "type"
-  "int,sethi,setlo,mul,div,gload,gstore,fload,fstore,movfg,movgf,macc,scan,cut,branch,jump,jumpl,call,spr,trap,fnop,fsconv,fsadd,fscmp,fsmul,fsmadd,fsdiv,sqrt_single,fdconv,fdadd,fdcmp,fdmul,fdmadd,fddiv,sqrt_double,mnop,mlogic,maveh,msath,maddh,mqaddh,mpackh,munpackh,mdpackh,mbhconv,mrot,mshift,mexpdhw,mexpdhd,mwcut,mmulh,mmulxh,mmach,mmrdh,mqmulh,mqmulxh,mqmach,mcpx,mqcpx,mcut,mclracc,mclracca,mdunpackh,mbhconve,mrdacc,mwtacc,maddacc,mdaddacc,mabsh,mdrot,mcpl,mdcut,mqsath,mqlimh,mqshift,mset,ccr,multi,unknown"
+  "int,sethi,setlo,mul,div,gload,gstore,fload,fstore,movfg,movgf,macc,scan,cut,branch,jump,jumpl,call,spr,trap,fnop,fsconv,fsadd,fscmp,fsmul,fsmadd,fsdiv,sqrt_single,fdconv,fdadd,fdcmp,fdmul,fdmadd,fddiv,sqrt_double,mnop,mlogic,maveh,msath,maddh,mqaddh,mpackh,munpackh,mdpackh,mbhconv,mrot,mshift,mexpdhw,mexpdhd,mwcut,mmulh,mmulxh,mmach,mmrdh,mqmulh,mqmulxh,mqmach,mcpx,mqcpx,mcut,mclracc,mclracca,mdunpackh,mbhconve,mrdacc,mwtacc,maddacc,mdaddacc,mabsh,mdrot,mcpl,mdcut,mqsath,mqlimh,mqshift,mset,ccr,multi,load_or_call,unknown"
   (const_string "unknown"))
 
 (define_attr "acc_group" "none,even,odd"
@@ -527,6 +551,11 @@
 ;; Generic reservation for control insns
 (define_insn_reservation "control" 1
   (eq_attr "type" "trap,spr,unknown,multi")
+  "c + control")
+
+;; Reservation for relaxable calls to gettlsoff.
+(define_insn_reservation "load_or_call" 3
+  (eq_attr "type" "load_or_call")
   "c + control")
 
 ;; ::::::::::::::::::::
@@ -739,6 +768,9 @@
 ;; of memory unit collision in the same packet.  There's only one divide
 ;; unit too.
 
+(define_automaton "fr400_integer")
+(define_cpu_unit "fr400_mul" "fr400_integer")
+
 (define_insn_reservation "fr400_i1_int" 1
   (and (eq_attr "cpu" "fr400,fr405,fr450")
        (eq_attr "type" "int"))
@@ -759,18 +791,18 @@
 (define_insn_reservation "fr400_i1_mul" 3
   (and (eq_attr "cpu" "fr400,fr405")
        (eq_attr "type" "mul"))
-  "i0")
+  "i0 + fr400_mul")
 
 (define_insn_reservation "fr450_i1_mul" 2
   (and (eq_attr "cpu" "fr450")
        (eq_attr "type" "mul"))
-  "i0")
+  "i0 + fr400_mul")
 
 (define_bypass 1 "fr400_i1_macc" "fr400_i1_macc")
 (define_insn_reservation "fr400_i1_macc" 2
   (and (eq_attr "cpu" "fr405,fr450")
        (eq_attr "type" "macc"))
-  "i0|i1")
+  "(i0|i1) + fr400_mul")
 
 (define_insn_reservation "fr400_i1_scan" 1
   (and (eq_attr "cpu" "fr400,fr405,fr450")
@@ -780,7 +812,7 @@
 (define_insn_reservation "fr400_i1_cut" 2
   (and (eq_attr "cpu" "fr405,fr450")
        (eq_attr "type" "cut"))
-  "i0")
+  "i0 + fr400_mul")
 
 ;; 20 is for a write-after-write hazard.
 (define_insn_reservation "fr400_i1_div" 20
@@ -1174,7 +1206,7 @@
        (eq_attr "type" "sqrt_single"))
   "(f1|f0) + fr550_float")
 
-;; Synthetic units for enforcing media issue restructions.  Certain types
+;; Synthetic units for enforcing media issue restrictions.  Certain types
 ;; of insn in M2 conflict with certain types in M0:
 ;;
 ;;			     M2
@@ -1472,6 +1504,7 @@
 ;; )
 ;;
 
+(include "predicates.md")
 
 ;; ::::::::::::::::::::
 ;; ::
@@ -1636,7 +1669,7 @@
 ;; Note - it is best to only have one movsi pattern and to handle
 ;; all the various contingencies by the use of alternatives.  This
 ;; allows reload the greatest amount of flexibility (since reload will
-;; only choose amoungst alternatives for a selected insn, it will not
+;; only choose amongst alternatives for a selected insn, it will not
 ;; replace the insn with another one).
 
 ;; Unfortunately, we do have to separate out load-type moves from the rest,
@@ -2394,7 +2427,7 @@
 ;; to make it conditional on reload.
 
 (define_expand "movcc_fp"
-  [(set (match_operand:CC_FP 0 "move_destination_operand" "")
+  [(set (match_operand:CC_FP 0 "movcc_fp_destination_operand" "")
 	(match_operand:CC_FP 1 "move_source_operand" ""))]
   "TARGET_HAS_FPRS"
   "
@@ -2404,7 +2437,7 @@
 }")
 
 (define_insn "*movcc_fp_internal"
-  [(set (match_operand:CC_FP 0 "move_destination_operand" "=d,d,d,m")
+  [(set (match_operand:CC_FP 0 "movcc_fp_destination_operand" "=d,d,d,m")
 	(match_operand:CC_FP 1 "move_source_operand" "u,d,m,d"))]
   "TARGET_HAS_FPRS && (reload_in_progress || reload_completed)"
   "@
@@ -2418,7 +2451,7 @@
 
 (define_expand "reload_incc_fp"
   [(match_operand:CC_FP 0 "fcc_operand" "=u")
-   (match_operand:CC_FP 1 "memory_operand" "m")
+   (match_operand:CC_FP 1 "gpr_or_memory_operand_with_scratch" "m")
    (match_operand:TI 2 "integer_register_operand" "=&d")]
   "TARGET_HAS_FPRS"
   "
@@ -2429,6 +2462,25 @@
   rtx temp2 = simplify_gen_subreg (SImode, operands[2], TImode, 8);
   int shift = CC_SHIFT_RIGHT (REGNO (operands[0]));
   HOST_WIDE_INT mask;
+
+  if (!gpr_or_memory_operand (operands[1], CC_FPmode))
+    {
+      rtx addr;
+      rtx temp3 = simplify_gen_subreg (SImode, operands[2], TImode, 12);
+
+      gcc_assert (GET_CODE (operands[1]) == MEM);
+
+      addr = XEXP (operands[1], 0);
+
+      gcc_assert (GET_CODE (addr) == PLUS);
+
+      emit_move_insn (temp3, XEXP (addr, 1));
+
+      operands[1] = replace_equiv_address (operands[1],
+					   gen_rtx_PLUS (GET_MODE (addr),
+							 XEXP (addr, 0),
+							 temp3));
+    }
 
   emit_insn (gen_movcc_fp (cc_op2, operands[1]));
   if (shift)
@@ -4425,7 +4477,7 @@
       case ASHIFT:   return \"csll %4, %z5, %2, %1, %e0\";
       case ASHIFTRT: return \"csra %4, %z5, %2, %1, %e0\";
       case LSHIFTRT: return \"csrl %4, %z5, %2, %1, %e0\";
-      default:       abort ();
+      default:       gcc_unreachable ();
     }
 }"
   [(set_attr "length" "4")
@@ -4448,7 +4500,7 @@
       case AND: return \"cmand %4, %5, %2, %1, %e0\";
       case IOR: return \"cmor %4, %5, %2, %1, %e0\";
       case XOR: return \"cmxor %4, %5, %2, %1, %e0\";
-      default:  abort ();
+      default:  gcc_unreachable ();
     }
 }"
   [(set_attr "length" "4")
@@ -4489,7 +4541,7 @@
     {
       case DIV:  return \"csdiv %4, %z5, %2, %1, %e0\";
       case UDIV: return \"cudiv %4, %z5, %2, %1, %e0\";
-      default:   abort ();
+      default:   gcc_unreachable ();
     }
 }"
   [(set_attr "length" "4")
@@ -4510,7 +4562,7 @@
     {
       case NOT: return \"cnot %4, %2, %1, %e0\";
       case NEG: return \"csub %., %4, %2, %1, %e0\";
-      default:  abort ();
+      default:  gcc_unreachable ();
     }
 }"
   [(set_attr "length" "4")
@@ -4585,7 +4637,7 @@
     {
       case ABS: return \"cfabss %4, %2, %1, %e0\";
       case NEG: return \"cfnegs %4, %2, %1, %e0\";
-      default:  abort ();
+      default:  gcc_unreachable ();
     }
 }"
   [(set_attr "length" "4")
@@ -4607,7 +4659,7 @@
     {
       case PLUS:  return \"cfadds %4, %5, %2, %1, %e0\";
       case MINUS: return \"cfsubs %4, %5, %2, %1, %e0\";
-      default:    abort ();
+      default:    gcc_unreachable ();
     }
 }"
   [(set_attr "length" "4")
@@ -5350,8 +5402,7 @@
   rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
   rtx addr;
 
-  if (GET_CODE (operands[0]) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (operands[0]) == MEM);
 
   addr = XEXP (operands[0], 0);
   if (! call_operand (addr, Pmode))
@@ -5436,8 +5487,7 @@
 {
   rtx addr;
 
-  if (GET_CODE (operands[0]) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (operands[0]) == MEM);
 
   addr = XEXP (operands[0], 0);
   if (! sibcall_operand (addr, Pmode))
@@ -5504,8 +5554,7 @@
   rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
   rtx addr;
 
-  if (GET_CODE (operands[1]) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (operands[1]) == MEM);
 
   addr = XEXP (operands[1], 0);
   if (! call_operand (addr, Pmode))
@@ -5571,8 +5620,7 @@
 {
   rtx addr;
 
-  if (GET_CODE (operands[1]) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (operands[1]) == MEM);
 
   addr = XEXP (operands[1], 0);
   if (! sibcall_operand (addr, Pmode))
@@ -5784,11 +5832,9 @@
   rtx reg2;
   rtx reg3;
 
-  if (GET_CODE (operands[1]) != CONST_INT)
-    abort ();
+  gcc_assert (GET_CODE (operands[1]) == CONST_INT);
 
-  if (GET_CODE (operands[2]) != CONST_INT)
-    abort ();
+  gcc_assert (GET_CODE (operands[2]) == CONST_INT);
 
   /* If we can't generate an immediate instruction, promote to register.  */
   if (! IN_RANGE_P (INTVAL (range), -2048, 2047))
@@ -5860,7 +5906,7 @@
 ;; Called after register allocation to add any instructions needed for the
 ;; epilogue.  Using an epilogue insn is favored compared to putting all of the
 ;; instructions in the FUNCTION_EPILOGUE macro, since it allows the scheduler
-;; to intermix instructions with the restires of the caller saved registers.
+;; to intermix instructions with the restores of the caller saved registers.
 ;; In some cases, it might be necessary to emit a barrier instruction as the
 ;; first insn to prevent such scheduling.
 (define_expand "epilogue"
@@ -8134,3 +8180,119 @@
   "TARGET_FR500_FR550_BUILTINS"
   "nop.p\\n\\tnldub @(%0, gr0), gr0"
   [(set_attr "length" "8")])
+
+;; TLS patterns
+
+(define_insn "call_gettlsoff"
+  [(set (match_operand:SI 0 "register_operand" "=D09")
+	(unspec:SI
+	 [(match_operand:SI 1 "symbolic_operand" "")]
+	 UNSPEC_GETTLSOFF))
+   (clobber (reg:SI GR8_REG))
+   (clobber (reg:SI LRREG))
+   (use (match_operand:SI 2 "register_operand" "D15"))]
+  "HAVE_AS_TLS"
+  "call #gettlsoff(%a1)"
+  [(set_attr "length" "4")
+   (set_attr "type" "load_or_call")])
+
+;; We have to expand this like a libcall (it sort of actually is)
+;; because otherwise sched may move, for example, an insn that sets up
+;; GR8 for a subsequence call before the *tls_indirect_call insn, and
+;; then reload won't be able to fix things up.
+(define_expand "tls_indirect_call"
+  [(set (reg:DI GR8_REG)
+	(match_operand:DI 2 "register_operand" ""))
+   (parallel
+    [(set (reg:SI GR9_REG)
+	  (unspec:SI
+	   [(match_operand:SI 1 "symbolic_operand" "")
+	   (reg:DI GR8_REG)]
+	   UNSPEC_TLS_INDIRECT_CALL))
+    (clobber (reg:SI GR8_REG))
+    (clobber (reg:SI LRREG))
+    (use (match_operand:SI 3 "register_operand" ""))])
+   (set (match_operand:SI 0 "register_operand" "")
+	(reg:SI GR9_REG))]
+  "HAVE_AS_TLS")
+
+(define_insn "*tls_indirect_call"
+  [(set (reg:SI GR9_REG)
+	(unspec:SI
+	 [(match_operand:SI 0 "symbolic_operand" "")
+	  (reg:DI GR8_REG)]
+	 UNSPEC_TLS_INDIRECT_CALL))
+   (clobber (reg:SI GR8_REG))
+   (clobber (reg:SI LRREG))
+   ;; If there was a way to represent the fact that we don't need GR9
+   ;; or GR15 to be set before this instruction (it could be in
+   ;; parallel), we could use it here.  This change wouldn't apply to
+   ;; call_gettlsoff, thought, since the linker may turn the latter
+   ;; into ldi @(gr15,offset),gr9.
+   (use (match_operand:SI 1 "register_operand" "D15"))]
+  "HAVE_AS_TLS"
+  "calll #gettlsoff(%a0)@(gr8,gr0)"
+  [(set_attr "length" "4")
+   (set_attr "type" "jumpl")])
+
+(define_insn "tls_load_gottlsoff12"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI
+	 [(match_operand:SI 1 "symbolic_operand" "")
+	  (match_operand:SI 2 "register_operand" "r")]
+	 UNSPEC_TLS_LOAD_GOTTLSOFF12))]
+  "HAVE_AS_TLS"
+  "ldi @(%2, #gottlsoff12(%1)), %0"
+  [(set_attr "length" "4")])
+
+(define_expand "tlsoff_hilo"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(high:SI (const:SI (unspec:SI
+			    [(match_operand:SI 1 "symbolic_operand" "")
+			     (match_operand:SI 2 "immediate_operand" "n")]
+			    UNSPEC_GOT))))
+   (set (match_dup 0)
+	(lo_sum:SI (match_dup 0)
+		   (const:SI (unspec:SI [(match_dup 1)
+					 (match_dup 3)] UNSPEC_GOT))))]
+  ""
+  "
+{
+  operands[3] = GEN_INT (INTVAL (operands[2]) + 1);
+}")
+
+;; Just like movdi_ldd, but with relaxation annotations.
+(define_insn "tls_tlsdesc_ldd"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(mem:DI (unspec:SI
+			     [(match_operand:SI 1 "register_operand" "r")
+			      (match_operand:SI 2 "register_operand" "r")
+			      (match_operand:SI 3 "symbolic_operand" "")]
+			     UNSPEC_TLS_TLSDESC_LDD_AUX))]
+		   UNSPEC_TLS_TLSDESC_LDD))]
+  ""
+  "ldd #tlsdesc(%a3)@(%1,%2), %0"
+  [(set_attr "length" "4")
+   (set_attr "type" "gload")])
+
+(define_insn "tls_tlsoff_ld"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(mem:SI (unspec:SI
+		 [(match_operand:SI 1 "register_operand" "r")
+		  (match_operand:SI 2 "register_operand" "r")
+		  (match_operand:SI 3 "symbolic_operand" "")]
+		 UNSPEC_TLS_TLSOFF_LD)))]
+  ""
+  "ld #tlsoff(%a3)@(%1,%2), %0"
+  [(set_attr "length" "4")
+   (set_attr "type" "gload")])
+
+(define_insn "tls_lddi"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:SI 1 "symbolic_operand" "")
+		    (match_operand:SI 2 "register_operand" "d")]
+		   UNSPEC_TLS_LDDI))]
+  ""
+  "lddi @(%2, #gottlsdesc12(%a1)), %0"
+  [(set_attr "length" "4")
+   (set_attr "type" "gload")])

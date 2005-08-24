@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -55,6 +55,7 @@ with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Disp; use Sem_Disp;
+with Sem_Dist; use Sem_Dist;
 with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
 with Sem_Intr; use Sem_Intr;
@@ -4306,14 +4307,32 @@ package body Sem_Prag is
          ------------
 
          --  pragma Ada_05;
+         --  pragma Ada_05 (LOCAL_NAME);
 
          --  Note: this pragma also has some specific processing in Par.Prag
-         --  because we want to set the Ada 83 version mode during parsing.
+         --  because we want to set the Ada 2005 version mode during parsing.
 
-         when Pragma_Ada_05 =>
+         when Pragma_Ada_05 => declare
+            E_Id : Node_Id;
+
+         begin
             GNAT_Pragma;
-            Ada_Version := Ada_05;
-            Check_Arg_Count (0);
+
+            if Arg_Count = 1 then
+               Check_Arg_Is_Local_Name (Arg1);
+               E_Id := Expression (Arg1);
+
+               if Etype (E_Id) = Any_Type then
+                  return;
+               end if;
+
+               Set_Is_Ada_2005 (Entity (E_Id));
+
+            else
+               Ada_Version := Ada_05;
+               Check_Arg_Count (0);
+            end if;
+         end;
 
          ----------------------
          -- All_Calls_Remote --
@@ -4587,13 +4606,20 @@ package body Sem_Prag is
                Error_Pragma_Arg
                  ("pragma% cannot be applied to function", Arg1);
 
-            elsif Ekind (Nm) = E_Record_Type
-              and then Present (Corresponding_Remote_Type (Nm))
-            then
-               --  A record type that is the Equivalent_Type for
-               --  a remote access-to-subprogram type.
+            elsif Is_Remote_Access_To_Subprogram_Type (Nm) then
 
-               N := Declaration_Node (Corresponding_Remote_Type (Nm));
+               if Is_Record_Type (Nm) then
+                  --  A record type that is the Equivalent_Type for
+                  --  a remote access-to-subprogram type.
+
+                  N := Declaration_Node (Corresponding_Remote_Type (Nm));
+
+               else
+                  --  A non-expanded RAS type (case where distribution is
+                  --  not enabled).
+
+                  N := Declaration_Node (Nm);
+               end if;
 
                if Nkind (N) = N_Full_Type_Declaration
                  and then Nkind (Type_Definition (N)) =
@@ -4604,9 +4630,9 @@ package body Sem_Prag is
 
                   if Is_Asynchronous (Nm)
                     and then Expander_Active
+                    and then Get_PCS_Name /= Name_No_DSA
                   then
-                     RACW_Type_Is_Asynchronous (
-                       Underlying_RACW_Type (Nm));
+                     RACW_Type_Is_Asynchronous (Underlying_RACW_Type (Nm));
                   end if;
 
                else
@@ -5161,7 +5187,7 @@ package body Sem_Prag is
 
                if Expander_Active and then Typ = Root_Type (Typ) then
 
-                  Tag_C := Tag_Component (Typ);
+                  Tag_C := First_Tag_Component (Typ);
                   C := First_Entity (Typ);
 
                   if C = Tag_C then
@@ -5295,7 +5321,7 @@ package body Sem_Prag is
             --    . DT_Position will be set at the freezing point
 
             if Arg_Count = 1 then
-               Set_DTC_Entity (Subp, Tag_Component (Typ));
+               Set_DTC_Entity (Subp, First_Tag_Component (Typ));
                return;
             end if;
 
@@ -5413,9 +5439,9 @@ package body Sem_Prag is
             --  If it is the first pragma Vtable, This becomes the default tag
 
             elsif (not Is_Tag (DTC))
-              and then DT_Entry_Count (Tag_Component (Typ)) = No_Uint
+              and then DT_Entry_Count (First_Tag_Component (Typ)) = No_Uint
             then
-               Set_Is_Tag (Tag_Component (Typ), False);
+               Set_Is_Tag (First_Tag_Component (Typ), False);
                Set_Is_Tag (DTC, True);
                Set_DT_Entry_Count (DTC, No_Uint);
             end if;
@@ -5623,7 +5649,19 @@ package body Sem_Prag is
                   then
                      Set_Elaborate_Present (Citem, True);
                      Set_Unit_Name (Expression (Arg), Name (Citem));
-                     Set_Suppress_Elaboration_Warnings (Entity (Name (Citem)));
+
+                     --  With the pragma present, elaboration calls on
+                     --  subprograms from the named unit need no further
+                     --  checks, as long as the pragma appears in the current
+                     --  compilation unit. If the pragma appears in some unit
+                     --  in the context, there might still be a need for an
+                     --  Elaborate_All_Desirable from the current compilation
+                     --  to the the named unit, so we keep the check enabled.
+
+                     if In_Extended_Main_Source_Unit (N) then
+                        Set_Suppress_Elaboration_Warnings
+                          (Entity (Name (Citem)));
+                     end if;
                      exit Inner;
                   end if;
 
@@ -5708,7 +5746,15 @@ package body Sem_Prag is
                   then
                      Set_Elaborate_All_Present (Citem, True);
                      Set_Unit_Name (Expression (Arg), Name (Citem));
-                     Set_Suppress_Elaboration_Warnings (Entity (Name (Citem)));
+
+                     --  Suppress warnings and elaboration checks on the named
+                     --  unit if the pragma is in the current compilation, as
+                     --  for pragma Elaborate.
+
+                     if In_Extended_Main_Source_Unit (N) then
+                        Set_Suppress_Elaboration_Warnings
+                          (Entity (Name (Citem)));
+                     end if;
                      exit Innr;
                   end if;
 
@@ -7935,21 +7981,63 @@ package body Sem_Prag is
          --  pragma Obsolescent [(static_string_EXPRESSION)];
 
          when Pragma_Obsolescent => Obsolescent : declare
+            Subp : Node_Or_Entity_Id;
+            S    : String_Id;
+
          begin
             GNAT_Pragma;
             Check_At_Most_N_Arguments (1);
             Check_No_Identifiers;
 
-            if Arg_Count = 1 then
-               Check_Arg_Is_Static_Expression (Arg1, Standard_String);
+            --  Check OK placement
+
+            --  First possibility is within a declarative region, where the
+            --  pragma immediately follows a subprogram declaration.
+
+            if Present (Prev (N)) then
+               Subp := Prev (N);
+
+            --  Second possibility, stand alone subprogram declaration with the
+            --  pragma immediately following the declaration.
+
+            elsif No (Prev (N))
+              and then Nkind (Parent (N)) = N_Compilation_Unit_Aux
+            then
+               Subp := Unit (Parent (Parent (N)));
+
+            --  Any other possibility is a misplacement
+
+            else
+               Subp := Empty;
             end if;
 
-            if No (Prev (N))
-              or else (Nkind (Prev (N))) /= N_Subprogram_Declaration
-            then
+            --  Check correct placement
+
+            if Nkind (Subp) /= N_Subprogram_Declaration then
                Error_Pragma
                  ("pragma% misplaced, must immediately " &
                   "follow subprogram spec");
+
+            --  If OK placement, set flag and acquire argument
+
+            else
+               Subp := Defining_Entity (Subp);
+               Set_Is_Obsolescent (Subp);
+
+               if Arg_Count = 1 then
+                  Check_Arg_Is_Static_Expression (Arg1, Standard_String);
+                  S := Strval (Expression (Arg1));
+
+                  for J in 1 .. String_Length (S) loop
+                     if not In_Character_Range (Get_String_Char (S, J)) then
+                        Error_Pragma_Arg
+                          ("pragma% argument does not allow wide characters",
+                           Arg1);
+                     end if;
+                  end loop;
+
+                  Set_Obsolescent_Warning (Subp, Expression (Arg1));
+               end if;
             end if;
          end Obsolescent;
 
@@ -8021,13 +8109,6 @@ package body Sem_Prag is
          --  yet, it appears in the wrong place.
 
          when Pragma_Optional_Overriding =>
-            Error_Msg_N ("pragma must appear immediately after subprogram", N);
-
-         ----------------
-         -- Overriding --
-         ----------------
-
-         when Pragma_Overriding =>
             Error_Msg_N ("pragma must appear immediately after subprogram", N);
 
          ----------
@@ -10325,7 +10406,6 @@ package body Sem_Prag is
       Pragma_Obsolescent                  =>  0,
       Pragma_Optimize                     => -1,
       Pragma_Optional_Overriding          => -1,
-      Pragma_Overriding                   => -1,
       Pragma_Pack                         =>  0,
       Pragma_Page                         => -1,
       Pragma_Passive                      => -1,

@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -262,6 +262,36 @@ default_scalar_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* TRUE if INSN insn is valid within a low-overhead loop.
+  
+   This function checks whether a given INSN is valid within a low-overhead
+   loop.  A called function may clobber any special registers required for
+   low-overhead looping. Additionally, some targets (eg, PPC) use the count
+   register for branch on table instructions. We reject the doloop pattern in
+   these cases.  */
+
+bool 
+default_insn_valid_within_doloop (rtx insn)
+{
+  if (CALL_P (insn))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Doloop: Function call in loop.\n");
+	return false;
+    }
+  
+  if (JUMP_P (insn)
+      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+	  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Doloop: Computed branch in the loop.\n");
+      return false;
+    }
+  
+  return true;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
@@ -287,4 +317,13 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
   return 0;
+}
+
+const char *
+hook_invalid_arg_for_unprototyped_fn (
+	tree typelist ATTRIBUTE_UNUSED,
+	tree funcdecl ATTRIBUTE_UNUSED,
+	tree val ATTRIBUTE_UNUSED)
+{
+  return NULL;
 }

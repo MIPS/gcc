@@ -1,6 +1,6 @@
 # -*- makefile -*-
 # Top level makefile fragment for GNU gfortran, the GNU Fortran 95 compiler.
-# Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+# Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 # Contributed by Paul Brook <paul@nowt.org
 # and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -48,14 +48,15 @@ GFORTRAN_CROSS_NAME := $(shell echo gfortran|sed '$(program_transform_cross_name
 
 #^L
 
-# This is in addition to the warning flags defined by default.
-# You can use it to enable/disable warnings globally or for specific
-# files, e.g.
-# fortran-warn = -Wno-strict-prototypes
-# fortran/arith.o-warn = -Wno-error
-#
-# We don't need these cheats, everything builds fine with all warnings
-# enabled and -Werror.
+# Use strict warnings for this front end.
+fortran-warn = $(STRICT_WARN)
+
+# These files get warnings from an inline function in GMP saying:
+# "control may reach end of non-void function '__gmpz_get_ui' being inlined"
+fortran/expr.o-warn = -Wno-error
+fortran/resolve.o-warn = -Wno-error
+fortran/simplify.o-warn = -Wno-error
+fortran/trans-common.o-warn = -Wno-error
 
 # These are the groups of object files we have.  The F95_PARSER_OBJS are
 # all the front end files, the F95_OBJS are the files for the translation
@@ -153,7 +154,8 @@ GFORTRAN_TEXI = \
   $(srcdir)/doc/include/fdl.texi \
   $(srcdir)/doc/include/gpl.texi \
   $(srcdir)/doc/include/funding.texi \
-  $(srcdir)/doc/include/gcc-common.texi
+  $(srcdir)/doc/include/gcc-common.texi \
+  gcc-vers.texi
 
 doc/gfortran.info: $(GFORTRAN_TEXI)
 	if [ x$(BUILD_INFO) = xinfo ]; then \
@@ -282,7 +284,7 @@ fortran/f95-lang.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
 fortran/convert.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans-decl.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-decl.h \
-  cgraph.h $(TARGET_H) function.h errors.h $(FLAGS_H) tree-gimple.h \
+  cgraph.h $(TARGET_H) function.h $(FLAGS_H) tree-gimple.h \
   tree-dump.h
 fortran/trans-types.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-types.h \
   real.h toplev.h $(TARGET_H)

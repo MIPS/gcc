@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -26,7 +26,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "rtl.h"
 #include "basic-block.h"
-#include "function.h"
 #include "tree-flow.h"
 #include "timevar.h"
 #include "toplev.h"
@@ -73,7 +72,7 @@ void
 verify_flow_info (void)
 {
   size_t *edge_checksum;
-  int num_bb_notes, err = 0;
+  int err = 0;
   basic_block bb, last_bb_seen;
   basic_block *last_visited;
 
@@ -216,7 +215,6 @@ verify_flow_info (void)
 	err = 1;
       }
 
-  num_bb_notes = 0;
   last_bb_seen = ENTRY_BLOCK_PTR;
 
   /* Clean up.  */
@@ -409,18 +407,18 @@ split_edge (edge e)
   ret = cfg_hooks->split_edge (e);
   ret->count = count;
   ret->frequency = freq;
-  EDGE_SUCC (ret, 0)->probability = REG_BR_PROB_BASE;
-  EDGE_SUCC (ret, 0)->count = count;
+  single_succ_edge (ret)->probability = REG_BR_PROB_BASE;
+  single_succ_edge (ret)->count = count;
 
   if (irr)
     {
       ret->flags |= BB_IRREDUCIBLE_LOOP;
-      EDGE_PRED (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
-      EDGE_SUCC (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_pred_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_succ_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
   if (dom_computed[CDI_DOMINATORS])
-    set_immediate_dominator (CDI_DOMINATORS, ret, EDGE_PRED (ret, 0)->src);
+    set_immediate_dominator (CDI_DOMINATORS, ret, single_pred (ret));
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
     {
@@ -433,22 +431,22 @@ split_edge (edge e)
 	 ret, provided that all other predecessors of e->dest are
 	 dominated by e->dest.  */
 
-      if (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest)
-	  == EDGE_PRED (ret, 0)->src)
+      if (get_immediate_dominator (CDI_DOMINATORS, single_succ (ret))
+	  == single_pred (ret))
 	{
 	  edge_iterator ei;
-	  FOR_EACH_EDGE (f, ei, EDGE_SUCC (ret, 0)->dest->preds)
+	  FOR_EACH_EDGE (f, ei, single_succ (ret)->preds)
 	    {
-	      if (f == EDGE_SUCC (ret, 0))
+	      if (f == single_succ_edge (ret))
 		continue;
 
 	      if (!dominated_by_p (CDI_DOMINATORS, f->src,
-				   EDGE_SUCC (ret, 0)->dest))
+				   single_succ (ret)))
 		break;
 	    }
 
 	  if (!f)
-	    set_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest, ret);
+	    set_immediate_dominator (CDI_DOMINATORS, single_succ (ret), ret);
 	}
     };
 
@@ -659,9 +657,9 @@ tidy_fallthru_edges (void)
 	 merge the flags for the duplicate edges.  So we do not want to
 	 check that the edge is not a FALLTHRU edge.  */
 
-      if (EDGE_COUNT (b->succs) == 1)
+      if (single_succ_p (b))
 	{
-	  s = EDGE_SUCC (b, 0);
+	  s = single_succ_edge (b);
 	  if (! (s->flags & EDGE_COMPLEX)
 	      && s->dest == c
 	      && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
@@ -825,3 +823,66 @@ execute_on_shrinking_pred (edge e)
   if (cfg_hooks->execute_on_shrinking_pred)
     cfg_hooks->execute_on_shrinking_pred (e);
 }
+
+/* This is used inside loop versioning when we want to insert 
+   stmts/insns on the edges, which have a different behavior 
+   in tree's and in RTL, so we made a CFG hook.  */
+void
+lv_flush_pending_stmts (edge e)
+{
+  if (cfg_hooks->flush_pending_stmts)
+    cfg_hooks->flush_pending_stmts (e);
+}
+
+/* Loop versioning uses the duplicate_loop_to_header_edge to create
+   a new version of the loop basic-blocks, the parameters here are
+   exactly the same as in duplicate_loop_to_header_edge or
+   tree_duplicate_loop_to_header_edge; while in tree-ssa there is
+   additional work to maintain ssa information that's why there is
+   a need to call the tree_duplicate_loop_to_header_edge rather
+   than duplicate_loop_to_header_edge when we are in tree mode.  */
+bool
+cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge e,
+					struct loops *loops, unsigned int ndupl,
+					sbitmap wont_exit, edge orig,
+					edge *to_remove,
+					unsigned int *n_to_remove, int flags)
+{
+  gcc_assert (cfg_hooks->cfg_hook_duplicate_loop_to_header_edge);
+  return cfg_hooks->cfg_hook_duplicate_loop_to_header_edge (loop, e, loops, 							    
+							    ndupl, wont_exit,
+							    orig, to_remove,
+							    n_to_remove, flags);
+}
+
+/* Conditional jumps are represented differently in trees and RTL,
+   this hook takes a basic block that is known to have a cond jump
+   at its end and extracts the taken and not taken eges out of it
+   and store it in E1 and E2 respectively.  */
+void
+extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
+{
+  gcc_assert (cfg_hooks->extract_cond_bb_edges);
+  cfg_hooks->extract_cond_bb_edges (b, e1, e2);
+}
+
+/* Responsible for updating the ssa info (PHI nodes) on the
+   new condition basic block that guards the versioned loop.  */
+void
+lv_adjust_loop_header_phi (basic_block first, basic_block second,
+			   basic_block new, edge e)
+{
+  if (cfg_hooks->lv_adjust_loop_header_phi)
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+}
+
+/* Conditions in trees and RTL are different so we need
+   a different handling when we add the condition to the
+   versioning code.  */
+void
+lv_add_condition_to_bb (basic_block first, basic_block second,
+			basic_block new, void *cond)
+{
+  gcc_assert (cfg_hooks->lv_add_condition_to_bb);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+}  

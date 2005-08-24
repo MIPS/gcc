@@ -1,5 +1,6 @@
 /* If-conversion support.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -65,7 +66,6 @@
 #define MAX_CONDITIONAL_EXECUTE   (BRANCH_COST + 1)
 #endif
 
-#define NULL_EDGE	((edge) NULL)
 #define NULL_BLOCK	((basic_block) NULL)
 
 /* # of IF-THEN or IF-THEN-ELSE blocks we looked at  */
@@ -109,38 +109,7 @@ static int dead_or_predicable (basic_block, basic_block, basic_block,
 			       basic_block, int);
 static void noce_emit_move_insn (rtx, rtx);
 static rtx block_has_only_trap (basic_block);
-static void mark_loop_exit_edges (void);
 
-/* Sets EDGE_LOOP_EXIT flag for all loop exits.  */
-static void
-mark_loop_exit_edges (void)
-{
-  struct loops loops;
-  basic_block bb;
-  edge e;
-  
-  flow_loops_find (&loops, LOOP_TREE);
-  free_dominance_info (CDI_DOMINATORS);
-  
-  if (loops.num > 1)
-    {
-      FOR_EACH_BB (bb)
-	{
-	  edge_iterator ei;
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (find_common_loop (bb->loop_father, e->dest->loop_father)
-		  != bb->loop_father)
-		e->flags |= EDGE_LOOP_EXIT;
-	      else
-		e->flags &= ~EDGE_LOOP_EXIT;
-	    }
-	}
-    }
-
-  flow_loops_free (&loops);
-}
-
 /* Count the number of non-jump active insns in BB.  */
 
 static int
@@ -300,8 +269,7 @@ cond_exec_process_insns (ce_if_block_t *ce_info ATTRIBUTE_UNUSED,
       if (NOTE_P (insn))
 	goto insn_done;
 
-      if (!NONJUMP_INSN_P (insn) && !CALL_P (insn))
-	abort ();
+      gcc_assert(NONJUMP_INSN_P (insn) || CALL_P (insn));
 
       /* Remove USE insns that get in the way.  */
       if (reload_completed && GET_CODE (PATTERN (insn)) == USE)
@@ -713,20 +681,73 @@ noce_emit_store_flag (struct noce_if_info *if_info, rtx x, int reversep,
 static void
 noce_emit_move_insn (rtx x, rtx y)
 {
-  enum machine_mode outmode, inmode;
+  enum machine_mode outmode;
   rtx outer, inner;
   int bitpos;
 
   if (GET_CODE (x) != STRICT_LOW_PART)
     {
-      emit_move_insn (x, y);
+      rtx seq, insn, target;
+      optab ot;
+
+      start_sequence ();
+      /* Check that the SET_SRC is reasonable before calling emit_move_insn,
+	 otherwise construct a suitable SET pattern ourselves.  */
+      insn = (OBJECT_P (y) || CONSTANT_P (y) || GET_CODE (y) == SUBREG)
+	     ? emit_move_insn (x, y)
+	     : emit_insn (gen_rtx_SET (VOIDmode, x, y));
+      seq = get_insns ();
+      end_sequence();
+
+      if (recog_memoized (insn) <= 0)
+	switch (GET_RTX_CLASS (GET_CODE (y)))
+	  {
+	  case RTX_UNARY:
+	    ot = code_to_optab[GET_CODE (y)];
+	    if (ot)
+	      {
+		start_sequence ();
+		target = expand_unop (GET_MODE (y), ot, XEXP (y, 0), x, 0);
+		if (target != NULL_RTX)
+		  {
+		    if (target != x)
+		      emit_move_insn (x, target);
+		    seq = get_insns ();
+		  }
+		end_sequence ();
+	      }
+	    break;
+
+	  case RTX_BIN_ARITH:
+	  case RTX_COMM_ARITH:
+	    ot = code_to_optab[GET_CODE (y)];
+	    if (ot)
+	      {
+		start_sequence ();
+		target = expand_binop (GET_MODE (y), ot,
+				       XEXP (y, 0), XEXP (y, 1),
+				       x, 0, OPTAB_DIRECT);
+		if (target != NULL_RTX)
+		  {
+		    if (target != x)
+		      emit_move_insn (x, target);
+		    seq = get_insns ();
+		  }
+		end_sequence ();
+	      }
+	    break;
+
+	  default:
+	    break;
+	  }
+
+      emit_insn (seq);
       return;
     }
 
   outer = XEXP (x, 0);
   inner = XEXP (outer, 0);
   outmode = GET_MODE (outer);
-  inmode = GET_MODE (inner);
   bitpos = SUBREG_BYTE (outer) * BITS_PER_UNIT;
   store_bit_field (inner, GET_MODE_BITSIZE (outmode), bitpos, outmode, y);
 }
@@ -1228,6 +1249,7 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
   rtx a = if_info->a;
   rtx b = if_info->b;
   rtx x = if_info->x;
+  rtx orig_a, orig_b;
   rtx insn_a, insn_b;
   rtx tmp, target;
   int is_mem = 0;
@@ -1303,6 +1325,9 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 
   start_sequence ();
 
+  orig_a = a;
+  orig_b = b;
+
   /* If either operand is complex, load it into a register first.
      The best way to do this is to copy the original insn.  In this
      way we preserve any clobbers etc that the insn may have had.
@@ -1334,7 +1359,7 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
     }
   if (! general_operand (b, GET_MODE (b)))
     {
-      rtx set;
+      rtx set, last;
 
       if (no_new_pseudos)
 	goto end_seq_and_fail;
@@ -1342,9 +1367,7 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
       if (is_mem)
 	{
           tmp = gen_reg_rtx (GET_MODE (b));
-	  tmp = emit_insn (gen_rtx_SET (VOIDmode,
-				  	tmp,
-					b));
+	  tmp = gen_rtx_SET (VOIDmode, tmp, b);
 	}
       else if (! insn_b)
 	goto end_seq_and_fail;
@@ -1354,8 +1377,22 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	  tmp = copy_rtx (insn_b);
 	  set = single_set (tmp);
 	  SET_DEST (set) = b;
-	  tmp = emit_insn (PATTERN (tmp));
+	  tmp = PATTERN (tmp);
 	}
+
+      /* If insn to set up A clobbers any registers B depends on, try to
+	 swap insn that sets up A with the one that sets up B.  If even
+	 that doesn't help, punt.  */
+      last = get_last_insn ();
+      if (last && modified_in_p (orig_b, last))
+	{
+	  tmp = emit_insn_before (tmp, get_insns ());
+	  if (modified_in_p (orig_a, tmp))
+	    goto end_seq_and_fail;
+	}
+      else
+	tmp = emit_insn (tmp);
+
       if (recog_memoized (tmp) < 0)
 	goto end_seq_and_fail;
     }
@@ -1832,6 +1869,105 @@ noce_try_sign_mask (struct noce_if_info *if_info)
 }
 
 
+/* Optimize away "if (x & C) x |= C" and similar bit manipulation
+   transformations.  */
+
+static int
+noce_try_bitop (struct noce_if_info *if_info)
+{
+  rtx cond, x, a, result, seq;
+  enum machine_mode mode;
+  enum rtx_code code;
+  int bitnum;
+
+  x = if_info->x;
+  cond = if_info->cond;
+  code = GET_CODE (cond);
+
+  /* Check for no else condition.  */
+  if (! rtx_equal_p (x, if_info->b))
+    return FALSE;
+
+  /* Check for a suitable condition.  */
+  if (code != NE && code != EQ)
+    return FALSE;
+  if (XEXP (cond, 1) != const0_rtx)
+    return FALSE;
+  cond = XEXP (cond, 0);
+
+  /* ??? We could also handle AND here.  */
+  if (GET_CODE (cond) == ZERO_EXTRACT)
+    {
+      if (XEXP (cond, 1) != const1_rtx
+	  || GET_CODE (XEXP (cond, 2)) != CONST_INT
+	  || ! rtx_equal_p (x, XEXP (cond, 0)))
+	return FALSE;
+      bitnum = INTVAL (XEXP (cond, 2));
+      mode = GET_MODE (x);
+      if (bitnum >= HOST_BITS_PER_WIDE_INT)
+	return FALSE;
+    }
+  else
+    return FALSE;
+
+  a = if_info->a;
+  if (GET_CODE (a) == IOR || GET_CODE (a) == XOR)
+    {
+      /* Check for "if (X & C) x = x op C".  */
+      if (! rtx_equal_p (x, XEXP (a, 0))
+          || GET_CODE (XEXP (a, 1)) != CONST_INT
+	  || (INTVAL (XEXP (a, 1)) & GET_MODE_MASK (mode))
+	     != (unsigned HOST_WIDE_INT) 1 << bitnum)
+        return FALSE;
+
+      /* if ((x & C) == 0) x |= C; is transformed to x |= C.   */
+      /* if ((x & C) != 0) x |= C; is transformed to nothing.  */
+      if (GET_CODE (a) == IOR)
+	result = (code == NE) ? a : NULL_RTX;
+      else if (code == NE)
+	{
+	  /* if ((x & C) == 0) x ^= C; is transformed to x |= C.   */
+	  result = gen_int_mode ((HOST_WIDE_INT) 1 << bitnum, mode);
+	  result = simplify_gen_binary (IOR, mode, x, result);
+	}
+      else
+	{
+	  /* if ((x & C) != 0) x ^= C; is transformed to x &= ~C.  */
+	  result = gen_int_mode (~((HOST_WIDE_INT) 1 << bitnum), mode);
+	  result = simplify_gen_binary (AND, mode, x, result);
+	}
+    }
+  else if (GET_CODE (a) == AND)
+    {
+      /* Check for "if (X & C) x &= ~C".  */
+      if (! rtx_equal_p (x, XEXP (a, 0))
+	  || GET_CODE (XEXP (a, 1)) != CONST_INT
+	  || (INTVAL (XEXP (a, 1)) & GET_MODE_MASK (mode))
+	     != (~((HOST_WIDE_INT) 1 << bitnum) & GET_MODE_MASK (mode)))
+        return FALSE;
+
+      /* if ((x & C) == 0) x &= ~C; is transformed to nothing.  */
+      /* if ((x & C) != 0) x &= ~C; is transformed to x &= ~C.  */
+      result = (code == EQ) ? a : NULL_RTX;
+    }
+  else
+    return FALSE;
+
+  if (result)
+    {
+      start_sequence ();
+      noce_emit_move_insn (x, result);
+      seq = end_ifcvt_sequence (if_info);
+      if (!seq)
+	return FALSE;
+
+      emit_insn_before_setloc (seq, if_info->jump,
+			       INSN_LOCATOR (if_info->insn_a));
+    }
+  return TRUE;
+}
+
+
 /* Similar to get_condition, only the resulting condition must be
    valid at JUMP, instead of at EARLIEST.  */
 
@@ -1998,6 +2134,14 @@ noce_process_if_block (struct ce_if_block * ce_info)
   if (side_effects_p (x))
     return FALSE;
 
+  /* If x is a read-only memory, then the program is valid only if we
+     avoid the store into it.  If there are stores on both the THEN and
+     ELSE arms, then we can go ahead with the conversion; either the 
+     program is broken, or the condition is always false such that the
+     other memory is selected.  */
+  if (!set_b && MEM_P (x) && MEM_READONLY_P (x))
+    return FALSE;
+
   b = (set_b ? SET_SRC (set_b) : x);
 
   /* Only operate on register destinations, and even then avoid extending
@@ -2086,6 +2230,8 @@ noce_process_if_block (struct ce_if_block * ce_info)
   if (noce_try_move (&if_info))
     goto success;
   if (noce_try_store_flag (&if_info))
+    goto success;
+  if (noce_try_bitop (&if_info))
     goto success;
   if (noce_try_minmax (&if_info))
     goto success;
@@ -2244,30 +2390,21 @@ merge_if_block (struct ce_if_block * ce_info)
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
       if (EDGE_COUNT (combo_bb->succs) == 0)
-	{
-	  if (find_reg_note (last, REG_NORETURN, NULL))
-	    ;
-	  else if (NONJUMP_INSN_P (last)
-		   && GET_CODE (PATTERN (last)) == TRAP_IF
-		   && TRAP_CONDITION (PATTERN (last)) == const_true_rtx)
-	    ;
-	  else
-	    abort ();
-	}
+	gcc_assert (find_reg_note (last, REG_NORETURN, NULL)
+		    || (NONJUMP_INSN_P (last)
+			&& GET_CODE (PATTERN (last)) == TRAP_IF
+			&& (TRAP_CONDITION (PATTERN (last))
+			    == const_true_rtx)));
 
+      else
       /* There should still be something at the end of the THEN or ELSE
          blocks taking us to our final destination.  */
-      else if (JUMP_P (last))
-	;
-      else if (EDGE_SUCC (combo_bb, 0)->dest == EXIT_BLOCK_PTR
-	       && CALL_P (last)
-	       && SIBLING_CALL_P (last))
-	;
-      else if ((EDGE_SUCC (combo_bb, 0)->flags & EDGE_EH)
-	       && can_throw_internal (last))
-	;
-      else
-	abort ();
+	gcc_assert (JUMP_P (last)
+		    || (EDGE_SUCC (combo_bb, 0)->dest == EXIT_BLOCK_PTR
+			&& CALL_P (last)
+			&& SIBLING_CALL_P (last))
+		    || ((EDGE_SUCC (combo_bb, 0)->flags & EDGE_EH)
+			&& can_throw_internal (last)));
     }
 
   /* The JOIN block may have had quite a number of other predecessors too.
@@ -2275,7 +2412,7 @@ merge_if_block (struct ce_if_block * ce_info)
      have only one remaining edge from our if-then-else diamond.  If there
      is more than one remaining edge, it must come from elsewhere.  There
      may be zero incoming edges if the THEN block didn't actually join
-     back up (as with a call to abort).  */
+     back up (as with a call to a non-return function).  */
   else if (EDGE_COUNT (join_bb->preds) < 2
 	   && join_bb != EXIT_BLOCK_PTR)
     {
@@ -2293,13 +2430,12 @@ merge_if_block (struct ce_if_block * ce_info)
 
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
-      if (EDGE_COUNT (combo_bb->succs) > 1
-	  || EDGE_SUCC (combo_bb, 0)->dest != join_bb)
-	abort ();
+      gcc_assert (single_succ_p (combo_bb)
+		  && single_succ (combo_bb) == join_bb);
 
       /* Remove the jump and cruft from the end of the COMBO block.  */
       if (join_bb != EXIT_BLOCK_PTR)
-	tidy_fallthru_edge (EDGE_SUCC (combo_bb, 0));
+	tidy_fallthru_edge (single_succ_edge (combo_bb));
     }
 
   num_updated_if_blocks++;
@@ -2471,10 +2607,10 @@ find_if_block (struct ce_if_block * ce_info)
      were && tests (which jump to the else block) or || tests (which jump to
      the then block).  */
   if (HAVE_conditional_execution && reload_completed
-      && EDGE_COUNT (test_bb->preds) == 1
-      && EDGE_PRED (test_bb, 0)->flags == EDGE_FALLTHRU)
+      && single_pred_p (test_bb)
+      && single_pred_edge (test_bb)->flags == EDGE_FALLTHRU)
     {
-      basic_block bb = EDGE_PRED (test_bb, 0)->src;
+      basic_block bb = single_pred (test_bb);
       basic_block target_bb;
       int max_insns = MAX_CONDITIONAL_EXECUTE;
       int n_insns;
@@ -2507,10 +2643,10 @@ find_if_block (struct ce_if_block * ce_info)
 	      total_insns += n_insns;
 	      blocks++;
 
-	      if (EDGE_COUNT (bb->preds) != 1)
+	      if (!single_pred_p (bb))
 		break;
 
-	      bb = EDGE_PRED (bb, 0)->src;
+	      bb = single_pred (bb);
 	      n_insns = block_jumps_and_fallthru_p (bb, target_bb);
 	    }
 	  while (n_insns >= 0 && (total_insns + n_insns) <= max_insns);
@@ -2545,8 +2681,8 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* The THEN block of an IF-THEN combo must have zero or one successors.  */
   if (EDGE_COUNT (then_bb->succs) > 0
-      && (EDGE_COUNT (then_bb->succs) > 1
-          || (EDGE_SUCC (then_bb, 0)->flags & EDGE_COMPLEX)
+      && (!single_succ_p (then_bb)
+          || (single_succ_edge (then_bb)->flags & EDGE_COMPLEX)
 	  || (flow2_completed && tablejump_p (BB_END (then_bb), NULL, NULL))))
     return FALSE;
 
@@ -2558,7 +2694,7 @@ find_if_block (struct ce_if_block * ce_info)
      code processing.  ??? we should fix this in the future.  */
   if (EDGE_COUNT (then_bb->succs) == 0)
     {
-      if (EDGE_COUNT (else_bb->preds) == 1)
+      if (single_pred_p (else_bb))
 	{
 	  rtx last_insn = BB_END (then_bb);
 
@@ -2581,7 +2717,7 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* If the THEN block's successor is the other edge out of the TEST block,
      then we have an IF-THEN combo without an ELSE.  */
-  else if (EDGE_SUCC (then_bb, 0)->dest == else_bb)
+  else if (single_succ (then_bb) == else_bb)
     {
       join_bb = else_bb;
       else_bb = NULL_BLOCK;
@@ -2590,12 +2726,12 @@ find_if_block (struct ce_if_block * ce_info)
   /* If the THEN and ELSE block meet in a subsequent block, and the ELSE
      has exactly one predecessor and one successor, and the outgoing edge
      is not complex, then we have an IF-THEN-ELSE combo.  */
-  else if (EDGE_COUNT (else_bb->succs) == 1
-	   && EDGE_SUCC (then_bb, 0)->dest == EDGE_SUCC (else_bb, 0)->dest
-	   && EDGE_COUNT (else_bb->preds) == 1
-	   && ! (EDGE_SUCC (else_bb, 0)->flags & EDGE_COMPLEX)
+  else if (single_succ_p (else_bb)
+	   && single_succ (then_bb) == single_succ (else_bb)
+	   && single_pred_p (else_bb)
+	   && ! (single_succ_edge (else_bb)->flags & EDGE_COMPLEX)
 	   && ! (flow2_completed && tablejump_p (BB_END (else_bb), NULL, NULL)))
-    join_bb = EDGE_SUCC (else_bb, 0)->dest;
+    join_bb = single_succ (else_bb);
 
   /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination.  */
   else
@@ -2643,7 +2779,7 @@ find_if_block (struct ce_if_block * ce_info)
      we checked the FALLTHRU flag, those are already adjacent to the last IF
      block.  */
   /* ??? As an enhancement, move the ELSE block.  Have to deal with
-     BLOCK notes, if by no other means than aborting the merge if they
+     BLOCK notes, if by no other means than backing out the merge if they
      exist.  Sticky enough I don't want to think about it now.  */
   next = then_bb;
   if (else_bb && (next = next->next_bb) != else_bb)
@@ -2881,24 +3017,25 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
      partition boundaries).  See  the comments at the top of 
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition
-      && ((BB_END (then_bb) 
-	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
-	  || (BB_END (else_bb)
-	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
-				NULL_RTX))))
+  if ((BB_END (then_bb) 
+       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (test_bb)
+	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (else_bb)
+	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
+			    NULL_RTX)))
     return FALSE;
 
   /* THEN has one successor.  */
-  if (EDGE_COUNT (then_bb->succs) != 1)
+  if (!single_succ_p (then_bb))
     return FALSE;
 
   /* THEN does not fall through, but is not strange either.  */
-  if (EDGE_SUCC (then_bb, 0)->flags & (EDGE_COMPLEX | EDGE_FALLTHRU))
+  if (single_succ_edge (then_bb)->flags & (EDGE_COMPLEX | EDGE_FALLTHRU))
     return FALSE;
 
   /* THEN has one predecessor.  */
-  if (EDGE_COUNT (then_bb->preds) != 1)
+  if (!single_pred_p (then_bb))
     return FALSE;
 
   /* THEN must do something.  */
@@ -2917,7 +3054,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 
   /* Registers set are dead, or are predicable.  */
   if (! dead_or_predicable (test_bb, then_bb, else_bb,
-			    EDGE_SUCC (then_bb, 0)->dest, 1))
+			    single_succ (then_bb), 1))
     return FALSE;
 
   /* Conversion went ok, including moving the insns and fixing up the
@@ -2927,7 +3064,22 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 	      else_bb->global_live_at_start,
 	      then_bb->global_live_at_end);
 
-  new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb), else_bb);
+
+  /* We can avoid creating a new basic block if then_bb is immediately
+     followed by else_bb, i.e. deleting then_bb allows test_bb to fall
+     thru to else_bb.  */
+
+  if (then_bb->next_bb == else_bb
+      && then_bb->prev_bb == test_bb
+      && else_bb != EXIT_BLOCK_PTR)
+    {
+      redirect_edge_succ (FALLTHRU_EDGE (test_bb), else_bb);
+      new_bb = 0;
+    }
+  else
+    new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb),
+                                             else_bb);
+
   then_bb_index = then_bb->index;
   delete_basic_block (then_bb);
 
@@ -2971,26 +3123,27 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
      partition boundaries).  See  the comments at the top of 
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition
-      && ((BB_END (then_bb)
-	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
-	  || (BB_END (else_bb) 
-	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
-				NULL_RTX))))
+  if ((BB_END (then_bb)
+       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (test_bb)
+	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (else_bb) 
+	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
+			    NULL_RTX)))
     return FALSE;
 
   /* ELSE has one successor.  */
-  if (EDGE_COUNT (else_bb->succs) != 1)
+  if (!single_succ_p (else_bb))
     return FALSE;
   else
-    else_succ = EDGE_SUCC (else_bb, 0);
+    else_succ = single_succ_edge (else_bb);
 
   /* ELSE outgoing edge is not complex.  */
   if (else_succ->flags & EDGE_COMPLEX)
     return FALSE;
 
   /* ELSE has one predecessor.  */
-  if (EDGE_COUNT (else_bb->preds) != 1)
+  if (!single_pred_p (else_bb))
     return FALSE;
 
   /* THEN is not EXIT.  */
@@ -3257,13 +3410,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
   if (other_bb != new_dest)
     {
-      if (old_dest)
-	LABEL_NUSES (old_dest) -= 1;
-      if (new_label)
-	LABEL_NUSES (new_label) += 1;
-      JUMP_LABEL (jump) = new_label;
-      if (reversep)
-	invert_br_probabilities (jump);
+      redirect_jump_2 (jump, old_dest, new_label, -1, reversep);
 
       redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
       if (reversep)
@@ -3283,11 +3430,30 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
   /* Move the insns out of MERGE_BB to before the branch.  */
   if (head != NULL)
     {
+      rtx insn;
+
       if (end == BB_END (merge_bb))
 	BB_END (merge_bb) = PREV_INSN (head);
 
       if (squeeze_notes (&head, &end))
 	return TRUE;
+
+      /* PR 21767: When moving insns above a conditional branch, REG_EQUAL
+	 notes might become invalid.  */
+      insn = head;
+      do
+	{
+	  rtx note, set;
+
+	  if (! INSN_P (insn))
+	    continue;
+	  note = find_reg_note (insn, REG_EQUAL, NULL_RTX);
+	  if (! note)
+	    continue;
+	  set = single_set (insn);
+	  if (!set || !function_invariant_p (SET_SRC (set)))
+	    remove_note (insn, note);
+	} while (insn != end && (insn = NEXT_INSN (insn)));
 
       reorder_insns (head, end, PREV_INSN (earliest));
     }
@@ -3324,7 +3490,14 @@ if_convert (int x_life_data_ok)
   if ((! targetm.cannot_modify_jumps_p ())
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
-    mark_loop_exit_edges ();
+    {
+      struct loops loops;
+
+      flow_loops_find (&loops);
+      mark_loop_exit_edges (&loops);
+      flow_loops_free (&loops);
+      free_dominance_info (CDI_DOMINATORS);
+    }
 
   /* Compute postdominators if we think we'll use them.  */
   if (HAVE_conditional_execution || life_data_ok)

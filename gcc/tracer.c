@@ -1,6 +1,6 @@
 /* The tracer pass for the GNU compiler.
    Contributed by Jan Hubicka, SuSE Labs.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -41,7 +41,6 @@
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
-#include "function.h"
 #include "output.h"
 #include "cfglayout.h"
 #include "fibheap.h"
@@ -322,8 +321,8 @@ tail_duplicate (void)
 static void
 layout_superblocks (void)
 {
-  basic_block end = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest;
-  basic_block bb = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->next_bb;
+  basic_block end = single_succ (ENTRY_BLOCK_PTR);
+  basic_block bb = end->next_bb;
 
   while (bb != EXIT_BLOCK_PTR)
     {
@@ -334,7 +333,7 @@ layout_superblocks (void)
 
       FOR_EACH_EDGE (e, ei, end->succs)
 	if (e->dest != EXIT_BLOCK_PTR
-	    && e->dest != EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
+	    && e->dest != single_succ (ENTRY_BLOCK_PTR)
 	    && !e->dest->rbi->visited
 	    && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
 	  best = e;

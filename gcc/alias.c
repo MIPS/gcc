@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
@@ -1931,13 +1931,14 @@ static int
 aliases_everything_p (rtx mem)
 {
   if (GET_CODE (XEXP (mem, 0)) == AND)
-    /* If the address is an AND, its very hard to know at what it is
+    /* If the address is an AND, it's very hard to know at what it is
        actually pointing.  */
     return 1;
 
   return 0;
 }
 
+/*#define AGRESSIVE_ALIASING 1*/
 /* Return true if we can determine that the fields referenced cannot
    overlap for any pair of objects.  */
 
@@ -2075,7 +2076,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
 	{
 	 tree field = TREE_OPERAND (exprx, 1);
 	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
-	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+	 if (ipa_static_field_does_not_clobber_p (fieldcontext,
 						    TREE_TYPE (field)))
 	   return 1;	 
 	}
@@ -2105,7 +2106,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
 	{
 	 tree field = TREE_OPERAND (expry, 1);
 	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
-	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+	 if (ipa_static_field_does_not_clobber_p (fieldcontext,
 						    TREE_TYPE (field)))
 	   return 1;	 
 	}
@@ -2278,7 +2279,7 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
 
   /* Read-only memory is by definition never modified, and therefore can't
      conflict with anything.  We don't expect to find read-only set on MEM,
-     but stupid user tricks can produce them, so don't abort.  */
+     but stupid user tricks can produce them, so don't die.  */
   if (MEM_READONLY_P (x))
     return 0;
 
@@ -2356,7 +2357,7 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 
   /* Read-only memory is by definition never modified, and therefore can't
      conflict with anything.  We don't expect to find read-only set on MEM,
-     but stupid user tricks can produce them, so don't abort.  */
+     but stupid user tricks can produce them, so don't die.  */
   if (MEM_READONLY_P (x))
     return 0;
 

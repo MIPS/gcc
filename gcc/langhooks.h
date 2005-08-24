@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -58,7 +58,7 @@ struct lang_hooks_for_optimizations
   tree (*build_array_ref) (tree, tree);
   tree (*lookup_field) (tree, tree);
   tree (*build_data_struct) (void *, char *, tree);
-  tree (*sizeof_type) (tree, enum tree_code, int);
+  tree (*sizeof_type) (tree, bool, int);
   tree (*decl_attributes) (tree *, tree, int);
   void (*structure_reorg_optimization) (void);
 };
@@ -136,7 +136,7 @@ struct lang_hooks_for_types
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
-     arguments.  The default hook aborts.  */
+     arguments.  The default hook dies.  */
   tree (*type_promotes_to) (tree);
 
   /* Register TYPE as a builtin type with the indicated NAME.  The
@@ -223,7 +223,7 @@ struct lang_hooks
 
   /* Determines the size of any language-specific tcc_constant or
      tcc_exceptional nodes.  Since it is called from make_node, the
-     only information available is the tree code.  Expected to abort
+     only information available is the tree code.  Expected to die
      on unrecognized codes.  */
   size_t (*tree_size) (enum tree_code);
 
@@ -292,19 +292,6 @@ struct lang_hooks
   /* Called by expand_expr to generate the definition of a decl.  Returns
      1 if handled, 0 otherwise.  */
   int (*expand_decl) (tree);
-
-  /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
-     operation.
-
-     This preparation consists of taking the ordinary representation
-     of an expression expr and producing a valid tree boolean
-     expression describing whether expr is nonzero.  We could simply
-     always do build_binary_op (NE_EXPR, expr, integer_zero_node, 1),
-     but we optimize comparisons, &&, ||, and !.
-
-     The result should be an expression of boolean type (if not an
-     error_mark_node).  */
-  tree (*truthvalue_conversion) (tree);
 
   /* Hook called by safe_from_p for language-specific tree codes.  It is
      up to the language front-end to install a hook if it has any such
@@ -389,6 +376,15 @@ struct lang_hooks
      in bytes.  A frontend can call lhd_expr_size to get the default
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
+
+  /* Convert a character from the host's to the target's character
+     set.  The character should be in what C calls the "basic source
+     character set" (roughly, the set of characters defined by plain
+     old ASCII).  The default is to return the character unchanged,
+     which is correct in most circumstances.  Note that both argument
+     and result should be sign-extended under -fsigned-char,
+     zero-extended under -fno-signed-char.  */
+  HOST_WIDE_INT (*to_target_charset) (HOST_WIDE_INT);
 
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a

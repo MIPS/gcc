@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2005  Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -83,14 +83,13 @@ rtl_gen_edge_profiler (int edgeno, edge e)
 static void
 rtl_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  unsigned gcov_size = tree_low_cst (TYPE_SIZE (GCOV_TYPE_NODE), 1);
-  enum machine_mode mode = mode_for_size (gcov_size, MODE_INT, 0);
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
   rtx mem_ref, tmp, tmp1, mr, val;
   rtx sequence;
   rtx more_label = gen_label_rtx ();
   rtx less_label = gen_label_rtx ();
   rtx end_of_code_label = gen_label_rtx ();
-  int per_counter = gcov_size / BITS_PER_UNIT;
+  int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT;
   edge e = split_block (BLOCK_FOR_INSN (value->hvalue.rtl.insn),
 		   PREV_INSN (value->hvalue.rtl.insn));
 
@@ -169,15 +168,13 @@ rtl_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
 static void
 rtl_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  unsigned gcov_size = tree_low_cst (TYPE_SIZE (GCOV_TYPE_NODE), 1);
-  enum machine_mode mode = mode_for_size (gcov_size, MODE_INT, 0);
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
   rtx mem_ref, tmp, mr, uval;
   rtx sequence;
   rtx end_of_code_label = gen_label_rtx ();
-  rtx loop_label = gen_label_rtx ();
-  int per_counter = gcov_size / BITS_PER_UNIT;
+  int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT;
   edge e = split_block (BLOCK_FOR_INSN (value->hvalue.rtl.insn),
-		   PREV_INSN (value->hvalue.rtl.insn));
+			PREV_INSN (value->hvalue.rtl.insn));
 
   start_sequence ();
 
@@ -193,32 +190,19 @@ rtl_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
   emit_move_insn (uval, copy_rtx (value->hvalue.rtl.value));
 
   /* Check for non-power of 2.  */
-  if (value->hdata.pow2.may_be_other)
-    {
-      do_compare_rtx_and_jump (copy_rtx (uval), const0_rtx, LE, 0, value->hvalue.rtl.mode,
-			       NULL_RTX, NULL_RTX, end_of_code_label);
-      tmp = expand_simple_binop (value->hvalue.rtl.mode, PLUS, copy_rtx (uval),
-				 constm1_rtx, NULL_RTX, 0, OPTAB_WIDEN);
-      tmp = expand_simple_binop (value->hvalue.rtl.mode, AND, copy_rtx (uval), tmp,
-				 NULL_RTX, 0, OPTAB_WIDEN);
-      do_compare_rtx_and_jump (tmp, const0_rtx, NE, 0, value->hvalue.rtl.mode, NULL_RTX,
-			       NULL_RTX, end_of_code_label);
-    }
+  do_compare_rtx_and_jump (copy_rtx (uval), const0_rtx, LE, 0, value->hvalue.rtl.mode,
+			   NULL_RTX, NULL_RTX, end_of_code_label);
+  tmp = expand_simple_binop (value->hvalue.rtl.mode, PLUS, copy_rtx (uval),
+			     constm1_rtx, NULL_RTX, 0, OPTAB_WIDEN);
+  tmp = expand_simple_binop (value->hvalue.rtl.mode, AND, copy_rtx (uval), tmp,
+			     NULL_RTX, 0, OPTAB_WIDEN);
+  do_compare_rtx_and_jump (tmp, const0_rtx, NE, 0, value->hvalue.rtl.mode, NULL_RTX,
+			   NULL_RTX, end_of_code_label);
 
-  /* Count log_2(value).  */
-  emit_label (loop_label);
-
-  tmp = expand_simple_binop (Pmode, PLUS, copy_rtx (mr), GEN_INT (per_counter), mr, 0, OPTAB_WIDEN);
+  tmp = expand_simple_binop (Pmode, PLUS, copy_rtx (mr), GEN_INT (per_counter),
+			     mr, 0, OPTAB_WIDEN);
   if (tmp != mr)
     emit_move_insn (copy_rtx (mr), tmp);
-
-  tmp = expand_simple_binop (value->hvalue.rtl.mode, ASHIFTRT, copy_rtx (uval), const1_rtx,
-			     uval, 0, OPTAB_WIDEN);
-  if (tmp != uval)
-    emit_move_insn (copy_rtx (uval), tmp);
-
-  do_compare_rtx_and_jump (copy_rtx (uval), const0_rtx, NE, 0, value->hvalue.rtl.mode,
-			   NULL_RTX, NULL_RTX, loop_label);
 
   /* Increase the counter.  */
   emit_label (end_of_code_label);
@@ -245,8 +229,7 @@ static rtx
 rtl_gen_one_value_profiler_no_edge_manipulation (histogram_value value,
 						 unsigned tag, unsigned base)
 {
-  unsigned gcov_size = tree_low_cst (TYPE_SIZE (GCOV_TYPE_NODE), 1);
-  enum machine_mode mode = mode_for_size (gcov_size, MODE_INT, 0);
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
   rtx stored_value_ref, counter_ref, all_ref, stored_value, counter, all;
   rtx tmp, uval;
   rtx sequence;
@@ -340,8 +323,7 @@ static void
 rtl_gen_const_delta_profiler (histogram_value value, unsigned tag, unsigned base)
 {
   histogram_value one_value_delta;
-  unsigned gcov_size = tree_low_cst (TYPE_SIZE (GCOV_TYPE_NODE), 1);
-  enum machine_mode mode = mode_for_size (gcov_size, MODE_INT, 0);
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
   rtx stored_value_ref, stored_value, tmp, uval;
   rtx sequence;
   edge e = split_block (BLOCK_FOR_INSN (value->hvalue.rtl.insn),

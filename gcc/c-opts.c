@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -460,8 +460,25 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->warn_multichar = value;
       break;
 
+    case OPT_Wnormalized_:
+      if (!value || (arg && strcasecmp (arg, "none") == 0))
+	cpp_opts->warn_normalize = normalized_none;
+      else if (!arg || strcasecmp (arg, "nfkc") == 0)
+	cpp_opts->warn_normalize = normalized_KC;
+      else if (strcasecmp (arg, "id") == 0)
+	cpp_opts->warn_normalize = normalized_identifier_C;
+      else if (strcasecmp (arg, "nfc") == 0)
+	cpp_opts->warn_normalize = normalized_C;
+      else
+	error ("argument %qs to %<-Wnormalized%> not recognized", arg);
+      break;
+
     case OPT_Wreturn_type:
       warn_return_type = value;
+      break;
+
+    case OPT_Wstrict_null_sentinel:
+      warn_strict_null_sentinel = value;
       break;
 
     case OPT_Wsystem_headers:
@@ -537,7 +554,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fvtable_thunks:
     case OPT_fxref:
     case OPT_fvtable_gc:
-      warning ("switch %qs is no longer supported", option->opt_text);
+      warning (0, "switch %qs is no longer supported", option->opt_text);
       break;
 
     case OPT_faccess_control:
@@ -592,7 +609,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fsigned_bitfields:
       flag_signed_bitfields = value;
-      explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_fsigned_char:
@@ -601,7 +617,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_funsigned_bitfields:
       flag_signed_bitfields = !value;
-      explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_funsigned_char:
@@ -656,7 +671,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_fhandle_exceptions:
-      warning ("-fhandle-exceptions has been renamed -fexceptions (and is now on by default)");
+      warning (0, "-fhandle-exceptions has been renamed -fexceptions (and is now on by default)");
       flag_exceptions = value;
       break;
 
@@ -686,14 +701,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fnonansi_builtins:
       flag_no_nonansi_builtin = !value;
-      break;
-
-    case OPT_fobjc_exceptions:
-      flag_objc_exceptions = value;
-      break;
-
-    case OPT_fobjc_sjlj_exceptions:
-      flag_objc_sjlj_exceptions = value;
       break;
 
     case OPT_foperator_names:
@@ -860,6 +867,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       print_struct_values = 1;
       break;
 
+    case OPT_print_pch_checksum:
+      c_common_print_pch_checksum (stdout);
+      exit_after_options = true;
+      break;
+
     case OPT_remap:
       cpp_opts->remap = 1;
       break;
@@ -971,18 +983,26 @@ c_common_post_options (const char **pfilename)
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
-  if (warn_format_y2k && !warn_format)
-    warning ("-Wformat-y2k ignored without -Wformat");
-  if (warn_format_extra_args && !warn_format)
-    warning ("-Wformat-extra-args ignored without -Wformat");
-  if (warn_format_zero_length && !warn_format)
-    warning ("-Wformat-zero-length ignored without -Wformat");
-  if (warn_format_nonliteral && !warn_format)
-    warning ("-Wformat-nonliteral ignored without -Wformat");
-  if (warn_format_security && !warn_format)
-    warning ("-Wformat-security ignored without -Wformat");
-  if (warn_missing_format_attribute && !warn_format)
-    warning ("-Wmissing-format-attribute ignored without -Wformat");
+  if (!warn_format)
+    {
+      warning (OPT_Wformat_y2k,
+	       "-Wformat-y2k ignored without -Wformat");
+      warning (OPT_Wformat_extra_args,
+	       "-Wformat-extra-args ignored without -Wformat");
+      warning (OPT_Wformat_zero_length,
+	       "-Wformat-zero-length ignored without -Wformat");
+      warning (OPT_Wformat_nonliteral,
+	       "-Wformat-nonliteral ignored without -Wformat");
+      warning (OPT_Wformat_security,
+	       "-Wformat-security ignored without -Wformat");
+      warning (OPT_Wmissing_format_attribute,
+	       "-Wmissing-format-attribute ignored without -Wformat");
+    }
+
+  /* C99 requires special handling of complex multiplication and division;
+     -ffast-math and -fcx-limited-range are handled in process_options.  */
+  if (flag_isoc99)
+    flag_complex_method = 2;
 
   if (flag_preprocess_only)
     {
@@ -1058,6 +1078,9 @@ c_common_init (void)
      are known.  */
   cpp_init_iconv (parse_in);
 
+  if (version_flag)
+    c_common_print_pch_checksum (stderr);
+
   if (flag_preprocess_only)
     {
       finish_options ();
@@ -1084,19 +1107,24 @@ c_common_parse_file (int set_yydebug)
   yydebug = set_yydebug;
 #else
   if (set_yydebug)
-    warning ("YYDEBUG was not defined at build time, -dy ignored");
+    warning (0, "YYDEBUG was not defined at build time, -dy ignored");
 #endif
 
   i = 0;
   for (;;)
     {
+      /* Start the main input file, if the debug writer wants it. */
+      if (debug_hooks->start_end_main_source_file)
+	(*debug_hooks->start_source_file) (0, this_input_filename);
       finish_options ();
       pch_init ();
       push_file_scope ();
       c_parse_file ();
       finish_file ();
       pop_file_scope ();
-
+      /* And end the main input file, if the debug writer wants it  */
+      if (debug_hooks->start_end_main_source_file)
+	(*debug_hooks->end_source_file) (0);
       if (++i >= num_in_fnames)
 	break;
       cpp_undef_all (parse_in);
@@ -1227,7 +1255,7 @@ sanitize_cpp_opts (void)
 
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
-  /* Also, flag_no_output implies flag_no_line_commands, always. */
+  /* Also, flag_no_output implies flag_no_line_commands, always.  */
   if (flag_no_output)
     {
       if (flag_dump_macros != 'M')
@@ -1285,7 +1313,10 @@ finish_options (void)
     {
       size_t i;
 
-      cpp_change_file (parse_in, LC_RENAME, _("<built-in>"));
+      cb_file_change (parse_in,
+		      linemap_add (&line_table, LC_RENAME, 0,
+				   _("<built-in>"), 0));
+
       cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);
 
@@ -1383,7 +1414,7 @@ void
 cb_dir_change (cpp_reader * ARG_UNUSED (pfile), const char *dir)
 {
   if (!set_src_pwd (dir))
-    warning ("too late for # directive to set debug directory");
+    warning (0, "too late for # directive to set debug directory");
 }
 
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU

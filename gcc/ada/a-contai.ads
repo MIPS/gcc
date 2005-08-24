@@ -2,7 +2,7 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                       A D A . C O N T A I N E R S                        --
+--                              ADA.CONTAINERS                              --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --

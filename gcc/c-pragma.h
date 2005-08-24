@@ -1,5 +1,5 @@
 /* Pragma related interfaces.
-   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -65,7 +65,7 @@ extern tree maybe_apply_renaming_pragma (tree, tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
 extern enum cpp_ttype c_lex (tree *);
-extern enum cpp_ttype c_lex_with_flags (tree *, unsigned char *);
+extern enum cpp_ttype c_lex_with_flags (tree *, location_t *, unsigned char *);
 
 /* If 1, then lex strings into the execution character set.  
    If 0, lex strings into the host character set.

@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -195,7 +195,7 @@
       break;
 
       default:
-	abort ();
+	gcc_unreachable ();
     }
 
   return 0;
@@ -275,7 +275,7 @@
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return 0;
 })
@@ -319,12 +319,6 @@
 	 (and (match_operand 0 "const_double_operand")
 	      (match_test "GET_MODE_SIZE (mode) <= 8")))))
 
-;; Return nonzero if OP is CONST_INT >= 1 and <= 31 (a valid operand
-;; for shift & compare patterns, as shifting by 0 does not change flags).
-(define_predicate "const_int_1_31_operand"
-  (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 1 && INTVAL (op) <= 31")))
-
 ;; Returns nonzero if OP is either a symbol reference or a sum of a symbol
 ;; reference and a constant.
 (define_predicate "symbolic_operand"
@@ -365,7 +359,7 @@
       return 0;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 })
 
@@ -498,15 +492,19 @@
        (ior (match_operand 0 "register_no_elim_operand")
 	    (match_operand 0 "memory_operand"))))
 
-;; Simiarly, but for tail calls, in which we cannot allow memory references.
+;; Similarly, but for tail calls, in which we cannot allow memory references.
 (define_predicate "sibcall_insn_operand"
   (ior (match_operand 0 "constant_call_address_operand")
        (match_operand 0 "register_no_elim_operand")))
 
 ;; Match exactly zero.
 (define_predicate "const0_operand"
-  (and (match_code "const_int,const_double,const_vector")
-       (match_test "op == CONST0_RTX (mode)")))
+  (match_code "const_int,const_double,const_vector")
+{
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+  return op == CONST0_RTX (mode);
+})
 
 ;; Match exactly one.
 (define_predicate "const1_operand"
@@ -520,6 +518,11 @@
   HOST_WIDE_INT i = INTVAL (op);
   return i == 2 || i == 4 || i == 8;
 })
+
+;; Match 0 or 1.
+(define_predicate "const_0_to_1_operand"
+  (and (match_code "const_int")
+       (match_test "op == const0_rtx || op == const1_rtx")))
 
 ;; Match 0 to 3.
 (define_predicate "const_0_to_3_operand"
@@ -545,6 +548,30 @@
 (define_predicate "const_0_to_255_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 255")))
+
+;; Match (0 to 255) * 8
+(define_predicate "const_0_to_255_mul_8_operand"
+  (match_code "const_int")
+{
+  unsigned HOST_WIDE_INT val = INTVAL (op);
+  return val <= 255*8 && val % 8 == 0;
+})
+
+;; Return nonzero if OP is CONST_INT >= 1 and <= 31 (a valid operand
+;; for shift & compare patterns, as shifting by 0 does not change flags).
+(define_predicate "const_1_to_31_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 1 && INTVAL (op) <= 31")))
+
+;; Match 2 or 3.
+(define_predicate "const_2_to_3_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) == 2 || INTVAL (op) == 3")))
+
+;; Match 4 to 7.
+(define_predicate "const_4_to_7_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 4 && INTVAL (op) <= 7")))
 
 ;; Match exactly one bit in 4-bit mask.
 (define_predicate "const_pow2_1_to_8_operand"
@@ -618,14 +645,21 @@
   (ior (match_operand 0 "nonimmediate_operand")
        (match_operand 0 "const0_operand")))
 
+;; Return true if OP is a register or a zero.
+(define_predicate "reg_or_0_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const0_operand")))
+
 ;; Return true if op if a valid address, and does not contain
 ;; a segment override.
 (define_special_predicate "no_seg_address_operand"
   (match_operand 0 "address_operand")
 {
   struct ix86_address parts;
-  if (! ix86_decompose_address (op, &parts))
-    abort ();
+  int ok;
+
+  ok = ix86_decompose_address (op, &parts);
+  gcc_assert (ok);
   return parts.seg == SEG_DEFAULT;
 })
 
@@ -634,6 +668,7 @@
   (match_operand 0 "general_operand")
 {
   struct ix86_address parts;
+  int ok;
 
   /* Registers and immediate operands are always "aligned".  */
   if (GET_CODE (op) != MEM)
@@ -650,8 +685,8 @@
     return 1;
 
   /* Decode the address.  */
-  if (!ix86_decompose_address (op, &parts))
-    abort ();
+  ok = ix86_decompose_address (op, &parts);
+  gcc_assert (ok);
 
   /* Look for some component that isn't known to be aligned.  */
   if (parts.index)
@@ -680,8 +715,10 @@
   (match_operand 0 "memory_operand")
 {
   struct ix86_address parts;
-  if (!ix86_decompose_address (XEXP (op, 0), &parts))
-    abort ();
+  int ok;
+
+  ok = ix86_decompose_address (XEXP (op, 0), &parts);
+  gcc_assert (ok);
   return parts.disp != NULL_RTX;
 })
 
@@ -731,9 +768,7 @@
 ;; predicate.
 
 (define_special_predicate "sse_comparison_operator"
-  (ior (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered")
-       (and (match_code "uneq,unlt,unle,ltgt,ge,gt")
-	    (match_test "!TARGET_IEEE_FP"))))
+  (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered"))
 
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"

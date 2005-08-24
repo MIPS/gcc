@@ -1,5 +1,6 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -319,7 +320,7 @@ print_rtx (rtx in_rtx)
 		}
 		break;
 
-	      case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
+	      case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 		{
 #ifndef GENERATOR_FILE
 		  basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
@@ -554,10 +555,7 @@ print_rtx (rtx in_rtx)
 	break;
 
       default:
-	fprintf (stderr,
-		 "switch format wrong in rtl.print_rtx(). format was: %c.\n",
-		 format_ptr[-1]);
-	abort ();
+	gcc_unreachable ();
       }
 
   switch (GET_CODE (in_rtx))
@@ -607,7 +605,7 @@ print_rtx (rtx in_rtx)
 	  case LABEL_STATIC_ENTRY: fputs (" [entry]", outfile); break;
 	  case LABEL_GLOBAL_ENTRY: fputs (" [global entry]", outfile); break;
 	  case LABEL_WEAK_ENTRY: fputs (" [weak entry]", outfile); break;
-	  default: abort();
+	  default: gcc_unreachable ();
 	}
       break;
 

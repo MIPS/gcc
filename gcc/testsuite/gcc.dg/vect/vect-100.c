@@ -1,78 +1,28 @@
-/* { dg-require-effective-target vect_int } */
+/* Assuming we can vectorize char multiplication, here's an execute test.  */
 
-#include <stdlib.h>
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 9
-
-struct extraction
+extern void abort (void);
+void foo()
 {
-  int a[N];
-  int b[N];
-};
-
-static int a[N] = {1,2,3,4,5,6,7,8,9};
-static int b[N] = {2,3,4,5,6,7,8,9,0};
-
-int main1 () {
+  static unsigned char A[256], B[256], C[256];
   int i;
-  struct extraction *p;
-  
-  p = (struct extraction *) malloc (sizeof (struct extraction));
 
-  /* Not vectorizable: p may alias a and/or b, since they are globals.  */
-  for (i = 0; i < N; i++)
-    {
-      p->a[i] = a[i];
-      p->b[i] = b[i];
-    }
+  for (i = 0; i < 256; ++i)
+    A[i] = B[i] = i;
 
-  /* check results: */
-  for (i = 0; i < N; i++)
-    {
-       if (p->a[i] != a[i] || p->b[i] != b[i])
-         abort();
-    }
+  for (i = 0; i < 256; ++i)
+    C[i] = A[i] * B[i];
 
-  return 0;
+  for (i = 0; i < 256; ++i)
+    if (C[i] != (unsigned char)(i * i))
+      abort ();
 }
 
-int main2 () {
-  int i;
-  int c[N] = {1,2,3,4,5,6,7,8,9};
-  int d[N] = {2,3,4,5,6,7,8,9,0};
-  struct extraction *p;
-  p = (struct extraction *) malloc (sizeof (struct extraction));
-
-  /* Vectorizable: c and d are local arrays.  */
-  for (i = 0; i < N; i++)
-    {
-      p->a[i] = c[i];
-      p->b[i] = d[i];
-    }
-
-  /* check results: */
-  for (i = 0; i < N; i++)
-    {
-       if (p->a[i] != c[i] || p->b[i] != d[i])
-         abort();
-    }
-
-  return 0;
-}
-
-int main (void)
-{ 
+int main()
+{
   check_vect ();
-
-  main1 ();
-  main2 ();
-  
-  return 0;	
+  foo();
+  return 0;
 }
-
-/* Requires versioning.  */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" } } */
-/* { dg-final { cleanup-tree-dump "vect" } } */
-

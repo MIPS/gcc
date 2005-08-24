@@ -1,5 +1,5 @@
 /* Null garbage collection for the GNU compiler.
-   Copyright (C) 1998, 1999, 2000, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -33,9 +33,6 @@
 #include "coretypes.h"
 #include "ggc.h"
 
-struct alloc_zone *rtl_zone = NULL;
-struct alloc_zone *garbage_zone = NULL;
-
 void *
 ggc_alloc_typed_stat (enum gt_types_enum ARG_UNUSED (gte), size_t size
 		      MEM_STAT_DECL)
@@ -50,13 +47,6 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 }
 
 void *
-ggc_alloc_zone_stat (size_t size, struct alloc_zone * ARG_UNUSED (zone)
-		     MEM_STAT_DECL)
-{
-  return xmalloc (size);
-}
-
-void *
 ggc_alloc_cleared_stat (size_t size MEM_STAT_DECL)
 {
   return xcalloc (size, 1);
@@ -66,4 +56,10 @@ void *
 ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
 {
   return xrealloc (x, size);
+}
+
+void
+ggc_free (void *p)
+{
+  free (p);
 }

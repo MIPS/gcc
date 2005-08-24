@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -106,8 +106,6 @@ package body Snames is
      "float_io#" &
      "integer_io#" &
      "modular_io#" &
-     "a_textio#" &
-     "a_witeio#" &
      "const#" &
      "<error>#" &
      "go#" &
@@ -121,6 +119,7 @@ package body Snames is
      "system#" &
      "text_io#" &
      "wide_text_io#" &
+     "wide_wide_text_io#" &
      "no_dsa#" &
      "garlic_dsa#" &
      "polyorb_dsa#" &
@@ -255,7 +254,6 @@ package body Snames is
      "inline_always#" &
      "inline_generic#" &
      "inspection_point#" &
-     "interface#" &
      "interface_name#" &
      "interrupt_handler#" &
      "interrupt_priority#" &
@@ -275,7 +273,6 @@ package body Snames is
      "obsolescent#" &
      "optimize#" &
      "optional_overriding#" &
-     "overriding#" &
      "pack#" &
      "page#" &
      "passive#" &
@@ -478,6 +475,7 @@ package body Snames is
      "small#" &
      "storage_size#" &
      "storage_unit#" &
+     "stream_size#" &
      "tag#" &
      "target_name#" &
      "terminated#" &
@@ -495,6 +493,7 @@ package body Snames is
      "value_size#" &
      "version#" &
      "wchar_t_size#" &
+     "wide_wide_width#" &
      "wide_width#" &
      "width#" &
      "word_size#" &
@@ -516,7 +515,9 @@ package body Snames is
      "truncation#" &
      "value#" &
      "wide_image#" &
+     "wide_wide_image#" &
      "wide_value#" &
+     "wide_wide_value#" &
      "output#" &
      "read#" &
      "write#" &
@@ -606,6 +607,7 @@ package body Snames is
      "exception_message#" &
      "exception_name#" &
      "file#" &
+     "generic_dispatching_constructor#" &
      "import_address#" &
      "import_largest_value#" &
      "import_value#" &
@@ -686,7 +688,10 @@ package body Snames is
      "specification_suffix#" &
      "switches#" &
      "unaligned_valid#" &
-      "#";
+     "interface#" &
+     "overriding#" &
+     "synchronized#" &
+     "#";
 
    ---------------------
    -- Generated Names --
@@ -731,15 +736,18 @@ package body Snames is
    --    xxxDF   deep finalize routine for type xxx                 (Exp_TSS)
    --    xxxDI   deep initialize routine for type xxx               (Exp_TSS)
    --    xxxEQ   composite equality routine for record type xxx     (Exp_TSS)
+   --    xxxFA   PolyORB/DSA From_Any converter for type xxx        (Exp_TSS)
    --    xxxIP   initialization procedure for type xxx              (Exp_TSS)
-   --    xxxRA   RAs type access routine for type xxx               (Exp_TSS)
-   --    xxxRD   RAs type dereference routine for type xxx          (Exp_TSS)
+   --    xxxRA   RAS type access routine for type xxx               (Exp_TSS)
+   --    xxxRD   RAS type dereference routine for type xxx          (Exp_TSS)
    --    xxxRP   Rep to Pos conversion for enumeration type xxx     (Exp_TSS)
    --    xxxSA   array/slice assignment for controlled comp. arrays (Exp_TSS)
    --    xxxSI   stream input attribute subprogram for type xxx     (Exp_TSS)
    --    xxxSO   stream output attribute subprogram for type xxx    (Exp_TSS)
    --    xxxSR   stream read attribute subprogram for type xxx      (Exp_TSS)
    --    xxxSW   stream write attribute subprogram for type xxx     (Exp_TSS)
+   --    xxxTA   PolyORB/DSA To_Any converter for type xxx          (Exp_TSS)
+   --    xxxTC   PolyORB/DSA Typecode for type xxx                  (Exp_TSS)
 
    --  Implicit type names
 
@@ -814,6 +822,8 @@ package body Snames is
    begin
       if N = Name_AST_Entry then
          return Pragma_AST_Entry;
+      elsif N = Name_Interface then
+         return Pragma_Interface;
       elsif N = Name_Storage_Size then
          return Pragma_Storage_Size;
       elsif N = Name_Storage_Unit then
@@ -986,6 +996,7 @@ package body Snames is
    begin
       return N in First_Pragma_Name .. Last_Pragma_Name
         or else N = Name_AST_Entry
+        or else N = Name_Interface
         or else N = Name_Storage_Size
         or else N = Name_Storage_Unit;
    end Is_Pragma_Name;

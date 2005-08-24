@@ -3,7 +3,7 @@
    in the form of comments (the mips assembler does not support
    assembly access to debug information).
    Copyright (C) 1991, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
 This file is part of GCC.
@@ -1746,7 +1746,7 @@ add_string (varray_t *vp, shash_t **hash_tbl, const char *start,
 
 
 /* Add a local symbol.  The symbol string starts at STR_START and the
-   first byte after it is makred by STR_END_P1.  The symbol has type
+   first byte after it is marked by STR_END_P1.  The symbol has type
    TYPE and storage class STORAGE and value VALUE.  INDX is an index
    to local/aux. symbols.  */
 
@@ -2358,7 +2358,7 @@ initialize_init_file (void)
   init_file.fdr.fMerge = 1;
   init_file.fdr.glevel = GLEVEL_2;
 
-#ifdef HOST_WORDS_BIG_ENDIAN
+#ifdef WORDS_BIG_ENDIAN
   init_file.fdr.fBigendian = 1;
 #endif
 
@@ -4438,7 +4438,7 @@ copy_object (void)
 
 
 
-  /* Abort if the symbol table is not last.  */
+  /* The symbol table should be last.  */
   if (max_file_offset != (unsigned long) stat_buf.st_size)
     fatal ("symbol table is not last (symbol table ends at %ld, .o ends at %ld",
 	   max_file_offset,
@@ -4940,7 +4940,7 @@ pfatal_with_name (const char *msg)
 }
 
 
-/* Procedure to abort with an out of bounds error message.  It has
+/* Procedure to die with an out of bounds error message.  It has
    type int, so it can be used with an ?: expression within the
    ORIG_xxx macros, but the function never returns.  */
 

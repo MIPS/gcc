@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,6 +26,7 @@
 
 with Hostparm;
 with Namet;          use Namet;
+with Opt;            use Opt;
 with Osint;          use Osint;
 with Output;         use Output;
 with System.WCh_Con; use System.WCh_Con;
@@ -345,6 +346,10 @@ begin
    Write_Line ("Enable selected warning modes, xx = list of parameters:");
    Write_Line ("        a    turn on all optional warnings (except d,h,l)");
    Write_Line ("        A    turn off all optional warnings");
+   Write_Line ("        b    turn on warnings for bad fixed value " &
+                                                  "(not multiple of small)");
+   Write_Line ("        B*   turn off warnings for bad fixed value " &
+                                                  "(not multiple of small)");
    Write_Line ("        c    turn on warnings for constant conditional");
    Write_Line ("        C*   turn off warnings for constant conditional");
    Write_Line ("        d    turn on warnings for implicit dereference");
@@ -422,14 +427,14 @@ begin
    --  Lines for -gnaty switch
 
    Write_Switch_Char ("y");
-   Write_Line ("Enable all style checks except 'o', indent=3");
-
+   Write_Line ("Enable default style checks (same as -gnaty3abcefhiklmnprst)");
    Write_Switch_Char ("yxx");
    Write_Line ("Enable selected style checks xx = list of parameters:");
    Write_Line ("        1-9  check indentation");
    Write_Line ("        a    check attribute casing");
    Write_Line ("        b    check no blanks at end of lines");
    Write_Line ("        c    check comment format");
+   Write_Line ("        d    check no DOS line terminators");
    Write_Line ("        e    check end/exit labels present");
    Write_Line ("        f    check no form feeds/vertical tabs in source");
    Write_Line ("        h    check no horizontal tabs in source");
@@ -466,5 +471,25 @@ begin
 
    Write_Switch_Char ("83");
    Write_Line ("Enforce Ada 83 restrictions");
+
+   --  Line for -gnat95 switch
+
+   Write_Switch_Char ("95");
+
+   if Ada_Version_Default = Ada_95 then
+      Write_Line ("Ada 95 mode (default)");
+   else
+      Write_Line ("Enforce Ada 95 restrictions");
+   end if;
+
+   --  Line for -gnat05 switch
+
+   Write_Switch_Char ("05");
+
+   if Ada_Version_Default = Ada_05 then
+      Write_Line ("Ada 2005 mode (default)");
+   else
+      Write_Line ("Allow Ada 2005 extensions");
+   end if;
 
 end Usage;

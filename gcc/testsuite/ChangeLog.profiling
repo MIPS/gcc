@@ -1,3 +1,11 @@
+2005-02-09  Razya Ladelsky  <razya@il.ibm.com>
+
+        * gcc.dg: (ipa): Add a new directory for ipa.
+        * gcc.dg/ipa: (ipa-1.c ipa-2.c): Add new ipcp testcases.
+        * lib: (scancgraph.exp): Add new file to scan (the temporary)
+	ipump file.
+        * lib/gcc-dg.exp: Add loading of scancgraph.exp.
+
 2004-12-07  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
 	* gcc.dg/tree-ssa/ssa-dce-2.c: Changed to -O2 since analysis for
 	const functions no longer done at -O1

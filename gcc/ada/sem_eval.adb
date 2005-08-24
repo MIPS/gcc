@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -377,8 +377,7 @@ package body Sem_Eval is
 
    function Compile_Time_Compare
      (L, R : Node_Id;
-      Rec  : Boolean := False)
-      return Compare_Result
+      Rec  : Boolean := False) return Compare_Result
    is
       Ltyp : constant Entity_Id := Etype (L);
       Rtyp : constant Entity_Id := Etype (R);
@@ -795,6 +794,34 @@ package body Sem_Eval is
       end if;
    end Compile_Time_Compare;
 
+   -------------------------------
+   -- Compile_Time_Known_Bounds --
+   -------------------------------
+
+   function Compile_Time_Known_Bounds (T : Entity_Id) return Boolean is
+      Indx : Node_Id;
+      Typ  : Entity_Id;
+
+   begin
+      if not Is_Array_Type (T) then
+         return False;
+      end if;
+
+      Indx := First_Index (T);
+      while Present (Indx) loop
+         Typ := Underlying_Type (Etype (Indx));
+         if not Compile_Time_Known_Value (Type_Low_Bound (Typ)) then
+            return False;
+         elsif not Compile_Time_Known_Value (Type_High_Bound (Typ)) then
+            return False;
+         else
+            Next_Index (Indx);
+         end if;
+      end loop;
+
+      return True;
+   end Compile_Time_Known_Bounds;
+
    ------------------------------
    -- Compile_Time_Known_Value --
    ------------------------------
@@ -1115,7 +1142,26 @@ package body Sem_Eval is
 
             if Is_Modular_Integer_Type (Ltype) then
                Result := Result mod Modulus (Ltype);
+
+               --  For a signed integer type, check non-static overflow
+
+            elsif (not Stat) and then Is_Signed_Integer_Type (Ltype) then
+               declare
+                  BT : constant Entity_Id := Base_Type (Ltype);
+                  Lo : constant Uint := Expr_Value (Type_Low_Bound (BT));
+                  Hi : constant Uint := Expr_Value (Type_High_Bound (BT));
+               begin
+                  if Result < Lo or else Result > Hi then
+                     Apply_Compile_Time_Constraint_Error
+                       (N, "value not in range of }?",
+                        CE_Overflow_Check_Failed,
+                        Ent => BT);
+                     return;
+                  end if;
+               end;
             end if;
+
+            --  If we get here we can fold the result
 
             Fold_Uint (N, Result, Stat);
          end;
@@ -1175,7 +1221,6 @@ package body Sem_Eval is
 
    procedure Eval_Character_Literal (N : Node_Id) is
       pragma Warnings (Off, N);
-
    begin
       null;
    end Eval_Character_Literal;
@@ -1259,7 +1304,8 @@ package body Sem_Eval is
       Test_Expression_Is_Foldable (N, Left, Right, Stat, Fold);
 
       if (C_Typ = Standard_Character
-            or else  C_Typ = Standard_Wide_Character)
+            or else C_Typ = Standard_Wide_Character
+            or else C_Typ = Standard_Wide_Wide_Character)
         and then Fold
       then
          null;
@@ -1268,7 +1314,7 @@ package body Sem_Eval is
          return;
       end if;
 
-      --  Compile time string concatenation.
+      --  Compile time string concatenation
 
       --  ??? Note that operands that are aggregates can be marked as
       --  static, so we should attempt at a later stage to fold
@@ -1292,7 +1338,7 @@ package body Sem_Eval is
             Start_String (Strval (Left_Str));
          else
             Start_String;
-            Store_String_Char (Char_Literal_Value (Left_Str));
+            Store_String_Char (UI_To_CC (Char_Literal_Value (Left_Str)));
             Left_Len := 1;
          end if;
 
@@ -1308,7 +1354,7 @@ package body Sem_Eval is
                end loop;
             end;
          else
-            Store_String_Char (Char_Literal_Value (Right_Str));
+            Store_String_Char (UI_To_CC (Char_Literal_Value (Right_Str)));
          end if;
 
          Set_Is_Static_Expression (N, Stat);
@@ -1402,7 +1448,7 @@ package body Sem_Eval is
          end if;
       end if;
 
-      --  Fall through if the name is not static.
+      --  Fall through if the name is not static
 
       Validate_Static_Object_Name (N);
    end Eval_Entity_Name;
@@ -2500,7 +2546,7 @@ package body Sem_Eval is
    --  Start of processing for Eval_Type_Conversion
 
    begin
-      --  Cannot fold if target type is non-static or if semantic error.
+      --  Cannot fold if target type is non-static or if semantic error
 
       if not Is_Static_Subtype (Target_Type) then
          Check_Non_Static_Context (Operand);
@@ -2528,7 +2574,7 @@ package body Sem_Eval is
       --  following type test, fixed-point counts as real unless the flag
       --  Conversion_OK is set, in which case it counts as integer.
 
-      --  Fold conversion, case of string type. The result is not static.
+      --  Fold conversion, case of string type. The result is not static
 
       if Is_String_Type (Target_Type) then
          Fold_Str (N, Strval (Get_String_Val (Operand)), False);
@@ -2747,7 +2793,7 @@ package body Sem_Eval is
          --  their Pos value as usual which is the same as the Rep value.
 
          if No (Ent) then
-            return UI_From_Int (Int (Char_Literal_Value (N)));
+            return Char_Literal_Value (N);
          else
             return Enumeration_Rep (Ent);
          end if;
@@ -2827,7 +2873,7 @@ package body Sem_Eval is
          --  their Pos value as usual.
 
          if No (Ent) then
-            Val := UI_From_Int (Int (Char_Literal_Value (N)));
+            Val := Char_Literal_Value (N);
          else
             Val := Enumeration_Pos (Ent);
          end if;
@@ -3097,8 +3143,7 @@ package body Sem_Eval is
    function In_Subrange_Of
      (T1        : Entity_Id;
       T2        : Entity_Id;
-      Fixed_Int : Boolean := False)
-      return      Boolean
+      Fixed_Int : Boolean := False) return Boolean
    is
       L1 : Node_Id;
       H1 : Node_Id;
@@ -3200,14 +3245,13 @@ package body Sem_Eval is
      (N         : Node_Id;
       Typ       : Entity_Id;
       Fixed_Int : Boolean := False;
-      Int_Real  : Boolean := False)
-      return      Boolean
+      Int_Real  : Boolean := False) return Boolean
    is
       Val  : Uint;
       Valr : Ureal;
 
    begin
-      --  Universal types have no range limits, so always in range.
+      --  Universal types have no range limits, so always in range
 
       if Typ = Universal_Integer or else Typ = Universal_Real then
          return True;
@@ -3218,7 +3262,7 @@ package body Sem_Eval is
       elsif not Is_Scalar_Type (Typ) then
          return False;
 
-      --  Never in range unless we have a compile time known value.
+      --  Never in range unless we have a compile time known value
 
       elsif not Compile_Time_Known_Value (N) then
          return False;
@@ -3381,14 +3425,13 @@ package body Sem_Eval is
      (N         : Node_Id;
       Typ       : Entity_Id;
       Fixed_Int : Boolean := False;
-      Int_Real  : Boolean := False)
-      return      Boolean
+      Int_Real  : Boolean := False) return Boolean
    is
       Val  : Uint;
       Valr : Ureal;
 
    begin
-      --  Universal types have no range limits, so always in range.
+      --  Universal types have no range limits, so always in range
 
       if Typ = Universal_Integer or else Typ = Universal_Real then
          return False;
@@ -3477,7 +3520,7 @@ package body Sem_Eval is
    -- Is_Static_Subtype --
    -----------------------
 
-   --  Determines if Typ is a static subtype as defined in (RM 4.9(26)).
+   --  Determines if Typ is a static subtype as defined in (RM 4.9(26))
 
    function Is_Static_Subtype (Typ : Entity_Id) return Boolean is
       Base_T   : constant Entity_Id := Base_Type (Typ);
@@ -3672,9 +3715,8 @@ package body Sem_Eval is
    ------------------------------------
 
    function Subtypes_Statically_Compatible
-     (T1   : Entity_Id;
-      T2   : Entity_Id)
-      return Boolean
+     (T1 : Entity_Id;
+      T2 : Entity_Id) return Boolean
    is
    begin
       if Is_Scalar_Type (T1) then
@@ -3794,6 +3836,16 @@ package body Sem_Eval is
                       or else Comes_From_Source (T2))
          then
             return False;
+
+         --  A generic scalar type does not statically match its base
+         --  type (AI-311). In this case we make sure that the formals,
+         --  which are first subtypes of their bases, are constrained.
+
+         elsif Is_Generic_Type (T1)
+           and then Is_Generic_Type (T2)
+           and then (Is_Constrained (T1) /= Is_Constrained (T2))
+         then
+            return False;
          end if;
 
          --  If there was an error in either range, then just assume
@@ -3905,7 +3957,7 @@ package body Sem_Eval is
 
          return True;
 
-      --  A definite type does not match an indefinite or classwide type.
+      --  A definite type does not match an indefinite or classwide type
 
       elsif
          Has_Unknown_Discriminants (T1) /= Has_Unknown_Discriminants (T2)
@@ -4085,7 +4137,7 @@ package body Sem_Eval is
          Fold := False;
          return;
 
-      --  Exclude expressions of a generic modular type, as above.
+      --  Exclude expressions of a generic modular type, as above
 
       elsif Is_Modular_Integer_Type (Etype (Op1))
         and then Is_Generic_Type (Etype (Op1))

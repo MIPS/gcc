@@ -1,5 +1,5 @@
 /* Loop header copying on trees.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -60,7 +60,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
     return false;
 
   gcc_assert (EDGE_COUNT (header->succs) > 0);
-  if (EDGE_COUNT (header->succs) == 1)
+  if (single_succ_p (header))
     return false;
   if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest)
       && flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 1)->dest))
@@ -68,7 +68,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
 
   /* If this is not the original loop header, we want it to have just
      one predecessor in order to match the && pattern.  */
-  if (header != loop->header && EDGE_COUNT (header->preds) >= 2)
+  if (header != loop->header && !single_pred_p (header))
     return false;
 
   last = last_stmt (header);
@@ -131,12 +131,10 @@ copy_loop_headers (void)
   basic_block *bbs, *copied_bbs;
   unsigned n_bbs;
   unsigned bbs_size;
-  gcov_type entry_count, body_count, total_count;
 
   loops = loop_optimizer_init (dump_file);
   if (!loops)
     return;
-  rewrite_into_loop_closed_ssa ();
   
   /* We do not try to keep the information about irreducible regions
      up-to-date.  */
@@ -198,34 +196,15 @@ copy_loop_headers (void)
 
       /* Ensure that the header will have just the latch as a predecessor
 	 inside the loop.  */
-      if (EDGE_COUNT (exit->dest->preds) > 1)
-	exit = EDGE_SUCC (loop_split_edge_with (exit, NULL), 0);
+      if (!single_pred_p (exit->dest))
+	exit = single_succ_edge (loop_split_edge_with (exit, NULL));
 
       entry = loop_preheader_edge (loop);
-      entry_count = entry->src->count;
-      body_count = exit->dest->count;
 
       if (!tree_duplicate_sese_region (entry, exit, bbs, n_bbs, copied_bbs))
 	{
 	  fprintf (dump_file, "Duplication failed.\n");
 	  continue;
-	}
-
-      /* Fix profiling info.  Scaling is done in gcov_type arithmetic to
-	 avoid losing information; this is slow, but is done at most
-	 once per loop.  We special case 0 to avoid division by 0;
-         probably other special cases exist.  */
-      total_count = body_count + entry_count;
-      if (total_count == 0LL)
-	{
-	  scale_bbs_frequencies_int (bbs, n_bbs, 0, 1);
-	  scale_bbs_frequencies_int (copied_bbs, n_bbs, 0, 1);
-	}
-      else
-	{
-	  scale_bbs_frequencies_gcov_type (bbs, n_bbs, body_count, total_count);
-	  scale_bbs_frequencies_gcov_type (copied_bbs, n_bbs, entry_count, 
-				           total_count);
 	}
 
       /* Ensure that the latch and the preheader is simple (we know that they
@@ -236,10 +215,6 @@ copy_loop_headers (void)
 
   free (bbs);
   free (copied_bbs);
-
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
 
   loop_optimizer_finalize (loops, NULL);
 }

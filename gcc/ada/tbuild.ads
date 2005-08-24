@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -68,20 +68,6 @@ package Tbuild is
    --  Like the standard Make_Attribute_Reference but the special flag
    --  Must_Be_Byte_Aligned is set in the attribute reference node. The
    --  Attribute_Name must be Name_Address or Name_Unrestricted_Access.
-
-   function Make_DT_Component
-     (Loc  : Source_Ptr;
-      Typ  : Entity_Id;
-      I    : Positive) return Node_Id;
-   --  Gives a reference to the Ith component of the Dispatch Table of
-   --  a given Tagged Type.
-   --
-   --  I = 1    --> Inheritance_Depth
-   --  I = 2    --> Tags (array of ancestors)
-   --  I = 3, 4 --> predefined primitive
-   --            function _Size (X : Typ) return Long_Long_Integer;
-   --            function _Equality (X : Typ; Y : Typ'Class) return Boolean;
-   --  I >= 5   --> User-Defined Primitive Operations
 
    function Make_DT_Access
      (Loc : Source_Ptr; Rec : Node_Id; Typ : Entity_Id) return Node_Id;

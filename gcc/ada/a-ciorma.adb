@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                      A D A . C O N T A I N E R S .                       --
---             I N D E F I N I T E _ O R D E R E D _ M A P S                --
+--                  ADA.CONTAINERS.INDEFINITE_ORDERED_MAPS                  --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--             Copyright (C) 2004 Free Software Foundation, Inc.            --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -21,8 +20,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
+-- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -42,7 +41,23 @@ pragma Elaborate_All (Ada.Containers.Red_Black_Trees.Generic_Operations);
 with Ada.Containers.Red_Black_Trees.Generic_Keys;
 pragma Elaborate_All (Ada.Containers.Red_Black_Trees.Generic_Keys);
 
+with System;  use type System.Address;
+
 package body Ada.Containers.Indefinite_Ordered_Maps is
+
+   use Red_Black_Trees;
+
+   type Key_Access is access Key_Type;
+   type Element_Access is access Element_Type;
+
+   type Node_Type is limited record
+      Parent  : Node_Access;
+      Left    : Node_Access;
+      Right   : Node_Access;
+      Color   : Red_Black_Trees.Color_Type := Red;
+      Key     : Key_Access;
+      Element : Element_Access;
+   end record;
 
    -----------------------------
    -- Node Access Subprograms --
@@ -82,6 +97,10 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    function Copy_Node (Source : Node_Access) return Node_Access;
    pragma Inline (Copy_Node);
 
+   function Copy_Tree (Source_Root : Node_Access) return Node_Access;
+
+   procedure Delete_Tree (X : in out Node_Access);
+
    procedure Free (X : in out Node_Access);
 
    function Is_Equal_Node_Node
@@ -103,13 +122,9 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    --------------------------
 
    package Tree_Operations is
-     new Red_Black_Trees.Generic_Operations (Tree_Types);
-
-   procedure Delete_Tree is
-      new Tree_Operations.Generic_Delete_Tree (Free);
-
-   function Copy_Tree is
-      new Tree_Operations.Generic_Copy_Tree (Copy_Node, Delete_Tree);
+     new Red_Black_Trees.Generic_Operations
+       (Tree_Types => Tree_Types,
+        Null_Node  => Node_Access'(null));
 
    use Tree_Operations;
 
@@ -154,6 +169,10 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
 
    function "=" (Left, Right : Map) return Boolean is
    begin
+      if Left'Address = Right'Address then
+         return True;
+      end if;
+
       return Is_Equal (Left.Tree, Right.Tree);
    end "=";
 
@@ -180,12 +199,24 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    -- Adjust --
    ------------
 
-   procedure Adjust is
-      new Tree_Operations.Generic_Adjust (Copy_Tree);
-
    procedure Adjust (Container : in out Map) is
+      Tree : Tree_Type renames Container.Tree;
+
+      N : constant Count_Type := Tree.Length;
+      X : constant Node_Access := Tree.Root;
+
    begin
-      Adjust (Container.Tree);
+      if N = 0 then
+         pragma Assert (X = null);
+         return;
+      end if;
+
+      Tree := (Length => 0, others => null);
+
+      Tree.Root := Copy_Tree (X);
+      Tree.First := Min (Tree.Root);
+      Tree.Last := Max (Tree.Root);
+      Tree.Length := N;
    end Adjust;
 
    -------------
@@ -198,7 +229,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       if Node = null then
          return No_Element;
       else
-         return Cursor'(Container'Unrestricted_Access, Node);
+         return Cursor'(Container'Unchecked_Access, Node);
       end if;
    end Ceiling;
 
@@ -206,12 +237,12 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    -- Clear --
    -----------
 
-   procedure Clear is
-      new Tree_Operations.Generic_Clear (Delete_Tree);
-
    procedure Clear (Container : in out Map) is
+      Tree : Tree_Type renames Container.Tree;
+      Root : Node_Access := Tree.Root;
    begin
-      Clear (Container.Tree);
+      Tree := (Length => 0, others => null);
+      Delete_Tree (Root);
    end Clear;
 
    -----------
@@ -237,23 +268,59 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    ---------------
 
    function Copy_Node (Source : Node_Access) return Node_Access is
-      K : Key_Access := new Key_Type'(Source.Key.all);
-      E : Element_Access;
+      Target : constant Node_Access :=
+         new Node_Type'(Parent  => null,
+                        Left    => null,
+                        Right   => null,
+                        Color   => Source.Color,
+                        Key     => Source.Key,
+                        Element => Source.Element);
    begin
-      E := new Element_Type'(Source.Element.all);
+      return Target;
+   end Copy_Node;
 
-      return new Node_Type'(Parent  => null,
-                            Left    => null,
-                            Right   => null,
-                            Color   => Source.Color,
-                            Key     => K,
-                            Element => E);
+   ---------------
+   -- Copy_Tree --
+   ---------------
+
+   function Copy_Tree (Source_Root : Node_Access) return Node_Access is
+      Target_Root : Node_Access := Copy_Node (Source_Root);
+
+      P, X : Node_Access;
+
+   begin
+      if Source_Root.Right /= null then
+         Target_Root.Right := Copy_Tree (Source_Root.Right);
+         Target_Root.Right.Parent := Target_Root;
+      end if;
+
+      P := Target_Root;
+      X := Source_Root.Left;
+      while X /= null loop
+         declare
+            Y : Node_Access := Copy_Node (X);
+
+         begin
+            P.Left := Y;
+            Y.Parent := P;
+
+            if X.Right /= null then
+               Y.Right := Copy_Tree (X.Right);
+               Y.Right.Parent := Y;
+            end if;
+
+            P := Y;
+            X := X.Left;
+         end;
+      end loop;
+
+      return Target_Root;
+
    exception
       when others =>
-         Free_Key (K);
-         Free_Element (E);
+         Delete_Tree (Target_Root);
          raise;
-   end Copy_Node;
+   end Copy_Tree;
 
    ------------
    -- Delete --
@@ -264,11 +331,11 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       Position  : in out Cursor)
    is
    begin
-      if Position.Node = null then
-         raise Constraint_Error;
+      if Position = No_Element then
+         return;
       end if;
 
-      if Position.Container /= Map_Access'(Container'Unrestricted_Access) then
+      if Position.Container /= Map_Access'(Container'Unchecked_Access) then
          raise Program_Error;
       end if;
 
@@ -294,12 +361,9 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    ------------------
 
    procedure Delete_First (Container : in out Map) is
-      X : Node_Access := Container.Tree.First;
+      Position : Cursor := First (Container);
    begin
-      if X /= null then
-         Tree_Operations.Delete_Node_Sans_Free (Container.Tree, X);
-         Free (X);
-      end if;
+      Delete (Container, Position);
    end Delete_First;
 
    -----------------
@@ -307,13 +371,26 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    -----------------
 
    procedure Delete_Last (Container : in out Map) is
-      X : Node_Access := Container.Tree.Last;
+      Position : Cursor := Last (Container);
    begin
-      if X /= null then
-         Tree_Operations.Delete_Node_Sans_Free (Container.Tree, X);
-         Free (X);
-      end if;
+      Delete (Container, Position);
    end Delete_Last;
+
+   -----------------
+   -- Delete_Tree --
+   -----------------
+
+   procedure Delete_Tree (X : in out Node_Access) is
+      Y : Node_Access;
+   begin
+      while X /= null loop
+         Y := X.Right;
+         Delete_Tree (Y);
+         Y := X.Left;
+         Free (X);
+         X := Y;
+      end loop;
+   end Delete_Tree;
 
    -------------
    -- Element --
@@ -354,7 +431,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       if Node = null then
          return No_Element;
       else
-         return Cursor'(Container'Unrestricted_Access, Node);
+         return Cursor'(Container'Unchecked_Access, Node);
       end if;
    end Find;
 
@@ -367,7 +444,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       if Container.Tree.First = null then
          return No_Element;
       else
-         return Cursor'(Container'Unrestricted_Access, Container.Tree.First);
+         return Cursor'(Container'Unchecked_Access, Container.Tree.First);
       end if;
    end First;
 
@@ -399,7 +476,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       if Node = null then
          return No_Element;
       else
-         return Cursor'(Container'Unrestricted_Access, Node);
+         return Cursor'(Container'Unchecked_Access, Node);
       end if;
    end Floor;
 
@@ -411,38 +488,11 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       procedure Deallocate is
         new Ada.Unchecked_Deallocation (Node_Type, Node_Access);
    begin
-      if X = null then
-         return;
-      end if;
-
-      begin
+      if X /= null then
          Free_Key (X.Key);
-      exception
-         when others =>
-            X.Key := null;
-
-            begin
-               Free_Element (X.Element);
-            exception
-               when others =>
-                  X.Element := null;
-            end;
-
-            Deallocate (X);
-            raise;
-      end;
-
-      begin
          Free_Element (X.Element);
-      exception
-         when others =>
-            X.Element := null;
-
-            Deallocate (X);
-            raise;
-      end;
-
-      Deallocate (X);
+         Deallocate (X);
+      end if;
    end Free;
 
    -----------------
@@ -473,22 +523,11 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       Insert (Container, Key, New_Item, Position, Inserted);
 
       if not Inserted then
-         if Container.Tree.Lock > 0 then
-            raise Program_Error;
-         end if;
-
          K := Position.Node.Key;
          E := Position.Node.Element;
 
          Position.Node.Key := new Key_Type'(Key);
-
-         begin
-            Position.Node.Element := new Element_Type'(New_Item);
-         exception
-            when others =>
-               Free_Key (K);
-               raise;
-         end;
+         Position.Node.Element := new Element_Type'(New_Item);
 
          Free_Key (K);
          Free_Element (E);
@@ -532,7 +571,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
 
             --  On exception, deallocate key and elem
 
-            Free (Node);  --  Note that Free deallocates key and elem too
+            Free (Node);
             raise;
       end New_Node;
 
@@ -545,7 +584,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
          Position.Node,
          Inserted);
 
-      Position.Container := Container'Unrestricted_Access;
+      Position.Container := Container'Unchecked_Access;
    end Insert;
 
    procedure Insert
@@ -581,15 +620,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    function Is_Equal_Node_Node
      (L, R : Node_Access) return Boolean is
    begin
-      if L.Key.all < R.Key.all then
-         return False;
-
-      elsif R.Key.all < L.Key.all then
-         return False;
-
-      else
-         return L.Element.all = R.Element.all;
-      end if;
+      return L.Element.all = R.Element.all;
    end Is_Equal_Node_Node;
 
    -------------------------
@@ -637,25 +668,13 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
 
       procedure Process_Node (Node : Node_Access) is
       begin
-         Process (Cursor'(Container'Unrestricted_Access, Node));
+         Process (Cursor'(Container'Unchecked_Access, Node));
       end Process_Node;
-
-      B : Natural renames Container.Tree'Unrestricted_Access.all.Busy;
 
    --  Start of processing for Iterate
 
    begin
-      B := B + 1;
-
-      begin
-         Local_Iterate (Container.Tree);
-      exception
-         when others =>
-            B := B - 1;
-            raise;
-      end;
-
-      B := B - 1;
+      Local_Iterate (Container.Tree);
    end Iterate;
 
    ---------
@@ -676,7 +695,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       if Container.Tree.Last = null then
          return No_Element;
       else
-         return Cursor'(Container'Unrestricted_Access, Container.Tree.Last);
+         return Cursor'(Container'Unchecked_Access, Container.Tree.Last);
       end if;
    end Last;
 
@@ -720,11 +739,12 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    -- Move --
    ----------
 
-   procedure Move is
-      new Tree_Operations.Generic_Move (Clear);
-
    procedure Move (Target : in out Map; Source : in out Map) is
    begin
+      if Target'Address = Source'Address then
+         return;
+      end if;
+
       Move (Target => Target.Tree, Source => Source.Tree);
    end Move;
 
@@ -796,32 +816,10 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
 
    procedure Query_Element
      (Position : Cursor;
-      Process  : not null access procedure (Key     : Key_Type;
-                                            Element : Element_Type))
+      Process  : not null access procedure (Element : Element_Type))
    is
-      K : Key_Type renames Position.Node.Key.all;
-      E : Element_Type renames Position.Node.Element.all;
-
-      T : Tree_Type renames Position.Container.Tree;
-
-      B : Natural renames T.Busy;
-      L : Natural renames T.Lock;
-
    begin
-      B := B + 1;
-      L := L + 1;
-
-      begin
-         Process (K, E);
-      exception
-         when others =>
-            L := L - 1;
-            B := B - 1;
-            raise;
-      end;
-
-      L := L - 1;
-      B := B - 1;
+      Process (Position.Node.Key.all, Position.Node.Element.all);
    end Query_Element;
 
    ----------
@@ -832,35 +830,43 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
      (Stream    : access Root_Stream_Type'Class;
       Container : out Map)
    is
-      function Read_Node
-        (Stream : access Root_Stream_Type'Class) return Node_Access;
-      pragma Inline (Read_Node);
+      N : Count_Type'Base;
 
-      procedure Read is
-         new Tree_Operations.Generic_Read (Clear, Read_Node);
+      function New_Node return Node_Access;
+      pragma Inline (New_Node);
 
-      ---------------
-      -- Read_Node --
-      ---------------
+      procedure Local_Read is new Tree_Operations.Generic_Read (New_Node);
 
-      function Read_Node
-        (Stream : access Root_Stream_Type'Class) return Node_Access
-      is
+      --------------
+      -- New_Node --
+      --------------
+
+      function New_Node return Node_Access is
          Node : Node_Access := new Node_Type;
+
       begin
          Node.Key := new Key_Type'(Key_Type'Input (Stream));
          Node.Element := new Element_Type'(Element_Type'Input (Stream));
          return Node;
+
       exception
          when others =>
-            Free (Node);  --  Note that Free deallocates key and elem too
+
+            --  Deallocate key and elem too on exception
+
+            Free (Node);
             raise;
-      end Read_Node;
+      end New_Node;
 
    --  Start of processing for Read
 
    begin
-      Read (Stream, Container.Tree);
+      Clear (Container);
+
+      Count_Type'Base'Read (Stream, N);
+      pragma Assert (N >= 0);
+
+      Local_Read (Container.Tree, N);
    end Read;
 
    -------------
@@ -883,22 +889,11 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
          raise Constraint_Error;
       end if;
 
-      if Container.Tree.Lock > 0 then
-         raise Program_Error;
-      end if;
-
       K := Node.Key;
       E := Node.Element;
 
       Node.Key := new Key_Type'(Key);
-
-      begin
-         Node.Element := new Element_Type'(New_Item);
-      exception
-         when others =>
-            Free_Key (K);
-            raise;
-      end;
+      Node.Element := new Element_Type'(New_Item);
 
       Free_Key (K);
       Free_Element (E);
@@ -911,10 +906,6 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
    procedure Replace_Element (Position : Cursor; By : Element_Type) is
       X : Element_Access := Position.Node.Element;
    begin
-      if Position.Container.Tree.Lock > 0 then
-         raise Program_Error;
-      end if;
-
       Position.Node.Element := new Element_Type'(By);
       Free_Element (X);
    end Replace_Element;
@@ -939,25 +930,13 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
 
       procedure Process_Node (Node : Node_Access) is
       begin
-         Process (Cursor'(Container'Unrestricted_Access, Node));
+         Process (Cursor'(Container'Unchecked_Access, Node));
       end Process_Node;
-
-      B : Natural renames Container.Tree'Unrestricted_Access.all.Busy;
 
    --  Start of processing for Reverse_Iterate
 
    begin
-      B := B + 1;
-
-      begin
-         Local_Reverse_Iterate (Container.Tree);
-      exception
-         when others =>
-            B := B - 1;
-            raise;
-      end;
-
-      B := B - 1;
+      Local_Reverse_Iterate (Container.Tree);
    end Reverse_Iterate;
 
    -----------
@@ -1011,32 +990,10 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
 
    procedure Update_Element
      (Position : Cursor;
-      Process  : not null access procedure (Key     : Key_Type;
-                                            Element : in out Element_Type))
+      Process  : not null access procedure (Element : in out Element_Type))
    is
-      K : Key_Type renames Position.Node.Key.all;
-      E : Element_Type renames Position.Node.Element.all;
-
-      T : Tree_Type renames Position.Container.Tree;
-
-      B : Natural renames T.Busy;
-      L : Natural renames T.Lock;
-
    begin
-      B := B + 1;
-      L := L + 1;
-
-      begin
-         Process (K, E);
-      exception
-         when others =>
-            L := L - 1;
-            B := B - 1;
-            raise;
-      end;
-
-      L := L - 1;
-      B := B - 1;
+      Process (Position.Node.Key.all, Position.Node.Element.all);
    end Update_Element;
 
    -----------
@@ -1047,31 +1004,28 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
      (Stream    : access Root_Stream_Type'Class;
       Container : Map)
    is
-      procedure Write_Node
-        (Stream : access Root_Stream_Type'Class;
-         Node   : Node_Access);
-      pragma Inline (Write_Node);
+      procedure Process (Node : Node_Access);
+      pragma Inline (Process);
 
-      procedure Write is
-         new Tree_Operations.Generic_Write (Write_Node);
+      procedure Iterate is
+        new Tree_Operations.Generic_Iteration (Process);
 
-      ----------------
-      -- Write_Node --
-      ----------------
+      -------------
+      -- Process --
+      -------------
 
-      procedure Write_Node
-        (Stream : access Root_Stream_Type'Class;
-         Node   : Node_Access)
-      is
+      procedure Process (Node : Node_Access) is
       begin
          Key_Type'Output (Stream, Node.Key.all);
          Element_Type'Output (Stream, Node.Element.all);
-      end Write_Node;
+      end Process;
 
    --  Start of processing for Write
 
    begin
-      Write (Stream, Container.Tree);
+      Count_Type'Base'Write (Stream, Container.Tree.Length);
+      Iterate (Container.Tree);
    end Write;
 
 end Ada.Containers.Indefinite_Ordered_Maps;
+

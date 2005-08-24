@@ -207,14 +207,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
       do_jump (TREE_OPERAND (exp, 0), if_false_label, if_true_label);
       break;
 
-    case MINUS_EXPR:
-      /* Nonzero iff operands of minus differ.  */
-      do_compare_and_jump (build2 (NE_EXPR, TREE_TYPE (exp),
-				   TREE_OPERAND (exp, 0),
-				   TREE_OPERAND (exp, 1)),
-                           NE, NE, if_false_label, if_true_label);
-      break;
-
     case BIT_AND_EXPR:
       /* fold_single_bit_test() converts (X & (1 << C)) into (X >> C) & 1.
 	 See if the former is preferred for jump tests and restore it
@@ -369,6 +361,12 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
         break;
       }
 
+    case MINUS_EXPR:
+      /* Nonzero iff operands of minus differ.  */
+      exp = build2 (NE_EXPR, TREE_TYPE (exp),
+		    TREE_OPERAND (exp, 0),
+		    TREE_OPERAND (exp, 1));
+      /* FALLTHRU */
     case NE_EXPR:
       {
         tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
@@ -504,8 +502,8 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	    if (if_true_label == 0)
 	      drop_through_label = if_true_label = gen_label_rtx ();
 	      
-            cmp0 = fold (build2 (tcode1, TREE_TYPE (exp), op0, op1));
-            cmp1 = fold (build2 (tcode2, TREE_TYPE (exp), op0, op1));
+            cmp0 = fold_build2 (tcode1, TREE_TYPE (exp), op0, op1);
+            cmp1 = fold_build2 (tcode2, TREE_TYPE (exp), op0, op1);
 	    do_jump (cmp0, 0, if_true_label);
 	    do_jump (cmp1, if_false_label, if_true_label);
           }
@@ -527,7 +525,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	tree arglist = TREE_OPERAND (exp, 1);
 
 	if (fndecl
-	    && DECL_BUILT_IN (fndecl)
+	    && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	    && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
 	    && arglist != NULL_TREE
 	    && TREE_CHAIN (arglist) != NULL_TREE)
@@ -926,7 +924,7 @@ do_compare_and_jump (tree exp, enum rtx_code signed_code,
      be reliably compared, then canonicalize them.
      Only do this if *both* sides of the comparison are function pointers.
      If one side isn't, we want a noncanonicalized comparison.  See PR
-     middle-end/17564. */
+     middle-end/17564.  */
   if (HAVE_canonicalize_funcptr_for_compare
       && TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == POINTER_TYPE
       && TREE_CODE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))

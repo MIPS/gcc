@@ -1,5 +1,5 @@
 /* Register conflict graph computation routines.
-   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC
 
 This file is part of GCC.
@@ -34,7 +34,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
-#include "function.h"
 
 /* A register conflict graph is an undirected graph containing nodes
    for some or all of the regs used in a function.  Arcs represent
@@ -209,7 +208,7 @@ conflict_graph_add (conflict_graph graph, int reg1, int reg2)
   arc->smaller = smaller;
   arc->larger = larger;
 
-  /* Link the conflict into into two lists, one for each reg.  */
+  /* Link the conflict into two lists, one for each reg.  */
   arc->smaller_next = graph->neighbor_heads[smaller];
   graph->neighbor_heads[smaller] = arc;
   arc->larger_next = graph->neighbor_heads[larger];

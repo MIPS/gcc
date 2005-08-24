@@ -1,7 +1,7 @@
 @c markers: CROSSREF BUG TODO
 
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -350,11 +350,23 @@ in @file{tree-ssa-dse.c} and is described by @code{pass_dse}.
 This pass transforms tail recursion into a loop.  It is located in
 @file{tree-tailcall.c} and is described by @code{pass_tail_recursion}.
 
+@item Forward store motion
+
+This pass sinks stores and assignments down the flowgraph closer to it's
+use point.  The pass is located in @file{tree-ssa-sink.c} and is
+described by @code{pass_sink_code}.
+
 @item Partial redundancy elimination
 
 This pass eliminates partially redundant computations, as well as
 performing load motion.  The pass is located in @file{tree-ssa-pre.c}
 and is described by @code{pass_pre}.
+
+Just before partial redundancy elimination, if
+@option{-funsafe-math-optimizations} is on, GCC tries to convert
+divisions to multiplications by the reciprocal.  The pass is located
+in @file{tree-ssa-math-opts.c} and is described by
+@code{pass_cse_reciprocal}.
 
 @item Loop optimization
 
@@ -392,6 +404,19 @@ in tree level alias analysis.
 The optimizations also use various utility functions contained in
 @file{tree-ssa-loop-manip.c}, @file{cfgloop.c}, @file{cfgloopanal.c} and
 @file{cfgloopmanip.c}.
+
+Vectorization.  This pass transforms loops to operate on vector types
+instead of scalar types.  Data parallelism across loop iterations is exploited
+to group data elements from consecutive iterations into a vector and operate 
+on them in parallel.  Depending on available target support the loop is 
+conceptually unrolled by a factor @code{VF} (vectorization factor), which is
+the number of elements operated upon in parallel in each iteration, and the 
+@code{VF} copies of each scalar operation are fused to form a vector operation.
+Additional loop transformations such as peeling and versioning may take place
+to align the number of iterations, and to align the memory accesses in the loop.
+The pass is implemented in @file{tree-vectorizer.c} (the main driver and general
+utilities), @file{tree-vect-analyze.c} and @file{tree-vect-transform.c}.
+Analysis of data references is in @file{tree-data-ref.c}.
 
 @item Tree level if-conversion for vectorizer
 
@@ -660,13 +685,6 @@ do a decent job.  The source is located in @file{local-alloc.c}.
 Global register allocation.  This pass allocates hard registers for
 the remaining pseudo registers (those whose life spans are not
 contained in one basic block).  The pass is located in @file{global.c}.
-
-@item
-Graph coloring register allocator.  The files @file{ra.c}, @file{ra-build.c},
-@file{ra-colorize.c}, @file{ra-debug.c}, @file{ra-rewrite.c} together with
-the header @file{ra.h} contain another register allocator, which is used
-when the option @option{-fnew-ra} is given.  In that case it is run instead
-of the above mentioned local and global register allocation passes.
 
 @cindex reloading
 @item

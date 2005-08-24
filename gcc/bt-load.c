@@ -1,5 +1,5 @@
 /* Perform branch target register load optimizations.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -506,6 +506,22 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
 		  SET_BIT (btr_defset[regno - first_btr], insn_uid);
 		  note_other_use_this_block (regno, info.users_this_bb);
 		}
+	      /* Check for the blockage emitted by expand_nl_goto_receiver.  */
+	      else if (current_function_has_nonlocal_label
+		       && GET_CODE (PATTERN (insn)) == ASM_INPUT)
+		{
+		  btr_user user;
+
+		  /* Do the equivalent of calling note_other_use_this_block
+		     for every target register.  */
+		  for (user = info.users_this_bb; user != NULL;
+		       user = user->next)
+		    if (user->use)
+		      user->other_use_this_block = 1;
+		  IOR_HARD_REG_SET (info.btrs_written_in_block, all_btrs);
+		  IOR_HARD_REG_SET (info.btrs_live_in_block, all_btrs);
+		  sbitmap_zero (info.bb_gen);
+		}
 	      else
 		{
 		  if (btr_referenced_p (PATTERN (insn), NULL))
@@ -996,7 +1012,7 @@ btr_def_live_range (btr_def def, HARD_REG_SET *btrs_live_in_range)
     {
       btr_user user;
 
-      def->live_range = BITMAP_XMALLOC ();
+      def->live_range = BITMAP_ALLOC (NULL);
 
       bitmap_set_bit (def->live_range, def->bb->index);
       COPY_HARD_REG_SET (*btrs_live_in_range,
@@ -1008,7 +1024,7 @@ btr_def_live_range (btr_def def, HARD_REG_SET *btrs_live_in_range)
 			    def->bb, user->bb,
 			    (flag_btr_bb_exclusive
 			     || user->insn != BB_END (def->bb)
-			     || GET_CODE (user->insn) != JUMP_INSN));
+			     || !JUMP_P (user->insn)));
     }
   else
     {
@@ -1056,7 +1072,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	     target registers live over the merged range.  */
 	  int btr;
 	  HARD_REG_SET combined_btrs_live;
-	  bitmap combined_live_range = BITMAP_XMALLOC ();
+	  bitmap combined_live_range = BITMAP_ALLOC (NULL);
 	  btr_user user;
 
 	  if (other_def->live_range == NULL)
@@ -1072,7 +1088,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 				def->bb, user->bb,
 				(flag_btr_bb_exclusive
 				 || user->insn != BB_END (def->bb)
-				 || GET_CODE (user->insn) != JUMP_INSN));
+				 || !JUMP_P (user->insn)));
 
 	  btr = choose_btr (combined_btrs_live);
 	  if (btr != -1)
@@ -1114,7 +1130,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	      delete_insn (other_def->insn);
 
 	    }
-	  BITMAP_XFREE (combined_live_range);
+	  BITMAP_FREE (combined_live_range);
 	}
     }
 }
@@ -1287,7 +1303,7 @@ migrate_btr_def (btr_def def, int min_cost)
     }
 
   btr_def_live_range (def, &btrs_live_in_range);
-  live_range = BITMAP_XMALLOC ();
+  live_range = BITMAP_ALLOC (NULL);
   bitmap_copy (live_range, def->live_range);
 
 #ifdef INSN_SCHEDULING
@@ -1361,7 +1377,7 @@ migrate_btr_def (btr_def def, int min_cost)
       if (dump_file)
 	fprintf (dump_file, "failed to move\n");
     }
-  BITMAP_XFREE (live_range);
+  BITMAP_FREE (live_range);
   return !give_up;
 }
 
@@ -1420,7 +1436,7 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 	    }
 	}
       else
-	BITMAP_XFREE (def->live_range);
+	BITMAP_FREE (def->live_range);
     }
 
   free (btrs_live);

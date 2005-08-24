@@ -1,6 +1,6 @@
 /* RTL utility routines.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,7 +33,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "real.h"
 #include "ggc.h"
-#include "errors.h"
+#ifdef GENERATOR_FILE
+# include "errors.h"
+#else
+# include "toplev.h"
+#endif
 
 
 /* Indexed by rtx code, gives number of operands for an rtx with that code.
@@ -174,8 +178,7 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
-				   RTX_SIZE (code) PASS_MEM_STAT);
+  rt = (rtx) ggc_alloc_zone_pass_stat (RTX_SIZE (code), &rtl_zone);
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -309,8 +312,8 @@ shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
 {
   rtx copy;
 
-  copy = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
-				     RTX_SIZE (GET_CODE (orig)) PASS_MEM_STAT);
+  copy = (rtx) ggc_alloc_zone_pass_stat (RTX_SIZE (GET_CODE (orig)),
+					 &rtl_zone);
   memcpy (copy, orig, RTX_SIZE (GET_CODE (orig)));
   return copy;
 }
@@ -364,7 +367,6 @@ rtx_equal_p (rtx x, rtx y)
     case SCRATCH:
     case CONST_DOUBLE:
     case CONST_INT:
-    case CONST_VECTOR:
       return 0;
 
     default:

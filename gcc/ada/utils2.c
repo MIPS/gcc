@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2004, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -176,7 +176,7 @@ known_alignment (tree exp)
     case PLUS_EXPR:
     case MINUS_EXPR:
       /* If two address are added, the alignment of the result is the
-	 minimum of the two aligments.  */
+	 minimum of the two alignments.  */
       lhs = known_alignment (TREE_OPERAND (exp, 0));
       rhs = known_alignment (TREE_OPERAND (exp, 1));
       this_alignment = MIN (lhs, rhs);
@@ -504,7 +504,7 @@ nonbinary_modular_operation (enum tree_code op_code, tree type, tree lhs,
     rhs = fold (build2 (MINUS_EXPR, type, modulus, rhs)), op_code = MINUS_EXPR;
 
   /* For the logical operations, we only need PRECISION bits.  For
-     addition and subraction, we need one more and for multiplication we
+     addition and subtraction, we need one more and for multiplication we
      need twice as many.  But we never want to make a size smaller than
      our size. */
   if (op_code == PLUS_EXPR || op_code == MINUS_EXPR)
@@ -660,13 +660,16 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	 might indicate a conversion between a root type and a class-wide
 	 type, which we must not remove.  */
       while (TREE_CODE (right_operand) == VIEW_CONVERT_EXPR
-	     && ((TREE_CODE (right_type) == RECORD_TYPE
+	     && (((TREE_CODE (right_type) == RECORD_TYPE
+		   || TREE_CODE (right_type) == UNION_TYPE)
 		  && !TYPE_JUSTIFIED_MODULAR_P (right_type)
 		  && !TYPE_ALIGN_OK (right_type)
 		  && !TYPE_IS_FAT_POINTER_P (right_type))
 		 || TREE_CODE (right_type) == ARRAY_TYPE)
-	     && (((TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-		   == RECORD_TYPE)
+	     && ((((TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		    == RECORD_TYPE)
+		   || (TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		       == UNION_TYPE))
 		  && !(TYPE_JUSTIFIED_MODULAR_P
 		       (TREE_TYPE (TREE_OPERAND (right_operand, 0))))
 		  && !(TYPE_ALIGN_OK
@@ -676,9 +679,9 @@ build_binary_op (enum tree_code op_code, tree result_type,
 		 || (TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
 		     == ARRAY_TYPE))
 	     && (0 == (best_type
-		       == find_common_type (right_type,
-					    TREE_TYPE (TREE_OPERAND
-						       (right_operand, 0))))
+		       = find_common_type (right_type,
+					   TREE_TYPE (TREE_OPERAND
+					   (right_operand, 0))))
 		 || right_type != best_type))
 	{
 	  right_operand = TREE_OPERAND (right_operand, 0);
@@ -695,7 +698,9 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	operation_type = best_type;
 
       /* If a class-wide type may be involved, force use of the RHS type.  */
-      if (TREE_CODE (right_type) == RECORD_TYPE && TYPE_ALIGN_OK (right_type))
+      if ((TREE_CODE (right_type) == RECORD_TYPE
+	   || TREE_CODE (right_type) == UNION_TYPE)
+	  && TYPE_ALIGN_OK (right_type))
 	operation_type = right_type;
 
       /* Ensure everything on the LHS is valid.  If we have a field reference,
@@ -1087,7 +1092,8 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	      int unsignedp, volatilep;
 
 	      inner = get_inner_reference (operand, &bitsize, &bitpos, &offset,
-					   &mode, &unsignedp, &volatilep, false);
+					   &mode, &unsignedp, &volatilep,
+					   false);
 
 	      /* If INNER is a padding type whose field has a self-referential
 		 size, convert to that inner type.  We know the offset is zero

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,24 +34,27 @@
 --  This child package of Ada.Strings.Unbounded provides some specialized
 --  access functions which are intended to allow more efficient use of the
 --  facilities of Ada.Strings.Unbounded, particularly by other layered
---  utilities (such as GNAT.Patterns).
+--  utilities (such as GNAT.SPITBOL.Patterns).
 
 package Ada.Strings.Unbounded.Aux is
 pragma Preelaborate (Aux);
 
-   function Get_String (U : Unbounded_String) return String_Access;
+   procedure Get_String
+     (U : Unbounded_String;
+      S : out String_Access;
+      L : out Natural);
    pragma Inline (Get_String);
-   --  This function returns the internal string pointer used in the
-   --  representation of an unbounded string. There is no copy involved,
-   --  so the value obtained references the same string as the original
-   --  unbounded string. The characters of this string may not be modified
-   --  via the returned pointer, and are valid only as long as the original
-   --  unbounded string is not modified. Violating either of these two
-   --  rules results in erroneous execution.
+   --  This procedure returns the internal string pointer used in the
+   --  representation of an unbounded string as well as the actual current
+   --  length (which may be less than S.all'Length because in general there
+   --  can be extra space assigned). The characters of this string may be
+   --  not be modified via the returned pointer,  and are valid only as
+   --  long as the original unbounded string is not accessed or modified.
    --
-   --  This function is much more efficient than the use of To_String
+   --  This procedure is much more efficient than the use of To_String
    --  since it avoids the need to copy the string. The lower bound of the
-   --  referenced string returned by this call is always one.
+   --  referenced string returned by this call is always one, so the actual
+   --  string data is always accessible as S (1 .. L).
 
    procedure Set_String (UP : in out Unbounded_String; S : String);
    pragma Inline (Set_String);

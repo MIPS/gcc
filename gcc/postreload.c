@@ -1,6 +1,6 @@
 /* Perform simple optimizations to clean up the result of reload.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -293,7 +293,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
 		  if (this_val == trunc_int_for_mode (this_val, GET_MODE (src)))
 		    break;
 		default:
-		  abort ();
+		  gcc_unreachable ();
 		}
 	      this_rtx = GEN_INT (this_val);
 	    }
@@ -1068,8 +1068,7 @@ reload_combine_note_use (rtx *xp, rtx insn)
       if (REG_P (SET_DEST (x)))
 	{
 	  /* No spurious CLOBBERs of pseudo registers may remain.  */
-	  if (REGNO (SET_DEST (x)) >= FIRST_PSEUDO_REGISTER)
-	    abort ();
+	  gcc_assert (REGNO (SET_DEST (x)) < FIRST_PSEUDO_REGISTER);
 	  return;
 	}
       break;
@@ -1089,8 +1088,7 @@ reload_combine_note_use (rtx *xp, rtx insn)
 	int nregs;
 
 	/* No spurious USEs of pseudo registers may remain.  */
-	if (regno >= FIRST_PSEUDO_REGISTER)
-	  abort ();
+	gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 	nregs = hard_regno_nregs[regno][GET_MODE (x)];
 
@@ -1244,10 +1242,8 @@ reload_cse_move2add (rtx first)
 
 	      if (GET_CODE (src) == CONST_INT && reg_base_reg[regno] < 0)
 		{
-		  rtx new_src =
-		    GEN_INT (trunc_int_for_mode (INTVAL (src)
-						 - reg_offset[regno],
-						 GET_MODE (reg)));
+		  rtx new_src = gen_int_mode (INTVAL (src) - reg_offset[regno],
+					      GET_MODE (reg));
 		  /* (set (reg) (plus (reg) (const_int 0))) is not canonical;
 		     use (set (reg) (reg)) instead.
 		     We don't delete this insn, nor do we convert it into a
@@ -1273,7 +1269,8 @@ reload_cse_move2add (rtx first)
 		    {
 		      enum machine_mode narrow_mode;
 		      for (narrow_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-			   narrow_mode != GET_MODE (reg);
+			   narrow_mode != VOIDmode
+			   && narrow_mode != GET_MODE (reg);
 			   narrow_mode = GET_MODE_WIDER_MODE (narrow_mode))
 			{
 			  if (have_insn_for (STRICT_LOW_PART, narrow_mode)
@@ -1284,9 +1281,8 @@ reload_cse_move2add (rtx first)
 			    {
 			      rtx narrow_reg = gen_rtx_REG (narrow_mode,
 							    REGNO (reg));
-			      rtx narrow_src =
-				GEN_INT (trunc_int_for_mode (INTVAL (src),
-							     narrow_mode));
+			      rtx narrow_src = gen_int_mode (INTVAL (src),
+							     narrow_mode);
 			      rtx new_set =
 				gen_rtx_SET (VOIDmode,
 					     gen_rtx_STRICT_LOW_PART (VOIDmode,
@@ -1335,10 +1331,10 @@ reload_cse_move2add (rtx first)
 		      HOST_WIDE_INT base_offset = reg_offset[REGNO (src)];
 		      HOST_WIDE_INT regno_offset = reg_offset[regno];
 		      rtx new_src =
-			GEN_INT (trunc_int_for_mode (added_offset
-						     + base_offset
-						     - regno_offset,
-						     GET_MODE (reg)));
+			gen_int_mode (added_offset
+				      + base_offset
+				      - regno_offset,
+				      GET_MODE (reg));
 		      int success = 0;
 
 		      if (new_src == const0_rtx)
@@ -1457,7 +1453,7 @@ move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
 
   regno += REGNO (dst);
 
-  if (SCALAR_INT_MODE_P (mode)
+  if (SCALAR_INT_MODE_P (GET_MODE (dst))
       && hard_regno_nregs[regno][mode] == 1 && GET_CODE (set) == SET
       && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT
       && GET_CODE (SET_DEST (set)) != STRICT_LOW_PART)

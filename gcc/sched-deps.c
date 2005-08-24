@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -76,7 +76,7 @@ static enum reg_pending_barrier_mode reg_pending_barrier;
 static bitmap_head *true_dependency_cache;
 static bitmap_head *anti_dependency_cache;
 static bitmap_head *output_dependency_cache;
-int cache_size;
+static int cache_size;
 
 /* To speed up checking consistency of formed forward insn
    dependencies we use the following cache.  Another possible solution
@@ -534,6 +534,15 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
     {
       regno = REGNO (dest);
 
+#ifdef STACK_REGS
+      /* Treat all writes to a stack register as modifying the TOS.  */
+      if (regno >= FIRST_STACK_REG && regno <= LAST_STACK_REG)
+	{
+	  SET_REGNO_REG_SET (reg_pending_uses, FIRST_STACK_REG);
+	  regno = FIRST_STACK_REG;
+	}
+#endif
+
       /* A hard reg in a wide mode may really be multiple registers.
          If so, mark all of them just like the first.  */
       if (regno < FIRST_PSEUDO_REGISTER)
@@ -684,6 +693,16 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
     case REG:
       {
 	int regno = REGNO (x);
+
+#ifdef STACK_REGS
+      /* Treat all reads of a stack register as modifying the TOS.  */
+      if (regno >= FIRST_STACK_REG && regno <= LAST_STACK_REG)
+	{
+	  SET_REGNO_REG_SET (reg_pending_sets, FIRST_STACK_REG);
+	  regno = FIRST_STACK_REG;
+	}
+#endif
+
 	if (regno < FIRST_PSEUDO_REGISTER)
 	  {
 	    int i = hard_regno_nregs[regno][GET_MODE (x)];

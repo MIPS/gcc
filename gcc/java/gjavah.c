@@ -1,7 +1,7 @@
 /* Program to write C++-suitable header files from a Java(TM) .class
    file.  This is similar to SUN's javah.
 
-Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -53,8 +53,16 @@ FILE *out = NULL;
 /* Nonzero on failure.  */
 static int found_error = 0;
 
+#ifdef JNI_DEFAULT
+#define TOOLNAME "gjnih"
+
 /* Nonzero if we're generating JNI output.  */
+int flag_jni = 1;
+#else
+#define TOOLNAME "gcjh"
+
 int flag_jni = 0;
+#endif
 
 /* When nonzero, warn when source file is newer than matching class
    file.  */
@@ -266,7 +274,7 @@ error (const char *msgid, ...)
 
   va_start (ap, msgid);
 
-  fprintf (stderr, "gcjh: ");
+  fprintf (stderr, TOOLNAME ": ");
   vfprintf (stderr, _(msgid), ap);
   va_end (ap);
   fprintf (stderr, "\n");
@@ -281,19 +289,22 @@ jni_print_float (FILE *stream, jfloat f)
      work in data initializers.  FIXME.  */
   if (JFLOAT_FINITE (f))
     {
-      fputs (flag_jni ? " " : " = ", out);
-      if (f.negative)
-	putc ('-', stream);
-      if (f.exponent)
-	fprintf (stream, "0x1.%.6xp%+df",
-		 ((unsigned int)f.mantissa) << 1,
-		 f.exponent - JFLOAT_EXP_BIAS);
-      else
-	/* Exponent of 0x01 is -125; exponent of 0x00 is *also* -125,
-	   because the implicit leading 1 bit is no longer present.  */
-	fprintf (stream, "0x0.%.6xp%+df",
-		 ((unsigned int)f.mantissa) << 1,
-		 f.exponent + 1 - JFLOAT_EXP_BIAS);
+      if (flag_jni)
+        {
+          fputs (" ", out);
+          if (f.negative)
+            putc ('-', stream);
+          if (f.exponent)
+            fprintf (stream, "0x1.%.6xp%+df",
+                     ((unsigned int)f.mantissa) << 1,
+                     f.exponent - JFLOAT_EXP_BIAS);
+          else
+            /* Exponent of 0x01 is -125; exponent of 0x00 is *also* -125,
+               because the implicit leading 1 bit is no longer present.  */
+            fprintf (stream, "0x0.%.6xp%+df",
+                     ((unsigned int)f.mantissa) << 1,
+                     f.exponent + 1 - JFLOAT_EXP_BIAS);
+        }
     }
   if (! flag_jni)
     fputs (";\n", stream);
@@ -307,19 +318,22 @@ jni_print_double (FILE *stream, jdouble f)
      work in data initializers.  FIXME.  */
   if (JDOUBLE_FINITE (f))
     {
-      fputs (flag_jni ? " " : " = ", out);
-      if (f.negative)
-	putc ('-', stream);
-      if (f.exponent)
-	fprintf (stream, "0x1.%.5x%.8xp%+d",
-		 f.mantissa0, f.mantissa1,
-		 f.exponent - JDOUBLE_EXP_BIAS);
-      else
-	/* Exponent of 0x001 is -1022; exponent of 0x000 is *also* -1022,
-	   because the implicit leading 1 bit is no longer present.  */
-	fprintf (stream, "0x0.%.5x%.8xp%+d",
-		 f.mantissa0, f.mantissa1,
-		 f.exponent + 1 - JDOUBLE_EXP_BIAS);
+      if (flag_jni)
+        {
+          fputs (" ", out);
+          if (f.negative)
+            putc ('-', stream);
+          if (f.exponent)
+            fprintf (stream, "0x1.%.5x%.8xp%+d",
+                     f.mantissa0, f.mantissa1,
+                     f.exponent - JDOUBLE_EXP_BIAS);
+          else
+            /* Exponent of 0x001 is -1022; exponent of 0x000 is *also* -1022,
+               because the implicit leading 1 bit is no longer present.  */
+            fprintf (stream, "0x0.%.5x%.8xp%+d",
+                     f.mantissa0, f.mantissa1,
+                     f.exponent + 1 - JDOUBLE_EXP_BIAS);
+        }
     }
   fputs (flag_jni ? "\n" : ";\n", stream);
 }
@@ -700,6 +714,8 @@ get_field_name (JCF *jcf, int name_index, JCF_u2 flags)
       memcpy (override, name, length);
       strcpy (override + length, "__");
     }
+  else if (flag_jni)
+    override = NULL;
   else
     override = cxx_keyword_subst (name, length);
 
@@ -2085,11 +2101,11 @@ process_file (JCF *jcf, FILE *out)
 		 cstart, mode, cend);
       else
 	{
-	  fprintf (out, "%s This file was created by `gcjh -stubs%s'.%s\n\
+	  fprintf (out, "%s This file was created by `" TOOLNAME " -stubs%s'.%s\n\
 %s\n\
 %s This file is intended to give you a head start on implementing native\n\
 %s methods using %s.\n\
-%s Be aware: running `gcjh -stubs %s' once more for this class may\n\
+%s Be aware: running `" TOOLNAME " -stubs %s' once more for this class may\n\
 %s overwrite any edits you have made to this file.%s\n\n",
 		   cstart, jflag, mode,
 		   cstart2,
@@ -2291,6 +2307,9 @@ process_file (JCF *jcf, FILE *out)
 #define OPT_MG            LONG_OPT (12)
 #define OPT_MD            LONG_OPT (13)
 #define OPT_MMD           LONG_OPT (14)
+#define OPT_FORCE         LONG_OPT (15)
+#define OPT_OLD           LONG_OPT (16)
+#define OPT_TRACE         LONG_OPT (17)
 
 static const struct option options[] =
 {
@@ -2313,23 +2332,33 @@ static const struct option options[] =
   { "MD",            no_argument,       NULL, OPT_MD  },
   { "MMD",           no_argument,       NULL, OPT_MMD },
   { "jni",           no_argument,       &flag_jni, 1 },
+  { "force",         no_argument,       NULL, OPT_FORCE },
+  /* If the output file should be named "ld" then a space is needed
+     between -o and its argument, ld. */
+  { "old",           no_argument,       NULL, OPT_OLD },
+  { "trace",         no_argument,       NULL, OPT_TRACE },
+  { NULL,            required_argument, NULL, 'J' },
   { NULL,            no_argument,       NULL, 0 }
 };
 
 static void
 usage (void)
 {
-  fprintf (stderr, _("Try 'gcjh --help' for more information.\n"));
+  fprintf (stderr, _("Try '" TOOLNAME " --help' for more information.\n"));
   exit (1);
 }
 
 static void
 help (void)
 {
-  printf (_("Usage: gcjh [OPTION]... CLASS...\n\n"));
-  printf (_("Generate C++ header files from .class files\n\n"));
+  printf (_("Usage: " TOOLNAME " [OPTION]... CLASS...\n\n"));
+  printf (_("Generate C or C++ header files from .class files\n\n"));
   printf (_("  -stubs                  Generate an implementation stub file\n"));
   printf (_("  -jni                    Generate a JNI header or stub\n"));
+  printf (_("  -force                  Always overwrite output files\n"));
+  printf (_("  -old                    Unused compatibility option\n"));
+  printf (_("  -trace                  Unused compatibility option\n"));
+  printf (_("  -J OPTION               Unused compatibility option\n"));
   printf ("\n");
   printf (_("  -add TEXT               Insert TEXT into class body\n"));
   printf (_("  -append TEXT            Insert TEXT after class declaration\n"));
@@ -2364,7 +2393,7 @@ help (void)
 static void
 version (void)
 {
-  printf ("gcjh (GCC) %s\n\n", version_string);
+  printf (TOOLNAME " (GCC) %s\n\n", version_string);
   printf ("Copyright %s 2004 Free Software Foundation, Inc.\n", _("(C)"));
   printf (_("This is free software; see the source for copying conditions.  There is NO\n"
 	    "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"));
@@ -2379,6 +2408,10 @@ main (int argc, char** argv)
   char *output_file = NULL;
   int emit_dependencies = 0, suppress_output = 0;
   int opt;
+  int local_found_error;
+
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 
@@ -2392,7 +2425,7 @@ main (int argc, char** argv)
 
   /* We use getopt_long_only to allow single `-' long options.  For
      some of our options this is more natural.  */
-  while ((opt = getopt_long_only (argc, argv, "I:d:o:v", options, NULL)) != -1)
+  while ((opt = getopt_long_only (argc, argv, "J:I:d:o:v", options, NULL)) != -1)
     {
       switch (opt)
 	{
@@ -2490,6 +2523,19 @@ main (int argc, char** argv)
 	  jcf_dependency_init (0);
 	  break;
 
+	case OPT_FORCE:
+	  break;
+
+	case OPT_OLD:
+	  break;
+
+	case OPT_TRACE:
+	  break;
+
+	case 'J':
+          /* Ignore -J options. */
+	  break;
+
 	default:
 	  usage ();
 	  break;
@@ -2510,11 +2556,17 @@ main (int argc, char** argv)
       exit (1);
     }
 
+  local_found_error = 0;
   for (argi = optind; argi < argc; argi++)
     {
       char *classname = argv[argi];
-      char *current_output_file;
+      char *current_output_file = NULL;
       const char *classfile_name;
+
+      /* We reset the error state here so that we can detect errors
+	 that occur when processing this file, so the output can be
+	 unlinked if need be.  */
+      found_error = 0;
 
       if (verbose)
 	printf (_("Processing %s\n"), classname);
@@ -2591,13 +2643,22 @@ main (int argc, char** argv)
       free_method_name_list ();
       process_file (&jcf, out);
       JCF_FINISH (&jcf);
+
+      /* If we found an error and we're writing to a real file,
+	 delete it.  */
+      if (found_error && ! suppress_output && current_output_file != NULL
+	  && strcmp (current_output_file, "-"))
+	unlink (current_output_file);
+
       if (current_output_file != output_file)
 	free (current_output_file);
       jcf_dependency_write ();
+
+      local_found_error |= found_error;
     }
 
   if (out != NULL && out != stdout)
     fclose (out);
 
-  return found_error;
+  return local_found_error;
 }

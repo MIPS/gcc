@@ -23,7 +23,8 @@ load_lib gcc-dg.exp
 set DEFAULT_VECTCFLAGS ""
 
 # These flags are used for all targets.
-lappend DEFAULT_VECTCFLAGS "-O2" "-ftree-vectorize" "-fdump-tree-vect-stats"
+lappend DEFAULT_VECTCFLAGS "-O2" "-ftree-vectorize" \
+  "-ftree-vectorizer-verbose=3" "-fdump-tree-vect-stats"
 
 # If the target system supports vector instructions, the default action
 # for a test is 'run', otherwise it's 'compile'.  Save current default.
@@ -69,19 +70,6 @@ if [istarget "powerpc*-*-*"] {
     set dg-do-what-default run
 } else {
     return
-}
-
-# Return 1 if the effective target is LP64 or if the effective target
-# does not support a vector alignment mechanism.
-
-proc check_effective_target_lp64_or_vect_no_align { } {
-    if { [is-effective-target lp64]
-	  || [is-effective-target vect_no_align] } {
-	set answer 1
-    } else {
-	set answer 0
-    }
-    return $answer
 }
 
 # Initialize `dg'.

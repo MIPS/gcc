@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "opts.h"
 
 
 /* Prototypes.  */
@@ -101,6 +102,7 @@ diagnostic_initialize (diagnostic_context *context)
   memset (context->diagnostic_count, 0, sizeof context->diagnostic_count);
   context->issue_warnings_are_errors_message = true;
   context->warning_as_error_requested = false;
+  context->show_option_requested = false;
   context->abort_on_error = false;
   context->internal_error = NULL;
   diagnostic_starter (context) = default_diagnostic_starter;
@@ -120,6 +122,7 @@ diagnostic_set_info (diagnostic_info *diagnostic, const char *msgid,
   diagnostic->message.format_spec = _(msgid);
   diagnostic->location = location;
   diagnostic->kind = kind;
+  diagnostic->option_index = 0;
 }
 
 /* Return a malloc'd string describing a location.  The caller is
@@ -133,15 +136,18 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
 #undef DEFINE_DIAGNOSTIC_KIND
     "must-not-happen"
   };
+  const char *text = _(diagnostic_kind_text[diagnostic->kind]);
   expanded_location s = expand_location (diagnostic->location);
   gcc_assert (diagnostic->kind < DK_LAST_DIAGNOSTIC_KIND);
 
-  return s.file
-    ? build_message_string ("%s:%d: %s",
-                            s.file, s.line,
-                            _(diagnostic_kind_text[diagnostic->kind]))
-    : build_message_string ("%s: %s", progname,
-                            _(diagnostic_kind_text[diagnostic->kind]));
+  return
+    (s.file == NULL
+     ? build_message_string ("%s: %s", progname, text)
+#ifdef USE_MAPPED_LOCATION
+     : flag_show_column && s.column != 0
+     ? build_message_string ("%s:%d:%d: %s", s.file, s.line, s.column, text)
+#endif
+     : build_message_string ("%s:%d: %s", s.file, s.line, text));
 }
 
 /* Count a diagnostic.  Return true if the message should be printed.  */
@@ -300,7 +306,7 @@ default_diagnostic_starter (diagnostic_context *context,
 
 static void
 default_diagnostic_finalizer (diagnostic_context *context,
-			      diagnostic_info *diagnostic __attribute__((unused)))
+			      diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
   pp_destroy_prefix (context->printer);
 }
@@ -326,10 +332,21 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 	error_recursion (context);
     }
 
+  if (diagnostic->option_index
+      && ! option_enabled (diagnostic->option_index))
+    return;
+
   context->lock++;
 
   if (diagnostic_count_diagnostic (context, diagnostic))
     {
+      const char *saved_format_spec = diagnostic->message.format_spec;
+
+      if (context->show_option_requested && diagnostic->option_index)
+	diagnostic->message.format_spec
+	  = ACONCAT ((diagnostic->message.format_spec,
+		      " [", cl_options[diagnostic->option_index].opt_text, "]", NULL));
+
       pp_prepare_to_format (context->printer, &diagnostic->message,
 			    &diagnostic->location);
       (*diagnostic_starter (context)) (context, diagnostic);
@@ -337,6 +354,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       (*diagnostic_finalizer (context)) (context, diagnostic);
       pp_flush (context->printer);
       diagnostic_action_after_output (context, diagnostic);
+      diagnostic->message.format_spec = saved_format_spec;
     }
 
   context->lock--;
@@ -409,7 +427,21 @@ inform (const char *msgid, ...)
 /* A warning.  Use this for code which is correct according to the
    relevant language specification but is likely to be buggy anyway.  */
 void
-warning (const char *msgid, ...)
+warning (int opt, const char *msgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, msgid);
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_location, DK_WARNING);
+  diagnostic.option_index = opt;
+
+  report_diagnostic (&diagnostic);
+  va_end (ap);
+}
+
+void
+warning0 (const char *msgid, ...)
 {
   diagnostic_info diagnostic;
   va_list ap;

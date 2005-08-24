@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                       A D A . C O N T A I N E R S .                      --
---       H A S H _ T A B L E S . G E N E R I C _ O P E R A T I O N S        --
+--              ADA.CONTAINERS.HASH_TABLES.GENERIC_OPERATIONS               --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--             Copyright (C) 2004 Free Software Foundation, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -17,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
+-- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -69,9 +68,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       end if;
 
       HT.Buckets := new Buckets_Type (Src_Buckets'Range);
-      --  TODO: allocate minimum size req'd.  (See note below.)
 
-      --  NOTE: see note below about these comments.
       --  Probably we have to duplicate the Size (Src), too, in order
       --  to guarantee that
 
@@ -83,30 +80,11 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       --  If we relax the requirement that the hash value must be the
       --  same, then of course we can't guarantee that following
       --  assignment that Dst = Src is true ???
-      --
-      --  NOTE: 17 Apr 2005
-      --  What I said above is no longer true.  The semantics of (map) equality
-      --  changed, such that we use key in the left map to look up the
-      --  equivalent key in the right map, and then compare the elements (using
-      --  normal equality) of the equivalent keys.  So it doesn't matter that
-      --  the maps have different capacities (i.e. the hash tables have
-      --  different lengths), since we just look up the key, irrespective of
-      --  its map's hash table length.  All the RM says we're required to do
-      --  it arrange for the target map to "=" the source map following an
-      --  assignment (that is, following an Adjust), so it doesn't matter
-      --  what the capacity of the target map is.  What I'll probably do is
-      --  allocate a new hash table that has the minimum size necessary,
-      --  instead of allocating a new hash table whose size exactly matches
-      --  that of the source.  (See the assignment that immediately precedes
-      --  these comments.)  What we really need is a special Assign operation
-      --  (not unlike what we have already for Vector) that allows the user to
-      --  choose the capacity of the target.
-      --  END NOTE.
 
       for Src_Index in Src_Buckets'Range loop
          Src_Node := Src_Buckets (Src_Index);
 
-         if Src_Node /= null then
+         if Src_Node /= Null_Node then
             declare
                Dst_Node : constant Node_Access := Copy_Node (Src_Node);
 
@@ -122,7 +100,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
             end;
 
             Src_Node := Next (Src_Node);
-            while Src_Node /= null loop
+            while Src_Node /= Null_Node loop
                declare
                   Dst_Node : constant Node_Access := Copy_Node (Src_Node);
 
@@ -167,12 +145,8 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       Node  : Node_Access;
 
    begin
-      if HT.Busy > 0 then
-         raise Program_Error;
-      end if;
-
       while HT.Length > 0 loop
-         while HT.Buckets (Index) = null loop
+         while HT.Buckets (Index) = Null_Node loop
             Index := Index + 1;
          end loop;
 
@@ -184,7 +158,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
                Bucket := Next (Bucket);
                HT.Length := HT.Length - 1;
                Free (Node);
-               exit when Bucket = null;
+               exit when Bucket = Null_Node;
             end loop;
          end;
       end loop;
@@ -198,7 +172,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
      (HT : in out Hash_Table_Type;
       X  : Node_Access)
    is
-      pragma Assert (X /= null);
+      pragma Assert (X /= Null_Node);
 
       Indx : Hash_Type;
       Prev : Node_Access;
@@ -212,7 +186,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       Indx := Index (HT, X);
       Prev := HT.Buckets (Indx);
 
-      if Prev = null then
+      if Prev = Null_Node then
          raise Program_Error;
       end if;
 
@@ -229,7 +203,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       loop
          Curr := Next (Prev);
 
-         if Curr = null then
+         if Curr = Null_Node then
             raise Program_Error;
          end if;
 
@@ -242,6 +216,75 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
          Prev := Curr;
       end loop;
    end Delete_Node_Sans_Free;
+
+   ---------------------
+   -- Ensure_Capacity --
+   ---------------------
+
+   procedure Ensure_Capacity
+     (HT : in out Hash_Table_Type;
+      N  : Count_Type)
+   is
+      NN : Hash_Type;
+
+   begin
+      if N = 0 then
+         if HT.Length = 0 then
+            Free (HT.Buckets);
+
+         elsif HT.Length < HT.Buckets'Length then
+            NN := Prime_Numbers.To_Prime (HT.Length);
+
+            --  ASSERT: NN >= HT.Length
+
+            if NN < HT.Buckets'Length then
+               Rehash (HT, Size => NN);
+            end if;
+         end if;
+
+         return;
+      end if;
+
+      if HT.Buckets = null then
+         NN := Prime_Numbers.To_Prime (N);
+
+         --  ASSERT: NN >= N
+
+         Rehash (HT, Size => NN);
+         return;
+      end if;
+
+      if N <= HT.Length then
+         if HT.Length >= HT.Buckets'Length then
+            return;
+         end if;
+
+         NN := Prime_Numbers.To_Prime (HT.Length);
+
+         --  ASSERT: NN >= HT.Length
+
+         if NN < HT.Buckets'Length then
+            Rehash (HT, Size => NN);
+         end if;
+
+         return;
+      end if;
+
+      --  ASSERT: N > HT.Length
+
+      if N = HT.Buckets'Length then
+         return;
+      end if;
+
+      NN := Prime_Numbers.To_Prime (N);
+
+      --  ASSERT: NN >= N
+      --  ASSERT: NN > HT.Length
+
+      if NN /= HT.Buckets'Length then
+         Rehash (HT, Size => NN);
+      end if;
+   end Ensure_Capacity;
 
    --------------
    -- Finalize --
@@ -262,12 +305,12 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
 
    begin
       if HT.Length = 0 then
-         return null;
+         return Null_Node;
       end if;
 
       Indx := HT.Buckets'First;
       loop
-         if HT.Buckets (Indx) /= null then
+         if HT.Buckets (Indx) /= Null_Node then
             return HT.Buckets (Indx);
          end if;
 
@@ -288,7 +331,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       end if;
 
       for J in Buckets'Range loop
-         while Buckets (J) /= null loop
+         while Buckets (J) /= Null_Node loop
             Node := Buckets (J);
             Buckets (J) := Next (Node);
             Free (Node);
@@ -327,7 +370,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
 
       loop
          L_Node := L.Buckets (L_Index);
-         exit when L_Node /= null;
+         exit when L_Node /= Null_Node;
          L_Index := L_Index + 1;
       end loop;
 
@@ -342,7 +385,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
 
          L_Node := Next (L_Node);
 
-         if L_Node = null then
+         if L_Node = Null_Node then
             if N = 0 then
                return True;
             end if;
@@ -350,7 +393,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
             loop
                L_Index := L_Index + 1;
                L_Node := L.Buckets (L_Index);
-               exit when L_Node /= null;
+               exit when L_Node /= Null_Node;
             end loop;
          end if;
       end loop;
@@ -361,32 +404,22 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
    -----------------------
 
    procedure Generic_Iteration (HT : Hash_Table_Type) is
-      Busy : Natural renames HT'Unrestricted_Access.all.Busy;
+      Node : Node_Access;
 
    begin
-      if HT.Length = 0 then
+      if HT.Buckets = null
+        or else HT.Length = 0
+      then
          return;
       end if;
 
-      Busy := Busy + 1;
-
-      declare
-         Node : Node_Access;
-      begin
-         for Indx in HT.Buckets'Range loop
-            Node := HT.Buckets (Indx);
-            while Node /= null loop
-               Process (Node);
-               Node := Next (Node);
-            end loop;
+      for Indx in HT.Buckets'Range loop
+         Node := HT.Buckets (Indx);
+         while Node /= Null_Node loop
+            Process (Node);
+            Node := Next (Node);
          end loop;
-      exception
-         when others =>
-            Busy := Busy - 1;
-            raise;
-      end;
-
-      Busy := Busy - 1;
+      end loop;
    end Generic_Iteration;
 
    ------------------
@@ -403,6 +436,10 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       N, M    : Count_Type'Base;
 
    begin
+      --  As with the sorted set, it's not clear whether read is allowed to
+      --  have side effect if it fails. For now, we assume side effects are
+      --  allowed since it simplifies the algorithm ???
+      --
       Clear (HT);
 
       declare
@@ -415,10 +452,6 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
 
       Hash_Type'Read (Stream, Last);
 
-      --  TODO: don't immediately deallocate the buckets array we
-      --  already have. Instead, allocate a new buckets array only
-      --  if it needs to expanded because of the value of Last.
-
       if Last /= 0 then
          HT.Buckets := new Buckets_Type (0 .. Last);
       end if;
@@ -428,15 +461,15 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       while N > 0 loop
          Hash_Type'Read (Stream, I);
          pragma Assert (I in HT.Buckets'Range);
-         pragma Assert (HT.Buckets (I) = null);
+         pragma Assert (HT.Buckets (I) = Null_Node);
 
          Count_Type'Base'Read (Stream, M);
          pragma Assert (M >= 1);
          pragma Assert (M <= N);
 
          HT.Buckets (I) := New_Node (Stream);
-         pragma Assert (HT.Buckets (I) /= null);
-         pragma Assert (Next (HT.Buckets (I)) = null);
+         pragma Assert (HT.Buckets (I) /= Null_Node);
+         pragma Assert (Next (HT.Buckets (I)) = Null_Node);
 
          Y := HT.Buckets (I);
 
@@ -444,8 +477,8 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
 
          for J in Count_Type range 2 .. M loop
             X := New_Node (Stream);
-            pragma Assert (X /= null);
-            pragma Assert (Next (X) = null);
+            pragma Assert (X /= Null_Node);
+            pragma Assert (Next (X) = Null_Node);
 
             Set_Next (Node => Y, Next => X);
             Y := X;
@@ -484,11 +517,11 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       for Indx in HT.Buckets'Range loop
          X := HT.Buckets (Indx);
 
-         if X /= null then
+         if X /= Null_Node then
             M := 1;
             loop
                X := Next (X);
-               exit when X = null;
+               exit when X = Null_Node;
                M := M + 1;
             end loop;
 
@@ -501,7 +534,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
                X := Next (X);
             end loop;
 
-            pragma Assert (X = null);
+            pragma Assert (X = Null_Node);
          end if;
       end loop;
    end Generic_Write;
@@ -534,18 +567,14 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
          return;
       end if;
 
-      if Source.Busy > 0 then
-         raise Program_Error;
+      if Target.Length > 0 then
+         raise Constraint_Error;
       end if;
 
-      Clear (Target);
+      Free (Target.Buckets);
 
-      declare
-         Buckets : constant Buckets_Access := Target.Buckets;
-      begin
-         Target.Buckets := Source.Buckets;
-         Source.Buckets := Buckets;
-      end;
+      Target.Buckets := Source.Buckets;
+      Source.Buckets := null;
 
       Target.Length := Source.Length;
       Source.Length := 0;
@@ -562,19 +591,19 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       Result : Node_Access := Next (Node);
 
    begin
-      if Result /= null then
+      if Result /= Null_Node then
          return Result;
       end if;
 
       for Indx in Index (HT, Node) + 1 .. HT.Buckets'Last loop
          Result := HT.Buckets (Indx);
 
-         if Result /= null then
+         if Result /= Null_Node then
             return Result;
          end if;
       end loop;
 
-      return null;
+      return Null_Node;
    end Next;
 
    ------------
@@ -613,7 +642,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
          declare
             Src_Bucket : Node_Access renames Src_Buckets (Src_Index);
          begin
-            while Src_Bucket /= null loop
+            while Src_Bucket /= Null_Node loop
                declare
                   Src_Node   : constant Node_Access := Src_Bucket;
                   Dst_Index  : constant Hash_Type :=
@@ -633,7 +662,6 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
          exception
             when others =>
 
-               --  NOTE: see todo below.
                --  Not clear that we can deallocate the nodes,
                --  because they may be designated by outstanding
                --  iterators.  Which means they're now lost... ???
@@ -643,7 +671,7 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
                --                       Dst : Node_Access renames NB (J);
                --                       X   : Node_Access;
                --                    begin
-               --                       while Dst /= null loop
+               --                       while Dst /= Null_Node loop
                --                          X := Dst;
                --                          Dst := Succ (Dst);
                --                          Free (X);
@@ -651,15 +679,9 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
                --                    end;
                --                 end loop;
 
-               --  TODO: 17 Apr 2005
-               --  What I should do instead is go ahead and deallocate the
-               --  nodes, since when assertions are enabled, we vet the
-               --  cursors, and we modify the state of a node enough when
-               --  it is deallocated in order to detect mischief.
-               --  END TODO.
 
                Free (Dst_Buckets);
-               raise;  --  TODO: raise Program_Error instead
+               raise;
          end;
 
          --  exit when L = 0;
@@ -675,85 +697,5 @@ package body Ada.Containers.Hash_Tables.Generic_Operations is
       Free (Src_Buckets);
    end Rehash;
 
-   ----------------------
-   -- Reserve_Capacity --
-   ----------------------
-
-   procedure Reserve_Capacity
-     (HT : in out Hash_Table_Type;
-      N  : Count_Type)
-   is
-      NN : Hash_Type;
-
-   begin
-      if N = 0 then
-         if HT.Length = 0 then
-            Free (HT.Buckets);
-
-         elsif HT.Length < HT.Buckets'Length then
-            NN := Prime_Numbers.To_Prime (HT.Length);
-
-            --  ASSERT: NN >= HT.Length
-
-            if NN < HT.Buckets'Length then
-               if HT.Busy > 0 then
-                  raise Program_Error;
-               end if;
-
-               Rehash (HT, Size => NN);
-            end if;
-         end if;
-
-         return;
-      end if;
-
-      if HT.Buckets = null then
-         NN := Prime_Numbers.To_Prime (N);
-
-         --  ASSERT: NN >= N
-
-         Rehash (HT, Size => NN);
-         return;
-      end if;
-
-      if N <= HT.Length then
-         if HT.Length >= HT.Buckets'Length then
-            return;
-         end if;
-
-         NN := Prime_Numbers.To_Prime (HT.Length);
-
-         --  ASSERT: NN >= HT.Length
-
-         if NN < HT.Buckets'Length then
-            if HT.Busy > 0 then
-               raise Program_Error;
-            end if;
-
-            Rehash (HT, Size => NN);
-         end if;
-
-         return;
-      end if;
-
-      --  ASSERT: N > HT.Length
-
-      if N = HT.Buckets'Length then
-         return;
-      end if;
-
-      NN := Prime_Numbers.To_Prime (N);
-
-      --  ASSERT: NN >= N
-      --  ASSERT: NN > HT.Length
-
-      if NN /= HT.Buckets'Length then
-         if HT.Busy > 0 then
-            raise Program_Error;
-         end if;
-
-         Rehash (HT, Size => NN);
-      end if;
-   end Reserve_Capacity;
-
 end Ada.Containers.Hash_Tables.Generic_Operations;
+

@@ -1,6 +1,6 @@
 /* Subroutines used for MIPS code generation.
    Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -236,6 +236,7 @@ static bool mips_valid_base_register_p (rtx, enum machine_mode, int);
 static bool mips_symbolic_address_p (enum mips_symbol_type, enum machine_mode);
 static bool mips_classify_address (struct mips_address_info *, rtx,
 				   enum machine_mode, int);
+static bool mips_cannot_force_const_mem (rtx);
 static int mips_symbol_insns (enum mips_symbol_type);
 static bool mips16_unextended_reference_p (enum machine_mode mode, rtx, rtx);
 static rtx mips_force_temporary (rtx, rtx);
@@ -263,6 +264,7 @@ static void mips_arg_info (const CUMULATIVE_ARGS *, enum machine_mode,
 static bool mips_get_unaligned_mem (rtx *, unsigned int, int, rtx *, rtx *);
 static void mips_set_architecture (const struct mips_cpu_info *);
 static void mips_set_tune (const struct mips_cpu_info *);
+static bool mips_handle_option (size_t, const char *, int);
 static struct machine_function *mips_init_machine_status (void);
 static void print_operand_reloc (FILE *, rtx, const char **);
 #if TARGET_IRIX
@@ -327,7 +329,7 @@ static void mips_avoid_hazards (void);
 static void mips_reorg (void);
 static bool mips_strict_matching_cpu_name_p (const char *, const char *);
 static bool mips_matching_cpu_name_p (const char *, const char *);
-static const struct mips_cpu_info *mips_parse_cpu (const char *, const char *);
+static const struct mips_cpu_info *mips_parse_cpu (const char *);
 static const struct mips_cpu_info *mips_cpu_info_from_isa (int);
 static bool mips_return_in_memory (tree, tree);
 static bool mips_strict_argument_naming (CUMULATIVE_ARGS *);
@@ -355,7 +357,6 @@ static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
 static int mips_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode mode,
 				   tree, bool);
 static bool mips_valid_pointer_mode (enum machine_mode);
-static bool mips_scalar_mode_supported_p (enum machine_mode);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -546,13 +547,10 @@ const struct mips_cpu_info *mips_tune_info;
 int mips_isa;
 
 /* Which ABI to use.  */
-int mips_abi;
+int mips_abi = MIPS_ABI_DEFAULT;
 
-/* Strings to hold which cpu and instruction set architecture to use.  */
-const char *mips_arch_string;   /* for -march=<xxx> */
-const char *mips_tune_string;   /* for -mtune=<xxx> */
-const char *mips_isa_string;	/* for -mips{1,2,3,4} */
-const char *mips_abi_string;	/* for -mabi={32,n32,64,eabi} */
+/* Cost information to use.  */
+const struct mips_rtx_cost_data *mips_cost;
 
 /* Whether we are generating mips16 hard float code.  In mips16 mode
    we always set TARGET_SOFT_FLOAT; this variable is nonzero if
@@ -560,7 +558,8 @@ const char *mips_abi_string;	/* for -mabi={32,n32,64,eabi} */
    should arrange to call mips32 hard floating point code.  */
 int mips16_hard_float;
 
-const char *mips_cache_flush_func = CACHE_FLUSH_FUNC;
+/* The architecture selected by -mipsN.  */
+static const struct mips_cpu_info *mips_isa_info;
 
 /* If TRUE, we split addresses into their high and low parts in the RTL.  */
 int mips_split_addresses;
@@ -598,7 +597,7 @@ static const char *mips_hi_relocs[NUM_SYMBOL_TYPES];
 /* Map hard register number to register class */
 const enum reg_class mips_regno_to_class[] =
 {
-  LEA_REGS,	LEA_REGS,	M16_NA_REGS,	M16_NA_REGS,
+  LEA_REGS,	LEA_REGS,	M16_NA_REGS,	V1_REG,
   M16_REGS,	M16_REGS,	M16_REGS,	M16_REGS,
   LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
   LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
@@ -693,10 +692,15 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS32 */
   { "4kc", PROCESSOR_4KC, 32 },
-  { "4kp", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4km", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4kp", PROCESSOR_4KP, 32 },
 
   /* MIPS32 Release 2 */
   { "m4k", PROCESSOR_M4K, 33 },
+  { "24k", PROCESSOR_24K, 33 },
+  { "24kc", PROCESSOR_24K, 33 },  /* 24K  no FPU */
+  { "24kf", PROCESSOR_24K, 33 },  /* 24K 1:2 FPU */
+  { "24kx", PROCESSOR_24KX, 33 }, /* 24K 1:1 FPU */
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
@@ -707,6 +711,224 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   /* End marker */
   { 0, 0, 0 }
 };
+
+/* Default costs. If these are used for a processor we should look
+   up the actual costs.  */
+#define DEFAULT_COSTS COSTS_N_INSNS (6),  /* fp_add */       \
+                      COSTS_N_INSNS (7),  /* fp_mult_sf */   \
+                      COSTS_N_INSNS (8),  /* fp_mult_df */   \
+                      COSTS_N_INSNS (23), /* fp_div_sf */    \
+                      COSTS_N_INSNS (36), /* fp_div_df */    \
+                      COSTS_N_INSNS (10), /* int_mult_si */  \
+                      COSTS_N_INSNS (10), /* int_mult_di */  \
+                      COSTS_N_INSNS (69), /* int_div_si */   \
+                      COSTS_N_INSNS (69), /* int_div_di */   \
+                                       2, /* branch_cost */  \
+                                       4  /* memory_latency */
+
+/* Need to replace these with the costs of calling the appropriate
+   libgcc routine.  */
+#define SOFT_FP_COSTS COSTS_N_INSNS (256), /* fp_add */       \
+                      COSTS_N_INSNS (256), /* fp_mult_sf */   \
+                      COSTS_N_INSNS (256), /* fp_mult_df */   \
+                      COSTS_N_INSNS (256), /* fp_div_sf */    \
+                      COSTS_N_INSNS (256)  /* fp_div_df */
+
+static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
+  {
+    { /* R3000 */
+      COSTS_N_INSNS (2),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (5),            /* fp_mult_df */
+      COSTS_N_INSNS (12),           /* fp_div_sf */
+      COSTS_N_INSNS (19),           /* fp_div_df */
+      COSTS_N_INSNS (12),           /* int_mult_si */
+      COSTS_N_INSNS (12),           /* int_mult_di */
+      COSTS_N_INSNS (35),           /* int_div_si */
+      COSTS_N_INSNS (35),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+
+    },
+    { /* 4KC */
+      DEFAULT_COSTS
+    },
+    { /* 4KP */
+      DEFAULT_COSTS
+    },
+    { /* 5KC */
+      DEFAULT_COSTS
+    },
+    { /* 20KC */
+      DEFAULT_COSTS
+    },
+    { /* 24k */
+      DEFAULT_COSTS
+    },
+    { /* 24kx */
+      DEFAULT_COSTS
+    },
+    { /* M4k */
+      DEFAULT_COSTS
+    },
+    { /* R3900 */
+      COSTS_N_INSNS (2),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (5),            /* fp_mult_df */
+      COSTS_N_INSNS (12),           /* fp_div_sf */
+      COSTS_N_INSNS (19),           /* fp_div_df */
+      COSTS_N_INSNS (2),            /* int_mult_si */
+      COSTS_N_INSNS (2),            /* int_mult_di */
+      COSTS_N_INSNS (35),           /* int_div_si */
+      COSTS_N_INSNS (35),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* R6000 */
+      COSTS_N_INSNS (3),            /* fp_add */
+      COSTS_N_INSNS (5),            /* fp_mult_sf */
+      COSTS_N_INSNS (6),            /* fp_mult_df */
+      COSTS_N_INSNS (15),           /* fp_div_sf */
+      COSTS_N_INSNS (16),           /* fp_div_df */
+      COSTS_N_INSNS (17),           /* int_mult_si */
+      COSTS_N_INSNS (17),           /* int_mult_di */
+      COSTS_N_INSNS (38),           /* int_div_si */
+      COSTS_N_INSNS (38),           /* int_div_di */
+                       2,           /* branch_cost */
+                       6            /* memory_latency */
+    },
+    { /* R4000 */
+       COSTS_N_INSNS (6),           /* fp_add */
+       COSTS_N_INSNS (7),           /* fp_mult_sf */
+       COSTS_N_INSNS (8),           /* fp_mult_df */
+       COSTS_N_INSNS (23),          /* fp_div_sf */
+       COSTS_N_INSNS (36),          /* fp_div_df */
+       COSTS_N_INSNS (10),          /* int_mult_si */
+       COSTS_N_INSNS (10),          /* int_mult_di */
+       COSTS_N_INSNS (69),          /* int_div_si */
+       COSTS_N_INSNS (69),          /* int_div_di */
+                        2,          /* branch_cost */
+                        6           /* memory_latency */
+    },
+    { /* R4100 */
+      DEFAULT_COSTS
+    },
+    { /* R4111 */
+      DEFAULT_COSTS
+    },
+    { /* R4120 */
+      DEFAULT_COSTS
+    },
+    { /* R4130 */
+      /* The only costs that appear to be updated here are
+	 integer multiplication.  */
+      SOFT_FP_COSTS,
+      COSTS_N_INSNS (4),            /* int_mult_si */
+      COSTS_N_INSNS (6),            /* int_mult_di */
+      COSTS_N_INSNS (69),           /* int_div_si */
+      COSTS_N_INSNS (69),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* R4300 */
+      DEFAULT_COSTS
+    },
+    { /* R4600 */
+      DEFAULT_COSTS
+    },
+    { /* R4650 */
+      DEFAULT_COSTS
+    },
+    { /* R5000 */
+      COSTS_N_INSNS (6),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (5),            /* fp_mult_df */
+      COSTS_N_INSNS (23),           /* fp_div_sf */
+      COSTS_N_INSNS (36),           /* fp_div_df */
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (5),            /* int_mult_di */
+      COSTS_N_INSNS (36),           /* int_div_si */
+      COSTS_N_INSNS (36),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* R5400 */
+      COSTS_N_INSNS (6),            /* fp_add */
+      COSTS_N_INSNS (5),            /* fp_mult_sf */
+      COSTS_N_INSNS (6),            /* fp_mult_df */
+      COSTS_N_INSNS (30),           /* fp_div_sf */
+      COSTS_N_INSNS (59),           /* fp_div_df */
+      COSTS_N_INSNS (3),            /* int_mult_si */
+      COSTS_N_INSNS (4),            /* int_mult_di */
+      COSTS_N_INSNS (42),           /* int_div_si */
+      COSTS_N_INSNS (74),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* R5500 */
+      COSTS_N_INSNS (6),            /* fp_add */
+      COSTS_N_INSNS (5),            /* fp_mult_sf */
+      COSTS_N_INSNS (6),            /* fp_mult_df */
+      COSTS_N_INSNS (30),           /* fp_div_sf */
+      COSTS_N_INSNS (59),           /* fp_div_df */
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (9),            /* int_mult_di */
+      COSTS_N_INSNS (42),           /* int_div_si */
+      COSTS_N_INSNS (74),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* R7000 */
+      /* The only costs that are changed here are
+	 integer multiplication.  */
+      COSTS_N_INSNS (6),            /* fp_add */
+      COSTS_N_INSNS (7),            /* fp_mult_sf */
+      COSTS_N_INSNS (8),            /* fp_mult_df */
+      COSTS_N_INSNS (23),           /* fp_div_sf */
+      COSTS_N_INSNS (36),           /* fp_div_df */
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (9),            /* int_mult_di */
+      COSTS_N_INSNS (69),           /* int_div_si */
+      COSTS_N_INSNS (69),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* R8000 */
+      DEFAULT_COSTS
+    },
+    { /* R9000 */
+      /* The only costs that are changed here are
+	 integer multiplication.  */
+      COSTS_N_INSNS (6),            /* fp_add */
+      COSTS_N_INSNS (7),            /* fp_mult_sf */
+      COSTS_N_INSNS (8),            /* fp_mult_df */
+      COSTS_N_INSNS (23),           /* fp_div_sf */
+      COSTS_N_INSNS (36),           /* fp_div_df */
+      COSTS_N_INSNS (3),            /* int_mult_si */
+      COSTS_N_INSNS (8),            /* int_mult_di */
+      COSTS_N_INSNS (69),           /* int_div_si */
+      COSTS_N_INSNS (69),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* SB1 */
+      COSTS_N_INSNS (4),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (4),            /* fp_mult_df */
+      COSTS_N_INSNS (24),           /* fp_div_sf */
+      COSTS_N_INSNS (32),           /* fp_div_df */
+      COSTS_N_INSNS (3),            /* int_mult_si */
+      COSTS_N_INSNS (4),            /* int_mult_di */
+      COSTS_N_INSNS (36),           /* int_div_si */
+      COSTS_N_INSNS (68),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* SR71000 */
+      DEFAULT_COSTS
+    },
+  };
+
 
 /* Nonzero if -march should decide the default value of MASK_SOFT_FLOAT.  */
 #ifndef MIPS_MARCH_CONTROLS_SOFT_FLOAT
@@ -741,6 +963,17 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   mips_multipass_dfa_lookahead
+
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS		\
+  (TARGET_DEFAULT				\
+   | TARGET_CPU_DEFAULT				\
+   | TARGET_ENDIAN_DEFAULT			\
+   | TARGET_FP_EXCEPTIONS_DEFAULT		\
+   | MASK_CHECK_ZERO_DIV			\
+   | MASK_FUSED_MADD)
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION mips_handle_option
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL mips_function_ok_for_sibcall
@@ -806,13 +1039,16 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
 
-#undef TARGET_SCALAR_MODE_SUPPORTED_P
-#define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
-
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN mips_expand_builtin
+
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS HAVE_AS_TLS
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM mips_cannot_force_const_mem
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -831,6 +1067,9 @@ mips_classify_symbol (rtx x)
     }
 
   gcc_assert (GET_CODE (x) == SYMBOL_REF);
+
+  if (SYMBOL_REF_TLS_MODEL (x))
+    return SYMBOL_TLS;
 
   if (CONSTANT_POOL_ADDRESS_P (x))
     {
@@ -940,7 +1179,11 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
   if (UNSPEC_ADDRESS_P (x))
     *symbol_type = UNSPEC_ADDRESS_TYPE (x);
   else if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
-    *symbol_type = mips_classify_symbol (x);
+    {
+      *symbol_type = mips_classify_symbol (x);
+      if (*symbol_type == SYMBOL_TLS)
+	return false;
+    }
   else
     return false;
 
@@ -990,6 +1233,12 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
     case SYMBOL_GOTOFF_GLOBAL:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
+    case SYMBOL_TLSGD:
+    case SYMBOL_TLSLDM:
+    case SYMBOL_DTPREL:
+    case SYMBOL_TPREL:
+    case SYMBOL_GOTTPREL:
+    case SYMBOL_TLS:
       return false;
     }
   gcc_unreachable ();
@@ -1087,6 +1336,14 @@ mips_symbolic_address_p (enum mips_symbol_type symbol_type,
       /* The address will have to be loaded from the GOT first.  */
       return false;
 
+    case SYMBOL_TLSGD:
+    case SYMBOL_TLSLDM:
+    case SYMBOL_DTPREL:
+    case SYMBOL_TPREL:
+    case SYMBOL_GOTTPREL:
+    case SYMBOL_TLS:
+      return false;
+
     case SYMBOL_GOTOFF_PAGE:
     case SYMBOL_GOTOFF_GLOBAL:
     case SYMBOL_GOTOFF_CALL:
@@ -1150,6 +1407,33 @@ mips_classify_address (struct mips_address_info *info, rtx x,
     default:
       return false;
     }
+}
+
+/* Return true if X is a thread-local symbol.  */
+
+static bool
+mips_tls_operand_p (rtx x)
+{
+  return GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (x) != 0;
+}
+
+/* Return true if X can not be forced into a constant pool.  */
+
+static int
+mips_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
+{
+  return mips_tls_operand_p (*x);
+}
+
+/* Return true if X can not be forced into a constant pool.  */
+
+static bool
+mips_cannot_force_const_mem (rtx x)
+{
+  if (! TARGET_HAVE_TLS)
+    return false;
+
+  return for_each_rtx (&x, &mips_tls_symbol_ref_1, 0);
 }
 
 /* Return the number of instructions needed to load a symbol of the
@@ -1220,8 +1504,17 @@ mips_symbol_insns (enum mips_symbol_type type)
     case SYMBOL_64_HIGH:
     case SYMBOL_64_MID:
     case SYMBOL_64_LOW:
+    case SYMBOL_TLSGD:
+    case SYMBOL_TLSLDM:
+    case SYMBOL_DTPREL:
+    case SYMBOL_GOTTPREL:
+    case SYMBOL_TPREL:
       /* Check whether the offset is a 16- or 32-bit value.  */
       return mips_split_p[type] ? 2 : 1;
+
+    case SYMBOL_TLS:
+      /* We don't treat a bare TLS symbol as a constant.  */
+      return 0;
     }
   gcc_unreachable ();
 }
@@ -1518,6 +1811,114 @@ mips_add_offset (rtx temp, rtx reg, HOST_WIDE_INT offset)
   return plus_constant (reg, offset);
 }
 
+/* Emit a call to __tls_get_addr.  SYM is the TLS symbol we are
+   referencing, and TYPE is the symbol type to use (either global
+   dynamic or local dynamic).  V0 is an RTX for the return value
+   location.  The entire insn sequence is returned.  */
+
+static GTY(()) rtx mips_tls_symbol;
+
+static rtx
+mips_call_tls_get_addr (rtx sym, enum mips_symbol_type type, rtx v0)
+{
+  rtx insn, loc, tga, a0;
+
+  a0 = gen_rtx_REG (Pmode, GP_ARG_FIRST);
+
+  if (!mips_tls_symbol)
+    mips_tls_symbol = init_one_libfunc ("__tls_get_addr");
+
+  loc = mips_unspec_address (sym, type);
+
+  start_sequence ();
+
+  emit_insn (gen_rtx_SET (Pmode, a0,
+			  gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx, loc)));
+  tga = gen_rtx_MEM (Pmode, mips_tls_symbol);
+  insn = emit_call_insn (gen_call_value (v0, tga, const0_rtx, const0_rtx));
+  CONST_OR_PURE_CALL_P (insn) = 1;
+  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), v0);
+  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), a0);
+  insn = get_insns ();
+
+  end_sequence ();
+
+  return insn;
+}
+
+/* Generate the code to access LOC, a thread local SYMBOL_REF.  The
+   return value will be a valid address and move_operand (either a REG
+   or a LO_SUM).  */
+
+static rtx
+mips_legitimize_tls_address (rtx loc)
+{
+  rtx dest, insn, v0, v1, tmp1, tmp2, eqv;
+  enum tls_model model;
+
+  v0 = gen_rtx_REG (Pmode, GP_RETURN);
+  v1 = gen_rtx_REG (Pmode, GP_RETURN + 1);
+
+  model = SYMBOL_REF_TLS_MODEL (loc);
+
+  switch (model)
+    {
+    case TLS_MODEL_GLOBAL_DYNAMIC:
+      insn = mips_call_tls_get_addr (loc, SYMBOL_TLSGD, v0);
+      dest = gen_reg_rtx (Pmode);
+      emit_libcall_block (insn, dest, v0, loc);
+      break;
+
+    case TLS_MODEL_LOCAL_DYNAMIC:
+      insn = mips_call_tls_get_addr (loc, SYMBOL_TLSLDM, v0);
+      tmp1 = gen_reg_rtx (Pmode);
+
+      /* Attach a unique REG_EQUIV, to allow the RTL optimizers to
+	 share the LDM result with other LD model accesses.  */
+      eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+			    UNSPEC_TLS_LDM);
+      emit_libcall_block (insn, tmp1, v0, eqv);
+
+      tmp2 = mips_unspec_offset_high (NULL, tmp1, loc, SYMBOL_DTPREL);
+      dest = gen_rtx_LO_SUM (Pmode, tmp2,
+			     mips_unspec_address (loc, SYMBOL_DTPREL));
+      break;
+
+    case TLS_MODEL_INITIAL_EXEC:
+      tmp1 = gen_reg_rtx (Pmode);
+      tmp2 = mips_unspec_address (loc, SYMBOL_GOTTPREL);
+      if (Pmode == DImode)
+	{
+	  emit_insn (gen_tls_get_tp_di (v1));
+	  emit_insn (gen_load_gotdi (tmp1, pic_offset_table_rtx, tmp2));
+	}
+      else
+	{
+	  emit_insn (gen_tls_get_tp_si (v1));
+	  emit_insn (gen_load_gotsi (tmp1, pic_offset_table_rtx, tmp2));
+	}
+      dest = gen_reg_rtx (Pmode);
+      emit_insn (gen_add3_insn (dest, tmp1, v1));
+      break;
+
+    case TLS_MODEL_LOCAL_EXEC:
+
+      if (Pmode == DImode)
+	emit_insn (gen_tls_get_tp_di (v1));
+      else
+	emit_insn (gen_tls_get_tp_si (v1));
+
+      tmp1 = mips_unspec_offset_high (NULL, v1, loc, SYMBOL_TPREL);
+      dest = gen_rtx_LO_SUM (Pmode, tmp1,
+			     mips_unspec_address (loc, SYMBOL_TPREL));
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return dest;
+}
 
 /* This function is used to implement LEGITIMIZE_ADDRESS.  If *XLOC can
    be legitimized in a way that the generic machinery might not expect,
@@ -1528,6 +1929,12 @@ bool
 mips_legitimize_address (rtx *xloc, enum machine_mode mode)
 {
   enum mips_symbol_type symbol_type;
+
+  if (mips_tls_operand_p (*xloc))
+    {
+      *xloc = mips_legitimize_tls_address (*xloc);
+      return true;
+    }
 
   /* See if the address can split into a high part and a LO_SUM.  */
   if (mips_symbolic_constant_p (*xloc, &symbol_type)
@@ -1701,6 +2108,12 @@ mips_legitimize_const_move (enum machine_mode mode, rtx dest, rtx src)
   if (GET_CODE (src) == CONST_INT && !TARGET_MIPS16)
     {
       mips_move_integer (dest, INTVAL (src));
+      return;
+    }
+
+  if (mips_tls_operand_p (src))
+    {
+      emit_move_insn (dest, mips_legitimize_tls_address (src));
       return;
     }
 
@@ -1892,75 +2305,81 @@ static bool
 mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
+  bool float_mode_p = FLOAT_MODE_P (mode);
+
+  /* To be used for soft-float costs.  */
+  int max_cost = COSTS_N_INSNS (256);
 
   switch (code)
     {
     case CONST_INT:
-      if (!TARGET_MIPS16)
+      if (TARGET_MIPS16)
         {
-          /* Always return 0, since we don't have different sized
-             instructions, hence different costs according to Richard
-             Kenner */
-          *total = 0;
-          return true;
-        }
+	  /* A number between 1 and 8 inclusive is efficient for a shift.
+	     Otherwise, we will need an extended instruction.  */
+	  if ((outer_code) == ASHIFT || (outer_code) == ASHIFTRT
+	      || (outer_code) == LSHIFTRT)
+	    {
+	      if (INTVAL (x) >= 1 && INTVAL (x) <= 8)
+		*total = 0;
+	      else
+		*total = COSTS_N_INSNS (1);
+	      return true;
+	    }
 
-      /* A number between 1 and 8 inclusive is efficient for a shift.
-         Otherwise, we will need an extended instruction.  */
-      if ((outer_code) == ASHIFT || (outer_code) == ASHIFTRT
-          || (outer_code) == LSHIFTRT)
-        {
-          if (INTVAL (x) >= 1 && INTVAL (x) <= 8)
-            *total = 0;
-          else
-            *total = COSTS_N_INSNS (1);
-          return true;
-        }
+	  /* We can use cmpi for an xor with an unsigned 16 bit value.  */
+	  if ((outer_code) == XOR
+	      && INTVAL (x) >= 0 && INTVAL (x) < 0x10000)
+	    {
+	      *total = 0;
+	      return true;
+	    }
 
-      /* We can use cmpi for an xor with an unsigned 16 bit value.  */
-      if ((outer_code) == XOR
-          && INTVAL (x) >= 0 && INTVAL (x) < 0x10000)
-        {
-          *total = 0;
-          return true;
-        }
+	  /* We may be able to use slt or sltu for a comparison with a
+	     signed 16 bit value.  (The boundary conditions aren't quite
+	     right, but this is just a heuristic anyhow.)  */
+	  if (((outer_code) == LT || (outer_code) == LE
+	       || (outer_code) == GE || (outer_code) == GT
+	       || (outer_code) == LTU || (outer_code) == LEU
+	       || (outer_code) == GEU || (outer_code) == GTU)
+	      && INTVAL (x) >= -0x8000 && INTVAL (x) < 0x8000)
+	    {
+	      *total = 0;
+	      return true;
+	    }
 
-      /* We may be able to use slt or sltu for a comparison with a
-         signed 16 bit value.  (The boundary conditions aren't quite
-         right, but this is just a heuristic anyhow.)  */
-      if (((outer_code) == LT || (outer_code) == LE
-           || (outer_code) == GE || (outer_code) == GT
-           || (outer_code) == LTU || (outer_code) == LEU
-           || (outer_code) == GEU || (outer_code) == GTU)
-          && INTVAL (x) >= -0x8000 && INTVAL (x) < 0x8000)
-        {
-          *total = 0;
-          return true;
-        }
+	  /* Equality comparisons with 0 are cheap.  */
+	  if (((outer_code) == EQ || (outer_code) == NE)
+	      && INTVAL (x) == 0)
+	    {
+	      *total = 0;
+	      return true;
+	    }
 
-      /* Equality comparisons with 0 are cheap.  */
-      if (((outer_code) == EQ || (outer_code) == NE)
-          && INTVAL (x) == 0)
-        {
-          *total = 0;
-          return true;
-        }
+	  /* Constants in the range 0...255 can be loaded with an unextended
+	     instruction.  They are therefore as cheap as a register move.
 
-      /* Constants in the range 0...255 can be loaded with an unextended
-	 instruction.  They are therefore as cheap as a register move.
-
-	 Given the choice between "li R1,0...255" and "move R1,R2"
-	 (where R2 is a known constant), it is usually better to use "li",
-	 since we do not want to unnecessarily extend the lifetime of R2.  */
-      if (outer_code == SET
-	  && INTVAL (x) >= 0
-	  && INTVAL (x) < 256)
+	     Given the choice between "li R1,0...255" and "move R1,R2"
+	     (where R2 is a known constant), it is usually better to use "li",
+	     since we do not want to unnecessarily extend the lifetime
+	     of R2.  */
+	  if (outer_code == SET
+	      && INTVAL (x) >= 0
+	      && INTVAL (x) < 256)
+	    {
+	      *total = 0;
+	      return true;
+	    }
+	}
+      else
 	{
+	  /* These can be used anywhere. */
 	  *total = 0;
 	  return true;
 	}
 
-      /* Otherwise fall through to the handling below.  */
+      /* Otherwise fall through to the handling below because
+	 we'll need to construct the constant.  */
 
     case CONST:
     case SYMBOL_REF:
@@ -1980,15 +2399,15 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case MEM:
       {
-        /* If the address is legitimate, return the number of
-           instructions it needs, otherwise use the default handling.  */
-        int n = mips_address_insns (XEXP (x, 0), GET_MODE (x));
-        if (n > 0)
-          {
-            *total = COSTS_N_INSNS (1 + n);
-            return true;
-          }
-        return false;
+	/* If the address is legitimate, return the number of
+	   instructions it needs, otherwise use the default handling.  */
+	int n = mips_address_insns (XEXP (x, 0), GET_MODE (x));
+	if (n > 0)
+	  {
+	    *total = COSTS_N_INSNS (n + 1);
+	    return true;
+	  }
+	return false;
       }
 
     case FFS:
@@ -2021,7 +2440,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
       return false;
 
     case ABS:
-      if (mode == SFmode || mode == DFmode)
+      if (float_mode_p)
         *total = COSTS_N_INSNS (1);
       else
         *total = COSTS_N_INSNS (4);
@@ -2033,19 +2452,13 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case PLUS:
     case MINUS:
-      if (mode == SFmode || mode == DFmode)
-        {
-          if (TUNE_MIPS3000 || TUNE_MIPS3900)
-            *total = COSTS_N_INSNS (2);
-          else if (TUNE_MIPS6000)
-            *total = COSTS_N_INSNS (3);
-	  else if (TUNE_SB1)
-	    *total = COSTS_N_INSNS (4);
-          else
-            *total = COSTS_N_INSNS (6);
-          return true;
-        }
-      if (mode == DImode && !TARGET_64BIT)
+      if (float_mode_p)
+	{
+	  *total = mips_cost->fp_add;
+	  return true;
+	}
+
+      else if (mode == DImode && !TARGET_64BIT)
         {
           *total = COSTS_N_INSNS (4);
           return true;
@@ -2055,115 +2468,46 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
     case NEG:
       if (mode == DImode && !TARGET_64BIT)
         {
-          *total = 4;
+          *total = COSTS_N_INSNS (4);
           return true;
         }
       return false;
 
     case MULT:
       if (mode == SFmode)
-        {
-          if (TUNE_MIPS3000
-              || TUNE_MIPS3900
-              || TUNE_MIPS5000
-	      || TUNE_SB1)
-            *total = COSTS_N_INSNS (4);
-          else if (TUNE_MIPS6000
-                   || TUNE_MIPS5400
-                   || TUNE_MIPS5500)
-            *total = COSTS_N_INSNS (5);
-          else
-            *total = COSTS_N_INSNS (7);
-          return true;
-        }
+	*total = mips_cost->fp_mult_sf;
 
-      if (mode == DFmode)
-        {
-          if (TUNE_SB1)
-	    *total = COSTS_N_INSNS (4);
-          else if (TUNE_MIPS3000
-              || TUNE_MIPS3900
-              || TUNE_MIPS5000)
-            *total = COSTS_N_INSNS (5);
-          else if (TUNE_MIPS6000
-                   || TUNE_MIPS5400
-                   || TUNE_MIPS5500)
-            *total = COSTS_N_INSNS (6);
-          else
-            *total = COSTS_N_INSNS (8);
-          return true;
-        }
+      else if (mode == DFmode)
+	*total = mips_cost->fp_mult_df;
 
-      if (TUNE_MIPS3000)
-        *total = COSTS_N_INSNS (12);
-      else if (TUNE_MIPS3900)
-        *total = COSTS_N_INSNS (2);
-      else if (TUNE_MIPS4130)
-	*total = COSTS_N_INSNS (mode == DImode ? 6 : 4);
-      else if (TUNE_MIPS5400 || TUNE_SB1)
-        *total = COSTS_N_INSNS (mode == DImode ? 4 : 3);
-      else if (TUNE_MIPS5500 || TUNE_MIPS7000)
-        *total = COSTS_N_INSNS (mode == DImode ? 9 : 5);
-      else if (TUNE_MIPS9000)
-        *total = COSTS_N_INSNS (mode == DImode ? 8 : 3);
-      else if (TUNE_MIPS6000)
-        *total = COSTS_N_INSNS (17);
-      else if (TUNE_MIPS5000)
-        *total = COSTS_N_INSNS (5);
+      else if (mode == SImode)
+	*total = mips_cost->int_mult_si;
+
       else
-        *total = COSTS_N_INSNS (10);
+	*total = mips_cost->int_mult_di;
+
       return true;
 
     case DIV:
     case MOD:
-      if (mode == SFmode)
-        {
-          if (TUNE_MIPS3000
-              || TUNE_MIPS3900)
-            *total = COSTS_N_INSNS (12);
-          else if (TUNE_MIPS6000)
-            *total = COSTS_N_INSNS (15);
-	  else if (TUNE_SB1)
-	    *total = COSTS_N_INSNS (24);
-          else if (TUNE_MIPS5400 || TUNE_MIPS5500)
-            *total = COSTS_N_INSNS (30);
-          else
-            *total = COSTS_N_INSNS (23);
-          return true;
-        }
+      if (float_mode_p)
+	{
+	  if (mode == SFmode)
+	    *total = mips_cost->fp_div_sf;
+	  else
+	    *total = mips_cost->fp_div_df;
 
-      if (mode == DFmode)
-        {
-          if (TUNE_MIPS3000
-              || TUNE_MIPS3900)
-            *total = COSTS_N_INSNS (19);
-          else if (TUNE_MIPS5400 || TUNE_MIPS5500)
-            *total = COSTS_N_INSNS (59);
-          else if (TUNE_MIPS6000)
-            *total = COSTS_N_INSNS (16);
-	  else if (TUNE_SB1)
-	    *total = COSTS_N_INSNS (32);
-          else
-            *total = COSTS_N_INSNS (36);
-          return true;
-        }
+	  return true;
+	}
       /* Fall through.  */
 
     case UDIV:
     case UMOD:
-      if (TUNE_MIPS3000
-          || TUNE_MIPS3900)
-        *total = COSTS_N_INSNS (35);
-      else if (TUNE_MIPS6000)
-        *total = COSTS_N_INSNS (38);
-      else if (TUNE_MIPS5000)
-        *total = COSTS_N_INSNS (36);
-      else if (TUNE_SB1)
-	*total = COSTS_N_INSNS ((mode == SImode) ? 36 : 68);
-      else if (TUNE_MIPS5400 || TUNE_MIPS5500)
-        *total = COSTS_N_INSNS ((mode == SImode) ? 42 : 74);
+      if (mode == DImode)
+        *total = mips_cost->int_div_di;
       else
-        *total = COSTS_N_INSNS (69);
+	*total = mips_cost->int_div_si;
+
       return true;
 
     case SIGN_EXTEND:
@@ -2183,6 +2527,15 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
         *total = COSTS_N_INSNS (2);
       else
         *total = COSTS_N_INSNS (1);
+      return true;
+
+    case FLOAT:
+    case UNSIGNED_FLOAT:
+    case FIX:
+    case FLOAT_EXTEND:
+    case FLOAT_TRUNCATE:
+    case SQRT:
+      *total = mips_cost->fp_add;
       return true;
 
     default:
@@ -2609,8 +2962,6 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
       switch (*code)
 	{
 	case NE:
-	case UNGE:
-	case UNGT:
 	case LTGT:
 	case ORDERED:
 	  cmp_code = reverse_condition_maybe_unordered (*code);
@@ -3776,7 +4127,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = lang_hooks.truthvalue_conversion (off);
+      t = build (NE_EXPR, boolean_type_node, off,
+		 build_int_cst (TREE_TYPE (off), 0));
       addr = build (COND_EXPR, ptr_type_node, t, NULL, NULL);
 
       /* [5] Emit code for: off -= rsize.  We do this as a form of
@@ -3851,7 +4203,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
    left-side instructions (lwl, swl, ldl, sdl).
 
    *RIGHT is a QImode reference to the opposite end of the field and
-   can be used in the parterning right-side instruction.  */
+   can be used in the patterning right-side instruction.  */
 
 static bool
 mips_get_unaligned_mem (rtx *op, unsigned int width, int bitpos,
@@ -3967,7 +4319,39 @@ mips_expand_unaligned_store (rtx dest, rtx src, unsigned int width, int bitpos)
     }
   return true;
 }
-
+
+/* Return true if (zero_extract OP SIZE POSITION) can be used as the
+   source of an "ext" instruction or the destination of an "ins"
+   instruction.  OP must be a register operand and the following
+   conditions must hold:
+
+     0 <= POSITION < GET_MODE_BITSIZE (GET_MODE (op))
+     0 < SIZE <= GET_MODE_BITSIZE (GET_MODE (op))
+     0 < POSITION + SIZE <= GET_MODE_BITSIZE (GET_MODE (op))
+
+   Also reject lengths equal to a word as they are better handled
+   by the move patterns.  */
+
+bool
+mips_use_ins_ext_p (rtx op, rtx size, rtx position)
+{
+  HOST_WIDE_INT len, pos;
+
+  if (!ISA_HAS_EXT_INS
+      || !register_operand (op, VOIDmode)
+      || GET_MODE_BITSIZE (GET_MODE (op)) > BITS_PER_WORD)
+    return false;
+
+  len = INTVAL (size);
+  pos = INTVAL (position);
+  
+  if (len <= 0 || len >= GET_MODE_BITSIZE (GET_MODE (op)) 
+      || pos < 0 || pos + len > GET_MODE_BITSIZE (GET_MODE (op)))
+    return false;
+
+  return true;
+}
+
 /* Set up globals to generate code for the ISA or processor
    described by INFO.  */
 
@@ -3995,6 +4379,44 @@ mips_set_tune (const struct mips_cpu_info *info)
     }
 }
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+mips_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_mabi_:
+      if (strcmp (arg, "32") == 0)
+	mips_abi = ABI_32;
+      else if (strcmp (arg, "o64") == 0)
+	mips_abi = ABI_O64;
+      else if (strcmp (arg, "n32") == 0)
+	mips_abi = ABI_N32;
+      else if (strcmp (arg, "64") == 0)
+	mips_abi = ABI_64;
+      else if (strcmp (arg, "eabi") == 0)
+	mips_abi = ABI_EABI;
+      else
+	return false;
+      return true;
+
+    case OPT_march_:
+    case OPT_mtune_:
+      return mips_parse_cpu (arg) != 0;
+
+    case OPT_mips:
+      mips_isa_info = mips_parse_cpu (ACONCAT (("mips", arg, NULL)));
+      return mips_isa_info != 0;
+
+    case OPT_mno_flush_func:
+      mips_cache_flush_func = NULL;
+      return true;
+
+    default:
+      return true;
+    }
+}
 
 /* Set up the threshold for data to go into the small data area, instead
    of the normal data area, and detect any conflicts in the switches.  */
@@ -4007,57 +4429,28 @@ override_options (void)
 
   mips_section_threshold = g_switch_set ? g_switch_value : MIPS_DEFAULT_GVALUE;
 
-  /* Interpret -mabi.  */
-  mips_abi = MIPS_ABI_DEFAULT;
-  if (mips_abi_string != 0)
-    {
-      if (strcmp (mips_abi_string, "32") == 0)
-	mips_abi = ABI_32;
-      else if (strcmp (mips_abi_string, "o64") == 0)
-	mips_abi = ABI_O64;
-      else if (strcmp (mips_abi_string, "n32") == 0)
-	mips_abi = ABI_N32;
-      else if (strcmp (mips_abi_string, "64") == 0)
-	mips_abi = ABI_64;
-      else if (strcmp (mips_abi_string, "eabi") == 0)
-	mips_abi = ABI_EABI;
-      else
-	fatal_error ("bad value (%s) for -mabi= switch", mips_abi_string);
-    }
-
   /* The following code determines the architecture and register size.
      Similar code was added to GAS 2.14 (see tc-mips.c:md_after_parse_args()).
      The GAS and GCC code should be kept in sync as much as possible.  */
 
   if (mips_arch_string != 0)
-    mips_set_architecture (mips_parse_cpu ("-march", mips_arch_string));
+    mips_set_architecture (mips_parse_cpu (mips_arch_string));
 
-  if (mips_isa_string != 0)
+  if (mips_isa_info != 0)
     {
-      /* Handle -mipsN.  */
-      char *whole_isa_str = concat ("mips", mips_isa_string, NULL);
-      const struct mips_cpu_info *isa_info;
-
-      isa_info = mips_parse_cpu ("-mips option", whole_isa_str);
-      free (whole_isa_str);
-
-      /* -march takes precedence over -mipsN, since it is more descriptive.
-	 There's no harm in specifying both as long as the ISA levels
-	 are the same.  */
-      if (mips_arch_info != 0 && mips_isa != isa_info->isa)
-	error ("-mips%s conflicts with the other architecture options, "
-	       "which specify a MIPS%d processor",
-	       mips_isa_string, mips_isa);
-
-      /* Set architecture based on the given option.  */
-      mips_set_architecture (isa_info);
+      if (mips_arch_info == 0)
+	mips_set_architecture (mips_isa_info);
+      else if (mips_arch_info->isa != mips_isa_info->isa)
+	error ("-%s conflicts with the other architecture options, "
+	       "which specify a %s processor",
+	       mips_isa_info->name,
+	       mips_cpu_info_from_isa (mips_arch_info->isa)->name);
     }
 
   if (mips_arch_info == 0)
     {
 #ifdef MIPS_CPU_STRING_DEFAULT
-      mips_set_architecture (mips_parse_cpu ("default CPU",
-					     MIPS_CPU_STRING_DEFAULT));
+      mips_set_architecture (mips_parse_cpu (MIPS_CPU_STRING_DEFAULT));
 #else
       mips_set_architecture (mips_cpu_info_from_isa (MIPS_ISA_DEFAULT));
 #endif
@@ -4069,10 +4462,13 @@ override_options (void)
 
   /* Optimize for mips_arch, unless -mtune selects a different processor.  */
   if (mips_tune_string != 0)
-    mips_set_tune (mips_parse_cpu ("-mtune", mips_tune_string));
+    mips_set_tune (mips_parse_cpu (mips_tune_string));
 
   if (mips_tune_info == 0)
     mips_set_tune (mips_arch_info);
+
+  /* Set cost structure for the processor.  */
+  mips_cost = &mips_rtx_cost_data[mips_tune];
 
   if ((target_flags_explicit & MASK_64BIT) != 0)
     {
@@ -4121,10 +4517,6 @@ override_options (void)
 
   if ((target_flags_explicit & MASK_LONG64) == 0)
     {
-      /* If no type size setting options (-mlong64,-mint64,-mlong32)
-	 were used, then set the type sizes.  In the EABI in 64 bit mode,
-	 longs and pointers are 64 bits.  Likewise for the SGI Irix6 N64
-	 ABI.  */
       if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
 	target_flags |= MASK_LONG64;
       else
@@ -4180,7 +4572,7 @@ override_options (void)
 	target_flags &= ~MASK_BRANCHLIKELY;
     }
   if (TARGET_BRANCHLIKELY && !ISA_HAS_BRANCHLIKELY)
-    warning ("generation of Branch Likely instructions enabled, but not supported by architecture");
+    warning (0, "generation of Branch Likely instructions enabled, but not supported by architecture");
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
@@ -4197,7 +4589,7 @@ override_options (void)
     {
       flag_pic = 1;
       if (mips_section_threshold > 0)
-	warning ("-G is incompatible with PIC code which is the default");
+	warning (0, "-G is incompatible with PIC code which is the default");
     }
 
   /* mips_split_addresses is a half-way house between explicit
@@ -4262,13 +4654,13 @@ override_options (void)
 
   /* Make sure that the user didn't turn off paired single support when
      MIPS-3D support is requested.  */
-  if (TARGET_MIPS3D && (target_flags_explicit & MASK_PAIRED_SINGLE)
+  if (TARGET_MIPS3D && (target_flags_explicit & MASK_PAIRED_SINGLE_FLOAT)
       && !TARGET_PAIRED_SINGLE_FLOAT)
     error ("-mips3d requires -mpaired-single");
 
-  /* If TARGET_MIPS3D, enable MASK_PAIRED_SINGLE.  */
+  /* If TARGET_MIPS3D, enable MASK_PAIRED_SINGLE_FLOAT.  */
   if (TARGET_MIPS3D)
-    target_flags |= MASK_PAIRED_SINGLE;
+    target_flags |= MASK_PAIRED_SINGLE_FLOAT;
 
   /* Make sure that when TARGET_PAIRED_SINGLE_FLOAT is true, TARGET_FLOAT64
      and TARGET_HARD_FLOAT are both true.  */
@@ -4313,6 +4705,7 @@ override_options (void)
 			     GR_REGS);
   mips_char_to_class['e'] = LEA_REGS;
   mips_char_to_class['j'] = PIC_FN_ADDR_REG;
+  mips_char_to_class['v'] = V1_REG;
   mips_char_to_class['y'] = GR_REGS;
   mips_char_to_class['z'] = ST_REGS;
   mips_char_to_class['B'] = COP0_REGS;
@@ -4500,6 +4893,22 @@ override_options (void)
       mips_hi_relocs[SYMBOL_GOTOFF_LOADGP] = "%hi(%neg(%gp_rel(";
       mips_lo_relocs[SYMBOL_GOTOFF_LOADGP] = "%lo(%neg(%gp_rel(";
     }
+
+  /* Thread-local relocation operators.  */
+  mips_lo_relocs[SYMBOL_TLSGD] = "%tlsgd(";
+  mips_lo_relocs[SYMBOL_TLSLDM] = "%tlsldm(";
+  mips_split_p[SYMBOL_DTPREL] = 1;
+  mips_hi_relocs[SYMBOL_DTPREL] = "%dtprel_hi(";
+  mips_lo_relocs[SYMBOL_DTPREL] = "%dtprel_lo(";
+  mips_lo_relocs[SYMBOL_GOTTPREL] = "%gottprel(";
+  mips_split_p[SYMBOL_TPREL] = 1;
+  mips_hi_relocs[SYMBOL_TPREL] = "%tprel_hi(";
+  mips_lo_relocs[SYMBOL_TPREL] = "%tprel_lo(";
+
+  /* We don't have a thread pointer access instruction on MIPS16, or
+     appropriate TLS relocations.  */
+  if (TARGET_MIPS16)
+    targetm.have_tls = false;
 
   /* Default to working around R4000 errata only if the processor
      was selected explicitly.  */
@@ -5131,56 +5540,20 @@ mips_output_ascii (FILE *stream, const char *string_param, size_t len,
     {
       register int c = string[i];
 
-      switch (c)
+      if (ISPRINT (c))
 	{
-	case '\"':
-	case '\\':
-	  putc ('\\', stream);
-	  putc (c, stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_NEWLINE:
-	  fputs ("\\n", stream);
-	  if (i+1 < len
-	      && (((c = string[i+1]) >= '\040' && c <= '~')
-		  || c == TARGET_TAB))
-	    cur_pos = 32767;		/* break right here */
-	  else
-	    cur_pos += 2;
-	  break;
-
-	case TARGET_TAB:
-	  fputs ("\\t", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_FF:
-	  fputs ("\\f", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_BS:
-	  fputs ("\\b", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_CR:
-	  fputs ("\\r", stream);
-	  cur_pos += 2;
-	  break;
-
-	default:
-	  if (c >= ' ' && c < 0177)
+	  if (c == '\\' || c == '\"')
 	    {
-	      putc (c, stream);
+	      putc ('\\', stream);
 	      cur_pos++;
 	    }
-	  else
-	    {
-	      fprintf (stream, "\\%03o", c);
-	      cur_pos += 4;
-	    }
+	  putc (c, stream);
+	  cur_pos++;
+	}
+      else
+	{
+	  fprintf (stream, "\\%03o", c);
+	  cur_pos += 4;
 	}
 
       if (cur_pos > 72 && i+1 < len)
@@ -5418,7 +5791,7 @@ mips_declare_object_name (FILE *stream, const char *name,
       ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
     }
 
-  mips_declare_object (stream, name, "", ":\n", 0);
+  mips_declare_object (stream, name, "", ":\n");
 }
 
 /* Implement ASM_FINISH_DECLARE_OBJECT.  This is generic ELF stuff.  */
@@ -6071,8 +6444,18 @@ mips_set_frame_expr (rtx frame_pattern)
 static rtx
 mips_frame_set (rtx mem, rtx reg)
 {
-  rtx set = gen_rtx_SET (VOIDmode, mem, reg);
+  rtx set;
+
+  /* If we're saving the return address register and the dwarf return
+     address column differs from the hard register number, adjust the
+     note reg to refer to the former.  */
+  if (REGNO (reg) == GP_REG_FIRST + 31
+      && DWARF_FRAME_RETURN_COLUMN != GP_REG_FIRST + 31)
+    reg = gen_rtx_REG (GET_MODE (reg), DWARF_FRAME_RETURN_COLUMN);
+
+  set = gen_rtx_SET (VOIDmode, mem, reg);
   RTX_FRAME_RELATED_P (set) = 1;
+
   return set;
 }
 
@@ -6514,7 +6897,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     mips16_lay_out_constants ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   /* Clean up the vars set above.  Note that final_end_function resets
@@ -7083,44 +7466,8 @@ mips_valid_pointer_mode (enum machine_mode mode)
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
 
-/* Define this so that we can deal with a testcase like:
-
-   char foo __attribute__ ((mode (SI)));
-
-   then compiled with -mabi=64 and -mint64. We have no
-   32-bit type at that point and so the default case
-   always fails.  */
-
-static bool
-mips_scalar_mode_supported_p (enum machine_mode mode)
-{
-  switch (mode)
-    {
-    case QImode:
-    case HImode:
-    case SImode:
-    case DImode:
-      return true;
-
-      /* Handled via optabs.c.  */
-    case TImode:
-      return TARGET_64BIT;
-
-    case SFmode:
-    case DFmode:
-      return true;
-
-      /* LONG_DOUBLE_TYPE_SIZE is 128 for TARGET_NEWABI only.  */
-    case TFmode:
-      return TARGET_NEWABI;
-
-    default:
-      return false;
-    }
-}
-
-
 /* Target hook for vector_mode_supported_p.  */
+
 static bool
 mips_vector_mode_supported_p (enum machine_mode mode)
 {
@@ -7773,11 +8120,7 @@ dump_constants (struct mips16_constant *constants, rtx insn)
   emit_barrier_after (insn);
 }
 
-/* Return the length of instruction INSN.
-
-   ??? MIPS16 switch tables go in .text, but we don't define
-   JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
-   compute their lengths correctly.  */
+/* Return the length of instruction INSN.  */
 
 static int
 mips16_insn_length (rtx insn)
@@ -8326,10 +8669,24 @@ mips_avoid_hazards (void)
   cfun->machine->ignore_hazard_length_p = true;
   shorten_branches (get_insns ());
 
-  /* The profiler code uses assembler macros.  -mfix-vr4120 relies on
-     assembler nop insertion.  */
-  cfun->machine->all_noreorder_p = (!current_function_profile
-				    && !TARGET_FIX_VR4120);
+  cfun->machine->all_noreorder_p = true;
+
+  /* Profiled functions can't be all noreorder because the profiler
+     support uses assembler macros.  */
+  if (current_function_profile)
+    cfun->machine->all_noreorder_p = false;
+
+  /* Code compiled with -mfix-vr4120 can't be all noreorder because
+     we rely on the assembler to work around some errata.  */
+  if (TARGET_FIX_VR4120)
+    cfun->machine->all_noreorder_p = false;
+
+  /* The same is true for -mfix-vr4130 if we might generate mflo or
+     mfhi instructions.  Note that we avoid using mflo and mfhi if
+     the VR4130 macc and dmacc instructions are available instead;
+     see the *mfhilo_{si,di}_macc patterns.  */
+  if (TARGET_FIX_VR4130 && !ISA_HAS_MACCHI)
+    cfun->machine->all_noreorder_p = false;
 
   last_insn = 0;
   hilo_delay = 2;
@@ -8493,7 +8850,7 @@ mips_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 	{
 	  return 5;
 	}
-    }  /* GR_REG_CLASS_P (from) */
+    }
   else if (from == FP_REGS)
     {
       if (GR_REG_CLASS_P (to))
@@ -8502,7 +8859,7 @@ mips_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 	return 2;
       else if (to == ST_REGS)
 	return 8;
-    }  /* from == FP_REGS */
+    }
   else if (from == HI_REG || from == LO_REG || from == MD_REGS)
     {
       if (GR_REG_CLASS_P (to))
@@ -8512,15 +8869,16 @@ mips_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 	  else
 	    return 6;
 	}
-    }  /* from == HI_REG, etc.  */
+    }
   else if (from == ST_REGS && GR_REG_CLASS_P (to))
     return 4;
   else if (COP_REG_CLASS_P (from))
     {
       return 5;
-    }  /* COP_REG_CLASS_P (from) */
+    }
 
-  /* Fall through.  */
+  /* Fall through.
+     ??? What cases are these? Shouldn't we return 2 here?  */
 
   return 12;
 }
@@ -8764,7 +9122,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -8783,7 +9141,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -8974,15 +9332,13 @@ mips_matching_cpu_name_p (const char *canonical, const char *given)
 }
 
 
-/* Parse an option that takes the name of a processor as its argument.
-   OPTION is the name of the option and CPU_STRING is the argument.
-   Return the corresponding processor enumeration if the CPU_STRING is
-   recognized, otherwise report an error and return null.
+/* Return the mips_cpu_info entry for the processor or ISA given
+   by CPU_STRING.  Return null if the string isn't recognized.
 
    A similar function exists in GAS.  */
 
 static const struct mips_cpu_info *
-mips_parse_cpu (const char *option, const char *cpu_string)
+mips_parse_cpu (const char *cpu_string)
 {
   const struct mips_cpu_info *p;
   const char *s;
@@ -8992,7 +9348,7 @@ mips_parse_cpu (const char *option, const char *cpu_string)
   for (s = cpu_string; *s != 0; s++)
     if (ISUPPER (*s))
       {
-	warning ("the cpu name must be lower case");
+	warning (0, "the cpu name must be lower case");
 	break;
       }
 
@@ -9014,7 +9370,6 @@ mips_parse_cpu (const char *option, const char *cpu_string)
     if (mips_matching_cpu_name_p (p->name, cpu_string))
       return p;
 
-  error ("bad value (%s) for %s", cpu_string, option);
   return 0;
 }
 
@@ -9452,10 +9807,10 @@ struct builtin_description
 
 /* Define all the builtins related to c.cond.fmt condition COND.  */
 #define CMP_BUILTINS(COND)						\
-  MOVTF_BUILTINS (c, COND, MASK_PAIRED_SINGLE),				\
+  MOVTF_BUILTINS (c, COND, MASK_PAIRED_SINGLE_FLOAT),			\
   MOVTF_BUILTINS (cabs, COND, MASK_MIPS3D),				\
   CMP_SCALAR_BUILTINS (cabs, COND, MASK_MIPS3D),			\
-  CMP_PS_BUILTINS (c, COND, MASK_PAIRED_SINGLE),			\
+  CMP_PS_BUILTINS (c, COND, MASK_PAIRED_SINGLE_FLOAT),			\
   CMP_PS_BUILTINS (cabs, COND, MASK_MIPS3D),				\
   CMP_4S_BUILTINS (c, COND),						\
   CMP_4S_BUILTINS (cabs, COND)
@@ -9465,16 +9820,17 @@ struct builtin_description
 
 static const struct builtin_description mips_bdesc[] =
 {
-  DIRECT_BUILTIN (pll_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE),
-  DIRECT_BUILTIN (pul_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE),
-  DIRECT_BUILTIN (plu_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE),
-  DIRECT_BUILTIN (puu_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE),
-  DIRECT_BUILTIN (cvt_ps_s, MIPS_V2SF_FTYPE_SF_SF, MASK_PAIRED_SINGLE),
-  DIRECT_BUILTIN (cvt_s_pl, MIPS_SF_FTYPE_V2SF, MASK_PAIRED_SINGLE),
-  DIRECT_BUILTIN (cvt_s_pu, MIPS_SF_FTYPE_V2SF, MASK_PAIRED_SINGLE),
-  DIRECT_BUILTIN (abs_ps, MIPS_V2SF_FTYPE_V2SF, MASK_PAIRED_SINGLE),
+  DIRECT_BUILTIN (pll_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE_FLOAT),
+  DIRECT_BUILTIN (pul_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE_FLOAT),
+  DIRECT_BUILTIN (plu_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE_FLOAT),
+  DIRECT_BUILTIN (puu_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE_FLOAT),
+  DIRECT_BUILTIN (cvt_ps_s, MIPS_V2SF_FTYPE_SF_SF, MASK_PAIRED_SINGLE_FLOAT),
+  DIRECT_BUILTIN (cvt_s_pl, MIPS_SF_FTYPE_V2SF, MASK_PAIRED_SINGLE_FLOAT),
+  DIRECT_BUILTIN (cvt_s_pu, MIPS_SF_FTYPE_V2SF, MASK_PAIRED_SINGLE_FLOAT),
+  DIRECT_BUILTIN (abs_ps, MIPS_V2SF_FTYPE_V2SF, MASK_PAIRED_SINGLE_FLOAT),
 
-  DIRECT_BUILTIN (alnv_ps, MIPS_V2SF_FTYPE_V2SF_V2SF_INT, MASK_PAIRED_SINGLE),
+  DIRECT_BUILTIN (alnv_ps, MIPS_V2SF_FTYPE_V2SF_V2SF_INT,
+		  MASK_PAIRED_SINGLE_FLOAT),
   DIRECT_BUILTIN (addr_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_MIPS3D),
   DIRECT_BUILTIN (mulr_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_MIPS3D),
   DIRECT_BUILTIN (cvt_pw_ps, MIPS_V2SF_FTYPE_V2SF, MASK_MIPS3D),
@@ -9503,7 +9859,7 @@ static const struct builtin_description mips_bdesc[] =
 
 static const struct builtin_description sb1_bdesc[] =
 {
-  DIRECT_BUILTIN (sqrt_ps, MIPS_V2SF_FTYPE_V2SF, MASK_PAIRED_SINGLE)
+  DIRECT_BUILTIN (sqrt_ps, MIPS_V2SF_FTYPE_V2SF, MASK_PAIRED_SINGLE_FLOAT)
 };
 
 /* This helps provide a mapping from builtin function codes to bdesc
@@ -9518,13 +9874,13 @@ struct bdesc_map
   unsigned int size;
 
   /* The target processor that supports these builtin functions.
-     PROCESSOR_DEFAULT means we enable them for all processors.  */
+     PROCESSOR_MAX means we enable them for all processors.  */
   enum processor_type proc;
 };
 
 static const struct bdesc_map bdesc_arrays[] =
 {
-  { mips_bdesc, ARRAY_SIZE (mips_bdesc), PROCESSOR_DEFAULT },
+  { mips_bdesc, ARRAY_SIZE (mips_bdesc), PROCESSOR_MAX },
   { sb1_bdesc, ARRAY_SIZE (sb1_bdesc), PROCESSOR_SB1 }
 };
 
@@ -9699,7 +10055,7 @@ mips_init_builtins (void)
   offset = 0;
   for (m = bdesc_arrays; m < &bdesc_arrays[ARRAY_SIZE (bdesc_arrays)]; m++)
     {
-      if (m->proc == PROCESSOR_DEFAULT || (m->proc == mips_arch))
+      if (m->proc == PROCESSOR_MAX || (m->proc == mips_arch))
 	for (d = m->bdesc; d < &m->bdesc[m->size]; d++)
 	  if ((d->target_flags & target_flags) == d->target_flags)
 	    lang_hooks.builtin_function (d->name, types[d->function_type],

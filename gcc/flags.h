@@ -1,6 +1,6 @@
 /* Compilation switch flag definitions for GCC.
    Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004
+   2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -101,11 +101,6 @@ extern bool extra_warnings;
 
 extern void set_Wunused (int setting);
 
-/* Nonzero means warn about function definitions that default the return type
-   or that use a null return and have a return-type other than void.  */
-
-extern int warn_return_type;
-
 /* Nonzero means warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
    values are larger than N bytes. The value N is in `larger_than_size'.  */
@@ -145,9 +140,9 @@ extern int flag_pcc_struct_return;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
-   2 means C99-like requirements for complex divide (not yet implemented).  */
+   2 means C99-like requirements for complex multiply and divide.  */
 
-extern int flag_complex_divide_method;
+extern int flag_complex_method;
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */

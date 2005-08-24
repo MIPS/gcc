@@ -1,28 +1,3 @@
-2005-07-09  Andrew Pinski  <pinskia@physics.uc.edu>
-
-	* config-lang.in (gtfiles): Add cp-objcp-common.c.
-	* objcp-lang.c (objcxx_init_ts): New function.
-	(LANG_HOOKS_INIT_TS): Define.
-
-2005-07-03  Kazu Hirata  <kazu@codesourcery.com>
-
-	* Make-lang.in (cc1plus-checksum.c): Use
-	build/genchecksum$(build_exeext), not build/genchecksum$(exeext).
-
-2005-06-30  Zack Weinberg  <zack@codesourcery.com>
-	    Jakub Jelinek  <jakub@redhat.com>
-
-	* objcp-lang.c: No need to include cxx-pretty-print.h.
-	* Make-lang.in: Update dependencies.
-
-2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
-
-	* all files: Update FSF in copyright headers.
-
-2005-06-20  Ziemowit Laski  <zlaski@apple.com>
-
-	* config-lang.in (gtfiles): Add cp/rtti.c.
-
 2005-05-24  Ziemowit Laski  <zlaski@apple.com>
 
 	* objcp-decl.c (objcp_start_struct, objcp_xref_tag): Adjust

@@ -1,5 +1,5 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -135,6 +135,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #else
 #define TARGET_ASM_NAMED_SECTION default_no_named_section
 #define TARGET_HAVE_NAMED_SECTIONS false
+#endif
+
+#ifndef TARGET_INSN_VALID_WITHIN_DOLOOP
+#define TARGET_INSN_VALID_WITHIN_DOLOOP default_insn_valid_within_doloop
 #endif
 
 #ifndef TARGET_HAVE_TLS
@@ -278,6 +282,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTORIZE                                                \
   {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
+#define TARGET_DEFAULT_TARGET_FLAGS 0
+
+#define TARGET_HANDLE_OPTION hook_bool_size_t_constcharptr_int_true
+
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
 
@@ -292,7 +300,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
-#define TARGET_FOLD_BUILTIN hook_tree_tree_bool_null
+#define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
+#define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -356,6 +365,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
 
+#ifndef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
+#define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN hook_invalid_arg_for_unprototyped_fn
+#endif
+
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
 #define TARGET_CC_MODES_COMPATIBLE default_cc_modes_compatible
@@ -366,16 +379,19 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_GET_PCH_VALIDITY default_get_pch_validity
 #define TARGET_PCH_VALID_P default_pch_valid_p
+#define TARGET_CHECK_PCH_TARGET_FLAGS NULL
 
 #define TARGET_DEFAULT_SHORT_ENUMS hook_bool_void_false
 
 #define TARGET_BUILTIN_SETJMP_FRAME_VALUE default_builtin_setjmp_frame_value
 
-#define TARGET_MD_ASM_CLOBBERS hook_tree_tree_identity
+#define TARGET_MD_ASM_CLOBBERS hook_tree_tree_tree_tree_3rd_identity
 
 #define TARGET_DWARF_CALLING_CONVENTION hook_int_tree_0
 
 #define TARGET_DWARF_HANDLE_FRAME_UNSPEC 0
+
+#define TARGET_STDARG_OPTIMIZE_HOOK 0
 
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
@@ -416,7 +432,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SPLIT_COMPLEX_ARG,					\
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
-   TARGET_ARG_PARTIAL_BYTES					\
+   TARGET_ARG_PARTIAL_BYTES,					\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN			\
    }
 
 
@@ -458,8 +475,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE hook_bool_void_true
 #endif
 
-#ifndef TARGET_CXX_EXPORT_CLASS_DATA
-#define TARGET_CXX_EXPORT_CLASS_DATA hook_bool_void_false
+#ifndef TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
+#define TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY hook_void_tree
+#endif
+
+#ifndef TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT
+#define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT hook_bool_void_true
+#endif
+
+#ifndef TARGET_CXX_USE_AEABI_ATEXIT
+#define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
 #define TARGET_CXX				\
@@ -471,7 +496,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
     TARGET_CXX_IMPORT_EXPORT_CLASS,		\
     TARGET_CXX_CDTOR_RETURNS_THIS,		\
     TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
-    TARGET_CXX_EXPORT_CLASS_DATA		\
+    TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
+    TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
+    TARGET_CXX_USE_AEABI_ATEXIT			\
   }
 
 /* The whole shebang.  */
@@ -480,6 +507,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\
+  TARGET_DEFAULT_TARGET_FLAGS,			\
+  TARGET_HANDLE_OPTION,				\
   TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
@@ -492,6 +521,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
   TARGET_FOLD_BUILTIN,				\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
@@ -522,11 +552,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
+  TARGET_CHECK_PCH_TARGET_FLAGS,		\
   TARGET_DEFAULT_SHORT_ENUMS,			\
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_DWARF_CALLING_CONVENTION,              \
   TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
+  TARGET_STDARG_OPTIMIZE_HOOK,			\
+  TARGET_INSN_VALID_WITHIN_DOLOOP,		\
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\

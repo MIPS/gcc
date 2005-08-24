@@ -1,5 +1,5 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -152,7 +152,7 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 	      || AGGREGATE_TYPE_P (TREE_TYPE (lhs)));
 #endif
 
-  tmp = fold (build2_v (MODIFY_EXPR, lhs, rhs));
+  tmp = fold_build2 (MODIFY_EXPR, void_type_node, lhs, rhs);
   gfc_add_expr_to_block (pblock, tmp);
 }
 
@@ -314,7 +314,7 @@ gfc_build_array_ref (tree base, tree offset)
 }
 
 
-/* Given a funcion declaration FNDECL and an argument list ARGLIST,
+/* Given a function declaration FNDECL and an argument list ARGLIST,
    build a CALL_EXPR.  */
 
 tree
@@ -437,7 +437,7 @@ gfc_get_backend_locus (locus * loc)
 {
   loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
 #ifdef USE_MAPPED_LOCATION
-  loc->lb->location = input_location; // FIXME adjust??
+  loc->lb->location = input_location; /* FIXME adjust?? */
 #else
   loc->lb->linenum = input_line - 1;
 #endif

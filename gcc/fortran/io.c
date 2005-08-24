@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -433,6 +433,7 @@ check_format (void)
 format_item:
   /* In this state, the next thing has to be a format item.  */
   t = format_lex ();
+format_item_1:
   switch (t)
     {
     case FMT_POSINT:
@@ -490,9 +491,13 @@ format_item:
 
     case FMT_DOLLAR:
       t = format_lex ();
+
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: $ descriptor at %C")
+          == FAILURE)
+        return FAILURE;
       if (t != FMT_RPAREN || level > 0)
 	{
-	  error = "$ must the last specifier";
+	  error = "$ must be the last specifier";
 	  goto syntax;
 	}
 
@@ -641,7 +646,7 @@ data_desc:
       {
         while(repeat >0)
          {
-          next_char(0);
+          next_char(1);
           repeat -- ;
          }
       }
@@ -701,8 +706,10 @@ between_desc:
       goto syntax;
 
     default:
-      error = "Missing comma";
-      goto syntax;
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %C")
+	  == FAILURE)
+	return FAILURE;
+      goto format_item_1;
     }
 
 optional_comma:
@@ -967,8 +974,9 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
       /* Format label can be integer varibale.  */
       if (tag != &tag_format || e->ts.type != BT_INTEGER)
         {
-          gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-		     gfc_basic_typename (tag->type));
+          gfc_error ("%s tag at %L must be of type %s or %s", tag->name,
+		&e->where, gfc_basic_typename (tag->type),
+		gfc_basic_typename (BT_INTEGER));
           return FAILURE;
         }
     }
@@ -979,6 +987,14 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
 	{
 	  gfc_error ("FORMAT tag at %L cannot be array of strings",
 		     &e->where);
+	  return FAILURE;
+	}
+      /* Check assigned label.  */
+      if (e->expr_type == EXPR_VARIABLE && e->ts.type == BT_INTEGER
+		&& e->symtree->n.sym->attr.assign != 1)
+	{
+	  gfc_error ("Variable '%s' has not been assigned a format label at %L",
+			e->symtree->n.sym->name, &e->where);
 	  return FAILURE;
 	}
     }
@@ -1098,7 +1114,7 @@ gfc_resolve_open (gfc_open * open)
 }
 
 
-/* Match an OPEN statmement.  */
+/* Match an OPEN statement.  */
 
 match
 gfc_match_open (void)
@@ -1178,7 +1194,7 @@ gfc_free_close (gfc_close * close)
 }
 
 
-/* Match elements of a CLOSE statment.  */
+/* Match elements of a CLOSE statement.  */
 
 static match
 match_close_element (gfc_close * close)
@@ -1425,7 +1441,7 @@ gfc_match_rewind (void)
 }
 
 
-/******************** Data Transfer Statments *********************/
+/******************** Data Transfer Statements *********************/
 
 typedef enum
 { M_READ, M_WRITE, M_PRINT, M_INQUIRE }
@@ -1526,9 +1542,6 @@ match_dt_format (gfc_dt * dt)
 	  gfc_free_expr (e);
 	  goto conflict;
 	}
-      if (e->ts.type == BT_INTEGER && e->rank == 0)
-        e->symtree->n.sym->attr.assign = 1;
-
       dt->format_expr = e;
       return MATCH_YES;
     }
@@ -2351,12 +2364,15 @@ gfc_match_inquire (void)
   gfc_inquire *inquire;
   gfc_code *code;
   match m;
+  locus loc;
 
   m = gfc_match_char ('(');
   if (m == MATCH_NO)
     return m;
 
   inquire = gfc_getmem (sizeof (gfc_inquire));
+
+  loc = gfc_current_locus;
 
   m = match_inquire_element (inquire);
   if (m == MATCH_ERROR)
@@ -2422,6 +2438,20 @@ gfc_match_inquire (void)
 
   if (gfc_match_eos () != MATCH_YES)
     goto syntax;
+
+  if (inquire->unit != NULL && inquire->file != NULL)
+    {
+      gfc_error ("INQUIRE statement at %L cannot contain both FILE and"
+		 " UNIT specifiers", &loc);
+      goto cleanup;
+    }
+
+  if (inquire->unit == NULL && inquire->file == NULL)
+    {
+      gfc_error ("INQUIRE statement at %L requires either FILE or"
+		     " UNIT specifier", &loc);
+      goto cleanup;
+    }
 
   if (gfc_pure (NULL))
     {

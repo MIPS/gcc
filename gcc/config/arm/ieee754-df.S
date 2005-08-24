@@ -1,6 +1,6 @@
 /* ieee754-df.S double-precision floating point support for ARM
 
-   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Nicolas Pitre (nico@cam.org)
 
    This file is free software; you can redistribute it and/or modify it
@@ -81,7 +81,7 @@ ARM_FUNC_START subdf3
 ARM_FUNC_ALIAS aeabi_dsub subdf3
 
 	eor	yh, yh, #0x80000000	@ flip sign bit of second arg
-#if defined(__thumb__) && !defined(__THUMB_INTERWORK__)
+#if defined(__INTERWORKING_STUBS__)
 	b	1f			@ Skip Thumb-code prologue
 #endif
 

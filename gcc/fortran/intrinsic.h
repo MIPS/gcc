@@ -1,6 +1,7 @@
 /* Header file for intrinsics check, resolve and simplify function
    prototypes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -31,6 +32,7 @@ try gfc_check_a_xkind (gfc_expr *, gfc_expr *);
 try gfc_check_a_p (gfc_expr *, gfc_expr *);
 
 try gfc_check_abs (gfc_expr *);
+try gfc_check_achar (gfc_expr *);
 try gfc_check_all_any (gfc_expr *, gfc_expr *);
 try gfc_check_allocated (gfc_expr *);
 try gfc_check_associated (gfc_expr *, gfc_expr *);
@@ -38,6 +40,7 @@ try gfc_check_atan2 (gfc_expr *, gfc_expr *);
 try gfc_check_besn (gfc_expr *, gfc_expr *);
 try gfc_check_btest (gfc_expr *, gfc_expr *);
 try gfc_check_char (gfc_expr *, gfc_expr *);
+try gfc_check_chdir (gfc_expr *);
 try gfc_check_cmplx (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_count (gfc_expr *, gfc_expr *);
 try gfc_check_cshift (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -48,14 +51,19 @@ try gfc_check_dot_product (gfc_expr *, gfc_expr *);
 try gfc_check_eoshift (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_etime (gfc_expr *);
 try gfc_check_fstat (gfc_expr *, gfc_expr *);
+try gfc_check_fn_c (gfc_expr *);
+try gfc_check_fn_r (gfc_expr *);
+try gfc_check_fn_rc (gfc_expr *);
 try gfc_check_fnum (gfc_expr *);
 try gfc_check_g77_math1 (gfc_expr *);
+try gfc_check_hostnm (gfc_expr *);
 try gfc_check_huge (gfc_expr *);
 try gfc_check_i (gfc_expr *);
 try gfc_check_iand (gfc_expr *, gfc_expr *);
 try gfc_check_ibclr (gfc_expr *, gfc_expr *);
 try gfc_check_ibits (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_ibset (gfc_expr *, gfc_expr *);
+try gfc_check_ichar_iachar (gfc_expr *);
 try gfc_check_idnint (gfc_expr *);
 try gfc_check_ieor (gfc_expr *, gfc_expr *);
 try gfc_check_index (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -64,8 +72,10 @@ try gfc_check_ior (gfc_expr *, gfc_expr *);
 try gfc_check_irand (gfc_expr *);
 try gfc_check_ishft (gfc_expr *, gfc_expr *);
 try gfc_check_ishftc (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_kill (gfc_expr *, gfc_expr *);
 try gfc_check_kind (gfc_expr *);
 try gfc_check_lbound (gfc_expr *, gfc_expr *);
+try gfc_check_link (gfc_expr *, gfc_expr *);
 try gfc_check_logical (gfc_expr *, gfc_expr *);
 try gfc_check_min_max (gfc_actual_arglist *);
 try gfc_check_min_max_integer (gfc_actual_arglist *);
@@ -85,11 +95,13 @@ try gfc_check_radix (gfc_expr *);
 try gfc_check_rand (gfc_expr *);
 try gfc_check_range (gfc_expr *);
 try gfc_check_real (gfc_expr *, gfc_expr *);
+try gfc_check_rename (gfc_expr *, gfc_expr *);
 try gfc_check_repeat (gfc_expr *, gfc_expr *);
 try gfc_check_reshape (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_scale (gfc_expr *, gfc_expr *);
 try gfc_check_scan (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_second_sub (gfc_expr *);
+try gfc_check_selected_int_kind (gfc_expr *);
 try gfc_check_selected_real_kind (gfc_expr *, gfc_expr *);
 try gfc_check_set_exponent (gfc_expr *, gfc_expr *);
 try gfc_check_shape (gfc_expr *);
@@ -99,6 +111,7 @@ try gfc_check_spread (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_srand (gfc_expr *);
 try gfc_check_stat (gfc_expr *, gfc_expr *);
 try gfc_check_sum (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_symlnk (gfc_expr *, gfc_expr *);
 try gfc_check_transfer (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_transpose (gfc_expr *);
 try gfc_check_trim (gfc_expr *);
@@ -111,18 +124,28 @@ try gfc_check_x (gfc_expr *);
 
 
 /* Intrinsic subroutines.  */
+try gfc_check_chdir_sub (gfc_expr *, gfc_expr *);
 try gfc_check_cpu_time (gfc_expr *);
 try gfc_check_system_clock (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_date_and_time (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_exit (gfc_expr *);
 try gfc_check_flush (gfc_expr *);
 try gfc_check_fstat_sub (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_gerror (gfc_expr *);
+try gfc_check_getlog (gfc_expr *);
 try gfc_check_mvbits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
 		      gfc_expr *);
 try gfc_check_random_number (gfc_expr *);
 try gfc_check_random_seed (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_etime_sub (gfc_expr *, gfc_expr *);
 try gfc_check_getcwd_sub (gfc_expr *, gfc_expr *);
+try gfc_check_hostnm_sub (gfc_expr *, gfc_expr *);
+try gfc_check_kill_sub (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_perror (gfc_expr *);
+try gfc_check_rename_sub (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_link_sub (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_symlnk_sub (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_sleep_sub (gfc_expr *);
 try gfc_check_stat_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_system_sub (gfc_expr *, gfc_expr *);
 try gfc_check_umask_sub (gfc_expr *, gfc_expr *);
@@ -250,6 +273,7 @@ void gfc_resolve_besn (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_btest (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ceiling (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_char (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_chdir (gfc_expr *, gfc_expr *);
 void gfc_resolve_cmplx (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_dcmplx (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_conjg (gfc_expr *, gfc_expr *);
@@ -275,10 +299,12 @@ void gfc_resolve_getcwd (gfc_expr *, gfc_expr *);
 void gfc_resolve_getgid (gfc_expr *);
 void gfc_resolve_getpid (gfc_expr *);
 void gfc_resolve_getuid (gfc_expr *);
+void gfc_resolve_hostnm (gfc_expr *, gfc_expr *);
 void gfc_resolve_iand (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibclr (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibset (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_ierrno (gfc_expr *);
 void gfc_resolve_ieor (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ichar (gfc_expr *, gfc_expr *);
 void gfc_resolve_idnint (gfc_expr *, gfc_expr *);
@@ -286,9 +312,11 @@ void gfc_resolve_int (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ior (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ishft (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ishftc (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_kill (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_lbound (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_len (gfc_expr *, gfc_expr *);
 void gfc_resolve_len_trim (gfc_expr *, gfc_expr *);
+void gfc_resolve_link (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_log (gfc_expr *, gfc_expr *);
 void gfc_resolve_log10 (gfc_expr *, gfc_expr *);
 void gfc_resolve_logical (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -308,6 +336,7 @@ void gfc_resolve_not (gfc_expr *, gfc_expr *);
 void gfc_resolve_pack (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_product (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_real (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_rename (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_repeat (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_reshape (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
 			  gfc_expr *);
@@ -326,9 +355,12 @@ void gfc_resolve_sqrt (gfc_expr *, gfc_expr *);
 void gfc_resolve_stat (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_srand (gfc_code *);
 void gfc_resolve_sum (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_symlnk (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_system (gfc_expr *, gfc_expr *);
 void gfc_resolve_tan (gfc_expr *, gfc_expr *);
 void gfc_resolve_tanh (gfc_expr *, gfc_expr *);
+void gfc_resolve_time (gfc_expr *);
+void gfc_resolve_time8 (gfc_expr *);
 void gfc_resolve_transfer (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_transpose (gfc_expr *, gfc_expr *);
 void gfc_resolve_trim (gfc_expr *, gfc_expr *);
@@ -340,17 +372,27 @@ void gfc_resolve_verify (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 
 
 /* Intrinsic subroutine resolution.  */
+void gfc_resolve_chdir_sub (gfc_code *);
 void gfc_resolve_cpu_time (gfc_code *);
 void gfc_resolve_exit (gfc_code *);
 void gfc_resolve_flush (gfc_code *);
 void gfc_resolve_fstat_sub (gfc_code *);
+void gfc_resolve_gerror (gfc_code *);
 void gfc_resolve_getarg (gfc_code *);
 void gfc_resolve_getcwd_sub (gfc_code *);
+void gfc_resolve_getlog (gfc_code *);
 void gfc_resolve_get_command (gfc_code *);
 void gfc_resolve_get_command_argument (gfc_code *);
 void gfc_resolve_get_environment_variable (gfc_code *);
+void gfc_resolve_hostnm_sub (gfc_code *);
+void gfc_resolve_kill_sub (gfc_code *);
 void gfc_resolve_mvbits (gfc_code *);
+void gfc_resolve_perror (gfc_code *);
 void gfc_resolve_random_number (gfc_code *);
+void gfc_resolve_rename_sub (gfc_code *);
+void gfc_resolve_link_sub (gfc_code *);
+void gfc_resolve_symlnk_sub (gfc_code *);
+void gfc_resolve_sleep_sub (gfc_code *);
 void gfc_resolve_stat_sub (gfc_code *);
 void gfc_resolve_system_clock (gfc_code *);
 void gfc_resolve_system_sub (gfc_code *);
@@ -362,6 +404,6 @@ void gfc_resolve_unlink_sub (gfc_code *);
 
 #define MAX_INTRINSIC_ARGS 5
 
-extern char *gfc_current_intrinsic,
-  *gfc_current_intrinsic_arg[MAX_INTRINSIC_ARGS];
+extern const char *gfc_current_intrinsic;
+extern const char *gfc_current_intrinsic_arg[MAX_INTRINSIC_ARGS];
 extern locus *gfc_current_intrinsic_where;

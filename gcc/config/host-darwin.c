@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -60,7 +60,7 @@ darwin_gt_pch_use_address (void *addr, size_t sz, int fd, size_t off)
   sz = (sz + pagesize - 1) / pagesize * pagesize;
 
   if (munmap (pch_address_space + sz, sizeof (pch_address_space) - sz) != 0)
-    fatal_error ("couldn't unmap pch_address_space: %m");
+    fatal_error ("couldn't unmap pch_address_space: %m\n");
 
   if (ret)
     {

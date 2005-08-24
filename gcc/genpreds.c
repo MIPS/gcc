@@ -2,7 +2,7 @@
    - prototype declarations for operand predicates (tm-preds.h)
    - function definitions of operand predicates, if defined new-style
      (insn-preds.c)
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -138,6 +138,7 @@ write_predicate_subfunction (struct pred_data *p)
   printf ("static inline int\n"
 	  "%s_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)\n",
 	  p->name);
+  print_rtx_ptr_loc (p->c_block);
   if (p->c_block[0] == '{')
     fputs (p->c_block, stdout);
   else
@@ -167,7 +168,7 @@ mark_mode_tests (rtx exp)
 	struct pred_data *p = lookup_predicate (XSTR (exp, 1));
 	if (!p)
 	  error ("reference to undefined predicate '%s'", XSTR (exp, 1));
-	else if (p->special)
+	else if (p->special || GET_MODE (exp) != VOIDmode)
 	  NO_MODE_TEST (exp) = 1;
       }
       break;
@@ -366,7 +367,10 @@ write_predicate_expr (const char *name, rtx exp)
       break;
 
     case MATCH_OPERAND:
-      printf ("%s (op, mode)", XSTR (exp, 1));
+      if (GET_MODE (exp) == VOIDmode)
+        printf ("%s (op, mode)", XSTR (exp, 1));
+      else
+        printf ("%s (op, %smode)", XSTR (exp, 1), mode_name[GET_MODE (exp)]);
       break;
 
     case MATCH_CODE:
@@ -374,7 +378,7 @@ write_predicate_expr (const char *name, rtx exp)
       break;
 
     case MATCH_TEST:
-      fputs (XSTR (exp, 0), stdout);
+      print_c_condition (XSTR (exp, 0));
       break;
 
     default:

@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -19,7 +19,7 @@
 ; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 ; 02111-1307, USA.
 
-; See c.opt for a description of this file's format.
+; See the GCC internals manual for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -56,6 +56,10 @@ This switch is deprecated; use -Wextra instead
 Waggregate-return
 Common Var(warn_aggregate_return)
 Warn about returning structures, unions or arrays
+
+Wattributes
+Common Var(warn_attributes) Init(1)
+Warn about inappropriate attribute usage
 
 Wcast-align
 Common Var(warn_cast_align)
@@ -310,6 +314,10 @@ fcse-skip-blocks
 Common Report Var(flag_cse_skip_blocks)
 When running CSE, follow conditional jumps
 
+fcx-limited-range
+Common Report Var(flag_cx_limited_range)
+Omit range reduction step when performing complex division
+
 fdata-sections
 Common Report Var(flag_data_sections)
 Place data items into their own section
@@ -332,6 +340,10 @@ fdiagnostics-show-location=
 Common Joined RejectNegative
 -fdiagnostics-show-location=[once|every-line]	How often to emit source location at the beginning of line-wrapped diagnostics
 
+fdiagnostics-show-option
+Common
+Amend appropriate diagnostic messages with the command line option that controls them.
+
 fdump-
 Common Joined RejectNegative
 -fdump-<type>	Dump various compiler internals to a file
@@ -339,6 +351,10 @@ Common Joined RejectNegative
 fdump-unnumbered
 Common Report Var(flag_dump_unnumbered) VarExists
 Suppress output of instruction numbers and line number notes in debugging dumps
+
+fearly-optimizations
+Common Report Var(flag_early_optimizations)
+Perform early optimizations
 
 feliminate-dwarf2-dups
 Common Report Var(flag_eliminate_dwarf2_dups)
@@ -476,6 +492,10 @@ fivopts
 Common Report Var(flag_ivopts) Init(1)
 Optimize induction variables on trees
 
+fjump-tables
+Common Var(flag_jump_tables) Init(1)
+Use jump tables for sufficiently large switch statements
+
 fkeep-inline-functions
 Common Report Var(flag_keep_inline_functions)
 Generate code for functions even if they are fully inlined
@@ -543,10 +563,6 @@ Add mudflap bounds-checking instrumentation for multi-threaded program.
 fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
 Ignore read operations when inserting mudflap instrumentation.
-
-fnew-ra
-Common Report Var(flag_new_regalloc)
-Use graph-coloring register allocation
 
 freschedule-modulo-scheduled-loops
 Common Report Var(flag_resched_modulo_sched)
@@ -723,7 +739,7 @@ Allow premature scheduling of queued insns
 
 fsched-stalled-insns=
 Common RejectNegative Joined UInteger 
--fsched-stalled-insns=<number>       Set number of queued insns that can be prematurely scheduled
+-fsched-stalled-insns=<number>	Set number of queued insns that can be prematurely scheduled
 
 ; sched_stalled_insns_dep controls how many recently scheduled cycles will
 ; be examined for a dependency on a stalled insn that is candidate for
@@ -735,11 +751,15 @@ Set dependence distance checking in premature scheduling of queued insns
 
 fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
--fsched-stalled-insns-dep=<number>   Set dependence distance checking in premature scheduling of queued insns
+-fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
 
 fshared-data
 Common Report Var(flag_shared_data)
 Mark data as shared rather than private
+
+fshow-column
+Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
+Show column numbers in diagnostics, when available.  Default on.
 
 fsignaling-nans
 Common Report Var(flag_signaling_nans)
@@ -833,6 +853,10 @@ ftree-ccp
 Common Report Var(flag_tree_ccp)
 Enable SSA-CCP optimization on trees
 
+ftree-store-ccp
+Common Report Var(flag_tree_store_ccp)
+Enable SSA-CCP optimization for stores and loads
+
 ftree-ch
 Common Report Var(flag_tree_ch)
 Enable loop header copying on trees
@@ -844,6 +868,14 @@ Coalesce memory temporaries in the SSA->normal pass
 ftree-copyrename
 Common Report Var(flag_tree_copyrename)
 Replace SSA temporaries with better names in copies.
+
+ftree-copy-prop
+Common Report Var(flag_tree_copy_prop)
+Enable copy propagation on trees
+
+ftree-store-copy-prop
+Common Report Var(flag_tree_store_copy_prop)
+Enable copy propagation for stores and loads
 
 ftree-dce
 Common Report Var(flag_tree_dce)
@@ -881,6 +913,14 @@ ftree-pre
 Common Report Var(flag_tree_pre)
 Enable SSA-PRE optimization on trees
 
+ftree-salias
+Common Report Var(flag_tree_salias)
+Perform structural alias analysis
+
+ftree-sink
+Common Report Var(flag_tree_sink)
+Enable SSA code sinking on trees
+
 ftree-sra
 Common Report Var(flag_tree_sra)
 Perform scalar replacement of aggregates
@@ -893,6 +933,10 @@ ftree-lrs
 Common Report Var(flag_tree_live_range_split)
 Perform live range splitting during the SSA->normal pass.
 
+ftree-vrp
+Common Report Var(flag_tree_vrp) Init(0)
+Perform Value Range Propagation on trees
+
 funit-at-a-time
 Common Report Var(flag_unit_at_a_time)
 Compile whole compilation unit at a time
@@ -900,10 +944,6 @@ Compile whole compilation unit at a time
 fipa-cp
 Common Report Var(flag_ipa_cp)
 Perform IPA constant propagation
-
-fipa-no-cloning
-Common Report Var(flag_ipa_no_cloning)
-Perform IPA cp, without cloning of methods
 
 funroll-loops
 Common Report Var(flag_unroll_loops)
@@ -936,6 +976,10 @@ Perform variable tracking
 ftree-vectorize
 Common Report Var(flag_tree_vectorize)
 Enable loop vectorization on trees
+
+ftree-vectorizer-verbose=
+Common RejectNegative Joined
+-ftree-vectorizer-verbose=<number>	Set the verbosity level of the vectorizer
 
 ; -fverbose-asm causes extra commentary information to be produced in
 ; the generated assembly code (to make it more readable).  This option
@@ -1007,9 +1051,6 @@ Generate debug information in XCOFF format
 gxcoff+
 Common JoinedOrMissing
 Generate debug information in extended XCOFF format
-
-m
-Common Joined
 
 o
 Common Joined Separate

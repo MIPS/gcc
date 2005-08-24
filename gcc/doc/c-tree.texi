@@ -1,4 +1,4 @@
-@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004, 2005
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -1363,7 +1363,7 @@ void process_stmt (stmt)
         @{
         case IF_STMT:
           process_stmt (THEN_CLAUSE (stmt));
-          /* More processing here.  */
+          /* @r{More processing here.}  */
           break;
 
         @dots{}
@@ -1573,11 +1573,11 @@ cleanups must be executed in the reverse order in which they appear.
 
 @item SWITCH_STMT
 
-Used to represent a @code{switch} statement.  The @code{SWITCH_COND} is
-the expression on which the switch is occurring.  See the documentation
+Used to represent a @code{switch} statement.  The @code{SWITCH_STMT_COND}
+is the expression on which the switch is occurring.  See the documentation
 for an @code{IF_STMT} for more information on the representation used
-for the condition.  The @code{SWITCH_BODY} is the body of the switch
-statement.   The @code{SWITCH_TYPE} is the original type of switch
+for the condition.  The @code{SWITCH_STMT_BODY} is the body of the switch
+statement.   The @code{SWITCH_STMT_TYPE} is the original type of switch
 expression as given in the source, before any compiler conversions.
 
 @item TRY_BLOCK
@@ -1712,6 +1712,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex EXACT_DIV_EXPR
 @tindex ARRAY_REF
 @tindex ARRAY_RANGE_REF
+@tindex MEM_REF
 @tindex LT_EXPR
 @tindex LE_EXPR
 @tindex GT_EXPR
@@ -2095,6 +2096,12 @@ the array.  The third and fourth operands are used after gimplification
 to represent the lower bound and component size but should not be used
 directly; call @code{array_ref_low_bound} and @code{array_ref_element_size}
 instead.
+
+@item MEM_REF
+These nodes represent array operations on pointers.  The first operand
+is the pointer we are operating on; the second is the index.  To
+calculate the address of the memory accessed, you must scale the index
+by the size of the type of the pointed-to elements.
 
 @item ARRAY_RANGE_REF
 These nodes represent access to a range (or ``slice'') of an array.  The

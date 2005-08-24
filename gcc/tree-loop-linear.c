@@ -1,5 +1,5 @@
 /* Linear Loop transforms
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
@@ -24,7 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "target.h"
@@ -242,8 +241,9 @@ void
 linear_transform_loops (struct loops *loops)
 {
   unsigned int i;
-
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
+  VEC(tree,heap) *oldivs = NULL;
+  VEC(tree,heap) *invariants = NULL;
+  
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
@@ -251,8 +251,6 @@ linear_transform_loops (struct loops *loops)
       varray_type dependence_relations;
       struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
-      VEC (tree) *oldivs = NULL;
-      VEC (tree) *invariants = NULL;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
@@ -271,14 +269,15 @@ linear_transform_loops (struct loops *loops)
                 ...
                }
            } */
-      if (!loop_nest->inner)
+      if (!loop_nest || !loop_nest->inner)
 	continue;
+      VEC_truncate (tree, oldivs, 0);
+      VEC_truncate (tree, invariants, 0);
       depth = 1;
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
-	  flow_loop_scan (temp, LOOP_ALL);
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || temp->num_exits != 1)
+	  if (temp->next || !temp->single_exit)
 	    {
 	      problem = true;
 	      break;
@@ -366,15 +365,11 @@ linear_transform_loops (struct loops *loops)
 				       after, trans);
       if (dump_file)
 	fprintf (dump_file, "Successfully transformed loop.\n");
-      oldivs = NULL;
-      invariants = NULL;
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
-  free_df ();
+  VEC_free (tree, heap, oldivs);
+  VEC_free (tree, heap, invariants);
   scev_reset ();
-  rewrite_into_loop_closed_ssa ();
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
+  rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa_full_phi);
 }

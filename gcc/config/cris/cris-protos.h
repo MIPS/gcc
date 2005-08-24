@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Axis Communications.
 
@@ -27,10 +27,9 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 extern void cris_conditional_register_usage (void);
-extern int cris_simple_epilogue (void);
+extern bool cris_simple_epilogue (void);
 #ifdef RTX_CODE
 extern const char *cris_op_str (rtx);
-extern int cris_eligible_for_epilogue_delay (rtx);
 extern void cris_notice_update_cc (rtx, rtx);
 extern void cris_print_operand (FILE *, rtx, int);
 extern void cris_print_operand_address (FILE *, rtx);
@@ -42,13 +41,21 @@ extern int cris_legitimate_pic_operand (rtx);
 extern int cris_gotless_symbol (rtx);
 extern int cris_got_symbol (rtx);
 extern int cris_symbol (rtx);
-extern void cris_output_addr_const (FILE *, rtx);
+extern bool cris_store_multiple_op_p (rtx);
+extern bool cris_movem_load_rest_p (rtx, int);
+extern void cris_asm_output_symbol_ref (FILE *, rtx);
+extern bool cris_output_addr_const_extra (FILE *, rtx);
 extern int cris_cfun_uses_pic_table (void);
+extern rtx cris_gen_movem_load (rtx, rtx, int);
+extern rtx cris_emit_movem_store (rtx, rtx, int, bool);
 #endif /* RTX_CODE */
+extern void cris_asm_output_label_ref (FILE *, char *);
 extern void cris_target_asm_named_section (const char *, unsigned int, tree);
-
-extern int cris_return_address_on_stack (void);
-
+extern void cris_expand_prologue (void);
+extern void cris_expand_epilogue (void);
+extern void cris_expand_return (bool);
+extern bool cris_return_address_on_stack_for_return (void);
+extern bool cris_return_address_on_stack (void);
 extern void cris_pragma_expand_mul (struct cpp_reader *);
 
 /* Need one that returns an int; usable in expressions.  */
@@ -59,5 +66,3 @@ extern void cris_override_options (void);
 extern int cris_initial_elimination_offset (int, int);
 
 extern void cris_init_expanders (void);
-
-extern int cris_delay_slots_for_epilogue (void);

@@ -1,6 +1,6 @@
 /* Common subexpression elimination library for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -50,7 +50,6 @@ static struct elt_loc_list *new_elt_loc_list (struct elt_loc_list *, rtx);
 static void unchain_one_value (cselib_val *);
 static void unchain_one_elt_list (struct elt_list **);
 static void unchain_one_elt_loc_list (struct elt_loc_list **);
-static void clear_table (void);
 static int discard_useless_locs (void **, void *);
 static int discard_useless_values (void **, void *);
 static void remove_useless_values (void);
@@ -101,16 +100,16 @@ static int n_useless_values;
    which the register was set; if the mode is unknown or the value is
    no longer valid in that mode, ELT will be NULL for the first
    element.  */
-struct elt_list **reg_values;
-unsigned int reg_values_size;
+static struct elt_list **reg_values;
+static unsigned int reg_values_size;
 #define REG_VALUES(i) reg_values[i]
 
 /* The largest number of hard regs used by any entry added to the
-   REG_VALUES table.  Cleared on each clear_table() invocation.  */
+   REG_VALUES table.  Cleared on each cselib_clear_table() invocation.  */
 static unsigned int max_value_regs;
 
 /* Here the set of indices I with REG_VALUES(I) != 0 is saved.  This is used
-   in clear_table() for fast emptying.  */
+   in cselib_clear_table() for fast emptying.  */
 static unsigned int *used_regs;
 static unsigned int n_used_regs;
 
@@ -200,8 +199,8 @@ unchain_one_value (cselib_val *v)
    initialization.  If CLEAR_ALL isn't set, then only clear the entries
    which are known to have been used.  */
 
-static void
-clear_table (void)
+void
+cselib_clear_table (void)
 {
   unsigned int i;
 
@@ -1362,7 +1361,7 @@ cselib_process_insn (rtx insn)
     {
       if (find_reg_note (insn, REG_RETVAL, NULL))
         cselib_current_insn_in_libcall = false;
-      clear_table ();
+      cselib_clear_table ();
       return;
     }
 
@@ -1380,7 +1379,10 @@ cselib_process_insn (rtx insn)
   if (CALL_P (insn))
     {
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (call_used_regs[i])
+	if (call_used_regs[i]
+	    || (REG_VALUES (i) && REG_VALUES (i)->elt
+		&& HARD_REGNO_CALL_PART_CLOBBERED (i, 
+		      GET_MODE (REG_VALUES (i)->elt->u.val_rtx))))
 	  cselib_invalidate_regno (i, reg_raw_mode[i]);
 
       if (! CONST_OR_PURE_CALL_P (insn))
@@ -1461,7 +1463,7 @@ cselib_finish (void)
   free_alloc_pool (elt_loc_list_pool);
   free_alloc_pool (cselib_val_pool);
   free_alloc_pool (value_pool);
-  clear_table ();
+  cselib_clear_table ();
   htab_delete (hash_table);
   free (used_regs);
   used_regs = 0;

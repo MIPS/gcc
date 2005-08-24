@@ -1,5 +1,5 @@
 /* Natural loop analysis code for GNU compiler.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
-#include "function.h"
 #include "cfgloop.h"
 #include "expr.h"
 #include "output.h"
@@ -34,7 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Checks whether BB is executed exactly once in each LOOP iteration.  */
 
 bool
-just_once_each_iteration_p (struct loop *loop, basic_block bb)
+just_once_each_iteration_p (const struct loop *loop, basic_block bb)
 {
   /* It must be executed at least once each iteration.  */
   if (!dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
@@ -564,5 +563,31 @@ global_cost_for_size (unsigned size, unsigned regs_used, unsigned n_uses)
     }
 
   return cost;
+}
+
+/* Sets EDGE_LOOP_EXIT flag for all exits of LOOPS.  */
+
+void
+mark_loop_exit_edges (struct loops *loops)
+{
+  basic_block bb;
+  edge e;
+ 
+  if (loops->num <= 1)
+    return;
+
+  FOR_EACH_BB (bb)
+    {
+      edge_iterator ei;
+
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  if (bb->loop_father->outer
+	      && loop_exit_edge_p (bb->loop_father, e))
+	    e->flags |= EDGE_LOOP_EXIT;
+	  else
+	    e->flags &= ~EDGE_LOOP_EXIT;
+	}
+    }
 }
 

@@ -1,5 +1,5 @@
 /* Utility to update paths from internal to external forms.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -123,6 +123,10 @@ save_string (const char *s, int len)
 }
 
 #if defined(_WIN32) && defined(ENABLE_WIN32_REGISTRY)
+
+#ifndef WIN32_REGISTRY_KEY
+# define WIN32_REGISTRY_KEY BASEVER
+#endif
 
 /* Look up "key" in the registry, as above.  */
 

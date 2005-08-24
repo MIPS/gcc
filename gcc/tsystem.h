@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations
    based on target macros.
-   Copyright (C) 2000, 2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -120,5 +120,18 @@ extern int errno;
 /* GCC always provides __builtin_alloca(x).  */
 #undef alloca
 #define alloca(x) __builtin_alloca(x)
+
+#ifdef ENABLE_RUNTIME_CHECKING
+#define gcc_assert(EXPR) ((void)(!(EXPR) ? abort (), 0 : 0))
+#else
+/* Include EXPR, so that unused variable warnings do not occur.  */
+#define gcc_assert(EXPR) ((void)(0 && (EXPR)))
+#endif
+/* Use gcc_unreachable() to mark unreachable locations (like an
+   unreachable default case of a switch.  Do not use gcc_assert(0).  */
+#define gcc_unreachable() (abort ())
+
+/* Filename handling macros.  */
+#include "filenames.h"
 
 #endif /* ! GCC_TSYSTEM_H */

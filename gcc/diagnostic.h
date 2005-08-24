@@ -1,5 +1,6 @@
 /* Various declarations for language-independent diagnostics subroutines.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -42,6 +43,8 @@ typedef struct
   location_t location;
   /* The kind of diagnostic it is about.  */
   diagnostic_t kind;
+  /* Which OPT_* directly controls this diagnostic.  */
+  int option_index;
 } diagnostic_info;
 
 #define pedantic_error_kind() (flag_pedantic_errors ? DK_ERROR : DK_WARNING)
@@ -69,6 +72,10 @@ struct diagnostic_context
   
   /* True if it has been requested that warnings be treated as errors.  */
   bool warning_as_error_requested;
+
+  /* True if we should print the command line option which controls
+     each diagnostic, if known.  */
+  bool show_option_requested;
 
   /* True if we should raise a SIGABRT on errors.  */
   bool abort_on_error;
@@ -181,8 +188,6 @@ extern char *diagnostic_build_prefix (diagnostic_info *);
 /* Pure text formatting support functions.  */
 extern void verbatim (const char *, ...);
 extern char *file_name_as_prefix (const char *);
-
-extern void debug_output_buffer (pretty_printer *);
 
 /* In tree-pretty-print.c  */
 extern int dump_generic_node (pretty_printer *, tree, int, int, bool);

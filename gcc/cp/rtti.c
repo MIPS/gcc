@@ -1,5 +1,6 @@
 /* RunTime Type Identification
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -74,7 +75,7 @@ Boston, MA 02111-1307, USA.  */
 #define TINFO_REAL_NAME(NODE) TREE_PURPOSE (NODE)
 
 /* A vector of all tinfo decls that haven't yet been emitted.  */
-VEC (tree) *unemitted_tinfo_decls;
+VEC(tree,gc) *unemitted_tinfo_decls;
 
 static tree build_headof (tree);
 static tree ifnonnull (tree, tree);
@@ -112,13 +113,13 @@ init_rtti_processing (void)
   
   push_namespace (std_identifier);
   type_info_type = xref_tag (class_type, get_identifier ("type_info"),
-			     /*tag_scope=*/ts_global, false);
+			     /*tag_scope=*/ts_current, false);
   pop_namespace ();
   const_type_info_type_node
     = build_qualified_type (type_info_type, TYPE_QUAL_CONST);
   type_info_ptr_type = build_pointer_type (const_type_info_type_node);
 
-  unemitted_tinfo_decls = VEC_alloc (tree, 124);
+  unemitted_tinfo_decls = VEC_alloc (tree, gc, 124);
   
   create_tinfo_types ();
 }
@@ -363,7 +364,7 @@ get_tinfo_decl (tree type)
       pushdecl_top_level_and_finish (d, NULL_TREE);
 
       /* Add decl to the global array of tinfo decls.  */
-      VEC_safe_push (tree, unemitted_tinfo_decls, d);
+      VEC_safe_push (tree, gc, unemitted_tinfo_decls, d);
     }
 
   return d;
@@ -418,7 +419,8 @@ static tree
 ifnonnull (tree test, tree result)
 {
   return build3 (COND_EXPR, TREE_TYPE (result),
-		 build2 (EQ_EXPR, boolean_type_node, test, integer_zero_node),
+		 build2 (EQ_EXPR, boolean_type_node, test, 
+		         cp_convert (TREE_TYPE (test), integer_zero_node)),
 		 cp_convert (TREE_TYPE (result), integer_zero_node),
 		 result);
 }
@@ -566,7 +568,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 		  && TREE_CODE (TREE_TYPE (old_expr)) == RECORD_TYPE)
 		{
 	          tree expr = throw_bad_cast ();
-		  warning ("dynamic_cast of %q#D to %q#T can never succeed",
+		  warning (0, "dynamic_cast of %q#D to %q#T can never succeed",
                            old_expr, type);
 	          /* Bash it to the expected type.  */
 	          TREE_TYPE (expr) = type;
@@ -580,7 +582,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      if (TREE_CODE (op) == VAR_DECL
 		  && TREE_CODE (TREE_TYPE (op)) == RECORD_TYPE)
 		{
-		  warning ("dynamic_cast of %q#D to %q#T can never succeed",
+		  warning (0, "dynamic_cast of %q#D to %q#T can never succeed",
                            op, type);
 		  retval = build_int_cst (type, 0); 
 		  return retval;
@@ -623,7 +625,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      push_nested_namespace (ns);
 	      tinfo_ptr = xref_tag (class_type,
 				    get_identifier ("__class_type_info"),
-				    /*tag_scope=*/ts_global, false);
+				    /*tag_scope=*/ts_current, false);
 	      
 	      tinfo_ptr = build_pointer_type
 		(build_qualified_type
@@ -804,7 +806,7 @@ tinfo_base_init (tree desc, tree target)
   
       push_nested_namespace (abi_node);
       real_type = xref_tag (class_type, TINFO_REAL_NAME (desc),
-			    /*tag_scope=*/ts_global, false);
+			    /*tag_scope=*/ts_current, false);
       pop_nested_namespace (abi_node);
   
       if (!COMPLETE_TYPE_P (real_type))
@@ -1002,7 +1004,7 @@ get_pseudo_ti_init (tree type, tree var_desc)
 		      | (CLASSTYPE_DIAMOND_SHAPED_P (type) << 1));
 	  tree binfo = TYPE_BINFO (type);
           int nbases = BINFO_N_BASE_BINFOS (binfo);
-	  VEC (tree) *base_accesses = BINFO_BASE_ACCESSES (binfo);
+	  VEC(tree,gc) *base_accesses = BINFO_BASE_ACCESSES (binfo);
           tree base_inits = NULL_TREE;
           int ix;
           
@@ -1151,7 +1153,7 @@ get_pseudo_ti_desc (tree type)
       else
 	{
 	  tree binfo = TYPE_BINFO (type);
-	  VEC (tree) *base_accesses = BINFO_BASE_ACCESSES (binfo);
+	  VEC(tree,gc) *base_accesses = BINFO_BASE_ACCESSES (binfo);
 	  tree base_binfo = BINFO_BASE_BINFO (binfo, 0);
 	  int num_bases = BINFO_N_BASE_BINFOS (binfo);
 	  
@@ -1336,12 +1338,12 @@ emit_support_tinfos (void)
   push_nested_namespace (abi_node);
   bltn_type = xref_tag (class_type,
 			get_identifier ("__fundamental_type_info"), 
-			/*tag_scope=*/ts_global, false);
+			/*tag_scope=*/ts_current, false);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))
     return;
   dtor = CLASSTYPE_DESTRUCTORS (bltn_type);
-  if (DECL_EXTERNAL (dtor))
+  if (!dtor || DECL_EXTERNAL (dtor))
     return;
   doing_runtime = 1;
   for (ix = 0; fundamentals[ix]; ix++)

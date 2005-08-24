@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -39,7 +39,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "flags.h"
-#include "xref.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "tree-inline.h"
@@ -117,11 +116,6 @@ int compiling_from_source;
 
 const char *resource_name;
 
-/* When nonzero, we emit xref strings. Values of the flag for xref
-   backends are defined in xref_flag_table, xref.c.  */
-
-int flag_emit_xref = 0;
-
 /* When nonzero, -Wall was turned on.  */
 int flag_wall = 0;
 
@@ -140,7 +134,7 @@ int flag_deprecated = 1;
 int flag_verify_invocations = 0; 
 
 /* True if the new bytecode verifier should be used.  */
-int flag_new_verifier = 0;
+int flag_new_verifier = 1;
 
 /* When nonzero, print extra version information.  */
 static int v_flag = 0;
@@ -178,8 +172,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_PARSE_FILE java_parse_file
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE java_mark_addressable
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION java_truthvalue_conversion
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL java_dup_lang_specific_decl
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
@@ -220,6 +212,9 @@ struct language_function GTY(())
 
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
+
+#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
+#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME java_mangle_decl
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -809,7 +804,7 @@ merge_init_test_initialization (void **entry, void *x)
   does this by setting the DECL_INITIAL of the init_test_decl for that
   class, and no initializations are emitted for that class.
 
-  However, what if the method that is suppoed to do the initialization
+  However, what if the method that is supposed to do the initialization
   is itself inlined in the caller?  When expanding the called method
   we'll assume that the class initialization has already been done,
   because the DECL_INITIAL of the init_test_decl is set.

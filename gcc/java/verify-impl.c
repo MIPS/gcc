@@ -1,4 +1,4 @@
-/* Copyright (C) 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -41,22 +41,6 @@ debug_print (const char *fmt ATTRIBUTE_UNUSED, ...)
 {
 }    
 #endif /* VERIFY_DEBUG */
-
-#if 0
-static void debug_print (const char *fmt, ...)
-  __attribute__ ((format (printf, 1, 2)));
-
-static void
-debug_print (const char *fmt, ...)
-{
-#ifdef VERIFY_DEBUG
-  va_list ap;
-  va_start (ap, fmt);
-  vfprintf (stderr, fmt, ap);
-  va_end (ap);
-#endif /* VERIFY_DEBUG */
-}
-#endif
 
 /* This started as a fairly ordinary verifier, and for the most part
    it remains so.  It works in the obvious way, by modeling the effect
@@ -224,22 +208,6 @@ static GTY(()) verifier_context *vfr;
 bool type_initialized (type *t);
 int ref_count_dimensions (ref_intersection *ref);
 
-#if 0
-  /* Create a new Utf-8 constant and return it.  We do this to avoid
-     having our Utf-8 constants prematurely collected.  */
-  static vfy_string
-  make_utf8_const (const char *s, int len)
-  {
-    vfy_string val = vfy_make_string (s, len);
-    vfy_string_list *lu = vfy_alloc (sizeof (vfy_string_list));
-    lu->val = val;
-    lu->next = vfr->utf8_list;
-    vfr->utf8_list = lu;
-
-    return val;
-  }
-#endif
-
 static void
 verify_fail_pc (const char *s, int pc)
 {
@@ -249,7 +217,7 @@ verify_fail_pc (const char *s, int pc)
 static void
 verify_fail (const char *s)
 {
-  verify_fail_pc (s, -1);
+  verify_fail_pc (s, vfr->PC);
 }
 
 /* This enum holds a list of tags for all the different types we
@@ -539,28 +507,20 @@ struct type
   
      First, when constructing a new object, it is the PC of the
      `new' instruction which created the object.  We use the special
-     value UNINIT to mean that this is uninitialized, and the
-     special value SELF for the case where the current method is
-     itself the <init> method.
-
+     value UNINIT to mean that this is uninitialized.  The special
+     value SELF is used for the case where the current method is
+     itself the <init> method.  the special value EITHER is used
+     when we may optionally allow either an uninitialized or
+     initialized reference to match.
+  
      Second, when the key is return_address_type, this holds the PC
      of the instruction following the `jsr'.  */
   int pc;
 
-  #define UNINIT -2
-  #define SELF -1
+#define UNINIT -2
+#define SELF -1
+#define EITHER -3
 };
-
-#if 0
-/* Basic constructor.  */
-static void
-init_type (type *t)
-{
-  t->key = unsuitable_type;
-  t->klass = NULL;
-  t->pc = UNINIT;
-}
-#endif
 
 /* Make a new instance given the type tag.  We assume a generic
    `reference_type' means Object.  */
@@ -622,26 +582,6 @@ make_type_from_string (vfy_string n)
   init_type_from_string (&t, n);
   return t;
 }
-
-#if 0
-    /* Make a new instance given the name of a class.  */
-    type (vfy_string n)
-    {
-      key = reference_type;
-      klass = new ref_intersection (n, verifier);
-      pc = UNINIT;
-    }
-
-    /* Copy constructor.  */
-    static type copy_type (type *t)
-    {
-      type copy;
-      copy.key = t->key;
-      copy.klass = t->klass;
-      copy.pc = t->pc;
-      return copy;
-    }
-#endif
 
 /* Promote a numeric type.  */
 static void
@@ -721,21 +661,50 @@ types_compatible (type *t, type *k)
   if (k->klass == NULL)
     verify_fail ("programmer error in type::compatible");
 
-  /* An initialized type and an uninitialized type are not
-     compatible.  */
-  if (type_initialized (t) != type_initialized (k))
-    return false;
-
-  /* Two uninitialized objects are compatible if either:
-     * The PCs are identical, or
-     * One PC is UNINIT.  */
-  if (type_initialized (t))
+  /* Handle the special 'EITHER' case, which is only used in a
+     special case of 'putfield'.  Note that we only need to handle
+     this on the LHS of a check.  */
+  if (! type_initialized (t) && t->pc == EITHER)
     {
-      if (t->pc != k->pc && t->pc != UNINIT && k->pc != UNINIT)
+      /* If the RHS is uninitialized, it must be an uninitialized
+	 'this'.  */
+      if (! type_initialized (k) && k->pc != SELF)
 	return false;
+    }
+  else if (type_initialized (t) != type_initialized (k))
+    {
+      /* An initialized type and an uninitialized type are not
+	 otherwise compatible.  */
+      return false;
+    }
+  else
+    {
+      /* Two uninitialized objects are compatible if either:
+       * The PCs are identical, or
+       * One PC is UNINIT.  */
+      if (type_initialized (t))
+	{
+	  if (t->pc != k->pc && t->pc != UNINIT && k->pc != UNINIT)
+	    return false;
+	}
     }
 
   return ref_compatible (t->klass, k->klass);
+}
+
+/* Return true if two types are equal.  Only valid for reference
+   types.  */
+static bool
+types_equal (type *t1, type *t2)
+{
+  if ((t1->key != reference_type && t1->key != uninitialized_reference_type)
+      || (t2->key != reference_type
+	  && t2->key != uninitialized_reference_type))
+    return false;
+  /* Only single-ref types are allowed.  */
+  if (t1->klass->ref_next || t2->klass->ref_next)
+    return false;
+  return refs_equal (t1->klass, t2->klass);
 }
 
 static bool
@@ -841,16 +810,6 @@ type_initialized (type *t)
 {
   return t->key == reference_type || t->key == null_type;
 }
-
-#if 0
-static bool
-type_isresolved (type *t)
-{
-  return (t->key == reference_type
-	  || t->key == null_type
-	  || t->key == uninitialized_reference_type);
-}
-#endif
 
 static void
 type_verify_dimensions (type *t, int ndims)
@@ -986,16 +945,6 @@ struct state
    acquired from the verification list.  */
 #define NO_NEXT -1
 
-#if 0
-static void
-init_state (state *s)
-{
-  s->stack = NULL;
-  s->locals = NULL;
-  s->next = INVALID_STATE;  
-}
-#endif
-
 static void
 init_state_with_stack (state *s, int max_stack, int max_locals)
 {
@@ -1052,7 +1001,6 @@ make_state (int max_stack, int max_locals)
   return s;
 }
 
-#if 0
 static void
 free_state (state *s)
 {
@@ -1061,29 +1009,6 @@ free_state (state *s)
   if (s->locals != NULL)
     vfy_free (s->locals);
 }
-#endif
-
-#if 0
-    void *operator new[] (size_t bytes)
-    {
-      return vfy_alloc (bytes);
-    }
-
-    void operator delete[] (void *mem)
-    {
-      vfy_free (mem);
-    }
-
-    void *operator new (size_t bytes)
-    {
-      return vfy_alloc (bytes);
-    }
-
-    void operator delete (void *mem)
-    {
-      vfy_free (mem);
-    }
-#endif
 
 /* Modify this state to reflect entry to an exception handler.  */
 static void
@@ -1096,20 +1021,6 @@ state_set_exception (state *s, type *t, int max_stack)
   for (i = s->stacktop; i < max_stack; ++i)
     init_type_from_tag (&s->stack[i], unsuitable_type);
 }
-
-static int
-state_get_pc (state *s)
-{
-  return s->pc;
-}
-
-#if 0
-static void
-set_pc (state *s, int npc)
-{
-  s->pc = npc;
-}
-#endif
 
 /* Merge STATE_OLD into this state.  Destructively modifies this
    state.  Returns true if the new state was in fact changed.
@@ -1439,7 +1350,7 @@ get_ushort (void)
 static jint
 get_short (void)
 {
-  jint b1 = get_byte ();
+  signed char b1 = (signed char) get_byte ();
   jint b2 = get_byte ();
   jshort s = (b1 << 8) | b2;
   return (jint) s;
@@ -1452,7 +1363,10 @@ get_int (void)
   jint b2 = get_byte ();
   jint b3 = get_byte ();
   jint b4 = get_byte ();
-  return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+  jword result = (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+  /* In the compiler, 'jint' might have more than 32 bits, so we must
+     sign extend.  */
+  return WORD_TO_INT (result);
 }
 
 static int
@@ -2114,9 +2028,10 @@ handle_field_or_method (int index, int expected,
   return check_class_constant (class_index);
 }
 
-/* Return field's type, compute class' type if requested.  */
+/* Return field's type, compute class' type if requested.  If
+   PUTFIELD is true, use the special 'putfield' semantics.  */
 static type
-check_field_constant (int index, type *class_type)
+check_field_constant (int index, type *class_type, bool putfield)
 {
   vfy_string name, field_type;
   const char *typec;
@@ -2134,6 +2049,21 @@ check_field_constant (int index, type *class_type)
     init_type_from_string (&t, field_type);
   else
     init_type_from_tag (&t, get_type_val_for_signature (typec[0]));
+
+  /* We have an obscure special case here: we can use `putfield' on a
+     field declared in this class, even if `this' has not yet been
+     initialized.  */
+  if (putfield
+      && ! type_initialized (&vfr->current_state->this_type)
+      && vfr->current_state->this_type.pc == SELF
+      && types_equal (&vfr->current_state->this_type, &ct)
+      && vfy_class_has_field (vfr->current_class, name, field_type))
+    /* Note that we don't actually know whether we're going to match
+       against 'this' or some other object of the same type.  So,
+       here we set things up so that it doesn't matter.  This relies
+       on knowing what our caller is up to.  */
+    type_set_uninitialized (class_type, EITHER);
+
   return t;
 }
 
@@ -2317,7 +2247,7 @@ verify_instructions_0 (void)
 	  if (new_state == NULL)
 	    break;
 
-	  vfr->PC = state_get_pc (new_state);
+	  vfr->PC = new_state->pc;
 	  debug_print ("== State pop from pending list\n");
 	  /* Set up the current state.  */
 	  copy_state (vfr->current_state, new_state, 
@@ -2968,15 +2898,15 @@ verify_instructions_0 (void)
 	  invalidate_pc ();
 	  break;
 	case op_getstatic:
-	  push_type_t (check_field_constant (get_ushort (), NULL));
+	  push_type_t (check_field_constant (get_ushort (), NULL, false));
 	  break;
 	case op_putstatic:
-	  pop_type_t (check_field_constant (get_ushort (), NULL));
+	  pop_type_t (check_field_constant (get_ushort (), NULL, false));
 	  break;
 	case op_getfield:
 	  {
 	    type klass;
-	    type field = check_field_constant (get_ushort (), &klass);
+	    type field = check_field_constant (get_ushort (), &klass, false);
 	    pop_type_t (klass);
 	    push_type_t (field);
 	  }
@@ -2984,15 +2914,8 @@ verify_instructions_0 (void)
 	case op_putfield:
 	  {
 	    type klass;
-	    type field = check_field_constant (get_ushort (), &klass);
+	    type field = check_field_constant (get_ushort (), &klass, true);
 	    pop_type_t (field);
-
-	    /* We have an obscure special case here: we can use
-	       `putfield' on a field declared in this class, even if
-	       `this' has not yet been initialized.  */
-	    if (! type_initialized (&vfr->current_state->this_type)
-		&& vfr->current_state->this_type.pc == SELF)
-	      type_set_uninitialized (&klass, SELF);
 	    pop_type_t (klass);
 	  }
 	  break;
@@ -3215,32 +3138,6 @@ verify_instructions_0 (void)
 	  handle_jsr_insn (get_int ());
 	  break;
 
-#if 0
-	/* These are unused here, but we call them out explicitly
-	   so that -Wswitch-enum doesn't complain.  */
-	case op_putfield_1:
-	case op_putfield_2:
-	case op_putfield_4:
-	case op_putfield_8:
-	case op_putfield_a:
-	case op_putstatic_1:
-	case op_putstatic_2:
-	case op_putstatic_4:
-	case op_putstatic_8:
-	case op_putstatic_a:
-	case op_getfield_1:
-	case op_getfield_2s:
-	case op_getfield_2u:
-	case op_getfield_4:
-	case op_getfield_8:
-	case op_getfield_a:
-	case op_getstatic_1:
-	case op_getstatic_2s:
-	case op_getstatic_2u:
-	case op_getstatic_4:
-	case op_getstatic_8:
-	case op_getstatic_a:
-#endif
 	default:
 	  /* Unrecognized opcode.  */
 	  verify_fail_pc ("unrecognized instruction in verify_instructions_0",
@@ -3331,17 +3228,6 @@ verify_instructions (void)
     }
 }
 
-#if 0
-_Jv_BytecodeVerifier (_Jv_InterpMethod *m)
-{
-  /* We just print the text as utf-8.  This is just for debugging
-     anyway.  */
-  debug_print ("--------------------------------\n");
-  debug_print ("-- Verifying method `%s'\n", m->self->name->chars());
-
-}
-#endif
-
 static void
 make_verifier_context (vfy_method *m)
 {
@@ -3392,6 +3278,7 @@ free_verifier_context (void)
 	  while (iter != NULL)
 	    {
 	      state_list *next = iter->next;
+	      free_state (iter->val);
 	      vfy_free (iter->val);
 	      vfy_free (iter);
 	      iter = next;

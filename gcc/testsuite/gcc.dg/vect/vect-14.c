@@ -11,7 +11,7 @@ int main1 ()
   int ia[N];
 
 
-  /* Not vetorizable yet (induction).  */
+  /* Not vectorizable yet (induction).  */
   for ( i = 0; i < N; i++) {
     ia[i] = i;
   }
@@ -34,3 +34,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

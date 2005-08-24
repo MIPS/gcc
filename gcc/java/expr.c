@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -86,6 +86,7 @@ static void java_stack_pop (int);
 static tree build_java_throw_out_of_bounds_exception (tree); 
 static tree build_java_check_indexed_type (tree, tree); 
 static unsigned char peek_opcode_at_pc (struct JCF *, int, int);
+static void promote_arguments (void);
 
 static GTY(()) tree operand_type[59];
 
@@ -372,7 +373,7 @@ pop_type_0 (tree type, char **messagep)
       && t == object_ptr_type_node)
     {
       if (type != ptr_type_node)
-	warning ("need to insert runtime check for %s", 
+	warning (0, "need to insert runtime check for %s", 
 		 xstrdup (lang_printable_name (type, 0)));
       return type;
     }
@@ -382,6 +383,10 @@ pop_type_0 (tree type, char **messagep)
  fail:
   {
     char *temp = xstrdup (lang_printable_name (type, 0));
+    /* If the stack contains a multi-word type, keep popping the stack until 
+       the real type is found.  */
+    while (t == void_type_node)
+      t = stack_type_map[--stack_pointer];
     *messagep = concat ("expected type '", temp,
 			"' but stack contains '", lang_printable_name (t, 0),
 			"'", NULL);
@@ -458,7 +463,7 @@ add_type_assertion (tree class, int assertion_code, tree op1, tree op2)
   as.op1 = op1;
   as.op2 = op2;
 
-  as_pp = htab_find_slot (assertions_htab, &as, true);
+  as_pp = htab_find_slot (assertions_htab, &as, INSERT);
 
   /* Don't add the same assertion twice.  */
   if (*as_pp)
@@ -497,7 +502,7 @@ can_widen_reference_to (tree source_type, tree target_type)
 			  source_type, target_type);
 
       if (!quiet_flag)
-       warning ("assert: %s is assign compatible with %s", 
+       warning (0, "assert: %s is assign compatible with %s", 
 		xstrdup (lang_printable_name (target_type, 0)),
 		xstrdup (lang_printable_name (source_type, 0)));
       /* Punt everything to runtime.  */
@@ -544,7 +549,7 @@ can_widen_reference_to (tree source_type, tree target_type)
 	  if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
 	    {
 	      if (! quiet_flag)
-		warning ("assert: %s is assign compatible with %s", 
+		warning (0, "assert: %s is assign compatible with %s", 
 			 xstrdup (lang_printable_name (target_type, 0)),
 			 xstrdup (lang_printable_name (source_type, 0)));
 	      return 1;
@@ -812,15 +817,6 @@ build_java_array_length_access (tree node)
   tree type = TREE_TYPE (node);
   tree array_type = TREE_TYPE (type);
   HOST_WIDE_INT length;
-
-  /* JVM spec: If the arrayref is null, the arraylength instruction
-     throws a NullPointerException.  The only way we could get a node
-     of type ptr_type_node at this point is `aconst_null; arraylength'
-     or something equivalent.  */
-  if (!flag_new_verifier && type == ptr_type_node)
-    return build3 (CALL_EXPR, int_type_node, 
-		   build_address_of (soft_nullpointer_node),
-		   NULL_TREE, NULL_TREE);
 
   if (!is_array_type_p (type))
     {
@@ -1224,21 +1220,11 @@ expand_java_arrayload (tree lhs_type_node)
   index_node = save_expr (index_node);
   array_node = save_expr (array_node);
 
-  if (TREE_TYPE (array_node) == ptr_type_node)
-    /* The only way we could get a node of type ptr_type_node at this
-       point is `aconst_null; arraylength' or something equivalent, so
-       unconditionally throw NullPointerException.  */
-    load_node = build3 (CALL_EXPR, lhs_type_node, 
-			build_address_of (soft_nullpointer_node),
-			NULL_TREE, NULL_TREE);
-  else
-    {
-      lhs_type_node = build_java_check_indexed_type (array_node,
-						     lhs_type_node);
-      load_node = build_java_arrayaccess (array_node,
-					  lhs_type_node,
-					  index_node);
-    }
+  lhs_type_node = build_java_check_indexed_type (array_node,
+						 lhs_type_node);
+  load_node = build_java_arrayaccess (array_node,
+				      lhs_type_node,
+				      index_node);
   if (INTEGRAL_TYPE_P (lhs_type_node) && TYPE_PRECISION (lhs_type_node) <= 32)
     load_node = fold (build1 (NOP_EXPR, int_type_node, load_node));
   push_value (load_node);
@@ -2064,7 +2050,6 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
       if (! flag_indirect_dispatch 
 	  || (! DECL_EXTERNAL (method) && ! TREE_PUBLIC (method)))
 	{
-	  make_decl_rtl (method);
 	  func = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (method)),
 			 method);
 	}
@@ -2527,8 +2512,7 @@ build_jni_stub (tree method)
     method_args = DECL_ARGUMENTS (method);
   else
     method_args = BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (method));
-  block = build_block (env_var, NULL_TREE, NULL_TREE,
-		       method_args, NULL_TREE);
+  block = build_block (env_var, NULL_TREE, method_args, NULL_TREE);
   TREE_SIDE_EFFECTS (block) = 1;
   /* When compiling from source we don't set the type of the block,
      because that will prevent patch_return from ever being run.  */
@@ -2549,7 +2533,7 @@ build_jni_stub (tree method)
   args = NULL_TREE;
   for (tem = method_args; tem != NULL_TREE; tem = TREE_CHAIN (tem))
     {
-      int arg_bits = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (tem)));
+      int arg_bits = TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tem)));
 #ifdef PARM_BOUNDARY
       arg_bits = (((arg_bits + PARM_BOUNDARY - 1) / PARM_BOUNDARY)
                   * PARM_BOUNDARY);
@@ -2729,7 +2713,8 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
     }
 
   field_ref = build_field_ref (field_ref, self_type, field_name);
-  if (is_static)
+  if (is_static
+      && ! flag_indirect_dispatch)
     field_ref = build_class_init (self_type, field_ref);
   if (is_putting)
     {
@@ -2742,7 +2727,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	  else if (FIELD_STATIC (field_decl))
 	    {
 	      if (!DECL_CLINIT_P (current_function_decl))
-		warning ("%Jassignment to final static field %qD not in "
+		warning (0, "%Jassignment to final static field %qD not in "
                          "class initializer",
                          field_decl, field_decl);
 	    }
@@ -2751,7 +2736,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	      tree cfndecl_name = DECL_NAME (current_function_decl);
 	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
 		  && !ID_FINIT_P (cfndecl_name))
-                warning ("%Jassignment to final field '%D' not in constructor",
+                warning (0, "%Jassignment to final field '%D' not in constructor",
 			 field_decl, field_decl);
 	    }
 	}
@@ -2941,7 +2926,7 @@ expand_byte_code (JCF *jcf, tree method)
       int pc = GET_u2 (linenumber_pointer);
       linenumber_pointer += 4;
       if (pc >= length)
-	warning ("invalid PC in line number table");
+	warning (0, "invalid PC in line number table");
       else
 	{
 	  if ((instruction_bits[pc] & BCODE_HAS_LINENUMBER) != 0)
@@ -2960,6 +2945,8 @@ expand_byte_code (JCF *jcf, tree method)
       if (! verify_jvm_instructions (jcf, byte_ops, length))
 	return;
     }
+
+  promote_arguments ();
 
   /* Translate bytecodes.  */
   linenumber_pointer = linenumber_table;
@@ -2995,7 +2982,7 @@ expand_byte_code (JCF *jcf, tree method)
 	    {
               /* We've just reached the end of a region of dead code.  */
 	      if (extra_warnings)
-		warning ("unreachable bytecode from %d to before %d",
+		warning (0, "unreachable bytecode from %d to before %d",
 			 dead_code_index, PC);
               dead_code_index = -1;
             }
@@ -3037,7 +3024,7 @@ expand_byte_code (JCF *jcf, tree method)
     {
       /* We've just reached the end of a region of dead code.  */
       if (extra_warnings)
-	warning ("unreachable bytecode from %d to the end of the method", 
+	warning (0, "unreachable bytecode from %d to the end of the method", 
 		 dead_code_index);
     }
 }
@@ -3496,7 +3483,8 @@ maybe_adjust_start_pc (struct JCF *jcf, int code_offset,
    For method invocation, we modify the arguments so that a
    left-to-right order evaluation is performed. Saved expressions
    will, in CALL_EXPR order, be reused when the call will be expanded.
-*/
+
+   We also promote outgoing args if needed.  */
 
 tree
 force_evaluation_order (tree node)
@@ -3530,7 +3518,17 @@ force_evaluation_order (tree node)
       /* This reverses the evaluation order. This is a desired effect. */
       for (cmp = NULL_TREE; arg; arg = TREE_CHAIN (arg))
 	{
-	  tree saved = save_expr (force_evaluation_order (TREE_VALUE (arg)));
+	  /* Promote types smaller than integer.  This is required by
+	     some ABIs.  */
+	  tree type = TREE_TYPE (TREE_VALUE (arg));
+	  tree saved;
+	  if (targetm.calls.promote_prototypes (type)
+	      && INTEGRAL_TYPE_P (type)
+	      && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
+				      TYPE_SIZE (integer_type_node)))
+	    TREE_VALUE (arg) = fold_convert (integer_type_node, TREE_VALUE (arg));
+
+	  saved = save_expr (force_evaluation_order (TREE_VALUE (arg)));
 	  cmp = (cmp == NULL_TREE ? saved :
 		 build2 (COMPOUND_EXPR, void_type_node, cmp, saved));
 	  TREE_VALUE (arg) = saved;
@@ -3588,7 +3586,7 @@ build_expr_wfl (tree node,
   EXPR_WFL_NODE (wfl) = node;
   if (node)
     {
-      if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+      if (!TYPE_P (node))
 	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
       TREE_TYPE (wfl) = TREE_TYPE (node);
     }
@@ -3624,7 +3622,7 @@ expr_add_location (tree node, source_location location, bool statement)
     EXPR_WFL_EMIT_LINE_NOTE (wfl) = 1;
   if (node)
     {
-      if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+      if (!TYPE_P (node))
 	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
       TREE_TYPE (wfl) = TREE_TYPE (node);
     }
@@ -3641,6 +3639,30 @@ build_java_empty_stmt (void)
   tree t = build_empty_stmt ();
   CAN_COMPLETE_NORMALLY (t) = 1;
   return t;
+}
+
+/* Promote all args of integral type before generating any code.  */
+
+static void
+promote_arguments (void)
+{
+  int i;
+  tree arg;
+  for (arg = DECL_ARGUMENTS (current_function_decl), i = 0;
+       arg != NULL_TREE;  arg = TREE_CHAIN (arg), i++)
+    {
+      tree arg_type = TREE_TYPE (arg);
+      if (INTEGRAL_TYPE_P (arg_type)
+	  && TYPE_PRECISION (arg_type) < 32)
+	{
+	  tree copy = find_local_variable (i, integer_type_node, -1);
+	  java_add_stmt (build2 (MODIFY_EXPR, integer_type_node,
+				 copy,
+				 fold_convert (integer_type_node, arg)));
+	}
+      if (TYPE_IS_WIDE (arg_type))
+	i++;
+    }
 }
 
 #include "gt-java-expr.h"

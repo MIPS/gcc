@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,19 +24,20 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Atree;   use Atree;
-with Einfo;   use Einfo;
-with Namet;   use Namet;
-with Nlists;  use Nlists;
-with Nmake;   use Nmake;
-with Rtsfind; use Rtsfind;
-with Sinfo;   use Sinfo;
-with Snames;  use Snames;
-with Stand;   use Stand;
-with Tbuild;  use Tbuild;
-with Ttypes;  use Ttypes;
-with Exp_Tss; use Exp_Tss;
-with Uintp;   use Uintp;
+with Atree;    use Atree;
+with Einfo;    use Einfo;
+with Exp_Tss;  use Exp_Tss;
+with Namet;    use Namet;
+with Nlists;   use Nlists;
+with Nmake;    use Nmake;
+with Rtsfind;  use Rtsfind;
+with Sem_Util; use Sem_Util;
+with Sinfo;    use Sinfo;
+with Snames;   use Snames;
+with Stand;    use Stand;
+with Tbuild;   use Tbuild;
+with Ttypes;   use Ttypes;
+with Uintp;    use Uintp;
 
 package body Exp_Strm is
 
@@ -446,13 +447,22 @@ package body Exp_Strm is
       U_Type  : constant Entity_Id  := Underlying_Type (P_Type);
       Rt_Type : constant Entity_Id  := Root_Type (U_Type);
       FST     : constant Entity_Id  := First_Subtype (U_Type);
-      P_Size  : constant Uint       := Esize (FST);
-      Res     : Node_Id;
       Strm    : constant Node_Id    := First (Expressions (N));
       Targ    : constant Node_Id    := Next (Strm);
+      P_Size  : Uint;
+      Res     : Node_Id;
       Lib_RE  : RE_Id;
 
    begin
+      --  Compute the size of the stream element. This is either the size of
+      --  the first subtype or if given the size of the Stream_Size attribute.
+
+      if Is_Elementary_Type (FST) and then Has_Stream_Size_Clause (FST) then
+         P_Size := Static_Integer (Expression (Stream_Size_Clause (FST)));
+      else
+         P_Size := Esize (FST);
+      end if;
+
       --  Check first for Boolean and Character. These are enumeration types,
       --  but we treat them specially, since they may require special handling
       --  in the transfer protocol. However, this special handling only applies
@@ -474,20 +484,24 @@ package body Exp_Strm is
       then
          Lib_RE := RE_I_WC;
 
+      elsif Rt_Type = Standard_Wide_Wide_Character
+        and then Has_Stream_Standard_Rep (U_Type)
+      then
+         Lib_RE := RE_I_WWC;
+
       --  Floating point types
 
       elsif Is_Floating_Point_Type (U_Type) then
-
-         if Rt_Type = Standard_Short_Float then
+         if P_Size <= Standard_Short_Float_Size then
             Lib_RE := RE_I_SF;
 
-         elsif Rt_Type = Standard_Float then
+         elsif P_Size <= Standard_Float_Size then
             Lib_RE := RE_I_F;
 
-         elsif Rt_Type = Standard_Long_Float then
+         elsif P_Size <= Standard_Long_Float_Size then
             Lib_RE := RE_I_LF;
 
-         else pragma Assert (Rt_Type = Standard_Long_Long_Float);
+         else
             Lib_RE := RE_I_LLF;
          end if;
 
@@ -615,13 +629,22 @@ package body Exp_Strm is
       U_Type  : constant Entity_Id  := Underlying_Type (P_Type);
       Rt_Type : constant Entity_Id  := Root_Type (U_Type);
       FST     : constant Entity_Id  := First_Subtype (U_Type);
-      P_Size  : constant Uint       := Esize (FST);
       Strm    : constant Node_Id    := First (Expressions (N));
       Item    : constant Node_Id    := Next (Strm);
+      P_Size  : Uint;
       Lib_RE  : RE_Id;
       Libent  : Entity_Id;
 
    begin
+      --  Compute the size of the stream element. This is either the size of
+      --  the first subtype or if given the size of the Stream_Size attribute.
+
+      if Is_Elementary_Type (FST) and then Has_Stream_Size_Clause (FST) then
+         P_Size := Static_Integer (Expression (Stream_Size_Clause (FST)));
+      else
+         P_Size := Esize (FST);
+      end if;
+
       --  Find the routine to be called
 
       --  Check for First Boolean and Character. These are enumeration types,
@@ -645,20 +668,21 @@ package body Exp_Strm is
       then
          Lib_RE := RE_W_WC;
 
+      elsif Rt_Type = Standard_Wide_Wide_Character
+        and then Has_Stream_Standard_Rep (U_Type)
+      then
+         Lib_RE := RE_W_WWC;
+
       --  Floating point types
 
       elsif Is_Floating_Point_Type (U_Type) then
-
-         if Rt_Type = Standard_Short_Float then
+         if P_Size <= Standard_Short_Float_Size then
             Lib_RE := RE_W_SF;
-
-         elsif Rt_Type = Standard_Float then
+         elsif P_Size <= Standard_Float_Size then
             Lib_RE := RE_W_F;
-
-         elsif Rt_Type = Standard_Long_Float then
+         elsif P_Size <= Standard_Long_Float_Size then
             Lib_RE := RE_W_LF;
-
-         else pragma Assert (Rt_Type = Standard_Long_Long_Float);
+         else
             Lib_RE := RE_W_LLF;
          end if;
 
@@ -695,16 +719,12 @@ package body Exp_Strm is
       then
          if P_Size <= Standard_Short_Short_Integer_Size then
             Lib_RE := RE_W_SSI;
-
          elsif P_Size <= Standard_Short_Integer_Size then
             Lib_RE := RE_W_SI;
-
          elsif P_Size <= Standard_Integer_Size then
             Lib_RE := RE_W_I;
-
          elsif P_Size <= Standard_Long_Integer_Size then
             Lib_RE := RE_W_LI;
-
          else
             Lib_RE := RE_W_LLI;
          end if;
@@ -723,16 +743,12 @@ package body Exp_Strm is
       then
          if P_Size <= Standard_Short_Short_Integer_Size then
             Lib_RE := RE_W_SSU;
-
          elsif P_Size <= Standard_Short_Integer_Size then
             Lib_RE := RE_W_SU;
-
          elsif P_Size <= Standard_Integer_Size then
             Lib_RE := RE_W_U;
-
          elsif P_Size <= Standard_Long_Integer_Size then
             Lib_RE := RE_W_LU;
-
          else
             Lib_RE := RE_W_LLU;
          end if;
@@ -1157,6 +1173,11 @@ package body Exp_Strm is
       Stms : List_Id;
       Typt : Entity_Id;
 
+      In_Limited_Extension : Boolean := False;
+      --  Set to True while processing the record extension definition
+      --  for an extension of a limited type (for which an ancestor type
+      --  has an explicit Nam attribute definition).
+
       function Make_Component_List_Attributes (CL : Node_Id) return List_Id;
       --  Returns a sequence of attributes to process the components that
       --  are referenced in the given component list.
@@ -1238,7 +1259,29 @@ package body Exp_Strm is
       --------------------------
 
       function Make_Field_Attribute (C : Entity_Id) return Node_Id is
+         Field_Typ : constant Entity_Id := Stream_Base_Type (Etype (C));
+
+         TSS_Names : constant array (Name_Input .. Name_Write) of
+                       TSS_Name_Type :=
+                        (Name_Read   => TSS_Stream_Read,
+                         Name_Write  => TSS_Stream_Write,
+                         Name_Input  => TSS_Stream_Input,
+                         Name_Output => TSS_Stream_Output,
+                         others      => TSS_Null);
+         pragma Assert (TSS_Names (Nam) /= TSS_Null);
+
       begin
+         if In_Limited_Extension
+           and then Is_Limited_Type (Field_Typ)
+           and then No (Find_Inherited_TSS (Field_Typ, TSS_Names (Nam)))
+         then
+            --  The declaration is illegal per 13.13.2(9/1), and this is
+            --  enforced in Exp_Ch3.Check_Stream_Attributes. Keep the
+            --  caller happy by returning a null statement.
+
+            return Make_Null_Statement (Loc);
+         end if;
+
          return
            Make_Attribute_Reference (Loc,
              Prefix =>
@@ -1315,6 +1358,10 @@ package body Exp_Strm is
 
       if Nkind (Rdef) = N_Derived_Type_Definition then
          Rdef := Record_Extension_Part (Rdef);
+
+         if Is_Limited_Type (Typt) then
+            In_Limited_Extension := True;
+         end if;
       end if;
 
       if Present (Component_List (Rdef)) then

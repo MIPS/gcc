@@ -1,5 +1,5 @@
 /* Definitions for SPARC running Linux-based GNU systems with ELF.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Eddie C. Dost (ecd@skynet.be)
 
@@ -86,11 +86,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (sparc GNU/Linux with ELF)");
 
-#undef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES \
-{"long-double-64", -MASK_LONG_DOUBLE_128, N_("Use 64 bit long doubles") }, \
-{"long-double-128", MASK_LONG_DOUBLE_128, N_("Use 128 bit long doubles") },
-
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
  
@@ -166,13 +161,6 @@ do {									\
 #undef  LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX  "."
 
-/* This is how to output a reference to an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABELREF
-#define ASM_OUTPUT_INTERNAL_LABELREF(FILE,PREFIX,NUM)	\
-  fprintf (FILE, ".L%s%d", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -216,8 +204,6 @@ do {									\
 #undef CTORS_SECTION_ASM_OP
 #undef DTORS_SECTION_ASM_OP
 
-#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
-
 /* Determine whether the the entire c99 runtime is present in the
    runtime library.  */
 #define TARGET_C99_FUNCTIONS 1
@@ -240,3 +226,6 @@ do {									\
    change their minds.  */
 #undef SPARC_RELAXED_ORDERING
 #define SPARC_RELAXED_ORDERING true
+
+#undef NEED_INDICATE_EXEC_STACK
+#define NEED_INDICATE_EXEC_STACK 1

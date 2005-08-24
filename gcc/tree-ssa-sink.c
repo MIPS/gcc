@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -552,7 +552,9 @@ struct tree_opt_pass pass_sink_code =
 {
   "sink",				/* name */
   gate_sink,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   do_sink,				/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

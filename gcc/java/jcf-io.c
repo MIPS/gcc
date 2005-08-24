@@ -1,5 +1,5 @@
 /* Utility routines for finding and reading Java(TM) .class files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -376,11 +376,11 @@ caching_stat (char *filename, struct stat *buf)
 	 particular, the type of the function pointer passed as the
 	 third argument sometimes takes a "const struct dirent *"
 	 parameter, and sometimes just a "struct dirent *".  We cast
-	 to (void *) so that either way it is quietly accepted.
-	 FIXME: scandir is not in POSIX.  */
-      dent->num_files = scandir (filename, &dent->files, 
-				 (void *) java_or_class_file, 
-				 alphasort);
+	 to (void *) and use __extension__ so that either way it is
+	 quietly accepted.  FIXME: scandir is not in POSIX.  */
+      dent->num_files = __extension__ scandir (filename, &dent->files, 
+					       (void *) java_or_class_file, 
+					       alphasort);
       *slot = dent;
     }
   else
@@ -533,7 +533,7 @@ find_class (const char *classname, int classname_length, JCF *jcf,
   if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
     {
       if (flag_newer)
-	warning ("source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
+	warning (0, "source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
       class = -1;
     }
 

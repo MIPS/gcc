@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                      A D A . C O N T A I N E R S .                       --
---             H A S H _ T A B L E S . G E N E R I C _ K E Y S              --
+--                 ADA.CONTAINERS.HASH_TABLES.GENERIC_KEYS                  --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--             Copyright (C) 2004 Free Software Foundation, Inc.            --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -21,8 +20,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
+-- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -41,7 +40,7 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
    --------------------------
 
    procedure Delete_Key_Sans_Free
-     (HT   : in out Hash_Table_Type;
+     (HT   : in out HT_Type;
       Key  : Key_Type;
       X    : out Node_Access)
    is
@@ -50,21 +49,18 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
 
    begin
       if HT.Length = 0 then
-         X := null;
+         X := Null_Node;
          return;
       end if;
 
       Indx := Index (HT, Key);
       X := HT.Buckets (Indx);
 
-      if X = null then
+      if X = Null_Node then
          return;
       end if;
 
       if Equivalent_Keys (Key, X) then
-         if HT.Busy > 0 then
-            raise Program_Error;
-         end if;
          HT.Buckets (Indx) := Next (X);
          HT.Length := HT.Length - 1;
          return;
@@ -74,14 +70,11 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
          Prev := X;
          X := Next (Prev);
 
-         if X = null then
+         if X = Null_Node then
             return;
          end if;
 
          if Equivalent_Keys (Key, X) then
-            if HT.Busy > 0 then
-               raise Program_Error;
-            end if;
             Set_Next (Node => Prev, Next => Next (X));
             HT.Length := HT.Length - 1;
             return;
@@ -94,7 +87,7 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
    ----------
 
    function Find
-     (HT  : Hash_Table_Type;
+     (HT  : HT_Type;
       Key : Key_Type) return Node_Access is
 
       Indx : Hash_Type;
@@ -102,20 +95,20 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
 
    begin
       if HT.Length = 0 then
-         return null;
+         return Null_Node;
       end if;
 
       Indx := Index (HT, Key);
 
       Node := HT.Buckets (Indx);
-      while Node /= null loop
+      while Node /= Null_Node loop
          if Equivalent_Keys (Key, Node) then
             return Node;
          end if;
          Node := Next (Node);
       end loop;
 
-      return null;
+      return Null_Node;
    end Find;
 
    --------------------------------
@@ -123,10 +116,10 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
    --------------------------------
 
    procedure Generic_Conditional_Insert
-     (HT       : in out Hash_Table_Type;
-      Key      : Key_Type;
-      Node     : out Node_Access;
-      Inserted : out Boolean)
+     (HT      : in out HT_Type;
+      Key     : Key_Type;
+      Node    : out Node_Access;
+      Success : out Boolean)
    is
       Indx : constant Hash_Type := Index (HT, Key);
       B    : Node_Access renames HT.Buckets (Indx);
@@ -134,16 +127,12 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
       subtype Length_Subtype is Count_Type range 0 .. Count_Type'Last - 1;
 
    begin
-      if B = null then
-         if HT.Busy > 0 then
-            raise Program_Error;
-         end if;
-
+      if B = Null_Node then
          declare
             Length : constant Length_Subtype := HT.Length;
          begin
-            Node := New_Node (Next => null);
-            Inserted := True;
+            Node := New_Node (Next => Null_Node);
+            Success := True;
 
             B := Node;
             HT.Length := Length + 1;
@@ -155,24 +144,20 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
       Node := B;
       loop
          if Equivalent_Keys (Key, Node) then
-            Inserted := False;
+            Success := False;
             return;
          end if;
 
          Node := Next (Node);
 
-         exit when Node = null;
+         exit when Node = Null_Node;
       end loop;
-
-      if HT.Busy > 0 then
-         raise Program_Error;
-      end if;
 
       declare
          Length : constant Length_Subtype := HT.Length;
       begin
          Node := New_Node (Next => B);
-         Inserted := True;
+         Success := True;
 
          B := Node;
          HT.Length := Length + 1;
@@ -184,7 +169,7 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
    -----------
 
    function Index
-     (HT  : Hash_Table_Type;
+     (HT  : HT_Type;
       Key : Key_Type) return Hash_Type is
    begin
       return Hash (Key) mod HT.Buckets'Length;

@@ -1,6 +1,7 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -82,7 +83,9 @@ static void free_edge (edge);
 void
 init_flow (void)
 {
-
+  if (!cfun->cfg)
+    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
+  n_edges = 0;
   ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
   EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
@@ -204,6 +207,63 @@ expunge_block (basic_block b)
      clear out BB pointer of dead statements consistently.  */
 }
 
+/* Connect E to E->src.  */
+
+static inline void
+connect_src (edge e)
+{
+  VEC_safe_push (edge, gc, e->src->succs, e);
+}
+
+/* Connect E to E->dest.  */
+
+static inline void
+connect_dest (edge e)
+{
+  basic_block dest = e->dest;
+  VEC_safe_push (edge, gc, dest->preds, e);
+  e->dest_idx = EDGE_COUNT (dest->preds) - 1;
+}
+
+/* Disconnect edge E from E->src.  */
+
+static inline void
+disconnect_src (edge e)
+{
+  basic_block src = e->src;
+  edge_iterator ei;
+  edge tmp;
+
+  for (ei = ei_start (src->succs); (tmp = ei_safe_edge (ei)); )
+    {
+      if (tmp == e)
+	{
+	  VEC_unordered_remove (edge, src->succs, ei.index);
+	  return;
+	}
+      else
+	ei_next (&ei);
+    }
+
+  gcc_unreachable ();
+}
+
+/* Disconnect edge E from E->dest.  */
+
+static inline void
+disconnect_dest (edge e)
+{
+  basic_block dest = e->dest;
+  unsigned int dest_idx = e->dest_idx;
+
+  VEC_unordered_remove (edge, dest->preds, dest_idx);
+
+  /* If we removed an edge in the middle of the edge vector, we need
+     to update dest_idx of the edge that moved into the "hole".  */
+  if (dest_idx < EDGE_COUNT (dest->preds))
+    EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
+}
+
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
    created edge.  Use this only if you are sure that this edge can't
    possibly already exist.  */
@@ -215,13 +275,12 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   e = ggc_alloc_cleared (sizeof (*e));
   n_edges++;
 
-  VEC_safe_push (edge, src->succs, e);
-  VEC_safe_push (edge, dst->preds, e);
-
   e->src = src;
   e->dest = dst;
   e->flags = flags;
-  e->dest_idx = EDGE_COUNT (dst->preds) - 1;
+
+  connect_src (e);
+  connect_dest (e);
 
   execute_on_growing_pred (e);
 
@@ -232,45 +291,31 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
    edge cache CACHE.  Return the new edge, NULL if already exist.  */
 
 edge
-cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int flags)
+cached_make_edge (sbitmap edge_cache, basic_block src, basic_block dst, int flags)
 {
-  int use_edge_cache;
-  edge e;
+  if (edge_cache == NULL
+      || src == ENTRY_BLOCK_PTR
+      || dst == EXIT_BLOCK_PTR)
+    return make_edge (src, dst, flags);
 
-  /* Don't bother with edge cache for ENTRY or EXIT, if there aren't that
-     many edges to them, or we didn't allocate memory for it.  */
-  use_edge_cache = (edge_cache
-		    && src != ENTRY_BLOCK_PTR && dst != EXIT_BLOCK_PTR);
-
-  /* Make sure we don't add duplicate edges.  */
-  switch (use_edge_cache)
+  /* Does the requested edge already exist?  */
+  if (! TEST_BIT (edge_cache, dst->index))
     {
-    default:
-      /* Quick test for non-existence of the edge.  */
-      if (! TEST_BIT (edge_cache[src->index], dst->index))
-	break;
-
-      /* The edge exists; early exit if no work to do.  */
-      if (flags == 0)
-	return NULL;
-
-      /* Fall through.  */
-    case 0:
-      e = find_edge (src, dst);
-      if (e)
-	{
-	  e->flags |= flags;
-	  return NULL;
-	}
-      break;
+      /* The edge does not exist.  Create one and update the
+	 cache.  */
+      SET_BIT (edge_cache, dst->index);
+      return unchecked_make_edge (src, dst, flags);
     }
 
-  e = unchecked_make_edge (src, dst, flags);
+  /* At this point, we know that the requested edge exists.  Adjust
+     flags if necessary.  */
+  if (flags)
+    {
+      edge e = find_edge (src, dst);
+      e->flags |= flags;
+    }
 
-  if (use_edge_cache)
-    SET_BIT (edge_cache[src->index], dst->index);
-
-  return e;
+  return NULL;
 }
 
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
@@ -279,7 +324,16 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 edge
 make_edge (basic_block src, basic_block dest, int flags)
 {
-  return cached_make_edge (NULL, src, dest, flags);
+  edge e = find_edge (src, dest);
+
+  /* Make sure we don't add duplicate edges.  */
+  if (e)
+    {
+      e->flags |= flags;
+      return NULL;
+    }
+
+  return unchecked_make_edge (src, dest, flags);
 }
 
 /* Create an edge connecting SRC to DEST and set probability by knowing
@@ -300,38 +354,10 @@ make_single_succ_edge (basic_block src, basic_block dest, int flags)
 void
 remove_edge (edge e)
 {
-  edge tmp;
-  basic_block src, dest;
-  unsigned int dest_idx;
-  bool found = false;
-  edge_iterator ei;
-
   execute_on_shrinking_pred (e);
 
-  src = e->src;
-  dest = e->dest;
-  dest_idx = e->dest_idx;
-
-  for (ei = ei_start (src->succs); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_unordered_remove (edge, src->succs, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
-
-  gcc_assert (found);
-
-  VEC_unordered_remove (edge, dest->preds, dest_idx);
-
-  /* If we removed an edge in the middle of the edge vector, we need
-     to update dest_idx of the edge that moved into the "hole".  */
-  if (dest_idx < EDGE_COUNT (dest->preds))
-    EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
+  disconnect_src (e);
+  disconnect_dest (e);
 
   free_edge (e);
 }
@@ -341,22 +367,15 @@ remove_edge (edge e)
 void
 redirect_edge_succ (edge e, basic_block new_succ)
 {
-  basic_block dest = e->dest;
-  unsigned int dest_idx = e->dest_idx;
-
   execute_on_shrinking_pred (e);
 
-  VEC_unordered_remove (edge, dest->preds, dest_idx);
+  disconnect_dest (e);
 
-  /* If we removed an edge in the middle of the edge vector, we need
-     to update dest_idx of the edge that moved into the "hole".  */
-  if (dest_idx < EDGE_COUNT (dest->preds))
-    EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
+  e->dest = new_succ;
 
   /* Reconnect the edge to the new successor block.  */
-  VEC_safe_push (edge, new_succ->preds, e);
-  e->dest = new_succ;
-  e->dest_idx = EDGE_COUNT (new_succ->preds) - 1;
+  connect_dest (e);
+
   execute_on_growing_pred (e);
 }
 
@@ -389,28 +408,12 @@ redirect_edge_succ_nodup (edge e, basic_block new_succ)
 void
 redirect_edge_pred (edge e, basic_block new_pred)
 {
-  edge tmp;
-  edge_iterator ei;
-  bool found = false;
+  disconnect_src (e);
 
-  /* Disconnect the edge from the old predecessor block.  */
-  for (ei = ei_start (e->src->succs); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_unordered_remove (edge, e->src->succs, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
-
-  gcc_assert (found);
+  e->src = new_pred;
 
   /* Reconnect the edge to the new predecessor block.  */
-  VEC_safe_push (edge, new_pred->succs, e);
-  e->src = new_pred;
+  connect_src (e);
 }
 
 /* Clear all basic block flags, with the exception of partitioning.  */
@@ -420,7 +423,7 @@ clear_bb_flags (void)
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = BB_PARTITION (bb);
+    bb->flags = BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE);
 }
 
 /* Check the consistency of profile information.  We can't do that
@@ -475,15 +478,14 @@ check_bb_profile (basic_block bb, FILE * file)
 void
 dump_flow_info (FILE *file)
 {
-  int i;
   basic_block bb;
-  static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
   if (reg_n_info && !reload_completed)
     {
-      fprintf (file, "%d registers.\n", max_regno);
-      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+      unsigned int i, max = max_reg_num ();
+      fprintf (file, "%d registers.\n", max);
+      for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
 	if (REG_N_REFS (i))
 	  {
 	    enum reg_class class, altclass;
@@ -904,8 +906,7 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
 	}
     }
 
-  if (bb != taken_edge->src)
-    abort ();
+  gcc_assert (bb == taken_edge->src);
   taken_edge->count -= count;
   if (taken_edge->count < 0)
     taken_edge->count = 0;
@@ -918,7 +919,6 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
 {
   int i;
   edge e;
-
   for (i = 0; i < nbbs; i++)
     {
       edge_iterator ei;

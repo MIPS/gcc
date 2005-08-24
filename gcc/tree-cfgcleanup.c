@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -81,11 +81,11 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
       switch (TREE_CODE (expr))
 	{
 	case COND_EXPR:
-	  val = fold (COND_EXPR_COND (expr));
+	  val = COND_EXPR_COND (expr);
 	  break;
 
 	case SWITCH_EXPR:
-	  val = fold (SWITCH_COND (expr));
+	  val = SWITCH_COND (expr);
 	  if (TREE_CODE (val) != INTEGER_CST)
 	    return false;
 	  break;
@@ -489,69 +489,46 @@ cleanup_forwarder_blocks (void)
   return changed;
 }
 
-/* Do one round of CFG cleanup.  */
-
-static bool
-cleanup_tree_cfg_1 (void)
-{
-  bool retval;
-
-  retval = cleanup_control_flow ();
-  retval |= delete_unreachable_blocks ();
-
-  /* Forwarder blocks can carry line number information which is
-     useful when debugging, so we only clean them up when
-     optimizing.  */
-
-  if (optimize > 0)
-    {
-      /* cleanup_forwarder_blocks can redirect edges out of
-	 SWITCH_EXPRs, which can get expensive.  So we want to enable
-	 recording of edge to CASE_LABEL_EXPR mappings around the call
-	 to cleanup_forwarder_blocks.  */
-      start_recording_case_labels ();
-      retval |= cleanup_forwarder_blocks ();
-      end_recording_case_labels ();
-    }
-
-  /* Merging the blocks may create new opportunities for folding
-     conditional branches (due to the elimination of single-valued PHI
-     nodes).  */
-  retval |= merge_seq_blocks ();
-
-  return retval;
-}
-
-
-/* Remove unreachable blocks and other miscellaneous clean up work.
-   Return true if the flowgraph was modified, false otherwise.  */
+/* Remove unreachable blocks and other miscellaneous clean up work.  */
 
 bool
 cleanup_tree_cfg (void)
 {
-  bool retval, changed;
+  bool retval = false;
 
   timevar_push (TV_TREE_CLEANUP_CFG);
 
-  /* Iterate until there are no more cleanups left to do.  If any
-     iteration changed the flowgraph, set CHANGED to true.  */
-  changed = false;
-  do
+  retval = cleanup_control_flow ();
+  retval |= delete_unreachable_blocks ();
+
+  /* cleanup_forwarder_blocks can redirect edges out of SWITCH_EXPRs,
+     which can get expensive.  So we want to enable recording of edge
+     to CASE_LABEL_EXPR mappings around the call to
+     cleanup_forwarder_blocks.  */
+  start_recording_case_labels ();
+  retval |= cleanup_forwarder_blocks ();
+  end_recording_case_labels ();
+
+#ifdef ENABLE_CHECKING
+  if (retval)
     {
-      retval = cleanup_tree_cfg_1 ();
-      changed |= retval;
+      gcc_assert (!cleanup_control_flow ());
+      gcc_assert (!delete_unreachable_blocks ());
+      gcc_assert (!cleanup_forwarder_blocks ());
     }
-  while (retval);
+#endif
+
+  /* Merging the blocks creates no new opportunities for the other
+     optimizations, so do it here.  */
+  retval |= merge_seq_blocks ();
 
   compact_blocks ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-
   timevar_pop (TV_TREE_CLEANUP_CFG);
-
-  return changed;
+  return retval;
 }
 
 /* Cleanup cfg and repair loop structures.  */
@@ -764,7 +741,9 @@ gate_merge_phi (void)
 struct tree_opt_pass pass_merge_phi = {
   "mergephi",			/* name */
   gate_merge_phi,		/* gate */
+  NULL, NULL,			/* IPA analysis */
   merge_phi_nodes,		/* execute */
+  NULL, NULL,			/* IPA analysis */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */

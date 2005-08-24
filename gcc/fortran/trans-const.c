@@ -1,5 +1,5 @@
 /* Translation of constants
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -28,7 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include <math.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-const.h"
@@ -142,6 +141,8 @@ gfc_conv_const_charlen (gfc_charlen * cl)
     {
       cl->backend_decl = gfc_conv_mpz_to_tree (cl->length->value.integer,
 					       cl->length->ts.kind);
+      cl->backend_decl = fold_convert (gfc_charlen_type_node,
+					cl->backend_decl);
     }
 }
 
@@ -184,9 +185,9 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
       size_t count;
 
       /* Since we know that the value is not zero (mpz_fits_slong_p),
-	 we know that at one word will be written, but we don't know
+	 we know that at least one word will be written, but we don't know
 	 about the second.  It's quicker to zero the second word before
-	 that conditionally clear it later.  */
+	 than conditionally clear it later.  */
       words[1] = 0;
 
       /* Extract the absolute value into words.  */
@@ -222,57 +223,32 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
   tree res;
   tree type;
   mp_exp_t exp;
-  char *p;
-  char *q;
+  char *p, *q;
   int n;
-  int edigits;
 
-  for (n = 0; gfc_real_kinds[n].kind != 0; n++)
-    {
-      if (gfc_real_kinds[n].kind == kind)
-	break;
-    }
-  gcc_assert (gfc_real_kinds[n].kind);
+  n = gfc_validate_kind (BT_REAL, kind, false);
 
-  n = MAX (abs (gfc_real_kinds[n].min_exponent),
-	   abs (gfc_real_kinds[n].max_exponent));
+  gcc_assert (gfc_real_kinds[n].radix == 2);
 
-  edigits = 1;
-  while (n > 0)
-    {
-      n = n / 10;
-      edigits += 3;
-    }
+  /* mpfr chooses too small a number of hexadecimal digits if the
+     number of binary digits is not divisible by four, therefore we
+     have to explicitly request a sufficient number of digits here.  */
+  p = mpfr_get_str (NULL, &exp, 16, gfc_real_kinds[n].digits / 4 + 1,
+		    f, GFC_RND_MODE);
 
-  if (kind == gfc_default_double_kind)
-    p = mpfr_get_str (NULL, &exp, 10, 17, f, GFC_RND_MODE);
+  /* REAL_VALUE_ATOF expects the exponent for mantissa * 2**exp,
+     mpfr_get_str returns the exponent for mantissa * 16**exp, adjust
+     for that.  */
+  exp *= 4;
+
+  /* The additional 12 characters add space for the sprintf below.
+     This leaves 6 digits for the exponent which is certainly enough.  */
+  q = (char *) gfc_getmem (strlen (p) + 12);
+
+  if (p[0] == '-')
+    sprintf (q, "-0x.%sp%d", &p[1], (int) exp);
   else
-    p = mpfr_get_str (NULL, &exp, 10, 8, f, GFC_RND_MODE);
-
-
-  /* We also have one minus sign, "e", "." and a null terminator.  */
-  q = (char *) gfc_getmem (strlen (p) + edigits + 4);
-
-  if (p[0])
-    {
-      if (p[0] == '-')
-	{
-	  strcpy (&q[2], &p[1]);
-	  q[0] = '-';
-	  q[1] = '.';
-	}
-      else
-	{
-	  strcpy (&q[1], p);
-	  q[0] = '.';
-	}
-      strcat (q, "e");
-      sprintf (&q[strlen (q)], "%d", (int) exp);
-    }
-  else
-    {
-      strcpy (q, "0");
-    }
+    sprintf (q, "0x.%sp%d", p, (int) exp);
 
   type = gfc_get_real_type (kind);
   res = build_real (type, REAL_VALUE_ATOF (q, TYPE_MODE (type)));
@@ -307,7 +283,8 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
       return gfc_conv_mpfr_to_tree (expr->value.real, expr->ts.kind);
 
     case BT_LOGICAL:
-      return build_int_cst (NULL_TREE, expr->value.logical);
+      return build_int_cst (gfc_get_logical_type (expr->ts.kind),
+			    expr->value.logical);
 
     case BT_COMPLEX:
       {
@@ -316,7 +293,8 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 	tree imag = gfc_conv_mpfr_to_tree (expr->value.complex.i,
 					  expr->ts.kind);
 
-	return build_complex (NULL_TREE, real, imag);
+	return build_complex (gfc_typenode_for_spec (&expr->ts),
+			      real, imag);
       }
 
     case BT_CHARACTER:

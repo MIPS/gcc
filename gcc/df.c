@@ -1,5 +1,5 @@
 /* Dataflow support routines.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz,
                                     mhayes@redhat.com)
@@ -320,7 +320,7 @@ df_insn_table_realloc (struct df *df, unsigned int size)
 
   if (! df->insns_modified)
     {
-      df->insns_modified = BITMAP_XMALLOC ();
+      df->insns_modified = BITMAP_ALLOC (NULL);
       bitmap_zero (df->insns_modified);
     }
 }
@@ -392,10 +392,10 @@ df_bitmaps_alloc (struct df *df, bitmap blocks, int flags)
 	  if (!bb_info->rd_in)
 	    {
 	      /* Allocate bitmaps for reaching definitions.  */
-	      bb_info->rd_kill = BITMAP_XMALLOC ();
-	      bb_info->rd_gen = BITMAP_XMALLOC ();
-	      bb_info->rd_in = BITMAP_XMALLOC ();
-	      bb_info->rd_out = BITMAP_XMALLOC ();
+	      bb_info->rd_kill = BITMAP_ALLOC (NULL);
+	      bb_info->rd_gen = BITMAP_ALLOC (NULL);
+	      bb_info->rd_in = BITMAP_ALLOC (NULL);
+	      bb_info->rd_out = BITMAP_ALLOC (NULL);
 	    }
 	  else
 	    {
@@ -411,10 +411,10 @@ df_bitmaps_alloc (struct df *df, bitmap blocks, int flags)
 	  if (!bb_info->ru_in)
 	    {
 	      /* Allocate bitmaps for upward exposed uses.  */
-	      bb_info->ru_kill = BITMAP_XMALLOC ();
-	      bb_info->ru_gen = BITMAP_XMALLOC ();
-	      bb_info->ru_in = BITMAP_XMALLOC ();
-	      bb_info->ru_out = BITMAP_XMALLOC ();
+	      bb_info->ru_kill = BITMAP_ALLOC (NULL);
+	      bb_info->ru_gen = BITMAP_ALLOC (NULL);
+	      bb_info->ru_in = BITMAP_ALLOC (NULL);
+	      bb_info->ru_out = BITMAP_ALLOC (NULL);
 	    }
 	  else
 	    {
@@ -430,10 +430,10 @@ df_bitmaps_alloc (struct df *df, bitmap blocks, int flags)
 	  if (!bb_info->lr_in)
 	    {
 	      /* Allocate bitmaps for live variables.  */
-	      bb_info->lr_def = BITMAP_XMALLOC ();
-	      bb_info->lr_use = BITMAP_XMALLOC ();
-	      bb_info->lr_in = BITMAP_XMALLOC ();
-	      bb_info->lr_out = BITMAP_XMALLOC ();
+	      bb_info->lr_def = BITMAP_ALLOC (NULL);
+	      bb_info->lr_use = BITMAP_ALLOC (NULL);
+	      bb_info->lr_in = BITMAP_ALLOC (NULL);
+	      bb_info->lr_out = BITMAP_ALLOC (NULL);
 	    }
 	  else
 	    {
@@ -463,39 +463,39 @@ df_bitmaps_free (struct df *df, int flags)
       if ((flags & DF_RD) && bb_info->rd_in)
 	{
 	  /* Free bitmaps for reaching definitions.  */
-	  BITMAP_XFREE (bb_info->rd_kill);
+	  BITMAP_FREE (bb_info->rd_kill);
 	  bb_info->rd_kill = NULL;
-	  BITMAP_XFREE (bb_info->rd_gen);
+	  BITMAP_FREE (bb_info->rd_gen);
 	  bb_info->rd_gen = NULL;
-	  BITMAP_XFREE (bb_info->rd_in);
+	  BITMAP_FREE (bb_info->rd_in);
 	  bb_info->rd_in = NULL;
-	  BITMAP_XFREE (bb_info->rd_out);
+	  BITMAP_FREE (bb_info->rd_out);
 	  bb_info->rd_out = NULL;
 	}
 
       if ((flags & DF_RU) && bb_info->ru_in)
 	{
 	  /* Free bitmaps for upward exposed uses.  */
-	  BITMAP_XFREE (bb_info->ru_kill);
+	  BITMAP_FREE (bb_info->ru_kill);
 	  bb_info->ru_kill = NULL;
-	  BITMAP_XFREE (bb_info->ru_gen);
+	  BITMAP_FREE (bb_info->ru_gen);
 	  bb_info->ru_gen = NULL;
-	  BITMAP_XFREE (bb_info->ru_in);
+	  BITMAP_FREE (bb_info->ru_in);
 	  bb_info->ru_in = NULL;
-	  BITMAP_XFREE (bb_info->ru_out);
+	  BITMAP_FREE (bb_info->ru_out);
 	  bb_info->ru_out = NULL;
 	}
 
       if ((flags & DF_LR) && bb_info->lr_in)
 	{
 	  /* Free bitmaps for live variables.  */
-	  BITMAP_XFREE (bb_info->lr_def);
+	  BITMAP_FREE (bb_info->lr_def);
 	  bb_info->lr_def = NULL;
-	  BITMAP_XFREE (bb_info->lr_use);
+	  BITMAP_FREE (bb_info->lr_use);
 	  bb_info->lr_use = NULL;
-	  BITMAP_XFREE (bb_info->lr_in);
+	  BITMAP_FREE (bb_info->lr_in);
 	  bb_info->lr_in = NULL;
-	  BITMAP_XFREE (bb_info->lr_out);
+	  BITMAP_FREE (bb_info->lr_out);
 	  bb_info->lr_out = NULL;
 	}
     }
@@ -538,14 +538,14 @@ df_alloc (struct df *df, int n_regs)
 
   df_reg_table_realloc (df, df->n_regs);
 
-  df->bbs_modified = BITMAP_XMALLOC ();
+  df->bbs_modified = BITMAP_ALLOC (NULL);
   bitmap_zero (df->bbs_modified);
 
   df->flags = 0;
 
   df->bbs = xcalloc (last_basic_block, sizeof (struct bb_info));
 
-  df->all_blocks = BITMAP_XMALLOC ();
+  df->all_blocks = BITMAP_ALLOC (NULL);
   FOR_EACH_BB (bb)
     bitmap_set_bit (df->all_blocks, bb->index);
 }
@@ -583,13 +583,13 @@ df_free (struct df *df)
   df->regs = 0;
   df->reg_size = 0;
 
-  BITMAP_XFREE (df->bbs_modified);
+  BITMAP_FREE (df->bbs_modified);
   df->bbs_modified = 0;
 
-  BITMAP_XFREE (df->insns_modified);
+  BITMAP_FREE (df->insns_modified);
   df->insns_modified = 0;
 
-  BITMAP_XFREE (df->all_blocks);
+  BITMAP_FREE (df->all_blocks);
   df->all_blocks = 0;
 
   free_alloc_pool (df_ref_pool);
@@ -820,7 +820,8 @@ df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
      reg.  As written in the docu those should have the form
      (subreg:SI (reg:M A) N), with size(SImode) > size(Mmode).
      XXX Is that true?  We could also use the global word_mode variable.  */
-  if (GET_CODE (reg) == SUBREG
+  if ((df->flags & DF_SUBREGS) == 0
+      && GET_CODE (reg) == SUBREG
       && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (word_mode)
 	  || GET_MODE_SIZE (GET_MODE (reg))
 	       >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (reg)))))
@@ -913,8 +914,7 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn)
      be handy for the reg allocator.  */
   while (GET_CODE (dst) == STRICT_LOW_PART
 	 || GET_CODE (dst) == ZERO_EXTRACT
-	 || ((df->flags & DF_FOR_REGALLOC) == 0
-             && read_modify_subreg_p (dst)))
+	 || read_modify_subreg_p (dst))
     {
       /* Strict low part always contains SUBREG, but we do not want to make
 	 it appear outside, as whole register is always considered.  */
@@ -1025,8 +1025,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
 	switch (GET_CODE (dst))
 	  {
 	    case SUBREG:
-	      if ((df->flags & DF_FOR_REGALLOC) == 0
-                  && read_modify_subreg_p (dst))
+	      if (read_modify_subreg_p (dst))
 		{
 		  df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
 				  insn, DF_REF_READ_WRITE);
@@ -1198,7 +1197,7 @@ df_insn_refs_record (struct df *df, basic_block bb, rtx insn)
 		if (global_regs[i])
 		  {
 		    x = df_reg_use_gen (i);
-		    df_uses_record (df, &SET_DEST (x),
+		    df_uses_record (df, &XEXP (x, 0),
 				    DF_REF_REG_USE, bb, insn, 0);
 		  }
 	    }
@@ -1486,14 +1485,14 @@ df_du_chain_create (struct df *df, bitmap blocks)
   bitmap ru;
   basic_block bb;
 
-  ru = BITMAP_XMALLOC ();
+  ru = BITMAP_ALLOC (NULL);
 
   FOR_EACH_BB_IN_BITMAP (blocks, 0, bb,
     {
       df_bb_du_chain_create (df, bb, ru);
     });
 
-  BITMAP_XFREE (ru);
+  BITMAP_FREE (ru);
 }
 
 
@@ -1617,7 +1616,7 @@ df_bb_rd_local_compute (struct df *df, basic_block bb, bitmap call_killed_defs)
 {
   struct bb_info *bb_info = DF_BB_INFO (df, bb);
   rtx insn;
-  bitmap seen = BITMAP_XMALLOC ();
+  bitmap seen = BITMAP_ALLOC (NULL);
   bool call_seen = false;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -1663,7 +1662,7 @@ df_bb_rd_local_compute (struct df *df, basic_block bb, bitmap call_killed_defs)
 	}
     }
 
-  BITMAP_XFREE (seen);
+  BITMAP_FREE (seen);
 }
 
 
@@ -1678,7 +1677,7 @@ df_rd_local_compute (struct df *df, bitmap blocks)
 
   if (df->flags & DF_HARD_REGS)
     {
-      killed_by_call = BITMAP_XMALLOC ();
+      killed_by_call = BITMAP_ALLOC (NULL);
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	{
 	  if (!TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
@@ -1697,7 +1696,7 @@ df_rd_local_compute (struct df *df, bitmap blocks)
   });
 
   if (df->flags & DF_HARD_REGS)
-    BITMAP_XFREE (killed_by_call);
+    BITMAP_FREE (killed_by_call);
 }
 
 
@@ -1874,14 +1873,14 @@ df_reg_info_compute (struct df *df, bitmap blocks)
   basic_block bb;
   bitmap live;
 
-  live = BITMAP_XMALLOC ();
+  live = BITMAP_ALLOC (NULL);
 
   FOR_EACH_BB_IN_BITMAP (blocks, 0, bb,
   {
     df_bb_reg_info_compute (df, bb, live);
   });
 
-  BITMAP_XFREE (live);
+  BITMAP_FREE (live);
 }
 
 
@@ -2677,6 +2676,20 @@ df_insn_modify (struct df *df, basic_block bb, rtx insn)
      will just get ignored.  */
 }
 
+/* Check if INSN was marked as changed.  Of course the correctness of
+   the information depends on whether the instruction was really modified
+   at the time df_insn_modify was called.  */
+bool
+df_insn_modified_p (struct df *df, rtx insn)
+{
+  unsigned int uid;
+
+  uid = INSN_UID (insn);
+  return (df->insns_modified
+	  && uid < df->insn_size
+          && bitmap_bit_p (df->insns_modified, uid));
+}
+
 typedef struct replace_args
 {
   rtx match;
@@ -3239,6 +3252,48 @@ df_bb_regs_lives_compare (struct df *df, basic_block bb, rtx reg1, rtx reg2)
 }
 
 
+/* Return true if the definition DEF, which is in the same basic
+   block as USE, is available at USE.  So DEF may as well be
+   dead, in which case using it will extend its live range.  */
+bool
+df_local_def_available_p (struct df *df, struct ref *def, struct ref *use)
+{
+  struct df_link *link;
+  int def_luid = DF_INSN_LUID (df, DF_REF_INSN (def));
+  int in_bb = 0;
+  unsigned int regno = REGNO (def->reg);
+  basic_block bb;
+
+  /* The regs must be local to BB.  */
+  gcc_assert (DF_REF_BB (def) == DF_REF_BB (use));
+  bb = DF_REF_BB (def);
+
+  /* This assumes that the reg-def list is ordered such that for any
+     BB, the first def is found first.  However, since the BBs are not
+     ordered, the first def in the chain is not necessarily the first
+     def in the function.  */
+  for (link = df->regs[regno].defs; link; link = link->next)
+    {
+      struct ref *this_def = link->ref;
+      if (DF_REF_BB (this_def) == bb)
+	{
+	  int this_luid = DF_INSN_LUID (df, DF_REF_INSN (this_def));
+	  /* Do nothing with defs coming before DEF.  */
+	  if (this_luid > def_luid)
+	    return this_luid > DF_INSN_LUID (df, DF_REF_INSN (use));
+
+	  in_bb = 1;
+        }
+      else if (in_bb)
+	/* DEF was the last in its basic block.  */
+        return 1;
+    }
+
+  /* DEF was the last in the function.  */
+  return 1;
+}
+
+
 /* Return last use of REGNO within BB.  */
 struct ref *
 df_bb_regno_last_use_find (struct df *df, basic_block bb, unsigned int regno)
@@ -3306,7 +3361,7 @@ df_bb_regno_last_def_find (struct df *df, basic_block bb, unsigned int regno)
   return last_def;
 }
 
-/* Return first use of REGNO inside INSN within BB.  */
+/* Return last use of REGNO inside INSN within BB.  */
 static struct ref *
 df_bb_insn_regno_last_use_find (struct df *df,
 				basic_block bb ATTRIBUTE_UNUSED, rtx insn,

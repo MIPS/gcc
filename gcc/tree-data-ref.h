@@ -1,5 +1,5 @@
 /* Data references and dependences detectors. 
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -36,7 +36,7 @@ struct data_reference
   tree base_name;
   
   /* A list of chrecs.  */
-  varray_type access_fns;
+  VEC(tree,heap) *access_fns;
 
   /* Auxiliary info specific to a pass.  */
   int aux;
@@ -50,8 +50,8 @@ struct data_reference
 #define DR_REF(DR) DR->ref
 #define DR_BASE_NAME(DR) DR->base_name
 #define DR_ACCESS_FNS(DR) DR->access_fns
-#define DR_ACCESS_FN(DR, I) VARRAY_TREE (DR_ACCESS_FNS (DR), I)
-#define DR_NUM_DIMENSIONS(DR) VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
+#define DR_ACCESS_FN(DR, I) VEC_index (tree, DR_ACCESS_FNS (DR), I)
+#define DR_NUM_DIMENSIONS(DR) VEC_length (tree, DR_ACCESS_FNS (DR))
 #define DR_IS_READ(DR) DR->is_read
 
 enum data_dependence_direction {
@@ -176,6 +176,8 @@ extern bool array_base_name_differ_p (struct data_reference *,
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);
+extern void compute_subscript_distance (struct data_dependence_relation *);
+extern bool build_classic_dist_vector (struct data_dependence_relation *, int, int);
 
 
 

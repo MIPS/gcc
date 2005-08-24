@@ -1,5 +1,5 @@
 /* Loop manipulation code for GNU compiler.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,9 +26,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
-#include "function.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
+#include "cfghooks.h"
 #include "output.h"
 
 static void duplicate_subloops (struct loops *, struct loop *, struct loop *);
@@ -331,8 +331,8 @@ remove_path (struct loops *loops, edge e)
      e, but we only have basic block dominators.  This is easy to
      fix -- when e->dest has exactly one predecessor, this corresponds
      to blocks dominated by e->dest, if not, split the edge.  */
-  if (EDGE_COUNT (e->dest->preds) > 1)
-    e = EDGE_PRED (loop_split_edge_with (e, NULL_RTX), 0);
+  if (!single_pred_p (e->dest))
+    e = single_pred_edge (loop_split_edge_with (e, NULL_RTX));
 
   /* It may happen that by removing path we remove one or more loops
      we belong to.  In this case first unloop the loops, then proceed
@@ -605,7 +605,7 @@ unloop (struct loops *loops, struct loop *loop)
   loops->parray[loop->num] = NULL;
   flow_loop_free (loop);
 
-  remove_edge (EDGE_SUCC (latch, 0));
+  remove_edge (single_succ_edge (latch));
   fix_bb_placements (loops, latch);
 
   /* If the loop was inside an irreducible region, we would have to somehow
@@ -784,8 +784,8 @@ loop_delete_branch_edge (edge e, int really_delete)
 
   if (!redirect_edge_and_branch (e, newdest))
     return false;
-  EDGE_SUCC (src, 0)->flags &= ~EDGE_IRREDUCIBLE_LOOP;
-  EDGE_SUCC (src, 0)->flags |= irr;
+  single_succ_edge (src)->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  single_succ_edge (src)->flags |= irr;
   
   return true;
 }
@@ -838,7 +838,7 @@ update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
    original LOOP body, the other copies are numbered in order given by control
    flow through them) into TO_REMOVE array.  Returns false if duplication is
    impossible.  */
-int
+bool
 duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 			       unsigned int ndupl, sbitmap wont_exit,
 			       edge orig, edge *to_remove,
@@ -1103,10 +1103,10 @@ mfb_keep_just (edge e)
 static void
 mfb_update_loops (basic_block jump)
 {
-  struct loop *loop = EDGE_SUCC (jump, 0)->dest->loop_father;
+  struct loop *loop = single_succ (jump)->loop_father;
 
   if (dom_computed[CDI_DOMINATORS])
-    set_immediate_dominator (CDI_DOMINATORS, jump, EDGE_PRED (jump, 0)->src);
+    set_immediate_dominator (CDI_DOMINATORS, jump, single_pred (jump));
   add_bb_to_loop (jump, loop);
   loop->latch = jump;
 }
@@ -1136,7 +1136,7 @@ create_preheader (struct loop *loop, int flags)
 	continue;
       irred |= (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
       nentry++;
-      if (EDGE_COUNT (e->src->succs) == 1)
+      if (single_succ_p (e->src))
 	one_succ_pred = e;
     }
   gcc_assert (nentry);
@@ -1147,7 +1147,7 @@ create_preheader (struct loop *loop, int flags)
       e = EDGE_PRED (loop->header,
 		     EDGE_PRED (loop->header, 0)->src == loop->latch);
 
-      if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_COUNT (e->src->succs) == 1)
+      if (!(flags & CP_SIMPLE_PREHEADERS) || single_succ_p (e->src))
 	return NULL;
     }
 
@@ -1188,7 +1188,7 @@ create_preheader (struct loop *loop, int flags)
   if (irred)
     {
       dummy->flags |= BB_IRREDUCIBLE_LOOP;
-      EDGE_SUCC (dummy, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_succ_edge (dummy)->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
   if (dump_file)
@@ -1221,7 +1221,7 @@ force_single_succ_latches (struct loops *loops)
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
-      if (loop->latch != loop->header && EDGE_COUNT (loop->latch->succs) == 1)
+      if (loop->latch != loop->header && single_succ_p (loop->latch))
 	continue;
 
       e = find_edge (loop->latch, loop->header);
@@ -1278,7 +1278,7 @@ create_loop_notes (void)
 		NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG);
 #endif
 
-  flow_loops_find (&loops, LOOP_TREE);
+  flow_loops_find (&loops);
   free_dominance_info (CDI_DOMINATORS);
   if (loops.num > 1)
     {
@@ -1323,9 +1323,9 @@ create_loop_notes (void)
 		      && onlyjump_p (insn))
 		    {
 		      pbb = BLOCK_FOR_INSN (insn);
-		      gcc_assert (pbb && EDGE_COUNT (pbb->succs) == 1);
+		      gcc_assert (pbb && single_succ_p (pbb));
 
-		      if (!flow_bb_inside_loop_p (loop, EDGE_SUCC (pbb, 0)->dest))
+		      if (!flow_bb_inside_loop_p (loop, single_succ (pbb)))
 			insn = BB_HEAD (first[loop->num]);
 		    }
 		  else
@@ -1353,4 +1353,232 @@ create_loop_notes (void)
       free (stack);
     }
   flow_loops_free (&loops);
+}
+
+/* This function is called from loop_version.  It splits the entry edge
+   of the loop we want to version, adds the versioning condition, and
+   adjust the edges to the two versions of the loop appropriately.
+   e is an incoming edge. Returns the basic block containing the
+   condition.
+
+   --- edge e ---- > [second_head]
+
+   Split it and insert new conditional expression and adjust edges.
+
+    --- edge e ---> [cond expr] ---> [first_head]
+                        |
+                        +---------> [second_head]
+*/
+
+static basic_block
+lv_adjust_loop_entry_edge (basic_block first_head,
+			   basic_block second_head,
+			   edge e,
+			   tree cond_expr)
+{
+  basic_block new_head = NULL;
+  edge e1;
+
+  gcc_assert (e->dest == second_head);
+
+  /* Split edge 'e'. This will create a new basic block, where we can
+     insert conditional expr.  */
+  new_head = split_edge (e);
+
+
+  lv_add_condition_to_bb (first_head, second_head, new_head,
+			  cond_expr);
+
+  e1 = make_edge (new_head, first_head, EDGE_TRUE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, first_head, new_head);
+  set_immediate_dominator (CDI_DOMINATORS, second_head, new_head);
+
+  /* Adjust loop header phi nodes.  */
+  lv_adjust_loop_header_phi (first_head, second_head, new_head, e1);
+
+  return new_head;
+}
+
+/* Main entry point for Loop Versioning transformation.
+   
+This transformation given a condition and a loop, creates
+-if (condition) { loop_copy1 } else { loop_copy2 },
+where loop_copy1 is the loop transformed in one way, and loop_copy2
+is the loop transformed in another way (or unchanged). 'condition'
+may be a run time test for things that were not resolved by static
+analysis (overlapping ranges (anti-aliasing), alignment, etc.).  */
+
+struct loop *
+loop_version (struct loops *loops, struct loop * loop, 
+	      void *cond_expr, basic_block *condition_bb)
+{
+  basic_block first_head, second_head;
+  edge entry, latch_edge, exit, true_edge, false_edge;
+  int irred_flag;
+  struct loop *nloop;
+
+  /* CHECKME: Loop versioning does not handle nested loop at this point.  */
+  if (loop->inner)
+    return NULL;
+
+  /* Record entry and latch edges for the loop */
+  entry = loop_preheader_edge (loop);
+  irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
+  entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  
+  /* Note down head of loop as first_head.  */
+  first_head = entry->dest;
+
+  /* Duplicate loop.  */
+  if (!cfg_hook_duplicate_loop_to_header_edge (loop, entry, loops, 1,
+  					       NULL, NULL, NULL, NULL, 0))
+    return NULL;
+
+  /* After duplication entry edge now points to new loop head block.
+     Note down new head as second_head.  */
+  second_head = entry->dest;
+
+  /* Split loop entry edge and insert new block with cond expr.  */
+  *condition_bb =  lv_adjust_loop_entry_edge (first_head, second_head,
+					      entry, cond_expr);
+  if (!*condition_bb)
+    {
+      entry->flags |= irred_flag;
+      return NULL;
+    }
+
+  latch_edge = single_succ_edge (loop->latch->rbi->copy);
+  
+  extract_cond_bb_edges (*condition_bb, &true_edge, &false_edge);
+  nloop = loopify (loops,
+		   latch_edge,
+		   single_pred_edge (loop->header->rbi->copy),
+		   *condition_bb, true_edge, false_edge,
+		   false /* Do not redirect all edges.  */);
+
+  exit = loop->single_exit;
+  if (exit)
+    nloop->single_exit = find_edge (exit->src->rbi->copy, exit->dest);
+
+  /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
+  lv_flush_pending_stmts (latch_edge);
+
+  /* loopify redirected condition_bb's succ edge. Update its PENDING_STMTS.  */ 
+  extract_cond_bb_edges (*condition_bb, &true_edge, &false_edge);
+  lv_flush_pending_stmts (false_edge);
+  /* Adjust irreducible flag.  */
+  if (irred_flag)
+    {
+      (*condition_bb)->flags |= BB_IRREDUCIBLE_LOOP;
+      loop_preheader_edge (loop)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      loop_preheader_edge (nloop)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_pred_edge ((*condition_bb))->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+
+  /* At this point condition_bb is loop predheader with two successors, 
+     first_head and second_head.   Make sure that loop predheader has only 
+     one successor.  */
+  loop_split_edge_with (loop_preheader_edge (loop), NULL);
+  loop_split_edge_with (loop_preheader_edge (nloop), NULL);
+
+  return nloop;
+}
+
+/* The structure of LOOPS might have changed.  Some loops might get removed
+   (and their headers and latches were set to NULL), loop exists might get
+   removed (thus the loop nesting may be wrong), and some blocks and edges
+   were changed (so the information about bb --> loop mapping does not have
+   to be correct).  But still for the remaining loops the header dominates
+   the latch, and loops did not get new subloobs (new loops might possibly
+   get created, but we are not interested in them).  Fix up the mess.
+ 
+   If CHANGED_BBS is not NULL, basic blocks whose loop has changed are
+   marked in it.  */
+
+void
+fix_loop_structure (struct loops *loops, bitmap changed_bbs)
+{
+  basic_block bb;
+  struct loop *loop, *ploop;
+  unsigned i;
+
+  /* Remove the old bb -> loop mapping.  */
+  FOR_EACH_BB (bb)
+    {
+      bb->aux = (void *) (size_t) bb->loop_father->depth;
+      bb->loop_father = loops->tree_root;
+    }
+
+  /* Remove the dead loops from structures.  */
+  loops->tree_root->num_nodes = n_basic_blocks + 2;
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      loop->num_nodes = 0;
+      if (loop->header)
+	continue;
+
+      while (loop->inner)
+	{
+	  ploop = loop->inner;
+	  flow_loop_tree_node_remove (ploop);
+	  flow_loop_tree_node_add (loop->outer, ploop);
+	}
+
+      /* Remove the loop and free its data.  */
+      flow_loop_tree_node_remove (loop);
+      loops->parray[loop->num] = NULL;
+      flow_loop_free (loop);
+    }
+
+  /* Rescan the bodies of loops, starting from the outermost.  */
+  loop = loops->tree_root;
+  while (1)
+    {
+      if (loop->inner)
+	loop = loop->inner;
+      else
+	{
+	  while (!loop->next
+		 && loop != loops->tree_root)
+	    loop = loop->outer;
+	  if (loop == loops->tree_root)
+	    break;
+
+	  loop = loop->next;
+	}
+
+      loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
+    }
+
+  /* Now fix the loop nesting.  */
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      bb = loop_preheader_edge (loop)->src;
+      if (bb->loop_father != loop->outer)
+	{
+	  flow_loop_tree_node_remove (loop);
+	  flow_loop_tree_node_add (bb->loop_father, loop);
+	}
+    }
+
+  /* Mark the blocks whose loop has changed.  */
+  FOR_EACH_BB (bb)
+    {
+      if (changed_bbs
+	  && (void *) (size_t) bb->loop_father->depth != bb->aux)
+	bitmap_set_bit (changed_bbs, bb->index);
+
+      bb->aux = NULL;
+    }
+
+  mark_single_exit_loops (loops);
+  mark_irreducible_loops (loops);
 }

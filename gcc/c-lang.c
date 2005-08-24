@@ -1,6 +1,6 @@
 /* Language-specific hook definitions for C front end.
    Copyright (C) 1991, 1995, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -63,7 +63,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES decl_attributes
 #undef  LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION
 #define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION reorg_structs
-
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

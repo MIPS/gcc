@@ -1,4 +1,5 @@
 /* { dg-require-effective-target vect_int } */
+/* { dg-require-effective-target vect_int_mult } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -12,7 +13,7 @@ int main1 ()
   int ic[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
   int ib[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 
-  /* Not vetorizable yet (integer mult).  */
+  /* Not vectorizable yet (integer mult).  */
   for (i = 0; i < N; i++)
     {
       ia[i] = ib[i] * ic[i];
@@ -35,4 +36,5 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

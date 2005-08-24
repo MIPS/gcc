@@ -1,6 +1,6 @@
 /* Implements exception handling.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -73,16 +73,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
-#include "tree-iterator.h"
 #include "cgraph.h"
-#include "tree-inline.h"
-#include "tree-flow.h"
+#include "diagnostic.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
 #ifndef EH_RETURN_DATA_REGNO
 #define EH_RETURN_DATA_REGNO(N) INVALID_REGNUM
 #endif
+
 
 /* Protect cleanup actions with must-not-throw regions, with a call
    to the given failure handler.  */
@@ -140,8 +139,7 @@ struct eh_region GTY(())
     ERT_CATCH,
     ERT_ALLOWED_EXCEPTIONS,
     ERT_MUST_NOT_THROW,
-    ERT_THROW,
-    ERT_FIXUP
+    ERT_THROW
   } type;
 
   /* Holds the action to perform based on the preceding type.  */
@@ -151,8 +149,6 @@ struct eh_region GTY(())
     struct eh_region_u_try {
       struct eh_region *catch;
       struct eh_region *last_catch;
-      struct eh_region *prev_try;
-      rtx continue_label;
     } GTY ((tag ("ERT_TRY"))) try;
 
     /* The list through the catch handlers, the list of type objects
@@ -179,17 +175,8 @@ struct eh_region GTY(())
     /* Retain the cleanup expression even after expansion so that
        we can match up fixup regions.  */
     struct eh_region_u_cleanup {
-      tree exp;
       struct eh_region *prev_try;
     } GTY ((tag ("ERT_CLEANUP"))) cleanup;
-
-    /* The real region (by expression and by pointer) that fixup code
-       should live in.  */
-    struct eh_region_u_fixup {
-      tree cleanup_exp;
-      struct eh_region *real_region;
-      bool resolved;
-    } GTY ((tag ("ERT_FIXUP"))) fixup;
   } GTY ((desc ("%0.type"))) u;
 
   /* Entry point for this region's handler before landing pads are built.  */
@@ -237,7 +224,7 @@ struct eh_status GTY(())
   int built_landing_pads;
   int last_region_number;
 
-  varray_type ttype_data;
+  VEC(tree,gc) *ttype_data;
   varray_type ehspec_data;
   varray_type action_record_data;
 
@@ -266,9 +253,6 @@ static tree lookup_type_for_runtime (tree);
 
 static void remove_unreachable_regions (rtx);
 
-static struct eh_region *duplicate_eh_region_1 (struct eh_region *);
-static void duplicate_eh_region_2 (struct eh_region *,
-				   struct eh_region **);
 static int ttypes_filter_eq (const void *, const void *);
 static hashval_t ttypes_filter_hash (const void *);
 static int ehspec_filter_eq (const void *, const void *);
@@ -293,7 +277,7 @@ static hashval_t ehl_hash (const void *);
 static int ehl_eq (const void *, const void *);
 static void add_ehl_entry (rtx, struct eh_region *);
 static void remove_exception_handler_label (rtx);
-void remove_eh_handler (struct eh_region *);
+static void remove_eh_handler (struct eh_region *);
 static int for_each_eh_label_1 (void **, void *);
 
 /* The return value of reachable_next_level.  */
@@ -571,15 +555,6 @@ set_eh_region_tree_label (struct eh_region *region, tree lab)
 {
   region->tree_label = lab;
 }
-
-struct eh_region *
-eh_region_must_not_throw_p (int region)
-{
-  if (cfun->eh->region_array[region]->type == ERT_MUST_NOT_THROW)
-    return cfun->eh->region_array[region];
-  else
-   return 0;
-}
 
 void
 expand_resx_expr (tree exp)
@@ -587,8 +562,6 @@ expand_resx_expr (tree exp)
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region *reg = cfun->eh->region_array[region_nr];
 
-  if (reg->resume)
-    abort ();
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -874,39 +847,18 @@ static struct eh_region *
 duplicate_eh_region_1 (struct eh_region *o)
 {
   struct eh_region *n = ggc_alloc_cleared (sizeof (struct eh_region));
+
+  *n = *o;
   
   n->region_number = o->region_number + cfun->eh->last_region_number;
-  n->type = o->type;
-  
-  switch (n->type)
-    {
-    case ERT_CLEANUP:
-    case ERT_MUST_NOT_THROW:
-      break;
-      
-    case ERT_TRY:
-      break;
-      
-    case ERT_CATCH:
-      n->u.catch.type_list = o->u.catch.type_list;
-      break;
-      
-    case ERT_ALLOWED_EXCEPTIONS:
-      n->u.allowed.type_list = o->u.allowed.type_list;
-      break;
-      
-    case ERT_THROW:
-      n->u.throw.type = o->u.throw.type;
-      
-    default:
-      abort ();
-    }
+  gcc_assert (!o->aka);
   
   return n;
 }
 
 static void
-duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
+duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array,
+		       struct eh_region *prev_try)
 {
   struct eh_region *n = n_array[o->region_number];
   
@@ -929,6 +881,8 @@ duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
     case ERT_CLEANUP:
       if (o->u.cleanup.prev_try)
 	n->u.cleanup.prev_try = n_array[o->u.cleanup.prev_try->region_number];
+      else
+        n->u.cleanup.prev_try = prev_try;
       break;
       
     default:
@@ -943,11 +897,14 @@ duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
     n->next_peer = n_array[o->next_peer->region_number];
 }
 
+/* Duplicate the EH regions of IFUN into current function, root the tree in
+   OUTER_REGION and remap labels using MAP callback.  */
 int
-duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
+duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
+		      void *data, int outer_region)
 {
   int ifun_last_region_number = ifun->eh->last_region_number;
-  struct eh_region **n_array, *root, *cur;
+  struct eh_region **n_array, *root, *cur, *prev_try;
   int i;
   
   if (ifun_last_region_number == 0 || !ifun->eh->region_tree)
@@ -955,54 +912,44 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
   
   n_array = xcalloc (ifun_last_region_number + 1, sizeof (*n_array));
   
+  /* Search for the containing ERT_TRY region to fix up
+     the prev_try short-cuts for ERT_CLEANUP regions.  */
+  prev_try = NULL;
+  if (outer_region > 0)
+    for (prev_try = cfun->eh->region_array[outer_region];
+         prev_try && prev_try->type != ERT_TRY;
+	 prev_try = prev_try->outer)
+      ;
+
   for (i = 1; i <= ifun_last_region_number; ++i)
     {
       cur = ifun->eh->region_array[i];
       if (!cur || cur->region_number != i)
 	continue;
       n_array[i] = duplicate_eh_region_1 (cur);
-      if (dup_labels && cur->tree_label)
+      if (cur->tree_label)
 	{
-	  tree newlabel = remap_decl_v ((void *)cur->tree_label, id);
+	  tree newlabel = map (cur->tree_label, data);
 	  n_array[i]->tree_label = newlabel;
-	  /* If old label is not actually in the code anywhere, mark the
-	     new label similarly (its current uid will be -1).  This 
-	     prevents crashes later.  */
-	  if (label_to_block_fn (ifun, cur->tree_label) == 0)
-	    {
-	      int uid;
-	      LABEL_DECL_UID (newlabel) = uid = cfun->last_label_uid++;
-	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
-		{
-		  bool shared_map = (cfun->cfg->x_label_to_block_map) 
-				== (ifun->cfg->x_label_to_block_map);
-		  unsigned tmp_u = 3 * MAX (uid, 2);
-		  /* Force the multiply to happen before the divide.  */
-		  VARRAY_GROW (label_to_block_map, tmp_u / 2);
-		  /* We need this In case we realloc'd: */
-		  if (shared_map)
-		    ifun->cfg->x_label_to_block_map 
-			= cfun->cfg->x_label_to_block_map;
-		}
-	      VARRAY_BB (label_to_block_map, uid) = 0;
-	    }
 	}
       else
-	n_array[i]->tree_label = cur->tree_label;
+	n_array[i]->tree_label = NULL;
     }
   for (i = 1; i <= ifun_last_region_number; ++i)
     {
       cur = ifun->eh->region_array[i];
       if (!cur || cur->region_number != i)
 	continue;
-      duplicate_eh_region_2 (cur, n_array);
+      duplicate_eh_region_2 (cur, n_array, prev_try);
     }
   
   root = n_array[ifun->eh->region_tree->region_number];
-  cur = cfun->eh->cur_region;
-  if (cur)
+  gcc_assert (root->outer == NULL);
+  if (outer_region > 0)
     {
+      struct eh_region *cur = cfun->eh->region_array[outer_region];
       struct eh_region *p = cur->inner;
+
       if (p)
 	{
 	  while (p->next_peer)
@@ -1011,7 +958,6 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
 	}
       else
         cur->inner = root;
-      
       for (i = 1; i <= ifun_last_region_number; ++i)
 	if (n_array[i] && n_array[i]->outer == NULL)
 	  n_array[i]->outer = cur;
@@ -1038,7 +984,6 @@ duplicate_eh_regions (struct function *ifun, void *id, bool dup_labels)
   
   return i;
 }
-
 
 static int
 t2r_eq (const void *pentry, const void *pdata)
@@ -1155,10 +1100,10 @@ add_ttypes_entry (htab_t ttypes_hash, tree type)
 
       n = xmalloc (sizeof (*n));
       n->t = type;
-      n->filter = VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data) + 1;
+      n->filter = VEC_length (tree, cfun->eh->ttype_data) + 1;
       *slot = n;
 
-      VARRAY_PUSH_TREE (cfun->eh->ttype_data, type);
+      VEC_safe_push (tree, gc, cfun->eh->ttype_data, type);
     }
 
   return n->filter;
@@ -1208,7 +1153,7 @@ assign_filter_values (void)
   int i;
   htab_t ttypes, ehspec;
 
-  VARRAY_TREE_INIT (cfun->eh->ttype_data, 16, "ttype_data");
+  cfun->eh->ttype_data = VEC_alloc (tree, gc, 16);
   VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
 
   ttypes = htab_create (31, ttypes_filter_hash, ttypes_filter_eq, free);
@@ -1825,10 +1770,10 @@ sjlj_emit_function_enter (rtx dispatch_label)
 	    || NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK))
       break;
   if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
-    insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+    insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
   else
     {
-      rtx last = BB_END (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest);
+      rtx last = BB_END (single_succ (ENTRY_BLOCK_PTR));
       for (; ; fn_begin = NEXT_INSN (fn_begin))
 	if ((NOTE_P (fn_begin)
 	     && NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
@@ -2094,7 +2039,7 @@ remove_exception_handler_label (rtx label)
 
 /* Splice REGION from the region tree etc.  */
 
-void
+static void
 remove_eh_handler (struct eh_region *region)
 {
   struct eh_region **pp, **pp_start, *p, *outer, *inner;
@@ -2107,8 +2052,7 @@ remove_eh_handler (struct eh_region *region)
      list of alternate numbers by which we are known.  */
 
   outer = region->outer;
-  if (cfun->eh->region_array)
-    cfun->eh->region_array[region->region_number] = outer;
+  cfun->eh->region_array[region->region_number] = outer;
   if (region->aka)
     {
       unsigned i;
@@ -2181,9 +2125,6 @@ remove_eh_handler (struct eh_region *region)
 	    remove_eh_handler (try);
 	}
     }
-
-  if (region->region_number == cfun->eh->last_region_number)
-    cfun->eh->last_region_number-- ;
 }
 
 /* LABEL heads a basic block that is about to be deleted.  If this
@@ -2274,7 +2215,7 @@ struct reachable_info
 /* A subroutine of reachable_next_level.  Return true if TYPE, or a
    base class of TYPE, is in HANDLED.  */
 
-int
+static int
 check_handled (tree handled, tree type)
 {
   tree t;
@@ -2464,8 +2405,13 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
       /* Here we end our search, since no exceptions may propagate.
 	 If we've touched down at some landing pad previous, then the
 	 explicit function call we generated may be used.  Otherwise
-	 the call is made by the runtime.  */
-      if (info && info->saw_any_handlers)
+	 the call is made by the runtime. 
+
+         Before inlining, do not perform this optimization.  We may
+	 inline a subroutine that contains handlers, and that will
+	 change the value of saw_any_handlers.  */
+
+      if ((info && info->saw_any_handlers) || !cfun->after_inlining)
 	{
 	  add_reachable_handler (info, region, region);
 	  return RNL_CAUGHT;
@@ -2474,7 +2420,6 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	return RNL_BLOCKED;
 
     case ERT_THROW:
-    case ERT_FIXUP:
     case ERT_UNKNOWN:
       /* Shouldn't see these here.  */
       gcc_unreachable ();
@@ -2583,7 +2528,7 @@ reachable_handlers (rtx insn)
    within the function.  */
 
 bool
-can_throw_internal_1 (int region_number)
+can_throw_internal_1 (int region_number, bool is_resx)
 {
   struct eh_region *region;
   tree type_thrown;
@@ -2591,7 +2536,9 @@ can_throw_internal_1 (int region_number)
   region = cfun->eh->region_array[region_number];
 
   type_thrown = NULL_TREE;
-  if (region->type == ERT_THROW)
+  if (is_resx)
+    region = region->outer;
+  else if (region->type == ERT_THROW)
     {
       type_thrown = region->u.throw.type;
       region = region->outer;
@@ -2623,7 +2570,7 @@ can_throw_internal (rtx insn)
   if (JUMP_P (insn)
       && GET_CODE (PATTERN (insn)) == RESX
       && XINT (PATTERN (insn), 0) > 0)
-    return can_throw_internal_1 (XINT (PATTERN (insn), 0));
+    return can_throw_internal_1 (XINT (PATTERN (insn), 0), true);
 
   if (NONJUMP_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
@@ -2634,14 +2581,14 @@ can_throw_internal (rtx insn)
   if (!note || INTVAL (XEXP (note, 0)) <= 0)
     return false;
 
-  return can_throw_internal_1 (INTVAL (XEXP (note, 0)));
+  return can_throw_internal_1 (INTVAL (XEXP (note, 0)), false);
 }
 
 /* Determine if the given INSN can throw an exception that is
    visible outside the function.  */
 
 bool
-can_throw_external_1 (int region_number)
+can_throw_external_1 (int region_number, bool is_resx)
 {
   struct eh_region *region;
   tree type_thrown;
@@ -2649,7 +2596,9 @@ can_throw_external_1 (int region_number)
   region = cfun->eh->region_array[region_number];
 
   type_thrown = NULL_TREE;
-  if (region->type == ERT_THROW)
+  if (is_resx)
+    region = region->outer;
+  else if (region->type == ERT_THROW)
     {
       type_thrown = region->u.throw.type;
       region = region->outer;
@@ -2672,6 +2621,11 @@ can_throw_external (rtx insn)
   if (! INSN_P (insn))
     return false;
 
+  if (JUMP_P (insn)
+      && GET_CODE (PATTERN (insn)) == RESX
+      && XINT (PATTERN (insn), 0) > 0)
+    return can_throw_external_1 (XINT (PATTERN (insn), 0), true);
+
   if (NONJUMP_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
     insn = XVECEXP (PATTERN (insn), 0, 0);
@@ -2691,80 +2645,15 @@ can_throw_external (rtx insn)
   if (INTVAL (XEXP (note, 0)) <= 0)
     return false;
 
-  return can_throw_external_1 (INTVAL (XEXP (note, 0)));
+  return can_throw_external_1 (INTVAL (XEXP (note, 0)), false);
 }
 
-/* A function used to throw (we thought) and now we know better.
-   It is possible that functions that call this one have already built
-   CFGs and EH region info that is now wrong.  Fix these up here. */
-
-static void
-change_to_nothrow (tree funcdecl)
-{
-  struct cgraph_node *node = cgraph_node (funcdecl);
-  struct cgraph_edge *cge;
-  struct function *ifun;
-  tree call, caller_decl;
-  basic_block bb;
-
-  for (cge = node->callers; cge; cge = cge->next_caller)
-    {
-      call = cge->call_expr;
-      caller_decl = cge->caller->decl;
-      ifun = DECL_STRUCT_FUNCTION (caller_decl);
-      if (!TREE_ASM_WRITTEN (caller_decl)
-	  && ifun && (ifun->cfg || ifun->eh))
-        {
-	  push_cfun (ifun);
-
-	  /* FIXME: This part is currently slow, as there is no
-		    pointer up to the bb node.  */
-	  FOR_EACH_BB (bb)
-	    {
-	      block_stmt_iterator bsi = bsi_last (bb);
-	      tree stmt;
-
-	      if (bsi_end_p (bsi))
-		continue;
-
-	      stmt = bsi_stmt (bsi);
-	      if (stmt 
-		  && (stmt == call 
-		      || (TREE_CODE (stmt) == MODIFY_EXPR
-			  && TREE_OPERAND (stmt, 1) == call)
-		      || (TREE_CODE (stmt) == RETURN_EXPR
-			  && TREE_OPERAND (stmt, 0)
-			  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
-			  && TREE_OPERAND (TREE_OPERAND (stmt, 0), 1) == call)))
-		{
-		  /* found it. */
-		  edge_iterator ei;
-		  edge e;
-
-		  for (ei = ei_start (bb->succs);
-		       (e = ei_safe_edge (ei)); )
-		    {
-		      if (e->flags & EDGE_EH)
-			remove_edge (e);
-		      else
-		      ei_next (&ei);
-		    }
-
-		  remove_stmt_from_eh_region_fn (ifun, stmt);
-		  break;
-		}
-	    }
-	  pop_cfun ();
-	}
-    }
-}
 /* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
 
 void
 set_nothrow_function_flags (void)
 {
   rtx insn;
-  bool old_nothrow = TREE_NOTHROW (current_function_decl);
 
   TREE_NOTHROW (current_function_decl) = 1;
 
@@ -2803,12 +2692,6 @@ set_nothrow_function_flags (void)
 	    return;
 	  }
       }
-  if (!old_nothrow && TREE_NOTHROW (current_function_decl))
-    {
-      /* Function used to throw (we thought) and now we know better.
-	 Fixup matters for this function.  */
-      change_to_nothrow (current_function_decl);
-    }
 }
 
 
@@ -3511,6 +3394,7 @@ output_function_exception_table (void)
 
 #ifdef TARGET_UNWIND_INFO
   /* TODO: Move this into target file.  */
+  assemble_external_libcall (eh_personality_libfunc);
   fputs ("\t.personality\t", asm_out_file);
   output_addr_const (asm_out_file, eh_personality_libfunc);
   fputs ("\n\t.handlerdata\n", asm_out_file);
@@ -3520,7 +3404,7 @@ output_function_exception_table (void)
   targetm.asm_out.exception_section ();
 #endif
 
-  have_tt_data = (VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data) > 0
+  have_tt_data = (VEC_length (tree, cfun->eh->ttype_data) > 0
 		  || VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data) > 0);
 
   /* Indicate the format of the @TType entries.  */
@@ -3583,7 +3467,7 @@ output_function_exception_table (void)
       after_disp = (1 + size_of_uleb128 (call_site_len)
 		    + call_site_len
 		    + VARRAY_ACTIVE_SIZE (cfun->eh->action_record_data)
-		    + (VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data)
+		    + (VEC_length (tree, cfun->eh->ttype_data)
 		       * tt_format_size));
 
       disp = after_disp;
@@ -3645,10 +3529,10 @@ output_function_exception_table (void)
   if (have_tt_data)
     assemble_align (tt_format_size * BITS_PER_UNIT);
 
-  i = VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data);
+  i = VEC_length (tree, cfun->eh->ttype_data);
   while (i-- > 0)
     {
-      tree type = VARRAY_TREE (cfun->eh->ttype_data, i);
+      tree type = VEC_index (tree, cfun->eh->ttype_data, i);
       rtx value;
 
       if (type == NULL_TREE)
@@ -3696,13 +3580,13 @@ output_function_exception_table (void)
     dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
 			 (i ? NULL : "Exception specification table"));
 
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
 }
 
 void
-set_eh_throw_stmt_table (struct function *fun, void *table)
+set_eh_throw_stmt_table (struct function *fun, struct htab *table)
 {
-  fun->eh->throw_stmt_table = (htab_t)table;
+  fun->eh->throw_stmt_table = table;
 }
 
 htab_t
@@ -3711,39 +3595,136 @@ get_eh_throw_stmt_table (struct function *fun)
   return fun->eh->throw_stmt_table;
 }
 
-int
-get_eh_last_region_number (struct function *ifun)
+/* Dump EH information to OUT.  */
+void 
+dump_eh_tree (FILE *out, struct function *fun)
 {
-  if (!ifun || !ifun->eh)
-    return -1;
-  return ifun->eh->last_region_number;
+  struct eh_region *i;
+  int depth = 0;
+  static const char * const type_name[] = {"unknown", "cleanup", "try", "catch",
+					   "allowed_exceptions", "must_not_throw",
+					   "throw"};
+
+  i = fun->eh->region_tree;
+  if (! i)
+    return;
+
+  fprintf (out, "Eh tree:\n");
+  while (1)
+    {
+      fprintf (out, "  %*s %i %s", depth * 2, "",
+	       i->region_number, type_name [(int)i->type]);
+      if (i->tree_label)
+	{
+          fprintf (out, " tree_label:");
+	  print_generic_expr (out, i->tree_label, 0);
+	}
+      fprintf (out, "\n");
+      /* If there are sub-regions, process them.  */
+      if (i->inner)
+	i = i->inner, depth++;
+      /* If there are peers, process them.  */
+      else if (i->next_peer)
+	i = i->next_peer;
+      /* Otherwise, step back up the tree to the next peer.  */
+      else
+	{
+	  do {
+	    i = i->outer;
+	    depth--;
+	    if (i == NULL)
+	      return;
+	  } while (i->next_peer == NULL);
+	  i = i->next_peer;
+	}
+    }
 }
 
-/* Get the "current region" number.  -1 means "no current region."  */
-int
-get_eh_cur_region (struct function *ifun)
+/* Verify some basic invariants on EH datastructures.  Could be extended to
+   catch more.  */
+void 
+verify_eh_tree (struct function *fun)
 {
-  if (ifun
-      && ifun->eh
-      && ifun->eh->cur_region)
-    return ifun->eh->cur_region->region_number;
-  else
-    return -1;
-}
+  struct eh_region *i, *outer = NULL;
+  bool err = false;
+  int nvisited = 0;
+  int count = 0;
+  int j;
+  int depth = 0;
 
-/* Set the "current region" in preparation for splicing in new
-   regions.  Useful when inlining a CALL_EXPR.  "-1" means
-   "no current region."  */
-void
-set_eh_cur_region (struct function *ifun, int region_nr)
-{
-  if (region_nr >= 0
-      && ifun
-      && ifun->eh
-      && ifun->eh->region_array)
-    ifun->eh->cur_region = ifun->eh->region_array[region_nr];
-  else
-    ifun->eh->cur_region = (struct eh_region *)0;
-}
+  i = fun->eh->region_tree;
+  if (! i)
+    return;
+  for (j = fun->eh->last_region_number; j > 0; --j)
+    if (fun->eh->region_array[j])
+      {
+	count++;
+	if (fun->eh->region_array[j]->region_number != j)
+	  {
+	    error ("region_array is corrupted for region %i", i->region_number);
+	    err = true;
+	  }
+      }
 
+  while (1)
+    {
+      if (fun->eh->region_array[i->region_number] != i)
+	{
+	  error ("region_array is corrupted for region %i", i->region_number);
+	  err = true;
+	}
+      if (i->outer != outer)
+	{
+	  error ("outer block of region %i is wrong", i->region_number);
+	  err = true;
+	}
+      if (i->may_contain_throw && outer && !outer->may_contain_throw)
+	{
+	  error ("region %i may contain throw and is contained in region that may not",
+		 i->region_number);
+	  err = true;
+	}
+      if (depth < 0)
+	{
+	  error ("negative nesting depth of region %i", i->region_number);
+	  err = true;
+	}
+      nvisited ++;
+      /* If there are sub-regions, process them.  */
+      if (i->inner)
+	outer = i, i = i->inner, depth++;
+      /* If there are peers, process them.  */
+      else if (i->next_peer)
+	i = i->next_peer;
+      /* Otherwise, step back up the tree to the next peer.  */
+      else
+	{
+	  do {
+	    i = i->outer;
+	    depth--;
+	    if (i == NULL)
+	      {
+		if (depth != -1)
+		  {
+		    error ("Tree list ends on depth %i", depth + 1);
+		    err = true;
+		  }
+		if (count != nvisited)
+		  {
+		    error ("array does not match the region tree");
+		    err = true;
+		  }
+		if (err)
+		  {
+		    dump_eh_tree (stderr, fun);
+		    internal_error ("verify_eh_tree failed.");
+		  }
+	        return;
+	      }
+	    outer = i->outer;
+	  } while (i->next_peer == NULL);
+	  i = i->next_peer;
+	}
+    }
+}
 #include "gt-except.h"

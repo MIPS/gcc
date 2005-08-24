@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -275,7 +275,7 @@ define__GNUC__ (void)
   if (c_dialect_cxx ())
     builtin_define_with_value_n ("__GNUG__", q, v - q);
 
-  gcc_assert (*v == '.' || ISDIGIT (v[1]));
+  gcc_assert (*v == '.' && ISDIGIT (v[1]));
   
   q = ++v;
   while (ISDIGIT (*v))
@@ -328,7 +328,7 @@ c_cpp_builtins (cpp_reader *pfile)
 
   if (c_dialect_cxx ())
     {
-      if (SUPPORTS_ONE_ONLY)
+      if (flag_weak && SUPPORTS_ONE_ONLY) 
 	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");

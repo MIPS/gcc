@@ -19,3 +19,6 @@ function Ada.Strings.Wide_Wide_Hash
   (Key : Wide_Wide_String) return Containers.Hash_Type;
 
 pragma Pure (Ada.Strings.Wide_Wide_Hash);
+
+
+

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -191,7 +191,7 @@ package body Atree is
      Unchecked_Conversion (Union_Id_Ptr, Flag_Word2_Ptr);
 
    --  The following declarations are used to store flags 152-183 in the
-   --  Field12 field of the fourth component of an extended (entity) node.
+   --  Field11 field of the fourth component of an extended (entity) node.
 
    type Flag_Word3 is record
       Flag152 : Boolean;
@@ -2919,9 +2919,15 @@ package body Atree is
       end Elist15;
 
       function Elist16 (N : Node_Id) return Elist_Id is
+         Value : constant Union_Id := Nodes.Table (N + 2).Field9;
+
       begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 2).Field9);
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Nodes.Table (N + 2).Field9);
+         end if;
       end Elist16;
 
       function Elist18 (N : Node_Id) return Elist_Id is
@@ -2942,6 +2948,12 @@ package body Atree is
          return Elist_Id (Nodes.Table (N + 3).Field10);
       end Elist23;
 
+      function Elist24 (N : Node_Id) return Elist_Id is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         return Elist_Id (Nodes.Table (N + 4).Field6);
+      end Elist24;
+
       function Name1 (N : Node_Id) return Name_Id is
       begin
          pragma Assert (N in Nodes.First .. Nodes.Last);
@@ -2960,11 +2972,16 @@ package body Atree is
          return String_Id (Nodes.Table (N).Field3);
       end Str3;
 
-      function Char_Code2 (N : Node_Id) return Char_Code is
-      begin
+      function Uint2 (N : Node_Id) return Uint is
          pragma Assert (N in Nodes.First .. Nodes.Last);
-         return Char_Code (Nodes.Table (N).Field2 - Char_Code_Bias);
-      end Char_Code2;
+         U : constant Union_Id := Nodes.Table (N).Field2;
+      begin
+         if U = 0 then
+            return Uint_0;
+         else
+            return From_Union (U);
+         end if;
+      end Uint2;
 
       function Uint3 (N : Node_Id) return Uint is
          pragma Assert (N in Nodes.First .. Nodes.Last);
@@ -4840,6 +4857,12 @@ package body Atree is
          Nodes.Table (N + 3).Field10 := Union_Id (Val);
       end Set_Elist23;
 
+      procedure Set_Elist24 (N : Node_Id; Val : Elist_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 4).Field6 := Union_Id (Val);
+      end Set_Elist24;
+
       procedure Set_Name1 (N : Node_Id; Val : Name_Id) is
       begin
          pragma Assert (N in Nodes.First .. Nodes.Last);
@@ -4857,6 +4880,12 @@ package body Atree is
          pragma Assert (N in Nodes.First .. Nodes.Last);
          Nodes.Table (N).Field3 := Union_Id (Val);
       end Set_Str3;
+
+      procedure Set_Uint2 (N : Node_Id; Val : Uint) is
+      begin
+         pragma Assert (N in Nodes.First .. Nodes.Last);
+         Nodes.Table (N).Field2 := To_Union (Val);
+      end Set_Uint2;
 
       procedure Set_Uint3 (N : Node_Id; Val : Uint) is
       begin
@@ -4959,12 +4988,6 @@ package body Atree is
          pragma Assert (Nkind (N) in N_Entity);
          Nodes.Table (N + 3).Field8 := To_Union (Val);
       end Set_Ureal21;
-
-      procedure Set_Char_Code2 (N : Node_Id; Val : Char_Code) is
-      begin
-         pragma Assert (N in Nodes.First .. Nodes.Last);
-         Nodes.Table (N).Field2 := Union_Id (Val) + Char_Code_Bias;
-      end Set_Char_Code2;
 
       procedure Set_Flag4 (N : Node_Id; Val : Boolean) is
       begin

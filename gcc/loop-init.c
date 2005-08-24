@@ -1,5 +1,5 @@
 /* Loop optimizer initialization routines.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
-#include "function.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
 
@@ -50,14 +49,14 @@ loop_optimizer_init (FILE *dumpfile)
      block.  */
 
   for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
-    if ((e->flags & EDGE_FALLTHRU) && EDGE_COUNT (e->src->succs) > 1)
+    if ((e->flags & EDGE_FALLTHRU) && !single_succ_p (e->src))
       split_edge (e);
     else
       ei_next (&ei);
 
   /* Find the loops.  */
 
-  if (flow_loops_find (loops, LOOP_TREE) <= 1)
+  if (flow_loops_find (loops) <= 1)
     {
       /* No loops.  */
       flow_loops_free (loops);

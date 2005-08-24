@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -66,12 +66,12 @@ extern void final_start_function (rtx, FILE *, int);
 extern void final_end_function (void);
 
 /* Output assembler code for some insns: all or part of a function.  */
-extern void final (rtx, FILE *, int, int);
+extern void final (rtx, FILE *, int);
 
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx final_scan_insn (rtx, FILE *, int, int, int, int *);
+extern rtx final_scan_insn (rtx, FILE *, int, int, int *);
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
@@ -144,10 +144,6 @@ extern void leaf_renumber_regs_insn (rtx);
 /* Locate the proper template for the given insn-code.  */
 extern const char *get_insn_template (int, rtx);
 
-/* Add function NAME to the weak symbols list.  VALUE is a weak alias
-   associated with NAME.  */
-extern int add_weak (tree, const char *, const char *);
-
 /* Functions in flow.c */
 extern int regno_clobbered_at_setjmp (int);
 
@@ -212,6 +208,9 @@ extern void named_section (tree, const char *, int);
 
 /* Tell assembler to switch to the section for function DECL.  */
 extern void function_section (tree);
+
+/* Tell assembler to switch to the most recently used text section.  */
+extern void current_function_section (tree);
 
 /* Tell assembler to switch to the section for string merging.  */
 extern void mergeable_string_section (tree, unsigned HOST_WIDE_INT,
@@ -321,8 +320,8 @@ extern bool default_assemble_integer (rtx, unsigned int, int);
 
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
-   the constant, otherwise 0.  If FORCE is nonzero, abort if we can't output
-   the constant.  */
+   the constant, otherwise 0.  If FORCE is nonzero the constant must
+   be outputable. */
 extern bool assemble_integer (rtx, unsigned, unsigned, int);
 
 /* An interface to assemble_integer for the common case in which a value is
@@ -426,7 +425,7 @@ extern rtx current_insn_predicate;
 extern rtx current_output_insn;
 
 /* Nonzero while outputting an `asm' with operands.
-   This means that inconsistencies are the user's fault, so don't abort.
+   This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
 extern rtx this_is_asm_operands;
 
@@ -434,6 +433,29 @@ extern rtx this_is_asm_operands;
    to ASM_FINISH_DECLARE_OBJECT.  */
 extern int size_directive_output;
 extern tree last_assemble_variable_decl;
+
+enum in_section { no_section, in_text, in_unlikely_executed_text, in_data,
+                 in_named
+#ifdef BSS_SECTION_ASM_OP
+  , in_bss
+#endif
+#ifdef CTORS_SECTION_ASM_OP
+  , in_ctors
+#endif
+#ifdef DTORS_SECTION_ASM_OP
+  , in_dtors
+#endif
+#ifdef READONLY_DATA_SECTION_ASM_OP
+  , in_readonly_data
+#endif
+#ifdef EXTRA_SECTIONS
+  , EXTRA_SECTIONS
+#endif
+};
+
+extern const char *last_text_section_name;
+extern enum in_section last_text_section;
+extern bool first_function_block_is_cold;
 
 /* Decide whether DECL needs to be in a writable section.
    RELOC is the same as for SELECT_SECTION.  */
@@ -522,6 +544,10 @@ extern void file_end_indicate_exec_stack (void);
 extern bool default_valid_pointer_mode (enum machine_mode);
 
 extern int default_address_cost (rtx);
+
+/* When performing hot/cold basic block partitioning, insert note in
+   instruction stream indicating boundary between hot and cold sections.  */
+extern void insert_section_boundary_note (void);
 
 /* dbxout helper functions */
 #if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO

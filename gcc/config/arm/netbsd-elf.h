@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, NetBSD/arm ELF version.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
    This file is part of GCC.
@@ -35,7 +35,7 @@
 /* Default it to use ATPCS with soft-VFP.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT			\
-  (ARM_FLAG_APCS_FRAME			\
+  (MASK_APCS_FRAME			\
    | TARGET_ENDIAN_DEFAULT)
 
 #undef ARM_DEFAULT_ABI
@@ -97,7 +97,8 @@
 {							\
   asm_fprintf (STREAM, "\tmov\t%Rip, %Rlr\n");		\
   asm_fprintf (STREAM, "\tbl\t__mcount%s\n",		\
-	       NEED_PLT_RELOC ? "(PLT)" : "");		\
+	       (TARGET_ARM && NEED_PLT_RELOC)		\
+	       ? "(PLT)" : "");				\
 }
 
 /* VERY BIG NOTE: Change of structure alignment for NetBSD/arm.
@@ -134,21 +135,6 @@
 
 #undef DEFAULT_STRUCTURE_SIZE_BOUNDARY
 #define DEFAULT_STRUCTURE_SIZE_BOUNDARY 8
-
-/* Emit code to set up a trampoline and synchronize the caches.  */
-#undef INITIALIZE_TRAMPOLINE
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			\
-do									\
-  {									\
-    emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 8)),	\
-		    (CXT));						\
-    emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 12)),	\
-		    (FNADDR));						\
-    emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
-		       0, VOIDmode, 2, TRAMP, Pmode,			\
-		       plus_constant (TRAMP, TRAMPOLINE_SIZE), Pmode);	\
-  }									\
-while (0)
 
 /* Clear the instruction cache from `BEG' to `END'.  This makes a
    call to the ARM_SYNC_ICACHE architecture specific syscall.  */

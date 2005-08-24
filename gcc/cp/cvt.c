@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -194,7 +194,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       if (bk == bk_via_virtual)
 	{
 	  if (force)
-	    warning ("pointer to member cast from %qT to %qT is via"
+	    warning (0, "pointer to member cast from %qT to %qT is via"
                      " virtual base", intype, type);
 	  else
 	    {
@@ -512,7 +512,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
       if (TREE_CODE (intype) == POINTER_TYPE
 	  && (comptypes (TREE_TYPE (intype), type,
 			 COMPARE_BASE | COMPARE_DERIVED)))
-	warning ("casting %qT to %qT does not dereference pointer",
+	warning (0, "casting %qT to %qT does not dereference pointer",
 		 intype, reftype);
 	  
       rval = build_unary_op (ADDR_EXPR, expr, 0);
@@ -567,19 +567,6 @@ convert_from_reference (tree val)
     }
   
   return val;
-}
-
-/* Implicitly convert the lvalue EXPR to another lvalue of type TOTYPE,
-   preserving cv-qualification.  */
-
-tree
-convert_lvalue (tree totype, tree expr)
-{
-  totype = cp_build_qualified_type (totype, TYPE_QUALS (TREE_TYPE (expr)));
-  totype = build_reference_type (totype);
-  expr = convert_to_reference (totype, expr, CONV_IMPLICIT, LOOKUP_NORMAL,
-			       NULL_TREE);
-  return convert_from_reference (expr);
 }
 
 /* Really perform an lvalue-to-rvalue conversion, including copying an
@@ -806,6 +793,11 @@ convert_to_void (tree expr, const char *implicit)
     return expr;
   if (invalid_nonstatic_memfn_p (expr))
     return error_mark_node;
+  if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
+    {
+      error ("pseudo-destructor is not called");
+      return error_mark_node;
+    }
   if (VOID_TYPE_P (TREE_TYPE (expr)))
     return expr;
   switch (TREE_CODE (expr))
@@ -862,10 +854,10 @@ convert_to_void (tree expr, const char *implicit)
         int is_complete = COMPLETE_TYPE_P (complete_type (type));
         
         if (is_volatile && !is_complete)
-          warning ("object of incomplete type %qT will not be accessed in %s",
+          warning (0, "object of incomplete type %qT will not be accessed in %s",
                    type, implicit ? implicit : "void context");
         else if (is_reference && is_volatile)
-          warning ("object of type %qT will not be accessed in %s",
+          warning (0, "object of type %qT will not be accessed in %s",
                    TREE_TYPE (TREE_OPERAND (expr, 0)),
                    implicit ? implicit : "void context");
         if (is_reference || !is_volatile || !is_complete)
@@ -881,7 +873,7 @@ convert_to_void (tree expr, const char *implicit)
         int is_complete = COMPLETE_TYPE_P (complete_type (type));
         
         if (TYPE_VOLATILE (type) && !is_complete)
-          warning ("object %qE of incomplete type %qT will not be accessed in %s",
+          warning (0, "object %qE of incomplete type %qT will not be accessed in %s",
                    expr, type, implicit ? implicit : "void context");
         break;
       }
@@ -903,7 +895,7 @@ convert_to_void (tree expr, const char *implicit)
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
       /* Only warn when there is no &.  */
-      warning ("%s is a reference, not call, to function %qE",
+      warning (0, "%s is a reference, not call, to function %qE",
 		  implicit, expr);
   }
   
@@ -914,7 +906,7 @@ convert_to_void (tree expr, const char *implicit)
 	  /* The middle end does not warn about expressions that have
 	     been explicitly cast to void, so we must do so here.  */
 	  if (!TREE_SIDE_EFFECTS (expr))
-	    warning ("%s has no effect", implicit);
+	    warning (0, "%s has no effect", implicit);
 	  else 
 	    { 
 	      tree e;
@@ -946,7 +938,7 @@ convert_to_void (tree expr, const char *implicit)
 			    || code == PREINCREMENT_EXPR
 			    || code == POSTDECREMENT_EXPR
 			    || code == POSTINCREMENT_EXPR)))
-		warning ("value computed is not used");
+		warning (0, "value computed is not used");
 	    }
 	}
       expr = build1 (CONVERT_EXPR, void_type_node, expr);
@@ -1054,7 +1046,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   if (expr == null_node 
       && (desires & WANT_INT) 
       && !(desires & WANT_NULL))
-    warning ("converting NULL to non-pointer type");
+    warning (0, "converting NULL to non-pointer type");
     
   basetype = TREE_TYPE (expr);
 

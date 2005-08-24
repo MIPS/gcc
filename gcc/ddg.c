@@ -1,5 +1,5 @@
 /* DDG - Data Dependence Graph implementation.
-   Copyright (C) 2004
+   Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -187,6 +187,8 @@ create_ddg_dependence (ddg_ptr g, ddg_node_ptr src_node,
       else
 	free (e);
     }
+  else if (t == ANTI_DEP && dt == REG_DEP)
+    free (e);  /* We can fix broken anti register deps using reg-moves.  */
   else
     add_edge_to_ddg (g, e);
 }
@@ -300,7 +302,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct ref *use)
      if (df_find_def (df, g->nodes[i].insn, use->reg))
        return;
   /* We must not add ANTI dep when there is an intra-loop TRUE dep in
-     the opozite direction. If the first_def reaches the USE then there is
+     the opposite direction. If the first_def reaches the USE then there is
      such a dep.  */
   if (! bitmap_bit_p (bb_info->rd_gen, first_def->id))
     create_ddg_dep_no_link (g, use_node, def_node, ANTI_DEP, REG_DEP, 1);

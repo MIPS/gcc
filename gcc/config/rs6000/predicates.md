@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; the Free Software Foundation, 59 Temple Place - Suite 330,
+;; Boston, MA 02111-1307, USA.
 
 ;; Return 1 for anything except PARALLEL.
 (define_predicate "any_operand"
@@ -43,16 +43,6 @@
 (define_predicate "xer_operand"
   (and (match_code "reg")
        (match_test "XER_REGNO_P (REGNO (op))")))
-
-;; Return 1 if op is a signed 5-bit constant integer.
-(define_predicate "s5bit_cint_operand"
-  (and (match_code "const_int")
-       (match_test "INTVAL (op) >= -16 && INTVAL (op) <= 15")))
-
-;; Return 1 if op is a unsigned 5-bit constant integer.
-(define_predicate "u5bit_cint_operand"
-  (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 31")))
 
 ;; Return 1 if op is a signed 8-bit constant integer.
 ;; Integer multiplcation complete more quickly
@@ -142,25 +132,30 @@
   (ior (match_code "const_int")
        (match_operand 0 "gpc_reg_operand")))
 
-;; Return 1 if op is a constant integer valid for addition
+;; Return 1 if op is a 32-bit signed constant integer valid for arithmetic
 ;; or non-special register.
-(define_predicate "reg_or_add_cint_operand"
+(define_predicate "reg_or_arith_cint_operand"
   (if_then_else (match_code "const_int")
-    (match_test "(HOST_BITS_PER_WIDE_INT == 32
-		  && (mode == SImode || INTVAL (op) < 0x7fff8000))
+    (match_test "HOST_BITS_PER_WIDE_INT == 32
+		 || ((unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80000000)
+		     < (unsigned HOST_WIDE_INT) 0x100000000ll)")
+    (match_operand 0 "gpc_reg_operand")))
+
+;; Return 1 if op is a 32-bit signed constant integer valid for 64-bit addition
+;; or non-special register.
+(define_predicate "reg_or_add_cint64_operand"
+  (if_then_else (match_code "const_int")
+    (match_test "(HOST_BITS_PER_WIDE_INT == 32 && INTVAL (op) < 0x7fff8000)
 		 || ((unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80008000)
 		     < (unsigned HOST_WIDE_INT) 0x100000000ll)")
     (match_operand 0 "gpc_reg_operand")))
 
-;; Return 1 if op is a constant integer valid for subtraction
+;; Return 1 if op is a 32-bit constant integer valid for 64-bit subtraction
 ;; or non-special register.
-(define_predicate "reg_or_sub_cint_operand"
+(define_predicate "reg_or_sub_cint64_operand"
   (if_then_else (match_code "const_int")
-    (match_test "(HOST_BITS_PER_WIDE_INT == 32
-		  && (mode == SImode || - INTVAL (op) < 0x7fff8000))
-		 || ((unsigned HOST_WIDE_INT) (- INTVAL (op) 
-					       + (mode == SImode
-						  ? 0x80000000 : 0x80008000))
+    (match_test "(HOST_BITS_PER_WIDE_INT == 32 && INTVAL (op) < 0x7fff8000)
+		 || ((unsigned HOST_WIDE_INT) ((- INTVAL (op)) + 0x80008000)
 		     < (unsigned HOST_WIDE_INT) 0x100000000ll)")
     (match_operand 0 "gpc_reg_operand")))
 
@@ -355,22 +350,11 @@
 
 ;; Return 1 if the operand is an indexed or indirect memory operand.
 (define_predicate "indexed_or_indirect_operand"
-  (match_operand 0 "memory_operand")
-{
-  rtx tmp = XEXP (op, 0);
-
-  if (TARGET_ALTIVEC
-      && ALTIVEC_VECTOR_MODE (mode)
-      && GET_CODE (tmp) == AND
-      && GET_CODE (XEXP (tmp, 1)) == CONST_INT
-      && INTVAL (XEXP (tmp, 1)) == -16)
-    tmp = XEXP (tmp, 0);
-
-    return REG_P (tmp)
-		  || (GET_CODE (tmp) == PLUS
-		      && REG_P (XEXP (tmp, 0)) 
-		      && REG_P (XEXP (tmp, 1)));
-})
+  (and (match_operand 0 "memory_operand")
+       (match_test "REG_P (XEXP (op, 0))
+		    || (GET_CODE (XEXP (op, 0)) == PLUS
+			&& REG_P (XEXP (XEXP (op, 0), 0)) 
+			&& REG_P (XEXP (XEXP (op, 0), 1)))")))
 
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
@@ -379,14 +363,6 @@
 		    || ! REG_P (XEXP (XEXP (op, 0), 0)) 
 		    || GET_CODE (XEXP (XEXP (op, 0), 1)) != CONST_INT
 		    || INTVAL (XEXP (XEXP (op, 0), 1)) % 4 == 0")))
-
-;; Return 1 if the operand is an indexed or indirect address.
-(define_predicate "indexed_or_indirect_address"
-  (and (match_operand 0 "address_operand")
-       (match_test "REG_P (op)
-		    || (GET_CODE (op) == PLUS
-			&& REG_P (XEXP (op, 0)) 
-			&& REG_P (XEXP (op, 1)))")))
 
 ;; Used for the destination of the fix_truncdfsi2 expander.
 ;; If stfiwx will be used, the result goes to memory; otherwise,
@@ -452,14 +428,10 @@
        (and (not (match_operand 0 "logical_operand"))
 	    (match_operand 0 "reg_or_logical_cint_operand"))))
 
-;; For SImode, return 1 if op is a constant that can be encoded in a
-;; 32-bit mask (no more than two 1->0 or 0->1 transitions).  Reject
-;; all ones and all zeros, since these should have been optimized away
-;; and confuse the making of MB and ME.
-;; For DImode, return 1 if the operand is a constant that is a
-;; PowerPC64 mask (no more than one 1->0 or 0->1 transitions).  Reject
-;; all zeros, since zero should have been optimized away and confuses
-;; the making of MB and ME.
+;; Return 1 if op is a constant that can be encoded in a 32-bit mask (no
+;; more than two 1->0 or 0->1 transitions).  Reject all ones and all
+;; zeros, since these should have been optimized away and confuse the
+;; making of MB and ME.
 (define_predicate "mask_operand"
   (match_code "const_int")
 {
@@ -469,11 +441,7 @@
 
   /* Fail in 64-bit mode if the mask wraps around because the upper
      32-bits of the mask will all be 1s, contrary to GCC's internal view.  */
-  if (mode == SImode && TARGET_POWERPC64 && (c & 0x80000001) == 0x80000001)
-    return 0;
-
-  /* Reject all zeros or all ones in 32-bit mode.  */
-  if (c == 0 || (mode == SImode && c == -1))
+  if (TARGET_POWERPC64 && (c & 0x80000001) == 0x80000001)
     return 0;
 
   /* We don't change the number of transitions by inverting,
@@ -481,20 +449,21 @@
   if (c & 1)
     c = ~c;
 
+  /* Reject all zeros or all ones.  */
+  if (c == 0)
+    return 0;
+
   /* Find the first transition.  */
   lsb = c & -c;
 
-  if (mode == SImode)
-    {
-      /* Invert to look for a second transition.  */
-      c = ~c;
+  /* Invert to look for a second transition.  */
+  c = ~c;
 
-      /* Erase first transition.  */
-      c &= -lsb;
+  /* Erase first transition.  */
+  c &= -lsb;
 
-      /* Find the second transition (if any).  */
-      lsb = c & -c;
-    }
+  /* Find the second transition (if any).  */
+  lsb = c & -c;
 
   /* Match if all the bits above are 1's (or c is zero).  */
   return c == -lsb;
@@ -522,7 +491,33 @@
   return c == -lsb;
 })
 
-;; Like mask_operand, but allow up to three transitions.  This
+;; Return 1 if the operand is a constant that is a PowerPC64 mask (no more
+;; than one 1->0 or 0->1 transitions).  Reject all zeros, since zero
+;; should have been optimized away and confuses the making of MB and ME.
+(define_predicate "mask64_operand"
+  (match_code "const_int")
+{
+  HOST_WIDE_INT c, lsb;
+
+  c = INTVAL (op);
+
+  /* Reject all zeros.  */
+  if (c == 0)
+    return 0;
+
+  /* We don't change the number of transitions by inverting,
+     so make sure we start with the LS bit zero.  */
+  if (c & 1)
+    c = ~c;
+
+  /* Find the transition, and check that all bits above are 1's.  */
+  lsb = c & -c;
+
+  /* Match if all the bits above are 1's (or c is zero).  */
+  return c == -lsb;
+})
+
+;; Like mask64_operand, but allow up to three transitions.  This
 ;; predicate is used by insn patterns that generate two rldicl or
 ;; rldicr machine insns.
 (define_predicate "mask64_2_operand"
@@ -531,7 +526,15 @@
   return mask64_1or2_operand (op, mode, false);
 })
 
-;; Like and_operand, but also match constants that can be implemented
+;; Return 1 if the operand is either a non-special register or a constant
+;; that can be used as the operand of a PowerPC64 logical AND insn.
+(define_predicate "and64_operand"
+  (ior (match_operand 0 "mask64_operand")
+       (if_then_else (match_test "fixed_regs[CR0_REGNO]")
+	 (match_operand 0 "gpc_reg_operand")
+	 (match_operand 0 "logical_operand"))))
+
+;; Like and64_operand, but also match constants that can be implemented
 ;; with two rldicl or rldicr insns.
 (define_predicate "and64_2_operand"
   (ior (and (match_code "const_int")
@@ -547,11 +550,6 @@
        (if_then_else (match_test "fixed_regs[CR0_REGNO]")
 	 (match_operand 0 "gpc_reg_operand")
 	 (match_operand 0 "logical_operand"))))
-
-;; Return 1 if the operand is either a logical operand or a short cint operand.
-(define_predicate "scc_eq_operand"
-  (ior (match_operand 0 "logical_operand")
-       (match_operand 0 "short_cint_operand")))
 
 ;; Return 1 if the operand is a general non-special register or memory operand.
 (define_predicate "reg_or_mem_operand"
@@ -709,10 +707,6 @@
 ;; Return true if operand is OR-form of boolean operator.
 (define_predicate "boolean_or_operator"
   (match_code "ior,xor"))
-
-;; Return true if operand is an equality operator.
-(define_special_predicate "equality_operator"
-  (match_code "eq,ne"))
 
 ;; Return true if operand is MIN or MAX operator.
 (define_predicate "min_max_operator"

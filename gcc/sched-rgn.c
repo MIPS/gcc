@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -291,7 +291,6 @@ is_cfg_nonregular (void)
 {
   basic_block b;
   rtx insn;
-  RTX_CODE code;
 
   /* If we have a label that could be the target of a nonlocal goto, then
      the cfg is not well structured.  */
@@ -302,11 +301,6 @@ is_cfg_nonregular (void)
   if (forced_labels)
     return 1;
 
-  /* If this function has a computed jump, then we consider the cfg
-     not well structured.  */
-  if (current_function_has_computed_jump)
-    return 1;
-
   /* If we have exception handlers, then we consider the cfg not well
      structured.  ?!?  We should be able to handle this now that flow.c
      computes an accurate cfg for EH.  */
@@ -315,24 +309,23 @@ is_cfg_nonregular (void)
 
   /* If we have non-jumping insns which refer to labels, then we consider
      the cfg not well structured.  */
-  /* Check for labels referred to other thn by jumps.  */
   FOR_EACH_BB (b)
-    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
+    FOR_BB_INSNS (b, insn)
       {
-	code = GET_CODE (insn);
-	if (INSN_P (insn) && code != JUMP_INSN)
+	/* Check for labels referred by non-jump insns.  */
+	if (NONJUMP_INSN_P (insn) || CALL_P (insn))
 	  {
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
-
 	    if (note
 		&& ! (JUMP_P (NEXT_INSN (insn))
 		      && find_reg_note (NEXT_INSN (insn), REG_LABEL,
 					XEXP (note, 0))))
 	      return 1;
 	  }
-
-	if (insn == BB_END (b))
-	  break;
+	/* If this function has a computed jump, then we consider the cfg
+	   not well structured.  */
+	else if (JUMP_P (insn) && computed_jump_p (insn))
+	  return 1;
       }
 
   /* Unreachable loops with more than one basic block are detected
@@ -344,8 +337,8 @@ is_cfg_nonregular (void)
   FOR_EACH_BB (b)
     {
       if (EDGE_COUNT (b->preds) == 0
-	  || (EDGE_PRED (b, 0)->src == b
-	      && EDGE_COUNT (b->preds) == 1))
+	  || (single_pred_p (b)
+	      && single_pred (b) == b))
 	return 1;
     }
 
@@ -544,7 +537,7 @@ find_rgns (void)
 
   /* DFS traversal to find inner loops in the cfg.  */
 
-  current_edge = ei_start (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->succs);
+  current_edge = ei_start (single_succ (ENTRY_BLOCK_PTR)->succs);
   sp = -1;
 
   while (1)
@@ -734,8 +727,8 @@ find_rgns (void)
 		  FOR_EACH_BB (jbb)
 		    /* Leaf nodes have only a single successor which must
 		       be EXIT_BLOCK.  */
-		    if (EDGE_COUNT (jbb->succs) == 1
-			&& EDGE_SUCC (jbb, 0)->dest == EXIT_BLOCK_PTR)
+		    if (single_succ_p (jbb)
+			&& single_succ (jbb) == EXIT_BLOCK_PTR)
 		      {
 			queue[++tail] = jbb->index;
 			SET_BIT (in_queue, jbb->index);
@@ -997,6 +990,7 @@ compute_trg_info (int trg)
   edgelst el;
   int i, j, k, update_idx;
   basic_block block;
+  sbitmap visited;
   edge_iterator ei;
   edge e;
 
@@ -1005,6 +999,8 @@ compute_trg_info (int trg)
   sp->is_valid = 1;
   sp->is_speculative = 0;
   sp->src_prob = 100;
+
+  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
 
   for (i = trg + 1; i < current_nr_blocks; i++)
     {
@@ -1043,12 +1039,14 @@ compute_trg_info (int trg)
 	     overrunning the end of the bblst_table.  */
 
 	  update_idx = 0;
+	  sbitmap_zero (visited);
 	  for (j = 0; j < el.nr_members; j++)
 	    {
 	      block = el.first_member[j]->src;
 	      FOR_EACH_EDGE (e, ei, block->succs)
 		{
-		  if (!(e->dest->flags & BB_VISITED))
+		  if (!TEST_BIT (visited,
+				 e->dest->index - (INVALID_BLOCK + 1)))
 		    {
 		      for (k = 0; k < el.nr_members; k++)
 			if (e == el.first_member[k])
@@ -1057,16 +1055,14 @@ compute_trg_info (int trg)
 		      if (k >= el.nr_members)
 			{
 			  bblst_table[bblst_last++] = e->dest;
-			  e->dest->flags |= BB_VISITED;
+			  SET_BIT (visited,
+				   e->dest->index - (INVALID_BLOCK + 1));
 			  update_idx++;
 			}
 		    }
 		}
 	    }
 	  sp->update_bbs.nr_members = update_idx;
-
-	  FOR_ALL_BB (block)
-	    block->flags &= ~BB_VISITED;
 
 	  /* Make sure we didn't overrun the end of bblst_table.  */
 	  gcc_assert (bblst_last <= bblst_size);
@@ -1079,6 +1075,8 @@ compute_trg_info (int trg)
 	  sp->src_prob = 0;
 	}
     }
+
+  sbitmap_free (visited);
 }
 
 /* Print candidates info, for debugging purposes.  Callable from debugger.  */
@@ -1325,7 +1323,7 @@ update_live (rtx insn, int src)
   (bb_from == bb_to							\
    || IS_RGN_ENTRY (bb_from)						\
    || (TEST_BIT (ancestor_edges[bb_to],					\
-	 EDGE_TO_BIT (EDGE_PRED (BASIC_BLOCK (BB_TO_BLOCK (bb_from)), 0)))))
+	 EDGE_TO_BIT (single_pred_edge (BASIC_BLOCK (BB_TO_BLOCK (bb_from)))))))
 
 /* Turns on the fed_by_spec_load flag for insns fed by load_insn.  */
 

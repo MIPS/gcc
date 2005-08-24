@@ -230,7 +230,7 @@ gen_loads (bitmap b1, bitmap b2, block_stmt_iterator *bsi)
     sra_insert_after (bsi, list);
 			   
   if (b2)
-    BITMAP_XFREE (result);
+    BITMAP_FREE (result);
 }
 
 /* Generate a series of stores to the static variables pointed to by
@@ -265,7 +265,7 @@ gen_stores (bitmap b1, bitmap b2, block_stmt_iterator *bsi)
     sra_insert_before (bsi, list);
 			   
   if (b2)
-    BITMAP_XFREE (result);
+    BITMAP_FREE (result);
 }
 
 /* Replace the static references if it exists in the TPTR.  */
@@ -370,7 +370,7 @@ try_replace_call (tree fn, block_stmt_iterator si)
 	     flags are only set if the callee has already been compiled.  */
 	  /* if (!(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN))) */
 	  gen_loads (local_all, callee_written, &si);
-	  BITMAP_XFREE (callee_all);
+	  BITMAP_FREE (callee_all);
 	}
       else 
 	gen_dumb_call (fn, si);
@@ -479,9 +479,9 @@ walk_function (void)
 		gen_stores (local_written, all_bitmap , &si);
 		gen_loads (local_all, load_bitmap, &si);
 		
-		BITMAP_XFREE (store_bitmap);
-		BITMAP_XFREE (load_bitmap);
-		BITMAP_XFREE (all_bitmap);
+		BITMAP_FREE (store_bitmap);
+		BITMAP_FREE (load_bitmap);
+		BITMAP_FREE (all_bitmap);
 	      } 
 	    break;
 	    
@@ -619,7 +619,7 @@ struct tree_opt_pass pass_promote_statics =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_rename_vars,	/* todo_flags_finish */
+  TODO_dump_func,	                /* todo_flags_finish */
   0                                     /* letter */
 };
 

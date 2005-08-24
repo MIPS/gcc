@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -367,7 +367,9 @@ enum insn_note {
   NOTE_INSN_MAX
 };
 
-static const char *const note_insn_name[NOTE_INSN_MAX] = {
+/* We must allocate one more entry here, as we use NOTE_INSN_MAX as the
+   default field for line number notes.  */
+static const char *const note_insn_name[NOTE_INSN_MAX+1] = {
 #define DEF_INSN_NOTE(NAME) #NAME,
 #include "insn-notes.def"
 #undef DEF_INSN_NOTE
@@ -1081,14 +1083,12 @@ open_base_files (void)
     /* The order of files here matters very much.  */
     static const char *const ifiles [] = {
       "config.h", "system.h", "coretypes.h", "tm.h", "varray.h", 
-      "hashtab.h", "splay-tree.h", "bitmap.h", "input.h", "tree.h", "rtl.h",
-      "function.h", "insn-config.h", "expr.h", "except.h", "hard-reg-set.h",
-      "basic-block.h", "cselib.h", "insn-addr.h", "optabs.h",
-      "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
-      "tree-flow.h", "reload.h",
-      "cpp-id-data.h",
-      "tree-chrec.h", "obstack.h",
-      NULL
+      "hashtab.h", "splay-tree.h",  "obstack.h", "bitmap.h", "input.h",
+      "tree.h", "rtl.h", "function.h", "insn-config.h", "expr.h",
+      "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
+      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
+      "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
+      "except.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -1238,6 +1238,15 @@ get_output_file_with_visibility (const char *input_file)
     output_name = "gt-c-common.h", for_name = "c-common.c";
   else if (strcmp (basename, "c-tree.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "cp-tree.h") == 0)
+    output_name = "gt-cp-tree.h", for_name = "cp/tree.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "decl.h") == 0)
+    output_name = "gt-cp-decl.h", for_name = "cp/decl.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "name-lookup.h") == 0)
+    output_name = "gt-cp-name-lookup.h", for_name = "cp/name-lookup.c";
   else if (strncmp (basename, "objc", 4) == 0 && IS_DIR_SEPARATOR (basename[4])
 	   && strcmp (basename + 5, "objc-act.h") == 0)
     output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";
@@ -1681,7 +1690,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	    oprintf (d->of, "%*sif (%s != NULL) {\n", d->indent, "", d->val);
 	    d->indent += 2;
 	    oprintf (d->of, "%*ssize_t i%d;\n", d->indent, "", loopcounter);
-	    oprintf (d->of, "%*sfor (i%d = 0; i%d < (size_t)(", d->indent, "",
+	    oprintf (d->of, "%*sfor (i%d = 0; i%d != (size_t)(", d->indent, "",
 		     loopcounter, loopcounter);
 	    output_escaped_param (d, length, "length");
 	    oprintf (d->of, "); i%d++) {\n", loopcounter);
@@ -1717,7 +1726,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	oprintf (d->of, "%*s{\n", d->indent, "");
 	d->indent += 2;
 	oprintf (d->of, "%*ssize_t i%d;\n", d->indent, "", loopcounter);
-	oprintf (d->of, "%*sfor (i%d = 0; i%d < (size_t)(", d->indent, "",
+	oprintf (d->of, "%*sfor (i%d = 0; i%d != (size_t)(", d->indent, "",
 		 loopcounter, loopcounter);
 	if (length)
 	  output_escaped_param (d, length, "length");
@@ -1928,6 +1937,21 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
 	    }
 	  else
 	    oprintf (d->of, ", gt_%sa_%s", wtd->param_prefix, d->prev_val[0]);
+
+	  if (f->u.p->kind == TYPE_PARAM_STRUCT
+	      && f->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d->of, ", gt_e_");
+	      output_mangled_typename (d->of, f);
+	    }
+	  else if (UNION_OR_STRUCT_P (f)
+		   && f->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d->of, ", gt_ggc_e_");
+	      output_mangled_typename (d->of, f);
+	    }
+	  else
+	    oprintf (d->of, ", gt_types_enum_last");
 	}
       oprintf (d->of, ");\n");
       if (d->reorder_fn && wtd->reorder_note_routine)
@@ -1959,6 +1983,25 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
     default:
       gcc_unreachable ();
     }
+}
+
+/* A subroutine of write_func_for_structure.  Write the enum tag for S.  */
+
+static void
+output_type_enum (outf_p of, type_p s)
+{
+  if (s->kind == TYPE_PARAM_STRUCT && s->u.s.line.file != NULL)
+    {
+      oprintf (of, ", gt_e_");
+      output_mangled_typename (of, s);
+    }
+  else if (UNION_OR_STRUCT_P (s) && s->u.s.line.file != NULL)
+    {
+      oprintf (of, ", gt_ggc_e_");
+      output_mangled_typename (of, s);
+    }
+  else
+    oprintf (of, ", gt_types_enum_last");
 }
 
 /* For S, a structure that's part of ORIG_S, and using parameters
@@ -2035,6 +2078,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
+	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
     }
@@ -2045,6 +2089,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
+	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
       oprintf (d.of, "   xlimit = (");
@@ -2070,6 +2115,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	    {
 	      oprintf (d.of, ", xprev, gt_%s_", wtd->param_prefix);
 	      output_mangled_typename (d.of, orig_s);
+	      output_type_enum (d.of, orig_s);
 	    }
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "      }\n");

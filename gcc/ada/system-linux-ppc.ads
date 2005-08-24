@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                          (GNU-Linux/PPC Version)                         --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -118,6 +118,7 @@ private
    Backend_Divide_Checks     : constant Boolean := False;
    Backend_Overflow_Checks   : constant Boolean := False;
    Command_Line_Args         : constant Boolean := True;
+   Compiler_System_Version   : constant Boolean := False;
    Configurable_Run_Time     : constant Boolean := False;
    Denorm                    : constant Boolean := True;
    Duration_32_Bits          : constant Boolean := False;
@@ -139,8 +140,8 @@ private
    Support_Long_Shifts       : constant Boolean := True;
    Suppress_Standard_Library : constant Boolean := False;
    Use_Ada_Main_Program_Name : constant Boolean := False;
-   ZCX_By_Default            : constant Boolean := False;
-   GCC_ZCX_Support           : constant Boolean := False;
+   ZCX_By_Default            : constant Boolean := True;
+   GCC_ZCX_Support           : constant Boolean := True;
    Front_End_ZCX_Support     : constant Boolean := False;
 
    --  Obsolete entries, to be removed eventually (bootstrap issues!)

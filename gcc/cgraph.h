@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -33,12 +33,11 @@ enum availability
   /* Function body/variable initializer is unknown.  */
   AVAIL_NOT_AVAILABLE,
   /* Function body/variable initializer is known but might be replaced
-     by a different one from other compilation unit and thus can be
-     dealt with only as a hint.  */
+     by a different one from other compilation unit and thus needs to
+     be dealt with a care.  Like AVAIL_NOT_AVAILABLE it can have
+     arbitrary side effects on escaping variables and functions, while
+     like AVAILABLE it might access static variables.  */
   AVAIL_OVERWRITABLE,
-  /* Same as AVAIL_OVERWRITABLE except the front end has said that
-     this instance is stable enough to analyze or even inline.  */
-  AVAIL_OVERWRITABLE_BUT_INLINABLE,
   /* Function body/variable initializer is known and will be used in final
      program.  */
   AVAIL_AVAILABLE,
@@ -79,6 +78,14 @@ struct cgraph_local_info GTY(())
   /* True when the function has been originally extern inline, but it is
      redefined now.  */
   bool redefined_extern_inline;
+
+  /* True if statics_read_for_function and
+     statics_written_for_function contain valid data.  */
+  bool for_functions_valid;
+
+  /* True if the function is going to be emitted in some other translation
+     unit, referenced from vtable.  */
+  bool vtable_method;
 };
 
 /* Information about the function that needs to be computed globally
@@ -91,6 +98,7 @@ struct cgraph_global_info GTY(())
 
   /* Estimated size of the function after inlining.  */
   int insns;
+
   /* Estimated growth after inlining.  INT_MIN if not computed.  */
   int estimated_growth;
 
@@ -127,6 +135,7 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_node *next_needed;
   /* Pointer to the next clone.  */
   struct cgraph_node *next_clone;
+  struct cgraph_node *prev_clone;
   /* Pointer to next node in a recursive call graph cycle; */
   struct cgraph_node *next_cycle;
   /* Pointer to a single unique cgraph node for this function.  If the
@@ -163,18 +172,22 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool declared_static;
   /* FKZ HACK Used only while constructing the callgraph.  */
   basic_block current_basic_block;
+  /* Set for aliases once they got through assemble_alias.  */
+  bool alias;
 };
 
-struct cgraph_edge GTY((chain_next ("%h.next_caller")))
+struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller")))
 {
   struct cgraph_node *caller;
   struct cgraph_node *callee;
+  struct cgraph_edge *prev_caller;
   struct cgraph_edge *next_caller;
+  struct cgraph_edge *prev_callee;
   struct cgraph_edge *next_callee;
   struct cgraph_edge *next_indirect_call;
   tree indirect_call_var;
   tree indirect_called_fns;
-  tree call_expr;
+  tree call_stmt;
   PTR GTY ((skip (""))) aux;
   /* When NULL, inline this call.  When non-NULL, points to the explanation
      why function was not inlined.  */
@@ -207,7 +220,7 @@ struct cgraph_varpool_node GTY(())
   bool analyzed;
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
-  /* Set when function is scheduled to be assembled.  */
+  /* Set when variable is scheduled to be assembled.  */
   bool output;
   /* Set when function is visible by other units.  */
   bool externally_visible;
@@ -216,6 +229,8 @@ struct cgraph_varpool_node GTY(())
      IPA optimizers or we confuse them badly.  */
   bool non_ipa;
   bool assembled;
+  /* Set for aliases once they got through assemble_alias.  */
+  bool alias;
 };
 
 #define INDIRECT_CALLS(node)   (node)->indirect_calls
@@ -227,9 +242,9 @@ extern GTY(()) struct cgraph_node *cgraph_nodes;
 extern GTY(()) int cgraph_n_nodes;
 extern GTY(()) int cgraph_max_uid;
 extern bool cgraph_global_info_ready;
+extern bool cgraph_function_flags_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
 
-extern GTY(()) int cgraph_varpool_n_nodes;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
 
@@ -240,6 +255,7 @@ void dump_varpool (FILE *);
 void dump_cgraph_varpool_node (FILE *, struct cgraph_varpool_node *);
 void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
+void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
 				        tree, gcov_type, int);
@@ -262,7 +278,6 @@ struct cgraph_varpool_node *cgraph_varpool_node (tree);
 struct cgraph_varpool_node *cgraph_varpool_node_for_asm (tree asmname);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
-bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
 void cgraph_redirect_edge_caller (struct cgraph_edge *, struct cgraph_node *);
 
@@ -279,9 +294,16 @@ void cgraph_varpool_reset_queue (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *, const char **);
+bool decide_is_variable_needed (struct cgraph_varpool_node *, tree);
+
+enum availability cgraph_function_body_availability (struct cgraph_node *);
+enum availability cgraph_variable_initializer_availability (struct cgraph_varpool_node *);
+bool cgraph_is_master_clone (struct cgraph_node *);
+struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);
+bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_finalize_function (tree, bool);
 void cgraph_lower_function (struct cgraph_node *);
 void cgraph_finalize_compilation_unit (void);
@@ -310,6 +332,12 @@ tree build_basic_struct (void *, char *, tree);
 
 /* In matrix-transpose.c  */
 void matrix_reorg (void);
+
+void update_call_expr (struct cgraph_node *);
+struct cgraph_node *cgraph_copy_node_for_versioning (struct cgraph_node *,
+                                                     tree, varray_type);
+struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
+                                                varray_type, varray_type);
 
 #endif  /* GCC_CGRAPH_H  */
 

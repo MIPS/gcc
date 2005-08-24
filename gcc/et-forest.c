@@ -1,6 +1,6 @@
 /* ET-trees data structure implementation.
    Contributed by Pavel Nejedly
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -495,6 +495,15 @@ et_free_tree (struct et_node *t)
   if (t->father)
     et_split (t);
 
+  pool_free (et_occurrences, t->rightmost_occ);
+  pool_free (et_nodes, t);
+}
+
+/* Releases et tree T without maintaining other nodes.  */
+
+void
+et_free_tree_force (struct et_node *t)
+{
   pool_free (et_occurrences, t->rightmost_occ);
   pool_free (et_nodes, t);
 }

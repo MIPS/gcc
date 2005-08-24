@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,9 +47,8 @@ package body Widechar is
    ---------------------------
 
    function Is_Start_Of_Wide_Char
-     (S    : Source_Buffer_Ptr;
-      P    : Source_Ptr)
-      return Boolean
+     (S : Source_Buffer_Ptr;
+      P : Source_Ptr) return Boolean
    is
    begin
       case Wide_Character_Encoding_Method is
@@ -92,17 +91,22 @@ package body Widechar is
       function In_Char return Character;
       --  Function to obtain characters of wide character escape sequence
 
+      -------------
+      -- In_Char --
+      -------------
+
       function In_Char return Character is
       begin
          P := P + 1;
          return S (P - 1);
       end In_Char;
 
-      function WC_In is new Char_Sequence_To_Wide_Char (In_Char);
+      function WC_In is new Char_Sequence_To_UTF_32 (In_Char);
+
+   --  Start of processingf for Scan_Wide
 
    begin
-      C := Char_Code (Wide_Character'Pos
-                       (WC_In (In_Char, Wide_Character_Encoding_Method)));
+      C := Char_Code (WC_In (In_Char, Wide_Character_Encoding_Method));
       Err := False;
 
    exception
@@ -124,16 +128,22 @@ package body Widechar is
       procedure Out_Char (C : Character);
       --  Procedure to store one character of wide character sequence
 
+      --------------
+      -- Out_Char --
+      --------------
+
       procedure Out_Char (C : Character) is
       begin
          P := P + 1;
          S (P) := C;
       end Out_Char;
 
-      procedure WC_Out is new Wide_Char_To_Char_Sequence (Out_Char);
+      procedure WC_Out is new UTF_32_To_Char_Sequence (Out_Char);
+
+   --  Start of processing for Set_Wide
 
    begin
-      WC_Out (Wide_Character'Val (C), Wide_Character_Encoding_Method);
+      WC_Out (UTF_32_Code (C), Wide_Character_Encoding_Method);
    end Set_Wide;
 
    ---------------
@@ -144,16 +154,51 @@ package body Widechar is
       function Skip_Char return Character;
       --  Function to skip one character of wide character escape sequence
 
+      ---------------
+      -- Skip_Char --
+      ---------------
+
       function Skip_Char return Character is
       begin
          P := P + 1;
          return S (P - 1);
       end Skip_Char;
 
-      function WC_Skip is new Char_Sequence_To_Wide_Char (Skip_Char);
+      function WC_Skip is new Char_Sequence_To_UTF_32 (Skip_Char);
 
-      Discard : Wide_Character;
+      Discard : UTF_32_Code;
       pragma Warnings (Off, Discard);
+
+   --  Start of processing for Skip_Wide
+
+   begin
+      Discard := WC_Skip (Skip_Char, Wide_Character_Encoding_Method);
+   end Skip_Wide;
+
+   ---------------
+   -- Skip_Wide --
+   ---------------
+
+   procedure Skip_Wide (S : Source_Buffer_Ptr; P : in out Source_Ptr) is
+      function Skip_Char return Character;
+      --  Function to skip one character of wide character escape sequence
+
+      ---------------
+      -- Skip_Char --
+      ---------------
+
+      function Skip_Char return Character is
+      begin
+         P := P + 1;
+         return S (P - 1);
+      end Skip_Char;
+
+      function WC_Skip is new Char_Sequence_To_UTF_32 (Skip_Char);
+
+      Discard : UTF_32_Code;
+      pragma Warnings (Off, Discard);
+
+   --  Start of processing for Skip_Wide
 
    begin
       Discard := WC_Skip (Skip_Char, Wide_Character_Encoding_Method);

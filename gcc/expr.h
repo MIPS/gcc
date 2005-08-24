@@ -1,6 +1,7 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -116,6 +117,8 @@ struct locate_and_pad_arg_data
   struct args_size alignment_pad;
   /* Which way we should pad this arg.  */
   enum direction where_pad;
+  /* slot_offset is at least this aligned.  */
+  unsigned int boundary;
 };
 
 /* Add the value of the tree INC to the `struct args_size' TO.  */
@@ -307,6 +310,11 @@ int can_conditionally_move_p (enum machine_mode mode);
 rtx emit_conditional_add (rtx, enum rtx_code, rtx, rtx, enum machine_mode,
 			  rtx, rtx, enum machine_mode, int);
 
+rtx expand_val_compare_and_swap (rtx, rtx, rtx, rtx);
+rtx expand_bool_compare_and_swap (rtx, rtx, rtx, rtx);
+rtx expand_sync_operation (rtx, rtx, enum rtx_code);
+rtx expand_sync_fetch_operation (rtx, rtx, enum rtx_code, bool, rtx);
+rtx expand_sync_lock_test_and_set (rtx, rtx, rtx);
 
 /* Functions from expmed.c:  */
 
@@ -359,7 +367,9 @@ enum block_op_methods
 {
   BLOCK_OP_NORMAL,
   BLOCK_OP_NO_LIBCALL,
-  BLOCK_OP_CALL_PARM
+  BLOCK_OP_CALL_PARM,
+  /* Like BLOCK_OP_NORMAL, but the libcall can be tail call optimized.  */
+  BLOCK_OP_TAILCALL
 };
 
 extern void init_block_move_fn (const char *);
@@ -411,7 +421,7 @@ extern void use_group_regs (rtx *, rtx);
 
 /* Write zeros through the storage of OBJECT.
    If OBJECT has BLKmode, SIZE is its length in bytes.  */
-extern rtx clear_storage (rtx, rtx);
+extern rtx clear_storage (rtx, rtx, enum block_op_methods);
 
 /* Determine whether the LEN bytes can be moved by using several move
    instructions.  Return nonzero if a call to move_by_pieces should
@@ -578,7 +588,7 @@ extern rtx eliminate_constant_term (rtx, rtx *);
    by emitting insns to perform arithmetic if nec.  */
 extern rtx memory_address (enum machine_mode, rtx);
 
-/* Like `memory_address' but pretent `flag_force_addr' is 0.  */
+/* Like `memory_address' but pretend `flag_force_addr' is 0.  */
 extern rtx memory_address_noforce (enum machine_mode, rtx);
 
 /* Return a memory reference like MEMREF, but with its mode changed
@@ -638,14 +648,6 @@ extern void set_mem_attributes_minus_bitpos (rtx, tree, int, HOST_WIDE_INT);
 
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template (void);
-
-/* Given rtx, return new rtx whose address won't be affected by
-   any side effects.  It has been copied to a new temporary reg.  */
-extern rtx stabilize (rtx);
-
-/* Given an rtx, copy all regs it refers to into new temps
-   and return a modified copy that refers to the new temps.  */
-extern rtx copy_all_regs (rtx);
 
 /* Copy given rtx to a new temp reg and return that.  */
 extern rtx copy_to_reg (rtx);

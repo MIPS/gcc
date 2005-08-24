@@ -1,4 +1,5 @@
-@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
+@c 2003, 2004, 2005
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -1286,6 +1287,9 @@ This type of expression represents the integer value @var{i}.  @var{i}
 is customarily accessed with the macro @code{INTVAL} as in
 @code{INTVAL (@var{exp})}, which is equivalent to @code{XWINT (@var{exp}, 0)}.
 
+Constants generated for modes with fewer bits than @code{HOST_WIDE_INT}
+must be sign extended to full width (e.g., with @code{gen_int_mode}).
+
 @findex const0_rtx
 @findex const1_rtx
 @findex const2_rtx
@@ -1386,7 +1390,7 @@ The @code{symbol_ref} contains a mode, which is usually @code{Pmode}.
 Usually that is the only mode for which a symbol is directly valid.
 
 @findex label_ref
-@item (label_ref @var{label})
+@item (label_ref:@var{mode} @var{label})
 Represents the value of an assembler label for code.  It contains one
 operand, an expression, which must be a @code{code_label} or a @code{note}
 of type @code{NOTE_INSN_DELETED_LABEL} that appears in the instruction
@@ -1394,6 +1398,9 @@ sequence to identify the place where the label should go.
 
 The reason for using a distinct expression type for code label
 references is so that jump optimization can distinguish them.
+
+The @code{label_ref} contains a mode, which is usually @code{Pmode}.
+Usually that is the only mode for which a label is directly valid.
 
 @item (const:@var{m} @var{exp})
 Represents a constant that is the result of an assembly-time
@@ -1884,7 +1891,10 @@ the quotient.
 @item (smin:@var{m} @var{x} @var{y})
 @itemx (smax:@var{m} @var{x} @var{y})
 Represents the smaller (for @code{smin}) or larger (for @code{smax}) of
-@var{x} and @var{y}, interpreted as signed integers in mode @var{m}.
+@var{x} and @var{y}, interpreted as signed values in mode @var{m}.
+When used with floating point, if both operands are zeros, or if either
+operand is @code{NaN}, then it is unspecified which of the two operands
+is returned as the result.
 
 @findex umin
 @findex umax
@@ -3105,9 +3115,6 @@ Appears near the end of the function body, just before the label that
 does not suffice for returning).  This note may be deleted by jump
 optimization.
 
-@findex NOTE_INSN_SETJMP
-@item NOTE_INSN_SETJMP
-Appears following each call to @code{setjmp} or a related function.
 @end table
 
 These codes are printed symbolically when they appear in debugging dumps.
@@ -3288,6 +3295,11 @@ of this note indicates to other optimizations that this this branching
 instruction should not be ``collapsed'' into a simpler branching
 construct.  It is used when the optimization to partition basic blocks
 into hot and cold sections is turned on.
+
+@findex REG_SETJMP
+@item REG_SETJMP 
+Appears attached to each @code{CALL_INSN} to @code{setjmp} or a 
+related function.
 @end table
 
 The following notes describe attributes of outputs of an insn:
@@ -3510,7 +3522,7 @@ on these machines should have a body which is a @code{parallel}
 that contains both the @code{call} expression and @code{clobber}
 expressions that indicate which registers are destroyed.  Similarly,
 if the call instruction requires some register other than the stack
-pointer that is not explicitly mentioned it its RTL, a @code{use}
+pointer that is not explicitly mentioned in its RTL, a @code{use}
 subexpression should mention that register.
 
 Functions that are called are assumed to modify all registers listed in

@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,29 +49,27 @@ add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
   if (profile_status == PROFILE_ABSENT)
     return;
   for (last = NEXT_INSN (last); last && NEXT_INSN (last); last = NEXT_INSN (last))
-    if (GET_CODE (last) == JUMP_INSN)
+    if (JUMP_P (last))
       {
 	/* It is common to emit condjump-around-jump sequence when we don't know
 	   how to reverse the conditional.  Special case this.  */
 	if (!any_condjump_p (last)
-	    || GET_CODE (NEXT_INSN (last)) != JUMP_INSN
+	    || !JUMP_P (NEXT_INSN (last))
 	    || !simplejump_p (NEXT_INSN (last))
-	    || GET_CODE (NEXT_INSN (NEXT_INSN (last))) != BARRIER
-	    || GET_CODE (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))) != CODE_LABEL
+	    || !BARRIER_P (NEXT_INSN (NEXT_INSN (last)))
+	    || !LABEL_P (NEXT_INSN (NEXT_INSN (NEXT_INSN (last))))
 	    || NEXT_INSN (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))))
 	  goto failed;
-	if (find_reg_note (last, REG_BR_PROB, 0))
-	  abort ();
+	gcc_assert (!find_reg_note (last, REG_BR_PROB, 0));
 	REG_NOTES (last)
 	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
 			       GEN_INT (REG_BR_PROB_BASE - probability),
 			       REG_NOTES (last));
 	return;
       }
-  if (!last || GET_CODE (last) != JUMP_INSN || !any_condjump_p (last))
-      goto failed;
-  if (find_reg_note (last, REG_BR_PROB, 0))
-    abort ();
+  if (!last || !JUMP_P (last) || !any_condjump_p (last))
+    goto failed;
+  gcc_assert (!find_reg_note (last, REG_BR_PROB, 0));
   REG_NOTES (last)
     = gen_rtx_EXPR_LIST (REG_BR_PROB,
 			 GEN_INT (probability), REG_NOTES (last));
@@ -80,6 +78,7 @@ failed:
   if (dump_file)
     fprintf (dump_file, "Failed to add probability note\n");
 }
+
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -598,7 +597,7 @@ expand_one_register_var (tree var)
 }
 
 /* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL that
-   has some associated error, e.g. it's type is error-mark.  We just need
+   has some associated error, e.g. its type is error-mark.  We just need
    to pick something that won't crash the rest of the compiler.  */
 
 static void
@@ -959,7 +958,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
     if (CALL_P (last) && SIBLING_CALL_P (last))
       goto found;
 
-  maybe_dump_rtl_for_tree_stmt (stmt, last);
+  maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
   *can_fallthru = true;
   return NULL;
@@ -1002,7 +1001,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 
   /* This is somewhat ugly: the call_expr expander often emits instructions
      after the sibcall (to perform the function return).  These confuse the
-     find_sub_basic_blocks code, so we need to get rid of these.  */
+     find_many_sub_basic_blocks code, so we need to get rid of these.  */
   last = NEXT_INSN (last);
   gcc_assert (BARRIER_P (last));
 
@@ -1087,7 +1086,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
       e->flags &= ~EDGE_EXECUTABLE;
 
       /* At the moment not all abnormal edges match the RTL representation.
-         It is safe to remove them here as find_sub_basic_blocks will
+         It is safe to remove them here as find_many_sub_basic_blocks will
          rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
@@ -1137,7 +1136,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
 
   do_pending_stack_adjust ();
 
-  /* Find the the block tail.  The last insn is the block is the insn
+  /* Find the block tail.  The last insn in the block is the insn
      before a barrier and/or table jump insn.  */
   last = get_last_insn ();
   if (BARRIER_P (last))
@@ -1158,22 +1157,25 @@ static basic_block
 construct_init_block (void)
 {
   basic_block init_block, first_block;
-  edge e = NULL, e2;
-  edge_iterator ei;
+  edge e = NULL;
+  int flags;
 
-  FOR_EACH_EDGE (e2, ei, ENTRY_BLOCK_PTR->succs)
+  /* Multiple entry points not supported yet.  */
+  gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1);
+
+  e = EDGE_SUCC (ENTRY_BLOCK_PTR, 0);
+
+  /* When entry edge points to first basic block, we don't need jump,
+     otherwise we have to jump into proper target.  */
+  if (e && e->dest != ENTRY_BLOCK_PTR->next_bb)
     {
-      /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.
+      tree label = tree_block_label (e->dest);
 
-	 For all other blocks this edge flag is cleared while expanding
-	 a basic block in expand_gimple_basic_block, but there we never
-	 looked at the successors of the entry block.
-	 This caused PR17513.  */
-      e2->flags &= ~EDGE_EXECUTABLE;
-
-      if (e2->dest == ENTRY_BLOCK_PTR->next_bb)
-	e = e2;
+      emit_jump (label_rtx (label));
+      flags = 0;
     }
+  else
+    flags = EDGE_FALLTHRU;
 
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
@@ -1184,7 +1186,7 @@ construct_init_block (void)
     {
       first_block = e->dest;
       redirect_edge_succ (e, init_block);
-      e = make_edge (init_block, first_block, EDGE_FALLTHRU);
+      e = make_edge (init_block, first_block, flags);
     }
   else
     e = make_edge (init_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
@@ -1236,7 +1238,7 @@ construct_exit_block (void)
   ix = 0;
   while (ix < EDGE_COUNT (EXIT_BLOCK_PTR->preds))
     {
-      e = EDGE_I (EXIT_BLOCK_PTR->preds, ix);
+      e = EDGE_PRED (EXIT_BLOCK_PTR, ix);
       if (!(e->flags & EDGE_ABNORMAL))
 	redirect_edge_succ (e, exit_block);
       else
@@ -1319,7 +1321,7 @@ tree_expand_cfg (void)
   blocks = sbitmap_alloc (last_basic_block);
   sbitmap_ones (blocks);
   find_many_sub_basic_blocks (blocks);
-  purge_all_dead_edges (0);
+  purge_all_dead_edges ();
   sbitmap_free (blocks);
 
   compact_blocks ();

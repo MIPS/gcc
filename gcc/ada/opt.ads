@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -103,6 +103,10 @@ package Opt is
    Address_Clause_Overlay_Warnings : Boolean := True;
    --  GNAT
    --  Set False to disable address clause warnings
+
+   Address_Is_Private : Boolean := False;
+   --  GNAT, GNATBIND
+   --  Set True if package System has the line "type Address is private;"
 
    All_Errors_Mode : Boolean := False;
    --  GNAT
@@ -270,6 +274,11 @@ package Opt is
    --  Set True (-gnatD switch) to debug generated expanded code instead
    --  of the original source code. Causes debugging information to be
    --  written with respect to the generated code file that is written.
+
+   Default_Exit_Status : Int := 0;
+   --  GNATBIND
+   --  Set the default exit status value. Set by the -Xnnn switch for the
+   --  binder.
 
    Default_Sec_Stack_Size : Int := -1;
    --  GNATBIND
@@ -1015,6 +1024,11 @@ package Opt is
    --  GNATCLEAN
    --  Set to True to get verbose mode (full error message text and location
    --  information sent to standard output, also header, copyright and summary)
+
+   Warn_On_Bad_Fixed_Value : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings for static fixed-point expression
+   --  values that are not an exact multiple of the small value of the type.
 
    Warn_On_Constant : Boolean := False;
    --  GNAT

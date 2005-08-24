@@ -1,5 +1,5 @@
 /* Functions to analyze and validate GIMPLE trees.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
    Rewritten by Jason Merrill <jason@redhat.com>
 
@@ -73,6 +73,7 @@ is_gimple_formal_tmp_rhs (tree t)
     case COMPLEX_CST:
     case VECTOR_CST:
     case OBJ_TYPE_REF:
+    case ASSERT_EXPR:
       return true;
 
     default:
@@ -180,7 +181,7 @@ is_gimple_min_invariant (tree t)
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
-      return !TREE_OVERFLOW (t);
+      return true;
 
     default:
       return false;
@@ -437,6 +438,7 @@ get_base_address (tree t)
   
   if (SSA_VAR_P (t)
       || TREE_CODE (t) == STRING_CST
+      || TREE_CODE (t) == VECTOR_CST
       || TREE_CODE (t) == CONSTRUCTOR
       || INDIRECT_REF_P (t)
       || TREE_CODE (t) == MEM_REF)

@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -28,7 +28,6 @@
 #include "hard-reg-set.h"
 #include "real.h"
 #include "insn-config.h"
-#include "insn-codes.h"
 #include "conditions.h"
 #include "insn-flags.h"
 #include "output.h"
@@ -45,7 +44,6 @@
 #include "recog.h"
 #include "ggc.h"
 #include "integrate.h"
-#include "langhooks.h"
 #include "bfin-protos.h"
 #include "tm-preds.h"
 #include "gt-bfin.h"
@@ -119,93 +117,6 @@ static e_funkind funkind (tree funtype)
     return NMI_HANDLER;
   else
     return SUBROUTINE;
-}
-
-/* Legitimize PIC addresses.  If the address is already position-independent,
-   we return ORIG.  Newly generated position-independent addresses go into a
-   reg.  This is REG if nonzero, otherwise we allocate register(s) as
-   necessary.  PICREG is the register holding the pointer to the PIC offset
-   table.  */
-
-rtx
-legitimize_pic_address (rtx orig, rtx reg, rtx picreg)
-{
-  rtx addr = orig;
-  rtx new = orig;
-
-  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
-    {
-      if (GET_CODE (addr) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (addr))
-	reg = new = orig;
-      else
-	{
-	  if (reg == 0)
-	    {
-	      gcc_assert (!no_new_pseudos);
-	      reg = gen_reg_rtx (Pmode);
-	    }
-
-	  if (flag_pic == 2)
-	    {
-	      emit_insn (gen_movsi_high_pic (reg, addr));
-	      emit_insn (gen_movsi_low_pic (reg, reg, addr));
-	      emit_insn (gen_addsi3 (reg, reg, picreg));
-	      new = gen_rtx_MEM (Pmode, reg);
-	    }
-	  else
-	    {
-	      rtx tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr),
-					UNSPEC_MOVE_PIC);
-	      new = gen_rtx_MEM (Pmode,
-				 gen_rtx_PLUS (Pmode, picreg, tmp));
-	    }
-	  emit_move_insn (reg, new);
-	}
-      if (picreg == pic_offset_table_rtx)
-	current_function_uses_pic_offset_table = 1;
-      return reg;
-    }
-
-  else if (GET_CODE (addr) == CONST || GET_CODE (addr) == PLUS)
-    {
-      rtx base;
-
-      if (GET_CODE (addr) == CONST)
-	{
-	  addr = XEXP (addr, 0);
-	  gcc_assert (GET_CODE (addr) == PLUS);
-	}
-
-      if (XEXP (addr, 0) == picreg)
-	return orig;
-
-      if (reg == 0)
-	{
-	  gcc_assert (!no_new_pseudos);
-	  reg = gen_reg_rtx (Pmode);
-	}
-
-      base = legitimize_pic_address (XEXP (addr, 0), reg, picreg);
-      addr = legitimize_pic_address (XEXP (addr, 1),
-				     base == reg ? NULL_RTX : reg,
-				     picreg);
-
-      if (GET_CODE (addr) == CONST_INT)
-	{
-	  gcc_assert (! reload_in_progress && ! reload_completed);
-	  addr = force_reg (Pmode, addr);
-	}
-
-      if (GET_CODE (addr) == PLUS && CONSTANT_P (XEXP (addr, 1)))
-	{
-	  base = gen_rtx_PLUS (Pmode, base, XEXP (addr, 0));
-	  addr = XEXP (addr, 1);
-	}
-
-      return gen_rtx_PLUS (Pmode, base, addr);
-    }
-
-  return new;
 }
 
 /* Stack frame layout. */
@@ -435,7 +346,7 @@ bfin_frame_pointer_required (void)
   if (fkind != SUBROUTINE)
     return 1;
 
-  /* We turn on -fomit-frame-pointer if -momit-leaf-frame-pointer is used,
+  /* We turn on on -fomit-frame-pointer if -momit-leaf-frame-pointer is used,
      so we have to override it for non-leaf functions.  */
   if (TARGET_OMIT_LEAF_FRAME_POINTER && ! current_function_is_leaf)
     return 1;
@@ -509,11 +420,11 @@ bfin_initial_elimination_offset (int from, int to)
 }
 
 /* Emit code to load a constant CONSTANT into register REG; setting
-   RTX_FRAME_RELATED_P on all insns we generate if RELATED is true.
-   Make sure that the insns we generate need not be split.  */
+   RTX_FRAME_RELATED_P on all insns we generate.  Make sure that the insns
+   we generate need not be split.  */
 
 static void
-frame_related_constant_load (rtx reg, HOST_WIDE_INT constant, bool related)
+frame_related_constant_load (rtx reg, HOST_WIDE_INT constant)
 {
   rtx insn;
   rtx cst = GEN_INT (constant);
@@ -525,12 +436,10 @@ frame_related_constant_load (rtx reg, HOST_WIDE_INT constant, bool related)
       /* We don't call split_load_immediate here, since dwarf2out.c can get
 	 confused about some of the more clever sequences it can generate.  */
       insn = emit_insn (gen_movsi_high (reg, cst));
-      if (related)
-	RTX_FRAME_RELATED_P (insn) = 1;
+      RTX_FRAME_RELATED_P (insn) = 1;
       insn = emit_insn (gen_movsi_low (reg, reg, cst));
     }
-  if (related)
-    RTX_FRAME_RELATED_P (insn) = 1;
+  RTX_FRAME_RELATED_P (insn) = 1;
 }
 
 /* Generate efficient code to add a value to the frame pointer.  We
@@ -552,7 +461,7 @@ add_to_sp (rtx spreg, HOST_WIDE_INT value, int frame)
       rtx insn;
 
       if (frame)
-	frame_related_constant_load (tmpreg, value, TRUE);
+	frame_related_constant_load (tmpreg, value);
       else
 	{
 	  insn = emit_move_insn (tmpreg, GEN_INT (value));
@@ -618,7 +527,7 @@ emit_link_insn (rtx spreg, HOST_WIDE_INT frame_size)
       /* Must use a call-clobbered PREG that isn't the static chain.  */
       rtx tmpreg = gen_rtx_REG (Pmode, REG_P1);
 
-      frame_related_constant_load (tmpreg, -frame_size, TRUE);
+      frame_related_constant_load (tmpreg, -frame_size);
       insn = emit_insn (gen_addsi3 (spreg, spreg, tmpreg));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
@@ -841,24 +750,6 @@ expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
   emit_jump_insn (gen_return_internal (GEN_INT (fkind)));
 }
 
-/* Used while emitting the prologue to generate code to load the correct value
-   into the PIC register, which is passed in DEST.  */
-
-static void
-bfin_load_pic_reg (rtx dest)
-{
-  rtx addr, insn;
-      
-  if (bfin_lib_id_given)
-    addr = plus_constant (pic_offset_table_rtx, -4 - bfin_library_id * 4);
-  else
-    addr = gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
-			 gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
-					 UNSPEC_LIBRARY_OFFSET));
-  insn = emit_insn (gen_movsi (dest, gen_rtx_MEM (Pmode, addr)));
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
-}
-
 /* Generate RTL for the prologue of the current function.  */
 
 void
@@ -868,7 +759,6 @@ bfin_expand_prologue (void)
   HOST_WIDE_INT frame_size = get_frame_size ();
   rtx spreg = gen_rtx_REG (Pmode, REG_SP);
   e_funkind fkind = funkind (TREE_TYPE (current_function_decl));
-  rtx pic_reg_loaded = NULL_RTX;
 
   if (fkind != SUBROUTINE)
     {
@@ -876,39 +766,6 @@ bfin_expand_prologue (void)
       return;
     }
 
-  if (current_function_limit_stack)
-    {
-      HOST_WIDE_INT offset
-	= bfin_initial_elimination_offset (ARG_POINTER_REGNUM,
-					   STACK_POINTER_REGNUM);
-      rtx lim = stack_limit_rtx;
-
-      if (GET_CODE (lim) == SYMBOL_REF)
-	{
-	  rtx p2reg = gen_rtx_REG (Pmode, REG_P2);
-	  if (TARGET_ID_SHARED_LIBRARY)
-	    {
-	      rtx p1reg = gen_rtx_REG (Pmode, REG_P1);
-	      rtx r3reg = gen_rtx_REG (Pmode, REG_R3);
-	      rtx val;
-	      pic_reg_loaded = p2reg;
-	      bfin_load_pic_reg (pic_reg_loaded);
-	      val = legitimize_pic_address (stack_limit_rtx, p1reg, p2reg);
-	      emit_move_insn (p1reg, val);
-	      frame_related_constant_load (p2reg, offset, FALSE);
-	      emit_insn (gen_addsi3 (p2reg, p2reg, p1reg));
-	      lim = p2reg;
-	    }
-	  else
-	    {
-	      rtx limit = plus_constant (stack_limit_rtx, offset);
-	      emit_move_insn (p2reg, limit);
-	      lim = p2reg;
-	    }
-	}
-      emit_insn (gen_compare_lt (bfin_cc_rtx, spreg, lim));
-      emit_insn (gen_trapifcc ());
-    }
   expand_prologue_reg_save (spreg, 0);
 
   do_link (spreg, frame_size);
@@ -916,7 +773,19 @@ bfin_expand_prologue (void)
   if (TARGET_ID_SHARED_LIBRARY
       && (current_function_uses_pic_offset_table
 	  || !current_function_is_leaf))
-    bfin_load_pic_reg (pic_offset_table_rtx);
+    {
+      rtx addr;
+      
+      if (bfin_lib_id_given)
+	addr = plus_constant (pic_offset_table_rtx, -4 - bfin_library_id * 4);
+      else
+	addr = gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+			     gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+					     UNSPEC_LIBRARY_OFFSET));
+      insn = emit_insn (gen_movsi (pic_offset_table_rtx,
+				   gen_rtx_MEM (Pmode, addr)));
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
+    }
 }
 
 /* Generate RTL for the epilogue of the current function.  NEED_RETURN is zero
@@ -1276,7 +1145,7 @@ print_operand (FILE *file, rtx x, char code)
 */
 
 void
-init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
+init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype ATTRIBUTE_UNUSED,
 		      rtx libname ATTRIBUTE_UNUSED)
 {
   static CUMULATIVE_ARGS zero_cum;
@@ -1287,13 +1156,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 
   cum->nregs = max_arg_registers;
   cum->arg_regs = arg_regs;
-
-  cum->call_cookie = CALL_NORMAL;
-  /* Check for a longcall attribute.  */
-  if (fntype && lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype)))
-    cum->call_cookie |= CALL_SHORT;
-  else if (fntype && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype)))
-    cum->call_cookie |= CALL_LONG;
 
   return;
 }
@@ -1347,10 +1209,6 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 {
   int bytes
     = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
-
-  if (mode == VOIDmode)
-    /* Compute operand 2 of the call insn.  */
-    return GEN_INT (cum->call_cookie);
 
   if (bytes == -1)
     return NULL_RTX;
@@ -1406,8 +1264,24 @@ bfin_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 int
 bfin_return_in_memory (tree type)
 {
-  int size = int_size_in_bytes (type);
-  return size > 2 * UNITS_PER_WORD || size == -1;
+  int size;
+  enum machine_mode mode = TYPE_MODE (type);
+
+  if (mode == BLKmode)
+    return 1;
+  size = int_size_in_bytes (type);	
+  if (VECTOR_MODE_P (mode) || mode == TImode)
+    {
+      /* User-created vectors small enough to fit in REG.  */
+      if (size < 8)
+        return 0;
+      if (size == 8 || size == 16)
+	return 1;
+    }
+
+  if (size > 12)
+    return 1;
+  return 0;
 }
 
 /* Register in which address to store a structure value
@@ -1497,6 +1371,91 @@ initialize_trampoline (tramp, fnaddr, cxt)
   emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, t2));
 }
 
+/* Legitimize PIC addresses.  If the address is already position-independent,
+   we return ORIG.  Newly generated position-independent addresses go into a
+   reg.  This is REG if nonzero, otherwise we allocate register(s) as
+   necessary.  */
+
+rtx
+legitimize_pic_address (rtx orig, rtx reg)
+{
+  rtx addr = orig;
+  rtx new = orig;
+
+  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
+    {
+      if (GET_CODE (addr) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (addr))
+	reg = new = orig;
+      else
+	{
+	  if (reg == 0)
+	    {
+	      gcc_assert (!no_new_pseudos);
+	      reg = gen_reg_rtx (Pmode);
+	    }
+
+	  if (flag_pic == 2)
+	    {
+	      emit_insn (gen_movsi_high_pic (reg, addr));
+	      emit_insn (gen_movsi_low_pic (reg, reg, addr));
+	      emit_insn (gen_addsi3 (reg, reg, pic_offset_table_rtx));
+	      new = gen_rtx_MEM (Pmode, reg);
+	    }
+	  else
+	    {
+	      rtx tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr),
+					UNSPEC_MOVE_PIC);
+	      new = gen_rtx_MEM (Pmode,
+				 gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+					       tmp));
+	    }
+	  emit_move_insn (reg, new);
+	}
+      current_function_uses_pic_offset_table = 1;
+      return reg;
+    }
+
+  else if (GET_CODE (addr) == CONST || GET_CODE (addr) == PLUS)
+    {
+      rtx base;
+
+      if (GET_CODE (addr) == CONST)
+	{
+	  addr = XEXP (addr, 0);
+	  gcc_assert (GET_CODE (addr) == PLUS);
+	}
+
+      if (XEXP (addr, 0) == pic_offset_table_rtx)
+	return orig;
+
+      if (reg == 0)
+	{
+	  gcc_assert (!no_new_pseudos);
+	  reg = gen_reg_rtx (Pmode);
+	}
+
+      base = legitimize_pic_address (XEXP (addr, 0), reg);
+      addr = legitimize_pic_address (XEXP (addr, 1),
+				     base == reg ? NULL_RTX : reg);
+
+      if (GET_CODE (addr) == CONST_INT)
+	{
+	  gcc_assert (! reload_in_progress && ! reload_completed);
+	  addr = force_reg (Pmode, addr);
+	}
+
+      if (GET_CODE (addr) == PLUS && CONSTANT_P (XEXP (addr, 1)))
+	{
+	  base = gen_rtx_PLUS (Pmode, base, XEXP (addr, 0));
+	  addr = XEXP (addr, 1);
+	}
+
+      return gen_rtx_PLUS (Pmode, base, addr);
+    }
+
+  return new;
+}
+
 /* Emit insns to move operands[1] into operands[0].  */
 
 void
@@ -1507,8 +1466,7 @@ emit_pic_move (rtx *operands, enum machine_mode mode ATTRIBUTE_UNUSED)
   if (GET_CODE (operands[0]) == MEM && SYMBOLIC_CONST (operands[1]))
     operands[1] = force_reg (SImode, operands[1]);
   else
-    operands[1] = legitimize_pic_address (operands[1], temp,
-					  pic_offset_table_rtx);
+    operands[1] = legitimize_pic_address (operands[1], temp);
 }
 
 /* Expand a move operation in mode MODE.  The operands are in OPERANDS.  */
@@ -1559,59 +1517,37 @@ split_di (rtx operands[], int num, rtx lo_half[], rtx hi_half[])
     }
 }
 
-bool
-bfin_longcall_p (rtx op, int call_cookie)
-{
-  gcc_assert (GET_CODE (op) == SYMBOL_REF);
-  if (call_cookie & CALL_SHORT)
-    return 0;
-  if (call_cookie & CALL_LONG)
-    return 1;
-  if (TARGET_LONG_CALLS)
-    return 1;
-  return 0;
-}
-
 /* Expand a call instruction.  FNADDR is the call target, RETVAL the return value.
-   COOKIE is a CONST_INT holding the call_cookie prepared init_cumulative_args.
    SIBCALL is nonzero if this is a sibling call.  */
 
 void
-bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
+bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, int sibcall)
 {
   rtx use = NULL, call;
-  rtx callee = XEXP (fnaddr, 0);
-  rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (sibcall ? 3 : 2));
-
-  /* In an untyped call, we can get NULL for operand 2.  */
-  if (cookie == NULL_RTX)
-    cookie = const0_rtx;
 
   /* Static functions and indirect calls don't need the pic register.  */
   if (flag_pic
-      && GET_CODE (callee) == SYMBOL_REF
-      && !SYMBOL_REF_LOCAL_P (callee))
+      && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
+      && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
     use_reg (&use, pic_offset_table_rtx);
 
-  if ((!register_no_elim_operand (callee, Pmode)
-       && GET_CODE (callee) != SYMBOL_REF)
-      || (GET_CODE (callee) == SYMBOL_REF
-	  && (flag_pic
-	      || bfin_longcall_p (callee, INTVAL (cookie)))))
+  if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
     {
-      callee = copy_to_mode_reg (Pmode, callee);
-      fnaddr = gen_rtx_MEM (Pmode, callee);
+      fnaddr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
+      fnaddr = gen_rtx_MEM (Pmode, fnaddr);
     }
   call = gen_rtx_CALL (VOIDmode, fnaddr, callarg1);
 
   if (retval)
     call = gen_rtx_SET (VOIDmode, retval, call);
-
-  XVECEXP (pat, 0, 0) = call;
-  XVECEXP (pat, 0, 1) = gen_rtx_USE (VOIDmode, cookie);
   if (sibcall)
-    XVECEXP (pat, 0, 2) = gen_rtx_RETURN (VOIDmode);
-  call = emit_call_insn (pat);
+    {
+      rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
+      XVECEXP (pat, 0, 0) = call;
+      XVECEXP (pat, 0, 1) = gen_rtx_RETURN (VOIDmode);
+      call = pat;
+    }
+  call = emit_call_insn (call);
   if (use)
     CALL_INSN_FUNCTION_USAGE (call) = use;
 }
@@ -2544,11 +2480,9 @@ bfin_reorg (void)
   rtx insn, last_condjump = NULL_RTX;
   int cycles_since_jump = INT_MAX;
 
-  if (! TARGET_SPECLD_ANOMALY || ! TARGET_CSYNC_ANOMALY)
+  if (! TARGET_CSYNC)
     return;
 
-  /* First pass: find predicted-false branches; if something after them
-     needs nops, insert them or change the branch to predict true.  */
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       rtx pat;
@@ -2576,109 +2510,29 @@ bfin_reorg (void)
       else if (INSN_P (insn))
 	{
 	  enum attr_type type = get_attr_type (insn);
-	  int delay_needed = 0;
 	  if (cycles_since_jump < INT_MAX)
 	    cycles_since_jump++;
 
-	  if (type == TYPE_MCLD && TARGET_SPECLD_ANOMALY)
+	  if (type == TYPE_MCLD && cycles_since_jump < 3)
 	    {
-	      rtx pat = single_set (insn);
+	      rtx pat;
+
+	      pat = single_set (insn);
 	      if (may_trap_p (SET_SRC (pat)))
-		delay_needed = 3;
-	    }
-	  else if (type == TYPE_SYNC && TARGET_CSYNC_ANOMALY)
-	    delay_needed = 4;
-
-	  if (delay_needed > cycles_since_jump)
-	    {
-	      rtx pat;
-	      int num_clobbers;
-	      rtx *op = recog_data.operand;
-
-	      delay_needed -= cycles_since_jump;
-
-	      extract_insn (last_condjump);
-	      if (optimize_size)
 		{
-		  pat = gen_cbranch_predicted_taken (op[0], op[1], op[2],
-						     op[3]);
+		  int num_clobbers;
+		  rtx *op = recog_data.operand;
+
+		  extract_insn (last_condjump);
+		  if (optimize_size)
+		    pat = gen_cbranch_predicted_taken (op[0], op[1], op[2],
+						       op[3]);
+		  else
+		    pat = gen_cbranch_with_nops (op[0], op[1], op[2], op[3],
+						 GEN_INT (3 - cycles_since_jump));
+		  PATTERN (last_condjump) = pat;
+		  INSN_CODE (last_condjump) = recog (pat, insn, &num_clobbers);
 		  cycles_since_jump = INT_MAX;
-		}
-	      else
-		/* Do not adjust cycles_since_jump in this case, so that
-		   we'll increase the number of NOPs for a subsequent insn
-		   if necessary.  */
-		pat = gen_cbranch_with_nops (op[0], op[1], op[2], op[3],
-					     GEN_INT (delay_needed));
-	      PATTERN (last_condjump) = pat;
-	      INSN_CODE (last_condjump) = recog (pat, insn, &num_clobbers);
-	    }
-	}
-    }
-  /* Second pass: for predicted-true branches, see if anything at the
-     branch destination needs extra nops.  */
-  if (! TARGET_CSYNC_ANOMALY)
-    return;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      if (JUMP_P (insn)
-	  && any_condjump_p (insn)
-	  && (INSN_CODE (insn) == CODE_FOR_cbranch_predicted_taken
-	      || cbranch_predicted_taken_p (insn)))
-	{
-	  rtx target = JUMP_LABEL (insn);
-	  rtx label = target;
-	  cycles_since_jump = 0;
-	  for (; target && cycles_since_jump < 3; target = NEXT_INSN (target))
-	    {
-	      rtx pat;
-
-	      if (NOTE_P (target) || BARRIER_P (target) || LABEL_P (target))
-		continue;
-
-	      pat = PATTERN (target);
-	      if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER
-		  || GET_CODE (pat) == ASM_INPUT || GET_CODE (pat) == ADDR_VEC
-		  || GET_CODE (pat) == ADDR_DIFF_VEC || asm_noperands (pat) >= 0)
-		continue;
-
-	      if (INSN_P (target))
-		{
-		  enum attr_type type = get_attr_type (target);
-		  int delay_needed = 0;
-		  if (cycles_since_jump < INT_MAX)
-		    cycles_since_jump++;
-
-		  if (type == TYPE_SYNC && TARGET_CSYNC_ANOMALY)
-		    delay_needed = 2;
-
-		  if (delay_needed > cycles_since_jump)
-		    {
-		      rtx prev = prev_real_insn (label);
-		      delay_needed -= cycles_since_jump;
-		      if (dump_file)
-			fprintf (dump_file, "Adding %d nops after %d\n",
-				 delay_needed, INSN_UID (label));
-		      if (JUMP_P (prev)
-			  && INSN_CODE (prev) == CODE_FOR_cbranch_with_nops)
-			{
-			  rtx x;
-			  HOST_WIDE_INT v;
-
-			  if (dump_file)
-			    fprintf (dump_file,
-				     "Reducing nops on insn %d.\n",
-				     INSN_UID (prev));
-			  x = PATTERN (prev);
-			  x = XVECEXP (x, 0, 1);
-			  v = INTVAL (XVECEXP (x, 0, 0)) - delay_needed;
-			  XVECEXP (x, 0, 0) = GEN_INT (v);
-			}
-		      while (delay_needed-- > 0)
-			emit_insn_after (gen_nop (), label);
-		      break;
-		    }
 		}
 	    }
 	}
@@ -2741,42 +2595,7 @@ bfin_comp_type_attributes (tree type1, tree type2)
       != !lookup_attribute ("kspisusp", TYPE_ATTRIBUTES (type2)))
     return 0;
 
-  if (!lookup_attribute ("longcall", TYPE_ATTRIBUTES (type1))
-      != !lookup_attribute ("longcall", TYPE_ATTRIBUTES (type2)))
-    return 0;
-
   return 1;
-}
-
-/* Handle a "longcall" or "shortcall" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-bfin_handle_longcall_attribute (tree *node, tree name, 
-				tree args ATTRIBUTE_UNUSED, 
-				int flags ATTRIBUTE_UNUSED, 
-				bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
-    {
-      warning (OPT_Wattributes, "`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  if ((strcmp (IDENTIFIER_POINTER (name), "longcall") == 0
-       && lookup_attribute ("shortcall", TYPE_ATTRIBUTES (*node)))
-      || (strcmp (IDENTIFIER_POINTER (name), "shortcall") == 0
-	  && lookup_attribute ("longcall", TYPE_ATTRIBUTES (*node))))
-    {
-      warning (OPT_Wattributes,
-	       "can't apply both longcall and shortcall attributes to the same function");
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
 }
 
 /* Table of valid machine attributes.  */
@@ -2789,8 +2608,6 @@ const struct attribute_spec bfin_attribute_table[] =
   { "nesting", 0, 0, false, true,  true, NULL },
   { "kspisusp", 0, 0, false, true,  true, NULL },
   { "saveall", 0, 0, false, true,  true, NULL },
-  { "longcall",  0, 0, false, true,  true,  bfin_handle_longcall_attribute },
-  { "shortcall", 0, 0, false, true,  true,  bfin_handle_longcall_attribute },
   { NULL, 0, 0, false, false, false, NULL }
 };
 
@@ -2864,67 +2681,6 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
     output_asm_insn ("jump.l\t%P0", xops);
 }
 
-/* Codes for all the Blackfin builtins.  */
-enum bfin_builtins
-{
-  BFIN_BUILTIN_CSYNC,
-  BFIN_BUILTIN_SSYNC,
-  BFIN_BUILTIN_MAX
-};
-
-#define def_builtin(NAME, TYPE, CODE)					\
-do {									\
-  lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-			       NULL, NULL_TREE);			\
-} while (0)
-
-/* Set up all builtin functions for this target.  */
-static void
-bfin_init_builtins (void)
-{
-  tree void_ftype_void
-    = build_function_type (void_type_node, void_list_node);
-
-  /* Add the remaining MMX insns with somewhat more complicated types.  */
-  def_builtin ("__builtin_bfin_csync", void_ftype_void, BFIN_BUILTIN_CSYNC);
-  def_builtin ("__builtin_bfin_ssync", void_ftype_void, BFIN_BUILTIN_SSYNC);
-}
-
-/* Expand an expression EXP that calls a built-in function,
-   with result going to TARGET if that's convenient
-   (and in mode MODE if that's convenient).
-   SUBTARGET may be used as the target for computing one of EXP's operands.
-   IGNORE is nonzero if the value is to be ignored.  */
-
-static rtx
-bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
-		     rtx subtarget ATTRIBUTE_UNUSED,
-		     enum machine_mode mode ATTRIBUTE_UNUSED,
-		     int ignore ATTRIBUTE_UNUSED)
-{
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-
-  switch (fcode)
-    {
-    case BFIN_BUILTIN_CSYNC:
-      emit_insn (gen_csync ());
-      return 0;
-    case BFIN_BUILTIN_SSYNC:
-      emit_insn (gen_ssync ());
-      return 0;
-
-    default:
-      gcc_unreachable ();
-    }
-}
-
-#undef TARGET_INIT_BUILTINS
-#define TARGET_INIT_BUILTINS bfin_init_builtins
-
-#undef TARGET_EXPAND_BUILTIN
-#define TARGET_EXPAND_BUILTIN bfin_expand_builtin
-
 #undef TARGET_ASM_GLOBALIZE_LABEL
 #define TARGET_ASM_GLOBALIZE_LABEL bfin_globalize_label 
 
@@ -2984,8 +2740,5 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION bfin_handle_option
-
-#undef TARGET_DEFAULT_TARGET_FLAGS
-#define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
 
 struct gcc_target targetm = TARGET_INITIALIZER;

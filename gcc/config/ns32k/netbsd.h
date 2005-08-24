@@ -1,5 +1,5 @@
 /* Configuration for a ns32532 running NetBSD as the target machine.
-   Copyright (C) 1988, 1994, 1995, 1996, 1998, 2002, 2004
+   Copyright (C) 1988, 1994, 1995, 1996, 1998, 2002, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -36,8 +36,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
-  (MASK_32532 | MASK_NO_SB | MASK_NO_BITFIELD | \
-   MASK_32381 | MASK_IEEE_COMPARE | MASK_MULT_ADD)
+  (MASK_32532 | MASK_32381 | MASK_IEEE_COMPARE | MASK_MULT_ADD)
 
 /* 32-bit alignment for efficiency */
 

@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler, for HPs running
    HPUX using the 64bit runtime model.
-   Copyright (C) 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004, 2005 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -18,17 +19,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-#undef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES				\
-  { "sio",	 MASK_SIO,				\
-     N_("Generate cpp defines for server IO") },	\
-  { "wsio",	-MASK_SIO,				\
-     N_("Generate cpp defines for workstation IO") },	\
-  {"gnu-ld",	 MASK_GNU_LD,				\
-     N_("Assume code will be linked by GNU ld") },	\
-  {"hp-ld",	-MASK_GNU_LD,				\
-     N_("Assume code will be linked by HP ld") },
 
 /* We can debug dynamically linked executables on hpux11; we also
    want dereferencing of a NULL pointer to cause a SEGV.  Do not move
@@ -122,11 +112,10 @@ Boston, MA 02111-1307, USA.  */
 
    The .align directive in the HP assembler allows alignments up to
    4096 bytes.  However, the maximum alignment of a global common symbol
-   is 16 bytes using HP ld.  For consistency, we use the same limit
-   with GNU ld.  */
+   is 16 bytes using HP ld.  Unfortunately, this macro doesn't provide
+   a method to check for common symbols.  */
 #undef MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT                                             \
-  (TREE_PUBLIC (decl) && DECL_COMMON (decl) ? 128 : 32768)
+#define MAX_OFILE_ALIGNMENT 32768
 
 /* Due to limitations in the target structure, it isn't currently possible
    to dynamically switch between the GNU and HP assemblers.  */
@@ -174,6 +163,20 @@ Boston, MA 02111-1307, USA.  */
 /* This is how we globalize a label.  */
 #define GLOBAL_ASM_OP	"\t.globl\t"
 
+/* Hacked version from defaults.h that uses assemble_name_raw
+   instead of assemble_name.  A symbol in a type directive that
+   isn't otherwise referenced doesn't cause the symbol to be
+   placed in the symbol table of the assembled object.  */
+#undef ASM_OUTPUT_TYPE_DIRECTIVE
+#define ASM_OUTPUT_TYPE_DIRECTIVE(STREAM, NAME, TYPE)		\
+do {								\
+  fputs (TYPE_ASM_OP, STREAM);					\
+  assemble_name_raw (STREAM, NAME);				\
+  fputs (", ", STREAM);						\
+  fprintf (STREAM, TYPE_OPERAND_FMT, TYPE);			\
+  putc ('\n', STREAM);						\
+} while (0)
+
 /* Hacked version from elfos.h that doesn't output a label.  */
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
@@ -186,15 +189,14 @@ do {								\
    dynamic loader to work correctly.  This is equivalent to the
    HP assembler's .IMPORT directive but relates more directly to
    ELF object file types.  */
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)				\
-do {									\
-  int save_referenced;							\
-  save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL));\
-  if (FUNCTION_NAME_P (NAME))						\
-    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");			\
-  else									\
-    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
-  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)) = save_referenced;\
+#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)			\
+  pa_hpux_asm_output_external ((FILE), (DECL), (NAME))
+#define ASM_OUTPUT_EXTERNAL_REAL(FILE, DECL, NAME)		\
+do {								\
+  if (FUNCTION_NAME_P (NAME))					\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");		\
+  else								\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");		\
 } while (0)
 
 /* We need set the type for external libcalls.  Also note that not all

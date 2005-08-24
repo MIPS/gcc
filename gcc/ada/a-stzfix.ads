@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUN-TIME COMPONENTS                         --
+--                         GNAT RUNTIME COMPONENTS                          --
 --                                                                          --
 --          A D A . S T R I N G S . W I D E _ W I D E _ F I X E D           --
 --                                                                          --
@@ -12,6 +12,7 @@
 -- modified version,  any changes that you have made are clearly indicated. --
 --                                                                          --
 ------------------------------------------------------------------------------
+
 
 with Ada.Strings.Wide_Wide_Maps;
 

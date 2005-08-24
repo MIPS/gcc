@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # This file was written by Rob Savoye (rob@cygnus.com)
 # Many modifications by Jeffrey Wheat (cassidy@cygnus.com)
@@ -306,8 +306,8 @@ proc obj-c++_target_compile { source dest type options } {
 
     set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc.a]
     if { $libobjc_dir == ""} {
-      verbose "see if we have -fgnu-runtime in options"
-      if [regexp ".*-fgnu-runtime.*" "${options}" ] {
+      verbose "see if we have -fgnu-runtime in [target_info name]"
+      if [regexp ".*-fgnu-runtime.*" [target_info name]] {
         set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc-gnu.a]
       }
     }

@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -37,8 +38,6 @@
 #define TARGET_ALTIVEC 0
 #undef  TARGET_ALTIVEC_ABI
 #define TARGET_ALTIVEC_ABI 0
-#undef  TARGET_ALTIVEC_VRSAVE
-#define TARGET_ALTIVEC_VRSAVE 0
 
 /* The AIX linker will discard static constructors in object files before
    collect has a chance to see them, so scan the object files directly.  */
@@ -193,19 +192,6 @@
 
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
-/* Enable AIX XL compiler calling convention breakage compatibility.  */
-#undef TARGET_XL_CALL
-#define MASK_XL_CALL		0x40000000
-#define	TARGET_XL_CALL		(target_flags & MASK_XL_CALL)
-#undef  SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES		\
-  {"xl-call", 		MASK_XL_CALL,					\
-   N_("Always pass floating-point arguments in memory") },		\
-  {"no-xl-call",	- MASK_XL_CALL,					\
-   N_("Don't always pass floating-point arguments in memory") },	\
-  SUBSUBTARGET_SWITCHES
-#define SUBSUBTARGET_SWITCHES 
-
 /* Define any extra SPECS that the compiler needs to generate.  */
 #undef  SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS						\
@@ -263,3 +249,6 @@
    32-bit mode.  */
 #define OS_MISSING_POWERPC64 1
 #define OS_MISSING_ALTIVEC 1
+
+/* WINT_TYPE */
+#define WINT_TYPE "int"

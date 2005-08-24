@@ -1,5 +1,5 @@
 ;; GCC machine description for MMIX
-;; Copyright (C) 2000, 2001, 2002, 2003, 2004
+;; Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
 ;; Free Software Foundation, Inc.
 ;; Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
@@ -40,7 +40,11 @@
    (MMIX_rR_REGNUM 260)
    (MMIX_fp_rO_OFFSET -24)]
 )
+
+;; Operand and operator predicates.
 
+(include "predicates.md")
+
 ;; FIXME: Can we remove the reg-to-reg for smaller modes?  Shouldn't they
 ;; be synthesized ok?
 (define_insn "movqi"
@@ -1078,6 +1082,16 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   ""
   "
 {
+  /* The caller checks that the operand is generally valid as an
+     address, but at -O0 nothing makes sure that it's also a valid
+     call address for a *call*; a mmix_symbolic_or_address_operand.
+     Force into a register if it isn't.  */
+  if (!mmix_symbolic_or_address_operand (XEXP (operands[0], 0),
+					 GET_MODE (XEXP (operands[0], 0))))
+    operands[0]
+      = replace_equiv_address (operands[0],
+			       force_reg (Pmode, XEXP (operands[0], 0)));
+
   /* Since the epilogue 'uses' the return address, and it is clobbered
      in the call, and we set it back after every call (all but one setting
      will be optimized away), integrity is maintained.  */
@@ -1105,6 +1119,16 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   ""
   "
 {
+  /* The caller checks that the operand is generally valid as an
+     address, but at -O0 nothing makes sure that it's also a valid
+     call address for a *call*; a mmix_symbolic_or_address_operand.
+     Force into a register if it isn't.  */
+  if (!mmix_symbolic_or_address_operand (XEXP (operands[1], 0),
+					 GET_MODE (XEXP (operands[1], 0))))
+    operands[1]
+      = replace_equiv_address (operands[1],
+			       force_reg (Pmode, XEXP (operands[1], 0)));
+
   /* Since the epilogue 'uses' the return address, and it is clobbered
      in the call, and we set it back after every call (all but one setting
      will be optimized away), integrity is maintained.  */
@@ -1216,7 +1240,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 ;; the frame-pointer would be located).
 ;; In the nonlocal goto receiver, we unwind the register stack by a series
 ;; of "pop 0,0" until rO equals the saved value.  (If it goes lower, we
-;; should call abort.)
+;; should die with a trap.)
 (define_expand "nonlocal_goto_receiver"
   [(parallel [(unspec_volatile [(const_int 0)] 1)
 	      (clobber (scratch:DI))

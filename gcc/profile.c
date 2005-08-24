@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -150,8 +150,7 @@ instrument_edges (struct edge_list *el)
 
 	  if (!inf->ignore && !inf->on_tree)
 	    {
-	      if (e->flags & EDGE_ABNORMAL)
-		abort ();
+	      gcc_assert (!(e->flags & EDGE_ABNORMAL));
 	      if (dump_file)
 		fprintf (dump_file, "Edge %d to %d instrumented%s\n",
 			 e->src->index, e->dest->index,
@@ -197,7 +196,7 @@ instrument_values (histogram_values values)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       if (!coverage_counter_alloc (t, hist->n_counters))
 	continue;
@@ -221,10 +220,10 @@ instrument_values (histogram_values values)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
-  VEC_free (histogram_value, values);
+  VEC_free (histogram_value, heap, values);
 }
 
 
@@ -430,8 +429,7 @@ compute_branch_probabilities (void)
 		  /* Calculate count for remaining edge by conservation.  */
 		  total = bb->count - total;
 
-		  if (! e)
-		    abort ();
+		  gcc_assert (e);
 		  EDGE_INFO (e)->count_valid = 1;
 		  e->count = total;
 		  bi->succ_count--;
@@ -458,8 +456,7 @@ compute_branch_probabilities (void)
 		  /* Calculate count for remaining edge by conservation.  */
 		  total = bb->count - total + e->count;
 
-		  if (! e)
-		    abort ();
+		  gcc_assert (e);
 		  EDGE_INFO (e)->count_valid = 1;
 		  e->count = total;
 		  bi->pred_count--;
@@ -481,8 +478,7 @@ compute_branch_probabilities (void)
      succ and pred count of zero.  */
   FOR_EACH_BB (bb)
     {
-      if (BB_INFO (bb)->succ_count || BB_INFO (bb)->pred_count)
-	abort ();
+      gcc_assert (!BB_INFO (bb)->succ_count && !BB_INFO (bb)->pred_count);
     }
 
   /* For every edge, calculate its branch probability and add a reg_note
@@ -1064,10 +1060,10 @@ branch_prob (void)
 
 	      /* Notice GOTO expressions we eliminated while constructing the
 		 CFG.  */
-	      if (EDGE_COUNT (bb->succs) == 1 && EDGE_SUCC (bb, 0)->goto_locus)
+	      if (single_succ_p (bb) && single_succ_edge (bb)->goto_locus)
 		{
 		  /* ??? source_locus type is marked deprecated in input.h.  */
-		  source_locus curr_location = EDGE_SUCC (bb, 0)->goto_locus;
+		  source_locus curr_location = single_succ_edge (bb)->goto_locus;
 		  /* ??? The FILE/LINE API is inconsistent for these cases.  */
 #ifdef USE_MAPPED_LOCATION 
 		  output_location (LOCATION_FILE (curr_location),
@@ -1116,8 +1112,7 @@ branch_prob (void)
 
       n_instrumented = instrument_edges (el);
 
-      if (n_instrumented != num_instrumented)
-	abort ();
+      gcc_assert (n_instrumented == num_instrumented);
 
       if (flag_profile_values)
 	instrument_values (values);
@@ -1178,8 +1173,7 @@ union_groups (basic_block bb1, basic_block bb2)
 
   /* ??? I don't have a place for the rank field.  OK.  Lets go w/o it,
      this code is unlikely going to be performance problem anyway.  */
-  if (bb1g == bb2g)
-    abort ();
+  gcc_assert (bb1g != bb2g);
 
   bb1g->aux = bb2g;
 }
@@ -1323,9 +1317,8 @@ end_branch_prob (void)
 void
 tree_register_profile_hooks (void)
 {
+  gcc_assert (ir_type ());
   profile_hooks = &tree_profile_hooks;
-  if (!ir_type ())
-    abort ();
 }
 
 /* Set up hooks to enable RTL-based profiling.  */
@@ -1333,7 +1326,6 @@ tree_register_profile_hooks (void)
 void
 rtl_register_profile_hooks (void)
 {
+  gcc_assert (!ir_type ());
   profile_hooks = &rtl_profile_hooks;
-  if (ir_type ())
-    abort ();
 }

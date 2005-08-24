@@ -1,5 +1,5 @@
 ;; XSTORMY16 Machine description template
-;; Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004
+;; Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004, 2005
 ;; Free Software Foundation, Inc.
 ;; Contributed by Red Hat, Inc.
 
@@ -91,6 +91,7 @@
 (define_asm_attributes [(set_attr "length" "4")
 			(set_attr "psw_operand" "clobber")])
 
+(include "predicates.md")
 
 ;; ::::::::::::::::::::
 ;; ::
@@ -1104,7 +1105,7 @@
 ;; the epilogue.  Using an epilogue insn is favored compared to putting
 ;; all of the instructions in the TARGET_ASM_FUNCTION_EPILOGUE macro,
 ;; since it allows the scheduler to intermix instructions with the
-;; restires of the caller saved registers.  In some cases, it might be
+;; restores of the caller saved registers.  In some cases, it might be
 ;; necessary to emit a barrier instruction as the first insn to
 ;; prevent such scheduling.
 (define_expand "epilogue"

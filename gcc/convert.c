@@ -1,6 +1,6 @@
 /* Utility routines for data type conversion for GCC.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997, 1998,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,10 +42,7 @@ tree
 convert_to_pointer (tree type, tree expr)
 {
   if (integer_zerop (expr))
-    {
-      expr = build_int_cst (type, 0);
-      return expr;
-    }
+    return build_int_cst (type, 0);
 
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
@@ -57,13 +54,12 @@ convert_to_pointer (tree type, tree expr)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
-      if (TYPE_PRECISION (TREE_TYPE (expr)) == POINTER_SIZE)
-	return build1 (CONVERT_EXPR, type, expr);
+      if (TYPE_PRECISION (TREE_TYPE (expr)) != POINTER_SIZE)
+	expr = fold_build1 (NOP_EXPR,
+                            lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			    expr);
+      return fold_build1 (CONVERT_EXPR, type, expr);
 
-      return
-	convert_to_pointer (type,
-			    convert (lang_hooks.types.type_for_size
-				     (POINTER_SIZE, 0), expr));
 
     default:
       error ("cannot convert to a pointer type");
@@ -349,6 +345,26 @@ convert_to_integer (tree type, tree expr)
       
       switch (fcode)
         {
+	case BUILT_IN_CEIL: case BUILT_IN_CEILF: case BUILT_IN_CEILL:
+	  /* Only convert in ISO C99 mode.  */
+	  if (!TARGET_C99_FUNCTIONS)
+	    break;
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLCEIL);
+	  else
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LCEIL);
+	  break;
+
+	case BUILT_IN_FLOOR: case BUILT_IN_FLOORF: case BUILT_IN_FLOORL:
+	  /* Only convert in ISO C99 mode.  */
+	  if (!TARGET_C99_FUNCTIONS)
+	    break;
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLFLOOR);
+	  else
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LFLOOR);
+	  break;
+
 	case BUILT_IN_ROUND: case BUILT_IN_ROUNDF: case BUILT_IN_ROUNDL:
 	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
@@ -367,6 +383,13 @@ convert_to_integer (tree type, tree expr)
 	  else
             fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
 	  break;
+
+	case BUILT_IN_TRUNC: case BUILT_IN_TRUNCF: case BUILT_IN_TRUNCL:
+	  {
+	    tree arglist = TREE_OPERAND (s_expr, 1);
+	    return convert_to_integer (type, TREE_VALUE (arglist));
+	  }
+
 	default:
 	  break;
 	}
@@ -384,13 +407,14 @@ convert_to_integer (tree type, tree expr)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       if (integer_zerop (expr))
-	expr = integer_zero_node;
-      else
-	expr = fold (build1 (CONVERT_EXPR,
-			     lang_hooks.types.type_for_size (POINTER_SIZE, 0),
-			     expr));
+	return build_int_cst (type, 0);
 
-      return convert_to_integer (type, expr);
+      /* Convert to an unsigned integer of the correct width first,
+	 and from there widen/truncate to the required type.  */
+      expr = fold_build1 (CONVERT_EXPR,
+			  lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			  expr);
+      return fold_build1 (NOP_EXPR, type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:

@@ -1,5 +1,5 @@
 ;; Patterns for the Intel Wireless MMX technology architecture.
-;; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;; Contributed by Red Hat.
 
 ;; This file is part of GCC.
@@ -73,6 +73,8 @@
     {
     default:
       return output_move_double (operands);
+    case 0:
+      return \"#\";
     case 3:
       return \"wmov%?\\t%0,%1\";
     case 4:
@@ -92,8 +94,8 @@
 )
 
 (define_insn "*iwmmxt_movsi_insn"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r, m,z,r,?z,m,z")
-	(match_operand:SI 1 "general_operand"      "rI,K,mi,r,r,z,m,z,z"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r, m,z,r,?z,Uy,z")
+	(match_operand:SI 1 "general_operand"      "rI,K,mi,r,r,z,Uy,z,z"))]
   "TARGET_REALLY_IWMMXT
    && (   register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode))"
@@ -155,7 +157,7 @@
 
 (define_insn "movv8qi_internal"
   [(set (match_operand:V8QI 0 "nonimmediate_operand" "=y,m,y,?r,?y,?r")
-	(match_operand:V8QI 1 "general_operand"       "y,y,m,y,r,i"))]
+	(match_operand:V8QI 1 "general_operand"       "y,y,mi,y,r,mi"))]
   "TARGET_REALLY_IWMMXT"
   "*
    switch (which_alternative)
@@ -175,7 +177,7 @@
 
 (define_insn "movv4hi_internal"
   [(set (match_operand:V4HI 0 "nonimmediate_operand" "=y,m,y,?r,?y,?r")
-	(match_operand:V4HI 1 "general_operand"       "y,y,m,y,r,i"))]
+	(match_operand:V4HI 1 "general_operand"       "y,y,mi,y,r,mi"))]
   "TARGET_REALLY_IWMMXT"
   "*
    switch (which_alternative)
@@ -195,7 +197,7 @@
 
 (define_insn "movv2si_internal"
   [(set (match_operand:V2SI 0 "nonimmediate_operand" "=y,m,y,?r,?y,?r")
-	(match_operand:V2SI 1 "general_operand"       "y,y,m,y,r,i"))]
+	(match_operand:V2SI 1 "general_operand"       "y,y,mi,y,r,mi"))]
   "TARGET_REALLY_IWMMXT"
   "*
    switch (which_alternative)
@@ -220,7 +222,7 @@
 ;; deliberately omitted.
 (define_insn "movv2si_internal_2"
   [(set (match_operand:V2SI 0 "nonimmediate_operand" "=?r")
-	(match_operand      1 "immediate_operand"      "i"))]
+	(match_operand      1 "immediate_operand"      "mi"))]
   "TARGET_REALLY_IWMMXT"
   "* return output_move_double (operands);"
   [(set_attr "predicable"     "yes")

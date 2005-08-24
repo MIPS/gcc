@@ -14,6 +14,7 @@ extern double exp(double);
 extern double log(double);
 extern double sqrt(double);
 extern double pow(double,double);
+extern double fabs(double);
 
 void test(double x)
 {
@@ -29,7 +30,7 @@ void test(double x)
 
 void test2(double x, double y, double z)
 {
-  if (sqrt(pow(x,y)) != pow(x,y*0.5))
+  if (sqrt(pow(x,y)) != pow(fabs(x),y*0.5))
     link_error ();
 
   if (log(pow(x,y)) != y*log(x))

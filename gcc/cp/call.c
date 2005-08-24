@@ -1,6 +1,6 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -538,8 +538,7 @@ build_conv (conversion_kind code, tree type, conversion *from)
 }
 
 /* Build a representation of the identity conversion from EXPR to
-   itself.  The TYPE should match the the type of EXPR, if EXPR is
-   non-NULL.  */
+   itself.  The TYPE should match the type of EXPR, if EXPR is non-NULL.  */
 
 static conversion *
 build_identity_conv (tree type, tree expr)
@@ -1653,7 +1652,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	     T       operator+(T);
 	     T       operator-(T);  */
 
-    case CONVERT_EXPR: /* unary + */
+    case UNARY_PLUS_EXPR: /* unary + */
       if (TREE_CODE (type1) == POINTER_TYPE)
 	break;
     case NEGATE_EXPR:
@@ -2188,7 +2187,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 
   i = fn_type_unification (tmpl, explicit_targs, targs,
 			   args_without_in_chrg,
-			   return_type, strict, -1);
+			   return_type, strict);
 
   if (i != 0)
     return NULL;
@@ -2450,7 +2449,7 @@ print_z_candidates (struct z_candidate *candidates)
 /* USER_SEQ is a user-defined conversion sequence, beginning with a
    USER_CONV.  STD_SEQ is the standard conversion sequence applied to
    the result of the conversion function to convert it to the final
-   desired type.  Merge the the two sequences into a single sequence,
+   desired type.  Merge the two sequences into a single sequence,
    and return the merged sequence.  */
 
 static conversion *
@@ -3403,14 +3402,14 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
       
       if (TREE_CODE (arg2_type) == ENUMERAL_TYPE
           && TREE_CODE (arg3_type) == ENUMERAL_TYPE)
-         warning ("enumeral mismatch in conditional expression: %qT vs %qT",
+         warning (0, "enumeral mismatch in conditional expression: %qT vs %qT",
                    arg2_type, arg3_type);
       else if (extra_warnings
                && ((TREE_CODE (arg2_type) == ENUMERAL_TYPE
                     && !same_type_p (arg3_type, type_promotes_to (arg2_type)))
                    || (TREE_CODE (arg3_type) == ENUMERAL_TYPE
                        && !same_type_p (arg2_type, type_promotes_to (arg3_type)))))
-        warning ("enumeral and non-enumeral type in conditional expression");
+        warning (0, "enumeral and non-enumeral type in conditional expression");
       
       arg2 = perform_implicit_conversion (result_type, arg2);
       arg3 = perform_implicit_conversion (result_type, arg3);
@@ -3751,20 +3750,6 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	  if (overloaded_p)
 	    *overloaded_p = true;
 
-	  if (warn_synth
-	      && fnname == ansi_assopname (NOP_EXPR)
-	      && DECL_ARTIFICIAL (cand->fn)
-	      && candidates->next
-	      && ! candidates->next->next)
-	    {
-	      warning ("using synthesized %q#D for copy assignment",
-			  cand->fn);
-	      cp_warning_at ("  where cfront would use %q#D",
-			     cand == candidates
-			     ? candidates->next->fn
-			     : candidates->fn);
-	    }
-
 	  result = build_over_call (cand, LOOKUP_NORMAL);
 	}
       else
@@ -3791,7 +3776,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 		  && (TYPE_MAIN_VARIANT (TREE_TYPE (arg1))
 		      != TYPE_MAIN_VARIANT (TREE_TYPE (arg2))))
 		{
-		  warning ("comparison between %q#T and %q#T", 
+		  warning (0, "comparison between %q#T and %q#T", 
                            TREE_TYPE (arg1), TREE_TYPE (arg2));
 		}
 	      break;
@@ -3863,7 +3848,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     case TRUTH_ORIF_EXPR:
       return cp_build_binary_op (code, arg1, arg2);
 
-    case CONVERT_EXPR:
+    case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
@@ -3924,7 +3909,9 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 
   fnname = ansi_opname (code);
 
-  if (IS_AGGR_TYPE (type) && !global_p)
+  if (CLASS_TYPE_P (type) 
+      && COMPLETE_TYPE_P (complete_type (type))
+      && !global_p)
     /* In [class.free]
 
        If the result of the lookup is ambiguous or inaccessible, or if
@@ -4048,7 +4035,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
   if (placement)
     return NULL_TREE;
 
-  error ("no suitable %<operator %s> for %qT",
+  error ("no suitable %<operator %s%> for %qT",
 	 operator_name_info[(int)code].name, type);
   return error_mark_node;
 }
@@ -4110,7 +4097,7 @@ build_temp (tree expr, tree type, int flags,
 				    build_tree_list (NULL_TREE, expr), 
 				    type, flags);
   if (warningcount > savew)
-    *diagnostic_fn = warning;
+    *diagnostic_fn = warning0;
   else if (errorcount > savee)
     *diagnostic_fn = error;
   else
@@ -4166,8 +4153,46 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     }
   
   if (issue_conversion_warnings)
-    expr = dubious_conversion_warnings
-             (totype, expr, "converting", fn, argnum);
+    {
+      tree t = non_reference (totype);
+
+      /* Issue warnings about peculiar, but valid, uses of NULL.  */
+      if (ARITHMETIC_TYPE_P (t) && expr == null_node)
+	{
+	  if (fn)
+	    warning (0, "passing NULL to non-pointer argument %P of %qD",
+		     argnum, fn);
+	  else
+	    warning (0, "converting to non-pointer type %qT from NULL", t);
+	}
+
+      /* Warn about assigning a floating-point type to an integer type.  */
+      if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+	  && TREE_CODE (t) == INTEGER_TYPE)
+	{
+	  if (fn)
+	    warning (0, "passing %qT for argument %P to %qD",
+		     TREE_TYPE (expr), argnum, fn);
+	  else
+	    warning (0, "converting to %qT from %qT", t, TREE_TYPE (expr));
+	}
+      /* And warn about assigning a negative value to an unsigned
+	 variable.  */
+      else if (TYPE_UNSIGNED (t) && TREE_CODE (t) != BOOLEAN_TYPE)
+	{
+	  if (TREE_CODE (expr) == INTEGER_CST && TREE_NEGATED_INT (expr)) 
+	    {
+	      if (fn)
+		warning (0, "passing negative value %qE for argument %P to %qD",
+			 expr, argnum, fn);
+	      else
+		warning (0, "converting negative value %qE to %qT", expr, t);
+	    }
+	  
+	  overflow_warning (expr);
+	}
+    }
+
   switch (convs->kind)
     {
     case ck_user:
@@ -4418,7 +4443,7 @@ convert_arg_to_ellipsis (tree arg)
 	 there is no need to emit a warning, since the expression won't be 
 	 evaluated. We keep the builtin_trap just as a safety check.  */
       if (!skip_evaluation)
-	warning ("cannot pass objects of non-POD type %q#T through %<...%>; "
+	warning (0, "cannot pass objects of non-POD type %q#T through %<...%>; "
 	         "call will abort at runtime", TREE_TYPE (arg));
       arg = call_builtin_trap ();
       arg = build2 (COMPOUND_EXPR, integer_type_node, arg,
@@ -4444,7 +4469,7 @@ build_x_va_arg (tree expr, tree type)
   if (! pod_type_p (type))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  */
-      warning ("cannot receive objects of non-POD type %q#T through %<...%>; "
+      warning (0, "cannot receive objects of non-POD type %q#T through %<...%>; "
                "call will abort at runtime", type);
       expr = convert (build_pointer_type (type), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
@@ -5359,7 +5384,7 @@ build_new_method_call (tree instance, tree fns, tree args,
 		  || DECL_DESTRUCTOR_P (current_function_decl)))
 	    /* This is not an error, it is runtime undefined
 	       behavior.  */
-	    warning ((DECL_CONSTRUCTOR_P (current_function_decl) ? 
+	    warning (0, (DECL_CONSTRUCTOR_P (current_function_decl) ? 
 		      "abstract virtual %q#D called from constructor"
 		      : "abstract virtual %q#D called from destructor"),
 		     cand->fn);
@@ -5972,9 +5997,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 
 	      if (warn)
 		{
-		  warning ("passing %qT chooses %qT over %qT",
+		  warning (0, "passing %qT chooses %qT over %qT",
 			      type, type1, type2);
-		  warning ("  in call to %qD", w->fn);
+		  warning (0, "  in call to %qD", w->fn);
 		}
 	      else
 		add_warning (w, l);
@@ -6031,10 +6056,10 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	  tree source = source_type (w->convs[0]);
 	  if (! DECL_CONSTRUCTOR_P (w->fn))
 	    source = TREE_TYPE (source);
-	  warning ("choosing %qD over %qD", w->fn, l->fn);
-	  warning ("  for conversion from %qT to %qT",
+	  warning (0, "choosing %qD over %qD", w->fn, l->fn);
+	  warning (0, "  for conversion from %qT to %qT",
 		   source, w->second_conv->type);
-	  warning ("  because conversion sequence for the argument is better");
+	  warning (0, "  because conversion sequence for the argument is better");
 	}
       else
 	add_warning (w, l);
@@ -6059,10 +6084,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
   
   if (cand1->template_decl && cand2->template_decl)
     {
-      winner = more_specialized
+      winner = more_specialized_fn
         (TI_TEMPLATE (cand1->template_decl),
          TI_TEMPLATE (cand2->template_decl),
-         DEDUCE_ORDER,
          /* Tell the deduction code how many real function arguments
 	    we saw, not counting the implicit 'this' argument.  But,
 	    add_function_candidate() suppresses the "this" argument
@@ -6496,81 +6520,86 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 				/*inner=*/-1,
 				/*issue_conversion_warnings=*/true,
 				/*c_cast_p=*/false);
-      if (!real_lvalue_p (expr))
+      if (error_operand_p (expr))
+	expr = error_mark_node;
+      else
 	{
-	  tree init;
-	  tree type;
-
-	  /* Create the temporary variable.  */
-	  type = TREE_TYPE (expr);
-	  var = make_temporary_var_for_ref_to_temp (decl, type);
-	  layout_decl (var, 0);
-	  /* If the rvalue is the result of a function call it will be
-	     a TARGET_EXPR.  If it is some other construct (such as a
-	     member access expression where the underlying object is
-	     itself the result of a function call), turn it into a
-	     TARGET_EXPR here.  It is important that EXPR be a
-	     TARGET_EXPR below since otherwise the INIT_EXPR will
-	     attempt to make a bitwise copy of EXPR to initialize
-	     VAR.  */
-	  if (TREE_CODE (expr) != TARGET_EXPR)
-	    expr = get_target_expr (expr);
-	  /* Create the INIT_EXPR that will initialize the temporary
-	     variable.  */
-	  init = build2 (INIT_EXPR, type, var, expr);
-	  if (at_function_scope_p ())
+	  if (!real_lvalue_p (expr))
 	    {
-	      add_decl_expr (var);
-	      *cleanup = cxx_maybe_build_cleanup (var);
+	      tree init;
+	      tree type;
 
-	      /* We must be careful to destroy the temporary only
-		 after its initialization has taken place.  If the
-		 initialization throws an exception, then the
-		 destructor should not be run.  We cannot simply
-		 transform INIT into something like:
-	     
-		     (INIT, ({ CLEANUP_STMT; }))
+	      /* Create the temporary variable.  */
+	      type = TREE_TYPE (expr);
+	      var = make_temporary_var_for_ref_to_temp (decl, type);
+	      layout_decl (var, 0);
+	      /* If the rvalue is the result of a function call it will be
+		 a TARGET_EXPR.  If it is some other construct (such as a
+		 member access expression where the underlying object is
+		 itself the result of a function call), turn it into a
+		 TARGET_EXPR here.  It is important that EXPR be a
+		 TARGET_EXPR below since otherwise the INIT_EXPR will
+		 attempt to make a bitwise copy of EXPR to initialize
+		 VAR.  */
+	      if (TREE_CODE (expr) != TARGET_EXPR)
+		expr = get_target_expr (expr);
+	      /* Create the INIT_EXPR that will initialize the temporary
+		 variable.  */
+	      init = build2 (INIT_EXPR, type, var, expr);
+	      if (at_function_scope_p ())
+		{
+		  add_decl_expr (var);
+		  *cleanup = cxx_maybe_build_cleanup (var);
 
-		 because emit_local_var always treats the
-		 initializer as a full-expression.  Thus, the
-		 destructor would run too early; it would run at the
-		 end of initializing the reference variable, rather
-		 than at the end of the block enclosing the
-		 reference variable.
+		  /* We must be careful to destroy the temporary only
+		     after its initialization has taken place.  If the
+		     initialization throws an exception, then the
+		     destructor should not be run.  We cannot simply
+		     transform INIT into something like:
 
-		 The solution is to pass back a cleanup expression
-		 which the caller is responsible for attaching to
-		 the statement tree.  */
+			 (INIT, ({ CLEANUP_STMT; }))
+
+		     because emit_local_var always treats the
+		     initializer as a full-expression.  Thus, the
+		     destructor would run too early; it would run at the
+		     end of initializing the reference variable, rather
+		     than at the end of the block enclosing the
+		     reference variable.
+
+		     The solution is to pass back a cleanup expression
+		     which the caller is responsible for attaching to
+		     the statement tree.  */
+		}
+	      else
+		{
+		  rest_of_decl_compilation (var, /*toplev=*/1, at_eof);
+		  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+		    static_aggregates = tree_cons (NULL_TREE, var,
+						   static_aggregates);
+		}
+	      /* Use its address to initialize the reference variable.  */
+	      expr = build_address (var);
+	      if (base_conv_type)
+		expr = convert_to_base (expr, 
+					build_pointer_type (base_conv_type),
+					/*check_access=*/true,
+					/*nonnull=*/true);
+	      expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);
 	    }
 	  else
-	    {
-	      rest_of_decl_compilation (var, /*toplev=*/1, at_eof);
-	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
-		static_aggregates = tree_cons (NULL_TREE, var,
-					       static_aggregates);
-	    }
-	  /* Use its address to initialize the reference variable.  */
-	  expr = build_address (var);
+	    /* Take the address of EXPR.  */
+	    expr = build_unary_op (ADDR_EXPR, expr, 0);
+	  /* If a BASE_CONV was required, perform it now.  */
 	  if (base_conv_type)
-	    expr = convert_to_base (expr, 
-				    build_pointer_type (base_conv_type),
-				    /*check_access=*/true,
-				    /*nonnull=*/true);
-	  expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);
+	    expr = (perform_implicit_conversion 
+		    (build_pointer_type (base_conv_type), expr));
+	  expr = build_nop (type, expr);
 	}
-      else
-	/* Take the address of EXPR.  */
-	expr = build_unary_op (ADDR_EXPR, expr, 0);
-      /* If a BASE_CONV was required, perform it now.  */
-      if (base_conv_type)
-	expr = (perform_implicit_conversion 
-		(build_pointer_type (base_conv_type), expr));
-      expr = build_nop (type, expr);
     }
   else
     /* Perform the conversion.  */
     expr = convert_like (conv, expr);
-  
+
   /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);
 

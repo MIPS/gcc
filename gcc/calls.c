@@ -1,6 +1,7 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -70,8 +71,8 @@ struct arg_data
   /* If REG was promoted from the actual mode of the argument expression,
      indicates whether the promotion is sign- or zero-extended.  */
   int unsignedp;
-  /* Number of registers to use.  0 means put the whole arg in registers.
-     Also 0 if not passed in registers.  */
+  /* Number of bytes to put in registers.  0 means put the whole arg
+     in registers.  Also 0 if not passed in registers.  */
   int partial;
   /* Nonzero if argument must be passed on stack.
      Note that some arguments may be passed on the stack
@@ -118,7 +119,7 @@ static sbitmap stored_args_map;
    returns a BLKmode struct) and expand_call must take special action
    to make sure the object being constructed does not overlap the
    argument list for the constructor call.  */
-int stack_arg_under_construction;
+static int stack_arg_under_construction;
 
 static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
@@ -394,9 +395,6 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
   if (ecf_flags & ECF_NORETURN)
     REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_NORETURN, const0_rtx,
 					       REG_NOTES (call_insn));
-  if (ecf_flags & ECF_ALWAYS_RETURN)
-    REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_ALWAYS_RETURN, const0_rtx,
-					       REG_NOTES (call_insn));
 
   if (ecf_flags & ECF_RETURNS_TWICE)
     {
@@ -465,7 +463,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
    For example, if the function might return more than one time (setjmp), then
    set RETURNS_TWICE to a nonzero value.
 
-   Similarly set LONGJMP for if the function is in the longjmp family.
+   Similarly set NORETURN if the function is in the longjmp family.
 
    Set MAY_BE_ALLOCA for any memory allocation function that might allocate
    space from the stack such as alloca.  */
@@ -540,7 +538,7 @@ special_function_p (tree fndecl, int flags)
   return flags;
 }
 
-/* Return nonzero when tree represent call to longjmp.  */
+/* Return nonzero when FNDECL represents a call to setjmp.  */
 
 int
 setjmp_call_p (tree fndecl)
@@ -582,9 +580,16 @@ flags_from_decl_or_type (tree exp)
       if (DECL_IS_POINTER_NO_ESCAPE (exp))
 	flags |= ECF_POINTER_NO_ESCAPE;
 
+      /* The function exp may have the `returns_twice' attribute.  */
+      if (DECL_IS_RETURNS_TWICE (exp))
+	flags |= ECF_RETURNS_TWICE;
+
       /* The function exp may have the `pure' attribute.  */
       if (DECL_IS_PURE (exp))
 	flags |= ECF_PURE | ECF_LIBCALL_BLOCK;
+
+      if (DECL_IS_NOVOPS (exp))
+	flags |= ECF_NOVOPS;
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
@@ -1352,6 +1357,7 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  rtx offset = ARGS_SIZE_RTX (args[i].locate.offset);
 	  rtx slot_offset = ARGS_SIZE_RTX (args[i].locate.slot_offset);
 	  rtx addr;
+	  unsigned int align, boundary;
 
 	  /* Skip this parm if it will not be passed on the stack.  */
 	  if (! args[i].pass_on_stack && args[i].reg != 0)
@@ -1364,9 +1370,18 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_align (args[i].stack, PARM_BOUNDARY);
 	  set_mem_attributes (args[i].stack,
 			      TREE_TYPE (args[i].tree_value), 1);
+	  align = BITS_PER_UNIT;
+	  boundary = args[i].locate.boundary;
+	  if (args[i].locate.where_pad != downward)
+	    align = boundary;
+	  else if (GET_CODE (offset) == CONST_INT)
+	    {
+	      align = INTVAL (offset) * BITS_PER_UNIT | boundary;
+	      align = align & -align;
+	    }
+	  set_mem_align (args[i].stack, align);
 
 	  if (GET_CODE (slot_offset) == CONST_INT)
 	    addr = plus_constant (arg_reg, INTVAL (slot_offset));
@@ -1375,9 +1390,9 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_align (args[i].stack_slot, PARM_BOUNDARY);
 	  set_mem_attributes (args[i].stack_slot,
 			      TREE_TYPE (args[i].tree_value), 1);
+	  set_mem_align (args[i].stack_slot, args[i].locate.boundary);
 
 	  /* Function incoming arguments may overlap with sibling call
 	     outgoing arguments and we cannot allow reordering of reads
@@ -1453,10 +1468,10 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	  int nregs;
 	  int size = 0;
 	  rtx before_arg = get_last_insn ();
-	  /* Set to non-negative if must move a word at a time, even if just
-	     one word (e.g, partial == 1 && mode == DFmode).  Set to -1 if
-	     we just use a normal move insn.  This value can be zero if the
-	     argument is a zero size structure with no fields.  */
+	  /* Set non-negative if we must move a word at a time, even if
+	     just one word (e.g, partial == 4 && mode == DFmode).  Set
+	     to -1 if we just use a normal move insn.  This value can be
+	     zero if the argument is a zero size structure.  */
 	  nregs = -1;
 	  if (GET_CODE (reg) == PARALLEL)
 	    ;
@@ -1654,7 +1669,7 @@ check_sibcall_argument_overlap_1 (rtx x)
 	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
 	i = INTVAL (XEXP (XEXP (x, 0), 1));
       else
-	return 1;
+	return 0;
 
 #ifdef ARGS_GROW_DOWNWARD
       i = -i - GET_MODE_SIZE (GET_MODE (x));
@@ -1744,30 +1759,6 @@ shift_return_value (enum machine_mode mode, bool left_p, rtx value)
 			   value, GEN_INT (shift), value, 1, OPTAB_WIDEN))
     gcc_unreachable ();
   return true;
-}
-
-/* Remove all REG_EQUIV notes found in the insn chain.  */
-
-static void
-purge_reg_equiv_notes (void)
-{
-  rtx insn;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      while (1)
-	{
-	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
-	  if (note)
-	    {
-	      /* Remove the note and keep looking at the notes for
-		 this insn.  */
-	      remove_note (insn, note);
-	      continue;
-	    }
-	  break;
-	}
-    }
 }
 
 /* Generate all the code for a function call
@@ -1914,8 +1905,8 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
-  if (warn_aggregate_return && AGGREGATE_TYPE_P (TREE_TYPE (exp)))
-    warning ("function call has aggregate value");
+  if (AGGREGATE_TYPE_P (TREE_TYPE (exp)))
+    warning (OPT_Waggregate_return, "function call has aggregate value");
 
   /* If the result of a pure or const function call is ignored (or void),
      and none of its arguments are volatile, we can avoid expanding the
@@ -2177,8 +2168,11 @@ expand_call (tree exp, rtx target, int ignore)
          the argument areas are shared.  */
       || (fndecl && decl_function_context (fndecl) == current_function_decl)
       /* If this function requires more stack slots than the current
-	 function, we cannot change it into a sibling call.  */
-      || args_size.constant > current_function_args_size
+	 function, we cannot change it into a sibling call.
+	 current_function_pretend_args_size is not part of the
+	 stack allocated by our caller.  */
+      || args_size.constant > (current_function_args_size
+			       - current_function_pretend_args_size)
       /* If the callee pops its own arguments, then it must pop exactly
 	 the same number of arguments as the current function.  */
       || (RETURN_POPS_ARGS (fndecl, funtype, args_size.constant)
@@ -2241,10 +2235,14 @@ expand_call (tree exp, rtx target, int ignore)
 	 Also, do all pending adjustments now if there is any chance
 	 this might be a call to alloca or if we are expanding a sibling
 	 call sequence or if we are calling a function that is to return
-	 with stack pointer depressed.  */
+	 with stack pointer depressed.
+	 Also do the adjustments before a throwing call, otherwise
+	 exception handling can fail; PR 19225. */
       if (pending_stack_adjust >= 32
 	  || (pending_stack_adjust > 0
 	      && (flags & (ECF_MAY_BE_ALLOCA | ECF_SP_DEPRESSED)))
+	  || (pending_stack_adjust > 0
+	      && flag_exceptions && !(flags & ECF_NOTHROW))
 	  || pass == 0)
 	do_pending_stack_adjust ();
 
@@ -2706,7 +2704,7 @@ expand_call (tree exp, rtx target, int ignore)
 	      end_sequence ();
 	      if (flag_unsafe_math_optimizations
 		  && fndecl
-		  && DECL_BUILT_IN (fndecl)
+		  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 		  && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRT
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTF
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTL))
@@ -3023,16 +3021,40 @@ expand_call (tree exp, rtx target, int ignore)
    this function's incoming arguments.
 
    At the start of RTL generation we know the only REG_EQUIV notes
-   in the rtl chain are those for incoming arguments, so we can safely
-   flush any REG_EQUIV note.
+   in the rtl chain are those for incoming arguments, so we can look
+   for REG_EQUIV notes between the start of the function and the
+   NOTE_INSN_FUNCTION_BEG.
 
    This is (slight) overkill.  We could keep track of the highest
    argument we clobber and be more selective in removing notes, but it
    does not seem to be worth the effort.  */
+
 void
 fixup_tail_calls (void)
 {
-  purge_reg_equiv_notes ();
+  rtx insn;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      /* There are never REG_EQUIV notes for the incoming arguments
+	 after the NOTE_INSN_FUNCTION_BEG note, so stop if we see it.  */
+      if (NOTE_P (insn)
+	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
+	break;
+
+      while (1)
+	{
+	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
+	  if (note)
+	    {
+	      /* Remove the note and keep looking at the notes for
+		 this insn.  */
+	      remove_note (insn, note);
+	      continue;
+	    }
+	  break;
+	}
+    }
 }
 
 /* Traverse an argument list in VALUES and expand all complex
@@ -3217,9 +3239,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       break;
     case LCT_THROW:
       flags = ECF_NORETURN;
-      break;
-    case LCT_ALWAYS_RETURN:
-      flags = ECF_ALWAYS_RETURN;
       break;
     case LCT_RETURNS_TWICE:
       flags = ECF_RETURNS_TWICE;
@@ -4114,9 +4133,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 				  NULL_RTX, TYPE_MODE (sizetype), 0);
 	}
 
-      /* Some types will require stricter alignment, which will be
-	 provided for elsewhere in argument layout.  */
-      parm_align = MAX (PARM_BOUNDARY, TYPE_ALIGN (TREE_TYPE (pval)));
+      parm_align = arg->locate.boundary;
 
       /* When an argument is padded down, the block is aligned to
 	 PARM_BOUNDARY, but the actual argument isn't.  */

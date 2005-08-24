@@ -1,7 +1,8 @@
 /* This file contains the definitions and documentation for the
    Register Transfer Expressions (rtx's) that make up the
    Register Transfer Language (rtl) used in the Back End of the GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2004
+   Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2004,
+   2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -314,7 +315,7 @@ DEF_RTL_EXPR(CONST_INT, "const_int", "w", RTX_CONST_OBJ)
 DEF_RTL_EXPR(CONST_DOUBLE, "const_double", CONST_DOUBLE_FORMAT, RTX_CONST_OBJ)
 
 /* Describes a vector constant.  */
-DEF_RTL_EXPR(CONST_VECTOR, "const_vector", "E", RTX_EXTRA)
+DEF_RTL_EXPR(CONST_VECTOR, "const_vector", "E", RTX_CONST_OBJ)
 
 /* String constant.  Used for attributes in machine descriptions and
    for special cases in DWARF2 debug output.  NOT used for source-
@@ -443,11 +444,8 @@ DEF_RTL_EXPR(UMOD, "umod", "ee", RTX_BIN_ARITH)
 
 /* Bitwise operations.  */
 DEF_RTL_EXPR(AND, "and", "ee", RTX_COMM_ARITH)
-
 DEF_RTL_EXPR(IOR, "ior", "ee", RTX_COMM_ARITH)
-
 DEF_RTL_EXPR(XOR, "xor", "ee", RTX_COMM_ARITH)
-
 DEF_RTL_EXPR(NOT, "not", "e", RTX_UNARY)
 
 /* Operand:
@@ -461,7 +459,10 @@ DEF_RTL_EXPR(ROTATERT, "rotatert", "ee", RTX_BIN_ARITH) /* rotate right */
 
 /* Minimum and maximum values of two operands.  We need both signed and
    unsigned forms.  (We cannot use MIN for SMIN because it conflicts
-   with a macro of the same name.) */
+   with a macro of the same name.)   The signed variants should be used
+   with floating point.  Further, if both operands are zeros, or if either
+   operand is NaN, then it is unspecified which of the two operands is
+   returned as the result.  */
 
 DEF_RTL_EXPR(SMIN, "smin", "ee", RTX_COMM_ARITH)
 DEF_RTL_EXPR(SMAX, "smax", "ee", RTX_COMM_ARITH)

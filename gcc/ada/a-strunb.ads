@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -55,172 +55,212 @@ pragma Preelaborate (Unbounded);
    -- Conversion, Concatenation, and Selection Functions --
    --------------------------------------------------------
 
-   function To_Unbounded_String (Source : String)     return Unbounded_String;
-   function To_Unbounded_String (Length : in Natural) return Unbounded_String;
+   function To_Unbounded_String
+     (Source : String)  return Unbounded_String;
+
+   function To_Unbounded_String
+     (Length : Natural) return Unbounded_String;
 
    function To_String (Source : Unbounded_String) return String;
 
-   procedure Append
-     (Source   : in out Unbounded_String;
-      New_Item : in Unbounded_String);
+   procedure Set_Unbounded_String
+     (Target : out Unbounded_String;
+      Source : String);
+   pragma Ada_05 (Set_Unbounded_String);
 
    procedure Append
      (Source   : in out Unbounded_String;
-      New_Item : in String);
+      New_Item : Unbounded_String);
 
    procedure Append
      (Source   : in out Unbounded_String;
-      New_Item : in Character);
+      New_Item : String);
 
-   function "&" (Left, Right : Unbounded_String) return Unbounded_String;
-
-   function "&"
-     (Left  : in Unbounded_String;
-      Right : in String)
-      return  Unbounded_String;
+   procedure Append
+     (Source   : in out Unbounded_String;
+      New_Item : Character);
 
    function "&"
-     (Left  : in String;
-      Right : in Unbounded_String)
-      return  Unbounded_String;
+     (Left  : Unbounded_String;
+      Right : Unbounded_String) return Unbounded_String;
 
    function "&"
-     (Left  : in Unbounded_String;
-      Right : in Character)
-      return  Unbounded_String;
+     (Left  : Unbounded_String;
+      Right : String) return Unbounded_String;
 
    function "&"
-     (Left  : in Character;
-      Right : in Unbounded_String)
-      return  Unbounded_String;
+     (Left  : String;
+      Right : Unbounded_String) return Unbounded_String;
+
+   function "&"
+     (Left  : Unbounded_String;
+      Right : Character) return Unbounded_String;
+
+   function "&"
+     (Left  : Character;
+      Right : Unbounded_String) return Unbounded_String;
 
    function Element
-     (Source : in Unbounded_String;
-      Index  : in Positive)
-      return   Character;
+     (Source : Unbounded_String;
+      Index  : Positive) return Character;
 
    procedure Replace_Element
      (Source : in out Unbounded_String;
-      Index  : in Positive;
+      Index  : Positive;
       By     : Character);
 
    function Slice
-     (Source : in Unbounded_String;
-      Low    : in Positive;
-      High   : in Natural)
-      return   String;
+     (Source : Unbounded_String;
+      Low    : Positive;
+      High   : Natural) return String;
 
-   function "=" (Left, Right : in Unbounded_String) return Boolean;
+   function Unbounded_Slice
+     (Source : Unbounded_String;
+      Low    : Positive;
+      High   : Natural) return Unbounded_String;
+   pragma Ada_05 (Unbounded_Slice);
+
+   procedure Unbounded_Slice
+     (Source : Unbounded_String;
+      Target : out Unbounded_String;
+      Low    : Positive;
+      High   : Natural);
+   pragma Ada_05 (Unbounded_Slice);
 
    function "="
-     (Left  : in Unbounded_String;
-      Right : in String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : Unbounded_String) return Boolean;
 
    function "="
-     (Left  : in String;
-      Right : in Unbounded_String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : String) return Boolean;
 
-   function "<" (Left, Right : in Unbounded_String) return Boolean;
-
-   function "<"
-     (Left  : in Unbounded_String;
-      Right : in String)
-      return  Boolean;
+   function "="
+     (Left  : String;
+      Right : Unbounded_String) return Boolean;
 
    function "<"
-     (Left  : in String;
-      Right : in Unbounded_String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : Unbounded_String) return Boolean;
 
-   function "<=" (Left, Right : in Unbounded_String) return Boolean;
+   function "<"
+     (Left  : Unbounded_String;
+      Right : String) return Boolean;
+
+   function "<"
+     (Left  : String;
+      Right : Unbounded_String) return Boolean;
 
    function "<="
-     (Left  : in Unbounded_String;
-      Right : in String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : Unbounded_String) return Boolean;
 
    function "<="
-     (Left  : in String;
-      Right : in Unbounded_String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : String) return Boolean;
 
-   function ">" (Left, Right : in Unbounded_String) return Boolean;
-
-   function ">"
-     (Left  : in Unbounded_String;
-      Right : in String)
-      return  Boolean;
+   function "<="
+     (Left  : String;
+      Right : Unbounded_String) return Boolean;
 
    function ">"
-     (Left  : in String;
-      Right : in Unbounded_String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : Unbounded_String) return Boolean;
 
-   function ">=" (Left, Right : in Unbounded_String) return Boolean;
+   function ">"
+     (Left  : Unbounded_String;
+      Right : String) return Boolean;
+
+   function ">"
+     (Left  : String;
+      Right : Unbounded_String) return Boolean;
 
    function ">="
-     (Left  : in Unbounded_String;
-      Right : in String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : Unbounded_String) return Boolean;
 
    function ">="
-     (Left  : in String;
-      Right : in Unbounded_String)
-      return  Boolean;
+     (Left  : Unbounded_String;
+      Right : String) return Boolean;
+
+   function ">="
+     (Left  : String;
+      Right : Unbounded_String) return Boolean;
 
    ------------------------
    -- Search Subprograms --
    ------------------------
 
    function Index
-     (Source   : in Unbounded_String;
-      Pattern  : in String;
-      Going    : in Direction := Forward;
-      Mapping  : in Maps.Character_Mapping := Maps.Identity)
-      return     Natural;
+     (Source  : Unbounded_String;
+      Pattern : String;
+      Going   : Direction := Forward;
+      Mapping : Maps.Character_Mapping := Maps.Identity) return Natural;
 
    function Index
-     (Source   : in Unbounded_String;
-      Pattern  : in String;
-      Going    : in Direction := Forward;
-      Mapping  : in Maps.Character_Mapping_Function)
-      return     Natural;
+     (Source  : Unbounded_String;
+      Pattern : String;
+      Going   : Direction := Forward;
+      Mapping : Maps.Character_Mapping_Function) return Natural;
 
    function Index
-     (Source : in Unbounded_String;
-      Set    : in Maps.Character_Set;
-      Test   : in Membership := Inside;
-      Going  : in Direction  := Forward)
-      return   Natural;
+     (Source : Unbounded_String;
+      Set    : Maps.Character_Set;
+      Test   : Membership := Inside;
+      Going  : Direction  := Forward) return Natural;
+
+   function Index
+     (Source  : Unbounded_String;
+      Pattern : String;
+      From    : Positive;
+      Going   : Direction := Forward;
+      Mapping : Maps.Character_Mapping := Maps.Identity) return Natural;
+   pragma Ada_05 (Index);
+
+   function Index
+     (Source  : Unbounded_String;
+      Pattern : String;
+      From    : Positive;
+      Going   : Direction := Forward;
+      Mapping : Maps.Character_Mapping_Function) return Natural;
+   pragma Ada_05 (Index);
+
+   function Index
+     (Source  : Unbounded_String;
+      Set     : Maps.Character_Set;
+      From    : Positive;
+      Test    : Membership := Inside;
+      Going   : Direction := Forward) return Natural;
+   pragma Ada_05 (Index);
 
    function Index_Non_Blank
-     (Source : in Unbounded_String;
-      Going  : in Direction := Forward)
-      return   Natural;
+     (Source : Unbounded_String;
+      Going  : Direction := Forward) return Natural;
+
+   function Index_Non_Blank
+     (Source : Unbounded_String;
+      From   : Positive;
+      Going  : Direction := Forward) return Natural;
+   pragma Ada_05 (Index_Non_Blank);
 
    function Count
-     (Source  : in Unbounded_String;
-      Pattern : in String;
-      Mapping : in Maps.Character_Mapping := Maps.Identity)
-      return    Natural;
+     (Source  : Unbounded_String;
+      Pattern : String;
+      Mapping : Maps.Character_Mapping := Maps.Identity) return Natural;
 
    function Count
-     (Source   : in Unbounded_String;
-      Pattern  : in String;
-      Mapping  : in Maps.Character_Mapping_Function)
-      return     Natural;
+     (Source  : Unbounded_String;
+      Pattern : String;
+      Mapping : Maps.Character_Mapping_Function) return Natural;
 
    function Count
-     (Source : in Unbounded_String;
-      Set    : in Maps.Character_Set)
-      return   Natural;
+     (Source : Unbounded_String;
+      Set    : Maps.Character_Set) return Natural;
 
    procedure Find_Token
-     (Source : in Unbounded_String;
-      Set    : in Maps.Character_Set;
-      Test   : in Membership;
+     (Source : Unbounded_String;
+      Set    : Maps.Character_Set;
+      Test   : Membership;
       First  : out Positive;
       Last   : out Natural);
 
@@ -229,129 +269,116 @@ pragma Preelaborate (Unbounded);
    ------------------------------------
 
    function Translate
-     (Source  : in Unbounded_String;
-      Mapping : in Maps.Character_Mapping)
-      return    Unbounded_String;
+     (Source  : Unbounded_String;
+      Mapping : Maps.Character_Mapping) return Unbounded_String;
 
    procedure Translate
      (Source  : in out Unbounded_String;
       Mapping : Maps.Character_Mapping);
 
    function Translate
-     (Source  : in Unbounded_String;
-      Mapping : in Maps.Character_Mapping_Function)
-      return    Unbounded_String;
+     (Source  : Unbounded_String;
+      Mapping : Maps.Character_Mapping_Function) return Unbounded_String;
 
    procedure Translate
      (Source  : in out Unbounded_String;
-      Mapping : in Maps.Character_Mapping_Function);
+      Mapping : Maps.Character_Mapping_Function);
 
    ---------------------------------------
    -- String Transformation Subprograms --
    ---------------------------------------
 
    function Replace_Slice
-     (Source : in Unbounded_String;
-      Low    : in Positive;
-      High   : in Natural;
-      By     : in String)
-      return   Unbounded_String;
+     (Source : Unbounded_String;
+      Low    : Positive;
+      High   : Natural;
+      By     : String) return Unbounded_String;
 
    procedure Replace_Slice
-     (Source   : in out Unbounded_String;
-      Low      : in Positive;
-      High     : in Natural;
-      By       : in String);
+     (Source : in out Unbounded_String;
+      Low    : Positive;
+      High   : Natural;
+      By     : String);
 
    function Insert
-     (Source   : in Unbounded_String;
-      Before   : in Positive;
-      New_Item : in String)
-      return     Unbounded_String;
+     (Source   : Unbounded_String;
+      Before   : Positive;
+      New_Item : String) return Unbounded_String;
 
    procedure Insert
      (Source   : in out Unbounded_String;
-      Before   : in Positive;
-      New_Item : in String);
+      Before   : Positive;
+      New_Item : String);
 
    function Overwrite
-     (Source   : in Unbounded_String;
-      Position : in Positive;
-      New_Item : in String)
-      return     Unbounded_String;
+     (Source   : Unbounded_String;
+      Position : Positive;
+      New_Item : String) return Unbounded_String;
 
    procedure Overwrite
-     (Source    : in out Unbounded_String;
-      Position  : in Positive;
-      New_Item  : in String);
+     (Source   : in out Unbounded_String;
+      Position : Positive;
+      New_Item : String);
 
    function Delete
-     (Source  : in Unbounded_String;
-      From    : in Positive;
-      Through : in Natural)
-      return    Unbounded_String;
+     (Source  : Unbounded_String;
+      From    : Positive;
+      Through : Natural) return Unbounded_String;
 
    procedure Delete
      (Source  : in out Unbounded_String;
-      From    : in Positive;
-      Through : in Natural);
+      From    : Positive;
+      Through : Natural);
 
    function Trim
-     (Source : in Unbounded_String;
-      Side   : in Trim_End)
-      return   Unbounded_String;
+     (Source : Unbounded_String;
+      Side   : Trim_End) return Unbounded_String;
 
    procedure Trim
      (Source : in out Unbounded_String;
-      Side   : in Trim_End);
+      Side   : Trim_End);
 
    function Trim
-     (Source : in Unbounded_String;
-      Left   : in Maps.Character_Set;
-      Right  : in Maps.Character_Set)
-      return   Unbounded_String;
+     (Source : Unbounded_String;
+      Left   : Maps.Character_Set;
+      Right  : Maps.Character_Set) return Unbounded_String;
 
    procedure Trim
      (Source : in out Unbounded_String;
-      Left   : in Maps.Character_Set;
-      Right  : in Maps.Character_Set);
+      Left   : Maps.Character_Set;
+      Right  : Maps.Character_Set);
 
    function Head
-     (Source : in Unbounded_String;
-      Count  : in Natural;
-      Pad    : in Character := Space)
-      return   Unbounded_String;
+     (Source : Unbounded_String;
+      Count  : Natural;
+      Pad    : Character := Space) return Unbounded_String;
 
    procedure Head
      (Source : in out Unbounded_String;
-      Count  : in Natural;
-      Pad    : in Character := Space);
+      Count  : Natural;
+      Pad    : Character := Space);
 
    function Tail
-     (Source : in Unbounded_String;
-      Count  : in Natural;
-      Pad    : in Character := Space)
-      return   Unbounded_String;
+     (Source : Unbounded_String;
+      Count  : Natural;
+      Pad    : Character := Space) return Unbounded_String;
 
    procedure Tail
      (Source : in out Unbounded_String;
-      Count  : in Natural;
-      Pad    : in Character := Space);
+      Count  : Natural;
+      Pad    : Character := Space);
 
    function "*"
-     (Left  : in Natural;
-      Right : in Character)
-      return  Unbounded_String;
+     (Left  : Natural;
+      Right : Character) return Unbounded_String;
 
    function "*"
-     (Left  : in Natural;
-      Right : in String)
-      return  Unbounded_String;
+     (Left  : Natural;
+      Right : String) return Unbounded_String;
 
    function "*"
-     (Left  : in Natural;
-      Right : in Unbounded_String)
-      return  Unbounded_String;
+     (Left  : Natural;
+      Right : Unbounded_String) return Unbounded_String;
 
 private
    pragma Inline (Length);
@@ -378,18 +405,31 @@ private
    pragma Stream_Convert (Unbounded_String, To_Unbounded, To_String);
 
    pragma Finalize_Storage_Only (Unbounded_String);
+   --  Finalization is required only for freeing storage
 
    procedure Initialize (Object : in out Unbounded_String);
    procedure Adjust     (Object : in out Unbounded_String);
    procedure Finalize   (Object : in out Unbounded_String);
 
-   --  Note: the following declaration is illegal since library level
-   --  controlled objects are not allowed in preelaborated units. See
-   --  AI-161 for a discussion of this issue and an attempt to address it.
-   --  Meanwhile, what happens in GNAT is that this check is omitted for
-   --  internal implementation units (see check in sem_cat.adb).
+   procedure Realloc_For_Chunk
+     (Source     : in out Unbounded_String;
+      Chunk_Size : Natural);
+   pragma Inline (Realloc_For_Chunk);
+   --  Adjust the size allocated for the string. Add at least Chunk_Size so it
+   --  is safe to add a string of this size at the end of the current content.
+   --  The real size allocated for the string is Chunk_Size + x of the current
+   --  string size. This buffered handling makes the Append unbounded string
+   --  routines very fast. This spec is in the private part so that it can be
+   --  accessed from children (e.g. from Unbounded.Text_IO).
 
    Null_Unbounded_String : constant Unbounded_String :=
-     (AF.Controlled with Reference => Null_String'Access, Last => 0);
+                             (AF.Controlled with
+                                Reference => Null_String'Access,
+                                Last => 0);
+   --  Note: this declaration is illegal since library level controlled
+   --  objects are not allowed in preelaborated units. See AI-161 for a
+   --  discussion of this issue and an attempt to address it. Meanwhile,
+   --  what happens in GNAT is that this check is omitted for internal
+   --  implementation units (see check in sem_cat.adb).
 
 end Ada.Strings.Unbounded;

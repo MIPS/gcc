@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -29,7 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "predict.h"
 #include "vec.h"
-#include "errors.h"
+#include "function.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -98,8 +98,8 @@ typedef bitmap_iterator reg_set_iterator;
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in the first regset and not set in the second.  */
-#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
-  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
+#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
+  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
@@ -144,7 +144,8 @@ struct edge_def GTY(())
 };
 
 typedef struct edge_def *edge;
-DEF_VEC_GC_P(edge);
+DEF_VEC_P(edge);
+DEF_VEC_ALLOC_P(edge,gc);
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -181,7 +182,7 @@ struct loop;
 struct loops;
 
 /* Declared in tree-flow.h.  */
-struct bb_ann_d;
+struct edge_prediction;
 
 /* A basic block is a sequence of instructions with only entry and
    only one exit.  If any one of the instructions are executed, they
@@ -219,8 +220,8 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   tree stmt_list;
 
   /* The edges into and out of the block.  */
-  VEC(edge) *preds;
-  VEC(edge) *succs;
+  VEC(edge,gc) *preds;
+  VEC(edge,gc) *succs;
 
   /* The registers that are live on entry to this block.  */
   bitmap GTY ((skip (""))) global_live_at_start;
@@ -244,8 +245,11 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * rbi;
 
-  /* Annotations used at the tree level.  */
-  struct bb_ann_d *tree_annotations;
+  /* Chain of PHI nodes for this block.  */
+  tree phi_nodes;
+
+  /* A list of predictions.  */
+  struct edge_prediction *predictions;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -261,9 +265,6 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
 
   /* Various flags.  See BB_* below.  */
   int flags;
-
-  /* Which section block belongs in, when partitioning basic blocks.  */
-  int partition;
 };
 
 typedef struct basic_block_def *basic_block;
@@ -296,17 +297,45 @@ typedef struct reorder_block_def *reorder_block_def;
 
 #define BB_FREQ_MAX 10000
 
-/* Masks for basic_block.flags.  */
-#define BB_DIRTY		1
-#define BB_NEW			2
-#define BB_REACHABLE		4
-#define BB_VISITED		8
-#define BB_IRREDUCIBLE_LOOP	16
-#define BB_SUPERBLOCK		32
-#define BB_DISABLE_SCHEDULE     64
+/* Masks for basic_block.flags.
 
-#define BB_HOT_PARTITION	128
-#define BB_COLD_PARTITION	256
+   BB_HOT_PARTITION and BB_COLD_PARTITION should be preserved throughout
+   the compilation, so they are never cleared.
+
+   All other flags may be cleared by clear_bb_flags().  It is generally
+   a bad idea to rely on any flags being up-to-date.  */
+
+enum
+{
+
+  /* Set if insns in BB have are modified.  Used for updating liveness info.  */
+  BB_DIRTY = 1,
+
+  /* Only set on blocks that have just been created by create_bb.  */
+  BB_NEW = 2,
+
+  /* Set by find_unreachable_blocks.  Do not rely on this being set in any
+     pass.  */
+  BB_REACHABLE = 4,
+
+  /* Set for blocks in an irreducible loop by loop analysis.  */
+  BB_IRREDUCIBLE_LOOP = 8,
+
+  /* Set on blocks that may actually not be single-entry single-exit block.  */
+  BB_SUPERBLOCK = 16,
+
+  /* Set on basic blocks that the scheduler should not touch.  This is used
+     by SMS to prevent other schedulers from messing with the loop schedule.  */
+  BB_DISABLE_SCHEDULE = 32,
+
+  /* Set on blocks that should be put in a hot section.  */
+  BB_HOT_PARTITION = 64,
+
+  /* Set on blocks that should be put in a cold section.  */
+  BB_COLD_PARTITION = 128
+};
+
+/* Dummy flag for convenience in the hot/cold partitioning code.  */
 #define BB_UNPARTITIONED	0
 
 /* Partitions, to be used when partitioning hot and cold basic blocks into
@@ -367,7 +396,7 @@ struct control_flow_graph GTY(())
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
   (VARRAY_BB (basic_block_info_for_function(FN), (N)))
 
-/* Defines for texual backward source compatibility.  */
+/* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
 #define EXIT_BLOCK_PTR		(cfun->cfg->x_exit_block_ptr)
 #define basic_block_info	(cfun->cfg->x_basic_block_info)
@@ -378,6 +407,10 @@ struct control_flow_graph GTY(())
 #define profile_status		(cfun->cfg->x_profile_status)
 
 #define BASIC_BLOCK(N)		(VARRAY_BB (basic_block_info, (N)))
+
+/* TRUE if we should re-run loop discovery after threading jumps, FALSE
+   otherwise.  */
+extern bool rediscover_loops_after_threading;
 
 /* For iterating over basic blocks.  */
 #define FOR_BB_BETWEEN(BB, FROM, TO, DIR) \
@@ -410,9 +443,8 @@ struct control_flow_graph GTY(())
 #define FOR_ALL_BB(BB) \
   for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
 
-/* What registers are live at the setjmp call.  */
-
-extern regset regs_live_at_setjmp;
+#define FOR_ALL_BB_FN(BB, FN) \
+  for (BB = ENTRY_BLOCK_PTR_FOR_FUNCTION (FN); BB; BB = BB->next_bb)
 
 /* Special labels found during CFG build.  */
 
@@ -464,7 +496,7 @@ extern void remove_fake_exit_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
-extern edge cached_make_edge (sbitmap *, basic_block, basic_block, int);
+extern edge cached_make_edge (sbitmap, basic_block, basic_block, int);
 extern edge make_edge (basic_block, basic_block, int);
 extern edge make_single_succ_edge (basic_block, basic_block, int);
 extern void remove_edge (edge);
@@ -522,7 +554,7 @@ struct edge_list
   edge *index_to_edge;
 };
 
-/* The base value for branch probability notes.  */
+/* The base value for branch probability notes and edge probabilities.  */
 #define REG_BR_PROB_BASE  10000
 
 /* This is the value which indicates no edge is present.  */
@@ -566,14 +598,68 @@ struct edge_list
 #define EDGE_PRED(bb,i)			VEC_index  (edge, (bb)->preds, (i))
 #define EDGE_SUCC(bb,i)			VEC_index  (edge, (bb)->succs, (i))
 
+/* Returns true if BB has precisely one successor.  */
+
+static inline bool
+single_succ_p (basic_block bb)
+{
+  return EDGE_COUNT (bb->succs) == 1;
+}
+
+/* Returns true if BB has precisely one predecessor.  */
+
+static inline bool
+single_pred_p (basic_block bb)
+{
+  return EDGE_COUNT (bb->preds) == 1;
+}
+
+/* Returns the single successor edge of basic block BB.  Aborts if
+   BB does not have exactly one successor.  */
+
+static inline edge
+single_succ_edge (basic_block bb)
+{
+  gcc_assert (single_succ_p (bb));
+  return EDGE_SUCC (bb, 0);
+}
+
+/* Returns the single predecessor edge of basic block BB.  Aborts
+   if BB does not have exactly one predecessor.  */
+
+static inline edge
+single_pred_edge (basic_block bb)
+{
+  gcc_assert (single_pred_p (bb));
+  return EDGE_PRED (bb, 0);
+}
+
+/* Returns the single successor block of basic block BB.  Aborts
+   if BB does not have exactly one successor.  */
+
+static inline basic_block
+single_succ (basic_block bb)
+{
+  return single_succ_edge (bb)->dest;
+}
+
+/* Returns the single predecessor block of basic block BB.  Aborts
+   if BB does not have exactly one predecessor.*/
+
+static inline basic_block
+single_pred (basic_block bb)
+{
+  return single_pred_edge (bb)->src;
+}
+
 /* Iterator object for edges.  */
 
 typedef struct {
   unsigned index;
-  VEC(edge) **container;
+  VEC(edge,gc) **container;
 } edge_iterator;
 
-static inline VEC(edge) *
+static inline VEC(edge,gc) *
 ei_container (edge_iterator i)
 {
   gcc_assert (i.container);
@@ -585,7 +671,7 @@ ei_container (edge_iterator i)
 
 /* Return an iterator pointing to the start of an edge vector.  */
 static inline edge_iterator
-ei_start_1 (VEC(edge) **ev)
+ei_start_1 (VEC(edge,gc) **ev)
 {
   edge_iterator i;
 
@@ -598,7 +684,7 @@ ei_start_1 (VEC(edge) **ev)
 /* Return an iterator pointing to the last element of an edge
    vector.  */
 static inline edge_iterator
-ei_last_1 (VEC(edge) **ev)
+ei_last_1 (VEC(edge,gc) **ev)
 {
   edge_iterator i;
 
@@ -655,6 +741,25 @@ ei_safe_edge (edge_iterator i)
   return !ei_end_p (i) ? ei_edge (i) : NULL;
 }
 
+/* Return 1 if we should continue to iterate.  Return 0 otherwise.
+   *Edge P is set to the next edge if we are to continue to iterate
+   and NULL otherwise.  */
+
+static inline bool
+ei_cond (edge_iterator ei, edge *p)
+{
+  if (!ei_end_p (ei))
+    {
+      *p = ei_edge (ei);
+      return 1;
+    }
+  else
+    {
+      *p = NULL;
+      return 0;
+    }
+}
+
 /* This macro serves as a convenient way to iterate each edge in a
    vector of predecessor or successor edges.  It must not be used when
    an element might be removed during the traversal, otherwise
@@ -670,9 +775,9 @@ ei_safe_edge (edge_iterator i)
      }
 */
 
-#define FOR_EACH_EDGE(EDGE,ITER,EDGE_VEC) \
-  for ((EDGE) = NULL, (ITER) = ei_start ((EDGE_VEC)); \
-       ((EDGE) = ei_safe_edge ((ITER))); \
+#define FOR_EACH_EDGE(EDGE,ITER,EDGE_VEC)	\
+  for ((ITER) = ei_start ((EDGE_VEC));		\
+       ei_cond ((ITER), &(EDGE));		\
        ei_next (&(ITER)))
 
 struct edge_list * create_edge_list (void);
@@ -700,10 +805,11 @@ enum update_life_extent
 #define PROP_ALLOW_CFG_CHANGES	32	/* Allow the CFG to be changed
 					   by dead code removal.  */
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
-#define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
-#define PROP_SCAN_DEAD_STORES	256	/* Scan for dead code.  */
-#define PROP_ASM_SCAN		512	/* Internal flag used within flow.c
+#define PROP_SCAN_DEAD_STORES	128	/* Scan for dead code.  */
+#define PROP_ASM_SCAN		256	/* Internal flag used within flow.c
 					   to flag analysis of asms.  */
+#define PROP_DEAD_INSN		1024	/* Internal flag used within flow.c
+					   to flag analysis of dead insn.  */
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
@@ -781,11 +887,10 @@ extern int delete_noop_moves (void);
 extern basic_block force_nonfallthru (edge);
 extern rtx block_label (basic_block);
 extern bool forwarder_block_p (basic_block);
-extern bool purge_all_dead_edges (int);
+extern bool purge_all_dead_edges (void);
 extern bool purge_dead_edges (basic_block);
-extern void find_sub_basic_blocks (basic_block);
 extern void find_many_sub_basic_blocks (sbitmap);
-extern void rtl_make_eh_edge (sbitmap *, basic_block, rtx);
+extern void rtl_make_eh_edge (sbitmap, basic_block, rtx);
 extern bool can_fallthru (basic_block, basic_block);
 extern bool could_fall_through (basic_block, basic_block);
 extern void flow_nodes_print (const char *, const sbitmap, FILE *);
@@ -798,7 +903,7 @@ extern void alloc_aux_for_edge (edge, int);
 extern void alloc_aux_for_edges (int);
 extern void clear_aux_for_edges (void);
 extern void free_aux_for_edges (void);
-extern void find_basic_blocks (rtx, int, FILE *);
+extern void find_basic_blocks (rtx);
 extern bool cleanup_cfg (int);
 extern bool delete_unreachable_blocks (void);
 extern bool merge_seq_blocks (void);
@@ -831,6 +936,7 @@ extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (unsigned int);
+extern void duplicate_computed_gotos (void);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In cfg.c */
@@ -858,6 +964,8 @@ extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,
 					     basic_block, basic_block);
+extern basic_block nearest_common_dominator_for_set (enum cdi_direction, 
+						     bitmap);
 extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
 extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);

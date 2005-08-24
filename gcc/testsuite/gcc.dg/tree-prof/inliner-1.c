@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -fdump-tree-optimized" } */
+/* { dg-options "-O2 -fdump-tree-optimized -fdump-tree-all" } */
 int a;
 int b[100];
 void abort (void);
@@ -35,4 +35,3 @@ main ()
    declaration or other apperances of the string in dump.  */
 /* { dg-final-use { scan-tree-dump "cold_function ..;" "optimized"} } */
 /* { dg-final-use { scan-tree-dump-not "hot_function ..;" "optimized"} } */
-/* { dg-final-use { cleanup-tree-dump "optimized" } } */

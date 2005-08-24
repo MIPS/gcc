@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUN-TIME COMPONENTS                         --
+--                         GNAT RUNTIME COMPONENTS                          --
 --                                                                          --
 -- A D A . W I D E _ W I D E _ T E X T _ I O . E N U M E R A T I O N _ A U X--
 --                                                                          --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
+-- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -32,7 +32,6 @@
 ------------------------------------------------------------------------------
 
 with Ada.Wide_Wide_Text_IO.Generic_Aux; use Ada.Wide_Wide_Text_IO.Generic_Aux;
-with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 with Ada.Characters.Handling;           use Ada.Characters.Handling;
 with Interfaces.C_Streams;              use Interfaces.C_Streams;
 with System.WCh_Con;                    use System.WCh_Con;

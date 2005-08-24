@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
+#include "debug.h"
 #include "target.h"
 
 static tree bot_manip (tree *, int *, void *);
@@ -111,6 +112,7 @@ lvalue_p_1 (tree ref,
     case STRING_CST:
       return clk_ordinary;
 
+    case CONST_DECL:
     case VAR_DECL:
       if (TREE_READONLY (ref) && ! TREE_STATIC (ref)
 	  && DECL_LANG_SPECIFIC (ref)
@@ -213,6 +215,19 @@ lvalue_p (tree ref)
 {
   return
     (lvalue_p_1 (ref, /*class rvalue ok*/ 1) != clk_none);
+}
+
+/* Test whether DECL is a builtin that may appear in a
+   constant-expression. */
+
+bool
+builtin_valid_in_constant_expr_p (tree decl)
+{
+  /* At present BUILT_IN_CONSTANT_P is the only builtin we're allowing
+     in constant-expressions.  We may want to add other builtins later. */
+  return TREE_CODE (decl) == FUNCTION_DECL
+    && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+    && DECL_FUNCTION_CODE (decl) == BUILT_IN_CONSTANT_P;
 }
 
 /* Build a TARGET_EXPR, initializing the DECL with the VALUE.  */
@@ -486,11 +501,10 @@ cp_build_qualified_type_real (tree type,
       return build_ptrmemfunc_type (t);
     }
 
-  /* A reference, function or method type shall not be cv qualified.
+  /* A reference or method type shall not be cv qualified.
      [dcl.ref], [dct.fct]  */
   if (type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)
       && (TREE_CODE (type) == REFERENCE_TYPE
-	  || TREE_CODE (type) == FUNCTION_TYPE
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
@@ -498,10 +512,11 @@ cp_build_qualified_type_real (tree type,
     }
 
   /* A restrict-qualified type must be a pointer (or reference)
-     to object or incomplete type.  */
+     to object or incomplete type, or a function type. */
   if ((type_quals & TYPE_QUAL_RESTRICT)
       && TREE_CODE (type) != TEMPLATE_TYPE_PARM
       && TREE_CODE (type) != TYPENAME_TYPE
+      && TREE_CODE (type) != FUNCTION_TYPE
       && !POINTER_TYPE_P (type))
     {
       bad_quals |= TYPE_QUAL_RESTRICT;
@@ -736,21 +751,6 @@ hash_tree_chain (tree value, tree chain)
 {
   return hash_tree_cons (NULL_TREE, value, chain);
 }
-
-/* Similar, but used for concatenating two lists.  */
-
-tree
-hash_chainon (tree list1, tree list2)
-{
-  if (list2 == 0)
-    return list1;
-  if (list1 == 0)
-    return list2;
-  if (TREE_CHAIN (list1) == NULL_TREE)
-    return hash_tree_chain (TREE_VALUE (list1), list2);
-  return hash_tree_chain (TREE_VALUE (list1),
-			  hash_chainon (TREE_CHAIN (list1), list2));
-}
 
 void
 debug_binfo (tree elem)
@@ -781,20 +781,6 @@ debug_binfo (tree elem)
       ++n;
       virtuals = TREE_CHAIN (virtuals);
     }
-}
-
-int
-count_functions (tree t)
-{
-  int i;
-  
-  if (TREE_CODE (t) == FUNCTION_DECL)
-    return 1;
-  gcc_assert (TREE_CODE (t) == OVERLOAD);
-  
-  for (i = 0; t; t = OVL_CHAIN (t))
-    i++;
-  return i;
 }
 
 int
@@ -833,16 +819,6 @@ get_first_fn (tree from)
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
-}
-
-/* Returns nonzero if T is a ->* or .* expression that refers to a
-   member function.  */
-
-int
-bound_pmf_p (tree t)
-{
-  return (TREE_CODE (t) == OFFSET_REF
-	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (t, 1))));
 }
 
 /* Return a new OVL node, concatenating it with the old one.  */
@@ -1138,9 +1114,9 @@ cxx_print_statistics (void)
 tree
 array_type_nelts_top (tree type)
 {
-  return fold (build2 (PLUS_EXPR, sizetype,
-		       array_type_nelts (type),
-		       integer_one_node));
+  return fold_build2 (PLUS_EXPR, sizetype,
+		      array_type_nelts (type),
+		      integer_one_node);
 }
 
 /* Return, as an INTEGER_CST node, the number of elements for TYPE
@@ -1155,7 +1131,7 @@ array_type_nelts_total (tree type)
   while (TREE_CODE (type) == ARRAY_TYPE)
     {
       tree n = array_type_nelts_top (type);
-      sz = fold (build2 (MULT_EXPR, sizetype, sz, n));
+      sz = fold_build2 (MULT_EXPR, sizetype, sz, n);
       type = TREE_TYPE (type);
     }
   return sz;
@@ -1485,6 +1461,7 @@ cp_tree_equal (tree t1, tree t2)
     case FUNCTION_DECL:
     case TEMPLATE_DECL:
     case IDENTIFIER_NODE:
+    case SSA_NAME:
       return false;
 
     case BASELINK:
@@ -1792,12 +1769,13 @@ handle_com_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || *node != TYPE_MAIN_VARIANT (*node))
     {
-      warning ("%qE attribute can only be applied to class definitions", name);
+      warning (OPT_Wattributes, "%qE attribute can only be applied "
+	       "to class definitions", name);
       return NULL_TREE;
     }
 
   if (!warned++)
-    warning ("%qE is obsolete; g++ vtables are now COM-compatible by default",
+    warning (0, "%qE is obsolete; g++ vtables are now COM-compatible by default",
 	     name);
 
   return NULL_TREE;
@@ -1860,7 +1838,7 @@ handle_init_priority_attribute (tree* node,
   if (pri <= MAX_RESERVED_INIT_PRIORITY)
     {
       warning
-	("requested init_priority is reserved for internal use");
+	(0, "requested init_priority is reserved for internal use");
     }
 
   if (SUPPORTS_INIT_PRIORITY)
@@ -1874,17 +1852,6 @@ handle_init_priority_attribute (tree* node,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-}
-
-/* Return a new TINST_LEVEL for DECL at location locus.  */
-tree
-make_tinst_level (tree decl, location_t locus)
-{
-  tree tinst_level = make_node (TINST_LEVEL);
-  TREE_CHAIN (tinst_level) = NULL_TREE;
-  TINST_DECL (tinst_level) = decl;
-  TINST_LOCATION (tinst_level) = locus;
-  return tinst_level;
 }
 
 /* Return a new PTRMEM_CST of the indicated TYPE.  The MEMBER is the
@@ -2054,14 +2021,24 @@ cp_cannot_inline_tree_fn (tree* fnp)
   return 0;
 }
 
-/* Determine whether a tree node is an OVERLOAD node.  Used to decide
-   whether to copy a node or to preserve its chain when inlining a
-   function.  */
+/* Add any pending functions other than the current function (already
+   handled by the caller), that thus cannot be inlined, to FNS_P, then
+   return the latest function added to the array, PREV_FN.  */
 
-int
-cp_is_overload_p (tree t)
+tree
+cp_add_pending_fn_decls (void* fns_p, tree prev_fn)
 {
-  return TREE_CODE (t) == OVERLOAD;
+  varray_type *fnsp = (varray_type *)fns_p;
+  struct saved_scope *s;
+
+  for (s = scope_chain; s; s = s->prev)
+    if (s->function_decl && s->function_decl != prev_fn)
+      {
+	VARRAY_PUSH_TREE (*fnsp, s->function_decl);
+	prev_fn = s->function_decl;
+      }
+
+  return prev_fn;
 }
 
 /* Determine whether VAR is a declaration of an automatic variable in
@@ -2074,62 +2051,6 @@ cp_auto_var_in_fn_p (tree var, tree fn)
 	  && nonstatic_local_decl_p (var));
 }
 
-/* Tell whether a declaration is needed for the RESULT of a function
-   FN being inlined into CALLER or if the top node of target_exprs is
-   to be used.  */
-
-tree
-cp_copy_res_decl_for_inlining (tree result,
-                               tree fn,
-                               tree caller,
-                               void* decl_map_ ATTRIBUTE_UNUSED,
-                               int* need_decl,
-                               tree return_slot_addr)
-{
-  tree var;
-
-  /* If FN returns an aggregate then the caller will always pass the
-     address of the return slot explicitly.  If we were just to
-     create a new VAR_DECL here, then the result of this function
-     would be copied (bitwise) into the variable initialized by the
-     TARGET_EXPR.  That's incorrect, so we must transform any
-     references to the RESULT into references to the target.  */
-
-  /* We should have an explicit return slot iff the return type is
-     TREE_ADDRESSABLE.  See gimplify_aggr_init_expr.  */
-  if (TREE_ADDRESSABLE (TREE_TYPE (result))
-      != (return_slot_addr != NULL_TREE))
-    abort ();
-
-  *need_decl = !return_slot_addr;
-  if (return_slot_addr)
-    {
-      var = build_indirect_ref (return_slot_addr, "");
-      if (! same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (var),
-                                                       TREE_TYPE (result)))
-        abort ();
-    }
-  /* Otherwise, make an appropriate copy.  */
-  else
-    var = copy_decl_for_inlining (result, fn, caller);
-
-  return var;
-}
-
-/* FN body has been duplicated.  Update language specific fields.  */
-
-void
-cp_update_decl_after_saving (tree fn,
-                             void* decl_map_)
-{
-  splay_tree decl_map = (splay_tree)decl_map_;
-  tree nrv = DECL_SAVED_FUNCTION_DATA (fn)->x_return_value;
-  if (nrv)
-    {
-      DECL_SAVED_FUNCTION_DATA (fn)->x_return_value
-	= (tree) splay_tree_lookup (decl_map, (splay_tree_key) nrv)->value;
-    }
-}
 /* Initialize tree.c.  */
 
 void
@@ -2166,22 +2087,6 @@ special_function_p (tree decl)
     return sfk_conversion;
 
   return sfk_none;
-}
-
-/* Returns true if and only if NODE is a name, i.e., a node created
-   by the parser when processing an id-expression.  */
-
-bool
-name_p (tree node)
-{
-  if (TREE_CODE (node) == TEMPLATE_ID_EXPR)
-    node = TREE_OPERAND (node, 0);
-  return (/* An ordinary unqualified name.  */
-	  TREE_CODE (node) == IDENTIFIER_NODE
-	  /* A destructor name.  */
-	  || TREE_CODE (node) == BIT_NOT_EXPR
-	  /* A qualified name.  */
-	  || TREE_CODE (node) == SCOPE_REF);
 }
 
 /* Returns nonzero if TYPE is a character type, including wchar_t.  */
@@ -2344,7 +2249,10 @@ stabilize_init (tree init, tree *initp)
       if (TREE_CODE (t) == COND_EXPR)
 	return false;
 
-      stabilize_call (t, initp);
+      /* The TARGET_EXPR might be initializing via bitwise copy from
+	 another variable; leave that alone.  */
+      if (TREE_SIDE_EFFECTS (t))
+	stabilize_call (t, initp);
     }
 
   return true;
@@ -2360,7 +2268,14 @@ fold_if_not_in_template (tree expr)
      "fold".  We will call fold later when actually instantiating the
      template.  Integral constant expressions in templates will be
      evaluated via fold_non_dependent_expr, as necessary.  */
-  return (processing_template_decl ? expr : fold (expr));
+  if (processing_template_decl)
+    return expr;
+
+  /* Fold C++ front-end specific tree codes.  */
+  if (TREE_CODE (expr) == UNARY_PLUS_EXPR)
+    return fold_convert (TREE_TYPE (expr), TREE_OPERAND (expr, 0));
+
+  return fold (expr);
 }
 
 

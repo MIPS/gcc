@@ -1,6 +1,6 @@
 /* Tree lowering pass.  Lowers GIMPLE into unstructured form.
 
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,7 +25,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "tree.h"
 #include "rtl.h"
-#include "errors.h"
 #include "varray.h"
 #include "tree-gimple.h"
 #include "tree-inline.h"
@@ -42,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-pass.h"
 #include "pointer-set.h"
+
 struct lower_data
 {
   /* Block the current statement belongs to.  */
@@ -60,7 +60,7 @@ static bool expand_var_p (tree);
 
 /* Lowers the body of current_function_decl.  */
 
-void
+static void
 lower_function_body (void)
 {
   struct lower_data data;
@@ -68,10 +68,6 @@ lower_function_body (void)
   tree bind = *body_p;
   tree_stmt_iterator i;
   tree t, x;
-
-  /* If already lowered, do nothing.  */
-  if (TREE_CODE (bind) == STATEMENT_LIST)
-    return;
 
   gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 
@@ -151,7 +147,7 @@ struct tree_opt_pass pass_lower_cf =
    when they are changed -- if this has to be done, the lowering routine must
    do it explicitly.  DATA is passed through the recursion.  */
 
-void
+static void
 lower_stmt_body (tree expr, struct lower_data *data)
 {
   tree_stmt_iterator tsi;
@@ -269,6 +265,54 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   tsi_delink (tsi);
 }
 
+/* Try to determine whether a TRY_CATCH expression can fall through.
+   This is a subroutine of block_may_fallthru.  */
+
+static bool
+try_catch_may_fallthru (tree stmt)
+{
+  tree_stmt_iterator i;
+
+  /* If the TRY block can fall through, the whole TRY_CATCH can
+     fall through.  */
+  if (block_may_fallthru (TREE_OPERAND (stmt, 0)))
+    return true;
+
+  i = tsi_start (TREE_OPERAND (stmt, 1));
+  switch (TREE_CODE (tsi_stmt (i)))
+    {
+    case CATCH_EXPR:
+      /* We expect to see a sequence of CATCH_EXPR trees, each with a
+	 catch expression and a body.  The whole TRY_CATCH may fall
+	 through iff any of the catch bodies falls through.  */
+      for (; !tsi_end_p (i); tsi_next (&i))
+	{
+	  if (block_may_fallthru (CATCH_BODY (tsi_stmt (i))))
+	    return true;
+	}
+      return false;
+
+    case EH_FILTER_EXPR:
+      /* The exception filter expression only matters if there is an
+	 exception.  If the exception does not match EH_FILTER_TYPES,
+	 we will execute EH_FILTER_FAILURE, and we will fall through
+	 if that falls through.  If the exception does match
+	 EH_FILTER_TYPES, the stack unwinder will continue up the
+	 stack, so we will not fall through.  We don't know whether we
+	 will throw an exception which matches EH_FILTER_TYPES or not,
+	 so we just ignore EH_FILTER_TYPES and assume that we might
+	 throw an exception which doesn't match.  */
+      return block_may_fallthru (EH_FILTER_FAILURE (tsi_stmt (i)));
+
+    default:
+      /* This case represents statements to be executed when an
+	 exception occurs.  Those statements are implicitly followed
+	 by a RESX_EXPR to resume execution after the exception.  So
+	 in this case the TRY_CATCH never falls through.  */
+      return false;
+    }
+}
+
 /* Try to determine if we can fall out of the bottom of BLOCK.  This guess
    need not be 100% accurate; simply be conservative and return true if we
    don't know.  This is used only to avoid stupidly generating extra code.
@@ -284,10 +328,16 @@ block_may_fallthru (tree block)
     case GOTO_EXPR:
     case RETURN_EXPR:
     case RESX_EXPR:
-    case SWITCH_EXPR:
       /* Easy cases.  If the last statement of the block implies 
 	 control transfer, then we can't fall through.  */
       return false;
+
+    case SWITCH_EXPR:
+      /* If SWITCH_LABELS is set, this is lowered, and represents a
+	 branch to a selected label and hence can not fall through.
+	 Otherwise SWITCH_BODY is set, and the switch can fall
+	 through.  */
+      return SWITCH_LABELS (stmt) == NULL_TREE;
 
     case COND_EXPR:
       if (block_may_fallthru (COND_EXPR_THEN (stmt)))
@@ -297,8 +347,19 @@ block_may_fallthru (tree block)
     case BIND_EXPR:
       return block_may_fallthru (BIND_EXPR_BODY (stmt));
 
+    case TRY_CATCH_EXPR:
+      return try_catch_may_fallthru (stmt);
+
     case TRY_FINALLY_EXPR:
-      return block_may_fallthru (TREE_OPERAND (stmt, 1));
+      /* The finally clause is always executed after the try clause,
+	 so if it does not fall through, then the try-finally will not
+	 fall through.  Otherwise, if the try clause does not fall
+	 through, then when the finally clause falls through it will
+	 resume execution wherever the try clause was going.  So the
+	 whole try-finally will only fall through if both the try
+	 clause and the finally clause fall through.  */
+      return (block_may_fallthru (TREE_OPERAND (stmt, 0))
+	      && block_may_fallthru (TREE_OPERAND (stmt, 1)));
 
     case MODIFY_EXPR:
       if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
@@ -640,7 +701,8 @@ lower_memref (tree *tp,
       TREE_SIDE_EFFECTS (indirect) = TREE_SIDE_EFFECTS (*tp);
       TREE_THIS_VOLATILE (indirect) = TREE_THIS_VOLATILE (*tp);
       
-      indirect = force_gimple_operand (indirect, &stmts, false, NULL_TREE);
+      indirect = force_gimple_operand (indirect, &stmts, false, 
+					     NULL_TREE);
       if (stmts)
 	bsi_insert_before (bsip, stmts, BSI_SAME_STMT);
       *tp = indirect;
@@ -667,6 +729,8 @@ lower_memrefs (void)
 	tree stmt = bsi_stmt (bsi);
 	visited_nodes = pointer_set_create ();
 	walk_tree (&stmt,  lower_memref, (void *)&bsi, visited_nodes);
+	if (in_ssa_p)
+	  update_stmt (stmt);
 	pointer_set_destroy (visited_nodes);
 		   
       }

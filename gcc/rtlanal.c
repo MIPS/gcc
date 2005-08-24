@@ -1,6 +1,6 @@
 /* Analyze RTL for C-Compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -57,6 +57,10 @@ static unsigned int cached_num_sign_bit_copies (rtx, enum machine_mode, rtx,
                                                 unsigned int);
 static unsigned int num_sign_bit_copies1 (rtx, enum machine_mode, rtx,
                                           enum machine_mode, unsigned int);
+
+/* Offset of the first 'e', 'E' or 'V' operand for each rtx code, or
+   -1 if a code has no such operand.  */
+static int non_rtx_starting_operands[NUM_RTX_CODE];
 
 /* Bit flags that specify the machine subtype we are compiling for.
    Bits are tested using macros TARGET_... defined in the tm.h file
@@ -784,51 +788,6 @@ reg_set_p (rtx reg, rtx insn)
 }
 
 /* Similar to reg_set_between_p, but check all registers in X.  Return 0
-   only if none of them are modified between START and END.  Do not
-   consider non-registers one way or the other.  */
-
-int
-regs_set_between_p (rtx x, rtx start, rtx end)
-{
-  enum rtx_code code = GET_CODE (x);
-  const char *fmt;
-  int i, j;
-
-  switch (code)
-    {
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-    case CONST:
-    case SYMBOL_REF:
-    case LABEL_REF:
-    case PC:
-    case CC0:
-      return 0;
-
-    case REG:
-      return reg_set_between_p (x, start, end);
-
-    default:
-      break;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e' && regs_set_between_p (XEXP (x, i), start, end))
-	return 1;
-
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (regs_set_between_p (XVECEXP (x, i, j), start, end))
-	    return 1;
-    }
-
-  return 0;
-}
-
-/* Similar to reg_set_between_p, but check all registers in X.  Return 0
    only if none of them are modified between START and END.  Return 1 if
    X contains a MEM; this routine does usememory aliasing.  */
 
@@ -858,10 +817,10 @@ modified_between_p (rtx x, rtx start, rtx end)
       return 1;
 
     case MEM:
-      if (MEM_READONLY_P (x))
-	return 0;
       if (modified_between_p (XEXP (x, 0), start, end))
 	return 1;
+      if (MEM_READONLY_P (x))
+	return 0;
       for (insn = NEXT_INSN (start); insn != end; insn = NEXT_INSN (insn))
 	if (memory_modified_in_insn_p (x, insn))
 	  return 1;
@@ -916,10 +875,10 @@ modified_in_p (rtx x, rtx insn)
       return 1;
 
     case MEM:
-      if (MEM_READONLY_P (x))
-	return 0;
       if (modified_in_p (XEXP (x, 0), insn))
 	return 1;
+      if (MEM_READONLY_P (x))
+	return 0;
       if (memory_modified_in_insn_p (x, insn))
 	return 1;
       return 0;
@@ -2146,11 +2105,9 @@ may_trap_p (rtx x)
     case UMOD:
       if (HONOR_SNANS (GET_MODE (x)))
 	return 1;
-      if (! CONSTANT_P (XEXP (x, 1))
-	  || (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
-	      && flag_trapping_math))
-	return 1;
-      if (XEXP (x, 1) == const0_rtx)
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+	return flag_trapping_math;
+      if (!CONSTANT_P (XEXP (x, 1)) || (XEXP (x, 1) == const0_rtx))
 	return 1;
       break;
 
@@ -2669,6 +2626,82 @@ computed_jump_p (rtx insn)
   return 0;
 }
 
+/* Optimized loop of for_each_rtx, trying to avoid useless recursive
+   calls.  Processes the subexpressions of EXP and passes them to F.  */
+static int
+for_each_rtx_1 (rtx exp, int n, rtx_function f, void *data)
+{
+  int result, i, j;
+  const char *format = GET_RTX_FORMAT (GET_CODE (exp));
+  rtx *x;
+
+  for (; format[n] != '\0'; n++)
+    {
+      switch (format[n])
+	{
+	case 'e':
+	  /* Call F on X.  */
+	  x = &XEXP (exp, n);
+	  result = (*f) (x, data);
+	  if (result == -1)
+	    /* Do not traverse sub-expressions.  */
+	    continue;
+	  else if (result != 0)
+	    /* Stop the traversal.  */
+	    return result;
+	
+	  if (*x == NULL_RTX)
+	    /* There are no sub-expressions.  */
+	    continue;
+	
+	  i = non_rtx_starting_operands[GET_CODE (*x)];
+	  if (i >= 0)
+	    {
+	      result = for_each_rtx_1 (*x, i, f, data);
+	      if (result != 0)
+		return result;
+	    }
+	  break;
+
+	case 'V':
+	case 'E':
+	  if (XVEC (exp, n) == 0)
+	    continue;
+	  for (j = 0; j < XVECLEN (exp, n); ++j)
+	    {
+	      /* Call F on X.  */
+	      x = &XVECEXP (exp, n, j);
+	      result = (*f) (x, data);
+	      if (result == -1)
+		/* Do not traverse sub-expressions.  */
+		continue;
+	      else if (result != 0)
+		/* Stop the traversal.  */
+		return result;
+	
+	      if (*x == NULL_RTX)
+		/* There are no sub-expressions.  */
+		continue;
+	
+	      i = non_rtx_starting_operands[GET_CODE (*x)];
+	      if (i >= 0)
+		{
+		  result = for_each_rtx_1 (*x, i, f, data);
+		  if (result != 0)
+		    return result;
+	        }
+	    }
+	  break;
+
+	default:
+	  /* Nothing to do.  */
+	  break;
+	}
+    }
+
+  return 0;
+}
+
 /* Traverse X via depth-first search, calling F for each
    sub-expression (including X itself).  F is also passed the DATA.
    If F returns -1, do not traverse sub-expressions, but continue
@@ -2686,8 +2719,6 @@ int
 for_each_rtx (rtx *x, rtx_function f, void *data)
 {
   int result;
-  int length;
-  const char *format;
   int i;
 
   /* Call F on X.  */
@@ -2703,42 +2734,13 @@ for_each_rtx (rtx *x, rtx_function f, void *data)
     /* There are no sub-expressions.  */
     return 0;
 
-  length = GET_RTX_LENGTH (GET_CODE (*x));
-  format = GET_RTX_FORMAT (GET_CODE (*x));
+  i = non_rtx_starting_operands[GET_CODE (*x)];
+  if (i < 0)
+    return 0;
 
-  for (i = 0; i < length; ++i)
-    {
-      switch (format[i])
-	{
-	case 'e':
-	  result = for_each_rtx (&XEXP (*x, i), f, data);
-	  if (result != 0)
-	    return result;
-	  break;
-
-	case 'V':
-	case 'E':
-	  if (XVEC (*x, i) != 0)
-	    {
-	      int j;
-	      for (j = 0; j < XVECLEN (*x, i); ++j)
-		{
-		  result = for_each_rtx (&XVECEXP (*x, i, j), f, data);
-		  if (result != 0)
-		    return result;
-		}
-	    }
-	  break;
-
-	default:
-	  /* Nothing to do.  */
-	  break;
-	}
-
-    }
-
-  return 0;
+  return for_each_rtx_1 (*x, i, f, data);
 }
+
 
 /* Searches X for any reference to REGNO, returning the rtx of the
    reference found if any.  Otherwise, returns NULL_RTX.  */
@@ -3155,12 +3157,15 @@ parms_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 }
 
 /* Look backward for first parameter to be loaded.
+   Note that loads of all parameters will not necessarily be
+   found if CSE has eliminated some of them (e.g., an argument
+   to the outer function is passed down as a parameter).
    Do not skip BOUNDARY.  */
 rtx
 find_first_parameter_load (rtx call_insn, rtx boundary)
 {
   struct parms_set_data parm;
-  rtx p, before;
+  rtx p, before, first_set;
 
   /* Since different machines initialize their parameter registers
      in different orders, assume nothing.  Collect the set of all
@@ -3182,6 +3187,7 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	parm.nregs++;
       }
   before = call_insn;
+  first_set = call_insn;
 
   /* Search backward for the first set of a register in this set.  */
   while (parm.nregs && before != boundary)
@@ -3204,9 +3210,20 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	}
 
       if (INSN_P (before))
-	note_stores (PATTERN (before), parms_set, &parm);
+	{
+	  int nregs_old = parm.nregs;
+	  note_stores (PATTERN (before), parms_set, &parm);
+	  /* If we found something that did not set a parameter reg,
+	     we're done.  Do not keep going, as that might result
+	     in hoisting an insn before the setting of a pseudo
+	     that is used by the hoisted insn. */
+	  if (nregs_old != parm.nregs)
+	    first_set = before;
+	  else
+	    break;
+	}
     }
-  return before;
+  return first_set;
 }
 
 /* Return true if we should avoid inserting code between INSN and preceding
@@ -3315,6 +3332,7 @@ rtx_cost (rtx x, enum rtx_code outer_code ATTRIBUTE_UNUSED)
       return 0;
 
     case SUBREG:
+      total = 0;
       /* If we can't tie these modes, make this expensive.  The larger
 	 the mode, the more expensive it is.  */
       if (! MODES_TIEABLE_P (GET_MODE (x), GET_MODE (SUBREG_REG (x))))
@@ -4656,3 +4674,17 @@ get_condition (rtx jump, rtx *earliest, int allow_cc_mode, int valid_at_insn_p)
 				 allow_cc_mode, valid_at_insn_p);
 }
 
+
+/* Initialize non_rtx_starting_operands, which is used to speed up
+   for_each_rtx.  */
+void
+init_rtlanal (void)
+{
+  int i;
+  for (i = 0; i < NUM_RTX_CODE; i++)
+    {
+      const char *format = GET_RTX_FORMAT (i);
+      const char *first = strpbrk (format, "eEV");
+      non_rtx_starting_operands[i] = first ? first - format : -1;
+    }
+}

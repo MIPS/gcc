@@ -1,5 +1,5 @@
 /* toplev.h - Various declarations for functions found in toplev.c
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -65,7 +65,8 @@ extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
 #endif
 extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void warning (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
+extern void warning0 (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
+extern void warning (int, const char *, ...) ATTRIBUTE_GCC_FE_DIAG(2,3);
 extern void error (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
@@ -134,13 +135,10 @@ extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
-extern int flag_new_regalloc;
 extern int flag_tree_based_profiling;
 
 /* Things to do with target switches.  */
-extern void display_target_options (void);
 extern void print_version (FILE *, const char *);
-extern void set_target_switch (const char *);
 extern void * default_get_pch_validity (size_t *);
 extern const char * default_pch_valid_p (const void *, size_t);
 

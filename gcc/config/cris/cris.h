@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -38,6 +38,11 @@ Boston, MA 02111-1307, USA.  */
    settings not repeated below.  This file contains general CRIS
    definitions and definitions for the cris-*-elf subtarget.  */
 
+/* We don't want to use gcc_assert for everything, as that can be
+   compiled out.  */
+#define CRIS_ASSERT(x) \
+ do { if (!(x)) internal_error ("CRIS-port assertion failed: " #x); } while (0)
+
 /* Replacement for REG_P since it does not match SUBREGs.  Happens for
    testcase Axis-20000320 with gcc-2.9x.  */
 #define REG_S_P(x) \
@@ -50,12 +55,10 @@ Boston, MA 02111-1307, USA.  */
 #define CRIS_FIRST_ARG_REG 10
 #define CRIS_MAX_ARGS_IN_REGS 4
 
-/* Other convenience definitions.  */
-#define CRIS_PC_REGNUM 15
-#define CRIS_SRP_REGNUM 16
+/* See also *_REGNUM constants in cris.md.  */
 
 /* Most of the time, we need the index into the register-names array.
-   When passing debug-info, we need the real register number.  */
+   When passing debug-info, we need the real hardware register number.  */
 #define CRIS_CANONICAL_SRP_REGNUM (16 + 11)
 #define CRIS_CANONICAL_MOF_REGNUM (16 + 7)
 
@@ -72,22 +75,8 @@ Boston, MA 02111-1307, USA.  */
   ((MODE) != BLKmode ? GET_MODE_SIZE (MODE)	\
    : (unsigned) int_size_in_bytes (TYPE))
 
-/* Check for max allowed stackframe. A "const char *" to be parsed.  */
-extern const char *cris_max_stackframe_str;
-
-/* Which CPU version this is.  A "const char *" to be parsed.  */
-extern const char *cris_cpu_str;
-
 /* Which CPU version this is.  The parsed and adjusted cris_cpu_str.  */
 extern int cris_cpu_version;
-
-/* Which CPU version to tune for.  A "const char *" to be parsed.  */
-extern const char *cris_tune_str;
-
-/* The argument to "-melinux-stacksize=".  We don't parse it currently;
-   it's just passed on to the linker.  We might want to do something
-   here someday.  */
-extern const char *cris_elinux_stacksize_str;
 
 /* Changing the order used to be necessary to put the fourth __make_dp
    argument (a DImode parameter) in registers, to fit with the libfunc
@@ -116,24 +105,24 @@ extern const char *cris_elinux_stacksize_str;
    Note that -melf overrides -maout.  */
 
 #define CPP_SPEC \
- "%{mtune=*:-D__tune_%* %{mtune=v*:-D__CRIS_arch_tune=%*}}\
+ "%{mtune=*:-D__tune_%* %{mtune=v*:-D__CRIS_arch_tune=%*}\
    %{mtune=etrax4:-D__tune_v3 -D__CRIS_arch_tune=3}\
    %{mtune=etrax100:-D__tune_v8 -D__CRIS_arch_tune=8}\
    %{mtune=svinto:-D__tune_v8 -D__CRIS_arch_tune=8}\
    %{mtune=etrax100lx:-D__tune_v10 -D__CRIS_arch_tune=10}\
-   %{mtune=ng:-D__tune_v10 -D__CRIS_arch_tune=10}\
-  %{mcpu=*:-D__arch_%* %{mcpu=v*:-D__CRIS_arch_version=%*}}\
+   %{mtune=ng:-D__tune_v10 -D__CRIS_arch_tune=10}}\
+  %{mcpu=*:-D__arch_%* %{mcpu=v*:-D__CRIS_arch_version=%*}\
    %{mcpu=etrax4:-D__arch_v3 -D__CRIS_arch_version=3}\
    %{mcpu=etrax100:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{mcpu=svinto:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{mcpu=etrax100lx:-D__arch_v10 -D__CRIS_arch_version=10}\
-   %{mcpu=ng:-D__arch_v10 -D__CRIS_arch_version=10}\
-  %{march=*:-D__arch_%* %{march=v*:-D__CRIS_arch_version=%*}}\
+   %{mcpu=ng:-D__arch_v10 -D__CRIS_arch_version=10}}\
+  %{march=*:-D__arch_%* %{march=v*:-D__CRIS_arch_version=%*}\
    %{march=etrax4:-D__arch_v3 -D__CRIS_arch_version=3}\
    %{march=etrax100:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{march=svinto:-D__arch_v8 -D__CRIS_arch_version=8}\
    %{march=etrax100lx:-D__arch_v10 -D__CRIS_arch_version=10}\
-   %{march=ng:-D__arch_v10 -D__CRIS_arch_version=10}\
+   %{march=ng:-D__arch_v10 -D__CRIS_arch_version=10}}\
   %{metrax100:-D__arch__v8 -D__CRIS_arch_version=8}\
   %{metrax4:-D__arch__v3 -D__CRIS_arch_version=3}\
   %(cpp_subtarget)"
@@ -210,35 +199,27 @@ extern const char *cris_elinux_stacksize_str;
   %{sim2:%{!T*:-Tdata 0x4000000 -Tbss 0x8000000}}\
   %{!r:%{O2|O3: --gc-sections}}"
 
-/* Which library to get.  The only difference from the default is to get
-   libsc.a if -sim is given to the driver.  Repeat -lc -lsysX
-   {X=sim,linux}, because libsysX needs (at least) errno from libc, and
-   then we want to resolve new unknowns in libc against libsysX, not
-   libnosys.  */
+/* Which library to get.  The simulator uses a different library for
+   the low-level syscalls (implementing the Linux syscall ABI instead
+   of direct-iron accesses).  Default everything with the stub "nosys"
+   library.  */
 /* Override previous definitions (linux.h).  */
 #undef LIB_SPEC
 #define LIB_SPEC \
- "%{sim*:-lc -lsyssim -lc -lsyssim}\
+ "%{sim*:--start-group -lc -lsyslinux --end-group}\
   %{!sim*:%{g*:-lg}\
     %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p} -lbsp}\
   -lnosys"
 
 /* Linker startfile options; crt0 flavors.
-
-   At the moment there are no gcrt0.o or mcrt0.o, but keep them here and
-   link them to crt0.o to be prepared.  Use scrt0.c if running the
-   simulator, linear style, or s2crt0.c if fixed style.  */
-/* We need to remove any previous definition (elfos.h).  */
+   We need to remove any previous definition (elfos.h).  */
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
- "%{sim2:s2crt0.o%s}\
-  %{!sim2:%{sim:scrt0.o%s}\
-   %{!sim:%{pg:gcrt0.o%s}\
-    %{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}\
-  crtbegin.o%s"
+ "%{sim*:crt1.o%s}%{!sim*:crt0.o%s}\
+  crti.o%s crtbegin.o%s"
 
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend.o%s"
+#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
 
 #define EXTRA_SPECS				\
   {"cpp_subtarget", CRIS_CPP_SUBTARGET_SPEC},	\
@@ -267,182 +248,23 @@ extern const char *cris_elinux_stacksize_str;
 /* This needs to be at least 32 bits.  */
 extern int target_flags;
 
-/* Currently this just affects alignment.  FIXME:  Redundant with
-   TARGET_ALIGN_BY_32, or put machine stuff here?  */
-#define TARGET_MASK_SVINTO 1
-#define TARGET_SVINTO (target_flags & TARGET_MASK_SVINTO)
+/* Previously controlled by target_flags.  */
+#define TARGET_ELF 1
 
-/* If to use condition-codes generated by insns other than the
-   immediately preceding compare/test insn.
-    Used to check for errors in notice_update_cc.  */
-#define TARGET_MASK_CCINIT 2
-#define TARGET_CCINIT (target_flags & TARGET_MASK_CCINIT)
-
-/* Debug option.  */
-#define TARGET_MASK_PDEBUG 4
-#define TARGET_PDEBUG (target_flags & TARGET_MASK_PDEBUG)
-
-/* If to use side-effect patterns.  Used to debug the [rx=ry+i] type
-   patterns.  */
-#define TARGET_MASK_SIDE_EFFECT_PREFIXES 8
-#define TARGET_SIDE_EFFECT_PREFIXES \
- (target_flags & TARGET_MASK_SIDE_EFFECT_PREFIXES)
-
-/* If to expand mul into mstep.  Only used when making libc.a.  */
-#define TARGET_MASK_EXPAND_MUL 16
-#define TARGET_EXPAND_MUL (target_flags & TARGET_MASK_EXPAND_MUL)
-
-/* If to *keep* (not force) alignment of stack at 16 bits.  */
-#define TARGET_MASK_STACK_ALIGN 32
-#define TARGET_STACK_ALIGN (target_flags & TARGET_MASK_STACK_ALIGN)
-
-/* If to do alignment on individual non-modifiable objects.  */
-#define TARGET_MASK_CONST_ALIGN 64
-#define TARGET_CONST_ALIGN (target_flags & TARGET_MASK_CONST_ALIGN)
-
-/* If to do alignment on individual modifiable objects.  */
-#define TARGET_MASK_DATA_ALIGN 128
-#define TARGET_DATA_ALIGN (target_flags & TARGET_MASK_DATA_ALIGN)
-
-/* If not to omit function prologue and epilogue.  */
-#define TARGET_MASK_PROLOGUE_EPILOGUE 256
-#define TARGET_PROLOGUE_EPILOGUE (target_flags & TARGET_MASK_PROLOGUE_EPILOGUE)
-
-/* Instructions additions from Etrax 4 and up.
-   (Just "lz", which we don't really generate from GCC -- yet).  */
-#define TARGET_MASK_ETRAX4_ADD 512
-#define TARGET_ETRAX4_ADD (target_flags & TARGET_MASK_ETRAX4_ADD)
-
-/* Say that all alignment specifications say to prefer 32 rather
-   than 16 bits.  */
-#define TARGET_MASK_ALIGN_BY_32 1024
-#define TARGET_ALIGN_BY_32 (target_flags & TARGET_MASK_ALIGN_BY_32)
-
-/* This condition is of limited use, as gcc is riddled with #ifdef:s
-   controlling this, rather than if (...):s.  */
-#define TARGET_MASK_ELF 2048
-#define TARGET_ELF (target_flags & TARGET_MASK_ELF)
-
-/* Currently just used to error-check other options.  Note that this is
-   *not* set for -melinux.  */
-#define TARGET_MASK_LINUX 4096
-#define TARGET_LINUX (target_flags & TARGET_MASK_LINUX)
-
-/* There's a small setup cost with using GOTPLT references, but should
-   in total be a win both in code-size and execution-time.  */
-#define TARGET_MASK_AVOID_GOTPLT 8192
-#define TARGET_AVOID_GOTPLT (target_flags & TARGET_MASK_AVOID_GOTPLT)
-
-/* Whether or not to work around multiplication instruction hardware bug
-   when generating code for models where it may be present.  From the
-   trouble report for Etrax 100 LX: "A multiply operation may cause
-   incorrect cache behaviour under some specific circumstances. The
-   problem can occur if the instruction following the multiply instruction
-   causes a cache miss, and multiply operand 1 (source operand) bits
-   [31:27] matches the logical mapping of the mode register address
-   (0xb0....), and bits [9:2] of operand 1 matches the TLB register
-   address (0x258-0x25f).  There is such a mapping in kernel mode or when
-   the MMU is off.  Normally there is no such mapping in user mode, and
-   the problem will therefore probably not occur in Linux user mode
-   programs."
-
-   We have no sure-fire way to know from within GCC that we're compiling a
-   user program.  For example, -fpic/PIC is used in libgcc which is linked
-   into the kernel.  However, the workaround option -mno-mul-bug can be
-   safely used per-package when compiling programs.  The same goes for
-   general user-only libraries such as glibc, since there's no user-space
-   driver-like program that gets a mapping of I/O registers (all on the
-   same page, including the TLB registers).  */
-#define TARGET_MASK_MUL_BUG 16384
-#define TARGET_MUL_BUG (target_flags & TARGET_MASK_MUL_BUG)
-
-#define TARGET_SWITCHES							\
- {									\
-  {"mul-bug-workaround",		 TARGET_MASK_MUL_BUG,		\
-   N_("Work around bug in multiplication instruction")},		\
-  {"no-mul-bug-workaround",		-TARGET_MASK_MUL_BUG, ""},	\
-  /* No "no-etrax" as it does not really imply any model.		\
-     On the other hand, "etrax" implies the common (and large)		\
-     subset matching all models.  */					\
-  {"etrax4",				 TARGET_MASK_ETRAX4_ADD,	\
-   N_("Compile for ETRAX 4 (CRIS v3)")},				\
-  {"no-etrax4",				-TARGET_MASK_ETRAX4_ADD, ""},	\
-  {"etrax100",			     (TARGET_MASK_SVINTO		\
-				      + TARGET_MASK_ETRAX4_ADD		\
-				      + TARGET_MASK_ALIGN_BY_32),	\
-   N_("Compile for ETRAX 100 (CRIS v8)")},				\
-  {"no-etrax100",		    -(TARGET_MASK_SVINTO		\
-				      + TARGET_MASK_ETRAX4_ADD), ""},	\
-  {"pdebug",				     TARGET_MASK_PDEBUG,	\
-   N_("Emit verbose debug information in assembly code")},		\
-  {"no-pdebug",				    -TARGET_MASK_PDEBUG, ""},	\
-  {"cc-init",				     TARGET_MASK_CCINIT,	\
-   N_("Do not use condition codes from normal instructions")},		\
-  {"no-cc-init",			    -TARGET_MASK_CCINIT, ""},	\
-  {"side-effects",	       TARGET_MASK_SIDE_EFFECT_PREFIXES, ""},	\
-  {"no-side-effects",	      -TARGET_MASK_SIDE_EFFECT_PREFIXES,	\
-   N_("Do not emit addressing modes with side-effect assignment")},	\
-  {"stack-align",			TARGET_MASK_STACK_ALIGN, ""},	\
-  {"no-stack-align",		       -TARGET_MASK_STACK_ALIGN,	\
-   N_("Do not tune stack alignment")},					\
-  {"data-align",			 TARGET_MASK_DATA_ALIGN, ""},	\
-  {"no-data-align",			-TARGET_MASK_DATA_ALIGN,	\
-   N_("Do not tune writable data alignment")},				\
-  {"const-align",			TARGET_MASK_CONST_ALIGN, ""},	\
-  {"no-const-align",		       -TARGET_MASK_CONST_ALIGN,	\
-   N_("Do not tune code and read-only data alignment")},		\
-  {"32-bit",			    (TARGET_MASK_STACK_ALIGN		\
-				     + TARGET_MASK_CONST_ALIGN		\
-				     + TARGET_MASK_DATA_ALIGN		\
-				     + TARGET_MASK_ALIGN_BY_32), ""},	\
-  {"32bit",			    (TARGET_MASK_STACK_ALIGN		\
-				     + TARGET_MASK_CONST_ALIGN		\
-				     + TARGET_MASK_DATA_ALIGN		\
-				     + TARGET_MASK_ALIGN_BY_32),	\
-   N_("Align code and data to 32 bits")},				\
-  {"16-bit",			     (TARGET_MASK_STACK_ALIGN		\
-				      + TARGET_MASK_CONST_ALIGN		\
-				      + TARGET_MASK_DATA_ALIGN), ""},	\
-  {"16bit",			     (TARGET_MASK_STACK_ALIGN		\
-				      + TARGET_MASK_CONST_ALIGN		\
-				      + TARGET_MASK_DATA_ALIGN), ""},	\
-  {"8-bit",			    -(TARGET_MASK_STACK_ALIGN		\
-				      + TARGET_MASK_CONST_ALIGN		\
-				      + TARGET_MASK_DATA_ALIGN), ""},	\
-  {"8bit",			    -(TARGET_MASK_STACK_ALIGN		\
-				      + TARGET_MASK_CONST_ALIGN		\
-				      + TARGET_MASK_DATA_ALIGN),	\
-   N_("Don't align items in code or data")},				\
-  {"prologue-epilogue",		  TARGET_MASK_PROLOGUE_EPILOGUE, ""},	\
-  {"no-prologue-epilogue",	 -TARGET_MASK_PROLOGUE_EPILOGUE,	\
-   N_("Do not emit function prologue or epilogue")},			\
-  /* We have to handle this m-option here since we can't wash it off in \
-     both CC1_SPEC and CC1PLUS_SPEC.  */				\
-  {"best-lib-options",					      0,	\
- N_("Use the most feature-enabling options allowed by other options")},	\
-									\
-  /* We must call it "override-" since calling it "no-" will cause	\
-     gcc.c to forget it, if there's a "later" -mbest-lib-options.	\
-     Kludgy, but needed for some multilibbed files.  */			\
-  {"override-best-lib-options",				      0,	\
-   N_("Override -mbest-lib-options")},					\
-  CRIS_SUBTARGET_SWITCHES						\
-  {"",			TARGET_DEFAULT | CRIS_SUBTARGET_DEFAULT, ""}}	\
-
-/* For the cris-*-elf subtarget.  */
-#define CRIS_SUBTARGET_SWITCHES \
- {"elf", 0, ""},
+/* Previously controlled by target_flags.  Note that this is *not* set
+   for -melinux.  */
+#define TARGET_LINUX 0
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
 # define TARGET_DEFAULT \
- (TARGET_MASK_SIDE_EFFECT_PREFIXES + TARGET_MASK_STACK_ALIGN \
-  + TARGET_MASK_CONST_ALIGN + TARGET_MASK_DATA_ALIGN \
-  + TARGET_MASK_PROLOGUE_EPILOGUE + TARGET_MASK_MUL_BUG)
+ (MASK_SIDE_EFFECT_PREFIXES + MASK_STACK_ALIGN \
+  + MASK_CONST_ALIGN + MASK_DATA_ALIGN \
+  + MASK_PROLOGUE_EPILOGUE + MASK_MUL_BUG)
 #endif
 
 /* For the cris-*-elf subtarget.  */
-#define CRIS_SUBTARGET_DEFAULT TARGET_MASK_ELF
+#define CRIS_SUBTARGET_DEFAULT 0
 
 #define CRIS_CPU_BASE 0
 #define CRIS_CPU_ETRAX4 3	/* Just lz added.  */
@@ -454,18 +276,7 @@ extern int target_flags;
 
 #define TARGET_HAS_MUL_INSNS (cris_cpu_version >= CRIS_CPU_NG)
 
-#define TARGET_OPTIONS							\
- {{"cpu=", &cris_cpu_str, "", 0},					\
-  {"arch=", &cris_cpu_str,						\
-   N_("Generate code for the specified chip or CPU version"), 0},	\
-  {"tune=", &cris_tune_str,						\
-   N_("Tune alignment for the specified chip or CPU version"), 0},	\
-  {"max-stackframe=", &cris_max_stackframe_str,				\
-   N_("Warn when a stackframe is larger than the specified size"), 0},	\
-  CRIS_SUBTARGET_LONG_OPTIONS						\
-  {"ax-stackframe=", &cris_max_stackframe_str, "", 0} }
-
-#define CRIS_SUBTARGET_LONG_OPTIONS
+#define CRIS_SUBTARGET_HANDLE_OPTION(x, y, z)
 
 /* Print subsidiary information on the compiler version in use.
    Do not use VD.D syntax (D=digit), since this will cause confusion
@@ -610,9 +421,9 @@ extern int target_flags;
 
 /* Node: Register Basics */
 
-/*  We count all 16 non-special registers, SRP and a faked argument
-    pointer register.  */
-#define FIRST_PSEUDO_REGISTER (16 + 1 + 1)
+/*  We count all 16 non-special registers, SRP, a faked argument
+    pointer register and MOF.  */
+#define FIRST_PSEUDO_REGISTER (16 + 1 + 1 + 1)
 
 /* For CRIS, these are r15 (pc) and r14 (sp). Register r8 is used as a
    frame-pointer, but is not fixed.  SRP is not included in general
@@ -620,12 +431,12 @@ extern int target_flags;
    registers are fixed at the moment.  The faked argument pointer register
    is fixed too.  */
 #define FIXED_REGISTERS \
- {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1}
+ {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1}
 
 /* Register r9 is used for structure-address, r10-r13 for parameters,
    r10- for return values.  */
 #define CALL_USED_REGISTERS \
- {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1}
+ {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1}
 
 #define CONDITIONAL_REGISTER_USAGE cris_conditional_register_usage ()
 
@@ -651,7 +462,7 @@ extern int target_flags;
     Use struct-return address first, since very few functions use
    structure return values so it is likely to be available.  */
 #define REG_ALLOC_ORDER \
- {9, 13, 12, 11, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 14, 15, 16, 17}
+ {9, 13, 12, 11, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 14, 15, 18, 16, 17}
 
 
 /* Node: Values in Registers */
@@ -677,32 +488,46 @@ extern int target_flags;
 
 /* Node: Register Classes */
 
-/* CRIS has only one kind of registers, so NO_REGS and ALL_REGS
-   are the only classes.  FIXME: It actually makes sense to have another
-   class for special registers, and yet another class for the
-   multiply-overflow register in v10; then a class for the return
-   register also makes sense.  */
-enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
+enum reg_class 
+  {
+    NO_REGS,
+    MOF_REGS, SPECIAL_REGS, GENERAL_REGS, ALL_REGS,
+    LIM_REG_CLASSES
+  };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-#define REG_CLASS_NAMES {"NO_REGS", "ALL_REGS"}
+#define REG_CLASS_NAMES							\
+  {"NO_REGS", "MOF_REGS", "SPECIAL_REGS", "GENERAL_REGS", "ALL_REGS"}
 
-#define GENERAL_REGS ALL_REGS
+#define CRIS_SPECIAL_REGS_CONTENTS					\
+ ((1 << CRIS_SRP_REGNUM) | (1 << CRIS_MOF_REGNUM))
 
 /* Count in the faked argument register in GENERAL_REGS.  Keep out SRP.  */
-#define REG_CLASS_CONTENTS {{0}, {0x2ffff}}
+#define REG_CLASS_CONTENTS			\
+  {						\
+   {0},						\
+   {1 << CRIS_MOF_REGNUM},			\
+   {CRIS_SPECIAL_REGS_CONTENTS},		\
+   {0x2ffff},					\
+   {0x2ffff | CRIS_SPECIAL_REGS_CONTENTS}	\
+  }
 
-#define REGNO_REG_CLASS(REGNO) GENERAL_REGS
+#define REGNO_REG_CLASS(REGNO)			\
+  ((REGNO) == CRIS_MOF_REGNUM ? MOF_REGS :	\
+   (REGNO) == CRIS_SRP_REGNUM ? SPECIAL_REGS :	\
+   GENERAL_REGS)
 
 #define BASE_REG_CLASS GENERAL_REGS
 
 #define INDEX_REG_CLASS GENERAL_REGS
 
-/* Get reg_class from a letter such as appears in the machine
-   description.  No letters are used, since 'r' is used for any
-   register.  */
-#define REG_CLASS_FROM_LETTER(C) NO_REGS
+#define REG_CLASS_FROM_LETTER(C)		\
+  (						\
+   (C) == 'h' ? MOF_REGS :			\
+   (C) == 'x' ? SPECIAL_REGS :			\
+   NO_REGS					\
+  )
 
 /* Since it uses reg_renumber, it is safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
@@ -718,9 +543,23 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 /* It seems like gcc (2.7.2 and 2.9x of 2000-03-22) may send "NO_REGS" as
    the class for a constant (testcase: __Mul in arit.c).  To avoid forcing
    out a constant into the constant pool, we will trap this case and
-   return something a bit more sane.  FIXME: Check if this is a bug.  */
-#define PREFERRED_RELOAD_CLASS(X, CLASS) \
- ((CLASS) == NO_REGS ? GENERAL_REGS : (CLASS))
+   return something a bit more sane.  FIXME: Check if this is a bug.
+   Beware that we must not "override" classes that can be specified as
+   constraint letters, or else asm operands using them will fail when
+   they need to be reloaded.  FIXME: Investigate whether that constitutes
+   a bug.  */
+#define PREFERRED_RELOAD_CLASS(X, CLASS)	\
+ ((CLASS) != MOF_REGS				\
+  && (CLASS) != SPECIAL_REGS			\
+  ? GENERAL_REGS : (CLASS))
+
+/* We can't move special registers to and from memory in smaller than
+   word_mode.  */
+#define SECONDARY_RELOAD_CLASS(CLASS, MODE, X)		\
+  (((CLASS) != SPECIAL_REGS && (CLASS) != MOF_REGS)	\
+   || GET_MODE_SIZE (MODE) == 4				\
+   || GET_CODE (X) != MEM				\
+   ? NO_REGS : GENERAL_REGS)
 
 /* For CRIS, this is always the size of MODE in words,
    since all registers are the same size.  To use omitted modes in
@@ -780,14 +619,14 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
   (C) == 'U' ? EXTRA_CONSTRAINT_U (X) :		\
   0)
 
+#define EXTRA_MEMORY_CONSTRAINT(X, STR) ((X) == 'Q')
+
 #define EXTRA_CONSTRAINT_Q(X)				\
  (							\
-  /* Slottable addressing modes:			\
-     A register?  FIXME: Unnecessary.  */		\
-  (BASE_P (X) && REGNO (X) != CRIS_PC_REGNUM)		\
-  /* Indirect register: [reg]?  */			\
-  || (GET_CODE (X) == MEM && BASE_P (XEXP (X, 0))	\
-      && REGNO (XEXP (X, 0)) != CRIS_PC_REGNUM)		\
+  /* Just an indirect register (happens to also be	\
+     "all" slottable memory addressing modes not	\
+     covered by other constraints, i.e. '>').  */	\
+  GET_CODE (X) == MEM && BASE_P (XEXP (X, 0))		\
  )
 
 #define EXTRA_CONSTRAINT_R(X)					\
@@ -814,25 +653,26 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 	  /* A BDAP constant: [reg+(8|16|32)bit offset]?  */		\
 	  && ((BASE_P (XEXP (XEXP (X, 0), 0))				\
 	       && CONSTANT_INDEX_P (XEXP (XEXP (X, 0), 1)))		\
-	      /* Swap arguments to the above.  FIXME: gcc-2.9x? */	\
-	      || (BASE_P (XEXP (XEXP (X, 0), 1))			\
-		  && CONSTANT_INDEX_P (XEXP (XEXP (X, 0), 0)))		\
 	      /* A BDAP register: [reg+[reg(+)].S]?  */			\
 	      || (BASE_P (XEXP (XEXP (X, 0), 0))			\
 		  && BDAP_INDEX_P(XEXP(XEXP(X, 0), 1)))			\
-	      /* Same, but with swapped arguments.  */			\
+	      /* Same, but with swapped arguments (no canonical		\
+		 ordering between e.g. REG and MEM as of LAST_UPDATED	\
+		 "Thu May 12 03:59:11 UTC 2005").  */			\
 	      || (BASE_P (XEXP (XEXP (X, 0), 1))			\
 		  && BDAP_INDEX_P (XEXP (XEXP (X, 0), 0)))		\
-	      /* A BIAP: [reg+reg.S].  */				\
-	      || (BASE_P (XEXP (XEXP (X, 0), 0))			\
-		  && BIAP_INDEX_P (XEXP (XEXP (X, 0), 1)))		\
-	      /* Same, but with swapped arguments.  */			\
+	      /* A BIAP: [reg+reg.S] (MULT comes first).  */		\
 	      || (BASE_P (XEXP (XEXP (X, 0), 1))			\
 		  && BIAP_INDEX_P (XEXP (XEXP (X, 0), 0))))))		\
  )
 
-#define EXTRA_CONSTRAINT_S(X) \
- (flag_pic && CONSTANT_P (X) && cris_gotless_symbol (X))
+/* We're kind of out of constraints, so we use "S" for both gotless
+   symbols and the GOT-address load.  Both must go in a general register
+   only: for pre-V32, arithmetic is done on the destination.  */
+#define EXTRA_CONSTRAINT_S(X)						\
+ (flag_pic								\
+  && ((CONSTANT_P (X) && cris_gotless_symbol (X))			\
+      || (GET_CODE (X) == UNSPEC && XINT ((X), 1) == CRIS_UNSPEC_GOT)))
 
 #define EXTRA_CONSTRAINT_U(X) \
  (flag_pic && CONSTANT_P (X) && cris_got_symbol (X))
@@ -892,17 +732,17 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 
 /* Node: Frame Registers */
 
-#define STACK_POINTER_REGNUM 14
+#define STACK_POINTER_REGNUM CRIS_SP_REGNUM
 
 /* Register used for frame pointer.  This is also the last of the saved
    registers, when a frame pointer is not used.  */
-#define FRAME_POINTER_REGNUM 8
+#define FRAME_POINTER_REGNUM CRIS_FP_REGNUM
 
 /* Faked register, is always eliminated.  We need it to eliminate
    allocating stack slots for the return address and the frame pointer.  */
-#define ARG_POINTER_REGNUM 17
+#define ARG_POINTER_REGNUM CRIS_AP_REGNUM
 
-#define STATIC_CHAIN_REGNUM 7
+#define STATIC_CHAIN_REGNUM CRIS_STATIC_CHAIN_REGNUM
 
 
 /* Node: Elimination */
@@ -1010,13 +850,6 @@ struct cum_args {int regs;};
 
 /* See cris.c for TARGET_ASM_FUNCTION_PROLOGUE and
    TARGET_ASM_FUNCTION_EPILOGUE.  */
-
-/* If the epilogue uses the "ret" insn, we need to fill the
-   delay slot.  */
-#define DELAY_SLOTS_FOR_EPILOGUE cris_delay_slots_for_epilogue ()
-
-#define ELIGIBLE_FOR_EPILOGUE_DELAY(INSN, N) \
-  cris_eligible_for_epilogue_delay (INSN)
 
 /* Node: Profiling */
 
@@ -1215,70 +1048,6 @@ struct cum_args {int regs;};
    FIXME: Check and adjust for gcc-2.9x.  */
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) {}
 
-/* Kludge to solve Axis-990219: Work around imperfection in
-   reload_load_address1:
-    (plus (sign_extend (mem:qi (reg))) (reg))
-   should be reloaded as (plus (reg) (reg)), not
-    (plus (sign_extend (reg)) (reg)).
-   There are no checks that reload_load_address_1 "reloads"
-   addresses correctly, so invalidness is not caught or
-   corrected.
-    When the right thing happens in reload, the kludge can
-   be removed; still not as of 2003-02-27.  */
-
-#define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN) \
-  do									\
-    {									\
-      if (GET_CODE (X) == PLUS						\
-	  && REG_P (XEXP (X, 1))					\
-	  && GET_CODE (XEXP (X, 0)) == SIGN_EXTEND			\
-	  && GET_CODE (XEXP (XEXP (X, 0), 0)) == MEM			\
-	  && (GET_MODE (XEXP (XEXP (X, 0), 0)) == HImode		\
-	      || GET_MODE (XEXP (XEXP (X, 0), 0)) == QImode)		\
-	  && (REG_P (XEXP (XEXP (XEXP (X, 0), 0), 0))			\
-	      || (GET_CODE (XEXP (XEXP (XEXP (X, 0), 0), 0))		\
-		  == POST_INC						\
-		  && REG_P (XEXP (XEXP (XEXP (XEXP (X, 0), 0), 0),	\
-				  0)))))				\
-	{								\
-	  int something_reloaded = 0;					\
-									\
-	  if (REGNO (XEXP (X, 1)) >= FIRST_PSEUDO_REGISTER)		\
-	    {								\
-	      /* Second reg is pseudo, reload it.  */			\
-	      push_reload (XEXP (X, 1), NULL_RTX, &XEXP (X, 1), 	\
-			   NULL,					\
-			   GENERAL_REGS, GET_MODE (X), VOIDmode, 0, 0,	\
-			   OPNUM, TYPE);				\
-	      something_reloaded = 1;					\
-	    }								\
-									\
-	  if (REG_P (XEXP (XEXP (XEXP (X, 0), 0), 0))			\
-	      && (REGNO (XEXP (XEXP (XEXP (X, 0), 0), 0))		\
-		  >= FIRST_PSEUDO_REGISTER))				\
-	    {								\
-	      /* First one is a pseudo - reload that.  */		\
-	      push_reload (XEXP (XEXP (XEXP (X, 0), 0), 0), NULL_RTX,	\
-			   &XEXP (XEXP (XEXP (X, 0), 0), 0), NULL, 	\
-			   GENERAL_REGS,				\
-			   GET_MODE (X), VOIDmode, 0, 0, OPNUM, TYPE);	\
-	      something_reloaded = 1;					\
-	    }								\
-									\
-	  if (! something_reloaded					\
-	      || (GET_CODE (XEXP (XEXP (X, 0), 0)) == POST_INC		\
-		  && (REGNO (XEXP (XEXP (XEXP (X, 0), 0), 0))		\
-		      >= FIRST_PSEUDO_REGISTER)))			\
-	    /* Reload the sign_extend.	Happens if neither reg is a	\
-	       pseudo, or the first one was inside post_increment.  */	\
-	    push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,	\
-			 GENERAL_REGS, GET_MODE (X), VOIDmode, 0, 0,	\
-			 OPNUM, TYPE);					\
-	  goto WIN;							\
-	}								\
-    }									\
-  while (0)
-
 /* In CRIS, only the postincrement address mode depends thus,
    since the increment depends on the size of the operand.  */
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)	\
@@ -1303,8 +1072,32 @@ struct cum_args {int regs;};
 
 /* Node: Costs */
 
-/* FIXME: Need to define REGISTER_MOVE_COST when more register classes are
-   introduced.  */
+/* Can't move to and from a SPECIAL_REGS register, so we have to say
+   their move cost within that class is higher.  How about 7?  That's 3
+   for a move to a GENERAL_REGS register, 3 for the move from the
+   GENERAL_REGS register, and 1 for the increased register pressure.
+   Also, it's higher than the memory move cost, which is in order.  
+   We also do this for ALL_REGS, since we don't want that class to be
+   preferred (even to memory) at all where GENERAL_REGS doesn't fit.
+   Whenever it's about to be used, it's for SPECIAL_REGS.  If we don't
+   present a higher cost for ALL_REGS than memory, a SPECIAL_REGS may be
+   used when a GENERAL_REGS should be used, even if there are call-saved
+   GENERAL_REGS left to allocate.  This is because the fall-back when
+   the most preferred register class isn't available, isn't the next
+   (or next good) wider register class, but the *most widest* register
+   class.
+   Give the cost 3 between a special register and a general register,
+   because we want constraints verified.  */
+
+#define REGISTER_MOVE_COST(MODE, FROM, TO)		\
+ ((((FROM) == SPECIAL_REGS || (FROM) == MOF_REGS)	\
+   && ((TO) == SPECIAL_REGS || (TO) == MOF_REGS))	\
+  || (FROM) == ALL_REGS					\
+  || (TO) == ALL_REGS					\
+  ? 7 :							\
+  ((FROM) == SPECIAL_REGS || (FROM) == MOF_REGS		\
+   || (TO) == SPECIAL_REGS || (TO) == MOF_REGS)		\
+  ? 3 : 2)
 
 /* This isn't strictly correct for v0..3 in buswidth-8bit mode, but
    should suffice.  */
@@ -1335,31 +1128,10 @@ struct cum_args {int regs;};
 /* The jump table is immediately connected to the preceding insn.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
-/* We pull a little trick to register the _fini function with atexit,
-   after (presumably) registering the eh frame info, since we don't handle
-   _fini (a.k.a. ___fini_start) in crt0 or have a crti for "pure" ELF.  If
-   you change this, don't forget that you can't have library function
-   references (e.g. to atexit) in crtend.o, since those won't be resolved
-   to libraries; those are linked in *before* crtend.o.  */
-#ifdef CRT_BEGIN
-# define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)		\
-static void __attribute__((__used__))				\
-call_ ## FUNC (void)						\
-{								\
-  asm (SECTION_OP);						\
-  FUNC ();							\
-  if (__builtin_strcmp (#FUNC, "frame_dummy") == 0)		\
-   {								\
-     extern void __fini__start (void);				\
-     atexit (__fini__start);					\
-   }								\
-  asm (TEXT_SECTION_ASM_OP);					\
-}
-#endif
 
 /* Node: PIC */
 
-#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 0 : INVALID_REGNUM)
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? CRIS_GOT_REGNUM : INVALID_REGNUM)
 
 #define LEGITIMATE_PIC_OPERAND_P(X) cris_legitimate_pic_operand (X)
 
@@ -1380,6 +1152,9 @@ call_ ## FUNC (void)						\
 
 
 /* Node: Data Output */
+
+#define OUTPUT_ADDR_CONST_EXTRA(STREAM, X, FAIL) \
+  do { if (!cris_output_addr_const_extra (STREAM, X)) goto FAIL; } while (0)
 
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) (C) == '@'
 
@@ -1451,6 +1226,12 @@ call_ ## FUNC (void)						\
 
 #define SUPPORTS_WEAK 1
 
+#define ASM_OUTPUT_SYMBOL_REF(STREAM, SYM) \
+ cris_asm_output_symbol_ref (STREAM, SYM)
+
+#define ASM_OUTPUT_LABEL_REF(STREAM, BUF) \
+ cris_asm_output_label_ref (STREAM, BUF)
+
 /* Remove any previous definition (elfos.h).  */
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
@@ -1466,7 +1247,7 @@ call_ ## FUNC (void)						\
 
 #define REGISTER_NAMES					\
  {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8",	\
-  "r9", "r10", "r11", "r12", "r13", "sp", "pc", "srp", "faked_ap"}
+  "r9", "r10", "r11", "r12", "r13", "sp", "pc", "srp", "faked_ap", "mof"}
 
 #define ADDITIONAL_REGISTER_NAMES \
  {{"r14", 14}, {"r15", 15}}
@@ -1552,8 +1333,10 @@ call_ ## FUNC (void)						\
 
 /* Node: All Debuggers */
 
-#define DBX_REGISTER_NUMBER(REGNO) \
- ((REGNO) == CRIS_SRP_REGNUM ? CRIS_CANONICAL_SRP_REGNUM : (REGNO))
+#define DBX_REGISTER_NUMBER(REGNO)				\
+ ((REGNO) == CRIS_SRP_REGNUM ? CRIS_CANONICAL_SRP_REGNUM :	\
+  (REGNO) == CRIS_MOF_REGNUM ? CRIS_CANONICAL_MOF_REGNUM :	\
+ (REGNO))
 
 /* FIXME: Investigate DEBUGGER_AUTO_OFFSET, DEBUGGER_ARG_OFFSET.  */
 
@@ -1580,40 +1363,6 @@ call_ ## FUNC (void)						\
 /* (no definitions) */
 
 /* Node: Misc */
-
-/* FIXME: Check this one more time.  */
-#define PREDICATE_CODES					\
- {"cris_orthogonal_operator",				\
-  {PLUS, MINUS, IOR, AND, UMIN}},			\
- {"cris_commutative_orth_op",				\
-  {PLUS, IOR, AND, UMIN}},				\
- {"cris_operand_extend_operator",			\
-  {PLUS, MINUS, UMIN}},					\
- {"cris_additive_operand_extend_operator",		\
-  {PLUS, MINUS}},					\
- {"cris_extend_operator",				\
-  {ZERO_EXTEND, SIGN_EXTEND}},				\
- {"cris_plus_or_bound_operator",			\
-  {PLUS, UMIN}},					\
- {"cris_mem_op",					\
-  {MEM}},						\
- {"cris_bdap_operand",					\
-  {SUBREG, REG, LABEL_REF, SYMBOL_REF, MEM, CONST_INT,	\
-   CONST_DOUBLE, CONST, SIGN_EXTEND}},			\
- {"cris_bdap_biap_operand",				\
-  {SUBREG, REG, LABEL_REF, SYMBOL_REF, MEM, CONST_INT,	\
-   CONST_DOUBLE, CONST, SIGN_EXTEND, MULT}},		\
- {"cris_general_operand_or_gotless_symbol",		\
-  {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		\
-   LABEL_REF, SUBREG, REG, MEM}},			\
- {"cris_general_operand_or_symbol",			\
-  {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		\
-   LABEL_REF, SUBREG, REG, MEM}},			\
- {"cris_general_operand_or_plt_symbol",			\
-  {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		\
-   LABEL_REF, SUBREG, REG, MEM}},			\
- {"cris_mem_call_operand",				\
-  {MEM}},
 
 /* A combination of the bound (umin) insn together with a
    sign-extended add via the table to PC seems optimal.

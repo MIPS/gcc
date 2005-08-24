@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -171,6 +171,8 @@ enum optab_index
   OTI_exp2,
   /* Exponential - 1*/
   OTI_expm1,
+  /* Load exponent of a floating point number */
+  OTI_ldexp,
   /* Radix-independent exponent */
   OTI_logb,
   OTI_ilogb,
@@ -184,15 +186,20 @@ enum optab_index
   OTI_log1p,
   /* Rounding functions */
   OTI_floor,
+  OTI_lfloor,
   OTI_ceil,
+  OTI_lceil,
   OTI_btrunc,
   OTI_round,
   OTI_nearbyint,
   OTI_rint,
+  OTI_lrint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
   OTI_atan,
+  /* Copy sign */
+  OTI_copysign,
 
   /* Compare insn; two operands.  */
   OTI_cmp,
@@ -232,6 +239,9 @@ enum optab_index
   OTI_vec_init,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
+
+  /* Perform a raise to the power of integer.  */
+  OTI_powi,
 
   OTI_MAX
 };
@@ -297,6 +307,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define exp10_optab (optab_table[OTI_exp10])
 #define exp2_optab (optab_table[OTI_exp2])
 #define expm1_optab (optab_table[OTI_expm1])
+#define ldexp_optab (optab_table[OTI_ldexp])
 #define logb_optab (optab_table[OTI_logb])
 #define ilogb_optab (optab_table[OTI_ilogb])
 #define log_optab (optab_table[OTI_log])
@@ -304,13 +315,17 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define log2_optab (optab_table[OTI_log2])
 #define log1p_optab (optab_table[OTI_log1p])
 #define floor_optab (optab_table[OTI_floor])
+#define lfloor_optab (optab_table[OTI_lfloor])
 #define ceil_optab (optab_table[OTI_ceil])
+#define lceil_optab (optab_table[OTI_lceil])
 #define btrunc_optab (optab_table[OTI_btrunc])
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
 #define rint_optab (optab_table[OTI_rint])
+#define lrint_optab (optab_table[OTI_lrint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
+#define copysign_optab (optab_table[OTI_copysign])
 
 #define cmp_optab (optab_table[OTI_cmp])
 #define ucmp_optab (optab_table[OTI_ucmp])
@@ -336,6 +351,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
+
+#define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -415,6 +432,43 @@ extern enum insn_code clrmem_optab[NUM_MACHINE_MODES];
 extern enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 extern enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
+/* Synchronization primitives.  This first set is atomic operation for
+   which we don't care about the resulting value.  */
+extern enum insn_code sync_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_nand_optab[NUM_MACHINE_MODES];
+
+/* This second set is atomic operations in which we return the value
+   that existed in memory before the operation.  */
+extern enum insn_code sync_old_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_nand_optab[NUM_MACHINE_MODES];
+
+/* This third set is atomic operations in which we return the value
+   that resulted after performing the operation.  */
+extern enum insn_code sync_new_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_nand_optab[NUM_MACHINE_MODES];
+
+/* Atomic compare and swap.  */
+extern enum insn_code sync_compare_and_swap[NUM_MACHINE_MODES];
+extern enum insn_code sync_compare_and_swap_cc[NUM_MACHINE_MODES];
+
+/* Atomic exchange with acquire semantics.  */
+extern enum insn_code sync_lock_test_and_set[NUM_MACHINE_MODES];
+
+/* Atomic clear with release semantics.  */
+extern enum insn_code sync_lock_release[NUM_MACHINE_MODES];
+
 /* Define functions given in optabs.c.  */
 
 extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab, 
@@ -449,6 +503,9 @@ extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);
 /* Expand the absolute value operation.  */
 extern rtx expand_abs_nojump (enum machine_mode, rtx, rtx, int);
 extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
+
+/* Expand the copysign operation.  */
+extern rtx expand_copysign (rtx, rtx, rtx);
 
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */
@@ -487,11 +544,6 @@ extern enum insn_code can_extend_p (enum machine_mode, enum machine_mode, int);
    into X (with mode MTO).  Do zero-extension if UNSIGNEDP is nonzero.  */
 extern rtx gen_extend_insn (rtx, rtx, enum machine_mode,
 			    enum machine_mode, int);
-
-/* Initialize the tables that control conversion between fixed and
-   floating values.  */
-extern void init_fixtab (void);
-extern void init_floattab (void);
 
 /* Call this to reset the function entry for one optab.  */
 extern void set_optab_libfunc (optab, enum machine_mode, const char *);

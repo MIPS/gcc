@@ -2,7 +2,7 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---    A D A . C O N T A I N E R S . G E N E R I C _ A R R A Y _ S O R T     --
+--                    ADA.CONTAINERS.GENERIC_ARRAY_SORT                     --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
@@ -24,3 +24,5 @@ generic
 procedure Ada.Containers.Generic_Array_Sort (Container : in out Array_Type);
 
 pragma Pure (Ada.Containers.Generic_Array_Sort);
+
+

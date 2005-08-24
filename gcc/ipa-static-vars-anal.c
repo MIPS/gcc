@@ -1,5 +1,5 @@
 /* Callgraph based analysis of static variables.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -205,7 +205,7 @@ print_order (FILE* out,
 
 /* Find the unique representative for a type with UID.  */  
 static int
-unique_type_id_for (int uid, bool allow_missing)
+unique_type_id_for (int uid, bool allow_missing ATTRIBUTE_UNUSED)
 {
   splay_tree_node result = 
     splay_tree_lookup(uid_to_unique_type, (splay_tree_key) uid);
@@ -214,6 +214,7 @@ unique_type_id_for (int uid, bool allow_missing)
     return TYPE_UID((tree) result->value);
   else 
     {
+      /* ICE when compiling libstdc++.  */
       if (!allow_missing)
 	abort();
       return uid;
@@ -373,7 +374,7 @@ ipa_get_statics_read_local (tree fn)
 /* Return a bitmap indexed by var_ann (VAR_DECL)->uid for the static
    variables that may be written locally by the execution of the function
    fn.  Returns NULL if no data is available, such as it was not
-   compiled with -O2 or higher.  */
+   compiled with -O2 or higher or the function was not available.  */
 
 bitmap 
 ipa_get_statics_written_local (tree fn)
@@ -388,7 +389,7 @@ ipa_get_statics_written_local (tree fn)
 /* Return a bitmap indexed by var_ann (VAR_DECL)->uid for the static
    variables that are read during the execution of the function
    FN.  Returns NULL if no data is available, such as it was not
-   compiled with -O2 or higher.  */
+   compiled with -O2 or higher or the function was not available.  */
 
 bitmap 
 ipa_get_statics_read_global (tree fn) 
@@ -404,7 +405,7 @@ ipa_get_statics_read_global (tree fn)
    variables that are written during the execution of the function
    FN.  Note that variables written may or may not be read during the
    function call.  Returns NULL if no data is available, such as it
-   was not compiled with -O2 or higher.  */
+   was not compiled with -O2 or higher or the function was not available.  */
 
 bitmap 
 ipa_get_statics_written_global (tree fn) 
@@ -419,7 +420,7 @@ ipa_get_statics_written_global (tree fn)
 /* Return a bitmap indexed by var_ann (VAR_DECL)->uid for the static
    variables that are not read during the execution of the function
    FN.  Returns NULL if no data is available, such as it was not
-   compiled with -O2 or higher.  */
+   compiled with -O2 or higher or the function was not available.  */
 
 bitmap 
 ipa_get_statics_not_read_global (tree fn) 
@@ -435,7 +436,7 @@ ipa_get_statics_not_read_global (tree fn)
    variables that are not written during the execution of the function
    FN.  Note that variables written may or may not be read during the
    function call.  Returns NULL if no data is available, such as it
-   was not compiled with -O2 or higher.  */
+   was not compiled with -O2 or higher or the function was not available.  */
 
 bitmap 
 ipa_get_statics_not_written_global (tree fn) 
@@ -457,9 +458,10 @@ ipa_static_star_count_of_interesting_type (tree type)
 {
   int count = 0;
   /* Strip the *'s off.  */
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type))
     {
-      type = TREE_TYPE (type);
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       count++;
     }
 
@@ -483,9 +485,10 @@ ipa_static_star_count_of_interesting_or_array_type (tree type)
 {
   int count = 0;
   /* Strip the *'s off.  */
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
     {
-      type = TREE_TYPE (type);
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       count++;
     }
 
@@ -510,19 +513,19 @@ ipa_static_type_contained_p (tree type)
   if (initialization_status == UNINITIALIZED)
     return false;
 
-  while (POINTER_TYPE_P (type))
-    type = TREE_TYPE (type);
-
   type = TYPE_MAIN_VARIANT (type);
+  while (POINTER_TYPE_P (type))
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+
   uid = unique_type_id_for (TYPE_UID (type), true);
   return !bitmap_bit_p (global_types_full_escape, uid);
 }
 
-/* Return true if no fields with type FIELD_TYPE within a record of
-   RECORD_TYPE has its address taken.  */
+/* Return true a modification to a field of type FIELD_TYPE cannot
+   clobber a record of RECORD_TYPE.  */
 
 bool 
-ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
+ipa_static_field_does_not_clobber_p (tree record_type, tree field_type)
 { 
   splay_tree_node result;
   int uid;
@@ -533,13 +536,28 @@ ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
   /* Strip off all of the pointer tos on the record type.  Strip the
      same number of pointer tos from the field type.  If the field
      type has fewer, it could not have been aliased. */
+  record_type = TYPE_MAIN_VARIANT (record_type);
+  field_type = TYPE_MAIN_VARIANT (field_type);
   while (POINTER_TYPE_P (record_type))
     {
-      record_type = TREE_TYPE (record_type);
+      record_type = TYPE_MAIN_VARIANT (TREE_TYPE (record_type));
       if (POINTER_TYPE_P (field_type)) 
-	field_type = TREE_TYPE (field_type);
+	field_type = TYPE_MAIN_VARIANT (TREE_TYPE (field_type));
       else 
-	return true;
+	/* However, if field_type is a union, this quick test is not
+	   correct since one of the variants of the union may be a
+	   pointer to type and we cannot see across that here.  So we
+	   just strip the remaining pointer tos off the record type
+	   and fall thru to the more precise code.  */
+	if (TREE_CODE (field_type) == QUAL_UNION_TYPE 
+	    || TREE_CODE (field_type) == UNION_TYPE)
+	  {
+	    while (POINTER_TYPE_P (record_type))
+	      record_type = TYPE_MAIN_VARIANT (TREE_TYPE (record_type));
+	    break;
+	  } 
+	else 
+	  return true;
     }
   
   /* The record type must be contained.  The field type may
@@ -547,14 +565,12 @@ ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
   if (!ipa_static_type_contained_p (record_type))
     return false;
 
-  record_type = TYPE_MAIN_VARIANT (record_type);
   uid = unique_type_id_for (TYPE_UID (record_type), false);
   result = splay_tree_lookup (uid_to_addressof_map, (splay_tree_key) uid);
   
   if (result) 
     {
       bitmap field_type_map = (bitmap) result->value;
-      field_type = TYPE_MAIN_VARIANT (field_type);
       uid = unique_type_id_for (TYPE_UID (field_type), true);
       /* If the bit is there, the address was taken. If not, it
 	 wasn't.  */
@@ -716,9 +732,7 @@ reduced_inorder (struct cgraph_node **order, bool reduce)
 
 
 
-/* Mark a TYPE as being seen.  This is only called from two places:
-   mark_type_seen which only calls it with record and union types and
-   mark_interesting_addressof which can mark any field type.  */ 
+/* Mark a TYPE as being seen.  */ 
 
 static bool
 mark_any_type_seen (tree type)
@@ -746,8 +760,9 @@ mark_any_type_seen (tree type)
 static bool
 mark_type_seen (tree type)
 {
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 
   /* We are interested in records, and unions only.  */
   if (TREE_CODE (type) == RECORD_TYPE 
@@ -773,8 +788,9 @@ mark_type (tree type, enum escape_t escape_status)
   bitmap map = NULL;
   int uid;
 
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
   
   switch (escape_status) 
     {
@@ -786,13 +802,13 @@ mark_type (tree type, enum escape_t escape_status)
       break;
     }
 
-  uid = TYPE_UID (TYPE_MAIN_VARIANT (type));
+  uid = TYPE_UID (type);
   if (bitmap_bit_p (map, uid))
     return false;
   else
     {
       bitmap_set_bit (map, uid);
-      mark_type_seen (type);
+      mark_any_type_seen (type);
 
       if (escape_status == FULL_ESCAPE)
 	{
@@ -918,9 +934,10 @@ count_stars (tree* type_ptr)
 {
   tree type = *type_ptr;
   int i = 0;
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type))
     {
-      type = TREE_TYPE (type);
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       i++;
     }
 
@@ -1033,6 +1050,10 @@ check_function_parameter_and_return_types (tree fn, bool escapes)
     }
   else
     {
+      /* FIXME - According to Geoff Keating, we should never have to
+	 do this; the front ends should always process the arg list
+	 from the TYPE_ARG_LIST. */
+
       for (arg = DECL_ARGUMENTS (fn); arg; arg = TREE_CHAIN (arg))
 	{
 	  if (escapes)
@@ -1108,12 +1129,16 @@ has_proper_scope_for_analysis (ipa_local_static_vars_info_t local,
 	  && is_gimple_min_invariant (DECL_INITIAL (t)))
 	; /* Read of a constant, do not change the function state.  */
       else 
-	/* Just a regular read.  */
-	if (local 
-	    && local->pure_const_not_set_in_source
-	    && local->pure_const_state == IPA_CONST)
-	  local->pure_const_state = IPA_PURE;
-
+	{
+	  /* Just a regular read.  */
+	  if (local 
+	      && local->pure_const_not_set_in_source
+	      && local->pure_const_state == IPA_CONST)
+	    local->pure_const_state = IPA_PURE;
+	 
+	  /* The type escapes for all public and externs. */
+	  mark_interesting_type (TREE_TYPE (t), FULL_ESCAPE);
+	}
       return false;
     }
 
@@ -1446,26 +1471,26 @@ check_call (ipa_local_static_vars_info_t local,
 	      tree call_expr) 
 {
   int flags = call_expr_flags(call_expr);
-  tree operandList = TREE_OPERAND (call_expr, 1);
+  tree operand_list = TREE_OPERAND (call_expr, 1);
   tree operand;
   tree callee_t = get_callee_fndecl (call_expr);
   tree argument;
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
 
-  for (operand = operandList;
+  for (operand = operand_list;
        operand != NULL_TREE;
        operand = TREE_CHAIN (operand))
     {
       tree argument = TREE_VALUE (operand);
       check_rhs_var (local, argument);
     }
-
+  
   /* The const and pure flags are set by a variety of places in the
      compiler (including here).  If someone has already set the flags
      for the callee, (such as for some of the builtins) we will use
      them, otherwise we will compute our own information.  */
-
+  
   /* Const and pure functions have less clobber effects than other
      functions so we process these first.  Otherwise if it is a call
      outside the compilation unit or an indirect call we punt.  This
@@ -1476,26 +1501,61 @@ check_call (ipa_local_static_vars_info_t local,
   if (callee_t)
     {
       tree arg_type;
-      tree last_arg_type;
+      tree last_arg_type = NULL;
       callee = cgraph_node(callee_t);
       avail = cgraph_function_body_availability (callee);
 
       /* If the function is POINTER_NO_ESCAPE or a wrapper it is
 	 allowed to make an implicit cast to void* without causing the
 	 type to escape.  */
-      if (!flags & ECF_POINTER_NO_ESCAPE) 
+      if (!(flags & ECF_POINTER_NO_ESCAPE)) 
 	{
 	  /* Check that there are no implicit casts in the passing of
 	     parameters.  */
-	  operand = operandList;
-	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
-	       arg_type && TREE_VALUE (arg_type) != void_type_node;
-	       arg_type = TREE_CHAIN (arg_type))
+	  if (TYPE_ARG_TYPES (TREE_TYPE (callee_t)))
 	    {
-	      operand = TREE_CHAIN (operand);
-	      argument = TREE_VALUE (operand);
-	      check_cast (arg_type, argument);
-	      last_arg_type = arg_type;
+	      operand = operand_list;
+	      for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
+		   arg_type && TREE_VALUE (arg_type) != void_type_node;
+		   arg_type = TREE_CHAIN (arg_type))
+		{
+		  if (operand)
+		    {
+		      argument = TREE_VALUE (operand);
+		      last_arg_type = TREE_VALUE(arg_type);
+		      check_cast (last_arg_type, argument);
+		      operand = TREE_CHAIN (operand);
+		    }
+		  else 
+		    /* The code reaches here for some unfortunate
+		       builtin functions that do not have a list of
+		       argument types.  */
+		    break; 
+		}
+	    } 
+	  else  
+	    { 
+	      /* FIXME - According to Geoff Keating, we should never
+		 have to do this; the front ends should always process
+		 the arg list from the TYPE_ARG_LIST. */
+	      operand = operand_list;
+	      for (arg_type = DECL_ARGUMENTS (callee_t); 
+		   arg_type;
+		   arg_type = TREE_CHAIN (arg_type))
+		{
+		  if (operand)
+		    {
+		      argument = TREE_VALUE (operand);
+		      last_arg_type = TREE_TYPE(arg_type);
+		      check_cast (last_arg_type, argument);
+		      operand = TREE_CHAIN (operand);
+		    } 
+		  else 
+		    /* The code reaches here for some unfortunate
+		       builtin functions that do not have a list of
+		       argument types.  */
+		    break; 
+		}
 	    }
 	  
 	  /* In the case where we have a var_args function, we need to
@@ -1506,7 +1566,17 @@ check_call (ipa_local_static_vars_info_t local,
 	       operand = TREE_CHAIN (operand))
 	    {
 	      argument = TREE_VALUE (operand);
-	      check_cast (arg_type, argument);
+	      if (arg_type)
+		check_cast (arg_type, argument);
+	      else 
+		{
+		  /* The code reaches here for some unfortunate
+		     builtin functions that do not have a list of
+		     argument types.  Most of these functions have
+		     been marked as having their parameters not
+		     escape, but for the rest, the type is doomed.  */
+		  mark_interesting_type (TREE_TYPE (argument), FULL_ESCAPE);
+		}
 	    }
 	}
 
@@ -1536,11 +1606,11 @@ check_call (ipa_local_static_vars_info_t local,
 
   if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
     {
-      if (!flags & ECF_POINTER_NO_ESCAPE) 
+      if (!(flags & ECF_POINTER_NO_ESCAPE))
 	{
 	  /* If this is a direct call to an external function, mark all of
 	     the parameter and return types.  */
-	  for (operand = operandList;
+	  for (operand = operand_list;
 	       operand != NULL_TREE;
 	       operand = TREE_CHAIN (operand))
 	    {
@@ -1593,8 +1663,8 @@ check_call (ipa_local_static_vars_info_t local,
 static bool 
 okay_pointer_operation (enum tree_code code,  tree op0, tree op1)
 {
-  tree op0type = TREE_TYPE (op0);
-  tree op1type = TREE_TYPE (op1);
+  tree op0type = TYPE_MAIN_VARIANT (TREE_TYPE (op0));
+  tree op1type = TYPE_MAIN_VARIANT (TREE_TYPE (op1));
   if (POINTER_TYPE_P (op1type))
     return false;
   switch (code)
@@ -1838,7 +1908,7 @@ propagate_bits (struct cgraph_node *x)
 		  if (y_global->statics_read_by_decl_uid 
 		      == all_module_statics)
 		    {
-		      BITMAP_XFREE (x_global->statics_read_by_decl_uid);
+		      BITMAP_FREE (x_global->statics_read_by_decl_uid);
 		      x_global->statics_read_by_decl_uid 
 			= all_module_statics;
 		    }
@@ -1855,7 +1925,7 @@ propagate_bits (struct cgraph_node *x)
 		  if (y_global->statics_written_by_decl_uid 
 		      == all_module_statics)
 		    {
-		      BITMAP_XFREE (x_global->statics_written_by_decl_uid);
+		      BITMAP_FREE (x_global->statics_written_by_decl_uid);
 		      x_global->statics_written_by_decl_uid 
 			= all_module_statics;
 		    }
@@ -2198,10 +2268,10 @@ close_type_seen (tree type)
   tree binfo, base_binfo;
 
   /* See thru all pointer tos and array ofs. */
-  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-  
   type = TYPE_MAIN_VARIANT (type);
+  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+  
   uid = TYPE_UID (type);
 
   if (bitmap_bit_p (been_there_done_that, uid))
@@ -2391,10 +2461,10 @@ close_type_full_escape (tree type)
   bitmap subtype_map;
 
   /* Strip off any pointer or array types.  */
-  while (POINTER_TYPE_P (type) || TREE_CODE(type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
   type = TYPE_MAIN_VARIANT (type);
+  while (POINTER_TYPE_P (type) || TREE_CODE(type) == ARRAY_TYPE)
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+
   uid = TYPE_UID (type);
 
   if (bitmap_bit_p (been_there_done_that, uid))
@@ -2454,7 +2524,7 @@ delete_addressof_map (tree from_type)
   if (result) 
     {
       bitmap map = (bitmap) result->value;
-      BITMAP_XFREE (map);
+      BITMAP_FREE (map);
       splay_tree_remove (uid_to_addressof_map, (splay_tree_key) uid);
     }
 }
@@ -2633,16 +2703,16 @@ do_type_analysis (void)
   while (result)
     {
       bitmap b = (bitmap)result->value;
-      BITMAP_XFREE(b);
+      BITMAP_FREE(b);
       splay_tree_remove (uid_to_subtype_map, result->key);
       result = splay_tree_min (uid_to_subtype_map);
     }
   splay_tree_delete (uid_to_subtype_map);
   uid_to_subtype_map = NULL;
 
-  BITMAP_XFREE (global_types_exposed_parameter);
-  BITMAP_XFREE (been_there_done_that);
-  BITMAP_XFREE (results_of_malloc);
+  BITMAP_FREE (global_types_exposed_parameter);
+  BITMAP_FREE (been_there_done_that);
+  BITMAP_FREE (results_of_malloc);
 
   cant_touch = 0;
 }
@@ -2737,8 +2807,8 @@ static_execute (void)
 	  }
       }
 
-    BITMAP_XFREE(module_statics_escape);
-    BITMAP_XFREE(module_statics_written);
+    BITMAP_FREE(module_statics_escape);
+    BITMAP_FREE(module_statics_written);
 
     if (0) {
       FILE *ok_statics_file = fopen("/home/zadeck/ok_statics", "r");
@@ -2857,9 +2927,9 @@ static_execute (void)
 		         all_module_statics);
       }
 
-    BITMAP_XFREE(module_statics_readonly);
-    BITMAP_XFREE(module_statics_const);
-    BITMAP_XFREE(bm_temp);
+    BITMAP_FREE(module_statics_readonly);
+    BITMAP_FREE(module_statics_const);
+    BITMAP_FREE(bm_temp);
   }
 
   if (dump_file)
@@ -2997,12 +3067,20 @@ static_execute (void)
   /* Need to fix up the local information sets.  The information that
      has been gathered so far is preinlining.  However, the
      compilation will progress post inlining so the local sets for the
-     inlined calls need to be merged into the callers.  */
+     inlined calls need to be merged into the callers.  Note that the
+     local sets are not shared between all of the nodes in a cycle so
+     those nodes in the cycle must be processed explicitly.  */
   for (i = 0; i < order_pos; i++ )
     {
       node = order[i];
-      if (cgraph_is_immortal_master_clone (node))
-	merge_callee_local_info (node, node);
+      merge_callee_local_info (node, node);
+      
+      w = node->next_cycle;
+      while (w)
+	{
+	  merge_callee_local_info (w, w);
+	  w = w->next_cycle;
+	}
     }
 
   if (dump_file)
@@ -3022,13 +3100,6 @@ static_execute (void)
 	  fprintf (dump_file, 
 		   "\nFunction name:%s/%i:", 
 		   cgraph_node_name (node), node->uid);
-	  w = node->next_cycle;
-	  while (w) 
-	    {
-	      fprintf (dump_file, "\n  next cycle: %s/%i ",
-		       cgraph_node_name (w), w->uid);
-	      w = w->next_cycle;
-	    }
 	  fprintf (dump_file, "\n  locals read: ");
 	  EXECUTE_IF_SET_IN_BITMAP (node_l->statics_read_by_decl_uid,
 				    0, index, bi)
@@ -3042,6 +3113,33 @@ static_execute (void)
 	    {
 	      fprintf(dump_file, "%s ",
 		      get_static_name_by_uid (index));
+	    }
+
+	  w = node->next_cycle;
+	  while (w) 
+	    {
+	      ipa_static_vars_info_t w_info = w->static_vars_info;
+	      ipa_local_static_vars_info_t w_l = w_info->local;
+	      fprintf (dump_file, "\n  next cycle: %s/%i ",
+		       cgraph_node_name (w), w->uid);
+ 	      fprintf (dump_file, "\n    locals read: ");
+	      EXECUTE_IF_SET_IN_BITMAP (w_l->statics_read_by_decl_uid,
+					0, index, bi)
+		{
+		  fprintf (dump_file, "%s ",
+			   get_static_name_by_uid (index));
+		}
+
+	      fprintf (dump_file, "\n    locals written: ");
+	      EXECUTE_IF_SET_IN_BITMAP (w_l->statics_written_by_decl_uid,
+					0, index, bi)
+		{
+		  fprintf(dump_file, "%s ",
+			  get_static_name_by_uid (index));
+		}
+	      
+
+	      w = w->next_cycle;
 	    }
 	  fprintf (dump_file, "\n  globals read: ");
 	  EXECUTE_IF_SET_IN_BITMAP (node_g->statics_read_by_decl_uid,
@@ -3108,14 +3206,14 @@ static_execute (void)
 	    switch (node_g->pure_const_state)
 	      {
 	      case IPA_CONST:
-  		TREE_READONLY (w->decl) = 1;
+   		TREE_READONLY (w->decl) = 1;
 		if (dump_file)
 		  fprintf (dump_file, "$$$$CONST: %s\n",  
 			   lang_hooks.decl_printable_name(w->decl, 2)); 
 		break;
 		
 	      case IPA_PURE:
-  		DECL_IS_PURE (w->decl) = 1;
+   		DECL_IS_PURE (w->decl) = 1;
 		if (dump_file)
 		  fprintf (dump_file, "$$$$PURE: %s\n",  
 			   lang_hooks.decl_printable_name(w->decl, 2)); 
@@ -3133,10 +3231,63 @@ static_execute (void)
   free (order);
 }
 
+/* If FN is avail == AVAIL_OVERWRITABLE, replace the effects bit vectors with 
+   worst case bit vectors.  */
+
+static void
+clean_function (struct cgraph_node *fn)
+{
+  if (cgraph_function_body_availability (fn) == AVAIL_OVERWRITABLE)
+    {
+      ipa_local_static_vars_info_t l = fn->static_vars_info->local;
+      ipa_global_static_vars_info_t g = fn->static_vars_info->global;
+      var_ann_t var_ann = get_var_ann (fn->decl);
+
+      if (l)
+	{
+	  if (l->statics_read_by_decl_uid
+	      && l->statics_read_by_decl_uid != all_module_statics)
+	    BITMAP_FREE (l->statics_read_by_decl_uid);
+	  if (l->statics_written_by_decl_uid
+	      &&l->statics_written_by_decl_uid != all_module_statics)
+	    BITMAP_FREE (l->statics_written_by_decl_uid);
+	  free (l);
+	  fn->static_vars_info->local = NULL;
+	}
+
+      if (g)
+	{
+	  if (g->statics_read_by_decl_uid
+	      && g->statics_read_by_decl_uid != all_module_statics)
+	    BITMAP_FREE (g->statics_read_by_decl_uid);
+
+	  if (g->statics_written_by_decl_uid
+	      && g->statics_written_by_decl_uid != all_module_statics)
+	    BITMAP_FREE (g->statics_written_by_decl_uid);
+
+	  if (g->statics_not_read_by_decl_uid
+	      && g->statics_not_read_by_decl_uid != all_module_statics)
+	    BITMAP_FREE (g->statics_not_read_by_decl_uid);
+	  
+	  if (g->statics_not_written_by_decl_uid
+	      && g->statics_not_written_by_decl_uid != all_module_statics)
+	    BITMAP_FREE (g->statics_not_written_by_decl_uid);
+	  free (g);
+	  fn->static_vars_info->global = NULL;
+	}
+      
+      free (fn->static_vars_info);
+      fn->static_vars_info = NULL;
+      var_ann->static_vars_info = NULL;
+    }
+}
+
 static bool
 gate_static_vars (void)
 {
-  return flag_unit_at_a_time != 0;
+  return (flag_unit_at_a_time != 0
+	  /* Don't bother doing anything if the program has errors.  */
+	  && !(errorcount || sorrycount));
 }
 
 struct tree_opt_pass pass_ipa_static =
@@ -3146,7 +3297,7 @@ struct tree_opt_pass pass_ipa_static =
   analyze_function,                     /* IPA function */
   analyze_variable,		        /* IPA variable */
   static_execute,			/* execute */
-  NULL,                                 /* IPA function */
+  clean_function,                       /* IPA function */
   NULL,	                                /* IPA variable */
   NULL,					/* sub */
   NULL,					/* next */

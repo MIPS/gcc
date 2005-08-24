@@ -11,7 +11,7 @@ int main1 ()
   int a[N];
   int b[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 
-  /* Not vetorizable yet (reverse access and forward access).  */
+  /* Not vectorizable yet (reverse access and forward access).  */
   for (i = N; i > 0; i--)
     {
       a[N-i] = b[i-1];
@@ -35,3 +35,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

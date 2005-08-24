@@ -2,7 +2,7 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---   A D A . S T R I N G S . E Q U A L _ C A S E _ I N S E N S I T I V E    --
+--                    ADA.STRINGS.EQUAL_CASE_INSENSITIVE                    --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
@@ -17,3 +17,4 @@ function Ada.Strings.Equal_Case_Insensitive
   (Left, Right : String) return Boolean;
 
 pragma Pure (Ada.Strings.Equal_Case_Insensitive);
+

@@ -1,5 +1,5 @@
 /* Routines for liveness in SSA trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -337,7 +337,7 @@ make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
 
 typedef struct tree_partition_associator_d
 {
-  varray_type trees;
+  VEC(tree,heap) *trees;
   varray_type first_partition;
   int *next_partition;
   int *partition_to_tree_map;
@@ -375,7 +375,7 @@ tpa_num_trees (tpa_p tpa)
 static inline tree
 tpa_tree (tpa_p tpa, int i)
 {
-  return VARRAY_TREE (tpa->trees, i);
+  return VEC_index (tree, tpa->trees, i);
 }
 
 
@@ -428,7 +428,7 @@ tpa_decompact(tpa_p tpa)
 }
 
 
-/* Once a var_map has been created and compressed, a complimentary root_var
+/* Once a var_map has been created and compressed, a complementary root_var
    object can be built.  This creates a list of all the root variables from
    which ssa version names are derived.  Each root variable has a list of 
    which partitions are versions of that root.  

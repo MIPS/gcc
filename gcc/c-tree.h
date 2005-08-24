@@ -1,6 +1,6 @@
 /* Definitions for C parsing and type checking.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,13 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    know how big it is.  This is sanity-checked in c-decl.c.  */
 #define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
   (sizeof (struct c_common_identifier) + 3 * sizeof (void *))
-
-/* For gc purposes, return the most likely link for the longest chain.  */
-#define C_LANG_TREE_NODE_CHAIN_NEXT(T)				\
-  ((union lang_tree_node *)					\
-   (TREE_CODE (T) == INTEGER_TYPE ? TYPE_NEXT_VARIANT (T)	\
-    : TREE_CODE (T) == COMPOUND_EXPR ? TREE_OPERAND (T, 1)	\
-    : TREE_CHAIN (T)))
 
 /* Language-specific declaration information.  */
 
@@ -93,7 +86,13 @@ struct lang_type GTY(())
 
 /* For FUNCTION_DECLs, evaluates true if the decl is built-in but has
    been declared.  */
-#define C_DECL_DECLARED_BUILTIN(EXP) DECL_LANG_FLAG_3 (EXP)
+#define C_DECL_DECLARED_BUILTIN(EXP)		\
+  DECL_LANG_FLAG_3 (FUNCTION_DECL_CHECK (EXP))
+
+/* For FUNCTION_DECLs, evaluates true if the decl is built-in, has a
+   built-in prototype and does not have a non-built-in prototype.  */
+#define C_DECL_BUILTIN_PROTOTYPE(EXP)		\
+  DECL_LANG_FLAG_6 (FUNCTION_DECL_CHECK (EXP))
 
 /* Record whether a decl was declared register.  This is strictly a
    front-end flag, whereas DECL_REGISTER is used for code generation;
@@ -104,7 +103,30 @@ struct lang_type GTY(())
    unevaluated operand of sizeof / typeof / alignof.  This is only
    used for functions declared static but not defined, though outside
    sizeof and typeof it is set for other function decls as well.  */
-#define C_DECL_USED(EXP) DECL_LANG_FLAG_5 (EXP)
+#define C_DECL_USED(EXP) DECL_LANG_FLAG_5 (FUNCTION_DECL_CHECK (EXP))
+
+/* Record whether a label was defined in a statement expression which
+   has finished and so can no longer be jumped to.  */
+#define C_DECL_UNJUMPABLE_STMT_EXPR(EXP)	\
+  DECL_LANG_FLAG_6 (LABEL_DECL_CHECK (EXP))
+
+/* Record whether a label was the subject of a goto from outside the
+   current level of statement expression nesting and so cannot be
+   defined right now.  */
+#define C_DECL_UNDEFINABLE_STMT_EXPR(EXP)	\
+  DECL_LANG_FLAG_7 (LABEL_DECL_CHECK (EXP))
+
+/* Record whether a label was defined in the scope of an identifier
+   with variably modified type which has finished and so can no longer
+   be jumped to.  */
+#define C_DECL_UNJUMPABLE_VM(EXP)	\
+  DECL_LANG_FLAG_3 (LABEL_DECL_CHECK (EXP))
+
+/* Record whether a label was the subject of a goto from outside the
+   current level of scopes of identifiers with variably modified type
+   and so cannot be defined right now.  */
+#define C_DECL_UNDEFINABLE_VM(EXP)	\
+  DECL_LANG_FLAG_5 (LABEL_DECL_CHECK (EXP))
 
 /* Nonzero for a decl which either doesn't exist or isn't a prototype.
    N.B. Could be simplified if all built-in decls had complete prototypes
@@ -126,7 +148,7 @@ struct c_expr
   /* The value of the expression.  */
   tree value;
   /* Record the original binary operator of an expression, which may
-     have been changed by fold, STRING_CST for unparenthesised string
+     have been changed by fold, STRING_CST for unparenthesized string
      constants, or ERROR_MARK for other expressions (including
      parenthesized expressions).  */
   enum tree_code original_code;
@@ -205,6 +227,10 @@ struct c_declspecs {
   enum c_typespec_keyword typespec_word;
   /* The storage class specifier, or csc_none if none.  */
   enum c_storage_class storage_class;
+  /* Whether any declaration specifiers have been seen at all.  */
+  BOOL_BITFIELD declspecs_seen_p : 1;
+  /* Whether a type specifier has been seen.  */
+  BOOL_BITFIELD type_seen_p : 1;
   /* Whether something other than a storage class specifier or
      attribute has been seen.  This is used to warn for the
      obsolescent usage of storage class specifiers other than at the
@@ -283,6 +309,7 @@ struct c_declarator {
   enum c_declarator_kind kind;
   /* Except for cdk_id, the contained declarator.  For cdk_id, NULL.  */
   struct c_declarator *declarator;
+  location_t id_loc; /* Currently only set for cdk_id. */
   union {
     /* For identifiers, an IDENTIFIER_NODE or NULL_TREE if an abstract
        declarator.  */
@@ -345,8 +372,47 @@ struct language_function GTY(())
   int extern_inline;
 };
 
+/* Save lists of labels used or defined in particular contexts.
+   Allocated on the parser obstack.  */
+
+struct c_label_list
+{
+  /* The label at the head of the list.  */
+  tree label;
+  /* The rest of the list.  */
+  struct c_label_list *next;
+};
+
+/* Statement expression context.  */
+
+struct c_label_context_se
+{
+  /* The labels defined at this level of nesting.  */
+  struct c_label_list *labels_def;
+  /* The labels used at this level of nesting.  */
+  struct c_label_list *labels_used;
+  /* The next outermost context.  */
+  struct c_label_context_se *next;
+};
+
+/* Context of variably modified declarations.  */
+
+struct c_label_context_vm
+{
+  /* The labels defined at this level of nesting.  */
+  struct c_label_list *labels_def;
+  /* The labels used at this level of nesting.  */
+  struct c_label_list *labels_used;
+  /* The scope of this context.  Multiple contexts may be at the same
+     numbered scope, since each variably modified declaration starts a
+     new context.  */
+  unsigned scope;
+  /* The next outermost context.  */
+  struct c_label_context_vm *next;
+};
+
 
-/* in c-parse.in */
+/* in c-parser.c */
 extern void c_parse_init (void);
 
 /* in c-aux-info.c */
@@ -373,9 +439,8 @@ extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
-extern int  complete_array_type (tree, tree, int);
 extern void declare_parm_level (void);
-extern void undeclared_variable (tree);
+extern void undeclared_variable (tree, location_t);
 extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
@@ -434,7 +499,6 @@ extern int c_cannot_inline_tree_fn (tree *);
 extern bool c_objc_common_init (void);
 extern bool c_missing_noreturn_ok_p (tree);
 extern tree c_objc_common_truthvalue_conversion (tree expr);
-extern int defer_fn (tree);
 extern bool c_warn_unused_global_decl (tree);
 extern void c_initialize_diagnostics (diagnostic_context *);
 
@@ -449,6 +513,8 @@ extern int in_sizeof;
 extern int in_typeof;
 
 extern struct c_switch *c_switch_stack;
+extern struct c_label_context_se *label_context_stack_se;
+extern struct c_label_context_vm *label_context_stack_vm;
 
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (tree, tree);
@@ -456,15 +522,17 @@ extern int comptypes (tree, tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
 extern tree c_type_promotes_to (tree);
+extern tree default_conversion (tree);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
 extern tree build_indirect_ref (tree, const char *);
 extern tree build_array_ref (tree, tree);
-extern tree build_external_ref (tree, int);
+extern tree build_external_ref (tree, int, location_t);
 extern void pop_maybe_used (bool);
 extern tree lookup_field (tree, tree);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);
+extern struct c_expr parser_build_unary_op (enum tree_code, struct c_expr);
 extern struct c_expr parser_build_binary_op (enum tree_code, struct c_expr,
 					     struct c_expr);
 extern tree build_conditional_expr (tree, tree, tree);
@@ -503,6 +571,8 @@ extern tree c_finish_return (tree);
 extern tree c_finish_bc_stmt (tree *, bool);
 extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);
+extern void c_begin_vm_scope (unsigned int);
+extern void c_end_vm_scope (unsigned int);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */

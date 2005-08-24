@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *           Copyright (C) 2000-2004 Ada Core Technologies, Inc.            *
+ *           Copyright (C) 2000-2005 Ada Core Technologies, Inc.            *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -191,9 +191,9 @@ extern void (*Unlock_Task) (void);
 
   */
 
-/*------------------------------ PPC AIX -------------------------------*/
+/*--------------------------- PPC AIX/Darwin ----------------------------*/
 
-#if defined (_AIX)
+#if (defined (__ppc__) && ((defined (_AIX) || defined (__APPLE__))))
 
 #define USE_GENERIC_UNWINDER
 
@@ -212,7 +212,7 @@ struct layout
    function is located in it's caller's frame, and the save operation only
    takes place if the function performs a call.
 
-   To have __gnat_backtrace retrieve it's own return address, we then
+   To have __gnat_backtrace retrieve its own return address, we then
    define ... */
 
 #define FORCE_CALL
@@ -344,7 +344,7 @@ struct layout
    libgcc, and the stage1 compiler is unlikely to be linked against a post 3.3
    library.  It actually disables the support for backtraces in this compiler
    for targets defining USE_GCC_UNWINDER, which is OK since we don't use the
-   traceback capablity in the compiler anyway.
+   traceback capability in the compiler anyway.
 
    The condition is expressed the way above because we cannot reliably rely on
    any other macro from the base compiler when compiling stage1.  */

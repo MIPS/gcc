@@ -1,5 +1,5 @@
 /* Language hooks common to C and ObjC front ends.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -52,8 +52,6 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_objc_common_truthvalue_conversion
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
 #undef LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
@@ -117,6 +115,8 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 #undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
+#undef LANG_HOOKS_TO_TARGET_CHARSET
+#define LANG_HOOKS_TO_TARGET_CHARSET c_common_to_target_charset
 
 /* The C front end's scoping structure is very different from
    that expected by the language-independent code; it is best

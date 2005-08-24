@@ -1,5 +1,5 @@
 /* Compiler arithmetic
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -92,7 +92,7 @@ arctangent2 (mpfr_t y, mpfr_t x, mpfr_t result)
   gfc_set_model (y);
   mpfr_init (t);
 
-  i = mpfr_sgn(x);
+  i = mpfr_sgn (x);
 
   if (i > 0)
     {
@@ -152,9 +152,6 @@ gfc_arith_error (arith code)
     case ARITH_DIV0:
       p = "Division by zero";
       break;
-    case ARITH_0TO0:
-      p = "Indeterminate form 0 ** 0";
-      break;
     case ARITH_INCOMMENSURATE:
       p = "Array operands are incommensurate";
       break;
@@ -206,12 +203,12 @@ gfc_arith_init_1 (void)
          Standard Fortran requires integers to be symmetrical, i.e.
          every negative integer must have a representable positive
          absolute value, and vice versa.  */
-         
+
       mpz_init (int_info->pedantic_min_int);
       mpz_neg (int_info->pedantic_min_int, int_info->huge);
 
       mpz_init (int_info->min_int);
-      mpz_sub_ui(int_info->min_int, int_info->pedantic_min_int, 1);
+      mpz_sub_ui (int_info->min_int, int_info->pedantic_min_int, 1);
 
       mpz_init (int_info->max_int);
       mpz_add (int_info->max_int, int_info->huge, int_info->huge);
@@ -261,6 +258,14 @@ gfc_arith_init_1 (void)
 
       mpfr_init (real_info->tiny);
       mpfr_set (real_info->tiny, b, GFC_RND_MODE);
+
+      /* subnormal (x) = b**(emin - digit) */
+      mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
+      mpfr_pow_si (b, b, real_info->min_exponent - real_info->digits,
+		   GFC_RND_MODE);
+
+      mpfr_init (real_info->subnormal);
+      mpfr_set (real_info->subnormal, b, GFC_RND_MODE);
 
       /* epsilon(x) = b**(1-p) */
       mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
@@ -330,7 +335,7 @@ gfc_arith_done_1 (void)
 
 
 /* Given an integer and a kind, make sure that the integer lies within
-   the range of the kind.  Returns ARITH_OK, ARITH_ASYMMETRIC or 
+   the range of the kind.  Returns ARITH_OK, ARITH_ASYMMETRIC or
    ARITH_OVERFLOW.  */
 
 static arith
@@ -373,20 +378,48 @@ gfc_check_real_range (mpfr_t p, int kind)
   mpfr_init (q);
   mpfr_abs (q, p, GFC_RND_MODE);
 
-  retval = ARITH_OK;
   if (mpfr_sgn (q) == 0)
-    goto done;
-
-  if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
-    {
-      retval = ARITH_OVERFLOW;
-      goto done;
-    }
-
-  if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+    retval = ARITH_OK;
+  else if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
+    retval = ARITH_OVERFLOW;
+  else if (mpfr_cmp (q, gfc_real_kinds[i].subnormal) < 0)
     retval = ARITH_UNDERFLOW;
+  else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+    {
+      /* MPFR operates on a numbers with a given precision and enormous
+	exponential range.  To represent subnormal numbers the exponent is
+	allowed to become smaller than emin, but always retains the full
+	precision.  This function resets unused bits to 0 to alleviate
+	rounding problems.  Note, a future version of MPFR will have a
+ 	mpfr_subnormalize() function, which handles this truncation in a
+	more efficient and robust way.  */
 
-done:
+      int j, k;
+      char *bin, *s;
+      mp_exp_t e;
+
+      bin = mpfr_get_str (NULL, &e, gfc_real_kinds[i].radix, 0, q, GMP_RNDN);
+      k = gfc_real_kinds[i].digits - (gfc_real_kinds[i].min_exponent - e);
+      for (j = k; j < gfc_real_kinds[i].digits; j++)
+	bin[j] = '0';
+      /* Need space for '0.', bin, 'E', and e */
+      s = (char *) gfc_getmem (strlen(bin)+10);
+      sprintf (s, "0.%sE%d", bin, (int) e);
+      mpfr_set_str (q, s, gfc_real_kinds[i].radix, GMP_RNDN);
+
+      if (mpfr_sgn (p) < 0)
+	mpfr_neg (p, q, GMP_RNDN);
+      else
+	mpfr_set (p, q, GMP_RNDN);
+
+      gfc_free (s);
+      gfc_free (bin);
+
+      retval = ARITH_OK;
+    }
+  else
+    retval = ARITH_OK;
+
   mpfr_clear (q);
 
   return retval;
@@ -396,7 +429,7 @@ done:
 /* Function to return a constant expression node of a given type and
    kind.  */
 
-gfc_expr * 
+gfc_expr *
 gfc_constant_result (bt type, int kind, locus * where)
 {
   gfc_expr *result;
@@ -549,8 +582,38 @@ gfc_range_check (gfc_expr * e)
     default:
       gfc_internal_error ("gfc_range_check(): Bad type");
     }
-    
+
   return rc;
+}
+
+
+/* Several of the following routines use the same set of statements to
+   check the validity of the result.  Encapsulate the checking here.  */
+
+static arith
+check_result (arith rc, gfc_expr * x, gfc_expr * r, gfc_expr ** rp)
+{
+  arith val = rc;
+
+  if (val == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+	gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
+    }
+
+  if (val == ARITH_ASYMMETRIC)
+    {
+      gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
+    }
+
+  if (val != ARITH_OK)
+    gfc_free_expr (r);
+  else
+    *rp = r;
+
+  return val;
 }
 
 
@@ -595,25 +658,7 @@ gfc_arith_uminus (gfc_expr * op1, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc == ARITH_UNDERFLOW)
-    {
-      if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc == ARITH_ASYMMETRIC)
-    {
-      gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc != ARITH_OK)
-    gfc_free_expr (result);
-  else
-    *resultp = result;
-
-  return rc;
+  return check_result (rc, op1, result, resultp);
 }
 
 
@@ -650,25 +695,7 @@ gfc_arith_plus (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc == ARITH_UNDERFLOW)
-    {
-      if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc == ARITH_ASYMMETRIC)
-    {
-      gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc != ARITH_OK)
-    gfc_free_expr (result);
-  else
-    *resultp = result;
-
-  return rc;
+  return check_result (rc, op1, result, resultp);
 }
 
 
@@ -705,25 +732,7 @@ gfc_arith_minus (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc == ARITH_UNDERFLOW)
-    {
-      if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc == ARITH_ASYMMETRIC)
-    {
-      gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc != ARITH_OK)
-    gfc_free_expr (result);
-  else
-    *resultp = result;
-
-  return rc;
+  return check_result (rc, op1, result, resultp);
 }
 
 
@@ -774,25 +783,7 @@ gfc_arith_times (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc == ARITH_UNDERFLOW)
-    {
-      if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc == ARITH_ASYMMETRIC)
-    {
-      gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc != ARITH_OK)
-    gfc_free_expr (result);
-  else
-    *resultp = result;
-
-  return rc;
+  return check_result (rc, op1, result, resultp);
 }
 
 
@@ -876,25 +867,7 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   if (rc == ARITH_OK)
     rc = gfc_range_check (result);
 
-  if (rc == ARITH_UNDERFLOW)
-    {
-      if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc == ARITH_ASYMMETRIC)
-    {
-      gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc != ARITH_OK)
-    gfc_free_expr (result);
-  else
-    *resultp = result;
-
-  return rc;
+  return check_result (rc, op1, result, resultp);
 }
 
 
@@ -989,33 +962,23 @@ gfc_arith_power (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   result = gfc_constant_result (op1->ts.type, op1->ts.kind, &op1->where);
 
   if (power == 0)
-    {				/* Handle something to the zeroth power */
+    {
+      /* Handle something to the zeroth power.  Since we're dealing
+	 with integral exponents, there is no ambiguity in the
+	 limiting procedure used to determine the value of 0**0.  */
       switch (op1->ts.type)
 	{
 	case BT_INTEGER:
-	  if (mpz_sgn (op1->value.integer) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpz_set_ui (result->value.integer, 1);
+	  mpz_set_ui (result->value.integer, 1);
 	  break;
 
 	case BT_REAL:
-	  if (mpfr_sgn (op1->value.real) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
 	  break;
 
 	case BT_COMPLEX:
-	  if (mpfr_sgn (op1->value.complex.r) == 0
-	      && mpfr_sgn (op1->value.complex.i) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    {
-	      mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
-	      mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
-	    }
-
+	  mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
 	  break;
 
 	default:
@@ -1072,25 +1035,7 @@ gfc_arith_power (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   if (rc == ARITH_OK)
     rc = gfc_range_check (result);
 
-  if (rc == ARITH_UNDERFLOW)
-    {
-      if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc == ARITH_ASYMMETRIC)
-    {
-      gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
-      rc = ARITH_OK;
-      *resultp = result;
-    }
-  else if (rc != ARITH_OK)
-    gfc_free_expr (result);
-  else
-    *resultp = result;
-  
-  return rc;
+  return check_result (rc, op1, result, resultp);
 }
 
 
@@ -1598,10 +1543,10 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
       temp.expr_type = EXPR_OP;
       gfc_clear_ts (&temp.ts);
-      temp.operator = operator;
+      temp.value.op.operator = operator;
 
-      temp.op1 = op1;
-      temp.op2 = op2;
+      temp.value.op.op1 = op1;
+      temp.value.op.op2 = op2;
 
       gfc_type_convert_binary (&temp);
 
@@ -1671,10 +1616,10 @@ runtime:
   result->ts = temp.ts;
 
   result->expr_type = EXPR_OP;
-  result->operator = operator;
+  result->value.op.operator = operator;
 
-  result->op1 = op1;
-  result->op2 = op2;
+  result->value.op.op1 = op1;
+  result->value.op.op2 = op2;
 
   result->where = op1->where;
 
@@ -1687,9 +1632,9 @@ static gfc_expr *
 eval_type_intrinsic0 (gfc_intrinsic_op operator, gfc_expr *op)
 {
   if (op == NULL)
-    gfc_internal_error("eval_type_intrinsic0(): op NULL");
+    gfc_internal_error ("eval_type_intrinsic0(): op NULL");
 
-  switch(operator)
+  switch (operator)
     {
     case INTRINSIC_GE:
     case INTRINSIC_LT:
@@ -1755,13 +1700,13 @@ eval_intrinsic_f2 (gfc_intrinsic_op operator,
   if (op2 == NULL)
     {
       if (gfc_zero_size_array (op1))
-	return eval_type_intrinsic0(operator, op1);
+	return eval_type_intrinsic0 (operator, op1);
     }
   else
     {
       result = reduce_binary0 (op1, op2);
       if (result != NULL)
-	return eval_type_intrinsic0(operator, result);
+	return eval_type_intrinsic0 (operator, result);
     }
 
   f.f2 = eval;
@@ -1928,15 +1873,9 @@ gfc_expr *
 gfc_convert_real (const char *buffer, int kind, locus * where)
 {
   gfc_expr *e;
-  const char *t;
 
   e = gfc_constant_result (BT_REAL, kind, where);
-  /* A leading plus is allowed in Fortran, but not by mpfr_set_str */
-  if (buffer[0] == '+')
-    t = buffer + 1;
-  else
-    t = buffer;
-  mpfr_set_str (e->value.real, t, 10, GFC_RND_MODE);
+  mpfr_set_str (e->value.real, buffer, 10, GFC_RND_MODE);
 
   return e;
 }
@@ -2093,7 +2032,7 @@ gfc_real2real (gfc_expr * src, int kind)
     {
       if (gfc_option.warn_underflow)
         gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
-      mpfr_set_ui(result->value.real, 0, GFC_RND_MODE);
+      mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
     {
@@ -2125,7 +2064,7 @@ gfc_real2complex (gfc_expr * src, int kind)
     {
       if (gfc_option.warn_underflow)
         gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
-      mpfr_set_ui(result->value.complex.r, 0, GFC_RND_MODE);
+      mpfr_set_ui (result->value.complex.r, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
     {
@@ -2148,7 +2087,7 @@ gfc_complex2int (gfc_expr * src, int kind)
 
   result = gfc_constant_result (BT_INTEGER, kind, &src->where);
 
-  gfc_mpfr_to_mpz(result->value.integer, src->value.complex.r);
+  gfc_mpfr_to_mpz (result->value.integer, src->value.complex.r);
 
   if ((rc = gfc_check_integer_range (result->value.integer, kind))
       != ARITH_OK)
@@ -2176,11 +2115,11 @@ gfc_complex2real (gfc_expr * src, int kind)
 
   rc = gfc_check_real_range (result->value.real, kind);
 
-  if (rc == ARITH_UNDERFLOW) 
+  if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
         gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
-      mpfr_set_ui(result->value.real, 0, GFC_RND_MODE);
+      mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   if (rc != ARITH_OK)
     {
@@ -2212,7 +2151,7 @@ gfc_complex2complex (gfc_expr * src, int kind)
     {
       if (gfc_option.warn_underflow)
         gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
-      mpfr_set_ui(result->value.complex.r, 0, GFC_RND_MODE);
+      mpfr_set_ui (result->value.complex.r, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
     {
@@ -2220,14 +2159,14 @@ gfc_complex2complex (gfc_expr * src, int kind)
       gfc_free_expr (result);
       return NULL;
     }
-  
+
   rc = gfc_check_real_range (result->value.complex.i, kind);
 
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
         gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
-      mpfr_set_ui(result->value.complex.i, 0, GFC_RND_MODE);
+      mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
     {
@@ -2252,3 +2191,26 @@ gfc_log2log (gfc_expr * src, int kind)
 
   return result;
 }
+
+/* Convert logical to integer.  */
+
+gfc_expr *
+gfc_log2int (gfc_expr *src, int kind)
+{
+  gfc_expr *result;
+  result = gfc_constant_result (BT_INTEGER, kind, &src->where);
+  mpz_set_si (result->value.integer, src->value.logical);
+  return result;
+}
+
+/* Convert integer to logical.  */
+
+gfc_expr *
+gfc_int2log (gfc_expr *src, int kind)
+{
+  gfc_expr *result;
+  result = gfc_constant_result (BT_LOGICAL, kind, &src->where);
+  result->value.logical = (mpz_cmp_si (src->value.integer, 0) != 0);
+  return result;
+}
+

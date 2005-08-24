@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com> and
                   Reva Cuthbertson <reva@cup.hp.com>
@@ -29,6 +29,12 @@ Boston, MA 02111-1307, USA.  */
 /* Enable HPUX ABI quirks.  */
 #undef  TARGET_HPUX
 #define TARGET_HPUX 1
+
+#undef WCHAR_TYPE
+#define WCHAR_TYPE "unsigned int"
+
+#undef WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE 32
 
 /* Target OS builtins.  */
 #define TARGET_OS_CPP_BUILTINS()			\
@@ -69,7 +75,7 @@ do {							\
 
 #undef LINK_SPEC
 #define LINK_SPEC \
-  "+Accept TypeMismatch \
+  "-z +Accept TypeMismatch \
    %{shared:-b} \
    %{!shared: \
      -u main \
@@ -85,18 +91,6 @@ do {							\
 	  %{mlp64:-L/usr/lib/hpux64/libp} -lgprof} \
      %{!symbolic:-lc}}"
 
-#ifndef CROSS_COMPILE
-#undef LIBGCC_SPEC
-#define LIBGCC_SPEC \
-  "%{shared-libgcc:%{!mlp64:-lgcc_s}%{mlp64:-lgcc_s_hpux64} -lgcc} \
-   %{!shared-libgcc:-lgcc}"
-#endif
-
-#undef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES \
-  { "ilp32",    MASK_ILP32,     "Generate ILP32 code" }, \
-  { "lp64",    -MASK_ILP32,     "Generate LP64 code" },
-
 #define MULTILIB_DEFAULTS { "milp32" }
 
 /* A C expression whose value is zero if pointers that need to be extended
@@ -110,7 +104,7 @@ do {							\
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
-  (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32 | MASK_INLINE_FLOAT_DIV_THR)
+  (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32)
 
 /* This needs to be set to force structure arguments with a single
    integer field to be treated as structures and not as the type of
@@ -193,8 +187,7 @@ do {								\
 #define TARGET_ASM_UNIQUE_SECTION  ia64_rwreloc_unique_section
 #undef  TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION  ia64_rwreloc_select_rtx_section
-#undef  TARGET_SECTION_TYPE_FLAGS
-#define TARGET_SECTION_TYPE_FLAGS  ia64_rwreloc_section_type_flags
+#define TARGET_RWRELOC  true
 
 /* ia64 HPUX has the float and long double forms of math functions.  */
 #undef TARGET_C99_FUNCTIONS
@@ -204,3 +197,14 @@ do {								\
 #define TARGET_INIT_LIBFUNCS ia64_hpux_init_libfuncs
 
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)
+
+/* Put all *xf routines in libgcc, regardless of long double size.  */
+#undef LIBGCC2_HAS_XF_MODE
+#define LIBGCC2_HAS_XF_MODE 1
+
+/* Put all *tf routines in libgcc, regardless of long double size.  */
+#undef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE 1
+
+/* HP-UX headers are C++-compatible.  */
+#define NO_IMPLICIT_EXTERN_C

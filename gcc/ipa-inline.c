@@ -80,8 +80,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "coverage.h"
 
-#define INSNS_PER_CALL 10
-
 /* Statistics we collect about inlining algorithm.  */
 static int ncalls_inlined;
 static int nfunctions_inlined;
@@ -97,7 +95,12 @@ cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
   int size;
-  size = (what->global.insns - INSNS_PER_CALL) * times + to->global.insns;
+  tree fndecl = what->decl, arg;
+  int call_insns = PARAM_VALUE (PARAM_INLINE_CALL_COST);
+
+  for (arg = DECL_ARGUMENTS (fndecl); arg; arg = TREE_CHAIN (arg))
+    call_insns += estimate_move_cost (TREE_TYPE (arg));
+  size = (what->global.insns - call_insns) * times + to->global.insns;
   gcc_assert (size >= 0);
   return size;
 }
@@ -171,7 +174,8 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
       to->global.insns = new_insns;
     }
   gcc_assert (what->global.inlined_to == to);
-  overall_insns += new_insns - old_insns;
+  if (new_insns > old_insns)
+    overall_insns += new_insns - old_insns;
   ncalls_inlined++;
 }
 
@@ -318,13 +322,13 @@ cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
 
 /* A cost model driving the inlining heuristics in a way so the edges with
    smallest badness are inlined first.  After each inlining is performed
-   the costs of all caller edges of nodes affected are recompted so the
+   the costs of all caller edges of nodes affected are recomputed so the
    metrics may accurately depend on values such as number of inlinable callers
    of the function or function body size.
 
    For the moment we use estimated growth caused by inlining callee into all
    it's callers for driving the inlining but once we have loop depth or
-   frequency information readilly available we should do better.
+   frequency information readily available we should do better.
 
    With profiling we use number of executions of each edge to drive the cost.
    We also should distinguish hot and cold calls where the cold calls are
@@ -342,7 +346,7 @@ cgraph_edge_badness (struct cgraph_edge *edge)
 	cgraph_estimate_size_after_inlining (1, edge->caller, edge->callee);
       growth -= edge->caller->global.insns;
 
-      /* Always preffer inlining saving code size.  */
+      /* Always prefer inlining saving code size.  */
       if (growth <= 0)
 	return INT_MIN - growth;
       return ((int)((double)edge->count * INT_MIN / max_count)) / growth;
@@ -415,7 +419,7 @@ update_callee_keys (fibheap_t heap, struct cgraph_node *node,
 }
 
 /* Enqueue all recursive calls from NODE into priority queue depending on
-   how likely we want to recursivly inline the call.  */
+   how likely we want to recursively inline the call.  */
 
 static void
 lookup_recursive_calls (struct cgraph_node *node, struct cgraph_node *where,
@@ -458,7 +462,6 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 
   /* Make sure that function is small enough to be considered for inlining.  */
   if (!max_depth
-      || node->global.insns < INSNS_PER_CALL
       || cgraph_estimate_size_after_inlining (1, node, node)  >= limit)
     return false;
   heap = fibheap_new ();
@@ -549,7 +552,7 @@ cgraph_decide_inlining_of_small_functions (void)
   struct cgraph_node *node;
   struct cgraph_edge *edge;
   fibheap_t heap = fibheap_new ();
-  bitmap updated_nodes = BITMAP_XMALLOC ();
+  bitmap updated_nodes = BITMAP_ALLOC (NULL);
 
   if (dump_file)
     fprintf (dump_file, "\nDeciding on smaller functions:\n");
@@ -606,6 +609,34 @@ cgraph_decide_inlining_of_small_functions (void)
       edge->aux = NULL;
       if (!edge->inline_failed)
 	continue;
+
+      /* When not having profile info ready we don't weight by any way the
+         position of call in procedure itself.  This means if call of
+	 function A from function B seems profitable to inline, the recursive
+	 call of function A in inline copy of A in B will look profitable too
+	 and we end up inlining until reaching maximal function growth.  This
+	 is not good idea so prohibit the recursive inlining.
+
+	 ??? When the frequencies are taken into account we might not need this
+	 restriction.   */
+      if (!max_count)
+	{
+	  where = edge->caller;
+	  while (where->global.inlined_to)
+	    {
+	      if (where->decl == edge->callee->decl)
+		break;
+	      where = where->callers->caller;
+	    }
+	  if (where->global.inlined_to)
+	    {
+	      edge->inline_failed
+		= (edge->callee->local.disregard_inline_limits ? N_("recursive inlining") : "");
+	      if (dump_file)
+		fprintf (dump_file, " inline_failed:Recursive inlining performed only for function itself.\n");
+	      continue;
+	    }
+	}
 
       if (!cgraph_maybe_hot_edge_p (edge) && growth > 0)
 	{
@@ -679,7 +710,7 @@ cgraph_decide_inlining_of_small_functions (void)
     }
   while ((edge = fibheap_extract_min (heap)) != NULL)
     {
-      gcc_assert (edge->inline_failed && edge->aux);
+      gcc_assert (edge->aux);
       edge->aux = NULL;
       if (!edge->callee->local.disregard_inline_limits && edge->inline_failed
           && !cgraph_recursive_inlining_p (edge->caller, edge->callee,
@@ -687,7 +718,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	edge->inline_failed = N_("--param inline-unit-growth limit reached");
     }
   fibheap_delete (heap);
-  BITMAP_XFREE (updated_nodes);
+  BITMAP_FREE (updated_nodes);
 }
 
 /* Decide on the inlining.  We do so in the topological order to avoid
@@ -827,17 +858,6 @@ cgraph_decide_inlining (void)
 	    }
 	}
     }
-
-  /* We will never output extern functions we didn't inline. 
-     ??? Perhaps we can prevent accounting of growth of external
-     inline functions.  */
-
-  /* FIXME: at the moment we don't want to remove nodes here
-     or we confuse aliasing code.  This needs to be dealt with
-     better later by reorganizing the order of analysis.  
-
-     Uncommenting this should make same call in cgraph_optimize unnecesary.
-  cgraph_remove_unreachable_nodes (false, dump_file);  */
 
   if (dump_file)
     fprintf (dump_file,

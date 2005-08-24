@@ -1,5 +1,5 @@
 ! PR libfortran/15332
-! { dg-do run }
+! {do-do run}
       character*12 c
 
       write (c,100) 0, 1

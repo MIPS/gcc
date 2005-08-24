@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -530,11 +530,17 @@ read_class (tree name)
 
   if (jcf == NULL)
     {
+      const char* path_name;
       this_jcf.zipd = NULL;
       jcf = &this_jcf;
-      if (find_class (IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name),
-		      &this_jcf, 1) == 0)
+      
+      path_name = find_class (IDENTIFIER_POINTER (name),
+			      IDENTIFIER_LENGTH (name),
+			      &this_jcf, 1);
+      if (path_name == 0)
 	return 0;
+      else
+	free((char *) path_name);
     }
 
   current_jcf = jcf;
@@ -542,6 +548,7 @@ read_class (tree name)
   if (current_jcf->java_source)
     {
       const char *filename = current_jcf->filename;
+      char *real_path;
       tree given_file, real_file;
       FILE *finput;
       int generate;
@@ -551,7 +558,9 @@ read_class (tree name)
 
       given_file = get_identifier (filename);
       filename = IDENTIFIER_POINTER (given_file);
-      real_file = get_identifier (lrealpath (filename));
+      real_path = lrealpath (filename);
+      real_file = get_identifier (real_path);
+      free (real_path);
 
       generate = IS_A_COMMAND_LINE_FILENAME_P (given_file);
       output_class = current_class = NULL_TREE;
@@ -708,8 +717,8 @@ load_class (tree class_or_name, int verbose)
 	{
 	  /* This is just a diagnostic during testing, not a real problem.  */
 	  if (!quiet_flag)
-	    warning("cannot find file for class %s", 
-		    IDENTIFIER_POINTER (saved));
+	    warning (0, "cannot find file for class %s", 
+		     IDENTIFIER_POINTER (saved));
 	  
 	  /* Fake it.  */
 	  if (TREE_CODE (class_or_name) == RECORD_TYPE)
@@ -811,6 +820,20 @@ load_inner_classes (tree cur_class)
 	  && !CLASS_BEING_LAIDOUT (TREE_TYPE (decl)))
 	load_class (name, 1);
     }
+}
+
+static void
+duplicate_class_warning (const char *filename)
+{
+  location_t warn_loc;
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_RENAME, 0, filename, 0);
+  warn_loc = linemap_line_start (&line_table, 0, 1);
+#else
+  warn_loc.file = filename;
+  warn_loc.line = 0;
+#endif
+  warning (0, "%Hduplicate class will only be compiled once", &warn_loc);
 }
 
 static void
@@ -1025,7 +1048,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
   int filename_count = 0;
   location_t save_location = input_location;
-  char *list, *next;
+  char *file_list = NULL, *list, *next;
   tree node;
   FILE *finput = NULL;
   int in_quotes = 0;
@@ -1063,6 +1086,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	}
       fclose (finput);
       finput = NULL;
+      file_list = list;
     }
   else
     list = (char *) main_input_filename;
@@ -1114,19 +1138,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  /* Exclude file that we see twice on the command line. */
 	     
 	  if (IS_A_COMMAND_LINE_FILENAME_P (node))
-	    {
-	      location_t warn_loc;
-#ifdef USE_MAPPED_LOCATION
-	      linemap_add (&line_table, LC_RENAME, 0,
-			   IDENTIFIER_POINTER (node), 0);
-	      warn_loc = linemap_line_start (&line_table, 0, 1);
-#else
-	      warn_loc.file = IDENTIFIER_POINTER (node);
-	      warn_loc.line = 0;
-#endif
-	      warning ("%Hsource file seen twice on command line and "
-		       "will be compiled only once", &warn_loc);
-	    }
+	    duplicate_class_warning (IDENTIFIER_POINTER (node));
 	  else
 	    {
 	      tree file_decl = build_decl (TRANSLATION_UNIT_DECL, node, NULL);
@@ -1138,8 +1150,11 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       list = next;
     }
 
+  if (file_list != NULL)
+    free (file_list);
+
   if (filename_count == 0)
-    warning ("no input file specified");
+    warning (0, "no input file specified");
 
   if (resource_name)
     {
@@ -1159,13 +1174,16 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   for (node = current_file_list; node; node = TREE_CHAIN (node))
     {
       unsigned char magic_string[4];
+      char *real_path;
       uint32 magic = 0;
       tree name = DECL_NAME (node);
       tree real_file;
       const char *filename = IDENTIFIER_POINTER (name);
 
       /* Skip already parsed files */
-      real_file = get_identifier (lrealpath (filename));
+      real_path = lrealpath (filename);
+      real_file = get_identifier (real_path);
+      free (real_path);
       if (HAS_BEEN_ALREADY_PARSED_P (real_file))
 	continue;
 
@@ -1198,6 +1216,12 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  jcf_parse (current_jcf);
 	  DECL_SOURCE_LOCATION (node) = file_start_location;
 	  TYPE_JCF (current_class) = current_jcf;
+	  if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
+	    {
+	      /* We've already compiled this class.  */
+	      duplicate_class_warning (filename);
+	      continue;
+	    }
 	  CLASS_FROM_CURRENTLY_COMPILED_P (current_class) = 1;
 	  TREE_TYPE (node) = current_class;
 	}
@@ -1220,10 +1244,6 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
 #endif
 	  parse_zip_file_entries ();
-	  /*
-	  for (each entry)
-	    CLASS_FROM_CURRENTLY_COMPILED_P (current_class) = 1;
-	  */
 	}
       else
 	{
@@ -1366,6 +1386,15 @@ parse_zip_file_entries (void)
 	    FREE (class_name);
 	    current_jcf = TYPE_JCF (class);
 	    output_class = current_class = class;
+
+	    if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
+	      {
+	        /* We've already compiled this class.  */
+		duplicate_class_warning (current_jcf->filename);
+		break;
+	      }
+	    
+	    CLASS_FROM_CURRENTLY_COMPILED_P (current_class) = 1;
 
 	    if (TYPE_DUMMY (class))
 	      {

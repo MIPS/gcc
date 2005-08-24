@@ -1,5 +1,5 @@
 /* Main for jv-scan
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -42,7 +42,8 @@ Boston, MA 02111-1307, USA.  */
 
 extern void fatal_error (const char *msgid, ...)
      ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-void warning (const char *msgid, ...) ATTRIBUTE_PRINTF_1;
+void warning (int opt, const char *msgid, ...) ATTRIBUTE_PRINTF_2;
+void warning0 (const char *msgid, ...) ATTRIBUTE_PRINTF_1;
 void report (void);
 
 static void usage (void) ATTRIBUTE_NORETURN;
@@ -131,29 +132,6 @@ version (void)
   exit (0);
 }
 
-#ifdef USE_MAPPED_LOCATION
-/* FIXME - this is the same as the function in tree.c, which is awkward.
-   Probably the cleanest solution is to move the function to line-map.c.
-   This is difficult as long as we still support --disable-mapped-location,
-   since whether expanded_location has a column fields depends on
-   USE_MAPPED_LOCATION. */
-
-expanded_location
-expand_location (source_location loc)
-{
-  expanded_location xloc;
-  if (loc == 0) { xloc.file = NULL; xloc.line = 0;  xloc.column = 0; }
-  else
-    {
-      const struct line_map *map = linemap_lookup (&line_table, loc);
-      xloc.file = map->to_file;
-      xloc.line = SOURCE_LINE (map, loc);
-      xloc.column = SOURCE_COLUMN (map, loc);
-    };
-  return xloc;
-}
-#endif
-
 /* jc1-lite main entry point */
 int
 main (int argc, char **argv)
@@ -168,6 +146,9 @@ main (int argc, char **argv)
 
   /* Default for output */
   out = stdout;
+
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 
@@ -237,6 +218,7 @@ main (int argc, char **argv)
 	    if (encoding == NULL || *encoding == '\0')
 	      encoding = DEFAULT_ENCODING;
 
+            main_input_filename = filename;
 	    java_init_lex (finput, encoding);
 	    ctxp->filename = filename;
 	    yyparse ();
@@ -278,7 +260,18 @@ fatal_error (const char *msgid, ...)
 }
 
 void
-warning (const char *msgid, ...)
+warning (int opt ATTRIBUTE_UNUSED, const char *msgid, ...)
+{
+  va_list ap;
+  va_start (ap, msgid);
+  fprintf (stderr, _("%s: warning: "), exec_name);
+  vfprintf (stderr, _(msgid), ap);
+  fputc ('\n', stderr);
+  va_end (ap);
+}
+
+void
+warning0 (const char *msgid, ...)
 {
   va_list ap;
   va_start (ap, msgid);

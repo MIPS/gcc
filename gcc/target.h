@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -49,6 +49,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "tm.h"
 #include "insn-modes.h"
+
+struct stdarg_info;
 
 struct gcc_target
 {
@@ -291,6 +293,16 @@ struct gcc_target
     tree (* builtin_mask_for_load) (void);
   } vectorize;
 
+  /* The initial value of target_flags.  */
+  int default_target_flags;
+
+  /* Handle target switch CODE (an OPT_* value).  ARG is the argument
+     passed to the switch; it is NULL if no argument was.  VALUE is the
+     value of ARG if CODE specifies a UInteger option, otherwise it is
+     1 if the positive form of the switch was used and 0 if the negative
+     form was.  Return true if the switch was valid.  */
+  bool (* handle_option) (size_t code, const char *arg, int value);
+
   /* Return machine mode for filter value.  */
   enum machine_mode (* eh_return_filter_mode) (void);
 
@@ -333,9 +345,15 @@ struct gcc_target
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
-  /* Fold a target-specific builtin.  */
-  tree (* fold_builtin) (tree exp, bool ignore);
+  /* Select a replacement for a target-specific builtin.  This is done
+     *before* regular type checking, and so allows the target to implement
+     a crude form of function overloading.  The result is a complete
+     expression that implements the operation.  */
+  tree (*resolve_overloaded_builtin) (tree decl, tree params);
 
+  /* Fold a target-specific builtin.  */
+  tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
+  
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
      TYPE.  In all other cases, return NULL.  */
@@ -467,6 +485,11 @@ struct gcc_target
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
 
+  /* If nonnull, this function checks whether a PCH file with the
+     given set of target flags can be used.  It returns NULL if so,
+     otherwise it returns an error message.  */
+  const char *(*check_pch_target_flags) (int);
+
   /* True if the compiler should give an enum type only as many
      bytes as it takes to represent the range of possible values of
      that type.  */
@@ -477,8 +500,8 @@ struct gcc_target
   rtx (* builtin_setjmp_frame_value) (void);
 
   /* This target hook should add STRING_CST trees for any hard regs
-     the port wishes to automatically clobber for all asms.  */
-  tree (* md_asm_clobbers) (tree);
+     the port wishes to automatically clobber for an asm.  */
+  tree (* md_asm_clobbers) (tree, tree, tree);
 
   /* This target hook allows the backend to specify a calling convention
      in the debug information.  This function actually returns an
@@ -496,6 +519,15 @@ struct gcc_target
      to let the backend emit the call frame instructions.  */
   void (* dwarf_handle_frame_unspec) (const char *, rtx, int);
 
+  /* Perform architecture specific checking of statements gimplified
+     from VA_ARG_EXPR.  LHS is left hand side of MODIFY_EXPR, RHS
+     is right hand side.  Returns true if the statements doesn't need
+     to be checked for va_list references.  */
+  bool (*stdarg_optimize_hook) (struct stdarg_info *ai, tree lhs, tree rhs);
+
+  /* Returns true if target supports the insn within a doloop block.  */
+  bool (*insn_valid_within_doloop) (rtx);
+    
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -543,6 +575,11 @@ struct gcc_target
        in registers; the balance is therefore passed on the stack.  */
     int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			       tree type, bool named);
+
+    /* Return the diagnostic message string if function without a prototype
+       is not allowed for this 'val' argument; NULL otherwise. */
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist, 
+					     	    tree funcdecl, tree val);
   } calls;
 
   /* Functions specific to the C++ frontend.  */
@@ -566,10 +603,23 @@ struct gcc_target
        itself.  Returning true is the behavior required by the Itanium
        C++ ABI.  */
     bool (*key_method_may_be_inline) (void);
-    /* Returns true if all class data (virtual tables, type info,
-       etc.) should be exported from the current DLL, even when the
-       associated class is not exported.  */
-    bool (*export_class_data) (void);
+    /* DECL is a virtual table, virtual table table, typeinfo object,
+       or other similar implicit class data object that will be
+       emitted with external linkage in this translation unit.  No ELF
+       visibility has been explicitly specified.  If the target needs
+       to specify a visibility other than that of the containing class,
+       use this hook to set DECL_VISIBILITY and
+       DECL_VISIBILITY_SPECIFIED.  */ 
+    void (*determine_class_data_visibility) (tree decl);
+    /* Returns true (the default) if virtual tables and other
+       similar implicit class data objects are always COMDAT if they
+       have external linkage.  If this hook returns false, then
+       class data for classes whose virtual table will be emitted in
+       only one translation unit will not be COMDAT.  */
+    bool (*class_data_always_comdat) (void);
+    /* Returns true if __aeabi_atexit should be used to register static
+       destructors.  */
+    bool (*use_aeabi_atexit) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

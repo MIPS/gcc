@@ -1,7 +1,7 @@
 /* Gcov.c: prepend line execution counts and branch probabilities to a
    source file.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by James E. Wilson of Cygnus Support.
    Mangled by Bob Manson of Cygnus Support.
    Mangled further by Nathan Sidwell <nathan@codesourcery.com>
@@ -346,6 +346,9 @@ int
 main (int argc, char **argv)
 {
   int argno;
+
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 
@@ -1774,7 +1777,7 @@ output_lines (FILE *gcov_file, const source_t *src)
   const line_t *line;           /* current line info ptr.  */
   char string[STRING_SIZE];     /* line buffer.  */
   char const *retval = "";	/* status of source file reading.  */
-  function_t *fn = src->functions;
+  function_t *fn = NULL;
 
   fprintf (gcov_file, "%9s:%5d:Source:%s\n", "-", 0, src->name);
   fprintf (gcov_file, "%9s:%5d:Graph:%s\n", "-", 0, bbg_file_name);
@@ -1803,6 +1806,9 @@ output_lines (FILE *gcov_file, const source_t *src)
 	}
     }
 
+  if (flag_branches)
+    fn = src->functions;
+
   for (line_num = 1, line = &src->lines[line_num];
        line_num < src->num_lines; line_num++, line++)
     {
@@ -1810,11 +1816,11 @@ output_lines (FILE *gcov_file, const source_t *src)
 	{
 	  arc_t *arc = fn->blocks[fn->num_blocks - 1].pred;
 	  gcov_type return_count = fn->blocks[fn->num_blocks - 1].count;
-
+	  
 	  for (; arc; arc = arc->pred_next)
 	    if (arc->fake)
 	      return_count -= arc->count;
-
+	  
 	  fprintf (gcov_file, "function %s", fn->name);
 	  fprintf (gcov_file, " called %s",
 		   format_gcov (fn->blocks[0].count, 0, -1));

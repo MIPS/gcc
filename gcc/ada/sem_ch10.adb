@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1692,14 +1692,26 @@ package body Sem_Ch10 is
 
          if Implementation_Unit_Warnings
            and then Current_Sem_Unit = Main_Unit
-           and then Implementation_Unit (Get_Source_Unit (U))
            and then not Intunit
            and then not Implicit_With (N)
+           and then not GNAT_Mode
          then
-            Error_Msg_N ("& is an internal 'G'N'A'T unit?", Name (N));
-            Error_Msg_N
-              ("\use of this unit is non-portable and version-dependent?",
-               Name (N));
+            declare
+               U_Kind : constant Kind_Of_Unit :=
+                          Get_Kind_Of_Unit (Get_Source_Unit (U));
+
+            begin
+               if U_Kind = Implementation_Unit then
+                  Error_Msg_N ("& is an internal 'G'N'A'T unit?", Name (N));
+                  Error_Msg_N
+                    ("\use of this unit is non-portable " &
+                     "and version-dependent?",
+                     Name (N));
+
+               elsif U_Kind = Ada_05_Unit and then Ada_Version = Ada_95 then
+                  Error_Msg_N ("& is an Ada 2005 unit?", Name (N));
+               end if;
+            end;
          end if;
       end if;
 
@@ -2544,15 +2556,26 @@ package body Sem_Ch10 is
       -------------------------
 
       function Build_Ancestor_Name (P : Node_Id) return Node_Id is
-         P_Ref : constant Node_Id :=
+         P_Ref  : constant Node_Id :=
                    New_Reference_To (Defining_Entity (P), Loc);
+         P_Spec : Node_Id := P;
+
       begin
-         if No (Parent_Spec (P)) then
+         --  Ancestor may have been rewritten as a package body. Retrieve
+         --  the original spec to trace earlier ancestors.
+
+         if Nkind (P) = N_Package_Body
+           and then Nkind (Original_Node (P)) = N_Package_Instantiation
+         then
+            P_Spec := Original_Node (P);
+         end if;
+
+         if No (Parent_Spec (P_Spec)) then
             return P_Ref;
          else
             return
               Make_Selected_Component (Loc,
-                Prefix => Build_Ancestor_Name (Unit (Parent_Spec (P))),
+                Prefix => Build_Ancestor_Name (Unit (Parent_Spec (P_Spec))),
                 Selector_Name => P_Ref);
          end if;
       end Build_Ancestor_Name;
@@ -3127,16 +3150,24 @@ package body Sem_Ch10 is
       --  Verify that a child of an instance is itself an instance, or
       --  the renaming of one. Given that an instance that is a unit is
       --  replaced with a package declaration, check against the original
-      --  node.
+      --  node. The parent may be currently being instantiated, in which
+      --  case it appears as a declaration, but the generic_parent is
+      --  already established indicating that we deal with an instance.
 
-      elsif Nkind (Original_Node (P)) = N_Package_Instantiation
-        and then Nkind (Lib_Unit)
-                   not in N_Renaming_Declaration
-        and then Nkind (Original_Node (Lib_Unit))
-                   not in N_Generic_Instantiation
-      then
-         Error_Msg_N
-           ("child of an instance must be an instance or renaming", Lib_Unit);
+      elsif Nkind (Original_Node (P)) = N_Package_Instantiation then
+
+         if Nkind (Lib_Unit) in N_Renaming_Declaration
+           or else Nkind (Original_Node (Lib_Unit)) in N_Generic_Instantiation
+           or else
+             (Nkind (Lib_Unit) = N_Package_Declaration
+               and then Present (Generic_Parent (Specification (Lib_Unit))))
+         then
+            null;
+         else
+            Error_Msg_N
+              ("child of an instance must be an instance or renaming",
+                Lib_Unit);
+         end if;
       end if;
 
       --  This is the recursive call that ensures all parents are loaded

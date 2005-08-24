@@ -2,9 +2,9 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                     A D A . S T R I N G S . H A S H                      --
+--                             ADA.STRINGS.HASH                             --
 --                                                                          --
---                                S p e c                                   --
+--                                 S p e c                                  --
 --                                                                          --
 -- This specification is adapted from the Ada Reference Manual for use with --
 -- GNAT.  In accordance with the copyright of that document, you can freely --
@@ -18,3 +18,5 @@ with Ada.Containers;
 function Ada.Strings.Hash (Key : String) return Containers.Hash_Type;
 
 pragma Pure (Ada.Strings.Hash);
+
+

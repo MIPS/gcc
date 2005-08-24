@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -222,8 +222,8 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       /* Iterate over the array elements, building initializations.  */
       inits = NULL_TREE;
       if (nelts)
-	max_index = fold (build2 (MINUS_EXPR, TREE_TYPE (nelts),
-				  nelts, integer_one_node));
+	max_index = fold_build2 (MINUS_EXPR, TREE_TYPE (nelts),
+				 nelts, integer_one_node);
       else
 	max_index = array_type_nelts (type);
       gcc_assert (TREE_CODE (max_index) == INTEGER_CST);
@@ -323,7 +323,7 @@ perform_member_init (tree member, tree init)
   /* Effective C++ rule 12 requires that all data members be
      initialized.  */
   if (warn_ecpp && !explicit && TREE_CODE (type) != ARRAY_TYPE)
-    warning ("%J%qD should be initialized in the member initialization "
+    warning (0, "%J%qD should be initialized in the member initialization "
 	     "list", current_function_decl, member);
 
   if (init == void_type_node)
@@ -370,7 +370,7 @@ perform_member_init (tree member, tree init)
 	    {
 	      init = build_default_init (type, /*nelts=*/NULL_TREE);
 	      if (TREE_CODE (type) == REFERENCE_TYPE)
-		warning ("%Jdefault-initialization of %q#D, "
+		warning (0, "%Jdefault-initialization of %q#D, "
 			 "which has reference type",
 			 current_function_decl, member);
 	    }
@@ -465,7 +465,7 @@ sort_mem_initializers (tree t, tree mem_inits)
   tree base, binfo, base_binfo;
   tree sorted_inits;
   tree next_subobject;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
   int i;
   int uses_unions_p;
 
@@ -525,13 +525,13 @@ sort_mem_initializers (tree t, tree mem_inits)
 	    cp_warning_at ("%qD will be initialized after",
 			   TREE_PURPOSE (next_subobject));
 	  else
-	    warning ("base %qT will be initialized after",
+	    warning (0, "base %qT will be initialized after",
 		     TREE_PURPOSE (next_subobject));
 	  if (TREE_CODE (subobject) == FIELD_DECL)
 	    cp_warning_at ("  %q#D", subobject);
 	  else
-	    warning ("  base %qT", subobject);
-	  warning ("%J  when initialized here", current_function_decl);
+	    warning (0, "  base %qT", subobject);
+	  warning (0, "%J  when initialized here", current_function_decl);
 	}
 
       /* Look again, from the beginning of the list.  */
@@ -655,6 +655,11 @@ sort_mem_initializers (tree t, tree mem_inits)
 void
 emit_mem_initializers (tree mem_inits)
 {
+  /* We will already have issued an error message about the fact that
+     the type is incomplete.  */
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  
   /* Sort the mem-initializers into the order in which the
      initializations should be performed.  */
   mem_inits = sort_mem_initializers (current_class_type, mem_inits);
@@ -674,7 +679,7 @@ emit_mem_initializers (tree mem_inits)
       if (extra_warnings && !arguments 
 	  && DECL_COPY_CONSTRUCTOR_P (current_function_decl)
 	  && TYPE_NEEDS_CONSTRUCTING (BINFO_TYPE (subobject)))
-	warning ("%Jbase class %q#T should be explicitly initialized in the "
+	warning (0, "%Jbase class %q#T should be explicitly initialized in the "
 		 "copy constructor",
 		 current_function_decl, BINFO_TYPE (subobject));
 
@@ -821,9 +826,9 @@ expand_cleanup_for_base (tree binfo, tree flag)
 				    binfo,
 				    LOOKUP_NORMAL | LOOKUP_NONVIRTUAL);
   if (flag)
-    expr = fold (build3 (COND_EXPR, void_type_node,
-			 c_common_truthvalue_conversion (flag),
-			 expr, integer_zero_node));
+    expr = fold_build3 (COND_EXPR, void_type_node,
+			c_common_truthvalue_conversion (flag),
+			expr, integer_zero_node);
 
   finish_eh_cleanup (expr);
 }
@@ -1417,14 +1422,6 @@ build_offset_ref (tree type, tree name, bool address_p)
       return error_mark_node;
     }
 
-  if (processing_template_decl)
-    {
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, orig_name);
-      else
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, name);
-    }
-
   if (TREE_CODE (member) == TYPE_DECL)
     {
       TREE_USED (member) = 1;
@@ -1554,9 +1551,6 @@ build_offset_ref (tree type, tree name, bool address_p)
       return member;
     }
 
-  /* In member functions, the form `type::name' is no longer
-     equivalent to `this->type::name', at least not until
-     resolve_offset_ref.  */
   member = build2 (OFFSET_REF, TREE_TYPE (member), decl, member);
   PTRMEM_OK_P (member) = 1;
   return member;
@@ -1570,17 +1564,17 @@ build_offset_ref (tree type, tree name, bool address_p)
 tree
 integral_constant_value (tree decl)
 {
-  if ((TREE_CODE (decl) == CONST_DECL
-      || (TREE_CODE (decl) == VAR_DECL
-	  /* And so are variables with a 'const' type -- unless they
-	     are also 'volatile'.  */
-	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
-	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
-      && DECL_INITIAL (decl)
-      && DECL_INITIAL (decl) != error_mark_node
-      && TREE_TYPE (DECL_INITIAL (decl))
-      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
-    return DECL_INITIAL (decl);
+  while ((TREE_CODE (decl) == CONST_DECL
+	  || (TREE_CODE (decl) == VAR_DECL
+	      /* And so are variables with a 'const' type -- unless they
+		 are also 'volatile'.  */
+	      && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
+	 && DECL_INITIAL (decl)
+	 && DECL_INITIAL (decl) != error_mark_node
+	 && TREE_TYPE (DECL_INITIAL (decl))
+	 && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (DECL_INITIAL (decl))))
+    decl = DECL_INITIAL (decl);
   return decl;
 }
 
@@ -1651,7 +1645,7 @@ build_new (tree placement, tree type, tree nelts, tree init,
 	pedwarn ("size in array new must have integral type");
       nelts = save_expr (cp_convert (sizetype, nelts));
       if (nelts == integer_zero_node)
-	warning ("zero size array reserves no space");
+	warning (0, "zero size array reserves no space");
     }
 
   /* ``A reference cannot be created by the new operator.  A reference
@@ -1762,7 +1756,7 @@ build_new_1 (tree exp)
      from ELT_TYPE for a multi-dimensional array; ELT_TYPE is never an
      ARRAY_TYPE, but TYPE may be an ARRAY_TYPE.  */
   tree type;
-  /* A pointer type pointing to to the FULL_TYPE.  */
+  /* A pointer type pointing to the FULL_TYPE.  */
   tree full_pointer_type;
   tree outer_nelts = NULL_TREE;
   tree nelts = NULL_TREE;
@@ -2244,9 +2238,9 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
   tbase = create_temporary_var (ptype);
   tbase_init = build_modify_expr (tbase, NOP_EXPR,
-				  fold (build2 (PLUS_EXPR, ptype,
-						base,
-						virtual_size)));
+				  fold_build2 (PLUS_EXPR, ptype,
+					       base,
+					       virtual_size));
   DECL_REGISTER (tbase) = 1;
   controller = build3 (BIND_EXPR, void_type_node, tbase,
 		       NULL_TREE, NULL_TREE);
@@ -2311,11 +2305,11 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
     body = integer_zero_node;
   
   /* Outermost wrapper: If pointer is null, punt.  */
-  body = fold (build3 (COND_EXPR, void_type_node,
-		       fold (build2 (NE_EXPR, boolean_type_node, base,
-				     convert (TREE_TYPE (base),
-					      integer_zero_node))),
-		       body, integer_zero_node));
+  body = fold_build3 (COND_EXPR, void_type_node,
+		      fold_build2 (NE_EXPR, boolean_type_node, base,
+				   convert (TREE_TYPE (base),
+					    integer_zero_node)),
+		      body, integer_zero_node);
   body = build1 (NOP_EXPR, void_type_node, body);
 
   if (controller)
@@ -2396,6 +2390,9 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   tree atype = TREE_TYPE (base);
   /* The type of an element in the array.  */
   tree type = TREE_TYPE (atype);
+  /* The element type reached after removing all outer array 
+     types.  */
+  tree inner_elt_type;
   /* The type of a pointer to an element in the array.  */
   tree ptype;
   tree stmt_expr;
@@ -2411,15 +2408,17 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
+  inner_elt_type = strip_array_types (atype);
   if (init
       && (from_array == 2
-	  ? (!CLASS_TYPE_P (type) || !TYPE_HAS_COMPLEX_ASSIGN_REF (type))
+	  ? (!CLASS_TYPE_P (inner_elt_type) 
+	     || !TYPE_HAS_COMPLEX_ASSIGN_REF (inner_elt_type))
 	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
 	      that might throw and require us to clean up.  */
 	   && (CONSTRUCTOR_ELTS (init) == NULL_TREE
-	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (target_type (type))))
+	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (inner_elt_type)))
 	  || from_array))
     {
       /* Do non-default initialization of POD arrays resulting from
@@ -2610,14 +2609,12 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
       /* Flatten multi-dimensional array since build_vec_delete only
 	 expects one-dimensional array.  */
       if (TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  m = cp_build_binary_op (MULT_EXPR, m,
-				  array_type_nelts_total (type));
-	  type = strip_array_types (type);
-	}
+	m = cp_build_binary_op (MULT_EXPR, m,
+				array_type_nelts_total (type));
 
       finish_cleanup_try_block (try_block);
-      e = build_vec_delete_1 (rval, m, type, sfk_base_destructor,
+      e = build_vec_delete_1 (rval, m, 
+			      inner_elt_type, sfk_base_destructor,
 			      /*use_global_delete=*/0);
       finish_cleanup (e, try_block);
     }
@@ -2738,7 +2735,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  complete_type (type);
 	  if (!COMPLETE_TYPE_P (type))
 	    {
-	      warning ("possible problem detected in invocation of "
+	      warning (0, "possible problem detected in invocation of "
 		       "delete operator:");
 	      cxx_incomplete_type_diagnostic (addr, type, 1);
 	      inform ("neither the destructor nor the class-specific "
@@ -2796,7 +2793,8 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
       tree do_delete = NULL_TREE;
       tree ifexp;
 
-      gcc_assert (TYPE_HAS_DESTRUCTOR (type));
+      if (CLASSTYPE_LAZY_DESTRUCTOR (type))
+	lazily_declare_fn (sfk_destructor, type);
 
       /* For `::delete x', we must not use the deleting destructor
 	 since then we would not be sure to get the global `operator
@@ -2869,7 +2867,7 @@ push_base_cleanups (void)
   int i;
   tree member;
   tree expr;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
 
   /* Run destructors for all virtual baseclasses.  */
   if (CLASSTYPE_VBASECLASSES (current_class_type))
@@ -2933,34 +2931,6 @@ push_base_cleanups (void)
 	  finish_decl_cleanup (NULL_TREE, expr);
 	}
     }
-}
-
-/* For type TYPE, delete the virtual baseclass objects of DECL.  */
-
-tree
-build_vbase_delete (tree type, tree decl)
-{
-  unsigned ix;
-  tree binfo;
-  tree result;
-  VEC (tree) *vbases;
-  tree addr = build_unary_op (ADDR_EXPR, decl, 0);
-
-  gcc_assert (addr != error_mark_node);
-
-  result = convert_to_void (integer_zero_node, NULL);
-  for (vbases = CLASSTYPE_VBASECLASSES (type), ix = 0;
-       VEC_iterate (tree, vbases, ix, binfo); ix++)
-    {
-      tree base_addr = convert_force
-	(build_pointer_type (BINFO_TYPE (binfo)), addr, 0);
-      tree base_delete = build_delete
-	(TREE_TYPE (base_addr), base_addr, sfk_base_destructor,
-	 LOOKUP_NORMAL|LOOKUP_DESTRUCTOR, 0);
-      
-      result = build_compound_expr (result, base_delete);
-    }
-  return result;
 }
 
 /* Build a C++ vector delete expression.
