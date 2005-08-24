@@ -1,3 +1,9 @@
+2005-08-23  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4221664
+	* convert.c (convert_to_real):  Don't convert
+	(float)floor(double d) to floorf((float)d).
+
 2005-08-23  Mike Stump  <mrs@apple.com>
 
 	Radar 4211971
