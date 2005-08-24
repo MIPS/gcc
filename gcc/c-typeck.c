@@ -1737,11 +1737,13 @@ build_array_ref (tree array, tree index)
       || TREE_TYPE (index) == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin CW asm blocks */
   if (inside_cw_asm_block)
     {
       if (TREE_CODE (array) == BRACKET_EXPR)
 	return cw_build_bracket (array, index);
     }
+  /* APPLE LOCAL end CW asm blocks */
 
   if (TREE_CODE (TREE_TYPE (array)) != ARRAY_TYPE
       && TREE_CODE (TREE_TYPE (array)) != POINTER_TYPE)
