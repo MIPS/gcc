@@ -240,6 +240,7 @@ extern float strtof (const char *, char **);
 #define DFP_GT		__gtsd2
 #define DFP_LE		__lesd2
 #define DFP_GE		__gesd2
+#define DFP_UNORD	__unordsd2
 #elif WIDTH == 64
 #define DFP_ADD		__adddd3
 #define DFP_SUB		__subdd3
@@ -251,6 +252,7 @@ extern float strtof (const char *, char **);
 #define DFP_GT		__gtdd2
 #define DFP_LE		__ledd2
 #define DFP_GE		__gedd2
+#define DFP_UNORD	__unorddd2
 #elif WIDTH == 128
 #define DFP_ADD		__addtd3
 #define DFP_SUB		__subtd3
@@ -262,6 +264,7 @@ extern float strtof (const char *, char **);
 #define DFP_GT		__gttd2
 #define DFP_LE		__letd2
 #define DFP_GE		__getd2
+#define DFP_UNORD	__unordtd2
 #endif
 
 /* Names of functions to convert between different decimal float types.  */
@@ -429,6 +432,10 @@ extern CMPtype DFP_LE (DFP_C_TYPE, DFP_C_TYPE);
 
 #if defined (L_ge_sd) || defined (L_ge_dd) || defined (L_ge_td)
 extern CMPtype DFP_GE (DFP_C_TYPE, DFP_C_TYPE);
+#endif
+
+#if defined (L_unord_sd) || defined (L_unord_dd) || defined (L_unord_td)
+extern CMPtype DFP_UNORD (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
 #if defined (L_sd_to_dd) || defined (L_sd_to_td) || defined (L_dd_to_sd) \

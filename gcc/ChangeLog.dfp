@@ -1,3 +1,12 @@
+2005-08-25  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.in (D32PBIT_FUNCS): Add _unord_sd.
+	(D64PBIT_FUNCS): Likewise for _unord_dd.
+	(D128PBIT_FUNCS): Likewise for _unord_td.
+	* config/dfp-bit.h (DFP_UNORD): Define for each WIDTH (32/64/128).
+	(DFP_UNORD): Prototype for L_unord_sd, L_unord_dd, L_unord_td.
+	* config/dfp-bit.c (DFP_UNORD): Implement.
+
 2005-08-22  Ben Elliston  <bje@au.ibm.com>
 
 	* real.c (real_maxval): Clear *r before filling in the structure.

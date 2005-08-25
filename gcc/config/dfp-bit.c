@@ -426,3 +426,18 @@ BFP_TO_DFP (BFP_TYPE x)
   return u.f;
 }
 #endif
+
+#if defined (L_unord_sd) || defined (L_unord_dd) || defined (L_unord_td)
+CMPtype
+DFP_UNORD (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
+{
+  decNumber arg1, arg2;
+  IEEE_TYPE a, b;
+
+  memcpy (&a, &arg_a, sizeof (a));
+  memcpy (&b, &arg_b, sizeof (b));
+  TO_INTERNAL (&a, &arg1);
+  TO_INTERNAL (&b, &arg2);
+  return (decNumberIsNaN (&arg1) || decNumberIsNaN (&arg2));
+}
+#endif /* L_unord_sd || L_unord_dd || L_unord_td */
