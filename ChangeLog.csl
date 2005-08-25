@@ -1,3 +1,14 @@
+2005-08-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* include/libiberty.h (expandargv): New function.
+	* libiberty/argv.c (safe-ctype.h): Include it.
+	(ISBLANK): Remove.
+	(stdio.h): Include.
+	(expandargv): New function.
+	* libiberty/Makefile.in: Regenerated.
+	* gcc/gcc.c (main): Use expandargv.
+	* gcc/doc/invoke.texi: Describe "@file" option. 
+
 2005-08-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* hwint.h (HOST_WIDE_INT_PRINT): Use HOST_LONG_LONG_FORMAT.

@@ -5992,6 +5992,12 @@ main (int argc, const char **argv)
   signal (SIGCHLD, SIG_DFL);
 #endif
 
+  {
+    const char *response_file = expandargv (&argc, &argv);
+    if (response_file)
+      pfatal_with_name (response_file);
+  }
+
   /* Allocate the argument vector.  */
   alloc_args ();
 
