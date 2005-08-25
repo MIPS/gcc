@@ -32,20 +32,22 @@ int main()
   if (123.45dl/-0.0dl != -__builtin_infd128())
     abort();
 
-
+  d32 = 0.0df;
   if (!__builtin_isnand32(-(d32/-0.0df)))
     abort();
-  if (!__builtin_isnand32(-(123.45df/-0.0df)))
+  if (!__builtin_isnand32(-(0.0df/-0.0df)))
     abort();
 
+  d64 = 0.0dd;
   if (!__builtin_isnand64(-(d64/-0.0dd)))
     abort();
-  if (!__builtin_isnand64(-(123.45dd/-0.0dd)))
+  if (!__builtin_isnand64(-(0.0dd/-0.0dd)))
     abort();
 
+  d128 = 0.0dl;
   if (!__builtin_isnand128(-(d128/-0.0dl)))
     abort();
-  if (!__builtin_isnand128(-(123.45dl/-0.0dl)))
+  if (!__builtin_isnand128(-(0.0dl/-0.0dl)))
     abort();
 
   return 0;

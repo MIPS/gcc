@@ -1,5 +1,10 @@
 2005-08-25  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.dg/dfp/nan-2.c: Use proper NaN expresssions in the test, not
+	ones that equate to infinity.
+
+2005-08-25  Ben Elliston  <bje@au.ibm.com>
+
 	* overflow-warn: Rename from this ..
 	* overflow-warn.c: .. to this.
 
