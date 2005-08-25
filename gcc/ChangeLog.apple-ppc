@@ -1,3 +1,8 @@
+2005-08-23  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4224227
+	* gcc/opts.c (decode_options): Disable optimize_size after cmdline processing.
+
 2005-08-24  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4211430
