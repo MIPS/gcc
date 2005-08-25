@@ -6883,7 +6883,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 	strcat (buf, ")");
 	}
       break;
-      
+
     case MULT_EXPR:
       print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
 			    must_be_reg, must_not_be_reg);
