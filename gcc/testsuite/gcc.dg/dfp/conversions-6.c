@@ -1,9 +1,11 @@
-/* { dg-do run } */
+/* Make the test compile-only until runtime conversions are supported.  */
+/* { dg-do compile } */
 /* { dg-options "-std=gnu99 -O3" } */
 
-/* Test various conversions involving decimal floating types. */
+/* N1107 Section 4 5.2.4.2.2a [2] & [3].  Test various conversions
+   involving decimal floating types. */
 #include <stdio.h>
-#include <stdlib.h>
+extern void abort (void);
 
 _Decimal32 d32;
 _Decimal64 d64;
@@ -41,27 +43,83 @@ int main()
   if (d64 != 2.15dd)
     abort();
 
-  /* Test demotion to non-representable decimal floating type. */
-  /* Assumes a default rounding mode of 'near'.  This uses the rules
-     describe in the 27 July 2005 draft of IEEE 754r, which are much
-     more clear that what's described in draft 5 of N1107.  */
-  d32 = 9.99999949E96DD;
+  /* Test demotion to non-representable decimal floating type, positive 
+     and negative respectively. */
+  /* Assumes a default rounding mode of 'near'.  The rules are a 
+     bit odd in that if off by one digit, it rounds to the maximum
+     value, but otherwise to HUGE_VAL. */
+  d32 = 9.9999991E96DD;
   if (d32 != __DEC32_MAX__)
     abort();
 
-  d32 = 9.9999995E96DD;
-  if (d32 != __builtin_infd32 ())
+  d32 = 9.99999912E96DD;
+  if (d32 != __builtin_infd32())
     abort();
 
-  /* Rounds to what the type can handle.  */
-  d64 = 9.99999999999999949E384DL;
+  /* One digit more than _Decimal32 can handle. */
+  d32 = 9.9999991E96DD;
+  if (d32 != __DEC32_MAX__)
+    abort();
+  d32 = 0.0000009E-95DD;
+  if (d32 != 0)
+    abort();
+
+  /* Two digits more than _Decimal32 can handle. */
+  d32 = 9.99999912E96DD;
+  if (d32 != __builtin_infd32())
+    abort();
+  d32 = 0.00000099E-95DD;
+  if (d32 != 0)
+    abort();
+
+  /* One digit more that _Decimal64 can handle. */
+  d64 = 9.9999999999999991E384DL;
   if (d64 != __DEC64_MAX__)
     abort();
-
-  /* Rounds to more than the type can handle.  */
-  d64 = 9.9999999999999995E384DL;
-  if (d64 != __builtin_infd64())
+  d64 = 0.0000000000000009E-383DL;
+  if (d64 != 0)
     abort();
 
+  /* Two digits more than _Decimal64 can handle. */
+  d64 = 9.99999999999999912E384DL;
+  if (d64 != __builtin_infd64())
+    abort();
+  d64 = 0.00000000000000099E-383DL;
+  if (d64 != 0)
+    abort();
+
+
+
+  /* One digit more than _Decimal32 can handle. */
+  d32 = -9.9999991E96DD;
+  if (d32 != -__DEC32_MAX__)
+    abort();
+  d32 = -0.00000099E-95DD;
+  if (d32 != -0.0DF)
+    abort();
+
+  /* Two digits more than _Decimal32 can handle. */
+  d32 = -9.99999912E96DD;
+  if (d32 != -__builtin_infd32())
+    abort();  
+  d32 = -0.0000009E-95DD;
+  if (d32 != -0.0DF)
+    abort();
+
+  /* One digit more that _Decimal64 can handle. */
+  d64 = -9.9999999999999991E384DL;
+  if (d64 != -__DEC64_MAX__)
+    abort();
+  d64 = -0.0000000000000009E-383DL;
+  if (d64 != -0.0DD)
+    abort();  
+
+  /* Two digits more than _Decimal64 can handle. */
+  d64 = -9.99999999999999912E384DL;
+  if (d64 != -__builtin_infd64())
+    abort();
+  d64 = -0.00000000000000099E-383DL;
+  if (d64 != -0.0DD)
+    abort();
   return 0;
 }
