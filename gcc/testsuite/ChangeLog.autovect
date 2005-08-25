@@ -1,3 +1,21 @@
+2005-08-25  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version/: Remove directory. Move the tests
+	to gcc.dg/vect/
+	* gcc.dg/vect/vect.exp: Remove run of no_version/
+	* gcc.dg/vect/vect-29v.c: Rename to vect-29.c.
+	* gcc.dg/vect/vect-30v.c, gcc.dg/vect/vect-44v.c,
+	gcc.dg/vect/vect-48v.c, gcc.dg/vect/vect-50v.c, 
+	gcc.dg/vect/vect-52v.c, gcc.dg/vect/vect-77v.c,
+	gcc.dg/vect/vect-78v.c, gcc.dg/vect/vect-80v.c,
+	gcc.dg/vect/vect-8v.c, gcc.dg/vect/vect-96v.c,
+	gcc.dg/vect/vect-ifcvt-1v.c, gcc.dg/vect/vect-ifcvt-9v.c:
+	Likewise.
+	* gcc.dg/vect/vect-subsat.c: Remove xfail for vect_no_align.
+	* gfortran.dg/vect/vect-6.f90: Two loops now vectorizable on
+	vect_no_align targets.
+	* gfortran.dg/vect/vect-7.f90: Likewise.
+
 2005-07-05  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/no_version/vect-117.c: New test.

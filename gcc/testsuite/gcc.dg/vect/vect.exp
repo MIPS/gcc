@@ -79,13 +79,6 @@ dg-init
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
-# Disable versioning.
-lappend DEFAULT_VECTCFLAGS "-fno-tree-vect-loop-version"
-
-# Main loop. Run tests in no_version directory.
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no_version/*.\[cS\]]]  \
-	"" $DEFAULT_VECTCFLAGS
-
 # Clean up.
 set dg-do-what-default ${save-dg-do-what-default}
 
