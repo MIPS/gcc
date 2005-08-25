@@ -1,3 +1,8 @@
+2005-08-25  Ben Elliston  <bje@au.ibm.com>
+
+	* overflow-warn: Rename from this ..
+	* overflow-warn.c: .. to this.
+
 2005-08-24  Yao Qi  <qiyao@cn.ibm.com>
 
 	* complex-conversion.c: New test case.
