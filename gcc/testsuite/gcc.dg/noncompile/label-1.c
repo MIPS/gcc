@@ -83,7 +83,7 @@ void i(void)
   auto void nest(void);
 
  l: nest();
-
+  
   void nest(void)
     {
       goto l;  /* { dg-error "used but not defined" "nest use outer label" } */
@@ -99,7 +99,7 @@ void j(void)
   auto void nest(void);
 
  l: nest();
-
+  
   void nest(void)
     {
     l: dummy(); /* { dg-warning "defined but not used" "nest label same name" } */
