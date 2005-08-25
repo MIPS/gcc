@@ -61,6 +61,7 @@
 4079018: g++.dg/template/spec19.C (test for excess errors)
 4084977: g++.old-deja/g++.oliva/expr2.C execution test
 4084991: g++.dg/expr/lval2.C (test for excess errors)
+4229905: g++.old-deja/g++.mike/warn5.C (test for excess errors)
 #
 # The following tests fail only when the c++ suite is run with -mcpu=G5
 3719311: g++.dg/template/warn1.C  (test for warnings, line 12)
