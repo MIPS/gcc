@@ -1457,7 +1457,7 @@ enum reg_class
 #define BASE_REG_CLASS GENERAL_REGS
 
 /* Unused letters:
-    B                 TU W
+    B                 TU W   
           h jk          vw  z
 */
 
@@ -2515,8 +2515,8 @@ extern rtx ix86_compare_op1;	/* operand 1 for comparisons */
    `OPTIMIZE_MODE_SWITCHING' is defined, you must define this macro to
    return an integer value not larger than the corresponding element
    in `NUM_MODES_FOR_MODE_SWITCHING', to denote the mode that ENTITY
-   must be switched into prior to the execution of INSN.
-
+   must be switched into prior to the execution of INSN. 
+   
    The mode UNINITIALIZED is used to force re-load of possibly previously
    stored control word after function call.  The mode ANY specify that
    function has no requirements on the control word and make no changes
