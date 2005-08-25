@@ -20,57 +20,65 @@ int main()
      digits to 32-bit standard float produces the exact result.  */
   d32 = -123.456df;
   f = d32;
-  if ( f != -123.456f )
+  if (f != -123.456f)
     abort ();
 
   /* Verify that conversion of negative 64-bit DFP values of up to six 
      digits to 32-bit standard float produces the exact result.  */  
   d64 = -123.456dd;
   f = d64;
-  if ( f != -123.456f )
+  if (f != -123.456f)
     abort ();
+
+#if 0
+  /* This test assumes exact conversion to binary FP.  */
 
   /* Verify that conversion of negative 64-bit DFP values of up to six
      digits to 64-bit standard float produces the exact result.  */
   d64 = -123.456dd;
   ll = d64;
-  if ( ll != -123.456l )
+  if (ll != -123.456l)
     abort ();
+#endif
+
+#if 0
+  /* This test assumes exact conversion to binary FP.  */
 
   /* Verify that conversion of negative 128-bit DFP values of up to six
      digits to 64-bit standard float produces the exact result.  */
   d128 = -123.456dl;
   ll = d128;
-  if ( ll !=  -123.456l )
+  if (ll !=  -123.456l)
     abort ();
+#endif
   
-  /* Verify that division by 100,10 and 1 of a five-digit dpf value 
+  /* Verify that division by 100,10 and 1 of a five-digit DFP value 
      produces the exact result.  */
   d32 = 1234.5df;
   f = d32/100;
-  if( f != 12.345f )
+  if (f != 12.345f)
     abort ();
 
   f = d32/1;
-  if ( f != 1234.5f )
+  if (f != 1234.5f)
     abort ();
   
   d64 = 1234.5678dd;
   f = d64/100;
-  if ( f != 12.345678f )
+  if (f != 12.345678f)
     abort ();
 
   f = d64/1;
-  if ( f != 1234.5678f )
+  if (f != 1234.5678f)
     abort ();
   
   d128 = 1234.5678dl;
   f = d128/100;
-  if ( f != 12.345678f )
+  if (f != 12.345678f)
     abort ();
 
   f = d128/1;
-  if ( f != 1234.5678f )
+  if (f != 1234.5678f)
     abort ();
 
   /* C99 Section 6.7.2 Type specifiers.  Type _Bool is 
