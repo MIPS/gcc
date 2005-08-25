@@ -1,5 +1,13 @@
 2005-08-25  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.dg/dfp/overflow-warn.c: Block out these tests for now.
+	* gcc.dg/dfp/rounding.c: Correct some tests.
+	* gcc.dg/dfp/struct-init.c: Block out some incorrect tests.
+	* gcc.dg/dfp/nan-3.c: Use proper NaN expresssions in the test, not
+	ones that equate to infinity.
+
+2005-08-25  Ben Elliston  <bje@au.ibm.com>
+
 	* gcc.dg/dfp/nan-2.c: Use proper NaN expresssions in the test, not
 	ones that equate to infinity.
 
@@ -8,7 +16,7 @@
 	* overflow-warn: Rename from this ..
 	* overflow-warn.c: .. to this.
 
-2005-08-24  Yao Qi  <qiyao@cn.ibm.com>
+2005-08-24  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* complex-conversion.c: New test case.
 	* complex.c: Likewise.

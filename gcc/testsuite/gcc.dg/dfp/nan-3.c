@@ -8,11 +8,11 @@ extern void abort (void);
 
 int main()
 {
-  _Decimal32 d32;
+  _Decimal32 d32 = 0.0df;
 
   if (!__builtin_isnand32(-(d32/-0.0df)))
     abort();
-  if (!__builtin_isnand32(-(123.45df/-0.0df)))
+  if (!__builtin_isnand32(-(0.0df/-0.0df)))
     abort();
 
   return 0;

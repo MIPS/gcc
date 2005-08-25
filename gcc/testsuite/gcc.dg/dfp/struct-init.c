@@ -37,13 +37,17 @@ int main()
 
   static union n n1 = {2.2df};
   static union n n2 = {3.2f};
-  
+
+#if 0
+  /* Do you mean 2.2df and 3.2dd?  */
+  /* Besides, this test incorrectly assumes exact dfp->fp->dfp conversion. */
   if (n1.d64 != 22.df)
     abort();
   if (n2.d64 != 32.dd)
     abort();
- 
-  if ( b.d64 != 3.2dd )
+#endif
+
+  if (b.d64 != 3.2dd)
     abort();
 
   if (b.un.d128 != 4.2dl)
@@ -61,7 +65,11 @@ int main()
   if (u4.d != 0)
     abort();
 
+#if 0
+  /* 1.2f != 1.2dl.  */
   if (u3.d128 != 1.2dl)
     abort();
+#endif
+
   return 0;
 }
