@@ -5308,7 +5308,7 @@ check_function_sentinel (tree attrs, tree params)
         {
 	  tree sentinel, end;
 	  unsigned pos = 0;
-
+	  
 	  if (TREE_VALUE (attr))
 	    {
 	      tree p = TREE_VALUE (TREE_VALUE (attr));
@@ -5521,7 +5521,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 	  *no_add_attrs = true;
 	}
     }
-
+  
   if (args)
     {
       tree position = TREE_VALUE (args);
@@ -5541,7 +5541,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 	    }
 	}
     }
-
+  
   return NULL_TREE;
 }
 
@@ -5782,7 +5782,7 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
       error (message);
       free (message);
     }
-#undef catenate_messages
+#undef catenate_messages  
 }
 
 /* Walk a gimplified function and warn for functions whose return value is
