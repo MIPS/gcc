@@ -915,6 +915,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       generating_concat_p = old_generating_concat_p;
       ASM_OPERANDS_INPUT (body, i) = op;
 
+      /* APPLE LOCAL begin CW asm blocks. */
       /* Crude way of detecting an entry static label declaration 
 	 (See cw_asm_entry).  Make this a local symbol. */
       if (i == 0 && !TREE_CHAIN (tail) 
@@ -924,6 +925,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	  SYMBOL_REF_FLAGS (op) |= SYMBOL_FLAG_LOCAL;
           SYMBOL_REF_FLAGS (op) &= ~SYMBOL_FLAG_EXTERNAL;
         }
+      /* APPLE LOCAL end CW asm blocks. */
 
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
 	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
