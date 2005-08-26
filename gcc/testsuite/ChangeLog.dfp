@@ -1,3 +1,7 @@
+2005-08-26  Yao Qi  <qiyaoltc@cn.ibm.com>
+
+	* gcc.dg/dfp/struct-union.c: Replace dg-warning with dg-error. 
+
 2005-08-26  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (c-rounding-mode): Return magic
