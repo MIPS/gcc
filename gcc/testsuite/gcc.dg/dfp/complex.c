@@ -5,6 +5,10 @@
 
 extern void abort(void);
 
+/* FIXME: this is a crude test and could be better.  */
+#define NEAR(VAR,VALUE,MARGIN) \
+  (VAR - VALUE > -MARGIN && VAR - VALUE < MARGIN)
+
 int main()
 {
   _Complex float cf;
@@ -24,16 +28,19 @@ int main()
   d64 = cd;
   d128 = cld;
 
-#if 0
-  /* These tests assume that the 3.0 real parts above are represented
-     exactly.  */
-  if (d32 != 3.0DF)
-    abort();
-  if (d64 != 3.0DD)
-    abort();
-  if (d128 != 3.0DL)
-    abort();
-#endif
+  if (! NEAR(d32, 3.0DF, .00001DF))
+    abort ();
+
+  if (! NEAR(d64, 3.0DD, .00001DD))
+    abort ();
+
+  if (! NEAR(d128, 3.0DL, .000001DL))
+    abort ();
+
+  if (! NEAR(d64, 3.0DD, .00001DD))
+    abort ();
+  if (! NEAR(d128, 3.0DL, .00001DL))
+    abort ();
 
   /* Convert decimal floating to complex.  */
   d32 = 2.35DF;
@@ -50,16 +57,12 @@ int main()
      by the rules of conversions in N1107 5.2 and the imaginary part
      of the complex result value is zero.  */
 
-#if 0
-  /* Likewise, these tests assume that the rhs constants can be
-     represented exactly.  */
-  if (__real__ cf != 2.35f)
+  if (!NEAR (__real__ cf, 2.35f, 0.00001f))
     abort ();
-  if (__real__ cd != 1.23)
+  if (!NEAR (__real__ cd, 1.23, 0.00001))
     abort ();
-  if (__real__ cld != 2.34)
+  if (!NEAR (__real__ cld, 2.34, 0.00001ld))
     abort ();
-#endif
 
   if (__imag__ cf != 0.0f)
     abort ();
