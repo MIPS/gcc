@@ -6367,12 +6367,16 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	  && GET_MODE_SIZE (inner_mode) < GET_MODE_SIZE (is_mode))
 	offset -= GET_MODE_SIZE (is_mode) - GET_MODE_SIZE (inner_mode);
 
-      /* If this is a constant position, we can move to the desired byte.  */
+      /* APPLE LOCAL begin 4229621 mainline */
+      /* If this is a constant position, we can move to the desired byte.
+	 Be careful not to go beyond the original object. */
       if (pos_rtx == 0)
 	{
-	  offset += pos / BITS_PER_UNIT;
-	  pos %= GET_MODE_BITSIZE (wanted_inner_mode);
+	  enum machine_mode bfmode = smallest_mode_for_size (len, MODE_INT);
+	  offset += pos / GET_MODE_BITSIZE (bfmode);
+	  pos %= GET_MODE_BITSIZE (bfmode);
 	}
+      /* APPLE LOCAL end 4229621 mainline */
 
       if (BYTES_BIG_ENDIAN != BITS_BIG_ENDIAN
 	  && ! spans_byte
