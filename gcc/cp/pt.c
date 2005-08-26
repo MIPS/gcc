@@ -4949,6 +4949,7 @@ uses_template_parms (tree t)
 	   || TREE_CODE (t) == TEMPLATE_PARM_INDEX
 	   || TREE_CODE (t) == OVERLOAD
 	   || TREE_CODE (t) == BASELINK
+	   || TREE_CODE (t) == IDENTIFIER_NODE
 	   || CONSTANT_CLASS_P (t))
     dependent_p = (type_dependent_expression_p (t)
 		   || value_dependent_expression_p (t));
@@ -7627,8 +7628,9 @@ tsubst_qualified_id (tree qualified_id, tree args,
 	      (expr, scope, current_class_type));
       expr = finish_qualified_id_expr (scope, expr, done, address_p);
     }
-  
-  expr = convert_from_reference (expr);
+
+  if (TREE_CODE (expr) != SCOPE_REF)
+    expr = convert_from_reference (expr);
 
   return expr;
 }
@@ -12344,7 +12346,8 @@ type_dependent_expression_p (tree expression)
 	    return true;
 	  expression = TREE_OPERAND (expression, 0);
 	}
-      gcc_assert (TREE_CODE (expression) == OVERLOAD);
+      gcc_assert (TREE_CODE (expression) == OVERLOAD
+		  || TREE_CODE (expression) == FUNCTION_DECL);
       
       while (expression)
 	{

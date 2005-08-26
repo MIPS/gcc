@@ -1,3 +1,109 @@
+2005-08-26  Nick Clifton  <nickc@redhat.com>
+
+	* config/v850/v850.c (ep_memory_operand): Return FALSE if
+	TARGET_EP is not defined.
+	* config/v850/c850.h (TARGET_CPU_CPP_BUILTINS): Define __EP__ if
+	TARGET_EP is enabled.
+	(OPTIMIZATION_OPTIONS): Do not define MASK_EP when optimizing.
+	* config/v850/v850.md (save_all_interrupt): Only use the EP
+	register if TARGET_EP is defined.
+	(restore_all_interrupt): Likewise.
+	* config/v850/lib1funcs.asm: Update functions so that the EP
+	register is only used if __EP__ is defined.
+
+2005-08-25  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/23560
+        * loop.c (biased_biv_may_wrap_p): New.
+        (maybe_eliminate_biv_1): Use it to suppress non-equality
+        comparison transformations.  Delete disabled code.
+
+2005-08-25  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* arm.c (arm_const_double_inline_cost): Handle any constant by
+	using gen_lowpart and gen_highpart_mode.
+	(note_invalid_constants): All constants in an RTX with a constraint
+	that permits memory are now pushed to the constant pool.
+	(output_move_double): Delete code to handle reg to reg and
+	constant to reg moves.
+	(const_double_needs_minipool, output_mov_immediate): Delete.
+	* arm.h (EXTRA_CONSTRAINT_STR_ARM): All 'D' variants now handle
+	CONST_INT and CONST_VECTOR.
+	* arm.md (ANY64): New mode macro.
+	(arm_movdi): Split reg-reg and const-reg moves.  Simplify constraints.
+	(movdf_soft_insn): Split reg-reg and const-reg moves.
+	(split patterns for 64-bit constant and register moves): New.
+	* cirrus.md (cirrus_arm_movdi): Split reg-reg and const-reg moves.
+	(cirrus_movdf_hard_insn): Likewise.
+	* fpa.md (movdf_fpa): Likewise.
+	* iwmmxt.md (iwmmxt_arm_movdi): Likewise.
+	(movv8qi_internal, movv4hi_internal, movv2si_internal): Fix
+	constraints.
+	(movv2si_internal_2): Likewise.
+	* vfp.md (arm_movdi_vfp): Split reg-reg and const-reg moves.
+	(movdf_vfp): Likewise.
+	* arm-protos.h (output_mov_immediate): Delete prototype.
+
+2005-08-24  Paolo Bonzini  <bonzini@gnu.org>
+	
+	PR tree-optimization/23546
+	* tree-ssa-loop-im.c (for_each_index): Handle INTEGER_CST
+	and REAL_CST nodes.
+
+2005-08-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/darwin.c (gen_pic_offset): New.
+	(machopic_indirect_data_reference,  machopic_legitimize_pic_address):
+	Use it.
+
+2005-08-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.ac (HAVE_LD_NO_DOT_SYMS): Set for powerpc-linux biarch.
+	* configure: Regenerate.
+
+2005-08-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/20799
+	* config/darwin.c (machopic_select_section): Remove the hack to
+	mark "::operator new" and "::operator delete" for coalescing
+	even though they are not weak.
+
+2005-08-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/23517
+	* fold-const.c (fold_convert): Use VIEW_CONVERT_EXPR to convert
+	between vectors.
+	* convert.c (convert_to_integer, convert_to_vector): Likewise.
+
+2005-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-pass.h (TDF_GRAPH): Define.
+	* tree-dump.c (dump_options): Don't set TDF_GRAPH in "all".
+	* passes.c (close_dump_file): Set TDF_GRAPH bit.
+	(finish_optimization_passes): Only call finish_graph_dump_file
+	if TDF_GRAPH is set.
+	* tree-optimize.c (execute_one_pass): Don't call
+	clean_graph_dump_file here.
+
+2005-08-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/21571
+	* config/rs6000/rs6000.c (rs6000_legitimate_small_data_p): Rename
+	from legitimate_small_data_p, and make global.  Update use.
+	Remove forward declaration.
+	* config/rs6000/rs6000-protos.h (rs6000_legitimate_small_data_p):
+	Declare.
+	* config/rs6000/rs6000.md (movdf_hardfloat32): Allow small data mems.
+
+2005-08-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/23070
+	* config/rs6000/rs6000.c (function_arg): For ABI_V4 calls to
+	stdarg functions, set/clear the fp marker even when no variable
+	args are passed.
+	* config/rs6000/sysv4.h (SUBTARGET_SWITCHES): Describe
+	-mprototype and -mno-prototype.
+
 2005-08-22  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c/18715
