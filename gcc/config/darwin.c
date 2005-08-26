@@ -1813,8 +1813,27 @@ tree
 darwin_construct_objc_string (tree str)
 {
   if (!darwin_constant_cfstrings)
-    return NULL_TREE;  /* Fall back to NSConstantString.  */
-  
+  /* APPLE LOCAL begin 4080358 */
+    {
+      /* Even though we are not using CFStrings, place our literal
+	 into the cfstring_htab hash table, so that the
+	 darwin_constant_cfstring_p() function below will see it.  */
+      struct cfstring_descriptor key;
+      void **loc;
+
+      key.literal = str;
+      loc = htab_find_slot (cfstring_htab, &key, INSERT);
+
+      if (!*loc)
+	{
+	  *loc = ggc_alloc (sizeof (struct cfstring_descriptor));
+	  ((struct cfstring_descriptor *)*loc)->literal = str;
+	}
+
+      return NULL_TREE;  /* Fall back to NSConstantString.  */
+    }
+
+  /* APPLE LOCAL end 4080358 */
   return darwin_build_constant_cfstring (str);
 }
 

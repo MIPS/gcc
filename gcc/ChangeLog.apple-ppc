@@ -1,3 +1,10 @@
+2005-08-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4080358
+	* config/darwin.c (darwin_construct_objc_string): Place string literals
+	in the CFString hash table even if they will be used for NSConstantString
+	objects instead.
+
 2005-08-25  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4216496 4229407
