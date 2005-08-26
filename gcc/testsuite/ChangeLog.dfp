@@ -1,3 +1,8 @@
+2005-08-26  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/dfp/nan-3.c: Remove.
+	* gcc.dg/dfp/overflow-warn.c: Likewise.
+
 2005-08-25  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/conversions-10.c: Block out two tests for now.
