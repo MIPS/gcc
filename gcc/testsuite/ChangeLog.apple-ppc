@@ -1,3 +1,9 @@
+2005-08-26  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4229621
+	* gcc.dg/20030711-1.c:  Modify to work on Darwin.
+	* gcc.dg/20050826-1.c:  New.
+
 2005-08-26  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4080358

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file 4229621 mainline */
 /* Test whether strncmp has not been "optimized" into memcmp
    nor any code with memcmp semantics.  */
 /* { dg-do run { target i?86-*-linux* x86_64-*-linux* ia64-*-linux* alpha*-*-linux* powerpc*-*-linux* s390*-*-linux* sparc*-*-linux* i?86-*-darwin* powerpc-*-darwin*} } */
