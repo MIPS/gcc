@@ -1,5 +1,11 @@
 2005-08-26  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.misc-tests/dectest.exp (c-rounding-mode): Return magic
+	constants for the __dfp_set_round function.
+	(make_c_test): Call __dfp_set_round.
+
+2005-08-26  Ben Elliston  <bje@au.ibm.com>
+
 	* gcc.dg/dfp/complex.c: Block out some tests for now.
 	* gcc.dg/dfp/struct-init.c: Remove.
 

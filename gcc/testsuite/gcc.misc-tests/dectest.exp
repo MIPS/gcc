@@ -105,11 +105,11 @@ proc dfp-run-test { testcase } {
 
 proc c-rounding-mode { mode } { 
     switch [string tolower $mode] {
-	"ceiling"	{ return "FE_DEC_UPWARD" }
-	"down"		{ return "FE_DEC_TOWARDZERO" }
-	"floor"		{ return "FE_DEC_DOWNWARD" }
-	"half_even"	{ return "FE_DEC_TONEARESTFROMZERO" }
-	"half_up"	{ return "FE_DEC_TONEAREST" }
+	"floor"		{ return 0 } # FE_DEC_DOWNWARD
+	"half_up"	{ return 1 } # FE_DEC_TONEAREST
+	"half_even"	{ return 2 } # FE_DEC_TONEARESTFROMZERO
+	"down"		{ return 3 } # FE_DEC_TOWARDZERO
+	"ceiling"	{ return 4 } # FE_DEC_UPWARD
     }
     error "unsupported rounding mode"
 }
@@ -234,8 +234,8 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     puts $outfd [c-test-preamble $id]
     puts $outfd [c-union-decl]
     puts $outfd ""
-    puts $outfd "  /*  FIXME: Set the rounding mode.  */"
-    puts $outfd "  /*assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);*/"
+    puts $outfd "  /*  FIXME: Set rounding mode with fesetround() once in libc.  */"
+    puts $outfd "  __dfp_set_round ([c-rounding-mode $directives(rounding)]);"
     puts $outfd ""
     if {[string compare $op2 NONE] == 0} {
 	if {[string index $op1 0] == "\#"} {
