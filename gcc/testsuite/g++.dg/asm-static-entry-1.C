@@ -5,7 +5,7 @@
 
 extern "C" void abort();
 
-typedef unsigned int UInt32;
+typedef unsigned long UInt32;
 
 #define FUNCPTR_TO_UINT(f) ((UInt32)(&(f)))
 
