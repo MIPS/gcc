@@ -1492,12 +1492,13 @@ rest_of_clean_state (void)
 }
 
 
+/* APPLE LOCAL begin radar 4216496 */
 /* APPLE LOCAL begin radar 4120689 */
 #ifdef TARGET_386
 static int MaxAlignForThisBlock (tree block)
 {
-  tree decl;
-  unsigned int max_align = 0;
+  tree decl, t;
+  unsigned int align, max_align = 0;
 
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
      {
@@ -1505,25 +1506,23 @@ static int MaxAlignForThisBlock (tree block)
 	   && DECL_ALIGN (decl) > max_align)
 	 max_align = DECL_ALIGN (decl);
      }
+
+  for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
+     if ((align = MaxAlignForThisBlock (t)) > max_align)
+       max_align = align;
+
   return max_align;
-  
+ 
 }
 
 static int
 LargestAlignmentOfVariables (void)
 {
-  unsigned int align;
-  tree t;
-  tree outer_block = DECL_INITIAL (current_function_decl);
-  unsigned int max_align = MaxAlignForThisBlock (outer_block); 
-
-  for (t = BLOCK_SUBBLOCKS (outer_block); t ; t = BLOCK_CHAIN (t))
-     if ((align = MaxAlignForThisBlock (t)) > max_align)
-       max_align = align;
-  return max_align;
+  return MaxAlignForThisBlock (DECL_INITIAL (current_function_decl));
 }
 #endif
 /* APPLE LOCAL end radar 4120689 */
+/* APPLE LOCAL end radar 4216496 */
 /* This function is called from the pass manager in tree-optimize.c
    after all tree passes have finished for a single function, and we
    have expanded the function body from trees to RTL.
