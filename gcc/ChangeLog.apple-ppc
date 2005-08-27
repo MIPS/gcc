@@ -1,3 +1,8 @@
+2005-08-27  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4217585
+	* config/i386/i386.c (nocona_cost):  Increase MOVE_RATIO.
+
 2005-08-26  Ian Lance Taylor  <ian@airs.com>
 
 	Radar 4229621
