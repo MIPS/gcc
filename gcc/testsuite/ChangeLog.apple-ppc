@@ -1,3 +1,8 @@
+2005-08-27  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4217585
+	* gcc.dg/i386-no-repmov.c:  New.
+
 2005-08-26  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4229621
