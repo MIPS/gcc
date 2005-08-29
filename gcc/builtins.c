@@ -9533,10 +9533,11 @@ fold_builtin_memory_chk (tree exp, tree maxlen, bool ignore,
 		}
 	      return 0;
 	    }
-	  len = maxlen;
 	}
+      else
+	maxlen = len;
 
-      if (tree_int_cst_lt (size, len))
+      if (tree_int_cst_lt (size, maxlen))
 	return 0;
     }
 
@@ -9639,10 +9640,11 @@ fold_builtin_stxcpy_chk (tree exp, tree maxlen, bool ignore,
 	      return fold_convert (TREE_TYPE (exp),
 				   build_function_call_expr (fn, arglist));
 	    }
-	  len = maxlen;
 	}
-      
-      if (! tree_int_cst_lt (len, size))
+      else
+	maxlen = len;
+
+      if (! tree_int_cst_lt (maxlen, size))
 	return 0;
     }
 
@@ -9688,10 +9690,11 @@ fold_builtin_strncpy_chk (tree exp, tree maxlen)
 	     if SIZE is >= MAXLEN, never convert to __ocs_fail ().  */
 	  if (maxlen == NULL_TREE || ! host_integerp (maxlen, 1))
 	    return 0;
-	  len = maxlen;
 	}
+      else
+	maxlen = len;
 
-      if (tree_int_cst_lt (size, len))
+      if (tree_int_cst_lt (size, maxlen))
 	return 0;
     }
 
@@ -9959,10 +9962,11 @@ fold_builtin_snprintf_chk (tree arglist, tree maxlen,
 	     if SIZE is >= MAXLEN, never convert to __ocs_fail ().  */
 	  if (maxlen == NULL_TREE || ! host_integerp (maxlen, 1))
 	    return 0;
-	  len = maxlen;
 	}
+      else
+	maxlen = len;
 
-      if (tree_int_cst_lt (size, len))
+      if (tree_int_cst_lt (size, maxlen))
 	return 0;
     }
 
