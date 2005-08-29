@@ -1,3 +1,7 @@
+2005-08-29  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* loop-invariant.c (check_dependencies): Improve comment.
+
 2005-07-27  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	Branch created (killloop-branchpoint)

@@ -397,6 +397,9 @@ check_dependencies (rtx insn, struct df *df, bitmap depends_on)
 	return false;
 
       def_bb = DF_REF_BB (def);
+      /* Note that in case bb == def_bb, we know that the definition dominates
+	 insn, because def has DF_REF_DATA defined and we process the insns
+	 in the basic block bb sequentially.  */
       if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
 	return false;
 
