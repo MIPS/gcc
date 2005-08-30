@@ -1,3 +1,7 @@
+2005-08-30  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_load_tp): Copy result to pseudo.
+
 2005-08-27  Paul Brook  <paul@codesourcery.com>
 
 	Backport from mainline.
