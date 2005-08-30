@@ -119,13 +119,6 @@ gomp_loop_guided_start (long start, long end, long incr, long chunk_size,
   return ret;
 }
 
-extern __typeof(gomp_loop_static_start) GOMP_loop_static_start
-	__attribute__((alias ("gomp_loop_static_start")));
-extern __typeof(gomp_loop_dynamic_start) GOMP_loop_dynamic_start
-	__attribute__((alias ("gomp_loop_dynamic_start")));
-extern __typeof(gomp_loop_guided_start) GOMP_loop_guided_start
-	__attribute__((alias ("gomp_loop_guided_start")));
-
 bool
 GOMP_loop_runtime_start (long start, long end, long incr,
 			 long *istart, long *iend)
@@ -207,13 +200,6 @@ gomp_loop_ordered_guided_start (long start, long end, long incr,
   return ret;
 }
 
-extern __typeof(gomp_loop_ordered_static_start) GOMP_loop_ordered_static_start
-	__attribute__((alias ("gomp_loop_ordered_static_start")));
-extern __typeof(gomp_loop_ordered_dynamic_start) GOMP_loop_ordered_dynamic_start
-	__attribute__((alias ("gomp_loop_ordered_dynamic_start")));
-extern __typeof(gomp_loop_ordered_guided_start) GOMP_loop_ordered_guided_start
-	__attribute__((alias ("gomp_loop_ordered_guided_start")));
-
 bool
 GOMP_loop_ordered_runtime_start (long start, long end, long incr,
 				 long *istart, long *iend)
@@ -286,13 +272,6 @@ gomp_loop_guided_next (long *istart, long *iend)
 
   return ret;
 }
-
-extern __typeof(gomp_loop_static_next) GOMP_loop_static_next
-	__attribute__((alias ("gomp_loop_static_next")));
-extern __typeof(gomp_loop_dynamic_next) GOMP_loop_dynamic_next
-	__attribute__((alias ("gomp_loop_dynamic_next")));
-extern __typeof(gomp_loop_guided_next) GOMP_loop_guided_next
-	__attribute__((alias ("gomp_loop_guided_next")));
 
 bool
 GOMP_loop_runtime_next (long *istart, long *iend)
@@ -370,13 +349,6 @@ gomp_loop_ordered_guided_next (long *istart, long *iend)
 
   return ret;
 }
-
-extern __typeof(gomp_loop_ordered_static_next) GOMP_loop_ordered_static_next
-	__attribute__((alias ("gomp_loop_ordered_static_next")));
-extern __typeof(gomp_loop_ordered_dynamic_next) GOMP_loop_ordered_dynamic_next
-	__attribute__((alias ("gomp_loop_ordered_dynamic_next")));
-extern __typeof(gomp_loop_ordered_guided_next) GOMP_loop_ordered_guided_next
-	__attribute__((alias ("gomp_loop_ordered_guided_next")));
 
 bool
 GOMP_loop_ordered_runtime_next (long *istart, long *iend)
@@ -464,3 +436,120 @@ GOMP_loop_end_nowait (void)
 {
   gomp_work_share_end_nowait ();
 }
+
+
+/* We use static functions above so that we're sure that the "runtime"
+   function can defer to the proper routine without interposition.  We
+   export the static function with a strong alias when possible, or with
+   a wrapper function otherwise.  */
+
+#ifdef HAVE_ATTRIBUTE_ALIAS
+extern __typeof(gomp_loop_static_start) GOMP_loop_static_start
+	__attribute__((alias ("gomp_loop_static_start")));
+extern __typeof(gomp_loop_dynamic_start) GOMP_loop_dynamic_start
+	__attribute__((alias ("gomp_loop_dynamic_start")));
+extern __typeof(gomp_loop_guided_start) GOMP_loop_guided_start
+	__attribute__((alias ("gomp_loop_guided_start")));
+
+extern __typeof(gomp_loop_ordered_static_start) GOMP_loop_ordered_static_start
+	__attribute__((alias ("gomp_loop_ordered_static_start")));
+extern __typeof(gomp_loop_ordered_dynamic_start) GOMP_loop_ordered_dynamic_start
+	__attribute__((alias ("gomp_loop_ordered_dynamic_start")));
+extern __typeof(gomp_loop_ordered_guided_start) GOMP_loop_ordered_guided_start
+	__attribute__((alias ("gomp_loop_ordered_guided_start")));
+
+extern __typeof(gomp_loop_static_next) GOMP_loop_static_next
+	__attribute__((alias ("gomp_loop_static_next")));
+extern __typeof(gomp_loop_dynamic_next) GOMP_loop_dynamic_next
+	__attribute__((alias ("gomp_loop_dynamic_next")));
+extern __typeof(gomp_loop_guided_next) GOMP_loop_guided_next
+	__attribute__((alias ("gomp_loop_guided_next")));
+
+extern __typeof(gomp_loop_ordered_static_next) GOMP_loop_ordered_static_next
+	__attribute__((alias ("gomp_loop_ordered_static_next")));
+extern __typeof(gomp_loop_ordered_dynamic_next) GOMP_loop_ordered_dynamic_next
+	__attribute__((alias ("gomp_loop_ordered_dynamic_next")));
+extern __typeof(gomp_loop_ordered_guided_next) GOMP_loop_ordered_guided_next
+	__attribute__((alias ("gomp_loop_ordered_guided_next")));
+#else
+bool
+GOMP_loop_static_start (long start, long end, long incr, long chunk_size,
+			long *istart, long *iend)
+{
+  return gomp_loop_static_start (start, end, incr, chunk_size, istart, iend);
+}
+
+bool
+GOMP_loop_dynamic_start (long start, long end, long incr, long chunk_size,
+			 long *istart, long *iend)
+{
+  return gomp_loop_dynamic_start (start, end, incr, chunk_size, istart, iend);
+}
+
+bool
+GOMP_loop_guided_start (long start, long end, long incr, long chunk_size,
+			long *istart, long *iend)
+{
+  return gomp_loop_guided_start (start, end, incr, chunk_size, istart, iend);
+}
+
+bool
+GOMP_loop_ordered_static_start (long start, long end, long incr,
+				long chunk_size, long *istart, long *iend)
+{
+  return gomp_loop_ordered_static_start (start, end, incr, chunk_size,
+					 istart, iend);
+}
+
+bool
+GOMP_loop_ordered_dynamic_start (long start, long end, long incr,
+				 long chunk_size, long *istart, long *iend)
+{
+  return gomp_loop_ordered_dynamic_start (start, end, incr, chunk_size,
+					  istart, iend);
+}
+
+bool
+GOMP_loop_ordered_guided_start (long start, long end, long incr,
+				long chunk_size, long *istart, long *iend)
+{
+  return gomp_loop_ordered_guided_start (start, end, incr, chunk_size,
+					 istart, iend);
+}
+
+bool
+GOMP_loop_static_next (long *istart, long *iend)
+{
+  return gomp_loop_static_next (istart, iend);
+}
+
+bool
+GOMP_loop_dynamic_next (long *istart, long *iend)
+{
+  return gomp_loop_dynamic_next (istart, iend);
+}
+
+bool
+GOMP_loop_guided_next (long *istart, long *iend)
+{
+  return gomp_loop_guided_next (istart, iend);
+}
+
+bool
+GOMP_loop_ordered_static_next (long *istart, long *iend)
+{
+  return gomp_loop_ordered_static_next (istart, iend);
+}
+
+bool
+GOMP_loop_ordered_dynamic_next (long *istart, long *iend)
+{
+  return gomp_loop_ordered_dynamic_next (istart, iend);
+}
+
+bool
+GOMP_loop_ordered_guided_next (long *istart, long *iend)
+{
+  return gomp_loop_ordered_guided_next (istart, iend);
+}
+#endif

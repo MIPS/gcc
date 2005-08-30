@@ -223,8 +223,16 @@ gomp_ordered_sync (void)
    ORDERED block.  We must check to see if the current thread is at the
    head of the queue, and if not, block.  */
 
+#ifdef HAVE_ATTRIBUTE_ALIAS
 extern void GOMP_ordered_start (void)
 	__attribute__((alias ("gomp_ordered_sync")));
+#else
+void
+GOMP_ordered_start (void)
+{
+  gomp_ordered_sync ();
+}
+#endif
 
 /* This function is called by user code when encountering the end of an
    ORDERED block.  With the current ORDERED implementation there's nothing
