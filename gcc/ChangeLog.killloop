@@ -13,7 +13,7 @@
 	* cfgloop.h (struct rtx_iv): Remove analysed field.  Added biv_p field.
 	(iv_get_reaching_def): Removed.
 	(iv_analyze_result, iv_analyze_expr): Declare.
-	& df.c (df_bitmaps_free, df_bb_modify): Only work on the specified part
+	* df.c (df_bitmaps_free, df_bb_modify): Only work on the specified part
 	of cfg.
 	(df_find_use): Handle subregs.
 	* Makefile.in (loop-iv.o): Add DF_H dependency.
