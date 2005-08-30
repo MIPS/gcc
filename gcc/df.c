@@ -3051,6 +3051,21 @@ df_find_def (struct df *df, rtx insn, rtx reg)
   return NULL;
 }
 
+/* Finds the reference corresponding to the use of REG in INSN.
+   DF is the dataflow object.  */
+
+struct ref *
+df_find_use (struct df *df, rtx insn, rtx reg)
+{
+  struct df_link *uses;
+
+  for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
+    if (rtx_equal_p (DF_REF_REG (uses->ref), reg))
+      return uses->ref;
+
+  return NULL;
+}
+
 /* Return 1 if REG is referenced in INSN, zero otherwise.  */ 
 
 int

@@ -1,3 +1,27 @@
+2005-08-30  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* Makefile.in (loop-invariant.o): Add HASHTAB_H dependency.
+	* df.c (df_find_use): New function.
+	* df.h (df_find_use): Declare.
+	* loop-invariant.c: Include hashtab.h.
+	(struct invariant): Replace processed field by reg field.
+	Add eqto field.
+	(struct invariant_expr_entry): New.
+	(df): New global variable.
+	(invariant_for_use, hash_invariant_expr_1, invariant_expr_equal_p,
+	hash_invariant_expr, eq_invariant_expr, find_or_insert_inv,
+	find_identical_invariants, merge_identical_invariants): New functions.
+	(find_defs, check_dependencies, find_invariant_insn,
+	record_uses, find_invariants_bb, find_invariants_body,
+	find_invariants, find_invariants_to_move, move_invariants,
+	free_inv_motion_data, move_single_loop_invariants,
+	move_loop_invariants): Do not pass df in arguments.
+	(create_new_invariant): Return the new invariant.  Initialize new
+	fields.
+	(find_invariants): Call merge_identical_invariants.
+	(get_inv_cost, best_gain_for_invariant, set_move_mark,
+	move_invariant_reg): Handle equivalent invariants.
+
 2005-08-29  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* loop-invariant.c (check_dependencies): Improve comment.
