@@ -451,14 +451,11 @@ df_bitmaps_alloc (struct df *df, bitmap blocks, int flags)
 static void
 df_bitmaps_free (struct df *df, int flags)
 {
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
+  unsigned i;
+      
+  for (i = 0; i < df->n_bbs; i++)
     {
-      struct bb_info *bb_info = DF_BB_INFO (df, bb);
-
-      if (!bb_info)
-	continue;
+      struct bb_info *bb_info = &df->bbs[i];
 
       if ((flags & DF_RD) && bb_info->rd_in)
 	{
@@ -2648,7 +2645,7 @@ static void
 df_bb_modify (struct df *df, basic_block bb)
 {
   if ((unsigned) bb->index >= df->n_bbs)
-    df_bb_table_realloc (df, df->n_bbs);
+    df_bb_table_realloc (df, bb->index);
 
   bitmap_set_bit (df->bbs_modified, bb->index);
 }
@@ -3060,8 +3057,14 @@ df_find_use (struct df *df, rtx insn, rtx reg)
   struct df_link *uses;
 
   for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
-    if (rtx_equal_p (DF_REF_REG (uses->ref), reg))
-      return uses->ref;
+    {
+      rtx areg = DF_REF_REG (uses->ref);
+      if (GET_CODE (areg) == SUBREG)
+	areg = SUBREG_REG (areg);
+
+      if (rtx_equal_p (areg, reg))
+	return uses->ref;
+    }
 
   return NULL;
 }

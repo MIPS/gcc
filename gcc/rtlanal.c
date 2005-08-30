@@ -2102,6 +2102,10 @@ may_trap_p (rtx x)
     case ASM_OPERANDS:
       return MEM_VOLATILE_P (x);
 
+      /* Prefetch instructions cannot trap, by definition.  */
+    case PREFETCH:
+      return 0;
+
       /* Memory ref can trap unless it's a static var or a stack slot.  */
     case MEM:
       if (MEM_NOTRAP_P (x))

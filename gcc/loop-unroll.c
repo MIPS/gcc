@@ -70,6 +70,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    showed that this choice may affect performance in order of several %.
    */
 
+/* Provide a default value for prefetch block size, in case md does not.  */
+
+#ifndef PREFETCH_BLOCK
+#define PREFETCH_BLOCK 32
+#endif
+
 /* Information about induction variables to split.  */
 
 struct iv_to_split
@@ -112,6 +118,8 @@ struct opt_info
   htab_t insns_to_split;           /* A hashtable of insns to split.  */
   htab_t insns_with_var_to_expand; /* A hashtable of insns with accumulators
                                       to expand.  */
+  htab_t prefetches_to_remove;     /* A hashtable of prefetch insns that may
+				      need to be removed after unrolling.  */
   unsigned first_new_block;        /* The first basic block that was
                                       duplicated.  */
   basic_block loop_exit;           /* The loop exit basic block.  */
@@ -138,6 +146,7 @@ static void free_opt_info (struct opt_info *);
 static struct var_to_expand *analyze_insn_to_expand_var (struct loop*, rtx);
 static bool referenced_in_one_insn_in_loop_p (struct loop *, rtx);
 static struct iv_to_split *analyze_iv_to_split_insn (rtx);
+static struct iv_to_split *analyze_prefetch_to_remove (rtx);
 static void expand_var_during_unrolling (struct var_to_expand *, rtx);
 static int insert_var_expansion_initialization (void **, void *);
 static int combine_var_copies_in_loop_exit (void **, void *);
@@ -1657,7 +1666,7 @@ analyze_iv_to_split_insn (rtx insn)
   if (!biv_p (insn, dest))
     return NULL;
 
-  ok = iv_analyze (insn, dest, &iv);
+  ok = iv_analyze_result (insn, dest, &iv);
   gcc_assert (ok);
 
   if (iv.step == const0_rtx
@@ -1671,6 +1680,48 @@ analyze_iv_to_split_insn (rtx insn)
   ivts->step = iv.step;
   ivts->n_loc = 1;
   ivts->loc[0] = 1;
+  
+  return ivts;
+}
+
+/* Determines whether INSN is a prefetch instruction that may be useful to
+   remove when the loop is unrolled.  Address that is prefetched must be
+   an induction variable with a constant step.  Returns a structure describing
+   the prefetch and the step, or NULL if the insn is not suitable.  */
+
+static struct iv_to_split *
+analyze_prefetch_to_remove (rtx insn)
+{
+  rtx patt = PATTERN (insn);
+  rtx addr;
+  HOST_WIDE_INT step;
+  struct iv_to_split *ivts;
+  struct rtx_iv iv;
+
+  if (GET_CODE (patt) != PREFETCH)
+    return NULL;
+
+  addr = XEXP (patt, 0);
+  if (!iv_analyze_expr (insn, addr, Pmode, &iv))
+    return NULL;
+
+  if (GET_CODE (iv.step) != CONST_INT)
+    return NULL;
+
+  /* We do not want to remove prefetches in unrolled copies if each of them
+     hits its own cache line.  */
+  step = INTVAL (iv.step);
+  if (step < 0)
+    step = -step;
+  if (step >= PREFETCH_BLOCK)
+    return NULL;
+
+  /* Record the prefetch to remove.  */
+  ivts = xmalloc (sizeof (struct iv_to_split));
+  ivts->insn = insn;
+  ivts->base_var = NULL_RTX;
+  ivts->step = iv.step;
+  ivts->n_loc = 0;
   
   return ivts;
 }
@@ -1701,7 +1752,9 @@ analyze_insns_in_loop (struct loop *loop)
   if (flag_split_ivs_in_unroller)
     opt_info->insns_to_split = htab_create (5 * loop->num_nodes,
                                             si_info_hash, si_info_eq, free);
-  
+  opt_info->prefetches_to_remove
+	  = htab_create (5 * loop->num_nodes, si_info_hash, si_info_eq, free);
+
   /* Record the loop exit bb and loop preheader before the unrolling.  */
   if (!loop_preheader_edge (loop)->src)
     {
@@ -1743,7 +1796,18 @@ analyze_insns_in_loop (struct loop *loop)
             *slot1 = ivts;
             continue;
           }
+       
+        if (opt_info->prefetches_to_remove)
+          ivts = analyze_prefetch_to_remove (insn);
         
+        if (ivts)
+          {
+            slot1 = htab_find_slot (opt_info->prefetches_to_remove, 
+				    ivts, INSERT);
+            *slot1 = ivts;
+            continue;
+          }
+
         if (opt_info->insns_with_var_to_expand)
           ves = analyze_insn_to_expand_var (loop, insn);
         
@@ -1903,6 +1967,28 @@ split_iv (struct iv_to_split *ivts, rtx insn, unsigned delta)
   delete_insn (insn);
 }
 
+/* Remove the prefetch INSN if redundant.  Step of the address induction
+   variable whose is taken from IVTS, and DELTA determines which of
+   the unrolled copies is considered.  */
+
+static void
+remove_redundant_prefetch (struct iv_to_split *ivts, rtx insn, unsigned delta)
+{
+  HOST_WIDE_INT step = INTVAL (ivts->step);
+  if (step < 0)
+    step  = - step;
+ 
+  if (delta == 0)
+    return;
+
+  /* If the prefetch is the first one to access a new cache line, we want to
+     keep it.  We assume that the first access in the loop is cache line
+     aligned, which may cause this heuristics to be slightly wrong.  */
+  if (step * delta / PREFETCH_BLOCK != step * (delta - 1) / PREFETCH_BLOCK)
+    return;
+
+  delete_insn (insn);
+}
 
 /* Return one expansion of the accumulator recorded in struct VE.  */
 
@@ -2114,6 +2200,22 @@ apply_opt_in_copies (struct opt_info *opt_info,
                   split_iv (ivts, insn, delta);
                 }
             }
+
+	  /* Remove redundant prefetches.  */
+          if (opt_info->prefetches_to_remove)
+            {
+              ivts = htab_find (opt_info->prefetches_to_remove, &ivts_templ);
+              
+              if (ivts)
+                {
+#ifdef ENABLE_CHECKING
+		  gcc_assert (rtx_equal_p (PATTERN (insn), PATTERN (orig_insn)));
+#endif
+                  
+                  remove_redundant_prefetch (ivts, insn, delta);
+                }
+            }
+
           /* Apply variable expansion optimization.  */
           if (unrolling && opt_info->insns_with_var_to_expand)
             {
@@ -2203,6 +2305,8 @@ free_opt_info (struct opt_info *opt_info)
 {
   if (opt_info->insns_to_split)
     htab_delete (opt_info->insns_to_split);
+  if (opt_info->prefetches_to_remove)
+    htab_delete (opt_info->prefetches_to_remove);
   if (opt_info->insns_with_var_to_expand)
     {
       htab_traverse (opt_info->insns_with_var_to_expand, 

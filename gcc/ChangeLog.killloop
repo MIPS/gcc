@@ -1,4 +1,43 @@
 2005-08-30  Zdenek Dvorak  <dvorakz@suse.cz>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	* rtlanal.c (may_trap_p): Handle PREFETCH.
+	* loop-unroll.c (struct opt_info): Add refetches_to_remove field.
+	(analyze_prefetch_to_remove, remove_redundant_prefetch): New functions.
+	(analyze_insns_in_loop): Call analyze_prefetch_to_remove.
+	(apply_opt_in_copies): Call remove_redundant_prefetch.
+	(free_opt_info): Free prefetches_to_remove field.
+
+2005-08-30  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* cfgloop.h (struct rtx_iv): Remove analysed field.  Added biv_p field.
+	(iv_get_reaching_def): Removed.
+	(iv_analyze_result, iv_analyze_expr): Declare.
+	& df.c (df_bitmaps_free, df_bb_modify): Only work on the specified part
+	of cfg.
+	(df_find_use): Handle subregs.
+	* Makefile.in (loop-iv.o): Add DF_H dependency.
+	* loop-iv.c: Include df.h.
+	(enum iv_grd_result): New enum.
+	(DF_REF_IV, DF_REF_IV_SET): New macros.
+	(df): New global variable.
+	(struct insn_info, insn_info, last_def, bivs, max_insn_no, max_reg_no,
+	assign_luids, mark_sets, kill_sets, mark_single_set, simple_set_p):
+	Removed.
+	(clear_iv_info, latch_dominating_def, record_iv, iv_analyze_expr,
+	iv_analyze_result, iv_analyze_def): New functions.
+	(iv_analysis_loop_init, iv_get_reaching_def, simple_reg_p,
+	get_biv_step_1, get_biv_step, iv_analyze_biv, iv_analyze_op,
+	iv_analyze, biv_p, iv_analysis_done): Work with df representation of
+	UD chains.
+	(iv_constant, iv_subreg, iv_extend, iv_mult, iv_shift): Initialize
+	biv_p, do not set analysed.
+	(iv_number_of_iterations): Use new interface to iv analysis.
+	* loop-unroll.c (analyze_iv_to_split_insn): Ditto.
+	* loop-unswitch.c (may_unswitch_on): Ditto.
+
+
+2005-08-30  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* tree-pretty-print.c (dump_bb_header): Show bb frequency.
 
