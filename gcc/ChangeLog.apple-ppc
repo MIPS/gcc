@@ -1,3 +1,9 @@
+2005-08-29  Eric Christopher  <echristo@apple.com>
+
+	Radar 4223128
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Finish through m.
+	Add constraints to all existing opcodes.
+
 2005-08-27  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4217585
