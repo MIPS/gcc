@@ -1,3 +1,7 @@
+2005-08-30  Yao Qi  <qiyaoltc@cn.ibm.com>
+
+	* gcc.dg/dfp/complex-conversion.c: Remove.
+
 2005-08-26  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/complex.c (NEAR): New macro.
