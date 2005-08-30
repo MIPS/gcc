@@ -1,3 +1,11 @@
+2005-08-30  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4235138
+	* c-common.c (print_cw_asm_operand): Generate tree for nested 
+	member operand.
+	* c-typeck.c (cw_asm_c_build_component_ref): Build component ref 
+	for nested member operand.
+
 2005-08-29  Eric Christopher  <echristo@apple.com>
 
 	Radar 4223128

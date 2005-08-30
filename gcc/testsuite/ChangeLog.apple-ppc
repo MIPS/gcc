@@ -1,3 +1,9 @@
+2005-08-30  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4235138
+	* g++.dg/asm-nested-struct-1.C: New.
+	* gcc.apple/asm-nested-struct-1.c: New.
+
 2005-08-27  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4217585

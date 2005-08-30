@@ -6856,7 +6856,7 @@ cw_asm_c_build_component_ref (tree typename, tree component)
   tree ref;
 
   /* Intercept variables here and make a component ref instead.  */
-  if (TREE_CODE (typename) == VAR_DECL)
+  if (TREE_CODE (typename) == VAR_DECL || TREE_CODE (typename) == COMPONENT_REF)
     {
       return build_component_ref (typename, component);
     }

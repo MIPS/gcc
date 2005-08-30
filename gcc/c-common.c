@@ -6781,7 +6781,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
     case COMPONENT_REF:
       /* APPLE LOCAL begin radar 4218231 */
       op0 = TREE_OPERAND (arg, 0);
-      if (TREE_CODE (op0) == VAR_DECL)
+      if (TREE_CODE (op0) == VAR_DECL || TREE_CODE (op0) == COMPONENT_REF)
 	{
 	  idnum = cw_asm_get_register_var (arg, argnum, false);
 	  if (idnum >= 0)
