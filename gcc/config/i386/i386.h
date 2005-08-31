@@ -1457,7 +1457,7 @@ enum reg_class
 #define BASE_REG_CLASS GENERAL_REGS
 
 /* Unused letters:
-    B                 TU W   
+    B                 TU W
           h jk          vw  z
 */
 
@@ -2515,8 +2515,8 @@ extern rtx ix86_compare_op1;	/* operand 1 for comparisons */
    `OPTIMIZE_MODE_SWITCHING' is defined, you must define this macro to
    return an integer value not larger than the corresponding element
    in `NUM_MODES_FOR_MODE_SWITCHING', to denote the mode that ENTITY
-   must be switched into prior to the execution of INSN. 
-   
+   must be switched into prior to the execution of INSN.
+
    The mode UNINITIALIZED is used to force re-load of possibly previously
    stored control word after function call.  The mode ANY specify that
    function has no requirements on the control word and make no changes
@@ -2657,16 +2657,16 @@ struct machine_function GTY(())
   { "cmp", 1, "i,i,i,r,m"},    	\
   { "cmp", 2, "r,m,m,m,r"},    	\
   { "cmppd", 1, "i"},		\
-  { "cmppd", 2, "m"},		\
+  { "cmppd", 2, "xm"},		\
   { "cmppd", 3, "=x"},		\
   { "cmpps", 1, "i"},		\
-  { "cmpps", 2, "m"},		\
+  { "cmpps", 2, "xm"},		\
   { "cmpps", 3, "=x"},		\
   { "cmpsd", 1, "i"},		\
-  { "cmpsd", 2, "m"},		\
+  { "cmpsd", 2, "xm"},		\
   { "cmpsd", 3, "=x"},		\
   { "cmpss", 1, "i"},		\
-  { "cmpss", 2, "m"},		\
+  { "cmpss", 2, "xm"},		\
   { "cmpss", 3, "=x"},		\
   { "cmpxchg", 2, "+mr"},      	\
   { "comisd", 1, "m"},		\
@@ -2978,7 +2978,286 @@ struct machine_function GTY(())
   { "mulsd", 1, "xm"},		\
   { "mulsd", 2, "=x"},		\
   { "mulss", 1, "xm"},		\
-  { "mulss", 2, "=x"},
+  { "mulss", 2, "=x"},		\
+  { "neg", 1, "+rm"},		\
+  { "not", 1, "+rm"},		\
+  { "or", 1, "rim"},		\
+  { "or", 2, "+qm"},		\
+  { "orpd", 1, "xm"},		\
+  { "orpd", 2, "+x"},		\
+  { "orps", 1, "xm"},		\
+  { "orps", 2, "+x"},		\
+  { "out", 1, "q"},		\
+  { "out", 2, "id"},		\
+  { "outs", 1, "m"},		\
+  { "outs", 2, "d"},		\
+  { "packssdw", 1, "xym"},	\
+  { "packssdw", 2, "+xy"},	\
+  { "packsswb", 1, "xym"},	\
+  { "packsswb", 2, "+xy"},	\
+  { "packuswb", 1, "xym"},	\
+  { "packuswb", 2, "+xy"},	\
+  { "paddb", 1, "xym"},		\
+  { "paddb", 2, "+xy"},		\
+  { "paddd", 1, "xym"},		\
+  { "paddd", 2, "+xy"},		\
+  { "paddq", 1, "xym"},		\
+  { "paddq", 2, "+xy"},		\
+  { "paddsb", 1, "xym"},       	\
+  { "paddsb", 2, "+xy"},       	\
+  { "paddsw", 1, "xym"},       	\
+  { "paddsw", 2, "+xy"},       	\
+  { "paddusb", 1, "xym"},	\
+  { "paddusb", 2, "+xy"},	\
+  { "paddusw", 1, "xym"},	\
+  { "paddusw", 2, "+xy"},	\
+  { "paddw", 1, "xym"},		\
+  { "paddw", 2, "+xy"},		\
+  { "pand", 1, "xym"},		\
+  { "pand", 2, "+xy"},		\
+  { "pandn", 1, "xym"},		\
+  { "pandn", 2, "+xy"},		\
+  { "pavgb", 1, "xym"},		\
+  { "pavgb", 2, "+xy"},		\
+  { "pavgw", 1, "xym"},		\
+  { "pavgw", 2, "+xy"},		\
+  { "pcmpeqb", 1, "xmy"},	\
+  { "pcmpeqb", 2, "+xy"},	\
+  { "pcmpeqd", 1, "xmy"},	\
+  { "pcmpeqd", 2, "+xy"},	\
+  { "pcmpeqw", 1, "xmy"},	\
+  { "pcmpeqw", 2, "+xy"},	\
+  { "pcmpgtb", 1, "xmy"},	\
+  { "pcmpgtb", 2, "+xy"},	\
+  { "pcmpgtd", 1, "xmy"},	\
+  { "pcmpgtd", 2, "+xy"},	\
+  { "pcmpgtw", 1, "xmy"},	\
+  { "pcmpgtw", 2, "+xy"},	\
+  { "pextrw", 1, "i"},		\
+  { "pextrw", 2, "xy"},		\
+  { "pextrw", 3, "=q"},		\
+  { "pinsrw", 1, "i"},		\
+  { "pinsrw", 2, "qm"},		\
+  { "pinsrw", 3, "=xy"},	\
+  { "pmaddwd", 1, "xym"},	\
+  { "pmaddwd", 2, "+xy"},	\
+  { "pmaxsw", 1, "xym"},	\
+  { "pmaxsw", 2, "+xy"},	\
+  { "pmaxub", 1, "xym"},	\
+  { "pmaxub", 2, "+xy"},	\
+  { "pminsw", 1, "xym"},	\
+  { "pminsw", 2, "+xy"},	\
+  { "pminub", 1, "xym"},	\
+  { "pminub", 2, "+xy"},	\
+  { "pmovmskb", 1, "xy"},	\
+  { "pmovmskb", 2, "+q"},	\
+  { "pmulhuw", 1, "xmy"},	\
+  { "pmulhuw", 2, "+xy"},	\
+  { "pmulhw", 1, "xmy"},	\
+  { "pmulhw", 2, "+xy"},	\
+  { "pmullw", 1, "xmy"},	\
+  { "pmullw", 2, "+xy"},	\
+  { "pmuludq", 1, "xmy"},	\
+  { "pmuludq", 2, "+xy"},	\
+  { "pop", 1, "qm"},		\
+  { "por", 1, "xmy"},		\
+  { "por", 2, "+xy"},		\
+  { "prefetcht0", 1, "m"},	\
+  { "prefetcht1", 1, "m"},	\
+  { "prefetcht2", 1, "m"},	\
+  { "prefetchta", 1, "m"},	\
+  { "psadbw", 1, "xmy"},	\
+  { "psadbw", 2, "+xy"},	\
+  { "pshufd", 1, "i"},		\
+  { "pshufd", 2, "xm"},		\
+  { "pshufd", 3, "=x"},		\
+  { "pshufhw", 1, "i"},	       	\
+  { "pshufhw", 2, "xm"},       	\
+  { "pshufhw", 3, "=x"},	\
+  { "pshuflw", 1, "i"},		\
+  { "pshuflw", 2, "xm"},	\
+  { "pshuflw", 3, "=x"},	\
+  { "pshufw", 1, "i"},		\
+  { "pshufw", 2, "ym"},		\
+  { "pshufw", 3, "=y"},		\
+  { "pslld", 1, "yxmi"},       	\
+  { "pslld", 2, "+xy"},		\
+  { "psllq", 1, "yxmi"},       	\
+  { "psllq", 2, "+xy"},		\
+  { "psllw", 1, "yxmi"},      	\
+  { "psllw", 2, "+xy"},		\
+  { "pslldq", 1, "i"},		\
+  { "pslldq", 2, "+x"},		\
+  { "psrad", 1, "yxmi"},       	\
+  { "psrad", 2, "+xy"},		\
+  { "psraw", 1, "yxmi"},       	\
+  { "psraw", 2, "+xy"},		\
+  { "psrld", 1, "yxmi"},	\
+  { "psrld", 2, "+xy"},		\
+  { "psrldq", 1, "i"},		\
+  { "psrldq", 2, "+x"},		\
+  { "psrlq", 1, "yxmi"},	\
+  { "psrlq", 2, "+xy"},		\
+  { "psrlw", 1, "yxmi"},	\
+  { "psrlw", 2, "+xy"},		\
+  { "psubb", 1, "yxm"},		\
+  { "psubb", 2, "+yx"},		\
+  { "psubd", 1, "yxm"},		\
+  { "psubd", 2, "+yx"},		\
+  { "psubq", 1, "yxm"},		\
+  { "psubq", 2, "+yx"},		\
+  { "psubsb", 1, "yxm"},       	\
+  { "psubsb", 2, "+yx"},       	\
+  { "psubusb", 1, "yxm"},	\
+  { "psubusb", 2, "+yx"},	\
+  { "psubusw", 1, "yxm"},	\
+  { "psubusw", 2, "+yx"},	\
+  { "psubsw", 1, "yxm"},       	\
+  { "psubsw", 2, "+yx"},       	\
+  { "psubw", 1, "yxm"},		\
+  { "psubw", 2, "+yx"},		\
+  { "punpckhbw", 1, "yxm"},	\
+  { "punpckhbw", 2, "+yx"},	\
+  { "punpckhdq", 1, "yxm"},	\
+  { "punpckhdq", 2, "+yx"},	\
+  { "punpckhqdq", 1, "ym"},	\
+  { "punpckhqdq", 2, "+y"},	\
+  { "punpckhwd", 1, "yxm"},	\
+  { "punpckhwd", 2, "+yx"},	\
+  { "punpcklbw", 1, "yxm"},	\
+  { "punpcklbw", 2, "+yx"},	\
+  { "punpckldq", 1, "yxm"},	\
+  { "punpckldq", 2, "+yx"},	\
+  { "punpcklqdq", 1, "ym"},	\
+  { "punpcklqdq", 2, "+y"},	\
+  { "punpcklwd", 1, "yxm"},	\
+  { "punpcklwd", 2, "+yx"},	\
+  { "push", 1, "qi"},		\
+  { "pxor", 1, "yxm"},		\
+  { "pxor", 2, "+yx"},		\
+  { "rcl", 1, "i"},		\
+  { "rcl", 2, "+qm"},		\
+  { "rcpps", 1, "ym"},		\
+  { "rcpps", 2, "+y"},		\
+  { "rcpss", 1, "ym"},		\
+  { "rcpss", 2, "+y"},		\
+  { "rcr", 1, "i"},		\
+  { "rcr", 2, "+qm"},		\
+  { "ret", 1, "i"},		\
+  { "rol", 1, "i"},		\
+  { "rol", 2, "+qm"},		\
+  { "ror", 1, "i"},		\
+  { "ror", 2, "+qm"},		\
+  { "rsqrtps", 1, "xm"},	\
+  { "rsqrtps", 2, "=x"},	\
+  { "rsqrtss", 1, "xm"},	\
+  { "rsqrtss", 2, "=x"},	\
+  { "sal", 1, "i"},		\
+  { "sal", 2, "+q"},		\
+  { "sar", 1, "i"},		\
+  { "sar", 2, "+q"},		\
+  { "shl", 1, "i"},		\
+  { "shl", 2, "+q"},		\
+  { "shr", 1, "i"},		\
+  { "shr", 2, "+q"},		\
+  { "sbb", 1, "iqm"},		\
+  { "sbb", 2, "+qm"},		\
+  { "scas", 1, "m"},		\
+  { "seta", 1, "=qm"},		\
+  { "setae", 1, "=qm"},		\
+  { "setb", 1, "=qm"},		\
+  { "setbe", 1, "=qm"},		\
+  { "setc", 1, "=qm"},		\
+  { "sete", 1, "=qm"},		\
+  { "setg", 1, "=qm"},		\
+  { "setge", 1, "=qm"},		\
+  { "setl", 1, "=qm"},		\
+  { "setle", 1, "=qm"},		\
+  { "setna", 1, "=qm"},		\
+  { "setnae", 1, "=qm"},       	\
+  { "setnb", 1, "=qm"},		\
+  { "setnbe", 1, "=qm"},       	\
+  { "setnc", 1, "=qm"},		\
+  { "setne", 1, "=qm"},		\
+  { "setng", 1, "=qm"},		\
+  { "setnge", 1, "=qm"},       	\
+  { "setnl", 1, "=qm"},		\
+  { "setnle", 1, "=qm"},	\
+  { "setno", 1, "=qm"},		\
+  { "setnp", 1, "=qm"},		\
+  { "setns", 1, "=qm"},		\
+  { "setnz", 1, "=qm"},		\
+  { "seto", 1, "=qm"},		\
+  { "setp", 1, "=qm"},		\
+  { "setpe", 1, "=qm"},		\
+  { "setpo", 1, "=qm"},		\
+  { "sets", 1, "=qm"},		\
+  { "setz", 1, "=qm"},		\
+  { "sgdt", 1, "=m"},		\
+  { "shld", 1, "i"},		\
+  { "shld", 2, "r"},		\
+  { "shld", 3, "+rm"},		\
+  { "shrd", 1, "i"},		\
+  { "shrd", 2, "r"},		\
+  { "shrd", 3, "+rm"},		\
+  { "shufpd", 1, "i"},		\
+  { "shufpd", 2, "xm"},		\
+  { "shufpd", 3, "+x"},		\
+  { "shufps", 1, "i"},		\
+  { "shufps", 2, "xm"},		\
+  { "shufps", 3, "+x"},		\
+  { "sidt", 1, "=m"},		\
+  { "sldt", 1, "=qm"},		\
+  { "smsw", 1, "=qm"},		\
+  { "sqrtpd", 1, "xm"},		\
+  { "sqrtpd", 2, "=x"},		\
+  { "sqrtps", 1, "xm"},		\
+  { "sqrtps", 2, "=x"},		\
+  { "sqrtsd", 1, "xm"},		\
+  { "sqrtsd", 2, "=x"},		\
+  { "sqrtss", 1, "xm"},		\
+  { "sqrtss", 2, "=x"},		\
+  { "stmxcsr", 1, "m"},		\
+  { "stos", 1, "=m"},		\
+  { "str", 1, "=qm"},		\
+  { "sub", 1, "iqm"},		\
+  { "sub", 2, "=qm"},		\
+  { "subpd", 1, "xm"},		\
+  { "subpd", 2, "+x"},		\
+  { "subps", 1, "xm"},		\
+  { "subps", 2, "+x"},		\
+  { "subsd", 1, "xm"},		\
+  { "subsd", 2, "+x"},		\
+  { "subss", 1, "xm"},		\
+  { "subss", 2, "+x"},		\
+  { "test", 1, "iq"},		\
+  { "test", 2, "+qm"},		\
+  { "ucomisd", 1, "xm"},	\
+  { "ucomisd", 2, "+x"},	\
+  { "ucomiss", 1, "xm"},	\
+  { "ucomiss", 2, "+x"},	\
+  { "unpckhpd", 1, "xm"},	\
+  { "unpckhpd", 2, "+x"},	\
+  { "unpckhps", 1, "xm"},	\
+  { "unpckhps", 2, "+x"},	\
+  { "unpcklpd", 1, "xm"},	\
+  { "unpcklpd", 2, "+x"},	\
+  { "unpcklps", 1, "xm"},	\
+  { "unpcklps", 2, "+x"},	\
+  { "verr", 1, "qm"},		\
+  { "verw", 1, "qm"},		\
+  { "xadd", 1, "q"},		\
+  { "xadd", 2, "+qm"},		\
+  { "xchg", 1, "&qm"},		\
+  { "xchg", 2, "+qm"},		\
+  { "xlat", 1, "m"},		\
+  { "xor", 1, "qim"},		\
+  { "xor", 2, "+qm"},		\
+  { "xorpd", 1, "xm"},		\
+  { "xorpd", 2, "+x"},		\
+  { "xorps", 1, "xm"},		\
+  { "xorps", 2, "+x"},
+
 /* APPLE LOCAL end CW asm blocks */
 
 /*
