@@ -1,3 +1,16 @@
+2005-08-31  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (AVG_LOOP_NITER): Use
+	expected_loop_iterations.
+	(BEFORE_LOOP_COST): New macro.
+	(extract_cond_operands): New function.
+	(find_interesting_uses_cond, rewrite_use_compare): Use
+	extract_cond_operands.
+	(get_address_cost): Do not limit offset to at most 20 bits.
+	(determine_use_iv_cost_condition): Use extract_cond_operands.
+	Choose better from keeping original iv and iv elimination.
+	(determine_use_iv_cost_outer, determine_iv_cost): Use BEFORE_LOOP_COST.
+
 2005-08-30  Zdenek Dvorak  <dvorakz@suse.cz>
 	    Steven Bosscher  <stevenb@suse.de>
 
@@ -35,7 +48,6 @@
 	(iv_number_of_iterations): Use new interface to iv analysis.
 	* loop-unroll.c (analyze_iv_to_split_insn): Ditto.
 	* loop-unswitch.c (may_unswitch_on): Ditto.
-
 
 2005-08-30  Zdenek Dvorak  <dvorakz@suse.cz>
 
