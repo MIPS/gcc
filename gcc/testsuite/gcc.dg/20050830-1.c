@@ -1,3 +1,4 @@
+/* APPLE LOCAL file 4212458 */
 /* Make sure the doloop optimization is done for this loop. */
 /* { dg-do compile { target powerpc-*-* } } */
 /* { dg-options "-O2" } */

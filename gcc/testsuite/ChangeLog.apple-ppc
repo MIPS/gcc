@@ -1,3 +1,8 @@
+2005-08-31  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4212458
+	* gcc.dg/20050830-1.c:  New.
+
 2005-08-31  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4231773
