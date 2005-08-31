@@ -106,14 +106,6 @@ a register with any other reload.  */
 #include "toplev.h"
 #include "params.h"
 
-#ifndef REGNO_MODE_OK_FOR_BASE_P
-#define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
-#endif
-
-#ifndef REG_MODE_OK_FOR_BASE_P
-#define REG_MODE_OK_FOR_BASE_P(REGNO, MODE) REG_OK_FOR_BASE_P (REGNO)
-#endif
-
 /* All reloads of the current insn are recorded here.  See reload.h for
    comments.  */
 int n_reloads;
@@ -5233,7 +5225,8 @@ update_auto_inc_notes (rtx insn ATTRIBUTE_UNUSED, int regno ATTRIBUTE_UNUSED,
    is strictly valid.)
 
    CONTEXT = 1 means we are considering regs as index regs,
-   = 0 means we are considering them as base regs.
+   = 0 means we are considering them as base regs, = 2 means we
+   are considering them as base regs for REG + REG.
 
    OPNUM and TYPE specify the purpose of any reloads made.
 
@@ -5256,6 +5249,22 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 			rtx *loc, int opnum, enum reload_type type,
 			int ind_levels, rtx insn)
 {
+#define REG_OK_FOR_CONTEXT(CONTEXT, REGNO, MODE)		\
+  ((CONTEXT) == 2					\
+   ? REGNO_MODE_OK_FOR_REG_BASE_P (REGNO, MODE)		\
+   : (CONTEXT) == 1					\
+   ? REGNO_OK_FOR_INDEX_P (REGNO)			\
+   : REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE))
+
+  enum reg_class context_reg_class;
+
+  if (context == 2)
+    context_reg_class = MODE_BASE_REG_REG_CLASS (mode);
+  else if (context == 1)
+    context_reg_class = INDEX_REG_CLASS;
+  else
+    context_reg_class = MODE_BASE_REG_CLASS (mode);
+
   RTX_CODE code = GET_CODE (x);
 
   switch (code)
@@ -5300,12 +5309,12 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	   register remateralization for expression like &localvar*4.  Reload it.
 	   It may be possible to combine the displacement on the outer level,
 	   but it is probably not worthwhile to do so.  */
-	if (context)
+	if (context == 1)
 	  {
 	    find_reloads_address (GET_MODE (x), loc, XEXP (x, 0), &XEXP (x, 0),
 				  opnum, ADDR_TYPE (type), ind_levels, insn);
 	    push_reload (*loc, NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5341,22 +5350,22 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	else if (code0 == REG && code1 == REG)
 	  {
 	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_BASE_P (op1, mode))
+		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      return 0;
 	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_BASE_P (op0, mode))
+		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      return 0;
-	    else if (REG_MODE_OK_FOR_BASE_P (op1, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      find_reloads_address_1 (mode, orig_op0, 1, &XEXP (x, 0), opnum,
 				      type, ind_levels, insn);
-	    else if (REG_MODE_OK_FOR_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      find_reloads_address_1 (mode, orig_op1, 1, &XEXP (x, 1), opnum,
 				      type, ind_levels, insn);
 	    else if (REG_OK_FOR_INDEX_P (op1))
-	      find_reloads_address_1 (mode, orig_op0, 0, &XEXP (x, 0), opnum,
+	      find_reloads_address_1 (mode, orig_op0, 2, &XEXP (x, 0), opnum,
 				      type, ind_levels, insn);
 	    else if (REG_OK_FOR_INDEX_P (op0))
-	      find_reloads_address_1 (mode, orig_op1, 0, &XEXP (x, 1), opnum,
+	      find_reloads_address_1 (mode, orig_op1, 2, &XEXP (x, 1), opnum,
 				      type, ind_levels, insn);
 	    else
 	      {
@@ -5525,9 +5534,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 
 	  if (reg_renumber[regno] >= 0)
 	    regno = reg_renumber[regno];
-	  if ((regno >= FIRST_PSEUDO_REGISTER
-	       || !(context ? REGNO_OK_FOR_INDEX_P (regno)
-		    : REGNO_MODE_OK_FOR_BASE_P (regno, mode))))
+	  if (regno >= FIRST_PSEUDO_REGISTER
+	      || !REG_OK_FOR_CONTEXT (context, regno, mode))
 	    {
 	      int reloadnum;
 
@@ -5563,8 +5571,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		  x = XEXP (x, 0);
 		  reloadnum
 		    = push_reload (x, x, loc, loc,
-				   (context ? INDEX_REG_CLASS :
-				    MODE_BASE_REG_CLASS (mode)),
+				   context_reg_class,
 				   GET_MODE (x), GET_MODE (x), 0, 0,
 				   opnum, RELOAD_OTHER);
 		}
@@ -5572,8 +5579,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		{
 		  reloadnum
 		    = push_reload (x, NULL_RTX, loc, (rtx*) 0,
-				   (context ? INDEX_REG_CLASS :
-				    MODE_BASE_REG_CLASS (mode)),
+				   context_reg_class,
 				   GET_MODE (x), GET_MODE (x), 0, 0,
 				   opnum, type);
 		  rld[reloadnum].inc
@@ -5613,8 +5619,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 				opnum, type, ind_levels, insn);
 
 	  reloadnum = push_reload (x, NULL_RTX, loc, (rtx*) 0,
-				   (context ? INDEX_REG_CLASS :
-				    MODE_BASE_REG_CLASS (mode)),
+				   context_reg_class,
 				   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	  rld[reloadnum].inc
 	    = find_inc_amount (PATTERN (this_insn), XEXP (x, 0));
@@ -5643,7 +5648,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
       find_reloads_address (GET_MODE (x), loc, XEXP (x, 0), &XEXP (x, 0),
 			    opnum, ADDR_TYPE (type), ind_levels, insn);
       push_reload (*loc, NULL_RTX, loc, (rtx*) 0,
-		   (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+		   context_reg_class,
 		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
       return 1;
 
@@ -5654,8 +5659,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (reg_equiv_constant[regno] != 0)
 	  {
 	    find_reloads_address_part (reg_equiv_constant[regno], loc,
-				       (context ? INDEX_REG_CLASS :
-					MODE_BASE_REG_CLASS (mode)),
+				       context_reg_class,
 				       GET_MODE (x), opnum, type, ind_levels);
 	    return 1;
 	  }
@@ -5665,8 +5669,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (reg_equiv_mem[regno] != 0)
 	  {
 	    push_reload (reg_equiv_mem[regno], NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS :
-			  MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5689,12 +5692,11 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (reg_renumber[regno] >= 0)
 	  regno = reg_renumber[regno];
 
-	if ((regno >= FIRST_PSEUDO_REGISTER
-	     || !(context ? REGNO_OK_FOR_INDEX_P (regno)
-		  : REGNO_MODE_OK_FOR_BASE_P (regno, mode))))
+	if (regno >= FIRST_PSEUDO_REGISTER
+	    || !REG_OK_FOR_CONTEXT (context, regno, mode))
 	  {
 	    push_reload (x, NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5706,7 +5708,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (regno_clobbered_p (regno, this_insn, GET_MODE (x), 0))
 	  {
 	    push_reload (x, NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5723,12 +5725,10 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	    {
 	      int regno ATTRIBUTE_UNUSED = subreg_regno (x);
 
-	      if (! (context ? REGNO_OK_FOR_INDEX_P (regno)
-		     : REGNO_MODE_OK_FOR_BASE_P (regno, mode)))
+	      if (! REG_OK_FOR_CONTEXT (context, regno, mode))
 		{
 		  push_reload (x, NULL_RTX, loc, (rtx*) 0,
-			       (context ? INDEX_REG_CLASS :
-				MODE_BASE_REG_CLASS (mode)),
+			       context_reg_class,
 			       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 		  return 1;
 		}
@@ -5737,8 +5737,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	     is larger than the class size, then reload the whole SUBREG.  */
 	  else
 	    {
-	      enum reg_class class = (context ? INDEX_REG_CLASS
-				      : MODE_BASE_REG_CLASS (mode));
+	      enum reg_class class = context_reg_class;
 	      if ((unsigned) CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
 		  > reg_class_size[class])
 		{
@@ -5768,6 +5767,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
       }
   }
 
+#undef REG_OK_FOR_CONTEXT
   return 0;
 }
 
