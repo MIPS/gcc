@@ -2602,14 +2602,14 @@ struct machine_function GTY(())
   { "addsubps", 2, "+x"},	\
   { "and", 1, "i,i,i,r,m"},	\
   { "and", 2, "+r,m,m,m,r"},	\
-  { "andpd", 1, "m"},		\
-  { "andpd", 2, "+x"},		\
-  { "andps", 1, "m"},		\
-  { "andps", 2, "+x"},		\
   { "andnpd", 1, "m"},		\
   { "andnpd", 2, "+x"},		\
   { "andnps", 1, "m"},		\
   { "andnps", 2, "+x"},		\
+  { "andpd", 1, "m"},		\
+  { "andpd", 2, "+x"},		\
+  { "andps", 1, "m"},		\
+  { "andps", 2, "+x"},		\
   { "arpl", 2, "+m"},		\
   { "bound", 1, "m"},		\
   { "bsf", 1, "m"},		\
@@ -2702,10 +2702,10 @@ struct machine_function GTY(())
   { "cvtss2sd", 2, "=x"},	\
   { "cvtss2si", 1, "m"},	\
   { "cvtss2si", 2, "=x"},	\
-  { "cvttpd2pi", 1, "m"},	\
-  { "cvttpd2pi", 2, "=y"},	\
   { "cvttpd2dq", 1, "m"},	\
   { "cvttpd2dq", 2, "=x"},	\
+  { "cvttpd2pi", 1, "m"},	\
+  { "cvttpd2pi", 2, "=y"},	\
   { "cvttps2dq", 1, "m"},	\
   { "cvttps2dq", 2, "=x"},	\
   { "cvttps2pi", 1, "m"},	\
@@ -2732,26 +2732,26 @@ struct machine_function GTY(())
   { "fbstp", 1, "m"},		\
   { "fcmovb", 1, "f"},		\
   { "fcmovb", 2, "=t"},		\
-  { "fcmove", 1, "f"},		\
-  { "fcmove", 2, "=t"},		\
   { "fcmovbe", 1, "f"},		\
   { "fcmovbe", 2, "=t"},       	\
-  { "fcmovu", 1, "f"},		\
-  { "fcmovu", 2, "=t"},		\
+  { "fcmove", 1, "f"},		\
+  { "fcmove", 2, "=t"},		\
   { "fcmovnb", 1, "f"},		\
   { "fcmovnb", 2, "=t"},       	\
-  { "fcmovne", 1, "f"},		\
-  { "fcmovne", 2, "=t"},       	\
   { "fcmovnbe", 1, "f"},	\
   { "fcmovnbe", 2, "=t"},	\
+  { "fcmovne", 1, "f"},		\
+  { "fcmovne", 2, "=t"},       	\
   { "fcmovnu", 1, "f"},		\
   { "fcmovnu", 2, "=t"},       	\
+  { "fcmovu", 1, "f"},		\
+  { "fcmovu", 2, "=t"},		\
   { "fcom", 1, "f,m"},		\
-  { "fcomp", 1, "f,m"},		\
   { "fcomi", 1, "f"},		\
   { "fcomi", 2, "t"},		\
   { "fcomip", 1, "f"},		\
   { "fcomip", 2, "t"},		\
+  { "fcomp", 1, "f,m"},		\
   { "fdiv", 1, "f,t,m"},       	\
   { "fdiv", 2, "+t,f"},		\
   { "fdivp", 1, "t"},		\
@@ -2772,18 +2772,18 @@ struct machine_function GTY(())
   { "fildl", 1, "m"},		\
   { "fildll", 1, "m"},		\
   { "fimul", 1, "G"},		\
-  { "fisub", 1, "m"},		\
-  { "fisubr", 1, "m"},		\
   { "fist", 1, "=m"},		\
   { "fistp", 1, "=m"},		\
   { "fistpll", 1, "=m"},       	\
   { "fisttp", 1, "=m"},		\
   { "fisttpll", 1, "=m"},	\
-  { "fld", 1, "m"},		\
-  { "fldt", 1, "m"},		\
+  { "fisub", 1, "m"},		\
+  { "fisubr", 1, "m"},		\
   { "fld", 1, "f"},		\
+  { "fld", 1, "m"},		\
   { "fldcw", 1, "L"},		\
   { "fldenv", 1, "i"},		\
+  { "fldt", 1, "m"},		\
   { "fmul", 1, "G,t,f"},       	\
   { "fmul", 2, "=f,t"},		\
   { "fmulp", 1, "t"},		\
@@ -2837,8 +2837,8 @@ struct machine_function GTY(())
   { "jbe", 1, "i"},		\
   { "jc", 1, "i"},		\
   { "jcxz", 1, "i"},		\
-  { "jecxz", 1, "i"},		\
   { "je", 1, "i"},		\
+  { "jecxz", 1, "i"},		\
   { "jg", 1, "i"},		\
   { "jge", 1, "i"},		\
   { "jl", 1, "i"},		\
@@ -2916,12 +2916,12 @@ struct machine_function GTY(())
   { "movd", 2, "=xm,=x,=y"},	\
   { "movddup", 1, "xm"},	\
   { "movddup", 2, "=x"},	\
+  { "movdq2q", 1, "x"},		\
+  { "movdq2q", 2, "=y"},	\
   { "movdqa", 1, "xm"},		\
   { "movdqa", 2, "=x"},		\
   { "movdqu", 1, "xm"},		\
   { "movdqu", 2, "=x"},		\
-  { "movdq2q", 1, "x"},		\
-  { "movdq2q", 2, "=y"},	\
   { "movhlps", 1, "x"},		\
   { "movhlps", 2, "=x"},	\
   { "movhpd", 1, "xm"},		\
@@ -2948,10 +2948,6 @@ struct machine_function GTY(())
   { "movntps", 2, "=m"},	\
   { "movntq", 1, "y"},		\
   { "movntq", 2, "=m"},		\
-  { "movshdup", 1, "xm"},	\
-  { "movshdup", 2, "=x"},	\
-  { "movsldup", 1, "xm"},	\
-  { "movsldup", 2, "=x"},	\
   { "movq", 1, "xmy"},		\
   { "movq", 2, "=xmy"},		\
   { "movq2dq", 1, "y"},		\
@@ -2960,6 +2956,10 @@ struct machine_function GTY(())
   { "movs", 2, "=m"},		\
   { "movsd", 1, "xm"},		\
   { "movsd", 2, "=xm"},		\
+  { "movshdup", 1, "xm"},	\
+  { "movshdup", 2, "=x"},	\
+  { "movsldup", 1, "xm"},	\
+  { "movsldup", 2, "=x"},	\
   { "movss", 1, "xm"},		\
   { "movss", 2, "=xm"},		\
   { "movsx", 1, "rm"},		\
@@ -3082,12 +3082,12 @@ struct machine_function GTY(())
   { "pshufw", 3, "=y"},		\
   { "pslld", 1, "yxmi"},       	\
   { "pslld", 2, "+xy"},		\
+  { "pslldq", 1, "i"},		\
+  { "pslldq", 2, "+x"},		\
   { "psllq", 1, "yxmi"},       	\
   { "psllq", 2, "+xy"},		\
   { "psllw", 1, "yxmi"},      	\
   { "psllw", 2, "+xy"},		\
-  { "pslldq", 1, "i"},		\
-  { "pslldq", 2, "+x"},		\
   { "psrad", 1, "yxmi"},       	\
   { "psrad", 2, "+xy"},		\
   { "psraw", 1, "yxmi"},       	\
@@ -3108,12 +3108,12 @@ struct machine_function GTY(())
   { "psubq", 2, "+yx"},		\
   { "psubsb", 1, "yxm"},       	\
   { "psubsb", 2, "+yx"},       	\
+  { "psubsw", 1, "yxm"},       	\
+  { "psubsw", 2, "+yx"},       	\
   { "psubusb", 1, "yxm"},	\
   { "psubusb", 2, "+yx"},	\
   { "psubusw", 1, "yxm"},	\
   { "psubusw", 2, "+yx"},	\
-  { "psubsw", 1, "yxm"},       	\
-  { "psubsw", 2, "+yx"},       	\
   { "psubw", 1, "yxm"},		\
   { "psubw", 2, "+yx"},		\
   { "punpckhbw", 1, "yxm"},	\
@@ -3156,10 +3156,6 @@ struct machine_function GTY(())
   { "sal", 2, "+q"},		\
   { "sar", 1, "i"},		\
   { "sar", 2, "+q"},		\
-  { "shl", 1, "i"},		\
-  { "shl", 2, "+q"},		\
-  { "shr", 1, "i"},		\
-  { "shr", 2, "+q"},		\
   { "sbb", 1, "iqm"},		\
   { "sbb", 2, "+qm"},		\
   { "scas", 1, "m"},		\
@@ -3194,9 +3190,13 @@ struct machine_function GTY(())
   { "sets", 1, "=qm"},		\
   { "setz", 1, "=qm"},		\
   { "sgdt", 1, "=m"},		\
+  { "shl", 1, "i"},		\
+  { "shl", 2, "+q"},		\
   { "shld", 1, "i"},		\
   { "shld", 2, "r"},		\
   { "shld", 3, "+rm"},		\
+  { "shr", 1, "i"},		\
+  { "shr", 2, "+q"},		\
   { "shrd", 1, "i"},		\
   { "shrd", 2, "r"},		\
   { "shrd", 3, "+rm"},		\
