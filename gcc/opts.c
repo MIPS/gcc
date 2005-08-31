@@ -605,6 +605,8 @@ void
 decode_options (unsigned int argc, const char **argv)
 {
   unsigned int i, lang_mask;
+  /* APPLE LOCAL 4231773 */
+  unsigned int optimize_size_z = 0;
 
   /* Perform language-specific options initialization.  */
   lang_mask = lang_hooks.init_options (argc, argv);
@@ -629,9 +631,12 @@ decode_options (unsigned int argc, const char **argv)
 	  /* Handle -Os, -O2, -O3, -O69, ...  */
 	  const char *p = &argv[i][2];
 
-	  if ((p[0] == 's') && (p[1] == 0))
+	  /* APPLE LOCAL begin 4231773 */
+	  if ((p[0] == 's' || p[0] == 'z') && (p[1] == 0))
 	    {
 	      optimize_size = 1;
+	      optimize_size_z = (p[0] == 'z');
+	      /* APPLE LOCAL end 4231773 */
 
 	      /* Optimizing for size forces optimize to be 2.  */
 	      optimize = 2;
@@ -761,8 +766,10 @@ decode_options (unsigned int argc, const char **argv)
   if (optimize >= 2 && flag_tree_vectorize)
     flag_strict_aliasing = 1;
   /* APPLE LOCAL end AV 3846092 */
-  /* APPLE LOCAL 4224227 */
-  optimize_size = 0;
+  /* APPLE LOCAL begin 4224227, 4231773 */
+  if (!optimize_size_z)
+    optimize_size = 0;
+  /* APPLE LOCAL end 4224227, 4231773 */
 }
 
 /* Handle target- and language-independent options.  Return zero to

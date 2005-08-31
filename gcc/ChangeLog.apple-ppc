@@ -1,3 +1,8 @@
+2005-08-31  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4231773
+	* opts.c (decode_options): Add -Oz.
+
 2005-08-30  Eric Christopher  <echristo@apple.com>
 
 	Radar 4223128

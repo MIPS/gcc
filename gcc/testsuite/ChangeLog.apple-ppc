@@ -1,3 +1,8 @@
+2005-08-31  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4231773
+	* gcc.apple/opt-size-1.c, gcc.apple/opt-size-2.c: New.
+
 2005-08-30  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4235138
