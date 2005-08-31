@@ -1,3 +1,8 @@
+2005-08-31  Mike Stump  <mrs@apple.com>
+
+        Radar 4239455
+        * i386/i386.h (TARGET_CW_OP_CONSTRAINT): Sort.
+
 2005-08-31  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4212458
