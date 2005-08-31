@@ -11,3 +11,4 @@
 ###
 ###------------------------------------------------------------------
 4178746: obj-c++.dg/debug-1.mm scan-assembler B:Tt\\(0,45\\)=s16!1,10-96
+4239991: obj-c++.dg/gnu-runtime-3.mm (test for excess errors)
