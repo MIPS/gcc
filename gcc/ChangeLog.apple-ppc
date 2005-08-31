@@ -1,3 +1,9 @@
+2005-08-31  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4212458
+	* loop-iv.c (iv_number_of_iterations):  Fix overflow check for
+	loops that count down.
+
 2005-08-31  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4231773
