@@ -481,16 +481,20 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
   switch (code)
     {
     case PLUS_EXPR:
-      return decimal_do_add (r, op0, op1, 0);
+      (void) decimal_do_add (r, op0, op1, 0);
+      break;
 
     case MINUS_EXPR:
-      return decimal_do_add (r, op0, op1, 1);
+      (void) decimal_do_add (r, op0, op1, 1);
+      break;
 
     case MULT_EXPR:
-      return decimal_do_multiply (r, op0, op1);
+      (void) decimal_do_multiply (r, op0, op1);
+      break;
 
     case RDIV_EXPR:
-      return decimal_do_divide (r, op0, op1);
+      (void) decimal_do_divide (r, op0, op1);
+      break;
 
     case MIN_EXPR:
       if (op1->cl == rvc_nan)
@@ -537,7 +541,10 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
     default:
       gcc_unreachable ();
     }
-  return false;
+
+  /* FIXME: All operations are inexact for now due to unknown working
+     precision.  */
+  return true;
 }
 
 /* Fills R with the largest finite value representable in mode MODE.
