@@ -1,3 +1,9 @@
+2005-08-31  Fariborz Jahanian <fjahanian@apple.com>
+
+        * expr.c (expand_expr_real_1): Compare size of address 
+        mode to target's address mode size in deciding expansion of 
+        the constant address.
+
 2005-07-19  Richard Henderson  <rth@redhat.com>
 
 	PR tree-opt/22278
