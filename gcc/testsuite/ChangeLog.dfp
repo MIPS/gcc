@@ -1,3 +1,10 @@
+2005-08-31  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp (c-rounding-mode): Improve message.
+	(c-unary-expression): XFAIL tests that require library support.
+	(c-decimal-type): Handle a wider range in working precision.
+	(make-c-test): Call __dfp_set_working_prec accordingly.
+
 2005-08-30  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* gcc.dg/dfp/complex-conversion.c: Remove.

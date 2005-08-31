@@ -62,7 +62,6 @@ set libfuncs(normalize) unknown
 set libfuncs(tointegral) unknown
 set libfuncs(trim) unknown
 
-
 # Run all of the tests listed in TESTCASES by invoking df-run-test on
 # each.  Skip tests that not included by the user invoking runtest
 # with the foo.exp=test.c syntax.
@@ -111,7 +110,7 @@ proc c-rounding-mode { mode } {
 	"down"		{ return 3 } # FE_DEC_TOWARDZERO
 	"ceiling"	{ return 4 } # FE_DEC_UPWARD
     }
-    error "unsupported rounding mode"
+    error "unsupported rounding mode ($mode)"
 }
 
 # Return a string of C code that forms the preamble to perform the
@@ -143,7 +142,11 @@ proc c-unary-expression {operation op} {
     if [catch {set result "$operators($operation) $op"}] {
 	# If operation isn't in the operators or libfuncs arrays,
 	# we'll throw an error.  That's what we want.
+	# FIXME: append d32, etc. here.
 	set result "$libfuncs($operation) ($op)"
+
+	# XFAIL all library tests for now (no support!)
+	setup_xfail "*-*-*"
     }
     return $result
 }
@@ -168,11 +171,11 @@ proc c-decimal-type { } {
     if [catch {set precision $directives(precision)}] {
 	set precision "_Decimal128"
     }  
-    if { $precision == 7 } {
+    if { $precision <= 7 } {
 	set result "_Decimal32"
-    } elseif {$precision == 16} {
+    } elseif {$precision <= 16} {
 	set result "_Decimal64"
-    } elseif {$precision == 34} {
+    } elseif {$precision <= 34} {
 	set result "_Decimal128"
     } else {
 	error "Unsupported precision"
@@ -236,6 +239,8 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     puts $outfd ""
     puts $outfd "  /*  FIXME: Set rounding mode with fesetround() once in libc.  */"
     puts $outfd "  __dfp_set_round ([c-rounding-mode $directives(rounding)]);"
+    puts $outfd "  /* Set the working precision.  */"
+    puts $outfd "  __dfp_set_working_prec ($directives(precision));"
     puts $outfd ""
     if {[string compare $op2 NONE] == 0} {
 	if {[string index $op1 0] == "\#"} {
