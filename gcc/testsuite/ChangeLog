@@ -1,8 +1,80 @@
+2005-08-31  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/13377
+	* g++.dg/lookup/ambig4.C: New test.
+	* g++.dg/lookup/ambig5.C: New test.
+	* g++.dg/tc1/dr101.C: Adjust error markers.
+
+2005-08-31  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23639
+	* g++.dg/template/ttp5.C: Adjust error markers.
+
+2005-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/20348
+	PR preprocessor/20356
+	* gcc.dg/cpp/pr20348.c: New test.
+	* gcc.dg/cpp/pr20348.h: New file.
+	* gcc.dg/cpp/inc/pr20348.h: New file.
+	* gcc.dg/cpp/inc/pr20348-aux.h: New file.
+	* gcc.dg/cpp/pr20356.c: New test.
+	* gcc.dg/cpp/pr20356.h: New file.
+	* gcc.dg/cpp/inc/pr20356.h: New file.
+	* gcc.dg/cpp/inc/pr20356-aux.h: New file.
+
+2005-08-29  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* gfortran.fortran-torture/execute/intrinsic_count.f90:
+	Fix array dimension to avoid correct end-of-file error. 
+
+2005-08-29  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23598
+	* gfortran.dg/iostat_1.f90:  New test.
+
 2005-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/23484
 	* gcc.c-torture/execute/builtins/pr23484-chk.c: New test.
 	* gcc.c-torture/execute/builtins/pr23484-chk-lib.c: New file.
+
+2005-08-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23099
+	* g++.dg/init/member1.C: Make sure erroneous static data member
+	definitions are required.
+	* g++.dg/template/static13.C: New test.
+	* g++.dg/template/static14.C: Likewise.
+
+2005-08-29  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/23607
+	* gcc.target/i386/pr23575.c: Modify to work on x86_64.
+
+2005-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20050316-2.c: New test.
+	* gcc.c-torture/execute/20050316-3.c: New test.
+	* gcc.dg/torture/pr16104-1.c: New test.
+
+2005-08-27  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/20030711-1.c:  Modify to work on Darwin.
+	* gcc.dg/20050826-1.c:  New.
+
+2005-08-27  Richard Guenther  <rguenther@suse.de>
+
+	PR target/23575
+	* gcc.target/i386/pr23575.c: New testcase.
+
+2005-08-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23561
+	* gcc.c-torture/execute/20050826-1.c: New test.
+
+	PR rtl-opt/23560
+	* gcc.c-torture/execute/20050826-2.c: New test.
 
 2005-08-26  Mark Mitchell  <mark@codesourcery.com>
 
