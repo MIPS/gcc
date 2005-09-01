@@ -2905,6 +2905,7 @@ extern int making_const_table;
   {"arm_rhs_operand",    {SUBREG, REG, CONST_INT}},			\
   {"arm_not_operand",    {SUBREG, REG, CONST_INT}},			\
   {"reg_or_int_operand", {SUBREG, REG, CONST_INT}},			\
+  {"low_reg_or_int_operand", {REG, CONST_INT}},				\
   {"index_operand",      {SUBREG, REG, CONST_INT}},			\
   {"thumb1_cmp_operand",  {SUBREG, REG, CONST_INT}},			\
   {"thumb1_cmpneg_operand", {CONST_INT}},				\

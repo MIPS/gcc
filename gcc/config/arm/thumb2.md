@@ -118,7 +118,7 @@
    (set_attr "length" "10,10,14")]
 )
 
-(define_insn "*thumv32_umaxsi3"
+(define_insn "*thumb32_umaxsi3"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r,r")
 	(umax:SI (match_operand:SI 1 "s_register_operand" "0,r,?r")
 		 (match_operand:SI 2 "arm_rhs_operand" "rI,0,rI")))
@@ -289,7 +289,7 @@
   [(set_attr "length" "6")]
 )
 
-;; Thumb-2 always has load/store halfword instructions, so we ca avoid a lot
+;; Thumb-2 always has load/store halfword instructions, so we can avoid a lot
 ;; of the messyness assocuated with the ARM patterns.
 (define_insn "*thumb2_movhi_insn"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,m,r")    
@@ -1003,3 +1003,97 @@
    (set_attr "length" "2")]
 )
 
+;; Similarly for 16-bit shift instructions
+(define_peephole2
+  [(set (match_operand:SI   0 "low_register_operand" "")
+	(match_operator:SI  3 "shift_operator"
+	 [(match_operand:SI 1 "low_register_operand" "")
+	  (match_operand:SI 2 "low_reg_or_int_operand" "")]))]
+  "TARGET_THUMB2
+   && peep2_regno_dead_p(0, CC_REGNUM)"
+  [(parallel
+    [(set (match_dup 0)
+	  (match_op_dup 3
+	   [(match_dup 1)
+	    (match_dup 2)]))
+     (clobber (reg:CC CC_REGNUM))])]
+  ""
+)
+
+(define_insn "*thumb2_shiftsi3_short"
+  [(set (match_operand:SI   0 "low_register_operand" "=l")
+	(match_operator:SI  3 "shift_operator"
+	 [(match_operand:SI 1 "low_register_operand"  "l")
+	  (match_operand:SI 2 "low_reg_or_int_operand" "lM")]))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_THUMB2 && reload_completed"
+  "%I3%!\\t%0, %1, %2"
+  [(set_attr "predicable" "yes")
+   (set_attr "shift" "1")
+   (set_attr "length" "2")
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
+)
+
+;; 16-bit load immediate
+(define_peephole2
+  [(set (match_operand:SI 0 "low_register_operand" "")
+	(match_operand:SI 1 "const_int_operand" ""))]
+  "TARGET_THUMB2
+   && peep2_regno_dead_p(0, CC_REGNUM)
+   && (unsigned HOST_WIDE_INT) INTVAL(operands[1]) < 256"
+  [(parallel
+    [(set (match_dup 0)
+	  (match_dup 1))
+     (clobber (reg:CC CC_REGNUM))])]
+  ""
+)
+
+(define_insn "*thumb2_movsi_shortim"
+  [(set (match_operand:SI 0 "low_register_operand" "=l")
+	(match_operand:SI 1 "const_int_operand" "I"))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_THUMB2 && reload_completed"
+  "mov%!\t%0, %1"
+  [(set_attr "predicable" "yes")
+   (set_attr "length" "2")]
+)
+
+;; 16-bit add/sub immediate
+(define_peephole2
+  [(set (match_operand:SI 0 "low_register_operand" "")
+	(plus:SI (match_operand:SI 1 "low_register_operand" "")
+		 (match_operand:SI 2 "const_int_operand" "")))]
+  "TARGET_THUMB2
+   && peep2_regno_dead_p(0, CC_REGNUM)
+   && ((rtx_equal_p(operands[0], operands[1])
+	&& INTVAL(operands[2]) > -256 && INTVAL(operands[2]) < 256)
+       || (INTVAL(operands[2]) > -8 && INTVAL(operands[2]) < 8))"
+  [(parallel
+    [(set (match_dup 0)
+	  (plus:SI (match_dup 1)
+		   (match_dup 2)))
+     (clobber (reg:CC CC_REGNUM))])]
+  ""
+)
+
+(define_insn "*thumb2_addsi_shortim"
+  [(set (match_operand:SI 0 "low_register_operand" "=l")
+	(plus:SI (match_operand:SI 1 "low_register_operand" "l")
+		 (match_operand:SI 2 "const_int_operand" "IL")))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_THUMB2 && reload_completed"
+  "*
+    HOST_WIDE_INT val;
+
+    val = INTVAL(operands[2]);
+    /* We prefer eg. subs rn, rn, #1 over adds rn, rn, #0xffffffff.  */
+    if (val < 0 && const_ok_for_arm(ARM_SIGN_EXTEND (-val)))
+      return \"sub%!\\t%0, %1, #%n2\";
+    else
+      return \"add%!\\t%0, %1, %2\";
+  "
+  [(set_attr "predicable" "yes")
+   (set_attr "length" "2")]
+)

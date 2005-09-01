@@ -1,5 +1,15 @@
 2005-09-01  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/arm.c (low_reg_or_int_operand): New function.
+	(thumb_16bit_operator): Don't allow shift operators.
+	* config/arm/arm.h (PREDICATE_CODES): Add low_reg_or_int_operand.
+	* config/arm/thumb2.md: Fix typos.
+	(thumb2_shiftsi3_short, thumb2_movsi_shortim,
+	thumb2_addsi_shortim): New patterns and define_peephole2 to generate
+	them.
+
+2005-09-01  Paul Brook  <paul@codesourcery.com>
+
 	Backport form mainline.
 	2004-01-05  Richard Earnshaw  <rearnsha@arm.com>
 	* arm/vfp.md (arm_movsi_vfp): Hide VFP register classes from register

@@ -5092,6 +5092,20 @@ reg_or_int_operand (rtx op, enum machine_mode mode)
 	      || REGNO_REG_CLASS (REGNO (op)) != NO_REGS));
 }
 
+/* Only accept a low register or const_int.  */
+int
+low_reg_or_int_operand (rtx op, enum machine_mode mode)
+{
+  if (GET_CODE (op) == CONST_INT)
+    return 1;
+
+  if (GET_MODE (op) != mode && mode != VOIDmode)
+    return 0;
+
+  return (GET_CODE (op) == REG
+	  && REGNO (op) <= LAST_LO_REGNUM);
+}
+
 /* Return 1 if OP is an item in memory, given that we are in reload.  */
 int
 arm_reload_memory_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -5809,6 +5823,7 @@ shift_operator (rtx x,enum machine_mode mode)
 }
 
 /* Return TRUE for operators that have 16-bit thumb variants.  */
+/* ??? This is the same a shiftable_operator.  */
 int
 thumb_16bit_operator (rtx x, enum machine_mode mode)
 {
@@ -5822,7 +5837,6 @@ thumb_16bit_operator (rtx x, enum machine_mode mode)
   switch (code)
     {
     case PLUS: case MINUS: case AND: case IOR: case XOR:
-    case ASHIFT: case ASHIFTRT: case LSHIFTRT: case ROTATERT:
       return 1;
 
     default:
