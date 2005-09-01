@@ -1,3 +1,10 @@
+2005-08-30  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4233894
+	pr 22348 (fsf mainline)
+	* gcc/tree-ssa-loop-niter.c (number_of_iterations_cond):
+	constant fold the delta.
+
 2005-08-31  Mike Stump  <mrs@apple.com>
 
         Radar 4239455
