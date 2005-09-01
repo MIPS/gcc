@@ -1,3 +1,10 @@
+2005-09-01  Paul Brook  <paul@codesourcery.com>
+
+	Backport form mainline.
+	2004-01-05  Richard Earnshaw  <rearnsha@arm.com>
+	* arm/vfp.md (arm_movsi_vfp): Hide VFP register classes from register
+	preferencing.
+
 2005-08-31  Paul Brook  <paul@codesourcery.com>
 
 	Backport from Mainline.
