@@ -27,3 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* This is the name of the null device on windows.  */
 #define HOST_BIT_BUCKET "nul"
+
+/* MSVCRT does not support the "ll" format specifier for printing
+   "long long" values.  Instead, we use "I64".  */
+#define HOST_LONG_LONG_FORMAT "I64"
