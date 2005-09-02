@@ -52,36 +52,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 */
 
-/* Returns true if ARG is either NULL_TREE or constant zero.  Unlike
-   integer_zerop, it does not care about overflow flags.  */
-
-bool
-zero_p (tree arg)
-{
-  if (!arg)
-    return true;
-
-  if (TREE_CODE (arg) != INTEGER_CST)
-    return false;
-
-  return (TREE_INT_CST_LOW (arg) == 0 && TREE_INT_CST_HIGH (arg) == 0);
-}
-
-/* Returns true if ARG a nonzero constant.  Unlike integer_nonzerop, it does
-   not care about overflow flags.  */
-
-static bool
-nonzero_p (tree arg)
-{
-  if (!arg)
-    return false;
-
-  if (TREE_CODE (arg) != INTEGER_CST)
-    return false;
-
-  return (TREE_INT_CST_LOW (arg) != 0 || TREE_INT_CST_HIGH (arg) != 0);
-}
-
 /* Returns inverse of X modulo 2^s, where MASK = 2^s-1.  */
 
 static tree

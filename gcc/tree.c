@@ -1145,6 +1145,36 @@ integer_zerop (tree expr)
 	      && integer_zerop (TREE_IMAGPART (expr))));
 }
 
+/* Returns true if ARG is either NULL_TREE or constant zero.  Unlike
+   integer_zerop, it does not care about overflow flags.  */
+
+bool
+zero_p (tree arg)
+{
+  if (!arg)
+    return true;
+
+  if (TREE_CODE (arg) != INTEGER_CST)
+    return false;
+
+  return (TREE_INT_CST_LOW (arg) == 0 && TREE_INT_CST_HIGH (arg) == 0);
+}
+
+/* Returns true if ARG a nonzero constant.  Unlike integer_nonzerop, it does
+   not care about overflow flags.  */
+
+bool
+nonzero_p (tree arg)
+{
+  if (!arg)
+    return false;
+
+  if (TREE_CODE (arg) != INTEGER_CST)
+    return false;
+
+  return (TREE_INT_CST_LOW (arg) != 0 || TREE_INT_CST_HIGH (arg) != 0);
+}
+
 /* Return 1 if EXPR is the integer constant one or the corresponding
    complex constant.  */
 
@@ -6674,6 +6704,9 @@ unsigned_type_for (tree type)
 tree
 signed_type_for (tree type)
 {
+  if (POINTER_TYPE_P (type))
+    return lang_hooks.types.type_for_size (TYPE_PRECISION (type), 0);
+
   return lang_hooks.types.signed_type (type);
 }
 

@@ -21,13 +21,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* This pass detects the loops that iterate a constant number of times,
    adds a canonical induction variable (step -1, tested against 0) 
    and replaces the exit test.  This enables the less powerful rtl
-   level analysis to use this information.
+   level analysis to use this information.  Also, this iv may happen
+   to be a good choice for the exit test, especially if comparison with
+   non-zero is expensive.
 
-   This might spoil the code in some cases (by increasing register pressure).
-   Note that in the case the new variable is not needed, ivopts will get rid
-   of it, so it might only be a problem when there are no other linear induction
-   variables.  In that case the created optimization possibilities are likely
-   to pay up.
+   This optimization might spoil the code in some cases (by increasing register
+   pressure, and introducing overheades for extra iv).  Note that in the case
+   the new variable is not needed, ivopts will get rid of it, so it might only
+   be a problem when there are no other linear induction variables.  In that
+   case the created optimization possibilities (possibility to unroll the loop
+   and to use decrease-and-branch instruction as loop exit) are likely to
+   pay up.
 
    Additionally in case we detect that it is beneficial to unroll the
    loop completely, we do it right here to expose the optimization

@@ -1,3 +1,35 @@
+2005-09-02  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* Makefile.in (tree-ssa-loop-endcond.o): Add.
+	* tree-flow.h (select_condition_shape): Declare.
+	* tree-ssa-loop-endcond.c: New file.
+	* tree-ssa-loop-ivcanon.c: Extend comments.
+	* tree-ssa-loop-ivopts.c (struct cost_pair): Add cmp field.
+	(add_iv_value_candidates): Add all_important argument.  For decreasing
+	ivs, add iv with final value zero.
+	(add_old_iv_candidates): Use add_iv_value_candidates.
+	(add_derived_ivs_candidates): Add argument to add_iv_value_candidates.
+	(set_use_iv_cost): Add cmp argument.
+	(set_use_iv_cost_infinity, set_use_iv_cost_zero,
+	set_use_iv_cost_generic, set_use_iv_cost_outer,
+	set_use_iv_cost_compare): New functions.
+	(determine_use_iv_cost_generic, determine_use_iv_cost_address,
+	determine_use_iv_cost_outer): Use them.
+	(cand_value_at, iv_elimination_compare): Removed.
+	(iv_period): Moved to tree-ssa-loop-endcond.c.
+	(may_eliminate_iv): Use select_condition_shape.
+	(compare_cost): New function.
+	(determine_use_iv_cost_condition): Use set_use_iv_cost_compare and
+	compare_cost.
+	(determine_use_iv_costs): Dump value and cmp fields of cost pair.
+	(try_replacing_cands, minor_adjustments): New functions.
+	(find_optimal_iv_set): Call minor_adjustments.
+	(rewrite_use_compare): Use cmp field of cost pair.
+	* tree-ssa-loop-niter.c (zero_p, nonzero_p): Moved to ...
+	* tree.c (zero_p, nonzero_p): ... here.
+	(signed_type_for): Generate a signed integer type for pointers.
+	* tree.h (nonzero_p): Declare.
+
 2005-08-31  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* tree-ssa-loop-ivopts.c (AVG_LOOP_NITER): Use

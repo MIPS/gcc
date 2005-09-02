@@ -752,6 +752,7 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
 edge single_dom_exit (struct loop *);
+bool select_condition_shape (tree, tree, tree, bool, enum tree_code *, tree *);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
