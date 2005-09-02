@@ -728,7 +728,8 @@ tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
-bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *);
+bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *,
+			    bool *);
 tree convert_step (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
@@ -738,6 +739,8 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void split_loop_exit_edge (edge);
+void compute_phi_arg_on_exit (edge, tree, tree);
+unsigned force_expr_to_var_cost (tree);
 basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);

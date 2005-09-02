@@ -2170,6 +2170,7 @@ may_trap_p (rtx x)
 
     case NEG:
     case ABS:
+    case SUBREG:
       /* These operations don't trap even with floating point.  */
       break;
 

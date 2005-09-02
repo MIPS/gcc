@@ -1,5 +1,9 @@
 2005-09-02  Zdenek Dvorak  <dvorakz@suse.cz>
 
+	Merge from mainline (killloop-merge-20050902).
+
+2005-09-02  Zdenek Dvorak  <dvorakz@suse.cz>
+
 	* Makefile.in (tree-ssa-loop-endcond.o): Add.
 	* tree-flow.h (select_condition_shape): Declare.
 	* tree-ssa-loop-endcond.c: New file.

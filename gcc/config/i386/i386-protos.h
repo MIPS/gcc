@@ -259,9 +259,14 @@ struct ix86_address
 
 extern int ix86_decompose_address (rtx, struct ix86_address *);
 extern int memory_address_length (rtx addr);
+extern void x86_output_aligned_bss (FILE *, tree, const char *,
+				    unsigned HOST_WIDE_INT, int);
+extern void x86_elf_aligned_common (FILE *, const char *,
+				    unsigned HOST_WIDE_INT, int);
 
 #ifdef RTX_CODE
 extern void ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *,
 				      enum rtx_code *, enum rtx_code *);
 extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
 #endif
+extern int asm_preferred_eh_data_format (int, int);

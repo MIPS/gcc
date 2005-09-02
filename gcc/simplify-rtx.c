@@ -2574,7 +2574,8 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 struct simplify_plus_minus_op_data
 {
   rtx op;
-  int neg;
+  short neg;
+  short ix;
 };
 
 static int
@@ -2582,9 +2583,13 @@ simplify_plus_minus_op_data_cmp (const void *p1, const void *p2)
 {
   const struct simplify_plus_minus_op_data *d1 = p1;
   const struct simplify_plus_minus_op_data *d2 = p2;
+  int result;
 
-  return (commutative_operand_precedence (d2->op)
-	  - commutative_operand_precedence (d1->op));
+  result = (commutative_operand_precedence (d2->op)
+	    - commutative_operand_precedence (d1->op));
+  if (result)
+    return result;
+  return d1->ix - d2->ix;
 }
 
 static rtx
@@ -2759,7 +2764,12 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
   /* Pack all the operands to the lower-numbered entries.  */
   for (i = 0, j = 0; j < n_ops; j++)
     if (ops[j].op)
-      ops[i++] = ops[j];
+      {
+	ops[i] = ops[j];
+	/* Stabilize sort.  */
+	ops[i].ix = i;
+	i++;
+      }
   n_ops = i;
 
   /* Sort the operations based on swap_commutative_operands_p.  */
@@ -3014,7 +3024,17 @@ simplify_const_relational_operation (enum rtx_code code,
 
   /* If op0 is a compare, extract the comparison arguments from it.  */
   if (GET_CODE (op0) == COMPARE && op1 == const0_rtx)
-    op1 = XEXP (op0, 1), op0 = XEXP (op0, 0);
+    {
+      op1 = XEXP (op0, 1);
+      op0 = XEXP (op0, 0);
+
+      if (GET_MODE (op0) != VOIDmode)
+	mode = GET_MODE (op0);
+      else if (GET_MODE (op1) != VOIDmode)
+	mode = GET_MODE (op1);
+      else
+	return 0;
+    }
 
   /* We can't simplify MODE_CC values since we don't know what the
      actual comparison is.  */
@@ -3236,7 +3256,9 @@ simplify_const_relational_operation (enum rtx_code code,
 
 	case LT:
 	  /* Optimize abs(x) < 0.0.  */
-	  if (trueop1 == CONST0_RTX (mode) && !HONOR_SNANS (mode))
+	  if (trueop1 == CONST0_RTX (mode)
+	      && !HONOR_SNANS (mode)
+	      && !(flag_wrapv && INTEGRAL_MODE_P (mode)))
 	    {
 	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
 						       : trueop0;
@@ -3247,7 +3269,9 @@ simplify_const_relational_operation (enum rtx_code code,
 
 	case GE:
 	  /* Optimize abs(x) >= 0.0.  */
-	  if (trueop1 == CONST0_RTX (mode) && !HONOR_NANS (mode))
+	  if (trueop1 == CONST0_RTX (mode)
+	      && !HONOR_NANS (mode)
+	      && !(flag_wrapv && INTEGRAL_MODE_P (mode)))
 	    {
 	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
 						       : trueop0;
@@ -3591,7 +3615,7 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 		}
 	      /* It shouldn't matter what's done here, so fill it with
 		 zero.  */
-	      for (; i < max_bitsize; i += value_bit)
+	      for (; i < elem_bitsize; i += value_bit)
 		*vp++ = 0;
 	    }
 	  else

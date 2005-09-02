@@ -734,11 +734,66 @@ print_operand (FILE *stream, rtx x, int code)
       x = mark_constant_pool_use (x);
       output_addr_const (stream, x);
       break;
+    /* N.B.: %R / %S / %T adjust memory addresses by four.
+       For SHMEDIA, that means they can be used to access the first and
+       second 32 bit part of a 64 bit (or larger) value that
+       might be held in floating point registers or memory.
+       While they can be used to access 64 bit parts of a larger value
+       held in general purpose registers, that won't work with memory -
+       neither for fp registers, since the frxx names are used.  */
     case 'R':
-      fputs (reg_names[REGNO (x) + LSW], (stream));
+      if (REG_P (x) || GET_CODE (x) == SUBREG)
+	{
+	  regno = true_regnum (x);
+	  regno += FP_REGISTER_P (regno) ? 1 : LSW;
+	  fputs (reg_names[regno], (stream));
+	}
+      else if (MEM_P (x))
+	{
+	  x = adjust_address (x, SImode, 4 * LSW);
+	  print_operand_address (stream, XEXP (x, 0));
+	}
+      else
+	{
+	  rtx sub = NULL_RTX;
+
+	  mode = GET_MODE (x);
+	  if (mode == VOIDmode)
+	    mode = DImode;
+	  if (GET_MODE_SIZE (mode) >= 8)
+	    sub = simplify_subreg (SImode, x, mode, 4 * LSW);
+	  if (sub)
+	    print_operand (stream, sub, 0);
+	  else
+	    output_operand_lossage ("invalid operand to %%R");
+	}
       break;
     case 'S':
-      fputs (reg_names[REGNO (x) + MSW], (stream));
+      if (REG_P (x) || GET_CODE (x) == SUBREG)
+	{
+	  regno = true_regnum (x);
+	  regno += FP_REGISTER_P (regno) ? 0 : MSW;
+	  fputs (reg_names[regno], (stream));
+	}
+      else if (MEM_P (x))
+	{
+	  x = adjust_address (x, SImode, 4 * MSW);
+	  print_operand_address (stream, XEXP (x, 0));
+	}
+      else
+	{
+	  rtx sub = NULL_RTX;
+
+	  mode = GET_MODE (x);
+	  if (mode == VOIDmode)
+	    mode = DImode;
+	  if (GET_MODE_SIZE (mode) >= 8)
+	    sub = simplify_subreg (SImode, x, mode, 4 * MSW);
+	  if (sub)
+	    print_operand (stream, sub, 0);
+	  else
+	    output_operand_lossage ("invalid operand to %%S");
+	}
       break;
     case 'T':
       /* Next word of a double.  */
@@ -1755,7 +1810,7 @@ unspec_caller_rtx_p (rtx pat)
 }
 
 /* Indicate that INSN cannot be duplicated.  This is true for insn
-   that generates an unique label.  */
+   that generates a unique label.  */
 
 static bool
 sh_cannot_copy_insn_p (rtx insn)
@@ -6441,8 +6496,18 @@ sh_builtin_saveregs (void)
       emit_insn (gen_iorsi3 (addr, addr, GEN_INT (UNITS_PER_WORD)));
       regbuf = change_address (regbuf, BLKmode, addr);
     }
+  else if (STACK_BOUNDARY < 64 && TARGET_FPU_DOUBLE && n_floatregs)
+    {
+      rtx addr, mask;
+
+      regbuf = assign_stack_local (BLKmode, bufsize + UNITS_PER_WORD, 0);
+      addr = copy_to_mode_reg (Pmode, plus_constant (XEXP (regbuf, 0), 4));
+      mask = copy_to_mode_reg (Pmode, GEN_INT (-8));
+      emit_insn (gen_andsi3 (addr, addr, mask));
+      regbuf = change_address (regbuf, BLKmode, addr);
+    }
   else
-    regbuf = assign_stack_local (BLKmode, bufsize, 0);
+    regbuf = assign_stack_local (BLKmode, bufsize, TARGET_FPU_DOUBLE ? 64 : 0);
   alias_set = get_varargs_alias_set ();
   set_mem_alias_set (regbuf, alias_set);
 
@@ -6632,6 +6697,27 @@ sh_va_start (tree valist, rtx nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
 
+/* TYPE is a RECORD_TYPE.  If there is only a single non-zero-sized
+   member, return it.  */
+static tree
+find_sole_member (tree type)
+{
+  tree field, member = NULL_TREE;
+
+  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+    {
+      if (TREE_CODE (field) != FIELD_DECL)
+	continue;
+      if (!DECL_SIZE (field))
+	return NULL_TREE;
+      if (integer_zerop (DECL_SIZE (field)))
+	continue;
+      if (member)
+	return NULL_TREE;
+      member = field;
+    }
+  return member;
+}
 /* Implement `va_arg'.  */
 
 static tree
@@ -6657,6 +6743,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       tree next_o, next_o_limit, next_fp, next_fp_limit, next_stack;
       int pass_as_float;
       tree lab_false;
+      tree member;
 
       f_next_o = TYPE_FIELDS (va_list_type_node);
       f_next_o_limit = TREE_CHAIN (f_next_o);
@@ -6678,13 +6765,25 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       /* Structures with a single member with a distinct mode are passed
 	 like their member.  This is relevant if the latter has a REAL_TYPE
 	 or COMPLEX_TYPE type.  */
-      if (TREE_CODE (type) == RECORD_TYPE
-	  && TYPE_FIELDS (type)
-	  && TREE_CODE (TYPE_FIELDS (type)) == FIELD_DECL
-	  && (TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == REAL_TYPE
-	      || TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == COMPLEX_TYPE)
-          && TREE_CHAIN (TYPE_FIELDS (type)) == NULL_TREE)
-	type = TREE_TYPE (TYPE_FIELDS (type));
+      while (TREE_CODE (type) == RECORD_TYPE
+	     && (member = find_sole_member (type))
+	     && (TREE_CODE (TREE_TYPE (member)) == REAL_TYPE
+		 || TREE_CODE (TREE_TYPE (member)) == COMPLEX_TYPE
+		 || TREE_CODE (TREE_TYPE (member)) == RECORD_TYPE))
+	{
+	  tree field_type = TREE_TYPE (member);
+
+	  if (TYPE_MODE (type) == TYPE_MODE (field_type))
+	    type = field_type;
+	  else
+	    {
+	      gcc_assert ((TYPE_ALIGN (type)
+			   < GET_MODE_ALIGNMENT (TYPE_MODE (field_type)))
+			  || (TYPE_ALIGN (type)
+			      > GET_MODE_BITSIZE (TYPE_MODE (field_type))));
+	      break;
+	    }
+	}
 
       if (TARGET_SH4)
 	{
@@ -6706,30 +6805,37 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 
       if (pass_as_float)
 	{
-	  int first_floatreg
-	    = current_function_args_info.arg_count[(int) SH_ARG_FLOAT];
-	  int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
-
-	  tmp = build (GE_EXPR, boolean_type_node, next_fp, next_fp_limit);
-	  tmp = build (COND_EXPR, void_type_node, tmp,
-		       build (GOTO_EXPR, void_type_node, lab_false),
-		       NULL);
-	  gimplify_and_add (tmp, pre_p);
-
-	  if (TYPE_ALIGN (type) > BITS_PER_WORD
-	      || (((TREE_CODE (type) == REAL_TYPE && size == 8) || size == 16)
-		  && (n_floatregs & 1)))
-	    {
-	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
-	      tmp = build (BIT_AND_EXPR, ptr_type_node, next_fp, tmp);
-	      tmp = build (PLUS_EXPR, ptr_type_node, next_fp, tmp);
-	      tmp = build (MODIFY_EXPR, ptr_type_node, next_fp, tmp);
-	      gimplify_and_add (tmp, pre_p);
-	    }
+	  tree next_fp_tmp = create_tmp_var (TREE_TYPE (f_next_fp), NULL);
+	  tree cmp;
+	  bool is_double = size == 8 && TREE_CODE (type) == REAL_TYPE;
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_fp);
-	  tmp = build (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
+
+	  tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, valist);
+	  gimplify_and_add (tmp, pre_p);
+	  tmp = next_fp_limit;
+	  if (size > 4 && !is_double)
+	    tmp = build2 (PLUS_EXPR, TREE_TYPE (tmp), tmp,
+			  fold_convert (TREE_TYPE (tmp), size_int (4 - size)));
+	  tmp = build (GE_EXPR, boolean_type_node, next_fp_tmp, tmp);
+	  cmp = build (COND_EXPR, void_type_node, tmp,
+		       build (GOTO_EXPR, void_type_node, lab_false),
+		       NULL);
+	  if (!is_double)
+	    gimplify_and_add (cmp, pre_p);
+
+	  if (TYPE_ALIGN (type) > BITS_PER_WORD || (is_double || size == 16))
+	    {
+	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
+	      tmp = build (BIT_AND_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build (PLUS_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build (MODIFY_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      gimplify_and_add (tmp, pre_p);
+	    }
+	  if (is_double)
+	    gimplify_and_add (cmp, pre_p);
 
 #ifdef FUNCTION_ARG_SCmode_WART
 	  if (TYPE_MODE (type) == SCmode && TARGET_SH4 && TARGET_LITTLE_ENDIAN)
@@ -6737,10 +6843,12 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	      tree subtype = TREE_TYPE (type);
 	      tree real, imag;
 
-	      imag = std_gimplify_va_arg_expr (valist, subtype, pre_p, NULL);
+	      imag
+		= std_gimplify_va_arg_expr (next_fp_tmp, subtype, pre_p, NULL);
 	      imag = get_initialized_tmp_var (imag, pre_p, NULL);
 
-	      real = std_gimplify_va_arg_expr (valist, subtype, pre_p, NULL);
+	      real
+		= std_gimplify_va_arg_expr (next_fp_tmp, subtype, pre_p, NULL);
 	      real = get_initialized_tmp_var (real, pre_p, NULL);
 
 	      result = build (COMPLEX_EXPR, type, real, imag);
@@ -6757,6 +6865,12 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
 	  tmp = build (MODIFY_EXPR, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
+	  tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, valist);
+	  gimplify_and_add (tmp, pre_p);
+
+	  tmp = build2 (MODIFY_EXPR, ptr_type_node, valist, next_fp_tmp);
+	  gimplify_and_add (tmp, post_p);
+	  valist = next_fp_tmp;
 	}
       else
 	{
@@ -7507,6 +7621,8 @@ sh_attr_renesas_p (tree td)
     return 0;
   if (DECL_P (td))
     td = TREE_TYPE (td);
+  if (td == error_mark_node)
+    return 0;
   return (lookup_attribute ("renesas", TYPE_ATTRIBUTES (td))
 	  != NULL_TREE);
 }
@@ -10459,7 +10575,7 @@ sh_contains_memref_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
   return (GET_CODE (*loc) == MEM);
 }
 
-/* Return non-zero iff INSN contains a MEM.  */
+/* Return nonzero iff INSN contains a MEM.  */
 int
 sh_contains_memref_p (rtx insn)
 {

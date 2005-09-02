@@ -298,6 +298,8 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 					   duplicate_loop_to_header_edge.  */
 #define DLTHE_RECORD_COPY_NUMBER 2	/* Record copy number in the aux
 					   field of newly create BB.  */
+#define DLTHE_FLAG_COMPLETTE_PEEL 4	/* Update frequencies expecting
+					   a complete peeling.  */
 
 extern struct loop * duplicate_loop (struct loops *, struct loop *,
 				     struct loop *);
@@ -307,7 +309,7 @@ extern bool duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 extern struct loop *loopify (struct loops *, edge, edge,
 			     basic_block, edge, edge, bool);
 struct loop * loop_version (struct loops *, struct loop *, void *,
-			    basic_block *);			     
+			    basic_block *, bool);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, void *);
 

@@ -844,7 +844,8 @@ decode_reg_name (const char *asmspec)
 	  = ADDITIONAL_REGISTER_NAMES;
 
 	for (i = 0; i < (int) ARRAY_SIZE (table); i++)
-	  if (! strcmp (asmspec, table[i].name))
+	  if (table[i].name[0]
+	      && ! strcmp (asmspec, table[i].name))
 	    return table[i].number;
       }
 #endif /* ADDITIONAL_REGISTER_NAMES */
@@ -1274,11 +1275,13 @@ assemble_start_function (tree decl, const char *fnname)
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
       ASM_OUTPUT_LABEL (asm_out_file, cfun->cold_section_label);
-      if (BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
+
+      /* When the function starts with a cold section, we need to explicitly
+	 align the hot section and write out the hot section label.
+	 But if the current function is a thunk, we do not have a CFG.  */
+      if (!current_function_is_thunk
+	  && BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
 	{
-	  /* Since the function starts with a cold section, we need to
-	     explicitly align the hot section and write out the hot
-	     section label.  */
 	  text_section ();
 	  assemble_align (FUNCTION_BOUNDARY);
 	  ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
@@ -1361,7 +1364,10 @@ assemble_start_function (tree decl, const char *fnname)
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
 
-  insert_section_boundary_note ();
+  /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  Don't do this if the current
+     function is a thunk, because we don't have a CFG in that case.  */
+  if (!current_function_is_thunk)
+    insert_section_boundary_note ();
 }
 
 /* Output assembler code associated with defining the size of the
@@ -3841,12 +3847,46 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
   if (size == 0 || flag_syntax_only)
     return;
 
+  /* See if we're trying to intialize a pointer in a non-default mode
+     to the address of some declaration somewhere.  If the target says
+     the mode is valid for pointers, assume the target has a way of
+     resolving it.  */
+  if (TREE_CODE (exp) == NOP_EXPR
+      && POINTER_TYPE_P (TREE_TYPE (exp))
+      && targetm.valid_pointer_mode (TYPE_MODE (TREE_TYPE (exp))))
+    {
+      tree saved_type = TREE_TYPE (exp);
+
+      /* Peel off any intermediate conversions-to-pointer for valid
+	 pointer modes.  */
+      while (TREE_CODE (exp) == NOP_EXPR
+	     && POINTER_TYPE_P (TREE_TYPE (exp))
+	     && targetm.valid_pointer_mode (TYPE_MODE (TREE_TYPE (exp))))
+	exp = TREE_OPERAND (exp, 0);
+
+      /* If what we're left with is the address of something, we can
+	 convert the address to the final type and output it that
+	 way.  */
+      if (TREE_CODE (exp) == ADDR_EXPR)
+	exp = build1 (ADDR_EXPR, saved_type, TREE_OPERAND (exp, 0));
+    }
+
   /* Eliminate any conversions since we'll be outputting the underlying
      constant.  */
   while (TREE_CODE (exp) == NOP_EXPR || TREE_CODE (exp) == CONVERT_EXPR
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR
 	 || TREE_CODE (exp) == VIEW_CONVERT_EXPR)
-    exp = TREE_OPERAND (exp, 0);
+    {
+      HOST_WIDE_INT type_size = int_size_in_bytes (TREE_TYPE (exp));
+      HOST_WIDE_INT op_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (exp, 0)));
+
+      /* Make sure eliminating the conversion is really a no-op.  */
+      if (type_size != op_size)
+	internal_error ("no-op convert from %wd to %wd bytes in initializer",
+			op_size, type_size);
+
+      exp = TREE_OPERAND (exp, 0);
+    }
 
   code = TREE_CODE (TREE_TYPE (exp));
   thissize = int_size_in_bytes (TREE_TYPE (exp));
@@ -5012,47 +5052,7 @@ default_select_section (tree decl, int reloc,
     data_section ();
 }
 
-/* A helper function for default_elf_select_section and
-   default_elf_unique_section.  Categorizes the DECL.  */
-
 enum section_category
-{
-  SECCAT_TEXT,
-
-  SECCAT_RODATA,
-  SECCAT_RODATA_MERGE_STR,
-  SECCAT_RODATA_MERGE_STR_INIT,
-  SECCAT_RODATA_MERGE_CONST,
-  SECCAT_SRODATA,
-
-  SECCAT_DATA,
-
-  /* To optimize loading of shared programs, define following subsections
-     of data section:
-	_REL	Contains data that has relocations, so they get grouped
-		together and dynamic linker will visit fewer pages in memory.
-	_RO	Contains data that is otherwise read-only.  This is useful
-		with prelinking as most relocations won't be dynamically
-		linked and thus stay read only.
-	_LOCAL	Marks data containing relocations only to local objects.
-		These relocations will get fully resolved by prelinking.  */
-  SECCAT_DATA_REL,
-  SECCAT_DATA_REL_LOCAL,
-  SECCAT_DATA_REL_RO,
-  SECCAT_DATA_REL_RO_LOCAL,
-
-  SECCAT_SDATA,
-  SECCAT_TDATA,
-
-  SECCAT_BSS,
-  SECCAT_SBSS,
-  SECCAT_TBSS
-};
-
-static enum section_category
-categorize_decl_for_section (tree, int, int);
-
-static enum section_category
 categorize_decl_for_section (tree decl, int reloc, int shlib)
 {
   enum section_category ret;

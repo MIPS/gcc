@@ -655,6 +655,7 @@ struct saved_scope GTY(())
   int x_processing_specialization;
   bool x_processing_explicit_instantiation;
   int need_pop_function_context;
+  bool skip_evaluation;
 
   struct stmt_tree_s x_stmt_tree;
 
@@ -3650,7 +3651,7 @@ extern tree build_special_member_call		(tree, tree, tree, tree, int);
 extern tree build_new_op			(enum tree_code, int, tree, tree, tree, bool *);
 extern tree build_op_delete_call		(enum tree_code, tree, tree, bool, tree);
 extern bool can_convert				(tree, tree);
-extern bool can_convert_arg			(tree, tree, tree);
+extern bool can_convert_arg			(tree, tree, tree, int);
 extern bool can_convert_arg_bad			(tree, tree, tree);
 extern bool enforce_access			(tree, tree);
 extern tree convert_default_arg			(tree, tree, tree, int);
@@ -3918,7 +3919,7 @@ extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
 extern tree build_offset_ref			(tree, tree, bool);
 extern tree build_new				(tree, tree, tree, tree, int);
-extern tree build_vec_init			(tree, tree, tree, int);
+extern tree build_vec_init			(tree, tree, tree, bool, int);
 extern tree build_x_delete			(tree, int, tree);
 extern tree build_delete			(tree, tree,
 						 special_function_kind,
@@ -3992,7 +3993,7 @@ extern int uses_template_parms_level		(tree, int);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
 extern int fn_type_unification			(tree, tree, tree, tree,
-						 tree, unification_kind_t);
+						 tree, unification_kind_t, int);
 extern void mark_decl_instantiated		(tree, int);
 extern int more_specialized_fn			(tree, tree, int);
 extern void mark_class_instantiated		(tree, int);

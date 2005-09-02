@@ -961,7 +961,8 @@ do {									\
 #define REAL_PIC_OFFSET_TABLE_REGNUM  3
 
 #define PIC_OFFSET_TABLE_REGNUM				\
-  (TARGET_64BIT || !flag_pic ? INVALID_REGNUM		\
+  ((TARGET_64BIT && ix86_cmodel == CM_SMALL_PIC)	\
+   || !flag_pic ? INVALID_REGNUM			\
    : reload_completed ? REGNO (pic_offset_table_rtx)	\
    : REAL_PIC_OFFSET_TABLE_REGNUM)
 
@@ -1358,7 +1359,7 @@ enum reg_class
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
@@ -2022,9 +2023,7 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
    Whether or not a particular assembler allows us to enter such, I
    guess we'll have to see.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)       		\
-  (flag_pic								\
-    ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
-   : DW_EH_PE_absptr)
+  asm_preferred_eh_data_format ((CODE), (GLOBAL))
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
@@ -2143,7 +2142,8 @@ enum cmodel {
   CM_KERNEL,	/* Assumes all code and data fits in the high 31 bits.  */
   CM_MEDIUM,	/* Assumes code fits in the low 31 bits; data unlimited.  */
   CM_LARGE,	/* No assumptions.  */
-  CM_SMALL_PIC	/* Assumes code+data+got/plt fits in a 31 bit region.  */
+  CM_SMALL_PIC,	/* Assumes code+data+got/plt fits in a 31 bit region.  */
+  CM_MEDIUM_PIC	/* Assumes code+got/plt fits in a 31 bit region.  */
 };
 
 extern enum cmodel ix86_cmodel;
@@ -2160,7 +2160,7 @@ enum asm_dialect {
 
 extern enum asm_dialect ix86_asm_dialect;
 extern unsigned int ix86_preferred_stack_boundary;
-extern int ix86_branch_cost;
+extern int ix86_branch_cost, ix86_section_threshold;
 
 /* Smallest class containing REGNO.  */
 extern enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER];
@@ -2281,6 +2281,10 @@ struct machine_function GTY(())
 #define X86_FILE_START_VERSION_DIRECTIVE false
 #define X86_FILE_START_FLTUSED false
 
+/* Flag to mark data that is in the large address area.  */
+#define SYMBOL_FLAG_FAR_ADDR		(SYMBOL_FLAG_MACH_DEP << 0)
+#define SYMBOL_REF_FAR_ADDR_P(X)	\
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_FAR_ADDR) != 0)
 /*
 Local variables:
 version-control: t

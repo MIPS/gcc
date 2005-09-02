@@ -87,6 +87,10 @@ Boston, MA 02110-1301, USA.  */
 # define __ARM_ARCH__ 6
 #endif
 
+#ifndef __ARM_ARCH__
+#error Unable to determine architecture.
+#endif
+
 /* How to return from a function call depends on the architecture variant.  */
 
 #if (__ARM_ARCH__ > 4) || defined(__ARM_ARCH_4T__)
@@ -702,6 +706,7 @@ LSYM(Lgot_result):
 #ifdef L_udivsi3
 
 	FUNC_START udivsi3
+	FUNC_ALIAS aeabi_uidiv udivsi3
 
 #ifdef __thumb__
 
@@ -812,6 +817,7 @@ LSYM(Lover10):
 #ifdef L_divsi3
 
 	FUNC_START divsi3	
+	FUNC_ALIAS aeabi_idiv divsi3
 
 #ifdef __thumb__
 	cmp	divisor, #0

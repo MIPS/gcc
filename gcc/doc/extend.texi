@@ -1887,7 +1887,7 @@ this attribute to work correctly.
 
 @item interrupt
 @cindex interrupt handler functions
-Use this attribute on the ARM, AVR, C4x, M32C, M32R/D and Xstormy16
+Use this attribute on the ARM, AVR, C4x, CRX, M32C, M32R/D, MS1, and Xstormy16
 ports to indicate that the specified function is an interrupt handler.
 The compiler will generate function entry and exit sequences suitable
 for use in an interrupt handler when this attribute is present.
@@ -1941,6 +1941,14 @@ both the @option{-mlongcall} switch and, on the RS/6000 and PowerPC, the
 
 @xref{RS/6000 and PowerPC Options}, for more information on whether long
 calls are necessary.
+
+@item long_call
+@cindex indirect calls on MIPS
+This attribute specifies how a particular function is called on MIPS@.
+The attribute overrides the @option{-mlong-calls} (@pxref{MIPS Options})
+command line switch.  This attribute causes the compiler to always call
+the function by first loading its address into a register, and then using
+the contents of that register.
 
 @item malloc
 @cindex @code{malloc} attribute
@@ -4767,7 +4775,7 @@ returns @code{(size_t) -1} for @var{type} 0 or 1 and @code{(size_t) 0}
 for @var{type} 2 or 3.  If there are multiple objects @var{ptr} can
 point to and all of them are known at compile time, the returned number
 is the maximum of remaining byte counts in those objects if @var{type} & 2 is
-0 and minimum if non-zero.  If it is not possible to determine which objects
+0 and minimum if nonzero.  If it is not possible to determine which objects
 @var{ptr} points to at compile time, @code{__builtin_object_size} should
 return @code{(size_t) -1} for @var{type} 0 or 1 and @code{(size_t) 0}
 for @var{type} 2 or 3.
@@ -4853,7 +4861,7 @@ additional security measures the checking function might take, such as
 handling @code{%n} differently.
 
 The @var{os} argument is the object size @var{s} points to, like in the
-other built-in functions.  There is a small difference in the behaviour
+other built-in functions.  There is a small difference in the behavior
 though, if @var{os} is @code{(size_t) -1}, the built-in functions are
 optimized into the non-checking functions only if @var{flag} is 0, otherwise
 the checking function is called with @var{os} argument set to

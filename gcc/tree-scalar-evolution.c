@@ -237,6 +237,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "real.h"
 
 /* These RTL headers are needed for basic-block.h.  */
 #include "rtl.h"
@@ -675,7 +676,9 @@ add_to_evolution_1 (unsigned loop_nb,
 	    {
 	      var = loop_nb;
 	      left = chrec_before;
-	      right = build_int_cst (type, 0);
+	      right = SCALAR_FLOAT_TYPE_P (type)
+		? build_real (type, dconst0)
+		: build_int_cst (type, 0);
 	    }
 	  else
 	    {
@@ -866,8 +869,9 @@ add_to_evolution (unsigned loop_nb,
     }
 
   if (code == MINUS_EXPR)
-    to_add = chrec_fold_multiply (type, to_add, 
-				  build_int_cst_type (type, -1));
+    to_add = chrec_fold_multiply (type, to_add, SCALAR_FLOAT_TYPE_P (type)
+				  ? build_real (type, dconstm1)
+				  : build_int_cst_type (type, -1));
 
   res = add_to_evolution_1 (loop_nb, chrec_before, to_add);
 
@@ -1678,7 +1682,9 @@ interpret_rhs_modify_expr (struct loop *loop, tree at_stmt,
       opnd10 = TREE_OPERAND (opnd1, 0);
       chrec10 = analyze_scalar_evolution (loop, opnd10);
       chrec10 = chrec_convert (type, chrec10, at_stmt);
-      res = chrec_fold_minus (type, build_int_cst (type, 0), chrec10);
+      res = chrec_fold_multiply (type, chrec10, SCALAR_FLOAT_TYPE_P (type)
+				  ? build_real (type, dconstm1)
+				  : build_int_cst_type (type, -1));
       break;
 
     case MULT_EXPR:
@@ -1937,11 +1943,8 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
   basic_block def_bb;
   struct loop *def_loop;
  
-  if (chrec == NULL_TREE
-      || automatically_generated_chrec_p (chrec))
-    return chrec;
- 
-  if (is_gimple_min_invariant (chrec))
+  if (automatically_generated_chrec_p (chrec)
+      || is_gimple_min_invariant (chrec))
     return chrec;
 
   switch (TREE_CODE (chrec))
@@ -2608,8 +2611,8 @@ scev_finalize (void)
 }
 
 /* Replace ssa names for that scev can prove they are constant by the
-   appropriate constants.  Most importantly, this takes care of final
-   value replacement.
+   appropriate constants.  Also perform final value replacement in loops,
+   in case the replacement expressions are cheap.
    
    We only consider SSA names defined by phi nodes; rest is left to the
    ordinary constant propagation pass.  */
@@ -2618,9 +2621,10 @@ void
 scev_const_prop (void)
 {
   basic_block bb;
-  tree name, phi, type, ev;
-  struct loop *loop;
+  tree name, phi, next_phi, type, ev;
+  struct loop *loop, *ex_loop;
   bitmap ssa_names_to_remove = NULL;
+  unsigned i;
 
   if (!current_loops)
     return;
@@ -2674,5 +2678,58 @@ scev_const_prop (void)
 
       BITMAP_FREE (ssa_names_to_remove);
       scev_reset ();
+    }
+
+  /* Now the regular final value replacement.  */
+  for (i = current_loops->num - 1; i > 0; i--)
+    {
+      edge exit;
+      tree def, stmts;
+
+      loop = current_loops->parray[i];
+      if (!loop)
+	continue;
+
+      /* If we do not know exact number of iterations of the loop, we cannot
+	 replace the final value.  */
+      exit = loop->single_exit;
+      if (!exit
+	  || number_of_iterations_in_loop (loop) == chrec_dont_know)
+	continue;
+      ex_loop = exit->dest->loop_father;
+
+      for (phi = phi_nodes (exit->dest); phi; phi = next_phi)
+	{
+	  next_phi = PHI_CHAIN (phi);
+	  def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+	  if (!is_gimple_reg (def)
+	      || expr_invariant_in_loop_p (loop, def))
+	    continue;
+
+	  if (!POINTER_TYPE_P (TREE_TYPE (def))
+	      && !INTEGRAL_TYPE_P (TREE_TYPE (def)))
+	    continue;
+
+	  def = analyze_scalar_evolution_in_loop (ex_loop, ex_loop, def);
+	  if (!tree_does_not_contain_chrecs (def)
+	      || chrec_contains_symbols_defined_in_loop (def, loop->num))
+	    continue;
+
+	  /* If computing the expression is expensive, let it remain in
+	     loop.  TODO -- we should take the cost of computing the expression
+	     in loop into account.  */
+	  if (force_expr_to_var_cost (def) >= target_spill_cost)
+	    continue;
+	  def = unshare_expr (def);
+
+	  if (is_gimple_val (def))
+	    stmts = NULL_TREE;
+	  else
+	    def = force_gimple_operand (def, &stmts, true,
+					SSA_NAME_VAR (PHI_RESULT (phi)));
+	  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, exit), def);
+	  if (stmts)
+	    compute_phi_arg_on_exit (exit, stmts, def);
+	}
     }
 }

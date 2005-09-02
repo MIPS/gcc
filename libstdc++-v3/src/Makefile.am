@@ -19,7 +19,7 @@
 
 ## You should have received a copy of the GNU General Public License along
 ## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 ## USA.
 
 include $(top_srcdir)/fragment.am
@@ -28,7 +28,7 @@ include $(top_srcdir)/fragment.am
 toolexeclib_LTLIBRARIES = libstdc++.la
 
 # Symbol versioning for shared libraries.
-if GLIBCXX_BUILD_VERSIONED_SHLIB
+if ENABLE_SYMVERS_GNU
 version_arg = -Wl,--version-script=libstdc++-symbol.ver
 version_dep = libstdc++-symbol.ver
 libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
@@ -40,8 +40,22 @@ libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
 	  rm tmp.top tmp.bottom; \
 	fi
 else
+if ENABLE_SYMVERS_DARWIN_EXPORT
+version_arg = -Wl,-exported_symbols_list,libstdc++-symbol.explist
+version_dep = libstdc++-symbol.explist
+libstdc++-symbol.explist : ${glibcxx_srcdir}/$(SYMVER_MAP) \
+		${glibcxx_srcdir}/scripts/make_exports.pl \
+		$(libstdc___la_OBJECTS) $(libstdc___la_LIBADD)
+	perl ${glibcxx_srcdir}/scripts/make_exports.pl \
+	  ${glibcxx_srcdir}/$(SYMVER_MAP) \
+	  $(libstdc___la_OBJECTS:%.lo=.libs/%.o) \
+	 `echo $(libstdc___la_LIBADD) | \
+	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
+	 > $@ || (rm -f $@ ; exit 1)
+else
 version_arg =
 version_dep =
+endif
 endif
 
 

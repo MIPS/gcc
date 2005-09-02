@@ -333,6 +333,7 @@ dnl  _GLIBCXX_RES_LIMITS if we can set artificial resource limits
 dnl  various HAVE_LIMIT_* for individual limit names
 dnl
 AC_DEFUN([GLIBCXX_CHECK_SETRLIMIT_ancilliary], [
+  AC_MSG_CHECKING([for RLIMIT_$1])
   AC_TRY_COMPILE(
     [#include <unistd.h>
      #include <sys/time.h>
@@ -342,6 +343,8 @@ AC_DEFUN([GLIBCXX_CHECK_SETRLIMIT_ancilliary], [
     [glibcxx_mresult=1], [glibcxx_mresult=0])
   AC_DEFINE_UNQUOTED(HAVE_LIMIT_$1, $glibcxx_mresult,
                      [Only used in build directory testsuite_hooks.h.])
+  if test $glibcxx_mresult = 1 ; then res=yes ; else res=no ; fi
+  AC_MSG_RESULT($res)
 ])
 
 AC_DEFUN([GLIBCXX_CHECK_SETRLIMIT], [
@@ -390,6 +393,7 @@ dnl Check whether S_ISREG (Posix) or S_IFREG is available in <sys/stat.h>.
 dnl Define HAVE_S_ISREG / HAVE_S_IFREG appropriately.
 dnl
 AC_DEFUN([GLIBCXX_CHECK_S_ISREG_OR_S_IFREG], [
+  AC_MSG_CHECKING([for S_ISREG or S_IFREG])
   AC_CACHE_VAL(glibcxx_cv_S_ISREG, [
     AC_TRY_LINK(
       [#include <sys/stat.h>],
@@ -408,13 +412,17 @@ AC_DEFUN([GLIBCXX_CHECK_S_ISREG_OR_S_IFREG], [
       [glibcxx_cv_S_IFREG=yes],
       [glibcxx_cv_S_IFREG=no])
   ])
+  res=no
   if test $glibcxx_cv_S_ISREG = yes; then
     AC_DEFINE(HAVE_S_ISREG, 1, 
               [Define if S_IFREG is available in <sys/stat.h>.])
+    res=S_ISREG
   elif test $glibcxx_cv_S_IFREG = yes; then
     AC_DEFINE(HAVE_S_IFREG, 1,
               [Define if S_IFREG is available in <sys/stat.h>.])
+    res=S_IFREG
   fi
+  AC_MSG_RESULT($res)
 ])
 
 
@@ -422,6 +430,7 @@ dnl
 dnl Check whether poll is available in <poll.h>, and define HAVE_POLL.
 dnl
 AC_DEFUN([GLIBCXX_CHECK_POLL], [
+  AC_MSG_CHECKING([for poll])
   AC_CACHE_VAL(glibcxx_cv_POLL, [
     AC_TRY_LINK(
       [#include <poll.h>],
@@ -434,6 +443,7 @@ AC_DEFUN([GLIBCXX_CHECK_POLL], [
   if test $glibcxx_cv_POLL = yes; then
     AC_DEFINE(HAVE_POLL, 1, [Define if poll is available in <poll.h>.])
   fi
+  AC_MSG_RESULT($glibcxx_cv_POLL)
 ])
 
 
@@ -441,6 +451,7 @@ dnl
 dnl Check whether writev is available in <sys/uio.h>, and define HAVE_WRITEV.
 dnl
 AC_DEFUN([GLIBCXX_CHECK_WRITEV], [
+  AC_MSG_CHECKING([for writev])
   AC_CACHE_VAL(glibcxx_cv_WRITEV, [
     AC_TRY_LINK(
       [#include <sys/uio.h>],
@@ -452,6 +463,7 @@ AC_DEFUN([GLIBCXX_CHECK_WRITEV], [
   if test $glibcxx_cv_WRITEV = yes; then
     AC_DEFINE(HAVE_WRITEV, 1, [Define if writev is available in <sys/uio.h>.])
   fi
+  AC_MSG_RESULT($glibcxx_cv_WRITEV)
 ])
 
 
@@ -459,6 +471,7 @@ dnl
 dnl Check whether int64_t is available in <stdint.h>, and define HAVE_INT64_T.
 dnl
 AC_DEFUN([GLIBCXX_CHECK_INT64_T], [
+  AC_MSG_CHECKING([for int64_t])
   AC_CACHE_VAL(glibcxx_cv_INT64_T, [
     AC_TRY_COMPILE(
       [#include <stdint.h>],
@@ -469,6 +482,7 @@ AC_DEFUN([GLIBCXX_CHECK_INT64_T], [
   if test $glibcxx_cv_INT64_T = yes; then
     AC_DEFINE(HAVE_INT64_T, 1, [Define if int64_t is available in <stdint.h>.])
   fi
+  AC_MSG_RESULT($glibcxx_cv_INT64_T)
 ])
 
 
@@ -480,6 +494,7 @@ AC_DEFUN([GLIBCXX_CHECK_LFS], [
   AC_LANG_CPLUSPLUS
   ac_save_CXXFLAGS="$CXXFLAGS"
   CXXFLAGS="$CXXFLAGS -fno-exceptions"	
+  AC_MSG_CHECKING([for LFS support])
   AC_CACHE_VAL(glibcxx_cv_LFS, [
     AC_TRY_LINK(
       [#include <unistd.h>
@@ -499,6 +514,7 @@ AC_DEFUN([GLIBCXX_CHECK_LFS], [
   if test $glibcxx_cv_LFS = yes; then
     AC_DEFINE(_GLIBCXX_USE_LFS, 1, [Define if LFS support is available.])
   fi
+  AC_MSG_RESULT($glibcxx_cv_LFS)
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
 ])
@@ -538,24 +554,22 @@ dnl Substs:
 dnl  baseline_dir
 dnl
 AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
-  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes && 
-			test $enable_symvers != no; then
+  if $GLIBCXX_IS_NATIVE ; then
     # Do checks for resource limit functions.
     GLIBCXX_CHECK_SETRLIMIT
 
     # Look for setenv, so that extended locale tests can be performed.
     GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+  fi
 
-    if test $enable_symvers = no; then
-      enable_abi_check=no
-    else
-      case "$host" in
-        *-*-cygwin*)
-          enable_abi_check=no ;;
-        *)
-          enable_abi_check=yes ;;
-      esac
-    fi
+  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes &&
+     test $enable_symvers != no; then
+    case "$host" in
+      *-*-cygwin*)
+        enable_abi_check=no ;;
+      *)
+        enable_abi_check=yes ;;
+    esac
   else
     # Only build this as native, since automake does not understand
     # CXX_FOR_BUILD.
@@ -1671,16 +1685,30 @@ AC_DEFUN([GLIBCXX_ENABLE_SYMVERS], [
 
 GLIBCXX_ENABLE(symvers,$1,[=STYLE],
   [enables symbol versioning of the shared library],
-  [permit yes|no|gnu])
+  [permit yes|no|gnu|darwin-export])
 
 # If we never went through the GLIBCXX_CHECK_LINKER_FEATURES macro, then we
 # don't know enough about $LD to do tricks...
 AC_REQUIRE([GLIBCXX_CHECK_LINKER_FEATURES])
-# FIXME  The following test is too strict, in theory.
-if test $enable_shared = no ||
-        test "x$LD" = x ||
-        test x$glibcxx_gnu_ld_version = x; then
-  enable_symvers=no
+
+# Turn a 'yes' into a suitable default.
+if test x$enable_symvers = xyes ; then
+  if test $enable_shared = no ||
+     test "x$LD" = x ; then
+    enable_symvers=no
+  elif test $with_gnu_ld == yes ; then
+    enable_symvers=gnu
+  else
+    case ${target_os} in
+      darwin*)
+	enable_symvers=darwin-export ;;
+      *)
+      AC_MSG_WARN([=== You have requested some kind of symbol versioning, but])
+      AC_MSG_WARN([=== you are not using a supported linker.])
+      AC_MSG_WARN([=== Symbol versioning will be disabled.])
+	enable_symvers=no ;;
+    esac
+  fi
 fi
 
 # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
@@ -1710,39 +1738,34 @@ changequote([,])dnl
   AC_MSG_RESULT($glibcxx_shared_libgcc)
 fi
 
-# For GNU ld, we need at least this version.  The format is described in
-# GLIBCXX_CHECK_LINKER_FEATURES above.
-glibcxx_min_gnu_ld_version=21400
-
-# Check to see if unspecified "yes" value can win, given results above.
-# Change "yes" into either "no" or a style name.
-if test $enable_symvers = yes; then
-  if test $with_gnu_ld = yes &&
-     test $glibcxx_shared_libgcc = yes;
-  then
-    if test $glibcxx_gnu_ld_version -ge $glibcxx_min_gnu_ld_version ; then
-      enable_symvers=gnu
-    else
-      # The right tools, the right setup, but too old.  Fallbacks?
-      AC_MSG_WARN(=== Linker version $glibcxx_gnu_ld_version is too old for)
-      AC_MSG_WARN(=== full symbol versioning support in this release of GCC.)
-      AC_MSG_WARN(=== You would need to upgrade your binutils to version)
-      AC_MSG_WARN(=== $glibcxx_min_gnu_ld_version or later and rebuild GCC.)
-      if test $glibcxx_gnu_ld_version -ge 21200 ; then
-        # Globbing fix is present, proper block support is not.
-        AC_MSG_WARN([=== Symbol versioning will be disabled.])
-        enable_symvers=no
-      else
-        # 2.11 or older.
-        AC_MSG_WARN([=== Symbol versioning will be disabled.])
-        enable_symvers=no
-      fi
-    fi
-  else
-    # just fail for now
+# If no shared libgcc, can't win.
+if test $glibcxx_shared_libgcc != yes &&
+   test $enable_symvers != no ; then
     AC_MSG_WARN([=== You have requested some kind of symbol versioning, but])
-    AC_MSG_WARN([=== either you are not using a supported linker, or you are])
-    AC_MSG_WARN([=== not building a shared libgcc_s (which is required).])
+    AC_MSG_WARN([=== you are not building a shared libgcc_s.])
+    AC_MSG_WARN([=== Symbol versioning will be disabled.])
+    enable_symvers=no
+  enable_symvers=no
+fi
+
+# Check to see if 'gnu' can win.
+if test $enable_symvers = gnu; then
+  # For GNU ld, we need at least this version.  The format is described in
+  # GLIBCXX_CHECK_LINKER_FEATURES above.
+  glibcxx_min_gnu_ld_version=21400
+
+  if test $with_gnu_ld != yes ; then
+    # just fail for now
+    AC_MSG_WARN([=== You have requested GNU symbol versioning, but])
+    AC_MSG_WARN([=== you are not using the GNU linker.])
+    AC_MSG_WARN([=== Symbol versioning will be disabled.])
+    enable_symvers=no
+  elif test $glibcxx_gnu_ld_version -lt $glibcxx_min_gnu_ld_version ; then
+    # The right tools, the right setup, but too old.  Fallbacks?
+    AC_MSG_WARN(=== Linker version $glibcxx_gnu_ld_version is too old for)
+    AC_MSG_WARN(=== full symbol versioning support in this release of GCC.)
+    AC_MSG_WARN(=== You would need to upgrade your binutils to version)
+    AC_MSG_WARN(=== $glibcxx_min_gnu_ld_version or later and rebuild GCC.)
     AC_MSG_WARN([=== Symbol versioning will be disabled.])
     enable_symvers=no
   fi
@@ -1756,7 +1779,10 @@ case $enable_symvers in
   gnu)
     SYMVER_MAP=config/linker-map.gnu
     AC_DEFINE(_GLIBCXX_SYMVER, 1, 
-              [Define to use symbol versioning in the shared library.])
+              [Define to use GNU symbol versioning in the shared library.])
+    ;;
+  darwin-export)
+    SYMVER_MAP=config/linker-map.gnu
     ;;
 esac
 
@@ -1787,7 +1813,9 @@ AC_MSG_RESULT([$glibcxx_ptrdiff_t_is_i])
 
 AC_SUBST(SYMVER_MAP)
 AC_SUBST(port_specific_symbol_files)
-GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers == gnu)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_DARWIN_EXPORT, dnl
+  test $enable_symvers == darwin-export)
 AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)
 ])
 

@@ -784,7 +784,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
     }
 }
 
-/* Record registers used in INSN that have an unique invariant definition.  */
+/* Record registers used in INSN that have a unique invariant definition.  */
 
 static void
 record_uses (rtx insn)

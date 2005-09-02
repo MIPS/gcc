@@ -77,12 +77,6 @@ struct language_function
 GTY(())
 {
   /* struct gfc_language_function base; */
-  tree named_labels;
-  tree shadowed_labels;
-  int returns_value;
-  int returns_abnormally;
-  int warn_about_return_type;
-  int extern_inline;
   struct binding_level *binding_level;
 };
 
@@ -176,7 +170,6 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-static tree named_labels;
 
 #define NULL_BINDING_LEVEL (struct binding_level *) NULL
 
@@ -278,7 +271,7 @@ static bool
 gfc_init (void)
 {
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, gfc_option.source, 1);
+  linemap_add (&line_table, LC_ENTER, false, gfc_source_file, 1);
   linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
 #endif
 
@@ -289,8 +282,8 @@ gfc_init (void)
   /* Then the frontend.  */
   gfc_init_1 ();
 
-  if (gfc_new_file (gfc_option.source, gfc_option.source_form) != SUCCESS)
-    fatal_error ("can't open input file: %s", gfc_option.source);
+  if (gfc_new_file () != SUCCESS)
+    fatal_error ("can't open input file: %s", gfc_source_file);
   return true;
 }
 
@@ -561,7 +554,6 @@ static void
 gfc_init_decl_processing (void)
 {
   current_function_decl = NULL;
-  named_labels = NULL;
   current_binding_level = NULL_BINDING_LEVEL;
   free_binding_level = NULL_BINDING_LEVEL;
 

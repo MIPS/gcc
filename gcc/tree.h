@@ -3555,7 +3555,7 @@ extern bool initializer_zerop (tree);
 
 extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				      HOST_WIDE_INT *, bool *);
-extern HOST_WIDE_INT count_type_elements (tree);
+extern HOST_WIDE_INT count_type_elements (tree, bool);
 
 /* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
 
@@ -3790,10 +3790,15 @@ extern tree fold (tree);
 extern tree fold_unary (enum tree_code, tree, tree);
 extern tree fold_binary (enum tree_code, tree, tree, tree);
 extern tree fold_ternary (enum tree_code, tree, tree, tree, tree);
-extern tree fold_build1 (enum tree_code, tree, tree);
-extern tree fold_build2 (enum tree_code, tree, tree, tree);
-extern tree fold_build3 (enum tree_code, tree, tree, tree, tree);
-extern tree fold_initializer (tree);
+extern tree fold_build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+#define fold_build1(c,t1,t2) fold_build1_stat (c, t1, t2 MEM_STAT_INFO)
+extern tree fold_build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
+#define fold_build2(c,t1,t2,t3) fold_build2_stat (c, t1, t2, t3 MEM_STAT_INFO)
+extern tree fold_build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
+#define fold_build3(c,t1,t2,t3,t4) fold_build3_stat (c, t1, t2, t3, t4 MEM_STAT_INFO)
+extern tree fold_build1_initializer (enum tree_code, tree, tree);
+extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
+extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
@@ -3909,6 +3914,7 @@ extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree);
 extern void stack_protect_prologue (void);
+extern void stack_protect_epilogue (void);
 extern void recompute_tree_invarant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);

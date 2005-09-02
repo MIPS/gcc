@@ -67,6 +67,8 @@ enum tree_dump_index
 #define TDF_IPA		(1 << 11)	/* is an IPA dump */
 #define TDF_STMTADDR	(1 << 12)	/* Address of stmt.  */
 
+#define TDF_GRAPH	(1 << 13)	/* a graph dump is being emitted */
+
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
 extern int dump_initialized_p (enum tree_dump_index);
@@ -284,6 +286,7 @@ extern struct tree_opt_pass pass_rebuild_cgraph_edges;
 extern struct tree_opt_pass pass_eliminate_useless_stores;
 
 /* IPA Passes */
+extern struct tree_opt_pass pass_ipa_cp;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_early_ipa_inline;
 extern struct tree_opt_pass pass_ipa_reference;

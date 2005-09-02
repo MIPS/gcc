@@ -258,7 +258,7 @@ execute_fixup_cfg (void)
 
 struct tree_opt_pass pass_fixup_cfg =
 {
-  NULL,					/* name */
+  "fixupcfg",				/* name */
   NULL,					/* gate */
   execute_fixup_cfg,			/* execute */
   NULL,					/* sub */
@@ -269,7 +269,7 @@ struct tree_opt_pass pass_fixup_cfg =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -372,7 +372,7 @@ tree_rest_of_compilation (tree fndecl)
 	{
 	  struct cgraph_edge *e;
 
-	  saved_node = cgraph_clone_node (node, node->count, 1);
+	  saved_node = cgraph_clone_node (node, node->count, 1, false);
 	  for (e = saved_node->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
 	      cgraph_clone_inlined_nodes (e, true);

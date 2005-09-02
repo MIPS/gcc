@@ -5545,7 +5545,7 @@ pop_lang_context (void)
 
 /* Given an OVERLOAD and a TARGET_TYPE, return the function that
    matches the TARGET_TYPE.  If there is no satisfactory match, return
-   error_mark_node, and issue a error & warning messages under control
+   error_mark_node, and issue an error & warning messages under control
    of FLAGS.  Permit pointers to member function if FLAGS permits.  If
    TEMPLATE_ONLY, the name of the overloaded function was a
    template-id, and EXPLICIT_TARGS are the explicitly provided
@@ -5656,7 +5656,7 @@ resolve_address_of_overloaded_function (tree target_type,
 	  else if (!is_reference)
 	    fntype = build_pointer_type (fntype);
 
-	  if (can_convert_arg (target_type, fntype, fn))
+	  if (can_convert_arg (target_type, fntype, fn, LOOKUP_NORMAL))
 	    matches = tree_cons (fn, NULL_TREE, matches);
 	}
     }
@@ -5704,7 +5704,7 @@ resolve_address_of_overloaded_function (tree target_type,
 	  targs = make_tree_vec (DECL_NTPARMS (fn));
 	  if (fn_type_unification (fn, explicit_targs, targs,
 				   target_arg_types, target_ret_type,
-				   DEDUCE_EXACT))
+				   DEDUCE_EXACT, LOOKUP_NORMAL))
 	    /* Argument deduction failed.  */
 	    continue;
 
@@ -5721,7 +5721,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	      build_ptrmemfunc_type (build_pointer_type (instantiation_type));
 	  else if (!is_reference)
 	    instantiation_type = build_pointer_type (instantiation_type);
-	  if (can_convert_arg (target_type, instantiation_type, instantiation))
+	  if (can_convert_arg (target_type, instantiation_type, instantiation, 
+			       LOOKUP_NORMAL))
 	    matches = tree_cons (instantiation, fn, matches);
 	}
 
