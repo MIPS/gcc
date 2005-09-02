@@ -92,7 +92,7 @@ proc gcc_init { args } {
     global gcc_initialized
     global GCC_UNDER_TEST
     global TOOL_EXECUTABLE
-       
+
     if { $gcc_initialized == 1 } { return; }
 
     if ![info exists GCC_UNDER_TEST] {
@@ -119,7 +119,7 @@ proc gcc_target_compile { source dest type options } {
     global gluefile wrap_flags;
     global GCC_UNDER_TEST
     global TOOL_OPTIONS
-       
+	
     if {[target_info needs_status_wrapper] != "" && \
 	    [target_info needs_status_wrapper] != "0" && \
 	    [info exists gluefile] } {
