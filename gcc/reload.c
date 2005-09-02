@@ -2208,19 +2208,29 @@ operands_match_p (rtx x, rtx y)
 
  slow:
 
-  /* Now we have disposed of all the cases
-     in which different rtx codes can match.  */
+  /* Now we have disposed of all the cases in which different rtx codes
+     can match.  */
   if (code != GET_CODE (y))
     return 0;
-  if (code == LABEL_REF)
-    return XEXP (x, 0) == XEXP (y, 0);
-  if (code == SYMBOL_REF)
-    return XSTR (x, 0) == XSTR (y, 0);
 
   /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.  */
-
   if (GET_MODE (x) != GET_MODE (y))
     return 0;
+
+  switch (code)
+    {
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return 0;
+
+    case LABEL_REF:
+      return XEXP (x, 0) == XEXP (y, 0);
+    case SYMBOL_REF:
+      return XSTR (x, 0) == XSTR (y, 0);
+
+    default:
+      break;
+    }
 
   /* Compare the elements.  If any pair of corresponding elements
      fail to match, return 0 for the whole things.  */
@@ -5794,7 +5804,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	      if ((unsigned) CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
 		  > reg_class_size[class])
 		{
-		  x = find_reloads_subreg_address (x, 0, opnum, type,
+		  x = find_reloads_subreg_address (x, 0, opnum, 
+						   ADDR_TYPE (type),
 						   ind_levels, insn);
 		  push_reload (x, NULL_RTX, loc, (rtx*) 0, class,
 			       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
@@ -5954,7 +5965,7 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 		}
 
 	      find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
-				    &XEXP (tem, 0), opnum, ADDR_TYPE (type),
+				    &XEXP (tem, 0), opnum, type,
 				    ind_levels, insn);
 
 	      /* If this is not a toplevel operand, find_reloads doesn't see

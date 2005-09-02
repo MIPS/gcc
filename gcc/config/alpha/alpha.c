@@ -5684,7 +5684,7 @@ alpha_arg_partial_bytes (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 #if TARGET_ABI_OPEN_VMS
   if (cum->num_args < 6
       && 6 < cum->num_args + ALPHA_ARG_SIZE (mode, type, named))
-    words = 6 - (CUM).num_args;
+    words = 6 - cum->num_args;
 #elif TARGET_ABI_UNICOSMK
   /* Never any split arguments.  */
 #elif TARGET_ABI_OSF
@@ -6090,6 +6090,7 @@ alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
 	  tmp = gen_rtx_MEM (BLKmode,
 			     plus_constant (virtual_incoming_args_rtx,
 					    (cum + 6) * UNITS_PER_WORD));
+	  MEM_NOTRAP_P (tmp) = 1;
 	  set_mem_alias_set (tmp, set);
 	  move_block_from_reg (16 + cum, tmp, count);
 	}
@@ -6099,6 +6100,7 @@ alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
 	  tmp = gen_rtx_MEM (BLKmode,
 			     plus_constant (virtual_incoming_args_rtx,
 					    cum * UNITS_PER_WORD));
+	  MEM_NOTRAP_P (tmp) = 1;
 	  set_mem_alias_set (tmp, set);
 	  move_block_from_reg (16 + cum + TARGET_FPREGS*32, tmp, count);
 	}
@@ -8731,6 +8733,11 @@ alpha_handle_trap_shadows (void)
 
 /* Alpha can only issue instruction groups simultaneously if they are
    suitably aligned.  This is very processor-specific.  */
+/* There are a number of entries in alphaev4_insn_pipe and alphaev5_insn_pipe
+   that are marked "fake".  These instructions do not exist on that target,
+   but it is possible to see these insns with deranged combinations of 
+   command-line options, such as "-mtune=ev4 -mmax".  Instead of aborting,
+   choose a result at random.  */
 
 enum alphaev4_pipe {
   EV4_STOP = 0,
@@ -8774,6 +8781,7 @@ alphaev4_insn_pipe (rtx insn)
     case TYPE_SHIFT:
     case TYPE_IMUL:
     case TYPE_FBR:
+    case TYPE_MVI:		/* fake */
       return EV4_IB0;
 
     case TYPE_IST:
@@ -8788,6 +8796,9 @@ alphaev4_insn_pipe (rtx insn)
     case TYPE_FMUL:
     case TYPE_ST_C:
     case TYPE_MB:
+    case TYPE_FSQRT:		/* fake */
+    case TYPE_FTOI:		/* fake */
+    case TYPE_ITOF:		/* fake */
       return EV4_IB1;
 
     default:
@@ -8823,6 +8834,8 @@ alphaev5_insn_pipe (rtx insn)
     case TYPE_LD_L:
     case TYPE_ST_C:
     case TYPE_MB:
+    case TYPE_FTOI:		/* fake */
+    case TYPE_ITOF:		/* fake */
       return EV5_E0;
 
     case TYPE_IBR:
@@ -8837,6 +8850,7 @@ alphaev5_insn_pipe (rtx insn)
     case TYPE_FCMOV:
     case TYPE_FADD:
     case TYPE_FDIV:
+    case TYPE_FSQRT:		/* fake */
       return EV5_FA;
 
     case TYPE_FMUL:

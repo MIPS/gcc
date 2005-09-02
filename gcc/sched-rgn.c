@@ -251,10 +251,6 @@ static void compute_dom_prob_ps (int);
 #define IS_SPECULATIVE_INSN(INSN) (IS_SPECULATIVE (BLOCK_TO_BB (BLOCK_NUM (INSN))))
 #define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
 
-/* Parameters affecting the decision of rank_for_schedule().
-   ??? Nope.  But MIN_PROBABILITY is used in compute_trg_info.  */
-#define MIN_PROBABILITY 40
-
 /* Speculative scheduling functions.  */
 static int check_live_1 (int, rtx);
 static void update_live_1 (int, rtx);
@@ -1013,7 +1009,7 @@ compute_trg_info (int trg)
       if (sp->is_valid)
 	{
 	  sp->src_prob = GET_SRC_PROB (i, trg);
-	  sp->is_valid = (sp->src_prob >= MIN_PROBABILITY);
+	  sp->is_valid = (sp->src_prob >= PARAM_VALUE (PARAM_MIN_SPEC_PROB));
 	}
 
       if (sp->is_valid)
@@ -1954,9 +1950,9 @@ add_branch_dependences (rtx head, rtx tail)
 
 		T = [addr]
 	C  ?	addr += 4
-	!C  ?	X += 12
+	!C ?	X += 12
 	C  ?	T += 1
-	C ?	jump foo
+	C  ?	jump foo
 
      On a target with a one cycle stall on a memory access the optimal
      sequence would be:
@@ -1977,17 +1973,17 @@ add_branch_dependences (rtx head, rtx tail)
   if (!reload_completed || ! JUMP_P (tail))
     return;
 
-  insn = PREV_INSN (tail);
+  insn = tail;
   while (insn != head)
     {
+      insn = PREV_INSN (insn);
+
       /* Note that we want to add this dependency even when
 	 sched_insns_conditions_mutex_p returns true.  The whole point
 	 is that we _want_ this dependency, even if these insns really
 	 are independent.  */
       if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == COND_EXEC)
 	add_dependence (tail, insn, REG_DEP_ANTI);
-
-      insn = PREV_INSN (insn);
     }
 #endif
 }

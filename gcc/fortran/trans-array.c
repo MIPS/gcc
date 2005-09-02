@@ -286,7 +286,7 @@ gfc_conv_descriptor_ubound (tree desc, tree dim)
 }
 
 
-/* Build an null array descriptor constructor.  */
+/* Build a null array descriptor constructor.  */
 
 tree
 gfc_build_null_descriptor (tree type)
@@ -3982,7 +3982,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
 }
 
 
-/* NULLIFY an allocated/pointer array on function entry, free it on exit.  */
+/* NULLIFY an allocatable/pointer array on function entry, free it on exit.  */
 
 tree
 gfc_trans_deferred_array (gfc_symbol * sym, tree body)
@@ -4007,7 +4007,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
       && !INTEGER_CST_P (sym->ts.cl->backend_decl))
     gfc_trans_init_string_length (sym->ts.cl, &fnblock);
 
-  /* Parameter and use associated variables don't need anything special.  */
+  /* Dummy and use associated variables don't need anything special.  */
   if (sym->attr.dummy || sym->attr.use_assoc)
     {
       gfc_add_expr_to_block (&fnblock, body);

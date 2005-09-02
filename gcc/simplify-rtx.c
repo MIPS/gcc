@@ -3014,7 +3014,17 @@ simplify_const_relational_operation (enum rtx_code code,
 
   /* If op0 is a compare, extract the comparison arguments from it.  */
   if (GET_CODE (op0) == COMPARE && op1 == const0_rtx)
-    op1 = XEXP (op0, 1), op0 = XEXP (op0, 0);
+    {
+      op1 = XEXP (op0, 1);
+      op0 = XEXP (op0, 0);
+
+      if (GET_MODE (op0) != VOIDmode)
+	mode = GET_MODE (op0);
+      else if (GET_MODE (op1) != VOIDmode)
+	mode = GET_MODE (op1);
+      else
+	return 0;
+    }
 
   /* We can't simplify MODE_CC values since we don't know what the
      actual comparison is.  */
@@ -3595,7 +3605,7 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 		}
 	      /* It shouldn't matter what's done here, so fill it with
 		 zero.  */
-	      for (; i < max_bitsize; i += value_bit)
+	      for (; i < elem_bitsize; i += value_bit)
 		*vp++ = 0;
 	    }
 	  else

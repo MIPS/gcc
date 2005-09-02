@@ -1,3 +1,7 @@
+2005-09-01  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge (gomp-merge-20050901)
+
 2005-08-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* cgraph.c (cgraph_add_new_function): When unit at a time is

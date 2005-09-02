@@ -110,7 +110,8 @@
       /* TLS symbols are not constant.  */
       if (tls_symbolic_operand (op, Pmode))
 	return false;
-      return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL);
+      return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL
+	      || (ix86_cmodel == CM_MEDIUM && !SYMBOL_REF_FAR_ADDR_P (op)));
 
     case LABEL_REF:
       /* For certain code models, the code is near as well.  */
@@ -150,7 +151,9 @@
 		 end of 31bits boundary.  We may also accept pretty
 		 large negative constants knowing that all objects are
 		 in the positive half of address space.  */
-	      if (ix86_cmodel == CM_SMALL
+	      if ((ix86_cmodel == CM_SMALL
+		   || (ix86_cmodel == CM_MEDIUM
+		       && !SYMBOL_REF_FAR_ADDR_P (op1)))
 		  && offset < 16*1024*1024
 		  && trunc_int_for_mode (offset, SImode) == offset)
 		return 1;
@@ -224,7 +227,9 @@
       /* TLS symbols are not constant.  */
       if (tls_symbolic_operand (op, Pmode))
 	return false;
-      return ix86_cmodel == CM_SMALL;
+      return (ix86_cmodel == CM_SMALL
+	      || (ix86_cmodel == CM_MEDIUM
+		  && !SYMBOL_REF_FAR_ADDR_P (op)));
 
     case LABEL_REF:
       /* For certain code models, the code is near as well.  */
@@ -247,7 +252,9 @@
 		 offsets, since one bit is available for free.  Negative
 		 offsets are limited by the size of NULL pointer area
 		 specified by the ABI.  */
-	      if (ix86_cmodel == CM_SMALL
+	      if ((ix86_cmodel == CM_SMALL
+		   || (ix86_cmodel == CM_MEDIUM
+		       && !SYMBOL_REF_FAR_ADDR_P (op1)))
 		  && GET_CODE (op2) == CONST_INT
 		  && trunc_int_for_mode (INTVAL (op2), DImode) > -0x10000
 		  && trunc_int_for_mode (INTVAL (op2), SImode) == INTVAL (op2))
@@ -310,6 +317,28 @@
 	 (ior (match_operand 0 "x86_64_immediate_operand")
 	      (match_operand 0 "x86_64_zext_immediate_operand")))
     (match_operand 0 "nonmemory_operand")))
+
+;; Return true when operand is PIC expression that can be computed by lea
+;; operation.
+(define_predicate "pic_32bit_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  if (!flag_pic)
+    return 0;
+  /* Rule out relocations that translate into 64bit constants.  */
+  if (TARGET_64BIT && GET_CODE (op) == CONST)
+    {
+      op = XEXP (op, 0);
+      if (GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
+	op = XEXP (op, 0);
+      if (GET_CODE (op) == UNSPEC
+	  && (XINT (op, 1) == UNSPEC_GOTOFF
+	      || XINT (op, 1) == UNSPEC_GOT))
+	return 0;
+    }
+  return symbolic_operand (op, mode);
+})
+
 
 ;; Return nonzero if OP is nonmemory operand acceptable by movabs patterns.
 (define_predicate "x86_64_movabs_operand"

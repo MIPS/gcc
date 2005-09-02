@@ -654,6 +654,7 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 
   gfc_init_se (&lse, se);
   gfc_conv_expr_val (&lse, expr->value.op.op1);
+  lse.expr = gfc_evaluate_now (lse.expr, &lse.pre);
   gfc_add_block_to_block (&se->pre, &lse.pre);
 
   gfc_init_se (&rse, se);
@@ -1074,7 +1075,7 @@ gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
 
 /* Generate code for a procedure call.  Note can return se->post != NULL.
    If se->direct_byref is set then se->expr contains the return parameter.
-   Return non-zero, if the call has alternate specifiers.  */
+   Return nonzero, if the call has alternate specifiers.  */
 
 int
 gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
@@ -1867,7 +1868,9 @@ gfc_conv_substring_expr (gfc_se * se, gfc_expr * expr)
 }
 
 
-/* Entry point for expression translation.  */
+/* Entry point for expression translation.  Evaluates a scalar quantity.
+   EXPR is the expression to be translated, and SE is the state structure if
+   called from within the scalarized.  */
 
 void
 gfc_conv_expr (gfc_se * se, gfc_expr * expr)
@@ -1923,15 +1926,20 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
     }
 }
 
+/* Like gfc_conv_expr_val, but the value is also suitable for use in the lhs
+   of an assignment.  */
 void
 gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr)
 {
   gfc_conv_expr (se, expr);
-  /* AFAICS all numeric lvalues have empty post chains.  If not we need to
+  /* All numeric lvalues should have empty post chains.  If not we need to
      figure out a way of rewriting an lvalue so that it has no post chain.  */
-  gcc_assert (expr->ts.type != BT_CHARACTER || !se->post.head);
+  gcc_assert (expr->ts.type == BT_CHARACTER || !se->post.head);
 }
 
+/* Like gfc_conv_expr, but the POST block is guaranteed to be empty for
+   numeric expressions.  Used for scalar values whee inserting cleanup code
+   is inconvenient.  */
 void
 gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
 {
@@ -1943,9 +1951,12 @@ gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
     {
       val = gfc_create_var (TREE_TYPE (se->expr), NULL);
       gfc_add_modify_expr (&se->pre, val, se->expr);
+      se->expr = val;
+      gfc_add_block_to_block (&se->pre, &se->post);
     }
 }
 
+/* Helper to translate and expression and convert it to a particular type.  */
 void
 gfc_conv_expr_type (gfc_se * se, gfc_expr * expr, tree type)
 {

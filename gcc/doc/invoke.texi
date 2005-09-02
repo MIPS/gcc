@@ -238,13 +238,14 @@ Objective-C and Objective-C++ Dialects}.
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
--Wsign-compare  -Wstrict-aliasing -Wstrict-aliasing=2 @gol
+-Wsign-compare  -Wstack-protector @gol
+-Wstrict-aliasing -Wstrict-aliasing=2 @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
--Wunused-value  -Wunused-variable  -Wwrite-strings @gol
--Wvariadic-macros}
+-Wunused-value  -Wunused-variable  -Wvariadic-macros @gol
+-Wwrite-strings}
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -281,7 +282,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-vectorizer-verbose=@var{n} @gol
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
--feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
+-feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
@@ -322,10 +323,11 @@ Objective-C and Objective-C++ Dialects}.
 -frounding-math -fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  @gol
--fsched-stalled-insns=@var{n} -sched-stalled-insns-dep=@var{n} @gol
+-fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
 -fsched2-use-superblocks @gol
 -fsched2-use-traces -freschedule-modulo-scheduled-loops @gol
--fsignaling-nans -fsingle-precision-constant  -fspeculative-prefetching @gol
+-fsignaling-nans -fsingle-precision-constant  @gol
+-fstack-protector  -fstack-protector-all @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
@@ -362,7 +364,7 @@ Objective-C and Objective-C++ Dialects}.
 @item Linker Options
 @xref{Link Options,,Options for Linking}.
 @gccoptlist{@var{object-file-name}  -l@var{library} @gol
--nostartfiles  -nodefaultlibs  -nostdlib -pie @gol
+-nostartfiles  -nodefaultlibs  -nostdlib -pie -rdynamic @gol
 -s  -static  -static-libgcc  -shared  -shared-libgcc  -symbolic @gol
 -Wl,@var{option}  -Xlinker @var{option} @gol
 -u @var{symbol}}
@@ -430,6 +432,9 @@ Objective-C and Objective-C++ Dialects}.
 -m32-bit  -m16-bit  -m8-bit  -mno-prologue-epilogue  -mno-gotplt @gol
 -melf  -maout  -melinux  -mlinux  -sim  -sim2 @gol
 -mmul-bug-workaround  -mno-mul-bug-workaround}
+
+@emph{CRX Options}
+@gccoptlist{-mmac -mpush-args}
 
 @emph{Darwin Options}
 @gccoptlist{-all_load  -allowable_client  -arch  -arch_errors_fatal @gol
@@ -521,7 +526,7 @@ Objective-C and Objective-C++ Dialects}.
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
--m32  -m64}
+-m32  -m64 -mlarge-data-threshold=@var{num}}
 
 @emph{IA-64 Options}
 @gccoptlist{-mbig-endian  -mlittle-endian  -mgnu-as  -mgnu-ld  -mno-pic @gol
@@ -604,6 +609,10 @@ Objective-C and Objective-C++ Dialects}.
 -mam33  -mno-am33 @gol
 -mam33-2  -mno-am33-2 @gol
 -mno-crt0  -mrelax}
+
+@emph{MS1 Options}
+@gccoptlist{-mno-crt0 -mmul -mbacc -msim @gol
+-march=@var{cpu-type} }
 
 @emph{PDP-11 Options}
 @gccoptlist{-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
@@ -856,6 +865,11 @@ preprocessor (not included with GCC)@.
 @item @var{file}.f90
 @itemx @var{file}.f95
 Fortran 90/95 source code which should not be preprocessed.
+
+@item @var{file}.F90
+@itemx @var{file}.F95
+Fortran 90/95 source code which must be preprocessed (with the
+traditional preprocessor).
 
 @c FIXME: Descriptions of Java file types.
 @c @var{file}.java
@@ -1792,9 +1806,9 @@ but disables the helpful warning.
 @item -Wold-style-cast @r{(C++ only)}
 @opindex Wold-style-cast
 Warn if an old-style (C-style) cast to a non-void type is used within
-a C++ program.  The new-style casts (@samp{static_cast},
-@samp{reinterpret_cast}, and @samp{const_cast}) are less vulnerable to
-unintended effects and much easier to search for.
+a C++ program.  The new-style casts (@samp{dynamic_cast},
+@samp{static_cast}, @samp{reinterpret_cast}, and @samp{const_cast}) are
+less vulnerable to unintended effects and much easier to search for.
 
 @item -Woverloaded-virtual @r{(C++ only)}
 @opindex Woverloaded-virtual
@@ -2727,9 +2741,10 @@ included in @option{-Wall}.
 @item -Wstrict-aliasing=2
 @opindex Wstrict-aliasing=2
 This option is only active when @option{-fstrict-aliasing} is active.
-It warns about all code which might break the strict aliasing rules that the
-compiler is using for optimization.  This warning catches all cases, but
-it will also give a warning for some ambiguous cases that are safe.
+It warns about code which might break the strict aliasing rules that the
+compiler is using for optimization.  This warning catches more cases than
+@option{-Wstrict-aliasing}, but it will also give a warning for some ambiguous
+cases that are safe.
 
 @item -Wall
 @opindex Wall
@@ -3353,6 +3368,11 @@ This option is only supported for C and Objective-C@.
 @item -Werror
 @opindex Werror
 Make all warnings into errors.
+
+@item -Wstack-protector
+This option is only active when @option{-fstack-protector} is active.  It
+warns about functions that will not be protected against stack smashing.
+
 @end table
 
 @node Debugging Options
@@ -3579,17 +3599,6 @@ compiler adds code to count the number of times that these arcs are
 executed.  When an arc is the only exit or only entrance to a block, the
 instrumentation code can be added to the block; otherwise, a new basic
 block must be created to hold the instrumentation code.
-
-@item -ftree-based-profiling
-@opindex ftree-based-profiling
-This option is used in addition to @option{-fprofile-arcs} or
-@option{-fbranch-probabilities} to control whether those optimizations
-are performed on a tree-based or rtl-based internal representation.
-If you use this option when compiling with @option{-fprofile-arcs},
-you must also use it when compiling later with @option{-fbranch-probabilities}.
-Currently the tree-based optimization is in an early stage of
-development, and this option is recommended only for those people
-working on improving it.
 
 @need 2000
 @item -ftest-coverage
@@ -4955,8 +4964,11 @@ Perform dead code elimination (DCE) on trees.  This flag is enabled by
 default at @option{-O} and higher.
 
 @item -ftree-dominator-opts
-Perform dead code elimination (DCE) on trees.  This flag is enabled by
-default at @option{-O} and higher.
+Perform a variety of simple scalar cleanups (constant/copy
+propagation, redundancy elimination, range propagation and expression
+simplification) based on a dominator tree traversal.  This also
+performs jump threading (to reduce jumps to jumps). This flag is
+enabled by default at @option{-O} and higher.
 
 @item -ftree-ch
 Perform loop header copying on trees.  This is beneficial since it increases
@@ -5329,8 +5341,9 @@ The following options are enabled: @code{-fprofile-arcs}, @code{-fprofile-values
 Enable profile feedback directed optimizations, and optimizations
 generally profitable only with profile feedback available.
 
-The following options are enabled: @code{-fbranch-probabilities},
-@code{-fvpt}, @code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}.
+The following options are enabled: @code{-fbranch-probabilities}, @code{-fvpt},
+@code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer},
+@code{-fno-loop-optimize}.
 
 @end table
 
@@ -5527,23 +5540,6 @@ and actually performs the optimizations based on them.
 Currently the optimizations include specialization of division operation
 using the knowledge about the value of the denominator.
 
-@item -fspeculative-prefetching
-@opindex fspeculative-prefetching
-If combined with @option{-fprofile-arcs}, it instructs the compiler to add
-a code to gather information about addresses of memory references in the
-program.
-
-With @option{-fbranch-probabilities}, it reads back the data gathered
-and issues prefetch instructions according to them.  In addition to the opportunities
-noticed by @option{-fprefetch-loop-arrays}, it also notices more complicated
-memory access patterns---for example accesses to the data stored in linked
-list whose elements are usually allocated sequentially.
-
-In order to prevent issuing double prefetches, usage of
-@option{-fspeculative-prefetching} implies @option{-fno-prefetch-loop-arrays}.
-
-Enabled with @option{-fprofile-generate} and @option{-fprofile-use}.
-
 @item -frename-registers
 @opindex frename-registers
 Attempt to avoid false dependencies in scheduled code by making use
@@ -5645,6 +5641,17 @@ threading.
 @opindex fbtr-bb-exclusive
 When performing branch target register load optimization, don't reuse
 branch target registers in within any basic block.
+
+@item -fstack-protector
+Emit extra code to check for buffer overflows, such as stack smashing
+attacks.  This is done by adding a guard variable to functions with
+vulnerable objects.  This includes functions that call alloca, and
+functions with buffers larger than 8 bytes.  The guards are initialized
+when a function is entered and then checked when the function exits.
+If a guard check fails, an error message is printed and the program exits.
+
+@item -fstack-protector-all
+Like @option{-fstack-protector} except that all functions are protected.
 
 @item --param @var{name}=@var{value}
 @opindex param
@@ -5789,6 +5796,18 @@ taken into acount.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
 default value is 450.
+
+@item min-inline-recursive-probability
+Recursive inlining is profitable only for function having deep recursion
+in average and can hurt for function having little recursion depth by
+increasing the prologue size or complexity of function body to other
+optimizers.
+
+When profile feedback is available (see @option{-fprofile-generate}) the actual
+recursion depth can be guessed from probability that function will recurse via
+given call expression.  This parameter limits inlining only to call expression
+whose probability exceeds given threshold (in percents).  The default value is
+10.
 
 @item inline-call-cost
 Specify cost of call instruction relative to simple arithmetics operations
@@ -5986,6 +6005,10 @@ interblock scheduling.  The default value is 10.
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
 
+@item min-sched-prob
+The minimum probability of reaching a source block for interblock
+speculative scheduling.  The default value is 40.
+
 @item max-last-value-rtl
 
 The maximum size measured as number of RTLs that can be recorded in an expression
@@ -6008,6 +6031,10 @@ If the number of virtual mappings is virtual-mappings-ratio bigger
 than the number of virtual symbols to be updated, then the incremental
 SSA updater switches to a full update for those symbols.  The default
 ratio is 3.
+
+@item ssp-buffer-size
+The minimum size of buffers (i.e. arrays) that will receive stack smashing
+protection when @option{-fstack-protection} is used.
 
 @end table
 @end table
@@ -6189,6 +6216,14 @@ Produce a position independent executable on targets which support it.
 For predictable results, you must also specify the same set of options
 that were used to generate code (@option{-fpie}, @option{-fPIE},
 or model suboptions) when you specify this option.
+
+@item -rdynamic
+@opindex rdynamic
+Pass the flag @option{-export-dynamic} to the ELF linker, on targets
+that support it. This instructs the linker to add all symbols, not
+only used ones, to the dynamic symbol table. This option is needed
+for some uses of @code{dlopen} or to allow obtaining backtraces
+from within a program.
 
 @item -s
 @opindex s
@@ -6941,14 +6976,16 @@ The argument @var{machine} specifies the target machine for compilation.
 The value to use for @var{machine} is the same as was specified as the
 machine type when configuring GCC as a cross-compiler.  For
 example, if a cross-compiler was configured with @samp{configure
-i386v}, meaning to compile for an 80386 running System V, then you
-would specify @option{-b i386v} to run that cross compiler.
+arm-elf}, meaning to compile for an arm processor with elf binaries,
+then you would specify @option{-b arm-elf} to run that cross compiler.
+Because there are other options beginning with @option{-b}, the
+configuration must contain a hyphen. 
 
 @item -V @var{version}
 @opindex V
 The argument @var{version} specifies which version of GCC to run.
 This is useful when multiple versions are installed.  For example,
-@var{version} might be @samp{2.0}, meaning to run GCC version 2.0.
+@var{version} might be @samp{4.0}, meaning to run GCC version 4.0.
 @end table
 
 The @option{-V} and @option{-b} options work by running the
@@ -6987,6 +7024,7 @@ platform.
 * AVR Options::
 * Blackfin Options::
 * CRIS Options::
+* CRX Options::
 * Darwin Options::
 * DEC Alpha Options::
 * DEC Alpha/VMS Options::
@@ -7003,6 +7041,7 @@ platform.
 * MIPS Options::
 * MMIX Options::
 * MN10300 Options::
+* MS1 Options::
 * PDP-11 Options::
 * PowerPC Options::
 * RS/6000 and PowerPC Options::
@@ -7656,6 +7695,24 @@ initialized data and zero-initialized data are allocated consecutively.
 @opindex sim2
 Like @option{-sim}, but pass linker options to locate initialized data at
 0x40000000 and zero-initialized data at 0x80000000.
+@end table
+
+@node CRX Options
+@subsection CRX Options
+@cindex CRX Options
+
+These options are defined specifically for the CRX ports.
+
+@table @gcctabopt
+
+@item -mmac
+@opindex mmac
+Enable the use of multiply-accumulate instructions. Disabled by default.
+
+@item -mpush-args
+@opindex mpush-args
+Push instructions will be used to pass outgoing arguments when functions
+are called. Enabled by default.
 @end table
 
 @node Darwin Options
@@ -8728,7 +8785,8 @@ have any affect on which ld is called, it only changes what parameters
 are passed to that ld.  The ld that is called is determined by the
 @option{--with-ld} configure option, GCC's program search path, and
 finally by the user's @env{PATH}.  The linker used by GCC can be printed
-using @samp{which `gcc -print-prog-name=ld`}.
+using @samp{which `gcc -print-prog-name=ld`}.  This option is only available
+on the 64 bit HP-UX GCC, i.e. configured with @samp{hppa*64*-*-hpux*}.
 
 @item -mhp-ld
 @opindex hp-ld
@@ -8740,7 +8798,8 @@ which ld is called, it only changes what parameters are passed to that
 ld.  The ld that is called is determined by the @option{--with-ld}
 configure option, GCC's program search path, and finally by the user's
 @env{PATH}.  The linker used by GCC can be printed using @samp{which
-`gcc -print-prog-name=ld`}.
+`gcc -print-prog-name=ld`}.  This option is only available on the 64 bit
+HP-UX GCC, i.e. configured with @samp{hppa*64*-*-hpux*}.
 
 @item -mlong-calls
 @opindex mno-long-calls
@@ -9052,6 +9111,11 @@ their size as well as function calling convention for function taking
 @code{long double} will be modified.  Hence they will not be binary
 compatible with arrays or structures in code compiled without that switch.
 
+@item -mmlarge-data-threshold=@var{number}
+@opindex mlarge-data-threshold=@var{number}
+When @option{-mcmodel=medium} is specified, the data greater than
+@var{threshold} are placed in large data section.  This value must be the
+same across all object linked into the binary and defaults to 65535.
 
 @item -msvr3-shlib
 @itemx -mno-svr3-shlib
@@ -9923,13 +9987,17 @@ The ISA names are:
 @samp{mips1}, @samp{mips2}, @samp{mips3}, @samp{mips4},
 @samp{mips32}, @samp{mips32r2}, and @samp{mips64}.
 The processor names are:
-@samp{4kc}, @samp{4kp}, @samp{5kc}, @samp{20kc},
+@samp{4kc}, @samp{4km}, @samp{4kp},
+@samp{5kc}, @samp{5kf},
+@samp{20kc},
+@samp{24k}, @samp{24kc}, @samp{24kf}, @samp{24kx},
 @samp{m4k},
-@samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
-@samp{r4600}, @samp{r4650}, @samp{r6000}, @samp{r8000}, @samp{rm7000},
-@samp{rm9000},
 @samp{orion},
+@samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
+@samp{r4600}, @samp{r4650}, @samp{r6000}, @samp{r8000},
+@samp{rm7000}, @samp{rm9000},
 @samp{sb1},
+@samp{sr71000},
 @samp{vr4100}, @samp{vr4111}, @samp{vr4120}, @samp{vr4130}, @samp{vr4300},
 @samp{vr5000}, @samp{vr5400} and @samp{vr5500}.
 The special value @samp{from-abi} selects the
@@ -10488,6 +10556,52 @@ to shorten branches, calls and absolute memory addresses.  This option only
 has an effect when used on the command line for the final link step.
 
 This option makes symbolic debugging impossible.
+@end table
+
+@node MS1 Options
+@subsection MS1 Options
+@cindex MS1 options
+
+These @option{-m} options are defined for Morpho MS1 architectures:
+
+@table @gcctabopt
+
+@item -march=@var{cpu-type}
+@opindex march
+Generate code that will run on @var{cpu-type}, which is the name of a system
+representing a certain processor type.  Possible values for
+@var{cpu-type} are @samp{MS1-64-001}, @samp{MS1-16-002}, and
+@samp{MS1-16-003}.
+
+When this option is not used, the default is @option{-march=MS1-16-003}.
+
+@item -mmul
+@opindex mmul
+Generate multiply instructions.
+
+@item -mno-mul
+@opindex mno-mul
+Do not generate multiply instructions.
+
+@item -mbacc
+@opindex mbacc
+Use byte loads and stores when generating code.
+
+@item -mno-bacc
+@opindex mno-bacc
+Do not use byte loads and stores when generating code.
+
+@item -msim
+@opindex msim
+Use simulator runtime
+
+@item -mno-crt0
+@opindex mno-crt0
+Do not link in the C run-time initialization object file
+@file{crti.o}.  Other run-time initialisation and termination files
+such as @file{startup.o} and @file{exit.o} are still included on the
+linker command line.
+
 @end table
 
 @node PDP-11 Options
@@ -13129,9 +13243,9 @@ which options are safe to change and which are not; the safest choice
 is to use exactly the same options when generating and using the
 precompiled header.  The following are known to be safe:
 
-@gccoptlist{-fpreprocessed
+@gccoptlist{-fmessage-length= -fpreprocessed
 -fsched-interblock -fsched-spec -fsched-spec-load -fsched-spec-load-dangerous
--fsched-verbose=<number> -fschedule-insns
+-fsched-verbose=<number> -fschedule-insns -fvisibility=
 -pedantic-errors}
 
 @end itemize

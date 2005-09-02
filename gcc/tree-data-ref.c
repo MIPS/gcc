@@ -384,11 +384,18 @@ base_object_differ_p (struct data_reference *a,
 /* Function base_addr_differ_p.
 
    This is the simplest data dependence test: determines whether the
-   data references A and B access the same array/region.  Returns
+   data references DRA and DRB access the same array/region.  Returns
    false when the property is not computable at compile time.
-   Otherwise return true, and DIFFER_P will record the result. This
-   utility will not be necessary when alias_sets_conflict_p will be
-   less conservative.  */
+   Otherwise return true, and DIFFER_P will record the result.
+
+   The algorithm:   
+   1. if (both DRA and DRB are represented as arrays)
+          compare DRA.BASE_OBJECT and DRB.BASE_OBJECT
+   2. else if (both DRA and DRB are represented as pointers)
+          try to prove that DRA.FIRST_LOCATION == DRB.FIRST_LOCATION
+   3. else if (DRA and DRB are represented differently or 2. fails)
+          only try to prove that the bases are surely different
+*/
 
 
 static bool
@@ -409,26 +416,27 @@ base_addr_differ_p (struct data_reference *dra,
 
   gcc_assert (POINTER_TYPE_P (type_a) &&  POINTER_TYPE_P (type_b));
   
-  /* Compare base objects first if possible. If DR_BASE_OBJECT is NULL, it means
-     that the data-ref is of INDIRECT_REF, and alias analysis will be applied to 
-     reveal the dependence.  */
-  if (DR_BASE_OBJECT (dra) && DR_BASE_OBJECT (drb))
+  /* 1. if (both DRA and DRB are represented as arrays)
+            compare DRA.BASE_OBJECT and DRB.BASE_OBJECT.  */
+  if (DR_TYPE (dra) == ARRAY_REF_TYPE && DR_TYPE (drb) == ARRAY_REF_TYPE)
     return base_object_differ_p (dra, drb, differ_p);
 
+
+  /* 2. else if (both DRA and DRB are represented as pointers)
+	    try to prove that DRA.FIRST_LOCATION == DRB.FIRST_LOCATION.  */
   /* If base addresses are the same, we check the offsets, since the access of 
      the data-ref is described by {base addr + offset} and its access function,
      i.e., in order to decide whether the bases of data-refs are the same we 
      compare both base addresses and offsets.  */
-  if (addr_a == addr_b 
-      || (TREE_CODE (addr_a) == ADDR_EXPR && TREE_CODE (addr_b) == ADDR_EXPR
-         && TREE_OPERAND (addr_a, 0) == TREE_OPERAND (addr_b, 0)))
+  if (DR_TYPE (dra) == POINTER_REF_TYPE && DR_TYPE (drb) == POINTER_REF_TYPE
+      && (addr_a == addr_b 
+	  || (TREE_CODE (addr_a) == ADDR_EXPR && TREE_CODE (addr_b) == ADDR_EXPR
+	      && TREE_OPERAND (addr_a, 0) == TREE_OPERAND (addr_b, 0))))
     {
       /* Compare offsets.  */
       tree offset_a = DR_OFFSET (dra); 
       tree offset_b = DR_OFFSET (drb);
       
-      gcc_assert (!DR_BASE_OBJECT (dra) && !DR_BASE_OBJECT (drb));
-
       STRIP_NOPS (offset_a);
       STRIP_NOPS (offset_b);
 
@@ -444,6 +452,9 @@ base_addr_differ_p (struct data_reference *dra,
 	  return true;
 	}
     }
+
+  /*  3. else if (DRA and DRB are represented differently or 2. fails) 
+              only try to prove that the bases are surely different.  */
 
   /* Apply alias analysis.  */
   if (may_alias_p (addr_a, addr_b, dra, drb, &aliased) && !aliased)
@@ -468,13 +479,11 @@ base_addr_differ_p (struct data_reference *dra,
 /* Returns true iff A divides B.  */
 
 static inline bool 
-tree_fold_divides_p (tree type, 
-		     tree a, 
+tree_fold_divides_p (tree a, 
 		     tree b)
 {
   /* Determines whether (A == gcd (A, B)).  */
-  return integer_zerop 
-    (fold_build2 (MINUS_EXPR, type, a, tree_fold_gcd (a, b)));
+  return tree_int_cst_equal (a, tree_fold_gcd (a, b));
 }
 
 /* Compute the greatest common denominator of two numbers using
@@ -731,23 +740,6 @@ dump_ddrs (FILE *file, varray_type ddrs)
 
 
 
-/* Initialize LOOP->ESTIMATED_NB_ITERATIONS with the lowest safe
-   approximation of the number of iterations for LOOP.  */
-
-static void
-compute_estimated_nb_iterations (struct loop *loop)
-{
-  struct nb_iter_bound *bound;
-  
-  for (bound = loop->bounds; bound; bound = bound->next)
-    if (TREE_CODE (bound->bound) == INTEGER_CST
-	/* Update only when there is no previous estimation.  */
-	&& (chrec_contains_undetermined (loop->estimated_nb_iterations)
-	    /* Or when the current estimation is smaller.  */
-	    || tree_int_cst_lt (bound->bound, loop->estimated_nb_iterations)))
-      loop->estimated_nb_iterations = bound->bound;
-}
-
 /* Estimate the number of iterations from the size of the data and the
    access functions.  */
 
@@ -757,7 +749,7 @@ estimate_niter_from_size_of_data (struct loop *loop,
 				  tree access_fn, 
 				  tree stmt)
 {
-  tree estimation;
+  tree estimation = NULL_TREE;
   tree array_size, data_size, element_size;
   tree init, step;
 
@@ -779,11 +771,28 @@ estimate_niter_from_size_of_data (struct loop *loop,
       && TREE_CODE (init) == INTEGER_CST
       && TREE_CODE (step) == INTEGER_CST)
     {
-      estimation = fold_build2 (CEIL_DIV_EXPR, integer_type_node,
-				fold_build2 (MINUS_EXPR, integer_type_node,
-					     data_size, init), step);
+      tree i_plus_s = fold_build2 (PLUS_EXPR, integer_type_node, init, step);
+      tree sign = fold_build2 (GT_EXPR, boolean_type_node, i_plus_s, init);
 
-      record_estimate (loop, estimation, boolean_true_node, stmt);
+      if (sign == boolean_true_node)
+	estimation = fold_build2 (CEIL_DIV_EXPR, integer_type_node,
+				  fold_build2 (MINUS_EXPR, integer_type_node,
+					       data_size, init), step);
+
+      /* When the step is negative, as in PR23386: (init = 3, step =
+	 0ffffffff, data_size = 100), we have to compute the
+	 estimation as ceil_div (init, 0 - step) + 1.  */
+      else if (sign == boolean_false_node)
+	estimation = 
+	  fold_build2 (PLUS_EXPR, integer_type_node,
+		       fold_build2 (CEIL_DIV_EXPR, integer_type_node,
+				    init,
+				    fold_build2 (MINUS_EXPR, unsigned_type_node,
+						 integer_zero_node, step)),
+		       integer_one_node);
+
+      if (estimation)
+	record_estimate (loop, estimation, boolean_true_node, stmt);
     }
 }
 
@@ -830,7 +839,7 @@ analyze_array_indexes (struct loop *loop,
    set to true when REF is in the right hand side of an
    assignment.  */
 
-static struct data_reference *
+struct data_reference *
 analyze_array (tree stmt, tree ref, bool is_read)
 {
   struct data_reference *res;
@@ -1712,7 +1721,7 @@ analyze_offset (tree offset, tree *invariant, tree *constant)
   *constant = constant_0 ? constant_0 : constant_1;
   if (invariant_0 && invariant_1)
     *invariant = 
-      fold (build (code, TREE_TYPE (invariant_0), invariant_0, invariant_1));
+      fold_build2 (code, TREE_TYPE (invariant_0), invariant_0, invariant_1);
   else
     *invariant = invariant_0 ? invariant_0 : invariant_1;
 }
@@ -1794,8 +1803,8 @@ create_data_ref (tree memref, tree stmt, bool is_read)
       if (constant)
 	{
 	  DR_INIT (dr) = fold_convert (ssizetype, constant);
-	  init_cond = fold (build (TRUNC_DIV_EXPR, TREE_TYPE (constant), 
-				   constant, type_size));
+	  init_cond = fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (constant), 
+				   constant, type_size);
 	}
       else
 	DR_INIT (dr) = init_cond = ssize_int (0);;
@@ -2175,8 +2184,7 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		     chrec_b = {10, +, 1}
 		  */
 		  
-		  if (tree_fold_divides_p 
-		      (integer_type_node, CHREC_RIGHT (chrec_b), difference))
+		  if (tree_fold_divides_p (CHREC_RIGHT (chrec_b), difference))
 		    {
 		      *overlaps_a = integer_zero_node;
 		      *overlaps_b = fold_build2 (EXACT_DIV_EXPR, integer_type_node,
@@ -2188,7 +2196,7 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		      return;
 		    }
 		  
-		  /* When the step does not divides the difference, there are
+		  /* When the step does not divide the difference, there are
 		     no overlaps.  */
 		  else
 		    {
@@ -2230,18 +2238,17 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		     chrec_a = 3
 		     chrec_b = {10, +, -1}
 		  */
-		  if (tree_fold_divides_p 
-		      (integer_type_node, CHREC_RIGHT (chrec_b), difference))
+		  if (tree_fold_divides_p (CHREC_RIGHT (chrec_b), difference))
 		    {
 		      *overlaps_a = integer_zero_node;
-		      *overlaps_b = fold 
-			(build (EXACT_DIV_EXPR, integer_type_node, difference, 
-				CHREC_RIGHT (chrec_b)));
+		      *overlaps_b = fold_build2 (EXACT_DIV_EXPR,
+				      		 integer_type_node, difference, 
+						 CHREC_RIGHT (chrec_b));
 		      *last_conflicts = integer_one_node;
 		      return;
 		    }
 		  
-		  /* When the step does not divides the difference, there
+		  /* When the step does not divide the difference, there
 		     are no overlaps.  */
 		  else
 		    {
@@ -2805,7 +2812,7 @@ chrec_steps_divide_constant_p (tree chrec,
   switch (TREE_CODE (chrec))
     {
     case POLYNOMIAL_CHREC:
-      return (tree_fold_divides_p (integer_type_node, CHREC_RIGHT (chrec), cst)
+      return (tree_fold_divides_p (CHREC_RIGHT (chrec), cst)
 	      && chrec_steps_divide_constant_p (CHREC_LEFT (chrec), cst));
       
     default:
@@ -3023,8 +3030,8 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
    NB_LOOPS is the total number of loops we are considering.
    FIRST_LOOP_DEPTH is the loop->depth of the first loop in the analyzed
    loop nest.  
-   Return FALSE if the dependence relation is outside of the loop nest
-   starting at FIRST_LOOP_DEPTH. 
+   Return FALSE when fail to represent the data dependence as a distance
+   vector.
    Return TRUE otherwise.  */
 
 static bool
@@ -3189,6 +3196,23 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
   
   DDR_DIST_VECT (ddr) = dist_v;
   DDR_SIZE_VECT (ddr) = nb_loops;
+
+  /* Verify a basic constraint: classic distance vectors should always
+     be lexicographically positive.  */
+  if (!lambda_vector_lexico_pos (DDR_DIST_VECT (ddr),
+				 DDR_SIZE_VECT (ddr)))
+    {
+      if (DDR_SIZE_VECT (ddr) == 1)
+	/* This one is simple to fix, and can be fixed.
+	   Multidimensional arrays cannot be fixed that simply.  */
+	lambda_vector_negate (DDR_DIST_VECT (ddr), DDR_DIST_VECT (ddr),
+			      DDR_SIZE_VECT (ddr));
+      else
+	/* This is not valid: we need the delta test for properly
+	   fixing all this.  */
+	return false;
+    }
+
   return true;
 }
 
@@ -3644,9 +3668,6 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 	  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
 	    loop->parallel_p = false;
 	}
-
-      if (chrec_contains_undetermined (loop->estimated_nb_iterations))
-	compute_estimated_nb_iterations (loop);
     }
 
   free (bbs);

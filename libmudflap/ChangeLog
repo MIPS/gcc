@@ -1,3 +1,46 @@
+2005-08-22  Jim Wilson  <wilson@specifix.com>
+
+	* mf-hooks2.c (MF_REGISTER_fopen): Define to __MF_TYPE_STATIC when
+	__FreeBSD__ is defined.
+
+2005-08-17  Jim Wilson  <wilson@specifix.com>
+
+	* mf-hooks1.c (malloc, calloc, realloc, free,
+	__mf_wrap_alloca_indirect): Call BEGIN_MALLOC_PROTECT before calling
+	the real routines, and END_MALLOC_PROTECT afterwards.
+	* mf-impl.h (enum __mf_state_enum): Expand comment.  Add in_malloc.
+	(BEGIN_PROTECT): Handle in_malloc state.
+	(BEGIN_MALLOC_PROTECT, END_MALLOC_PROTECT): New.
+	* testsuite/libmudflap.c/hook2-allocstuff.c: New.
+
+2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* All files: Update FSF address.
+
+2005-08-15  Ulrich Weigand  <weigand@informatik.uni-erlangen.de>
+
+	* mf-hooks3.c (main_seen_p): Remove.
+	(__mf_get_state): Remove attempt to recognize the main thread.
+
+2005-08-15  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* configure.ac: Test for the name of the symbol used for the entry
+	point; define ENTRY_POINT to the result.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* mf-heuristics.c: Replace _start with ENTRY_POINT throughout.
+
+2005-08-14  Ulrich Weigand  <weigand@informatik.uni-erlangen.de>
+
+	* mf-runtime.c (__mf_state_1): Initialize to reentrant.
+	(__mf_init): Set thread state active.
+	* mf-hooks3.c (__mf_pthread_spawner): Always set thread
+	state active.
+	(pthread_create wrapper): Always use thread spawner.
+
+	* testsuite/libmudflap.cth/pass37-frag.c: Increase timeout.
+	* testsuite/libmudflap.cth/pass39-frag.c: Likewise.
+
 2005-07-16  Richard Henderson  <rth@redhat.com>
 
 	* acinclude.m4: New file.

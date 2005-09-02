@@ -36,6 +36,7 @@ enum processor_type {
   PROCESSOR_4KC,
   PROCESSOR_4KP,
   PROCESSOR_5KC,
+  PROCESSOR_5KF,
   PROCESSOR_20KC,
   PROCESSOR_24K,
   PROCESSOR_24KX,
@@ -1662,7 +1663,7 @@ extern enum reg_class mips_char_to_class[256];
 
 #define REG_CLASS_FROM_LETTER(C) mips_char_to_class[(unsigned char)(C)]
 
-/* True if VALUE is a unsigned 6-bit number.  */
+/* True if VALUE is an unsigned 6-bit number.  */
 
 #define UIMM6_OPERAND(VALUE) \
   (((VALUE) & ~(unsigned HOST_WIDE_INT) 0x3f) == 0)
@@ -1745,7 +1746,7 @@ extern enum reg_class mips_char_to_class[256];
 /* Similar, but for floating constants, and defining letters G and H.
    Here VALUE is the CONST_DOUBLE rtx itself.  */
 
-/* For Mips
+/* For MIPS
 
   'G'	: Floating point 0 */
 
@@ -2300,6 +2301,11 @@ typedef struct mips_args {
   else									\
     asm_fprintf ((FILE), "%U%s", (NAME))
 
+/* Flag to mark a function decl symbol that requires a long call.  */
+#define SYMBOL_FLAG_LONG_CALL	(SYMBOL_FLAG_MACH_DEP << 0)
+#define SYMBOL_REF_LONG_CALL_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_LONG_CALL) != 0)
+
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.
    ??? Using HImode in mips16 mode can cause overflow.  */

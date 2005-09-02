@@ -21,16 +21,14 @@ AM_CPPFLAGS = -iquote$(srcdir)/io
 libgfortranincludedir = $(includedir)/gforio
 
 gfor_io_src= \
-io/backspace.c \
 io/close.c \
-io/endfile.c \
+io/file_pos.c \
 io/format.c \
 io/inquire.c \
 io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
-io/rewind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -87,6 +85,7 @@ intrinsics/symlnk.c \
 intrinsics/system_clock.c \
 intrinsics/time.c \
 intrinsics/transpose_generic.c \
+intrinsics/tty.c \
 intrinsics/umask.c \
 intrinsics/unlink.c \
 intrinsics/unpack_generic.c \
@@ -95,6 +94,7 @@ runtime/in_unpack_generic.c \
 runtime/normalize.c
 
 gfor_src= \
+runtime/compile_options.c \
 runtime/environ.c \
 runtime/error.c \
 runtime/main.c \

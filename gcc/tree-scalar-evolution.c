@@ -237,6 +237,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "real.h"
 
 /* These RTL headers are needed for basic-block.h.  */
 #include "rtl.h"
@@ -675,7 +676,9 @@ add_to_evolution_1 (unsigned loop_nb,
 	    {
 	      var = loop_nb;
 	      left = chrec_before;
-	      right = build_int_cst (type, 0);
+	      right = SCALAR_FLOAT_TYPE_P (type)
+		? build_real (type, dconst0)
+		: build_int_cst (type, 0);
 	    }
 	  else
 	    {
@@ -866,8 +869,9 @@ add_to_evolution (unsigned loop_nb,
     }
 
   if (code == MINUS_EXPR)
-    to_add = chrec_fold_multiply (type, to_add, 
-				  build_int_cst_type (type, -1));
+    to_add = chrec_fold_multiply (type, to_add, SCALAR_FLOAT_TYPE_P (type)
+				  ? build_real (type, dconstm1)
+				  : build_int_cst_type (type, -1));
 
   res = add_to_evolution_1 (loop_nb, chrec_before, to_add);
 
@@ -1678,7 +1682,9 @@ interpret_rhs_modify_expr (struct loop *loop, tree at_stmt,
       opnd10 = TREE_OPERAND (opnd1, 0);
       chrec10 = analyze_scalar_evolution (loop, opnd10);
       chrec10 = chrec_convert (type, chrec10, at_stmt);
-      res = chrec_fold_minus (type, build_int_cst (type, 0), chrec10);
+      res = chrec_fold_multiply (type, chrec10, SCALAR_FLOAT_TYPE_P (type)
+				  ? build_real (type, dconstm1)
+				  : build_int_cst_type (type, -1));
       break;
 
     case MULT_EXPR:
@@ -1937,11 +1943,8 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
   basic_block def_bb;
   struct loop *def_loop;
  
-  if (chrec == NULL_TREE
-      || automatically_generated_chrec_p (chrec))
-    return chrec;
- 
-  if (is_gimple_min_invariant (chrec))
+  if (automatically_generated_chrec_p (chrec)
+      || is_gimple_min_invariant (chrec))
     return chrec;
 
   switch (TREE_CODE (chrec))
@@ -2717,6 +2720,7 @@ scev_const_prop (void)
 	     in loop into account.  */
 	  if (force_expr_to_var_cost (def) >= target_spill_cost)
 	    continue;
+	  def = unshare_expr (def);
 
 	  if (is_gimple_val (def))
 	    stmts = NULL_TREE;

@@ -915,12 +915,25 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
      on -INF and +INF.  */
   res = int_const_binop (code, val1, val2, 0);
 
+  if (TYPE_UNSIGNED (TREE_TYPE (val1)))
+    {
+      int checkz = compare_values (res, val1);
+
+      /* Ensure that res = val1 + val2 >= val1
+         or that res = val1 - val2 <= val1.  */
+      if ((code == PLUS_EXPR && !(checkz == 1 || checkz == 0))
+          || (code == MINUS_EXPR && !(checkz == 0 || checkz == -1)))
+	{
+	  res = copy_node (res);
+	  TREE_OVERFLOW (res) = 1;
+	}
+    }
   /* If the operation overflowed but neither VAL1 nor VAL2 are
      overflown, return -INF or +INF depending on the operation
      and the combination of signs of the operands.  */
-  if (TREE_OVERFLOW (res)
-      && !TREE_OVERFLOW (val1)
-      && !TREE_OVERFLOW (val2))
+  else if (TREE_OVERFLOW (res)
+	   && !TREE_OVERFLOW (val1)
+	   && !TREE_OVERFLOW (val2))
     {
       int sgn1 = tree_int_cst_sgn (val1);
       int sgn2 = tree_int_cst_sgn (val2);
@@ -1136,7 +1149,8 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	 the new range.  */
 
       /* Divisions by zero result in a VARYING value.  */
-      if (code != MULT_EXPR && range_includes_zero_p (&vr1))
+      if (code != MULT_EXPR
+	  && (vr0.type == VR_ANTI_RANGE || range_includes_zero_p (&vr1)))
 	{
 	  set_value_range_to_varying (vr);
 	  return;
@@ -1275,7 +1289,7 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
   /* Refuse to operate on varying and symbolic ranges.  Also, if the
      operand is neither a pointer nor an integral type, set the
      resulting range to VARYING.  TODO, in some cases we may be able
-     to derive anti-ranges (like non-zero values).  */
+     to derive anti-ranges (like nonzero values).  */
   if (vr0.type == VR_VARYING
       || (!INTEGRAL_TYPE_P (TREE_TYPE (op0))
 	  && !POINTER_TYPE_P (TREE_TYPE (op0)))
@@ -1520,29 +1534,31 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
 			tree var)
 {
   tree init, step, chrec;
-  bool init_is_max;
+  bool init_is_max, unknown_max;
 
   /* TODO.  Don't adjust anti-ranges.  An anti-range may provide
      better opportunities than a regular range, but I'm not sure.  */
   if (vr->type == VR_ANTI_RANGE)
     return;
 
-  chrec = analyze_scalar_evolution (loop, var);
+  chrec = instantiate_parameters (loop, analyze_scalar_evolution (loop, var));
   if (TREE_CODE (chrec) != POLYNOMIAL_CHREC)
     return;
 
-  init = CHREC_LEFT (chrec);
-  step = CHREC_RIGHT (chrec);
+  init = initial_condition_in_loop_num (chrec, loop->num);
+  step = evolution_part_in_loop_num (chrec, loop->num);
 
   /* If STEP is symbolic, we can't know whether INIT will be the
      minimum or maximum value in the range.  */
-  if (!is_gimple_min_invariant (step))
+  if (step == NULL_TREE
+      || !is_gimple_min_invariant (step))
     return;
 
   /* Do not adjust ranges when chrec may wrap.  */
   if (scev_probably_wraps_p (chrec_type (chrec), init, step, stmt,
 			     cfg_loops->parray[CHREC_VARIABLE (chrec)],
-			     &init_is_max))
+			     &init_is_max, &unknown_max)
+      || unknown_max)
     return;
 
   if (!POINTER_TYPE_P (TREE_TYPE (init))
@@ -1753,9 +1769,8 @@ compare_range_with_value (enum tree_code comp, value_range_t *vr, tree val)
 	  || comp == LE_EXPR)
 	return NULL_TREE;
 
-      /* ~[VAL, VAL] == VAL is always false.  */
-      if (compare_values (vr->min, val) == 0
-	  && compare_values (vr->max, val) == 0)
+      /* ~[VAL_1, VAL_2] OP VAL is known if VAL_1 <= VAL <= VAL_2.  */
+      if (value_inside_range (val, vr) == 1)
 	return (comp == NE_EXPR) ? boolean_true_node : boolean_false_node;
 
       return NULL_TREE;
@@ -2239,7 +2254,7 @@ register_new_assert_for (tree name,
 
 
 /* Try to register an edge assertion for SSA name NAME on edge E for
-   the conditional jump pointed by SI.  Return true if an assertion
+   the conditional jump pointed to by SI.  Return true if an assertion
    for NAME could be registered.  */
 
 static bool
@@ -2797,9 +2812,7 @@ stmt_interesting_for_vrp (tree stmt)
 }
 
 
-/* Initialize local data structures for VRP.  Return true if VRP
-   is worth running (i.e. if we found any statements that could
-   benefit from range information).  */
+/* Initialize local data structures for VRP.  */
 
 static void
 vrp_initialize (void)
@@ -3553,7 +3566,7 @@ simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
       if (rhs_code == TRUNC_DIV_EXPR)
 	{
 	  t = build_int_cst (NULL_TREE, tree_log2 (op1));
-	  t = build (RSHIFT_EXPR, TREE_TYPE (op0), op0, t);
+	  t = build2 (RSHIFT_EXPR, TREE_TYPE (op0), op0, t);
 	}
       else
 	{
@@ -3616,6 +3629,66 @@ simplify_abs_using_ranges (tree stmt, tree rhs)
     }
 }
 
+/* We are comparing trees OP0 and OP1 using COND_CODE.  OP0 has
+   a known value range VR.
+
+   If there is one and only one value which will satisfy the
+   conditional, then return that value.  Else return NULL.  */
+
+static tree
+test_for_singularity (enum tree_code cond_code, tree op0,
+		      tree op1, value_range_t *vr)
+{
+  tree min = NULL;
+  tree max = NULL;
+
+  /* Extract minimum/maximum values which satisfy the
+     the conditional as it was written.  */
+  if (cond_code == LE_EXPR || cond_code == LT_EXPR)
+    {
+      min = TYPE_MIN_VALUE (TREE_TYPE (op0));
+
+      max = op1;
+      if (cond_code == LT_EXPR)
+	{
+	  tree one = build_int_cst (TREE_TYPE (op0), 1);
+	  max = fold_build2 (MINUS_EXPR, TREE_TYPE (op0), max, one);
+	}
+    }
+  else if (cond_code == GE_EXPR || cond_code == GT_EXPR)
+    {
+      max = TYPE_MAX_VALUE (TREE_TYPE (op0));
+
+      min = op1;
+      if (cond_code == GT_EXPR)
+	{
+	  tree one = build_int_cst (TREE_TYPE (op0), 1);
+	  max = fold_build2 (PLUS_EXPR, TREE_TYPE (op0), max, one);
+	}
+    }
+
+  /* Now refine the minimum and maximum values using any
+     value range information we have for op0.  */
+  if (min && max)
+    {
+      if (compare_values (vr->min, min) == -1)
+	min = min;
+      else
+	min = vr->min;
+      if (compare_values (vr->max, max) == 1)
+	max = max;
+      else
+	max = vr->max;
+
+      /* If the new min/max values have converged to a
+	 single value, then there is only one value which
+	 can satisfy the condition, return that value.  */
+      if (min == max && is_gimple_min_invariant (min))
+	return min;
+    }
+  return NULL;
+}
+
 /* Simplify a conditional using a relational operator to an equality
    test if the range information indicates only one value can satisfy
    the original conditional.  */
@@ -3640,58 +3713,56 @@ simplify_cond_using_ranges (tree stmt)
 	 able to simplify this conditional. */
       if (vr->type == VR_RANGE)
 	{
-	  tree min = NULL;
-	  tree max = NULL;
+	  tree new = test_for_singularity (cond_code, op0, op1, vr);
 
-	  /* Extract minimum/maximum values which satisfy the
-	     the conditional as it was written.  */
-	  if (cond_code == LE_EXPR || cond_code == LT_EXPR)
+	  if (new)
 	    {
-	      min = TYPE_MIN_VALUE (TREE_TYPE (op0));
-
-	      max = op1;
-	      if (cond_code == LT_EXPR)
+	      if (dump_file)
 		{
-		  tree one = build_int_cst (TREE_TYPE (op0), 1);
-		  max = fold (build (MINUS_EXPR, TREE_TYPE (op0), max, one));
+		  fprintf (dump_file, "Simplified relational ");
+		  print_generic_expr (dump_file, cond, 0);
+		  fprintf (dump_file, " into ");
 		}
-	    }
-	  else if (cond_code == GE_EXPR || cond_code == GT_EXPR)
-	    {
-	      max = TYPE_MAX_VALUE (TREE_TYPE (op0));
 
-	      min = op1;
-	      if (cond_code == GT_EXPR)
+	      COND_EXPR_COND (stmt)
+		= build (EQ_EXPR, boolean_type_node, op0, new);
+	      update_stmt (stmt);
+
+	      if (dump_file)
 		{
-		  tree one = build_int_cst (TREE_TYPE (op0), 1);
-		  max = fold (build (PLUS_EXPR, TREE_TYPE (op0), max, one));
+		  print_generic_expr (dump_file, COND_EXPR_COND (stmt), 0);
+		  fprintf (dump_file, "\n");
 		}
+	      return;
+
 	    }
 
-	  /* Now refine the minimum and maximum values using any
-	     value range information we have for op0.  */
-	  if (min && max)
-	    {
-	      if (compare_values (vr->min, min) == -1)
-		min = min;
-	      else
-		min = vr->min;
-	      if (compare_values (vr->max, max) == 1)
-		max = max;
-	      else
-		max = vr->max;
+	  /* Try again after inverting the condition.  We only deal
+	     with integral types here, so no need to worry about
+	     issues with inverting FP comparisons.  */
+	  cond_code = invert_tree_comparison (cond_code, false);
+	  new = test_for_singularity (cond_code, op0, op1, vr);
 
-	      /* If the new min/max values have converged to a
-		 single value, then there is only one value which
-		 can satisfy the condition.  Rewrite the condition
-		 to test for equality.  */
-	      if (min == max
-		  && is_gimple_min_invariant (min))
+	  if (new)
+	    {
+	      if (dump_file)
 		{
-		  COND_EXPR_COND (stmt)
-		    = build (EQ_EXPR, boolean_type_node, op0, min);
-		  update_stmt (stmt);
+		  fprintf (dump_file, "Simplified relational ");
+		  print_generic_expr (dump_file, cond, 0);
+		  fprintf (dump_file, " into ");
 		}
+
+	      COND_EXPR_COND (stmt)
+		= build (NE_EXPR, boolean_type_node, op0, new);
+	      update_stmt (stmt);
+
+	      if (dump_file)
+		{
+		  print_generic_expr (dump_file, COND_EXPR_COND (stmt), 0);
+		  fprintf (dump_file, "\n");
+		}
+	      return;
+
 	    }
 	}
     }

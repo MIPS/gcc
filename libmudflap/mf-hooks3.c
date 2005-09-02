@@ -26,8 +26,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -104,11 +104,6 @@ struct mf_thread_data
 static struct mf_thread_data mf_thread_data[LIBMUDFLAPTH_THREADS_MAX];
 static pthread_mutex_t mf_thread_data_lock = PTHREAD_MUTEX_INITIALIZER;
 
-/* Try to identify the main thread when filling in mf_thread_data.  We
-   should always be called at least once from the main thread before 
-   any new threads are spawned.  */
-static int main_seen_p;
-
 #define PTHREAD_HASH(p) ((unsigned long) (p) % LIBMUDFLAPTH_THREADS_MAX)
 
 static struct mf_thread_data *
@@ -176,11 +171,9 @@ __mf_get_state (void)
   if (data)
     return data->state;
 
-  /* The main thread needs to default to active state, so that the global
-     constructors are processed in the active state.  Child threads should
-     be considered to be in the reentrant state, so that we don't wind up
-     doing Screwy Things inside the thread library; it'll get reset to 
-     active state in __mf_pthread_spawner before user code is invoked.
+  /* If we've never seen this thread before, consider it to be in the
+     reentrant state.  The state gets reset to active for the main thread
+     in __mf_init, and for child threads in __mf_pthread_spawner.
 
      The trickiest bit here is that the LinuxThreads pthread_manager thread
      should *always* be considered to be reentrant, so that none of our 
@@ -189,15 +182,7 @@ __mf_get_state (void)
      stuff isn't initialized, leading to SEGV very quickly.  Even calling
      pthread_self is a bit suspect, but it happens to work.  */
 
-  if (main_seen_p)
-    return reentrant;
-  else
-    {
-      main_seen_p = 1;
-      data = __mf_find_threadinfo (1);
-      data->state = active;
-      return active;
-    }
+  return reentrant;
 }
 
 void
@@ -245,9 +230,7 @@ __mf_pthread_spawner (void *arg)
 {
   void *result = NULL;
 
-#ifndef HAVE_TLS
   __mf_set_state (active);
-#endif
 
   /* NB: We could use __MF_TYPE_STATIC here, but we guess that the thread
      errno is coming out of some dynamically allocated pool that we already
@@ -291,31 +274,15 @@ __mf_0fn_pthread_create (pthread_t *thr, const pthread_attr_t *attr,
 WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 	 void * (*start) (void *), void *arg)
 {
-  int result, need_wrapper = 0;
+  struct mf_thread_start_info *si;
 
   TRACE ("pthread_create\n");
 
-#ifndef HAVE_TLS
-  need_wrapper = 1;
-#endif
-  need_wrapper |= __mf_opts.heur_std_data != 0;
+  /* Fill in startup-control fields.  */
+  si = CALL_REAL (malloc, sizeof (*si));
+  si->user_fn = start;
+  si->user_arg = arg;
 
-  if (need_wrapper)
-    {
-      struct mf_thread_start_info *si = CALL_REAL (malloc, sizeof (*si));
-
-      /* Fill in startup-control fields.  */
-      si->user_fn = start;
-      si->user_arg = arg;
-
-      /* Actually create the thread.  */
-      result = CALL_REAL (pthread_create, thr, attr, __mf_pthread_spawner, si);
-    }
-  else
-    {
-      /* If we're not handling heur_std_data, nothing special to do.  */
-      result = CALL_REAL (pthread_create, thr, attr, start, arg);
-    }
-
-  return result;
+  /* Actually create the thread.  */
+  return CALL_REAL (pthread_create, thr, attr, __mf_pthread_spawner, si);
 }

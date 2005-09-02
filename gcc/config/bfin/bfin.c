@@ -435,7 +435,7 @@ bfin_frame_pointer_required (void)
   if (fkind != SUBROUTINE)
     return 1;
 
-  /* We turn on on -fomit-frame-pointer if -momit-leaf-frame-pointer is used,
+  /* We turn on -fomit-frame-pointer if -momit-leaf-frame-pointer is used,
      so we have to override it for non-leaf functions.  */
   if (TARGET_OMIT_LEAF_FRAME_POINTER && ! current_function_is_leaf)
     return 1;
@@ -1406,14 +1406,8 @@ bfin_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 int
 bfin_return_in_memory (tree type)
 {
-  int size;
-  enum machine_mode mode = TYPE_MODE (type);
-
-  if (mode == BLKmode)
-    return 1;
-  size = int_size_in_bytes (type);	
-
-  return size > 8;
+  int size = int_size_in_bytes (type);
+  return size > 2 * UNITS_PER_WORD || size == -1;
 }
 
 /* Register in which address to store a structure value
