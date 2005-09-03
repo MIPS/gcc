@@ -1,3 +1,7 @@
+2005-09-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (CLASS_LIKELY_SPILLED_P): Return 1 for RETURN_REG.
+
 2005-09-02  Mark Mitchell  <mark@codesourcery.com>
 
 	* hwint.h (HOST_WIDE_INT_PRINT): Use HOST_LONG_LONG_FORMAT.
