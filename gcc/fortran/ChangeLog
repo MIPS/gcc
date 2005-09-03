@@ -1,3 +1,210 @@
+2005-08-31  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/20592
+	* gfortran.h (gfc_option_t): Add flag_automatic.
+	* invoke.texi: Document the -fno-automatic option.
+	* lang.opt: Add a -fautomatic option.
+	* options.c (gfc_init_options): Default for -fautomatic is on.
+	(gfc_handle_option): Add handling of -fautomatic option.
+	* resolve.c (gfc_resolve): When -fno-automatic is used, mark
+	needed variables as SAVE.
+
+2005-08-27  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	* trans-array.c (gfc_trans_deferred_array): Fix comments.
+
+2005-08-27  Erik Schnetter  <schnetter@aei.mpg.de>
+
+	* primary.c (match_charkind_name): Fix typo in comment leading to
+	function.
+
+2005-08-25  Erik Edelmann  <eedelman@acclab.helsinki.fi>
+
+	PR fortran/20363
+	* symbol.c (find_special): Remove.
+	(build_sym, add_init_expr, attr_decl1): Remove calls to
+	find_special in favor of calls to gfc_get_symbol.
+
+2005-08-24  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/17758
+	* gfortran.h (symbol_attribute):  Add noreturn to the structure.
+	(gfc_intrinsic_sym):  Add noreturn to the structure.
+	* intrinsic.c (make_noreturn):  New function.
+	(add_subroutines):  Mark subroutines abort and exit as noreturn.
+	(gfc_intrinsic_sub_interface):  Copy noreturn attribute from
+	isym to the resolved symbol.
+	* trans-decl.c (gfc_get_extern_function_decl): Set function
+	as VOLATILE (== noreturn) if the noreturn attribute is set.
+
+2005-08-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* decl.c: Typo in comment.
+
+2005-08-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* array.c: Bump GFC_MAX_AC_EXPAND from 100 to 65535.
+
+2005-08-21  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.h (gfc_option_t): Remove source field.  Add
+	flag_d_lines field.
+	(gfc_new_file): Remove arguments in prototype.
+	(gfc_source_file): Make 'const char *'.
+	* f95-lang.c (gfc_init): Use gfc_source_file instead of
+	gfc_option.source.  Call gfc_new_file without arguments.
+	* invoke.texi: Document new options '-fd-lines-as-code' and
+	'-fd-lines-as-comment'.
+	* lang.opt: Add new options.  Alphabetize.
+	* options.c (gfc_init_options): Initialize gfc_source_file instead
+	of gfc_option.source.  Initialize gfc_option.flag_d_lines.
+	(form_from_filename): Move here from scanner.c.  Make
+	'filename' argument 'const'.
+	(gfc_post_options): Set gfc_source_file.  Determine source form.
+	Warn if 'd-lines*' are used in free form.
+	* scanner.c (gfc_source_file): Constify.
+	(skip_fixed_comments): Deal with d-lines.
+	(get_file): Constify argument 'name'.
+	(load_file): Constify argument 'filename'.
+	(form_from_filename): Moved to options.c.
+	(gfc_new_file): Remove arguments.  Don't initialize
+	gfc_source_file, don't determine source form.
+	* trans-const.c (gfc_init_constants): Use gfc_source_file instead
+	of gfc_option.source.
+
+2005-08-19  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/23065
+	* gfortran.h: Remove PATH_MAX definition.
+	* module.c (write_module, gfc_dump_module): Use alloca to allocate
+	buffers.
+	* scanner.c (gfc_release_include_path, form_from_filename): Ditto.
+
+2004-08-16  Huang Chun  <chunhuang73@hotmail.com>
+
+	* trans-expr.c (gfc_conv_power_op): Evaluate the expression before
+	expand.
+
+2005-08-14  Asher Langton  <langton2@llnl.gov>
+
+	* parse.c (match): Enclose macro in do...while(0) and braces.
+
+2005-08-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/21432.
+	* gfortran.texi: Document PRINT namelist.
+
+2005-08-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/21432.
+	* io.c (match_io): Add code to implement PRINT namelist.
+
+2005-08-14  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* trans-stmt.c (gfc_trans_arithmetic_if): Optimized in case of equal
+	labels.
+
+2005-08-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/20006
+	* gfortran.h: Add is_main_program member to symbol_attribute.
+	* trans-decl: Add a gfor_fndecl_set_std tree.
+	(gfc_build_builtin_function_decls): Create it.
+	(gfc_generate_function_code): Add this call at the beginning of
+	the main program.
+	* trans.c (gfc_generate_code): Move main_program and attr.
+	* trans.h: Add declaration for gfor_fndecl_set_std.
+
+2005-08-10  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/22143
+	gfortran.h:  Declare new function gfc_resolve_dim_arg.
+	resolve.c:  New function gfc_resolve_dim_arg.
+	iresolve.c (gfc_resolve_all):  Use gfc_resolve_dim_arg.
+	(gfc_resolve_any):  Likewise.
+	(gfc_resolve_count):  Likewise.
+	(gfc_resolve_cshift):  Likewise.  If the kind of shift is less
+	gfc_default_integer_kind, convert it to default integer type.
+	(gfc_resolve_eoshift):  Likewise.
+	(gfc_resolve_maxloc):  Use gfc_resolve_dim_arg.
+	(gfc_resolve_maxval):  Likewise.
+	(gfc_resolve_minloc):  Likewise.
+	(gfc_resolve_minval):  Likewise.
+	(gfc_resolve_product):  Likewise.
+	(gfc_resolve_spread):  Likewise.
+	(gfc_resolve_sum):  Likewise.
+
+2005-08-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* check.c (gfc_check_ttynam_sub, gfc_check_isatty): Add check
+	functions for new intrinsics TTYNAM and ISATTY.
+	* intrinsic.c (add_functions, add_subroutines): Add new
+	intrinsics.
+	* intrinsic.h: Add prototypes for new check and resolve
+	functions.
+	* iresolve.c (gfc_resolve_isatty, gfc_resolve_ttynam_sub): New
+	resolve functions for intrinsics TTYNAM and ISATTY.
+	* gfortran.h (gfc_generic_isym_id): Add symbol for ISATTY.
+	* trans-intrinsic.c: Add case for GFC_ISYM_ISATTY.
+
+2005-08-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* scanner.c (preprocessor_line): Don't write beyond the end of flag
+	buffer.
+
+2005-08-07   Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	PR fortran/22390 
+	* dump-parse-tree.c (gfc_show_code_node): Add case for FLUSH.
+	* gfortran.h: Add enums for FLUSH.
+	* io.c (gfc_free_filepos,match_file_element,match_filepos): Modify
+	comment appropriately.  (gfc_match_flush): New function.
+	* match.c (gfc_match_if): Add match for flush.
+	* match.h: Add prototype.
+	* parse.c (decode_statement): Add flush to 'f' case.
+	(next_statement): Add case for flush. (gfc_ascii_statement): Likewise.
+	* resolve.c (resolve_code): Add flush case.
+	* st.c (gfc_free_statement): Add flush case.
+	* trans-io.c: Add prototype for flush.
+	(gfc_build_io_library_fndecls): Build fndecl for flush.
+	(gfc_trans_flush): New function.
+	* trans-stmt.h: Add prototype.
+	* trans.c (gfc_trans_code): Add case for flush.
+
+2005-08-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* primary.c (match_hollerith_constant): Fix typo.
+
+2005-08-06  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c, dump-parse-tree.c, gfortran.texi, intrinsic.texi,
+	invoke.texi, resolve.c, trans-array.c, trans-array.h,
+	trans-common.c, trans-expr.c, trans-io.c, trans.h: Fix
+	comment/doc typos.  Follow spelling conventions.
+
+2005-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/18833
+	PR fortran/20850
+	* primary.c (match_varspec): If equiv_flag, don't look at sym's
+	attributes, call gfc_match_array_ref up to twice and don't do any
+	substring or component processing.
+	* resolve.c (resolve_equivalence): Transform REF_ARRAY into
+	REF_SUBSTRING or nothing if needed.  Check that substrings
+	don't have zero length.
+
+2005-08-05  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* trans-expr.c  (gfc_build_builtin_function_decls):  Mark
+	stop_numeric and stop_string as non-returning.
+
+2005-08-04  Paul Brook  <paul@codesourcery.com>
+
+	* trans-expr.c (gfc_conv_expr, gfc_conv_expr_type): Update comments.
+	(gfc_conv_expr_lhs): Fix assertion.
+	(gfc_conv_expr_val): Merge post block.  Set se.expr to new value.
+
 2005-08-02  David Edelsohn  <edelsohn@gnu.org>
 
 	PR fortran/22491
@@ -62,7 +269,7 @@
 	* trans-stmt.c (gfc_trans_character_select): Use
 	build_constructor_from_list instead of build_constructor.
 
-2005-07-19 Paul Thomas  <pault@gcc.gnu.org>
+2005-07-19  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/16940
 	* resolve.c (resolve_symbol): A symbol with FL_UNKNOWN
@@ -802,7 +1009,7 @@
 	* resolve.c (resolve_variable): If e->symtree is not set, this
 	ought to be a FAILURE, and not a segfault.
 
-2005-04-17 Paul Thomas <pault@gcc.gnu.org>
+2005-04-17  Paul Thomas <pault@gcc.gnu.org>
 
 	PR fortran/17472
 	PR fortran/18209

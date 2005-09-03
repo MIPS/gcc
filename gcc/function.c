@@ -454,7 +454,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 
   /* On a big-endian machine, if we are allocating more space than we will use,
      use the least significant bytes of those that are allocated.  */
-  if (BYTES_BIG_ENDIAN && mode != BLKmode)
+  if (BYTES_BIG_ENDIAN && mode != BLKmode && GET_MODE_SIZE (mode) < size)
     bigend_correction = size - GET_MODE_SIZE (mode);
 
   /* If we have already instantiated virtual registers, return the actual
@@ -474,6 +474,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
     function->x_frame_offset += size;
 
   x = gen_rtx_MEM (mode, addr);
+  MEM_NOTRAP_P (x) = 1;
 
   function->x_stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
@@ -649,9 +650,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
 	      p->full_size = best_p->full_size - rounded_size;
-	      p->slot = gen_rtx_MEM (BLKmode,
-				     plus_constant (XEXP (best_p->slot, 0),
-						    rounded_size));
+	      p->slot = adjust_address_nv (best_p->slot, BLKmode, rounded_size);
 	      p->align = best_p->align;
 	      p->address = 0;
 	      p->type = best_p->type;
@@ -743,6 +742,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
       MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
       MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
     }
+  MEM_NOTRAP_P (slot) = 1;
 
   return slot;
 }
@@ -1665,7 +1665,7 @@ instantiate_virtual_regs (void)
 
 struct tree_opt_pass pass_instantiate_virtual_regs =
 {
-  NULL,                                 /* name */
+  "vregs",                              /* name */
   NULL,                                 /* gate */
   instantiate_virtual_regs,             /* execute */
   NULL,                                 /* sub */
@@ -1676,7 +1676,7 @@ struct tree_opt_pass pass_instantiate_virtual_regs =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -3007,9 +3007,8 @@ assign_parms (tree fndecl)
 				    REG_PARM_STACK_SPACE (fndecl));
 #endif
 
-  current_function_args_size
-    = ((current_function_args_size + STACK_BYTES - 1)
-       / STACK_BYTES) * STACK_BYTES;
+  current_function_args_size = CEIL_ROUND (current_function_args_size,
+					   PARM_BOUNDARY / BITS_PER_UNIT);
 
 #ifdef ARGS_GROW_DOWNWARD
   current_function_arg_offset_rtx
@@ -4014,7 +4013,7 @@ stack_protect_prologue (void)
 # define gen_stack_protect_test(x, y, z)	(gcc_unreachable (), NULL_RTX)
 #endif
 
-static void
+void
 stack_protect_epilogue (void)
 {
   tree guard_decl = targetm.stack_protect_guard ();
@@ -4823,6 +4822,7 @@ keep_stack_depressed (rtx insns)
 							   info.sp_offset));
 
 	  retaddr = gen_rtx_MEM (Pmode, retaddr);
+	  MEM_NOTRAP_P (retaddr) = 1;
 
 	  /* If there is a pending load to the equivalent register for SP
 	     and we reference that register, we must load our address into

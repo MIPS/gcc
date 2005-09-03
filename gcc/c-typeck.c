@@ -2105,13 +2105,10 @@ build_function_call (tree function, tree params)
   check_function_arguments (TYPE_ATTRIBUTES (fntype), coerced_params,
 			    TYPE_ARG_TYPES (fntype));
 
-  result = build3 (CALL_EXPR, TREE_TYPE (fntype),
-		   function, coerced_params, NULL_TREE);
-  TREE_SIDE_EFFECTS (result) = 1;
-
   if (require_constant_value)
     {
-      result = fold_initializer (result);
+      result = fold_build3_initializer (CALL_EXPR, TREE_TYPE (fntype),
+		      			function, coerced_params, NULL_TREE);
 
       if (TREE_CONSTANT (result)
 	  && (name == NULL_TREE
@@ -2119,7 +2116,8 @@ build_function_call (tree function, tree params)
 	pedwarn_init ("initializer element is not constant");
     }
   else
-    result = fold (result);
+    result = fold_build3 (CALL_EXPR, TREE_TYPE (fntype),
+		      	  function, coerced_params, NULL_TREE);
 
   if (VOID_TYPE_P (TREE_TYPE (result)))
     return result;
@@ -2828,8 +2826,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
   if (argtype == 0)
     argtype = TREE_TYPE (arg);
-  val = build1 (code, argtype, arg);
-  return require_constant_value ? fold_initializer (val) : fold (val);
+  return require_constant_value ? fold_build1_initializer (code, argtype, arg)
+	  			: fold_build1 (code, argtype, arg);
 }
 
 /* Return nonzero if REF is an lvalue valid for this language.
@@ -4644,7 +4642,7 @@ static int constructor_designated;
 static int designator_depth;
 
 /* Nonzero if there were diagnosed errors in this designator list.  */
-static int designator_errorneous;
+static int designator_erroneous;
 
 
 /* This stack has a level for each implicit or explicit level of
@@ -4858,7 +4856,7 @@ really_start_incremental_init (tree type)
   constructor_incremental = 1;
   constructor_designated = 0;
   designator_depth = 0;
-  designator_errorneous = 0;
+  designator_erroneous = 0;
 
   if (TREE_CODE (constructor_type) == RECORD_TYPE
       || TREE_CODE (constructor_type) == UNION_TYPE)
@@ -5002,7 +5000,7 @@ push_init_level (int implicit)
       p->range_stack = constructor_range_stack;
       constructor_range_stack = 0;
       designator_depth = 0;
-      designator_errorneous = 0;
+      designator_erroneous = 0;
     }
 
   /* Don't die if an entire brace-pair level is superfluous
@@ -5296,7 +5294,7 @@ set_designator (int array)
 
   /* If there were errors in this designator list already, bail out
      silently.  */
-  if (designator_errorneous)
+  if (designator_erroneous)
     return 1;
 
   if (!designator_depth)
@@ -5375,7 +5373,7 @@ set_init_index (tree first, tree last)
   if (set_designator (1))
     return;
 
-  designator_errorneous = 1;
+  designator_erroneous = 1;
 
   if (!INTEGRAL_TYPE_P (TREE_TYPE (first))
       || (last && !INTEGRAL_TYPE_P (TREE_TYPE (last))))
@@ -5421,7 +5419,7 @@ set_init_index (tree first, tree last)
 	}
 
       designator_depth++;
-      designator_errorneous = 0;
+      designator_erroneous = 0;
       if (constructor_range_stack || last)
 	push_range_stack (last);
     }
@@ -5437,7 +5435,7 @@ set_init_label (tree fieldname)
   if (set_designator (0))
     return;
 
-  designator_errorneous = 1;
+  designator_erroneous = 1;
 
   if (TREE_CODE (constructor_type) != RECORD_TYPE
       && TREE_CODE (constructor_type) != UNION_TYPE)
@@ -5459,7 +5457,7 @@ set_init_label (tree fieldname)
     {
       constructor_fields = tail;
       designator_depth++;
-      designator_errorneous = 0;
+      designator_erroneous = 0;
       if (constructor_range_stack)
 	push_range_stack (NULL_TREE);
     }
@@ -6179,7 +6177,7 @@ process_init_element (struct c_expr value)
   bool strict_string = value.original_code == STRING_CST;
 
   designator_depth = 0;
-  designator_errorneous = 0;
+  designator_erroneous = 0;
 
   /* Handle superfluous braces around string cst as in
      char x[] = {"foo"}; */
@@ -7003,20 +7001,31 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
   /* Diagnose ";" via the special empty statement node that we create.  */
   if (extra_warnings)
     {
-      if (TREE_CODE (then_block) == NOP_EXPR && !TREE_TYPE (then_block))
+      tree *inner_then = &then_block, *inner_else = &else_block;
+
+      if (TREE_CODE (*inner_then) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (*inner_then))
+	inner_then = &STATEMENT_LIST_TAIL (*inner_then)->stmt;
+      if (*inner_else && TREE_CODE (*inner_else) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (*inner_else))
+	inner_else = &STATEMENT_LIST_TAIL (*inner_else)->stmt;
+
+      if (TREE_CODE (*inner_then) == NOP_EXPR && !TREE_TYPE (*inner_then))
 	{
-	  if (!else_block)
+	  if (!*inner_else)
 	    warning (0, "%Hempty body in an if-statement",
-		     EXPR_LOCUS (then_block));
-	  then_block = alloc_stmt_list ();
+		     EXPR_LOCUS (*inner_then));
+
+	  *inner_then = alloc_stmt_list ();
 	}
-      if (else_block
-	  && TREE_CODE (else_block) == NOP_EXPR
-	  && !TREE_TYPE (else_block))
+      if (*inner_else
+	  && TREE_CODE (*inner_else) == NOP_EXPR
+	  && !TREE_TYPE (*inner_else))
 	{
 	  warning (0, "%Hempty body in an else-statement",
-		   EXPR_LOCUS (else_block));
-	  else_block = alloc_stmt_list ();
+		   EXPR_LOCUS (*inner_else));
+
+	  *inner_else = alloc_stmt_list ();
 	}
     }
 
@@ -7075,8 +7084,7 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
             }
  
 	  t = build_and_jump (&blab);
-          exit = build3 (COND_EXPR, void_type_node, cond, exit, t);
-          exit = fold (exit);
+          exit = fold_build3 (COND_EXPR, void_type_node, cond, exit, t);
 	  if (cond_is_first)
             SET_EXPR_LOCATION (exit, start_locus);
 	  else
@@ -7315,7 +7323,13 @@ c_finish_stmt_expr (tree body)
   if (last == error_mark_node
       || (last == BIND_EXPR_BODY (body)
 	  && BIND_EXPR_VARS (body) == NULL))
-    return last;
+    {
+      /* Do not warn if the return value of a statement expression is
+	 unused.  */
+      if (EXPR_P (last))
+	TREE_NO_WARNING (last) = 1;
+      return last;
+    }
 
   /* Extract the type of said expression.  */
   type = TREE_TYPE (last);
@@ -8171,11 +8185,12 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     build_type = result_type;
 
   {
-    tree result = build2 (resultcode, build_type, op0, op1);
-
     /* Treat expressions in initializers specially as they can't trap.  */
-    result = require_constant_value ? fold_initializer (result)
-				    : fold (result);
+    tree result = require_constant_value ? fold_build2_initializer (resultcode,
+								    build_type,
+								    op0, op1)
+					 : fold_build2 (resultcode, build_type,
+							op0, op1);
 
     if (final_type != 0)
       result = convert (final_type, result);

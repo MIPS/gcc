@@ -238,13 +238,14 @@ Objective-C and Objective-C++ Dialects}.
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
--Wsign-compare  -Wstrict-aliasing -Wstrict-aliasing=2 @gol
+-Wsign-compare  -Wstack-protector @gol
+-Wstrict-aliasing -Wstrict-aliasing=2 @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
--Wunused-value  -Wunused-variable  -Wwrite-strings @gol
--Wvariadic-macros}
+-Wunused-value  -Wunused-variable  -Wvariadic-macros @gol
+-Wwrite-strings}
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -305,7 +306,8 @@ Objective-C and Objective-C++ Dialects}.
 -fforce-addr  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
--finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
+-finline-functions  -finline-functions-called-once @gol
+-finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmodulo-sched -fno-branch-count-reg @gol
 -fno-default-inline  -fno-defer-pop -floop-optimize2 -fmove-loop-invariants @gol
@@ -322,10 +324,11 @@ Objective-C and Objective-C++ Dialects}.
 -frounding-math -fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  @gol
--fsched-stalled-insns=@var{n} -sched-stalled-insns-dep=@var{n} @gol
+-fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
 -fsched2-use-superblocks @gol
 -fsched2-use-traces -freschedule-modulo-scheduled-loops @gol
 -fsignaling-nans -fsingle-precision-constant  @gol
+-fstack-protector  -fstack-protector-all @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
@@ -430,6 +433,9 @@ Objective-C and Objective-C++ Dialects}.
 -m32-bit  -m16-bit  -m8-bit  -mno-prologue-epilogue  -mno-gotplt @gol
 -melf  -maout  -melinux  -mlinux  -sim  -sim2 @gol
 -mmul-bug-workaround  -mno-mul-bug-workaround}
+
+@emph{CRX Options}
+@gccoptlist{-mmac -mpush-args}
 
 @emph{Darwin Options}
 @gccoptlist{-all_load  -allowable_client  -arch  -arch_errors_fatal @gol
@@ -604,6 +610,10 @@ Objective-C and Objective-C++ Dialects}.
 -mam33  -mno-am33 @gol
 -mam33-2  -mno-am33-2 @gol
 -mno-crt0  -mrelax}
+
+@emph{MS1 Options}
+@gccoptlist{-mno-crt0 -mmul -mbacc -msim @gol
+-march=@var{cpu-type} }
 
 @emph{PDP-11 Options}
 @gccoptlist{-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
@@ -1797,9 +1807,9 @@ but disables the helpful warning.
 @item -Wold-style-cast @r{(C++ only)}
 @opindex Wold-style-cast
 Warn if an old-style (C-style) cast to a non-void type is used within
-a C++ program.  The new-style casts (@samp{static_cast},
-@samp{reinterpret_cast}, and @samp{const_cast}) are less vulnerable to
-unintended effects and much easier to search for.
+a C++ program.  The new-style casts (@samp{dynamic_cast},
+@samp{static_cast}, @samp{reinterpret_cast}, and @samp{const_cast}) are
+less vulnerable to unintended effects and much easier to search for.
 
 @item -Woverloaded-virtual @r{(C++ only)}
 @opindex Woverloaded-virtual
@@ -3359,6 +3369,11 @@ This option is only supported for C and Objective-C@.
 @item -Werror
 @opindex Werror
 Make all warnings into errors.
+
+@item -Wstack-protector
+This option is only active when @option{-fstack-protector} is active.  It
+warns about functions that will not be protected against stack smashing.
+
 @end table
 
 @node Debugging Options
@@ -4466,6 +4481,15 @@ assembler code in its own right.
 
 Enabled at level @option{-O3}.
 
+@item -finline-functions-called-once
+@opindex finline-functions-called-once
+Consider all @code{static} functions called once for inlining into their
+caller even if they are not marked @code{inline}.  If a call to a given
+function is integrated, then the function is not output as assembler code
+in its own right.
+
+Enabled if @option{-funit-at-a-time} is enabled.
+
 @item -fearly-inlining
 @opindex fearly-inlining
 Inline functions marked by @code{always_inline} and functions whose body seems
@@ -4950,8 +4974,11 @@ Perform dead code elimination (DCE) on trees.  This flag is enabled by
 default at @option{-O} and higher.
 
 @item -ftree-dominator-opts
-Perform dead code elimination (DCE) on trees.  This flag is enabled by
-default at @option{-O} and higher.
+Perform a variety of simple scalar cleanups (constant/copy
+propagation, redundancy elimination, range propagation and expression
+simplification) based on a dominator tree traversal.  This also
+performs jump threading (to reduce jumps to jumps). This flag is
+enabled by default at @option{-O} and higher.
 
 @item -ftree-ch
 Perform loop header copying on trees.  This is beneficial since it increases
@@ -5625,6 +5652,17 @@ threading.
 When performing branch target register load optimization, don't reuse
 branch target registers in within any basic block.
 
+@item -fstack-protector
+Emit extra code to check for buffer overflows, such as stack smashing
+attacks.  This is done by adding a guard variable to functions with
+vulnerable objects.  This includes functions that call alloca, and
+functions with buffers larger than 8 bytes.  The guards are initialized
+when a function is entered and then checked when the function exits.
+If a guard check fails, an error message is printed and the program exits.
+
+@item -fstack-protector-all
+Like @option{-fstack-protector} except that all functions are protected.
+
 @item --param @var{name}=@var{value}
 @opindex param
 In some places, GCC uses various constants to control the amount of
@@ -5977,6 +6015,10 @@ interblock scheduling.  The default value is 10.
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
 
+@item min-sched-prob
+The minimum probability of reaching a source block for interblock
+speculative scheduling.  The default value is 40.
+
 @item max-last-value-rtl
 
 The maximum size measured as number of RTLs that can be recorded in an expression
@@ -5999,6 +6041,10 @@ If the number of virtual mappings is virtual-mappings-ratio bigger
 than the number of virtual symbols to be updated, then the incremental
 SSA updater switches to a full update for those symbols.  The default
 ratio is 3.
+
+@item ssp-buffer-size
+The minimum size of buffers (i.e. arrays) that will receive stack smashing
+protection when @option{-fstack-protection} is used.
 
 @end table
 @end table
@@ -6940,14 +6986,16 @@ The argument @var{machine} specifies the target machine for compilation.
 The value to use for @var{machine} is the same as was specified as the
 machine type when configuring GCC as a cross-compiler.  For
 example, if a cross-compiler was configured with @samp{configure
-i386v}, meaning to compile for an 80386 running System V, then you
-would specify @option{-b i386v} to run that cross compiler.
+arm-elf}, meaning to compile for an arm processor with elf binaries,
+then you would specify @option{-b arm-elf} to run that cross compiler.
+Because there are other options beginning with @option{-b}, the
+configuration must contain a hyphen. 
 
 @item -V @var{version}
 @opindex V
 The argument @var{version} specifies which version of GCC to run.
 This is useful when multiple versions are installed.  For example,
-@var{version} might be @samp{2.0}, meaning to run GCC version 2.0.
+@var{version} might be @samp{4.0}, meaning to run GCC version 4.0.
 @end table
 
 The @option{-V} and @option{-b} options work by running the
@@ -6986,6 +7034,7 @@ platform.
 * AVR Options::
 * Blackfin Options::
 * CRIS Options::
+* CRX Options::
 * Darwin Options::
 * DEC Alpha Options::
 * DEC Alpha/VMS Options::
@@ -7002,6 +7051,7 @@ platform.
 * MIPS Options::
 * MMIX Options::
 * MN10300 Options::
+* MS1 Options::
 * PDP-11 Options::
 * PowerPC Options::
 * RS/6000 and PowerPC Options::
@@ -7655,6 +7705,24 @@ initialized data and zero-initialized data are allocated consecutively.
 @opindex sim2
 Like @option{-sim}, but pass linker options to locate initialized data at
 0x40000000 and zero-initialized data at 0x80000000.
+@end table
+
+@node CRX Options
+@subsection CRX Options
+@cindex CRX Options
+
+These options are defined specifically for the CRX ports.
+
+@table @gcctabopt
+
+@item -mmac
+@opindex mmac
+Enable the use of multiply-accumulate instructions. Disabled by default.
+
+@item -mpush-args
+@opindex mpush-args
+Push instructions will be used to pass outgoing arguments when functions
+are called. Enabled by default.
 @end table
 
 @node Darwin Options
@@ -8727,7 +8795,8 @@ have any affect on which ld is called, it only changes what parameters
 are passed to that ld.  The ld that is called is determined by the
 @option{--with-ld} configure option, GCC's program search path, and
 finally by the user's @env{PATH}.  The linker used by GCC can be printed
-using @samp{which `gcc -print-prog-name=ld`}.
+using @samp{which `gcc -print-prog-name=ld`}.  This option is only available
+on the 64 bit HP-UX GCC, i.e. configured with @samp{hppa*64*-*-hpux*}.
 
 @item -mhp-ld
 @opindex hp-ld
@@ -8739,7 +8808,8 @@ which ld is called, it only changes what parameters are passed to that
 ld.  The ld that is called is determined by the @option{--with-ld}
 configure option, GCC's program search path, and finally by the user's
 @env{PATH}.  The linker used by GCC can be printed using @samp{which
-`gcc -print-prog-name=ld`}.
+`gcc -print-prog-name=ld`}.  This option is only available on the 64 bit
+HP-UX GCC, i.e. configured with @samp{hppa*64*-*-hpux*}.
 
 @item -mlong-calls
 @opindex mno-long-calls
@@ -9055,7 +9125,7 @@ compatible with arrays or structures in code compiled without that switch.
 @opindex mlarge-data-threshold=@var{number}
 When @option{-mcmodel=medium} is specified, the data greater than
 @var{threshold} are placed in large data section.  This value must be the
-same across all object linked into the binarry and defaults to 65535.
+same across all object linked into the binary and defaults to 65535.
 
 @item -msvr3-shlib
 @itemx -mno-svr3-shlib
@@ -10496,6 +10566,52 @@ to shorten branches, calls and absolute memory addresses.  This option only
 has an effect when used on the command line for the final link step.
 
 This option makes symbolic debugging impossible.
+@end table
+
+@node MS1 Options
+@subsection MS1 Options
+@cindex MS1 options
+
+These @option{-m} options are defined for Morpho MS1 architectures:
+
+@table @gcctabopt
+
+@item -march=@var{cpu-type}
+@opindex march
+Generate code that will run on @var{cpu-type}, which is the name of a system
+representing a certain processor type.  Possible values for
+@var{cpu-type} are @samp{MS1-64-001}, @samp{MS1-16-002}, and
+@samp{MS1-16-003}.
+
+When this option is not used, the default is @option{-march=MS1-16-003}.
+
+@item -mmul
+@opindex mmul
+Generate multiply instructions.
+
+@item -mno-mul
+@opindex mno-mul
+Do not generate multiply instructions.
+
+@item -mbacc
+@opindex mbacc
+Use byte loads and stores when generating code.
+
+@item -mno-bacc
+@opindex mno-bacc
+Do not use byte loads and stores when generating code.
+
+@item -msim
+@opindex msim
+Use simulator runtime
+
+@item -mno-crt0
+@opindex mno-crt0
+Do not link in the C run-time initialization object file
+@file{crti.o}.  Other run-time initialisation and termination files
+such as @file{startup.o} and @file{exit.o} are still included on the
+linker command line.
+
 @end table
 
 @node PDP-11 Options
@@ -13137,9 +13253,9 @@ which options are safe to change and which are not; the safest choice
 is to use exactly the same options when generating and using the
 precompiled header.  The following are known to be safe:
 
-@gccoptlist{-fpreprocessed
+@gccoptlist{-fmessage-length= -fpreprocessed
 -fsched-interblock -fsched-spec -fsched-spec-load -fsched-spec-load-dangerous
--fsched-verbose=<number> -fschedule-insns
+-fsched-verbose=<number> -fschedule-insns -fvisibility=
 -pedantic-errors}
 
 @end itemize

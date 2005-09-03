@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -507,7 +507,7 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
 	}
       /* This is for the case of Fortran. If the address of a const_decl 
          was passed as argument then we store 
-         CONST_IPATYPE_REF/CONST_IPATYPE_REF and the costant 
+         CONST_IPATYPE_REF/CONST_IPATYPE_REF and the constant 
          value as the jump function corresponding to this argument.  */
       else if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR
 	       && TREE_CODE (TREE_OPERAND (TREE_VALUE (arg), 0)) ==

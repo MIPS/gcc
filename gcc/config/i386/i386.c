@@ -472,7 +472,7 @@ struct processor_costs nocona_cost = {
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   16,					/* "large" insn */
-  9,					/* MOVE_RATIO */
+  17,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
   {4, 4, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -951,8 +951,8 @@ static const char * const x86_64_reg_class_name[] = {
 static REAL_VALUE_TYPE ext_80387_constants_table [5];
 static bool ext_80387_constants_init = 0;
 static void init_ext_80387_constants (void);
-static bool ix86_in_large_data_p (tree);
-static void ix86_encode_section_info (tree, rtx, int);
+static bool ix86_in_large_data_p (tree) ATTRIBUTE_UNUSED;
+static void ix86_encode_section_info (tree, rtx, int) ATTRIBUTE_UNUSED;
 static void x86_64_elf_unique_section (tree decl, int reloc) ATTRIBUTE_UNUSED;
 static void x86_64_elf_select_section (tree decl, int reloc,
 				       unsigned HOST_WIDE_INT align)
@@ -978,7 +978,11 @@ static void x86_64_elf_select_section (tree decl, int reloc,
 #define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue
 
 #undef TARGET_ENCODE_SECTION_INFO
+#ifndef SUBTARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO ix86_encode_section_info
+#else
+#define TARGET_ENCODE_SECTION_INFO SUBTARGET_ENCODE_SECTION_INFO
+#endif
 
 #undef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN ""
@@ -1789,6 +1793,7 @@ x86_64_elf_unique_section (tree decl, int reloc)
   default_unique_section (decl, reloc);
 }
 
+#ifdef COMMON_ASM_OP
 /* This says how to output assembler code to declare an
    uninitialized external linkage data object.
 
@@ -1832,6 +1837,7 @@ x86_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 #endif /* ASM_DECLARE_OBJECT_NAME */
   ASM_OUTPUT_SKIP (file, size ? size : 1);
 }
+#endif
 
 void
 optimization_options (int level, int size ATTRIBUTE_UNUSED)
@@ -1923,11 +1929,20 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
      function that does or, conversely, from a function that does return
      a float to a function that doesn't; the necessary stack adjustment
      would not be executed.  This is also the place we notice
-     differences in the return value ABI.  */
+     differences in the return value ABI.  Note that it is ok for one
+     of the functions to have void return type as long as the return
+     value of the other is passed in a register.  */
   a = ix86_function_value (TREE_TYPE (exp), func, false);
   b = ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)),
 			   cfun->decl, false);
-  if (! rtx_equal_p (a, b))
+  if (STACK_REG_P (a) || STACK_REG_P (b))
+    {
+      if (!rtx_equal_p (a, b))
+	return false;
+    }
+  else if (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (cfun->decl))))
+    ;
+  else if (!rtx_equal_p (a, b))
     return false;
 
   /* If this call is indirect, we'll need to be able to use a call-clobbered
@@ -3667,6 +3682,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       mem = gen_rtx_MEM (Pmode,
 			 plus_constant (save_area, i * UNITS_PER_WORD));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       emit_move_insn (mem, gen_rtx_REG (Pmode,
 					x86_64_int_parameter_registers[i]));
@@ -3709,6 +3725,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			      plus_constant (save_area,
 					     8 * REGPARM_MAX + 127)));
       mem = gen_rtx_MEM (BLKmode, plus_constant (tmp_reg, -127));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       set_mem_align (mem, BITS_PER_WORD);
 
@@ -5536,8 +5553,12 @@ legitimate_pic_address_disp_p (rtx disp)
 	return false;
       return GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF;
     case UNSPEC_GOTOFF:
-      if (GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
-	  || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
+      /* Refuse GOTOFF in 64bit mode since it is always 64bit when used.
+	 While ABI specify also 32bit relocation but we don't produce it in
+	 small PIC model at all.  */
+      if ((GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
+	   || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
+	  && !TARGET_64BIT)
         return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
       return false;
     case UNSPEC_GOTTPOFF:
@@ -5691,8 +5712,17 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	  && GET_CODE (XEXP (disp, 0)) == UNSPEC)
 	switch (XINT (XEXP (disp, 0), 1))
 	  {
+	  /* Refuse GOTOFF and GOT in 64bit mode since it is always 64bit when
+	     used.  While ABI specify also 32bit relocations, we don't produce
+	     them at all and use IP relative instead.  */
 	  case UNSPEC_GOT:
 	  case UNSPEC_GOTOFF:
+	    gcc_assert (flag_pic);
+	    if (!TARGET_64BIT)
+	      goto is_legitimate_pic;
+	    reason = "64bit address unspec";
+	    goto report_error;
+ 
 	  case UNSPEC_GOTPCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -17174,8 +17204,9 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
   enum machine_mode wmode;
   rtx const_vec, x;
 
-  XVECEXP (vals, 0, one_var) = CONST0_RTX (GET_MODE_INNER (mode));
-  const_vec = gen_rtx_CONST_VECTOR (mode, XVEC (vals, 0)); 
+  const_vec = copy_rtx (vals);
+  XVECEXP (const_vec, 0, one_var) = CONST0_RTX (GET_MODE_INNER (mode));
+  const_vec = gen_rtx_CONST_VECTOR (mode, XVEC (const_vec, 0));
 
   switch (mode)
     {

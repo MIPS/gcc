@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* transfer.c -- Top level handling of data transfer statements.  */
@@ -1028,7 +1028,9 @@ data_transfer_init (int read_flag)
     {
       current_unit->recl = file_length(current_unit->s);
       if (g.mode==WRITING)
-	empty_internal_buffer (current_unit->s);
+        empty_internal_buffer (current_unit->s);
+      else
+        current_unit->bytes_left = current_unit->recl;	
     }
 
   /* Check the action.  */
@@ -1171,7 +1173,7 @@ data_transfer_init (int read_flag)
      it is always safe to truncate the file on the first write */
   if (g.mode == WRITING
       && current_unit->flags.access == ACCESS_SEQUENTIAL
-      && current_unit->current_record == 0)
+      && current_unit->last_record == 0)
 	struncate(current_unit->s);
 
   current_unit->mode = g.mode;
@@ -1534,12 +1536,16 @@ finalize_transfer (void)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (bt type   __attribute__ ((unused)),
-		   void *dest __attribute__ ((unused)),
+iolength_transfer (bt type , void *dest __attribute__ ((unused)),
 		   int len)
 {
   if (ioparm.iolength != NULL)
-    *ioparm.iolength += len;
+    {
+      if (type == BT_COMPLEX)
+	*ioparm.iolength += 2*len;
+      else
+	*ioparm.iolength += len;
+    }
 }
 
 

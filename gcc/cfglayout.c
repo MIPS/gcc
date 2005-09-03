@@ -333,7 +333,7 @@ insn_locators_initialize (void)
 
 struct tree_opt_pass pass_insn_locators_initialize =
 {
-  NULL,                                 /* name */
+  "locators",                           /* name */
   NULL,                                 /* gate */   
   insn_locators_initialize,             /* execute */       
   NULL,                                 /* sub */
@@ -344,7 +344,7 @@ struct tree_opt_pass pass_insn_locators_initialize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -1243,12 +1243,15 @@ end:
    is copied, we do not set the new blocks as header or latch.
 
    Created copies of N_EDGES edges in array EDGES are stored in array NEW_EDGES,
-   also in the same order.  */
+   also in the same order.
+   
+   Newly created basic blocks are put after the basic block AFTER in the
+   instruction stream, and the order of the blocks in BBS array is preserved.  */
 
 void
 copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
 	  edge *edges, unsigned num_edges, edge *new_edges,
-	  struct loop *base)
+	  struct loop *base, basic_block after)
 {
   unsigned i, j;
   basic_block bb, new_bb, dom_bb;
@@ -1259,7 +1262,8 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
     {
       /* Duplicate.  */
       bb = bbs[i];
-      new_bb = new_bbs[i] = duplicate_block (bb, NULL);
+      new_bb = new_bbs[i] = duplicate_block (bb, NULL, after);
+      after = new_bb;
       bb->flags |= BB_DUPLICATED;
       /* Add to loop.  */
       add_bb_to_loop (new_bb, bb->loop_father->copy);

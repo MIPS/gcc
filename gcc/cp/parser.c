@@ -497,14 +497,15 @@ cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
   cp_token *token;
 
   /* N is 1-based, not zero-based.  */
-  gcc_assert (n > 0 && lexer->next_token != &eof_token);
-
+  gcc_assert (n > 0);
+  
   if (cp_lexer_debugging_p (lexer))
     fprintf (cp_lexer_debug_stream,
 	     "cp_lexer: peeking ahead %ld at token: ", (long)n);
 
   --n;
   token = lexer->next_token;
+  gcc_assert (!n || token != &eof_token);
   while (n != 0)
     {
       ++token;
@@ -10253,6 +10254,8 @@ cp_parser_namespace_name (cp_parser* parser)
   if (namespace_decl == error_mark_node
       || TREE_CODE (namespace_decl) != NAMESPACE_DECL)
     {
+      if (!cp_parser_uncommitted_to_tentative_parse_p (parser))
+	error ("%qD is not a namespace-name", identifier);
       cp_parser_error (parser, "expected namespace-name");
       namespace_decl = error_mark_node;
     }
@@ -12670,7 +12673,10 @@ cp_parser_class_specifier (cp_parser* parser)
       tree fn;
       tree class_type = NULL_TREE;
       tree pushed_scope = NULL_TREE;
-
+      /* True if we have called ggc_push_context, and therefore need
+	 to make a matching call to ggc_pop_context.  */
+      bool need_ggc_pop_context;
+ 
       /* In a first pass, parse default arguments to the functions.
 	 Then, in a second pass, parse the bodies of the functions.
 	 This two-phased approach handles cases like:
@@ -12706,6 +12712,7 @@ cp_parser_class_specifier (cp_parser* parser)
 	}
       if (pushed_scope)
 	pop_scope (pushed_scope);
+      need_ggc_pop_context = false;
       /* Now parse the body of the functions.  */
       for (TREE_VALUE (parser->unparsed_functions_queues)
 	     = nreverse (TREE_VALUE (parser->unparsed_functions_queues));
@@ -12715,14 +12722,21 @@ cp_parser_class_specifier (cp_parser* parser)
 	{
 	  /* Figure out which function we need to process.  */
 	  fn = TREE_VALUE (queue_entry);
-
-	  /* A hack to prevent garbage collection.  */
-	  function_depth++;
-
+	  /* We call ggc_collect after processing a function body in
+	     order to clean up garbage generated.  If we're processing
+	     a local class, however, then we must not clean up stuff
+	     from the function containing the class, so we have to
+	     push a new garbage-collection context.  */
+	  if (function_depth && !need_ggc_pop_context)
+	    {
+	      need_ggc_pop_context = true;
+	      ggc_push_context ();
+	    }
 	  /* Parse the function.  */
 	  cp_parser_late_parsing_for_member (parser, fn);
-	  function_depth--;
 	}
+      if (need_ggc_pop_context)
+	ggc_pop_context ();
     }
 
   /* Put back any saved access checks.  */
@@ -14461,8 +14475,12 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 		       bool check_dependency,
 		       bool *ambiguous_p)
 {
+  int flags = 0;
   tree decl;
   tree object_type = parser->context->object_type;
+
+  if (!cp_parser_uncommitted_to_tentative_parse_p (parser))
+    flags |= LOOKUP_COMPLAIN;
 
   /* Assume that the lookup will be unambiguous.  */
   if (ambiguous_p)
@@ -14596,8 +14614,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
       /* Look it up in the enclosing context, too.  */
       decl = lookup_name_real (name, tag_type != none_type,
 			       /*nonclass=*/0,
-			       /*block_p=*/true, is_namespace,
-			       /*flags=*/0);
+			       /*block_p=*/true, is_namespace, flags);
       parser->object_scope = object_type;
       parser->qualifying_scope = NULL_TREE;
       if (object_decl)
@@ -14607,8 +14624,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
     {
       decl = lookup_name_real (name, tag_type != none_type,
 			       /*nonclass=*/0,
-			       /*block_p=*/true, is_namespace,
-			       /*flags=*/0);
+			       /*block_p=*/true, is_namespace, flags);
       parser->qualifying_scope = NULL_TREE;
       parser->object_scope = NULL_TREE;
     }
@@ -15965,7 +15981,7 @@ cp_parser_next_token_ends_template_argument_p (cp_parser *parser)
   return (token->type == CPP_COMMA || token->type == CPP_GREATER);
 }
 
-/* Returns TRUE iff the n-th token is a ">", or the n-th is a "[" and the
+/* Returns TRUE iff the n-th token is a "<", or the n-th is a "[" and the
    (n+1)-th is a ":" (which is a possible digraph typo for "< ::").  */
 
 static bool

@@ -77,19 +77,19 @@
    been written as independent functions without change.  */
 
 
-struct var_map_elt
+struct var_map_elt GTY(())
 {
   tree old;
   tree new;
 };
 
-struct nesting_info
+struct nesting_info GTY ((chain_next ("%h.next")))
 {
   struct nesting_info *outer;
   struct nesting_info *inner;
   struct nesting_info *next;
   
-  htab_t var_map;
+  htab_t GTY ((param_is (struct var_map_elt))) var_map;
   tree context;
   tree new_local_var_chain;
   tree frame_type;
@@ -288,7 +288,7 @@ lookup_field_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
   
-      elt = xmalloc (sizeof (*elt));
+      elt = ggc_alloc (sizeof (*elt));
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -474,7 +474,7 @@ lookup_tramp_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
 
-      elt = xmalloc (sizeof (*elt));
+      elt = ggc_alloc (sizeof (*elt));
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -698,8 +698,8 @@ check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
 static struct nesting_info *
 create_nesting_tree (struct cgraph_node *cgn)
 {
-  struct nesting_info *info = xcalloc (1, sizeof (*info));
-  info->var_map = htab_create (7, var_map_hash, var_map_eq, free);
+  struct nesting_info *info = ggc_calloc (1, sizeof (*info));
+  info->var_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->context = cgn->decl;
 
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
@@ -950,7 +950,9 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
   struct walk_stmt_info *wi = data;
   struct nesting_info *info = wi->info;
   tree t = *tp, field, x;
+  bool save_val_only;
 
+  *walk_subtrees = 0;
   switch (TREE_CODE (t))
     {
     case VAR_DECL:
@@ -989,34 +991,31 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case ADDR_EXPR:
-      {
-	bool save_val_only = wi->val_only;
+      save_val_only = wi->val_only;
+      wi->val_only = false;
+      wi->is_lhs = false;
+      wi->changed = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = save_val_only;
 
-	wi->val_only = false;
-	wi->is_lhs = false;
-	wi->changed = false;
-	walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
-	wi->val_only = save_val_only;
+      /* If we converted anything ... */
+      if (wi->changed)
+	{
+	  tree save_context;
 
-	/* If we converted anything ... */
-	if (wi->changed)
-	  {
-	    tree save_context;
-
-	    /* Then the frame decl is now addressable.  */
-	    TREE_ADDRESSABLE (info->frame_decl) = 1;
+	  /* Then the frame decl is now addressable.  */
+	  TREE_ADDRESSABLE (info->frame_decl) = 1;
 	    
-	    save_context = current_function_decl;
-	    current_function_decl = info->context;
-	    recompute_tree_invarant_for_addr_expr (t);
-	    current_function_decl = save_context;
+	  save_context = current_function_decl;
+	  current_function_decl = info->context;
+	  recompute_tree_invarant_for_addr_expr (t);
+	  current_function_decl = save_context;
 
-	    /* If we are in a context where we only accept values, then
-	       compute the address into a temporary.  */
-	    if (save_val_only)
-	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
-	  }
-      }
+	  /* If we are in a context where we only accept values, then
+	     compute the address into a temporary.  */
+	  if (save_val_only)
+	    *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
+	}
       break;
 
     case REALPART_EXPR:
@@ -1028,6 +1027,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       /* Go down this entire nest and just look at the final prefix and
 	 anything that describes the references.  Otherwise, we lose track
 	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
+      save_val_only = wi->val_only;
       wi->val_only = true;
       wi->is_lhs = false;
       for (; handled_component_p (t); tp = &TREE_OPERAND (t, 0), t = *tp)
@@ -1055,6 +1055,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	}
       wi->val_only = false;
       walk_tree (tp, convert_local_reference, wi, NULL);
+      wi->val_only = save_val_only;
       break;
 
     default:
@@ -1107,7 +1108,7 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
 
   /* Enter this association into var_map so that we can insert the new
      label into the IL during a second pass.  */
-  elt = xmalloc (sizeof (*elt));
+  elt = ggc_alloc (sizeof (*elt));
   elt->old = label;
   elt->new = new_label;
   slot = htab_find_slot (i->var_map, elt, INSERT);
@@ -1473,11 +1474,13 @@ free_nesting_tree (struct nesting_info *root)
 	free_nesting_tree (root->inner);
       htab_delete (root->var_map);
       next = root->next;
-      free (root);
+      ggc_free (root);
       root = next;
     }
   while (root);
 }
+
+static GTY(()) struct nesting_info *root;
 
 /* Main entry point for this pass.  Process FNDECL and all of its nested
    subroutines and turn them into something less tightly bound.  */
@@ -1485,7 +1488,6 @@ free_nesting_tree (struct nesting_info *root)
 void
 lower_nested_functions (tree fndecl)
 {
-  struct nesting_info *root;
   struct cgraph_node *cgn;
 
   /* If there are no nested functions, there's nothing to do.  */
@@ -1501,6 +1503,7 @@ lower_nested_functions (tree fndecl)
   convert_all_function_calls (root);
   finalize_nesting_tree (root);
   free_nesting_tree (root);
+  root = NULL;
 }
 
 #include "gt-tree-nested.h"

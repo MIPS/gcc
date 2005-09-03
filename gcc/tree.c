@@ -488,7 +488,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 
     case tcc_type:
       TYPE_UID (t) = next_type_uid++;
-      TYPE_ALIGN (t) = char_type_node ? TYPE_ALIGN (char_type_node) : 0;
+      TYPE_ALIGN (t) = BITS_PER_UNIT;
       TYPE_USER_ALIGN (t) = 0;
       TYPE_MAIN_VARIANT (t) = t;
 
@@ -1053,6 +1053,8 @@ build_string (int len, const char *str)
 
   memset (s, 0, sizeof (struct tree_common));
   TREE_SET_CODE (s, STRING_CST);
+  TREE_CONSTANT (s) = 1;
+  TREE_INVARIANT (s) = 1;
   TREE_STRING_LENGTH (s) = len;
   memcpy ((char *) TREE_STRING_POINTER (s), str, len);
   ((char *) TREE_STRING_POINTER (s))[len] = '\0';
@@ -4683,6 +4685,9 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 			     bool can_alias_all)
 {
   tree t;
+
+  if (to_type == error_mark_node)
+    return error_mark_node;
 
   /* In some cases, languages will have things that aren't a POINTER_TYPE
      (such as a RECORD_TYPE for fat pointers in Ada) as TYPE_POINTER_TO.

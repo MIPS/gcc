@@ -3615,11 +3615,13 @@ build_x_unary_op (enum tree_code code, tree xarg)
       if (!flag_ms_extensions && TREE_CODE (TREE_TYPE (xarg)) == METHOD_TYPE
 	  && (TREE_CODE (xarg) != OFFSET_REF || !PTRMEM_OK_P (xarg)))
 	{
-	  if (TREE_CODE (xarg) != OFFSET_REF)
+	  if (TREE_CODE (xarg) != OFFSET_REF
+	      || !TYPE_P (TREE_OPERAND (xarg, 0)))
 	    {
-	      error ("invalid use of %qE to form a pointer-to-member-function."
-		     "  Use a qualified-id.",
+	      error ("invalid use of %qE to form a pointer-to-member-function",
 		     xarg);
+	      if (TREE_CODE (xarg) != OFFSET_REF)
+		inform ("  a qualified-id is required");
 	      return error_mark_node;
 	    }
 	  else
@@ -5470,7 +5472,9 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
       from_array = TREE_CODE (TREE_TYPE (newrhs)) == ARRAY_TYPE
 		   ? 1 + (modifycode != INIT_EXPR): 0;
-      return build_vec_init (lhs, NULL_TREE, newrhs, from_array);
+      return build_vec_init (lhs, NULL_TREE, newrhs, 
+			     /*explicit_default_init_p=*/false,
+			     from_array);
     }
 
   if (modifycode == INIT_EXPR)
@@ -5696,7 +5700,7 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
       tree n;
 
       if (!force
-	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn))
+	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn, LOOKUP_NORMAL))
 	error ("invalid conversion to type %qT from type %qT",
 	       to_type, pfn_type);
 

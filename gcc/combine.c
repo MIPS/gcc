@@ -6484,11 +6484,13 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	  && GET_MODE_SIZE (inner_mode) < GET_MODE_SIZE (is_mode))
 	offset -= GET_MODE_SIZE (is_mode) - GET_MODE_SIZE (inner_mode);
 
-      /* If this is a constant position, we can move to the desired byte.  */
+      /* If this is a constant position, we can move to the desired byte.
+	 Be careful not to go beyond the original object. */
       if (pos_rtx == 0)
 	{
-	  offset += pos / BITS_PER_UNIT;
-	  pos %= GET_MODE_BITSIZE (wanted_inner_mode);
+	  enum machine_mode bfmode = smallest_mode_for_size (len, MODE_INT);
+	  offset += pos / GET_MODE_BITSIZE (bfmode);
+	  pos %= GET_MODE_BITSIZE (bfmode);
 	}
 
       if (BYTES_BIG_ENDIAN != BITS_BIG_ENDIAN
@@ -10239,7 +10241,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		      /* (A - C1) always sign-extends, like C2.  */
 		      && num_sign_bit_copies (a, inner_mode)
 			 > (unsigned int) (GET_MODE_BITSIZE (inner_mode)
-					   - mode_width - 1)))
+					   - (mode_width - 1))))
 		{
 		  op0 = SUBREG_REG (op0);
 		  continue;

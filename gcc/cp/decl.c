@@ -3716,7 +3716,8 @@ start_decl (const cp_declarator *declarator,
 		 declaration will have DECL_EXTERNAL set, but will have an
 		 initialization.  Thus, duplicate_decls won't warn
 		 about this situation, and so we check here.  */
-	      if (DECL_INITIAL (decl) && DECL_INITIAL (field))
+	      if (DECL_INITIAL (decl) 
+		  && DECL_INITIALIZED_IN_CLASS_P (field))
 		error ("duplicate initialization of %qD", decl);
 	      if (duplicate_decls (decl, field))
 		decl = field;
@@ -4347,7 +4348,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
      initializer is considered for the initialization of the first
      member of the subaggregate.  */
   if (TREE_CODE (init) != CONSTRUCTOR
-      && can_convert_arg (type, TREE_TYPE (init), init))
+      && can_convert_arg (type, TREE_TYPE (init), init, LOOKUP_NORMAL))
     {
       d->cur++;
       return init;
@@ -4921,10 +4922,20 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 		     "initialized", decl);
 	      init = NULL_TREE;
 	    }
+
+	  /* Check that the initializer for a static data member was a
+	     constant.  Althouh we check in the parser that the
+	     initializer is an integral constant expression, we do not
+	     simplify division-by-zero at the point at which it
+	     occurs.  Therefore, in:
+
+	       struct S { static const int i = 7 / 0; };
+	       
+	     we issue an error at this point.  It would
+	     probably be better to forbid division by zero in
+	     integral constant expressions.  */
 	  if (DECL_EXTERNAL (decl) && init)
 	    {
-	      /* The static data member cannot be initialized by a
-		 non-constant when being declared.  */
 	      error ("%qD cannot be initialized by a non-constant expression"
 		     " when being declared", decl);
 	      DECL_INITIALIZED_IN_CLASS_P (decl) = 0;
@@ -7064,7 +7075,10 @@ grokdeclarator (const cp_declarator *declarator,
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
   if (declspecs->multiple_storage_classes_p)
-    error ("multiple storage classes in declaration of %qs", name);
+    {
+      error ("multiple storage classes in declaration of %qs", name);
+      storage_class = sc_none;
+    }
   else if (thread_p
 	   && ((storage_class
 		&& storage_class != sc_extern
@@ -7553,8 +7567,8 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (TREE_CODE (type) == ARRAY_TYPE
       && COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-      && TREE_OVERFLOW (TYPE_SIZE (type)))
+      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
+      && TREE_OVERFLOW (TYPE_SIZE_UNIT (type)))
     {
       error ("size of array %qs is too large", name);
       /* If we proceed with the array type as it is, we'll eventually
@@ -8302,14 +8316,16 @@ require_complete_types_for_parms (tree parms)
     {
       if (dependent_type_p (TREE_TYPE (parms)))
 	continue;
-      if (VOID_TYPE_P (TREE_TYPE (parms)))
-	/* grokparms will have already issued an error.  */
-	TREE_TYPE (parms) = error_mark_node;
-      else if (complete_type_or_else (TREE_TYPE (parms), parms))
+      if (!VOID_TYPE_P (TREE_TYPE (parms))
+	  && complete_type_or_else (TREE_TYPE (parms), parms))
 	{
 	  relayout_decl (parms);
 	  DECL_ARG_TYPE (parms) = type_passed_as (TREE_TYPE (parms));
 	}
+      else
+	/* grokparms or complete_type_or_else will have already issued
+	   an error.  */
+	TREE_TYPE (parms) = error_mark_node;
     }
 }
 
@@ -8403,7 +8419,7 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   if (!TREE_TYPE (arg)
-      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg))
+      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg, LOOKUP_NORMAL))
     {
       if (decl)
 	error ("default argument for %q#D has type %qT",

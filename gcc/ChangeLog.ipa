@@ -1,3 +1,7 @@
+2005-09-03  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (ipa-branch-merge-20050903)
+
 2005-08-19  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.h (rebuild_cgraph_edges): Declare.

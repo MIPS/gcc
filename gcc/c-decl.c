@@ -466,7 +466,7 @@ c_print_identifier (FILE *file, tree node, int indent)
     {
       tree rid = ridpointers[C_RID_CODE (node)];
       indent_to (file, indent + 4);
-      fprintf (file, "rid " HOST_PTR_PRINTF " \"%s\"",
+      fprintf (file, "rid %p \"%s\"",
 	       (void *) rid, IDENTIFIER_POINTER (rid));
     }
 }
@@ -1555,7 +1555,10 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl))
       /* Don't warn about forward parameter decls.  */
       && !(TREE_CODE (newdecl) == PARM_DECL
-	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl)))
+	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl))
+      /* Don't warn about a variable definition following a declaration.  */
+      && !(TREE_CODE (newdecl) == VAR_DECL
+	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl)))
     {
       warning (OPT_Wredundant_decls, "redundant redeclaration of %q+D",
 	       newdecl);
@@ -4383,8 +4386,8 @@ grokdeclarator (const struct c_declarator *declarator,
 
   if (TREE_CODE (type) == ARRAY_TYPE
       && COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-      && TREE_OVERFLOW (TYPE_SIZE (type)))
+      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
+      && TREE_OVERFLOW (TYPE_SIZE_UNIT (type)))
     {
       error ("size of array %qs is too large", name);
       /* If we proceed with the array type as it is, we'll eventually

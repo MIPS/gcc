@@ -288,8 +288,14 @@
 /* libm includes truncf */
 #undef HAVE_TRUNCF
 
+/* Define to 1 if you have the `ttyname' function. */
+#undef HAVE_TTYNAME
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define if target can unlink open files. */
+#undef HAVE_UNLINK_OPEN_FILE
 
 /* libm includes y0 */
 #undef HAVE_Y0

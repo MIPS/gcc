@@ -949,6 +949,13 @@ enum reg_class
 
 #define EXTRA_CONSTRAINT(VALUE, C) \
   ia64_extra_constraint (VALUE, C)
+
+/* Document the constraints that can accept reloaded memory operands.  This is
+   needed by the extended asm support, and by reload.  'Q' accepts mem, but
+   only non-volatile mem.  Since we can't reload a volatile mem into a
+   non-volatile mem, it can not be listed here.  */
+
+#define EXTRA_MEMORY_CONSTRAINT(C, STR)  ((C) == 'S')
 
 /* Basic Stack Layout */
 
@@ -956,7 +963,7 @@ enum reg_class
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro to non-zero if the addresses of local variable slots
+/* Define this macro to nonzero if the addresses of local variable slots
    are at negative offsets from the frame pointer.  */
 #define FRAME_GROWS_DOWNWARD 0
 
@@ -1771,11 +1778,6 @@ do {									\
   else								\
     fprintf (STREAM, "\tdata8 @pcrel(.L%d)\n", VALUE);		\
   } while (0)
-
-/* This is how to output an element of a case-vector that is absolute.
-   (Ia64 does not use such vectors, but we must define this macro anyway.)  */
-
-#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) gcc_unreachable ()
 
 /* Jump tables only need 8 byte alignment.  */
 

@@ -1672,7 +1672,6 @@ An item in the constant pool
 
 @item S
 A symbol in the text segment of the current file
-@end table
 
 @item Uv
 A memory reference suitable for VFP load/store insns (reg+constant offset)
@@ -1682,6 +1681,7 @@ A memory reference suitable for iWMMXt load/store instructions.
 
 @item Uq
 A memory reference suitable for the ARMv4 ldrsb instruction.
+@end table
 
 @item AVR family---@file{avr.h}
 @table @code
@@ -1744,6 +1744,37 @@ Constant integer 1
 
 @item G
 A floating point constant 0.0
+@end table
+
+@item CRX Architecture---@file{crx.h}
+@table @code
+
+@item b
+Registers from r0 to r14 (registers without stack pointer)
+
+@item l
+Register r16 (64-bit accumulator lo register)
+
+@item h
+Register r17 (64-bit accumulator hi register)
+
+@item k
+Register pair r16-r17. (64-bit accumulator lo-hi pair)
+
+@item I
+Constant that fits in 3 bits
+
+@item J
+Constant that fits in 4 bits
+
+@item K
+Constant that fits in 5 bits
+
+@item L
+Constant that is one of -1, 4, -4, 7, 8, 12, 16, 20, 32, 48
+
+@item G
+Floating point constant that is legal for store immediate
 @end table
 
 @item PowerPC and IBM RS6000---@file{rs6000.h}
@@ -1822,6 +1853,35 @@ Constant suitable as a 32-bit mask operand
 
 @item U
 System V Release 4 small data area reference
+@end table
+
+@item MorphoRISC family---@file{ms1.h}
+@table @code
+@item I
+Constant for an arithmetic insn (16-bit signed integer).
+
+@item J
+The constant 0.
+
+@item K
+Constant for a logical insn (16-bit zero-extended integer).
+
+@item L
+A constant that can be loaded with @code{lui} (i.e.@: the bottom 16
+bits are zero).
+
+@item M
+A constant that takes two words to load (i.e.@: not matched by
+@code{I}, @code{K}, or @code{L}).
+
+@item N
+Negative 16-bit constants other than -65536.
+
+@item O
+A 15-bit signed integer constant.
+
+@item P
+A positive 16-bit constant.
 @end table
 
 @item Intel 386---@file{i386.h}
@@ -3007,6 +3067,43 @@ Similar, for other arithmetic operations.
 Signed minimum and maximum operations.  When used with floating point,
 if both operands are zeros, or if either operand is @code{NaN}, then
 it is unspecified which of the two operands is returned as the result.
+
+@cindex @code{reduc_smin_@var{m}} instruction pattern
+@cindex @code{reduc_smax_@var{m}} instruction pattern
+@item @samp{reduc_smin_@var{m}}, @samp{reduc_smax_@var{m}}
+Find the signed minimum/maximum of the elements of a vector. The vector is
+operand 1, and the scalar result is stored in the least significant bits of 
+operand 0 (also a vector). The output and input vector should have the same 
+modes.
+
+@cindex @code{reduc_umin_@var{m}} instruction pattern
+@cindex @code{reduc_umax_@var{m}} instruction pattern
+@item @samp{reduc_umin_@var{m}}, @samp{reduc_umax_@var{m}}
+Find the unsigned minimum/maximum of the elements of a vector. The vector is
+operand 1, and the scalar result is stored in the least significant bits of 
+operand 0 (also a vector). The output and input vector should have the same 
+modes.
+
+@cindex @code{reduc_splus_@var{m}} instruction pattern
+@item @samp{reduc_splus_@var{m}}
+Compute the sum of the signed elements of a vector. The vector is opernad 1, 
+and the scalar result is stored in the least significant bits of opernad 0 
+(also a vector). The output and input vector should have the same modes.
+
+@cindex @code{reduc_uplus_@var{m}} instruction pattern
+@item @samp{reduc_uplus_@var{m}}
+Compute the sum of the unsigned elements of a vector. The vector is opernad 1, 
+and the scalar result is stored in the least significant bits of opernad 0 
+(also a vector). The output and input vector should have the same modes.
+
+@cindex @code{vec_shl_@var{m}} instruction pattern
+@cindex @code{vec_shr_@var{m}} instruction pattern
+@item @samp{vec_shl_@var{m}}, @samp{vec_shr_@var{m}}
+Whole vector left/right shift in bits.
+Operand 1 is a vector to be shifted.
+Operand 2 is an integer shift amount in bits. 
+Operand 0 is where the resulting shifted vector is stored.
+The output and input vectors should have the same modes.
 
 @cindex @code{mulhisi3} instruction pattern
 @item @samp{mulhisi3}

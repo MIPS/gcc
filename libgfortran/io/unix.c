@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Unix stream I/O module */
 
@@ -952,7 +952,7 @@ unit_to_fd(int unit)
  * buffer that is PATH_MAX characters, convert the fortran string to a
  * C string in the buffer.  Returns nonzero if this is not possible.  */
 
-static int
+int
 unpack_filename (char *cstring, const char *fstring, int len)
 {
   len = fstrlen (fstring, len);
@@ -984,6 +984,8 @@ tempfile (void)
   if (tempdir == NULL)
     tempdir = getenv ("TMP");
   if (tempdir == NULL)
+    tempdir = getenv ("TEMP");
+  if (tempdir == NULL)
     tempdir = DEFAULT_TEMPDIR;
 
   template = get_mem (strlen (tempdir) + 20);
@@ -998,7 +1000,7 @@ tempfile (void)
 
   if (mktemp (template))
     do
-      fd = open (template, O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+      fd = open (template, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
     while (!(fd == -1 && errno == EEXIST) && mktemp (template));
   else
     fd = -1;
@@ -1134,8 +1136,11 @@ open_external (unit_flags *flags)
       fd = tempfile ();
       if (flags->action == ACTION_UNSPECIFIED)
         flags->action = ACTION_READWRITE;
+
+#if HAVE_UNLINK_OPEN_FILE
       /* We can unlink scratch files now and it will go away when closed. */
       unlink (ioparm.file);
+#endif
     }
   else
     {
@@ -1532,6 +1537,22 @@ try
 flush (stream *s)
 {
   return fd_flush( (unix_stream *) s);
+}
+
+int
+stream_isatty (stream *s)
+{
+  return isatty (((unix_stream *) s)->fd);
+}
+
+char *
+stream_ttyname (stream *s)
+{
+#ifdef HAVE_TTYNAME
+  return ttyname (((unix_stream *) s)->fd);
+#else
+  return NULL;
+#endif
 }
 
 
