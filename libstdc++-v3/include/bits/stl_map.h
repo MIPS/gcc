@@ -418,18 +418,22 @@ namespace _GLIBCXX_STD
         insert(_InputIterator __first, _InputIterator __last)
         { _M_t.insert_unique(__first, __last); }
 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Return type of container::erase(iterator) differs for
+      //         associative containers.
       /**
        *  @brief Erases an element from a %map.
        *  @param  position  An iterator pointing to the element to be erased.
+       *  @return  An iterator pointing to the next element (or end()).
        *
        *  This function erases an element, pointed to by the given iterator,
        *  from a %map.  Note that this function only erases the element, and
        *  that if the element is itself a pointer, the pointed-to memory is not
        *  touched in any way.  Managing the pointer is the user's responsibilty.
        */
-      void
+      iterator
       erase(iterator __position)
-      { _M_t.erase(__position); }
+      { return _M_t.erase(__position); }
 
       /**
        *  @brief Erases elements according to the provided key.
@@ -446,20 +450,25 @@ namespace _GLIBCXX_STD
       erase(const key_type& __x)
       { return _M_t.erase(__x); }
 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Return type of container::erase(iterator) differs for
+      //         associative containers.
       /**
        *  @brief Erases a [first,last) range of elements from a %map.
        *  @param  first  Iterator pointing to the start of the range to be
        *                 erased.
        *  @param  last  Iterator pointing to the end of the range to be erased.
+       *  @return  An iterator pointing to the element pointed to by @a last
+       *           (or end()).
        *
        *  This function erases a sequence of elements from a %map.
        *  Note that this function only erases the element, and that if
        *  the element is itself a pointer, the pointed-to memory is not touched
        *  in any way.  Managing the pointer is the user's responsibilty.
        */
-      void
+      iterator
       erase(iterator __first, iterator __last)
-      { _M_t.erase(__first, __last); }
+      { return _M_t.erase(__first, __last); }
 
       /**
        *  @brief  Swaps data with another %map.

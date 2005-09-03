@@ -1,3 +1,31 @@
+2005-09-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20787 (DR 130 [DR])
+	* include/bits/stl_tree.h (_Rb_tree<>::erase(iterator),
+	_Rb_tree<>::erase(iterator, iterator)): Adjust to return
+	an iterator, as per the resolution of DR 130.
+	* include/bits/stl_map.h (map<>::erase(iterator),
+	map<>::erase(iterator, iterator)): Update consistently.
+	* include/bits/stl_multimap.h (multimap<>::erase(iterator),
+	multimap<>::erase(iterator, iterator)): Likewise.
+	* include/bits/stl_multiset.h (multiset<>::erase(iterator),
+	multiset<>::erase(iterator, iterator)): Likewise.
+	* include/bits/stl_set.h (set<>::erase(iterator),
+	set<>::erase(iterator, iterator)): Likewise.
+	* include/debug/map.h (map<>::erase(iterator),
+	map<>::erase(iterator, iterator)): Likewise.
+	* include/debug/multimap.h (multimap<>::erase(iterator),
+	multimap<>::erase(iterator, iterator)): Likewise.
+	* include/debug/multiset.h (multiset<>::erase(iterator),
+	multiset<>::erase(iterator, iterator)): Likewise.
+	* include/debug/set.h (set<>::erase(iterator),
+	set<>::erase(iterator, iterator)): Likewise.
+	* docs/html/ext/howto.html: Add an entry for DR 130.
+	* testsuite/23_containers/map/erase/1.cc: New.
+	* testsuite/23_containers/multimap/erase/1.cc: Likewise.
+	* testsuite/23_containers/multiset/erase/1.cc: Likewise.
+	* testsuite/23_containers/set/erase/1.cc: Likewise.
+
 2005-07-28  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050728.

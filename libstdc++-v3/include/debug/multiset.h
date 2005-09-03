@@ -148,19 +148,22 @@ namespace __gnu_debug_def
       }
 
       template<typename _InputIterator>
-      void
-      insert(_InputIterator __first, _InputIterator __last)
-      {
-	__glibcxx_check_valid_range(__first, __last);
-	_Base::insert(__first, __last);
-      }
+        void
+        insert(_InputIterator __first, _InputIterator __last)
+        {
+	  __glibcxx_check_valid_range(__first, __last);
+	  _Base::insert(__first, __last);
+	}
 
-      void
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Return type of container::erase(iterator) differs for
+      //         associative containers.
+      iterator
       erase(iterator __position)
       {
 	__glibcxx_check_erase(__position);
 	__position._M_invalidate();
-	_Base::erase(__position.base());
+	return iterator(_Base::erase(__position.base()), this);
       }
 
       size_type
@@ -177,15 +180,19 @@ namespace __gnu_debug_def
 	}
 	return __count;
       }
-
-      void
+ 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Return type of container::erase(iterator) differs for
+      //         associative containers.
+      iterator
       erase(iterator __first, iterator __last)
       {
 	// _GLIBCXX_RESOLVE_LIB_DEFECTS
 	// 151. can't currently clear() empty container
 	__glibcxx_check_erase_range(__first, __last);
 	while (__first != __last)
-	this->erase(__first++);
+	  __first = this->erase(__first);
+	return __last;
       }
 
       void

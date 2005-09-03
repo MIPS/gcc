@@ -366,9 +366,13 @@ namespace _GLIBCXX_STD
         insert(_InputIterator __first, _InputIterator __last)
         { _M_t.insert_equal(__first, __last); }
 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Return type of container::erase(iterator) differs for
+      //         associative containers.
       /**
        *  @brief Erases an element from a %multiset.
        *  @param  position  An iterator pointing to the element to be erased.
+       *  @return  An iterator pointing to the next element (or end()).
        *
        *  This function erases an element, pointed to by the given iterator,
        *  from a %multiset.  Note that this function only erases the element,
@@ -376,11 +380,11 @@ namespace _GLIBCXX_STD
        *  not touched in any way.  Managing the pointer is the user's
        *  responsibilty.
        */
-      void
+      iterator
       erase(iterator __position)
       {
 	typedef typename _Rep_type::iterator _Rep_iterator;
-	_M_t.erase((_Rep_iterator&)__position);
+	return _M_t.erase((_Rep_iterator&)__position);
       }
 
       /**
@@ -398,22 +402,27 @@ namespace _GLIBCXX_STD
       erase(const key_type& __x)
       { return _M_t.erase(__x); }
 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Return type of container::erase(iterator) differs for
+      //         associative containers.
       /**
        *  @brief Erases a [first,last) range of elements from a %multiset.
        *  @param  first  Iterator pointing to the start of the range to be
        *                 erased.
        *  @param  last  Iterator pointing to the end of the range to be erased.
+       *  @return  An iterator pointing to the element pointed to by @a last
+       *           (or end()).
        *
        *  This function erases a sequence of elements from a %multiset.
        *  Note that this function only erases the elements, and that if
        *  the elements themselves are pointers, the pointed-to memory is not
        *  touched in any way.  Managing the pointer is the user's responsibilty.
        */
-      void
+      iterator
       erase(iterator __first, iterator __last)
       {
 	typedef typename _Rep_type::iterator _Rep_iterator;
-	_M_t.erase((_Rep_iterator&)__first, (_Rep_iterator&)__last);
+	return _M_t.erase((_Rep_iterator&)__first, (_Rep_iterator&)__last);
       }
 
       /**

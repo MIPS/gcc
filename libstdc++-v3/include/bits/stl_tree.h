@@ -655,13 +655,13 @@ namespace std
       void
       insert_equal(_InputIterator __first, _InputIterator __last);
 
-      void
+      iterator
       erase(iterator __position);
 
       size_type
       erase(const key_type& __x);
 
-      void
+      iterator
       erase(iterator __first, iterator __last);
 
       void
@@ -1029,16 +1029,20 @@ namespace std
 
   template<typename _Key, typename _Val, typename _KeyOfValue,
            typename _Compare, typename _Alloc>
-    inline void
+    inline
+    typename _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::iterator
     _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::
     erase(iterator __position)
     {
+      iterator __ret = __position;
+      ++__ret;
       _Link_type __y =
 	static_cast<_Link_type>(_Rb_tree_rebalance_for_erase
 				(__position._M_node,
 				 this->_M_impl._M_header));
       destroy_node(__y);
       --_M_impl._M_node_count;
+      return __ret;
     }
 
   template<typename _Key, typename _Val, typename _KeyOfValue,
@@ -1107,7 +1111,7 @@ namespace std
 
   template<typename _Key, typename _Val, typename _KeyOfValue,
            typename _Compare, typename _Alloc>
-    void
+    typename _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::iterator
     _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::
     erase(iterator __first, iterator __last)
     {
@@ -1115,7 +1119,8 @@ namespace std
 	clear();
       else
 	while (__first != __last)
-	  erase(__first++);
+	  __first = erase(__first);
+      return __last;
     }
 
   template<typename _Key, typename _Val, typename _KeyOfValue,
