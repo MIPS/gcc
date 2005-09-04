@@ -17,7 +17,7 @@
 ##
 ## You should have received a copy of the GNU General Public License along
 ## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 ## USA.
 
 GLIBCXX_3.6 {
@@ -295,7 +295,6 @@ GLIBCXX_3.6 {
     _ZNSt8ios_base17_M_call_callbacksENS_5eventE;
     _ZNSt8ios_base20_M_dispose_callbacksEv;
     _ZNSt6locale5facet13_S_get_c_nameEv;
-    _ZN11__gnu_debug13__fancy_abortEPKciS1_S1_;
 
     # Added in libstdcxx_so_7-branch
     _ZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
