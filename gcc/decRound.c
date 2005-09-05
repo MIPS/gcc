@@ -28,13 +28,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define FE_DEC_MAX 5
 
 extern void __dfp_set_round (int);
-extern void __dfp_set_working_prec (int);
 extern int __dfp_get_round (void);
-extern int __decWorkingPrec (void);
 extern enum rounding __decGetRound (void);
 
 static enum rounding __dfp_rounding_mode = DEC_ROUND_HALF_EVEN;
-static int __dfp_working_prec = 34;
 
 /* Set the decNumber rounding mode from the FE_DEC_* value in MODE.  */ 
 
@@ -57,14 +54,6 @@ __dfp_set_round (int mode)
      /* We can't use assert in libgcc, so just return the default mode.  */
       __dfp_rounding_mode = DEC_ROUND_HALF_EVEN; break;
     }
-}
-
-/* Set the decNumber working precision.  */
-
-void
-__dfp_set_working_prec (int digits)
-{
-  __dfp_working_prec = digits;
 }
 
 /* Return the decNumber rounding mode as an FE_DEC_* value.  */
@@ -91,14 +80,6 @@ __dfp_get_round (void)
       mode = -1;
     }
   return mode;
-}
-
-/* Return the decNumber working precision.  */
-
-int
-__decWorkingPrec (void)
-{
-  return __dfp_working_prec;
 }
 
 /* Return the decNumber version of the current rounding mode.  */
