@@ -1,3 +1,23 @@
+2005-09-06  Ben Elliston  <bje@au.ibm.com>
+
+	* testsuite/gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Pass
+	-frounding-math.
+	(dfp-run-test): Strip comments from directives lines.
+	(c-rounding-mode): Swap numeric assignments of half_up/half_even.
+	(c-unary-expression): Don't XFAIL library tests here.
+	(c-decimal-type): Do not handle a wider range of working precision
+	after all, as C provides no way to adjust the working precision.
+	Run tests with working precisions of 7, 16 or 34 only.
+	(is-supported-p): Rename proc from this ..
+	(supported-p): .. to this.  Indicate library tests as unsupported.
+	(process-test-case): Update calls to supported-p.
+	(c-operand): Handle NaN* and sNaN* operands.
+	(frob-hex-constant): Rename from this ..
+	(transform-hex-constant): .. to this.
+	(make-c-test): Do not call __dfp_set_working_prec.  Emit a global
+	char[] declaration (plus static initialiser) when hex constants
+	are used in the test case.  Verify the result with memcmp.
+
 2005-08-31  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (c-rounding-mode): Improve message.

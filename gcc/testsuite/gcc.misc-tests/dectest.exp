@@ -22,7 +22,7 @@
 
 # Override torture options for now (-O0 will do just fine).
 # Note: Using -O2 here will test constant folding. 
-set TORTURE_OPTIONS [list {-O0 -msoft-float}]
+set TORTURE_OPTIONS [list {-frounding-math}]
 
 # Load support procs (borrow these from c-torture).
 load_lib c-torture.exp
@@ -40,7 +40,7 @@ set operators(multiply) {*}
 set operators(subtract) {-}
 set operators(minus) {-}
 set operators(plus) {+}
-set operators(apply) {/* apply */}
+set operators(apply) {}
 
 # Operations imlemented by the library.
 set libfuncs(abs) fabsl
@@ -90,6 +90,7 @@ proc dfp-run-test { testcase } {
 		# Ignore blank lines.
 	    }
 	    {^[ \t]*[^:]*:[^:]*} {
+		regsub -- {[ \t]*--.*$} $line {} line
 		process-directive $line
 	    }
 	    default {
@@ -105,8 +106,8 @@ proc dfp-run-test { testcase } {
 proc c-rounding-mode { mode } { 
     switch [string tolower $mode] {
 	"floor"		{ return 0 } # FE_DEC_DOWNWARD
-	"half_up"	{ return 1 } # FE_DEC_TONEAREST
-	"half_even"	{ return 2 } # FE_DEC_TONEARESTFROMZERO
+	"half_even"	{ return 1 } # FE_DEC_TONEARESTFROMZERO
+	"half_up"	{ return 2 } # FE_DEC_TONEAREST
 	"down"		{ return 3 } # FE_DEC_TOWARDZERO
 	"ceiling"	{ return 4 } # FE_DEC_UPWARD
     }
@@ -144,9 +145,6 @@ proc c-unary-expression {operation op} {
 	# we'll throw an error.  That's what we want.
 	# FIXME: append d32, etc. here.
 	set result "$libfuncs($operation) ($op)"
-
-	# XFAIL all library tests for now (no support!)
-	setup_xfail "*-*-*"
     }
     return $result
 }
@@ -171,11 +169,11 @@ proc c-decimal-type { } {
     if [catch {set precision $directives(precision)}] {
 	set precision "_Decimal128"
     }  
-    if { $precision <= 7 } {
+    if { $precision == 7 } {
 	set result "_Decimal32"
-    } elseif {$precision <= 16} {
+    } elseif {$precision == 16} {
 	set result "_Decimal64"
-    } elseif {$precision <= 34} {
+    } elseif {$precision == 34} {
 	set result "_Decimal128"
     } else {
 	error "Unsupported precision"
@@ -222,8 +220,10 @@ proc hex-constant-p {value} {
     return {[string index $value 0] == "\#"}
 }
 
-proc frob-hex-constant {value} {
-    return [regsub $ [regsub \# $value 0x] U]
+proc transform-hex-constant {value} {
+    regsub \# $value {} value
+    regsub -all (\.\.) $value {0x\1, } bytes
+    return [list $bytes]
 }
 
 # Create a C program file (named using ID) containing a test for a
@@ -236,15 +236,24 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
 
     puts $outfd [c-test-preamble $id]
     puts $outfd [c-union-decl]
+    if {[string compare $result ?] != 0} {
+	if {[string index $result 0] == "\#"} {
+	    puts $outfd "  static unsigned char compare\[[c-sizeof-decimal-type]\] = [transform-hex-constant $result];"
+	}
+    }
+    if {[string compare $op2 NONE] == 0} {
+	if {[string index $op1 0] == "\#"} {
+	    puts $outfd "  static unsigned char fill\[[c-sizeof-decimal-type]\] = [transform-hex-constant $op1];"
+	}
+    }
+
     puts $outfd ""
     puts $outfd "  /*  FIXME: Set rounding mode with fesetround() once in libc.  */"
     puts $outfd "  __dfp_set_round ([c-rounding-mode $directives(rounding)]);"
-    puts $outfd "  /* Set the working precision.  */"
-    puts $outfd "  __dfp_set_working_prec ($directives(precision));"
     puts $outfd ""
     if {[string compare $op2 NONE] == 0} {
 	if {[string index $op1 0] == "\#"} {
-	    puts $outfd "  *(unsigned*) u.bytes = [frob-hex-constant $op1];"
+	    puts $outfd "  memcpy (u.bytes, fill, [c-sizeof-decimal-type]);"
 	} else {
 	    puts $outfd "  u.d = [c-unary-expression $operation [c-operand $op1]];"
 	}
@@ -256,7 +265,7 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     if {[string compare $result ?] != 0} {
 	if {[string index $result 0] == "\#"} {
 	    # Handle hex comparisons.
-	    puts $outfd "  return !(*(unsigned*) u.bytes == [frob-hex-constant $result]);"
+	    puts $outfd "  return memcmp (u.bytes, compare, [c-sizeof-decimal-type]);"
 	} else {
 	    puts $outfd "  return !(u.d == [c-operand $result]);"
 	}
@@ -271,8 +280,15 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
 
 # Is the test supported for this target?
 
-proc is-supported-p { } {
+proc supported-p { op } {
     global directives
+    global libfuncs
+
+    if [info exist libfuncs($op)] {
+	# No library tests for now (no support!)
+	return false
+    }
+
     if [catch {c-rounding-mode $directives(rounding)}] {
 	# Unsupported rounding mode.
 	return false
@@ -343,12 +359,23 @@ proc process-directive { line } {
 # Produce a C99-valid floating point literal.
 
 proc c-operand {operand} {
+    # FIXME: don't alwayse use __builtin_infd32.
 
-    if [string match "-Infinity" $operand] {
+    if [string match "-Inf*" $operand] {
 	return "-__builtin_infd32()"
     } 
-    if [string match "Infinity" $operand] {
+    if [string match "Inf*" $operand] {
         return "__builtin_infd32()"
+    }
+    if {[string match "NaN*" $operand] || \
+	    [string match "-NaN*" $operand]} {
+	return "__builtin_nand32(\"\")"
+    }
+
+    # FIXME: signalling?
+    if {[string match "sNaN*" $operand] || \
+	    [string match "-sNaN*" $operand]} {
+	return "__builtin_nand32(\"\")"
     }
 
     if {[string first . $operand] < 0 && \
@@ -401,7 +428,7 @@ proc process-test-case { testcase line } {
     }
     
     # If this test is unsupported, say so.
-    if ![is-supported-p] {
+    if ![supported-p $operation] {
 	unsupported "$testfile ($id)"
 	return
     }
