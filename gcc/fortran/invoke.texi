@@ -117,7 +117,7 @@ by type.  Explanations are in the following sections.
 @gccoptlist{
 -ffree-form  -fno-fixed-form @gol
 -fdollar-ok  -fimplicit-none  -fmax-identifier-length @gol
--std=@var{std}
+-std=@var{std} -fd-lines-as-code -fd-lines-as-comments @gol
 -ffixed-line-length-@var{n}  -ffixed-line-length-none @gol
 -fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 }
 
@@ -143,7 +143,7 @@ by type.  Explanations are in the following sections.
 @item Code Generation Options
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
 @gccoptlist{
--ff2c -fno-underscoring  -fsecond-underscore @gol
+-fno-automatic -ff2c -fno-underscoring  -fsecond-underscore @gol
 -fbounds-check  -fmax-stack-var-size=@var{n} @gol
 -fpackderived  -frepack-arrays}
 @end table
@@ -182,6 +182,18 @@ that the compiler accepts:
 Specify the layout used by the source file.  The free form layout
 was introduced in Fortran 90.  Fixed form was traditionally used in
 older Fortran programs.
+
+@cindex option, -fd-lines-as-code
+@cindex -fd-lines-as-code, option
+@cindex option, -fd-lines-as-comments
+@cindex -fd-lines-as-comments, option
+@item -fd-lines-as-code
+@item -fd-lines-as-comment
+Enables special treating for lines with @samp{d} or @samp{D} in fixed
+form sources.  If the @option{-fd-lines-as-code} option is given
+they are treated as if the first column contained a blank.  If the
+@option{-fd-lines-as-comments} option is given, they are treated as
+comment lines.
 
 @cindex option, -fdefault-double-8
 @cindex -fdefault-double-8, option
@@ -525,8 +537,17 @@ one of the forms is listed---the one which is not the default.  You
 can figure out the other form by either removing @option{no-} or adding
 it.
 
-
 @table @gcctabopt
+@cindex @option{-fno-automatic} option
+@cindex options, @option{-fno-automatic}
+@item -fno-automatic
+@cindex SAVE statement
+@cindex statements, SAVE
+Treat each program unit as if the @code{SAVE} statement was specified for
+every local variable and array referenced in it. Does not affect common
+blocks. (Some Fortran compilers provide this option under the name
+@option{-static}.)
+
 @cindex @option{-ff2c} option
 @cindex options, @option{-ff2c}
 @item -ff2c

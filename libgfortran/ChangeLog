@@ -1,3 +1,33 @@
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	* io/read.c (set_integer): Use memcpy to fill buffer.
+
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23556
+	* io/read.c (convert_real): Use memcpy to fill buffer.
+
+2005-08-29  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23598
+	* io/lock.c(library_start):  If ioparm.iostat is present, clear
+	it unconditionally.
+
+2005-08-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* acinclude.m4 (LIBGFOR_CHECK_UNLINK_OPEN_FILE): Add check to see
+	if target can unlink open files.
+	* configure.ac: Use this new test.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* aclocal.ac: Regenerate.
+	* io/io.h: Add prototype for unpack_filename.
+	* io/close.c (st_close): Delete file after closing unit if
+	HAVE_UNLINK_OPEN_FILE is not defined. 
+	* io/unix.c (unpack_filename): Unlink scratch file after opening
+	it only if HAVE_UNLINK_OPEN_FILE is defined.
+
 2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* All files: Update FSF address.

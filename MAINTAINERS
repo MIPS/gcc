@@ -67,6 +67,7 @@ mips port		Richard Sandiford	richard@codesourcery.com
 mmix port		Hans-Peter Nilsson	hp@bitrange.com
 mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
+ms1 port		Aldy Hernandez		aldyh@redhat.com
 pdp11 port		Paul Koning		ni1d@arrl.net
 rs6000 port		Geoff Keating		geoffk@geoffk.org
 rs6000 port		David Edelsohn		dje@watson.ibm.com
@@ -176,6 +177,7 @@ option handling		Neil Booth		neil@daikokuya.co.uk
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
 testsuite		Janis Johnson		janis187@us.ibm.com
 middle-end		Roger Sayle		roger@eyesopen.com
+middle-end		Ian Lance Taylor	ian@airs.com
 tree-ssa		Diego Novillo		dnovillo@redhat.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE, points-to		Daniel Berlin		dberlin@dberlin.org

@@ -472,7 +472,7 @@ struct processor_costs nocona_cost = {
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   16,					/* "large" insn */
-  9,					/* MOVE_RATIO */
+  17,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
   {4, 4, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -1915,7 +1915,6 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 {
   tree func;
   rtx a, b;
-  bool one_void, one_reg;
 
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
@@ -1944,12 +1943,14 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   a = ix86_function_value (TREE_TYPE (exp), func, false);
   b = ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)),
 			   cfun->decl, false);
-  one_void = (VOID_TYPE_P (TREE_TYPE (exp))
-	      || VOID_TYPE_P (TREE_TYPE (DECL_RESULT (cfun->decl))));
-  one_reg = ((REG_P (a) && !STACK_REG_P (a))
-	     || (REG_P (b) && !STACK_REG_P (b)));
-  if (!(one_void && one_reg)
-      && !rtx_equal_p (a, b))
+  if (STACK_REG_P (a) || STACK_REG_P (b))
+    {
+      if (!rtx_equal_p (a, b))
+	return false;
+    }
+  else if (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (cfun->decl))))
+    ;
+  else if (!rtx_equal_p (a, b))
     return false;
 
   /* If this call is indirect, we'll need to be able to use a call-clobbered
@@ -3704,6 +3705,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       mem = gen_rtx_MEM (Pmode,
 			 plus_constant (save_area, i * UNITS_PER_WORD));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       emit_move_insn (mem, gen_rtx_REG (Pmode,
 					x86_64_int_parameter_registers[i]));
@@ -3746,6 +3748,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			      plus_constant (save_area,
 					     8 * REGPARM_MAX + 127)));
       mem = gen_rtx_MEM (BLKmode, plus_constant (tmp_reg, -127));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       set_mem_align (mem, BITS_PER_WORD);
 
@@ -17231,8 +17234,8 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
   enum machine_mode wmode;
   rtx const_vec, x;
 
-  XVECEXP (vals, 0, one_var) = CONST0_RTX (GET_MODE_INNER (mode));
-  const_vec = gen_rtx_CONST_VECTOR (mode, XVEC (vals, 0)); 
+  const_vec = copy_rtx (vals);
+  XVECEXP (const_vec, 0, one_var) = CONST0_RTX (GET_MODE_INNER (mode));
 
   switch (mode)
     {

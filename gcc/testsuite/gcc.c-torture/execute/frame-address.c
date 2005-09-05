@@ -17,8 +17,7 @@ int check_fa_mid (const char *c)
 {
   const char *f = __builtin_frame_address (0);
 
-  /* Prevent a tail call to check_fa_work, eliding the current stack frame.  */
-  return check_fa_work (c, f) != 0;
+  return check_fa_work (c, f);
 }
 
 int check_fa (char *unused)

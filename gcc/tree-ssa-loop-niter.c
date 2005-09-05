@@ -1460,7 +1460,9 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 		    if (init == NULL_TREE
 			|| step == NULL_TREE
 			|| TREE_CODE (init) != INTEGER_CST
-			|| TREE_CODE (step) != INTEGER_CST)
+			|| TREE_CODE (step) != INTEGER_CST
+			|| TYPE_MIN_VALUE (type) == NULL_TREE
+			|| TYPE_MAX_VALUE (type) == NULL_TREE)
 		      break;
 
 		    utype = unsigned_type_for (type);
@@ -1653,6 +1655,10 @@ proved_non_wrapping_p (tree at_stmt,
   else
     valid_niter = fold_convert (TREE_TYPE (bound), valid_niter);
 
+  /* Give up if BOUND was not folded to an INTEGER_CST, as in PR23434.  */
+  if (TREE_CODE (bound) != INTEGER_CST)
+    return false;
+
   /* After the statement niter_bound->at_stmt we know that anything is
      executed at most BOUND times.  */
   if (at_stmt && stmt_dominates_stmt_p (niter_bound->at_stmt, at_stmt))
@@ -1817,7 +1823,8 @@ scev_probably_wraps_p (tree type, tree base, tree step,
   struct nb_iter_bound *bound;
   tree delta, step_abs;
   tree unsigned_type, valid_niter;
-  tree base_plus_step;
+  tree base_plus_step, bpsps;
+  int cps, cpsps;
 
   /* FIXME: The following code will not be used anymore once
      http://gcc.gnu.org/ml/gcc-patches/2005-06/msg02025.html is
@@ -1859,7 +1866,17 @@ scev_probably_wraps_p (tree type, tree base, tree step,
 
   *unknown_max = false;
   base_plus_step = fold_build2 (PLUS_EXPR, type, base, step);
-  switch (compare_trees (base_plus_step, base))
+  bpsps = fold_build2 (PLUS_EXPR, type, base_plus_step, step);
+  cps = compare_trees (base_plus_step, base);
+  cpsps = compare_trees (bpsps, base_plus_step);
+
+  /* Check that the sequence is not wrapping in the first step: it
+     should have the same monotonicity for the first two steps.  See
+     PR23410.  */
+  if (cps != cpsps)
+    return true;
+
+  switch (cps)
     {
     case -1:
       {

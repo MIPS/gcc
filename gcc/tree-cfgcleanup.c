@@ -81,11 +81,11 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
       switch (TREE_CODE (expr))
 	{
 	case COND_EXPR:
-	  val = COND_EXPR_COND (expr);
+	  val = fold (COND_EXPR_COND (expr));
 	  break;
 
 	case SWITCH_EXPR:
-	  val = SWITCH_COND (expr);
+	  val = fold (SWITCH_COND (expr));
 	  if (TREE_CODE (val) != INTEGER_CST)
 	    return false;
 	  break;
@@ -523,17 +523,24 @@ cleanup_tree_cfg_1 (void)
 }
 
 
-/* Remove unreachable blocks and other miscellaneous clean up work.  */
+/* Remove unreachable blocks and other miscellaneous clean up work.
+   Return true if the flowgraph was modified, false otherwise.  */
 
 bool
 cleanup_tree_cfg (void)
 {
-  bool retval;
+  bool retval, changed;
 
   timevar_push (TV_TREE_CLEANUP_CFG);
 
+  /* Iterate until there are no more cleanups left to do.  If any
+     iteration changed the flowgraph, set CHANGED to true.  */
+  changed = false;
   do
-    retval = cleanup_tree_cfg_1 ();
+    {
+      retval = cleanup_tree_cfg_1 ();
+      changed |= retval;
+    }
   while (retval);
 
   compact_blocks ();
@@ -544,7 +551,7 @@ cleanup_tree_cfg (void)
 
   timevar_pop (TV_TREE_CLEANUP_CFG);
 
-  return retval;
+  return changed;
 }
 
 /* Cleanup cfg and repair loop structures.  */

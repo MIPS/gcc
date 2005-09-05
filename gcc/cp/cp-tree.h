@@ -655,6 +655,7 @@ struct saved_scope GTY(())
   int x_processing_specialization;
   bool x_processing_explicit_instantiation;
   int need_pop_function_context;
+  bool skip_evaluation;
 
   struct stmt_tree_s x_stmt_tree;
 
@@ -3918,7 +3919,7 @@ extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
 extern tree build_offset_ref			(tree, tree, bool);
 extern tree build_new				(tree, tree, tree, tree, int);
-extern tree build_vec_init			(tree, tree, tree, int);
+extern tree build_vec_init			(tree, tree, tree, bool, int);
 extern tree build_x_delete			(tree, int, tree);
 extern tree build_delete			(tree, tree,
 						 special_function_kind,

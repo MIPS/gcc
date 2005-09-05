@@ -1,3 +1,21 @@
+2005-08-30  Phil Edwards  <phil@codesourcery.com>
+
+	* configure.in (*-*-vxworks*):  Add target-libstdc++-v3 to noconfigdirs.
+	* configure:  Regenerated.
+
+2005-08-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* MAINTAINERS: Add self as ms1 maintainer.
+
+2005-08-20  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* Makefile.def (libssp): Add to lang_env_dependencies.
+	* Makefile.in: Regenerate.
+
+2005-08-18  Ian Lance Taylor  <ian@airs.com>
+
+	* MAINTAINERS: Add myself as middle-end maintainer.
+
 2005-08-17  Christian Groessler  <chris@groessler.org>
 
 	* Makefile.tpl: (USUAL_CC_FOR_TARGET): Add missing trailing slash.

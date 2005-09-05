@@ -34,7 +34,6 @@ extern void rs6000_va_start (tree, rtx);
 
 extern int easy_vector_same (rtx, enum machine_mode);
 extern int easy_vector_splat_const (int, enum machine_mode);
-extern int mask64_1or2_operand (rtx, enum machine_mode, bool);
 extern bool macho_lo_sum_memory_operand (rtx, enum machine_mode);
 extern int num_insns_constant (rtx, enum machine_mode);
 extern int num_insns_constant_wide (HOST_WIDE_INT);
@@ -45,6 +44,7 @@ extern void validate_condition_mode (enum rtx_code, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern bool legitimate_indirect_address_p (rtx, int);
 extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
+extern bool rs6000_legitimate_small_data_p (enum machine_mode, rtx);
 
 extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);

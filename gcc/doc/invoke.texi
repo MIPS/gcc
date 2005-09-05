@@ -306,7 +306,8 @@ Objective-C and Objective-C++ Dialects}.
 -fforce-addr  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
--finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
+-finline-functions  -finline-functions-called-once @gol
+-finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmodulo-sched -fno-branch-count-reg @gol
 -fno-default-inline  -fno-defer-pop -floop-optimize2 -fmove-loop-invariants @gol
@@ -609,6 +610,10 @@ Objective-C and Objective-C++ Dialects}.
 -mam33  -mno-am33 @gol
 -mam33-2  -mno-am33-2 @gol
 -mno-crt0  -mrelax}
+
+@emph{MS1 Options}
+@gccoptlist{-mno-crt0 -mmul -mbacc -msim @gol
+-march=@var{cpu-type} }
 
 @emph{PDP-11 Options}
 @gccoptlist{-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
@@ -4476,6 +4481,15 @@ assembler code in its own right.
 
 Enabled at level @option{-O3}.
 
+@item -finline-functions-called-once
+@opindex finline-functions-called-once
+Consider all @code{static} functions called once for inlining into their
+caller even if they are not marked @code{inline}.  If a call to a given
+function is integrated, then the function is not output as assembler code
+in its own right.
+
+Enabled if @option{-funit-at-a-time} is enabled.
+
 @item -fearly-inlining
 @opindex fearly-inlining
 Inline functions marked by @code{always_inline} and functions whose body seems
@@ -4960,8 +4974,11 @@ Perform dead code elimination (DCE) on trees.  This flag is enabled by
 default at @option{-O} and higher.
 
 @item -ftree-dominator-opts
-Perform dead code elimination (DCE) on trees.  This flag is enabled by
-default at @option{-O} and higher.
+Perform a variety of simple scalar cleanups (constant/copy
+propagation, redundancy elimination, range propagation and expression
+simplification) based on a dominator tree traversal.  This also
+performs jump threading (to reduce jumps to jumps). This flag is
+enabled by default at @option{-O} and higher.
 
 @item -ftree-ch
 Perform loop header copying on trees.  This is beneficial since it increases
@@ -5998,6 +6015,10 @@ interblock scheduling.  The default value is 10.
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
 
+@item min-sched-prob
+The minimum probability of reaching a source block for interblock
+speculative scheduling.  The default value is 40.
+
 @item max-last-value-rtl
 
 The maximum size measured as number of RTLs that can be recorded in an expression
@@ -7030,6 +7051,7 @@ platform.
 * MIPS Options::
 * MMIX Options::
 * MN10300 Options::
+* MS1 Options::
 * PDP-11 Options::
 * PowerPC Options::
 * RS/6000 and PowerPC Options::
@@ -10544,6 +10566,52 @@ to shorten branches, calls and absolute memory addresses.  This option only
 has an effect when used on the command line for the final link step.
 
 This option makes symbolic debugging impossible.
+@end table
+
+@node MS1 Options
+@subsection MS1 Options
+@cindex MS1 options
+
+These @option{-m} options are defined for Morpho MS1 architectures:
+
+@table @gcctabopt
+
+@item -march=@var{cpu-type}
+@opindex march
+Generate code that will run on @var{cpu-type}, which is the name of a system
+representing a certain processor type.  Possible values for
+@var{cpu-type} are @samp{MS1-64-001}, @samp{MS1-16-002}, and
+@samp{MS1-16-003}.
+
+When this option is not used, the default is @option{-march=MS1-16-003}.
+
+@item -mmul
+@opindex mmul
+Generate multiply instructions.
+
+@item -mno-mul
+@opindex mno-mul
+Do not generate multiply instructions.
+
+@item -mbacc
+@opindex mbacc
+Use byte loads and stores when generating code.
+
+@item -mno-bacc
+@opindex mno-bacc
+Do not use byte loads and stores when generating code.
+
+@item -msim
+@opindex msim
+Use simulator runtime
+
+@item -mno-crt0
+@opindex mno-crt0
+Do not link in the C run-time initialization object file
+@file{crti.o}.  Other run-time initialisation and termination files
+such as @file{startup.o} and @file{exit.o} are still included on the
+linker command line.
+
 @end table
 
 @node PDP-11 Options
