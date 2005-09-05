@@ -1,5 +1,16 @@
 2005-09-05  Ben Elliston  <bje@au.ibm.com>
 
+	* config/dfp-bit.h (__decWorkingPrec): Remove.
+	(CONTEXT_DIGITS): Likewise.
+	* config/dfp-bit.c (dfp_unary_op): Don't set context.digits.
+	(dfp_binary_op): Likewise.
+	(dfp_compare_op): Likewise.
+	(DFP_TO_DFP): Likewise.
+	(INT_TO_DFP): Likewise.
+	(BFP_TO_DFP): Likewise.
+
+2005-09-05  Ben Elliston  <bje@au.ibm.com>	
+
 	* decRound.c (__dfp_set_working_prec): Remove.
 	(__decWorkingPrec): Likewise.
 	(__dfp_working_prec): Likewise.

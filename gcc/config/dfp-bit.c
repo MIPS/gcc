@@ -73,7 +73,6 @@ dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
   memcpy (&a, &arg, sizeof (a));
 
   decContextDefault (&context, CONTEXT_INIT);
-  context.digits = CONTEXT_DIGITS;
   context.round = CONTEXT_ROUND;
   context.traps = CONTEXT_TRAPS;
 
@@ -96,12 +95,12 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   decContext context;
   decNumber arg1, arg2, res;
   IEEE_TYPE a, b, encoded_result;
+  char buf[100];
 
   memcpy (&a, &arg_a, sizeof (a));
   memcpy (&b, &arg_b, sizeof (b));
 
   decContextDefault (&context, CONTEXT_INIT);
-  context.digits = CONTEXT_DIGITS;
   context.round = CONTEXT_ROUND;
   context.traps = CONTEXT_TRAPS;
 
@@ -130,7 +129,6 @@ dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   memcpy (&b, &arg_b, sizeof (b));
 
   decContextDefault (&context, CONTEXT_INIT);
-  context.digits = CONTEXT_DIGITS;
   context.round = CONTEXT_ROUND;
   context.traps = CONTEXT_TRAPS;
 
@@ -266,7 +264,6 @@ DFP_TO_DFP (DFP_C_TYPE f)
   decContext context;
 
   decContextDefault (&context, CONTEXT_INIT);
-  context.digits = CONTEXT_DIGITS;
   context.round = CONTEXT_ROUND;
   context.traps = CONTEXT_TRAPS;
 
@@ -359,7 +356,6 @@ INT_TO_DFP (INT_TYPE i)
   decContext context;
 
   decContextDefault (&context, CONTEXT_INIT);
-  context.digits = CONTEXT_DIGITS;
   context.round = CONTEXT_ROUND;
   context.traps = CONTEXT_TRAPS;
 
@@ -415,7 +411,6 @@ BFP_TO_DFP (BFP_TYPE x)
   decContext context;
 
   decContextDefault (&context, CONTEXT_INIT);
-  context.digits = CONTEXT_DIGITS;
   context.round = CONTEXT_ROUND;
   context.traps = CONTEXT_TRAPS;
 

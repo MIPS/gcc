@@ -76,9 +76,6 @@
 extern enum rounding	__decGetRound (void);
 #define CONTEXT_ROUND	__decGetRound ()
 
-extern int __decWorkingPrec (void);
-#define CONTEXT_DIGITS	__decWorkingPrec ()
-
 #if 1
 #define CONTEXT_TRAPS	0
 #define DFP_RAISE(A)
