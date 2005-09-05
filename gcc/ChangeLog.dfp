@@ -1,5 +1,9 @@
 2005-09-05  Ben Elliston  <bje@au.ibm.com>
 
+	* config/dfp-bit.c (dfp_binary_op): Remove unused variable.
+
+2005-09-05  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h (__decWorkingPrec): Remove.
 	(CONTEXT_DIGITS): Likewise.
 	* config/dfp-bit.c (dfp_unary_op): Don't set context.digits.

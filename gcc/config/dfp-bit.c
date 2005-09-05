@@ -95,7 +95,6 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   decContext context;
   decNumber arg1, arg2, res;
   IEEE_TYPE a, b, encoded_result;
-  char buf[100];
 
   memcpy (&a, &arg_a, sizeof (a));
   memcpy (&b, &arg_b, sizeof (b));
