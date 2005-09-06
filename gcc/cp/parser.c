@@ -12551,7 +12551,7 @@ cp_parser_class_specifier (cp_parser* parser)
       tree fn;
       tree class_type = NULL_TREE;
       tree pushed_scope = NULL_TREE;
-
+ 
       /* In a first pass, parse default arguments to the functions.
 	 Then, in a second pass, parse the bodies of the functions.
 	 This two-phased approach handles cases like:
@@ -12596,13 +12596,8 @@ cp_parser_class_specifier (cp_parser* parser)
 	{
 	  /* Figure out which function we need to process.  */
 	  fn = TREE_VALUE (queue_entry);
-
-	  /* A hack to prevent garbage collection.  */
-	  function_depth++;
-
 	  /* Parse the function.  */
 	  cp_parser_late_parsing_for_member (parser, fn);
-	  function_depth--;
 	}
     }
 

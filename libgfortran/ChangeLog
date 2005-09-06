@@ -1,3 +1,41 @@
+2005-09-05  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/list_read.c:  Adjust size of of value to 32 (to hold
+	kind=16 complex values).
+
+2005-09-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23321
+	* io/transfer.c(data_transfer_init):  Check for a too-large
+	record number.  Return if sseek failed.
+
+2005-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* io/read.c (read_x): Take int argument instead of fnode * and
+	digging the N from F->u.n.
+	* io/io.h (read_x): Adjust prototype.
+	* io/transfer.c (formatted_transfer): Adjust callers.  Don't clobber
+	f->u.n for FMT_T.
+
+2005-09-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/unix.c (stream_ttyname): Protect use of ttyname by
+	HAVE_TTYNAME macro.
+	* configure.ac: Add check for ttyname.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2005-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/23556
+	* io/read.c (convert_real): Fix a typo from last change.
+
+2005-09-01  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23556
+	* io/read.c (convert_real): Use memcpy to fill buffer.
+	(set_integer): Use memcpy to fill buffer.
+
 2005-08-29  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/23598

@@ -48,16 +48,28 @@ set_integer (void *dest, int64_t value, int length)
   switch (length)
     {
     case 8:
-      *((int64_t *) dest) = value;
+      {
+	int64_t tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 4:
-      *((int32_t *) dest) = value;
+      {
+	int32_t tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 2:
-      *((int16_t *) dest) = value;
+      {
+	int16_t tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 1:
-      *((int8_t *) dest) = value;
+      {
+	int8_t tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     default:
       internal_error ("Bad integer kind");
@@ -108,15 +120,21 @@ convert_real (void *dest, const char *buffer, int length)
   switch (length)
     {
     case 4:
-      *((float *) dest) =
+      {
+	float tmp = 
 #if defined(HAVE_STRTOF)
-	strtof (buffer, NULL);
+	  strtof (buffer, NULL);
 #else
-	(float) strtod (buffer, NULL);
+	  (float) strtod (buffer, NULL);
 #endif
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 8:
-      *((double *) dest) = strtod (buffer, NULL);
+      {
+	double tmp = strtod (buffer, NULL);
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     default:
       internal_error ("Unsupported real kind during IO");
@@ -764,12 +782,8 @@ read_f (fnode * f, char *dest, int length)
  * and never look at it. */
 
 void
-read_x (fnode * f)
+read_x (int n)
 {
-  int n;
-
-  n = f->u.n;
-
   if ((current_unit->flags.pad == PAD_NO || is_internal_unit ())
       && current_unit->bytes_left < n)
     n = current_unit->bytes_left;

@@ -1,3 +1,105 @@
+2005-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/debug/dwarf2/dwarf-char1.c: Accept more assembler comment
+	start strings.
+	* gcc.dg/debug/dwarf2/dwarf-char2.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-char3.c: Likewise.
+
+2005-09-05  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c/23161
+	PR c/23165
+	* gcc.dg/pr23165.c: New test.
+
+2005-09-05  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c++/23225
+	* g++.dg/parse/crash27.C: New test.
+
+2005-09-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23667
+	* g++.dg/template/static15.C: New test.
+
+2005-09-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21440
+	* g++.dg/ext/stmtexpr5.C: New test.
+	* g++.dg/ext/stmtexpr6.C: Likewise.
+
+2005-09-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23321
+	* gfortran.dg/direct_io_4.f90:  New test case.
+
+2005-09-04  Andrew Pinski  <pinskia@physics.uc.edu>
+            Rasmus Hahn  <rassahah@neofonie.de>
+
+	PR libobjc/23108
+	* objc.dg/type-stream-1.m: New test.
+
+2005-09-04  Tobias Schl"uter  <tobias.shclueter@physik.uni-muenchen.de>
+
+	PR fortran/23661
+	* gfortran.dg/print_fmt_1.f90, gfortran.dg/print_fmt_2.f90
+	gfortran.dg/print_fmt_3.f90: New test.
+
+2005-09-03  Richard Guenther  <rguenther@suse.de>
+	    Andrew Pinski  <pinskia@gcc.gnu.org>
+	    Serge Belyshev  <belyshev@depni.sinp.msu.ru>
+
+	PR tree-optimization/23326
+	* g++.dg/tree-ssa/pr23326.C: New testcase.
+
+2005-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/fmt_t_1.f90: New test.
+
+	PR rtl-optimization/23454
+	* g++.dg/opt/pr23454.C: New test.
+
+2005-09-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23699
+	* g++.dg/ext/static1.C: New test.
+
+2005-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21687
+	* g++.dg/other/gc3.C: New test.
+
+2005-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23167
+	* g++.dg/expr/volatile1.C: New test.
+
+2005-09-02  Richard Sandiford  <richard@codesourcery.com>
+
+	PR c/22061
+	* gcc.c-torture/execute/pr22061-1.c,
+	* gcc.c-torture/execute/pr22061-2.c,
+	* gcc.c-torture/execute/pr22061-3.c,
+	* gcc.c-torture/execute/pr22061-4.c: New tests.
+
+2005-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/7241
+	* gcc.dg/debug/dwarf2/dwarf-char1.c: New test.
+	* gcc.dg/debug/dwarf2/dwarf-char2.c: New test.
+	* gcc.dg/debug/dwarf2/dwarf-char3.c: New test.
+
+	* gcc.dg/debug/dwarf2/dwarf-die1.c: Fix a typo.
+	* gcc.dg/debug/dwarf2/dwarf-die2.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die3.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die5.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die6.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die7.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-uninit.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf2-macro.c: Likewise.
+
+	PR rtl-optimization/23478
+        * g++.dg/opt/pr23478.C: New test.
+
 2005-08-31  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/13377

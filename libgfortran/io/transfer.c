@@ -705,7 +705,7 @@ formatted_transfer (bt type, void *p, int len)
 	  /* Writes occur just before the switch on f->format, above, so that
 	     trailing blanks are suppressed.  */
 	  if (g.mode == READING)
-	    read_x (f);
+	    read_x (f->u.n);
 
 	  break;
 
@@ -736,10 +736,7 @@ formatted_transfer (bt type, void *p, int len)
 	  if (g.mode == READING)
 	    {
 	      if (skips > 0)
-		{
-		  f->u.n = skips;
-		  read_x (f);
-		}
+		read_x (skips);
 	      if (skips < 0)
 		{
 		  move_pos_offset (current_unit->s, skips);
@@ -1163,10 +1160,23 @@ data_transfer_init (int read_flag)
       if (g.mode == READING && current_unit->mode  == WRITING)
 	 flush(current_unit->s);
 
+      /* Check whether the record exists to be read.  Only
+	 a partial record needs to exist.  */
+
+      if (g.mode == READING && (ioparm.rec -1)
+	  * current_unit->recl >= file_length (current_unit->s))
+	{
+	  generate_error (ERROR_BAD_OPTION, "Non-existing record number");
+	  return;
+	}
+
       /* Position the file.  */
       if (sseek (current_unit->s,
 	       (ioparm.rec - 1) * current_unit->recl) == FAILURE)
-	generate_error (ERROR_OS, NULL);
+	{
+	  generate_error (ERROR_OS, NULL);
+	  return;
+	}
     }
 
   current_unit->mode = g.mode;
