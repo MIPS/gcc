@@ -1,6 +1,6 @@
 2005-09-07  Paul Brook  <paul@codesourcery.com>
 
-	* config/arm/linux-eabi/h (SUBTARGET_EXTRA_LINK_SPEC): Prepend a
+	* config/arm/linux-eabi.h (SUBTARGET_EXTRA_LINK_SPEC): Prepend a
 	space to string.
 
 2005-09-07  Paul Brook  <paul@codesourcery.com>
