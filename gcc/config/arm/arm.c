@@ -1157,9 +1157,9 @@ arm_override_options (void)
   if (arm_float_abi == ARM_FLOAT_ABI_HARD && TARGET_VFP)
     sorry ("-mfloat-abi=hard and VFP");
 
-  /* ??? Coprocessor insn patterns need auditing for Thumb-2.  */
-  if (TARGET_THUMB2 && arm_float_abi != ARM_FLOAT_ABI_SOFT)
-    sorry ("Thumb-2 Hardware floating point");
+  /* ??? iWMMXt insn patterns need auditing for Thumb-2.  */
+  if (TARGET_THUMB2 && TARGET_IWMMXT)
+    sorry ("Thumb-2 iWMMXt");
 
   /* If soft-float is specified then don't use FPU.  */
   if (TARGET_SOFT_FLOAT)

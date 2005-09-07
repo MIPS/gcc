@@ -1425,7 +1425,7 @@ enum reg_class
    a LO_REGS class or a subset.  */
 #define PREFERRED_RELOAD_CLASS(X, CLASS)	\
   (TARGET_ARM ? (CLASS) :			\
-   ((CLASS) == BASE_REGS ? (CLASS) : LO_REGS))
+   ((CLASS) == GENERAL_REGS || (CLASS) == HI_REGS ? LO_REGS : (CLASS)))
 
 /* Must leave BASE_REGS reloads alone */
 #define THUMB_SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X)		\

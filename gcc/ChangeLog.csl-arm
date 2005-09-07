@@ -1,3 +1,20 @@
+2005-09-07  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_override_options): Remove Thumb-2/FP sorry.
+	Add sorry for Thumb-2/iWMMXt.
+	* config/arm/arm.h (PREFERRED_RELOAD_CLASS): Only prefer LO_REGS for
+	core integer reg classes.
+	* config/arm/cirrus.md: Enable arithmetic patterns for Thumb-2.
+	(cirrus_thumb2_movdi, cirrus_thumb2_movsi_insn,
+	thumb2_cirrus_movsf_hard_insn, thumb2_cirrus_movdf_hard_insn): New.
+	* config/arm/fpa.md: Enable arithmetic patterns for Thumb-2.
+	Change output templates to accomodate unified assembly syntax.
+	(thumb2_movsf_fpa, thumb2_movdf_fpa, thumb2_movxf_fpa): New.
+	(thumb2_movsfcc_fpa, thumb2_movdfcc_fpa): New.
+	* config/arm/vfp.md: Enable arithmetic patterns for Thumb-2.
+	(thumb2_movsi_vfp, thumb2_movdi_vfp, thumb2_movsf_vfp,
+	thumb2_movdf_vfp, thumb2_movsfcc_vfp, thumb2_movdfcc_vfp): New.
+
 2005-09-03  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.h (CLASS_LIKELY_SPILLED_P): Return 1 for RETURN_REG.
