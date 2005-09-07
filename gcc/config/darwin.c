@@ -1653,6 +1653,8 @@ darwin_file_end (void)
 
 int darwin_fix_and_continue;
 const char *darwin_fix_and_continue_switch;
+/* APPLE LOCAL mainline 2005-09-01 3449986 */
+const char *darwin_macosx_version_min;
 
 /* APPLE LOCAL begin KEXT */
 /* Ture, iff we're generating code for loadable kernel extentions.  */
@@ -1664,7 +1666,7 @@ flag_apple_kext_p (void) {
 /* APPLE LOCAL end KEXT */
 
 /* APPLE LOCAL begin constant cfstrings */
-int darwin_constant_cfstrings = 0;
+int darwin_constant_cfstrings = 1;
 const char *darwin_constant_cfstrings_switch;
 int darwin_warn_nonportable_cfstrings = 1;  /* on by default. */
 const char *darwin_warn_nonportable_cfstrings_switch;

@@ -80,6 +80,8 @@ compilation is specified by a string called a "spec".  */
 #if ! defined( SIGCHLD ) && defined( SIGCLD )
 #  define SIGCHLD SIGCLD
 #endif
+/* APPLE LOCAL mainline 2005-09-01 3449986 */
+#include "xregex.h"
 #include "obstack.h"
 #include "intl.h"
 #include "prefix.h"
@@ -245,31 +247,6 @@ static char *cc_print_options = 0;
 static char *cc_print_options_filename;
 /* APPLE LOCAL end CC_PRINT_OPTIONS */
 
-/* APPLE LOCAL constant cfstrings */
-static int use_constant_cfstrings = 0;
-/* APPLE LOCAL begin deployment target */
-/* The deployment target (i.e., the minimum version of MacOS X that
-   the binary is expected to be used on).  */
-static const char *macosx_deployment_target = 0;
-static unsigned int macosx_version_min_required = 0;
-
-/* The following table should be NULL-terminated and kept in 
-   lexicographic order. */
-   
-static struct macosx_vers {
-  const char *vers_str;
-  unsigned int vers_num;
-} macosx_vers_tbl[] = {
-  { "10.0", 1000 },
-  { "10.1", 1010 },
-  { "10.2", 1020 },
-  { "10.3", 1030 },
-  { "10.4", 1040 },
-  { "10.5", 1050 },
-  { NULL, 0 }
-};  
-/* APPLE LOCAL end deployment target */
-   
 /* Nonzero if cross-compiling.
    When -b is used, the value comes from the `specs' file.  */
 
@@ -395,6 +372,8 @@ static const char *convert_filename (const char *, int, int);
 static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
 static const char *replace_outfile_spec_function (int, const char **);
+/* APPLE LOCAL mainline 2005-09-01 3449986 */
+static const char *version_compare_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -487,8 +466,6 @@ or with constant text in a single argument.
 	and -B options) as necessary.
  APPLE LOCAL frameworks
  %Q	Substitute -iframework default paths.
- APPLE LOCAL constant cfstrings
- %yC	Emit '-mconstant-cfstrings' option, if needed.
  %s     current argument is the name of a library or startup file of some sort.
         Search for that file in a standard list of directories
 	and substitute the full name found.
@@ -807,8 +784,6 @@ static const char *pch =
    therefore no dependency entry, confuses make into thinking a .o
    file that happens to exist is up-to-date.  */
 static const char *cpp_unique_options =
-/* APPLE LOCAL constant cfstrings */
-"%yC"
 "%{C|CC:%{!E:%eGCC does not support -C or -CC without -E}}\
  %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*&F*} %{P} %I\
  %{MD:-MD %{!o:%b.d}%{o*:%.d%*}}\
@@ -836,8 +811,6 @@ static const char *cpp_debug_options = "%{d*}";
 
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
-/* APPLE LOCAL constant cfstrings */
-"%yC"
 /* APPLE LOCAL begin -fast */
 "%{fast:-O3}\
  %{fastf:-O3}\
@@ -1649,6 +1622,8 @@ static const struct spec_function static_spec_functions[] =
   { "if-exists",		if_exists_spec_function },
   { "if-exists-else",		if_exists_else_spec_function },
   { "replace-outfile",		replace_outfile_spec_function },
+/* APPLE LOCAL mainline 2005-09-01 3449986 */
+  { "version-compare",		version_compare_spec_function },
   { 0, 0 }
 };
 
@@ -3502,21 +3477,23 @@ process_command (int argc, const char **argv)
     }
 
   /* APPLE LOCAL begin deployment target */
-  /* Retrieve the deployment target from the environment, and then decide
-     whether to enable '-fconstant-cfstrings' by default.  */
-  macosx_deployment_target = getenv ("MACOSX_DEPLOYMENT_TARGET");
-  if (macosx_deployment_target)
-    {
-      struct macosx_vers *v = macosx_vers_tbl;
-
-      while (v->vers_str && strcmp (macosx_deployment_target, v->vers_str))
-	v++;
-      if (v->vers_str)
-	{
-	  macosx_version_min_required = v->vers_num;
-	  use_constant_cfstrings = (macosx_version_min_required >= 1020);
-	}
-    }
+  /* Retrieve the deployment target from the environment and insert
+     it as a flag.  */
+  {
+    const char * macosx_deployment_target;
+    macosx_deployment_target = getenv ("MACOSX_DEPLOYMENT_TARGET");
+    if (macosx_deployment_target)
+      {
+	char ** new_argv;
+	new_argv = xmalloc ((argc + 1) * sizeof (argv[0]));
+	new_argv[0] = argv[0];
+	new_argv[1] = concat ("-mmacosx-version-min=",
+			      macosx_deployment_target, NULL);
+	memcpy (new_argv + 2, argv + 1, (argc - 1) * sizeof (argv[0]));
+	argc++;
+	argv = new_argv;
+      }
+  }
   /* APPLE LOCAL end deployment target */
 
   /* Convert new-style -- options to old-style.  */
@@ -3787,12 +3764,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  verbose_only_flag++;
 	  verbose_flag++;
 	}
-      /* APPLE LOCAL begin constant cfstrings */
-      else if (strcmp (argv[i], "-fconstant-cfstrings") == 0)
-	use_constant_cfstrings = 1;
-      else if (strcmp (argv[i], "-fno-constant-cfstrings") == 0)
-	use_constant_cfstrings = 0;
-      /* APPLE LOCAL end constant cfstrings */
       /* APPLE LOCAL begin frameworks */
       else if (strcmp (argv[i], "-framework") == 0)
 	{
@@ -4088,33 +4059,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
   /* More prefixes are enabled in main, after we read the specs file
      and determine whether this is cross-compilation or not.  */
 
-  /* APPLE LOCAL begin constant cfstrings */
-  /* Check if '-fconstant-cfstrings' usage is valid, given our deployment
-     target.  If not, issue a warning and then suppress the option.  */
-  if (use_constant_cfstrings)
-    {
-      if (macosx_version_min_required && macosx_version_min_required < 1020)
-	{
-	  error ("warning: `-fconstant-cfstrings' ignored because MACOSX_DEPLOYMENT_TARGET is \"%s\"",
-		 macosx_deployment_target);
-	  use_constant_cfstrings = 0;
-	}
-    }
-  /* APPLE LOCAL end constant cfstrings */
-  /* APPLE LOCAL begin deployment target */
-  /* Synthesize the deployment target manifest constant.  */
-  if (macosx_version_min_required)
-    {
-#define VERSION_MIN_REQUIRED_FMT "-D__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__=%d"
-      char *macro_def = xmalloc (strlen (VERSION_MIN_REQUIRED_FMT) + 30);
-      
-      sprintf (macro_def, VERSION_MIN_REQUIRED_FMT, macosx_version_min_required);
-      add_preprocessor_option (macro_def, strlen (macro_def));
-      free (macro_def);
-#undef VERSION_MIN_REQUIRED_FMT
-    }    
-  /* APPLE LOCAL end deployment target */
-    
   /* Then create the space for the vectors and scan again.  */
 
   switches = xmalloc ((n_switches + 1) * sizeof (struct switchstr));
@@ -4262,12 +4206,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
-      /* APPLE LOCAL begin constant cfstrings */
-      else if (strcmp (argv[i], "-fconstant-cfstrings") == 0)
-	;
-      else if (strcmp (argv[i], "-fno-constant-cfstrings") == 0)
-	;
-      /* APPLE LOCAL end constant cfstrings */
       /* APPLE LOCAL begin frameworks */
       else if (strcmp (argv[i], "-framework") == 0)
         {
@@ -5301,26 +5239,6 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		do_spec_path (pl, "-isystem", 0, 1, 1, "include", "include");
 	    }
 	    break;
-
-	    /* APPLE LOCAL begin constant cfstrings */
-	  case 'y':
-	    {
-	      int c1 = *p++;
-		  
-	      if (c1 == 'C')
-		{
-		  if (use_constant_cfstrings)
-		    {
-		      do_spec_1 (" ", 0, NULL);
-		      do_spec_1 ("-mconstant-cfstrings", 1, NULL);
-		      do_spec_1 (" ", 0, NULL);
-		    }
-		}
-	      else
-		abort ();
- 	    }
-	    break;
-	    /* APPLE LOCAL end constant cfstrings */
 
 	  case 'o':
 	    {
@@ -8084,9 +8002,12 @@ if_exists_else_spec_function (int argc, const char **argv)
 }
 
 /* replace-outfile built-in spec function.
-   This looks for the first argument in the outfiles array's name and replaces it
-   with the second argument.  */
+   APPLE LOCAL begin mainline 2005-09-01 3449986
 
+   This looks for the first argument in the outfiles array's name and
+   replaces it with the second argument.  */
+
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 static const char *
 replace_outfile_spec_function (int argc, const char **argv)
 {
@@ -8103,3 +8024,122 @@ replace_outfile_spec_function (int argc, const char **argv)
   return NULL;
 }
 
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* Given two version numbers, compares the two numbers.  
+   A version number must match the regular expression
+   ([1-9][0-9]*|0)(\.([1-9][0-9]*|0))*
+*/
+static int
+compare_version_strings (const char *v1, const char *v2)
+{
+  int rresult;
+  regex_t r;
+  
+  if (regcomp (&r, "^([1-9][0-9]*|0)(\\.([1-9][0-9]*|0))*$",
+	       REG_EXTENDED | REG_NOSUB) != 0)
+    abort ();
+  rresult = regexec (&r, v1, 0, NULL, 0);
+  if (rresult == REG_NOMATCH)
+    fatal ("invalid version number `%s'", v1);
+  else if (rresult != 0)
+    abort ();
+  rresult = regexec (&r, v2, 0, NULL, 0);
+  if (rresult == REG_NOMATCH)
+    fatal ("invalid version number `%s'", v2);
+  else if (rresult != 0)
+    abort ();
+
+  return strverscmp (v1, v2);
+}
+
+
+/* version_compare built-in spec function.
+
+   This takes an argument of the following form:
+
+   <comparison-op> <arg1> [<arg2>] <switch> <result>
+
+   and produces "result" if the comparison evaluates to true,
+   and nothing if it doesn't.
+
+   The supported <comparison-op> values are:
+   
+   >=  true if switch is a later (or same) version than arg1
+   !>  opposite of >=
+   <   true if switch is an earlier version than arg1
+   !<  opposite of <
+   ><  true if switch is arg1 or later, and earlier than arg2
+   <>  true if switch is earlier than arg1 or is arg2 or later
+
+   If the switch is not present, the condition is false unless
+   the first character of the <comparison-op> is '!'.
+
+   For example,
+   %:version-compare(>= 10.3 mmacosx-version-min= -lmx)
+   adds -lmx if -mmacosx-version-min=10.3.9 was passed.  */
+
+static const char *
+version_compare_spec_function (int argc, const char **argv)
+{
+  int comp1, comp2;
+  size_t switch_len;
+  const char *switch_value = NULL;
+  int nargs = 1, i;
+  bool result;
+
+  if (argc < 3)
+    abort ();
+  if (argv[0][0] == '\0')
+    abort ();
+  if ((argv[0][1] == '<' || argv[0][1] == '>') && argv[0][0] != '!')
+    nargs = 2;
+  if (argc != nargs + 3)
+    abort ();
+
+  switch_len = strlen (argv[nargs + 1]);
+  for (i = 0; i < n_switches; i++)
+    if (!strncmp (switches[i].part1, argv[nargs + 1], switch_len)
+	&& check_live_switch (i, switch_len))
+      switch_value = switches[i].part1 + switch_len;
+
+  if (switch_value == NULL)
+    comp1 = comp2 = -1;
+  else
+    {
+      comp1 = compare_version_strings (switch_value, argv[1]);
+      if (nargs == 2)
+	comp2 = compare_version_strings (switch_value, argv[2]);
+      else
+	comp2 = -1;  /* This value unused.  */
+    }
+
+  switch (argv[0][0] << 8 | argv[0][1])
+    {
+    case '>' << 8 | '=':
+      result = comp1 >= 0;
+      break;
+    case '!' << 8 | '<':
+      result = comp1 >= 0 || switch_value == NULL;
+      break;
+    case '<' << 8:
+      result = comp1 < 0;
+      break;
+    case '!' << 8 | '>':
+      result = comp1 < 0 || switch_value == NULL;
+      break;
+    case '>' << 8 | '<':
+      result = comp1 >= 0 && comp2 < 0;
+      break;
+    case '<' << 8 | '>':
+      result = comp1 < 0 || comp2 >= 0;
+      break;
+      
+    default:
+      abort ();
+    }
+  if (! result)
+    return NULL;
+
+  return argv[nargs + 2];
+}
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */

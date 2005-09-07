@@ -519,7 +519,10 @@ Objective-C and Objective-C++ Dialects}.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
--whatsloaded -F -gused -gfull -mone-byte-bool}
+@c APPLE LOCAL begin mainline 2005-09-01 3449986
+-whatsloaded -F -gused -gfull -mmacosx-min-version=@var{version} @gol
+-mone-byte-bool}
+@c APPLE LOCAL end mainline 2005-09-01 3449986
 
 @c APPLE LOCAL prune man page
 @ignore
@@ -7964,6 +7967,16 @@ This is by default ON@.
 @opindex -gfull
 Emit debugging information for all symbols and types.
 
+@c APPLE LOCAL begin mainline 2005-09-01 3449986
+@item -mmacosx-version-min=@var{version}
+The earliest version of MacOS X that this executable will run on
+is @var{version}.  Typical values of @var{version} include @code{10.1},
+@code{10.2}, and @code{10.3.9}.
+
+The default for this option is to make choices that seem to be most
+useful.  
+
+@c APPLE LOCAL end mainline 2005-09-01 3449986
 @item -mone-byte-bool
 @opindex -mone-byte-bool
 Override the defaults for @samp{bool} so that @samp{sizeof(bool)==1}.

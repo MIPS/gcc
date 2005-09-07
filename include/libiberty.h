@@ -346,6 +346,13 @@ extern int vasprintf PARAMS ((char **, const char *, va_list))
   ATTRIBUTE_PRINTF(2,0);
 #endif
 
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+#if defined(HAVE_DECL_STRVERSCMP) && !HAVE_DECL_STRVERSCMP
+/* Compare version strings.  */
+extern int strverscmp (const char *, const char *);
+#endif
+
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
 /* Drastically simplified alloca configurator.  If we're using GCC,

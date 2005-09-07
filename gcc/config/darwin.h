@@ -189,12 +189,19 @@ extern int darwin_reverse_bitfields;
 
 extern int darwin_fix_and_continue;
 extern const char *darwin_fix_and_continue_switch;
+/* APPLE LOCAL mainline 2005-09-01 3449986 */
+extern const char *darwin_macosx_version_min;
 
 #undef SUBTARGET_OPTIONS
 #define SUBTARGET_OPTIONS \
   {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
   {"fix-and-continue", &darwin_fix_and_continue_switch,			\
    N_("Generate code suitable for fast turn around debugging"), 0},	\
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */			\
+  {"macosx-version-min=", &darwin_macosx_version_min,			\
+   N_("The earliest MacOS X version on which this program will run"),	\
+   0 },									\
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */			\
   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
 /* APPLE LOCAL begin constant cfstrings */				\
    N_("Don't generate code suitable for fast turn around debugging"), 0}, \
@@ -239,8 +246,8 @@ extern const char *darwin_fix_and_continue_switch;
 
 #define SUBSUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
- /* APPLE LOCAL kext */                                                 \
- extern int flag_weak;                                                  \
+  /* APPLE LOCAL kext */                                                \
+  extern int flag_weak;                                                 \
   if (darwin_constant_cfstrings_switch)					\
     {									\
       const char *base = darwin_constant_cfstrings_switch;		\
@@ -341,11 +348,14 @@ do {					\
    Apple include files expect it to be defined and won't work if it
    isn't.  */
 
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* Machine dependent cpp options.  Don't add more options here, add
+   them to darwin_cpp_builtins in darwin-c.c.  */
+
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #undef	CPP_SPEC
-/* APPLE LOCAL __APPLE__ setting, don't set __APPLE__ here, as we do it someplace else */
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} \
-"/* APPLE LOCAL -arch */"\
-		  %{arch}"
+/* APPLE LOCAL -arch */
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} %{arch}"
 
 /* APPLE LOCAL begin private extern  */
 #undef CC1PLUS_SPEC
@@ -422,6 +432,8 @@ do {					\
    %{headerpad_max_install_names*} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
+"/* APPLE LOCAL mainline 2005-09-01 3449986 */"\
+   %{mmacosx-version-min=*:-macosx_version_min %*} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
@@ -453,13 +465,14 @@ do {					\
    %{dylinker} %{Mach} "
 
 
-/* Machine dependent libraries but do not redefine it if we already on 7.0 and
-   above as it needs to link with libmx also.  */
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* Machine dependent libraries.  */
 
-#ifndef	LIB_SPEC
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #define LIB_SPEC "%{!static:-lSystem}"
-#endif
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 /* APPLE LOCAL begin libgcc_static.a  */
 /* -dynamiclib implies -shared-libgcc just like -shared would on linux.  */
 #define REAL_LIBGCC_SPEC \
@@ -1358,11 +1371,11 @@ void add_framework_path (char *);
 
 #define TARGET_HAS_F_SETLKW
 
-/* Darwin before 7.0 does not have C99 functions.   */
-#ifndef TARGET_C99_FUNCTIONS
-#define TARGET_C99_FUNCTIONS 0
-#endif
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* All new versions of Darwin have C99 functions.  */
+#define TARGET_C99_FUNCTIONS 1
 
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 /* APPLE LOCAL begin KEXT ctors return this */
 /* For Apple KEXTs, we make the constructors return this to match gcc
    2.95.  */

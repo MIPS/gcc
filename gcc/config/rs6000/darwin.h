@@ -56,9 +56,8 @@
       if (TARGET_64BIT) builtin_define ("__ppc64__");  \
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
-      /* APPLE LOCAL remove __MACH__ and __APPLE__ definitions -- put elsewhere */\
-      /* APPLE LOCAL constant cfstrings */	\
-      SUBTARGET_OS_CPP_BUILTINS ();		\
+/* APPLE LOCAL mainline 2005-09-01 3449986 */	\
+      darwin_cpp_builtins (pfile);		\
     }                                           \
   while (0)
 
@@ -82,6 +81,12 @@
 do {									\
   rs6000_altivec_abi = 1;						\
   rs6000_altivec_vrsave = 1;						\
+  /* APPLE LOCAL begin constant cfstrings */				\
+  /* This just sets the default, SUBSUBTRAGET_OVERRIDE_OPTIONS will	\
+     let the user override it.  */					\
+  darwin_constant_cfstrings = (darwin_macosx_version_min		\
+       && strverscmp (darwin_macosx_version_min, "10.2") >= 0);		\
+  /* APPLE LOCAL end constant cfstrings */				\
   if (DEFAULT_ABI == ABI_DARWIN)					\
   {									\
     if (MACHO_DYNAMIC_NO_PIC_P)						\
@@ -516,3 +521,12 @@ extern const char *darwin_one_byte_bool;
 /* APPLE LOCAL end mainline to be accessed, 5 nops */
 
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+
+/* Old versions of Mac OS/Darwin don't have C99 functions available.  */
+#undef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS					\
+  (TARGET_64BIT							\
+   || (darwin_macosx_version_min				\
+       && strverscmp (darwin_macosx_version_min, "10.3") >= 0))
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */

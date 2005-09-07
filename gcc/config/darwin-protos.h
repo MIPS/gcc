@@ -1,5 +1,6 @@
 /* Prototypes.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   APPLE LOCAL mainline 2005-09-01 3449986
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -173,6 +174,9 @@ extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+extern void darwin_cpp_builtins (struct cpp_reader *);
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 /* APPLE LOCAL optimization pragmas 3124235/3420242 */
 extern void reset_optimization_options (int, int);
 /* APPLE LOCAL C++ EH */

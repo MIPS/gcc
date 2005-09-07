@@ -36,9 +36,8 @@ Boston, MA 02111-1307, USA.  */
     {                                           \
       builtin_define ("__i386__");              \
       builtin_define ("__LITTLE_ENDIAN__");     \
-      /* APPLE LOCAL remove __MACH__ and __APPLE__, defined in gcc/config/darwin.h */\
-      /* APPLE LOCAL constant cfstrings */	\
-      SUBTARGET_OS_CPP_BUILTINS ();		\
+/* APPLE LOCAL mainline 2005-09-01 3449986 */	\
+      darwin_cpp_builtins (pfile);		\
     }                                           \
   while (0)
 

@@ -3406,7 +3406,8 @@ binaries are available at
 @uref{http://developer.apple.com/darwin/projects/compiler/} (free
 registration required).
 
-This version of GCC requires at least cctools-528.
+@c APPLE LOCAL mainline 2005-09-01 3449986
+This version of GCC requires at least cctools-590.7.
 
 The version of GCC shipped by Apple typically includes a number of
 extensions not available in a standard GCC release.  These extensions

@@ -907,3 +907,75 @@ darwin_pragma_call_on_unload (cpp_reader *pfile ATTRIBUTE_UNUSED)
   directive_with_named_function ("CALL_ON_UNLOAD", mod_term_section);
 }
 /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+
+
+/* Return the value of darwin_macosx_version_min suitable for the
+   __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ macro,
+   so '10.4.2' becomes 1042.  
+   Print a warning if the version number is not known.  */
+static const char *
+version_as_macro (void)
+{
+  static char result[] = "1000";
+  
+  if (strncmp (darwin_macosx_version_min, "10.", 3) != 0)
+    goto fail;
+  if (! ISDIGIT (darwin_macosx_version_min[3]))
+    goto fail;
+  result[2] = darwin_macosx_version_min[3];
+  if (darwin_macosx_version_min[4] != '\0')
+    {
+      if (darwin_macosx_version_min[4] != '.')
+	goto fail;
+      if (! ISDIGIT (darwin_macosx_version_min[5]))
+	goto fail;
+      if (darwin_macosx_version_min[6] != '\0')
+	goto fail;
+      result[3] = darwin_macosx_version_min[5];
+    }
+  else
+    result[3] = '0';
+  
+  return result;
+  
+ fail:
+  error ("Unknown value %qs of -mmacosx-version-min",
+	 darwin_macosx_version_min);
+  return "1000";
+}
+
+/* Define additional CPP flags for Darwin.   */
+
+#define builtin_define(TXT) cpp_define (pfile, TXT)
+
+void
+darwin_cpp_builtins (cpp_reader *pfile)
+{
+  builtin_define ("__MACH__");
+  builtin_define ("__APPLE__");
+
+  /* APPLE LOCAL Apple version */
+  /* Don't define __APPLE_CC__ here.  */
+
+  if (darwin_macosx_version_min)
+    builtin_define_with_value ("__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__",
+			       version_as_macro(), false);
+
+  /* APPLE LOCAL begin pascal strings */
+  if (darwin_pascal_strings)
+    {
+      builtin_define ("__PASCAL_STRINGS__");
+    }
+  /* APPLE LOCAL end pascal strings */
+  /* APPLE LOCAL begin ObjC GC */
+  if (flag_objc_gc)
+    {
+      builtin_define ("__strong=__attribute__((objc_gc(strong)))");
+      builtin_define ("__OBJC_GC__");
+    }
+  else
+    builtin_define ("__strong=");
+  /* APPLE LOCAL end ObjC GC */
+}
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */

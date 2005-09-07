@@ -252,6 +252,8 @@ funcs="$funcs strstr"
 funcs="$funcs strtod"
 funcs="$funcs strtol"
 funcs="$funcs strtoul"
+dnl APPLE LOCAL mainline 2005-09-01 3449986
+funcs="$funcs strverscmp"
 funcs="$funcs tmpnam"
 funcs="$funcs vasprintf"
 funcs="$funcs vfprintf"
@@ -266,7 +268,8 @@ vars="sys_errlist sys_nerr sys_siglist"
 
 checkfuncs="getrusage on_exit psignal strerror strsignal sysconf times sbrk gettimeofday"
 checkfuncs="$checkfuncs realpath canonicalize_file_name pstat_getstatic pstat_getdynamic sysmp"
-checkfuncs="$checkfuncs getsysinfo table sysctl __fsetlocking"
+dnl APPLE LOCAL mainline 2005-09-01 3449986
+checkfuncs="$checkfuncs getsysinfo table sysctl __fsetlocking strverscmp"
 
 # These are neither executed nor required, but they help keep
 # autoheader happy without adding a bunch of text to acconfig.h.
@@ -275,7 +278,8 @@ if test "x" = "y"; then
   getcwd getpagesize index insque mkstemps memchr memcmp memcpy \
   memmove mempcpy memset putenv random rename rindex sigsetmask \
   strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strrchr strstr \
-  strtod strtol strtoul tmpnam vasprintf vfprintf vprintf \
+dnl APPLE LOCAL mainline 2005-09-01 3449986
+  strtod strtol strtoul strverscmp tmpnam vasprintf vfprintf vprintf \
   vsprintf waitpid getrusage on_exit psignal strerror strsignal \
   sysconf times sbrk gettimeofday ffs snprintf vsnprintf \
   pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl \

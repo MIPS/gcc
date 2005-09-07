@@ -1040,6 +1040,8 @@ AM_LANGINFO_CODESET
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 gcc_AC_CHECK_DECLS(getenv atol sbrk abort atof getcwd getwd strsignal \
+dnl APPLE LOCAL mainline 2005-09-01 3449986
+	strverscmp \
 	strstr errno snprintf vasprintf malloc realloc calloc free \
 	basename getopt clock getpagesize gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
