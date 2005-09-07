@@ -5219,8 +5219,6 @@ init_emit_once (int line_numbers)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
-      if (DECIMAL_FLOAT_MODE_P (mode))
-	continue;
       if (GET_MODE_BITSIZE (mode) == DOUBLE_TYPE_SIZE
 	  && double_mode == VOIDmode)
 	double_mode = mode;
@@ -5304,6 +5302,12 @@ init_emit_once (int line_numbers)
 	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+	   mode = GET_MODE_WIDER_MODE (mode))
+	const_tiny_rtx[i][(int) mode] =
+	  CONST_DOUBLE_FROM_REAL_VALUE (*r, mode);
+
+      for (mode = GET_CLASS_NARROWEST_MODE (MODE_DECIMAL_FLOAT);
+	   mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	const_tiny_rtx[i][(int) mode] =
 	  CONST_DOUBLE_FROM_REAL_VALUE (*r, mode);

@@ -60,7 +60,7 @@ struct mode_data
   unsigned int bytesize;	/* storage size in addressable units */
   unsigned int ncomponents;	/* number of subunits */
   unsigned int alignment;	/* mode alignment */
-  const char *format;		/* floating point format - MODE_FLOAT only */
+  const char *format;		/* floating point format - float modes only */
 
   struct mode_data *component;	/* mode of components */
   struct mode_data *wider;	/* next wider mode */
@@ -326,11 +326,12 @@ complete_mode (struct mode_data *m)
 
     case MODE_INT:
     case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
       /* A scalar mode must have a byte size, may have a bit size,
 	 and must not have components.   A float mode must have a
          format.  */
       validate_mode (m, OPTIONAL, SET, UNSET, UNSET,
-		     m->cl == MODE_FLOAT ? SET : UNSET);
+		     m->cl != MODE_INT ? SET : UNSET);
 
       m->ncomponents = 1;
       m->component = 0;
@@ -447,12 +448,7 @@ make_complex_modes (enum mode_class cl,
 	  if (p != 0)
 	    *p = 'C';
 	  else
-	    /* FIXME: The decimal float modes are causing assert failure
-	       in expr.c::convert_move() where to_mode and from_mode have
-	       same precision.  For now, just don't create complex modes
-	       for the decimal floats (and not part of C extension).  */
-	    /* snprintf (buf, sizeof buf, "C%s", m->name); */
-	    continue; 
+	    snprintf (buf, sizeof buf, "C%s", m->name);
 	}
       else
 	snprintf (buf, sizeof buf, "C%s", m->name);
@@ -553,6 +549,23 @@ make_float_mode (const char *name,
   m->format = format;
 }
 
+#define DECIMAL_FLOAT_MODE(N, Y, F)	\
+	FRACTIONAL_DECIMAL_FLOAT_MODE (N, -1U, Y, F)
+#define FRACTIONAL_DECIMAL_FLOAT_MODE(N, B, Y, F)	\
+  make_decimal_float_mode (#N, B, Y, #F, __FILE__, __LINE__)
+
+static void
+make_decimal_float_mode (const char *name,
+			 unsigned int precision, unsigned int bytesize,
+			 const char *format,
+			 const char *file, unsigned int line)
+{
+  struct mode_data *m = new_mode (MODE_DECIMAL_FLOAT, name, file, line);
+  m->bytesize = bytesize;
+  m->precision = precision;
+  m->format = format;
+}
+
 #define RESET_FLOAT_FORMAT(N, F) \
   reset_float_format (#N, #F, __FILE__, __LINE__)
 static void ATTRIBUTE_UNUSED
@@ -565,9 +578,9 @@ reset_float_format (const char *name, const char *format,
       error ("%s:%d: no mode \"%s\"", file, line, name);
       return;
     }
-  if (m->cl != MODE_FLOAT)
+  if (m->cl != MODE_FLOAT && m->cl != MODE_DECIMAL_FLOAT)
     {
-      error ("%s:%d: mode \"%s\" is not class FLOAT", file, line, name);
+      error ("%s:%d: mode \"%s\" is not a FLOAT class", file, line, name);
       return;
     }
   m->format = format;
@@ -1104,10 +1117,19 @@ emit_real_format_for_mode (void)
 			  format);
 #else
   print_decl ("struct real_format *\n", "real_format_for_mode",
-	      "MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1");
+	      "MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1 "
+	      "+ MAX_MODE_DECIMAL_FLOAT - MIN_MODE_DECIMAL_FLOAT + 1");
 #endif
 
+  /* The beginning of the table is entries for float modes.  */
   for (m = modes[MODE_FLOAT]; m; m = m->next)
+    if (!strcmp (m->format, "0"))
+      tagged_printf ("%s", m->format, m->name);
+    else
+      tagged_printf ("&%s", m->format, m->name);
+
+  /* The end of the table is entries for decimal float modes.  */
+  for (m = modes[MODE_DECIMAL_FLOAT]; m; m = m->next)
     if (!strcmp (m->format, "0"))
       tagged_printf ("%s", m->format, m->name);
     else

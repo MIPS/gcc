@@ -54,6 +54,7 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 /* Nonzero if MODE is a floating-point mode.  */
 #define FLOAT_MODE_P(MODE)		\
   (GET_MODE_CLASS (MODE) == MODE_FLOAT	\
+   || GET_MODE_CLASS (MODE) == MODE_DECIMAL_FLOAT \
    || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT \
    || GET_MODE_CLASS (MODE) == MODE_VECTOR_FLOAT)
 
@@ -74,25 +75,18 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 
 /* Nonzero if MODE is a scalar floating point mode.  */
 #define SCALAR_FLOAT_MODE_P(MODE)		\
-  (GET_MODE_CLASS (MODE) == MODE_FLOAT)
+  (GET_MODE_CLASS (MODE) == MODE_FLOAT		\
+   || GET_MODE_CLASS (MODE) == MODE_DECIMAL_FLOAT)
 
-/* Nonzero if MODE is one of the 3 decimal float modes.  We have 
-   purposefully not created a new class, but there are still
-   times where it is useful to check whether one of the decimal
-   float modes. */
+/* Nonzero if MODE is a decimal floating point mode.  */
 #define DECIMAL_FLOAT_MODE_P(MODE)		\
-  (MODE == SDmode || MODE == DDmode || MODE == TDmode)
-
-/* Nonzero if MODE1 and MODE2 are in the same class but are not
-   compatible; this happens if one is decimal float and the other
-   is not.  */
-#define INCOMPATIBLE_MODES_P(MODE1,MODE2)	\
-  (DECIMAL_FLOAT_MODE_P(MODE1) != DECIMAL_FLOAT_MODE_P(MODE2))
+  (GET_MODE_CLASS (MODE) == MODE_DECIMAL_FLOAT)
 
 /* Nonzero if CLASS modes can be widened.  */
 #define MODES_WIDEN_P(CLASS)			\
   (CLASS == MODE_INT				\
    || CLASS == MODE_FLOAT			\
+   || CLASS == MODE_DECIMAL_FLOAT		\
    || CLASS == MODE_COMPLEX_FLOAT)
 
 /* Get the size in bytes and bits of an object of mode MODE.  */
@@ -136,10 +130,6 @@ extern const unsigned char mode_wider[NUM_MACHINE_MODES];
 
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
 #define GET_MODE_2XWIDER_MODE(MODE) mode_2xwider[MODE]
-
-extern enum machine_mode get_mode_compatible_wider_mode (enum machine_mode);
-#define GET_MODE_COMPATIBLE_WIDER_MODE(MODE) \
-  get_mode_compatible_wider_mode (MODE)
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.

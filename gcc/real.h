@@ -156,12 +156,20 @@ struct real_format
 };
 
 
-/* The target format used for each floating floating point mode.
-   Indexed by MODE - QFmode.  */
+/* The target format used for each floating point mode.
+   Float modes are followed by decimal float modes, with entries for
+   float modes indexed by (MODE - first float mode), and entries for
+   decimal float modes indexed by (MODE - first decimal float mode) +
+   the number of float modes.  */
 extern const struct real_format *
-  real_format_for_mode[MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1];
+  real_format_for_mode[MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1
+		       + MAX_MODE_DECIMAL_FLOAT - MIN_MODE_DECIMAL_FLOAT + 1];
 
-#define REAL_MODE_FORMAT(MODE) (real_format_for_mode[(MODE) - MIN_MODE_FLOAT])
+#define REAL_MODE_FORMAT(MODE)						\
+  (real_format_for_mode[DECIMAL_FLOAT_MODE_P (MODE)			\
+			? ((MODE - MIN_MODE_DECIMAL_FLOAT)		\
+			   + (MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1))	\
+			: (MODE - MIN_MODE_FLOAT)])
 
 /* The following macro determines whether the floating point format is
    composite, i.e. may contain non-consecutive mantissa bits, in which

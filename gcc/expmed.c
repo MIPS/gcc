@@ -223,7 +223,7 @@ init_expmed (void)
       sdiv_pow2_cheap[mode] = (rtx_cost (&all.div, SET) <= 2 * add_cost[mode]);
       smod_pow2_cheap[mode] = (rtx_cost (&all.mod, SET) <= 4 * add_cost[mode]);
 
-      wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      wider_mode = GET_MODE_WIDER_MODE (mode);
       if (wider_mode != VOIDmode)
 	{
 	  PUT_MODE (&all.zext, wider_mode);
@@ -3816,14 +3816,14 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	    : (unsignedp ? udivmod_optab : sdivmod_optab));
 
   for (compute_mode = mode; compute_mode != VOIDmode;
-       compute_mode = GET_MODE_COMPATIBLE_WIDER_MODE (compute_mode))
+       compute_mode = GET_MODE_WIDER_MODE (compute_mode))
     if (optab1->handlers[compute_mode].insn_code != CODE_FOR_nothing
 	|| optab2->handlers[compute_mode].insn_code != CODE_FOR_nothing)
       break;
 
   if (compute_mode == VOIDmode)
     for (compute_mode = mode; compute_mode != VOIDmode;
-	 compute_mode = GET_MODE_COMPATIBLE_WIDER_MODE (compute_mode))
+	 compute_mode = GET_MODE_WIDER_MODE (compute_mode))
       if (optab1->handlers[compute_mode].libfunc
 	  || optab2->handlers[compute_mode].libfunc)
 	break;

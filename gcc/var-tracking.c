@@ -2200,7 +2200,7 @@ emit_note_insn_var_location (void **varp, void *data)
       last_limit = offsets[n_var_parts] + GET_MODE_SIZE (mode);
 
       /* Attempt to merge adjacent registers or memory.  */
-      wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      wider_mode = GET_MODE_WIDER_MODE (mode);
       for (j = i + 1; j < var->n_var_parts; j++)
 	if (last_limit <= var->var_part[j].offset)
 	  break;

@@ -339,38 +339,38 @@ extern float strtof (const char *, char **);
 
 #if WIDTH == 32
 #if BFP_KIND == 1
-#define BFP_TO_DFP	__extendsfsd2
-#define DFP_TO_BFP	__truncsdsf2
+#define BFP_TO_DFP	__extendsfsd
+#define DFP_TO_BFP	__truncsdsf
 #elif BFP_KIND == 2
-#define BFP_TO_DFP	__truncdfsd2
-#define DFP_TO_BFP	__extendsddf2
+#define BFP_TO_DFP	__truncdfsd
+#define DFP_TO_BFP	__extendsddf
 #elif BFP_KIND == 3
-#define BFP_TO_DFP	__truncxfsd2
-#define DFP_TO_BFP	__extendsdxf2
+#define BFP_TO_DFP	__truncxfsd
+#define DFP_TO_BFP	__extendsdxf
 #endif /* BFP_KIND */
 
 #elif WIDTH == 64
 #if BFP_KIND == 1
-#define BFP_TO_DFP	__extendsfdd2
-#define DFP_TO_BFP	__truncddsf2
+#define BFP_TO_DFP	__extendsfdd
+#define DFP_TO_BFP	__truncddsf
 #elif BFP_KIND == 2
-#define BFP_TO_DFP	__extenddfdd2
-#define DFP_TO_BFP	__truncdddf2
+#define BFP_TO_DFP	__extenddfdd
+#define DFP_TO_BFP	__truncdddf
 #elif BFP_KIND == 3
-#define BFP_TO_DFP	__truncxfdd2
-#define DFP_TO_BFP	__extendddxf2
+#define BFP_TO_DFP	__truncxfdd
+#define DFP_TO_BFP	__extendddxf
 #endif /* BFP_KIND */
 
 #elif WIDTH == 128
 #if BFP_KIND == 1
-#define BFP_TO_DFP	__extendsftd2
-#define DFP_TO_BFP	__trunctdsf2
+#define BFP_TO_DFP	__extendsftd
+#define DFP_TO_BFP	__trunctdsf
 #elif BFP_KIND == 2
-#define BFP_TO_DFP	__extenddftd2
-#define DFP_TO_BFP	__trunctddf2
+#define BFP_TO_DFP	__extenddftd
+#define DFP_TO_BFP	__trunctddf
 #elif BFP_KIND == 3
-#define BFP_TO_DFP	__extendxftd2
-#define DFP_TO_BFP	__trunctdxf2
+#define BFP_TO_DFP	__extendxftd
+#define DFP_TO_BFP	__trunctdxf
 #endif /* BFP_KIND */
 
 #endif /* WIDTH */

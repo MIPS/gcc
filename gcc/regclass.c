@@ -694,7 +694,6 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
        mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
-	&& !DECIMAL_FLOAT_MODE_P (mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
 

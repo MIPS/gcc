@@ -232,6 +232,7 @@ int_mode_for_mode (enum machine_mode mode)
     case MODE_COMPLEX_INT:
     case MODE_COMPLEX_FLOAT:
     case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
     case MODE_VECTOR_INT:
     case MODE_VECTOR_FLOAT:
       mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
@@ -258,21 +259,6 @@ unsigned int
 get_mode_alignment (enum machine_mode mode)
 {
   return MIN (BIGGEST_ALIGNMENT, MAX (1, mode_base_align[mode]*BITS_PER_UNIT));
-}
-
-/* Return the next wider mode that is compatible with MODE; this is
-   relevant for MODE_FLOAT, which is used for both binary floating
-   point and decimal floating point modes.  */
-
-enum machine_mode
-get_mode_compatible_wider_mode (enum machine_mode mode)
-{
-  enum machine_mode wider_mode;
-
-  wider_mode = GET_MODE_WIDER_MODE (mode);
-  while (wider_mode != VOIDmode && INCOMPATIBLE_MODES_P (mode, wider_mode))
-    wider_mode = GET_MODE_WIDER_MODE (wider_mode);
-  return wider_mode;
 }
 
 /* Subroutine of layout_decl: Force alignment required for the data type.

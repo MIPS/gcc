@@ -1174,7 +1174,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
      takes operands of this mode and makes a wider mode.  */
 
   if (binoptab == smul_optab
-      && GET_MODE_COMPATIBLE_WIDER_MODE (mode) != VOIDmode
+      && GET_MODE_WIDER_MODE (mode) != VOIDmode
       && (((unsignedp ? umul_widen_optab : smul_widen_optab)
 	   ->handlers[(int) GET_MODE_WIDER_MODE (mode)].insn_code)
 	  != CODE_FOR_nothing))
@@ -1200,15 +1200,15 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
   if (MODES_WIDEN_P (class)
       && methods != OPTAB_DIRECT && methods != OPTAB_LIB)
-    for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+    for (wider_mode = GET_MODE_WIDER_MODE (mode);
 	 wider_mode != VOIDmode;
-	 wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	 wider_mode = GET_MODE_WIDER_MODE (wider_mode))
       {
 	if (binoptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
 	    || (binoptab == smul_optab
-		&& GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode) != VOIDmode
+		&& GET_MODE_WIDER_MODE (wider_mode) != VOIDmode
 		&& (((unsignedp ? umul_widen_optab : smul_widen_optab)
-		     ->handlers[(int) GET_MODE_COMPATIBLE_WIDER_MODE
+		     ->handlers[(int) GET_MODE_WIDER_MODE
 						(wider_mode)].insn_code)
 		    != CODE_FOR_nothing)))
 	  {
@@ -1733,9 +1733,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
   if (MODES_WIDEN_P (class))
     {
-      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if ((binoptab->handlers[(int) wider_mode].insn_code
 	       != CODE_FOR_nothing)
@@ -1908,9 +1908,9 @@ expand_twoval_unop (optab unoptab, rtx op0, rtx targ0, rtx targ1,
 
   if (MODES_WIDEN_P (class))
     {
-      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if (unoptab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2031,9 +2031,9 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
 
   if (MODES_WIDEN_P (class))
     {
-      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if (binoptab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2132,9 +2132,9 @@ widen_clz (enum machine_mode mode, rtx op0, rtx target)
   if (MODES_WIDEN_P (class))
     {
       enum machine_mode wider_mode;
-      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if (clz_optab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2172,7 +2172,7 @@ expand_parity (enum machine_mode mode, rtx op0, rtx target)
     {
       enum machine_mode wider_mode;
       for (wider_mode = mode; wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if (popcount_optab->handlers[(int) wider_mode].insn_code
 	      != CODE_FOR_nothing)
@@ -2401,9 +2401,9 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
     }
 
   if (MODES_WIDEN_P (class))
-    for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+    for (wider_mode = GET_MODE_WIDER_MODE (mode);
 	 wider_mode != VOIDmode;
-	 wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	 wider_mode = GET_MODE_WIDER_MODE (wider_mode))
       {
 	if (unoptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing)
 	  {
@@ -2540,9 +2540,9 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
   if (MODES_WIDEN_P (class))
     {
-      for (wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
 	   wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode))
+	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if ((unoptab->handlers[(int) wider_mode].insn_code
 	       != CODE_FOR_nothing)
@@ -3360,7 +3360,7 @@ can_compare_p (enum rtx_code code, enum machine_mode mode,
       if (purpose == ccp_store_flag
 	  && cstore_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
 	return 1;
-      mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+      mode = GET_MODE_WIDER_MODE (mode);
     }
   while (mode != VOIDmode);
 
@@ -3615,7 +3615,7 @@ emit_cmp_and_jump_insn_1 (rtx x, rtx y, enum machine_mode mode,
       if (!MODES_WIDEN_P (class))
 	break;
 
-      wider_mode = GET_MODE_COMPATIBLE_WIDER_MODE (wider_mode);
+      wider_mode = GET_MODE_WIDER_MODE (wider_mode);
     }
   while (wider_mode != VOIDmode);
 
@@ -3700,7 +3700,7 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
 
   for (mode = orig_mode;
        mode != VOIDmode;
-       mode = GET_MODE_COMPATIBLE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE (mode))
     {
       if ((libfunc = code_to_optab[comparison]->handlers[mode].libfunc))
 	break;
@@ -4297,7 +4297,7 @@ expand_float (rtx to, rtx from, int unsignedp)
      we can do the conversion signed even if the input is unsigned.  */
 
   for (fmode = GET_MODE (to); fmode != VOIDmode;
-       fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
+       fmode = GET_MODE_WIDER_MODE (fmode))
     for (imode = GET_MODE (from); imode != VOIDmode;
 	 imode = GET_MODE_WIDER_MODE (imode))
       {
@@ -4342,7 +4342,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 	 with unsigned values greater than the signed maximum value.  */
 
       for (fmode = GET_MODE (to);  fmode != VOIDmode;
-	   fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
+	   fmode = GET_MODE_WIDER_MODE (fmode))
 	if (GET_MODE_BITSIZE (GET_MODE (from)) < GET_MODE_BITSIZE (fmode)
 	    && can_float_p (fmode, GET_MODE (from), 0) != CODE_FOR_nothing)
 	  break;
@@ -4490,7 +4490,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
      we can do the conversion either signed or unsigned.  */
 
   for (fmode = GET_MODE (from); fmode != VOIDmode;
-       fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
+       fmode = GET_MODE_WIDER_MODE (fmode))
     for (imode = GET_MODE (to); imode != VOIDmode;
 	 imode = GET_MODE_WIDER_MODE (imode))
       {
@@ -4547,7 +4547,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
 
   if (unsignedp && GET_MODE_BITSIZE (GET_MODE (to)) <= HOST_BITS_PER_WIDE_INT)
     for (fmode = GET_MODE (from); fmode != VOIDmode;
-	 fmode = GET_MODE_COMPATIBLE_WIDER_MODE (fmode))
+	 fmode = GET_MODE_WIDER_MODE (fmode))
       if (CODE_FOR_nothing != can_fix_p (GET_MODE (to), fmode, 0,
 					 &must_trunc))
 	{
@@ -4791,6 +4791,8 @@ static void
 init_floating_libfuncs (optab optable, const char *opname, int suffix)
 {
   init_libfuncs (optable, MIN_MODE_FLOAT, MAX_MODE_FLOAT, opname, suffix);
+  init_libfuncs (optable, MIN_MODE_DECIMAL_FLOAT, MAX_MODE_DECIMAL_FLOAT,
+		 opname, suffix);
 }
 
 /* Initialize the libfunc fields of an entire group of entries of an
@@ -5209,18 +5211,36 @@ init_optabs (void)
   /* Conversions.  */
   init_interclass_conv_libfuncs (sfloat_optab, "float",
 				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (sfloat_optab, "float",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
   init_interclass_conv_libfuncs (sfix_optab, "fix",
 				 MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (sfix_optab, "fix",
+				 MODE_DECIMAL_FLOAT, MODE_INT);
   init_interclass_conv_libfuncs (ufix_optab, "fixuns",
 				 MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (ufix_optab, "fixuns",
+				 MODE_DECIMAL_FLOAT, MODE_INT);
   /* These functions are only needed for decimal float modes and could be
      added from DFP-specific files via calls to set_optab_libfunc.  */
   init_interclass_conv_libfuncs (ufloat_optab, "floatuns",
-				 MODE_INT, MODE_FLOAT);
+				 MODE_INT, MODE_DECIMAL_FLOAT);
 
   /* sext_optab is also used for FLOAT_EXTEND.  */
   init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
+  init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT,
+				 true);
+  init_interclass_conv_libfuncs (sext_optab, "extend",  MODE_FLOAT,
+				 MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (sext_optab, "extend",  MODE_DECIMAL_FLOAT,
+				 MODE_FLOAT);
   init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, false);
+  init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT,
+				 false);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT,
+				 MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT,
+				 MODE_FLOAT);
 
   /* Use cabs for double complex abs, since systems generally have cabs.
      Don't define any libcall for float complex, so that cabs will be used.  */

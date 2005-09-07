@@ -250,14 +250,15 @@ default_scalar_mode_supported_p (enum machine_mode mode)
       return false;
 
     case MODE_FLOAT:
-      if (DECIMAL_FLOAT_MODE_P (mode))
-	return false;
       if (precision == FLOAT_TYPE_SIZE)
 	return true;
       if (precision == DOUBLE_TYPE_SIZE)
 	return true;
       if (precision == LONG_DOUBLE_TYPE_SIZE)
 	return true;
+      return false;
+
+    case MODE_DECIMAL_FLOAT:
       return false;
 
     default:

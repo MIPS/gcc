@@ -5204,9 +5204,9 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  enum machine_mode tmode;
 	  rtx new_and = gen_rtx_AND (VOIDmode, NULL_RTX, XEXP (src, 1));
 
-	  for (tmode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	  for (tmode = GET_MODE_WIDER_MODE (mode);
 	       GET_MODE_SIZE (tmode) <= UNITS_PER_WORD;
-	       tmode = GET_MODE_COMPATIBLE_WIDER_MODE (tmode))
+	       tmode = GET_MODE_WIDER_MODE (tmode))
 	    {
 	      rtx inner = gen_lowpart (tmode, XEXP (src, 0));
 	      struct table_elt *larger_elt;
@@ -5256,9 +5256,9 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  PUT_CODE (memory_extend_rtx, LOAD_EXTEND_OP (mode));
 	  XEXP (memory_extend_rtx, 0) = src;
 
-	  for (tmode = GET_MODE_COMPATIBLE_WIDER_MODE (mode);
+	  for (tmode = GET_MODE_WIDER_MODE (mode);
 	       GET_MODE_SIZE (tmode) <= UNITS_PER_WORD;
-	       tmode = GET_MODE_COMPATIBLE_WIDER_MODE (tmode))
+	       tmode = GET_MODE_WIDER_MODE (tmode))
 	    {
 	      struct table_elt *larger_elt;
 

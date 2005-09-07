@@ -1,3 +1,55 @@
+2005-09-07  Janis Johnson  <janis187@us.ibm.com>
+
+	* c-common.c (handle_mode_addtribute): Handle MODE_DECIMAL_FLOAT.
+	* combine.c (simplify_comparison): Remove unneeded assert.
+	* cse.c (cse_insn): Use GET_MODE_WIDER_MODE.
+	* decRound.c (__dfp_rounding_mode): Add comment.
+	* emit-rtl.c (init_emit_once): Don't check for DEC_IMAL_FLOAT_MODE_P,
+	handle MODE_DECIMAL_FLOAT separately.
+	* expmed.c (init_expmed, expand_divmod): Use GET_MODE_WIDER_MODE.
+	* expr.c (init_expr_once): Don't check INCOMPATIBLE_MODES_P.
+	(convert_move): Check that exactly one mode is decimal float; use
+	GET_MODE_WIDER_MODE.
+	(compress_float_constant): Don't check INCOMPATIBLE_MODES_P.
+	* genmodes.c (struct mode_data): Update comment for format.
+	(complete_mode): Handle MODE_DECIMAL_FLOAT, update check for mode
+	using a format.
+	(make_complex_modes: Remove FIXME comment, disabled code which are
+	not needed without support for complex decimal float types.
+	(DECIMAL_FLOAT_MODE, FRACTIONAL_DECIMAL_FLOAT_MODE): New.
+	(make_decimal_float_mode): New.
+	(reset_float_format): Handle MODE_DECIMAL_FLOAT.
+	(emit_format_for_mode): Support formats for decimal floats.
+	* genopinit.c (gen_insn): Handle MODE_DECIMAL_FLOAT.
+	* machmode.def (DECIMAL_FLOAT_MODE): Document;, use it to define
+	decimal float modes.
+	* machmode.h (FLOAT_MODE_P, SCALAR_FLOAT_MODE_P, MODES_WIDEN_P):
+	Include MODE_DECIMAL_FLOAT.
+	(DECIMAL_FLOAT_MODE_P): Redefine, update comment.
+	(INCOMPATIBLE_MODES_P): Remove.	
+	(GET_MODE_COMPATIBLE_WIDER_MODE): Remove.	
+	* mode-classes.def (MODE_DECIMAL_FLOAT): Define.
+	* optabs.c (expand_binop, expand_twoval_unop, expand_twoval_binop,
+	widen_clz, expand_parity, expand_unop, can_compare_p,
+	emit_cmp_and_jump_insn_1, prepare_float_lib_cmp, expand_float,
+	expand_fix): Use GET_MODE_WIDER_MODE.
+	(init_floating_libfuncs): Handle decimal float modes.
+	(init_optabs): Handle libfuncs for decimal float.
+	* real.h (real_format): Change size, update documentation.
+	(REAL_MODE_FORMAT): Update for to handle float, decimal float.
+	* reg-stack.c (reg_to_stack): Remove check for DECIMAL_FLOAT_MODE_P.
+	* regclass.c (choose_hard_reg_mode): Ditto.
+	* simplify-rtx.c (simplify_immed_subreg): Handle MODE_DECIMAL_FLOAT.
+	* stor-layout.c (int_mode_for_mode): Handle MODE_DECIMAL_FLOAT.
+	(get_mode_compatible_wider_mode): Remove.
+	* targhooks.c (default_scalar_mode_supported_p): Handle
+	MODE_DECIMAL_FLOAT separately.
+	* var-tracking.c (emit_note_insn_var_location): Use
+	GET_MODE_WIDER_MODE.
+	* varasm.c (output_constant_pool_2): Handle MODE_DECIMAL_FLOAT.
+	* config/dfp-bit.h: Change names of functions for MODE_FLOAT and
+	MODE_DECIMAL_FLOAT, which are no longer in the same class.
+
 2005-09-05  Ben Elliston  <bje@au.ibm.com>
 
 	* config/dfp-bit.c (dfp_binary_op): Remove unused variable.

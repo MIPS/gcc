@@ -319,9 +319,6 @@ init_expr_once (void)
 	{
 	  enum insn_code ic;
 
-	  if (INCOMPATIBLE_MODES_P (srcmode, mode))
-	    continue;
-
 	  ic = can_extend_p (mode, srcmode, 0);
 	  if (ic == CODE_FOR_nothing)
 	    continue;
@@ -415,7 +412,8 @@ convert_move (rtx to, rtx from, int unsignedp)
 
       gcc_assert ((GET_MODE_PRECISION (from_mode)
 		   != GET_MODE_PRECISION (to_mode))
-		  || INCOMPATIBLE_MODES_P (to_mode, from_mode));
+		  || (DECIMAL_FLOAT_MODE_P (from_mode)
+		      != DECIMAL_FLOAT_MODE_P (to_mode)));
       
       if (GET_MODE_PRECISION (from_mode) == GET_MODE_PRECISION (to_mode))
 	/* Conversion between decimal float and binary float, same size.  */
@@ -660,7 +658,7 @@ convert_move (rtx to, rtx from, int unsignedp)
 
 	  /* Search for a mode to convert via.  */
 	  for (intermediate = from_mode; intermediate != VOIDmode;
-	       intermediate = GET_MODE_COMPATIBLE_WIDER_MODE (intermediate))
+	       intermediate = GET_MODE_WIDER_MODE (intermediate))
 	    if (((can_extend_p (to_mode, intermediate, unsignedp)
 		  != CODE_FOR_nothing)
 		 || (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (intermediate)
@@ -3226,9 +3224,6 @@ compress_float_constant (rtx x, rtx y)
     {
       enum insn_code ic;
       rtx trunc_y, last_insn;
-
-      if (INCOMPATIBLE_MODES_P (srcmode, orig_srcmode))
-	continue;
 
       /* Skip if the target can't extend this way.  */
       ic = can_extend_p (dstmode, srcmode, 0);

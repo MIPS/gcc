@@ -31,6 +31,7 @@ extern void __dfp_set_round (int);
 extern int __dfp_get_round (void);
 extern enum rounding __decGetRound (void);
 
+/* FIXME: these should be in thread-local storage for runtime support.  */
 static enum rounding __dfp_rounding_mode = DEC_ROUND_HALF_EVEN;
 
 /* Set the decNumber rounding mode from the FE_DEC_* value in MODE.  */ 
