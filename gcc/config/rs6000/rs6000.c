@@ -584,7 +584,6 @@ static unsigned toc_hash_function (const void *);
 static int toc_hash_eq (const void *, const void *);
 static int constant_pool_expr_1 (rtx, int *, int *);
 static bool constant_pool_expr_p (rtx);
-static bool legitimate_small_data_p (enum machine_mode, rtx);
 static bool legitimate_indexed_address_p (rtx, int);
 static bool legitimate_lo_sum_address_p (enum machine_mode, rtx, int);
 static struct machine_function * rs6000_init_machine_status (void);
@@ -1981,7 +1980,7 @@ num_insns_constant (rtx op, enum machine_mode mode)
     case CONST_INT:
 #if HOST_BITS_PER_WIDE_INT == 64
       if ((INTVAL (op) >> 31) != 0 && (INTVAL (op) >> 31) != -1
-	  && mask_operand (op, mode))
+	  && mask64_operand (op, mode))
 	return 2;
       else
 #endif
@@ -2023,7 +2022,7 @@ num_insns_constant (rtx op, enum machine_mode mode)
 		|| (high == -1 && low < 0))
 	      return num_insns_constant_wide (low);
 
-	    else if (mask_operand (op, mode))
+	    else if (mask64_operand (op, mode))
 	      return 2;
 
 	    else if (low == 0)
@@ -2261,7 +2260,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       rtx copy = copy_rtx (vals);
 
-      /* Load constant part of vector, substititute neighboring value for
+      /* Load constant part of vector, substitute neighboring value for
 	 varying element.  */
       XVECEXP (copy, 0, one_var) = XVECEXP (vals, 0, (one_var + 1) % n_elts);
       rs6000_expand_vector_init (target, copy);
@@ -2345,61 +2344,6 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
 						       mem, vec),
 					  x)));
   emit_move_insn (target, adjust_address_nv (mem, inner_mode, 0));
-}
-
-int
-mask64_1or2_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED,
-		       bool allow_one)
-{
-  if (GET_CODE (op) == CONST_INT)
-    {
-      HOST_WIDE_INT c, lsb;
-      bool one_ok;
-
-      c = INTVAL (op);
-
-      /* Disallow all zeros.  */
-      if (c == 0)
-	return 0;
-
-      /* We can use a single rlwinm insn if no upper bits of C are set
-         AND there are zero, one or two transitions in the _whole_ of
-         C.  */
-      one_ok = !(c & ~(HOST_WIDE_INT)0xffffffff);
-
-      /* We don't change the number of transitions by inverting,
-	 so make sure we start with the LS bit zero.  */
-      if (c & 1)
-	c = ~c;
-
-      /* Find the first transition.  */
-      lsb = c & -c;
-
-      /* Invert to look for a second transition.  */
-      c = ~c;
-
-      /* Erase first transition.  */
-      c &= -lsb;
-
-      /* Find the second transition.  */
-      lsb = c & -c;
-
-      /* Invert to look for a third transition.  */
-      c = ~c;
-
-      /* Erase second transition.  */
-      c &= -lsb;
-
-      if (one_ok && !(allow_one || c))
-	return 0;
-
-      /* Find the third transition (if any).  */
-      lsb = c & -c;
-
-      /* Match if all the bits above are 1's (or c is zero).  */
-      return c == -lsb;
-    }
-  return 0;
 }
 
 /* Generates shifts and masks for a pair of rldicl or rldicr insns to
@@ -2631,8 +2575,8 @@ legitimate_constant_pool_address_p (rtx x)
 	  && constant_pool_expr_p (XEXP (x, 1)));
 }
 
-static bool
-legitimate_small_data_p (enum machine_mode mode, rtx x)
+bool
+rs6000_legitimate_small_data_p (enum machine_mode mode, rtx x)
 {
   return (DEFAULT_ABI == ABI_V4
 	  && !flag_pic && !TARGET_TOC
@@ -3401,7 +3345,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict))
     return 1;
-  if (legitimate_small_data_p (mode, x))
+  if (rs6000_legitimate_small_data_p (mode, x))
     return 1;
   if (legitimate_constant_pool_address_p (x))
     return 1;
@@ -4997,9 +4941,10 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (mode == VOIDmode)
     {
       if (abi == ABI_V4
-	  && cum->nargs_prototype < 0
 	  && (cum->call_cookie & CALL_LIBCALL) == 0
-	  && (cum->prototype || TARGET_NO_PROTOTYPE))
+	  && (cum->stdarg
+	      || (cum->nargs_prototype < 0
+		  && (cum->prototype || TARGET_NO_PROTOTYPE))))
 	{
 	  /* For the SPE, we need to crxor CR6 always.  */
 	  if (TARGET_SPE_ABI)
@@ -5514,7 +5459,8 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
       mem = gen_rtx_MEM (BLKmode,
 			 plus_constant (save_area,
-					first_reg_offset * reg_size)),
+					first_reg_offset * reg_size));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       set_mem_align (mem, BITS_PER_WORD);
 
@@ -5549,6 +5495,7 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	   fregno++, off += UNITS_PER_FP_WORD, nregs++)
 	{
 	  mem = gen_rtx_MEM (DFmode, plus_constant (save_area, off));
+	  MEM_NOTRAP_P (mem) = 1;
 	  set_mem_alias_set (mem, set);
 	  set_mem_align (mem, GET_MODE_ALIGNMENT (DFmode));
 	  emit_move_insn (mem, gen_rtx_REG (DFmode, fregno));
@@ -9133,7 +9080,7 @@ expand_block_clear (rtx operands[])
 	  clear_bytes = 4;
 	  mode = SImode;
 	}
-      else if (bytes == 2 && (align >= 16 || !STRICT_ALIGNMENT))
+      else if (bytes >= 2 && (align >= 16 || !STRICT_ALIGNMENT))
 	{			/* move 2 bytes */
 	  clear_bytes = 2;
 	  mode = HImode;
@@ -9269,7 +9216,7 @@ expand_block_move (rtx operands[])
 	  mode = SImode;
 	  gen_func.mov = gen_movsi;
 	}
-      else if (bytes == 2 && (align >= 16 || !STRICT_ALIGNMENT))
+      else if (bytes >= 2 && (align >= 16 || !STRICT_ALIGNMENT))
 	{			/* move 2 bytes */
 	  move_bytes = 2;
 	  mode = HImode;
@@ -10379,7 +10326,7 @@ print_operand (FILE *file, rtx x, int code)
       /* PowerPC64 mask position.  All 0's is excluded.
 	 CONST_INT 32-bit mask is considered sign-extended so any
 	 transition must occur within the CONST_INT, not on the boundary.  */
-      if (! mask_operand (x, DImode))
+      if (! mask64_operand (x, DImode))
 	output_operand_lossage ("invalid %%S value");
 
       uval = INT_LOWPART (x);
@@ -12304,16 +12251,14 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      emit_insn (TARGET_32BIT
 			 ? gen_addsi3 (breg, breg, delta_rtx)
 			 : gen_adddi3 (breg, breg, delta_rtx));
-	      src = gen_rtx_MEM (mode, breg);
+	      src = replace_equiv_address (src, breg);
 	    }
 	  else if (! offsettable_memref_p (src))
 	    {
-	      rtx newsrc, basereg;
+	      rtx basereg;
 	      basereg = gen_rtx_REG (Pmode, reg);
 	      emit_insn (gen_rtx_SET (VOIDmode, basereg, XEXP (src, 0)));
-	      newsrc = gen_rtx_MEM (GET_MODE (src), basereg);
-	      MEM_COPY_ATTRIBUTES (newsrc, src);
-	      src = newsrc;
+	      src = replace_equiv_address (src, basereg);
 	    }
 
 	  breg = XEXP (src, 0);
@@ -12358,7 +12303,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		emit_insn (TARGET_32BIT
 			   ? gen_addsi3 (breg, breg, delta_rtx)
 			   : gen_adddi3 (breg, breg, delta_rtx));
-	      dst = gen_rtx_MEM (mode, breg);
+	      dst = replace_equiv_address (dst, breg);
 	    }
 	  else
 	    gcc_assert (offsettable_memref_p (dst));
@@ -18235,7 +18180,9 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
 		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
 					     mode == SImode ? 'L' : 'J'))
-		  || mask_operand (x, VOIDmode)))
+		  || mask_operand (x, mode)
+		  || (mode == DImode
+		      && mask64_operand (x, DImode))))
 	  || ((outer_code == IOR || outer_code == XOR)
 	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
 		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
@@ -18287,7 +18234,8 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && ((outer_code == AND
 	       && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
 		   || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
-		   || mask_operand (x, DImode)))
+		   || mask_operand (x, DImode)
+		   || mask64_operand (x, DImode)))
 	      || ((outer_code == IOR || outer_code == XOR)
 		  && CONST_DOUBLE_HIGH (x) == 0
 		  && (CONST_DOUBLE_LOW (x)

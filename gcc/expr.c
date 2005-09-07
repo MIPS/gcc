@@ -3615,7 +3615,7 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 	offset = 0;
 
       /* Now NOT_STACK gets the number of words that we don't need to
-	 allocate on the stack. Convert OFFSET to words too. */
+	 allocate on the stack.  Convert OFFSET to words too.  */
       not_stack = (partial - offset) / UNITS_PER_WORD;
       offset /= UNITS_PER_WORD;
 
@@ -4504,7 +4504,7 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 	      /* And now we have to find out if the element itself is fully
 		 constructed.  E.g. for union { struct { int a, b; } s; } u
 		 = { .s = { .a = 1 } }.  */
-	      if (elt_count == count_type_elements (init_sub_type))
+	      if (elt_count == count_type_elements (init_sub_type, false))
 		clear_this = false;
 	    }
 	}
@@ -4532,10 +4532,11 @@ categorize_ctor_elements (tree ctor, HOST_WIDE_INT *p_nz_elts,
 }
 
 /* Count the number of scalars in TYPE.  Return -1 on overflow or
-   variable-sized.  */
+   variable-sized.  If ALLOW_FLEXARR is true, don't count flexible
+   array member at the end of the structure.  */
 
 HOST_WIDE_INT
-count_type_elements (tree type)
+count_type_elements (tree type, bool allow_flexarr)
 {
   const HOST_WIDE_INT max = ~((HOST_WIDE_INT)1 << (HOST_BITS_PER_WIDE_INT-1));
   switch (TREE_CODE (type))
@@ -4546,7 +4547,7 @@ count_type_elements (tree type)
 	if (telts && host_integerp (telts, 1))
 	  {
 	    HOST_WIDE_INT n = tree_low_cst (telts, 1) + 1;
-	    HOST_WIDE_INT m = count_type_elements (TREE_TYPE (type));
+	    HOST_WIDE_INT m = count_type_elements (TREE_TYPE (type), false);
 	    if (n == 0)
 	      return 0;
 	    else if (max / n > m)
@@ -4563,9 +4564,23 @@ count_type_elements (tree type)
 	for (f = TYPE_FIELDS (type); f ; f = TREE_CHAIN (f))
 	  if (TREE_CODE (f) == FIELD_DECL)
 	    {
-	      t = count_type_elements (TREE_TYPE (f));
+	      t = count_type_elements (TREE_TYPE (f), false);
 	      if (t < 0)
-		return -1;
+		{
+		  /* Check for structures with flexible array member.  */
+		  tree tf = TREE_TYPE (f);
+		  if (allow_flexarr
+		      && TREE_CHAIN (f) == NULL
+		      && TREE_CODE (tf) == ARRAY_TYPE
+		      && TYPE_DOMAIN (tf)
+		      && TYPE_MIN_VALUE (TYPE_DOMAIN (tf))
+		      && integer_zerop (TYPE_MIN_VALUE (TYPE_DOMAIN (tf)))
+		      && !TYPE_MAX_VALUE (TYPE_DOMAIN (tf))
+		      && int_size_in_bytes (type) >= 0)
+		    break;
+
+		  return -1;
+		}
 	      n += t;
 	    }
 
@@ -4623,9 +4638,27 @@ mostly_zeros_p (tree exp)
       if (must_clear)
 	return 1;
 
-      elts = count_type_elements (TREE_TYPE (exp));
+      elts = count_type_elements (TREE_TYPE (exp), false);
 
       return nz_elts < elts / 4;
+    }
+
+  return initializer_zerop (exp);
+}
+
+/* Return 1 if EXP contains all zeros.  */
+
+static int
+all_zeros_p (tree exp)
+{
+  if (TREE_CODE (exp) == CONSTRUCTOR)
+
+    {
+      HOST_WIDE_INT nz_elts, nc_elts, count;
+      bool must_clear;
+
+      categorize_ctor_elements (exp, &nz_elts, &nc_elts, &count, &must_clear);
+      return nz_elts == 0;
     }
 
   return initializer_zerop (exp);
@@ -6828,6 +6861,19 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  return const0_rtx;
 	}
 
+      /* Try to avoid creating a temporary at all.  This is possible
+	 if all of the initializer is zero.
+	 FIXME: try to handle all [0..255] initializers we can handle
+	 with memset.  */
+      else if (TREE_STATIC (exp)
+	       && !TREE_ADDRESSABLE (exp)
+	       && target != 0 && mode == BLKmode
+	       && all_zeros_p (exp))
+	{
+	  clear_storage (target, expr_size (exp), BLOCK_OP_NORMAL);
+	  return target;
+	}
+
       /* All elts simple constants => refer to a constant in memory.  But
 	 if this is a non-BLKmode mode, let it store a field at a time
 	 since that should make a CONST_INT or CONST_DOUBLE when we
@@ -7132,25 +7178,30 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 			  || modifier == EXPAND_STACK_PARM)
 			 ? modifier : EXPAND_NORMAL);
 
-	/* If this is a constant, put it into a register if it is a
-	   legitimate constant and OFFSET is 0 and memory if it isn't.  */
+	/* If this is a constant, put it into a register if it is a legitimate
+	   constant, OFFSET is 0, and we won't try to extract outside the
+	   register (in case we were passed a partially uninitialized object
+	   or a view_conversion to a larger size).  Force the constant to
+	   memory otherwise.  */
 	if (CONSTANT_P (op0))
 	  {
 	    enum machine_mode mode = TYPE_MODE (TREE_TYPE (tem));
 	    if (mode != BLKmode && LEGITIMATE_CONSTANT_P (op0)
-		&& offset == 0)
+		&& offset == 0
+		&& bitpos + bitsize <= GET_MODE_BITSIZE (mode))
 	      op0 = force_reg (mode, op0);
 	    else
 	      op0 = validize_mem (force_const_mem (mode, op0));
 	  }
 
- 	/* Otherwise, if this object not in memory and we either have an
- 	   offset or a BLKmode result, put it there.  This case can't occur in
- 	   C, but can in Ada if we have unchecked conversion of an expression
- 	   from a scalar type to an array or record type or for an
- 	   ARRAY_RANGE_REF whose type is BLKmode.  */
+	/* Otherwise, if this object not in memory and we either have an
+	   offset, a BLKmode result, or a reference outside the object, put it
+	   there.  Such cases can occur in Ada if we have unchecked conversion
+	   of an expression from a scalar type to an array or record type or
+	   for an ARRAY_RANGE_REF whose type is BLKmode.  */
 	else if (!MEM_P (op0)
 		 && (offset != 0
+		     || (bitpos + bitsize > GET_MODE_BITSIZE (GET_MODE (op0)))
 		     || (code == ARRAY_RANGE_REF && mode == BLKmode)))
 	  {
 	    tree nt = build_qualified_type (TREE_TYPE (tem),
@@ -7490,18 +7541,27 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VIEW_CONVERT_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, modifier);
 
-      /* If the input and output modes are both the same, we are done.
-	 Otherwise, if neither mode is BLKmode and both are integral and within
-	 a word, we can use gen_lowpart.  If neither is true, make sure the
-	 operand is in memory and convert the MEM to the new mode.  */
+      /* If the input and output modes are both the same, we are done.  */
       if (TYPE_MODE (type) == GET_MODE (op0))
 	;
+      /* If neither mode is BLKmode, and both modes are the same size
+	 then we can use gen_lowpart.  */
       else if (TYPE_MODE (type) != BLKmode && GET_MODE (op0) != BLKmode
-	       && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-	       && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-	       && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_WORD
-	       && GET_MODE_SIZE (GET_MODE (op0)) <= UNITS_PER_WORD)
-	op0 = gen_lowpart (TYPE_MODE (type), op0);
+	       && GET_MODE_SIZE (TYPE_MODE (type))
+		   == GET_MODE_SIZE (GET_MODE (op0)))
+	{
+	  if (GET_CODE (op0) == SUBREG)
+	    op0 = force_reg (GET_MODE (op0), op0);
+	  op0 = gen_lowpart (TYPE_MODE (type), op0);
+	}
+      /* If both modes are integral, then we can convert from one to the
+	 other.  */
+      else if (SCALAR_INT_MODE_P (GET_MODE (op0))
+	       && SCALAR_INT_MODE_P (TYPE_MODE (type)))
+	op0 = convert_modes (TYPE_MODE (type), GET_MODE (op0), op0, 
+			     TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+      /* As a last resort, spill op0 to memory, and reload it in a 
+	 different mode.  */
       else if (!MEM_P (op0))
 	{
 	  /* If the operand is not a MEM, force it into memory.  Since we
@@ -7622,7 +7682,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    }
 
 	  else if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST
-		   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_INT
+		   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 		   && TREE_CONSTANT (TREE_OPERAND (exp, 0)))
 	    {
 	      rtx constant_part;

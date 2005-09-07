@@ -3037,12 +3037,10 @@ namespace_ancestor (tree ns1, tree ns2)
 void
 do_namespace_alias (tree alias, tree namespace)
 {
-  if (TREE_CODE (namespace) != NAMESPACE_DECL)
-    {
-      /* The parser did not find it, so it's not there.  */
-      error ("unknown namespace %qD", namespace);
-      return;
-    }
+  if (namespace == error_mark_node)
+    return;
+
+  gcc_assert (TREE_CODE (namespace) == NAMESPACE_DECL);
 
   namespace = ORIGINAL_NAMESPACE (namespace);
 
@@ -3191,26 +3189,15 @@ do_using_directive (tree namespace)
 {
   tree context = NULL_TREE;
 
+  if (namespace == error_mark_node)
+    return;
+
+  gcc_assert (TREE_CODE (namespace) == NAMESPACE_DECL);
+
   if (building_stmt_tree ())
     add_stmt (build_stmt (USING_STMT, namespace));
-
-  /* using namespace A::B::C; */
-  if (TREE_CODE (namespace) == SCOPE_REF)
-      namespace = TREE_OPERAND (namespace, 1);
-  if (TREE_CODE (namespace) == IDENTIFIER_NODE)
-    {
-      /* Lookup in lexer did not find a namespace.  */
-      if (!processing_template_decl)
-	error ("namespace %qT undeclared", namespace);
-      return;
-    }
-  if (TREE_CODE (namespace) != NAMESPACE_DECL)
-    {
-      if (!processing_template_decl)
-	error ("%qT is not a namespace", namespace);
-      return;
-    }
   namespace = ORIGINAL_NAMESPACE (namespace);
+
   if (!toplevel_bindings_p ())
     {
       push_using_directive (namespace);
@@ -4872,12 +4859,14 @@ push_to_top_level (void)
   s->bindings = b;
   s->need_pop_function_context = need_pop;
   s->function_decl = current_function_decl;
+  s->skip_evaluation = skip_evaluation;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
   current_lang_base = VEC_alloc (tree, gc, 10);
   current_lang_name = lang_name_cplusplus;
   current_namespace = global_namespace;
+  skip_evaluation = 0;
   timevar_pop (TV_NAME_LOOKUP);
 }
 
@@ -4909,6 +4898,7 @@ pop_from_top_level (void)
   if (s->need_pop_function_context)
     pop_function_context_from (NULL_TREE);
   current_function_decl = s->function_decl;
+  skip_evaluation = s->skip_evaluation;
   timevar_pop (TV_NAME_LOOKUP);
 }
 

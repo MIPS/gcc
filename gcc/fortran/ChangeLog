@@ -1,3 +1,92 @@
+2005-09-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/23661
+	* io.c (match_io): Correctly backup if PRINT followed by
+	symbol which is not a namelist.  Force blank between PRINT
+	and namelist in free form.
+
+2005-08-31  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/20592
+	* gfortran.h (gfc_option_t): Add flag_automatic.
+	* invoke.texi: Document the -fno-automatic option.
+	* lang.opt: Add a -fautomatic option.
+	* options.c (gfc_init_options): Default for -fautomatic is on.
+	(gfc_handle_option): Add handling of -fautomatic option.
+	* resolve.c (gfc_resolve): When -fno-automatic is used, mark
+	needed variables as SAVE.
+
+2005-08-27  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	* trans-array.c (gfc_trans_deferred_array): Fix comments.
+
+2005-08-27  Erik Schnetter  <schnetter@aei.mpg.de>
+
+	* primary.c (match_charkind_name): Fix typo in comment leading to
+	function.
+
+2005-08-25  Erik Edelmann  <eedelman@acclab.helsinki.fi>
+
+	PR fortran/20363
+	* symbol.c (find_special): Remove.
+	(build_sym, add_init_expr, attr_decl1): Remove calls to
+	find_special in favor of calls to gfc_get_symbol.
+
+2005-08-24  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/17758
+	* gfortran.h (symbol_attribute):  Add noreturn to the structure.
+	(gfc_intrinsic_sym):  Add noreturn to the structure.
+	* intrinsic.c (make_noreturn):  New function.
+	(add_subroutines):  Mark subroutines abort and exit as noreturn.
+	(gfc_intrinsic_sub_interface):  Copy noreturn attribute from
+	isym to the resolved symbol.
+	* trans-decl.c (gfc_get_extern_function_decl): Set function
+	as VOLATILE (== noreturn) if the noreturn attribute is set.
+
+2005-08-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* decl.c: Typo in comment.
+
+2005-08-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* array.c: Bump GFC_MAX_AC_EXPAND from 100 to 65535.
+
+2005-08-21  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.h (gfc_option_t): Remove source field.  Add
+	flag_d_lines field.
+	(gfc_new_file): Remove arguments in prototype.
+	(gfc_source_file): Make 'const char *'.
+	* f95-lang.c (gfc_init): Use gfc_source_file instead of
+	gfc_option.source.  Call gfc_new_file without arguments.
+	* invoke.texi: Document new options '-fd-lines-as-code' and
+	'-fd-lines-as-comment'.
+	* lang.opt: Add new options.  Alphabetize.
+	* options.c (gfc_init_options): Initialize gfc_source_file instead
+	of gfc_option.source.  Initialize gfc_option.flag_d_lines.
+	(form_from_filename): Move here from scanner.c.  Make
+	'filename' argument 'const'.
+	(gfc_post_options): Set gfc_source_file.  Determine source form.
+	Warn if 'd-lines*' are used in free form.
+	* scanner.c (gfc_source_file): Constify.
+	(skip_fixed_comments): Deal with d-lines.
+	(get_file): Constify argument 'name'.
+	(load_file): Constify argument 'filename'.
+	(form_from_filename): Moved to options.c.
+	(gfc_new_file): Remove arguments.  Don't initialize
+	gfc_source_file, don't determine source form.
+	* trans-const.c (gfc_init_constants): Use gfc_source_file instead
+	of gfc_option.source.
+
+2005-08-19  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/23065
+	* gfortran.h: Remove PATH_MAX definition.
+	* module.c (write_module, gfc_dump_module): Use alloca to allocate
+	buffers.
+	* scanner.c (gfc_release_include_path, form_from_filename): Ditto.
+
 2004-08-16  Huang Chun  <chunhuang73@hotmail.com>
 
 	* trans-expr.c (gfc_conv_power_op): Evaluate the expression before
@@ -5,7 +94,7 @@
 
 2005-08-14  Asher Langton  <langton2@llnl.gov>
 
-	* parse.c (match): Enclosed macro in do...while(0) and braces.
+	* parse.c (match): Enclose macro in do...while(0) and braces.
 
 2005-08-14  Paul Thomas  <pault@gcc.gnu.org>
 

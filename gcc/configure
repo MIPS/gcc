@@ -9116,8 +9116,7 @@ fi
 
 
 
-
-for ac_func in times clock dup2 kill getrlimit setrlimit atoll atoq \
+for ac_func in times clock kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal getrusage nl_langinfo scandir alphasort \
 	gettimeofday mbstowcs wcswidth mmap mincore setlocale \
 	clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked
@@ -15493,8 +15492,8 @@ _ACEOF
 
 fi
 
-case "$target" in
-  powerpc64*-*-linux*)
+case "$target:$tm_file" in
+  powerpc64*-*-linux* | powerpc*-*-linux*rs6000/biarch64.h*)
     echo "$as_me:$LINENO: checking linker support for omitting dot symbols" >&5
 echo $ECHO_N "checking linker support for omitting dot symbols... $ECHO_C" >&6
 if test "${gcc_cv_ld_no_dot_syms+set}" = set; then

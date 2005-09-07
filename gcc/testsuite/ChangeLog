@@ -1,3 +1,453 @@
+2005-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/23075
+	* gcc.dg/pr23075.c: New test.
+	* g++.dg/warn/pr23075.C: New test.
+
+	PR target/22362
+	* gcc.target/i386/pr22362.c: New test.
+
+	PR rtl-optimization/23098
+	* gcc.target/i386/pr23098.c: Add dg-require-effective-target ilp32.
+
+	* gcc.dg/debug/dwarf2/dwarf-char1.c: Further regex fixes.
+	* gcc.dg/debug/dwarf2/dwarf-char2.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-char3.c: Likewise.
+
+2005-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/expr/cast6.C: New test.
+
+	PR c++/9782
+	* g++.dg/init/new15.C: New test.
+
+2005-09-06  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* gcc.dg/vect/Os-vect-95.c: New test.
+	* gcc.dg/vect/vect-95.c: Same.
+
+2005-09-06  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* gcc.dg/vect/vect-29.c: Update xfail testing.
+	* gcc.dg/vect/vect-44.c: Same.
+	* gcc.dg/vect/vect-48.c: Same.
+	* gcc.dg/vect/vect-50.c: Same.
+	* gcc.dg/vect/vect-72.c: Same.
+	* gcc.dg/vect/vect-77.c: Same.
+	* gcc.dg/vect/vect-78.c: Same.
+	* gcc.dg/vect/vect-80.c: Same.
+	* gcc.dg/vect/vect-96.c: Same.
+	* gcc.dg/vect/vect-100.c: Same.
+	* gcc.dg/vect/vect-exp: Add default flags for Os-vect-*.
+	* gfortran.dg/vect/vect-2.f90: Update xfail testing.
+	* gfortran.dg/vect/vect-5.f90: Same.
+
+2005-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/debug/dwarf2/dwarf-char1.c: Accept more assembler comment
+	start strings.
+	* gcc.dg/debug/dwarf2/dwarf-char2.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-char3.c: Likewise.
+
+	PR c++/23056
+	* g++.dg/opt/pr23056.C: New test.
+
+	PR rtl-optimization/23098
+	* gcc.target/i386/pr23098.c: New test.
+
+2005-09-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23667
+	* g++.dg/template/static15.C: New test.
+
+	PR c++/21440
+	* g++.dg/ext/stmtexpr5.C: New test.
+	* g++.dg/ext/stmtexpr6.C: Likewise.
+
+2005-09-05  J"orn Rennecke <joern.rennecke@st.com>
+
+	* gcc.dg/pr21255-1.c: Match different pattern for sh64.
+
+	* gcc.dg/debug/dwarf2/dwarf-char1.c: Allow '!' comment character.
+	* gcc.dg/debug/dwarf2/dwarf-char2.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-char3.c: Likewise.
+
+2005-09-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23321
+	* gfortran.dg/direct_io_4.f90:  New test case.
+
+2005-09-04  Andrew Pinski  <pinskia@physics.uc.edu>
+            Rasmus Hahn  <rassahah@neofonie.de>
+
+	PR libobjc/23108
+	* objc.dg/type-stream-1.m: New test.
+
+2005-09-04  Tobias Schl"uter  <tobias.shclueter@physik.uni-muenchen.de>
+
+	PR fortran/23661
+	* gfortran.dg/print_fmt_1.f90, gfortran.dg/print_fmt_2.f90
+	gfortran.dg/print_fmt_3.f90: New test.
+
+2005-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/fmt_t_1.f90: New test.
+
+2005-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23454
+	* g++.dg/opt/pr23454.C: New test.
+
+2005-09-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23699
+	* g++.dg/ext/static1.C: New test.
+
+2005-09-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/frame-address.c (check_fa_mid): Avoid
+	tail call to check_fa_work.
+
+2005-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21687
+	* g++.dg/other/gc3.C: New test.
+
+2005-08-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/20030711-1.c: Include stddef.h and stdio.h.
+	* gcc.dg/20050826-1.c: Likewise.
+
+2005-08-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23167
+	* g++.dg/expr/volatile1.C: New test.
+
+2005-09-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23547
+	* gcc.dg/pr23547.c: New test.
+
+2005-09-02  Richard Sandiford  <richard@codesourcery.com>
+
+	PR c/22061
+	* gcc.c-torture/execute/pr22061-1.c,
+	* gcc.c-torture/execute/pr22061-2.c,
+	* gcc.c-torture/execute/pr22061-3.c,
+	* gcc.c-torture/execute/pr22061-4.c: New tests.
+
+2005-09-01  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	* gcc.dg/Wredundant-decls-2.c: New test to check that
+	-Wredundant-decls does not issue warning for a variable 
+	definition following a declaration.
+
+2005-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/7241
+	* gcc.dg/debug/dwarf2/dwarf-char1.c: New test.
+	* gcc.dg/debug/dwarf2/dwarf-char2.c: New test.
+	* gcc.dg/debug/dwarf2/dwarf-char3.c: New test.
+
+	* gcc.dg/debug/dwarf2/dwarf-die1.c: Fix a typo.
+	* gcc.dg/debug/dwarf2/dwarf-die2.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die3.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die5.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die6.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-die7.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-uninit.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf2-macro.c: Likewise.
+
+2005-08-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/23306
+	* objc.dg/image-info.m: Remove "objc_module_info" check part of the
+	scan-assmbler.
+
+2005-08-31  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/21255
+	* gcc.dg/pr21255-1.c: New test.
+	* gcc.dg/pr21255-2-mb.c: Likewise.
+	* gcc.dg/pr21255-2-ml.c: Likewise.
+	* gcc.dg/pr21255-3.c: Likewise.
+	* gcc.dg/pr21255-4.c: Likewise.
+
+2005-08-31  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/20050830-1.c:  New.
+
+2005-08-31  Josh Conner  <jconner@apple.com>
+
+	* g++.dg/ext/packed8.C: Add -mstructure-size-boundary=8 to
+	command-line options for arm-*-* targets.
+	* g++.dg/init/array16.C: Likewise.
+	* g++.dg/other/crash-4.C: Likewise.
+
+2005-08-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR obj-c++/23640
+	* obj-c++.dg/gnu-runtime-3.mm: New test.
+
+2005-08-31  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/13377
+	* g++.dg/lookup/ambig4.C: New test.
+	* g++.dg/lookup/ambig5.C: New test.
+	* g++.dg/tc1/dr101.C: Adjust error markers.
+
+2005-08-31  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23639
+	* g++.dg/template/ttp5.C: Adjust error markers.
+
+2005-08-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR testsuite/23609
+	* lib/obj-c++.exp: Include target-libpath.exp.
+	(obj-c++_link_flags): Look for the GNU libobjc library
+	and set the library path to include it.
+	Don't manually set LD_LIBRARY_PATH (etc.) but call
+	set_ld_library_path_env_vars instead.
+	(obj-c++_target_compile): Don't set library path or
+	linker flags because they are already set correctly
+	in obj-c++_link_flags.
+
+2005-08-30  Josh Conner  <jconner@apple.com>
+
+	* gcc.dg/builtin-stringop-chk-1.c: Add -mstructure-size-boundary=8
+	to command-line options for arm-*-* targets.
+
+2005-08-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/other/i386-1.C: New.
+
+2005-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/20348
+	PR preprocessor/20356
+	* gcc.dg/cpp/pr20348.c: New test.
+	* gcc.dg/cpp/pr20348.h: New file.
+	* gcc.dg/cpp/inc/pr20348.h: New file.
+	* gcc.dg/cpp/inc/pr20348-aux.h: New file.
+	* gcc.dg/cpp/pr20356.c: New test.
+	* gcc.dg/cpp/pr20356.h: New file.
+	* gcc.dg/cpp/inc/pr20356.h: New file.
+	* gcc.dg/cpp/inc/pr20356-aux.h: New file.
+
+2005-08-29  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* gfortran.fortran-torture/execute/intrinsic_count.f90:
+	Fix array dimension to avoid correct end-of-file error.
+
+2005-08-29  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23598
+	* gfortran.dg/iostat_1.f90:  New test.
+
+2005-08-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23408
+	* gcc.dg/pr23408.c: New test.
+
+2005-08-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23099
+	* g++.dg/init/member1.C: Make sure erroneous static data member
+	definitions are required.
+	* g++.dg/template/static13.C: New test.
+	* g++.dg/template/static14.C: Likewise.
+
+2005-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/pr23575.c: Use -msse2 instead of
+	-march=pentium4, remove ilp32 requirement.
+
+	PR middle-end/23484
+	* gcc.c-torture/execute/builtins/pr23484-chk.c: New test.
+	* gcc.c-torture/execute/builtins/pr23484-chk-lib.c: New file.
+
+2005-08-29  Andreas Jaeger  <aj@suse.de>
+
+	PR testsuite/23607
+	* gcc.target/i386/pr23575.c: Run only on 32-bit x86.
+
+2005-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20050316-2.c: New test.
+	* gcc.c-torture/execute/20050316-3.c: New test.
+	* gcc.dg/torture/pr16104-1.c: New test.
+
+2005-08-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23463
+	* gcc.c-torture/execute/zero-struct-1.c: New test.
+
+2005-08-27  Richard Guenther  <rguenther@suse.de>
+
+	PR target/23575
+	* gcc.target/i386/pr23575.c: New testcase.
+
+2005-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23561
+	* gcc.c-torture/execute/20050826-1.c: New test.
+
+	PR rtl-opt/23560
+	* gcc.c-torture/execute/20050826-2.c: New test.
+
+2005-08-26  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/20030711-1.c:  Modify to work on Darwin.
+	* gcc.dg/20050826-1.c:  New.
+
+2005-08-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19004
+	* g++.dg/template/nontype13.C: New test.
+
+	PR c++/23491
+	* g++.dg/init/new14.C: New test.
+	* g++.dg/expr/anew1.C: Do not XFAIL.
+	* g++.dg/expr/anew2.C: Likewise.
+	* g++.dg/expr/anew3.C: Likewise.
+
+2005-08-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/22439
+	* gcc.dg/vla-3.c: New test.
+
+2005-08-25  Erik Edelmann  <eedelman@acclab.helsinki.fi>
+
+	PR fortran/20363
+	* gfortran.dg/named_interface.f90: New.
+
+2005-08-26  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* gcc.c-torture/execute/frame-address.c: New test.
+
+2005-08-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20817
+	* g++.old-deja/g++.benjamin/13908.C: Robustify expected error.
+
+2005-08-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/vect/vect-52.c: Increase b[] and c[] size by one.
+
+2005-08-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/20020103-1.c: Scan for LC[0-9], not LC.
+	* gcc.dg/altivec-22.c: Rename from..
+	* gcc.dg/altivec-nomfcr.c: ..this.
+
+2005-08-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/23546
+	* gcc.dg/tree-ssa/pr23546.c: New test.
+
+2005-08-24  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/17758
+	* gfortran.dg/nonreturning_statements.f90: New test.
+
+2005-08-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/22454
+	* g++.dg/parse/crash29.C: New.
+
+2005-08-23  DJ Delorie  <dj@redhat.com>
+
+	* gcc.c-torture/execute/stdarg-2.c (main): Make sure long
+	constants have the L suffix.
+
+2005-08-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/23044
+	* g++.dg/template/instantiate8.C: New.
+
+2005-08-23  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR middle-end/23467
+	* gcc.c-torture/execute/pr23467.c: New test.
+
+2005-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/22043
+	* gcc.c-torture/execute/20050613-1.c: New test.
+
+2005-08-23  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Load gcc-dg.exp library.
+
+2005-08-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23478
+	* g++.dg/opt/pr23478.C: New test.
+
+2005-08-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/18715
+	* gcc.dg/switch-warn-3.c: New test.
+
+2005-08-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22233
+	* g++.dg/template/param1.C: New test.
+
+2005-08-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23089
+	* g++.dg/other/incomplete1.C: New test.
+
+2005-08-22  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-22.c: Add test for float. All four loops
+	are vectorizable.
+
+2005-08-21  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* d_lines_1.f, d_lines_2.f, d_lines_3.f, d_lines_4.f,
+	d_lines_5.f: New.
+
+2005-08-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/sse-4.c: New test.
+
+2005-08-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/23239
+	* gcc.dg/tree-prof/val-prof-5.c: Fix scan-tree-dump regexp.
+
+2005-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20050811-1.c: New test.
+	* gcc.dg/20050811-2.c: New test.
+
+2005-08-20  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* gcc.dg/arm-eabi1.c (main): Exit with 0 on success.
+
+2005-08-19  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 23476
+	* gcc.c-torture/compile/pr23476.c: New test.
+
+2005-08-19  Devang Patel  <dpatel@apple.com>
+
+	PR tree-optimization/23048
+	* gcc.dg/tree-ssa/pr23048.c: New test.
+
+2005-08-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/20624
+	* g++.dg/warn/Wreturn-3.C: New test
+
+2005-08-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/22228
+	* g++.dg/vect/pr22543.cc: New test.
+
 2005-08-17  Steven Bosscher  <stevenb@suse.de>
 
 	PR tree-optimization/21574
@@ -22,6 +472,10 @@
 
 	PR c++/23337
 	* g++.dg/ext/vector2.C: New.
+
+2005-08-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.dg/inquire-complex.f90:  Correct mangled testcase.
 
 2005-08-16  Thomas Koenig  <Thomas.Koenig@online.de>
 
@@ -66,7 +520,7 @@
 	* gcc.dg/vect/vect-80: Likewise.
 	* gcc.dg/vect/vect-35: Likewise, and also check that the test wasn't
         vectorized for the expected reason, rather than checking how alignment
-        was handled. 
+        was handled.
 	* gcc.dg/vect/vect-92.c: Use aligned arrays instead of arrays to aligned
         type and also instead of aligned pointers. Added documentation.
 
@@ -100,10 +554,10 @@
 	* gfortran.dg/namelist_print_2.f: New test to check that PRINT
 	namelist generates error with -std=f95.
 
-2005-08-14  Ira Rosen  <irar@il.ibm.com>   
+2005-08-14  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/23119
-	* gcc.dg/vect/vect-105.c: Add xfail for no_align targets. 
+	* gcc.dg/vect/vect-105.c: Add xfail for no_align targets.
 
 2005-08-13  Marcin Koziej  <creep@desk.pl>
             Andrew Pinski  <pinskia@physics.uc.edu>
@@ -267,7 +721,7 @@
 2005-08-07  Janne Blomqvist <jblomqvi@cc.hut.fi>
             Steven G. Kargl <kargls@comcast.net>
 
-	PR fortran/22390 
+	PR fortran/22390
 	* gfortran.dg/flush_1.f90: New test.
 
 2005-08-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
@@ -323,7 +777,7 @@
 	TEST_TO_WCTYPE.
 
 2005-08-04  Danny Smith  <dannysmith@users.sourceforge.net>
-	
+
 	* gcc.dg/torture/builtin-wctype-1.c: Use __WCHAR_TYPE__ and
 	__WINT_TYPE__ in generated prototypes if possible.
 
@@ -536,7 +990,7 @@
 	* gcc.c-torture/compile/pr22589-1.c: New test.
 
 2005-07-28  Jan Hubicka  <jh@suse.cz>
-	
+
 	* update-loopch.c: New testcase.
 
 2005-07-27  James A. Morrison  <phython@gcc.gnu.org>
@@ -681,7 +1135,7 @@
 2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
 
         * gfortran.fortran-torture/execute/nan_inf_fmt.f90: Revise test to
-        include case of field width of zero. 
+        include case of field width of zero.
 
 2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
 
@@ -750,7 +1204,7 @@
 
 	PR c++/2922
 	* g++.dg/lookup/two-stage5.C: New test from bug comments.
-	
+
 2005-07-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/15938
@@ -792,14 +1246,14 @@
 	* g++.dg/lookup/two-stage4.C: New. Illustrates how we have not yet
 	fixed two-stage name lookup for operators.
 	* g++.dg/template/call3.C: Compiler now produces an appropriate
-	error message. 
+	error message.
 	* g++.dg/template/crash37.C: Compiler now describes bla() on line
-	14 as a candidate. 
+	14 as a candidate.
 	* g++.dg/template/ptrmem4.C: Compiler produces different error
 	message.
 	* g++.old-deja/g++.other/pmf3.C: Compiler now describes
 	connect_to_method as a candidate.
-	
+
 2005-07-20  James A. Morrison  <phython@gcc.gnu.org>
 
 	* gcc.dg/fold-alloc-1.c: New test.
@@ -858,7 +1312,7 @@
 
 	* gfortran.fortran-torture/execute/nan_inf_fmt.f90: Change case of field
 	width of 8 to +Inf and -Inf.
-    
+
 2005-07-17  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/22139
@@ -1236,7 +1690,7 @@
 
 2005-05-29  Richard Henderson  <rth@redhat.com>
 
-	* lib/target-supports.exp (check_effective_target_vect_no_max): 
+	* lib/target-supports.exp (check_effective_target_vect_no_max):
 	Remove i386 and x86_64.
 
 2005-06-29  Steve Ellcey  <sje@cup.hp.com>
@@ -1258,7 +1712,7 @@
 	* gcc.dg/inline3.c: Ditto.
 	* gcc.dg/inline4.c: Ditto.
 	* gcc.dg/inline5.c: Ditto.
-	
+
 2005-06-28  Thomas Koenig  <Thomas.Koenig@online.de>
 
         PR libfortran/22142
@@ -1465,7 +1919,7 @@
 
 	* gfortran.dg/f2c_4.f90:  Add tests for complex functions
 	* gfortran.dg/f2c_4.c: Likewise
-	
+
 2005-06-22 Paul Brook  <paul@codesourcery.com>
 
 	PR fortran/21034
@@ -1516,7 +1970,7 @@
 
 2005-06-21  Dorit Nuzman  <dorit@il.ibm.com>
 
-	* lib/target-supports.exp (check_effective_target_vect_reduction): 
+	* lib/target-supports.exp (check_effective_target_vect_reduction):
 	Remove.
 	* gcc.dg/vect/vect.exp: Run tests with additional flags separately.
 	* gcc.dg/vect/vect-reduc-1.c: Vectorizable on all relevant platforms -
@@ -1537,7 +1991,7 @@
 
 	* gfortran.dg/func_derived_2.f90, gfortran.dg/func_derived_3.f90:
 	New tests.
-	
+
 2005-06-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	* gfortran.dg/backslash_1.f90: New test.
@@ -1765,6 +2219,11 @@
 	* gcc.dg/vect/vect-ifcvt-1.c: Likewise.
 	* gcc.dg/vect/vect-91.c: New test. Test that accesses with same
 	alignment were detected.
+
+2005-06-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR c++/10611
+	* g++.dg/conversion/simd2.C: New.
 
 2005-06-09  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 

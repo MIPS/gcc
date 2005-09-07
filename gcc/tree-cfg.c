@@ -1273,6 +1273,10 @@ replace_uses_by (tree name, tree val)
       if (TREE_CODE (rhs) == ADDR_EXPR)
 	recompute_tree_invarant_for_addr_expr (rhs);
 
+      /* If the statement could throw and now cannot, we need to prune cfg.  */
+      if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
+	tree_purge_dead_eh_edges (bb_for_stmt (stmt));
+
       mark_new_vars_to_rename (stmt);
     }
 
@@ -3037,6 +3041,22 @@ reinstall_phi_args (edge new_edge, edge old_edge)
   PENDING_STMT (old_edge) = NULL;
 }
 
+/* Returns the basic block after that the new basic block created
+   by splitting edge EDGE_IN should be placed.  Tries to keep the new block
+   near its "logical" location.  This is of most help to humans looking
+   at debugging dumps.  */
+
+static basic_block
+split_edge_bb_loc (edge edge_in)
+{
+  basic_block dest = edge_in->dest;
+
+  if (dest->prev_bb && find_edge (dest->prev_bb, dest))
+    return edge_in->src;
+  else
+    return dest->prev_bb;
+}
+
 /* Split a (typically critical) edge EDGE_IN.  Return the new block.
    Abort on abnormal edges.  */
 
@@ -3052,13 +3072,7 @@ tree_split_edge (edge edge_in)
   src = edge_in->src;
   dest = edge_in->dest;
 
-  /* Place the new block in the block list.  Try to keep the new block
-     near its "logical" location.  This is of most help to humans looking
-     at debugging dumps.  */
-  if (dest->prev_bb && find_edge (dest->prev_bb, dest))
-    after_bb = edge_in->src;
-  else
-    after_bb = dest->prev_bb;
+  after_bb = split_edge_bb_loc (edge_in);
 
   new_bb = create_empty_bb (after_bb);
   new_bb->frequency = EDGE_FREQUENCY (edge_in);
@@ -4346,7 +4360,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
 	entry_freq = total_freq;
     }
 
-  copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
+  copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop,
+	    split_edge_bb_loc (entry));
   if (total_count)
     {
       scale_bbs_frequencies_gcov_type (region, n_region,
@@ -5110,7 +5125,8 @@ execute_warn_function_return (void)
 	{
 	  tree last = last_stmt (e->src);
 	  if (TREE_CODE (last) == RETURN_EXPR
-	      && TREE_OPERAND (last, 0) == NULL)
+	      && TREE_OPERAND (last, 0) == NULL
+	      && !TREE_NO_WARNING (last))
 	    {
 #ifdef USE_MAPPED_LOCATION
 	      location = EXPR_LOCATION (last);

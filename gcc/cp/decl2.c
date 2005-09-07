@@ -1790,7 +1790,7 @@ import_export_decl (tree decl)
 	      /* The generic C++ ABI says that class data is always
 		 COMDAT, even if there is a key function.  Some
 		 variants (e.g., the ARM EABI) says that class data
-		 only has COMDAT linkage if the the class data might
+		 only has COMDAT linkage if the class data might
 		 be emitted in more than one translation unit.  */
 	      if (!CLASSTYPE_KEY_METHOD (class_type)
 		  || targetm.cxx.class_data_always_comdat ())
@@ -3078,8 +3078,9 @@ cp_finish_file (void)
 			/*data=*/&locus);
   else
     {
-
-      if (static_ctors)
+      /* If we have a ctor or this is obj-c++ and we need a static init,
+         call generate_ctor_or_dtor_function.  */
+      if (static_ctors || (c_dialect_objc () && objc_static_init_needed_p ()))
 	generate_ctor_or_dtor_function (/*constructor_p=*/true,
 					DEFAULT_INIT_PRIORITY, &locus);
       if (static_dtors)
@@ -3269,7 +3270,12 @@ mark_used (tree decl)
       && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	  || (TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_INLINE (DECL_TEMPLATE_RESULT
-			      (template_for_substitution (decl))))))
+			      (template_for_substitution (decl))))
+	  /* We need to instantiate static data members so that there
+	     initializers are available in integral constant
+	     expressions.  */
+	  || (TREE_CODE (decl) == VAR_DECL
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
     /* We put off instantiating functions in order to improve compile
        times.  Maintaining a stack of active functions is expensive,
        and the inliner knows to instantiate any functions it might

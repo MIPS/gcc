@@ -1,3 +1,66 @@
+2005-09-05  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/list_read.c:  Adjust size of of value to 32 (to hold
+	kind=16 complex values).
+
+2005-09-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23321
+	* io/transfer.c(data_transfer_init):  Check for a too-large
+	record number.  Return if sseek failed.
+
+2005-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* io/read.c (read_x): Take int argument instead of fnode * and
+	digging the N from F->u.n.
+	* io/io.h (read_x): Adjust prototype.
+	* io/transfer.c (formatted_transfer): Adjust callers.  Don't clobber
+	f->u.n for FMT_T.
+
+2005-09-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/unix.c (stream_ttyname): Protect use of ttyname by
+	HAVE_TTYNAME macro.
+	* configure.ac: Add check for ttyname.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2005-09-02  Andreas Jaeger  <aj@suse.de>
+
+	* libgfortran.h: Add prototype for init_compile_options.
+
+	* io/io.h: Add prototype for notify_std.
+
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	* io/read.c (set_integer): Use memcpy to fill buffer.
+
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23556
+	* io/read.c (convert_real): Use memcpy to fill buffer.
+
+2005-08-29  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23598
+	* io/lock.c(library_start):  If ioparm.iostat is present, clear
+	it unconditionally.
+
+2005-08-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* acinclude.m4 (LIBGFOR_CHECK_UNLINK_OPEN_FILE): Add check to see
+	if target can unlink open files.
+	* configure.ac: Use this new test.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* aclocal.ac: Regenerate.
+	* io/io.h: Add prototype for unpack_filename.
+	* io/close.c (st_close): Delete file after closing unit if
+	HAVE_UNLINK_OPEN_FILE is not defined.
+	* io/unix.c (unpack_filename): Unlink scratch file after opening
+	it only if HAVE_UNLINK_OPEN_FILE is defined.
+
 2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* All files: Update FSF address.

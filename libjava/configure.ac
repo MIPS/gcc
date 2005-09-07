@@ -668,6 +668,17 @@ AC_SUBST(PANGOFT2_CFLAGS)
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
 
+# extra LD Flags which are required for targets
+case "${host}" in
+*-*-darwin[[0-7]].*)
+    # For now we have to disable it on darwin[8-9] because it slows down
+    # the linking phase. A possible bug in ld?
+    # on Darwin -single_module speeds up loading of the dynamic libraries.
+    extra_ldflags_libjava=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libjava)
+
 # Allow the GC to be disabled.  Can be useful when debugging.
 AC_MSG_CHECKING([for garbage collector to use])
 AC_ARG_ENABLE(java-gc,
@@ -1142,14 +1153,21 @@ CPPFLAGS="$CPPFLAGS -I`${PWDCMD-pwd}` -I`cd $srcdir && ${PWDCMD-pwd}`"
 if test ! -f gnu/classpath/Configuration.java; then
   test -d gnu || mkdir gnu
   test -d gnu/classpath || mkdir gnu/classpath
-  sed -e "s,@LIBGCJDEBUG@,$LIBGCJDEBUG," \
-      -e "s,@TOOLKIT@,$TOOLKIT," \
-	< $srcdir/gnu/classpath/Configuration.java.in \
+  # Note that it is not crucial that all the values here be correct.
+  sed -e "s,@prefix@,$prefix," \
+      -e "s,@VERSION@,$VERSION," \
+      -e "s,@LIBDEBUG@,false," \
+      -e "s,@INIT_LOAD_LIBRARY@,false," \
+      -e "s,@@,$LIBGCJDEBUG," \
+      -e "s,@default_toolkit@,$TOOLKIT," \
+      -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
+      -e "s,@GTK_CAIRO_ENABLED@,false," \
+	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,
   # but we add /dev/null to the input list so that grep will print the
   # filename of Configuration.java in case it finds any matches.
-  if grep @ gnu/classpath/Configuration.java /dev/null; then
+  if grep '@.*@' gnu/classpath/Configuration.java /dev/null; then
     AC_MSG_ERROR([configure.ac is missing the substitutions above])
   fi
 fi

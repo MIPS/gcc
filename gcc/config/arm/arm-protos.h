@@ -27,7 +27,7 @@
 extern void arm_override_options (void);
 extern int use_return_insn (int, rtx);
 extern int arm_regno_class (int);
-extern void arm_load_pic_register (unsigned int);
+extern void arm_load_pic_register (unsigned long);
 extern int arm_volatile_func (void);
 extern const char *arm_output_epilogue (rtx);
 extern void arm_expand_prologue (void);
@@ -61,6 +61,8 @@ extern int thumb_legitimate_address_p (enum machine_mode, rtx, int);
 extern int thumb_legitimate_offset_p (enum machine_mode, HOST_WIDE_INT);
 extern rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
+extern rtx thumb_legitimize_reload_address (rtx *, enum machine_mode, int, int,
+					    int);
 extern int arm_const_double_rtx (rtx);
 extern int neg_const_double_rtx_ok_for_fpa (rtx);
 extern enum reg_class vfp_secondary_reload_class (enum machine_mode, rtx);

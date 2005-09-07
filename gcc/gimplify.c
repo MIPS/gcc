@@ -2706,13 +2706,18 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	   parts in, then generate code for the non-constant parts.  */
 	/* TODO.  There's code in cp/typeck.c to do this.  */
 
-	num_type_elements = count_type_elements (TREE_TYPE (ctor));
+	num_type_elements = count_type_elements (type, true);
 
-	/* If there are "lots" of zeros, then block clear the object first.  */
-	if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
-	    && num_nonzero_elements < num_type_elements/4)
+	/* If count_type_elements could not determine number of type elements
+	   for a constant-sized object, assume clearing is needed.
+	   Don't do this for variable-sized objects, as store_constructor
+	   will ignore the clearing of variable-sized objects.  */
+	if (num_type_elements < 0 && int_size_in_bytes (type) >= 0)
 	  cleared = true;
-
+	/* If there are "lots" of zeros, then block clear the object first.  */
+	else if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
+		 && num_nonzero_elements < num_type_elements/4)
+	  cleared = true;
 	/* ??? This bit ought not be needed.  For any element not present
 	   in the initializer, we should simply set them to zero.  Except
 	   we'd need to *find* the elements that are not present, and that
@@ -2960,12 +2965,6 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 			  tree *post_p, bool want_value)
 {
   enum gimplify_status ret = GS_OK;
-  tree type = TREE_TYPE (*from_p);
-  if (zero_sized_type (type))
-    {
-      *expr_p = NULL_TREE;
-      return GS_ALL_DONE;
-    }
 
   while (ret != GS_UNHANDLED)
     switch (TREE_CODE (*from_p))
@@ -3159,6 +3158,18 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
   /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer useful.  */
   if (TREE_CODE (*expr_p) == INIT_EXPR)
     TREE_SET_CODE (*expr_p, MODIFY_EXPR);
+  
+  /* For zero sized types only gimplify the left hand side and right hand side
+     as statements and throw away the assignment.  */
+  if (zero_sized_type (TREE_TYPE (*from_p)))
+    {
+      gimplify_stmt (from_p);
+      gimplify_stmt (to_p);
+      append_to_statement_list (*from_p, pre_p);
+      append_to_statement_list (*to_p, pre_p);
+      *expr_p = NULL_TREE;
+      return GS_ALL_DONE;
+    }
 
   /* See if any simplifications can be done based on what the RHS is.  */
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
@@ -4443,7 +4454,15 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  /* Historically, the compiler has treated a bare
 	     reference to a volatile lvalue as forcing a load.  */
 	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
-	  tree tmp = create_tmp_var (type, "vol");
+	  /* Normally, we do want to create a temporary for a
+	     TREE_ADDRESSABLE type because such a type should not be
+	     copied by bitwise-assignment.  However, we make an
+	     exception here, as all we are doing here is ensuring that
+	     we read the bytes that make up the type.  We use
+	     create_tmp_var_raw because create_tmp_var will abort when
+	     given a TREE_ADDRESSABLE type.  */
+	  tree tmp = create_tmp_var_raw (type, "vol");
+	  gimple_add_tmp_var (tmp);
 	  *expr_p = build (MODIFY_EXPR, type, tmp, *expr_p);
 	}
       else

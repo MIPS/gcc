@@ -533,14 +533,14 @@ case ${target} in
   ;;
 *-*-vxworks*)
   tmake_file=t-vxworks
-  tm_file="${tm_file} elfos.h svr4.h vxworks.h"
+  tm_file="${tm_file} elfos.h svr4.h"
+  xm_defines=POSIX
+  extra_options="${extra_options} vxworks.opt"
   case ${enable_threads} in
     no) ;;
     "" | yes | vxworks) thread_file='vxworks' ;;
     *) echo 'Unknown thread configuration for VxWorks'; exit 1 ;;
   esac
-  use_collect2=yes
-  xm_defines=POSIX
   ;;
 esac
 
@@ -1169,9 +1169,18 @@ i[34567]86-*-sysv4*)		# Intel 80386's running system V.4
 	extra_parts="crtbegin.o crtend.o"
 	use_fixproto=yes
 	;;
-i[4567]86-wrs-vxworks)
-	tm_file="${tm_file} i386/sysv4.h i386/unix.h i386/vxworks.h"
-	tmake_file="${tmake_file} i386/t-vxworks"
+i[4567]86-wrs-vxworks|i[4567]86-wrs-vxworksae)
+	tm_file="${tm_file} i386/sysv4.h i386/unix.h i386/att.h vx-common.h"
+	case ${target} in
+	  *-vxworksae*)
+	    tm_file="${tm_file} vxworksae.h i386/vxworksae.h"
+	    tmake_file="${tmake_file} i386/t-vxworks i386/t-vxworksae"
+	    ;;
+	  *)
+	    tm_file="${tm_file} vxworks.h i386/vxworks.h"
+	    tmake_file="${tmake_file} i386/t-vxworks"
+	    ;;
+	esac
 	;;
 i[34567]86-*-pe | i[34567]86-*-cygwin*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/cygwin.h"
@@ -1553,6 +1562,20 @@ mn10300-*-*)
 	use_collect2=no
 	use_fixproto=yes
 	;;
+ms1-*-elf)
+        tm_file="dbxelf.h elfos.h svr4.h ${tm_file}"
+        tmake_file="${tmake_file} ms1/t-ms1"
+        ;;
+ns32k-*-netbsdelf*)
+	echo "GCC does not yet support the ${target} target"; exit 1
+	;;
+ns32k-*-netbsd*)
+	tm_file="${tm_file} netbsd.h netbsd-aout.h ns32k/netbsd.h"
+	# On NetBSD, the headers are already okay, except for math.h.
+	tmake_file="t-netbsd ns32k/t-ns32k"
+	extra_parts=""
+	use_collect2=yes
+	;;
 pdp11-*-bsd)
 	tm_file="${tm_file} pdp11/2bsd.h"
 	use_fixproto=yes
@@ -1708,22 +1731,30 @@ powerpc-*-gnu*)
 		thread_file='posix'
 	fi
 	;;
-powerpc-wrs-vxworks*)
+powerpc-wrs-vxworks|powerpc-wrs-vxworksae)
 	# We want vxworks.h after rs6000/sysv4.h, which unfortunately
 	# means we have to redo the tm_file list from scratch.
 	tm_file="rs6000/rs6000.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
-	tm_file="${tm_file} vxworks.h rs6000/vxworks.h"
 	tmake_file="${tmake_file} rs6000/t-fprules rs6000/t-ppccomm rs6000/t-vxworks"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	extra_headers=ppc-asm.h
+	case ${target} in
+	  *-vxworksae*)
+	    tm_file="${tm_file} vx-common.h vxworksae.h rs6000/vxworks.h rs6000/vxworksae.h"
+	    tmake_file="${tmake_file} rs6000/t-vxworksae"
+	    ;;
+	  *-vxworks*)
+	    tm_file="${tm_file} vx-common.h vxworks.h rs6000/vxworks.h"
+	    ;;
+	esac
 	;;
-powerpc-wrs-windiss*)	# Instruction-level simulator for VxWorks.
+powerpc-wrs-windiss*)  # Instruction-level simulator for VxWorks.
 	tm_file="${tm_file} elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/windiss.h"
-        tmake_file="rs6000/t-fprules rs6000/t-ppcgas rs6000/t-ppccomm"
+	tmake_file="rs6000/t-fprules rs6000/t-ppcgas rs6000/t-ppccomm"
 	extra_options="${extra_options} rs6000/sysv4.opt"
-        thread_file=""
+	thread_file=""
 	use_fixproto=yes
-        ;;
+	;;
 powerpc-*-lynxos*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h rs6000/sysv4.h rs6000/lynx.h lynx.h"

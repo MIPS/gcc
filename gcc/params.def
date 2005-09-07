@@ -398,6 +398,11 @@ DEFPARAM(PARAM_SCEV_MAX_EXPR_SIZE,
 	 "Bound on size of expressions used in the scalar evolutions analyzer",
 	 20, 0, 0)
 
+DEFPARAM(PARAM_VECT_MAX_VERSION_CHECKS,
+         "vect-max-version-checks",
+         "Bound on number of runtime checks inserted by the vectorizer's loop versioning",
+         6, 0, 0)
+
 /* The product of the next two is used to decide whether or not to
    use .GLOBAL_VAR.  See tree-dfa.c.  */
 DEFPARAM(PARAM_GLOBAL_VAR_THRESHOLD,
@@ -450,6 +455,11 @@ DEFPARAM(PARAM_MAX_SCHED_REGION_INSNS,
 	 "max-sched-region-insns",
 	 "The maximum number of insns in a region to be considered for interblock scheduling",
 	 100, 0, 0)
+
+DEFPARAM(PARAM_MIN_SPEC_PROB,
+         "min-spec-prob",
+         "The minimum probability of reaching a source block for interblock speculative scheduling",
+         40, 0, 0)
 
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",

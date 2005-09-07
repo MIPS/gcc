@@ -734,11 +734,66 @@ print_operand (FILE *stream, rtx x, int code)
       x = mark_constant_pool_use (x);
       output_addr_const (stream, x);
       break;
+    /* N.B.: %R / %S / %T adjust memory addresses by four.
+       For SHMEDIA, that means they can be used to access the first and
+       second 32 bit part of a 64 bit (or larger) value that
+       might be held in floating point registers or memory.
+       While they can be used to access 64 bit parts of a larger value
+       held in general purpose registers, that won't work with memory -
+       neither for fp registers, since the frxx names are used.  */
     case 'R':
-      fputs (reg_names[REGNO (x) + LSW], (stream));
+      if (REG_P (x) || GET_CODE (x) == SUBREG)
+	{
+	  regno = true_regnum (x);
+	  regno += FP_REGISTER_P (regno) ? 1 : LSW;
+	  fputs (reg_names[regno], (stream));
+	}
+      else if (MEM_P (x))
+	{
+	  x = adjust_address (x, SImode, 4 * LSW);
+	  print_operand_address (stream, XEXP (x, 0));
+	}
+      else
+	{
+	  rtx sub = NULL_RTX;
+
+	  mode = GET_MODE (x);
+	  if (mode == VOIDmode)
+	    mode = DImode;
+	  if (GET_MODE_SIZE (mode) >= 8)
+	    sub = simplify_subreg (SImode, x, mode, 4 * LSW);
+	  if (sub)
+	    print_operand (stream, sub, 0);
+	  else
+	    output_operand_lossage ("invalid operand to %%R");
+	}
       break;
     case 'S':
-      fputs (reg_names[REGNO (x) + MSW], (stream));
+      if (REG_P (x) || GET_CODE (x) == SUBREG)
+	{
+	  regno = true_regnum (x);
+	  regno += FP_REGISTER_P (regno) ? 0 : MSW;
+	  fputs (reg_names[regno], (stream));
+	}
+      else if (MEM_P (x))
+	{
+	  x = adjust_address (x, SImode, 4 * MSW);
+	  print_operand_address (stream, XEXP (x, 0));
+	}
+      else
+	{
+	  rtx sub = NULL_RTX;
+
+	  mode = GET_MODE (x);
+	  if (mode == VOIDmode)
+	    mode = DImode;
+	  if (GET_MODE_SIZE (mode) >= 8)
+	    sub = simplify_subreg (SImode, x, mode, 4 * MSW);
+	  if (sub)
+	    print_operand (stream, sub, 0);
+	  else
+	    output_operand_lossage ("invalid operand to %%S");
+	}
       break;
     case 'T':
       /* Next word of a double.  */
@@ -4612,7 +4667,7 @@ sh_reorg (void)
 			}
 		      last_float_move = scan;
 		      last_float = src;
-		      newsrc = gen_rtx_MEM (mode,
+		      newsrc = gen_const_mem (mode,
 					(((TARGET_SH4 && ! TARGET_FMOVD)
 					  || REGNO (dst) == FPUL_REG)
 					 ? r0_inc_rtx
@@ -5144,20 +5199,20 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 
 	      adj_reg = gen_rtx_REG (GET_MODE (reg), 4);
 	      tmp_reg = gen_rtx_REG (GET_MODE (reg), 5);
-	      emit_move_insn (gen_rtx_MEM (Pmode, reg), adj_reg);
+	      emit_move_insn (gen_tmp_stack_mem (Pmode, reg), adj_reg);
 	      emit_insn (GEN_MOV (adj_reg, GEN_INT (size)));
 	      emit_insn (GEN_ADD3 (adj_reg, adj_reg, reg));
-	      mem = gen_rtx_MEM (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
+	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
 	      emit_move_insn (mem, tmp_reg);
-	      	emit_move_insn (tmp_reg, gen_rtx_MEM (Pmode, reg));
-		mem = gen_rtx_MEM (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
-		emit_move_insn (mem, tmp_reg);
-		emit_move_insn (reg, adj_reg);
-		mem = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, reg));
-		emit_move_insn (adj_reg, mem);
-		mem = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, reg));
-		emit_move_insn (tmp_reg, mem);
-		return;
+	      emit_move_insn (tmp_reg, gen_tmp_stack_mem (Pmode, reg));
+	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
+	      emit_move_insn (mem, tmp_reg);
+	      emit_move_insn (reg, adj_reg);
+	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_POST_INC (Pmode, reg));
+	      emit_move_insn (adj_reg, mem);
+	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_POST_INC (Pmode, reg));
+	      emit_move_insn (tmp_reg, mem);
+	      return;
 	    }
 	  const_reg = gen_rtx_REG (GET_MODE (reg), temp);
 
@@ -5806,10 +5861,10 @@ sh_expand_prologue (void)
 
 	  reg_rtx = gen_rtx_REG (mode, reg);
 
-	  mem_rtx = gen_rtx_MEM (mode,
-				 gen_rtx_PLUS (Pmode,
-					       stack_pointer_rtx,
-					       GEN_INT (offset)));
+	  mem_rtx = gen_frame_mem (mode,
+				   gen_rtx_PLUS (Pmode,
+						 stack_pointer_rtx,
+						 GEN_INT (offset)));
 
 	  GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (mem_rtx, 0), try_pre_dec);
 
@@ -5823,8 +5878,7 @@ sh_expand_prologue (void)
 		    || mem_rtx == NULL_RTX
 		    || reg == PR_REG || SPECIAL_REGISTER_P (reg)))
 	      {
-		pre_dec = gen_rtx_MEM (mode,
-				       gen_rtx_PRE_DEC (Pmode, r0));
+		pre_dec = gen_frame_mem (mode, gen_rtx_PRE_DEC (Pmode, r0));
 
 		GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (pre_dec, 0),
 					  pre_dec_ok);
@@ -5872,12 +5926,12 @@ sh_expand_prologue (void)
 	      mem_rtx = pre_dec;
 	    }
 	  else if (sp_in_r0)
-	    mem_rtx = gen_rtx_MEM (mode, r0);
+	    mem_rtx = gen_frame_mem (mode, r0);
 	  else
-	    mem_rtx = gen_rtx_MEM (mode,
-				   gen_rtx_PLUS (Pmode,
-						 stack_pointer_rtx,
-						 r0));
+	    mem_rtx = gen_frame_mem (mode,
+				     gen_rtx_PLUS (Pmode,
+						   stack_pointer_rtx,
+						   r0));
 
 	  /* We must not use an r0-based address for target-branch
 	     registers or for special registers without pre-dec
@@ -5937,10 +5991,10 @@ sh_expand_prologue (void)
 	      {
 		rtx reg_rtx = gen_rtx_REG (mode, reg);
 		rtx set, note_rtx;
-		rtx mem_rtx = gen_rtx_MEM (mode,
-					   gen_rtx_PLUS (Pmode,
-							 stack_pointer_rtx,
-							 GEN_INT (offset)));
+		rtx mem_rtx = gen_frame_mem (mode,
+					     gen_rtx_PLUS (Pmode,
+							   stack_pointer_rtx,
+							   GEN_INT (offset)));
 
 		set = gen_rtx_SET (VOIDmode, mem_rtx, reg_rtx);
 		note_rtx = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, set,
@@ -6124,10 +6178,10 @@ sh_expand_epilogue (bool sibcall_p)
 	  offset = offset_base + entry->offset;
 	  reg_rtx = gen_rtx_REG (mode, reg);
 
-	  mem_rtx = gen_rtx_MEM (mode,
-				 gen_rtx_PLUS (Pmode,
-					       stack_pointer_rtx,
-					       GEN_INT (offset)));
+	  mem_rtx = gen_frame_mem (mode,
+				   gen_rtx_PLUS (Pmode,
+						 stack_pointer_rtx,
+						 GEN_INT (offset)));
 
 	  GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (mem_rtx, 0), try_post_inc);
 
@@ -6141,8 +6195,7 @@ sh_expand_epilogue (bool sibcall_p)
 			&& mem_rtx == NULL_RTX)
 		    || reg == PR_REG || SPECIAL_REGISTER_P (reg)))
 	      {
-		post_inc = gen_rtx_MEM (mode,
-					gen_rtx_POST_INC (Pmode, r0));
+		post_inc = gen_frame_mem (mode, gen_rtx_POST_INC (Pmode, r0));
 
 		GO_IF_LEGITIMATE_ADDRESS (mode, XEXP (post_inc, 0),
 					  post_inc_ok);
@@ -6188,12 +6241,12 @@ sh_expand_epilogue (bool sibcall_p)
 	      offset_in_r0 += GET_MODE_SIZE (mode);
 	    }
 	  else if (sp_in_r0)
-	    mem_rtx = gen_rtx_MEM (mode, r0);
+	    mem_rtx = gen_frame_mem (mode, r0);
 	  else
-	    mem_rtx = gen_rtx_MEM (mode,
-				   gen_rtx_PLUS (Pmode,
-						 stack_pointer_rtx,
-						 r0));
+	    mem_rtx = gen_frame_mem (mode,
+				     gen_rtx_PLUS (Pmode,
+						   stack_pointer_rtx,
+						   r0));
 
 	  gcc_assert ((reg != PR_REG && !SPECIAL_REGISTER_P (reg))
 		      || mem_rtx == post_inc);
@@ -6353,7 +6406,7 @@ sh_set_return_address (rtx ra, rtx tmp)
   emit_insn (GEN_MOV (tmp, GEN_INT (pr_offset)));
   emit_insn (GEN_ADD3 (tmp, tmp, hard_frame_pointer_rtx));
 
-  tmp = gen_rtx_MEM (Pmode, tmp);
+  tmp = gen_frame_mem (Pmode, tmp);
   emit_insn (GEN_MOV (tmp, ra));
 }
 
@@ -6430,8 +6483,7 @@ sh_builtin_saveregs (void)
   bufsize = (n_intregs * UNITS_PER_WORD) + (n_floatregs * UNITS_PER_WORD);
 
   if (TARGET_SHMEDIA)
-    regbuf = gen_rtx_MEM (BLKmode,
-			  gen_rtx_REG (Pmode, ARG_POINTER_REGNUM));
+    regbuf = gen_frame_mem (BLKmode, gen_rtx_REG (Pmode, ARG_POINTER_REGNUM));
   else if (n_floatregs & 1)
     {
       rtx addr;
@@ -6441,8 +6493,18 @@ sh_builtin_saveregs (void)
       emit_insn (gen_iorsi3 (addr, addr, GEN_INT (UNITS_PER_WORD)));
       regbuf = change_address (regbuf, BLKmode, addr);
     }
+  else if (STACK_BOUNDARY < 64 && TARGET_FPU_DOUBLE && n_floatregs)
+    {
+      rtx addr, mask;
+
+      regbuf = assign_stack_local (BLKmode, bufsize + UNITS_PER_WORD, 0);
+      addr = copy_to_mode_reg (Pmode, plus_constant (XEXP (regbuf, 0), 4));
+      mask = copy_to_mode_reg (Pmode, GEN_INT (-8));
+      emit_insn (gen_andsi3 (addr, addr, mask));
+      regbuf = change_address (regbuf, BLKmode, addr);
+    }
   else
-    regbuf = assign_stack_local (BLKmode, bufsize, 0);
+    regbuf = assign_stack_local (BLKmode, bufsize, TARGET_FPU_DOUBLE ? 64 : 0);
   alias_set = get_varargs_alias_set ();
   set_mem_alias_set (regbuf, alias_set);
 
@@ -6477,8 +6539,7 @@ sh_builtin_saveregs (void)
 	{
 	  emit_insn (gen_addsi3 (fpregs, fpregs,
 				 GEN_INT (-2 * UNITS_PER_WORD)));
-	  mem = gen_rtx_MEM (DFmode, fpregs);
-	  set_mem_alias_set (mem, alias_set);
+	  mem = change_address (regbuf, DFmode, fpregs);
 	  emit_move_insn (mem,
 			  gen_rtx_REG (DFmode, BASE_ARG_REG (DFmode) + regno));
 	}
@@ -6486,8 +6547,7 @@ sh_builtin_saveregs (void)
       if (regno & 1)
 	{
 	  emit_insn (gen_addsi3 (fpregs, fpregs, GEN_INT (-UNITS_PER_WORD)));
-	  mem = gen_rtx_MEM (SFmode, fpregs);
-	  set_mem_alias_set (mem, alias_set);
+	  mem = change_address (regbuf, SFmode, fpregs);
 	  emit_move_insn (mem,
 			  gen_rtx_REG (SFmode, BASE_ARG_REG (SFmode) + regno
 						- (TARGET_LITTLE_ENDIAN != 0)));
@@ -6499,8 +6559,7 @@ sh_builtin_saveregs (void)
         rtx mem;
 
 	emit_insn (gen_addsi3 (fpregs, fpregs, GEN_INT (-UNITS_PER_WORD)));
-	mem = gen_rtx_MEM (SFmode, fpregs);
-	set_mem_alias_set (mem, alias_set);
+	mem = change_address (regbuf, SFmode, fpregs);
 	emit_move_insn (mem,
 			gen_rtx_REG (SFmode, BASE_ARG_REG (SFmode) + regno));
       }
@@ -6632,6 +6691,27 @@ sh_va_start (tree valist, rtx nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
 
+/* TYPE is a RECORD_TYPE.  If there is only a single non-zero-sized
+   member, return it.  */
+static tree
+find_sole_member (tree type)
+{
+  tree field, member = NULL_TREE;
+
+  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+    {
+      if (TREE_CODE (field) != FIELD_DECL)
+	continue;
+      if (!DECL_SIZE (field))
+	return NULL_TREE;
+      if (integer_zerop (DECL_SIZE (field)))
+	continue;
+      if (member)
+	return NULL_TREE;
+      member = field;
+    }
+  return member;
+}
 /* Implement `va_arg'.  */
 
 static tree
@@ -6657,6 +6737,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       tree next_o, next_o_limit, next_fp, next_fp_limit, next_stack;
       int pass_as_float;
       tree lab_false;
+      tree member;
 
       f_next_o = TYPE_FIELDS (va_list_type_node);
       f_next_o_limit = TREE_CHAIN (f_next_o);
@@ -6678,20 +6759,24 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       /* Structures with a single member with a distinct mode are passed
 	 like their member.  This is relevant if the latter has a REAL_TYPE
 	 or COMPLEX_TYPE type.  */
-      if (TREE_CODE (type) == RECORD_TYPE
-	  && TYPE_FIELDS (type)
-	  && TREE_CODE (TYPE_FIELDS (type)) == FIELD_DECL
-	  && (TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == REAL_TYPE
-	      || TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == COMPLEX_TYPE)
-          && TREE_CHAIN (TYPE_FIELDS (type)) == NULL_TREE)
+      while (TREE_CODE (type) == RECORD_TYPE
+	     && (member = find_sole_member (type))
+	     && (TREE_CODE (TREE_TYPE (member)) == REAL_TYPE
+		 || TREE_CODE (TREE_TYPE (member)) == COMPLEX_TYPE
+		 || TREE_CODE (TREE_TYPE (member)) == RECORD_TYPE))
 	{
-	  tree field_type = TREE_TYPE (TYPE_FIELDS (type));
+	  tree field_type = TREE_TYPE (member);
 
 	  if (TYPE_MODE (type) == TYPE_MODE (field_type))
 	    type = field_type;
 	  else
-	    gcc_assert (TYPE_ALIGN (type)
-			< GET_MODE_ALIGNMENT (TYPE_MODE (field_type)));
+	    {
+	      gcc_assert ((TYPE_ALIGN (type)
+			   < GET_MODE_ALIGNMENT (TYPE_MODE (field_type)))
+			  || (TYPE_ALIGN (type)
+			      > GET_MODE_BITSIZE (TYPE_MODE (field_type))));
+	      break;
+	    }
 	}
 
       if (TARGET_SH4)
@@ -6714,30 +6799,37 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 
       if (pass_as_float)
 	{
-	  int first_floatreg
-	    = current_function_args_info.arg_count[(int) SH_ARG_FLOAT];
-	  int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
-
-	  tmp = build (GE_EXPR, boolean_type_node, next_fp, next_fp_limit);
-	  tmp = build (COND_EXPR, void_type_node, tmp,
-		       build (GOTO_EXPR, void_type_node, lab_false),
-		       NULL);
-	  gimplify_and_add (tmp, pre_p);
-
-	  if (TYPE_ALIGN (type) > BITS_PER_WORD
-	      || (((TREE_CODE (type) == REAL_TYPE && size == 8) || size == 16)
-		  && (n_floatregs & 1)))
-	    {
-	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
-	      tmp = build (BIT_AND_EXPR, ptr_type_node, next_fp, tmp);
-	      tmp = build (PLUS_EXPR, ptr_type_node, next_fp, tmp);
-	      tmp = build (MODIFY_EXPR, ptr_type_node, next_fp, tmp);
-	      gimplify_and_add (tmp, pre_p);
-	    }
+	  tree next_fp_tmp = create_tmp_var (TREE_TYPE (f_next_fp), NULL);
+	  tree cmp;
+	  bool is_double = size == 8 && TREE_CODE (type) == REAL_TYPE;
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_fp);
-	  tmp = build (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
+
+	  tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, valist);
+	  gimplify_and_add (tmp, pre_p);
+	  tmp = next_fp_limit;
+	  if (size > 4 && !is_double)
+	    tmp = build2 (PLUS_EXPR, TREE_TYPE (tmp), tmp,
+			  fold_convert (TREE_TYPE (tmp), size_int (4 - size)));
+	  tmp = build (GE_EXPR, boolean_type_node, next_fp_tmp, tmp);
+	  cmp = build (COND_EXPR, void_type_node, tmp,
+		       build (GOTO_EXPR, void_type_node, lab_false),
+		       NULL);
+	  if (!is_double)
+	    gimplify_and_add (cmp, pre_p);
+
+	  if (TYPE_ALIGN (type) > BITS_PER_WORD || (is_double || size == 16))
+	    {
+	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
+	      tmp = build (BIT_AND_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build (PLUS_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build (MODIFY_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      gimplify_and_add (tmp, pre_p);
+	    }
+	  if (is_double)
+	    gimplify_and_add (cmp, pre_p);
 
 #ifdef FUNCTION_ARG_SCmode_WART
 	  if (TYPE_MODE (type) == SCmode && TARGET_SH4 && TARGET_LITTLE_ENDIAN)
@@ -6745,10 +6837,12 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	      tree subtype = TREE_TYPE (type);
 	      tree real, imag;
 
-	      imag = std_gimplify_va_arg_expr (valist, subtype, pre_p, NULL);
+	      imag
+		= std_gimplify_va_arg_expr (next_fp_tmp, subtype, pre_p, NULL);
 	      imag = get_initialized_tmp_var (imag, pre_p, NULL);
 
-	      real = std_gimplify_va_arg_expr (valist, subtype, pre_p, NULL);
+	      real
+		= std_gimplify_va_arg_expr (next_fp_tmp, subtype, pre_p, NULL);
 	      real = get_initialized_tmp_var (real, pre_p, NULL);
 
 	      result = build (COMPLEX_EXPR, type, real, imag);
@@ -6765,6 +6859,12 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
 	  tmp = build (MODIFY_EXPR, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
+	  tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, valist);
+	  gimplify_and_add (tmp, pre_p);
+
+	  tmp = build2 (MODIFY_EXPR, ptr_type_node, valist, next_fp_tmp);
+	  gimplify_and_add (tmp, post_p);
+	  valist = next_fp_tmp;
 	}
       else
 	{
@@ -7515,6 +7615,8 @@ sh_attr_renesas_p (tree td)
     return 0;
   if (DECL_P (td))
     td = TREE_TYPE (td);
+  if (td == error_mark_node)
+    return 0;
   return (lookup_attribute ("renesas", TYPE_ATTRIBUTES (td))
 	  != NULL_TREE);
 }
@@ -8394,7 +8496,7 @@ sh_allocate_initial_value (rtx hard_reg)
 		    || current_function_has_nonlocal_label)))
 	x = hard_reg;
       else
-	x = gen_rtx_MEM (Pmode, return_address_pointer_rtx);
+	x = gen_frame_mem (Pmode, return_address_pointer_rtx);
     }
   else
     x = NULL_RTX;
@@ -8788,6 +8890,8 @@ sh_ms_bitfield_layout_p (tree record_type ATTRIBUTE_UNUSED)
 void
 sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 {
+  rtx tramp_mem = gen_frame_mem (BLKmode, tramp);
+
   if (TARGET_SHMEDIA64)
     {
       rtx tramp_templ;
@@ -8816,34 +8920,32 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 	  insn = gen_rtx_IOR (DImode, insn, gen_int_mode (0xec000010, SImode));
 	  insn = force_operand (insn, NULL_RTX);
 	  insn = gen_lowpart (SImode, insn);
-	  emit_move_insn (gen_rtx_MEM (SImode, tramp), insn);
+	  emit_move_insn (change_address (tramp_mem, SImode, NULL_RTX), insn);
 	  insn = gen_rtx_LSHIFTRT (DImode, fnaddr, GEN_INT (38));
 	  insn = gen_rtx_AND (DImode, insn, mask);
 	  insn = force_operand (gen_rtx_IOR (DImode, movi1, insn), NULL_RTX);
 	  insn = gen_lowpart (SImode, insn);
-	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 4)), insn);
+	  emit_move_insn (adjust_address (tramp_mem, SImode, 4), insn);
 	  insn = gen_rtx_LSHIFTRT (DImode, fnaddr, GEN_INT (22));
 	  insn = gen_rtx_AND (DImode, insn, mask);
 	  insn = force_operand (gen_rtx_IOR (DImode, shori1, insn), NULL_RTX);
 	  insn = gen_lowpart (SImode, insn);
-	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 8)), insn);
+	  emit_move_insn (adjust_address (tramp_mem, SImode, 8), insn);
 	  insn = gen_rtx_LSHIFTRT (DImode, fnaddr, GEN_INT (6));
 	  insn = gen_rtx_AND (DImode, insn, mask);
 	  insn = force_operand (gen_rtx_IOR (DImode, shori1, insn), NULL_RTX);
 	  insn = gen_lowpart (SImode, insn);
-	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 12)),
-			  insn);
+	  emit_move_insn (adjust_address (tramp_mem, SImode, 12), insn);
 	  insn = gen_rtx_ASHIFT (DImode, fnaddr, GEN_INT (10));
 	  insn = gen_rtx_AND (DImode, insn, mask);
 	  insn = force_operand (gen_rtx_IOR (DImode, shori1, insn), NULL_RTX);
 	  insn = gen_lowpart (SImode, insn);
-	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 16)),
-			  insn);
-	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 20)),
+	  emit_move_insn (adjust_address (tramp_mem, SImode, 16), insn);
+	  emit_move_insn (adjust_address (tramp_mem, SImode, 20),
 			  GEN_INT (0x6bf10600));
-	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 24)),
+	  emit_move_insn (adjust_address (tramp_mem, SImode, 24),
 			  GEN_INT (0x4415fc10));
-	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 28)),
+	  emit_move_insn (adjust_address (tramp_mem, SImode, 28),
 			  GEN_INT (0x4401fff0));
 	  emit_insn (gen_ic_invalidate_line (tramp));
 	  return;
@@ -8852,18 +8954,15 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
       fixed_len = TRAMPOLINE_SIZE - 2 * GET_MODE_SIZE (Pmode);
 
       tramp_templ = gen_datalabel_ref (tramp_templ);
-      dst = gen_rtx_MEM (BLKmode, tramp);
-      src = gen_rtx_MEM (BLKmode, tramp_templ);
+      dst = tramp_mem;
+      src = gen_const_mem (BLKmode, tramp_templ);
       set_mem_align (dst, 256);
       set_mem_align (src, 64);
       emit_block_move (dst, src, GEN_INT (fixed_len), BLOCK_OP_NORMAL);
 
-      emit_move_insn (gen_rtx_MEM (Pmode, plus_constant (tramp,	fixed_len)),
-		      fnaddr);
-      emit_move_insn (gen_rtx_MEM (Pmode,
-				   plus_constant (tramp,
-						  fixed_len
-						  + GET_MODE_SIZE (Pmode))),
+      emit_move_insn (adjust_address (tramp_mem, Pmode, fixed_len), fnaddr);
+      emit_move_insn (adjust_address (tramp_mem, Pmode,
+				      fixed_len + GET_MODE_SIZE (Pmode)),
 		      cxt);
       emit_insn (gen_ic_invalidate_line (tramp));
       return;
@@ -8891,7 +8990,7 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
       emit_insn (gen_rotrdi3_mextr (quad0, quad0,
 				    GEN_INT (TARGET_LITTLE_ENDIAN ? 24 : 56)));
       emit_insn (gen_ashldi3_media (quad0, quad0, const2_rtx));
-      emit_move_insn (gen_rtx_MEM (DImode, tramp), quad0);
+      emit_move_insn (change_address (tramp_mem, DImode, NULL_RTX), quad0);
       emit_insn (gen_mshflo_w_x (gen_rtx_SUBREG (V4HImode, cxtload, 0),
 				 gen_rtx_SUBREG (V2HImode, cxt, 0),
 				 movishori));
@@ -8908,8 +9007,8 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 	  emit_insn (gen_mextr4 (quad1, cxtload, ptabs));
 	  emit_insn (gen_mshflo_l_di (quad2, blink, cxtload));
 	}
-      emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 8)), quad1);
-      emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 16)), quad2);
+      emit_move_insn (adjust_address (tramp_mem, DImode, 8), quad1);
+      emit_move_insn (adjust_address (tramp_mem, DImode, 16), quad2);
       emit_insn (gen_ic_invalidate_line (tramp));
       return;
     }
@@ -8918,16 +9017,14 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
       emit_insn (gen_initialize_trampoline (tramp, cxt, fnaddr));
       return;
     }
-  emit_move_insn (gen_rtx_MEM (SImode, tramp),
+  emit_move_insn (change_address (tramp_mem, SImode, NULL_RTX),
 		  gen_int_mode (TARGET_LITTLE_ENDIAN ? 0xd301d202 : 0xd202d301,
 				SImode));
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 4)),
+  emit_move_insn (adjust_address (tramp_mem, SImode, 4),
 		  gen_int_mode (TARGET_LITTLE_ENDIAN ? 0x0009422b : 0x422b0009,
 				SImode));
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 8)),
-		  cxt);
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 12)),
-		  fnaddr);
+  emit_move_insn (adjust_address (tramp_mem, SImode, 8), cxt);
+  emit_move_insn (adjust_address (tramp_mem, SImode, 12), fnaddr);
   if (TARGET_HARVARD)
     {
       if (TARGET_USERMODE)
@@ -9449,7 +9546,7 @@ static rtx emit_load_ptr (rtx, rtx);
 static rtx
 emit_load_ptr (rtx reg, rtx addr)
 {
-  rtx mem = gen_rtx_MEM (ptr_mode, addr);
+  rtx mem = gen_const_mem (ptr_mode, addr);
 
   if (Pmode != ptr_mode)
     mem = gen_rtx_SIGN_EXTEND (Pmode, mem);
@@ -9756,7 +9853,7 @@ sh_get_pr_initial_val (void)
       && ((current_function_args_info.call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
 	  || current_function_has_nonlocal_label))
-    return gen_rtx_MEM (SImode, return_address_pointer_rtx);
+    return gen_frame_mem (SImode, return_address_pointer_rtx);
 
   /* If we haven't finished rtl generation, there might be a nonlocal label
      that we haven't seen yet.

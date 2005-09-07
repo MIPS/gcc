@@ -1,3 +1,154 @@
+2005-09-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/6_containers/unordered/hashtable/23465.cc:
+	Reduce maximum size and lf.
+
+2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/std_cmath.h: Declare C99 functions and helper
+	functions as inline.
+
+2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/lib/libstdc++.exp (check_v3_target_cxa_atexit): Fix
+	comment.
+
+2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * testsuite/lib/libstdc++.exp (check_v3_target_cxa_atexit): New.
+        * testsuite/lib/dg-options.exp (dg-require-cxa-atexit): New.
+        * testsuite/ext/mt_allocator/deallocate_local-6.cc: New.
+        * testsuite/ext/mt_allocator/deallocate_local-8.cc: New.
+        * testsuite/ext/mt_allocator/deallocate_local_thread-5.cc: New.
+        * testsuite/ext/mt_allocator/deallocate_local_thread-7.cc: New.
+        * docs/html/ext/mt_allocator.html: Add link to examples.
+        * testsuite/testsuite_allocator.h: Tweak.
+        * testsuite/ext/mt_allocator/deallocate_global-2.cc: Same.
+        * testsuite/ext/mt_allocator/deallocate_global-4.cc: Same.
+        * testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: Same.
+        * testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: Same.
+        * testsuite/ext/mt_allocator/deallocate_local-2.cc: Same.
+        * testsuite/ext/mt_allocator/deallocate_local-4.cc: Same.
+        * testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: Same.
+        * testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: Same.
+        * testsuite/ext/new_allocator/deallocate_global.cc: Same.
+        * testsuite/ext/new_allocator/deallocate_local.cc: Same.
+
+2005-08-31  Paolo Carlini  <pcarlini@suse.de>
+	    Kaspar Fischer <fischerk@inf.ethz.ch> 
+
+	PR libstdc++/23632
+	* include/bits/stl_bvector.h (_Bit_iterator::operator[],
+	_Bit_const_iterator::operator[]): Const-ify.
+	* testsuite/23_containers/vector/bool/23632.cc: New.
+
+2005-08-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23578 (cont)
+	* include/bits/stl_bvector.h (class vector<bool>): Add
+	a dummy data() to avoid problems in debug-mode.
+
+2005-08-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/hash_map/23528.cc: New.
+
+2005-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_map.h (class map): ... and a missing @a.
+
+2005-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_map.h (class map): Add missing % in comment.
+
+2005-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23578 (DR 464 [Ready])
+	* include/bits/stl_map.h (class map): Add at(const key_type&)
+	member functions.
+	* include/bits/stl_vector.h (class vector): Add data() member
+	functions.
+	* include/debug/map.h (class map): Adjust consistently.
+	* include/debug/vector (class vector): Likewise.
+	* testsuite/23_containers/map/element_access/1.cc: New.
+	* testsuite/23_containers/vector/data_access/1.cc: Likewise.
+	* docs/html/ext/howto.html: Add an entry for DR 464.
+
+2005-08-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/20534 (contd)
+	* src/debug.cc (__gnu_debug): Remove __fancy_abort definition.
+	Remove cstdio and cstdlib includes.
+	* include/debug/debug.h: Define inline here. Remove
+	_GLIBCXX_DEBUG_ABORT.
+	* include/debug/macros.h: Remove __fancy_abort declaration,
+	_GLIBXX_DEBUG_ABORT definition.
+	* config/linker-map.gnu: Remove export.
+	
+2005-08-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* scripts/check_compile (UNIQUE_ID): New. Use to name output files.
+
+2005-08-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23081
+	* include/tr1/array: Implement members back(), front(), data(),
+	and the tuple interface; tidy.
+	* testsuite/tr1/6_containers/array/element_access/back.cc: New.
+	* testsuite/tr1/6_containers/array/element_access/data.cc: Likewise.
+	* testsuite/tr1/6_containers/array/element_access/front.cc: Likewise.
+	* testsuite/tr1/6_containers/array/tuple_interface/get.cc: Likewise.
+	* testsuite/tr1/6_containers/array/tuple_interface/tuple_element.cc:
+	Likewise.
+	* testsuite/tr1/6_containers/array/tuple_interface/tuple_size.cc:
+	Likewise.
+
+2005-08-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable: Use __throw_exception_again,
+	not naked throw, in the catch clauses.
+
+2005-08-24  Lawrence Lim  <llim@redhat.com>
+            Jakub Jelinek  <jakub@redhat.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/23550
+	* testsuite/21_strings/char_traits/requirements/char/1.cc
+	(test01): Simplify counting.
+	* testsuite/21_strings/char_traits/requirements/wchar_t/1.cc
+	(test02): Same.
+
+2005-08-24  Paolo Carlini  <pcarlini@suse.de>
+	    Chris Jefferson  <chris@bubblescope.net>
+
+	PR libstdc++/23465
+	* include/tr1/hashtable (hash_code_base::m_swap): Use
+	std::swap.
+	(hashtable<>::hashtable(const hashtable&)): Use copy_code;
+	fix m_allocate_node call.
+	* testsuite/tr1/6_containers/unordered/hashtable/23465.cc: New.
+
+2005-08-23  Kelley Cook  <kcook@gcc.gnu.org>
+
+	PR libstdc++/23462
+	* testsuite/data/sgetn.txt: Revert to previous FSF address.
+
+2005-08-23  Thomas Kho  <tkho@ucla.edu>
+
+	PR libstdc++/23358
+	* include/bits/stl_construct.h (_Destroy(_ForwardIterator,
+	_ForwardIterator, allocator<_Tp>)): Removed unused template parameter.
+
+2005-08-22  Geoffrey Keating  <geoffk@apple.com>
+
+	* testsuite/23_containers/vector/resize/1.cc: XFAIL on darwin8.
+	* testsuite/27_io/ios_base/storage/2.cc: Likewise.
+
+2005-08-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* config/cpu/sh/atomicity.h: Replace broken generic code with current
+	copy of generic/atomicity.h .
+
 2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* All files: Update FSF address.

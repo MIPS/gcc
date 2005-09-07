@@ -428,6 +428,10 @@ typedef struct
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
   unsigned unmaskable:1, masked:1, contained:1;
 
+  /* This is set if the subroutine doesn't return.  Currently, this
+     is only possible for intrinsic subroutines.  */
+  unsigned noreturn:1;
+
   /* Set if this procedure is an alternate entry point.  These procedures
      don't have any code associated, and the backend will turn them into
      thunks to the master function.  */
@@ -514,13 +518,6 @@ typedef struct
 #define ATTRIBUTE_GCC_GFC(m, n) __attribute__ ((__format__ (__gcc_gfc__, m, n))) ATTRIBUTE_NONNULL(m)
 #else
 #define ATTRIBUTE_GCC_GFC(m, n) ATTRIBUTE_NONNULL(m)
-#endif
-
-
-#include <limits.h>
-#ifndef PATH_MAX
-# include <sys/param.h>
-# define PATH_MAX MAXPATHLEN
 #endif
 
 
@@ -1039,7 +1036,7 @@ typedef struct gfc_intrinsic_sym
   const char *name, *lib_name;
   gfc_intrinsic_arg *formal;
   gfc_typespec ts;
-  int elemental, pure, generic, specific, actual_ok, standard;
+  int elemental, pure, generic, specific, actual_ok, standard, noreturn;
 
   gfc_simplify_f simplify;
   gfc_check_f check;
@@ -1414,7 +1411,6 @@ gfc_data;
 /* Structure for holding compile options */
 typedef struct
 {
-  const char *source;
   char *module_dir;
   gfc_source_form source_form;
   int fixed_line_length;
@@ -1442,7 +1438,9 @@ typedef struct
   int flag_pack_derived;
   int flag_repack_arrays;
   int flag_f2c;
+  int flag_automatic;
   int flag_backslash;
+  int flag_d_lines;
 
   int q_kind;
 
@@ -1514,10 +1512,10 @@ int gfc_next_char (void);
 int gfc_peek_char (void);
 void gfc_error_recovery (void);
 void gfc_gobble_whitespace (void);
-try gfc_new_file (const char *, gfc_source_form);
+try gfc_new_file (void);
 
 extern gfc_source_form gfc_current_form;
-extern char *gfc_source_file;
+extern const char *gfc_source_file;
 extern locus gfc_current_locus;
 
 /* misc.c */

@@ -505,6 +505,9 @@ internal_proto(stream_ttyname);
 extern int unit_to_fd (int);
 internal_proto(unit_to_fd);
 
+extern int unpack_filename (char *, const char *, int);
+internal_proto(unpack_filename);
+
 /* unit.c */
 
 extern void insert_unit (gfc_unit *);
@@ -586,7 +589,7 @@ internal_proto(read_f);
 extern void read_l (fnode *, char *, int);
 internal_proto(read_l);
 
-extern void read_x (fnode *);
+extern void read_x (int);
 internal_proto(read_x);
 
 extern void read_radix (fnode *, char *, int, int);
@@ -652,5 +655,9 @@ internal_proto(write_z);
 
 extern void list_formatted_write (bt, void *, int);
 internal_proto(list_formatted_write);
+
+/* error.c */
+extern try notify_std (int, const char *);
+internal_proto(notify_std);
 
 #endif

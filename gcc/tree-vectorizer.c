@@ -137,6 +137,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfglayout.h"
 #include "expr.h"
 #include "optabs.h"
+#include "params.h"
 #include "toplev.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
@@ -179,6 +180,9 @@ unsigned int vect_loops_num;
 
 /* Loop location.  */
 static LOC vect_loop_location;
+
+/* Bitmap of virtual variables to be renamed.  */
+bitmap vect_vnames_to_rename;
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -511,6 +515,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
   basic_block orig_bb = loop->header;
   edge new_exit_e;
   tree current_new_name;
+  tree name;
 
   /* Create new bb between loop and new_merge_bb.  */
   *new_exit_bb = split_edge (loop->single_exit);
@@ -522,6 +527,15 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
        orig_phi && update_phi;
        orig_phi = PHI_CHAIN (orig_phi), update_phi = PHI_CHAIN (update_phi))
     {
+      /* Virtual phi; Mark it for renaming. We actually want to call
+	 mar_sym_for_renaming, but since all ssa renaming datastructures
+	 are going to be freed before we get to call ssa_upate, we just
+	 record this name for now in a bitmap, and will mark it for
+	 renaming later.  */
+      name = PHI_RESULT (orig_phi);
+      if (!is_gimple_reg (SSA_NAME_VAR (name)))
+        bitmap_set_bit (vect_vnames_to_rename, SSA_NAME_VERSION (name));
+
       /** 1. Handle new-merge-point phis  **/
 
       /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
@@ -849,7 +863,8 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
   new_bbs = xmalloc (sizeof (basic_block) * loop->num_nodes);
 
   copy_bbs (bbs, loop->num_nodes, new_bbs,
-	    &loop->single_exit, 1, &new_loop->single_exit, NULL);
+	    &loop->single_exit, 1, &new_loop->single_exit, NULL,
+	    e->src);
 
   /* Duplicating phi args at exit bbs as coming 
      also from exit of duplicated loop.  */
@@ -1406,6 +1421,8 @@ new_loop_vec_info (struct loop *loop)
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREFS (res), 20, "loop_datarefs");
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DDRS (res), 20, "loop_ddrs");
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
+  LOOP_VINFO_MAY_MISALIGN_STMTS (res)
+    = VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
 
   return res;
 }
@@ -1466,6 +1483,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   free (LOOP_VINFO_BBS (loop_vinfo));
   varray_clear (LOOP_VINFO_DATAREFS (loop_vinfo));
   varray_clear (LOOP_VINFO_DDRS (loop_vinfo));
+  VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
 
   free (loop_vinfo);
 }
@@ -2010,6 +2028,10 @@ vectorize_loops (struct loops *loops)
   /* Fix the verbosity level if not defined explicitly by the user.  */
   vect_set_dump_settings ();
 
+  /* Allocate the bitmap that records which virtual variables that 
+     need to be renamed.  */
+  vect_vnames_to_rename = BITMAP_ALLOC (NULL);
+
   /*  ----------- Analyze loops. -----------  */
 
   /* If some loop was duplicated, it gets bigger number 
@@ -2031,7 +2053,7 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo, loops); 
+      vect_transform_loop (loop_vinfo, loops);
       num_vectorized_loops++;
     }
 
@@ -2040,6 +2062,8 @@ vectorize_loops (struct loops *loops)
 	     num_vectorized_loops);
 
   /*  ----------- Finalize. -----------  */
+
+  BITMAP_FREE (vect_vnames_to_rename);
 
   for (i = 1; i < vect_loops_num; i++)
     {

@@ -1362,8 +1362,13 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	static const int regs[4] = {
 	  0, RETURN_ADDR_REGNUM, ILINK1_REGNUM, ILINK2_REGNUM
 	};
-	fprintf (file, "\tj.d %s\n", reg_names[regs[fn_type]]);
-      }
+
+	/* Update the flags, if returning from an interrupt handler. */
+	if (ARC_INTERRUPT_P (fn_type))
+	  fprintf (file, "\tj.d.f %s\n", reg_names[regs[fn_type]]);
+	else
+	  fprintf (file, "\tj.d %s\n", reg_names[regs[fn_type]]);
+	}
 
       /* If the only register saved is the return address, we need a
 	 nop, unless we have an instruction to put into it.  Otherwise
@@ -1494,7 +1499,11 @@ output_shift (rtx *operands)
   if (GET_CODE (operands[2]) != CONST_INT)
     {
       if (optimize)
-	output_asm_insn ("mov lp_count,%2", operands);
+	{
+	  output_asm_insn ("sub.f 0,%2,0", operands);
+      	  output_asm_insn ("mov lp_count,%2", operands);
+	  output_asm_insn ("bz 2f", operands);
+	}
       else
 	output_asm_insn ("mov %4,%2", operands);
       goto shiftloop;
@@ -1568,6 +1577,8 @@ output_shift (rtx *operands)
 		fprintf (asm_out_file, "1:\t%s single insn loop\n",
 			 ASM_COMMENT_START);
 	      output_asm_insn (shift_one, operands);
+	      fprintf (asm_out_file, "2:\t%s end single insn loop\n",
+		       ASM_COMMENT_START);
 	    }
 	  else 
 	    {

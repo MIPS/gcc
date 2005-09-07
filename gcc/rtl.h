@@ -1043,7 +1043,7 @@ do {									\
 		   ASM_INPUT)->volatil)
 
 /* 1 if RTX is a mem that refers to an aggregate, either to the
-   aggregate itself of to a field of the aggregate.  If zero, RTX may
+   aggregate itself or to a field of the aggregate.  If zero, RTX may
    or may not be such a reference.  */
 #define MEM_IN_STRUCT_P(RTX)						\
   (RTL_FLAG_CHECK1("MEM_IN_STRUCT_P", (RTX), MEM)->in_struct)
@@ -1542,6 +1542,7 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
+extern bool constant_pool_reference_p (rtx x);
 extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
@@ -1964,6 +1965,8 @@ extern rtx delete_insn_and_edges (rtx);
 extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
+extern rtx gen_frame_mem (enum machine_mode, rtx);
+extern rtx gen_tmp_stack_mem (enum machine_mode, rtx);
 extern bool validate_subreg (enum machine_mode, enum machine_mode,
 			     rtx, unsigned int);
 
