@@ -12,7 +12,7 @@
 #include "dfp-round.h"
 
 extern void abort (void);
-static int failcnt;
+static int failcnt = 0;
 
 /* Support compiling the test to report individual failures; default is
    to abort as soon as a check fails.  */

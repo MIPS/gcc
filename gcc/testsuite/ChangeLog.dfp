@@ -1,5 +1,10 @@
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
+	* round-conversions-1.c: Initialize static variable.
+	* Wbad-function-cast-1.c: Complete comment.
+
+2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
+
 	* ctypes.c: Test size of arrays of decimal float types.
 
 2005-09-08  Ben Elliston  <bje@au.ibm.com>

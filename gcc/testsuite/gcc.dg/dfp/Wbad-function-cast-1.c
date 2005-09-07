@@ -1,5 +1,6 @@
 /* Test operation of -Wbad-function-cast.  */
-/* Based on gcc.dg/Wbad-function-cast-1.c
+/* Based on gcc.dg/Wbad-function-cast-1.c.  */
+
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99 -Wbad-function-cast" } */
 
