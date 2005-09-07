@@ -1,3 +1,7 @@
+2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
+
+	* varargs-2.c: New.
+
 2005-09-06  Ben Elliston  <bje@au.ibm.com>
 
 	* testsuite/gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Pass
