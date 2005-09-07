@@ -43,6 +43,36 @@ int main()
   if (0.0df/0.0dl == __builtin_nand32(""))
     abort();
 
+  /* 0.0 * INF => NaN.  */
+  if (!__builtin_isnand32 (0.0df * __builtin_infd32()))
+    abort ();
+
+  if (!__builtin_isnand64 (0.0dd * __builtin_infd64()))
+    abort ();
+
+  if (!__builtin_isnand128 (0.0dd * __builtin_infd128()))
+    abort ();
+
+  /* INF - INF => NaN.  */
+  if (!__builtin_isnand32 (__builtin_infd32() - __builtin_infd32()))
+    abort ();
+
+  if (!__builtin_isnand64 (__builtin_infd64() - __builtin_infd64()))
+    abort ();
+
+  if (!__builtin_isnand128 (__builtin_infd128() - __builtin_infd128()))
+    abort ();
+
+  /* INF/INF => NaN.  */
+  if (!__builtin_isnand32 (__builtin_infd32()/__builtin_infd32()) )
+    abort ();
+
+  if (!__builtin_isnand64 (__builtin_infd64()/__builtin_infd64()) )
+    abort ();
+
+  if (!__builtin_isnand128 (__builtin_infd128()/__builtin_infd128()) )
+    abort ();
+  
   /* 0.0/0.0 => NaN, but NaN != NaN.  */
   if ((0.0dd/0.0df) == (0.0dd/0.0df))
     abort();

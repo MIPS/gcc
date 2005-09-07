@@ -1,5 +1,9 @@
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
+	* nan-1.c: Add more cases.
+
+2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
+
 	* round-conversions-1.c: Initialize static variable.
 	* Wbad-function-cast-1.c: Complete comment.
 
