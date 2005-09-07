@@ -1,5 +1,10 @@
 2005-09-07  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/linux-eabi/h (SUBTARGET_EXTRA_LINK_SPEC): Prepend a
+	space to string.
+
+2005-09-07  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/arm.c (arm_override_options): Remove Thumb-2/FP sorry.
 	Add sorry for Thumb-2/iWMMXt.
 	* config/arm/arm.h (PREFERRED_RELOAD_CLASS): Only prefer LO_REGS for

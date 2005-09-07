@@ -48,7 +48,7 @@
 #define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm10tdmi
 
 #undef SUBTARGET_EXTRA_LINK_SPEC
-#define SUBTARGET_EXTRA_LINK_SPEC "-m armelf_linux_eabi"
+#define SUBTARGET_EXTRA_LINK_SPEC " -m armelf_linux_eabi"
 
 /* Use ld-linux.so.3 so that it will be possible to run "classic"
    GNU/Linux binaries on an EABI system.  */
