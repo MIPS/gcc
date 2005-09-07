@@ -2010,6 +2010,7 @@ offset_overlaps_with_access (const unsigned HOST_WIDE_INT fieldpos,
 static struct constraint_expr
 get_constraint_for_component_ref (tree t)
 {
+  tree orig_t = t;
   struct constraint_expr result;
   HOST_WIDE_INT bitsize;
   HOST_WIDE_INT bitpos;
@@ -2083,8 +2084,9 @@ get_constraint_for_component_ref (tree t)
 	    }
 	  /* assert that we found *some* field there. The user couldn't be
 	     accessing *only* padding.  */
-	     
-	  gcc_assert (curr);
+	  /* Still the user could access one past the end of an array
+	     embedded in a struct resulting in accessing *only* padding.  */
+	  gcc_assert (curr || ref_contains_array_ref (orig_t));
 	}
       else
 	if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3067,7 +3069,6 @@ create_variable_info_for (tree decl, const char *name)
   vi->has_union = hasunion;
   if (!TYPE_SIZE (decltype) 
       || TREE_CODE (TYPE_SIZE (decltype)) != INTEGER_CST
-      || TREE_CODE (decltype) == ARRAY_TYPE
       || TREE_CODE (decltype) == UNION_TYPE
       || TREE_CODE (decltype) == QUAL_UNION_TYPE)
     {
@@ -3101,7 +3102,6 @@ create_variable_info_for (tree decl, const char *name)
 	{
 	  if (!DECL_SIZE (fo->field) 
 	      || TREE_CODE (DECL_SIZE (fo->field)) != INTEGER_CST
-	      || TREE_CODE (TREE_TYPE (fo->field)) == ARRAY_TYPE
 	      || fo->offset < 0)
 	    {
 	      notokay = true;

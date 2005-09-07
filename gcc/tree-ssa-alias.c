@@ -2561,7 +2561,6 @@ create_overlap_variables_for (tree var)
 	{
 	  if (!DECL_SIZE (fo->field) 
 	      || TREE_CODE (DECL_SIZE (fo->field)) != INTEGER_CST
-	      || TREE_CODE (TREE_TYPE (fo->field)) == ARRAY_TYPE
 	      || fo->offset < 0)
 	    {
 	      notokay = true;

@@ -1,0 +1,15 @@
+2005-09-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22555
+	* tree-dfa.c (okay_component_ref_for_subvars): Do not give up,
+	if one structure field is an array.
+	* tree-ssa-alias.c (create_overlap_variables_for): Likewise.
+	* tree-ssa-structalias.c (create_variable_info_for): Likewise.
+	(get_constraint_for_component_ref): Do not assert we can not
+	only be accessing padding if we deal with an ARRAY_REF.
+	* tree-ssa-loop-ivopts.c (rewrite_use): Mark new vars in stmt
+	for renaming.
+	* tree-ssa-loop.c (pass_iv_optimize): Schedule TODO_update_ssa.
+	* tree-ssa-operands.c (get_expr_operands): Continue scanning
+	operands even if we found a subvar, but ignore VOPs in this
+	case.

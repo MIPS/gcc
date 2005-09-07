@@ -810,8 +810,6 @@ okay_component_ref_for_subvars (tree ref, unsigned HOST_WIDE_INT *poffset,
   *poffset = 0;  
   *psize = (unsigned int) -1;
   
-  if (ref_contains_array_ref (ref))
-    return result;
   ref = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
 			     &unsignedp, &volatilep, false);
   if (TREE_CODE (ref) == INDIRECT_REF)
