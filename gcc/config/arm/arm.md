@@ -10432,7 +10432,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI [(const_int 0)] UNSPEC_TLS))]
   "TARGET_HARD_TP"
-  "mrc%?\\tp15, 0, %0, c13, c0, 2\\t@ load_tp_hard"
+  "mrc%?\\tp15, 0, %0, c13, c0, 3\\t@ load_tp_hard"
   [(set_attr "predicable" "yes")]
 )
 
