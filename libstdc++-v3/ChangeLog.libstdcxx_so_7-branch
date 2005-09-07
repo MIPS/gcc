@@ -1,3 +1,14 @@
+2005-09-07  Chris Jefferson <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (search_n): Delegate to specializations.
+	(__search_n(std::forward_iterator_tag): Original search_n, tweak to
+	remove an unnecessary comparison.
+
+2005-09-07  Jim Xochellis <jimxoch@yahoo.gr>
+
+	* include/bits/stl_algo.h (__search_n(std::random_access_iterator_tag):
+	Add specialization.
+
 2005-09-04  Paolo Carlini  <pcarlini@suse.de>
 
 	Merged to mainline at tag libstdcxx_so_7-merge-20050904.
