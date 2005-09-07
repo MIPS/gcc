@@ -93,7 +93,7 @@ vararg_double (unsigned arg, ...)
 
 int main ()
 {
-  assert (vararg_d32 (3, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 0.0df);
+  assert (vararg_d32 (3, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 3.0df);
   assert (vararg_d64 (4, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 4.0dd);
   assert (vararg_d128 (1, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 1.0dl);
   assert (vararg_int (0, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 0);

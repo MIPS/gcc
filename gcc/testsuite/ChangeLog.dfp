@@ -1,3 +1,7 @@
+2005-09-08  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/dfp/varargs-2.c: Correct an assertion.
+
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* varargs-2.c: New.
