@@ -3511,6 +3511,11 @@ fold_rtx (rtx x, rtx insn)
 	      addr = addr_ent->const_rtx;
 	  }
 
+	/* APPLE LOCAL begin mainline 2005-09-07 */
+    	/* Call target hook to avoid the effects of -fpic etc....  */
+    	addr = targetm.delegitimize_address (addr);
+	/* APPLE LOCAL end mainline 2005-09-07 */
+
 	/* If address is constant, split it into a base and integer offset.  */
 	if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
 	  base = addr;

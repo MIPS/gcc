@@ -6379,6 +6379,18 @@ ix86_delegitimize_address (rtx orig_x)
       return x;
     }
 
+  /* APPLE LOCAL begin radar 4168635 */
+  if (TARGET_MACHO && darwin_local_data_pic (x)
+      && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
+      && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0))
+      && GET_CODE (orig_x) != MEM)
+    {
+      if (y)
+        return orig_x;
+      return XEXP (x, 0);
+    }
+  /* APPLE LOCAL end radar 4168635 */
+
   return orig_x;
 }
 

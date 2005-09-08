@@ -191,6 +191,17 @@ avoid_constant_pool_reference (rtx x)
 
   return c;
 }
+
+/* APPLE LOCAL begin mainline 2005-09-07 */
+/* Return true if X is a MEM referencing the constant pool.  */
+
+bool
+constant_pool_reference_p (rtx x)
+{
+  return avoid_constant_pool_reference (x) != x;
+}
+/* APPLE LOCAL end mainline 2005-09-07 */
+
 
 /* Make a unary operation by first seeing if it folds and otherwise making
    the specified operation.  */

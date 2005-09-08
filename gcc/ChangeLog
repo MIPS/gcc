@@ -1,3 +1,15 @@
+2005-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+        PR rtl-optimization/23098
+        Radar 4168635
+
+        * cse.c (fold_rtx_mem): Call delegitimize_address target hook.
+        * simplify-rtx.c (constant_pool_reference_p): New function.
+        * rtl.h (constant_pool_reference_p): New prototype.
+        * config/i386/i386.md (pushf split, mov[sdx]f split): Use
+        constant_pool_reference_p in condition and
+        avoid_constant_pool_reference in preparation statements.
+
 2005-08-31  Geoffrey Keating  <geoffk@apple.com>
 
 	* doc/install.texi (Specific): Update cctools version required
