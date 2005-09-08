@@ -314,6 +314,11 @@ proc supported-p { id op } {
     global directives
     global libfuncs
 
+    # Ops that are unsupported.
+    switch -- $op {
+	apply		{ return false }
+    }
+
     # Test IDs that are unsupported.
     switch $id {
 	addx690		{ return false }

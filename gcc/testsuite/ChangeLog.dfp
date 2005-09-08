@@ -1,5 +1,9 @@
 2005-09-08  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.misc-tests/dectest.exp (supported-p): Include "apply" tests.
+
+2005-09-08  Ben Elliston  <bje@au.ibm.com>
+
 	* gcc.misc-tests/dectest.exp (nan-p): New proc.
 	(infinity-p): Likewise.
 	(isnan-builtin-name): Likewise.
@@ -11,7 +15,7 @@
 	for a number of specific dectest tests are unsupported.
 	(c-operand): Clean up handling of special values like NaN.
 	(process-test-case): Pass the test id as expected by supported-p.
-	
+
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* gcc.dg/dfp/nan-1.c: Add more cases.
