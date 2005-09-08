@@ -1,3 +1,14 @@
+2005-09-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4220129
+	* config/i386/emmintrin.h (_mm_set1_epi8):  Redefine.
+
+2005-09-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4229407
+	* passes.c (rest_of_compilation): Reduce stack alignment
+	to 8 bytes, not 4, for leaves containing doubles.
+
 2005-09-08  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4168635

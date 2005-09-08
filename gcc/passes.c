@@ -1708,23 +1708,28 @@ rest_of_compilation (void)
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
+  /* APPLE LOCAL begin 4229407 */
   /* APPLE LOCAL begin radar 4095567 */
 #ifdef TARGET_386
-  if ((optimize > 0 || optimize_size)
-       && current_function_is_leaf
-       && PREFERRED_STACK_BOUNDARY >= 128
-/* APPLE LOCAL begin radar 4120689 */
-       && !DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector
-       && LargestAlignmentOfVariables() < 128)
-/* APPLE LOCAL end radar 4120689 */
-    {
-      save_PREFERRED_STACK_BOUNDARY = PREFERRED_STACK_BOUNDARY;
-      PREFERRED_STACK_BOUNDARY = 32;
-      cfun->stack_alignment_needed = STACK_BOUNDARY;
-      cfun->preferred_stack_boundary = STACK_BOUNDARY;
-    }
+  {
+    int align;
+    if ((optimize > 0 || optimize_size)
+	 && current_function_is_leaf
+	 && PREFERRED_STACK_BOUNDARY >= 128
+  /* APPLE LOCAL begin radar 4120689 */
+	 && !DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector
+	 && (align = LargestAlignmentOfVariables()) < 128)
+  /* APPLE LOCAL end radar 4120689 */
+      {
+	save_PREFERRED_STACK_BOUNDARY = PREFERRED_STACK_BOUNDARY;
+	PREFERRED_STACK_BOUNDARY = MAX (align, 32);
+	cfun->stack_alignment_needed = STACK_BOUNDARY;
+	cfun->preferred_stack_boundary = STACK_BOUNDARY;
+      }
+  }
 #endif
   /* APPLE LOCAL end radar 4095567 */
+  /* APPLE LOCAL end 4229407 */
 
   if (rest_of_handle_old_regalloc ())
     goto exit_rest_of_compilation;

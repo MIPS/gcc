@@ -590,38 +590,9 @@ _mm_set_epi8 (char __q15, char __q14, char __q13, char __q12,
   };
 }
 
-/* Set all of the elements of the vector to A.  */
-
-static __inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set1_epi64x (long long __A)
-{
-  return _mm_set_epi64x (__A, __A);
-}
-
-static __inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set1_epi64 (__m64 __A)
-{
-  return _mm_set_epi64 (__A, __A);
-}
-
-static __inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set1_epi32 (int __A)
-{
-  return _mm_set_epi32 (__A, __A, __A, __A);
-}
-
-static __inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set1_epi16 (short __A)
-{
-  return _mm_set_epi16 (__A, __A, __A, __A, __A, __A, __A, __A);
-}
-
-static __inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set1_epi8 (char __A)
-{
-  return _mm_set_epi8 (__A, __A, __A, __A, __A, __A, __A, __A,
-		       __A, __A, __A, __A, __A, __A, __A, __A);
-}
+/* APPLE LOCAL begin 4220129 */
+/* functions moved to end of file */
+/* APPLE LOCAL end 4220129 */
 
 /* Create a vector of Qi, where i is the element number.
    The parameter order is reversed from the _mm_set_epi* functions.  */
@@ -1433,6 +1404,44 @@ _mm_castsi128_pd(__m128i __A)
 }
 /* APPLE LOCAL end radar 4152603 */
 
+/* APPLE LOCAL begin 4220129 */
+/* Set all of the elements of the vector to A.  */
+
+static __inline __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_set1_epi64x (long long __A)
+{
+  return _mm_set_epi64x (__A, __A);
+}
+
+static __inline __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_set1_epi64 (__m64 __A)
+{
+  return _mm_set_epi64 (__A, __A);
+}
+
+static __inline __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_set1_epi32 (int __A)
+{
+  return _mm_set_epi32 (__A, __A, __A, __A);
+}
+
+static __inline __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_set1_epi16 (short __A)
+{
+  return _mm_set_epi16 (__A, __A, __A, __A, __A, __A, __A, __A);
+}
+
+static __inline __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_set1_epi8 (char __A)
+{
+    __m128i temp, temp2, temp3, temp4;
+    temp = _mm_cvtsi32_si128 ((int)__A);
+    temp2 = _mm_unpacklo_epi8 (temp, temp);
+    temp3 = _mm_unpacklo_epi8 (temp2, temp2);
+    temp4 = _mm_shuffle_epi32 (temp3, 0);
+    return temp4;
+}
+/* APPLE LOCAL end 4220129 */
 #endif /* __SSE2__  */
 
 #endif /* _EMMINTRIN_H_INCLUDED */
