@@ -290,7 +290,7 @@ struct tree_common GTY(())
   unsigned visited : 1;
   /* APPLE LOCAL "unavailable" attribute (Radar 2809697) --ilr */
   unsigned unavailable_flag : 1;
-  /* APPLE LOCAL begin bitfield reversal 4228294 */
+  /* APPLE LOCAL bitfield reversal 4228294 */
   unsigned reversed_flag : 1;
 };
 
