@@ -3982,8 +3982,55 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
   if (HOST_BITS_PER_WIDE_INT < BITS_PER_UNIT)
     abort ();
 
+  /* APPLE LOCAL begin bitfield reversal 4228294 */
   if (TREE_CODE (type) == RECORD_TYPE)
-    field = TYPE_FIELDS (type);
+    {
+      if (TREE_FIELDS_REVERSED (type))
+	{
+	  /* If bitfields were reversed they will not be in ascending
+	     address order here, which confuses the code below.   Sort
+	     the constructor.  Note that the type retains the old
+	     ordering, for debug info purposes.  (The comment below that
+	     says FIELD goes through the structure fields is misleading;
+	     FIELD is set from the constructor, not the type, so uses
+	     the constructor list's ordering.)  */
+	  tree head, last, afterlast, prev = NULL;
+	  for (head = CONSTRUCTOR_ELTS (exp);
+	       head;
+	       prev = head, head = TREE_CHAIN (head))
+	    {
+	      if (TREE_PURPOSE (head) && DECL_BIT_FIELD (TREE_PURPOSE (head)))
+		{
+		  HOST_WIDE_INT pos = int_bit_position (TREE_PURPOSE (head));
+		  /* Find next field that isn't a bitfield, or is after "head"
+		     in memory. */
+		  last = head;
+		  afterlast = TREE_CHAIN (head);
+		  while (afterlast && TREE_PURPOSE (afterlast)
+			 && DECL_BIT_FIELD (TREE_PURPOSE (afterlast))
+			 && int_bit_position (TREE_PURPOSE (afterlast)) < pos)
+		    {
+		      last = afterlast;
+		      afterlast = TREE_CHAIN (last);
+		    }
+		  /* Reverse fields head..last inclusive.  */
+		  if (last != head)
+		    {
+		      TREE_CHAIN (last) = NULL;
+		      last = nreverse (head);
+		      if (prev)
+			TREE_CHAIN (prev) = last;
+		      else
+			CONSTRUCTOR_ELTS (exp) = last;
+		      TREE_CHAIN (head) = afterlast;
+		      /* Outer loop will continue at afterlast. */
+		    }
+		}
+	    }
+	}
+      field = TYPE_FIELDS (type);
+    }
+  /* APPLE LOCAL end bitfield reversal 4228294 */
 
   if (TREE_CODE (type) == ARRAY_TYPE
       && TYPE_DOMAIN (type) != 0)

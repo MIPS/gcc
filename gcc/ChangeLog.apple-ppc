@@ -1,3 +1,12 @@
+2005-09-01  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4228294
+	* tree.h (struct tree_common):  Add reversed_flag.
+	(TREE_FIELDS_REVERSED):  New.
+	* stor-layout.c (layout_type):  Set it.
+	* varasm.c (output_constructor):  Reverse initializer list for
+	types with reversed_flag set.
+
 2005-08-30  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4233894

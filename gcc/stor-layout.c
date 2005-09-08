@@ -1828,6 +1828,12 @@ layout_type (tree type)
       }
 
     case RECORD_TYPE:
+      /* APPLE LOCAL begin bitfield reversal 4228294 */
+      if (targetm.reverse_bitfields_p (type))
+	TREE_FIELDS_REVERSED (type) = 1;
+      /* Fall through */
+      /* APPLE LOCAL end bitfield reversal 4228294 */
+
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
       {
