@@ -1,6 +1,6 @@
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
-	* nan-1.c: Add more cases.
+	* gcc.dg/dfp/nan-1.c: Add more cases.
 
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
@@ -9,7 +9,12 @@
 
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
-	* ctypes.c: Test size of arrays of decimal float types.
+	* gcc.dg/dfp/round-conversions-1.c: Initialize static variable.
+	* gcc.dg/dfp/Wbad-function-cast-1.c: Complete comment.
+
+2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
+
+	* gcc.dg/dfp/ctypes.c: Test size of arrays of decimal float types.
 
 2005-09-08  Ben Elliston  <bje@au.ibm.com>
 
@@ -17,11 +22,11 @@
 
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
-	* varargs-2.c: New.
+	* gcc.dg/dfp/varargs-2.c: New.
 
 2005-09-06  Ben Elliston  <bje@au.ibm.com>
 
-	* testsuite/gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Pass
+	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Pass
 	-frounding-math.
 	(dfp-run-test): Strip comments from directives lines.
 	(c-rounding-mode): Swap numeric assignments of half_up/half_even.
