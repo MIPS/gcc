@@ -207,17 +207,17 @@ proc c-type-suffix { ctype } {
 
 proc nan-p { operand } {
     if {[string match "NaN*" $operand] || [string match "-NaN*" $operand]} {
-	return true
+	return 1
     } else {
-	return false
+	return 0
     }
 }
 
 proc infinity-p { operand } {
     if {[string match "Inf*" $operand] || [string match "-Inf*" $operand]} {
-	return true
+	return 1
     } else {
-	return false
+	return 0
     }
 }
 
@@ -316,29 +316,29 @@ proc supported-p { id op } {
 
     # Ops that are unsupported.
     switch -- $op {
-	apply		{ return false }
+	apply		{ return 0 }
     }
 
     # Test IDs that are unsupported.
     switch $id {
-	addx690		{ return false }
-	mulx263		{ return false }
-	subx947		{ return false }
+	addx690		{ return 0 }
+	mulx263		{ return 0 }
+	subx947		{ return 0 }
     }
 
     if [info exist libfuncs($op)] {
 	# No library support for now.
-	return false
+	return 0
     }
     if [catch {c-rounding-mode $directives(rounding)}] {
 	# Unsupported rounding mode.
-	return false
+	return 0
     }
     if [catch {c-decimal-type}] {
 	# Unsupported precision.
-	return false
+	return 0
     }
-    return true
+    return 1
 }
 
 # Break LINE into a list of tokens.  Be sensitive to quoting.
@@ -426,7 +426,7 @@ proc process-test-case { testcase line } {
     set testfile [file tail $testcase]
 
     # Compress multiple spaces down to one.
-    set line [regsub -all {  *} $line { }]
+    regsub -all {  *} $line { } line
 
     set args [tokenize $line]
     if {[llength $args] < 5} {
