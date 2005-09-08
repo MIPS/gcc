@@ -1,3 +1,9 @@
+2005-09-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4220129
+	* gcc.dg/4220129.c:  New.
+	* gcc.dg/4220129a.c:  New.
+
 2005-09-07  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4228294
