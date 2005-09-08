@@ -1,3 +1,17 @@
+2005-09-08  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp (nan-p): New proc.
+	(infinity-p): Likewise.
+	(isnan-builtin-name): Likewise.
+	(isinf-builtin-name): Likewise.
+	(hex-constant-p): Remove unused proc.
+	(make-c-test): Simplify the constructed filename.  Specially
+	handle the possibility of NaN and infinity results.
+	(supported-p): Receive the test id as an argument.  Return false
+	for a number of specific dectest tests are unsupported.
+	(c-operand): Clean up handling of special values like NaN.
+	(process-test-case): Pass the test id as expected by supported-p.
+	
 2005-09-08  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* gcc.dg/dfp/nan-1.c: Add more cases.

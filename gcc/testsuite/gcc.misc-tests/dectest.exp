@@ -205,6 +205,32 @@ proc c-type-suffix { ctype } {
     return ""
 }
 
+proc nan-p { operand } {
+    if {[string match "NaN*" $operand] || [string match "-NaN*" $operand]} {
+	return true
+    } else {
+	return false
+    }
+}
+
+proc infinity-p { operand } {
+    if {[string match "Inf*" $operand] || [string match "-Inf*" $operand]} {
+	return true
+    } else {
+	return false
+    }
+}
+
+proc isnan-builtin-name { } {
+    set bits [expr [c-sizeof-decimal-type] * 8]
+    return "__builtin_isnand$bits"
+}
+
+proc isinf-builtin-name { } {
+    set bits [expr [c-sizeof-decimal-type] * 8]
+    return "__builtin_isinfd$bits"
+}
+
 # Return a string that declares a C union containing the decimal type
 # and an unsigned char array of the right size.
 
@@ -214,10 +240,6 @@ proc c-union-decl { } {
     append result "    unsigned char bytes\[[c-sizeof-decimal-type]\];\n"
     append result "  } u;"
     return $result
-}
-
-proc hex-constant-p {value} {
-    return {[string index $value 0] == "\#"}
 }
 
 proc transform-hex-constant {value} {
@@ -231,7 +253,7 @@ proc transform-hex-constant {value} {
 
 proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     global directives
-    set filename [file rootname $testcase]-${id}.c
+    set filename ${id}.c
     set outfd [open $filename w]
 
     puts $outfd [c-test-preamble $id]
@@ -251,6 +273,8 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     puts $outfd "  /*  FIXME: Set rounding mode with fesetround() once in libc.  */"
     puts $outfd "  __dfp_set_round ([c-rounding-mode $directives(rounding)]);"
     puts $outfd ""
+
+    # Build the expression to be tested.
     if {[string compare $op2 NONE] == 0} {
 	if {[string index $op1 0] == "\#"} {
 	    puts $outfd "  memcpy (u.bytes, fill, [c-sizeof-decimal-type]);"
@@ -261,12 +285,18 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
 	puts $outfd "  u.d = [c-binary-expression $operation [c-operand $op1] [c-operand $op2]];"
     }
 
-    # Handle undefined results.
+    # Test the result.
     if {[string compare $result ?] != 0} {
+	# Not an undefined result ..
 	if {[string index $result 0] == "\#"} {
 	    # Handle hex comparisons.
 	    puts $outfd "  return memcmp (u.bytes, compare, [c-sizeof-decimal-type]);"
+	} elseif {[nan-p $result]} {
+	    puts $outfd "  return ![isnan-builtin-name] (u.d);"
+	} elseif {[infinity-p $result]} {
+	    puts $outfd "  return ![isinf-builtin-name] (u.d);"
 	} else {
+	    # Ordinary values.
 	    puts $outfd "  return !(u.d == [c-operand $result]);"
 	}
     } else {
@@ -280,21 +310,27 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
 
 # Is the test supported for this target?
 
-proc supported-p { op } {
+proc supported-p { id op } {
     global directives
     global libfuncs
 
-    if [info exist libfuncs($op)] {
-	# No library tests for now (no support!)
-	return false
+    # Test IDs that are unsupported.
+    switch $id {
+	addx690		{ return false }
+	mulx263		{ return false }
+	subx947		{ return false }
     }
 
+    if [info exist libfuncs($op)] {
+	# No library support for now.
+	return false
+    }
     if [catch {c-rounding-mode $directives(rounding)}] {
 	# Unsupported rounding mode.
 	return false
     }
     if [catch {c-decimal-type}] {
-	# unsupported precision
+	# Unsupported precision.
 	return false
     }
     return true
@@ -359,23 +395,15 @@ proc process-directive { line } {
 # Produce a C99-valid floating point literal.
 
 proc c-operand {operand} {
-    # FIXME: don't alwayse use __builtin_infd32.
+    set bits [expr 8 * [c-sizeof-decimal-type]]
 
-    if [string match "-Inf*" $operand] {
-	return "-__builtin_infd32()"
-    } 
-    if [string match "Inf*" $operand] {
-        return "__builtin_infd32()"
-    }
-    if {[string match "NaN*" $operand] || \
-	    [string match "-NaN*" $operand]} {
-	return "__builtin_nand32(\"\")"
-    }
-
-    # FIXME: signalling?
-    if {[string match "sNaN*" $operand] || \
-	    [string match "-sNaN*" $operand]} {
-	return "__builtin_nand32(\"\")"
+    switch -glob -- $operand {
+	"Inf*"		{ return "__builtin_infd${bits} ()" }
+	"-Inf*"		{ return "- __builtin_infd${bits} ()" }
+    	"NaN*"		{ return "__builtin_nand${bits} (\"\")" }
+	"-NaN*"		{ return "- __builtin_nand${bits} (\"\")" }
+	"sNaN*"		{ return "__builtin_nand${bits} (\"\")" }
+	"-sNaN*"	{ return "- __builtin_nand${bits} (\"\")" }
     }
 
     if {[string first . $operand] < 0 && \
@@ -428,7 +456,7 @@ proc process-test-case { testcase line } {
     }
     
     # If this test is unsupported, say so.
-    if ![supported-p $operation] {
+    if ![supported-p $id $operation] {
 	unsupported "$testfile ($id)"
 	return
     }
