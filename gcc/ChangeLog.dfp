@@ -3,6 +3,8 @@
 	* decLibrary.c (isinfd32, isinfd64, isinfd128): Remove redundant
 	memcpy calls.
 
+	* dfp.c: Whitespace fix.
+
 2005-09-09  Ben Elliston  <bje@au.ibm.com>
 
 	* decLibrary.c: New.
