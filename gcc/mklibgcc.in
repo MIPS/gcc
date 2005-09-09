@@ -363,7 +363,7 @@ for ml in $MULTILIBS; do
 
   # Bring in the DFP support code if D32PBIT, D64PBIT or D128PBIT are set.
   if [ -n "$D32PBIT" -o -n "$D64PBIT" -o -n "$D128PBIT" ] ; then
-    dec_filenames="decContext decNumber decRound"
+    dec_filenames="decContext decNumber decRound decLibrary"
   fi
 
   # Only bring in decimal*.c files for types we support.
