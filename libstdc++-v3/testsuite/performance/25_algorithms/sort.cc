@@ -99,7 +99,7 @@ namespace __gnu_cxx
 {
   template<>
     struct __is_moveable<int_wrap>
-    { static const bool value = true; };
+    { static const bool __value = true; };
 }
 
 struct
