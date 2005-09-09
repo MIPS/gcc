@@ -12,7 +12,7 @@
 
 2005-09-09  Paolo Carlini  <pcarlini@suse.de>
 
-	*testsuite/performance/25_algorithms (sort.cc): Rename
+	*testsuite/performance/25_algorithms/sort.cc: Rename
 	__is_moveable<int_wrap>::value -> __value.
 
 2005-09-07  Chris Jefferson <chris@bubblescope.net>
