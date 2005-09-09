@@ -962,6 +962,10 @@ darwin_cpp_builtins (cpp_reader *pfile)
     builtin_define_with_value ("__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__",
 			       version_as_macro(), false);
 
+  /* APPLE LOCAL begin constant cfstrings */
+  if (darwin_constant_cfstrings)
+    builtin_define ("__CONSTANT_CFSTRINGS__");
+  /* APPLE LOCAL end constant cfstrings */
   /* APPLE LOCAL begin pascal strings */
   if (darwin_pascal_strings)
     {
@@ -977,5 +981,9 @@ darwin_cpp_builtins (cpp_reader *pfile)
   else
     builtin_define ("__strong=");
   /* APPLE LOCAL end ObjC GC */
+  /* APPLE LOCAL begin radar 4224728 */
+  if (flag_pic)
+    builtin_define ("__PIC__");
+  /* APPLE LOCAL end radar 4224728 */
 }
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */

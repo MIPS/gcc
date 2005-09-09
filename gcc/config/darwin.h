@@ -215,35 +215,6 @@ extern const char *darwin_macosx_version_min;
     N_("Warn if constant CFString objects contain non-portable characters"), 0},	\
    {"no-warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch, "", 0}
 
-#define SUBTARGET_OS_CPP_BUILTINS()			\
-  do							\
-    {							\
-      builtin_define ("__MACH__");			\
-      builtin_define ("__APPLE__");			\
-      if (darwin_constant_cfstrings)			\
-	builtin_define ("__CONSTANT_CFSTRINGS__");	\
-      /* APPLE LOCAL begin pascal strings */		\
-      if (darwin_pascal_strings)			\
-	{						\
-	  builtin_define ("__PASCAL_STRINGS__");	\
-	}						\
-      /* APPLE LOCAL end pascal strings */		\
-      /* APPLE LOCAL begin ObjC GC */			\
-      if (flag_objc_gc)					\
-	{						\
-	  builtin_define ("__strong=__attribute__((objc_gc(strong)))"); \
-	  builtin_define ("__OBJC_GC__");		\
-	}						\
-      else						\
-	builtin_define ("__strong=");			\
-      /* APPLE LOCAL end ObjC GC */			\
-      /* APPLE LOCAL begin radar 4224728 */		\
-      if (flag_pic)					\
-	builtin_define ("__PIC__");			\
-      /* APPLE LOCAL end radar 4224728 */               \
-    }							\
-  while (0)
-
 #define SUBSUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
   /* APPLE LOCAL kext */                                                \
