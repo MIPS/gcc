@@ -1,3 +1,39 @@
+2005-09-09  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-pretty-print.c (dump_bb_header): Fix merge conflict.
+
+	* fold-const.c (try_move_mult_to_index): Handle negative multipliers.
+
+	* Makefile.in (tree-affine.o): Add.
+	(tree-ssa-address.o, tree-ssa-loop-ivopts.o): Add tree-affine.h
+	dependency.
+	* tree-affine.c: New file.
+	* tree-affine.h: New file.
+	* tree-flow.h (struct affine_tree_combination): Moved to
+	tree-affine.h.
+	* tree-ssa-address.c: Include tree-affine.h.
+	(fixed_address_object_p): Export.
+	(add_to_parts): Do not take coef argument.
+	(most_expensive_mult_to_index, addr_to_parts, create_mem_ref):
+	Use tree-affine.h utilities.
+	* tree-ssa-loop-ivopts.c: Include tree-affine.h.
+	(struct iv_use, struct iv_cand): Add base_aff field.
+	(record_use, add_candidate_1): Initialize base_aff field.
+	(determine_base_object): Handle MULT_EXPR.
+	(aff_combination_const, aff_combination_elt, aff_combination_scale,
+	aff_combination_add_elt, aff_combination_add,
+	tree_to_aff_combination, add_elt_to_tree, unshare_aff_combination,
+	aff_combination_to_tree): Moved to tree-affine.c.
+	(get_computation_aff): Use tree-affine.h utilities.  Never compute
+	result in trees directly.  Return suggested multiplier for an
+	addressing mode.
+	(get_computation_at, rewrite_use_address): Changed to reflect
+	get_computation_aff change.
+	(split_address_cost, ptr_difference_cost, difference_cost): Removed.
+	(aff_combination_cost, aff_combination_cost_address): New.
+	(get_computation_cost_at): Use them.
+	* tree.h (fixed_address_object_p): Declare.
+
 2005-09-02  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	Merge from mainline (killloop-merge-20050902).

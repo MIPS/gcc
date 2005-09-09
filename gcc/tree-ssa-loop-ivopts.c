@@ -89,6 +89,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfgloop.h"
 #include "params.h"
 #include "langhooks.h"
+#include "tree-affine.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -160,6 +161,8 @@ struct iv_use
   unsigned id;		/* The id of the use.  */
   enum use_type type;	/* Type of the use.  */
   struct iv *iv;	/* The induction variable it is based on.  */
+  aff_tree base_aff;	/* Base of the induction variable, as an affine
+			   combination.  */
   tree stmt;		/* Statement in that it occurs.  */
   tree *op_p;		/* The place where it occurs.  */
   bitmap related_cands;	/* The set of "related" iv candidates, plus the common
@@ -196,6 +199,8 @@ struct iv_cand
 			   "pseudocandidate" used to indicate the possibility
 			   to replace the final value of an iv by direct
 			   computation of the value.  */
+  aff_tree base_aff;	/* Base of the induction variable, as an affine
+			   combination.  */
   unsigned cost;	/* Cost of the candidate.  */
   bitmap depends_on;	/* The list of invariants that are used in step of the
 			   biv.  */
@@ -786,6 +791,7 @@ determine_base_object (tree expr)
   switch (code)
     {
     case INTEGER_CST:
+    case MULT_EXPR:
       return NULL_TREE;
 
     case ADDR_EXPR:
@@ -1174,6 +1180,7 @@ record_use (struct ivopts_data *data, tree *use_p, struct iv *iv,
   use->id = n_iv_uses (data);
   use->type = use_type;
   use->iv = iv;
+  tree_to_aff_combination (iv->base, TREE_TYPE (iv->base), &use->base_aff);
   use->stmt = stmt;
   use->op_p = use_p;
   use->related_cands = BITMAP_ALLOC (NULL);
@@ -2019,6 +2026,9 @@ add_candidate_1 (struct ivopts_data *data,
   unsigned i;
   struct iv_cand *cand = NULL;
   tree type, orig_type;
+
+  /* Important candidate should not be specific to a single use.  */
+  gcc_assert (!use || !important);
   
   if (base)
     {
@@ -2076,7 +2086,10 @@ add_candidate_1 (struct ivopts_data *data,
       if (!base && !step)
 	cand->iv = NULL;
       else
-	cand->iv = alloc_iv (base, step);
+	{
+	  cand->iv = alloc_iv (base, step);
+	  tree_to_aff_combination (base, TREE_TYPE (base), &cand->base_aff);
+	}
 
       cand->pos = pos;
       if (pos != IP_ORIGINAL && cand->iv)
@@ -2203,11 +2216,11 @@ add_iv_value_candidates (struct ivopts_data *data,
       base = fold_build2 (MULT_EXPR, type,
 			  fold_convert (type, niter->niter),
 			  fold_build1 (NEGATE_EXPR, type, iv->step));
-      add_candidate (data, base, iv->step, true, use);
+      add_candidate (data, base, iv->step, true, NULL);
     }
   else
     add_candidate (data, build_int_cst (type, 0),
-		   iv->step, true, use);
+		   iv->step, true, NULL);
 
   /* Third, try removing the constant offset.  */
   base = strip_offset (iv->base, &offset);
@@ -2766,315 +2779,15 @@ constant_multiple_of (tree type, tree top, tree bot)
     }
 }
 
-/* Sets COMB to CST.  */
-
-static void
-aff_combination_const (struct affine_tree_combination *comb, tree type,
-		       unsigned HOST_WIDE_INT cst)
-{
-  unsigned prec = TYPE_PRECISION (type);
-
-  comb->type = type;
-  comb->mask = (((unsigned HOST_WIDE_INT) 2 << (prec - 1)) - 1);
-
-  comb->n = 0;
-  comb->rest = NULL_TREE;
-  comb->offset = cst & comb->mask;
-}
-
-/* Sets COMB to single element ELT.  */
-
-static void
-aff_combination_elt (struct affine_tree_combination *comb, tree type, tree elt)
-{
-  unsigned prec = TYPE_PRECISION (type);
-
-  comb->type = type;
-  comb->mask = (((unsigned HOST_WIDE_INT) 2 << (prec - 1)) - 1);
-
-  comb->n = 1;
-  comb->elts[0] = elt;
-  comb->coefs[0] = 1;
-  comb->rest = NULL_TREE;
-  comb->offset = 0;
-}
-
-/* Scales COMB by SCALE.  */
-
-static void
-aff_combination_scale (struct affine_tree_combination *comb,
-		       unsigned HOST_WIDE_INT scale)
-{
-  unsigned i, j;
-
-  if (scale == 1)
-    return;
-
-  if (scale == 0)
-    {
-      aff_combination_const (comb, comb->type, 0);
-      return;
-    }
-
-  comb->offset = (scale * comb->offset) & comb->mask;
-  for (i = 0, j = 0; i < comb->n; i++)
-    {
-      comb->coefs[j] = (scale * comb->coefs[i]) & comb->mask;
-      comb->elts[j] = comb->elts[i];
-      if (comb->coefs[j] != 0)
-	j++;
-    }
-  comb->n = j;
-
-  if (comb->rest)
-    {
-      if (comb->n < MAX_AFF_ELTS)
-	{
-	  comb->coefs[comb->n] = scale;
-	  comb->elts[comb->n] = comb->rest;
-	  comb->rest = NULL_TREE;
-	  comb->n++;
-	}
-      else
-	comb->rest = fold_build2 (MULT_EXPR, comb->type, comb->rest,
-				  build_int_cst_type (comb->type, scale));
-    }
-}
-
-/* Adds ELT * SCALE to COMB.  */
-
-static void
-aff_combination_add_elt (struct affine_tree_combination *comb, tree elt,
-			 unsigned HOST_WIDE_INT scale)
-{
-  unsigned i;
-
-  if (scale == 0)
-    return;
-
-  for (i = 0; i < comb->n; i++)
-    if (operand_equal_p (comb->elts[i], elt, 0))
-      {
-	comb->coefs[i] = (comb->coefs[i] + scale) & comb->mask;
-	if (comb->coefs[i])
-	  return;
-
-	comb->n--;
-	comb->coefs[i] = comb->coefs[comb->n];
-	comb->elts[i] = comb->elts[comb->n];
-	return;
-      }
-  if (comb->n < MAX_AFF_ELTS)
-    {
-      comb->coefs[comb->n] = scale;
-      comb->elts[comb->n] = elt;
-      comb->n++;
-      return;
-    }
-
-  if (scale == 1)
-    elt = fold_convert (comb->type, elt);
-  else
-    elt = fold_build2 (MULT_EXPR, comb->type,
-		       fold_convert (comb->type, elt),
-		       build_int_cst_type (comb->type, scale)); 
-
-  if (comb->rest)
-    comb->rest = fold_build2 (PLUS_EXPR, comb->type, comb->rest, elt);
-  else
-    comb->rest = elt;
-}
-
-/* Adds COMB2 to COMB1.  */
-
-static void
-aff_combination_add (struct affine_tree_combination *comb1,
-		     struct affine_tree_combination *comb2)
-{
-  unsigned i;
-
-  comb1->offset = (comb1->offset + comb2->offset) & comb1->mask;
-  for (i = 0; i < comb2-> n; i++)
-    aff_combination_add_elt (comb1, comb2->elts[i], comb2->coefs[i]);
-  if (comb2->rest)
-    aff_combination_add_elt (comb1, comb2->rest, 1);
-}
-
-/* Splits EXPR into an affine combination of parts.  */
-
-static void
-tree_to_aff_combination (tree expr, tree type,
-			 struct affine_tree_combination *comb)
-{
-  struct affine_tree_combination tmp;
-  enum tree_code code;
-  tree cst, core, toffset;
-  HOST_WIDE_INT bitpos, bitsize;
-  enum machine_mode mode;
-  int unsignedp, volatilep;
-
-  STRIP_NOPS (expr);
-
-  code = TREE_CODE (expr);
-  switch (code)
-    {
-    case INTEGER_CST:
-      aff_combination_const (comb, type, int_cst_value (expr));
-      return;
-
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-      tree_to_aff_combination (TREE_OPERAND (expr, 0), type, comb);
-      tree_to_aff_combination (TREE_OPERAND (expr, 1), type, &tmp);
-      if (code == MINUS_EXPR)
-	aff_combination_scale (&tmp, -1);
-      aff_combination_add (comb, &tmp);
-      return;
-
-    case MULT_EXPR:
-      cst = TREE_OPERAND (expr, 1);
-      if (TREE_CODE (cst) != INTEGER_CST)
-	break;
-      tree_to_aff_combination (TREE_OPERAND (expr, 0), type, comb);
-      aff_combination_scale (comb, int_cst_value (cst));
-      return;
-
-    case NEGATE_EXPR:
-      tree_to_aff_combination (TREE_OPERAND (expr, 0), type, comb);
-      aff_combination_scale (comb, -1);
-      return;
-
-    case ADDR_EXPR:
-      core = get_inner_reference (TREE_OPERAND (expr, 0), &bitsize, &bitpos,
-				  &toffset, &mode, &unsignedp, &volatilep,
-				  false);
-      if (bitpos % BITS_PER_UNIT != 0)
-	break;
-      aff_combination_const (comb, type, bitpos / BITS_PER_UNIT);
-      core = build_fold_addr_expr (core);
-      if (TREE_CODE (core) == ADDR_EXPR)
-	aff_combination_add_elt (comb, core, 1);
-      else
-	{
-	  tree_to_aff_combination (core, type, &tmp);
-	  aff_combination_add (comb, &tmp);
-	}
-      if (toffset)
-	{
-	  tree_to_aff_combination (toffset, type, &tmp);
-	  aff_combination_add (comb, &tmp);
-	}
-      return;
-
-    default:
-      break;
-    }
-
-  aff_combination_elt (comb, type, expr);
-}
-
-/* Creates EXPR + ELT * SCALE in TYPE.  MASK is the mask for width of TYPE.  */
-
-static tree
-add_elt_to_tree (tree expr, tree type, tree elt, unsigned HOST_WIDE_INT scale,
-		 unsigned HOST_WIDE_INT mask)
-{
-  enum tree_code code;
-
-  scale &= mask;
-  elt = fold_convert (type, elt);
-
-  if (scale == 1)
-    {
-      if (!expr)
-	return elt;
-
-      return fold_build2 (PLUS_EXPR, type, expr, elt);
-    }
-
-  if (scale == mask)
-    {
-      if (!expr)
-	return fold_build1 (NEGATE_EXPR, type, elt);
-
-      return fold_build2 (MINUS_EXPR, type, expr, elt);
-    }
-
-  if (!expr)
-    return fold_build2 (MULT_EXPR, type, elt,
-			build_int_cst_type (type, scale));
-
-  if ((scale | (mask >> 1)) == mask)
-    {
-      /* Scale is negative.  */
-      code = MINUS_EXPR;
-      scale = (-scale) & mask;
-    }
-  else
-    code = PLUS_EXPR;
-
-  elt = fold_build2 (MULT_EXPR, type, elt,
-		     build_int_cst_type (type, scale));
-  return fold_build2 (code, type, expr, elt);
-}
-
-/* Copies the tree elements of COMB to ensure that they are not shared.  */
-
-static void
-unshare_aff_combination (struct affine_tree_combination *comb)
-{
-  unsigned i;
-
-  for (i = 0; i < comb->n; i++)
-    comb->elts[i] = unshare_expr (comb->elts[i]);
-  if (comb->rest)
-    comb->rest = unshare_expr (comb->rest);
-}
-
-/* Makes tree from the affine combination COMB.  */
-
-static tree
-aff_combination_to_tree (struct affine_tree_combination *comb)
-{
-  tree type = comb->type;
-  tree expr = comb->rest;
-  unsigned i;
-  unsigned HOST_WIDE_INT off, sgn;
-
-  /* Handle the special case produced by get_computation_aff when
-     the type does not fit in HOST_WIDE_INT.  */
-  if (comb->n == 0 && comb->offset == 0)
-    return fold_convert (type, expr);
-
-  gcc_assert (comb->n == MAX_AFF_ELTS || comb->rest == NULL_TREE);
-
-  for (i = 0; i < comb->n; i++)
-    expr = add_elt_to_tree (expr, type, comb->elts[i], comb->coefs[i],
-			    comb->mask);
-
-  if ((comb->offset | (comb->mask >> 1)) == comb->mask)
-    {
-      /* Offset is negative.  */
-      off = (-comb->offset) & comb->mask;
-      sgn = comb->mask;
-    }
-  else
-    {
-      off = comb->offset;
-      sgn = 1;
-    }
-  return add_elt_to_tree (expr, type, build_int_cst_type (type, off), sgn,
-			  comb->mask);
-}
-
 /* Determines the expression by that USE is expressed from induction variable
    CAND at statement AT in LOOP.  The expression is stored in a decomposed
-   form into AFF.  Returns false if USE cannot be expressed using CAND.  */
+   form into AFF.  Returns false if USE cannot be expressed using CAND.
+   The ratio by that the candidate is multiplied is returned in MUL_RAT.  */
 
 static bool
 get_computation_aff (struct loop *loop,
 		     struct iv_use *use, struct iv_cand *cand, tree at,
-		     struct affine_tree_combination *aff)
+		     aff_tree *aff, double_int *mul_rat)
 {
   tree ubase = use->iv->base;
   tree ustep = use->iv->step;
@@ -3082,12 +2795,9 @@ get_computation_aff (struct loop *loop,
   tree cstep = cand->iv->step;
   tree utype = TREE_TYPE (ubase), ctype = TREE_TYPE (cbase);
   tree uutype;
-  tree expr, delta;
-  tree ratio;
+  double_int rat;
   unsigned HOST_WIDE_INT ustepi, cstepi;
-  HOST_WIDE_INT ratioi;
-  struct affine_tree_combination cbase_aff, expr_aff;
-  tree cstep_orig = cstep, ustep_orig = ustep;
+  aff_tree cbase_aff, expr_aff;
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -3095,75 +2805,48 @@ get_computation_aff (struct loop *loop,
       return false;
     }
 
-  expr = var_at_stmt (loop, cand, at);
+  uutype = unsigned_type_for (utype);
 
-  if (TREE_TYPE (expr) != ctype)
+  /* If the conversion is not noop, we must take it into account when
+     considering the value of the step.  */
+  if (TYPE_PRECISION (utype) < TYPE_PRECISION (ctype))
+    cstep = fold_convert (uutype, cstep);
+
+  if (cst_and_fits_in_hwi (cstep)
+      && cst_and_fits_in_hwi (ustep))
     {
-      /* This may happen with the original ivs.  */
-      expr = fold_convert (ctype, expr);
-    }
-
-  if (TYPE_UNSIGNED (utype))
-    uutype = utype;
-  else
-    {
-      uutype = unsigned_type_for (utype);
-      ubase = fold_convert (uutype, ubase);
-      ustep = fold_convert (uutype, ustep);
-    }
-
-  if (uutype != ctype)
-    {
-      expr = fold_convert (uutype, expr);
-      cbase = fold_convert (uutype, cbase);
-      cstep = fold_convert (uutype, cstep);
-
-      /* If the conversion is not noop, we must take it into account when
-	 considering the value of the step.  */
-      if (TYPE_PRECISION (utype) < TYPE_PRECISION (ctype))
-	cstep_orig = cstep;
-    }
-
-  if (cst_and_fits_in_hwi (cstep_orig)
-      && cst_and_fits_in_hwi (ustep_orig))
-    {
-      ustepi = int_cst_value (ustep_orig);
-      cstepi = int_cst_value (cstep_orig);
+      HOST_WIDE_INT ratioi;
+      ustepi = int_cst_value (ustep);
+      cstepi = int_cst_value (cstep);
 
       if (!divide (TYPE_PRECISION (uutype), ustepi, cstepi, &ratioi))
-	{
-	  /* TODO maybe consider case when ustep divides cstep and the ratio is
-	     a power of 2 (so that the division is fast to execute)?  We would
-	     need to be much more careful with overflows etc. then.  */
-	  return false;
-	}
+	return false;
 
-      ratio = build_int_cst_type (uutype, ratioi);
+      rat = hwi_to_double_int (ratioi);
     }
   else
     {
-      ratio = constant_multiple_of (uutype, ustep_orig, cstep_orig);
+      tree ratio = constant_multiple_of (uutype, ustep, cstep);
       if (!ratio)
 	return false;
-
-      /* Ratioi is only used to detect special cases when the multiplicative
-	 factor is 1 or -1, so if we cannot convert ratio to HOST_WIDE_INT,
-	 we may set it to 0.  We prefer cst_and_fits_in_hwi/int_cst_value
-	 to integer_onep/integer_all_onesp, since the former ignores
-	 TREE_OVERFLOW.  */
-      if (cst_and_fits_in_hwi (ratio))
-	ratioi = int_cst_value (ratio);
-      else if (integer_onep (ratio))
-	ratioi = 1;
-      else if (integer_all_onesp (ratio))
-	ratioi = -1;
-      else
-	ratioi = 0;
+      rat = tree_to_double_int (ratio);
     }
 
-  /* We may need to shift the value if we are after the increment.  */
+  *aff = use->base_aff;
+  cbase_aff = cand->base_aff;
+  tree_to_aff_combination (var_at_stmt (loop, cand, at), ctype, &expr_aff);
+  aff_combination_convert (aff, uutype);
+  aff_combination_convert (&cbase_aff, uutype);
+  aff_combination_convert (&expr_aff, uutype);
+
+  /* We need to shift the value if we are after the increment.  */
   if (stmt_after_increment (loop, cand, at))
-    cbase = fold_build2 (PLUS_EXPR, uutype, cbase, cstep);
+    {
+      aff_tree cstep_aff;
+
+      tree_to_aff_combination (cstep, uutype, &cstep_aff);
+      aff_combination_add (&cbase_aff, &cstep_aff);
+    }
 
   /* use = ubase - ratio * cbase + ratio * var.
 
@@ -3173,49 +2856,13 @@ get_computation_aff (struct loop *loop,
      happen, fold is able to apply the distributive law to obtain this form
      anyway.  */
 
-  if (TYPE_PRECISION (uutype) > HOST_BITS_PER_WIDE_INT)
-    {
-      /* Let's compute in trees and just return the result in AFF.  This case
-	 should not be very common, and fold itself is not that bad either,
-	 so making the aff. functions more complicated to handle this case
-	 is not that urgent.  */
-      if (ratioi == 1)
-	{
-	  delta = fold_build2 (MINUS_EXPR, uutype, ubase, cbase);
-	  expr = fold_build2 (PLUS_EXPR, uutype, expr, delta);
-	}
-      else if (ratioi == -1)
-	{
-	  delta = fold_build2 (PLUS_EXPR, uutype, ubase, cbase);
-	  expr = fold_build2 (MINUS_EXPR, uutype, delta, expr);
-	}
-      else
-	{
-	  delta = fold_build2 (MULT_EXPR, uutype, cbase, ratio);
-	  delta = fold_build2 (MINUS_EXPR, uutype, ubase, delta);
-	  expr = fold_build2 (MULT_EXPR, uutype, ratio, expr);
-	  expr = fold_build2 (PLUS_EXPR, uutype, delta, expr);
-	}
-
-      aff->type = uutype;
-      aff->n = 0;
-      aff->offset = 0;
-      aff->mask = 0;
-      aff->rest = expr;
-      return true;
-    }
-
-  /* If we got here, the types fits in HOST_WIDE_INT, thus it must be
-     possible to compute ratioi.  */
-  gcc_assert (ratioi);
-
-  tree_to_aff_combination (ubase, uutype, aff);
-  tree_to_aff_combination (cbase, uutype, &cbase_aff);
-  tree_to_aff_combination (expr, uutype, &expr_aff);
-  aff_combination_scale (&cbase_aff, -ratioi);
-  aff_combination_scale (&expr_aff, ratioi);
+  aff_combination_scale (&cbase_aff, double_int_negate (&cbase_aff, rat));
+  aff_combination_scale (&expr_aff, rat);
   aff_combination_add (aff, &cbase_aff);
   aff_combination_add (aff, &expr_aff);
+
+  if (mul_rat)
+    *mul_rat = rat;
 
   return true;
 }
@@ -3227,10 +2874,10 @@ static tree
 get_computation_at (struct loop *loop,
 		    struct iv_use *use, struct iv_cand *cand, tree at)
 {
-  struct affine_tree_combination aff;
+  aff_tree aff;
   tree type = TREE_TYPE (use->iv->base);
 
-  if (!get_computation_aff (loop, use, cand, at, &aff))
+  if (!get_computation_aff (loop, use, cand, at, &aff, NULL))
     return NULL_TREE;
   unshare_aff_combination (&aff);
   return fold_convert (type, aff_combination_to_tree (&aff));
@@ -3670,138 +3317,167 @@ force_var_cost (struct ivopts_data *data,
   return force_expr_to_var_cost (expr);
 }
 
-/* Estimates cost of expressing address ADDR  as var + symbol + offset.  The
-   value of offset is added to OFFSET, SYMBOL_PRESENT and VAR_PRESENT are set
-   to false if the corresponding part is missing.  DEPENDS_ON is a set of the
-   invariants the computation depends on.  */
+/* Determines the cost of the computation COMP.  A set of invariants
+   the expression depends on is stored in DEPENDS_ON.  COMP is modified
+   in the progress.  */
 
 static unsigned
-split_address_cost (struct ivopts_data *data,
-		    tree addr, bool *symbol_present, bool *var_present,
-		    unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
+aff_combination_cost (struct ivopts_data *data, aff_tree *comp,
+		      bitmap *depends_on)
 {
-  tree core;
-  HOST_WIDE_INT bitsize;
-  HOST_WIDE_INT bitpos;
-  tree toffset;
-  enum machine_mode mode;
-  int unsignedp, volatilep;
+  int n_adds = comp->n - 1;
+  unsigned i, j, cost = 0;
+  bool all_negated = true;
+  enum machine_mode mode = TYPE_MODE (comp->type);
   
-  core = get_inner_reference (addr, &bitsize, &bitpos, &toffset, &mode,
-			      &unsignedp, &volatilep, false);
-
-  if (toffset != 0
-      || bitpos % BITS_PER_UNIT != 0
-      || TREE_CODE (core) != VAR_DECL)
+  if (comp->n == 0 && !comp->rest)
     {
-      *symbol_present = false;
-      *var_present = true;
-      fd_ivopts_data = data;
-      walk_tree (&addr, find_depends, depends_on, NULL);
-      return target_spill_cost;
+      /* Computation is an integer constant.  */
+      return force_expr_to_var_cost (double_int_to_tree (comp->type,
+							 comp->offset));
     }
 
-  *offset += bitpos / BITS_PER_UNIT;
-  if (TREE_STATIC (core)
-      || DECL_EXTERNAL (core))
+  if (comp->rest)
     {
-      *symbol_present = true;
-      *var_present = false;
-      return 0;
+      n_adds++;
+      cost += force_var_cost (data, comp->rest, depends_on);
+      all_negated = false;
     }
-      
-  *symbol_present = false;
-  *var_present = true;
-  return 0;
-}
-
-/* Estimates cost of expressing difference of addresses E1 - E2 as
-   var + symbol + offset.  The value of offset is added to OFFSET,
-   SYMBOL_PRESENT and VAR_PRESENT are set to false if the corresponding
-   part is missing.  DEPENDS_ON is a set of the invariants the computation
-   depends on.  */
-
-static unsigned
-ptr_difference_cost (struct ivopts_data *data,
-		     tree e1, tree e2, bool *symbol_present, bool *var_present,
-		     unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
-{
-  HOST_WIDE_INT diff = 0;
-  unsigned cost;
-
-  gcc_assert (TREE_CODE (e1) == ADDR_EXPR);
-
-  if (ptr_difference_const (e1, e2, &diff))
+  if (!double_int_zero_p (comp->offset))
     {
-      *offset += diff;
-      *symbol_present = false;
-      *var_present = false;
-      return 0;
+      n_adds++;
+      all_negated = false;
     }
 
-  if (e2 == integer_zero_node)
-    return split_address_cost (data, TREE_OPERAND (e1, 0),
-			       symbol_present, var_present, offset, depends_on);
+  /* Compute the cost of multiplications.  Using distributivity, each
+     coefficient needs to be considered only once.  Furthermore, we
+     do not need to consider both constant and its negation.
 
-  *symbol_present = false;
-  *var_present = true;
-  
-  cost = force_var_cost (data, e1, depends_on);
-  cost += force_var_cost (data, e2, depends_on);
-  cost += add_cost (Pmode);
-
-  return cost;
-}
-
-/* Estimates cost of expressing difference E1 - E2 as
-   var + symbol + offset.  The value of offset is added to OFFSET,
-   SYMBOL_PRESENT and VAR_PRESENT are set to false if the corresponding
-   part is missing.  DEPENDS_ON is a set of the invariants the computation
-   depends on.  */
-
-static unsigned
-difference_cost (struct ivopts_data *data,
-		 tree e1, tree e2, bool *symbol_present, bool *var_present,
-		 unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
-{
-  unsigned cost;
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (e1));
-  unsigned HOST_WIDE_INT off1, off2;
-
-  e1 = strip_offset (e1, &off1);
-  e2 = strip_offset (e2, &off2);
-  *offset += off1 - off2;
-
-  STRIP_NOPS (e1);
-  STRIP_NOPS (e2);
-
-  if (TREE_CODE (e1) == ADDR_EXPR)
-    return ptr_difference_cost (data, e1, e2, symbol_present, var_present, offset,
-				depends_on);
-  *symbol_present = false;
-
-  if (operand_equal_p (e1, e2, 0))
+     If all elements are multiplied by negative number, we must perform one
+     multiplication by a negative constant (and use MINUS_EXPR for the rest).
+     Otherwise, it is possible to always multiply be a positive constant.  */
+  for (i = 0; i < comp->n; i++)
     {
-      *var_present = false;
-      return 0;
+      cost += force_var_cost (data, comp->elts[i], depends_on);
+      if (double_int_negative_p (comp, comp->coefs[i]))
+	comp->coefs[i] = double_int_negate (comp, comp->coefs[i]);
+      else
+	all_negated = false;
+
+      if (double_int_one_p (comp->coefs[i]))
+	continue;
+
+      for (j = 0; j < i; j++)
+	if (double_int_equal_p (comp->coefs[i], comp->coefs[j]))
+	  break;
+      if (j < i)
+	continue;
+
+      if (double_int_fits_in_hwi_p (comp, comp->coefs[i]))
+	{
+	  /* comp->coefs[i] almost always fits into HOST_WIDE_INT, so do not
+	     worry about this this case.  */
+	  cost += target_spill_cost;
+	}
+      else
+	cost += multiply_by_cost (double_int_to_hwi (comp, comp->coefs[i]),
+				  mode);
     }
-  *var_present = true;
-  if (zero_p (e2))
-    return force_var_cost (data, e1, depends_on);
 
-  if (zero_p (e1))
+  if (all_negated)
     {
-      cost = force_var_cost (data, e2, depends_on);
+      /* This is not really precise -- multiplying by a negative constant could
+	 be cheaper than multiplyiing by its negation and negating.  */
       cost += multiply_by_cost (-1, mode);
-
-      return cost;
     }
 
-  cost = force_var_cost (data, e1, depends_on);
-  cost += force_var_cost (data, e2, depends_on);
-  cost += add_cost (mode);
+  return cost + n_adds * add_cost (mode);
+}
 
-  return cost;
+/* Determines the cost of the computation COMP used as a memory address.
+   A set of invariants the expression depends on is stored in DEPENDS_ON.
+   COMP is modified in the progress.  RATIO is the ratio by that iv is
+   multiplied, as a good candidate for step in an addressing mode.  */
+
+static unsigned
+aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
+			      bitmap *depends_on, double_int ratio)
+{
+  HOST_WIDE_INT rat = 1, off = 0;
+  unsigned cost = 0, i, nelts;
+  bool symbol_present = false, var_present = false;
+  enum machine_mode mode = TYPE_MODE (comp->type);
+
+  /* Try finding a symbol.  */
+  for (i = 0; i < comp->n; i++)
+    {
+      tree elt = comp->elts[i];
+      if (double_int_one_p (comp->coefs[i])
+	  && TREE_CODE (elt) == ADDR_EXPR
+	  && fixed_address_object_p (TREE_OPERAND (elt, 0)))
+	{
+	  symbol_present = true;
+	  aff_combination_remove_elt (comp, i);
+	  break;
+	}
+    }
+
+  if (double_int_fits_in_hwi_p (comp, ratio)
+      && !double_int_one_p (ratio))
+    {
+      /* Try separating index from comp.  */
+      for (i = 0; i < comp->n; i++)
+	if (double_int_equal_p (ratio, comp->coefs[i]))
+	  break;
+
+      if (i < comp->n)
+	{
+	  double_int ratio_neg = double_int_negate (comp, ratio);
+	  int n_add = -1;
+	  rat = double_int_to_hwi (comp, ratio);
+
+	  for (; i < comp->n; )
+	    {
+	      if (!double_int_equal_p (ratio, comp->coefs[i])
+		  && !double_int_equal_p (ratio_neg, comp->coefs[i]))
+		{
+		  i++;
+		  continue;
+		}
+	      n_add++;
+	      cost += force_var_cost (data, comp->elts[i], depends_on);
+	      aff_combination_remove_elt (comp, i);
+	    }
+	  cost += n_add * add_cost (mode);
+	}
+    }
+
+  nelts = comp->n;
+
+  if (!double_int_zero_p (comp->offset))
+    {
+      if (double_int_fits_in_hwi_p (comp, comp->offset))
+	{
+	  off = double_int_to_hwi (comp, comp->offset);
+	  comp->offset = hwi_to_double_int (0);
+	}
+      else
+	nelts++;
+    }
+  if (comp->rest)
+    nelts++;
+
+  cost += aff_combination_cost (data, comp, depends_on);
+
+  /* If there is more than one element, we can save one addition by using
+     BASE + INDEX addressing mode, if present.  */
+  if (nelts > 1)
+    {
+      var_present = true;
+      cost -= add_cost (mode);
+    }
+
+  return cost + get_address_cost (symbol_present, var_present, off, rat);
 }
 
 /* Determines the cost of the computation by that USE is expressed
@@ -3815,13 +3491,12 @@ get_computation_cost_at (struct ivopts_data *data,
 			 struct iv_use *use, struct iv_cand *cand,
 			 bool address_p, bitmap *depends_on, tree at)
 {
-  tree ubase = use->iv->base, ustep = use->iv->step;
-  tree cbase, cstep;
+  tree ubase = use->iv->base;
+  tree cbase;
   tree utype = TREE_TYPE (ubase), ctype;
-  unsigned HOST_WIDE_INT ustepi, cstepi, offset = 0;
-  HOST_WIDE_INT ratio, aratio;
-  bool var_present, symbol_present;
-  unsigned cost = 0, n_sums;
+  aff_tree comp;
+  double_int rat;
+  unsigned cost;
 
   *depends_on = NULL;
 
@@ -3830,7 +3505,6 @@ get_computation_cost_at (struct ivopts_data *data,
     return INFTY;
 
   cbase = cand->iv->base;
-  cstep = cand->iv->step;
   ctype = TREE_TYPE (cbase);
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
@@ -3852,127 +3526,16 @@ get_computation_cost_at (struct ivopts_data *data,
 	return INFTY;
     }
 
-  if (TYPE_PRECISION (utype) != TYPE_PRECISION (ctype))
-    {
-      /* TODO -- add direct handling of this case.  */
-      goto fallback;
-    }
+  if (!get_computation_aff (data->current_loop, use, cand, at, &comp, &rat))
+    return INFTY;
 
-  /* CSTEPI is removed from the offset in case statement is after the
-     increment.  If the step is not constant, we use zero instead.
-     This is a bit imprecise (there is the extra addition), but
-     redundancy elimination is likely to transform the code so that
-     it uses value of the variable before increment anyway,
-     so it is not that much unrealistic.  */
-  if (cst_and_fits_in_hwi (cstep))
-    cstepi = int_cst_value (cstep);
-  else
-    cstepi = 0;
-
-  if (cst_and_fits_in_hwi (ustep)
-      && cst_and_fits_in_hwi (cstep))
-    {
-      ustepi = int_cst_value (ustep);
-
-      if (!divide (TYPE_PRECISION (utype), ustepi, cstepi, &ratio))
-	return INFTY;
-    }
-  else
-    {
-      tree rat;
-      
-      rat = constant_multiple_of (utype, ustep, cstep);
-    
-      if (!rat)
-	return INFTY;
-
-      if (cst_and_fits_in_hwi (rat))
-	ratio = int_cst_value (rat);
-      else if (integer_onep (rat))
-	ratio = 1;
-      else if (integer_all_onesp (rat))
-	ratio = -1;
-      else
-	return INFTY;
-    }
-
-  /* use = ubase + ratio * (var - cbase).  If either cbase is a constant
-     or ratio == 1, it is better to handle this like
-     
-     ubase - ratio * cbase + ratio * var
-     
-     (also holds in the case ratio == -1, TODO.  */
-
-  if (cst_and_fits_in_hwi (cbase))
-    {
-      offset = - ratio * int_cst_value (cbase); 
-      cost += difference_cost (data,
-			       ubase, integer_zero_node,
-			       &symbol_present, &var_present, &offset,
-			       depends_on);
-    }
-  else if (ratio == 1)
-    {
-      cost += difference_cost (data,
-			       ubase, cbase,
-			       &symbol_present, &var_present, &offset,
-			       depends_on);
-    }
-  else
-    {
-      cost += force_var_cost (data, cbase, depends_on);
-      cost += add_cost (TYPE_MODE (ctype));
-      cost += difference_cost (data,
-			       ubase, integer_zero_node,
-			       &symbol_present, &var_present, &offset,
-			       depends_on);
-    }
-
-  /* If we are after the increment, the value of the candidate is higher by
-     one iteration.  */
-  if (stmt_after_increment (data->current_loop, cand, at))
-    offset -= ratio * cstepi;
-
-  /* Now the computation is in shape symbol + var1 + const + ratio * var2.
-     (symbol/var/const parts may be omitted).  If we are looking for an address,
-     find the cost of addressing this.  */
   if (address_p)
-    return cost + get_address_cost (symbol_present, var_present, offset, ratio);
+    cost = aff_combination_cost_address (data, &comp, depends_on, rat);
+  else
+    cost = aff_combination_cost (data, &comp, depends_on);
 
-  /* Otherwise estimate the costs for computing the expression.  */
-  aratio = ratio > 0 ? ratio : -ratio;
-  if (!symbol_present && !var_present && !offset)
-    {
-      if (ratio != 1)
-	cost += multiply_by_cost (ratio, TYPE_MODE (ctype));
-
-      return cost;
-    }
-
-  if (aratio != 1)
-    cost += multiply_by_cost (aratio, TYPE_MODE (ctype));
-
-  n_sums = 1;
-  if (var_present
-      /* Symbol + offset should be compile-time computable.  */
-      && (symbol_present || offset))
-    n_sums++;
-
-  return cost + n_sums * add_cost (TYPE_MODE (ctype));
-
-fallback:
-  {
-    /* Just get the expression, expand it and measure the cost.  */
-    tree comp = get_computation_at (data->current_loop, use, cand, at);
-
-    if (!comp)
-      return INFTY;
-
-    if (address_p)
-      comp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (comp)), comp);
-
-    return computation_cost (comp);
-  }
+  gcc_assert ((signed) cost >= 0);
+  return cost;
 }
 
 /* Determines the cost of the computation by that USE is expressed
@@ -5683,11 +5246,11 @@ static void
 rewrite_use_address (struct ivopts_data *data,
 		     struct iv_use *use, struct iv_cand *cand)
 {
-  struct affine_tree_combination aff;
+  aff_tree aff;
   block_stmt_iterator bsi = bsi_for_stmt (use->stmt);
   tree ref;
 
-  get_computation_aff (data->current_loop, use, cand, use->stmt, &aff);
+  get_computation_aff (data->current_loop, use, cand, use->stmt, &aff, NULL);
   unshare_aff_combination (&aff);
 
   ref = create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff);

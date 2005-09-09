@@ -4182,6 +4182,7 @@ extern int tree_map_eq (const void *, const void *);
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
+extern bool fixed_address_object_p (tree);
 
 /* In tree-object-size.c.  */
 extern void init_object_sizes (void);

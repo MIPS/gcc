@@ -2270,8 +2270,6 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 		break;
 	      }
 	}
-      pp_string (buffer, ", frequency ");
-      pp_decimal_int (buffer, bb->frequency);
       newline_and_indent (buffer, indent);
 
       pp_string (buffer, "# PRED:");

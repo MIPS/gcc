@@ -6372,7 +6372,7 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
    being an integer constant (and thus already folded).
    ADDR is the address. MULT is the multiplicative expression.
    If the function succeeds, the new address expression is returned.  Otherwise
-   NULL_TREE is returned.  */
+   NULL_TREE is returned.  CODE must be either PLUS_EXPR or MINUS_EXPR.  */
 
 static tree
 try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
@@ -6381,6 +6381,8 @@ try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
   tree ref = TREE_OPERAND (addr, 0), pref;
   tree ret, pos;
   tree itype;
+
+  gcc_assert (code == PLUS_EXPR || code == MINUS_EXPR);
 
   /* Canonicalize op1 into a possibly non-constant delta
      and an INTEGER_CST s.  */
@@ -6403,6 +6405,14 @@ try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
         }
       else
         return NULL_TREE;
+
+      /* If the step is negative, negate it and the operation, since the step
+	 of an array is always positive.  */
+      if (tree_int_cst_sign_bit (s))
+	{
+	  s = fold_build1 (NEGATE_EXPR, TREE_TYPE (s), s);
+	  code = (code == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR);
+	}
     }
   else if (TREE_CODE (op1) == INTEGER_CST)
     {
