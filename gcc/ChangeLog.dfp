@@ -1,5 +1,10 @@
 2005-09-09  Ben Elliston  <bje@au.ibm.com>
 
+	* decLibrary.c (isinfd32, isinfd64, isinfd128): Remove redundant
+	memcpy calls.
+
+2005-09-09  Ben Elliston  <bje@au.ibm.com>
+
 	* decLibrary.c: New.
 	* mklibgcc.in: Include decLibrary.c in libgcc.
 

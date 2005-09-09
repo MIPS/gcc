@@ -29,9 +29,7 @@ int
 isinfd32 (_Decimal32 arg)
 {
   decNumber dn;
-  decimal32 a;
-  memcpy (&a, &arg, sizeof (a));
-  decimal32ToNumber (&a, &dn);
+  decimal32ToNumber ((decimal32 *) &arg, &dn);
   return (decNumberIsInfinite (&dn));
 }
 
@@ -39,9 +37,7 @@ int
 isinfd64 (_Decimal64 arg)
 {
   decNumber dn;
-  decimal64 a;
-  memcpy (&a, &arg, sizeof (a));
-  decimal64ToNumber (&a, &dn);
+  decimal64ToNumber ((decimal64 *) &arg, &dn);
   return (decNumberIsInfinite (&dn));
 }
 
@@ -49,8 +45,6 @@ int
 isinfd128 (_Decimal128 arg)
 {
   decNumber dn;
-  decimal128 a;
-  memcpy (&a, &arg, sizeof (a));
-  decimal128ToNumber (&a, &dn);
+  decimal128ToNumber ((decimal128 *) &arg, &dn);
   return (decNumberIsInfinite (&dn));
 }
