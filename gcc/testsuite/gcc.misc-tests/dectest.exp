@@ -22,7 +22,11 @@
 
 # Override torture options for now (-O0 will do just fine).
 # Note: Using -O2 here will test constant folding. 
-set TORTURE_OPTIONS [list {-frounding-math}]
+set TORTURE_OPTIONS [list {-frounding-math} \
+		          {-O1 -frounding-math} \
+			  {-O2 -frounding-math} \
+			  {-O3 -frounding-math} \
+			  {-Os -frounding-math}]
 
 # Load support procs (borrow these from c-torture).
 load_lib c-torture.exp
