@@ -321,6 +321,23 @@ proc supported-p { id op } {
 
     # Test IDs that are unsupported.
     switch $id {
+	addx1130	{ return 0 }
+	addx1131	{ return 0 }
+	addx1132	{ return 0 }
+	addx1133	{ return 0 }
+	addx1134	{ return 0 }
+	addx1135	{ return 0 }
+	addx1136	{ return 0 }
+	addx1138	{ return 0 }
+	addx1139	{ return 0 }
+	addx1140	{ return 0 }
+	addx1141	{ return 0 }
+	addx1142	{ return 0 }
+	addx1151	{ return 0 }
+	addx1152	{ return 0 }
+	addx1153	{ return 0 }
+	addx1154	{ return 0 }
+	addx1160	{ return 0 }
 	addx690		{ return 0 }
 	mulx263		{ return 0 }
 	subx947		{ return 0 }

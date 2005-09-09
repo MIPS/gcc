@@ -1,5 +1,10 @@
 2005-09-09  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.misc-tests/dectest.exp (supported-p): Add more unsupported
+	tests from add.decTest.
+
+2005-09-09  Ben Elliston  <bje@au.ibm.com>
+
 	* gcc.misc-tests/dectest.exp (nan-p): Replace use of "true" with 1
 	and "false" with 0 for compatiblity with Tcl 8.3 and earlier.
 	(infinity-p): Likewise.
