@@ -36,6 +36,9 @@
 namespace __gnu_test
 {
 
+  //  This class is designed to test libstdc++'s template-based rvalue
+  //  reference support. It should fail at compile-time if there is an attempt
+  //  to copy it (although see note just below).
   class rvalstruct
   {
     bool
@@ -109,12 +112,94 @@ namespace __gnu_test
     rhs.val = temp;
   }
 
+  // This is a moveable class which copies how many times it is copied.
+  // This is mainly of use in the containers, where the an element inserted
+  // into a container has to be copied once to get there, but we want to check
+  // nothing else is copied.
+  struct copycounter
+  {
+    static int copycount;
+    int val;
+    bool valid;
+    
+    copycounter() : val(0), valid(false)
+    { }
+
+    copycounter(int inval) : val(inval), valid(true)
+    { }
+
+    copycounter(const copycounter& in) : val(in.val), valid(true)
+    { 
+      VERIFY(in.valid == true);
+      ++copycount;
+    }
+
+    copycounter(__gnu_cxx::__rvalref<copycounter> in)
+    { 
+      VERIFY(in.__ref.valid == true);
+      val = in.__ref.val;
+      in.__ref.valid = false;
+      valid = true;
+    }
+    
+    copycounter&
+    operator=(int newval)
+    { 
+      val = newval;
+      valid = true;
+    }
+
+    bool
+    operator=(const copycounter& in) 
+    { 
+      VERIFY(in.valid == true);
+      ++copycount;
+      val = in.val;
+      valid = true;
+    }
+
+    copycounter&
+    operator=(__gnu_cxx::__rvalref<copycounter> in)
+    { 
+      VERIFY(in.__ref.valid == true);
+      val = in.__ref.val;
+      in.__ref.valid = false;
+      valid = true;
+      return *this;
+    }
+  };
+
+  int copycounter::copycount = 0;
+  
+  bool 
+  operator==(const copycounter& lhs, 
+ 	     const copycounter& rhs)
+  { return lhs.val == rhs.val; }
+
+  bool
+  operator<(const copycounter& lhs, 
+	    const copycounter& rhs)
+  { return lhs.val < rhs.val; }
+
+  void
+  swap(copycounter& lhs, copycounter& rhs)
+  {  
+    VERIFY(lhs.valid && rhs.valid);
+    int temp = lhs.val;
+    lhs.val = rhs.val;
+    rhs.val = temp;
+  }
+  
 }; // namespace __gnu_test
 
 namespace __gnu_cxx 
 {
   template<>
     struct __is_moveable<__gnu_test::rvalstruct>
+    { static const bool __value = true; };
+    
+  template<>
+    struct __is_moveable<__gnu_test::copycounter>
     { static const bool __value = true; };
 }
 

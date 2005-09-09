@@ -804,6 +804,30 @@ namespace _GLIBCXX_STD
 	    }
 	}
 
+      /**
+       *  @if maint
+       *  Memory expansion handler.  Uses the member allocation function to
+       *  obtain @a n bytes of memory, and then moves [first,last) into it.
+       *  @endif
+       */
+      template<typename _ForwardIterator>
+        pointer
+        _M_allocate_and_move(size_type __n,
+			     _ForwardIterator __first, _ForwardIterator __last)
+        {
+	  pointer __result = this->_M_allocate(__n);
+	  try
+	    {
+	      std::__uninitialized_move_a(__first, __last, __result,
+					  _M_get_Tp_allocator());
+	      return __result;
+	    }
+	  catch(...)
+	    {
+	      _M_deallocate(__result, __n);
+	      __throw_exception_again;
+	    }
+	}
 
       // Internal constructor functions follow.
 

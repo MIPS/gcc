@@ -73,7 +73,7 @@ namespace _GLIBCXX_STD
       if (this->capacity() < __n)
 	{
 	  const size_type __old_size = size();
-	  pointer __tmp = _M_allocate_and_copy(__n,
+	  pointer __tmp = _M_allocate_and_move(__n,
 					       this->_M_impl._M_start,
 					       this->_M_impl._M_finish);
 	  std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish,
@@ -250,14 +250,15 @@ namespace _GLIBCXX_STD
     {
       if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage)
 	{
-	  this->_M_impl.construct(this->_M_impl._M_finish,
-				  *(this->_M_impl._M_finish - 1));
+	  std::_Construct_move_a(this->_M_impl._M_finish,
+	  			 *(this->_M_impl._M_finish - 1),
+	  			 _M_get_Tp_allocator());
 	  ++this->_M_impl._M_finish;
-	  _Tp __x_copy = __x;
-	  std::copy_backward(__position,
-			     iterator(this->_M_impl._M_finish-2),
-			     iterator(this->_M_impl._M_finish-1));
-	  *__position = __x_copy;
+	  _Tp __x_copy(__x);
+	  std::__move_backward(__position,
+			       iterator(this->_M_impl._M_finish-2),
+			       iterator(this->_M_impl._M_finish-1));
+	  *__position = __gnu_cxx::__move(__x_copy);
 	}
       else
 	{
@@ -277,14 +278,14 @@ namespace _GLIBCXX_STD
 	  try
 	    {
 	      __new_finish =
-		std::__uninitialized_copy_a(iterator(this->_M_impl._M_start),
+		std::__uninitialized_move_a(iterator(this->_M_impl._M_start),
 					    __position,
 					    __new_start,
 					    _M_get_Tp_allocator());
 	      this->_M_impl.construct(__new_finish.base(), __x);
 	      ++__new_finish;
 	      __new_finish =
-		std::__uninitialized_copy_a(__position,
+		std::__uninitialized_move_a(__position,
 					    iterator(this->_M_impl._M_finish),
 					    __new_finish,
 					    _M_get_Tp_allocator());
@@ -320,12 +321,12 @@ namespace _GLIBCXX_STD
 	      iterator __old_finish(this->_M_impl._M_finish);
 	      if (__elems_after > __n)
 		{
-		  std::__uninitialized_copy_a(this->_M_impl._M_finish - __n,
+		  std::__uninitialized_move_a(this->_M_impl._M_finish - __n,
 					      this->_M_impl._M_finish,
 					      this->_M_impl._M_finish,
 					      _M_get_Tp_allocator());
 		  this->_M_impl._M_finish += __n;
-		  std::copy_backward(__position, __old_finish - __n,
+		  std::__move_backward(__position, __old_finish - __n,
 				     __old_finish);
 		  std::fill(__position, __position + __n, __x_copy);
 		}
@@ -336,7 +337,7 @@ namespace _GLIBCXX_STD
 						__x_copy,
 						_M_get_Tp_allocator());
 		  this->_M_impl._M_finish += __n - __elems_after;
-		  std::__uninitialized_copy_a(__position, __old_finish,
+		  std::__uninitialized_move_a(__position, __old_finish,
 					      this->_M_impl._M_finish,
 					      _M_get_Tp_allocator());
 		  this->_M_impl._M_finish += __elems_after;
@@ -359,14 +360,14 @@ namespace _GLIBCXX_STD
 	      try
 		{
 		  __new_finish =
-		    std::__uninitialized_copy_a(begin(), __position,
+		    std::__uninitialized_move_a(begin(), __position,
 						__new_start,
 						_M_get_Tp_allocator());
 		  std::__uninitialized_fill_n_a(__new_finish, __n, __x,
 						_M_get_Tp_allocator());
 		  __new_finish += __n;
 		  __new_finish =
-		    std::__uninitialized_copy_a(__position, end(), __new_finish,
+		    std::__uninitialized_move_a(__position, end(), __new_finish,
 						_M_get_Tp_allocator());
 		}
 	      catch(...)
@@ -418,13 +419,13 @@ namespace _GLIBCXX_STD
 		iterator __old_finish(this->_M_impl._M_finish);
 		if (__elems_after > __n)
 		  {
-		    std::__uninitialized_copy_a(this->_M_impl._M_finish - __n,
+		    std::__uninitialized_move_a(this->_M_impl._M_finish - __n,
 						this->_M_impl._M_finish,
 						this->_M_impl._M_finish,
 						_M_get_Tp_allocator());
 		    this->_M_impl._M_finish += __n;
-		    std::copy_backward(__position, __old_finish - __n,
-				       __old_finish);
+		    std::__move_backward(__position, __old_finish - __n,
+					 __old_finish);
 		    std::copy(__first, __last, __position);
 		  }
 		else
@@ -435,7 +436,7 @@ namespace _GLIBCXX_STD
 						this->_M_impl._M_finish,
 						_M_get_Tp_allocator());
 		    this->_M_impl._M_finish += __n - __elems_after;
-		    std::__uninitialized_copy_a(__position, __old_finish,
+		    std::__uninitialized_move_a(__position, __old_finish,
 						this->_M_impl._M_finish,
 						_M_get_Tp_allocator());
 		    this->_M_impl._M_finish += __elems_after;
@@ -458,7 +459,7 @@ namespace _GLIBCXX_STD
 		try
 		  {
 		    __new_finish =
-		      std::__uninitialized_copy_a(iterator(this->_M_impl._M_start),
+		      std::__uninitialized_move_a(iterator(this->_M_impl._M_start),
 						  __position,
 						  __new_start,
 						  _M_get_Tp_allocator());
@@ -466,7 +467,7 @@ namespace _GLIBCXX_STD
 		      std::__uninitialized_copy_a(__first, __last, __new_finish,
 						  _M_get_Tp_allocator());
 		    __new_finish =
-		      std::__uninitialized_copy_a(__position,
+		      std::__uninitialized_move_a(__position,
 						  iterator(this->_M_impl._M_finish),
 						  __new_finish,
 						  _M_get_Tp_allocator());

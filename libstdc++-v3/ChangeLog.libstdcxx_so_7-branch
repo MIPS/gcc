@@ -1,3 +1,20 @@
+2005-09-09  Chris Jefferson <chris@bubblescope.net>
+
+	* include/bits/stl_construct.h (_Construct_move_a): New.
+	* include/bits/stl_uninitialized.h (__uninitialized_move,
+	__uninitialized_move_a): New.
+	* include/bits/stl_vector.h (vector::_M_allocate_and_move): New.
+	* include/bits/vector.tcc (vector::reserve, vector::_M_insert_aux,
+	vector::_M_fill_insert, vector::_M_range_insert): Make rvalref aware.
+	* testsuite/23_containers/vector/modifiers/moveable.cc: New.
+	* testsuite/testsuite_rvalref.h (rvalstruct): Add documentation.
+	(copycounter): New.
+
+2005-09-09  Paolo Carlini  <pcarlini@suse.de>
+
+	*testsuite/performance/25_algorithms (sort.cc): Rename
+	__is_moveable<int_wrap>::value -> __value.
+
 2005-09-07  Chris Jefferson <chris@bubblescope.net>
 
 	* include/bits/stl_algo.h (search_n): Delegate to specializations.

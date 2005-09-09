@@ -98,6 +98,29 @@ namespace std
 
   /**
    * @if maint
+   * Should move construct an object in existing memory by invoking the
+   * allocated object's move constructor, but move construction only occurs
+   * in the specialization below.
+   * @endif
+   */
+  template<typename _T1, typename _T2, typename _Allocator>
+    inline void
+    _Construct_move_a(_T1* __p, _T2& __value, _Allocator __alloc)
+    { __alloc.construct(__p, __value); }
+
+  /**
+   * @if maint
+   * Move constructs an object in existing memory by invoking an allocated
+   * object's move constructor.
+   * @endif
+   */    
+  template<typename _T1, typename _T2, typename _Tp>
+    inline void
+    _Construct_move_a(_T1* __p, _T2& __value, allocator<_Tp>)
+    { ::new(static_cast<void*>(__p)) _T1(__gnu_cxx::__move(__value)); }
+
+  /**
+   * @if maint
    * Destroy the object pointed to by a pointer type.
    * @endif
    */

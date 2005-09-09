@@ -113,6 +113,59 @@ namespace std
 					   _Is_POD());
     }
 
+  /**
+   *  @brief Moves the range [first,last) into result.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  result An output iterator.
+   *  @return   result + (first - last)
+   *
+   *  Like copy(), but moves and does not require an initialized output range.
+  */    
+  template<typename _InputIterator, typename _ForwardIterator>
+    inline typename __enable_if<_ForwardIterator,
+    __gnu_cxx::__is_moveable<
+    typename std::iterator_traits<_ForwardIterator>::value_type>::__value
+    && __are_same<typename std::iterator_traits<_InputIterator>::value_type,
+		  typename std::iterator_traits<_ForwardIterator>::value_type>
+	  ::__value>::__type
+    __uninitialized_move(_InputIterator __first, _InputIterator __last,
+			 _ForwardIterator __result)
+    {
+      _ForwardIterator __cur = __result;
+      try
+	{
+	  for (; __first != __last; ++__first, ++__cur)
+	    std::_Construct(&*__cur, __gnu_cxx::__move(*__first));
+	  return __cur;
+	}
+      catch(...)
+	{
+	  std::_Destroy(__result, __cur);
+	  __throw_exception_again;
+	}
+    }
+
+  /**
+   *  @brief Moves the range [first,last) into result.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  result An output iterator.
+   *  @return   result + (first - last)
+   *
+   *  Like copy(), but moves and does not require an initialized output range.
+  */   
+  template<typename _InputIterator, typename _ForwardIterator>
+    inline typename __enable_if<_ForwardIterator,
+    !(__gnu_cxx::__is_moveable<
+      typename std::iterator_traits<_ForwardIterator>::value_type>::__value
+      && __are_same<typename std::iterator_traits<_InputIterator>::value_type,
+                    typename std::iterator_traits<_ForwardIterator>::value_type>
+	  ::__value)>::__type
+    __uninitialized_move(_InputIterator __first, _InputIterator __last,
+			 _ForwardIterator __result)
+    { return std::uninitialized_copy(__first, __last, __result); }
+
   inline char*
   uninitialized_copy(const char* __first, const char* __last, char* __result)
   {
@@ -218,10 +271,10 @@ namespace std
       std::__uninitialized_fill_n_aux(__first, __n, __x, _Is_POD());
     }
 
-  // Extensions: versions of uninitialized_copy, uninitialized_fill,
-  //  and uninitialized_fill_n that take an allocator parameter.
-  //  We dispatch back to the standard versions when we're given the
-  //  default allocator.  For nondefault allocators we do not use 
+  //  Extensions: versions of uninitialized_copy, uninitialized_fill,
+  //  uninitialized_fill_n and uninitialized_move that take an allocator
+  //  parameter. We dispatch back to the standard versions when we're given 
+  //  the default allocator.  For nondefault allocators we do not use 
   //  any of the POD optimizations.
 
   template<typename _InputIterator, typename _ForwardIterator,
@@ -254,6 +307,38 @@ namespace std
       return std::uninitialized_copy(__first, __last, __result);
     }
 
+  template<typename _InputIterator, typename _ForwardIterator, typename _Tp>
+    inline 
+    typename __enable_if<_ForwardIterator,
+    __gnu_cxx::__is_moveable<
+    typename iterator_traits<_InputIterator>::value_type>::__value
+    && __are_same<typename iterator_traits<_InputIterator>::value_type,
+		  typename iterator_traits<_ForwardIterator>::value_type>
+	  ::__value>::__type
+    __uninitialized_move_a(_InputIterator __first, _InputIterator __last,
+			   _ForwardIterator __result,
+			   allocator<_Tp>)
+    { return std::__uninitialized_move(__first, __last, __result); }
+
+  template<typename _InputIterator, typename _ForwardIterator, typename _Tp>
+    inline typename __enable_if<_ForwardIterator,
+    !(__gnu_cxx::__is_moveable<
+      typename std::iterator_traits<_ForwardIterator>::value_type>::__value
+      && __are_same<typename std::iterator_traits<_InputIterator>::value_type,
+                    typename std::iterator_traits<_ForwardIterator>::value_type>
+	  ::__value)>::__type
+    __uninitialized_move_a(_InputIterator __first, _InputIterator __last,
+			   _ForwardIterator __result, allocator<_Tp> __alloc)
+    { return std::__uninitialized_copy_a(__first, __last, __result, __alloc); }    
+
+  template<typename _InputIterator, typename _ForwardIterator,
+	   typename _Allocator>
+    _ForwardIterator
+    __uninitialized_move_a(_InputIterator __first, _InputIterator __last,
+			   _ForwardIterator __result,
+			   _Allocator __alloc)
+    { return std::__uninitialized_copy_a(__first, __last, __result, __alloc); }
+			   
   template<typename _ForwardIterator, typename _Tp, typename _Allocator>
     void
     __uninitialized_fill_a(_ForwardIterator __first, _ForwardIterator __last,
