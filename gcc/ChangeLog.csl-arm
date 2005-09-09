@@ -1,3 +1,8 @@
+2005-09-09  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (PREFERRED_RELOAD_CLASS): Return LO_REGS for Thumb
+	NO_REGS.
+
 2005-09-07  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.md (load_tp_hard): Change cp register number to match

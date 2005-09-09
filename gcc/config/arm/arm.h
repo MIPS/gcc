@@ -1421,11 +1421,12 @@ enum reg_class
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
-   In general this is just CLASS, but for the Thumb we prefer
-   a LO_REGS class or a subset.  */
-#define PREFERRED_RELOAD_CLASS(X, CLASS)	\
-  (TARGET_ARM ? (CLASS) :			\
-   ((CLASS) == GENERAL_REGS || (CLASS) == HI_REGS ? LO_REGS : (CLASS)))
+   In general this is just CLASS, but for the Thumb core registers and
+   immediate constants we prefer a LO_REGS class or a subset.  */
+#define PREFERRED_RELOAD_CLASS(X, CLASS)		\
+  (TARGET_ARM ? (CLASS) :				\
+   ((CLASS) == GENERAL_REGS || (CLASS) == HI_REGS	\
+    || (CLASS) == NO_REGS ? LO_REGS : (CLASS)))
 
 /* Must leave BASE_REGS reloads alone */
 #define THUMB_SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X)		\
