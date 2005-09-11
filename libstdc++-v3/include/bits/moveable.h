@@ -74,6 +74,15 @@ namespace __gnu_cxx
     __move(_Tp& __in)
     { return __move_helper<_Tp>::__move(__in); }
 
+  // We shouldn't need this overload of __move.  It is needed in particular
+  // for forward (and better) iterators whose operator*() returns by value.
+  // The standard say there shouldn't be any such iterators.  Then someone
+  // wrote vector<bool>, which breaks that rule.
+  template<class _Tp>
+    inline const _Tp&
+    __move(const _Tp& __in)
+    { return __in; }
+
 } // namespace __gnu_cxx
 
 #endif

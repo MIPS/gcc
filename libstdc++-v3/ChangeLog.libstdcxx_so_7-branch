@@ -1,3 +1,8 @@
+2005-09-11  Chris Jefferson <chris@bubblescope.net>
+
+	* include/bits/moveable.h (__move): Add overload for const references.
+	* testsuite/25_algorithms/sort/sort-vectorbool.cc: New.
+
 2005-09-09  Chris Jefferson <chris@bubblescope.net>
 
 	* include/bits/stl_construct.h (_Construct_move_a): New.
