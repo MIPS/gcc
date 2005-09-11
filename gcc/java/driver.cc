@@ -352,6 +352,8 @@ gcjx::post_options (const char **filename_ptr)
 {
   assert (*filename_ptr);
   arguments->filename = *filename_ptr;
+  
+  global->set_compiler (our_compiler);
 
   // FIXME: GCC_EXEC_PREFIX handling.
 
@@ -403,10 +405,6 @@ gcjx::post_options (const char **filename_ptr)
   else if (! flag_syntax_only)
     our_compiler->add_code_generator (new tree_code_generator (our_compiler,
 							       dircache));
-
-  // Final setup for use of compiler.
-  global->set_compiler (our_compiler);
-
   return false;
 }
 

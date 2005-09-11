@@ -1,3 +1,8 @@
+2005-09-11  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* driver.cc (gcjx::post_options): Set global compiler before
+	processing elements in CLASSPATH to avoid segfaulting on diagnostics.
+
 2005-07-11  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (find_method): Use primitive_void_type instead of NULL
