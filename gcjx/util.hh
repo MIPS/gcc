@@ -24,7 +24,22 @@
 
 #include <assert.h>
 
+#include <cstdlib>
+#include <cstring>
+
 class model_type;
+
+/// Copies the contents of the given C-style string into dynamically
+/// allocated memory and returns a pointer to it.
+inline char*
+copy_str (const char* str)
+{
+  int len = strlen (str);
+  char* n_str = new char[len+ 1];
+  strcpy (n_str, str);
+  n_str[len] = '\0';
+  return n_str;
+}
 
 inline std::string
 get_simple_name (const std::list<std::string> &id)

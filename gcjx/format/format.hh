@@ -99,6 +99,7 @@ public:
 
   virtual ~format_repr ()
   {
+    delete[] plan;
   }
 
   void set_location (const location &w)

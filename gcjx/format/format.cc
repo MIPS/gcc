@@ -25,7 +25,7 @@
 format_repr::format_repr (format_type t, location w, const char *fmt)
   : refc (0),
     where (w),
-    plan (fmt),
+    plan (copy_str (fmt)),
     subst_count (0),
     type (t)
 {
