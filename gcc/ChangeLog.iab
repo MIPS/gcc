@@ -1,3 +1,20 @@
+2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (init_transitive_clobber_worklist): New
+	function.
+	(add_to_worklist): Ditto.
+	(mark_aliases_call_clobbered): Ditto.
+	(mark_global_tags): Ditto.
+	(set_initial_clobbers): Ditto.
+	(compute_call_clobbered): Ditto.
+	(compute_may_alias): Call compute_call_clobbered, and
+	group_aliases.
+	(compute_flow_sensitive_aliasing): Remove call clobbering code.
+	(compute_flow_insensitive_aliasing): Don't group here.
+	(group_aliases): Fix call clobbering on grouping.
+	(add_may_alias): Don't deal with call clobbering here.
+	(replace_may_alias): Ditto.
+	
 2005-09-07  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/22555

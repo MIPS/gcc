@@ -135,6 +135,156 @@ bitmap addressable_vars;
    having to keep track of too many V_MAY_DEF expressions at call sites.  */
 tree global_var;
 
+/* Initialize WORKLIST to contain those memory tags that are marked call
+   clobbered.  */
+
+static void 
+init_transitive_clobber_worklist (VEC (tree, heap) **worklist)
+{
+  referenced_var_iterator rvi;
+  tree curr;
+
+  FOR_EACH_REFERENCED_VAR (curr, rvi)
+    {
+      if (var_ann (curr)->mem_tag_kind != NOT_A_TAG
+	  && is_call_clobbered (curr))
+	VEC_safe_push (tree, heap, *worklist, curr);
+    }
+}
+
+/* Add ALIAS to WORKLIST if ALIAS is not already marked call
+   clobbered, and is a memory tag.  */
+
+static void
+add_to_worklist (tree alias, VEC (tree, heap) **worklist)
+{
+  if (var_ann (alias)->mem_tag_kind != NOT_A_TAG
+      && !is_call_clobbered (alias))
+    VEC_safe_push (tree, heap, *worklist, alias);
+}
+
+/* Mark aliases of TAG as call clobbered, and place any tags on the
+   alias list that were not already call clobbered on WORKLIST.  */
+
+static void
+mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist)
+{
+  unsigned int i;
+  varray_type ma;
+
+  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+    return;
+  ma = may_aliases (tag);
+  if (!ma)
+    return;
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
+    {
+      tree entry = VARRAY_TREE (ma, i);
+      add_to_worklist (entry, worklist);
+      mark_call_clobbered (entry);
+    }
+}
+
+/* Tags containing global vars need to be marked as global.
+   Tags containing call clobbered vars need to be marked as call
+   clobbered. */
+
+static void
+mark_global_tags (void)
+{
+  referenced_var_iterator rvi;
+  tree tag;
+
+  /* Go through each tag not marked as global, and if it aliases
+     global vars, mark it global.
+
+     FIXME: When we move the stuff from group_aliases here, this needs
+     to iterate to a fixpoint.  Right now, we know there are no tags
+     in the aliases list, or if there are, they were properly marked
+     by group_aliases.  */
+  FOR_EACH_REFERENCED_VAR (tag, rvi)
+    {
+      varray_type ma;
+      unsigned int i;
+
+      if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+	continue;
+
+      ma = may_aliases (tag);
+      if (!ma)
+	continue;
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
+	{
+	  tree entry = VARRAY_TREE (ma, i);
+
+	  if (is_call_clobbered (entry))
+	    mark_call_clobbered (tag);
+	  if (is_global_var (entry))
+	    DECL_EXTERNAL (tag) = 1;
+	}
+    }
+}
+
+/* Set up the initial variable clobbers.  
+   When this function completes, only tags whose aliases need to be
+   clobbered will be set clobbered.  Tags clobbered because they
+   contain call clobbered vars are handled in mark_global_tags.  */
+
+static void
+set_initial_clobbers (struct alias_info *ai)
+{
+  unsigned int i;
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+    {
+      unsigned j;
+      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
+      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+      var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
+      bitmap_iterator bi;
+
+      if (pi->value_escapes_p || pi->pt_anything)
+	{
+	  /* If PTR escapes or may point to anything, then its associated
+	     memory tags and pointed-to variables are call-clobbered.  */
+	  if (pi->name_mem_tag)
+	    mark_call_clobbered (pi->name_mem_tag);
+
+	  if (v_ann->type_mem_tag)
+	    mark_call_clobbered (v_ann->type_mem_tag);
+
+	  if (pi->pt_vars)
+	    EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
+	      mark_call_clobbered (referenced_var (j));
+	}
+      /* If the name tag is call clobbered, so is the type tag
+	 associated with the base VAR_DECL.  */
+      if (pi->name_mem_tag
+	  && v_ann->type_mem_tag
+	  && is_call_clobbered (pi->name_mem_tag))
+	mark_call_clobbered (v_ann->type_mem_tag);    
+    }
+}
+/* Compute which variables need to be marked call clobbered because
+   their tag is call clobbered, and which tags need to be marked
+   global because they contain global variables.  */
+
+static void
+compute_call_clobbered (struct alias_info *ai)
+{
+  VEC (tree, heap) *worklist = NULL;
+
+  set_initial_clobbers (ai);
+  init_transitive_clobber_worklist (&worklist);
+  while (VEC_length (tree, worklist) != 0)
+    {
+      tree curr = VEC_pop (tree, worklist);
+      mark_call_clobbered (curr);
+      mark_aliases_call_clobbered (curr, &worklist);
+    }
+  VEC_free (tree, heap, worklist);
+  mark_global_tags ();
+}
 
 /* Compute may-alias information for every variable referenced in function
    FNDECL.
@@ -276,6 +426,13 @@ compute_may_aliases (void)
   /* Compute type-based flow-insensitive aliasing for all the type
      memory tags.  */
   compute_flow_insensitive_aliasing (ai);
+
+  /* Compute call clobbering information.  */
+  compute_call_clobbered (ai);
+
+  /* Determine if we need to enable alias grouping.  */
+  if (ai->total_alias_vops >= MAX_ALIASED_VOPS)
+    group_aliases (ai);
 
   /* If the program has too many call-clobbered variables and/or function
      calls, create .GLOBAL_VAR and use it to model call-clobbering
@@ -698,20 +855,6 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
       bitmap_iterator bi;
 
-      if (pi->value_escapes_p || pi->pt_anything)
-	{
-	  /* If PTR escapes or may point to anything, then its associated
-	     memory tags and pointed-to variables are call-clobbered.  */
-	  if (pi->name_mem_tag)
-	    mark_call_clobbered (pi->name_mem_tag);
-
-	  if (v_ann->type_mem_tag)
-	    mark_call_clobbered (v_ann->type_mem_tag);
-
-	  if (pi->pt_vars)
-	    EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
-	      mark_call_clobbered (referenced_var (j));
-	}
 
       /* Set up aliasing information for PTR's name memory tag (if it has
 	 one).  Note that only pointers that have been dereferenced will
@@ -722,13 +865,6 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 	    add_may_alias (pi->name_mem_tag, referenced_var (j));
 	    add_may_alias (v_ann->type_mem_tag, referenced_var (j));
 	  }
-
-      /* If the name tag is call clobbered, so is the type tag
-	 associated with the base VAR_DECL.  */
-      if (pi->name_mem_tag
-	  && v_ann->type_mem_tag
-	  && is_call_clobbered (pi->name_mem_tag))
-	mark_call_clobbered (v_ann->type_mem_tag);
     }
 }
 
@@ -906,10 +1042,6 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
     fprintf (dump_file, "\n%s: Total number of aliased vops: %ld\n",
 	     get_name (current_function_decl),
 	     ai->total_alias_vops);
-
-  /* Determine if we need to enable alias grouping.  */
-  if (ai->total_alias_vops >= MAX_ALIASED_VOPS)
-    group_aliases (ai);
 }
 
 
@@ -1072,7 +1204,31 @@ group_aliases (struct alias_info *ai)
 
           if (bitmap_intersect_p (tag1_aliases, tag2_aliases))
 	    {
+	      size_t k;
+
 	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
+
+	      if (!is_call_clobbered (tag1) && is_call_clobbered (tag2))
+		{
+		  bitmap_iterator bi;
+		  mark_call_clobbered (tag1);
+		  EXECUTE_IF_SET_IN_BITMAP (tag1_aliases, 0, k, bi)
+		    {
+		      tree var = referenced_var (k);
+		      mark_call_clobbered (var);
+		    }
+
+		}
+	      else if (is_call_clobbered (tag1) && !is_call_clobbered (tag2))
+		{
+		  bitmap_iterator bi;
+		  mark_call_clobbered (tag2);
+		  EXECUTE_IF_SET_IN_BITMAP (tag2_aliases, 0, k, bi)
+		    {
+		      tree var = referenced_var (k);
+		      mark_call_clobbered (var);
+		    }
+		}
 
 	      bitmap_ior_into (tag1_aliases, tag2_aliases);
 
@@ -1609,16 +1765,6 @@ add_may_alias (tree var, tree alias)
     if (alias == VARRAY_TREE (v_ann->may_aliases, i))
       return;
 
-  /* If VAR is a call-clobbered variable, so is its new ALIAS.
-     FIXME, call-clobbering should only depend on whether an address
-     escapes.  It should be independent of aliasing.  */
-  if (is_call_clobbered (var))
-    mark_call_clobbered (alias);
-
-  /* Likewise.  If ALIAS is call-clobbered, so is VAR.  */
-  else if (is_call_clobbered (alias))
-    mark_call_clobbered (var);
-
   VARRAY_PUSH_TREE (v_ann->may_aliases, alias);
   a_ann->is_alias_tag = 1;
 }
@@ -1631,16 +1777,6 @@ replace_may_alias (tree var, size_t i, tree new_alias)
 {
   var_ann_t v_ann = var_ann (var);
   VARRAY_TREE (v_ann->may_aliases, i) = new_alias;
-
-  /* If VAR is a call-clobbered variable, so is NEW_ALIAS.
-     FIXME, call-clobbering should only depend on whether an address
-     escapes.  It should be independent of aliasing.  */
-  if (is_call_clobbered (var))
-    mark_call_clobbered (new_alias);
-
-  /* Likewise.  If NEW_ALIAS is call-clobbered, so is VAR.  */
-  else if (is_call_clobbered (new_alias))
-    mark_call_clobbered (var);
 }
 
 
