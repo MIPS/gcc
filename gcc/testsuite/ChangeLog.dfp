@@ -1,3 +1,7 @@
+2005-09-12  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp: Add some comments.
+
 2005-09-09  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Add -O1, -O2, -O3

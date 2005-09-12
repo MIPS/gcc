@@ -320,11 +320,16 @@ proc supported-p { id op } {
 
     # Ops that are unsupported.
     switch -- $op {
+	# Many of these tests fail because they do not tolerate the C
+	# front-end rounding the value of floating point literals to
+	# suit the type of the constant.  Otherwise, by treating the
+	# `apply' operator like C assignment, some of them do pass.
 	apply		{ return 0 }
     }
 
-    # Test IDs that are unsupported.
+    # Test cases that are unsupported.
     switch $id {
+	# Ditto for the following miscellaneous tests.
 	addx1130	{ return 0 }
 	addx1131	{ return 0 }
 	addx1132	{ return 0 }
