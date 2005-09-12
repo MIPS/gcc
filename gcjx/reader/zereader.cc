@@ -1,6 +1,6 @@
 // Read a compressed file from a ZIP/JAR archive.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -36,6 +36,7 @@ zip_entry_reader::~zip_entry_reader ()
 byte_buffer *
 zip_entry_reader::read_all ()
 {
+  note_read ();
   uint8 *out_buffer = new uint8[uncompressed_size];
   if (compression_method == Z_NO_COMPRESSION)
     {

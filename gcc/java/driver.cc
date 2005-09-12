@@ -26,6 +26,10 @@
 #include "header/cni.hh"
 #include "source/ucs2.hh"
 
+#ifndef TARGET_OBJECT_SUFFIX
+# define TARGET_OBJECT_SUFFIX ".o"
+#endif
+
 // An object of this type is used to hold command line argument
 // information.
 struct arg_info
@@ -44,13 +48,47 @@ struct arg_info
   // Input file name.
   const char *filename;
 
+  // Dependency tracking structure.
+  struct deps *dependencies;
+  // True if we should print phony targets.
+  bool print_phonies;
+  // True if we should include system files in dependency output.
+  bool include_system_files;
+  // True if we should write dependencies to a file (instead of to
+  // stdout).
+  bool deps_to_file;
+  // Name of output file.  If not specified, and DEPS_TO_FILE is true,
+  // then we compute the name of the file.
+  const char *dependency_file;
+  // Name of target to use, or NULL for the default.
+  const char *target;
+
   arg_info ()
     : bootclasspath (NULL),
       classpath (NULL),
       encoding (NULL),
       output (NULL),
-      filename (NULL)
+      filename (NULL),
+      dependencies (NULL),
+      print_phonies (false),
+      include_system_files (false),
+      deps_to_file (false),
+      dependency_file (NULL),
+      target (NULL)
   {
+  }
+
+  ~arg_info ()
+  {
+    if (dependencies)
+      deps_free (dependencies);
+  }
+
+  void init_dependencies (bool system)
+  {
+    if (! dependencies)
+      dependencies = deps_init ();
+    include_system_files = system;
   }
 };
 
@@ -79,13 +117,33 @@ gcjx::handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_M:
+      arguments->init_dependencies (true);
+      break;
+
     case OPT_MD_:
+      arguments->init_dependencies (true);
+      arguments->deps_to_file = true;
+      break;
+
     case OPT_MF:
+      arguments->dependency_file = arg;
+      break;
+
     case OPT_MM:
+      arguments->init_dependencies (false);
+      break;
+
     case OPT_MMD_:
+      arguments->init_dependencies (false);
+      arguments->deps_to_file = true;
+      break;
+
     case OPT_MP:
+      arguments->print_phonies = true;
+      break;
+
     case OPT_MT:
-      // fixme
+      arguments->target = arg;
       break;
 
     case OPT_Wall:
@@ -439,6 +497,67 @@ gcjx::init ()
 void
 gcjx::finish ()
 {
+  // Write out the dependencies.
+  if (arguments->dependencies)
+    {
+      FILE *dep_file;
+      if (! arguments->deps_to_file)
+	dep_file = stdout;
+      else
+	{
+	  std::string dep_filename;
+	  if (arguments->dependency_file)
+	    dep_filename = arguments->dependency_file;
+	  else
+	    {
+	      const char *filename = arguments->filename;
+	      const char *dot = strrchr (filename, '.');
+	      if (dot == NULL)
+		error ("couldn't determine target name for "
+		       "dependency tracking");
+	      else
+		{
+		  char *buf
+		    = (char *) xmalloc (dot - filename
+					+ 3 + sizeof (TARGET_OBJECT_SUFFIX));
+		  strncpy (buf, filename, dot - filename);
+		  // FIXME: special handling when generating .class.
+		  // FIXME: blah blah
+		  if (arguments->target == NULL)
+		    {
+		      strcpy (buf + (dot - filename), TARGET_OBJECT_SUFFIX);
+		      deps_add_default_target (arguments->dependencies, buf);
+		    }
+
+		  buf[dot - filename] = '\0';
+		  dep_filename = buf + std::string (".d");
+		}
+	    }
+
+	  dep_file = fopen (dep_filename.c_str (), "w");
+	  // FIXME: error handling.
+	}
+
+      // Add the dependencies.
+      std::set<std::string> files = our_compiler->get_all_files_read ();
+      for (std::set<std::string>::const_iterator i = files.begin ();
+	   i != files.end ();
+	   ++i)
+	deps_add_dep (arguments->dependencies, (*i).c_str ());
+
+      // Set the target.
+      if (arguments->target != NULL)
+	deps_add_target (arguments->dependencies, arguments->target, 1);
+
+      // Write out the results.
+      deps_write (arguments->dependencies, dep_file, 72);
+      if (arguments->print_phonies)
+	deps_phony_targets (arguments->dependencies, dep_file);
+
+      if (dep_file != stdout)
+	fclose (dep_file);
+    }
+
   // We're done with the command-line arguments.
   delete arguments;
   arguments = NULL;

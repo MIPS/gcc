@@ -116,7 +116,7 @@ directory_class_factory::find_source_file (const std::string &name)
   if (fd < 0)
     return NULL;
 
-  return new source_file_creator (file, new fd_reader (fd));
+  return new source_file_creator (file, new fd_reader (file, fd));
 }
 
 class_instance_creator *
@@ -133,7 +133,7 @@ directory_class_factory::find_derived_file (const std::string &name)
   int fd = open (file.c_str (), O_RDONLY | O_BINARY);
   if (fd < 0)
     return NULL;
-  return new class_byte_creator (file, new fd_reader (fd));
+  return new class_byte_creator (file, new fd_reader (file, fd));
 }
 
 class_instance_creator *
@@ -315,8 +315,10 @@ jar_class_factory::process_zip_entry (const uint8 *dir_ptr)
 
   std::string filename ((char *)(&dir_ptr[CREC_SIZE + 4]), filename_length);
 
+  // Note that we use the name of the zip file for dependency tracking
+  // here.
   zip_entry_reader *ze_reader
-    = new zip_entry_reader (archive->get () + file_start,
+    = new zip_entry_reader (file, archive->get () + file_start,
                             compression_method,
                             compressed_size,
                             uncompressed_size,

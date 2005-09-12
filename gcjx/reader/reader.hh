@@ -1,6 +1,6 @@
 // Base class for plain-byte input streams.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -28,10 +28,21 @@ class byte_buffer;
 
 class reader
 {
+private:
+
+  // Name of underlying file.
+  std::string filename;
+
 protected:
 
-  reader ()
+  reader (const std::string &fn)
+    : filename (fn)
   {
+  }
+
+  void note_read ()
+  {
+    global->get_compiler ()->note_file_read (filename);
   }
 
 public:

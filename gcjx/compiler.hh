@@ -224,6 +224,9 @@ class compiler : public warning_scope
   // True if this compiler will accept resource files.
   bool can_accept_resources;
 
+  // All the files read during this compilation.
+  std::set<std::string> all_files_read;
+
   void do_load_source_file (const std::string &);
   void do_generate_code (model_unit *);
   void do_analyze_unit (model_unit *);
@@ -471,6 +474,19 @@ public:
 
   /// Compile a resource file given its file name and its contents.
   void compile_resource (const std::string &, reader *);
+
+  /// Indicate that a given file has been read during the course of
+  /// this compilation.
+  void note_file_read (const std::string &fn)
+  {
+    all_files_read.insert (fn);
+  }
+
+  /// Return a set of all files read.
+  std::set<std::string> get_all_files_read ()
+  {
+    return all_files_read;
+  }
 };
 
 #endif // GCJX_COMPILER_HH

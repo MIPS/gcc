@@ -1,3 +1,18 @@
+2005-09-11  Tom Tromey  <tromey@redhat.com>
+
+	* driver.cc (arg_info::dependencies): New field.
+	(arg_info::print_phonies): Likewise.
+	(arg_info::include_system_files): Likewise.
+	(arg_info::dependency_file): Likewise.
+	(arg_info::target): Likewise.
+	(arg_info::deps_to_file): Likewise.
+	(arg_info): Initialize it.
+	(~arg_info): New destructor.
+	(arg_info::init_dependencies): New method.
+	(finish): Write out dependencies.
+	(handle_option): Handle -M family of options.
+	* glue.hh: Include mkdeps.h.
+
 2005-09-11  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* driver.cc (gcjx::post_options): Set global compiler before

@@ -594,6 +594,9 @@ http://www-124.ibm.com/pipermail/jikes/2004-February/002679.html
   this has a sign extension bug.
   warning about this might be nice
 
+- warn if an exception is created in a catch context but
+  initCause is not called
+
 ================================================================
 
 test

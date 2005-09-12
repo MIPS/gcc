@@ -1,5 +1,20 @@
 2005-09-11  Tom Tromey  <tromey@redhat.com>
 
+	* factory.cc (find_source_file): Updated.
+	(find_derived_file): Likewise.
+	(process_zip_entry): Updated.
+	* reader/fdreader.cc (read_all): Call note_read.
+	* reader/fdreader.hh (fd_reader): Added filename argument.
+	* reader/zereader.cc (read_all): Call note_read.
+	* reader/zereader.hh (zip_entry_reader): Added filename argument.
+	* reader/reader.hh (reader::note_read): New method.
+	(reader): Added argument.
+	* compiler.hh (compiler::all_files_read): New field.
+	(compiler::note_file_read): New method.
+	(compiler::get_all_files_read): Likewise.
+
+2005-09-11  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/attribute.cc (exceptions_attribute): Updated.
 	(emit): Likewise.
 	* bytecode/attribute.hh (exceptions_attribute::excs): Changed

@@ -1,6 +1,6 @@
 // Reader that uncompresses and reads a ZIP/JAR file entry.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -31,7 +31,7 @@ class zip_entry_reader : public reader
 private:
 
   /// The compressed data.
-  const uint8* compressed_data;
+  const uint8 *compressed_data;
 
   /// The compression method used for the file.
   int compression_method;
@@ -49,9 +49,10 @@ private:
 
 public:
 
-  zip_entry_reader (const uint8* data, int cmethod, uint32 csize, uint32 ucsize,
-                    uint32 dos_mtime)
-    : compressed_data (data),
+  zip_entry_reader (const std::string &fn, const uint8 *data, int cmethod,
+		    uint32 csize, uint32 ucsize, uint32 dos_mtime)
+    : reader (fn),
+      compressed_data (data),
       compression_method (cmethod),
       compressed_size (csize),
       uncompressed_size (ucsize),
