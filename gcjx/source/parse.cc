@@ -2941,8 +2941,14 @@ parse::enum_body (ref_enum result)
   if (peek () == TOKEN_SEMI)
     {
       require (TOKEN_SEMI);
-      // FIXME: don't we need to push a new scope like
-      // we do in class_body()?
+
+      // We push a new empty label to indicate to inner methods that
+      // there is a class boundary on the label stack.  This lets us
+      // avoid errors about shadowing when they are not warranted.
+      stack_temporary<Ilabel *> push_scope (label_stack, NULL);
+
+      stack_temporary<model_class *> pusher (class_stack, result.get ());
+
       while (peek () != TOKEN_CLOSE_BRACE)
 	class_body_declaration (result, false);
     }

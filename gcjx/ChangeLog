@@ -1,5 +1,10 @@
 2005-09-11  Tom Tromey  <tromey@redhat.com>
 
+	* source/parse.cc (enum_body): Push a new class scope when parsing
+	body.
+
+2005-09-11  Tom Tromey  <tromey@redhat.com>
+
 	* model/forenhanced.hh (model_for_enhanced::elt_type): New field.
 	(model_for_enhanced): Initialize it.
 	(model_for_enhanced::get_element_type): New method.
