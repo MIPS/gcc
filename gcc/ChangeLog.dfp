@@ -1,3 +1,8 @@
+2005-09-12  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/rtl.texi (Machine Modes): Document MODE_DECIMAL_FLOAT.
+	* doc/libgcc.texi (Decimal float library routines): New node.
+
 2005-09-09  Ben Elliston  <bje@au.ibm.com>
 
 	* decLibrary.c (isinfd32, isinfd64, isinfd128): Remove redundant

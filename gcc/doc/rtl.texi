@@ -1189,6 +1189,11 @@ Floating point modes.  By default these are @code{QFmode},
 @code{HFmode}, @code{TQFmode}, @code{SFmode}, @code{DFmode},
 @code{XFmode} and @code{TFmode}.
 
+@findex MODE_DECIMAL_FLOAT
+@item MODE_DECIMAL_FLOAT
+Decimal floating point modes.  By default these are @code{SDmode},
+@code{DDmode} and @code{TDmode}.
+
 @findex MODE_COMPLEX_INT
 @item MODE_COMPLEX_INT
 Complex integer modes.  (These are not currently implemented).
