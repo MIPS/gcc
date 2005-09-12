@@ -1,3 +1,7 @@
+2005-09-11  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.hh (class model_class): Added some documentation.
+
 2005-09-11  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* util.hh (copy_str): New function similar to strdup().

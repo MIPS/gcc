@@ -57,6 +57,17 @@ private:
   AllMethods::const_iterator it;
 };
 
+/// This represents a class declaration.  It has attributes covering
+/// all the needed functionality (fields, methods, etc).  It also
+/// knows the inheritance rules and other things like that.
+///
+
+/// A model_class is also used as the type of a class.  In particular,
+/// for ordinary classes, the model_class is both the declaration and
+/// the type.  For generic classes, the model_class is the declaration
+/// and the raw type.  Parameterizations of the class -- including the
+/// parameterization where each type variable "maps to itself" -- are
+/// represented by model_class_instance.
 class model_class : public model_type, public Iname, public IContext,
 		    public IDeprecatable, public IAnnotatable,
 		    public IModifiable, public IMember, public IScope

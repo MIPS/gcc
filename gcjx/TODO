@@ -303,6 +303,9 @@ X gcjh has options to add text to the header in different places;
 
 Tree generation
 
+see Wilson's note on 2005-08-10
+CHAR_TYPE is preferable for char types
+
 use set_decl_assembler_name lang hook instead of mangling up front
 
 we should add an abi method that detemrines if a class needs
@@ -491,6 +494,7 @@ X warn if a case in a switch falls through
 X equivalents of gcc's -Wswitch, -Wswitch-default
   (-Wswitch-enum doesn't make sense for us)
 - String comparison with '=='
+- array comparison with equals() and not Arrays.equals()
 
 - unneeded `throws' in method decl.
 - overly general `throws' in method decl (shadows other decl)
