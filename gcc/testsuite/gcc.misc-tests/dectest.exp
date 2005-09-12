@@ -318,12 +318,12 @@ proc supported-p { id op } {
     global directives
     global libfuncs
 
-    # Ops that are unsupported.
+    # Ops that are unsupported.  Many of these tests fail because they
+    # do not tolerate the C front-end rounding the value of floating
+    # point literals to suit the type of the constant.  Otherwise, by
+    # treating the `apply' operator like C assignment, some of them do
+    # pass.
     switch -- $op {
-	# Many of these tests fail because they do not tolerate the C
-	# front-end rounding the value of floating point literals to
-	# suit the type of the constant.  Otherwise, by treating the
-	# `apply' operator like C assignment, some of them do pass.
 	apply		{ return 0 }
     }
 
