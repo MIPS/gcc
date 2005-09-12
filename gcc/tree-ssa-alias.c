@@ -237,11 +237,9 @@ set_initial_clobbers (struct alias_info *ai)
   
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
     {
-      unsigned j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
-      bitmap_iterator bi;
 
       if (pi->value_escapes_p || pi->pt_anything)
 	{
@@ -254,8 +252,7 @@ set_initial_clobbers (struct alias_info *ai)
 	    mark_call_clobbered (v_ann->type_mem_tag);
 
 	  if (pi->pt_vars)
-	    EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
-	      mark_call_clobbered (referenced_var (j));
+	    mark_bitmap_call_clobbered (pi->pt_vars);
 	}
       /* If the name tag is call clobbered, so is the type tag
 	 associated with the base VAR_DECL.  */
@@ -1204,30 +1201,17 @@ group_aliases (struct alias_info *ai)
 
           if (bitmap_intersect_p (tag1_aliases, tag2_aliases))
 	    {
-	      size_t k;
-
 	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
 
 	      if (!is_call_clobbered (tag1) && is_call_clobbered (tag2))
 		{
-		  bitmap_iterator bi;
 		  mark_call_clobbered (tag1);
-		  EXECUTE_IF_SET_IN_BITMAP (tag1_aliases, 0, k, bi)
-		    {
-		      tree var = referenced_var (k);
-		      mark_call_clobbered (var);
-		    }
-
+		  mark_bitmap_call_clobbered (tag1_aliases);
 		}
 	      else if (is_call_clobbered (tag1) && !is_call_clobbered (tag2))
 		{
-		  bitmap_iterator bi;
 		  mark_call_clobbered (tag2);
-		  EXECUTE_IF_SET_IN_BITMAP (tag2_aliases, 0, k, bi)
-		    {
-		      tree var = referenced_var (k);
-		      mark_call_clobbered (var);
-		    }
+		  mark_bitmap_call_clobbered (tag2_aliases);
 		}
 
 	      bitmap_ior_into (tag1_aliases, tag2_aliases);

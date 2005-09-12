@@ -771,6 +771,7 @@ extern enum move_pos movement_possibility (tree);
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
+static inline void mark_bitmap_call_clobbered (bitmap);
 static inline void set_is_used (tree);
 static inline bool unmodifiable_var_p (tree);
 

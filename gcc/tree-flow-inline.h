@@ -864,6 +864,16 @@ mark_call_clobbered (tree var)
   ssa_ro_call_cache_valid = false;
 }
 
+/* Mark the variables in IDS (which is a set of DECL_UIDs), as being
+   clobbered by function calls.   */
+static inline void
+mark_bitmap_call_clobbered (bitmap ids)
+{
+  bitmap_ior_into (call_clobbered_vars, ids);
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
+}
+  
 /* Clear the call-clobbered attribute from variable VAR.  */
 static inline void
 clear_call_clobbered (tree var)

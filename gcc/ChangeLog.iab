@@ -1,5 +1,13 @@
 2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-ssa-alias.c (set_initial_clobbers): Use
+	mark_bitmap_call_clobbered.  
+	(group_aliases): Ditto.
+	* tree-flow-inline.h (mark_bitmap_call_clobbered): New function.
+	* tree-flow.h: Declare mark_bitmap_call_clobbered.
+
+2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-ssa-alias.c (init_transitive_clobber_worklist): New
 	function.
 	(add_to_worklist): Ditto.
