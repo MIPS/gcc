@@ -15,7 +15,7 @@ void bar (int i)
     {
       if (i >= 4 && i <= 5)
         foo ();
-      return;
+      return; /* { dg-bogus "will never be executed" "" { xfail arm-wrs-linux-gnueabi } } */
     }
 
   baz ();	/* { dg-warning "will never be executed" "" } */

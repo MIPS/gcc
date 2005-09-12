@@ -1,3 +1,38 @@
+2005-09-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/g++.dg/eh/forced1.C,
+	gcc/testsuite/g++.dg/eh/forced2.C,
+	gcc/testsuite/g++.dg/eh/forced3.C,
+	gcc/testsuite/g++.dg/eh/forced4.C: XFAIL and expect excess errors
+	on arm-wrs-linux-gnueabi.
+	* gcc/testsuite/g++.old-deja/g++.abi/ptrflags.C: Expect excess
+	errors on mips-wrs-linux-gnu.
+	* gcc/testsuite/g++.old-deja/g++.eh/catchptr1.C: XFAIL execution
+	on mips-wrs-linux-gnu.
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New files.  XFAIL
+	execution on i586-wrs-linux-gnu.
+	* gcc/testsuite/gcc.c-torture/execute/va-arg-25.x: XFAIL execution
+	on i586-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/20020103-1.c: XFAIL scan-assembler-not on
+	powerpc-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/builtins-18.c: Expect excess errors on
+	mips-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/Wunreachable-1.c: Test for and XFAIL bogus
+	message on arm-wrs-linux-gnueabi.
+	* gcc/testsuite/gcc.dg/cleanup-8.c,
+	gcc/testsuite/gcc.dg/cleanup-9.c: XFAIL execution on
+	i586-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/ppc-sdata-1.c: Backport
+	<http://gcc.gnu.org/ml/gcc-patches/2004-10/msg01263.html>.
+	* gcc/testsuite/gcc.dg/special/gcsec-1.c: XFAIL on *-wrs-linux*.
+	Expect excess errors on mips-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/special/mips-abi.exp: Do not test -mabi=64.
+	* gcc/testsuite/gcc.dg/torture/pr19683-1.c: XFAIL on
+	mips-wrs-linux-gnu.
+	* libstdc++-v3/testsuite/26_numerics/c99_classification_macros_c.cc:
+	XFAIL on *-*-linux*, not *-*-linux-gnu.
+
 2005-09-09  Paul Brook  <paul@codesourcery.com>
 
 	* libiberty/pex-win32.c (argv_to_cmdline): Fix escaping of

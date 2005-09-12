@@ -1,5 +1,7 @@
 // HP-UX libunwind.so doesn't provide _Unwind_ForcedUnwind.
-// { dg-do run { xfail "ia64-hp-hpux11.*" } }
+// ARM EABI does not support forced unwinding.
+// { dg-do run { xfail arm-wrs-linux-gnueabi ia64-hp-hpux11.* } }
+// { dg-excess-errors "" { xfail arm-wrs-linux-gnueabi } }
 
 // Test that forced unwinding runs all cleanups.  Also tests that
 // rethrowing doesn't call the exception object destructor.

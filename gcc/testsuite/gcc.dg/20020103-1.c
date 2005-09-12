@@ -2,7 +2,8 @@
    spilled to the stack, or regenerated, but not dropped to memory.  */
 /* { dg-do compile { target i?86-*-* powerpc-*-* rs6000-*-* alpha*-*-* x86_64-*-*} } */
 /* { dg-options "-O2 -fpic -fno-omit-frame-pointer" } */
-/* { dg-final { scan-assembler-not "LC" } } */
+/* Fails on PowerPC: PR 11594.  */
+/* { dg-final { scan-assembler-not "LC" { xfail powerpc-wrs-linux-gnu } } } */
 
 /* Clobber all call-saved registers that can hold a pointer value.  */
 #if defined(__i386__)

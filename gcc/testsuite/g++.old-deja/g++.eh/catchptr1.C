@@ -1,4 +1,4 @@
-// { dg-do run  }
+// { dg-do run { xfail mips-wrs-linux-gnu } }
 // Test pointer chain catching
 // Copyright (C) 2000, 2002 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 9 Apr 2000 <nathan@nathan@codesourcery.com>

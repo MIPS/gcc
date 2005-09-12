@@ -106,6 +106,6 @@ switch -- $default_abi {
 	# Only try ABIs that the SGI assembler also understands.
 	check_mips_abi "o32" "-32" "-mabi=32"
 	check_mips_abi "n32" "-n32" "-mabi=n32"
-	check_mips_abi "64" "-64" "-mabi=64"
+	# check_mips_abi "64" "-64" "-mabi=64"
     }
 }

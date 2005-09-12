@@ -7,6 +7,7 @@
 
 /* { dg-do link } */
 /* { dg-options "-O2 -ffast-math" } */
+/* { dg-excess-errors "" { xfail mips-wrs-linux-gnu } } */
 
 #include "builtins-config.h"
 

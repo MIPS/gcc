@@ -20,6 +20,16 @@ if { [istarget "sparc64-*-*"] || [istarget "sparcv9-*-*"] } {
             { "" }
         }
     }
+} elseif { [istarget "i586-wrs-linux-gnu"] } {
+    set torture_eval_before_execute {
+        global compiler_conditional_xfail_data
+        set compiler_conditional_xfail_data {
+             "PR target/16354" \
+            { "*-*-*" } \
+            { "-Os" } \
+            { "" }
+        }
+    }
 }
 
 return 0
