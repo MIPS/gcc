@@ -684,7 +684,11 @@ bytecode_generator::visit_for_enhanced (model_for_enhanced *fstmt,
 	increase_stack (container->type ()->element_type ());
 
 	// If needed, emit a cast to the iteration variable type.
-	emit_cast (var->type (), container->type ()->element_type ());
+	{
+	  push_expr_target push (this, ON_STACK);
+	  emit_cast_maybe_boxing (fstmt, var->type (),
+				  container->type ()->element_type ());
+	}
 	emit_store (var->type (), user_var);
 
 	target_map[fstmt] = std::make_pair (update, done);
@@ -718,6 +722,7 @@ bytecode_generator::visit_for_enhanced (model_for_enhanced *fstmt,
 	model_method *has_next_meth
 	  = find_method ("hasNext", iterator_type, NULL,
 			 primitive_boolean_type, fstmt);
+	// FIXME: wrong for generics?
 	model_method *next_meth
 	  = find_method ("next", iterator_type, NULL, object_type,
 			 fstmt);
@@ -759,9 +764,11 @@ bytecode_generator::visit_for_enhanced (model_for_enhanced *fstmt,
 	increase_stack (object_type);
 
 	// Cast to the user's type.
-	// FIXME: this doesn't work for unboxing.  In that case we
-	// must first cast to the iterator's element type.
-	emit_cast (var->type (), object_type);
+	{
+	  push_expr_target push (this, ON_STACK);
+	  emit_cast_maybe_boxing (fstmt, var->type (),
+				  fstmt->get_element_type ());
+	}
 
 	emit_store (var->type (), user_var);
 	body->visit (this);
@@ -2214,6 +2221,70 @@ bytecode_generator::emit_cast (model_type *dest,
 }
 
 void
+bytecode_generator::emit_cast_maybe_boxing (model_element *request,
+					    model_type *dest_type,
+					    model_type *expr_type)
+{
+  if (dest_type->primitive_p () != expr_type->primitive_p ())
+    {
+      if (dest_type->primitive_p ())
+	{
+	  // Unboxing conversion.  Call <type>Value() on the wrapper
+	  // object, e.g. for Integer we call intValue().  Using
+	  // get_pretty_name here is a bit of an abuse.  Note that
+	  // Character doesn't have all the methods from Number, so we
+	  // need a special case here.
+	  model_type *tmp_dest_type = dest_type;
+	  if (expr_type == global->get_compiler ()->java_lang_Character ())
+	    tmp_dest_type = primitive_char_type;
+	  std::string method_name = (tmp_dest_type->get_pretty_name ()
+				     + "Value");
+	  model_method *call
+	    = find_method (method_name.c_str (),
+			   assert_cast<model_class *> (expr_type),
+			   NULL, tmp_dest_type, request);
+	  std::list<ref_expression> args;
+	  handle_invocation (op_invokevirtual, call->get_declaring_class (),
+			     call, args);
+	  if (tmp_dest_type != dest_type)
+	    {
+	      assert (tmp_dest_type == primitive_char_type);
+	      emit_cast (dest_type, primitive_char_type);
+	    }
+	}
+      else
+	{
+	  // Boxing conversion.  We call the static factory method
+	  // valueOf(), which handles the caching required by boxing
+	  // conversion.
+	  model_class *dest_class = assert_cast<model_class *> (dest_type);
+	  model_method *call = find_method ("valueOf", dest_class,
+					    expr_type, dest_class,
+					    request);
+	  // We do pass an argument, but sneakily: we pushed it up
+	  // above.
+	  std::list<ref_expression> args;
+	  handle_invocation (op_invokestatic, dest_class, call, args);
+	  // We have to pop this ourselves due to lying to
+	  // handle_invocation.
+	  reduce_stack (expr_type);
+	}
+    }
+  else
+    {
+      class_writer::check_type (request, dest_type);
+      emit_cast (dest_type, expr_type);
+      if (expr_target == IGNORE)
+	{
+	  // This can only happen when accessing a static member with
+	  // a non-static left hand side.
+	  assert (dest_type->reference_p ());
+	  emit_pop (dest_type);
+	}
+    }
+}
+
+void
 bytecode_generator::visit_cast (model_cast *cast_expr,
 				const ref_forwarding_type &dest,
 				const ref_expression &expr)
@@ -2227,67 +2298,7 @@ bytecode_generator::visit_cast (model_cast *cast_expr,
     expr->visit (this);
   }
 
-  model_type *dest_type = dest->type ();
-  if (dest_type->primitive_p () != expr->type ()->primitive_p ())
-    {
-      if (dest_type->primitive_p ())
-	{
-	  // Unboxing conversion.  Call <type>Value() on the wrapper
-	  // object, e.g. for Integer we call intValue().  Using
-	  // get_pretty_name here is a bit of an abuse.  Note that
-	  // Character doesn't have all the methods from Number, so we
-	  // need a special case here.
-	  std::string method_name;
-	  bool is_char = false;
-	  model_type *tmp_dest_type = dest_type;
-	  if (expr->type () == global->get_compiler ()->java_lang_Character ())
-	    {
-	      is_char = true;
-	      method_name = "charValue";
-	      tmp_dest_type = primitive_char_type;
-	    }
-	  else
-	    method_name = dest_type->get_pretty_name () + "Value";
-	  model_method *call
-	    = find_method (method_name.c_str (),
-			   assert_cast<model_class *> (expr->type ()),
-			   NULL, tmp_dest_type, cast_expr);
-	  std::list<ref_expression> args;
-	  handle_invocation (op_invokevirtual, call->get_declaring_class (),
-			     call, args);
-	  if (is_char)
-	    emit_cast (dest_type, primitive_char_type);
-	}
-      else
-	{
-	  // Boxing conversion.  We call the static factory method
-	  // valueOf(), which handles the caching required by boxing
-	  // conversion.
-	  model_class *dest_class = assert_cast<model_class *> (dest_type);
-	  model_method *call = find_method ("valueOf", dest_class,
-					    expr->type (), dest_class,
-					    cast_expr);
-	  // We do pass an argument, but sneakily: we pushed it up
-	  // above.
-	  std::list<ref_expression> args;
-	  handle_invocation (op_invokestatic, dest_class, call, args);
-	  // We have to pop this ourselves due to lying to
-	  // handle_invocation.
-	  reduce_stack (expr->type ());
-	}
-    }
-  else
-    {
-      class_writer::check_type (cast_expr, dest_type);
-      emit_cast (dest_type, expr->type ());
-      if (expr_target == IGNORE)
-	{
-	  // This can only happen when accessing a static member with
-	  // a non-static left hand side.
-	  assert (dest_type->reference_p ());
-	  emit_pop (dest_type);
-	}
-    }
+  emit_cast_maybe_boxing (cast_expr, dest->type (), expr->type ());
 }
 
 void

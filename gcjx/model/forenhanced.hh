@@ -1,6 +1,6 @@
 // The enhanced for statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -30,6 +30,9 @@ class model_for_enhanced : public model_for_base
   // Variable declaration.
   ref_variable_decl variable;
 
+  // Type of the elements of the collection.
+  model_type *elt_type;
+
 public:
 
   model_for_enhanced (const location &w,
@@ -37,7 +40,8 @@ public:
 		      const ref_expression &e)
     : model_for_base (w),
       expression (e),
-      variable (v)
+      variable (v),
+      elt_type (NULL)
   {
   }
 
@@ -46,6 +50,11 @@ public:
   void compute_normal_completion (normal_completion_state &);
 
   void visit (visitor *v);
+
+  model_type *get_element_type () const
+  {
+    return elt_type;
+  }
 };
 
 #endif // GCJX_MODEL_FORENHANCED_HH

@@ -1,5 +1,19 @@
 2005-09-11  Tom Tromey  <tromey@redhat.com>
 
+	* model/forenhanced.hh (model_for_enhanced::elt_type): New field.
+	(model_for_enhanced): Initialize it.
+	(model_for_enhanced::get_element_type): New method.
+	* bytecode/generate.hh
+	(bytecode_generator::emit_cast_maybe_boxing): Declare.
+	* bytecode/generate.cc (emit_cast_maybe_boxing): New method.
+	(visit_cast): Use it.
+	(visit_for_enhanced): Likewise.
+	* model/forenhanced.cc (resolve): Removed error for primitive
+	type; do assignment conversion in both cases.
+	(find_method): New function.
+
+2005-09-11  Tom Tromey  <tromey@redhat.com>
+
 	* model/class.hh (class model_class): Added some documentation.
 
 2005-09-11  Ranjit Mathew  <rmathew@gcc.gnu.org>

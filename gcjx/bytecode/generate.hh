@@ -280,6 +280,7 @@ class bytecode_generator : public visitor
 		    const ref_expression &);
 
   void emit_cast (model_type *, model_type *);
+  void emit_cast_maybe_boxing (model_element *, model_type *, model_type *);
 
   void handle_comparison (java_opcode,
 			  const ref_expression &,
