@@ -106,12 +106,12 @@ public:
 class exceptions_attribute : public bytecode_attribute
 {
   // The exceptions.
-  std::set<model_type *> excs;
+  std::list<ref_forwarding_type> excs;
 
 public:
 
   exceptions_attribute (outgoing_constant_pool *,
-			const std::set<model_type *> &);
+			const std::list<ref_forwarding_type> &);
 
   void emit (bytecode_stream &);
 

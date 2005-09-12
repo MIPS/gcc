@@ -1,6 +1,3 @@
-we should emit unchecked declared exceptions for a method
-currently we don't
-
 error message if 'enum' is used as an identifier could be better
 
 use a using declaration to resolve overrides in

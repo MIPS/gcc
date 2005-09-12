@@ -276,7 +276,7 @@ class_writer::write (directory_cache &dircache)
       if ((*i)->deprecated_p ())
 	attrs->push_back (new simple_name_attribute (pool, "Deprecated"));
 
-      std::set<model_type *> excs = (*i)->get_throws_as_set ();
+      std::list<ref_forwarding_type> excs = (*i)->get_throws ();
       if (! excs.empty ())
 	attrs->push_back (new exceptions_attribute (pool, excs));
 

@@ -1,5 +1,15 @@
 2005-09-11  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/attribute.cc (exceptions_attribute): Updated.
+	(emit): Likewise.
+	* bytecode/attribute.hh (exceptions_attribute::excs): Changed
+	type.
+	(exceptions_attribute): Updated.
+	* bytecode/classwriter.cc (write): Use get_throws, not
+	get_throws_as_set.
+
+2005-09-11  Tom Tromey  <tromey@redhat.com>
+
 	* source/parse.cc (enum_body): Push a new class scope when parsing
 	body.
 

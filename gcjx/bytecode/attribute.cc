@@ -104,12 +104,12 @@ inner_classes_attribute::size ()
 
 
 exceptions_attribute::exceptions_attribute (outgoing_constant_pool *p,
-					    const std::set<model_type *> &e)
+					    const std::list<ref_forwarding_type> &e)
   : bytecode_attribute (p, "Exceptions"),
     excs (e)
 {
   assert (! excs.empty ());
-  for (std::set<model_type *>::const_iterator i = excs.begin ();
+  for (std::list<ref_forwarding_type>::const_iterator i = excs.begin ();
        i != excs.end ();
        ++i)
     pool->add (*i);
@@ -120,7 +120,7 @@ exceptions_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
   writer.put2 (excs.size ());
-  for (std::set<model_type *>::const_iterator i = excs.begin ();
+  for (std::list<ref_forwarding_type>::const_iterator i = excs.begin ();
        i != excs.end ();
        ++i)
     writer.put2 (pool->add (*i));
