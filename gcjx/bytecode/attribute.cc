@@ -112,7 +112,7 @@ exceptions_attribute::exceptions_attribute (outgoing_constant_pool *p,
   for (std::list<ref_forwarding_type>::const_iterator i = excs.begin ();
        i != excs.end ();
        ++i)
-    pool->add (*i);
+    pool->add ((*i)->type ());
 }
 
 void
@@ -123,7 +123,7 @@ exceptions_attribute::emit (bytecode_stream &writer)
   for (std::list<ref_forwarding_type>::const_iterator i = excs.begin ();
        i != excs.end ();
        ++i)
-    writer.put2 (pool->add (*i));
+    writer.put2 (pool->add ((*i)->type ()));
 }
 
 

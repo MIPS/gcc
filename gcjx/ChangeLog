@@ -1,3 +1,9 @@
+2005-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/attribute.cc (exceptions_attribute): Unwrap the
+	forwarding type.
+	(emit): Likewise.
+
 2005-09-11  Tom Tromey  <tromey@redhat.com>
 
 	* factory.cc (find_source_file): Updated.
