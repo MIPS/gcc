@@ -3482,7 +3482,11 @@ process_command (int argc, const char **argv)
   {
     const char * macosx_deployment_target;
     macosx_deployment_target = getenv ("MACOSX_DEPLOYMENT_TARGET");
-    if (macosx_deployment_target)
+    if (macosx_deployment_target
+	/* Apparently, an empty string for MACOSX_DEPLOYMENT_TARGET means
+	   "use the default".  Or, possibly "use 10.1".  We choose
+	   to ignore the environment variable, as if it was never set.  */
+	&& macosx_deployment_target[0])
       {
 	char ** new_argv;
 	new_argv = xmalloc ((argc + 1) * sizeof (argv[0]));
