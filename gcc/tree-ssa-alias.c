@@ -207,7 +207,8 @@ mark_global_tags (void)
       varray_type ma;
       unsigned int i;
 
-      if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+      if (var_ann (tag)->mem_tag_kind == NOT_A_TAG
+	  || var_ann (tag)->mem_tag_kind == STRUCT_FIELD)
 	continue;
 
       ma = may_aliases (tag);

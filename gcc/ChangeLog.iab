@@ -1,5 +1,9 @@
 2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-ssa-alias.c (mark_global_tags): Don't touch SFT's here. 
+
+2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-ssa-alias.c (set_initial_clobbers): Use
 	mark_bitmap_call_clobbered.  
 	(group_aliases): Ditto.
