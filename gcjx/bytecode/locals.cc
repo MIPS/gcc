@@ -164,7 +164,9 @@ locals::update ()
       debug_info &info (*i);
 
       info.start = info.start->update ();
-      if (info.start->live_p ())
+      // Note that we can wind up with NULL here if a variable is
+      // completely optimized away.
+      if (info.start != NULL && info.start->live_p ())
 	{
 	  info.end = info.end->update ();
 	  // NULL is ok here since that just means it is live through
@@ -207,7 +209,8 @@ locals::emit (outgoing_constant_pool *pool, bytecode_stream *out, bool types)
        ++i)
     {
       debug_info &info (*i);
-      if (! info.start->live_p () || info.start == info.end)
+      if (info.start == NULL || ! info.start->live_p ()
+	  || info.start == info.end)
 	continue;
 
       model_type *t = info.variable->type ();
@@ -235,7 +238,8 @@ locals::emit (outgoing_constant_pool *pool, bytecode_stream *out, bool types)
        ++i)
     {
       const debug_info &info (*i);
-      if (! info.start->live_p () || info.start == info.end)
+      if (info.start == NULL || ! info.start->live_p ()
+	  || info.start == info.end)
 	continue;
 
       model_type *t = info.variable->type ();

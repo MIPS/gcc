@@ -1,5 +1,11 @@
 2005-09-12  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/locals.cc (emit): Handle case where variable is
+	optimized away.
+	(update): Likewise.
+
+2005-09-12  Tom Tromey  <tromey@redhat.com>
+
 	* main.cc (argument_parser::help_options): Only print -j help if
 	threads available.
 	(argument_parser::parse_args): Throw better error if threads not
