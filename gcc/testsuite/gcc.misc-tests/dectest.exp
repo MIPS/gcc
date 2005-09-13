@@ -327,9 +327,8 @@ proc supported-p { id op } {
 	apply		{ return 0 }
     }
 
-    # Test cases that are unsupported.
+    # Ditto for the following miscellaneous tests.
     switch $id {
-	# Ditto for the following miscellaneous tests.
 	addx1130	{ return 0 }
 	addx1131	{ return 0 }
 	addx1132	{ return 0 }
