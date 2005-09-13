@@ -251,7 +251,8 @@ public:
     print ("-source 1.[345]", "choose source code compatibility", 3);
     print ("-target 1.[345]", "choose target VM compatibility", 3);
     print ("-g", "generate debugging information", 3);
-    print ("-j N", "use N worker threads", 3);
+    if (concurrence::available ())
+      print ("-j N", "use N worker threads", 3);
 
     os << std::endl;
 
@@ -487,6 +488,8 @@ public:
 	  dash_i_args.push_back (get_arg_for (it, "-I", false));
         else if (arg == "-j")
 	  {
+	    if (! concurrence::available ())
+	      throw make_error ("threads not available on this platform");
 	    std::string threads (get_next_arg (it, arg));
 	    n_threads = atoi (threads.c_str ());
 	  }

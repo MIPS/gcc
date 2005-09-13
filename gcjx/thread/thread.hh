@@ -161,6 +161,12 @@ namespace concurrence
   {
     return thread<T> (obj, fn);
   }
+
+  /// Return true if threads are available.
+  inline bool available ()
+  {
+    return false;
+  }
 };
 
 #endif // GCJX_THREAD_THREAD_HH
