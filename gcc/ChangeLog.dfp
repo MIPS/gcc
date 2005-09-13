@@ -1,3 +1,19 @@
+2005-09-13  Ben Elliston  <bje@au.ibm.com>
+
+	* decLibrary.c (__dfp_traps): New variable.
+	(__dfp_enable_traps): New.
+	(__dfp_raise): Likewise.
+	* config/dfp-bit.h (CONTEXT_TRAPS): Use alternative defintion.
+	(DFP_RAISE): Likewise.
+	(CONTEXT_ERRORS): New macro.
+	* config/dfp-bit.c (dfp_unary_op): Do not set context.traps
+	(always leave it set to 0), but raise an FP exception if signaling
+	NaNs are enabled and the arithmetic produces an exception.
+	(dfp_binary_op): Likewise.
+	(dfp_compare_op): Likewise.
+	(DFP_TO_DFP, DFP_TO_INT, INT_TO_DFP, BFP_TO_DFP): Do not set
+	context.traps. Raise DEC_Inexact for inexact rounding.
+
 2005-09-12  Ben Elliston  <bje@au.ibm.com>
 
 	* doc/rtl.texi (Machine Modes): Document MODE_DECIMAL_FLOAT.

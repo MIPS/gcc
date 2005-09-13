@@ -76,15 +76,11 @@
 extern enum rounding	__decGetRound (void);
 #define CONTEXT_ROUND	__decGetRound ()
 
-#if 1
-#define CONTEXT_TRAPS	0
-#define DFP_RAISE(A)
-#else
 extern int __dfp_traps;
 #define CONTEXT_TRAPS	__dfp_traps
+#define CONTEXT_ERRORS(context)	context.status & DEC_Errors
 extern void __dfp_raise (int);
 #define DFP_RAISE(A)	__dfp_raise(A)
-#endif
 
 /* Conversions between different decimal float types use WIDTH_TO to
    determine additional macros to define.  */

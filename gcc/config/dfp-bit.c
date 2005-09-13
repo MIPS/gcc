@@ -74,12 +74,14 @@ dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
-  context.traps = CONTEXT_TRAPS;
 
   TO_INTERNAL (&a, &arg1);
 
   /* Perform the operation.  */
   op (&res, &arg1, &context);
+
+  if (CONTEXT_TRAPS && CONTEXT_ERRORS (context))
+    DFP_RAISE (0);
 
   TO_ENCODED (&encoded_result, &res, &context);
   memcpy (&result, &encoded_result, sizeof (result));
@@ -101,13 +103,15 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
-  context.traps = CONTEXT_TRAPS;
 
   TO_INTERNAL (&a, &arg1);
   TO_INTERNAL (&b, &arg2);
 
   /* Perform the operation.  */
   op (&res, &arg1, &arg2, &context);
+
+  if (CONTEXT_TRAPS && CONTEXT_ERRORS (context))
+    DFP_RAISE (0);
 
   TO_ENCODED (&encoded_result, &res, &context);
   memcpy (&result, &encoded_result, sizeof (result));
@@ -129,13 +133,15 @@ dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
-  context.traps = CONTEXT_TRAPS;
 
   TO_INTERNAL (&a, &arg1);
   TO_INTERNAL (&b, &arg2);
 
   /* Perform the comparison.  */
   op (&res, &arg1, &arg2, &context);
+
+  if (CONTEXT_TRAPS && CONTEXT_ERRORS (context))
+    DFP_RAISE (0);
 
   if (decNumberIsNegative (&res))
     result = -1;
@@ -264,11 +270,13 @@ DFP_TO_DFP (DFP_C_TYPE f)
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
-  context.traps = CONTEXT_TRAPS;
 
   uf.f = f;
   TO_INTERNAL (&uf.s, &d);
   TO_ENCODED_TO (&ut.s, &d, &context);
+  if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
+    DFP_RAISE (DEC_Inexact);
+
   return ut.f;
 }
 #endif
@@ -294,7 +302,6 @@ DFP_TO_INT (DFP_C_TYPE x)
   decContextDefault (&context, CONTEXT_INIT);
   /* Need non-default rounding mode here.  */
   context.round = DEC_ROUND_DOWN;
-  context.traps = CONTEXT_TRAPS;
 
   u.f = x;
   TO_INTERNAL (&u.s, &n1);
@@ -356,16 +363,13 @@ INT_TO_DFP (INT_TYPE i)
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
-  context.traps = CONTEXT_TRAPS;
 
   /* Use a C library function to get a floating point string.  */
   sprintf (buf, INT_FMT ".0", CAST_FOR_FMT(i));
   /* Convert from the floating point string to a decimal* type.  */
   FROM_STRING (&u.s, buf, &context);
-  if ((context.status & DEC_Inexact) != 0)
-    {
-      DFP_RAISE (DEC_Inexact);
-    }
+  if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
+    DFP_RAISE (DEC_Inexact);
   return u.f;
 }
 #endif
@@ -411,7 +415,6 @@ BFP_TO_DFP (BFP_TYPE x)
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
-  context.traps = CONTEXT_TRAPS;
 
   /* Use a C library function to write the floating point value to a string.  */
 #ifdef BFP_VIA_TYPE
@@ -423,6 +426,8 @@ BFP_TO_DFP (BFP_TYPE x)
 
   /* Convert from the floating point string to a decimal* type.  */
   FROM_STRING (&u.s, buf, &context);
+  if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
+    DFP_RAISE (DEC_Inexact);
   return u.f;
 }
 #endif

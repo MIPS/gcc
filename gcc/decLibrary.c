@@ -48,3 +48,17 @@ isinfd128 (_Decimal128 arg)
   decimal128ToNumber ((decimal128 *) &arg, &dn);
   return (decNumberIsInfinite (&dn));
 }
+
+int __dfp_traps;
+
+void
+__dfp_enable_traps (void)
+{
+  __dfp_traps = 1;
+}
+
+void
+__dfp_raise (int exception __attribute__ ((unused)))
+{
+  raise (SIGFPE);
+}
