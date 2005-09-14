@@ -1159,10 +1159,12 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
       : (REGNO) == FIRST_XD_REG) \
    : FP_REGISTER_P (REGNO) \
    ? ((MODE) == SFmode || (MODE) == SImode \
-      || ((TARGET_SH2E || TARGET_SHMEDIA) && (MODE) == SCmode) \
-      || ((((TARGET_SH4 || TARGET_SH2A_DOUBLE) && (MODE) == DFmode) || (MODE) == DCmode \
-	   || (TARGET_SHMEDIA && ((MODE) == DFmode || (MODE) == DImode \
-				  || (MODE) == V2SFmode || (MODE) == TImode))) \
+      || (((TARGET_SH2E || TARGET_SHMEDIA) && (MODE) == SCmode)) \
+      || ((((TARGET_SH4 || TARGET_SH2A_DOUBLE) \
+	    && ((MODE) == DFmode || (MODE) == DCmode)) \
+	   || (TARGET_SHMEDIA \
+	       && ((MODE) == DFmode || (MODE) == DCmode || (MODE) == DImode \
+		   || (MODE) == V2SFmode || (MODE) == TImode))) \
 	  && (((REGNO) - FIRST_FP_REG) & 1) == 0) \
       || ((TARGET_SH4 || TARGET_SHMEDIA) \
 	  && (MODE) == TImode \
@@ -2698,6 +2700,23 @@ struct sh_args {
 	 it is already unshared, and needs no further unsharing.  */	\
       push_reload (XEXP ((X), 0), NULL_RTX, &XEXP ((X), 0), NULL,	\
 		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM), (TYPE));\
+      goto WIN;								\
+    }									\
+  /* TARGET_SHMEDIA32 can't do indexed addressing using 32 bit		\
+     base & index, hence INDEX_REG_CLASS is NO_REGS.  However, some	\
+     special patterns use 64 bit base & index addressing.  */		\
+  else if (GET_CODE (X) == PLUS						\
+	   && TARGET_SHMEDIA32 && ! ALLOW_INDEXED_ADDRESS		\
+	   && GET_MODE (X) == DImode					\
+	   && REG_P (XEXP (X, 0))					\
+	   && REG_P (XEXP (X, 1)))					\
+    {									\
+      if (!GENERAL_REGISTER_P (REGNO (XEXP ((X), 0))))			\
+	push_reload (XEXP ((X), 0), NULL_RTX, &XEXP ((X), 0), NULL,	\
+		     BASE_REG_CLASS, DImode, VOIDmode, 0, 0, (OPNUM), (TYPE));\
+      if (!GENERAL_REGISTER_P (REGNO (XEXP ((X), 1))))			\
+	push_reload (XEXP ((X), 1), NULL_RTX, &XEXP ((X), 1), NULL,	\
+		     BASE_REG_CLASS, DImode, VOIDmode, 0, 0, (OPNUM), (TYPE));\
       goto WIN;								\
     }									\
 }

@@ -296,6 +296,7 @@ static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
 static int sh_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 			         tree, bool);
 static int sh_dwarf_calling_convention (tree);
+static enum machine_mode sh_apply_result_mode (unsigned regno);
 static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 
 
@@ -463,6 +464,8 @@ static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 #define TARGET_CALLEE_COPIES sh_callee_copies
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES sh_arg_partial_bytes
+#undef TARGET_APPLY_RESULT_MODE
+#define TARGET_APPLY_RESULT_MODE sh_apply_result_mode
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST sh_build_builtin_va_list
@@ -10617,6 +10620,19 @@ shmedia_prepare_call_address (rtx fnaddr, int is_sibcall)
   else if (! target_reg_operand (fnaddr, Pmode))
     fnaddr = copy_to_mode_reg (Pmode, fnaddr);
   return fnaddr;
+}
+
+static enum machine_mode
+sh_apply_result_mode (unsigned regno)
+{
+  if (TARGET_SH5)
+    return FP_REGISTER_P (regno) ? DFmode : DImode;
+  else
+    {
+      if (FP_REGISTER_P (regno))
+	return TARGET_FPU_DOUBLE ? DCmode : SCmode;
+      return CDImode;
+    }
 }
 
 enum sh_divide_strategy_e sh_div_strategy = SH_DIV_STRATEGY_DEFAULT;

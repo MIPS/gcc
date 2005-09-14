@@ -612,6 +612,10 @@ struct gcc_target
        specified by FN_DECL_OR_TYPE with a return type of RET_TYPE.  */
     rtx (*function_value) (tree ret_type, tree fn_decl_or_type,
 			   bool outgoing);
+
+    /* For a function value register, return a mode wide enough to copy
+       any function value that it might hold.  */
+    enum machine_mode (*apply_result_mode) (unsigned regno);
   } calls;
 
   /* Return the diagnostic message string if conversion from FROMTYPE

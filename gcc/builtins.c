@@ -1208,7 +1208,7 @@ apply_result_size (void)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (FUNCTION_VALUE_REGNO_P (regno))
 	  {
-	    mode = reg_raw_mode[regno];
+	    mode = targetm.calls.apply_result_mode (regno);
 
 	    gcc_assert (mode != VOIDmode);
 

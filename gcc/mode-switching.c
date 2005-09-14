@@ -233,30 +233,52 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 	    && GET_CODE (PATTERN (last_insn)) == USE
 	    && GET_CODE ((ret_reg = XEXP (PATTERN (last_insn), 0))) == REG)
 	  {
-	    int ret_start = REGNO (ret_reg);
+	    unsigned int ret_start = REGNO (ret_reg);
 	    int nregs = hard_regno_nregs[ret_start][GET_MODE (ret_reg)];
-	    int ret_end = ret_start + nregs;
+	    unsigned int ret_end = ret_start + nregs;
 	    int short_block = 0;
 	    int maybe_builtin_apply = 0;
 	    int forced_late_switch = 0;
 	    rtx before_return_copy;
+	    rtx all_used_regs = ret_reg;
 
 	    do
 	      {
 		rtx return_copy = PREV_INSN (last_insn);
 		rtx return_copy_pat, copy_reg;
-		int copy_start, copy_num;
+		unsigned int copy_start, copy_num;
 		int j;
+		int is_copy = 0;
 
 		if (INSN_P (return_copy))
 		  {
 		    if (GET_CODE (PATTERN (return_copy)) == USE
-			&& GET_CODE (XEXP (PATTERN (return_copy), 0)) == REG
+			&& REG_P (XEXP (PATTERN (return_copy), 0))
 			&& (FUNCTION_VALUE_REGNO_P
 			    (REGNO (XEXP (PATTERN (return_copy), 0)))))
 		      {
+			rtx new_used = XEXP (PATTERN (return_copy), 0);
+
 			maybe_builtin_apply = 1;
+			all_used_regs
+			  = gen_rtx_EXPR_LIST (VOIDmode, new_used,
+					       all_used_regs);
 			last_insn = return_copy;
+			if ((REGNO (new_used) == ret_start
+			     && (GET_MODE_SIZE (GET_MODE (new_used))
+				 > GET_MODE_SIZE (GET_MODE (ret_reg))))
+			    || (!(CLASS_LIKELY_SPILLED_P
+				  (REGNO_REG_CLASS (ret_start)))
+				&& (CLASS_LIKELY_SPILLED_P
+				    (REGNO_REG_CLASS (REGNO (new_used))))))
+			  {
+			    gcc_assert (nregs == ret_end - ret_start);
+			    ret_reg = new_used;
+			    ret_start = REGNO (ret_reg);
+			    nregs
+			      = hard_regno_nregs[ret_start][GET_MODE (ret_reg)];
+			    ret_end = ret_start + nregs;
+			  }
 			continue;
 		      }
 		    /* If the return register is not (in its entirety)
@@ -281,6 +303,16 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 		      break;
 		    copy_num
 		      = hard_regno_nregs[copy_start][GET_MODE (copy_reg)];
+		    if (copy_start >= ret_start
+			&& copy_start + copy_num <= ret_end)
+		      is_copy = 1;
+		    else if (maybe_builtin_apply
+			     && refers_to_regno_p (copy_start, copy_start+1,
+						   all_used_regs, NULL)
+			     && refers_to_regno_p (copy_start+copy_num-1,
+						   copy_start+copy_num,
+						   all_used_regs, NULL))
+		      is_copy = -1;
 
 		    /* If the return register is not likely spilled, - as is
 		       the case for floating point on SH4 - then it might
@@ -301,18 +333,15 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			   after the return value copy.  That is still OK,
 			   because a floating point return value does not
 			   conflict with address reloads.  */
-			if (copy_start >= ret_start
-			    && copy_start + copy_num <= ret_end
+			if (is_copy
 			    && OBJECT_P (SET_SRC (return_copy_pat)))
 			  forced_late_switch = 1;
 			break;
 		      }
 
-		    if (copy_start >= ret_start
-			&& copy_start + copy_num <= ret_end)
+		    if (is_copy > 0)
 		      nregs -= copy_num;
-		    else if (!maybe_builtin_apply
-			     || !FUNCTION_VALUE_REGNO_P (copy_start))
+		    else if (!is_copy)
 		      break;
 		    last_insn = return_copy;
 		  }

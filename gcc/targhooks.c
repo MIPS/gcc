@@ -62,6 +62,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "target-def.h"
 #include "ggc.h"
+#include "regs.h"
+#include "hard-reg-set.h"
 
 
 void
@@ -437,6 +439,41 @@ default_function_value (tree ret_type ATTRIBUTE_UNUSED,
 #else
   return NULL_RTX;
 #endif
+}
+
+/* Implementation of the apply_result_mode which assumes that all
+   return values fit into a single hard register.
+   For the sake of backward compatibility, this his is currently the
+   default.  */
+enum machine_mode
+apply_result_mode_1reg (unsigned regno)
+{
+  return reg_raw_mode[regno];
+}
+
+/* Implementation of the apply_result_mode which tries to compute
+   a mode for the largest number of hard registers that could
+   hold a return value.
+   At some point, this should become the default, when enough ports have
+   been changed to take advantage of the apply_result_mode hook.  */
+enum machine_mode
+apply_result_mode_scanreg (unsigned regno)
+{
+  unsigned n;
+  enum machine_mode mode, wider_mode;
+
+  mode = reg_raw_mode[regno];
+  gcc_assert (mode != VOIDmode);
+
+  n = hard_regno_nregs[regno][mode];
+  while (regno + n < FIRST_PSEUDO_REGISTER && call_used_regs[regno + n])
+    {
+      n++;
+      wider_mode = choose_hard_reg_mode (regno, n, false);
+      if (wider_mode != VOIDmode)
+	mode = wider_mode;
+    }
+  return mode;
 }
 
 #include "gt-targhooks.h"

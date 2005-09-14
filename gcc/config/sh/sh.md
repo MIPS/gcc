@@ -150,6 +150,7 @@
   (UNSPEC_DIV_INV20	34)
   (UNSPEC_ASHIFTRT	35)
   (UNSPEC_THUNK		36)
+  (UNSPEC_CALL_RESULT	37)
   (UNSPEC_SP_SET	40)
   (UNSPEC_SP_TEST	41)
 
@@ -8073,27 +8074,89 @@ label:
 		    (const_int 0))
 	      (match_operand 1 "" "")
 	      (match_operand 2 "" "")])]
-  "(TARGET_SH2E || TARGET_SH2A) || TARGET_SHMEDIA"
+  ""
   "
 {
   int i;
+  /* result[0] is for genereal purpose registers, result[1] for floating
+     point.  reg is the register that holds the result, insn copies it to
+     memory.  */
+  struct { rtx reg, insn; } result[2];
 
-  emit_call_insn (gen_call (operands[0], const0_rtx, const0_rtx));
-
+  emit_call_insn (gen_call_value (gen_rtx_REG (TImode, R0_REG),
+				  operands[0], const0_rtx, const0_rtx));
+  result[1].reg = gen_rtx_REG (SImode, PR_REG);
+  result[1].insn = NULL_RTX;
   for (i = 0; i < XVECLEN (operands[2], 0); i++)
     {
       rtx set = XVECEXP (operands[2], 0, i);
-      emit_move_insn (SET_DEST (set), SET_SRC (set));
+      rtx src = SET_SRC (set);
+      rtx dst = SET_DEST (set);
+      int fp = 0;
+
+      gcc_assert (REG_P (src));
+      fp = REGNO (src) == DR0_REG;
+      result[fp].reg = src;
+      result[fp].insn = gen_move_insn (dst, src);
     }
-
   /* The optimizer does not know that the call sets the function value
-     registers we stored in the result block.  We avoid problems by
-     claiming that all hard registers are used and clobbered at this
-     point.  */
-  emit_insn (gen_blockage ());
+     registers we'll store in the result block.  */
 
+  emit_insn (gen_untyped_call_result(result[0].reg, result[1].reg));
+  emit_insn (result[0].insn);
+  if (result[1].insn)
+    emit_insn (result[1].insn);
   DONE;
 }")
+
+;; This needs to have two alternatives because we don't have an f/l union class.
+(define_insn "untyped_call_result"
+  [(set (match_operand 0 "any_register_operand" "=r,r")
+	(unspec:CDI [(reg:TI R0_REG)] UNSPEC_CALL_RESULT))
+   (set (match_operand 1 "" "=f,l")
+	(unspec [(reg:DC R0_REG) (match_dup 1)] UNSPEC_CALL_RESULT))]
+  ""
+  ""
+  [(set_attr "length" "0")])
+
+(define_expand "untyped_return"
+  [(match_operand:BLK 0 "memory_operand" "")
+   (match_operand 1 "" "")]
+  "TARGET_SH4 || TARGET_SH2A_DOUBLE"
+  "
+{
+  int i;
+  /* result[0] is for genereal purpose registers, result[1] for floating
+     point.  reg is the register that holds the result, insn copies it from
+     memory.  */
+  struct { rtx reg, insn; } result[2];
+
+  result[1].reg = NULL_RTX;
+  result[1].insn = NULL_RTX;
+  for (i = 0; i < XVECLEN (operands[1], 0); i++)
+    {
+      rtx set = XVECEXP (operands[1], 0, i);
+      rtx src = SET_SRC (set);
+      rtx dst = SET_DEST (set);
+      int fp = 0;
+
+      gcc_assert (REG_P (dst));
+      fp = REGNO (dst) == DR0_REG;
+      result[fp].reg = dst;
+      result[fp].insn = gen_move_insn (dst, src);
+    }
+  /* Because of the register requirements of mode switching, we must first
+     load the floating point result registers, and then the general purpose
+     result registers.  */
+  if (result[1].insn)
+    emit_insn (result[1].insn);
+  emit_insn (result[0].insn);
+  emit_insn (gen_rtx_USE (VOIDmode, result[1].reg));
+  emit_insn (gen_rtx_USE (VOIDmode, result[0].reg));
+  expand_naked_return ();
+  DONE;
+}")
+
 
 ;; ------------------------------------------------------------------------
 ;; Misc insns

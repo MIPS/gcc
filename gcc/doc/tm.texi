@@ -4402,6 +4402,28 @@ The default version of this hook invokes a function called
 normally defined in @file{libgcc2.c}.
 @end deftypefn
 
+@deftypefn {Target Hook} enum machine_mode TARGET_APPLY_RESULT_MODE (unsigned @var{regno})
+@var{regno} is a register number for which @code{FUNCTION_VALUE_REGNO_P}
+is true.
+This hook is supposed to return a mode wide enough to hold any value that
+might be returned in this register.
+Two stock implemetations are available in targhooks.c:
+@itemize @bullet
+@item
+@code{apply_result_mode_1reg}: Use this implementation if no more than
+one hard register is needed to return any value.  For backwards compatibility
+reasons, this is currently the default.
+@item
+@code{apply_result_mode_scanreg}: This returns the/a largest mode that can
+be held in the return value register.  This should generally give correct
+code, but it could lead to register allocation problems if very wide modes
+are allowed in a return value register according to HARD_REGNO_MODE_OK,
+but may not actually be used at the point of function return (or not
+in conjunction with all the other return value registers in their maximum
+mode).
+@end itemize
+@end deftypefn
+
 @node Varargs
 @section Implementing the Varargs Macros
 @cindex varargs implementation

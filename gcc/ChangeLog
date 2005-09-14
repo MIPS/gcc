@@ -1,3 +1,36 @@
+2005-09-14  J"orn Rennecke <joern.rennecke@st.com>
+	    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR middle-end/23868
+	http://gcc.gnu.org/ml/gcc-patches/2005-08/msg00129.html
+	* target.h (struct gcc_target): Add new member calls.apply_result_mode.
+	* target-def.h (TARGET_APPLY_RESULT_MODE): Define.
+	(TARGET_CALLS): Add TARGET_APPLY_RESULT_MODE.
+	* targhooks.c (regs.h, hard-reg-set.h): Include.
+	(apply_result_mode_1reg, apply_result_mode_scanreg): New functions.
+	* targhooks.h (apply_result_mode_1reg): Declare.
+	(apply_result_mode_scanreg): Likewise.
+	* buitins.c (apply_result_size): Use targetm.apply_result_mode.
+	* doc/tm.texi (TARGET_APPLY_RESULT_MODE): Document.
+	* mode-switching.c (create_pre_exit): Cope with USEs made by
+	builtin_return which are wider than the last function result USE.
+
+2005-09-14  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR middle-end/23868
+	http://gcc.gnu.org/ml/gcc-patches/2005-08/msg00129.html
+	* sh.c (sh_apply_result_mode): New function.
+	(TARGET_APPLY_RESULT_MODE): Redefine.
+	* sh.md (UNSPEC_CALL_RESULT): New constant.
+	(untyped_call_result): New pattern.
+	(untyped_call): Use it to make function result assignments visible.
+	Remove expander predicate.
+	(untyped_return): New pattern.
+
+	* sh.h (HARD_REGNO_MODE_OK): Fix handling of DCmode.
+	(LEGITIMIZE_RELOAD_ADDRESS): For TARGET_SHMEDIA32, reload
+	inside of 64 bit reg+reg address as needed.
+
 2005-07-15  J"orn Rennecke <joern.rennecke@st.com>
 
 	cvs update -j1.531 -j1.530 loop.c

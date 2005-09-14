@@ -68,4 +68,6 @@ extern const char *hook_invalid_arg_for_unprototyped_fn
   (tree, tree, tree);
 extern bool hook_bool_rtx_commutative_p (rtx, int);
 extern rtx default_function_value (tree, tree, bool);
+extern enum machine_mode apply_result_mode_1reg (unsigned regno);
+extern enum machine_mode apply_result_mode_scanreg (unsigned regno);
 
