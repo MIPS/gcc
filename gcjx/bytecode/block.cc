@@ -69,6 +69,8 @@ bytecode_block::optimize ()
 	  ref_relocation last_but_one = *last_it;
 	  if (last_but_one->conditional_p ()
 	      && last_but_one->get_target () == next_block
+	      // The conditional must be directly before the goto.
+	      && last_but_one->get_offset () + 1 == last->get_offset ()
 	      && last->get_kind () == reloc_goto)
 	    {
 	      // Remove the goto relocation and the byte representing
@@ -90,6 +92,8 @@ bytecode_block::optimize ()
 	}
       else if (last->conditional_p ()
 	       && last->get_target () == next_block->next_block
+	       // The conditional must be directly before the goto.
+	       && last->get_offset () == bytecode.size () - 1
 	       && ! next_block->relocations.empty ())
 	{
 	  // We might also encounter this case if the next block
