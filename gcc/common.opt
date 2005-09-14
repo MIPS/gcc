@@ -359,6 +359,10 @@ fdump-unnumbered
 Common Report Var(flag_dump_unnumbered) VarExists
 Suppress output of instruction numbers and line number notes in debugging dumps
 
+fearly-inlining
+Common Report Var(flag_early_inlining) Init(1)
+Perform early inlining
+
 feliminate-dwarf2-dups
 Common Report Var(flag_eliminate_dwarf2_dups)
 Perform DWARF2 duplicate elimination
@@ -480,9 +484,9 @@ finline-functions
 Common Report Var(flag_inline_functions)
 Integrate simple functions into their callers
 
-fearly-inlining
-Common Report Var(flag_early_inlining) Init(1)
-Perform early inlining
+finline-functions-called-once
+Common Report Var(flag_inline_functions_called_once) Init(1)
+Integrate functions called once into their callers
 
 finline-limit-
 Common RejectNegative Joined UInteger
@@ -993,6 +997,10 @@ Perform variable tracking
 ftree-vectorize
 Common Report Var(flag_tree_vectorize)
 Enable loop vectorization on trees
+
+ftree-vect-loop-version
+Common Report Var(flag_tree_vect_loop_version) Init(1)
+Enable loop versioning when doing loop vectorization on trees
 
 ftree-vectorizer-verbose=
 Common RejectNegative Joined

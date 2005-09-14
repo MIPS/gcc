@@ -1,3 +1,29 @@
+2005-09-09  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/23182 
+	* expr.c (pop_type_0): If the expected type is object or ptr
+	(i.e. void*), return the type of the object we just popped from
+	the stack.
+
+2005-09-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* java-gimplify.c (java_gimplify_block): NULL out the old BLOCK's
+	BLOCK_EXPR_BODY before returning the new BIND_EXPR.
+
+2005-09-06  Kazu Hirata  <kazu@codesourcery.com>
+
+	* check-init.c, decl.c, expr.c, gcj.texi, java-tree.h,
+	jcf-parse.c, jcf.h, parse.h, parse.y, typeck.c: Fix comment
+	typos.  Follow spelling conventions.
+
+2005-09-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/23431
+	* typeck.c (lookup_do): Look up interfaces for the original class,
+	not the base class.
+	* parse.y (java_check_regular_methods): Fix diagnostic message for
+	more restrictive overriding of a method from an interface.
+
 2005-08-16  Tom Tromey  <tromey@redhat.com>
 
 	* class.c (make_class_data): Always emit JV_STATE_PRELOADING for

@@ -263,6 +263,9 @@ typedef struct
   CHARACTER (namelist_name);
   GFC_INTEGER_4 namelist_read_mode;
 
+  /* iomsg */
+  CHARACTER (iomsg);
+
 #undef CHARACTER
 }
 st_parameter;
@@ -490,6 +493,9 @@ internal_proto(file_position);
 extern int is_seekable (stream *);
 internal_proto(is_seekable);
 
+extern int is_preconnected (stream *);
+internal_proto(is_preconnected);
+
 extern void empty_internal_buffer(stream *);
 internal_proto(empty_internal_buffer);
 
@@ -589,7 +595,7 @@ internal_proto(read_f);
 extern void read_l (fnode *, char *, int);
 internal_proto(read_l);
 
-extern void read_x (fnode *);
+extern void read_x (int);
 internal_proto(read_x);
 
 extern void read_radix (fnode *, char *, int, int);
@@ -655,5 +661,9 @@ internal_proto(write_z);
 
 extern void list_formatted_write (bt, void *, int);
 internal_proto(list_formatted_write);
+
+/* error.c */
+extern try notify_std (int, const char *);
+internal_proto(notify_std);
 
 #endif

@@ -6074,8 +6074,8 @@ resolve_and_layout (tree something, tree cl)
   if (TREE_CODE (something) == EXPR_WITH_FILE_LOCATION)
     something = EXPR_WFL_NODE (something);
 
-  /* Otherwise, if something is not and IDENTIFIER_NODE, it can be a a
-     TYPE_DECL or a real TYPE */
+  /* Otherwise, if something is not and IDENTIFIER_NODE, it can be a
+     TYPE_DECL or a real TYPE.  */
   else if (TREE_CODE (something) != IDENTIFIER_NODE)
     something = (TREE_CODE (TYPE_NAME (something)) == TYPE_DECL ?
 	    DECL_NAME (TYPE_NAME (something)) : TYPE_NAME (something));
@@ -6518,7 +6518,7 @@ java_check_regular_methods (tree class_decl)
 	  tree found_decl = TYPE_NAME (DECL_CONTEXT (found));
 	  parse_error_context (method_wfl, "Class %qs must override %qs with a public method in order to implement interface %qs",
 			       IDENTIFIER_POINTER (DECL_NAME (class_decl)),
-			       lang_printable_name (method, 2),
+			       lang_printable_name (found, 0),
 			       IDENTIFIER_POINTER (DECL_NAME (found_decl)));
 	}
 

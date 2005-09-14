@@ -1237,8 +1237,7 @@ replace_uses_by (tree name, tree val)
   FOR_EACH_IMM_USE_SAFE (use, imm_iter, name)
     {
       stmt = USE_STMT (use);
-
-      SET_USE (use, val);
+      replace_exp (use, val);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -1272,6 +1271,10 @@ replace_uses_by (tree name, tree val)
       rhs = get_rhs (stmt);
       if (TREE_CODE (rhs) == ADDR_EXPR)
 	recompute_tree_invarant_for_addr_expr (rhs);
+
+      /* If the statement could throw and now cannot, we need to prune cfg.  */
+      if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
+	tree_purge_dead_eh_edges (bb_for_stmt (stmt));
 
       mark_new_vars_to_rename (stmt);
     }
@@ -1311,8 +1314,17 @@ tree_merge_blocks (basic_block a, basic_block b)
     {
       tree def = PHI_RESULT (phi), use = PHI_ARG_DEF (phi, 0);
       tree copy;
-      
-      if (!may_propagate_copy (def, use))
+      bool may_replace_uses = may_propagate_copy (def, use);
+
+      /* In case we have loops to care about, do not propagate arguments of
+	 loop closed ssa phi nodes.  */
+      if (current_loops
+	  && is_gimple_reg (def)
+	  && TREE_CODE (use) == SSA_NAME
+	  && a->loop_father != b->loop_father)
+	may_replace_uses = false;
+
+      if (!may_replace_uses)
 	{
 	  gcc_assert (is_gimple_reg (def));
 
@@ -5121,7 +5133,8 @@ execute_warn_function_return (void)
 	{
 	  tree last = last_stmt (e->src);
 	  if (TREE_CODE (last) == RETURN_EXPR
-	      && TREE_OPERAND (last, 0) == NULL)
+	      && TREE_OPERAND (last, 0) == NULL
+	      && !TREE_NO_WARNING (last))
 	    {
 #ifdef USE_MAPPED_LOCATION
 	      location = EXPR_LOCATION (last);

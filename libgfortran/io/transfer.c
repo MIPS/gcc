@@ -705,7 +705,7 @@ formatted_transfer (bt type, void *p, int len)
 	  /* Writes occur just before the switch on f->format, above, so that
 	     trailing blanks are suppressed.  */
 	  if (g.mode == READING)
-	    read_x (f);
+	    read_x (f->u.n);
 
 	  break;
 
@@ -736,10 +736,7 @@ formatted_transfer (bt type, void *p, int len)
 	  if (g.mode == READING)
 	    {
 	      if (skips > 0)
-		{
-		  f->u.n = skips;
-		  read_x (f);
-		}
+		read_x (skips);
 	      if (skips < 0)
 		{
 		  move_pos_offset (current_unit->s, skips);
@@ -1163,17 +1160,30 @@ data_transfer_init (int read_flag)
       if (g.mode == READING && current_unit->mode  == WRITING)
 	 flush(current_unit->s);
 
+      /* Check whether the record exists to be read.  Only
+	 a partial record needs to exist.  */
+
+      if (g.mode == READING && (ioparm.rec -1)
+	  * current_unit->recl >= file_length (current_unit->s))
+	{
+	  generate_error (ERROR_BAD_OPTION, "Non-existing record number");
+	  return;
+	}
+
       /* Position the file.  */
       if (sseek (current_unit->s,
 	       (ioparm.rec - 1) * current_unit->recl) == FAILURE)
-	generate_error (ERROR_OS, NULL);
+	{
+	  generate_error (ERROR_OS, NULL);
+	  return;
+	}
     }
 
   /* Overwriting an existing sequential file ?
      it is always safe to truncate the file on the first write */
   if (g.mode == WRITING
       && current_unit->flags.access == ACCESS_SEQUENTIAL
-      && current_unit->last_record == 0)
+      && current_unit->last_record == 0 && !is_preconnected(current_unit->s))
 	struncate(current_unit->s);
 
   current_unit->mode = g.mode;
@@ -1412,13 +1422,24 @@ next_record_w (void)
       break;
 
     case FORMATTED_SEQUENTIAL:
+#ifdef HAVE_CRLF
+      length = 2;
+#else
       length = 1;
+#endif
       p = salloc_w (current_unit->s, &length);
 
       if (!is_internal_unit())
 	{
 	  if (p)
-	    *p = '\n'; /* No CR for internal writes.  */
+	    {  /* No new line for internal writes.  */
+#ifdef HAVE_CRLF
+	      p[0] = '\r';
+	      p[1] = '\n';
+#else
+	      *p = '\n';
+#endif
+	    }
 	  else
 	    goto io_error;
 	}

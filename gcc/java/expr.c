@@ -350,6 +350,11 @@ pop_type_0 (tree type, char **messagep)
     return t;
   if (TREE_CODE (type) == POINTER_TYPE && TREE_CODE (t) == POINTER_TYPE)
     {
+      /* If the expected type we've been passed is object or ptr
+	 (i.e. void*), the caller needs to know the real type.  */
+      if (type == ptr_type_node || type == object_ptr_type_node)
+        return t;
+
       /* Since the verifier has already run, we know that any
 	 types we see will be compatible.  In BC mode, this fact
 	 may be checked at runtime, but if that is so then we can
@@ -2999,8 +3004,8 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   const char *opname; /* Temporary ??? */
   int oldpc = PC; /* PC at instruction start. */
 
-  /* If the instruction is at the beginning of a exception handler,
-     replace the top of the stack with the thrown object reference */
+  /* If the instruction is at the beginning of an exception handler,
+     replace the top of the stack with the thrown object reference.  */
   if (instruction_bits [PC] & BCODE_EXCEPTION_TARGET)
     {
       /* Note that the verifier will not emit a type map at all for
@@ -3321,7 +3326,7 @@ peek_opcode_at_pc (JCF *jcf, int code_offset, int pc)
 
    This function is used by `give_name_to_locals' so that a local's
    DECL features a DECL_LOCAL_START_PC such that the first related
-   store operation will use DECL as a destination, not a unrelated
+   store operation will use DECL as a destination, not an unrelated
    temporary created for the occasion.
 
    This function uses a global (instruction_bits) `note_instructions' should
