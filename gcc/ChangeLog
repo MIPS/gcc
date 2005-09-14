@@ -1,3 +1,354 @@
+2005-09-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (substitute_in_expr, case 4): New case, for ARRAY_REF.
+
+2005-09-14  Uros Bizjak  <uros@kss-loka.si>
+
+	PR middle-end/22480
+	* tree-vect-transform.c (vectorizable_operation): Return false for
+	scalar shift operations and for vector shift operations with
+	non-invariant shift arguments.  Use scalar tree operand op1 as
+	a shift operand when vector shift insn pattern uses scalar shift
+	operand.
+	* Makefile.in (tree-vect-transform.o): Depend on recog.h.
+
+2005-09-14  Olivier Hainque  <hainque@adacore.com>
+
+	* gimplify.c (gimplify_init_ctor_eval): Don't discard a zero-sized
+	value if it has side-effects.
+
+2005-09-14  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/22068
+	* config/rs6000/rs6000.md (muldi3): Add mulli alternative.
+
+2005-09-14  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (DBX_OUTPUT_BRAC): Treat function name
+	passed as NAME as if it were label at start of function code.
+
+2005-09-13  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.md (*movv4sf_i): Add general register cases to
+	the constraints.
+
+2005-09-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/darwin.md (movdf_low_si): Mark the outgoing r constraint
+	as early clobber.  Rewrite so the PIC register is not implicitly used.
+
+2005-09-13  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* tree.c (annotate_with_file_line): Compare line numbers before
+	file names.
+
+2005-09-13  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/23816
+	* config/i386/sse.md (*ieee_sminv4sf3, *ieee_smaxv4sf3)
+	(*ieee_sminv2df3, *ieee_smaxv2df3): New insn patterns.
+
+2005-09-13  Ian Lance Taylor  <ian@airs.com>
+
+	* loop-doloop.c (doloop_modify): Use GEN_INT to pass an rtx rather
+	than a HOST_WIDEST_INT to gen_doloop_begin.
+
+2005-09-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (dump_variable): Guard against NULL annotations.
+
+2005-09-13  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimize/23817
+	* tree-cfg.c (tree_merge_blocks): Preserve loop closed ssa.
+
+2005-09-13  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/23774
+	* config/rs6000/rs6000.md (restore_stack_block): Write the backchain
+	word before changing the stack pointer.	 Use gen_frame_mem for MEMs.
+	Use UNSPEC_TIE to prevent insn scheduling reordering the insns.
+	(restore_stack_nonlocal): Likewise.
+	(save_stack_nonlocal): Use template to emit insns, and gen_frame_mem.
+
+2005-09-12  Ian Lance Taylor  <ian@airs.com>
+
+	PR g++/7874
+	* c.opt (ffriend-injection): New C++ option.
+	* doc/invoke.texi (Option Summary): Mention -ffriend-injection.
+	(C++ Dialect Options): Document -ffriend-injection.
+
+2005-09-12  Josh Conner  <jconner@apple.com>
+
+	PR middle-end/23237
+	* ipa-reference.c (static_execute): Don't mark variables in
+	named sections TREE_READONLY.
+
+2005-09-12  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (get_next_active_insn): Simplify test for
+	stack_tie.
+
+2005-09-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-dse.c (dse_optimize_stmt): Fix up all of V_MAY_DEF and 
+	V_MUST_DEF instead of just the first_use_p.
+	Don't mark the virtual variables for renaming on the statement which 
+	is being removed.
+	(pass_dse): Remove TODO_update_ssa.
+
+2005-09-12  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR middle-end/23290
+	* stor-layout.c (compute_record_mode): For records with a single
+	field, actually check the field's mode size against the type size.
+
+	* sh.h (HARD_REGNO_MODE_OK): Allow V4SFmode in general purpose
+	registers for TARGET_SHMEDIA.
+	(enum reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS): Rename
+	GENERAL_FP_REGS to GENERAL_DF_REGS.  Add GENERAL_FP_REGS as union
+	of GENERAL_REGS and FP_REGS.
+
+2005-09-12  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (legimitize_pic_address): Use gen_const_mem.
+
+2005-09-12  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (get_next_active_insn): Rewrite using
+	CALL_P, JUMP_P and NONJUMP_INSN_P, so that barriers and labels
+	are omitted.  Exclude stack_tie insn too.
+
+2005-09-11  David Edelsohn  <edelsohn@gnu.org>
+
+	PR rtl-optimization/23098
+	* config/rs6000/predicates.md (easy_fp_constant): SFmode constant
+	0.0f is easy.
+	* config/rs6000/rs6000.md (movdf splitter): Use
+	const_double_operand predicate for TARGET_POWERPC64.
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Expand
+	SYMBOL_REF method to ABI_V4.
+
+	* config/rs6000/altivec.md (build_vector_mask_for_load): Use
+	replace_equiv_address.
+	* config/rs6000/rs6000.c (rs6000_emit_eh_reg_restore): Mark MEM as
+	rs6000_sr_alias_set and MEM_NOTRAP.
+	(rs6000_aix_emit_builtin_unwind_init): Use gen_frame_mem().
+
+2005-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (contains_placeholder_p) <tcc_expression>: Properly
+	handle CALL_EXPR again.
+
+2005-09-11  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* arm/predicates.md (alignable_memory_operand): Delete.
+
+2005-09-10  Richard Henderson  <rth@redhat.com>
+
+	PR debug/23806
+	* dbxout.c (dbxout_expand_expr): New.
+	(dbxout_symbol): Use it.
+
+2005-09-10  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* arm.c (arm_gen_rotated_half_load): Delete.
+	(vfp_emit_fstmx, arm_set_return_address): Use gen_frame_mem.
+	(emit_multi_reg_push, emit_sfm, arm_expand_prologue)
+	(thumb_set_return_address): Likewise.
+	(thumb_load_double_from_address): Use adjust_address.
+	* arm.md (splits calling arm_gen_rotated_half_load): Delete.
+	(extendhsisi2_mem, movhi_bytes): Use change_address.
+	(movhi): Use widen_memory_access.
+	(reload_out_df): Use replace_equiv_address.
+	* arm-protos.h (arm_gen_rotated_half_load): Delete prototype.
+
+2005-09-09  Richard Henderson  <rth@redhat.com>
+
+	PR debug/20998
+	* dbxout.c: Include expr.h.
+	(dbxout_global_decl): Don't suppress for DECL_RTL unset.
+	(dbxout_symbol): Handle DECL_VALUE_EXPR.
+	* Makefile.in (dbxout.o): Add EXPR_H.
+
+2005-09-09  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/23509
+	* tree-cfg.c (replace_uses_by): Use replace_exp.
+	* tree-ssa-loop-ivopts.c (get_ref_tag): Assert that dereferenced
+	pointers have name_mem_tag or type_mem_tag set.
+
+2005-09-09  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-chrec.c (evolution_function_is_invariant_rec_p): Use 
+	CHREC_LEFT and CHREC_RIGHT for accessing chrec components instead
+	of wrongly accessing operands.
+
+2005-09-09  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (tree-chrec.o): Depends on SCEV_H.
+	* tree-chrec.c: Include tree-scalar-evolution.h.
+	(chrec_convert): Instantiate the base and step before calling
+	scev_probably_wraps_p that would fail on parametric evolutions.
+	Collect all the fails into a single section failed_to_convert,
+	print a diagnostic, and return chrec_dont_know instead of calling
+	fold_convert.
+	* tree-scalar-evolution.c (loop_closed_phi_def): New.
+	(instantiate_parameters_1): Avoid instantiation of loop closed ssa
+	phi nodes.
+	(scev_const_prop): Don't replace the definition of a loop closed ssa
+	phi node by itself, or by another loop closed ssa phi node.
+	* tree-ssa-loop-niter.c (scev_probably_wraps_p, convert_step): Check
+	that base and step are defined.
+
+2005-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/23624
+	* fold-const.c (fold_ternary): Check truth_value_p before
+	calling invert_truthvalue.
+
+2005-09-09  Nick Clifton  <nickc@redhat.com>
+
+	* Makefile.in (LIBGCC_DEPS): Add libgcc2.h.
+	* libgcc2.c (__clz_tab[], __popcount_tab[]): Set the fixed
+	dimension of these arrays.
+	* libgcc2.h (__clz_tab[], __popcount_tab[]): Add exports of
+	these arrays.
+	* longlong.h: Only provide a prototype for the __clz_tab[] array
+	if this header has not been included from libgcc2.h.
+	* config/stormy16/stormy16-lib2.c: Include libgcc2.h rather than
+	defining own types.
+	Provide prototypes for exported functions.
+	Use the __clz_tab[] and __popcount_tab[] arrays provided by
+	libgcc2.c.
+
+2005-09-08  Josh Conner  <jconner@apple.com>
+
+	PR c++/21135
+	PR c++/23180
+	* expr.c (expand_expr_addr_expr_1): Don't invoke
+	expand_simple_binop for EXPAND_INITIALIZER.
+
+2005-09-08  Richard Henderson  <rth@redhat.com>
+
+	PR debug/23190
+	* toplev.c (wrapup_global_declaration_1): Split out ...
+	(wrapup_global_declaration_2): ... from ...
+	(wrapup_global_declarations): ... here.  Return bool.
+	(check_global_declaration_1): Split out ...
+	(check_global_declarations): from here.
+	(emit_debug_global_declarations): New.
+	* toplev.h (wrapup_global_declaration_1, wrapup_global_declaration_2,
+	check_global_declaration_1, emit_debug_global_declarations): Declare.
+	* c-decl.c (c_write_global_declarations_1): Don't create a vector
+	of decls.  Call wrapup_global_declaration_1,
+	wrapup_global_declaration_2, check_global_declaration_1 directly.
+	(c_write_global_declarations_2): New.
+	(ext_block): New.
+	(c_write_global_declarations): Call c_write_global_declarations_2.
+	* langhooks.c (write_global_declarations): Call
+	emit_debug_global_declarations.
+
+	* cgraphunit.c (cgraph_varpool_remove_unreferenced_decls): Don't
+	remove decls that have DECL_RTL_SET_P.
+	* passes.c (rest_of_decl_compilation): Invoke
+	cgraph_varpool_finalize_decl for all but functions.
+
+2005-09-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* tree-vrp.c (extract_range_from_unary_expr): Do not set the range for
+	the result of a conversion if the new min and max cannot be compared.
+
+2005-09-08  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_sr_alias_set): Variable removed.
+	(override_options): Setting s390_sr_alias_set removed.
+	(save_fpr, save_gprs): Set alias set to vararg or frame.
+	(restore_fpr, restore_gprs, s390_emit_prologue): Replace 
+	s390_sr_alias_set with get_frame_alias_set ().
+	(s390_gimplify_va_arg): Replace s390_sr_alias_set with
+	get_varargs_alias_set ().
+
+2005-09-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/20574
+	PR objc/19324
+	* c-parser.c (c_parser_objc_method_definition): If the next
+	token is not "{", error out and don't start the function.
+
+2005-09-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-vrp.c (extract_range_from_expr): Move the check for non
+	nullness after the check for gimple invariant.
+
+2005-09-08  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* tree.c (host_integerp, tree_low_cst): Correct function comment.
+
+2005-09-08  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	PR target/23747
+	* config/m32r.md (movmemsi_internal): Canonicalize order of
+	operands in PLUS component of template.
+
+2005-09-07  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* reload1.c (fixup_eh_region_note): Remove assertion.
+	(fixup_abnormal_edges): Reverted removal of call to 
+	find_many_sub_basic_blocks made on 2005-08-31.
+
+2005-09-07  Richard Henderson  <rth@redhat.com>
+
+        * function.c (ARG_POINTER_CFA_OFFSET): Move ...
+        * defaults.h (ARG_POINTER_CFA_OFFSET): ... here.
+	(INCOMING_FRAME_SP_OFFSET): Move from dwarf2out.c.
+        * dwarf2out.c (struct cfa_loc): Change reg to unsigned int,
+        rearrange for better packing.
+	(INCOMING_FRAME_SP_OFFSET): Move to defaults.h.
+        (lookup_cfa_1): Remove inline marker.
+        (cfa_equal_p): Split out of ...
+        (def_cfa_1): ... here.  Use INVALID_REGNUM.
+        (build_cfa_loc): Handle !cfa->indirect.
+        (frame_pointer_cfa_offset): New.
+        (dbx_reg_number): Assert register elimination performed; do
+        leaf register remapping.
+        (reg_loc_descriptor): Avoid calling dbx_reg_number when unused.
+        (eliminate_reg_to_offset): New.
+        (based_loc_descr): Remove can_use_fbreg argument.  Use fbreg only
+        for verifiably local stack frame addresses; re-base to CFA.
+        (mem_loc_descriptor): Remove can_use_fbreg argument.
+        (concat_loc_descriptor, loc_descriptor): Likewise.
+        (containing_function_has_frame_base): Remove.
+        (rtl_for_decl_location): Don't do register elimination or
+        leaf register remapping here.
+        (secname_for_decl): Split out from ..
+        (add_location_or_const_value_attribute): ... here.
+        (convert_cfa_to_loc_list): New.
+        (compute_frame_pointer_to_cfa_displacement): New.
+        (gen_subprogram_die): Use them.
+        * tree.h (frame_base_decl): Remove.
+        * var-tracking.c (frame_base_decl, frame_stack_adjust): Remove.
+        (prologue_stack_adjust): Remove.
+        (vt_stack_adjustments): Use INCOMING_FRAME_SP_OFFSET.
+        (adjust_stack_reference): Re-base memories to arg_pointer_rtx.
+        (set_frame_base_location): Remove.
+        (compute_bb_dataflow, emit_notes_in_bb): Don't call it.
+        (dump_attrs_list, dump_dataflow_set): Use string concatenation.
+        (vt_add_function_parameters): Don't eliminate_regs.
+        (vt_initialize): Don't create frame_base_decl.
+
+2005-09-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (*-*-solaris2*): Clarify wording on the recommended
+	version of GNU binutils for 4.x and later.
+
+2005-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* ggc-page.c (ggc_push_context): Remove.
+	(ggc_pop_context): Likewise.
+	* ggc.h (ggc_push_context): Remove.
+	(ggc_pop_context): Likewise.
+
 2005-09-06  Saurabh Verma  <saurabh.verma@codito.com>
 
 	PR target/8973
@@ -3918,7 +4269,7 @@
 	* tree-ssa-structalias.c (need_to_solve): Need to check for preds,
 	too.
 
-2005-07-16  Eric Botcazou <ebotcazou@libertysurf.fr>
+2005-07-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* doc/install.texi (*-*-solaris2*): Document recommended version
 	of GNU binutils and mention GNU linker problem on Solaris 10.

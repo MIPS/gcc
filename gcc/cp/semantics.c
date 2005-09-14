@@ -1822,7 +1822,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
       if (!result)
 	/* A call to a namespace-scope function.  */
-	result = build_new_function_call (fn, args);
+	result = build_new_function_call (fn, args, koenig_p);
     }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
@@ -2258,20 +2258,6 @@ void
 note_decl_for_pch (tree decl)
 {
   gcc_assert (pch_file);
-
-  /* A non-template inline function with external linkage will always
-     be COMDAT.  As we must eventually determine the linkage of all
-     functions, and as that causes writes to the data mapped in from
-     the PCH file, it's advantageous to mark the functions at this
-     point.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && TREE_PUBLIC (decl)
-      && DECL_DECLARED_INLINE_P (decl)
-      && !DECL_IMPLICIT_INSTANTIATION (decl))
-    {
-      comdat_linkage (decl);
-      DECL_INTERFACE_KNOWN (decl) = 1;
-    }
 
   /* There's a good chance that we'll have to mangle names at some
      point, even if only for emission in debugging information.  */
@@ -2761,11 +2747,6 @@ finish_id_expression (tree id_expression,
 
 	  decl = convert_from_reference (decl);
 	}
-
-      /* Resolve references to variables of anonymous unions
-	 into COMPONENT_REFs.  */
-      if (TREE_CODE (decl) == ALIAS_DECL)
-	decl = unshare_expr (DECL_INITIAL (decl));
     }
 
   if (TREE_DEPRECATED (decl))
@@ -3041,11 +3022,28 @@ expand_or_defer_fn (tree fn)
      these functions so that it can inline them as appropriate.  */
   if (DECL_DECLARED_INLINE_P (fn) || DECL_IMPLICIT_INSTANTIATION (fn))
     {
-      if (!at_eof)
+      if (DECL_INTERFACE_KNOWN (fn))
+	/* We've already made a decision as to how this function will
+	   be handled.  */;
+      else if (!at_eof)
 	{
 	  DECL_EXTERNAL (fn) = 1;
 	  DECL_NOT_REALLY_EXTERN (fn) = 1;
 	  note_vague_linkage_fn (fn);
+	  /* A non-template inline function with external linkage will
+	     always be COMDAT.  As we must eventually determine the
+	     linkage of all functions, and as that causes writes to
+	     the data mapped in from the PCH file, it's advantageous
+	     to mark the functions at this point.  */
+	  if (!DECL_IMPLICIT_INSTANTIATION (fn))
+	    {
+	      /* This function must have external linkage, as
+		 otherwise DECL_INTERFACE_KNOWN would have been
+		 set.  */
+	      gcc_assert (TREE_PUBLIC (fn));
+	      comdat_linkage (fn);
+	      DECL_INTERFACE_KNOWN (fn) = 1;
+	    }
 	}
       else
 	import_export_decl (fn);

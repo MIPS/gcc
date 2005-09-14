@@ -1057,7 +1057,7 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 }
 
 /* Walks through the namespace- or function-scope anonymous union
-   OBJECT, with the indicated TYPE, building appropriate ALIAS_DECLs.
+   OBJECT, with the indicated TYPE, building appropriate VAR_DECLs.
    Returns one of the fields for use in the mangled name.  */
 
 static tree
@@ -1101,11 +1101,18 @@ build_anon_union_vars (tree type, tree object)
 
       if (DECL_NAME (field))
 	{
-	  decl = build_decl (ALIAS_DECL, DECL_NAME (field), TREE_TYPE (field));
-	  DECL_INITIAL (decl) = ref;
-	  TREE_PUBLIC (decl) = 0;
-	  TREE_STATIC (decl) = 0;
-	  DECL_EXTERNAL (decl) = 1;
+	  tree base;
+
+	  decl = build_decl (VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
+
+	  base = get_base_address (object);
+	  TREE_PUBLIC (decl) = TREE_PUBLIC (base);
+	  TREE_STATIC (decl) = TREE_STATIC (base);
+	  DECL_EXTERNAL (decl) = DECL_EXTERNAL (base);
+
+	  SET_DECL_VALUE_EXPR (decl, ref);
+	  DECL_HAS_VALUE_EXPR_P (decl) = 1;
+
 	  decl = pushdecl (decl);
 	}
       else if (ANON_AGGR_TYPE_P (TREE_TYPE (field)))
@@ -2976,18 +2983,22 @@ cp_finish_file (void)
 	  if (!DECL_SAVED_TREE (decl))
 	    continue;
 
-	  import_export_decl (decl);
-
 	  /* We lie to the back-end, pretending that some functions
 	     are not defined when they really are.  This keeps these
 	     functions from being put out unnecessarily.  But, we must
 	     stop lying when the functions are referenced, or if they
-	     are not comdat since they need to be put out now.  This
-	     is done in a separate for cycle, because if some deferred
-	     function is contained in another deferred function later
-	     in deferred_fns varray, rest_of_compilation would skip
-	     this function and we really cannot expand the same
-	     function twice.  */
+	     are not comdat since they need to be put out now.  If
+	     DECL_INTERFACE_KNOWN, then we have already set
+	     DECL_EXTERNAL appropriately, so there's no need to check
+	     again, and we do not want to clear DECL_EXTERNAL if a
+	     previous call to import_export_decl set it.
+	     
+	     This is done in a separate for cycle, because if some
+	     deferred function is contained in another deferred
+	     function later in deferred_fns varray,
+	     rest_of_compilation would skip this function and we
+	     really cannot expand the same function twice.  */
+	  import_export_decl (decl);
 	  if (DECL_NOT_REALLY_EXTERN (decl)
 	      && DECL_INITIAL (decl)
 	      && decl_needed_p (decl))
@@ -3047,13 +3058,12 @@ cp_finish_file (void)
 	  TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
 	  /* But not defined.  */
 	  && DECL_REALLY_EXTERN (decl)
-	  /* If we decided to emit this function in another
-	     translation unit, the fact that the definition was
-	     missing here likely indicates only that the repository
-	     decided to place the function elsewhere.  With -Winline,
-	     we will still warn if we could not inline the
-	     function.  */
-	  && !flag_use_repository
+	  /* If the definition actually was available here, then the
+	     fact that the function was not defined merely represents
+	     that for some reason (use of a template repository,
+	     #pragma interface, etc.) we decided not to emit the
+	     definition here.  */
+	  && !DECL_INITIAL (decl)
 	  /* An explicit instantiation can be used to specify
 	     that the body is in another unit. It will have
 	     already verified there was a definition.  */
@@ -3106,8 +3116,12 @@ cp_finish_file (void)
      etc., and emit debugging information.  */
   walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
   if (VEC_length (tree, pending_statics) != 0)
-    check_global_declarations (VEC_address (tree, pending_statics),
-			       VEC_length (tree, pending_statics));
+    {
+      check_global_declarations (VEC_address (tree, pending_statics),
+			         VEC_length (tree, pending_statics));
+      emit_debug_global_declarations (VEC_address (tree, pending_statics),
+				      VEC_length (tree, pending_statics));
+    }
 
   /* Generate hidden aliases for Java.  */
   build_java_method_aliases ();
@@ -3217,12 +3231,38 @@ check_default_args (tree x)
     }
 }
 
+/* Mark DECL as "used" in the program.  If DECL is a specialization or
+   implicitly declared class member, generate the actual definition.  */
+
 void
 mark_used (tree decl)
 {
+  HOST_WIDE_INT saved_processing_template_decl = 0;
+
   TREE_USED (decl) = 1;
-  if (processing_template_decl || skip_evaluation)
+  /* If we don't need a value, then we don't need to synthesize DECL.  */ 
+  if (skip_evaluation)
     return;
+  /* Normally, we can wait until instantiation-time to synthesize
+     DECL.  However, if DECL is a static data member initialized with
+     a constant, we need the value right now because a reference to
+     such a data member is not value-dependent.  */
+  if (processing_template_decl)
+    {
+      if (TREE_CODE (decl) == VAR_DECL
+	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+	  && DECL_CLASS_SCOPE_P (decl)
+	  && !dependent_type_p (DECL_CONTEXT (decl)))
+	{
+	  /* Pretend that we are not in a template so that the
+	     initializer for the static data member will be full
+	     simplified.  */
+	  saved_processing_template_decl = processing_template_decl;
+	  processing_template_decl = 0;
+	}
+      else
+	return;  
+    }
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
       && !TREE_ASM_WRITTEN (decl))
@@ -3282,6 +3322,8 @@ mark_used (tree decl)
        need.  */
     instantiate_decl (decl, /*defer_ok=*/true, 
 		      /*expl_inst_class_mem_p=*/false);
+
+  processing_template_decl = saved_processing_template_decl;
 }
 
 #include "gt-cp-decl2.h"

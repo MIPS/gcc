@@ -1,3 +1,36 @@
+2005-09-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23762
+	* shlibpath.m4: New file.
+	* configure.ac: If libltdl is being used call AC_LTDL_SHLIBPATH
+	macro.
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties)
+	[USE_LTDL]: If it was not defined with -D set java.library.path to
+	the value of LTDL_SHLIBPATH_VAR.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	* java/net/URLClassLoader.java (addURLImpl): Synchronize on the
+	loader.
+	(toString): Likewise.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	PR java/22084
+	* include/i386-signal.h (HANDLE_DIVIDE_OVERFLOW): Bump IP by 1 if
+	R/M field in instruction is 100.
+
+2005-09-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23761
+	* include/java-props.h (_Jv_Module_Load_Path): Declare variable.
+	* java/lang/natRuntime.cc (init): Call lt_dlsetsearchpath after
+	lt_dlinit.
+	* gnu/classpath/natSystemProperties.cc (_Jv_Module_Load_Path):
+	Define variable.
+	(_Jv_SetDLLSearchPath): Do not call lt_dlsetsearchpath.  Set
+	_Jv_Module_Load_Path.
+
 2005-09-06  Tom Tromey  <tromey@redhat.com>
 
 	PR libgcj/23739:

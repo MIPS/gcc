@@ -263,6 +263,9 @@ typedef struct
   CHARACTER (namelist_name);
   GFC_INTEGER_4 namelist_read_mode;
 
+  /* iomsg */
+  CHARACTER (iomsg);
+
 #undef CHARACTER
 }
 st_parameter;
@@ -489,6 +492,9 @@ internal_proto(file_position);
 
 extern int is_seekable (stream *);
 internal_proto(is_seekable);
+
+extern int is_preconnected (stream *);
+internal_proto(is_preconnected);
 
 extern void empty_internal_buffer(stream *);
 internal_proto(empty_internal_buffer);

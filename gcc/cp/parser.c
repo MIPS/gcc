@@ -2656,39 +2656,34 @@ cp_parser_translation_unit (cp_parser* parser)
       declarator_obstack_base = obstack_next_free (&declarator_obstack);
     }
 
-  while (true)
+  cp_parser_declaration_seq_opt (parser);
+  
+  /* If there are no tokens left then all went well.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_EOF))
     {
-      cp_parser_declaration_seq_opt (parser);
-
-      /* If there are no tokens left then all went well.  */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_EOF))
-	{
-	  /* Get rid of the token array; we don't need it any more.  */
-	  cp_lexer_destroy (parser->lexer);
-	  parser->lexer = NULL;
-
-	  /* This file might have been a context that's implicitly extern
-	     "C".  If so, pop the lang context.  (Only relevant for PCH.) */
-	  if (parser->implicit_extern_c)
-	    {
-	      pop_lang_context ();
-	      parser->implicit_extern_c = false;
-	    }
-
-	  /* Finish up.  */
-	  finish_translation_unit ();
-
-	  success = true;
-	  break;
-	}
-      else
-	{
-	  cp_parser_error (parser, "expected declaration");
-	  success = false;
-	  break;
-	}
+      /* Get rid of the token array; we don't need it any more.  */
+      cp_lexer_destroy (parser->lexer);
+      parser->lexer = NULL;
+      
+      /* This file might have been a context that's implicitly extern
+         "C".  If so, pop the lang context.  (Only relevant for PCH.) */
+      if (parser->implicit_extern_c)
+        {
+          pop_lang_context ();
+          parser->implicit_extern_c = false;
+        }
+      
+      /* Finish up.  */
+      finish_translation_unit ();
+      
+      success = true;
     }
-
+  else
+    {
+      cp_parser_error (parser, "expected declaration");
+      success = false;
+    }
+  
   /* Make sure the declarator obstack was fully cleaned up.  */
   gcc_assert (obstack_next_free (&declarator_obstack)
 	      == declarator_obstack_base);
@@ -2784,7 +2779,10 @@ cp_parser_primary_expression (cp_parser *parser,
 		  /* The end of the cast-expression.  */
 		  && next_token->type != CPP_CLOSE_PAREN
 		  /* The end of an array bound.  */
-		  && next_token->type != CPP_CLOSE_SQUARE)
+		  && next_token->type != CPP_CLOSE_SQUARE
+		  /* The closing ">" in a template-argument-list.  */
+		  && (next_token->type != CPP_GREATER
+		      || parser->greater_than_is_operator_p))
 		cast_p = false;
 	    }
 
@@ -16500,27 +16498,45 @@ cp_parser_objc_selector_expression (cp_parser* parser)
   cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
   token = cp_lexer_peek_token (parser->lexer);
 
-  while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON)
+  while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON
+         || token->type == CPP_SCOPE)
     {
       tree selector = NULL_TREE;
 
-      if (token->type != CPP_COLON)
+      if (token->type != CPP_COLON
+	  || token->type == CPP_SCOPE)
 	selector = cp_parser_objc_selector (parser);
 
-      /* Detect if we have a unary selector.  */
-      if (maybe_unary_selector_p
-	  && cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_COLON)
+          && cp_lexer_next_token_is_not (parser->lexer, CPP_SCOPE))
 	{
-	  sel_seq = selector;
-	  goto finish_selector;
+	  /* Detect if we have a unary selector.  */
+	  if (maybe_unary_selector_p)
+	    {
+	      sel_seq = selector;
+	      goto finish_selector;
+	    }
+	  else
+	    {
+	      cp_parser_error (parser, "expected %<:%>");
+	    }
 	}
-
       maybe_unary_selector_p = false;
-      cp_parser_require (parser, CPP_COLON, "`:'");
-
-      sel_seq
-	= chainon (sel_seq,
-		   build_tree_list (selector, NULL_TREE));
+      token = cp_lexer_consume_token (parser->lexer);
+      
+      if (token->type == CPP_SCOPE)
+        {
+	  sel_seq
+	    = chainon (sel_seq,
+		       build_tree_list (selector, NULL_TREE));
+	  sel_seq
+	    = chainon (sel_seq,
+		       build_tree_list (NULL_TREE, NULL_TREE));
+	}
+      else
+	sel_seq
+	  = chainon (sel_seq,
+		     build_tree_list (selector, NULL_TREE));
 
       token = cp_lexer_peek_token (parser->lexer);
     }

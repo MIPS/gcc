@@ -1237,8 +1237,7 @@ replace_uses_by (tree name, tree val)
   FOR_EACH_IMM_USE_SAFE (use, imm_iter, name)
     {
       stmt = USE_STMT (use);
-
-      SET_USE (use, val);
+      replace_exp (use, val);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -1315,8 +1314,17 @@ tree_merge_blocks (basic_block a, basic_block b)
     {
       tree def = PHI_RESULT (phi), use = PHI_ARG_DEF (phi, 0);
       tree copy;
-      
-      if (!may_propagate_copy (def, use))
+      bool may_replace_uses = may_propagate_copy (def, use);
+
+      /* In case we have loops to care about, do not propagate arguments of
+	 loop closed ssa phi nodes.  */
+      if (current_loops
+	  && is_gimple_reg (def)
+	  && TREE_CODE (use) == SSA_NAME
+	  && a->loop_father != b->loop_father)
+	may_replace_uses = false;
+
+      if (!may_replace_uses)
 	{
 	  gcc_assert (is_gimple_reg (def));
 

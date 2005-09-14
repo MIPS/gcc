@@ -1114,11 +1114,12 @@ is_specialization_of_friend (tree decl, tree friend)
 }
 
 /* Register the specialization SPEC as a specialization of TMPL with
-   the indicated ARGS.  Returns SPEC, or an equivalent prior
-   declaration, if available.  */
+   the indicated ARGS.  IS_FRIEND indicates whether the specialization
+   is actually just a friend declaration.  Returns SPEC, or an
+   equivalent prior declaration, if available.  */
 
 static tree
-register_specialization (tree spec, tree tmpl, tree args)
+register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 {
   tree fn;
 
@@ -1185,14 +1186,14 @@ register_specialization (tree spec, tree tmpl, tree args)
 		 for the specialization, we want this to look as if
 		 there were no definition, and vice versa.  */
 	      DECL_INITIAL (fn) = NULL_TREE;
-	      duplicate_decls (spec, fn);
+	      duplicate_decls (spec, fn, is_friend);
 
 	      return fn;
 	    }
 	}
       else if (DECL_TEMPLATE_SPECIALIZATION (fn))
 	{
-	  if (!duplicate_decls (spec, fn) && DECL_INITIAL (spec))
+	  if (!duplicate_decls (spec, fn, is_friend) && DECL_INITIAL (spec))
 	    /* Dup decl failed, but this is a new definition. Set the
 	       line number so any errors match this new
 	       definition.  */
@@ -2108,7 +2109,7 @@ check_explicit_specialization (tree declarator,
 
 	  /* Register this specialization so that we can find it
 	     again.  */
-	  decl = register_specialization (decl, gen_tmpl, targs);
+	  decl = register_specialization (decl, gen_tmpl, targs, is_friend);
 	}
     }
 
@@ -2882,10 +2883,10 @@ template_parm_this_level_p (tree t, void* data)
    previously existing one, if appropriate.  Returns the DECL, or an
    equivalent one, if it is replaced via a call to duplicate_decls.
 
-   If IS_FRIEND is nonzero, DECL is a friend declaration.  */
+   If IS_FRIEND is true, DECL is a friend declaration.  */
 
 tree
-push_template_decl_real (tree decl, int is_friend)
+push_template_decl_real (tree decl, bool is_friend)
 {
   tree tmpl;
   tree args;
@@ -2906,7 +2907,8 @@ push_template_decl_real (tree decl, int is_friend)
 		&& TREE_CODE (TREE_TYPE (decl)) != ENUMERAL_TYPE
 		&& CLASSTYPE_TEMPLATE_SPECIALIZATION (TREE_TYPE (decl)));
 
-  is_friend |= (TREE_CODE (decl) == FUNCTION_DECL && DECL_FRIEND_P (decl));
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_FRIEND_P (decl))
+    is_friend = true;
 
   if (is_friend)
     /* For a friend, we want the context of the friend function, not
@@ -3081,7 +3083,8 @@ push_template_decl_real (tree decl, int is_friend)
 
 	  register_specialization (new_tmpl,
 				   most_general_template (tmpl),
-				   args);
+				   args,
+				   is_friend);
 	  return decl;
 	}
 
@@ -3132,7 +3135,7 @@ push_template_decl_real (tree decl, int is_friend)
   if (new_template_p && !ctx
       && !(is_friend && template_class_depth (current_class_type) > 0))
     {
-      tmpl = pushdecl_namespace_level (tmpl);
+      tmpl = pushdecl_namespace_level (tmpl, is_friend);
       if (tmpl == error_mark_node)
 	return error_mark_node;
 
@@ -3187,7 +3190,7 @@ push_template_decl_real (tree decl, int is_friend)
 tree
 push_template_decl (tree decl)
 {
-  return push_template_decl_real (decl, 0);
+  return push_template_decl_real (decl, false);
 }
 
 /* Called when a class template TYPE is redeclared with the indicated
@@ -5175,7 +5178,7 @@ tsubst_friend_function (tree decl, tree args)
 	 into the namespace of the template.  */
       ns = decl_namespace_context (new_friend);
       push_nested_namespace (ns);
-      old_decl = pushdecl_namespace_level (new_friend);
+      old_decl = pushdecl_namespace_level (new_friend, /*is_friend=*/true);
       pop_nested_namespace (ns);
 
       if (old_decl != new_friend)
@@ -5387,7 +5390,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
 	= INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (TREE_TYPE (tmpl)));
 
       /* Inject this template into the global scope.  */
-      friend_type = TREE_TYPE (pushdecl_top_level (tmpl));
+      friend_type = TREE_TYPE (pushdecl_top_level_maybe_friend (tmpl, true));
     }
 
   if (context)
@@ -5916,32 +5919,7 @@ tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   else
     {
       r = tsubst_expr (t, args, complain, in_decl);
-
-      if (!uses_template_parms (r))
-	{
-	  /* Sometimes, one of the args was an expression involving a
-	     template constant parameter, like N - 1.  Now that we've
-	     tsubst'd, we might have something like 2 - 1.  This will
-	     confuse lookup_template_class, so we do constant folding
-	     here.  We have to unset processing_template_decl, to fool
-	     tsubst_copy_and_build() into building an actual tree.  */
-
-	 /* If the TREE_TYPE of ARG is not NULL_TREE, ARG is already
-	    as simple as it's going to get, and trying to reprocess
-	    the trees will break.  Once tsubst_expr et al DTRT for
-	    non-dependent exprs, this code can go away, as the type
-	    will always be set.  */
-	  if (!TREE_TYPE (r))
-	    {
-	      int saved_processing_template_decl = processing_template_decl;
-	      processing_template_decl = 0;
-	      r = tsubst_copy_and_build (r, /*args=*/NULL_TREE,
-					 tf_error, /*in_decl=*/NULL_TREE,
-					 /*function_p=*/false);
-	      processing_template_decl = saved_processing_template_decl;
-	    }
-	  r = fold (r);
-	}
+      r = fold_non_dependent_expr (r);
     }
   return r;
 }
@@ -6119,10 +6097,6 @@ tsubst_default_argument (tree fn, tree type, tree arg)
      we must be careful to do name lookup in the scope of S<T>,
      rather than in the current class.  */
   push_access_scope (fn);
-  /* The default argument expression should not be considered to be
-     within the scope of FN.  Since push_access_scope sets
-     current_function_decl, we must explicitly clear it here.  */
-  current_function_decl = NULL_TREE;
   /* The "this" pointer is not valid in a default argument.  */
   if (cfun)
     {
@@ -6302,7 +6276,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (TREE_CODE (decl) != TYPE_DECL)
 	  /* Record this non-type partial instantiation.  */
 	  register_specialization (r, t,
-				   DECL_TI_ARGS (DECL_TEMPLATE_RESULT (r)));
+				   DECL_TI_ARGS (DECL_TEMPLATE_RESULT (r)),
+				   false);
       }
       break;
 
@@ -6477,7 +6452,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    DECL_TEMPLATE_INFO (r)
 	      = tree_cons (gen_tmpl, argvec, NULL_TREE);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
-	    register_specialization (r, gen_tmpl, argvec);
+	    register_specialization (r, gen_tmpl, argvec, false);
 
 	    /* We're not supposed to instantiate default arguments
 	       until they are called, for a template.  But, for a
@@ -6674,6 +6649,13 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r)
 	      = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (t);
 	    type = check_var_type (DECL_NAME (r), type);
+
+	    if (DECL_HAS_VALUE_EXPR_P (t))
+	      {
+		tree ve = DECL_VALUE_EXPR (t);
+		ve = tsubst_expr (ve, args, complain, in_decl);
+	        SET_DECL_VALUE_EXPR (r, ve);
+	      }
 	  }
 	else if (DECL_SELF_REFERENCE_P (t))
 	  SET_DECL_SELF_REFERENCE_P (r);
@@ -6699,7 +6681,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	       processing here.  */
 	    DECL_EXTERNAL (r) = 1;
 
-	    register_specialization (r, gen_tmpl, argvec);
+	    register_specialization (r, gen_tmpl, argvec, false);
 	    DECL_TEMPLATE_INFO (r) = tree_cons (tmpl, argvec, NULL_TREE);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	  }
